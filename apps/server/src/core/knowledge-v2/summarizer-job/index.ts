@@ -8,7 +8,7 @@ import {
   loadWorkerCondenseInput,
   type AttemptRecordCheckpointRow,
 } from "@server/core/knowledge/jobs/attempt-record.js";
-import { knowledgeCycleSessionId } from "@server/core/knowledge/jobs/cycle-session.js";
+import { knowledgeHarnessSessionId } from "@server/core/knowledge/jobs/harness-session.js";
 import {
   claimNextJob,
   completeJob,
@@ -288,7 +288,7 @@ export async function handleWorkerSummaryJob(
       kernelContext: createMeleeKernelSpawnContext({
         kind: "knowledge-curation",
         gameId: deps.globals.game?.gameId ?? deps.globals.gameId,
-        sessionId: knowledgeCycleSessionId({ globals: deps.globals, db: orchestratorStore.db, fallback: job.runId ?? workerStateId }),
+        sessionId: knowledgeHarnessSessionId({ globals: deps.globals, db: orchestratorStore.db, fallback: job.runId ?? workerStateId }),
         runId: job.runId ?? workerStateId,
         jobId: job.jobId,
         jobKind: "WorkerSummary",

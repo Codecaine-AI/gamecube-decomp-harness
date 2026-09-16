@@ -10,7 +10,6 @@ export interface RecordReportRunDashboardArtifactsInput {
   result: ReportRunResult;
   runId?: string | null;
   gameId?: string | null;
-  cycleUuid?: string | null;
   boardKey?: string;
   trustedReportKey?: string;
   reportChangesSource?: string;
@@ -45,7 +44,6 @@ export async function recordReportRunDashboardArtifacts(
   const common = {
     runId: input.runId ?? null,
     gameId: input.gameId ?? null,
-    cycleUuid: input.cycleUuid ?? null,
   };
   const reportRunKey = input.reportRunKey ?? (input.result.resetBaseline ? "baseline_reset" : "report");
   recordDashboardArtifact(store, {
@@ -53,7 +51,7 @@ export async function recordReportRunDashboardArtifacts(
     artifactType: "report_run",
     artifactKey: reportRunKey,
     sourcePath: input.result.reportPath,
-    sourceLabel: "build/GALE01/report.json",
+    sourceLabel: input.result.reportPath,
     payload: {
       baselinePath: input.result.baselinePath,
       reportChangesPath: input.result.reportChangesPath,
@@ -74,7 +72,7 @@ export async function recordReportRunDashboardArtifacts(
       artifactType: "board_snapshot",
       artifactKey: boardKey,
       sourcePath: input.result.reportPath,
-      sourceLabel: "build/GALE01/report.json",
+      sourceLabel: input.result.reportPath,
       payload: {
         generatedAt: input.result.timestamps.report ?? null,
         measures,

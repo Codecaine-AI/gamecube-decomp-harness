@@ -1,0 +1,219 @@
+{
+  "tu": "main/melee/it/kinds/itlinkhookshot",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L95-L98",
+            "why": "Exact wrapper signature and body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L228-L229",
+            "why": "Pool allocation and destructor registration establish the payload contract."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.c#L119-L126",
+            "why": "The free operation returns normally."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace ambiguous no-return terminology with the actual void-returning signature and preserve the constructor-proven payload contract.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkhookshot:it_802A2474"
+        },
+        "type": "inferred_type",
+        "value": "A void-returning GObj user-data destructor callback with source-level signature void(void*); its argument is expected to point to an ItemLink record allocated from item_link_alloc_data. It returns normally after recycling the record."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L909-L985",
+            "why": "Complete body establishes every stated branch and mutation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces lifetime-wide and neighbor-activity assumptions with the exact current guards and explicitly distinguishes the early-return path from normal collision processing.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkhookshot:it_802A3E50"
+        },
+        "type": "state_behavior",
+        "value": "Uses the next link's collision position as the sweep origin when that link exists and has x2C_b0 set; otherwise uses its own previous collision position. If that next link has contact while the current link does not, an island lookup and either coordinate test can set link.pos.y to island.x14.y and return the existing masked environment flags before collision resolution, contact refresh, audio, or final position writeback. Otherwise prior x2C_b1 selects the collision routine. Floor flags restore the proposed X coordinate; absent floor flags, wall flags add the supplied Y offset when the next link is active, prev is non-null, and the next link is lower. A false-to-true x2C_b1 transition with x2C_b2 clear calls the character-dependent audio routine and sets x2C_b2. This function never clears that latch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L1832-L1886",
+            "why": "Defines helper inputs and mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L1989-L2036",
+            "why": "Defines segment-model synchronization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L2227-L2270",
+            "why": "Shows both caller-selected transform paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported data flow while correcting the false-path output from article-position synchronization to segment-model synchronization.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkhookshot:it_802A6A78"
+        },
+        "type": "data_flow",
+        "value": "Receives a first ItemLink, a fighter-side caller's matrix-derived target, article special attributes and the owning Fighter. It reads motion-dependent thresholds and spacing x30, writes successor positions, activation flags and collision-position history, and forwards the final link and target to it_802A49B0. Its boolean selects either a first-link matrix update or synchronization of segment JObjs from existing link positions, using the target as a boundary and fighter Y scale as uniform model scale."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L1832-L1886",
+            "why": "Contains all guards, mutations and returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L1989-L2036",
+            "why": "Shows the false-path effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L2264-L2268",
+            "why": "Shows return-value routing."
+          }
+        ],
+        "op": "write",
+        "rationale": "The link-state behavior is unchanged; the caller's false-path semantics are corrected.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkhookshot:it_802A6A78"
+        },
+        "type": "state_behavior",
+        "value": "Returns true without processing links when motions 0xD4, 0xD6 or 0x168 have mv.ca.specials.grav below ext-attribute x88, x98 or xA8 respectively. Otherwise it traverses successors, clamps active links to maximum spacing x30 and advances collision history. An inactive successor is activated one x30 interval toward the target only when the target distance exceeds x30; otherwise it returns false. Chain exhaustion calls it_802A49B0 and returns false. The caller maps true to a first-link matrix update and false to segment-JObj synchronization."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L1888-L1933",
+            "why": "Explicit seed branches, basis assignments and JObj writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the reference-axis description while retaining the directly observed matrix data flow.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkhookshot:it_802A6DC8"
+        },
+        "type": "data_flow",
+        "value": "Consumes a JObj, position and mutable direction. It normalizes direction in place and uses positive Y as its reference seed, except that direction.y > 0.9999 selects negative X and direction.y < -0.9999 selects positive X. Two cross products and normalization construct the remaining basis columns. Direction becomes column 2, position becomes translation column 3, and the completed matrix, flags 0x03800000 and dirty state are published to the JObj."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L2038-L2091",
+            "why": "Defines input reads, direction subtraction, translation writes and facing-end handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L1935-L1987",
+            "why": "Shows downstream position, direction and scale consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the reversed neighbor-direction polarity and states the exact facing condition.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkhookshot:it_802A7384"
+        },
+        "type": "data_flow",
+        "value": "Reads the stored chain endpoint, link activity and positions, neighboring positions, caller boundary, owner facing and model scale. After skipping inactive endpoint links, it traverses prev links. For each non-first link it writes JObj translation and computes direction as prev_pos minus next_pos, substituting the caller boundary when the successor is absent or inactive, then forwards position, direction and scale to it_802A6F80. The first link instead receives direction (1,0,0) when owner facing_dir is positive and (-1,0,0) otherwise."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L2199-L2211",
+            "why": "Complete caller data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L282-L311",
+            "why": "Complete callee guards, retained-reference lookup, writes, and destruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the referenced field and preserves the callee's explicit nested guards.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkhookshot:it_802A7AAC"
+        },
+        "type": "data_flow",
+        "value": "Reads Fighter userdata from the incoming HSD_GObj and reads fp->u.lk.xC. If non-null, passes that tracked Item GObj unchanged to it_802A2B10 and returns. The callee follows linkhookshot.x8, not Item.owner, and clears x10, the retained fighter's tracked article and three callbacks, destroys linked segment GObjs, and removes the item only when item userdata, x8, and retained Fighter userdata are valid. If fp->u.lk.xC is null, this entry point directly clears accessory2_cb, death1_cb, and accessory3_cb."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L2199-L2211",
+            "why": "The entry point selects delegation or direct callback clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L282-L311",
+            "why": "Delegated teardown is conditional."
+          }
+        ],
+        "op": "write",
+        "rationale": "Describes the demonstrated cleanup request without promising destruction when the callee's retained-reference guards fail.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkhookshot:it_802A7AAC"
+        },
+        "type": "purpose",
+        "value": "Fighter-side Hookshot cleanup entry point: requests guarded teardown of the fighter's tracked article when present, or directly unregisters three fighter callbacks when no article is tracked."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L2199-L2211",
+            "why": "Immediate return after delegation and null-article callback branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L282-L311",
+            "why": "All state-changing effects are nested inside validity guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L2272-L2279",
+            "why": "Reference invalidation can clear x8 without destroying the article."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unconditional path convergence with the actual guarded behavior, including the independently clearable x8 reference.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkhookshot:it_802A7AAC"
+        },
+        "type": "state_behavior",
+        "value": "With no tracked article, clears accessory2_cb, death1_cb, and accessory3_cb directly. With a tracked article, delegates to it_802A2B10 and returns without fallback. Successful delegated cleanup clears the retained fighter's article pointer and callbacks and destroys the chain and item; if item userdata, linkhookshot.x8, or retained Fighter userdata is null, delegated cleanup has no effects. This entry point performs no timer update or item motion-state transition."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

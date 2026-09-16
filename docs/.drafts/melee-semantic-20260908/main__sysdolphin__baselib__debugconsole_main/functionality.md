@@ -1,0 +1,28 @@
+# Debug-console semantic review
+
+## Scope and evidence
+Reviewed every canonical and rendered page of `debugconsole_main.c` and `.h`, all 112 frozen subject records, all 290 facts, and all 61 links. Restored evidence was delivered and independently assessed; archived conclusions were not treated as proof. The checkpoint contains the complete explicit disposition ledger and correction proposal.
+
+## Functionality
+This unit implements the framebuffer presentation and interactive controls of HSD's internal exception console. Game-side panic and OS-error handlers supply captured context, request stack/exception reports, stage configuration, and launch its thread. Report-history storage belongs to `hsd_393C`; framebuffer selection and glyph rasterization are also cross-file services. The console retains the supplied context pointer rather than copying or owning the context.
+
+Display initialization clears the singleton, selects framebuffer slots, derives aligned byte stride and an 11-by-14 text grid, and installs the shared font atlas. The initial pixel y coordinate is framebuffer height, not zero. Background preparation copies the retained image or fills the character region with a uniform palette. Despite its comment, the copy expression preserves the original byte after narrowing. Text drawing keeps coordinate advances local; newline resets x, advances y, and falls through to draw a glyph. Region drawing changes the shared history cursor and stops each row at its first zero character.
+
+Diagnostic nodes have distinct setup, draw and input roles. Single-node unlink repairs either the head or predecessor link. In contrast, `ps_remove_node` detaches the entire prefix through the target, or exhausts the list when the target is absent. Activation replaces the current head while retaining its remaining tail and is guarded by debug level. Draw dispatch follows the single-child chain deepest first. Input callbacks use return values as well as a mutation flag: a nonzero return bypasses the dirty-restart check and requests redraw immediately.
+
+The report screen supports timed paging, cursor navigation, command menus and hexadecimal address parsing. Parsing has eight iterations, each permitting a zero-byte retry, so it can perform more than eight reads. Its result first enters the address editor. Memory display reads four 16-byte rows and wraps the local address after each row. Console capture instead emits exactly 64 bytes through a raw incrementing pointer, then forces capture off and clears report cursor/scroll state. Neither address normalization nor editor initialization establishes general read safety. The address overlay highlights `buf[19+index]`, which does not match the nibble positions edited by `24-4*index`.
+
+The SPR browser reads live values independently of optional selected-entry callbacks. Thirteen register-family hooks are empty; the SPR setup hook is also inert. BAT selection changes the heading but not the fixed `0x218..0x21F` read bank. Permission masking with `&2` makes R/O unreachable, and G is uppercase in both branches. These are labelled diagnostic fields, not a guaranteed accurate architectural decoder. SPR rendering, upward wrap and downward scrolling use distinct bounds `0x45`, `0x44` and `0x43`; they must not be normalized into a symmetric policy.
+
+FPU reporting is guarded by FPSAVED and preserves the previous current context and interrupt state around a temporary context. The PSF-labelled loop reads eight-byte groups beginning at context offset `0x90`, not an explicitly selected separate paired-single array. Miscellaneous GQR0..3 labels read context words 0..3. Stack reporting preserves its unusual sentinel and literal upper-bound constant `0x800000000`; it must not be described as effective installed-RAM validation.
+
+Input polling snapshots four previous PAD records, reads and clamps current records, resets unavailable channels, and chooses the first port valid in both samples. Rising edges reset repeat; held input repeats after the counter exceeds 30. Neutral and no-valid-port paths do not reset that counter. Reset-switch release after a latched press invokes system reset.
+
+The thread waits for exact masks `0, 0x70, 0, 0x808, 0, 0x104, 0, 0x201, 0, 0x402`; wrong masks wait at the current stage rather than restarting the sequence. It then presents callback-generated frames through cache flush and VI submission, and panics when its active-node loop ends. The launcher uses a local OSThread control block, a shared static stack and a borrowed context, ignores creation failure, and performs no join or lifetime management. OSCreateThread's stack-end calculation places its sentinel four bytes before the declared stack array for the supplied stack-top/size pair. These are source-level lifetime and boundary concerns, not compiled adjacency claims.
+
+## Semantic outcome
+Supported names and explanations are explicitly retained. Corrections address factual discrepancies rather than equivalent wording. `HSD_ParticleScreenRenewInput` is replaced with the better-supported `HSD_DebugConsoleRenewInput`, avoiding the source's explicitly documented particle misnomer. Stale performance-overlay links are rejected: the camera callback, descriptors and constructor are defined in `hsd_3982.c`.
+
+Exact compiled section placement, sizes, boundaries and relocations remain unresolved where source alone is insufficient. The C rendered view reports five parse errors and some unsubstituted uncertain calls. The header reports a shadowed binding for `fn_80397814` and retains a placeholder signature for `hsd_80396868`; canonical definitions govern the semantic assessment.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

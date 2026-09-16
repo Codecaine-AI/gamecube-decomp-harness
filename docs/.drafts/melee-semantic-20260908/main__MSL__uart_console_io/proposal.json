@@ -1,0 +1,38 @@
+{
+  "tu": "main/MSL/uart_console_io",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "entity_locator": "src/MSL/uart_console_io.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Backend status is not equivalent to successful byte transfer. In the pinned Dolphin implementation, ReadUARTN returns 4 without writing the buffer: after successful initialization, __read_console therefore reports one attempted byte, inspects the existing destination byte for CR, and returns 1, even for an initial count of zero. WriteUARTN returns zero when EXILock fails, so __write_console can report success with its requested count unchanged despite sending nothing. After acquiring the lock, the backend converts LF bytes to CR in the caller's buffer. The adapter latch and backend serEnabled are separate states; cached adapter initialization does not revalidate backend state.",
+        "rationale": "Adds useful cross-file qualifications absent from the existing adapter-level facts, preserving exceptional return paths, caller-visible buffer effects and distinct state lifetimes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/uart_console_io.c#L20-L65",
+            "why": "Shows cached initialization, attempted-read count and buffer inspection, and interpretation of write status."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSUartExi.c#L4-L22",
+            "why": "Shows separate backend enable state, capability gating and constant-failure read stub."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSUartExi.c#L39-L64",
+            "why": "Shows backend enable validation, zero return on lock failure and in-place LF-to-CR conversion."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

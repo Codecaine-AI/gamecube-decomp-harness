@@ -1,0 +1,129 @@
+{
+  "tu": "main/melee/vi/vi0401",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0401.c#L37-L100",
+            "why": "Static declarations, independent setter and retained-state consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0401.c#L144-L206",
+            "why": "Assignments, camera registration before marker extraction, conditional first-model branch and fighter handoff."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the conflation of static storage lifetime with resource lifetime and the claim that all shared state is populated before callback registration. Does not infer compiled section layout.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi0401:.sbss"
+        },
+        "type": "state_behavior",
+        "value": "The source-level shared objects have static storage duration and are initially zero-initialized; their resource references are populated for scene use, not automatically reset on every scene entry. The exported setter independently replaces only the first two configuration bytes. Entry assigns descriptors, the character archive and fog-derived erase color, registers the primary camera callbacks, then extracts the placement marker only while processing the first primary model. An empty primary model list leaves that marker unchanged. Fighter setup subsequently consumes the archive and marker, while rendering reuses the saved erase color. No local teardown or marker reset is provided."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0401.c#L116-L212",
+            "why": "Complete entry construction and final calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L27-L33",
+            "why": "Skips forwarding when the selected port value equals 4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3467-L3490",
+            "why": "Forwarded arguments reach a preference-checked rumble request."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves supported construction behavior while correcting the mistaken interpretation of the final helper call.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi0401:vi0401_Scene_OnEnter"
+        },
+        "type": "purpose",
+        "value": "Initializes video sequence 0401 by resetting its audio/effect environment, loading the scene and selected-fighter resources, constructing fog, lighting, two cameras and two animated model groups, and creating the selected demo fighter. It then calls vi_8031C9B4(1, 0), which conditionally forwards a rumble request for the selected port, and plays three opening sounds. This call is not entry into a video-sequence state numbered 1."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0401.c#L97-L101",
+            "why": "Final primary rendering mask."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0401.c#L161-L211",
+            "why": "Camera priorities, model initialization and final request ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L27-L33",
+            "why": "Port sentinel guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3467-L3490",
+            "why": "Preference guard and rumble delegation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains animation and rendering initialization while replacing the unsupported state-1 interpretation with canonically established guarded behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi0401:vi0401_Scene_OnEnter"
+        },
+        "type": "state_behavior",
+        "value": "Requests and evaluates frame 0 for the primary camera and every primary/information model before installing each object's continuing animation process. The primary and interface cameras receive initial masks 0x2A9 and 0x801 and GX callback priorities 5 and 8; the primary render callback later uses final mask 0x281. After fighter setup, vi_8031C9B4(1, 0) requests rumble only when its selected port is not 4 and the downstream rumble preference permits it. The arguments 1 and 0 are forwarded request arguments, not a video-state transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0401.c#L103-L221",
+            "why": "Initialization, exact camera endpoint test and Start-triggered exit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L27-L33",
+            "why": "Entry helper delegates conditionally."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3480-L3490",
+            "why": "Delegation is a guarded rumble request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L170-L178",
+            "why": "Actual scene-loop control values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L354-L377",
+            "why": "Normal-exit rendering versus state-2 bypass."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the entry-time rumble arguments from the genuine exit-control state and preserves the exact completion guards.",
+        "subject": {
+          "entity_locator": "src/melee/vi/vi0401.c"
+        },
+        "type": "state_behavior",
+        "value": "Initializes the primary camera and both model groups with frame-zero requests/evaluations and installs their continuing animation processes. Entry finishes fighter setup, conditionally requests rumble through vi_8031C9B4(1, 0), and plays opening sounds; it does not enter video-sequence state 1. Playback requests normal scene-loop exit when the primary camera AObj's frame exactly equals its end frame after animation, or when the selected controller newly triggers Start. Both paths call lb_800145F4 before gm_801A4B60; this separate exit helper writes scene-loop control value 1, allowing the current rendering/presentation path rather than taking value 2's pre-render exit."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

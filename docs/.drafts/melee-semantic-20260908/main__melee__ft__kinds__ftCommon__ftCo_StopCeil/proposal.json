@@ -1,0 +1,185 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_StopCeil",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_StopCeil:ftCo_8009EFA4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Clears throw_flags and builds (0, ecb.top.y, 0). The Kirby helper requests an effect without adjusting that vector. After requesting StopCeil, snapshots cur_pos.y and x68C_transNPos.y and writes transn_y + (pos_y + vec.y). Passes snapshot Y to ft_80082D40, which ignores that argument, corrects collision position and can invoke a landing response. Finally zeros self_vel.y and self_vel.z, with no direct X write.",
+        "rationale": "Repairs adjusted-vector assumption and ordering/notification omissions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L25-L45",
+            "why": "Exact operations and ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L4154-L4160",
+            "why": "Kirby-only effect request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1424-L1426",
+            "why": "Vector copied rather than adjusted."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L21-L22",
+            "why": "Maps supplied kind 2 to copy branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L558-L588",
+            "why": "Unused argument and active collision response."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_StopCeil:ftCo_8009EFA4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Private initializer for the ceiling-hug-triggered StopCeil response: resets throw flags, optionally requests a Kirby effect, requests StopCeil, computes an intermediate vertical position, runs collision correction/landing handling, and clears Y/Z self-velocity.",
+        "rationale": "Avoids unproved final geometry and passive notification claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L14-L45",
+            "why": "Private entry and complete initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L4154-L4160",
+            "why": "Optional effect."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L558-L588",
+            "why": "Active collision."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_StopCeil:ftCo_8009EFA4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Has no internal entry guard. Clears throw_flags and calls Fighter_ChangeMotionState(gobj, ftCo_MS_StopCeil, Ft_MF_None, 0, 1, 0, NULL). Subsequent ft_80082D40 can replace position and invoke another state response; completion does not guarantee residence in StopCeil. Final local assignments zero Y/Z self-velocity after that call.",
+        "rationale": "Preserves exact arguments and documents entry-time alternatives without full reset-contract inference.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L25-L45",
+            "why": "Unconditional operations and final writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L558-L588",
+            "why": "Position correction and response calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_StopCeil:ftCo_StopCeil_Anim"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves the fighter and calls ftCheckThrowB3, which clears B3 on success. Success skips the animation query and forwards gobj to ftCo_Fall_Enter. Otherwise ftAnim_IsFramesRemaining runs, and false causes the same handoff. No explicit wrapper field assignment exists, but the inline predicate consumes a flag.",
+        "rationale": "Corrects pure-read and unconditional-query implications.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L47-L53",
+            "why": "Short-circuit control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L255-L263",
+            "why": "Consuming B3 check."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_StopCeil:ftCo_StopCeil_IASA"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Occupies StopCeil's IASA slot with an empty callback. It performs no local input processing or transition; this does not prohibit input-sensitive behavior in other callbacks.",
+        "rationale": "Limits no-op purpose to verified local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L55-L62",
+            "why": "Empty IASA, active collision."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2884-L2894",
+            "why": "Registered slot."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_StopCeil:ftCo_StopCeil_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns without dereferencing its argument or doing work. It imposes no timer or transition rule. Separate animation and collision handling means this no-op does not guarantee residence until animation completion.",
+        "rationale": "Removes exclusive-animation-exit assertion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L47-L62",
+            "why": "Complete callback bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L779-L790",
+            "why": "Separate response paths."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_StopCeil:ftCo_StopCeil_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Occupies StopCeil's physics slot with an empty callback. Applies no local gravity, drift, integration, position or velocity update. It does not establish global stationarity or preservation of entry position.",
+        "rationale": "Distinguishes empty physics from global motion invariants.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L57-L62",
+            "why": "Empty physics alongside active collision."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2884-L2894",
+            "why": "Registered physics slot."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

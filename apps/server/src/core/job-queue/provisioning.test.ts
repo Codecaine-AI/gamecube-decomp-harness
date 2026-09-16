@@ -104,7 +104,7 @@ describe("provisionSandboxWorkspace", () => {
     const bundleRef = hostCalls[0]?.command[2];
     expect(bundleRef).toStartWith("refs/decomp-orchestrator/sandbox-seeds/");
     expect(hostCalls[0]?.command).toEqual(["git", "update-ref", bundleRef!, "base-rev"]);
-    expect(hostCalls[1]?.command).toEqual(["git", "bundle", "create", expect.any(String), "baked-rev..base-rev", bundleRef!]);
+    expect(hostCalls[1]?.command).toEqual(["git", "bundle", "create", expect.any(String), bundleRef!]);
     expect(hostCalls[2]?.command).toEqual(["git", "update-ref", "-d", bundleRef!]);
     expect(provider.execCalls.slice(0, 3).map(({ command, opts }) => ({ command, opts }))).toEqual([
       { command: ["git", "bundle", "verify", "/tmp/melee-claim-seed.bundle"], opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined } },

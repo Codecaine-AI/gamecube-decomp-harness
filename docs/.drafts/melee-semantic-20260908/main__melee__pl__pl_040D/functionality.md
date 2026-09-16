@@ -1,0 +1,28 @@
+## Scope and assessment
+Reviewed every canonical and rendered page of `pl_040D.c` and `pl_040D.h`, all 78 subjects, all 131 baseline facts, and all 39 links. Rendered substitutions were checked against canonical behavior and relevant callers, not treated as independent evidence. Supported names and explanations are explicitly retained in the checkpoint ledger. Corrections concern counter lifetimes, integer field widths, and an exceptional bitfield assignment; compiled-section descriptions remain unresolved without compiled evidence.
+
+## Interaction statistics
+`pl_80040DDC` initializes the aggregate fields and six per-player entries of `pl_x5EC_t`. It clears the fields used here, not every byte of the structure: the separately declared entry field `x6` is untouched.
+
+`pl_80040ED4` records attributed hit observations. The first slot is the attacker; the third argument selects the victim whose entry is indexed by attacker slot. Victim discriminator 1 suppresses all writes. Codes `0x4C`, `0x5A`, `0x5B`, `0x5C`, and `0x60` suppress hit-count increments but not latest-victim/latest-damage storage or accumulated pair damage. The attacker's `xC` increments whenever the current victim-owned pair count is zero. Because victim-history reset clears that pair count without clearing attacker aggregates, `xC` is not a globally distinct-opponent count.
+
+`pl_80040FBC` maintains the separately reset pair counter `x10`, conditionally latches `x12_b0` for code 1 when the victim's `xD50` is nonzero, and assigns decision 2 after the configured threshold unless teams are enabled and the players share a team. Excluded codes suppress only incrementing; an already-satisfied threshold is still tested. `pl_800410F4` tracks consecutive equal nonzero attack codes. A changed or previously zero code starts at count 1 without testing the threshold. Continuing code `0x5A` can assign decision `0xC3`.
+
+`pl_800411C4`, unless suppressed by discriminator 1, first calls `fn_8004138C`, then increments decision `0x4C` for each flagged entry whose hit count is exactly one, and clears transient pair damage/count/sequence/flag fields. It preserves the separate `x10` counters and all aggregate fields. `pl_80041280` clears only those separate counters; fighter map processing invokes it while grounded, within its outer processing guard. This supports the retained juggle-reset name.
+
+`pl_800412D0` returns latest damage through an integer return type. `pl_80041300` follows the stored latest-victim slot and returns accumulated pair damage, also converted to int; `pl_8004134C` returns that pair's counted hits. Neither pair getter checks a latest-hit sentinel; initialization stores slot zero. `fn_8004138C` reduces victim-owned contributions to total and maximum, then assigns decision `0x58` when the non-largest share meets the threshold, provided the discriminator is not 1 and total is nonzero. `pl_800414C0` returns `(f32)x8 / xC`, or zero for a zero denominator. Its consumer compares the result with configuration before setting bonus flag 1.
+
+## Final-hit instance history
+`pl_80041524` clears the five-entry `x8C0` history. `fn_800415B0` ignores key zero, updates an existing key without moving the cursor, or evaluates and replaces the cursor-selected entry before advancing modulo five. Count mode increments an unsigned byte; it does not saturate. On a cache hit, any nonzero mode sets the flag true. On insertion, however, raw mode is assigned to an unsigned one-bit field, so arbitrary nonzero even modes store zero. The actual wrappers supply only 0 and 1: `pl_80041720` selects count mode; `pl_80041744` selects flag mode only when its second argument is exactly zero.
+
+The caller obtains this key through `ft_8008989C`, which returns `dmg.x18ec_instancehitby`. Thus the history groups final-hit attack instances, not demonstrated attack-class or motion identifiers; retained 'move identifier' terminology must not imply class-level aggregation. `fn_80041770` selects at most one count-tier increment (`0x7A` through `0x7D`) and independently increments `0x78` for a nonzero count with a flag. `pl_8004182C` evaluates every retained entry without clearing it.
+
+## Bob-omb history
+`pl_800418F4` clears the separate five-entry `x8D8` history. A canonical BombHei-gated acquisition path supplies narrowed instance identifiers to `pl_800419AC`. Registration rejects an already-valid matching identifier; otherwise it evaluates the displaced entry, inserts a valid unmarked entry, and advances modulo five. Unlike `x8C0`, zero is accepted. Inputs are `u16`, but stored identifiers are `u32`.
+
+`pl_80041B08` marks every matching identifier without checking validity or stopping after one match. Canonical item collision processing invokes it for Bob-ombs using the victim player and narrowed item instance identifier. `fn_80041BC8` increments decision `0xC8` exactly for valid unmarked entries. `pl_80041BFC` evaluates all entries without consuming them. Under `!gm_8016B1EC()`, the external final evaluator calls each history evaluator followed by its corresponding reset. Direct repeated evaluation without reset can award the same retained entries again.
+
+## Evidence limits
+Numeric bonus identifiers are preserved without inventing displayed names. Discriminators retain their exact zero/one guards rather than being normalized to a universal boolean convention. Source declarations establish widths and embedded storage, but do not establish emitted `.data` or `.sdata2` contents, padding, alignment, or conversion-bias materialization.
+
+Status: synthesized; independent review and live promotion pending.

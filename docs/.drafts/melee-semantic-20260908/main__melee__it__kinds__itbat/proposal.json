@@ -1,0 +1,87 @@
+{
+  "tu": "main/melee/it/kinds/itbat",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbat.c#L14-L24",
+            "why": "States 1 and 3 share the callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbat.c#L92-L98",
+            "why": "Forwards falling attributes and invokes the shared spin adjustment."
+          }
+        ],
+        "op": "write",
+        "rationale": "The callback is shared by ordinary airborne state 1 and dropped/thrown state 3. Fall_Phys describes both uses and aligns with the retained Fall_Coll name without implying throw-only dispatch. This is a semantic name, not a recovered historical spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itbat:itBat_UnkMotion3_Phys"
+        },
+        "type": "inferred_name",
+        "value": "itBat_Fall_Phys"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbat.c#L14-L24",
+            "why": "Shared state registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbat.c#L55-L104",
+            "why": "Grounded initializer and shared physics/collision bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1063-L1095",
+            "why": "Second physics helper computes signed spin speed, not drag."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L459-L479",
+            "why": "Contact flags and additional checks guard the grounded callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported air-resistance interpretation using the canonical second physics helper and preserves the conditional nature of settling after terrain contact.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itbat:itBat_UnkMotion3_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Runs in Bat state slots 1 and 3, whose shared physics processes falling and computes spin speed rather than air resistance. It delegates terrain handling to it_8026E15C with it_80284974 as the grounded-state callback. The helper invokes that callback only after its contact and landing checks succeed; the callback resets velocity and landing count and selects state 0. This wrapper itself always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbat.c#L74-L85",
+            "why": "Wrapper, false result and state-1 destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Floor metadata, ground-loss callback and exceptional supported-floor call."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing ground-loss transition while adding the exceptional supported-floor branch omitted by the blanket state-preservation explanation. The downstream meaning of Item_8026ADC0 is deliberately not guessed.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itbat:itBat_UnkMotion0_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Delegates state-0 floor processing to it_8026D62C and always returns false. The helper refreshes collision position and records the floor index when supported. Loss of floor contact performs leave-ground setup and invokes it_802849F0, selecting state 1 and resetting landing count. On the supported-floor path, it additionally calls Item_8026ADC0 when it_80277544(gobj) is nonzero and xDCD_flag.b3 is clear; therefore valid floor contact does not imply that no further item-event processing occurs."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

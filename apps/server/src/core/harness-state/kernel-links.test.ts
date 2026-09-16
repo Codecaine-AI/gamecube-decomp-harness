@@ -239,14 +239,15 @@ describe("kernel trace game-event projection", () => {
   test("reads normalized app-session UUIDs from only the requested game", () => {
     const db = new Database(":memory:");
     db.exec(`
-      CREATE TABLE cycles (
+      CREATE TABLE harness_state (game_id TEXT PRIMARY KEY, harness_id TEXT NOT NULL);
+      CREATE TABLE historical_cycles (
         id TEXT PRIMARY KEY,
         game_id TEXT NOT NULL,
         kernel_trace_json TEXT NOT NULL
       )
     `);
     const insert = db.query(
-      "INSERT INTO cycles (id, game_id, kernel_trace_json) VALUES (?, ?, ?)",
+      "INSERT INTO historical_cycles (id, game_id, kernel_trace_json) VALUES (?, ?, ?)",
     );
     insert.run("melee-1", "melee", JSON.stringify({
       app_session_id: " 11111111-1111-5111-8111-11111111111A ",
@@ -262,8 +263,11 @@ describe("kernel trace game-event projection", () => {
       app_session_id: "22222222-2222-5222-8222-222222222222",
     }));
 
+    db.query("INSERT INTO harness_state VALUES (?, ?)").run("melee", "33333333-3333-5333-8333-333333333333");
+    db.query("INSERT INTO harness_state VALUES (?, ?)").run("other", "44444444-4444-5444-8444-444444444444");
     try {
       expect(readGameKernelAppSessionIds(db, "melee")).toEqual([
+        "33333333-3333-5333-8333-333333333333",
         "11111111-1111-5111-8111-11111111111a",
       ]);
     } finally {

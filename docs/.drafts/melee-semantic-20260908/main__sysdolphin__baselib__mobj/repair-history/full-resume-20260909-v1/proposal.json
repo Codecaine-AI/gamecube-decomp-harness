@@ -1,0 +1,1632 @@
+{
+  "tu": "main/sysdolphin/baselib/mobj",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Asserts non-NULL input. Duplicate pointer identity returns without mutation. Otherwise overwrites tobj->next with current registry head and installs tobj as head, without reference counting or unlinking it from another list. Caller owns lifetime and exclusive use of this intrusive next field.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L516",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L269-L300",
+            "why": "Independently read canonical caller or delegated implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL mobj is a no-op; otherwise clears the selected rendermode bits. This does not rebuild existing TEV compilation products or update hardware.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L33-L38",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL mobj is a no-op. Frees and clears old tevdesc/texp before rebuilding. If enabled, shadow list is temporarily appended through a saved tail handle; that handle is reset to NULL after compilation on normal return. Enabled toon with a non-NULL image is prepended by overwriting shared tobj_toon->next, which is not restored. AssignResources and virtual make_texp run before HSD_TExpCompile; its int return is ignored. Shared/owned texture chains must not overlap or form cycles. This is not transactional or reentrant list handling.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L375",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Non-NULL input removes the first identical registry node and clears its next, or leaves an absent node unchanged. NULL detaches all nodes and empties the registry. It never frees/unreferences textures and does not recompile already built material expressions.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L525-L544",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L269-L330",
+            "why": "Independently read canonical caller or delegated implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L1-L130",
+            "why": "Independently read canonical caller or delegated implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Descriptor class_name selects a found class for hsdNew or HSD_MObjAlloc fallback. New object and descriptor pass to virtual load; its int result is discarded. Object then passes to HSD_MObjCompileTev and is returned; NULL descriptor returns NULL.",
+        "rationale": "Corrects unsupported class-selection or normalized-value assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Constructs a runtime MObj using the looked-up named class or configured default allocation path, calls its virtual load callback, ignores that callback result and compiles TEV state before returning. No named-class ancestry check occurs here.",
+        "rationale": "Corrects unsupported class-selection or normalized-value assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL mobj is a no-op; otherwise ORs flags into rendermode. This does not call CompileTev, regenerate expressions or update hardware. Callers must arrange recompilation/setup when required by changed options.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L31",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "If tobj_toon is NULL, stores imagedesc into the static descriptor, loads a TObj and asserts success. Every call assigns the borrowed image pointer to tobj_toon->imagedesc, including NULL. NULL image prevents later toon inclusion but does not destroy the shared TObj. No deep copy, image release, or material recompilation occurs here.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L450-L458",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetup"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires valid mobj/material. Initializes TEV state and overwrites caller rendermode with mobj->rendermode; caller value has no effect. Installs material colors and conditional shininess, temporarily appends enabled shadows, prepends enabled toon, then sets textures, coordinates, virtual TEV and PE state. Shadow tail is cleared afterward on normal return, but shared toon->next is not restored. Does not set current_mobj or compile missing TEV descriptors.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L390-L425",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjAmnesia"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clears default_class on matching identity. Matching &hsdMObj independently clears shared toon/shadow pointers, then always delegates parent amnesia. It does not free their objects, detach shadow next links, or clear current_mobj.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L576",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjLoad"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires valid mobj, desc and desc->mat. Loads textures, allocates and copies material, forces RENDER_TOON and clears aobj. Optional pedesc is copied only when supplied; the NULL branch leaves mobj->pe unchanged. renderdesc is ignored and tevdesc/texp are not initialized here. Existing owned attachments are not released before overwrite, so this is not a safe general reload operation. Returns zero after normal completion.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L152-L165",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjMakeTExp"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Asserts list, then overwrites *list with NULL without freeing a prior list. Selects the last toon-coordinate TObj found. RENDER_VERTEX seeds raster RGB/alpha; otherwise expressions reference live diffuse/alpha fields. Processes diffuse/ambient textures, optional diffuse lighting, optional specular path, then extension textures. Eligible texture callbacks require non-NULL map IDs; done is forwarded as role history, not enforced locally as deduplication. Toon selection itself does not test map ID. Returns shared final TEV root or allocates a packing node for distinct/non-TEV color and alpha roots.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L335",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjRelease"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Removes aobj, frees mat, removes owned tobj chain, conditionally frees tevdesc/texp/pe, then delegates parent release. It does not clear these object fields or current_mobj. Global toon and shadow registries are not released by this callback. Texture/material lifetime must remain valid until dependent compiled expressions are no longer used.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L564",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L104-L175",
+            "why": "Independently read canonical caller or delegated implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjUpdateFunc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads val->fv for recognized material attributes. RGB and optional PE byte channels use u8 casts of 255.0*value; material alpha uses 1.0F-value. Inputs are neither normalized nor clamped by this function. Writes target the attached HSD_Material or optional HSD_PEDesc.",
+        "rationale": "Corrects unsupported class-selection or normalized-value assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjUpdateFunc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL obj is a no-op. Types 1-9 multiply val->fv by 255.0 and cast to u8 for RGB fields; type 10 stores 1.0F-val->fv as material alpha. Types 11-13 write corresponding PE bytes only when pe is non-NULL. Unknown types do nothing. There is no clamp, finite-value check, or required-material/value pointer validation; normalized input is an expectation, not enforced.",
+        "rationale": "Records exact side effects, missing validation, ownership and call-order boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL descriptor returns NULL. Missing or unknown class_name calls HSD_MObjAlloc, which selects default_class or base class. Found names pass their class info to hsdNew without an ancestry check here. The virtual load int result is ignored; CompileTev is called before returning the object. Allocation asserts on failure and no local rollback protocol is shown.",
+        "rationale": "Adds missing state/lifetime and validation boundaries from the source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjUnset"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Ignores both interface arguments and calls HSD_TObjSetup(NULL). It neither clears current_mobj nor performs a full inverse of every material/PE/TEV setup write.",
+        "rationale": "Adds missing state/lifetime and validation boundaries from the source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L427-L430",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires valid mobj and mat; writes diffuse RGB bytes only, preserving diffuse.a. No immediate render-state setup or TEV rebuild occurs.",
+        "rationale": "Adds missing state/lifetime and validation boundaries from the source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L465",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires valid mobj and mat; directly stores f32 alpha without clamp, range validation or immediate render-state setup. This direct setter differs from animation type 10, which stores 1.0F minus its input.",
+        "rationale": "Adds missing state/lifetime and validation boundaries from the source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L467-L470",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjSetCurrent(HSD_MObj* mobj). HSD_MObj* mobj: borrowed global current-material pointer, including NULL.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L21-L24",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: borrowed global current-material pointer, including NULL.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L21-L24",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjSetFlags(HSD_MObj* mobj, u32 flags). HSD_MObj* mobj: nullable target. u32 flags: bits ORed into rendermode.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L31",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable target.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L31",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 flags: bits ORed into rendermode.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L31",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjClearFlags(HSD_MObj* mobj, u32 flags). HSD_MObj* mobj: nullable target. u32 flags: bits cleared from rendermode.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L33-L38",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable target.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L33-L38",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 flags: bits cleared from rendermode.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L33-L38",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjRemoveAnimByFlags(HSD_MObj* mobj, u32 flags). HSD_MObj* mobj: nullable animation owner. u32 flags: bit 0x4 selects material AObj removal; bit 0x10 selects texture animation removal.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L53",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable animation owner.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L53",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 flags: bit 0x4 selects material AObj removal; bit 0x10 selects texture animation removal.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L53",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjAddAnim(HSD_MObj* mobj, HSD_MatAnim* matanim). HSD_MObj* mobj: nullable animation owner. HSD_MatAnim* matanim: nullable descriptor; aobjdesc replaces material controller and texanim is forwarded, renderanim is unused here.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L55-L68",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable animation owner.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L55-L68",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MatAnim* matanim: nullable descriptor; aobjdesc replaces material controller and texanim is forwarded, renderanim is unused here.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L55-L68",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjReqAnimByFlags(HSD_MObj* mobj, f32 startframe, u32 flags). HSD_MObj* mobj: nullable animation owner. f32 startframe: unchanged requested frame. u32 flags: bit 0x4 gates material request; entire mask forwarded to texture requests.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L79",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable animation owner.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L79",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 startframe: unchanged requested frame.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L79",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 flags: bit 0x4 gates material request; entire mask forwarded to texture requests.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L79",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjReqAnim(HSD_MObj* mobj, f32 startframe). HSD_MObj* mobj: nullable animation owner. f32 startframe: requested frame forwarded with ALL_ANIM 0x7FF.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L81-L84",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable animation owner.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L81-L84",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 startframe: requested frame forwarded with ALL_ANIM 0x7FF.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L81-L84",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjUpdateFunc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void MObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val). void* obj: interpreted as HSD_MObj*, NULL is ignored. enum_t type: HSD_A_M attribute discriminator 1-13, others ignored. HSD_ObjData* val: supplies fv for handled channels; no local value pointer or range validation.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjUpdateFunc#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void* obj: interpreted as HSD_MObj*, NULL is ignored.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjUpdateFunc#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "enum_t type: HSD_A_M attribute discriminator 1-13, others ignored.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjUpdateFunc#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_ObjData* val: supplies fv for handled channels; no local value pointer or range validation.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjAnim"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjAnim(HSD_MObj* mobj). HSD_MObj* mobj: nullable owner; material interpretation precedes texture animation.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L143-L150",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjAnim#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable owner; material interpretation precedes texture animation.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L143-L150",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjLoad"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static int MObjLoad(HSD_MObj* mobj, HSD_MObjDesc* desc). HSD_MObj* mobj: required newly allocated destination, receives copied/loaded attachments. HSD_MObjDesc* desc: required source; mat required, pedesc optional, renderdesc unused.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L152-L165",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjLoad#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: required newly allocated destination, receives copied/loaded attachments.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L152-L165",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjLoad#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObjDesc* desc: required source; mat required, pedesc optional, renderdesc unused.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L152-L165",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* HSD_MObjLoadDesc(HSD_MObjDesc* mobjdesc). HSD_MObjDesc* mobjdesc: nullable input descriptor, class_name selects allocation path.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObjDesc* mobjdesc: nullable input descriptor, class_name selects allocation path.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjMakeTExp"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TExp* MObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list). HSD_MObj* mobj: required mode/material source; generated constants retain field addresses. HSD_TObj* tobj_top: nullable effective texture chain, repeatedly traversed and sent to virtual make_texp. HSD_TExp** list: required allocation-list output handle, overwritten to NULL on entry.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L335",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjMakeTExp#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: required mode/material source; generated constants retain field addresses.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L335",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjMakeTExp#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TObj* tobj_top: nullable effective texture chain, repeatedly traversed and sent to virtual make_texp.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L335",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjMakeTExp#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TExp** list: required allocation-list output handle, overwritten to NULL on entry.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L335",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjCompileTev(HSD_MObj* mobj). HSD_MObj* mobj: nullable owner of tevdesc/texp products; old products freed before rebuild.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L375",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable owner of tevdesc/texp products; old products freed before rebuild.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L375",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjSetupTev"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void MObjSetupTev(HSD_MObj* mobj, HSD_TObj* tobj, u32 arg2). HSD_MObj* mobj: required compiled material with non-NULL tevdesc. HSD_TObj* tobj: effective texture chain forwarded to volatile TEV setup. u32 arg2: opaque setup mode forwarded unchanged to HSD_TObjSetupVolatileTev.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L388",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjSetupTev#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: required compiled material with non-NULL tevdesc.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L388",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjSetupTev#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TObj* tobj: effective texture chain forwarded to volatile TEV setup.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L388",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjSetupTev#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 arg2: opaque setup mode forwarded unchanged to HSD_TObjSetupVolatileTev.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L388",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetup"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjSetup(HSD_MObj* mobj, u32 rendermode). HSD_MObj* mobj: required material/render-mode source and class-method owner. u32 rendermode: ignored caller value, overwritten with mobj->rendermode before use.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L390-L425",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetup#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: required material/render-mode source and class-method owner.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L390-L425",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetup#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 rendermode: ignored caller value, overwritten with mobj->rendermode before use.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L390-L425",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjUnset"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjUnset(HSD_MObj* mobj, u32 rendermode). HSD_MObj* mobj: unused interface parameter, not dereferenced. u32 rendermode: unused interface parameter.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L427-L430",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjUnset#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: unused interface parameter, not dereferenced.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L427-L430",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjUnset#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 rendermode: unused interface parameter.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L427-L430",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjSetToonTextureImage(HSD_ImageDesc* imagedesc). HSD_ImageDesc* imagedesc: borrowed image pointer, including NULL; no image contents copied.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L450-L458",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_ImageDesc* imagedesc: borrowed image pointer, including NULL; no image contents copied.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L450-L458",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjSetDiffuseColor(HSD_MObj* mobj, u8 r, u8 g, u8 b). HSD_MObj* mobj: required material owner. u8 r: diffuse red byte. u8 g: diffuse green byte. u8 b: diffuse blue byte.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L465",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: required material owner.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L465",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 r: diffuse red byte.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L465",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 g: diffuse green byte.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L465",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 b: diffuse blue byte.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L465",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjSetAlpha(HSD_MObj* mobj, f32 alpha). HSD_MObj* mobj: required material owner. f32 alpha: unchanged, unchecked material alpha scalar.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L467-L470",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: required material owner.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L467-L470",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 alpha: unchanged, unchecked material alpha scalar.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L467-L470",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjGetTObj"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TObj* HSD_MObjGetTObj(HSD_MObj* mobj). HSD_MObj* mobj: nullable owner; returns borrowed tobj head or NULL.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L472-L478",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjGetTObj#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable owner; returns borrowed tobj head or NULL.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L472-L478",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjRemove"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjRemove(HSD_MObj* mobj). HSD_MObj* mobj: nullable object; virtual release then destroy, no ref-count guard.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjRemove#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* mobj: nullable object; virtual release then destroy, no ref-count guard.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjAlloc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MObj* HSD_MObjAlloc(void). Takes no parameters.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L494",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MaterialAlloc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Material* HSD_MaterialAlloc(void). Takes no parameters.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L496-L503",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjAddShadowTexture(HSD_TObj* tobj). HSD_TObj* tobj: required borrowed registry node, intrusive next overwritten on insertion.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L516",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TObj* tobj: required borrowed registry node, intrusive next overwritten on insertion.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L516",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_MObjDeleteShadowTexture(HSD_TObj* tobj). HSD_TObj* tobj: node to detach, or NULL to detach all registry entries.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L525-L544",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TObj* tobj: node to detach, or NULL to detach all registry entries.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L525-L544",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjRelease"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void MObjRelease(HSD_Class* o). HSD_Class* o: required MObj instance through base pointer; passed to parent release.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L564",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjRelease#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Class* o: required MObj instance through base pointer; passed to parent release.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L564",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjAmnesia"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void MObjAmnesia(HSD_ClassInfo* info). HSD_ClassInfo* info: class identity compared against default/base class and forwarded to parent.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L576",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/mobj:MObjAmnesia#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_ClassInfo* info: class identity compared against default/base class and forwarded to parent.",
+        "rationale": "Exact declaration and direct parameter use establish this bounded role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L576",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjInfoInit"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void MObjInfoInit(void). Takes no parameters.",
+        "rationale": "Exact pinned source definition, distinct from an inferred original type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L578-L591",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/mobj.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Header defines HSD_MObj with class parent and render/material/texture/PE/animation/TEV pointers; HSD_Material with three GXColor fields and f32 alpha/shininess; HSD_PEDesc with twelve byte fields; HSD_MObjDesc with class_name, rendermode, texdesc, mat, renderdesc and pedesc. It also defines channel, TEV-register, render, material and joint animation descriptors and HSD_MObjInfo with setup/load/make_texp/setup_tev/unset callbacks. No compiled packing claim is made.",
+        "rationale": "Accounts for owned header definitions without inventing absent type subjects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L189",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L390-L544",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L591",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.h#L71-L155",
+            "why": "Canonical declaration, field accesses and call order support this bounded claim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

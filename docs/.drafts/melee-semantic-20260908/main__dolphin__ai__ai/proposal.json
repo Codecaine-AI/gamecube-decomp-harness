@@ -1,0 +1,282 @@
+{
+  "tu": "main/dolphin/ai/ai",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L9-L31",
+            "why": "Independent state declarations and separate profiling globals; no compiled layout evidence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves useful source typing while removing the unsupported 64-byte compiled-layout inference.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:.sbss"
+        },
+        "type": "inferred_type",
+        "value": "The source declares independently typed, zero-initialized module globals: AISCallback __AIS_Callback, AIDCallback __AID_Callback, u8 pointers __CallbackStack and __OldStack, BOOL __AI_init_flag, and five OSTime values named bound_32KHz, bound_48KHz, min_wait, max_wait and buffer. These are not one authored aggregate. Source declarations alone do not establish their compiled section membership, ordering, padding or total extent."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L9-L18",
+            "why": "Static state declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L363",
+            "why": "Initialization/reset and complete save-switch-restore path without a saved-slot clear."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that __OldStack holds the saved address only during dispatch and distinguishes reset from teardown.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:.sbss"
+        },
+        "type": "state_behavior",
+        "value": "The module's uninitialized static globals initially provide null callbacks and stack pointers, a false initialization guard and zero timing values. An executing AIInit computes timing constants, clears callbacks, records the optional stack, installs interrupt paths and sets the guard; AIReset clears only the guard. Registration independently replaces callback slots. DMA dispatch skips null callbacks, calls directly without an alternate stack, or switches stacks when one is configured. The trampoline writes its current frame's stack pointer to __OldStack and reloads it after callback return, but does not clear that global afterward: the stored address remains stale until overwritten. A single global save slot does not establish nested stack-switch safety."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L296",
+            "why": "Complete initialization body has no unconditional stop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L240",
+            "why": "Called rate setters preserve playback state."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported stopped-default guarantee while retaining all actual initialization operations.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:AIInit"
+        },
+        "type": "purpose",
+        "value": "Initializes the Dolphin Audio Interface driver when __AI_init_flag is not TRUE: computes converter timing thresholds, mutes both stream channels, resets stream trigger and sample count, requests the initial 48-kHz stream and 32-kHz DSP rates, clears callbacks, records an optional DMA-callback stack, installs and unmasks both interrupt paths, and sets the initialization guard. It does not unconditionally stop stream playback; the invoked rate setters preserve the incoming play state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L289",
+            "why": "Argument storage and contradictory assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L363",
+            "why": "Deferred stack consumption and top-minus-eight invocation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful parameter-lifetime knowledge and preserves the exact assertion/message discrepancy without guessing which was intended.",
+        "subject": {
+          "entity_locator": "main/dolphin/ai/ai:AIInit#r3"
+        },
+        "type": "inferred_type",
+        "value": "Optional u8* callback-stack top retained in __CallbackStack when initialization executes. A null value selects direct DMA callback invocation; otherwise the trampoline loads the retained pointer into r1 and subtracts eight before calling the callback. The caller must keep usable stack storage alive for later dispatches. The source's non-null assertion tests ((u32)stack & 7) != 0 despite saying the stack must be 8-byte aligned; do not interpret that predicate as a correct alignment check."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L94",
+            "why": "Exact writes and separately masked descriptor getters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L57-L61",
+            "why": "Buffer alternation and 640-byte descriptor."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces idealized field masking with the actual expressions and preserves the verified AX producer relationship.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:AIInitDMA"
+        },
+        "type": "data_flow",
+        "value": "Consumes a u32 buffer address and byte length. DSP register 24 receives (old & 0xFFFFFC00) | (start_addr >> 16); register 25 receives (old & 0xFFFF001F) | (start_addr & 0xFFFF); register 27 receives (old & 0xFFFF8000) | ((length >> 5) & 0xFFFF). The incoming address portions are not explicitly restricted to the getter's decoded address fields, and incoming low address bits can be ORed into register 25's retained low bits. The shifted length includes bit 15, so it can set DMA enable rather than always preserving its old value. AX's aligned output path alternates two buffers using a 0x280-byte length."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L79",
+            "why": "Descriptor write includes sixteen shifted length bits; separate start/stop commands."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the configuration-versus-start API distinction without promising enable preservation for every u32 input.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:AIInitDMA"
+        },
+        "type": "purpose",
+        "value": "Programs the DSP audio DMA buffer address and length descriptor. For ordinary lengths fitting the low fifteen 32-byte-unit length bits, it preserves the existing DMA-enable bit, with AIStartDMA and AIStopDMA providing separate activation controls. The implementation does not enforce that length range: bit 15 of length >> 5 can also set enable during descriptor programming."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L64",
+            "why": "Complete critical section, assertion position and exact length expression."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unconditional enable-preservation claim and records assertion ordering and unchecked input cases.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:AIInitDMA"
+        },
+        "type": "state_behavior",
+        "value": "Disables interrupts, writes both address registers, asserts that length is a multiple of 32, writes the shifted length and restores the prior interrupt state on normal completion. The explicit assertion checks neither address alignment nor length range and occurs after the address writes. Register 27 retains an already-set enable bit, but the incoming shifted length can set that bit as well; for example, length 0x100000 contributes 0x8000 while passing the alignment predicate. The routine performs no transfer polling or callback dispatch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L42-L52",
+            "why": "Old pointer read precedes interrupt exclusion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L336",
+            "why": "Initialization clearing, guard reset and null-guarded dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact synchronization boundary and includes the initialization-driven end of callback lifetime.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:AIRegisterDMACallback"
+        },
+        "type": "state_behavior",
+        "value": "Snapshots __AID_Callback before disabling interrupts, replaces the shared slot while interrupts are disabled, restores the prior interrupt state and returns the snapshot. Thus the replacement write is protected, but the complete old-value-read/replacement sequence is not one interrupt-excluded exchange. NULL suppresses subsequent callback dispatch. Registration persists until replaced or until an executing AIInit clears the slot; AIReset alone only clears the initialization guard and permits a later reinitialization."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L240",
+            "why": "Crosswise start restoration versus same-channel rate restoration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L247-L265",
+            "why": "Exact channel accessors."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the flow explanation's implication that stream-start restoration preserves the original left channel.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:AISetStreamVolLeft"
+        },
+        "type": "data_flow",
+        "value": "Writes the caller's u8 volume directly into bits 0\u20137 of __AIRegs[1], independently of the right-channel field at bits 8\u201315; AIGetStreamVolLeft reads the same low byte. DSP-rate and internal stream-rate changes save and restore original same-channel volumes around muting. The exceptional stream-start path instead saves the old right value for the left setter and the old left value for the right setter, swapping the two channel values after calibration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L387-L419",
+            "why": "Exact measurement, shutdown, classification and wait sequence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects stop-versus-classification ordering and preserves hardware-to-timestamp-to-delay data flow.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:__AI_SRC_INIT"
+        },
+        "type": "data_flow",
+        "value": "Each attempt sets AI control bit 5, selects stream-rate state 0 and starts playback, then polls register 2 for a sample-count change and records its time. It selects rate state 1, repeats the counter polling and timestamping, and computes rising_48khz - rising_32khz. Before classifying that interval, it restores rate state 0 and stops playback on every attempt. The retained threshold values then select min_wait or max_wait for accepted intervals, or cause another complete attempt. After acceptance, it polls OSGetTime until rising_48khz plus the selected delay has elapsed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L274",
+            "why": "Timing input initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L423",
+            "why": "Signature, retained inputs and DEBUG profile writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes a parameterless signature from absence of software inputs and includes conditional profiling effects.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:__AI_SRC_INIT"
+        },
+        "type": "inferred_type",
+        "value": "Signature: void __AI_SRC_INIT(void). It has no explicit parameters or return value, but consumes retained software timing inputs bound_32KHz, bound_48KHz, buffer, min_wait and max_wait, initialized by AIInit. Observable effects include AI control writes, counter polling and elapsed settling time; under DEBUG it also writes profile.t_start and profile.t_end."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L118-L156",
+            "why": "Sample-count reset bit and special start branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L214-L240",
+            "why": "Exact interrupt boundaries, play restoration and final volume writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L402-L419",
+            "why": "Calibration leaves rate zero and playback stopped."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported converter-enable interpretation of bit 5 and captures the nested calibration branch.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ai/ai:__AI_set_stream_sample_rate"
+        },
+        "type": "state_behavior",
+        "value": "Equal-rate requests do nothing. Otherwise the helper saves play state and channel volumes, mutes both channels, saves and clears DSP-rate bit 6, then disables interrupts and runs SRC calibration. It restores the saved DSP bit, sets control bit 5\u2014the bit also written by AIResetStreamSampleCount\u2014and commits the requested stream rate in bit 1. After restoring interrupt state it calls AISetStreamPlayState with the saved play value, then restores the original left/right volumes. Restoring active playback at new rate 0 can trigger a second calibration through the special start branch; the helper's final volume writes nevertheless restore the original same-channel values."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L240",
+            "why": "Distinct play/DSP/stream transitions and wrapper restriction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L301",
+            "why": "Initialization and flag-only reset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces a blanket muted-recalibration description with the actual no-op, ordinary and exceptional transitions.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/ai/ai.c"
+        },
+        "type": "state_behavior",
+        "value": "AIInit runs only when __AI_init_flag is not TRUE, computes timing thresholds, mutes channels, resets trigger/count, requests 48-kHz stream and 32-kHz DSP rates, clears callbacks, records an optional stack, installs/unmasks handlers and sets the guard. It does not force stopped playback. AIReset clears only the guard. Rate transitions are branch-specific: equal requests do nothing; a changed DSP request clears bit 6, with only the 32-kHz request additionally muting, calibrating and restoring stream state. The public stream-rate setter accepts only 48 kHz; its internal helper saves state and recalibrates on a changed request. Playback restoration through that helper can itself invoke the rate-zero start calibration branch. Direct rate-zero starts restore channel values crosswise."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

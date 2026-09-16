@@ -1,0 +1,96 @@
+{
+  "tu": "main/sysdolphin/baselib/wobj",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjLoadDesc"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Constructs an HSD_WObj from a non-null descriptor by looking up its optional class_name. Missing or unregistered names fall back to HSD_WObjAlloc; a found class goes directly to hsdNew without a local WObj-descendant check. Calls the resulting object virtual load method and returns the object without inspecting that method integer result.",
+        "rationale": "Make mutation order, unchecked preconditions, and exceptional-state behavior explicit without overstating source guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/wobj.c#L131-L148",
+            "why": "The complete routine establishes the exact guards, field writes, and unchecked cases."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A null WObj is a no-op. Otherwise removes its direct AObj, clears wobj->aobj, then removes animations from its RObj list. Keeps the WObj and RObj nodes and does not modify position or flags; a pending flag-0x1 position can therefore remain after the associated AObj is removed.",
+        "rationale": "Make mutation order, unchecked preconditions, and exceptional-state behavior explicit without overstating source guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/wobj.c#L18-L25",
+            "why": "The complete routine establishes the exact guards, field writes, and unchecked cases."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPosition"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns without mutation when wobj or pos is null. Otherwise copies the Vec3 into wobj->pos, sets flag 0x2, and clears flag 0x1. The source establishes a structure assignment, not a concurrent atomicity guarantee.",
+        "rationale": "Make mutation order, unchecked preconditions, and exceptional-state behavior explicit without overstating source guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/wobj.c#L150-L159",
+            "why": "The complete routine establishes the exact guards, field writes, and unchecked cases."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionZ"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Sets the stored Z component and flag 0x2. When flag 0x1 is set and the AObj has an associated object, prepares its JObj matrix and transforms the full stored vector first. Clears 0x1 even when that association is absent, then replaces Z.",
+        "rationale": "Make mutation order, unchecked preconditions, and exceptional-state behavior explicit without overstating source guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/wobj.c#L197-L213",
+            "why": "The complete routine establishes the exact guards, field writes, and unchecked cases."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/wobj:WObjUpdateFunc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A null WObj and unknown channel types are no-ops. Channel 4 modifies val->fv in place when below zero or above one; NaN is unchanged by both comparisons. It asserts the AObj, associated object cast to JObj, and spline, samples a point, invokes the full-position setter, then sets flag 0x1, leaving 0x2 set as well. Channels 5-7 invoke the axis setters, which clear 0x1 even if no associated matrix is available.",
+        "rationale": "Make mutation order, unchecked preconditions, and exceptional-state behavior explicit without overstating source guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/wobj.c#L46-L86",
+            "why": "The complete routine establishes the exact guards, field writes, and unchecked cases."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

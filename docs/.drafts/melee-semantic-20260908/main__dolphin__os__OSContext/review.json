@@ -1,0 +1,1968 @@
+{
+  "review_notes": [],
+  "unresolved": [
+    "Accepted deferral: no compiled artifacts establish .data membership, contiguity or exact layout. Source diagnostic uses remain supported."
+  ],
+  "summary": "Independently checked all nine proposed facts against canonical OSContext.c lines 1-238 and 457-555. Document and proposal agree; SDK names and inherited retained knowledge remain unchanged. All upstream corrections are supported; section-attribution claims remain explicitly deferred.",
+  "contract": "lean-v2",
+  "use_checkpoint": true,
+  "adopt_handoff_sha256": "1151b1ca976771b37997c4483cd3f2b09cdaa13b56b9298231a8e0d0428aeeea",
+  "proposal_sha256": "32649d563a980ba896e734eea2fd929ab93208d815d5b6cce3353d1b58bffa69",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "verdict": "accepted",
+  "fact_overrides": [],
+  "link_overrides": [],
+  "rejected": [],
+  "independent_checks": {
+    "handoff_sha256": "1151b1ca976771b37997c4483cd3f2b09cdaa13b56b9298231a8e0d0428aeeea",
+    "document_proposal_reconciled": true,
+    "reviewed_contradiction_ids": [
+      "fact:3d48d63e-36cf-4004-ba22-cb9ea91f022f",
+      "fact:7b07a055-f818-4cac-843f-0d80d1eadfe6",
+      "fact:3fec1c31-190a-4426-9c5a-d86ab0029163",
+      "fact:b5793849-2cab-4c13-b1ca-ad322fcc204a",
+      "fact:f421cbae-61a0-4e0b-b8d2-6a35f22e3ff8",
+      "fact:4e491b39-7457-4e8b-b3d1-f2483d958906",
+      "fact:3d22be32-51b7-4227-bc15-d1c360730c31",
+      "fact:3e656b7a-e7ea-473f-843c-6d4f8c4f1ee4",
+      "fact:af1c993d-c936-4dc5-9cfe-27b57ff5bfcb",
+      "fact:3d78d5ea-e3b3-499d-a8b2-adab0b1d148e",
+      "fact:6b0b5fdb-9063-41b8-b8d5-7b3af367013d",
+      "fact:e2c9b260-211e-4115-9723-0ab043d99edb",
+      "fact:adde3caa-9633-4fb6-8179-2b0c7cc45b3d",
+      "link:52314833-c594-4481-8953-50c5d7427874"
+    ],
+    "proposed_facts": [
+      {
+        "index": 0,
+        "supported": true,
+        "reason": "The getter returns the tracked pointer directly. OSDumpContext installs a stack-local record and restores the previous pointer, disproving necessary OS storage ownership."
+      },
+      {
+        "index": 1,
+        "supported": true,
+        "reason": "The setter publishes both pointer forms; clrlwi clears the upper two bits. Only the non-owner branch explicitly clears live FP availability."
+      },
+      {
+        "index": 2,
+        "supported": true,
+        "reason": "Equality ORs saved SRR1 with 0x2000 but live MSR only with 2. Inequality clears 0x2000 in both, sets live mask 2 and executes isync. Neither branch changes FPU ownership."
+      },
+      {
+        "index": 3,
+        "supported": true,
+        "reason": "Exception registration and the handler establish its purpose. mtsrr1 updates hardware return state without storing the FP-enabled value into the saved srr1 field."
+      },
+      {
+        "index": 4,
+        "supported": true,
+        "reason": "Verified owner publication before comparison, equal-owner and null-old-owner branches, loader validity guard, state-mask 2 cleanup and explicit register restoration before rfi."
+      },
+      {
+        "index": 5,
+        "supported": true,
+        "reason": "The frame-free loader uses r4 as its context input and r5 as scratch. Its callers do not supply a stable exception value in ignored r3."
+      },
+      {
+        "index": 6,
+        "supported": true,
+        "reason": "Both the public wrapper and exception handler invoke the loader. Its validity-gated restoration performs no tracked-owner write."
+      },
+      {
+        "index": 7,
+        "supported": true,
+        "reason": "The saver receives its destination in r5, overwrites incoming r3 as scratch, leaves r4 intact and returns through blr without allocating a frame."
+      },
+      {
+        "index": 8,
+        "supported": true,
+        "reason": "The saver marks state mask 1, snapshots FPRs and FPSCR, and conditionally saves paired-single images. The public wrapper independently establishes explicit snapshot use beyond outgoing-owner preservation."
+      }
+    ],
+    "contradictions": [
+      {
+        "reason": "Accepted deferral for all four section-related facts and the diagnostic-section link: source supports diagnostic literal uses, but does not establish compiled .data attribution, contiguity, exclusivity or final placement. No compiled-layout correction is asserted.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555"
+          }
+        ]
+      },
+      {
+        "reason": "The getter ownership contradiction is resolved by proposal index 0: globally tracking a pointer does not confer ownership of the referenced stack-local storage.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L236-L238"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L476-L499"
+          }
+        ]
+      },
+      {
+        "reason": "Both setter contradictions are resolved by proposal indices 1\u20132. The canonical equality branch does not explicitly enable live MSR 0x2000; saved and live status updates are asymmetric.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L234"
+          }
+        ]
+      },
+      {
+        "reason": "Both handler contradictions are resolved by proposal indices 3\u20134. Hardware SRR1 is updated rather than the saved field; owner guards and numeric state-mask cleanup are preserved.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547"
+          }
+        ]
+      },
+      {
+        "reason": "Both loader contradictions are resolved by proposal indices 5\u20136. Incoming r3 is ignored rather than reliably an exception number, and the public restore wrapper disproves ownership-transfer-only usage.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L518-L527"
+          }
+        ]
+      },
+      {
+        "reason": "Both saver contradictions are resolved by proposal indices 7\u20138. Ignoring incoming values does not mean preserving r3, and the public save wrapper disproves a sole exception-handler caller or outgoing-owner restriction.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L198"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L518-L527"
+          }
+        ]
+      }
+    ]
+  },
+  "fact_dispositions": [
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+          "why": "Source literals, not section layout."
+        }
+      ],
+      "fact_id": "fact:3d48d63e-36cf-4004-ba22-cb9ea91f022f",
+      "reason": "Literal-to-report flow is supported, but ownership by this compiled section is not proven by source.",
+      "updated_at": "2026-09-02T05:03:58.489Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+          "why": "Diagnostic consumers only."
+        }
+      ],
+      "fact_id": "fact:7b07a055-f818-4cac-843f-0d80d1eadfe6",
+      "reason": "Diagnostic role of literals is supported; their compiled .data attribution remains unverified.",
+      "updated_at": "2026-09-02T05:03:58.489Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+          "why": "Source cannot establish compiled layout."
+        }
+      ],
+      "fact_id": "fact:3fec1c31-190a-4426-9c5a-d86ab0029163",
+      "reason": "Thirteen source literals do not prove a contiguous compiled pool, section membership or absence of other section contents.",
+      "updated_at": "2026-09-02T05:03:58.489Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+          "why": "Literal uses without compiled evidence."
+        }
+      ],
+      "fact_id": "fact:b5793849-2cab-4c13-b1ca-ad322fcc204a",
+      "reason": "Source supports message purposes but not this section's ownership or final literal placement.",
+      "updated_at": "2026-09-02T05:03:58.489Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L476-L499",
+          "why": "Borrowed stack-local current context."
+        }
+      ],
+      "fact_id": "fact:f421cbae-61a0-4e0b-b8d2-6a35f22e3ff8",
+      "reason": "OS tracks the pointer but does not necessarily own its storage; stack-local contexts are explicitly installed.",
+      "updated_at": "2026-09-02T00:29:19.385Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L234",
+          "why": "Asymmetric MSR updates."
+        }
+      ],
+      "fact_id": "fact:4e491b39-7457-4e8b-b3d1-f2483d958906",
+      "reason": "Purpose rationale incorrectly says both branches enable/disable live FP; equal-owner branch only ORs live MSR with 2.",
+      "updated_at": "2026-09-02T00:29:47.263Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L211-L232",
+          "why": "Exact immediates and masks."
+        }
+      ],
+      "fact_id": "fact:3d22be32-51b7-4227-bc15-d1c360730c31",
+      "reason": "Equal-owner path does not set live MSR 0x2000; both paths set live MSR 2.",
+      "updated_at": "2026-09-02T00:29:47.263Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+          "why": "mtsrr1 without saved-field store."
+        }
+      ],
+      "fact_id": "fact:3e656b7a-e7ea-473f-843c-6d4f8c4f1ee4",
+      "reason": "Handler writes hardware SRR1, not the saved context->srr1 field as rationale suggests.",
+      "updated_at": "2026-09-02T00:29:59.512Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+          "why": "Hardware return state and memory mask."
+        }
+      ],
+      "fact_id": "fact:af1c993d-c936-4dc5-9cfe-27b57ff5bfcb",
+      "reason": "Distinguish hardware SRR1 from saved memory and specify mask 2 cleanup.",
+      "updated_at": "2026-09-02T00:29:59.512Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190",
+          "why": "Public caller."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L518-L527",
+          "why": "r3 overwritten before call."
+        }
+      ],
+      "fact_id": "fact:3d78d5ea-e3b3-499d-a8b2-adab0b1d148e",
+      "reason": "Unused r3 is not reliably an exception number; handler overwrites r3 before calling, and public wrapper leaves its pointer there.",
+      "updated_at": "2026-09-02T00:30:19.550Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190",
+          "why": "Additional direct entry path."
+        }
+      ],
+      "fact_id": "fact:6b0b5fdb-9063-41b8-b8d5-7b3af367013d",
+      "reason": "Not restricted to becoming FPU owner; public wrapper also invokes it without ownership update.",
+      "updated_at": "2026-09-02T00:30:19.550Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L144",
+          "why": "r3 scratch and r5 destination."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L518-L527",
+          "why": "Caller r3 overwrite."
+        }
+      ],
+      "fact_id": "fact:e2c9b260-211e-4115-9723-0ab043d99edb",
+      "reason": "Incoming leading values are ignored, but r3 is clobbered as scratch; call-site r3 no longer holds exception argument.",
+      "updated_at": "2026-09-02T00:30:10.549Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L192-L198",
+          "why": "Additional caller."
+        }
+      ],
+      "fact_id": "fact:adde3caa-9633-4fb6-8179-2b0c7cc45b3d",
+      "reason": "Sole-caller/outgoing-owner restriction omits public save wrapper and explicit snapshot use.",
+      "updated_at": "2026-09-02T00:30:10.549Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L390-L395",
+          "why": "Complete reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/ar.c#L157-L172",
+          "why": "Temporary callback context."
+        }
+      ],
+      "fact_id": "fact:e066674b-edbb-4bf0-a7fd-e018af350856",
+      "reason": "Metadata-only reset and conditional owner release are exact; AR callback brackets temporary-context lifetime.",
+      "updated_at": "2026-09-02T00:29:18.222Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L390-L395",
+          "why": "Complete reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/ar.c#L157-L172",
+          "why": "Temporary callback context."
+        }
+      ],
+      "fact_id": "fact:d41f0db2-ed10-41b8-a9ed-82d75cc4e5dc",
+      "reason": "Metadata-only reset and conditional owner release are exact; AR callback brackets temporary-context lifetime.",
+      "updated_at": "2026-09-02T00:29:18.222Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L390-L395",
+          "why": "Complete reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/ar.c#L157-L172",
+          "why": "Temporary callback context."
+        }
+      ],
+      "fact_id": "fact:d2d5cd80-fd30-4c00-9097-e998a2880750",
+      "reason": "Metadata-only reset and conditional owner release are exact; AR callback brackets temporary-context lifetime.",
+      "updated_at": "2026-09-02T00:29:18.222Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L390-L395",
+          "why": "Complete reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/ar.c#L157-L172",
+          "why": "Temporary callback context."
+        }
+      ],
+      "fact_id": "fact:c506eca8-6966-41ec-8efb-3951bd60b944",
+      "reason": "Metadata-only reset and conditional owner release are exact; AR callback brackets temporary-context lifetime.",
+      "updated_at": "2026-09-02T00:29:18.222Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L390-L395",
+          "why": "Complete reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/ar.c#L157-L172",
+          "why": "Temporary callback context."
+        }
+      ],
+      "fact_id": "fact:994d82d5-733b-4161-8066-f1b025962592",
+      "reason": "Metadata-only reset and conditional owner release are exact; AR callback brackets temporary-context lifetime.",
+      "updated_at": "2026-09-02T00:29:18.222Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L506",
+          "why": "Complete diagnostic routine."
+        }
+      ],
+      "fact_id": "fact:a10b537d-4d3d-4a3e-8de2-413761876317",
+      "reason": "Direct reads, conditional FPU reporting, balanced current-context/interrupt operations and bounded backchain match. Read-only describes direct parameter accesses, not possible lazy-FPU side effects.",
+      "updated_at": "2026-09-02T00:28:12.575Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L506",
+          "why": "Complete diagnostic routine."
+        }
+      ],
+      "fact_id": "fact:ac845f0e-1284-4d8c-ad1c-0e926ed908da",
+      "reason": "Direct reads, conditional FPU reporting, balanced current-context/interrupt operations and bounded backchain match. Read-only describes direct parameter accesses, not possible lazy-FPU side effects.",
+      "updated_at": "2026-09-02T00:28:12.575Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L506",
+          "why": "Complete diagnostic routine."
+        }
+      ],
+      "fact_id": "fact:e337b8b4-7bbb-49d6-aa7c-d20b7e1ee512",
+      "reason": "Direct reads, conditional FPU reporting, balanced current-context/interrupt operations and bounded backchain match. Read-only describes direct parameter accesses, not possible lazy-FPU side effects.",
+      "updated_at": "2026-09-02T00:28:12.575Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L506",
+          "why": "Complete diagnostic routine."
+        }
+      ],
+      "fact_id": "fact:d9b8d398-3422-4ca3-a078-7caa468b6fe6",
+      "reason": "Direct reads, conditional FPU reporting, balanced current-context/interrupt operations and bounded backchain match. Read-only describes direct parameter accesses, not possible lazy-FPU side effects.",
+      "updated_at": "2026-09-02T00:28:12.575Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L506",
+          "why": "Complete diagnostic routine."
+        }
+      ],
+      "fact_id": "fact:cbb8192e-a667-4e25-9966-de3018cac329",
+      "reason": "Direct reads, conditional FPU reporting, balanced current-context/interrupt operations and bounded backchain match. Read-only describes direct parameter accesses, not possible lazy-FPU side effects.",
+      "updated_at": "2026-09-02T00:28:12.575Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L236-L238",
+          "why": "Accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L392",
+          "why": "Scheduler consumer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "FPSCR consumer."
+        }
+      ],
+      "fact_id": "fact:4cc0eedd-0a1e-4c1b-8817-8fd7df134889",
+      "reason": "Accessor is an unconditional borrowed-pointer read; scheduler comparison and debug FPSCR editing are confirmed.",
+      "updated_at": "2026-09-02T00:29:19.385Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L236-L238",
+          "why": "Accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L392",
+          "why": "Scheduler consumer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "FPSCR consumer."
+        }
+      ],
+      "fact_id": "fact:9aa08d8d-4c60-4c69-ab35-964176e5895e",
+      "reason": "Accessor is an unconditional borrowed-pointer read; scheduler comparison and debug FPSCR editing are confirmed.",
+      "updated_at": "2026-09-02T00:29:19.385Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L236-L238",
+          "why": "Accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L392",
+          "why": "Scheduler consumer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "FPSCR consumer."
+        }
+      ],
+      "fact_id": "fact:1314feb5-d82f-4d4c-bb4d-646d018c2a75",
+      "reason": "Accessor is an unconditional borrowed-pointer read; scheduler comparison and debug FPSCR editing are confirmed.",
+      "updated_at": "2026-09-02T00:29:19.385Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L397-L455",
+          "why": "Initialization stores."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L407-L450",
+          "why": "Thread startup specialization."
+        }
+      ],
+      "fact_id": "fact:bedaf1aa-c4c9-49d8-81dc-6f16d64fe572",
+      "reason": "Initializer's listed stores, inherited r2/r13, untouched r0 and thread specialization match; deterministic baseline is limited to the listed initialized fields, not the entire record.",
+      "updated_at": "2026-09-02T00:28:08.943Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L397-L455",
+          "why": "Initialization stores."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L407-L450",
+          "why": "Thread startup specialization."
+        }
+      ],
+      "fact_id": "fact:2261a811-7718-4cbe-814a-fddb99aa835b",
+      "reason": "Initializer's listed stores, inherited r2/r13, untouched r0 and thread specialization match; deterministic baseline is limited to the listed initialized fields, not the entire record.",
+      "updated_at": "2026-09-02T00:28:08.943Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L397-L455",
+          "why": "Initialization stores."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L407-L450",
+          "why": "Thread startup specialization."
+        }
+      ],
+      "fact_id": "fact:76b066c0-7e6e-4a31-ba71-12d1b963255c",
+      "reason": "Initializer's listed stores, inherited r2/r13, untouched r0 and thread specialization match; deterministic baseline is limited to the listed initialized fields, not the entire record.",
+      "updated_at": "2026-09-02T00:28:08.943Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L397-L455",
+          "why": "Initialization stores."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L407-L450",
+          "why": "Thread startup specialization."
+        }
+      ],
+      "fact_id": "fact:3bd58c80-6274-42e7-9183-98aac4173638",
+      "reason": "Initializer's listed stores, inherited r2/r13, untouched r0 and thread specialization match; deterministic baseline is limited to the listed initialized fields, not the entire record.",
+      "updated_at": "2026-09-02T00:28:08.943Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L397-L455",
+          "why": "Initialization stores."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L407-L450",
+          "why": "Thread startup specialization."
+        }
+      ],
+      "fact_id": "fact:d3019014-b17d-409f-bc90-26a4a1c94ba5",
+      "reason": "Initializer's listed stores, inherited r2/r13, untouched r0 and thread specialization match; deterministic baseline is limited to the listed initialized fields, not the entire record.",
+      "updated_at": "2026-09-02T00:28:08.943Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L354-L360",
+          "why": "Returns r1."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40",
+          "why": "Panic backtrace."
+        }
+      ],
+      "fact_id": "fact:2fa03f83-9fb7-4f4c-8c94-5b461e8b9130",
+      "reason": "Frame-free r1 accessor and bounded panic consumer confirm the existing explanation.",
+      "updated_at": "2026-09-02T00:27:59.739Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L354-L360",
+          "why": "Returns r1."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40",
+          "why": "Panic backtrace."
+        }
+      ],
+      "fact_id": "fact:cb18d18a-1780-4780-94cb-5497cc2cbc46",
+      "reason": "Frame-free r1 accessor and bounded panic consumer confirm the existing explanation.",
+      "updated_at": "2026-09-02T00:27:59.739Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L354-L360",
+          "why": "Returns r1."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40",
+          "why": "Panic backtrace."
+        }
+      ],
+      "fact_id": "fact:a726417e-3dcc-4649-aff1-6f340fa305d9",
+      "reason": "Frame-free r1 accessor and bounded panic consumer confirm the existing explanation.",
+      "updated_at": "2026-09-02T00:27:59.739Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L354-L360",
+          "why": "Returns r1."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40",
+          "why": "Panic backtrace."
+        }
+      ],
+      "fact_id": "fact:1f16a619-eca9-48a4-8002-85c07811219a",
+      "reason": "Frame-free r1 accessor and bounded panic consumer confirm the existing explanation.",
+      "updated_at": "2026-09-02T00:27:59.739Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L281-L352",
+          "why": "Complete restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L392",
+          "why": "Scheduling context."
+        }
+      ],
+      "fact_id": "fact:8159a73c-423d-4fb1-a3d0-94fffa2dc56e",
+      "reason": "Restore ranges, inclusive RAS bounds, mask 2 clearing and rfi agree; this is integer/control restoration, not unconditional FPU restoration.",
+      "updated_at": "2026-09-02T00:29:05.472Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L281-L352",
+          "why": "Complete restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L392",
+          "why": "Scheduling context."
+        }
+      ],
+      "fact_id": "fact:216eea1a-5ae9-4536-880c-e2d82a4b221d",
+      "reason": "Restore ranges, inclusive RAS bounds, mask 2 clearing and rfi agree; this is integer/control restoration, not unconditional FPU restoration.",
+      "updated_at": "2026-09-02T00:29:05.472Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L281-L352",
+          "why": "Complete restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L392",
+          "why": "Scheduling context."
+        }
+      ],
+      "fact_id": "fact:020e978c-705b-4abe-9a35-9fa75f07a7e6",
+      "reason": "Restore ranges, inclusive RAS bounds, mask 2 clearing and rfi agree; this is integer/control restoration, not unconditional FPU restoration.",
+      "updated_at": "2026-09-02T00:29:05.472Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L281-L352",
+          "why": "Complete restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L392",
+          "why": "Scheduling context."
+        }
+      ],
+      "fact_id": "fact:e76a635b-13cb-4501-9faf-aec790196426",
+      "reason": "Restore ranges, inclusive RAS bounds, mask 2 clearing and rfi agree; this is integer/control restoration, not unconditional FPU restoration.",
+      "updated_at": "2026-09-02T00:29:05.472Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L281-L352",
+          "why": "Complete restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L392",
+          "why": "Scheduling context."
+        }
+      ],
+      "fact_id": "fact:44e5157f-7f80-4173-b60a-9dbae75bf79a",
+      "reason": "Restore ranges, inclusive RAS bounds, mask 2 clearing and rfi agree; this is integer/control restoration, not unconditional FPU restoration.",
+      "updated_at": "2026-09-02T00:29:05.472Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L276",
+          "why": "Save and dual return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L45-L53",
+          "why": "Panic checkpoint."
+        }
+      ],
+      "fact_id": "fact:92c8dbed-ea43-4b66-97a5-8579bd0d3024",
+      "reason": "Explicit u32 signature and direct-zero/saved-one convention support boolean-like checkpoint semantics; archived BOOL attribution remains historical rather than canonical type evidence. Panic callback consumer confirmed.",
+      "updated_at": "2026-09-01T23:05:37.023Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L276",
+          "why": "Save and dual return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L45-L53",
+          "why": "Panic checkpoint."
+        }
+      ],
+      "fact_id": "fact:f17b6e3d-dbdd-4fe2-b38f-72a997fb2c1c",
+      "reason": "Explicit u32 signature and direct-zero/saved-one convention support boolean-like checkpoint semantics; archived BOOL attribution remains historical rather than canonical type evidence. Panic callback consumer confirmed.",
+      "updated_at": "2026-09-01T23:05:37.023Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L276",
+          "why": "Save and dual return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L45-L53",
+          "why": "Panic checkpoint."
+        }
+      ],
+      "fact_id": "fact:6010c93e-a9b7-4e4f-b36c-c382c55ae79a",
+      "reason": "Explicit u32 signature and direct-zero/saved-one convention support boolean-like checkpoint semantics; archived BOOL attribution remains historical rather than canonical type evidence. Panic callback consumer confirmed.",
+      "updated_at": "2026-09-01T23:05:37.023Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L276",
+          "why": "Save and dual return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L45-L53",
+          "why": "Panic checkpoint."
+        }
+      ],
+      "fact_id": "fact:641b236e-5ad6-404a-8c85-486366b9efd5",
+      "reason": "Explicit u32 signature and direct-zero/saved-one convention support boolean-like checkpoint semantics; archived BOOL attribution remains historical rather than canonical type evidence. Panic callback consumer confirmed.",
+      "updated_at": "2026-09-01T23:05:37.023Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L276",
+          "why": "Save and dual return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L45-L53",
+          "why": "Panic checkpoint."
+        }
+      ],
+      "fact_id": "fact:ed3f6f9e-84f0-4b4c-9c46-a0f713125775",
+      "reason": "Explicit u32 signature and direct-zero/saved-one convention support boolean-like checkpoint semantics; archived BOOL attribution remains historical rather than canonical type evidence. Panic callback consumer confirmed.",
+      "updated_at": "2026-09-01T23:05:37.023Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+          "why": "Conditional FPU restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190",
+          "why": "ABI wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:76202b55-bb18-4734-b573-257cc57ddcca",
+      "reason": "Public r3-to-r4 tail wrapper, saved-state/HID2 guards and debug reload use match.",
+      "updated_at": "2026-09-02T00:29:32.767Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+          "why": "Conditional FPU restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190",
+          "why": "ABI wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:4817a588-1aae-4000-a939-41048824d92c",
+      "reason": "Public r3-to-r4 tail wrapper, saved-state/HID2 guards and debug reload use match.",
+      "updated_at": "2026-09-02T00:29:32.767Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+          "why": "Conditional FPU restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190",
+          "why": "ABI wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:94f7ebf3-af09-49aa-a124-95d38d5a7acd",
+      "reason": "Public r3-to-r4 tail wrapper, saved-state/HID2 guards and debug reload use match.",
+      "updated_at": "2026-09-02T00:29:32.767Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+          "why": "Conditional FPU restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190",
+          "why": "ABI wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:44006680-9195-4748-8026-af068b7512c9",
+      "reason": "Public r3-to-r4 tail wrapper, saved-state/HID2 guards and debug reload use match.",
+      "updated_at": "2026-09-02T00:29:32.767Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+          "why": "Conditional FPU restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190",
+          "why": "ABI wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:97f2ccf8-bde7-4dbe-84c9-23c0ca481b9f",
+      "reason": "Public r3-to-r4 tail wrapper, saved-state/HID2 guards and debug reload use match.",
+      "updated_at": "2026-09-02T00:29:32.767Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L198",
+          "why": "Saver and wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:ce99e97f-8971-4243-b1ec-a36d557bffb2",
+      "reason": "Public r3-to-r5 save wrapper, state marking, fp0 preservation and conditional PSF stores match debug save/edit/load use.",
+      "updated_at": "2026-09-02T00:28:26.961Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L198",
+          "why": "Saver and wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:93fc4c0d-ef57-4b49-a406-28e6b9e62960",
+      "reason": "Public r3-to-r5 save wrapper, state marking, fp0 preservation and conditional PSF stores match debug save/edit/load use.",
+      "updated_at": "2026-09-02T00:28:26.961Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L198",
+          "why": "Saver and wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:95395e0d-5788-476a-9826-842f06bfa52e",
+      "reason": "Public r3-to-r5 save wrapper, state marking, fp0 preservation and conditional PSF stores match debug save/edit/load use.",
+      "updated_at": "2026-09-02T00:28:26.961Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L198",
+          "why": "Saver and wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:c0951183-0b67-449f-9dd5-029c23c5934a",
+      "reason": "Public r3-to-r5 save wrapper, state marking, fp0 preservation and conditional PSF stores match debug save/edit/load use.",
+      "updated_at": "2026-09-02T00:28:26.961Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L198",
+          "why": "Saver and wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Debug use."
+        }
+      ],
+      "fact_id": "fact:7cab691f-92dd-425d-9cb6-8e20195d67d1",
+      "reason": "Public r3-to-r5 save wrapper, state marking, fp0 preservation and conditional PSF stores match debug save/edit/load use.",
+      "updated_at": "2026-09-02T00:28:26.961Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L238",
+          "why": "Setter and accessor."
+        }
+      ],
+      "fact_id": "fact:896097ce-dd46-4c3a-93b0-62140f3d4e80",
+      "reason": "Pointer publication, non-owner FP gating and public signature match; these do not require the incorrect owner-path live FP-enable claim.",
+      "updated_at": "2026-09-02T00:29:47.263Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L238",
+          "why": "Setter and accessor."
+        }
+      ],
+      "fact_id": "fact:4da322b1-4367-4d66-af6a-edd1ec2fcfc0",
+      "reason": "Pointer publication, non-owner FP gating and public signature match; these do not require the incorrect owner-path live FP-enable claim.",
+      "updated_at": "2026-09-02T00:29:47.263Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L238",
+          "why": "Setter and accessor."
+        }
+      ],
+      "fact_id": "fact:26995d24-1e95-46a7-84c8-3d9342c5a8b7",
+      "reason": "Pointer publication, non-owner FP gating and public signature match; these do not require the incorrect owner-path live FP-enable claim.",
+      "updated_at": "2026-09-02T00:29:47.263Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Handler and registration."
+        }
+      ],
+      "fact_id": "fact:0529ec5f-3a84-4fb0-912a-d635733a3dff",
+      "reason": "Handler signature, owner exchange, guarded saves/loads and exception return match.",
+      "updated_at": "2026-09-02T00:29:59.512Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Handler and registration."
+        }
+      ],
+      "fact_id": "fact:81ce79da-623e-4d15-9656-775913ba9c55",
+      "reason": "Handler signature, owner exchange, guarded saves/loads and exception return match.",
+      "updated_at": "2026-09-02T00:29:59.512Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Handler and registration."
+        }
+      ],
+      "fact_id": "fact:120f06d7-980f-4db5-b055-3aef21866777",
+      "reason": "Handler signature, owner exchange, guarded saves/loads and exception return match.",
+      "updated_at": "2026-09-02T00:29:59.512Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Initialization and downstream handler."
+        }
+      ],
+      "fact_id": "fact:372f37fa-0f5e-4b55-ae8a-d202568c847e",
+      "reason": "Unconditional handler registration, owner reset and debug message initialize the described lazy ownership mechanism; loading remains conditional inside the helper.",
+      "updated_at": "2026-09-02T00:29:41.393Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Initialization and downstream handler."
+        }
+      ],
+      "fact_id": "fact:8b6693ac-4802-4a5c-920c-5a5ae8a190fc",
+      "reason": "Unconditional handler registration, owner reset and debug message initialize the described lazy ownership mechanism; loading remains conditional inside the helper.",
+      "updated_at": "2026-09-02T00:29:41.393Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Initialization and downstream handler."
+        }
+      ],
+      "fact_id": "fact:5074f35d-732a-4f3c-a5eb-9361f1025873",
+      "reason": "Unconditional handler registration, owner reset and debug message initialize the described lazy ownership mechanism; loading remains conditional inside the helper.",
+      "updated_at": "2026-09-02T00:29:41.393Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Initialization and downstream handler."
+        }
+      ],
+      "fact_id": "fact:74558a93-203a-476d-a44e-528bc87b85bb",
+      "reason": "Unconditional handler registration, owner reset and debug message initialize the described lazy ownership mechanism; loading remains conditional inside the helper.",
+      "updated_at": "2026-09-02T00:29:41.393Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Initialization and downstream handler."
+        }
+      ],
+      "fact_id": "fact:d3f29728-9676-4c78-82b9-405487862802",
+      "reason": "Unconditional handler registration, owner reset and debug message initialize the described lazy ownership mechanism; loading remains conditional inside the helper.",
+      "updated_at": "2026-09-02T00:29:41.393Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+          "why": "Complete loader."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+          "why": "Lazy ownership consumer."
+        }
+      ],
+      "fact_id": "fact:aaac06e6-b003-4303-bbef-11c460c51257",
+      "reason": "State-low-bit guard, FPSCR restore, HID2-conditional paired-single restore then ordinary FPR loads match.",
+      "updated_at": "2026-09-02T00:30:19.550Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+          "why": "Complete loader."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+          "why": "Lazy ownership consumer."
+        }
+      ],
+      "fact_id": "fact:f5830893-4c73-4563-b022-d4fe2046073f",
+      "reason": "State-low-bit guard, FPSCR restore, HID2-conditional paired-single restore then ordinary FPR loads match.",
+      "updated_at": "2026-09-02T00:30:19.550Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+          "why": "Complete loader."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+          "why": "Lazy ownership consumer."
+        }
+      ],
+      "fact_id": "fact:77a1c6ad-e67b-49a5-9831-a553928cf6f9",
+      "reason": "State-low-bit guard, FPSCR restore, HID2-conditional paired-single restore then ordinary FPR loads match.",
+      "updated_at": "2026-09-02T00:30:19.550Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L182",
+          "why": "Complete saver."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+          "why": "Outgoing owner caller."
+        }
+      ],
+      "fact_id": "fact:47df0e81-fcfe-41eb-8a9f-c6eba2ab9dd2",
+      "reason": "State mask 1, all FPR/FPSCR writes, fp0 reload and guarded PSF writes match the outgoing-owner use.",
+      "updated_at": "2026-09-02T00:30:10.549Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L182",
+          "why": "Complete saver."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+          "why": "Outgoing owner caller."
+        }
+      ],
+      "fact_id": "fact:5d9a41e1-2910-4003-bc82-e038653c0b7b",
+      "reason": "State mask 1, all FPR/FPSCR writes, fp0 reload and guarded PSF writes match the outgoing-owner use.",
+      "updated_at": "2026-09-02T00:30:10.549Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L182",
+          "why": "Complete saver."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+          "why": "Outgoing owner caller."
+        }
+      ],
+      "fact_id": "fact:ece5aad9-6ba7-4e7b-b01e-c9abf1785282",
+      "reason": "State mask 1, all FPR/FPSCR writes, fp0 reload and guarded PSF writes match the outgoing-owner use.",
+      "updated_at": "2026-09-02T00:30:10.549Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L352",
+          "why": "Selection and integer save/restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+          "why": "Diagnostics and lazy FPU lifecycle."
+        }
+      ],
+      "fact_id": "fact:b0ef28eb-61c3-4493-b53d-450c5a01571b",
+      "reason": "Unit-level context lifecycle, diagnostics and lazy ownership summary remains accurate; exception-state cleanup specifically clears mask 2, not all state.",
+      "updated_at": "2026-09-02T00:30:19.550Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L352",
+          "why": "Selection and integer save/restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+          "why": "Diagnostics and lazy FPU lifecycle."
+        }
+      ],
+      "fact_id": "fact:bff35b36-790e-4827-a727-3509aa4b6344",
+      "reason": "Unit-level context lifecycle, diagnostics and lazy ownership summary remains accurate; exception-state cleanup specifically clears mask 2, not all state.",
+      "updated_at": "2026-09-02T00:28:12.575Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L352",
+          "why": "Selection and integer save/restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+          "why": "Diagnostics and lazy FPU lifecycle."
+        }
+      ],
+      "fact_id": "fact:8425a349-dc9a-4af3-ae19-f6f8631a6fd6",
+      "reason": "Unit-level context lifecycle, diagnostics and lazy ownership summary remains accurate; exception-state cleanup specifically clears mask 2, not all state.",
+      "updated_at": "2026-09-02T00:29:59.512Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L352",
+          "why": "Selection and integer save/restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+          "why": "Diagnostics and lazy FPU lifecycle."
+        }
+      ],
+      "fact_id": "fact:32e7fc21-45d4-4dc7-a645-4ebaed35f747",
+      "reason": "Unit-level context lifecycle, diagnostics and lazy ownership summary remains accurate; exception-state cleanup specifically clears mask 2, not all state.",
+      "updated_at": "2026-09-02T00:30:19.550Z"
+    }
+  ],
+  "link_dispositions": [
+    {
+      "baseline_record": {
+        "id": "link:52314833-c594-4481-8953-50c5d7427874",
+        "from_target_id": "target:data:main/dolphin/os/OSContext:.data",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:runtime-diagnostic-logging",
+        "role": "implements",
+        "why": "The section supplies the labels and formatting templates that turn captured processor and stack state into human-readable runtime diagnostic output.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+        "digest": "sha256:85dfc4dd52ad4e7a"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L555",
+          "why": "Source-level literal uses only."
+        }
+      ],
+      "link_id": "link:52314833-c594-4481-8953-50c5d7427874",
+      "reason": "Diagnostic literals are visible, but their membership in compiled .data is unverified without compiled evidence."
+    },
+    {
+      "baseline_record": {
+        "id": "link:94dff563-a2e5-442d-9cf8-a8e62746abf2",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:extern/dolphin/src/dolphin/os/OSContext.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The unit's OSSaveContext implementation serializes live processor execution state into OSContext storage.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L240-L276",
+        "digest": "sha256:a488ab3b78a93a16"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L352",
+          "why": "Save and restore."
+        }
+      ],
+      "link_id": "link:94dff563-a2e5-442d-9cf8-a8e62746abf2",
+      "reason": "Integer checkpoint and restoration implement processor-context preservation."
+    },
+    {
+      "baseline_record": {
+        "id": "link:53f7c80f-d10a-4487-90fd-abd4b5ca8d68",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:OSSaveContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The function creates an OSContext checkpoint from the current PowerPC register state and encodes distinct immediate and restored return values.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L240-L276",
+        "digest": "sha256:a488ab3b78a93a16"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L352",
+          "why": "Save and restore."
+        }
+      ],
+      "link_id": "link:53f7c80f-d10a-4487-90fd-abd4b5ca8d68",
+      "reason": "Integer checkpoint and restoration implement processor-context preservation."
+    },
+    {
+      "baseline_record": {
+        "id": "link:ac1e56bd-4d57-4ba9-94af-c27ca1fb43a9",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:OSLoadContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The routine turns an OSContext snapshot back into live PowerPC processor state and resumes it through `rfi`, providing the restoration side of processor-context preservation.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L281-L352",
+        "digest": "sha256:755f9835005d4cd6"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L352",
+          "why": "Save and restore."
+        }
+      ],
+      "link_id": "link:ac1e56bd-4d57-4ba9-94af-c27ca1fb43a9",
+      "reason": "Integer checkpoint and restoration implement processor-context preservation."
+    },
+    {
+      "baseline_record": {
+        "id": "link:3e457336-a3fb-41f0-940f-9462d4e8be5c",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:OSInitContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:thread-execution-context-initialization",
+        "role": "implements",
+        "why": "The function constructs the initial saved processor state used to start a newly created operating-system thread.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSThread.c#L407-L450",
+        "digest": "sha256:8b9785659a2d5baa"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L407-L450",
+          "why": "Startup caller."
+        }
+      ],
+      "link_id": "link:3e457336-a3fb-41f0-940f-9462d4e8be5c",
+      "reason": "Thread creation uses initializer to construct startup context."
+    },
+    {
+      "baseline_record": {
+        "id": "link:9b625de2-8fa5-4bb3-8d3e-e768468609fa",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:extern/dolphin/src/dolphin/os/OSContext.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:runtime-diagnostic-logging",
+        "role": "implements",
+        "why": "The unit contains OSDumpContext, which formats saved processor registers and stack frames as OSReport diagnostics.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L457-L506",
+        "digest": "sha256:11c0571711b538d6"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L506",
+          "why": "Report calls."
+        }
+      ],
+      "link_id": "link:9b625de2-8fa5-4bb3-8d3e-e768468609fa",
+      "reason": "Context dump implements diagnostic logging."
+    },
+    {
+      "baseline_record": {
+        "id": "link:1431c9cc-43c4-4d8e-bb7a-59780ce0d2a5",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:OSDumpContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:runtime-diagnostic-logging",
+        "role": "implements",
+        "why": "OSDumpContext converts a captured processor context and its stack back-chain into labeled OSReport output for runtime diagnosis.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L457-L506",
+        "digest": "sha256:11c0571711b538d6"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L457-L506",
+          "why": "Report calls."
+        }
+      ],
+      "link_id": "link:1431c9cc-43c4-4d8e-bb7a-59780ce0d2a5",
+      "reason": "Context dump implements diagnostic logging."
+    },
+    {
+      "baseline_record": {
+        "id": "link:13cb8aad-2be6-44e3-bf93-84a5a12cd3a0",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:OSSaveFPUContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The routine forwards an OSContext to an implementation that serializes the live FPU register set and control state into that context for later restoration.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L80-L191",
+        "digest": "sha256:7a66e90c1b89cea3"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L198",
+          "why": "FPU state serialization and restoration."
+        }
+      ],
+      "link_id": "link:13cb8aad-2be6-44e3-bf93-84a5a12cd3a0",
+      "reason": "FPU helpers and public wrappers preserve and restore floating-point context with documented guards."
+    },
+    {
+      "baseline_record": {
+        "id": "link:cfec1fa6-a3f8-4ca4-ae51-e7a0e65d1fca",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:OSLoadFPUContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The public entry point delegates to code that restores saved floating-point control, scalar-register, and paired-single state from an OSContext into the live processor.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L1-L95",
+        "digest": "sha256:0cc2b5048ba295e3"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L198",
+          "why": "FPU state serialization and restoration."
+        }
+      ],
+      "link_id": "link:cfec1fa6-a3f8-4ca4-ae51-e7a0e65d1fca",
+      "reason": "FPU helpers and public wrappers preserve and restore floating-point context with documented guards."
+    },
+    {
+      "baseline_record": {
+        "id": "link:040c9d3a-8183-4d4f-9357-584f72b9bf0c",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:__OSSaveFPUContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The routine serializes the outgoing owner's live floating-point registers, status register, and optional paired-single state into an OSContext for later restoration.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L96-L182",
+        "digest": "sha256:46a1a33e82b6122d"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L198",
+          "why": "FPU state serialization and restoration."
+        }
+      ],
+      "link_id": "link:040c9d3a-8183-4d4f-9357-584f72b9bf0c",
+      "reason": "FPU helpers and public wrappers preserve and restore floating-point context with documented guards."
+    },
+    {
+      "baseline_record": {
+        "id": "link:2b90c83c-6d8c-40e3-8888-c0702ff0f86a",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:__OSLoadFPUContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The function restores the FPSCR, floating-point registers, and optional paired-single state previously preserved in an OSContext.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+        "digest": "sha256:02e26e26b23c766c"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L198",
+          "why": "FPU state serialization and restoration."
+        }
+      ],
+      "link_id": "link:2b90c83c-6d8c-40e3-8888-c0702ff0f86a",
+      "reason": "FPU helpers and public wrappers preserve and restore floating-point context with documented guards."
+    },
+    {
+      "baseline_record": {
+        "id": "link:e2b255f8-5e38-4a95-932c-3fdd519d037a",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:OSClearContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The routine resets context validity metadata and removes stale FPU ownership, and interrupt code uses it to prepare and retire temporary processor contexts around callback execution.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ar/ar.c#L157-L172",
+        "digest": "sha256:27848f6319c2e856"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L390-L395",
+          "why": "Release metadata and owner."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/ar.c#L157-L172",
+          "why": "Callback lifetime."
+        }
+      ],
+      "link_id": "link:e2b255f8-5e38-4a95-932c-3fdd519d037a",
+      "reason": "Temporary callback context is prepared and retired without lingering FPU ownership."
+    },
+    {
+      "baseline_record": {
+        "id": "link:b718b2ac-d9a8-4816-b6c2-07505a702356",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:__OSContextInit",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The routine initializes an exception-driven mechanism whose registered callback saves the previous OSContext's FPU state and restores the new owner's state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L480-L555",
+        "digest": "sha256:071f71136bdf5b4a"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L234",
+          "why": "Selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Lazy transfer and initialization."
+        }
+      ],
+      "link_id": "link:b718b2ac-d9a8-4816-b6c2-07505a702356",
+      "reason": "Selection, initialization and lazy ownership transfer jointly support context preservation; no symmetric live-MSR enable is inferred."
+    },
+    {
+      "baseline_record": {
+        "id": "link:54cd0482-5c67-44f2-afeb-335137d6ff8a",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:OSSetCurrentContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The routine selects the active OSContext and ensures floating-point processor state remains associated with its owning context across context changes.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L200-L234",
+        "digest": "sha256:1daa33e491c643f5"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L234",
+          "why": "Selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Lazy transfer and initialization."
+        }
+      ],
+      "link_id": "link:54cd0482-5c67-44f2-afeb-335137d6ff8a",
+      "reason": "Selection, initialization and lazy ownership transfer jointly support context preservation; no symmetric live-MSR enable is inferred."
+    },
+    {
+      "baseline_record": {
+        "id": "link:8a5ad511-eadb-4f05-91a1-751d9908beaf",
+        "from_target_id": "target:function:main/dolphin/os/OSContext:OSSwitchFPUContext",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-context-preservation",
+        "role": "implements",
+        "why": "The exception handler preserves the outgoing context's floating-point processor state and restores the incoming context's state while transferring FPU ownership.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+        "digest": "sha256:599949b26af6031f"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L234",
+          "why": "Selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+          "why": "Lazy transfer and initialization."
+        }
+      ],
+      "link_id": "link:8a5ad511-eadb-4f05-91a1-751d9908beaf",
+      "reason": "Selection, initialization and lazy ownership transfer jointly support context preservation; no symmetric live-MSR enable is inferred."
+    }
+  ],
+  "coverage": {
+    "fact_count": 76,
+    "files": [
+      {
+        "canonical_complete": true,
+        "path": "extern/dolphin/src/dolphin/os/OSContext.c",
+        "rendered_complete": true,
+        "renderer_issues": [
+          "666 parse errors reported on the rendered view.",
+          "Zero substitutions; assembly symbols marked parse_uncertain.",
+          "Renderer covers function names only, not parameters, fields or section labels."
+        ],
+        "total_lines": 644
+      }
+    ],
+    "link_count": 15,
+    "subjects": [
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:.data"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSClearContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSDumpContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSGetCurrentContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSGetStackPointer"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSInitContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSLoadContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSLoadFPUContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSSaveContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSSaveFPUContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSSetCurrentContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:OSSwitchFPUContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:__OSContextInit"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:__OSLoadFPUContext"
+      },
+      {
+        "target_stable_key": "main/dolphin/os/OSContext:__OSSaveFPUContext"
+      },
+      {
+        "entity_locator": "extern/dolphin/src/dolphin/os/OSContext.c"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSClearContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSDumpContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSInitContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSInitContext#r4"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSInitContext#r5"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSLoadContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSLoadFPUContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSSaveContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSSaveFPUContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSSetCurrentContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSSwitchFPUContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:OSSwitchFPUContext#r4"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:__OSLoadFPUContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:__OSLoadFPUContext#r4"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:__OSSaveFPUContext#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:__OSSaveFPUContext#r4"
+      },
+      {
+        "entity_locator": "main/dolphin/os/OSContext:__OSSaveFPUContext#r5"
+      }
+    ]
+  },
+  "review_scope": "proposed_changes_and_explicit_contradictions",
+  "coverage_basis": {
+    "kind": "inherited_full_librarian_or_legacy_research",
+    "upstream_job_id": "lead-main__dolphin__os__OSContext-1",
+    "handoff_sha256": "1151b1ca976771b37997c4483cd3f2b09cdaa13b56b9298231a8e0d0428aeeea"
+  },
+  "reviewer": "/root/review_gate/kernel/reviewer-main__dolphin__os__OSContext-1",
+  "tu": "main/dolphin/os/OSContext",
+  "status": "accepted_for_staged_apply",
+  "kernel_job": {
+    "id": "reviewer-main__dolphin__os__OSContext-1",
+    "role": "reviewer",
+    "task_id": "main__dolphin__os__OSContext",
+    "output_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__os__OSContext-1",
+    "attempt": 1,
+    "prior_result": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/lead-main__dolphin__os__OSContext-1/packet.json",
+    "input_proposal_sha256": "32649d563a980ba896e734eea2fd929ab93208d815d5b6cce3353d1b58bffa69",
+    "packet_contract": "lean-v2",
+    "handoff_path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__os__OSContext-1/inputs/handoff.json",
+    "input_handoff_sha256": "1151b1ca976771b37997c4483cd3f2b09cdaa13b56b9298231a8e0d0428aeeea",
+    "input_artifacts": {
+      "proposal.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__os__OSContext-1/inputs/proposal.json",
+        "sha256": "32649d563a980ba896e734eea2fd929ab93208d815d5b6cce3353d1b58bffa69"
+      },
+      "functionality.md": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__os__OSContext-1/inputs/functionality.md",
+        "sha256": "a97be773debcaa035db6b9aec7f5102b099c2fa223ad8eff1eac51dcd1699785"
+      },
+      "fact-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__os__OSContext-1/inputs/fact-dispositions.json",
+        "sha256": "c8e580649dfd4d9b2c4b493645565e24e6a8a91fbc30e46238af71bfab69b0f2"
+      },
+      "link-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__os__OSContext-1/inputs/link-dispositions.json",
+        "sha256": "d0b3b4432878c257d1ba3ff02debadf32655bf55e8a8ddb1e4c806093d460af6"
+      },
+      "coverage.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__os__OSContext-1/inputs/coverage.json",
+        "sha256": "e09f8fc17166f1dd8e9eb2dea6c6fe7cd254c118c1092f43b9f5a1afc47e3e6f"
+      },
+      "unresolved.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__os__OSContext-1/inputs/unresolved.json",
+        "sha256": "b7ad5feee880ae24d3dbb100af4f9209cbd5eb54b2013297e9c0ede91e62675c"
+      }
+    }
+  },
+  "completed_at": "2026-09-08T22:42:41.231938+00:00"
+}

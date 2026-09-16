@@ -1,0 +1,67 @@
+{
+  "tu": "main/dolphin/os/init/__start",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/init/__start.c#L19-L55",
+            "why": "Extern annotations and reset-helper/entry definitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/init/__start.c#L164-L200",
+            "why": "Register and data initializer definitions and annotations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the conflation of explicit source annotations with verified executable layout.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/init/__start:.init"
+        },
+        "type": "inferred_type",
+        "value": "Source-declared startup code grouping: __start is weak assembly, __check_pad3 and __init_data are static C routines, and __init_registers is static assembly; each definition carries a .init section annotation. Extern declarations for stack, SDA bases, and initialization tables also carry that annotation. These declarations do not independently establish compiled section contents or linker-symbol placement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/init/__start.c#L149-L200",
+            "why": "Copy/flush guard and ordered table traversal."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the initialization purpose while making the equal-address no-op and table-limited scope explicit.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/init/__start:__init_data"
+        },
+        "type": "purpose",
+        "value": "Initializes the startup memory image before OS and user-runtime initialization. It traverses ROM-copy entries until the first zero-size sentinel, copying and then flushing each destination only when source and destination differ. It subsequently clears each BSS region listed before that table's zero-size sentinel."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/init/__start.c#L59-L145",
+            "why": "Ordered calls, argument relocation, ArenaHi update, preserved argument registers, and final handoff."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects OS-versus-argument ordering and records useful argument storage lifetime and ArenaHi side effects.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/os/init/__start.c"
+        },
+        "type": "data_flow",
+        "value": "Startup initializes registers and hardware, consumes ROM-copy and BSS tables through __init_data, clears the exception-mask word, optionally invokes MetroTRK, and then resolves boot arguments before calling DBInit and OSInit. Argument offsets are rewritten in place relative to the boot-information base; argc/argv remain in r14/r15 across subsequent initialization calls, and the 32-byte-rounded-down argv address is stored as ArenaHi. Missing or empty argument metadata supplies zero arguments. After the device-code-guarded pad reset check, startup calls __init_user, passes argc/argv to main, and branches to exit with main's result."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,312 @@
+{
+  "tu": "main/melee/it/kinds/itoldkuri",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L87-L100",
+            "why": "Exact zero test and nonzero decrement branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L249-L290",
+            "why": "Timer writes precede collision-helper calls."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the positive-only countdown description and distinguishes unconditional timer reload from landing detection.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:itOldkuri_UnkMotion0_Phys"
+        },
+        "type": "state_behavior",
+        "value": "In state 0, an invocation with xDF8 == 0 enters state 2 when facing_dir == +1.0f and state 1 otherwise. Every nonzero xDF8 takes the decrement branch, including negative values; reaching zero by decrement does not enter locomotion until a later invocation. The callback then calls it_8027C0A8(gobj, 0.0f, 5.0f). States 3/4 reload xDF8 from (s32) attr->xC before each collision-helper invocation, with landing handling subsequently able to re-enter state 0."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L27-L51",
+            "why": "State-table animation identifiers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L524-L551",
+            "why": "State-11 entry and callback group."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported callback explanation while correcting state-index versus animation-identifier confusion.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:itOldkuri_UnkMotion11_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Participates in item state 11 without performing a local transition. State entry and animation refresh pass state index 0xB to Item_80268E5C; the state table associates that entry with animation identifier 3, not animation identifier 11. Its physics callback subtracts x10_fall_speed from vertical velocity, while this collision callback returns it_8027C794(gobj) unchanged."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L121-L169",
+            "why": "Guard, self-refresh and state-2 entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L553-L559",
+            "why": "Wrapper's typed state-change flags parameter."
+          }
+        ],
+        "op": "write",
+        "rationale": "Identifies 0x12 as the flags argument and the negative-facing path as a self-refresh rather than an unspecified transition code.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:itOldkuri_UnkMotion1_Anim"
+        },
+        "type": "state_behavior",
+        "value": "If it_80272C6C returns nonzero, performs no local state operation. Otherwise, facing_dir == -1.0f sets oldkuri.xDFC to 1 and reselects state 1 through it_802D848C with state-change flags 0x12. Any other facing value calls it_802D775C to initialize state 2. The callback always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L171-L193",
+            "why": "Complete callback and ordered assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects an unsupported velocity-direction claim while preserving the exact ordering of velocity calculation and facing assignment.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:itOldkuri_UnkMotion2_Anim"
+        },
+        "type": "purpose",
+        "value": "Handles state 2's animation-query completion path. For facing_dir == +1.0f it sets xDFC and reselects state 2 with flags 0x12. Otherwise it computes stored horizontal velocity from the incoming facing direction and attribute element 1, clears vertical and depth velocity, then sets facing_dir to -1, clears xDFC, and enters state 1. The resulting horizontal velocity is not unconditionally leftward."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L41-L44",
+            "why": "State-7 animation identifier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L429-L469",
+            "why": "Grounded entry and separate callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L452-L455",
+            "why": "Inert false helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects animation/state numbering and makes the independently verified inert collision behavior explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:itOldkuri_UnkMotion7_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Runs in state 7, selected by the grounded branch of the jumped-on handler after velocity reset. State index 7 uses animation identifier 2. This collision callback delegates to it_8027C794, which returns false without side effects; it neither performs terrain processing nor completes the state. The separate animation callback calls it_8027CC88 and returns true when its animation query clears."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L405-L427",
+            "why": "Complete canonical damage callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the stale camera symbol and records the full current call sequence and exceptional guard.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:it_2725_Logic0_DmgReceived"
+        },
+        "type": "data_flow",
+        "value": "Resolves the Item and Old Kuri attributes, adds it_8027CBFC(gobj) to xC9C, then tests xC9C > *attr->x0 || msid == 6. The terminal path calls it_8027C9D8, it_80274C88, it_802756D0, it_80275474 and it_8027CE44 in order, requests Camera_RequestQuake(QuakeKind_Small, &ip->pos), and compares HSD_Randf() with it_804D6D40->x8 to select it_802D839C or it_802D82C4. The other path invokes the inline ordinary damage response. Both paths return false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L390-L427",
+            "why": "Ordinary response and complete terminal guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L499-L532",
+            "why": "Terminal destination state indices."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that an unmet damage limit alone guarantees ordinary reaction; state 6 is an independent terminal condition.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:it_2725_Logic0_DmgReceived"
+        },
+        "type": "purpose",
+        "value": "Handles Old Kuri's damage event by accumulating the shared damage increment and choosing ordinary or terminal reaction. Terminal handling occurs when the updated accumulator is strictly greater than the attribute threshold or the current state is 6, and randomly selects state 10 or 11 after shared setup and a small camera quake. Otherwise the inline response resets xDF8 and enters state 9, with its guarded vertical-velocity adjustment and ground/air setup. The event callback returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L242-L290",
+            "why": "Destination falling callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L311-L322",
+            "why": "Drop dispatch and flags."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L615-L624",
+            "why": "Shared drop setup precedes caller's facing test."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects destination-state classification; shared setup precedes the facing test, and destination physics uses the common falling helper.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:it_2725_Logic0_Dropped"
+        },
+        "type": "purpose",
+        "value": "Handles Old Kuri's dropped event by calling shared drop setup and then entering a directional falling state: state 4 when the resulting facing_dir is positive, state 3 otherwise. Both transitions use ITEM_ANIM_UPDATE | ITEM_HIT_PRESERVE through the Old Kuri state wrapper. These are airborne falling states, not grounded locomotion states."
+      },
+      {
+        "confidence": 0.93,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L73-L100",
+            "why": "State-0 entry and waiting behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L249-L290",
+            "why": "Landing callback uses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L379-L388",
+            "why": "Damage-state recovery use."
+          }
+        ],
+        "op": "write",
+        "rationale": "More precisely describes reusable state-0 entry than Init: the helper is used after spawn and as a landing/recovery callback. State 0's timer-driven behavior supports Wait.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:it_802D747C"
+        },
+        "type": "inferred_name",
+        "value": "itOldkuri_EnterWait"
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L73-L80",
+            "why": "Exact ordered body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L249-L290",
+            "why": "Timer reload and landing callback reuse."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L588-L600",
+            "why": "Shared velocity and owner reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L553-L559",
+            "why": "Jumped-on callback installation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Covers cross-state reuse and timer lifetime instead of describing exclusively post-spawn setup or inventing unverified helper internals.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:it_802D747C"
+        },
+        "type": "purpose",
+        "value": "Re-enters Old Kuri's waiting state 0 after spawn or landing/recovery. Calls it_8027CAD8, it_8027C0A8(gobj, 0.0f, 5.0f), and it_802756E0 in order, then selects state 0 with ITEM_ANIM_UPDATE through it_802D848C, which reinstalls jumped_on. The shared reset clears horizontal and vertical velocity and owner; this helper does not itself reset xDF8."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L429-L445",
+            "why": "Complete canonical jumped-on callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the stale camera symbol while preserving the exact event order and associated-object flow.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:it_802D8098"
+        },
+        "type": "data_flow",
+        "value": "Resolves the Item, calls it_802756D0, it_80274C88, it_80275474 and it_8027CE44 on the input object in order, then requests Camera_RequestQuake(QuakeKind_Small, &ip->pos). Tests ground_or_air to call it_802D81FC for GA_Air or it_802D813C otherwise. Finally calls Item_8026AE84(ip, 0x12E, 0x7F, 0x40) and ftLib_80086D40(ip->xCFC, 0xC, 0), and returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L41-L44",
+            "why": "Animation identifier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L447-L469",
+            "why": "Entry and callback group."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L452-L455",
+            "why": "Inert collision helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that state 7 retains ground-collision processing and separates its state index from animation identifier.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:it_802D813C"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally resets velocity, calls it_8027C0A8 with two zero arguments, and selects item state 7 with flags 2. State 7 uses animation identifier 2. Its physics callback is empty and its collision callback delegates to the side-effect-free false stub it_8027C794. Its animation callback calls it_8027CC88 before returning true when the animation query clears."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L429-L445",
+            "why": "Airborne event branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoldkuri.c#L471-L477",
+            "why": "Unrestricted horizontal multiplier and state entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported attenuation implication of retaining a configured fraction with the exact multiplication performed.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoldkuri:it_802D81FC"
+        },
+        "type": "purpose",
+        "value": "Sets up the airborne branch of Old Kuri's jumped-on defeat response by multiplying current horizontal velocity by special-attribute x8 and entering state 8 with ITEM_ANIM_UPDATE. The local code neither bounds x8 nor establishes that this operation necessarily reduces or preserves the sign of horizontal velocity."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

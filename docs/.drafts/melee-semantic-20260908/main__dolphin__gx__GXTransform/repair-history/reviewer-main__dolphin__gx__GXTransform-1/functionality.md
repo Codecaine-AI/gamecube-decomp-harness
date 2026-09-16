@@ -1,0 +1,20 @@
+## GXTransform semantic review
+
+Completed the owned canonical and rendered file, all 67 subjects, and all 12 links. The ledger retains 76 facts and all links, supersedes three explanations, and leaves four compiled-section claims unresolved. Existing SDK function names remain appropriate; no renaming is proposed.
+
+### Behavior
+- `GXProject` performs CPU-side affine transformation, compact projection, and viewport mapping. Exactly `pm[0] == 0.0f` selects reciprocal negative-eye-Z scaling; other values take the orthographic-style branch. It flips screen Y and computes depth as `far + wc * zc * (far-near)`. It neither clips nor clamps results and has no zero-eye-Z guard. The pointer assertion does not include `mtx`.
+- Projection setters cache six coefficients and a type, then emit XF projection state. `GXSetProjection` selects fourth-column offsets only for `GX_ORTHOGRAPHIC`; other types use third-column terms. Preserve the bookkeeping difference: this setter assigns `bpSent=1`, whereas `GXSetProjectionv` assigns `bpSent=0`. The getter copies seven floats from the software shadow without hardware reads.
+- Immediate matrix loaders stream caller data into FIFO commands without retaining the source pointer. Position loads consume twelve floats; normal loads consume nine linear coefficients, excluding translation. The assembly helpers repeatedly store to the same volatile port, not an advancing destination array. Debug paths emit and verify individual elements. Indexed variants encode source indices instead of copying immediate matrix payloads.
+- Texture loading distinguishes regular and post-transform address ranges and asserts that post-transform matrices are 3×4. For valid types, payloads contain eight or twelve floats. An invalid type unequal to both supported constants produces a twelve-value header but only eight payload values; the header-count and payload predicates must not be conflated.
+- Current-matrix selection changes the six-bit position/normal field, not matrix contents. `__GXSetMatrixIndex` publishes an entire A or B shadow word according to the attribute threshold and assigns `bpSent=1`. GXAttr shares those words with texture-coordinate matrix selectors. Command emission is not evidence of GPU completion.
+- Viewport installation subtracts 0.5 from top only for field zero, caches that adjusted top, uses negative Y half-height, adds the 342-coordinate bias, and scales depth by 16,777,215. The `fgRange` branch calls `__GXSetRange`; its internal effect was not established here. `GXSetViewport` fixes the field to one. The getter exports six cached values.
+- Scissor setup adds 342 and constructs inclusive bounds, then writes both raster registers and assigns `bpSent=0`. Assertions check unsigned origin-plus-dimension expressions; they do not establish nonzero dimensions. Preserve `GXGetScissor` subtracting 340 rather than the setter's 342. Offset validation also uses +340, while encoding uses unsigned +342 followed by a right shift. Clip mode is written unchanged to XF register 5.
+
+### Cross-file state and consumers
+HSD camera setup installs projection, viewport, and raster regions. Normal cameras use scaled scissor fields; top-half setup derives its scissor rectangle from viewport bounds; bottom-half setup uses scissor fields relative to `efbHeight-8`. Fog and particle rendering consume projection/viewport snapshots after installation. PObj computes prepared position and inverse-transpose normal matrices, with caller-side cache and lighting guards; TObj uploads effect-specific texture matrices, including the highlight fallback. These callers may use temporary matrices because immediate loaders consume their coefficients during the call rather than retaining pointers.
+
+### Evidence limits
+The rendered view reports 88 parse errors, zero substitutions, and function-name-only coverage. Assembly and parameter semantics were therefore assessed from canonical source, not inferred from rendering. No supplied compiled artifact proves `.sdata2` membership, layout, or consumers; its four baseline claims remain unresolved.
+
+Status: synthesized; independent review and live promotion pending.

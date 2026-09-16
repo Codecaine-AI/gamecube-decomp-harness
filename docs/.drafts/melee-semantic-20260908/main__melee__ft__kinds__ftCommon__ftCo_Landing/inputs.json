@@ -1,0 +1,1223 @@
+{
+  "head_revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "files": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Landing.c",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_Landing",
+      "sha256": "b0617103339bbc8e57a3fe5e7968a8424aa9044d4ef678cbfbb0ab2970222984",
+      "lines": 161,
+      "bytes": 4554
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Landing.h",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_Landing",
+      "sha256": "2f4792f0c6ae21bcd9bba750b75c7457db97d267dd4ebf9009381429da218b2a",
+      "lines": 20,
+      "bytes": 892
+    }
+  ],
+  "subjects": [
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:.data"
+      },
+      "facts": [
+        {
+          "id": "fact:9f89c9f4-0c82-4d05-a368-9862415836cf",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Landing:.data",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "ftCo_Landing_Enter supplies fp->kind as the dispatch index. The selected table entry transfers control to a switch destination that clears the appropriate character-specific landing fields, conditionally invokes Peach's landing helper, or performs no character-specific work through the default path; the table itself is not modified at runtime.",
+          "rationale": "The switch reads fp->kind and each destination performs a clearly delimited set of field writes or the Peach helper call before leaving the switch. Because the section represents the switch's internal branch destinations rather than mutable fighter state, information flows through it only as control selection.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-02T05:03:58.195Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L85",
+              "why": "The code identifies the FighterKind input and shows the field resets, conditional Peach call, and default no-op behavior reached by the dispatch."
+            }
+          ]
+        },
+        {
+          "id": "fact:7bfefee0-8029-411a-b397-71d70747f40c",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Landing:.data",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "An anonymous 27-entry table of 32-bit internal code targets, covering FighterKind values 0x00 through 0x1A inclusive; its table layout is 108 bytes, with repeated targets for fighter kinds that share a case or take the switch's default path.",
+          "rationale": "At the checkout head, FighterKind remains contiguous from FTKIND_MARIO at 0x00 through FTKIND_EMBLEM at 0x1A, and ftCo_Landing_Enter still uses a dense switch across that interval with grouped cases and a default path. This preserves the interpretation of the data as 27 four-byte branch destinations, with repeated destinations where kinds share behavior.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T22:43:43.359Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/forward.h#L1-L120",
+              "why": "The current header defines the contiguous FighterKind interval from FTKIND_MARIO at 0x00 through FTKIND_EMBLEM at 0x1A."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L85",
+              "why": "The landing initializer still switches on fighter kind, groups multiple kinds into shared case bodies, and sends unhandled kinds through the default path."
+            }
+          ]
+        },
+        {
+          "id": "fact:35e2ad14-ddd4-4faa-96bf-f23c787ab1f3",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Landing:.data",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides the compiler-generated dispatch table for ftCo_Landing_Enter's dense FighterKind switch, directing landing initialization to the applicable character-specific transient-state reset block or to the default path for fighter kinds requiring no reset.",
+          "rationale": "The matched landing initializer switches directly on fp->kind and contains distinct reset blocks for Mario/Dr. Mario, Peach, Marth/Roy, Game & Watch, the Ice Climbers, Kirby, and Mewtwo. The function's confirmed matching source shape and the dense enum domain explain the associated anonymous .data section as its switch dispatch table rather than authored gameplay parameters.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-02T05:03:58.195Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L85",
+              "why": "The source shows the dense switch on fp->kind and every character-specific landing reset destination represented by the dispatch table."
+            },
+            {
+              "kind": "pr",
+              "locator": "pr://pr-1893--fn--main-melee-ft-chara-ftcommon-ftco-landing-ftco-landing-enter--992230d734e5",
+              "why": "The pull-request record confirms that this switch-bearing ftCo_Landing_Enter implementation matched the original function."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:.sdata2"
+      },
+      "facts": [
+        {
+          "id": "fact:ee2adfc5-a080-4bd5-aec8-2a26c4facb4d",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Landing:.sdata2",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "The 0.0F literal is passed to Fighter_ChangeMotionState as the blend value and by the landing wrappers as the initial animation frame. The 1.0F literal supplies the ordinary and basic LandingFallSpecial playback rate. The 0.1F literal is added to fp->x2EC and the result is divided by the caller's landing_lag to produce the configurable LandingFallSpecial playback rate forwarded through ftCo_Landing_Enter.",
+          "rationale": "Each constant's consumer and downstream role is explicit in the matched source: ftCo_Landing_Enter forwards the values to Fighter_ChangeMotionState, while its wrappers select either fixed default values or a lag-derived animation speed.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T05:05:34.619Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L113",
+              "why": "The code directly shows where every float literal originates, how the configurable rate is calculated, and how the resulting values reach the shared landing initializer and motion-state transition."
+            }
+          ]
+        },
+        {
+          "id": "fact:8a89ca3b-d682-4918-908a-d92fb5306488",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Landing:.sdata2",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Supplies the numeric defaults used to begin Melee's normal and basic special landings at animation frame zero and normal speed, plus the offset used to scale a LandingFallSpecial animation to a caller-selected special-move landing-lag duration.",
+          "rationale": "The ordinary wrapper pairs frame 0 and speed 1 with ftCo_MS_Landing; the basic special wrapper uses the same defaults with ftCo_MS_LandingFallSpecial; and the configurable special wrapper uses 0.1F in its landing-lag-dependent speed calculation. Thus the pool supports both normal landing and special-move landing recovery without itself encoding a character-specific lag table.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-02T05:05:34.619Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L113",
+              "why": "The wrappers associate the literals with ftCo_MS_Landing and ftCo_MS_LandingFallSpecial and show the configurable special-landing rate calculation."
+            }
+          ]
+        },
+        {
+          "id": "fact:c2c0f511-98cc-4311-9afd-d54e5f73ed80",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Landing:.sdata2",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A 12-byte read-only small-data literal pool containing three 32-bit IEEE-754 float constants: 0.0F, 1.0F, and 0.1F.",
+          "rationale": "The section has space for exactly three single-precision values, and the matched translation unit requires exactly three distinct non-integer float literals. Their uses as float arguments and operands establish the element type and values.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-02T05:05:34.619Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L113",
+              "why": "The source explicitly uses 0.0F, 1.0F, and 0.1F as single-precision literals throughout the routines owned by this section."
+            }
+          ]
+        },
+        {
+          "id": "fact:42df3e2a-c428-4e7f-8a0a-3414b72c7df5",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Landing:.sdata2",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides the translation unit's compiler-emitted floating-point literal pool for common landing-state setup and LandingFallSpecial animation-rate calculation. It is supporting numeric storage rather than a developer-authored gameplay table.",
+          "rationale": "The matched unit uses only three distinct floating-point literals in its landing entry paths: 0.0F for the motion blend and initial animation frame, 1.0F for the default playback rate, and 0.1F in the configurable LandingFallSpecial rate expression. These literals account for the section's three-float shape and are consumed directly as constants rather than indexed or mutated as a table.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-02T05:05:34.619Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L113",
+              "why": "The complete landing-entry source shows all three distinct floating-point literals and their direct uses in motion-state configuration and special-landing playback-rate arithmetic."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter"
+      },
+      "facts": [
+        {
+          "id": "fact:98a1203d-98c1-4fc5-851f-fff8fb3f970e",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives a Fighter_GObj, an interrupt-policy boolean, and a landing-lag duration. It resolves the object's Fighter to read fp->x2EC, tests the object for Hammer handling, and either forwards the object to ftCo_HammerLanding_Enter or passes the object, ftCo_MS_LandingFallSpecial, allow_interrupt, Ft_MF_None, frame 0, and (0.1 + fp->x2EC) / landing_lag to ftCo_Landing_Enter. That initializer changes motion state and stores the interrupt policy in the fighter's landing move-state data.",
+          "rationale": "Every input, branch, computed value, and downstream argument is explicit in the target. The resolved body of ftCo_Landing_Enter establishes the final consumers of the forwarded motion configuration and interrupt policy.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:27:16.809Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+              "why": "The target shows the Fighter lookup, Hammer predicate, alternate destination, animation-rate calculation, and complete argument list forwarded to the shared initializer."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L91",
+              "why": "The shared initializer consumes the forwarded state and animation parameters in Fighter_ChangeMotionState and stores the forwarded interrupt policy."
+            }
+          ]
+        },
+        {
+          "id": "fact:d322e9ef-f823-4f6f-9a27-40f65c949506",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Realizes Melee's configurable special-move landing lag: aerial actions that end against the stage can enter the common LandingFallSpecial state with a move-specific recovery duration, while Hammer users retain their dedicated landing behavior.",
+          "rationale": "The target explicitly enters LandingFallSpecial and converts its landing_lag argument into animation playback speed. Captain Falcon's aerial side-special callers supply separate hit and miss landing-lag attributes, and Mr. Game & Watch's aerial up special supplies its own Rescue landing value. SmashWiki lists both Raptor Boost and Fire among moves that invoke helplessness in Melee, grounding these LandingFallSpecial transitions in the post-special recovery mechanic.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-02T00:27:16.809Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+              "why": "The target enters LandingFallSpecial with an animation rate derived from the requested landing-lag duration and redirects Hammer users."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCaptain/ftcaptainspecials.c#L394-L418",
+              "why": "Aerial Raptor Boost supplies distinct move-specific miss and hit landing-lag values to this routine."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialhi.c#L244-L279",
+              "why": "Fire's aerial collision handling supplies its move-specific Rescue landing value to this routine."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://helpless~moves-that-invoke-helplessness@r2044464",
+              "why": "The mechanics reference lists Raptor Boost and Mr. Game & Watch's Fire among moves that invoke helplessness in Melee."
+            }
+          ]
+        },
+        {
+          "id": "fact:26e4f8ea-1b04-4c6d-9478-0b57dab44570",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Synchronous fighter action-state entry routine with signature void ftCo_LandingFallSpecial_Enter(Fighter_GObj* gobj, bool allow_interrupt, float landing_lag). The second parameter is the interrupt policy stored for the landing state, and the third is a landing-lag duration used as the animation-rate divisor.",
+          "rationale": "The matched declaration gives the exact return and parameter types. The target forwards allow_interrupt to ftCo_Landing_Enter and divides the fighter's animation-length expression by landing_lag; the shared initializer stores the boolean in the landing move-state data.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:27:16.809Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+              "why": "The source provides the exact signature and shows both value parameters being forwarded or consumed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L91",
+              "why": "The delegated initializer stores allow_interrupt in fp->mv.co.landing.allow_interrupt and uses its animation-speed argument in Fighter_ChangeMotionState."
+            }
+          ]
+        },
+        {
+          "id": "fact:f728f57b-37fa-45bd-82ab-b43c1bf9e5ed",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Enters the common parameterized LandingFallSpecial state after an aerial special-move or special-fall landing, scaling the landing animation to the caller-supplied lag duration; if the fighter is carrying the Hammer, it redirects to the dedicated HammerLanding state instead.",
+          "rationale": "The target first tests the hammer-state predicate and redirects that case to ftCo_HammerLanding_Enter. Otherwise it invokes the shared landing initializer with ftCo_MS_LandingFallSpecial and an animation rate computed from the fighter's animation-length value and the supplied landing_lag. Callers for aerial Raptor Boost and Fire pass move-specific landing values, confirming that this is the common configurable entry point for such landings.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:27:16.809Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+              "why": "The complete target body shows the HammerLanding redirection and the parameterized LandingFallSpecial entry with lag-derived animation speed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCaptain/ftcaptainspecials.c#L394-L418",
+              "why": "Two aerial Raptor Boost collision callbacks invoke the target with distinct miss and hit landing-lag attributes."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialhi.c#L244-L279",
+              "why": "Mr. Game & Watch's aerial up-special collision callback invokes the target with its Rescue-specific landing value."
+            }
+          ]
+        },
+        {
+          "id": "fact:41195b51-c435-4ecc-a6dc-219ca209ca88",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "The function has two immediate transition paths. When ftCo_800C5240 reports Hammer handling, it enters HammerLanding and ignores the requested special-fall configuration. Otherwise it enters ftCo_MS_LandingFallSpecial at frame 0 with no motion flags, records the caller's allow_interrupt policy, and sets playback speed to (0.1 + fp->x2EC) / landing_lag so the caller-selected duration controls the landing animation.",
+          "rationale": "The target's sole guard determines whether HammerLanding or LandingFallSpecial is entered. Its non-hammer call fixes the motion state, flags, and starting frame while deriving speed from landing_lag; the delegated initializer performs the transition and records allow_interrupt.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:27:16.809Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+              "why": "The complete body shows the mutually exclusive HammerLanding and configured LandingFallSpecial paths."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L91",
+              "why": "The delegated initializer performs the requested motion-state transition and persists allow_interrupt in the landing move state."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter_Basic"
+      },
+      "facts": [
+        {
+          "id": "fact:ec3729a8-3bdd-48a2-82d3-100c8b093ff4",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter_Basic",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Consumes a Fighter_GObj and passes it to ftCo_800C5240 as the hammer-path condition. It then forwards the unchanged object either to ftCo_HammerLanding_Enter or to ftCo_Landing_Enter with ftCo_MS_LandingFallSpecial, allow_interrupt=false, Ft_MF_None, animation start frame 0.0, and playback rate 1.0; the shared initializer stores the false interrupt policy in the fighter's landing move state.",
+          "rationale": "The wrapper explicitly forwards gobj and all default constants to the selected entry routine. The resolved surrounding initializer shows that its allow_interrupt argument is persisted in fp->mv.co.landing.allow_interrupt, establishing the downstream destination of the wrapper's false value.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:26:33.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L101",
+              "why": "The exact wrapper body shows the predicate, both destinations, unchanged object forwarding, and every special-landing configuration argument."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L160",
+              "why": "The surrounding source shows ftCo_Landing_Enter storing allow_interrupt and the Landing IASA callback later reading it."
+            }
+          ]
+        },
+        {
+          "id": "fact:f7cbfa49-b6c9-478a-9740-404a3d60fdcd",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter_Basic",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the default special-landing recovery used when a fighter reaches the ground from special fall, including the non-interruptible LandingFallSpecial state; the same game state also represents Melee's air-dodge landing lag. Hammer-equipped fighters instead use hammer-specific landing behavior.",
+          "rationale": "The matched body enters the explicitly named ftCo_MS_LandingFallSpecial state with allow_interrupt=false unless the hammer path applies. SmashWiki independently identifies LandingFallSpecial as the code state for special landing lag after helplessness and notes that it also applies to Melee air dodges.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-02T00:26:33.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L101",
+              "why": "The function explicitly selects LandingFallSpecial with interrupts disabled or redirects to HammerLanding."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://lag~special-landing@r2044182",
+              "why": "The wiki grounds the LandingFallSpecial code state in the special-landing-lag mechanic and documents its use after helplessness and air dodges in Melee."
+            }
+          ]
+        },
+        {
+          "id": "fact:1e6c4cde-8d7c-48c3-ab84-e926563b6296",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter_Basic",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "void (Fighter_GObj* gobj); a fighter action-state entry routine taking the fighter's game object and returning no value.",
+          "rationale": "The matched declaration establishes the exact return type and sole parameter, and both branches forward that Fighter_GObj to a landing-state entry routine.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:26:33.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L101",
+              "why": "The declaration and body directly establish the function signature and action-state entry role."
+            }
+          ]
+        },
+        {
+          "id": "fact:03a73b0b-0a07-4a7d-b1c6-2028ac7beea5",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter_Basic",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides the default common entry point for special landing: it redirects a fighter requiring hammer-specific landing behavior to HammerLanding and otherwise starts the standard LandingFallSpecial state with its default animation configuration and interrupts disabled.",
+          "rationale": "The complete matched body consists of a hammer-path test followed either by ftCo_HammerLanding_Enter or by the shared landing initializer configured for ftCo_MS_LandingFallSpecial, no motion flags, frame 0, rate 1, and allow_interrupt=false.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:26:33.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L101",
+              "why": "The function body directly shows the hammer-specific dispatch and the default LandingFallSpecial initialization."
+            }
+          ]
+        },
+        {
+          "id": "fact:cafb611a-30c7-4f9c-8bc7-8b9de7ab7ac1",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter_Basic",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "On entry, tests whether the fighter must use hammer landing. A true result transitions through ftCo_HammerLanding_Enter; otherwise it enters ftCo_MS_LandingFallSpecial at frame 0 with normal playback rate and no motion flags. Because this basic variant supplies allow_interrupt=false, the shared Landing IASA callback cannot accept grounded action interrupts during the state; animation completion exits through the common landing animation handler.",
+          "rationale": "The wrapper directly establishes the two mutually exclusive state-entry paths and special-fall initialization constants. The shared initializer persists the false interrupt policy, and the unit's IASA callback returns whenever that policy is false, while its animation callback exits once no animation frames remain.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-02T00:26:33.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L101",
+              "why": "The wrapper shows the hammer guard and the LandingFallSpecial transition with interrupts disabled."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L160",
+              "why": "The surrounding initializer and callbacks show storage of the interrupt policy, its IASA guard, and animation-completion exit behavior."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Anim"
+      },
+      "facts": [
+        {
+          "id": "fact:ae010b83-3388-4c6d-b86b-cc98e66b4f31",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Anim",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Consumes the supplied Fighter_GObj only by passing it unchanged to ftAnim_IsFramesRemaining. If no animation frames remain, it forwards the same object to ft_8008A2BC, which inspects fighter kind and routes ordinary fighters through the common neutral-state transition.",
+          "rationale": "The landing callback performs no direct field access or transformation: the object is passed to the frame query and conditionally to ft_8008A2BC. At the checkout head, that completion helper still handles Master Hand and Crazy Hand separately and forwards other fighters to ft_8008A348, whose common completion path handles exceptional conditions before entering Wait.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:43:43.359Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The callback passes the same Fighter_GObj to the remaining-frame query and, after animation exhaustion, to ft_8008A2BC."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+              "why": "The current completion helper checks fighter kind, handles the two Hand bosses specially, and routes other fighters through ft_8008A348 toward Wait or an exceptional common neutral state."
+            }
+          ]
+        },
+        {
+          "id": "fact:314a60c6-def2-4dcb-9d36-0f7c2764f7e4",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Anim",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the animation-expiry boundary of Melee's common landing behavior: the fighter remains in the landing action while its animation is active and returns through the common neutral-state path when it ends. The same completion behavior is reused by aerial-landing states.",
+          "rationale": "The code places this callback among the common Landing state callbacks and makes animation exhaustion trigger the common action-ending helper, while LandingAir explicitly delegates to it. SmashWiki independently identifies normal landing in Melee as a landing animation with a finite lag duration, grounding the callback in the observable landing mechanic.",
+          "confidence": 0.95,
+          "updated_at": "2026-09-02T00:26:08.327Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The resolved unit context places this animation-completion function alongside the Landing interrupt, physics, and collision callbacks and the LandingFallSpecial entry routines."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L68-L71",
+              "why": "The LandingAir animation callback directly reuses this common landing completion handler."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://lag~normal-landing@r2044182",
+              "why": "The mechanics reference describes Melee's normal landing animation and its finite landing-lag duration."
+            }
+          ]
+        },
+        {
+          "id": "fact:49da33a9-88f7-4307-a653-049510ec2449",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Anim",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Fighter action-state animation callback with signature void ftCo_Landing_Anim(Fighter_GObj* gobj).",
+          "rationale": "The resolved definition explicitly returns void, accepts one Fighter_GObj pointer, and performs per-update animation completion processing.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:26:08.327Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L115-L120",
+              "why": "The definition provides the exact return type and parameter type and shows animation-callback behavior."
+            }
+          ]
+        },
+        {
+          "id": "fact:60f753f9-66f3-436f-8b1b-a20a6e9b1491",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Anim",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides the common landing animation callback: it monitors the current landing animation and invokes the shared action-ending transition when that animation finishes. Other landing callbacks, including LandingAir, reuse this handler.",
+          "rationale": "The matched body consists of a remaining-frames guard followed by the common action-ending helper. The LandingAir animation callback delegates directly to this function, showing that it is a reusable landing completion handler rather than logic exclusive to one entry routine.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:26:08.327Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L115-L120",
+              "why": "The complete matched body checks whether animation frames remain and calls ft_8008A2BC only after they are exhausted."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L68-L71",
+              "why": "The aerial-landing animation callback delegates directly to ftCo_Landing_Anim, demonstrating reuse of the common landing completion behavior."
+            }
+          ]
+        },
+        {
+          "id": "fact:63b9bdeb-c630-41cd-b82c-be4a5e9439b9",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Anim",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "While animation frames remain, the callback leaves the current landing state unchanged. Once no frames remain, it exits through ft_8008A2BC; for ordinary fighters that helper follows the common neutral-state path, normally entering Wait while preserving its exceptional common-state handling.",
+          "rationale": "The current landing callback retains a single transition guard based on animation exhaustion. The current implementation of ft_8008A2BC still dispatches Master Hand and Crazy Hand separately and otherwise calls ft_8008A348, which checks exceptional common conditions before changing the fighter to Wait.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T22:43:43.359Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The callback performs no transition while animation frames remain and calls its sole completion helper precisely when the frame query becomes false."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+              "why": "The current completion path distinguishes the two Hand bosses and otherwise invokes the common neutral transition, which handles exceptional conditions before entering Wait."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Coll"
+      },
+      "facts": [
+        {
+          "id": "fact:604f50d6-b267-4b71-b99a-eb90393ece8d",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Coll",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives the active fighter game object and passes that pointer unchanged to ft_80084280, with no local field access or return-value processing. Any fighter collision or motion-state changes produced by the delegated call remain on the attached fighter and may be inspected by state-specific callers after ftCo_Landing_Coll returns.",
+          "rationale": "The target contains only an unchanged one-argument call. Mr. Game & Watch's back-aerial landing callback calls the target and then reads the attached fighter's motion_id, demonstrating that callers consume the fighter's post-collision state after delegation completes.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-02T00:26:15.943Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L157-L160",
+              "why": "The target forwards gobj unchanged and performs no other local operation."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L640-L648",
+              "why": "This caller invokes ftCo_Landing_Coll and subsequently reads motion_id from the same fighter to decide whether exit cleanup is needed."
+            }
+          ]
+        },
+        {
+          "id": "fact:c7b98d3f-1fa9-487a-ad57-fc8948350592",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Coll",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A fighter action-state collision callback with signature void(Fighter_GObj*).",
+          "rationale": "The matched definition explicitly returns void and accepts one Fighter_GObj pointer. Its Coll suffix and use by the corresponding LandingAir Coll callback establish its action-state collision-callback role.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:26:15.943Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L157-L160",
+              "why": "The complete definition provides the void return type and single Fighter_GObj* parameter."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L80-L83",
+              "why": "The neighboring LandingAir Coll callback has the same signature and delegates directly to the target."
+            }
+          ]
+        },
+        {
+          "id": "fact:41eaaeec-0005-4acf-8e9f-09ed38b0d839",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Coll",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Serves as the common collision callback for landing states, delegating fighter collision processing to ft_80084280 so ordinary Landing, common aerial-attack landing, and character-specific aerial-landing callbacks can share the same underlying handling.",
+          "rationale": "The complete target body forwards its fighter object to ft_80084280. The common LandingAir callback, in turn, consists solely of forwarding to this target, while Mr. Game & Watch's state-specific landing callback invokes it before applying character-specific exit cleanup. Together these call relationships establish the target as the shared landing collision layer rather than logic unique to normal landing.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-02T00:26:15.943Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L157-L160",
+              "why": "The complete target body shows that all of its collision work is delegated to ft_80084280."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L80-L83",
+              "why": "The common aerial-attack landing collision callback directly reuses ftCo_Landing_Coll without additional processing."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L640-L648",
+              "why": "A character-specific aerial-landing callback invokes ftCo_Landing_Coll before performing its own state-exit cleanup."
+            }
+          ]
+        },
+        {
+          "id": "fact:57f05e71-5ce5-40cb-8def-b51c777a998f",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Coll",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Applies collision processing unconditionally on every invocation and introduces no landing-state-specific guard or transition of its own; transition effects are delegated to ft_80084280. Common LandingAir reuses this behavior unchanged, while specialized callers may test the resulting motion state and react after the call.",
+          "rationale": "The target has no branches around its sole delegated call, and the LandingAir wrapper adds no behavior. The Mr. Game & Watch caller's post-call comparison against LandingAirB shows how a specialized state detects and handles a transition resulting from the common collision update.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-02T00:26:15.943Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L157-L160",
+              "why": "The complete body unconditionally calls ft_80084280 and contains no local guard or explicit state transition."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L80-L83",
+              "why": "The common LandingAir callback delegates unconditionally to the target, showing unchanged reuse across landing-state families."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L640-L648",
+              "why": "A specialized caller checks its motion state after common collision processing and performs cleanup only if that processing left LandingAirB."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter"
+      },
+      "facts": [
+        {
+          "id": "fact:7d9e1bc9-5f00-49f4-a9fb-4a6f2ae3da61",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Converts gobj to its Fighter, passes gobj plus msid, flags, anim_start, and anim_speed into Fighter_ChangeMotionState with zero blend and no callback, and stores allow_interrupt in fp->mv.co.landing.allow_interrupt. It then uses fp->kind to clear the applicable Mario, Peach, Marth/Roy, Game & Watch, Ice Climbers, Kirby, or Mewtwo transient fields; Peach additionally receives ftPe_8011D598(gobj) when interrupts are allowed.",
+          "rationale": "All of these flows are explicit in the matched function: transition parameters are forwarded unchanged, the interrupt argument becomes persistent move-state data, and the fighter-kind switch determines the character-specific writes and conditional Peach call.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-01T23:17:33.317Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L91",
+              "why": "The source directly identifies the forwarded transition arguments, stored interrupt flag, fighter-kind dispatch, field resets, and conditional Peach helper call."
+            }
+          ]
+        },
+        {
+          "id": "fact:37d7510f-9897-411d-8890-9a4447e834bf",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Provides the shared state initialization behind Melee's generic normal landing and special-fall landing behaviors. On the normal-landing path it enters ftCo_MS_Landing and supports the ordinary landing animation and lag interval before grounded actions can interrupt; it also terminates character-specific airborne move resources and boost flags at landing.",
+          "rationale": "The ordinary wrapper calls this initializer with ftCo_MS_Landing, while the special-fall wrappers call it with ftCo_MS_LandingFallSpecial. The IASA callback enforces the normal landing lag threshold, and the initializer clears named airborne-move fields. SmashWiki independently describes Melee's normal landing animation and its landing-lag interval, while the resolved Discord trace identifies the basic wrapper as the no-aerial-specific-lag landing fallback.",
+          "confidence": 0.94,
+          "updated_at": "2026-09-01T23:17:33.317Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L91",
+              "why": "The ordinary wrapper enters ftCo_MS_Landing through this function, whose fighter-kind switch clears several named aerial-move resources and boosts."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The source shows the same initializer serving LandingFallSpecial and shows normal landing lag gating grounded input interrupts."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://lag~normal-landing@r2044182",
+              "why": "The wiki describes Melee's normal landing animation and the lag incurred before normal post-landing activity."
+            },
+            {
+              "kind": "discord",
+              "locator": "discord://message/1543657073210818620",
+              "why": "The community code trace identifies ftCo_Landing_Enter_Basic as the generic fallback used when aerial-specific landing handling does not apply and notes that this path does not add aerial-attack landing lag."
+            }
+          ]
+        },
+        {
+          "id": "fact:c586fe8e-5ab9-4c22-9805-eb547a05344e",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "void (Fighter_GObj* gobj, FtMotionId msid, bool allow_interrupt, MotionFlags flags, float anim_start, float anim_speed); a parameterized fighter action-state entry routine whose arguments select the landing motion, interrupt policy, motion flags, initial animation frame, and animation playback rate.",
+          "rationale": "The matched declaration directly establishes the signature, and each parameter's role is demonstrated by its use in Fighter_ChangeMotionState or assignment to the landing move-state interrupt field.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-01T23:17:33.317Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L91",
+              "why": "The function declaration supplies the complete typed signature, while the body shows how every configuration parameter is consumed."
+            }
+          ]
+        },
+        {
+          "id": "fact:0a0ca37a-5083-46da-9a5b-67acdd58f2aa",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Serves as the configurable common landing-state initializer: it performs common fighter preparation, enters a caller-selected landing motion with caller-selected animation parameters, records whether the landing may become interruptible, and clears character-specific transient aerial-move state that must not persist after landing.",
+          "rationale": "The matched body calls the common preparation routine, forwards its motion and animation arguments to Fighter_ChangeMotionState, stores allow_interrupt, and then resets a fighter-kind-specific set of flags and counters. Its basic and LandingFallSpecial wrappers use the same function with different state IDs and interrupt policies, confirming that it is a shared initializer rather than an ordinary-landing-only wrapper.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-01T23:17:33.317Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L91",
+              "why": "The matched source directly shows common preparation, the parameterized motion transition, storage of the interrupt policy, character-specific resets, and the ordinary-landing wrapper."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The LandingFallSpecial wrappers invoke the same initializer with a different state, interrupt policy, and animation rate, demonstrating its shared configurable role."
+            }
+          ]
+        },
+        {
+          "id": "fact:5a3ab65a-420c-4ce4-932a-7bfab743a6dc",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "On invocation, prepares the fighter and immediately changes to the requested landing motion state, then initializes that landing state's interrupt policy and clears fighter-specific transient state. The stored policy is later enforced by ftCo_Landing_IASA: input-driven transitions are blocked until normal landing lag has elapsed and remain blocked entirely when allow_interrupt is false.",
+          "rationale": "The initializer performs the transition before recording allow_interrupt and applying character-specific resets. The unit's IASA callback later reads the stored flag only after checking the current animation frame against normal_landing_lag, establishing the behavioral consequence of the entry argument.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-01T23:17:33.317Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L91",
+              "why": "The matched function shows the ordered preparation, state transition, interrupt-policy initialization, and fighter-specific resets."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The Landing IASA callback demonstrates that the stored allow_interrupt value gates action transitions after the landing-lag frame threshold."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter_Basic"
+      },
+      "facts": [
+        {
+          "id": "fact:805772c0-9e3f-47f0-b82c-a73b40e43885",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter_Basic",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Consumes a Fighter_GObj, passes it first to ftCo_800C5240 as the hammer-path condition, then forwards the unchanged object either to ftCo_HammerLanding_Enter or to ftCo_Landing_Enter with motion state ftCo_MS_Landing, boolean true, Ft_MF_None, start frame 0.0, and animation rate 1.0.",
+          "rationale": "Every input and output path is explicit in the matched body: the object is not locally transformed, and the branch result determines which state-entry callee consumes it. The constants on the ordinary path define the standard wrapper configuration.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-01T23:13:51.912Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L83-L91",
+              "why": "The code explicitly shows the predicate input, unchanged object forwarding, selected callees, and all ordinary-landing arguments."
+            }
+          ]
+        },
+        {
+          "id": "fact:280e40a0-41cd-4925-8810-2f109be62c80",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter_Basic",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Maps floor contact that does not require an aerial-attack or special landing to Melee's generic normal landing, without adding aerial-attack landing lag; hammer users instead receive their hammer-specific landing behavior.",
+          "rationale": "The source enters the generic ftCo_MS_Landing state unless the hammer condition applies. The resolved Discord trace specifically says this fallback is reached after aerial-specific handling finds no applicable normal aerial attack and that this routine does not impose that landing lag. SmashWiki separately identifies normal landing as the ordinary landing mechanic in Melee.",
+          "confidence": 0.93,
+          "updated_at": "2026-09-01T23:13:51.912Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L83-L91",
+              "why": "The fallback branch enters ftCo_MS_Landing, while the guarded branch selects HammerLanding."
+            },
+            {
+              "kind": "discord",
+              "locator": "discord://message/1543657073210818620",
+              "why": "The community code trace explains that this function is the no-aerial-specific-landing fallback and does not impose aerial landing lag."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://lag~normal-landing@r2044182",
+              "why": "The wiki defines normal landing as the behavior characters undergo when landing under ordinary circumstances in Melee."
+            }
+          ]
+        },
+        {
+          "id": "fact:ce4f2a02-cf68-435f-a0d9-cf21956802fc",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter_Basic",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "void (Fighter_GObj* gobj); a fighter action-state entry routine taking the fighter's game object and returning no value.",
+          "rationale": "The matched function declaration directly establishes the return type and sole parameter, while both branches consume the same Fighter_GObj pointer through state-related callees.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-01T23:13:51.912Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L83-L91",
+              "why": "The declaration is void ftCo_Landing_Enter_Basic(Fighter_GObj* gobj), and the body forwards gobj to the selected landing entry routine."
+            }
+          ]
+        },
+        {
+          "id": "fact:e6756da9-c6a6-4757-8ad5-b09b0e0ab324",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter_Basic",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides the basic common landing entry point: it redirects a fighter requiring hammer-specific landing behavior to HammerLanding and otherwise invokes the configurable landing entry routine with the standard ordinary-landing parameters.",
+          "rationale": "The complete matched body consists of a hammer-condition test followed by exactly these two entry paths. The Discord code trace independently identifies this function as the fallback reached when an aerial-specific landing is not selected.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-01T23:13:51.912Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L83-L91",
+              "why": "The matched body directly shows the hammer-specific dispatch and the standard ftCo_Landing_Enter call."
+            },
+            {
+              "kind": "discord",
+              "locator": "discord://message/1543657073210818620",
+              "why": "The resolved community code trace identifies ftCo_Landing_Enter_Basic as the generic fallback reached after aerial-landing handling declines to select a normal aerial-attack landing."
+            }
+          ]
+        },
+        {
+          "id": "fact:ce13bca9-aa32-48d8-adab-87d56ba9f2de",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter_Basic",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "On entry, tests whether the fighter must use hammer landing. A true result transitions through ftCo_HammerLanding_Enter; a false result enters ftCo_MS_Landing through ftCo_Landing_Enter, beginning at frame 0 with normal playback rate and no motion flags.",
+          "rationale": "The conditional and both state-entry calls are directly visible in the matched source. The named motion state and explicit frame, rate, and flag arguments establish the ordinary branch's transition configuration.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-01T23:13:51.912Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L83-L91",
+              "why": "The function contains the hammer guard and the two mutually exclusive landing-state entry paths, including the ordinary state's initialization arguments."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_IASA"
+      },
+      "facts": [
+        {
+          "id": "fact:1e9e752a-4c5e-4ad6-aace-a1e1f1527af5",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_IASA",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads the fighter's current animation frame, character-specific normal_landing_lag attribute, Landing-state allow_interrupt flag, and animation frame-speed multiplier. Once its gates pass, it forwards the Fighter_GObj to ordered special, attack, grab, defensive, taunt, jump, dash, crouch, turn, and walk input handlers; the first handler returning true supplies the resulting action-state transition, while this function performs no direct fighter-state mutation.",
+          "rationale": "All four fighter values are read explicitly in the matched body. The object is then passed unchanged to each transition predicate, and every successful predicate immediately exits the callback. There are no assignments to fighter state in this function, so state changes are outputs of the accepted handler rather than direct writes here.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-01T23:16:52.850Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L122-L150",
+              "why": "The code directly exposes the fighter-field reads, the object flow into every input handler, the success exits, and the absence of direct state writes."
+            }
+          ]
+        },
+        {
+          "id": "fact:de92a277-1460-43c1-8087-da390bb07697",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_IASA",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Realizes the interruptible or actionable portion of Melee's normal-landing lag: the fighter cannot act before its configured landing-lag threshold and animation-script interrupt flag permit it, after which accepted attack, grab, jump, movement, and other grounded commands can cancel the remaining Landing animation.",
+          "rationale": "The source gates all action checks on normal_landing_lag and allow_interrupt, then dispatches to grounded action handlers. SmashWiki defines interruptibility/IASA as the point at which a new action can cancel the remainder of an animation and specifically notes that Melee's interruptibility is enabled through animation scripts, matching the code's allow_interrupt gate.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-01T23:16:52.850Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L122-L150",
+              "why": "The Landing IASA body blocks actions until both landing lag and the script-controlled interrupt flag allow them, then checks actions that can replace Landing."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://interruptibility~overview@r1927829",
+              "why": "The article defines IASA/first actionable frames as the window where a new action cancels the remaining animation and explains that Melee enables interruptibility through animation scripts."
+            }
+          ]
+        },
+        {
+          "id": "fact:260009f7-ec19-4446-8a1f-bff58e38d070",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_IASA",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A fighter motion-state IASA callback with signature void (Fighter_GObj*). It may cause a callee to change the fighter's action state, but communicates success internally by returning immediately after the first transition predicate reports true.",
+          "rationale": "The matched declaration directly establishes the void/Fighter_GObj* signature. Its state-callback role is demonstrated by the IASA symbol and by its chain of boolean CheckInput routines whose successful results terminate processing rather than being returned to an external caller.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-01T23:16:52.850Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L122-L150",
+              "why": "The source provides the concrete signature and shows a void callback dispatching through state-changing input predicates with immediate exits."
+            }
+          ]
+        },
+        {
+          "id": "fact:a386cd1a-3c9d-4c34-b45a-f15120e907ae",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_IASA",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Controls which grounded actions may interrupt the common Landing state: after the fighter has served its configured normal landing lag and the landing animation has enabled interruption, it tests competing action inputs in priority order and stops as soon as one transition is accepted.",
+          "rationale": "The function first blocks all transition checks while the current animation frame is below normal_landing_lag or while allow_interrupt is false. It then invokes an ordered series of input-transition predicates, each through an immediate-return guard, proving that it is the Landing state's interrupt-selection callback and that the first accepted action wins.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-01T23:16:52.850Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L122-L150",
+              "why": "The complete matched body shows the landing-lag and allow_interrupt gates followed by the ordered early-return chain of action-input handlers."
+            }
+          ]
+        },
+        {
+          "id": "fact:9f292f84-f390-43e5-858e-f034cb928824",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_IASA",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "While cur_anim_frame is less than normal_landing_lag, or while the Landing-state allow_interrupt flag is clear, the callback permits no input-driven transition. Once both guards pass, it checks actions in this priority order: side special; rapid-attack handlers; grab; smash attacks; tilts; neutral attack; defensive and taunt handlers; jump; dash; a narrowly time-gated SquatWait transition; turn; then walk. The first successful check ends processing. SquatWait is considered only while cur_anim_frame is below normal_landing_lag plus frame_speed_mul, restricting it to the initial actionable-frame interval.",
+          "rationale": "This claim follows the matched control flow exactly. The two initial RETURN_IF statements establish the non-interruptible phase, the subsequent RETURN_IF chain establishes transition priority, and the additional frame comparison around SquatWait uniquely limits that transition to the interval immediately following the landing-lag threshold.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-01T23:16:52.850Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L122-L150",
+              "why": "The full function directly shows both initial guards, every transition check in order, first-success termination, and SquatWait's extra timing condition."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Phys"
+      },
+      "facts": [
+        {
+          "id": "fact:f2c6f008-5c52-45ea-8d70-53d6f8e5ba5a",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Phys",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives the landing state's Fighter_GObj pointer and passes it unchanged to ft_80084F3C. That helper obtains the Fighter, reads ground velocity, maximum walking speed, and ground-friction attributes, scales the selected friction by p_ftCommonData->friction_when_above_walk_speed when ground-speed magnitude exceeds maximum walking speed, applies the resulting friction, and then updates grounded movement. The target itself performs no local reads, writes, or return-value processing.",
+          "rationale": "The target remains a one-call forwarding wrapper. The current helper exposes the fighter fields and common-data multiplier it consumes, then passes the selected friction to the ground-friction routine before applying ground movement. The rewritten value uses the current semantic field name in place of its former offset-style name.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:04:01.754Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The current target passes its sole argument unchanged to ft_80084F3C and performs no other operation."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L60",
+              "why": "The current helper reads ground velocity, walk-speed limit, and ground friction, conditionally multiplies friction by friction_when_above_walk_speed, and applies friction and grounded movement."
+            }
+          ]
+        },
+        {
+          "id": "fact:b14aec6f-9c40-4c34-b0ed-0ffd0fcaf241",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Phys",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the grounded movement and deceleration portion of Melee's normal-landing state, operating while the fighter undergoes the normal landing animation and its associated landing lag.",
+          "rationale": "The current unit identifies this routine as the Landing state's physics callback and places it beside the landing animation and lag-gated IASA callbacks. Its delegated helper applies ground friction and movement, so this function realizes the movement portion of normal landing without controlling landing timing or state exit.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T19:04:01.754Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The current unit places ftCo_Landing_Phys in the common Landing callback set and shows the associated normal-landing-lag guard in Landing IASA."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L60",
+              "why": "The delegated helper performs grounded friction and movement, establishing the mechanical portion handled by the physics callback."
+            }
+          ]
+        },
+        {
+          "id": "fact:01907fc7-c993-4542-99fd-ff1e3d2db71a",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Phys",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Action-state physics callback with signature void(Fighter_GObj* gobj): it receives the fighter's game object and returns no value.",
+          "rationale": "The matched definition explicitly returns void and accepts one Fighter_GObj pointer. Its Landing_Phys identity and delegation to a fighter movement helper establish its action-state physics callback category.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:25:57.862Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L152-L155",
+              "why": "The resolved definition directly provides the void return type, Fighter_GObj pointer parameter, and physics-helper call."
+            }
+          ]
+        },
+        {
+          "id": "fact:cfa895e2-caae-4d74-948a-0603ff6cb00a",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Phys",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Supplies the common landing state's per-frame physics callback by delegating to the standard grounded friction and movement routine.",
+          "rationale": "The complete current target body only forwards the fighter game object to ft_80084F3C. The current helper applies speed-sensitive ground friction and then grounded movement, confirming that the callback supplies landing's routine physics update.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:04:01.754Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The complete current callback unconditionally forwards the fighter object to ft_80084F3C."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L60",
+              "why": "The current delegated helper selects and applies ground friction and then applies grounded movement."
+            }
+          ]
+        },
+        {
+          "id": "fact:d3854e0b-dd93-44ba-af63-c939f07760f0",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Phys",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "While the common Landing state is active, this callback unconditionally performs its grounded physics step on each invocation. It contains no timer, input guard, collision test, or state transition of its own; the delegated helper decelerates ground velocity using ground friction, with speed-dependent friction scaling above the fighter's walk-speed limit, and then applies ground movement.",
+          "rationale": "The current callback has no branch or transition and always invokes the same helper. The helper's sole condition changes the friction amount when ground-speed magnitude exceeds the walk-speed limit, after which it applies friction and movement; therefore this callback updates movement but does not govern entry or exit.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:04:01.754Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+              "why": "The complete current callback contains no guard, timer, input handling, collision handling, or transition and always invokes ft_80084F3C."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L60",
+              "why": "The current delegated routine compares ground speed with maximum walking speed, selects scaled or unscaled friction, and applies friction followed by grounded movement."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_Landing.c"
+      },
+      "facts": [
+        {
+          "id": "fact:c26a67bf-34f4-4e91-b16e-60da37500baa",
+          "target_id": null,
+          "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Landing.c",
+          "type": "data_flow",
+          "value": "Landing wrappers funnel a Fighter_GObj and state-specific defaults into ftCo_Landing_Enter. That initializer forwards the requested motion ID, motion flags, animation start frame, and playback rate to Fighter_ChangeMotionState, stores the interrupt policy in the fighter's landing move state, and clears character-specific transient flags. Landing IASA later reads that policy together with normal-landing lag and current animation timing before dispatching input checks.",
+          "rationale": "The current initializer and IASA callback still expose the same parameter flow, persistent policy write, transient-state resets, and timing consumers.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T03:49:15.352Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L41-L160",
+              "why": "Shows wrapper arguments flowing into motion entry and landing-state fields, then being consumed by IASA."
+            }
+          ]
+        },
+        {
+          "id": "fact:d75d4b8a-48a6-44a5-9257-6d43b87df898",
+          "target_id": null,
+          "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Landing.c",
+          "type": "game_mapping",
+          "value": "Realizes Melee's common landing machinery for both normal landing and special landing: ordinary entries use ftCo_MS_Landing, while landings from special fall use ftCo_MS_LandingFallSpecial and can impose a non-interruptible recovery animation. Fighters on the Hammer path are redirected to HammerLanding.",
+          "rationale": "The current source explicitly selects Landing, LandingFallSpecial with allow_interrupt false in the basic wrapper, or HammerLanding according to the Hammer predicate.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T03:49:15.352Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L41-L160",
+              "why": "Shows the normal, special-fall, and Hammer landing paths and their interrupt configuration."
+            }
+          ]
+        },
+        {
+          "id": "fact:0287b277-3614-4a0b-8e00-0f333e0c0f4e",
+          "target_id": null,
+          "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Landing.c",
+          "type": "purpose",
+          "value": "Implements common landing entry for ordinary, special-fall, and Hammer paths, plus animation completion, post-lag input interrupts, grounded physics, and collision handling.",
+          "rationale": "The current initializer, wrappers, and callback suite preserve the unit's established role.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-06T03:31:38.337Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L1-L160",
+              "why": "Shows configurable landing initialization, ordinary and special-fall wrappers, Hammer redirects, and callbacks."
+            }
+          ]
+        },
+        {
+          "id": "fact:9d475c4f-a808-4b2d-a2a7-ea27dcb5d0d0",
+          "target_id": null,
+          "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Landing.c",
+          "type": "state_behavior",
+          "value": "The unit can enter ordinary Landing or LandingFallSpecial, with a hammer predicate redirecting basic entries to HammerLanding. Landing remains non-interruptible until normal landing lag has elapsed and the entry's allow_interrupt flag is true; afterward IASA tests attacks, grabs, jumps, movement, and other grounded actions. Animation completion exits through ft_8008A2BC, while physics and collision delegate to common grounded handlers.",
+          "rationale": "The current wrappers and callbacks directly preserve all three entry choices, both interrupt guards, the ordered action checks, and the completion and update behavior.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T03:49:15.352Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L41-L160",
+              "why": "Shows Landing, LandingFallSpecial, and HammerLanding selection and the complete callback behavior."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter#r5"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_LandingFallSpecial_Enter_Basic#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Anim#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Coll#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter#r5"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter#r6"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter#r7"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter#r8"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Enter_Basic#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_IASA#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Landing:ftCo_Landing_Phys#r3"
+      },
+      "facts": []
+    }
+  ]
+}

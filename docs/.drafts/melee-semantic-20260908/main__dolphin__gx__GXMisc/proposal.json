@@ -1,0 +1,148 @@
+{
+  "tu": "main/dolphin/gx/GXMisc",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L169-L176",
+            "why": "Assertion precedes the replacement write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L361-L368",
+            "why": "Verified startup arguments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the assertion-free description while retaining the verified replacement behavior and startup default.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXMisc:GXPokeAlphaMode"
+        },
+        "type": "state_behavior",
+        "value": "Each call applies the GXBegin assertion, then replaces the direct Pixel Engine alpha-mode register with `(func << 8) | threshold`; there is no unchanged-value check or intermediate state. GX startup calls GXPokeAlphaMode(GX_ALWAYS, 0), selecting an always-passing comparison."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L199-L213",
+            "why": "Complete packing and store sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L276-L276",
+            "why": "PE register pointer has u16 elements."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates temporary packing from the actual halfword destination, avoiding a false high-byte register-write implication.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXMisc:GXPokeBlendMode"
+        },
+        "type": "data_flow",
+        "value": "Reads the 16-bit __peReg[1] value into a u32 temporary, replaces blend enable at bit 0, logic enable at bit 1, destination factor at bits 5\u20137, source factor at bits 8\u201310, subtract enable at bit 11 and logic operation at bits 12\u201315. It also sets the temporary's high byte to 0x41, but the final assignment through u16* __peReg stores only the low 16 bits. It does not update gx->cmode0, emit a raster command or change gx->bpSent."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L199-L213",
+            "why": "Mode tests, assertion and unconditional field assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L141-L151",
+            "why": "Field insertion and assertion definitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L276-L276",
+            "why": "Halfword destination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact mode mapping while correcting the stored-register identifier claim and qualifying field preservation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXMisc:GXPokeBlendMode"
+        },
+        "type": "state_behavior",
+        "value": "After the GXBegin assertion, GX_BM_BLEND enables blending, GX_BM_SUBTRACT enables blending and subtraction, GX_BM_LOGIC enables logical combination, and other mode values disable all three enables. For valid field values, the read-modify-write preserves unrelated bits in the PE halfword while always replacing both factors and the logic operation. The 0x41 identifier is constructed only in the u32 temporary and discarded by the final u16 store."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L340-L368",
+            "why": "Ordinary defaults precede exact poke defaults."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L199-L213",
+            "why": "Factors are encoded independently of mode enables."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects startup ordering and distinguishes encoded factors from enabled blending behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXMisc:GXPokeBlendMode"
+        },
+        "type": "game_mapping",
+        "value": "Realizes direct Pixel Engine framebuffer color-combination control. GX startup initializes the poke path with GX_BM_NONE, GX_BL_ZERO, GX_BL_ONE and GX_LO_SET, separately from the ordinary rendering blend state configured earlier. The zero/one factors are encoded even though this mode disables blending; they do not establish active source/destination contributions."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L235-L243",
+            "why": "Read-modify-write through a u32 local."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L276-L276",
+            "why": "Actual register element type is u16."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claimed 32-bit register read without changing the established dither-control role.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXMisc:GXPokeDither"
+        },
+        "type": "data_flow",
+        "value": "Reads the 16-bit __peReg[1] value into a u32 temporary, replaces bit 2 with the caller's valid GXBool dither value, then assigns the result back through the u16 register interface. Other fields of the PE halfword are preserved for valid Boolean inputs; no GX shadow or FIFO command is updated."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L14-L37",
+            "why": "Stored-count tests, OR update and Boolean conversion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L192-L197",
+            "why": "vNum is unsigned short."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the meaningful narrowing and sticky-dirty-bit behavior omitted by the earlier raw-copy description.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXMisc:GXSetMisc"
+        },
+        "type": "data_flow",
+        "value": "For GX_MT_XF_FLUSH, the u32 val is assigned to unsigned-short gx->vNum, narrowing the stored count to 16 bits. gx->unk becomes the logical negation of that stored count, gx->bpSent is assigned 1, and dirtyState bit 0x8 is ORed in only when the stored count is nonzero; a zero count does not clear an existing dirty bit. For GX_MT_DL_SAVE_CONTEXT, val > 0 is stored in gx->dlSaveContext after the display-list assertion."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

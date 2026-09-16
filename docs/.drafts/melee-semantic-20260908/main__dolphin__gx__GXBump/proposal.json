@@ -1,0 +1,131 @@
+{
+  "tu": "main/dolphin/gx/GXBump",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXBump.c#L46-L104",
+            "why": "Shows identifier fallback, conversion before masking, signed-byte exponent assignment and three writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported fallback and packing behavior while removing the unsupported claim that every out-of-range floating input wraps predictably.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXBump:GXSetIndTexMtx"
+        },
+        "type": "state_behavior",
+        "value": "Valid identifiers in the GX_ITM, GX_ITM_S and GX_ITM_T triplets select physical matrix 0, 1 or 2; other identifiers silently select matrix 0. After the GX-begin check, the normal execution path emits three BP words and sets gx->bpSent to zero. Each coefficient is multiplied by 1024.0f, converted to int and then masked to 11 bits, so representable integer conversion results are reduced rather than saturated. This does not establish portable wrapping for NaN, infinity or values outside the int conversion range. The exponent is incremented by 17 through an s8 assignment, then three two-bit portions are encoded; out-of-range signed-byte conversion behavior should not be inferred solely from the later masks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXBump.c#L180-L188",
+            "why": "Count assertion, cached update and dirty mask."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/macros.h#L4-L27",
+            "why": "Assertions compile to no-ops when DEBUG is undefined."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXGeometry.c#L8-L26",
+            "why": "Deferred consumers and dirty-mask clearing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the API's intended count domain from build-dependent assertion enforcement and preserves the deferred cross-file lifecycle.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXBump:GXSetNumIndStages"
+        },
+        "type": "state_behavior",
+        "value": "The setter invokes CHECK_GXBEGIN and asserts nIndStages <= 4. It modifies only the cached three-bit count field in gx->genMode and ORs dirtyState with 6; it emits no immediate FIFO command. The dirty dispatcher later invokes __GXUpdateBPMask for bit 2 and __GXSetGenMode for bit 4, then clears dirtyState. The count assertion is not unconditional runtime rejection: when assertions are disabled, the setter still reaches the field update for out-of-domain counts, while downstream mask processing assumes the intended 0\u20134 range."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXBump.c#L190-L195",
+            "why": "Exact direct-preset arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXBump.c#L22-L44",
+            "why": "utc_lod is a GXBool encoded in one bit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing explicit-LOD terminology without changing the supported direct-preset interpretation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXBump:GXSetTevDirect"
+        },
+        "type": "purpose",
+        "value": "Restores one TEV stage's neutral direct-texturing descriptor by calling GXSetTevIndirect with indirect stage 0, GX_ITF_8, no bias, matrix off, both wraps off, add_prev zero, utc_lod zero and alpha selection zero. It disables indirect coordinate transformation and accumulation for that stage; the LOD argument is a Boolean coordinate-source selector, not an explicit LOD value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXBump.c#L324-L372",
+            "why": "Three-bit count, incomplete selector switch, DEBUG scan and changed/unchanged branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXGeometry.c#L28-L61",
+            "why": "bpSent participates in flush-primitive bookkeeping."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves duplicate coalescing and debug checks while distinguishing encoded count range from the supported domain and clarifying bpSent's post-write role.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXBump:__GXUpdateBPMask"
+        },
+        "type": "state_behavior",
+        "value": "For the intended active-count range 0\u20134, the updater ORs one bit per selected indirect texture map, coalescing duplicate references. It reads a three-bit count but has selector cases only for stages 0\u20133 and no default; counts above four are not validated here and later iterations reuse the preceding tmap rather than selecting additional stages. Under #if DEBUG it scans active regular TEV map IDs, clears flag 0x100, ignores the resulting sentinel 0xFF and asserts no overlap with the indirect mask. An unchanged mask causes no BP write or bpSent mutation. A changed mask updates the cached low byte, emits the register and sets bpSent to zero; that bookkeeping does not mean the emitted BP word is still unsent."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXBump.c#L46-L188",
+            "why": "Matrix fallback, scale/order branches and dirty producers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXBump.c#L209-L307",
+            "why": "Tile fallbacks and uninitialized bump-ST selectors on the invalid path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXBump.c#L324-L378",
+            "why": "Conditional update versus unconditional cached-mask emission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/macros.h#L4-L27",
+            "why": "Build-dependent assertion behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces blanket validation language with the actual exceptional branches and distinguishes immediate order submission from its deferred dependent updates.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/gx/GXBump.c"
+        },
+        "type": "state_behavior",
+        "value": "Matrix, valid-stage scale and per-TEV indirect setters emit BP commands immediately and set gx->bpSent to zero. Indirect-order changes also emit gx->iref immediately, then OR dirtyState with 3 and clear bpSent; count changes only modify gx->genMode and OR dirtyState with 6. Validation is not uniform: GXSetIndTexMtx silently defaults unknown matrix IDs to physical matrix zero. Scale/order stage checks, source/count bounds and tile/bump-ST checks use build-dependent assertions. If execution continues after an invalid scale stage, no scale word is emitted; an invalid order stage still reaches the unchanged-iref write and dirty tail. Invalid tile sizes select wrap-off fallbacks, whereas invalid bump-ST matrix selection leaves its local S/T selectors uninitialized. The mask updater emits only on a changed mask; the flush helper always re-emits the cached mask without recomputing it."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

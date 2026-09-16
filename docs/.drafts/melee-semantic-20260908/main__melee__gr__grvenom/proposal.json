@@ -1,0 +1,346 @@
+{
+  "tu": "main/melee/gr/grvenom",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80203B18"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Loads the yakumono parameters, resets all three aircraft object/type/group slots, and initializes scheduling mode and countdown from the numeric stage selector. Creates Ground components in order 4, 0, 5, 9, and 7; stores component 0 in component 5's target_gobj and initializes component 7 with map ID 7 and animation-set index 0. It configures shared Ground systems and two fixed spatial vectors, disables and unlinks collision joints 3 and 4 through mpLib_80057BC0, and enables looping on the available stage-light animation hierarchy.",
+        "rationale": "Corrects reversed collision semantics and distinguishes map ID from animation-set selection while preserving the supported startup data flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L439-L522",
+            "why": "Complete initialization sequence and arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5508-L5566",
+            "why": "The collision operation disables and unlinks the selected joint and its lines."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L988-L1048",
+            "why": "Second argument selects map data; third selects the animation set."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80203EAC"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grVenom_CreateGroundGObj",
+        "rationale": "The helper obtains a new Ground object and applies Venom-specific callback configuration. A Venom-prefixed name avoids the misleading generic Ground identity and the rendered header's shadowed binding.",
+        "confidence": 0.92,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L556-L586",
+            "why": "Venom-local indexed callbacks, creation, rendering, initialization and process installation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_8020454C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads seven cached JObj pointers from consecutive fields of one Ground payload, obtains each non-null joint's world position, and applies the literal visibility test !(z < 1000) && !(z > -60000). That conjunction cannot hold for ordinary finite Z values; it is not a conventional depth interval. The routine separately requests frame zero on available light animations when the stage animation reports rewind, compares the current frame with u.venom.xE4 to issue sound, environment-flag and collision-joint transitions, stores the current frame, and uses environment state for audio selection and palette updates.",
+        "rationale": "Corrects the seven-object interpretation and preserves the exceptional visibility expression rather than silently normalizing it.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L781-L920",
+            "why": "Exact pointer stepping, comparisons and downstream timeline operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L556-L581",
+            "why": "The seven values are JObj fields in a single environment payload."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_8020454C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A void (Ground_GObj*) per-frame callback for Venom callback row 7. It uses one Ground payload containing seven consecutive cached HSD_JObj* fields and overlapping environment-state storage, plus a previous-frame value accessed through u.venom.xE4. The cast-based loop steps across the cached pointer fields; it does not traverse seven Ground records.",
+        "rationale": "The previous inferred type incorrectly treated field-wise pointer stepping as a collection of complete Ground objects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L781-L811",
+            "why": "Callback signature and cast-based stepping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L556-L581",
+            "why": "Cached pointer-field sequence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_8020454C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Coordinates Venom's principal environment timeline: synchronizes light animation on rewind, emits frame-crossing sound cues, changes persistent environment flags and collision-joint membership, updates audio and palette state, and retains frame history. It also visits seven cached joints to update hidden flags, but its literal Z predicate does not implement ordinary finite-value depth culling.",
+        "rationale": "Preserves the supported environment role while removing an unsupported claim of normal depth culling.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L781-L920",
+            "why": "Complete environment callback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80204DB0"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A StageCallbacks.callback3 destruction hook with signature void (Ground_GObj*), installed for Venom map object 8. It ignores the supplied object and restores visibility through persistent interface-module state. It is stored in Ground.x1C_callback, not scheduled as the row's gobj_proc.",
+        "rationale": "The callback table, setup helper and Ground destructor establish the fourth-slot lifecycle precisely.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L120-L126",
+            "why": "Fourth-slot registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L556-L579",
+            "why": "callback3 is stored separately from the scheduled process."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2791-L2807",
+            "why": "Destruction invokes x1C_callback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80204DB0"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Restores percentage-digit and auxiliary HUD-text visibility when Venom's map-object-8 sequence controller is destroyed. As that row's callback3 hook, it delegates to the two interface show routines and performs no recurring sequence processing.",
+        "rationale": "Corrects the process-callback attribution while retaining the demonstrated HUD-restoration effects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L994-L998",
+            "why": "Restoration calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2791-L2807",
+            "why": "Destruction-time callback invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L972-L979",
+            "why": "Reveals all six percentage entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FF2.c#L218-L231",
+            "why": "Refreshes and reveals existing auxiliary text entries."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_802053B0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Destroys an object immediately if it no longer matches its aircraft owner slot. For the current owner, xD4 == 1 clears that request, applies the type-selected animation and returns before cue or completion processing. Types 1\u20137 and 8\u201311 run the same xD8 sequence: entering the blast rectangle advances 0 to 1 and plays 0x6B6C0; entering the rectangle inset by 20 advances 1 to 2; leaving that inset rectangle advances 2 to 3 and plays 0x6B6C2. Types 8\u201311 also reset root Y rotation. The final grAnime_801C83D0(gobj, 0, 7) query tests the selected animation controller's stopped flag using joint selector 0 and channel mask 7, not animation ID 7. A positive result clears the owner slot before destruction.",
+        "rationale": "Corrects animation-selector semantics while preserving ownership, early-return and cue-state details.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1132-L1230",
+            "why": "Complete ownership and cue state machine."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1056-L1089",
+            "why": "Selector mask and stopped-flag query."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80205758"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grVenom_Arwing_CollisionUpdate",
+        "rationale": "Distinguishes the auxiliary collision-component updater from grVenom_80205F30's visual/laser controller and resolves the rendered name collision.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1273-L1300",
+            "why": "Visibility, scale, collision refresh and collision-joint removal."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80205758"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A void (Ground_GObj*) process callback shared by Venom map-object rows 10\u201315. The object carries a Ground payload and JObj; u.venom.xC8 is an aircraft slot index. The slot indexes the owner-object array directly, while grVe_803E5380 maps it to a group and grVe_803E5680 maps that group to the collision joint removed during cleanup.",
+        "rationale": "Corrects the conflation of aircraft slot and group while preserving the concrete callback interface.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1243-L1300",
+            "why": "Slot assignment, owner lookup and slot-to-group-to-joint mapping."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80205DF0"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies the invariant-false callback1 predicate for Venom map-object row 3, between the aircraft visual initializer and its recurring updater. It ignores the Ground GObj and performs no aircraft work itself.",
+        "rationale": "The exact callback role is available directly in the canonical table, improving the previous adjacency-only explanation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L85-L91",
+            "why": "Exact row and slot."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1352-L1355",
+            "why": "Invariant-false body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80205F30"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Uses xC8 as an aircraft slot to read its owner, route/type and group from the Venom base data. Types 1\u20137 select animation arguments and derive the visual object's position from the owner's joint 5 plus a type-indexed offset; a selected visual joint supplies position and Z rotation to the linked collision payload. Types 8\u201311 combine frame windows, random trials and depth with player-coordinate targeting. The bounded player search tests slots with cumulative retry offsets and still calls Player_LoadPlayerCoords after exhausting all retries, so a valid active target is not guaranteed. Group 4 uses firing joint 7 and item argument 3; other groups use alternating joints 5/6 and item argument 1. Yakumono parameters supply scale and material-effect input. Active entries increment xF0; absent entries destroy up to four associated GObjs and then the current object, unless the global early-return guard suppresses the entire update.",
+        "rationale": "Preserves the full transform/firing flow while correcting guaranteed-active-target wording and separating slot, route/type and group.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1397-L1673",
+            "why": "Complete source flow and exceptional branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80205F30"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A nonzero grVe_804D6A3C returns before all maintenance and cleanup. Otherwise a present owner slot selects route/type behavior. For types 1\u20137, animation state 0 starts a random state 1\u20134 when xF8 <= 0; otherwise it resets the selected joint's Z rotation. Only this state-0 branch decrements xF8. Animation states 1\u20134 return to 0 and reload xF8 when the animation query reports stopped; other animation-state values skip this logic. For types 8\u201311, firing trials occur when xF0 is divisible by eight and HSD_Randi(8) is zero, within strict type-specific windows (60,230), (50,230), (90,260), or (70,240). Firing also requires -2000 < z < -100 and matching nonzero horizontal signs for aircraft and selected-player coordinates. Starting from random slot s, the retry loop tests s, s+1, s+3, s+2 modulo four and loads coordinates even if none passed the slot-type test. Group 4 uses its distinct emission path; other groups alternate joints 5/6 after a shot. Active entries advance xF0; absent entries destroy the four non-null associated objects and then themselves.",
+        "rationale": "Corrects delay cadence and the missing post-search success guard, preserving strict windows, global suppression and terminal cleanup.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1427-L1673",
+            "why": "Guards, animation states, retry arithmetic, firing windows and cleanup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grvenom:grVenom_80206B70"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Has no independent guard, timer or state transition: every invocation forwards its Ground GObj once to grVenom_80205F30. It inherits that updater's global early-return guard, near-type animation and transform handling, far-type probabilistic firing, and owner-absence cleanup. The delegated bounded player-slot search has no final success check, so it must not be described as guaranteeing an active-player target.",
+        "rationale": "Retains the adapter's role while correcting the inherited targeting guarantee and preserving whole-update suppression.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1728-L1731",
+            "why": "Unconditional adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1427-L1429",
+            "why": "Global suppression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1606-L1619",
+            "why": "Bounded search and unconditional coordinate load."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gr/grvenom.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A stage-specific Ground translation unit centered on StageData grVe_StageData and a 16-row StageCallbacks table. Callback row 5 uses grVenom_Platform_GroundVars for target_gobj, smash_taunt_timer, upper_jobj and lower_jobj. The six repeated aircraft collision rows 10\u201315 instead access the u.venom payload for aircraft slot, rotation and position state. Row 7 uses cached environment joints and overlapping flag/cache storage; row 1 uses u.smashtaunt. Aircraft lookup tables select route animations, companion map objects and collision joints, with several accesses expressed as raw offsets from grVe_803E5348; their compiled backing layout is not established here.",
+        "rationale": "Corrects the repeated collision rows' payload identity and avoids treating source-level base-relative accesses as proof of compiled layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L63-L192",
+            "why": "Callback families and descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L655-L684",
+            "why": "Row-5 platform payload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grvenom.c#L1243-L1300",
+            "why": "Repeated collision rows use u.venom."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L492-L581",
+            "why": "Distinct payload definitions and overlapping state."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

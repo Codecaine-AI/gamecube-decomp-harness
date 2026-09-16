@@ -1,0 +1,19 @@
+## Scope and independent review
+Recovery reads now cover all 62 frozen subjects, all 168 baseline facts, all 45 links, and the complete canonical and rendered owned files. The hash-bound research ledger is adopted without fact or link overrides. Supported existing knowledge is retained; its explicit supersessions, rejected links and unresolved claims remain distinguished. Both proposed facts and every upstream contradiction were independently reconciled against canonical evidence.
+
+## Marill state machine
+`it_803F82B0` contains four callback rows. Their first fields are -1, 0, -1, and -1; these are distinct from motion-state indices 0–3. Spawn clears the turn marker, forwards special attributes to shared setup, configures animation speed and lifetime, and enters state 0. Initial collision processing supplies `it_802D69E4` as the floor-contact event. That event enters state 1, initializes signed horizontal speed, clears the command variable, installs effect-hitlag callbacks, and writes 8.0 to `maril.x68`.
+
+State 1 processes shared bone-derived motion, advances an active visual turn, and decrements lifetime. Physics applies shared motion before overwriting horizontal velocity with `maril.x64`. Collision queries a mask and then tests `it_80272C6C`, which delegates through the model JObj—not directly through terrain support. When that predicate is false, mask 0x1 re-enters state 1 and its absence enters state 2. When it is true, mask 0xC requests a guarded turn. Turning immediately reverses facing and stored speed, while model rotation advances over an attribute-defined float countdown. Duration is not validated, so an exact pi-radian total requires suitable attribute values. Fall and re-entry helpers do not visibly reset an active turn.
+
+State 2 continues lifetime countdown, passes common `ItemAttr` fall parameters to shared physics, and supplies the state-1 event to guarded landing processing. State 3 reuses lifetime and falling behavior through wrappers and has no collision callback. The damage callback enters state 3 when `(f32)xC9C >= attr->x14`, destroys effects through its local transition sequence, and always returns false. Descriptor 0/frame 0 application is distinct from selecting state 3. The shared descriptor routine applies the requested frame, subsequently removes animation, and clears the command pointer.
+
+## Cross-file flame behavior
+Hinoarashi's separate one-row table registers `it_802D66F8`, `it_802D6740`, and `it_802D6798`. These are flame callbacks despite their location and Marill-named attribute/union views. The animation callback checks lifetime and cleans effects on expiration. Physics increments vertical velocity and passes a copied velocity vector to normalization. Collision combines three query results and invokes Hinoarashi normal aggregation and trajectory-angle processing only for a nonzero mask. Flame creation preserves its allocation-failure branch and initializes lifetime, randomized launch direction and speed before state entry.
+
+## Reference and naming review
+Both two-object wrappers delegate to `it_8026B894`. Independent comparisons clear matching owner and interaction references; clearing the fighter reference resets source-player metadata to 6. The wrappers discard its owner-match return value. Source proximity does not establish the early wrapper's actor or Logic number.
+
+Run, Tackle, Fall, Defeated, and numeric entry names remain useful hypotheses, not recovered historical identifiers. The rendered `itMaril_Logic28_Reflected` collision remains unresolved: one candidate delegates velocity/facing/lifetime changes while the other simply returns false. Callback order cannot establish event identities. Copying Logic27 from a Cyndaquil damage-handler analog likewise does not establish Marill's logic index. No compiled section-size, layout, or constant-placement claim is made.
+
+Status: synthesized; independent review and live promotion pending.

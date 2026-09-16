@@ -1,0 +1,133 @@
+{
+  "tu": "main/melee/if/ifmagnify",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L88-L100",
+            "why": "Conditional cached read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L158-L175",
+            "why": "Four directional assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L434-L443",
+            "why": "Capture publishes the flag without assigning edge."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L596-L612",
+            "why": "Initial owner reset precedes resource construction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the flag guard from the independently maintained edge cache instead of treating zero as an exclusive inactive enum value.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifmagnify:ifMagnify_802FB6E8"
+        },
+        "type": "inferred_type",
+        "value": "Side-effect-free indexed getter with signature `s32(s32 slot)`, without local bounds validation. It returns zero when the selected slot's `is_offscreen` flag is clear; otherwise it returns the cached edge field. The edge-position helper writes 1 = top, 2 = left, 3 = bottom and 4 = right. Zero is not an exclusive inactivity discriminator: initialization clears the cache, and capture can publish the offscreen flag without assigning an edge. The returned edge is not freshly calculated by this getter."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L196-L238",
+            "why": "Early return, transforms, requests and code-zero cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing transform and color flow while correcting the overbroad claim that every path without a request releases an arrow.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifmagnify:ifMagnify_802FB8C0"
+        },
+        "type": "data_flow",
+        "value": "For render code 0, the callback converts its `ifMagnifyPlayer` user-data pointer into a player slot and, when display guards pass, obtains the fighter's projected screen coordinates. Center-relative coordinates flow through `atan2f` into model rotation and through the edge helper into clamped translation and cached edge state. Horizontal edges obtain the player/team color and submit arrow kind 1 for left or 2 for right. Code-zero paths without a horizontal request release the slot's arrow. Nonzero render codes return before user-data processing or arrow release."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L196-L238",
+            "why": "Complete guarded display and release behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Explicitly excludes the render-code guard from the cleanup guarantee.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifmagnify:ifMagnify_802FB8C0"
+        },
+        "type": "state_behavior",
+        "value": "Nonzero render codes return immediately without drawing, updating edge state or releasing an arrow. For code 0, drawing requires visible magnifier HUD state, a set player `is_offscreen` flag and an existing fighter entity. The edge helper updates the cached edge; edge 2 requests arrow kind 1 and edge 4 requests kind 2. Top/bottom edges and all other code-zero paths that submit no horizontal arrow reach the slot's arrow-release call."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L452-L512",
+            "why": "Descriptor bootstrap, rounded allocation size, rebinding, colors and publication."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes directly observed allocation-size rounding from allocator-dependent address alignment while retaining the useful constructor flow.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifmagnify:ifMagnify_802FC3C0"
+        },
+        "type": "data_flow",
+        "value": "The slot selects one persistent `ifMagnifyPlayer` and supplies player metadata for color selection. The shared model descriptor produces a JObj hierarchy whose nodes identify the capture texture and retained display JObj. Slot 0 adopts the model image descriptor. Later slots copy slot 0's descriptor, allocate a separate image buffer using the texture-buffer size rounded up to a multiple of 32 bytes, and rebind the child texture to that descriptor. Player/team color RGB is written to two materials, then the new GObj is published and both offscreen-control flags are cleared. Buffer-address alignment is not established by the size-rounding expression itself."
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L545-L560",
+            "why": "Complete body visits only player display GObj pointers."
+          }
+        ],
+        "op": "write",
+        "rationale": "More precisely names the six retained player-display GObj removals and pointer clears. Unlike the existing Free name and subsystem-wide rationale, it does not imply that this routine completes capture-camera or private-image-buffer reclamation. This is a semantic name, not a recovered original symbol.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifmagnify:ifMagnify_802FC750"
+        },
+        "type": "inferred_name",
+        "value": "ifMagnify_DestroyPlayerDisplays"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L630-L633",
+            "why": "Pure field read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1595-L1611",
+            "why": "Outer guards and inner counter/damage transitions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the cross-file gameplay consequence while correcting unconditional false-result reset and consecutive-frame implications.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifmagnify:ifMagnify_802FC998"
+        },
+        "type": "state_behavior",
+        "value": "The getter only reads the selected slot's current `is_offscreen` flag. In the observed fighter consumer, counter processing occurs only when `!fp->x221F_b4`, `Camera_80031144() == 1.0f` and damage percent is below `p_ftCommonData->x7B0`. Inside that block, a true getter result together with `Player_GetMoreFlagsBit3` increments `dmg.x1910`; otherwise the counter is reset. Reaching `x7AC` applies configured damage and resets the counter. If an outer guard fails, this block neither queries the getter nor resets the counter, so consecutive eligible evaluations must not be conflated with consecutive frames."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,42 @@
+406: void HSD_SynthSFXBankDeflag(int bank_id)
+407: {
+408:     AXVPB* vpb;
+409:     intptr_t offset;
+410: 
+411:     HSD_SynthSFXStopRange(bank_id);
+412:     vpb = HSD_Synth_804C2AE0[bank_id];
+413:     offset = hsd_SynthSFXBankHead[bank_id];
+414:     while (vpb != NULL) {
+415:         if ((intptr_t) vpb->callback != offset) {
+416:             HSD_SynthSFXGroupDataReaddress(vpb, (void*) offset);
+417:         }
+418:         offset += vpb->userContext;
+419:         vpb = vpb->next;
+420:     }
+421:     HSD_Synth_804C2AE0[bank_id + 0x80 / 4] = (void*) offset;
+422: }
+423: 
+424: void HSD_SynthSFXBankDeflagSync(void)
+425: {
+426:     while (sfxGroupDataReaddressCounter) {
+427:         continue;
+428:     }
+429: }
+430: 
+431: u32 HSD_SynthGetSoundMode(void)
+432: {
+433:     return OSGetSoundMode();
+434: }
+435: 
+436: void HSD_SynthSetSoundMode(int mode)
+437: {
+438:     int i;
+439:     HSD_Synth_804D7754 = mode;
+440:     for (i = 0; i < (int) ARRAY_SIZE(hsd_SynthSFXNodes); i++) {
+441:         if (hsd_SynthSFXNodes[i].x0 > 0) {
+442:             HSD_SynthSFXUpdateMix(&hsd_SynthSFXNodes[i], 1);
+443:         }
+444:     }
+445:     OSSetSoundMode(mode);
+446: }
+447: 

@@ -1,0 +1,634 @@
+{
+  "tu": "main/sysdolphin/baselib/particle",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_80398A08"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Initializes allocator for sizeof(HSD_Particle),4-byte alignment; ignores u32 input. Clears16 list heads, all six65-entry registry arrays, live/peak particle counters, callback table pointer and eight JObj slots. HSD_ObjAllocInit zeroes/relinks allocator metadata, but neither it nor this routine frees existing particles or unreferences cached joints, so reinitialization is not teardown. Other exported counters/camera are not reset here.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L336-L373",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L129-L188",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.c#L140-L156",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L157-L187",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_80398F0C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Void wrapper calls psGenerateParticle0 with headNULL and flgInterpret1, casts s32 command/gen values to pointers, and discards the nullable/possibly retired result. Last three float parameters named fric,rate,angle3 map respectively to factory size,grav,fric. Generator caller supplies ordinary position/velocity in some branches, but tornado supplies angular/radial state in velocity and grav/fric slots. An allocated instance can expire during immediate interpretation; success does not guarantee a live returned particle.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L505-L513",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L375-L499",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L723-L761",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_80398F0C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Void wrapper calls psGenerateParticle0 with headNULL and flgInterpret1, casts s32 command/gen values to pointers, and discards the nullable/possibly retired result. Last three float parameters named fric,rate,angle3 map respectively to factory size,grav,fric. Generator caller supplies ordinary position/velocity in some branches, but tornado supplies angular/radial state in velocity and grav/fric slots. An allocated instance can expire during immediate interpretation; success does not guarantee a live returned particle.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L505-L513",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L375-L499",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L723-L761",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_80398F8C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Reads velocity, builds two orientation angles with signed pi/2 fallback when denominator absolute value is below minimum-normal f32, approximates sqrt of positive squared speed using reciprocal-sqrt and three refinements, chooses azimuth2pi*HSD_Randf, reconstructs a vector at supplied radian cone angle, and writes velocity. For ordinary finite well-scaled values this approximately preserves speed/angular offset; rounding, underflow/overflow and nonfinite inputs preclude an exact guarantee. Finite angle with zero velocity yields zero.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L518-L597",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L12-L16",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_80398F8C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Reads velocity, builds two orientation angles with signed pi/2 fallback when denominator absolute value is below minimum-normal f32, approximates sqrt of positive squared speed using reciprocal-sqrt and three refinements, chooses azimuth2pi*HSD_Randf, reconstructs a vector at supplied radian cone angle, and writes velocity. For ordinary finite well-scaled values this approximately preserves speed/angular offset; rounding, underflow/overflow and nonfinite inputs preclude an exact guarantee. Finite angle with zero velocity yields zero.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L518-L597",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L12-L16",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_80398F8C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Reads velocity, builds two orientation angles with signed pi/2 fallback when denominator absolute value is below minimum-normal f32, approximates sqrt of positive squared speed using reciprocal-sqrt and three refinements, chooses azimuth2pi*HSD_Randf, reconstructs a vector at supplied radian cone angle, and writes velocity. For ordinary finite well-scaled values this approximately preserves speed/angular offset; rounding, underflow/overflow and nonfinite inputs preclude an exact guarantee. Finite angle with zero velocity yields zero.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L518-L597",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L12-L16",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_803991D8"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Null jobj or negative range returns0. Prepares joint, forms target translation minus gen.fric/size/radius, returns1 when squared distance<=range squared, otherwise zero-distance guard returns0, else adds force/dist_sq times displacement into gen.pos.z/vel.x/vel.y and returns0. In opcodeB8 the HSD_Particle cast maps those offsets to particle pos[xyz] and vel[xyz]; positive force points toward the target. Proximity makes life1 and exits commands to immediate deletion. No gen-null, finite-value or cached-index bounds guard.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L599-L629",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L129-L188",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L243-L277",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L1635-L1657",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_8039930C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "kind0x800 returns successor before all work. Advances size/rotation interpolation and appearance countdowns, then if nonzero cmdWait decrements it and decodes only on reaching0. Variable-length commands mutate appearance/motion/state, spawn children, call hooks and maintain u16 cursor/loop marks; execution continues until nonzero wait or termination, with no stream bound or instruction budget. life is u16 and predecrement0 deletes; initial life0 wraps. Deletion calls hook, unlinks using global head when prevNULL, decrements parent/live counts, detaches AppSRT and JObj, frees and returns successor. AppSRT finalizer can change global head, so normal head deletion rechecks it. Surviving ordinary physics applies gravity then friction then position; tornado uses generator angle/radius/aux state without null guard. Attachment adds world-position differences to local translation fields, not a verified general world transform. Callback-1 goes directly to delete_particle without another life decrement. Exact opcode exceptions are recorded in the opcode ledger: sequential position overwrite inB2, E9 alpha timing0 division, EC null-gen dereference, EA/EB zero-duration alpha omission, unchecked callback/remap/JObj indices and recursive spawning.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L674-L2963",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L129-L188",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L670-L680",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2823-L2994",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L65-L102",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_8039CEAC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Traverses16 global lists unless mask bit16+i is set, calling updater(cur,prev). Compares returned successor against current head/prev.next to infer survival, advancing prev only when cur remains linked. Handles ordinary head/interior/consecutive current-node deletions under stable-list/callback invariants; arbitrary callback mutation, recursive spawn or invalid pointers are not universally safe. Low16 mask bits are ignored.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2965-L2994",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L670-L680",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2823-L2994",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_8039CEAC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Traverses16 global lists unless mask bit16+i is set, calling updater(cur,prev). Compares returned successor against current head/prev.next to infer survival, advancing prev only when cur remains linked. Handles ordinary head/interior/consecutive current-node deletions under stable-list/callback invariants; arbitrary callback mutation, recursive spawn or invalid pointers are not universally safe. Low16 mask bits are ignored.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2965-L2994",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L670-L680",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2823-L2994",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_8039CF4C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Index<0 or>8 no-op. Index1..8 selects slot index-1; identical pointer no-op. If replacing a nonnull old slot, calls HSD_JObjUnref on incoming jobj, not old; then stores incoming pointer and ref_INC(incoming), which ignoresNULL. Incoming object can be freed before that increment, and old reference is not released. Index0 scans all eight slots, unreferences and clears every match. Does not establish balanced reference transfer for replacement.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2996-L3023",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2996-L3095",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L716-L729",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/object.h#L83-L89",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_8039CF4C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Index<0 or>8 no-op. Index1..8 selects slot index-1; identical pointer no-op. If replacing a nonnull old slot, calls HSD_JObjUnref on incoming jobj, not old; then stores incoming pointer and ref_INC(incoming), which ignoresNULL. Incoming object can be freed before that increment, and old reference is not released. Index0 scans all eight slots, unreferences and clears every match. Does not establish balanced reference transfer for replacement.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2996-L3023",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2996-L3095",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L716-L729",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/object.h#L83-L89",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_8039D0A0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires generator and selected valid list. Casts the address of eight-joint array to ParticleData overlay (8joint pointers,146particle pointers,0x410pad,allocator), relying on32-bit linked global adjacency beyond the authored array. Walks selected link list, caches next before callbacks, and removes only matching idnum and nonnull equal gen pointer. Calls hookDelete, unlinks, decrements child count, detaches AppSRT, clears flagged joint slot, frees through overlay allocator and decrements live count. Preserves predecessor for ordinary consecutive matches. Unlike normal deletion, does not refresh cached next after AppSRT finalizer; arbitrary callback/finalizer list changes are not proven safe. No generator reclamation is performed here.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2996-L3095",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L716-L729",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/object.h#L83-L89",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L65-L102",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:psGenerateParticle0"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Particle* psGenerateParticle0(HSD_Particle** head, int linkNo, int bank, u32 kind, u16 texGroup, u8* list, int life, int palflag, f32 x, f32 y, f32 z, f32 vx, f32 vy, f32 vz, f32 size, f32 grav, f32 fric, HSD_Generator* gp, int flgInterpret). Allocates and zeroes one particle; failure returnsNULL before publication/accounting. Success increments u16 live/peak counters, chooses parent ID or new ID, attaches optional AppSRT, prepends to custom head or unchecked global linkNo, and stores inputs with byte/u16 narrowing. life=(u16)(life+1); texGroup and bank narrow to bytes. Sets opaque-white primary, zero environment, palNumFF, alpha mode33/1/FF, material/ambientFF, trail1 and other counters/rotation0. Stores parent and increments numChild, calls optional hookCreate ignoring its result, then resets callback=NULL (overwriting a hook assignment). If flgInterpret, calls updater with prevNULL, ignores its successor and returns original pp even if initial update freed it. Custom-head use with immediate deletion still uses global unlink path; caller must avoid that mismatch.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L375-L499",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L129-L188",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L65-L102",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:psGenerateParticle0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Allocates and zeroes one particle; failure returnsNULL before publication/accounting. Success increments u16 live/peak counters, chooses parent ID or new ID, attaches optional AppSRT, prepends to custom head or unchecked global linkNo, and stores inputs with byte/u16 narrowing. life=(u16)(life+1); texGroup and bank narrow to bytes. Sets opaque-white primary, zero environment, palNumFF, alpha mode33/1/FF, material/ambientFF, trail1 and other counters/rotation0. Stores parent and increments numChild, calls optional hookCreate ignoring its result, then resets callback=NULL (overwriting a hook assignment). If flgInterpret, calls updater with prevNULL, ignores its successor and returns original pp even if initial update freed it. Custom-head use with immediate deletion still uses global unlink path; caller must avoid that mismatch.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L375-L499",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L129-L188",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L65-L102",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:psInitDataBank"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For bank<65 calls Locate then Load; negative bank passes, bank>=65 does nothing. Unknown command versions can reach uninitialized traversal in Locate before Load's panic. Resources are mutated before form count validation in Load. Intended bank domain0..64 and valid serialized storage are caller obligations; relocation is not idempotent.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L326-L334",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L117-L334",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1274-L1316",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdatfiles.c#L22-L97",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L501-L504",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/particle.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Owns six65-entry registries and particle lifecycle routines. Version0 relocation adds the base even to zero command entries; other relocation paths skip zero pointers. Initialization clears metadata without freeing prior live objects. Valid indices, resources and stable callback/list invariants are caller requirements.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L333-L392",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L117-L334",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1274-L1316",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdatfiles.c#L22-L97",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L501-L504",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L35-L72",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L336-L499",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2823-L3095",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/particle.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Owns six65-entry registries and particle lifecycle routines. Version0 relocation adds the base even to zero command entries; other relocation paths skip zero pointers. Initialization clears metadata without freeing prior live objects. Valid indices, resources and stable callback/list invariants are caller requirements.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L333-L392",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L117-L334",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1274-L1316",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdatfiles.c#L22-L97",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L501-L504",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L35-L72",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L336-L499",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2823-L3095",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/particle.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Owns six65-entry registries and particle lifecycle routines. Version0 relocation adds the base even to zero command entries; other relocation paths skip zero pointers. Initialization clears metadata without freeing prior live objects. Valid indices, resources and stable callback/list invariants are caller requirements.",
+        "rationale": "Replace overbroad guarantee with the exact pinned branches, failure omissions, flag behavior and resource-selector fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L333-L392",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L117-L334",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1274-L1316",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdatfiles.c#L22-L97",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L501-L504",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L35-L72",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L336-L499",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2823-L3095",
+            "why": "Pinned exact implementation and supporting type/caller evidence."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

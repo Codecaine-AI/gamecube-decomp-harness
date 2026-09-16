@@ -44,6 +44,26 @@ function apiContext(sandboxHandle?: SandboxHandle) {
 }
 
 describe("toolpack runtime resolver", () => {
+  test("applies grouped local tool and report overrides from the game root", () => {
+    const gameDir = mkdtempSync(join(tmpdir(), "tool-local-layout-"));
+    mkdirSync(join(gameDir, "config"));
+    mkdirSync(join(gameDir, "custom-tools"));
+    writeFileSync(join(gameDir, "custom-tools/wibo-linux-x86_64"), "binary");
+    writeFileSync(join(gameDir, "game.json"), JSON.stringify({ id: "example", validation: { reportPath: "build/base/report.json" } }));
+    writeFileSync(join(gameDir, "config/local.json"), JSON.stringify({
+      tools: { toolsRoot: "./custom-tools", sharedDataRoot: "./custom-data", bindingsRoot: "./custom-bindings" },
+      validation: { reportPath: "build/EXAMPLE/report.json" },
+      repoRoot: "./custom-checkout",
+    }));
+    const tool = resolveRegisteredTool({ game: { gameId: "example", descriptorPath: join(gameDir, "game.json") }, toolPlatform: "linux-x86_64" }, "checkdiff");
+    expect(tool.gameRepoRoot).toBe(join(gameDir, "custom-checkout"));
+    expect(tool.bindingPath).toBe(join(gameDir, "custom-bindings/checkdiff.json"));
+    expect(tool.sharedDataRoot).toBe(join(gameDir, "custom-data/checkdiff"));
+    expect(tool.env.MWCC_WIBO).toBe(join(gameDir, "custom-tools/wibo-linux-x86_64"));
+    expect(tool.env.ORCH_GAME_REPORT_PATH).toBe("build/EXAMPLE/report.json");
+    expect(tool.worktreeCacheRoot).toContain("/runtime/tool-data/claims/");
+  });
+
   test("resolves Melee game bindings into shared data and worktree cache roots", () => {
     const root = packageRoot();
     const context = {
@@ -61,9 +81,9 @@ describe("toolpack runtime resolver", () => {
     expect(tool.toolpackId).toBe("gamecube-decomp");
     expect(tool.toolRoot).toBe(resolve(root, "toolpacks/gamecube-decomp/research/ghidra"));
     expect(tool.apiRoot).toBe(resolve(root, "toolpacks/gamecube-decomp/research/ghidra/api"));
-    expect(tool.bindingPath).toBe(resolve(root, "games/melee/tool-bindings/ghidra.json"));
-    expect(tool.sharedDataRoot).toBe(resolve(root, "games/melee/shared/tool-data/ghidra"));
-    expect(tool.worktreeCacheRoot).toBe(resolve(root, "games/melee/worktrees/lease-a/tool-cache/ghidra"));
+    expect(tool.bindingPath).toBe(resolve(root, "games/melee/config/tools/ghidra.json"));
+    expect(tool.sharedDataRoot).toBe(resolve(root, "games/melee/runtime/tool-data/ghidra"));
+    expect(tool.worktreeCacheRoot).toBe(resolve(root, "games/melee/runtime/tool-data/claims/lease-a/ghidra"));
     expect(tool.env.ORCH_TOOL_SHARED_DATA_ROOT).toBe(tool.sharedDataRoot);
     expect(tool.env.ORCH_TOOL_WORKTREE_CACHE_ROOT).toBe(tool.worktreeCacheRoot);
     expect(tool.env.ORCH_TOOL_IMPL_ROOT).toBe(resolve(root, "toolpacks/gamecube-decomp/_impl/gamecube"));
@@ -100,9 +120,9 @@ describe("toolpack runtime resolver", () => {
     const typeLayout = resolveRegisteredTool(context, "type_layout_lookup");
 
     expect(asmSearch.toolRoot).toBe(resolve(root, "toolpacks/gamecube-decomp/research/asm_window_search"));
-    expect(asmSearch.sharedDataRoot).toBe(resolve(root, "games/melee/shared/tool-data/asm_window_search"));
+    expect(asmSearch.sharedDataRoot).toBe(resolve(root, "games/melee/runtime/tool-data/asm_window_search"));
     expect(typeLayout.toolRoot).toBe(resolve(root, "toolpacks/gamecube-decomp/research/type_layout_lookup"));
-    expect(typeLayout.worktreeCacheRoot).toBe(resolve(root, "games/melee/worktrees/lease-layout/tool-cache/type_layout_lookup"));
+    expect(typeLayout.worktreeCacheRoot).toBe(resolve(root, "games/melee/runtime/tool-data/claims/lease-layout/type_layout_lookup"));
   });
 
   test("resolves a non-Melee fixture without reading Melee bindings or data", () => {
@@ -161,14 +181,14 @@ describe("toolpack runtime resolver", () => {
 
   test("exports the platform-specific state wibo for an explicit execution target", () => {
     const gameDir = mkdtempSync(join(tmpdir(), "gamecube-tool-platform-fixture-"));
-    const stateDir = join(gameDir, "state");
-    mkdirSync(join(stateDir, "tools"), { recursive: true });
+    const stateDir = join(gameDir, "runtime/state");
+    mkdirSync(join(stateDir, "../tools"), { recursive: true });
     writeFileSync(
       join(gameDir, "game.json"),
       `${JSON.stringify({ id: "sunshine", repoRoot: "./checkout", stateDir: "./state", tools: { toolpacks: ["gamecube-decomp"] } }, null, 2)}\n`,
     );
-    writeFileSync(join(stateDir, "tools/wibo"), "legacy host artifact");
-    writeFileSync(join(stateDir, "tools/wibo-linux-x86_64"), "linux artifact");
+    writeFileSync(join(stateDir, "../tools/wibo"), "legacy host artifact");
+    writeFileSync(join(stateDir, "../tools/wibo-linux-x86_64"), "linux artifact");
     const original = process.env.ORCH_TOOL_PLATFORM;
     delete process.env.ORCH_TOOL_PLATFORM;
     try {
@@ -185,7 +205,7 @@ describe("toolpack runtime resolver", () => {
         "ghidra",
       );
 
-      expect(tool.env.MWCC_WIBO).toBe(join(stateDir, "tools/wibo-linux-x86_64"));
+      expect(tool.env.MWCC_WIBO).toBe(join(stateDir, "../tools/wibo-linux-x86_64"));
     } finally {
       if (original === undefined) delete process.env.ORCH_TOOL_PLATFORM;
       else process.env.ORCH_TOOL_PLATFORM = original;

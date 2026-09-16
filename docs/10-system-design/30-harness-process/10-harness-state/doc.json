@@ -1,0 +1,348 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-10-state-composition-10-harness-state",
+  "title": "Harness State",
+  "root": "b-10-harness-state-root-16",
+  "blocks": {
+    "b-10-harness-state-root-16": {
+      "id": "b-10-harness-state-root-16",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "hs-opening",
+        "hs-shape-h",
+        "continuing-state-shape",
+        "hs-explain",
+        "hs-intent-h",
+        "hs-terms",
+        "hs-gates",
+        "hs-history-h",
+        "hs-history",
+        "hs-boundaries",
+        "hs-authority-h",
+        "hs-authority",
+        "hs-dispatch"
+      ]
+    },
+    "hs-opening": {
+      "id": "hs-opening",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Harness State is the durable record of where a game stands. It keeps the accepted checkout position, requested execution state, readiness gates, and links to history so a process restart does not reset progress."
+        }
+      ],
+      "children": []
+    },
+    "hs-shape-h": {
+      "id": "hs-shape-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The Current Game State"
+        }
+      ],
+      "children": []
+    },
+    "continuing-state-shape": {
+      "id": "continuing-state-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"identity\": {\n    \"game_id\": \"example-game\",\n    \"harness_id\": \"harness-1\",\n    \"revision\": 42\n  },\n  \"source\": {\n    \"worktree\": \"./workspace/checkout\",\n    \"head\": \"commit-B\",\n    \"upstream_revision\": \"upstream-U\",\n    \"configuration_revision\": \"config-3\"\n  },\n  \"execution\": {\n    \"desired\": \"run\",\n    \"workflow\": \"sync\",\n    \"status\": \"active\",\n    \"blockers\": []\n  },\n  \"readiness\": {\n    \"build\": \"ready\",\n    \"sources\": \"ready\",\n    \"sandbox\": \"ready\",\n    \"evidence\": \"ready\"\n  },\n  \"history\": {\n    \"run_id\": \"run-7\",\n    \"epoch_id\": \"epoch-12\",\n    \"sync_id\": \"sync-13\",\n    \"timeline_cursor\": 128,\n    \"save_point_id\": \"save-epoch-12\"\n  }\n}",
+        "fields": [
+          {
+            "name": "identity",
+            "type": "object",
+            "description": "Stable game/harness identity and revision for concurrent state updates.",
+            "fields": [
+              {
+                "name": "game_id",
+                "type": "string"
+              },
+              {
+                "name": "harness_id",
+                "type": "string"
+              },
+              {
+                "name": "revision",
+                "type": "number",
+                "description": "Optimistic concurrency revision; independent of dispatch and source revisions."
+              }
+            ]
+          },
+          {
+            "name": "source",
+            "type": "object",
+            "description": "Canonical source truth.",
+            "fields": [
+              {
+                "name": "worktree",
+                "type": "string",
+                "description": "Maintained host checkout."
+              },
+              {
+                "name": "head",
+                "type": "revision | null",
+                "description": "Null until initial source acceptance."
+              },
+              {
+                "name": "upstream_revision",
+                "type": "revision | null",
+                "description": "Last accepted upstream, separate from observed remote tip."
+              },
+              {
+                "name": "configuration_revision",
+                "type": "string",
+                "description": "Configuration/build identity used for this state."
+              }
+            ]
+          },
+          {
+            "name": "execution",
+            "type": "object",
+            "description": "Control and authority.",
+            "fields": [
+              {
+                "name": "desired",
+                "type": "run | paused",
+                "description": "Preserved across Sync and restarts."
+              },
+              {
+                "name": "workflow",
+                "type": "sync | run | none",
+                "description": "At most one source mutation owner."
+              },
+              {
+                "name": "status",
+                "type": "initializing | active | idle | paused | blocked",
+                "description": "Status is separate from workflow."
+              },
+              {
+                "name": "blockers",
+                "type": "Blocker[]",
+                "description": "Causal failures and recovery requirements."
+              }
+            ]
+          },
+          {
+            "name": "readiness",
+            "type": "object",
+            "description": "Build, source-stage, sandbox, and evidence gates.",
+            "fields": [
+              {
+                "name": "build",
+                "type": "pending | ready | blocked"
+              },
+              {
+                "name": "sources",
+                "type": "pending | ready | blocked"
+              },
+              {
+                "name": "sandbox",
+                "type": "pending | ready | blocked"
+              },
+              {
+                "name": "evidence",
+                "type": "pending | ready | blocked"
+              }
+            ]
+          },
+          {
+            "name": "history",
+            "type": "object",
+            "description": "References to run/epoch/Sync records, ordered timeline cursor, and latest save point; not embedded full history.",
+            "fields": [
+              {
+                "name": "run_id",
+                "type": "string | null"
+              },
+              {
+                "name": "epoch_id",
+                "type": "string | null"
+              },
+              {
+                "name": "sync_id",
+                "type": "string | null"
+              },
+              {
+                "name": "timeline_cursor",
+                "type": "number"
+              },
+              {
+                "name": "save_point_id",
+                "type": "string | null"
+              }
+            ]
+          }
+        ],
+        "name": "HarnessState",
+        "source": {
+          "path": "apps/server/src/core/harness-state/state.ts",
+          "symbol": "HarnessState"
+        }
+      },
+      "children": []
+    },
+    "hs-explain": {
+      "id": "hs-explain",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Read the example as a game currently performing Sync while its requested intent is to run. The accepted head remains the baseline until an accepted source change advances it. Its state revision is an optimistic-concurrency counter, independent of Git commits and dispatch revisions."
+        }
+      ],
+      "children": []
+    },
+    "hs-intent-h": {
+      "id": "hs-intent-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Intent, Workflow, and Status"
+        }
+      ],
+      "children": []
+    },
+    "hs-terms": {
+      "id": "hs-terms",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Field",
+          "Question Answered",
+          "Example"
+        ],
+        "rows": [
+          [
+            "execution.desired",
+            "What has the operator requested?",
+            "run or paused"
+          ],
+          [
+            "execution.workflow",
+            "Which main workflow is recorded as active?",
+            "run, sync, or none"
+          ],
+          [
+            "execution.status",
+            "What condition is execution in?",
+            "initializing, active, idle, paused, or blocked"
+          ],
+          [
+            "readiness and blockers",
+            "Can the next epoch be admitted?",
+            "Accepted head, ready gates, no blockers, and desired run"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "hs-gates": {
+      "id": "hs-gates",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A changed source head makes build and evidence readiness pending. A changed configuration also invalidates source and sandbox readiness. The next epoch must use evidence valid for its accepted source and build inputs."
+        }
+      ],
+      "children": []
+    },
+    "hs-history-h": {
+      "id": "hs-history-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Current State and Retained History"
+        }
+      ],
+      "children": []
+    },
+    "hs-history": {
+      "id": "hs-history",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Harness State links the current run, epoch, Sync, timeline cursor, and latest save point. The timeline records boundaries; save points retain measured evidence at particular commits. Run, Sync, and knowledge stores keep their detailed records rather than embedding them all in this state."
+        }
+      ],
+      "children": []
+    },
+    "hs-boundaries": {
+      "id": "hs-boundaries",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Epoch Boundaries and Save Points",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness-process/20-epoch-boundaries-and-save-points"
+            }
+          }
+        },
+        {
+          "insert": " explains those history references."
+        }
+      ],
+      "children": []
+    },
+    "hs-authority-h": {
+      "id": "hs-authority-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Dispatch Authority Is Separate"
+        }
+      ],
+      "children": []
+    },
+    "hs-authority": {
+      "id": "hs-authority",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Recording Run intent does not grant a worker permission to start. Dispatch State owns the fenced lease, and readiness determines whether Run can proceed. A queued request grants no authority."
+        }
+      ],
+      "children": []
+    },
+    "hs-dispatch": {
+      "id": "hs-dispatch",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Dispatch Coordination",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness-process/40-dispatch-coordination"
+            }
+          }
+        },
+        {
+          "insert": " defines the lease and queued requests."
+        }
+      ],
+      "children": []
+    }
+  }
+}

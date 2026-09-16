@@ -1,0 +1,569 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dballoc:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:1b7bbdf4-6e0b-4bd2-a83e-019b30d13a76",
+        "target_id": "target:data:main/melee/db/dballoc:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 16-byte translation-unit data slice whose meaningful payload is most plausibly the null-terminated ASCII diagnostic filename `\"objalloc.h\"`, padded to a 12-byte object boundary, followed by four bytes of end-of-unit section padding.",
+        "rationale": "The archived split discussion records the old aggregate data range ending at `0x803EAE63` and explains that translation-unit alignment padding belongs to the split extent. The ObjAlloc discussion connects this limiter implementation to `objalloc.h` and specifically to the NumLimit helpers, while the current source retains those helper calls. Together these continue to support the 11-byte null-terminated filename, object alignment, and trailing section padding interpretation.",
+        "confidence": 0.88,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:a95edff6-9dbe-4f9c-a97d-19886034d89e",
+            "fact_id": "fact:1b7bbdf4-6e0b-4bd2-a83e-019b30d13a76",
+            "kind": "discord",
+            "locator": "discord://message/1197082701254111272",
+            "digest": null,
+            "why": "Records the old aggregate data split ending at `0x803EAE63`; its resolved thread explains that alignment padding at a translation-unit end must be included in the split extent.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          },
+          {
+            "id": "evidence:98845a4f-6ab5-406b-a275-6fbe797ef707",
+            "fact_id": "fact:1b7bbdf4-6e0b-4bd2-a83e-019b30d13a76",
+            "kind": "discord",
+            "locator": "discord://message/1242946009458409563",
+            "digest": null,
+            "why": "Pairs the old limiter implementation with `objalloc.h`; the resolved thread says the NumLimit functions used by this code were additions to the ObjAlloc implementation.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          },
+          {
+            "id": "evidence:d1b29635-b7f2-4e9c-a7bc-8fad3759898b",
+            "fact_id": "fact:1b7bbdf4-6e0b-4bd2-a83e-019b30d13a76",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Shows that the unit at head still invokes the ObjAlloc peak, numeric-limit, enable, and disable helper family associated with the identified header.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:68b84dcd-9a67-44a1-afb4-9d726c41da32",
+        "target_id": "target:data:main/melee/db/dballoc:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Carries the source-header filename diagnostic emitted for assertion paths in the inlined object-allocation helpers used by the limiter; it is compiler-owned diagnostic data rather than mutable limiter or gameplay state.",
+        "rationale": "The archived discussion connects this limiter implementation and its NumLimit calls to `objalloc.h`. At head, the code still uses that helper family while placing all visible mutable limiter state in the separate static `db_804D6BA0` object, preserving the interpretation of `.data` as helper-generated diagnostic material rather than writable limiter state.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:de7a7182-c411-4bad-9167-5f8f78c881d9",
+            "fact_id": "fact:68b84dcd-9a67-44a1-afb4-9d726c41da32",
+            "kind": "discord",
+            "locator": "discord://message/1242946009458409563",
+            "digest": null,
+            "why": "Connects the old limiter implementation to `objalloc.h` and identifies the NumLimit helpers as functions added to the ObjAlloc implementation.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          },
+          {
+            "id": "evidence:46d50de8-7b29-4823-a362-ebdd70fa2495",
+            "fact_id": "fact:68b84dcd-9a67-44a1-afb4-9d726c41da32",
+            "kind": "discord",
+            "locator": "discord://message/1197082701254111272",
+            "digest": null,
+            "why": "Documents how string objects and translation-unit alignment padding were represented in the relevant historical split.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          },
+          {
+            "id": "evidence:bc08611d-cd7c-4a08-9b4d-fbf0acf773fc",
+            "fact_id": "fact:68b84dcd-9a67-44a1-afb4-9d726c41da32",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Shows continued use of the ObjAlloc helper family and locates the unit's writable limiter state in `db_804D6BA0`, separate from `.data`.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dballoc:.sbss"
+    },
+    "facts": [
+      {
+        "id": "fact:4bde065e-484e-4875-b448-170a5b80632d",
+        "target_id": "target:data:main/melee/db/dballoc:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Setup writes zero to both fields. Update reads `b0` to select enable versus disable behavior for `efLib_AllocData` and reads `b1` to make the same selection for `hsd_804D0F90.alloc_data`, `hsd_804D0F60.alloc_data`, and `HSD_PSAppSrt_804D10B0`; each completed branch writes the resulting enabled state back to its corresponding field.",
+        "rationale": "Every read and write of the static object remains visible at head. The allocator calls between each field's read and subsequent write identify the allocator group whose enabled state that field mirrors.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:1f5ef8de-458d-4701-8931-602f797a34b2",
+            "fact_id": "fact:4bde065e-484e-4875-b448-170a5b80632d",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Shows initialization, all consumers of both fields, their associated allocator groups, and every resulting state write.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:4cf88e99-e37a-4cbd-855d-f5d3ad142a4f",
+        "target_id": "target:data:main/melee/db/dballoc:.sbss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Backs the persistent on/off state of the developer object-allocation limiter, with one state for effect allocation and one shared state for particle-generator and particle-SRT allocation.",
+        "rationale": "The two fields are manipulated only by the limiter's setup and DEVELOP-only controller routine, where they directly select and record limit enablement for the effect allocator and the shared group of particle-related allocators.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:39d12231-3ea6-4ded-b9ae-144e29d5992e",
+            "fact_id": "fact:4cf88e99-e37a-4cbd-855d-f5d3ad142a4f",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Ties each persistent field to a developer-only controller chord and to limit operations on its corresponding allocator group.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:26aa7a5d-cd85-42aa-8657-12201765ac11",
+        "target_id": "target:data:main/melee/db/dballoc:.sbss",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "obj_alloc_limiter_flags",
+        "rationale": "The declaration and complete use set at head show that both fields belong exclusively to the object-allocation limiter's setup and update routines and record the enabled state of its two independently controlled groups, supporting this semantic name.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:df5d2428-4f10-4449-9dc5-fa52ab979050",
+            "fact_id": "fact:26aa7a5d-cd85-42aa-8657-12201765ac11",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Declares the two-field static object and shows that its only uses are as state flags for the object-allocation limiter.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:b437b09d-1343-47d9-afb5-0e61a9d5394a",
+        "target_id": "target:data:main/melee/db/dballoc:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A static `UnkFlagStruct` whose `b0` and `b1` fields are integer boolean latches, each restricted by this unit to the values 0 and 1.",
+        "rationale": "The current source explicitly declares `db_804D6BA0` as `UnkFlagStruct`; setup assigns zero to both fields, and update compares each with zero and assigns only zero or one.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:68c4884b-dbf8-47d6-9b15-e59378bd36b7",
+            "fact_id": "fact:b437b09d-1343-47d9-afb5-0e61a9d5394a",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Provides the concrete declaration and the complete 0/1 value domain used for both fields.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:6c1d2a3a-29ed-4275-9b86-e8e4f21a6635",
+        "target_id": "target:data:main/melee/db/dballoc:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the two persistent latch flags that track whether each of the debug object-allocation limiter's independently controlled allocator groups is currently enabled.",
+        "rationale": "The static object is cleared by setup and subsequently read and rewritten by update to select between enabling and disabling the effect allocator or the shared particle-generator/SRT allocator group.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:3fb73dd3-e20d-461a-a6c8-5ef186f23313",
+            "fact_id": "fact:6c1d2a3a-29ed-4275-9b86-e8e4f21a6635",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Shows both fields serving exclusively as persistent enabled-state latches for the limiter's two controlled allocator groups.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:5b60460c-9683-41b4-884e-a5faeff8e2d0",
+        "target_id": "target:data:main/melee/db/dballoc:.sbss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Both latches begin cleared. While `DbLevel == DbLKind_Develop`, holding B and newly pressing D-pad Up toggles `b0`, while holding A and newly pressing D-pad Up toggles `b1`; a cleared latch transitions to set after limits are configured and enabled, and a set latch transitions to cleared after those limits are disabled.",
+        "rationale": "The source at head directly preserves both initial states, the named DEVELOP-level guard, the two controller chords, and the symmetric off-to-on and on-to-off transitions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:1c59ecb8-bee5-461b-bcee-a2f20ddada63",
+            "fact_id": "fact:5b60460c-9683-41b4-884e-a5faeff8e2d0",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Defines the initial values, DEVELOP-level guard, held and newly pressed inputs, allocator actions, and both latch transitions.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dballoc:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:ca8a0206-eef9-41d7-b737-1f548e95dab1",
+        "target_id": "target:data:main/melee/db/dballoc:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An 8-byte small-data string object containing the null-terminated ASCII literal `\"data\"`; its five content bytes are followed by three zero bytes of four-byte alignment padding.",
+        "rationale": "The archived discussion gives the object at the target's exact address, `0x804D4B28`, first as two words (`0x64617461`, `0x00000000`) and then as the equivalent `.asciz \"data\"` plus `.balign 4`. It also explains that the recorded eight-byte symbol size includes end-of-translation-unit alignment padding.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:00:28.352Z",
+        "evidence": [
+          {
+            "id": "evidence:e38d86d1-3391-4aa6-92c4-9f0c7bd1aed1",
+            "fact_id": "fact:ca8a0206-eef9-41d7-b737-1f548e95dab1",
+            "kind": "discord",
+            "locator": "discord://message/1197082701254111272",
+            "digest": null,
+            "why": "The resolved message identifies `lbl_804D4B28` byte-for-byte as the string `\"data\"` and its thread explains the trailing alignment padding and eight-byte symbol extent.",
+            "captured_at": "2026-09-02T05:00:28.352Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dballoc:fn_SetupObjAllocLimiter"
+    },
+    "facts": [
+      {
+        "id": "fact:dcce4627-0929-4195-9ed2-7c2b1d818555",
+        "target_id": "target:function:main/melee/db/dballoc:fn_SetupObjAllocLimiter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Writes zero to `db_804D6BA0.b0` and `.b1`; `fn_UpdateObjAllocLimiter` later reads and updates `b0` as the effect-allocator latch and `b1` as the shared latch for two generator allocators and the PSAppSrt allocator.",
+        "rationale": "The setup body supplies both initial values, while the adjacent update body at head demonstrates the downstream interpretation and mutation of each field.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:46f2b865-ec21-4530-92ab-438dbf5fceae",
+            "fact_id": "fact:dcce4627-0929-4195-9ed2-7c2b1d818555",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Shows both initialization stores and every subsequent read and write of those fields by the update routine.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:62833c32-8284-4503-aee6-438538f332e1",
+        "target_id": "target:function:main/melee/db/dballoc:fn_SetupObjAllocLimiter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the initialization step for Melee's developer-facing object-allocation limiter, a debug facility that can cap selected effect and HSD particle/SRT allocators at their recorded peak usage.",
+        "rationale": "The fields reset by setup are consumed by the adjacent DEVELOP-level controller routine, whose activation branches copy each selected allocator's observed peak into its numeric limit before enabling enforcement.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:28bd0005-f537-4b93-9e6f-93301b619a35",
+            "fact_id": "fact:62833c32-8284-4503-aee6-438538f332e1",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Connects the initialized flags to developer controller handling and peak-derived numeric limits on the effect, generator, and PSAppSrt allocators.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:573c5705-23d5-4349-80e7-6e829c4b75bf",
+        "target_id": "target:function:main/melee/db/dballoc:fn_SetupObjAllocLimiter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Parameterless initialization routine with signature `void (void)`.",
+        "rationale": "The matched definition explicitly takes no parameters, returns `void`, and consists solely of persistent-state initialization.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:19:40.897Z",
+        "evidence": [
+          {
+            "id": "evidence:f3c77c7a-f671-4cab-bf8f-a27be21675a8",
+            "fact_id": "fact:573c5705-23d5-4349-80e7-6e829c4b75bf",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L9-L13",
+            "digest": "sha256:d30aaedd17a876c0",
+            "why": "The resolved function definition directly gives the `void fn_SetupObjAllocLimiter(void)` signature.",
+            "captured_at": "2026-09-02T00:19:40.897Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:d8f2dfc7-9e74-4a25-8647-f3c206c64985",
+        "target_id": "target:function:main/melee/db/dballoc:fn_SetupObjAllocLimiter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the debug object-allocation limiter's two software toggle latches, establishing the state from which the effect-allocator and HSD particle/SRT allocator groups are subsequently toggled.",
+        "rationale": "The function clears both fields of the unit-private flag structure, and the adjacent update routine reads those fields to choose between enabling and disabling its two allocator groups. The stores therefore initialize controller-facing limiter state without directly configuring an allocator.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:a01ad8ca-2063-4207-ade5-be4a4be4fd5f",
+            "fact_id": "fact:d8f2dfc7-9e74-4a25-8647-f3c206c64985",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Shows this function clearing both private flags and the update function consuming each flag for a distinct allocator group.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:4dcd9554-d8c4-4df3-bf73-8870169884ec",
+        "target_id": "target:function:main/melee/db/dballoc:fn_SetupObjAllocLimiter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Forces both tracked limiter states to the zero/off branch. It does not itself disable or otherwise reconfigure any allocator; allocator limits change only when the update routine processes the corresponding debug button chord.",
+        "rationale": "The setup routine at head contains only two flag-clearing stores and no allocator calls. All limit setting, enabling, and disabling remains in the update routine's controller-driven branches.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:36:54.095Z",
+        "evidence": [
+          {
+            "id": "evidence:bface909-605b-4a3a-b45c-9834e395f787",
+            "fact_id": "fact:4dcd9554-d8c4-4df3-bf73-8870169884ec",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dballoc.c#L1-L64",
+            "digest": "sha256:44514c603996ed20",
+            "why": "Distinguishes setup's two state resets from the allocator enable, disable, and limit-setting operations performed by update.",
+            "captured_at": "2026-09-04T22:36:54.095Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dballoc:fn_UpdateObjAllocLimiter"
+    },
+    "facts": [
+      {
+        "id": "fact:61aeeb9c-3b29-4665-a9b0-a5648ba65888",
+        "target_id": "target:function:main/melee/db/dballoc:fn_UpdateObjAllocLimiter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input selector feeds `db_ButtonsDown` and `db_ButtonsPressed`. When a limiter is being enabled, each allocator's `HSD_ObjAllocGetPeak` result flows into `HSD_ObjAllocSetNumLimit` for that same allocator before `HSD_ObjAllocEnableNumLimit`; the function records the resulting mode in `db_804D6BA0.b0` or `.b1`. Disabling calls `HSD_ObjAllocDisableNumLimit` and clears the corresponding mode bit.",
+        "rationale": "The current body preserves the complete routing from controller queries through allocator peak reads and limit writes to the two persistent state fields.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:18:29.003Z",
+        "evidence": [
+          {
+            "id": "evidence:bf5934c3-cfb4-44f2-b6e7-3b61f7766134",
+            "fact_id": "fact:61aeeb9c-3b29-4665-a9b0-a5648ba65888",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L15-L62",
+            "digest": "sha256:b74af9d61f2ac273",
+            "why": "Directly shows the controller input, every peak read and limit write, each enable or disable operation, and both persistent flag updates.",
+            "captured_at": "2026-09-04T18:18:29.003Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:a3e7479f-5ee5-4ee4-9783-c5286a752e63",
+        "target_id": "target:function:main/melee/db/dballoc:fn_UpdateObjAllocLimiter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements a developer-only object-allocation limiter control: it converts the currently observed peak allocation counts into enforced ceilings so developers can run with no additional object-count growth in the selected effects or particle/SRT allocation systems.",
+        "rationale": "The named DEVELOP-level restriction and debug button accessors establish a developer control rather than ordinary gameplay input. Setting each selected allocator's limit to its observed peak immediately before enabling enforcement grounds the facility as a bounded-object-pool test.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:18:29.003Z",
+        "evidence": [
+          {
+            "id": "evidence:0c2045fb-9b40-40e2-b423-ff6e51478c95",
+            "fact_id": "fact:a3e7479f-5ee5-4ee4-9783-c5286a752e63",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L15-L62",
+            "digest": "sha256:b74af9d61f2ac273",
+            "why": "Shows the developer-only activation path and conversion of each selected allocator's peak count into an enabled numeric ceiling.",
+            "captured_at": "2026-09-04T18:18:29.003Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:6fe11066-c3ee-4863-a28d-9352d8d0e703",
+        "target_id": "target:function:main/melee/db/dballoc:fn_UpdateObjAllocLimiter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A `void` update callback taking one `int` controller/player selector, which is forwarded unchanged to the debug button-state accessors.",
+        "rationale": "The current definition has signature `void fn_UpdateObjAllocLimiter(int player)`, and every use of `player` passes it unchanged to `db_ButtonsDown` or `db_ButtonsPressed`.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:18:29.003Z",
+        "evidence": [
+          {
+            "id": "evidence:be622fd8-4b4c-49d6-bf42-5a5617a81b2e",
+            "fact_id": "fact:6fe11066-c3ee-4863-a28d-9352d8d0e703",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L15-L62",
+            "digest": "sha256:b74af9d61f2ac273",
+            "why": "Provides the exact return and parameter types and shows the parameter being used solely for debug button-state queries.",
+            "captured_at": "2026-09-04T18:18:29.003Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:64bf25b0-5faf-42eb-a20a-09fcbb466db0",
+        "target_id": "target:function:main/melee/db/dballoc:fn_UpdateObjAllocLimiter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Processes hidden debug controller shortcuts that toggle object-count limits for the effect allocator or for a group of three HSD particle/SRT allocators, freezing each enabled limit at that allocator's peak usage observed so far.",
+        "rationale": "Under `DbLKind_Develop`, the function recognizes two button chords. Each off-to-on branch obtains the selected allocators' peaks, installs those values as numeric limits, and enables enforcement; each reverse branch disables enforcement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:18:29.003Z",
+        "evidence": [
+          {
+            "id": "evidence:7c14db07-af8f-4a35-a18d-e6f12a8bb12e",
+            "fact_id": "fact:64bf25b0-5faf-42eb-a20a-09fcbb466db0",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L15-L62",
+            "digest": "sha256:b74af9d61f2ac273",
+            "why": "Shows the named DEVELOP-level guard, both controller shortcuts, all peak-to-limit assignments, and the corresponding enable and disable calls.",
+            "captured_at": "2026-09-04T18:18:29.003Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:6616e309-4564-412d-8b41-1694b48ba0f1",
+        "target_id": "target:function:main/melee/db/dballoc:fn_UpdateObjAllocLimiter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The function is inert unless `DbLevel` equals `DbLKind_Develop`. In that mode, B held with a newly pressed D-pad Up edge toggles `b0` and the effect allocator limit; independently, A held with a newly pressed D-pad Up edge toggles `b1` and all three HSD generator/SRT allocator limits. A zero flag transitions to enabled and one, while a nonzero flag transitions to disabled and zero.",
+        "rationale": "The current control flow explicitly preserves the outer DEVELOP-level guard, held-versus-newly-pressed button tests, two independent flags, and symmetric enable and disable transitions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:18:29.003Z",
+        "evidence": [
+          {
+            "id": "evidence:e92ccc9d-5757-486d-8407-81db63ab7345",
+            "fact_id": "fact:6616e309-4564-412d-8b41-1694b48ba0f1",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L15-L62",
+            "digest": "sha256:b74af9d61f2ac273",
+            "why": "Specifies the named debug-level guard, both input combinations, state tests, allocator actions, and next-state assignments.",
+            "captured_at": "2026-09-04T18:18:29.003Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/db/dballoc.c"
+    },
+    "facts": [
+      {
+        "id": "fact:bc52f915-4c01-4931-b733-1b2cef567742",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dballoc.c",
+        "type": "data_flow",
+        "value": "Setup clears two private flags. Update reads controller state and those flags, copies each selected allocator's recorded peak into its numeric limit before enabling enforcement, and later disables the same allocator set while clearing the corresponding flag.",
+        "rationale": "The current source directly preserves the controller, peak, limit, enable, disable, and latch flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "id": "evidence:75c32aff-f241-47e2-8493-54447b59d032",
+            "fact_id": "fact:bc52f915-4c01-4931-b733-1b2cef567742",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L1-L62",
+            "digest": "sha256:5cfcc104a45b695d",
+            "why": "Shows both flags and all peak-to-limit and disable operations.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:0ab917d2-759b-419c-a628-9028433be530",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dballoc.c",
+        "type": "game_mapping",
+        "value": "Implements a DEVELOP-mode memory-pressure test that freezes selected effect and particle-related object allocators at their observed peak populations and can remove those limits again.",
+        "rationale": "The current DEVELOP-only branches copy observed peaks into numeric limits before enabling them and provide complementary disable paths.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "id": "evidence:4f19bfcf-b2ba-4e53-a475-f6fc55e37ffe",
+            "fact_id": "fact:0ab917d2-759b-419c-a628-9028433be530",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L1-L62",
+            "digest": "sha256:5cfcc104a45b695d",
+            "why": "Shows controller-driven peak-to-limit installation, enforcement, and removal.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:3fe0f1ea-73c0-46eb-90b6-46681c84714a",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dballoc.c",
+        "type": "purpose",
+        "value": "Provides debug setup and controller-driven updates for imposing or removing runtime object-allocation limits on the effect allocator and three particle or SRT-related allocators.",
+        "rationale": "The complete current unit initializes two limiter flags and controls the four named allocator descriptors.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "id": "evidence:645052e2-4f33-4387-a201-1853eb63ea12",
+            "fact_id": "fact:3fe0f1ea-73c0-46eb-90b6-46681c84714a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L1-L62",
+            "digest": "sha256:5cfcc104a45b695d",
+            "why": "Shows the setup/update pair and every allocator whose numeric limit is controlled.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:f1f9f7f2-96f7-419c-9a11-84993c2d19ca",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dballoc.c",
+        "type": "state_behavior",
+        "value": "Maintains two independent limiter latches, both initially disabled. While `DbLevel == DbLKind_Develop`, held B plus newly pressed D-pad Up toggles the effect allocator, while held A plus newly pressed D-pad Up toggles the three particle or SRT allocators.",
+        "rationale": "The current source retains both initial states, the DEVELOP guard, the distinct controller chords, and their enable/disable transitions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "id": "evidence:6628eed8-b232-4eb1-8e47-1c5d79be1ae7",
+            "fact_id": "fact:f1f9f7f2-96f7-419c-9a11-84993c2d19ca",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dballoc.c#L1-L62",
+            "digest": "sha256:5cfcc104a45b695d",
+            "why": "Shows both latches, controller guards, and corresponding allocator transitions.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/db/dballoc:fn_UpdateObjAllocLimiter#r3"
+    },
+    "facts": []
+  }
+]

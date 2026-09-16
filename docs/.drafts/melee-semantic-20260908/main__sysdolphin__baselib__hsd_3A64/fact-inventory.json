@@ -1,0 +1,1697 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:.data"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:.sdata2"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6478"
+    },
+    "facts": [
+      {
+        "id": "fact:a81976f0-d376-4294-baf1-bd17262ee89d",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6478",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes `src` until zero. Values at least 0x20 are copied as two-byte printable units; control bytes are copied with opcode-dependent payload bytes. The reconstructed stream and a final zero are written to `dst`, and the address of that zero is returned for possible further appending.",
+        "rationale": "The current implementation directly defines the source consumption, destination writes, terminator, and returned insertion point.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L15-L40",
+            "why": "Shows exact encoded-byte movement from source to destination and return of the final destination pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:59f689a0-7de5-4d88-bf93-0ffdb1e1095e",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6478",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports SIS-driven UI text presentation by allowing encoded interface strings to be copied and extended without splitting multibyte glyphs or embedded formatting commands.",
+        "rationale": "The copier treats source data as structured SIS glyph and command units rather than as an ordinary byte string.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L15-L40",
+            "why": "Shows preservation of two-byte printable units and opcode-dependent control-command payloads."
+          }
+        ]
+      },
+      {
+        "id": "fact:4ede8b22-ff21-448f-9828-30cb48230471",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6478",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_CopyString",
+        "rationale": "The routine copies one entire encoded SIS string between supplied pointers. `CopyString` remains a plausible original-style name but is not symbol-confirmed.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L15-L40",
+            "why": "Demonstrates a complete format-aware string copy and return of the destination end."
+          }
+        ]
+      },
+      {
+        "id": "fact:d572e166-9946-4f7e-b855-4849803226c3",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6478",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `u8* (u8* dst, u8* src)`. Both pointers address null-terminated encoded SIS streams; the return value points to the zero written at the destination end. No capacity argument is accepted, so sufficient writable destination storage is a caller precondition.",
+        "rationale": "The relocated declaration and body establish pointer direction, sequential copying, the returned terminator pointer, and absence of bounds checking.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L15-L40",
+            "why": "Provides the signature, sequential accesses, final zero write, return pointer, and lack of a capacity check."
+          }
+        ]
+      },
+      {
+        "id": "fact:217e059c-36a4-4e57-a044-78ea8a1c53c8",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6478",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Copies a complete null-terminated encoded SIS string into caller-provided storage while preserving variable-length glyph and control-command units, then returns the destination position where the terminator was written.",
+        "rationale": "The relocated body advances through source units according to their SIS encoding, writes every constituent byte, writes the final zero, and returns that destination pointer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L15-L40",
+            "why": "Shows the complete SIS-aware copy, destination termination, and returned terminator pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:84ed5fd7-862c-4223-bef6-bfb806f30eb0",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6478",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each iteration copies one complete encoded unit. Printable units occupy two bytes. Control opcodes 6, 7, 8, 9, 10, and 14 occupy five bytes total; opcode 12 occupies four; opcode 5 occupies three; other control opcodes occupy one. Source zero ends copying, writes destination zero without advancing past it, and returns that address.",
+        "rationale": "The switch fallthrough determines the copied payload lengths, and the outer loop plus epilogue define termination behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L15-L40",
+            "why": "Shows every unit-length branch and the final terminator write and return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6530"
+    },
+    "facts": [
+      {
+        "id": "fact:76646b3d-20e7-451c-90ee-0d18fd90817e",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6530",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads `HSD_SisLib_804D1124[font_idx]` as an encoded-string pointer table, obtains `sis_table[dst_idx]` and `sis_table[src_idx]`, passes them to `HSD_SisLib_803A6478`, and returns that helper's destination-end pointer.",
+        "rationale": "The wrapper's full data path is contained in the relocated five-line definition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L42-L46",
+            "why": "Shows global-table lookup, destination/source entry selection, helper invocation, and result forwarding."
+          }
+        ]
+      },
+      {
+        "id": "fact:e1e17748-0d32-4d99-8d36-71f2fb4f24d8",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6530",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports Melee's SIS-driven text presentation by replacing one reusable encoded interface-text entry with another while delegating preservation of embedded formatting commands to the format-aware copier.",
+        "rationale": "The function operates on SisLib's font-indexed encoded-string table and routes complete entries through the SIS-aware copy primitive.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L42-L46",
+            "why": "Shows indexed SisLib text entries being selected for a complete encoded-string copy."
+          }
+        ]
+      },
+      {
+        "id": "fact:de862d5c-8b56-4e3c-8c56-4c8a14917da3",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6530",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_CopyString",
+        "rationale": "The routine copies a complete encoded entry to the start of another indexed entry. `CopyString` remains a conservative inferred name, though the exact original suffix is unknown.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L42-L46",
+            "why": "Shows the wrapper invoking the encoded-string copier on indexed destination and source entries."
+          }
+        ]
+      },
+      {
+        "id": "fact:7574f36e-26f4-4193-b981-c2340971e3c6",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6530",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `u8* (s32 font_idx, s32 dst_idx, s32 src_idx)`. The first index selects a global SisLib table, the remaining indices select destination and source byte-stream entries, and the return value is forwarded from the encoded copier.",
+        "rationale": "The relocated definition directly supplies the signature, indexed table accesses, and forwarded pointer return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L42-L46",
+            "why": "Provides the exact signature, index usage, and returned copier result."
+          }
+        ]
+      },
+      {
+        "id": "fact:564a9aa9-96e4-42fb-abc9-fc3f6c1af734",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6530",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Copies one indexed encoded SIS string over another entry in the same selected font/resource table, serving as a table-indexed wrapper around the format-aware string copier.",
+        "rationale": "The relocated wrapper resolves both indexed entries and passes the destination start and source pointer directly to the copier, so it replaces rather than appends.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L42-L46",
+            "why": "Shows table selection and direct copying from the selected source entry to the selected destination entry."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C"
+    },
+    "facts": [
+      {
+        "id": "fact:313c9fb1-c078-43a0-94fc-e7c6b48ffa17",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads `HSD_SisLib_804D1124[font_idx]`, obtains destination and source pointers from that entry table, advances the destination over each existing encoded unit until zero, and passes the endpoint with the source pointer to `HSD_SisLib_803A6478`.",
+        "rationale": "The relocated body explicitly shows table selection, destination traversal, and the endpoint/source arguments supplied to the encoded copier.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L48-L79",
+            "why": "Shows the complete flow from three indices to selected pointers, append-point discovery, and copier invocation."
+          }
+        ]
+      },
+      {
+        "id": "fact:3604cab4-bf7a-4b53-aa23-13c4531b72d7",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports compositional UI text presentation by concatenating reusable encoded SIS text fragments without splitting multibyte glyphs or embedded formatting commands.",
+        "rationale": "The function traverses SIS-specific variable-width units before appending another encoded entry, demonstrating structured text composition rather than ordinary byte concatenation.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L48-L79",
+            "why": "Shows SIS-aware concatenation that preserves glyph and control-command boundaries."
+          }
+        ]
+      },
+      {
+        "id": "fact:027b7bfb-6e05-449a-b641-77f608a7de8f",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_AppendString",
+        "rationale": "The function performs the encoded SIS equivalent of concatenation by locating the destination end before copying the source. `AppendString` remains plausible but unconfirmed.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L48-L79",
+            "why": "Shows the destination being scanned to its terminator before the source string is copied there."
+          }
+        ]
+      },
+      {
+        "id": "fact:1b70dc10-08af-4c63-b2f3-cc27326d2916",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void (s32 font_idx, s32 dst_idx, s32 src_idx)`. `font_idx` selects a table in `HSD_SisLib_804D1124`; `dst_idx` and `src_idx` select destination and source encoded-string entries from that table.",
+        "rationale": "The current definition and its two-level table indexing directly establish the signature and all three index domains.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L48-L79",
+            "why": "Provides the void signature and resolves destination and source pointers through the font-indexed table."
+          }
+        ]
+      },
+      {
+        "id": "fact:ebc34e75-79cf-41d0-bc35-fd5233afd677",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Appends one encoded SIS text-table entry to another by finding the destination terminator and invoking SisLib's format-aware string copier there.",
+        "rationale": "The relocated function selects source and destination entries from one font-indexed table, parses the destination to its encoded terminator, and copies the complete source at that point.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L48-L79",
+            "why": "Shows table selection, encoded destination traversal, and copying of the source at the destination terminator."
+          }
+        ]
+      },
+      {
+        "id": "fact:bb40df4b-1c90-4bcd-9769-d590fa2f8236",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "While seeking the append point, bytes at least 0x20 occupy two bytes. Control opcodes 6, 7, 8, 9, 10, and 14 occupy five bytes; opcode 12 occupies four; opcode 5 occupies three; other nonzero controls occupy one. Scanning stops at zero, where the copied source replaces the old terminator.",
+        "rationale": "The destination traversal switch directly defines each encoded-unit width and the zero-terminated transition to the append operation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L48-L79",
+            "why": "Shows all encoded-unit cursor increments and the copier call at the destination terminator."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6754"
+    },
+    "facts": [
+      {
+        "id": "fact:3db39abe-2e69-4087-a090-1e30a03ffa59",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6754",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The font and context identifiers flow into the lower-level HSD_Text constructor. Its result receives an allocated descriptor and a separate 128-byte payload; descriptor pointers and size are initialized, the payload begins with zero, reset is invoked, and the payload is published through `text->sis_buffer` before return.",
+        "rationale": "Every allocation, pointer assignment, initialization, reset call, and final publication is explicit in the current relocated body.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L81-L103",
+            "why": "Shows the complete flow from constructor inputs to returned HSD_Text and its private SIS buffer."
+          }
+        ]
+      },
+      {
+        "id": "fact:ef345492-e593-410e-9b52-d18b51420ae8",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6754",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides dynamically writable HSD_Text objects used by Melee's screen and menu text-presentation code rather than implementing a specific gameplay rule.",
+        "rationale": "The function creates a screen-sized HSD_Text and equips it with writable SIS command storage suitable for runtime-generated display text.",
+        "confidence": 0.91,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L81-L103",
+            "why": "Shows construction of a screen-sized HSD_Text with private writable SIS storage."
+          }
+        ]
+      },
+      {
+        "id": "fact:57455e12-9c54-4833-bb86-5ec0faad4b30",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6754",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_CreateText",
+        "rationale": "The function is constructor-shaped and returns an HSD_Text already equipped with initialized private SIS storage. `CreateText` remains an inferred name because no original symbol confirms it.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L81-L103",
+            "why": "Shows a routine that creates, equips, initializes, and returns an HSD_Text."
+          }
+        ]
+      },
+      {
+        "id": "fact:cac8caa2-3b12-49d9-9f88-69714664741f",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6754",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `HSD_Text* (int font_idx, int context_id)`. Both arguments are forwarded to the lower-level text constructor, and the returned object owns a 128-byte SIS command buffer through an allocated descriptor.",
+        "rationale": "The relocated definition directly establishes the parameter and return types, constructor forwarding, descriptor allocation, and 0x80-byte payload attachment.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L81-L103",
+            "why": "Provides the signature and shows the returned HSD_Text receiving its private 0x80-byte SIS payload."
+          }
+        ]
+      },
+      {
+        "id": "fact:8f041ff9-a7a8-4fe7-8bd6-7aa5cbe65ba8",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6754",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Creates a ready-to-use HSD_Text object with a 640-by-480 text box and a private, initially empty 128-byte SIS command buffer for dynamically generated text.",
+        "rationale": "The relocated function constructs the full-screen text object, allocates metadata and a 0x80-byte payload, initializes the stream as empty, resets text state, publishes the payload, and returns the object.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L81-L103",
+            "why": "Shows full-screen HSD_Text construction, private payload allocation, empty-stream initialization, reset, publication, and return."
+          }
+        ]
+      },
+      {
+        "id": "fact:a8c756f1-0160-4483-be8b-9a87a7844d26",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6754",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The new object starts with a 640-by-480 text box and an empty private SIS stream. Its descriptor points both `data` and `next` at the new payload, records a capacity of 0x80, clears associated counters, and then resets the HSD_Text state before exposing the payload as `sis_buffer`.",
+        "rationale": "The constructor arguments and descriptor initialization directly establish the initial geometry, empty-stream state, capacity, cursor, counters, and reset transition.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L81-L103",
+            "why": "Shows initial geometry, payload pointers, capacity, zeroed stream metadata, reset, and SIS-buffer installation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A67EC"
+    },
+    "facts": [
+      {
+        "id": "fact:6504a688-b1dc-4f85-b600-a7221d25b1cd",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A67EC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Each source character becomes a two-byte lookup key: selected punctuation uses explicit 0x81-prefixed values, digits and Latin letters use 0x82-prefixed values derived from ASCII, and other input supplies a two-byte pair directly. The key is searched in `lbl_8040C8C0`; a match selects the corresponding two output bytes from `HSD_SisLib_8040C680`. Encoded bytes accumulate in `dst`, which is zero-terminated, and the byte count is returned.",
+        "rationale": "The current implementation explicitly shows every source mapping, the parallel lookup and output tables, destination writes, final terminator, and returned length.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L137-L219",
+            "why": "Shows input-key construction, table search, mapped output writes, termination, and output-count return."
+          }
+        ]
+      },
+      {
+        "id": "fact:aee5c0fc-25ca-4f6f-b6af-1fdfc5d07f7d",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A67EC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports dynamically generated UI text by converting formatted Latin and two-byte character input into the glyph codes and presentation-control representation consumed by Melee's SisLib text system.",
+        "rationale": "The function translates ordinary display characters through SisLib font mappings and emits SisLib control bytes into a destination stream.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L137-L219",
+            "why": "Shows conversion from display-string characters to SisLib font codes and presentation-control bytes."
+          }
+        ]
+      },
+      {
+        "id": "fact:f4b016da-d845-4474-9005-b8b9333964af",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A67EC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_EncodeString",
+        "rationale": "The function receives a conventional byte string and writes a terminated internal SIS byte sequence. `EncodeString` remains a concise but unconfirmed inferred name.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L137-L219",
+            "why": "Shows a string encoder mapping source characters through character-code tables into a terminated destination stream."
+          }
+        ]
+      },
+      {
+        "id": "fact:52d8916f-3fae-41ec-b3ba-0786cef31c00",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A67EC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `s32 (u8* dst, u8* src)`. `src` is a null-terminated byte string scanned for at most 0x80 input positions, with the fallback class consumed as a two-byte character pair. `dst` receives a zero-terminated SIS-encoded sequence, and the return value is the byte count before the final zero.",
+        "rationale": "The definition supplies the pointer and return types, the outer-loop bound, one- and two-byte input behavior, final destination zero, and returned output index.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L137-L219",
+            "why": "Provides the signature, input bound, fallback two-byte consumption, output termination, and returned encoded length."
+          }
+        ]
+      },
+      {
+        "id": "fact:f32a0b60-cacd-4afe-b4d1-eaf5cbef824d",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A67EC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Encodes a bounded null-terminated display string into SisLib's internal text representation by mapping supported ASCII punctuation, digits, and letters to two-byte character codes, accepting other input as two-byte pairs, translating through the font tables, and emitting required state-control bytes.",
+        "rationale": "The relocated encoder still classifies input, constructs two-byte lookup keys, searches the font atlas mapping, emits control bytes, terminates the destination, and returns its encoded length.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L137-L219",
+            "why": "Shows complete character classification, lookup-table translation, control-byte emission, destination termination, and returned length."
+          }
+        ]
+      },
+      {
+        "id": "fact:d2ae7157-987f-4d8d-a2bf-510e21588dc3",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A67EC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The encoder tracks whether its temporary kerning-related SIS state is open. Spaces, periods, digits, and colons call `sisBeginLine`; quotes, apostrophes, commas, hyphens, letters, and generic two-byte input call `sisEndKerning`. If the state remains open at the source terminator, opcode 0x0B is emitted before the destination is terminated.",
+        "rationale": "The character branches and `has_kerning` guard directly define when the helper-managed state opens, closes, and receives a final closure.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L137-L219",
+            "why": "Shows the state flag, character-class-specific begin/end helper calls, and conditional final 0x0B emission."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98"
+    },
+    "facts": [
+      {
+        "id": "fact:1811086f-d9a6-44e7-8874-6a97e8da065b",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_Text supplies the allocation descriptor, current color and scale, and published SIS-buffer pointer. Optional variadic input is formatted and converted into SIS bytes. Required capacity is computed from used length, a 17-byte command envelope, and payload length; growth copies the used stream, redirects the descriptor and `text->sis_buffer`, preserves the cursor offset, and frees the old block. The function then writes the entry and returns its index.",
+        "rationale": "The current relocated body explicitly retains the complete flow from HSD_Text and variadic inputs through encoding, optional storage migration, command-stream mutation, and entry-index publication.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L221-L295",
+            "why": "Shows input formatting, encoded payload production, capacity calculation, buffer migration, cursor advancement, and index return."
+          }
+        ]
+      },
+      {
+        "id": "fact:4682decf-5aa4-4eaf-b9f8-68edf6e5df6e",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements creation of runtime-generated UI text entries in Melee's SIS-driven text-presentation system, including per-entry position and inherited HSD_Text color and scale.",
+        "rationale": "The function writes formatted character content together with position, RGB, and scale commands into an HSD_Text SIS stream, directly grounding it in runtime text presentation.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L221-L295",
+            "why": "Shows formatted content and presentation attributes being serialized as one HSD_Text SIS entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:57c44702-bf9c-4771-abbb-f690f32cea34",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_AddText",
+        "rationale": "The relocated body still adds one complete positioned text entry to the end of an HSD_Text SIS stream. `AddText` remains a conservative inferred suffix, though no recovered symbol confirms it.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L221-L295",
+            "why": "Shows a complete SIS text entry being appended at the current write cursor and the logical entry count being incremented."
+          }
+        ]
+      },
+      {
+        "id": "fact:0782f00f-1c23-4a26-8962-77be5b3399f2",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `int (HSD_Text* text, float x, float y, const char* fmt, ...)`. A non-null format is processed as printf-style variadic input; a null format creates an entry without character payload. The return value is the entry count before its post-increment.",
+        "rationale": "The relocated definition provides the signature, format guard, variadic processing, and post-incremented return field directly.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L221-L295",
+            "why": "Provides the concrete signature, null-format behavior, variadic formatting path, and returned pre-increment entry count."
+          }
+        ]
+      },
+      {
+        "id": "fact:a4cbfeef-03bc-4da6-a233-73ef49b7d93f",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Appends one dynamically generated, positioned text entry to an HSD_Text object's writable SIS command stream. It formats and SIS-encodes an optional printf-style string, serializes position, current text color, and current scale, and enlarges the owned buffer when capacity is insufficient.",
+        "rationale": "The relocated function still performs formatting, SIS encoding, capacity growth, command serialization, termination, and entry-count increment, so the standing purpose remains valid at the new source location.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L221-L295",
+            "why": "Shows the complete append operation at head, including formatting, encoding, reallocation, command writes, termination, and entry-index return."
+          }
+        ]
+      },
+      {
+        "id": "fact:8f082fed-99a8-4215-b492-5e27677ed9a0",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Appending advances the SIS stream from its current terminator to a new terminal zero and increments the logical entry count once. A null format omits only the encoded character payload. If capacity is insufficient, storage grows by a positive multiple of 128 bytes and the existing cursor offset is preserved; otherwise the existing allocation is reused.",
+        "rationale": "The format guard, capacity guard, rounded growth expression, cursor writes, final zero, and post-increment remain explicit in the relocated implementation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L221-L295",
+            "why": "Shows null-format handling, 128-byte growth, stream migration, cursor progression, final termination, and one count increment."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0"
+    },
+    "facts": [
+      {
+        "id": "fact:8ede657f-0656-45e7-aa94-f6f8f389b464",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "`text->sis_buffer` and `entry_idx` flow into the entry lookup, which returns the selected entry and old payload size. A non-null format is materialized and SIS-encoded; null supplies an empty replacement. The new payload is written at entry offset 0xE and terminated with 0xF. Growth may migrate the full stream and redirect allocation pointers; length differences shift the trailing stream and adjust `alloc->next`.",
+        "rationale": "The current body directly exposes every stage from lookup and encoding through storage migration, tail movement, payload insertion, and terminator restoration.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L352-L432",
+            "why": "Shows the complete flow from HSD_Text and variadic inputs to in-place entry mutation and optional allocation redirection."
+          }
+        ]
+      },
+      {
+        "id": "fact:739a4d3e-7f33-4fb9-9769-c30cd042bebc",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements runtime substitution of formatted text into an existing indexed entry of Melee's SIS-driven text-presentation stream without rebuilding the surrounding entries.",
+        "rationale": "The function combines runtime printf-style values with SIS encoding and changes only the selected HSD_Text entry while preserving later stream data.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L352-L432",
+            "why": "Shows runtime formatting and encoded replacement of one indexed HSD_Text SIS entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:d1689067-15cb-476a-a993-13550e384834",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_SetEntryText",
+        "rationale": "The body continues to select one SIS entry by index and replace its encoded text payload. `SetEntryText` remains a conservative inferred name without recovered original-symbol confirmation.",
+        "confidence": 0.74,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L352-L432",
+            "why": "Shows indexed entry selection followed by replacement of that entry's encoded text."
+          }
+        ]
+      },
+      {
+        "id": "fact:3f25d38b-1a27-4bad-928e-1a4de1f637ea",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `s32 (HSD_Text* text, s32 entry_idx, char* fmt, ...)`. The format and variadic arguments are printf-style input; the return value is boolean-like, yielding 1 when the indexed entry is found and updated and 0 otherwise.",
+        "rationale": "The relocated definition supplies the concrete signature and variadic path, while `result` changes from zero to one only inside the successful lookup branch.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L352-L432",
+            "why": "Provides the signature, formatting contract, lookup guard, and exact 0-or-1 return behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:6babe16d-fd01-4c43-bf8e-eb09eb15ca51",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Replaces the text payload of an indexed entry in an HSD_Text SIS buffer with a newly formatted and encoded string, resizing the allocation and preserving subsequent stream data when the replacement length differs.",
+        "rationale": "The relocated implementation still performs indexed lookup, formatting and encoding, directional tail movement, optional reallocation, payload replacement, and terminator restoration.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L352-L432",
+            "why": "Shows the complete indexed replacement operation and preservation of the following SIS stream."
+          }
+        ]
+      },
+      {
+        "id": "fact:dd90c004-1f46-40aa-9989-e99297e09c57",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A missing entry is a no-op failure. For a found entry, a longer replacement grows capacity in 128-byte increments when needed and shifts trailing data backward; a shorter replacement shifts trailing data forward and retreats `alloc->next`; equal length requires no shift. Every successful path writes the replacement, restores its 0xF terminator, and returns 1.",
+        "rationale": "The lookup guard and old-size/new-size branches define the failure, growth, shrink, and equal-length states and their exact stream effects.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L352-L432",
+            "why": "Shows all replacement-size branches, allocation growth, directional shifts, terminator write, and success result."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C"
+    },
+    "facts": [
+      {
+        "id": "fact:be2c7e10-4fc2-43fd-8df2-0c31f54f1428",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes `text->sis_buffer` and `entry_idx` to the shared entry lookup. On success, `new_x` flows to entry bytes 1-2 and `new_y` to bytes 3-4 as signed 16-bit big-endian values.",
+        "rationale": "The relocated lookup call and subsequent stores establish the full flow from both input coordinates to their encoded destinations.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Shows the source buffer, logical index, coordinate conversions, and exact destination offsets."
+          }
+        ]
+      },
+      {
+        "id": "fact:6bb21c26-05f2-4a80-b56d-982f8968a15c",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes runtime repositioning of an indexed SIS text entry within Melee's text-presentation system.",
+        "rationale": "The routine changes the encoded coordinates of one entry in an HSD_Text SIS buffer.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Shows an indexed HSD_Text SIS entry receiving replacement X and Y coordinates."
+          }
+        ]
+      },
+      {
+        "id": "fact:cddea0c4-1f0e-49d2-af6d-ce090827aec5",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_SetEntryPosition",
+        "rationale": "The function selects one SIS entry by index and overwrites its X/Y position. `SetEntryPosition` remains a conservative inferred name.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Shows the target entry receiving replacement X and Y coordinate values."
+          }
+        ]
+      },
+      {
+        "id": "fact:e20bd4ed-b1ce-4fb6-ac4f-42e3c9f7cfe6",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void (HSD_Text* text, s32 entry_idx, f32 new_x, f32 new_y)`. Each float is truncated through signed 16-bit conversion and serialized high byte first.",
+        "rationale": "The current definition supplies the concrete types and shows signed-16-bit conversion followed by big-endian byte stores for both coordinates.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Provides the complete signature and signed-16-bit, high-byte-first coordinate serialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:802b10f2-a564-4355-ab0e-ac07da98038a",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Updates the encoded X/Y position of an indexed entry in an HSD_Text SIS buffer, leaving the buffer unchanged when that entry cannot be found.",
+        "rationale": "The relocated function resolves the logical entry, guards against NULL, and replaces its four coordinate bytes.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Shows indexed lookup, the null guard, and replacement of the four-byte coordinate payload."
+          }
+        ]
+      },
+      {
+        "id": "fact:588188d1-9360-468c-8d32-4e7a47137844",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A found entry is modified in place; a missing entry causes a no-op return, with no allocation, insertion, or fallback update.",
+        "rationale": "All coordinate stores remain enclosed by the successful-lookup guard, and the function has no alternate mutation path.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Shows mutation only inside the non-null entry branch."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A74F0"
+    },
+    "facts": [
+      {
+        "id": "fact:e8fe0756-1e6d-473f-b1d7-f53e1647985e",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A74F0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "`text->sis_buffer` and `entry_idx` flow into the shared lookup. On success, `color_rgb->r`, `.g`, and `.b` flow to entry offsets 6, 7, and 8; the function returns no separate value.",
+        "rationale": "The relocated pointer arithmetic and assignments establish the complete local flow from HSD_Text and GXColor inputs to the SIS-buffer mutation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Shows the entry lookup and exact RGB source and destination fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:4566c3ca-a13b-4ad8-bc11-5368cef7eeae",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A74F0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes runtime recoloring of an indexed text entry in Melee's SIS-driven text-presentation system.",
+        "rationale": "The function changes RGB parameters embedded in one HSD_Text SIS entry.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Shows an encoded HSD_Text entry's RGB values being changed in place."
+          }
+        ]
+      },
+      {
+        "id": "fact:f5d11837-3ab0-4bef-8c75-bf840ba9c664",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A74F0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_SetTextEntryRGB",
+        "rationale": "The routine sets RGB on one indexed HSD_Text SIS entry. The descriptive name remains inferred because the original symbol is not preserved.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Shows an HSD_Text entry index and GXColor pointer being used to set the entry's RGB bytes."
+          }
+        ]
+      },
+      {
+        "id": "fact:2f2a79c0-8a61-42fe-9847-c741479c7645",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A74F0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void (HSD_Text* text, s32 entry_idx, GXColor* color_rgb)`. The color pointer supplies only its 8-bit red, green, and blue channels; alpha is not consumed.",
+        "rationale": "The current declaration provides the concrete aggregate types, and the body reads `.r`, `.g`, and `.b` but never `.a`.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Provides the full signature and demonstrates that only RGB members are read."
+          }
+        ]
+      },
+      {
+        "id": "fact:23850a72-1045-422f-83ff-6a828f6d5d59",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A74F0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Updates the red, green, and blue parameters of an indexed SIS entry in an HSD_Text encoded text buffer, leaving the buffer unchanged when the entry cannot be found.",
+        "rationale": "The relocated body performs indexed lookup, guards all mutation on success, and copies exactly the supplied RGB channels into the entry.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L434-L465",
+            "why": "Shows the indexed lookup, null guard, and three RGB-byte writes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548"
+    },
+    "facts": [
+      {
+        "id": "fact:c5f72623-56a5-4a84-a6fa-f14c622e36e9",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "`text->sis_buffer` and `entry_idx` flow into the shared entry lookup. On success, `scale_x` is encoded into entry bytes 10-11 and `scale_y` into bytes 12-13.",
+        "rationale": "The relocated body directly establishes the source buffer, logical index, destination entry, and exact scale-byte destinations.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L467-L479",
+            "why": "Shows indexed entry lookup and the four destination bytes derived from the scale inputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:9b003ff9-f2f0-4c95-88f5-4e3c354749fa",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements per-entry UI text sizing by allowing horizontal and vertical scale to be changed independently in an existing SIS text record.",
+        "rationale": "The function mutates only the scale fields of one indexed HSD_Text entry, directly representing runtime text sizing.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L467-L479",
+            "why": "Shows independent horizontal and vertical scaling encoded for a selected text entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:acc844db-b4dd-4aa3-a6a4-cc37173ac259",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_SetTextScale",
+        "rationale": "The function exclusively changes the encoded X/Y scale of an existing SIS text entry. `SetTextScale` remains an inferred original-style name.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L467-L479",
+            "why": "Shows one indexed entry receiving replacement horizontal and vertical scale values."
+          }
+        ]
+      },
+      {
+        "id": "fact:de882ebb-403f-4afb-8f06-dcc750bb77af",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Semantic signature: `void (HSD_Text* text, int entry_idx, float scale_x, float scale_y)`. Each scale is serialized into two bytes: an integer byte followed by a byte derived from 256 times the value.",
+        "rationale": "The current signature and four stores directly establish the object, index, floating scale parameters, and serialized representation.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L467-L479",
+            "why": "Provides the signature and two-byte serialization of each scale component."
+          }
+        ]
+      },
+      {
+        "id": "fact:a5f515e2-dde3-4f76-b892-8dfc5d67cfa6",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Sets the independent horizontal and vertical scale of one indexed entry in an HSD_Text SIS command buffer, leaving the buffer unchanged when the entry cannot be found.",
+        "rationale": "The relocated body performs indexed lookup, guards on success, and writes four scale bytes derived from the two input floats.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L467-L479",
+            "why": "Shows the indexed lookup, null guard, and independent X/Y scale writes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A75E0"
+    },
+    "facts": [
+      {
+        "id": "fact:04c420d4-aeb5-4848-9dbf-6447fe1a90c5",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A75E0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Forwards the HSD_Text and entry index to the formatted replacement routine with a null format. On success it reads `text->text_color`, resolves the entry again, and writes red, green, and blue to entry bytes 6, 7, and 8.",
+        "rationale": "The relocated target explicitly shows the empty-update input, success dependency, current-color read, second lookup, and three destination bytes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L481-L497",
+            "why": "Shows all data flow from the HSD_Text and index through clearing and RGB restoration."
+          }
+        ]
+      },
+      {
+        "id": "fact:e638fbac-2e5b-4171-b2a6-f5dac4d56fe1",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A75E0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports lifecycle updates of retained UI text slots by blanking one indexed SIS text entry while restoring its normal RGB presentation state.",
+        "rationale": "The function clears one HSD_Text entry through the replacement API and then repairs that entry's embedded color fields.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L481-L497",
+            "why": "Shows an indexed UI text entry being blanked and its presentation color restored."
+          }
+        ]
+      },
+      {
+        "id": "fact:21ad8224-f35e-445b-baee-f0b50f30e82a",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A75E0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_ClearText",
+        "rationale": "The routine replaces the selected entry's payload with empty content while retaining the entry and restoring its default RGB state. `ClearText` remains an inferred name.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L481-L497",
+            "why": "Shows a null-format text update followed by restoration of the surviving entry's RGB bytes."
+          }
+        ]
+      },
+      {
+        "id": "fact:12ba660f-65e4-4b69-a11f-9f7cdc4a2b6f",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A75E0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void (HSD_Text* text, s32 entry_idx)`. `text` supplies the mutable SIS stream and current color; `entry_idx` selects the logical entry to clear.",
+        "rationale": "The current definition establishes the signature and shows both arguments flowing into the replacement and lookup operations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L481-L497",
+            "why": "Directly provides the void signature and use of the HSD_Text and logical entry index."
+          }
+        ]
+      },
+      {
+        "id": "fact:c5ef587b-d047-48bd-af88-190b094e8803",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A75E0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Clears the encoded string payload of one indexed HSD_Text entry while preserving the entry, then restores that entry's embedded RGB command from the HSD_Text object's current text color.",
+        "rationale": "The relocated function requests a null-format replacement, then re-resolves the surviving entry and copies the current RGB components into its color bytes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L481-L497",
+            "why": "Shows the empty replacement request, success guard, second entry lookup, and RGB restoration."
+          }
+        ]
+      },
+      {
+        "id": "fact:270fa5c9-76cf-46fb-b919-04f25f1fd07d",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A75E0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If the indexed update fails, the function performs no further work. After a successful empty-payload transition, RGB restoration occurs only if a defensive second lookup also succeeds.",
+        "rationale": "The nested success and non-null guards directly define the no-op, cleared-only, and cleared-plus-color-restored outcomes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L481-L497",
+            "why": "Shows both guards controlling the clear and subsequent color-restoration phases."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7664"
+    },
+    "facts": [
+      {
+        "id": "fact:c4ed898f-436a-4e26-a7e9-b1d5d12209b1",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7664",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The HSD_Text input supplies its private allocation descriptor through `text->alloc_data`. The descriptor's retained buffer-base pointer is copied into its current write-cursor field, a zero end-of-stream opcode is written at that base, and its logical entry count is set to zero. The backing pointer, capacity, and `text->sis_buffer` remain unchanged for subsequent append operations.",
+        "rationale": "The relocated target directly performs the cursor assignment, terminator store, and count reset while leaving the retained base and capacity untouched. The append path shows later writes consuming that cursor, reusing or growing the allocation, updating `text->sis_buffer` only upon relocation, and incrementing the same entry count.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:30:40.419Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L499-L507",
+            "why": "Directly shows data flowing from `text->alloc_data` into the cursor rewind, zero terminator write, and entry-count reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L238-L304",
+            "why": "Shows subsequent appends consuming the cursor, preserving or growing capacity, repairing `text->sis_buffer` after relocation, and incrementing the descriptor's entry count."
+          }
+        ]
+      },
+      {
+        "id": "fact:5eda33dc-cbd4-4949-9308-8169e8b32983",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7664",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements whole-buffer clearing for dynamically generated text in Melee's SIS-driven text-presentation system, immediately making all encoded entries in the HSD_Text stream absent while preserving storage for later text creation.",
+        "rationale": "The relocated function reduces the mutable SIS stream to its zero terminator and clears its logical entry count. The append path shows that this same stream stores generated text entries containing position, color, scale, encoded glyph data, and terminating commands, grounding the operation as reusable text-presentation buffer clearing.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:30:40.419Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L499-L507",
+            "why": "Shows the owned SIS stream being reduced to a zero terminator and zero logical entries while retaining its allocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L238-L304",
+            "why": "Shows that the cleared stream normally receives dynamically generated entries containing position, color, scale, encoded glyph bytes, and SIS termination commands."
+          }
+        ]
+      },
+      {
+        "id": "fact:e5c06996-ad5d-468c-899d-daedd528c01f",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7664",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_ClearTextBuffer",
+        "rationale": "The relocated body still performs a whole-stream reset through HSD_Text's allocation descriptor and accepts no entry index. `ClearTextBuffer` therefore remains a plausible distinction from the adjacent indexed editing operations, although no surviving symbol establishes the original spelling.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-04T21:30:40.419Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L499-L507",
+            "why": "Shows a whole-buffer reset through one HSD_Text parameter, with no entry-index parameter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L238-L304",
+            "why": "Establishes that the reset descriptor fields govern the mutable SIS stream and its logical entry count."
+          }
+        ]
+      },
+      {
+        "id": "fact:db24e52f-6952-4763-bd5b-a3172e57ede8",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7664",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void (HSD_Text* text)`. The function requires `text->alloc_data` to reference the writable SIS-buffer descriptor whose effective layout contains a current write cursor, buffer base, allocated byte capacity, and logical entry count.",
+        "rationale": "The relocated definition confirms the HSD_Text pointer parameter, void return, and unconditional descriptor dereference. Its accesses correspond to the cursor, base, and count fields whose roles, together with the intervening capacity field, are demonstrated by the append routine.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:30:40.419Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L499-L507",
+            "why": "Provides the complete function signature and shows unconditional access to cursor, base, and count fields through `text->alloc_data`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L238-L304",
+            "why": "Shows the allocation descriptor's cursor, data pointer, capacity, and entry-count roles during SIS entry construction and buffer growth."
+          }
+        ]
+      },
+      {
+        "id": "fact:3de6d64e-fc80-4bc3-8f82-9394d167efbf",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7664",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Clears every dynamically generated SIS entry from an HSD_Text object's owned command buffer without freeing or reallocating that buffer, leaving it ready to receive new entries.",
+        "rationale": "The relocated function still rewinds the allocation descriptor's write cursor to its buffer base, writes a zero stream terminator, and resets the entry count. The append routine identifies the same descriptor fields as the cursor, retained allocation, capacity, and entry counter, so the standing purpose remains valid at the new source location.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:30:40.419Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L499-L507",
+            "why": "Shows the function rewinding the descriptor cursor, writing a zero byte at the buffer base, and resetting the entry count without allocating or freeing storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L238-L304",
+            "why": "Shows the same descriptor fields managing an append cursor, retained buffer, allocation capacity, and logical entry count when new SIS entries are created."
+          }
+        ]
+      },
+      {
+        "id": "fact:7a760349-e8cd-4aa8-a200-1aca765566d5",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7664",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Transitions the owned mutable SIS stream to its empty state: cursor equals buffer base, the first command byte is the zero terminator, and the logical entry count is zero. Existing capacity is retained, and the routine has no guard for a null HSD_Text or missing allocation descriptor.",
+        "rationale": "All three empty-state assignments remain explicit in the relocated body. The routine dereferences both the HSD_Text and its allocation descriptor without guards and performs no allocation or deallocation, while the append path confirms that zero terminates the stream and that the rewound field is its active write cursor.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:30:40.419Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L499-L507",
+            "why": "Shows the complete empty-state transition and the absence of null guards, allocation, or deallocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L238-L304",
+            "why": "Confirms that appended entries advance the descriptor cursor, end with a zero terminator, and increment the logical entry count."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC"
+    },
+    "facts": [
+      {
+        "id": "fact:e84fb3cf-3983-4115-9c3c-f27154ed29b8",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The stream pointer advances according to SIS opcode width while each opcode-7 record decrements the requested logical index. Once selected, the entry pointer is returned. If `out_size` is non-null, bytes from entry offset 0xE are classified as two-byte characters, five-byte opcode-10 sequences, or one-byte opcode-11 sequences and accumulated until an unrecognized value terminates sizing.",
+        "rationale": "The relocated switch and optional second scan directly establish pointer movement, index flow, payload classification, and size accumulation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L297-L350",
+            "why": "Shows stream-pointer adjustments, logical-index decrement, payload classification, and optional byte-count output."
+          }
+        ]
+      },
+      {
+        "id": "fact:9eae10e1-990c-4db4-972a-3b984e174e76",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides indexed-entry access for Melee's SIS text-presentation system, enabling higher-level operations to target one displayed text record for content or presentation-property updates.",
+        "rationale": "The helper parses an HSD_Text-style SIS command stream and returns one opcode-7 entry record by logical index.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L297-L350",
+            "why": "Shows logical entry resolution within the encoded SIS text stream."
+          }
+        ]
+      },
+      {
+        "id": "fact:fa7a1d17-2e4c-42fa-b27c-ceaef916a3a4",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_FindEntry",
+        "rationale": "The placeholder-named routine finds one logical SIS entry by index and returns its record pointer. `FindEntry` remains a conservative inferred name without recovered-symbol confirmation.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L297-L350",
+            "why": "Shows the routine searching for and returning a requested logical SIS entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:f44c07c9-3352-4f22-b5bc-0a1b16e9946c",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Semantic signature: `u8* (u8* sis_data, s32 entry_idx, s32* out_size)`. `entry_idx` is a zero-based logical index counted across opcode-7 records; `out_size` is optional and receives the selected entry's encoded payload length in bytes. The result points to the entry or is NULL when absent.",
+        "rationale": "The current signature, opcode-7 decrement, stream-end return, guarded output write, and payload scan establish each part of the contract.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L297-L350",
+            "why": "Provides the signature and establishes the logical index, optional size output, and nullable return contracts."
+          }
+        ]
+      },
+      {
+        "id": "fact:dc4d879e-828f-4cbf-bc9e-1201a4804454",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Locates a zero-based indexed entry in a SIS command stream and optionally reports the byte length of that entry's encoded character payload so callers can inspect or mutate it in place.",
+        "rationale": "The relocated helper counts opcode-7 records, returns NULL at stream end, and conditionally scans the selected record from offset 0xE to accumulate payload bytes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L297-L350",
+            "why": "Shows command-stream traversal, opcode-7 entry counting, missing-entry NULL return, optional payload sizing, and selected-entry return."
+          }
+        ]
+      },
+      {
+        "id": "fact:201c7cc3-c143-4191-bc25-b3130dc055ab",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Scanning continues until the requested opcode-7 entry is found or opcode 0 ends the stream. Stream end first returns NULL without writing `out_size`. A found entry is returned directly; only a non-null `out_size` triggers initialization to zero and payload sizing until the first unrecognized payload byte.",
+        "rationale": "The immediate opcode-0 return, opcode-7 selection branch, and optional sizing guard define the helper's failure, found, and found-with-size states.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:49:46.539Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L297-L350",
+            "why": "Shows the stream-end failure path, entry-found transition, and optional sizing loop."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/hsd_3A64.c"
+    },
+    "facts": [
+      {
+        "id": "fact:d0a4191c-7478-45fb-a7f0-2fb2e4e99971",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3A64.c",
+        "type": "data_flow",
+        "value": "Formatted strings are rendered into a temporary byte buffer, converted through Shift-JIS-to-font-atlas lookup tables into encoded SIS glyph pairs, and inserted into an HSD_Text-owned, dynamically resized stream alongside command bytes for position, RGB color, scale, and entry termination. Indexed editing scans that stream for entry commands, shifts the trailing bytes when replacement text changes length, updates allocation cursors and the public sis_buffer pointer after relocation, and writes revised content or attributes back into the encoded entry.",
+        "rationale": "The conversion path explicitly maps source characters to Shift-JIS pairs and then to SIS atlas pairs. The append and replacement paths show those bytes entering an allocation attached to HSD_Text, capacity growing in 128-byte increments, pointers being repaired after reallocation, and stream tails moving to accommodate changed entry sizes; the attribute setters then write directly into fixed offsets within located entries.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T04:21:36.046Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L131-L219",
+            "why": "This span shows source characters becoming Shift-JIS byte pairs and then SIS glyph pairs through the font lookup tables."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L238-L304",
+            "why": "This span shows formatted input being encoded, allocation capacity being expanded, HSD_Text pointers being updated, and command plus glyph bytes being appended to the stream."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L358-L443",
+            "why": "This span shows indexed replacement resizing the buffer when necessary, shifting the stream tail, updating its cursor, and writing replacement encoded bytes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L446-L507",
+            "why": "These routines locate entries and write new position, color, and scale values at their encoded field offsets, or reset the stream cursor and entry count."
+          }
+        ]
+      },
+      {
+        "id": "fact:59637470-6f2a-40d6-9882-1fb076f52da0",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3A64.c",
+        "type": "purpose",
+        "value": "Provides construction and in-place editing operations for encoded SIS text streams: it copies or appends encoded streams, converts formatted text into SIS glyph data, creates and grows text buffers, adds indexed text entries, changes entry position/color/scale/content, and clears the stream.",
+        "rationale": "The unit first implements encoding-aware stream copy and append operations, then converts ASCII or Shift-JIS input through the font lookup tables. Its remaining functions allocate SIS-backed text storage, append formatted entries with position/color/scale commands, locate indexed entries, replace their encoded contents, edit their attributes, and reset the buffer, establishing a cohesive stream-construction and manipulation role for the translation unit.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T04:21:36.046Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L14-L79",
+            "why": "These functions copy one encoded SIS stream into another and append a source stream after scanning the destination according to SIS command lengths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L131-L219",
+            "why": "The conversion routine translates ASCII and Shift-JIS character pairs into SIS font-atlas glyph pairs while emitting kerning-control commands."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L238-L357",
+            "why": "The unit grows an owned SIS buffer, appends a formatted entry containing position, color, scale, and encoded glyph bytes, and provides an indexed-entry scanner."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A64.c#L358-L507",
+            "why": "The remaining routines replace variable-length entry text, modify entry position, color, and scale fields, remove entry content, and reset the stream."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6478#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6478#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6530#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6530#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6530#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A660C#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6754#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6754#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A67EC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A67EC#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A6B98#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A70A0#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A746C#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A74F0#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A74F0#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A74F0#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7548#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A75E0#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A75E0#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:HSD_SisLib_803A7664#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3A64:fn_803A6FEC#r5"
+    },
+    "facts": []
+  }
+]

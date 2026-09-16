@@ -6,11 +6,11 @@ import { ago, num, shortId } from "@/lib/format";
 import { harnessStateAction, prettyStatus } from "@/pages/workspace/_lib/model";
 import type {
   DashboardAction,
-  HarnessStateActionProjection,
-  HarnessStateReadModel,
-  HarnessStateRepoSyncReadModel,
-  HarnessStateSyncReadModel,
-  HarnessStateSyncStatus,
+  DispatchStateActionProjection,
+  HarnessStateViewModel,
+  DispatchStateRepoSyncReadModel,
+  DispatchStateSyncReadModel,
+  DispatchStateSyncStatus,
 } from "@/pages/workspace/_lib/types";
 
 export const SYNC_STAGES = [
@@ -25,7 +25,7 @@ export const SYNC_STAGES = [
 export type SyncStageId = (typeof SYNC_STAGES)[number]["id"];
 export type SyncStageState = "done" | "current" | "todo";
 
-const syncStageByStatus: Partial<Record<HarnessStateSyncStatus, SyncStageId>> = {
+const syncStageByStatus: Partial<Record<DispatchStateSyncStatus, SyncStageId>> = {
   requested: "requested",
   ingesting: "ingesting",
   reconciling: "reconciling",
@@ -35,12 +35,12 @@ const syncStageByStatus: Partial<Record<HarnessStateSyncStatus, SyncStageId>> = 
   published: "published",
 };
 
-export function syncStageForStatus(status: HarnessStateSyncStatus | null | undefined): SyncStageId | null {
+export function syncStageForStatus(status: DispatchStateSyncStatus | null | undefined): SyncStageId | null {
   return status ? syncStageByStatus[status] ?? null : null;
 }
 
 export function syncStageStates(
-  status: HarnessStateSyncStatus | null | undefined,
+  status: DispatchStateSyncStatus | null | undefined,
   lastKnownStage: SyncStageId = "requested",
 ): Record<SyncStageId, SyncStageState> {
   const current = syncStageForStatus(status) ?? lastKnownStage;
@@ -58,7 +58,7 @@ export function syncStageTone(state: SyncStageState): string {
   return "text-dim";
 }
 
-function projectionTitle(projection: HarnessStateActionProjection | null): string {
+function projectionTitle(projection: DispatchStateActionProjection | null): string {
   if (!projection) return "Action is missing from the server projection.";
   if (projection.enabled) return projection.expected_transition;
   return projection.blocked_by.map((blocker) => blocker.message || prettyStatus(blocker.code)).join("; ") || "Blocked by the server projection.";
@@ -73,7 +73,7 @@ function pluralize(count: number, singular: string, plural = `${singular}s`): st
   return `${num(count)} ${count === 1 ? singular : plural}`;
 }
 
-function knowledgeIntakeLabel(sync: HarnessStateSyncReadModel): string {
+function knowledgeIntakeLabel(sync: DispatchStateSyncReadModel): string {
   const intake = sync.publication?.knowledge_intake;
   if (!intake) return "-";
   const parts = [
@@ -98,7 +98,7 @@ export function SyncProjectedButton({
   children: string;
   icon: ReactNode;
   onAction: (action: DashboardAction) => void;
-  projection: HarnessStateActionProjection | null;
+  projection: DispatchStateActionProjection | null;
   tone?: "default" | "primary" | "warning" | "danger";
 }) {
   return (
@@ -119,8 +119,8 @@ export function SyncStatusTag({
   repoSync,
   sync,
 }: {
-  repoSync: HarnessStateRepoSyncReadModel | null;
-  sync: HarnessStateSyncReadModel | null;
+  repoSync: DispatchStateRepoSyncReadModel | null;
+  sync: DispatchStateSyncReadModel | null;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -131,7 +131,7 @@ export function SyncStatusTag({
       ) : null}
       <span
         className={`status-tag ${sync?.status === "published" || sync?.status === "validated" ? "status-tag-live" : sync && ["blocked", "publishing"].includes(sync.status) ? "status-tag-warn" : !sync && repoSync?.needs_sync ? "status-tag-warn" : ""}`}
-        title={!sync && repoSync?.needs_sync ? `Cycle head is behind ${repoSync.upstream_ref}.` : undefined}
+        title={!sync && repoSync?.needs_sync ? `Harness head is behind ${repoSync.upstream_ref}.` : undefined}
       >
         <span className="lamp" />
         {sync ? prettyStatus(sync.status) : repoSync ? (repoSync.needs_sync ? "Sync needed" : "Up to date") : "No sync"}
@@ -140,7 +140,7 @@ export function SyncStatusTag({
   );
 }
 
-export function SyncIntakeStats({ sync }: { sync: HarnessStateSyncReadModel }) {
+export function SyncIntakeStats({ sync }: { sync: DispatchStateSyncReadModel }) {
   const discord = sync.discord;
   return (
     <>
@@ -178,8 +178,8 @@ export function RepoSyncIdleCard({
 }: {
   busy: boolean;
   onAction: (action: DashboardAction) => void;
-  repoSync: HarnessStateRepoSyncReadModel | null;
-  startProjection: HarnessStateActionProjection | null;
+  repoSync: DispatchStateRepoSyncReadModel | null;
+  startProjection: DispatchStateActionProjection | null;
 }) {
   return (
     <div className={repoSync?.needs_sync ? "border border-warn/40 bg-warn/10 p-3" : ""}>
@@ -187,7 +187,7 @@ export function RepoSyncIdleCard({
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <span className="text-[11px] text-dim">
           {repoSync?.needs_sync
-            ? `Cycle head is behind ${repoSync.upstream_ref}; start a sync to catch up.`
+            ? `Harness head is behind ${repoSync.upstream_ref}; start a sync to catch up.`
             : "No sync workflow is active."}
         </span>
         <SyncProjectedButton
@@ -205,14 +205,14 @@ export function RepoSyncIdleCard({
   );
 }
 
-export function RepoSyncStats({ repoSync }: { repoSync: HarnessStateRepoSyncReadModel | null }) {
+export function RepoSyncStats({ repoSync }: { repoSync: DispatchStateRepoSyncReadModel | null }) {
   return (
     <div className="grid grid-cols-2 gap-2 @[760px]:grid-cols-4">
       <StatCard
-        label="Cycle head"
+        label="Harness head"
         value={
-          <span title={repoSync?.cycle_head ?? undefined}>
-            {repoSync?.cycle_head ? shortId(repoSync.cycle_head) : "-"}
+          <span title={repoSync?.head ?? undefined}>
+            {repoSync?.head ? shortId(repoSync.head) : "-"}
           </span>
         }
       />
@@ -255,7 +255,7 @@ export function SyncKnowledgeProgress({
   knowledgeJobs,
   upstreamOpen,
 }: {
-  knowledgeJobs: HarnessStateSyncReadModel["knowledge_jobs"];
+  knowledgeJobs: DispatchStateSyncReadModel["knowledge_jobs"];
   upstreamOpen: number | null;
 }) {
   if (!knowledgeJobs || knowledgeJobs.jobs_total <= 0) return null;
@@ -384,7 +384,7 @@ export function SyncIngestFlow({
   upstreamOpen,
 }: {
   busy: boolean;
-  sync: HarnessStateSyncReadModel;
+  sync: DispatchStateSyncReadModel;
   upstreamOpen: number | null;
 }) {
   const refresh = sync.discord?.refresh;
@@ -444,7 +444,7 @@ export function SyncIngestFlow({
   );
 }
 
-export function SyncStagingProgress({ staging }: { staging: HarnessStateSyncReadModel["staging"] }) {
+export function SyncStagingProgress({ staging }: { staging: DispatchStateSyncReadModel["staging"] }) {
   if (!staging) return null;
   return (
     <div className="mt-3 border border-line bg-card p-3">
@@ -471,9 +471,9 @@ export function SyncConflictList({
 }: {
   busy: boolean;
   onAction: (action: DashboardAction) => void;
-  resolveConflictProjection: HarnessStateActionProjection | null;
+  resolveConflictProjection: DispatchStateActionProjection | null;
   readOnly?: boolean;
-  staging: HarnessStateSyncReadModel["staging"];
+  staging: DispatchStateSyncReadModel["staging"];
 }) {
   if (!staging?.conflicts.length) return null;
   return (
@@ -509,10 +509,10 @@ export function SyncStalenessCard({
   staleness,
 }: {
   busy: boolean;
-  cancelProjection: HarnessStateActionProjection | null;
+  cancelProjection: DispatchStateActionProjection | null;
   onAction: (action: DashboardAction) => void;
   readOnly?: boolean;
-  staleness: HarnessStateSyncReadModel["staleness"];
+  staleness: DispatchStateSyncReadModel["staleness"];
 }) {
   if (!staleness.stale) return null;
   return (
@@ -539,7 +539,7 @@ export function SyncStalenessCard({
   );
 }
 
-export function SyncPublicationCard({ sync }: { sync: HarnessStateSyncReadModel }) {
+export function SyncPublicationCard({ sync }: { sync: DispatchStateSyncReadModel }) {
   if (!sync.publication) return null;
   return (
     <div className="mt-3 border border-up/40 bg-up/10 p-3">
@@ -565,14 +565,14 @@ export function SyncPublicationCard({ sync }: { sync: HarnessStateSyncReadModel 
 }
 
 export interface SyncActionProjections {
-  start: HarnessStateActionProjection | null;
-  resolveConflict: HarnessStateActionProjection | null;
-  publish: HarnessStateActionProjection | null;
-  cancel: HarnessStateActionProjection | null;
-  recover: HarnessStateActionProjection | null;
+  start: DispatchStateActionProjection | null;
+  resolveConflict: DispatchStateActionProjection | null;
+  publish: DispatchStateActionProjection | null;
+  cancel: DispatchStateActionProjection | null;
+  recover: DispatchStateActionProjection | null;
 }
 
-export function syncActionProjections(harnessState: HarnessStateReadModel | null): SyncActionProjections {
+export function syncActionProjections(harnessState: HarnessStateViewModel | null): SyncActionProjections {
   return {
     start: harnessStateAction(harnessState, "sync.start"),
     resolveConflict: harnessStateAction(harnessState, "sync.resolve_conflict"),
@@ -628,7 +628,7 @@ export function SyncStagePipeline({
   lastKnownStage?: SyncStageId;
   onSelectStage: (stage: string) => void;
   orientation?: "horizontal" | "vertical";
-  status: HarnessStateSyncStatus;
+  status: DispatchStateSyncStatus;
 }) {
   const states = syncStageStates(status, lastKnownStage);
   return (

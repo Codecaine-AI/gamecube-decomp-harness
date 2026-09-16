@@ -368,7 +368,8 @@ def scan_casts(index: dict[str, Any], src_root: Path, view_uses: int = 2) -> lis
     cast_counts: Counter[str] = Counter()
     word_counts: Counter[str] = Counter()
     identifier = re.compile(r"[A-Za-z_]\w*")
-    for path in sorted(item for item in src_root.rglob("*") if item.suffix in (".c", ".h")):
+    source_suffixes = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
+    for path in sorted(item for item in src_root.rglob("*") if item.suffix in source_suffixes):
         text = path.read_text(encoding="utf-8", errors="replace")
         word_counts.update(word for word in identifier.findall(text) if word in known)
         for match in _CAST.finditer(text):

@@ -1,0 +1,264 @@
+539: int AXDriver_8038CFF4(int sound_id, u8 volume, u8 pan, int track, int channel)
+540: {
+541:     HSD_SM* v;
+542:     int sample_idx;
+543:     int bank_idx;
+544:     int bank_mem;
+545:     bool enabled;
+546: 
+547:     bank_idx = sound_id / 10000;
+548:     bank_mem = sound_id % 10000;
+549: 
+550:     if (AXDriver_804D77B0 <= bank_idx) {
+551:         return -1;
+552:     }
+553: 
+554:     sample_idx = bank_mem + AXDriver_804D77B4[bank_idx];
+555: 
+556:     if (AXDriver_804D77B8 <= sample_idx) {
+557:         return -1;
+558:     }
+559: 
+560:     if (bank_idx < AXDriver_804D77B0 - 1 &&
+561:         AXDriver_804D77B4[bank_idx + 1] <= sample_idx)
+562:     {
+563:         return -1;
+564:     }
+565: 
+566:     if (track < 0 || track > 0xFF) {
+567:         return -1;
+568:     }
+569: 
+570:     if (channel < 0 || channel >= 0x10) {
+571:         return -1;
+572:     }
+573: 
+574:     if (AXDriver_804D77CC & (1 << channel)) {
+575:         return -1;
+576:     }
+577: 
+578:     v = AXDriver_8038CFF4_inline();
+579: 
+580:     if (v == NULL) {
+581:         return -1;
+582:     }
+583: 
+584:     v->x16 = sound_id;
+585:     v->cmd_stream = AXDriver_804D77BC[sample_idx];
+586:     v->x1A = 0xFF;
+587:     v->volume = volume;
+588:     v->x1C = 0x80;
+589:     v->pan = pan;
+590:     v->x20 = 0;
+591:     v->fadetime = 0;
+592:     v->x24[0] = AXDriver_804C5A20[0][channel];
+593:     v->x24[1] = AXDriver_804C5A20[1][channel];
+594:     v->x26 = 0xFF;
+595:     v->x27 = 0xFF;
+596:     v->pri = 5;
+597:     v->track = track;
+598:     v->itdflag = channel;
+599:     v->flags |= 0x30000;
+600: 
+601:     if (vidhigh & 0xFE000000) {
+602:         OSReport("vidhigh exceeds the max value\n");
+603:         HSD_ASSERT(0x2EA, 0);
+604:     }
+605: 
+606:     v->unk =
+607:         (vidhigh << 7) | ((u8*) v - (u8*) AXDriver_804C45A0) / sizeof(HSD_SM);
+608:     vidhigh++;
+609: 
+610:     enabled = OSDisableInterrupts();
+611:     v->flags = (v->flags & ~SMSTATE_MASK) | SMSTATE_ACTIVE;
+612:     unk_inline(v, &AXDriver_804D7794);
+613:     AXDriver_804D77D0++;
+614:     OSRestoreInterrupts(enabled);
+615: 
+616:     return v->unk;
+617: }
+618: 
+619: bool AXDriver_8038D2B4(int vid, u8 pan)
+620: {
+621:     int idx;
+622:     bool enabled;
+623:     HSD_SM* v;
+624:     u8 clamped;
+625: 
+626:     idx = vid & 0x7F;
+627:     if (vid < 0 || idx >= 0x60) {
+628:         return false;
+629:     }
+630:     v = &AXDriver_804C45A0[idx];
+631:     if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+632:         return false;
+633:     }
+634:     enabled = OSDisableInterrupts();
+635:     if (v->vID != -1) {
+636:         HSD_SynthSFXSetUserVol(v->vID, MIN(pan, 0xFF));
+637:     } else {
+638:         HSD_ASSERT(0x30B, (v->flags&SMSTATE_MASK) == SMSTATE_ACTIVE);
+639:         v->pan = pan;
+640:         v->flags |= 0x20000;
+641:     }
+642:     OSRestoreInterrupts(enabled);
+643:     return true;
+644: }
+645: 
+646: bool AXDriver_8038D3B8(s32 vid, u8 volume)
+647: {
+648:     HSD_SM* v;
+649:     s32 idx;
+650:     bool enabled;
+651:     s32 voice_id;
+652: 
+653:     idx = vid & 0x7F;
+654:     if (vid < 0 || idx >= 0x60) {
+655:         return false;
+656:     }
+657:     v = &AXDriver_804C45A0[idx];
+658:     if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+659:         return false;
+660:     }
+661:     enabled = OSDisableInterrupts();
+662:     voice_id = v->vID;
+663:     if (voice_id != -1) {
+664:         HSD_SynthSFXSetVolumeFade(voice_id, CLAMP(0, volume, 0xFF), 1);
+665:     } else {
+666:         HSD_ASSERT(0x34D, (v->flags&SMSTATE_MASK) == SMSTATE_ACTIVE);
+667:         v->volume = volume;
+668:         v->flags |= 0x10000;
+669:     }
+670:     OSRestoreInterrupts(enabled);
+671:     return true;
+672: }
+673: 
+674: bool AXDriver_8038D4E4(s32 vid, s16 pitch)
+675: {
+676:     HSD_SM* v;
+677:     s32 idx;
+678:     bool enabled;
+679:     int clamped;
+680: 
+681:     idx = vid & 0x7F;
+682:     if (vid < 0 || idx >= 0x60) {
+683:         return false;
+684:     }
+685:     v = &AXDriver_804C45A0[idx];
+686:     if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+687:         return false;
+688:     }
+689:     clamped = CLAMP(-0x2A30, pitch, 0x960);
+690:     enabled = OSDisableInterrupts();
+691:     v->fadetime = clamped;
+692:     v->flags |= 0x40;
+693:     OSRestoreInterrupts(enabled);
+694:     return true;
+695: }
+696: 
+697: bool AXDriver_8038D5B4(s32 vid, s32 aux_bus, u8 send_level)
+698: {
+699:     HSD_SM* v;
+700:     float right_vol;
+701:     float left_vol;
+702:     float left_inv_sqrt;
+703:     float left_sqrt;
+704:     float right_sqrt;
+705:     float right_inv_sqrt;
+706:     bool enabled;
+707:     int idx;
+708:     int lock_flag;
+709:     int unused;
+710:     int clamped;
+711: 
+712:     idx = vid & 0x7F;
+713:     if (vid < 0 || idx >= 0x60) {
+714:         return false;
+715:     }
+716:     if (aux_bus < 0 || aux_bus > 1) {
+717:         return false;
+718:     }
+719:     if (aux_bus == 0) {
+720:         lock_flag = AXDriver_804D603C & 1;
+721:     } else {
+722:         lock_flag = (AXDriver_804D603C >> 1) & 1;
+723:     }
+724:     if (lock_flag != 1) {
+725:         return false;
+726:     }
+727:     v = &AXDriver_804C45A0[idx];
+728:     if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+729:         return false;
+730:     }
+731:     clamped = CLAMP(0, send_level, 0xFF);
+732:     enabled = OSDisableInterrupts();
+733:     if (v->vID != -1) {
+734:         v->x24[aux_bus] = clamped;
+735:         left_vol = (f32) (v->x26 * v->x24[0]) / 65535.0F;
+736:         right_vol = (f32) (v->x27 * v->x24[1]) / 65535.0F;
+737:         left_sqrt = sqrtf(left_vol);
+738:         left_inv_sqrt = sqrtf(1.0F - left_vol);
+739:         right_sqrt = sqrtf(right_vol);
+740:         right_inv_sqrt = sqrtf(1.0F - right_vol);
+741:         HSD_SynthSFXSetMix(v->vID,
+742:                            left_inv_sqrt * (left_inv_sqrt * right_inv_sqrt),
+743:                            left_sqrt, right_sqrt * left_inv_sqrt);
+744:     } else {
+745:         HSD_ASSERT(0x3AB, (v->flags&SMSTATE_MASK) == SMSTATE_ACTIVE);
+746:         v->x24[aux_bus] = clamped;
+747:         v->flags |= 0x80000;
+748:     }
+749:     OSRestoreInterrupts(enabled);
+750:     return true;
+751: }
+752: 
+753: bool AXDriver_8038D914(s32 channel, s32 aux_bus, s8 send_level)
+754: {
+755:     bool enabled;
+756:     HSD_SM* v;
+757: 
+758:     if (channel < 0 || channel >= 0x10) {
+759:         return false;
+760:     }
+761:     if (aux_bus < 0 || aux_bus > 1) {
+762:         return false;
+763:     }
+764:     enabled = OSDisableInterrupts();
+765:     v = AXDriver_804D7794;
+766:     while (v != NULL) {
+767:         if ((v->flags & SMSTATE_MASK) && v->itdflag == channel) {
+768:             AXDriver_8038D5B4(v->unk, aux_bus, (u8) send_level);
+769:         }
+770:         v = v->next;
+771:     }
+772:     AXDriver_804C5A20[aux_bus][channel] = send_level;
+773:     OSRestoreInterrupts(enabled);
+774:     return true;
+775: }
+776: 
+777: bool AXDriver_8038D9D8(int vid)
+778: {
+779:     HSD_SM* v;
+780:     int idx;
+781: 
+782:     idx = vid & 0x7F;
+783:     if (vid < 0 || idx >= 0x60) {
+784:         return false;
+785:     }
+786:     v = &AXDriver_804C45A0[idx];
+787:     if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+788:         return false;
+789:     }
+790:     if (HSD_SynthSFXCheck(v->vID) == -1) {
+791:         return false;
+792:     }
+793:     return true;
+794: }
+795: 
+796: static void fn_8038DA5C(s32 result, DVDFileInfo* fileInfo)
+797: {
+798:     if (result != -1) {
+799:         AXDriver_804D77EC = 1;
+800:     }
+801: }
+802: 

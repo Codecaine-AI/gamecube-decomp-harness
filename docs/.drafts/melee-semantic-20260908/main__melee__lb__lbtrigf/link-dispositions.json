@@ -1,0 +1,208 @@
+{
+  "tu": "main/melee/lb/lbtrigf",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "baseline_links_path": "games/melee/state/knowledge_v2/semantic-sweep-20260908/baseline-links/main__melee__lb__lbtrigf.json",
+  "baseline_links_sha256": "1b6800548478bc9765b2a501376808b218c7c7a18eccf7c88ff16e3c6407bd8d",
+  "review_end_utc": "2026-09-08T15:24:02.000208+00:00",
+  "counts": {
+    "total": 6,
+    "retain": 3,
+    "reject": 0,
+    "unresolved": 3
+  },
+  "links": [
+    {
+      "link_id": "link:ddd2d0d0-a6eb-40f2-b003-8265fc116865",
+      "baseline_link": {
+        "id": "link:ddd2d0d0-a6eb-40f2-b003-8265fc116865",
+        "from_target_id": "target:function:main/melee/lb/lbtrigf:atanf",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:range-reduced-polynomial-approximation",
+        "role": "exhibits",
+        "why": "atanf partitions the input magnitude, transforms each region to a smaller argument, and evaluates a fixed odd polynomial before adding region-specific offsets.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/lb/lbtrigf.c#L142-L236",
+        "digest": "sha256:677ed5b794d6d624"
+      },
+      "disposition": "retain",
+      "reason": "MWERKS implementation reduces magnitude using reciprocal or table transform, evaluates an odd polynomial and reconstructs region offsets/sign. Small/large paths form a before-array lookup pointer; retaining the algorithm relation does not establish portable pointer arithmetic or numerical error bounds.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L98-L145",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L147-L243",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        }
+      ]
+    },
+    {
+      "link_id": "link:ad79b230-13d2-4c06-a11d-33364164da96",
+      "baseline_link": {
+        "id": "link:ad79b230-13d2-4c06-a11d-33364164da96",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/lb/lbtrigf.c",
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:reciprocal-square-root-newton-refinement",
+        "role": "uses",
+        "why": "Both acosf's inline reciprocal-square-root calculation and lb_sqrtf start from __frsqrte and repeatedly apply 0.5r(3 - xr\u00b2).",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/lb/lbtrigf.c#L1-L120",
+        "digest": "sha256:6320a5e2a507e04e"
+      },
+      "disposition": "retain",
+      "reason": "Both acosf inline code and lb_sqrtf independently show hardware reciprocal-root estimation with three Newton steps on positive radicands.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L45-L84",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        }
+      ]
+    },
+    {
+      "link_id": "link:7054159f-762d-4f4a-b7ab-9913bc21596a",
+      "baseline_link": {
+        "id": "link:7054159f-762d-4f4a-b7ab-9913bc21596a",
+        "from_target_id": "target:function:main/melee/lb/lbtrigf:lb_sqrtf",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:reciprocal-square-root-newton-refinement",
+        "role": "exhibits",
+        "why": "The helper applies __frsqrte followed by three instances of the canonical 0.5r(3 - xr\u00b2) reciprocal-square-root refinement.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/lb/lbtrigf.c#L63-L79",
+        "digest": "sha256:8c6d884b78f05e7e"
+      },
+      "disposition": "retain",
+      "reason": "Positive input uses __frsqrte followed by three 0.5*r*(3-x*r*r) refinements. Output is reciprocal square root; zero returns INF and other false-positive-comparison truthy inputs return NAN. No accuracy or positive-infinity behavior guarantee is added.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L68-L84",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        }
+      ]
+    },
+    {
+      "link_id": "link:937de59b-c967-4baf-afad-eaf7e3066f04",
+      "baseline_link": {
+        "id": "link:937de59b-c967-4baf-afad-eaf7e3066f04",
+        "from_target_id": "target:data:main/melee/lb/lbtrigf:.rodata",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:range-reduced-polynomial-approximation",
+        "role": "exhibits",
+        "why": "The table supplies the region-specific transformation constants, angle offsets, and polynomial coefficients through which atanf reduces its argument and approximates the result.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/lb/lbtrigf.c#L142-L236",
+        "digest": "sha256:677ed5b794d6d624"
+      },
+      "disposition": "unresolved",
+      "reason": "Source constants/table participate in these approximations, but their current .rodata/.sdata2 ownership and layout require compiled evidence. Source presence alone cannot retain a section-membership link.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L45-L84",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L98-L145",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L147-L243",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        }
+      ]
+    },
+    {
+      "link_id": "link:57b612df-8916-41a1-91f2-6097da87574c",
+      "baseline_link": {
+        "id": "link:57b612df-8916-41a1-91f2-6097da87574c",
+        "from_target_id": "target:data:main/melee/lb/lbtrigf:.sdata2",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:reciprocal-square-root-newton-refinement",
+        "role": "uses",
+        "why": "The section supplies the 0.5 and 3.0 factors used in each 0.5r(3-xr\u00b2) refinement performed by acosf and lb_sqrtf.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/lb/lbtrigf.c#L1-L120",
+        "digest": "sha256:6320a5e2a507e04e"
+      },
+      "disposition": "unresolved",
+      "reason": "Source constants/table participate in these approximations, but their current .rodata/.sdata2 ownership and layout require compiled evidence. Source presence alone cannot retain a section-membership link.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L45-L84",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L98-L145",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L147-L243",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        }
+      ]
+    },
+    {
+      "link_id": "link:3e38d517-5e94-4e72-9eec-8fb2d2d568eb",
+      "baseline_link": {
+        "id": "link:3e38d517-5e94-4e72-9eec-8fb2d2d568eb",
+        "from_target_id": "target:data:main/melee/lb/lbtrigf:.sdata2",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:range-reduced-polynomial-approximation",
+        "role": "uses",
+        "why": "The section supplies atanf's 1+\u221a2 and \u221a2-1 region boundaries and \u03c0/2 reconstruction constant, complementing the polynomial coefficients and region offsets held in the unit's rodata table.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/lb/lbtrigf.c#L121-L236",
+        "digest": "sha256:41143a69d741e599"
+      },
+      "disposition": "unresolved",
+      "reason": "Source constants/table participate in these approximations, but their current .rodata/.sdata2 ownership and layout require compiled evidence. Source presence alone cannot retain a section-membership link.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L45-L84",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L98-L145",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L147-L243",
+          "why": "Pinned canonical function operations support the stated relation and its explicit limits."
+        }
+      ]
+    }
+  ],
+  "review_inputs": [
+    "docs/.drafts/melee-semantic-20260908/main__melee__lb__lbtrigf/librarian/findings.md",
+    {
+      "canonical_path": "src/melee/lb/lbtrigf.c",
+      "canonical_ranges": [
+        [
+          1,
+          243
+        ]
+      ],
+      "sha256": "1701b0d56ecaeb4e4b1bed7b4727a5b655112d7cc71fa5861de00c5b685bc57d"
+    }
+  ],
+  "read_note": "Read existing findings and complete pinned C source for this bounded outgoing-link supplement. Prior rendered/header coverage belongs to the original TU packet, not newly claimed here. Supporting gobj/gobjplink canonical ranges were read in this librarian session. No DB/source mutation."
+}

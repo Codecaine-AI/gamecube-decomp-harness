@@ -1,0 +1,70 @@
+{
+  "tu": "main/melee/ft/kinds/ftLuigi/ftluigispecialn",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispecialn.c#L27-L50",
+            "why": "Both entries install the callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispecialn.c#L102-L150",
+            "why": "Terrain restoration, flag consumption, constructor call and independent effect call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itluigifireball.c#L28-L51",
+            "why": "Constructor has an explicit NULL-allocation path."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces guaranteed projectile creation with the verified consume-before-attempt behavior and preserves callback continuity.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLuigi/ftluigispecialn:ftLg_SpecialN_FireSpawn"
+        },
+        "type": "state_behavior",
+        "value": "A clear throw_flags_b0 causes no release work. A set flag is cleared before one call to the Luigi Fire item constructor and one independent call to effect 1287. Item allocation can fail without restoring the flag or suppressing the effect call. The accessory callback is installed on both entries and restored after both terrain transitions; restoring it does not itself raise another release request."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispecialn.c#L27-L150",
+            "why": "Complete state family and release logic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L54-L109",
+            "why": "Common neutral dispatch includes exceptional routes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L71-L89",
+            "why": "Terrain helpers preserve the current animation frame."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itluigifireball.c#L28-L51",
+            "why": "Projectile allocation is not guaranteed."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exceptional neutral routing, terrain continuation and the distinction between a release attempt and successful allocation.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftLuigi/ftluigispecialn.c"
+        },
+        "type": "state_behavior",
+        "value": "Maintains paired grounded and aerial Fireball states. Entry clears command and throw state and installs deferred release. Animation completion delegates to common neutral handling on ground, with exceptional routes before default Wait, or to Fall in air. Nonzero cmd_vars[0] enables the corresponding common IASA dispatcher. Terrain conversion continues the counterpart at the current animation frame and restores FireSpawn. Each consumed throw_flags_b0 request causes one item-construction attempt and one effect call, with no local retry if item allocation fails."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

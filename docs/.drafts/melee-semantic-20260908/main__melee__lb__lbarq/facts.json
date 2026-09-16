@@ -1,0 +1,738 @@
+{
+  "main/melee/lb/lbarq:.bss": [
+    {
+      "id": "fact:34edc3a3-eea1-48b0-b4b0-1b2d3e350f1a",
+      "target_id": "target:data:main/melee/lb/lbarq:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Initialization writes the section's three list heads and constructs the initial FREE chain from its embedded nodes. Transfer submission removes a node from FREE, writes the client's callback metadata and embedded ARQ request, and appends it to PENDING. ARQ completion finds the same node through its handle, moves it to DONE, forwards callback_arg to the optional client callback, and either the completion path or the blocking submitter returns the node to FREE.",
+      "rationale": "The source at head still routes all persistent request-manager data through lbArq_804316C0: completion moves the node to DONE and conditionally recycles it, while submission populates and queues a pooled node and initialization builds the FREE chain. The standing data-flow claim therefore remains valid.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Defines lbArq_804316C0 and shows completion moving its node to DONE, invoking the saved callback with callback_arg, and returning callback-driven requests to FREE."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows submission removing a node from FREE, filling its callback and ARQ fields, placing it in PENDING, and shows initialization constructing the FREE list."
+        }
+      ]
+    },
+    {
+      "id": "fact:b83237d9-cad9-47eb-8d0b-8028a4d87f03",
+      "target_id": "target:data:main/melee/lb/lbarq:.bss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Backs Melee's fixed-capacity pooled interface for loading data from ARAM into main memory, retaining the reusable request descriptors, completion state, and optional client callback metadata needed by both blocking and callback-driven transfers.",
+      "rationale": "The current source stores the wrapper's reusable request nodes and callback state in this global manager, posts direction-1 ARQ requests from the pool, and supports both callback and polling completion paths. Dolphin ARQ establishes that these requests transfer between ARAM and main memory.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows the section-backed pool supplying descriptors and callback state to the wrapper's transfer-submission path."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/arq.c#L108-L152",
+          "why": "Establishes that ARQPostRequest queues transfers between ARAM and main memory and retains their addresses, length, direction, and completion callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:21ff5016-b014-46b4-8b1a-d44c19efc95e",
+      "target_id": "target:data:main/melee/lb/lbarq:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "The section contains one lbArqGlobal object at 0x804316C0. Its layout is lbArqNode nodes[10] at offset 0x000 followed by lbArqNode* list[3] at offset 0x1E0. Each 0x30-byte node contains a next pointer, an lbArqState, an embedded ARQRequest, an optional lbArqCallback, and its void* argument.",
+      "rationale": "The head source explicitly defines the lbArqNode and lbArqGlobal layouts and declares lbArq_804316C0 with that type, preserving the standing section-layout claim.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Defines the three-state enum, the exact lbArqNode and lbArqGlobal fields and offsets, and the lbArq_804316C0 global object."
+        }
+      ]
+    },
+    {
+      "id": "fact:5018b66a-0eef-444c-9ce7-c28b47074861",
+      "target_id": "target:data:main/melee/lb/lbarq:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the module-global storage for the lbArq request manager: an embedded pool of ten lbArqNode records and three linked-list heads used to classify reusable, pending, and completed requests.",
+      "rationale": "At head, lbArq_804316C0 remains a ten-node lbArqGlobal with three state-indexed list heads, and the completion, submission, and initialization routines continue to use it as the module's request-manager storage.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Defines the ten-node global manager and shows its state-indexed lists being used by completion processing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows transfer submission and initialization mutating the same module-global manager."
+        }
+      ]
+    },
+    {
+      "id": "fact:0f5fcf9a-d2fd-4f02-8acd-e63e5ea716b7",
+      "target_id": "target:data:main/melee/lb/lbarq:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The manager is initialized with PENDING and DONE empty and FREE rooted at nodes[0]. The initializer links nodes[0] through nodes[8], marks those nine reachable records FREE, and terminates the chain at nodes[8]; although storage contains ten nodes, nodes[9] is not placed on the initialized free list by this routine. During operation, allocated nodes follow FREE \u2192 PENDING \u2192 DONE \u2192 FREE, with shared list transitions performed while interrupts are disabled.",
+      "rationale": "The head definitions retain ten nodes and the FREE, PENDING, and DONE states. The initializer's nine iterations followed by termination through the last loop-selected node produce a chain only through nodes[8], while submission and completion retain the interrupt-protected lifecycle transitions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Defines the ten-node manager and shows interrupt-masked movement from the current state list to DONE and callback-driven recycling to FREE."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows FREE-to-PENDING submission and initialization of a FREE chain rooted at nodes[0], iterated through nodes[8], and terminated at nodes[8]."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbarq:.sdata": [
+    {
+      "id": "fact:c77d8d42-7c79-4430-9580-9d9b870cb194",
+      "target_id": "target:data:main/melee/lb/lbarq:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "lbArq_80014BD0 reads the FREE-list head into rp. When rp is non-null, execution continues without using the assertion strings. When rp is null, HSD_ASSERT passes the section-backed source-file text, line value 0x67, and stringized condition text \"rp\" to __assert; the diagnostic path does not feed normal transfer submission.",
+      "rationale": "At head, the assertion remains immediately after the FREE-head load and before any use of rp. The current HSD_ASSERT definition shows that a false condition routes __FILE__, the supplied line, and the stringized condition to __assert, while a true condition has no diagnostic side effect.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows rp loaded from FREE, checked by HSD_ASSERT(0x67, rp), and then used for ordinary request submission."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+          "why": "Defines HSD_ASSERT as a false-condition call to __assert carrying __FILE__, the line argument, and the stringized condition."
+        }
+      ]
+    },
+    {
+      "id": "fact:492bab1c-7b29-4a31-96b7-9f2b3579369a",
+      "target_id": "target:data:main/melee/lb/lbarq:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An initialized small-data string contribution containing the null-terminated assertion metadata generated for HSD_ASSERT(0x67, rp), together with any compiler-required alignment padding; it is not mutable lbArq manager state.",
+      "rationale": "The mutable lbArqGlobal remains a separate uninitialized object, while the submission routine invokes HSD_ASSERT(0x67, rp). The current macro definition materializes source-file and stringized-condition strings for that invocation, so the standing identification of this initialized section as diagnostic string data remains supported.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Defines the mutable lbArqGlobal as separate uninitialized storage."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows the concrete HSD_ASSERT(0x67, rp) invocation associated with the translation unit's diagnostic literals."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+          "why": "Defines HSD_ASSERT in terms of __FILE__ and the stringized condition, establishing the assertion metadata that the invocation materializes."
+        }
+      ]
+    },
+    {
+      "id": "fact:53b0ec80-5691-4cb0-bd27-9bfa19db6fb7",
+      "target_id": "target:data:main/melee/lb/lbarq:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Holds the compiler-emitted assertion metadata used by the lbArq transfer-submission routine to diagnose exhaustion of its reusable request-node pool.",
+      "rationale": "The current submission routine asserts rp immediately after reading the FREE-list head. The current macro expansion requires source-file and condition strings for that failure path, accounting for the translation unit's initialized diagnostic data.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows HSD_ASSERT guarding allocation from the request manager's FREE list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+          "why": "Shows that HSD_ASSERT supplies source-file and condition-string metadata to __assert."
+        }
+      ]
+    },
+    {
+      "id": "fact:5d584b0a-93c9-4d67-a6c0-9690aeef095b",
+      "target_id": "target:data:main/melee/lb/lbarq:.sdata",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The data is consulted only when transfer submission finds no node in LB_ARQ_STATE_FREE. That invariant failure enters the non-returning __assert path before any null node is removed, populated, or transitioned to PENDING; ordinary submissions bypass the diagnostic data.",
+      "rationale": "The assertion remains between the FREE-head load and all dereferences and state mutations of rp. HSD_ASSERT invokes the noreturn-declared __assert only when rp is false, proving that the diagnostic data belongs solely to the exhausted-pool failure path.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Places the rp assertion before removal from FREE, metadata assignment, PENDING insertion, and ARQ submission."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+          "why": "Shows the false-condition assertion branch and declares __assert as non-returning."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbarq:lbArq_80014ABC": [
+    {
+      "id": "fact:ac5c0621-c3d7-4f6a-a816-2b5655b3b4f4",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014ABC",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies an lbArqNode pointer; the function reads node->state and returns that enum value unchanged. In the synchronous submission path, the returned value feeds a polling comparison against LB_ARQ_STATE_DONE before the completed node is removed from its current queue and recycled to the free list.",
+      "rationale": "The accessor at head still returns the state field without transformation, and the callback-null submission path still consumes that value in its DONE polling loop before recycling the request.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows both the direct state accessor and its use in the blocking wait and subsequent request recycling."
+        }
+      ]
+    },
+    {
+      "id": "fact:12598802-15bc-4c47-a363-f1b401896a33",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014ABC",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports blocking ARAM-to-main-memory loads by exposing the pooled request's completion state to the synchronous wait loop.",
+      "rationale": "The current caller posts the pooled ARQ request and, when no client callback is installed, polls this accessor until the completion routine has changed the node to DONE.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows completion assigning DONE, ARQ submission, and the callback-null path polling this accessor for that state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/arq.c#L108-L152",
+          "why": "Establishes that the submitted request represents an asynchronous transfer between ARAM and main memory."
+        }
+      ]
+    },
+    {
+      "id": "fact:fa90f421-afbf-41d9-9e59-3c18b889facf",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014ABC",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbArqGetState",
+      "rationale": "The current body remains a side-effect-free accessor whose only operation is returning an lbArqNode's state, so the module-prefixed getter name remains the most direct supported inference.",
+      "confidence": 0.84,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows that the function accepts an lbArqNode pointer and directly returns its state field."
+        }
+      ]
+    },
+    {
+      "id": "fact:af1f4244-619b-4182-b51b-8c8a71278d72",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014ABC",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Accessor with signature `lbArqState (lbArqNode*)`; its return value belongs to the request lifecycle domain containing LB_ARQ_STATE_FREE, LB_ARQ_STATE_PENDING, and LB_ARQ_STATE_DONE.",
+      "rationale": "The head source explicitly defines the three-value lbArqState domain, the lbArqNode state field, and the accessor's exact parameter and return types. Its body returns that field directly, so the standing inferred type remains valid.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Defines lbArqState and lbArqNode and shows lbArq_80014ABC accepting an lbArqNode pointer and directly returning its lbArqState field."
+        }
+      ]
+    },
+    {
+      "id": "fact:c89c10b6-8a31-47be-85d5-9b37b70a9054",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014ABC",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns an lbArq request node's current lifecycle state so request-management code can observe completion without directly accessing the node field.",
+      "rationale": "The current function directly returns node->state, and its caller repeatedly invokes it while waiting for a callback-less request to reach DONE.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows the complete accessor body and its use in the synchronous completion loop."
+        }
+      ]
+    },
+    {
+      "id": "fact:9fb135c2-ddde-4afb-8e13-accc53f71ab3",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014ABC",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The accessor is observational: it has no guard, branch, mutation, or transition of its own and reports whichever FREE, PENDING, or DONE state is currently stored in the node. During a blocking transfer it may be called repeatedly while the ARQ completion handler changes the node from PENDING to DONE.",
+      "rationale": "The complete accessor remains a single field return. The surrounding current implementation performs the actual state transitions elsewhere and uses this function only to observe DONE in the polling path.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows the mutation-free accessor, completion's DONE assignment, submission's PENDING assignment, and repeated polling by the blocking path."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbarq:lbArq_80014AC4": [
+    {
+      "id": "fact:52beb386-1bfb-4f95-9a4d-7c71cee520c6",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014AC4",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads handle->node and node->state to locate the node's current global list, rewires the predecessor link to remove it, and appends it to the done-list tail. If node->callback is non-null, it passes node->callback_arg to that callback, then re-reads node->state to remove the node from its current list and appends it to the free-list tail. Each insertion clears node->next and writes the corresponding terminal state.",
+      "rationale": "The current completion body retains the same handle-to-node flow, state-indexed list traversal, splices, callback argument forwarding, and DONE and FREE terminal writes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows the complete handle, node, list-link, callback-argument, and state data flow of the completion routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:9cc9814b-7ca9-4cc0-a687-8b98cc6a68e3",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014AC4",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the completion and handle-recycling stage of Melee's asynchronous ARAM transfer wrapper: a completed ARQ-backed request becomes observable to its client through a callback and can then return to the reusable request pool.",
+      "rationale": "The current target moves the wrapper node to DONE, delivers its saved client callback, and recycles it. Dolphin ARQ establishes that the internal callback belongs to queued transfers between ARAM and main memory.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows completion-state insertion, optional client notification, and request-node recycling in the lbArq wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/arq.c#L108-L152",
+          "why": "Shows that ARQ requests represent queued MRAM-to-ARAM or ARAM-to-MRAM transfers and carry completion callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:9613cdf2-13b9-4566-bed9-3b306500fe20",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014AC4",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void-returning request-completion routine with signature void(lbArqHandle* handle). The handle supplies the lbArqNode whose queue membership, state, callback, and callback argument are processed.",
+      "rationale": "The current definition provides the exact signature and immediately resolves handle->node before processing that node's lifecycle data.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows the exact void(lbArqHandle*) definition and the handle-to-node access used throughout the routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:ee856883-7e07-4854-97c1-045d778f1523",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014AC4",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Finalizes an lbArq request node: it retires the node from its current state queue, marks it done, notifies the client when a callback is installed, and then recycles that callback-bearing node onto the free queue.",
+      "rationale": "The current body still performs current-list removal, DONE insertion, optional callback execution, and callback-present recycling to FREE in that order.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Directly shows current-list removal, done-list insertion, optional client notification, and free-list recycling."
+        }
+      ]
+    },
+    {
+      "id": "fact:d97c6c59-1844-4c55-aee3-3c7201cc930d",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014AC4",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Transitions the request from its current state to LB_ARQ_STATE_DONE under interrupt exclusion. It then restores interrupts before invoking arbitrary client code. When a callback exists, it starts a new critical section afterward, removes the node from whichever state list node->state then identifies, and transitions it to LB_ARQ_STATE_FREE. Without a callback, the node remains in the done state.",
+      "rationale": "The current source retains two distinct interrupt-masked list-mutation regions separated by the optional callback. The FREE transition remains wholly inside the callback-present branch, while the DONE transition is unconditional.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows the DONE and FREE transitions, their callback guard, and callback execution outside both list-mutation critical sections."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbarq:lbArq_80014BD0": [
+    {
+      "id": "fact:d15bb692-08e4-4ff1-a2ce-9b83346bbd9b",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014BD0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The destination and length first flow to DCInvalidateRange. A node is removed from global->list[FREE], receives the client callback and argument, and is appended to global->list[PENDING]. Its embedded ARQRequest is then posted with the node address as owner, direction 1, low priority 0, the caller's source, destination, and length, and lbArq_80014AC4 as the internal completion callback. In blocking mode, the node state is polled until DONE and the node is moved back to FREE.",
+      "rationale": "The current submission body preserves each stage and value. Dolphin ARQ confirms that the supplied request fields are copied into the descriptor before it is queued.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Traces all inputs through cache invalidation, pooled-node metadata, PENDING insertion, ARQPostRequest, polling, and synchronous recycling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/arq.c#L108-L152",
+          "why": "Shows ARQPostRequest storing the owner, type, source, destination, length, and callback before queue insertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:402e12d2-1c96-4b82-ba77-d86257104b87",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014BD0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes pooled loading of data from ARAM into a main-memory buffer, with either callback-driven asynchronous completion or a synchronous wait.",
+      "rationale": "The current body prepares a DMA-written destination, submits a direction-1 ARQ request, and selects callback-driven or blocking completion based on whether the client callback is null. Dolphin ARQ grounds the endpoints as ARAM and main memory.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows destination cache preparation, pooled ARQ submission, and the callback-controlled completion mode."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/arq.c#L108-L152",
+          "why": "Establishes the MRAM/ARAM transfer domain and asynchronous request semantics of ARQPostRequest."
+        }
+      ]
+    },
+    {
+      "id": "fact:b942975d-1dee-447e-9824-616c728fee5e",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014BD0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void lbArq_80014BD0(u32 source, void* dest, size_t length, lbArqCallback callback, void* callback_arg). source is a 32-bit ARAM address, dest is the main-memory destination range, and length is the transfer size in bytes. callback is optional; when non-null it receives callback_arg after ARQ completion.",
+      "rationale": "The current declaration provides the parameter shape, and the body forwards source, dest, and length to ARQPostRequest, invalidates dest, stores the callback pair, and treats null callback as the blocking-mode selector.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows the complete declaration and how every parameter is consumed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/arq.c#L108-L152",
+          "why": "Confirms that ARQ represents endpoints and transfer length with 32-bit fields and stores a completion callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:e160f775-0f97-4cfe-b4a7-2b37b6dea3a3",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014BD0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Submits an ARAM-to-main-memory transfer through a pooled lbArqNode. It supports asynchronous use when a client callback is supplied and blocking use when the callback is NULL, recycling the request node before the blocking call returns.",
+      "rationale": "The current body invalidates the destination, allocates and fills a free request node, posts its embedded ARQRequest, and either returns for callback completion or waits for DONE and recycles the node.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Contains the complete request allocation, submission, asynchronous selection, blocking wait, and synchronous recycling behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:eb9c32c5-cc0e-40f1-a52e-aae6ac83c98f",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014BD0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine requires an available FREE node and asserts if the pool is exhausted. While interrupts are masked, it performs the FREE-to-PENDING transition and submits the transfer. If callback is NULL, it temporarily restores interrupts so ARQ completion can occur, spins until the node reaches DONE, masks interrupts again, removes the node from its current list, appends it to FREE, and restores the original interrupt state. With a non-null callback, it returns after submission and leaves completion and recycling to lbArq_80014AC4.",
+      "rationale": "The current submission body directly preserves the assertion, interrupt transitions, FREE-to-PENDING mutation, null-callback polling, and synchronous recycling. The completion routine in the same span establishes the asynchronous path's DONE and FREE transitions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L41-L161",
+          "why": "Shows the pool guard, critical section, submission transition, blocking wait and recycling path, plus asynchronous completion handling."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbarq:lbArq_80014D2C": [
+    {
+      "id": "fact:644e36eb-f11f-41da-aa65-9f46b2b9b81a",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014D2C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "With no caller-supplied input, the function obtains lbArq_804316C0.nodes, writes NULL to the FREE, PENDING, and DONE list heads, then replaces the FREE head with &nodes[0]. It writes successive next pointers across nodes[0] through nodes[8], overwrites nodes[8].next with NULL, and writes LB_ARQ_STATE_FREE to each node included in that chain. Later submission code consumes the resulting FREE head to allocate reusable transfer requests.",
+      "rationale": "The current initializer shows every output pointer and state write, while the preceding submission code consumes global->list[FREE] as the source of reusable requests.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows submission consuming the FREE head and initialization writing the list heads, node links, and FREE states."
+        }
+      ]
+    },
+    {
+      "id": "fact:9a5b7043-32b8-439e-82e6-670c8790b4c4",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014D2C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Establishes the reusable request capacity required by Melee's ARAM-to-main-memory loading interface before any transfer is submitted. It does not perform a transfer itself; it prepares the idle request pool used by the module's blocking and callback-driven ARQ operations.",
+      "rationale": "The target only initializes the request lists and node links. The same current source later consumes those nodes for direction-1 ARQ submissions, while the application entry point still invokes the initializer during support-library startup.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows both request-pool initialization and use of a FREE node for ARQ-backed transfer submission."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L142-L220",
+          "why": "Shows lbArq_80014D2C invoked among application startup initializers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/arq.c#L108-L152",
+          "why": "Establishes that the wrapped ARQ requests transfer data between ARAM and main memory."
+        }
+      ]
+    },
+    {
+      "id": "fact:490269d0-e88a-439a-ab5c-0f854f0a24c4",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014D2C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless, void-returning subsystem initializer with signature void lbArq_80014D2C(void). It communicates entirely through writes to the module-global lbArqGlobal manager and its embedded lbArqNode records.",
+      "rationale": "The matched definition supplies the exact signature, accepts no input, returns no value, and performs only initialization writes reached through lbArq_804316C0.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T08:04:25.859Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L163-L184",
+          "why": "Provides the exact declaration and shows that all observable outputs are writes to the global manager's lists and nodes."
+        }
+      ]
+    },
+    {
+      "id": "fact:f8f39a54-082e-4cb7-8411-a7188d0fe8d8",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014D2C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes the lbArq request manager during application startup by clearing all three state-list heads, publishing the node array as the free-list head, and linking the first nine nodes into a terminated free list with every linked node marked FREE.",
+      "rationale": "The current body performs the complete queue reset and nine-node FREE-chain construction, and the current application entry point invokes it alongside the other support-library initialization routines.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L163-L184",
+          "why": "Directly shows the queue-head reset and construction of the terminated nine-node FREE chain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L142-L220",
+          "why": "Shows the application entry point invoking this routine among support-library startup initializers."
+        }
+      ]
+    },
+    {
+      "id": "fact:1a37fba7-ea6d-4b6e-9eca-a04f1d8cda1e",
+      "target_id": "target:function:main/melee/lb/lbarq:lbArq_80014D2C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Resets the manager to an idle state: PENDING and DONE are empty, while FREE contains a forward-linked chain rooted at nodes[0] and terminated at nodes[8]. Every node reachable from that head is marked LB_ARQ_STATE_FREE, making those nine records immediately available for later FREE-to-PENDING request transitions.",
+      "rationale": "The current initializer explicitly establishes the queue topology and FREE assignments. The current submission path subsequently removes one of those nodes from FREE and changes it to PENDING.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:08:25.227Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows the initialized idle topology and the later FREE-to-PENDING transition performed by submission."
+        }
+      ]
+    }
+  ],
+  "src/melee/lb/lbarq.c": [
+    {
+      "id": "fact:113ada57-b5d2-4efd-90dd-791f91c7f429",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbarq.c",
+      "type": "data_flow",
+      "value": "A transfer's ARAM source address, main-memory destination, byte length, callback, and callback argument enter through the submission routine. The module copies callback metadata into a free lbArqNode, passes the node's embedded ARQRequest and transfer values to Dolphin ARQ, and later receives that node back through the ARQ completion callback. Completion updates the node's queue membership and state, forwards callback_arg to the client callback when present, and ultimately returns the node to the free pool.",
+      "rationale": "At head, submission still stores client callback metadata in a pooled node and passes its embedded request plus the transfer arguments to ARQPostRequest. The completion callback recovers the same node from its handle, updates its list and state, invokes the saved client callback, and recycles it, confirming the standing end-to-end flow.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Shows the pooled node layout and completion-side flow from the ARQ handle through DONE queueing, client callback delivery, and recycling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows callback metadata and transfer values entering a free node and its embedded ARQRequest during submission."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/arq.c#L108-L152",
+          "why": "Shows ARQPostRequest copying the transfer owner, type, source, destination, length, and completion callback into the caller-owned request before queueing it."
+        }
+      ]
+    },
+    {
+      "id": "fact:1f2f7c3e-997c-4dfe-9b33-c61bd2e1a169",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbarq.c",
+      "type": "game_mapping",
+      "value": "Implements a game-side request pool and synchronous/asynchronous completion interface for copying data from ARAM into main memory.",
+      "rationale": "The head wrapper invalidates the destination cache, posts a direction-1 ARQ transfer, and either invokes a supplied client callback or polls until DONE when no callback is supplied. Dolphin ARQ establishes that the request direction belongs to the MRAM/ARAM transfer domain, supporting the standing ARAM-to-main-memory mapping.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Shows main-memory destination cache invalidation and callback-driven completion processing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows direction-1 ARQ submission and the callback-null branch that blocks until the request reaches DONE."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/arq.c#L108-L152",
+          "why": "Constrains ARQ requests to transfers between MRAM and ARAM and shows callback-based request completion metadata."
+        }
+      ]
+    },
+    {
+      "id": "fact:8feaf39e-21e0-4586-97f1-ee98e0af7a4c",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbarq.c",
+      "type": "inferred_type",
+      "value": "A stateful ARQ wrapper module backed by one lbArqGlobal object. Its request records are lbArqNode objects containing linked-list and state metadata, an embedded ARQRequest, and an optional client callback plus callback argument; the manager indexes linked-list heads by the FREE, PENDING, and DONE state domain.",
+      "rationale": "The current source retains one lbArqGlobal with ten lbArqNode records and three state-indexed list heads. Each node still contains its link, lifecycle state, embedded ARQRequest, callback, and callback argument, preserving the standing module shape.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Defines the FREE, PENDING, and DONE domain, the complete lbArqNode layout, and the ten-node lbArqGlobal with three list heads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows the node fields and state-indexed lists being used during submission and pool initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:1b65a37e-c3d9-4965-8b09-12e63e7bc2d7",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbarq.c",
+      "type": "purpose",
+      "value": "Provides Melee's pooled request layer for ARAM-to-main-memory transfers. It allocates request nodes from a free list, submits their embedded Dolphin ARQ descriptors, processes completion, invokes optional client callbacks, and recycles completed nodes.",
+      "rationale": "The head implementation continues to own the request pool, move free nodes into pending work, submit their embedded ARQ descriptors, process completion, invoke optional client callbacks, and return completed nodes to the pool. The drift did not alter the unit's purpose.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Shows the unit-owned manager and completion path, including DONE queueing, optional callback invocation, and recycling to FREE."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows allocation from FREE, insertion into PENDING, ARQ submission, synchronous waiting, recycling, and pool initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:e843311b-30c3-4823-810b-0da9b5fea2cd",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbarq.c",
+      "type": "state_behavior",
+      "value": "Request nodes follow FREE \u2192 PENDING \u2192 DONE \u2192 FREE. Submission removes a FREE node and appends it to PENDING while interrupts are disabled. ARQ completion atomically removes it from its current list and appends it to DONE. Requests with a client callback are recycled after that callback returns; requests without one are polled synchronously until DONE and then removed and recycled by the submitting routine.",
+      "rationale": "The head source preserves every named transition and list operation. Interrupt masking still surrounds shared-list mutation, and the callback-null branch still separates synchronous polling and recycling from completion-handler callback delivery and recycling.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:08.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L1-L120",
+          "why": "Shows completion removing a request from its current list, moving it to DONE, and recycling callback-driven requests to FREE under interrupt masking."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarq.c#L121-L184",
+          "why": "Shows submission's FREE-to-PENDING transition, callback-null polling for DONE, synchronous recycling, and initial FREE-state setup."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbarq:lbArq_80014ABC#r3": [],
+  "main/melee/lb/lbarq:lbArq_80014AC4#r3": [],
+  "main/melee/lb/lbarq:lbArq_80014BD0#r3": [],
+  "main/melee/lb/lbarq:lbArq_80014BD0#r4": [],
+  "main/melee/lb/lbarq:lbArq_80014BD0#r5": [],
+  "main/melee/lb/lbarq:lbArq_80014BD0#r6": [],
+  "main/melee/lb/lbarq:lbArq_80014BD0#r7": []
+}

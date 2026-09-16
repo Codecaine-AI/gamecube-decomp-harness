@@ -1,0 +1,606 @@
+{
+  "tu": "main/sysdolphin/baselib/state",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:HSD_SetMaterialColor"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Unconditionally stores by-value ambient, diffuse and specular GXColors and converts 255.0 * alpha into the u8 matstate.alpha field. Only ambient is subsequently read from these four fields in this TU; stored diffuse, specular and alpha have no local reader. No GX call, dirty flag or explicit alpha clamp occurs.",
+        "rationale": "Separate retained fields from demonstrated consumers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L273-L280",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L40-L46",
+            "why": "Anonymous material-state fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L145-L203",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:HSD_SetMaterialColor"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Stages material colors and opacity in module state. The demonstrated local lighting consumer multiplies matstate.ambient by a qualifying ambient light color; this TU does not read the staged diffuse, specular or alpha fields.",
+        "rationale": "Do not imply all staged fields affect subsequent rendering here.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L273-L280",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L145-L203",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:HSD_StateSetPointSize"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical signature void HSD_StateSetPointSize(u8 arg0, int arg1). The first input is the point-size byte; arg1 is forwarded to the GXTexOffset parameter of GXSetPointSize. This is a direct setter, with no callback registration shown.",
+        "rationale": "Confirm GX selector type without asserting callback use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L332-L339",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/gx/GXGeometry.h#L39-L40",
+            "why": "GX callee declarations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:HSD_StateSetDither"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Normalizes zero to GX_FALSE and every nonzero integer to GX_TRUE. If the normalized value equals state_dither, no GX or cache write occurs. Otherwise calls the GX setter before storing the value. Render-mode invalidation assigns -1 to this u8 cache, producing 255; that stored value differs from both normalized requests.",
+        "rationale": "Record the stored unsigned sentinel exactly.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L393-L400",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L25-L38",
+            "why": "Byte-valued cache declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L414-L434",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:HSD_StateSetAlphaUpdate"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Normalizes zero to GX_FALSE and every nonzero integer to GX_TRUE. If the normalized value equals state_alpha_update, no GX or cache write occurs. Otherwise calls the GX setter before storing the value. Render-mode invalidation assigns -1 to this u8 cache, producing 255; that stored value differs from both normalized requests.",
+        "rationale": "Record the stored unsigned sentinel exactly.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L365-L372",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L25-L38",
+            "why": "Byte-valued cache declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L414-L434",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:HSD_StateSetColorUpdate"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Normalizes zero to GX_FALSE and every nonzero integer to GX_TRUE. If the normalized value equals state_color_update, no GX or cache write occurs. Otherwise calls the GX setter before storing the value. Render-mode invalidation assigns -1 to this u8 cache, producing 255; that stored value differs from both normalized requests.",
+        "rationale": "Record the stored unsigned sentinel exactly.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L356-L363",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L25-L38",
+            "why": "Byte-valued cache declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L414-L434",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:HSD_StateSetZCompLoc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Normalizes zero to GX_FALSE and every nonzero integer to GX_TRUE. If the normalized value equals state_before_tex, no GX or cache write occurs. Otherwise calls the GX setter before storing the value. Render-mode invalidation assigns -1 to this u8 cache, producing 255; that stored value differs from both normalized requests.",
+        "rationale": "Record the stored unsigned sentinel exactly.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L384-L391",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L25-L38",
+            "why": "Byte-valued cache declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L414-L434",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:_HSD_StateInvalidateRenderMode"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Writes -1 to enum-like int caches and converts -1 to 255 in u8 Boolean caches. Alpha reference bytes and destination-alpha byte reset to zero. Ordinary valid enum requests and normalized Boolean requests then miss their composite caches. Invalid enum inputs matching -1 are not rejected locally, so an unconditional guarantee for all integer arguments is unwarranted. No GX or material-state writes occur.",
+        "rationale": "Distinguish byte conversion and valid-domain assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L414-L434",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L21-L38",
+            "why": "Exact cache scalar types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:HSD_StateSetAlphaCompare"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Compares all five requested components unchanged; a mismatch calls GXSetAlphaCompare once, then writes the five caches sequentially. Equal requests do nothing. Valid-domain comparison selectors miss after render-mode invalidation sets comparison/operator int caches to -1.",
+        "rationale": "Sequential cache assignments do not establish atomic update semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L341-L354",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L414-L434",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:HSD_StateSetDstAlpha"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Normalizes enable, compares both enable and alpha even when disabled, and on a mismatch calls GXSetDstAlpha once before writing both caches sequentially. Equal pairs do nothing. Invalidation stores 255 in the u8 enable cache and zero in alpha, ensuring the next normalized request misses.",
+        "rationale": "Sequential cache assignments do not establish atomic update semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L374-L382",
+            "why": "Canonical control flow and cache writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L414-L434",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_SetupChannelMode#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "rendermode",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L145-L203",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetZMode#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "compare_enable",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L317-L330",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetZMode#r4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "compare_func",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L317-L330",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetZMode#r5"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "update_enable",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L317-L330",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetPointSize#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "point_size",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L332-L339",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetPointSize#r4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "tex_offsets",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L332-L339",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetAlphaCompare#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "compare0",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L341-L354",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetAlphaCompare#r4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "reference0",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L341-L354",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetAlphaCompare#r5"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "compare_op",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L341-L354",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetAlphaCompare#r6"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "compare1",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L341-L354",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetAlphaCompare#r7"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "reference1",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L341-L354",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetColorUpdate#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "enable",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L356-L363",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetAlphaUpdate#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "enable",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L365-L372",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetDstAlpha#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "enable",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L374-L382",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetDstAlpha#r4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "alpha",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L374-L382",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetZCompLoc#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "before_tex",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L384-L391",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/state:HSD_StateSetDither#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "enable",
+        "rationale": "Parameter role follows the canonical cache comparison and matching GX setter argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L393-L400",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:.bss"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "rationale": "A compiled section target is not identified as one source object by its declaration alone; clear the inherited section-as-object alias pending compiled attribution.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L14-L46",
+            "why": "Source declarations alone do not identify compiled sections."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/state:.sdata"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "rationale": "A compiled section target is not identified as one source object by its declaration alone; clear the inherited section-as-object alias pending compiled attribution.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L14-L46",
+            "why": "Source declarations alone do not identify compiled sections."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/state.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Maintains source-level material staging, mutable channel templates and GX request caches. Cache hits suppress GX writes and therefore rely on external state coherence. Category invalidation dispatches callbacks in fixed table order. Primitive invalidation resets sizes to zero but leaves texture offsets unchanged, so zero-size requests with matching offsets can still hit; render-mode invalidation uses int -1 and u8 255 sentinels.",
+        "rationale": "Avoid claiming every invalidation makes every subsequent request miss.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L287-L434",
+            "why": "Setters and exact invalidation values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L131-L143",
+            "why": "Dispatch table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L436-L444",
+            "why": "Canonical control flow and cache writes."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

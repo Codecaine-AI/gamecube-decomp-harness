@@ -1,0 +1,74 @@
+import json,pathlib,re,hashlib,datetime
+out=pathlib.Path(__file__).parent;camp=pathlib.Path('games/melee/state/knowledge_v2/semantic-sweep-20260908');m=json.load(open(camp/'manifest.json'));root=pathlib.Path(m['checkout_root']);rev=m['head_revision'];tu='main/sysdolphin/baselib/video';src='src/sysdolphin/baselib/video.c';hdr='src/sysdolphin/baselib/video.h';unit=camp/'units/main__sysdolphin__baselib__video';rows=json.load(open(out/'facts.json'));support=json.load(open(out/'supporting-reads.json'))
+def ev(p,a,b,why):return {'kind':'code','locator':f'code://{rev}/{p}#L{a}-L{b}','why':why}
+def name(r):return next(iter(r['subject'].values())).split(':')[-1].split('#')[0]
+ranges={0:(8,9),1:(202,320),2:(99,110),3:(63,115),4:(202,265),5:(202,265),6:(267,305),7:(307,320),8:(142,149),9:(151,161),10:(163,200),11:(361,379),12:(393,442),13:(117,140),14:(63,115),15:(13,23),16:(387,391),17:(381,385),18:(50,61),19:(37,48),20:(25,35),21:(322,349),22:(322,359),23:(1,442)}
+changes={}
+def setv(i,t,v):changes[i,t]=v
+def old(i,t):return next(f['value'] for f in rows[i]['facts'] if f['type']==t)
+def add(i,t,v):setv(i,t,old(i,t)+' '+v)
+setv(0,'inferred_type','Zero-initialized storage contains a 5120-byte garbage array and a 500-byte HSD_VIInfo. Existing split and source objects place garbage at BSS offset 0 and HSD_VIData at offset 5120, despite declaration order. The source declares 32-byte scratch alignment. Existing split/source section sizes are 5624/5620 bytes, with section alignment 8/32; this inspection does not certify current source-object equivalence.')
+setv(1,'inferred_type','Four diagnostic strings for the three HSD_ASSERT conditions and the unsupported-render-pass panic. Existing split/source objects contain 136/135 bytes in .data, including inter-string padding; the split object has one additional trailing pad byte. The separate filename string video.c is in .sdata.')
+setv(1,'data_flow','The conditions are stringified into __assert diagnostics: the single-XFB pre-retrace path asserts a FREE slot only after failing to find DISPLAY; SetXFBWaitDone asserts DRAWING, and DrawDoneXFB asserts WAITDONE. The unsupported-pass message goes to HSD_Panic. These status assertions do not validate idx bounds before array access.')
+setv(3,'data_flow','The initialized filename string video.c flows through __FILE__ into HSD_ASSERT diagnostics and HSD_Panic. The two retrace counters are separate .sbss objects, not this .sdata contribution.')
+setv(3,'game_mapping','Supplies source-file identification for framebuffer-state assertion failures and unsupported-render-pass diagnostics; it does not implement retrace performance accounting.')
+setv(3,'inferred_type','An eight-byte initialized character string, video.c followed by NUL, in both existing split and source .sdata sections. The two zero-initialized int counters belong to .sbss.')
+setv(3,'purpose','Stores the video.c filename used in this unit\'s assertion and panic diagnostics.')
+setv(3,'state_behavior','The local presentation logic does not mutate this filename string. Retrace counter changes affect .sbss and HSD_VIData.perf, not .sdata.')
+add(2,'state_behavior','HSD_VIInit resets perf.frame_renew but does not reset these function-local statics, so repeated initialization does not start a fresh counter window.')
+add(5,'inferred_type','Other enum values, including HSD_RP_OFFSCREEN, reach panic. Pointers, dimensions, destination capacity and overlap constraints are unchecked locally; split geometry assumes efbHeight is at least four and scratch width fits its fixed 640-pixel allocation.')
+setv(6,'state_behavior','Fewer than two XFBs is inert. Otherwise waits for a drawable slot, submits a copy, snapshots current settings into the slot while changing DRAWING to WAITDONE, waits for any prior GX fence and arms a new fence with the slot index. The internal GX callback only clears its waiting flag and invokes an optional registered callback. Progress from WAITDONE requires that callback or other external code to call HSD_VIDrawDoneXFB; initialization leaves the user callback NULL, so completion alone does not ensure queue progress.')
+setv(11,'purpose','Returns the first slot found in status-priority order WAITDONE, DRAWDONE, NEXT, DISPLAY, or -1 if none exists. WAITDONE may still have an outstanding GPU copy, so this result is not a guarantee that the selected framebuffer is complete or safe to read.')
+setv(12,'game_mapping','Initializes low-level video presentation. Its performance window is set to 60 only when VIGetTvFormat returns VI_NTSC, and 50 otherwise. This branch is the supported accounting rule; exact PAL 50/60-Hz game-mode selection is outside this local review.')
+setv(12,'purpose','Initializes HSD video state and callbacks, configures and flushes VI mode/black settings, then submits a full-screen EFB copy into the first FREE XFB. It leaves that slot FREE and does not call VISetNextFrameBuffer here, so this initial copy alone does not establish displayed-frame ownership.')
+add(12,'inferred_type','At least one framebuffer pointer is required for the final copy: if all are NULL, the search returns -1 and the unchecked inline accessor indexes xfb[-1]. vi must also be valid. No local validation or all-null early return exists.')
+setv(12,'state_behavior','Present XFB slots become FREE, absent slots NONE, and EFB becomes FREE. Clears user callbacks, waiting/argument and published frame_renew, installs internal callbacks and sets frame_period. The private pre-retrace vr_count/renew_count statics are not reset. The initial copy does not transition any XFB to WAITDONE, NEXT or DISPLAY, and no default HSD_VIDrawDoneXFB callback is installed.')
+setv(14,'inferred_type','Internal static void HSD_VIPreRetraceCB(u32 retraceCount). The low-level VI handler increments its u32 retrace count and forwards it here; unsigned wraparound prevents an unbounded monotonic guarantee. This function forwards the count unchanged to the optional user callback.')
+setv(15,'purpose','Scans all three XFB slots in ascending index order for the requested status and returns the first match, or -1. It does not filter configured buffers or nb_xfb, so a request for NONE may return an absent slot.')
+setv(17,'data_flow','Copies the complete GXRenderModeObj into current.vi.rmode and sets current.chg_flag. HSD_VISetXFBWaitDone snapshots current into an XFB and clears current.chg_flag before arming GX draw completion. Later pre-retrace applies the saved mode and black setting when that buffer is NEXT; snapshot timing is copy submission, not completed GX work.')
+setv(17,'state_behavior','Always sets current.chg_flag to 1. HSD_VISetXFBWaitDone clears that current flag when copying current settings into a WAITDONE slot, before GX completion. The saved per-XFB flag remains set when pre-retrace consumes it; there is no clear-on-consume assignment in that path.')
+setv(18,'state_behavior','Reads and saves the old callback before OSDisableInterrupts, writes the new callback while interrupts are disabled, then restores interrupt state and returns the earlier snapshot. This is an interrupt-protected store, not an atomic read-and-replace operation. NULL disables notification; registration does not invoke either callback and persists until another setter or initialization.')
+for i in [19,20]:add(i,'state_behavior','The returned prior pointer is captured before interrupts are disabled. Only the store is inside the critical section; the complete read-and-replace sequence is not atomic.')
+add(21,'state_behavior','No timeout or cancellation exists; queue drainage depends on interrupt/callback progress, including an external draw-done callback that advances WAITDONE.')
+add(22,'state_behavior','No timeout exists. Each poll restores the incoming interrupt state; a caller entering with interrupts disabled does not gain progress merely from the temporary disable/restore sequence.')
+add(23,'state_behavior','WAITDONE advancement requires external registration or invocation of HSD_VIDrawDoneXFB; the internal GX callback does not perform that transition itself and initialization leaves its user callback NULL.')
+unresolved={(22,'game_mapping'):'Specific foreign handoff caller was not independently read. Local busy-wait behavior is verified; defer this consumer claim.'}
+# Supporting debug macros were read in full.
+p='src/sysdolphin/baselib/debug.h';support.append({'path':p,'canonical_range':[1,len((root/p).read_text().splitlines())],'sha256':hashlib.sha256((root/p).read_bytes()).hexdigest()});(out/'supporting-reads.json').write_text(json.dumps(support,indent=2)+'\n')
+def evidence(i):
+ a,b=ranges[i];e=[ev(src,a,b,'Pinned canonical implementation of this subject.')]
+ if i in [0,1,2,3,4,12,23]:e += [ev(src,8,115,'Storage declarations and private retrace counters.'),ev(src,393,442,'Initialization and first copy.'),ev(hdr,9,94,'Owned constants and presentation data layouts.')]
+ if i in [0,4]:e += [ev(src,202,265,'Full/split display-copy geometry and scratch destination.')]
+ if i in [1,3]:e += [ev(src,260,261,'Panic uses __FILE__.'),ev(src,277,319,'Status assertion sites.'),ev('src/sysdolphin/baselib/debug.h',16,33,'Assertions pass filename and stringified condition.')]
+ if i in [5,6,7,8,9,10,11,12,21,22,23]:e += [ev(src,267,379,'Submission, optional callback completion, queue states and waits.'),ev(src,142,184,'Internal completion only clears waiting and invokes optional user callback.'),ev(hdr,124,142,'Unchecked direct accessors.')]
+ if i in [2,13,14,16,17,19,20,23]:e += [ev(src,63,140,'Retrace state transitions and optional callback order.'),ev(src,277,290,'Submission-time configuration snapshot.')]
+ if i in [13,14,19,20,21,23]:e += [ev('extern/dolphin/src/dolphin/vi/vi.c',161,230,'VI interrupt increments count, calls pre hook, commits queued registers and calls post hook.'),ev('extern/dolphin/src/dolphin/vi/vi.c',464,475,'Retrace wait sleeps until the count changes.')]
+ if i==16:e += [ev('extern/dolphin/src/dolphin/vi/vi.c',631,677,'Black state sets active-video count to zero.'),ev('extern/dolphin/src/dolphin/vi/vi.c',867,877,'VI black setter configures vertical registers.')]
+ return e
+subjects=[];proposal={'tu':tu,'proposal':{'facts':[],'links':[],'entities':[],'merges':[],'follow_ups':[]}}
+for i,r in enumerate(rows):
+ n=name(r);idx=i if i<24 else next(j for j,x in enumerate(rows[:23]) if name(x)==n);a,b=ranges[idx];s={'subject':r['subject'],'canonical_range':[a,b],'evidence':evidence(idx),'facts':[],'review':changes.get((idx,'purpose'),next((f['value'] for f in rows[idx]['facts'] if f['type']=='purpose'),'Canonical signature and input uses reviewed.'))}
+ if not r['facts']:s.update(disposition='reviewed_no_existing_facts',parameter_review='Canonical signature and input uses read; no speculative register-to-parameter fact added.' if i>=24 else 'Section has no baseline facts. Existing object .sdata2 contains 1.0f and the double conversion bias 0x4330000000000000, with padding; no new data identity proposed.')
+ for f in r['facts']:
+  k=(i,f['type']);v=changes.get(k);d='supersede' if v else 'unresolved' if k in unresolved else 'retain';why='Correct inherited claim using pinned source and recorded object observations.' if v else unresolved.get(k,'Canonical implementation and recorded support substantiate this claim.')
+  s['facts'].append({'id':f['id'],'version':{'updated_at':f['updated_at'],'numeric_version':None},'type':f['type'],'value':f['value'],'disposition':d,'reason':why,'evidence':s['evidence']})
+  if v:proposal['proposal']['facts'].append({'subject':r['subject'],'type':f['type'],'op':'write','value':v,'rationale':why,'confidence':0.98,'evidence':s['evidence']})
+ subjects.append(s)
+receipts=[]
+for p in sorted((unit/'pages').glob('*.json')):
+ r=json.load(open(p));match=re.match(r'(.*)\.(\d+)-(\d+)\.json',p.name);path=match[1].replace('__','/');a,b=int(match[2]),int(match[3]);phys=len((root/path).read_text().splitlines());receipts.append({'path':path,'canonical_range':[a,min(b,phys)],'rendered_range':[a,b],'source_sha256':next(x['sha256'] for x in m['files'] if x['path']==path),'artifact':str(p),'render_metadata':r['rendered']})
+logs=[json.loads(l) for l in (unit/'reads.jsonl').read_text().splitlines() if json.loads(l).get('reader')=='video_leaf'];start=min(x['at'] for x in logs);end=datetime.datetime.now(datetime.timezone.utc).isoformat();counts={'targets':23,'entities':18,'facts':sum(len(r['facts']) for r in rows),'proposals':len(proposal['proposal']['facts']),'dispositions':{d:sum(f['disposition']==d for s in subjects for f in s['facts']) for d in ['retain','supersede','reject','unresolved']}}
+coverage={'campaign':m['campaign_id'],'tu':tu,'revision':rev,'reader':'video_leaf','started_at':start,'completed_at':end,'read_receipts':receipts,'supporting_canonical_reads':support,'object_evidence':json.load(open(out/'object-evidence.json')),'subjects':subjects,'counts':counts,'exceptions':['C442/H144 physical lines, rendered443/145; final phantom blanks excluded from canonical citations. Both renders zero parse errors and zero substitutions.','Existing source and split object observations are not a rebuild or source-to-object equivalence certificate.','Header declares HSD_VIGXDrawDone but this owned source does not define it. Helper functions and inline accessors absent from indexed target inventory are still read and documented.'],'unresolved':['Exact foreign no-yield flush consumer deferred by fact ID.','External completion registration and single-buffer EFB DRAWDONE producer are family dependencies; local transition requirements are established.']}
+for n,v in [('coverage.json',coverage),('proposal.json',proposal)]: (out/n).write_text(json.dumps(v,indent=2)+'\n')
+find=['# Video Semantic Findings','',f'Pinned revision `{rev}`.','']
+for s in subjects:
+ find += ['## '+next(iter(s['subject'].values())),'',s['review'],'']
+ for f in s['facts']:find += [f"- {f['id']} @ {f['version']['updated_at']}: {f['disposition']} {f['type']}. {f['reason']}"]
+ if not s['facts']:find += [s['parameter_review']]
+ find+=['']
+(out/'findings.md').write_text('\n'.join(find)+'\n')
+nt=['# Video Naming Decisions','','Canonical names remain authoritative. No baseline inferred names or new aliases exist in this packet.','','| Canonical | Decision |','|---|---|']
+for r in rows[:23]:nt += [f'| {name(r)} | Preserve canonical identity |']
+(out/'naming-table.md').write_text('\n'.join(nt)+'\n')
+summary={'tu':tu,'revision':rev,'started_at':start,'completed_at':end,'status':'research_complete_pending_review','counts':counts,'artifacts':{n:str(out/n) for n in ['functionality.md','findings.md','naming-table.md','coverage.json','unresolved.md','proposal.json','link-dispositions.json']},'proposal_sha256':hashlib.sha256((out/'proposal.json').read_bytes()).hexdigest()}
+(out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n');print(json.dumps(summary))

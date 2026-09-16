@@ -1,0 +1,958 @@
+{
+  "contract": "lean-v2",
+  "verdict": "accepted",
+  "adopt_handoff_sha256": "5f0a4cad2732ddc3e4fd73c71af9cea64254d3d45d4b375b5b9bef7a6a62d6da",
+  "proposal_sha256": "dd3ed03036c72c0191666592596bbc7cd7988950fd1c72369fc8007895eced39",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "fact_overrides": [],
+  "link_overrides": [],
+  "rejected": [],
+  "review_notes": [],
+  "independent_checks": {
+    "handoff_sha256": "5f0a4cad2732ddc3e4fd73c71af9cea64254d3d45d4b375b5b9bef7a6a62d6da",
+    "document_proposal_reconciled": true,
+    "reviewed_contradiction_ids": [
+      "fact:71768609-5885-4d6c-b79a-912b76ce6e4b",
+      "fact:568bf4ec-8d6e-46b5-8a39-b2157882581f",
+      "fact:5d2bce99-139c-42ad-ab6b-06876e9ce19f",
+      "fact:bf01823d-6c2b-404a-9e8f-e237a033853a",
+      "fact:5d82fd7c-e7db-4636-bc2e-255060f7479d",
+      "fact:53ec49fd-6550-418d-9d2a-c190b7b5a964"
+    ],
+    "proposed_facts": [
+      {
+        "index": 0,
+        "supported": true,
+        "reason": "The caller's -1 guard prevents additional caller work, not preceding packet-test side effects. Cursor reset, unchecked operations and command classification match canonical source."
+      },
+      {
+        "index": 1,
+        "supported": true,
+        "reason": "TRKTerminateNub invokes this hook, whose body only returns kNoError. Removing an inference that cleanup cannot be needed is justified."
+      },
+      {
+        "index": 2,
+        "supported": true,
+        "reason": "Positive-count acquisition, the 0x880 threshold, attempted NAK/error-6 response, ignored allocation status and uninitialized cleanup identifier are directly supported."
+      },
+      {
+        "index": 3,
+        "supported": true,
+        "reason": "Independent reads confirm buffer allocation outputs, packet length assignment, reply rewriting and attempted transmission. Exhaustion leaves the pointer null and identifier untouched."
+      },
+      {
+        "index": 4,
+        "supported": true,
+        "reason": "The discard loop decrements requested counts without checking read results; ACK status is ignored. The corrected explanation properly limits normal release behavior to successful allocation and preserves undefined-path uncertainty."
+      }
+    ],
+    "contradictions": [
+      {
+        "reason": "Accept deferral of fact:71768609-5885-4d6c-b79a-912b76ce6e4b: declarations and offset comments cannot establish compiled BSS placement, order or combined extent.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L8-L9"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.h#L17-L23"
+          }
+        ]
+      },
+      {
+        "reason": "Accept supersession of fact:568bf4ec-8d6e-46b5-8a39-b2157882581f: a -1 return does not imply that packet testing performed no transport or buffer work.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L62"
+          }
+        ]
+      },
+      {
+        "reason": "Accept supersession of fact:5d2bce99-139c-42ad-ab6b-06876e9ce19f: performing no cleanup does not prove that no resources require cleanup.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L82-L85"
+          }
+        ]
+      },
+      {
+        "reason": "Accept supersession of fact:bf01823d-6c2b-404a-9e8f-e237a033853a: universal failure cleanup is unsupported because allocation failure is unchecked and nonpositive polling leaves id uninitialized.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L27-L51"
+          }
+        ]
+      },
+      {
+        "reason": "Accept supersession of fact:5d82fd7c-e7db-4636-bc2e-255060f7479d: the acquisition purpose remains valid, but safe rejection of every unsuccessful path is not established.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42"
+          }
+        ]
+      },
+      {
+        "reason": "Accept supersession of fact:53ec49fd-6550-418d-9d2a-c190b7b5a964: requested discard counts do not prove successful consumption, and acknowledgment retries can finish with an error ignored by the caller.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L28-L50"
+          }
+        ]
+      }
+    ]
+  },
+  "unresolved": [
+    "Compiled BSS placement, ordering and extent remain deferred pending revision-matched compiled evidence.",
+    "Uninitialized-id and null-buffer findings describe canonical C hazards, not demonstrated compiled runtime outcomes.",
+    "Reply error 6 remains numeric; independent protocol mapping is deferred."
+  ],
+  "fact_dispositions": [
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L8-L9",
+          "why": "Declares the two persistent objects without establishing compiled layout."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.h#L17-L23",
+          "why": "Provides source field types and offset comments, not compiled section evidence."
+        }
+      ],
+      "fact_id": "fact:71768609-5885-4d6c-b79a-912b76ce6e4b",
+      "reason": "Source confirms the object and field declarations, but does not prove their compiled BSS placement, ordering, or combined 0x18-byte extent. No compiled artifact was supplied. The header's size comment is not compiled size evidence.",
+      "updated_at": "2026-09-04T18:13:35.892Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L62",
+          "why": "Shows packet-test side effects and the caller's narrower -1 guard."
+        }
+      ],
+      "fact_id": "fact:568bf4ec-8d6e-46b5-8a39-b2157882581f",
+      "reason": "The no-effect statement is too broad: the packet-test call can drain input, attempt a NAK, and release a buffer before returning -1; its nonpositive-count path also reads an uninitialized identifier.",
+      "updated_at": "2026-09-01T23:13:16.246Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L82-L85",
+          "why": "Contains only a success return."
+        }
+      ],
+      "fact_id": "fact:5d2bce99-139c-42ad-ab6b-06876e9ce19f",
+      "reason": "A no-op implementation proves that no cleanup is performed, not that no resources require cleanup.",
+      "updated_at": "2026-09-02T00:26:52.195Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42",
+          "why": "Shows unchecked calls and uninitialized id reaching cleanup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L27-L51",
+          "why": "Allocation failure leaves the output pointer null and the identifier untouched."
+        }
+      ],
+      "fact_id": "fact:bf01823d-6c2b-404a-9e8f-e237a033853a",
+      "reason": "Universal cleanup and failure-return wording overlooks the uninitialized identifier, unchecked allocation failure, and ignored drain/ACK results.",
+      "updated_at": "2026-09-04T18:13:35.892Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42",
+          "why": "Exposes the intended acquisition role and exceptional-path defects."
+        }
+      ],
+      "fact_id": "fact:5d82fd7c-e7db-4636-bc2e-255060f7479d",
+      "reason": "Rejecting all unsuccessful acquisition paths is not established by this implementation; allocation failure and nonpositive polling results lack safe handling.",
+      "updated_at": "2026-09-04T18:13:35.892Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42",
+          "why": "Shows count-based loop progress and ignored status values."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L28-L50",
+          "why": "Acknowledgment transmission can return an error after retries."
+        }
+      ],
+      "fact_id": "fact:53ec49fd-6550-418d-9d2a-c190b7b5a964",
+      "reason": "The discard loop decrements the reported count regardless of read success, and ACK success is unchecked. Preserve these exceptions and the allocation/no-input hazards rather than guaranteeing complete consumption and transmission.",
+      "updated_at": "2026-09-04T18:13:35.892Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L85",
+          "why": "Complete lifecycle and handoff bodies."
+        }
+      ],
+      "fact_id": "fact:90348c1b-d1dc-4808-be2d-eb225e3a29e9",
+      "reason": "The source confirms the three initialization assignments, unchecked event submission and no-op termination; reset does not include fBuffer or fFCS.",
+      "updated_at": "2026-09-02T00:26:16.687Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L85",
+          "why": "Complete lifecycle and handoff bodies."
+        }
+      ],
+      "fact_id": "fact:94d35dfa-28c6-4ac3-b2b8-ef03462b61d9",
+      "reason": "The source confirms the three initialization assignments, unchecked event submission and no-op termination; reset does not include fBuffer or fFCS.",
+      "updated_at": "2026-09-02T00:26:16.687Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L85",
+          "why": "Complete lifecycle and handoff bodies."
+        }
+      ],
+      "fact_id": "fact:5607da65-401b-47c9-b258-cc2aa01a621a",
+      "reason": "The source confirms the three initialization assignments, unchecked event submission and no-op termination; reset does not include fBuffer or fFCS.",
+      "updated_at": "2026-09-02T00:26:16.687Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L85",
+          "why": "Complete lifecycle and handoff bodies."
+        }
+      ],
+      "fact_id": "fact:da18626e-85ff-4b66-ad52-a6b1b5234360",
+      "reason": "The source confirms the three initialization assignments, unchecked event submission and no-op termination; reset does not include fBuffer or fFCS.",
+      "updated_at": "2026-09-02T00:26:16.687Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L85",
+          "why": "Complete lifecycle and handoff bodies."
+        }
+      ],
+      "fact_id": "fact:5a2e5179-e345-4e45-b2ab-ee55ee336958",
+      "reason": "The source confirms the three initialization assignments, unchecked event submission and no-op termination; reset does not include fBuffer or fFCS.",
+      "updated_at": "2026-09-04T01:38:10.133Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L44-L62",
+          "why": "Complete input-classification body."
+        }
+      ],
+      "fact_id": "fact:4b1c6e05-fa39-401f-8b79-d018b6d17dcd",
+      "reason": "Signature, identifier flow, cursor reset and command threshold are directly supported; existing names remain suitable.",
+      "updated_at": "2026-09-01T23:13:16.246Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L44-L62",
+          "why": "Complete input-classification body."
+        }
+      ],
+      "fact_id": "fact:0977aec1-d8f8-437d-8c2a-caddd4e313bb",
+      "reason": "Signature, identifier flow, cursor reset and command threshold are directly supported; existing names remain suitable.",
+      "updated_at": "2026-09-01T23:13:16.246Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L44-L62",
+          "why": "Complete input-classification body."
+        }
+      ],
+      "fact_id": "fact:b477c0d1-149a-478b-b4d0-39f3841079c0",
+      "reason": "Signature, identifier flow, cursor reset and command threshold are directly supported; existing names remain suitable.",
+      "updated_at": "2026-09-01T23:13:16.246Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L44-L62",
+          "why": "Complete input-classification body."
+        }
+      ],
+      "fact_id": "fact:38f16468-eb4b-43c3-a8b3-d197280d2ef1",
+      "reason": "Signature, identifier flow, cursor reset and command threshold are directly supported; existing names remain suitable.",
+      "updated_at": "2026-09-04T01:38:10.133Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L44-L62",
+          "why": "Complete input-classification body."
+        }
+      ],
+      "fact_id": "fact:e5cc0d93-8569-4128-a6e3-646afb1aa2a0",
+      "reason": "Signature, identifier flow, cursor reset and command threshold are directly supported; existing names remain suitable.",
+      "updated_at": "2026-09-04T01:38:10.133Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L82-L85",
+          "why": "No-op body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L58-L62",
+          "why": "Shutdown caller."
+        }
+      ],
+      "fact_id": "fact:4ff7b564-6fe4-4fbc-8a4d-fbc5365c7949",
+      "reason": "Termination returns success without mutation and its caller discards that result.",
+      "updated_at": "2026-09-02T00:26:52.195Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L82-L85",
+          "why": "No-op body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L58-L62",
+          "why": "Shutdown caller."
+        }
+      ],
+      "fact_id": "fact:9fd418b9-3bd2-464f-9487-b952aea8a498",
+      "reason": "Termination returns success without mutation and its caller discards that result.",
+      "updated_at": "2026-09-02T00:26:52.195Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L82-L85",
+          "why": "No-op body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L58-L62",
+          "why": "Shutdown caller."
+        }
+      ],
+      "fact_id": "fact:d22c7f8f-e99e-4cda-851a-adf8e998bf0e",
+      "reason": "Termination returns success without mutation and its caller discards that result.",
+      "updated_at": "2026-09-02T00:26:52.195Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L8-L9",
+          "why": "Static-storage declarations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L80",
+          "why": "Framing writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.h#L10-L23",
+          "why": "Zero maps to kWaitFlag."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L37-L49",
+          "why": "Pointer initialization wiring."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L32-L59",
+          "why": "Transport readiness consumer."
+        }
+      ],
+      "fact_id": "fact:e575786e-febf-4b39-b75f-2f70c4a90fd1",
+      "reason": "Retain source-level persistent-storage roles and zero-initialization, not inferred compiled placement. Initialization passes the pending-pointer slot to UART setup and forwards its value; the loop tests the pointed byte. Framing writes match the descriptions.",
+      "updated_at": "2026-09-02T05:03:53.109Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L8-L9",
+          "why": "Static-storage declarations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L80",
+          "why": "Framing writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.h#L10-L23",
+          "why": "Zero maps to kWaitFlag."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L37-L49",
+          "why": "Pointer initialization wiring."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L32-L59",
+          "why": "Transport readiness consumer."
+        }
+      ],
+      "fact_id": "fact:d8ae0fb3-07e7-4104-8469-dac480d97cd6",
+      "reason": "Retain source-level persistent-storage roles and zero-initialization, not inferred compiled placement. Initialization passes the pending-pointer slot to UART setup and forwards its value; the loop tests the pointed byte. Framing writes match the descriptions.",
+      "updated_at": "2026-09-02T05:03:53.109Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L8-L9",
+          "why": "Static-storage declarations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L80",
+          "why": "Framing writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.h#L10-L23",
+          "why": "Zero maps to kWaitFlag."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L37-L49",
+          "why": "Pointer initialization wiring."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L32-L59",
+          "why": "Transport readiness consumer."
+        }
+      ],
+      "fact_id": "fact:c961eee6-2a83-465e-a2d5-8d77d9679413",
+      "reason": "Retain source-level persistent-storage roles and zero-initialization, not inferred compiled placement. Initialization passes the pending-pointer slot to UART setup and forwards its value; the loop tests the pointed byte. Framing writes match the descriptions.",
+      "updated_at": "2026-09-04T18:13:35.892Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L8-L9",
+          "why": "Static-storage declarations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L80",
+          "why": "Framing writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.h#L10-L23",
+          "why": "Zero maps to kWaitFlag."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L37-L49",
+          "why": "Pointer initialization wiring."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L32-L59",
+          "why": "Transport readiness consumer."
+        }
+      ],
+      "fact_id": "fact:ac5138ab-2855-4089-bce3-32d9682effef",
+      "reason": "Retain source-level persistent-storage roles and zero-initialization, not inferred compiled placement. Initialization passes the pending-pointer slot to UART setup and forwards its value; the loop tests the pointed byte. Framing writes match the descriptions.",
+      "updated_at": "2026-09-04T18:13:35.892Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L72",
+          "why": "Acquisition and routing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L26-L61",
+          "why": "Debugger event loop."
+        }
+      ],
+      "fact_id": "fact:685089df-ea39-4250-b4af-2b4e7ccb76c5",
+      "reason": "Debugger intake mapping is supported by UART acquisition, command classification and the nub caller; it is not gameplay.",
+      "updated_at": "2026-09-01T23:13:16.246Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L72",
+          "why": "Acquisition and routing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L26-L61",
+          "why": "Debugger event loop."
+        }
+      ],
+      "fact_id": "fact:9721815c-da32-4778-8c66-8670cbd63b9d",
+      "reason": "Debugger intake mapping is supported by UART acquisition, command classification and the nub caller; it is not gameplay.",
+      "updated_at": "2026-09-02T00:27:39.801Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L72",
+          "why": "Acquisition and routing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L26-L61",
+          "why": "Debugger event loop."
+        }
+      ],
+      "fact_id": "fact:06aa7b5a-e822-46a2-9931-9bb4cc5c17be",
+      "reason": "Debugger intake mapping is supported by UART acquisition, command classification and the nub caller; it is not gameplay.",
+      "updated_at": "2026-09-04T01:38:10.133Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L72",
+          "why": "Signature and handoff ordering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.h#L11-L18",
+          "why": "Event enum mapping."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L53-L89",
+          "why": "Queue capacity, copying, construction and destruction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L32-L52",
+          "why": "Request handling precedes destruction."
+        }
+      ],
+      "fact_id": "fact:69da89dd-e994-4a1a-ab43-3bc0873517b3",
+      "reason": "Retain request-event submission and successful-queue lifetime together with the existing explicit queue-full exception: posting is attempted, not guaranteed; no local cleanup occurs on failure. Numeric type 2 is independently kRequestEvent.",
+      "updated_at": "2026-09-02T00:27:15.609Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L72",
+          "why": "Signature and handoff ordering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.h#L11-L18",
+          "why": "Event enum mapping."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L53-L89",
+          "why": "Queue capacity, copying, construction and destruction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L32-L52",
+          "why": "Request handling precedes destruction."
+        }
+      ],
+      "fact_id": "fact:e3a1dbb5-864f-4d2a-8cfa-4dd1e7f86c1e",
+      "reason": "Retain request-event submission and successful-queue lifetime together with the existing explicit queue-full exception: posting is attempted, not guaranteed; no local cleanup occurs on failure. Numeric type 2 is independently kRequestEvent.",
+      "updated_at": "2026-09-02T00:27:15.609Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L72",
+          "why": "Signature and handoff ordering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.h#L11-L18",
+          "why": "Event enum mapping."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L53-L89",
+          "why": "Queue capacity, copying, construction and destruction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L32-L52",
+          "why": "Request handling precedes destruction."
+        }
+      ],
+      "fact_id": "fact:e0d5451d-d016-40a2-9314-189762475ee9",
+      "reason": "Retain request-event submission and successful-queue lifetime together with the existing explicit queue-full exception: posting is attempted, not guaranteed; no local cleanup occurs on failure. Numeric type 2 is independently kRequestEvent.",
+      "updated_at": "2026-09-02T00:27:15.609Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L72",
+          "why": "Signature and handoff ordering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.h#L11-L18",
+          "why": "Event enum mapping."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L53-L89",
+          "why": "Queue capacity, copying, construction and destruction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L32-L52",
+          "why": "Request handling precedes destruction."
+        }
+      ],
+      "fact_id": "fact:fd67cb16-ba78-4f2d-94d7-9e3f011e2a34",
+      "reason": "Retain request-event submission and successful-queue lifetime together with the existing explicit queue-full exception: posting is attempted, not guaranteed; no local cleanup occurs on failure. Numeric type 2 is independently kRequestEvent.",
+      "updated_at": "2026-09-02T00:27:15.609Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L72",
+          "why": "Signature and handoff ordering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.h#L11-L18",
+          "why": "Event enum mapping."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L53-L89",
+          "why": "Queue capacity, copying, construction and destruction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L32-L52",
+          "why": "Request handling precedes destruction."
+        }
+      ],
+      "fact_id": "fact:e5ecc80a-86bc-4e7d-993a-c8086ff941cd",
+      "reason": "Retain request-event submission and successful-queue lifetime together with the existing explicit queue-full exception: posting is attempted, not guaranteed; no local cleanup occurs on failure. Numeric type 2 is independently kRequestEvent.",
+      "updated_at": "2026-09-02T00:27:15.609Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42",
+          "why": "Declarations and return sites."
+        }
+      ],
+      "fact_id": "fact:fad9fc80-f14e-465f-bb8c-2a28bd48ea0c",
+      "reason": "Signature, local types and explicit return sites remain correct; these do not establish defined behavior on every path.",
+      "updated_at": "2026-09-02T00:27:39.801Z"
+    }
+  ],
+  "link_dispositions": [
+    {
+      "baseline_record": {
+        "id": "link:ff450584-9d66-4515-9a6f-b58eaeee00ea",
+        "from_target_id": "target:function:main/MetroTRK/serpoll:TRKGetInput",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:metrotrk-debugger-packet-intake",
+        "role": "implements",
+        "why": "The routine polls for a MetroTRK packet, reads its command byte, and routes or releases its message buffer; the debugger-nub main loop invokes it as its transport-input service step.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/MetroTRK/serpoll.c#L47-L65",
+        "digest": "sha256:0b5b3daebe50e556"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L72",
+          "why": "Acquisition, classification and event submission."
+        }
+      ],
+      "link_id": "link:ff450584-9d66-4515-9a6f-b58eaeee00ea",
+      "reason": "All four implementation relationships correctly identify stages of debugger packet intake. Validation is limited to size/read outcome and command classification, not comprehensive protocol validation; event enqueue can fail."
+    },
+    {
+      "baseline_record": {
+        "id": "link:7c1686e0-badf-4abf-b06a-91a2819b09f5",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/MetroTRK/serpoll.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:metrotrk-debugger-packet-intake",
+        "role": "implements",
+        "why": "The translation unit polls the UART for a packet, validates and classifies its message buffer, and routes accepted input into the debugger event path.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/MetroTRK/serpoll.c#L47-L65",
+        "digest": "sha256:0b5b3daebe50e556"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L72",
+          "why": "Acquisition, classification and event submission."
+        }
+      ],
+      "link_id": "link:7c1686e0-badf-4abf-b06a-91a2819b09f5",
+      "reason": "All four implementation relationships correctly identify stages of debugger packet intake. Validation is limited to size/read outcome and command classification, not comprehensive protocol validation; event enqueue can fail."
+    },
+    {
+      "baseline_record": {
+        "id": "link:71520460-1c2d-4eb9-b24c-ee648dabf49e",
+        "from_target_id": "target:function:main/MetroTRK/serpoll:TRKProcessInput",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:metrotrk-debugger-packet-intake",
+        "role": "implements",
+        "why": "The routine performs packet intake's handoff from an accepted MessageBufferID to a queued debugger request event.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/MetroTRK/serpoll.c#L67-L75",
+        "digest": "sha256:ee3ab10d72a51c09"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L72",
+          "why": "Acquisition, classification and event submission."
+        }
+      ],
+      "link_id": "link:71520460-1c2d-4eb9-b24c-ee648dabf49e",
+      "reason": "All four implementation relationships correctly identify stages of debugger packet intake. Validation is limited to size/read outcome and command classification, not comprehensive protocol validation; event enqueue can fail."
+    },
+    {
+      "baseline_record": {
+        "id": "link:ce0aaf24-a33b-40db-a0d6-4e9cf57c2fc0",
+        "from_target_id": "target:function:main/MetroTRK/serpoll:TRKTestForPacket",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:metrotrk-debugger-packet-intake",
+        "role": "implements",
+        "why": "The function performs the acquisition stage of debugger packet intake by polling UART availability, filling a MetroTRK MessageBuffer, returning its identifier on success, and rejecting oversized input with a NAK.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/MetroTRK/serpoll.c#L13-L44",
+        "digest": "sha256:19568269e7a3a5e8"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L72",
+          "why": "Acquisition, classification and event submission."
+        }
+      ],
+      "link_id": "link:ce0aaf24-a33b-40db-a0d6-4e9cf57c2fc0",
+      "reason": "All four implementation relationships correctly identify stages of debugger packet intake. Validation is limited to size/read outcome and command classification, not comprehensive protocol validation; event enqueue can fail."
+    },
+    {
+      "baseline_record": {
+        "id": "link:f5d20776-ce43-4371-b216-163abec9ad79",
+        "from_target_id": "target:data:main/MetroTRK/serpoll:.bss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:metrotrk-debugger-packet-intake",
+        "role": "implements",
+        "why": "The section stores the transport-pending pointer used to trigger TRKGetInput and the framing state updated when an accepted packet is handed to the debugger request-event path.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/MetroTRK/mainloop.c#L25-L60",
+        "digest": "sha256:47d28739a9b06cbd"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L8-L9",
+          "why": "Persistent objects."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L80",
+          "why": "Framing-state use."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L53-L59",
+          "why": "Pending-pointer consumer."
+        }
+      ],
+      "link_id": "link:f5d20776-ce43-4371-b216-163abec9ad79",
+      "reason": "Retain the persistent-data relationship at source level; compiled section membership remains unverified."
+    }
+  ],
+  "coverage": {
+    "fact_count": 32,
+    "files": [
+      {
+        "canonical_complete": true,
+        "path": "src/MetroTRK/serpoll.c",
+        "rendered_complete": true,
+        "renderer_issues": [],
+        "total_lines": 86
+      },
+      {
+        "canonical_complete": true,
+        "path": "src/MetroTRK/serpoll.h",
+        "rendered_complete": true,
+        "renderer_issues": [],
+        "total_lines": 34
+      }
+    ],
+    "link_count": 5,
+    "subjects": [
+      {
+        "target_stable_key": "main/MetroTRK/serpoll:.bss"
+      },
+      {
+        "target_stable_key": "main/MetroTRK/serpoll:TRKGetInput"
+      },
+      {
+        "target_stable_key": "main/MetroTRK/serpoll:TRKInitializeSerialHandler"
+      },
+      {
+        "target_stable_key": "main/MetroTRK/serpoll:TRKProcessInput"
+      },
+      {
+        "target_stable_key": "main/MetroTRK/serpoll:TRKTerminateSerialHandler"
+      },
+      {
+        "target_stable_key": "main/MetroTRK/serpoll:TRKTestForPacket"
+      },
+      {
+        "entity_locator": "src/MetroTRK/serpoll.c"
+      },
+      {
+        "entity_locator": "main/MetroTRK/serpoll:TRKProcessInput#r3"
+      }
+    ]
+  },
+  "review_scope": "proposed_changes_and_explicit_contradictions",
+  "coverage_basis": {
+    "kind": "inherited_full_librarian_or_legacy_research",
+    "upstream_job_id": "lead-main__MetroTRK__serpoll-1",
+    "handoff_sha256": "5f0a4cad2732ddc3e4fd73c71af9cea64254d3d45d4b375b5b9bef7a6a62d6da"
+  },
+  "reviewer": "/root/review_gate/kernel/reviewer-main__MetroTRK__serpoll-1",
+  "tu": "main/MetroTRK/serpoll",
+  "status": "accepted_for_staged_apply",
+  "kernel_job": {
+    "id": "reviewer-main__MetroTRK__serpoll-1",
+    "role": "reviewer",
+    "task_id": "main__MetroTRK__serpoll",
+    "output_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__MetroTRK__serpoll-1",
+    "attempt": 1,
+    "prior_result": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/lead-main__MetroTRK__serpoll-1/packet.json",
+    "input_proposal_sha256": "dd3ed03036c72c0191666592596bbc7cd7988950fd1c72369fc8007895eced39",
+    "packet_contract": "lean-v2",
+    "handoff_path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__MetroTRK__serpoll-1/inputs/handoff.json",
+    "input_handoff_sha256": "5f0a4cad2732ddc3e4fd73c71af9cea64254d3d45d4b375b5b9bef7a6a62d6da",
+    "input_artifacts": {
+      "proposal.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__MetroTRK__serpoll-1/inputs/proposal.json",
+        "sha256": "dd3ed03036c72c0191666592596bbc7cd7988950fd1c72369fc8007895eced39"
+      },
+      "functionality.md": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__MetroTRK__serpoll-1/inputs/functionality.md",
+        "sha256": "a44752b5b04aadce564a1adba87de0e196fa6c4bb942f4814884e3cc59b964df"
+      },
+      "fact-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__MetroTRK__serpoll-1/inputs/fact-dispositions.json",
+        "sha256": "100abde2ec840ff45eb34ab8af526987990ff9a65cb187444f570e1f9b9bf2cd"
+      },
+      "link-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__MetroTRK__serpoll-1/inputs/link-dispositions.json",
+        "sha256": "8952dedf772490cb7e172f196256dfc0d5b34b1d47d1469e140f404a89392886"
+      },
+      "coverage.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__MetroTRK__serpoll-1/inputs/coverage.json",
+        "sha256": "05afd914f587bfd93e814605fef6486e5fa17f8b9af5576892f16d289cd35986"
+      },
+      "unresolved.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__MetroTRK__serpoll-1/inputs/unresolved.json",
+        "sha256": "0391b6dc3d2c8e680646576e4dcc0ce0eec16cea111637f6172d6dd6606014ad"
+      }
+    }
+  },
+  "completed_at": "2026-09-08T22:27:35.710168+00:00"
+}

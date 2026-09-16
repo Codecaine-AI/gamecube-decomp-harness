@@ -1,0 +1,99 @@
+{
+  "tu": "main/sysdolphin/baselib/mobj",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "A non-null descriptor supplies class_name to class lookup. A missing name or failed lookup selects HSD_MObjAlloc, which constructs default_class when non-null and otherwise the base hsdMObj class. Successful lookup supplies the resolved class to hsdNew. The object and descriptor then enter the object's virtual load method; its result is not inspected. HSD_MObjCompileTev finalizes the object before return. A null descriptor returns NULL without construction.",
+        "rationale": "Corrects the baseline's base-only fallback while preserving the supported construction pipeline.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+            "why": "Lookup, fallback, virtual load and compilation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L494",
+            "why": "Default-or-base allocator selection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Constructs a runtime material object from an HSD_MObjDesc using its resolved class when available, otherwise the default-or-base class selected by HSD_MObjAlloc; invokes virtual descriptor loading and compiles the object's TEV configuration before returning it.",
+        "rationale": "The fallback is class-aware rather than necessarily the base HSD_MObj class.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+            "why": "Descriptor construction entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L494",
+            "why": "Fallback class selection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:MObjSetupTev"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature: void MObjSetupTev(HSD_MObj* mobj, HSD_TObj* tobj, u32 arg2). The material supplies compiled TEV descriptors and retained texture-expression constants; tobj is the effective texture chain. arg2 is the render-mode value, identified as rendermode in the class callback slot and supplied from mobj->rendermode by HSD_MObjSetup, then forwarded unchanged to HSD_TObjSetupVolatileTev.",
+        "rationale": "Cross-checking the class interface and caller resolves the formerly opaque third argument without changing the canonical signature.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L421",
+            "why": "Implementation, mode overwrite and callback invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.h#L142-L151",
+            "why": "Callback parameter explicitly named rendermode."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjUnset"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ends the material's software current-texture context by calling HSD_TObjSetup(NULL). That callee clears tobj_head and immediately returns; this routine does not unbind GX textures or reset their hardware state. Both interface arguments are unused.",
+        "rationale": "Replaces potentially misleading texture-binding teardown language with the exact effect established by the delegated null path.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L427-L430",
+            "why": "Only operation is NULL texture setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L1137-L1154",
+            "why": "Software head assignment followed by immediate null return."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

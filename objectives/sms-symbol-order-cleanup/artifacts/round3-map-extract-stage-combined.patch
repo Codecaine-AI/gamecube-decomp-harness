@@ -1,0 +1,90 @@
+--- a/src/Map/Map.cpp
++++ b/src/Map/Map.cpp
+@@ -30,6 +30,18 @@
+ 
+ TMap* gpMap;
+ 
++static void initOption()
++{
++	TMapObjOptionWall* wall = new TMapObjOptionWall("オプション用壁");
++	wall->init();
++	TMapObjBase::joinToGroup("マップグループ", wall);
++}
++
++static void initSirena()
++{
++	SMS_LoadParticle("/scene/mapObj/SandSteam.jpa", 0x6A);
++}
++
+ static void initMonte()
+ {
+ 	JDrama::TViewObjPtrListT<JDrama::TViewObj>* group
+@@ -113,6 +125,22 @@
+ 	TMapObjBase::joinToGroup("鏡シーン", mapModelActor);
+ }
+ #pragma dont_inline off
++
++static void initPinnaBeach()
++{
++	if (gpMarDirector->getCurrentStage() == 0)
++		return;
++	TMapObjBase::newAndInitBuildingCollisionWarp(1, nullptr)->setUp();
++}
++
++static void initBianco()
++{
++	if (gpMarDirector->getCurrentStage() == 5
++	    || gpMarDirector->getCurrentStage() == 9)
++		return;
++	TMapObjBase::newAndInitBuildingCollisionWarp(1, nullptr)->setUp();
++	TMapObjBase::newAndInitBuildingCollisionWarp(2, nullptr)->setUp();
++}
+ 
+ static void initStageCommon()
+ {
+@@ -164,14 +192,9 @@
+ 	initStageCommon();
+ 
+ 	switch (gpMarDirector->getCurrentMap()) {
+-	case 1: { // Bianco
+-		if (gpMarDirector->getCurrentStage() == 5
+-		    || gpMarDirector->getCurrentStage() == 9)
+-			break;
+-		TMapObjBase::newAndInitBuildingCollisionWarp(1, nullptr)->setUp();
+-		TMapObjBase::newAndInitBuildingCollisionWarp(2, nullptr)->setUp();
+-		break;
+-	}
++	case 1: // Bianco
++		initBianco();
++		break;
+ 	case 2: // Ricco
+ 		if (gpMarDirector->getCurrentStage() == 0)
+ 			break;
+@@ -185,22 +208,17 @@
+ 		initMonte();
+ 		break;
+ 	case 6: // Pinna
+-		if (gpMarDirector->getCurrentStage() == 0)
+-			break;
+-		TMapObjBase::newAndInitBuildingCollisionWarp(1, nullptr)->setUp();
++		initPinnaBeach();
+ 		break;
+ 	case 5: // Sirena
+-		SMS_LoadParticle("/scene/mapObj/SandSteam.jpa", 0x6A);
++		initSirena();
+ 		break;
+ 	case 13: // Pinna Parco
+ 		initPinnaParco();
+ 		break;
+-	case 15: { // Option
+-		TMapObjOptionWall* wall = new TMapObjOptionWall("オプション用壁");
+-		wall->init();
+-		TMapObjBase::joinToGroup("マップグループ", wall);
+-		break;
+-	}
++	case 15: // Option
++		initOption();
++		break;
+ 	}
+ }
+ 

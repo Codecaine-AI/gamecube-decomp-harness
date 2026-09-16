@@ -1,0 +1,496 @@
+{
+  "tu": "main/melee/ft/ftcamera",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:ftCamera_80076018"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(UnkFloat6_Camera* in, UnkFloat6_Camera* out, float mul). in supplies the x0 and xC components, out receives the corresponding scaled components, and mul is the common float multiplier. The declaration does not qualify in as const.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L10-L18",
+            "why": "Canonical definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.h#L7-L8",
+            "why": "Authoritative declaration."
+          }
+        ],
+        "rationale": "Keep exact source signature and input/output roles; shared-layout size and dimensionless model-scale claims require family type review."
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:ftCamera_80076064"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally activates the existing CmSubject. Only facing_dir == 1.0f selects subject facing +1; every other value selects -1 and mirrored horizontal target extents. It copies both horizontal and vertical target extents into current extents and copies pos into bone_pos. Unlike ftCamera_UpdateCameraBox, this initializer does not clear on_ledge or call ftLib_800866DC; the update does not perform this activation or extent synchronization.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L21-L47",
+            "why": "Activation, facing branches, extents and positions copied into paired fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L51-L87",
+            "why": "Update leaves activation and current extents untouched and refreshes bone position through a separate helper."
+          }
+        ],
+        "rationale": "Preserve exact facing branch and make initialization versus named update writes explicit."
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:ftCamera_80076018"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Executes six component assignments in source order with no branches or scalar validation. Exact in-place use with in == out scales each component once because each assignment reads and writes only that component. A nonoverlapping output leaves the input unchanged; partial overlapping objects are not asserted safe.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L10-L18",
+            "why": "Each assignment reads the corresponding input component before storing its scaled output."
+          }
+        ],
+        "rationale": "Records aliasing and scalar behavior visible in the complete body without assuming camera-specific bounds on mul."
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftcamera:ftCamera_80076018#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Input pointer named in; supplies x0.x/y/z and xC.x/y/z for scaling.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L10-L18",
+            "why": "Canonical formal parameter and uses."
+          }
+        ],
+        "rationale": "Role attested by the current declaration and body."
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftcamera:ftCamera_80076018#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Output pointer named out; receives the six input components multiplied by mul.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L10-L18",
+            "why": "Canonical formal parameter and uses."
+          }
+        ],
+        "rationale": "Role attested by the current declaration and body."
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftcamera:ftCamera_80076018#r5"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Float argument named mul; the same multiplier is applied to all six output components.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L10-L18",
+            "why": "Canonical formal parameter and uses."
+          }
+        ],
+        "rationale": "Role attested by the current declaration and body."
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftcamera:ftCamera_80076064#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Fighter* fp supplies cameraBox, character camera data, Y scale, facing and current position; its existing CmSubject is mutated.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L21-L47",
+            "why": "Canonical formal parameter and uses."
+          }
+        ],
+        "rationale": "Role attested by the current declaration and body."
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:ftCamera_800762F4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives a fighter GObj, obtains its CmSubject, and delegates writing bone_pos to ftLib_800866DC. That helper selects ft_data->x0->camera_zoom_target_bone, obtains fp->parts[index].joint, and transforms co_attrs.x170 into the destination. A null selected joint copies the local offset directly; the wrapper does not rewrite other CmSubject fields.",
+        "rationale": "Adds independently read joint selection and local-offset behavior, including the null-joint fallback.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L89-L93",
+            "why": "Complete owned definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L293-L297",
+            "why": "Returns the configured part joint."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L325-L331",
+            "why": "Selects camera_zoom_target_bone and co_attrs.x170 offset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L105-L140",
+            "why": "Transforms the local offset into the destination, or copies the offset for a null joint."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L120-L123",
+            "why": "Jump camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L232-L235",
+            "why": "Fall camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Throw.c#L438-L446",
+            "why": "Kirby motion-ID branch chooses bone-only update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L121-L131",
+            "why": "Thrown camera callback selects by referenced fighter kind and motion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:ftCamera_800762F4"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Used by WarpStarJump_Cam and WarpStarFall_Cam for bone-position-only updates. ThrowHi_Cam chooses it for Kirby with motion ID 221; ThrownHi_Cam chooses it when the fighter referenced by victim_gobj is Kirby in ftCo_MS_ThrowHi. Both throw callbacks otherwise call ftCamera_UpdateCameraBox.",
+        "rationale": "Replace an inferred offscreen condition with the exact callback selection conditions.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L89-L93",
+            "why": "Complete owned definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L293-L297",
+            "why": "Returns the configured part joint."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L325-L331",
+            "why": "Selects camera_zoom_target_bone and co_attrs.x170 offset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L105-L140",
+            "why": "Transforms the local offset into the destination, or copies the offset for a null joint."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L120-L123",
+            "why": "Jump camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L232-L235",
+            "why": "Fall camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Throw.c#L438-L446",
+            "why": "Kirby motion-ID branch chooses bone-only update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L121-L131",
+            "why": "Thrown camera callback selects by referenced fighter kind and motion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:ftCamera_80076320"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides specialized camera-subject positioning for the DeadUpStar and DeadUpFall camera callbacks. It pins subject Y to the stage top blast-zone offset and multiplies subject X by the ratio of top camera-bound height to top blast-zone height, each measured relative to the stage camera Y offset.",
+        "rationale": "Named callers support DeadUp. The source establishes a ratio but does not guarantee its magnitude is below one, so the inherited compression assertion is removed.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L95-L114",
+            "why": "Complete owned definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D31.c#L697-L700",
+            "why": "Named DeadUpStar camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D4D.c#L50-L53",
+            "why": "Named DeadUpFall camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L132-L137",
+            "why": "Stage camera offset vector."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:.data"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The upper-death camera helper tests whether the top blast-zone offset minus the stage camera offset's y component is nonzero. If the test fails, HSD_ASSERTMSG sends this section's diagnostic text and source line 137 to the assertion path before that difference is used as the horizontal-projection divisor.",
+        "rationale": "Canonical and rendered source lines 1-115 independently reviewed. Existing source and split objects establish bytes and consumer relocations; frozen report hash matches the manifest. Companion data/evidence.json SHA-256 49bbc1068b722effcc4c45d8c40122182755a6b42791695345ee0e5bbc558b8d.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L95-L114",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:.data"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A 56-byte linked diagnostic string allocation: ftcamera.c at offset 0, the null-terminated assertion message stGetPlyDeadUp() - center_pos.y != 0.0F at offset 12, and alignment padding. The source object contains 52 bytes before final linked padding.",
+        "rationale": "Canonical and rendered source lines 1-115 independently reviewed. Existing source and split objects establish bytes and consumer relocations; frozen report hash matches the manifest. Companion data/evidence.json SHA-256 49bbc1068b722effcc4c45d8c40122182755a6b42791695345ee0e5bbc558b8d.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L95-L114",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:.data"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides diagnostic string storage for the assertion that guards the upper-blast-zone camera remapping calculation against a zero vertical denominator.",
+        "rationale": "Canonical and rendered source lines 1-115 independently reviewed. Existing source and split objects establish bytes and consumer relocations; frozen report hash matches the manifest. Companion data/evidence.json SHA-256 49bbc1068b722effcc4c45d8c40122182755a6b42791695345ee0e5bbc558b8d.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L95-L114",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:.sdata2"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Its literals are read by ftCamera_80076064 and ftCamera_UpdateCameraBox to select and encode facing-dependent camera-subject orientation, and by ftCamera_80076320 to test the blast-zone-to-camera-offset denominator before division. The section receives no runtime writes.",
+        "rationale": "Canonical and rendered source lines 1-115 independently reviewed. Existing source and split objects establish bytes and consumer relocations; frozen report hash matches the manifest. Companion data/evidence.json SHA-256 49bbc1068b722effcc4c45d8c40122182755a6b42791695345ee0e5bbc558b8d.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L21-L47",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L51-L87",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L95-L114",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:.sdata2"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Three read-only 32-bit floating-point literals at offsets 0, 4, and 8: +1.0f, -1.0f, and 0.0f. The source object contains 12 bytes and the linked allocation is 16 bytes including final alignment padding.",
+        "rationale": "Canonical and rendered source lines 1-115 independently reviewed. Existing source and split objects establish bytes and consumer relocations; frozen report hash matches the manifest. Companion data/evidence.json SHA-256 49bbc1068b722effcc4c45d8c40122182755a6b42791695345ee0e5bbc558b8d.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L21-L47",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L51-L87",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L95-L114",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:.sdata2"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides read-only floating-point literals used by the fighter-camera unit for facing-direction comparisons and signs and for checking the upper-death camera projection denominator against zero.",
+        "rationale": "Canonical and rendered source lines 1-115 independently reviewed. Existing source and split objects establish bytes and consumer relocations; frozen report hash matches the manifest. Companion data/evidence.json SHA-256 49bbc1068b722effcc4c45d8c40122182755a6b42791695345ee0e5bbc558b8d.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L21-L47",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L51-L87",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L95-L114",
+            "why": "Current canonical consumer matches the literal or assertion-string use independently located in existing ELF bytes and relocations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftcamera.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes fighter camera metadata, model scale, facing direction, current fighter position, camera-bone position, and stage camera coefficients or boundaries. It scales and mirrors the character-specific camera dimensions, writes the resulting anchors, extents, direction, and state into the fighter-owned CmSubject, and can remap the subject anchor against the stage's upper camera and blast-zone boundaries.",
+        "rationale": "Complete canonical and rendered source re-read at pinned revision. Distinguish full initialization from partial refresh and preserve exact projection coordinates.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L10-L47",
+            "why": "Scaling and initialization of full subject extents and position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L49-L114",
+            "why": "Normal refresh, bone-only refresh and exact upper-boundary formula."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftcamera.c"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements fighter contributions to Melee's automatic match-camera framing, including ordinary per-fighter framing and specialized handling for movement toward the top blast zone.",
+        "rationale": "Complete canonical and rendered source re-read at pinned revision. Distinguish full initialization from partial refresh and preserve exact projection coordinates.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L10-L47",
+            "why": "Scaling and initialization of full subject extents and position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L49-L114",
+            "why": "Normal refresh, bone-only refresh and exact upper-boundary formula."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftcamera.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides fighter-side camera-subject helpers that scale character camera metadata, initialize or refresh each fighter's CmSubject camera box, and apply specialized upper-blast-zone positioning when required.",
+        "rationale": "Complete canonical and rendered source re-read at pinned revision. Distinguish full initialization from partial refresh and preserve exact projection coordinates.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L10-L47",
+            "why": "Scaling and initialization of full subject extents and position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L49-L114",
+            "why": "Normal refresh, bone-only refresh and exact upper-boundary formula."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftcamera.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Initialization sets the subject Active, fills horizontal and vertical target extents, copies both into current extents, and initializes both position anchors. Normal refresh updates horizontal target extents, facing and position, clears on_ledge, and fetches bone_pos; it does not overwrite Active state, vertical target extents or current extents. The upper-boundary helper refreshes first, multiplies pos.x by (cameraTop-center.y)/(blastTop-center.y), and sets pos.y to blastTop. It does not subtract center.x or recompute bone_pos after projection. No fighter motion or gameplay timer is changed.",
+        "rationale": "Complete canonical and rendered source re-read at pinned revision. Distinguish full initialization from partial refresh and preserve exact projection coordinates.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L10-L47",
+            "why": "Scaling and initialization of full subject extents and position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L49-L114",
+            "why": "Normal refresh, bone-only refresh and exact upper-boundary formula."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,722 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:41eeb62b-0d10-4c0f-a869-41dcd7e09337",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The section's floating-point zero and one literals are loaded by `ftCo_8009B040` and passed to `Fighter_ChangeMotionState` as the CliffEscape motion's initial frame, playback rate, and blend-related initialization values. They are read-only inputs and receive no writes from this unit.",
+        "rationale": "The source at the renamed head path passes zero, one, and zero to the floating-point motion-state initialization interface and contains no operation that writes local static data, so the section remains a read-only literal source for the entry routine.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows the zero, one, and zero initialization arguments used by `ftCo_8009B040` and the absence of writes to any local data object."
+          }
+        ]
+      },
+      {
+        "id": "fact:5aca7476-70c9-46d8-b7ff-4a4bb392b3d3",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A compiler-generated `.sdata2` pool of single-precision floating-point literals, principally the `0.0f` and `1.0f` values required by the CliffEscape motion-state call; it is not a structured record or pointer table.",
+        "rationale": "The target is a small read-only-data section, while the complete head source has no authored aggregate and instead uses repeated zero and one values in motion-state floating-point parameter positions. This continues to support a literal-pool interpretation rather than a structured table.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows the inline motion-state initialization literals that account for the anonymous read-only constants and contains no source-level aggregate declaration."
+          }
+        ]
+      },
+      {
+        "id": "fact:7f86da14-0743-41b9-a54a-5872923eed80",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the translation unit's anonymous read-only floating-point literals used when initializing the CliffEscape motion state, rather than representing an authored gameplay table or independently addressable object.",
+        "rationale": "At the renamed head path, the unit still has no named data definition or table and its substantive entry routine supplies repeated zero and one initialization literals. The section therefore remains compiler materialization of those constants.",
+        "confidence": 0.88,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows no authored data declaration and shows zero and one literals used to initialize the CliffEscape motion state."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_8009B040"
+    },
+    "facts": [
+      {
+        "id": "fact:f9d7e298-ed9b-4af8-a156-bcdb4c64ebf2",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_8009B040",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the fighter from `gobj->user_data`, then compares `fp->dmg.x1830_percent` with the common-data threshold `p_ftCommonData->x488`. The comparison produces either `ftCo_MS_CliffEscapeQuick` or `ftCo_MS_CliffEscapeSlow`, which is passed to `Fighter_ChangeMotionState` with no preservation flags, frame 0, playback speed 1, blend 0, and no alternate animation source. The routine then forwards the object or fighter to animation initialization, `ftCommon_8007E2F4(fp, 32)`, and cliff-catch physics, while writing `true` to `fp->x221D_b7` and `fp->x221D_b5`.",
+        "rationale": "The complete body at the renamed head path directly exposes every fighter and common-data read, the selected motion ID, all motion-state arguments, the subsequent helper calls, and both fighter-flag writes. The discussion corroborates that `x488` controls getup and roll variant selection.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows the fighter and common-data reads, selected motion ID, exact transition arguments, helper calls, and both flag writes."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1112542868402352198",
+            "why": "States that common-data field `x488` is used for both getup and roll variant selection."
+          }
+        ]
+      },
+      {
+        "id": "fact:1c18f564-8d7e-47c5-9b3e-038d513add46",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_8009B040",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes entry into Melee's damage-dependent ledge-roll getup: a fighter hanging from a ledge begins the quick roll variant below the common damage threshold and the slow variant at or above it. The action moves the fighter from the ledge onto the stage before rolling forward.",
+        "rationale": "The head source chooses between `CliffEscapeQuick` and `CliffEscapeSlow` according to damage. Community terminology identifies CliffEscape as the roll option, while the gameplay documentation describes a roll getup as climbing onto the stage and rolling forward.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows damage-based selection between the quick and slow CliffEscape motion states."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1112542977483612270",
+            "why": "Explicitly identifies the internal CliffEscape action as the roll option and distinguishes it from CliffClimb getup."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://peach-ssbm-edge-getups-fast~roll-getup@r1982348",
+            "why": "Describes a roll getup as climbing onto the stage before tumbling forward in a roll."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://bowser-ssbm-edge-getups-fast~overview@r1976878",
+            "why": "Documents the below-100% fast ledge-action regime while the fighter is hanging from the ledge."
+          }
+        ]
+      },
+      {
+        "id": "fact:5a34577b-2e62-460b-a01d-8c653f1e938f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_8009B040",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_CliffEscape_Enter",
+        "rationale": "The address-named function performs the one-time setup for CliffEscape, while the following functions at the renamed head path are named for the action's animation, IASA, physics, and collision phases. `ftCo_CliffEscape_Enter` remains a plausible role-based name, though no original symbol confirms it.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_CliffEscape_Enter`.",
+        "confidence": 0.88,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows the address-named setup routine followed by explicitly named CliffEscape animation, IASA, physics, and collision callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:cfb03ded-9e76-4380-94e8-430bfa5b0e11",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_8009B040",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Common fighter action-entry routine with signature `void(Fighter_GObj* gobj)`. It obtains and mutates the `Fighter` stored in the supplied game object's `user_data` and initiates a motion-state transition.",
+        "rationale": "The head definition supplies the exact return and parameter types. Its body obtains a `Fighter*` from `gobj->user_data`, changes the game object's motion state, and mutates fields of the associated fighter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Provides the exact signature and directly shows access to and mutation of the fighter owned by the supplied `Fighter_GObj`."
+          }
+        ]
+      },
+      {
+        "id": "fact:7b076ac5-544f-4d43-9181-867fab43ce2c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_8009B040",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enters the common CliffEscape action used when a fighter rolls onto the stage from a ledge. It selects the quick or slow motion from the fighter's damage, initializes the new motion and common fighter state, sets two fighter flags, and immediately applies cliff-catch physics so the fighter remains positioned relative to the held ledge.",
+        "rationale": "The body at head selects a CliffEscape motion, invokes motion and common-state initialization helpers, writes two fighter flags, and immediately runs cliff-catch physics. The resolved terminology identifies CliffEscape specifically as the ledge-roll option.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows the complete entry setup, including motion selection, initialization, flag writes, and the immediate cliff-catch physics call."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1112542977483612270",
+            "why": "Explicitly distinguishes CliffEscape as the roll option and CliffClimb as the ordinary getup."
+          }
+        ]
+      },
+      {
+        "id": "fact:5fe9fcd2-c2db-441a-abb4-1839e7c91659",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_8009B040",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On entry, damage strictly below `p_ftCommonData->x488` transitions to `ftCo_MS_CliffEscapeQuick`; damage equal to or above the threshold transitions to `ftCo_MS_CliffEscapeSlow`. Both branches then perform identical initialization, set `x221D_b7` and `x221D_b5`, and run one cliff-catch physics update.",
+        "rationale": "The conditional expression at head establishes the exact strict-less-than boundary and both resulting motion states. All initialization follows the selection, proving that both variants share the subsequent setup.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows the strict threshold guard, quick and slow state choices, shared initialization, two flag writes, and cliff-catch physics update."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1112542868402352198",
+            "why": "Confirms that the compared common-data field is used to select roll variants according to damage."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Anim"
+    },
+    "facts": [
+      {
+        "id": "fact:58772553-2f11-4342-949e-11e98afdb360",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the cliff-escape fighter object from the action-state callback dispatcher and forwards the same Fighter_GObj pointer unchanged to ftCo_CliffClimb_Anim; it reads or writes no state directly.",
+        "rationale": "The target has no locals, conditions, or direct field accesses and passes its only parameter unchanged to the delegated callback.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:50:05.518Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L27-L30",
+            "why": "The entire target body is a single call forwarding gobj unchanged."
+          }
+        ]
+      },
+      {
+        "id": "fact:571b0677-e9de-4261-9de8-39ea26269b8c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Handles animation completion for the ledge-roll option.",
+        "rationale": "The renamed head source identifies this function as CliffEscape's animation callback and shows it delegating to CliffClimb's animation handler. Community terminology maps CliffEscape to the roll option, and gameplay documentation identifies ledge roll as a way to leave the ledge.",
+        "confidence": 0.89,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows that `ftCo_CliffEscape_Anim` is the animation callback in the quick/slow CliffEscape action suite and delegates completion handling."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1112542977483612270",
+            "why": "Identifies CliffEscape as the roll option."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://edge~ledgetrapping@r2036832",
+            "why": "Identifies ledge roll as one of the gameplay options for leaving the ledge."
+          }
+        ]
+      },
+      {
+        "id": "fact:48c0cda2-6180-4c1f-991c-1041c9a5db60",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state animation callback with signature void (Fighter_GObj* gobj).",
+        "rationale": "The matched function definition explicitly returns void and accepts one Fighter_GObj pointer, consistent with the callback role encoded by its _Anim suffix.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:50:05.518Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L27-L30",
+            "why": "The source gives the complete function signature and body."
+          }
+        ]
+      },
+      {
+        "id": "fact:f9bcf898-22df-441e-a270-b8d0421d9a2b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the animation callback for the cliff-escape state by reusing cliff-climb's animation-completion handling.",
+        "rationale": "The function consists solely of forwarding its fighter object to ftCo_CliffClimb_Anim, whose body checks for animation completion and invokes the common completion handler.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:50:05.518Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L27-L30",
+            "why": "The target function directly calls ftCo_CliffClimb_Anim with its sole argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L86-L98",
+            "why": "The delegated callback checks whether animation frames remain and calls the common completion handler when they do not."
+          }
+        ]
+      },
+      {
+        "id": "fact:e26cdff7-e4cb-4d30-bd69-aa003afef57b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "While cliff escape is active, this callback tests animation completion through the shared cliff-climb callback; when no animation frames remain, that shared callback invokes ftCommon_8007D92C to finish the action.",
+        "rationale": "The target delegates unconditionally, and the resolved callee contains the exact no-frames-remaining guard and completion-handler call.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T01:50:05.518Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L27-L30",
+            "why": "The target unconditionally delegates animation processing to ftCo_CliffClimb_Anim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L86-L98",
+            "why": "The delegated callback calls ftCommon_8007D92C only after ftAnim_IsFramesRemaining reports no remaining frames."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Coll"
+    },
+    "facts": [
+      {
+        "id": "fact:ede13bea-ea4d-4851-8c2f-cb049b520a70",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the active fighter's game object from the action-state callback dispatcher and passes that same pointer unchanged to `ftCo_CliffClimb_Coll`; it produces no direct return value and performs no local transformation.",
+        "rationale": "The function has one input and forwards it verbatim as the sole argument of the delegated collision call. No local values, assignments, branches, or return expression occur.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:48:18.603Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L39-L42",
+            "why": "The source shows `gobj` passed unchanged to `ftCo_CliffClimb_Coll` in an otherwise empty `void` function."
+          }
+        ]
+      },
+      {
+        "id": "fact:e848f2c8-ce4c-4ac9-a309-6347715348c6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the collision-processing portion of a fighter's ledge-roll (roll-getup) action.",
+        "rationale": "The canonical function and unit identify the active action as CliffEscape, and the callback reuses CliffClimb collision behavior. SmashWiki identifies ledge roll as a way to leave the ledge and describes roll getup as climbing onto the stage before rolling, grounding CliffEscape in that mechanic.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-02T01:48:18.603Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L39-L42",
+            "why": "The source identifies this as the CliffEscape collision callback and shows it using CliffClimb collision handling."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://edge~ledgetrapping@r2036832",
+            "why": "The article identifies ledge roll as one of the options for leaving the ledge."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://peach-ssbm-edge-getups-fast~roll-getup@r1982348",
+            "why": "The roll-getup description says the fighter climbs onto the stage and then rolls forward."
+          }
+        ]
+      },
+      {
+        "id": "fact:35622fe5-e08b-45bc-aeda-9f39a3327958",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state collision callback with signature `void (Fighter_GObj* gobj)`.",
+        "rationale": "The resolved definition explicitly returns `void` and accepts one `Fighter_GObj*`; its `_Coll` role and delegation to another fighter collision callback establish that this is an action-state collision callback signature.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:48:18.603Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L39-L42",
+            "why": "The function definition explicitly shows the `void` return type and sole `Fighter_GObj* gobj` parameter."
+          }
+        ]
+      },
+      {
+        "id": "fact:dbfb9ad1-f5f1-4233-89c3-96e03df3ec33",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Services collision updates for the CliffEscape action by delegating them wholesale to the already shared CliffClimb collision routine.",
+        "rationale": "The complete function body performs exactly one operation: calling `ftCo_CliffClimb_Coll` with its fighter object. This demonstrates that the callback exists as the CliffEscape action-state collision entry point while intentionally sharing CliffClimb's collision behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:48:18.603Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L39-L42",
+            "why": "The complete body of `ftCo_CliffEscape_Coll` directly calls `ftCo_CliffClimb_Coll` and performs no other work."
+          }
+        ]
+      },
+      {
+        "id": "fact:1051b156-8c22-4d52-bce5-26b8d43156d0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "During each CliffEscape collision update, unconditionally executes CliffClimb collision processing; this wrapper adds no independent guard, timer, branch, or state transition.",
+        "rationale": "Because the complete body is an unconditional call to `ftCo_CliffClimb_Coll`, all collision-dependent guards or transitions are owned by the delegated routine rather than this wrapper.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:48:18.603Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L39-L42",
+            "why": "The complete callback contains only the unconditional delegated collision call."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_IASA"
+    },
+    "facts": [
+      {
+        "id": "fact:6e34cf4a-35c8-44eb-91ee-aff8c963086d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current fighter game object from the action-state dispatcher but does not dereference it, inspect input, call another function, write fighter state, or produce output; control returns immediately to the dispatcher.",
+        "rationale": "The entire matched body is empty despite its `Fighter_GObj*` parameter, so no value enters further computation and no side effect or output can be produced.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:50:12.180Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L32-L32",
+            "why": "Shows the complete side-effect-free function body and its unused fighter-object input."
+          }
+        ]
+      },
+      {
+        "id": "fact:086bce8c-6688-4c94-99b0-4b5ee353c424",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Contributes to the committed portion of the ledge-roll getup: while this callback is active, the roll does not process an IASA-driven input transition, so its normal animation, physics, and collision handling determine its progression.",
+        "rationale": "The complete head unit shows an empty CliffEscape IASA callback alongside active animation, physics, and collision callbacks. Community terminology identifies CliffEscape as ledge roll, while the gameplay documentation notes the interval before a roll-getup fighter becomes actionable.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows an empty CliffEscape IASA phase while the action retains animation, physics, and collision handlers."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1112542977483612270",
+            "why": "Maps the internal CliffEscape terminology to the gameplay roll option."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://peach-ssbm-edge-getups-fast~roll-getup@r1982348",
+            "why": "Describes ledge roll and notes that the fighter does not become actionable until later in the action."
+          }
+        ]
+      },
+      {
+        "id": "fact:89fadbf9-55aa-4b9b-ae67-d4fe227ab22b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter action-state IASA callback with signature `void (Fighter_GObj*)`. It receives the fighter's game object, returns no value, and intentionally leaves its parameter unused.",
+        "rationale": "The definition at the renamed head path directly supplies the return type and `Fighter_GObj*` parameter. Its `_IASA` role is explicit in the symbol, and the empty body proves that the parameter is unused.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows the complete `void(Fighter_GObj*)` signature, its position in the CliffEscape callback suite, and its empty implementation."
+          }
+        ]
+      },
+      {
+        "id": "fact:591bc745-7749-4c03-949a-71f2f04f8f5c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides CliffEscape's intentionally empty IASA callback, giving the action-state callback table a valid phase handler while performing no input-driven interruption or alternate action transition during that phase.",
+        "rationale": "The function remains positioned between CliffEscape's animation and physics callbacks at head, has the expected fighter-object callback signature, and has a completely empty body. This establishes it as the action's no-op IASA phase.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows the empty `ftCo_CliffEscape_IASA` function between the action's animation and physics callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:47af2fb7-7363-44c1-9894-7a6a9eb33c5c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has invariant no-op behavior on every invocation: it contains no guards, timers, state mutations, or transitions and returns immediately. Consequently, CliffEscape does not initiate an IASA-phase transition through this callback.",
+        "rationale": "The complete function at head is an empty block. Unlike the neighboring CliffEscape callbacks, it neither delegates to shared CliffClimb behavior nor performs a local operation, so it cannot initiate a state transition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:14.102Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L43",
+            "why": "Shows the empty IASA body in contrast with the neighboring animation, physics, and collision callbacks that delegate to CliffClimb routines."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Phys"
+    },
+    "facts": [
+      {
+        "id": "fact:0662cfbd-246d-4a4b-a0f4-a00c5b99e887",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the active fighter's GObj from the action-state callback dispatcher and forwards that same pointer unchanged to `ftCo_CliffClimb_Phys`; it produces no separate return value.",
+        "rationale": "The function has one Fighter_GObj pointer parameter, passes it directly as the sole argument to the delegated physics routine, and returns void without reading or transforming any other local data.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T01:48:48.522Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L34-L37",
+            "why": "The matched body forwards `gobj` unchanged to ftCo_CliffClimb_Phys and contains no other operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:e43fd527-7b39-4528-a73c-ff4c23a489e3",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Updates fighter movement during the ledge-roll action, using the same physical movement handling as the ordinary ledge climb.",
+        "rationale": "The surrounding CliffEscape state is the damage-dependent ledge-roll option, and this callback explicitly invokes CliffClimb's physics implementation, grounding its mechanical role as movement processing shared by the two ledge getups.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-02T01:48:48.522Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L34-L37",
+            "why": "The source identifies this as CliffEscape's physics callback and shows that it reuses CliffClimb physics."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1112542581017034873",
+            "why": "The recovered state-selection code and discussion distinguish CliffEscape's quick/slow behavior in the context of damage-dependent getup and roll actions."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://peach-ssbm-edge-getups-fast~roll-getup@r1982348",
+            "why": "The mechanics reference identifies ledge roll as movement from the ledge onto the stage followed by a forward roll."
+          }
+        ]
+      },
+      {
+        "id": "fact:788af3c7-2d26-49b0-8570-2a11a37e9097",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void fighter physics callback with signature `void (Fighter_GObj*)`.",
+        "rationale": "The matched declaration explicitly returns void and accepts one Fighter_GObj pointer, consistent with its role as a per-state physics callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:48:48.522Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L34-L37",
+            "why": "The source directly declares `void ftCo_CliffEscape_Phys(Fighter_GObj* gobj)`."
+          }
+        ]
+      },
+      {
+        "id": "fact:2c2bf740-d206-40f7-9d7a-1c8195679745",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the CliffEscape action's physics callback by reusing the CliffClimb physics implementation rather than maintaining separate movement logic.",
+        "rationale": "The complete matched body contains only a call to ftCo_CliffClimb_Phys with the callback's fighter object, demonstrating that this callback exists to share CliffClimb's physics behavior.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:48:48.522Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L34-L37",
+            "why": "The entire function body directly delegates to ftCo_CliffClimb_Phys."
+          }
+        ]
+      },
+      {
+        "id": "fact:c51efb29-dedd-4ded-9add-095e3410e0a4",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Phys",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs no CliffEscape-specific guard, timer update, or transition during the physics phase; every invocation unconditionally executes the CliffClimb physics routine.",
+        "rationale": "The complete four-line source span has no branches or state mutation of its own and unconditionally calls the shared physics function.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:48:48.522Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L34-L37",
+            "why": "The complete callback has no conditional logic and consists solely of the delegated call."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c"
+    },
+    "facts": [
+      {
+        "id": "fact:76ed58c6-9e76-4580-b8b0-aa2ff234b0c7",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c",
+        "type": "data_flow",
+        "value": "Reads fighter damage and p_ftCommonData->x488 to choose CliffEscapeQuick or CliffEscapeSlow, then changes motion, initializes animation and common fighter state, sets two flags, and applies CliffCatch physics. Animation, physics, and collision are forwarded to CliffClimb.",
+        "rationale": "Every threshold input, state write, and delegated callback remains explicit at head.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:20:33.719Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L42",
+            "why": "Shows damage-driven state selection and initialization or delegation."
+          }
+        ]
+      },
+      {
+        "id": "fact:1283ea3a-11d0-4924-8cfb-68715d68c25b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c",
+        "type": "game_mapping",
+        "value": "Realizes the quick and slow ledge-roll escape variants, with the variant selected by the common damage threshold.",
+        "rationale": "The unit implements states explicitly named CliffEscapeQuick and CliffEscapeSlow.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:20:33.719Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L42",
+            "why": "Shows the two damage-dependent CliffEscape variants."
+          }
+        ]
+      },
+      {
+        "id": "fact:c68e82bf-72a6-4ac7-ba76-13c0db7a86e2",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c",
+        "type": "purpose",
+        "value": "Implements the common fighter ledge-escape action: it enters quick or slow CliffEscape according to damage, initializes the motion and ledge physics, and supplies animation, IASA, physics, and collision callbacks.",
+        "rationale": "The current unit contains the quick or slow initializer and complete callback family.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:20:33.719Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L42",
+            "why": "Shows CliffEscape entry and its complete callback suite."
+          }
+        ]
+      },
+      {
+        "id": "fact:5da47d54-e38c-46cc-828a-1b5543d35f46",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c",
+        "type": "state_behavior",
+        "value": "Damage below p_ftCommonData->x488 selects CliffEscapeQuick; damage at or above it selects CliffEscapeSlow. Both variants receive identical setup and reuse CliffClimb animation, physics, and collision behavior. CliffEscape IASA is empty.",
+        "rationale": "The conditional establishes the threshold boundary, while the callbacks establish shared behavior and an inert IASA phase.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:20:33.719Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CliffEscape.c#L1-L42",
+            "why": "Shows quick or slow selection, common setup, delegated callbacks, and empty IASA."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_8009B040#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Anim#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Coll#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_IASA#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CliffEscape:ftCo_CliffEscape_Phys#r3"
+    },
+    "facts": []
+  }
+]

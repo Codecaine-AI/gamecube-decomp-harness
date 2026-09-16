@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --harness-root PATH --checkout PATH --out bundle.tar.zst" >&2
+  echo "Usage: $0 --harness-root PATH --game ID [--profile NAME] [--checkout PATH] --out bundle.tar.zst" >&2
   exit 2
 }
 
@@ -36,10 +36,14 @@ require_dir() {
 
 HARNESS_ROOT=
 CHECKOUT=
+GAME_ID=
+PROFILE=
 OUT=
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --harness-root) [ "$#" -ge 2 ] || usage; HARNESS_ROOT=$2; shift 2 ;;
+    --game) [ "$#" -ge 2 ] || usage; GAME_ID=$2; shift 2 ;;
+    --profile) [ "$#" -ge 2 ] || usage; PROFILE=$2; shift 2 ;;
     --checkout) [ "$#" -ge 2 ] || usage; CHECKOUT=$2; shift 2 ;;
     --out) [ "$#" -ge 2 ] || usage; OUT=$2; shift 2 ;;
     -h|--help) usage ;;
@@ -47,8 +51,19 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-[ -n "$HARNESS_ROOT" ] && [ -n "$CHECKOUT" ] && [ -n "$OUT" ] || usage
+[ -n "$HARNESS_ROOT" ] && [ -n "$GAME_ID" ] && [ -n "$OUT" ] || usage
 HARNESS_ROOT=$(cd "$HARNESS_ROOT" && pwd -P) || die "invalid harness root"
+command -v bun >/dev/null 2>&1 || die "bun is required to resolve the game descriptor"
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd -P)
+PLAN=$(bun "$SCRIPT_DIR/bundle-plan.ts" "$HARNESS_ROOT" "$GAME_ID" "$PROFILE" "$CHECKOUT") || die "invalid image configuration"
+{
+  IFS= read -r CHECKOUT
+  IFS= read -r STATE_TOOLS
+  IFS= read -r REPORT_PATH
+  IFS= read -r PAYLOAD_NAME
+  IFS= read -r WORKSPACE_ROOT
+  IFS= read -r PLAN_JSON
+} <<< "$PLAN"
 CHECKOUT=$(cd "$CHECKOUT" && pwd -P) || die "invalid checkout"
 OUT_DIR=$(dirname "$OUT")
 mkdir -p "$OUT_DIR"
@@ -57,7 +72,6 @@ OUT="$OUT_DIR/$(basename "$OUT")"
 [ "$OUT" != "$CHECKOUT" ] || die "output cannot be the checkout"
 command -v zstd >/dev/null 2>&1 || die "zstd is required to write .tar.zst"
 
-STATE_TOOLS="$HARNESS_ROOT/games/melee/state/tools"
 IMPL="$HARNESS_ROOT/toolpacks/gamecube-decomp/_impl/gamecube"
 WIBO_DIR="$STATE_TOOLS/wibo-1.2.0-opt1"
 OBJDIFF_DIR="$STATE_TOOLS/objdiff-cli-3.6.1-score"
@@ -87,7 +101,7 @@ require_dir "$TOOLPACK_SOURCE"
 require_file "$CHECKOUT/configure.py"
 require_file "$CHECKOUT/tools/download_tool.py"
 require_file "$CHECKOUT/build.ninja"
-require_file "$CHECKOUT/build/GALE01/report.json"
+require_file "$CHECKOUT/$REPORT_PATH"
 require_file "$CHECKOUT/build/tools/sjiswrap.exe"
 require_dir "$CHECKOUT/build/compilers"
 require_dir "$CHECKOUT/build/binutils"
@@ -99,19 +113,24 @@ if [ ! -f "$LINUX_OBJDIFF" ]; then
   warn "Build it from the patched v3.6.1 checkout with: cargo build --release --target x86_64-unknown-linux-musl"
 fi
 
-TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/melee-image-bundle.XXXXXX")
+TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/game-image-bundle.XXXXXX")
 trap 'rm -rf "$TMP_ROOT"' EXIT INT TERM
-PAYLOAD="$TMP_ROOT/daytona-melee-image"
+PAYLOAD="$TMP_ROOT/$PAYLOAD_NAME"
 SHALLOW_REPO="$TMP_ROOT/shallow"
-mkdir -p "$PAYLOAD/melee" "$PAYLOAD/provenance/wibo-1.2.0-opt1" \
+mkdir -p "$PAYLOAD/checkout" "$PAYLOAD/provenance/wibo-1.2.0-opt1" \
   "$PAYLOAD/provenance/objdiff-cli-3.6.1-score" "$PAYLOAD/image-tools" \
-  "$PAYLOAD/melee/build/tools/mwcc-alloc" "$PAYLOAD/toolpacks/gamecube-decomp"
+  "$PAYLOAD/checkout/build/tools/mwcc-alloc" "$PAYLOAD/toolpacks/gamecube-decomp"
 
-echo "Copying configured Melee checkout..." >&2
+echo "Copying configured $GAME_ID checkout..." >&2
 # Exclude measured local-development dead weight, including AI corpora that policy
 # forbids in sandboxes. The live fsmonitor socket is transient and unarchivable.
 tar -C "$CHECKOUT" \
   --exclude='./ai_docs' \
+  --exclude='./local.env' \
+  --exclude='./.env' \
+  --exclude='./.env.*' \
+  --exclude='./.pi-sessions' \
+  --exclude='./.pi-agent' \
   --exclude='./build/orchestrator-direct-compile' \
   --exclude='./build/mwcc-dump' \
   --exclude='./build/cargo' \
@@ -121,7 +140,7 @@ tar -C "$CHECKOUT" \
   --exclude='./.git' \
   --exclude='./.git/fsmonitor--daemon.ipc' \
   -cf - . | \
-  tar -C "$PAYLOAD/melee" -xf -
+  tar -C "$PAYLOAD/checkout" -xf -
 
 echo "Copying gamecube-decomp toolpack..." >&2
 (
@@ -155,52 +174,61 @@ BAKED_HEAD=$(git -C "$CHECKOUT" rev-parse --verify 'HEAD^{commit}')
 git clone --quiet --depth 1 --no-checkout "file://$CHECKOUT" "$SHALLOW_REPO"
 [ "$(git -C "$SHALLOW_REPO" rev-parse --verify 'HEAD^{commit}')" = "$BAKED_HEAD" ] || \
   die "shallow clone HEAD does not match checkout HEAD"
-cp -a "$SHALLOW_REPO/.git" "$PAYLOAD/melee/.git"
-printf '%s\n' "$BAKED_HEAD" > "$PAYLOAD/provenance/melee-baked-head.txt"
+cp -a "$SHALLOW_REPO/.git" "$PAYLOAD/checkout/.git"
+printf '%s\n' "$BAKED_HEAD" > "$PAYLOAD/provenance/baked-head.txt"
 cp -a "$WIBO_DIR/README.md" "$WIBO_DIR/wibo-opt-vs-upstream-e8f4795.patch" \
   "$PAYLOAD/provenance/wibo-1.2.0-opt1/"
 cp -a "$OBJDIFF_DIR/README.md" "$PAYLOAD/provenance/objdiff-cli-3.6.1-score/"
 cp -a "$CACHE_SHIM" "$CACHE_INSTALLER" "$PAYLOAD/image-tools/"
+cp -a "$SCRIPT_DIR/prepare_linux_image.py" "$PAYLOAD/image-tools/"
+if [ -f "$HARNESS_ROOT/games/$GAME_ID/config/worker-image.json" ]; then
+  cp -a "$HARNESS_ROOT/games/$GAME_ID/config/worker-image.json" "$PAYLOAD/image-tools/worker-image.json"
+else
+  printf '{}\n' > "$PAYLOAD/image-tools/worker-image.json"
+fi
 cp -a "$MWCC_ALLOC_DIR/allocator_snapshot.py" \
   "$MWCC_ALLOC_DIR/gdb_allocator_snapshot.py" \
   "$MWCC_ALLOC_DIR/gdb_modern_capture.py" \
   "$MWCC_ALLOC_DIR/compare_coloring_snapshots.py" \
   "$MWCC_ALLOC_DIR/mwcc_alloc_capture.py" \
-  "$PAYLOAD/melee/build/tools/mwcc-alloc/"
+  "$PAYLOAD/checkout/build/tools/mwcc-alloc/"
 cp -a "$MWCC_ALLOC_DIR/../api/analyze.py" \
-  "$PAYLOAD/melee/build/tools/mwcc-alloc/mwcc_alloc_analyze.py"
-cp -a "$MWCC_ALLOC_DIR/../vendor" "$PAYLOAD/melee/build/tools/mwcc-alloc/"
-find "$PAYLOAD/melee/build/tools/mwcc-alloc/vendor" -name "*.pyc" -delete
+  "$PAYLOAD/checkout/build/tools/mwcc-alloc/mwcc_alloc_analyze.py"
+cp -a "$MWCC_ALLOC_DIR/../vendor" "$PAYLOAD/checkout/build/tools/mwcc-alloc/"
+find "$PAYLOAD/checkout/build/tools/mwcc-alloc/vendor" -name "*.pyc" -delete
 
 # The optimized Linux wibo is the real executable. The image-side cache
 # installer will rename it to wibo-real and install the shim at this path.
-cp -a "$WIBO" "$PAYLOAD/melee/build/tools/wibo"
+cp -a "$WIBO" "$PAYLOAD/checkout/build/tools/wibo"
 # Stock wibo for qemu-based allocator captures; optimized wibo crashes under qemu-user.
-cp -a "$STOCK_WIBO" "$PAYLOAD/melee/build/tools/wibo-qemu"
+cp -a "$STOCK_WIBO" "$PAYLOAD/checkout/build/tools/wibo-qemu"
 if [ -f "$LINUX_OBJDIFF" ]; then
-  cp -a "$LINUX_OBJDIFF" "$PAYLOAD/melee/build/tools/objdiff-cli"
+  cp -a "$LINUX_OBJDIFF" "$PAYLOAD/checkout/build/tools/objdiff-cli"
   cp -a "$LINUX_OBJDIFF" "$PAYLOAD/provenance/objdiff-cli-3.6.1-score/"
 fi
 
 echo "Artifact SHA-256:" >&2
 for artifact in \
-  "$PAYLOAD/melee/build/tools/wibo" \
-  "$PAYLOAD/melee/build/tools/wibo-qemu" \
-  "$PAYLOAD/melee/build/tools/sjiswrap.exe" \
-  "$PAYLOAD/melee/build/GALE01/report.json" \
-  "$PAYLOAD/melee/build/tools/mwcc-alloc/allocator_snapshot.py" \
-  "$PAYLOAD/melee/build/tools/mwcc-alloc/gdb_allocator_snapshot.py" \
-  "$PAYLOAD/melee/build/tools/mwcc-alloc/compare_coloring_snapshots.py" \
-  "$PAYLOAD/melee/build/tools/mwcc-alloc/mwcc_alloc_capture.py" \
+  "$PAYLOAD/checkout/build/tools/wibo" \
+  "$PAYLOAD/checkout/build/tools/wibo-qemu" \
+  "$PAYLOAD/checkout/build/tools/sjiswrap.exe" \
+  "$PAYLOAD/checkout/$REPORT_PATH" \
+  "$PAYLOAD/checkout/build/tools/mwcc-alloc/allocator_snapshot.py" \
+  "$PAYLOAD/checkout/build/tools/mwcc-alloc/gdb_allocator_snapshot.py" \
+  "$PAYLOAD/checkout/build/tools/mwcc-alloc/compare_coloring_snapshots.py" \
+  "$PAYLOAD/checkout/build/tools/mwcc-alloc/mwcc_alloc_capture.py" \
   "$PAYLOAD/image-tools/mwcc_objcache.py" \
   "$PAYLOAD/image-tools/install_mwcc_cache.py"; do
   printf '%s  %s\n' "$(sha256_file "$artifact")" "${artifact#"$PAYLOAD"/}"
 done
 if [ -f "$LINUX_OBJDIFF" ]; then
-  printf '%s  %s\n' "$(sha256_file "$PAYLOAD/melee/build/tools/objdiff-cli")" \
-    "melee/build/tools/objdiff-cli"
+  printf '%s  %s\n' "$(sha256_file "$PAYLOAD/checkout/build/tools/objdiff-cli")" \
+    "checkout/build/tools/objdiff-cli"
 fi
 
-(cd "$TMP_ROOT" && tar -cf - daytona-melee-image) | zstd -T0 -f -o "$OUT"
+printf '%s\n' "$PLAN_JSON" > "$PAYLOAD/provenance/image-plan.json"
+cp "$SCRIPT_DIR/Dockerfile" "$SCRIPT_DIR/.dockerignore" "$PAYLOAD/"
+printf '%s\n' "$WORKSPACE_ROOT" > "$PAYLOAD/provenance/workspace-root.txt"
+(cd "$TMP_ROOT" && tar -cf - "$PAYLOAD_NAME") | zstd -T0 -f -o "$OUT"
 printf '%s  %s\n' "$(sha256_file "$OUT")" "$OUT"
 echo "Wrote $OUT" >&2

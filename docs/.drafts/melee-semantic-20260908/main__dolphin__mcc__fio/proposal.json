@@ -1,0 +1,104 @@
+{
+  "tu": "main/dolphin/mcc/fio",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/fio.c#L210-L214",
+            "why": "Open fills the shared payload before invoking the sender."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/fio.c#L726-L820",
+            "why": "Header mutation, later send guards, failed-send exits, response overwrite and busy release."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's ordering claim that the workspace is overwritten only after the sender's waits.",
+        "subject": {
+          "target_stable_key": "main/dolphin/mcc/fio:.bss"
+        },
+        "type": "state_behavior",
+        "value": "The source-level gBuf workspace is reusable transaction storage, not durable file state. Header construction increments the request sequence and overwrites its headers, and callers fill the payload before fioPacketSendPacket waits for gProcBusy == 0 and gProcDone != 0. The sender then sets busy and clears done; response reception overwrites the same buffer and returns a borrowed payload pointer. Receive completion clears busy, but send failures do not. These guards coordinate dispatch and result processing, not safe concurrent packet construction. This describes gBuf's source behavior without establishing the compiled .bss section's complete contents."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/fio.c#L85-L119",
+            "why": "Callback transitions for channel, query, done, async and stream state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/fio.c#L644-L724",
+            "why": "Pre-dispatch state capture, failure behavior and any-nonzero collection guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves numeric transitions while correcting the implied mandatory linear completion sequence and documenting retained state on exceptional paths.",
+        "subject": {
+          "target_stable_key": "main/dolphin/mcc/fio:.sbss"
+        },
+        "type": "state_behavior",
+        "value": "The source globals coordinate one FIO client: nonzero gChID is the initialization test, query acknowledgement is latched by the matching notification, and packet dispatch uses separate busy and done flags. Stream events store numeric readiness values 0x10 or 0x20. Async dispatch sets bAsyncBusy to 1 and retains the caller buffer and direction before sending; send failure does not undo that state. A completion notification changes any nonzero bAsyncBusy to 2. FIOCheckAsyncDone accepts any nonzero state, invokes a potentially blocking result helper only if its result pointer is nonnull, then clears bAsyncBusy and returns 1. Thus collection need not pass through state 2, and a null result skips transfer/result handling without releasing gProcBusy through that helper. Exact compiled .sbss membership is not established by these source transitions."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/fio.c#L85-L160",
+            "why": "Callback changes and exact lifecycle reset assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/fio.c#L644-L724",
+            "why": "Async state capture, failed-dispatch retention and conditional result collection."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds consequential lifecycle and asynchronous exceptions omitted by the existing summary.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/mcc/fio.c"
+        },
+        "type": "state_behavior",
+        "value": "Successful initialization opens the MCC channel and explicitly resets the listed query, processing, error and asynchronous fields; successful shutdown closes the channel and restores their inactive defaults. Failed lifecycle calls skip those success resets. Neither routine resets the request sequence, saved async data size or stream-ready latch. Channel callbacks update connection/query/completion state and change any active async state to numeric 2 on completion notification. Async dispatch sets state 1 and retains buffer/direction before sending, without rollback on send failure. FIOCheckAsyncDone is not a nonblocking state-2 poll: for any nonzero async state it runs the selected transfer/result helper when an output pointer is supplied, otherwise skips that work, then clears async state and returns 1."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/fio.c#L4-L21",
+            "why": "Exact source buffer and state declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/fio.c#L121-L160",
+            "why": "Lifecycle assignments omit the sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/fio.c#L726-L747",
+            "why": "Header offsets and unconditional sequence increment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unqualified monotonically increasing counter claim with its actual unsigned domain and lifecycle.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/mcc/fio.c"
+        },
+        "type": "inferred_type",
+        "value": "This translation unit is a singleton MCC FIO protocol client. Its principal packet layout places MCC_Hdr at offset 0, MCC_HdrFio at offset 8, and operation-specific payload at offset 16 in an 8192-byte shared buffer. State includes active and mirror MCC channel identifiers, a u32 request sequence incremented once per header construction with unsigned wraparound, a last-error byte, processing and stream latches, and an enum FIO_ASYNC_STATE field. The sequence is not reset by FIOInit or FIOExit."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

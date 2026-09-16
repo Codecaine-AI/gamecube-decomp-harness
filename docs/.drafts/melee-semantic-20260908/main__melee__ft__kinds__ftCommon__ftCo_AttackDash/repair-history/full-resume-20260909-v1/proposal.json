@@ -1,0 +1,136 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The split target is an eight-byte ALLOC literal pool with IEEE-754 f32 zero and one at offsets 0 and 4. The existing source object has a 12-byte WRITE|ALLOC section containing those two words plus a trailing zero word. It is compiler literal storage; source/split section parity and runtime protection are not established.",
+        "rationale": "Observed source and split ELF sections differ in size (12/8) and flags (3/2); distinguish the split target layout from the source object.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L61-L69",
+            "why": "Observed source and split ELF sections differ in size (12/8) and flags (3/2); distinguish the split target layout from the source object."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Phys"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides grounded dash-attack motion. With x594_b0 clear, character ground friction multiplied by common x50 controls friction. With x594_b0 set, the helper instead derives ground acceleration from animation translation Z times facing minus current ground velocity. Both paths advance grounded movement.",
+        "rationale": "The downstream helper bypasses friction when animation-driven movement is enabled.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L92-L97",
+            "why": "The downstream helper bypasses friction when animation-driven movement is enabled."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L79-L89",
+            "why": "The downstream helper bypasses friction when animation-driven movement is enabled."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Delegates grounded dash-attack movement to ft_80085030 with common x50 times character ground friction and fighter facing. The callee chooses animation-driven ground acceleration when x594_b0 is set, or the supplied friction otherwise, then applies grounded movement.",
+        "rationale": "The supplied friction and facing are used by distinct downstream branches; friction is not unconditional.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L92-L97",
+            "why": "The supplied friction and facing are used by distinct downstream branches; friction is not unconditional."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L79-L89",
+            "why": "The supplied friction and facing are used by distinct downstream branches; friction is not unconditional."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Writes common x68 to the move-union slot spelled attackdash.x0 after movement callers accept AttackDash_CheckInput. Generic and Kirby dash-attack entry clear that slot first, but the same callers also invoke this setter after accepted dash-item throw or item-swing substitutions.",
+        "rationale": "The callers condition this write on CheckInput true, which includes item substitutions; it is not exclusively an overwrite of a newly cleared AttackDash field.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L69",
+            "why": "The callers condition this write on CheckInput true, which includes item substitutions; it is not exclusively an overwrite of a newly cleared AttackDash field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L78-L82",
+            "why": "The callers condition this write on CheckInput true, which includes item substitutions; it is not exclusively an overwrite of a newly cleared AttackDash field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L103-L109",
+            "why": "The callers condition this write on CheckInput true, which includes item substitutions; it is not exclusively an overwrite of a newly cleared AttackDash field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L35",
+            "why": "The callers condition this write on CheckInput true, which includes item substitutions; it is not exclusively an overwrite of a newly cleared AttackDash field."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally assigns common x68 to attackdash.x0. Dash and RunDirect invoke it after any successful AttackDash_CheckInput result, including Kirby/generic dash attack, LightThrowDash and item-swing variant 4. For generic or Kirby dash attack it replaces the entry zero; no current-motion guard exists in this setter or those caller branches.",
+        "rationale": "The accepted input predicate has three kinds of output; caller scope must not be narrowed to the generic dash-attack branch.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L69",
+            "why": "The accepted input predicate has three kinds of output; caller scope must not be narrowed to the generic dash-attack branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L78-L82",
+            "why": "The accepted input predicate has three kinds of output; caller scope must not be narrowed to the generic dash-attack branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L103-L109",
+            "why": "The accepted input predicate has three kinds of output; caller scope must not be narrowed to the generic dash-attack branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L35",
+            "why": "The accepted input predicate has three kinds of output; caller scope must not be narrowed to the generic dash-attack branch."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "tu": "main/melee/it/kinds/itbombhei",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L228-L240",
+            "why": "State 1 supplies this handler when xDE4 is nonzero."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L596-L616",
+            "why": "Exact impact test, early return, walking transition, and thrown collision caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L44-L68",
+            "why": "Defines the selected bone preservation and walking-setup operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L554-L581",
+            "why": "Generic collision processing invokes the supplied handler on floor contact after grounding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing exclusive-thrown-caller claim and distinguishes walking entry from activation of the final fuse.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itbombhei:fn_80280974"
+        },
+        "type": "state_behavior",
+        "value": "Handles floor contact through it_8026E414 for thrown states 9/10 and for state 1 when bombhei.xDE4 is nonzero. If either absolute saved velocity component exceeds its corresponding attribute x20 threshold, it requests guarded detonation and returns. Otherwise it performs the shared walking setup and enters state 2 with flags 0x1A, preserving dynamic bone 0xB's translation Y and rotation X. This soft-contact path does not initialize or set xDE0."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L596-L608",
+            "why": "Hard-impact and soft walking outcomes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L228-L240",
+            "why": "Additional airborne caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L428-L447",
+            "why": "Final-fuse activation is explicitly performed elsewhere under the xDE0 guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "The soft branch selects walking state 2 but does not set xDE0 or initialize xDF0, so an already-armed result cannot be assumed.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itbombhei:fn_80280974"
+        },
+        "type": "game_mapping",
+        "value": "Implements the Bob-omb's velocity-dependent landing response used by thrown motion and the nonzero-xDE4 branch of ordinary airborne motion. A sufficiently hard landing requests explosion; a softer landing resumes autonomous walking without necessarily activating the final pulsing fuse."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L596-L616",
+            "why": "Saved velocity feeds the handler whose soft branch enters state 2 without arming."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L34-L37",
+            "why": "States 9 and 10 share this collision callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication that every gentle thrown landing produces an activated fuse state.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itbombhei:itBombhei_UnkMotion10_Coll"
+        },
+        "type": "game_mapping",
+        "value": "Implements stage-impact handling for the Bob-omb's shared thrown states 9 and 10. It preserves incoming velocity so floor contact can request detonation for a hard impact or resume walking state 2 for a softer landing. The soft-landing response does not itself activate or reset the final fuse."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L385-L415",
+            "why": "Turn setup saves opposite facing; animation and timer guards are independent and ordered."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the inaccurate 'expires first' framing with the actual ordering and simultaneous-condition behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itbombhei:itBombhei_UnkMotion4_Anim"
+        },
+        "type": "purpose",
+        "value": "Updates the Bob-omb's grounded turnaround while continuing its walking-phase countdown. Animation completion reverses facing and resumes state 2; afterward, the callback decrements xDD4 and xDEC and, if xDD4 has expired, restores saved post-turn facing and enters armed-ground state 5. These are independent sequential checks, so one invocation may enter state 2 and then override it with state 5. The shared bone-motion update runs afterward and the callback returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L116-L166",
+            "why": "Persistent lifecycle initialization and pulse/fuse consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L428-L535",
+            "why": "Armed lifetime initialization and direct attribute-threshold comparisons against saved velocity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbombhei.c#L619-L677",
+            "why": "Detonation calls lifetime setup and state-11 animation delegates lifetime expiration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1429-L1450",
+            "why": "Shared helpers load common xF8 into xD44 and subsequently decrement it to the nonpositive completion condition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects threshold-storage attribution and records the useful cross-file distinction between the active fuse and the detonation lifetime.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itbombhei.c"
+        },
+        "type": "data_flow",
+        "value": "Bob-omb attributes seed persistent phase timers, final-fuse duration, and bone-motion increments in ItemVars.bombhei; movement speed and impact thresholds are also read directly from attributes when needed. Collision callbacks copy live velocity into bombhei.xE0C before generic resolution, and landing handlers compare that snapshot against attribute x20. Active-fuse callbacks update pulse scale and countdowns, while xDDC guards repeated detonation setup. The generic xD44 life timer is separate: armed entry initializes it from common x30_lifetime, and detonation setup replaces it through it_8027518C with common xF8 before state-11 animation decrements it through it_802751D8."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

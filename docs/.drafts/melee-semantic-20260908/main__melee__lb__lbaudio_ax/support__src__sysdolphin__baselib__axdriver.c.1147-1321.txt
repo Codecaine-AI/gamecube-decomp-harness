@@ -1,0 +1,175 @@
+1147: void AXDriver_8038E498(int voices, int priority, int sample_rate,
+1148:                        int aram_size)
+1149: {
+1150:     int i;
+1151: 
+1152:     for (i = 0; i < 0x60; i++) {
+1153:         AXDriver_804C45A0[i].flags &= ~SMSTATE_MASK;
+1154:         unk_inline(&AXDriver_804C45A0[i], &AXDriver_804D7790);
+1155:     }
+1156: 
+1157:     HSD_SynthInit(voices, priority, sample_rate, aram_size);
+1158:     HSD_SynthSFXSetDriverMasterClockCallback(fn_8038CC1C);
+1159:     HSD_SynthSFXSetDriverInactivatedCallback(fn_8038CEA4);
+1160:     HSD_SynthSFXSetDriverPauseCallback(fn_8038CF48);
+1161: 
+1162:     axfxallocsize = 0;
+1163:     AXDriver_804D77D4 = NULL;
+1164:     axfxmaxsize = 0;
+1165:     AXDriverSetupAux(0, AXDRIVER_AUX_OFF, NULL);
+1166: 
+1167:     axfxallocsize = 0;
+1168:     AXDriver_804D77D4 = NULL;
+1169:     axfxmaxsize = 0;
+1170:     AXDriverSetupAux(1, AXDRIVER_AUX_OFF, NULL);
+1171:     AXFXSetHooks(AXDriverAlloc, AXDriverFree);
+1172: }
+1173: 
+1174: int AXDriver_8038E5D4(void)
+1175: {
+1176:     return AXDriver_804D77C8;
+1177: }
+1178: 
+1179: int AXDriver_8038E5DC(void)
+1180: {
+1181:     return AXDriver_804D77D0;
+1182: }
+1183: 
+1184: static bool AXDriver_8038E5E4(int vid)
+1185: {
+1186:     int idx;
+1187:     bool enabled;
+1188:     HSD_SM* v;
+1189: 
+1190:     idx = vid & 0x7F;
+1191:     if (vid < 0 || idx >= 0x60) {
+1192:         return false;
+1193:     }
+1194:     v = &AXDriver_804C45A0[idx];
+1195:     if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+1196:         return false;
+1197:     }
+1198:     enabled = OSDisableInterrupts();
+1199:     if (v->vID != -1) {
+1200:         HSD_SynthSFXPause(v->vID);
+1201:     } else {
+1202:         HSD_ASSERT(0x5D6, (v->flags&SMSTATE_MASK) == SMSTATE_ACTIVE);
+1203:         v->flags |= 0x20000000;
+1204:     }
+1205:     OSRestoreInterrupts(enabled);
+1206:     return true;
+1207: }
+1208: 
+1209: bool AXDriver_8038E6C0(int channel)
+1210: {
+1211:     bool enabled;
+1212:     HSD_SM* v;
+1213: 
+1214:     if (channel < 0 || channel >= 0x10) {
+1215:         return false;
+1216:     }
+1217:     enabled = OSDisableInterrupts();
+1218:     v = AXDriver_804D7794;
+1219:     while (v != NULL) {
+1220:         if ((v->flags & SMSTATE_MASK) && v->itdflag == channel) {
+1221:             AXDriver_8038E5E4(v->unk);
+1222:         }
+1223:         v = v->next;
+1224:     }
+1225:     AXDriver_804D77CC |= 1 << channel;
+1226:     OSRestoreInterrupts(enabled);
+1227:     return true;
+1228: }
+1229: 
+1230: static bool AXDriver_8038E768(int vid)
+1231: {
+1232:     int idx;
+1233:     bool enabled;
+1234:     HSD_SM* v;
+1235: 
+1236:     idx = vid & 0x7F;
+1237:     if ((vid < 0) || idx >= 0x60) {
+1238:         return false;
+1239:     }
+1240:     v = &AXDriver_804C45A0[idx];
+1241:     if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+1242:         return false;
+1243:     }
+1244:     enabled = OSDisableInterrupts();
+1245:     if (v->vID != -1) {
+1246:         HSD_SynthSFXResume(v->vID);
+1247:     } else {
+1248:         HSD_ASSERT(0x619, (v->flags&SMSTATE_MASK) == SMSTATE_ACTIVE);
+1249:     }
+1250:     v->flags &= 0xDFFFFFFF;
+1251:     OSRestoreInterrupts(enabled);
+1252:     return true;
+1253: }
+1254: 
+1255: bool AXDriver_8038E844(int channel)
+1256: {
+1257:     bool enabled;
+1258:     HSD_SM* v;
+1259: 
+1260:     if ((channel < 0) || (channel >= 0x10)) {
+1261:         return false;
+1262:     }
+1263:     enabled = OSDisableInterrupts();
+1264:     v = AXDriver_804D7794;
+1265:     while (v != NULL) {
+1266:         if ((v->flags & SMSTATE_MASK) && v->itdflag == channel) {
+1267:             AXDriver_8038E768(v->unk);
+1268:         }
+1269:         v = v->next;
+1270:     }
+1271:     AXDriver_804D77CC &= ~(1 << channel);
+1272:     OSRestoreInterrupts(enabled);
+1273:     return true;
+1274: }
+1275: 
+1276: bool AXDriver_8038E8EC(const char* path, u8 volume, int track)
+1277: {
+1278:     int entrynum = DVDConvertPathToEntrynum(path);
+1279:     if (AXDriver_804D6038 != -1) {
+1280:         HSD_SynthSFXKeyOff(AXDriver_804D6038);
+1281:     }
+1282:     AXDriver_804D6038 = HSD_Synth_8038B5AC(entrynum, -1, volume, track);
+1283:     AXDriver_804D77E8 = AXDriver_804D778C;
+1284:     return true;
+1285: }
+1286: 
+1287: bool AXDriverStop(void)
+1288: {
+1289:     if (AXDriver_804D6038 == -1) {
+1290:         return false;
+1291:     }
+1292:     HSD_SynthSFXKeyOff(AXDriver_804D6038);
+1293:     AXDriver_804D6038 = -1;
+1294:     return true;
+1295: }
+1296: 
+1297: bool AXDriverPause(void)
+1298: {
+1299:     if (AXDriver_804D6038 == -1) {
+1300:         return false;
+1301:     }
+1302:     HSD_SynthSFXPause(AXDriver_804D6038);
+1303:     return true;
+1304: }
+1305: 
+1306: bool AXDriverResume(void)
+1307: {
+1308:     if (AXDriver_804D6038 == -1) {
+1309:         return false;
+1310:     }
+1311:     HSD_SynthSFXResume(AXDriver_804D6038);
+1312:     return true;
+1313: }
+1314: 
+1315: bool AXDriver_8038EA18(void)
+1316: {
+1317:     if (HSD_SynthSFXCheck(AXDriver_804D6038) == -1) {
+1318:         return false;
+1319:     }
+1320:     return true;
+1321: }

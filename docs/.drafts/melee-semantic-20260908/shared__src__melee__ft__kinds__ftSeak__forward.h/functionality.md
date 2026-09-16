@@ -1,0 +1,9 @@
+Header defining Sheik special-move flag combinations, motion-state and submotion identifiers, and an opaque itChainSegment typedef. Canonical and rendered lines 1–103 agree; the renderer reports zero substitutions and parse errors.
+
+The common special flag mask combines SkipModel, SkipItemVis, UnkUpdatePhys and FreezeState; S adds KeepGfx, Lw adds KeepColAnimHitStatus, N adds KeepFastFall and SkipThrowException, and Hi builds on S with KeepFastFall and KeepSfx. Air variants add SkipParasol; N/S loop variants add Unk19. These are symbolic compositions, not independently established runtime interpretations of the unknown flags (code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/forward.h#L7-L42).
+
+The motion-state enum contains 24 character-specific entries starting at ftCo_MS_Count; the submotion enum contains 22 starting at ftCo_SM_Count. They are not interchangeable: S motion states order Start, S, End, whereas submotions order Start, End, S, in both ground and air groups. Hi has two numbered startup motion states per ground/air group but one startup submotion each. Count and SelfCount sentinels preserve their respective common bases; absolute numeric IDs and runtime mappings are not established here (code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/forward.h#L44-L98).
+
+itChainSegment is only forward-declared; this file establishes neither structure layout nor allocation, ownership or lifetime (code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/forward.h#L100-L102). No executable branches or compiled-section evidence appear here. Full subject and link enumeration returned no records, so there is no existing knowledge to revise or retain and no supported proposal is needed.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

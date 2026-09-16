@@ -1,0 +1,324 @@
+[
+  {
+    "baseline_record": {
+      "id": "link:8d9a8d22-7e51-4497-a369-a37c5d341982",
+      "from_target_id": "target:data:main/dolphin/ax/AXAlloc:.bss",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "game_concept:game_concept:audio-voice-priority-allocation",
+      "role": "implements",
+      "why": "The section stores the per-priority free and active queue roots used by AXAcquireVoice to allocate a free AXVPB or preempt a lower-priority voice.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L121-L221",
+      "digest": "sha256:b1c2e948e86679f8"
+    },
+    "disposition": "unresolved",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L124-L208",
+        "why": "Priority policy without section proof."
+      }
+    ],
+    "link_id": "link:8d9a8d22-7e51-4497-a369-a37c5d341982",
+    "reason": "Array policy is supported but association with compiled .bss target lacks compiled evidence."
+  },
+  {
+    "baseline_record": {
+      "id": "link:7d15e33b-ffba-48dc-8ff1-f33a0f214335",
+      "from_target_id": "target:data:main/dolphin/ax/AXAlloc:.bss",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "pattern:pattern:intrusive-singly-linked-free-list",
+      "role": "exhibits",
+      "why": "The priority-zero array entry is the root of a free list whose links are stored in each AXVPB's own `next` field.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L59-L120",
+      "digest": "sha256:29920079deecd25f"
+    },
+    "disposition": "unresolved",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L59-L75",
+        "why": "Source free-list behavior only."
+      }
+    ],
+    "link_id": "link:7d15e33b-ffba-48dc-8ff1-f33a0f214335",
+    "reason": "Intrusive free list is supported, but .bss root placement is unverified."
+  },
+  {
+    "baseline_record": {
+      "id": "link:f20b5d09-1636-467b-aa34-8c516f10fb01",
+      "from_target_id": "target:data:main/dolphin/ax/AXAlloc:.sbss",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "pattern:pattern:deferred-callback-reclamation",
+      "role": "exhibits",
+      "why": "The stored head roots a queue of AXVPBs that is drained later; each queued record receives its optional callback before being removed from active tracking and recycled.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L6-L31",
+      "digest": "sha256:73e17b24acf6a11b"
+    },
+    "disposition": "unresolved",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L9-L31",
+        "why": "Source root and service, not section mapping."
+      }
+    ],
+    "link_id": "link:f20b5d09-1636-467b-aa34-8c516f10fb01",
+    "reason": "Deferred reclamation is supported, but .sbss callback-root placement is unverified."
+  },
+  {
+    "baseline_record": {
+      "id": "link:6563c717-a6fd-4fe3-bcee-fd6e4d5b9b3a",
+      "from_target_id": "target:function:main/dolphin/ax/AXAlloc:AXSetVoicePriority",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "pattern:pattern:interrupt-masked-critical-section",
+      "role": "exhibits",
+      "why": "The function disables interrupts before mutating voice-stack membership and restores the saved state only after the voice has been inserted into its new stack.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L210-L221",
+      "digest": "sha256:b32a9e347abe7d8a"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L175-L221",
+        "why": "Critical sections."
+      }
+    ],
+    "link_id": "link:6563c717-a6fd-4fe3-bcee-fd6e4d5b9b3a",
+    "reason": "Acquisition and reprioritization bracket allocator mutations with saved/restored interrupt state."
+  },
+  {
+    "baseline_record": {
+      "id": "link:f1c6232e-75a6-407e-8564-1f2f21372773",
+      "from_target_id": "target:function:main/dolphin/ax/AXAlloc:AXAcquireVoice",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "pattern:pattern:interrupt-masked-critical-section",
+      "role": "exhibits",
+      "why": "The routine disables interrupts before reading and mutating shared voice stacks and restores the previous interrupt state after the operation.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L175-L208",
+      "digest": "sha256:8779974aaf70391a"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L175-L221",
+        "why": "Critical sections."
+      }
+    ],
+    "link_id": "link:f1c6232e-75a6-407e-8564-1f2f21372773",
+    "reason": "Acquisition and reprioritization bracket allocator mutations with saved/restored interrupt state."
+  },
+  {
+    "baseline_record": {
+      "id": "link:d09adc16-aa22-45f4-98e3-a8667b1ebac3",
+      "from_target_id": "target:function:main/dolphin/ax/AXAlloc:AXAcquireVoice",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "game_concept:game_concept:audio-voice-priority-allocation",
+      "role": "implements",
+      "why": "The function realizes this mechanic by preferring a free AXVPB and otherwise preempting a voice from a stack below the requested priority.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L175-L208",
+      "digest": "sha256:8779974aaf70391a"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L124-L221",
+        "why": "Priority list and allocation operations."
+      }
+    ],
+    "link_id": "link:d09adc16-aa22-45f4-98e3-a8667b1ebac3",
+    "reason": "Function and module implement free-first, lower-priority-tail arbitration and voice reuse."
+  },
+  {
+    "baseline_record": {
+      "id": "link:733cab55-6aba-41b3-97e8-d910b540b64a",
+      "from_target_id": null,
+      "from_entity_id": "translation_unit:extern/dolphin/src/dolphin/ax/AXAlloc.c",
+      "to_target_id": null,
+      "to_entity_id": "game_concept:game_concept:audio-voice-priority-allocation",
+      "role": "implements",
+      "why": "The translation unit allocates finite AXVPB voice records from a free pool and reclaims lower-priority voices when necessary.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L100-L221",
+      "digest": "sha256:9cc6ad0904404b24"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L124-L221",
+        "why": "Priority list and allocation operations."
+      }
+    ],
+    "link_id": "link:733cab55-6aba-41b3-97e8-d910b540b64a",
+    "reason": "Function and module implement free-first, lower-priority-tail arbitration and voice reuse."
+  },
+  {
+    "baseline_record": {
+      "id": "link:88525b49-43ee-463c-9114-eba8c3bb6f24",
+      "from_target_id": null,
+      "from_entity_id": "translation_unit:extern/dolphin/src/dolphin/ax/AXAlloc.c",
+      "to_target_id": null,
+      "to_entity_id": "game_concept:game_concept:audio-voice-allocation",
+      "role": "implements",
+      "why": "The unit manages a finite free pool and per-priority AXVPB queues, including acquisition by lower-priority preemption, freeing, and reprioritization.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L181-L221",
+      "digest": "sha256:301d4555300997ff"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L124-L221",
+        "why": "Priority list and allocation operations."
+      }
+    ],
+    "link_id": "link:88525b49-43ee-463c-9114-eba8c3bb6f24",
+    "reason": "Function and module implement free-first, lower-priority-tail arbitration and voice reuse."
+  },
+  {
+    "baseline_record": {
+      "id": "link:611d764c-6a45-4d29-b667-3fc3b753d530",
+      "from_target_id": "target:function:main/dolphin/ax/AXAlloc:__AXServiceCallbackStack",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "pattern:pattern:deferred-callback-reclamation",
+      "role": "exhibits",
+      "why": "The routine drains queued callback work, performs each optional callback before reclaiming its associated object, and protects only the shared allocator-state mutations with an interrupt-disabled critical section.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L17-L31",
+      "digest": "sha256:b5c4a7b3eccf06bc"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L17-L31",
+        "why": "Service ordering."
+      }
+    ],
+    "link_id": "link:611d764c-6a45-4d29-b667-3fc3b753d530",
+    "reason": "Deferred callbacks precede unconditional recycling; only detach/push are locally masked."
+  },
+  {
+    "baseline_record": {
+      "id": "link:fbde2969-2b2c-482b-92aa-3848ff3f758e",
+      "from_target_id": "target:function:main/dolphin/ax/AXAlloc:__AXGetStackHead",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "game_concept:game_concept:audio-voice-priority-allocation",
+      "role": "implements",
+      "why": "The function provides read access to the head of a priority tier used by the AX voice allocator.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L11-L15",
+      "digest": "sha256:893ab22167b54be9"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L11-L15",
+        "why": "Head query."
+      }
+    ],
+    "link_id": "link:fbde2969-2b2c-482b-92aa-3848ff3f758e",
+    "reason": "Accessor exposes priority-tier head without mutation."
+  },
+  {
+    "baseline_record": {
+      "id": "link:4b0dcb47-ce0f-4e3f-b656-36fe2a6b8894",
+      "from_target_id": "target:function:main/dolphin/ax/AXAlloc:__AXRemoveFromStack",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "game_concept:game_concept:audio-voice-allocation",
+      "role": "implements",
+      "why": "The function detaches an AXVPB from its priority queue so that voice freeing, callback completion, and priority changes can safely transition allocator state.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L94-L122",
+      "digest": "sha256:5647917be2dbdf60"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L94-L122",
+        "why": "Unlink branches."
+      }
+    ],
+    "link_id": "link:4b0dcb47-ce0f-4e3f-b656-36fe2a6b8894",
+    "reason": "Common unlink repairs active-list topology for voice lifecycle transitions, assuming valid membership."
+  },
+  {
+    "baseline_record": {
+      "id": "link:2ee09826-cc8e-4da7-a5af-96e2e61056dd",
+      "from_target_id": null,
+      "from_entity_id": "translation_unit:extern/dolphin/src/dolphin/ax/AXAlloc.c",
+      "to_target_id": null,
+      "to_entity_id": "pattern:pattern:intrusive-singly-linked-free-list",
+      "role": "exhibits",
+      "why": "The unit represents its available-voice pool by storing the successor in each free AXVPB's own `next` field, prepending released records at the head, and removing acquisitions from that head.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L59-L64",
+      "digest": "sha256:a4bcd2274c69e21a"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L59-L75",
+        "why": "Push and pop."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ax.h#L122-L139",
+        "why": "Source member ordering."
+      }
+    ],
+    "link_id": "link:2ee09826-cc8e-4da7-a5af-96e2e61056dd",
+    "reason": "Embedded next field implements head-only free list; next is the first declared AXVPB member, supporting the unusual address-of-next pop expression on this target without claiming portable null-pointer semantics."
+  },
+  {
+    "baseline_record": {
+      "id": "link:cdef4a6a-45a6-4114-9bf4-ca6c83225456",
+      "from_target_id": "target:function:main/dolphin/ax/AXAlloc:__AXPushFreeStack",
+      "from_entity_id": null,
+      "to_target_id": null,
+      "to_entity_id": "pattern:pattern:intrusive-singly-linked-free-list",
+      "role": "exhibits",
+      "why": "The function stores the old free-list head in the AXVPB's embedded `next` field and publishes that same AXVPB as the new head.",
+      "kind": "code",
+      "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/ax/AXAlloc.c#L59-L64",
+      "digest": "sha256:a4bcd2274c69e21a"
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAlloc.c#L59-L75",
+        "why": "Push and pop."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ax.h#L122-L139",
+        "why": "Source member ordering."
+      }
+    ],
+    "link_id": "link:cdef4a6a-45a6-4114-9bf4-ca6c83225456",
+    "reason": "Embedded next field implements head-only free list; next is the first declared AXVPB member, supporting the unusual address-of-next pop expression on this target without claiming portable null-pointer semantics."
+  }
+]

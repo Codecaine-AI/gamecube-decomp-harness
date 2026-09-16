@@ -1,0 +1,165 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Fall",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L90-L102",
+            "why": "Nonzero guard and exact-one split."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L925-L952",
+            "why": "Both callees iterate eligible parts from the supplied starting index."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects root-only wording using the actual multi-part callee implementations.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_800CC988"
+        },
+        "type": "purpose",
+        "value": "Applies a supplied directional-fall animation weight: for nonzero input it evaluates the fighter animation skeleton, then blends or copies eligible fighter parts starting at FtPart_TransN. Exactly 1 selects the copy helper; other nonzero inputs use complementary weights."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L90-L102",
+            "why": "Definition and absence of validation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact signature while removing an unproved normalized-range invariant.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_800CC988"
+        },
+        "type": "inferred_type",
+        "value": "void(Fighter_GObj* gobj, f32 arg1). The object is a borrowed fighter reference; arg1 is an animation weight passed by value, with no locally enforced finite or [0,1] restriction."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L90-L112",
+            "why": "Local consumer and ordinary producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L19-L25",
+            "why": "Aerial caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L69-L75",
+            "why": "Special caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L925-L952",
+            "why": "Part iteration and flag-dependent application."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains verified cross-file producer/consumer flow with precise application scope.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_800CC988"
+        },
+        "type": "data_flow",
+        "value": "Resolves Fighter and its animation skeleton from gobj. A nonzero supplied weight causes HSD_JObjAnimAll, followed by ftAnim_8006FE9C(fp,FtPart_TransN,w,1-w) unless w equals 1, when ftAnim_8006FF74 is used. These helpers affect eligible parts starting at TransN. Ordinary Fall, FallAerial, and FallSpecial callers pass their persistent x4 value after updating it through ftCo_Fall_Anim_Inner. No move-variable assignment or ownership transfer occurs in this helper."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L90-L102",
+            "why": "Complete branch structure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L925-L952",
+            "why": "Weighted versus copy operations span eligible parts."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents actual boundaries and exceptional inputs rather than only nominal partial/full blends.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_800CC988"
+        },
+        "type": "state_behavior",
+        "value": "Both signed zeros skip animation application. Any nonzero input evaluates the skeleton; exactly 1 uses the eligible-part copy helper, while all other nonzero values use the weighted helper with (w,1-w). The source does not clamp weights or reject NaN/infinity; under ordinary floating comparison semantics NaN reaches the weighted branch. No motion selection or direct move-variable write occurs here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L104-L112",
+            "why": "Guard and argument order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L153-L155",
+            "why": "Callee parameters explicitly use FtMotionId."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects baseline identifier-domain terminology without changing verified flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_Fall_Anim"
+        },
+        "type": "data_flow",
+        "value": "Reads x2228_b2 from the associated Fighter. If clear, passes &mv.co.fall.x4 and the FtMotionId animation motions ftCo_SM_Fall, ftCo_SM_FallF, ftCo_SM_FallB to ftCo_Fall_Anim_Inner, then passes the updated x4 value to ftCo_800CC988. If set, neither helper is called. The three SM identifiers are animation-motion IDs, not the MS action-state domain."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L153-L196",
+            "why": "Complete normalization, target, recurrence, and change guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L925-L952",
+            "why": "Application scope begins at supplied part index."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes guards, strict boundaries, distinction from physical velocity clamping, and external interpolation invariants explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_Fall_Anim_Inner"
+        },
+        "type": "state_behavior",
+        "value": "Computes r=self_vel.x/air_drift_max and saturates ordered r outside [-1,1], without changing self_vel.x. Magnitude strictly above x444 selects forward if r*facing_dir>0, backward otherwise, with target (abs(r)-x444)/(1-x444); otherwise it selects neutral and target zero. Updates caller state w by w+=x448*(target-w). Only nonzero updated w and a changed selected ID trigger ftAnim_8006EDD0 with cur_anim_frame and rate 1, skeleton evaluation, eligible-part application starting at TransN, and a stored fall.smid update. No finite/range checks guarantee bounded or convergent weights. A zero updated weight prevents even a neutral-motion replacement. NaN bypasses ordered ratio saturation; actual exceptional-float execution depends on target semantics."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L114-L151",
+            "why": "Complete ordered predicate chain."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact ordering while avoiding unsupported unchanged-state conclusions.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_Fall_IASA_Inner"
+        },
+        "type": "state_behavior",
+        "value": "Calls ftCo_SpecialAir_CheckInput, ftCo_80095328(gobj,NULL), ftCo_800D7100, ftCo_800C3B10, ftCo_80099A58, ftCo_AttackAir_CheckItemThrowInput, ftCo_800D705C, ftCo_800CEE70, ftPe_8011BA54, ftCo_800CB870, and ftPe_8011BAD8 in exactly that priority. Returns true immediately after the first truthy result, skipping later checks; returns false only if all return false. The function has no direct Fighter-field mutation, but all-false does not establish absence of callee side effects."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

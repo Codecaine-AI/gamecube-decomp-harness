@@ -47,6 +47,11 @@ describe("squashed storage baseline", () => {
       { version: 3, name: "add_epoch_boundary_retry" },
       { version: 4, name: "add_target_infra_failure_count" },
       { version: 5, name: "drop_legacy_sync_knowledge_tables" },
+      { version: 6, name: "continuing_harness" },
+      { version: 7, name: "retire_cycle_ownership" },
+      { version: 8, name: "harness_kernel_traces" },
+      { version: 9, name: "canonical_sync_staging" },
+      { version: 10, name: "harness_state_names" },
     ]);
     expect(db.query("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -92,7 +97,7 @@ describe("squashed storage baseline", () => {
         ({ table_name, column_name }) =>
           /session/i.test(column_name) &&
           !(
-            table_name === "pi_sessions" ||
+            table_name === "pi_sessions" || table_name === "harness_kernel_traces" ||
             (table_name === "worker_state" && column_name === "worker_session_ids_json")
           ),
       ),
@@ -135,7 +140,7 @@ describe("squashed storage baseline", () => {
     ensureSchema(db);
     db.exec("ALTER TABLE epochs ADD COLUMN future_additive_value TEXT");
     db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
-      6,
+      11,
       "future_additive_migration",
       "2026-08-27T23:09:00.000Z",
     );
@@ -145,7 +150,7 @@ describe("squashed storage baseline", () => {
       runStorageMigrations(db);
 
       expect(warning).toHaveBeenCalledWith(
-        "schema is ahead of this process: applied through v6, this build knows v5",
+        "schema is ahead of this process: applied through v11, this build knows v10",
       );
       expect(
         db
@@ -160,7 +165,12 @@ describe("squashed storage baseline", () => {
         { version: 3, name: "add_epoch_boundary_retry" },
         { version: 4, name: "add_target_infra_failure_count" },
         { version: 5, name: "drop_legacy_sync_knowledge_tables" },
-        { version: 6, name: "future_additive_migration" },
+      { version: 6, name: "continuing_harness" },
+      { version: 7, name: "retire_cycle_ownership" },
+      { version: 8, name: "harness_kernel_traces" },
+      { version: 9, name: "canonical_sync_staging" },
+      { version: 10, name: "harness_state_names" },
+        { version: 11, name: "future_additive_migration" },
       ]);
     } finally {
       warning.mockRestore();
@@ -232,6 +242,11 @@ describe("legacy epoch column migration", () => {
       { version: 3, name: "add_epoch_boundary_retry" },
       { version: 4, name: "add_target_infra_failure_count" },
       { version: 5, name: "drop_legacy_sync_knowledge_tables" },
+      { version: 6, name: "continuing_harness" },
+      { version: 7, name: "retire_cycle_ownership" },
+      { version: 8, name: "harness_kernel_traces" },
+      { version: 9, name: "canonical_sync_staging" },
+      { version: 10, name: "harness_state_names" },
     ]);
   });
 
@@ -299,6 +314,11 @@ describe("legacy sync knowledge table migration", () => {
       { version: 3, name: "add_epoch_boundary_retry" },
       { version: 4, name: "add_target_infra_failure_count" },
       { version: 5, name: "drop_legacy_sync_knowledge_tables" },
+      { version: 6, name: "continuing_harness" },
+      { version: 7, name: "retire_cycle_ownership" },
+      { version: 8, name: "harness_kernel_traces" },
+      { version: 9, name: "canonical_sync_staging" },
+      { version: 10, name: "harness_state_names" },
     ]);
   });
 

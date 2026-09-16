@@ -1,0 +1,723 @@
+{
+  "schemaVersion": 1,
+  "id": "20-implementation-50-tools-00-overview",
+  "title": "Worker Tool Suites",
+  "root": "b-tools-root-1",
+  "blocks": {
+    "b-tools-root-1": {
+      "id": "b-tools-root-1",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "tools",
+          "toolpacks",
+          "tool-bindings",
+          "resolver",
+          "wrappers"
+        ]
+      },
+      "children": [
+        "b-tools-role-2",
+        "b-tools-sources-3",
+        "b-tools-governed-by-4",
+        "b-tools-gov-capabilities-5",
+        "b-tools-decisions-6",
+        "b-tools-toolpack-decision-7",
+        "b-tools-toolpack-why-8",
+        "b-tools-toolpack-applies-9",
+        "b-tools-roster-10",
+        "b-tools-roster-intro-11",
+        "b-tools-roster-checkdiff-12",
+        "b-tools-roster-objdiff-score-13",
+        "b-tools-roster-ghidra-14",
+        "b-tools-roster-opseq-15",
+        "b-tools-roster-mismatch-db-16",
+        "b-tools-roster-callgraph-17",
+        "b-tools-roster-m2c-decomp-18",
+        "b-tools-roster-mwcc-debug-19",
+        "b-tools-roster-type-oracle-20",
+        "b-tools-roster-source-permuter-21",
+        "b-tools-roster-include-fixer-22",
+        "b-tools-roster-review-lint-23",
+        "b-tools-roster-struct-infer-24",
+        "b-tools-roster-item-state-table-25",
+        "b-new-suite-0",
+        "b-new-suite-1",
+        "b-new-suite-2"
+      ]
+    },
+    "b-tools-role-2": {
+      "id": "b-tools-role-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Callable decomp tool capabilities and the server runtime that resolves them: reusable tool implementations in a toolpack, per-game bindings, and agent-facing wrappers that call tools by stable id."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-sources-3": {
+      "id": "b-tools-sources-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sources: "
+        },
+        {
+          "insert": "toolpacks/gamecube-decomp",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "toolpacks/gamecube-decomp",
+              "label": "toolpacks/gamecube-decomp"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/tools",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/tools",
+              "label": "apps/server/src/core/tools"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "games/melee/config/tools",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "games/melee/config/tools",
+              "label": "games/melee/tool-bindings"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-governed-by-4": {
+      "id": "b-tools-governed-by-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Governed by"
+        }
+      ],
+      "children": []
+    },
+    "b-tools-gov-capabilities-5": {
+      "id": "b-tools-gov-capabilities-5",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker Attempt",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt",
+              "label": "Worker Capabilities"
+            }
+          }
+        },
+        {
+          "insert": " owns which capabilities workers get and how they are used."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-decisions-6": {
+      "id": "b-tools-decisions-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Decisions"
+        }
+      ],
+      "children": []
+    },
+    "b-tools-toolpack-decision-7": {
+      "id": "b-tools-toolpack-decision-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": tool implementations include contracts, default APIs, runners, registry, and shared helpers. These live in a game-agnostic toolpack ("
+        },
+        {
+          "insert": "toolpacks/gamecube-decomp",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", ids registered in its "
+        },
+        {
+          "insert": "registry.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). A game opts in via "
+        },
+        {
+          "insert": "games/<id>/game.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and owns its bindings and generated tool data. "
+        },
+        {
+          "insert": "apps/server/src/core/tools",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " owns only the resolver, runtime, profiles, and agent-facing wrappers. It contains no tool implementations or mirrored server-local resource tree. Wrappers call tools by stable id, never by physical script path."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-toolpack-why-8": {
+      "id": "b-tools-toolpack-why-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the rejected alternative was server-owned tool resources and game-specific helpers inside the pack; those paths are retired and the boundary is enforced by "
+        },
+        {
+          "insert": "apps/server/src/core/tools/tooling-layout.test.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/tools/tooling-layout.test.ts",
+              "label": "apps/server/src/core/tools/tooling-layout.test.ts"
+            }
+          }
+        },
+        {
+          "insert": ". The split keeps the pack reusable across GameCube games and keeps the server game-agnostic."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-toolpack-applies-9": {
+      "id": "b-tools-toolpack-applies-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": "
+        },
+        {
+          "insert": "toolpacks",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "toolpacks",
+              "label": "toolpacks"
+            }
+          }
+        },
+        {
+          "insert": " (every future toolpack keeps this shape), "
+        },
+        {
+          "insert": "apps/server/src/core/tools",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/tools",
+              "label": "apps/server/src/core/tools"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "games/melee/config/tools",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "games/melee/config/tools",
+              "label": "games/melee/tool-bindings"
+            }
+          }
+        },
+        {
+          "insert": ". A future tool registers an id in the toolpack registry and gains an id-based wrapper; game-specific data goes to the game's bindings and tool-data roots, never into the pack."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-10": {
+      "id": "b-tools-roster-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Roster"
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-intro-11": {
+      "id": "b-tools-roster-intro-11",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Seventeen registered tool suites ("
+        },
+        {
+          "insert": "registry.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "), grouped into validation, research, compiler, source editing, and data conversion:"
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-checkdiff-12": {
+      "id": "b-tools-roster-checkdiff-12",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "checkdiff",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/10-checkdiff",
+              "label": "checkdiff"
+            }
+          }
+        },
+        {
+          "insert": " compiles the translation unit under the exact MWCC rule and runs focused checkdiff validation for attempt evaluation."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-objdiff-score-13": {
+      "id": "b-tools-roster-objdiff-score-13",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "objdiff_score",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/15-objdiff-score",
+              "label": "objdiff_score"
+            }
+          }
+        },
+        {
+          "insert": " scores an already-built candidate object against the target and returns the objdiff breakdown."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-ghidra-14": {
+      "id": "b-tools-roster-ghidra-14",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "ghidra",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/20-ghidra",
+              "label": "ghidra"
+            }
+          }
+        },
+        {
+          "insert": " exports headless Ghidra xrefs to populate graph call and data-reference edges."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-opseq-15": {
+      "id": "b-tools-roster-opseq-15",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "opseq",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/25-opseq",
+              "label": "opseq"
+            }
+          }
+        },
+        {
+          "insert": " creates opcode fingerprints that link similar matched and unmatched functions as analog evidence."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-mismatch-db-16": {
+      "id": "b-tools-roster-mismatch-db-16",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "mismatch_db",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/30-mismatch-db",
+              "label": "mismatch_db"
+            }
+          }
+        },
+        {
+          "insert": " supplies objdiff mismatch symptoms, source-shape tactics, and known negative evidence."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-callgraph-17": {
+      "id": "b-tools-roster-callgraph-17",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "callgraph",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/35-callgraph",
+              "label": "callgraph"
+            }
+          }
+        },
+        {
+          "insert": " extracts binary-ground-truth call and data-reference edges from build assembly."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-m2c-decomp-18": {
+      "id": "b-tools-roster-m2c-decomp-18",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "m2c_decomp",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/40-m2c-decomp",
+              "label": "m2c_decomp"
+            }
+          }
+        },
+        {
+          "insert": " generates an m2c scaffold for reading control flow. The scaffold is not final source."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-mwcc-debug-19": {
+      "id": "b-tools-roster-mwcc-debug-19",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "mwcc_debug",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/45-mwcc-debug",
+              "label": "mwcc_debug"
+            }
+          }
+        },
+        {
+          "insert": " uses instrumented MWCC pcdump output to diagnose stack, register flow, and inline boundaries."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-type-oracle-20": {
+      "id": "b-tools-roster-type-oracle-20",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "type_oracle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/50-type-oracle",
+              "label": "type_oracle"
+            }
+          }
+        },
+        {
+          "insert": " uses libclang to look up expression types before temporary extraction or rewrites."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-source-permuter-21": {
+      "id": "b-tools-roster-source-permuter-21",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "source_permuter",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/55-source-permuter",
+              "label": "source_permuter"
+            }
+          }
+        },
+        {
+          "insert": " searches bounded source-shape permutations with objdiff scoring. It does not mutate source by default."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-include-fixer-22": {
+      "id": "b-tools-roster-include-fixer-22",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "include_fixer",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/60-include-fixer",
+              "label": "include_fixer"
+            }
+          }
+        },
+        {
+          "insert": " previews missing-include proposals after undeclared-identifier diagnostics."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-review-lint-23": {
+      "id": "b-tools-roster-review-lint-23",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "review_lint",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/65-review-lint",
+              "label": "review_lint"
+            }
+          }
+        },
+        {
+          "insert": " scans files, snippets, or added diff lines for decomp anti-patterns as the deterministic QA ship-gate check."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-struct-infer-24": {
+      "id": "b-tools-roster-struct-infer-24",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "struct_infer",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/70-struct-infer",
+              "label": "struct_infer"
+            }
+          }
+        },
+        {
+          "insert": " traces pointer registers to produce field offsets and a candidate struct skeleton."
+        }
+      ],
+      "children": []
+    },
+    "b-tools-roster-item-state-table-25": {
+      "id": "b-tools-roster-item-state-table-25",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "item_state_table",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/75-item-state-table",
+              "label": "item_state_table"
+            }
+          }
+        },
+        {
+          "insert": " previews asm ItemStateTable labels as C table definitions."
+        }
+      ],
+      "children": []
+    },
+    "b-new-suite-0": {
+      "id": "b-new-suite-0",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "asm_window_search",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/42-asm-window-search",
+              "label": "asm_window_search"
+            }
+          }
+        },
+        {
+          "insert": " retrieves matched donors for normalized instruction windows."
+        }
+      ],
+      "children": []
+    },
+    "b-new-suite-1": {
+      "id": "b-new-suite-1",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "type_layout_lookup",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/44-type-layout-lookup",
+              "label": "type_layout_lookup"
+            }
+          }
+        },
+        {
+          "insert": " queries record layouts and union or cast evidence."
+        }
+      ],
+      "children": []
+    },
+    "b-new-suite-2": {
+      "id": "b-new-suite-2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "mwcc_alloc",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/50-tools/47-mwcc-alloc",
+              "label": "mwcc_alloc"
+            }
+          }
+        },
+        {
+          "insert": " captures stock compiler traces and analyzes allocator, stack, and source-origin evidence."
+        }
+      ],
+      "children": []
+    }
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "tu": "main/sysdolphin/baselib/initialize",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/initialize:HSD_AllocateFifo"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Both rounded arena bounds zero selects OSAllocFromHeap(__OSCurrHeap,size), with a NULL result causing panic. Otherwise returns rounded arena-low after adding size, comparing the resulting cursor against raw OSGetArenaHi, and committing it. The routine has no zero-size, size-alignment, integer-wraparound, or nonnull arena-base check; an ordinary return is not an unconditional validity guarantee for arbitrary inputs.",
+        "rationale": "Correct unchecked input/failure guarantees, internal GX direction representation, heap-selection scope, or free-count meaning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L121-L143",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain.c#L147-L154",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/initialize:HSD_AllocateXFB"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Null render mode returns NULL before mutation. Otherwise writes accounting and fills the fixed three-entry FrameBuffer table from the OS current heap when rounded arena bounds are equal, or from aligned arena-low slots otherwise. It does not validate nbuffer, so negative or greater-than-three counts can index outside the table. Heap allocation results are stored without NULL checks. The arena path checks capacity only after assigning all requested slots, then commits OS arena-low. Remaining slots are cleared and the table returned; return of the table does not prove every heap allocation succeeded.",
+        "rationale": "Correct unchecked input/failure guarantees, internal GX direction representation, heap-selection scope, or free-count meaning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L87-L119",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.h#L9-L11",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/initialize:HSD_GXInit"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Calls GXInitLightPos and GXInitLightDir with (1,0,0), and GXInitLightAttn with both coefficient triples (1,0,0), then supplies the zero GXColor. Position is stored directly; GXInitLightDir negates its inputs into the internal direction fields. Indices0-7 map to the eight GX light identifiers for upload of this object, then HSD_StateInvalidate(-1) invalidates every represented category.",
+        "rationale": "Correct unchecked input/failure guarantees, internal GX direction representation, heap-selection scope, or free-count meaning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L145-L159",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXLight.c#L192-L228",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/initialize:HSD_GetHeap"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "OSHeapHandle HSD_GetHeap(void), returning the HSD-maintained volatile current_heap value without validation. It may be -1 and need not equal Dolphin __OSCurrHeap because HSD_SetHeap changes only HSD current_heap.",
+        "rationale": "Correct unchecked input/failure guarantees, internal GX direction representation, heap-selection scope, or free-count meaning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L189-L192",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L9-L26",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L186-L225",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/initialize:HSD_ObjDumpStat"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Prints one diagnostic line for each of thirteen allocator categories, reporting current in-use count, current available free-list count, and peak in-use count. The label freed is backed by HSD_ObjAllocData.free, which increases when entries are added or returned and decreases on allocation; it is not a cumulative number of releases.",
+        "rationale": "Correct unchecked input/failure guarantees, internal GX direction representation, heap-selection scope, or free-count meaning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L281-L308",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.h#L35-L51",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.c#L66-L126",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L98-L122",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L300",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/db.h#L11-L17",
+            "why": "Direct implementation establishes the precise mutation, guard, or counter meaning."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

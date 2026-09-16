@@ -1,0 +1,79 @@
+{
+  "tu": "main/MetroTRK/support",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/support.c#L116-L196",
+            "why": "Attempt arithmetic, polling, read errors, rejection and final error replacement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that unreadable replies permit another attempt and preserves the exact counter/error guards.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/support:TRKRequestSend"
+        },
+        "type": "state_behavior",
+        "value": "Initializes the reply identifier to -1 and the signed attempt counter from unsigned p2 + 1; ordinary configured retry counts permit one initial transmission plus p2 retries. After a successful send, p3 selects indefinite polling or a counter threshold of 79,999,980 unsuccessful polls, with the counter reset per transmission. Commands below kDSReplyACK are processed without consuming a send attempt. Short, non-ACK or error-status replies are released and can retry while error remains kNoError. Command/error-byte read failures also release the candidate but prevent further attempts, as do send failures. A valid ACK/no-error buffer is retained for the caller. Any terminal state with identifier -1 returns kWaitACKError, overriding earlier errors."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/support.c#L7-L114",
+            "why": "Request serialization, conditional copy, length replacement and unconditional accumulation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves supported serialization knowledge while removing the unsupported actual-transferred-byte guarantee.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/support:TRKSuppAccessFile"
+        },
+        "type": "data_flow",
+        "value": "Splits the requested count into request chunks of at most 0x800 bytes. Each message contains a read/write command byte, 32-bit handle, 16-bit requested length and, for writes, payload bytes. Reply mode parses an I/O-result byte and 16-bit returned length after the two ACK bytes; reads reconcile that length with the packet payload and copy only when it does not exceed the requested chunk. A returned-length mismatch replaces the iteration length and stops further chunks. Each iteration unconditionally adds its current length to the accumulated count, even after local failures; an oversized read reply can therefore be counted without being copied. The accumulated value is written to count and the local DSError is returned separately from io_result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/support.c#L7-L114",
+            "why": "Concrete signature and all parameter/output branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects output-role overstatements and distinguishes remote status from locally synthesized status.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/support:TRKSuppAccessFile"
+        },
+        "type": "inferred_type",
+        "value": "DSError TRKSuppAccessFile(u32 file_handle, u8* data, size_t* count, u8* io_result, bool need_reply, bool read). data supplies write bytes or receives read bytes in reply mode. count supplies the requested size and receives accumulated iteration lengths, not guaranteed successfully transferred bytes. io_result is initialized to success and receives reply status, with local length checks able to replace zero by numeric 1. need_reply selects synchronous request/reply versus one-way sending; read selects the command and payload direction. Null data or zero requested count returns before updating the outputs; count and io_result pointers are not independently validated."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/support.c#L7-L196",
+            "why": "File-transfer bookkeeping and accepted/rejected reply-buffer lifetimes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the same completed-count overstatement at translation-unit scope while preserving buffer flow and ownership.",
+        "subject": {
+          "entity_locator": "src/MetroTRK/support.c"
+        },
+        "type": "data_flow",
+        "value": "Accepts a file handle, byte buffer, requested count, reply requirement and direction. Requests use chunks of at most 0x800 bytes, serialized as command, handle, length and optional write payload. Reply mode obtains a retained ACK buffer through TRKRequestSend, parses I/O status and returned length, conditionally copies read payload, and releases the reply buffer. Outgoing buffers are released after each iteration. Caller outputs receive the accumulated iteration lengths and I/O status, including locally synthesized status 1 for selected length inconsistencies. The count is not guaranteed completed bytes because accumulation is unconditional after failures and oversized read replies may be counted without copying."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

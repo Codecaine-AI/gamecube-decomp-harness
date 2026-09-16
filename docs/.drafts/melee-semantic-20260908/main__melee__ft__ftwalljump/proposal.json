@@ -1,0 +1,128 @@
+{
+  "tu": "main/melee/ft/ftwalljump",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftwalljump:ftWallJump_8008169C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Borrows HSD_GObj to access Fighter capability, collision, position, attributes, input, tracking and use count. Rearming uses RightWallHug with ECB left, right_facing_wall.index and side -1, otherwise ECB right, left_facing_wall.index and side +1. It queries map displacement at the world-space vertex, substitutes horizontal zero on query failure, and compares absolute fighter-minus-wall horizontal motion to the minimum. Successful input forwards PassiveWallJump, x774, the pre-increment use count and stored side to ftCo_800C1E64, then assigns timer 254 and increments the current count only below 255. Sentinel inactivity depends on the configured deadline.",
+        "rationale": "Preserves verified flow while correcting unconditional sequence disabling and making side correspondence explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalljump.c#L18-L124",
+            "why": "Complete detector input, query, transition and mutation flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5124-L5153",
+            "why": "Establishes displacement rather than distance semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftwalljump:ftWallJump_8008169C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements common capability-gated wall-jump detection and active PassiveWallJump entry using contact, stored-side directional input and timing. Rearming tests relative horizontal-motion magnitude, not signed approach. The supplied pre-increment use count becomes a vertical-velocity exponent; the animation consumer can multiply vertical velocity by powf(passive_wall_vel_y_base, exponent) when a nonzero startup countdown reaches zero and the current use count is nonzero. Progressive height reduction requires suitable runtime configuration; previous-stick reversal is not directly tested here.",
+        "rationale": "Grounds gameplay in active initializer and velocity consumer while removing unsupported universal conditions.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalljump.c#L72-L116",
+            "why": "Magnitude arming, directional input, and transition arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L63-L149",
+            "why": "Actual motion entry, exponent storage, and conditional velocity scaling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftwalljump.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes capability, wall-hug flags, ECB vertices, wall indices, position and horizontal delta, wall-jump attributes, stored side/timer, horizontal stick and tilt age, common thresholds and use count. Map displacement supplies a horizontal correction with zero fallback. Tracking is updated and PassiveWallJump, startup timer, pre-increment use count and stored side are forwarded to ftCo_800C1E64. Success assigns timer 254 and increments the current count only below 255; assignment alone does not prove configuration-independent inactivity.",
+        "rationale": "Corrects unconditional inactivity while preserving the supported TU data flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalljump.c#L18-L124",
+            "why": "All listed inputs, external query and outputs."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftwalljump.c"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides common character wall-jump recognition and transition. Capability and contact gate evaluation; relative horizontal-motion magnitude can arm stored-side tracking, and recent directional input against that stored side can enter PassiveWallJump with accumulated use count supplied to the initializer. Signed approach and a direct previous-stick reversal test are not locally required.",
+        "rationale": "Replaces stronger approach and history requirements with implemented conditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalljump.c#L20-L116",
+            "why": "Local recognition and transition conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L63-L91",
+            "why": "Confirms active state entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftwalljump.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Common-fighter translation unit defining one state-changing bool (HSD_GObj*) detector and private static int const max_input_frames = 254. The constant bounds per-invocation timer advancement and is assigned on success or capability-enabled contact loss; it does not itself establish a 254-frame gameplay duration or universally inactive state.",
+        "rationale": "Uses canonical source signature and exact constant role without cadence or layout assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalljump.c#L12-L124",
+            "why": "Function, private constant and every use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftwalljump.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Capability-disabled calls leave tracking unchanged. Capable calls without contact assign timer 254. With contact, RightWallHug wins ties; matching stored side with timer below 254 increments once per invocation, otherwise relative horizontal-motion magnitude strictly above the minimum stores the selected side and timer zero. Failed arming preserves old state for the following gate. Timer < x768, stored-side inclusive directional stick thresholds and tilt age < x770 can enter PassiveWallJump in the same invocation as arming. Success assigns timer 254, increments the current count only below 255 and returns true; all other normal returns are false. The input gate does not separately reject sentinel 254.",
+        "rationale": "Corrects capability and inactivity qualifications and records strict boundaries and failed-rearm behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalljump.c#L20-L124",
+            "why": "Complete detector state machine."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "tu": "main/melee/it/kinds/itnesspkflash",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkflash.c#L235-L272",
+            "why": "Complete signature, guards, switch and both return paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication that every early true result follows an actual explosion handoff. The return lies outside the switch, including its default branch.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itnesspkflash:itNesspkflash_UnkMotion1_Anim"
+        },
+        "type": "inferred_type",
+        "value": "Item animation-state callback with signature `bool(Item_GObj*)`. It returns true when the reflection, retained-owner identity and elapsed-counter guards pass, after dispatching the item-kind switch; an unsupported kind makes no explosion call but still returns true. Otherwise it refreshes scale and returns `it_80273130(gobj)`. Explosion-constructor success is not checked."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkflash.c#L241-L271",
+            "why": "Cast-before-subtraction comparison, recognized/default kind paths and fallback countdown."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact numeric threshold and exceptional branches omitted by the existing explanation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itnesspkflash:itNesspkflash_UnkMotion1_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Each call increments `xDAC_itcmd_var0`. The early termination branch requires `xDDC_PKFlash == 0`, a non-null retained owner equal to the current owner, and a counter at least `((s32) attr->x28_FLASH_EXPLOSION_DELAY) - 2`, with the cast performed before subtraction. For Ness or Kirby PK Flash kinds it calls the matching explosion constructor with the stored charge and returns true without checking constructor success. For any other kind the switch does nothing and the same branch still returns true. If the guards fail, the callback refreshes scale and delegates completion to the lifetime helper."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkflash.c#L25-L32",
+            "why": "Motion-2 animation registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkflash.c#L274-L281",
+            "why": "Scale update followed by returned lifetime-helper result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L458-L468",
+            "why": "Decrement followed by less-than-or-equal-to-zero test."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects exact-zero wording to include negative post-decrement timer values.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itnesspkflash:itNesspkflash_UnkMotion2_Anim"
+        },
+        "type": "inferred_type",
+        "value": "Item animation callback with signature `bool(Item_GObj*)`, installed for motion ID 2. After applying charge-derived scale, it returns the lifetime helper's result: the helper decrements `xD44_lifeTimer` and returns true when the resulting value is less than or equal to zero, otherwise false."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { gameLayoutPath } from "../game-registry/config.js";
 
 export const TOOL_PLATFORMS = ["darwin-x86_64", "linux-i686", "linux-x86_64"] as const;
 
@@ -16,12 +17,20 @@ export interface ToolPlatformResolutionOptions {
 
 export interface StateToolArtifactOptions {
   stateDir: string;
+  gameDir?: string;
+  toolsRoot?: string;
   name: string;
   platform: ToolPlatform;
   /** Optional path within a directory artifact, such as `wibo`. */
   relativePath?: string;
   hostPlatform?: string;
   hostArch?: string;
+}
+
+export function gameToolsRoot(options: Pick<StateToolArtifactOptions, "stateDir" | "gameDir" | "toolsRoot">): string {
+  if (options.toolsRoot) return resolve(options.gameDir ?? options.stateDir, options.toolsRoot);
+  if (options.gameDir) return gameLayoutPath(options.gameDir, "runtime/tools");
+  return resolve(dirname(options.stateDir), "tools");
 }
 
 function isToolPlatform(value: string): value is ToolPlatform {
@@ -67,9 +76,10 @@ export function isHostToolPlatform(
 
 export function stateToolArtifactCandidates(options: StateToolArtifactOptions): string[] {
   const suffix = options.relativePath ? [options.relativePath] : [];
-  const candidates = [resolve(options.stateDir, "tools", `${options.name}-${options.platform}`, ...suffix)];
+  const toolsRoot = gameToolsRoot(options);
+  const candidates = [resolve(toolsRoot, `${options.name}-${options.platform}`, ...suffix)];
   if (isHostToolPlatform(options.platform, options.hostPlatform, options.hostArch)) {
-    candidates.push(resolve(options.stateDir, "tools", options.name, ...suffix));
+    candidates.push(resolve(toolsRoot, options.name, ...suffix));
   }
   return candidates;
 }
@@ -80,12 +90,11 @@ export function resolveStateToolArtifact(options: StateToolArtifactOptions): str
 
 export function requiredStateToolArtifactError(options: StateToolArtifactOptions): Error {
   const expected = resolve(
-    options.stateDir,
-    "tools",
+    gameToolsRoot(options),
     `${options.name}-${options.platform}`,
     ...(options.relativePath ? [options.relativePath] : []),
   );
-  const legacy = resolve(options.stateDir, "tools", options.name, ...(options.relativePath ? [options.relativePath] : []));
+  const legacy = resolve(gameToolsRoot(options), options.name, ...(options.relativePath ? [options.relativePath] : []));
   const hostPlatform = options.hostPlatform ?? process.platform;
   const hostArch = options.hostArch ?? process.arch;
   const host = hostToolPlatformOrNull(hostPlatform, hostArch) ?? `${hostPlatform}/${hostArch} (unsupported)`;

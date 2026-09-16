@@ -1,0 +1,2091 @@
+{
+  "tu": "main/sysdolphin/baselib/class",
+  "facts": [
+    {
+      "id": "fact:c04e2545-d431-457b-937e-182c313e63ae",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`hsdClass` enters execution with `_hsdClassInfoInit` as its lazy initializer. That callback fills the descriptor with the base-library and root-class names, object and descriptor sizes, allocation and lifecycle callbacks, and hierarchy metadata. Allocation, class queries, library forgetting, and statistics dumping subsequently read or mutate the same descriptor, while the section's character data flows into class registration, comparisons, and diagnostic output.",
+      "rationale": "The current source still defines the callback-only static descriptor, populates it through the common class initializer, installs its lifecycle table, and later consumes its identity and statistics during forgetting and reporting. The drift reflects source movement rather than a change in meaning.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows the initial `hsdClass` callback, class-info field initialization, and initialized writable diagnostic strings."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows root descriptor callback installation and allocation, destruction, and amnesia consumers of its runtime fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows the descriptor's library identity, class name, hierarchy, and statistics being consumed by forgetting, lookup, and diagnostic output."
+        }
+      ]
+    },
+    {
+      "id": "fact:7011725b-1599-4673-bfb9-59f411617528",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A heterogeneous writable initialized-data section containing an `HSD_ClassInfo` root descriptor, initially initialized only with its `info_init` callback, plus null-terminated character data used for class identity, assertions, diagnostics, and statistics output.",
+      "rationale": "The current declarations retain the partially initialized `HSD_ClassInfo` object and writable character arrays, while later code supplies and consumes additional class and report strings. This confirms the section remains heterogeneous initialized writable data.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Directly declares `hsdClass` with only its initializer callback and declares writable diagnostic character arrays."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows the descriptor's textual identities and callback fields being populated during lazy initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows additional class-library, hash-label, and statistics-report text associated with the section."
+        }
+      ]
+    },
+    {
+      "id": "fact:0eb5611e-1e9e-4226-8d59-549c487eff71",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the class runtime's initialized writable data: the root `hsdClass` descriptor together with class-library identifiers and diagnostic/reporting text used by class initialization, allocator diagnostics, library forgetting, and class-stat dumps.",
+      "rationale": "At head, the section-owned descriptor and strings continue to supply the root class runtime, allocator diagnostics, library selection, and statistics reporting. The previous purpose therefore remains valid and only requires fresh code evidence.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows the initialized root descriptor and allocator-diagnostic character arrays."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows the root descriptor receiving its class-library identity and lifecycle callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows class-library and report text being used by forgetting and class-stat output."
+        }
+      ]
+    },
+    {
+      "id": "fact:074ef838-965f-4fc9-810d-83333f4f083d",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.data",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The root descriptor begins in an uninitialized state with a valid `info_init` callback. Its first guarded use invokes `_hsdClassInfoInit`, which marks it initialized, establishes it as the hierarchy root, clears its live and peak counts, and installs the root lifecycle method table. Forgetting the base class library recursively invalidates the hierarchy and invokes the root amnesia callback, which clears the descriptor's statistics and returns its initialized flag to the lazy-uninitialized state for a later reinitialization.",
+      "rationale": "The head source still contains the callback-only initial state, initialized-bit guard, root initialization, amnesia reset, and recursive flag clearing. These operations preserve the previously recorded lazy initialization and invalidation cycle.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows the callback-only initial descriptor, initialized-bit guard, and common initialization of hierarchy fields and counters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows root amnesia and installation of the root lifecycle callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L368-L442",
+          "why": "Shows child-first invalidation, amnesia dispatch, hierarchy detachment, and clearing of initialized flag bit 0."
+        }
+      ]
+    },
+    {
+      "id": "fact:85f3ba6a-4219-4713-af58-49ae15681fb1",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.sbss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`GetMemoryEntry` reads `nb_memory_list` to determine whether an index is covered, allocates or enlarges the pointer array, and publishes the resulting table and capacity through `memory_list` and `nb_memory_list`. `hsdAllocMemPiece` uses the capacity to size new backing slabs. `hsdSearchClassInfo` passes `current_hash` and a requested class name into `HSD_HashSearch`. Root-class amnesia clears all three globals, making subsequent allocator access reinitialize the table and subsequent class-name searches return NULL until a hash is available again.",
+      "rationale": "The current allocator code retains the same capacity checks, table publication, and slab sizing, while root amnesia and class search retain the same writes and reads of the hash and allocator globals.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L79-L163",
+          "why": "Shows capacity checks, initial table allocation, geometric growth, copying, and publication through `memory_list` and `nb_memory_list`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L165-L232",
+          "why": "Shows `nb_memory_list` controlling the size of newly allocated backing slabs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows root amnesia clearing the table capacity, table pointer, and current class hash."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows `current_hash` and the requested class name flowing into `HSD_HashSearch`, with NULL returned when the hash is unavailable."
+        }
+      ]
+    },
+    {
+      "id": "fact:c6d300c4-5a4b-4507-afdc-10955f72a316",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.sbss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Small-data BSS storage for three zero-initialized globals with the source-level types `HSD_MemoryEntry** memory_list`, `s32 nb_memory_list`, and `HSD_Hash* current_hash`.",
+      "rationale": "The head declarations still provide the exact three types without explicit initializers, confirming zero-initialized mutable small-data storage.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Directly declares `memory_list`, `nb_memory_list`, and `current_hash` with their source-level types and no explicit initializers."
+        }
+      ]
+    },
+    {
+      "id": "fact:902582f9-b48a-44b0-96b7-1b96002831a6",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.sbss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the zero-initialized mutable global state used by the HSD class runtime's size-class allocator and optional class-name registry: the allocator metadata-table pointer, that table's current capacity, and the current class hash pointer.",
+      "rationale": "The globals remain the allocator table, its capacity, and the optional hash consumed by class-name lookup, so the section's recorded purpose is unchanged.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows the three zero-initialized globals and begins the allocator routine that consumes the table pointer and capacity."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L79-L163",
+          "why": "Shows the first two globals operating as a lazily allocated and geometrically grown metadata table."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows the hash global operating as the optional class-name registry."
+        }
+      ]
+    },
+    {
+      "id": "fact:8276f121-6399-4f08-9901-a89d54b57a0f",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.sbss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The allocator globals begin in an empty state (`memory_list == NULL`, `nb_memory_list == 0`). The first requested size class initializes a table with at least 32 slots, and later out-of-range requests repeatedly double its capacity. The class-hash slot is usable only while `current_hash` is non-NULL. Applying the root class's amnesia callback returns all three globals to their empty or unavailable states.",
+      "rationale": "The uninitialized declarations, zero-capacity branch, doubling loops, guarded hash lookup, and root-only reset all remain present at head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows the zero-initialized global declarations and identifies zero capacity as the table's uninitialized state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L79-L163",
+          "why": "Shows initial capacity selection at 32 and repeated doubling until the requested index fits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows root amnesia restoring the allocator and hash globals to zero or NULL."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows class-name lookup proceeding only while `current_hash` is non-NULL."
+        }
+      ]
+    },
+    {
+      "id": "fact:19f15f6f-2cda-4a80-8758-2da55c08176c",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`OSReport_PrintSpaces` consumes the `\" \"` string once per requested indentation column. `_hsdClassInfoInit` passes `\"hsd_class\"` to `hsdInitClassInfo`, which stores its pointer in `hsdClass.head.class_name`; class-stat reporting later reads that field for display. The `info_hash` array is force-retained under non-BUGFIX builds but has no runtime consumer in this translation unit.",
+      "rationale": "At head, the space literal still feeds the indentation helper, `hsd_class` still enters the root descriptor as its class name, and `info_hash` remains only a force-active array. The conditional is now expressed through `MUST_MATCH`, so the claim is updated to avoid the obsolete `non-BUGFIX` wording.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows `hsdInitClassInfo` storing its type argument as `class_name` and the space string being passed to `OSReport`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows `_hsdClassInfoInit` passing `\"hsd_class\"` to the common root-class initializer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows `info_hash` retained under `MUST_MATCH` and class-stat output reading `info->head.class_name`."
+        }
+      ]
+    },
+    {
+      "id": "fact:348c2d08-c408-40a8-add1-8d7c43c9ff4d",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 24-byte initialized small-data string block containing three packed NUL-terminated character sequences: `char[2]` for `\" \"`, `char[10]` for `\"hsd_class\"`, and `char[10]` for `\"info_hash\"`, followed by section-alignment padding.",
+      "rationale": "The three current strings still occupy 22 bytes including terminators, consistent with the target's 24-byte aligned extent and the previously inferred packed string layout.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Contains the two-byte NUL-terminated single-space string."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Contains the ten-byte NUL-terminated `hsd_class` string used for root-class initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Defines the ten-byte NUL-terminated `info_hash` character array."
+        }
+      ]
+    },
+    {
+      "id": "fact:fae3ab6a-0e45-43ce-a388-5a87dae57432",
+      "target_id": "target:data:main/sysdolphin/baselib/class:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the class runtime's three short initialized strings: the single-space output fragment used by `OSReport_PrintSpaces`, the `hsd_class` type name assigned to the root HSD class descriptor, and the force-retained but otherwise unused `info_hash` label.",
+      "rationale": "The current source preserves all three strings and their respective indentation, root-class identity, and force-retention roles.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows the single-space output fragment used by `OSReport_PrintSpaces`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows `hsd_class` assigned as the root descriptor's class type name."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows the force-retained `info_hash` array and no runtime read of it."
+        }
+      ]
+    },
+    {
+      "id": "fact:173e2e63-18c9-4341-855f-7a8a9017ff9d",
+      "target_id": "target:function:main/sysdolphin/baselib/class:ClassInfoInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an `HSD_ClassInfo` descriptor, reads bit 0 from `info->head.flags`, and, when that bit is clear, reads and invokes `info->head.info_init`. It produces no return value and performs no direct descriptor writes; any initialization changes are delegated to the callback.",
+      "rationale": "The complete function contains one flag read followed by a conditional indirect callback invocation. Its body contains no assignments and has a void return type, so state changes can occur only through the selected initializer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:28.752Z",
+      "subject": "main/sysdolphin/baselib/class:ClassInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L22-L27",
+          "why": "Shows the descriptor flag flowing into the guard and the descriptor's initializer pointer flowing into the indirect call, with no direct writes or returned result."
+        }
+      ]
+    },
+    {
+      "id": "fact:2efc0740-17ea-40fb-89c0-2a16327c6093",
+      "target_id": "target:function:main/sysdolphin/baselib/class:ClassInfoInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void ClassInfoInit(HSD_ClassInfo* info)`. Its sole input is a mutable HSD class descriptor pointer, and it returns no value.",
+      "rationale": "The matched definition directly supplies the return and parameter types. The function reads initialization metadata and a callback through the descriptor, requiring an `HSD_ClassInfo*` rather than an object-instance pointer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:28.752Z",
+      "subject": "main/sysdolphin/baselib/class:ClassInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L22-L27",
+          "why": "Provides the exact function signature and shows the parameter being used as an HSD_ClassInfo descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5d4f18e-fd73-4c32-abd1-1f40d6879300",
+      "target_id": "target:function:main/sysdolphin/baselib/class:ClassInfoInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Ensures an HSD class descriptor has been initialized before use by lazily invoking the descriptor's registered initialization routine when its initialized flag is not set.",
+      "rationale": "The complete matched body tests bit 0 of the supplied class descriptor's flags and dispatches its `info_init` callback only when that bit is clear, directly establishing its role as the class runtime's lazy-initialization guard.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:28.752Z",
+      "subject": "main/sysdolphin/baselib/class:ClassInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L22-L27",
+          "why": "Shows the function checking the class descriptor's initialization flag and conditionally invoking its registered initializer."
+        }
+      ]
+    },
+    {
+      "id": "fact:36c871eb-794c-419d-8c88-9fe6ceff56a9",
+      "target_id": "target:function:main/sysdolphin/baselib/class:ClassInfoInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has two paths based on class initialization state: if flag bit 0 is already set, it immediately returns without action; if the bit is clear, it invokes the descriptor's `info_init` callback exactly once during that call. The wrapper itself does not set the flag, so completion of initialization is the callback's responsibility.",
+      "rationale": "The sole conditional excludes callback dispatch when bit 0 is set and contains exactly one invocation when it is clear. Because the wrapper has no assignment to `flags`, it delegates the actual state transition to the initializer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:28.752Z",
+      "subject": "main/sysdolphin/baselib/class:ClassInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L22-L27",
+          "why": "The complete body proves the initialized no-op path, the uninitialized single-dispatch path, and the absence of a direct flag update."
+        }
+      ]
+    },
+    {
+      "id": "fact:328ab73f-5d87-4bb5-ba31-55e834040005",
+      "target_id": "target:function:main/sysdolphin/baselib/class:ForgetClassLibraryReal",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`hsdForgetClassLibrary` supplies either the root `hsdClass` descriptor or a matching named child descriptor. The routine consumes that descriptor's child list, saving each child's next sibling before nulling the child's sibling link and recursing. After all descendants have been processed, it passes the current descriptor to its `amnesia` callback, then writes null child and parent links and clears initialized flag bit 0.",
+      "rationale": "The current public forgetting path still selects the root or a named child, and the recursive body preserves the same child/sibling flow, callback invocation, detachment, and flag clearing.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:ForgetClassLibraryReal",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L368-L442",
+          "why": "Shows the complete recursive child and sibling flow, amnesia dispatch, hierarchy writes, and initialized-bit clearing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows the public path supplying either the root descriptor or a matching named child subtree."
+        }
+      ]
+    },
+    {
+      "id": "fact:9b1ca10b-d65e-4d64-b434-d49165c376d6",
+      "target_id": "target:function:main/sysdolphin/baselib/class:ForgetClassLibraryReal",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Has callback-style signature `void ForgetClassLibraryReal(HSD_ClassInfo* class_info)`. Its argument is a mutable class descriptor that serves as the root of the class subtree to forget.",
+      "rationale": "The matched definition directly establishes the void return type and `HSD_ClassInfo*` parameter. Every access through the parameter concerns descriptor hierarchy, callback, and flag fields, while recursive calls pass child `HSD_ClassInfo` descriptors.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:01.468Z",
+      "subject": "main/sysdolphin/baselib/class:ForgetClassLibraryReal",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L428-L442",
+          "why": "Directly provides the function signature and shows the parameter being treated as the root of a mutable class-descriptor subtree."
+        }
+      ]
+    },
+    {
+      "id": "fact:6df5f240-9546-4424-867f-f3afe37bf5de",
+      "target_id": "target:function:main/sysdolphin/baselib/class:ForgetClassLibraryReal",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Recursively tears down one HSD class-library subtree, giving every descendant class and then the subtree root an opportunity to discard class-specific global state before marking their class descriptors uninitialized and detaching them from the class hierarchy.",
+      "rationale": "The current body still performs a post-order traversal, invokes each class's amnesia operation, and then clears its hierarchy links and initialized bit, confirming the recorded teardown purpose.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:ForgetClassLibraryReal",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L368-L442",
+          "why": "Shows descendant-first recursion followed by amnesia dispatch, hierarchy detachment, and invalidation of each descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:93815c26-09e6-4fea-894d-6b06a2b39769",
+      "target_id": "target:function:main/sysdolphin/baselib/class:ForgetClassLibraryReal",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Performs post-order class-tree invalidation: every child subtree is forgotten before its parent. Before descending into a child, that child's sibling link is severed; after all children finish, the current class's `amnesia` callback runs, its child and parent links are cleared, and initialized flag bit 0 is cleared. Consequently, later class operations can lazily initialize the descriptor again through its `info_init` callback.",
+      "rationale": "The current recursive loop and callback placement prove post-order invalidation, while the initialized-bit guard elsewhere in the same unit confirms that clearing bit 0 permits later reinitialization through `info_init`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:ForgetClassLibraryReal",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L368-L442",
+          "why": "Shows sibling-link severing, child-before-parent recursion, callback ordering, detachment, and initialized-bit clearing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows that a descriptor with initialized flag bit 0 clear invokes its `info_init` callback on guarded use."
+        }
+      ]
+    },
+    {
+      "id": "fact:2d712a0e-bcd1-4ead-8a4f-430ca8e5ce28",
+      "target_id": "target:function:main/sysdolphin/baselib/class:GetMemoryEntry",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Uses `idx` to select `memory_list[idx]` and to determine the required table capacity. It obtains new table and entry storage from HSD_MemAlloc, zero-initializes new storage, copies existing table pointers during growth, publishes replacements through `memory_list` and `nb_memory_list`, links a new entry among the existing entries in ascending index order, and returns the selected entry or NULL if an allocation fails.",
+      "rationale": "The complete current function retains every recorded stage from index-driven capacity selection through allocation, zeroing, publication, ordered linking, and return.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:GetMemoryEntry",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L79-L163",
+          "why": "Shows the complete flow from `idx` through table allocation or growth, entry creation, ordered linking, and the returned pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:c601783e-c24e-4536-9cec-0f22f3636b33",
+      "target_id": "target:function:main/sysdolphin/baselib/class:GetMemoryEntry",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `HSD_MemoryEntry* GetMemoryEntry(s32 idx)`, where `idx` is a nonnegative zero-based size-class index and entry `idx` describes allocations of `(idx + 1) * 32` bytes.",
+      "rationale": "The head definition still supplies the exact signature, asserts the nonnegative index domain, and assigns `(idx + 1) * 32` as the entry's size.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:GetMemoryEntry",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L79-L163",
+          "why": "Provides the signature, nonnegative-index assertion, and index-to-byte-size mapping."
+        }
+      ]
+    },
+    {
+      "id": "fact:c042a9db-ceb8-4740-aaa6-3506aec3f290",
+      "target_id": "target:function:main/sysdolphin/baselib/class:GetMemoryEntry",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Looks up the allocator metadata for a requested size-class index, lazily creating both the global index table and the individual HSD_MemoryEntry when absent so the class allocator can manage objects of that size.",
+      "rationale": "The current body continues to expand the index table when needed, create a missing metadata entry, assign its size, and return the selected entry.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:GetMemoryEntry",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L79-L163",
+          "why": "Shows table lookup and growth, missing-entry creation, fixed-size initialization, and return of `memory_list[idx]`."
+        }
+      ]
+    },
+    {
+      "id": "fact:57b7b4e5-acaa-4685-aad9-1b4dfdd970a0",
+      "target_id": "target:function:main/sysdolphin/baselib/class:GetMemoryEntry",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Requires a nonnegative index. An uninitialized table starts at 32 slots and repeatedly doubles until it covers the index; an existing undersized table likewise doubles from its current capacity. A missing entry is zeroed, assigned its fixed size, and inserted after the nearest lower existing entry or before the nearest higher one. Growing the table frees the old pointer array through hsdFreeMemPiece and compensates the affected size class's `nb_alloc` count. Allocation failure leaves the requested operation unsuccessful and returns NULL.",
+      "rationale": "The assertion, initialization and resize branches, geometric growth, ordered insertion loops, old-table free, accounting compensation, and failure exits remain unchanged at head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:GetMemoryEntry",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L79-L163",
+          "why": "Directly establishes the guards, growth transitions, insertion behavior, resize bookkeeping, and allocation-failure exits."
+        }
+      ]
+    },
+    {
+      "id": "fact:558380f2-77a8-4803-8f5d-26f7bf673cde",
+      "target_id": "target:function:main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a signed indentation count from its caller, initializes a local counter to zero, and forwards the literal string `\" \"` to `OSReport` while incrementing the counter until it reaches the requested count. It returns no data; its sole output is the resulting sequence of diagnostic spaces.",
+      "rationale": "The current helper retains the same counted loop, and the class-stat routine still supplies hierarchy depth as its count.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows the signed input count controlling a loop whose only side effect is passing one space to `OSReport`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows class-stat formatting passing the current hierarchy indentation level into the helper."
+        }
+      ]
+    },
+    {
+      "id": "fact:5e005da9-4be0-4a5f-b43d-c4bea9c79341",
+      "target_id": "target:function:main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports the runtime diagnostic logging system by formatting the HSD class allocator's hierarchical statistics as indented report lines; it does not affect gameplay state.",
+      "rationale": "The helper still emits only diagnostic spaces, and its caller uses them exclusively to format recursive class and allocator statistics.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows that the helper's only effect is output through `OSReport`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows the spaces formatting recursive reports of class names, sizes, live counts, and peak counts."
+        }
+      ]
+    },
+    {
+      "id": "fact:717d7382-360d-4e74-bc2f-9912e6601008",
+      "target_id": "target:function:main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Synchronous output helper with signature `void OSReport_PrintSpaces(s32 count)`, where `count` is a signed number of spaces to emit.",
+      "rationale": "The matched definition explicitly returns void and accepts one signed 32-bit count. The loop treats that argument as the exclusive upper bound on the number of single-space reports.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:18.648Z",
+      "subject": "main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L60-L67",
+          "why": "Directly establishes the void return type, signed 32-bit parameter, and count-as-loop-bound interpretation."
+        }
+      ]
+    },
+    {
+      "id": "fact:62d547e3-c36d-4b4f-b735-ff6d1e3543cd",
+      "target_id": "target:function:main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Emits an indentation prefix for HSD class-statistics reports by sending one space to `OSReport` for each requested indentation level.",
+      "rationale": "The current loop emits one space for every count unit, and the statistics routines still invoke it before report lines and increase the count for child classes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows one `OSReport(\" \")` call for each loop iteration below `count`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows the helper used before class-stat lines and recursion increasing indentation by two."
+        }
+      ]
+    },
+    {
+      "id": "fact:90525ef5-ef96-4362-ae12-f2160c4096de",
+      "target_id": "target:function:main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The helper has no persistent state. A positive count causes exactly that many one-space reports; a zero or negative count fails the initial `i < count` guard and emits nothing.",
+      "rationale": "The local counter begins at zero and the loop continues only while it is less than the signed count. The body changes no global or object state and performs only the reporting call.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:18.648Z",
+      "subject": "main/sysdolphin/baselib/class:OSReport_PrintSpaces",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L60-L67",
+          "why": "Shows a local-only counted loop, proving both the exact positive-count behavior and the no-output behavior for non-positive counts."
+        }
+      ]
+    },
+    {
+      "id": "fact:4003c3e6-f231-466d-a153-2e1dd980905a",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassAlloc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a class descriptor from the class-construction path, reads its `obj_size`, and passes that size to `hsdAllocMemPiece`. It returns the allocator's pointer unchanged. On a non-null result it increments the same descriptor's `nb_exist` counter and raises `nb_peak` when the new live count exceeds the previous peak. `hsdNew` consumes the returned storage by clearing it, assigning its `class_info`, and invoking the class initializer.",
+      "rationale": "The current allocation callback retains the exact size and counter flow, while the adjacent constructor still consumes its returned storage by zeroing and initializing it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows object size flowing to `hsdAllocMemPiece`, successful-allocation counter updates, and `hsdNew` consuming the callback's returned storage."
+        }
+      ]
+    },
+    {
+      "id": "fact:c63840e1-a873-40ba-a6a8-f2f5d8da91db",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassAlloc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An HSD class allocation callback with signature `HSD_Class* (*)(HSD_ClassInfo* info)`; it returns uninitialized object storage or `NULL`.",
+      "rationale": "The current definition supplies the callback signature, and `hsdNew` invokes the callback before clearing and initializing its result, confirming that the returned memory is raw object storage.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Provides the exact signature, null failure result, callback installation, and constructor-side treatment of the returned pointer as uninitialized storage."
+        }
+      ]
+    },
+    {
+      "id": "fact:3959dca7-042f-4d73-b249-85dedc87eb70",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassAlloc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the root HSD class runtime's default allocation callback: it obtains storage sized for the requested class and records successful allocations in that class descriptor's live-instance and peak-instance statistics.",
+      "rationale": "The function passes the descriptor's object size to the unit's memory-piece allocator and updates the descriptor's instance statistics only when allocation succeeds. The root class initializer installs this function in `hsdClass.alloc`, establishing that this is the default allocator inherited through the HSD class system.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:55.516Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L248-L258",
+          "why": "Shows `_hsdClassAlloc` allocating `info->head.obj_size` bytes and updating live and peak instance counts after successful allocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L304",
+          "why": "Shows `_hsdClassInfoInit` installing `_hsdClassAlloc` as the root `hsdClass` allocation callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:55b39591-338b-4a90-affb-d0e1f661d888",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassAlloc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Allocation failure leaves both class-instance counters unchanged. Allocation success increments `nb_exist` exactly once and conditionally sets `nb_peak` to the new live count, making the peak monotonically nondecreasing during ordinary allocation and destruction. The paired destroy callback later decrements `nb_exist` and returns the object's storage to the size-class allocator.",
+      "rationale": "The null guard encloses every counter mutation, and the peak assignment is guarded by a strict comparison against the updated live count. The adjacent destroy callback demonstrates the complementary live-count transition and deallocation path.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:55.516Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L248-L258",
+          "why": "Shows that only a successful allocation increments `nb_exist`, and that `nb_peak` changes only when the updated live count is greater."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L304",
+          "why": "Shows the paired `_hsdClassDestroy` transition decrementing the live count and freeing storage according to the descriptor's object size."
+        }
+      ]
+    },
+    {
+      "id": "fact:b8c20362-7d05-4d47-9e76-83115625d51c",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassAmnesia",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an `HSD_ClassInfo*` supplied by the class-library forgetting traversal and writes zero to `info->head.nb_exist` and `info->head.nb_peak`. It then compares that pointer with the global root descriptor `&hsdClass`; only on equality does it write zero to `nb_memory_list` and NULL to both `memory_list` and `current_hash`. Those globals are subsequently observed by allocator-table lookup/growth and class-name search routines.",
+      "rationale": "The current callback still performs the same unconditional per-class writes and root-guarded global writes, and the allocator and search paths still consume those globals.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows the input-dependent counter reset and root-only writes to all three globals."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L368-L442",
+          "why": "Shows the forgetting traversal passing each descriptor to its amnesia callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows the hash global subsequently consumed by class-name lookup."
+        }
+      ]
+    },
+    {
+      "id": "fact:ab74af92-8289-4572-a5cc-a823ed307ad2",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassAmnesia",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void _hsdClassAmnesia(HSD_ClassInfo* info)`; it is the root HSD class descriptor's `amnesia` lifecycle callback and receives the class descriptor being forgotten.",
+      "rationale": "The head definition gives the exact signature, the root initializer installs it in `hsdClass.amnesia`, and the forgetting traversal invokes that callback with the current descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Provides the exact signature and shows installation as the root descriptor's amnesia callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L368-L442",
+          "why": "Shows the callback contract in use as `class_info->amnesia(class_info)`."
+        }
+      ]
+    },
+    {
+      "id": "fact:6aa9bfbf-2e6c-464d-bda3-23fbc543bdc7",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassAmnesia",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Forgets the runtime bookkeeping associated with an HSD class descriptor during class-library invalidation: it clears that class's live and peak object counts, and when applied to the root `hsdClass` descriptor it also discards the class allocator table and current class-name hash references.",
+      "rationale": "The current callback directly performs the per-class and root-only resets, and its caller still uses it as part of recursive class-library invalidation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows the per-class count reset and root-only allocator-table and class-hash reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L368-L442",
+          "why": "Shows recursive invalidation invoking each descriptor's amnesia callback before detachment."
+        }
+      ]
+    },
+    {
+      "id": "fact:b2331abe-9911-4e27-8aea-032f967955f8",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassAmnesia",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On every invocation, the descriptor transitions to zero recorded live instances and zero historical peak instances. Non-root descriptors undergo no further changes in this callback. The root descriptor additionally transitions the allocator metadata to an empty state (`nb_memory_list == 0`, `memory_list == NULL`) and the class lookup hash to an unavailable state (`current_hash == NULL`). The surrounding forgetting traversal then removes hierarchy links and clears the descriptor's initialized flag.",
+      "rationale": "The unconditional assignments and root identity guard still define the callback's two states, while the surrounding traversal retains the subsequent hierarchy and initialized-flag transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows the unconditional counter-zero state and root-only empty allocator and unavailable hash state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L368-L442",
+          "why": "Places the callback before hierarchy detachment and initialized-bit clearing."
+        }
+      ]
+    },
+    {
+      "id": "fact:12a97719-2121-450b-9353-d69a222c02b3",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassDestroy",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `cls->class_info`, decrements `class_info->head.nb_exist`, and forwards `cls` together with `class_info->head.obj_size` to `hsdFreeMemPiece`. That routine rounds the size to a 32-byte allocator class, obtains its `HSD_MemoryEntry`, pushes the object's storage onto the entry's free-list head, and increments the entry's free-piece count.",
+      "rationale": "The destroy body directly supplies the object pointer and descriptor-owned size to `hsdFreeMemPiece`. The resolved allocator source shows how those inputs select a size-class entry and convert the former object storage into a free-list node.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:03.549Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassDestroy",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L164-L272",
+          "why": "Shows both the destroy function's inputs to `hsdFreeMemPiece` and the callee's 32-byte size-class selection, free-list insertion, and `nb_free` update."
+        }
+      ]
+    },
+    {
+      "id": "fact:63b2704f-d9fc-422a-8ce6-cef203fa87ab",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassDestroy",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void _hsdClassDestroy(HSD_Class* cls)`; `cls` must point to a live HSD object whose `class_info` identifies its owning class descriptor and allocation size.",
+      "rationale": "The matched declaration provides the exact return and parameter types. The unconditional dereference of `cls->class_info`, followed by use of that descriptor's accounting and size fields, establishes the required input shape.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:03.549Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassDestroy",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L267-L272",
+          "why": "Provides the exact signature and shows that the parameter is dereferenced as an `HSD_Class` carrying a class-info pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:e5a0860e-d1e5-4901-b7cf-45deba6460cb",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassDestroy",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Implements the HSD class runtime's default object-destruction callback: it removes one instance from the owning class's live-object count and returns the object's storage to the size-class memory pool for reuse.",
+      "rationale": "The function is installed in the root HSD class descriptor's `destroy` method slot. Its body obtains the object's class descriptor, decrements that descriptor's live-instance count, and gives the object and descriptor-recorded object size to the pool-freeing routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:03.549Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassDestroy",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L267-L272",
+          "why": "Shows the destruction body decrementing the owning class descriptor's `nb_exist` count and passing the object to `hsdFreeMemPiece` using the descriptor's object size."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L273-L304",
+          "why": "Shows `_hsdClassDestroy` being installed as the root HSD class descriptor's `destroy` callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:cca39bcc-6aa5-402a-873f-3c676f6b87d6",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassDestroy",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For every valid object passed to it, the callback unconditionally reduces the owning class's current live-instance count by one, leaves the historical peak count unchanged, and transitions the object's storage into the allocator entry's reusable free-list state by inserting it at the head and incrementing `nb_free`.",
+      "rationale": "The body contains no branch around the `nb_exist` decrement and never accesses `nb_peak`. The called free routine links non-null storage into the selected entry's free list and increments that entry's free count.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:03.549Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassDestroy",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L235-L272",
+          "why": "Shows the unconditional live-count decrement, absence of a peak-count update, and the allocator transition that links the released storage into a free list and increments `nb_free`."
+        }
+      ]
+    },
+    {
+      "id": "fact:0f0e1665-0e4b-48d2-b268-91d977e138da",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassInfoInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Writes the global `hsdClass` descriptor in two stages: `hsdInitClassInfo` populates its initialized flag, library and class names, `HSD_Class` instance size, `HSD_ClassInfo` descriptor size, null hierarchy links, and zeroed instance counters; the routine then writes `_hsdClassAlloc`, `_hsdClassInit`, `_hsdClassRelease`, `_hsdClassDestroy`, and `_hsdClassAmnesia` into its dispatch slots. Later object construction, destruction, and class-library forgetting consume those callbacks and update or reset the descriptor's counters and allocator state.",
+      "rationale": "The common initializer at head still writes all metadata and reset fields, and `_hsdClassInfoInit` still installs all five callbacks consumed by construction, destruction, and forgetting.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows the common initializer writing flags, names, sizes, hierarchy links, and counters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows `_hsdClassInfoInit` installing the five root callbacks and adjacent consumers updating or resetting runtime state."
+        }
+      ]
+    },
+    {
+      "id": "fact:f8883bf2-8f17-4b41-a90d-774db5dca08f",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassInfoInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A no-argument, no-return HSD class-information initialization callback with signature `void _hsdClassInfoInit(void)`; it configures an `HSD_ClassInfo` descriptor for instances of `HSD_Class`.",
+      "rationale": "The definition directly establishes the `void(void)` signature. Its call to `hsdInitClassInfo` passes `sizeof(HSD_ClassInfo)` as the descriptor size and `sizeof(HSD_Class)` as the instance size. The archived static-class mapping corroborates that its address occupies the initialization role for `hsdClass`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:08.990Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L285-L294",
+          "why": "Provides the complete function signature and the descriptor and object types whose sizes are supplied to the common class initializer."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/741006883623796796",
+          "why": "Associates the function's address with the deferred initialization pointer of the static `hsdClass` descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:340a2942-183c-47c9-a0f0-44e265dd1b9b",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassInfoInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Bootstraps the root HSD runtime class descriptor and installs the default allocation, initialization, release, destruction, and library-amnesia operations inherited or overridden by HSD object classes.",
+      "rationale": "The current function initializes `hsdClass` with a null parent and installs the complete base lifecycle table; the common initializer still copies parent dispatch fields only for derived classes, establishing this descriptor as the inheritance root.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows that parent-based inheritance and child insertion occur only when a non-null parent is supplied."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows initialization of parentless `hsdClass` and installation of its allocation and lifecycle callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:460b93e4-b7cb-436b-99f1-e7486caf0f2e",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassInfoInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Transitions `hsdClass` from its deferred static-initializer state to a fully configured root descriptor: it sets initialized flag bit 0, records identity and size metadata, clears child/sibling links and live/peak counts, leaves the parent null, and then installs the root lifecycle dispatch table. Because the parent argument is null, it performs no parent initialization, inherited-method copy, or insertion beneath another class.",
+      "rationale": "The current static declaration still leaves the descriptor with only its deferred initializer, and the common and root initializers retain the same ordered transition and null-parent behavior.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L90",
+          "why": "Shows the deferred static state, initialized flag and reset writes, and confines inheritance and insertion to the non-null-parent branch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L315",
+          "why": "Shows generic initialization with a null parent followed by installation of the root dispatch table."
+        }
+      ]
+    },
+    {
+      "id": "fact:2029115e-c6e2-416d-865e-6e39c1496061",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "hsdNew first allocates and zeroes an HSD_Class object and writes its class_info pointer, then passes that object to this callback through HSD_ClassInfo.init. _hsdClassInit ignores the object and returns 0; hsdNew consumes that result as success and returns the initialized object rather than destroying it.",
+      "rationale": "The source places the callback within the construction path and demonstrates both the object's preparation before the call and the branch controlled by its result.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:58.660Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L235-L315",
+          "why": "Shows object allocation and preparation, invocation of this registered callback, its constant return value, and hsdNew's subsequent success or cleanup decision."
+        }
+      ]
+    },
+    {
+      "id": "fact:da2aac1e-318b-418a-b8a0-198ba462f0ee",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Lifecycle callback with signature int (HSD_Class*): it receives the newly constructed class instance and returns a status where negative means initialization failure and zero or greater means success.",
+      "rationale": "The declared signature supplies the parameter and return types, while assignment to hsdClass.init and hsdNew's `info->init(cls) < 0` guard establish the callback domain and return-value convention.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:58.660Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L235-L315",
+          "why": "Directly shows the function signature, callback-slot assignment, invocation with an HSD_Class instance, and negative-result failure test."
+        }
+      ]
+    },
+    {
+      "id": "fact:822af46f-19d1-417f-9044-11c25fdd3e3c",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the default initialization callback for the root HSD_Class type. It deliberately performs no object-specific initialization and reports success, allowing a newly allocated base-class instance to pass hsdNew's initialization stage.",
+      "rationale": "The function body unconditionally returns zero without touching its argument. The surrounding root-class setup assigns it to hsdClass.init, and hsdNew treats only a negative init result as failure, so zero is the successful no-op default.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:58.660Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L235-L315",
+          "why": "Shows the no-op body, its registration in the root hsdClass init slot, and hsdNew's consumption of the callback result."
+        }
+      ]
+    },
+    {
+      "id": "fact:7f5e1dee-2a6e-4ec2-b3e4-0f19b8735aae",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "This callback has no state transitions of its own: for every HSD_Class pointer it performs no reads or writes and deterministically returns the successful status 0.",
+      "rationale": "The complete matched body consists solely of `return 0`, proving that the argument and object state are untouched and that the outcome is invariant.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:58.660Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L260-L263",
+          "why": "The complete function body shows no side effects or guards and an unconditional zero return."
+        }
+      ]
+    },
+    {
+      "id": "fact:4f34e0a4-2249-45ae-98a3-ebb7a477e3bd",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassRelease",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "During `_hsdClassInfoInit`, the function pointer is written into `hsdClass.release`. An invocation supplies an `HSD_Class*`, but this base implementation ignores the pointer, produces no output, and leaves object deallocation to the separately registered `_hsdClassDestroy` callback.",
+      "rationale": "The root-class setup exposes the callback's source and destination in the method table. The empty body proves that the incoming instance is not consumed, while the neighboring destroy implementation and its separate registration identify where base-object storage reclamation occurs.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:02:01.179Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L235-L315",
+          "why": "Shows the release method-table assignment, the ignored input parameter, and the separate destroy method that frees the instance."
+        }
+      ]
+    },
+    {
+      "id": "fact:ff363add-eacd-42a3-849c-abbad0821f30",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassRelease",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Lifecycle callback with signature `void (HSD_Class*)`: it accepts the class instance being released and returns no status or value.",
+      "rationale": "The function declaration directly establishes the `HSD_Class*` parameter and void return type, while assignment to `hsdClass.release` establishes that this signature belongs to the class descriptor's release callback slot.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:01.179Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L235-L315",
+          "why": "Directly shows the function signature and its assignment to the root class descriptor's release method."
+        }
+      ]
+    },
+    {
+      "id": "fact:4e8c205e-f233-433b-ad79-660d8136fd17",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassRelease",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the default release callback for the root HSD_Class type. The base class has no object-specific resources to release, so the callback deliberately does nothing while supplying the root class descriptor with a valid release-stage method distinct from the subsequent storage-destroying callback.",
+      "rationale": "The complete body is empty. The surrounding root-class initialization assigns this function to `hsdClass.release` and separately assigns `_hsdClassDestroy` to the destroy slot; the latter decrements the live-instance count and returns the object's storage to the allocator. This separation shows that `_hsdClassRelease` is the no-op default for the release stage rather than the operation that frees the base object.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:02:01.179Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L235-L315",
+          "why": "Shows the empty release callback, its registration in the root `hsdClass.release` slot, and the distinct destroy callback that updates accounting and frees storage."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e8860ee-bd4a-4695-a4ed-19446d381e72",
+      "target_id": "target:function:main/sysdolphin/baselib/class:_hsdClassRelease",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "This callback has no guards or state transitions: for every `HSD_Class*` argument it performs no reads, writes, counter updates, or memory operations and returns immediately.",
+      "rationale": "The complete matched function body is empty, so its behavior is invariant and side-effect free.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:01.179Z",
+      "subject": "main/sysdolphin/baselib/class:_hsdClassRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L265-L265",
+          "why": "The complete one-line definition demonstrates that the callback performs no operations."
+        }
+      ]
+    },
+    {
+      "id": "fact:a129d8b2-9d3c-49db-8ab5-fc63970cee5d",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdAllocMemPiece",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The requested byte count is rounded upward to a 32-byte class index and passed to GetMemoryEntry. A block may then flow from that entry's free list directly to the caller, from a larger entry after its trailing remainder is inserted into the remainder size class, or from a newly allocated `nb_memory_list * 32` backing slab whose unused tail is likewise placed on the appropriate free list. These paths update the affected entries' `nb_alloc` and `nb_free` counters to reflect whole-block removal, splitting, residual-block creation, and the returned allocation.",
+      "rationale": "The current allocator retains the same size-class conversion and all three block sources, including remainder insertion and counter updates. The current metadata routine confirms the index-to-size mapping.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:hsdAllocMemPiece",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L79-L163",
+          "why": "Shows how each supplied index maps to lazily created fixed-size allocator metadata."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L165-L232",
+          "why": "Shows request rounding, direct reuse, larger-block splitting, remainder insertion, slab allocation, accounting, and return."
+        }
+      ]
+    },
+    {
+      "id": "fact:f7e6dd32-273a-47eb-968e-a17532598e95",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdAllocMemPiece",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void* hsdAllocMemPiece(s32 size)`, where `size` is a positive signed byte count rounded up to a 32-byte size class. It returns a pointer to a block at least as large as that rounded class, or NULL when required allocator metadata or backing storage cannot be obtained.",
+      "rationale": "The head definition retains the exact signature, upward rounding expression, pointer returns, and failure exits, while `GetMemoryEntry` still defines nonnegative indices and 32-byte class sizes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:hsdAllocMemPiece",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L79-L163",
+          "why": "Shows that size-class indices are nonnegative and entry `i` represents `(i + 1) * 32` bytes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L165-L232",
+          "why": "Provides the exact signature, 32-byte upward rounding, block-return paths, and NULL failure exits."
+        }
+      ]
+    },
+    {
+      "id": "fact:dd07615a-af32-480f-92d9-d39e4a934701",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdAllocMemPiece",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Allocates one block from the HSD class runtime's 32-byte-granularity size-class pool. It preferentially reuses a block from the requested class, otherwise splits a free block from a larger class, and finally obtains a new backing slab from the HSD heap when no reusable block exists.",
+      "rationale": "The matched body converts the requested byte count into a size-class index, first pops that class's free-list head, then searches larger linked size classes for a splittable free block, and only after both reuse paths fail calls HSD_MemAlloc for a new slab. The adjacent class allocation routine confirms that this allocator supplies object storage to the HSD class runtime.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:03.830Z",
+      "subject": "main/sysdolphin/baselib/class:hsdAllocMemPiece",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L165-L232",
+          "why": "Shows the requested-class reuse path, larger-block splitting path, and final backing-slab allocation path in the complete matched function."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L304",
+          "why": "Shows _hsdClassAlloc obtaining class-instance storage through hsdAllocMemPiece and the paired free routine returning blocks to the same size-class pool."
+        }
+      ]
+    },
+    {
+      "id": "fact:3c90522c-7f4d-4e83-bac6-6b231c1fae00",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdAllocMemPiece",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Allocation follows three ordered states. If the requested class has a free block, the function pops it and decrements only that class's free count. Otherwise it scans successively larger registered classes; on finding a free block, it removes one larger allocation, divides it at the requested-class boundary, records the tail as one allocated-and-free block in the remainder class, and records one allocation in the requested class. If no larger free block exists, it allocates a slab spanning the allocator table's current size range, records any unused tail in its remainder class, and records the requested allocation. Failure to obtain any required metadata entry or slab returns NULL without proceeding to a later mutation in that path.",
+      "rationale": "The branch order, larger-class traversal, free-list mutations, split address calculation, remainder-class lookup, slab fallback, counter transitions, and NULL guards are all explicit in the matched implementation. The paired free function corroborates that a returned block later transitions back to its class's free list by increasing `nb_free`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:03.830Z",
+      "subject": "main/sysdolphin/baselib/class:hsdAllocMemPiece",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L165-L232",
+          "why": "Directly establishes the ordered reuse, split, and new-slab states, their guards, and their allocator-accounting transitions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L225-L304",
+          "why": "Shows the inverse free transition, which pushes a returned block onto its size-class free list and increments that entry's free count."
+        }
+      ]
+    },
+    {
+      "id": "fact:49b27116-b0fc-4db3-a8d2-bb1b06bc2f19",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdChangeClass",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the object's current class descriptor and the requested descriptor, lazily initializes the requested descriptor when necessary, and first compares their object sizes. It then walks each descriptor upward while its parent has the same object size, producing equal-sized family roots. If those roots are identical, it decrements the old family root's live count, increments the requested descriptor's live count, raises that descriptor's peak count when needed, stores the requested descriptor in `object->parent.class_info`, and returns true; otherwise it returns false.",
+      "rationale": "The header at the current revision confirms the descriptor hierarchy, object-size, instance-count, and lifecycle fields used by the implementation. The implementation directly shows destination initialization, equal-sized ancestry traversal, accounting transfer, class-pointer replacement, and Boolean outcomes, so the claim remains valid and its drifted header evidence can be refreshed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:42:48.814Z",
+      "subject": "main/sysdolphin/baselib/class:hsdChangeClass",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.h#L1-L95",
+          "why": "Defines the current class descriptor layout, including parent, object-size, live-count, peak-count, initialization callback, and class-pointer fields consumed or mutated by the routine."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L317-L371",
+          "why": "Shows destination initialization, size comparison, equal-sized ancestor traversal, counter transfer, peak update, class-pointer replacement, and return values."
+        }
+      ]
+    },
+    {
+      "id": "fact:eccfac00-3605-40fe-b0e1-37136ce8c336",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdChangeClass",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports model-system specialization after asset loading: fighter setup uses it to convert existing generic JObjs to the fighter JObj class that supplies fighter-specific position-matrix behavior, and to convert loaded material objects to the fighter material class while preserving the already constructed model objects.",
+      "rationale": "The current implementation still changes class identity in place, and fighter-parts callers still apply it to existing JObjs and material objects after defining fighter-specific class behavior.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:hsdChangeClass",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L317-L371",
+          "why": "Shows that successful conversion replaces only class identity and accounting rather than reconstructing the object."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L49-L73",
+          "why": "Shows fighter JObj class registration, its overridden position-matrix method, and conversion of an existing JObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L940-L978",
+          "why": "Shows fighter-model traversal converting loaded material objects to the fighter material class."
+        }
+      ]
+    },
+    {
+      "id": "fact:46918b43-6c5e-4a8e-936b-fa113ef21b3c",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdChangeClass",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Public signature `bool hsdChangeClass(void* object, void* class_info)`, with semantic parameter types `HSD_Obj* object` and `HSD_ClassInfo* class_info`. Both arguments are required. The result is true when the object's descriptor is replaced and false when the source and destination classes are storage-incompatible.",
+      "rationale": "The current header retains the ABI-facing opaque-pointer declaration and defines the concrete class descriptor type. The typed inline implementation establishes the semantic parameter types, asserts both arguments, and returns a Boolean compatibility result, so the existing type claim remains supported at the head revision.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:42:48.814Z",
+      "subject": "main/sysdolphin/baselib/class:hsdChangeClass",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.h#L1-L95",
+          "why": "Provides the current exported `void*` declaration and the concrete `HSD_ClassInfo` and class-object layouts underlying the parameters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L317-L371",
+          "why": "Provides the typed inline implementation, non-null assertions, compatibility checks, Boolean outcomes, and public wrapper."
+        }
+      ]
+    },
+    {
+      "id": "fact:3b7a6a19-d73c-4103-9e87-7e0c8283fbff",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdChangeClass",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Rebinds an already allocated HSD object to a storage-compatible class descriptor so later class-based dispatch can use the replacement class's methods without reallocating the object or invoking its initialization, release, or destruction callbacks.",
+      "rationale": "The current implementation validates storage compatibility and then changes only descriptor accounting and the object's stored class pointer. The refreshed header shows that the descriptor carries allocation and lifecycle callbacks, while the fighter caller demonstrates rebinding an existing JObj to a descriptor with an overridden matrix method; together they continue to support the stated purpose.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:42:48.814Z",
+      "subject": "main/sysdolphin/baselib/class:hsdChangeClass",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L317-L371",
+          "why": "Shows compatibility validation and direct class-pointer replacement without allocation or lifecycle callback invocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.h#L1-L95",
+          "why": "Shows that an HSD class descriptor contains allocation, initialization, release, destruction, and amnesia callbacks selected through the stored class descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L49-L73",
+          "why": "Shows an existing JObj rebound to the fighter JObj descriptor after that descriptor receives a fighter-specific position-matrix method."
+        }
+      ]
+    },
+    {
+      "id": "fact:2982a3b6-7e7c-4bb3-a1a3-0e739fe77bbe",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdChangeClass",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Null object or class arguments violate asserted preconditions. An uninitialized destination class is initialized before compatibility is tested. A size mismatch or different equal-sized ancestry root leaves the object's descriptor and instance counters unchanged, although destination-class initialization may already have occurred. Success changes the object's class identity and accounting only; its storage and object contents remain in place and no class lifecycle callback is run.",
+      "rationale": "The current implementation retains the argument assertions and destination initialized-bit check before compatibility testing. All failure returns precede descriptor and counter mutations, whereas success performs only counter and class-pointer writes. The refreshed header separately defines the lifecycle callbacks that this routine does not invoke.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:42:48.814Z",
+      "subject": "main/sysdolphin/baselib/class:hsdChangeClass",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L317-L371",
+          "why": "Shows asserted preconditions, lazy destination initialization, compatibility failures before object or counter mutation, and the limited mutations performed on success."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.h#L1-L95",
+          "why": "Defines allocation and lifecycle callbacks as distinct class-descriptor operations that `hsdChangeClass` does not call."
+        }
+      ]
+    },
+    {
+      "id": "fact:79295872-191e-4e14-9781-f1b6851bf547",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an optional HSD_ClassInfo root, a recursion flag, and an indentation level. For every visited initialized descriptor, it reads `class_name`, `info_size`, `obj_size`, `nb_exist`, and `nb_peak` and sends labeled, indented text to OSReport. Recursive traversal follows each descriptor's `child` link and then the children's `next` sibling links, forwarding a level increased by two; the function returns no data and affects the outside world only through diagnostic output.",
+      "rationale": "The current report helper still reads the same descriptor fields, and the public routine still propagates descriptors and indentation through child and sibling recursion without mutating runtime state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows descriptor fields flowing into indented `OSReport` calls and child/sibling descriptors flowing through recursive calls at level plus two."
+        }
+      ]
+    },
+    {
+      "id": "fact:29a4e3df-085d-473a-984c-4725515cc1f2",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes runtime diagnostic logging for the HSD object system by converting internal class-hierarchy and allocation statistics into human-readable OSReport output.",
+      "rationale": "The current routine remains diagnostic-only and still converts class names, sizes, and live and peak counts into labeled `OSReport` messages.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows internal HSD class and allocation statistics being emitted as human-readable diagnostic output."
+        }
+      ]
+    },
+    {
+      "id": "fact:a31a5f80-7dea-4287-b800-8e0a5c46317f",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Diagnostic tree-walk routine with signature `void hsdDumpClassStat(HSD_ClassInfo* info, bool recursive, s32 level)`: `info` selects the starting class, `recursive` selects single-node versus subtree output, and `level` is the initial indentation width in spaces.",
+      "rationale": "The matched declaration establishes the parameter and return types. The body passes level to the space-reporting helper, adds two before descending, and consults recursive before visiting children; a null info substitutes the root class and forces recursive traversal.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:19.272Z",
+      "subject": "main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L500-L515",
+          "why": "Contains the complete typed declaration and demonstrates the role of each parameter."
+        }
+      ]
+    },
+    {
+      "id": "fact:ce851fbb-50df-43a5-9955-afad8da0edd7",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Emits a diagnostic snapshot of one HSD class descriptor or an entire initialized class hierarchy, reporting each class's name, descriptor and object sizes, current live-instance count, and peak live-instance count with indentation that reflects inheritance depth.",
+      "rationale": "The current helper prints all five recorded class properties, while the public routine still selects one node or recursively traverses the initialized hierarchy with depth-based indentation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:40.243Z",
+      "subject": "main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L450-L515",
+          "why": "Shows the class name, descriptor size, object size, live count, and peak count being printed and the hierarchy being traversed with increasing indentation."
+        }
+      ]
+    },
+    {
+      "id": "fact:52f5e9ec-6898-4135-8792-733058b6e27f",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null starting descriptor is replaced with the root `hsdClass`, and that case always requests a full recursive dump regardless of the caller's recursion argument. A non-null descriptor is reported only when initialized flag bit 0 is set. With recursion disabled, only that descriptor is reported; with recursion enabled, each child subtree is visited in sibling-list order at two additional indentation spaces per depth. An uninitialized descriptor produces no output and prevents traversal into its descendants.",
+      "rationale": "These behaviors follow directly from the null-input branch, initialized-bit guard, recursive guard, level increment, and child/next loop. Because descent is inside the initialized-bit branch, an uninitialized node also suppresses its subtree.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:19.272Z",
+      "subject": "main/sysdolphin/baselib/class:hsdDumpClassStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L500-L515",
+          "why": "Shows every traversal guard and transition: null-to-root substitution, initialized-bit check, optional recursion, depth increment, and child/sibling iteration."
+        }
+      ]
+    },
+    {
+      "id": "fact:6b2e7c82-d879-4a6a-86d8-ebba033338a4",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdForgetClassLibrary",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The nullable `library_name` input is normalized to `sysdolphin_base_library`, then compared with the root descriptor's library name after reading the root initialized flag. A root-library request clears `current_hash` and sends `hsdClass` into recursive teardown. Any other name is passed into a scan of the root's direct child list; matching child descriptors and all of their descendants have their callbacks invoked, hierarchy links removed, and initialized flags cleared.",
+      "rationale": "The current implementation preserves the complete selector and teardown flow: it normalizes the input name, checks the root descriptor, invalidates the hash for root teardown, or scans direct children by library name before recursively mutating each selected subtree.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdForgetClassLibrary",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L419-L500",
+          "why": "Shows input normalization, root-library comparison, hash invalidation, direct-child library matching, recursive callback dispatch, hierarchy-link removal, and initialized-flag clearing."
+        }
+      ]
+    },
+    {
+      "id": "fact:a5e5a348-220c-4c9b-9457-c936aa233169",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdForgetClassLibrary",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void class-library teardown entry point with signature `void hsdForgetClassLibrary(const char* library_name)`. The nullable string parameter selects a library by name; NULL selects the built-in `sysdolphin_base_library`.",
+      "rationale": "The definition provides the exact return and parameter types, while its first branch establishes NULL as a sentinel for the base-library name.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:56.230Z",
+      "subject": "main/sysdolphin/baselib/class:hsdForgetClassLibrary",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L458-L472",
+          "why": "Provides the exact function signature and shows NULL being normalized to the base-library name."
+        }
+      ]
+    },
+    {
+      "id": "fact:ade660e5-1bd8-42ad-8122-a2ac54aead07",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdForgetClassLibrary",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Deinitializes the HSD class descriptors belonging to a selected class library. It can invalidate the entire base class hierarchy or remove matching top-level library subtrees, allowing each affected class to run its amnesia callback and return to an uninitialized state.",
+      "rationale": "The current source still selects either the root HSD class hierarchy or matching top-level library subtrees, then recursively invokes each class's amnesia callback, detaches descriptor relationships, and clears initialization state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdForgetClassLibrary",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L419-L500",
+          "why": "Shows the public library selector and the recursive class-descriptor teardown that invokes amnesia callbacks and returns descriptors to an uninitialized state."
+        }
+      ]
+    },
+    {
+      "id": "fact:c743291b-65b5-4cdf-ad4e-96ead8396521",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdForgetClassLibrary",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If the root class is not initialized, the function is a no-op. NULL selects the base library. Selecting the base library invalidates the class hash and recursively forgets the complete hierarchy child-first, including the root. Selecting another name scans only the root's direct children, recursively forgets every matching child subtree, and removes each match from the root child list. An unmatched name leaves the hierarchy unchanged.",
+      "rationale": "The current source retains the initialization guard and the root-versus-child selection. Its recursive helper processes children before their parent, while the child-list helper advances over nonmatches and splices out every matching subtree.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdForgetClassLibrary",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L419-L500",
+          "why": "Directly shows the no-op guard, default library selection, root hash invalidation, child-first recursion, matching-child removal, and unchanged behavior for nonmatches."
+        }
+      ]
+    },
+    {
+      "id": "fact:b785dff5-ff62-4ffa-af58-b0a6eb362cae",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdFreeMemPiece",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For a non-NULL block, the supplied byte size is rounded upward to a 32-byte class and passed as an index to `GetMemoryEntry`. The block is reinterpreted as `HSD_FreeList`, its `next` field receives the class's previous free-list head, the entry's head is replaced with the block, and `nb_free` is incremented. `hsdAllocMemPiece` consumes this state by removing the head block and decrementing `nb_free` when satisfying a later allocation from that class.",
+      "rationale": "The target explicitly performs the index calculation and head insertion, including the free-count update. Reading the companion allocator establishes where the resulting list state flows next: a subsequent allocation takes the same entry's head, advances the list, decrements the count, and returns the recycled block.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:06.173Z",
+      "subject": "main/sysdolphin/baselib/class:hsdFreeMemPiece",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L234-L245",
+          "why": "Shows the size-class lookup, free-list head insertion, and `nb_free` increment performed for every non-NULL input."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L165-L245",
+          "why": "Shows hsdAllocMemPiece consuming the free-list head, advancing it through the embedded next pointer, and decrementing `nb_free`."
+        }
+      ]
+    },
+    {
+      "id": "fact:8928205d-b487-4158-a48a-c9404fe6faa7",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdFreeMemPiece",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void hsdFreeMemPiece(void* mem, s32 size)`. `mem` is a nullable pointer to a relinquished allocator block, while `size` is its positive requested size in bytes and is mapped to the zero-based 32-byte size class `(size + 31) / 32 - 1`.",
+      "rationale": "The current function definition supplies the exact signature and treats NULL as a no-op. Its lookup expression maps the byte size to a size-class index, while `GetMemoryEntry` requires a nonnegative index and assigns class index `idx` a block size of `(idx + 1) * 32` bytes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdFreeMemPiece",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L234-L245",
+          "why": "Provides the exact signature, nullable block handling, and byte-size-to-class-index expression."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L76-L158",
+          "why": "Shows that `GetMemoryEntry` asserts a nonnegative index and records `(idx + 1) * 32` as the size represented by each class."
+        }
+      ]
+    },
+    {
+      "id": "fact:4ece2e42-c2c4-491e-9a48-096c99c313b9",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdFreeMemPiece",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns a fixed-size allocation to the HSD size-class allocator for reuse. Rather than releasing the storage to the system heap, it places the memory piece on the free list associated with its 32-byte-rounded size class.",
+      "rationale": "The function converts the requested byte size into the same size-class index used by the companion allocator, obtains that class's HSD_MemoryEntry, and pushes the supplied block onto its free list. The companion allocation path later removes and returns blocks from these lists, establishing that this operation recycles storage rather than releasing it to HSD_MemFree.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:06.173Z",
+      "subject": "main/sysdolphin/baselib/class:hsdFreeMemPiece",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L165-L245",
+          "why": "Shows hsdFreeMemPiece pushing a block onto a size-class free list and hsdAllocMemPiece later popping and returning blocks from those lists."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/tobj.c#L1560-L1563",
+          "why": "Shows a concrete caller returning a fixed-size HSD_ImageDesc allocation through hsdFreeMemPiece."
+        }
+      ]
+    },
+    {
+      "id": "fact:73a5dbb1-60e4-4de5-8bcf-6afd23e9e063",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdFreeMemPiece",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "NULL is a no-op. A non-NULL block transitions immediately into the available state for its rounded size class: its leading storage is overwritten with the previous free-list link, it becomes the new list head, and the class's free-block count increases by one. The routine does not reduce `nb_alloc`; that counter continues to describe storage assigned to the size class, while `nb_free` records how much of it is currently reusable. A later allocation from the class reverses the free-list transition by popping the head and decrementing `nb_free`.",
+      "rationale": "The complete target body distinguishes only NULL from non-NULL and mutates the block and entry exactly as a singly linked free-list push. It changes `nb_free` but not `nb_alloc`. The paired allocation path performs the inverse head-pop and free-count decrement, confirming the meaning of this allocator-state transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:06.173Z",
+      "subject": "main/sysdolphin/baselib/class:hsdFreeMemPiece",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L234-L245",
+          "why": "Shows the NULL no-op, overwrite of the relinquished block's embedded next link, head replacement, and sole counter update to `nb_free`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L165-L245",
+          "why": "Shows the inverse allocation transition and distinguishes `nb_free` changes from the allocator's separate `nb_alloc` bookkeeping."
+        }
+      ]
+    },
+    {
+      "id": "fact:10c041e4-7b3f-481e-bfc8-fd38c761d558",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdInitClassInfo",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The destination descriptor receives its library and class-name pointers, object and descriptor sizes, and optional parent pointer from the arguments; its child and sibling links and live/peak instance counters are reset. If a parent exists, the parent's InfoInit callback may populate that descriptor first, then `parent_info->head.info_size - 0x28` bytes beginning at the parent's allocation slot are copied into the child, after which the child's sibling link and the parent's child link are updated to insert the child at the front of the hierarchy.",
+      "rationale": "The current body explicitly assigns every argument-derived header field, resets links and counters, conditionally initializes the parent, copies the inherited region beginning at `alloc`, and performs the two writes that prepend the child to the parent's child list.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdInitClassInfo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+          "why": "Shows all argument-derived descriptor writes, reset fields, conditional parent initialization, inherited-region copy, and parent-child list insertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:a27fdfab-24ae-4cab-87ea-11d63dd156eb",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdInitClassInfo",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Class-descriptor initializer with signature `void hsdInitClassInfo(HSD_ClassInfo* class_info, HSD_ClassInfo* parent_info, char* base_class_library, char* type, s32 info_size, s32 class_size)`. The two size arguments are accepted as signed 32-bit values but stored in signed 16-bit descriptor fields.",
+      "rationale": "The current definition provides the complete return and parameter types, and its assignments explicitly cast both signed 32-bit size arguments to `s16` before storing them in the class-info header.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdInitClassInfo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+          "why": "Provides the exact function signature and shows `class_size` and `info_size` narrowed to signed 16-bit header fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:13af2a0d-c3b4-477e-92bc-9198cd7ba25e",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdInitClassInfo",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Constructs the common runtime metadata for an HSD class descriptor and, for derived classes, establishes inheritance from an initialized parent and registers the new descriptor in the parent's class hierarchy.",
+      "rationale": "The current implementation initializes the descriptor's identity, sizes, state, counters, and hierarchy pointers. When given a parent, it initializes that descriptor if necessary, validates compatible sizes, copies its inheritable region, and links the new descriptor beneath it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdInitClassInfo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+          "why": "Directly shows construction of common class metadata, inheritance from a parent descriptor, and registration in the parent's child hierarchy."
+        }
+      ]
+    },
+    {
+      "id": "fact:322ce60b-f863-4367-aa3c-4548c5a3af7b",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdInitClassInfo",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Initialization sets flag bit 0 on the destination class descriptor and resets it to zero children and zero current and peak instances. For a derived class, an uninitialized parent\u2014identified by flag bit 0 being clear\u2014is initialized through its InfoInit callback before inheritance. The child is accepted only if its object and descriptor sizes are at least those of the parent, then it inherits the parent's dispatch region and becomes the parent's newest child.",
+      "rationale": "The current source retains the initialized-bit assignment and parent guard, both inheritance-size assertions, the inherited-region copy, and front insertion into the parent's child list.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdInitClassInfo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+          "why": "Shows the initialized state, reset counters and links, lazy parent initialization, size invariants, inherited method-region copy, and newest-child transition."
+        }
+      ]
+    },
+    {
+      "id": "fact:26550cc3-5a17-4239-9ae7-3b830bdf6e1b",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdIsDescendantOf",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function receives a candidate class descriptor and an ancestor descriptor. After ensuring both class descriptors are initialized, it repeatedly replaces its candidate cursor with the descriptor's parent pointer; encountering the ancestor produces true, while reaching a null parent produces false. It does not directly modify the hierarchy, although either lazy-initialization callback may establish descriptor metadata before traversal.",
+      "rationale": "The current query checks both inputs, invokes their initialization callbacks when needed, and consumes only the candidate's parent chain. The current class initializer shows that such callback-driven initialization records the parent pointer and may register the descriptor in the hierarchy.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdIsDescendantOf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/class.c#L1-L75",
+          "why": "Shows that class initialization records a descriptor's parent, marks it initialized, and links derived descriptors into the parent's child list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L373-L401",
+          "why": "Shows both query inputs, lazy initialization, the candidate cursor's parent-chain traversal, and the true and false exits."
+        }
+      ]
+    },
+    {
+      "id": "fact:7a32d40a-645a-46c9-9717-0b1198527200",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdIsDescendantOf",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "bool (void* info, void* ancestor), with both non-null arguments semantically pointing to HSD_ClassInfo descriptors; the first is the candidate descendant and the second is the prospective ancestor.",
+      "rationale": "The current definition supplies the exact public C signature. Its body interprets both arguments as class-info descriptors, uses the first as the ancestry cursor, and compares it against the second prospective ancestor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdIsDescendantOf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L373-L401",
+          "why": "Establishes the boolean signature, nullable `void*` parameters, their HSD_ClassInfo interpretation, and their candidate-versus-ancestor roles."
+        }
+      ]
+    },
+    {
+      "id": "fact:8819af15-68ee-4959-91a7-91658385cfe7",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdIsDescendantOf",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Tests whether one HSD runtime class is the same class as, or derives from, a specified ancestor class, enabling subsystems to validate that configurable class descriptors belong to the required object-family hierarchy.",
+      "rationale": "The current implementation walks upward from the candidate class and succeeds exactly when the requested class descriptor appears in that chain, establishing a runtime same-class-or-derived-class predicate.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdIsDescendantOf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L373-L401",
+          "why": "Shows the candidate descriptor being compared with the requested ancestor and then replaced by successive parent descriptors until a match or null terminator is reached."
+        }
+      ]
+    },
+    {
+      "id": "fact:6e7a6d5e-0693-49bb-afe0-97f9c5254f81",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdIsDescendantOf",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If either argument is null, the query returns false without initialization. Otherwise, each descriptor whose initialized flag bit 0 is clear has its info_init callback invoked before ancestry is tested. The relationship is reflexive\u2014a class is considered its own descendant for this query\u2014and transitive through repeated parent links; an unrelated hierarchy terminates at a null parent and returns false.",
+      "rationale": "The current function's null guard precedes both callback checks. Its loop compares the starting descriptor before moving to the parent, proving reflexivity, and continues through every parent until either the requested ancestor or a null root terminator is reached.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:27:55.464Z",
+      "subject": "main/sysdolphin/baselib/class:hsdIsDescendantOf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L373-L401",
+          "why": "Directly shows the early null return, initialized-bit callback guards, comparison before parent advancement, transitive traversal, and false termination at a null parent."
+        }
+      ]
+    },
+    {
+      "id": "fact:53c00303-c3eb-4c09-8111-448905f05e6f",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdNew",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The supplied `HSD_ClassInfo` controls the entire construction pipeline. Its initialization callback is invoked when initialized flag bit 0 is clear, then its allocation callback produces storage. The descriptor's object size determines how many bytes are cleared, and the descriptor pointer is written into the new object's `class_info` field before the descriptor's instance-initialization callback consumes the object. Allocation failure returns `NULL` immediately; instance-initialization failure sends the object to the descriptor's destroy callback and then returns `NULL`; otherwise the initialized object flows back to the caller.",
+      "rationale": "Every input, transformation, and output is explicit in the matched source: class metadata supplies the callbacks and byte count, allocated storage is cleared and tagged with that metadata, and the constructor result determines whether the object is returned or destroyed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:54.590Z",
+      "subject": "main/sysdolphin/baselib/class:hsdNew",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L296-L316",
+          "why": "Directly shows the class descriptor flowing into initialization and allocation, its size controlling `memset`, its address being stored in the object, and the object flowing through initialization, cleanup, or successful return."
+        }
+      ]
+    },
+    {
+      "id": "fact:c27a7f9f-160c-4049-8c25-7919fc39e21f",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdNew",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Generic HSD class constructor with signature `void* hsdNew(HSD_ClassInfo* info)`. Its argument is a class descriptor whose callback table supplies class-info initialization, allocation, instance initialization, and destruction; its result is a pointer to the constructed concrete object or `NULL` on failure.",
+      "rationale": "The matched declaration provides the exact public parameter and return types. The body accesses the argument as an `HSD_ClassInfo`, invokes its lifecycle callbacks, and returns either the allocated object or NULL. Typed CObj and DObj wrappers cast that generic result to their concrete runtime object types.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:54.590Z",
+      "subject": "main/sysdolphin/baselib/class:hsdNew",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L296-L316",
+          "why": "Provides the exact function signature and demonstrates the lifecycle callback interface expected from the supplied class descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1258-L1264",
+          "why": "Demonstrates that the generic return value represents the concrete object type selected by the supplied class descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L258-L266",
+          "why": "Corroborates the generic constructor type by consuming its return value as an `HSD_DObj` when given a DObj class descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:0fd0268a-bd0e-44bb-82e5-4831a0833ce2",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdNew",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Constructs an instance of an HSD runtime class from its `HSD_ClassInfo` descriptor: it ensures the class metadata is initialized, allocates and zero-initializes the class-sized object, associates the object with its class descriptor, and runs the class's constructor callback with cleanup on failure.",
+      "rationale": "The complete matched body performs each stage of generic class-based construction directly. The CObj and DObj allocation wrappers independently show that subsystem-specific object allocators use `hsdNew` with their selected class descriptors, confirming its role as the shared HSD object constructor rather than a constructor for one concrete object type.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:54.590Z",
+      "subject": "main/sysdolphin/baselib/class:hsdNew",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L296-L316",
+          "why": "Shows lazy class initialization, class-dispatched allocation, object-sized zeroing, class association, constructor dispatch, failure cleanup, and return of the completed object."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1258-L1264",
+          "why": "Shows the camera-object allocator passing either its configured subclass or standard CObj class descriptor to `hsdNew` and consuming the result as an `HSD_CObj`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L258-L266",
+          "why": "Shows the display-object allocator using `hsdNew` with a selected DObj class descriptor and consuming the result as an `HSD_DObj`."
+        }
+      ]
+    },
+    {
+      "id": "fact:af788682-8d33-4961-b510-c41c56460913",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdNew",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Construction has a lazy class-initialization guard and three terminal outcomes. If class initialized flag bit 0 is clear, the class's `info_init` callback runs before allocation. A `NULL` allocation ends construction without an object. After successful allocation and baseline object setup, a negative result from the class's `init` callback triggers `destroy` and returns `NULL`; a nonnegative result preserves and returns the constructed object.",
+      "rationale": "The matched control flow explicitly tests the class-initialized flag, guards the allocation result, and treats the sign of the instance-initialization callback's result as the success-versus-destruction transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:54.590Z",
+      "subject": "main/sysdolphin/baselib/class:hsdNew",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L296-L316",
+          "why": "Shows the initialized-bit guard and the allocation-failure, initialization-failure-with-destruction, and successful-return paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:d414b45f-103c-4686-b004-735f2406ab71",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdObjIsDescendantOf",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the object's dynamic class descriptor from `object->parent.class_info`, lazily initializes the requested descriptor through `requested_class->head.info_init` when its initialized flag is clear, and then repeatedly follows each descriptor's `head.parent` pointer. It returns true when the traversed descriptor equals the requested descriptor and false when the chain terminates without a match.",
+      "rationale": "The source directly exposes the dynamic-class read, requested-class initialization guard, parent-chain traversal, comparison, and Boolean result flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:55.956Z",
+      "subject": "main/sysdolphin/baselib/class:hsdObjIsDescendantOf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L403-L421",
+          "why": "Shows all inputs, descriptor reads, lazy initialization, ancestry traversal, and result-producing branches."
+        }
+      ]
+    },
+    {
+      "id": "fact:1c072622-7ee1-43ea-a585-4bcb6b680ef7",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdObjIsDescendantOf",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "bool hsdObjIsDescendantOf(HSD_Obj* object, HSD_ClassInfo* requested_class): both parameters are nullable inputs; the result is false for either null input and otherwise reports whether the object's dynamic class is equal to or descended from the requested class.",
+      "rationale": "The matched definition supplies the exact C signature and explicitly guards both pointers. Its traversal establishes that the second parameter denotes the ancestor class being queried rather than an object instance.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:55.956Z",
+      "subject": "main/sysdolphin/baselib/class:hsdObjIsDescendantOf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L403-L421",
+          "why": "Provides the exact return and parameter types, null handling, and ancestry-test semantics."
+        }
+      ]
+    },
+    {
+      "id": "fact:3ac0c173-f4c9-410e-936c-bcdce00dd826",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdObjIsDescendantOf",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs a runtime class-membership test for an HSD object, returning whether the object's concrete class is the requested class or derives from it through the HSD class hierarchy.",
+      "rationale": "The function begins with the object's class descriptor and walks parent descriptors until it either encounters the requested descriptor or reaches the root. Its caller uses this predicate to reject constraint targets that are not HSD_JObj instances, demonstrating its role as an object-level runtime type check.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:55.956Z",
+      "subject": "main/sysdolphin/baselib/class:hsdObjIsDescendantOf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L403-L421",
+          "why": "Shows the object-level predicate traversing the object's class ancestry and returning true only when the requested class descriptor is encountered."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L912-L934",
+          "why": "Shows a concrete caller using the predicate to enforce that an RObj constraint target belongs to the HSD_JObj class hierarchy."
+        }
+      ]
+    },
+    {
+      "id": "fact:38da74ab-9136-47de-b2e6-2c7cfba57651",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdObjIsDescendantOf",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null object or null requested class immediately yields false. For valid inputs, an uninitialized requested class is initialized before comparison. The object's own class counts as a match, as does any ancestor reached through `head.parent`; reaching a null parent without encountering the requested class yields false.",
+      "rationale": "The initial guard defines the null-input state, flag bit 0 controls lazy initialization of the requested class, and the inclusive parent walk defines the successful and unsuccessful hierarchy states.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:01:55.956Z",
+      "subject": "main/sysdolphin/baselib/class:hsdObjIsDescendantOf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L403-L421",
+          "why": "Shows the null guard, initialized-flag transition, inclusive class comparison, and termination at the end of the parent chain."
+        }
+      ]
+    },
+    {
+      "id": "fact:becd985a-270c-4e95-ab45-1ad0fc205413",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdSearchClassInfo",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input class_name is passed unchanged as the HSD_HashSearch key for the global current_hash, with no success out-parameter requested. The hash lookup's stored value is cast to HSD_ClassInfo* and returned directly. Descriptor loaders consume that pointer as hsdNew's class argument; a NULL result instead directs them to their base-class allocators.",
+      "rationale": "The target body directly exposes the flow from class_name and current_hash into HSD_HashSearch and from its return into the caller. The hash implementation shows that its return originates in the matched entry's value field. The camera and material loaders show the resulting class descriptor controlling subclass construction versus fallback allocation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:09.380Z",
+      "subject": "main/sysdolphin/baselib/class:hsdSearchClassInfo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L474-L481",
+          "why": "Shows current_hash and class_name flowing into HSD_HashSearch with a null success argument, followed by direct return of the cast result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+          "why": "Shows the key flowing through hash-entry search and the matched entry's value becoming the lookup result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1322-L1340",
+          "why": "Shows a successful class-info result flowing into hsdNew and a NULL result selecting HSD_CObjAlloc."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Shows the same result flow into subclass construction or base material-object allocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:57bae3e9-b1b6-468b-8634-e6c5f27f379d",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdSearchClassInfo",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `HSD_ClassInfo* hsdSearchClassInfo(const char* class_name)`: it accepts a class-name string and returns the corresponding class descriptor pointer, or NULL when lookup cannot produce one.",
+      "rationale": "The matched definition provides the exact parameter and return types. Its absent-hash branch returns NULL, while HSD_HashSearch establishes that an unsuccessful key search also returns NULL.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:09.380Z",
+      "subject": "main/sysdolphin/baselib/class:hsdSearchClassInfo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L474-L481",
+          "why": "Provides the exact function signature and the explicit NULL result when current_hash is unavailable."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+          "why": "Shows that the delegated hash lookup returns NULL for an unmatched key."
+        }
+      ]
+    },
+    {
+      "id": "fact:a386177d-8cb8-4b65-9d45-ca4e9c3af121",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdSearchClassInfo",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Looks up an HSD class descriptor by its class-name string in the currently installed class hash, returning the registered HSD_ClassInfo or NULL when the hash is unavailable or the name is not registered. Descriptor loaders use this result to instantiate a named subclass instead of their base object class.",
+      "rationale": "The complete function delegates the class-name key to HSD_HashSearch only when current_hash exists and otherwise returns NULL. HSD_HashSearch returns the matched entry's stored value or NULL. Camera and material descriptor loaders demonstrate the lookup's subsystem role: a successful result is passed to hsdNew for subclass construction, while a failed result selects the base allocator.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:09.380Z",
+      "subject": "main/sysdolphin/baselib/class:hsdSearchClassInfo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L474-L481",
+          "why": "Shows hsdSearchClassInfo conditionally searching current_hash with the supplied class name and returning NULL when no hash is installed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+          "why": "Shows that HSD_HashSearch returns the matched hash entry's stored value and returns NULL when no entry matches."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1322-L1340",
+          "why": "Shows a descriptor loader using the returned HSD_ClassInfo with hsdNew and falling back to base HSD_CObj allocation when class lookup fails."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Independently shows the same registered-subclass versus base-allocation use of the class lookup for material descriptors."
+        }
+      ]
+    },
+    {
+      "id": "fact:ec46f657-e271-42ab-ace4-caebe04ea205",
+      "target_id": "target:function:main/sysdolphin/baselib/class:hsdSearchClassInfo",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Lookup is enabled only while current_hash is non-NULL. With no installed hash, the function immediately returns NULL; with a hash, it performs one name lookup and returns either the registered descriptor or NULL for a miss. The function does not initialize, replace, or otherwise mutate the registry.",
+      "rationale": "The entire matched body consists of a current_hash guard, one delegated lookup, and the absent-hash NULL return. The hash implementation distinguishes matches from misses by returning the entry value or NULL, and neither source writes current_hash or the hash table.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:02:09.380Z",
+      "subject": "main/sysdolphin/baselib/class:hsdSearchClassInfo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L474-L481",
+          "why": "Shows the installed-hash guard, single delegated search, absent-hash NULL result, and lack of registry mutation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+          "why": "Shows the delegated lookup returning a stored value for a match and NULL for a miss."
+        }
+      ]
+    },
+    {
+      "id": "fact:dcdf4f8f-7610-446b-a7ce-8c650146b299",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/class.c",
+      "type": "data_flow",
+      "value": "Class descriptors enter the runtime through `hsdInitClassInfo`, which records their names, sizes, parent relationship, initialization state, and inherited method table, then links each descriptor into its parent's child list. Object allocation and destruction update the descriptor's live and peak instance counts while exchanging storage with the unit's size-class allocator. Library forgetting traverses the descriptor tree child-first, invokes each class's `amnesia` callback, detaches its hierarchy links, and clears its initialized flag; class-name searches consume the unit's current hash pointer when one is available.",
+      "rationale": "The current initialization routine still builds the class hierarchy and inherits methods. Allocation and destruction retain their counter and allocator flow, while forgetting and search consume the resulting hierarchy and hash state as described.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T16:59:05.391Z",
+      "subject": "src/sysdolphin/baselib/class.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L1-L500",
+          "why": "Shows descriptor metadata and inherited methods entering the class tree, instance counters changing with allocation and destruction, and class lookup and forgetting consuming runtime state."
+        }
+      ]
+    },
+    {
+      "id": "fact:70db724a-3df3-4790-b7f2-3cef7ede3935",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/class.c",
+      "type": "purpose",
+      "value": "Implements the HSD class/object runtime and its supporting size-class memory-pool infrastructure, including class registration and inheritance, object allocation and destruction, lifecycle callbacks, runtime class queries, and allocator statistics.",
+      "rationale": "The current unit initializes inherited class descriptors, manages size-class free lists and instance counters, constructs and destroys objects, performs ancestry and hash-backed class queries, reports statistics, and recursively forgets class libraries.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T16:59:05.391Z",
+      "subject": "src/sysdolphin/baselib/class.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L1-L500",
+          "why": "Shows class registration and inheritance, size-class memory-pool management, object lifecycle, class queries, statistics, and library forgetting."
+        }
+      ]
+    },
+    {
+      "id": "fact:ed9928d8-e700-4b5d-ae75-e5c80d069099",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/class.c",
+      "type": "state_behavior",
+      "value": "A class descriptor is initialized when flag bit 0 is set; operations that require an uninitialized descriptor call its `info_init` callback first. Initialization inserts derived classes beneath their parent and starts their live and peak counts at zero. Forgetting a library recursively forgets descendants before their parent, invokes each descriptor's `amnesia` callback, clears its child and parent links, and clears the initialized bit. Forgetting the root library additionally invalidates the class hash and, through the root amnesia callback, resets the allocator-table globals.",
+      "rationale": "The current lazy initialization path retains the initialized-bit guard and parent insertion. Recursive forgetting still processes children first, invokes amnesia, removes hierarchy state, clears the flag, and gives the root class special hash and allocator reset behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T16:59:05.391Z",
+      "subject": "src/sysdolphin/baselib/class.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L1-L500",
+          "why": "Shows lazy class initialization, parent-child insertion, zeroed counters, child-first forgetting, amnesia callbacks, hierarchy detachment, initialized-bit clearing, and root runtime reset."
+        }
+      ]
+    }
+  ]
+}

@@ -11,7 +11,7 @@ import sys
 from typing import Any
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from toolpack_runtime import clamp_int, clip, tool_env, import_tool_module, print_json, resolve_repo_root
+from toolpack_runtime import clamp_int, clip, tool_env, import_tool_module, print_json, project_layout, repo_path_label, resolve_repo_root
 
 
 def parse_score_line(line: str) -> dict[str, Any]:
@@ -143,14 +143,16 @@ def main() -> None:
         return
 
     try:
+        layout = project_layout(repo_root)
         ninja_compile = import_tool_module("ninja_compile", repo_root)
         objdiff_path = import_tool_module("objdiff_path", repo_root)
         unit = args.unit or ninja_compile.find_unit_for_function(args.function)
         if not unit:
-            payload.update({"status": "function_not_found", "message": "Function was not found in build/GALE01/report.json."})
+            report = repo_path_label(repo_root, layout.report_path)
+            payload.update({"status": "function_not_found", "message": f"Function was not found in {report}."})
             print_json(payload)
             return
-        target = repo_root / "build" / "GALE01" / "obj" / f"{unit}.o"
+        target = repo_root / layout.target_object_path_for_unit(unit)
         if not target.exists():
             payload.update({"status": "target_object_not_found", "unit": unit, "target_object": str(target)})
             print_json(payload)

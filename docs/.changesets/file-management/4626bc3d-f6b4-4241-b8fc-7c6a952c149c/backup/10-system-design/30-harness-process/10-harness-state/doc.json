@@ -1,0 +1,486 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-10-state-composition-10-harness-state",
+  "title": "Harness State",
+  "root": "b-10-harness-state-root-16",
+  "blocks": {
+    "b-10-harness-state-root-16": {
+      "id": "b-10-harness-state-root-16",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "continuing-harness-0",
+        "continuing-harness-1",
+        "continuing-harness-2",
+        "continuing-harness-3",
+        "continuing-harness-4",
+        "continuing-harness-5",
+        "continuing-state-shape",
+        "sweep-e82d1eae976c4842",
+        "sweep-27539f8bdccb41a2",
+        "sweep-96131d10e2c44ab6-shape",
+        "sweep-aef3068091f348dc",
+        "sweep-9af2086e446e42ce",
+        "sweep-5960bb76a77c4906",
+        "sweep-ea8000bfd78142ea-shape",
+        "sweep-093761a6b3534759",
+        "sweep-c146598018a6470b",
+        "sweep-32c26226036d4707",
+        "sweep-cfa31582c2694c00",
+        "sweep-5f1bb24a8a194daf"
+      ]
+    },
+    "continuing-harness-0": {
+      "id": "continuing-harness-0",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Harness state owns one game's canonical worktree, accepted source head, latest accepted upstream revision, workflow status, and blockers. It survives process restarts and pauses. Dispatch coordination stores exclusive lease authority separately."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-1": {
+      "id": "continuing-harness-1",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Accepted Ownership"
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-2": {
+      "id": "continuing-harness-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync and Run are the two main workflows. Idle, paused, and blocked describe execution status. Epoch, Sync, and save-point records remain separate durable records linked from the harness timeline."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-3": {
+      "id": "continuing-harness-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Initial Sync validates the configured checkout and establishes readiness. Every completed epoch runs Sync before another epoch can start. Automatic epoch Sync retains the fenced Run lease; manual Sync uses the dispatch handoff. Desired pause survives either path."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-4": {
+      "id": "continuing-harness-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Only accepted integration or source reconciliation advances the harness head. The latest upstream revision changes only after accepted reconciliation. Preserve initial and historical baselines in evidence records and distinguish state revision numbers from Git revisions."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-5": {
+      "id": "continuing-harness-5",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Source and Execution State"
+        }
+      ],
+      "children": []
+    },
+    "continuing-state-shape": {
+      "id": "continuing-state-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"identity\": {\n    \"game_id\": \"example-game\",\n    \"harness_id\": \"harness-1\",\n    \"revision\": 42\n  },\n  \"source\": {\n    \"worktree\": \"./workspace/checkout\",\n    \"head\": \"commit-B\",\n    \"upstream_revision\": \"upstream-U\",\n    \"configuration_revision\": \"config-3\"\n  },\n  \"execution\": {\n    \"desired\": \"run\",\n    \"workflow\": \"sync\",\n    \"status\": \"active\",\n    \"blockers\": []\n  },\n  \"readiness\": {\n    \"build\": \"ready\",\n    \"sources\": \"ready\",\n    \"sandbox\": \"ready\",\n    \"evidence\": \"ready\"\n  },\n  \"history\": {\n    \"run_id\": \"run-7\",\n    \"epoch_id\": \"epoch-12\",\n    \"sync_id\": \"sync-13\",\n    \"timeline_cursor\": 128,\n    \"save_point_id\": \"save-epoch-12\"\n  }\n}",
+        "fields": [
+          {
+            "name": "identity",
+            "type": "object",
+            "description": "Stable game/harness identity and revision for concurrent state updates.",
+            "fields": [
+              {
+                "name": "game_id",
+                "type": "string"
+              },
+              {
+                "name": "harness_id",
+                "type": "string"
+              },
+              {
+                "name": "revision",
+                "type": "number",
+                "description": "Optimistic concurrency revision; independent of dispatch and source revisions."
+              }
+            ]
+          },
+          {
+            "name": "source",
+            "type": "object",
+            "description": "Canonical source truth.",
+            "fields": [
+              {
+                "name": "worktree",
+                "type": "string",
+                "description": "Maintained host checkout."
+              },
+              {
+                "name": "head",
+                "type": "revision | null",
+                "description": "Null until initial source acceptance."
+              },
+              {
+                "name": "upstream_revision",
+                "type": "revision | null",
+                "description": "Last accepted upstream, separate from observed remote tip."
+              },
+              {
+                "name": "configuration_revision",
+                "type": "string",
+                "description": "Configuration/build identity used for this state."
+              }
+            ]
+          },
+          {
+            "name": "execution",
+            "type": "object",
+            "description": "Control and authority.",
+            "fields": [
+              {
+                "name": "desired",
+                "type": "run | paused",
+                "description": "Preserved across Sync and restarts."
+              },
+              {
+                "name": "workflow",
+                "type": "sync | run | none",
+                "description": "At most one source mutation owner."
+              },
+              {
+                "name": "status",
+                "type": "initializing | active | idle | paused | blocked",
+                "description": "Status is separate from workflow."
+              },
+              {
+                "name": "blockers",
+                "type": "Blocker[]",
+                "description": "Causal failures and recovery requirements."
+              }
+            ]
+          },
+          {
+            "name": "readiness",
+            "type": "object",
+            "description": "Build, source-stage, sandbox, and evidence gates.",
+            "fields": [
+              {
+                "name": "build",
+                "type": "pending | ready | blocked"
+              },
+              {
+                "name": "sources",
+                "type": "pending | ready | blocked"
+              },
+              {
+                "name": "sandbox",
+                "type": "pending | ready | blocked"
+              },
+              {
+                "name": "evidence",
+                "type": "pending | ready | blocked"
+              }
+            ]
+          },
+          {
+            "name": "history",
+            "type": "object",
+            "description": "References to run/epoch/Sync records, ordered timeline cursor, and latest save point; not embedded full history.",
+            "fields": [
+              {
+                "name": "run_id",
+                "type": "string | null"
+              },
+              {
+                "name": "epoch_id",
+                "type": "string | null"
+              },
+              {
+                "name": "sync_id",
+                "type": "string | null"
+              },
+              {
+                "name": "timeline_cursor",
+                "type": "number"
+              },
+              {
+                "name": "save_point_id",
+                "type": "string | null"
+              }
+            ]
+          }
+        ],
+        "name": "HarnessState",
+        "source": {
+          "path": "apps/server/src/core/harness-state/state.ts",
+          "symbol": "HarnessState"
+        }
+      },
+      "children": []
+    },
+    "sweep-e82d1eae976c4842": {
+      "id": "sweep-e82d1eae976c4842",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "DispatchState owns dispatch authority, queued requests, blockers, and event provenance. HarnessState owns source lineage, readiness, execution intent, and timeline links. The dashboard composes these records with run, Sync, and knowledge summaries."
+        }
+      ],
+      "children": []
+    },
+    "sweep-27539f8bdccb41a2": {
+      "id": "sweep-27539f8bdccb41a2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Dispatch Coordination State"
+        }
+      ],
+      "children": []
+    },
+    "sweep-96131d10e2c44ab6-shape": {
+      "id": "sweep-96131d10e2c44ab6-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"game_id\": \"melee\",\n  \"revision\": 8,\n  \"active_workflow\": {\n    \"kind\": \"run\",\n    \"workflow_id\": \"run-7\",\n    \"lease_id\": \"lease-run-7\",\n    \"status\": \"active\",\n    \"acquired_at\": \"2026-09-11T18:00:00Z\",\n    \"heartbeat_at\": \"2026-09-11T18:01:00Z\",\n    \"blockers\": [],\n    \"requested_handoff\": {\n      \"target_kind\": \"sync\",\n      \"target_workflow_id\": \"sync-13\",\n      \"reason\": \"Refresh upstream after current claims settle.\",\n      \"requested_at\": \"2026-09-11T18:01:00Z\",\n      \"requested_by\": \"operator\",\n      \"request_command_id\": \"command-sync-13\",\n      \"request_root_span_id\": \"span-22222222-2222-4222-8222-222222222222\",\n      \"request_event_id\": \"event-sync-request-13\"\n    }\n  },\n  \"blockers\": [],\n  \"queued_dispatch_requests\": [\n    {\n      \"kind\": \"sync\",\n      \"workflow_id\": \"sync-13\",\n      \"reason\": \"Refresh upstream after current claims settle.\",\n      \"requested_at\": \"2026-09-11T18:01:00Z\",\n      \"requested_by\": \"operator\",\n      \"request_command_id\": \"command-sync-13\",\n      \"request_root_span_id\": \"span-22222222-2222-4222-8222-222222222222\",\n      \"request_event_id\": \"event-sync-request-13\"\n    }\n  ],\n  \"trace_id\": \"trace-run-7\",\n  \"caused_by_event_id\": \"event-sync-request-13\",\n  \"created_at\": \"2026-09-11T18:00:00Z\",\n  \"updated_at\": \"2026-09-11T18:01:00Z\"\n}",
+        "fields": [
+          {
+            "name": "game_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "revision",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "active_workflow",
+            "type": "DispatchLease | null",
+            "required": true
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]",
+            "required": true
+          },
+          {
+            "name": "queued_dispatch_requests",
+            "type": "QueuedDispatchRequest[]",
+            "required": true
+          },
+          {
+            "name": "trace_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "caused_by_event_id",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "created_at",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "updated_at",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "name": "DispatchState",
+        "source": {
+          "path": "apps/server/src/core/harness-state/types.ts",
+          "symbol": "DispatchState"
+        }
+      },
+      "children": []
+    },
+    "sweep-aef3068091f348dc": {
+      "id": "sweep-aef3068091f348dc",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run, Sync, and knowledge payloads remain in their domain stores. Harness state links these records without embedding the entire history."
+        }
+      ],
+      "children": []
+    },
+    "sweep-9af2086e446e42ce": {
+      "id": "sweep-9af2086e446e42ce",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "One Dispatch Owner"
+        }
+      ],
+      "children": []
+    },
+    "sweep-5960bb76a77c4906": {
+      "id": "sweep-5960bb76a77c4906",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "At most one workflow holds active_workflow for a game. The lease kind vocabulary retains run, pr, and sync. A queued request grants no authority. "
+        },
+        {
+          "insert": "Dispatch Authority and Handoffs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness-process/50-dispatch-authority"
+            }
+          }
+        },
+        {
+          "insert": " owns acquisition, fencing, settlement, and recovery."
+        }
+      ],
+      "children": []
+    },
+    "sweep-ea8000bfd78142ea-shape": {
+      "id": "sweep-ea8000bfd78142ea-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"kind\": \"sync\",\n  \"workflow_id\": \"sync-13\",\n  \"reason\": \"Refresh upstream after current claims settle.\",\n  \"requested_at\": \"2026-09-11T18:01:00Z\",\n  \"requested_by\": \"operator\",\n  \"request_command_id\": \"command-sync-13\",\n  \"request_root_span_id\": \"span-22222222-2222-4222-8222-222222222222\",\n  \"request_event_id\": \"event-sync-request-13\"\n}",
+        "fields": [
+          {
+            "name": "kind",
+            "type": "\"run\" | \"pr\" | \"sync\"",
+            "required": true
+          },
+          {
+            "name": "workflow_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "requested_at",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "requested_by",
+            "type": "EventActor",
+            "required": true
+          },
+          {
+            "name": "request_command_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "request_root_span_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "request_event_id",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "name": "QueuedDispatchRequest",
+        "source": {
+          "path": "apps/server/src/core/harness-state/types.ts",
+          "symbol": "QueuedDispatchRequest"
+        }
+      },
+      "children": []
+    },
+    "sweep-093761a6b3534759": {
+      "id": "sweep-093761a6b3534759",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The lease carries workflow_id, lease_id, status, acquisition and heartbeat times, blockers, and an optional requested_handoff. A handoff uses target_kind and target_workflow_id plus the request lineage. Null active_workflow means authority is free, even when domain workflow records remain readable."
+        }
+      ],
+      "children": []
+    },
+    "sweep-c146598018a6470b": {
+      "id": "sweep-c146598018a6470b",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Projection and Revisions"
+        }
+      ],
+      "children": []
+    },
+    "sweep-32c26226036d4707": {
+      "id": "sweep-32c26226036d4707",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Operator Actions owns the dashboard action projection. Dispatch coordination and harness state each have independent revisions. Neither revision is a Git commit or a shared version copied onto all domain records."
+        }
+      ],
+      "children": []
+    },
+    "sweep-cfa31582c2694c00": {
+      "id": "sweep-cfa31582c2694c00",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Accepted coordination changes record event provenance with the state transition. created_at and updated_at preserve record timing. caused_by_event_id may be null at initialization, so reconstruction must not invent an accepted event for that initial value."
+        }
+      ],
+      "children": []
+    },
+    "sweep-5f1bb24a8a194daf": {
+      "id": "sweep-5f1bb24a8a194daf",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "HarnessState is defined in apps/server/src/core/harness-state/state.ts. DispatchState is defined in apps/server/src/core/harness-state/types.ts. Dashboard composition is implemented in apps/server/src/application/dashboard/read-model.ts."
+        }
+      ],
+      "children": []
+    }
+  }
+}

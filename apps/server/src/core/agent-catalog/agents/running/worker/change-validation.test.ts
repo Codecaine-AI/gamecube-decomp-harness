@@ -540,6 +540,28 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
     expect(commands.some((command) => command[0] === "build/tools/objdiff-cli")).toBe(false);
   });
 
+  test.each([
+    [undefined, "build/GALE01/src/MarioUtil/DrawUtil.o"],
+    [{ reportPath: "build/GMSJ01/report.json" }, "build/GMSJ01/src/MarioUtil/DrawUtil.o"],
+  ] as const)("builds the object target from the game report layout", async (validation, expectedTarget) => {
+    const outputDir = await mkdtemp(join(tmpdir(), "game-layout-baseline-"));
+    const commands: string[][] = [];
+    const baseline = await captureWorkerChangeBaseline({
+      repoRoot: "/workspace/game",
+      outputDir,
+      target: { unit: "MarioUtil/DrawUtil.cpp", symbol: "DrawUtil", source_path: "src/MarioUtil/DrawUtil.cpp" },
+      validation,
+      workspaceExec: fakeWorkspaceExec(async (command) => {
+        commands.push(command);
+        if (command[0] === "cat") return { exitCode: 0, stdout: "int source;\n", stderr: "" };
+        return { exitCode: 1, stdout: "", stderr: "stop after recording the build target" };
+      }),
+    });
+
+    expect(baseline.status).toBe("build_failed");
+    expect(commands.find((command) => command[0] === "ninja")).toEqual(["ninja", expectedTarget]);
+  });
+
   test("routes sandbox build and objdiff through WorkspaceExec without worker ninja slots", async () => {
     const outputDir = await mkdtemp(join(tmpdir(), "sandbox-change-baseline-"));
     const calls: Array<{ command: string[]; options?: WorkspaceExecOptions }> = [];
@@ -1083,6 +1105,44 @@ describe("validateWorkerChange micro-gate integration", () => {
     expect(validation.microGates?.status).toBe("skipped");
   });
 
+  test("uses the game layout for post-attempt object and symbol checks", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "micro-game-layout-validation-"));
+    const commands: string[][] = [];
+    const report = JSON.stringify({
+      left: {
+        sections: [{ name: ".data", match_percent: 100, size: 53200 }],
+        symbols: [{ name: target.symbol, match_percent: 75, size: 16, instructions: [] }],
+      },
+    });
+    const baseline = { ...baselineWithDataSection(), objectTarget: undefined };
+    const validation = await validateWorkerChange({
+      repoRoot: "/workspace/micro-game-layout",
+      hostRepoRoot: "/host/sms",
+      outputDir,
+      attemptIndex: 0,
+      baseline,
+      target,
+      dryRun: false,
+      shouldRun: true,
+      claimedExact: false,
+      validation: { reportPath: "build/GMSJ01/report.json" },
+      microGateFlags: { sectionParity: false, undefinedSymbols: true, bannedIdioms: false },
+      workspaceExec: fakeWorkspaceExec(async (command) => {
+        commands.push(command);
+        if (command[0] === "build/tools/objdiff-cli") return { exitCode: 0, stdout: report, stderr: "" };
+        if (command[0] === "python3") return { exitCode: 0, stdout: "KnownSymbol\n", stderr: "" };
+        if (command[0] === "cat" && command[1] === "config/GMSJ01/symbols.txt") {
+          return { exitCode: 0, stdout: "KnownSymbol = .text:0x80000000;", stderr: "" };
+        }
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }),
+    });
+
+    expect(validation.status).toBe("passed");
+    expect(commands).toContainEqual(["ninja", "build/GMSJ01/src/melee/ft/ftcoll.o"]);
+    expect(commands).toContainEqual(["cat", "config/GMSJ01/symbols.txt"]);
+  });
+
   test("an added bare short fails the banned-idiom micro-gate", async () => {
     const outputDir = await mkdtemp(join(tmpdir(), "micro-idiom-validation-"));
     const validation = await validateWorkerChange({
@@ -1120,7 +1180,9 @@ describe("validateWorkerChange micro-gate integration", () => {
       sourceSnapshotPaths: [sourcePath],
     };
     const baseExec = scoreWorkspaceExec(100);
+    const commands: string[][] = [];
     const workspaceExec = fakeWorkspaceExec(async (command, options) => {
+      commands.push(command);
       if (command[0] === "cat" && command[1] === sourcePath) return { exitCode: 0, stdout: afterSource, stderr: "" };
       return baseExec.exec(command, options);
     });
@@ -1134,6 +1196,7 @@ describe("validateWorkerChange micro-gate integration", () => {
       dryRun: false,
       shouldRun: true,
       claimedExact: false,
+      validation: { reportPath: "build/GMSJ01/report.json" },
       microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: true },
       postAttemptDiffText: `diff --git a/${sourcePath} b/${sourcePath}\n-char shared[1] = "";\n+volatile char shared[1] = "";`,
       workspaceExec,
@@ -1141,5 +1204,6 @@ describe("validateWorkerChange micro-gate integration", () => {
 
     expect(validation.status).toBe("failed");
     expect(validation.reasons).toContainEqual(expect.stringContaining("micro_gate:banned_idioms: qualifier_changed_on_shared_global"));
+    expect(commands).toContainEqual(["cat", "config/GMSJ01/symbols.txt"]);
   });
 });

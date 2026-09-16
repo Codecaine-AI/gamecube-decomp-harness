@@ -178,8 +178,9 @@ function looksLikeVariableIdentifier(identifier: string): boolean {
   return /^[a-z]/.test(identifier) || /^(?:fn|lbl|un)_[0-9A-Fa-f_]+$/.test(identifier) || /_[0-9A-Fa-f]{6,8}$/.test(identifier);
 }
 
-function isCSourcePath(path: string): boolean {
-  return /\.(?:c|h)$/i.test(path);
+/** C and C++ source/header paths (MWCC decomps ship both .c and .cpp trees). */
+export function isCSourcePath(path: string): boolean {
+  return /\.(?:c|h|cpp|hpp|cc|hh)$/i.test(path);
 }
 
 function bodyHasStringLiteral(body: string): boolean {

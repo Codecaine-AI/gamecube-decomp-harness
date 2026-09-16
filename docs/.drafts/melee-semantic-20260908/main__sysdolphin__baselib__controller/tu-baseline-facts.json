@@ -1,0 +1,2116 @@
+{
+  "tu": "main/sysdolphin/baselib/controller",
+  "facts": [
+    {
+      "id": "fact:b535d9e5-b39a-49c9-b646-b1f63465e5fc",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`HSD_PadInit` copies default configuration into `HSD_PadLibData`, installs caller-supplied raw-queue storage, and initializes all twelve status records. `PADRead` samples then enter the queue governed by the library object's indices, count, capacity, and overflow policy. Master renewal consumes one queued four-port sample into `HSD_PadMasterStatus`, applies input transformations, and derives transition and repeat fields; copy and game renewal publish the master values into their respective four-port snapshots. The library object also receives hardware RESET-switch history and the resulting sticky reset request.",
+      "rationale": "Current-head initialization, raw polling, master renewal, and publication code preserve the complete flow through the writable controller globals, so the claim remains valid after the cited source drift.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows PADRead samples entering the configured raw queue and RESET-switch observations updating the library object's latch fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L448",
+          "why": "Shows one queued four-port sample being consumed and transformed into master status, button edges, and repeat state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L448-L595",
+          "why": "Shows master state being published to copy and game snapshots and the live globals being initialized from defaults."
+        }
+      ]
+    },
+    {
+      "id": "fact:2f10afc2-bb36-49a0-a03e-50e0feaec28d",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.bss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Stores the live software representation of Melee's four-port GameCube controller input pipeline: buffered hardware samples, calibrated and normalized master input, separately published copy and game snapshots, button edges, held-button repeats, and the latched console RESET request.",
+      "rationale": "The current declarations and renewal routines still identify these globals as the persistent four-port queue, transformed status, published snapshots, and console-reset state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Declares the live PadLibData object and the master, copy, and game four-port status arrays."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows hardware controller samples and console RESET-switch state entering the live controller-library state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L448",
+          "why": "Shows queued input becoming transformed analog state, button transitions, and held-button repeat state."
+        }
+      ]
+    },
+    {
+      "id": "fact:320db9c4-4169-4ab1-a7c3-1e4ce8f1f9bf",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An uninitialized static-data aggregate laid out as one `PadLibData HSD_PadLibData`, followed by `HSD_PadStatus HSD_PadMasterStatus[4]`, `HSD_PadStatus HSD_PadCopyStatus[4]`, and `HSD_PadStatus HSD_PadGameStatus[4]`. It is a section containing four authored globals rather than one independently typed object.",
+      "rationale": "The current source retains the same exact declaration types, extents, and order for the four uninitialized globals.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Provides the names, concrete types, array extents, and declaration order of the four globals comprising the section."
+        }
+      ]
+    },
+    {
+      "id": "fact:ff05562f-9ec0-4648-b075-e6ba8c03f438",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the controller translation unit's persistent, writable state: the global pad-library configuration and raw-queue bookkeeping, plus master, copy, and game-facing status records for all four controller ports.",
+      "rationale": "The current declarations identify the section's persistent objects, while raw renewal and initialization continue to use them as queue bookkeeping and four-port controller status storage.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Declares HSD_PadLibData and the three four-element HSD_PadStatus arrays."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Shows initialization of the library object and every master, copy, and game status slot."
+        }
+      ]
+    },
+    {
+      "id": "fact:00855d35-d0fe-4065-a1ac-97dcc7582bdb",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "As uninitialized static storage, the section begins zeroed; `HSD_PadInit` then replaces that state with the default library configuration, caller-supplied queue parameters, and default records for all four ports in each status array. During operation, queue indices and counts advance under interrupt protection, master slots retain and compare their previous button masks to generate press, release, and repeat state, and copy and game slots independently maintain equivalent snapshot transitions. A console RESET assertion sets a history byte, and its later deassertion sets a sticky reset-request byte.",
+      "rationale": "Current-head declarations, initialization, raw queue handling, and status-renewal branches preserve all of the section's described initialization and runtime transitions.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Shows the uninitialized file-scope objects that begin as zero-initialized static storage."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows queue occupancy and index transitions plus the asserted-then-deasserted RESET-switch latch transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L448",
+          "why": "Shows master-status button history, edge generation, and repeat countdown and reload behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Shows unconditional replacement of library state and all twelve status records during initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:a0a4cadd-746b-4e29-84b0-88c51937f7de",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "During HSD_PadInit, default_libinfo_data is copied into HSD_PadLibData, after which the caller's queue capacity and queue pointer replace the template's empty queue configuration. In the same initialization pass, default_status_data is copied into each of the four HSD_PadMasterStatus, HSD_PadCopyStatus, and HSD_PadGameStatus slots. Runtime renewal routines subsequently use the copied PadLibData thresholds and repeat timings while replacing the copied status values with sampled and processed controller input.",
+      "rationale": "The initializer shows the templates flowing into live globals and the immediate replacement of qnum and queue with caller-owned storage. The master-status code then reads clamp, conversion, and repeat fields from HSD_PadLibData and writes processed samples into HSD_PadMasterStatus, while the copy and game renewal routines propagate that live state into their respective arrays.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:00:10.335Z",
+      "subject": "main/sysdolphin/baselib/controller:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L579-L595",
+          "why": "Shows the default records flowing into live library and per-port status state, followed by caller queue installation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L158-L368",
+          "why": "Shows runtime clamp and analog-to-digital processing reading configuration fields from the live PadLibData copied from the template."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L368-L448",
+          "why": "Shows sampled controller fields replacing master-status defaults and repeat timing being read from live PadLibData."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L448-L595",
+          "why": "Shows processed master state flowing into the copy and game status arrays initialized from default_status_data."
+        }
+      ]
+    },
+    {
+      "id": "fact:9d580663-791f-401e-8d4d-84930f0cc218",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.data",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the baseline configuration for Melee's four-port controller-input processing: neutral per-port input snapshots, button-repeat timing, stick deadzone and directional-conversion thresholds, analog clamping and normalization limits, and cleared console-reset state. These defaults ensure that controller input begins from a controlled state before hardware samples are accepted and published to game systems.",
+      "rationale": "The current initializers and struct definition retain the neutral status and controller-processing parameters, and HSD_PadInit still installs them into the live four-port input subsystem.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:44:08.847Z",
+      "subject": "main/sysdolphin/baselib/controller:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Shows the initialized neutral status and controller-processing configuration records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/controller.h#L1-L120",
+          "why": "Maps the initialized values to per-port status, queue, repeat, conversion, clamp, scaling, and reset-switch fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Shows the defaults being installed into the live controller library and all four entries of each status array."
+        }
+      ]
+    },
+    {
+      "id": "fact:cc726855-2653-482f-b8e9-4abaf6a9e768",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Initialized-data layout: `HSD_PadStatus default_status_data` followed by `PadLibData default_libinfo_data`. HSD_PadStatus contains digital button history and edges, repeat state, raw and normalized stick and analog values, cross-direction state, and an error byte; PadLibData contains raw-queue configuration, repeat timing, analog-to-digital conversion settings, clamp and scale settings, reset-switch state, and rumble information.",
+      "rationale": "The current source retains the two initialized records in that order, while the current header preserves the complete semantic layouts of HSD_PadStatus and PadLibData.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:08.847Z",
+      "subject": "main/sysdolphin/baselib/controller:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/controller.h#L1-L120",
+          "why": "Defines the complete field layouts of HSD_PadStatus and PadLibData at the current head."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Defines default_status_data followed by default_libinfo_data with their concrete C types and aggregate initializers."
+        }
+      ]
+    },
+    {
+      "id": "fact:d95178c3-a7d3-4d80-9707-b2c3ba593f08",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the initialized default templates used to bootstrap HSD's controller layer: one neutral HSD_PadStatus record and one PadLibData configuration record. HSD_PadInit copies these templates into the live controller-library state and all four entries of the master, copy, and game status arrays.",
+      "rationale": "The current source still defines the two initialized templates and copies them wholesale into the live library and twelve per-port status records.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Shows the two initialized default records and their concrete C types."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Shows HSD_PadInit copying the library template once and the status template into all twelve status records."
+        }
+      ]
+    },
+    {
+      "id": "fact:24700564-5c51-4a9e-a6ce-4810debb4379",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.data",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each HSD_PadInit invocation restores the live controller subsystem from these templates before installing new queue storage. The status template begins with no buttons, edges, repeats, analog values, or normalized values and with a nonzero error state; the library template begins with an empty queue, a 45-update initial repeat delay and 8-update repeat interval, a stick conversion threshold of 30, neutral reset-switch state, and configured clamp and scaling limits. Runtime processing then transitions the copied status records away from these defaults as valid or erroneous PAD samples arrive.",
+      "rationale": "The current aggregate definitions and field layout preserve the stated initial values, HSD_PadInit still copies both templates on every invocation, and master renewal still replaces those defaults according to valid and erroneous PAD samples.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:44:08.847Z",
+      "subject": "main/sysdolphin/baselib/controller:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Shows the explicit aggregate values for the neutral status template and controller-library configuration template."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/controller.h#L1-L120",
+          "why": "Maps the aggregate positions to button, edge, repeat, analog, queue, conversion, clamp, scaling, reset, and error fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L448",
+          "why": "Shows valid and erroneous samples transitioning master status away from the template and repeat timing controlling repeat output."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Shows every HSD_PadInit invocation restoring live library and per-port status state from the templates before installing queue storage."
+        }
+      ]
+    },
+    {
+      "id": "fact:1a92f4a2-a222-40cd-ab47-4e0875b6e073",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.rodata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The HSD_PadRenewRawStatus port-loop index selects one entry from pad_bit whenever now[i].err equals -1. Selected channel bits are ORed into a local u32 mask; after all four ports are examined, a nonzero combined mask flows to PADReset.",
+      "rationale": "The declaration establishes the index-to-channel mapping, while the consumer establishes the complete flow from per-port error state through table lookup and mask aggregation to the Dolphin PAD reset API.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T04:58:25.808Z",
+      "subject": "main/sysdolphin/baselib/controller:.rodata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L21",
+          "why": "Establishes the ordered mapping from array indices 0\u20133 to PAD channel bits 0\u20133."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L96-L121",
+          "why": "Shows per-port error checks driving indexed reads, bitwise aggregation, and the final PADReset call."
+        }
+      ]
+    },
+    {
+      "id": "fact:bcb05268-422d-43c2-8d35-49e28a094e13",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.rodata",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Maps Melee's four logical controller-port indices to the GameCube PAD API's channel-selection bits, allowing disconnected or otherwise reset-requiring controllers to be reinitialized selectively without resetting unaffected ports.",
+      "rationale": "Each logical port has a corresponding PAD_CHANx_BIT entry, and only entries associated with -1 status errors are included in the PADReset mask. This grounds the table in four-port controller fault recovery.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T04:58:25.808Z",
+      "subject": "main/sysdolphin/baselib/controller:.rodata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L21",
+          "why": "Shows a one-to-one ordered mapping for all four GameCube controller channels."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L96-L121",
+          "why": "Shows that only ports reporting the reset-triggering error contribute their channel bits to PADReset."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e61f188-3773-4245-91f1-af65d3cf2071",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.rodata",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "pad_bit",
+      "rationale": "The matched translation unit declares its four-entry PAD channel-mask table with the identifier pad_bit, and the raw-status renewal routine references that identifier by controller-port index.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:58:25.808Z",
+      "subject": "main/sysdolphin/baselib/controller:.rodata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L21",
+          "why": "Shows the recovered source identifier pad_bit on the four-element constant declaration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L96-L121",
+          "why": "Shows pad_bit used as an indexable port-to-channel-mask table."
+        }
+      ]
+    },
+    {
+      "id": "fact:393f4d34-9442-4118-be9f-2de97dbdf0cc",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.rodata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A read-only array of four u32 values: const u32 pad_bit[4] = { PAD_CHAN0_BIT, PAD_CHAN1_BIT, PAD_CHAN2_BIT, PAD_CHAN3_BIT }. Its 16-byte layout is one 32-bit PAD channel-selection mask for each controller port.",
+      "rationale": "The declaration provides the exact element type, length, ordering, and enum-like SDK mask domain. The indexed use confirms that array index i corresponds to PAD port i.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T04:58:25.808Z",
+      "subject": "main/sysdolphin/baselib/controller:.rodata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L21",
+          "why": "Directly declares the data as four const u32 PAD_CHANx_BIT entries in channel order."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L96-L121",
+          "why": "Confirms that the values are indexed by the same four-port loop and consumed as bit masks."
+        }
+      ]
+    },
+    {
+      "id": "fact:5b8ef039-92b5-4378-a7ef-191a0b84ac3a",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.rodata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the per-controller-port channel masks used to request PAD subsystem resets. When a newly read status reports error -1 for a port, the corresponding mask is accumulated and the combined mask is passed to PADReset.",
+      "rationale": "The section-sized constant declaration maps all four controller-port indices to PAD channel bits. HSD_PadRenewRawStatus indexes that table for each -1 error and passes the accumulated result to PADReset, establishing that the data supports port-selective controller recovery.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:58:25.808Z",
+      "subject": "main/sysdolphin/baselib/controller:.rodata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L21",
+          "why": "Defines a four-element constant array containing PAD_CHAN0_BIT through PAD_CHAN3_BIT in port order."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L96-L121",
+          "why": "Shows each -1 PADStatus error selecting pad_bit[i], accumulating the selected channel masks, and supplying the result to PADReset."
+        }
+      ]
+    },
+    {
+      "id": "fact:7a658718-2fd2-40c9-9f07-bf6a0750e80d",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Constants from the section flow only into floating-point calculations: stick components are converted to magnitudes and compared against the radial epsilon, while a stick angle is compared with fixed \u03c0-derived sector boundaries adjusted by half of HSD_PadLibData.adc_angle. Those comparisons determine whether clamped stick components are rewritten and which synthetic direction bits are ORed into HSD_PadStatus.button; no routine writes back to the constant pool.",
+      "rationale": "The radial helper shows the epsilon guarding component adjustment. The direction helper shows fixed constants combining with the configurable angle width and controlling writes to the status button mask. Both uses treat the literals strictly as read-only operands.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T05:01:07.917Z",
+      "subject": "main/sysdolphin/baselib/controller:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L176-L197",
+          "why": "Shows the radial magnitude and epsilon comparison controlling in-place changes to the two stick components."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L240-L277",
+          "why": "Shows fixed angular constants combining with adc_angle and controlling which direction masks are written to mp->button."
+        }
+      ]
+    },
+    {
+      "id": "fact:16f9f7b7-b8d3-40f6-b505-8b3f440cc4cd",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.sdata2",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supplies the numerical boundaries used by controller-input processing to suppress unstable near-zero stick vectors and divide accepted main-stick and sub-stick angles into overlapping cardinal sectors, allowing synthetic cardinal and diagonal direction buttons to be generated.",
+      "rationale": "The epsilon prevents unstable division during radial dead-zone removal. The \u03c0-derived boundaries classify accepted vectors, and independent overlapping sector tests permit adjacent direction masks to be emitted together for diagonals. The wrapper applies this conversion to both controller sticks.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T05:01:07.917Z",
+      "subject": "main/sysdolphin/baselib/controller:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L176-L197",
+          "why": "Shows the near-zero guard used while conditioning a two-axis controller-stick vector."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L240-L277",
+          "why": "Shows overlapping \u03c0-derived angular sectors producing up, down, left, and right button masks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L278-L308",
+          "why": "Shows the angular conversion being applied separately to the main stick and sub-stick with distinct synthetic direction bits."
+        }
+      ]
+    },
+    {
+      "id": "fact:898621bf-1b39-49d7-8cc2-145618bd39a6",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An anonymous small read-only data section containing compiler-emitted floating-point constants, including single-precision comparison and scale literals and double-precision angular literals. It is a constant pool rather than a mutable structure or indexed gameplay table.",
+      "rationale": "The consuming code embeds both f32-suffixed values such as the radial epsilon and 0.5F and unsuffixed double literals for \u03c0-derived angles. All are used as immutable arithmetic operands, while tunable thresholds and scale divisors come from fields of HSD_PadLibData, distinguishing this section from controller configuration storage.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T05:01:07.917Z",
+      "subject": "main/sysdolphin/baselib/controller:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L176-L197",
+          "why": "Shows an immutable f32 epsilon literal used by the radial clamp calculation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L240-L277",
+          "why": "Shows f32 and unsuffixed floating-point literals used alongside mutable adc_angle and adc_th configuration fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L278-L308",
+          "why": "Shows that controller normalization divisors come from HSD_PadLibData, supporting the distinction between configuration data and the translation unit's immutable numeric pool."
+        }
+      ]
+    },
+    {
+      "id": "fact:e8ebd9b7-5c80-4f14-aae1-e6791eb50760",
+      "target_id": "target:data:main/sysdolphin/baselib/controller:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the controller translation unit's small read-only floating-point constant pool. Its constants support radial stick clamping and dead-zone removal, conversion of stick vectors into angular digital-direction sectors, and related floating-point comparisons.",
+      "rationale": "The radial clamp routine uses a small positive epsilon after computing stick magnitude, while the analog-to-digital routine uses zero, one-half, \u03c0/2, \u03c0/4, and 3\u03c0/4-derived boundaries. These literals are read-only mathematical constants associated with the unit's .sdata2 section rather than mutable controller configuration, which is instead read from HSD_PadLibData.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T05:01:07.917Z",
+      "subject": "main/sysdolphin/baselib/controller:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L176-L197",
+          "why": "Shows floating-point magnitude calculations and the small positive epsilon used to guard radial dead-zone removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L240-L277",
+          "why": "Shows the fixed floating-point angle and sector-boundary literals used to classify controller-stick directions."
+        }
+      ]
+    },
+    {
+      "id": "fact:afbde38f-62fd-49e9-bd62-ce11de56a7fd",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies a status object, an (x, y) stick pair, and four output masks. The function derives vector magnitude and a radian angle, using an explicit signed vertical-axis result when x is zero and atan2f(y, x) otherwise. It reads adc_th and half of adc_angle from HSD_PadLibData, then conditionally accumulates direction masks into mp->button. HSD_PadADConvert invokes it once for the main stick and once for the sub-stick, and master-status renewal subsequently derives trigger, release, and repeat state from the augmented button field.",
+      "rationale": "The helper body establishes the mathematical and configuration inputs and the button-mask output. Its wrapper identifies the two source sticks and mask ranges, while the master-status pipeline shows where the augmented result is consumed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:08:07.366Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L240-L277",
+          "why": "Shows magnitude and angle derivation, reads of adc_th and adc_angle, and conditional writes to mp->button."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L278-L308",
+          "why": "Shows separate calls for the main stick and sub-stick with distinct direction-bit ranges."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L368-L448",
+          "why": "Shows analog conversion occurring in master-status processing before trigger, release, and repeat are computed from the resulting button mask."
+        }
+      ]
+    },
+    {
+      "id": "fact:2fe36811-5cdb-428c-bd1c-018232146ef7",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements analog-stick-to-digital-direction conversion for both the main control stick and the sub-stick: sufficiently tilted sticks generate synthetic cardinal or diagonal button bits that participate in the same edge and repeat processing as physical buttons.",
+      "rationale": "The wrapper applies the helper to both stick pairs with separate direction masks, and master-status renewal computes button transitions only after this conversion, demonstrating that the generated directions become part of game-facing digital input.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:08:07.366Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L278-L308",
+          "why": "Shows the same analog-to-digital helper applied to the main stick and sub-stick with distinct synthetic direction bits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L368-L448",
+          "why": "Shows the conversion occurring before trigger, release, and repeat processing of the combined button field."
+        }
+      ]
+    },
+    {
+      "id": "fact:677e6ed0-bc2d-4eea-8e54-4871411baecd",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: static void HSD_PadADConvertCheck1(HSD_PadStatus* mp, s8 x, s8 y, u32 up, u32 down, u32 left, u32 right). mp is an in/out controller status whose button bitfield is augmented; x and y are signed 8-bit stick components; the four u32 parameters are direction-specific bit masks.",
+      "rationale": "The definition establishes the exact C types. The body only ORs the four u32 values into mp->button, and the wrapper supplies stick-component fields and distinct constants for each direction, establishing their semantic roles.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:08:07.366Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L240-L277",
+          "why": "Provides the complete typed signature and shows how each direction-mask parameter modifies mp->button."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L278-L308",
+          "why": "Shows the function receiving the main-stick and sub-stick signed components plus separate synthetic button masks for their four directions."
+        }
+      ]
+    },
+    {
+      "id": "fact:4d4d3c8b-9af3-4ef6-bac9-9f48841a17b1",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Converts one two-axis stick sample into digital directional button bits. It ignores samples below a configurable radial threshold, classifies the remaining vector by angle, and ORs the supplied up, down, left, and right masks into the existing pad button field.",
+      "rationale": "The body computes vector length and angle, returns before any write when the length is below adc_th, and otherwise performs direction-sector tests whose only side effects are OR operations on mp->button.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:08:07.366Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L240-L277",
+          "why": "Directly shows radial-threshold rejection, angular direction tests, and ORing the caller-provided direction masks into the status button field."
+        }
+      ]
+    },
+    {
+      "id": "fact:e3dbe742-cba0-4f1b-9fab-b90aabd6671f",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A stick sample below adc_th leaves the button field unchanged. An accepted sample is tested against four angular sectors centered on the cardinal axes; half of adc_angle expands sector boundaries so adjacent independent tests can both succeed and represent a diagonal. Left is split across the negative-\u03c0 and positive-\u03c0 ends of the angle range, preserving one continuous leftward sector across the wraparound.",
+      "rationale": "The early return defines the inactive radial state. The direction checks are independent rather than mutually exclusive and use boundaries shifted by \u00b1ha, which permits adjacent masks to be set together. The first and last checks both set left on opposite ends of the atan2 range.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:08:07.366Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L240-L277",
+          "why": "Shows the threshold guard, independently evaluated angle windows expanded by half adc_angle, and the two wraparound checks that both set the left mask."
+        }
+      ]
+    },
+    {
+      "id": "fact:de3391d8-7548-4c54-83e3-ae972645dad8",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Raw triggerLeft, triggerRight, analogA, and analogB bytes are copied from a queued PADStatus into the master HSD_PadStatus. HSD_PadClamp then passes each field by address to this function with the relevant analog-L/R or analog-A/B bounds from HSD_PadLibData. The modified bytes remain in the master status and subsequently pass through scaling and publication in the controller-status pipeline.",
+      "rationale": "Master renewal identifies the raw PADStatus fields and their master-status destinations, then calls HSD_PadClamp before HSD_PadScale. The clamp wrapper shows that this helper mutates those four destination fields in place using the library's two analog calibration groups.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:04.655Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L161-L239",
+          "why": "Shows HSD_PadClamp passing the four master-status analog fields by address with calibration values from HSD_PadLibData."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L368-L448",
+          "why": "Shows queued PADStatus pressure bytes being copied into the master status, followed by clamping and scaling in the valid-input path."
+        }
+      ]
+    },
+    {
+      "id": "fact:ecf59e50-5b08-4d9d-ba7a-6acec544a8c4",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements configurable dead-zone and range conditioning for the GameCube controller's pressure-sensitive L/R triggers and analog A/B button channels, suppressing readings below a minimum, limiting excessive readings, and optionally remapping the accepted range to start at zero.",
+      "rationale": "The call sites identify the four conditioned channels as analogL, analogR, analogA, and analogB. Applying minimum rejection, maximum saturation, and optional minimum subtraction to those channels is the controller-input calibration behavior described by the claim.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:04.655Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L161-L239",
+          "why": "Shows the thresholding transformation and its application to the L/R trigger and A/B analog-pressure fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:57d0e0eb-5a5b-4b8e-b96f-0bbb43974175",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: static void HSD_PadClampCheck1(u8* val, u8 shift, u8 min, u8 max). val is an in/out unsigned 8-bit analog magnitude; shift is a boolean-like mode flag tested specifically against 1; min and max are unsigned 8-bit calibration bounds.",
+      "rationale": "The definition supplies the exact C types. The body dereferences and rewrites val, compares it against min and max, and only enables rebasing when shift equals 1. The caller passes u8 analog-pressure fields and corresponding clamp configuration fields.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:04.655Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L161-L239",
+          "why": "Provides the typed signature, all parameter uses, and call sites demonstrating that val refers to unsigned analog-pressure fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:210edb0b-956d-4ac6-ac34-8a515bff8f4e",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Clamps and optionally rebases one unsigned analog controller channel. Values below the configured minimum become zero, values above the configured maximum saturate at that maximum, and accepted values have the minimum subtracted when shifting is enabled.",
+      "rationale": "The function's ordered comparisons directly establish lower-threshold rejection and upper saturation, while the final shift guard controls subtraction of the minimum. Its caller applies this operation to the pressure values for the L and R triggers and the analog A and B buttons.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:04.655Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L161-L239",
+          "why": "Shows the complete clamp operation and its four call sites for analogL, analogR, analogA, and analogB with configuration values from HSD_PadLibData."
+        }
+      ]
+    },
+    {
+      "id": "fact:1dec44b0-a59a-49fe-88e5-ea5ad1a628ba",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The transformation has three range states and one mode-dependent final step: an input below min is set to zero and returns immediately; an input above max is first saturated to max; otherwise it remains unchanged. After the range checks, shift == 1 rebases the surviving value by subtracting min, while every other shift value leaves it on the original scale.",
+      "rationale": "The early return makes the below-min state terminal. The upper comparison performs saturation without returning, allowing the same optional rebasing step to apply to both in-range and saturated values. The equality test against 1 defines the only enabled shift mode.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:04.655Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L161-L174",
+          "why": "Directly shows the lower rejection branch, upper saturation branch, shift-mode guard, and final minimum subtraction."
+        }
+      ]
+    },
+    {
+      "id": "fact:003163c2-2d56-4f8c-9d41-bbff35a3b58a",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Valid raw PAD samples are copied into HSD_PadStatus stickX/stickY and subStickX/subStickY. HSD_PadClamp passes each pair by address to this function with clamp_stickShift, clamp_stickMin, and clamp_stickMax from HSD_PadLibData. The resulting in-place components then feed analog-to-digital direction conversion and normalized scaling in the master-status pipeline.",
+      "rationale": "The current wrapper still supplies both stick pairs and the three PadLibData settings, while master renewal still orders clamping before directional conversion and normalized scaling.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L176-L215",
+          "why": "Shows both stick pairs passed by address with clamp_stickShift, clamp_stickMin, and clamp_stickMax."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L448",
+          "why": "Shows raw PAD stick fields copied into master status and clamping followed by analog-to-digital conversion and scaling."
+        }
+      ]
+    },
+    {
+      "id": "fact:93315a95-0b30-42bd-9977-7a514ff7da43",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements radial dead-zone and range conditioning for both the GameCube controller's main control stick and sub-stick: near-center input is suppressed, excessive magnitude is capped without independently clipping the axes, and an optional mode removes the dead-zone radius from the remaining output.",
+      "rationale": "The current helper still uses Euclidean magnitude for circular suppression and proportional limiting, and its wrapper applies it to both controller stick vectors.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L176-L215",
+          "why": "Shows radial minimum rejection, proportional maximum-radius clamping, optional minimum-radius removal, and application to both stick pairs."
+        }
+      ]
+    },
+    {
+      "id": "fact:e715ddf5-8a49-4c6a-9937-94410b85604c",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: static void HSD_PadClampCheck3(s8* x, s8* y, u8 shift, s8 min, s8 max). x and y are in/out signed 8-bit components of one stick vector; shift is a boolean-like mode tested against 1; min and max are radial magnitude thresholds expressed in the stick-coordinate domain.",
+      "rationale": "The current definition retains the exact signature and in-place Cartesian-vector operations, while the wrapper identifies the mode and threshold arguments as stick-clamp configuration.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L176-L215",
+          "why": "Provides the exact signature, demonstrates in/out use of x and y, and shows the configured mode and radial thresholds supplied by the wrapper."
+        }
+      ]
+    },
+    {
+      "id": "fact:1947034c-cdc9-4097-b800-68ac5fb25732",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Applies radial conditioning to one signed two-axis stick sample. It clears vectors inside the configured minimum radius, scales vectors outside the maximum radius back onto that boundary, and can subtract the minimum radius from surviving vectors so the usable output range begins at zero.",
+      "rationale": "The function computes the Euclidean magnitude of the input pair. Its three branches respectively zero an under-minimum vector, proportionally rescale an over-maximum vector, and\u2014when shifting is enabled\u2014subtract the minimum distance along each component of the vector.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:17.633Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L176-L197",
+          "why": "Shows the magnitude calculation, minimum-radius rejection, proportional maximum-radius clamp, and optional radial minimum-offset subtraction."
+        }
+      ]
+    },
+    {
+      "id": "fact:cf91021b-2c0b-48b9-a994-56a59a10bdc7",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If the vector magnitude is below min, both components become zero and processing returns. Otherwise, a magnitude above max is proportionally reduced and its magnitude is recomputed. After either an in-range or clamped result, shift == 1 enables minimum-radius removal when the recomputed magnitude is nonzero; other shift values leave the surviving radius unchanged.",
+      "rationale": "These states and transitions correspond directly to the ordered threshold branches, early return, post-clamp magnitude recomputation, and final guarded shift operation. The near-zero guard prevents division by zero during radial subtraction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:17.633Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L176-L197",
+          "why": "Directly shows the below-minimum, above-maximum, and optional shifted states, including the early return and nonzero-magnitude guard."
+        }
+      ]
+    },
+    {
+      "id": "fact:74f67568-7fef-452c-8521-39b255a7d22e",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function receives an HSD_PadStatus whose raw button mask has already passed through clamping, analog-to-digital conversion, and scaling. It examines the global cross-direction mode and the status's remembered axis, removes selected directional bits in place, and returns the filtered button mask to HSD_PadRenewMasterStatus, which uses it to calculate press, release, and repeat fields.",
+      "rationale": "The caller establishes the processing order and downstream consumers, while the function body establishes how the global mode and per-status axis memory transform the button field.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:03.163Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L309-L349",
+          "why": "Shows the global mode and remembered-axis field controlling in-place changes to the status button mask."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L368-L448",
+          "why": "Shows the input status preparation before the call and the trigger, release, and repeat calculations that consume its filtered result."
+        }
+      ]
+    },
+    {
+      "id": "fact:ab55a28b-e412-4df0-b70c-ebd3d583b9a2",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes configurable diagonal handling for digital controller directions: simultaneous vertical and horizontal directional input can be accepted unchanged, reduced with a fixed vertical or horizontal priority, or reduced according to the most recently observed single-axis direction.",
+      "rationale": "The tested PAD_BUTTON_UP/DOWN and PAD_BUTTON_LEFT/RIGHT groups are the two digital directional axes. The four policies determine whether a two-axis combination remains a diagonal or is reduced to one axis.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:12:03.163Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L309-L349",
+          "why": "Shows the function grouping digital direction bits by vertical and horizontal axis and applying configurable policies when those axes overlap."
+        }
+      ]
+    },
+    {
+      "id": "fact:ef7c932f-d530-4f10-872d-69a9ba7b2c5a",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A static in-place filter with signature void(HSD_PadStatus*): it reads the global HSD_PadLibData.cross_dir mode and the status's button and cross_dir fields, then may mutate those two status fields without returning a value.",
+      "rationale": "The definition provides the exact static void signature, while its switch and assignments identify all read and written state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:03.163Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L309-L349",
+          "why": "Directly shows the function signature and its reads and writes of HSD_PadLibData.cross_dir, mp->button, and mp->cross_dir."
+        }
+      ]
+    },
+    {
+      "id": "fact:820b9f59-e56d-4bb7-b633-fa86b4c720b7",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Applies the controller library's configured cross-axis policy to a processed pad status, suppressing either the horizontal or vertical directional-button axis when both axes are active so the published button mask follows the selected diagonal-handling mode.",
+      "rationale": "The function switches on HSD_PadLibData.cross_dir and conditionally removes either the left/right bits or the up/down bits from HSD_PadStatus.button. Its caller runs it after analog conversion and scaling and before deriving button edges and repeats, establishing that this is an input-filtering stage in the master-status pipeline.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:03.163Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L309-L349",
+          "why": "Shows every cross-direction mode and the corresponding removal of horizontal or vertical directional-button bits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L368-L448",
+          "why": "Shows HSD_PadCrossDir operating on each valid master pad status after conversion and scaling and before trigger, release, and repeat calculation."
+        }
+      ]
+    },
+    {
+      "id": "fact:2e6ea3ad-8a3a-4e72-90c1-40f466b04f9f",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Mode 0 leaves directional input unchanged. Mode 1 gives the vertical axis priority by clearing left/right whenever up/down is active. Mode 2 gives the horizontal axis priority by clearing up/down whenever left/right is active. Mode 3 remembers an unambiguous vertical-only input as state 1 and a horizontal-only input as state 2; when both axes are subsequently active, state 1 preserves vertical and clears horizontal, while every other state preserves horizontal and clears vertical. With neither axis active, mode 3 leaves the remembered state unchanged.",
+      "rationale": "Each mode's guard and bit clearing are explicit in the switch. The mode-3 branches also explicitly update cross_dir only for single-axis input and consult it when both axes are present, demonstrating persistent last-unambiguous-axis priority.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:03.163Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L309-L349",
+          "why": "Directly enumerates the four modes, their axis-priority rules, and the mode-3 remembered-axis transitions."
+        }
+      ]
+    },
+    {
+      "id": "fact:4e264da0-0dd3-4746-bc9b-bfa7d7305abb",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function reads and rewrites the `HSD_PadLibData` raw-ring state (`queue`, `qread`, `qwrite`, `qcount`, and `qnum`). Merge mode walks from the oldest entry toward the newest, OR-ing each older sample's per-port button bits into the following sample while retaining that following sample's other PADStatus fields, until one aggregate entry remains. Throwaway mode moves `qread` to `qwrite` and clears `qcount`; leave-one mode moves `qread` to the newest occupied slot, wrapping through `qnum` when necessary, and sets `qcount` to one.",
+      "rationale": "The current raw-merge helper and flush body preserve the stated button-only merge and all queue-index and occupancy transformations.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L39-L160",
+          "why": "Shows HSD_PadRawMerge unioning only per-port button fields and the flush policies consuming and rewriting the ring state."
+        }
+      ]
+    },
+    {
+      "id": "fact:ffad934a-5d9d-4b03-ad00-452577f65960",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Controls whether buffered controller history is preserved across input-pipeline boundaries. The main game loop uses leave-one before processing begins so stale backlog is removed without losing the latest controller state, while controller reset uses throwaway so no pre-reset input survives recalibration. Merge mode can collapse a backlog while preserving button activity observed in older samples through per-port button-bit union.",
+      "rationale": "Current callers still use leave-one at game-loop entry and throwaway before recalibration, while the current merge helper preserves historical button activity through bitwise union.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L39-L160",
+          "why": "Shows the three queue-history policies and button-bit union used by merge mode."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L316",
+          "why": "Shows the main game loop requesting LEAVE1 before waiting for and consuming queued controller samples."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Shows HSD_PadReset requesting THROWAWAY immediately before recalibrating all controller channels."
+        }
+      ]
+    },
+    {
+      "id": "fact:02a066cd-505a-410c-abdd-37e667487847",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_PadFlushQueue(HSD_FlushType ftype)`. The `ftype` enum domain selects `HSD_PAD_FLUSH_QUEUE_MERGE`, `HSD_PAD_FLUSH_QUEUE_THROWAWAY`, or `HSD_PAD_FLUSH_QUEUE_LEAVE1`.",
+      "rationale": "The current function definition retains the signature and explicit switch cases for the three operational queue-flush modes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L127-L159",
+          "why": "Directly shows the function signature and its MERGE, THROWAWAY, and LEAVE1 cases."
+        }
+      ]
+    },
+    {
+      "id": "fact:d8f2b217-8362-443c-b6a5-013195fecbeb",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Atomically reduces or clears HSD's queued raw controller samples according to a requested flush policy: collapse the backlog into one sample, discard every sample, or retain only the newest sample.",
+      "rationale": "The current body still brackets the complete operation with interrupt exclusion and implements the same three reductions of queue occupancy.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L127-L159",
+          "why": "Shows the interrupt-protected merge-to-one, discard-all, and retain-newest queue policies."
+        }
+      ]
+    },
+    {
+      "id": "fact:fdb5cd2b-4270-42c0-bf04-1cc26dce9820",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "All flush transitions occur with interrupts disabled and the prior interrupt state is restored afterward. Merge mode runs only while more than one sample is queued and advances `qread` once per reduction. Throwaway mode always empties the queue. Leave-one mode changes state only when more than one sample is present; zero- and one-entry queues are preserved unchanged.",
+      "rationale": "The current critical-section bracket, merge loop guard, unconditional throwaway assignments, and guarded leave-one branch preserve every stated transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L127-L159",
+          "why": "Directly shows interrupt exclusion and restoration, the merge loop, unconditional throwaway transition, and guarded leave-one transition."
+        }
+      ]
+    },
+    {
+      "id": "fact:40787f10-1a39-4980-a141-a0e1d31ec4b1",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_PadRenewRawStatus updates HSD_PadLibData.qcount as four-port PADStatus groups enter the raw queue, and HSD_PadFlushQueue reduces or clears it as entries are consolidated or discarded. HSD_PadGetRawQueueCount copies that shared byte into a local while interrupts are disabled and returns the snapshot; lb_80019894 forwards the returned count while also updating the PAD sampling schedule.",
+      "rationale": "Current-head producer, reducer, accessor, and caller code preserve the complete flow of qcount from queue updates through the returned higher-level count.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows four-port samples entering the queue and qcount increasing on successful enqueue."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L127-L159",
+          "why": "Shows flush policies decrementing, clearing, or reducing qcount."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Shows qcount copied through a local variable and returned under interrupt protection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0195.c#L110-L165",
+          "why": "Shows lb_80019894 retaining and returning the count while invoking sampling-schedule maintenance."
+        }
+      ]
+    },
+    {
+      "id": "fact:2f0263ff-472a-47a1-ba7c-53de37ab746b",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Exposes the backlog of raw GameCube controller polls waiting in HSD's input pipeline. Each counted queue entry represents one PADRead sample group covering the four controller ports, so the result lets higher-level timing code observe buffered controller input while coordinating periodic sampling.",
+      "rationale": "Current raw-renewal code still queues one four-port PADRead group per occupancy increment, and current higher-level timing code still forwards the count while maintaining the periodic PAD sampling schedule.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T23:44:08.847Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows each queue entry originating from PADRead into a four-element PADStatus group and qcount increasing when an entry is added."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0195.c#L1-L120",
+          "why": "Shows the higher-level timing subsystem configuring the PAD sampling rate and periodic alarm that renews raw controller status."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0195.c#L110-L165",
+          "why": "Shows lb_80019894 forwarding HSD_PadGetRawQueueCount's result while invoking sampling-schedule maintenance."
+        }
+      ]
+    },
+    {
+      "id": "fact:31d940b1-770e-4a8f-87e7-f42484cb62f2",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless u8 queue-occupancy accessor. Its result is the number of buffered raw PADStatus groups and is constrained by the configured queue capacity: 0 <= result <= HSD_PadLibData.qnum.",
+      "rationale": "The current definition retains the nullary u8 signature and returns qcount; enqueue logic increments only below capacity, while flush logic only reduces occupancy.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Establishes the void parameter list, u8 return type, and qcount as the returned value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows qcount compared with qnum and incremented only when the queue is not already full."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L127-L159",
+          "why": "Shows queue reductions setting qcount to zero or one or decrementing it toward one."
+        }
+      ]
+    },
+    {
+      "id": "fact:fab2f0ab-4946-4b9a-9545-ffc5a5aa4529",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Atomically reports how many unread raw controller-sample groups are currently buffered in HSD's PAD queue, allowing callers to inspect the queue backlog without racing interrupt-driven queue updates.",
+      "rationale": "The current accessor still snapshots qcount under interrupt exclusion, while the surrounding queue code confirms that qcount is the occupancy of queued four-port sample groups.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Shows the interrupt-protected read and return of HSD_PadLibData.qcount."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows qcount serving as occupancy for the raw four-port PADStatus queue."
+        }
+      ]
+    },
+    {
+      "id": "fact:f5f68541-e2fa-4935-8eea-d560b4de6725",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Performs a read-only critical-section snapshot: it saves the current interrupt-enable state, disables interrupts, reads qcount once, and restores the saved state before returning. It neither consumes queued samples nor changes queue indices or occupancy, and it remains safe when called from an already interrupt-disabled region because restoration uses the saved state.",
+      "rationale": "The body contains only the interrupt save/restore calls and one qcount read, with no queue writes. Its caller supplies a concrete nested use: lb_80019894 disables interrupts before calling it and restores its own saved state afterward, while the accessor restores the disabled state it observed.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:13:01.673Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L21-L33",
+          "why": "Directly shows the single protected read, absence of queue mutation, and restoration using the state returned by OSDisableInterrupts."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0195.c#L110-L165",
+          "why": "Shows the accessor being called inside an outer interrupt-disabled section, demonstrating the nested save-and-restore usage."
+        }
+      ]
+    },
+    {
+      "id": "fact:de721da4-cbcb-420e-9afc-7fe4e1662dfb",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "OSGetResetSwitchState is sampled during raw controller renewal. An asserted sample sets reset_switch_status; the subsequent deasserted sample turns that history into the sticky PadLibData.reset_switch latch. HSD_PadGetResetSwitch reads the latch without modifying it and converts it to 0 or 1. Its result flows to higher-level reset handling, where a true value triggers audio handling, retrace-callback removal, video blanking and flushing, retrace waits, and OSResetSystem.",
+      "rationale": "The current producer, accessor, and consumer spans preserve the complete flow from physical RESET-switch sampling through the sticky latch to orderly system-reset handling.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:08.847Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows asserted RESET-switch samples setting reset_switch_status and a later deasserted sample setting the sticky reset_switch latch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Shows HSD_PadGetResetSwitch reading reset_switch without clearing it and converting the value to canonical false or true."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0195.c#L1-L120",
+          "why": "Shows a true accessor result driving audio handling, retrace-callback removal, video blanking and flushing, retrace waits, and OSResetSystem."
+        }
+      ]
+    },
+    {
+      "id": "fact:caf783ea-018b-498f-a5ad-bfbbc689b180",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Maps the physical GameCube console RESET button's completed press-and-release sequence to the software-visible reset request used by Melee to blank video and invoke an operating-system reset.",
+      "rationale": "Current raw polling still converts the physical RESET switch's asserted-to-deasserted sequence into a sticky request, and the current consumer still uses that request to blank video and reset the system.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:44:08.847Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows the physical RESET-switch press-and-release sequence being converted into a sticky software request."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0195.c#L1-L120",
+          "why": "Shows the software-visible request causing video blanking and OSResetSystem."
+        }
+      ]
+    },
+    {
+      "id": "fact:6f8a3570-497f-4beb-90d4-908ad6d6899c",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Nullary boolean query with C signature s32 HSD_PadGetResetSwitch(void); its result domain is the canonical integer values 0 and 1.",
+      "rationale": "The matched definition declares an s32 return and no parameters, and its ternary expression converts any nonzero latch value to true and zero to false.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:13:27.982Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L35-L40",
+          "why": "Directly shows the nullary s32 signature and canonical boolean return expression."
+        }
+      ]
+    },
+    {
+      "id": "fact:383f2cf9-1f38-4d6d-87c1-362febe65e40",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Reports whether HSD's controller library has latched a completed console RESET-switch activation, allowing higher-level code to begin system-reset handling without directly inspecting PadLibData.",
+      "rationale": "The accessor still returns the truth value of the reset_switch latch, whose asserted-then-deasserted producer and higher-level system-reset consumer remain present at the current head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:08.847Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows reset_switch being latched after an asserted RESET switch is subsequently observed deasserted."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Shows the accessor returning whether the reset_switch latch is nonzero."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0195.c#L1-L120",
+          "why": "Shows a true result beginning the shutdown sequence that ends in OSResetSystem."
+        }
+      ]
+    },
+    {
+      "id": "fact:3a78e132-59ea-4f94-b8ac-e2b3a7789b24",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Returns false before a RESET-switch activation has been latched and true after the controller renewal path has observed the switch asserted and then deasserted. Querying does not consume the request, so repeated calls remain true until HSD_PadReset explicitly clears reset_switch.",
+      "rationale": "The current polling path preserves the two-stage set transition, the query remains read-only, and HSD_PadReset remains the explicit clearing transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows reset_switch_status set on assertion and reset_switch set on the later deasserted poll."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L9-L40",
+          "why": "Shows that querying only reads the latch and therefore does not consume it."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Shows HSD_PadReset explicitly clearing reset_switch."
+        }
+      ]
+    },
+    {
+      "id": "fact:ac2b5b69-4ee8-433f-b59f-e2ec78e963c1",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-provided queue capacity and HSD_PadData buffer are stored in HSD_PadLibData and subsequently receive four-port PADRead samples for later master-status processing. The rumble node count and buffer flow into HSD_PadRumbleInit, which installs and links the buffer as a free-list pool. Independently, default library and status records are copied into the global controller state before control passes to PADInit for hardware-driver startup.",
+      "rationale": "Current initialization still stores and forwards all four parameters, raw renewal still consumes the installed queue, and rumble initialization still constructs the supplied node pool.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Shows queue installation, rumble initialization, default-state copies, and the final PADInit call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows PADRead samples being written into the queue installed through HSD_PadLibData."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/rumble.c#L217-L275",
+          "why": "Shows the supplied rumble count and buffer being stored, linked as a free list, and used while resetting four per-port rumble records."
+        }
+      ]
+    },
+    {
+      "id": "fact:482d640e-7912-4324-a695-2bd100bbc47d",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Bootstraps Melee's four-controller input and rumble services: it provides buffering for sampled controller data, establishes clean per-port status snapshots, prepares the rumble-command node pool, and starts the GameCube PAD driver's four-channel initialization and calibration path.",
+      "rationale": "The current HSD initializer still assembles queue, status, rumble, and PAD-driver startup, and PADInit still initializes and resets all four controller channels.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:30:11.340Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Shows HSD-level queue, four-port status, rumble, and low-level PAD initialization assembled in one startup routine."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/rumble.c#L217-L275",
+          "why": "Shows preparation of the caller-supplied rumble-command node pool and four per-port rumble states."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/pad/pad.c#L514-L547",
+          "why": "Shows one-time PAD setup, optional recalibration state, sampling setup, and reset of all four controller channels."
+        }
+      ]
+    },
+    {
+      "id": "fact:05c96882-8aec-4a2e-8024-966421eea87c",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_PadInit(u8 qnum, HSD_PadData* queue, u16 nb_list, HSD_PadRumbleListData* listdatap)`. `qnum` is a count of raw-input queue entries backed by `queue`; `nb_list` is a count of rumble-list nodes backed by `listdatap`. The function returns no status.",
+      "rationale": "The current definition retains the exact void signature, stores qnum with the HSD_PadData queue, and forwards nb_list with the HSD_PadRumbleListData buffer; the current startup call supplies matching five-entry and twelve-entry arrays.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:08.847Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L568-L595",
+          "why": "Provides the exact signature, stores qnum and queue in PadLibData, and forwards nb_list and listdatap to HSD_PadRumbleInit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gm/gmmain.c#L1-L80",
+          "why": "Shows the concrete startup call using a five-entry HSD_PadData array and a twelve-entry HSD_PadRumbleListData array."
+        }
+      ]
+    },
+    {
+      "id": "fact:4310292c-19a3-4ca5-9a39-7dc83dd13bc4",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes HSD's controller layer by restoring the pad-library configuration to its defaults, installing caller-supplied raw-input queue storage, initializing the caller-supplied rumble-list pool, resetting all four master, copy, and game status slots, and then starting the lower-level Dolphin PAD driver.",
+      "rationale": "The function assigns the complete default library record, replaces its queue capacity and pointer with the supplied values, delegates rumble-pool setup, initializes each of the three four-port status arrays, and finally calls PADInit. The PADInit body confirms that this last step starts the underlying four-channel controller driver.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:13:00.737Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L579-L595",
+          "why": "Shows every HSD-level initialization operation, including default restoration, queue installation, rumble initialization, four-port status initialization, and the PADInit call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/pad/pad.c#L514-L547",
+          "why": "Shows that PADInit performs one-time Dolphin PAD setup and initiates reset of all four controller channels."
+        }
+      ]
+    },
+    {
+      "id": "fact:bf4b0956-1f88-4cae-8d68-67aec9a25896",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each invocation unconditionally reinitializes the HSD-level controller state: it discards the previous PadLibData configuration, queue indices and counts, rumble-list state, and all three sets of four per-port statuses before invoking PADInit. The lower-level PADInit call is independently guarded, so after the Dolphin driver has initialized, later HSD_PadInit calls still reset HSD software state but PADInit immediately succeeds without repeating its hardware setup.",
+      "rationale": "HSD_PadInit has no guard around its default assignments, rumble initialization, or status loop, making those transitions unconditional. PADInit begins with an Initialized check and returns immediately on subsequent calls, proving the distinction between repeatable HSD-state reset and one-time low-level driver setup.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:13:00.737Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L579-L595",
+          "why": "Shows the unguarded replacement of library state, rumble state, and all twelve exposed status records on every invocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/rumble.c#L217-L275",
+          "why": "Shows rumble initialization rebuilding the list pool and resetting all four per-port rumble records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/pad/pad.c#L514-L547",
+          "why": "Shows PADInit's Initialized guard and immediate-success path for calls after the first initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:175f5358-f9ec-4755-9025-a1150456e17c",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For each controller port, the existing HSD_PadCopyStatus button mask first becomes last_button and the corresponding HSD_PadMasterStatus error is propagated. A valid master status supplies the current digital, analog, and normalized fields; an errored status instead produces zeroed exposed input fields. The old and new copy button masks then produce trigger and release masks, while HSD_PadLibData.repeat_start and repeat_interval govern the copy slot's repeat output and countdown.",
+      "rationale": "The assignments identify the master slot, prior copy slot, and repeat configuration as inputs and the renewed copy slot as the sole output. The helper calls and bit formulas distinguish copied current input, cleared error output, transition masks, and timer-controlled repeat output.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:18.107Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L448-L595",
+          "why": "Shows which status fields the clearing helper zeroes, the master-to-copy transfer, the old/new button formulas, the repeat configuration reads, and HSD_PadRenewStatus invoking this stage after master renewal."
+        }
+      ]
+    },
+    {
+      "id": "fact:c3184c2b-bdfe-4ad7-829e-d8f0b7f49afb",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes a secondary four-player controller-input snapshot with stable current values, one-renewal button press and release edges, and delayed periodic repeats for held buttons, while preventing controller-error samples from appearing as active input.",
+      "rationale": "The four-slot loop corresponds to the four controller ports, and the saved prior button state plus trigger, release, and repeat formulas are the standard game-facing products needed to distinguish presses, releases, and held-input repetition. Clearing all exposed input fields on error prevents invalid samples from being interpreted as player commands.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:12:18.107Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L470-L507",
+          "why": "Shows four controller slots being renewed with current input, transition masks, held-button repetition, and error-driven input clearing."
+        }
+      ]
+    },
+    {
+      "id": "fact:f7edc13f-9f62-4265-bca9-71a5002e42a1",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A side-effect-only void(void) updater operating on the global four-element HSD_PadMasterStatus and HSD_PadCopyStatus arrays and the repeat_start and repeat_interval configuration in HSD_PadLibData.",
+      "rationale": "The declared signature takes no arguments and returns no value. All input and output are obtained through the global master and copy arrays and the global pad-library repeat configuration.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:18.107Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L470-L507",
+          "why": "Provides the void(void) signature and shows every read and write occurring through HSD_PadMasterStatus, HSD_PadCopyStatus, and HSD_PadLibData."
+        }
+      ]
+    },
+    {
+      "id": "fact:9c09fbe9-935e-410a-9103-fae1cb37bad8",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Refreshes the four-port HSD_PadCopyStatus snapshot from HSD_PadMasterStatus, preserving each copy slot's prior button mask, suppressing unusable input when the corresponding master status reports an error, and deriving copy-local press, release, and held-button repeat state.",
+      "rationale": "The function iterates over all four master/copy status pairs, saves the old copy button value, propagates the master error, conditionally copies or clears the exposed fields, and then calculates transition and repeat fields. This establishes it as the renewal stage for the secondary copy-status snapshot rather than raw input acquisition or master normalization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:18.107Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L470-L507",
+          "why": "Shows the complete four-port copy-status renewal loop, including master-to-copy transfer, error clearing, prior-button preservation, edge detection, and repeat handling."
+        }
+      ]
+    },
+    {
+      "id": "fact:35165a50-246e-4e61-aeab-8b40b4923df9",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each port follows two nested state decisions. If the propagated master error is zero, the current master fields are published; otherwise the copy's digital, analog, and normalized input fields are cleared. If the resulting button mask changed, newly pressed buttons are emitted as repeat and the countdown is reset to repeat_start. If it did not change, the countdown is decremented: a nonzero result suppresses repeat, while zero emits all currently held buttons and reloads repeat_interval. Trigger and release are recomputed every renewal from the saved and resulting button masks.",
+      "rationale": "The error branch explicitly selects copied versus cleared input. The XOR guard and countdown branch explicitly define the transition-triggered initial delay, suppression period, and periodic held-button repeat states.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:18.107Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L470-L507",
+          "why": "Directly shows the valid/error branch, old-versus-current button comparison, trigger and release formulas, and both repeat-counter transitions."
+        }
+      ]
+    },
+    {
+      "id": "fact:461a2265-3d84-457c-b7a2-944f86b79e12",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For each controller port, the corresponding HSD_PadMasterStatus entry supplies the error code and, when valid, the digital, analog, and normalized input fields copied into HSD_PadGameStatus. The game entry's previous button value and the newly copied or cleared button value produce trigger and release masks, while HSD_PadLibData.repeat_start and repeat_interval control the destination's repeat counter and repeat mask.",
+      "rationale": "The source explicitly identifies the master array as input, the game array as destination, and PadLibData as the repeat-configuration source. The assignments and bit formulas establish how those inputs produce the destination's published fields.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:11:39.291Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L509-L547",
+          "why": "Directly shows the per-port master and game pointers, field-copy or clear path, transition formulas, and reads of repeat_start and repeat_interval."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L368-L448",
+          "why": "Defines the digital, analog, and normalized status fields copied by HSD_PadCopyStatusFields and shows that the master entries contain already transformed controller input."
+        }
+      ]
+    },
+    {
+      "id": "fact:10ac20bd-50de-46c9-9b20-d032660443f9",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the game-facing controller snapshot for all four GameCube controller ports, exposing current processed controls together with one-renewal button-press and button-release edges and delayed periodic held-button repeats suitable for gameplay and menu consumers.",
+      "rationale": "The destination is explicitly HSD_PadGameStatus, and the four-entry loop publishes processed master controls while deriving trigger, release, and repeat products. These are the standard distinctions consumers need between current held input, a new press, a release, and repeated navigation input.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:11:39.291Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L509-L547",
+          "why": "Shows four game-status entries receiving processed controller fields and independently maintained button edge and repeat outputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L448-L595",
+          "why": "Places game-status renewal after raw acquisition and master processing in the complete controller renewal pipeline."
+        }
+      ]
+    },
+    {
+      "id": "fact:391a4111-bd00-421f-b44e-288dbe09b8d9",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Refreshes the four game-facing controller-status entries from the processed master statuses, clearing unusable inputs and independently deriving each game entry's button press, release, and held-repeat state.",
+      "rationale": "The function iterates over all four ports, selects corresponding master and game entries, copies valid processed fields or clears them on error, and then computes transitions and repeats in the destination. This makes it the publication stage that renews the controller state exposed through HSD_PadGameStatus rather than another raw-input conversion stage.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:11:39.291Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L509-L547",
+          "why": "Shows the complete four-port game-status renewal loop, including master-to-game copying, error clearing, edge detection, and repeat maintenance."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L448-L595",
+          "why": "Shows HSD_PadRenewGameStatus as the final publication step in HSD_PadRenewStatus after raw and master processing."
+        }
+      ]
+    },
+    {
+      "id": "fact:2036edf4-3bb9-4498-9cee-1e88d34a2c95",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each renewal first preserves the game entry's old button mask. A zero master error copies the current processed input; a nonzero error clears all exposed input fields. Newly set bits become trigger, newly cleared bits become release, and any button-mask change emits only the newly pressed bits as repeat and restarts repeat_count at repeat_start. With no change, repeat_count decrements; nonzero counts suppress repeat, while expiry emits the currently held button mask and reloads repeat_count from repeat_interval.",
+      "rationale": "Every state transition and guard is explicit in the function: error selects copy versus clear, XOR detects any button change, masked XOR expressions distinguish presses from releases, and the countdown branch implements delayed periodic repetition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:11:39.291Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L509-L547",
+          "why": "Shows the complete error, transition, and repeat state machine for every HSD_PadGameStatus entry."
+        }
+      ]
+    },
+    {
+      "id": "fact:22b4dd28-f416-443f-a579-7c0fb8d8ff4d",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "When the raw queue is nonempty, its `qread` index selects four consecutive `PADStatus` records. The function advances the read index and decrements `qcount`, then maps each record to the corresponding `HSD_PadMasterStatus` entry. Valid digital, stick, trigger, and analog face-button inputs pass through clamp, analog-direction conversion, scaling, and cross-direction filtering; the resulting button field and its saved predecessor produce trigger, release, repeat, and repeat-count outputs.",
+      "rationale": "The queue-address expression, queue shift, count decrement, paired pointer loop, field assignments, transformation calls, and final bit formulas explicitly trace the complete flow from queued raw records into processed master status.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:04.322Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Directly traces one queued four-record PADStatus group into four master statuses and shows every transformation and transition-field write."
+        }
+      ]
+    },
+    {
+      "id": "fact:046678a6-74e3-461b-ae16-1e8412b60cd2",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the controller-input processing step that converts one buffered sample for each of the four GameCube controller ports into stable HSD input state, including calibrated analog values, synthetic stick-direction buttons, physical and synthetic button edges, and timed repeats for held inputs.",
+      "rationale": "The four-entry PADStatus loop grounds the behavior in the console's four controller ports. The processing helpers and transition/repeat formulas show that the raw samples become the calibrated and edge-detected controller representation used by later HSD stages.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:04.322Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Shows four-port PADStatus processing, analog transformation, synthetic direction conversion, button edge detection, and held-button repeat generation."
+        }
+      ]
+    },
+    {
+      "id": "fact:16d6f916-9b29-418f-8925-04be23f05b94",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_PadRenewMasterStatus(void)`. It operates entirely on global controller state, consuming a queued group of four `PADStatus` records from `HSD_PadLibData` and mutating the four-element `HSD_PadMasterStatus` array.",
+      "rationale": "The matched definition establishes the void/no-parameter signature. Its global pointers, queue indexing by four records, and four-iteration loop establish the input and output object shapes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:04.322Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Provides the exact function declaration and shows global PadLibData and HSD_PadStatus access with one PADStatus/HSD_PadStatus pair processed for each of four ports."
+        }
+      ]
+    },
+    {
+      "id": "fact:9622186a-3b42-49e5-b7f8-7523e2696a1e",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Consumes the oldest queued four-port PAD sample and renews HSD_PadMasterStatus: it transfers valid raw controller values, applies clamping, analog-to-digital direction conversion, normalization, and conflicting-direction filtering, clears unusable input, and derives button press, release, and held-repeat state.",
+      "rationale": "The matched body removes one four-controller group from the raw queue, processes each corresponding master status through the controller transformation helpers, handles error statuses, and then computes transition and repeat fields. These operations establish this function as the raw-queue-to-master-status stage of HSD's controller pipeline.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:04.322Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Shows queue consumption, the four-port processing loop, transfer and transformation of valid PADStatus fields, error handling, and derivation of trigger, release, repeat, and repeat_count."
+        }
+      ]
+    },
+    {
+      "id": "fact:ab1f41d9-30f1-4a4f-a810-bce38a59f3a7",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The function leaves master status unchanged when the raw queue is empty. For each consumed port, error 0 enters normal conversion; error -3 is suppressed by changing the stored error to 0 without replacing the prior input fields; every other error clears digital, raw analog, and normalized analog input. Any change in the button mask emits newly pressed and released bits, sets repeat to the newly pressed bits, and reloads `repeat_count` from `repeat_start`. An unchanged mask decrements the counter; reaching zero emits the held button mask as repeat and reloads the counter from `repeat_interval`, while other counts emit no repeat.",
+      "rationale": "The queue guard and three error branches define the sample-processing states. The XOR-based transition formulas and changed-versus-unchanged button branches explicitly define the repeat timer's transitions and outputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:04.322Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Shows the empty-queue guard, error 0/-3/other behavior, XOR-derived press and release edges, and repeat timer reload and countdown rules."
+        }
+      ]
+    },
+    {
+      "id": "fact:c3d3f90d-3258-4f0d-9fc6-5814c1deb117",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "PADRead fills a local array of four PADStatus records. An accepted group is copied into `HSD_PadLibData.queue[qwrite].stat`; when the ring is full, qtype may first merge status groups, discard the oldest group, or reject the new group. The function advances qwrite after insertion, derives a PADReset channel mask from entries whose error is -1, and updates `reset_switch_status` and `reset_switch` from the hardware reset-switch state.",
+      "rationale": "The target source explicitly traces the local PADStatus array into the queue and shows all queue-index and reset-latch writes. PADRead's body independently establishes that its output pointer receives four consecutive channel records and that error -1 is emitted for a disabled or unavailable channel.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:10:22.478Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows the four-record PADRead destination, queue copy and merge paths, qread/qwrite/qcount updates, channel-mask construction, and reset-switch field writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/pad/pad.c#L549-L621",
+          "why": "Shows PADRead advancing across four output PADStatus records and assigning error -1 to a disabled channel."
+        }
+      ]
+    },
+    {
+      "id": "fact:4ad81bb5-31d6-483d-afe8-274a674efe4a",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes Melee's raw four-port controller sampling and buffering step, including configurable behavior when polling outpaces queue consumption, automatic attempts to restore unavailable controller channels, and edge-latched detection of the GameCube console's physical reset button.",
+      "rationale": "The function polls four PAD channels, manages a bounded queue of those samples under three overflow policies, calls PADReset for affected port bits, and records the physical reset switch's release edge. These operations place it between the Dolphin PAD driver and HSD's later game-facing input transformation stages.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:10:22.478Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows four-port PAD polling, bounded raw-sample buffering, port reset requests, and physical reset-switch edge latching."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/pad/pad.c#L549-L621",
+          "why": "Establishes that PADRead is the low-level four-channel GameCube controller polling routine that produces the PADStatus records consumed here."
+        }
+      ]
+    },
+    {
+      "id": "fact:126ee8e0-7a2a-4d85-a164-d31e9ecd0192",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_PadRenewRawStatus(bool err_check)`. When `err_check` is true, the newly polled four-element PADStatus group is accepted only if at least one port has `err == 0`; when false, the group proceeds to queue handling regardless of its errors.",
+      "rationale": "The matched declaration establishes the exact signature. The sole use of err_check scans all four PADStatus entries and returns only when every entry has a nonzero error, which establishes the parameter's acceptance-filter semantics.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:22.478Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows the void/bool declaration and the complete four-port error-check guard controlled by the parameter."
+        }
+      ]
+    },
+    {
+      "id": "fact:da521132-1871-49e1-af33-3d77038df9fe",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the raw-input acquisition stage of HSD's controller pipeline: it services rumble, polls all four controller channels, conditionally accepts the sample, inserts or combines it in the configured raw-status queue, requests reinitialization of unavailable channels, and latches a console reset-switch release.",
+      "rationale": "The function calls HSD_PadRumbleInterpret and PADRead before applying its acceptance guard, then updates the raw queue according to qtype, builds a channel mask for PADReset from error -1 statuses, and converts the reset switch's pressed-to-released transition into the reset_switch latch.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:10:22.478Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "The complete matched body shows rumble servicing, four-port polling, sample acceptance, all queue policies, channel reset requests, and console reset-switch latching."
+        }
+      ]
+    },
+    {
+      "id": "fact:17548826-8d2d-4e63-9198-5a7bd10992d7",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If error checking is enabled and all four freshly polled ports report errors, the function returns without changing the raw queue, requesting channel resets, or updating the console reset-switch latch. Otherwise, a non-full queue increments qcount and accepts the sample. At capacity, qtype 0 preserves information through HSD_PadRawMerge while freeing the oldest slot, qtype 1 drops the oldest group, and qtype 2 leaves the queue unchanged. After queue handling, every current status with error -1 contributes its port bit to PADReset. The console reset button sets `reset_switch_status` while held; its subsequent release sets `reset_switch` and clears `reset_switch_status`.",
+      "rationale": "These guards and transitions are direct consequences of the early-return scan, qcount/full-queue switch, error-mask loop, and two-state reset-switch branch in the matched body.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:10:22.478Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Directly enumerates the all-ports-error guard, three full-queue policies, queue insertion transition, per-port PADReset mask, and reset-switch press/release state machine."
+        }
+      ]
+    },
+    {
+      "id": "fact:a8dff401-61ca-43e3-b586-fe3f15d6a353",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "A four-element PADStatus sample produced by PADRead first enters HSD's bounded raw queue. The master-renewal stage removes one queued group, transfers and normalizes valid buttons, sticks, triggers, and analog face-button values, and derives press, release, and repeat fields. The resulting master statuses are then copied or cleared into both HSD_PadCopyStatus and HSD_PadGameStatus.",
+      "rationale": "The wrapper fixes the direction and ordering of the pipeline. The raw-stage body identifies PADRead output and queue insertion, the master-stage body identifies queue consumption and transformation into HSD_PadMasterStatus, and the publication bodies identify the two downstream status arrays and their error-clearing behavior.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:48.161Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows PADRead filling four records and the accepted group being inserted into the raw queue."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L348-L448",
+          "why": "Shows queued records flowing into HSD_PadMasterStatus, analog transformations, and trigger, release, and repeat derivation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L448-L595",
+          "why": "Shows master statuses being copied or cleared into the copy and game status arrays and confirms the wrapper's stage order."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e1b92f5-9c74-4dfe-b042-eaae97cf6c3d",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Performs a complete controller-input update for Melee: it samples all four GameCube controller ports and makes calibrated analog values, current digital buttons, press and release edges, and held-button repeats available through the game's published controller status snapshots.",
+      "rationale": "The raw stage polls four PAD channels, the master stage calibrates and normalizes their analog fields while calculating digital transitions and repeats, and the copy/game stages publish those results. The wrapper is the entry point that executes those operations as one update.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:48.161Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows acquisition of one four-port GameCube PAD sample."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L348-L448",
+          "why": "Shows analog clamping, conversion, scaling, directional filtering, and digital edge and repeat generation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L448-L595",
+          "why": "Shows publication into copy and game controller snapshots and the wrapper that triggers the complete update."
+        }
+      ]
+    },
+    {
+      "id": "fact:2a124944-02a8-4b41-a441-036b2f9f49fd",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_PadRenewStatus(void)`. It accepts no caller-supplied state and returns no value; all results are produced through the controller subsystem's raw queue and global master, copy, and game status arrays.",
+      "rationale": "The matched declaration proves the exact void/void signature. The wrapper passes only the constant false value to raw renewal, while the called stages read and write subsystem-owned queue and status storage rather than returning data.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:48.161Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L549-L555",
+          "why": "Directly shows the `void HSD_PadRenewStatus(void)` declaration and the absence of a returned value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L348-L448",
+          "why": "Shows the master stage consuming the subsystem queue and writing HSD_PadMasterStatus."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L448-L595",
+          "why": "Shows the downstream stages writing the global HSD_PadCopyStatus and HSD_PadGameStatus arrays."
+        }
+      ]
+    },
+    {
+      "id": "fact:66263e6b-4402-4e74-badc-2f13c8e974a6",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Orchestrates one complete HSD controller-status refresh by polling and queuing a raw four-port PAD sample, renewing the processed master statuses, and then publishing separate copy and game status snapshots in that fixed order.",
+      "rationale": "The function body is a four-call orchestration wrapper whose order directly establishes its role. The called routines show that the first stage polls and queues four PADStatus records, the second consumes a queued group into processed master statuses, and the final two publish those master values into copy and game arrays.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:48.161Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L549-L555",
+          "why": "Shows the complete wrapper and its fixed raw, master, copy, and game renewal call order."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows that the raw-renewal stage polls four PAD channels and handles insertion of their statuses into the raw queue."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L348-L448",
+          "why": "Shows that the master-renewal stage consumes one queued four-port group and derives processed analog and button-transition state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L448-L595",
+          "why": "Shows the copy and game publication stages immediately followed by this orchestration wrapper."
+        }
+      ]
+    },
+    {
+      "id": "fact:f502368c-0bd3-42cb-b379-8badab028c2d",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The wrapper has no branch or guard of its own and always invokes all four renewal stages once. It calls HSD_PadRenewRawStatus with error checking disabled, so an all-ports-error sample does not take that routine's early-return path. Master renewal nevertheless changes master state only when the raw queue is nonempty; copy and game renewal then run unconditionally against the resulting master statuses.",
+      "rationale": "The wrapper's straight-line body establishes unconditional execution. The raw routine shows that its all-ports-error early return is guarded by the boolean argument, which the wrapper supplies as zero, while the master routine explicitly guards queue consumption with `qcount != 0`.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:48.161Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L549-L555",
+          "why": "Shows four unconditional calls and the constant zero passed to HSD_PadRenewRawStatus."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Shows that the all-ports-error early return executes only when the raw routine's err_check parameter is true."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L348-L448",
+          "why": "Shows that master renewal consumes and transforms a sample only while the raw queue count is nonzero."
+        }
+      ]
+    },
+    {
+      "id": "fact:a1f68290-22b8-49b5-b734-86acd582cbdd",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadReset",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine consumes no caller data. It removes the rumble subsystem's pending work, sends an off request for channels 0 through 3, tells HSD_PadFlushQueue to discard buffered PAD samples, and passes mask 0xF0000000 to PADRecalibrate. That mask enters the Dolphin PAD reset state, disables polling for affected enabled channels, and ordinarily marks all four channels for recalibration; the reset callback later consumes those marks to issue calibration transfers and replace each channel's stored origin data. The routine also writes zero to HSD_PadLibData.reset_switch.",
+      "rationale": "HSD_PadReset establishes the fixed values and immediate destinations. PADRecalibrate shows how the all-channel mask modifies reset, polling, and recalibration state, while PADTypeAndStatusCallback shows its downstream consumption into calibration commands and per-channel origin buffers.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:30.603Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadReset",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L557-L577",
+          "why": "Shows the fixed channel indices, queue-flush policy, all-channel mask, and reset_switch write originating in HSD_PadReset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+          "why": "Shows the supplied channel mask entering ResettingBits and RecalibrateBits, removing channels from EnabledBits, and disabling their polling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/pad/pad.c#L255-L306",
+          "why": "Shows each recalibration mark being consumed to select CmdCalibrate and store returned origin data for the corresponding controller channel."
+        }
+      ]
+    },
+    {
+      "id": "fact:38a5a115-4f7d-4cc4-9bb2-27b0811da4d7",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadReset",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes a complete four-controller reset boundary: active force feedback is stopped, stale buffered inputs are discarded, the reset-button latch is cleared, and every GameCube controller channel is routed through recalibration so subsequent input uses newly acquired origin data.",
+      "rationale": "The HSD routine coordinates the visible reset effects across rumble, buffered input, and all four PAD channels. The lower-level PAD callback confirms that the recalibration request becomes a hardware calibration transfer whose result replaces the channel's origin data.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:12:30.603Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadReset",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L557-L577",
+          "why": "Shows the coordinated four-port rumble shutdown, input-queue discard, reset-latch clearing, and all-channel recalibration request."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/pad/pad.c#L255-L306",
+          "why": "Shows that a queued recalibration request issues CmdCalibrate and receives replacement controller-origin data."
+        }
+      ]
+    },
+    {
+      "id": "fact:44f15b65-0b67-47f0-9869-c9dee4074d37",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadReset",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void HSD_PadReset(void); it accepts no arguments, returns no value, and always applies the reset operation to all four controller ports.",
+      "rationale": "The definition supplies the exact void(void) signature, while the fixed four-iteration loop and constant 0xF0000000 recalibration mask show that the affected port set is not caller-selectable.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:30.603Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadReset",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L557-L577",
+          "why": "Provides the exact signature and shows the fixed loop over four ports and fixed all-channel recalibration mask."
+        }
+      ]
+    },
+    {
+      "id": "fact:fcd84337-8ff9-4ba3-b38a-5560a89df3cd",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadReset",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Resets HSD's controller subsystem by clearing all scheduled rumble, stopping the motor on each of the four controller ports, discarding queued input samples, requesting recalibration of every PAD channel, and clearing the latched reset-switch state.",
+      "rationale": "The function directly invokes the all-rumble removal routine, loops over ports 0 through 3 to turn each motor off, flushes the raw queue with the throwaway policy, passes the all-four-channel mask to PADRecalibrate, and clears PadLibData.reset_switch.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:12:30.603Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadReset",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L557-L577",
+          "why": "Shows every operation performed by HSD_PadReset: rumble removal, four-port motor shutdown, throwaway queue flush, all-channel recalibration, and reset-switch clearing."
+        }
+      ]
+    },
+    {
+      "id": "fact:3967e849-3074-4760-be3e-63f02381b4d9",
+      "target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadReset",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The entire HSD-level reset sequence is enclosed by saving and disabling the prior interrupt state and restoring it at the end. It unconditionally transitions all four ports to rumble-off, discards the current queued-input backlog, requests all-port PAD recalibration, and clears the reset-switch latch. PADRecalibrate then merges eligible channels into serialized reset work and starts that work only when the low-level PAD reset state is idle.",
+      "rationale": "The outer routine has no conditional reset guard: all reset operations occur between OSDisableInterrupts and OSRestoreInterrupts. The called PAD routine explicitly merges channel masks into reset state and guards DoReset with the ResettingChan idle sentinel.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:12:30.603Z",
+      "subject": "main/sysdolphin/baselib/controller:HSD_PadReset",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L557-L577",
+          "why": "Shows the interrupt-protected, unconditional sequence that stops rumble, flushes input, requests recalibration, and clears the reset-switch latch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+          "why": "Shows eligible channels being merged into reset state and DoReset being invoked only when ResettingChan equals the idle sentinel."
+        }
+      ]
+    },
+    {
+      "id": "fact:670a55d1-404b-49db-aba6-abfbd4bf3082",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/controller.c",
+      "type": "data_flow",
+      "value": "Queued PADStatus data for four ports flows into HSD_PadMasterStatus, where raw buttons, sticks, triggers, and analog face-button values are copied and transformed. The button field is augmented from stick direction, filtered for conflicting directions, and compared with its previous value to produce trigger, release, repeat, and repeat-count state; master values then flow into HSD_PadCopyStatus and HSD_PadGameStatus, while controller errors clear exposed inputs. Separately, OSGetResetSwitchState feeds a press-history byte and sticky reset_switch latch in HSD_PadLibData; HSD_PadGetResetSwitch converts that latch to 0 or 1 for consumers, one of which performs the audiovisual shutdown sequence and calls OSResetSystem.",
+      "rationale": "Current code preserves four-port sampling, reset-switch latching, master-status conversion and edge derivation, publication behavior, and the higher-level orderly reset consumer.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T16:48:24.354Z",
+      "subject": "src/sysdolphin/baselib/controller.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L39-L158",
+          "why": "Shows four-port PAD samples entering the raw queue and the physical reset switch producing a sticky request."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L370-L489",
+          "why": "Shows raw controller fields becoming transformed master state, edge and repeat state, and copy-status output."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0195.c#L1-L120",
+          "why": "Shows the latched reset request driving audio handling, video shutdown, retrace waits, and `OSResetSystem`."
+        }
+      ]
+    },
+    {
+      "id": "fact:1ccac980-9559-4c11-b3f6-9db32d7edcb9",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/controller.c",
+      "type": "game_mapping",
+      "value": "Realizes the input layer that turns GameCube PAD samples into stable per-frame game-facing controller state\u2014calibrated analog values, digital buttons, press and release edges, held-button repeats, and published snapshots for four ports\u2014and also converts a physical console RESET-button press-and-release into a latched request used to perform an orderly system reset.",
+      "rationale": "Current controller code still transforms four-port input and latches the RESET-button sequence, while the current consumer performs the orderly audiovisual shutdown and operating-system reset.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T16:48:24.354Z",
+      "subject": "src/sysdolphin/baselib/controller.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L39-L158",
+          "why": "Shows four-port sampling and conversion of an asserted-then-deasserted reset switch into a software request."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L370-L489",
+          "why": "Shows calibrated and normalized controller state plus press, release, and repeat derivation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0195.c#L1-L120",
+          "why": "Shows the reset request causing audiovisual shutdown followed by `OSResetSystem`."
+        }
+      ]
+    },
+    {
+      "id": "fact:fec38687-d94e-4547-80d4-459d1419aee1",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/controller.c",
+      "type": "purpose",
+      "value": "Implements HSD's controller and console-reset input layer. It samples four GameCube controller ports into a queue, converts valid samples into clamped and normalized master statuses, derives button transitions and repeats, publishes copy and game snapshots, and tracks the console RESET switch as a latched request that higher-level code can query.",
+      "rationale": "Current-head code still samples and queues PAD states, polls the reset switch, transforms valid controller samples, publishes copy and game status, and exposes and clears the reset latch.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:10:55.659Z",
+      "subject": "src/sysdolphin/baselib/controller.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L39-L160",
+          "why": "Shows controller queue management and reset-switch polling and latching."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L370-L540",
+          "why": "Shows input conversion, normalization, transition and repeat derivation, and publication."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L540-L590",
+          "why": "Shows the aggregate renewal pipeline and reset routine that clears the request latch."
+        }
+      ]
+    },
+    {
+      "id": "fact:18de62bc-4f20-4c43-835d-489ad81bb5f9",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/controller.c",
+      "type": "state_behavior",
+      "value": "Master renewal only processes a sample when the raw queue is nonempty. For each port, error 0 enters normal conversion, error -3 is suppressed by resetting the stored error to 0, and other errors clear digital, analog, and normalized inputs. A changed button mask emits press and release edges and restarts the repeat delay; an unchanged mask counts down to periodic repeats. Independently, observing the console RESET switch asserted sets reset_switch_status; the first later poll that finds it deasserted sets the sticky reset_switch request and clears reset_switch_status. That request remains set until HSD_PadReset clears it.",
+      "rationale": "The current master-status branches preserve the three error states and repeat transitions; the raw polling and reset routines preserve the asserted-then-deasserted latch and explicit clearing transition.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:10:55.659Z",
+      "subject": "src/sysdolphin/baselib/controller.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L39-L160",
+          "why": "Shows reset_switch_status set while asserted and reset_switch latched on the later deasserted poll."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L370-L450",
+          "why": "Shows normal, suppressed -3, and clearing error paths plus changed-versus-unchanged button repeat behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/controller.c#L540-L590",
+          "why": "Shows HSD_PadReset explicitly clearing the sticky reset-switch request."
+        }
+      ]
+    }
+  ]
+}

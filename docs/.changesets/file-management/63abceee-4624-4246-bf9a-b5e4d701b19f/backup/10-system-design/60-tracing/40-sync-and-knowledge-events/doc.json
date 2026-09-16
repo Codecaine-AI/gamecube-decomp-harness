@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-50-game-events-40-sync-and-knowledge-events",
+  "title": "Sync and Knowledge Events",
+  "root": "b-index-root-18",
+  "blocks": {
+    "b-index-root-18": {
+      "id": "b-index-root-18",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "sweep-6070fa630da845bf",
+        "sweep-5fad185c363e454b",
+        "sweep-fd94e849a6074ae2",
+        "sweep-e92b3c1b4b8248e7",
+        "sweep-c67ea27d066d480b",
+        "sweep-bd5addb483184126",
+        "sweep-41d17e23518544ca",
+        "sweep-8cb4e2a3277740b4",
+        "sweep-b0a363cad4c4436f",
+        "sweep-62a3b461911a4a98",
+        "sweep-b3d838d1b9874fea",
+        "sweep-b8c5c4e91a2a4389",
+        "sweep-a325aa555b114b06"
+      ]
+    },
+    "sweep-6070fa630da845bf": {
+      "id": "sweep-6070fa630da845bf",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync events record observation, staging, validation, and publication evidence. Shared job events record execution state separately from domain result records. Historical knowledge-job contracts remain readable but are not the current V2 intake workflow."
+        }
+      ],
+      "children": []
+    },
+    "sweep-5fad185c363e454b": {
+      "id": "sweep-5fad185c363e454b",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Sync Observation and Authority"
+        }
+      ],
+      "children": []
+    },
+    "sweep-fd94e849a6074ae2": {
+      "id": "sweep-fd94e849a6074ae2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The outgoing workflow settles and releases its dispatch lease before sync acquires it. sync.ingesting is accepted from an operator or runner; guardian is not an allowed ingestion actor. Discord mirror refresh is best effort and records success or failure without making refresh failure a staging-job blocker."
+        }
+      ],
+      "children": []
+    },
+    "sweep-e92b3c1b4b8248e7": {
+      "id": "sweep-e92b3c1b4b8248e7",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Event",
+          "Accepted Evidence"
+        ],
+        "rows": [
+          [
+            "sync.discord_refresh_requested",
+            "The sync identity and envelope lineage bind the request to its observation."
+          ],
+          [
+            "sync.discord_refresh_completed",
+            "ok, detail, duration_ms, and nullable messages_pulled describe the mirror pull."
+          ],
+          [
+            "sync.observation_refreshed",
+            "Prior and observed upstream revisions, merged PR and corpus IDs, knowledge_only, source identity, and state revision."
+          ],
+          [
+            "sync.staging_progressed",
+            "Workspace, durable merge stage, conflict counts, reconciled PR state, and progress kind."
+          ],
+          [
+            "sync.boundary_published",
+            "upstream_revision, knowledge_intake, and validation_evidence."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "sweep-c67ea27d066d480b": {
+      "id": "sweep-c67ea27d066d480b",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Publication and Recovery"
+        }
+      ],
+      "children": []
+    },
+    "sweep-bd5addb483184126": {
+      "id": "sweep-bd5addb483184126",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync Process",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-sync/20-process"
+            }
+          }
+        },
+        {
+          "insert": " owns the ordering: canonical repoint, V2 intake, durable boundary transaction, PR pushes, and final release. Intake reconciles subjects and re-anchors citations before PR, Discord, and attempt imports. The resulting librarian task queue continues independently of sync finalization."
+        }
+      ],
+      "children": []
+    },
+    "sweep-41d17e23518544ca": {
+      "id": "sweep-41d17e23518544ca",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Event",
+          "Reconstruction Use"
+        ],
+        "rows": [
+          [
+            "sync.reconciliation_blocked",
+            "Identify conflicting paths awaiting operator resolution."
+          ],
+          [
+            "sync.blocked",
+            "Explain blockers and recovery choices."
+          ],
+          [
+            "sync.recovered",
+            "Identify status recovery, retained or discarded staging, and resume stage."
+          ],
+          [
+            "sync.cancelled",
+            "Prove the prior canonical head and recursive submodule pointers remained untouched."
+          ],
+          [
+            "sync.pr_push_started / succeeded / failed",
+            "Reconstruct branch publication from sync_push subjects, separate from sync_workflow subjects."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "sweep-8cb4e2a3277740b4": {
+      "id": "sweep-8cb4e2a3277740b4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Jobs and Sandbox Lifecycle"
+        }
+      ],
+      "children": []
+    },
+    "sweep-b0a363cad4c4436f": {
+      "id": "sweep-b0a363cad4c4436f",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "job.enqueued records kind, dedupe_key, execution_class, priority, and optional requeue. job.claimed, job.started, job.waiting, job.succeeded, job.failed, and job.cancelled carry accepted status transitions. Each transition requires distinct from_status and to_status values."
+        }
+      ],
+      "children": []
+    },
+    "sweep-62a3b461911a4a98": {
+      "id": "sweep-62a3b461911a4a98",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "sandbox.created records sandbox_id, snapshot, CPU, memory and disk allocation, job_id, claim_id, and worker_state_id. sandbox.deleted records sandbox_id and reason with optional job_id and claim_id. These facts link provider resources to the worker job without making a sandbox event authoritative for a worker result."
+        }
+      ],
+      "children": []
+    },
+    "sweep-b3d838d1b9874fea": {
+      "id": "sweep-b3d838d1b9874fea",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Historical Knowledge Events"
+        }
+      ],
+      "children": []
+    },
+    "sweep-b8c5c4e91a2a4389": {
+      "id": "sweep-b8c5c4e91a2a4389",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "knowledge.job_enqueued, the knowledge.job_* transitions, knowledge.revision_advanced, and sync.discord_staged remain registered to interpret retained history. The retired sync-stage processor and knowledge revision publication sequence are not the current V2 execution path. A registered event is not proof that a present producer emits it."
+        }
+      ],
+      "children": []
+    },
+    "sweep-a325aa555b114b06": {
+      "id": "sweep-a325aa555b114b06",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Game Event Registry and Catalog",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/60-tracing/20-registry-and-catalog"
+            }
+          }
+        },
+        {
+          "insert": " gives exact required and nullable payload fields. The registry source is "
+        },
+        {
+          "insert": "apps/server/src/core/harness-state/event-registry.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-state/event-registry.ts"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
+}

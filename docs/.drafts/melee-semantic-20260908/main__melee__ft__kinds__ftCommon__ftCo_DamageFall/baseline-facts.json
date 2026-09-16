@@ -1,0 +1,1384 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:0c7ceed4-3896-4de9-a68f-83cd27e7ee15",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "ftCo_80090780 reads the pool's 0.0f and 1.0f constants when the fighter lacks an active Parasol, passing them to Fighter_ChangeMotionState as the initial frame, animation speed, and blend value for motion 0x26; the zero constant is reused for both the frame and blend arguments.",
+        "rationale": "At the current path, the ordinary DamageFall entry branch still passes 0.0f, 1.0f, and 0.0f to Fighter_ChangeMotionState. This preserves the established constant flow while replacing the removed chara-path citation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Shows the non-Parasol branch passing 0.0f, 1.0f, and 0.0f as the ordinary DamageFall motion's frame, playback-rate, and blend arguments."
+          }
+        ]
+      },
+      {
+        "id": "fact:5d94be6b-ca52-493f-aa77-cc3327be1007",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An eight-byte small read-only constant pool containing two single-precision floating-point values: 0.0f and 1.0f.",
+        "rationale": "The section target remains eight bytes, and the current unit's ordinary DamageFall transition uses exactly the two distinct single-precision constants 0.0f and 1.0f. The moved source therefore supports the same two-float layout.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Shows the unit's uses of the two distinct floating-point literals 0.0f and 1.0f in the DamageFall motion-state transition."
+          }
+        ]
+      },
+      {
+        "id": "fact:893b1021-a0ef-44e5-9398-8b46f6f9e78b",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Supplies the floating-point constants used when entering the ordinary DamageFall motion, initializing the motion at frame 0 with playback rate 1 and zero blend.",
+        "rationale": "The current source retains the ordinary DamageFall call with 0.0f, 1.0f, and 0.0f, confirming the section's established role after its unit moved from chara to kinds.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Shows ftCo_80090780 entering ordinary DamageFall with frame 0, playback rate 1, and blend 0."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090574"
+    },
+    "facts": [
+      {
+        "id": "fact:f32013aa-7b5b-4436-b17a-608c64222a28",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090574",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj from a surface-reaction entry routine and forwards it unchanged to ft_80081DD4. Downstream, that helper reads the Fighter, CollData, SDI permission, ledge cooldown and collision flags, fighter-data ledge-snap height, model scale, and a common ledge-snap multiplier. It advances CollData.last_pos from CollData.cur_pos, seeds CollData.cur_pos from Fighter.cur_pos, chooses one of three map-collision queries, temporarily enlarges and then restores ledge-snap height on the ordinary path, writes the resolved CollData.cur_pos back to Fighter.cur_pos, and computes a boolean result that this wrapper discards.",
+        "rationale": "The target body proves unchanged forwarding and discarded output. The complete callee establishes every field read, position transfer, collision-query branch, temporary ledge-snap mutation, restored value, and final boolean computation. The two callers establish that the incoming object has just undergone ceiling- or wall-relative position correction.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T06:42:28.832Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L26-L29",
+            "why": "Shows the wrapper's entire direct data flow from its parameter to ft_80081DD4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L104-L204",
+            "why": "Shows the delegated helper's position synchronization, branch inputs, collision queries, temporary ledge-snap adjustment, Fighter writeback, and boolean output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L1-L88",
+            "why": "Shows one input origin: a fighter repositioned relative to a ceiling during PassiveCeil entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftCo_800C7CA0.c#L19-L122",
+            "why": "Shows the other input origin: a fighter repositioned relative to a wall during DownReflect entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:3f2c7b0b-8c05-48c0-8ec4-30c7984d9d68",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090574",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports correct stage-geometry placement when a fighter begins a ceiling tech or a knockback-driven wall rebound: after those reactions move the fighter to a surface-relative animation origin, this wrapper immediately reruns environmental collision processing so the fighter's resolved position and collision state agree with the new placement.",
+        "rationale": "The PassiveCeil caller computes a ceiling-relative position before the call, while the DownReflect caller computes a wall-relative position before the call. The delegated routine then synchronizes that fighter position into CollData, performs map collision, and writes the resolved position back. This grounds the wrapper in the positioning portion of those two surface-reaction mechanics without attributing their eligibility or motion selection to the wrapper itself.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T06:42:28.832Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L1-L88",
+            "why": "Shows the PassiveCeil ceiling-tech initializer moving the fighter to its ceiling-relative origin and then invoking the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftCo_800C7CA0.c#L19-L122",
+            "why": "Shows the DownReflect wall-rebound initializer applying wall-relative position correction and then invoking the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L104-L204",
+            "why": "Shows the resulting environmental collision pass synchronizing and resolving the fighter and collision positions."
+          }
+        ]
+      },
+      {
+        "id": "fact:12d34cc2-a95b-44f1-814b-6ac3232b44c0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090574",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void fighter collision-refresh adapter with signature void(Fighter_GObj* gobj). It accepts a fighter game object, forwards it unchanged to the boolean collision helper ft_80081DD4, and deliberately exposes no contact status to its callers.",
+        "rationale": "The matched definition directly establishes the void(Fighter_GObj*) signature and unchanged argument forwarding. The callee's definition returns bool, while the wrapper neither returns nor branches on that value, distinguishing this adapter from collision callbacks that use ft_80081DD4 as a landing predicate.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:42:28.832Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L26-L29",
+            "why": "Provides the target's exact signature and shows unchanged forwarding with no return-value use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L104-L204",
+            "why": "Establishes that the delegated routine is a bool-returning fighter map-collision helper."
+          }
+        ]
+      },
+      {
+        "id": "fact:f04a43bb-62e2-46e1-9fe6-35fb87fc5339",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090574",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Runs a one-shot fighter map-collision refresh after a surface-reaction initializer has changed the fighter's motion and position. It delegates the full collision pass to ft_80081DD4 and intentionally discards that helper's boolean contact result, leaving the fighter and its collision record synchronized for subsequent processing.",
+        "rationale": "The target is a direct void wrapper around ft_80081DD4. The resolved callee copies the previous collision position, seeds the current collision position from Fighter.cur_pos, performs the applicable map-collision query, copies the corrected collision position back to Fighter.cur_pos, and returns a contact result. The target's two callers invoke this wrapper only after PassiveCeil or DownReflect entry has explicitly repositioned the fighter, establishing that this use is an immediate post-reposition refresh rather than a collision decision point.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T06:42:28.832Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L26-L29",
+            "why": "Shows that the target consists solely of calling ft_80081DD4 with the supplied Fighter_GObj and does not consume its return value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L104-L204",
+            "why": "Shows ft_80081DD4 synchronizing fighter and collision positions, running the selected map-collision query, applying the resolved position back to the fighter, and returning a boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L1-L88",
+            "why": "Shows PassiveCeil entry relocating the fighter to a ceiling-relative animation origin immediately before invoking the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftCo_800C7CA0.c#L19-L122",
+            "why": "Shows DownReflect entry correcting the fighter's position at a contacted wall immediately before invoking the target."
+          }
+        ]
+      },
+      {
+        "id": "fact:6dd67449-9a8a-4d7d-9d4e-326c6436dcfb",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090574",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The wrapper has no guard, timer, transition, or failure path: every invocation performs exactly one shared map-collision pass and then returns regardless of whether that pass reports contact. Its callers place it in one-time state-entry sequences after entering PassiveCeil or DownReflect and applying surface-relative position correction, so any resulting contact classification is retained in collision state rather than used to redirect control flow immediately.",
+        "rationale": "The target's straight-line body cannot branch on the delegated boolean result. PassiveCeil and DownReflect both call it during initialization after their motion transition and position adjustment, while the delegated helper performs the conditional collision-query selection and position resolution internally.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T06:42:28.832Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L26-L29",
+            "why": "Shows that the wrapper unconditionally calls the helper once and has no local branch or returned status."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L104-L204",
+            "why": "Shows the collision-query branches and boolean result that remain internal to the delegated helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L1-L88",
+            "why": "Places the call inside the one-time PassiveCeil entry sequence after motion entry and ceiling-relative relocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftCo_800C7CA0.c#L19-L122",
+            "why": "Places the call inside DownReflect initialization after motion entry and wall-relative position correction."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594"
+    },
+    "facts": [
+      {
+        "id": "fact:4f04deea-e4c8-492b-bf59-c630d7ef4e4e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "For an eligible reaction, damage, the supplied motion ID, and the hitlag multiplier flow through ftCommon_CalcHitlag and common-data coefficients x168/x16C to produce `x18fa_model_shift_frames`; the sequence index `x18FC` is reset to zero. The hit element and ground/air status select mode 2 for electric, mode 0 for non-electric aerial, or mode 1 for non-electric grounded reactions. Grounded mode also copies the current floor normal into x1900/x1904. The selected mode indexes Fighter_804D6530 to initialize x18FD and is later used with x18FC by ftCo_80090690 to read and orient the displacement vector.",
+        "rationale": "The local calcShift helper exposes the duration calculation and the target exposes every field write and branch selecting the mode. The adjacent displacement reader establishes how the initialized mode, index, duration, table, and floor normal are subsequently consumed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:38:43.261Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L30-L84",
+            "why": "Directly shows the duration calculation, sequence reset, three-way mode selection, floor-normal capture, table-derived initialization, and later vector consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L640-L648",
+            "why": "Shows the damage-, motion-, and multiplier-dependent hitlag calculation used as the base of the model-shift duration."
+          }
+        ]
+      },
+      {
+        "id": "fact:4a46ba99-d5ef-4d65-a5c7-1113b00f3816",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the visual model displacement applied during eligible damage reactions. Its duration scales from Melee's damage- and multiplier-derived hitlag duration, while its displacement style distinguishes electric reactions from ordinary airborne and grounded reactions; grounded displacement is aligned to the contacted floor.",
+        "rationale": "The source explicitly names the stored duration as model-shift frames and derives it from ftCommon_CalcHitlag before selecting electric, aerial, or grounded displacement data. The grounded data is transformed using the saved floor normal. The mechanic source independently identifies damage, hitlag multipliers, electric effect, and crouch cancelling as factors in Melee's hitlag behavior.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-02T06:38:43.261Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L30-L84",
+            "why": "Shows the model-shift duration's dependency on the hitlag calculation and the electric, aerial, and floor-relative grounded displacement modes."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://hitlag~formula@r2045696",
+            "why": "Documents Melee's damage-based hitlag formula and the effect, hitlag, and crouch-cancel multipliers represented by the underlying duration calculation."
+          }
+        ]
+      },
+      {
+        "id": "fact:68c6c3e4-fe47-4434-849e-ba9049569a93",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_InitDamageModelShift",
+        "rationale": "The function does not enter an action state; instead, it initializes the explicitly identified model-shift frame counter, resets the displacement-table index, selects a damage-response mode, and stores grounded orientation data. `ftCo_InitDamageModelShift` expresses that narrow initialization role without assigning unsupported gameplay semantics to the unnamed table.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Plausible original name: ftCo_InitDamageModelShift.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L30-L84",
+            "why": "Shows that the routine initializes fields subsequently consumed as a timed damage model-shift vector sequence."
+          }
+        ]
+      },
+      {
+        "id": "fact:8a73558d-3096-4575-a2ac-b6997e6e1f8f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void ftCo_80090594(Fighter* fighter, HitElement element, int damage, FtMotionId motion_id, GroundOrAir ground_or_air, float hitlag_multiplier). `element`, `motion_id`, and `ground_or_air` are enum-domain values; `damage` and `hitlag_multiplier` feed the duration calculation, while the routine mutates the Fighter's damage-model state in place.",
+        "rationale": "The matched declaration directly establishes the parameter and return types. The body demonstrates the enum comparisons and Fighter mutation, while the local duration helper passes damage, motion ID, and multiplier to the typed hitlag calculator.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:38:43.261Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L30-L84",
+            "why": "Provides the exact signature, enum comparisons, in-place Fighter field writes, and call into the duration helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L640-L648",
+            "why": "Confirms that the duration helper's three forwarded values are integer damage, an FtMotionId, and a floating-point multiplier."
+          }
+        ]
+      },
+      {
+        "id": "fact:b89e9609-4875-450c-9a62-5b6dfa76dc5e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the fighter's timed damage-reaction model-shift sequence after an eligible hit, selecting the electric, aerial, or floor-relative grounded displacement mode and preparing that sequence to begin at its first entry.",
+        "rationale": "The matched function computes and stores a model-shift frame count, resets the sequence index, chooses one of three table modes from hit element and ground/air status, and captures the floor normal needed by the grounded mode. The immediately following reader consumes those initialized fields to produce the fighter's displacement vector.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T06:38:43.261Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L30-L84",
+            "why": "Shows the complete initialization routine and the adjacent consumer that interprets its mode, index, duration, and stored floor-normal fields as a model-shift displacement sequence."
+          }
+        ]
+      },
+      {
+        "id": "fact:7646cb84-b2d5-4015-8b01-82246728ec06",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The initializer is suppressed for Cape, Disable, Nap, and Sleep hit elements and while the fighter is already in DamageIce. Otherwise it starts a new model-shift sequence and selects electric displacement with highest priority, then ordinary aerial displacement, with floor-relative grounded displacement as the remaining case.",
+        "rationale": "The function's two early-return guards enumerate the excluded hit elements and DamageIce state. Its ordered conditional establishes the mode priority and shows that only the grounded branch records a floor normal.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:38:43.261Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L30-L84",
+            "why": "Shows both suppression guards and the ordered electric, aerial, and grounded mode branches."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090690"
+    },
+    "facts": [
+      {
+        "id": "fact:3d24d6a1-a61a-44ec-a8eb-ba7e8a3de74b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090690",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads dmg.x18fa_model_shift_frames as its enable condition, dmg.x18F8 as the displacement mode, and dmg.x18FC as the current table index. It obtains a Vec2 from Fighter_804D6530[mode * 2][index]. For every mode it mirrors table X by facing_dir; mode 1 additionally projects that value using the floor-normal components saved in dmg.x1900 and dmg.x1904, while preserving the table's Y contribution. The resulting Vec2 is returned to ftCommon_8008021C, which adds it to dmg.x18B8 and dmg.x18BC alongside other transient displacement sources.",
+        "rationale": "The current DamageFall source still establishes and consumes the enable count, mode, table index, and grounded floor-normal fields exactly as described. The current caller still adds the returned vector to the fighter's displacement accumulators before processing other optional shifts, so the data-flow claim remains valid after relocation and source drift.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:43:09.165Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L1-L88",
+            "why": "Shows initialization and consumption of the model-shift frame count, displacement mode, table index, grounded floor normal, and transformed output vector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1689-L1728",
+            "why": "Shows ftCommon_8008021C adding the returned X and Y shift to the fighter's displacement accumulators alongside other optional displacement sources."
+          }
+        ]
+      },
+      {
+        "id": "fact:726e09f7-b034-4896-a11c-217e018a4384",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090690",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the transient positional jolt applied to a fighter model during a damage reaction, with distinct displacement sequences for electric, airborne, and grounded hits; grounded jolts follow the contacted floor's orientation rather than remaining aligned to world horizontal.",
+        "rationale": "Current hit processing still initializes the model-shift sequence during damage handling, and the moved target still selects electric, aerial, or grounded data and transforms grounded displacement by the saved floor normal. Its output remains part of the displacement update immediately preceding camera processing.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L2874-L2974",
+            "why": "Shows damage processing initializing the DamageFall unit's model-shift state when damage is applied."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L32-L81",
+            "why": "Shows electric, aerial, and grounded mode selection, grounded floor-normal capture, and the facing- and floor-relative displacement calculation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L2974-L3074",
+            "why": "Shows the common displacement aggregation being invoked immediately before the fighter camera callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:b7283c0c-52e2-4b76-a7c6-c39e77c95b9b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090690",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_Damage_GetModelShift",
+        "rationale": "The target remains a nullable getter-like helper: it reads active damage model-shift state, fills a caller-provided vector, and returns that vector without advancing the effect. The current caller treats the result as an optional displacement, supporting the same moderately confident semantic reconstruction.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: ftCo_Damage_GetModelShift.",
+        "confidence": 0.66,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L65-L81",
+            "why": "Shows the helper reading model-shift state, filling an output vector when active, and otherwise returning NULL."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1689-L1728",
+            "why": "Shows its caller treating the result as an optional displacement-vector provider."
+          }
+        ]
+      },
+      {
+        "id": "fact:f2cc6134-0943-45e5-8c0e-cbad8a789d43",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090690",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Nullable output-parameter helper with signature Vec2* (Fighter* fp, Vec2* shift). When model shifting is active it writes both components of shift and returns that same pointer; otherwise it leaves shift untouched and returns NULL.",
+        "rationale": "The matched declaration supplies the exact parameter and return types. Every active branch assigns shift.x and shift.y before returning shift, while the inactive path returns NULL without writing through the output pointer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:41:07.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L55-L85",
+            "why": "Directly provides the signature and establishes the complete output-pointer and nullable-return contract."
+          }
+        ]
+      },
+      {
+        "id": "fact:22a25782-6053-48c4-a674-741d09695d4a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090690",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Computes the current two-dimensional damage-model shift for a fighter. It selects the active displacement-table entry, mirrors its horizontal component by fighter facing, and, for grounded damage reactions, reorients that horizontal displacement along the floor tangent.",
+        "rationale": "The target's current implementation retains the activity guard, indexed table lookup, facing-direction multiplication, and grounded floor-normal transformation. Its current caller still adds the result to the fighter's displacement accumulator, so the prior purpose remains sound.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L65-L81",
+            "why": "Shows the active model-shift lookup, facing mirroring, grounded floor-normal transformation, output writes, and nullable return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1689-L1728",
+            "why": "Shows the resulting vector being added to the fighter's X/Y displacement accumulator."
+          }
+        ]
+      },
+      {
+        "id": "fact:9f14d335-6e36-45f3-8219-869aa861b56b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090690",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The helper has two observable states. While dmg.x18fa_model_shift_frames is nonzero, it emits the displacement at the current dmg.x18FC table index and returns the output pointer. When that frame count is zero, it emits no displacement and returns NULL. It does not advance the frame count or table index itself.",
+        "rationale": "The outer guard completely determines whether an output exists. Within the active path the function only reads fighter state and writes the caller's vector; there are no writes to the frame counter, displacement mode, or table index, so progression belongs to surrounding update logic.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:41:07.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L55-L85",
+            "why": "Shows the nonzero-frame active path, zero-frame NULL path, and absence of mutations to the fighter's model-shift state."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718"
+    },
+    "facts": [
+      {
+        "id": "fact:77289fcc-e65a-4f15-bd4f-bafe16422370",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads two independently queued values from Fighter.dmg. A nonnegative x1908 is passed to ft_PlaySFX with volume 127 and pan 64, then replaced with -1. A non-NULL x190C is passed to ft_800889F4, which chooses sfx_ids[HSD_Randi(num)] from the FtSFXArr and starts it with the same maximum-volume, centered-pan controls, after which x190C is replaced with NULL.",
+        "rationale": "The target exposes the direct-ID path, constants, array path, and one-shot clears. Following the array-path callee establishes how the array is consumed and that its selected sound is also played with 0x7F volume and 0x40 pan.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:41:56.619Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "Shows the target's complete reads, arguments, calls, and writes for both queued fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L152-L252",
+            "why": "Shows the random index construction and playback of the selected FtSFXArr member with volume 0x7F and pan 0x40."
+          }
+        ]
+      },
+      {
+        "id": "fact:bf5bf9d0-4c8f-4923-a9dd-c67da85ad073",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes hitlag-synchronized damage audio: queued fighter hit sounds play immediately for interactions without hitlag, but damage reactions that enter hitlag hold those sounds until the victim's hitlag ends.",
+        "rationale": "At head, hit processing still dispatches queued sounds immediately on the no-hitlag branch, while the fighter frame process dispatches deferred sounds as the hitlag counter reaches zero. This continues to implement sound timing around Melee's bounded hitlag interval.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L2938-L3057",
+            "why": "Shows hit processing establishing hitlag and its deferral flag when applicable, but calling ftCo_80090718 immediately when there is no hitlag-driving result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1391-L1432",
+            "why": "Shows deferred pending-sound dispatch when the fighter's hitlag counter reaches zero."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://hitlag~properties@r2045696",
+            "why": "Documents hitlag as a bounded frame-based effect in Melee associated with damaging and knockback-producing interactions."
+          }
+        ]
+      },
+      {
+        "id": "fact:b48607b0-ddd2-4cca-8dde-fd5b5c89b6d2",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_PlayPendingDamageSFX",
+        "rationale": "The routine belongs to ftCommon, exclusively handles two Fighter.dmg sound-request fields, plays their pending sounds, and consumes both requests. The proposed name follows the unit's ftCo_ prefix while describing the demonstrated operation without assigning meaning beyond the matched code.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: ftCo_PlayPendingDamageSFX.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "Shows that the function's entire behavior is playing and clearing pending values stored in Fighter.dmg."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L152-L252",
+            "why": "Establishes that the second pending value is an FtSFXArr and that its consumer plays one of its sound IDs."
+          }
+        ]
+      },
+      {
+        "id": "fact:7f5aea81-79fc-4001-94ce-408b97007aa0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function signature: void (Fighter* fp). Within Fighter.dmg, x1908 is a pending SFX identifier using -1 as its empty sentinel, and x190C is a nullable FtSFXArr* pending-sound collection.",
+        "rationale": "The matched declaration proves the function signature and the comparisons and assignments establish each field's sentinel representation. The exact signature of ft_800889F4 identifies x190C's pointed-to type as FtSFXArr.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:41:56.619Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "Contains the exact function signature and shows x1908 compared and reset to -1 while x190C is compared and reset to NULL."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L152-L252",
+            "why": "Provides the exact ft_800889F4(Fighter*, FtSFXArr*) signature and accesses the array's count and SFX identifiers."
+          }
+        ]
+      },
+      {
+        "id": "fact:9e8b0bb2-ee5d-47fe-97b9-be4509b5189c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Dispatches and consumes the fighter's pending damage sound requests, playing a directly queued SFX ID and/or a randomly selected sound from a queued FtSFXArr.",
+        "rationale": "The matched function independently checks the two pending fields, routes the direct ID through ft_PlaySFX and the array through ft_800889F4, then clears each field after dispatch. The resolved array helper confirms that its argument is a collection of SFX IDs from which one is selected randomly.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:41:56.619Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "Directly shows both pending-sound guards, playback calls, and post-dispatch field clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L152-L252",
+            "why": "Defines ft_800889F4 as selecting a random SFX ID from the supplied FtSFXArr and playing it for the fighter."
+          }
+        ]
+      },
+      {
+        "id": "fact:a9b195a0-743d-4bbe-87df-fcbcca0d11ab",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each pending-sound slot is processed independently and at most once per queueing: absent slots are ignored, while present slots are played and immediately reset to their empty sentinel. Hit processing invokes the routine immediately when the processed interaction produces no hitlag-driving result; otherwise it marks the request for deferral, and the fighter's frame process invokes the routine when the hitlag counter reaches zero before clearing that deferral flag.",
+        "rationale": "The target still contains independent guards followed by immediate sentinel resets. The refreshed fighter call sites preserve the immediate no-hitlag dispatch and the deferred dispatch precisely when hitlag reaches zero, followed by clearing x221A_b3.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "Shows independent processing and one-shot clearing of the direct SFX and FtSFXArr pending slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L2938-L3057",
+            "why": "Shows immediate dispatch on the no-hitlag branch and establishment of the deferral flag for applicable hitlag-producing damage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1391-L1432",
+            "why": "Shows dispatch when hitlag reaches zero and the subsequent clearing of the deferral flag."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780"
+    },
+    "facts": [
+      {
+        "id": "fact:7d4f040c-47ba-4355-809e-fd4acb62e59a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter game object and reads its Fighter and current ground-or-air state. If grounded, it rewrites the Fighter for airborne processing by setting GA_Air, clearing ground velocity and selected Z/Y components, setting jumps used to 1, and locking the ECB and collision data. It then consumes the attached-item-derived Parasol status: any value other than -1 forwards the unchanged game object to ItemParasolDamageFall entry; -1 selects ordinary motion 0x26 with flags 0x18001, frame 0, speed 1, and blend 0, after which the Fighter's horizontal self-velocity is bounded by its air-drift maximum and passed to a conditional player-feedback helper with arguments 8 and 0.",
+        "rationale": "The target's relocated body retains the exact ground-state guard, Parasol branch, ordinary motion parameters, and downstream calls. Current definitions of the ground-to-air and feedback helpers establish the field mutations and conditional player-associated effect.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Shows the game-object input, Fighter lookup, ground-state and Parasol-status branches, ordinary motion parameters, air-drift clamp, and feedback-helper arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L513-L527",
+            "why": "Shows the precise Fighter fields changed by the grounded-to-airborne conversion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Shows the forwarded object entering ItemParasolDamageFall and receiving its branch-specific air-drift clamp."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1156-L1168",
+            "why": "Shows ftCommon_8007EBAC conditionally invoking the player-associated feedback routine with the supplied arguments."
+          }
+        ]
+      },
+      {
+        "id": "fact:97550b35-625b-42c8-a650-da7feccf7877",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Begins Melee's airborne tumbling state, internally called DamageFall, including non-attack entries such as being pushed from a ledge or losing ground while carrying a heavy item. If the fighter has an active Parasol, it preserves the item's specialized damaged-descent behavior instead of forcing the ordinary tumble motion.",
+        "rationale": "The wiki identifies DamageFall as Melee's internal name for tumbling and lists ledge displacement and heavy-item edge exits among its causes. The relocated function still enters ordinary DamageFall unless Parasol status selects the dedicated ItemParasolDamageFall state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "wiki",
+            "locator": "wiki://tumbling~__intro__@r2033369",
+            "why": "Defines tumbling as the airborne state internally called DamageFall in Melee and lists attacks, ledge displacement, and heavy-item edge exits among its causes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Shows ordinary DamageFall entry and the alternate branch selected when Parasol status is active."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Identifies the alternate state as ItemParasolDamageFall and shows preservation of fast-fall state."
+          }
+        ]
+      },
+      {
+        "id": "fact:cd6ddcd1-bc91-4e0e-bd66-a3e4c053ffa3",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_DamageFall_Enter",
+        "rationale": "The relocated address-named routine initializes DamageFall or its Parasol-specific substitute and immediately precedes the explicitly named DamageFall Anim, IASA, Phys, and Coll callback suite. `_Enter` remains the most plausible completion of that local naming convention, though no preserved symbol directly proves it.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_DamageFall_Enter`.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L143",
+            "why": "Shows the address-named state-entry routine followed by the explicitly named DamageFall animation, input, physics, and collision callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:46cd7e75-62f9-4ecf-8776-954d6478ad84",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter motion-state entry routine with effective signature `void (Fighter_GObj* gobj)`; the matched definition uses the compatible spelling `HSD_GObj*`. It returns no value and mutates the Fighter stored in `gobj->user_data`, while forwarding the same object to the selected motion-state entry path.",
+        "rationale": "The current definition directly supplies the void return and HSD_GObj-pointer parameter, obtains the Fighter from user_data, and passes the same object to the ordinary or Parasol-specific state entry. The Parasol destination uses the compatible Fighter_GObj spelling.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Provides the exact matched signature and shows the object-to-Fighter lookup, state mutation, and forwarding of the same object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Shows the specialized destination accepting the same object as Fighter_GObj* and using it for motion-state entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:b419c11d-71b1-4df2-81f2-518ed9afc572",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enters common DamageFall processing for a fighter. It first converts a grounded fighter to airborne bookkeeping, then dispatches fighters with an attached Parasol to the dedicated ItemParasolDamageFall entry routine; all others enter the ordinary DamageFall motion, have excessive horizontal air speed clamped, and invoke the associated player-feedback hook.",
+        "rationale": "The current target still performs the complete ground-to-air conversion guard, Parasol classification, specialized dispatch, ordinary motion transition, drift clamp, and feedback call. The resolved helper bodies retain the established bookkeeping and Parasol behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Shows the target's complete entry logic, including the grounded guard, Parasol split, ordinary DamageFall transition, drift clamp, and feedback call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L513-L527",
+            "why": "Shows the airborne bookkeeping performed for a grounded fighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Shows that the specialized branch enters ItemParasolDamageFall and clamps horizontal air drift."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1156-L1168",
+            "why": "Shows the conditional player-associated feedback operation invoked by the ordinary branch."
+          }
+        ]
+      },
+      {
+        "id": "fact:c88bf15d-c35d-4bc3-a935-206e0ee8cebd",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine performs an immediate, timerless transition. A fighter still marked grounded is first converted to airborne state and receives an ECB lock of 10 with one jump recorded as used. A nonnegative Parasol status then selects ftCo_MS_ItemParasolDamageFall while preserving fast-fall state; otherwise the fighter enters ordinary DamageFall motion 0x26 at frame 0 and normal speed. Both branches clamp horizontal air drift, while only the ordinary branch invokes the conditional player-feedback hook. Subsequent ordinary behavior is supplied by the adjacent DamageFall animation, input, physics, and collision callbacks.",
+        "rationale": "The current target contains no timer and immediately selects one of two state-entry paths. The resolved conversion helper establishes the jump and ECB values, the Parasol routine establishes fast-fall preservation and its drift clamp, and the adjacent definitions retain the ordinary callback suite.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L143",
+            "why": "Shows the immediate branch between ordinary and Parasol DamageFall and the adjacent callback suite governing ordinary DamageFall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L513-L527",
+            "why": "Shows that grounded conversion sets one jump used, an ECB lock of 10, airborne state, and collision-data locking."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Shows the Parasol path entering ftCo_MS_ItemParasolDamageFall with Ft_MF_KeepFastFall and then clamping air drift."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1156-L1168",
+            "why": "Shows that the ordinary branch's final helper conditionally performs player-associated feedback."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Anim"
+    },
+    "facts": [
+      {
+        "id": "fact:a396cd13-0354-4679-8562-379dfe962796",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current fighter game object but does not read it, call another routine, write any state, or produce a value; control immediately returns to the action-state dispatcher.",
+        "rationale": "The complete body is empty, so the supplied fighter object cannot enter any subsequent computation or mutation and the void callback has no output.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:36:23.069Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L111-L111",
+            "why": "Shows that the callback accepts `gobj` but contains no statements that consume it or create effects."
+          }
+        ]
+      },
+      {
+        "id": "fact:310955ae-f86e-4e8a-a48c-1a442212cbc7",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An action-state animation callback with signature `void (Fighter_GObj* gobj)`.",
+        "rationale": "The current definition directly provides the signature. Its `_Anim` name and adjacency to the corresponding IASA, Phys, and Coll handlers continue to identify it as DamageFall's animation-phase callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L111-L143",
+            "why": "Shows the complete void (Fighter_GObj*) definition and its placement in the DamageFall callback suite."
+          }
+        ]
+      },
+      {
+        "id": "fact:fdfb268a-b271-404d-93f7-d79ad128ad3e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the deliberately inert animation-phase handler for the DamageFall action state, satisfying that phase of the state's callback interface without performing animation-completion logic or initiating a transition.",
+        "rationale": "The relocated `_Anim` definition remains empty, while the adjacent IASA, physics, and collision callbacks contain DamageFall's active update behavior. This confirms that the animation phase intentionally performs no work.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L111-L143",
+            "why": "Shows the empty DamageFall animation callback in context with the state's active input, physics, and collision handlers."
+          }
+        ]
+      },
+      {
+        "id": "fact:939c3e0b-31a3-4989-9e8c-d4d8edd643e1",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has invariant no-op behavior on every animation update: it performs no guards, timer checks, animation-end test, state mutation, or transition. DamageFall exits and movement updates are instead handled by the neighboring IASA and collision/physics phases.",
+        "rationale": "The callback's current body is empty. The immediately adjacent IASA handler contains transition checks, while Phys and Coll delegate movement and terrain handling, confirming that animation updates never advance this state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L111-L143",
+            "why": "Shows the no-op animation callback and contrasts it with transition and update behavior in the adjacent DamageFall callbacks."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Coll"
+    },
+    "facts": [
+      {
+        "id": "fact:dccd30c5-9bee-4ea6-b325-e95b1aecf47a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current Fighter_GObj and forwards it unchanged to ft_8008370C together with ftCo_80090984. If shared collision processing dispatches that callback, the same fighter object is tested first for directional PassiveStand eligibility, then neutral Passive eligibility, and is otherwise passed to DownBound initialization.",
+        "rationale": "The current target remains an unconditional wrapper that forwards its argument and ftCo_80090984. The relocated callback still short-circuits through directional and neutral Passive handlers before handing the object to DownBound initialization.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L137-L143",
+            "why": "Shows the fighter object being forwarded unchanged to ft_8008370C with ftCo_80090984."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L48-L54",
+            "why": "Shows ftCo_80090984 passing the same object through ordered directional PassiveStand, neutral Passive, and DownBound handlers."
+          }
+        ]
+      },
+      {
+        "id": "fact:6965b493-a146-42d1-8d00-068ffcd54842",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements floor-contact resolution while a fighter is tumbling from damage: an eligible shield-timed landing becomes a directional or neutral tech, while an ineligible or missed tech produces the normal DownBound bounce into knockdown.",
+        "rationale": "The current collision callback still delegates to a landing decision routine that prioritizes PassiveStand and Passive over DownBound. The wiki identifies Passive as the internal name for teching during tumbling surface contact and describes shield timing and the missed-tech alternative.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L137-L143",
+            "why": "Identifies the function as DamageFall collision processing and supplies its landing callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L48-L54",
+            "why": "Shows the landing callback selecting Passive recovery when eligible and DownBound otherwise."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://tech~__intro__@r2028146",
+            "why": "Defines teching as a shield-timed recovery during tumbling surface contact, identifies Passive as its internal name, and describes the missed-tech alternative."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://tech~standard-tech@r2028146",
+            "why": "Describes a ground tech as pressing shield before a tumbling character contacts the floor."
+          }
+        ]
+      },
+      {
+        "id": "fact:984117f0-64c7-45f0-8241-eedbc08bd3ed",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state collision callback with exact signature void ftCo_DamageFall_Coll(Fighter_GObj* gobj). It returns no value and passes the fighter game object to a shared collision routine together with a compatible void (Fighter_GObj*) event callback.",
+        "rationale": "The current target definition provides its exact signature and arguments. The relocated definition of ftCo_80090984 provides the compatible void callback signature expected by the shared collision routine.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L137-L143",
+            "why": "Provides the target's exact void (Fighter_GObj*) signature and its function-pointer argument to ft_8008370C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L48-L54",
+            "why": "Provides the exact void ftCo_80090984(Fighter_GObj*) definition of the supplied callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:351cda19-6bee-40aa-ba90-8aff94852851",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Runs terrain-collision processing for the DamageFall action and supplies ftCo_80090984 as its landing decision callback, connecting surface contact during damage-induced tumble to tech recovery or the DownBound knockdown fallback.",
+        "rationale": "The target's current body is still an unconditional shared collision call with ftCo_80090984. That callback continues to try directional and neutral Passive recovery before falling through to DownBound.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L137-L143",
+            "why": "Shows the complete target delegating DamageFall collision processing with ftCo_80090984."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L48-L54",
+            "why": "Shows ftCo_80090984 prioritizing the two Passive recovery handlers and otherwise invoking DownBound initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:0b4b3bef-576e-4de6-ad21-7d3871ad15c1",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Contains no local branch or timer and delegates on every invocation. When the shared collision routine invokes its supplied callback, a successful directional-tech check enters PassiveStandF or PassiveStandB; otherwise a successful neutral-tech check enters Passive; if neither check succeeds, the fighter enters the appropriate DownBoundU or DownBoundD state and its downspot field is reset.",
+        "rationale": "The current target is an unconditional one-call wrapper. The relocated landing callback retains its short-circuit priority, PassiveStand still selects its forward or backward state from directional input, the neutral handler still enters Passive when eligible, and DownBound initialization still selects a facing state and clears the downspot field.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:02:06.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L137-L143",
+            "why": "Shows that the target itself has no guard or timer and always delegates with the same callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L48-L54",
+            "why": "Shows the callback's directional PassiveStand, neutral Passive, and DownBound short-circuit order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_PassiveStand.c#L22-L45",
+            "why": "Shows directional input selecting PassiveStandF or PassiveStandB and entering the selected state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L88-L106",
+            "why": "Shows the neutral-tech eligibility check and transition through ftCo_800987D0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L177-L233",
+            "why": "Shows DownBoundU or DownBoundD selection and the later reset of mv.co.downspot.x4."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA"
+    },
+    "facts": [
+      {
+        "id": "fact:e9c677f9-33d1-4ef1-86f9-59c149090273",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter's HSD_GObj, derives its Fighter to read horizontal left-stick input and the horizontal-tilt timer, and forwards the game object through prioritized action predicates. The tumble-cancel test additionally reads p_ftCommonData->x210 and x214; successful callees, including ftCo_Fall_Enter, mutate the fighter's action state, while the callback itself returns no value.",
+        "rationale": "The source directly shows the GObj-to-Fighter lookup, every forwarded argument, both Fighter input fields, both common-data thresholds, and the state-entry call. Because the callback is void, its observable output is the state mutation performed by whichever transition callee first succeeds.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:36:02.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "Traces the game-object input through Fighter extraction, transition calls, input and timer reads, shared threshold reads, and Fall entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:d5aae091-3cc0-407c-898a-d00216505890",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements Melee's actionable options while tumbling: it can end DamageFall through aerial specials, airborne attacks or item actions, remaining aerial-jump handling, and Melee's horizontal Control Stick tumble cancel into normal Fall, with code-defined priority among competing inputs.",
+        "rationale": "The callback directly invokes named aerial-special and airborne attack/item handlers, invokes a JumpAerial-unit handler, and converts a sufficiently strong recent horizontal-stick tilt into ftCo_Fall_Enter. SmashWiki independently identifies DamageFall as tumbling and documents that, after hitstun, Melee fighters can use aerial attacks, remaining jumps, special moves, or tap horizontally to end tumbling and resume their normal aerial state.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T04:36:02.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "Connects DamageFall IASA to aerial-special, attack/item, JumpAerial, and horizontal-stick-to-Fall transition paths."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://tumbling~actions-possible-while-tumbling@r2033369",
+            "why": "Documents aerial attacks, remaining jumps, special moves, and Melee's horizontal Control Stick input as actions that end tumbling."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://tumbling~__intro__@r2033369",
+            "why": "Establishes that Melee's internal DamageFall state is the player-visible tumbling state."
+          }
+        ]
+      },
+      {
+        "id": "fact:947839a0-fb67-4864-84e7-5a700fd71ad9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state IASA callback with exact signature void ftCo_DamageFall_IASA(HSD_GObj* gobj). It returns no transition result of its own; successful callees change state and cause the callback to stop processing.",
+        "rationale": "The matched definition supplies the exact void and HSD_GObj-pointer signature. Its body obtains the associated Fighter and consumes transition-predicate results exclusively through immediate callback returns, establishing its interrupt/action-selection role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:36:02.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "Provides the exact declaration, Fighter lookup, delegated transition calls, and void short-circuit behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:97488d1c-81b1-4685-8ab6-8bdd65090fe1",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Arbitrates the actions that may interrupt the common DamageFall state, evaluating transition handlers in fixed priority order and stopping as soon as one succeeds.",
+        "rationale": "The matched function is an ordered chain of transition predicates using RETURN_IF or explicit returns. Successful special, item, attack, jump, horizontal-tumble-cancel, or trailing transition paths prevent every lower-priority option from being evaluated.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:36:02.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "Shows the complete ordered transition chain and its first-success short-circuit control flow."
+          }
+        ]
+      },
+      {
+        "id": "fact:cc6095fb-6734-4684-8010-51d23c454aea",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If ftCo_800C5240 does not accept a transition, checks in strict short-circuit order: aerial special input; ftCo_80095328 with mode 0; ftCo_800D7100; ftCo_800C3B10; airborne attack or held-item throw input; ftCo_800D705C; and ftCo_800CB870. If none succeeds, an absolute horizontal-stick magnitude at least p_ftCommonData->x210 combined with x670_timer_lstick_tilt_x below p_ftCommonData->x214 enters ordinary Fall immediately. The final ftCo_800C5DDC and ftCo_800C5CD4 checks run whether or not the initial guarded block was entered.",
+        "rationale": "This is the literal branch and call ordering in the complete matched source. RETURN_IF and the explicit return after ftCo_Fall_Enter prove first-success semantics, while the placement of the final two predicates outside the initial condition proves that they are always reached when no earlier path has returned.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:36:02.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "Shows every guard and transition predicate in order, the exact stick-and-timer condition, Fall entry, and the two trailing checks outside the initial guard."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Phys"
+    },
+    "facts": [
+      {
+        "id": "fact:19c4a093-e5d8-4d76-8a47-5d34095d60ec",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the DamageFall fighter's game object from the action-state callback dispatcher and forwards that same pointer unchanged to ft_80084DB0; it performs no callback-local reads, writes, transformations, or return-value handling.",
+        "rationale": "The complete body has no local variables or expressions other than ft_80084DB0(gobj), so every movement-state effect occurs in the shared callee through the unchanged fighter object.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:36:43.619Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L135-L138",
+            "why": "Shows the callback's input pointer being passed directly and unchanged to its only callee."
+          }
+        ]
+      },
+      {
+        "id": "fact:142a53f5-c882-4b5b-92ad-5d9e19b5437d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the per-frame shared airborne-physics step while a fighter is in Melee's tumbling state.",
+        "rationale": "The recovered symbol identifies the callback as DamageFall_Phys, and SmashWiki explicitly identifies DamageFall as Melee's internal name for tumbling. The body delegates to the same shared physics routine used by ordinary Fall and AttackAir.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:36:43.619Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L135-L138",
+            "why": "Identifies the function as DamageFall's physics callback and shows its shared-physics delegation."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://tumbling~__intro__@r2033369",
+            "why": "Explicitly states that the airborne state called tumbling is internally named DamageFall from Melee onward."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L203-L206",
+            "why": "Shows that ordinary Fall uses the same shared physics routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:78c41119-2a70-48d9-af92-b2667e9016f8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state physics callback with signature `void (Fighter_GObj* gobj)`.",
+        "rationale": "The matched declaration directly establishes the void return type and sole Fighter_GObj pointer parameter, while the recovered `_Phys` role places it in the fighter action-state physics callback slot.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:36:43.619Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L135-L138",
+            "why": "Provides the exact function signature and complete callback body."
+          }
+        ]
+      },
+      {
+        "id": "fact:8b5322c3-9a66-47cd-b6ce-f4b0f94fff5e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the DamageFall action's physics callback and delegates the entire per-frame fighter-physics update to the shared airborne physics routine ft_80084DB0.",
+        "rationale": "The complete matched function consists solely of an unconditional call to ft_80084DB0 with the callback's fighter object. The same routine is the sole callee of the ordinary Fall and aerial-attack physics callbacks, establishing it as shared airborne physics rather than DamageFall-specific transition logic.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:36:43.619Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L135-L138",
+            "why": "Shows the complete DamageFall physics callback forwarding its fighter object to ft_80084DB0 and doing nothing else."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L203-L206",
+            "why": "Shows the ordinary Fall physics callback delegating to the same routine."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackAir.c#L184-L187",
+            "why": "Shows the common aerial-attack physics callback also delegating to the same routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:44e3ed14-21be-4411-bb6c-f4bc0d0ea8e0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Phys",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Contains no local guard, branch, timer, or action-state transition; whenever dispatched during DamageFall, it unconditionally invokes the shared airborne physics update exactly once.",
+        "rationale": "The full function is one unconditional call and contains no direct state access or transition operation. All conditional behavior is therefore outside this wrapper or inside its shared callee.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:36:43.619Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L135-L138",
+            "why": "The complete body contains exactly one unconditional call and no callback-local control flow."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c"
+    },
+    "facts": [
+      {
+        "id": "fact:22100cf4-75ca-48e5-ae43-a0befb04d47b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c",
+        "type": "data_flow",
+        "value": "Damage setup receives hit element, damage, motion ID, ground or air state, and hitlag multiplier; eligible reactions derive model-shift duration and select electric, aerial, or grounded displacement data. The displacement reader transforms the selected vector by facing and, on the ground, the stored floor normal. DamageFall callbacks consume fighter input and collision state.",
+        "rationale": "The source traces hit parameters into model-shift fields and displacement transforms, then consumes input and collision state in DamageFall callbacks.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:20:33.719Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L1-L143",
+            "why": "Shows damage inputs, displacement selection and transformation, and callback consumers."
+          }
+        ]
+      },
+      {
+        "id": "fact:79c84f34-6603-496a-9bad-576b1f2618fd",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c",
+        "type": "game_mapping",
+        "value": "Realizes the common airborne tumble-after-damage state and its handoff to aerial actions, ordinary falling, or landing resolution.",
+        "rationale": "The unit enters DamageFall, checks airborne actions, permits a guarded Fall transition, and delegates terrain contact to a landing callback.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-06T03:20:33.719Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L97-L143",
+            "why": "Shows DamageFall entry context and exits through aerial actions, Fall, and terrain collision."
+          }
+        ]
+      },
+      {
+        "id": "fact:8475886a-b96a-4bcd-ada6-7eaa53308fda",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c",
+        "type": "purpose",
+        "value": "Implements common DamageFall processing: it prepares timed damage-model displacement, dispatches queued damage sounds, enters the airborne DamageFall motion, and supplies animation, input, physics, and terrain-collision callbacks.",
+        "rationale": "The current unit contains model-shift preparation and retrieval, queued sound dispatch, DamageFall entry, and its callback suite.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:20:33.719Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L1-L143",
+            "why": "Shows model-shift processing, sound dispatch, DamageFall entry, and callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:a85e4376-a1f4-412c-8cf5-ae63de7903a1",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c",
+        "type": "state_behavior",
+        "value": "DamageFall has an inert animation callback, checks a prioritized set of aerial action inputs, uses shared airborne damage physics, and delegates terrain collision through a designated landing callback. A sufficiently recent horizontal-stick tilt may explicitly leave DamageFall for ordinary Fall.",
+        "rationale": "The current callback bodies preserve the empty animation callback, ordered early-return input checks, horizontal-stick threshold and timer guard for entering Fall, shared physics helper, and collision delegation. The claim is unchanged and is re-cited at head.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:43:09.165Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L97-L143",
+            "why": "Directly shows DamageFall's inert animation callback, prioritized IASA checks, guarded horizontal-stick transition to Fall, physics helper, and collision callback."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090574#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594#r7"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090594#r8"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090690#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090690#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Anim#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Coll#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Phys#r3"
+    },
+    "facts": []
+  }
+]

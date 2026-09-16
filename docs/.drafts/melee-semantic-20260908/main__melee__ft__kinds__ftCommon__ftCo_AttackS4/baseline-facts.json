@@ -1,0 +1,1334 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:7e1e4b40-3537-4526-9653-cfe5c68f0751",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "decideFighter reads Fighter.kind and uses the table-backed switch to select a control-flow destination. Ness, Peach, and Mr. Game & Watch flow to their character modules; Pikachu and Pichu flow through the common doEnter path followed by Fighter_SetEffectHitlagCallbacks; all other kinds flow directly to doEnter. The selected path consumes the previously derived stick angle and the facing direction already written by decideFighter.",
+        "rationale": "At the current path, decideFighter still writes facing_dir, switches on kind, and forwards the fighter object and angle to the same specialized, grouped, and default destinations.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows Fighter.kind as the dispatch input, the preceding facing-direction write, and every downstream entry destination."
+          }
+        ]
+      },
+      {
+        "id": "fact:eaef76a9-9b33-4dc6-b4da-63521d6125e7",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports character-specific forward-smash realization: fighters with bespoke forward-smash implementations are dispatched to those implementations, while the remaining roster uses the common straight-or-angled forward-smash entry logic.",
+        "rationale": "The current switch still selects character-specific AttackS4 entry functions or doEnter, whose threshold ladder selects high, intermediate, neutral, and low AttackS4 motions.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows character-specific AttackS4 dispatch and the common helper's five forward-smash motion variants."
+          }
+        ]
+      },
+      {
+        "id": "fact:58cd575f-f118-4291-b880-de4dd07888a9",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Compiler-generated switch jump table in writable data, composed of 32-bit code-label addresses for the fighter-kind range handled by decideFighter; it is not an authored array of forward-smash attributes.",
+        "rationale": "The current source contains a multi-destination switch over Fighter.kind whose destinations are executable entry paths, while angle parameters are read separately from p_ftCommonData. This continues to support a compiler-emitted code-address jump table interpretation.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows the FighterKind switch and that forward-smash angle thresholds come from p_ftCommonData rather than local writable data."
+          }
+        ]
+      },
+      {
+        "id": "fact:b786539e-2c83-49a7-a3c4-7d68536722b2",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the compiler-generated dispatch table for decideFighter's fighter-kind switch, routing accepted forward-smash commands to character-specific entry code or the common angled-forward-smash entry path.",
+        "rationale": "The relocated source retains the sparse FighterKind switch whose branches call dedicated Ness, Peach, and Mr. Game & Watch entries, a grouped Pikachu/Pichu common entry with callback setup, or the default common entry.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows the complete fighter-kind switch and its character-specific, grouped, and default destinations."
+          }
+        ]
+      },
+      {
+        "id": "fact:ec21068c-20a6-4893-ba01-8031498873d5",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.data",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The table has no mutable gameplay state of its own. It determines the entry branch after forward-smash input is accepted: Ness, Peach, and Mr. Game & Watch enter specialized states; Pikachu and Pichu enter the common angle-selected state and install effect hitlag callbacks; the default branch enters only the common angle-selected state.",
+        "rationale": "The relocated switch still immediately dispatches and returns without mutating local dispatch data; only the Pikachu/Pichu branch performs the extra callback installation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows every branch's action-entry behavior, the Pikachu/Pichu callback setup, and no mutation of local dispatch data."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:6c9d36ef-f5e0-4f62-a126-572f880b93f2",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Its direction literals are loaded by both forward-smash input predicates to convert the sign of the left-stick or C-stick horizontal axis into +1.0 or -1.0. That normalized sign flows through held-item throw selection and fighter facing-direction updates. Its action-entry literals are passed to Fighter_ChangeMotionState as the initial frame, animation rate, and blend value when the common AttackS4 state is entered.",
+        "rationale": "At the current head, both input predicates still construct signed unit floats from stick input and forward them to item and fighter dispatch, while the common entry helper still supplies zero and one literals to Fighter_ChangeMotionState.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows both input predicates constructing positive or negative unit direction values and forwarding them to held-item and fighter dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows the direction consumed by item and fighter selection and the zero and one motion-state initialization arguments."
+          }
+        ]
+      },
+      {
+        "id": "fact:03e51a88-a0bb-4427-bff4-4d9a6c952b95",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports grounded forward-smash execution by representing the fighter-relative horizontal direction of the command and the standard initial parameters used to start the selected straight or angled forward-smash animation.",
+        "rationale": "The current source continues to use these literals to orient item or fighter actions, preserve the activating stick's angle, select an AttackS4 variant, and initialize its motion.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows horizontal direction and angle being derived from a qualifying left-stick or C-stick forward-smash command."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows the direction controlling item or fighter orientation before straight or angled AttackS4 state entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:1c461563-b102-4f1d-95ed-5c59078e689a",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A read-only small-data section aggregate containing single-precision floating-point literals and any section-alignment padding; it is not an independently structured gameplay object or mutable table.",
+        "rationale": "The current source uses inline floating-point literals for signed direction and motion initialization without declaring an authored backing object, continuing to support a compiler literal-pool interpretation.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows inline positive and negative floating-point direction literals without a named backing object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows additional inline floating-point literals used for AttackS4 motion-state initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:d39a7d10-bfe0-4772-a34b-4dfbf2b5ba7d",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the translation unit's compiler-emitted read-only floating-point literal pool for forward-smash input direction and motion-state initialization.",
+        "rationale": "The current source still requires positive and negative unit floats for command direction and zero and one values for AttackS4 motion entry, with no authored storage object representing them.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows the floating-point direction literals used by both forward-smash input predicates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows floating-point frame, animation-rate, and blend arguments used during common AttackS4 entry."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:checkItemThrow"
+    },
+    "facts": [
+      {
+        "id": "fact:63b8a069-9f35-461b-9348-49d51c078738",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:checkItemThrow",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Obtains the Fighter from the supplied Fighter_GObj and reads its held-item pointer, held L/R inputs, facing direction, the item's classification, an item predicate, and a fighter predicate. It combines the supplied stick-direction sign with facing direction to select LightThrowF4 versus LightThrowB4; for item classes 2 and 3 it instead writes facing_dir from that sign and forwards the fighter object to the corresponding item-attack entry routine. It returns true after any dispatch and false when no applicable held-item path exists.",
+        "rationale": "The current callers establish that the direction argument comes from the selected horizontal stick axis, and the current helper body explicitly performs each listed read, mutation, dispatch, and return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows both callers deriving the horizontal direction sign from left-stick or C-stick input."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows all fighter and item reads, direction comparison, facing writes, action dispatches, and boolean returns."
+          }
+        ]
+      },
+      {
+        "id": "fact:dd338ba7-9ffb-43ca-9aea-ba9202f8eecc",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:checkItemThrow",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the held-item override for grounded forward-smash input: depending on the carried item's classification and conditions, the command becomes a light item throw directed forward or backward relative to the fighter, or an item-specific smash-use action, instead of the fighter's normal forward smash.",
+        "rationale": "Both current forward-smash predicates invoke the helper after command recognition and before ordinary AttackS4 dispatch, while the helper still enters directional light throws or item-class-specific attacks.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Places held-item handling between forward-smash command recognition and ordinary fighter dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows directional light-throw and item-class-specific attack destinations."
+          }
+        ]
+      },
+      {
+        "id": "fact:78bd5cc3-239a-4e2f-846d-9b72daace2a4",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:checkItemThrow",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A state-transition predicate with signature `bool (Fighter_GObj*, float)`. Its second argument is a horizontal direction sign in the domain `-1.0f` or `+1.0f`, and its result reports whether a held-item action consumed the pending forward-smash request.",
+        "rationale": "The current declaration and definition preserve the concrete signature and return behavior, while both current callers construct the float argument as positive or negative one and return early when the helper succeeds.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows callers constructing a signed unit float and treating a true result as a consumed transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Provides the bool/Fighter_GObj*/float definition and returns true only after transition dispatch."
+          }
+        ]
+      },
+      {
+        "id": "fact:e93672be-6638-4466-a318-aee9a474c743",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:checkItemThrow",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Checks whether a fighter carrying an item should consume a forward-smash request as an item throw or item-specific attack; when so, it starts that action and prevents the caller from entering the fighter's ordinary forward smash.",
+        "rationale": "Both current input predicates call this helper before decideFighter and return immediately on success; the helper succeeds only after dispatching an applicable held-item action.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows both forward-smash predicates giving successful item handling priority over decideFighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows the held-item guard, item-action dispatches, and success and failure returns."
+          }
+        ]
+      },
+      {
+        "id": "fact:421d8ca6-8a29-4309-9551-8423a19ef054",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:checkItemThrow",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If no item is held, the helper performs no transition and returns false. With an item, held L/R, item classification 0, classification 3 combined with it_8026B594, or ftCo_800DF21C succeeding starts LightThrowF4 when the requested horizontal direction agrees with current facing and LightThrowB4 otherwise. If that throw guard fails, classification 2 turns the fighter toward the requested direction and calls ftCo_Attack_800CCF58 with mode 2; classification 3 similarly turns the fighter and calls ftCo_Attack_800CDD14. Each dispatched path returns true, while every unhandled classification returns false.",
+        "rationale": "This claim follows the helper's exact nested guard and switch structure without assigning unsupported semantic names to the item classifications or unknown predicates.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:09:47.259Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L143",
+            "why": "The complete matched function directly shows every guard, selected motion state, facing-direction mutation, item-class switch case, and return path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:decideFighter"
+    },
+    "facts": [
+      {
+        "id": "fact:4c5849df-a064-486d-8ae6-40395bb93c85",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:decideFighter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter GObj plus the sign and angle derived from the activating stick. It derives Fighter*, writes stick_x_sign into facing_dir, reads Fighter.kind, and forwards the GObj to the selected entry routine. The common path also receives stick_angle; the Pikachu and Pichu path subsequently passes the Fighter to Fighter_SetEffectHitlagCallbacks.",
+        "rationale": "Every input, read, mutation, forwarded argument, and extra callback setup operation appears explicitly in the matched function.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:09:49.771Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L145-L168",
+            "why": "Shows conversion from GObj to Fighter, facing and kind accesses, argument forwarding, and Pikachu/Pichu callback setup."
+          }
+        ]
+      },
+      {
+        "id": "fact:262090ea-376a-4d73-99b0-a149f3bf22a9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:decideFighter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps a validated forward-smash request to the correct fighter implementation: custom forward smashes for Ness, Peach, and Mr. Game & Watch, or the common high, straight, or low forward-smash selection for the rest, with Pikachu and Pichu receiving their required effect hitlag callback configuration.",
+        "rationale": "The current dispatcher still selects character-specific AttackS4 entries or doEnter, and doEnter still maps the supplied angle among five high-through-low AttackS4 motions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows the complete FighterKind dispatch, Pikachu/Pichu callback setup, and common angle-dependent motion selection."
+          }
+        ]
+      },
+      {
+        "id": "fact:b0b917b4-1ef6-4f43-812f-4c93094bffe9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:decideFighter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Forward-smash entry dispatcher with signature void(HSD_GObj* gobj, float stick_x_sign, float stick_angle). gobj identifies the fighter, stick_x_sign is a horizontal facing sign produced as +1 or -1 by the caller, and stick_angle is a stick angle in radians used by the common entry path.",
+        "rationale": "The current callers derive a signed unit direction and stick angle, while the current definition preserves the three-argument signature and forwards the angle to comparisons against fields explicitly named as radian thresholds.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows callers deriving signed direction and angle values from left-stick or C-stick input."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows the dispatcher signature and the angle's use by the common entry path against radian thresholds."
+          }
+        ]
+      },
+      {
+        "id": "fact:32bb1f31-d9bd-4a2c-bdec-14d3382365b8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:decideFighter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finalizes forward-smash entry after input and held-item checks by turning the fighter toward the requested horizontal direction and dispatching either a character-specific forward-smash initializer or the common angle-dependent initializer.",
+        "rationale": "The matched body first writes the supplied sign to facing_dir, then switches on FighterKind. Ness, Peach, and Mr. Game & Watch receive dedicated entry calls, while all remaining cases use doEnter, with extra hitlag callback setup for Pikachu and Pichu.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:09:49.771Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L145-L168",
+            "why": "Directly shows the facing-direction write and complete FighterKind dispatch."
+          }
+        ]
+      },
+      {
+        "id": "fact:e845d770-25a9-48af-a0f8-38c899eb72c7",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:decideFighter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine always applies the requested facing direction before state entry. Ness, Peach, and Mr. Game & Watch immediately branch to dedicated AttackS4 entry routines. Pikachu and Pichu enter the common angle-selected state and then install effect hitlag callbacks; every other FighterKind enters the common angle-selected state without that additional setup.",
+        "rationale": "The assignment preceding the switch establishes an invariant for all branches, and the switch cases establish the mutually exclusive entry behavior and the Pikachu/Pichu post-entry operation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:09:49.771Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L145-L168",
+            "why": "Shows the unconditional facing update followed by all character-specific, grouped, and default branches."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:doEnter"
+    },
+    "facts": [
+      {
+        "id": "fact:26824a48-d651-4bdc-ac5e-55bfbf1d1480",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:doEnter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj and precomputed stick angle, obtains the Fighter, reads four angular thresholds from p_ftCommonData, and performs up to four ftData_80085FD4 lookups against the fighter's motion data. It converts those reads into an FtMotionId, clears Fighter.allow_interrupt, cmd_vars[cmd_unk0_bool], and throw_flags, passes the chosen ID to Fighter_ChangeMotionState, and passes the object to ftAnim_8006EBA4.",
+        "rationale": "The current function retains every threshold read, motion-data lookup, selected motion ID, transient-field write, and final state and animation call.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows the object and angle inputs, threshold and motion-data reads, fighter-field writes, and final consumers."
+          }
+        ]
+      },
+      {
+        "id": "fact:359ef01b-e1bc-4e09-9069-ef022992931f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:doEnter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements forward-smash angling by classifying the input direction into upward, slight-upward, neutral, slight-downward, or downward AttackS4 variants, while falling back toward the neutral variant when no guarded angled choice qualifies.",
+        "rationale": "The current threshold ladder still maps the supplied angle to five named AttackS4 motion variants and uses the straight AttackS4 state as the final fallback.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Maps the supplied angle to high, slight-high, straight, slight-low, and low AttackS4 motions."
+          }
+        ]
+      },
+      {
+        "id": "fact:b97245c6-295d-4824-91d2-0735357a1b88",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:doEnter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A side-effecting static action-entry helper with signature void (Fighter_GObj* gobj, float stick_angle), where stick_angle is an angular value in radians compared against p_ftCommonData radian thresholds.",
+        "rationale": "The relocated definition preserves its static void signature and compares stick_angle against four common-data fields explicitly identified as radians before mutating fighter state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Provides the signature and shows stick_angle compared against four radian threshold fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:db4228b3-a452-4d80-b66a-8e83b579118d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:doEnter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Selects a character-supported forward-smash angle variant from the supplied stick angle, resets transient fighter action fields, and enters and initializes the chosen AttackS4 motion state.",
+        "rationale": "The current body retains the angle classification, per-fighter motion-availability guards, interruption, command, and throw-state resets, motion-state change, and animation initialization.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows angle classification, motion availability checks, transient-state resets, AttackS4 entry, and animation initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:79e8e39a-da18-453e-915d-f312db545db5",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:doEnter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Tests angle bins in priority order: above xB8_radians with a non-null AttackS4S motion-data x8 selects AttackS4Hi; otherwise above xBC_radians with a non-null AttackS4LwS x8 selects AttackS4HiS; otherwise below xC4_radians with a non-null AttackLw4 x8 selects AttackS4Lw; otherwise below xC0_radians with a non-null AttackHi4 x8 selects AttackS4LwS; all remaining cases select AttackS4S. It then disables interruption, clears command variable 0 and all throw flags, enters the chosen motion at frame 0 with rate 1 and no motion flags, and initializes animation state.",
+        "rationale": "The relocated source preserves the exact ordered threshold and availability ladder and the unconditional initialization sequence following motion selection.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows the complete ordered angle ladder, exact motion-data guards, neutral fallback, state resets, and entry parameters."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_8008C114"
+    },
+    "facts": [
+      {
+        "id": "fact:a2342c12-a9ee-4780-9741-9c18f86eeda0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_8008C114",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Obtains the Fighter from the supplied object and reads its attack-button state, left-stick X coordinate, facing direction, and C-stick state. A qualifying main-stick path fixes the horizontal sign to current facing and obtains the folded left-stick angle; otherwise a qualifying C-stick path derives the sign from C-stick X and obtains the folded C-stick angle. The sign first flows to held-item handling; if that does not consume the command, sign and angle flow to decideFighter, which updates facing and selects a character-specific or angle-specific AttackS4 entry.",
+        "rationale": "The current predicate explicitly derives and forwards the sign and angle pair, and the current downstream helpers consume those values for item direction, facing, fighter dispatch, and angle selection.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows the Fighter reads, stick-source selection, derived sign and angle, and forwarding to both consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows downstream use of the sign for item direction and facing and of the angle for AttackS4 motion selection."
+          }
+        ]
+      },
+      {
+        "id": "fact:3f75eeb5-97cf-4a2c-9468-73e31afd7326",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_8008C114",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the early-Dash forward-smash transition used by Melee's small-step forward-smash or dash-cancel behavior. Main-stick activation is restricted to the direction the fighter is already dashing/facing, while the C-stick route retains its own requested side and angle; the accepted command may also become a directional held-item action instead of an ordinary forward smash.",
+        "rationale": "The current Dash IASA invokes this predicate in its opening frame-bounded block, and the predicate still uses a same-facing main-stick guard with a C-stick fallback before item or AttackS4 dispatch.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows the same-facing main-stick route, C-stick fallback, item priority, and forward-smash dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Places the predicate in the opening, frame-bounded Dash transition block."
+          }
+        ]
+      },
+      {
+        "id": "fact:cc579035-1eb8-4586-b1b5-76c7d5192734",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_8008C114",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_AttackS4_CheckInputFromDash",
+        "rationale": "The neighboring general predicate remains ftCo_AttackS4_CheckInput, while this parallel predicate is called from Dash IASA and replaces the general timed left-stick test with a Dash-specific same-facing test. The suffix describes that evidenced specialization, though no preserved symbol confirms it.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_AttackS4_CheckInputFromDash`.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows its structural relationship to ftCo_AttackS4_CheckInput and its distinct same-facing main-stick guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Establishes its use as the early-Dash forward-smash transition predicate."
+          }
+        ]
+      },
+      {
+        "id": "fact:bb3eb7ba-0a6d-404d-bb75-7e257340714e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_8008C114",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "State-changing fighter input predicate with signature `bool (Fighter_GObj*)`. It returns false when neither its same-facing main-stick command nor the accepted C-stick command is present; true means the recognized command was consumed by a held-item transition or forward-smash entry.",
+        "rationale": "The definition supplies the exact signature and return structure. False occurs only after both input routes fail, while every true path follows either successful item handling or a call to decideFighter. The Dash caller treats false as permission to continue checking lower-priority transitions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:10:27.333Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L97-L115",
+            "why": "Directly establishes the bool/Fighter_GObj pointer signature and the relationship between recognition, transition dispatch, and each return value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Shows the caller using a false result to continue Dash transition arbitration and a true result as a consumed transition."
+          }
+        ]
+      },
+      {
+        "id": "fact:ad66020b-8580-4672-958a-cf7c6d061388",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_8008C114",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Recognizes the forward-smash command permitted during the opening phase of Dash and consumes it by initiating a held-item action or the appropriate fighter forward-smash entry. Its main-stick path is specialized for an A-button input directed along the fighter's current facing, while its alternate path accepts the common C-stick predicate.",
+        "rationale": "The current Dash caller establishes the opening-phase context, while the target retains the same-facing A-plus-stick route, C-stick fallback, item priority, and forward-smash dispatch.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows the specialized main-stick guard, C-stick fallback, item-action priority, and AttackS4 dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Shows the predicate called from the opening, frame-bounded Dash transition block."
+          }
+        ]
+      },
+      {
+        "id": "fact:c4033789-d638-4469-80dc-d27edb1b3773",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_8008C114",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Within the opening Dash phase, the caller checks this predicate after side-special, an immediately eligible held-item throw, and grab handling. The predicate first accepts A-button input only when left-stick X multiplied by facing direction reaches the common horizontal threshold; this route preserves current facing as the requested side and does not apply the general routine's left-stick tilt timer. If it fails, the C-stick predicate is tried and may request either horizontal side. Failure of both returns false without entering an action. Recognition gives compatible held-item actions priority; otherwise it turns or preserves the fighter toward the requested side and enters a character-specific or angle-selected forward smash, then returns true.",
+        "rationale": "The current Dash transition ordering and target body preserve the outer priorities, same-facing untimed main-stick guard, C-stick fallback, failure return, item precedence, and forward-smash entry behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows the same-facing main-stick guard, C-stick fallback, item priority, and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows the downstream item-action, facing, fighter-kind, and angle-selection behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Shows the opening-Dash frame guard and transition checks surrounding this predicate."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Anim"
+    },
+    "facts": [
+      {
+        "id": "fact:f6ab484c-045f-4ab8-b823-4829ece0b6e7",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the fighter game object to query whether its current animation has frames remaining; when that query becomes false, it forwards the same unchanged object to the common action-ending dispatcher and returns no value.",
+        "rationale": "The current callback forwards only gobj from the frame-remaining query to ft_8008A2BC, and the current dispatcher consumes that object to choose an ending transition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows the complete local flow from the animation query to forwarding the same object on completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+            "why": "Shows the current action-ending dispatcher consuming the object and selecting a neutral or special ending path."
+          }
+        ]
+      },
+      {
+        "id": "fact:f988653b-1fe1-4a8e-a080-dca44ad611c9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the animation-expiry boundary of a fighter's forward smash: after the attack and its recovery animation finish, the fighter leaves the forward-smash action through the common neutral-state path.",
+        "rationale": "The AttackS4 animation callback still acts only when frames expire, and the current completion dispatcher routes ordinary fighters through ft_8008A348 toward Wait after its exceptional-state handling.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Identifies the callback as AttackS4_Anim and shows it invoking completion handling when the animation expires."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+            "why": "Shows the ordinary completion path entering ftCo_MS_Wait after common exceptional checks."
+          }
+        ]
+      },
+      {
+        "id": "fact:f72d3575-198e-4b1c-8704-ef835aa2b644",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter animation-state callback with signature void (Fighter_GObj* gobj).",
+        "rationale": "The matched definition accepts exactly one Fighter_GObj pointer, returns no value, and performs the animation-completion processing expected of an action-state animation callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:09:04.118Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L200-L205",
+            "why": "Provides the exact function signature and complete callback body."
+          }
+        ]
+      },
+      {
+        "id": "fact:ce1747d3-ed37-4ac7-a3f6-389457742c34",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles completion of the common forward-smash animation, retaining AttackS4 while animation frames remain and invoking the common action-ending transition when the animation expires.",
+        "rationale": "The current callback retains its sole remaining-frames guard, and the current ft_8008A2BC implementation remains the common action-ending dispatcher with an ordinary path through ft_8008A348.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows AttackS4 being retained while frames remain and ft_8008A2BC called only on exhaustion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+            "why": "Shows ft_8008A2BC dispatching completed actions and the ordinary path entering Wait through ft_8008A348."
+          }
+        ]
+      },
+      {
+        "id": "fact:0e882134-5ec4-48d7-b3ce-73137d21dce8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Preserves the current AttackS4 action on updates where animation frames remain. On the first update with no frames remaining, it exits through ft_8008A2BC, whose ordinary fighter path enters Wait after applying the common action-ending exceptional-state checks.",
+        "rationale": "The local remaining-frames test remains the only guard and ft_8008A2BC the only outgoing call; the current dispatcher and ft_8008A348 retain the special-kind and exceptional-state checks before ordinary Wait entry.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows that AttackS4 is retained while frames remain and has one completion call when they do not."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+            "why": "Shows the current common completion dispatch, exceptional-state checks, and ordinary transition to ftCo_MS_Wait."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_CheckInput"
+    },
+    "facts": [
+      {
+        "id": "fact:37fc95f5-355d-4631-a1dc-f832f2afd35d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_CheckInput",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Obtains `Fighter` from the supplied object and reads its button, main-stick, C-stick, and main-stick timing state. A qualifying main-stick path supplies the sign of `lstick.x` and `ftCo_GetLStickAngle`; otherwise a qualifying C-stick path supplies the sign of `cstick.x` and `ftCo_GetCStickAngle`. The sign is passed first to `checkItemThrow`; if that declines, both sign and angle flow to `decideFighter`, which writes facing direction and initiates the selected forward-smash state.",
+        "rationale": "The current target selects the stick source and derives the two scalar values, while its current callees consume them for item direction, facing, fighter dispatch, and angled motion selection.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows all input reads, source selection, sign and angle derivation, and forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows how checkItemThrow and decideFighter consume the derived values."
+          }
+        ]
+      },
+      {
+        "id": "fact:b4f556b9-e052-4ea3-9a9d-7741ef0d5024",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_CheckInput",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements Melee's grounded forward-smash command recognition: a sufficiently strong, recent horizontal main-stick movement combined with attack, or an accepted C-stick movement, starts a forward smash toward that side and preserves the stick angle for an angled variant. When the fighter holds an applicable item, the same directional command is instead consumed as a directional item action.",
+        "rationale": "The current source retains the timed main-stick-plus-A and C-stick routes, derives command direction and angle, and gives held-item handling priority over normal AttackS4 entry.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows the main-stick timing, magnitude, and button guards, C-stick alternative, and derived command side and angle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows the recognized command becoming a directional item action or a character-specific or angled AttackS4 state."
+          }
+        ]
+      },
+      {
+        "id": "fact:f83704e8-44e7-4458-bf1f-0efbacd68a14",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_CheckInput",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A state-changing fighter input predicate with signature `bool (Fighter_GObj*)`: `false` means no qualifying side-smash command was present, while `true` means the command was consumed by an item or AttackS4 transition.",
+        "rationale": "The current definition preserves the signature; false follows failure of both stick checks, and each true return follows successful item handling or forward-smash dispatch.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Provides the signature and associates false with unrecognized input and true with a consumed transition."
+          }
+        ]
+      },
+      {
+        "id": "fact:72287240-a824-42b8-a953-c2d2cf5d2d1e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_CheckInput",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Recognizes a general side-smash command from the fighter's main stick or C-stick and consumes it by initiating the appropriate held-item action or forward-smash entry.",
+        "rationale": "The current function rejects when neither stick route qualifies, then attempts item handling before dispatching ordinary forward-smash entry and returning success.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows command recognition, rejection, item-action priority, forward-smash dispatch, and boolean results."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows the delegated held-item and fighter-specific or common AttackS4 entry paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:b897c939-15ee-49d4-b590-7b72650cfc88",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_CheckInput",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Input-source priority is main stick before C-stick. The main-stick route requires an A-button press, horizontal magnitude at or above the common threshold, and a horizontal-tilt timer below the common timing threshold; if it fails, the C-stick predicate is tried. Failure of both leaves the current state unchanged and returns false. After recognition, a compatible held-item transition has priority; otherwise the fighter turns toward the input and enters a character-specific or angle-selected common forward smash. Every recognized command returns true.",
+        "rationale": "The current target preserves the ordered input branches and all main-stick guards, while the current downstream helpers preserve item precedence, facing assignment, fighter-kind dispatch, and angle-sensitive state entry.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:44:17.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L120",
+            "why": "Shows main-stick guards, C-stick fallback, failure behavior, item handling priority, and success returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L236",
+            "why": "Shows item transitions, facing assignment, fighter-kind dispatch, and angle-sensitive AttackS4 entry."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Coll"
+    },
+    "facts": [
+      {
+        "id": "fact:5a115b5f-b6e7-45f4-ae0a-64e09a28c39a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the active fighter's Fighter_GObj pointer and forwards that same pointer unchanged to ft_80084104. It returns no value and performs no local data transformation; any collision-related side effects are delegated to the shared helper.",
+        "rationale": "The full body contains only ft_80084104(gobj), proving unchanged pointer forwarding and the absence of local computation or direct output.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:10:31.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L241-L244",
+            "why": "Shows the incoming gobj used unchanged as the sole argument to ft_80084104, with no other operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:a4efb4ea-aaf2-4d78-a58f-264dbc58775b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Performs the collision-processing phase of the common grounded forward-smash action.",
+        "rationale": "The current function remains the AttackS4 Coll callback and delegates to the shared collision helper, while the surrounding current unit identifies the action as the common straight-or-angled AttackS4 lifecycle.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L117-L244",
+            "why": "Shows the common AttackS4 lifecycle and identifies this function as its collision callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L236-L244",
+            "why": "Shows the collision callback delegating directly to ft_80084104."
+          }
+        ]
+      },
+      {
+        "id": "fact:b3287915-a7f8-4046-9c1f-6f47a97193cf",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state collision callback with signature void(Fighter_GObj* gobj), receiving the active fighter's game object.",
+        "rationale": "The matched definition explicitly establishes the void return type and single Fighter_GObj pointer parameter; its Coll role in the AttackS4 callback set establishes the callback domain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:10:31.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L241-L244",
+            "why": "Directly provides the function's void(Fighter_GObj*) signature."
+          }
+        ]
+      },
+      {
+        "id": "fact:41d5fe70-dfc2-4d01-83f8-f4597b4a8f86",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the common AttackS4 action's collision callback, delegating all collision processing for the active fighter to the shared routine ft_80084104.",
+        "rationale": "The Coll suffix and enclosing AttackS4 unit identify the callback phase, while the complete body consists solely of passing the fighter object to ft_80084104.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:10:31.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L241-L244",
+            "why": "The complete definition shows the AttackS4 collision callback delegating directly to ft_80084104."
+          }
+        ]
+      },
+      {
+        "id": "fact:dc8f73ac-35ef-4ce4-9eaf-9e276d87b770",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On each AttackS4 collision-callback invocation, unconditionally calls ft_80084104 exactly once. It contains no local guard, branch, timer, or explicit action-state transition.",
+        "rationale": "The entire matched function is one unconditional helper call, so all conditional collision handling or transitions are outside this wrapper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:10:31.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L241-L244",
+            "why": "The complete body contains one call and no local control flow."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_IASA"
+    },
+    "facts": [
+      {
+        "id": "fact:cde3ac7f-0c89-4258-b363-375f69d74b51",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter's HSD_GObj, derives its Fighter record, reads Fighter.allow_interrupt, and forwards the same object to each transition predicate. Successful predicates perform or select the new action and terminate the callback immediately; the callback itself returns no result.",
+        "rationale": "GET_FIGHTER supplies the sole state field read directly by the callback. Every predicate consumes gobj, and RETURN_IF makes a true predicate the terminal consumer for that invocation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:09:32.621Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234",
+            "why": "The source derives fp from gobj, reads fp->allow_interrupt, passes gobj to every checker, and returns after the first true result."
+          }
+        ]
+      },
+      {
+        "id": "fact:1836bbcb-1c78-4171-95ff-d0c25b1a06b2",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes Melee's selective interruptibility for the common forward-smash action: after the move's script enables allow_interrupt, the player can cancel its remaining animation into prioritized attacks, grabbing, jumping, or grounded movement, while one specialized forward-smash path remains polled independently of the general interrupt flag.",
+        "rationale": "The code gates the ordinary follow-up choices on Fighter.allow_interrupt but invokes ftCo_800CECE8 outside that gate. SmashWiki defines IASA as the point where a new action cancels the remaining animation, explains that Melee enables it through animation scripts, and notes that grounded attacks can permit only selected categories of follow-up action.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T01:09:32.621Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234",
+            "why": "The callback gates most attack and movement transitions on allow_interrupt while retaining one independently checked transition path."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://interruptibility~overview@r1927829",
+            "why": "The article defines IASA cancellation, documents Melee's script-controlled interruptibility, and describes selective interruptibility for grounded moves."
+          }
+        ]
+      },
+      {
+        "id": "fact:194f70ee-ef5c-4860-a657-9bce71eb56fe",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Per-frame fighter action-state IASA callback with signature void(HSD_GObj* gobj); gobj identifies the fighter whose interruptibility and transition inputs are evaluated.",
+        "rationale": "The resolved definition directly establishes the void return and HSD_GObj pointer parameter, while GET_FIGHTER demonstrates that the object must carry a Fighter record.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:09:32.621Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234",
+            "why": "The function is declared as void ftCo_AttackS4_IASA(HSD_GObj*), and its first operation obtains the Fighter from that object."
+          }
+        ]
+      },
+      {
+        "id": "fact:3e1cef29-01f3-4197-bc53-c007cf44b97c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Arbitrates input-driven transitions while a common fighter is in the forward-smash action, testing eligible follow-up actions in a fixed priority order and stopping as soon as one transition is accepted.",
+        "rationale": "The callback consists of ordered transition predicates wrapped in immediate-return checks. Most candidates are enabled only by allow_interrupt, while one specialized path is tested independently, making this a transition arbiter rather than an animation, physics, or collision routine.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:09:32.621Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234",
+            "why": "The complete callback shows an ordered sequence of transition checks with immediate return after the first successful check."
+          }
+        ]
+      },
+      {
+        "id": "fact:5a9077f2-f2a4-463f-b46f-d7cd2532a50d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When allow_interrupt is set, initial priority is side special, rapid-jab handling through ftCo_Attack100_CheckInput and two associated helpers, then grab. The specialized ftCo_800CECE8 path is tested regardless of allow_interrupt. If interruption is allowed and no earlier check succeeds, priority continues through forward, up, and down smash; forward, up, and down tilt; neutral attack; ftCo_80091A4C; ftCo_800DE9D8; jump; dash; ftCo_800D5FB0; turn; and walk. The first successful check ends processing for the frame.",
+        "rationale": "This is the exact guard structure and call order in the matched callback. Retaining the two allow_interrupt regions, the unconditional middle check, and immediate returns is necessary to describe which transition wins when several predicates qualify.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:09:32.621Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234",
+            "why": "The source directly shows both allow_interrupt-gated groups, the unconditional ftCo_800CECE8 call between them, and the exact first-success ordering."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Phys"
+    },
+    "facts": [
+      {
+        "id": "fact:2dd95e36-d3ef-418a-b260-5081da234e5b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the forward-smash fighter object and forwards it unchanged to ft_80084FA8. That helper reads ground velocity, ground friction, maximum walking speed, and facing direction; it scales friction by p_ftCommonData->friction_when_above_walk_speed when absolute ground velocity exceeds the walking-speed limit, then passes the object, selected friction, and facing direction to ft_80085030 for the final grounded update.",
+        "rationale": "The wrapper still performs only unchanged pointer forwarding. The current helper retains the velocity and movement-attribute reads, now exposes the common multiplier under its descriptive field name, and forwards the selected values to ft_80085030.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L236-L244",
+            "why": "Shows the Fighter_GObj pointer forwarded unchanged to ft_80084FA8."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_084E.c#L42-L91",
+            "why": "Shows velocity-dependent friction selection using friction_when_above_walk_speed and the final grounded-update inputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:9ea5572f-325b-4fca-87d9-1225f2a95697",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the grounded deceleration and movement phase used while a fighter performs the common forward-smash action.",
+        "rationale": "The target remains the common AttackS4 Phys callback, and its current delegated implementation operates on ground velocity, friction, animation-driven ground acceleration, and ground movement.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L236-L244",
+            "why": "Identifies the function as the common AttackS4 physics callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_084E.c#L42-L91",
+            "why": "Shows the delegated grounded friction, acceleration, and movement processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:154300c7-e503-41b1-8727-6136a3503585",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state physics callback with signature void(Fighter_GObj* gobj).",
+        "rationale": "The current definition directly retains the void return and single Fighter_GObj pointer parameter, and its Phys role in the AttackS4 callback suite remains explicit.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L236-L244",
+            "why": "Provides the exact void(Fighter_GObj*) definition of the AttackS4 physics callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:95e22e52-84f4-4df0-ba2f-c3b789974c73",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Runs the common forward-smash action's grounded physics update by delegating to ft_80084FA8, which selects the applicable ground-friction value and then applies either animation-driven ground acceleration or ordinary friction before updating ground movement.",
+        "rationale": "The current callback remains a single unconditional delegation. The current ft_80084FA8 selects friction from velocity and movement attributes, and ft_80085030 retains the animation-translation versus friction branch followed by ground movement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L236-L244",
+            "why": "Shows unconditional delegation from AttackS4_Phys to ft_80084FA8."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_084E.c#L42-L91",
+            "why": "Shows friction selection, animation-driven acceleration or friction application, and final ground movement."
+          }
+        ]
+      },
+      {
+        "id": "fact:f9c9f3f5-7e06-4e20-81fe-50a6b8175d7f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Phys",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On each physics tick, normal ground friction is selected while absolute ground velocity is at or below the fighter's maximum walking speed; above that threshold, friction is multiplied by p_ftCommonData->friction_when_above_walk_speed. If the fighter's animation-driven movement flag x594_b0 is set, ground acceleration is derived from animation translation and facing direction instead of applying friction; otherwise the selected friction is applied. Ground movement is then updated unconditionally, and this callback performs no action-state transition.",
+        "rationale": "The current shared helpers retain the walking-speed threshold, renamed friction multiplier, animation-driven acceleration branch, ordinary-friction alternative, and unconditional movement call; the wrapper still has no guard or transition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:00:39.675Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L236-L244",
+            "why": "Shows the wrapper has no local branch or action-state transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_084E.c#L42-L91",
+            "why": "Shows the walking-speed friction threshold, descriptive multiplier field, acceleration/friction branch, and unconditional ground movement."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c"
+    },
+    "facts": [
+      {
+        "id": "fact:7e0e9c9f-0b86-46a9-bbda-0e689d55c6d5",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c",
+        "type": "data_flow",
+        "value": "Reads buttons, left stick, C-stick, input timing, facing, held-item state, fighter kind, and motion availability; derives direction and angle, updates facing, and enters an item action, specialized entry, or angle-specific AttackS4 state.",
+        "rationale": "The complete head predicates and selection helpers preserve the listed inputs, derived values, and destinations.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L244",
+            "why": "Shows all source inputs, derived direction and angle, facing writes, and action destinations."
+          }
+        ]
+      },
+      {
+        "id": "fact:fc28ac7f-1801-4a34-907c-ecaa11e9164b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c",
+        "type": "game_mapping",
+        "value": "Realizes forward smash, including smash-input timing, C-stick activation, high and low angling, held-item substitutions, fighter-specific implementations, and interruptible ending behavior.",
+        "rationale": "The complete head source still implements each listed forward-smash input, dispatch, angle, and lifecycle variant.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L244",
+            "why": "Shows forward-smash input paths, angle variants, item branches, character dispatch, and lifecycle behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:f67c8c8c-a70a-47bd-92a9-ad7608cdcb1b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c",
+        "type": "inferred_type",
+        "value": "A fighter-common action module containing boolean input predicates, selection helpers using Fighter_GObj and floating-point direction and angle values, entry routines, and Anim, IASA, Phys, and Coll callbacks.",
+        "rationale": "The complete head declarations and definitions retain this module shape and signature family.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L244",
+            "why": "Exposes the input predicates, float-valued selectors, entries, and lifecycle callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:64889966-aaca-4c13-83a5-69388a33f440",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c",
+        "type": "purpose",
+        "value": "Implements common forward-smash recognition from attack-plus-stick or C-stick, item substitution, character dispatch, angle selection, and the action's lifecycle callbacks.",
+        "rationale": "The complete head unit retains both command paths, item and fighter dispatch, angle selection, state entry, and callback suite.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L244",
+            "why": "Shows input recognition, item diversion, fighter dispatch, angle handling, entry, and callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:3fd3cc41-cc88-4f56-9b61-4d3789e34b4f",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c",
+        "type": "state_behavior",
+        "value": "Recognized input first permits an item action, then character-specific dispatch, otherwise selecting a neutral or angled AttackS4. Common entry disables interruption and clears command state; completion exits normally and IASA enables prioritized follow-ups.",
+        "rationale": "The complete head branch order, entry writes, completion, and IASA callbacks preserve these rules.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L1-L244",
+            "why": "Shows item priority, fighter dispatch, angled entry, initialization, completion, and prioritized IASA."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:checkItemThrow#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:checkItemThrow#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:decideFighter#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:decideFighter#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:decideFighter#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:doEnter#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:doEnter#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_8008C114#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Anim#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_CheckInput#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Coll#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_IASA#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_Phys#r3"
+    },
+    "facts": []
+  }
+]

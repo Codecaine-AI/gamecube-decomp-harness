@@ -1,0 +1,1526 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-2a7ad3c8479413c32dc622921074488e",
+  "title": "Continuing Harness: Project Setup and the Epoch–Sync Loop",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "spec-0",
+        "spec-1",
+        "spec-2",
+        "spec-3",
+        "spec-4",
+        "spec-5",
+        "spec-6",
+        "spec-7",
+        "spec-8",
+        "spec-9",
+        "global-cleanup-scope",
+        "runtime-output-ownership",
+        "spec-10",
+        "spec-11",
+        "spec-12",
+        "sandbox-profile-0",
+        "sandbox-profile-1",
+        "sandbox-profile-2",
+        "sandbox-profile-3",
+        "spec-13",
+        "spec-14",
+        "spec-15",
+        "spec-16",
+        "spec-17",
+        "spec-18",
+        "spec-19",
+        "spec-20",
+        "spec-21",
+        "spec-22",
+        "spec-23",
+        "spec-24",
+        "spec-25",
+        "spec-26",
+        "spec-27",
+        "spec-28",
+        "spec-29",
+        "spec-30",
+        "spec-31",
+        "spec-32",
+        "spec-33",
+        "spec-34",
+        "spec-35",
+        "spec-36",
+        "spec-37",
+        "spec-38",
+        "spec-39",
+        "spec-40",
+        "spec-41",
+        "spec-42",
+        "spec-43",
+        "spec-44",
+        "spec-45",
+        "spec-46",
+        "spec-47",
+        "spec-48",
+        "spec-49",
+        "spec-50",
+        "spec-51"
+      ]
+    },
+    "spec-0": {
+      "id": "spec-0",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This review spec defines project setup and a continuing per-game harness: initial Sync, Run epochs, automatic Sync between epochs, and durable timeline evidence. It combines the agreed lifecycle direction with proposed configuration and recovery contracts. The runtime still uses cycles; implementation and cycle removal follow review of this spec."
+        }
+      ],
+      "children": []
+    },
+    "spec-1": {
+      "id": "spec-1",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Review Map"
+        }
+      ],
+      "children": []
+    },
+    "spec-2": {
+      "id": "spec-2",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Read This View",
+          "Question It Answers"
+        ],
+        "rows": [
+          [
+            "Ownership Canvas and File Tree",
+            "What is shared, what belongs to each game, and where do edits happen?"
+          ],
+          [
+            "State Shapes and Interaction Surface",
+            "What persists and which operations change it?"
+          ],
+          [
+            "Bootstrap and Recurring Process Outlines",
+            "How does a new project become ready, and how does work continue?"
+          ],
+          [
+            "Handoff Sequence and Boundary Table",
+            "What must finish before the next epoch, and how is progress measured?"
+          ],
+          [
+            "Migration, Acceptance, and Open Decisions",
+            "What must be settled before removing cycles?"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "spec-3": {
+      "id": "spec-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Ownership"
+        }
+      ],
+      "children": []
+    },
+    "spec-4": {
+      "id": "spec-4",
+      "type": "canvas",
+      "props": {
+        "src": "./assets/canvases/ownership.canvas.json",
+        "title": "One Game, One Continuing Harness"
+      },
+      "children": []
+    },
+    "spec-5": {
+      "id": "spec-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The host runs orchestration, model sessions, integration, and game-owned knowledge. Daytona supplies isolated claim workspaces for source edits, compilation, and scoring. Each claim starts from the accepted harness head. Its patch returns to the host for validation and serialized integration."
+        }
+      ],
+      "children": []
+    },
+    "spec-6": {
+      "id": "spec-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Shared GameCube tools declare compiler and build-layout requirements. Each game supplies bindings, target region, original input identities, compiler pins, and an accepted sandbox profile. A different checkout alone is insufficient while tools still assume Melee paths."
+        }
+      ],
+      "children": []
+    },
+    "spec-7": {
+      "id": "spec-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Accepted Global Folder Structure"
+        }
+      ],
+      "children": []
+    },
+    "spec-8": {
+      "id": "spec-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The reviewed target separates shared application code, configuration, and service runtime data from each game's config, workspace, knowledge, and runtime groups. Keep .pi-sessions in its current location. Keep ref, ai_docs, and other extra folders for now. This tree describes a later migration; existing environment loaders and persisted path references must be updated before moving their files."
+        }
+      ],
+      "children": []
+    },
+    "spec-9": {
+      "id": "spec-9",
+      "type": "file-tree",
+      "props": {
+        "entries": [
+          {
+            "path": "toolpacks/gamecube-decomp/",
+            "note": "Shared tool implementations"
+          },
+          {
+            "path": "games/<game-id>/game.json",
+            "note": "Small tracked entry point"
+          },
+          {
+            "path": "games/<game-id>/config/build.json",
+            "note": "Compiler, target, commands, and report paths"
+          },
+          {
+            "path": "games/<game-id>/config/tools/",
+            "note": "Tool bindings"
+          },
+          {
+            "path": "games/<game-id>/config/sources/prs.json",
+            "note": "PR definitions"
+          },
+          {
+            "path": "games/<game-id>/config/sources/discord.json",
+            "note": "Discord definitions"
+          },
+          {
+            "path": "games/<game-id>/config/sources/wiki.json",
+            "note": "Wiki definitions"
+          },
+          {
+            "path": "games/<game-id>/config/sandbox.json",
+            "note": "Default and named profiles"
+          },
+          {
+            "path": "games/<game-id>/config/local.json",
+            "note": "Ignored local overrides"
+          },
+          {
+            "path": "games/<game-id>/workspace/checkout/",
+            "note": "Canonical harness worktree"
+          },
+          {
+            "path": "games/<game-id>/workspace/staging/",
+            "note": "Temporary reconciliation worktrees"
+          },
+          {
+            "path": "games/<game-id>/knowledge/sources/",
+            "note": "Captured external material"
+          },
+          {
+            "path": "games/<game-id>/knowledge/store/",
+            "note": "Knowledge database"
+          },
+          {
+            "path": "games/<game-id>/knowledge/indexes/",
+            "note": "Search indexes"
+          },
+          {
+            "path": "games/<game-id>/knowledge/graph/",
+            "note": "Source graph"
+          },
+          {
+            "path": "games/<game-id>/runtime/state/",
+            "note": "Harness, workflow, and timeline records"
+          },
+          {
+            "path": "games/<game-id>/runtime/evidence/",
+            "note": "Save points and build reports"
+          },
+          {
+            "path": "games/<game-id>/runtime/tool-data/",
+            "note": "Generated tool indexes and caches"
+          },
+          {
+            "path": "apps/server/",
+            "note": "Shared orchestration and APIs"
+          },
+          {
+            "path": "apps/frontend/",
+            "note": "Dashboard"
+          },
+          {
+            "path": "config/orchestrator.json",
+            "note": "Proposed shared defaults"
+          },
+          {
+            "path": "config/local.env",
+            "note": "Proposed ignored host environment file"
+          },
+          {
+            "path": "runtime/state/",
+            "note": "Proposed shared-service state only"
+          },
+          {
+            "path": ".pi-sessions/",
+            "note": "Keep transcripts here for this cleanup; do not redistribute"
+          },
+          {
+            "path": ".pi-agent/",
+            "note": "Keep provider configuration in place"
+          },
+          {
+            "path": ".codex/",
+            "note": "Existing agent tooling"
+          },
+          {
+            "path": ".claude/",
+            "note": "Existing agent tooling"
+          },
+          {
+            "path": "docs/",
+            "note": "Documentation"
+          },
+          {
+            "path": "objectives/",
+            "note": "Development work"
+          },
+          {
+            "path": "analysis/",
+            "note": "Analysis scripts and outputs"
+          },
+          {
+            "path": "ai_docs/",
+            "note": "Keep existing reference material"
+          },
+          {
+            "path": "ref/",
+            "note": "Keep existing reference folders"
+          },
+          {
+            "path": "AGENTS.md",
+            "note": "Agent instructions"
+          },
+          {
+            "path": "package.json",
+            "note": "Workspace scripts and dependencies"
+          },
+          {
+            "path": "bun.lock",
+            "note": "Dependency lockfile"
+          },
+          {
+            "path": "games/<game-id>/config/local.env",
+            "note": "Proposed game-specific environment overrides"
+          },
+          {
+            "path": "games/<game-id>/runtime/tools/",
+            "note": "Installed tool binaries"
+          },
+          {
+            "path": "games/<game-id>/workspace/checkout/build/",
+            "note": "Game build output; equivalent claim-local output stays in Daytona"
+          },
+          {
+            "path": "apps/frontend/dist/",
+            "note": "Generated dashboard build"
+          }
+        ]
+      },
+      "children": []
+    },
+    "global-cleanup-scope": {
+      "id": "global-cleanup-scope",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The only existing top-level folder selected for retirement in this cleanup is projects. Reconcile its remaining PR-library files and update old path references before removal. Do not infer that it is unused from its name or the stale symlink comment. Backups and checkout-local state require separate review; they are not selected for deletion."
+        }
+      ],
+      "children": []
+    },
+    "runtime-output-ownership": {
+      "id": "runtime-output-ownership",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Do not introduce a separate general-purpose logs directory. Agent Kernel owns structured traces; required stdout/stderr files remain operation evidence or process diagnostics referenced by their owning records. Existing file consumers must be migrated before those files can be removed. Game build output belongs inside the game checkout or Daytona claim workspace; frontend build output belongs under apps/frontend/dist. A root build directory is not part of the target layout."
+        }
+      ],
+      "children": []
+    },
+    "spec-10": {
+      "id": "spec-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Project Definition"
+        }
+      ],
+      "children": []
+    },
+    "spec-11": {
+      "id": "spec-11",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "These shapes describe resolved logical configuration, not existing API schemas. The small game.json entry point references files under config. Resolve relative paths from the game root consistently, including config/local.json overrides. Credentials remain references."
+        }
+      ],
+      "children": []
+    },
+    "spec-12": {
+      "id": "spec-12",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"game_id\": \"example-game\",\n  \"repository\": {\n    \"upstream\": \"owner/decomp\",\n    \"base_ref\": \"origin/main\",\n    \"worktree\": \"./workspace/checkout\",\n    \"target\": \"region-version\",\n    \"build_profile\": \"./config/build.json\"\n  },\n  \"tools\": {\n    \"toolpacks\": [\n      \"gamecube-decomp\"\n    ],\n    \"bindings\": \"./config/tools\"\n  },\n  \"sources\": [\n    {\n      \"identity\": {\n        \"game_id\": \"example-game\",\n        \"source_id\": \"upstream-prs\",\n        \"kind\": \"pr\",\n        \"upstream\": \"owner/decomp\"\n      },\n      \"configuration\": {\n        \"enabled\": true,\n        \"adapter\": \"github-prs\",\n        \"adapter_version\": \"1\",\n        \"scope\": {\n          \"state\": \"merged\"\n        },\n        \"credential_ref\": \"github-read\",\n        \"refresh\": \"each_sync\",\n        \"required_stage\": \"search_index\"\n      }\n    }\n  ],\n  \"sandbox\": {\n    \"default_profile\": \"2-core\",\n    \"profiles_file\": \"./config/sandbox.json\"\n  }\n}",
+        "fields": [
+          {
+            "name": "game_id",
+            "type": "string",
+            "description": "Stable game identity."
+          },
+          {
+            "name": "repository",
+            "type": "object",
+            "description": "Source and build identity.",
+            "fields": [
+              {
+                "name": "upstream",
+                "type": "string",
+                "description": "Repository owner/name or URL."
+              },
+              {
+                "name": "base_ref",
+                "type": "string",
+                "description": "Tracked upstream branch."
+              },
+              {
+                "name": "worktree",
+                "type": "string",
+                "description": "Canonical host checkout."
+              },
+              {
+                "name": "target",
+                "type": "string",
+                "description": "Game region and version."
+              },
+              {
+                "name": "build_profile",
+                "type": "string",
+                "description": "Compiler, original-input hashes, build commands, and report paths."
+              }
+            ]
+          },
+          {
+            "name": "tools",
+            "type": "object",
+            "description": "Shared toolpack IDs and per-game bindings."
+          },
+          {
+            "name": "sources",
+            "type": "SourceDefinition[]",
+            "description": "Identity and configuration fields of SourceInstance. Capture, stages, and readiness are generated runtime state."
+          },
+          {
+            "name": "sandbox",
+            "type": "object",
+            "description": "Default profile and reference to named profiles in config/sandbox.json."
+          }
+        ],
+        "name": "ProjectDefinition"
+      },
+      "children": []
+    },
+    "sandbox-profile-0": {
+      "id": "sandbox-profile-0",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Sandbox Profiles"
+        }
+      ],
+      "children": []
+    },
+    "sandbox-profile-1": {
+      "id": "sandbox-profile-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Use 2-core as the default. Retain 4-core as an optional named profile where configured; a game does not need both to be ready. Additional profiles require configuration rather than separate workflow code. The example illustrates the shape, not registered Daytona snapshots."
+        }
+      ],
+      "children": []
+    },
+    "sandbox-profile-2": {
+      "id": "sandbox-profile-2",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"default_profile\": \"2-core\",\n  \"profiles\": {\n    \"2-core\": {\n      \"snapshot_name\": \"example-game-2c\",\n      \"baked_revision\": \"commit-A\",\n      \"workspace_root\": \"/work/game\",\n      \"resources\": {\n        \"cpu\": 2,\n        \"memory_gib\": 4,\n        \"disk_gib\": 5\n      }\n    },\n    \"4-core\": {\n      \"snapshot_name\": \"example-game-4c\",\n      \"baked_revision\": \"commit-A\",\n      \"workspace_root\": \"/work/game\",\n      \"resources\": {\n        \"cpu\": 4,\n        \"memory_gib\": 8,\n        \"disk_gib\": 5\n      }\n    }\n  }\n}",
+        "fields": [
+          {
+            "name": "default_profile",
+            "type": "string",
+            "description": "Must name a configured profile; default is 2-core."
+          },
+          {
+            "name": "profiles",
+            "type": "map<string, SandboxProfile>",
+            "description": "Named execution options.",
+            "fields": [
+              {
+                "name": "snapshot_name",
+                "type": "string",
+                "description": "Accepted Daytona snapshot."
+              },
+              {
+                "name": "baked_revision",
+                "type": "revision",
+                "description": "Checkout revision in this image."
+              },
+              {
+                "name": "workspace_root",
+                "type": "string",
+                "description": "Game workspace inside Daytona."
+              },
+              {
+                "name": "resources",
+                "type": "object",
+                "description": "CPU, memory in GiB, and disk in GiB."
+              }
+            ]
+          }
+        ],
+        "name": "SandboxProfiles"
+      },
+      "children": []
+    },
+    "sandbox-profile-3": {
+      "id": "sandbox-profile-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Select an explicit profile override or the configured default before provisioning. Reject unknown or incompatible profiles instead of silently substituting one. Record the selected profile and resolved snapshot provenance with the claim. Changing the default affects future claims; existing claims retain their original resources and image."
+        }
+      ],
+      "children": []
+    },
+    "spec-13": {
+      "id": "spec-13",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "External Source Contract"
+        }
+      ],
+      "children": []
+    },
+    "spec-14": {
+      "id": "spec-14",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"identity\": {\n    \"game_id\": \"example-game\",\n    \"source_id\": \"game-wiki\",\n    \"kind\": \"wiki\",\n    \"upstream\": \"https://wiki.example.org\"\n  },\n  \"configuration\": {\n    \"enabled\": true,\n    \"adapter\": \"mediawiki\",\n    \"adapter_version\": \"1\",\n    \"scope\": {\n      \"seed_pages\": [\n        \"Game\"\n      ]\n    },\n    \"credential_ref\": null,\n    \"refresh\": \"explicit\",\n    \"required_stage\": \"search_index\"\n  },\n  \"capture\": {\n    \"manifest\": \"capture-001\",\n    \"cursor\": {},\n    \"revisions\": [\n      \"page-rev-12\"\n    ]\n  },\n  \"stages\": {\n    \"acquisition\": \"complete\",\n    \"import\": \"complete\",\n    \"search_index\": \"complete\",\n    \"curation\": \"pending\"\n  },\n  \"readiness\": \"ready\"\n}",
+        "fields": [
+          {
+            "name": "identity",
+            "type": "object",
+            "description": "Namespace for records and cursors.",
+            "fields": [
+              {
+                "name": "game_id",
+                "type": "string",
+                "description": "Owning game."
+              },
+              {
+                "name": "source_id",
+                "type": "string",
+                "description": "Stable identity inside the game."
+              },
+              {
+                "name": "kind",
+                "type": "pr | discord | wiki",
+                "description": "Adapter family."
+              },
+              {
+                "name": "upstream",
+                "type": "string",
+                "description": "Repository, server/channel scope, or wiki site."
+              }
+            ]
+          },
+          {
+            "name": "configuration",
+            "type": "object",
+            "description": "Enabled state, adapter/version, scope, credential reference, refresh policy, and required readiness stage."
+          },
+          {
+            "name": "capture",
+            "type": "object",
+            "description": "Manifest identity, content hashes, upstream revisions, and per-stream cursors."
+          },
+          {
+            "name": "stages",
+            "type": "object",
+            "description": "Separate acquisition, import, search-index, and curation status/counts/failures."
+          },
+          {
+            "name": "readiness",
+            "type": "pending | ready | disabled | unavailable | blocked",
+            "description": "Disabled and unavailable sources carry a reason. Required failures block admission."
+          }
+        ],
+        "name": "SourceInstance"
+      },
+      "children": []
+    },
+    "spec-15": {
+      "id": "spec-15",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Source",
+          "Per-Game Scope",
+          "Stable Evidence"
+        ],
+        "rows": [
+          [
+            "PRs",
+            "Repository, PR selection, review/discussion inclusion, refresh cursor.",
+            "Repository-qualified PR and capture identities; body, diff, and comments."
+          ],
+          [
+            "Discord",
+            "Server/channel IDs, thread policy, per-channel cursors.",
+            "Message IDs, thread context, authors, timestamps, and immutable captures."
+          ],
+          [
+            "Wiki",
+            "Site/API adapter, page/category seeds, exclusions, revision policy.",
+            "Site-qualified page, section, and upstream revision."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "spec-16": {
+      "id": "spec-16",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Acquisition captures raw inputs. Import normalizes archival records. Search indexing makes records retrievable. Librarian backfill curates facts and relationships with citations. Backfill is not a synonym for download or import; each stage records completion independently."
+        }
+      ],
+      "children": []
+    },
+    "spec-17": {
+      "id": "spec-17",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Rerunning the same capture must not duplicate records or work. Partial fetches retain resumable cursors without advancing past gaps. Changed upstream text creates a new capture while existing citations remain resolvable. Keep source data game-scoped; reusable cross-game facts require explicit applicability."
+        }
+      ],
+      "children": []
+    },
+    "spec-18": {
+      "id": "spec-18",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Initial Sync and Backfill"
+        }
+      ],
+      "children": []
+    },
+    "spec-19": {
+      "id": "spec-19",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Resolve Project Configuration",
+            "steps": [
+              {
+                "text": "Validate identity, repository, target/build profile, tools, and declared external sources."
+              },
+              {
+                "text": "Report missing required credentials or capabilities without treating missing data as an empty source."
+              }
+            ]
+          },
+          {
+            "text": "Establish the Harness Worktree",
+            "steps": [
+              {
+                "text": "Clone or adopt the configured checkout and record its source identity."
+              },
+              {
+                "text": "Build and validate the selected target; derive report targets and source entities before curation."
+              }
+            ]
+          },
+          {
+            "text": "Seed Configured Knowledge",
+            "steps": [
+              {
+                "text": "Capture initial PR, Discord, and wiki material according to declared scope."
+              },
+              {
+                "text": "Import immutable records and build search indexes."
+              },
+              {
+                "text": "Queue or run librarian backfill; record which subjects and source captures were covered."
+              }
+            ]
+          },
+          {
+            "text": "Verify Execution and Readiness",
+            "steps": [
+              {
+                "text": "Verify the accepted game image and seed one representative claim workspace."
+              },
+              {
+                "text": "Compile and score against the host baseline; verify source citations resolve."
+              },
+              {
+                "text": "Require the configured bootstrap gates, with optional unfinished curation visibly pending."
+              }
+            ]
+          },
+          {
+            "text": "Record Initial Boundary",
+            "steps": [
+              {
+                "text": "Persist accepted head, upstream baseline, configuration provenance, and initial save point."
+              },
+              {
+                "text": "Enable Run admission only after readiness succeeds. Resume interrupted setup from durable stage results."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "spec-20": {
+      "id": "spec-20",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Proposed bootstrap default: required source acquisition, import, and search indexes must complete; mechanical target/entity extraction and build evidence must be valid. Full semantic curation can continue in the background with visible coverage. Whether a first curated pass must also gate Run is an open review decision."
+        }
+      ],
+      "children": []
+    },
+    "spec-21": {
+      "id": "spec-21",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Continuing Harness State"
+        }
+      ],
+      "children": []
+    },
+    "spec-22": {
+      "id": "spec-22",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"identity\": {\n    \"game_id\": \"example-game\",\n    \"harness_id\": \"harness-1\",\n    \"revision\": 42\n  },\n  \"source\": {\n    \"worktree\": \"./workspace/checkout\",\n    \"head\": \"commit-B\",\n    \"upstream_revision\": \"upstream-U\",\n    \"configuration_revision\": \"config-3\"\n  },\n  \"execution\": {\n    \"desired\": \"run\",\n    \"workflow\": \"sync\",\n    \"status\": \"active\",\n    \"lease\": \"lease-9\",\n    \"blockers\": []\n  },\n  \"readiness\": {\n    \"build\": \"ready\",\n    \"sources\": \"ready\",\n    \"sandbox\": \"ready\",\n    \"evidence\": \"ready\"\n  },\n  \"history\": {\n    \"run_id\": \"run-7\",\n    \"epoch_id\": \"epoch-12\",\n    \"sync_id\": \"sync-13\",\n    \"timeline_cursor\": 128,\n    \"save_point_id\": \"save-epoch-12\"\n  }\n}",
+        "fields": [
+          {
+            "name": "identity",
+            "type": "object",
+            "description": "Stable game/harness identity and revision for concurrent state updates."
+          },
+          {
+            "name": "source",
+            "type": "object",
+            "description": "Canonical source truth.",
+            "fields": [
+              {
+                "name": "worktree",
+                "type": "string",
+                "description": "Maintained host checkout."
+              },
+              {
+                "name": "head",
+                "type": "revision | null",
+                "description": "Null until initial source acceptance."
+              },
+              {
+                "name": "upstream_revision",
+                "type": "revision | null",
+                "description": "Last accepted upstream, separate from observed remote tip."
+              },
+              {
+                "name": "configuration_revision",
+                "type": "string",
+                "description": "Configuration/build identity used for this state."
+              }
+            ]
+          },
+          {
+            "name": "execution",
+            "type": "object",
+            "description": "Control and authority.",
+            "fields": [
+              {
+                "name": "desired",
+                "type": "run | paused",
+                "description": "Preserved across Sync and restarts."
+              },
+              {
+                "name": "workflow",
+                "type": "sync | run | none",
+                "description": "At most one source mutation owner."
+              },
+              {
+                "name": "status",
+                "type": "initializing | active | idle | paused | blocked",
+                "description": "Status is separate from workflow."
+              },
+              {
+                "name": "lease",
+                "type": "lease | null",
+                "description": "Fenced exclusive authority."
+              },
+              {
+                "name": "blockers",
+                "type": "Blocker[]",
+                "description": "Causal failures and recovery requirements."
+              }
+            ]
+          },
+          {
+            "name": "readiness",
+            "type": "object",
+            "description": "Build, source-stage, sandbox, and evidence gates."
+          },
+          {
+            "name": "history",
+            "type": "object",
+            "description": "References to run/epoch/Sync records, ordered timeline cursor, and latest save point; not embedded full history."
+          }
+        ],
+        "name": "HarnessState"
+      },
+      "children": []
+    },
+    "spec-23": {
+      "id": "spec-23",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Operations"
+        }
+      ],
+      "children": []
+    },
+    "spec-24": {
+      "id": "spec-24",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "These operation names express the proposed interface. Every mutation carries the selected game, a command identity, and expected state revision. Retries reconcile existing work instead of starting duplicate workflows."
+        }
+      ],
+      "children": []
+    },
+    "spec-25": {
+      "id": "spec-25",
+      "type": "interaction-surface",
+      "props": {
+        "operations": [
+          {
+            "name": "initializeProject",
+            "description": "Resolve the project and start resumable bootstrap Sync. Refuse identity mismatch or incomplete required configuration.",
+            "params": [
+              {
+                "name": "game_id",
+                "type": "string",
+                "description": "Selected game."
+              }
+            ],
+            "returns": "Sync identity and readiness results"
+          },
+          {
+            "name": "requestRun",
+            "description": "Record desired Run state. Admit an epoch only after readiness and required Sync succeed.",
+            "returns": "Admitted run or visible blocker"
+          },
+          {
+            "name": "requestPause",
+            "description": "Stop new admission and settle active work. Preserve desired pause through subsequent Sync.",
+            "returns": "Pause request and eventual settled boundary"
+          },
+          {
+            "name": "requestSync",
+            "description": "Bootstrap, epoch-triggered, or manual entry to the same staged workflow. Queue behind active claims and integration.",
+            "params": [
+              {
+                "name": "reason",
+                "type": "bootstrap | epoch | manual",
+                "description": "Trigger identity."
+              }
+            ],
+            "returns": "Sync identity and completion or recovery state"
+          },
+          {
+            "name": "getTimeline",
+            "kind": "query",
+            "description": "Read ordered evidence without rebuilding or changing the worktree.",
+            "params": [
+              {
+                "name": "after",
+                "type": "cursor",
+                "description": "Pagination cursor."
+              }
+            ],
+            "returns": "Boundary events, evidence links, and freshness"
+          }
+        ],
+        "title": "Harness Operations"
+      },
+      "children": []
+    },
+    "spec-26": {
+      "id": "spec-26",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Recurring Work Loop"
+        }
+      ],
+      "children": []
+    },
+    "spec-27": {
+      "id": "spec-27",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Admit an Epoch",
+            "steps": [
+              {
+                "text": "Use accepted head, valid report, and current target eligibility."
+              },
+              {
+                "text": "Pin claim bases and record the knowledge provenance used."
+              }
+            ]
+          },
+          {
+            "text": "Run Workers",
+            "steps": [
+              {
+                "text": "Edit and score isolated Daytona workspaces."
+              },
+              {
+                "text": "Integrate validated results serially and queue outcome knowledge processing."
+              }
+            ]
+          },
+          {
+            "text": "Settle the Epoch Boundary",
+            "steps": [
+              {
+                "text": "Finish claims and integration; measure the accepted epoch result."
+              },
+              {
+                "text": "Record epoch evidence and its save point before upstream reconciliation."
+              }
+            ]
+          },
+          {
+            "text": "Run Sync",
+            "steps": [
+              {
+                "text": "Refresh upstream and due source inputs; stage and validate reconciliation."
+              },
+              {
+                "text": "Apply accepted source changes; record Sync completion even when head is unchanged."
+              },
+              {
+                "text": "Capture required post-sync evidence and preserve unresolved failures."
+              }
+            ]
+          },
+          {
+            "text": "Refresh and Continue",
+            "steps": [
+              {
+                "text": "Recompute or validate report/board data for the accepted post-sync head."
+              },
+              {
+                "text": "Start the next epoch only when gates pass and desired state remains Run."
+              },
+              {
+                "text": "Otherwise remain paused, blocked, or idle without closing the harness."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "spec-28": {
+      "id": "spec-28",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Epoch and Sync Handoff"
+        }
+      ],
+      "children": []
+    },
+    "spec-29": {
+      "id": "spec-29",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/epoch-sync.sequence.json",
+        "title": "Epoch Completion to Next Admission"
+      },
+      "children": []
+    },
+    "spec-30": {
+      "id": "spec-30",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The sequence shows intended behavior. If epoch settlement or its required evidence fails, block before handing off to Sync. If source application succeeds but evidence capture fails, retain the accepted source head and retry capture; do not replay or undo publication merely because evidence is missing."
+        }
+      ],
+      "children": []
+    },
+    "spec-31": {
+      "id": "spec-31",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Automatic Sync runs after every settled epoch. Wiki refresh can remain explicit or scheduled; each Sync checks source policy rather than remirroring everything. Background fetching may overlap Run, but source publication cannot race claims or integration."
+        }
+      ],
+      "children": []
+    },
+    "spec-32": {
+      "id": "spec-32",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Timeline and Save Points"
+        }
+      ],
+      "children": []
+    },
+    "spec-33": {
+      "id": "spec-33",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"identity\": {\n    \"game_id\": \"example-game\",\n    \"harness_id\": \"harness-1\",\n    \"event_id\": \"boundary-13\",\n    \"order\": 129,\n    \"occurred_at\": \"2026-09-11T18:00:00Z\",\n    \"command_id\": \"sync-command-13\"\n  },\n  \"operation\": {\n    \"kind\": \"sync_completed\",\n    \"outcome\": \"no_source_change\",\n    \"sync_id\": \"sync-13\"\n  },\n  \"source\": {\n    \"prior_head\": \"commit-B\",\n    \"resulting_head\": \"commit-B\",\n    \"prior_upstream\": \"upstream-U\",\n    \"accepted_upstream\": \"upstream-U\",\n    \"configuration\": \"config-3\"\n  },\n  \"evidence\": {\n    \"save_point_id\": \"save-epoch-12\",\n    \"report\": \"report-B\",\n    \"freshness\": \"valid\",\n    \"source_manifest\": \"capture-14\"\n  },\n  \"recovery\": null\n}",
+        "fields": [
+          {
+            "name": "identity",
+            "type": "object",
+            "description": "Game/harness ID, stable event ID, durable order, timestamp, and causal command."
+          },
+          {
+            "name": "operation",
+            "type": "object",
+            "description": "Kind, outcome, and applicable run/epoch/Sync IDs."
+          },
+          {
+            "name": "source",
+            "type": "object",
+            "description": "Prior/resulting heads, prior/accepted upstream revisions, and configuration identity."
+          },
+          {
+            "name": "evidence",
+            "type": "object",
+            "description": "Save-point ID, report/artifact references, metric scope, freshness, and source manifests."
+          },
+          {
+            "name": "recovery",
+            "type": "object | null",
+            "description": "Failure stage and durable resume position. A retry keeps boundary identity."
+          }
+        ],
+        "name": "BoundaryEvent"
+      },
+      "children": []
+    },
+    "spec-34": {
+      "id": "spec-34",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Timeline Boundary",
+          "Measured Position",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            "Initial Sync accepted",
+            "Initial validated head A.",
+            "The project is ready for its first epoch."
+          ],
+          [
+            "Epoch completed",
+            "A to integrated head B.",
+            "Worker contribution measured before Sync."
+          ],
+          [
+            "Sync completed",
+            "B to reconciled head C, or B to B.",
+            "Upstream contribution and knowledge refresh recorded separately."
+          ],
+          [
+            "Next epoch admitted",
+            "Accepted head C or unchanged B.",
+            "Refreshed report and board define new work; historical metrics remain unchanged."
+          ],
+          [
+            "Pause, failure, resume",
+            "Existing accepted head plus recovery evidence.",
+            "No invented commit and no cycle closure."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "spec-35": {
+      "id": "spec-35",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Save points pin measurements and artifacts to an existing commit. They do not create commits or guarantee a complete restore of knowledge and runtime state. A no-source-change Sync may reuse verified build evidence if build inputs remain identical. Knowledge revision and source refresh outcomes remain independently visible."
+        }
+      ],
+      "children": []
+    },
+    "spec-36": {
+      "id": "spec-36",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Compare scores only for the same target scope, build configuration, and metric definition. Missing or stale evidence is not zero progress. Head changes, dirty worktrees, failed capture, or changed build inputs invalidate current-score claims. Dashboard reads never trigger a build."
+        }
+      ],
+      "children": []
+    },
+    "spec-37": {
+      "id": "spec-37",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Failure and Resume Contract"
+        }
+      ],
+      "children": []
+    },
+    "spec-38": {
+      "id": "spec-38",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Condition",
+          "Required Behavior"
+        ],
+        "rows": [
+          [
+            "Fetch/import/index failure",
+            "Keep successful stage results and cursors; required stages block admission, optional gaps remain visible."
+          ],
+          [
+            "Source conflict or validation failure",
+            "Retain staging and diagnostic evidence; keep accepted head unchanged until reconciliation succeeds."
+          ],
+          [
+            "Crash during source application",
+            "Recover Git position and state publication as one coordinated operation; never assume Git and SQL share a transaction."
+          ],
+          [
+            "Repeated command or boundary retry",
+            "Use stable operation IDs; do not duplicate integration, timeline entries, imports, or counted gains."
+          ],
+          [
+            "Pause or restart",
+            "Reconcile leases, claims, accepted worktree, and pending publication; keep desired pause and history."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "spec-39": {
+      "id": "spec-39",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Implementation Evidence"
+        }
+      ],
+      "children": []
+    },
+    "spec-40": {
+      "id": "spec-40",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The current ingestion lane selection is narrower than the proposed bootstrap. This source excerpt is evidence of existing behavior, not the proposed configuration format."
+        }
+      ],
+      "children": []
+    },
+    "spec-41": {
+      "id": "spec-41",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Ingest entry point",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/ingest/cli.ts"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "spec-42": {
+      "id": "spec-42",
+      "type": "code",
+      "props": {
+        "annotations": [
+          {
+            "lines": "1-4",
+            "label": "Existing Lane Selection",
+            "note": "Sync includes report reconciliation, PRs, Discord, and attempts. Bootstrap must explicitly arrange wiki import and mechanical entity extraction."
+          }
+        ],
+        "language": "typescript"
+      },
+      "text": [
+        {
+          "insert": "const INGEST_LANES = [\"discord\", \"wiki\", \"prs\", \"attempts\", \"reconcile\", \"entities\", \"sync\", \"all\"] as const;\ntype IngestLane = (typeof INGEST_LANES)[number];\ntype IndividualIngestLane = Exclude<IngestLane, \"sync\" | \"all\">;\nconst SYNC_LANES: readonly IndividualIngestLane[] = [\"reconcile\", \"prs\", \"discord\", \"attempts\"];"
+        }
+      ],
+      "children": []
+    },
+    "spec-43": {
+      "id": "spec-43",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Cycle Retirement After Review"
+        }
+      ],
+      "children": []
+    },
+    "spec-44": {
+      "id": "spec-44",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This document does not authorize deleting historical evidence or changing the running system. The later migration removes cycles from runtime ownership, APIs, UI, and active documentation after their responsibilities and references have moved."
+        }
+      ],
+      "children": []
+    },
+    "spec-45": {
+      "id": "spec-45",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Freeze the Reviewed Contract",
+            "steps": [
+              {
+                "text": "Resolve the open decisions below and finalize state, source, and event schemas."
+              }
+            ]
+          },
+          {
+            "text": "Migrate Durable Ownership",
+            "steps": [
+              {
+                "text": "Back up state and inventory cycle references, source lineage, worktree identities, leases, and evidence links."
+              },
+              {
+                "text": "Move ownership and paths into the reviewed folder layout, updating stored references while preserving canonical worktree identity."
+              },
+              {
+                "text": "Preserve historical evidence and causal IDs in migrated records or a historical archive."
+              }
+            ]
+          },
+          {
+            "text": "Switch Runtime Consumers",
+            "steps": [
+              {
+                "text": "Update worktree resolution, Sync, Run, recovery, process identity, tracing, and dashboard projections."
+              },
+              {
+                "text": "Remove cycle open/close commands and all runtime dependencies on cycle IDs."
+              }
+            ]
+          },
+          {
+            "text": "Prove the Replacement",
+            "steps": [
+              {
+                "text": "Verify bootstrap, multi-epoch Sync, pause/resume, and injected failure recovery."
+              },
+              {
+                "text": "Check pre/post migration head, evidence counts, identities, metrics, and citation resolution."
+              }
+            ]
+          },
+          {
+            "text": "Remove Superseded Documentation and Storage",
+            "steps": [
+              {
+                "text": "Rewrite owning contracts and custom diagrams around the reviewed flow; repair references and examples."
+              },
+              {
+                "text": "Retire old schema/code only after compatibility and recovery checks pass. Preserve a recoverable migration checkpoint."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "spec-46": {
+      "id": "spec-46",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Acceptance Criteria"
+        }
+      ],
+      "children": []
+    },
+    "spec-47": {
+      "id": "spec-47",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Scenario",
+          "Pass Condition"
+        ],
+        "rows": [
+          [
+            "New game bootstrap",
+            "Explicit game configuration produces valid build, sandbox, required source stages, citations, and an initial boundary without creating a cycle."
+          ],
+          [
+            "Two successive epochs",
+            "Each epoch has distinct evidence, a following Sync result, and admission pinned to the accepted post-sync head."
+          ],
+          [
+            "No-change and source-changing Sync",
+            "Both appear in history; only accepted source changes move head; worker and upstream deltas stay separate."
+          ],
+          [
+            "Pause, crash, or partial failure",
+            "Recovery preserves desired state, resumes durable stages, and does not duplicate integration or counted evidence."
+          ],
+          [
+            "Migration and game isolation",
+            "Old evidence remains resolvable, active consumers require no cycle ID, and a second game cannot read or write Melee-owned state by default."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "spec-48": {
+      "id": "spec-48",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Open Review Decisions"
+        }
+      ],
+      "children": []
+    },
+    "spec-49": {
+      "id": "spec-49",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Decision",
+          "Proposed Default"
+        ],
+        "rows": [
+          [
+            "Initial curation gate",
+            "Require imported/searchable sources and mechanical entities; show full semantic backfill as pending until complete. Decide whether a first curated pass also gates Run."
+          ],
+          [
+            "Long-lived run identity",
+            "Keep one run across automatic Sync handoffs; record process sessions separately. Epoch and Sync IDs remain distinct."
+          ],
+          [
+            "Missing external source",
+            "Require an explicit disabled/unavailable reason. Fail only declared required readiness gates."
+          ],
+          [
+            "Resource and publication policy",
+            "Keep source-specific refresh cadence and existing validation gates. Define credentials and external PR publication separately."
+          ],
+          [
+            "Second portability target",
+            "Choose a second GameCube decomp repository before claiming the contract supports multiple games."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "spec-50": {
+      "id": "spec-50",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Review References"
+        }
+      ],
+      "children": []
+    },
+    "spec-51": {
+      "id": "spec-51",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Game Portability Proposal",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/10-game/30-game-portability"
+            }
+          }
+        },
+        {
+          "insert": " supplies the per-game boundary. "
+        },
+        {
+          "insert": "Process Overview",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-harness/10-process-overview"
+            }
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "Harness Timeline and Cycle Transition",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-harness/30-cycles"
+            }
+          }
+        },
+        {
+          "insert": " contain the agreed direction. This feature spec is the review home before the later cleanup pass."
+        }
+      ],
+      "children": []
+    }
+  }
+}

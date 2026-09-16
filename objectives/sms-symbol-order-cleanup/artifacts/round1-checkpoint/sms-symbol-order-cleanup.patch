@@ -1,0 +1,490 @@
+diff --git a/include/Enemy/HamuKuri.hpp b/include/Enemy/HamuKuri.hpp
+index e6ef9152..610ac6ca 100644
+--- a/include/Enemy/HamuKuri.hpp
++++ b/include/Enemy/HamuKuri.hpp
+@@ -468,7 +468,13 @@ public:
+ 	virtual void attackToMario();
+ 	virtual void setMActorAndKeeper();
+ 	virtual bool isCollidMove(THitActor*);
+-	virtual void onHaveCap();
++	virtual void onHaveCap()
++	{
++		unk198                    = 1;
++		TDoroHamuKuriManager* man = (TDoroHamuKuriManager*)getManager();
++		man->unk70                = this;
++		man->unk74->setOwner(this);
++	}
+ };
+ 
+ // ============= nerves =============
+diff --git a/include/MarioUtil/MtxUtil.hpp b/include/MarioUtil/MtxUtil.hpp
+index d2bf0df7..f2ad1808 100644
+--- a/include/MarioUtil/MtxUtil.hpp
++++ b/include/MarioUtil/MtxUtil.hpp
+@@ -161,7 +161,7 @@ void SMS_GetLightPerspectiveForEffectMtx(MtxPtr);
+ 
+ class TRopePoint {
+ public:
+-	TRopePoint();
++	TRopePoint() { }
+ 
+ 	/* 0x00 */ JGeometry::TVec3<f32> unk0;
+ 	/* 0x0C */ JGeometry::TVec3<f32> unkC;
+diff --git a/src/Enemy/bossManta.cpp b/src/Enemy/bossManta.cpp
+index 584dbe90..16d5afda 100644
+--- a/src/Enemy/bossManta.cpp
++++ b/src/Enemy/bossManta.cpp
+@@ -66,7 +66,37 @@ static inline void lerp_hack(f32& value, f32 target, f32 progress)
+ 	value += step;
+ }
+ 
+-DEFINE_NERVE(TNerveMantaMove, TLiveActor)
++const TNerveMantaMove& TNerveMantaMove::theNerve()
++{
++	static TNerveMantaMove instance;
++	return instance;
++}
++
++const TNerveMantaHitWater& TNerveMantaHitWater::theNerve()
++{
++	static TNerveMantaHitWater instance;
++	return instance;
++}
++
++const TNerveMantaSpawn& TNerveMantaSpawn::theNerve()
++{
++	static TNerveMantaSpawn instance;
++	return instance;
++}
++
++const TNerveMantaDeath& TNerveMantaDeath::theNerve()
++{
++	static TNerveMantaDeath instance;
++	return instance;
++}
++
++const TNerveMantaAppearDemo& TNerveMantaAppearDemo::theNerve()
++{
++	static TNerveMantaAppearDemo instance;
++	return instance;
++}
++
++BOOL TNerveMantaMove::execute(TSpineBase<TLiveActor>* spine) const
+ {
+ 	TBossManta* self = (TBossManta*)spine->getBody();
+ 	s32 time         = spine->getTime();
+@@ -185,7 +215,7 @@ DEFINE_NERVE(TNerveMantaMove, TLiveActor)
+ 	return FALSE;
+ }
+ 
+-DEFINE_NERVE(TNerveMantaHitWater, TLiveActor)
++BOOL TNerveMantaHitWater::execute(TSpineBase<TLiveActor>* spine) const
+ {
+ 	TBossManta* self = (TBossManta*)spine->getBody();
+ 
+@@ -233,7 +263,7 @@ DEFINE_NERVE(TNerveMantaHitWater, TLiveActor)
+ 	return FALSE;
+ }
+ 
+-DEFINE_NERVE(TNerveMantaSpawn, TLiveActor)
++BOOL TNerveMantaSpawn::execute(TSpineBase<TLiveActor>* spine) const
+ {
+ 	TBossManta* self = (TBossManta*)spine->getBody();
+ 
+@@ -270,7 +300,7 @@ DEFINE_NERVE(TNerveMantaSpawn, TLiveActor)
+ 	return FALSE;
+ }
+ 
+-DEFINE_NERVE(TNerveMantaDeath, TLiveActor)
++BOOL TNerveMantaDeath::execute(TSpineBase<TLiveActor>* spine) const
+ {
+ 	TBossManta* self = (TBossManta*)spine->getBody();
+ 
+@@ -291,7 +321,7 @@ DEFINE_NERVE(TNerveMantaDeath, TLiveActor)
+ 	return FALSE;
+ }
+ 
+-DEFINE_NERVE(TNerveMantaAppearDemo, TLiveActor)
++BOOL TNerveMantaAppearDemo::execute(TSpineBase<TLiveActor>* spine) const
+ {
+ 	s32 time         = spine->getTime();
+ 	TBossManta* self = (TBossManta*)spine->getBody();
+diff --git a/src/Enemy/hamukuri.cpp b/src/Enemy/hamukuri.cpp
+index 5deafe62..551f313c 100644
+--- a/src/Enemy/hamukuri.cpp
++++ b/src/Enemy/hamukuri.cpp
+@@ -2246,14 +2246,6 @@ void TDoroHamuKuri::setBehavior()
+ 	}
+ }
+ 
+-void TDoroHamuKuri::onHaveCap()
+-{
+-	unk198                    = 1;
+-	TDoroHamuKuriManager* man = (TDoroHamuKuriManager*)getManager();
+-	man->unk70                = this;
+-	man->unk74->setOwner(this);
+-}
+-
+ bool TDoroHamuKuri::isCollidMove(THitActor* param_1)
+ {
+ 	if (unk198)
+diff --git a/src/Enemy/namekuri.cpp b/src/Enemy/namekuri.cpp
+index e7aa7df9..8553183a 100644
+--- a/src/Enemy/namekuri.cpp
++++ b/src/Enemy/namekuri.cpp
+@@ -235,7 +235,7 @@ void TNameIndParCallback::execute(JPABaseEmitter* param_1,
+ 
+ void TNameIndParCallback::draw(JPABaseEmitter*, JPABaseParticle*) { }
+ 
+-BOOL NameKuriAttackCallback(J3DNode* param_1, int param_2)
++static BOOL NameKuriAttackCallback(J3DNode* param_1, int param_2)
+ {
+ 	if (param_2 == 0) {
+ 		if (gpCurNameKuri == nullptr || !gpCurNameKuri->isAttackJump())
+@@ -270,7 +270,7 @@ BOOL NameKuriAttackCallback(J3DNode* param_1, int param_2)
+ 	return true;
+ }
+ 
+-BOOL NameKuriScaleCallback(J3DNode* param_1, int param_2)
++static BOOL NameKuriScaleCallback(J3DNode* param_1, int param_2)
+ {
+ 	if (param_2 == 0) {
+ 		if (gpCurNameKuri == nullptr || !gpCurNameKuri->isHitWaterJump())
+diff --git a/src/MarioUtil/MtxUtil.cpp b/src/MarioUtil/MtxUtil.cpp
+index 3c3ea499..e530841d 100644
+--- a/src/MarioUtil/MtxUtil.cpp
++++ b/src/MarioUtil/MtxUtil.cpp
+@@ -429,8 +429,6 @@ void SMS_GetLightPerspectiveForEffectMtx(MtxPtr mtx)
+ 	mtx[3][3] = 1.0f;
+ }
+ 
+-TRopePoint::TRopePoint() { }
+-
+ TRope::TRope(u16 count, const JGeometry::TVec3<f32>& pos, f32 p1, f32 p2,
+              f32 p3, f32 p4)
+ {
+diff --git a/src/NPC/NpcEvent.cpp b/src/NPC/NpcEvent.cpp
+index 4fa9ed8d..efc767ae 100644
+--- a/src/NPC/NpcEvent.cpp
++++ b/src/NPC/NpcEvent.cpp
+@@ -86,48 +86,48 @@ static void evIsGameModeNormal(TSpcTypedInterp<TEventWatcher>* interp,
+ 	interp->push(result);
+ }
+ 
+-static void ev__ForceStartTalkExceptNpc(TSpcTypedInterp<TEventWatcher>* interp,
+-                                        u32 arg_num)
++static void ev__ForceStartTalk(TSpcTypedInterp<TEventWatcher>* interp,
++                               u32 arg_num)
+ {
+ 	interp->verifyArgNum(1, &arg_num);
++
+ 	int result = 0;
+-	// TODO: uuuh...
+-	(void)interp->pop();
+ 
+ 	if (!gpMarDirector->isTalkOrDemoModeNow() && SMS_IsMarioTouchGround4cm()
+ 	    && !gpMarioOriginal->checkStatusType(MARIO_STATUS_FLAG_JUMPING)) {
+ 
+-		TBaseNPC* dummyNpc
+-		    = JDrama::TNameRefGen::search<TBaseNPC>("ダミーＮＰＣ");
+-
+-		if (dummyNpc) {
+-			gpMarDirector->unkA0  = dummyNpc;
+-			gpMarDirector->unk126 = 1;
++		gpMarDirector->unkA0  = (TBaseNPC*)interp->pop().getDataInt();
++		gpMarDirector->unk126 = 1;
+ 
+-			result = 1;
+-		}
++		result = 1;
++	} else {
++		interp->pop();
+ 	}
++
+ 	interp->push(result);
+ }
+ 
+-static void ev__ForceStartTalk(TSpcTypedInterp<TEventWatcher>* interp,
+-                               u32 arg_num)
++static void ev__ForceStartTalkExceptNpc(TSpcTypedInterp<TEventWatcher>* interp,
++                                        u32 arg_num)
+ {
+ 	interp->verifyArgNum(1, &arg_num);
+-
+ 	int result = 0;
++	// TODO: uuuh...
++	(void)interp->pop();
+ 
+ 	if (!gpMarDirector->isTalkOrDemoModeNow() && SMS_IsMarioTouchGround4cm()
+ 	    && !gpMarioOriginal->checkStatusType(MARIO_STATUS_FLAG_JUMPING)) {
+ 
+-		gpMarDirector->unkA0  = (TBaseNPC*)interp->pop().getDataInt();
+-		gpMarDirector->unk126 = 1;
++		TBaseNPC* dummyNpc
++		    = JDrama::TNameRefGen::search<TBaseNPC>("ダミーＮＰＣ");
+ 
+-		result = 1;
+-	} else {
+-		interp->pop();
+-	}
++		if (dummyNpc) {
++			gpMarDirector->unkA0  = dummyNpc;
++			gpMarDirector->unk126 = 1;
+ 
++			result = 1;
++		}
++	}
+ 	interp->push(result);
+ }
+ 
+diff --git a/src/NPC/NpcManager.cpp b/src/NPC/NpcManager.cpp
+index 767366f7..fb2900a2 100644
+--- a/src/NPC/NpcManager.cpp
++++ b/src/NPC/NpcManager.cpp
+@@ -210,6 +210,41 @@ void TNPCManager::makePartsModelData_(u32 npc_type, u32 flags,
+ 	}
+ }
+ 
++void TNPCManager::makeCommonPartsModelDataKeeper_(u32 param_1,
++                                                  const char* param_2,
++                                                  TModelDataKeeper** param_3)
++{
++	unk5C = *param_3;
++	if (unk5C == nullptr) {
++		unk5C    = new TModelDataKeeper(param_2);
++		*param_3 = unk5C;
++		makePartsModelData_(param_1, 0x10210000, unk5C);
++	}
++}
++
++void TNPCManager::makeOriginalPartsModelDataKeeper_(u32 param_1, u32 param_2)
++{
++	// TODO: fakematch?
++	TModelDataKeeper* keeper = new TModelDataKeeper(unk1C->getFolder());
++
++	unk60 = keeper;
++	makePartsModelData_(param_1, param_2, unk60);
++}
++
++void TNPCManager::changeTextureToPollution_(J3DModelData* model)
++{
++	const ResTIMG* pollutionTex
++	    = (const ResTIMG*)JKRFileLoader::getGlbResource(cRealPollutionTexName);
++
++	if (pollutionTex != nullptr) {
++		SMS_ChangeTextureAll(model, cDummyPollutionTexName, *pollutionTex);
++	}
++}
++
++void TMonteMBaseManager::changeTextureToStraw_(J3DModelData*) { }
++
++void TMonteWBaseManager::changeTextureToStraw_(J3DModelData*) { }
++
+ J3DMaterialTable* TNPCManager::getBmt_(bool) { return nullptr; }
+ 
+ SDLModelData* TNPCManager::getPartsSDLModelData(const char* name) const
+@@ -275,55 +310,6 @@ void TNPCManager::perform(u32 cue, JDrama::TGraphics* graphics)
+ 	TEnemyManager::perform(cue, graphics);
+ }
+ 
+-void TNPCManager::makeCommonPartsModelDataKeeper_(u32 param_1,
+-                                                  const char* param_2,
+-                                                  TModelDataKeeper** param_3)
+-{
+-	unk5C = *param_3;
+-	if (unk5C == nullptr) {
+-		unk5C    = new TModelDataKeeper(param_2);
+-		*param_3 = unk5C;
+-		makePartsModelData_(param_1, 0x10210000, unk5C);
+-	}
+-}
+-
+-void TNPCManager::makeOriginalPartsModelDataKeeper_(u32 param_1, u32 param_2)
+-{
+-	// TODO: fakematch?
+-	TModelDataKeeper* keeper = new TModelDataKeeper(unk1C->getFolder());
+-
+-	unk60 = keeper;
+-	makePartsModelData_(param_1, param_2, unk60);
+-}
+-
+-void TNPCManager::changeTextureToPollution_(J3DModelData* model)
+-{
+-	const ResTIMG* pollutionTex
+-	    = (const ResTIMG*)JKRFileLoader::getGlbResource(cRealPollutionTexName);
+-
+-	if (pollutionTex != nullptr) {
+-		SMS_ChangeTextureAll(model, cDummyPollutionTexName, *pollutionTex);
+-	}
+-}
+-
+-void TMonteMBaseManager::changeTextureToStraw_(J3DModelData*) { }
+-
+-void TMonteWBaseManager::changeTextureToStraw_(J3DModelData*) { }
+-
+-TMareBaseManager::TMareBaseManager(const char* name)
+-    : TNPCManager(name)
+-{
+-	if (mStaticBmtNormal == nullptr) {
+-		mStaticBmtNormal = J3DModelLoaderDataBase::loadMaterialTable(
+-		    JKRGetResource(cMareCommonNormalBmtName));
+-	}
+-
+-	if (mStaticBmtPollution == nullptr) {
+-		mStaticBmtPollution = J3DModelLoaderDataBase::loadMaterialTable(
+-		    JKRGetResource(cMareCommonPollutionBmtName));
+-	}
+-}
+-
+ TMonteMBaseManager::TMonteMBaseManager(const char* name)
+     : TNPCManager(name)
+ {
+@@ -352,6 +338,20 @@ TMareWBaseManager::TMareWBaseManager(const char* name)
+ 	                                &mStaticCommonKeeper);
+ }
+ 
++TMareBaseManager::TMareBaseManager(const char* name)
++    : TNPCManager(name)
++{
++	if (mStaticBmtNormal == nullptr) {
++		mStaticBmtNormal = J3DModelLoaderDataBase::loadMaterialTable(
++		    JKRGetResource(cMareCommonNormalBmtName));
++	}
++
++	if (mStaticBmtPollution == nullptr) {
++		mStaticBmtPollution = J3DModelLoaderDataBase::loadMaterialTable(
++		    JKRGetResource(cMareCommonPollutionBmtName));
++	}
++}
++
+ J3DMaterialTable* TMareBaseManager::getBmt_(bool pollution)
+ {
+ 	if (pollution)
+diff --git a/src/Player/Yoshi.cpp b/src/Player/Yoshi.cpp
+index ae29bd44..da906e2b 100644
+--- a/src/Player/Yoshi.cpp
++++ b/src/Player/Yoshi.cpp
+@@ -46,7 +46,7 @@ static const GXColor bodyColor[4] = {
+ 
+ void TYoshi::startVoice(u32 param_1) { }
+ 
+-BOOL YoshiHeadCtrl(J3DNode* param_1, int param_2)
++static BOOL YoshiHeadCtrl(J3DNode* param_1, int param_2)
+ {
+ 	if (param_2 == 0) {
+ 		const TWaterGun* waterGun = SMS_GetMarioWaterGun();
+diff --git a/src/Strategic/liveinterp.cpp b/src/Strategic/liveinterp.cpp
+index 04338bb3..218f7378 100644
+--- a/src/Strategic/liveinterp.cpp
++++ b/src/Strategic/liveinterp.cpp
+@@ -346,7 +346,7 @@ const TNerveBase<TLiveActor>* NerveGetByIndex(int param_1)
+ 	}
+ }
+ 
+-void linSetBck(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linSetBck(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(1, &arg_num);
+ 	TSpcSlice arg = interp->pop();
+@@ -360,7 +360,7 @@ void linSetBck(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ 
+ void linSetSubBck(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num) { }
+ 
+-void linSetBpk(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linSetBpk(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(1, &arg_num);
+ 	TSpcSlice arg = interp->pop();
+@@ -372,7 +372,7 @@ void linSetBpk(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ 	interp->push();
+ }
+ 
+-void linSetBtp(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linSetBtp(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(1, &arg_num);
+ 	TSpcSlice arg = interp->pop();
+@@ -384,7 +384,7 @@ void linSetBtp(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ 	interp->push();
+ }
+ 
+-void linSetBtk(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linSetBtk(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(1, &arg_num);
+ 	TSpcSlice arg = interp->pop();
+@@ -396,7 +396,7 @@ void linSetBtk(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ 	interp->push();
+ }
+ 
+-void linSetBlk(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linSetBlk(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(1, &arg_num);
+ 	TSpcSlice arg = interp->pop();
+@@ -408,7 +408,7 @@ void linSetBlk(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ 	interp->push();
+ }
+ 
+-void linSetBls(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linSetBls(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(1, &arg_num);
+ 	TSpcSlice arg = interp->pop();
+@@ -420,7 +420,7 @@ void linSetBls(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ 	interp->push();
+ }
+ 
+-void linSetAnmRate(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linSetAnmRate(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(2, &arg_num);
+ 	TLiveActor* owner = interp->getOwner();
+@@ -439,7 +439,7 @@ void linSetAnmRate(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ 	interp->push();
+ }
+ 
+-void linGetSRT(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linGetSRT(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(2, &arg_num);
+ 	TLiveActor* owner = interp->getOwner();
+@@ -519,7 +519,7 @@ void linGetSRT(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ 	}
+ }
+ 
+-void linSetSRT(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linSetSRT(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(3, &arg_num);
+ 	TLiveActor* owner = interp->getOwner();
+@@ -577,7 +577,7 @@ void linSetSRT(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ 	interp->push();
+ }
+ 
+-void linPushNerve(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
++static void linPushNerve(TSpcTypedInterp<TLiveActor>* interp, u32 arg_num)
+ {
+ 	interp->verifyArgNum(1, &arg_num);
+ 	TLiveActor* owner = interp->getOwner();
+diff --git a/src/System/ParamInst.cpp b/src/System/ParamInst.cpp
+index 4bbc0247..03524cdc 100644
+--- a/src/System/ParamInst.cpp
++++ b/src/System/ParamInst.cpp
+@@ -1,5 +1,6 @@
+ #include <System/ParamInst.hpp>
+ #include <JSystem/JGeometry.hpp>
++#include <JSystem/JDrama/JDRFlag.hpp>
+ 
+ template <typename T> void TParamT<T>::load(JSUMemoryInputStream& stream)
+ {
+@@ -12,6 +13,9 @@ template <typename T> void TParamT<T>::load(JSUMemoryInputStream& stream)
+ 
+ template class TParamT<u8>;
+ template class TParamT<s16>;
++template class TParamT<u16>;
+ template class TParamT<s32>;
+ template class TParamT<f32>;
++template class TParamT<JDrama::TFlagT<u16> >;
++template class TParamT<JDrama::TFlagT<u32> >;
+ template class TParamT<JGeometry::TVec3<f32> >;

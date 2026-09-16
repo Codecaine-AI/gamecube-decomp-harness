@@ -1,0 +1,141 @@
+{
+  "tu": "main/melee/it/kinds/itsamusgrapple",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L151-L228",
+            "why": "Complete signature and descriptor-to-capsule assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported quarter-unit geometry claim while preserving the directly observed signature and decoding behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamusgrapple:it_802B7160"
+        },
+        "type": "inferred_type",
+        "value": "Hitbox-descriptor application routine with signature void(Fighter_GObj*, itSamusGrapple_HitboxData*). It selects a fighter capsule by descriptor ID, optionally maps a common bone ID, masks the damage halfword with 0x3FF, and multiplies size and offsets by 0.003906f (approximately 1/256). Descriptor z/y/x offsets are assigned to capsule x/y/z offsets respectively. Remaining fields configure knockback, interaction and target flags, element, sound, and grabbed-victim restriction. This describes source-level accesses, not independently verified compiled bitfield layout."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L965-L997",
+            "why": "Complete transformation and predecessor pass."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L873-L891",
+            "why": "Exact vector direction and zero-distance behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L1367-L1435",
+            "why": "Residual-distance callers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L1177-L1178",
+            "why": "Full-segment extension call."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the reversed vector direction while preserving the verified input-to-mutation flow.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamusgrapple:it_802B900C"
+        },
+        "type": "data_flow",
+        "value": "Receives a selected ItemLink, anchor position, attributes and requested endpoint distance. It computes the normalized vector from the anchor toward the selected link and places that link at anchor plus direction times distance; coincident positions produce a zero direction. It then traverses prev pointers, applies the randomized vertical-velocity adjustment, advances and synchronizes each predecessor, and conditionally rewrites its position using x38 or x3C when separation exceeds the upper bound or falls below the lower bound. Extension callers pass x38; retraction callers pass a residual distance."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L1181-L1259",
+            "why": "Complete worker."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L85-L96",
+            "why": "Randomized adjustment rather than constant downward acceleration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L661-L701",
+            "why": "Motion-state-2 caller and status consumers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates leading-link stage collision from successor history synchronization and avoids describing the random adjustment as uniformly downward gravity.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamusgrapple:it_802B99A0"
+        },
+        "type": "purpose",
+        "value": "Updates and progressively deploys the linked beam for item motion state 2. It applies intermittent randomized vertical-velocity adjustments, damps the leading link's horizontal velocity, advances that link and classifies its stage contact. It advances active successors, applies minimum/maximum spacing corrections and synchronizes their collision-position history, or activates inactive successors when additional length is needed. At chain exhaustion it invokes the backward constraint pass and returns 3; otherwise it returns the leading link's contact class. It also performs the grounded x16/input-gated hitbox setup."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L85-L96",
+            "why": "Defines the sign-dependent intermittent adjustment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L1194-L1259",
+            "why": "All state guards, mutations and returns."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the downward/falling assertions while preserving verified activation, damping, input and completion behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamusgrapple:it_802B99A0"
+        },
+        "type": "state_behavior",
+        "value": "The leading link and active successors subtract samus_grapple_calc_grav from vertical velocity; this usually leaves velocity unchanged and intermittently replaces its vertical component with a small value of the opposite sign, rather than always accelerating downward. The leading link's horizontal velocity approaches zero by x58 before movement and contact classification. Active successors move and receive x3C/x38 spacing corrections. Inactive successors activate when the attachment position is more than x38 from the current link; otherwise the current contact class is returned. Reaching the chain end runs the backward constraint helper and returns 3. While grounded with x16 equal to 1, the fighter collision helper runs; pressed input mask 0x100 additionally invokes the configured hitbox setup and increments x16."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L805-L839",
+            "why": "Distinct x4 position source and x0 chain argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L1327-L1365",
+            "why": "Complete link processing and completion flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkhookshot.c#L1091-L1103",
+            "why": "Initial-link indexed-surface motion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamusgrapple.c#L98-L105",
+            "why": "Attachment position is extracted from the supplied link's model matrix."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the conflation of the caller's x4 attachment-position source with its x0 chain argument and records the initial surface-following update.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamusgrapple:it_802B9FD4"
+        },
+        "type": "data_flow",
+        "value": "The motion-state-6 worker computes the supplied target position from the x4 link's model transform but passes the article's x0 link as the chain start. The helper first adjusts that initial link for motion of its indexed stage surface, then follows next pointers. Active successors receive randomized vertical-velocity adjustment, movement, maximum-distance correction and collision-history synchronization. Inactive successors are positioned and activated when another segment is required. False means the target is within one segment before an inactive successor; true means traversal exhausted the list. The caller handles true before model synchronization and animation."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

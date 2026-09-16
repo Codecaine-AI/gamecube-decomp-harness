@@ -1,0 +1,72 @@
+{
+  "tu": "main/dolphin/os/init/__ppc_eabi_init",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/init/__ppc_eabi_init.c#L12-L42",
+            "why": "Both annotated assembly definitions and signatures."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the code-versus-data distinction and exact interfaces while removing an unsupported compiled contiguity claim.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/init/__ppc_eabi_init:.init"
+        },
+        "type": "inferred_type",
+        "value": "Source-level executable startup grouping: this translation unit annotates the assembly definitions `void __init_hardware(void)` and `void __flush_cache(void* address, size_t size)` with `__declspec(section \".init\")`. These are instruction bodies rather than an ordinary data table. Their compiled contiguity and final section layout are not established by the source annotations."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/init/__ppc_eabi_init.c#L12-L68",
+            "why": "Complete hardware, cache, constructor and destructor flows."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the misleading aligned-range description while preserving hardware and callback data flows.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/os/init/__ppc_eabi_init.c"
+        },
+        "type": "data_flow",
+        "value": "Hardware initialization enables MSR_FP and calls the paired-single and cache initializers. __init_user delegates to __init_cpp. Initialization and finalization read externally supplied _ctors and _dtors function-pointer arrays in ascending order, invoking entries until the first null. The cache helper takes an address and byte count, starts at `address & 0xFFFFFFF1`, adds the removed offset to the count, and performs dcbst/sync/icbi at eight-byte increments, followed by isync. The mask preserves bit zero and is not conventional alignment-down; the first iteration is unconditional and repetition uses the signed result after subtracting eight from the adjusted register count."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/init/__ppc_eabi_init.c#L70-L83",
+            "why": "Weak termination branches and common wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110",
+            "why": "Permanent normal-control-flow spin."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/abort_exit.c#L20-L48",
+            "why": "Separate conditional runtime cleanup before _ExitProcess."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the false prerequisite of completed shutdown and preserves the exceptional abort path and cross-file cleanup ownership.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/init/__ppc_eabi_init:_ExitProcess"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally enters PPCHalt, which synchronizes once and then spins indefinitely with no normal return path. The wrapper has no cleanup, guards, status handling or recovery transition. Reaching it does not establish that cleanup ran: the local weak abort calls it directly, whereas the local weak exit invokes __fini_cpp first; higher-level MSL exit separately owns its conditional cleanup sequence."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,269 @@
+{
+  "tu": "main/melee/gr/grgreens",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgreens:grGreens_80213458"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally sets the temporary demo-initialization latch grGr_804D6AAC, ignoring its argument. Object 0 uses the latch to apply four cached positions, and object 6 skips normal layout regeneration while it is set. Object 6's initializer then clears the latch before objects 5 and 4 are created; grGreens_Init clears it again after common setup. Whispy's process independently returns while this latch is set, but first clears its active-wind publication.",
+        "rationale": "Corrects the claimed lifetime across all initial object creation and preserves both consumers and the early wind clear.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L193-L213",
+            "why": "Setter, creation order and final reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L272-L287",
+            "why": "Demo-position consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L443-L461",
+            "why": "Wind clear precedes guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L730-L751",
+            "why": "Conditional layout generation and intermediate reset."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgreens:grGreens_8021394C"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grGreens_BombBlock_OnInit",
+        "rationale": "More specifically identifies the initializer selected for block kind 2, which sets the bomb flag and uses the distinct destruction path.",
+        "confidence": 0.87,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L113-L119",
+            "why": "Initializer occupies row 3."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L329-L334",
+            "why": "Animation initialization body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L1027-L1050",
+            "why": "Kind 2 selects row 3 and sets x1_1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L1099-L1117",
+            "why": "Distinct bomb response."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgreens:grGreens_80213948"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Its pointer comes from grGr_callbacks[1].callback3 and is copied into each created row-1 Ground object's x1C_callback. Although grGreens_Init directly requests only IDs 0, 2, 6, 5 and 4, object 6's initialization instantiates layout blocks through grGreens_80215358, whose ordinary-block path requests ID 1; subsequent timed spawns use the same path. The callback itself ignores its Ground_GObj argument and performs no reads, writes, calls or output.",
+        "rationale": "Preserves the no-op behavior while making the nested initialization and later block-object lifetime explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L99-L105",
+            "why": "Callback row."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L227-L250",
+            "why": "Pointer installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L327-L327",
+            "why": "Empty body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L730-L751",
+            "why": "Nested initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L896-L924",
+            "why": "Initial layout instantiation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L1027-L1039",
+            "why": "Ordinary blocks request ID 1."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgreens:grGreens_80213948"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides the inert callback3 endpoint for Green Greens' ordinary Star Block Ground objects. These objects are created through initial layout instantiation and later timed spawning; the empty callback contributes no independently visible behavior, while the shared block controller handles their motion, collision and destruction.",
+        "rationale": "Replaces the misleading emphasis on row 1 being omitted from direct initialization calls with its demonstrated block-object role.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L99-L105",
+            "why": "Row-1 callback3."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L327-L327",
+            "why": "No-op body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L1027-L1050",
+            "why": "Ordinary-block mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L1446-L1499",
+            "why": "Timed spawning and shared maintenance."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgreens:grGreens_80214B58"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Resets layout entries 0 through 29 to empty, then assigns exactly 18 fixed cells type 1 or 2, leaving 12 empty. A nonzero sample from HSD_Randi(x20) selects ordinary type 1; a zero sample, including the x20 == 0 fallback without a random call, selects bomb type 2. The containing initializer calls this routine only when grGr_804D6AAC is clear, then clears that latch before instantiating the selected layout.",
+        "rationale": "Corrects latch-clear ordering and preserves the exceptional zero-parameter branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L740-L745",
+            "why": "Clear precedes instantiation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L853-L924",
+            "why": "Random expression, fixed occupancy and consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgreens:grGreens_80215358"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires an empty destination and an unused instance index below 30. Kind 1 selects Ground-object row 1; kind 2 selects row 3 and sets x1_1. The supplied status is stored directly: status 1 starts at the upper blast boundary, other statuses use grid height, and status 3 sets pending adjacency flag x1_5. Speed, x1C and flags x1_2, x1_3, x1_4 and x1_7 are cleared. The routine does not assign x1_6, so pending removal-neighbor work can remain in a reused cell until the separate pending-work pass consumes it. Both visual transforms are positioned before collision transform refresh and position saving.",
+        "rationale": "Replaces the unsupported claim that all transient flags are zeroed with the exact initialized fields and the surviving pending-work lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L992-L1078",
+            "why": "Complete spawn initialization, including omitted x1_6."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L1479-L1539",
+            "why": "Cleanup sets x1_6 and pending processing later clears it."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgreens:grGreens_80215ED8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns immediately for an empty cell or one already marked x1_3 for cleanup. An x1_2 cell waits for grMaterial_801C8E48 to report that its item command pointer is clear, then sets x1_3 and returns. In status 1, x1_4 is a deferred collision notification: the updater clears it, zeroes downward speed and begins destruction with trigger zero; otherwise it accelerates downward to the configured cap. Insufficient spacing above a status-1 or status-2 lower block changes the cell to status 2. A strict height-below-grid test clamps the cell to grid height, sets status 3 and x1_5, and settles contiguous status-2 cells above; otherwise those upper cells follow the moving stack at nominal spacing. Directly selected statuses 2 and 3 return without independent motion. The status-1 path continues through placement logic after initiating destruction.",
+        "rationale": "Corrects collision handling mislabeled as fall initialization, identifies the actual completion query, and preserves strict landing and post-destruction fallthrough behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L1190-L1308",
+            "why": "Complete guarded update and propagation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L1541-L1559",
+            "why": "Collision notification produces x1_4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grmaterial.c#L259-L266",
+            "why": "Completion tests the item command pointer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgreens:grGreens_802150C4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Examines four diagonal neighborhoods around the supplied column and row, requiring each diagonal cell to have status 3. The first three groups choose at most one qualifying orthogonal neighbor in their written priority order. In the final row+1/column+1 group, a status-3 row+1/column neighbor is connected and returns immediately; otherwise the code tests row/column-1 but passes row/column+1 to mpLib_800581DC. This final fallback is asymmetric: it neither checks the passed neighbor's status nor guards column-1 against column 0. No block record is directly modified.",
+        "rationale": "Preserves the exceptional canonical branch instead of describing a symmetric, fully edge-guarded algorithm.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L926-L976",
+            "why": "Complete neighborhood selection, especially final test/call mismatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgreens:grGreens_Init"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clears stage flag b4, sets b5 and requests Ground objects in fixed order 0, 2, 6, 5, 4. A demo callback may have set grGr_804D6AAC beforehand; object 0 consumes it for cached placement and object 6 consumes it to skip layout regeneration, then clears it before objects 5 and 4 are created. Object 6 separately raises the startup gates released by its deferred callback. Common camera setup precedes blast-zone setup, which can consume camera offsets, followed by position-cache refresh and a second demo-latch clear.",
+        "rationale": "Corrects the assumed latch lifetime without changing the supported initialization and spatial-setup order.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L193-L213",
+            "why": "Setter and fixed initialization sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreens.c#L730-L751",
+            "why": "Intermediate reset and separate startup gates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2142-L2330",
+            "why": "Camera outputs and blast-zone offset consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L160-L167",
+            "why": "Position-cache refresh."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

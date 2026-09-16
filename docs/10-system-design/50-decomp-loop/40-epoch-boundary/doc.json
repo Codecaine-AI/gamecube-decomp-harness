@@ -1,0 +1,602 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-e2f7d7974519ffdf88b48faac86bf7a1",
+  "title": "Epoch Boundary",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "intro",
+        "epoch-boundary",
+        "stages",
+        "steps",
+        "reports",
+        "reports-prose",
+        "displacement",
+        "displacement-prose",
+        "requeue-detail",
+        "displacement-shape",
+        "knowledge",
+        "knowledge-prose",
+        "recovery",
+        "recovery-prose",
+        "3aebde6f-9ead-436c-af33-959d233aa439",
+        "bounded-retries",
+        "retry-policy",
+        "build-repair",
+        "repair-scope",
+        "repair-propagation",
+        "reused-evidence",
+        "recovery-detail",
+        "publication-gates",
+        "publication-detail",
+        "recovery-gate-limitation",
+        "maintenance-detail",
+        "boundary-implementation",
+        "repair-implementation",
+        "sync",
+        "integration",
+        "knowledge-link",
+        "savepoints"
+      ]
+    },
+    "intro": {
+      "id": "intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The epoch boundary turns accumulated worker results into a measured save point and refreshes the game through Sync. Worker integration has already committed accepted patches to the harness worktree. The boundary checks the combined result, reconciles upstream, and establishes the source and report that the next epoch will use."
+        }
+      ],
+      "children": []
+    },
+    "epoch-boundary": {
+      "id": "epoch-boundary",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/epoch-boundary.sequence.json",
+        "title": "epoch boundary"
+      },
+      "children": []
+    },
+    "stages": {
+      "id": "stages",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Boundary Steps"
+        }
+      ],
+      "children": []
+    },
+    "steps": {
+      "id": "steps",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Settle an epoch boundary",
+            "steps": [
+              {
+                "text": "Settle the epoch",
+                "steps": [
+                  {
+                    "text": "Stop new admission and wait for active claims and serial integration to settle."
+                  },
+                  {
+                    "text": "Run full report and quality checks. Record confirmation, regression, and epoch evidence."
+                  }
+                ]
+              },
+              {
+                "text": "Run automatic Sync",
+                "steps": [
+                  {
+                    "text": "Retain the Run dispatch lease and fetch upstream."
+                  },
+                  {
+                    "text": "Apply the configured merge policy; record local work displaced by upstream."
+                  }
+                ]
+              },
+              {
+                "text": "Refresh knowledge and report",
+                "steps": [
+                  {
+                    "text": "Recompute report truth for the reconciled source head."
+                  },
+                  {
+                    "text": "Reconcile code subjects and worker attempts, refresh configured sources, check required-source readiness, and rebuild the graph."
+                  }
+                ]
+              },
+              {
+                "text": "Save the reconciled state",
+                "steps": [
+                  {
+                    "text": "Write the pr_sync report and source manifests, then publish the harness head and upstream anchor with the Run head mirror."
+                  }
+                ]
+              },
+              {
+                "text": "Decide whether to continue",
+                "steps": [
+                  {
+                    "text": "Apply remaining breakage and configured publication gates. Preserve pause and blockers."
+                  },
+                  {
+                    "text": "Refresh target eligibility and admit the next epoch only after the boundary permits it."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "reports": {
+      "id": "reports",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Why There Are Two Sets of Evidence"
+        }
+      ],
+      "children": []
+    },
+    "reports-prose": {
+      "id": "reports-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Epoch evidence describes the local result after worker integration. The "
+        },
+        {
+          "insert": "pr_sync",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " save point describes the reconciled result after upstream and source refresh. Keeping both explains whether a score changed because of worker work, regression handling, or upstream changes."
+        }
+      ],
+      "children": []
+    },
+    "displacement": {
+      "id": "displacement",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "When Upstream Displaces an Improvement"
+        }
+      ],
+      "children": []
+    },
+    "displacement-prose": {
+      "id": "displacement-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The default merge policy compares source at function scope; an explicit upstream-precedence policy is also available. When the selected upstream content displaces locally integrated work, the boundary records "
+        },
+        {
+          "insert": "overridden_by_upstream_requeued",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", the target path, the previous result and score, and the upstream revision. A previous 100% match remains evidence even if that implementation no longer survives in the reconciled tree."
+        }
+      ],
+      "children": []
+    },
+    "requeue-detail": {
+      "id": "requeue-detail",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "In the current scheduler, the requeue hook records a deferral to next-epoch admission. The refreshed report determines whether the target is still open and eligible. It does not immediately reopen the finished claim or guarantee another worker for a target that upstream has already completed."
+        }
+      ],
+      "children": []
+    },
+    "displacement-shape": {
+      "id": "displacement-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"epochTargetId\": \"epoch-target-501\",\n  \"targetKey\": \"main/example::example\",\n  \"sourcePath\": \"src/example.c\",\n  \"unit\": \"main/example\",\n  \"symbol\": \"example\",\n  \"priorKind\": \"exact\",\n  \"priorScore\": 100,\n  \"upstreamLandedSha\": \"upstream-9ba1\",\n  \"verdict\": \"overridden_by_upstream_requeued\"\n}",
+        "fields": [
+          {
+            "name": "epochTargetId",
+            "type": "string | null"
+          },
+          {
+            "name": "targetKey",
+            "type": "string"
+          },
+          {
+            "name": "sourcePath",
+            "type": "string"
+          },
+          {
+            "name": "unit",
+            "type": "string | null"
+          },
+          {
+            "name": "symbol",
+            "type": "string | null"
+          },
+          {
+            "name": "priorKind",
+            "type": "string | null"
+          },
+          {
+            "name": "priorScore",
+            "type": "number | null"
+          },
+          {
+            "name": "upstreamLandedSha",
+            "type": "string"
+          },
+          {
+            "name": "verdict",
+            "type": "\"overridden_by_upstream_requeued\""
+          }
+        ],
+        "name": "BoundaryDisplacement",
+        "source": {
+          "path": "apps/server/src/core/harness-runtime/phases/running/epochs/boundary-sync.ts",
+          "symbol": "BoundaryDisplacement"
+        }
+      },
+      "children": []
+    },
+    "knowledge": {
+      "id": "knowledge",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Knowledge Processing at the Boundary"
+        }
+      ],
+      "children": []
+    },
+    "knowledge-prose": {
+      "id": "knowledge-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The source pipeline handles configured PR, Discord, and wiki captures according to their refresh policies. Intake connects those captures and completed worker evidence to the current code subjects. Librarian tasks produce reusable knowledge asynchronously; completing Sync does not mean every librarian task has finished. Required-source readiness and the report must still pass before the boundary publishes."
+        }
+      ],
+      "children": []
+    },
+    "recovery": {
+      "id": "recovery",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Pause, Failure, and Recovery"
+        }
+      ],
+      "children": []
+    },
+    "recovery-prose": {
+      "id": "recovery-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A failed merge, report build, source-readiness check, or required gate records a phase and reason. Recovery reuses completed boundary evidence and reruns the unfinished work under valid dispatch authority. A requested pause takes precedence over opening another epoch. No new harness identity is needed."
+        }
+      ],
+      "children": []
+    },
+    "3aebde6f-9ead-436c-af33-959d233aa439": {
+      "id": "3aebde6f-9ead-436c-af33-959d233aa439",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A pause can settle a partial epoch, so a failed boundary may belong to an epoch with unfinished targets. Once no worker work is in flight, the scheduler retries that boundary on its persisted schedule whether the desired state is run or paused; a closed epoch cannot receive new claims, so waiting for more targets to finish would never end. When the retry succeeds under desired run, the next epoch is admitted from the refreshed board, which re-admits the unfinished targets that remain open in the report. The configure step uses the game-kind default command (Melee keeps "
+        },
+        {
+          "insert": "--require-protos",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; other kinds run "
+        },
+        {
+          "insert": "python3 configure.py",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "), with any explicit run setting taking precedence."
+        }
+      ],
+      "children": []
+    },
+    "bounded-retries": {
+      "id": "bounded-retries",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Bounded Retries"
+        }
+      ],
+      "children": []
+    },
+    "retry-policy": {
+      "id": "retry-policy",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The default boundary policy permits five failed attempts. Retry delay starts at 120 seconds and doubles to a maximum of 1,800 seconds. The run persists retry timing and exhaustion so a failed build does not create a tight retry loop. Exhaustion parks the run for operator recovery."
+        }
+      ],
+      "children": []
+    },
+    "build-repair": {
+      "id": "build-repair",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Build Repair"
+        }
+      ],
+      "children": []
+    },
+    "repair-scope": {
+      "id": "repair-scope",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "When enabled, a report-build failure can invoke one bounded build-fixer attempt with a five-minute timeout. Only a successful agent exit leads to a report-build retry. Timeout, unsuccessful exit, or another failed build discards the attempted repair and fails the boundary."
+        }
+      ],
+      "children": []
+    },
+    "repair-propagation": {
+      "id": "repair-propagation",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Repair in an isolated epoch worktree requires a clean starting tree. The host propagates only a checked tracked diff after the report succeeds. Untracked additions, conflicting edits in the harness worktree, or failed patch checks block propagation. A post-merge repair runs in the canonical worktree under its clean-tree guard and commits only after the report succeeds."
+        }
+      ],
+      "children": []
+    },
+    "reused-evidence": {
+      "id": "reused-evidence",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Recovery from Recorded Evidence"
+        }
+      ],
+      "children": []
+    },
+    "recovery-detail": {
+      "id": "recovery-detail",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "If a prior attempt already recorded its integration commit or settled epoch evidence, recovery can reuse it instead of rebuilding that completed stage. The scheduler checks evidence for the same epoch and attempt and reruns missing Sync, breakage, and configured publication work. It records skipped and rerun stages so an operator can distinguish recovery from a complete fresh pass."
+        }
+      ],
+      "children": []
+    },
+    "publication-gates": {
+      "id": "publication-gates",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Publication Gates"
+        }
+      ],
+      "children": []
+    },
+    "publication-detail": {
+      "id": "publication-detail",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The normal boundary path checks combined function and data-section breakage and can pause the run. When draft-PR publication is enabled, configured CI parity and pre-commit checks must permit publication. Publication outcome and gate evidence belong to the boundary record."
+        }
+      ],
+      "children": []
+    },
+    "recovery-gate-limitation": {
+      "id": "recovery-gate-limitation",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Retained-evidence recovery checks each enabled publication gate separately. It reuses passed results and reruns missing, skipped, failed, or errored checks. Failed or errored CI parity or pre-commit results block draft-PR publication in both normal execution and recovery. A publication previously skipped for a gate failure can be retried after the checks pass."
+        }
+      ],
+      "children": []
+    },
+    "maintenance-detail": {
+      "id": "maintenance-detail",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Configured boundary knowledge maintenance runs registered indexing, tool, and enrichment work. This maintenance is separate from queued librarian curation. The source registry determines what participates, so the boundary does not assume a fixed source count."
+        }
+      ],
+      "children": []
+    },
+    "boundary-implementation": {
+      "id": "boundary-implementation",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/running/scheduler/epoch-boundary.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/running/scheduler/epoch-boundary.ts"
+            }
+          }
+        },
+        {
+          "insert": " owns retry, retained-evidence recovery, and publication gating."
+        }
+      ],
+      "children": []
+    },
+    "repair-implementation": {
+      "id": "repair-implementation",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/running/epochs/build-fixer.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/running/epochs/build-fixer.ts"
+            }
+          }
+        },
+        {
+          "insert": " owns the bounded build-fixer invocation."
+        }
+      ],
+      "children": []
+    },
+    "sync": {
+      "id": "sync",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync Process",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-sync/20-process"
+            }
+          }
+        },
+        {
+          "insert": " details automatic reconciliation and its separate manual publication path."
+        }
+      ],
+      "children": []
+    },
+    "integration": {
+      "id": "integration",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker Result Integration",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/30-worker-result-integration"
+            }
+          }
+        },
+        {
+          "insert": " explains patch conflicts before the boundary."
+        }
+      ],
+      "children": []
+    },
+    "knowledge-link": {
+      "id": "knowledge-link",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Librarian Processing",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing"
+            }
+          }
+        },
+        {
+          "insert": " explains how captured evidence becomes knowledge."
+        }
+      ],
+      "children": []
+    },
+    "savepoints": {
+      "id": "savepoints",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Epoch Boundaries and Save Points",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness-process/20-epoch-boundaries-and-save-points"
+            }
+          }
+        },
+        {
+          "insert": " defines the durable handoff across the global flow."
+        }
+      ],
+      "children": []
+    }
+  }
+}

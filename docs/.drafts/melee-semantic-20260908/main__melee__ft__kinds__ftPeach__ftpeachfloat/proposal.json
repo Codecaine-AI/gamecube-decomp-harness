@@ -1,0 +1,234 @@
+{
+  "tu": "main/melee/ft/kinds/ftPeach/ftpeachfloat",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloat:ftPe_8011BA54"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Evaluates checkStartFloatInput before checking Peach kind and has_float. Accepted down-plus-held-X/Y input forwards gobj and true to ftPe_8011BB6C and returns true; rejection returns false. The initializer changes motion state, clears has_float, copies da->xC to float u.pe.x4, zeroes self_vel.y, sets graphics-related x2219_b0, and requests effect 1236 on the mapped TransN joint.",
+        "rationale": "Corrects evaluation-order and dedicated Float-flag implications; effect creation is a request.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L26-L80",
+            "why": "Complete guard and initialization flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1109-L1111",
+            "why": "Graphics-related flag consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloat:ftPe_8011BA54"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires Peach, has_float, current stick Y <= -common x88, and held X/Y. Success calls ftPe_8011BB6C(gobj,true) and returns true; rejection performs no transition. This is a level test with no local airborne or velocity guard. Jump gates the check on mv.co.jump.x4; JumpAerial calls it before its cmd_vars[0]-gated non-rising check. First-frame entry timing is not established by these call sites alone.",
+        "rationale": "Preserves exact guards while removing unsupported scheduling consequence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L26-L42",
+            "why": "Local guards and outcomes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L174-L201",
+            "why": "Jump phase gate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L288-L303",
+            "why": "Different aerial-jump gating."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloat:ftPe_8011BAD8"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves Fighter from gobj and requires Peach, self_vel.y <= 0, has_float, and ftPe_Float_CheckContinueInput(fp). Acceptance calls ftPe_8011BB6C(gobj,true) and returns true; rejection returns false. The initializer changes to Float, clears availability, copies float da->xC into u.pe.x4, zeroes vertical velocity, sets graphics-related x2219_b0, and requests asynchronous effect 1236.",
+        "rationale": "Replaces unsupported dedicated Float-flag interpretation with canonical field and request semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L20-L80",
+            "why": "Complete predicate and accepted initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1109-L1111",
+            "why": "Graphics-related flag use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloat:ftPe_8011BB6C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Enters or reenters Float with motion-change start argument 0 and playback rate 1, clears has_float, optionally initializes float u.pe.x4 from da->xC, zeroes self_vel.y, sets graphics-related x2219_b0, and requests effect 1236 on the mapped TransN joint. False arg1 skips the timer assignment but not other setup; FloatAttack completion uses false to resume with its existing countdown.",
+        "rationale": "Separates optional countdown initialization from unconditional reentry and effect request.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L58-L80",
+            "why": "Entry implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatattack.c#L51-L66",
+            "why": "False-mode consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1109-L1111",
+            "why": "Graphics flag lifecycle."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloat:ftPe_Float_Anim"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A void(HSD_GObj*) active-Float animation callback operating on explicitly declared float fp->u.pe.x4. It subtracts one per invocation when the countdown is positive; integer-spelled literals do not make the field integer-typed.",
+        "rationale": "Declared type outranks literal-based inference.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/types.h#L12-L27",
+            "why": "Timer and duration declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L82-L91",
+            "why": "Callback signature and arithmetic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeach.c#L31-L42",
+            "why": "Active table association."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloat:ftPe_Float_CheckContinueInput"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Returns fp->input.lstick[0].y >= p_ftCommonData->tap_jump_threshold OR nonzero HSD_PAD_XY bits in fp->input.held_buttons[0], short-circuiting the button read on a successful comparison. It writes no state. ftPe_8011BAD8 uses true as an entry guard; FloatAttackAir_IASA uses false to set mv.pe.floatattack.x0.",
+        "rationale": "Repairs stale field spellings and sole-consumer implication.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L20-L56",
+            "why": "Canonical fields and local consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatattack.c#L69-L74",
+            "why": "External latch consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloat:ftPe_Float_CheckContinueInput"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Tests the held-input eligibility condition used for Float continuation and non-rising entry: stick Y at or above the shared tap-jump threshold, or held X/Y. It does not check kind, availability, duration, or velocity and does not itself change state.",
+        "rationale": "Input-only eligibility is not overall Float survival, and the predicate also serves entry.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L20-L56",
+            "why": "Complete predicate and entry use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatattack.c#L69-L74",
+            "why": "Continuation use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloat:ftPe_Float_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls ft_800831CC(gobj,ftCo_80096CC8,ft_80082B1C). The predicate rejects line -1, otherwise accepts non-platform lines or platforms with stick Y > common x25C. The dispatcher selects a query using ledge cooldown/x2224_b2, synchronizes position, and permits ft_80081A00 to veto acceptance. Accepted contact synchronously calls the response; otherwise wall-jump then cliff helpers are tried. The response calls ft_8008A2BC for self_vel.y > ftCo_800D0EC8(fp), otherwise basic landing. Equality or unordered comparisons reject a platform and select basic landing respectively. Helper invocation does not prove Peach wall-jump eligibility.",
+        "rationale": "Records sentinel, optional branches, veto, and exact boundaries without inferred fixed cutoff or unconditional character capability.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L112-L115",
+            "why": "Selected callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L134-L143",
+            "why": "Floor-line predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L641-L696",
+            "why": "Dispatcher control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L504-L512",
+            "why": "Response boundary."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftPeach/ftpeachfloat.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Fresh entry requires Peach and has_float plus either down-and-held-X/Y input or nonpositive vertical velocity with continuation input. Entry consumes availability, optionally initializes float x4, zeroes vertical velocity, and requests graphics. Anim independently subtracts one from positive x4 and invokes ftPe_UpdateFloatDir when the resulting value is <= 0. Positive fractions may cross below zero; NaN does not expire through these tests, and positive infinity or sufficiently large rounded values may not decrease. IASA separately prioritizes special dispatch, then ftPe_8011BE80, then voluntary release on absent continuation input. No cross-callback scheduling priority is established.",
+        "rationale": "Repairs combined expiry/interrupt priority and preserves exceptional-float boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L20-L105",
+            "why": "Separate local entry, animation, and IASA flows."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/types.h#L12-L27",
+            "why": "Float countdown type."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

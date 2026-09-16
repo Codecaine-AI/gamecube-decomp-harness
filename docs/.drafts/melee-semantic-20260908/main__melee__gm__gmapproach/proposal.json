@@ -1,0 +1,70 @@
+{
+  "tu": "main/melee/gm/gmapproach",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmapproach.c#L27-L29",
+            "why": "Owned UNK_T array declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/types.h#L1029-L1032",
+            "why": "Two-byte typed payload definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1BFA.c#L26-L73",
+            "why": "Payload registration and challenger-field producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmapproach.c#L133-L151",
+            "why": "Signed-byte consumer and private-state copying."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace the claim that semantic purpose is entirely unresolved while avoiding unsupported 8-byte small-BSS layout claims.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmapproach:.sbss"
+        },
+        "type": "inferred_type",
+        "value": "The source object gmVsMelee_ApproachData is declared here as UNK_T[2], but its cross-file scene payload is interpreted as VsApproachData, whose two u8 fields are cpu_ckind and human_slot. The challenger-mode producer initializes those fields from ChallengerData, and the Approach scene reads the first two bytes through s8*. These accesses resolve the payload prefix's semantics, not the array elements' types or the compiled allocation size and section placement; the declarations remain inconsistent."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmapproach.c#L18-L25",
+            "why": "Counter is u16."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmapproach.c#L123-L153",
+            "why": "Complete postincrement gate and zero initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L170-L178",
+            "why": "Canonical callee writes numeric state 1, distinct from state 2."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve exact threshold semantics and correct the implication that every subsequent invocation remains eligible forever.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmapproach:gm_Scene_Approach_OnFrame"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation post-increments the u16 acknowledgement counter. If its old value is below 180, controller access is short-circuited. Otherwise the selected controller's A/Start trigger bits are tested and an accepted trigger calls gm_801A4B60, which writes scene-loop control state 1. Starting from entry's zero, invocation 181 is first eligible. The counter wraps after old value 65535; if the scene persists, the next 180 invocations again skip input. There is no local timeout or accepted-input latch."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

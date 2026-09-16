@@ -1,0 +1,140 @@
+--- a/src/Camera/cameragc.cpp
++++ b/src/Camera/cameragc.cpp
+@@ -403,62 +403,6 @@
+ 	return result;
+ }
+ 
+-void CPolarSubCamera::calcSlopeAngleX_(s16* param_1)
+-{
+-	s16 result = 0;
+-
+-	if (!isMarioReadyGun_()) {
+-		// TODO: MarioAccess inline?
+-		bool groundOK             = false;
+-		const TBGCheckData* plane = *gpMarioGroundPlane;
+-		if (plane != nullptr && plane->isThing())
+-			groundOK = true;
+-
+-		if (groundOK && isSlopeCameraMode()) {
+-			JGeometry::TVec3<f32> diff;
+-			diff.set(gpMarioPos->x - mPosition.x, 0.0f,
+-			         gpMarioPos->z - mPosition.z);
+-			bool b = diff.isZero();
+-			if (!b) {
+-				f32 grLevel = SMS_GetMarioGrLevel();
+-				s16 maxAng  = mSaveEx->mSLSlopeMaxAngleX.get();
+-				f32 fwdDist = mSaveEx->mSLSlopeForwardDistXZ.get();
+-
+-				JGeometry::TVec3<f32> norm;
+-				MsVECNormalize(&diff, &norm);
+-				norm *= fwdDist;
+-
+-				JGeometry::TVec3<f32> sample = SMS_GetMarioPos();
+-				sample += norm;
+-				JGeometry::TVec3<f32> p2 = sample;
+-				JGeometry::TVec3<f32> p3 = p2;
+-
+-				const TBGCheckData* ground;
+-				f32 height
+-				    = gpMap->checkGroundIgnoreWaterSurface(
+-				          p3.x,
+-				          fwdDist * fakeTan(maxAng) + 10.0f + gpMarioPos->y,
+-				          p3.z, &ground)
+-				      - grLevel;
+-				s16 angle = 0;
+-				if (height > 0.0f)
+-					angle = matan(fwdDist, height);
+-				if (angle > maxAng)
+-					result = 0;
+-				else
+-					result = angle;
+-			}
+-		}
+-	}
+-
+-	s16 speed = mSaveEx->mSLSlopeSpeedAngleX.get();
+-	CLBChaseGeneralConstantSpecifySpeed<s16>(&unk28C, result, speed);
+-
+-	*param_1 -= unk28C;
+-	*param_1 = MsClamp(*param_1, mSaveEx->mSLLimitMinAngleX.get(),
+-	                   mSaveEx->mSLLimitMaxAngleX.get());
+-}
+-
+ void CPolarSubCamera::calcPosAndAt_()
+ {
+ 	if (gpCameraMario->mFrameMoveDistHorizontal >= 0.05f)
+--- a/include/Camera/Camera.hpp
++++ b/include/Camera/Camera.hpp
+@@ -9,6 +9,9 @@
+ #include <Camera/CameraInbetween.hpp>
+ #include <Camera/CameraMode.hpp>
+ #include <Camera/cameralib.hpp>
++#include <Camera/camerasave.hpp>
++#include <Map/Map.hpp>
++#include <Map/MapData.hpp>
+ 
+ class TBaseNPC;
+ class TCameraMapTool;
+@@ -197,7 +200,61 @@
+ 	bool isMarioCrabWalk_() const;
+ 	void execInvalidAutoChase_();
+ 	bool isMomentDefinite_() const;
+-	void calcSlopeAngleX_(s16*);
++	void calcSlopeAngleX_(s16* param_1)
++	{
++		s16 result = 0;
++
++		if (!isMarioReadyGun_()) {
++			// TODO: MarioAccess inline?
++			bool groundOK             = false;
++			const TBGCheckData* plane = *gpMarioGroundPlane;
++			if (plane != nullptr && plane->isThing())
++				groundOK = true;
++
++			if (groundOK && isSlopeCameraMode()) {
++				JGeometry::TVec3<f32> diff;
++				diff.set(gpMarioPos->x - mPosition.x, 0.0f,
++				         gpMarioPos->z - mPosition.z);
++				bool b = diff.isZero();
++				if (!b) {
++					f32 grLevel = SMS_GetMarioGrLevel();
++					s16 maxAng  = mSaveEx->mSLSlopeMaxAngleX.get();
++					f32 fwdDist = mSaveEx->mSLSlopeForwardDistXZ.get();
++
++					JGeometry::TVec3<f32> norm;
++					MsVECNormalize(&diff, &norm);
++					norm *= fwdDist;
++
++					JGeometry::TVec3<f32> sample = SMS_GetMarioPos();
++					sample += norm;
++					JGeometry::TVec3<f32> p2 = sample;
++					JGeometry::TVec3<f32> p3 = p2;
++
++					const TBGCheckData* ground;
++					f32 height
++					    = gpMap->checkGroundIgnoreWaterSurface(
++					          p3.x,
++					          fwdDist * fakeTan(maxAng) + 10.0f + gpMarioPos->y,
++					          p3.z, &ground)
++					      - grLevel;
++					s16 angle = 0;
++					if (height > 0.0f)
++						angle = matan(fwdDist, height);
++					if (angle > maxAng)
++						result = 0;
++					else
++						result = angle;
++				}
++			}
++		}
++
++		s16 speed = mSaveEx->mSLSlopeSpeedAngleX.get();
++		CLBChaseGeneralConstantSpecifySpeed<s16>(&unk28C, result, speed);
++
++		*param_1 -= unk28C;
++		*param_1 = MsClamp(*param_1, mSaveEx->mSLLimitMinAngleX.get(),
++		                   mSaveEx->mSLLimitMaxAngleX.get());
++	}
+ 	void calcPosAndAt_();
+ 	void calcFinalPosAndAt_();
+ 	void calcExternalData_();

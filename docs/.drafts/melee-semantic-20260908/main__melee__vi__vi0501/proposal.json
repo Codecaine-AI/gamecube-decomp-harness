@@ -1,0 +1,53 @@
+{
+  "tu": "main/melee/vi/vi0501",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "entity_locator": "src/melee/vi/vi0501.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The exported configuration storage is u8[8], not a complete ViCharaDesc. Its setter writes bytes 0, 1 and 3; opening-mode initialization separately fills bytes 4\u20136 with HSD_Randi(0x1B), and the three-Kirby scene receives the buffer address. Vi0501 entry interprets its argument as ViCharaDesc*, but participant setup consumes only three bytes beginning at spawn_count through an integer-erased pointer. Do not interpret those bytes as a numeric participant count or assume the trailing ViCharaDesc.unk field exists in this buffer.",
+        "rationale": "Adds useful cross-file producer and lifetime context to the already documented pointer-erased input, while preserving the eight-byte/twelve-byte representation mismatch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0501.c#L44-L60",
+            "why": "Eight-byte buffer and partial setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/types.h#L8-L15",
+            "why": "Descriptor includes spawn_count at offset 4 and a trailing field at offset 8."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmopeningmode.c#L621-L628",
+            "why": "External code supplies the three byte values independently."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmopeningmode.c#L170-L180",
+            "why": "Three-Kirby scene receives the staging-buffer address."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0501.c#L102-L115",
+            "why": "Exactly three indexed byte reads configure the fixed Kirby slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0501.c#L231-L232",
+            "why": "Caller passes the field address through int."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

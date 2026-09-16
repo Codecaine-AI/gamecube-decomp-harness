@@ -1,0 +1,28 @@
+## MetroTRK message handlers
+
+This unit implements debugger command processing, not gameplay. It decodes command-specific requests, delegates target access or execution control, and reuses the incoming `MessageBuffer` for replies. Existing function names fit the canonical behavior; no renames are proposed. All owned canonical and rendered pages were reviewed. Rendered views reported zero substitutions and zero parse errors, so they supplied no independent naming proof.
+
+### Reply construction and transport
+`TRKMessageIntoReply` resets the buffer and independently capacity-checks the command and reply-error byte writes. It returns no construction status. `TRKSendACK` makes one to three total send attempts, stops on success, and returns the latest transport status. `TRKStandardACK` composes these operations. Protocol reply errors and returned transport errors are distinct. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L12-L55)
+
+### Session and metadata commands
+Connect only requests a success ACK; it does not mutate connection state. Disconnect constructs and posts a literal type-1 event only after successful ACK transmission, ignores the posting result, and returns the ACK result. The event queue copies the local event into queue storage rather than retaining its stack address, but can reject insertion when full. Construction initializes its message-buffer ID to -1. [Handler](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L57-L73) [Queue lifetime](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L53-L88)
+
+Reset and override attempt a success ACK, ignore its result, then invoke reset or vector copying respectively. Both return `kNoError` if control returns. Override exists in the source and header but has no writable function subject in this assignment. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L75-L87)
+
+Versions, support mask and CPU type require exactly one request byte. They append target-produced metadata under successive success guards, replacing construction failures with a generic debugger-error ACK. Versions serialize 0, 8, 1, 10; CPU metadata includes target-derived minor type and endianness plus widths 4, 8, 4, 8. Support-mask serialization ends with literal byte 2, whose broader meaning is not established here. [Handlers](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L89-L197) [Producers](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L440-L496)
+
+### Memory and register access
+Memory requests decode two bytes, a 16-bit count and a 32-bit address. Option mask 2 is rejected; mask 8 selects user rather than debugger memory. Both handlers use a 0x800-byte local buffer with a 32-byte alignment annotation. Reads require exactly eight request bytes; writes require payload beyond the eight-byte header and exact declared-length agreement. The target receives an in/out count. Successful reads return count plus bytes; successful writes return count. Exception, invalid-memory, process, thread and OS failures have specific protocol mappings; other failures become generic debugger errors. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L199-L369)
+
+Register reads require six bytes and dispatch on `selector & 7`; writes require more than six bytes and dispatch on the entire selector. Banks 0–3 select default, FP, extended-1 and extended-2 accessors. Reversed ranges are rejected. Read access supplies reply data; write access consumes the request before reply conversion. Write-side buffer-read errors specifically map to packet-size errors. Neither bank-dispatch switch is guarded by the accumulated parsing status, and several decoded-field checks elsewhere also precede a final parsing-error check; descriptions must not imply universal short-circuit protection. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L371-L546)
+
+### Cache and execution control
+Cache flush requires ten bytes, rejects reversed endpoints, delegates the decoded option and endpoints, and distinguishes unsupported-option from generic debugger failures. Continue requires a stopped target and a successfully transmitted success ACK before delegation. Step accepts count and range into/over modes, rejects zero counts, requires exactly ten bytes for range requests, checks inclusive PC containment, and similarly ACK-gates target delegation. Count requests have only a minimum-length check. Some operand-read return values are ignored, and the final ACK assignment overwrites parsing status; parsing errors are not directly returned. Recognition of step-over modes does not establish target-layer support. Stop instead calls the target first and then acknowledges its mapped result. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L548-L725)
+
+The header declares the handler API and a separate `msgbuf_t` with an explicit enum-size TODO. Its offset/size comments are not compiled-layout evidence, and this type is not substituted for the handlers' `MessageBuffer`. `GetTRKConnected` and `TRKDoSetOption` are declared but not defined in the owned C file. [Header](code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.h#L10-L45)
+
+### Review outcome
+The checkpoint ledger explicitly covers all 94 facts and 20 links: 89 facts retained, two superseded for supported corrections, three `.data` facts unresolved, and all links retained. Source switches alone cannot establish jump-table section composition, byte size, address entries or immutability.
+
+Status: synthesized; independent review and live promotion pending.

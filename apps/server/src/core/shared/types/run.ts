@@ -46,7 +46,6 @@ export interface RunRecord {
   causedByEventId: string | null;
   blockers: RunBlocker[];
   headRevision: string | null;
-  cycleUuid: string | null;
   inputs: RunInputs | null;
   stopRequest: Record<string, unknown> | null;
   terminalReason: string | null;

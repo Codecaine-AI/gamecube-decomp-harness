@@ -1,0 +1,247 @@
+{
+  "tu": "main/sysdolphin/baselib/class",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:ForgetClassLibraryReal"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Recursively invalidates a supplied class subtree in child-before-parent order, invoking amnesia and clearing each descriptor child/parent links and initialized bit. Child sibling links are severed before recursion. The starting descriptor next link and its incoming parent child-list reference are not removed by this helper itself; the selecting caller handles matching top-level list removal.",
+        "rationale": "Correct failure recovery, initialization side effects, teardown scope, or registry availability using complete pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L428-L442",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L14-L51",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L428-L472",
+            "why": "Direct source establishes guards, mutations and limits."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:GetMemoryEntry"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Uses idx to select or create allocator metadata for (idx+1)*32 bytes. Allocates, copies and zeroes the global pointer table, publishes its replacement and capacity, recycles the old table through hsdFreeMemPiece with a compensating nb_alloc increment, and inserts new metadata into the ascending size chain. Local NULL exits exist, but positive-size HSD_MemAlloc failure asserts before returning; table growth can already be published before a later metadata allocation fails.",
+        "rationale": "Correct failure recovery, initialization side effects, teardown scope, or registry availability using complete pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L79-L163",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L14-L51",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26",
+            "why": "Direct source establishes guards, mutations and limits."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:GetMemoryEntry"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Asserts idx >= 0. Table capacity begins at 32 and doubles until idx fits. A missing entry is zeroed, assigned (idx+1)*32 bytes, and linked between the nearest existing lower and higher entries. Growth publishes the new table before recycling the old table and before allocating missing entry metadata; it is not transactional. Local allocation-result NULL checks do not establish recoverable heap exhaustion because HSD_MemAlloc asserts on positive-size allocation failure. Arithmetic overflow is not guarded.",
+        "rationale": "Correct failure recovery, initialization side effects, teardown scope, or registry availability using complete pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L79-L163",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L14-L51",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26",
+            "why": "Direct source establishes guards, mutations and limits."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:hsdAllocMemPiece"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void* hsdAllocMemPiece(s32 size) accepts a positive byte size representable by its unchecked rounding arithmetic and uses index (size+31)/32-1. Returns raw storage for the rounded 32-byte class. Local NULL exits cover failed metadata/slab results, but HSD_MemAlloc asserts on positive-size heap failure, so ordinary recoverable exhaustion is not established.",
+        "rationale": "Correct failure recovery, initialization side effects, teardown scope, or registry availability using complete pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L165-L232",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L14-L51",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26",
+            "why": "Direct source establishes guards, mutations and limits."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:hsdAllocMemPiece"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "First pops the requested free-list head and decrements only nb_free. Otherwise searches larger registered classes, removes a larger piece, adds its trailing remainder to the corresponding free list, and adjusts both classes counts. Finally, if no larger free piece exists, allocates nb_memory_list*32 bytes and recycles any tail. nb_alloc counts pieces assigned to a size class, not cumulative calls. Local NULL exits exist, but underlying positive-size heap failure asserts; table/metadata changes may precede later failure. No coalescing, zeroing, input-range, or overflow guard is provided.",
+        "rationale": "Correct failure recovery, initialization side effects, teardown scope, or registry availability using complete pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L165-L232",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L14-L51",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26",
+            "why": "Direct source establishes guards, mutations and limits."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:hsdInitClassInfo"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Assigns flags=1, clearing other bits; narrows both sizes to s16 and resets links and live/peak counts before parent handling. An uninitialized parent runs info_init. The stored child sizes must be at least the parent sizes; the inherited method region is copied and the child prepended. This initializer itself has no already-initialized guard: direct repetition can discard descendants or create a self-linked sibling chain.",
+        "rationale": "Correct failure recovery, initialization side effects, teardown scope, or registry availability using complete pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L32-L58",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L14-L51",
+            "why": "Direct source establishes guards, mutations and limits."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:hsdSearchClassInfo"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "With current_hash NULL, returns NULL; otherwise delegates one HSD_HashSearch with no success out-parameter and returns the stored value or NULL. It does not initialize or mutate the registry. The complete owned class.c declares current_hash static and contains only NULL assignments, so no hash installation or population path is established in this revision.",
+        "rationale": "Correct failure recovery, initialization side effects, teardown scope, or registry availability using complete pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L474-L481",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L14-L51",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L14-L16",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L274-L283",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L458-L481",
+            "why": "Direct source establishes guards, mutations and limits."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/class.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Guarded class operations invoke info_init when flag bit 0 is clear, but direct hsdInitClassInfo is unguarded and assigns flags=1 while resetting links and counters. Some queries initialize only the requested class; dumping skips uninitialized nodes and descendants. Library forgetting processes selected subtrees child-first, calls amnesia, and clears initialization and hierarchy fields. Root amnesia clears allocator/hash references without freeing their backing allocations; no nonnull current_hash assignment is present in the owned source.",
+        "rationale": "Correct failure recovery, initialization side effects, teardown scope, or registry availability using complete pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L1-L515",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L14-L51",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L14-L16",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L274-L283",
+            "why": "Direct source establishes guards, mutations and limits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L458-L481",
+            "why": "Direct source establishes guards, mutations and limits."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

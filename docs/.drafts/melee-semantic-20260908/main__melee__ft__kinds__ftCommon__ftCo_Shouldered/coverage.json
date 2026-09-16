@@ -1,0 +1,548 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "medium",
+  "role": "librarian/full-TU reviewer",
+  "started_at": "2026-09-08T15:40:16.893Z",
+  "files": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered",
+      "sha256": "302eb60e96580bdaa372aa3848069d62785f93362b2ecde9a881a22bf3fee519",
+      "lines": 139,
+      "bytes": 4274,
+      "canonical_ranges": [
+        [
+          1,
+          139
+        ]
+      ],
+      "rendered_ranges": [
+        [
+          1,
+          139
+        ]
+      ],
+      "pages": [
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_Shouldered/pages/src__melee__ft__kinds__ftCommon__ftCo_Shouldered.c.1-120.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c",
+            "source_sha256": "302eb60e96580bdaa372aa3848069d62785f93362b2ecde9a881a22bf3fee519",
+            "start_line": 1,
+            "end_line": 120,
+            "total_lines": 139,
+            "next_line": 121,
+            "content": "#include \"ftCo_Shouldered.h\"\n\n#include <Runtime/platform.h>\n\n#include <melee/lb/forward.h>\n\n#include <placeholder.h>\n\n#include \"ftCo_Attack100.h\"\n#include \"ftCo_Damage.h\"\n#include \"ftCo_Throw.h\"\n#include \"types.h\"\n#include <dolphin/mtx.h>\n#include <melee/ft/fighter.h>\n#include <melee/ft/ftanim.h>\n#include <melee/ft/ftcoll.h>\n#include <melee/ft/ftcommon.h>\n#include <melee/ft/ftparts.h>\n#include <melee/ft/types.h>\n#include <melee/lb/lb_00B0.h>\n\n#ifdef MUST_MATCH\n#pragma force_active on\n#endif\n\n/* 09C744 */ static void ftCo_Shouldered_ApplyDamage(Fighter_GObj* gobj);\n\nvoid ftCo_Shouldered_Enter(Fighter_GObj* gobj, FtMotionId msid)\n{\n    u32 unused1;\n    u32 unused2;\n    Fighter* fp = gobj->user_data;\n    if (fp->motion_id != msid || msid != ftCo_MS_ShoulderedWait) {\n        Fighter_ChangeMotionState(\n            gobj, msid, fp->x2222_b6 ? Ft_MF_FreezeState : Ft_MF_None, 0, 1, 0,\n            fp->victim_gobj);\n        ftCommon_ResetVelocities(gobj);\n        ftCommon_8007E2F4(fp, 0x1FF);\n        fp->accessory1_cb = ftCo_CapturePulled_UpdatePosition;\n    }\n}\n\nvoid ftCo_8009C640(Fighter_GObj* gobj, FtMotionId msid)\n{\n    Fighter* fp = gobj->user_data;\n    PAD_STACK(8);\n    ftCommon_InitGrab(fp, 0,\n                      (int) (fp->dmg.x1830_percent * p_ftCommonData->x4A0 +\n                             p_ftCommonData->x4A4));\n    fp->mv.co.shouldered.x0 = 0;\n    fp->mv.co.shouldered.x4 = 0;\n    ftCo_Shouldered_Enter(gobj, msid);\n}\n\nvoid ftCo_Shouldered_ApplyDamage(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    Fighter_GObj* vic_gobj = fp->victim_gobj;\n    Fighter* vic_fp = vic_gobj->user_data;\n    Vec3 pos;\n    HitCapsule* hit = &vic_fp->xDF4[1];\n    PAD_STACK(8);\n    ftCo_CaptureCut_Release(fp->victim_gobj, gobj);\n    lbJObjTransformPoint(fp->parts[ftParts_GetBoneIndex(fp, FtPart_XRotN)].joint, NULL,\n                &pos);\n    fp->dmg.kb_applied = ftColl_CalcKnockback(fp, vic_fp, hit, hit->unk_count);\n    fp->dmg.x1848_kb_angle = hit->kb_angle;\n    fp->dmg.facing_dir_1 = -vic_fp->facing_dir;\n    fp->dmg.x184c_damaged_hurtbox = 1;\n    fp->dmg.x1854_collpos = pos;\n    fp->dmg.x1860_element = hit->element;\n    ftColl_RecordFighterHit(vic_gobj, gobj, &fp->dmg.facing_dir_1);\n    Fighter_ApplyDamage(fp, hit->damage);\n    ftCo_Damage_CalcKnockback(fp);\n    ftCo_Damage_Enter(gobj, 0);\n}\n\nstatic inline float inlineA0(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    return fp->ground_or_air == GA_Ground\n               ? p_ftCommonData->x4A8\n               : p_ftCommonData->x4A8 * p_ftCommonData->x4AC;\n}\n\nvoid ftCo_Shouldered_Anim(Fighter_GObj* gobj)\n{\n    HitCapsule* hit;\n    Fighter* fp2;\n    Fighter* fp1;\n    Fighter_GObj* gobj1;\n    u32 unused1;\n    u32 unused2;\n    Vec3 pos;\n    Fighter* fp = gobj->user_data;\n    PAD_STACK(16);\n    fp->mv.co.shouldered.x4 = ftCommon_GrabMash(fp, inlineA0(fp->victim_gobj));\n    if (fp->grab_timer <= 0) {\n        gobj1 = fp->victim_gobj;\n        fp1 = gobj1->user_data;\n        fp2 = fp1->victim_gobj->user_data;\n        hit = &fp2->xDF4[1];\n        lbJObjTransformPoint(\n            fp1->parts[(ftParts_GetBoneIndex(fp1, FtPart_TransN2))].joint,\n            NULL, &pos);\n        fp1->dmg.kb_applied = ftColl_CalcKnockback(fp1, fp2, hit, hit->unk_count);\n        fp1->dmg.x1848_kb_angle = hit->kb_angle;\n        fp1->dmg.facing_dir_1 = fp1->facing_dir;\n        fp1->dmg.x184c_damaged_hurtbox = 1;\n        fp1->dmg.x1854_collpos = pos;\n        fp1->dmg.x1860_element = hit->element;\n        ftColl_RecordFighterHit(gobj1, fp1->victim_gobj, &fp1->dmg.facing_dir_1);\n        Fighter_ApplyDamage(fp1, hit->damage);\n        ftCo_Damage_CalcKnockback(fp1);\n        ftCo_Damage_Enter(gobj1, 0);\n        ftCo_Shouldered_ApplyDamage(gobj);\n        return;\n    }\n    if (fp->mv.co.shouldered.x0) {\n        fp->mv.co.shouldered.x0 -= 1;",
+            "substitutions": 18,
+            "symbols": [
+              {
+                "canonical": "ftCo_8009C744",
+                "proposed": "ftCo_Shouldered_ApplyDamage",
+                "confidence": 0.81,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+                "fact_id": "fact:3c69641d-c1d7-4bee-afe3-9ec46b6cdf5f",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_8009C5A4",
+                "proposed": "ftCo_Shouldered_Enter",
+                "confidence": 0.84,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+                "fact_id": "fact:53d1f131-e022-4707-a498-57bcfb7eab60",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCommon_8007E2FC",
+                "proposed": "ftCommon_ResetVelocities",
+                "confidence": 0.7,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007E2FC",
+                "fact_id": "fact:27480660-31bb-4ba1-bd26-83c46ad4f7a3",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800DB464",
+                "proposed": "ftCo_CapturePulled_UpdatePosition",
+                "confidence": 0.87,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_CapturePulled:ftCo_800DB464",
+                "fact_id": "fact:08588e92-3ac7-4d3d-85ac-a9a07f23cc81",
+                "fact_updated_at": "2026-09-04T19:02:45.547Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800DC920",
+                "proposed": "ftCo_CaptureCut_Release",
+                "confidence": 0.8,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_CaptureCut:ftCo_800DC920",
+                "fact_id": "fact:1a96bb98-85a7-42fe-8d93-c45fddfe80d2",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "lb_8000B1CC",
+                "proposed": "lbJObjTransformPoint",
+                "confidence": 0.76,
+                "subject": "main/melee/lb/lb_00B0:lb_8000B1CC",
+                "fact_id": "fact:dccdf7fa-e632-4601-bf5e-af8a3e418f0d",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftColl_80079C70",
+                "proposed": "ftColl_CalcKnockback",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/ftcoll:ftColl_80079C70",
+                "fact_id": "fact:575a6c91-0f3b-4903-a414-4a00ec76d485",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftColl_80078710",
+                "proposed": "ftColl_RecordFighterHit",
+                "confidence": 0.7,
+                "subject": "main/melee/ft/ftcoll:ftColl_80078710",
+                "fact_id": "fact:15c05a73-b417-4098-a112-f4f406ece86e",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "Fighter_UnkTakeDamage_8006CC30",
+                "proposed": "Fighter_ApplyDamage",
+                "confidence": 0.67,
+                "subject": "main/melee/ft/fighter:Fighter_UnkTakeDamage_8006CC30",
+                "fact_id": "fact:e4f7842c-a4e1-4d63-8029-aa2881ae71bc",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_8008E908",
+                "proposed": "ftCo_Damage_Enter",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Damage:ftCo_8008E908",
+                "fact_id": "fact:4497824d-f691-4d4a-a888-74dac90c7ad7",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "Fighter_ChangeMotionState",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/fighter:Fighter_ChangeMotionState",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCommon_8007E2F4",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007E2F4",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_8009C640",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "PAD_STACK",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCommon_InitGrab",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCommon_InitGrab",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftParts_GetBoneIndex",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftparts:ftParts_GetBoneIndex",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Damage_CalcKnockback",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Damage:ftCo_Damage_CalcKnockback",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "inlineA0",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_Shouldered_Anim",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCommon_GrabMash",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCommon_GrabMash",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_Shouldered/pages/src__melee__ft__kinds__ftCommon__ftCo_Shouldered.c.121-139.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c",
+            "source_sha256": "302eb60e96580bdaa372aa3848069d62785f93362b2ecde9a881a22bf3fee519",
+            "start_line": 121,
+            "end_line": 139,
+            "total_lines": 139,
+            "next_line": null,
+            "content": "        if (fp->mv.co.shouldered.x0 <= 0 && !fp->mv.co.shouldered.x4) {\n            ftAnim_SetAnimRate(gobj, 1);\n            fp->mv.co.shouldered.x0 = 0;\n        }\n    }\n    if (fp->mv.co.shouldered.x0 <= 0 && fp->mv.co.shouldered.x4 &&\n        fp->motion_id == ftCo_MS_ShoulderedWait)\n    {\n        fp->mv.co.shouldered.x0 = p_ftCommonData->x3B0;\n        ftAnim_SetAnimRate(gobj, p_ftCommonData->shouldered_anim_rate);\n    }\n}\n\nvoid ftCo_Shouldered_IASA(Fighter_GObj* gobj) {}\n\nvoid ftCo_Shouldered_Phys(Fighter_GObj* gobj) {}\n\nvoid ftCo_Shouldered_Coll(Fighter_GObj* gobj) {}\n",
+            "substitutions": 0,
+            "symbols": [
+              {
+                "canonical": "ftAnim_SetAnimRate",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftanim:ftAnim_SetAnimRate",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Shouldered_IASA",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Shouldered_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Shouldered_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Shouldered.h",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered",
+      "sha256": "0f9b6811df64787fe30a93d1540b173e13826bdd65959bb233acce3cd9eebf8c",
+      "lines": 14,
+      "bytes": 440,
+      "canonical_ranges": [
+        [
+          1,
+          14
+        ]
+      ],
+      "rendered_ranges": [
+        [
+          1,
+          14
+        ]
+      ],
+      "pages": [
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_Shouldered/pages/src__melee__ft__kinds__ftCommon__ftCo_Shouldered.h.1-14.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_Shouldered.h",
+            "source_sha256": "0f9b6811df64787fe30a93d1540b173e13826bdd65959bb233acce3cd9eebf8c",
+            "start_line": 1,
+            "end_line": 14,
+            "total_lines": 14,
+            "next_line": null,
+            "content": "#ifndef GALE01_08A7A8\n#define GALE01_08A7A8\n\n#include <melee/ft/forward.h>\n\n/* 09C5A4 */ void ftCo_Shouldered_Enter(Fighter_GObj* gobj, int);\n/* 09C640 */ void ftCo_8009C640(Fighter_GObj* gobj, int);\n/* 09C830 */ void ftCo_Shouldered_Anim(Fighter_GObj* gobj);\n/* 09CA00 */ void ftCo_Shouldered_IASA(Fighter_GObj* gobj);\n/* 09CA04 */ void ftCo_Shouldered_Phys(Fighter_GObj* gobj);\n/* 09CA08 */ void ftCo_Shouldered_Coll(Fighter_GObj* gobj);\n\n#endif\n",
+            "substitutions": 1,
+            "symbols": [
+              {
+                "canonical": "ftCo_8009C5A4",
+                "proposed": "ftCo_Shouldered_Enter",
+                "confidence": 0.84,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+                "fact_id": "fact:53d1f131-e022-4707-a498-57bcfb7eab60",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_8009C640",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Shouldered_Anim",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Shouldered_IASA",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Shouldered_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Shouldered_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        }
+      ]
+    }
+  ],
+  "subjects": [
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:.sdata2",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+    "src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys#r3"
+  ],
+  "targets": [
+    {
+      "id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:.sdata2",
+      "kind": "data",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:.sdata2",
+      "symbol": ".sdata2",
+      "address": "0x804D8750"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+      "symbol": "ftCo_8009C5A4",
+      "address": "0x8009C5A4"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+      "symbol": "ftCo_8009C640",
+      "address": "0x8009C640"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+      "symbol": "ftCo_8009C744",
+      "address": "0x8009C744"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+      "symbol": "ftCo_Shouldered_Anim",
+      "address": "0x8009C830"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+      "symbol": "ftCo_Shouldered_Coll",
+      "address": "0x8009CA08"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+      "symbol": "ftCo_Shouldered_IASA",
+      "address": "0x8009CA00"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+      "symbol": "ftCo_Shouldered_Phys",
+      "address": "0x8009CA04"
+    }
+  ],
+  "counts": {
+    "files_expected": 2,
+    "files_reviewed": 2,
+    "canonical_lines": 153,
+    "rendered_lines": 153,
+    "targets": 8,
+    "entities": 10,
+    "subjects": 18,
+    "existing_facts": 44,
+    "proposed_writes": 8,
+    "baseline_links": 15
+  },
+  "supplemental_canonical_ranges": [
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 670,
+      "end_line": 719,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 906,
+      "end_line": 939,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c",
+      "start_line": 84,
+      "end_line": 197,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/fighter.c",
+      "start_line": 2719,
+      "end_line": 2726,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_CapturePulled.c",
+      "start_line": 357,
+      "end_line": 367,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c",
+      "start_line": 26,
+      "end_line": 35,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c",
+      "start_line": 22,
+      "end_line": 49,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftmotionstates.c",
+      "start_line": 3060,
+      "end_line": 3116,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftanim.c",
+      "start_line": 490,
+      "end_line": 513,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/fighter.c",
+      "start_line": 2642,
+      "end_line": 2669,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Damage.c",
+      "start_line": 118,
+      "end_line": 137,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Damage.c",
+      "start_line": 668,
+      "end_line": 682,
+      "ownership": "foreign_read_only"
+    }
+  ],
+  "exceptions": [],
+  "completed_at": "2026-09-08T15:46:15.911225+00:00",
+  "duration_seconds": 359.018225,
+  "proposal_sha256": "2ef6b12fb2db0fdeda6605d4eee7cada0ded4c7cba71345770966a0e81462b6c",
+  "link_dispositions_sha256": "ed1184a5fb417bdc230cf3191766291ab37ad8e7f0b1b501ea568acb13098317"
+}

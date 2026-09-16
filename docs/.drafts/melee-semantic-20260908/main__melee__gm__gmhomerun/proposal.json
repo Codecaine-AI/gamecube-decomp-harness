@@ -1,0 +1,148 @@
+{
+  "tu": "main/melee/gm/gmhomerun",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmhomerun.c#L87-L139",
+            "why": "Shows the current defense_ratio field, both unity rule assignments and subsequent calls."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the stale x1C field reference and separates source semantics from unsupported compiled storage claims.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmhomerun:.sdata2"
+        },
+        "type": "data_flow",
+        "value": "At source level, CSS exit assigns `1.0f` to Sandbag's `defense_ratio`; VS entry assigns `1.0f` to `StartMeleeData.rules.game_speed` and `rules.x30` before rumble and startup bookkeeping. These assignments establish unity-value uses, not the compiled constant's section placement or load instructions."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmhomerun.c#L73-L93",
+            "why": "Complete exit-data lookup, cancellation branch and roster assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the obsolete x1C reference with the canonical defense_ratio field while preserving the guarded data flow.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmhomerun:gm_801B999C"
+        },
+        "type": "data_flow",
+        "value": "Reads `CSSData` from the supplied state's exit data. Unless `pending_scene_change == 2`, it resets the retained Home-Run player array, transfers the selected character kind, costume color and nametag into player 0, and configures player 1 as `CHKIND_SANDBAG`, CPU kind `0xF`, CPU slot type, defense ratio `1.0f`, one stock and team 1. The value-2 branch schedules `GM_MENU` and returns before these writes."
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmhomerun.c#L30-L40",
+            "why": "Registers the function as the VS-state exit callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmhomerun.c#L149-L172",
+            "why": "Handles retry, results and subsequent routing rather than unconditional mode exit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Explicitly identifies the VS-state boundary, avoiding confusion with a whole-mode lifecycle exit. The callback also runs when immediately retrying within Home-Run Contest; historical spelling remains unknown.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmhomerun:gm_801B9DD8"
+        },
+        "type": "inferred_name",
+        "value": "gm_HomeRun_OnExitVS"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmhomerun.c#L149-L172",
+            "why": "Shows unconditional calls followed by retry and non-retry paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L68-L77",
+            "why": "The pre-guard helper writes cached values through a separate record accessor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1736.c#L40-L52",
+            "why": "Confirms the final helper stages Challenger Approach on success."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the separate record writeback before the retry guard rather than implying retry performs no record persistence.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmhomerun:gm_801B9DD8"
+        },
+        "type": "purpose",
+        "value": "Handles departure from the Home-Run VS state. Initial match-end calls and cached-record writeback through `gm_80180BA0` occur on every invocation, including retry. Retry then requests state 1 without running the later distance pipeline. Other outcomes obtain the current distance, conditionally update the per-character record returned by `gmMainLib_8015D084`, run threshold and reward checks, and return to CSS unless Challenger Approach is staged."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmhomerun.c#L149-L172",
+            "why": "Exact ordering, sentinel comparison and state requests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L68-L77",
+            "why": "Record writeback happens in the unconditional helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1736.c#L40-L52",
+            "why": "Boolean staging behavior of the challenger helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the retry boundary precise without suppressing unconditional side effects or interpreting unknown outcome values as successful completion.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmhomerun:gm_801B9DD8"
+        },
+        "type": "state_behavior",
+        "value": "Before inspecting outcome, calls `gm_80162968(frame_count / 60)`, `gm_8016247C(player_standings[0].xE)` and `gm_80180BA0`; the last writes cached records through `gmMainLib_8015D06C`. `OUTCOME_RETRY` then requests state 1 and returns before distance retrieval, the `0x148`-guarded registration, the `gmMainLib_8015D084` record comparison/update and subsequent threshold checks. Every other outcome runs that pipeline. A false return from `gm_80173754(0x20, gm_804D68F8)` requests state 0; a true return leaves its staged Challenger Approach transition in control."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmhomerun.c#L17-L172",
+            "why": "State table, CSS cancellation and VS result routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L57-L77",
+            "why": "Cached-record load and writeback across gameplay entry and exit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1736.c#L40-L52",
+            "why": "Challenger transition semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the blanket assertion that retry skips record processing by preserving the cross-file cached-record writeback preceding the guard.",
+        "subject": {
+          "entity_locator": "src/melee/gm/gmhomerun.c"
+        },
+        "type": "state_behavior",
+        "value": "The mode dispatches CSS as state 0 and VS gameplay as state 1. CSS pending change 2 schedules the menu before roster mutation; other values prepare the retained fighter-versus-Sandbag setup. VS exit performs initial bookkeeping and cached-record writeback before testing `OUTCOME_RETRY`. Retry requests state 1 using the retained setup and skips only the subsequent distance-record and threshold pipeline. Every non-retry outcome runs that pipeline, then either stages Challenger Approach or requests CSS state 0."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

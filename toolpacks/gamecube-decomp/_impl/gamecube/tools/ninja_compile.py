@@ -40,9 +40,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
 from project_root import resolve_root
+from project_layout import get_project_layout
 
 ROOT = resolve_root()
-REPORT_PATH = ROOT / "build/GALE01/report.json"
+LAYOUT = get_project_layout(ROOT)
+REPORT_PATH = LAYOUT.report_path
+BUILD_SUBDIR = LAYOUT.path_label(REPORT_PATH.parent).as_posix()
+BUILD_INDEX_CACHE_NAME = f"build-edge-index-v2-{hashlib.sha256(BUILD_SUBDIR.encode()).hexdigest()[:12]}.json"
 SRC_ROOT = ROOT / "src"
 
 MWCC_RULES = {"mwcc", "mwcc_sjis", "mwcc_extab", "mwcc_sjis_extab"}
@@ -351,37 +355,9 @@ def _load_metadata(
     return parse(source_path)
 
 
-def _parse_report_symbol_index(path: Path) -> Dict[str, str]:
-    with path.open("r", encoding="utf-8") as stream:
-        report = json.load(stream)
-    symbols: Dict[str, str] = {}
-    for unit in report.get("units", []):
-        unit_name = unit.get("name", "").removeprefix("main/")
-        if not isinstance(unit_name, str):
-            continue
-        for function in unit.get("functions", []):
-            name = function.get("name")
-            if isinstance(name, str) and name not in symbols:
-                symbols[name] = unit_name
-    return symbols
-
-
-def _valid_report_symbol_index(value: Any) -> bool:
-    return isinstance(value, dict) and all(
-        isinstance(name, str) and isinstance(unit, str)
-        for name, unit in value.items()
-    )
-
-
 def find_unit_for_function(func_name: str) -> Optional[str]:
-    """Return the unit path (e.g. 'melee/it/itdrop') containing func_name."""
-    symbols = _load_metadata(
-        "report-symbol-index-v1.json",
-        REPORT_PATH,
-        _parse_report_symbol_index,
-        _valid_report_symbol_index,
-    )
-    return symbols.get(func_name)
+    """Return the build-object unit key containing ``func_name``."""
+    return LAYOUT.operational_unit_for_function(func_name)
 
 
 def _parse_build_index(path: Path) -> Dict[str, Any]:
@@ -392,10 +368,11 @@ def _parse_build_index(path: Path) -> Dict[str, Any]:
     errors: Dict[str, str] = {}
 
     for block in re.split(r"^build ", text, flags=re.M):
-        build_line = block.splitlines()[0]
-        match = re.match(
-            r"build/GALE01/src/(.+)\.o\s*:\s*(\S+)\s+(.+)", build_line
-        )
+        lines = block.splitlines()
+        if not lines:
+            continue
+        build_line = lines[0]
+        match = re.match(r"(\S+\.o)\s*:\s*(\S+)\s+(.+)", build_line)
         if match is None:
             continue
         obj_path, rule, raw_inputs = match.groups()
@@ -466,17 +443,17 @@ def _valid_build_index(value: Any) -> bool:
 
 def find_build_block(obj_path: str) -> BuildBlock:
     """Return the cached MWCC build edge that produces obj_path."""
-    target = f"build/GALE01/src/{obj_path}.o"
+    target = LAYOUT.object_path_for_unit(obj_path).as_posix()
     index = _load_metadata(
-        "build-edge-index-v1.json",
+        BUILD_INDEX_CACHE_NAME,
         ROOT / "build.ninja",
         _parse_build_index,
         _valid_build_index,
     )
-    error = index["errors"].get(obj_path)
+    error = index["errors"].get(target)
     if error is not None:
         raise RuntimeError(f"build edge for {target} {error}")
-    edge = index["edges"].get(obj_path)
+    edge = index["edges"].get(target)
     if edge is None:
         raise RuntimeError(f"no build edge for {target}")
     rule, src, mw_version, flags_index, extab_padding = edge
@@ -731,7 +708,7 @@ def _base_ascii_verdict(
     obj_path: str, block: BuildBlock
 ) -> Optional[Dict[str, Any]]:
     """Content-keyed ASCII verdict for the real TU source and prior deps."""
-    depfile_path = ROOT / f"build/GALE01/src/{obj_path}.d"
+    depfile_path = ROOT / LAYOUT.object_path_for_unit(obj_path).with_suffix(".d")
     depfile_result = _stable_file_record(depfile_path)
     if depfile_result is None:
         return None
@@ -971,8 +948,13 @@ def direct_compile(
 
 
 def source_dir_for(obj_path: str) -> Path:
-    """Directory holding the real .c for obj_path (where candidates must live)."""
-    return (ROOT / f"src/{obj_path}.c").parent
+    """Directory holding the real source for obj_path."""
+    return (ROOT / LAYOUT.source_path_for_unit(obj_path)).parent
+
+
+def source_suffix_for(obj_path: str) -> str:
+    """Source-language suffix used for temporary candidates."""
+    return LAYOUT.source_path_for_unit(obj_path).suffix
 
 
 def compile_source_text(
@@ -995,7 +977,9 @@ def compile_source_text(
     precompiled prefix region).
     """
     src_dir = source_dir_for(obj_path)
-    fd, tmp_c = tempfile.mkstemp(suffix=".c", prefix=".permute-", dir=str(src_dir))
+    fd, tmp_c = tempfile.mkstemp(
+        suffix=source_suffix_for(obj_path), prefix=".permute-", dir=str(src_dir)
+    )
     tmp_c_path = Path(tmp_c)
     _TEMP_CANDIDATES.add(tmp_c_path)
     try:
@@ -1056,7 +1040,9 @@ def compile_batch(
     cfiles: List[Path] = []
 
     def make_cfile(source: str) -> Path:
-        fd, p = tempfile.mkstemp(suffix=".c", prefix=".permute-", dir=str(src_dir))
+        fd, p = tempfile.mkstemp(
+            suffix=source_suffix_for(obj_path), prefix=".permute-", dir=str(src_dir)
+        )
         path = Path(p)
         _TEMP_CANDIDATES.add(path)
         with os.fdopen(fd, "w") as f:
@@ -1203,7 +1189,9 @@ def build_pch(
         return None
 
     src_dir = source_dir_for(obj_path)
-    fd, pch_c = tempfile.mkstemp(suffix=".c", prefix=".permute-pch-", dir=str(src_dir))
+    fd, pch_c = tempfile.mkstemp(
+        suffix=source_suffix_for(obj_path), prefix=".permute-pch-", dir=str(src_dir)
+    )
     pch_c_path = Path(pch_c)
     mch_path = pch_c_path.with_suffix(".mch")
     _TEMP_CANDIDATES.add(pch_c_path)

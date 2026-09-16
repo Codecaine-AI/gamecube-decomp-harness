@@ -1,0 +1,215 @@
+{
+  "tu": "main/melee/ft/ft_0881",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L220-L250",
+            "why": "Exact channel operations and Fighter stores."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0877.c#L429-L450",
+            "why": "Acquisition increments Fighter counts; release consumes accumulated amounts."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L989-L1019",
+            "why": "Global increment and guarded subtraction semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact channel and handle flow while correcting auxiliary-state ownership from object references to accumulated counts.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0881:ft_80088A50"
+        },
+        "type": "data_flow",
+        "value": "Reads player_id to address both adjacent variants of seven channel groups based at 0x1E, 0x2A, 0x36, 0x42, 0x4E, 0x5A and 0x72, each offset by 2 * player_id. It sends 0x83D61 with volume 0 and pan 0x40 to all fourteen channels and writes -1 to x2144 through x2160. It then passes the accumulated count x2164 to lbAudioAx_8002500C and x2168 to lbAudioAx_80025038, zeroing each Fighter count. These callees subtract positive supplied amounts from separate global audio-control counters and clamp those counters at zero; the arguments are not object pointers."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L514-L563",
+            "why": "Caller ordering within baseline/death reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L220-L250",
+            "why": "Managed channel and bookkeeping reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L989-L1019",
+            "why": "Auxiliary operations release count contributions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the supported lifecycle ordering without describing the auxiliary counts as retained audio objects.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0881:ft_80088A50"
+        },
+        "type": "game_mapping",
+        "value": "Implements the managed-audio component of the common Fighter baseline/death reset: it stops both variants of the player-specific managed SFX channels, invalidates retained handle bookkeeping, and relinquishes the Fighter's accumulated contributions to two global audio-control counts. The reset caller invokes it before restoring grounded/airborne situation, collision and hurt-capsule state, per-kind OnDeath state, CPU control and queued effects."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L220-L309",
+            "why": "Contrasting complete cleanup bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0877.c#L429-L450",
+            "why": "Auxiliary count acquisition and release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1001-L1019",
+            "why": "Count subtraction rather than object destruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the auxiliary object interpretation and preserves the useful distinction between the two bulk cleanup routines.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0881:ft_80088A50"
+        },
+        "type": "purpose",
+        "value": "Resets a Fighter's managed audio baseline. It stops both subslot variants of seven player-specific SFX channel groups, invalidates their retained handles and the additional x2160 handle slot, releases the accumulated audio-control counts in x2164 and x2168 from their corresponding global counters, and zeroes those Fighter counts. Unlike ft_80088C5C, it does not first perform owner-associated audio-object or individual retained-voice cleanup."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L220-L250",
+            "why": "Branch-free caller and repeated final stores."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1001-L1019",
+            "why": "Positive-count guards and clamping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L514-L563",
+            "why": "Baseline/death-reset invocation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes unconditional caller execution from guarded lower-level count subtraction and removes the erroneous object-reference model.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0881:ft_80088A50"
+        },
+        "type": "state_behavior",
+        "value": "Every invocation issues all fourteen channel-stop requests without checking prior handles, writes -1 to x2144 through x2160, invokes both auxiliary count-release routines and leaves x2164 and x2168 at zero. The caller has no guards around these operations; the release callees themselves subtract only positive supplied counts and clamp the corresponding global counters at zero. The final repeated zero assignments do not represent additional releases. This establishes Fighter audio bookkeeping for the common baseline/death reset without clearing unrelated Fighter state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L252-L309",
+            "why": "Exact guards, call ordering and field stores."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1475-L1527",
+            "why": "Owner-associated object cleanup and matching-voice boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0877.c#L429-L450",
+            "why": "Fighter count lifetime."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1001-L1019",
+            "why": "Global count release."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects nonnegative to the actual sentinel comparison and identifies auxiliary values as accumulated counts while preserving the complete cleanup order.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0881:ft_80088C5C"
+        },
+        "type": "data_flow",
+        "value": "Obtains the Fighter from the supplied Fighter_GObj and first passes the object to lbAudioAx_80026510 for owner-associated audio cleanup. It submits x2160 to lbAudioAx_800265C4 only when x2160 != -1, then invalidates that field. Each managed handle in x2144 through x215C is likewise submitted under an exact != -1 guard; a return value of 1 additionally invokes its paired channel reset. It then unconditionally sends 0x83D61 to both player-derived variants of all seven channel groups and invalidates x2144 through x2160. Finally it passes accumulated counts x2164 and x2168 to their separate global count-release routines and zeroes both Fighter counts."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L252-L309",
+            "why": "Complete cleanup sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1001-L1019",
+            "why": "Count release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1475-L1527",
+            "why": "Owner-associated audio cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D31.c#L202-L228",
+            "why": "KO cleanup preceding replacement sounds."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L3085-L3121",
+            "why": "Cleanup during final destruction before Fighter memory is freed."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves supported cleanup scope and cross-file lifecycle uses while correcting auxiliary ownership semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0881:ft_80088C5C"
+        },
+        "type": "purpose",
+        "value": "Performs comprehensive fighter audio cleanup: removes owner-associated audio objects, attempts cleanup of retained voices, stops both variants of all seven player-specific managed SFX channel groups, invalidates the retained handle fields, and relinquishes the accumulated audio-control counts in x2164 and x2168 before zeroing them. KO presentation replacement and final Fighter destruction use this routine. The auxiliary count release is not destruction of two objects referenced by those fields."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L252-L309",
+            "why": "Exact sentinel guards, result checks and final stores."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1001-L1019",
+            "why": "Auxiliary positive-count guards and clamping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1475-L1527",
+            "why": "Owner-bound cleanup and returned boolean semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves sentinel-domain ambiguity, exact success branches and unconditional final reset while distinguishing counted auxiliary state from object references.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0881:ft_80088C5C"
+        },
+        "type": "state_behavior",
+        "value": "After owner-associated cleanup, x2160 is submitted for voice cleanup when it is not -1 and is then invalidated regardless of the returned status. Each managed category handle is submitted under != -1, not a nonnegative test; only a return value of 1 invokes the category-specific reset at that stage. Regardless of prior handle values or cleanup results, the routine subsequently stops both subslot channel variants for every category and sets x2144 through x2160 to -1. Both auxiliary count-release functions are always called, but subtract from their global counters only for positive amounts and clamp at zero. The Fighter counts x2164 and x2168 always finish at zero."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

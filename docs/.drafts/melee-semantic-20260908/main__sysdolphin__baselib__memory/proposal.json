@@ -1,0 +1,212 @@
+{
+  "tu": "main/sysdolphin/baselib/memory",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/memory:.data"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Observed .data stores the source filename memory.c used by the HSD_MemAlloc assertion. The separate .sdata string adr supplies the failed expression. A NULL positive-size allocation result takes HSD_ASSERT, which uses legacy line 52 under MUST_MATCH and current __LINE__ otherwise. Successful allocation bypasses that diagnostic path.",
+        "confidence": 0.98,
+        "rationale": "Differentiate the two owned string contributions and conditional line selection.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L22-L25",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L16-L33",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L39-L53",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/memory:HSD_Free"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Returns a valid allocation belonging to the currently selected HSD heap through OSFreeToHeap. This wrapper always uses HSD_GetHeap at free time and does not recover an original heap handle from the pointer.",
+        "confidence": 0.98,
+        "rationale": "Replace arbitrary-allocation wording with the actual current-heap ownership requirement.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L9-L12",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L189-L197",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlloc.c#L322-L342",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/memory:HSD_Free#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "void* ptr is forwarded unchanged with the current HSD heap; this wrapper does not accept NULL as a local no-op.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal use.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L9-L12",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L189-L197",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlloc.c#L322-L342",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/memory:HSD_MemAlloc#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "ssize_t size is a signed byte count; nonpositive values return NULL without querying the heap.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal use.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L189-L197",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlloc.c#L148-L180",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/memory:HSD_Free"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally gets the current HSD heap and forwards ptr to OSFreeToHeap, including when ptr is NULL. No local NULL guard, heap ownership lookup, pointer clearing or synchronization is added. The delegated routine expects an arena-contained aligned allocation belonging to that heap and returns its allocation cell to the heap free list.",
+        "confidence": 0.98,
+        "rationale": "Record ownership and forwarding boundaries instead of implying standard free(NULL) behavior.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L9-L12",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L189-L197",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlloc.c#L322-L342",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/memory:.sdata"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Stores the short asserted-expression string adr for the positive-size allocation failure check.",
+        "confidence": 0.98,
+        "rationale": "Existing hashed source/target object strings establish section placement; no rebuild provenance is claimed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L25",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L16-L33",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/memory:.sdata"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Observed source .sdata contains four bytes, the NUL-terminated string adr. The existing target-object section includes four additional padding bytes. It is diagnostic text, not heap metadata.",
+        "confidence": 0.98,
+        "rationale": "Existing hashed source/target object strings establish section placement; no rebuild provenance is claimed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L25",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L16-L33",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/memory:.sdata"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "If OSAllocFromHeap returns NULL for a positive request, the HSD_ASSERT expression adr supplies the diagnostic condition string. The assertion macro forwards this expression text with the separate source-file string and line number to __assert; nonpositive requests return before this check.",
+        "confidence": 0.98,
+        "rationale": "Existing hashed source/target object strings establish section placement; no rebuild provenance is claimed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L25",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L16-L33",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

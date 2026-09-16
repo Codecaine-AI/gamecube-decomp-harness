@@ -1,0 +1,804 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbcpu:.bss"
+    },
+    "facts": [
+      {
+        "id": "fact:75d99c77-7a52-4bc3-89cc-d879f3a11429",
+        "target_id": "target:data:main/melee/db/dbcpu:.bss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "During setup, `buf` is passed to `DevText_Create` as the panel's backing memory and the returned DevText pointer is stored in `text`. Subsequent setup styling, per-frame erasure and formatted output, and controller-driven background/text visibility calls all consume that stored pointer. Player statistics themselves come from `StaticPlayer` records and are written through the DevText object rather than retained in this section.",
+        "rationale": "The source exposes the complete flow from the section-owned buffer into panel creation, from the returned handle into persistent storage, and from that handle into every later rendering and visibility operation. It also shows that current player values are fetched afresh during each enabled update.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:02:51.670Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the backing buffer supplied to DevText_Create, the returned pointer stored in the object, and that pointer consumed by all later panel operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:6d15e507-dd74-4993-b3af-8b2ba1b54d9f",
+        "target_id": "target:data:main/melee/db/dbcpu:.bss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Backs DEVELOP mode's B plus D-pad Down player-statistics display, which reports CPU level, AI type, handicap, offense ratio, defense ratio, and two additional statistics for each player slot.",
+        "rationale": "The code uses this storage for the panel toggled by B plus D-pad Down and formats the seven player fields into it. SmashWiki independently documents the same DEVELOP-mode chord and corresponding statistics display.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:02:51.670Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows this storage backing the panel controlled by B plus D-pad Down and populated with seven fields from each player slot."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents the B plus D-pad Down player-statistics display and identifies CPU level, AI type, handicap, offense ratio, defense ratio, and two unknown entries."
+          }
+        ]
+      },
+      {
+        "id": "fact:6d05a559-9e81-4ecc-af8a-2d5f39e43fd0",
+        "target_id": "target:data:main/melee/db/dbcpu:.bss",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "db_CpuHandicapInfo",
+        "rationale": "The matched source declares `db_CpuHandicapInfo` as the unit's sole 0x350-byte uninitialized object, exactly matching the section target's 848-byte extent, and every panel lifecycle routine refers to it by that name.\n\nNaming cleanup: Explicit source object.\nPrior naming claim: The source-level object occupying this section is plausibly named `db_CpuHandicapInfo`.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Defines the uninitialized 0x350-byte object as `db_CpuHandicapInfo` and shows that name used throughout the panel lifecycle."
+          }
+        ]
+      },
+      {
+        "id": "fact:4de6c73c-72ef-40b9-8746-53aa370d1b1e",
+        "target_id": "target:data:main/melee/db/dbcpu:.bss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 0x350-byte, statically allocated structure with layout `{ DevText* text; char buf[0x34C]; }`: a four-byte DevText pointer followed immediately by 844 bytes of panel backing storage.",
+        "rationale": "The matched declaration gives both fields and the buffer extent directly. On the game's 32-bit target, the pointer plus 0x34C-byte array totals 0x350 bytes, matching the section target's reported size.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:02:51.670Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Directly declares the persistent object as a DevText pointer followed by a 0x34C-byte character buffer."
+          }
+        ]
+      },
+      {
+        "id": "fact:f0016b8a-04bd-44ff-9628-df0e69d1d6f8",
+        "target_id": "target:data:main/melee/db/dbcpu:.bss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the persistent DevText handle and backing character buffer for the developer-mode panel that displays CPU, handicap, and related player statistics.",
+        "rationale": "The unit declares one uninitialized 0x350-byte object containing a DevText pointer and a 0x34C-byte buffer. Its setup routine creates the panel from that buffer and retains the returned pointer, while the update and controller-check routines repeatedly use the pointer to redraw and control the statistics panel.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:02:51.670Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the uninitialized persistent object and all uses of its DevText pointer and backing buffer across setup, refresh, and visibility handling."
+          }
+        ]
+      },
+      {
+        "id": "fact:b6a3caf5-5802-40e7-9715-669c4589fffc",
+        "target_id": "target:data:main/melee/db/dbcpu:.bss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "As static uninitialized storage, the object's pointer and buffer begin zero-initialized. Setup replaces the pointer with the result of `DevText_Create`; if creation succeeds, the same object persists as the panel resource used on every later frame. The panel's enabled/disabled state is not stored here\u2014it resides separately in `db_ShowCpuHandicapInfo.b0`.",
+        "rationale": "The declaration establishes static uninitialized lifetime, while setup performs the sole pointer assignment and guards styling on a non-NULL result. Update and input handling reuse that pointer but consult and mutate the separately declared flag, distinguishing this section's resource lifetime from the panel's visibility state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:02:51.670Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the uninitialized static object, its setup-time pointer assignment and NULL guard, its persistent reuse, and the separate flag controlling updates and visibility."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbcpu:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:0ea1c218-eb99-4a31-a495-b4739dffc579",
+        "target_id": "target:data:main/melee/db/dbcpu:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "fn_UpdateCpuHandicapInfo reads both strings whenever the display is enabled. It first sends the heading string to DevText_Printf, then uses the row format once for each slot from 0 through 5, supplying player_state, cpu_level, cpu_type, handicap, unk50, attack_ratio, and defense_ratio in that order.",
+        "rationale": "The matched update body shows both section literals at their consumers and explicitly associates each conversion in the row format with a field from the StaticPlayer record returned for each slot.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:02:33.656Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the enabled-state guard, heading print, six-slot loop, StaticPlayer source, row format, and ordered arguments supplied for every row."
+          }
+        ]
+      },
+      {
+        "id": "fact:b16b0b8f-c6d8-4129-b5fa-af826b526e1f",
+        "target_id": "target:data:main/melee/db/dbcpu:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Defines the textual schema for DEVELOP mode's B plus D-pad Down player-statistics display: columns A through G correspond respectively to an unidentified player-state value, CPU Level, AI Type, Handicap, an unidentified floating-point value, Offense Ratio, and Defense Ratio.",
+        "rationale": "The source fixes the A-through-G headings and prints the seven StaticPlayer fields in a corresponding order. SmashWiki independently documents the same button-controlled display and the same semantic ordering, including the two unidentified statistics.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:02:33.656Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the B-plus-D-pad-Down toggle and the exact heading and field order represented by the section's strings."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents the B-plus-D-pad-Down player-statistics display and orders its entries as Unknown, CPU Level, AI Type, Handicap, Unknown, Offense Ratio, and Defense Ratio."
+          }
+        ]
+      },
+      {
+        "id": "fact:305067b7-66e3-4c32-8353-6c5fdb843d59",
+        "target_id": "target:data:main/melee/db/dbcpu:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 56-byte initialized-data string block containing two NUL-terminated C format strings: the 20-character heading \"A B  C D E    F    G\" and the 31-character row format \"\\n%d %d %2d %d %2.2f %2.2f %2.2f\", with alignment padding following the first string.",
+        "rationale": "The matched source exposes exactly two literals consumed by the panel update. Including terminators, they occupy 21 and 32 bytes; aligning the second literal to a four-byte boundary yields the target section's 56-byte layout.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:02:33.656Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Directly exposes both complete string literals and their C formatting syntax in the only routine that references them."
+          }
+        ]
+      },
+      {
+        "id": "fact:45e76b1e-b93d-4124-9bee-3d223602366f",
+        "target_id": "target:data:main/melee/db/dbcpu:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the column-heading and per-player row format strings used to construct the CPU and handicap statistics panel.",
+        "rationale": "The matched update routine passes the section's two literals directly to DevText_Printf: the first establishes the seven A-through-G column headings, and the second formats one row of seven StaticPlayer values.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:02:33.656Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the heading and row-format literals being supplied to DevText_Printf while rebuilding the CPU and handicap information panel."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbcpu:.sbss"
+    },
+    "facts": [
+      {
+        "id": "fact:f8ee5aef-37d3-422e-9192-e9a57b44d6aa",
+        "target_id": "target:data:main/melee/db/dbcpu:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "`fn_SetupCpuHandicapInfo` initializes `b0` to zero. `fn_CheckCpuHandicapInfo` reads and XOR-toggles it after a B plus newly pressed D-pad Down chord, then uses the new value to choose the DevText hide or show calls. `fn_UpdateCpuHandicapInfo` reads the same bit as the guard controlling whether the six player records are rendered.",
+        "rationale": "The matched source exposes the complete producer-consumer chain for this storage: setup and controller handling produce its state, while both visibility control and per-frame panel rebuilding consume it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:05:11.881Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Directly shows initialization, input-driven mutation, visibility branching, and the update guard associated with `db_ShowCpuHandicapInfo.b0`."
+          }
+        ]
+      },
+      {
+        "id": "fact:170e27c6-2876-45a8-a809-8b04d3d646a4",
+        "target_id": "target:data:main/melee/db/dbcpu:.sbss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Backs the on/off state of DEVELOP mode's B plus D-pad Down player-statistics display, which reports CPU level, AI type, handicap, offense ratio, defense ratio, and two unidentified values for each player.",
+        "rationale": "The code associates the flag with the exact B-plus-D-pad-Down chord and with rendering the seven statistics columns. SmashWiki independently documents that chord and the same player-statistics display.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:05:11.881Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the flag being toggled by B plus D-pad Down and guarding the seven-column, six-player statistics output."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents that B plus D-pad Down in DEVELOP mode displays player statistics comprising two unknown entries, CPU Level, AI Type, Handicap, Offense Ratio, and Defense Ratio."
+          }
+        ]
+      },
+      {
+        "id": "fact:62b3d72c-3df0-4c10-a3f1-c26620e0420b",
+        "target_id": "target:data:main/melee/db/dbcpu:.sbss",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "db_ShowCpuHandicapInfo",
+        "rationale": "The matched source declares the persistent flag under this name, while all three unit routines use it specifically as the show-state for CPU and handicap information. Because the target represents an aggregate section rather than a named-symbol target, this is an inferred source-level object name rather than a rename instruction for `.sbss`.\n\nNaming cleanup: Explicit module-level declaration.\nPrior naming claim: The section's meaningful object is plausibly named `db_ShowCpuHandicapInfo`, matching the recovered module-level declaration and the local `db_` naming convention.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Directly declares `UnkFlagStruct db_ShowCpuHandicapInfo` and shows the name's semantic correspondence to the panel controlled by the object."
+          }
+        ]
+      },
+      {
+        "id": "fact:273df97b-888a-4dfd-8551-e1da102718b0",
+        "target_id": "target:data:main/melee/db/dbcpu:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A zero-initialized `UnkFlagStruct` object whose observed live field is `b0`, used as a Boolean display-enabled flag; the remaining storage has no demonstrated role in this unit.",
+        "rationale": "The source supplies the declared type and accesses only `b0`. Setup writes zero, the checker XORs it with one, and all tests compare or treat it as a Boolean, while no other member is read or written.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:05:11.881Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the `UnkFlagStruct` declaration and establishes that only its `b0` member participates in this module's behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:e6c40ac3-c532-444a-8288-4fc35d19382d",
+        "target_id": "target:data:main/melee/db/dbcpu:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the persistent enabled/visible state for the developer player-statistics panel managed by dbcpu.c.",
+        "rationale": "The matched source declares one zero-initialized small-data object, `db_ShowCpuHandicapInfo`, and consistently uses its `b0` bit to initialize, guard, toggle, hide, and show the module's DevText statistics panel.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:05:11.881Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows `db_ShowCpuHandicapInfo` as the module's persistent flag object and every use of its `b0` bit in panel setup, update, and visibility control."
+          }
+        ]
+      },
+      {
+        "id": "fact:57a05e7a-7c93-49ae-8af5-31a1672d8fa7",
+        "target_id": "target:data:main/melee/db/dbcpu:.sbss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The observed bit has two stable states: 0 means the statistics panel is disabled and its text and background are hidden, while 1 means it is enabled and both are shown. Setup selects state 0, and each B plus newly pressed D-pad Down action flips between the states; there is no timer or automatic reset.",
+        "rationale": "The initial assignment, XOR transition, zero-state hide branch, one-state show branch, and enabled-only update guard directly define a persistent two-state toggle.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:05:11.881Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the initial disabled state, exact toggle operation, both visibility outcomes, and absence of any timed transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbcpu:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:b47c917b-9cac-4817-8d3e-2dd538b7403d",
+        "target_id": "target:data:main/melee/db/dbcpu:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "fn_SetupCpuHandicapInfo reads the section-backed literals corresponding to 9.0F and 12.0F and passes them as the X and Y arguments to DevText_SetScale for db_CpuHandicapInfo.text. They are consumed only as immutable setup inputs and are not modified by the panel's update or controller-toggle paths.",
+        "rationale": "The complete matched unit shows the literals flowing into DevText_SetScale during initialization. Its remaining routines only erase and print text or change visibility, with no writes to or further use of those scale values.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:03:04.633Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Directly shows 9.0F and 12.0F passed to DevText_SetScale and shows that the update and input routines operate on panel contents and visibility instead."
+          }
+        ]
+      },
+      {
+        "id": "fact:87e1e1c8-5ed4-488e-b95c-65861526f30d",
+        "target_id": "target:data:main/melee/db/dbcpu:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies presentation constants for DEVELOP mode's B plus D-pad Down player-statistics display; it affects the diagnostic panel's text scale rather than the CPU, handicap, offense-ratio, or defense-ratio values being reported.",
+        "rationale": "The code applies the literals while configuring the panel later populated with player statistics, and SmashWiki independently identifies that panel as the DEVELOP-mode B-plus-D-pad-Down statistics display. Since the literals reach only DevText_SetScale, their mechanical role is presentation rather than gameplay-state calculation.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T05:03:04.633Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the scale constants configuring the same DevText object that is populated with CPU, handicap, attack-ratio, and defense-ratio data and toggled by B plus D-pad Down."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents B plus D-pad Down as displaying each player's CPU level, AI type, handicap, offense ratio, defense ratio, and two unidentified statistics."
+          }
+        ]
+      },
+      {
+        "id": "fact:007f4a28-b4b6-4fa7-ae32-4dc517044d3b",
+        "target_id": "target:data:main/melee/db/dbcpu:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A read-only small-data literal pool. Its source-visible contents include the single-precision constants 9.0F and 12.0F used as the DevText panel's X and Y scales; the evidence does not establish that every byte of the section is a distinct authored value rather than compiler alignment or padding.",
+        "rationale": "The target's .sdata2 identity indicates immutable small data, while the matched unit exposes 9.0F and 12.0F as its relevant small floating-point literals. Restricting the layout claim to those visible values avoids assigning semantic meaning to unobserved section bytes.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T05:03:04.633Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows the two source-level float constants consumed by the unit's setup routine and distinguishes them from the mutable globals declared for panel storage and visibility."
+          }
+        ]
+      },
+      {
+        "id": "fact:7da0c53b-a25b-48f3-b89d-100a8ad94cea",
+        "target_id": "target:data:main/melee/db/dbcpu:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the translation unit's immutable small-data literals used to configure the CPU/handicap developer-text panel, including the horizontal and vertical text scales 9.0F and 12.0F.",
+        "rationale": "The matched source passes the only visible floating-point presentation literals, 9.0F and 12.0F, directly to DevText_SetScale during panel setup. Because this target is the unit's read-only .sdata2 section, it is the compiler-owned storage for such small immutable numeric literals rather than mutable panel state.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:03:04.633Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows fn_SetupCpuHandicapInfo supplying the immutable literals 9.0F and 12.0F to DevText_SetScale while configuring the unit's persistent panel."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1592--main-melee-db-dbcpu",
+            "why": "Identifies dbcpu.c as a matched and linked translation unit split into the db debug subsystem."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbcpu:fn_CheckCpuHandicapInfo"
+    },
+    "facts": [
+      {
+        "id": "fact:bc17b3e8-1c15-4a3c-8f69-b6ac6173ff08",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_CheckCpuHandicapInfo",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The selected player's current held-button mask comes from `db_ButtonsDown`, and the newly pressed edge mask comes from `db_ButtonsPressed`. A held B bit combined with a newly pressed D-pad-down bit causes the routine to XOR `db_ShowCpuHandicapInfo.b0`; the new bit value then selects hide or show calls operating on `db_CpuHandicapInfo.text`.",
+        "rationale": "Every input, state mutation, and output consumer is explicit in the matched function body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:27:13.132Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L52-L66",
+            "why": "Shows the two input masks, exact bit tests, XOR state update, and use of the shared text pointer by the visibility APIs."
+          }
+        ]
+      },
+      {
+        "id": "fact:9565a1f0-5278-4610-9d84-31d85f8b6736",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_CheckCpuHandicapInfo",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the B plus D-pad-down DEVELOP-mode shortcut that toggles the per-player statistics list containing CPU level, AI type, handicap, offense ratio, defense ratio, and additional internal values.",
+        "rationale": "The function's exact chord matches the documented DEVELOP-mode control. The surrounding matched module confirms that the controlled text contains the same CPU, handicap, attack, and defense information described by the documentation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:27:13.132Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows both the exact shortcut handled by the target and the fields printed by the overlay it controls."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Identifies B plus D-pad down as the DEVELOP-mode shortcut for displaying the corresponding per-player statistics."
+          }
+        ]
+      },
+      {
+        "id": "fact:2772820c-1463-493a-b968-337acd3a9ed5",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_CheckCpuHandicapInfo",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void fn_CheckCpuHandicapInfo(int player)`. The integer is forwarded unchanged to the debug button-state accessors as the controller/player slot selector; the function returns no value and communicates solely through global overlay state and `DevText` side effects.",
+        "rationale": "The declaration gives the exact signature, and both input queries consume `player` directly while all outputs are assignments or visibility calls.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:27:13.132Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L52-L66",
+            "why": "Directly shows the `void (int)` declaration, forwarding of `player`, and the absence of any returned result."
+          }
+        ]
+      },
+      {
+        "id": "fact:5e9abdf6-101d-4530-9f3d-11af0f52bc4e",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_CheckCpuHandicapInfo",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles the per-player controller shortcut for toggling the CPU and handicap statistics overlay, synchronizing the overlay's enabled flag with the visibility of both its text and background.",
+        "rationale": "The routine tests the debug input accessors for the required chord, flips the shared flag, and immediately calls the matching show or hide operations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:27:13.132Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L52-L66",
+            "why": "The complete function shows chord recognition, flag toggling, and synchronized text/background visibility changes."
+          }
+        ]
+      },
+      {
+        "id": "fact:7f6f333d-95e7-43c9-92ef-51f6f0e0cf8f",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_CheckCpuHandicapInfo",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The function leaves all state unchanged unless B is currently held and D-pad down became newly pressed. On a qualifying edge it alternates the overlay between two states: disabled hides background and text and returns immediately; enabled shows background and text. Because D-pad down is tested through the pressed-edge accessor, holding the chord does not repeatedly toggle it without another press transition.",
+        "rationale": "The outer guard, XOR toggle, zero-state branch, early return, and nonzero-state show calls directly establish the transitions. The distinction between the held-button and newly-pressed accessors establishes edge-triggered rather than continuous toggling.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:27:13.132Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L52-L66",
+            "why": "Contains the complete guard and both state-transition branches, including use of `db_ButtonsPressed` for D-pad down."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbcpu:fn_SetupCpuHandicapInfo"
+    },
+    "facts": [
+      {
+        "id": "fact:3d18b434-8641-4e52-b86c-c4417170c143",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_SetupCpuHandicapInfo",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the shared DevText rendering GObj from DevText_GetGObj, passes the module-owned buffer to DevText_Create with configuration values 6, 20, 20, 60, and 7, stores the returned DevText pointer globally, and, on success, supplies the GObj and text pointer to DevText_Show before applying visual settings to the text object.",
+        "rationale": "Every input, persistent write, and downstream consumer is explicit in the matched function. The DevText registration implementation confirms that DevText_Show enrolls the supplied text object in the global draw list.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:27:45.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L13-L28",
+            "why": "Shows the GObj lookup, backing-buffer input, exact creation arguments, persistent pointer assignment, and all consumers of the successful result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/if/textdraw.c#L326-L359",
+            "why": "Shows that DevText_Show registers its DevText argument in devtext_drawlist."
+          }
+        ]
+      },
+      {
+        "id": "fact:03216e64-ea6b-4b1d-b9d0-166a62066dd0",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_SetupCpuHandicapInfo",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the initialization stage for DEVELOP mode's B plus D-pad Down player-statistics display, which reports CPU Level, AI Type, Handicap, Offense Ratio, Defense Ratio, and two unidentified values.",
+        "rationale": "The function prepares the exact panel later populated and toggled by its sibling routines. Those routines use the documented DEVELOP-mode chord and fields, tying this initializer to that specific player-statistics feature rather than to a general-purpose text display.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T00:27:45.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "Shows that the initialized panel is later populated with seven player values and toggled by B plus D-pad Down."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents the matching DEVELOP-mode chord and the player-statistics fields displayed by it."
+          }
+        ]
+      },
+      {
+        "id": "fact:a4f0d0a5-b177-4030-9eff-7fd7c32d9050",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_SetupCpuHandicapInfo",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless initialization routine with signature void (void).",
+        "rationale": "The matched definition explicitly accepts no parameters and returns no value; its outputs are persistent module state and the registered DevText object.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:27:45.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L13-L28",
+            "why": "Directly defines the function as void fn_SetupCpuHandicapInfo(void)."
+          }
+        ]
+      },
+      {
+        "id": "fact:e72ae655-7216-4fe0-a0dd-a798c1b2bb43",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_SetupCpuHandicapInfo",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the CPU/handicap statistics panel by clearing its enabled state, allocating its DevText object from module-owned storage, registering that object with the shared developer-text renderer, and configuring its cursor, colors, and scale.",
+        "rationale": "The matched body performs exactly those initialization operations and does not populate the panel; population is left to the sibling per-frame update routine.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:27:45.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L13-L28",
+            "why": "The complete function shows flag reset, DevText allocation and registration, cursor hiding, color assignment, and scaling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbcpu.c#L1-L67",
+            "why": "The surrounding unit shows that a separate update routine later fills the initialized panel with player statistics."
+          }
+        ]
+      },
+      {
+        "id": "fact:e98b950d-4409-4fca-872f-caacb55a3fe0",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_SetupCpuHandicapInfo",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Always resets the panel-enabled flag to zero and records the result of DevText_Create. If creation fails, no renderer registration or styling occurs; if it succeeds, the panel is registered, its cursor is hidden, its background is set to transparent black, its text to opaque white, and its scale to 9 by 12.",
+        "rationale": "The flag reset and pointer assignment occur before the sole conditional, while every presentation operation is enclosed by the non-NULL guard. The literal color and scale values establish the successful initialization state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:27:45.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L13-L28",
+            "why": "Directly shows the unconditional reset and allocation, the NULL guard, and all successful-creation presentation settings."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbcpu:fn_UpdateCpuHandicapInfo"
+    },
+    "facts": [
+      {
+        "id": "fact:105c09b3-6c7a-4903-b5cf-30e7ae4a6a2b",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_UpdateCpuHandicapInfo",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "When the panel is enabled, the function obtains the DevText pointer from db_CpuHandicapInfo, clears and rewinds it, then iterates slots 0 through 5. For each slot it obtains a StaticPlayer through Player_GetPtrForSlot and formats player_state, cpu_level, cpu_type, handicap, unk50, attack_ratio, and defense_ratio into that text object.",
+        "rationale": "Every input source, iteration bound, selected StaticPlayer field, and output consumer is explicit in the matched body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:26:09.083Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L30-L50",
+            "why": "The code shows the global text-pointer read, six calls to obtain slot records through the loop, all seven field reads, and their formatted output to DevText."
+          }
+        ]
+      },
+      {
+        "id": "fact:8991e860-4a8b-4985-8c03-aa6ea8270594",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_UpdateCpuHandicapInfo",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Draws the per-player statistics list exposed in Melee's DEVELOP mode by B plus D-Pad Down, whose visible entries include CPU Level, AI Type, Handicap, Offense Ratio, and Defense Ratio.",
+        "rationale": "The documented DEVELOP-mode control displays the same semantic sequence represented by the routine's cpu_level, cpu_type, handicap, attack_ratio, and defense_ratio fields, strongly identifying the on-screen mechanic.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:26:09.083Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L30-L50",
+            "why": "The formatted rows include CPU level, CPU type, handicap, attack ratio, and defense ratio for every static player slot."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "The DEVELOP-mode table maps B plus D-Pad Down to a player-statistics list containing CPU Level, AI Type, Handicap, Offense Ratio, and Defense Ratio."
+          }
+        ]
+      },
+      {
+        "id": "fact:7925b8d2-ca7d-490b-8f56-856dc896075f",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_UpdateCpuHandicapInfo",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless, void-returning per-frame display updater with signature void (void); all outputs are side effects on the retained DevText object.",
+        "rationale": "The matched declaration has no parameters and no return value, while the body performs its work entirely through global panel state, the stored text pointer, and DevText calls.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:26:09.083Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L30-L50",
+            "why": "The source declares void fn_UpdateCpuHandicapInfo(void) and modifies only the referenced debug text display."
+          }
+        ]
+      },
+      {
+        "id": "fact:2abc78c1-4662-44cb-9c49-8b369fc8dd96",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_UpdateCpuHandicapInfo",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Refreshes the visible CPU-handicap developer overlay by clearing its text buffer and rebuilding a six-row table of player and CPU configuration statistics.",
+        "rationale": "The function still conditionally erases and resets the panel, emits its heading, and formats one row for each of six player slots. The refreshed caller span confirms that the debug dispatcher invokes it once after all four CPU-handicap control checks, preserving its role as the display-refresh stage.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:23:58.798Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L30-L50",
+            "why": "Shows the complete updater clearing and rewinding the DevText object before printing a heading and six rows of player and CPU statistics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbinit.c#L163-L256",
+            "why": "At the current head, the debug dispatcher still calls fn_UpdateCpuHandicapInfo once after four calls to fn_CheckCpuHandicapInfo."
+          }
+        ]
+      },
+      {
+        "id": "fact:90c341a7-6f9f-4d9c-85d7-6066657c68db",
+        "target_id": "target:function:main/melee/db/dbcpu:fn_UpdateCpuHandicapInfo",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine does nothing while db_ShowCpuHandicapInfo.b0 is clear. While that visibility bit is set, every invocation fully erases and reconstructs the table; the enabled debug-frame dispatcher invokes it once after all per-controller CPU-handicap checks.",
+        "rationale": "The current function body retains a single visibility-bit guard around the entire destructive redraw, with no incremental path. The refreshed dispatcher span still places one update after four controller-specific checks in each active debug update.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:23:58.798Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L30-L50",
+            "why": "Shows that db_ShowCpuHandicapInfo.b0 guards the complete routine and that an enabled invocation begins by erasing the previous contents before rebuilding all six rows."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbinit.c#L163-L256",
+            "why": "Shows at the current head that db_RunEveryFrame performs four fn_CheckCpuHandicapInfo calls followed by one fn_UpdateCpuHandicapInfo call."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/db/dbcpu.c"
+    },
+    "facts": [
+      {
+        "id": "fact:8548ea65-aa07-4b7b-95f9-1fdfa4c571c5",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbcpu.c",
+        "type": "data_flow",
+        "value": "Setup supplies the unit-owned buffer to `DevText_Create`. While enabled, update reads six `StaticPlayer` records and formats player state, CPU level, CPU type, handicap, an unknown value, attack ratio, and defense ratio; controller input writes the enabled flag and panel visibility.",
+        "rationale": "The current source directly establishes the buffer-to-panel, player-to-text, and controller-to-visibility flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L1-L66",
+            "why": "Shows panel creation, all seven values read from each player slot, and visibility-state mutation."
+          }
+        ]
+      },
+      {
+        "id": "fact:d6ea69e1-1c66-4e54-866f-3dcf4b4018a9",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbcpu.c",
+        "type": "game_mapping",
+        "value": "Implements DEVELOP mode's B plus D-pad Down player-statistics display, exposing CPU level, AI type, handicap, offense ratio, defense ratio, and two unidentified statistics.",
+        "rationale": "The current code binds that chord to a panel whose seven columns are populated from the corresponding StaticPlayer fields.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L1-L66",
+            "why": "Shows the B-plus-D-pad-Down control and seven displayed player values."
+          }
+        ]
+      },
+      {
+        "id": "fact:5024e5a9-39bb-4874-a8fd-a871aa598597",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbcpu.c",
+        "type": "inferred_type",
+        "value": "A developer-debug display module whose persistent storage is a `DevText*` with a 0x34C-byte backing buffer plus an `UnkFlagStruct` whose `b0` bit is the display-enabled flag.",
+        "rationale": "The current declarations and all three lifecycle routines consistently use this storage and flag.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L1-L66",
+            "why": "Defines the persistent panel layout and enabled-state flag."
+          }
+        ]
+      },
+      {
+        "id": "fact:5bb29645-8188-4774-bf9f-f8de5af89d58",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbcpu.c",
+        "type": "purpose",
+        "value": "Owns setup, per-frame refresh, and controller-toggle handling for a developer-text panel reporting CPU and handicap-related state for all six player slots.",
+        "rationale": "The complete current unit contains the panel creation, six-slot update, and visibility-control lifecycle.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L1-L66",
+            "why": "Shows panel storage, setup, six-player rendering, and input-driven visibility."
+          }
+        ]
+      },
+      {
+        "id": "fact:6e4d513f-4647-40b6-b357-ded5ead0bf3b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbcpu.c",
+        "type": "state_behavior",
+        "value": "Initialization clears the enabled flag. Holding B and newly pressing D-pad Down toggles it, hiding or showing both panel background and text; the panel is erased and rebuilt only while enabled and has no automatic timeout.",
+        "rationale": "The current unit preserves the initial state, exact chord, XOR transition, visibility operations, and enabled guard.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbcpu.c#L1-L66",
+            "why": "Shows every transition and the guard around panel rebuilding."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/db/dbcpu:fn_CheckCpuHandicapInfo#r3"
+    },
+    "facts": []
+  }
+]

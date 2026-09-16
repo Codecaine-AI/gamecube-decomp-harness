@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-10-state-composition-10-harness-state",
+  "title": "Harness State",
+  "root": "b-10-harness-state-root-16",
+  "blocks": {
+    "b-10-harness-state-root-16": {
+      "id": "b-10-harness-state-root-16",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "sweep-e82d1eae976c4842",
+        "sweep-27539f8bdccb41a2",
+        "sweep-96131d10e2c44ab6",
+        "sweep-aef3068091f348dc",
+        "sweep-9af2086e446e42ce",
+        "sweep-5960bb76a77c4906",
+        "sweep-ea8000bfd78142ea",
+        "sweep-093761a6b3534759",
+        "sweep-c146598018a6470b",
+        "sweep-32c26226036d4707",
+        "sweep-cfa31582c2694c00",
+        "sweep-5f1bb24a8a194daf"
+      ]
+    },
+    "sweep-e82d1eae976c4842": {
+      "id": "sweep-e82d1eae976c4842",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "HarnessState is the durable coordination record for one game. It owns dispatch authority, queued requests, blockers, and event provenance. The dashboard composes cycle, run, sync, and knowledge summaries into a separate HarnessStateView."
+        }
+      ],
+      "children": []
+    },
+    "sweep-27539f8bdccb41a2": {
+      "id": "sweep-27539f8bdccb41a2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Stored State"
+        }
+      ],
+      "children": []
+    },
+    "sweep-96131d10e2c44ab6": {
+      "id": "sweep-96131d10e2c44ab6",
+      "type": "code",
+      "props": {
+        "language": "typescript"
+      },
+      "text": [
+        {
+          "insert": "interface HarnessState {\n  game_id: string;\n  revision: number;\n  active_workflow: DispatchLease | null;\n  blockers: Blocker[];\n  queued_dispatch_requests: QueuedDispatchRequest[];\n  trace_id: string;\n  caused_by_event_id: string | null;\n  created_at: string;\n  updated_at: string;\n}"
+        }
+      ],
+      "children": []
+    },
+    "sweep-aef3068091f348dc": {
+      "id": "sweep-aef3068091f348dc",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Cycle, run, sync, and knowledge payloads remain in their domain stores. They are not nested fields in the stored HarnessState record. The current dashboard projection returns pr: null in its compatibility read model and pr_work: [] in HarnessStateView."
+        }
+      ],
+      "children": []
+    },
+    "sweep-9af2086e446e42ce": {
+      "id": "sweep-9af2086e446e42ce",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "One Dispatch Owner"
+        }
+      ],
+      "children": []
+    },
+    "sweep-5960bb76a77c4906": {
+      "id": "sweep-5960bb76a77c4906",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "At most one workflow holds active_workflow for a game. The lease kind vocabulary retains run, pr, and sync. A queued request grants no authority. "
+        },
+        {
+          "insert": "Dispatch Authority and Handoffs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness/50-dispatch-authority"
+            }
+          }
+        },
+        {
+          "insert": " owns acquisition, fencing, settlement, and recovery."
+        }
+      ],
+      "children": []
+    },
+    "sweep-ea8000bfd78142ea": {
+      "id": "sweep-ea8000bfd78142ea",
+      "type": "code",
+      "props": {
+        "language": "typescript"
+      },
+      "text": [
+        {
+          "insert": "interface QueuedDispatchRequest {\n  kind: \"run\" | \"pr\" | \"sync\";\n  workflow_id: string;\n  reason: string;\n  requested_at: string;\n  requested_by: EventActor;\n  request_command_id: string;\n  request_root_span_id: string;\n  request_event_id: string;\n}"
+        }
+      ],
+      "children": []
+    },
+    "sweep-093761a6b3534759": {
+      "id": "sweep-093761a6b3534759",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The lease carries workflow_id, lease_id, status, acquisition and heartbeat times, blockers, and an optional requested_handoff. A handoff uses target_kind and target_workflow_id plus the request lineage. Null active_workflow means authority is free, even when domain workflow records remain readable."
+        }
+      ],
+      "children": []
+    },
+    "sweep-c146598018a6470b": {
+      "id": "sweep-c146598018a6470b",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Projection and Revisions"
+        }
+      ],
+      "children": []
+    },
+    "sweep-32c26226036d4707": {
+      "id": "sweep-32c26226036d4707",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Operator Actions",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness/60-operator-actions"
+            }
+          }
+        },
+        {
+          "insert": " owns HarnessStateView and its 13-action inventory. The view exposes harness_revision from the stored coordination revision. Domain objects keep their own revisions; this is not a single version field copied onto every child state."
+        }
+      ],
+      "children": []
+    },
+    "sweep-cfa31582c2694c00": {
+      "id": "sweep-cfa31582c2694c00",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Accepted coordination changes record event provenance with the state transition. created_at and updated_at preserve record timing. caused_by_event_id may be null at initialization, so reconstruction must not invent an accepted event for that initial value."
+        }
+      ],
+      "children": []
+    },
+    "sweep-5f1bb24a8a194daf": {
+      "id": "sweep-5f1bb24a8a194daf",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The stored shape is defined in "
+        },
+        {
+          "insert": "apps/server/src/core/harness-state/types.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-state/types.ts"
+            }
+          }
+        },
+        {
+          "insert": ". Dashboard composition is implemented in "
+        },
+        {
+          "insert": "apps/server/src/application/dashboard/read-model.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/application/dashboard/read-model.ts"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
+}

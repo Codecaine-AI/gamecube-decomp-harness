@@ -1,0 +1,50 @@
+{
+  "tu": "main/MetroTRK/msghndlr",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L621-L699",
+            "why": "Shows ACK-return rejection paths, ignored count/end-range read results, the success-ACK assignment and subsequent target-result assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing explanation that parsing errors flow directly to the return value, while preserving the supported signature and request/reply role.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msghndlr:TRKDoStep"
+        },
+        "type": "inferred_type",
+        "value": "MetroTRK handler with signature DSError TRKDoStep(MessageBuffer* b). The supplied buffer is reused for protocol acknowledgements. Early rejection paths return TRKStandardACK's transmission status, not the DSReplyError encoded in the reply. After validation, the success-ACK status overwrites the parsing status; if that ACK succeeds, the selected target stepping routine supplies the return value. Operand-read statuses are not uniformly checked or directly propagated."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L604-L725",
+            "why": "Continue and step ACK-gate delegation, whereas stop delegates before constructing its reply."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L75-L80",
+            "why": "Reset ignores ACK status and conditionally returns only in the sense that the reset primitive must return control."
+          }
+        ],
+        "op": "write",
+        "rationale": "Restricts the existing stopped-state and acknowledgement-gating generalization to the handlers that actually implement it, preserving the exceptional stop and reset ordering.",
+        "subject": {
+          "entity_locator": "src/MetroTRK/msghndlr.c"
+        },
+        "type": "state_behavior",
+        "value": "Continue and step require a stopped target and initiate their target operation only after a success ACK is transmitted successfully. Continue returns a not-stopped reply when the target is running. This ordering is not universal across execution-control commands: stop invokes TRKTargetStop before acknowledging its mapped result, while reset attempts a success ACK but ignores its status before invoking __TRK_reset and returns kNoError if control returns."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { openState } from "@server/core/orchestrator-state";
 import { releaseDispatch } from "@server/core/harness-state";
-import { getRun, updateRunStatus } from "@server/core/cycle-runtime/run-state/runs.js";
+import { getRun, updateRunStatus } from "@server/core/harness-runtime/run-state/runs.js";
 import { immediateTransaction } from "@server/core/orchestrator-state/storage/transaction.js";
 
 const [stateDir, runId, leaseId] = process.argv.slice(2);

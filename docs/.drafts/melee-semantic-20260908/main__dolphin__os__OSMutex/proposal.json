@@ -1,0 +1,38 @@
+{
+  "tu": "main/dolphin/os/OSMutex",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSMutex.c#L35-L44",
+            "why": "Defines head removal and its queue/successor mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSMutex.c#L107-L118",
+            "why": "Establishes dequeue, assertion, count/owner clearing, and wakeup ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L644-L662",
+            "why": "Confirms complete waiter-queue wakeup with suspension-sensitive runnable insertion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim that ownership is asserted before any mutex change. DEQUEUE_HEAD precedes ASSERTLINE and can modify the successor mutex's link.prev as well as queue endpoints; owner/count clearing remains after the assertion.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSMutex:__OSUnlockAllMutex"
+        },
+        "type": "state_behavior",
+        "value": "An initially empty owned-mutex queue is a no-op. Otherwise, each iteration first removes the ownership-list head, updating the queue head and either its tail or the successor's predecessor link, and only then asserts that the removed mutex is owned by the supplied thread. After that assertion, it clears the mutex's recursive count and owner pointer and wakes its complete waiter queue before continuing. Thus ownership-list mutation precedes the ownership assertion; the assertion is not a pre-mutation guard. Successful completion exhausts the ownership queue."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

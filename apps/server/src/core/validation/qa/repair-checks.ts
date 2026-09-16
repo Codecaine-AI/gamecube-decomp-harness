@@ -1,7 +1,13 @@
+import { executeBuildTask, remoteBuildsEnabled } from "../build/execution.js";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
+import {
+  gameBuildLayout,
+  type GameBuildLayout,
+  type GameBuildValidation,
+} from "@server/core/game-registry/build-layout.js";
 import { runCommand } from "@server/infrastructure/shell";
 
 export interface UnitMatchSnapshot {
@@ -23,6 +29,7 @@ export type ObjdiffUnitPresence = "present" | "absent" | "unavailable";
 
 type JsonRecord = Record<string, unknown>;
 type RepairCommandRunner = typeof runCommand;
+type LayoutOrValidation = GameBuildLayout | GameBuildValidation | null;
 
 const ninjaLockTails = new Map<string, Promise<void>>();
 
@@ -63,10 +70,13 @@ function combinedLog(stdout: string, stderr: string): string {
   return [stdout.trimEnd(), stderr.trimEnd()].filter(Boolean).join("\n");
 }
 
-export function objectPathForSource(sourcePath: string): string {
-  const normalized = normalizeRepoPath(sourcePath);
-  const withoutExtension = normalized.replace(/\.[^/.]+$/, "");
-  return `build/GALE01/${withoutExtension}.o`;
+function resolveBuildLayout(layoutOrValidation?: LayoutOrValidation): GameBuildLayout {
+  if (layoutOrValidation && "objectPathForSource" in layoutOrValidation) return layoutOrValidation;
+  return gameBuildLayout(layoutOrValidation);
+}
+
+export function objectPathForSource(sourcePath: string, layoutOrValidation?: LayoutOrValidation): string {
+  return resolveBuildLayout(layoutOrValidation).objectPathForSource(sourcePath);
 }
 
 export async function buildObjectForSource(opts: {
@@ -74,11 +84,14 @@ export async function buildObjectForSource(opts: {
   sourcePath: string;
   timeoutMs?: number;
   commandRunner?: RepairCommandRunner;
+  validation?: GameBuildValidation | null;
+  layout?: GameBuildLayout;
 }): Promise<{ ok: boolean; log: string }> {
+  if (!opts.commandRunner && remoteBuildsEnabled()) return executeBuildTask(opts.repoRoot, { kind: "object", input: { ...opts, layout: undefined, validation: opts.layout ? { reportPath: `${opts.layout.buildDir}/report.json` } : opts.validation } });
   try {
     const commandRunner = opts.commandRunner ?? runCommand;
     const result = await withNinjaLock(opts.repoRoot, () =>
-      commandRunner(opts.repoRoot, ["ninja", objectPathForSource(opts.sourcePath)], {
+      commandRunner(opts.repoRoot, ["ninja", objectPathForSource(opts.sourcePath, opts.layout ?? opts.validation)], {
         timeoutMs: opts.timeoutMs,
       }),
     );
@@ -104,10 +117,10 @@ function pathOfUnit(unit: JsonRecord, key: "base_path" | "target_path"): string 
   return typeof value === "string" ? normalizeRepoPath(value) : "";
 }
 
-function selectUnit(config: JsonRecord, sourcePath: string): JsonRecord | null {
+function selectUnit(config: JsonRecord, sourcePath: string, layoutOrValidation?: LayoutOrValidation): JsonRecord | null {
   if (!Array.isArray(config.units)) return null;
   const normalizedSource = normalizeRepoPath(sourcePath);
-  const objectPath = objectPathForSource(normalizedSource);
+  const objectPath = objectPathForSource(normalizedSource, layoutOrValidation);
   for (const value of config.units) {
     const unit = asRecord(value);
     if (!unit) continue;
@@ -119,11 +132,13 @@ function selectUnit(config: JsonRecord, sourcePath: string): JsonRecord | null {
 export async function objdiffUnitPresence(opts: {
   repoRoot: string;
   sourcePath: string;
+  validation?: GameBuildValidation | null;
+  layout?: GameBuildLayout;
 }): Promise<ObjdiffUnitPresence> {
   try {
     const config = asRecord(JSON.parse(await readFile(resolve(opts.repoRoot, "objdiff.json"), "utf8")));
     if (!config || !Array.isArray(config.units)) return "unavailable";
-    return selectUnit(config, opts.sourcePath) ? "present" : "absent";
+    return selectUnit(config, opts.sourcePath, opts.layout ?? opts.validation) ? "present" : "absent";
   } catch {
     return "unavailable";
   }
@@ -194,7 +209,10 @@ export async function captureUnitMatchSnapshot(opts: {
   repoRoot: string;
   sourcePath: string;
   timeoutMs?: number;
+  validation?: GameBuildValidation | null;
+  layout?: GameBuildLayout;
 }): Promise<UnitMatchSnapshot | null> {
+  if (remoteBuildsEnabled()) return executeBuildTask(opts.repoRoot, { kind: "unit-snapshot", input: { ...opts, layout: undefined, validation: opts.layout ? { reportPath: `${opts.layout.buildDir}/report.json` } : opts.validation } });
   const build = await buildObjectForSource(opts);
   if (!build.ok) return null;
 
@@ -203,7 +221,7 @@ export async function captureUnitMatchSnapshot(opts: {
     const configPath = resolve(opts.repoRoot, "objdiff.json");
     const config = asRecord(JSON.parse(await readFile(configPath, "utf8")));
     if (!config) return null;
-    const unit = selectUnit(config, opts.sourcePath);
+    const unit = selectUnit(config, opts.sourcePath, opts.layout ?? opts.validation);
     if (!unit) return null;
 
     tempRoot = await mkdtemp(join(tmpdir(), "qa-repair-objdiff-"));
@@ -232,7 +250,7 @@ export async function captureUnitMatchSnapshot(opts: {
     if (!reportUnit) return null;
     return {
       sourcePath: normalizeRepoPath(opts.sourcePath),
-      objectPath: objectPathForSource(opts.sourcePath),
+      objectPath: objectPathForSource(opts.sourcePath, opts.layout ?? opts.validation),
       ...rowsFromReport(reportUnit),
     };
   } catch {

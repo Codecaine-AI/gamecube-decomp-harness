@@ -1,0 +1,221 @@
+{
+  "tu": "main/melee/mp/mplib",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpBoundingCheck2"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation classifies the joint list for the two-point enclosing rectangle. Disabled or hidden joints are marked CollJoint_TooFar. Among enabled, visible joints, CollJoint_B10 forces eligibility regardless of geometric bounds; otherwise disjoint joints are marked too far and overlapping joints have TooFar cleared. The pass sets didCheckBounding.",
+        "rationale": "Preserves the baseline behavior while making the outer enabled/visible guard take precedence over B10.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5990-L6041",
+            "why": "Exact guard ordering, flag writes, completion marker, and delegation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpBoundingCheck3"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation classifies the joint list for the four-point enclosing rectangle. Disabled or hidden joints are marked CollJoint_TooFar. Among enabled, visible joints, CollJoint_B10 bypasses geometric rejection; otherwise overlap clears TooFar and disjointness sets it. The pass sets didCheckBounding, and wall-query callers skip joints marked TooFar.",
+        "rationale": "Corrects the unqualified B10 exception while retaining the caller-consumed broad-phase state behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5990-L6086",
+            "why": "Classification precedence and complete four-point wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L2921-L2935",
+            "why": "Right-wall query consumes the classification."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L3064-L3078",
+            "why": "Left-wall query consumes the classification."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpCheckLeftWallRemap"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Begins with result false and min_dist2 = F32_MAX. It creates and later removes a segment bounding check only if no enclosing check was active. It skips too-far joints and joints rejected by the skip/only filters, then scans each accepted joint's left-wall range followed once by its dynamic range, accepting only enabled, nonempty left-wall lines. A candidate replaces all requested outputs and latches success only when its signed squared-displacement metric is strictly less than the current minimum. The function returns the success latch after conditional bounding cleanup.",
+        "rationale": "Corrects the baseline's infinite-distance wording to the exact source initializer while retaining the verified traversal, selection, output, and ownership behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L2424-L2596",
+            "why": "Complete body directly establishes every described transition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpLib_8004DD90_Floor"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The floor query leaves retained collision geometry unchanged and writes only requested outputs. It follows previous or next links while the query x lies outside the current segment and the neighbor is a floor. Missing or non-floor adjacency fails beyond 0.1 units and otherwise clamps to the endpoint. Direction tracking is asymmetric: previous-link traversal sets dir=-1, but next-link traversal does not set dir=1. Thus a forward walk can reverse into a backward walk; after a backward transition, an attempted forward reversal instead clamps x to the current segment's v1 endpoint and terminates.",
+        "rationale": "The current body initializes dir to zero, assigns only -1, and omits a positive assignment in the successful next-link branch. This replaces the baseline's symmetric reversal-prevention claim with the actual control flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L1097-L1173",
+            "why": "Complete floor function establishes all direction transitions, terminal checks and output writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpLib_800511A4_RightWall"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Starts with no hit and best metric F32_MAX. Reuses an active bounding scope or temporarily bounds the four edge vertices with an AABB and clears that scope on return. Applies joint culling and skip/only filters, scans ordinary right-wall then dynamic ranges, and accepts only enabled nonempty right-wall lines. Each endpoint is tested only when squared remapped-to-current displacement exceeds 0.001F. An accepted crossing replaces the result only when its signed squared-distance metric is strictly smaller.",
+        "rationale": "Preserves verified behavior while correcting finite initialization terminology.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L2908-L3048",
+            "why": "Complete initialization, filtering, candidate ranking and cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5970-L6098",
+            "why": "Defines AABB bounding scope behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpLib_800515A0_LeftWall"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Reuses an active bounding scope or creates an AABB enclosing the four supplied edge vertices and clears it before return. Applies joint culling and skip/only filters, scans ordinary left-wall then dynamic ranges, and ignores disabled, empty or non-left-wall lines. Both endpoints are tested only when squared relative displacement exceeds 0.001F. Starting from F32_MAX, candidates replace the result under a strict signed squared-distance comparison. Collision geometry is not modified.",
+        "rationale": "Corrects threshold units and bounding shape directly from the implementation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L3050-L3193",
+            "why": "Complete left-wall state progression and squared threshold."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5970-L6098",
+            "why": "Four-point helper constructs an AABB."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpLib_8005199C_Floor"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Preserves an existing bounding scope. Otherwise temporarily bounds the vertical segment from (point.x, point.y) to (point.x, point.y - 30000.0F). Skips culled or excluded joints and applies the optional only-joint restriction. Scans each accepted joint's ordinary floor range followed by its dynamic range, requiring enabled, nonempty floor-classified lines. Stops at the first qualifying x-spanning line at or below the point and clears bounding state only when this call created it.",
+        "rationale": "Corrects the broad-phase endpoint from an absolute height to the implemented relative downward extent.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L3195-L3354",
+            "why": "Exact relative endpoint, first-match traversal and conditional cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5970-L6098",
+            "why": "Bounding helper and cleanup semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpLib_8005811C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A void-returning dispatcher with signature void (CollData* coll, int ledge_id). It treats -1 as an invalid line ID, resolves the owning joint, and invokes a non-null mpLib_JointCollisionCallback with the registered Ground context, joint index, coll, coll->x50, 3, and 0.0F.",
+        "rationale": "Preserves the established signature and callback argument flow while removing the incorrect non-returning characterization.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5631-L5643",
+            "why": "Complete definition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpLib_800587FC"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Ignores its incoming GObj and passes no explicit arguments. It first invokes dirty-gated floor-bound maintenance over global collision state, then updates positive dynamic-attribute lifetimes. Newly expired records are removed from the active list. In the current removal implementation, head removal returns the record to the free list, whereas a found non-head record is unlinked without free-list insertion. The wrapper returns no value.",
+        "rationale": "Current canonical removal control flow does not support the baseline's unconditional recycling claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5854-L5968",
+            "why": "Floor-state inputs, cache writes, and wrapper call order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdynamicattr.c#L53-L91",
+            "why": "Exact expiration and conditional recycling control flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mplib:mpLineNextNonLeftWall"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supports environmental collision at stage corners by locating the first adjoining line beyond a forward run of left-wall lines. The returned line is not necessarily a non-wall surface: ceiling detection and left-wall resolution separately test it for ceiling classification before using it for wall-to-ceiling contact and corner handling around the environmental collision box.",
+        "rationale": "Preserves the demonstrated consumer role while distinguishing non-left-wall traversal from the caller's narrower ceiling requirement.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L3758-L3774",
+            "why": "Traversal skips only left-wall-flagged candidates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L1557-L1603",
+            "why": "Ceiling-contact fallback consumes the result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L2189-L2217",
+            "why": "Left-wall corner processing consumes the result after ceiling classification."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

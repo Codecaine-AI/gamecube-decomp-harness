@@ -1,0 +1,212 @@
+{
+  "tu": "main/melee/it/kinds/itlgun",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L169-L173",
+            "why": "Shows unchanged argument forwarding and independent false result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.h#L38-L38",
+            "why": "Declares itColl_BounceOffVictim as void."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing assertion that the wrapper ignores a helper return value; the canonical helper declaration returns void.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlgun:itLGun_Logic16_Clanked"
+        },
+        "type": "data_flow",
+        "value": "Receives the clanking Ray Gun's Item_GObj*, forwards that same object to the void itColl_BounceOffVictim helper for collision-response side effects, and independently returns the constant Boolean false. There is no helper return value to discard."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L44-L69",
+            "why": "Shows spawn writes and the exact firing guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L92-L95",
+            "why": "Entry helper selects state 1."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported initialization flow while correcting the claim that ammunition is decremented before every ray-constructor invocation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlgun:itLGun_Logic16_Spawned"
+        },
+        "type": "data_flow",
+        "value": "Receives the newly spawned Item_GObj, obtains its Item payload from user_data, follows the article-data pointer to ItLGunAttr, copies max_ammo into Item.xD4C, clears Item.xDD4_itemVar.lgun.timer, and forwards the unchanged object to it_8028E860 for state-1 entry. Later firing decrements xD4C only when positive; its ray-constructor call is outside that guard."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L181-L184",
+            "why": "Physical item reflection wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgunray.c#L106-L115",
+            "why": "Ray reflection has its own facing, speed and reset operations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes ambiguity between the gun-body callback and the separate projectile reflection implementation while preserving the supported gameplay distinction.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlgun:itLGun_Logic16_Reflected"
+        },
+        "type": "game_mapping",
+        "value": "Implements the reflection-event response for the physical Ray Gun item, including the released gun body, by delegating to shared item reflection processing. Reflection of a fired ray is implemented separately by itLGunRay_Logic35_Reflected and is not performed by this callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L44-L69",
+            "why": "Initialization and positive-only decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L109-L116",
+            "why": "Exact nonzero/zero branching and return policies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L345-L364",
+            "why": "Alternate helper returns its floor-contact test."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional ammunition-consumption wording and preserves the difference between the firing helper's >0 test and collision's !=0 test.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlgun:itLgun_UnkMotion4_Coll"
+        },
+        "type": "data_flow",
+        "value": "Reads Item.xD4C, initialized from ItLGunAttr.max_ammo at spawn and decremented by the firing helper only when positive. If xD4C is nonzero, including a negative value if present, forwards the item and it_8028E7D8 to it_8026E15C and returns false. If xD4C is exactly zero, forwards the item to it_8026DF34 and propagates that helper's Boolean floor-contact result."
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L31-L42",
+            "why": "Registers the same collision callback in states 1 and 4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L109-L116",
+            "why": "The substantive local decision is ammunition-dependent dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "The callback is shared by ordinary falling state 1 and dropped/thrown state 4. Naming its ammunition-dependent collision dispatch avoids the rendered name's misleading restriction to dropped/thrown use. This is a semantic name, not a recovered historical spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlgun:itLgun_UnkMotion4_Coll"
+        },
+        "type": "inferred_name",
+        "value": "itLGun_AmmoDependent_Coll"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L31-L42",
+            "why": "Both state registrations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L109-L116",
+            "why": "Local dispatch and return policy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L459-L479",
+            "why": "Resting callback is guarded within the shared collision helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the omitted state-1 responsibility and avoids treating every nonzero value as positive ammunition or every contact as an immediate resting transition.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlgun:itLgun_UnkMotion4_Coll"
+        },
+        "type": "purpose",
+        "value": "Handles stage collision for both the Ray Gun's ordinary falling state 1 and its dropped/thrown state 4. A nonzero ammunition field selects shared collision response with a conditional resting-state callback; exactly zero selects the floor-contact helper and propagates its result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L31-L42",
+            "why": "Shared state registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L62-L116",
+            "why": "Firing guard, resting effects and collision branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L459-L479",
+            "why": "Contact and helper predicates gate the resting callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L345-L364",
+            "why": "Zero-ammunition path's floor-test result."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the state coverage, exact numeric guard, conditional transition, and alternate return path explicit without inventing a removal policy for the propagated Boolean.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlgun:itLgun_UnkMotion4_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Runs in states 1 and 4: ordinary spawned/falling behavior and the shared dropped/thrown state. For xD4C != 0, calls it_8026E15C with it_8028E7D8 and returns false. The shared helper invokes that callback only when its contact and landing guards pass; the callback resets velocity, performs shared setup, and selects resting state 0. For xD4C == 0, this routine supplies no resting callback and instead returns it_8026DF34's floor-test result. Negative counts, if present, follow the nonzero collision branch even though firing does not decrement them."
+      },
+      {
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L31-L51",
+            "why": "State-1 physics registration and spawn caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L86-L107",
+            "why": "Support-loss callback, state-1 entry and falling parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L191-L207",
+            "why": "EnteredAir selects a distinct state and can recover through this helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "State 1 has known fall-parameter physics and is entered at spawn and through support-loss recovery. EnterFalling is meaningfully more informative than EnterUnkMotion1 and remains distinct from the separate EnteredAir event state 5. Exact historical spelling is unverified.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlgun:it_8028E860"
+        },
+        "type": "inferred_name",
+        "value": "itLgun_EnterFalling"
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

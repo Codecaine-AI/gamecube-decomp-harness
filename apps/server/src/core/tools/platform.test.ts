@@ -8,6 +8,7 @@ import {
   resolveStateToolArtifact,
   resolveToolPlatform,
   stateToolArtifactCandidates,
+  gameToolsRoot,
 } from "./platform.js";
 
 const tempDirs: string[] = [];
@@ -60,11 +61,23 @@ describe("tool platform resolution", () => {
 });
 
 describe("state tool artifact layout", () => {
+  test("grouped state uses runtime tools regardless of old directories", () => {
+    const gameDir = tempDir();
+    const stateDir = join(gameDir, "runtime/state");
+    expect(gameToolsRoot({ stateDir })).toBe(join(gameDir, "runtime/tools"));
+    mkdirSync(join(gameDir, "runtime/tools"), { recursive: true });
+    writeFileSync(join(gameDir, "runtime/tools/wibo-linux-x86_64"), "binary");
+    expect(resolveStateToolArtifact({ stateDir, name: "wibo", platform: "linux-x86_64" })).toBe(join(gameDir, "runtime/tools/wibo-linux-x86_64"));
+    expect(gameToolsRoot({ stateDir, gameDir, toolsRoot: "custom-tools" })).toBe(join(gameDir, "custom-tools"));
+    mkdirSync(join(gameDir, "state/tools"), { recursive: true });
+    expect(gameToolsRoot({ gameDir, stateDir })).toBe(join(gameDir, "runtime/tools"));
+  });
+
   test("prefers the platform-suffixed artifact", () => {
-    const stateDir = tempDir();
-    const legacy = resolve(stateDir, "tools", "wibo");
-    const specific = resolve(stateDir, "tools", "wibo-darwin-x86_64");
-    mkdirSync(resolve(stateDir, "tools"), { recursive: true });
+    const stateDir = join(tempDir(), "runtime/state");
+    const legacy = resolve(stateDir, "../tools", "wibo");
+    const specific = resolve(stateDir, "../tools", "wibo-darwin-x86_64");
+    mkdirSync(resolve(stateDir, "../tools"), { recursive: true });
     writeFileSync(legacy, "legacy");
     writeFileSync(specific, "specific");
 
@@ -74,10 +87,10 @@ describe("state tool artifact layout", () => {
   });
 
   test("falls back to existing unsuffixed file and directory layouts on the host", () => {
-    const stateDir = tempDir();
-    const direct = resolve(stateDir, "tools", "wibo");
-    const versioned = resolve(stateDir, "tools", "wibo-1.2.0-opt1", "wibo");
-    mkdirSync(resolve(stateDir, "tools", "wibo-1.2.0-opt1"), { recursive: true });
+    const stateDir = join(tempDir(), "runtime/state");
+    const direct = resolve(stateDir, "../tools", "wibo");
+    const versioned = resolve(stateDir, "../tools", "wibo-1.2.0-opt1", "wibo");
+    mkdirSync(resolve(stateDir, "../tools", "wibo-1.2.0-opt1"), { recursive: true });
     writeFileSync(direct, "direct");
     writeFileSync(versioned, "versioned");
 
@@ -97,9 +110,9 @@ describe("state tool artifact layout", () => {
   });
 
   test("does not offer an unsuffixed host artifact to a cross-platform target", () => {
-    const stateDir = tempDir();
-    const legacy = resolve(stateDir, "tools", "wibo");
-    mkdirSync(resolve(stateDir, "tools"), { recursive: true });
+    const stateDir = join(tempDir(), "runtime/state");
+    const legacy = resolve(stateDir, "../tools", "wibo");
+    mkdirSync(resolve(stateDir, "../tools"), { recursive: true });
     writeFileSync(legacy, "Mach-O fixture");
     const options = {
       stateDir,
@@ -109,9 +122,9 @@ describe("state tool artifact layout", () => {
       hostArch: "arm64",
     };
 
-    expect(stateToolArtifactCandidates(options)).toEqual([resolve(stateDir, "tools", "wibo-linux-x86_64")]);
+    expect(stateToolArtifactCandidates(options)).toEqual([resolve(stateDir, "../tools", "wibo-linux-x86_64")]);
     expect(resolveStateToolArtifact(options)).toBeNull();
-    expect(requiredStateToolArtifactError(options).message).toContain(resolve(stateDir, "tools", "wibo-linux-x86_64"));
+    expect(requiredStateToolArtifactError(options).message).toContain(resolve(stateDir, "../tools", "wibo-linux-x86_64"));
     expect(requiredStateToolArtifactError(options).message).toContain("only a fallback for the host tool platform darwin-x86_64");
   });
 });

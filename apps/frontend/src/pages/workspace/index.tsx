@@ -2,16 +2,16 @@ import { WorkspaceLayout, useWorkspaceNav } from "@/pages/workspace/layout";
 import { AgentsPage } from "@/pages/workspace/agents";
 import { KnowledgePage } from "@/pages/workspace/knowledge";
 import { OverviewPage } from "@/pages/workspace/overview";
-import { CyclesPage } from "@/pages/workspace/cycles";
+import { HarnessPage } from "@/pages/workspace/harness/page";
 import { SettingsPage } from "@/pages/workspace/settings";
 import { StandardsPage } from "@/pages/workspace/standards";
 import { StylePage } from "@/pages/workspace/style";
 import { TracePage } from "@/pages/workspace/trace";
-import type { GameWorkspaceProps, CycleView, WorkspaceNav } from "@/pages/workspace/_lib/types";
+import type { GameWorkspaceProps, HarnessView, WorkspaceNav } from "@/pages/workspace/_lib/types";
 
 export type { DashboardAction, GameWorkspaceProps } from "@/pages/workspace/_lib/types";
 
-function WorkspaceSectionContent(props: GameWorkspaceProps & { nav: WorkspaceNav; view: CycleView }) {
+function WorkspaceSectionContent(props: GameWorkspaceProps & { nav: WorkspaceNav; view: HarnessView }) {
   const gameName = props.view.game?.displayName ?? "No game selected";
 
   if (props.route.section === "standards") {
@@ -32,8 +32,8 @@ function WorkspaceSectionContent(props: GameWorkspaceProps & { nav: WorkspaceNav
   if (props.route.section === "settings") {
     return <SettingsPage config={props.config} form={props.form} nav={props.nav} setForm={props.setForm} view={props.view} />;
   }
-  if (props.route.section === "cycles") {
-    return <CyclesPage {...props} />;
+  if (props.route.section === "harness") {
+    return <HarnessPage {...props} />;
   }
   return <OverviewPage busy={props.busy} form={props.form} nav={props.nav} onAction={props.onAction} view={props.view} />;
 }

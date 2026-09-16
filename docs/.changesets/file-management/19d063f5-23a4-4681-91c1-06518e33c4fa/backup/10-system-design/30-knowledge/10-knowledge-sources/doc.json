@@ -1,0 +1,994 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-eacdaa7a70c50e073de98dd0ff749d46",
+  "title": "Knowledge Sources",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ks2-src-intro",
+        "b-ks2-src-classes-heading",
+        "b-ks2-src-classes-table",
+        "source-contract-0",
+        "source-contract-1",
+        "source-contract-2",
+        "source-contract-3",
+        "source-contract-4",
+        "source-contract-5",
+        "source-contract-6",
+        "source-contract-7",
+        "b-ks2-src-standards-heading",
+        "b-ks2-src-standards-body",
+        "b-ks2-src-grammar-heading",
+        "b-ks2-src-grammar-body",
+        "b-ks2-src-grammar-table",
+        "b-ks2-src-search-heading",
+        "b-ks2-src-search-body",
+        "b-ks2-src-search-access",
+        "b-ks2-src-search-table",
+        "b-ks2-src-related-heading",
+        "b-ks2-src-related-archival",
+        "b-ks2-src-related-discord",
+        "b-ks2-src-related-prs",
+        "b-ks2-src-related-wiki",
+        "b-ks2-src-related-operational",
+        "b-ks2-src-related-attempts",
+        "b-ks2-src-related-code",
+        "b-ks2-src-related-contracts",
+        "b-ks2-src-related-evidence"
+      ]
+    },
+    "b-ks2-src-intro": {
+      "id": "b-ks2-src-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A knowledge source stores raw material cited by the knowledge graph. Every "
+        },
+        {
+          "insert": "evidence",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row and every "
+        },
+        {
+          "insert": "link",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " carries a "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and a typed "
+        },
+        {
+          "insert": "locator",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " that resolves to one record in one source. Sources hold records, and the graph holds claims. Citations use locators rather than foreign keys to source rows, with one pointer mechanism across five heterogeneous sources. Reverse lookup finds claims supported by a record through an indexed query on "
+        },
+        {
+          "insert": "(kind, locator)",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Display resolves a locator into its source at read time; no content snapshot is stored on the citing row."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-classes-heading": {
+      "id": "b-ks2-src-classes-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Two Classes"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-classes-table": {
+      "id": "b-ks2-src-classes-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Class",
+          "Sources",
+          "Contract"
+        ],
+        "rows": [
+          [
+            "Archival",
+            "Discord, pull requests, wiki",
+            "Captured inputs remain immutable once imported. Initial Sync seeds configured sources. Incremental Sync follows each source's refresh policy: PR and Discord refresh through their configured adapters, while wiki imports a local export on an explicit refresh. New captures preserve existing citation identities."
+          ],
+          [
+            "Operational",
+            "Attempts, code",
+            "Attempts provide evidence from the target ledger. Runs, submissions, and transcripts grow with every run and are immutable once written. Code is the active checkout and the only drifting source. Its citations carry a required digest."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "source-contract-0": {
+      "id": "source-contract-0",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "External Source Contract"
+        }
+      ],
+      "children": []
+    },
+    "source-contract-1": {
+      "id": "source-contract-1",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"definition\": {\n    \"identity\": {\n      \"game_id\": \"example-game\",\n      \"source_id\": \"game-wiki\",\n      \"kind\": \"wiki\",\n      \"upstream\": \"https://wiki.example.org\"\n    },\n    \"configuration\": {\n      \"enabled\": true,\n      \"adapter\": \"local-mirror\",\n      \"adapter_version\": \"1\",\n      \"scope\": {\n        \"capture_root\": \"./knowledge/sources/wiki/export\"\n      },\n      \"credential_ref\": null,\n      \"refresh\": \"explicit\",\n      \"required_stage\": \"search_index\"\n    }\n  },\n  \"state\": {\n    \"identity\": {\n      \"game_id\": \"example-game\",\n      \"source_id\": \"game-wiki\",\n      \"kind\": \"wiki\",\n      \"upstream\": \"https://wiki.example.org\"\n    },\n    \"configuration_hash\": \"sha256-of-definition\",\n    \"operation_id\": \"bootstrap-1\",\n    \"capture\": {\n      \"manifest\": \"capture-001\",\n      \"content_hashes\": {\n        \"pages.jsonl\": \"sha256-of-content\"\n      },\n      \"revisions\": [],\n      \"cursor\": {},\n      \"acquisition_origin\": \"local_mirror\",\n      \"upstream_refreshed\": false\n    },\n    \"stages\": {\n      \"acquisition\": {\n        \"status\": \"complete\",\n        \"counts\": {\n          \"files\": 1\n        }\n      },\n      \"import\": {\n        \"status\": \"complete\",\n        \"counts\": {\n          \"records\": 20\n        }\n      },\n      \"search_index\": {\n        \"status\": \"complete\"\n      },\n      \"curation\": {\n        \"status\": \"pending\"\n      }\n    },\n    \"readiness\": \"ready\"\n  }\n}",
+        "fields": [
+          {
+            "name": "definition",
+            "type": "SourceDefinition",
+            "description": "Tracked per-game input configuration.",
+            "fields": [
+              {
+                "name": "identity",
+                "type": "object",
+                "description": "game_id, source_id, kind, and upstream."
+              },
+              {
+                "name": "configuration",
+                "type": "object",
+                "description": "enabled, adapter/version, scope, optional credential_ref, refresh, required_stage, and optional reason."
+              }
+            ]
+          },
+          {
+            "name": "state",
+            "type": "SourceState",
+            "description": "Generated durable state, stored separately from configuration.",
+            "fields": [
+              {
+                "name": "identity",
+                "type": "object",
+                "description": "Copy of the definition identity."
+              },
+              {
+                "name": "configuration_hash",
+                "type": "string",
+                "description": "Fingerprint of the definition."
+              },
+              {
+                "name": "operation_id",
+                "type": "string",
+                "description": "Stable pipeline operation identity."
+              },
+              {
+                "name": "capture",
+                "type": "SourceCapture",
+                "description": "Optional manifest, content_hashes, revisions, cursor, acquisition_origin, and upstream_refreshed."
+              },
+              {
+                "name": "stages",
+                "type": "Record<SourceStage, SourceStageState>",
+                "description": "Each acquisition/import/search_index/curation stage has status, optional counts, and optional reason."
+              },
+              {
+                "name": "readiness",
+                "type": "pending | ready | disabled | unavailable | blocked",
+                "description": "Required-stage result. Optional reason explains the outcome."
+              }
+            ]
+          }
+        ],
+        "name": "SourceDefinition and SourceState",
+        "source": {
+          "path": "apps/server/src/core/knowledge-v2/ingest/source-pipeline.ts",
+          "symbol": "SourceState"
+        }
+      },
+      "children": []
+    },
+    "source-contract-2": {
+      "id": "source-contract-2",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Source",
+          "Per-Game Scope",
+          "Stable Evidence"
+        ],
+        "rows": [
+          [
+            "PRs",
+            "Repository, PR selection, review/discussion inclusion, refresh cursor.",
+            "Repository-qualified PR and capture identities; body, diff, and comments."
+          ],
+          [
+            "Discord",
+            "Server/channel IDs, thread policy, per-channel cursors.",
+            "Message IDs, thread context, authors, timestamps, and immutable captures."
+          ],
+          [
+            "Wiki",
+            "Site/API adapter, page/category seeds, exclusions, revision policy.",
+            "Site-qualified page, section, and upstream revision."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "source-contract-3": {
+      "id": "source-contract-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Acquisition captures raw inputs. Import normalizes archival records. Search indexing makes records retrievable. Librarian backfill curates facts and relationships with citations. Backfill is not a synonym for download or import; each stage records completion independently."
+        }
+      ],
+      "children": []
+    },
+    "source-contract-4": {
+      "id": "source-contract-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Rerunning the same capture must not duplicate records or work. Partial fetches retain resumable cursors without advancing past gaps. Changed upstream text creates a new capture while existing citations remain resolvable. Keep source data game-scoped; reusable cross-game facts require explicit applicability."
+        }
+      ],
+      "children": []
+    },
+    "source-contract-5": {
+      "id": "source-contract-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Both initial/manual Sync and automatic epoch Sync call the configured source pipeline. It records acquisition, import, search indexing, and optional curation separately. Mechanical report reconciliation and attempt intake remain explicit lanes."
+        }
+      ],
+      "children": []
+    },
+    "source-contract-6": {
+      "id": "source-contract-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Configured source pipeline",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/ingest/game-sources.ts"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "source-contract-7": {
+      "id": "source-contract-7",
+      "type": "code",
+      "props": {
+        "annotations": [
+          {
+            "lines": "1-5",
+            "label": "Versioned Source Pipeline",
+            "note": "Each operation selects explicit game scope, bootstrap or incremental policy, and versioned adapters. Required stages determine readiness independently of optional curation."
+          }
+        ],
+        "language": "typescript"
+      },
+      "text": [
+        {
+          "insert": "return runSourcePipeline({\n  ...options,\n  sources,\n  adapters,\n});"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-standards-heading": {
+      "id": "b-ks2-src-standards-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Standards Sit Outside"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-standards-body": {
+      "id": "b-ks2-src-standards-body",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Standards are QA-owned rules with lints, injected at worker boot and enforced at the ship gate. They belong to the knowledge system but sit outside the knowledge graph. See "
+        },
+        {
+          "insert": "Standards",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/70-standards",
+              "label": "Standards"
+            }
+          }
+        },
+        {
+          "insert": ". They are not a knowledge source, not walkable, and never citable as evidence. The "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " enum has no "
+        },
+        {
+          "insert": "standards",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " entry, and the omission is deliberate."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-grammar-heading": {
+      "id": "b-ks2-src-grammar-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Locator Grammar"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-grammar-body": {
+      "id": "b-ks2-src-grammar-body",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The grammar is closed. The resolver rejects any locator that does not match its "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "'s grammar or whose kind and scheme differ. A "
+        },
+        {
+          "insert": "discord",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row with a "
+        },
+        {
+          "insert": "pr://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " locator never resolves. Each form's payload is the store row's primary key. "
+        },
+        {
+          "insert": "code://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the one kind with no store row. The checkout at "
+        },
+        {
+          "insert": "<revision>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the store, and only there does a "
+        },
+        {
+          "insert": "digest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " of the span text pin what was read."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-grammar-table": {
+      "id": "b-ks2-src-grammar-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Kind",
+          "Grammar",
+          "Resolves to"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "discord",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "discord://message/<discord_message.id>",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "One "
+              },
+              {
+                "insert": "discord_message",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "pr://<pull_request.id>[/comment/<n>]",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A "
+              },
+              {
+                "insert": "pull_request",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row, or one comment in its archived discussion"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "wiki",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "wiki://<wiki_section.id>",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "One "
+              },
+              {
+                "insert": "wiki_section",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row; the id encodes page, section, and mirror revision"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "insert": "attempt",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "attempt://run/<worker_run.id>[/submission/<seq>][/transcript/<span>]",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "A worker run, one of its submissions, or a span of its archived transcript"
+          ],
+          [
+            [
+              {
+                "insert": "code",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "code://<revision>/<path>#L<start>-L<end>",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "A line span in the checkout at "
+              },
+              {
+                "insert": "<revision>",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "; no store row, "
+              },
+              {
+                "insert": "digest",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " required"
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-src-search-heading": {
+      "id": "b-ks2-src-search-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Search Surfaces"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-search-body": {
+      "id": "b-ks2-src-search-body",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each source declares its supported retrieval operations from four families. Keyword search uses BM25 full-text over the stated text columns. Vector search retrieves embeddings of the stated chunks. Structured search uses exact filters and joins on row columns. Graph search provides deterministic, unranked code navigation. Search indexes can be rebuilt from source rows and are outside the record contract. A remote embedding API generates "
+        },
+        {
+          "insert": "text-embedding-3",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " class embeddings through concurrent requests to speed up backfill. The provider is swappable. Re-embedding rebuilds the index without changing source records."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-search-access": {
+      "id": "b-ks2-src-search-access",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Workers and librarians can search raw knowledge sources. The default worker profile includes pr_search, discord_search, wiki_search, attempt_search, resolve_locator, knowledge_record, and knowledge_render_file. Workers read evidence and contribute attempt records; librarians propose curated writes through the validated apply layer. "
+        },
+        {
+          "insert": "Worker",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-agents/10-worker"
+            }
+          }
+        },
+        {
+          "insert": " defines the current tool profile and injected context."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-search-table": {
+      "id": "b-ks2-src-search-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Source",
+          "Keyword",
+          "Vector",
+          "Structured",
+          "Graph"
+        ],
+        "rows": [
+          [
+            "Discord",
+            "BM25 over content",
+            "Message content with thread-window context",
+            "channel, author, time range, thread",
+            "None"
+          ],
+          [
+            "Pull requests",
+            "BM25 over title, body, archived discussion",
+            "Discussion chunks",
+            "touched file/target, author",
+            "None"
+          ],
+          [
+            "Wiki",
+            "BM25 over section content",
+            "Sections, the primary search method",
+            "page, mirror revision",
+            "None"
+          ],
+          [
+            "Attempts",
+            "BM25 over hypotheses, transcripts",
+            "None",
+            "target, outcome, score trajectory, epoch, queried first",
+            "None"
+          ],
+          [
+            "Code",
+            "None",
+            "None",
+            "None",
+            "Symbols, xrefs, grep over the checkout"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-src-related-heading": {
+      "id": "b-ks2-src-related-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-related-archival": {
+      "id": "b-ks2-src-related-archival",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Archival Sources",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/10-knowledge-sources/10-archival",
+              "label": "Archival Sources"
+            }
+          }
+        },
+        {
+          "insert": " describes the frozen class of Discord, pull requests, and wiki material."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-related-discord": {
+      "id": "b-ks2-src-related-discord",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Discord",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/10-knowledge-sources/10-archival/10-discord",
+              "label": "Discord"
+            }
+          }
+        },
+        {
+          "insert": " describes the "
+        },
+        {
+          "insert": "discord_message",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " archive: draft shape, importer contract, locator parsing."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-related-prs": {
+      "id": "b-ks2-src-related-prs",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Pull Requests",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/10-knowledge-sources/10-archival/20-pull-requests",
+              "label": "Pull Requests"
+            }
+          }
+        },
+        {
+          "insert": " describes the existing ledger rows as an archival source and explains what "
+        },
+        {
+          "insert": "pr://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " comment indices mean."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-related-wiki": {
+      "id": "b-ks2-src-related-wiki",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Wiki",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/10-knowledge-sources/10-archival/30-wiki",
+              "label": "Wiki"
+            }
+          }
+        },
+        {
+          "insert": " describes the "
+        },
+        {
+          "insert": "wiki_section",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " mirror: draft shape and the re-sync contract."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-related-operational": {
+      "id": "b-ks2-src-related-operational",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Operational Sources",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/10-knowledge-sources/20-operational",
+              "label": "Operational Sources"
+            }
+          }
+        },
+        {
+          "insert": " describes the growing class of attempts and code."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-related-attempts": {
+      "id": "b-ks2-src-related-attempts",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Attempts",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/10-knowledge-sources/20-operational/10-attempts",
+              "label": "Attempts"
+            }
+          }
+        },
+        {
+          "insert": " describes worker runs, submissions, and transcripts behind "
+        },
+        {
+          "insert": "attempt://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " locators."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-related-code": {
+      "id": "b-ks2-src-related-code",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Code",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/10-knowledge-sources/20-operational/20-code",
+              "label": "Code"
+            }
+          }
+        },
+        {
+          "insert": " describes the checkout as the only drifting source, its digest requirement, and its drift gate."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-related-contracts": {
+      "id": "b-ks2-src-related-contracts",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Record Contracts",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/20-record-contracts",
+              "label": "Record Contracts"
+            }
+          }
+        },
+        {
+          "insert": " describes the tables that cite these sources and the foreign keys among them."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-src-related-evidence": {
+      "id": "b-ks2-src-related-evidence",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Evidence",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/20-record-contracts/20-knowledge-system/30-evidence",
+              "label": "Evidence"
+            }
+          }
+        },
+        {
+          "insert": " describes the fact-owned rows that carry these locators and the "
+        },
+        {
+          "insert": "kind",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " enum."
+        }
+      ],
+      "children": []
+    }
+  }
+}

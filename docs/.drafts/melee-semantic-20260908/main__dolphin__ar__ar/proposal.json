@@ -1,0 +1,38 @@
+{
+  "tu": "main/dolphin/ar/ar",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/ar.c#L124-L155",
+            "why": "Initialization calls the probe; the accessor returns __AR_Size directly."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/ar.c#L244-L381",
+            "why": "DMA alias probing computes and publishes the byte capacity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbmemory.c#L336-L345",
+            "why": "Shows the immediate allocation/free pair and conditional second accessor call."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the standing claim that initialization consumes the accessor twice unconditionally and preserves the temporary allocation/free lifetime used to observe the arena base.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ar/ar:ARGetSize"
+        },
+        "type": "data_flow",
+        "value": "ARInit invokes __ARChecksize, whose DMA alias probes publish total byte capacity to __AR_Size. ARGetSize returns that value unchanged. In lbMemory_8001564C, Melee obtains its ARAM arena's lower boundary from ARAlloc(0x20) and immediately frees that temporary allocation. It selects the upper boundary with `(ARGetSize() > 0x01000000U) ? 0x01000000U : ARGetSize()`: one accessor call is unconditional and the second is evaluated only when the first result does not exceed 16 MiB."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

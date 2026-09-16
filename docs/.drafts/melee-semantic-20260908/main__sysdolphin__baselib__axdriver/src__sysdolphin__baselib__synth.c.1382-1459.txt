@@ -1,0 +1,78 @@
+1382: static inline void HSD_Synth_8038B5AC_inline(void)
+1383: {
+1384:     struct HSD_SynthSFXNode* node = getNode(HSD_Synth_804D7760);
+1385:     int i;
+1386:     int saved_interrupts;
+1387: 
+1388:     if (!node) {
+1389:         return;
+1390:     }
+1391: 
+1392:     if (node->flags & 8) {
+1393:         HSD_SynthSFXStopNode(node);
+1394:     } else if (!(node->flags & 1)) {
+1395:         node->flags |= 1;
+1396:         saved_interrupts = OSDisableInterrupts();
+1397:         if (node->volume_update_pending == 0 && !(node->flags & 8)) {
+1398:             node->volume_update_pending = 1;
+1399:             node->x20 = HSD_Synth_804D774C;
+1400:             HSD_Synth_804D774C = node;
+1401:         }
+1402:         OSRestoreInterrupts(saved_interrupts);
+1403:         for (i = 0; i < node->voice_count; i++) {
+1404:             AXSetVoicePriority(node->voice[i], 1);
+1405:         }
+1406:     }
+1407: }
+1408: 
+1409: int HSD_Synth_8038B5AC(int entrynum, u8 vol, u8 vol2, int channel)
+1410: {
+1411:     bool enabled;
+1412: 
+1413:     struct HSD_SynthSFXNode* voice_node;
+1414:     int idx;
+1415:     AXVPB* voice;
+1416: 
+1417:     PAD_STACK(8);
+1418: 
+1419:     do {
+1420:     } while (HSD_Synth_804D7778 != 0);
+1421: 
+1422:     HSD_Synth_804D7778 = 1;
+1423:     enabled = OSDisableInterrupts();
+1424: 
+1425:     if (getNode(HSD_Synth_804D7760) != NULL) {
+1426:         HSD_Synth_8038B5AC_inline();
+1427:     }
+1428:     HSD_Synth_804D7764 = entrynum;
+1429:     voice = AXAcquireVoice(0x1D, dropcallback, 0);
+1430:     idx = voice->index;
+1431:     voice_node = &hsd_SynthSFXNodes[idx];
+1432:     HSD_Synth_804D7750 += 0x40;
+1433:     if (HSD_Synth_804D7750 < 0) {
+1434:         HSD_Synth_804D7750 = 0x40;
+1435:     }
+1436:     voice_node->x27 = 2;
+1437:     voice_node->x0 = HSD_Synth_804D7760 = HSD_Synth_804D7750 + idx;
+1438:     voice_node->sfx_id = 0;
+1439:     voice_node->flags = 8;
+1440:     voice_node->voice_count = 1;
+1441:     voice_node->xB = (u8) channel;
+1442:     voice_node->voice[0] = voice;
+1443:     voice_node->x18[0] = 1.0F;
+1444:     voice_node->x18[1] = 1.0F;
+1445:     voice_node->unk28 = 0.003921569F * vol;
+1446:     voice_node->user_vol[0].volume = 0.003921569F * vol;
+1447:     voice_node->user_vol[0].x4 = 0;
+1448:     voice_node->user_vol[0].x8_float = 0.003921569F * vol2;
+1449:     voice_node->user_vol[1].volume = 0.003921569F * vol2;
+1450:     voice_node->user_vol[1].x4 = 0;
+1451:     voice_node->user_vol[1].x8 = 0x80;
+1452:     voice_node->x44 = 1.0F;
+1453:     voice_node->x48 = 0.0F;
+1454:     voice_node->x4C = 0.0F;
+1455:     HSD_DevComRequest(entrynum, 0, 0, 0x80, 0x22, 1,
+1456:                       HSD_SynthPStreamHeaderCallback, NULL);
+1457:     OSRestoreInterrupts(enabled);
+1458:     return HSD_Synth_804D7760;
+1459: }

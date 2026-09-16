@@ -1,0 +1,24 @@
+## Luigi Cyclone semantic review
+
+The owned C file implements Luigi's down-special callback family; the header declares all eleven public callbacks. Both canonical and rendered files were read completely. Rendered substitutions were treated as hypotheses, not independent evidence.
+
+### Startup and state
+Both entry functions explicitly select `ftLg_MS_SpecialAirLw`, including the grounded-named entry. They clear command variable 2, perform animation setup, clamp horizontal self-velocity using the aerial momentum attribute, initialize move-local fields, install rotation-reset damage/death callbacks, spawn effect `0x509`, and install effect-hitlag callbacks. Shared initialization clears commands 0 and 1, zeroes `groundVelX`, assigns `unk = x88_LUIGI_CYCLONE_UNK + 1`, and clears `isUnkColl`; it does not explicitly initialize command 3 or persistent Cyclone charge. Ground entry uses `x70 - x8C` for initial vertical velocity. Air entry uses `x70` when the persistent flag is nonzero and `x70 - x8C` otherwise. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispeciallw.c#L29-L121)
+
+### Animation and completion
+Both IASA bodies are empty. Aerial animation consumes nonzero command 1 and sets persistent charge true before checking animation completion. Both completion paths clear damage/death callbacks. Ground completion calls `ft_8008A2BC`; its ordinary neutral route normally reaches Wait, but has early DownSpot/common-special branches, while bosses have separate dispatch. Aerial completion first converts the landing-lag attribute to `int`; zero enters Fall, otherwise that integer is converted back to float and passed to `ftCo_80096900`. The branch is therefore not simply a test of the original attribute's nonzero value. [Callbacks](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispeciallw.c#L123-L171) [Neutral dispatcher](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109)
+
+### Movement
+Command 0 enables accumulated ending friction in both physics callbacks. The accumulator itself may become negative; only the derived horizontal argument is clamped to zero within that branch. Ground physics applies movement before testing command 2 and the B bit in `input.pressed_buttons`, then adds vertical velocity and invokes the ground-to-air helper. Air physics additionally requires persistent charge to be false for ascent, then always applies falling physics and horizontal processing. The source tests `pressed_buttons`, not an asserted held-button channel. [Physics](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispeciallw.c#L173-L257)
+
+### Collision, rotation, and lifetimes
+The source declares `ftLg_SpecialLw_CollisionBox` with initializer `{12, 0, {-6, +6}, {+6, +6}}`. Ground collision chooses between two queries according to actual ground/air mode. Failure invokes the transition helper and clears contact; success sets contact. Aerial contact invokes the landing helper, clears command 2 and persistent charge, zeroes vertical velocity, and selects `ftLg_MS_SpecialLw` at the existing animation frame. Rotation follows the floor normal only when command 3 and contact are both set; otherwise part-0 X rotation is reset to zero. [Collision](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispeciallw.c#L259-L331)
+
+The ground-to-air helper uses literal state `0x166` and flags `0x0C4C508A`, preserving the animation frame. These numeric values were not silently equated with named states. Both handoff helpers restore effect-hitlag callbacks but do not explicitly reinstall rotation-reset damage/death callbacks. Common motion-changing code contains a reset block for those slots, so uninterrupted callback registration throughout the entire move is not established. [Transition](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispeciallw.c#L173-L184) [Common reset](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1370-L1389)
+
+Persistent charge is distinct from move-local initialization: aerial animation sets it, aerial entry and physics read it, and landing clears it. Fighter creation explicitly documents a stale-allocation concern involving this field; no guaranteed initial false value is inferred. [Creation warning](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L846-L863)
+
+### Evidence limits
+No compiled artifacts were supplied. Source declarations and floating-point literals do not establish `.data` object correspondence, section extent, `.sdata2` contents, or literal-load provenance. Those baseline claims and the two section-based links remain unresolved. The gameplay-difficulty claim likewise exceeds the independently reviewed canonical evidence.
+
+Status: synthesized; independent review and live promotion pending.

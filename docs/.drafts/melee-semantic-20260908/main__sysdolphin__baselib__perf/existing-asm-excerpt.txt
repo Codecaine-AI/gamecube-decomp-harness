@@ -1,0 +1,38 @@
+# .text:0x80 | 0x8037E23C | size: 0x74
+.fn HSD_PerfSetCPUTime, global
+/* 8037E23C 0037AE1C  7C 08 02 A6 */	mflr r0
+/* 8037E240 0037AE20  90 01 00 04 */	stw r0, 0x4(r1)
+/* 8037E244 0037AE24  94 21 FF F0 */	stwu r1, -0x10(r1)
+/* 8037E248 0037AE28  4B FC E1 A9 */	bl OSGetTime
+/* 8037E24C 0037AE2C  80 AD C0 5C */	lwz r5, start_time+0x4@sda21(r0)
+/* 8037E250 0037AE30  80 0D C0 58 */	lwz r0, start_time@sda21(r0)
+/* 8037E254 0037AE34  7C 85 20 10 */	subfc r4, r5, r4
+/* 8037E258 0037AE38  7C 60 19 10 */	subfe r3, r0, r3
+/* 8037E25C 0037AE3C  4B FA 4B 45 */	bl __cvt_sll_flt
+/* 8037E260 0037AE40  3C 60 80 00 */	lis r3, 0x8000
+/* 8037E264 0037AE44  C8 42 ED 38 */	lfd f2, "@11"@sda21(r0)
+/* 8037E268 0037AE48  80 03 00 F8 */	lwz r0, 0xf8(r3)
+/* 8037E26C 0037AE4C  3C 80 88 89 */	lis r4, 0x8889
+/* 8037E270 0037AE50  38 84 88 89 */	subi r4, r4, 0x7777
+/* 8037E274 0037AE54  54 00 F0 BE */	srwi r0, r0, 2
+/* 8037E278 0037AE58  7C 04 00 16 */	mulhwu r0, r4, r0
+/* 8037E27C 0037AE5C  54 00 D9 7E */	srwi r0, r0, 5
+/* 8037E280 0037AE60  90 01 00 0C */	stw r0, 0xc(r1)
+/* 8037E284 0037AE64  3C 00 43 30 */	lis r0, 0x4330
+/* 8037E288 0037AE68  3C 60 80 40 */	lis r3, HSD_PerfCurrentStat@ha
+/* 8037E28C 0037AE6C  90 01 00 08 */	stw r0, 0x8(r1)
+/* 8037E290 0037AE70  C8 01 00 08 */	lfd f0, 0x8(r1)
+/* 8037E294 0037AE74  EC 00 10 28 */	fsubs f0, f0, f2
+/* 8037E298 0037AE78  EC 01 00 24 */	fdivs f0, f1, f0
+/* 8037E29C 0037AE7C  D0 03 72 18 */	stfs f0, HSD_PerfCurrentStat@l(r3)
+/* 8037E2A0 0037AE80  80 01 00 14 */	lwz r0, 0x14(r1)
+/* 8037E2A4 0037AE84  38 21 00 10 */	addi r1, r1, 0x10
+/* 8037E2A8 0037AE88  7C 08 03 A6 */	mtlr r0
+/* 8037E2AC 0037AE8C  4E 80 00 20 */	blr
+.section .sdata2, "a"
+.balign 8
+
+# .sdata2:0x0 | 0x804DE718 | size: 0x8
+.obj "@11", local
+	.double 4503599627370496
+.endobj "@11"

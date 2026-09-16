@@ -1,0 +1,55 @@
+{
+  "tu": "main/dolphin/gx/GXTexture",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L186-L207",
+            "why": "Clearing and mipmap-dependent filter, flag and LOD state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L254-L269",
+            "why": "Preload metadata calculation, bit-1 setting and CI clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L552-L559",
+            "why": "Bit 1 controls the optional TLUT binding path."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported interpretation of flag bit 1 as preload-metadata validity. Its demonstrated consumer controls palette binding; CI clearing does not invalidate or erase loadFmt/loadCnt. The supported mipmap behavior is preserved.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXTexture:GXInitTexObj"
+        },
+        "type": "state_behavior",
+        "value": "Initialization clears the descriptor and always sets flag bit 1, which causes texture binding to omit the TLUT callback/write path. GXInitTexObjCI subsequently clears that bit while retaining the computed preload metadata and recording a TLUT name. A nonzero mipmap argument also sets flag bit 0, selects format-dependent initial minification filtering, and writes 16 times floor(log2(max(width, height))) into the maximum-LOD field. Without mipmapping, the non-mipmapped filter is selected and the cleared mipmap flag and maximum-LOD field remain zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L271-L310",
+            "why": "Complete signature, bias replacement branches, conversions, filter assertion and packed field assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the signature, field widths and useful parameter semantics while replacing the inaccurate claim of clamping to [-4,3.99] with the exact threshold behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXTexture:GXInitTexObjLOD"
+        },
+        "type": "inferred_type",
+        "value": "Signature: void GXInitTexObjLOD(GXTexObj *obj, GXTexFilter min_filt, GXTexFilter mag_filt, f32 min_lod, f32 max_lod, f32 lod_bias, u8 bias_clamp, u8 do_edge_lod, GXAnisotropy max_aniso). The public descriptor is accessed through __GXTexObjInt. Minimum and maximum LOD are independently bounded to [0,10], multiplied by 16 and converted to eight-bit fields, giving 1/16-level encoding. Bias below -4 is replaced by -4, and bias at least 4 is replaced by 3.99; otherwise it is unchanged, including values in (3.99,4). Bias is then multiplied by 32 and converted through u8 for the eight-bit field. The debug min-filter assertion permits values 0 through 5; magnification encodes whether mag_filt equals GX_LINEAR; anisotropy occupies two bits. These operations do not establish behavior for non-finite floating-point inputs."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

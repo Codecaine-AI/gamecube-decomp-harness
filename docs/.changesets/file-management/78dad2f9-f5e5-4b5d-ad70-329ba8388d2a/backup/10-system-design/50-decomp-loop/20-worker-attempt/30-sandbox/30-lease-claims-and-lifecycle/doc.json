@@ -1,0 +1,418 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution-30-lease-claims-and-lifecycle",
+  "title": "Lease, Claims, and Lifecycle",
+  "root": "b-day-lease-root",
+  "blocks": {
+    "b-day-lease-root": {
+      "id": "b-day-lease-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "dispatch-lease",
+          "lease-id",
+          "target-claim",
+          "orphan",
+          "recovery",
+          "stop-while-thinking",
+          "warm-pool"
+        ]
+      },
+      "children": [
+        "b-day-lease-1",
+        "b-day-lease-4",
+        "b-day-lease-5",
+        "b-audit-0c7ef4790e3e",
+        "b-day-lease-10",
+        "b-day-lease-6",
+        "b-day-lease-7",
+        "b-day-lease-8",
+        "b-day-lease-12",
+        "b-day-lease-13",
+        "b-day-lease-16",
+        "b-day-lease-11",
+        "b-audit-2de3e8e19d67",
+        "b-day-lease-17",
+        "b-audit-83280315bd15",
+        "b-audit-399360daa231",
+        "b-audit-770617e374b9",
+        "b-audit-5971309a54a6"
+      ]
+    },
+    "b-day-lease-1": {
+      "id": "b-day-lease-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The worker job lease and target claim authorize sandbox execution. The sandbox adds capacity and workspace isolation but cannot claim queue work or mutate harness state by itself."
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-4": {
+      "id": "b-day-lease-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Structure"
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-5": {
+      "id": "b-day-lease-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The host atomically acquires the queue job and target claim, creates worker state, and obtains a ClaimToken. "
+        },
+        {
+          "insert": "buildWorkerTask",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " then provisions and seeds the sandbox outside the database transaction. It persists "
+        },
+        {
+          "insert": "sandbox_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " on the job before launching the host worker child."
+        }
+      ],
+      "children": []
+    },
+    "b-audit-0c7ef4790e3e": {
+      "id": "b-audit-0c7ef4790e3e",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Sandbox Label",
+          "Binding"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "game_id",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "run_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Owning game and run."
+          ],
+          [
+            [
+              {
+                "insert": "claim_id",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "worker_state_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Target claim and worker lifecycle record."
+          ],
+          [
+            [
+              {
+                "insert": "job_id",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "job_lease_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Worker job and current ClaimToken lease."
+          ],
+          [
+            [
+              {
+                "insert": "dispatch_lease_id",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "trace_id",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Run dispatch authority and worker trace."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-day-lease-10": {
+      "id": "b-day-lease-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The Rule"
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-6": {
+      "id": "b-day-lease-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Provision on demand for the claimed execution. The worker opens the persisted sandbox and fails if it is missing. Retry reprovisioning removes the prior sandbox before attaching a replacement."
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-7": {
+      "id": "b-day-lease-7",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Guard durable mutations with the current ClaimToken. Reconciliation uses the shared current-token predicate plus the job payload, active claim, and dispatch lease bindings."
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-8": {
+      "id": "b-day-lease-8",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Keep a stopped sandbox while its claim and lease remain live. Stopped state is expected during idle sleep and does not make the sandbox an orphan."
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-12": {
+      "id": "b-day-lease-12",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Download required evidence before worker close. Host worker-state observers trigger deletion with reason "
+        },
+        {
+          "insert": "settlement",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " at close, independently of later knowledge work."
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-13": {
+      "id": "b-day-lease-13",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Queue reap and startup reconciliation remove missed sandboxes. Provisioning failure and retry reprovisioning have dedicated cleanup reasons. The platform TTL remains a backstop."
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-16": {
+      "id": "b-day-lease-16",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Sleep and Recovery"
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-11": {
+      "id": "b-day-lease-11",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Stop While Thinking",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/30-sandbox/30-sleep-and-wake",
+              "label": "Stop While Thinking"
+            }
+          }
+        },
+        {
+          "insert": " owns the idle debounce and wake contract. Sleeping does not extend the claim deadline, queue lease, or sandbox TTL. Remote loss and failed wake use the worker failure and recovery paths."
+        }
+      ],
+      "children": []
+    },
+    "b-audit-2de3e8e19d67": {
+      "id": "b-audit-2de3e8e19d67",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Why"
+        }
+      ],
+      "children": []
+    },
+    "b-day-lease-17": {
+      "id": "b-day-lease-17",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Persisted labels and job payload bindings allow cleanup after process loss. Keeping deletion with the host preserves the same authority boundary as admission and recovery."
+        }
+      ],
+      "children": []
+    },
+    "b-audit-83280315bd15": {
+      "id": "b-audit-83280315bd15",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Historical Decision"
+        }
+      ],
+      "children": []
+    },
+    "b-audit-399360daa231": {
+      "id": "b-audit-399360daa231",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The August 18, 2026 always-running decision was superseded by the August 19 sandbox-only and stop-while-thinking contract. The retained "
+        },
+        {
+          "insert": "Proof of Concept",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/30-sandbox/70-proof-of-concept",
+              "label": "Proof of Concept"
+            }
+          }
+        },
+        {
+          "insert": " records the earlier measurements, not the current sleep policy."
+        }
+      ],
+      "children": []
+    },
+    "b-audit-770617e374b9": {
+      "id": "b-audit-770617e374b9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Sources"
+        }
+      ],
+      "children": []
+    },
+    "b-audit-5971309a54a6": {
+      "id": "b-audit-5971309a54a6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/running/workers/worker-job.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/running/workers/worker-job.ts",
+              "label": "apps/server/src/core/harness-runtime/phases/running/workers/worker-job.ts"
+            }
+          }
+        },
+        {
+          "insert": " provisions and observes close. "
+        },
+        {
+          "insert": "apps/server/src/core/job-queue/sandbox-lifecycle.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/job-queue/sandbox-lifecycle.ts",
+              "label": "apps/server/src/core/job-queue/sandbox-lifecycle.ts"
+            }
+          }
+        },
+        {
+          "insert": " owns deletion and reconciliation."
+        }
+      ],
+      "children": []
+    }
+  }
+}

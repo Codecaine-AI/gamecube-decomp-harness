@@ -1,0 +1,153 @@
+{
+  "tu": "main/melee/it/kinds/itpatapata",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L26-L41",
+            "why": "Registers the same physics callback for states 2 and 3."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L160-L203",
+            "why": "Shows all three profile branches and the turn triggers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects constant ascent to acceleration and records that the physics callback is shared by states 2 and 3. The existing Fly_Phys name remains appropriate.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpatapata:itPatapata_UnkMotion3_Phys"
+        },
+        "type": "purpose",
+        "value": "Updates Patapata's airborne velocity in motion states 2 and 3 according to the configured movement profile in patapata.x40. Profile 0 adds the stored vertical acceleration x30 to vertical velocity; profile 1 independently updates timer-driven horizontal and vertical oscillation; profile 2 updates vertical oscillation. The callback also initiates turning at its guarded event and horizontal-countdown triggers."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L103-L149",
+            "why": "Complete profile initialization and unconditional tail."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L26-L41",
+            "why": "State 2 selects animation ID 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1120-L1184",
+            "why": "Separates the motion-state and flags inputs from the table-derived animation ID."
+          }
+        ],
+        "op": "write",
+        "rationale": "The third state-change argument is flags, not an animation index. Also preserves the unmatched-selector branch and the horizontal-velocity lifetime in profile 2.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpatapata:it_802E0734"
+        },
+        "type": "data_flow",
+        "value": "Reads the movement-profile selector patapata.x40 and article-specific attributes. Cases 0, 1, and 2 initialize profile-dependent velocity, acceleration and countdown fields; case 2 does not overwrite horizontal velocity. The common tail clears Z velocity, forwards the object and facing direction to it_8027C56C, calls it_802756E0, and requests motion state 2 with state-change flags 2 through it_802E1648. State 2's table row supplies animation ID 1. Unmatched selector values skip profile initialization but still execute the common tail."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L265-L280",
+            "why": "Shows selector handling, velocity assignment, state request and subsequent facing reversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L26-L41",
+            "why": "Establishes animation ID 2 independently from the call arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1120-L1184",
+            "why": "Establishes the state-change argument semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the interpretation of the wrapper's third argument while retaining the independently supported state-3 animation ID and the ordering of facing reversal.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpatapata:it_802E0D9C"
+        },
+        "type": "data_flow",
+        "value": "Reads patapata.x40 and, only for profile 0, sets horizontal velocity to -facing_dir multiplied by attrs->x0->x4. Other selector values leave velocity unchanged locally. It then requests motion state 3 with state-change flags 2 through it_802E1648 and finally negates facing_dir. State 3's table row independently supplies animation ID 2. For profile 0, the assigned horizontal velocity therefore points along the new facing direction."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L548-L578",
+            "why": "Exact signature, allocation guard, selector storage, signed comparison and facing normalization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L103-L149",
+            "why": "Shows the known profile implementations without establishing a restricted input domain."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes known profile cases from an enforced argument range and preserves the signed less-than branch and facing normalization.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpatapata:it_802E16F8"
+        },
+        "type": "inferred_type",
+        "value": "Nullable Patapata constructor with canonical signature Item_GObj* (s32 arg0, Vec3* pos, s32 facing). Semantically, arg0 is a signed movement-profile selector stored in patapata.x40, pos supplies the spawn position, and facing supplies the logical facing direction. Profiles 0, 1 and 2 have explicit movement implementations, but the constructor does not validate that domain: every signed selector is stored, and every value less than 2 takes the preliminary state-0 path. Collision facing is normalized to -1 only for logical facing -1, and to +1 otherwise."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L375-L407",
+            "why": "Shows the original actor entering state 6, looping its animation and handling terrain contact."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L506-L525",
+            "why": "Shows that the Nokonoko successor is a distinct object."
+          }
+        ],
+        "op": "write",
+        "rationale": "Clarifies the object-lifetime boundary obscured by the previous shell discussion while retaining the supported thrown-state mapping.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpatapata:itPatapata_UnkMotion6_Anim"
+        },
+        "type": "game_mapping",
+        "value": "Provides the repeating animation for the Patapata/Koopa Paratroopa actor's own thrown motion state 6. This state belongs to the original Patapata object, not the separate Nokonoko object created by wing-loss conversion; its paired collision callback removes the thrown Patapata on qualifying terrain contact."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L375-L407",
+            "why": "Complete Patapata thrown-state entry and callback family."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpatapata.c#L506-L525",
+            "why": "Separate successor construction and state transfer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported implication that this callback initializes the successor inside its shell.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpatapata:it_2725_Logic4_Thrown"
+        },
+        "type": "game_mapping",
+        "value": "Implements thrown-state entry for the Patapata/Koopa Paratroopa actor itself: shared throw setup and counter resets precede entry into state 6, whose callbacks provide looping animation, falling physics and terrain-impact removal. It is distinct from the separately allocated Nokonoko successor's later behavior after wing loss."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

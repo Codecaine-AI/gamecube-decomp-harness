@@ -1,0 +1,164 @@
+{
+  "tu": "main/melee/lb/lb_00CE",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lb_00CE:expf"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 expf(f32 arg8). Input and result are f32; the body implements a natural-exponential approximation rather than proving standard-library accuracy or special-value behavior.",
+        "rationale": "Replace unsupported mathematical equivalence or unconditional numeric guarantee with canonical arithmetic and its explicit limits.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00CE.c#L27-L61",
+            "why": "Canonical arithmetic, comparisons and control flow establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lb_00CE:expf"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Accumulates the Maclaurin series for exp(abs(input)), starting from 1+abs(input) and adding power/factorial terms until exact f32 equality says the sum stopped changing. Negative inputs select the reciprocal. No iteration cap, overflow or nonfinite guard is present. NaN partial sums never satisfy the equality stop condition; termination is not guaranteed for nonfinite or overflowed intermediates.",
+        "rationale": "Replace unsupported mathematical equivalence or unconditional numeric guarantee with canonical arithmetic and its explicit limits.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00CE.c#L27-L61",
+            "why": "Canonical arithmetic, comparisons and control flow establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lb_00CE:lb_8000D148"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "All seven f32 inputs flow through local arithmetic only. Let dx=x1-x0, dy=y0-y1 and c=x0*y1-y0*x1. The first gate uses abs(c+dx*x2+dy*y2)/sqrt(dx*dx+dy*dy), not abs(c+dy*x2+dx*y2)/length. If it passes, squared distances from point2 to each endpoint and threshold squared feed the Boolean endpoint/axis tests. No persistent state is written.",
+        "rationale": "Replace unsupported mathematical equivalence or unconditional numeric guarantee with canonical arithmetic and its explicit limits.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00CE.c#L160-L223",
+            "why": "Canonical arithmetic, comparisons and control flow establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lb_00CE:lb_8000D148"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "s32 lb_8000D148(f32 point0_x, f32 point0_y, f32 point1_x, f32 point1_y, f32 point2_x, f32 point2_y, f32 threshold). Every explicit return is zero or one. Endpoint/point/threshold roles describe the arithmetic; circle-center/radius semantics are not established by the implementation.",
+        "rationale": "Replace unsupported mathematical equivalence or unconditional numeric guarantee with canonical arithmetic and its explicit limits.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00CE.c#L160-L223",
+            "why": "Canonical arithmetic, comparisons and control flow establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lb_00CE:lb_8000D148"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Returns a Boolean from three 2D coordinate pairs and threshold. Rejects squared endpoint separation below 1e-5. Computes abs(x0*y1-y0*x1+(x1-x0)*x2+(y0-y1)*y2)/sqrt(separation_squared), gates it against threshold, then uses endpoint squared distances and strict coordinate straddling. This expression is not the usual perpendicular point-to-line distance.",
+        "rationale": "Replace unsupported mathematical equivalence or unconditional numeric guarantee with canonical arithmetic and its explicit limits.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00CE.c#L160-L223",
+            "why": "Canonical arithmetic, comparisons and control flow establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lb_00CE:lb_8000D148"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "After the initial ratio passes, both endpoint distances strictly below threshold squared return zero. One strictly inside and the other outside or equal returns one. Both strictly outside return one only when the third point lies strictly between endpoint coordinates on at least one axis. Equality of the first endpoint distance returns one. These branches do not establish a correct circle-boundary intersection predicate because the preceding ratio uses swapped coordinate coefficients.",
+        "rationale": "Replace unsupported mathematical equivalence or unconditional numeric guarantee with canonical arithmetic and its explicit limits.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00CE.c#L160-L223",
+            "why": "Canonical arithmetic, comparisons and control flow establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lb_00CE:powi"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns zero for base zero or negative exponent; otherwise performs exponent signed-integer multiplications from result one. Nonzero base with zero exponent returns one. Signed overflow is unchecked. The ordinary multiplication count applies only while arithmetic remains defined; no overflow detection or wider accumulator exists.",
+        "rationale": "Replace unsupported mathematical equivalence or unconditional numeric guarantee with canonical arithmetic and its explicit limits.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00CE.c#L87-L110",
+            "why": "Canonical arithmetic, comparisons and control flow establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/lb/lb_00CE.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "All callable functions receive scalar values and return scalar results without persistent writes. powf calls local expf; angle calculation calls atanf; the threshold predicate calls sqrtf. The MUST_MATCH-only sdata2_order helper mentions constants but does not itself establish their compiled section layout.",
+        "rationale": "Replace unsupported mathematical equivalence or unconditional numeric guarantee with canonical arithmetic and its explicit limits.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00CE.c#L11-L223",
+            "why": "Canonical arithmetic, comparisons and control flow establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/lb/lb_00CE.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides stateless scalar exponential and real-power approximations, integer repeated multiplication, a quadrant-aware angle helper and a seven-scalar geometric threshold predicate. The latter uses a nonstandard line-ratio expression, so a general line-segment/circle intersection contract is not established.",
+        "rationale": "Replace unsupported mathematical equivalence or unconditional numeric guarantee with canonical arithmetic and its explicit limits.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00CE.c#L11-L223",
+            "why": "Canonical arithmetic, comparisons and control flow establish the bounded claim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,10 +1,10 @@
-import { forceReportRun, recordReportRunDashboardArtifacts } from "@server/core/validation/report";
-import { getLatestRun, openState } from "@server/core/cycle-runtime/run-state";
+import { forceReportRun, recordReportRunDashboardArtifacts, reportRunOptionsForGame } from "@server/core/validation/report";
+import { getLatestRun, openState } from "@server/core/harness-runtime/run-state";
 import { booleanArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 
 export async function reportRun(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const resetBaseline = booleanArg(args, "--reset-baseline");
-  const result = await forceReportRun(globals.repoRoot, { resetBaseline });
+  const result = await forceReportRun(globals.repoRoot, { ...reportRunOptionsForGame(globals.game), resetBaseline });
   const store = openState(globals.stateDir);
   try {
     const run = getLatestRun(store);

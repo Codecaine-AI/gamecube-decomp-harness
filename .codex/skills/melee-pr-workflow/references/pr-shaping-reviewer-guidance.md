@@ -84,12 +84,21 @@ mental model and lets the bot compare like with like.
 Write the PR body as a reviewer-facing digest. It should let a maintainer know
 what to expect before opening the diff.
 
+Include the reuse and credit note in AI-assisted PRs for any game, including
+Melee and SMS, and for general tooling changes.
+
 ```markdown
 ## Summary
 
 - <main change in reviewer terms>
 - <secondary change, if any>
 - <verification or matching outcome>
+
+## Reuse and Credit
+
+People and agents are welcome to use or adapt anything from this PR as needed.
+If you reference or reuse any of this work, please credit and link back to this
+PR so maintainers know it originated in an AI-assisted PR.
 
 ## PR Shape
 

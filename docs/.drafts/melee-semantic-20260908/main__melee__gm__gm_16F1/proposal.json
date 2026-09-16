@@ -1,0 +1,222 @@
+{
+  "tu": "main/melee/gm/gm_16F1",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16F1:gm_8016F208"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "gmDecisionGetSisTextId",
+        "rationale": "Distinguishes the localized SIS identifier from fn_8016F280's identifier-minus-two index, resolving the rendered name collision while preserving the existing normalized-accessor name.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L63-L81",
+            "why": "Raw localized ID versus minus-two wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L113-L160",
+            "why": "Equivalent u16 lookup feeds SIS text assignment directly."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16F1:fn_801701C0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives a result context, player slot, and decision kind. After the suppression guard, rules->x5 == 3 imports the cached six rank bytes and maximum; other values compute score ranks from active player records and the signed self-destruct coefficient. This selector is distinct from team scoring, which the cached-rank producer controls with rules byte 6. The switch reads result fields, packed flags, and player statistics, recursively excludes companion conditions, and returns a zero/one qualification used by enumeration and scoring. Canonical source declares scores[4] but indexes it in six-slot loops, so the apparent six-slot calculation must not be described as bounds-safe.",
+        "rationale": "Corrects the unsupported team-mode label and preserves a material source ambiguity in the ranking path.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L449-L563",
+            "why": "Cache guard, scratch declaration, six-slot loops and recursive predicates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1177-L1215",
+            "why": "Separate team-scoring selector."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16F1:fn_8017279C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Scans until record ID 0x42, skipping nonmatching IDs, nonoverlapping masks, and null callbacks. Returns the first applicable callback's Boolean result, or false if none is invoked. The dispatcher makes no direct state writes and does not itself register a message, but it is not transitively read-only: installed callbacks fn_80173510, fn_801735F0, and fn_8017367C can latch save-backed milestone fields before returning. The caller separately performs message registration.",
+        "rationale": "Corrects the no-persistent-mutation claim without changing the valid dispatcher name or lookup description.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1543-L1600",
+            "why": "Installed callbacks and dispatcher."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L2068-L2112",
+            "why": "Callback writes to milestone latches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16F1:.data"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source declares an initialized int bonus-point table; a descriptor aggregate whose entries have fields {s16 kind; u16 x2; u8 x4; u8 x5; u8 x6;} and whose array count is 0x80C / sizeof(entry), followed by u8 pad[4]; and a progression table declared ATTRIBUTE_ALIGN(8), with entries {u16 record_id; u16 eligibility_mask; bool (*condition)(void);}. With eight-byte descriptors, integer division gives 257 entries occupying 0x808 bytes, not a 0x80C-byte descriptor array; the explicit four bytes follow it. These declarations establish source shapes, not compiled section extent, object ordering, or padding beyond the declared fields.",
+        "rationale": "Corrects confusion between a count expression and allocated array bytes and removes unsupported compiled composition claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.static.h#L15-L75",
+            "why": "Point table, descriptor fields, integer-divided count and explicit padding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L29-L33",
+            "why": "Progression entry declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1543-L1586",
+            "why": "Source alignment annotation and table."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16F1:gm_80172C44"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives a trophy ID from Toy acquisition processing when (s32) Toy_803060BC(id, 6) equals 1: 6 is the metadata selector, not the qualifying category value. It forwards the ID first to gmMainLib_8015DA68 to clear the saved registration marker, then to gmMainLib_8015D984, which timestamps the ID and sets runtime-pending and saved registration markers. The wrapper ignores the registration return value.",
+        "rationale": "Corrects the caller's category/selector conflation while preserving the supported force-registration flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/toy.c#L1202-L1204",
+            "why": "Exact metadata selector and category guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1757-L1761",
+            "why": "Ordered forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L658-L705",
+            "why": "Timestamp and marker effects."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16F1:gm_801733D8"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Selects still-locked Mr. Game & Watch when fn_80172FAC finds every selectable-character index except 3 complete in one entire supported record family. At this revision those three families are Target Test (x1C), Classic (x10), and Adventure (x14); the helper does not test the separate All-Star x18 mask. Target Test result processing records progress before querying this selector and uses a qualifying CharacterKind to schedule Challenger Approaching, not to unlock the fighter directly.",
+        "rationale": "Replaces the four-mode description with the three routes actually implemented, preserving the encounter-versus-unlock distinction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1892-L1927",
+            "why": "Three complete-family routes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L353-L481",
+            "why": "Mask accessors and distinct All-Star mask."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_17C0.c#L427-L457",
+            "why": "Classic/Adventure/All-Star writers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmultiman.c#L354-L401",
+            "why": "Target Test writer and encounter consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gm/gm_16F1.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides game-manager policy for decision/bonus metadata, signed point valuation, filtered results-list traversal, score rankings and historical first/last qualifications, persistent progression-message conditions and reconciliation, trophy reward bookkeeping, and unlockable-character or stage candidate selection. Challenger selectors inspect current and saved progression and return still-locked fighters for separate encounter setup; they do not directly unlock those fighters.",
+        "rationale": "Repairs corrupted repeated wording and captures the unit's substantial scoring and standings responsibilities.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L35-L432",
+            "why": "Metadata, traversal, scoring."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1133-L1272",
+            "why": "Standings/history."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1543-L2112",
+            "why": "Progression and candidate policy."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gm/gm_16F1.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Decision kinds and indices resolve to descriptor masks, flag/point types, localized SIS IDs, and raw-ID-derived signed base points. Stored player quantities and computed result predicates determine qualifying entries; valuation produces per-entry and aggregate points while presentation fills ordered text rows. Live player statistics produce cached ranks and persistent match-lifetime extreme-rank qualifications. Progression callbacks read accomplishment records and can latch save fields; registration writes message timestamps and acquired/pending bits, while reconciliation selectively clears them. Trophy staging preserves runtime pending state for Prize processing. Character and stage selectors return candidates to external encounter/grant routines.",
+        "rationale": "Repairs corrupted TU prose and records the important separation between source domains, runtime trophy staging, persistent notices, and external grant/encounter consumers.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L35-L432",
+            "why": "Decision data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1149-L1272",
+            "why": "Rank/history flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L593-L705",
+            "why": "Message and trophy state domains."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1BFA.c#L195-L239",
+            "why": "Pending trophy materialization and runtime reset."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

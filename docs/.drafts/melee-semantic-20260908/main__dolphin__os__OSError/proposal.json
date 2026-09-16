@@ -1,0 +1,50 @@
+{
+  "tu": "main/dolphin/os/OSError",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L12-L18",
+            "why": "Exact signature and complete variadic forwarding body."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the exact revision-scoped signature from a const-qualified semantic approximation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSError:OSReport"
+        },
+        "type": "inferred_type",
+        "value": "Canonical definition: `void OSReport(char* msg, ...)`. The first argument is a printf-style format string forwarded unchanged to vprintf with a locally initialized va_list. This wrapper does not modify the string; that usage does not make the declared parameter const-qualified."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L51",
+            "why": "Assertion followed by separate indexed read, write, and return, without synchronization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L10-L10",
+            "why": "Authored table declaration has 15 entries."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes unsupported atomicity and unconditional bounds-protection claims while preserving the per-slot replacement semantics and declaration-bound ambiguity.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSError:OSSetErrorHandler"
+        },
+        "type": "state_behavior",
+        "value": "Reads OSErrorTable[error], replaces that slot with handler, and returns the previous callback; NULL clears the slot. The source contains ASSERTMSGLINE(error < __OS_EXCEPTION_MAX) before access, but performs separate read and write operations without explicit interrupt masking, scheduler control, or an atomic exchange primitive. The assertion's runtime enforcement depends on its build-time definition, and this body does not independently validate error against the literal array bound of 15."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

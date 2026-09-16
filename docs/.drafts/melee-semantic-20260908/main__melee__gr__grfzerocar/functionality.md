@@ -1,0 +1,11 @@
+# FZero Car Semantic Review
+
+All 264 owned canonical/rendered lines, 1 functions, four data targets, 5 entities and 30 facts reviewed. 4 empty parameter entities have explicit dispositions. {'unresolved': 21, 'supersede': 8, 'retain': 1}; 8 proposed writes. All 5 outgoing links reviewed.
+
+## grFZeroCar_801CAFBC
+
+Constructs model hierarchy in fixed30-entry pass; count is not loop bound. Uses existing root child for entry0 and data interpreted as s16 array only at indices1..29. Root gets unit scale; obtains ground scale once. Nonzero mode calls lb_8000F9F8 on each car root, whose effects are delegated. Allocates transform JObjs, asserts on failure, writes identity matrix and scl=NULL, and calls HSD_JObjAddNext(child,transform). Reviewed AddNext places existing node/sibling chain beneath transform, not ordinary sibling insertion; for entries1..29 then adds transform under root. Additional model lookup NULL asserts without rollback. Per car, copies translate(0,0,0), rotation(0,0,0,1) and multiplies transform scale XYZ by ground scale. Counts non--1 configured attachment slots (not successful lookups):1=>1.1,2/3=>1.0,4=>0.9 XY factor. Each slot independently starts at car root and invokes Ground_801C4100 repeatedly for its index; -1 skips, exhausted traversal yields NULL. Reviewed traversal skips instance children and can ascend outside starting car subtree. Resolves all four joints before attaching components, then calls owned helper for nonnull joints. Count narrows to s16 for helper and descriptor byte offset(s16)count*0x34; no range checks. No timer, recurring callback, idempotence guard or safe partial-construction recovery.
+
+## Limits
+
+count is a narrowed resource selector; exactly30 entries are processed with data[0] unused. Scale uses configured non--1 slots, not successful traversal or component loading. Missing component model still allows parent XY scaling; missing base model asserts without rollback. Ground traversal may ascend outside starting car subtree and skips instance descendants. Reviewed HSD_JObjAddNext wraps existing sibling chain beneath new transform; it does not append an ordinary sibling. No source, shared knowledge, compilation, matching, publishing or UI changes.

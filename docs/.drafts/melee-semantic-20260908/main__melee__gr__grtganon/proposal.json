@@ -1,0 +1,72 @@
+{
+  "tu": "main/melee/gr/grtganon",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtganon:.data"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source declares an unsized StageCallbacks grTGn_StageCallbacks[] array with three populated records and a fourth all-null record, followed in source by StageData grTGn_StageData. These declarations establish source-level types and initializers, not compiled section membership, ordering, or layout.",
+        "rationale": "Preserves the useful declaration-level description while removing the unsupported claim that source alone establishes a writable compiled section and its contents.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtganon.c#L15-L37",
+            "why": "Complete callback-array and descriptor declarations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtganon:.sbss"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source declares module-static grTGn_YakumonoParam* yakumono_param without an explicit initializer. Its pointed-to structure contains three DynamicsDesc* fields, x0, x4, and x8, selected for ceiling, right-wall, and left-wall lines respectively. The declaration establishes C static zero initialization, but does not by itself prove compiled small-data section placement.",
+        "rationale": "Corrects the unsupported compiled-storage assertion without losing the pointer type or semantic field order.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtganon.c#L39-L45",
+            "why": "Structure and module-static pointer declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtganon.c#L160-L185",
+            "why": "Field selection establishes the three surface associations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtganon:grTGanon_802249B4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The lookup performs no local mutation. Line -1 returns NULL without a map query; otherwise only a joint result of 0 proceeds to kind selection. Ceiling, right-wall, and left-wall branches return x0, x4, and x8 from yakumono_param; all other branches return NULL. Accepted branches dereference yakumono_param without checking it, requiring a valid table supplied by initialization and kept alive externally. Returned descriptors are neither allocated nor copied here. The -1 check does not establish safety for arbitrary out-of-range line IDs.",
+        "rationale": "Adds missing useful state and lifetime knowledge: exact early rejection, read-only behavior, unchecked cache precondition, and limits of invalid-input handling.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtganon.c#L39-L65",
+            "why": "Static cache is assigned from the shared parameter provider during initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtganon.c#L160-L185",
+            "why": "Complete guards, direct descriptor returns, absence of cache validation and local mutation."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

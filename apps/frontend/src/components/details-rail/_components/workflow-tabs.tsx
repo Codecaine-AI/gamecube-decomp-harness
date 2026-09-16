@@ -1,4 +1,4 @@
-import { cycleTabForSubPage, type CycleTab } from "@/routing";
+import { workflowTabForSubPage, type WorkflowTab } from "@/routing";
 import type { KeyboardEvent } from "react";
 
 import type { DetailsRailProps } from "../_lib/types";
@@ -10,9 +10,9 @@ export function WorkflowTabs({
   onSelect,
   route,
   view,
-}: Pick<DetailsRailProps, "route" | "view"> & { onSelect: (tab: CycleTab) => void }) {
-  const routeSub = route.kind === "workspace" ? route.cycleSub : undefined;
-  const activeTab = cycleTabForSubPage(routeSub ?? view.recommendedSub);
+}: Pick<DetailsRailProps, "route" | "view"> & { onSelect: (tab: WorkflowTab) => void }) {
+  const routeSub = route.kind === "workspace" ? route.harnessSub : undefined;
+  const activeTab = workflowTabForSubPage(routeSub ?? view.recommendedSub);
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number): void {
     let nextIndex: number | null = null;
@@ -28,7 +28,7 @@ export function WorkflowTabs({
   }
 
   return (
-    <nav aria-label="Cycle workflow" className="grid grid-cols-3 gap-1.5 border-b border-line2 bg-panel p-2" role="tablist">
+    <nav aria-label="Harness workflow" className="grid grid-cols-3 gap-1.5 border-b border-line2 bg-panel p-2" role="tablist">
       {DETAILS_WORKFLOW_TABS.map((item, index) => {
         const active = item.id === activeTab;
         return (

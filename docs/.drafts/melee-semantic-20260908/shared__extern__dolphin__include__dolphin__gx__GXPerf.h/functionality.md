@@ -1,0 +1,9 @@
+## GX performance-metric declarations
+
+`GXPerf.h` is a guarded declaration-only header including `GXEnum.h`, with C linkage for C++ consumers (code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/gx/GXPerf.h#L1-L8; code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/gx/GXPerf.h#L26-L30).
+
+It declares GP metric selection using `GXPerf0` and `GXPerf1`, paired output-pointer reads, individual `u32` reads, and clearing (code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/gx/GXPerf.h#L10-L14). Memory metric reads expose ten request outputs; pixel metric reads expose top/bottom input/output, clear-input, and copy-clock outputs, each with a corresponding clear declaration (code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/gx/GXPerf.h#L15-L18). Vertex-cache declarations select a `GXVCachePerf` attribute, read check/miss/stall outputs, and clear metrics. Transform/raster declarations initialize metrics and read wait-in, wait-out, raster-busy, and clock outputs; a separate function returns clocks per vertex as `u32` (code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/gx/GXPerf.h#L19-L24).
+
+The complete rendered view matches canonical declarations, with zero substitutions or parse errors. Existing API names fit their declared interfaces; no renaming or additional fact proposal is warranted. There are no owned baseline subjects, facts, or links. Declarations alone do not establish register behavior, selector numeric meanings, read side effects, reset timing, pointer validity requirements, counter lifetimes, or compiled layout; no such implementation claims are made.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

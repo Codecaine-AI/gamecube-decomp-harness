@@ -62,7 +62,7 @@ def clang_flags_for(c_file: Path, compile_commands: Path) -> Optional[List[str]]
             if a in ("-o", "-MF", "-MT"):
                 i += 2
                 continue
-            if a.endswith(".c") or a.endswith(".o"):
+            if Path(a).suffix in {".c", ".cc", ".cpp", ".cxx", ".o"}:
                 i += 1
                 continue
             flags.append(a)

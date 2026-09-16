@@ -1,0 +1,379 @@
+{
+  "tu": "main/sysdolphin/baselib/video",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L202-L265",
+            "why": "Configuration inputs, scale calls, split geometry and scratch copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXFrameBuf.c#L408-L420",
+            "why": "Destination setter ignores ht and derives stride from wd."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXFrameBuf.c#L491-L516",
+            "why": "Scale programming and returned line-count calculation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the retained claim that the returned line count defines destination dimensions while preserving the supported configuration, geometry and discard-copy flow.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VICopyEFB2XFBPtr"
+        },
+        "type": "data_flow",
+        "value": "Copy-filter, gamma, update-enable, depth and clear values flow from HSD_VIStatus into GX state. SCREEN supplies a full-EFB source rectangle and xfbHeight/efbHeight vertical scale. GXSetDispCopyYScale returns a line count that is passed to GXSetDispCopyDst, but that callee ignores its height argument and programs only width-derived destination stride. Split passes use efbHeight minus the four-line overlap at unit scale: TOPHALF writes at buffer, while BOTTOMHALF reads below the overlap and writes at buffer plus padded framebuffer width times copied lines times two bytes. The omitted overlap strip is copied to garbage with clearing requested, discarding its pixels while retaining the clear-on-copy operation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L13-L23",
+            "why": "Read-only ascending scan without interrupt masking."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L277-L305",
+            "why": "WAITDONE is established before completion fence submission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L361-L379",
+            "why": "Downstream status priority, not chronological comparison."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the contradictory latest-completed-frame characterization from this fact itself.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VISearchXFBByStatus"
+        },
+        "type": "state_behavior",
+        "value": "This helper only observes XFB status. It scans all HSD_VI_XFB_MAX records in ascending index order, returns the lowest matching index, or returns -1. It neither mutates status nor masks interrupts itself. Callers use its results for queue transitions and pending-work tests. LastDrawDone searches WAITDONE, DRAWDONE, NEXT and DISPLAY in that priority order; WAITDONE can precede GPU completion, and neither status priority nor slot order proves chronological recency or identifies a latest completed frame."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L13-L23",
+            "why": "All records are scanned without count or pointer checks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L405-L413",
+            "why": "Absent framebuffer slots receive NONE."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the configured-slot restriction and unsupported recency implication.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VISearchXFBByStatus"
+        },
+        "type": "purpose",
+        "value": "Finds the first of the three XFB records whose status equals the requested value and returns its index, or -1 if absent. It centralizes status lookup for acquisition, queue advancement, flush tests and presentation-state selection. The scan is not restricted to configured framebuffer pointers; querying NONE can match an absent slot."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L361-L379",
+            "why": "Fixed priority selector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L277-L305",
+            "why": "WAITDONE may still represent outstanding GPU work."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbscreenshot.c#L72-L87",
+            "why": "Consumer flushes before selecting and reading the buffer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces latest/newest wording with the actual selection contract and preserves the separate synchronization requirement demonstrated by the screenshot caller.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VIGetXFBLastDrawDone"
+        },
+        "type": "purpose",
+        "value": "Selects an XFB record by fixed status priority: WAITDONE, then DRAWDONE, NEXT and DISPLAY, returning the first matching slot within the chosen status or -1 if none exists. Despite its name, it does not guarantee GPU completion, chronological recency or safe immediate CPU access to the selected buffer. Callers needing a drained presentation queue must synchronize separately."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L199-L225",
+            "why": "Software increment and delivery to PreCB and PostCB."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L117-L140",
+            "why": "Exact signature and unchanged user-callback forwarding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects counter provenance in the retained inferred_type fact rather than merely adding a separate explanation.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VIPostRetraceCB"
+        },
+        "type": "inferred_type",
+        "value": "Internal VI post-retrace callback with signature static void HSD_VIPostRetraceCB(u32 retraceCount). The argument is the software retrace counter incremented by the low-level VI interrupt handler and forwarded to both retrace callbacks, not a hardware-supplied counter value. This function forwards it unchanged to the optional user post-retrace callback after its framebuffer bookkeeping."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L393-L442",
+            "why": "Initialization, FREE states and final copy without presentation selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.h#L129-L137",
+            "why": "Unchecked framebuffer accessor and current configuration pointer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects first-displayed-frame wording and preserves the useful initialization precondition established by the final lookup.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VIInit"
+        },
+        "type": "purpose",
+        "value": "Initializes HSD video configuration, framebuffer records and internal callbacks, applies and flushes VI mode/black settings, then submits a full-screen EFB copy into the first FREE XFB. That slot remains FREE and no VISetNextFrameBuffer call occurs here, so the initial copy alone does not establish displayed-frame ownership. The VI-status pointer must be valid and at least one framebuffer must be supplied: there is no all-null guard before the final unchecked XFB lookup."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L432-L437",
+            "why": "Threshold assignment is distinct from requested VI configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L99-L109",
+            "why": "Threshold controls renewal-count publication."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the supported nominal accounting rule from unsupported gameplay and PAL-switching extrapolation.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VIInit"
+        },
+        "type": "game_mapping",
+        "value": "Initializes Melee's low-level video-presentation state and requested VI output configuration. Its renewal-accounting window is 60 pre-retrace callbacks only when VIGetTvFormat returns VI_NTSC, and 50 otherwise. This is an accounting threshold, not a gameplay frame-rate setting or proof of PAL 50/60-Hz mode-selection behavior."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L381-L385",
+            "why": "Input copied and current flag set."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L277-L305",
+            "why": "Snapshot and clear precede fence arming."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L69-L97",
+            "why": "Saved configuration consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the snapshot's timing from GPU draw completion to submission bookkeeping.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VISetConfigure"
+        },
+        "type": "data_flow",
+        "value": "Copies the caller's GXRenderModeObj into current.vi.rmode and sets current.chg_flag. During DRAWING-to-WAITDONE submission, HSD_VISetXFBWaitDone copies the complete current configuration into the selected XFB and clears the current flag before the new GX completion fence is armed. When that XFB reaches NEXT, pre-retrace reads its saved change flag and applies its render mode and black state through VIConfigure, VISetBlack and VIFlush."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L381-L385",
+            "why": "Unconditional dirtying."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L277-L290",
+            "why": "Snapshot and current-only flag clear."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L69-L97",
+            "why": "Saved flag is read, not cleared."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects both completion timing and the implied lifetime of the saved change marker.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VISetConfigure"
+        },
+        "type": "state_behavior",
+        "value": "Every call replaces the current render mode and sets current.chg_flag to 1 without an equality check or immediate VI call. In the multi-XFB path, DRAWING-to-WAITDONE submission snapshots the flag and configuration into the selected XFB and clears only current.chg_flag. Pre-retrace uses the saved flag when that XFB becomes NEXT but does not clear it; the saved record can remain marked until later overwritten. These transitions occur separately from GPU draw completion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L50-L61",
+            "why": "Read-before-mask ordering and protected store."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L142-L149",
+            "why": "Nullable dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L429-L430",
+            "why": "Initialization resets user registration."
+          }
+        ],
+        "op": "write",
+        "rationale": "The old-pointer read lies outside the critical section, contradicting the inherited atomic-exchange claim.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VISetUserGXDrawDoneCallback"
+        },
+        "type": "state_behavior",
+        "value": "Reads the old user draw-done callback before disabling interrupts, stores the new pointer while interrupts are disabled, restores the previous interrupt state and returns the earlier snapshot. This protects the store but is not an atomic read-modify-write exchange. NULL disables user notification; a non-null registration persists until replacement or initialization. The setter invokes neither callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L37-L48",
+            "why": "Pointer snapshot and protected replacement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L117-L140",
+            "why": "Consumer and forwarded argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L199-L225",
+            "why": "Software counter producer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the callback-pointer flow while correcting hardware-counter provenance and making the snapshot ordering explicit.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VISetUserPostRetraceCallback"
+        },
+        "type": "data_flow",
+        "value": "Snapshots the old post_cb pointer before interrupt masking, stores the incoming callback while interrupts are disabled, restores the prior interrupt state and returns the snapshot. Later, HSD_VIPostRetraceCB reads the current nullable slot and forwards the software-maintained VI retrace count after its own framebuffer transitions. The low-level VI interrupt handler increments that count; hardware supplies the interrupt event, not the count value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L35",
+            "why": "Snapshot, protected store and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L112-L115",
+            "why": "Unchanged count forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L199-L204",
+            "why": "Software increment before PreCB."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the explicit hardware-supplied claim while retaining the supported pointer and argument flow.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VISetUserPreRetraceCallback"
+        },
+        "type": "data_flow",
+        "value": "Receives a callback pointer, snapshots HSD_VIData.pre_cb before interrupt masking, stores the new pointer while interrupts are disabled, restores the prior interrupt state and returns the snapshot. On later pre-retraces, HSD_VIPreRetraceCB forwards its u32 argument unchanged to the current non-null callback. That argument is the software retrace counter incremented by the low-level VI interrupt handler, not a hardware-supplied counter value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L393-L442",
+            "why": "Configuration import, retained framebuffer pointers and initial copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L267-L320",
+            "why": "Snapshot, argument transport and completion transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L112-L149",
+            "why": "Retrace forwarding, deferred copy and optional completion dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L199-L225",
+            "why": "Software counter provenance."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the unit-wide flow while correcting counter provenance and clarifying submission-time metadata and retained pointer lifetimes.",
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/video.c"
+        },
+        "type": "data_flow",
+        "value": "Initialization copies the requested VI configuration and retains up to three caller-owned XFB pointers in global HSD video state, then submits an initial EFB-to-XFB copy. Multi-XFB submission snapshots current configuration at DRAWING-to-WAITDONE, stores the slot index as the GX completion argument and later advances ownership through registered completion handling and retrace callbacks. The single-XFB fallback submits a deferred copy and releases EFB bookkeeping. Both user retrace hooks receive the software counter incremented by the low-level VI interrupt handler; it is not a hardware-supplied count."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain.c#L154-L161",
+            "why": "Explicit registration of HSD_VIDrawDoneXFB."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L142-L149",
+            "why": "Internal handler only clears waiting and dispatches the optional callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L307-L320",
+            "why": "Registered callback performs XFB transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L429-L430",
+            "why": "Initialization does not install the user completion transition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful cross-file integration knowledge that explains why the internal callback alone is insufficient to drain the presentation queue.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/video:HSD_VIGXDrawDoneCB"
+        },
+        "type": "game_mapping",
+        "value": "Connects GX completion to Melee's XFB presentation bookkeeping through a user-installed callback. Melee startup registers HSD_VIDrawDoneXFB, so the stored slot index reaches the WAITDONE-to-NEXT-or-DRAWDONE transition. HSD_VIInit itself clears this user callback; without a suitable registration, the internal handler clears its waiting flag but does not advance XFB status."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,212 @@
+{
+  "tu": "main/melee/it/kinds/itkabigon",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L46-L49",
+            "why": "Complete destruction callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L4451-L4454",
+            "why": "Actual global timer write."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces obsolete camera-call spelling and an unspecified numeric selector with the verified global timer operation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkabigon:itKabigon_Logic2_Destroyed"
+        },
+        "type": "data_flow",
+        "value": "Accepts but does not use its Item_GObj pointer. Its sole call is Camera_StopQuake(QuakeKind_Small), which writes zero to the global camera's remaining-frame counter for that quake kind. It returns no value and performs no direct item mutation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L46-L71",
+            "why": "Small-quake stop versus Medium-quake request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L163-L182",
+            "why": "Small-quake request at reveal."
+          }
+        ],
+        "op": "write",
+        "rationale": "The operation is now semantically established, and the distinction between the two requested quake kinds prevents an overbroad cleanup interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkabigon:itKabigon_Logic2_Destroyed"
+        },
+        "type": "purpose",
+        "value": "Performs Kabigon's destruction-side camera cleanup by unconditionally stopping the Small-quake timer. This corresponds to the quake kind requested at the delayed reveal; it does not explicitly stop the Medium quake requested on state-0 entry or perform item-specific resource cleanup."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L109-L126",
+            "why": "Kabigon/Snorlax registry entry and callback binding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L16-L23",
+            "why": "One table contains all three motion states."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L46-L49",
+            "why": "Destruction camera operation."
+          }
+        ],
+        "op": "write",
+        "rationale": "The same registry entry owns the table containing all three motion states and this destruction callback.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkabigon:itKabigon_Logic2_Destroyed"
+        },
+        "type": "game_mapping",
+        "value": "Supplies destruction-side camera cleanup for the Snorlax Pok\u00e9 Ball summon. Logic2 identifies Kabigon's Pok\u00e9mon logic-table entry; it does not mean that this callback ends a second chronological motion phase."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L163-L189",
+            "why": "Animation completion and collision no-op."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L25-L62",
+            "why": "b3 enable and 0xE mask."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1321-L1378",
+            "why": "Independent generic boundary destruction and integration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that only the animation callback can end the state, while preserving the local collision callback's invariant behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkabigon:itKabigon_UnkMotion1_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Contains no guards, timers, calls, or transitions and always returns false, so this collision callback never requests termination. The paired animation callback returns true after the revealed item passes below the effective bottom blast boundary. That is not the only possible actor-termination route: shared item processing still integrates movement and can destroy Kabigon at enabled right, left, or bottom boundaries under b3 and mask 0xE."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L25-L71",
+            "why": "Initialization, mask write, ordered calls and downstream setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1321-L1378",
+            "why": "Exact mask consumers and b3 guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the verified consumer meaning of the flag mask and corrects the misleading description of the quake kind as a camera mode.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkabigon:it_802C9E44"
+        },
+        "type": "data_flow",
+        "value": "Derives Item from the supplied Item_GObj, writes 0xE to xDCC_flag.b4567, and forwards the object first to it_80273454 and then to it_802C9E8C. With b3 enabled by initialization, the mask retains shared right, left, and bottom boundary-destruction checks and excludes the bit-1 high-Y check. The second callee selects state 0, installs effect-hitlag callbacks and it_802CA014 as on_accessory, and requests QuakeKind_Medium with a null position."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L64-L71",
+            "why": "Entry and callback-installation order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1120-L1124",
+            "why": "Shared state-change function identity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1229-L1236",
+            "why": "Callback slots cleared by shared state change."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L119-L132",
+            "why": "Accessory consumers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the callback installation order and cross-file lifetime explicit and replaces obsolete camera naming with verified quake semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkabigon:it_802C9E8C"
+        },
+        "type": "data_flow",
+        "value": "Derives Item from Item_GObj and calls Item_80268E5C with state index 0 and ITEM_ANIM_UPDATE. After that shared state change clears accessory and hitlag callback slots, it reinstalls effect-hitlag callbacks, writes it_802CA014 to on_accessory, and calls Camera_RequestQuake(QuakeKind_Medium, NULL). The installed accessory later consumes the command gate and effect counter; a subsequent shared state change clears its registration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L64-L71",
+            "why": "Registration after state-0 entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L119-L149",
+            "why": "Exact timer guards and state-1 entry without accessory installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1229-L1236",
+            "why": "Shared state changes clear on_accessory."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact expiry condition and adds the useful cross-file lifetime boundary absent from the prior explanation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkabigon:it_802CA014"
+        },
+        "type": "state_behavior",
+        "value": "Installed after entry into state 0. A zero xDB0_itcmd_var1 leaves xE44 untouched; otherwise the callback predecrements xE44, emits an effect only when the result is exactly zero, and reloads xE44 from special attribute x14. Nonzero results do not emit or reload, so a nonpositive starting counter is not immediate expiry. It makes no local motion-state transition. Entry into state 1 clears on_accessory through Item_80268E5C and does not reinstall it, ending this registration's lifetime even if the command gate remains nonzero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkabigon.c#L212-L225",
+            "why": "Position copy, unvalidated attribute, successive formulas and spawn arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L12-L16",
+            "why": "Deterministic generator advancement and sample construction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unconditional exact radius bounds with the actual computation and its necessary qualifications.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkabigon:it_802CA3F4"
+        },
+        "type": "data_flow",
+        "value": "Copies the item's position and reads special attribute x18. Two successive HSD_Randf calls each advance the shared generator and produce a 16-bit-derived sample in [0,1). The helper adds 2.0F*x18*r-x18 to x and then y using separate samples, preserves z, and passes the local position and item object to efSync_Spawn for effect 0x405. For positive finite x18, the ideal-arithmetic offsets lie in [-x18,+x18); x18==0 gives zero offsets and negative x18 reverses the endpoint interpretation. The source does not validate x18 or establish exact post-rounding bounds or statistical independence of the successive PRNG samples."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

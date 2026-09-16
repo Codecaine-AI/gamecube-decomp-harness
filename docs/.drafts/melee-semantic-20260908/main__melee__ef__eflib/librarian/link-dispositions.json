@@ -1,0 +1,1183 @@
+{
+  "campaign": "melee-semantic-20260908",
+  "tu": "main/melee/ef/eflib",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "baseline_path": "games/melee/state/knowledge_v2/semantic-sweep-20260908/baseline-links/main__melee__ef__eflib.json",
+  "baseline_sha256": "370a5f54bc4165ac8a145ae5753a7290e90501c5999947027373ab5e11c5ade0",
+  "reviewed_at_utc": "2026-09-08T16:00:51.355581+00:00",
+  "links": [
+    {
+      "link_id": "link:3d2057b6-b8fe-4e34-9a2d-2598678a670f",
+      "baseline_record": {
+        "id": "link:3d2057b6-b8fe-4e34-9a2d-2598678a670f",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_PauseAll",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hitlag",
+        "role": "implements",
+        "why": "Fighter initialization assigns efLib_PauseAll to the enter-hitlag callback, and the function pauses effects owned by that fighter until the paired resume callback runs.",
+        "kind": "discord",
+        "locator": "discord://message/998292543018115192",
+        "digest": null
+      },
+      "disposition": "unresolved",
+      "reason": "Exact rationale guarantees pause until resume, but preserved0x80 produces0x81 and Update does not recognize it.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L285-L310",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L285-L335",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L387-L431",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L43-L47",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:11b8bc6a-054f-4752-b9a4-cc7cc0523289",
+      "baseline_record": {
+        "id": "link:11b8bc6a-054f-4752-b9a4-cc7cc0523289",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_ResumeAll",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hitlag",
+        "role": "implements",
+        "why": "Fighters assign efLib_ResumeAll specifically as their exit-hitlag callback, tying its owner-scoped effect resumption directly to the end of hitlag.",
+        "kind": "discord",
+        "locator": "discord://message/998292543018115192",
+        "digest": null
+      },
+      "disposition": "retain",
+      "reason": "PauseAll writes (state_flags & 0x80) | 1 for owner matches in both lists. Update switches on the full byte: exactly 1 increments to 2 and still runs this tick; exactly 2 returns. States 0x81 and 0x82 do not enter either case. ResumeAll preserves only 0x80. Thus the preserved asynchronous-state bit prevents these pause cases from matching; no masking is performed by Update.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L312-L335",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L285-L335",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L387-L431",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L43-L47",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:04bac644-4ef1-4dbf-b6fd-d5f4035a6a4a",
+      "baseline_record": {
+        "id": "link:04bac644-4ef1-4dbf-b6fd-d5f4035a6a4a",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_CreateGenerator_Attach_AddAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The function equips an attached particle generator with an AppSRT record, back-links that record, and enables the corresponding generator type mode.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L772-L791",
+        "digest": "sha256:c95ed902c6b8da3e"
+      },
+      "disposition": "retain",
+      "reason": "The function sends 0, gfx_id / 1000, gfx_id, and jobj to the generator constructor. On success it reads generator->appsrt, creates and installs an identity AppSRT record with status 0 only when that field is NULL, writes generator into appsrt->gp, clears generator type bits 0x600, and sets PSAPPSRT_UNK_B11. If no AppSRT is available, it destroys the newly created generator and returns NULL. Generator creation failure leaves no object and returns NULL. After successful generator creation, an existing AppSRT record is retained; otherwise a status-0 record is allocated. AppSRT allocation failure immediately destroys the generator and returns NULL. Every successful return guarantees a non-NULL generator->appsrt whose gp points back to that generator, with type bits 0x600 cleared and PSAPPSRT_UNK_B11 set.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L770-L789",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L402-L424",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L105-L128",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L102",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1022-L1038",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L24-L27",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:8389919c-e534-45dc-a0f4-3f1fadc9d8f0",
+      "baseline_record": {
+        "id": "link:8389919c-e534-45dc-a0f4-3f1fadc9d8f0",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_CreateGenerator_AppSRT_SetScale",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The function writes a uniform value into all three scale axes of the generated particle effect's AppSRT record.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L811-L822",
+        "digest": "sha256:03a2d562c2e9b2d6"
+      },
+      "disposition": "retain",
+      "reason": "gfx_id and the first variadic value, an HSD_JObj pointer, flow into generator creation. If that produces a generator, the float addressed by the next variadic value is read once and propagated equally to generator->appsrt->scale.x, scale.y, and scale.z; the resulting generator pointer is returned to the asynchronous effect dispatcher. The JObj argument is consumed before creation is attempted. If creation fails, the function returns NULL without consuming the scale argument or writing transform state. If creation succeeds, it immediately replaces the AppSRT record's identity unit scale with the supplied uniform value and returns the generator.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L809-L820",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L102",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1022-L1038",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L24-L27",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:d8a43ee6-d2b3-4f3e-871b-9c7e4a46519b",
+      "baseline_record": {
+        "id": "link:d8a43ee6-d2b3-4f3e-871b-9c7e4a46519b",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_CreateGenerator_Translate_FacingDir",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The function ensures that a particle generator has an AppSRT record and then writes its translation and Y rotation to place and orient the visual effect.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L732-L761",
+        "digest": "sha256:134aee3393489ac0"
+      },
+      "disposition": "retain",
+      "reason": "gfx_id flows to the generator constructor both directly and as gfx_id / 1000, selecting the effect and its thousand-ID group. The resulting generator supplies an existing appsrt pointer or its idnum to a status-1 AppSRT allocation. On success, translation is copied component-for-component into appsrt->translate; the sign of direction selects appsrt->rot.y and, for the negative case, sets generator kind bit 0x40000. The configured generator is returned to the caller. Creation has three outcomes. If the generator constructor fails, the function returns NULL without reading translation. If the generator exists but has no AppSRT and AppSRT allocation fails, the generator is passed to hsd_8039D4DC and the function returns NULL. Otherwise it retains the existing or newly allocated AppSRT, applies the requested transform, and returns the generator. A negative direction additionally sets kind bit 0x40000 and uses -\u03c0/2 Y rotation; a zero or positive direction leaves that bit unchanged and uses +\u03c0/2.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L730-L759",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L102",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1022-L1038",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L24-L27",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:310ed09a-9f34-4369-958e-1235684ef333",
+      "baseline_record": {
+        "id": "link:310ed09a-9f34-4369-958e-1235684ef333",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_CreateGenerator_AddAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "Every successfully returned generator has an AppSRT record that carries application-level scale, rotation, and translation state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L714-L730",
+        "digest": "sha256:5005ebe4687edab7"
+      },
+      "disposition": "retain",
+      "reason": "The input graphics ID is passed intact to the generator creator while gfx_id / 1000 selects its bank and zero selects the generator link. The resulting generator's appsrt field is read; if empty, status 1 and the generator's idnum flow through psAddGeneratorAppSRT_begin into a newly allocated identity-SRT record stored back in generator->appsrt. Failure flows through generator destruction to a NULL return; otherwise the generator pointer is returned. There are three completion states: generator creation failure returns NULL immediately; a generator that already owns an AppSRT is returned unchanged; and a generator lacking AppSRT is returned after successful status-1 AppSRT allocation. If that allocation fails, the partially created generator is destroyed and NULL is returned.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L712-L728",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L102",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1022-L1038",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L24-L27",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:3b5a199c-66d1-4add-b54a-4e37d81fd661",
+      "baseline_record": {
+        "id": "link:3b5a199c-66d1-4add-b54a-4e37d81fd661",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Cb_SetRotYZ_FromParamZ_FighterDir",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-facing-direction",
+        "role": "implements",
+        "why": "The callback converts the parent fighter's signed facing direction into mirrored Y and Z rotations on the fighter-owned effect.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L1271-L1286",
+        "digest": "sha256:99506c33080f5265"
+      },
+      "disposition": "retain",
+      "reason": "The callback resolves the rendered JObj from effect->gobj, reads facing_dir from the Fighter stored on effect->parent_gobj, and reads effect->params.z. For negative facing it writes rotation Y = -\u03c0/2 and rotation Z = params.z; otherwise it writes rotation Y = +\u03c0/2 and rotation Z = -params.z.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1261-L1276",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:599c6556-d0ba-4c47-a437-035fd6b15a83",
+      "baseline_record": {
+        "id": "link:599c6556-d0ba-4c47-a437-035fd6b15a83",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Cb_ParticleRender",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The callback explicitly transfers a particle's scale, rotation, and translation from its old HSD_psAppSRT attachment to a newly allocated attachment.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L1018-L1042",
+        "digest": "sha256:030d159389bab810"
+      },
+      "disposition": "retain",
+      "reason": "When particle and particle->appsrt are non-null, the callback copies translation, scale, and rotation from the current AppSRT into locals, detaches that AppSRT through psRemoveParticleAppSRT, and attaches a newly allocated status-1 AppSRT through psAddParticleAppSRT_begin. On success it copies the saved transform into the new record. On allocation failure it instead writes cmdWait = 0, size = 0.0, and life = 1 to the particle. A null particle or a particle without an AppSRT is left unchanged. Otherwise the particle transitions from its old AppSRT attachment to a fresh attachment carrying identical transform values. If allocation fails after the old attachment has been removed, the particle enters a terminal visual state with no wait, zero size, and one remaining life unit. Copies SRT values but no other state or matrix; it performs no drawing. The local callback/vector return void, while HSD_PSUserFunc hooks return int. The void-pointer setter does not establish signature or ABI compatibility.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1016-L1040",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L102",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1022-L1038",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L24-L27",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:a0b230ff-a352-4a48-b219-9cdcae46c712",
+      "baseline_record": {
+        "id": "link:a0b230ff-a352-4a48-b219-9cdcae46c712",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Cb_ParticleRender",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:reference-counted-shared-attachment",
+        "role": "uses",
+        "why": "The callback detaches its old AppSRT through an operation that decrements usedCount and frees only the final reference, then installs a fresh AppSRT initialized with one user.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "When particle and particle->appsrt are non-null, the callback copies translation, scale, and rotation from the current AppSRT into locals, detaches that AppSRT through psRemoveParticleAppSRT, and attaches a newly allocated status-1 AppSRT through psAddParticleAppSRT_begin. On success it copies the saved transform into the new record. On allocation failure it instead writes cmdWait = 0, size = 0.0, and life = 1 to the particle. A null particle or a particle without an AppSRT is left unchanged. Otherwise the particle transitions from its old AppSRT attachment to a fresh attachment carrying identical transform values. If allocation fails after the old attachment has been removed, the particle enters a terminal visual state with no wait, zero size, and one remaining life unit. Copies SRT values but no other state or matrix; it performs no drawing. The local callback/vector return void, while HSD_PSUserFunc hooks return int. The void-pointer setter does not establish signature or ABI compatibility.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1016-L1040",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L102",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1022-L1038",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L24-L27",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:dcee72f6-d66d-4e30-8629-c9c8680b2114",
+      "baseline_record": {
+        "id": "link:dcee72f6-d66d-4e30-8629-c9c8680b2114",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_CreateGenerator_AppSRT_SetFacingDirScale",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The function configures a particle generator's AppSRT Y rotation and three-axis scale, directly realizing application-level SRT transformation of the generated visual effect.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L839-L857",
+        "digest": "sha256:5e898e5b76546d61"
+      },
+      "disposition": "retain",
+      "reason": "The graphics identifier and first variadic argument, an HSD_JObj pointer, flow into the generator/AppSRT creation helper. If creation succeeds, the next argument's pointed-to float is reduced to its sign and written as appsrt->rot.y (-\u03c0/2 for negative, +\u03c0/2 otherwise); the final pointed-to float is replicated into appsrt->scale.x, scale.y, and scale.z. The configured generator pointer is returned. Transform configuration is conditional on successful generator creation: a NULL generator is returned without consuming the direction or scale arguments. On success, any direction strictly below zero selects -\u03c0/2 Y rotation, while zero and positive values select +\u03c0/2, and all three scale components are overwritten with the same supplied value.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L837-L855",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L102",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1022-L1038",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L24-L27",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:9d8b071b-6dec-491a-9005-fc1a9c430165",
+      "baseline_record": {
+        "id": "link:9d8b071b-6dec-491a-9005-fc1a9c430165",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Cb_ftMr_SpecialLw",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:mario-tornado",
+        "role": "implements",
+        "why": "The `ftMr_SpecialLw`-specialized effect callback controls the visibility and slope-relative orientation of the effect belonging to Mario's down special.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L1289-L1316",
+        "digest": "sha256:fd41ed3b75e00fd9"
+      },
+      "disposition": "unresolved",
+      "reason": "Local callback and motion349 verified; Mario Tornado named move mapping not independently established.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1279-L1306",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:af1ac199-6a13-45a7-a48c-3ffbff7a21b7",
+      "baseline_record": {
+        "id": "link:af1ac199-6a13-45a7-a48c-3ffbff7a21b7",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Cb_ftKp_SpecialHi",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:whirling-fortress",
+        "role": "implements",
+        "why": "The function is Koopa's SpecialHi effect callback and updates the grounded visibility and terrain alignment of that move's effect models.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L1350-L1373",
+        "digest": "sha256:a01ad41afde28c99"
+      },
+      "disposition": "unresolved",
+      "reason": "Local callback and motion359 verified; Whirling Fortress grounded-state mapping not independently established.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1340-L1363",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/types.h#L32-L47",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:7003d83d-9f4c-4067-922f-6c3f9f4f32a3",
+      "baseline_record": {
+        "id": "link:7003d83d-9f4c-4067-922f-6c3f9f4f32a3",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_CreateGenerator_AppSRT_SetPos",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The function creates an AppSRT-enabled particle generator and drives the translation of its attachment JObj from an anchor plus a stored offset.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L1490-L1537",
+        "digest": "sha256:65aeb98358eebe15"
+      },
+      "disposition": "retain",
+      "reason": "The function creates a generic effect with descriptor ID 0 under gobj, stores jobj in effect->attach_jobj and a value copy of *vec in effect->params, and attaches the gfx_id-selected generator to GET_JOBJ(effect->gobj). During later active effect updates, efLib_Cb_AccumOffset_FromParams reads the attachment's current translation, adds the stored x/y/z offset, and writes the sum to the effect JObj; the attached generator consequently receives that moving transform through its AppSRT-enabled attachment. If efLib_Create fails, the function returns NULL without initializing an attachment or generator. Once an effect exists, it is returned even if generator creation or AppSRT allocation fails; the helper destroys an AppSRT-less generator and nulls only its local output. For a successfully configured effect, each active update recomputes its position from the attachment and fixed offset, while the library's paused state suppresses that callback and therefore freezes this positional following until updates resume.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1513-L1527",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L102",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1022-L1038",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L24-L27",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:a254413c-73ab-46e2-aace-03d143b68cb0",
+      "baseline_record": {
+        "id": "link:a254413c-73ab-46e2-aace-03d143b68cb0",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Cb_ftLg_SpecialLw",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:luigi-cyclone",
+        "role": "implements",
+        "why": "The Luigi SpecialLw source identifies the move as Luigi Cyclone and spawns its effect, while this Luigi SpecialLw-specific callback updates that effect from the move owner's motion and collision state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftLuigi/ftLg_SpecialLw.c#L21-L120",
+        "digest": "sha256:c63ffcf66b4c81d9"
+      },
+      "disposition": "retain",
+      "reason": "The callback resolves the effect root from effect->gobj and its second child as root->child->next, then resolves the owning Fighter from effect->parent_gobj. fighter->motion_id drives that child's JOBJ_HIDDEN flag; fighter->cmd_vars[3] and fighter->mv.co.common.x4.z gate slope alignment; and the fighter's floor-normal X/Y components are converted with -atan2f into the root JObj's Z rotation. Motion357 reveals root.child.next; all other motions hide that subtree. Floor-slope rotation requires cmd_vars[3]!=0 and the s32 bit reinterpretation of common.x4.z to be nonzero. This is not a floating-point nonzero test: negative zero has nonzero bits. Otherwise root Z rotation becomes0.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1309-L1337",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispeciallw.c#L21-L120",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/types.h#L32-L47",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:b4758d47-cb20-4f0a-9190-42561ba55457",
+      "baseline_record": {
+        "id": "link:b4758d47-cb20-4f0a-9190-42561ba55457",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Cb_PtclAppSRTHook",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The routine is registered as the effect library's particle AppSRT hook during initialization and selectively equips four particle definitions with the common user function used for that behavior.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L150-L230",
+        "digest": "sha256:5dbb2ce350d61e01"
+      },
+      "disposition": "retain",
+      "reason": "The particle system supplies an HSD_Generator. The callback reads gen->cmdList and compares it by pointer identity with the cmdList fields of ptclref_804D0E5C bank-0 entries 0x96, 0x97, 0x98, and 0x21B. For each match it passes the generator and lbl_803BF810 to hsd_8039D1E4, which stores the vector in gen->userfunc. A generator whose command list matches one of the four selected definitions transitions to having userfunc set to lbl_803BF810. A generator with any other command list undergoes no mutation. The checks are independent and contain no timer, allocation, or failure state.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1050-L1064",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L102",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1022-L1038",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L24-L27",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:1cd4d67a-5f80-4dd0-b267-df1081fe47cd",
+      "baseline_record": {
+        "id": "link:1cd4d67a-5f80-4dd0-b267-df1081fe47cd",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Cb_ftCo_Bury",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:buried-status",
+        "role": "implements",
+        "why": "The callback is the effect-library bridge to the fighter-common Bury subsystem, implementing the visual-effect side of the buried status.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L1376-L1379",
+        "digest": "sha256:60f768927d6f0c21"
+      },
+      "disposition": "retain",
+      "reason": "Reads effect->gobj and effect->parent_gobj from its EF_Effect argument and forwards them, in that order, to ftCo_800C0FCC; it produces no direct return value or local state change.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1366-L1369",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Bury.c#L274-L314",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:32fb6023-7eaa-4b0c-81fe-9180319838f9",
+      "baseline_record": {
+        "id": "link:32fb6023-7eaa-4b0c-81fe-9180319838f9",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_SetTevKonstColor",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:texture-environment-combining",
+        "role": "implements",
+        "why": "The function configures the selected texture object's TEV konst and tev0 color inputs, supplying effect-specific material state for texture-environment combining.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L1385-L1403",
+        "digest": "sha256:a2ef6a7c149c2fdc"
+      },
+      "disposition": "retain",
+      "reason": "The input JObj is resolved to its DObj, then to that DObj's MObj and the material's TObj-chain head. The function advances through count next links and writes the low 24 bits of konst and tev0 into the selected TObj's TEV konst and tev0 RGB fields; it does not alter either color's alpha component. Negative count and short material/texture chains are not guarded; modifies memory RGB only, without issuing a direct GX call.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1375-L1393",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:59c7d436-8655-4107-973e-ed128ffa6e54",
+      "baseline_record": {
+        "id": "link:59c7d436-8655-4107-973e-ed128ffa6e54",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_SetFlags",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:final-cutter",
+        "role": "implements",
+        "why": "Kirby's Special Hi code uses efLib_SetFlags immediately before spawning the cutter-beam item, making the routine part of Final Cutter's transition into its landing-wave projectile phase.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftKirby/ftkirbyspecialhi.c#L1-L100",
+        "digest": "sha256:e806d1954d18f8df"
+      },
+      "disposition": "retain",
+      "reason": "Reads HSD_GObj_Entities->x2C and ->x30, follows each GObj's next link, obtains its EF_Effect user data, and compares effect->parent_gobj with the input owner. For every match, it writes effect->expire_flags |= expire_flags; the function returns no value and does not directly destroy or unlink an effect. For owner matches, ORs the supplied s32 mask into the signed8 expire_flags field, preserving representable existing bits but narrowing the result. No direct removal or clearing occurs; callbacks such as SetRotYAndTransition react to a nonzero stored expiration byte. expire_flags is s8, so the s32 OR result narrows.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L189-L212",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialhi.c#L38-L54",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:6fafc7e8-be81-4072-abd8-9894a81a048f",
+      "baseline_record": {
+        "id": "link:6fafc7e8-be81-4072-abd8-9894a81a048f",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_SetParamAlpha",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:light-shielding",
+        "role": "implements",
+        "why": "The non-Yoshi guard path derives the stored effect alpha from Fighter.lightshield_amount, making this helper part of light shielding's visual presentation.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Guard.c#L120-L240",
+        "digest": "sha256:09abc5b9d38b03f6"
+      },
+      "disposition": "retain",
+      "reason": "For ordinary fighters in guard processing, the caller interpolates alpha from p_ftCommonData->x2F4 toward 255 using Fighter.lightshield_amount and passes the resulting byte with the fighter GObj. efLib_SetParamAlpha first searches eight slots for that GObj, otherwise uses the first empty slot, then stores the GObj and alpha. efLib_Cb_ApplyStoredAlpha later looks up an effect by effect->parent_gobj and copies the byte to its texture TEV constant alpha; graphics IDs 0x417 and 0x419 select additional texture or joint materials to receive the same alpha. Searches existing owner keys then first NULL key, updates only gobj/alpha and returns silently when full. Init clears keys and sets alpha255, but does not reset gfx_id. Destroy clears keys equal to the effect GObj; DestroyAll clears keys equal to the supplied parent. Both setters assume ParamTable follows AnimQueue by deliberately indexing beyond AnimQueue. Selected gfx_id is preserved; NULL gobj matches a free slot rather than allocating a live key. Deliberately indexes beyond AnimQueue.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1411-L1434",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Guard.c#L200-L211",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L214-L283",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.h#L11-L16",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:a55a59aa-56cd-43d2-b7d0-1fc317620c18",
+      "baseline_record": {
+        "id": "link:a55a59aa-56cd-43d2-b7d0-1fc317620c18",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_SpawnParticleEffect",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The exceptional particle paths create or acquire generator AppSRT records and populate their rotation, translation, and scale components from the source JObj hierarchy.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L859-L978",
+        "digest": "sha256:92e3dc960308f6fb"
+      },
+      "disposition": "retain",
+      "reason": "Special IDs choose attached or standalone generator construction and selected AppSRT transforms; bank is often derived from gfx_id/1000 and flag ignored. IDs0xD4/0x243 use explicit bank/link2. ID0xE3 uses the supplied joint world origin, then root scale. Fallback uses link1 for0xFC/0xFF/0xF7/0x7918, else0, and passes the supplied jobj unchanged to EFAC when flag is true or F6CC when false; it does not walk the fallback joint to root. Every exceptional graphics-ID case terminates processing after its specialized attempt, even when generator creation fails. For IDs 0xD4 and 0x243, a created generator is retained only if it already has or can acquire an AppSRT record; otherwise the generator is destroyed. Unhandled IDs always proceed through exactly one generic spawn routine, selected by flag. Special-case ledger: 4A38\u20134A3A/B798\u2013B79A rootyaw;2D/2E/31 type1000;127 rootyaw+scale;2/6/A3/A7/AA/F2/12A/132/133 rootscale;16D\u2013170/7E2 standalone rootyaw+localtranslation;D4 rootZ+translation+scale;243 rootZ+translation;E3 supplied worldorigin+rootscale. Exceptional branches return even on failure.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L857-L992",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:7d23f704-a313-482e-a6d5-e094d6418df1",
+      "baseline_record": {
+        "id": "link:7d23f704-a313-482e-a6d5-e094d6418df1",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Update",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hierarchical-model-animation-playback",
+        "role": "implements",
+        "why": "Each surviving effect update calls HSD_JObjAnimAll on the effect's JObj, and that operation evaluates the model root and its non-instance descendants as a hierarchy.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L391-L435",
+        "digest": "sha256:cc22a3d8b8f21f73"
+      },
+      "disposition": "unresolved",
+      "reason": "Exact rationale says each surviving update animates; exact paused state2 survives but returns before animation.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L387-L431",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L543-L565",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:1a95bc16-c446-4e95-a771-769140c433af",
+      "baseline_record": {
+        "id": "link:1a95bc16-c446-4e95-a771-769140c433af",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ef/eflib.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-rendering",
+        "role": "implements",
+        "why": "The unit contains the callback that enables render-state color updates and dispatches selected particle render-link groups to psDispParticles.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L646-L670",
+        "digest": "sha256:2c7a3f798e948556"
+      },
+      "disposition": "retain",
+      "reason": "Owned render and owner pause/resume implementations plus fighter callback assignment support this relationship.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1404-L1459",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L285-L335",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L387-L431",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L43-L47",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:c04545a9-19a1-4acb-9dba-6e24e1882ddf",
+      "baseline_record": {
+        "id": "link:c04545a9-19a1-4acb-9dba-6e24e1882ddf",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_render_callback",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-rendering",
+        "role": "implements",
+        "why": "The function invokes the particle display subsystem with a render-link mask selected for the current GObj rendering context.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L646-L670",
+        "digest": "sha256:2c7a3f798e948556"
+      },
+      "disposition": "retain",
+      "reason": "The callback maps an input code of 0, 1, or 2 unchanged into particles_code and rejects all other codes. For a valid code it enables color updates, reads gobj->gx_link, and calls psDispParticles with PTCL_RENDER_LINKNO_0 | PTCL_RENDER_LINKNO_2 when gx_link is 7, or PTCL_RENDER_LINKNO_1 otherwise.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L644-L668",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:0a8d7993-3800-436c-bbe0-8eb7deba62d1",
+      "baseline_record": {
+        "id": "link:0a8d7993-3800-436c-bbe0-8eb7deba62d1",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_particles_proc_main",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-effect-simulation",
+        "role": "implements",
+        "why": "The callback dispatches the routines that simulate existing particles and advance the generators responsible for continued particle emission.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L660-L690",
+        "digest": "sha256:cc09e96598ce0ffe"
+      },
+      "disposition": "retain",
+      "reason": "The callback ignores its HSD_GObj argument and sends the identical PTCL_SKIP_LINKNO_1 | PTCL_SKIP_LINKNO_2 mask to the global particle-list and generator-list processors. The particle processor interprets the mask while traversing its sixteen link lists; the generator processor tests it against each generator's linkNo before changing that generator. Sends skip-link1|skip-link2 to particle and generator processing. Generator processing first drains its deferred queue regardless of this mask, then skips masked or kind0x800 active generators. Remaining generators update, accumulate emission, emit at count>=1 and decrement/remove nonzero genLife. The mask does not preserve all deferred generator state.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L670-L674",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2965-L2994",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:82a8e11b-934b-42a6-8226-9ed7c9ac8b7e",
+      "baseline_record": {
+        "id": "link:82a8e11b-934b-42a6-8226-9ed7c9ac8b7e",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ef/eflib.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hitlag",
+        "role": "implements",
+        "why": "Fighters use this unit's owner-scoped pause and resume routines as their enter- and exit-hitlag callbacks, coupling owned effect updates to hitlag.",
+        "kind": "discord",
+        "locator": "discord://message/998292543018115192",
+        "digest": null
+      },
+      "disposition": "retain",
+      "reason": "Owned render and owner pause/resume implementations plus fighter callback assignment support this relationship.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1404-L1459",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L285-L335",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L387-L431",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L43-L47",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:ae46ea85-0a81-4246-9ec3-9f15d78ebef1",
+      "baseline_record": {
+        "id": "link:ae46ea85-0a81-4246-9ec3-9f15d78ebef1",
+        "from_target_id": "target:data:main/melee/ef/eflib:.data",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The initialized callback vector supplies the particle callback that preserves scale, rotation, and translation while replacing an AppSRT attachment, and the hook installs it selectively on four particle definitions.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ef/eflib.c#L1018-L1074",
+        "digest": "sha256:7897982aba5902f8"
+      },
+      "disposition": "unresolved",
+      "reason": "Full .data section attribution requires compiled object/map evidence.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1404-L1459",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:8f24da8f-97e3-417a-86be-14b17b9de0dc",
+      "baseline_record": {
+        "id": "link:8f24da8f-97e3-417a-86be-14b17b9de0dc",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_SetParamAlpha",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:light-shielding",
+        "role": "implements",
+        "why": "The current non-Yoshi guard path derives the effect alpha from Fighter.lightshield_amount and submits it through this setter, making the function part of light shielding's visual presentation.",
+        "kind": "code",
+        "locator": "code://3c0e6117f5/src/melee/ft/kinds/ftCommon/ftCo_Guard.c#L120-L240",
+        "digest": "sha256:7a430554e0a2c6ad"
+      },
+      "disposition": "retain",
+      "reason": "For ordinary fighters in guard processing, the caller interpolates alpha from p_ftCommonData->x2F4 toward 255 using Fighter.lightshield_amount and passes the resulting byte with the fighter GObj. efLib_SetParamAlpha first searches eight slots for that GObj, otherwise uses the first empty slot, then stores the GObj and alpha. efLib_Cb_ApplyStoredAlpha later looks up an effect by effect->parent_gobj and copies the byte to its texture TEV constant alpha; graphics IDs 0x417 and 0x419 select additional texture or joint materials to receive the same alpha. Searches existing owner keys then first NULL key, updates only gobj/alpha and returns silently when full. Init clears keys and sets alpha255, but does not reset gfx_id. Destroy clears keys equal to the effect GObj; DestroyAll clears keys equal to the supplied parent. Both setters assume ParamTable follows AnimQueue by deliberately indexing beyond AnimQueue. Selected gfx_id is preserved; NULL gobj matches a free slot rather than allocating a live key. Deliberately indexes beyond AnimQueue.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L1411-L1434",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Guard.c#L200-L211",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L214-L283",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.h#L11-L16",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:044d90e6-7fa8-4cc2-a259-1aa212229352",
+      "baseline_record": {
+        "id": "link:044d90e6-7fa8-4cc2-a259-1aa212229352",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_Update",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hierarchical-model-animation-playback",
+        "role": "implements",
+        "why": "Each surviving effect update calls HSD_JObjAnimAll on the effect's model root after attachment synchronization, advancing the model hierarchy as part of recurring effect playback.",
+        "kind": "code",
+        "locator": "code://3c0e6117f5/src/melee/ef/eflib.c#L388-L432",
+        "digest": "sha256:cc22a3d8b8f21f73"
+      },
+      "disposition": "unresolved",
+      "reason": "Exact rationale says each surviving update animates; state2 survives without animation.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L387-L431",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L543-L565",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:e1e83001-ded4-44e2-98e1-8cd832b304be",
+      "baseline_record": {
+        "id": "link:e1e83001-ded4-44e2-98e1-8cd832b304be",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_particles_proc_main",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-effect-simulation",
+        "role": "implements",
+        "why": "The callback dispatches the global routines that simulate existing particles and advance generators responsible for continued particle emission.",
+        "kind": "code",
+        "locator": "code://3c0e6117f5/src/melee/ef/eflib.c#L659-L689",
+        "digest": "sha256:cc09e96598ce0ffe"
+      },
+      "disposition": "retain",
+      "reason": "The callback ignores its HSD_GObj argument and sends the identical PTCL_SKIP_LINKNO_1 | PTCL_SKIP_LINKNO_2 mask to the global particle-list and generator-list processors. The particle processor interprets the mask while traversing its sixteen link lists; the generator processor tests it against each generator's linkNo before changing that generator. Sends skip-link1|skip-link2 to particle and generator processing. Generator processing first drains its deferred queue regardless of this mask, then skips masked or kind0x800 active generators. Remaining generators update, accumulate emission, emit at count>=1 and decrement/remove nonzero genLife. The mask does not preserve all deferred generator state.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L670-L674",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2965-L2994",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    },
+    {
+      "link_id": "link:b61d681e-4566-4ff9-af60-bb40d93d552d",
+      "baseline_record": {
+        "id": "link:b61d681e-4566-4ff9-af60-bb40d93d552d",
+        "from_target_id": "target:function:main/melee/ef/eflib:efLib_SetFlags",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:final-cutter",
+        "role": "implements",
+        "why": "Kirby's current Special Hi code calls efLib_SetFlags with expiration mask 1 immediately before spawning the cutter-beam item, making the routine part of Final Cutter's transition into its landing-wave projectile phase.",
+        "kind": "code",
+        "locator": "code://3c0e6117f5/src/melee/ft/kinds/ftKirby/ftkirbyspecialhi.c#L1-L100",
+        "digest": "sha256:b9f46681ebd95bc8"
+      },
+      "disposition": "retain",
+      "reason": "Reads HSD_GObj_Entities->x2C and ->x30, follows each GObj's next link, obtains its EF_Effect user data, and compares effect->parent_gobj with the input owner. For every match, it writes effect->expire_flags |= expire_flags; the function returns no value and does not directly destroy or unlink an effect. For owner matches, ORs the supplied s32 mask into the signed8 expire_flags field, preserving representable existing bits but narrowing the result. No direct removal or clearing occurs; callbacks such as SetRotYAndTransition react to a nonzero stored expiration byte. expire_flags is s8, so the s32 OR result narrows.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L189-L212",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialhi.c#L38-L54",
+          "why": "Pinned source branch/type/caller support; original link retained independently."
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "expected": 30,
+    "reviewed": 30,
+    "retain": 24,
+    "reject": 0,
+    "unresolved": 6
+  },
+  "duplicate_policy": "Every exact baseline record preserved independently, including duplicate relationships with different evidence."
+}

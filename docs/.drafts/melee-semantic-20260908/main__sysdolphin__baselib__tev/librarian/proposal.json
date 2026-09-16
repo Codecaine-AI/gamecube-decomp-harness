@@ -1,0 +1,199 @@
+{
+  "tu": "main/sysdolphin/baselib/tev",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:HSD_StateSetNumChans"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Compares num against prev_num_chans and calls GXSetNumChans on inequality, without updating prev_num_chans. The static starts at zero; color-channel invalidation sets it to -1, and no source path restores a requested count. Before invalidation zero requests skip; after invalidation valid counts 0..2 always emit GX writes. No local range validation occurs.",
+        "rationale": "Record the complete lifetime of the comparison sentinel.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L157-L162",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L521-L529",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L24-L29",
+            "why": "Static counter declarations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:_HSD_StateInvalidateColorChannel"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Copies invalid_prev_ch into all four control-cache entries, marks both ambient and material color groups invalid, and sets prev_num_chans=-1. No GX commands are issued. Applicable color setup clears each consumed color flag and updates control caches on differences; the channel-count setter never restores prev_num_chans, so its sentinel remains -1.",
+        "rationale": "Correct the claim that all invalid state is consumed/restored.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L521-L529",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L157-L162",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L74-L155",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:HSD_SetupChannel"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL or GX_COLOR_NULL is ignored. Ambient writes require enabled lighting and register ambient source; material writes require register material source. Invalid color flags force a combined RGBA write; otherwise combined, RGB and alpha requests compare only their relevant components. Control changes compare six fields only at prev_ch[chan&3]. A combined-channel control write also updates the paired alpha cache, but a matching RGB cache suppresses the write even if separately programmed alpha controls differ.",
+        "rationale": "Make source gates and combined-channel comparison boundary explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L74-L155",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:HSD_SetupChannel"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Programs register-sourced channel colors and lighting controls according to per-component cached comparisons and invalidation flags. Combined color/alpha control requests compare only the RGB-side control cache, so this routine does not guarantee restoration of a separately diverged alpha configuration.",
+        "rationale": "Avoid implying complete requested-state installation under all valid call sequences.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L74-L155",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:ChanUpdateFunc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For nonnull chan and selectors 5..12, reads *arg2, multiplies by double literal 255.0, and assigns one material RGBA byte (5..8) or ambient RGBA byte (9..12). No clamp, finite-value check, normalization or value-pointer guard is present. Other selectors do not dereference arg2.",
+        "rationale": "Separate expected normalized input from a guarantee enforced by code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L479-L509",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:ChanUpdateFunc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical signature void ChanUpdateFunc(HSD_Chan* chan, int arg1, const f32* arg2). chan may be NULL; arg1 selects material RGBA 5..8 or ambient RGBA 9..12; arg2 must point to a readable f32 for handled selectors. Normalized values are a caller convention, not a checked invariant.",
+        "rationale": "Preserve attested names and pointer preconditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L479-L509",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:HSD_SetupTevStageAll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Traverses a null-terminated descriptor list in its supplied order, programs every descriptor and takes the maximum stage+1. It replaces any prior current_tev with that maximum, emits GXSetNumTevStages once and resets current_tev to zero. A NULL list emits zero; sparse lists do not initialize holes and duplicate stages are programmed repeatedly, so descriptor order can affect final stage configuration.",
+        "rationale": "Qualify the prior no-ordering-requirement claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L246-L261",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:HSD_SetTevRegAll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Scans four slots, skipping marker zero and sending nonzero-marker colors to GX register IDs 1,2,3,0 before clearing each marker. Invalidation also clears markers without changing payloads or issuing GX writes. In the reviewed full source, the static array starts zero and no routine sets a marker nonzero or populates its payload, so this TU alone supplies no producer for pending uploads.",
+        "rationale": "Distinguish the conditional flush protocol from an established reachable producer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L419-L446",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L8-L11",
+            "why": "Zeroed private staging table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L536-L542",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/tev.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "TEV-stage and texture-generator accumulators reset after unconditional commits. Channel color/control caches persist with explicit invalid flags; the channel-count comparison sentinel is never updated by its setter. Combined channel controls compare only the RGB cache entry before optionally synchronizing the alpha cache. TevReg markers are conditionally flushed or cleared, but this full source has no nonzero-marker producer.",
+        "rationale": "Document independent state protocols and their source-level limitations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L74-L213",
+            "why": "Channel caches and resource counters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L419-L546",
+            "why": "Register flush and invalidators."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

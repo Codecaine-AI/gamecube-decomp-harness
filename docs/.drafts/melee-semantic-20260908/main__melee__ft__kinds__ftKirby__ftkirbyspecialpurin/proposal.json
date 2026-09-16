@@ -1,0 +1,393 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:fn_80105978"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Synchronizes Kirby's copied Rollout kinetic and move-local directional state with an externally completed facing reversal. It is registered in x21F8; ftCo_800C37A0 invokes that slot after its damage-related rotation countdown reaches zero and Fighter.facing_dir is flipped. This is distinct from the player's grounded Rollout turn, initiated by PrSpecialN1_IASA and completed by PrSpecialNTurn_Phys.",
+        "rationale": "Corrects conflation of common facing-reversal callback with player-requested ground turn.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L68-L75",
+            "why": "Registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L1368-L1383",
+            "why": "Move-local sign reversals."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_0C35.c#L62-L85",
+            "why": "Actual invocation context."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialNHit_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Queries ft_800824A0 with the copied-Rollout collision box. On a true result it restores scale, calls ftCommon_8007D7FC to ground the fighter, and dispatches by specialn_pr_freefall_toggle: zero calls ft_8008A2BC; nonzero calls ftCo_LandingFallSpecial_Enter(gobj, false, attribute). The latter normally enters non-interruptible LandingFallSpecial using the attribute as landing_lag, but its Hammer check can instead enter HammerLanding. A false collision result causes no further local transition, though the query itself updates collision position.",
+        "rationale": "Preserves cross-file exceptional branch and distinguishes grounding from unspecified cleanup.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L1351-L1366",
+            "why": "Local branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+            "why": "Hammer override and argument meanings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L546-L594",
+            "why": "Ground conversion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L325-L345",
+            "why": "Query side effects."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialAirNLoop_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves Fighter and calls ft_80081D0C, which synchronizes collision positions and returns a GroundOrAir-typed result. When the result differs from GA_Ground, first calls ftCommon_8007D7FC, then enters ftKb_MS_PrSpecialNLoop with flags 0x41092 and the current animation frame. Finally reinstalls copied-move callbacks, normalizes the roll angle and sets TopN Y rotation to pi/2. Otherwise no further local transition occurs; the query's position updates still occurred.",
+        "rationale": "Corrects operation ordering and preserves query side effects and exact numeric-domain guard.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L1214-L1225",
+            "why": "Call order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123",
+            "why": "Query semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialAirNFull_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves Fighter and calls ft_80081D0C. On result != GA_Ground, performs ftCommon_8007D7FC ground setup before Fighter_ChangeMotionState enters ftKb_MS_PrSpecialNFull with flags 0x41092 and fp->cur_anim_frame. It then restores copied-move callbacks, normalizes the roll angle and sets TopN Y rotation to pi/2. Collision-position processing occurs in the query regardless of whether this transition branch is taken.",
+        "rationale": "Corrects ground setup ordering without changing supported destination or frame continuity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L1227-L1238",
+            "why": "Exact sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123",
+            "why": "Query side effects."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialNFull_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves Fighter and calls ft_80082708. On result == GA_Ground, first calls ftCommon_8007D5D4 to set aerial movement, then enters ftKb_MS_PrSpecialAirNFull with flags 0x41092 and fp->cur_anim_frame. It then reinstalls copied-move callbacks, normalizes roll angle and sets TopN Y rotation to pi/2. Preserve the literal comparison: the helper's GroundOrAir return labels are not a substitute for inspecting this caller's transition. The query also updates collision positions.",
+        "rationale": "Corrects air-conversion ordering while preserving the counterintuitive result comparison.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L1095-L1106",
+            "why": "Exact sequence and guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L392-L404",
+            "why": "Return mapping and position update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Aerial conversion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialN1_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation updates roll audio, clears deferred facing, advances scale and hit helpers, accumulates and normalizes the roll angle, and decrements x0. After x0 <= 0, ending still requires the new angle strictly between pi/2 and 3pi/2 and a strict crossing of pi from the saved old angle: upward for delta > 0, downward otherwise. On crossing it zeros x0 and calls ftKb_SpecialNPr_801010D4(gobj, false, 0x40012, 0), selecting a grounded ending family with motion flag mask 0x40012, not motion ID 0x40012. Other paths maintain TopN Y rotation at pi/2.",
+        "rationale": "Corrects flags-versus-state ambiguity and resolves the helper's destination while retaining all angle gates.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L400-L445",
+            "why": "Complete guarded behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L154-L190",
+            "why": "Ending selector and flags parameter."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialNTurn_Anim"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Calls roll-audio processing in turn mode and scale processing, then adds 0.2 * specialn_pr_spinning_speed_turn * -x34.x to x14, normalizes the angle and decrements x0. At x0 <= 0 it clamps x0 to zero, negates x34.x and calls the ending helper with false, motion flags 0x40012 and frame0, returning before the tail. Otherwise x24 modulo the integer smoke-delay attribute gates effect0x3FF using an atan2 angle from the floor normal; x24 then increments and TopN Y rotation becomes pi/2.",
+        "rationale": "Corrects state-ID interpretation and identifies the timeout as ending, not successful resumed rolling.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L447-L474",
+            "why": "Complete data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L154-L190",
+            "why": "Ending helper interface."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialN1_Phys"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Fighter action-state physics callback with signature void(Fighter_GObj* gobj). It reads ftKb_DatAttrs and floor collision geometry, and mutates Fighter velocities and mv.pr.specialn state in place; it does not write the Kirby attribute record.",
+        "rationale": "Corrects false attribute-mutation claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L824-L873",
+            "why": "Read-only da uses and actual writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialNTurn_Anim"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides rolling presentation and terrain-aligned smoke during Kirby's grounded copied-Rollout turn. Its x0 timeout reverses the stored direction and enters the grounded ending family; it is not the successful turn-completion path that resumes rolling. That separate path is in PrSpecialNTurn_Phys, which waits for opposite-sign velocity to reach a scaled magnitude threshold before returning to PrSpecialN1.",
+        "rationale": "Distinguishes move-duration timeout from successful physical turn completion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L447-L474",
+            "why": "Timed exit and smoke."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L885-L939",
+            "why": "Physical turn-completion path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L154-L190",
+            "why": "Ground ending selection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialN_Anim"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Animates the airborne continuation of an already-started copied-Rollout ground turn, associated with PrSpecialN0. Ground-turn collision enters that state after aerial conversion; its collision callback resumes PrSpecialNTurn on landing. On animation-side x0 expiration it flips stored direction and exceptionally calls the ending helper with false, selecting grounded ending motions without explicitly grounding the fighter. Do not normalize this to an aerial ending merely from the phase's descriptive name.",
+        "rationale": "Preserves the actual exceptional selector and cross-callback state association.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L618-L640",
+            "why": "Exceptional timeout."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L1162-L1183",
+            "why": "Airborne entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L1324-L1337",
+            "why": "Landing return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L1662-L1672",
+            "why": "Table association."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialN_IASA"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies the no-op input-processing phase of Kirby's copied-Rollout airborne turn continuation, PrSpecialN0, rather than a grounded rolling phase. The turn originates on the ground; this IASA callback neither initiates a new aerial turn nor cancels the existing continuation.",
+        "rationale": "Corrects grounded misclassification using callback table and actual aerial entry.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L1662-L1672",
+            "why": "Association."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L1162-L1183",
+            "why": "Aerial entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L797-L797",
+            "why": "No-op."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialN_IASA"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides the intentionally empty IASA callback for PrSpecialN0, Kirby's airborne copied-Rollout turn-continuation state. It performs no input-driven interruption or transition; animation, physics and collision callbacks carry the continuation.",
+        "rationale": "Corrects the phase while preserving supported no-op purpose.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L1662-L1672",
+            "why": "Callback set."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L797-L797",
+            "why": "Empty implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L1162-L1183",
+            "why": "Airborne entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_PrSpecialN_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Always returns without reading input, updating timers, calling helpers or mutating state. Thus PrSpecialN0's airborne turn continuation has no IASA-local transition; this says nothing about the animation timeout or landing transition handled by the other callbacks.",
+        "rationale": "Corrects grounded state attribution without weakening exact no-op behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L797-L797",
+            "why": "No-op body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L1662-L1672",
+            "why": "State callback association."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_SpecialNPr_80100F94"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Selects absolute horizontal speed from self_vel.x in air or gr_vel on ground and snapshots x914[0].state. Below specialn_pr_unk10 it disables that capsule and calls ftCo_800BFFAC; otherwise a previously disabled capsule becomes Enabled. Whenever the resulting state is not Disabled, assigns specialn_pr_damage_multiplier * (specialn_pr_base_damage + absolute speed) to s32 damage, clamps that integer to at least1 and passes it to ftColl_8007ABD0 with the first capsule and fighter object.",
+        "rationale": "Makes the multiplier's parenthesized operand, integer conversion and non-disabled guard explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L125-L152",
+            "why": "Exact expression and flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_SpecialNPr_80100F94"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Speed strictly below specialn_pr_unk10 forces the first capsule to Disabled and calls ftCo_800BFFAC. At or above the threshold only a capsule Disabled on entry is changed to Enabled; other entry states are preserved. Damage is then refreshed for every resulting state != Disabled, not only for Enabled, and is clamped to at least1 after conversion to s32. Disabled capsules skip damage update.",
+        "rationale": "Preserves numeric-state ambiguity and exact non-disabled condition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L129-L151",
+            "why": "Snapshot, mutually exclusive updates and final guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpurin:ftKb_SpecialNPr_8010131C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Common entry initialization saves the root model scale, zeros gr_vel, loads x0 from duration, sets x4/x8 to -1, zeros xC/x14/x34.y/deferred facing/x24/x28/x30, loads x2C from charge_rate1 and installs deal_dmg_cb and x21F8. It does not select a motion state, clear all velocity components or overwrite x34.x. Ground and aerial entry routines seed x34.x from Fighter.facing_dir before calling it, then supply their distinct vertical-motion and x1C setup afterward.",
+        "rationale": "Corrects false clearing of direction and all velocity; documents the actual initialization boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L212-L232",
+            "why": "Exact writes and omissions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpurin.c#L269-L308",
+            "why": "Caller initialization order."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

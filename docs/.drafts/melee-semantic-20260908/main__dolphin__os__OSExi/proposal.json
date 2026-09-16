@@ -1,0 +1,143 @@
+{
+  "tu": "main/dolphin/os/OSExi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSExi:EXIAttach"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Attachment probes first, then validates identification under interrupt exclusion. It fails if idTime is zero, the channel is already attached, or the helper's reprobe fails. Success acknowledges the pending EXI cause\u2014not the EXT cause\u2014stores extCallback, unmasks the channel's EXT interrupt and sets state mask 0x8. A later EXT interrupt masks the channel group, clears attachment and consumes a non-null callback before notification.",
+        "rationale": "Corrects the acknowledged interrupt category while retaining the supported attachment lifecycle.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L235-L253",
+            "why": "Defines EXI, TC and EXT selector order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L352-L391",
+            "why": "Attachment calls the acknowledgement primitive with (1,0,0)."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L531-L553",
+            "why": "Removal transition and callback consumption."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSExi:EXIDeselect"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ends an active EXI device selection by clearing selected state and hardware selection configuration under interrupt exclusion. For an attached channel 0 or 1, it restores the EXT interrupt suppressed during selection. After restoring interrupts, it checks continued presence when the old register selected device zero on a channel other than 2; that check can report failure after deselection has already occurred.",
+        "rationale": "Distinguishes EXT notification from EXI-event delivery and preserves the post-transition failure branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L415-L484",
+            "why": "Paired selection masking, deselection unmasking and post-deselect probe."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L352-L371",
+            "why": "Identifies the same masks as attachment's external interrupt."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSExi:EXIDeselect"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "With interrupts disabled, an unselected channel (state & 0x4 equal to zero) returns failure without changing EXI state. Otherwise the function clears mask 0x4 and writes the saved channel register masked by 0x405. If attachment mask 0x8 is set, it unmasks EXT source 0x100000 for channel 0 or 0x20000 for channel 1. It restores interrupts before probing. For chan != 2 with old register mask 0x80 set, the probe determines the result; other completed deselections return one. Masks 0x4 and 0x8 correspond to ordinal bits 2 and 3.",
+        "rationale": "Corrects interrupt classification and makes numeric-state notation unambiguous.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L451-L484",
+            "why": "Complete deselection transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L352-L371",
+            "why": "External interrupt mask correspondence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSExi:EXISync"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Polls the EXI hardware transfer-start bit while the channel remains selected. Once hardware is idle, it rechecks selection under interrupt exclusion and invokes CompleteTransfer to finalize any still-busy transfer. It returns a Boolean result subject to the DI-configuration/USB-adapter signature exception and finally asserts that busy state is clear. Its loop and recheck use selected mask 0x4, not the busy masks.",
+        "rationale": "Corrects the existing explanation that treats the selection guard as active-transfer state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L208-L233",
+            "why": "Actual polling guard, completion call and return conditions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSExi:EXISync"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Starts with result zero and spins while state mask 0x4 (selected) remains set. When the hardware start bit clears, it disables interrupts and rechecks selection. If still selected, it calls CompleteTransfer, which copies immediate receive data and clears busy masks only if a transfer remains busy. TC completion does not itself clear selection, so this helper can be invoked again after interrupt completion without repeating receive copying. The result becomes true unless DIConfig is 0xff, immLen is four, the frequency field is zero (1 MHz), and the data register is 0x01010000, all simultaneously. If selection is absent initially or at the protected recheck, no finalization occurs and the result remains false. Interrupts are restored and the final assertion requires busy masks to be clear.",
+        "rationale": "Replaces the unsupported single-invocation race explanation with the actual selected-state recheck and idempotent completion guard, while preserving both the signature exception and paths without selected finalization.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L96-L118",
+            "why": "Completion helper's busy guard and clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L203-L233",
+            "why": "Selection tests, initial false result, and exact exceptional conjunction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L507-L529",
+            "why": "TC completion leaves selection unchanged."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSExi:__EXIProbe"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Performs the low-level EXI presence check and maintains probe/ID-cache validity. Channel 2 returns true immediately. For unattached channels 0 and 1, presence starts a quantized 100-ms counter timestamp and succeeds after the counter difference reaches three; absence or an external event invalidates the cached generation. For attached channels, presence without an external event succeeds without repeating the timing test. Removable-channel state inspection and mutation occur under interrupt exclusion.",
+        "rationale": "Limits the timing requirement to the actual unattached branch rather than claiming every removable-channel success is timed.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSExi.c#L281-L323",
+            "why": "Channel-2 fast path and distinct attached/unattached guards."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

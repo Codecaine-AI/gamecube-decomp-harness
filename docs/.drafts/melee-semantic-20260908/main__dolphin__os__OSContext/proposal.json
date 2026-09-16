@@ -1,0 +1,204 @@
+{
+  "tu": "main/dolphin/os/OSContext",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L236-L238",
+            "why": "Exact accessor signature and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L476-L499",
+            "why": "Stack-local storage is temporarily made current."
+          }
+        ],
+        "op": "write",
+        "rationale": "Returning a globally tracked pointer does not imply OS ownership of its storage. OSDumpContext explicitly installs and later retires a local record.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSContext:OSGetCurrentContext"
+        },
+        "type": "inferred_type",
+        "value": "Parameterless accessor with signature OSContext* OSGetCurrentContext(void). Returns the existing pointer tracked as current, without allocation, copying or ownership transfer. The referenced storage may belong to a thread or to a caller's temporary stack-local context; its lifetime is not established by this accessor."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L200-L234",
+            "why": "Pointer stores and asymmetric saved/live status updates."
+          }
+        ],
+        "op": "write",
+        "rationale": "The owner path ORs saved SRR1 with 0x2000 but live MSR only with 0x2. This corrects the prior symmetric-enable explanation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSContext:OSSetCurrentContext"
+        },
+        "type": "purpose",
+        "value": "Publishes an OSContext as current, records its address with the upper two bits cleared in the low-memory companion slot, and configures saved FP availability according to FPU ownership. It disables live FP for a non-owner; the owner-equality path leaves the live FP-enable bit unchanged rather than explicitly enabling it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L211-L232",
+            "why": "Complete ownership-dependent branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "The exact immediates distinguish the owner path from the non-owner path; live MSR 0x2000 is not set on equality.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSContext:OSSetCurrentContext"
+        },
+        "type": "state_behavior",
+        "value": "After publishing the selected context, compares it with the tracked FPU owner. Equality sets saved context->srr1 mask 0x2000 and ORs live MSR with 0x2, preserving the live FP-enable bit's prior value. Inequality clears mask 0x2000 in saved SRR1 and live MSR, sets live MSR mask 0x2, and executes isync before returning. Neither branch transfers FPU ownership or saves/loads FPU registers."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L555",
+            "why": "Handler implementation and exception registration."
+          }
+        ],
+        "op": "write",
+        "rationale": "The handler uses mtsrr1, not a store to context->srr1. Ownership transfer and exception resumption remain the supported purpose.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSContext:OSSwitchFPUContext"
+        },
+        "type": "purpose",
+        "value": "Handles floating-point-unavailable exceptions by enabling live FPU execution, preparing hardware SRR1 for FP-enabled exception return, and lazily transferring tracked FPU ownership to the interrupted context before resuming it. The hardware SRR1 value is derived from context->srr1 without writing the FP-enabled value back to that saved field."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L508-L547",
+            "why": "Owner publication, guards, hardware SRR1 update and state cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L22",
+            "why": "Incoming saved-state validity guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves all exceptional branches while distinguishing hardware return state from saved memory and identifying the exact state mask.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSContext:OSSwitchFPUContext"
+        },
+        "type": "state_behavior",
+        "value": "Sets live MSR mask 0x2000 and hardware SRR1 to context->srr1 OR 0x2000, leaving the saved srr1 field unchanged. Publishes the incoming context as FPU owner before comparing with the old owner. Equal ownership skips both save and load; a different null old owner skips only saving; a different non-null owner is saved before the incoming context is loaded. The loader performs no restoration when saved-state mask 0x1 is clear. Finally clears context state mask 0x2, restores the explicitly saved control registers and r3-r5, and executes rfi."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+            "why": "Signature and actual register use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190",
+            "why": "Public wrapper register convention."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L518-L527",
+            "why": "Exception caller overwrites r3."
+          }
+        ],
+        "op": "write",
+        "rationale": "The public wrapper leaves its pointer in r3, while the exception handler overwrites r3 before calling. Naming the ignored slot unused_exception incorrectly assigns it a stable semantic value.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSContext:__OSLoadFPUContext"
+        },
+        "type": "inferred_type",
+        "value": "Static frame-free assembly helper declared void __OSLoadFPUContext(u32, OSContext* fpuContext). The operative input is the context pointer in r4; the incoming r3 value is ignored and is not reliably an exception number. The helper uses r5 as scratch and returns through blr."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L11-L93",
+            "why": "Restoration without owner writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L184-L190",
+            "why": "Explicit public restore path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L518-L527",
+            "why": "Lazy ownership path."
+          }
+        ],
+        "op": "write",
+        "rationale": "The public tail-branch is an additional entry path, so restoration is not restricted to contexts becoming the owner.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSContext:__OSLoadFPUContext"
+        },
+        "type": "purpose",
+        "value": "Restores a marked saved floating-point image from an OSContext into the live FPU. Serves both lazy ownership transfer through OSSwitchFPUContext and explicit restoration through the public OSLoadFPUContext wrapper; the helper itself does not change the tracked FPU owner."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L182",
+            "why": "Signature, r3 scratch and r5 destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L518-L527",
+            "why": "Caller register state and subsequent use of r4."
+          }
+        ],
+        "op": "write",
+        "rationale": "Ignored incoming values do not imply untouched registers. The caller has already overwritten r3, so the leading slots must not be explained as intact exception arguments.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSContext:__OSSaveFPUContext"
+        },
+        "type": "inferred_type",
+        "value": "Static frame-free assembly helper declared void __OSSaveFPUContext(u32, u32, OSContext* fpuContext). The destination pointer is in r5. Incoming r3/r4 values are ignored, but r3 is overwritten as scratch for state and HID2 tests; r4 is left intact for the surrounding exception handler. Returns through blr without a result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L96-L198",
+            "why": "Save implementation and public wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L518-L527",
+            "why": "Outgoing-owner save path."
+          }
+        ],
+        "op": "write",
+        "rationale": "The public wrapper is an additional caller and accepts an explicit destination; the helper is not limited to an outgoing owner.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSContext:__OSSaveFPUContext"
+        },
+        "type": "purpose",
+        "value": "Snapshots live FPRs and FPSCR, plus HID2-enabled paired-single state, into a supplied OSContext and marks saved FPU state present. Used both to preserve a different outgoing FPU owner during lazy switching and to implement explicit snapshots through OSSaveFPUContext. It does not itself change tracked ownership."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

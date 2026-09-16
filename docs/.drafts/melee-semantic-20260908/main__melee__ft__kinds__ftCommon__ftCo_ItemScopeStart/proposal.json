@@ -1,0 +1,119 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L143-L205",
+            "why": "Complete ordered guards, timer/latch mutations, cached payload and nonterminal callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsscope.c#L62-L136",
+            "why": "Distinguishes nominal duration classification from ammunition-aware classification."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeFire.c#L12-L47",
+            "why": "Supplied Fire callbacks change state and write action storage before returning."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's exclusive 'otherwise' interpretation and separates the two item classifiers. Describes source-overlay members without asserting compiled offsets.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart:fn_800D79B4"
+        },
+        "type": "state_behavior",
+        "value": "Returns immediately without a held item. Otherwise, while the source-overlay flag is zero, held A increments its float timer by 1; observing A released sets the flag to 1. The timer is cast to s32 and it_80291DAC's result is cached. At timer >= p_ftCommonData->x5B8 and no remaining animation frames, the two-argument Fire callback is invoked, but execution then continues. The helper rereads flag and animation state, returning if flag is zero or frames remain. Otherwise it recasts the current timer and calls the one-argument Rapid callback if it_80291CF4 returns zero, or the Fire callback with the previously cached item result otherwise. Thus nominal classification chooses the later mode, while ammunition-aware classification supplies the Fire payload. Callback-induced motion/storage changes affect later reads; exactly one callback per invocation is not guaranteed by this source. No post-callback item revalidation, timer saturation, finite-value guard, or general result-range check is present."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L162-L210",
+            "why": "Shared flow and exact grounded wrapper arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeRapid.c#L14-L29",
+            "why": "One-argument callback enters grounded Rapid."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeFire.c#L12-L28",
+            "why": "Two-argument callback enters grounded Fire and stores payload."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes grounded specialization precise and incorporates the verified shared-helper fall-through.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart:ftCo_ItemScopeStart_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally invokes fn_800D79B4 with fn_800D7BDC as the one-argument grounded Rapid continuation and fn_800D8140 as the two-argument grounded Fire continuation. The helper handles missing items, held-A duration and a release latch. Its inclusive duration-threshold Fire dispatch requires animation completion but not release and does not terminate the helper; subsequent release/animation checks use post-callback state. The later mode decision tests nominal it_80291CF4 == 0, while Fire receives a cached it_80291DAC result. No exclusive-one-transition guarantee should be inferred."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L162-L215",
+            "why": "Exact shared flow and aerial callback specialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeRapid.c#L31-L48",
+            "why": "AirRapid continuation and callback replacement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeFire.c#L30-L47",
+            "why": "AirFire continuation changes motion and writes the selected level."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces baseline 'otherwise' and unconditional pre-release continuation with exact shared-helper semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart:ftCo_ItemScopeAirStart_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally invokes fn_800D79B4 with fn_800D7C60 as the one-argument aerial Rapid continuation and fn_800D81D0 as the two-argument aerial Fire continuation. The helper accumulates held-A duration before release is latched, returns with no held item, and gates continuations on animation completion. Threshold Fire dispatch at timer >= x5B8 can occur before release and falls through to reread flag and animation state. If later release/completion guards pass, nominal it_80291CF4 == 0 selects AirRapid; otherwise AirFire receives the previously cached ammunition-aware result. A prior callback may have changed state and action storage, so the branches are not exclusive."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L121-L137",
+            "why": "Complete damage-handler guard and forwarding behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1023-L1029",
+            "why": "Optional per-kind pickup-table invocation, not direct ownership transfer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsscope.c#L109-L146",
+            "why": "Selector's missing-return exposure and consumer's subtraction/clamp."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unsupported 'when valid' and presentation certainty with exact guards, calls, and layout qualification.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart:fn_800D7938"
+        },
+        "type": "purpose",
+        "value": "Handles the damage callback installed by grounded and aerial ItemScope startup entry and surface-transition routines. If a held item exists, it casts the top-level source-overlay x2340 float to s32, queries it_80291DAC, forwards every result except exactly -1 to it_80291F14, and invokes ftCommon_8007E7E4(gobj, 1), which optionally calls the fighter-kind OnItemPickup table entry. It neither explicitly changes motion nor validates the selector's full result range. The intended timer access is visible in source; its exact compiled offset and equivalence to the other startup overlays remain unresolved."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

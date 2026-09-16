@@ -1,0 +1,131 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_YoshiEgg",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_YoshiEgg:ftCo_800BBCC0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "If yoshiegg.x14<=0 on invocation, call Fighter_UpdateModelScale, clear accessory4_cb and return without a local accessory-scale reset. Otherwise decrement x14 by one, compute m=(1-xC)+((x10-x14)/x10)*xC, multiply saved root x18 and accessory scale vectors componentwise by m, and write both JObj scales. Reaching zero through the decrement still performs scaling; cleanup waits for another invocation. No clamping or finite/nonzero-denominator validation guarantees monotonic growth, eventual completion or an exact final accessory baseline. Fractional countdowns may overshoot; NaN x14 bypasses the cleanup comparison under ordinary nontrapping floating-point semantics.",
+        "rationale": "Replaces progressively-larger behavior with exact guard order, arithmetic and boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c#L40-L69",
+            "why": "Complete countdown guard, formula, two scale writes and self-removal."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_YoshiEgg:ftCo_800BBED4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Entry conditionally applies airborne setup to a grounded victim, enters ftCo_MS_YoshiEgg, hides it, loads/scales/attaches its accessory, initializes the specialized hurt capsule, source-derived velocity/facing/damage behavior, grab state and interpolation inputs, and installs primary/secondary damage and accessory4 callbacks. Canonical initialization writes mv.ca.specialhi.vel.y=0 and yoshiegg.x14=mv.co.walk.fast_anim_frame; intended union aliases remain unresolved without compiled layout evidence. The scale callback can unregister before captivity ends and is suppressed by the inspected scheduler when x221F_b3 or x2219_b5 is set. Motion-state callback setup clears accessory4_cb and both damage slots.",
+        "rationale": "Removes unsupported until-expiry lifetime guarantees while preserving verified initialization and canonical field spellings.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c#L71-L129",
+            "why": "Complete setup and canonical cross-union writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c#L40-L47",
+            "why": "Independent scale-callback removal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2552-L2564",
+            "why": "Actual accessory callback scheduling gates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1370-L1389",
+            "why": "Callback slot clearing during motion-state setup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_YoshiEgg:ftCo_YoshiEgg_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation subtracts ftYs_SpecialN_GetExtAttr28 from grab_timer, calls ftCommon_GrabMash with ftYs_SpecialN_GetExtAttr2C, stores its result in x4, and then tests grab_timer<=0. Expiration performs sound/effect, release velocity, airborne/model-scale and collision setup, calls ftCo_Fall_Enter_YoshiEgg and returns. That helper permits x2224_b2 and ftCo_800C5240 alternate routes before default Fall. Otherwise any nonzero x8, including a negative value, is decremented; a resulting nonpositive x8 with false x4 resets animation rate to 1 and x8 to zero. Independently, nonpositive x8 with true x4 reloads configured duration and rate. Zero x8 with no mash does nothing. No finite-value validation exists; under ordinary nontrapping semantics NaN timer fails the exit test and NaN x8 fails the nonpositive comparisons.",
+        "rationale": "Corrects positive-versus-nonzero guard, preserves update ordering and documents optional exit paths.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c#L131-L165",
+            "why": "Exact update order and comparisons."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L31-L83",
+            "why": "Alternate routes before default Fall."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_YoshiEgg:ftCo_YoshiEgg_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The registered YoshiEgg IASA callback is empty: no parameter dereference, input check, timer mutation, call or transition occurs in this phase. The local Anim callback owns decay, mash processing and the timer-conditioned release sequence. This does not prove that timer expiry is the only external reason the fighter can leave YoshiEgg.",
+        "rationale": "Preserves invariant no-op behavior while removing an unsupported global exclusivity claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c#L131-L167",
+            "why": "Local timer path and complete empty IASA definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3181-L3191",
+            "why": "Active IASA registration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Entry reads the capturing fighter's accessory descriptor, facing, launch velocity, damage behavior, interpolation parameters and initial grab duration through Yoshi SpecialN accessors. The accessory's initial uniform scale and specialized hurt-capsule geometry instead come from the victim's co_attrs.xBC, and the root baseline is copied from the victim's JObj. Later callbacks consume victim state; recurring decay, mash feedback, release tuning and the damage-to-timer coefficient are read from global Yoshi extended attributes rather than the retained source pointer.",
+        "rationale": "Repairs the baseline's incorrect attribution of accessory scaling to Yoshi and distinguishes per-source inputs, victim baselines and global recurring tuning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c#L71-L165",
+            "why": "Victim-derived geometry/scales and entry-to-update flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialn.c#L39-L127",
+            "why": "Per-object dat_attrs, descriptor, and global ext_attr accessor implementations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c#L197-L206",
+            "why": "Recurring damage coefficient consumption."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

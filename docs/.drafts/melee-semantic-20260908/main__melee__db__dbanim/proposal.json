@@ -1,0 +1,178 @@
+{
+  "tu": "main/melee/db/dbanim",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbanim.c#L79-L87",
+            "why": "Read-only full-byte return and zero fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L426-L434",
+            "why": "Predicate validates non-null object and fighter classification."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbitem.c#L210-L225",
+            "why": "Separate fighter inheritance and nonfighter global-mode branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the stateless accessor behavior while correcting the consumer's exceptional nonfighter branch.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbanim:fn_8022697C"
+        },
+        "type": "state_behavior",
+        "value": "Read-only snapshot accessor: a non-null object classified as a fighter yields its current full x21FC_flag.u8; null or nonfighter input yields zero. The class check does not independently validate Fighter user_data. In db_80225DD8's fighter-owner branch, item collision bits are cleared and a nonzero accessor result contributes only its low two bits. Nonfighter owners bypass this accessor there and instead OR the global item collision mode into the item byte; the accessor's zero fallback does not universally disable nonfighter-owned items."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbanim.c#L150-L221",
+            "why": "Inputs, whole-byte assignments, delegates and effect calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbitem.c#L227-L240",
+            "why": "Refresh traverses items selected by exact owner equality."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L220",
+            "why": "Only two or four input records are refreshed."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the refresh destination and makes destructive whole-byte writes and producer-dependent freshness explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbanim:fn_CheckAnimationInfo"
+        },
+        "type": "data_flow",
+        "value": "Reads player-indexed stored held and pressed masks. R+Up advances the shared collision mode and assigns every fighter's whole visualization byte; R+Right excludes slot type 3, advances the selected fighter's low two bits, assigns its whole byte and refreshes items whose owner pointer exactly matches that fighter. Both assignments clear upper miscellaneous bits without resetting the shared miscellaneous selector or its item-range controls. R+Left delegates to the shared visual cycler. Y+Down changes the shared panel flag and DevText visibility. Y-modified left/right resolve the player entity and dispatch Super or Poison Mushroom apply/end according to A. Stored pressed masks represent fresh edges only when their producer record has been refreshed."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbanim.c#L150-L221",
+            "why": "Exact chords, slot guards and A-dependent effect routines."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L175",
+            "why": "Actual debug-level gate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L243-L246",
+            "why": "Caller dispatches this control handler."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the control mapping while distinguishing exact effect-specific dispatch from unconditional size restoration and documenting the actual caller gate.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbanim:fn_CheckAnimationInfo"
+        },
+        "type": "game_mapping",
+        "value": "Implements developer fighter controls: R+Up cycles all-fighter collision state, R+Right cycles the selected player's collision state, R+Left cycles miscellaneous diagnostics, and Y+Down toggles animation information. Y+Left requests Super Mushroom growth without A or Poison Mushroom shrinkage with A; Y+Right requests the matching Super or Poison Mushroom end routine according to A, rather than universally restoring every size effect. Player-specific collision and size branches exclude slot type 3. The inspected caller enables this facility at DbLKind_DebugRom or above, not exclusively at DEVELOP."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbanim.c#L150-L221",
+            "why": "State transitions, guards and independent source-order tests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L99-L107",
+            "why": "Accessors return stored records rather than recomputing input."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L220",
+            "why": "Two-or-four refresh, directional filtering and edge computation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L243-L246",
+            "why": "Four consumer calls precede one panel update."
+          }
+        ],
+        "op": "write",
+        "rationale": "Repairs the unconditional held-direction guarantee using the independently inspected producer, filtering and four-consumer caller path.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbanim:fn_CheckAnimationInfo"
+        },
+        "type": "state_behavior",
+        "value": "R+Up advances the shared collision mode through 1\u20133 with wrap to 1 and assigns it to every fighter's full visualization byte. R+Right, unless slot type is 3, advances the selected fighter's low two bits through 1\u20133, assigns the full byte and refreshes its owned items. R+Left advances miscellaneous visuals. Y+Down XOR-toggles the panel flag and explicitly shows or hides both text and background. With Y held and slot type not 3, left requests Super Mushroom apply or Poison Mushroom apply when A is held; right requests the corresponding end routine. Tests are independent and execute in that order. Directional tests consume stored pressed masks: an unchanged held direction avoids repeated fresh edges only when its producer record is refreshed. db_RunEveryFrame refreshes two records when either hand is present, otherwise four, but calls this consumer for all four indices before one panel update. Records 2 and 3 are not refreshed or cleared by the two-record frame path; reachability of stale nonzero records remains unresolved. The producer sequentially filters vertical-plus-horizontal D-pad combinations before computing edges, so arbitrary physical simultaneous directions cannot be assumed to compose unchanged at this consumer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbanim.c#L97-L145",
+            "why": "Complete data-reading, lookup and formatting branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the misleading valid/out-of-range characterization with exact lookup conditions and preserves the sentinel and output layout.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbanim:fn_UpdateAnimationInfo"
+        },
+        "type": "data_flow",
+        "value": "When ShowAnimationInfo is enabled, obtains db_AnimationInfo.text, erases it, resets its cursor and traverses fighter user_data. Reads player_id, motion_id, anim_id, cur_anim_frame and x221C_u16_y. Motion ids below 0x155 index db_motionstate_names; other values print numerically. Animation id -1 produces no animation text; other ids below 0x127 index db_submotion_names, and remaining values print numerically. These are upper-threshold tests, not comprehensive validation of arbitrary indices. Writes animation at column 23, frame at column 44 using %03.2f, and L/R/T or spaces at column 52 according to status bits 1/2/4. The routine has no local panel, fighter-payload or name-table pointer validation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbanim.c#L23-L77",
+            "why": "Setup and initialized miscellaneous cycle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbanim.c#L97-L101",
+            "why": "Enabled update uses saved pointer without a local null check."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbanim.c#L156-L198",
+            "why": "Whole-byte collision writes and explicit visibility transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib.c#L35-L83",
+            "why": "Creation initializes and clears the panel, not its text/background hide flags."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L220",
+            "why": "Caller controls input-record freshness."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes logical update state from DevText hide flags and records the supported cross-state and lifetime qualifications.",
+        "subject": {
+          "entity_locator": "src/melee/db/dbanim.c"
+        },
+        "type": "state_behavior",
+        "value": "Setup initializes collision mode to 1, miscellaneous selector to 0 and the logical animation-panel update flag to 0; this is not an explicit text/background hide operation. Successful DevText creation registers a cleared panel, hides its cursor and applies transparent-black background, white text and scale 9 by 12. Collision actions cycle values 1\u20133 and overwrite whole fighter visualization bytes, clearing upper miscellaneous bits without resetting the shared selector. From initialized state the miscellaneous selector follows 0,1,2,4,8,16,32,0 and resynchronizes fighter upper bits and item-range controls. Y+Down XOR-toggles the logical flag and explicitly changes text/background visibility; panel contents update only while enabled. Input transitions depend on stored masks whose freshness is controlled by the caller. Setup guards styling after creation, but subsequent visibility and enabled-update paths do not locally guard the saved pointer."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

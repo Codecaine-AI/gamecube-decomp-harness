@@ -3,7 +3,7 @@ import type { Database } from "bun:sqlite";
 
 import { buildAttemptRecord, type AttemptCheckpointRow, type AttemptWorkerStateRow } from "@server/core/knowledge/attempt-view.js";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { addPiSession, type StateStore } from "@server/core/cycle-runtime/run-state";
+import { addPiSession, type StateStore } from "@server/core/harness-runtime/run-state";
 import { runMeleeKernelPiAgent as runPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 
 export interface AttemptRecordWorkerStateRow extends AttemptWorkerStateRow {

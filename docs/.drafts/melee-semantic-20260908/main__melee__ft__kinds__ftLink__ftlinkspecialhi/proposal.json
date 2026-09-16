@@ -1,0 +1,121 @@
+{
+  "tu": "main/melee/ft/kinds/ftLink/ftlinkspecialhi",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspecialhi:ftLk_SpecialHi_Coll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Calls ft_80082708(gobj) and invokes doColl only for a zero result. The pinned common helper returns fall_off_ledge ? GA_Air : GA_Ground and the enum defines ground as zero, air as one. Literal composition selects doColl for GA_Ground. Intended loss-of-support gameplay and compiled behavior remain unresolved.",
+        "rationale": "Independently confirms librarian's polarity finding; canonical caller, return expression, and enum outrank aliases and intended gameplay narrative.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecialhi.c#L117-L123",
+            "why": "Negated result gates doColl."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L392-L404",
+            "why": "Enum-valued return expression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+            "why": "Ground zero and air one."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspecialhi:ftLk_SpecialAirHi_Enter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requests ftLk_MS_SpecialAirHi with Ft_MF_None, frame 0, rate 1, blend 0, NULL; calls ftAnim_8006EBA4; multiplies self_vel.x by x34; assigns x40 to self_vel.y; sets jumpsUsed=max_jumps; and installs onAccessory4. No local ground_or_air assignment or range validation occurs. Positive launch and reduced horizontal speed are not guaranteed by this body.",
+        "rationale": "Retains exact ordered initialization without unsupported attribute-range assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecialhi.c#L57-L69",
+            "why": "Complete entry body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspecialhi:ftLk_SpecialAirHi_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "On false ftAnim_IsFramesRemaining, calls ftCo_80096900(gobj,1,1,false,specialairhi_drift_stick_mul,x30). The callee ordinarily enters FallSpecial and stores the final inputs as scaled mobility and landing_lag, but x2224_b2 diverts through ftCo_80090780. The selected xC=1 physics branch does not use the stored mobility cap; customized post-move drift is not established merely by passing this multiplier.",
+        "rationale": "Distinguishes argument forwarding and storage from actual selected consumer behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecialhi.c#L79-L87",
+            "why": "Guard and exact arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L28-L59",
+            "why": "Diversion, parameter names, and state storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L84-L127",
+            "why": "Mobility cap is consumed only in alternate branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspecialhi:onAccessory4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Looks up remapped TransN and directly indexed L2ndNa for FTKIND_LINK, otherwise L3rdNa, before testing x2219_b0. Only with that flag clear does it call efSync_Spawn with effect 1211 for exact GA_Ground or 1212 otherwise and set the flag. Fighter_SetEffectHitlagCallbacks and clearing accessory4_cb occur unconditionally. Two supplied joints do not establish rendering geometry, allocation success, or effect lifetime.",
+        "rationale": "Repairs conditionality and exact branch boundaries without importing rendered semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecialhi.c#L26-L46",
+            "why": "Complete lookup, guard, spawn, flag, and scheduling flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspecialhi:ftLk_SpecialHi_GetPosWithAdjustedY"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Copies fighter cur_pos into a required writable Vec3 and adds dat_attrs.specialhi_pos_y_offset to y. A demonstrated boomerang consumer uses the result for owner-relative planar distance and conditional steering. A Spin Attack-specific consumer is unproved. No null, finite-value, or non-aliasing check occurs; aliasing the output to cur_pos changes fighter position.",
+        "rationale": "Actual consumer and exact computation outrank name-based exclusive SpecialHi purpose.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecialhi.c#L154-L160",
+            "why": "Output computation and lack of guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkboomerang.c#L564-L600",
+            "why": "Nonnull stored-owner consumer uses output for distance and steering."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

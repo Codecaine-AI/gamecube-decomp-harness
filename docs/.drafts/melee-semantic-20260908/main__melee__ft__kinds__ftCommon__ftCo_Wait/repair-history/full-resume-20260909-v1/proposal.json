@@ -1,0 +1,90 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Wait",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Tests this exact sequence: ftCo_SpecialS_CheckInput; ftCo_Attack100_CheckInput, whose body dispatches up special; ftCo_800D6824, neutral special; ftCo_800D68C0, down special; Catch; AttackS4, AttackHi4, AttackLw4; AttackS3, AttackHi3, AttackLw3; Attack1; ftCo_80099794; ftCo_80091A4C; ftFx_AppealS_CheckInput; ftCo_800DE9D8; Jump; Dash; ftCo_800D5FB0, squat; Turn; Walk. The first true result returns immediately and suppresses later checks; if all return false, this invocation performs no accepted transition.",
+        "rationale": "The canonical Attack100_CheckInput name is misleading: its body calls ftData_SpecialHi, not a rapid-jab entry.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+            "why": "Exact ordered short-circuit predicates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L100",
+            "why": "Address-named predicates dispatch neutral/down specials; misleading Attack100 name dispatches up special."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Squat.c#L35-L69",
+            "why": "Squat threshold and entry behind address-named predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L288-L298",
+            "why": "Wait active callback row."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards the Wait fighter object to ft_80084F3C and then ftColl_8007AEE0. The first helper selects ground friction, scaling it above walk_max_vel, and stores friction as primary ground acceleration before projecting ground movement. It does not directly subtract from gr_vel; the shared fighter update later integrates pending acceleration. The second helper clears shield_hit.skip_update_pos.",
+        "rationale": "Distinguish queued acceleration from immediate velocity mutation and identify the actual followup flag write.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L69-L73",
+            "why": "Friction/movement helper precedes ftColl flag update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Above-walk-speed friction scaling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L51-L59",
+            "why": "Friction writes primary ground acceleration rather than directly changing gr_vel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L133-L152",
+            "why": "Ground-normal projections and surface multiplier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2292-L2297",
+            "why": "Subsequent integration adds pending accelerations and clears them."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3077-L3080",
+            "why": "Followup clears shield_hit.skip_update_pos."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L288-L298",
+            "why": "Wait active callback row."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

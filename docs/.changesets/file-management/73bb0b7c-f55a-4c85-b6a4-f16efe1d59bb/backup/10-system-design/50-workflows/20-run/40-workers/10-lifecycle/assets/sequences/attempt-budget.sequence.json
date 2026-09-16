@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "id": "worker-attempt-budget",
+  "title": "Attempt budget continuation",
+  "participants": [
+    { "id": "p1", "name": "scheduler", "kind": "actor", "label": "Host scheduler" },
+    { "id": "p2", "name": "records", "kind": "participant", "label": "Run records (SQLite)" },
+    { "id": "p3", "name": "worker", "kind": "actor", "label": "Worker (Pi session)" },
+    { "id": "p4", "name": "runner", "kind": "participant", "label": "Runner validation" }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "claim job and epoch target; stamp claim TTL = agent_timeout_seconds + 600s grace"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p1",
+      "to": "p3",
+      "line": "sync",
+      "text": "start attempt loop with a base budget of 5 attempts"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "loop",
+      "operands": [
+        {
+          "guard": "while continuation says attempt_budget_available",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m3",
+              "from": "p3",
+              "to": "p3",
+              "line": "sync",
+              "text": "run one attempt in a Pi session bounded by agent_timeout_seconds"
+            },
+            {
+              "kind": "message",
+              "id": "m4",
+              "from": "p3",
+              "to": "p4",
+              "line": "sync",
+              "text": "submit attempt result for validation"
+            },
+            {
+              "kind": "message",
+              "id": "m5",
+              "from": "p4",
+              "to": "p2",
+              "line": "sync",
+              "text": "record checkpoint: score, exact match, hard gates, selectable"
+            },
+            {
+              "kind": "message",
+              "id": "m6",
+              "from": "p4",
+              "to": "p4",
+              "line": "sync",
+              "text": "continuation decision: replay checkpoints; +2 budget per strictly new best qualifying score"
+            },
+            {
+              "kind": "note",
+              "id": "n1",
+              "anchor": "p4",
+              "side": "over",
+              "text": "Qualifying score: a selectable checkpoint with a finite score, or any exact match — a gate-failed exact grants once; a score below the running best grants nothing"
+            },
+            {
+              "kind": "fragment",
+              "id": "f2",
+              "op": "opt",
+              "operands": [
+                {
+                  "guard": "budget remains and no stop cause",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "m7",
+                      "from": "p4",
+                      "to": "p3",
+                      "line": "return",
+                      "text": "continuation request with repair and score feedback"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "fragment",
+      "id": "f3",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "accepted_exact: exact match passed every hard gate",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m8",
+              "from": "p4",
+              "to": "p2",
+              "line": "sync",
+              "text": "close worker; the accepted exact checkpoint is selected"
+            }
+          ]
+        },
+        {
+          "guard": "attempt_budget_exhausted: attempts reached the extended budget",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p4",
+              "to": "p2",
+              "line": "sync",
+              "text": "close worker; select the best selectable checkpoint or baseline"
+            }
+          ]
+        },
+        {
+          "guard": "claim_deadline: claim TTL reached — budget never extends time",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m10",
+              "from": "p1",
+              "to": "p3",
+              "line": "sync",
+              "text": "kill the job process at claim TTL"
+            },
+            {
+              "kind": "message",
+              "id": "m11",
+              "from": "p4",
+              "to": "p2",
+              "line": "sync",
+              "text": "close worker preserving the best selectable checkpoint or baseline"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "message",
+      "id": "m12",
+      "from": "p2",
+      "to": "p1",
+      "line": "return",
+      "text": "settled worker state with the selected checkpoint"
+    },
+    {
+      "kind": "message",
+      "id": "m13",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "settle job; enqueue integration for the selected checkpoint and worker knowledge processing"
+    }
+  ],
+  "style": { "accent": "#4C78A8" }
+}

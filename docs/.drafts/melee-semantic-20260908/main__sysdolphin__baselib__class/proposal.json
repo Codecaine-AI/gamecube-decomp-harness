@@ -1,0 +1,234 @@
+{
+  "tu": "main/sysdolphin/baselib/class",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L32-L58",
+            "why": "Exact assignments, assertions, copy expression and insertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L18-L39",
+            "why": "Source field declarations do not prove compiled size or padding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace the unsupported 0x28 layout constant with the exact canonical sizeof expression while preserving the supported descriptor flow.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:hsdInitClassInfo"
+        },
+        "type": "data_flow",
+        "value": "Stores the supplied library and class-name pointers, narrows object and descriptor sizes to s16, records the optional parent, and resets child/sibling links and live/peak counters. With a parent, it initializes that descriptor if necessary, asserts the stored child sizes are at least the parent's sizes, and copies parent_info->head.info_size - sizeof(HSD_ClassInfoHead) bytes from &parent_info->alloc to &class_info->alloc. It then prepends the child to the parent's child list. The source expression does not establish a numeric compiled header size."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L428-L456",
+            "why": "Contrasts recursive helper mutations with caller splice."
+          }
+        ],
+        "op": "write",
+        "rationale": "Clarify the boundary between recursive invalidation and caller-owned list splicing.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:ForgetClassLibraryReal"
+        },
+        "type": "purpose",
+        "value": "Recursively invalidates a supplied class subtree in child-before-parent order, invoking each descriptor's amnesia callback and clearing its child/parent links and initialized bit. Child sibling links are severed before recursion. The starting descriptor's own next link and incoming parent child-list reference are not removed by this helper itself; the selecting caller handles matching top-level list removal."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L79-L163",
+            "why": "Table publication, recycling, insertion and NULL checks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26",
+            "why": "Positive-size heap failure asserts."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+            "why": "Assertion expansion and nonreturning declaration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve the established data flow while correcting unqualified allocation-failure recovery.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:GetMemoryEntry"
+        },
+        "type": "data_flow",
+        "value": "Uses idx to select or create metadata for (idx + 1) * 32 bytes. Allocates, copies and zeroes the pointer table, publishes replacements through memory_list and nb_memory_list, recycles the old table through hsdFreeMemPiece with a compensating nb_alloc increment, and inserts missing metadata into the ascending size chain. Local NULL exits exist, but positive-size HSD_MemAlloc failure asserts before returning; replacement-table publication can precede a later metadata allocation failure."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L79-L163",
+            "why": "Assertion, growth loops and mutation ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26",
+            "why": "Heap failure policy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+            "why": "Assertions remain active in both macro branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve growth and insertion semantics while identifying publication ordering and the actual failure boundary.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:GetMemoryEntry"
+        },
+        "type": "state_behavior",
+        "value": "Asserts idx >= 0. Initial capacity starts at 32 and doubles until idx fits; existing capacity likewise doubles when necessary. A missing entry is zeroed, assigned (idx + 1) * 32 bytes, and linked between the nearest existing lower and higher entries. Growth publishes the new table before recycling the old table and before allocating missing metadata, so it is not transactional. Local NULL checks do not establish recoverable positive-size heap exhaustion because HSD_MemAlloc asserts on that failure. Arithmetic overflow is not comprehensively guarded."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L79-L81",
+            "why": "Indirect lower-bound assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L165-L232",
+            "why": "Signature, rounding and return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26",
+            "why": "Underlying failure behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Qualify the arithmetic domain and distinguish local pointer-result handling from the called allocator's assertion.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:hsdAllocMemPiece"
+        },
+        "type": "inferred_type",
+        "value": "void* hsdAllocMemPiece(s32 size) accepts a positive byte size within the domain of its rounding and capacity arithmetic and uses index (size + 31) / 32 - 1. It returns raw storage for the rounded 32-byte class. GetMemoryEntry indirectly asserts the computed index is nonnegative. Local NULL exits cover failed metadata/slab results, but HSD_MemAlloc asserts on positive-size heap failure, so ordinary recoverable exhaustion is not established."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L79-L163",
+            "why": "Indirect assertion and nontransactional metadata changes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L165-L232",
+            "why": "Rounding, ordered paths and counter mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26",
+            "why": "Positive-size heap failure assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+            "why": "Nonreturning assertion interface and macro definitions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve the three allocation paths and accounting while repairing the legacy omission of the indirect lower-bound guard and qualifying failure recovery.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:hsdAllocMemPiece"
+        },
+        "type": "state_behavior",
+        "value": "First pops the requested free-list head and decrements only its nb_free. Otherwise it scans larger registered classes, removes a larger piece, places its trailing remainder on the corresponding free list, and updates the affected nb_alloc and nb_free counts. If no larger free piece exists, it allocates nb_memory_list * 32 bytes and recycles any tail. nb_alloc counts pieces assigned to a size class rather than cumulative calls. Local NULL exits exist, but positive-size heap failure asserts and table/metadata changes may precede later failure. The routine does not coalesce or zero returned storage. There is no direct byte-size check or comprehensive upper-bound/overflow validation; however, the called GetMemoryEntry asserts idx >= 0, so zero and negative sizes with defined rounding arithmetic reach a negative index and assert."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L32-L58",
+            "why": "Complete unguarded initializer and ordered writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Add consequential exact-assignment, narrowing-order and repeated-initialization behavior omitted from the baseline.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:hsdInitClassInfo"
+        },
+        "type": "state_behavior",
+        "value": "Assigns flags = 1, clearing other bits; narrows both sizes to s16 and resets hierarchy links and live/peak counters before parent handling. An uninitialized parent runs info_init. The stored child sizes must be at least the parent's sizes before the inherited region is copied and the child prepended. This initializer has no already-initialized guard: direct repetition can discard descendants or, when the descriptor is already the parent's first child, create a self-linked sibling chain."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L1-L515",
+            "why": "Complete owned source establishes static declaration and all assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Conditional stored-value or NULL result."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retain conditional lookup semantics while recording the missing producer/lifetime boundary rather than assuming an operational registry.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/class:hsdSearchClassInfo"
+        },
+        "type": "state_behavior",
+        "value": "With current_hash NULL, returns NULL; otherwise delegates one HSD_HashSearch with no success out-parameter and returns the stored value or NULL. It does not initialize or mutate the registry itself. The complete owned class.c declares current_hash static and contains only NULL assignments, so no hash installation or population path is established in this revision."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L22-L58",
+            "why": "Guarded wrapper versus unguarded initializer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L274-L283",
+            "why": "Root reference reset without reclamation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L373-L515",
+            "why": "Query differences, teardown, conditional lookup and stats pruning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L1-L515",
+            "why": "Complete static hash lifetime."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace an overgeneralized initialization description with the observed exceptional paths and distinguish reset from backing-storage reclamation.",
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/class.c"
+        },
+        "type": "state_behavior",
+        "value": "Guarded class operations invoke info_init when bit 0 is clear, but direct hsdInitClassInfo is unguarded and assigns flags = 1 while resetting links and counters. The descriptor ancestry query initializes both operands as needed; the object query initializes only the requested class, and dumping skips uninitialized nodes and their descendants. Library forgetting processes selected subtrees child-first, calls amnesia, and clears initialization and hierarchy fields. Root amnesia drops allocator/hash references without freeing their backing allocations or destroying individual objects. No non-NULL current_hash assignment is present in the owned source."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

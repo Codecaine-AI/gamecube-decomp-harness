@@ -6,11 +6,13 @@ project: the toolpack defines stable tool ids, default APIs, runner scripts,
 and shared helper code. A project opts into the pack, supplies
 tool-specific bindings, and owns the generated data for its checkout.
 
-Project-owned runtime data is resolved from `projects/<id>/project.json` and
-`projects/<id>/tool-bindings/<tool_id>.json`. Stable indexes and caches live
-under `projects/<id>/shared/tool-data/<tool_id>`. Mutable output for parallel
+Project-owned runtime data is resolved from `games/<id>/game.json` and
+`games/<id>/config/tools/<tool_id>.json`. Stable indexes and caches live
+under `games/<id>/runtime/tool-data/<tool_id>`. Mutable output for parallel
 worktrees lives under
-`projects/<id>/worktrees/<worktree_id>/tool-cache/<tool_id>`.
+`games/<id>/runtime/tool-data/claims/<worktree_id>/<tool_id>`.
+
+Existing games can pin their previous data and checkout paths in game.json during migration. Resolve paths through the game registry instead of constructing them from this example.
 
 The server does not duplicate this pack under resource folders. Server code
 resolves a project-enabled toolpack, merges the project binding, and invokes
@@ -49,13 +51,13 @@ Each registered suite keeps the same shape:
 Runtime storage for each suite is project-owned:
 
 ```text
-projects/<id>/
-+-- tool-bindings/
+games/<id>/
++-- config/tools/
 |   +-- <tool_id>.json
-+-- shared/tool-data/<tool_id>/
++-- runtime/tool-data/<tool_id>/
 |   +-- cache/
 |   +-- indexes/
-+-- worktrees/<worktree_id>/tool-cache/<tool_id>/
++-- runtime/tool-data/claims/<worktree_id>/<tool_id>/
 ```
 
 Shared implementations that support multiple public tool suites live under
@@ -65,7 +67,7 @@ in project bindings, project-owned shared data, or project override roots.
 ## MWCC Runner
 
 For high-throughput worker runs, wibo is the preferred MWCC process runner. The
-orchestrator-managed install lives at `projects/<id>/state/tools/wibo`; the
+orchestrator-managed install lives at `games/<id>/runtime/tools/wibo`; the
 server resolver exports that path as `MWCC_WIBO`, and tool helpers also discover
 it from `ORCH_GAME_STATE_DIR` or from worker worktree paths. Checkout-local
 `build/tools/wibo` and `wibo` on `PATH` are fallback wibo locations. Wine is a

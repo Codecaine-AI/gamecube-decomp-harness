@@ -1,0 +1,55 @@
+{
+  "tu": "main/dolphin/gx/GXGeometry",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXGeometry.c#L28-L48",
+            "why": "Entry assertions, dirty-state synchronization, debug verification and combined-word condition precede typed command writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/macros.h#L4-L27",
+            "why": "ASSERTMSGLINE depends on #ifdef DEBUG and otherwise expands to a no-op."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unconditional format-rejection implication while preserving the source's distinct assertion and verification preprocessor conditions and exact flush guard.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXGeometry:GXBegin"
+        },
+        "type": "state_behavior",
+        "value": "Uses ASSERTMSGLINE to assert vtxfmt < 8 and reject nesting inside another GXBegin/GXEnd region; these assertions are active when DEBUG is defined and become no-ops otherwise. Before command emission it synchronizes any nonzero dirtyState. Separately, under #if DEBUG, it verifies state when not recording a display list and marks the begin region active. It emits a flush primitive only when the combined cached unk/bpSent word read at &gx->unk is zero, then writes the primitive/format byte and 16-bit vertex count."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXGeometry.c#L63-L88",
+            "why": "Separate line/point fields share lpSize; line setter emits it and clears bpSent."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXGeometry.c#L43-L47",
+            "why": "The consumer tests the combined word rather than bpSent alone."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported raster-state purpose while correcting the claim that this setter necessarily requires a later primitive flush.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXGeometry:GXSetLineWidth"
+        },
+        "type": "purpose",
+        "value": "Configures GX line rasterization by replacing the eight-bit line-width and three-bit line texture-offset fields in the shared line/point-size shadow register, immediately emitting the updated raster register, and clearing gx->bpSent to zero. This bookkeeping participates in the later conditional primitive flush; GXBegin flushes only when the combined cached unk/bpSent word is zero, not merely because this setter cleared bpSent."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

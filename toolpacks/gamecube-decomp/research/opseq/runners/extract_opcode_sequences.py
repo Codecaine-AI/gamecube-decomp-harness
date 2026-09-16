@@ -16,12 +16,16 @@ from typing import Any, Iterable
 
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(TOOL_ROOT.parents[1] / "_impl" / "gamecube" / "tools"))
 sys.path.append(str(TOOL_ROOT.parents[1] / "_shared"))
+from project_layout import ProjectLayout, get_project_layout  # type: ignore
 from search_index import package_root_for_tool, tool_storage_root  # type: ignore
+
+from toolpack_runtime import resolve_repo_root as runtime_repo_root
 
 PACKAGE_ROOT = package_root_for_tool(TOOL_ROOT)
 TOOL_STORAGE_ROOT = tool_storage_root(TOOL_ROOT)
-DEFAULT_REPO_ROOT = PACKAGE_ROOT / "projects" / "melee" / "checkout"
+DEFAULT_REPO_ROOT = runtime_repo_root()
 PREFIX_OPCODE_COUNT = 12
 DEFAULT_NEIGHBOR_LIMIT = 10
 MAX_CANDIDATE_FEATURES = 48
@@ -32,25 +36,25 @@ MINHASH_SIZE = 16
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate opcode-sequence fingerprints from build/GALE01/asm.")
+    parser = argparse.ArgumentParser(description="Generate opcode-sequence fingerprints from the selected build's assembly.")
     parser.add_argument("--repo-root", type=Path, default=DEFAULT_REPO_ROOT)
+    parser.add_argument("--build-dir", type=Path, help="Build directory relative to the selected checkout.")
     parser.add_argument("--limit", type=int, default=0, help="Maximum functions to index; 0 means all.")
     parser.add_argument("--neighbors-limit", type=int, default=DEFAULT_NEIGHBOR_LIMIT, help="Top similar functions to persist per function.")
     parser.add_argument("--query", default="", help="Optional symbol/opcode query to include in the smoke summary.")
     return parser.parse_args()
 
 
-def has_required_artifacts(repo_root: Path) -> bool:
-    return (repo_root / "build" / "GALE01" / "asm").is_dir() and (repo_root / "build" / "GALE01" / "report.json").is_file()
+def has_required_artifacts(repo_root: Path, layout: ProjectLayout | None = None) -> bool:
+    layout = layout or get_project_layout(repo_root)
+    return layout.asm_root.is_dir() and layout.report_path.is_file()
 
 
-def resolve_repo_root(requested: Path) -> tuple[Path, str | None]:
+def resolve_repo_root(requested: Path, layout: ProjectLayout | None = None) -> tuple[Path, str | None]:
     requested = requested.expanduser().resolve()
-    if has_required_artifacts(requested):
+    if has_required_artifacts(requested, layout):
         return requested, None
-    fallback = DEFAULT_REPO_ROOT.expanduser().resolve()
-    if fallback != requested and has_required_artifacts(fallback):
-        return fallback, "requested_repo_root_missing_build_GALE01_asm"
+    # Missing inputs must never select another game's checkout.
     return requested, None
 
 
@@ -61,16 +65,24 @@ def read_json(path: Path, default: Any) -> Any:
         return json.load(handle)
 
 
-def report_metadata(repo_root: Path) -> dict[str, Any]:
-    report = read_json(repo_root / "build" / "GALE01" / "report.json", {})
+def report_metadata(repo_root: Path, layout: ProjectLayout | None = None) -> dict[str, Any]:
+    layout = layout or get_project_layout(repo_root)
+    report = read_json(layout.report_path, {})
     by_unit_symbol: dict[tuple[str, str], dict[str, Any]] = {}
     by_symbol: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    unit_by_asm_stem: dict[str, str] = {}
     for unit in report.get("units") or []:
         if not isinstance(unit, dict):
             continue
         unit_name = str(unit.get("name") or "")
         unit_meta = unit.get("metadata") if isinstance(unit.get("metadata"), dict) else {}
         source_path = str(unit_meta.get("source_path") or "")
+        try:
+            object_path = layout.root / layout.object_path_for_unit(unit_name)
+            object_stem = object_path.relative_to(layout.root / "build" / layout.version / "src").with_suffix("")
+            unit_by_asm_stem[object_stem.as_posix()] = unit_name
+        except (KeyError, ValueError):
+            pass
         for fn in unit.get("functions") or []:
             if not isinstance(fn, dict):
                 continue
@@ -88,7 +100,11 @@ def report_metadata(repo_root: Path) -> dict[str, Any]:
             }
             by_unit_symbol[(unit_name, symbol)] = metadata
             by_symbol[symbol].append(metadata)
-    return {"by_unit_symbol": by_unit_symbol, "by_symbol": by_symbol}
+    return {
+        "by_unit_symbol": by_unit_symbol,
+        "by_symbol": by_symbol,
+        "unit_by_asm_stem": unit_by_asm_stem,
+    }
 
 
 def resolve_report_metadata(metadata: dict[str, Any], unit: str, symbol: str) -> dict[str, Any]:
@@ -119,8 +135,13 @@ def safe_float(value: Any) -> float:
         return 0.0
 
 
-def iter_asm_functions(repo_root: Path, metadata: dict[str, Any]) -> Iterable[dict[str, Any]]:
-    asm_root = repo_root / "build" / "GALE01" / "asm"
+def iter_asm_functions(
+    repo_root: Path,
+    metadata: dict[str, Any],
+    layout: ProjectLayout | None = None,
+) -> Iterable[dict[str, Any]]:
+    layout = layout or get_project_layout(repo_root)
+    asm_root = layout.asm_root
     for asm_path in sorted(asm_root.rglob("*.s")):
         lines = asm_path.read_text(encoding="utf-8", errors="replace").splitlines()
         symbol = ""
@@ -130,7 +151,7 @@ def iter_asm_functions(repo_root: Path, metadata: dict[str, Any]) -> Iterable[di
         for line_no, line in enumerate(lines, start=1):
             if line.startswith(".fn "):
                 if symbol and opcodes:
-                    yield make_row(repo_root, asm_path, start_line, symbol, opcodes, formatted, metadata)
+                    yield make_row(repo_root, asm_path, start_line, symbol, opcodes, formatted, metadata, layout)
                 symbol = line.removeprefix(".fn ").split(",", 1)[0].strip()
                 start_line = line_no
                 opcodes = []
@@ -138,7 +159,7 @@ def iter_asm_functions(repo_root: Path, metadata: dict[str, Any]) -> Iterable[di
                 continue
             if line.startswith(".endfn"):
                 if symbol and opcodes:
-                    yield make_row(repo_root, asm_path, start_line, symbol, opcodes, formatted, metadata)
+                    yield make_row(repo_root, asm_path, start_line, symbol, opcodes, formatted, metadata, layout)
                 symbol = ""
                 opcodes = []
                 formatted = []
@@ -179,8 +200,9 @@ def make_row(
     opcodes: list[str],
     formatted: list[str],
     metadata: dict[str, Any],
+    layout: ProjectLayout | None = None,
 ) -> dict[str, Any]:
-    asm_unit = unit_from_asm_path(repo_root, asm_path)
+    asm_unit = unit_from_asm_path(repo_root, asm_path, metadata, layout)
     meta = resolve_report_metadata(metadata, asm_unit, symbol)
     opcode_prefix = ",".join(opcodes[:PREFIX_OPCODE_COUNT])
     opcode_histogram = dict(sorted(Counter(opcodes).items()))
@@ -243,9 +265,15 @@ def make_row(
     }
 
 
-def unit_from_asm_path(repo_root: Path, asm_path: Path) -> str:
+def unit_from_asm_path(
+    repo_root: Path,
+    asm_path: Path,
+    metadata: dict[str, Any] | None = None,
+    layout: ProjectLayout | None = None,
+) -> str:
+    layout = layout or get_project_layout(repo_root)
     try:
-        rel = asm_path.relative_to(repo_root / "build" / "GALE01" / "asm").with_suffix("")
+        rel = asm_path.relative_to(layout.asm_root).with_suffix("")
     except ValueError:
         try:
             rel = asm_path.relative_to(repo_root).with_suffix("")
@@ -254,6 +282,11 @@ def unit_from_asm_path(repo_root: Path, asm_path: Path) -> str:
     parts = rel.parts
     if not parts:
         return ""
+    unit_by_asm_stem = metadata.get("unit_by_asm_stem") if isinstance(metadata, dict) else None
+    if isinstance(unit_by_asm_stem, dict):
+        resolved = unit_by_asm_stem.get(rel.as_posix())
+        if isinstance(resolved, str):
+            return resolved
     if parts[0] == "main":
         return "/".join(parts)
     return "main/" + "/".join(parts)
@@ -635,22 +668,27 @@ def write_manifest(
     neighbor_rows: list[dict[str, Any]],
     generated: list[Path],
     smoke_results: list[dict[str, Any]],
+    layout: ProjectLayout | None = None,
 ) -> dict[str, Any]:
+    layout = layout or get_project_layout(args.repo_root)
     generated_artifacts = [str(path) for path in generated if "cache" in path.parts]
     generated_indexes = [str(path) for path in generated if "indexes" in path.parts]
+    command = [
+        "python3",
+        "toolpacks/gamecube-decomp/research/opseq/runners/extract_opcode_sequences.py",
+        "--repo-root",
+        str(args.repo_root),
+        "--neighbors-limit",
+        str(args.neighbors_limit),
+    ]
+    if getattr(args, "explicit_build_dir", False):
+        command[4:4] = ["--build-dir", str(args.build_dir)]
     manifest = {
         "tool": "opseq",
         "runner": "extract_opcode_sequences.py",
         "success": bool(rows),
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "command": [
-            "python3",
-            "toolpacks/gamecube-decomp/research/opseq/runners/extract_opcode_sequences.py",
-            "--repo-root",
-            str(args.repo_root),
-            "--neighbors-limit",
-            str(args.neighbors_limit),
-        ],
+        "command": command,
         "repo_root": str(args.repo_root),
         "requested_repo_root": str(getattr(args, "requested_repo_root", args.repo_root)),
         "fallback_reason": getattr(args, "fallback_reason", None),
@@ -665,7 +703,10 @@ def write_manifest(
         "generated_artifacts": generated_artifacts,
         "generated_indexes": generated_indexes,
         "smoke_results": smoke_results,
-        "dependencies": ["build/GALE01/asm", "build/GALE01/report.json"],
+        "dependencies": [
+            str(layout.path_label(layout.asm_root)),
+            str(layout.path_label(layout.report_path)),
+        ],
     }
     status_path = TOOL_STORAGE_ROOT / "cache" / "runner_status.json"
     status_path.parent.mkdir(parents=True, exist_ok=True)
@@ -675,13 +716,19 @@ def write_manifest(
 
 def main() -> int:
     args = parse_args()
+    args.explicit_build_dir = args.build_dir is not None
     requested_repo_root = args.repo_root
-    repo_root, fallback_reason = resolve_repo_root(requested_repo_root)
+    report_override = args.build_dir / "report.json" if args.build_dir else None
+    requested_layout = get_project_layout(requested_repo_root, report_override)
+    repo_root, fallback_reason = resolve_repo_root(requested_repo_root, requested_layout)
+    layout = requested_layout if repo_root == requested_layout.root else get_project_layout(repo_root)
+    if args.build_dir is None:
+        args.build_dir = layout.asm_root.parent.relative_to(layout.root)
     args.requested_repo_root = requested_repo_root
     args.repo_root = repo_root
     args.fallback_reason = fallback_reason
-    metadata = report_metadata(repo_root)
-    raw_rows = list(iter_asm_functions(repo_root, metadata))
+    metadata = report_metadata(repo_root, layout)
+    raw_rows = list(iter_asm_functions(repo_root, metadata, layout))
     rows = dedupe_sequence_rows(raw_rows)
     if args.limit > 0:
         rows = rows[: args.limit]
@@ -692,7 +739,7 @@ def main() -> int:
     fingerprint_index_path = TOOL_STORAGE_ROOT / "indexes" / "opcode_fingerprints.jsonl"
     neighbor_index_path = TOOL_STORAGE_ROOT / "indexes" / "opcode_neighbors.jsonl"
     if not rows:
-        manifest = write_manifest(args, rows, len(raw_rows), fingerprint_rows, neighbor_rows, [], [])
+        manifest = write_manifest(args, rows, len(raw_rows), fingerprint_rows, neighbor_rows, [], [], layout)
         print(json.dumps(manifest, indent=2, sort_keys=True))
         return 1
     write_jsonl(cache_path, fingerprint_rows)
@@ -716,6 +763,7 @@ def main() -> int:
         neighbor_rows,
         [cache_path, index_path, fingerprint_index_path, neighbor_index_path],
         smoke_results,
+        layout,
     )
     print(json.dumps(manifest, indent=2, sort_keys=True))
     return 0 if rows else 1

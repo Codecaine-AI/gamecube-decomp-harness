@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
-import type { WorkerCycleResult } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import type { WorkerCycleResult } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
 import type { GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
+import { baseConfigureCommand, configureCommandWithWrapper } from "@server/core/game-registry/configure-command.js";
 import {
   isHostToolPlatform,
   requiredStateToolArtifactError,
@@ -16,24 +17,21 @@ function orchestratorRoot(): string {
   return packageRoot();
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-export function defaultConfigureCommand(globals: Pick<GlobalArgs, "repoRoot" | "stateDir">): string {
+export function defaultConfigureCommand(globals: Pick<GlobalArgs, "repoRoot" | "stateDir" | "game">): string {
   const toolPlatform = resolveToolPlatform();
+  const base = baseConfigureCommand(globals.game);
   const localWibo = resolve(globals.repoRoot, "build", "tools", "wibo");
   if (isHostToolPlatform(toolPlatform) && existsSync(localWibo)) {
-    return "python3 configure.py --require-protos --wrapper build/tools/wibo";
+    return `${base} --wrapper build/tools/wibo`;
   }
   const wibo = resolveStateToolArtifact({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
   if (wibo) {
-    return `python3 configure.py --require-protos --wrapper ${shellQuote(wibo)}`;
+    return configureCommandWithWrapper(base, wibo);
   }
   if (!isHostToolPlatform(toolPlatform)) {
     throw requiredStateToolArtifactError({ stateDir: globals.stateDir, name: "wibo", platform: toolPlatform });
   }
-  return "python3 configure.py --require-protos";
+  return base;
 }
 
 export function workerProcessEnv(globals: Pick<GlobalArgs, "stateDir">): Record<string, string | undefined> {

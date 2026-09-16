@@ -1,0 +1,158 @@
+197: int HSD_SynthSFXLoad(const char* filename, int bankID, void (*cb)(int, int),
+198:                      int mode)
+199: {
+200:     int entrynum;
+201:     bool enabled;
+202: 
+203:     HSD_ASSERTREPORT(0x103, (bankID >= 0 && bankID < hsd_SynthSFXBankNum),
+204:                      "invalid bankID = %d; filename = %s\n", bankID, filename);
+205: 
+206:     entrynum = DVDConvertPathToEntrynum(filename);
+207: 
+208:     while (HSD_Synth_804D772C >= 6) {
+209:     }
+210: 
+211:     enabled = OSDisableInterrupts();
+212:     HSD_Synth_804C2A60[HSD_Synth_804D772C].entrynum = entrynum;
+213:     HSD_Synth_804C2A60[HSD_Synth_804D772C].bankID = bankID;
+214:     HSD_Synth_804C2A60[HSD_Synth_804D772C].x8 = cb;
+215:     HSD_Synth_804C2A60[HSD_Synth_804D772C].xC = mode;
+216:     HSD_Synth_804D772C += 1;
+217: 
+218:     if (HSD_Synth_804D772C == 1) {
+219:         HSD_SynthSFXLoadNewProc();
+220:     }
+221: 
+222:     OSRestoreInterrupts(enabled);
+223:     return entrynum;
+224: }
+225: 
+226: void HSD_SynthSFXWaitForLoadCompletion(void (*callback)(void))
+227: {
+228:     while (HSD_Synth_804D772C != 0) {
+229:         callback();
+230:     }
+231: }
+232: 
+233: int HSD_SynthSFXGetPendingLoadCount(void)
+234: {
+235:     return HSD_Synth_804D772C - HSD_Synth_804D7738;
+236: }
+237: 
+238: int HSD_SynthSFXCancelLoad(int entrynum)
+239: {
+240:     int result = 0;
+241:     bool enabled = OSDisableInterrupts();
+242: 
+243:     if (HSD_Synth_804D772C != 0) {
+244:         if (HSD_Synth_804C2A60[0].entrynum == entrynum &&
+245:             HSD_Synth_804D7738 == 0)
+246:         {
+247:             int i;
+248:             HSD_Synth_804D7738 = 1;
+249:             for (i = 0; i < 2; i++) {
+250:                 HSD_DevComCancelEx(HSD_Synth_804D6028[i], 0, 0, 0);
+251:             }
+252:             result = 1;
+253:         } else {
+254:             int idx = 1;
+255:             while (idx < HSD_Synth_804D772C) {
+256:                 if (HSD_Synth_804C2A60[idx].entrynum == entrynum) {
+257:                     int j;
+258:                     for (j = idx; j < HSD_Synth_804D772C - 1; j++) {
+259:                         HSD_Synth_804C2A60[j] = HSD_Synth_804C2A60[j + 1];
+260:                     }
+261:                     HSD_Synth_804D772C--;
+262:                     result = 1;
+263:                     break;
+264:                 }
+265:                 idx++;
+266:             }
+267:         }
+268:     }
+269:     OSRestoreInterrupts(enabled);
+270:     return result;
+271: }
+272: 
+273: void HSD_SynthSFXAllocateBank(int size)
+274: {
+275:     int base = hsd_SynthSFXBankHead[hsd_SynthSFXBankNum];
+276: 
+277:     hsd_SynthSFXBank[hsd_SynthSFXBankNum] = base;
+278:     hsd_SynthSFXBankHead[hsd_SynthSFXBankNum + 1] = size + base;
+279: 
+280:     HSD_ASSERTREPORT(0x158,
+281:                      hsd_SynthSFXBankHead[hsd_SynthSFXBankNum + 1] <=
+282:                          hsd_SynthSFXBankAREnd,
+283:                      "bank overflow\n");
+284:     hsd_SynthSFXBankNum += 1;
+285: }
+286: 
+287: #ifdef MUST_MATCH
+288: static void order_data_0(void)
+289: {
+290:     (void) "bank stack underflow\n";
+291:     (void) "hsd_SynthSFXBankNum";
+292: }
+293: #endif
+294: 
+295: static inline void HSD_SynthSFXUnloadBank_inline(AXVPB* vpb)
+296: {
+297:     int i;
+298:     for (i = 0; i < vpb->priority; i++) {
+299:         HSD_Synth_80388DC8((int) vpb->next1 + i);
+300:     }
+301: }
+302: 
+303: void HSD_SynthSFXUnloadBank(int bank_id)
+304: {
+305:     AXVPB** head;
+306:     HSD_SynthSFXStopRange(bank_id);
+307:     head = &HSD_Synth_804C2AE0[bank_id];
+308:     while (*head != NULL) {
+309:         AXVPB* cur;
+310:         HSD_SynthSFXUnloadBank_inline(*head);
+311:         cur = *head;
+312:         *head = (*head)->next;
+313:         HSD_AudioFree(cur);
+314:     }
+315:     hsd_SynthSFXBank[bank_id] = hsd_SynthSFXBankHead[bank_id];
+316: }
+317: 
+318: void HSD_Synth_80388DC8(int sfx_id)
+319: {
+320:     void* cur;
+321:     void** pcur = &HSD_Synth_804C29E0[sfx_id & 0x1F];
+322: 
+323:     while ((cur = *pcur) != NULL) {
+324:         if (((int*) cur)[1] == sfx_id) {
+325:             *pcur = *(void**) cur;
+326:             return;
+327:         }
+328:         pcur = (void**) cur;
+329:     }
+330: }
+331: 
+332: void HSD_Synth_80388E08(int sfx_id)
+333: {
+334:     AXVPB* cur;
+335:     AXVPB** pcur;
+336:     int i;
+337: 
+338:     for (i = 0; i < 0x20; i++) {
+339:         pcur = &HSD_Synth_804C2AE0[i];
+340:         while (*pcur != NULL) {
+341:             cur = *pcur;
+342:             /// @todo AXVPB prev must be a signed int type, not a pointer
+343:             if ((int) cur->prev == sfx_id) {
+344:                 HSD_SynthSFXUnloadBank_inline(cur);
+345:                 *pcur = cur->next;
+346:                 HSD_AudioFree(cur);
+347:                 return;
+348:             }
+349:             pcur = &cur->next;
+350:         }
+351:     }
+352: }
+353: 
+354: static void HSD_SynthSFXGroupDataReaddressCallback(void* result, int length,

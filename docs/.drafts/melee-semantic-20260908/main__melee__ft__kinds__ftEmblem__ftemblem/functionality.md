@@ -1,0 +1,23 @@
+## Roy initialization and configuration
+
+The owned C file defines Roy's Emblem resource metadata, five costume-cache entries, a 32-record special-motion table, and nine lifecycle/event adapters. The header declares these public interfaces and resource objects. The table uses shared ftMars submotion identifiers and callbacks, with a common camera updater in every record. Source comments label the action-state sequence 341–372; these labels are distinct from submotion identifiers and do not establish compiled layout. Neutral special has grounded/aerial start, loop and two end variants; side special has directional second-, third- and fourth-stage variants; up special has ground/air variants; down special has ground/air normal and hit variants. Notably, the grounded first side-special record also uses ftMs_SpecialAirS1 callbacks, and aerial later stages share ftMs_SpecialS2/3/4 callbacks. Ground and air side-special flag identifiers differ. [Table](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftEmblem/ftemblem.c#L18-L371).
+
+Resources include PlFe.dat, ftDataEmblem, PlFeAJ.dat, five costume archive/joint/material-animation triples, and four demo keys. Their source declarations do not prove exact compiled section membership. [Resources](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftEmblem/ftemblem.c#L373-L405).
+
+## Lifecycle and cross-file behavior
+
+OnDeath unconditionally requests model selections (0,0), (1,0), and (2,-1), then clears fp->u.ms.x222C. Canonical ftParts code independently confirms that the helper writes pending `prev` selections and sets a dirty flag; a separate application function copies pending selections to active `idx` values. This is deferred configuration, not immediate rendering. The specific gameplay meaning and complete lifetime of x222C remain unspecified. [Death](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftEmblem/ftemblem.c#L407-L414), [selection lifecycle](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L555-L626).
+
+OnLoad passes gobj->user_data to ftMs_Init_OnLoadForRoy, whose body invokes PUSH_ATTRS with MarsAttributes. LoadSpecialAttrs instead forwards the original object to ftMs_Init_LoadSpecialAttrs, which invokes COPY_ATTRS with MarsAttributes. These are distinct initialization interfaces sharing the same attribute representation, not proof of allocation ownership or identical attribute values. [Wrappers](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftEmblem/ftemblem.c#L436-L444), [shared loaders](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmars.c#L452-L470).
+
+## Item and knockback adapters
+
+Pickup and drop forward the supplied boolean and append configuration values 0 and 1. In the shared pickup implementation, heavy items bypass all updates. Non-heavy hold kinds 1, 2, 3 and 4 map to animation-helper values 1, 0, 2 and 3 respectively; the default performs no hold-kind update, but the event boolean can still trigger the subsequent presentation call. Drop has no heavy-item guard: it always requests value -1, then conditionally calls the invisible-side helper. The standalone visible/invisible callbacks both pass zero and suppress their updates for heavy items. No additional null-item guarantee is established here. [Item wrappers](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftEmblem/ftemblem.c#L416-L434), [shared branches](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L142-L193).
+
+Knockback entry/exit unconditionally pass numeric selector 1. Each shared helper calls ftAnim_800704F0 for selector 1 and then selector 0, using 3.0f on entry and 0.0f on exit. The selector is s32, not a proven boolean mode. This establishes source behavior but not an eight-byte .sdata2 pool or its relocation consumers. [Wrappers](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftEmblem/ftemblem.c#L446-L454), [shared helpers](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L195-L205).
+
+## Evidence review
+
+All owned canonical and rendered pages, all 24 subjects, all 57 facts, and all 18 links were reviewed. The renderer reported no parse errors; its three substitutions concern ftParts_80074A4C and were checked against canonical callee code rather than accepted as self-proving names. Historical duplicate links remain distinct. The checkpoint ledger retains 54 facts and 17 links, with three fact exceptions and one link exception pending compiled evidence.
+
+Status: synthesized; independent review and live promotion pending.

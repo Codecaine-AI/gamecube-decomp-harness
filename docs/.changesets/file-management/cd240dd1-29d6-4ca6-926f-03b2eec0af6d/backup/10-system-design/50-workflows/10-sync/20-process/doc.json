@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "id": "20-process",
+  "title": "Sync Process",
+  "root": "b-sync-reconciliation-publication-root",
+  "blocks": {
+    "b-sync-reconciliation-publication-root": {
+      "id": "b-sync-reconciliation-publication-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "sync",
+          "baseline",
+          "reconciliation",
+          "staging",
+          "publication",
+          "knowledge-handoff"
+        ],
+        "covers": "The single preparation-to-publication process for source intake, external knowledge intake, reconciliation, recovery, and handoff."
+      },
+      "children": [
+        "sweep-2f6cac33ba55421e",
+        "sweep-afaa20d1a6214fab",
+        "sweep-ae3426e208b743c9",
+        "sweep-3cab9ed634da4410",
+        "sweep-113495ba339a4d58",
+        "sweep-fe30c3f490164eb6",
+        "sweep-72e8e8ba8096417f",
+        "sweep-7896288de1434bf0",
+        "sweep-a2d7fc6965f74300",
+        "sweep-3e96d4daf2174eec"
+      ]
+    },
+    "sweep-2f6cac33ba55421e": {
+      "id": "sweep-2f6cac33ba55421e",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync reconciles observed upstream changes in isolated staging and publishes only after validation and operator confirmation. V2 intake runs against the canonical publication checkout before the durable boundary transaction completes."
+        }
+      ],
+      "children": []
+    },
+    "sweep-afaa20d1a6214fab": {
+      "id": "sweep-afaa20d1a6214fab",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Preparation Through Publication"
+        }
+      ],
+      "children": []
+    },
+    "sweep-ae3426e208b743c9": {
+      "id": "sweep-ae3426e208b743c9",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Observe and Acquire",
+            "steps": [
+              {
+                "text": "Fetch the configured remote and record prior and observed upstream revisions, merged PR IDs, and requested corpus IDs. Equal upstream revisions make the request knowledge-only."
+              },
+              {
+                "text": "Record the request and refresh the Discord mirror on a best-effort basis. Failed refreshes preserve the archive already on disk."
+              },
+              {
+                "text": "Acquire the game dispatch lease. A running workflow settles its claims before handing over. Revalidate the lease during protected work."
+              }
+            ]
+          },
+          {
+            "text": "Stage and Reconcile",
+            "steps": [
+              {
+                "text": "A source-changing sync creates an isolated worktree at the harness head. A knowledge-only sync skips source reconciliation."
+              },
+              {
+                "text": "Merge upstream into the staged harness branch using the per-function score policy by default. The theirs policy is the explicit escape hatch."
+              },
+              {
+                "text": "Reconcile surviving open PR series with the same policy. A planned series with no branch or PR is skipped."
+              },
+              {
+                "text": "Persist workspace_created, harness_merged, pr_series_reconciled, and validated as durable stages. Unresolved conflicts block on conflict_needs_operator."
+              }
+            ]
+          },
+          {
+            "text": "Validate and Confirm",
+            "steps": [
+              {
+                "text": "Validate clean staging, recursive submodule state, and the report comparison. Record validation evidence before entering validated."
+              },
+              {
+                "text": "If upstream changes, extend the staged merge to the observed tip and revalidate."
+              },
+              {
+                "text": "Require explicit sync.publish confirmation and recheck upstream plus the unchanged prior canonical head. Persist recursive publication intent before entering publishing."
+              }
+            ]
+          },
+          {
+            "text": "Publish the Boundary",
+            "steps": [
+              {
+                "text": "Repoint the canonical harness worktree for a source-changing sync and verify the full recursive target state."
+              },
+              {
+                "text": "Run V2 knowledge intake against that canonical checkout and its report. Reconcile subjects, mechanically re-anchor code citations, then import PRs, Discord, and worker attempts."
+              },
+              {
+                "text": "Record head lineage, source invalidations, PR-push intents, and the knowledge_intake result in the durable boundary transaction. A knowledge-only pass keeps its prior source head."
+              },
+              {
+                "text": "Finish pending PR pushes with force-with-lease. Finalize published state, remove the publication intent, and release dispatch authority."
+              }
+            ]
+          },
+          {
+            "text": "Cancel or Recover",
+            "steps": [
+              {
+                "text": "Before publication starts, cancellation discards staging and records unchanged canonical and recursive submodule heads. It cancels queued dispatch intent or releases the held lease."
+              },
+              {
+                "text": "Publishing cannot be cancelled. A committed boundary resumes pending pushes and finalization."
+              },
+              {
+                "text": "Recovery preserves or discards pre-publication staging. Conflicts use sync.resolve_conflict. A raw interrupted publication restores the recorded prior recursive state and blocks for recovery."
+              },
+              {
+                "text": "V2 intake uses durable dedupe and result evidence on retries. It does not use the retired sync-stage knowledge-job queue."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "sweep-3cab9ed634da4410": {
+      "id": "sweep-3cab9ed634da4410",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Knowledge Intake"
+        }
+      ],
+      "children": []
+    },
+    "sweep-113495ba339a4d58": {
+      "id": "sweep-113495ba339a4d58",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Intake fetches merged PR evidence into the canonical past_prs archive and can rebuild oversized diffs from a local merge commit. Reconciliation runs before citation re-anchoring. PR, Discord, and attempt importers then enqueue librarian tasks against the reconciled subjects."
+        }
+      ],
+      "children": []
+    },
+    "sweep-fe30c3f490164eb6": {
+      "id": "sweep-fe30c3f490164eb6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Knowledge-only publication runs intake without moving the harness head, creating a remote application, invalidating source results, or pushing PR branches. Its durable result is publication.knowledge_intake, not a legacy monotonic knowledge_revision field."
+        }
+      ],
+      "children": []
+    },
+    "sweep-72e8e8ba8096417f": {
+      "id": "sweep-72e8e8ba8096417f",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/40-librarian-pathways"
+            }
+          }
+        },
+        {
+          "insert": " owns the later consumption of index tasks and validated fact writes. Sync publication does not wait for every librarian task to finish."
+        }
+      ],
+      "children": []
+    },
+    "sweep-7896288de1434bf0": {
+      "id": "sweep-7896288de1434bf0",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Publication Recovery"
+        }
+      ],
+      "children": []
+    },
+    "sweep-a2d7fc6965f74300": {
+      "id": "sweep-a2d7fc6965f74300",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A V2 intake failure can occur after canonical repoint and before the boundary transaction. The durable publication intent is therefore part of recovery. Do not infer an untouched checkout from a missing publication record."
+        }
+      ],
+      "children": []
+    },
+    "sweep-3e96d4daf2174eec": {
+      "id": "sweep-3e96d4daf2174eec",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The ordering is implemented by "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/sync/publication.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/sync/publication.ts"
+            }
+          }
+        },
+        {
+          "insert": ". Policy staging and recovery are in "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/sync/engine.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/sync/engine.ts"
+            }
+          }
+        },
+        {
+          "insert": ". Intake lanes are in "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge-v2/ingest/harness-intake.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/ingest/harness-intake.ts"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
+}

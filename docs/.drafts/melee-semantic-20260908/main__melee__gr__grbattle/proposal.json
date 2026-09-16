@@ -1,0 +1,232 @@
+{
+  "tu": "main/melee/gr/grbattle",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbattle:grBattle_BG_Callback2"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Runs Waiting \u2192 Transitioning \u2192 Done \u2192 Waiting. Waiting post-decrements the timer and advances only when its pre-decrement value is negative, starting animation selector 0. Transitioning unhides the controller and tests grAnime_801C83D0(gobj, 0, 7): joint selector 0 and animation-type mask 7, not track 7. If curr is -1, it finds the first existing background among IDs 1, 2 and 4 and asserts if none exists. It records prev, repeatedly samples a different curr, asserts the outgoing object exists, applies its previous-background overlay, creates and asserts the incoming object, applies its current-background overlay, and enters Done. Done asserts the outgoing object exists and waits for grLib_801C96E8 to report its Ground.x10_flags.b4 overlay-completion flag. It then calls Ground_801C4A08 on that object, hides the controller, returns to Waiting, and resets the timer to HSD_Randi(1200) + 2400. Unknown state values have no matching switch branch.",
+        "rationale": "Corrects the track-number interpretation and identifies the actual outgoing completion condition while preserving timing, coexistence and assertion branches.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L331-L424",
+            "why": "Complete timer helper and controller state machine."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1056-L1089",
+            "why": "Selector lookup, animation-type mask and completion-flag test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L32-L36",
+            "why": "Completion helper reads Ground.x10_flags.b4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grmaterial.c#L578-L607",
+            "why": "Overlay initialization clears b4 and completion sets it."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbattle:grBattle_GObj1_Callback0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Performs synchronous initialization when the object factory dispatches on_init: animation selector 0 is attached, requested at frame 0 and evaluated once; the model receives stage material-class setup; and Ground.x11_flags.b012 is set to 2. Its companion predicate returns false, its scheduled GObj process is empty, and its callback3 installed in Ground.x1C_callback is empty. This evidence does not establish callback3 as a teardown hook.",
+        "rationale": "Preserves supported initialization behavior while removing an unsupported lifecycle interpretation.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L176-L206",
+            "why": "Initializer invocation and callback3 installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L273-L291",
+            "why": "Object 1 callback family."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L988-L1048",
+            "why": "Animation attachment, frame-zero request and evaluation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grmaterial.c#L516-L563",
+            "why": "Material-class setup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbattle:grBattle_GObj2_Callback0"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Initializes Battlefield background variant map object 2, one of the interchangeable background choices {1, 2, 4} used by the timed background controller. The shared setup does not identify it as a suspended gameplay platform; its exact background artwork remains unresolved.",
+        "rationale": "The background controller's selection and replacement behavior contradicts the prior platform-count inference.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L293-L306",
+            "why": "Object 2 shared initializer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L359-L424",
+            "why": "Background choices, overlays and outgoing-object retirement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbattle:grBattle_GObj4_Callback0"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Initializes Battlefield background variant map object 4, one of the three choices {1, 2, 4} created and replaced by the background controller. Its animation/material initialization is shared with object 2 and equivalent to object 1's setup. The precise background artwork is not identified.",
+        "rationale": "Adds the useful background-variant role established by the controller without inventing a visual identity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L273-L320",
+            "why": "Equivalent setup for the three variants."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L359-L424",
+            "why": "Object 4 participates in background replacement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbattle:grBattle_GObj4_Callback1"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "rationale": "OnUpdate is not established by a constant-false callback1 predicate and is misleading beside the separately scheduled gobj_proc. Preserve the canonical name until the predicate's condition is established.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L131-L149",
+            "why": "Predicate and process are distinct slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L322-L327",
+            "why": "Constant-false predicate and separate process body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L197-L199",
+            "why": "Only gobj_proc is scheduled here."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbattle:grBattle_OnDemoInit"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Ignores its integer argument and writes true to isDemoFight. During subsequent stage construction, object 0's initializer reads that latch and copies grLib's cached vectors 0\u20133 into the translations of the registered joints returned by Ground_801C2CF4(0\u20133), which indexes stage_info.x280 rather than the map-object table. grBattle_OnInit later refreshes the grLib position cache and clears the latch. The source of the cache contents before this demo initialization is outside this local sequence.",
+        "rationale": "Corrects the joint/map-object domain and records the cross-file cache lifetime and ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L139-L162",
+            "why": "Setter, construction, cache refresh and latch clear."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L208-L228",
+            "why": "Four guarded vector-to-joint assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1585-L1588",
+            "why": "Registered-joint lookup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L160-L189",
+            "why": "Cache refresh and cached-vector reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbattle:grBattle_OnDemoInit"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Enables Battlefield's demo-initialization placement pass, which restores four cached positions to registered stage joints during object 0 initialization. The affected joint indices are not evidence of four distinct map objects, and the cached vectors are not shown here to be fixed demo-specific constants.",
+        "rationale": "Keeps the demonstrated demo behavior while removing unsupported object identity and position-origin implications.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L139-L162",
+            "why": "Demo latch and initialization ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L208-L228",
+            "why": "Guarded joint translations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L160-L189",
+            "why": "Positions originate in the shared cache."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbattle:grBattle_OnDemoInit"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Primes Battlefield initialization to copy four cached ground-library positions into registered stage joints when map object 0's initializer runs. It only sets the demo latch; object 0 performs the translations, and the stage initializer clears the latch after construction and shared setup.",
+        "rationale": "Corrects four map objects to registered joints and distinguishes the setter from its downstream consumer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbattle.c#L139-L228",
+            "why": "Complete setter-consumer-reset chain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1585-L1588",
+            "why": "Joint lookup domain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L169-L189",
+            "why": "Cached-vector source."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

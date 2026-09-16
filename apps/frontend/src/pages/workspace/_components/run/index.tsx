@@ -3,8 +3,8 @@ import { Button } from "@/components/primitives";
 import { harnessStateAction, prettyStatus } from "@/pages/workspace/_lib/model";
 import type {
   DashboardAction,
-  HarnessStateActionProjection,
-  HarnessStateReadModel,
+  DispatchStateActionProjection,
+  HarnessStateViewModel,
 } from "@/pages/workspace/_lib/types";
 
 const RUN_ACTIONS: ReadonlyArray<{
@@ -20,7 +20,7 @@ const RUN_ACTIONS: ReadonlyArray<{
   { actionId: "run.recover", dashboardAction: "runRecover", icon: RotateCcw, label: "Recover" },
 ];
 
-function projectionTitle(projection: HarnessStateActionProjection | null): string {
+function projectionTitle(projection: DispatchStateActionProjection | null): string {
   if (!projection) return "Action is missing from the server projection.";
   if (!projection.enabled) {
     return projection.blocked_by.map((blocker) => blocker.message || prettyStatus(blocker.code)).join("; ") || "Blocked by the server projection.";
@@ -30,11 +30,14 @@ function projectionTitle(projection: HarnessStateActionProjection | null): strin
 
 export function RunActionsGrid({ busy, harnessState, onAction }: {
   busy: boolean;
-  harnessState: HarnessStateReadModel | null;
+  harnessState: HarnessStateViewModel | null;
   onAction: (action: DashboardAction) => void;
 }) {
   return (
     <div className="grid grid-cols-1 gap-2">
+      {harnessState?.state ? (
+        <Button disabled={busy || harnessState.state.execution.desired === "paused"} onClick={() => onAction("harnessPause")} title="Stop admitting work and let active claims and integration settle." type="button">Pause</Button>
+      ) : null}
       {RUN_ACTIONS.map((definition) => {
         const projection = harnessStateAction(harnessState, definition.actionId);
         const Icon = definition.icon;

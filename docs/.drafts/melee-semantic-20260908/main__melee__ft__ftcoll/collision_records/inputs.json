@@ -1,0 +1,2481 @@
+{
+  "head_revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "files": [
+    {
+      "path": "src/melee/ft/ftcoll.c",
+      "owner": "main/melee/ft/ftcoll",
+      "sha256": "f376f14500c1e018fd022b45563ac8163d0aba043f1817f8e1b2eeba651f16e7",
+      "lines": 3762,
+      "bytes": 121781
+    },
+    {
+      "path": "src/melee/ft/ftcoll.h",
+      "owner": "main/melee/ft/ftcoll",
+      "sha256": "2ad2c48ba813137330f6201a31a5599188dc3024446d09a5c463d770ec726230",
+      "lines": 108,
+      "bytes": 5775
+    },
+    {
+      "path": "src/melee/ft/ftcoll.dox",
+      "owner": "main/melee/ft/ftcoll",
+      "sha256": "fd411765ec573b38d90dc321d1d33051709588f53efaf4798498dd9caac6edaa",
+      "lines": 112,
+      "bytes": 4435
+    }
+  ],
+  "subjects": [
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:.bss"
+      },
+      "facts": [
+        {
+          "id": "fact:72038253-8ab4-4018-a9c0-63a0cd36b16d",
+          "target_id": "target:data:main/melee/ft/ftcoll:.bss",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Collision-detection paths append source metadata, collision regions, positions, damage, and count values to one of the two `DmgLogEntry` arrays. The damage resolver receives an array with its live count, computes knockback for fighter, item, and environmental entries, retains the strict greatest-knockback candidate, writes that candidate into a `DmgResult`, and dispatches source attribution by the winning entry's source category.",
+          "rationale": "The current append routines expose the fields entering both buffers. The resolver iterates the supplied active range, handles all three source categories, selects the entry whose knockback exceeds the current best, publishes its fields, and the two wrappers supply the global arrays and counters.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Declares both buffers and shows bounded primary- and tip-log appends with their recorded metadata."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2546-L2786",
+              "why": "Shows the resolver iterating live entries and deriving knockback according to fighter, item, or environmental source type."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2787-L3006",
+              "why": "Shows strict maximum-knockback selection, publication of the selected result, source-category dispatch, and wrappers consuming both global logs."
+            }
+          ]
+        },
+        {
+          "id": "fact:2040b589-ede6-4fcc-9950-419f5b3d169c",
+          "target_id": "target:data:main/melee/ft/ftcoll:.bss",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Supports Melee's fighter hitbox-collision resolution when multiple collision candidates are recorded together, including fighter, item, and environmental damage sources and the separate reduced-damage tip-contact path used for phantom hits.",
+          "rationale": "The current source maintains distinct ordinary and tip logs, explicitly labels the tip-victim path as phantom-hit handling, halves damage in that path, and later resolves logged candidates from fighter, item, and environmental sources.",
+          "confidence": 0.95,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L496-L615",
+              "why": "Shows the explicitly documented phantom-hit victim check and the half-damage branch that feeds the tip-log path."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2546-L2886",
+              "why": "Shows logged candidates being resolved according to fighter, item, and environmental source categories."
+            }
+          ]
+        },
+        {
+          "id": "fact:ee71ae3b-00dc-4609-a4de-4ebbf208cacf",
+          "target_id": "target:data:main/melee/ft/ftcoll:.bss",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "An uninitialized data section containing two contiguous arrays, each typed as `DmgLogEntry[20]`: the file-local `dmg_log0` and externally visible `dmg_log1`. Their companion live-entry counters reside separately in `.sbss`.",
+          "rationale": "The declarations at head still place exactly two twenty-element `DmgLogEntry` arrays beneath the `.bss` marker and place their integer cursors beneath the following `.sbss` marker.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:41:47.648Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ftcoll.c#L1-L90",
+              "why": "Explicitly declares `dmg_log0[20]` and `dmg_log1[20]` under `.bss`, followed by their two integer indices under `.sbss`."
+            }
+          ]
+        },
+        {
+          "id": "fact:b4974e58-964d-4341-96df-b08bb9707a7b",
+          "target_id": "target:data:main/melee/ft/ftcoll:.bss",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides two bounded scratch buffers for collision candidates detected during fighter collision processing: a primary damage-event log and a secondary tip/phantom-hit log. The candidates are later compared so the collision subsystem can apply the entry producing the greatest knockback and populate the fighter's resulting damage response.",
+          "rationale": "The buffers are filled by separate ordinary and tip append paths. The shared resolver scans a supplied buffer, retains the strongest candidate, and writes its direction, angle, knockback, position, source, damage, element, and effect severity into the fighter damage result.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows the two twenty-entry buffers and their separate bounded append paths."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2787-L3006",
+              "why": "Shows the resolver selecting the greatest-knockback entry, publishing its complete damage result, and receiving each global buffer through a wrapper."
+            }
+          ]
+        },
+        {
+          "id": "fact:56592c61-380a-4fb0-8a3e-9b60e668c171",
+          "target_id": "target:data:main/melee/ft/ftcoll:.bss",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Both logs are reset together by zeroing their companion indices. Each append succeeds only while its index is below the 20-entry capacity, advances the corresponding index after writing, and reports an overflow otherwise. Resolution is skipped when the supplied count is zero; otherwise all live entries are evaluated and only the strict greatest-knockback candidate becomes the resulting hit response.",
+          "rationale": "The current reset and append routines define the buffers' empty, filling, and overflow states. The resolver returns for an empty range and updates its selected index only when a candidate's knockback is greater than the previous maximum.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows the common reset, capacity checks, successful index increments, and overflow reports for both logs."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2546-L2665",
+              "why": "Shows the empty-log return and initialization of the maximum-knockback scan."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2787-L2886",
+              "why": "Shows the strict greater-than comparison that retains the winning candidate."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:.data"
+      },
+      "facts": [
+        {
+          "id": "fact:1200dfe2-4625-4178-8e33-2949cfe614f6",
+          "target_id": "target:data:main/melee/ft/ftcoll:.data",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "For fighter- and item-sourced damage-log entries, `HitCapsule.element` indexes the section's `hit_effect_ids` table. The mapped effect ID selects a specialized `ftColl_80078538` response, a generic `efSync_Spawn` at the collision position, a facing-dependent spawn, or an explicit no-op case.",
+          "rationale": "The current table establishes the element-to-effect mapping, and both source-specific resolver branches immediately dispatch the mapped identifier to the same specialized, generic, facing-dependent, and ignored outcomes.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L686-L805",
+              "why": "Defines the `HitElement`-indexed `hit_effect_ids` table and its sentinel entries."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2546-L2786",
+              "why": "Shows fighter- and item-source branches indexing the table and dispatching its result to specialized, generic, facing-dependent, or no-op cases."
+            }
+          ]
+        },
+        {
+          "id": "fact:d8fd4363-1a64-4d33-ae33-a8b64aa9286c",
+          "target_id": "target:data:main/melee/ft/ftcoll:.data",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Maps Melee attack elements such as normal, fire, electric, slash, coin, ice, ground, cape, and dark to visual impact effects displayed when a fighter is struck, while leaving categories such as nap, sleep, catch, inert, and disable without a mapped effect.",
+          "rationale": "The current table names every indexed gameplay element and associates effect-producing elements with concrete effect IDs while assigning `-1` to categories without an impact effect; the resolver uses these IDs at the selected collision position.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L686-L805",
+              "why": "Names each `HitElement` table entry and identifies mapped effects and unmapped sentinel categories."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2546-L2786",
+              "why": "Shows mapped identifiers being consumed to produce impact effects at the resolved collision position."
+            }
+          ]
+        },
+        {
+          "id": "fact:5bef2cc1-cd61-41c8-81ff-0ec97b303aa8",
+          "target_id": "target:data:main/melee/ft/ftcoll:.data",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Writable initialized integer and dispatch-table storage. Its visible authored objects are two adjacent global `int[3]` arrays containing `{141, 142, 143}` and `{107, 108, 109}`, followed later by a static 17-entry integer table indexed by `HitElement`; the resolver's dense switches also account for compiler-generated dispatch data in the section.",
+          "rationale": "The head source still declares the two initialized three-element arrays beneath the `.data` marker, while the existing current table and resolver evidence continue to establish the mutable element lookup and dense dispatch use.",
+          "confidence": 0.9,
+          "updated_at": "2026-09-04T22:41:47.648Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ftcoll.c#L1-L90",
+              "why": "Declares the two initialized three-element integer arrays directly beneath the `.data` marker."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2546-L2665",
+              "why": "Shows a dense effect dispatch after indexing `hit_effect_ids` with a hit capsule's `HitElement` value."
+            }
+          ]
+        },
+        {
+          "id": "fact:b7c796cf-a3cc-43b3-b09d-513756c12a3b",
+          "target_id": "target:data:main/melee/ft/ftcoll:.data",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides initialized lookup and dispatch data for fighter collision resolution, most clearly the table that converts a hit capsule's elemental category into the impact-effect identifier used while processing logged damage.",
+          "rationale": "The section owns `hit_effect_ids`, and the logged-damage resolver indexes it with the colliding hit capsule's element before selecting the appropriate impact-effect path.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L686-L805",
+              "why": "Shows the complete element-to-effect lookup table."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2546-L2786",
+              "why": "Shows the table being indexed during fighter- and item-sourced logged-damage resolution."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:.sbss"
+      },
+      "facts": [
+        {
+          "id": "fact:7397778b-d4a1-46bd-9c06-e3f1bda51f88",
+          "target_id": "target:data:main/melee/ft/ftcoll:.sbss",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "`dmg_log0_idx` selects the next entry in `dmg_log0`, and `dmg_log1_idx` selects the next entry in `dmg_log1`; successful log writes populate the selected `.bss` entry and then increment the corresponding cursor. `ftColl_804D6560` is indexed in parallel with a fighter's hit-capsule array and has slots cleared when an enabled capsule with the same group identifier satisfies the collision-history test under the applicable guard.",
+          "rationale": "The reset routine sets both indices to zero. The two logger paths address their respective arrays through those indices, populate an entry, and increment only after a successful bounded write. The hit-capsule helper traverses `fp->x914` with a parallel signed-byte index and clears the corresponding global slot after its state, group, collision-history, and caller-provided conditions pass.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-02T13:40:51.678Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L294",
+              "why": "Shows both cursor reset and append flows, including bounds checks, entry writes, cursor increments, and the parallel hit-capsule/flag-array traversal."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L254-L384",
+              "why": "Shows the second damage-log append path and multiple collision paths clearing byte-array slots associated with matching active hit capsules."
+            }
+          ]
+        },
+        {
+          "id": "fact:85f7a544-3839-41e2-9306-412b0bd4d504",
+          "target_id": "target:data:main/melee/ft/ftcoll:.sbss",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A 16-byte zero-initialized layout consisting, in order, of two 32-bit signed integer cursors (`dmg_log0_idx` and `dmg_log1_idx`) and one eight-element signed-byte array (`ftColl_804D6560[8]`).",
+          "rationale": "The head declarations preserve this exact order and layout: two four-byte integer indices followed by eight signed bytes, accounting for the complete 16-byte section target.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:41:47.648Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ftcoll.c#L1-L90",
+              "why": "Explicitly declares the two integer cursors and the eight-element signed-byte array beneath the `.sbss` marker."
+            }
+          ]
+        },
+        {
+          "id": "fact:64e8221c-38f0-446d-bab2-65673a6df14f",
+          "target_id": "target:data:main/melee/ft/ftcoll:.sbss",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides zero-initialized working state for fighter collision processing: append cursors for two bounded damage-event logs and an eight-slot flag array used while resolving related fighter hit capsules.",
+          "rationale": "The current declarations establish the section's members, and the current collision routines use the integers as bounded append cursors while indexing and clearing the byte array in parallel with fighter hit capsules.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T22:41:47.648Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ftcoll.c#L1-L90",
+              "why": "Shows the complete `.sbss` layout of two log indices and an eight-slot signed-byte array."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows both indices being reset and used for bounded appends and the byte array being updated by parallel hit-capsule index."
+            }
+          ]
+        },
+        {
+          "id": "fact:0c38ba36-0756-4c15-a145-f196227a1fbe",
+          "target_id": "target:data:main/melee/ft/ftcoll:.sbss",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Both damage-log cursors begin a collision-processing cycle at zero and advance monotonically until their respective 20-entry logs are full; an attempted append beyond that capacity reports an overflow instead of advancing. During hitbox interaction handling, per-capsule byte slots transition to false when an enabled capsule in the same hitbox group passes the relevant collision-history test.",
+          "rationale": "The reset function clears both cursors together. Each logging routine guards its append with `idx < ARRAY_SIZE(log)`, increments only on success, and takes an assertion-report path when full. The hit-capsule routines conditionally clear indexed byte slots after checking capsule enablement, shared group identity, and `lbColl_80008688`.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-02T13:40:51.678Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L294",
+              "why": "Shows the common reset, the first bounded 20-entry append path, the second bounded append path, overflow reports, and guarded flag clearing."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L254-L384",
+              "why": "Confirms the second cursor's capacity behavior and the conditions that transition hit-capsule flag slots to false."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:.sdata"
+      },
+      "facts": [
+        {
+          "id": "fact:f45db9f6-a8b6-475c-9e9a-e85c2aba9299",
+          "target_id": "target:data:main/melee/ft/ftcoll:.sdata",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "An initialized small-data section contribution with no explicitly named semantic object in the current C source. Unlike the unit's authored `.data`, `.bss`, and `.sbss` objects and its explicitly ordered `.sdata2` literal pool, this section is best treated as opaque compiler-emitted storage rather than as a recovered gameplay table or state structure.",
+          "rationale": "The head source explicitly identifies and declares ordinary initialized data, BSS, small BSS, and the small read-only literal ordering helper but still exposes no named `.sdata` member from which a semantic layout could be recovered.",
+          "confidence": 0.83,
+          "updated_at": "2026-09-04T22:41:47.648Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ftcoll.c#L1-L90",
+              "why": "Shows the unit's explicit `.data`, `.bss`, `.sbss`, and `.sdata2`-ordering objects while declaring no named `.sdata` object."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:.sdata2"
+      },
+      "facts": [
+        {
+          "id": "fact:6c301a55-c0ed-4c73-8d7b-1dde8bcb94eb",
+          "target_id": "target:data:main/melee/ft/ftcoll:.sdata2",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Collision routines load these constants for zero and sign comparisons, unit directions, scaling and halving, integer-to-floating conversion, degree/radian conversion, floating-point bounds, and small tolerance values; their results feed collision directions, trigonometric responses, damage calculations, and geometric comparisons.",
+          "rationale": "The head ordering helper retains the complete set of sign, scale, conversion, angular, bound, and tolerance constants, while current collision-response code visibly consumes representative zero, unit-direction, and degree-to-radian values.",
+          "confidence": 0.94,
+          "updated_at": "2026-09-04T22:41:47.648Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ftcoll.c#L1-L90",
+              "why": "Enumerates the section's scaling, sign, integer-conversion, angular, floating-point-bound, and tolerance constants."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L816-L935",
+              "why": "Shows collision code consuming zero and unit-direction constants and using degree-to-radian conversion for a trigonometric response."
+            }
+          ]
+        },
+        {
+          "id": "fact:2b019d6e-a343-40c5-bf0b-42f607ae89f8",
+          "target_id": "target:data:main/melee/ft/ftcoll:.sdata2",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A read-only small-data sequence of floating-point literals: 0.0f, 500.0f, 0.5f, 1.0f, -1.0f, the S32-to-float conversion constant, 0.0174532924f, the U32-to-float conversion constant, 3.40282347e+38f, 0.00999999978f, 9.99999975e-06f, and 57.2957802f, with the mixed-width conversion constants aligned as required by `.sdata2`.",
+          "rationale": "The head `sdata2_order` helper directly preserves this ordered sequence and distinguishes the signed- and unsigned-integer conversion constants from ordinary float literals.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T22:41:47.648Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ftcoll.c#L1-L90",
+              "why": "Directly enumerates the ordered literals and signed- and unsigned-integer conversion constants in `sdata2_order`."
+            }
+          ]
+        },
+        {
+          "id": "fact:ef65e14d-87fd-494e-8b26-8a39a6c12c57",
+          "target_id": "target:data:main/melee/ft/ftcoll:.sdata2",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Owns the translation unit's read-only floating-point literal pool for collision calculations; the source's synthetic ordering helper enumerates the literals so they are emitted in the section's required order.",
+          "rationale": "The head source still labels `sdata2_order` as an ordering hack and lists the literal sequence without runtime work, while collision routines continue to consume corresponding values in direction and angle calculations.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T22:41:47.648Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ftcoll.c#L1-L90",
+              "why": "Shows the synthetic `.sdata2` ordering helper and its exact ordered literal sequence."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L816-L935",
+              "why": "Shows collision-response code consuming representative direction and angular-conversion literals from the pool."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_800763C0"
+      },
+      "facts": [
+        {
+          "id": "fact:b5feb6f8-a2d1-4872-9a90-d8b89c36b230",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800763C0",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives an attacker, victim, and attack identifier. Fighter-hit callers supply the attacker's `x2068_attackID`; item-hit callers supply an item's attack ID and substitute its valid fighter owner as the attacker. The routine reads the attacker's tracked victim (`x2094`), tracked attack ID (`x208C`), and repeated-hit count (`x2090`), compares the count with common-data threshold `x4C4`, and writes those fields plus timer `x2092`, loaded from common-data duration `x4D8`.",
+          "rationale": "The current shared updater exposes every state and common-data read and write, and its adjacent fighter and item adapters establish the provenance of all three arguments.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L143",
+              "why": "Shows the complete updater and the fighter- and item-owner adapters that supply its attacker, victim, and attack-ID inputs."
+            }
+          ]
+        },
+        {
+          "id": "fact:8b042376-9168-448a-bdfb-93a6ca55de33",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800763C0",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the shared hit-registration state machine for Melee's combo counter, including attribution of fighter-owned item hits to their owner and the repeated-same-attack threshold that triggers temporary attacker pushback.",
+          "rationale": "The source explicitly labels the routine family as combo-count logic, routes direct fighter and fighter-owned item attacks through this updater, and arms the timer consumed by the adjacent combo pushback routine.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L173",
+              "why": "Shows shared combo-count registration, both source-specific adapters, and the timer-backed combo pushback consumer."
+            }
+          ]
+        },
+        {
+          "id": "fact:9baa0b27-0bea-47a0-a85e-d53906a31752",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800763C0",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_UpdateComboCount",
+          "rationale": "The source labels the routine as the central \u201cCombo Count Logic,\u201d and the two adjacent routines are fighter- and item-specific adapters that call it. `ftColl_UpdateComboCount` follows the unit prefix and accurately distinguishes this shared state updater from those source-specific wrappers, although no preserved symbol proves the exact spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style semantic name: `ftColl_UpdateComboCount`.",
+          "confidence": 0.82,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Labels the function as combo-count logic and shows it serving as the shared implementation beneath adjacent fighter-attack-ID and item-owner wrappers."
+            }
+          ]
+        },
+        {
+          "id": "fact:31fbdce7-0413-48a5-9c5d-827ffd88c48e",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800763C0",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Side-effect-only combo bookkeeping helper with exact signature `void (Fighter_GObj* attacker, Fighter_GObj* victim, enum_t attack_id)`. The first two arguments are fighter objects, while the third is an attack-identity value used to classify consecutive hits; all results are written into the attacking fighter's runtime state.",
+          "rationale": "The matched definition supplies the exact parameter and return types. Its body resolves the first argument to a Fighter, compares both object identities, treats the third argument as the stored and compared attack ID, returns no value, and communicates entirely through mutations to the attacker's fields.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T15:05:58.007Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L87-L109",
+              "why": "Provides the exact signature and shows how the attacker, victim, and attack-identifier arguments are consumed."
+            }
+          ]
+        },
+        {
+          "id": "fact:d58e317a-f3ad-4173-8f15-4820109c5613",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800763C0",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Maintains the attacking fighter's per-victim combo-count state for a newly registered hit: it records the victim and attack identifier, counts repeated qualifying hits by the same attack, and arms the temporary combo pushback timer once the configured repetition threshold is reached.",
+          "rationale": "The current body mutates only the attacker's tracked victim, attack ID, repeated-hit count, and threshold-triggered timer, while the adjacent wrappers show direct fighter and fighter-owned item hits entering this shared path.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L143",
+              "why": "Shows the shared combo-count state mutations and both source-specific input wrappers."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L146-L173",
+              "why": "Shows the neighboring updater consuming the timer armed by the repeated-hit threshold."
+            }
+          ]
+        },
+        {
+          "id": "fact:806d3697-313e-4010-825c-7579f9e3ea95",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800763C0",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Self-hits are ignored. If the attacker has no tracked victim, the routine records the supplied victim and attack ID and initializes the repeated-hit count to one. If that same victim is already tracked, another hit increments the count only when its attack ID matches the stored ID and is not ID 1; reaching or exceeding the configured threshold reloads the combo-pushback timer. A changed or excluded attack ID resets the count to zero and replaces the stored ID. Hits against a different victim are ignored until the separate combo-expiration path clears the association.",
+          "rationale": "Every guard and transition is explicit in the current body, and the adjacent expiration routine explains why a different supplied victim is not substituted while an association remains active.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L143",
+              "why": "Shows the self-hit guard, initial association, repetition rule, excluded ID, threshold behavior, reset branch, different-victim no-op, and separate expiration path."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_80076444"
+      },
+      "facts": [
+        {
+          "id": "fact:a856ac04-efd1-4910-8ce9-a9d5fd93dace",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076444",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives the attacking and victim Fighter_GObjs, resolves the attacker to its Fighter record, reads `fp->x2068_attackID`, and forwards all three values to `ftColl_800763C0`. That shared routine writes the attacker's tracked attack ID (`x208C`), repeated-hit count (`x2090`), tracked victim (`x2094`), and, once the configured repetition threshold is reached, `x2092` from common fighter data.",
+          "rationale": "The target exposes the complete input path from the attacking Fighter's current attack ID into the shared updater. Reading the callee in the same resolved source span establishes every destination field and the common-data values controlling the threshold result.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:42:26.492Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Shows the target reading `x2068_attackID`, forwarding it to the shared updater, and the updater writing the tracked ID, count, victim, and threshold-triggered field."
+            }
+          ]
+        },
+        {
+          "id": "fact:222a8809-6469-4bd2-8e30-9197b4205ad1",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076444",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the fighter-source update path for Melee's combo counter, classifying consecutive hits against a tracked opponent by the attacking fighter's current attack ID.",
+          "rationale": "The source labels this wrapper as combo-count logic with attack-ID retrieval, reads the attacker's current attack ID, and forwards it with the attacker and victim to the shared combo-count state machine.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L116",
+              "why": "Shows the shared combo-count routine and the fighter-specific wrapper obtaining and forwarding `x2068_attackID`."
+            }
+          ]
+        },
+        {
+          "id": "fact:37897a15-cca5-4b5f-9d07-2974a44e35ff",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076444",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_UpdateComboCountFromFighter",
+          "rationale": "The source comment distinguishes this routine as the combo-count path that obtains an attack ID from a fighter, while the adjacent item wrapper obtains the corresponding ID from an item owner. A name identifying it as the fighter-source wrapper therefore best distinguishes it from the shared three-argument updater, although no preserved symbol proves the exact spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style semantic name: `ftColl_UpdateComboCountFromFighter`.",
+          "confidence": 0.76,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Shows the shared combo-count routine, this fighter-specific wrapper labeled 'Combo Count Logic + Get Attack ID,' and the adjacent item-owner wrapper."
+            }
+          ]
+        },
+        {
+          "id": "fact:2d4abfa4-62ae-4193-aecf-74bb97f8da99",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076444",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Fighter-hit bookkeeping helper with signature `void(Fighter_GObj* attacker, Fighter_GObj* victim)`. Both arguments are fighter objects, and the function returns no value.",
+          "rationale": "The matched definition gives the exact two-argument void signature. Its body resolves only the attacker to Fighter data, while both objects are passed to the shared combo-count updater as attacker and victim.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:42:26.492Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L112-L116",
+              "why": "Provides the complete matched definition and exact `void(Fighter_GObj*, Fighter_GObj*)` signature."
+            }
+          ]
+        },
+        {
+          "id": "fact:9c98d411-a1a3-4f5d-950c-129e6e94d030",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076444",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Updates the attacking fighter's combo-count tracking for a fighter-on-fighter hit by forwarding the attacker, victim, and the attacker's current attack ID to the shared combo-count routine.",
+          "rationale": "The wrapper's complete body resolves the attacking Fighter, reads its current attack ID, and delegates to the immediately preceding routine that performs all victim, attack-ID, count, and threshold updates.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L116",
+              "why": "Shows the wrapper's exact delegation and the shared updater's resulting combo-count mutations."
+            }
+          ]
+        },
+        {
+          "id": "fact:f0b3379f-a29d-4de7-8037-d0d61cad42bd",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076444",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Delegated combo tracking ignores self-hits. With no tracked victim, it records the victim and current attack ID and starts the count at one. Further hits on that same victim increment the count only when the attack ID is unchanged and is not ID 1; reaching the configured count threshold loads a configured value into `x2092`. A changed or excluded attack ID resets the count to zero and replaces the tracked ID, while a different victim is ignored until the separate combo-ending path clears the tracked victim.",
+          "rationale": "Every guard and transition is explicit in `ftColl_800763C0`, which the target calls unconditionally with the attacker's current attack ID. The adjacent combo-ending routine demonstrates that tracked-victim removal is handled separately when the victim-side conditions and timer permit it.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:42:26.492Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Shows the self-hit guard, initial tracking state, same-victim and same-attack repetition rules, threshold behavior, reset behavior, and the adjacent routine that later clears the tracked victim."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007646C"
+      },
+      "facts": [
+        {
+          "id": "fact:995d3b81-4ee2-44ae-88e3-4956b58d5b5e",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007646C",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives an attacking item and fighter victim, reads the item's owner and stored attack ID, and tests the owner object's runtime classifier. For a valid fighter owner, it forwards that owner as the attacker, the original victim, and the item's attack ID to `ftColl_800763C0`; that routine compares and stores the attack ID and maintains the owner's per-victim combo count and threshold state.",
+          "rationale": "The target directly establishes the item-to-owner and item-to-attack-ID flow and the guarded delegation. The surrounding definition of `ftColl_800763C0` shows the downstream writes to the owner's attack ID, count, victim pointer, and threshold-associated field.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:42:42.528Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Shows the complete flow from item owner and attack ID through the fighter guard into the combo-state fields updated by the delegated routine."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/it/it_26B1.c#L710-L721",
+              "why": "Identifies Item.owner and Item.xD88_attackID as the two values read from the attacking item."
+            }
+          ]
+        },
+        {
+          "id": "fact:8ff4c66a-9238-4936-bb87-241d4438115b",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007646C",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements item-hit participation in Melee's combo counter by crediting an item's hit to its owning fighter and preserving the item's attack identity when the consecutive-hit sequence is evaluated.",
+          "rationale": "The collision source explicitly identifies the delegated code as combo-count logic and shows this wrapper substituting the item's fighter owner and attack ID. SmashWiki independently describes the combo counter as the in-game mechanism by which consecutive attacks can count as a combo.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-02T13:42:42.528Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Shows item-originated hits entering the explicitly documented combo-count path under the owning fighter's identity."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://combo~__intro__@r2046702",
+              "why": "Documents that the combo counter recognizes sequences of consecutive attacks as combos."
+            }
+          ]
+        },
+        {
+          "id": "fact:f4e669bf-6a6b-422e-8de2-87cc78c477bd",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007646C",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_UpdateItemComboCount",
+          "rationale": "The local source describes this routine as \u201cCombo Count Logic w/ Item Owner,\u201d and its body exclusively updates combo state through the shared combo-count helper after resolving an item's fighter owner. The proposed name follows the translation unit's `ftColl_` prefix and distinguishes this item-specific adapter from the adjacent direct fighter wrapper, although no original symbol evidence establishes the exact wording.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `ftColl_UpdateItemComboCount`.",
+          "confidence": 0.78,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Labels the routine as item-owner combo-count logic and shows its position beside the shared combo routine and fighter-specific wrapper."
+            }
+          ]
+        },
+        {
+          "id": "fact:e30aaf9b-8983-430f-82bc-e6a4249009b3",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007646C",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Item-to-fighter combo-attribution wrapper with signature `void (Item_GObj* attackItem, Fighter_GObj* victim)`. The first parameter must denote the attacking item; its recorded owner is accepted only if it is a fighter GObj, while the second parameter identifies the fighter victim supplied to combo tracking.",
+          "rationale": "The matched definition provides the exact return and parameter types. The item accessors consume the first argument to retrieve ownership and attack identity, the classifier predicate narrows the owner to a fighter, and the shared combo routine consumes that fighter owner and the second argument as attacker and victim.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:42:42.528Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L119-L127",
+              "why": "Provides the exact function signature and shows how both typed parameters are consumed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Establishes the delegated helper's attacker, victim, and attack-ID roles."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftlib.c#L427-L434",
+              "why": "Shows that the owner guard narrows a general HSD_GObj pointer to the fighter object class."
+            }
+          ]
+        },
+        {
+          "id": "fact:70171f95-32ec-4eb3-9c79-4f78c731f29a",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007646C",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Adapts item-originated hits to the fighter combo-counting path: it identifies the attacking item's owner and attack ID, verifies that the owner is a fighter, and records the hit as part of that fighter's combo against the victim.",
+          "rationale": "The function retrieves both Item.owner and Item.xD88_attackID through their accessors, validates the owner with the fighter-class predicate, and then forwards the owner, victim, and attack ID to the unit's explicitly documented combo-count routine. This establishes that it is an item-specific attribution wrapper rather than a general collision test.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:42:42.528Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Shows the complete item-owner wrapper alongside the underlying combo-count routine and the parallel fighter-attack-ID wrapper."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/it/it_26B1.c#L710-L721",
+              "why": "Shows that the two item accessors return Item.owner and Item.xD88_attackID, respectively."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftlib.c#L427-L434",
+              "why": "Shows that the guard accepts only a non-null HSD_GObj whose classifier is fighter."
+            }
+          ]
+        },
+        {
+          "id": "fact:b4fc43a1-86c4-4a4e-b1ac-5fb4e728ec4f",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007646C",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "If the item has no owner or its owner is not classified as a fighter, the function performs no combo-state update. A fighter owner triggers the shared combo transition logic: a first tracked victim initializes the attack ID, count, and victim; another qualifying hit with the same non-1 attack ID against that victim increments the count and may arm threshold state, while a different or excluded attack ID resets the count and replaces the recorded attack ID.",
+          "rationale": "The target's sole guard makes invalid, null, and non-fighter owners no-op cases. The delegated combo routine explicitly defines initialization, repeated-hit increment, threshold, and attack-change reset branches, so these are the state effects enabled by the wrapper.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-02T13:42:42.528Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L144",
+              "why": "Shows both the item-owner guard and every combo-state branch reached when that guard succeeds."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftlib.c#L427-L434",
+              "why": "Defines the guard's exhaustive behavior for null, fighter, and non-fighter owner objects."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_800764DC"
+      },
+      "facts": [
+        {
+          "id": "fact:d499b944-60ae-4c1f-afcd-6a9b3cc1dae8",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800764DC",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads the Fighter from the supplied GObj and decrements its nonzero `x2098` countdown. If that Fighter's `x2094` tracked-victim GObj is present, it follows the victim's `user_data`, reads the victim's `x221C_b6` flag and `x2098` countdown, and writes NULL to the original Fighter's `x2094` only when the flag is clear and the victim countdown is zero.",
+          "rationale": "The current body directly exposes the complete field-level flow, while the preceding combo-registration routine establishes that `x2094` originates as a tracked collision victim.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L143",
+              "why": "Shows the origin of `x2094` in combo registration and the target's countdown, victim-state reads, and conditional clear."
+            }
+          ]
+        },
+        {
+          "id": "fact:bfdd379f-1fc2-4835-8c1f-995615156d51",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800764DC",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Maintains the lifetime boundary of the combo-counter sequence used to represent consecutive hits: hits remain associated with the same victim while the victim satisfies the collision-state or continuation-timer conditions, and the association is discarded once that sequence has ended.",
+          "rationale": "The preceding routine records and counts hits against one tracked victim, and this explicitly documented 'end combo' routine removes that association only after both victim-side continuation conditions have become inactive.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L143",
+              "why": "Shows consecutive-hit registration followed by the target's documented combo-ending test and association clear."
+            }
+          ]
+        },
+        {
+          "id": "fact:1805bf2d-1f5f-438e-8401-37bbc7f56b5e",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800764DC",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_ComboCountUpdate",
+          "rationale": "The function is part of the contiguous combo-count family and updates both a continuation countdown and the active victim association. `ComboCountUpdate` captures its recurring maintenance role, although no preserved symbol establishes the exact original wording.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `ftColl_ComboCountUpdate`.",
+          "confidence": 0.64,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L116-L143",
+              "why": "Labels the routine as the combo-ending check and shows its countdown and tracked-victim maintenance behavior."
+            }
+          ]
+        },
+        {
+          "id": "fact:566be74b-6c5d-4f02-8a7a-d810b2ab8538",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800764DC",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A side-effect-only fighter update helper with signature `void (Fighter_GObj* gobj)`. The argument must contain a valid `Fighter` in `user_data`; the routine returns no value and mutates that Fighter's combo countdown and tracked-victim pointer.",
+          "rationale": "The matched definition provides the exact signature, directly retrieves `gobj->user_data` without a null guard, and communicates exclusively through writes to `x2098` and `x2094`.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:43:38.993Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L130-L143",
+              "why": "Provides the exact return and parameter types, direct Fighter extraction, and all side effects."
+            }
+          ]
+        },
+        {
+          "id": "fact:371b89a0-91a8-4775-9f28-c123b1b8fd5e",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800764DC",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Performs per-frame lifecycle maintenance for fighter combo-count tracking: it advances the current fighter's combo-continuation countdown and releases that fighter's stored combo-victim association once the victim is no longer in the guarded collision state and its own continuation countdown has expired.",
+          "rationale": "The target's current body performs the decrement and expiration test, while the surrounding combo-count routine establishes the tracked-victim role of `x2094`.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L143",
+              "why": "Shows the combo-victim association being created and the target's complete lifecycle-maintenance logic."
+            }
+          ]
+        },
+        {
+          "id": "fact:4dad2ae3-ee1b-41af-a861-b90c5e7bd2f5",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800764DC",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "On each invocation, a positive local combo-continuation countdown moves one step toward zero and never underflows. A missing tracked victim leaves association state unchanged. With a tracked victim, the association remains active while either the victim's `x221C_b6` guard is set or the victim's countdown is nonzero; only when both conditions are inactive does the tracked-victim pointer transition to NULL.",
+          "rationale": "The nonzero guard around the decrement defines a saturating countdown. The nested pointer, flag, and zero checks define the precise association states and the sole transition to an absent victim.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:43:38.993Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L130-L143",
+              "why": "Shows the guarded decrement, null-pointer guard, two victim-state conditions, and the only association-state transition."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_80076528"
+      },
+      "facts": [
+        {
+          "id": "fact:3b448319-76d3-46cb-b31f-da0db4bb1aa6",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076528",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Consumes the fighter's `x2092` pushback timer, repeated-hit count `x2090`, held-victim pointer, ground/air state, facing direction, and current floor normal, together with common-data threshold `x4C8` and displacement magnitudes `x4D0` and `x4D4`. It decrements `x2092`; on the eligible path it selects a magnitude according to `x2090`, signs it by facing direction, and adds a floor-tangent displacement to `cur_pos.x` and `cur_pos.y`. The preceding combo-count routine initializes `x2092` from `x4D8` after repeated qualifying hits.",
+          "rationale": "The current combo registration, push helper, and updater expose the timer producer and every timer, threshold, geometry, guard, and positional input and output. The fighter update confirms that the resulting position contributes to the frame's final movement.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L173",
+              "why": "Shows `x2092` being armed, consumed, decremented, and converted into facing- and floor-relative positional displacement."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L2293-L2393",
+              "why": "Shows the target's positional output participating in the fighter's regular position update."
+            }
+          ]
+        },
+        {
+          "id": "fact:1e05437d-6e36-4ee4-a030-02a2d727cf8d",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076528",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the combo-count subsystem's temporary attacker pushback after repeated hits with the same attack: once the repeated-hit count reaches its configured threshold, the attacker is displaced backward along the floor for a configured number of update frames, unless airborne or holding a victim.",
+          "rationale": "The surrounding combo-count code arms `x2092` after repeated qualifying hits, and the target consumes that timer to apply guarded floor-relative displacement.",
+          "confidence": 0.95,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L173",
+              "why": "Shows repeated same-attack hits arming the timer and the target converting it into temporary attacker displacement."
+            }
+          ]
+        },
+        {
+          "id": "fact:fd785c15-b528-4360-94a5-396a486b54da",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076528",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_UpdateComboPushback",
+          "rationale": "The head body remains the recurring timer updater that conditionally invokes the locally named `comboCount_Push` operation, distinguishing it from the neighboring routine that arms the timer; no preserved symbol confirms the exact wording.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftColl_UpdateComboPushback`.",
+          "confidence": 0.78,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L161-L171",
+              "why": "Shows the function updating the active timer and conditionally invoking `comboCount_Push`."
+            }
+          ]
+        },
+        {
+          "id": "fact:586d1a6f-8b2a-4198-bb30-e134e2238173",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076528",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A mutating per-fighter update helper with signature `void(Fighter_GObj* gobj)`; it obtains the associated `Fighter` and produces all results through in-place timer and position updates.",
+          "rationale": "The head definition supplies the exact void and `Fighter_GObj*` interface, resolves the object to a Fighter, and performs its work through the fighter's timer and the delegated push mutation.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:41:47.648Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L161-L171",
+              "why": "Provides the exact signature, Fighter retrieval, in-place timer decrement, and conditional push call."
+            }
+          ]
+        },
+        {
+          "id": "fact:0f4fc209-d7e3-4f2d-830d-7746397240e7",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076528",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Updates the fighter's temporary combo-triggered pushback each frame: it counts down the active pushback timer and, while the fighter is grounded and not holding a victim, moves the fighter backward along the contacted floor.",
+          "rationale": "The preceding combo-count routine arms the timer after sufficiently many repeated hits, the target decrements it and invokes the floor-relative push under its two guards, and the central fighter update calls the target during position processing.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L173",
+              "why": "Shows the timer producer, countdown, displacement guards, and floor-relative push."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L2293-L2393",
+              "why": "Shows the target called during the fighter's per-frame position update."
+            }
+          ]
+        },
+        {
+          "id": "fact:de907af8-c5ec-48b6-874e-ca39cb6b4e22",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076528",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "When `x2092` is zero, the function has no effect. When it is nonzero, the function decrements it exactly once for that fighter update. During active frames, positional pushback occurs only if `victim_gobj` is null and the fighter is grounded; being airborne or holding a victim suppresses displacement without pausing the countdown. The displacement uses the smaller or larger common magnitude according to whether `x2090` is below `p_ftCommonData->x4C8`.",
+          "rationale": "The timer guard, decrement ordering, victim and ground-state guards, and magnitude branch are all explicit. Because the decrement precedes the displacement guards, suppressed frames still consume timer duration.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L116-L173",
+              "why": "Shows the zero and active states, decrement ordering, displacement guards, and repeated-hit-count magnitude selection."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_800765AC"
+      },
+      "facts": [
+        {
+          "id": "fact:88242e5b-cb2b-4c7b-9575-f4bfbc94ff1d",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765AC",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Consumes a victim Fighter GObj and traverses `HSD_GObj_Entities->fighters`. For each active fighter it compares that fighter's `x2094` combo-victim pointer with the input and writes NULL when they match. The input originates from the departing Fighter's `gobj` during teardown; the surrounding combo routines otherwise populate and consult the cleared field.",
+          "rationale": "The target directly exposes the global traversal, identity comparison, and conditional clear. The surrounding routines establish the field's role, and the teardown caller establishes the input's provenance.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L184",
+              "why": "Shows `x2094` being populated and consulted by combo tracking and selectively cleared by the target."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L3074-L3111",
+              "why": "Shows fighter teardown passing the departing fighter's GObj to the target."
+            }
+          ]
+        },
+        {
+          "id": "fact:a92c1d17-3447-4ed1-89e6-909f7e86cd6d",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765AC",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Maintains the teardown boundary of Melee's combo-counter bookkeeping: when a fighter leaves play, that fighter can no longer remain recorded as the victim of another fighter's current consecutive-hit sequence.",
+          "rationale": "The surrounding combo-count code uses `x2094` as the victim association for repeated-hit tracking, and fighter teardown invokes this global cleanup before destroying the fighter's remaining runtime state.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L184",
+              "why": "Shows the tracked-victim association driving repeated-hit counting and the target removing that association globally."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L3074-L3111",
+              "why": "Establishes that the cleanup occurs during fighter unload."
+            }
+          ]
+        },
+        {
+          "id": "fact:e6913242-afa2-4ccd-9526-a707852984e8",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765AC",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_ClearComboVictim",
+          "rationale": "The routine's only mutation is clearing `x2094` pointers equal to the supplied victim, and the preceding routines establish `x2094` as the combo-count victim association. The proposed wording expresses that operation but remains speculative.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `ftColl_ClearComboVictim`.",
+          "confidence": 0.79,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L86-L184",
+              "why": "Places the target in the combo-count family and shows its complementary clearing operation on tracked victim pointers."
+            }
+          ]
+        },
+        {
+          "id": "fact:8f44c538-4137-4952-949d-6bd4c2cefe57",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765AC",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "`void(Fighter_GObj* victim)`. The argument identifies the fighter object whose references must be removed from other fighters' combo-count victim fields; results are produced solely through those in-place pointer updates.",
+          "rationale": "The current definition supplies the exact signature and compares the argument by identity with each active fighter's `x2094`; the teardown caller passes the departing fighter's GObj.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L184",
+              "why": "Provides the exact signature and complete pointer-clearing body."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L3074-L3111",
+              "why": "Shows the caller supplying the GObj of the fighter being unloaded."
+            }
+          ]
+        },
+        {
+          "id": "fact:0f1d38dd-0ea6-4152-bbf8-b74e86ecfaba",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765AC",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Removes references to a departing fighter from every active fighter's combo-count victim field during fighter teardown, preventing combo tracking from retaining a pointer to the fighter after its storage is released.",
+          "rationale": "The target clears every matching `x2094` in the active fighter list, and its caller invokes it with the departing fighter's GObj during unload before the Fighter allocation is reclaimed.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L184",
+              "why": "Shows the global fighter-list traversal and clearing of all matching victim references."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L3074-L3111",
+              "why": "Shows the cleanup occurring during teardown of the referenced fighter."
+            }
+          ]
+        },
+        {
+          "id": "fact:7c8a1343-de4e-40f0-b827-fce6032bf2cd",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765AC",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "For every currently listed fighter whose tracked combo victim equals the supplied GObj, the association transitions to NULL; nonmatching associations remain unchanged. An empty fighter list or absence of matches produces no state change. Once all matching associations have been cleared, repeated calls with the same victim are idempotent.",
+          "rationale": "The complete function consists of a list traversal, an equality guard, and a single NULL assignment. Those operations establish the precise affected and unaffected states, while clearing the only matching value means a later invocation cannot change the resulting association state further.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T15:36:11.011Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L184",
+              "why": "The complete control flow establishes traversal termination, conditional clearing, no-match behavior, and idempotence after matching pointers become NULL."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_800765E0"
+      },
+      "facts": [
+        {
+          "id": "fact:adc2fabd-7a23-4a0b-9460-23aad80c0f1c",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765E0",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Consumes no arguments and reads no prior state. It writes zero to `dmg_log0_idx` and `dmg_log1_idx`; subsequent ordinary-hit and tip-hit logging routines use those values as insertion positions into separate 20-entry `DmgLogEntry` arrays, populate the selected entries from collision data, and increment the corresponding index.",
+          "rationale": "The complete reset body proves the two outputs, while the adjacent append routines show each value being consumed as an array index before a successful post-write increment.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L187-L293",
+              "why": "Shows the two reset stores and both bounded log writers consuming and incrementing the resulting indices."
+            }
+          ]
+        },
+        {
+          "id": "fact:0842467f-fecd-4b79-9b7b-cbd2917b69cb",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765E0",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the reset phase of Melee's per-pass fighter hit logging, preparing bounded shared records for ordinary damaging contacts and for tip/phantom-hit contacts encountered during fighter hitbox-collision processing.",
+          "rationale": "The code places the routine at the start of the fighter collision pipeline and shows its two cursors feeding a damage-log writer and an explicitly named tip-log writer. Community analysis independently identifies the shared structures as the damage log, states that all players use it and that its index resets every frame, and identifies Melee's tip log with phantom hits.",
+          "confidence": 0.94,
+          "updated_at": "2026-09-02T13:42:42.241Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L204-L283",
+              "why": "Shows the distinct normal damage-log and tip-log records populated from fighter collision data."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L2621-L2640",
+              "why": "Places the reset at the beginning of the enabled fighter-collision processing path."
+            },
+            {
+              "kind": "discord",
+              "locator": "discord://message/1110063968300584990",
+              "why": "States that the damage-log index resets every frame and identifies Melee's tip log as bookkeeping for phantom hits."
+            },
+            {
+              "kind": "discord",
+              "locator": "discord://message/1110063882753544242",
+              "why": "States that all players share the damage log and describes its entries as retaining hit participants and collision geometry."
+            }
+          ]
+        },
+        {
+          "id": "fact:67ef8197-e938-462d-983c-13d635de1883",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765E0",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_ResetHitLogs",
+          "rationale": "The routine resets the active cursors for both the ordinary damage log and the explicitly named tip log rather than erasing either array. The proposed name captures this shared operation but is not proven by a preserved symbol.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftColl_ResetHitLogs`.",
+          "confidence": 0.72,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows both log arrays, their cursors, the reset stores, and the separate ordinary and `tiplog` writers."
+            }
+          ]
+        },
+        {
+          "id": "fact:bbf32793-4563-413f-a216-4e48f4f7f268",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765E0",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Signature: `void ftColl_800765E0(void)`. It is a parameterless, non-returning subsystem-state reset routine whose observable result consists solely of writes to two private integer log indices.",
+          "rationale": "The current definition establishes the exact void, parameterless signature and contains only the two zero assignments.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L187-L191",
+              "why": "Provides the exact signature and complete two-store body."
+            }
+          ]
+        },
+        {
+          "id": "fact:6eff3128-760a-44a7-9b12-b398121ce593",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765E0",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Begins a fresh fighter-collision logging pass by resetting the write indices for both the ordinary damage-hit log and the tip/phantom-hit log before the remaining collision routines record contacts.",
+          "rationale": "The function clears the two log cursors, the adjacent producers use those cursors for ordinary and tip records, and the fighter collision pipeline invokes the reset before its other collision operations.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows the reset and the ordinary and tip log producers governed by its two outputs."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L2621-L2640",
+              "why": "Shows the reset called first in the enabled fighter-collision processing path."
+            }
+          ]
+        },
+        {
+          "id": "fact:e1a8c518-2a38-4bd8-97da-f0cd690ebb93",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765E0",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Unconditionally transitions both collision logs to their empty logical state by setting their next-write positions to zero; it does not erase the backing entries. Repeated calls are idempotent and logically discard any records accumulated since the previous reset. In the visible caller, the reset occurs only when both fighter collision-disable flags are clear and precedes every other operation in that collision pass.",
+          "rationale": "The routine has no branches and modifies only the indices, so backing entries remain physically present outside the active range. Its caller supplies the two guards and places it first in the enabled sequence.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L187-L191",
+              "why": "Shows the unconditional index-only reset and absence of backing-array writes."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L2621-L2640",
+              "why": "Shows the two caller guards and the reset's position at the start of the collision sequence."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_800765F0"
+      },
+      "facts": [
+        {
+          "id": "fact:b327710e-4a50-40d3-a61e-4316a622f495",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765F0",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives a Fighter, an optional victim object, and a base floating-point amount. It reads `fp->victim_gobj`, `x221B_b5`, `motion_id`, and `dmg.x182c_behavior`, plus common-data multipliers `x128` and `x714`, and returns the amount after the applicable multipliers have been applied in sequence.",
+          "rationale": "The current body completely establishes the function's inputs, field and common-data reads, multiplication order, and returned output. The former caller spans no longer resolve at head, so caller-specific provenance and downstream claims are omitted.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L193-L203",
+              "why": "Shows the complete flow from all arguments and Fighter/common-data fields to the returned scaled float."
+            }
+          ]
+        },
+        {
+          "id": "fact:546ddd8c-4648-4827-a908-33d3f97f6a32",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765F0",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Contributes to contextual fighter damage scaling, including a dedicated multiplier while the fighter is in the frozen `DamageIce` motion state.",
+          "rationale": "The current function explicitly recognizes `ftCo_MS_DamageIce` and applies a dedicated common-data multiplier, but the removed caller evidence no longer supports retaining the narrower claim that this helper is exclusively for damaging stage geometry.",
+          "confidence": 0.92,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L193-L203",
+              "why": "Shows the frozen-state multiplier together with the function's other contextual damage factors."
+            }
+          ]
+        },
+        {
+          "id": "fact:377387f3-c8e5-41ad-90ab-1bf98e728654",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765F0",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_ApplyDamageModifiers",
+          "rationale": "The function is a side-effect-free transformation that applies several Fighter- and collision-context multipliers to an incoming amount. `ApplyDamageModifiers` describes the demonstrated behavior without relying on the no-longer-resolving callers, though no preserved symbol confirms the wording.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftColl_ApplyDamageModifiers`.",
+          "confidence": 0.73,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L193-L203",
+              "why": "Shows that the function solely transforms and returns a damage-like floating-point value through conditional and unconditional multipliers."
+            }
+          ]
+        },
+        {
+          "id": "fact:83eccf1b-6a7b-4474-9f56-723f8fa2a563",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765F0",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Side-effect-free damage-scaling helper with exact signature `float(Fighter* fp, Fighter_GObj* victim, float base_damage)`. The optional victim object participates only in selecting a contextual multiplier; the returned float is the adjusted amount.",
+          "rationale": "The current definition establishes the exact parameter and return types, uses the victim only in a pointer comparison, performs no stores, and returns the transformed float.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L193-L203",
+              "why": "Provides the exact signature, victim comparison, arithmetic transformation, return value, and absence of mutations."
+            }
+          ]
+        },
+        {
+          "id": "fact:68c414ae-d78e-4925-9294-99917a026819",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765F0",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Computes an effective floating-point damage amount for a fighter by applying collision-context, frozen-state, and fighter-specific behavior multipliers.",
+          "rationale": "The target conditionally applies a victim-context multiplier, independently applies a `DamageIce` multiplier, and always applies the fighter's behavior multiplier. The former environmental-caller evidence is gone at head, so the purpose is limited to the transformation demonstrated by the function itself.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:55:30.718Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L193-L203",
+              "why": "Shows all contextual, frozen-state, and behavior multipliers applied to the incoming amount."
+            }
+          ]
+        },
+        {
+          "id": "fact:0d5a0999-3ac5-4457-a516-0303a58e8b6d",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800765F0",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "If `victim_gobj` is non-null, `x221B_b5` is clear, and the stored victim differs from the supplied victim, the amount is multiplied by common-data field `x128`. Independently, `ftCo_MS_DamageIce` multiplies it by `x714`. Every path finally multiplies by `dmg.x182c_behavior`; when both guards succeed, all three factors compound in that order.",
+          "rationale": "The function contains two independent guarded multiplications followed by one unconditional multiplication. Because the second condition is not an `else`, the collision-context and frozen-state adjustments can both apply to the same amount.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:43:26.957Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L193-L203",
+              "why": "Directly shows both guards, their independent control flow, the multiplication order, and the unconditional final factor."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_80076640"
+      },
+      "facts": [
+        {
+          "id": "fact:76b1c70f-9579-4a99-b33c-863f606ea824",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076640",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads candidate damage through `dmg`, snapshots its minimum-one integral representation, and subtracts the float from the fighter's enabled absorption reserve. On reserve overflow it writes the positive excess back through `dmg` and disables absorption. Accepted damage is added to `dmg.x1838_percentTemp`, and the original integral amount raises `dmg.x183C_applied` when larger.",
+          "rationale": "The current body directly shows the in/out damage transformation, reserve depletion, Fighter-field writes, maximum update, and Boolean acceptance result; the removed Bury citation is no longer needed.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows `getEnvDmg`, the absorption-reserve arithmetic, overflow write through `dmg`, pending-damage updates, and return paths."
+            }
+          ]
+        },
+        {
+          "id": "fact:5d017601-0f6b-4305-8c64-1969287d0288",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076640",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements a cumulative damage-absorption mechanic: an enabled fighter state has a finite pool that can absorb successive hits completely, and only the portion of a hit exceeding the remaining pool is admitted as damage after the pool breaks.",
+          "rationale": "The code demonstrably maintains a persistent remaining-capacity field across hits, suppresses damage while that capacity is nonnegative, and forwards only overflow after depletion. The archived Kirby-special discussion independently shows Kirby's special-move code clearing both this flag and pool field, tying the generic collision behavior to a fighter move state. SmashWiki describes cumulative damage-based armor as an HP-style mechanic that sustains incoming damage against a finite value, although this implementation's exact consequence is stronger and code-defined: absorbed damage is withheld from the temporary-percent accumulator.",
+          "confidence": 0.91,
+          "updated_at": "2026-09-02T13:43:29.310Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L216-L238",
+              "why": "Directly establishes the persistent finite pool, cumulative subtraction, complete suppression before break, and overflow-only damage after break."
+            },
+            {
+              "kind": "discord",
+              "locator": "discord://message/1399513628683665499",
+              "why": "Shows Kirby special-move animation code explicitly clearing the same absorption flag and remaining-pool field when the move ends."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://armor~damage-based-armor@r2024771",
+              "why": "Describes cumulative damage-based armor as an HP-style mechanic in which incoming damage is sustained against a finite stored value."
+            }
+          ]
+        },
+        {
+          "id": "fact:32f13f12-024c-4e1a-8445-04e73e9beb53",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076640",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_ApplyDamage",
+          "rationale": "The current function converts candidate damage into pending Fighter damage state while enforcing an absorption reserve; no preserved symbol establishes the exact wording.\n\nNaming cleanup: Text states a preferred candidate; alternatives are retained.\nPrior naming claim: A plausible original name is `ftColl_ApplyDamage`, with `ftColl_ApplyDamageWithAbsorption` as a more descriptive alternative.",
+          "confidence": 0.62,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Places the routine among shared fighter-collision damage helpers and shows its damage-application and absorption behavior."
+            }
+          ]
+        },
+        {
+          "id": "fact:32cab828-09eb-4fb2-a02f-bef526fe0d9b",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076640",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Damage-acceptance helper with signature `bool (Fighter* fp, float* dmg)`. The float is an in/out candidate-damage parameter that becomes overflow damage when the reserve breaks; true means damage was admitted to pending Fighter state, while false means it remained absorbed.",
+          "rationale": "The current definition supplies the exact interface and demonstrates both mutation of the pointed-to float and the accepted-versus-absorbed return paths.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows the exact signature, in/out float mutation, Fighter-state writes, and Boolean outcomes."
+            }
+          ]
+        },
+        {
+          "id": "fact:b2e0224a-e548-41f8-a3b7-b1b98f20939c",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076640",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Filters and records pending fighter damage. An active finite reserve suppresses damage until a hit exceeds the remaining capacity, after which only overflow proceeds; admitted damage updates the temporary-percent accumulator and maximum pending integral amount.",
+          "rationale": "The head source fully establishes the reserve gate and pending-damage updates without relying on the now-unresolvable former caller citation.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows reserve subtraction, overflow conversion, absorption-state transition, pending-damage recording, and acceptance returns."
+            }
+          ]
+        },
+        {
+          "id": "fact:17120443-45bc-439b-bc7a-e3498700d104",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076640",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "If absorption is disabled on entry, damage is accepted immediately. If enabled, the incoming damage reduces the remaining pool. A remainder of zero or greater keeps absorption active, leaves ordinary pending-damage fields unchanged, and returns false. A negative remainder breaks absorption, converts the deficit to positive overflow damage, clears the enable flag, and enters the accepted path. That path diagnoses damage above 500, accumulates accepted damage, raises the pending integral-damage maximum when appropriate, and returns true.",
+          "rationale": "These states and transitions correspond directly to the two tests of `x221C_b4`, the strict less-than-zero break guard, the overflow negation, and the two return sites. The strict comparison means a hit that exactly depletes the pool remains absorbed; only damage exceeding the remaining pool breaks it.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T13:43:29.310Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L216-L238",
+              "why": "Shows the exact enabled, surviving, exhausted-at-zero, broken-by-overflow, accepted, and rejected control-flow paths."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_80076764"
+      },
+      "facts": [
+        {
+          "id": "fact:87c8b7cb-f793-4197-9fa8-954a634616d5",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076764",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Copies the source class, interaction kind, nullable source object, `DynamicsDesc`, contacted fighter hurt capsule, fighter position, and descriptor count into `dmg_log0[dmg_log0_idx]`, then increments the index.",
+          "rationale": "The current append routine directly establishes every input-to-entry mapping; claims formerly supported by removed caller spans are narrowed to the surviving code.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows the complete mapping of six arguments into the next primary damage-log entry and the index increment."
+            }
+          ]
+        },
+        {
+          "id": "fact:a9e20e6d-0ada-4641-b156-963ab9f67091",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076764",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Records a `DynamicsDesc`-backed environmental or stage-dynamics contact for later fighter damage resolution.",
+          "rationale": "The typed descriptor, source object, fighter hurt capsule, position, and damage-log destination identify this as the environmental-contact logging path.",
+          "confidence": 0.94,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows a `DynamicsDesc` and fighter-contact context being preserved in the shared primary damage log."
+            }
+          ]
+        },
+        {
+          "id": "fact:fea17908-0991-4a03-8021-176f8a1ab1c3",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076764",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_AppendEnvironmentDamageLog",
+          "rationale": "The routine performs one bounded append of DynamicsDesc-backed contact data to the fighter collision damage log; exact original wording remains unknown.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `ftColl_AppendEnvironmentDamageLog`.",
+          "confidence": 0.74,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows that the unnamed routine is a bounded damage-log append specialized around a `DynamicsDesc`."
+            }
+          ]
+        },
+        {
+          "id": "fact:38882d15-eae6-4431-8f67-2e6ad1efdcd9",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076764",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Side-effect-only bounded-log append routine with signature `void (int source_class, enum_t interaction_kind, Fighter_GObj* source_gobj, DynamicsDesc* desc, Fighter* fighter, FighterHurtCapsule* hurt)`. `source_gobj` may be null, while the descriptor and fighter pointers are dereferenced.",
+          "rationale": "The current definition provides the exact signature and identifies which pointer parameters are copied or dereferenced.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Provides the exact return and parameter types and shows their use in constructing the log entry."
+            }
+          ]
+        },
+        {
+          "id": "fact:c82540fb-7b4e-41f7-b8e8-6d74a6f04704",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076764",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Appends one DynamicsDesc-backed fighter contact to the primary damage log, preserving its source classification, interaction kind, source object, hurt capsule, position, and descriptor count for later resolution.",
+          "rationale": "The current body is a complete bounded append of environmental-contact context into shared fighter-collision storage.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows all preserved contact fields, the destination log, and successful index advancement."
+            }
+          ]
+        },
+        {
+          "id": "fact:a5280d64-b812-4d4a-af8a-7c2ad3c8cfac",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076764",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "When the primary damage log has capacity, exactly one entry is written and the index advances. When full, the entry array and index remain unchanged and the routine raises the `damage log over <capacity>!!` assertion.",
+          "rationale": "The current capacity guard and mutually exclusive append/assert branches preserve the standing bounded-log behavior.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L174-L293",
+              "why": "Shows the capacity test, successful append and increment, and full-log assertion path."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_80076808"
+      },
+      "facts": [
+        {
+          "id": "fact:3a78ef17-b83f-4ddb-8211-cb4df8b5a335",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076808",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads the reference capsule's logical identifier and scans the fighter's hit-capsule array. Each enabled same-identifier capsule receives the victim through `lbColl_80008688`; when that call inserts a new victim and `clear_eligibility` is true, the corresponding temporary eligibility slot is cleared.",
+          "rationale": "The target establishes selection and temporary-flag writes, while the current collision-library body establishes duplicate rejection and new-victim insertion.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows the same-identifier scan, registration call, and conditional eligibility clear."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1819-L1879",
+              "why": "Shows duplicate lookup, new-victim insertion, and circular replacement-cursor advancement."
+            }
+          ]
+        },
+        {
+          "id": "fact:9256352b-8413-4a40-8698-88c43865a4c0",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076808",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements shared victim history for the multiple physical capsules of one logical fighter hitbox, preventing each same-identifier capsule from independently treating an already recorded target as new.",
+          "rationale": "The function deliberately propagates one victim across every enabled capsule with the same identifier, and the callee distinguishes existing from newly inserted victims.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows victim registration being propagated across enabled fighter capsules sharing one logical identifier."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1819-L1879",
+              "why": "Shows that already remembered victims are rejected while unseen victims are inserted."
+            }
+          ]
+        },
+        {
+          "id": "fact:66bccfee-f68c-48f6-9e02-cef6e2170ced",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076808",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_RegisterHitboxVictim",
+          "rationale": "Its principal persistent operation is registering one victim in every enabled fighter capsule that represents the reference capsule's logical hitbox.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `ftColl_RegisterHitboxVictim`.",
+          "confidence": 0.74,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows the routine applying victim registration across all matching fighter hit capsules."
+            }
+          ]
+        },
+        {
+          "id": "fact:3eda9f3c-5bf1-4edc-a20e-3fefeb9f2457",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076808",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Side-effect-only helper with signature `void (Fighter* fp, HitCapsule* hit, int interaction_type, void* victim, bool clear_eligibility)`. The victim is an opaque identity, and the Boolean only gates temporary eligibility clearing after successful registration.",
+          "rationale": "The current definition supplies the exact types and shows how each parameter controls identifier matching, victim registration, or temporary-state mutation.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Provides the exact signature and complete parameter usage."
+            }
+          ]
+        },
+        {
+          "id": "fact:8db7f4a5-4280-49f5-a60d-ba778e99e43c",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076808",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Propagates a victim encounter across all enabled fighter hit capsules belonging to the same logical hitbox and optionally removes newly registered capsules from the current pass's eligibility set.",
+          "rationale": "The scan, same-identifier guard, registration call, and conditional flag clear directly establish the routine's role.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows the full propagation operation and optional current-pass suppression."
+            }
+          ]
+        },
+        {
+          "id": "fact:da7b9af3-a6ee-455d-a4e9-ec146731c9ad",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076808",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Disabled or differently identified capsules are untouched. Matching enabled capsules always attempt victim registration; an existing victim leaves eligibility unchanged, while a new victim additionally clears eligibility only when the final Boolean is true.",
+          "rationale": "The target's short-circuit conditions and the callee's old-versus-new victim returns define these transitions.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows the enabled-state, identifier, insertion-result, and Boolean guards."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1819-L1879",
+              "why": "Shows false for an existing victim and true after inserting an unseen victim."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_800768A0"
+      },
+      "facts": [
+        {
+          "id": "fact:00611448-6613-487c-b613-78041a1eb215",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800768A0",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads the destination capsule's logical identifier and scans the fighter's hit-capsule array. The first distinct enabled same-identifier capsule supplies both victim tables and their replacement cursors to the destination; if none exists, both histories and cursors are reset.",
+          "rationale": "The target selects the source and dispatches copy or reset, while the current collision-library implementation identifies the exact state those helpers transfer.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows source selection, first-match copy, immediate return, and no-match reset."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1712-L1831",
+              "why": "Shows both victim tables and both replacement cursors being copied or cleared."
+            }
+          ]
+        },
+        {
+          "id": "fact:ee6622b8-986a-4895-b87c-decfd1754f56",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800768A0",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements continuity of fighter hitbox victim history: a new physical capsule representing an already active logical hitbox inherits remembered targets, while a genuinely new logical hitbox starts empty.",
+          "rationale": "Inheritance occurs only from another enabled same-identifier capsule, and the fallback explicitly clears victim history.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows same-logical-hitbox inheritance and the no-continuation reset."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1712-L1831",
+              "why": "Shows that the inherited or reset state is the capsule's remembered-victim tables and cursors."
+            }
+          ]
+        },
+        {
+          "id": "fact:48630559-a06d-468f-b13c-2f60939e48fa",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800768A0",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_InitHitboxVictims",
+          "rationale": "The routine initializes one fighter hit capsule's victim-history state through either inheritance or reset; no surviving symbol confirms the suffix.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original name: `ftColl_InitHitboxVictims`.",
+          "confidence": 0.78,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows that the complete operation selects the destination capsule's initial victim-history state."
+            }
+          ]
+        },
+        {
+          "id": "fact:b0a6047f-4d07-4382-86bc-170ffbd1ff21",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800768A0",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Side-effect-only helper with signature `void (Fighter* fp, HitCapsule* dst)`. The Fighter owns the searched capsule array, and writable `dst` supplies the identifier and receives inherited or cleared victim-history state.",
+          "rationale": "The current definition provides the exact interface and communicates its result solely by mutating the destination through collision-library helpers.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Provides the exact signature and shows the Fighter and destination roles."
+            }
+          ]
+        },
+        {
+          "id": "fact:7213cafe-b758-40c4-8547-d077734ca007",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800768A0",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Initializes a newly enabled or regrouped fighter hit capsule's victim history by inheriting from another enabled capsule with the same logical identifier or clearing both histories when no continuation exists.",
+          "rationale": "The target's search and helper calls establish the initialization behavior, and the current action-command caller invokes it when enabling or regrouping a hitbox.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows the same-identifier copy and no-match reset."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L287-L362",
+              "why": "Shows the helper called when an animation command enables a disabled capsule or changes its hit group."
+            }
+          ]
+        },
+        {
+          "id": "fact:3ed8ddfe-4d71-4d80-bb0a-58a025eae527",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800768A0",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "The first distinct enabled capsule with the destination's identifier causes immediate inheritance and return. Exhausting the scan instead clears both victim tables and resets both cursors, without changing attack configuration or enabled state.",
+          "rationale": "The predicates and early return define the alternatives, and the called helpers modify only victim-history storage.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L279-L314",
+              "why": "Shows the guarded first-match return and unconditional reset fallback."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1712-L1831",
+              "why": "Shows that copy and reset affect only victim tables and their cursors."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007699C"
+      },
+      "facts": [
+        {
+          "id": "fact:36d53797-3c75-4653-be4a-524dc48c22df",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007699C",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Averages two fighter attack capsules' contact positions, compares their integer damage values against the common clank tolerance, and dispatches each qualifying side's collision and rebound bookkeeping at the shared midpoint. The Boolean reports whether the first hitbox received the stopping response.",
+          "rationale": "The head function shows midpoint construction, reciprocal threshold comparisons, side-specific handlers, and the asymmetric return.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L314-L433",
+              "why": "Shows grouped-hitbox response updates, rebound fields, effects, and the beginning of reciprocal priority resolution."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows the complete midpoint calculation, threshold branches, and Boolean result."
+            }
+          ]
+        },
+        {
+          "id": "fact:e47e96c7-f57b-44c2-ad18-07fd9690a61b",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007699C",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements grounded fighter-attack clanking and damage priority: attacks within the tolerance trigger both sides' response, while a sufficiently stronger attack continues and only the weaker side responds.",
+          "rationale": "The reciprocal damage comparisons select mutual or one-sided clank handling, and the fighter-collision scanner reaches this function for eligible grounded attack overlaps.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows the two damage-priority comparisons and one-sided versus mutual response structure."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1756-L1875",
+              "why": "Shows the function called after eligible grounded fighter hitboxes geometrically overlap."
+            }
+          ]
+        },
+        {
+          "id": "fact:02f4221f-05c7-44ef-9f47-97eafe60a9cf",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007699C",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_ResolveClank",
+          "rationale": "The function performs the complete priority-resolution step after two fighter attack hitboxes overlap; exact original wording remains speculative.\n\nNaming cleanup: Text states a preferred candidate; alternatives are retained.\nPrior naming claim: Likely `ftColl_ResolveClank`, with `ftColl_ResolveHitboxClank` as a more explicit alternative.",
+          "confidence": 0.8,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows a fighter-collision routine resolving two attack capsules through reciprocal priority checks."
+            }
+          ]
+        },
+        {
+          "id": "fact:53aeedeb-45eb-447a-9afc-52ce7e6c3ead",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007699C",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Signature `bool (Fighter* fp0, HitCapsule* hit0, Fighter* fp1, HitCapsule* hit1)`, with each Fighter owning its adjacent capsule. True means the first hitbox was selected for the clank response; false means it survived the priority comparison.",
+          "rationale": "The current declaration and side-specific calls establish the paired ownership and return semantics.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Provides the exact signature and shows true only through the first-hitbox response path."
+            }
+          ]
+        },
+        {
+          "id": "fact:cc8e6eab-97a9-4e42-82be-8311c96650fd",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007699C",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Resolves an overlap between two fighters' attack hitboxes as a clank, applying priority-selected collision and rebound state, spawning clash feedback at the midpoint, and reporting whether the first attack was stopped.",
+          "rationale": "The current function and its inline handlers directly perform all listed resolution steps.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L314-L433",
+              "why": "Shows the side-specific collision marking, rebound updates, and effects."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows the overlap midpoint, reciprocal priority selection, and stopping result."
+            }
+          ]
+        },
+        {
+          "id": "fact:29124601-8abc-4c61-bfac-1b0594f2540c",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007699C",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Each side responds when the opposing attack is not sufficiently weaker. Both sides therefore respond inside the tolerance; outside it only the lower-damage side responds. If the first side responds the function returns true, otherwise false. Rebound duration and facing are initialized only for a grounded hitbox with its rebound flag set.",
+          "rationale": "The reciprocal comparisons, asymmetric return, and guarded response fields remain present at head.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L314-L433",
+              "why": "Shows maximum-response updates and the grounded rebound-flag guard."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows mutual versus one-sided selection and the first-side Boolean return."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_80076CBC"
+      },
+      "facts": [
+        {
+          "id": "fact:1c852fa3-e475-4d3e-a815-1b69f7a425f4",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076CBC",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Registers the shielded fighter in the attacker's same-identifier victim histories, converts attack damage to a minimum-one integer, updates strongest-response records on both fighters, and then either accumulates nonnegative shield damage and ordinary attribution or dispatches the alternate GuardReflect feedback path. A nonzero defender shield-response value is mirrored to both fighters.",
+          "rationale": "The current body directly shows every registration, conversion, maximum, direction, shield-damage, GuardReflect, and shared-value write.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows the complete fighter shield-hit data flow and both response branches."
+            }
+          ]
+        },
+        {
+          "id": "fact:591f0565-f34b-49b1-8a88-ab285197b9d6",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076CBC",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements physical fighter attacks striking shields, including ordinary shield-damage accumulation and the distinct GuardReflect or direct-attack power-shield response.",
+          "rationale": "The function's ordinary branch adds shield damage, while its mutually exclusive flag-selected branch performs dedicated guard initialization, sound, color animation, bonus bookkeeping, and alternate effects.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows ordinary shield damage and the mutually exclusive GuardReflect response."
+            }
+          ]
+        },
+        {
+          "id": "fact:4e7da80b-baaf-431c-9b1b-f141f364b75c",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076CBC",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_FighterShieldHit",
+          "rationale": "The function records and presents the consequences of a fighter-owned attack capsule hitting another fighter's shield; no preserved symbol confirms the suffix.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `ftColl_FighterShieldHit`.",
+          "confidence": 0.74,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows a fighter-collision handler dedicated to shield-hit state and feedback."
+            }
+          ]
+        },
+        {
+          "id": "fact:74d6c7d6-afc2-4eee-93ce-5e64cf11e9a6",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076CBC",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Side-effect-only shield-collision handler with signature `void (Fighter* attacker, HitCapsule* hit, Fighter* defender)`. The capsule belongs to the attacker, and the third argument receives shield-hit state.",
+          "rationale": "The exact declaration and field accesses establish the concrete interface and participant roles.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Provides the exact signature and shows attack properties read from the capsule and response state written to both fighters."
+            }
+          ]
+        },
+        {
+          "id": "fact:59e78590-df86-4afa-88a2-05fa691b3315",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076CBC",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Resolves a fighter-originated attack against another fighter's shield by recording the collision, updating damage and direction response state, and selecting ordinary shield damage or the alternate GuardReflect response.",
+          "rationale": "All of these operations are explicit in the current matched implementation.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows victim registration, response bookkeeping, ordinary shield handling, and the GuardReflect alternative."
+            }
+          ]
+        },
+        {
+          "id": "fact:e472612d-5003-4d2b-910c-dbb9d352f310",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076CBC",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Only larger integer-damage observations replace the attacker and defender response records. With `x221C_b2` clear, shield damage rises by `max(0, integer damage + shield modifier)` and ordinary attribution and effects are installed. With the flag set, ordinary accumulation is skipped in favor of guard initialization, audiovisual feedback, bonus tracking, and an alternate effect.",
+          "rationale": "The head body directly defines the maximum guards and the two mutually exclusive shield-contact states, so the removed Guard source citation is unnecessary.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L404-L510",
+              "why": "Shows the greater-than guards, grounded response fields, shield-damage clamp, flag branch, and final shared-value propagation."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftcoll:ftColl_80076ED8"
+      },
+      "facts": [
+        {
+          "id": "fact:65cbbc6d-9512-488d-bd8e-a267ac572c4a",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076ED8",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Consumes attacking and victim Fighters with their collision capsules, computes victim-scaled damage, and routes it through phantom or ordinary handling. The phantom path halves and clamps damage, propagates victim history, updates reduced-damage state, writes the tip log, and plays phantom feedback. The ordinary path registers the victim, updates damage maxima and reserve state, writes the primary log when accepted, dispatches post-hit bookkeeping, and otherwise spawns fallback feedback.",
+          "rationale": "The complete current function exposes both paths and every listed state and log flow.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L536-L655",
+              "why": "Shows victim-dependent scaling and the phantom path through half damage, victim propagation, tip logging, and feedback."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L702",
+              "why": "Shows the ordinary path's victim registration, damage state, reserve processing, and primary-log construction."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L702-L724",
+              "why": "Shows ordinary post-hit bookkeeping, fallback effect selection, and final returns."
+            }
+          ]
+        },
+        {
+          "id": "fact:b4066079-682a-4f14-a116-da38b62384f5",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076ED8",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements fighter-versus-fighter damage resolution, including reduced half-damage phantom contacts and the contrasting ordinary hit path that applies damage state, attribution, victim history, and post-hit bookkeeping.",
+          "rationale": "The current code retains the distinct half-damage tip-log path and ordinary primary-log path identified by the standing record.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L702",
+              "why": "Shows the fighter-originated phantom and ordinary collision-result branches."
+            }
+          ]
+        },
+        {
+          "id": "fact:a838e9bb-5ea4-4627-9387-671164be3b37",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076ED8",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftColl_ProcessFighterHit",
+          "rationale": "The routine actively resolves and records a fighter-owned attack against another fighter, paralleling the neighboring item-hit resolver; exact original spelling is unknown.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftColl_ProcessFighterHit`.",
+          "confidence": 0.73,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L702",
+              "why": "Shows a side-effecting fighter-hit resolver rather than a passive overlap query."
+            }
+          ]
+        },
+        {
+          "id": "fact:2f999d31-204d-444d-b002-e9cc0a945138",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076ED8",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Collision-result routine with signature `bool (Fighter* attacker, HitCapsule* attack_hit, Fighter* victim, HitCapsule* victim_hit)`. It returns true for an accepted phantom contact and for the ordinary path, and false when a phantom candidate fails its guards.",
+          "rationale": "The current definition provides the exact interface, participant roles, and explicit return behavior.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L702",
+              "why": "Shows the exact four-parameter Boolean signature and accepted phantom and ordinary paths."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L702-L724",
+              "why": "Shows the ordinary true return and final false return."
+            }
+          ]
+        },
+        {
+          "id": "fact:e75d1d71-c91a-4cd8-abc3-7cd5ca752c91",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076ED8",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Resolves one fighter-owned attack capsule contacting another fighter, distinguishing phantom from ordinary damage, propagating victim registration, updating fighter damage state and bounded logs, preserving thrown-hit ownership, and requesting the appropriate feedback and post-hit processing.",
+          "rationale": "The current matched implementation still performs all of these collision consequences.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L702",
+              "why": "Shows phantom and ordinary damage processing, ownership selection, victim history, and damage logging."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L702-L724",
+              "why": "Shows post-hit dispatch, fallback presentation, and completion behavior."
+            }
+          ]
+        },
+        {
+          "id": "fact:c1bf2d3d-fd74-4b9a-b91d-a8fdad8b3613",
+          "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80076ED8",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "The phantom branch requires an empty primary log, an inactive victim damage timer, and acceptance by the tip-victim history; accepted damage is halved and clamped to one when nonzero. The ordinary branch clears the secondary log, propagates victim registration, applies reserve absorption and overflow, appends accepted damage to the primary log, and produces fallback feedback if no entry was accepted.",
+          "rationale": "The branch guards, clamping, log transitions, reserve depletion, fallback, and return states are all explicit at head.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:56:43.876Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L702",
+              "why": "Shows the complete phantom eligibility sequence and most ordinary-path transitions."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcoll.c#L702-L724",
+              "why": "Shows successful ordinary completion, fallback feedback, and final Boolean outcomes."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800763C0#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800763C0#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800763C0#r5"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076444#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076444#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_8007646C#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_8007646C#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800764DC#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076528#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800765AC#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800765F0#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800765F0#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800765F0#r5"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076640#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076640#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076764#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076764#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076764#r5"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076764#r6"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076764#r7"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076764#r8"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076808#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076808#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076808#r5"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076808#r6"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076808#r7"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800768A0#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_800768A0#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_8007699C#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_8007699C#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_8007699C#r5"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_8007699C#r6"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076CBC#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076CBC#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076CBC#r5"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076ED8#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076ED8#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076ED8#r5"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftcoll:ftColl_80076ED8#r6"
+      },
+      "facts": []
+    }
+  ]
+}

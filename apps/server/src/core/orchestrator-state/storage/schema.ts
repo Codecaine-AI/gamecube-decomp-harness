@@ -9,19 +9,8 @@ import type {
   RunStatus,
   RuntimeAgentRole,
 } from "@server/core/shared/types";
-import type { WriteSetEntry } from "@server/core/cycle-runtime/run-state/write-set-categories.js";
-import type {
-  CycleBlocker,
-  CycleKernelTraceState,
-  CyclePhase,
-  CycleProcessState,
-  CycleStatus,
-  CycleTimelineEntryKind,
-  CompletePhaseState,
-  PreparingPhaseState,
-  PrPhaseState,
-  RunningPhaseState,
-} from "@server/core/cycle/types.js";
+import type { WriteSetEntry } from "@server/core/harness-runtime/run-state/write-set-categories.js";
+
 
 export type JsonObject = Record<string, unknown>;
 export type GameEventActor = "operator" | "runner" | "agent" | "guardian" | "external_observer";
@@ -63,6 +52,46 @@ export const gameEvents = sqliteTable(
 );
 
 export const harnessState = sqliteTable("harness_state", {
+  gameId: text("game_id").primaryKey(),
+  harnessId: text("harness_id").notNull().unique(),
+  revision: integer("revision").notNull(),
+  stateJson: text("state_json", { mode: "json" }).$type<import("@server/core/harness-state/state.js").HarnessState>().notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+export const harnessCommands = sqliteTable("harness_commands", {
+  gameId: text("game_id").notNull(), commandId: text("command_id").notNull(),
+  requestJson: text("request_json").notNull(), resultJson: text("result_json").notNull(),
+}, table => [primaryKey({ columns: [table.gameId, table.commandId] })]);
+export const harnessTimelineEntries = sqliteTable("harness_timeline_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }), gameId: text("game_id").notNull(),
+  harnessId: text("harness_id").notNull(), eventId: text("event_id").notNull().unique(),
+  commandId: text("command_id").notNull(), kind: text("kind").notNull(), occurredAt: text("occurred_at").notNull(),
+  payloadJson: text("payload_json", { mode: "json" }).$type<JsonObject>().notNull(),
+  legacyCycleUuid: text("legacy_cycle_uuid"), legacyEntryId: integer("legacy_entry_id"),
+}, table => [index("harness_timeline_game_order").on(table.gameId, table.id), uniqueIndex("harness_timeline_legacy_entry").on(table.legacyCycleUuid, table.legacyEntryId)]);
+export const historicalHarnessImports = sqliteTable("historical_harness_imports", {
+  gameId: text("game_id").primaryKey(), commandId: text("command_id").notNull(),
+  importedAt: text("imported_at").notNull(), checkpointJson: text("checkpoint_json").notNull(),
+});
+export const historicalCycleLinks = sqliteTable("historical_cycle_links", {
+  tableName: text("table_name").notNull(), rowId: text("row_id").notNull(),
+  gameId: text("game_id"), cycleUuid: text("cycle_uuid").notNull(),
+}, table => [primaryKey({ columns: [table.tableName, table.rowId] }), index("historical_cycle_links_identity").on(table.gameId, table.cycleUuid)]);
+export const historicalMigrationCheckpoints = sqliteTable("historical_migration_checkpoints", {
+  migrationVersion: integer("migration_version").primaryKey(), createdAt: text("created_at").notNull(),
+  beforeJson: text("before_json").notNull(), afterJson: text("after_json").notNull(),
+});
+export const historicalSyncStaging = sqliteTable("historical_sync_staging", {
+  syncId: text("sync_id").primaryKey(), originalRowJson: text("original_row_json").notNull(),
+  canonicalStagingJson: text("canonical_staging_json").notNull(),
+});
+export const historicalCutoverReconciliations = sqliteTable("historical_cutover_reconciliations", {
+  commandId: text("command_id").primaryKey(), createdAt: text("created_at").notNull(),
+  evidenceJson: text("evidence_json").notNull(),
+});
+
+export const dispatchState = sqliteTable("dispatch_state", {
   gameId: text("game_id").primaryKey(),
   revision: integer("revision").notNull().default(0),
   activeWorkflowJson: text("active_workflow_json", { mode: "json" }).$type<JsonObject>(),
@@ -106,7 +135,6 @@ export const syncState = sqliteTable(
   {
     syncId: text("sync_id").primaryKey(),
     gameId: text("game_id").notNull(),
-    cycleUuid: text("cycle_uuid").notNull(),
     revision: integer("revision").notNull().default(0),
     status: text("status")
       .$type<
@@ -175,7 +203,6 @@ export const runs = sqliteTable("runs", {
   causedByEventId: text("caused_by_event_id"),
   blockersJson: text("blockers_json", { mode: "json" }).$type<JsonObject[]>().notNull().default(sql`'[]'`),
   headRevision: text("head_revision"),
-  cycleUuid: text("cycle_uuid"),
   inputsJson: text("inputs_json", { mode: "json" }).$type<RunInputs>(),
   stopRequestJson: text("stop_request_json", { mode: "json" }).$type<JsonObject>(),
   terminalReason: text("terminal_reason"),
@@ -190,13 +217,11 @@ export const gameUpstreamAnchors = sqliteTable(
   "game_upstream_anchors",
   {
     gameId: text("game_id").primaryKey(),
-    cycleUuid: text("cycle_uuid").notNull(),
     upstreamRevision: text("upstream_revision").notNull(),
     syncId: text("sync_id").notNull(),
     causedByEventId: text("caused_by_event_id").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [index("game_upstream_anchors_cycle").on(table.cycleUuid)],
 );
 
 export const syncPushRecords = sqliteTable(
@@ -312,8 +337,7 @@ export const dashboardArtifacts = sqliteTable(
     id: text("id").primaryKey(),
     runId: text("run_id"),
     gameId: text("game_id"),
-    cycleUuid: text("cycle_uuid"),
-    artifactType: text("artifact_type").notNull(),
+      artifactType: text("artifact_type").notNull(),
     artifactKey: text("artifact_key").notNull(),
     sourcePath: text("source_path"),
     sourceLabel: text("source_label"),
@@ -323,7 +347,6 @@ export const dashboardArtifacts = sqliteTable(
   (table) => [
     index("dashboard_artifacts_run_type").on(table.runId, table.artifactType, table.artifactKey, table.createdAt),
     index("dashboard_artifacts_game_type").on(table.gameId, table.artifactType, table.artifactKey, table.createdAt),
-    index("dashboard_artifacts_cycle_type").on(table.cycleUuid, table.artifactType, table.artifactKey, table.createdAt),
   ],
 );
 
@@ -654,29 +677,29 @@ export const savePoints = sqliteTable(
   (table) => [index("save_points_campaign").on(table.campaignId, table.createdAt)],
 );
 
-export const cycles = sqliteTable(
-  "cycles",
+export const historicalCycles = sqliteTable(
+  "historical_cycles",
   {
     id: text("id").primaryKey(),
     gameId: text("game_id").notNull(),
     cycleUuid: text("cycle_uuid").notNull().unique(),
-    status: text("status").$type<CycleStatus>().notNull(),
-    phase: text("phase").$type<CyclePhase>().notNull(),
+    status: text("status").$type<string>().notNull(),
+    phase: text("phase").$type<string>().notNull(),
     activeRunId: text("active_run_id"),
     baseRef: text("base_ref"),
     baseSha: text("base_sha"),
     revision: integer("revision").notNull().default(0),
     headRevision: text("head_revision"),
     traceId: text("trace_id"),
-    blockersJson: text("blockers_json", { mode: "json" }).$type<CycleBlocker[]>().notNull().default(sql`'[]'`),
+    blockersJson: text("blockers_json", { mode: "json" }).$type<JsonObject[]>().notNull().default(sql`'[]'`),
     savePointStale: integer("save_point_stale", { mode: "boolean" }).notNull().default(false),
     causedByEventId: text("caused_by_event_id"),
-    preparingStateJson: text("preparing_state_json", { mode: "json" }).$type<PreparingPhaseState>().notNull(),
-    runningStateJson: text("running_state_json", { mode: "json" }).$type<RunningPhaseState>().notNull(),
-    prStateJson: text("pr_state_json", { mode: "json" }).$type<PrPhaseState>().notNull(),
-    completeStateJson: text("complete_state_json", { mode: "json" }).$type<CompletePhaseState>().notNull(),
-    processStateJson: text("process_state_json", { mode: "json" }).$type<CycleProcessState | JsonObject | null>().notNull(),
-    kernelTraceJson: text("kernel_trace_json", { mode: "json" }).$type<CycleKernelTraceState | null>().notNull(),
+    preparingStateJson: text("preparing_state_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    runningStateJson: text("running_state_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    prStateJson: text("pr_state_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    completeStateJson: text("complete_state_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    processStateJson: text("process_state_json", { mode: "json" }).$type<JsonObject>().notNull(),
+    kernelTraceJson: text("kernel_trace_json", { mode: "json" }).$type<JsonObject>().notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     completedAt: text("completed_at"),
@@ -684,18 +707,15 @@ export const cycles = sqliteTable(
   },
   (table) => [
     index("cycles_game_updated").on(table.gameId, table.updatedAt),
-    uniqueIndex("cycles_one_active_game")
-      .on(table.gameId)
-      .where(sql`${table.status} IN ('active', 'blocked', 'closing')`),
   ],
 );
 
-export const cycleTimelineEntries = sqliteTable(
-  "cycle_timeline_entries",
+export const historicalCycleTimelineEntries = sqliteTable(
+  "historical_cycle_timeline_entries",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     cycleUuid: text("cycle_uuid").notNull(),
-    entryKind: text("entry_kind").$type<CycleTimelineEntryKind>().notNull(),
+    entryKind: text("entry_kind").$type<string>().notNull(),
     entryId: text("entry_id").notNull(),
     occurredAt: text("occurred_at").notNull(),
     payloadJson: text("payload_json", { mode: "json" }).$type<JsonObject>().notNull().default(sql`'{}'`),
@@ -775,8 +795,12 @@ export const orchestratorStateSchema = {
   runRecoveryJournal,
   dispatchHandoffSnapshots,
   gameEvents,
-  cycles,
+  historicalCycles,
+  dispatchState,
   harnessState,
+  harnessCommands,
+  harnessTimelineEntries,
+  historicalHarnessImports,
   gameUpstreamAnchors,
   syncState,
   syncPushRecords,
@@ -784,7 +808,7 @@ export const orchestratorStateSchema = {
   runs,
   savePoints,
   schemaMigrations,
-  cycleTimelineEntries,
+  historicalCycleTimelineEntries,
   targetClaims,
   targets,
   workerCheckpoints,
@@ -818,16 +842,18 @@ export type RunCheckpointRow = typeof runCheckpoints.$inferSelect;
 export type CheckpointItemRow = typeof checkpointItems.$inferSelect;
 export type CampaignRow = typeof campaigns.$inferSelect;
 export type SavePointRow = typeof savePoints.$inferSelect;
-export type CycleRow = typeof cycles.$inferSelect;
-export type NewCycleRow = typeof cycles.$inferInsert;
-export type CycleTimelineEntryRow = typeof cycleTimelineEntries.$inferSelect;
-export type NewCycleTimelineEntryRow = typeof cycleTimelineEntries.$inferInsert;
+export type HistoricalCycleRow = typeof historicalCycles.$inferSelect;
+export type NewHistoricalCycleRow = typeof historicalCycles.$inferInsert;
+export type HistoricalCycleTimelineEntryRow = typeof historicalCycleTimelineEntries.$inferSelect;
+export type NewHistoricalCycleTimelineEntryRow = typeof historicalCycleTimelineEntries.$inferInsert;
 export type DashboardArtifactRow = typeof dashboardArtifacts.$inferSelect;
 export type SchemaMigrationRow = typeof schemaMigrations.$inferSelect;
 export type GameEventRow = typeof gameEvents.$inferSelect;
 export type NewGameEventRow = typeof gameEvents.$inferInsert;
 export type DispatchHandoffSnapshotRow = typeof dispatchHandoffSnapshots.$inferSelect;
 export type NewDispatchHandoffSnapshotRow = typeof dispatchHandoffSnapshots.$inferInsert;
+export type DispatchStateRow = typeof dispatchState.$inferSelect;
+export type NewDispatchStateRow = typeof dispatchState.$inferInsert;
 export type HarnessStateRow = typeof harnessState.$inferSelect;
 export type NewHarnessStateRow = typeof harnessState.$inferInsert;
 export type PrBatchPublicationRow = typeof prBatchPublications.$inferSelect;

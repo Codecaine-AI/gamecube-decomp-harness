@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Dump the mwcc_debug compiler's IR/backend listing for one function.
 
-Resolves the function's TU (via build/GALE01/report.json, like checkdiff.py),
+Resolves the function's TU via the selected project's report.json,
 compiles that TU with the instrumented MWCC from a unique temporary working
 directory, then truncates that run's pcdump.txt to just the requested
 function's section so the output concerns only that function.
@@ -12,7 +12,6 @@ Usage: tools/mwcc_dump.py it_802E70BC
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import platform
 import re
@@ -29,9 +28,11 @@ from typing import Optional
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
 from project_root import resolve_root
+from project_layout import get_project_layout
 
 ROOT = resolve_root()
-REPORT_PATH = ROOT / "build/GALE01/report.json"
+LAYOUT = get_project_layout(ROOT)
+REPORT_PATH = LAYOUT.report_path
 
 
 def find_unit_for_function(func_name: str) -> Optional[str]:
@@ -43,13 +44,10 @@ def find_unit_for_function(func_name: str) -> Optional[str]:
             f"missing {REPORT_PATH} — run a normal build first so objdiff "
             "writes the report (function->TU lookup needs it)"
         )
-    with REPORT_PATH.open("r") as f:
-        for unit in json.load(f).get("units", []):
-            for function in unit.get("functions", []):
-                if function.get("name") == func_name:
-                    obj = unit.get("name", "").removeprefix("main/")
-                    return f"src/{obj}.c"
-    return None
+    unit = LAYOUT.unit_for_function(func_name)
+    if unit is None:
+        return None
+    return LAYOUT.source_path_for_unit(unit).as_posix()
 
 
 def find_build_block(src: str) -> tuple[str, str]:
@@ -57,7 +55,7 @@ def find_build_block(src: str) -> tuple[str, str]:
     text = (ROOT / "build.ninja").read_text()
     # Unfold ninja line continuations.
     text = text.replace("$\n", " ")
-    obj = f"build/GALE01/{src[:-2]}.o"
+    obj = LAYOUT.object_path_for_unit(src).as_posix()
     blocks = re.split(r"^build ", text, flags=re.M)
     for b in blocks:
         if b.startswith(f"{obj}:") or b.startswith(f"{obj} :"):

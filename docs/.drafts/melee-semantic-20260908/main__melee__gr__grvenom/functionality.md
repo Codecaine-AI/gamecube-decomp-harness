@@ -1,0 +1,13 @@
+## Venom stage subsystem
+
+The unit registers Gr_Kind_Venom, /GrVe, five joint descriptors and 16 callback rows. Startup creates fixed components 4, 0, 5, 9 and 7, links component 5 to component 0, resets three aircraft slots, disables collision joints 3/4 and loops stage-light animation. Numeric stage ID 0xE9 selects three-slot scheduling with an initial 120-frame delay; ordinary scheduling uses parameter-derived delays. Environment bits gate spawn ranges and stored types prevent repeats.
+
+Component 2 owns an animated aircraft path and its global slot. Its first update applies the selected animation and returns; later updates run approach/departure cue states and clear the slot before destruction when animation stops. Stale owners are destroyed without clearing a replacement slot. Visual controllers 3/6 and collision helpers 10–15 observe slot presence. Collision helpers map slot to group to joint and remove collision before destruction. Visual controllers animate and propagate near-type transforms or probabilistically target lasers for types 8–11; a global guard suppresses all work, including cleanup. Player retry exhaustion is not checked, and the delay decrements only in animation state 0.
+
+Component 5 synchronizes translation into component 0, refreshes camera/dead ranges and collision, runs spawning, and owns the delayed numeric-0xE4 conversation timer. Controller 8 delegates to a shared Star Fox sequence; presentation 1 delegates to Corneria's opening/dialogue/closing state machine. Row-8 callback3 restores HUD visibility during destruction. Cleanup is entirely gated by slot 8 and may preserve that controller in zero mode.
+
+Component 7 coordinates animation-edge sound, collision-joint-2 and environment-flag transitions and cached palette writes. Its seven cached joints are fields in one payload, not seven Ground records. The literal visibility condition does not perform normal finite-Z culling. Palette masks are raw-byte bits, and mode 2 changes only one color slot. Component 4 captures camera-relative fog landmarks; component 9 attaches and refreshes collision. Blast-zone helpers use strict XY comparisons, with the second applying an inward margin of 20. The touch-line hook returns no DynamicsDesc; shadow eligibility uses a strict lower height bound and, for the designated lower joint, an inclusive upper cutoff.
+
+Supported existing names and explanations are retained explicitly. Corrections address callback roles, slot/group distinctions, animation selectors, targeting exceptions, payload identity and rendered-name ambiguity. No compiled section-layout claims are established by this source review.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

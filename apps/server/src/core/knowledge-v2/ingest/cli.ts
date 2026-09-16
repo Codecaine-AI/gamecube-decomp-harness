@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { gameKnowledgeRoot, knowledgeStorePath } from "@server/core/knowledge/paths.js";
 import { resolveKnowledgeCheckout } from "../checkout.js";
 import { openKnowledgeStore } from "../storage/store.js";
 import { immediateTransaction } from "../storage/transaction.js";
@@ -12,10 +12,11 @@ import { extractEntities } from "./entities.js";
 import { importPrs } from "./prs.js";
 import { reconcileReport } from "./reconcile.js";
 import { importWiki } from "./wiki.js";
+import { configuredSourcePath, loadGameSources, sourceConfigPath } from "./source-config.js";
 
-const INGEST_LANES = ["discord", "wiki", "prs", "attempts", "reconcile", "entities", "sync", "all"] as const;
+const INGEST_LANES = ["discord", "wiki", "prs", "attempts", "reconcile", "entities", "sync", "bootstrap", "all"] as const;
 type IngestLane = (typeof INGEST_LANES)[number];
-type IndividualIngestLane = Exclude<IngestLane, "sync" | "all">;
+type IndividualIngestLane = Exclude<IngestLane, "sync" | "bootstrap" | "all">;
 const SYNC_LANES: readonly IndividualIngestLane[] = ["reconcile", "prs", "discord", "attempts"];
 const RESET_SOURCES = ["wiki"] as const;
 type ResetSource = (typeof RESET_SOURCES)[number];
@@ -41,12 +42,18 @@ export type IngestSourcePaths = Omit<IngestPaths, "reportPath" | "checkoutRoot">
 
 export function resolveIngestPaths(knowledgeRoot: string): IngestSourcePaths {
   const gameRoot = dirname(knowledgeRoot);
+  const runtimeOrchestratorDbPath = resolve(gameRoot, "runtime/state/orchestrator.sqlite");
+  const legacyOrchestratorDbPath = resolve(gameRoot, "state/orchestrator.sqlite");
   return {
     discordRawRoot: resolve(knowledgeRoot, "sources/rag_search/discord_raw/data/raw"),
     discordChannelsConfigPath: resolve(knowledgeRoot, "sources/rag_search/discord_raw/config/channels.json"),
     wikiDataRoot: resolve(knowledgeRoot, "sources/rag_search/smashwiki/data"),
     prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
-    orchestratorDbPath: resolve(gameRoot, "state/orchestrator.sqlite"),
+    orchestratorDbPath: existsSync(runtimeOrchestratorDbPath)
+      ? runtimeOrchestratorDbPath
+      : existsSync(legacyOrchestratorDbPath)
+        ? legacyOrchestratorDbPath
+        : runtimeOrchestratorDbPath,
   };
 }
 
@@ -114,6 +121,23 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
     : gameKnowledgeRoot(gameId);
   const knowledgeRoot = resolve(stringArg(args, "--knowledge-root", defaultKnowledgeRoot));
   const defaults = resolveIngestPaths(knowledgeRoot);
+  const gameRoot = gameRootOverride ? resolve(gameRootOverride) : dirname(knowledgeRoot);
+  const sources = existsSync(resolve(gameRoot, "game.json")) ? loadGameSources(gameRoot, gameId) : undefined;
+  if (sources) {
+    const enabled = sources.filter(source => source.configuration.enabled);
+    for (const kind of ["pr", "discord", "wiki"] as const) {
+      if (enabled.filter(source => source.identity.kind === kind).length > 1) throw new Error(`Legacy ingest supports one ${kind} source per game; use source-isolated adapters for multiple sources`);
+    }
+    for (const source of enabled) {
+      const root = configuredSourcePath(gameRoot, source, "capture_root");
+      if (source.identity.kind === "pr") defaults.prsRoot = sourceConfigPath(root, String(source.configuration.scope.prs_subdir ?? "."));
+      if (source.identity.kind === "wiki") defaults.wikiDataRoot = root;
+      if (source.identity.kind === "discord") {
+        defaults.discordRawRoot = root;
+        defaults.discordChannelsConfigPath = configuredSourcePath(gameRoot, source, "channels_config");
+      }
+    }
+  }
   const checkout = resolveKnowledgeCheckout({
     gameId,
     stateDir: globals.stateDir ?? resolve(dirname(knowledgeRoot), "state"),
@@ -130,15 +154,26 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
   };
   console.log(`[kg2-ingest] checkout ${checkout.checkoutRoot} @ ${checkout.headRevision} (${checkout.source})`);
   let temporaryRoot: string | undefined;
-  const storeRoot = dryRun && !existsSync(resolve(knowledgeRoot, "knowledge.sqlite"))
+  const storeRoot = dryRun && !existsSync(knowledgeStorePath(knowledgeRoot))
     ? (temporaryRoot = mkdtempSync(resolve(tmpdir(), "kg2-ingest-")))
     : knowledgeRoot;
   const results: Record<string, unknown> = {};
-  const selected = (candidate: IndividualIngestLane) =>
-    lane === candidate
+  const selected = (candidate: IndividualIngestLane) => {
+    const kind = candidate === "prs" ? "pr" : candidate;
+    if (sources && ["pr", "discord", "wiki"].includes(kind)) {
+      const source = sources.find(source => source.identity.kind === kind && source.configuration.enabled);
+      if (!source || (lane === "sync" && source.configuration.refresh !== "each_sync")) return false;
+    }
+    return lane === candidate
     || (lane === "sync" && SYNC_LANES.includes(candidate))
+    || lane === "bootstrap"
     || (lane === "all" && candidate !== "wiki");
-  const skip = (candidate: string, input: string) => console.error(`[kg2-ingest] skipping ${candidate}: input not found: ${input}`);
+  };
+  const skip = (candidate: string, input: string) => {
+    results[candidate] = { status: "unavailable", reason: `input not found: ${input}` };
+    if (lane === "bootstrap" && candidate !== "attempts") throw new Error(`Bootstrap ${candidate}: input not found: ${input}`);
+    console.error(`[kg2-ingest] skipping ${candidate}: input not found: ${input}`);
+  };
   let store: ReturnType<typeof openKnowledgeStore> | undefined;
 
   try {
@@ -161,7 +196,7 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
       else results.entities = extractEntities(store, { reportPath: paths.reportPath, checkoutRoot: paths.checkoutRoot, dryRun });
     }
     if (selected("prs")) {
-      if (existsSync(paths.prsRoot)) results.prs = importPrs(store, { prsRoot: paths.prsRoot, dryRun, reattribute });
+      if (existsSync(paths.prsRoot)) results.prs = importPrs(store, { prsRoot: paths.prsRoot, dryRun, reattribute, sourceIdentity: sources?.find(source => source.identity.kind === "pr" && source.configuration.enabled)?.identity as import("./prs.js").PrImportOptions["sourceIdentity"] });
       else skip("prs", paths.prsRoot);
     }
     if (selected("discord")) {

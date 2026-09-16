@@ -1,0 +1,602 @@
+{
+  "main/melee/lb/lb_0146:.sdata": [
+    {
+      "id": "fact:361e40a1-7da3-463a-88a9-0ecaed674409",
+      "target_id": "target:data:main/melee/lb/lb_0146:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The triangle-strip renderer reads the opaque and translucent red objects and assigns them according to endpoint depth, producing a red-to-transparent diagnostic strip. The line renderer reads the yellow object's four channels for both submitted vertices. The palette is read-only along these paths; no routine in the unit mutates its colors.",
+      "rationale": "Both rendering bodies only load color channels before GXColor4u8 calls. The first chooses between the red objects after comparing endpoint z values, while the second submits yellow for both endpoints, and neither body writes through a color pointer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:47:35.685Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L53-L154",
+          "why": "Shows the red-color selection and five triangle-strip color submissions, followed by both yellow line-strip color submissions, with no writes to the palette."
+        }
+      ]
+    },
+    {
+      "id": "fact:7491bfd7-eabd-4c08-9577-cd5a4f6d9b1b",
+      "target_id": "target:data:main/melee/lb/lb_0146:.sdata",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides fixed display colors for collision and auxiliary-geometry visualization, including the yellow overlay of the horizontal boundary stored in Item.xB54; it affects diagnostic rendering rather than collision detection or item gameplay state.",
+      "rationale": "The item drawing path invokes the yellow line helper under item geometry-display flags using Item.xB54, while the helper merely reads the section's yellow color and emits GX vertices. The neighboring red colors likewise feed only a GX geometry renderer.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:47:35.685Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+          "why": "Shows lb_800149E0 being called from the item collision and auxiliary-geometry drawing path with Item.xB54 when the relevant display flags are enabled."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L53-L154",
+          "why": "Shows the private palette colors being read exclusively for direct GX triangle-strip and line-strip submission."
+        }
+      ]
+    },
+    {
+      "id": "fact:771a4924-b93c-44df-9f3f-8fbcfc53bf50",
+      "target_id": "target:data:main/melee/lb/lb_0146:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An initialized small-data palette containing five consecutive four-byte GXColor values: white {255,255,255,255}, black {0,0,0,255}, red {255,0,0,255}, translucent red {255,0,0,64}, and yellow {255,255,0,255}. White and black have external linkage; the other three are translation-unit-local.",
+      "rationale": "The declarations at the current head preserve the concrete GXColor type, exact RGBA initializers, consecutive addresses, and static-versus-external linkage of all five palette objects, so the claim remains sound with its evidence refreshed at head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Declares the five consecutive GXColor objects at addresses 0x804D3760 through 0x804D3770 with their exact initializers and linkage."
+        }
+      ]
+    },
+    {
+      "id": "fact:19dc2776-31a5-46e4-92d1-c88b4d1f15e2",
+      "target_id": "target:data:main/melee/lb/lb_0146:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the translation unit's compact GX color palette: exported opaque white and black colors for general library use, plus private opaque red, translucent red, and opaque yellow colors used by its immediate-mode collision-geometry renderers.",
+      "rationale": "The section contains five consecutive GXColor definitions. The red pair is selected while drawing the depth-graded triangle strip, and the yellow object supplies every vertex color of the line-strip helper; the absence of static linkage on the white and black objects distinguishes them as exported colors.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:47:35.685Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L53-L154",
+          "why": "Shows all five GXColor definitions, their linkage and RGBA values, and the three private colors being consumed by the two GX rendering helpers."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0146:.sdata2": [
+    {
+      "id": "fact:1c26e655-8e0e-422f-b791-dc0cd4f6c8a1",
+      "target_id": "target:data:main/melee/lb/lb_0146:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The 0.01 value is compared against the absolute vertical span of two fighter interval samples; when that span is smaller, 1.0 replaces the normal crossing fraction before horizontal overlap is tested. The 0.0 value supplies the predicate's floating-point comparison baseline and the z coordinate for every vertex emitted by the unit's red triangle strip and yellow line strip. The section is read-only and receives no runtime writes.",
+      "rationale": "The predicate directly shows the threshold comparison and fallback assignment before interpolation. The renderer bodies pass 0.0 to each `GXPosition3f32` call. No code in the unit takes writable access to these constants or stores into their backing data.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:48:43.113Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L17-L52",
+          "why": "Shows the complete flow of 0.0, 0.01, and 1.0 through the near-degenerate guard and overlap interpolation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L53-L154",
+          "why": "Shows 0.0 flowing into all five red-strip vertices and both yellow-line vertices, with no writes to constant storage."
+        }
+      ]
+    },
+    {
+      "id": "fact:8c5443f0-c5c3-44af-ac7e-c4203640a8c3",
+      "target_id": "target:data:main/melee/lb/lb_0146:.sdata2",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Numerically supports two related systems: reliable swept detection of a fighter landing across an eligible item's upper contact interval, and diagnostic visualization of the associated fighter/item geometry in the camera plane.",
+      "rationale": "At the current head, the predicate still uses the epsilon and fallback constants to handle a nearly degenerate vertical sweep before testing overlap, and its fighter caller still registers successful contact on eligible items. The pool's zero value continues to place the fighter and item diagnostic primitives at z=0.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Shows 0.0, 0.01, and 1.0 governing the swept contact calculation and zero being used as the triangle-strip rendering depth."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+          "why": "Shows a successful swept-overlap result registering the fighter and player on an eligible item and initiating the fighter-side response."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+          "why": "Places the yellow-line helper in the item auxiliary-geometry drawing path and supplies Item.xB54 as its geometry source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L57-L154",
+          "why": "Shows the zero constant placing all red triangle-strip and yellow line-strip vertices at z=0."
+        }
+      ]
+    },
+    {
+      "id": "fact:c61042b9-b2d1-4f27-9fa1-42a6eb6d10b0",
+      "target_id": "target:data:main/melee/lb/lb_0146:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 16-byte read-only small-data constant pool containing single-precision values 0.0, 0.01, and 1.0, with the remaining bytes attributable to section alignment or padding.",
+      "rationale": "The target metadata identifies a 16-byte `.sdata2` section, while the matched unit exposes three distinct read-only `float` values required by its generated code: zero, one hundredth, and one. Three `f32` values occupy 12 bytes, leaving four bytes in the section that are not semantically consumed by the shown routines and are therefore best understood as alignment or padding.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-02T12:48:43.113Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L17-L52",
+          "why": "Demonstrates that 0.0, 0.01, and 1.0 are used as single-precision constants in the unit's geometric predicate."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L131-L154",
+          "why": "Independently demonstrates consumption of the pool's zero value as the z coordinate of both line vertices."
+        }
+      ]
+    },
+    {
+      "id": "fact:f103731c-9f89-45c7-9da1-afe6e426c58b",
+      "target_id": "target:data:main/melee/lb/lb_0146:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the translation unit's read-only floating-point constants for the swept landing-overlap calculation and its immediate-mode collision-geometry renderers.",
+      "rationale": "The unit's only floating-point literals with shared computational roles are the zero baseline and render depth, the 0.01 near-degenerate threshold, and the 1.0 interpolation fallback. The predicate and both renderers consume these values, establishing that the section exists as their local constant pool rather than as mutable gameplay state.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T12:48:43.113Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L17-L52",
+          "why": "Shows 0.0, 0.01, and 1.0 used by the swept-overlap calculation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L53-L154",
+          "why": "Shows both visualization helpers submitting their geometry at floating-point depth 0.0."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0146:lb_80014638": [
+    {
+      "id": "fact:932ea88a-8bc1-42ce-82d6-e228c61ccb6d",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_80014638",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Copies the first record's earlier and current interval samples and the second record's target interval into locals, shifts the earlier sample by the supplied horizontal and vertical offsets, and rejects unless the sweep descends across the target height. It computes the crossing fraction as `(target_height - earlier_height) / (current_height - earlier_height)`, using the current endpoint when the vertical span is under 0.01, linearly interpolates both horizontal edges, and returns whether that interpolated interval overlaps the target interval. The caller consumes true by writing contact direction, fighter pointer, and player ID into the Item and setting the Fighter's pending response flag.",
+      "rationale": "The predicate body at head directly establishes the copying, offsetting, guards, interpolation, and overlap test. The refreshed caller shows the concrete Fighter and Item inputs and every gameplay write gated by a true result.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Shows endpoint copying, offset application, crossing guards, near-degenerate handling, interpolation, and horizontal-overlap comparison."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+          "why": "Shows the Fighter and Item records supplied to the predicate and the Item and Fighter fields written only when it returns true."
+        }
+      ]
+    },
+    {
+      "id": "fact:b8982db3-3f89-41e3-b1af-82615aa855e2",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_80014638",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the narrow-phase swept overlap test for Melee's item jumped-on mechanic, allowing a descending or landing fighter to activate responsive items such as Green and Red Shells without requiring the fighter endpoint to coincide exactly with the item's top surface.",
+      "rationale": "The current caller invokes the predicate while scanning interaction-eligible items and records the fighter pointer subsequently consumed by the item's `jumped_on` callback. The predicate interpolates across the sweep rather than checking only an endpoint, while the wiki documents Green and Red Shells reacting when landed on.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Shows a descending sweep evaluated at the target interval's height before horizontal overlap is accepted."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+          "why": "Shows successful overlap registering the fighter and player on an eligible item and setting the fighter-side response flag."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/it/item.c#L1439-L1451",
+          "why": "Shows the registered fighter pointer gating dispatch of the item's `jumped_on` callback."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://item~regular-items@r2047023",
+          "why": "Documents Green and Red Shells as Melee items that begin moving when landed on."
+        }
+      ]
+    },
+    {
+      "id": "fact:f21c483b-3037-4901-a61d-23fe92ac6865",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_80014638",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A pure Boolean geometric predicate with signature `bool(struct lb_80014638_arg0_t*, struct lb_80014638_arg1_t*)`. The first record contains two `Vec3` samples whose components encode horizontal left bound, horizontal right bound, and vertical height. The second contains horizontal and vertical displacement offsets plus a `Vec3` encoding the tested interval's left bound, right bound, and height. Neither argument is mutated; true means the descending sweep crosses the tested height with overlapping horizontal bounds.",
+      "rationale": "The definition establishes the exact pointer signature, accessed fields, component-wise arithmetic, and absence of writes through either argument. The refreshed producer and caller identify the first record's vectors as ECB-derived horizontal bounds and landing heights and the second record as item-owned contact geometry.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Provides the exact signature, all accessed fields, component-wise calculations, Boolean result, and absence of writes through either argument."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+          "why": "Shows the first record populated from fighter ECB left and right coordinates and fighter landing height and identifies the second argument as Item.xB54."
+        }
+      ]
+    },
+    {
+      "id": "fact:2313caed-9368-4fe1-8a1f-01f455136660",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_80014638",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Tests whether a descending swept horizontal interval crosses and overlaps a second object's upper contact interval. It evaluates the moving interval at the contacted height and reports whether its left and right bounds overlap the supplied target bounds.",
+      "rationale": "The current function rejects upward motion and sweeps that do not cross the target height, interpolates the moving bounds at that height, and returns whether they overlap the target bounds. Its current caller confirms that these records represent fighter and eligible-item contact geometry.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Directly shows the vertical-crossing guards, interpolation, horizontal-overlap tests, and Boolean result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+          "why": "Shows the predicate called with the fighter's swept contact record and an eligible item's contact record before landing metadata is written."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0146:lb_80014770": [
+    {
+      "id": "fact:b225e9d3-5243-4dfe-a9a9-b6fb72b6bdf9",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_80014770",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives `Fighter.dmg.x1930`, whose two samples are maintained from the fighter ECB's world-space left and right edges and the fighter's landing-contact height. On pass 2 it chooses the higher sample for opaque red and the lower sample for translucent red, loads the current camera view matrix, and submits both intervals at z=0 as a triangle strip. Its return value is accumulated by the fighter draw callback into the decision to invalidate cached GX state.",
+      "rationale": "The refreshed fighter contact code establishes the origin and component meaning of both samples. The renderer orders them by height, selects the two red colors, loads the active view matrix, and emits direct vertices, while its current draw caller aggregates true into GX-state invalidation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+          "why": "Shows both Fighter.dmg.x1930 samples being maintained from world-space ECB left and right bounds and the fighter landing-contact height."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L57-L154",
+          "why": "Shows sample ordering, camera-view matrix loading, color assignment, direct triangle-strip submission at z=0, and the Boolean result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L150-L262",
+          "why": "Shows the fighter-owned sample record and draw-pass selector flowing into the helper and a true result setting the aggregate state-invalidation flag."
+        }
+      ]
+    },
+    {
+      "id": "fact:a26a0ce4-a610-4379-89f5-3045b60b758f",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_80014770",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Visualizes the fighter-side swept geometry used to detect item jumped-on interactions. The overlay displays the earlier and current horizontal landing intervals as a red-to-translucent-red swept region, without performing the overlap test or changing fighter or item gameplay state.",
+      "rationale": "The current contact code constructs Fighter.dmg.x1930 from the fighter ECB and uses it for eligible-item jumped-on overlap testing. The fighter drawing callback passes the same record to this helper, whose current body only reads the samples and emits GX geometry.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+          "why": "Shows Fighter.dmg.x1930 being populated from ECB bounds and landing height and used to register contact with eligible items."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L57-L154",
+          "why": "Shows that the helper only reads the two samples and renders their swept region without performing an overlap test or mutating fighter or item state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L150-L262",
+          "why": "Shows the same Fighter.dmg.x1930 record being supplied to lb_80014770 from the fighter auxiliary-geometry drawing path."
+        }
+      ]
+    },
+    {
+      "id": "fact:ceb99540-6f56-440f-85b4-e15024b6f794",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_80014770",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Boolean direct-GX rendering helper with semantic signature `bool (Vec3 samples[2], s32 draw_pass)`. Each sample encodes a horizontal interval as `x = left bound`, `y = right bound`, and `z = vertical height`; `draw_pass` is accepted only when its value is 2.",
+      "rationale": "The definition supplies the mechanical bool(Vec3*, int) signature, consumes exactly two vectors, maps their x and y components to horizontal vertices at each vector's z height, and rejects every pass except 2. The current producer fills those components from fighter ECB bounds and landing height.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+          "why": "Shows both samples being populated with world-space ECB left and right bounds in x and y and fighter landing-contact height in z."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L57-L154",
+          "why": "Provides the bool(Vec3*, int) signature and demonstrates two vectors being used as paired horizontal bounds and heights under a pass-2 guard."
+        }
+      ]
+    },
+    {
+      "id": "fact:788a6371-949f-4043-8511-174341e18770",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_80014770",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Draws the fighter's swept landing-contact interval as a red, vertically graded quadrilateral during draw pass 2 and reports whether the diagnostic primitive was emitted.",
+      "rationale": "The helper still interprets two interval samples as horizontal bounds at two heights and emits a red-to-translucent-red triangle strip only on pass 2. The current fighter contact code identifies the samples as landing-contact geometry, and the draw callback uses the true result to mark GX state for invalidation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:38:23.250Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+          "why": "Shows that the supplied fighter record stores two horizontal landing-contact interval samples used for contact with eligible items."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L57-L154",
+          "why": "Shows the pass-2 guard, sample ordering, red and translucent-red selection, five-vertex triangle-strip submission, and Boolean result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L150-L262",
+          "why": "Shows the fighter draw callback passing Fighter.dmg.x1930 to lb_80014770 and treating success as requiring GX-state invalidation."
+        }
+      ]
+    },
+    {
+      "id": "fact:9aceea62-2c07-4fdf-a7ce-1fa62c779111",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_80014770",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For any draw-pass value other than 2, returns false without issuing GX commands. On pass 2, it enables color writes while disabling alpha and depth writes, configures source-alpha blending, alpha comparison, depth testing, one untextured vertex-color channel, no culling, and direct position and RGBA attributes; it then loads the active camera view matrix, emits one five-vertex `GX_TRIANGLESTRIP`, and returns true. It does not restore GX state itself, so the caller later invalidates cached state after aggregating auxiliary draws.",
+      "rationale": "The current definition preserves the guarded no-op path and all GX configuration and primitive commands inside the successful pass-2 branch. The current caller still aggregates the helper's true result and performs HSD_StateInvalidate after processing auxiliary draws, confirming that the helper does not restore the state itself.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:04:54.854Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L60-L129",
+          "why": "Directly shows the draw-pass guard, complete GX setup, active camera matrix load, five-vertex triangle strip, and false and true return paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L150-L262",
+          "why": "Shows the caller aggregating the helper's successful result into do_invalidate and later calling HSD_StateInvalidate when any auxiliary renderer changed GX state."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0146:lb_800149E0": [
+    {
+      "id": "fact:85442a85-35a9-4652-b27e-2f5ee3820013",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_800149E0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives `Item.xB54` and the current item draw-pass selector from `it_8026ECE0`. On pass 0 it reads two horizontal endpoints and a shared height from that record, loads the active camera's view matrix, and emits the resulting yellow line at z=0. Its Boolean result flows back into the item renderer's accumulated 0-or-1 indication that diagnostic geometry was drawn.",
+      "rationale": "The caller identifies the concrete source of both arguments and sets its aggregate return value when this helper succeeds. The helper's body exposes the complete transformation from the three input floats to direct GX vertices and returns true only after completing the draw.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:46:01.548Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+          "why": "Identifies `Item.xB54` and the item draw-pass selector as inputs and shows the successful return contributing to the caller's aggregate result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L131-L154",
+          "why": "Shows the three geometry values flowing through camera-relative direct GX submission into a yellow line strip."
+        }
+      ]
+    },
+    {
+      "id": "fact:775fecdd-340f-4665-9c6b-633fae382079",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_800149E0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements one component of item collision visualization: when the item's relevant display and geometry flags are enabled, it renders the horizontal boundary encoded in `Item.xB54` as a yellow diagnostic overlay. It visualizes existing item geometry without performing collision detection or changing item gameplay state.",
+      "rationale": "The item drawing routine gates the call with `xDAA_flag.b3` and `xDD0_flag.b0` alongside other collision and auxiliary renderers. The helper itself only reads the geometry, issues GX commands, and returns whether it drew anything, establishing a diagnostic visualization role rather than collision processing.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:46:01.548Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+          "why": "Places the call in the item collision and auxiliary-geometry renderer and shows the two item flags that enable it."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L131-L154",
+          "why": "Shows that the helper is read-only with respect to gameplay data and solely emits a yellow graphics primitive."
+        }
+      ]
+    },
+    {
+      "id": "fact:789ba285-0194-4421-a961-c2fe61062338",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_800149E0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Boolean direct-GX rendering helper with mechanical signature `bool (Mtx geometry, u32 draw_pass)`. The matrix-shaped first argument is used as packed geometry rather than as a transform: `[0][2]` and `[0][3]` are the line's horizontal endpoints and `[1][0]` is their shared vertical coordinate. The second argument is a draw-pass selector for which only value 0 is accepted.",
+      "rationale": "The matched declaration establishes the mechanical types. The body reads only three matrix elements and passes them directly as two `(x, y, 0)` vertices, while the item caller casts the address of `Item.xB54` to `MtxPtr`, demonstrating that the storage is being interpreted as a packed geometry record.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:46:01.548Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L131-L154",
+          "why": "Provides the exact signature and demonstrates the semantic use of the three consumed matrix elements and draw-pass value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+          "why": "Shows `Item.xB54` being cast to `MtxPtr` and supplied with the caller's draw-pass selector."
+        }
+      ]
+    },
+    {
+      "id": "fact:0f8a92e4-008a-4e9e-9a91-01aa3a2fc58e",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_800149E0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Draws a fixed-width yellow horizontal line from an item-owned auxiliary geometry record during draw pass 0 and reports whether the line was emitted.",
+      "rationale": "The function accepts the item record through a matrix-shaped parameter, takes two x coordinates and one shared y coordinate from it, and submits exactly two yellow vertices as a GX line strip. Its sole caller invokes it from the item's diagnostic geometry path and treats a true result as evidence that drawing occurred.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:46:01.548Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L131-L154",
+          "why": "Shows the pass guard, yellow two-vertex line submission, coordinate extraction, and true or false return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+          "why": "Shows the helper receiving `Item.xB54` from the item's auxiliary collision-visualization path and its result being accumulated into the caller's drawn-geometry result."
+        }
+      ]
+    },
+    {
+      "id": "fact:55193797-4c2e-44dd-93b6-c36f77a457f4",
+      "target_id": "target:function:main/melee/lb/lb_0146:lb_800149E0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For any draw-pass value other than 0, returns false without issuing GX calls. On pass 0, it initializes direct rendering state, loads the current camera view matrix into position matrix 0, selects a 12-unit line width, emits one two-vertex `GX_LINESTRIP` in opaque yellow, and returns true.",
+      "rationale": "The opening equality guard cleanly separates the no-op and rendering paths. Every graphics-state call and vertex submission is contained inside the pass-0 branch, which ends in true; the fallthrough path returns false.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:46:01.548Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L131-L154",
+          "why": "Directly shows the draw-pass transition, ordered GX setup, line width, primitive and color, and both Boolean outcomes."
+        }
+      ]
+    }
+  ],
+  "src/melee/lb/lb_0146.c": [
+    {
+      "id": "fact:6ff563b2-69f0-4a8e-9ecd-ecc637000c9d",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_0146.c",
+      "type": "data_flow",
+      "value": "The collision path receives two endpoint records from fighter damage and contact bookkeeping and an item boundary record, interpolates the fighter's horizontal interval at the item's vertical level, and returns only whether the intervals overlap. Separately, the visualization paths consume interval coordinates or matrix-held line endpoints, configure GX for direct position and color submission, and emit either a red triangle strip or a yellow line strip.",
+      "rationale": "The current caller supplies its ECB-derived interval and each eligible item's contact record to the predicate, whose body copies and interpolates those inputs without mutating them. The current unit also retains direct GX visualization of the geometry.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_0819.c#L1-L92",
+          "why": "Shows fighter interval samples being populated and supplied with each eligible item's contact record."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Shows input copying, interpolation, Boolean overlap output, and direct GX rendering setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:2b51e022-2108-4cdc-a67b-12aa5b83e2bf",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_0146.c",
+      "type": "game_mapping",
+      "value": "Supports Melee's item jumped-on interaction by supplying the swept contact test used to recognize a fighter landing across an eligible item's upper interval; the remaining routines provide visualization of the associated collision geometry.",
+      "rationale": "The current fighter scanner constructs the landing interval, invokes this unit's overlap predicate for eligible items, and records fighter contact on success; the unit also retains the associated diagnostic renderers.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_0819.c#L1-L92",
+          "why": "Shows successful overlap registering the contacting fighter, player identity, direction, and fighter-side response flag."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Shows the swept interval-overlap predicate and the start of its associated diagnostic renderer."
+        }
+      ]
+    },
+    {
+      "id": "fact:639c7c94-c052-414c-8577-7912795343c6",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_0146.c",
+      "type": "inferred_type",
+      "value": "A small collision-geometry and visualization utility translation unit. Its code surface consists of a pure Boolean swept-interval predicate, a bool(Vec3*, int) GX triangle-strip renderer enabled for draw pass 2, and a bool(Mtx, u32) GX line renderer enabled for draw pass 0. Its local data consists of opaque red and yellow diagnostic colors, a translucent red diagnostic color, exported black and white colors, and a read-only float pool supplying 0.0, 0.01, and 1.0 to the geometric and rendering calculations.",
+      "rationale": "The current opening preserves the predicate signature, its floating-point thresholds, all five color objects, and the triangle-strip renderer and pass guard; the unaffected remainder retains the line renderer.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Shows the predicate, fixed color data, floating constants, and the pass-2 triangle-strip renderer."
+        }
+      ]
+    },
+    {
+      "id": "fact:30349a42-908c-4478-8076-cce54610d7cb",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_0146.c",
+      "type": "purpose",
+      "value": "Provides collision-support utilities for detecting a swept landing overlap between a moving fighter interval and an item contact interval, together with immediate-mode GX helpers that visualize interval or boundary geometry using fixed diagnostic colors.",
+      "rationale": "The current unit retains the pure swept-overlap predicate and immediate-mode GX diagnostic rendering, and the current fighter caller still uses the predicate while scanning eligible items.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0146.c#L1-L100",
+          "why": "Shows the complete overlap predicate, fixed diagnostic colors, and the triangle-strip renderer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_0819.c#L1-L92",
+          "why": "Shows the predicate used during fighter landing-contact processing."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0146:lb_80014638#r3": [],
+  "main/melee/lb/lb_0146:lb_80014638#r4": [],
+  "main/melee/lb/lb_0146:lb_80014770#r3": [],
+  "main/melee/lb/lb_0146:lb_80014770#r4": [],
+  "main/melee/lb/lb_0146:lb_800149E0#r3": [],
+  "main/melee/lb/lb_0146:lb_800149E0#r4": []
+}

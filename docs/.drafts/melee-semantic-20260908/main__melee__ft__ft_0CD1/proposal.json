@@ -1,0 +1,173 @@
+{
+  "tu": "main/melee/ft/ft_0CD1",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L34-L43",
+            "why": "Exact field, branch order and outgoing selector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L255-L263",
+            "why": "Predicate consumes the B3 command bit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L47-L99",
+            "why": "Captain-only selector-3 motion route and held-item assertion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the stale input field and records the predicate's side effect and downstream restriction.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CD1:ftCo_800CD204"
+        },
+        "type": "data_flow",
+        "value": "Reads Fighter.input.held_buttons[0]; absence of HSD_PAD_A clears mv.co.swing.x0. It then evaluates ftCheckThrowB3 before the latch test. That inline consumes a set throw_flags_b3 even when x0 is zero. Only a true predicate and nonzero latch forward gobj with selector 3 to ftCo_Attack_800CCF58. The dispatcher asserts a held item and has a selector-3 motion path for FTKIND_CAPTAIN, asserting for other fighter kinds."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L14-L43",
+            "why": "Initialization and one-way clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L255-L263",
+            "why": "Consuming predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L47-L99",
+            "why": "Dispatch is constrained rather than universally successful."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the one-way latch invariant without overstating continuous input or universal continuation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CD1:ftCo_800CD204"
+        },
+        "type": "state_behavior",
+        "value": "Common entry arms mv.co.swing.x0 to 1. Each invocation that observes A absent clears it before evaluating the continuation condition; this helper never rearms it. B3 is consumed independently of latch eligibility because ftCheckThrowB3 is the left operand of &&. With a nonzero latch and consumed B3 it requests selector 3, whose successful transition depends on dispatcher preconditions. The latch tracks sampled A absence, not unobserved physical button changes between invocations."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L45-L55",
+            "why": "Exact selector and arithmetic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L55-L89",
+            "why": "Strict speed comparison and translation/friction alternatives."
+          }
+        ],
+        "op": "write",
+        "rationale": "Records exact arithmetic and optional branch without assuming multiplier magnitude.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CD1:ftCo_800CD278"
+        },
+        "type": "data_flow",
+        "value": "Reads mv.co.swing.x4. Exactly 4 forwards gobj, p_ftCommonData->x420 * co_attrs.ground_friction, and facing_dir to ft_80085030; the comma expression (0, ground_friction) yields ground_friction. All other values call ft_80084FA8, which multiplies the character friction by friction_when_above_walk_speed only when the computed ground-speed magnitude exceeds walk_max_vel. ft_80085030 either derives acceleration from translation offset when x594_b0 is set or applies the supplied friction, then calls ftCommon_ApplyGroundMovement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L45-L55",
+            "why": "Only exact selector 4 is special."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L55-L89",
+            "why": "Strict threshold and alternate acceleration branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Qualifies boundary behavior and avoids the unsupported assertion that friction must increase or always be applied.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CD1:ftCo_800CD278"
+        },
+        "type": "state_behavior",
+        "value": "Selector 4 chooses the x420-scaled friction argument; every other integer chooses ordinary speed-sensitive friction selection. Equality with walk_max_vel does not trigger the ordinary multiplier. The downstream x594_b0 branch ignores the friction argument and derives translation-driven acceleration instead; both branches perform grounded movement. This helper contains no explicit motion-state transition or validation of floating inputs, and neither multiplier's numerical effect is established here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L57-L63",
+            "why": "Synchronous ordered calls and absence of validation/storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L406-L424",
+            "why": "Collision position mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L47-L71",
+            "why": "Specialized Fall-entry routes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Exact control flow and callback lifetime contract are stronger than an unconditional ordinary-Fall outcome claim.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CD1:ftCo_800CD2C4"
+        },
+        "type": "state_behavior",
+        "value": "Calls ft_800827A0 and skips the remaining operations if its result is nonzero. On zero it synchronously calls cb(gobj), then calls ftCo_Fall_Enter if cb returns normally. It neither stores nor null-checks cb, and performs no post-callback object validation or cancellation test. The callback must be callable on this branch and leave gobj valid for Fall processing. The collision predicate can mutate positions on either result; Fall entry can select specialized routes instead of ordinary Fall."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L14-L71",
+            "why": "Complete owned lifecycle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L255-L263",
+            "why": "Consuming B3 predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L47-L99",
+            "why": "Continuation restrictions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1015-L1029",
+            "why": "Optional fighter-kind dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L55-L89",
+            "why": "Physics alternatives."
+          }
+        ],
+        "op": "write",
+        "rationale": "Summarizes every owned lifecycle function while preserving consuming commands, optional callbacks and delegated transitions.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ft_0CD1.c"
+        },
+        "type": "state_behavior",
+        "value": "Entry clears throw flags, supplies the selected motion with zero start/blend arguments and caller speed, processes animation, arms swing.x0, stores the selector in swing.x4, and dispatches optional fighter-kind item-drop handling. IASA clears the latch when sampled A is absent, consumes B3 even if disarmed, and requests selector 3 only when eligible; the dispatcher restricts its motion route. Animation exhaustion calls the neutral-routing helper then optional pickup handling. Selector 4 chooses x420-scaled friction, with translation-driven acceleration possible downstream. Collision predicate failure synchronously invokes cleanup before Fall entry. The generic cleanup dispatches pickup handling only if the current item pointer is non-null."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

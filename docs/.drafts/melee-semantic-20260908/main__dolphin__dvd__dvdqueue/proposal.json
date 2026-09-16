@@ -1,0 +1,33 @@
+{
+  "tu": "main/dolphin/dvd/dvdqueue",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdqueue.c#L13-L129",
+            "why": "Shows all queue mutation and query paths, their interrupt boundaries and differing detached-node effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdqueue.c#L150-L175",
+            "why": "Diagnostic traversal performs no internal interrupt masking."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing blanket interrupt-protection claim and distinguishes normal pop link clearing from targeted dequeue and wholesale sentinel reset.",
+        "subject": {
+          "target_stable_key": "main/dolphin/dvd/dvdqueue:.bss"
+        },
+        "type": "state_behavior",
+        "value": "WaitingQueue lanes are initialized with both sentinel links self-referential; occupancy tests compare next against the sentinel. Tail insertion and head removal provide FIFO ordering within each lane. Push, check and targeted dequeue mask their shared-list accesses and restore saved interrupt state. Global pop restores that state between lane selection and the helper's independently masked unlink; the helper restores interrupts before nulling the removed block's links. Targeted dequeue leaves the removed block's own links intact. Clear, membership traversal and diagnostic dumping do not mask interrupts internally; clear resets only sentinel links and leaves abandoned command blocks untouched."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

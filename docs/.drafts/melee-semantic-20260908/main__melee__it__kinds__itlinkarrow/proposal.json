@@ -1,0 +1,136 @@
+{
+  "tu": "main/melee/it/kinds/itlinkarrow",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkarrow.c#L225-L314",
+            "why": "Joint-loader branch, unconditional writes, ownership guard, interpolation, initialization, and returned query."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkarrow.c#L421-L429",
+            "why": "Flight entry overwrites the lifetime before selecting state 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1414-L1421",
+            "why": "The common setter replaces both life-timer fields."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported guard and missing-return explanation while adding the otherwise obscured timer overwrite, actual transition ordering, and exceptional joint-loader path.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkarrow:itLinkArrow_802A850C"
+        },
+        "type": "state_behavior",
+        "value": "Always records angle and charge and initially sets the life timers from attr->x0 + attr->x18. Release proceeds only when the saved fighter xE0 is non-null and equals Item.owner. On that path, it_802A8C7C resets the life timers from attr->x0 and enters state 1 before launch velocity is established. Release then interpolates speed and hitbox strength without a local charge clamp or zero-maximum guard, initializes transforms and auxiliary models, sets the release marker, resets the auxiliary frame counter, and returns the initial collision query. Ownership failure performs no release transition and has no explicit return. The auxiliary joint-loader helper has an uninitialized return value when its joint descriptor is NULL, rather than a defined NULL result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkarrow.c#L869-L872",
+            "why": "The wrapper only forwards the arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L491-L525",
+            "why": "Enumerates the exact common references cleared and excludes arrow-local fields."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the overbroad assertion that every stored ownership or interaction reference is severed, preserving the distinction between common Item fields and arrow-local lifetime-sensitive pointers.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkarrow:itLinkArrow_Logic98_EvtUnk"
+        },
+        "type": "purpose",
+        "value": "Forwards object-reference invalidation to the common item helper, which independently clears matching owner, reflector, absorber, source-fighter, auxiliary-fighter, and toucher references; clearing the source fighter also resets the source-player field to 6. The wrapper ignores the helper's owner-match result and performs no additional arrow-specific cleanup. In particular, it does not clear the arrow-local originating-fighter xE0 or shield-attachment fighter xC4."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkarrow.c#L375-L408",
+            "why": "Exact owner guards, kind dispatch, pointer clear, and return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecialn.c#L203-L247",
+            "why": "Fighter-side hand positions are supplied to the arrow geometry setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspeciallink.c#L102-L139",
+            "why": "Copied-bow lifetime predicate distinguishes Link and Child Link motion families."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that cessation of the ownership relationship ends this state and separates geometry attachment from this callback's actual scale and lifetime work.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkarrow:itLinkarrow_UnkMotion0_Anim"
+        },
+        "type": "game_mapping",
+        "value": "Provides scale maintenance and owner-dependent lifetime monitoring for the held arrow prop used by Link, Young Link, and Kirby's corresponding copied bow sequences. Fighter-side code supplies the held geometry. A missing originating fighter ends the item, and a matching current owner permits the appropriate bow-lifetime predicate to end it; a non-null originating fighter that differs from Item.owner instead skips that predicate and returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkarrow.c#L375-L429",
+            "why": "Held callback separation and state-1 entry helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkarrow.c#L273-L299",
+            "why": "Release invokes entry before the velocity assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the no-op interpretation while correcting the release-order claim: state selection precedes launch-velocity initialization.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkarrow:itLinkarrow_UnkMotion0_Phys"
+        },
+        "type": "state_behavior",
+        "value": "For every physics update in arrow state 0, this callback immediately returns without a guard, timer update, velocity integration, gravity, or state transition. The companion animation callback handles owner-dependent lifetime checks. Separately, successful release invokes the state-1 entry helper before calculating and assigning launch velocity; this inert physics callback does not perform that transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkarrow.c#L510-L558",
+            "why": "Active-line guard and demonstrated caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkarrow.c#L608-L716",
+            "why": "Counter initialization, inclusive-zero wobble cases, decrement, and expiry handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkarrow.c#L718-L761",
+            "why": "Inert physics and attachment-failure removal result."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the off-by-one description of wobble duration and preserves the independent attachment-failure termination path.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkarrow:it_802A9458"
+        },
+        "type": "state_behavior",
+        "value": "The demonstrated caller invokes this helper after state 1 detects a valid active stage line. It unconditionally enters state 4, initializes wobble counter x9C to 3\u20136, and clears expiry counter xF0. Because the animation callback handles counter zero as well, normal entry yields 4\u20137 randomized wobble updates before later updates restore the stored impact angle. State 4 has inert physics and follows its retained stage line through collision maintenance. Lifetime expiry starts the hidden cleanup period, but missing or inactive stage attachment can request removal earlier."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

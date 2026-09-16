@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
-import { packageRoot, sourceRoot, sourceStorageRoot } from "./paths.js";
+import { gameKnowledgeRoot, packageRoot, sourceRoot, sourceStorageRoot } from "./paths.js";
 import { readOrderedSliceRecords, standardsSlicesRoot } from "./standards-files.js";
 
 type JsonRecord = Record<string, unknown>;
@@ -23,9 +23,24 @@ export interface StandardExampleSelector {
   limit?: number;
 }
 
-export function globalStandardsContext(): Record<string, unknown> {
-  const records = loadGlobalStandards();
-  const examples = examplesByStandardId(loadStandardExamples());
+export interface StandardsSelection {
+  gameId?: string;
+  knowledgeRoot?: string;
+}
+
+function selectedStandardsRoot(selection: StandardsSelection = {}): string {
+  if (!selection.gameId && !selection.knowledgeRoot) return sourceStorageRoot("decomp_standards");
+  const root = selection.knowledgeRoot ?? gameKnowledgeRoot(selection.gameId);
+  const registryPath = resolve(root, "sources/registry.json");
+  const registry = existsSync(registryPath) ? JSON.parse(readFileSync(registryPath, "utf8")) : {};
+  const entry = (registry.sources ?? []).find((item: unknown) =>
+    typeof item === "object" && item !== null && (item as JsonRecord).id === "decomp_standards");
+  return resolve(root, "sources", entry?.path ?? "decomp_standards");
+}
+
+export function globalStandardsContext(selection: StandardsSelection = {}): Record<string, unknown> {
+  const records = loadGlobalStandards(selection);
+  const examples = examplesByStandardId(loadStandardExamples(selection));
   return {
     source: "decomp_standards",
     status: records.length ? "ready" : "missing_records",
@@ -35,7 +50,10 @@ export function globalStandardsContext(): Record<string, unknown> {
     ).length,
     trust_rule: FINAL_AUTHORITY,
     mutation_policy: "proposal_only_until_validated",
-    search_command: `${sourceScriptCommand("decomp_standards", "api/search.py")} --query <query> --limit 10 --json`,
+    source_path: selectedStandardsRoot(selection),
+    search_command: !selection.gameId && !selection.knowledgeRoot
+      ? `${sourceScriptCommand("decomp_standards", "api/search.py")} --query <query> --limit 10 --json`
+      : undefined,
     standards: records.map((record) => ({
       id: record.id,
       status: record.status,
@@ -60,9 +78,9 @@ export function globalStandardsContext(): Record<string, unknown> {
   };
 }
 
-export function loadStandardExamples(): JsonRecord[] {
+export function loadStandardExamples(selection: StandardsSelection = {}): JsonRecord[] {
   return readOrderedSliceRecords<JsonRecord>(
-    standardsSlicesRoot(sourceStorageRoot("decomp_standards")),
+    standardsSlicesRoot(selectedStandardsRoot(selection)),
     "examples.jsonl",
     "examples",
   ).map((item) => item.record);
@@ -116,17 +134,19 @@ export function standardExamplesPromptXml(
   return lines.join("\n");
 }
 
-export function globalStandardsPromptXml(): string {
-  const records = loadGlobalStandards().filter(
+export function globalStandardsPromptXml(selection: StandardsSelection = {}): string {
+  const records = loadGlobalStandards(selection).filter(
     (record) => record.status === "accepted" && record.worker_facing !== false,
   );
-  const examples = examplesByStandardId(loadStandardExamples());
+  const examples = examplesByStandardId(loadStandardExamples(selection));
   const lines = [
     "<decomp_standards>",
     "    <instruction>",
     "        These standards are mandatory requirements enforced by lint and review, not preferences.",
     "        Read each description and its bad/preferred code pair, apply the required transformation, and repair every finding before an attempt is accepted.",
-    "        Two rules are llm_review advisories (a type_erasing_cast surface and the authored-style pre-ship check): if either is kept, justify it in the attempt summary. Every other rule is a hard error.",
+    selection.gameId && selection.gameId !== "melee"
+      ? "        Follow each rule's declared lint or review mechanism. Accepted rules do not imply an automated check exists."
+      : "        Two rules are llm_review advisories (a type_erasing_cast surface and the authored-style pre-ship check): if either is kept, justify it in the attempt summary. Every other rule is a hard error.",
     "    </instruction>",
   ];
 
@@ -140,6 +160,11 @@ export function globalStandardsPromptXml(): string {
       lines.push(`            - ${xmlText(item)}`);
     }
     lines.push("        </description>");
+    if (selection.gameId && selection.gameId !== "melee") {
+      lines.push(`        <enforcement>${xmlText(stringValue(record.qa_enforcement))}</enforcement>`);
+      for (const item of stringArray(record.do)) lines.push(`        <do>${xmlText(item)}</do>`);
+      for (const item of stringArray(record.do_not)) lines.push(`        <do_not>${xmlText(item)}</do_not>`);
+    }
     const example = examples.get(stringValue(record.id))?.[0];
     if (example) {
       const exampleAttrs = [
@@ -174,9 +199,9 @@ export function globalStandardsPromptXml(): string {
   return lines.join("\n");
 }
 
-function loadGlobalStandards(): JsonRecord[] {
+function loadGlobalStandards(selection: StandardsSelection = {}): JsonRecord[] {
   return readOrderedSliceRecords<JsonRecord>(
-    standardsSlicesRoot(sourceStorageRoot("decomp_standards")),
+    standardsSlicesRoot(selectedStandardsRoot(selection)),
     "standards.jsonl",
     "standards",
   ).map((item) => item.record);

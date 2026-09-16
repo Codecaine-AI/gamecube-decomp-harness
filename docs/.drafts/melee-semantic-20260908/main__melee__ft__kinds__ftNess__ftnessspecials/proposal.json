@@ -1,0 +1,126 @@
+{
+  "tu": "main/melee/ft/kinds/ftNess/ftnessspecials",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecials:ftNs_SpecialS_ItemPKFireSpawn"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Consumes a pending throw_flags_b0 request and attempts to create Ness's PK Fire item using a joint-derived position, current ground/air launch attributes, facing-adjusted XY velocity, and rotation. Allocation success is not guaranteed.",
+        "rationale": "Repairs the guaranteed-creation claim without assuming an unverified script producer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecials.c#L21-L73",
+            "why": "Shows request consumption and constructor arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkfire.c#L24-L51",
+            "why": "Shows actual item kind and optional allocation success."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecials:ftNs_SpecialS_ItemPKFireSpawn"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "After resolving fighter and attribute pointers, a clear throw_flags_b0 causes no projectile work. A set bit is cleared before exactly one it_802AA054 call, with no retry or restored request on allocation failure. The callback does not clear accessory4_cb; another pending request can cause another attempt while it remains installed. Exactly GA_Air selects aerial settings at dispatch time; all other values select grounded settings. There is no local validation of zero, negative, or nonfinite launch values.",
+        "rationale": "Distinguishes attempt cardinality from successful item cardinality and per-request behavior from callback lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecials.c#L25-L73",
+            "why": "Shows pointer resolution, exact guards, consumed flag, and absence of callback clear."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkfire.c#L43-L50",
+            "why": "Allocation may return NULL."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecials:ftNs_SpecialAirS_Coll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles aerial PK Fire collision by calling ftCo_LandingFallSpecial_Enter with allow_interrupt=false and x38_PKFIRE_LANDING_LAG when ft_80081D0C returns nonzero. The common helper selects HammerLanding for its exception predicate and otherwise invokes LandingFallSpecial entry.",
+        "rationale": "Preserves caller responsibility without promising unconditional actual-state selection.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecials.c#L156-L167",
+            "why": "Shows guard and arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+            "why": "Shows ordinary and exceptional helper routes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecials:ftNs_SpecialAirS_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For nonzero ft_80081D0C, forwards the fighter, false allow_interrupt, and Ness's PK Fire landing-lag attribute to the common special-landing helper; for zero, makes no further local transition. The helper has a HammerLanding exception. Otherwise it passes LandingFallSpecial and rate (0.1f + fp->x2EC) / landing_lag to ftCo_Landing_Enter without a local zero, negative, or nonfinite lag guard.",
+        "rationale": "Records exact local branches, the unchecked lag boundary, and conditional downstream routing.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecials.c#L156-L167",
+            "why": "Shows local branch and data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+            "why": "Shows conditional routing and unchecked division."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecials:ftNs_SpecialAirS_Enter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clears throw_flags and cmd_vars[0], calls Fighter_ChangeMotionState(gobj, ftNs_MS_SpecialAirS, 0, 0.0f, 1.0f, 0.0f, NULL), calls ftAnim_8006EBA4, then installs ftNs_SpecialS_ItemPKFireSpawn in accessory4_cb. It neither directly constructs an item nor explicitly changes ground_or_air. The active paired animation callback calls Fall on completion; the collision callback invokes the common special-landing helper, whose routing includes a HammerLanding exception.",
+        "rationale": "Retains exact setup and table-supported exits while qualifying downstream selection and the scope of field resets.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecials.c#L94-L167",
+            "why": "Shows setup and paired local exits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftness.c#L199-L209",
+            "why": "Associates the paired callbacks with the aerial state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+            "why": "Shows the exceptional landing route."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

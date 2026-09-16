@@ -23,7 +23,7 @@ export function createEmptyPrArchive(): PrArchive {
   };
 }
 
-export function createPastPrsArchive(root = pastPrsRoot()): PrArchive {
+export function createPastPrsArchive(root = pastPrsRoot(), upstream?: string): PrArchive {
   let loaded = false;
   const entries = new Map<string, PrArchiveEntry>();
   const discussions = new Map<string, string[]>();
@@ -31,6 +31,18 @@ export function createPastPrsArchive(root = pastPrsRoot()): PrArchive {
   function load(): void {
     if (loaded) return;
     loaded = true;
+    // Initial capture has raw PRs before any librarian-authored library exists.
+    try {
+      const index = JSON.parse(readFileSync(resolve(root, "prs.json"), "utf8"));
+      for (const row of index) {
+        const number = Number(row.number);
+        if (!Number.isSafeInteger(number) || number < 1) continue;
+        const raw = JSON.parse(readFileSync(resolve(root, `prs/pr-${number}/raw/pr.json`), "utf8"));
+        entries.set(String(number), { title: stringValue(raw.title), body: stringValue(raw.body) });
+      }
+    } catch {
+      // Older archives can contain only the derived library and text corpus.
+    }
 
     readJsonl(resolve(root, "library/index.jsonl"), (row) => {
       if (row.pr === undefined || row.pr === null) return;
@@ -55,13 +67,20 @@ export function createPastPrsArchive(root = pastPrsRoot()): PrArchive {
   return {
     getPr(prRef) {
       load();
-      return entries.get(prRef);
+      return entries.get(keyFor(prRef));
     },
     getDiscussionBodies(prRef) {
       load();
-      return [...(discussions.get(prRef) ?? [])];
+      return [...(discussions.get(keyFor(prRef)) ?? [])];
     },
   };
+
+  function keyFor(prRef: string): string {
+    const match = /^(.*)#(\d+)$/.exec(prRef);
+    if (!match) return prRef;
+    if (upstream && match[1] !== upstream && !(upstream === "doldecomp/melee" && match[1] === "melee")) return prRef;
+    return match[2]!;
+  }
 }
 
 function readJsonl(path: string, visit: (row: Record<string, unknown>) => void): void {

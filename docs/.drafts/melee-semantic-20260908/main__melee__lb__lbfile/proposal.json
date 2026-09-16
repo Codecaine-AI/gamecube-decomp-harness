@@ -1,0 +1,963 @@
+{
+  "tu": "main/melee/lb/lbfile",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:.bss"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Function-local static char result[32], used as shared filename output storage. Normal bounded inputs produce a NUL-terminated string; the incomplete length check does not guarantee all inputs fit.",
+        "confidence": 0.97,
+        "rationale": "Retain the exact array type while avoiding an unconditional termination/safety guarantee.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:.data"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Observed .data diagnostic literals are passed to reporting/assertion paths for callback cancellation, filename length, DVD open failure and failed path resolution. The usd/dat extension strings used by filename construction are in the observed .sdata section, not .data.",
+        "confidence": 0.97,
+        "rationale": "Correct section placement using hashed existing source/target object snapshots.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:.data"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Observed existing .data is a pool of NUL-terminated diagnostic and assertion text with alignment gaps, including lbfile.c, !cancelflag, the filename-length and DVD-open messages, the missing-file format and entry_num != -1. It is not the extension-string pool.",
+        "confidence": 0.97,
+        "rationale": "Existing object strings identify the owned section; source C18,65-66,99-100,114-115 provides its uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:.data"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Stores diagnostics and assertion text for file-loading failures and callback invariants. Locale extension strings reside in .sdata in the observed object artifacts.",
+        "confidence": 0.97,
+        "rationale": "Remove the inherited extension-completion attribution from .data.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:.sdata"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The filename builder copies usd or dat from short literals. Assertion expansion uses the short expression strings NULL and 0. The observed .sdata contains those four strings plus alignment padding; no serialized FILE_EXTENSION_LENGTH or MAX_BASENAME_LENGTH integer appears there.",
+        "confidence": 0.97,
+        "rationale": "The existing object section contradicts the inherited integer-constant attribution; source constants alone do not establish storage.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:.sdata"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Observed existing small initialized-data storage contains NUL-terminated strings NULL, usd, dat and 0 at offsets 0, 8, 12 and 16. Source object section size is 18 bytes; target object size is 24 bytes including final padding.",
+        "confidence": 0.97,
+        "rationale": "Record the observed string layout and distinguish source-object and target-object padding; no rebuild provenance is asserted.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:.sdata"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides short locale-extension and assertion-expression strings used by filename completion and failure reporting. It does not itself enforce the filename length limit.",
+        "confidence": 0.97,
+        "rationale": "Separate stored literal role from compile-time length arithmetic.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:discIsDone"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Takes no arguments, calls lb_800195D0, and returns cancel. Blocking wrappers clear that shared flag before submitting a request; lbFile_8001615C sets it after checking cancelflag.",
+        "confidence": 0.97,
+        "rationale": "State only the independently read callback-to-poll data flow.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L22-L41",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L30-L51",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:discIsDone"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Calls lb_800195D0 to service delegated runtime work, then returns the shared completion latch. Its caller repeats this poll until the latch becomes true.",
+        "confidence": 0.97,
+        "rationale": "The source includes an MWCC non-inline pragma and an explanatory TODO; that does not independently prove the hardware interrupt mechanism claimed by the old fact.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L22-L41",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L30-L51",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:discIsDone"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each call runs lb_800195D0 before reading cancel. waitForDisc executes at least one poll and repeats while false, with no timeout. Under __MWERKS__, the source surrounds discIsDone with dont_inline on; runtime interrupt scheduling is not established by that pragma alone.",
+        "confidence": 0.97,
+        "rationale": "Preserve observed ordering and compilation directive while removing an unverified interrupt-execution guarantee.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L22-L41",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L30-L51",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:lbFileGetFullName"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every call reuses one 32-byte static buffer. The prefix guard tests pos > 28 before copying a character; it is not a complete bounds check. A 28-character bare basename passes that guard but appending a period, three extension characters and NUL requires 33 bytes. A nonempty existing extension takes unbounded strcpy of the whole input, with no total-length check. Returned pointers alias the same buffer.",
+        "confidence": 0.97,
+        "rationale": "Correct the inherited implication that all overlong inputs are safely reported and asserted. Record the canonical boundary behavior without editing it.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L51-L90",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lblanguage.c#L20-L49",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:lbFile_8001615C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Ignores dcreq, args and buf. It asserts that cancelflag is false, then writes true to cancel. discIsDone samples that shared latch after its delegated service call.",
+        "confidence": 0.97,
+        "rationale": "Remove unsupported claims that the function-call boundary itself permits interrupt execution.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L20",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/devcom.c#L240-L262",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:lbFile_8001615C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Signals completion to the synchronous wrappers through the shared latch when the DevCom callback is invoked without cancellation.",
+        "confidence": 0.97,
+        "rationale": "Callback and local consumer are verified; do not infer callback execution context from the wait-loop comment.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L20",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/devcom.c#L240-L262",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:lbFile_8001615C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A false cancelflag passes the assertion and sets cancel true. A true cancelflag takes the assertion path before that write. The callback contains no request-identity check against its unused dcreq argument.",
+        "confidence": 0.97,
+        "rationale": "Describe exact local transitions without asserting a scheduling mechanism.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L20",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/devcom.c#L240-L262",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:lbFile_80016760"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "An observed THP decoding caller invokes THPInit first, then loads the file through this helper, prepares decoding buffers, invokes THPDec_8032F8D4, and calls THPVideoDecode.",
+        "confidence": 0.97,
+        "rationale": "Correct the inherited claim that the load precedes all THP decoder initialization; THPInit is visibly earlier.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L164",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L186-L209",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_01F8.c#L84-L112",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:lbFile_800168A0"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Fighter data setup calls this helper with heap slot 1 when its stored data pointer is NULL, then asserts that the returned pointer is non-NULL and derives per-entry pointers from offsets into that loaded image. Reuse or fallback depends on the preload helper and its assertion policy.",
+        "confidence": 0.97,
+        "rationale": "Use the independently read fighter caller and preserve the preload-policy limit rather than claiming unconditional fallback.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L177",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbdvd.c#L462-L472",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L186-L209",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1655-L1683",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.dox#L28-L43",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbfile:lbFile_800168A0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A non-NULL preload result is written to dst, followed by a disc size query, and returns true without changing cancel. A NULL result reaching the fallback clears cancel, allocates from heap_id and waits for callback completion before returning false. The preload helper may assert for a missing required preload before fallback, and the allocation helper can return NULL without a local allocation-result check here. The Boolean identifies the selected path, not general success.",
+        "confidence": 0.97,
+        "rationale": "Remove guarantees that every miss transparently falls back and every normal path independently validates a usable pointer.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L177",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbdvd.c#L462-L472",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L186-L209",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1655-L1683",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.dox#L28-L43",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFileGetFullName#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "const char* basename supplies the name copied or extended into the shared static buffer.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L51-L90",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFileGetSize#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "const char* basename is expanded and resolved to a DVD entry before querying byte length.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L109-L117",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_8001615C#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "int dcreq is unused by this callback.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L20",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_8001615C#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "int args is unused by this callback.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L20",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_8001615C#r5"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "void* buf is unused by this callback.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L20",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_8001615C#r6"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "bool cancelflag must be false; true triggers the assertion before the completion write.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L14-L20",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800161C4#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "int file is forwarded as the DevCom file argument.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L43-L49",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800161C4#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "uintptr_t src is forwarded as source address or offset.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L43-L49",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800161C4#r5"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "uintptr_t dst is forwarded as destination address.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L43-L49",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800161C4#r6"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "size_t size is forwarded unchanged; this wrapper performs no rounding.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L43-L49",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800161C4#r7"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "int type is forwarded as DevCom transfer type.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L43-L49",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800161C4#r8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "int pri is forwarded as requested DevCom priority.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L43-L49",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_8001634C#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "int fileno is passed to DVDFastOpen as a DVD entry number.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L92-L107",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800164A4#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "int file is the DVD entry queried for its length and requested at offset zero.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L119-L129",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800164A4#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "uintptr_t dst is the destination; address comparison with 0x80000000 selects type 0x21 or 0x23.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L119-L129",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800164A4#r5"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "size_t* size receives exact file length, while request bytes are rounded up to 32.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L119-L129",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800164A4#r6"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "int pri is forwarded to HSD_DevComRequest.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L119-L129",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800164A4#r7"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "HSD_DevComCallback callback is forwarded to the asynchronous request.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L119-L129",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800164A4#r8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "void* args is forwarded as callback data.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L119-L129",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_80016580#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "const char* basename is completed and converted to a DVD entry.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L131-L142",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_80016580#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "void* dst is caller-provided destination storage.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L131-L142",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_80016580#r5"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "size_t* size receives the exact unrounded file length.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L131-L142",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_80016580#r6"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "HSD_DevComCallback callback is forwarded to the request.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L131-L142",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_80016580#r7"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "void* args is forwarded as callback data.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L131-L142",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_8001668C#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "const char* basename identifies the file to load synchronously.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L144-L149",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_8001668C#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "void* dst is caller-provided transfer storage.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L144-L149",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_8001668C#r5"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "size_t* size receives the exact file length.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L144-L149",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_80016760#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "const char* basename identifies a file queried, allocated and loaded using heap slot 0.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L164",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_80016760#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "void** dst receives the allocation pointer.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L164",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_80016760#r5"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "size_t* size receives the unrounded byte length.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L164",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800168A0#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "int heap_id selects the heap slot only on a preload miss.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800168A0#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "const char* basename is first queried through the preload helper and reused for the fallback disc load.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800168A0#r5"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "void** dst receives the preload pointer or fallback allocation.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/lb/lbfile:lbFile_800168A0#r6"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "size_t* size receives exact file length on either path.",
+        "confidence": 0.97,
+        "rationale": "Role follows the canonical parameter and its direct uses.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbfile.c#L151-L177",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

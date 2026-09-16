@@ -1,0 +1,43 @@
+119: void HSD_ObjFree(HSD_ObjAllocData* data, void* obj)
+120: {
+121:     HSD_ObjAllocLink* link = obj;
+122:     link->next = data->freehead;
+123:     data->freehead = link;
+124:     data->free += 1;
+125:     data->used -= 1;
+126: }
+127: 
+128: static inline void removeAll(HSD_ObjAllocData* data)
+129: {
+130:     HSD_ObjAllocData** cur = &alloc_datas;
+131:     while (*cur != NULL) {
+132:         if (*cur == data) {
+133:             *cur = (*cur)->next;
+134:         } else {
+135:             cur = &(*cur)->next;
+136:         }
+137:     }
+138: }
+139: 
+140: void HSD_ObjAllocInit(HSD_ObjAllocData* data, size_t size, u32 align)
+141: {
+142:     HSD_ASSERT(0x185, data);
+143:     if (data != NULL) {
+144:         removeAll(data);
+145:     } else {
+146:         alloc_datas = NULL;
+147:     }
+148:     memset(data, 0, sizeof(HSD_ObjAllocData));
+149:     data->num_limit = -1;
+150:     data->heap_limit_size = 0;
+151:     data->heap_limit_num = -1;
+152:     data->align = align - 1;
+153:     data->size = (size + data->align) & ~data->align;
+154:     data->next = alloc_datas;
+155:     alloc_datas = data;
+156: }
+157: 
+158: void _HSD_ObjAllocForgetMemory(void* low, void* high)
+159: {
+160:     alloc_datas = NULL;
+161: }

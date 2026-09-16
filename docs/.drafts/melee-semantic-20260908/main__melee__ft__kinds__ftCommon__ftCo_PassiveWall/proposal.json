@@ -1,0 +1,243 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_800C1D38"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Common-fighter wall-contact entry predicate with source signature bool(Fighter_GObj* gobj). True means it dispatched ftCo_800C1E64 for PassiveWall or PassiveWallJump; false means that local dispatch did not occur, not a guarantee of no side effects in delegated eligibility checks.",
+        "rationale": "Preserves exact signature and return contract without overclaiming delegated purity or lack of transitions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L33-L51",
+            "why": "Complete guard, dispatch and return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L87-L96",
+            "why": "Eligibility includes a further delegated predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_800C1E0C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads Fighter.x67E and input.lstick[0].y and returns x67E < p_ftCommonData->x250 OR stick y >= tap_jump_threshold without writes. The detector uses it to select PassiveWallJump versus PassiveWall; nonzero-timer IASA uses it to latch passivewall.x8. The input producer resets x67E on XY press and otherwise increments it up to 255.",
+        "rationale": "Corrects canonical field spelling and documents both consumers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L33-L61",
+            "why": "Predicate and initial selector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L171-L174",
+            "why": "Second consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2083-L2087",
+            "why": "Independent timing producer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_800C1E0C"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftCo_PassiveWall_CheckJumpInput",
+        "rationale": "Role hypothesis based on the read-only jump-input predicate used both for initial motion selection and pending conversion in IASA; not an original recovered symbol and not a single-caller function.",
+        "confidence": 0.78,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L33-L61",
+            "why": "Read-only input selection role."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L171-L174",
+            "why": "Additional latch consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_800C1E0C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Tests for qualifying recent jump-button timing or upward stick position, supplying both initial PassiveWallJump selection and pending-jump latching during nonzero-timer startup.",
+        "rationale": "Retains supported jump-input purpose while removing the incorrect sole-caller account.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2083-L2087",
+            "why": "XY timing producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L33-L61",
+            "why": "Predicate and motion selector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L171-L174",
+            "why": "Startup consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_800C1E64"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes gobj, motion ID, timer, velocity exponent and float direction. Sets cmd_vars[0], stores negated direction as facing, calls ftCommon_8007E2FC, selects ECB left offset for right-wall-hug or right offset otherwise, and passes it to ftKb_SpecialN_800F1F1C. Enters the supplied motion at frame zero with timer-dependent rate, sets both stick-tilt ages to 254, stores timer/exponent and clears x4/x8. Builds an effect vector from current position and offset and passes it to efAsync_Spawn with x60C queue, kind 2, gfx expression 1|4|8|16|1024 and NULL joint before assigning current x to -(x68C_transNPos.z * -facing_dir - pos_x_offset). Calls ft_80081F2C, ft_800881D8 with character x24 sound data, ftCommon_8007EBAC(fp,12,0), SFX 3 only for timer zero, ftCo_800BFFD0(fp,120,0), and ftColl_8007B760(gobj,x764). Exact external feedback and geometric-alignment semantics remain unresolved.",
+        "rationale": "Replaces unverified semantic glosses with exact canonical data flow and sequencing.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L63-L113",
+            "why": "Complete entry body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_800C1E64"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides shared parameterized entry for the PassiveWall family used by wall-tech detection and ordinary wall jumping: changes the caller-selected motion, initializes startup and velocity-scaling state, computes effect and position values from wall-related collision data, and invokes common movement, effect, sound and other setup helpers. Precise external feedback and contact-alignment meanings are not established here.",
+        "rationale": "Keeps independently verified shared-entry role without treating rendered aliases or geometric interpretation as proof.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L33-L113",
+            "why": "Detector and complete initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalljump.c#L93-L116",
+            "why": "Independent ordinary-wall-jump reuse."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_800C1E64"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Performs entry without local eligibility or range validation. Any nonzero timer starts animation at rate zero; zero starts rate one and additionally plays SFX 3. Stores facing as the supplied float's negation without normalization, sets cmd_vars[0], sets x/y stick-tilt timers to 254, stores action timer/exponent and clears x4/x8. Right-wall-hug selects the left ECB offset; all other cases select the right offset. Effect submission precedes the x-position correction and remaining setup calls. Zero-timer entry does not execute Anim's later decrement-to-zero release assignment.",
+        "rationale": "States exact branches and boundary behavior rather than broad collision-response claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L63-L155",
+            "why": "Entry branches and distinct animation release condition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_PassiveWall_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Decrements any nonzero action timer; only a decrement yielding zero plays SFX 8 and restores rate one or converts at the current frame to PassiveWallJump when x8 is latched. Conversion sets y stick-tilt age to 254 and action timer zero. Release assigns facing*passivewall_vel_x to self_vel.x for PassiveWall; otherwise it assigns wall-jump x/y attributes and conditionally scales y by powf(passive_wall_vel_y_base,vel_y_exponent) when walljumpUsed is nonzero. Entry with timer zero skips release assignment. Animation completion enters Fall independently of timer. Negative timers and exceptional float inputs are not locally validated.",
+        "rationale": "Corrects timer-reset value, exact motion branch and zero-entry boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L115-L155",
+            "why": "Complete conversion helper and animation callback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_PassiveWall_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Uses ft_80083318 whenever passivewall.timer is nonzero and ft_800831CC whenever it is zero, including immediate zero-timer entry. Both receive gobj, ftCo_80096CC8 and ft_80082B1C. Zero enables this TU's ordinary physics and interrupt paths but does not prove that Anim's decrement-to-zero launch block ran. Detailed helper distinction, landing consequences and callback retention remain unresolved.",
+        "rationale": "Separates timer truthiness from the release event.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L124-L200",
+            "why": "Release condition, timer gates and exact collision dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveWall:ftCo_PassiveWall_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "With nonzero timer, checks only ftCo_800C1E0C; true latches x8 and false leaves the latch unchanged. With zero timer, RETURN_IF checks run in order: ftCo_SpecialAir_CheckInput, ftCo_80095328(gobj,NULL), ftCo_800D7100, ftCo_800C3B10, ftCo_80099A58, ftCo_AttackAir_CheckItemThrowInput, ftCo_800D705C, ftCo_800CB870, cmd_vars[0]==0, and ftCo_800CEE70. Each true condition terminates processing. cmd_vars[0] gates only the final check. Exact gameplay meanings of the address-named external checks remain unresolved.",
+        "rationale": "Retains complete priority and latching without circular reliance on rendered names.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L157-L175",
+            "why": "Complete interrupt body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Eligible wall contact selects PassiveWall or PassiveWallJump; ordinary wall jumping also reuses the initializer. Nonzero timer begins with paused playback and gates this TU's ordinary physics/interrupt chain while allowing jump latching. Only decrement-to-zero in Anim triggers release sound, rate restoration or queued conversion, and launch assignment. Initial timer zero starts playback at rate one and enables physics/interrupts without that release assignment. Animation completion enters Fall independently of timer. Collision dispatch depends only on timer truthiness, and a skipped local Phys body does not prove the entire engine is motionless.",
+        "rationale": "Replaces generalized at-zero launch and freeze claims with exact local lifecycle boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L33-L200",
+            "why": "Complete lifecycle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalljump.c#L108-L115",
+            "why": "Shared ordinary-wall-jump caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2150-L2297",
+            "why": "External update contains additional velocity processing."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

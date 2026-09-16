@@ -1,0 +1,181 @@
+{
+  "tu": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L679-L723",
+            "why": "Separate initial lockout, iteration counter, charge increment and full-loop transition"
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the per-step-delay interpretation: releaseLag clamps to zero and is not reloaded here; x2344 separately determines charge increments.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialAirNLoop_Anim"
+        },
+        "type": "purpose",
+        "value": "Updates Mewtwo's aerial Shadow Ball charging loop. After the initial release lockout expires, it services held-ball creation and charge audio, advances a separate iteration counter and stored charge, and enters the aerial full-charge holding loop when charge reaches the configured maximum."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L536-L579",
+            "why": "Lockout clamps to zero while a separate counter controls charge increments"
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the initial releaseLag lockout from the recurring x2344 charge-iteration counter.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialNLoop_Anim"
+        },
+        "type": "purpose",
+        "value": "Updates Mewtwo's grounded Shadow Ball charging loop. After the initial release lockout expires, it services held-ball creation and charge audio, advances a separate iteration counter and stored charge, and enters the grounded full-charge holding loop when charge reaches the configured maximum."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L536-L579",
+            "why": "Complete call ordering and nested charge-update flow"
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing useful data-flow explanation while correcting the placement of held-ball and audio calls outside the maximum-charge branch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialNLoop_Anim"
+        },
+        "type": "data_flow",
+        "value": "Reads the Fighter and Mewtwo charge attributes and decrements releaseLag. Once the result is nonpositive, it clamps releaseLag to zero and calls the held-ball creation and charge-audio helpers before testing x2348. While x2348 is false, x2344 advances; exceeding the configured iteration threshold resets that counter and increments persistent Shadow Ball charge. Reaching the configured maximum selects SpecialNLoopFull, clamps charge, sets x2348, and transforms the TopN-relative offset (0, 7, 0) for effect 27 alongside the other completion-feedback calls."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L633-L674",
+            "why": "Creation failure path, unchanged command, isFull reset and subsequent transition test"
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the retryable failure path and the reset-before-test asymmetry explicit rather than describing a consumed one-time spawn or an effective isFull alternative.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialAirNStart_Anim"
+        },
+        "type": "state_behavior",
+        "value": "When cmd_vars[3] equals 1 and no held Shadow Ball exists, attempts creation and stores the result; success refreshes lifecycle callbacks, while failure leaves the pointer null and permits another attempt if the command remains 1. The command is not consumed here. Every invocation then clears isFull. At animation completion, the written isFull==true arm therefore cannot select End; stored charge exactly equal to the configured charge-cycle limit selects SpecialAirNEnd, otherwise SpecialAirNLoop is selected and x2348 is cleared. Lifecycle callbacks are refreshed after either transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L466-L506",
+            "why": "Retryable constructor failure and exact grounded startup exits"
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the supported grounded transition logic while correcting the one-time-creation interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialNStart_Anim"
+        },
+        "type": "state_behavior",
+        "value": "When cmd_vars[3] equals 1 and no held Shadow Ball exists, attempts creation and stores its result. Success refreshes lifecycle callbacks; failure leaves the pointer null and permits another attempt while the command remains 1, because this callback does not consume that command. At animation completion, isFull==true or stored charge exactly equal to the configured charge-cycle limit selects SpecialNEnd; otherwise it selects SpecialNLoop and clears x2348. Lifecycle callbacks are refreshed after either transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L778-L809",
+            "why": "Pressed-button read, timer guards, early return and B/else-if LR structure"
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects held-button wording to the canonical pressed-button input while preserving exact precedence and the blocked-B cancellation edge case.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialNLoop_IASA"
+        },
+        "type": "state_behavior",
+        "value": "The common-action check takes precedence; on success this callback removes the held Shadow Ball representation and skips its explicit button handling. Otherwise it reads pressed_buttons. A with releaseLag<=0 enters SpecialNEnd, refreshes callbacks, and returns. Next, a B press enters SpecialNEnd only when releaseLag<=0, but the presence of B in this pressed mask suppresses the LR alternative even during positive release lag. When B is absent from the mask, LR enters SpecialNCancel without a release-lag guard, removes the held representation, and refreshes callbacks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L321-L370",
+            "why": "Complete audio state machine including contradictory nested zero-crossing guard"
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves initialization, strict thresholds and cue priority while distinguishing written dead code from effective state behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialN_PlayChargeSFX"
+        },
+        "type": "state_behavior",
+        "value": "Does nothing when cmd_vars[2] is zero. Otherwise it computes normalized stored charge, using zero directly when stored charge is zero. If the audio-progress tracker is not greater than zero, it writes approximately 0.0001 and plays the initial cue. For a positive tracker, descending newly-crossed tests above 0.75, 0.5 and 0.25 update the tracker and play at most the highest newly crossed cue. The subsequent written zero-crossing branch is unreachable because it requires tracker<=0 inside the tracker>0 branch. There is no separate 100%-charge table entry."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L1136-L1166",
+            "why": "Forward-throw comment, distinct constructor and absence of held-ball charge consumption"
+          }
+        ],
+        "op": "write",
+        "rationale": "The complete delegated helper and canonical F-Throw comment identify a separate spawn path, unlike the held-item release helper.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialN_Shoot"
+        },
+        "type": "game_mapping",
+        "value": "Creates the Shadow Ball used by Mewtwo's forward throw through a distinct item-spawn path. It does not release the held neutral-special ball or consume its stored charge."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L1136-L1166",
+            "why": "Full delegated spawn behavior and wrapper"
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the generic shared-firing description with the supported role of the complete inline helper.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialN_Shoot"
+        },
+        "type": "purpose",
+        "value": "Services Mewtwo's forward-throw Shadow Ball spawn command by delegating to a helper that checks fighter kind and cmd_vars[3], derives launch position and direction from the right shoulder and left hand, and invokes the distinct Shadow Ball constructor."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMewtwo/ftmewtwospecialn.c#L1136-L1166",
+            "why": "Kind/command guards, command consumption, launch arguments and sound"
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional-launch wording by accounting for the guards and effects inside the delegated inline helper.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMewtwo/ftmewtwospecialn:ftMt_SpecialN_Shoot"
+        },
+        "type": "state_behavior",
+        "value": "The wrapper delegates unconditionally, but spawning occurs only when the Fighter kind is Mewtwo and cmd_vars[3] equals 1. The helper consumes that command by setting it to zero, obtains right-shoulder and left-hand positions, flattens both z coordinates, and calls it_802C519C with the shoulder position, Shadow Ball item kind, configured charge-cycle value, shoulder-minus-hand atan2f angle, and facing direction. It then plays sound 200115. Other kinds or command values produce no spawn; this path does not read or reset persistent Shadow Ball charge."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

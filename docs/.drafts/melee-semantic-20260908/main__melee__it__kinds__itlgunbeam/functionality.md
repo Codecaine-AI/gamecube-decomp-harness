@@ -1,0 +1,26 @@
+## Review outcome
+The inherited research establishes complete canonical/rendered coverage of both owned files and enumeration of 39 subjects, 87 facts and 26 links. Independent lead review reconciled the handoff, proposal and functionality document against the canonical projectile implementation and Fire Flower producer. Retain the inherited 82 supported facts and 24 supported links unchanged. Accept five fact and two link deferrals concerning compiled layout or constant-pool attribution. No knowledge writes or overrides are warranted.
+
+## Projectile construction and initialization
+Despite its historical `L_Gun_Beam` spelling, this unit implements the moving projectile constructed by the Fire Flower firing path. The caller consumes firing resource, passes its owner, emission position, ignore-item ID and direction, and advances its emission counter without checking construction success (`code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfflower.c#L130-L149`).
+
+`it_802996D0` builds a spawn record and returns the common creator's nullable result. Beam-specific initialization occurs only after successful creation. Article attributes supply lifetime; separate random samples select speed (`angle1`) and launch angle (`angle0`). Facing equal to +1 preserves the angle; every other value negates it. The angle is wrapped into [-π, π], and setup receives `HSD_Randi(4)` (`code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgunbeam.c#L102-L166`).
+
+`it_802998A0` selects motion state 0, evaluates initial physics, temporarily subtracts planar velocity before collision initialization, restores the saved position, and spawns effect 0x44E plus the variant. The owner is forwarded to the debug hook; this is distinct from constructor parent references and shared reflection ownership processing (`code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgunbeam.c#L168-L193`).
+
+## Motion and terrain response
+The source declares one callback-table row, without establishing its compiled byte size. The animation callback uses the shared lifetime-decrement helper and destroys projectile-owned effects before returning true on expiry (`code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L458-L468`; `code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgunbeam.c#L195-L203`).
+
+Physics saves the current position and reconstructs planar velocity as speed × (sin(angle), cos(angle), 0). Only the private velocity copy is normalized; engine velocity remains speed-scaled. Collision sets all four envelope extents to 3, evaluates terrain contact, and encodes floor, ceiling, left-wall and right-wall contacts as 1, 2, 4 and 8. A nonzero mask invokes both steering helpers; collision always returns false (`code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgunbeam.c#L205-L256`).
+
+The direction helper sums selected surface normals and normalizes the aggregate. The angle helper uses its integer argument only as a nonzero guard. It compares headings using `atan2f(x, y)`, reverse-clamps their difference, and applies a signed correction with coefficient 0.02 below π/2 or 0.5 at and above π/2. Exact zero difference skips the vector-angle calculation. The active path clamps the stored angle; zero input performs no work. No guarantee is added for zero speed, cancelling normals or invalid attribute values (`code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgunbeam.c#L33-L100`).
+
+## Combat responses and cross-file lifetime
+Damage-dealt and absorbed callbacks return false without local mutation. Clank, shield-bounce and shield-hit callbacks return true without local mutation. As established by inherited caller research, shared dispatch interprets true clank/shield results as destruction requests. Reflection adds π to the stored angle, clamps it, and negates facing and engine x/y velocity before returning false. It does not immediately refresh the private normalized heading; physics reconstructs that copy later. Shared reflection processing separately handles ownership and other interaction data (`code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgunbeam.c#L258-L292`; `code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1535-L1624`; `code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1701-L1740`).
+
+`EvtUnk` forwards both object pointers unchanged to `it_8026B894`; its precise trigger is not established by this wrapper (`code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgunbeam.c#L294-L297`).
+
+## Rendered-name assessment
+Retain `itLGunBeam_Spawn`, `itLGunBeam_Setup`, `itLGunBeam_Update_Direction` and `itLGunBeam_Update_Angle` as supported naming hypotheses, not recovered original spellings. Update_Direction computes the contact-normal direction rather than immediately changing travel velocity. The C renderer substitutes these names successfully. The inherited header review reports `shadowed_binding` for the constructor and leaves its declaration unchanged; this is a rendering inconsistency, not evidence against the name. No compiled section placement, pool contents or row-size conclusion is made.
+
+Status: synthesized; independent review and live promotion pending.

@@ -1,0 +1,200 @@
+1: #include <dolphin.h>
+2: #include <dolphin/os.h>
+3: 
+4: #include "__os.h"
+5: 
+6: #define HID2 920
+7: 
+8: volatile OSContext* __OSCurrentContext : (OS_BASE_CACHED | 0x00D4);
+9: volatile OSContext* __OSFPUContext : (OS_BASE_CACHED | 0x00D8);
+10: 
+11: static asm void __OSLoadFPUContext(register u32, register OSContext* fpuContext) {
+12:   // clang-format off
+13:   nofralloc
+14:   lhz r5, fpuContext->state;
+15:   clrlwi. r5, r5, 31
+16:   beq _return
+17: 
+18:   lfd fp0, OS_CONTEXT_FPSCR(fpuContext)
+19:   mtfsf 0xFF, fp0
+20:   mfspr r5, HID2
+21:   rlwinm. r5, r5, 3, 31, 31
+22:   beq _regular_FPRs
+23:   
+24:   psq_l fp0, OS_CONTEXT_PSF0(fpuContext), 0, 0
+25:   psq_l fp1, OS_CONTEXT_PSF1(fpuContext), 0, 0
+26:   psq_l fp2, OS_CONTEXT_PSF2(fpuContext), 0, 0
+27:   psq_l fp3, OS_CONTEXT_PSF3(fpuContext), 0, 0
+28:   psq_l fp4, OS_CONTEXT_PSF4(fpuContext), 0, 0
+29:   psq_l fp5, OS_CONTEXT_PSF5(fpuContext), 0, 0
+30:   psq_l fp6, OS_CONTEXT_PSF6(fpuContext), 0, 0
+31:   psq_l fp7, OS_CONTEXT_PSF7(fpuContext), 0, 0
+32:   psq_l fp8, OS_CONTEXT_PSF8(fpuContext), 0, 0
+33:   psq_l fp9, OS_CONTEXT_PSF9(fpuContext), 0, 0
+34:   psq_l fp10, OS_CONTEXT_PSF10(fpuContext), 0, 0
+35:   psq_l fp11, OS_CONTEXT_PSF11(fpuContext), 0, 0
+36:   psq_l fp12, OS_CONTEXT_PSF12(fpuContext), 0, 0
+37:   psq_l fp13, OS_CONTEXT_PSF13(fpuContext), 0, 0
+38:   psq_l fp14, OS_CONTEXT_PSF14(fpuContext), 0, 0
+39:   psq_l fp15, OS_CONTEXT_PSF15(fpuContext), 0, 0
+40:   psq_l fp16, OS_CONTEXT_PSF16(fpuContext), 0, 0
+41:   psq_l fp17, OS_CONTEXT_PSF17(fpuContext), 0, 0
+42:   psq_l fp18, OS_CONTEXT_PSF18(fpuContext), 0, 0
+43:   psq_l fp19, OS_CONTEXT_PSF19(fpuContext), 0, 0
+44:   psq_l fp20, OS_CONTEXT_PSF20(fpuContext), 0, 0
+45:   psq_l fp21, OS_CONTEXT_PSF21(fpuContext), 0, 0
+46:   psq_l fp22, OS_CONTEXT_PSF22(fpuContext), 0, 0
+47:   psq_l fp23, OS_CONTEXT_PSF23(fpuContext), 0, 0
+48:   psq_l fp24, OS_CONTEXT_PSF24(fpuContext), 0, 0
+49:   psq_l fp25, OS_CONTEXT_PSF25(fpuContext), 0, 0
+50:   psq_l fp26, OS_CONTEXT_PSF26(fpuContext), 0, 0
+51:   psq_l fp27, OS_CONTEXT_PSF27(fpuContext), 0, 0
+52:   psq_l fp28, OS_CONTEXT_PSF28(fpuContext), 0, 0
+53:   psq_l fp29, OS_CONTEXT_PSF29(fpuContext), 0, 0
+54:   psq_l fp30, OS_CONTEXT_PSF30(fpuContext), 0, 0
+55:   psq_l fp31, OS_CONTEXT_PSF31(fpuContext), 0, 0
+56: 
+57: _regular_FPRs:
+58:   lfd fp0,  fpuContext->fpr[0]
+59:   lfd fp1,  fpuContext->fpr[1]
+60:   lfd fp2,  fpuContext->fpr[2]
+61:   lfd fp3,  fpuContext->fpr[3]
+62:   lfd fp4,  fpuContext->fpr[4]
+63:   lfd fp5,  fpuContext->fpr[5]
+64:   lfd fp6,  fpuContext->fpr[6]
+65:   lfd fp7,  fpuContext->fpr[7]
+66:   lfd fp8,  fpuContext->fpr[8]
+67:   lfd fp9,  fpuContext->fpr[9]
+68:   lfd fp10, fpuContext->fpr[10]
+69:   lfd fp11, fpuContext->fpr[11]
+70:   lfd fp12, fpuContext->fpr[12]
+71:   lfd fp13, fpuContext->fpr[13]
+72:   lfd fp14, fpuContext->fpr[14]
+73:   lfd fp15, fpuContext->fpr[15]
+74:   lfd fp16, fpuContext->fpr[16]
+75:   lfd fp17, fpuContext->fpr[17]
+76:   lfd fp18, fpuContext->fpr[18]
+77:   lfd fp19, fpuContext->fpr[19]
+78:   lfd fp20, fpuContext->fpr[20]
+79:   lfd fp21, fpuContext->fpr[21]
+80:   lfd fp22, fpuContext->fpr[22]
+81:   lfd fp23, fpuContext->fpr[23]
+82:   lfd fp24, fpuContext->fpr[24]
+83:   lfd fp25, fpuContext->fpr[25]
+84:   lfd fp26, fpuContext->fpr[26]
+85:   lfd fp27, fpuContext->fpr[27]
+86:   lfd fp28, fpuContext->fpr[28]
+87:   lfd fp29, fpuContext->fpr[29]
+88:   lfd fp30, fpuContext->fpr[30]
+89:   lfd fp31, fpuContext->fpr[31]
+90: _return:
+91:   blr
+92:   // clang-format on
+93: }
+94: 
+95: 
+96: static asm void __OSSaveFPUContext(register u32, register u32, register OSContext* fpuContext) {
+97:   // clang-format off
+98:   nofralloc
+99: 
+100:   lhz     r3,   fpuContext->state
+101:   ori     r3,   r3, 1
+102:   sth     r3,   fpuContext->state
+103: 
+104:   stfd    fp0,  fpuContext->fpr[0]
+105:   stfd    fp1,  fpuContext->fpr[1]
+106:   stfd    fp2,  fpuContext->fpr[2]
+107:   stfd    fp3,  fpuContext->fpr[3]
+108:   stfd    fp4,  fpuContext->fpr[4]
+109:   stfd    fp5,  fpuContext->fpr[5]
+110:   stfd    fp6,  fpuContext->fpr[6]
+111:   stfd    fp7,  fpuContext->fpr[7]
+112:   stfd    fp8,  fpuContext->fpr[8]
+113:   stfd    fp9,  fpuContext->fpr[9]
+114:   stfd    fp10, fpuContext->fpr[10]
+115:   stfd    fp11, fpuContext->fpr[11]
+116:   stfd    fp12, fpuContext->fpr[12]
+117:   stfd    fp13, fpuContext->fpr[13]
+118:   stfd    fp14, fpuContext->fpr[14]
+119:   stfd    fp15, fpuContext->fpr[15]
+120:   stfd    fp16, fpuContext->fpr[16]
+121:   stfd    fp17, fpuContext->fpr[17]
+122:   stfd    fp18, fpuContext->fpr[18]
+123:   stfd    fp19, fpuContext->fpr[19]
+124:   stfd    fp20, fpuContext->fpr[20]
+125:   stfd    fp21, fpuContext->fpr[21]
+126:   stfd    fp22, fpuContext->fpr[22]
+127:   stfd    fp23, fpuContext->fpr[23]
+128:   stfd    fp24, fpuContext->fpr[24]
+129:   stfd    fp25, fpuContext->fpr[25]
+130:   stfd    fp26, fpuContext->fpr[26]
+131:   stfd    fp27, fpuContext->fpr[27]
+132:   stfd    fp28, fpuContext->fpr[28]
+133:   stfd    fp29, fpuContext->fpr[29]
+134:   stfd    fp30, fpuContext->fpr[30]
+135:   stfd    fp31, fpuContext->fpr[31]
+136: 
+137:   mffs    fp0
+138:   stfd    fp0,  OS_CONTEXT_FPSCR(fpuContext)
+139: 
+140:   lfd     fp0,  fpuContext->fpr[0]
+141: 
+142:   mfspr   r3, HID2
+143:   rlwinm. r3, r3, 3, 31, 31
+144:   bc      12, 2, _return
+145: 
+146:   psq_st  fp0, OS_CONTEXT_PSF0(fpuContext), 0, 0
+147:   psq_st  fp1, OS_CONTEXT_PSF1(fpuContext), 0, 0
+148:   psq_st  fp2, OS_CONTEXT_PSF2(fpuContext), 0, 0
+149:   psq_st  fp3, OS_CONTEXT_PSF3(fpuContext), 0, 0
+150:   psq_st  fp4, OS_CONTEXT_PSF4(fpuContext), 0, 0
+151:   psq_st  fp5, OS_CONTEXT_PSF5(fpuContext), 0, 0
+152:   psq_st  fp6, OS_CONTEXT_PSF6(fpuContext), 0, 0
+153:   psq_st  fp7, OS_CONTEXT_PSF7(fpuContext), 0, 0
+154:   psq_st  fp8, OS_CONTEXT_PSF8(fpuContext), 0, 0
+155:   psq_st  fp9, OS_CONTEXT_PSF9(fpuContext), 0, 0
+156:   psq_st  fp10, OS_CONTEXT_PSF10(fpuContext), 0, 0
+157:   psq_st  fp11, OS_CONTEXT_PSF11(fpuContext), 0, 0
+158:   psq_st  fp12, OS_CONTEXT_PSF12(fpuContext), 0, 0
+159:   psq_st  fp13, OS_CONTEXT_PSF13(fpuContext), 0, 0
+160:   psq_st  fp14, OS_CONTEXT_PSF14(fpuContext), 0, 0
+161:   psq_st  fp15, OS_CONTEXT_PSF15(fpuContext), 0, 0
+162:   psq_st  fp16, OS_CONTEXT_PSF16(fpuContext), 0, 0
+163:   psq_st  fp17, OS_CONTEXT_PSF17(fpuContext), 0, 0
+164:   psq_st  fp18, OS_CONTEXT_PSF18(fpuContext), 0, 0
+165:   psq_st  fp19, OS_CONTEXT_PSF19(fpuContext), 0, 0
+166:   psq_st  fp20, OS_CONTEXT_PSF20(fpuContext), 0, 0
+167:   psq_st  fp21, OS_CONTEXT_PSF21(fpuContext), 0, 0
+168:   psq_st  fp22, OS_CONTEXT_PSF22(fpuContext), 0, 0
+169:   psq_st  fp23, OS_CONTEXT_PSF23(fpuContext), 0, 0
+170:   psq_st  fp24, OS_CONTEXT_PSF24(fpuContext), 0, 0
+171:   psq_st  fp25, OS_CONTEXT_PSF25(fpuContext), 0, 0
+172:   psq_st  fp26, OS_CONTEXT_PSF26(fpuContext), 0, 0
+173:   psq_st  fp27, OS_CONTEXT_PSF27(fpuContext), 0, 0
+174:   psq_st  fp28, OS_CONTEXT_PSF28(fpuContext), 0, 0
+175:   psq_st  fp29, OS_CONTEXT_PSF29(fpuContext), 0, 0
+176:   psq_st  fp30, OS_CONTEXT_PSF30(fpuContext), 0, 0
+177:   psq_st  fp31, OS_CONTEXT_PSF31(fpuContext), 0, 0
+178: 
+179: _return:
+180:     blr
+181:   // clang-format on
+182: }
+183: 
+184: asm void OSLoadFPUContext(register OSContext* fpuContext) {
+185:   // clang-format off
+186:   nofralloc
+187:   addi    r4, fpuContext, 0
+188:   b       __OSLoadFPUContext
+189:   // clang-format on
+190: }
+191: 
+192: asm void OSSaveFPUContext(register OSContext* fpuContext) {
+193:   // clang-format off
+194:   nofralloc
+195:   addi    r5, fpuContext, 0
+196:   b       __OSSaveFPUContext
+197:   // clang-format on
+198: }
+199: 
+200: asm void OSSetCurrentContext(register OSContext* context){

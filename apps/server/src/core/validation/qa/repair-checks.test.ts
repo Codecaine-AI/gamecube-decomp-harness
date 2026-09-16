@@ -1,3 +1,8 @@
+import { beforeAll as beforeBuildTests, afterAll as afterBuildTests } from "bun:test";
+// These fixtures exercise local tool behavior. Production defaults to Daytona.
+let previousBuildMode: string | undefined;
+beforeBuildTests(() => { previousBuildMode = process.env.ORCH_BUILD_EXECUTION; process.env.ORCH_BUILD_EXECUTION = "local"; });
+afterBuildTests(() => { if (previousBuildMode === undefined) delete process.env.ORCH_BUILD_EXECUTION; else process.env.ORCH_BUILD_EXECUTION = previousBuildMode; });
 import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -48,6 +53,26 @@ describe("repair checks", () => {
     expect(objectPathForSource("src/melee/lb/lbrefract.c")).toBe("build/GALE01/src/melee/lb/lbrefract.o");
     expect(objectPathForSource("./src/melee/gr/grpushon.cpp")).toBe("build/GALE01/src/melee/gr/grpushon.o");
     expect(objectPathForSource("src\\melee\\ft\\fighter.c")).toBe("build/GALE01/src/melee/ft/fighter.o");
+    expect(objectPathForSource("src/MarioUtil/DrawUtil.cpp", { reportPath: "build/GMSJ01/report.json" })).toBe(
+      "build/GMSJ01/src/MarioUtil/DrawUtil.o",
+    );
+  });
+
+  test("threads the game layout into the per-source Ninja build", async () => {
+    const commands: string[][] = [];
+    const commandRunner = async (_cwd: string, command: string[]) => {
+      commands.push(command);
+      return { exitCode: 0, stdout: "", stderr: "" };
+    };
+
+    await buildObjectForSource({
+      repoRoot: tempRepo(),
+      sourcePath: "src/MarioUtil/DrawUtil.cpp",
+      validation: { reportPath: "build/GMSJ01/report.json" },
+      commandRunner,
+    });
+
+    expect(commands).toEqual([["ninja", "build/GMSJ01/src/MarioUtil/DrawUtil.o"]]);
   });
 
   test("builds only the source object and returns failure output", async () => {
@@ -236,6 +261,28 @@ printf '%s\n' '{"units":[{"name":"main/melee/lb/lbrefract","functions":[{"name":
     await expect(objdiffUnitPresence({ repoRoot: root, sourcePath: "src/melee/lb/header-only.c" })).resolves.toBe("absent");
     writeFileSync(resolve(root, "objdiff.json"), "not-json\n");
     await expect(objdiffUnitPresence({ repoRoot: root, sourcePath: "src/melee/lb/lbrefract.c" })).resolves.toBe("unavailable");
+  });
+
+  test("matches a Sunshine objdiff unit by its game-specific object path", async () => {
+    const root = tempRepo();
+    writeFileSync(
+      resolve(root, "objdiff.json"),
+      JSON.stringify({
+        units: [
+          {
+            base_path: "build/GMSJ01/src/MarioUtil/DrawUtil.o",
+          },
+        ],
+      }),
+    );
+
+    await expect(
+      objdiffUnitPresence({
+        repoRoot: root,
+        sourcePath: "src/MarioUtil/DrawUtil.cpp",
+        validation: { reportPath: "build/GMSJ01/report.json" },
+      }),
+    ).resolves.toBe("present");
   });
 
   test("flags only exact-function and matched-section regressions", () => {

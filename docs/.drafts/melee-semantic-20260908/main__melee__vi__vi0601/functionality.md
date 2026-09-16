@@ -1,0 +1,25 @@
+## Vi0601 semantic review
+
+This unit implements the Corneria visual sequence's setup, model animation, camera rendering, timeline events and completion handling. The established Adventure Mode mapping remains consistent with the canonical archive and stage references; it is not inferred from numeric camera mode 6.
+
+### Setup and retained state
+`vi0601_Scene_OnEnter` loads `visual0601Scene` from `Vi0601.dat` into the static scene-descriptor pointer. Its camera descriptor and first camera animation initialize a camera GObj; its model descriptors and lights supply subsequent construction. The camera animation is requested at frame zero and evaluated before its process is registered. Corneria, item systems and players are initialized, and `Camera_GetBackgroundColor()` supplies a saved erase color. The unit does not show archive release or scene teardown, so descriptor lifetime beyond these consumers is not established. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L138-L183)
+
+`un_8031E9B8` constructs the primary model from descriptor 0 and registers its hierarchy-animation process at priority 0x17 after initial evaluation. It scans a null-terminated descriptor array, selecting only present indices 1–3. For each selected index, the Corneria helper supplies a GObj, the scale process is registered at priority 2, and only then is child animation attached, requested and evaluated. The concluding audio calls retain their numeric arguments without speculative state labels. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L81-L118)
+
+The Corneria helper delegates to stage-object setup, removes existing animation, resets the root transform and sets a flag. Its rendered `CreateCutsceneGObj` name must not independently establish allocation or object identity across calls. [Helper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2317-L2340) [Delegation](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L561-L588)
+
+### Animation and rendering
+`vi_8031E6EC` delegates to `HSD_JObjAnimAll`. The callee evaluates current nodes before descendants, suppresses descendant traversal at instance nodes and invokes accumulated end callbacks after traversal. `fn_8031E800` sets all three first-child scale components to 0.65 times the child's current X scale. Geometric compounding is conditional on no intervening scale writer; scheduling and attached animation do not prove that condition. A missing root sets the child pointer to null but does not produce a local early return before scale access. [Callbacks](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L33-L79) [Traversal](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L531-L565)
+
+The render callback does all clearing and drawing only after successful camera activation. It installs the saved RGBA erase color, calls the clear operation with flags `(1,0,1)`, selects camera values 2, 1 and 0, and issues four draw calls with `gxlink_prios` values 9, 8, 8 and 0x8A1. It then ends the current camera. Activation failure skips the entire sequence. Rendered external names, including `HSD_GObj_SetTextureCamera`, are not independent proof of these calls' semantics. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L38-L60)
+
+### Timeline and exit
+`vi0601_RunFrame` evaluates camera animation before testing exact floating-point equality against frames 537, 559 and 580. Matching frames call `vi_8031C9B4(0x23,0)`. An independent equality test against the animation end frame calls `lb_800145F4` followed by `gm_801A4B60`; both branches can execute on the same invocation. The callback requires a valid camera and camera AObj despite the animation callee's null-camera tolerance. The shared event helper suppresses forwarding when `gm_8017E440()` returns 4; the local call does not guarantee a downstream event. [Timeline](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L120-L136) [Event guard](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L27-L33)
+
+The scene-level frame callback delegates to the shared newly-triggered Start handler. This path invokes two audio routines before the same final cleanup/transition pair; natural timeline completion does not locally perform those additional audio calls. [Wrapper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L185-L188) [Input handler](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L49-L59)
+
+### Naming and evidence limits
+The existing owned hypotheses `vi0601_GObj_OnProc` and `vi0601_ShrinkCorneriaChild` fit their canonical roles; no equivalent renaming is proposed. The header agrees with current public signatures, and the render callback remains source-local. Source literals and static declarations do not establish compiled section membership, size, ordering or padding. Four section-type facts remain unresolved rather than being replaced with invented layouts.
+
+Status: synthesized; independent review and live promotion pending.

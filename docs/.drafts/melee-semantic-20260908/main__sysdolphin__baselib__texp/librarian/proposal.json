@@ -1,0 +1,289 @@
+{
+  "tu": "main/sysdolphin/baselib/texp",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:AssignColorKonst"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the constant behind c_in[idx]. Existing assignments reject reg>=4, then use reg and idx to select a component or whole-color GX selector; idx and component shape are not separately validated. New scalar assignments first reserve K1-K3 alpha then K0-K3 RGB components; other components reserve a whole free RGB triple. Records occupancy and constant placement and overwrites the stage-wide kcsel plus input type/arg. It does not check compatibility with an already selected kcsel.",
+        "rationale": "Correct literal selector/control-flow semantics, cleanup ownership, unchecked validation claims or conversion guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L693-L766",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L118-L173",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpCnst"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Traverses the shared expression ownership list and matches constant nodes by val address and comp, asserting matching ctype before reuse. On a miss, the specific selector HSD_TE_0 (numeric7) returns NULL; other selector values allocate a constant node, prepend it, retain val/comp/ctype, initialize ref to0 and reg/idx to255. It stores the external value pointer without copying its data, and does not initialize the range field.",
+        "rationale": "Correct literal selector/control-flow semantics, cleanup ownership, unchecked validation claims or conversion guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L202-L238",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L118-L173",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpCompile"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "References root RGB and alpha, simplifies, builds a DAG, schedules and assigns constants using a zeroed resource accumulator. It simplifies the first order in reverse, rebuilds and reschedules with the same accumulator, then allocates descriptors for reverse-indexed order entries, assigns increasing hardware stage IDs, and prepends them, leaving descending stage IDs in list traversal. Work arrays have32 entries; this is storage capacity, not an unconditional checked graph-size guarantee. Emission overwrites *tevdesc without freeing an existing list and dereferences allocations without local NULL checks. The expression list is pruned and final count returned.",
+        "rationale": "Correct literal selector/control-flow semantics, cleanup ownership, unchecked validation claims or conversion guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1225",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L118-L173",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L198-L210",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L159-L205",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L333-L385",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L289-L328",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L179",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpCompile"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Compiles a TEV-rooted HSD expression graph through simplification, DAG scheduling and resource assignment into a linked list of numbered stage descriptors. Returns the emitted count, forcibly removes all TEV nodes from the supplied ownership list and removes only zero-reference constants, retaining referenced constants for later uploads. It does not free the external values referenced by constant nodes.",
+        "rationale": "Correct literal selector/control-flow semantics, cleanup ownership, unchecked validation claims or conversion guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1225",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L118-L173",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L198-L210",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L159-L205",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L333-L385",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L289-L328",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L179",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpFreeList"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "With all nonzero, frees every matching TEV/constant regardless of references. With all zero and a TEV-inclusive filter, the prepass literally tests c_ref twice, then calls Unref with 1 (color) and 5 (alpha). Thus an alpha-only TEV may lose an alpha reference; a TEV already at zero in both channels may recursively unreference dependencies twice. The removal pass then frees matching TEVs with both counters zero and constants with ref zero, preserving the remaining links. This is not a passive reference-count filter.",
+        "rationale": "Correct literal selector/control-flow semantics, cleanup ownership, unchecked validation claims or conversion guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L179",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L118-L173",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L74-L179",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpSetReg"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Builds an uninitialized local GXColor reg[8] array from assigned constant nodes, marking every reg<8. RGB writes leave local alpha unchanged; U8 RGB loads a GXColor before restoring that local alpha. Scalar placement writes one konst channel, regular alpha for idx3, or replicated regular RGB otherwise. Unwritten channels are not initialized or read from GX. RGB U32 values clamp unsigned to255; scalar U32 first assigns to signed int before clamping, so its full-range behavior is not equivalent. Floating values multiply by255 and convert to int before saturation, leaving exceptional/out-of-int-range conversion unspecified by these guards. Only marked slots0-3 and4-6 are uploaded; slot7 is never submitted.",
+        "rationale": "Correct literal selector/control-flow semantics, cleanup ownership, unchecked validation claims or conversion guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1037-L1166",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L118-L173",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpUnref"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Constants decrement their u8 ref only when nonzero. TEVs decrement signed c_ref only for sel==1, otherwise signed a_ref, guarded by !=0. Afterward every call with both TEV counters zero traverses all eight dependencies, even if both were already zero on entry; no released marker prevents repeated recursion. Other types and sentinel inputs are no-ops. The nonzero guard is not validation against negative signed TEV counts, overflow or cyclic graphs.",
+        "rationale": "Correct literal selector/control-flow semantics, cleanup ownership, unchecked validation claims or conversion guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L74-L104",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L118-L173",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L74-L179",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:TExp2TevDesc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Color defaults when c_op is undefined, or when c_ref is zero and a_op is outside8-13; those alpha compare operations can keep a defined color operation active without color references. Alpha defaults for undefined a_op or a_ref zero. Default halves write zero A/B/C and initially zero D, thereafter PREV, while clearing shared initialization flags. Active halves replace undefined arguments with zero, require destination !=255 but do not bounds-check the four-entry destination table, and clear the flag on PREV output. Flags=1 selects explicit configuration, next is reset, mode is GX_TC_LINEAR. With a texture attached, coord/map remain for SetupTev to refresh.",
+        "rationale": "Correct literal selector/control-flow semantics, cleanup ownership, unchecked validation claims or conversion guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L919-L1031",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L118-L173",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:TExpAssignReg"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Processes color only for c_ref>0 and alpha only for a_ref>0. A preselected konst selector uses only the regular allocator, asserting and returning on its failure. Otherwise ordinary inputs try konst then regular. Through-color D tries konst then regular; through-alpha D tries regular then konst. Ordinary loops attempt this for each constant and can overwrite the stage-wide selector repeatedly; the following for(;i<4;) loops are unreachable after the preceding loops finish at i==4. Successful earlier assignments are not rolled back on later failure.",
+        "rationale": "Correct literal selector/control-flow semantics, cleanup ownership, unchecked validation claims or conversion guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L820-L917",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L118-L173",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L198-L210",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L159-L205",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L333-L385",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L289-L328",
+            "why": "Direct source establishes the exact branch, state change, field type or ownership limit."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

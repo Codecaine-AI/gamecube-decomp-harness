@@ -1,0 +1,17 @@
+## Item material rendering
+
+`it_80277D08` initializes the item-specific material class beneath `hsdMObj`, preserves base lifecycle/loading/expression operations, and installs `fn_80277D8C` as setup. The source record also supplies reusable TEV descriptor and constant templates. The existing rendered names `itMaterial_MObjInfoInit`, `itMaterialSetup`, and `itMaterial_SetupColorOverlayTev` fit their canonical implementations.
+
+`fn_80277D8C` obtains the active Item through `HSD_GObj_804D7814`, initializes TEV state, installs material colors and optional shininess, configures textures and the virtual material TEV method, then adds item-specific stages. Both incoming integer arguments are unused; rendering starts from `mobj->rendermode`. Shadow textures are temporarily appended and that link is cleared afterward. Toon setup writes the shared toon object's `next` pointer; this function does not restore that pointer. The returned lighting expression occupies caller-stack storage and is immediately passed to the tint helper for register-conflict accounting.
+
+`it_80277F90` emits one lighting stage only when b4 is clear and both item overlay lighting guards are enabled. It uploads the item light color, combines it with raster alpha, and returns the supplied expression; disabled paths return NULL. Register exhaustion reports and asserts.
+
+`it_80278108` exits immediately for b5. Otherwise, b3 plus a non-null owner and x13 permits owner-overlay substitution. Color priority is b4's `xBC8.x0_unk`, then enabled `xBC4` optionally combined with the selected overlay, then overlay alone. No selected color means no additional stage. The combination uses integer division and byte assignments, including a `temp_alpha == 255` special case and red-dependent alpha reconstruction; it should not be replaced conceptually with an idealized floating-point blend. Register allocation accounts for the incoming expression and the first tint constant. Exhaustion asserts. Non-255 `x5C9` adds the alpha constant and selector only on this active tint path.
+
+Final setup ORs `RENDER_BLENDING` when `x5C9 != 255`; that macro includes both translucency and no-Z-update bits. b4 without b5 also disables Z updates. b5 with `x5C9 == 255` selects the fixed local PE descriptor; otherwise the material's PE descriptor is used. b5 suppresses the tint helper, not necessarily the preceding lighting helper. Numeric item flags and PE values are not assigned unsupported gameplay-mode names.
+
+`it_80278574` walks the existing JObj hierarchy depth-first, visiting each DObj chain and copying the supplied GXColor into every available material's diffuse field. Missing roots, MObjs, and materials are tolerated, but the GObj itself must be valid. No replacement objects are allocated. Its demonstrated article caller obtains a fighter-derived stack color and immediately copies it into materials; Game & Watch's producer indexes primary color by costume, while the alternate dispatcher invokes Kirby's producer.
+
+Canonical and rendered owned files were read completely, and all 19 subjects, 40 facts, and 10 links were enumerated. Thirty facts and eight links are explicitly retained in checkpoints. One callback-type explanation is corrected; nine section-related facts and two section-related links remain unresolved because source declarations and analogous units do not establish compiled storage membership or layout.
+
+Status: synthesized; independent review and live promotion pending.

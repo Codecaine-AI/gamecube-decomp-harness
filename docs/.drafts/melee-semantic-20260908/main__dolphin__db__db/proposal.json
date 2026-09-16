@@ -1,0 +1,33 @@
+{
+  "tu": "main/dolphin/db/db",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L48-L52",
+            "why": "Exact shift expression and raw return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L301-L332",
+            "why": "TRK skip and debugger-jump versus NOP branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the literal signedness while retaining both independently verified caller branches and documenting the unchecked input domain.",
+        "subject": {
+          "target_stable_key": "main/dolphin/db/db:__DBIsExceptionMarked"
+        },
+        "type": "data_flow",
+        "value": "Receives an __OSException identifier, evaluates the source expression `1 << exception` into a u32 mask, reads __DBInterface->exceptionMask, and returns the raw intersection. There is no interface-null guard or shift-index validation; the signed literal 1 must not be silently interpreted as 1u for arbitrary indices. OSExceptionInit uses the result to skip a marked vector when BI2DebugFlag is nonnull and its value is at least 2; otherwise it selects debugger-jump instructions for marked vectors and NOPs for unmarked vectors before installation."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

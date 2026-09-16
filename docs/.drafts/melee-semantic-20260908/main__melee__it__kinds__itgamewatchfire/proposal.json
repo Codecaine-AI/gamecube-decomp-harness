@@ -1,0 +1,92 @@
+{
+  "tu": "main/melee/it/kinds/itgamewatchfire",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchfire.c#L14-L17",
+            "why": "Declares the single initialized table record."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1180-L1184",
+            "why": "The motion-state argument indexes the table; the selected record supplies anim_id."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1229-L1231",
+            "why": "Identifies the remaining callback members."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects conflation of the table index with its animation-ID member and removes an unsupported compiled-size assertion.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgamewatchfire:.data"
+        },
+        "type": "inferred_type",
+        "value": "The source declares a one-element ItemStateTable array, it_803F78E8. Motion-state index 0 selects its sole record, whose animation ID is 0, animation callback is itGamewatchFire_Motion0_Anim, and physics and collision callbacks are NULL. The record's leading zero is an animation ID, not a stored motion-state identifier. Compiled byte size and section layout are not established here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchfire.c#L65-L75",
+            "why": "Exact signature, command-variable writes, model call and owner read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1120-L1278",
+            "why": "The guarded helpers perform state and animation processing, not owner assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported signature and role while correcting the existing assertion that the callback updates ownership.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgamewatchfire:itGamewatchFire_PickedUp"
+        },
+        "type": "inferred_type",
+        "value": "Item pickup callback with signature void(Item_GObj* item_gobj). It obtains the supplied object's Item userdata, resets two item-command variables, and invokes a model-flag operation. It reads owner as a guard for motion-state and animation initialization; it does not assign the owner."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchfire.c#L65-L111",
+            "why": "Pickup guard, exact frame comparison, removal ordering and guarded rates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchfire.c#L37-L43",
+            "why": "Owner notification is conditional."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L979-L987",
+            "why": "The rate-control predicate tests smash_attrs.state against 2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattacks4.c#L93-L102",
+            "why": "The lifetime predicate retains only AttackS4."
+          }
+        ],
+        "op": "write",
+        "rationale": "Restores the exceptional ownerless pickup branch and expresses the canonical numeric predicate without treating the rendered charging name as proof.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itgamewatchfire.c"
+        },
+        "type": "state_behavior",
+        "value": "The torch has one motion-state table entry, selected by state 0. Pickup always clears both item-command variables and invokes the model-flag setter, but enters state 0 and advances animation only when owner is non-null. The animation callback invokes the complementary model action at exactly frame 3.0 before testing removal. Owner absence or leaving ftGw_MS_AttackS4 invokes the destruction notifier and returns true; the notifier calls the fighter only for a non-null owner. While retained, the callback sets animation rate to 0.0 when the owner's smash_attrs.state equals 2 and to 1.0 otherwise, updating the JObj rate only when the stored value differs."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "tu": "main/sysdolphin/baselib/psdisp",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L197-L225",
+            "why": "Exact material and ambient field inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Actual channel and TEV destinations, modulation and caches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's conflation of the material output with GX channel material color while preserving the verified helper inputs and ambient flow.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:getColorMatAmb"
+        },
+        "type": "data_flow",
+        "value": "Reads matRGB, matA, their targets, matColRemain and matColCount to produce material GXColor, and corresponding ambient fields to produce ambient GXColor. setupTevReg caches material in prevColorMat and installs GX_TEVREG2, multiplying material alpha by primary alpha when PrimEnv is absent. setupChanReg modulates ambient RGB by primary RGB when PrimEnv is absent, then multiplies ambient by the active ambient-light color or zeros its RGB when no light is present, and caches it for GX channel ambient color. GX channel material RGB comes from primary RGB or white, not this helper's material output."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L1987",
+            "why": "Defines pass behavior, size guard, and lazy initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1988-L2147",
+            "why": "Shows render-state comparisons and the palette path without a previous-palette update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L2148-L2208",
+            "why": "Shows filtering, traversal-time prev_kind updates, loop bound, and conditional invalidation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves established pass behavior while replacing the unsupported effective palette-cache claim with the actual assignments and predicates.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:psDispParticles"
+        },
+        "type": "state_behavior",
+        "value": "Pass zero increments psFrameNum while it is below 255, otherwise sets it to 1, then returns without drawing. Nonzero passes scan sixteen mask-selected links: pass 1 starts at the full sorted list and stops at the first non-TexEdge particle; other nonzero passes start at the non-edge partition. Particles with size < FLT_EPSILON are skipped. Shared GX setup occurs lazily, and final HSD state invalidation occurs only after that setup. Alpha comparison, depth, mirror, image, and filtering paths use retained-value comparisons. Fog compares the current kind with prev_kind, which is updated during traversal even for size-skipped particles. The palette comparison variable sp79C is initialized to NULL and never updated after GXLoadTlut, so repeated non-NULL palettes are not suppressed by that comparison. The palette path also clears the image-cache pointer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L265-L394",
+            "why": "Channel and color cache comparisons."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L747-L805",
+            "why": "Blend/matrix caches and flag-selected trail geometry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1309-L1355",
+            "why": "Point-size and line-width caches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L2208",
+            "why": "Complete reviewed entry body establishes initialization, resource comparisons, missing palette-cache update, and traversal-time fog comparison state."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes real retained-value optimizations from initialization writes and the non-updated palette comparison variable.",
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/psdisp.c"
+        },
+        "type": "state_behavior",
+        "value": "Particle-kind flags select lighting, trail, texture, primary/environment color, direction-oriented, TexEdge, mirror, and tornado-related rendering paths. Retained channel, color, point-size, line-width, blend-mode, matrix, alpha-test, depth, mirror, image, and filtering values suppress many repeated GX updates, while lazy common setup also issues unconditional setters. Fog uses a previous traversed particle-kind comparison. Palette loading is not an effective previous-palette cache: sp79C starts NULL and is never updated after GXLoadTlut; the palette path also clears the image-cache pointer, permitting repeated texture-object setup."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,9 +1,9 @@
 import { asObject, type FormState, type UiConfig } from "@/lib/format";
 import { CheckboxField, Field, InfoRows, List, PageHeader, PanelSection, PanelTitle, SelectField } from "@/components/primitives";
 import { processName } from "@/pages/workspace/_lib/model";
-import type { CycleView, WorkspaceNav } from "@/pages/workspace/_lib/types";
+import type { HarnessView, WorkspaceNav } from "@/pages/workspace/_lib/types";
 
-export function SettingsPage({ config, form, nav, setForm, view }: { config: UiConfig | null; form: FormState; nav: WorkspaceNav; setForm: (updates: Partial<FormState>) => void; view: CycleView }) {
+export function SettingsPage({ config, form, nav, setForm, view }: { config: UiConfig | null; form: FormState; nav: WorkspaceNav; setForm: (updates: Partial<FormState>) => void; view: HarnessView }) {
   const games = config?.availableGames ?? [];
   const defaults = asObject(config?.gameDefaults);
   const validation = asObject(defaults.validation);

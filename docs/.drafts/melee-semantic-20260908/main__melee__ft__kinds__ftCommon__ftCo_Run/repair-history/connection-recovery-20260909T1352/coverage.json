@@ -1,0 +1,735 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Run",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "medium",
+  "role": "librarian/full-TU reviewer",
+  "started_at": "2026-09-08T15:48:23.563Z",
+  "files": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_Run",
+      "sha256": "4cc5312f880a416a997030e7b81521b55595984f10c4ddc5e5c4f70a4f693a9d",
+      "lines": 153,
+      "bytes": 3845,
+      "canonical_ranges": [
+        [
+          1,
+          153
+        ]
+      ],
+      "rendered_ranges": [
+        [
+          1,
+          153
+        ]
+      ],
+      "pages": [
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_Run/pages/src__melee__ft__kinds__ftCommon__ftCo_Run.c.1-120.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+            "source_sha256": "4cc5312f880a416a997030e7b81521b55595984f10c4ddc5e5c4f70a4f693a9d",
+            "start_line": 1,
+            "end_line": 120,
+            "total_lines": 153,
+            "next_line": 121,
+            "content": "#include \"ftCo_Run.h\"\n\n#include <melee/ft/forward.h>\n\n#include <placeholder.h>\n\n#include \"forward.h\"\n#include \"ftCo_AppealS.h\"\n#include \"ftCo_Attack100.h\"\n#include \"ftCo_AttackDash.h\"\n#include \"ftCo_Guard.h\"\n#include \"ftCo_Jump.h\"\n#include \"ftCo_RunBrake.h\"\n#include \"ftCo_SpecialS.h\"\n#include \"ftCo_TurnRun.h\"\n#include <melee/ft/fighter.h>\n#include <melee/ft/ft_081B.h>\n#include <melee/ft/ftcommon.h>\n#include <melee/ft/inlines.h>\n#include <melee/ft/types.h>\n\nbool ftCo_Run_CheckInput(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n\n    if (fp->input.lstick[0].x * fp->facing_dir >=\n        p_ftCommonData->x58_someLStickXThreshold)\n    {\n        ftCo_Run_Enter(gobj, 0.0F);\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_Run_CheckInputFromTurnRun(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n\n    if ((fp->input.lstick[0].x * fp->facing_dir) >=\n        p_ftCommonData->x58_someLStickXThreshold)\n    {\n        ftCo_Run_Enter(gobj, p_ftCommonData->x430);\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_Run_CheckInputFromRunDirect(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    if (fp->input.lstick[0].x * fp->facing_dir >=\n        p_ftCommonData->x58_someLStickXThreshold)\n    {\n        ftCo_Run_Enter_Full(gobj, 0.0F, fp->cur_anim_frame,\n                            fp->frame_speed_mul);\n        return true;\n    }\n    return false;\n}\n\nvoid ftCo_Run_Enter(Fighter_GObj* gobj, float arg0)\n{\n    ftCo_Run_Enter_Full(gobj, arg0, 0.0F, 1.0F);\n}\n\nvoid ftCo_Run_Enter_Full(Fighter_GObj* gobj, float arg0, float anim_start,\n                         float anim_speed)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    Fighter_ChangeMotionState(gobj, ftCo_MS_Run, Ft_MF_None, anim_start,\n                              anim_speed, 0.0F, NULL);\n    fp->mv.co.run.x0 = arg0;\n    fp->mv.co.run.x4 = fp->gr_vel;\n}\n\nvoid ftCo_Run_Anim(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    f32 vel;\n    f32 anim_rate;\n    PAD_STACK(1);\n\n    if (ft_GetGroundFrictionMultiplier(fp) < 1.0F) {\n        vel = fp->mv.co.run.x4;\n    } else {\n        vel = fp->gr_vel;\n    }\n\n    if (vel * fp->facing_dir <= 0.0F) {\n        anim_rate = 0.0F;\n    } else {\n        anim_rate = ABS(vel) / fp->co_attrs.run_animation_scaling;\n    }\n\n    ftAnim_SetAnimRate(gobj, anim_rate);\n    if (fp->mv.co.run.x0 > 0.0F) {\n        fp->mv.co.run.x0 -= 1.0F;\n    }\n}\n\nvoid ftCo_Run_IASA(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n\n    RETURN_IF(ftCo_SpecialS_CheckInput(gobj));\n    RETURN_IF(ftCo_SpecialHi_CheckInput(gobj));\n    RETURN_IF(ftCo_SpecialN_CheckInput(gobj));\n    RETURN_IF(ftCo_SpecialLw_CheckInput(gobj));\n    RETURN_IF(ftCo_CatchDash_CheckInput(gobj));\n\n    if (ftCo_AttackDash_CheckInput(gobj)) {\n        ftCo_AttackDash_SetMv0(gobj);\n        return;\n    }\n\n    if (ftCo_Guard_CheckInput(gobj)) {\n        ftCo_Guard_SetMv20(gobj, p_ftCommonData->x410);\n        ftCo_Guard_SetMv24(gobj);\n        return;\n    }",
+            "substitutions": 10,
+            "symbols": [
+              {
+                "canonical": "fn_800CA5F0",
+                "proposed": "ftCo_Run_CheckInput",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+                "fact_id": "fact:83ba08fd-b079-4fce-be21-0b82582a5bea",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "fn_800CA644",
+                "proposed": "ftCo_Run_CheckInputFromTurnRun",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+                "fact_id": "fact:f4188b04-2547-4fdb-a5dd-042d9a3f0bdc",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "fn_800CA698",
+                "proposed": "ftCo_Run_CheckInputFromRunDirect",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+                "fact_id": "fact:43e33dd7-be40-458c-bc8d-fc992da34c77",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_Attack100_CheckInput",
+                "proposed": "ftCo_SpecialHi_CheckInput",
+                "confidence": 0.94,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Attack100:ftCo_Attack100_CheckInput",
+                "fact_id": "fact:e2b6349d-0746-4426-9f02-61c3f7045193",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800D6824",
+                "proposed": "ftCo_SpecialN_CheckInput",
+                "confidence": 0.94,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Attack100:ftCo_800D6824",
+                "fact_id": "fact:a8f6627e-3417-4d6a-bd79-15dd2277621d",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800D68C0",
+                "proposed": "ftCo_SpecialLw_CheckInput",
+                "confidence": 0.95,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Attack100:ftCo_800D68C0",
+                "fact_id": "fact:c9f2cfe5-f652-4e55-9521-2a0d5ecdc88d",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800D8A38",
+                "proposed": "ftCo_CatchDash_CheckInput",
+                "confidence": 0.98,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Catch:ftCo_800D8A38",
+                "fact_id": "fact:4f48d0b5-7bb3-45a6-a684-8496496acf39",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80091A4C",
+                "proposed": "ftCo_Guard_CheckInput",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Guard:ftCo_80091A4C",
+                "fact_id": "fact:7ecc7046-1a88-4946-9d6e-811a089b62f4",
+                "fact_updated_at": "2026-09-04T19:06:34.287Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80091B90",
+                "proposed": "ftCo_Guard_SetMv20",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Guard:ftCo_80091B90",
+                "fact_id": "fact:78ba8db7-30e7-45ff-96bf-f010810a9aef",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80091B9C",
+                "proposed": "ftCo_Guard_SetMv24",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Guard:ftCo_80091B9C",
+                "fact_id": "fact:ecec6c1d-da6f-4457-b3fd-2d20c0901737",
+                "fact_updated_at": "2026-09-02T06:47:42.514Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_Run_Enter",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_Enter_Full",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "Fighter_ChangeMotionState",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/fighter:Fighter_ChangeMotionState",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_Anim",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "PAD_STACK",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ft_GetGroundFrictionMultiplier",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ft_081B:ft_GetGroundFrictionMultiplier",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ABS",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftAnim_SetAnimRate",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftanim:ftAnim_SetAnimRate",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_IASA",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_SpecialS_CheckInput",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_CheckInput",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "RETURN_IF",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_AttackDash_CheckInput",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_CheckInput",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_AttackDash_SetMv0",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_Run/pages/src__melee__ft__kinds__ftCommon__ftCo_Run.c.121-153.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+            "source_sha256": "4cc5312f880a416a997030e7b81521b55595984f10c4ddc5e5c4f70a4f693a9d",
+            "start_line": 121,
+            "end_line": 153,
+            "total_lines": 153,
+            "next_line": null,
+            "content": "\n    RETURN_IF(ftCo_AppealS_Check(gobj));\n    RETURN_IF(fn_800CAF78(gobj));\n\n    RETURN_IF((fp->mv.co.run.x0 <= 0.0F) && ftCo_TurnRun_CheckInput(gobj));\n    RETURN_IF(!(fp->mv.co.run.x0 <= 0.0F));\n    RETURN_IF(ftCo_RunBrake_CheckInput(gobj));\n}\n\nvoid ftCo_Run_Phys(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    ftCo_DatAttrs* attrs = &fp->co_attrs;\n    float accel, target_vel;\n    getAccelAndTarget(fp, &accel, &target_vel);\n    if (target_vel) {\n        float gr_frac = fp->gr_vel / target_vel;\n        if ((gr_frac > 0.0F) && (gr_frac < 1.0F)) {\n            accel *= (1.0F - gr_frac) * p_ftCommonData->run_accel_taper_gain;\n        }\n    }\n    fp->mv.co.run.x4 = target_vel * p_ftCommonData->x440;\n    ftCommon_SetGroundAccelTowardTargetWithFriction(fp, accel, target_vel,\n                      attrs->ground_friction *\n                          p_ftCommonData->run_dash_turn_friction_multiplier);\n    ftCommon_ApplyGroundMovement(gobj);\n}\n\nvoid ftCo_Run_Coll(Fighter_GObj* gobj)\n{\n    ft_800844EC(gobj);\n}\n",
+            "substitutions": 3,
+            "symbols": [
+              {
+                "canonical": "ftCo_800DE9D8",
+                "proposed": "ftCo_AppealS_Check",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_AppealS:ftCo_800DE9D8",
+                "fact_id": "fact:46f9d81d-1bda-475d-85d2-cc864f2abb26",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "fn_800C9D40",
+                "proposed": "ftCo_TurnRun_CheckInput",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+                "fact_id": "fact:cb968276-8b31-4113-8ae0-a5b8541c6c99",
+                "fact_updated_at": "2026-09-04T19:07:11.058Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCommon_8007C98C",
+                "proposed": "ftCommon_SetGroundAccelTowardTargetWithFriction",
+                "confidence": 0.7,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007C98C",
+                "fact_id": "fact:8280b23d-386c-497e-94e9-2bf76a3808a7",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "RETURN_IF",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "fn_800CAF78",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Jump:fn_800CAF78",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_RunBrake_CheckInput",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_RunBrake:ftCo_RunBrake_CheckInput",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "getAccelAndTarget",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCommon_ApplyGroundMovement",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCommon_ApplyGroundMovement",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ft_800844EC",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ft_081B:ft_800844EC",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Run.h",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_Run",
+      "sha256": "f7151a12c403e906d52d66ef77c18677fe56bb48ce762530e8672b399dc7c7e4",
+      "lines": 17,
+      "bytes": 590,
+      "canonical_ranges": [
+        [
+          1,
+          17
+        ]
+      ],
+      "rendered_ranges": [
+        [
+          1,
+          17
+        ]
+      ],
+      "pages": [
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_Run/pages/src__melee__ft__kinds__ftCommon__ftCo_Run.h.1-17.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_Run.h",
+            "source_sha256": "f7151a12c403e906d52d66ef77c18677fe56bb48ce762530e8672b399dc7c7e4",
+            "start_line": 1,
+            "end_line": 17,
+            "total_lines": 17,
+            "next_line": null,
+            "content": "#ifndef GALE01_0CA5F0\n#define GALE01_0CA5F0\n\n#include <melee/ft/forward.h>\n\n/* 0CA5F0 */ bool ftCo_Run_CheckInput(Fighter_GObj* gobj);\n/* 0CA644 */ bool ftCo_Run_CheckInputFromTurnRun(Fighter_GObj* gobj);\n/* 0CA698 */ bool ftCo_Run_CheckInputFromRunDirect(Fighter_GObj* gobj);\n/* 0CA6F4 */ void ftCo_Run_Enter(Fighter_GObj* gobj, float);\n/* 0CA71C */ void ftCo_Run_Enter_Full(Fighter_GObj* gobj, float, float, float);\n/* 0CA77C */ void ftCo_Run_Anim(Fighter_GObj* gobj);\n/* 0CA830 */ void ftCo_Run_IASA(Fighter_GObj* gobj);\n/* 0CA95C */ void ftCo_Run_Phys(Fighter_GObj* gobj);\n/* 0CAA2C */ void ftCo_Run_Coll(Fighter_GObj* gobj);\n\n#endif\n",
+            "substitutions": 3,
+            "symbols": [
+              {
+                "canonical": "fn_800CA5F0",
+                "proposed": "ftCo_Run_CheckInput",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+                "fact_id": "fact:83ba08fd-b079-4fce-be21-0b82582a5bea",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "fn_800CA644",
+                "proposed": "ftCo_Run_CheckInputFromTurnRun",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+                "fact_id": "fact:f4188b04-2547-4fdb-a5dd-042d9a3f0bdc",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "fn_800CA698",
+                "proposed": "ftCo_Run_CheckInputFromRunDirect",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+                "fact_id": "fact:43e33dd7-be40-458c-bc8d-fc992da34c77",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_Run_Enter",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_Enter_Full",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_Anim",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_IASA",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Run_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        }
+      ]
+    }
+  ],
+  "subjects": [
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:.sdata2",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+    "src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full#r5",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full#r6",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys#r3"
+  ],
+  "targets": [
+    {
+      "id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Run:.sdata2",
+      "kind": "data",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:.sdata2",
+      "symbol": ".sdata2",
+      "address": "0x804D8EA0"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+      "symbol": "fn_800CA5F0",
+      "address": "0x800CA5F0"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+      "symbol": "fn_800CA644",
+      "address": "0x800CA644"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+      "symbol": "fn_800CA698",
+      "address": "0x800CA698"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+      "symbol": "ftCo_Run_Anim",
+      "address": "0x800CA77C"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+      "symbol": "ftCo_Run_Coll",
+      "address": "0x800CAA2C"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+      "symbol": "ftCo_Run_Enter",
+      "address": "0x800CA6F4"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+      "symbol": "ftCo_Run_Enter_Full",
+      "address": "0x800CA71C"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+      "symbol": "ftCo_Run_IASA",
+      "address": "0x800CA830"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+      "symbol": "ftCo_Run_Phys",
+      "address": "0x800CA95C"
+    }
+  ],
+  "counts": {
+    "files_expected": 2,
+    "files_reviewed": 2,
+    "canonical_lines": 170,
+    "rendered_lines": 170,
+    "targets": 10,
+    "entities": 14,
+    "subjects": 24,
+    "existing_facts": 55,
+    "proposed_writes": 16,
+    "baseline_links": 22,
+    "retain": 35,
+    "unresolved": 4
+  },
+  "supplemental_canonical_ranges": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Dash.c",
+      "start_line": 88,
+      "end_line": 134,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+      "start_line": 22,
+      "end_line": 80,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c",
+      "start_line": 1,
+      "end_line": 57,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Attack100.c",
+      "start_line": 44,
+      "end_line": 115,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Catch.c",
+      "start_line": 38,
+      "end_line": 57,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Jump.c",
+      "start_line": 62,
+      "end_line": 84,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Guard.c",
+      "start_line": 70,
+      "end_line": 128,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c",
+      "start_line": 19,
+      "end_line": 43,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_StopWall.c",
+      "start_line": 16,
+      "end_line": 68,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 393,
+      "end_line": 404,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 1129,
+      "end_line": 1137,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 1235,
+      "end_line": 1241,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 51,
+      "end_line": 152,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/inlines.h",
+      "start_line": 132,
+      "end_line": 140,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/forward.h",
+      "start_line": 442,
+      "end_line": 445,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftmotionstates.c",
+      "start_line": 360,
+      "end_line": 390,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftanim.c",
+      "start_line": 490,
+      "end_line": 513,
+      "ownership": "foreign_read_only"
+    }
+  ],
+  "exceptions": [],
+  "completed_at": "2026-09-08T15:52:00.688888+00:00",
+  "duration_seconds": 217.125888,
+  "proposal_sha256": "9a6fb04ff681aae8fd9fd4ff3d1452a932834638145f44d45e8f8c731a4a8793",
+  "link_dispositions_sha256": "b3622ad0ac42945ec51d38f8b3c9aaaa57b1b72ec55b0a6cafe409aaa930d11c"
+}

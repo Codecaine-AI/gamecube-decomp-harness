@@ -1,0 +1,2042 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.data"
+    },
+    "fact_id": "fact:9cc26d0b-79ef-4d19-88aa-584353e79c3d",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "data_flow",
+    "old_value": "Elapsed CPU, draw, and total times derived from OSGetTime and the module's start-time baseline are written into HSD_PerfCurrentStat. Matrix-load instrumentation increments nb_mtx_load, and envelope-blending instrumentation increments an indexed env_blend counter. At frame completion, the entire current record is copied to HSD_PerfLastStat and the current record is zeroed for reuse.",
+    "new_value": "Timing setters overwrite cpu_time, draw_time and total_time in CurrentStat relative to the shared start_time; counters increment nb_mtx_load or env_blend[n]. InitStat copies the entire current record to LastStat, then zeroes CurrentStat in a separate operation. The reviewed loop calls this after total-time sampling; source provides no atomic snapshot primitive.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L10-L17",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.data"
+    },
+    "fact_id": "fact:0b75a2c4-e096-4171-b134-aca72bbd1419",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "game_mapping",
+    "old_value": "This storage is the snapshot state for runtime performance profiling, retaining frame-budget-relative timing measurements and counts of rendering work for the active and immediately preceding frames.",
+    "new_value": "Stores current and last profiling records for main-loop instrumentation. Timing values are nominal-60-Hz interval multiples sampled from the latest baseline, while work counters accumulate until rotation. Multiple queued updates can reset the baseline before one rendering/rotation cycle.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L10-L17",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.data"
+    },
+    "fact_id": "fact:2a67accb-9af6-41fb-bb13-330862f11e03",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "inferred_type",
+    "old_value": "The section contains two zero-initialized HSD_PerfStat objects, HSD_PerfLastStat followed by HSD_PerfCurrentStat. Each object is 0x90 bytes: three f32 timing values, one u32 matrix-load count, and 32 u32 envelope-blending counters. Together they occupy 0x120 bytes.",
+    "new_value": "The section contains two zero-initialized HSD_PerfStat objects, HSD_PerfLastStat followed by HSD_PerfCurrentStat. Each object is 0x90 bytes: three f32 timing values, one u32 matrix-load count, and 32 u32 envelope-blending counters. Together they occupy 0x120 bytes.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L10-L17",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.data"
+    },
+    "fact_id": "fact:0b7fd743-6ec3-4a06-8282-3697efc745fe",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "purpose",
+    "old_value": "Provides the persistent current-frame and previous-frame records used by HSD's runtime performance profiler. HSD_PerfCurrentStat accumulates timing and rendering-work statistics for the frame in progress, while HSD_PerfLastStat preserves the completed frame's snapshot.",
+    "new_value": "Provides mutable current statistics and the most recently copied snapshot. The main loop rotates these after a render cycle, but the TU itself attaches no frame identity and does not synchronize concurrent readers.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L10-L17",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.data"
+    },
+    "fact_id": "fact:bd0938da-f9b7-480b-870b-3931a0df48a3",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "state_behavior",
+    "old_value": "The data implements a two-snapshot rolling state: HSD_PerfCurrentStat is the mutable accumulator for the active frame, and HSD_PerfLastStat is the retained snapshot of the most recently finalized frame. Finalization replaces the previous snapshot with the completed current record and resets every field of the current record to zero.",
+    "new_value": "InitStat replaces LastStat with CurrentStat and then clears all CurrentStat bytes. These sequential operations have no local lock or interrupt guard and are not an atomic publication guarantee. Repeated calls without new instrumentation replace the last snapshot with zeros. start_time is not reset.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L10-L17",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sbss"
+    },
+    "fact_id": "fact:b228e5ce-7528-45ba-9fed-36556f6734c2",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "data_flow",
+    "old_value": "HSD_PerfSetStartTime writes the current OSGetTime result into this storage. HSD_PerfSetCPUTime, HSD_PerfSetDrawTime, and HSD_PerfSetTotalTime each read it, subtract it from a later OSGetTime result, normalize the elapsed ticks by OSSecondsToTicks(1) / 60, and write the result to the corresponding field of HSD_PerfCurrentStat.",
+    "new_value": "HSD_PerfSetStartTime writes the current OSGetTime result into this storage. HSD_PerfSetCPUTime, HSD_PerfSetDrawTime, and HSD_PerfSetTotalTime each read it, subtract it from a later OSGetTime result, normalize the elapsed ticks by OSSecondsToTicks(1) / 60, and write the result to the corresponding field of HSD_PerfCurrentStat.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L8",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sbss"
+    },
+    "fact_id": "fact:41240d95-8ea7-4884-8228-a06177f8346d",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "game_mapping",
+    "old_value": "Supports runtime performance profiling by providing the timestamp origin from which HSD computes frame-budget-relative CPU, rendering, and total elapsed-time statistics; it does not represent player-visible game state.",
+    "new_value": "Supports runtime performance profiling by providing the timestamp origin from which HSD computes frame-budget-relative CPU, rendering, and total elapsed-time statistics; it does not represent player-visible game state.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L8",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sbss"
+    },
+    "fact_id": "fact:ff11a707-9eb2-4cce-bdfc-fa216b738877",
+    "version_updated_at": "2026-09-06T02:34:38.472Z",
+    "type": "inferred_name",
+    "old_value": "start_time",
+    "new_value": "start_time",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L8",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sbss"
+    },
+    "fact_id": "fact:d74c2c76-9545-472f-95aa-6efa0f714898",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "inferred_type",
+    "old_value": "An uninitialized s64 scalar holding a 64-bit processor time-base tick snapshot returned by OSGetTime.",
+    "new_value": "An uninitialized s64 scalar holding a 64-bit processor time-base tick snapshot returned by OSGetTime.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L8",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sbss"
+    },
+    "fact_id": "fact:63dd96e8-091d-4f53-95da-f3dda1343533",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "purpose",
+    "old_value": "Stores the shared start timestamp for HSD performance-measurement intervals. Capturing this baseline once lets the CPU, draw, and total timing routines measure different completion boundaries against the same frame-relative origin.",
+    "new_value": "Stores the most recent OSGetTime baseline shared by all three elapsed-time setters. In the reviewed main loop this baseline resets at each queued update, so subsequent draw/total samples are measured from the latest update rather than necessarily the beginning of the whole outer iteration.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L8",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sbss"
+    },
+    "fact_id": "fact:d64174ec-5e58-4243-98bf-9877b1e6ba89",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "state_behavior",
+    "old_value": "Each call to HSD_PerfSetStartTime unconditionally replaces the previous baseline. The value then remains the common origin for subsequent CPU, draw, and total measurements until another start-time call overwrites it. HSD_PerfInitStat rotates and clears the statistics records but does not reset this baseline.",
+    "new_value": "Each call to HSD_PerfSetStartTime unconditionally replaces the previous baseline. The value then remains the common origin for subsequent CPU, draw, and total measurements until another start-time call overwrites it. HSD_PerfInitStat rotates and clears the statistics records but does not reset this baseline.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L8",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata"
+    },
+    "fact_id": "fact:12766b10-8f39-467b-867d-e790ef25e2f7",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "data_flow",
+    "old_value": "HSD_PerfCountEnvelopeBlending supplies n to the assertion condition. If n is at least 32, HSD_ASSERT passes the stored source-file and \"n < 32\" strings, together with assertion line information, to __assert. __assert reports the condition text and forwards the file identifier and line to HSD_Panic; if n is less than 32, execution instead increments HSD_PerfCurrentStat.env_blend[n] without consuming the diagnostic path.",
+    "new_value": "HSD_PerfCountEnvelopeBlending supplies n to the assertion condition. If n is at least 32, HSD_ASSERT passes the stored source-file and \"n < 32\" strings, together with assertion line information, to __assert. __assert reports the condition text and forwards the file identifier and line to HSD_Panic; if n is less than 32, execution instead increments HSD_PerfCurrentStat.env_blend[n] without consuming the diagnostic path.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L42-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata"
+    },
+    "fact_id": "fact:b952ae32-b72e-400e-90f8-32478e592e64",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "inferred_type",
+    "old_value": "An initialized small-data byte sequence containing the NUL-terminated assertion operands generated for HSD_ASSERT: the translation unit's __FILE__ string and the stringized condition \"n < 32\".",
+    "new_value": "An initialized small-data byte sequence containing the NUL-terminated assertion operands generated for HSD_ASSERT: the translation unit's __FILE__ string and the stringized condition \"n < 32\".",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L42-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata"
+    },
+    "fact_id": "fact:44bc621b-de43-43ea-94f0-cbcd5a96d935",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "purpose",
+    "old_value": "Supplies the diagnostic strings for HSD_PerfCountEnvelopeBlending's upper-bound assertion. These identify the failed condition and its source file when an envelope-blending counter index is not less than 32.",
+    "new_value": "Supplies the diagnostic strings for HSD_PerfCountEnvelopeBlending's upper-bound assertion. These identify the failed condition and its source file when an envelope-blending counter index is not less than 32.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L42-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata"
+    },
+    "fact_id": "fact:55ea989b-0f15-4b88-a900-363163d7db10",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "state_behavior",
+    "old_value": "The section is immutable diagnostic data. Its strings are relevant only on the failed branch of the n < 32 guard; that branch enters the non-returning assertion/panic path, while the passing branch leaves the strings unused and permits the indexed counter increment.",
+    "new_value": "The section is immutable diagnostic data. Its strings are relevant only on the failed branch of the n < 32 guard; that branch enters the non-returning assertion/panic path, while the passing branch leaves the strings unused and permits the indexed counter increment.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L42-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata2"
+    },
+    "fact_id": "fact:a76d889a-c9b3-4d62-a7ec-5d4971aa8e6e",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "data_flow",
+    "old_value": "Each of HSD_PerfSetCPUTime, HSD_PerfSetDrawTime, and HSD_PerfSetTotalTime derives a denominator for one nominal 1/60-second interval as OSSecondsToTicks(1) / 60. The generated conversion sequence reads this pooled bias while converting that denominator to floating point; the converted value then divides the elapsed OSGetTime-minus-start_time tick count, and the resulting measurements are stored in cpu_time, draw_time, and total_time respectively.",
+    "new_value": "Each of HSD_PerfSetCPUTime, HSD_PerfSetDrawTime, and HSD_PerfSetTotalTime derives a denominator for one nominal 1/60-second interval as OSSecondsToTicks(1) / 60. The generated conversion sequence reads this pooled bias while converting that denominator to floating point; the converted value then divides the elapsed OSGetTime-minus-start_time tick count, and the resulting measurements are stored in cpu_time, draw_time, and total_time respectively.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L24-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata2"
+    },
+    "fact_id": "fact:b6c8d5cf-2330-435f-992e-bd39c137a9fa",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "game_mapping",
+    "old_value": "Supports HSD runtime performance profiling rather than a player-facing mechanic. By enabling conversion of the tick-frequency-derived normalization denominator, it indirectly supports CPU, drawing, and total elapsed-time measurements expressed relative to a nominal 60 Hz frame interval.",
+    "new_value": "Supports HSD runtime performance profiling rather than a player-facing mechanic. By enabling conversion of the tick-frequency-derived normalization denominator, it indirectly supports CPU, drawing, and total elapsed-time measurements expressed relative to a nominal 60 Hz frame interval.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L24-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata2"
+    },
+    "fact_id": "fact:03d31e47-76bb-433d-8333-93fad9bb92bf",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "inferred_type",
+    "old_value": "One immutable, eight-byte double-precision conversion-bias constant emitted by the compiler for unsigned 32-bit integer-to-floating-point conversion. It is pooled compiler support data rather than an authored mutable profiler variable.",
+    "new_value": "One eight-byte IEEE double constant with bits 0x4330000000000000, equal to 2^52, in both inspected objects. Existing assembly uses it as unsigned-integer-to-float conversion bias for the tick denominator; it is compiler support data, not authored profiler state.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L24-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata2"
+    },
+    "fact_id": "fact:f613912b-72ac-45cd-badb-c1e8b22078c1",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "purpose",
+    "old_value": "Supplies the compiler-emitted floating-point conversion bias used while converting the OSSecondsToTicks-derived denominator to floating point. That conversion lets all three HSD performance timing routines divide elapsed ticks by the number of time-base ticks in a nominal 1/60-second interval.",
+    "new_value": "Supplies the compiler-emitted floating-point conversion bias used while converting the OSSecondsToTicks-derived denominator to floating point. That conversion lets all three HSD performance timing routines divide elapsed ticks by the number of time-base ticks in a nominal 1/60-second interval.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L24-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata2"
+    },
+    "fact_id": "fact:d90efeb9-2893-4f31-8496-5f1207b3d401",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "state_behavior",
+    "old_value": "The section is immutable conversion support data. It is reused by each CPU, draw, and total timing calculation and is never accumulated, reset, or otherwise changed when HSD rotates its per-frame statistics records.",
+    "new_value": "The section is immutable conversion support data. It is reused by each CPU, draw, and total timing calculation and is never accumulated, reset, or otherwise changed when HSD rotates its per-frame statistics records.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L24-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending"
+    },
+    "fact_id": "fact:0d3f24f2-e9b0-4e70-87d1-ae38f7ef0a74",
+    "version_updated_at": "2026-09-02T00:22:07.187Z",
+    "type": "data_flow",
+    "old_value": "Receives an envelope-work category from matrix-palette setup: the caller passes zero for the single-joint full-weight fast path, or the number of influence nodes accumulated for a blended envelope. The value selects `HSD_PerfCurrentStat.env_blend[n]`, whose counter is incremented in place.",
+    "new_value": "The reviewed PObj and fighter matrix-setup callers pass zero for a single-joint fast path or an incremented influence-chain count. The signed argument selects env_blend[n], which is incremented in place after the upper-bound assertion. The local function does not establish n >= 0.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L42-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending"
+    },
+    "fact_id": "fact:c0d615ff-bcd5-4720-82c9-ac80b048275a",
+    "version_updated_at": "2026-09-02T00:22:07.187Z",
+    "type": "game_mapping",
+    "old_value": "Profiles the workload distribution of skeletal skinning by categorizing each processed envelope as either the zero-count single-joint fast path or a weighted blend with a recorded number of joint influences.",
+    "new_value": "Profiles the workload distribution of skeletal skinning by categorizing each processed envelope as either the zero-count single-joint fast path or a weighted blend with a recorded number of joint influences.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L42-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending"
+    },
+    "fact_id": "fact:7c33fe7f-74ac-4c10-b380-79d344149388",
+    "version_updated_at": "2026-09-02T00:22:07.187Z",
+    "type": "inferred_type",
+    "old_value": "A `void(s32 n)` statistics-update routine. The signed 32-bit argument is an index into a 32-slot envelope-blending histogram and is expected by its demonstrated caller to be a nonnegative influence count.",
+    "new_value": "A `void(s32 n)` statistics-update routine. The signed 32-bit argument is an index into a 32-slot envelope-blending histogram and is expected by its demonstrated caller to be a nonnegative influence count.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L42-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending"
+    },
+    "fact_id": "fact:e1f7715d-7143-462e-b91d-5b48bfd97a8c",
+    "version_updated_at": "2026-09-02T00:22:07.187Z",
+    "type": "purpose",
+    "old_value": "Records one processed model envelope in the active performance-statistics histogram, using the supplied blending-work count as the histogram-bin index.",
+    "new_value": "Records one processed model envelope in the active performance-statistics histogram, using the supplied blending-work count as the histogram-bin index.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L42-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending"
+    },
+    "fact_id": "fact:617c5c62-8369-45bd-a282-1a2ba12959fc",
+    "version_updated_at": "2026-09-02T00:22:07.187Z",
+    "type": "state_behavior",
+    "old_value": "Before updating statistics, asserts that the supplied index is less than 32; after that guard, it increments exactly one histogram slot. It neither resets the histogram nor performs any transition beyond this accumulation, and the routine itself has no explicit nonnegative-index guard.",
+    "new_value": "Asserts only n < 32, then increments the u32 env_blend[n] counter. There is no lower-bound check, so negative n passes the assertion but violates the intended array-index contract. Valid-slot increments wrap modulo 2^32; no saturation, reset or synchronization is performed here.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L42-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfInitStat"
+    },
+    "fact_id": "fact:682c6fd7-cac3-4ddf-961a-a4aa06244441",
+    "version_updated_at": "2026-09-02T00:22:14.570Z",
+    "type": "data_flow",
+    "old_value": "The function consumes the accumulated global HSD_PerfCurrentStat as its sole logical input, copies all of its timing and counter fields to the global HSD_PerfLastStat, and then overwrites every field of HSD_PerfCurrentStat with zero. Later instrumentation writes into the cleared current record, while consumers of HSD_PerfLastStat can observe the completed preceding record.",
+    "new_value": "The function consumes the accumulated global HSD_PerfCurrentStat as its sole logical input, copies all of its timing and counter fields to the global HSD_PerfLastStat, and then overwrites every field of HSD_PerfCurrentStat with zero. Later instrumentation writes into the cleared current record, while consumers of HSD_PerfLastStat can observe the completed preceding record.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L13-L17",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfInitStat"
+    },
+    "fact_id": "fact:7b2582d8-169c-4c4a-8db3-eddcb3c37c6b",
+    "version_updated_at": "2026-09-02T00:22:14.570Z",
+    "type": "inferred_type",
+    "old_value": "Signature: void HSD_PerfInitStat(void). It takes no parameters and returns no value; its side effects are a full HSD_PerfStat copy into HSD_PerfLastStat and a full HSD_PerfStat zero fill of HSD_PerfCurrentStat.",
+    "new_value": "Signature: void HSD_PerfInitStat(void). It takes no parameters and returns no value; its side effects are a full HSD_PerfStat copy into HSD_PerfLastStat and a full HSD_PerfStat zero fill of HSD_PerfCurrentStat.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L13-L17",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfInitStat"
+    },
+    "fact_id": "fact:cdcc19b9-be95-48ca-b699-2595fc4e8920",
+    "version_updated_at": "2026-09-02T00:22:14.570Z",
+    "type": "purpose",
+    "old_value": "Finalizes the current frame's HSD performance statistics by preserving the completed current record as the last-frame record, then prepares an empty current record for the next frame's timing and instrumentation counters.",
+    "new_value": "Preserves the current performance record in HSD_PerfLastStat and zeroes HSD_PerfCurrentStat. The reviewed main loop calls it after total-time sampling; this function itself does not detect frame completion or reset start_time.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L13-L17",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfInitStat"
+    },
+    "fact_id": "fact:53cec915-3710-4fe1-ac9b-dfc3ac74b669",
+    "version_updated_at": "2026-09-02T00:22:14.570Z",
+    "type": "state_behavior",
+    "old_value": "Transitions the performance-statistics subsystem from a completed-current-frame state to a previous-frame-plus-empty-current state. The copy occurs before clearing, so HSD_PerfLastStat retains the completed snapshot while HSD_PerfCurrentStat has cpu_time, draw_time, total_time, nb_mtx_load, and all 32 env_blend counters reset to zero.",
+    "new_value": "Copies the full current record before zeroing it, preserving the prior values in LastStat under ordinary sequential use. There is no atomic or synchronized publication guarantee. Every current timing field and u32 counter clears, while the shared timestamp baseline remains unchanged.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L13-L17",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetCPUTime"
+    },
+    "fact_id": "fact:2357be1a-52ef-434d-bce6-59acfbdbbce5",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "data_flow",
+    "old_value": "Reads the current 64-bit OS time from OSGetTime, subtracts the previously captured global start_time, converts the elapsed ticks to floating point, divides by OSSecondsToTicks(1) / 60, and stores the quotient in HSD_PerfCurrentStat.cpu_time.",
+    "new_value": "Reads OSGetTime, subtracts the shared s64 start_time, and divides the elapsed ticks by (f32)(OSSecondsToTicks(1) / 60), storing the quotient in cpu_time. The integer denominator division occurs before the float cast; the field is overwritten rather than accumulated.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L24-L28",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetCPUTime"
+    },
+    "fact_id": "fact:58851603-2549-4d87-a4e2-26be9120cb6a",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "game_mapping",
+    "old_value": "Realizes runtime performance profiling rather than a player-visible rule: the stored value expresses measured CPU elapsed time in units of the nominal 60 Hz frame interval.",
+    "new_value": "Records the nominal-60-Hz-normalized elapsed sample at the CPU boundary of each queued main-loop update. Because start_time resets inside that update loop, later queued updates overwrite earlier CPU samples before rendering.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L24-L28",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetCPUTime"
+    },
+    "fact_id": "fact:3d4638df-9764-4d1a-b1ab-63e570e068ea",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "inferred_type",
+    "old_value": "Signature: void HSD_PerfSetCPUTime(void). It takes no explicit inputs and communicates its result by writing a floating-point CPU-time value to global performance-statistics state.",
+    "new_value": "Signature: void HSD_PerfSetCPUTime(void). It takes no explicit inputs and communicates its result by writing a floating-point CPU-time value to global performance-statistics state.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L24-L28",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetCPUTime"
+    },
+    "fact_id": "fact:0926f7ec-8564-4aa0-8371-7a38c9bcfd9f",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "purpose",
+    "old_value": "Finishes the current CPU timing interval by measuring the time elapsed since start_time, normalizing that duration against a 1/60-second tick allotment, and recording it in HSD_PerfCurrentStat.cpu_time.",
+    "new_value": "Samples elapsed OS time since the latest start_time and overwrites HSD_PerfCurrentStat.cpu_time with the result normalized to a nominal 1/60-second tick budget. It does not advance the baseline or calculate an isolated phase delta.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L24-L28",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetDrawTime"
+    },
+    "fact_id": "fact:53a3c1cd-ad0b-4b78-ae95-be9230913f35",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "data_flow",
+    "old_value": "Reads a coherent 64-bit processor time-base snapshot through OSGetTime, subtracts the previously saved start_time, converts the elapsed tick count to floating point, divides it by OSSecondsToTicks(1) / 60, and overwrites HSD_PerfCurrentStat.draw_time with the quotient.",
+    "new_value": "Reads OSGetTime, subtracts the shared s64 start_time, and divides the elapsed ticks by (f32)(OSSecondsToTicks(1) / 60), storing the quotient in draw_time. The integer denominator division occurs before the float cast; the field is overwritten rather than accumulated.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L30-L34",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetDrawTime"
+    },
+    "fact_id": "fact:7509d66a-0561-4327-85e0-c3ead6899970",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "inferred_type",
+    "old_value": "Signature: void HSD_PerfSetDrawTime(void). Its computed output is a floating-point elapsed-time measurement stored in HSD_PerfCurrentStat.draw_time rather than returned to the caller.",
+    "new_value": "Signature: void HSD_PerfSetDrawTime(void). Its computed output is a floating-point elapsed-time measurement stored in HSD_PerfCurrentStat.draw_time rather than returned to the caller.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L30-L34",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetDrawTime"
+    },
+    "fact_id": "fact:3e8a77ec-9a5d-4ffc-b79d-7cbf3f913a15",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "purpose",
+    "old_value": "Finalizes the current draw-phase timing sample by measuring elapsed time from the saved performance start timestamp and recording the normalized duration in the current HSD performance statistics.",
+    "new_value": "Samples elapsed OS time since the latest start_time and overwrites HSD_PerfCurrentStat.draw_time with the result normalized to a nominal 1/60-second tick budget. It does not advance the baseline or calculate an isolated phase delta.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L30-L34",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetDrawTime"
+    },
+    "fact_id": "fact:69a8fc2d-9e4c-4b29-9675-eac38123fddc",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "state_behavior",
+    "old_value": "Per invocation, performs one unconditional timing update: there are no local guards or state transitions, and the previous draw_time sample is replaced with a newly measured value relative to the shared start_time.",
+    "new_value": "Unconditionally overwrites draw_time using the most recent baseline. There is no local baseline-validity, zero-denominator, synchronization or phase-order guard. Other timing fields and start_time are unchanged.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L30-L34",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetStartTime"
+    },
+    "fact_id": "fact:aeb69747-e7a9-4711-9f17-1f214bcf96f9",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "data_flow",
+    "old_value": "Takes no explicit input, obtains the current 64-bit processor time-base snapshot from OSGetTime, and overwrites the global s64 start_time. That value is later read by HSD_PerfSetCPUTime, HSD_PerfSetDrawTime, and HSD_PerfSetTotalTime to calculate elapsed intervals.",
+    "new_value": "Takes no explicit input, obtains the current 64-bit processor time-base snapshot from OSGetTime, and overwrites the global s64 start_time. That value is later read by HSD_PerfSetCPUTime, HSD_PerfSetDrawTime, and HSD_PerfSetTotalTime to calculate elapsed intervals.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L22",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetStartTime"
+    },
+    "fact_id": "fact:630536f7-a02b-49d6-bf37-2c0948472b23",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "inferred_type",
+    "old_value": "Signature: void HSD_PerfSetStartTime(void). Its stored timestamp is an s64 time-base tick value returned by OSGetTime.",
+    "new_value": "Signature: void HSD_PerfSetStartTime(void). Its stored timestamp is an s64 time-base tick value returned by OSGetTime.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L22",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetStartTime"
+    },
+    "fact_id": "fact:81388fc9-6151-44c5-a38d-b6a387a76aa0",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "purpose",
+    "old_value": "Begins an HSD performance-measurement interval by recording the current OS time-base value as the shared baseline used by the CPU, draw, and total elapsed-time setters.",
+    "new_value": "Begins an HSD performance-measurement interval by recording the current OS time-base value as the shared baseline used by the CPU, draw, and total elapsed-time setters.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L22",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetStartTime"
+    },
+    "fact_id": "fact:40505a22-e363-4ace-a44b-c5cd837cf5ce",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "state_behavior",
+    "old_value": "Unconditionally replaces the previous measurement baseline on every call. Until it is called again, any CPU, draw, or total timing setter measures from this most recently stored baseline; the target performs no accumulation, guard, or reset of statistic fields.",
+    "new_value": "Unconditionally replaces the previous measurement baseline on every call. Until it is called again, any CPU, draw, or total timing setter measures from this most recently stored baseline; the target performs no accumulation, guard, or reset of statistic fields.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L19-L22",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime"
+    },
+    "fact_id": "fact:3cc01e00-38b2-4fc2-9c9d-205cf910e879",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "data_flow",
+    "old_value": "Reads a coherent 64-bit processor time-base snapshot through OSGetTime, subtracts the s64 start_time previously captured by HSD_PerfSetStartTime, converts the elapsed tick count to floating point, divides it by OSSecondsToTicks(1) / 60, and stores the quotient in HSD_PerfCurrentStat.total_time. HSD_PerfInitStat then copies the completed current record to HSD_PerfLastStat and clears the current record.",
+    "new_value": "Reads OSGetTime, subtracts the shared s64 start_time, and divides the elapsed ticks by (f32)(OSSecondsToTicks(1) / 60), storing the quotient in total_time. The integer denominator division occurs before the float cast; the field is overwritten rather than accumulated.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L36-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime"
+    },
+    "fact_id": "fact:d6c95d1b-1490-4f08-918b-5c8663432e23",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "game_mapping",
+    "old_value": "Realizes runtime performance profiling rather than a player-visible gameplay rule: total_time expresses the measured end-to-end frame interval as a floating-point multiple of the nominal 1/60-second frame budget.",
+    "new_value": "Records elapsed time from the latest queued-update baseline through render submission and pending screenshot work in the reviewed loop. It is a nominal-60-Hz-normalized sample, not proof of full outer-loop duration or completed asynchronous display transfer.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L36-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime"
+    },
+    "fact_id": "fact:c112fa62-38aa-4935-a443-6acb90fadd2b",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "inferred_type",
+    "old_value": "Signature: void HSD_PerfSetTotalTime(void). It takes no explicit inputs and communicates its result by overwriting the floating-point HSD_PerfCurrentStat.total_time field.",
+    "new_value": "Signature: void HSD_PerfSetTotalTime(void). It takes no explicit inputs and communicates its result by overwriting the floating-point HSD_PerfCurrentStat.total_time field.",
+    "disposition": "retain",
+    "reason": "Fresh evidence supports retained meaning.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L36-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime"
+    },
+    "fact_id": "fact:6e1cfb27-ef5a-47ae-a7e0-8a04a701fae5",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "purpose",
+    "old_value": "Finalizes the current frame's total performance-timing sample by measuring elapsed time from the shared start timestamp through the end-of-frame display and screenshot work, normalizing that interval to a nominal 60 Hz frame allotment, and recording it in HSD_PerfCurrentStat.total_time.",
+    "new_value": "Samples elapsed OS time since the latest start_time and overwrites HSD_PerfCurrentStat.total_time with the result normalized to a nominal 1/60-second tick budget. It does not advance the baseline or calculate an isolated phase delta.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L36-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime"
+    },
+    "fact_id": "fact:4e50673c-f1ce-4eff-9e17-9e9e2d77e523",
+    "version_updated_at": "2026-09-04T21:36:33.284Z",
+    "type": "state_behavior",
+    "old_value": "Each invocation performs one unconditional replacement of HSD_PerfCurrentStat.total_time; it does not accumulate with or inspect the prior value. In the frame loop this final update is immediately followed by HSD_PerfInitStat, which promotes the completed current statistics record to HSD_PerfLastStat and zeroes the current record for the next frame.",
+    "new_value": "Unconditionally overwrites total_time using the most recent baseline. There is no local baseline-validity, zero-denominator, synchronization or phase-order guard. Other timing fields and start_time are unchanged.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L36-L40",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/perf.c"
+    },
+    "fact_id": "fact:d13ee1f8-a755-4d27-a2e3-23f3c677a1ca",
+    "version_updated_at": "2026-09-06T17:02:00.587Z",
+    "type": "data_flow",
+    "old_value": "HSD_PerfSetStartTime captures OSGetTime into the module's start_time baseline. The CPU, draw, and total setters subtract that baseline from a later OSGetTime result and divide by the number of processor time-base ticks in one 1/60-second interval, storing the resulting 60 Hz frame-time quantities in HSD_PerfCurrentStat. Matrix-load operations increment nb_mtx_load, while envelope-blending operations increment one of 32 indexed counters. At frame completion, HSD_PerfInitStat copies the accumulated current record into HSD_PerfLastStat and clears the current record for the next frame.",
+    "new_value": "SetStartTime replaces the common baseline; CPU/draw/total setters write cumulative elapsed samples divided by an integer-derived nominal-60-Hz tick denominator. The main loop may replace the baseline for several queued updates before rendering. Counters accumulate until InitStat copies CurrentStat into LastStat and clears CurrentStat in a separate operation.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/perf.c"
+    },
+    "fact_id": "fact:2ea86594-0f46-4cc9-a537-7a9a0b9604a6",
+    "version_updated_at": "2026-09-06T17:02:00.587Z",
+    "type": "game_mapping",
+    "old_value": "Realizes runtime performance profiling around the main game loop rather than a player-facing mechanic. Its shared baseline and rolling statistics quantify CPU processing, rendering, total frame duration, matrix loads, and envelope blending for successive rendered frames.",
+    "new_value": "Realizes runtime performance profiling around the main game loop. Timing fields are elapsed samples from the latest queued-update baseline at CPU, draw and total sampling boundaries; work counters count matrix loads and envelope blending until record rotation. These are not isolated phase durations or guaranteed full outer-frame durations.",
+    "disposition": "supersede",
+    "reason": "Lead narrowed full-frame claim to latest queued-update baseline and sampling boundaries.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/perf.c"
+    },
+    "fact_id": "fact:7a178df1-95d5-43f0-80a2-33379df854ff",
+    "version_updated_at": "2026-09-06T17:02:00.587Z",
+    "type": "purpose",
+    "old_value": "Implements HSD's lightweight per-frame performance instrumentation. It measures elapsed CPU-processing, drawing, and total frame time; accumulates matrix-load and envelope-blending counts in the current statistics record; and preserves the completed record as the previous frame's statistics.",
+    "new_value": "Implements lightweight performance records: shared-baseline elapsed-time samples, matrix-load and envelope-work counters, and current-to-last record rotation. The main loop supplies the sampling boundaries; the TU does not enforce frame identity, isolated phase durations or synchronized access.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/perf.c"
+    },
+    "fact_id": "fact:73b304b8-e324-49a4-967c-4ffe732d47dd",
+    "version_updated_at": "2026-09-06T17:02:00.587Z",
+    "type": "state_behavior",
+    "old_value": "The subsystem maintains a two-record rolling state. During a frame, timing setters overwrite their respective fields and instrumentation counters accumulate in HSD_PerfCurrentStat. At the end of the frame, HSD_PerfInitStat atomically at source level promotes that completed record to HSD_PerfLastStat and resets every current timing and counter field to zero. The next frame establishes a new start_time before accumulating another record.",
+    "new_value": "Timing setters overwrite individual fields without advancing start_time; unsigned work counters accumulate. InitStat performs a record copy followed by zero fill, with no atomicity or synchronization mechanism. The reviewed loop resets start_time per queued update and rotates after total sampling. The signed envelope index is checked only for n < 32; nonnegative input is a caller obligation.",
+    "disposition": "supersede",
+    "reason": "Qualify sampling scope, sequential snapshot behavior, index bounds or exact conversion mechanism.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.c#L8-L46",
+        "why": "Pinned canonical target statements."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/perf.h#L6-L27",
+        "why": "Owned stats layout, API declarations and matrix-load inline."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L70-L84",
+        "why": "Timer frequency and ticks-per-second macro."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+        "why": "Coherent time-base read."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L375",
+        "why": "Baseline reset per queued update, timing boundaries and record rotation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+        "why": "Assertion line and failure dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1140-L1179",
+        "why": "Zero fast-path category and counted influence chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L247-L278",
+        "why": "Additional fighter envelope caller uses zero or influence count."
+      }
+    ]
+  }
+]

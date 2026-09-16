@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.data"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "decideFighter writes the requested facing direction and uses Fighter.kind to select an entry branch. Ness, Peach and Mr. Game & Watch receive the fighter object through specialized entry functions, without the supplied stick_angle argument. Pikachu and Pichu receive common doEnter(gobj, stick_angle) followed by Fighter_SetEffectHitlagCallbacks; all remaining kinds receive common doEnter(gobj, stick_angle) without that additional setup.",
+        "rationale": "Corrects the claim that every selected branch consumes the previously derived angle. The canonical branch arguments distinguish specialized entry from common angle selection.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L145-L168",
+            "why": "Facing assignment and complete branch-specific argument flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.sdata2"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supports grounded forward-smash execution through signed horizontal direction values and standard motion-entry constants. The general input paths derive a left/right sign from stick X, while the Dash main-stick path preserves current facing. The sign becomes fighter-relative only when multiplied by current facing to choose a forward or backward item throw; fighter and applicable item-use entries instead assign it to facing_dir. Common straight or angled AttackS4 entry uses frame 0, rate 1 and blend 0.",
+        "rationale": "Corrects the description of the direction itself as fighter-relative and preserves the Dash exception.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L64-L148",
+            "why": "Direction derivation, relative throw comparison and facing writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L193-L198",
+            "why": "Common motion-entry constants."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.sdata2"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides the translation unit's compiler-emitted floating-point literal pool used for forward-smash input direction and common motion-state initialization.",
+        "rationale": "Preserves the supported purpose while removing an unqualified read-only assertion. Restored section-evidence.json, SHA-256 b04845828f39af9b304744fe71c637f63581471cf4b1b5bc547f16071fa45d92, identifies zero, one and minus-one float words but reports different source/split object flags; final runtime protection is not established.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L64-L115",
+            "why": "Source-level direction literal use corresponding to the compiled evidence identified in the rationale."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L193-L198",
+            "why": "Motion initialization literal use; no permission inference from C."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When allow_interrupt is set, initial first-success priority is side special, up special through ftCo_Attack100_CheckInput, neutral special through ftCo_800D6824, down special through ftCo_800D68C0, then grab. If none succeeds, ftCo_800CECE8 is tested independently of allow_interrupt; that helper requires nonzero command variable 0 and an A press for the second-smash entry. If interruption is allowed and no earlier check succeeds, priority continues through forward, up and down smash; forward, up and down tilt; neutral attack; ftCo_80091A4C; ftCo_800DE9D8; jump; dash; ftCo_800D5FB0; turn; and walk. The first successful check ends processing.",
+        "rationale": "The misleading Attack100 canonical name does not describe rapid-jab behavior here: its implementation dispatches SpecialHi, and the adjacent helpers dispatch SpecialN and SpecialLw. Preserves both interrupt gates, command gating and early-return reachability.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234",
+            "why": "Exact call order, interrupt gates and early returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "Independent proof of neutral, down and up special dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L8-L47",
+            "why": "Second-smash command window and entry behavior."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

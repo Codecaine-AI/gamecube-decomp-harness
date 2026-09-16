@@ -1,0 +1,263 @@
+{
+  "tu": "main/MetroTRK/msgbuf",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.h#L13-L26",
+            "why": "Constants, declarations and size comments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L6-L6",
+            "why": "Global object definition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the declared type and useful size annotations while distinguishing comments from compiled evidence.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msgbuf:.bss"
+        },
+        "type": "inferred_type",
+        "value": "The meaningful source-level object is gTRKMsgBufs of type TRKMsgBufs, containing MessageBuffer buffers[3]. MessageBuffer declares DSMutex fMutex, bool fInUse, u32 fLength, u32 fPosition and an 0x880-byte fData array. Header comments annotate MessageBuffer as 0x88C bytes and TRKMsgBufs as 0x19A4 bytes; those annotations are not independently verified compiled layout or section extent."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L8-L88",
+            "why": "Pool transitions and API bracketing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "Mutex calls simply return success."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects effective-synchronization claims without changing the supported lifecycle.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msgbuf:.bss"
+        },
+        "type": "state_behavior",
+        "value": "Each of the three pooled entries has a free/in-use flag. Initialization marks every entry free; allocation claims the first free entry after resetting length and cursor while preserving payload bytes; release clears a valid indexed entry's flag. Explicit reset can additionally erase the payload. Lifecycle operations bracket flag access with mutex API calls, but this revision's mutex implementations are no-ops returning kNoError and do not themselves provide mutual exclusion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L27-L51",
+            "why": "All candidate and output paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "No-op synchronization APIs."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains exact candidate/output flow while correcting the claim that a mutex is actually held.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msgbuf:TRKGetFreeBuffer"
+        },
+        "type": "data_flow",
+        "value": "Each candidate index is resolved through TRKGetBuffer. Between calls to TRKAcquireMutex and TRKReleaseMutex, the allocator reads fInUse and, for the first free entry, resets its metadata, marks it used and writes its pointer and index through destBufPtr and bufferIndexPtr. Success returns kNoError; exhaustion returns kNoMessageBufferAvailable with destBufPtr NULL and bufferIndexPtr untouched. The mutex APIs are no-ops in this revision, so the bracketing does not itself synchronize these accesses."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L27-L51",
+            "why": "Scan and termination ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L80-L88",
+            "why": "Meaning of keepData=1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "No effective lock."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the unusual loop termination, payload retention and release-call ordering while removing an unsupported concurrency guarantee.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msgbuf:TRKGetFreeBuffer"
+        },
+        "type": "state_behavior",
+        "value": "Scans slots from index zero upward. The first free slot has length and position reset with keepData=1, preserving payload bytes, then becomes in use. Setting the loop counter to NUM_BUFFERS prevents another candidate iteration, but TRKReleaseMutex is still called for the selected slot before exit. Occupied slots are unchanged. Availability checks and transitions are bracketed by mutex APIs, whose no-op implementations provide no actual serialization in this revision."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L286-L312",
+            "why": "Signature, requested width and output selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L142-L164",
+            "why": "Partial consumption on short reads."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the incorrect unconditional claim that exactly four bytes are consumed.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msgbuf:TRKReadBuffer1_ui32"
+        },
+        "type": "inferred_type",
+        "value": "Synchronous scalar reader with signature DSError (MessageBuffer* buffer, u32* data). It requests four bytes through TRKReadBuffer and returns that reader's DSError unchanged. A successful read consumes four bytes; a short read consumes only the available prefix. The output is direct on the big-endian branch and is byte-reversed from temporary storage only after success on the alternate branch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L314-L344",
+            "why": "Pointer-sized temporary, pointee-sized request and eight-byte reversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L142-L164",
+            "why": "Short-read status and cursor effects."
+          }
+        ],
+        "op": "write",
+        "rationale": "Records the actual temporary-size expression and exceptional branch rather than treating intended conversion as universally safe.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msgbuf:TRKReadBuffer1_ui64"
+        },
+        "type": "state_behavior",
+        "value": "When gTRKBigEndian is set, the reader writes directly into the caller's u64, including any available prefix on a short read. Otherwise it selects swapBuffer and explicitly reverses eight bytes into the output only when err==0; the raw reader consumes the available prefix and reports kMessageBufferReadError on shortage. However, swapBuffer is declared with sizeof(data), the size of a u64 pointer, whereas the requested transfer is sizeof(*data). Wherever sizeof(u64*) is less than sizeof(u64), the alternate-endian path can overrun the temporary and its successful reversal accesses beyond it. The intended deferred-output behavior is therefore not a portable memory-safety guarantee."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L27-L78",
+            "why": "Allocation consumes the flag cleared by release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "No-op mutex implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the synchronization claim while retaining the resource-reuse role.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msgbuf:TRKReleaseBuffer"
+        },
+        "type": "purpose",
+        "value": "Makes a valid MetroTRK message-buffer slot reusable by clearing its fInUse flag, allowing a later TRKGetFreeBuffer call to claim it. The update is bracketed by mutex API calls, but their implementations are no-ops in this revision rather than effective mutual exclusion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L64-L78",
+            "why": "Complete release behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L10-L18",
+            "why": "Acquire and release are no-ops."
+          }
+        ],
+        "op": "write",
+        "rationale": "Keeps all guards and metadata-preservation behavior while accurately describing synchronization.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msgbuf:TRKReleaseBuffer"
+        },
+        "type": "state_behavior",
+        "value": "The -1 sentinel returns immediately, and every other index outside 0\u20132 is ignored. A valid index clears the selected slot's fInUse flag regardless of its previous state, without resetting length, position or payload. TRKAcquireMutex and TRKReleaseMutex bracket the flag update, but both simply return success in this revision and provide no actual locking."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L8-L78",
+            "why": "Setter and lifecycle callers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "No-op mutex APIs."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that lifecycle callers supply effective synchronization.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/msgbuf:TRKSetBufferUsed"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally replaces one MessageBuffer's fInUse flag with the supplied Boolean state: false denotes free and true denotes claimed. Initialization, allocation and release bracket their calls with mutex APIs. Those APIs are no-ops in this revision, so neither this setter nor the bracketing calls establish mutual exclusion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L6-L368",
+            "why": "Pool, raw transfers and typed helpers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "No-op synchronization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the subsystem role while correcting the effective-synchronization assertion.",
+        "subject": {
+          "entity_locator": "src/MetroTRK/msgbuf.c"
+        },
+        "type": "purpose",
+        "value": "Implements MetroTRK's fixed message-buffer pool, allocation and release, cursor and length management, bounded byte transfers and endian-aware integer serialization. Pool lifecycle operations call mutex APIs, but this revision's implementations are no-ops; the unit does not thereby provide synchronized allocation or release."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L8-L164",
+            "why": "Lifecycle, metadata and raw transfer effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.h#L59-L69",
+            "why": "Independent byte-append length increment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "Mutex APIs do not lock."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects mutex protection and adds the useful distinction between ownership, metadata and the two append paths.",
+        "subject": {
+          "entity_locator": "src/MetroTRK/msgbuf.c"
+        },
+        "type": "state_behavior",
+        "value": "Initialization marks every pooled slot free. Allocation selects the first free slot, resets length and cursor while retaining payload bytes, marks it used and returns its index and pointer; exhaustion returns a NULL pointer without writing the index. Release clears occupancy for a valid index. Reset independently clears length and position and optionally erases payload. Occupancy operations are bracketed by mutex APIs, but the current implementations do not lock. Generic append replaces length with the resulting cursor, whereas inline byte append increments length independently; raw reads advance the cursor by the available prefix even on a short-read error."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

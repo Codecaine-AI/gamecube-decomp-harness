@@ -23,7 +23,9 @@ from typing import Dict, Iterator, List, Optional, Tuple
 
 SCRIPT = Path(__file__).resolve().with_name("ninja_compile.py")
 REPO_ROOT = SCRIPT.parents[5]
-DEFAULT_MELEE_ROOT = REPO_ROOT / "projects/melee/checkout"
+DEFAULT_MELEE_ROOT = Path(os.environ.get("ORCH_GAME_REPO_ROOT", str(REPO_ROOT / "games/melee/workspace/checkout")))
+if not DEFAULT_MELEE_ROOT.exists() and (REPO_ROOT / "games/melee/checkout").exists():
+    DEFAULT_MELEE_ROOT = REPO_ROOT / "games/melee/checkout"
 UNITS = (
     "melee/ft/chara/ftPopo/ftPp_SpecialLw",
     "melee/lb/lbtime",
@@ -601,7 +603,7 @@ def main() -> int:
         if test_module.find_unit_for_function(symbol) != expected_unit:
             fail("cached report symbol index returned the wrong unit")
         metadata_paths = [
-            mirror / "build/.ninja_compile_cache/build-edge-index-v1.json",
+            mirror / "build/.ninja_compile_cache" / test_module.BUILD_INDEX_CACHE_NAME,
             mirror / "build/.ninja_compile_cache/report-symbol-index-v1.json",
         ]
         require_paths(metadata_paths)

@@ -1,0 +1,153 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_SquatWait",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L38-L48",
+            "why": "Complete predicate contains indexed input read, threshold negation, dispatch and both returns."
+          }
+        ],
+        "op": "write",
+        "rationale": "Updates the stale unindexed field spelling and preserves exact data flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SquatWait:ftCo_SquatWait_CheckInput"
+        },
+        "type": "data_flow",
+        "value": "Derives Fighter from gobj, reads fp->input.lstick[0].y and p_ftCommonData->x90, and compares the former with the negation of the latter. If the strict comparison succeeds, forwards the same gobj to fn_800D62C4 and returns true after that entry routine returns; otherwise returns false without dispatch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L38-L81",
+            "why": "Strict comparison controls the normal entry wrapper and all failure cases return false."
+          }
+        ],
+        "op": "write",
+        "rationale": "States the precise indexed boundary and exceptional-float behavior without assuming valid controller/configuration ranges.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SquatWait:ftCo_SquatWait_CheckInput"
+        },
+        "type": "state_behavior",
+        "value": "Enters SquatWait through the Ft_MF_None/true wrapper only when fp->input.lstick[0].y < -p_ftCommonData->x90. Equality and greater values fail; under ordinary IEEE comparisons NaN in either operand also fails. This is a level test with no edge, duration, finite-value, sign-of-threshold or ground-state validation. The false path makes no state-entry call."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L94-L111",
+            "why": "Exact ordered calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L67-L101",
+            "why": "Actual SpecialLw and SpecialHi dispatch bodies and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L164-L169",
+            "why": "Single evaluation followed by immediate void return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the canonical-name trap using actual table dispatch and verified RETURN_IF expansion.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SquatWait:ftCo_SquatWait_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Tries ftCo_800D68C0, ftCo_Attack100_CheckInput, ftCo_AttackS4_CheckInput, ftCo_AttackHi4_CheckInput, ftCo_AttackLw4_CheckInput, ftCo_AttackS3_CheckInput, ftCo_AttackHi3_CheckInput, ftCo_AttackLw3_CheckInput, ftCo_Attack1_CheckInput, ftCo_80091A4C, ftCo_800DE9D8, ftCo_Jump_CheckInput, ftCo_80099F9C, ftCo_Dash_CheckInput, and ftCo_SquatRv_CheckInput in exactly that order. Each receives the same gobj; the first true result returns immediately and suppresses later calls. The first two helpers dispatch non-NULL ftData_SpecialLw and ftData_SpecialHi entries when x687 and x686 respectively equal zero. Despite its name, the second is not the rapid-jab predicate. If all fail, this callback adds no transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L574-L584",
+            "why": "Active SquatWait IASA registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L94-L111",
+            "why": "Competing action sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L67-L101",
+            "why": "Special dispatch is proved by actual called tables, not aliases."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces erroneous rapid-jab mapping with active callback-table and callee-table evidence, while preserving unresolved helper meanings.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SquatWait:ftCo_SquatWait_IASA"
+        },
+        "type": "game_mapping",
+        "value": "Implements action selection while sustained crouch is active. Its first two candidates dispatch the fighter-kind SpecialLw and SpecialHi tables, followed by the canonical smash, tilt, Attack1, common address-named, jump, dash and SquatRv checks in fixed priority. The ftCo_Attack100_CheckInput call must not be labeled rapid jab: its actual consumer is ftData_SpecialHi. Exact gameplay meanings of the remaining address-named checks are not established here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L88-L92",
+            "why": "Unconditional forwarding to common helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L19-L105",
+            "why": "All completion, setter, sentinel, weighted selection and retry branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves normal behavior while adding sentinel, optional animation and nontermination boundaries omitted by baseline.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SquatWait:ftCo_SquatWait_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Delegates to ftCo_8008A7A8 with ft_data->x28. While frames remain the helper does nothing. On completion, a NULL table or a held item on a fighter other than Mewtwo/Fox requests current-animation restart; the setter is a no-op for ID -1. Otherwise a 1..100 random draw selects the first cumulative-weight bucket covering it, with assertion on sentinel exhaustion. Selection retries an immediate repeat unless current anim_id is 2 or 31, so invalid single-choice data can loop indefinitely. Selected IDs other than -1 install animation metadata, blend and script state; the animation-start call requires x590 != NULL. No local bounds or table-validity checks prove that all runtime data terminates safely."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L38-L122",
+            "why": "Complete owned data flow and absence of allocation/ownership operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1155-L1157",
+            "why": "SkipNametagVis controls x209A reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1235-L1238",
+            "why": "Optional helper writes x209A."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3077-L3080",
+            "why": "Physics follow-up clears shield-hit position-skip flag."
+          }
+        ],
+        "op": "write",
+        "rationale": "Refines the retained TU data-flow overview with verified initialization and physics follow-up effects rather than inferred aliases.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c"
+        },
+        "type": "data_flow",
+        "value": "Entry reads indexed left-stick Y, the negated x90 threshold, optional held-item motion metadata, fighter kind and, only on the input-entry variant, x5F0. Both variants select SquatWait with animation operands 0.0F/1.0F/0.0F. Ft_MF_None permits Fighter_ChangeMotionState to clear x209A, then ftCommon_8007EFC0 writes x5F0 to it; Ft_MF_SkipNametagVis avoids that clear and the false selector omits the write. Animation forwards ft_data->x28, IASA forwards gobj through ordered predicates, physics applies friction/movement then clears shield_hit.skip_update_pos, and collision forwards gobj through position synchronization and a conditional Fall call. Objects and metadata are borrowed; this TU performs no allocation or ownership transfer."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

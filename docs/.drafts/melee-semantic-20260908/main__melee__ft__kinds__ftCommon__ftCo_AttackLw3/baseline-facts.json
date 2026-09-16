@@ -1,0 +1,1042 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:889116e9-13b2-41c4-a259-ae5a0984f020",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "doEnter reads the pool's 0.0f value for the initial animation frame and blend/default parameter and its 1.0f value for normal animation speed, then forwards those values to Fighter_ChangeMotionState while entering ftCo_MS_AttackLw3.",
+        "rationale": "The relocated entry routine still supplies zero frame and blend values and unit animation speed to the AttackLw3 motion-state transition, preserving the literal pool's established consumption.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L67-L96",
+            "why": "doEnter calls Fighter_ChangeMotionState for ftCo_MS_AttackLw3 with frame 0, animation rate 1, and blend 0."
+          }
+        ]
+      },
+      {
+        "id": "fact:77958d3f-f799-4dd6-9e8a-f6c9c67b396f",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An 8-byte read-only small-data literal pool containing two single-precision floating-point values: 0.0f and 1.0f.",
+        "rationale": "The target is an 8-byte .sdata2 section, sufficient for two 32-bit values. At head, the unit's motion-state initialization still requires zero-valued frame and blend arguments together with a unit animation rate, corroborating the existing two-float layout.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L67-L96",
+            "why": "The current down-tilt entry passes 0, 1, and 0 in the floating-point initialization positions of Fighter_ChangeMotionState."
+          }
+        ]
+      },
+      {
+        "id": "fact:d5981085-8ac6-4c8b-9f88-c77549bd4899",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the read-only floating-point literals used when the common down-tilt entry routine initializes the AttackLw3 motion state; it is a compiler-emitted literal pool rather than a standalone gameplay table.",
+        "rationale": "The relocated source still contains no named constant object or gameplay table, while its entry routine uses zero and one as the floating-point parameters of the AttackLw3 motion-state call.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L67-L96",
+            "why": "The current source initializes the AttackLw3 motion state with inline zero and one values and declares no named constant table."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:callUnk"
+    },
+    "facts": [
+      {
+        "id": "fact:c8e82ce8-80d0-414f-8b5c-0705f787a629",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:callUnk",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the down-tilt fighter game object and forwards it unchanged to two helpers. The first reads the fighter's current x2068_attackID and writes a newly allocated global stale-attack sequence value to x206C_attack_instance. The second clears and repopulates the x2074 attack record from current fighter conditions, writes a newly allocated plAttack sequence value to x2074.x2088, and passes the game object to pltrick processing with argument 0.",
+        "rationale": "The relocated wrapper still forwards one object to ft_800892A0 and then ft_80089824. The current helper definitions show stale-instance allocation for x206C_attack_instance, attack-record initialization, assignment of a fresh plAttack sequence to x2074.x2088, and the downstream trick-processing call.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L60-L112",
+            "why": "callUnk forwards the same fighter game object to ft_800892A0 and ft_80089824 in that order, and doEnter installs it in x21EC."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L250-L349",
+            "why": "inlineB0 writes the move ID and a value returned by plStale_IncrementAttackInstance to x206C_attack_instance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L384-L394",
+            "why": "ft_800892A0 obtains the Fighter and processes its current x2068_attackID through the stale-instance helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ft_0892.c#L174-L218",
+            "why": "ft_80089824 resets the attack record, assigns a new plAttack sequence to x2074.x2088, and invokes pl_80037C60 with argument 0."
+          }
+        ]
+      },
+      {
+        "id": "fact:b2d965d9-cf33-49b6-b58e-7a6101fda102",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:callUnk",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Marks a new down-tilt attack occurrence for Melee's move-staling system, allowing later hit processing to distinguish this occurrence from repeated contacts by the same occurrence, while also beginning a fresh per-attack statistics/trick record.",
+        "rationale": "The callback obtains a new stale attack-instance identifier and starts a new attack/trick record. The stale-table update logic compares both move ID and attack-instance ID before inserting a connected move, so the identifier distinguishes separate executions from repeated contacts belonging to one execution.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L60-L112",
+            "why": "The common down-tilt entry installs callUnk as its x21EC hook, and the callback invokes both occurrence-bookkeeping helpers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L250-L349",
+            "why": "The stale bookkeeping helper allocates a fresh attack-instance value for the current move ID."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ft_0892.c#L174-L218",
+            "why": "The second helper initializes a fresh per-attack sequence and invokes trick processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/pl/plstale.c#L1-L97",
+            "why": "Connected-move processing suppresses duplicate move-ID and attack-instance pairs before appending a stale-move entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:60a8fe2b-4a4b-49f0-8471-af31e6558cc6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:callUnk",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter callback with signature void(Fighter_GObj*), stored in the Fighter x21EC callback slot and operating on the Fighter associated with the supplied game object.",
+        "rationale": "At head, the definition takes one fighter game-object pointer and returns void, while doEnter assigns it to x21EC. Both delegated helpers derive or operate on the Fighter associated with that object.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L60-L112",
+            "why": "The relocated definition has a void single-game-object signature and doEnter stores the function in fp->x21EC."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L384-L394",
+            "why": "The first delegated helper obtains the Fighter from the supplied game object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ft_0892.c#L174-L218",
+            "why": "The second delegated helper has signature void(Fighter_GObj*) and obtains its Fighter with GET_FIGHTER."
+          }
+        ]
+      },
+      {
+        "id": "fact:92750b69-f1ec-4c3d-bc2b-ced5e9200986",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:callUnk",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs the ordinary down tilt's attack-occurrence bookkeeping when invoked through the fighter's x21EC hook: it assigns a fresh stale-move attack-instance identifier, then resets and advances the fighter's per-attack player-statistics and trick-tracking state.",
+        "rationale": "The relocated down-tilt entry still installs this callback immediately before entering AttackLw3. Its ordered callees allocate the stale occurrence identifier and initialize a fresh attack/trick record.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L60-L112",
+            "why": "doEnter installs callUnk in x21EC before changing to ftCo_MS_AttackLw3, and callUnk invokes the two helpers in fixed order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L250-L349",
+            "why": "The first operation obtains a fresh plStale attack-instance value for the fighter's current move ID."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ft_0892.c#L174-L218",
+            "why": "The second operation initializes the attack record, stores a new plAttack sequence, and invokes trick processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:1a2738a6-0ccb-478a-b97c-e21994fa091f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:callUnk",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The common AttackLw3 entry installs this routine into x21EC before changing motion state. Whenever that hook is invoked, the routine runs both bookkeeping operations unconditionally and in order\u2014stale-move instance allocation first, attack/trick record initialization second\u2014with no local guard or transition of its own.",
+        "rationale": "The relocated callback body contains only the two unconditional calls, and its installation still occurs before the AttackLw3 transition. Donkey Kong's repeating down-special continues to use the same pair through x21EC, corroborating their role as attack-occurrence bookkeeping.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L60-L112",
+            "why": "The callback has no guard and invokes ft_800892A0 followed by ft_80089824; doEnter installs it in x21EC before the motion-state change."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftDonkey/ftdonkeyspeciallw.c#L76-L116",
+            "why": "An analogous repeating-attack callback is stored in x21EC and invokes the same two bookkeeping helpers."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:decideFighter"
+    },
+    "facts": [
+      {
+        "id": "fact:1a8a5a0e-f20c-4b2d-a015-b09f9aba05de",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:decideFighter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter game object from accepted down-tilt input or down-tilt repetition logic, derives its Fighter record solely to read the FighterKind discriminator, and forwards the original object unchanged to either ftGw_AttackLw3_Enter or the common doEnter routine. It performs no direct Fighter writes and produces no return value.",
+        "rationale": "The source at the current revision confirms that both initial down-tilt recognition and repeat handling can reach decideFighter. Its body only reads the fighter-kind discriminator and forwards the same object to one mutually exclusive entry routine, so the existing data-flow claim remains valid after drift.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:42:25.045Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L36-L126",
+            "why": "Shows the initial-input and repetition call sites for decideFighter, together with its fighter-kind read and unchanged forwarding of gobj to either ftGw_AttackLw3_Enter or doEnter."
+          }
+        ]
+      },
+      {
+        "id": "fact:911022ee-a169-486d-8b92-07d9c8968df9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:decideFighter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps the common down-tilt command to Mr. Game & Watch's bespoke Manhole action-entry path while retaining the generic grounded down-tilt path for the rest of the roster.",
+        "rationale": "The common AttackLw3 input routine calls this dispatcher, which singles out FTKIND_GAMEWATCH for ftGw_AttackLw3_Enter. That character-specific entry installs a manhole setup callback, and SmashWiki identifies his down tilt as Manhole.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:53:58.801Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L77",
+            "why": "The common down-tilt path dispatches Mr. Game & Watch to a dedicated entry function and all other fighter kinds to the generic entry function."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftGameWatch/ftgamewatchattacklw3.c#L140-L151",
+            "why": "The dedicated Mr. Game & Watch entry routine enters his AttackLw3 state and installs the manhole accessory setup callback."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://mr-game-watch-ssbm-down-tilt~overview@r1997058",
+            "why": "The gameplay article describes Mr. Game & Watch's down tilt as flipping a manhole cover in front of himself."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://mr-game-watch-ssbm-hitboxes~hitboxes@r2023119",
+            "why": "The character hitbox listing names Mr. Game & Watch's down tilt Manhole."
+          }
+        ]
+      },
+      {
+        "id": "fact:2b4dbc9e-5dfb-4229-9bed-19212793b496",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:decideFighter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void fighter action-entry dispatcher with signature void(HSD_GObj* gobj); it selects and invokes exactly one down-tilt entry routine rather than returning a predicate result.",
+        "rationale": "The matched definition supplies the void return type and object-pointer parameter. Both switch arms forward that object to an entry routine and then return without a value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:53:58.801Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L77",
+            "why": "The definition gives the exact signature and shows value-less returns after the two possible entry calls."
+          }
+        ]
+      },
+      {
+        "id": "fact:dd6008f3-4141-4e85-9874-0e9a6bfdc00c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:decideFighter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Selects the fighter-specific down-tilt entry path: Mr. Game & Watch enters his dedicated AttackLw3 implementation, while every other fighter proceeds through the common down-tilt entry routine.",
+        "rationale": "The function is invoked after the common input path accepts a down-tilt command. Its only decision reads Fighter.kind, routes FTKIND_GAMEWATCH to ftGw_AttackLw3_Enter, and routes the default case to doEnter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:53:58.801Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L77",
+            "why": "The source shows both the accepted down-tilt input call site and the complete fighter-kind dispatcher."
+          }
+        ]
+      },
+      {
+        "id": "fact:71e5b7e9-70d9-42d3-8131-4bdbd47ce71e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:decideFighter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When Fighter.kind is FTKIND_GAMEWATCH, immediately delegates the transition to ftGw_AttackLw3_Enter; for every other fighter kind, immediately delegates to the common doEnter routine. The branches are mutually exclusive, and this dispatcher contains no additional guard, timer, state write, or fallback behavior.",
+        "rationale": "The complete switch has one explicit character case and a default case, with each branch invoking one entry routine and returning immediately.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:53:58.801Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L77",
+            "why": "The complete body directly establishes the two mutually exclusive dispatch branches and immediate returns."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:doEnter"
+    },
+    "facts": [
+      {
+        "id": "fact:172f99c9-f11a-4fe0-8cd0-7114bd3a1709",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:doEnter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj, derives its Fighter record, and passes the object to the item-pickup predicate. If pickup does not consume the request, it writes false to cmd_vars[cmd_unk0_bool] and allow_interrupt, zeroes mv.co.attacklw3.x0, stores callUnk in the x21EC callback slot, passes the object and ftCo_MS_AttackLw3 parameters to Fighter_ChangeMotionState, and finally forwards the object to ftAnim_8006EBA4.",
+        "rationale": "Every read, write, callback assignment, and downstream call appears explicitly in the matched body. The pickup result controls whether any of the fighter-state writes and action-entry calls occur.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:53:33.171Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L79-L91",
+            "why": "The function body provides the complete flow from gobj through the pickup guard, Fighter field initialization, callback installation, motion-state change, and animation helper."
+          }
+        ]
+      },
+      {
+        "id": "fact:5e76a235-24e5-40c6-93bc-cf98794a4d0e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:doEnter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the start of a grounded down tilt while preserving Melee's item-interaction precedence: an accepted item pickup replaces the attack, whereas an unconsumed request enters the fighter's ordinary AttackLw3 action.",
+        "rationale": "The pickup routine is tested before any attack setup, and its success suppresses the entire down-tilt branch. The alternative branch explicitly enters ftCo_MS_AttackLw3, grounding the resulting action as the common fighter down tilt.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-01T23:53:33.171Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L79-L91",
+            "why": "The code gives the item-pickup handler priority and enters ftCo_MS_AttackLw3 only when that handler returns false."
+          }
+        ]
+      },
+      {
+        "id": "fact:36f68ed4-6dd0-4056-a230-e9a280e3a3e0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:doEnter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Static fighter action-entry helper with signature void(Fighter_GObj* gobj); the object identifies the fighter whose state is conditionally changed to AttackLw3.",
+        "rationale": "The definition explicitly supplies static linkage, a void return type, and a Fighter_GObj pointer parameter, while GET_FIGHTER derives the Fighter record modified by the routine.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:53:33.171Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L79-L91",
+            "why": "The source declares static void doEnter(Fighter_GObj* gobj), obtains its Fighter, and uses the same object for pickup handling and motion-state entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:d4fc6792-1e6a-4453-8bc3-d09f83b6b7b4",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:doEnter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles entry into the common fighter's down-tilt action: it first gives the item-pickup handler an opportunity to consume the request, and otherwise initializes down-tilt-local state, changes to AttackLw3, and performs the associated animation setup.",
+        "rationale": "The matched body calls the pickup-item handler before making any down-tilt changes. Only when that call returns false does it reset fighter and move-local fields, install a callback, enter ftCo_MS_AttackLw3, and call the animation helper.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:53:33.171Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L79-L91",
+            "why": "The complete function directly shows the item-pickup guard followed by all initialization and action-state-entry operations for AttackLw3."
+          }
+        ]
+      },
+      {
+        "id": "fact:1ff05b47-6a73-4e96-a065-e0fd17087541",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:doEnter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The item-pickup result is an exclusive entry guard: when it succeeds, this routine performs no down-tilt initialization or state change. Otherwise it begins AttackLw3 from frame 0 at rate 1 with Ft_MF_SkipAttackCount, initially disables interruption, clears its command and move-local state, installs callUnk as the x21EC callback, and invokes the post-change animation helper.",
+        "rationale": "All down-tilt writes and calls are enclosed by the negated pickup condition. The explicit field assignments and Fighter_ChangeMotionState arguments establish the initial state, animation frame and rate, and motion-state flag for the non-pickup branch.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:53:33.171Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L79-L91",
+            "why": "The source directly shows the mutually exclusive pickup-versus-AttackLw3 branches and the exact initialization performed before entering the action."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Anim"
+    },
+    "facts": [
+      {
+        "id": "fact:0475dd5e-2797-43cb-8838-bf162689e85b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter object, derives its Fighter record, and reads cmd_vars[cmd_unk0_bool] together with mv.co.attacklw3.x0. When both are true it forwards the same object through wrapper to fighter-kind-specific down-tilt entry; otherwise it queries remaining animation frames and, once none remain, forwards the object to the SquatWait entry routine.",
+        "rationale": "The relocated target directly exposes the two Fighter reads and outgoing object flow. The neighboring wrapper resolves the repeat destination to decideFighter, and the relocated SquatWait source confirms that ftCo_800D638C enters SquatWait.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L60-L112",
+            "why": "The source shows wrapper delegating to decideFighter and the animation callback reading both repeat fields before forwarding gobj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L49-L90",
+            "why": "ftCo_800D638C forwards the fighter object into the inline routine that changes motion state to ftCo_MS_SquatWait."
+          }
+        ]
+      },
+      {
+        "id": "fact:5a8eff66-2afa-4176-bf00-7bf20bf07319",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the animation-timed repetition and completion behavior of a grounded down tilt: a buffered repeat can begin when the move's command gate opens, while an unrepeated attack settles into the fighter's crouching idle state at animation end.",
+        "rationale": "The current AttackLw3 callback sends the guarded repeat path back through down-tilt entry and sends the exhausted-animation path to the routine that enters SquatWait.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L60-L112",
+            "why": "The current down-tilt source identifies the repeat flags, repeat dispatch, and animation-completion branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L49-L90",
+            "why": "The completion helper changes the fighter to the crouching SquatWait motion state."
+          }
+        ]
+      },
+      {
+        "id": "fact:d3694c5a-3b90-4a0b-b718-dfa0977b672a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state animation callback with signature void(HSD_GObj* gobj); gobj identifies the fighter whose animation, command variables, move-state latch, and next action state are examined or changed.",
+        "rationale": "The matched definition establishes the return and parameter types, immediately derives a Fighter pointer from gobj, and passes that same object to action-entry and animation-completion helpers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:54:48.235Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L99-L109",
+            "why": "The definition is void ftCo_AttackLw3_Anim(HSD_GObj* gobj), derives Fighter* with GET_FIGHTER, and uses gobj for both outgoing state transitions."
+          }
+        ]
+      },
+      {
+        "id": "fact:d6ce01ad-aae1-4266-9d60-a725565fa302",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Runs the down-tilt animation-phase state check: it starts another down tilt when both the animation command gate and the buffered-repeat latch are set, otherwise it returns the fighter to crouch after the current animation finishes.",
+        "rationale": "The callback first tests the command variable and repeat latch and dispatches another down tilt when both are set. If that path is not taken, animation exhaustion invokes the relocated SquatWait entry helper.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L99-L109",
+            "why": "The complete callback shows the guarded repeat and animation-completion outcomes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L49-L90",
+            "why": "The animation-end callee ftCo_800D638C enters ftCo_MS_SquatWait through the shared SquatWait entry routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:65260770-0ac5-4544-8ca6-47a125ebe6df",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The repeat transition has priority over normal animation completion. If both the animation-script command flag and the buffered down-tilt latch are true, the callback immediately re-enters down tilt and returns without testing the current animation's remaining frames. If that guard is false, the action continues while frames remain and changes to SquatWait only after the animation is exhausted.",
+        "rationale": "At the current revision, the callback still tests the two repeat conditions first and returns immediately after dispatching another down tilt. Only when that guard fails does it test remaining animation frames and invoke the helper that enters SquatWait, so the existing state-behavior claim remains valid after drift.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:42:25.045Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L99-L136",
+            "why": "Shows the repeat guard, its early return and priority over the animation-frame test, the A-button-driven repeat latch, and the animation-exhaustion call to ftCo_800D638C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L49-L90",
+            "why": "Shows that ftCo_800D638C invokes the shared entry routine which changes the fighter's motion state to ftCo_MS_SquatWait."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_CheckInput"
+    },
+    "facts": [
+      {
+        "id": "fact:d86f5d0b-0598-4a7f-8bec-7da81b8033d8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_CheckInput",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the Fighter obtained from the supplied Fighter_GObj, including the A-button input bit, left-stick Y component, computed left-stick angle, and held-item pointer. It compares the directional inputs with p_ftCommonData's downward magnitude and angular thresholds, queries item eligibility when an item is held, then passes the fighter object to either the LightThrowLw entry routine or the local fighter-specific AttackLw3 dispatcher and returns whether dispatch occurred.",
+        "rationale": "Every input, threshold read, helper result, dispatch argument, and boolean output is explicit in the matched function body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:54:12.597Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L58",
+            "why": "The source traces fighter input and item data through the common thresholds and helper predicates to the selected action call and return value."
+          }
+        ]
+      },
+      {
+        "id": "fact:c43b2f53-91ca-4cda-8e67-72264771458c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_CheckInput",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the grounded A-button plus downward-left-stick input for a down tilt, with Melee's held-item override that converts the same accepted command into a downward light-item throw when the held item is eligible.",
+        "rationale": "The AttackLw3 identity and downward stick tests ground the ordinary branch as down tilt, while the held-item branch explicitly supplies ftCo_MS_LightThrowLw to the item-throw entry routine.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:54:12.597Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L58",
+            "why": "The code combines A and downward stick conditions with AttackLw3 dispatch and explicitly redirects an eligible held item to LightThrowLw."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-850--main-melee-ft-chara-ftcommon-ftco-attacklw3",
+            "why": "The matched pull request identifies the containing implementation as ftCo_AttackLw3."
+          }
+        ]
+      },
+      {
+        "id": "fact:083b8e68-a14e-4a65-a5e0-ad439042fc04",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_CheckInput",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A state-changing input predicate with signature bool (Fighter_GObj*): true means the qualifying command was accepted and an action-entry path was invoked, while false means no down-tilt transition was selected.",
+        "rationale": "The declaration supplies the concrete parameter and return types. Both accepted branches invoke an action dispatcher immediately before returning true, whereas failure of any input guard reaches the sole false return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:54:12.597Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L58",
+            "why": "The source proves the bool/Fighter_GObj* signature and associates true only with branches that dispatch an action."
+          }
+        ]
+      },
+      {
+        "id": "fact:df826e07-2035-4f6c-9929-05d9b8011679",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_CheckInput",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Recognizes and consumes a grounded down-tilt command, starting a downward light-item throw when the fighter holds an eligible item and otherwise dispatching the fighter to the appropriate common or character-specific AttackLw3 action.",
+        "rationale": "The complete matched body requires A plus sufficiently downward left-stick magnitude and angle. Once accepted, it selects LightThrowLw for an eligible held item or calls the fighter-dispatch helper, returning true in either consumed-input case.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:54:12.597Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L58",
+            "why": "The function directly shows the directional input guards, held-item override, normal AttackLw3 dispatch, and success or failure result."
+          }
+        ]
+      },
+      {
+        "id": "fact:62a36607-0cf5-4866-9527-e4c7f45b49d0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_CheckInput",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The transition is accepted only when A is present in input.x668, left-stick Y is at or below p_ftCommonData->xB0, and the computed stick angle is below the negated p_ftCommonData->x20_radians boundary. If an item is held and ftCo_80094E54 accepts it, the routine enters ftCo_MS_LightThrowLw; otherwise it invokes decideFighter for the normal AttackLw3 dispatch. Either accepted branch returns true, while rejection leaves the current action unchanged and returns false.",
+        "rationale": "This is the exact nested guard, dispatch, and return structure in the complete matched body; no action-entry call occurs on the false path.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:54:12.597Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L58",
+            "why": "The function explicitly defines all three input guards, the held-item branch, fallback dispatcher, and boolean outcomes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Coll"
+    },
+    "facts": [
+      {
+        "id": "fact:6ab737b9-d80f-47b8-a306-fd118ecd19ba",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the active fighter's Fighter_GObj pointer from the action-state callback dispatcher and forwards that same pointer unchanged to ft_80084104; it performs no local field reads, writes, or result handling.",
+        "rationale": "The complete four-line definition contains only the direct call ft_80084104(gobj), with no local variables, transformations, return value, or additional side effects.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:53:59.590Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L169-L172",
+            "why": "This complete body shows the input pointer being passed unchanged to the shared routine and no other local data operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:34acb710-af20-45c3-8e3f-67e75c06e510",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides environmental collision processing while a fighter is performing the common grounded down-tilt action.",
+        "rationale": "The containing matched unit and function symbol identify the action as AttackLw3, while the Coll callback body delegates that action's collision processing to the shared fighter routine.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-01T23:53:59.590Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L169-L172",
+            "why": "The resolved ftCo_AttackLw3_Coll definition shows the down-tilt action's collision callback invoking a shared collision routine."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-850--main-melee-ft-chara-ftcommon-ftco-attacklw3",
+            "why": "This pull request identifies the containing common-fighter action implementation as ftCo_AttackLw3."
+          }
+        ]
+      },
+      {
+        "id": "fact:a510ec47-3112-4f60-959f-21c499c319e8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Collision callback with signature void(Fighter_GObj* gobj).",
+        "rationale": "The resolved definition explicitly returns void, accepts one Fighter_GObj pointer, and its Coll suffix identifies its action-state callback role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:53:59.590Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L169-L172",
+            "why": "This definition directly establishes the function's void return type and single Fighter_GObj* parameter."
+          }
+        ]
+      },
+      {
+        "id": "fact:c0c2779d-b381-4d47-9138-a659dff09c47",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the down-tilt action state's collision callback, handing the fighter object to the shared fighter collision routine rather than implementing action-specific collision logic locally.",
+        "rationale": "The complete function body consists solely of a call to ft_80084104 with its Fighter_GObj argument, and the matched translation unit is explicitly the common down-tilt implementation.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-01T23:53:59.590Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L169-L172",
+            "why": "This complete source body shows ftCo_AttackLw3_Coll forwarding its fighter object directly to ft_80084104."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-850--main-melee-ft-chara-ftcommon-ftco-attacklw3",
+            "why": "This pull request identifies the containing translation unit as the matched ftCo_AttackLw3 implementation."
+          }
+        ]
+      },
+      {
+        "id": "fact:fe72ad74-98ef-4839-b059-9d11b146a03f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Introduces no down-tilt-specific guard, timer, branch, or transition; all collision-dependent state handling for this callback is delegated to ft_80084104.",
+        "rationale": "Because the complete function is an unconditional one-call wrapper, it cannot independently select a state transition or apply an action-specific collision condition.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-01T23:53:59.590Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L169-L172",
+            "why": "This complete source body contains one unconditional delegation and no local control flow or state mutation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_IASA"
+    },
+    "facts": [
+      {
+        "id": "fact:1d35dcde-f6e8-4819-98ee-731c8526c3d7",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter's HSD_GObj, derives its Fighter record, reads Fighter.allow_interrupt, and passes the same object to each input-transition predicate. A true predicate terminates the chain immediately, leaving that predicate's selected action as the consumed result; the callback itself returns no value.",
+        "rationale": "GET_FIGHTER supplies the state read by both guards, every transition checker consumes gobj, and RETURN_IF makes a successful checker the terminal consumer for that invocation.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-01T23:12:10.609Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L141-L162",
+            "why": "The source explicitly derives fp from gobj, reads fp->allow_interrupt, forwards gobj to every checker, and returns upon the first true result."
+          }
+        ]
+      },
+      {
+        "id": "fact:b7d01b7c-f2a4-4e26-83ba-b22b006dd54b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes Melee's interruptibility for a grounded down tilt: once the move's script has enabled allow_interrupt, the player may cancel its remaining animation into prioritized attacks, item throwing, jumping, or grounded movement, while a specialized A-button path is polled independently of the general interrupt flag.",
+        "rationale": "The code gates the ordinary cancellation choices on allow_interrupt. SmashWiki defines IASA/interruptibility as the point at which a new action can cancel the remaining animation, notes that Melee enables it through animation scripts, and specifically identifies grounded moves such as down tilts as commonly interruptible into attacks, jumps, and dashes.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-01T23:12:10.609Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L141-L162",
+            "why": "The down-tilt IASA callback gates attack and movement transition checks on Fighter.allow_interrupt and separately invokes checkPadA."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://interruptibility~overview@r1927829",
+            "why": "The article defines IASA as canceling an unfinished animation into a new action, explains that Melee's animation scripts enable interruptibility, and names down tilts as grounded moves that can commonly be interrupted into attacks, jumps, and dashes."
+          }
+        ]
+      },
+      {
+        "id": "fact:5917226e-c5a9-4916-a5cc-9d334d95f1e0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state IASA callback with signature void(HSD_GObj* gobj); gobj identifies the fighter whose input and interruptibility state are evaluated.",
+        "rationale": "The resolved definition directly establishes the void return type and HSD_GObj pointer parameter, while GET_FIGHTER shows that the object is expected to contain a Fighter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:12:10.609Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L141-L162",
+            "why": "The definition is void ftCo_AttackLw3_IASA(HSD_GObj* gobj) and obtains a Fighter pointer from gobj."
+          }
+        ]
+      },
+      {
+        "id": "fact:94a7874b-2fb1-4e43-b73d-9abf520b6862",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Arbitrates player-requested transitions while the fighter is in the down-tilt action, testing eligible follow-up actions in a fixed priority order and stopping after the first accepted transition.",
+        "rationale": "The callback consists of ordered input-check calls wrapped in immediate-return tests. This makes it an action-transition arbiter rather than an animation, physics, or collision routine.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:12:10.609Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L141-L162",
+            "why": "The function tests a sequence of transition predicates and returns immediately whenever one succeeds."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1107058670912684132",
+            "why": "The archived reconstruction of function 0x8008BD80 independently shows the same guard-and-return transition chain for ftCo_AttackLw3_IASA."
+          }
+        ]
+      },
+      {
+        "id": "fact:9df55323-4f26-42e3-95d2-970572c58e03",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When allow_interrupt is set, transition priority is forward smash, up smash, down smash, forward tilt, then up tilt. The A-button-specific checkPadA path is then tested regardless of allow_interrupt. If interruption is allowed and no earlier check succeeded, priority continues with item throw, neutral attack, jump, dash, squat, turn, and walk. The first successful check ends processing for the frame.",
+        "rationale": "This is the exact guard structure and call order in the matched source; preserving both the two allow_interrupt regions and early returns is necessary to describe which transition wins when multiple inputs qualify.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:12:10.609Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L141-L162",
+            "why": "The source directly shows the two allow_interrupt-gated groups, the unconditional checkPadA call between them, and the exact first-success ordering."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1107058670912684132",
+            "why": "The archived work-in-progress reconstruction of the same address shows the same ordered guard chain and the interruptibility boundary around its transition checks."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Phys"
+    },
+    "facts": [
+      {
+        "id": "fact:b83dcb0c-9167-43d0-8a07-ba50f3c9b145",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes the fighter game object unchanged to ft_80084F3C. That helper reads the fighter's co_attrs.ground_friction, gr_vel, and co_attrs.walk_max_vel; when absolute ground velocity exceeds maximum walk speed it scales friction by p_ftCommonData->friction_when_above_walk_speed, then applies the resulting friction to the Fighter and consumes the updated motion through ftCommon_ApplyGroundMovement.",
+        "rationale": "The callback remains a direct forwarding wrapper. At head, the helper uses the now-named common-attribute fields ground_friction and walk_max_vel plus friction_when_above_walk_speed, then applies ground friction and grounded movement.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L164-L167",
+            "why": "The physics callback forwards its sole fighter game-object argument unchanged to ft_80084F3C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+            "why": "The current helper reads ground_friction, gr_vel, and walk_max_vel, conditionally scales friction, and applies both friction and grounded movement."
+          }
+        ]
+      },
+      {
+        "id": "fact:b133c853-ec32-4269-9c70-00d7a3c0d6f9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maintains the fighter's grounded sliding and deceleration during a down tilt according to character-specific traction, using stronger scaled deceleration when ground speed remains above walking speed.",
+        "rationale": "The down-tilt physics callback delegates to a helper that applies the fighter's ground-friction attribute every frame and multiplies it by the common above-walk-speed factor when absolute ground speed exceeds that fighter's walking limit.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L164-L167",
+            "why": "The named AttackLw3 physics callback delegates all of its processing to the common grounded-friction helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+            "why": "The helper applies character-specific ground friction and scales it when absolute ground velocity is above maximum walking speed."
+          }
+        ]
+      },
+      {
+        "id": "fact:63145202-443b-4361-9f2d-e65b9c2162ca",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state physics callback with signature void(Fighter_GObj*), operating on the Fighter owned by the supplied fighter game object.",
+        "rationale": "The relocated definition directly establishes the void return and Fighter_GObj pointer parameter. Its sole callee obtains the Fighter from that object and updates grounded movement state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L164-L167",
+            "why": "The function definition directly gives the void(Fighter_GObj*) callback signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+            "why": "The delegated helper obtains the Fighter from the supplied game object and updates its ground movement."
+          }
+        ]
+      },
+      {
+        "id": "fact:eb978343-84fb-4e54-a18d-ffb6bd81ddaf",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs the down-tilt action state's per-frame grounded physics by applying character-specific ground friction and then advancing grounded movement.",
+        "rationale": "The relocated callback still consists solely of a call to ft_80084F3C. The current helper selects friction from the fighter's common attributes, applies it to ground velocity, and advances ground movement.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:58:34.456Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L164-L167",
+            "why": "The complete down-tilt physics callback delegates directly to ft_80084F3C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+            "why": "ft_80084F3C derives character ground friction, applies it, and then calls ftCommon_ApplyGroundMovement."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c"
+    },
+    "facts": [
+      {
+        "id": "fact:9c6b8527-0d29-4812-a759-1e698f4cb7a6",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c",
+        "type": "data_flow",
+        "value": "Reads attack and downward-stick input, held-item state, fighter kind, command variables, a repeat latch, and allow_interrupt; outputs an item throw or down-tilt state and consumes buffered repeat requests during animation and IASA.",
+        "rationale": "The complete head input, entry, animation, and interrupt routines preserve each producer and consumer.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L1-L172",
+            "why": "Traces controller and fighter state through dispatch, setup, repetition, and transitions."
+          }
+        ]
+      },
+      {
+        "id": "fact:e15df08d-7daf-4faa-abc8-f389ffd98dd4",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c",
+        "type": "game_mapping",
+        "value": "Realizes grounded down tilt, including item substitution, character-specific entry, repeatable down tilts, animation return, and actionable follow-ups.",
+        "rationale": "The complete head AttackLw3 paths preserve all listed player-visible phases.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L1-L172",
+            "why": "Shows down-tilt input, entry, repetition, completion, and interrupt behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:cbd80a9f-29a1-4797-9f2a-6120cd39f34b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c",
+        "type": "purpose",
+        "value": "Implements common down-tilt input, downward item-throw priority, Game & Watch-specific or generic entry, repeat handling, completion, interrupts, physics, and collision.",
+        "rationale": "The complete head unit retains command recognition, dispatch, state setup, repetition, and the callback lifecycle.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L1-L172",
+            "why": "Shows down-tilt recognition, item substitution, fighter dispatch, repeat bookkeeping, and callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:9c6e99dd-c48e-4eb9-b5f7-84f4ce01292a",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c",
+        "type": "state_behavior",
+        "value": "Qualifying downward attack input first permits a downward item throw, otherwise entering Game & Watch's or common AttackLw3. Generic entry clears command and repeat state and disables interruption; script state can request repetition, while IASA arbitrates follow-ups.",
+        "rationale": "The complete head branches and state writes preserve this ordering and behavior.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L1-L172",
+            "why": "Shows item priority, fighter dispatch, generic setup, repeat guards, completion, and IASA."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:callUnk#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:decideFighter#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:doEnter#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Anim#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_CheckInput#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Coll#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_IASA#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Phys#r3"
+    },
+    "facts": []
+  }
+]

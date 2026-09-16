@@ -1,0 +1,19 @@
+## Status HUD functionality
+
+`ifstatus` manages a singleton containing six player-status records and shared damage-number/character-marker resources. Initialization loads `DmgNum_scene_models` and `DmgMrk_scene_models`, caches their descriptors, and normally clears the player-record prefix without clearing those resources. The `MUST_MATCH` configuration retains an unresolved condition on an uninitialized local around the reset.
+
+Per-player setup creates or reuses separate numeric-display and character-marker GObjs. It caches four glyph joints and baseline translations, registers numeric refresh/presentation processes and visibility-gated render callbacks, and delegates rule-dependent stock and optional score-display setup. Count-specific anchors come from `ifall`; the stored count narrows to `u8`, and five-or-more selects compact horizontal scaling. The indexed APIs generally rely on caller-valid slots and registered object ownership rather than comprehensive local validation.
+
+The refresh process imports ordinary damage or stamina remaining HP, clamps the displayed value to 0–999, preserves the previous value, and classifies harmful versus beneficial changes. Harmful changes trigger shake; the absolute delta narrows into a byte before determining shake strength. Presentation selects frozen decimal texture frames, hides leading zeroes, adjusts spacing for narrow `1` glyphs, and colors all four glyph materials. Ordinary damage uses a 0–300 color factor; stamina uses the reversed 0–100 remaining-HP factor. The local variable named `is_stamina` in the presentation callback actually receives an animation probe; Player flags select the HP presentation.
+
+Death presentation has separate initialization and motion phases. Initialization assigns four alternating-sign horizontal velocities and positive vertical velocities, clears its request, and returns without moving joints. Later updates independently test `abs(X) < 100` and `Y > -100` before moving each coordinate; these are not clamps and can overshoot. Vertical velocity decreases by 0.2028 only when the Y branch executes. An optional byte counter advances before the missing-fighter guard and requests HUD removal after exceeding 200.
+
+KO wrappers distinguish ordinary opponent attribution, same-team attribution, self-attribution, and successful self-destruct-count notification. They record the affected slot, request the one-shot display explosion, conditionally notify final-stock defeat, and dispatch separately guarded auxiliary effects. They do not themselves decrement stocks or cause fighter death. Auxiliary effects have separate cross-file ownership and animation lifetimes, including the conditional frame-greater-than-12 secondary effect.
+
+Hide/show commands change persistent per-slot render latches without destroying objects or stopping update processes. Character markers and neighboring auxiliary rendering also consume those latches. Teardown clears status ownership pointers immediately and resets stock records even when engine destruction is deferred. Resume clears process `flags_2`; it neither invokes callbacks immediately nor overrides independent scheduler or rendering gates.
+
+## Semantic assessment
+
+Existing function-name hypotheses generally fit canonical behavior and are retained. `ifAddMark` has direct diagnostic-string support despite a renderer collision. The JObj child accessor and death helper retain semantic overlay-type inferences separately from their concrete C signatures. Four supported corrections address asymmetric death-motion tests, the fourth material-color write, and byte-narrowed shake strength. Four compiled-layout claims remain unresolved rather than being inferred from source ordering, address comments, or the literal-order hack. All 170 baseline facts and 49 links have explicit checkpointed dispositions.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

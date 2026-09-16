@@ -1,0 +1,126 @@
+{
+  "tu": "main/melee/it/kinds/itclimbersblizzard",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersblizzard.c#L163-L166",
+            "why": "Wrapper delegates reference cleanup only."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L475-L525",
+            "why": "Caller caches owner before callback and conditionally destroys afterward; callee clears matching relationships."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing unconditional preservation claim by distinguishing the wrapper's local behavior from the caller's post-callback destruction branch.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersblizzard:itClimbersBlizzard_EvtUnk"
+        },
+        "type": "game_mapping",
+        "value": "Provides object-reference lifecycle cleanup for Blizzard's spawned attack articles by severing matching ownership and interaction references. The callback itself neither destroys the article nor changes its motion state, but it does not guarantee survival: the shared lifecycle caller may destroy the item after cleanup when flag x13 is set and its cached pre-callback owner matches the supplied fighter."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersblizzard.c#L111-L115",
+            "why": "Direct lifetime helper return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/inlines.h#L48-L55",
+            "why": "Comparison precedes subtraction and false return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful exact lifetime-boundary behavior absent from the existing delegation-only explanation, while preserving floating-point exceptional behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersblizzard:itClimbersBlizzard_UnkMotion0_Anim"
+        },
+        "type": "state_behavior",
+        "value": "During state 0's animation phase, returns Item_TickLifetime's result unchanged. The helper first tests xD44_lifeTimer <= 0: if true it returns true without decrementing; otherwise it subtracts 1.0f and returns false. A positive timer that reaches or crosses zero therefore reports expiration on a later invocation, not that decrementing invocation. No independent motion transition occurs here. A NaN timer does not satisfy the nonpositive test and follows the subtract-and-false path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/stdbool.h#L4-L14",
+            "why": "bool is an integer typedef."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersblizzard.c#L124-L131",
+            "why": "Both helpers execute and the accumulated flags are returned directly."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L323-L390",
+            "why": "Exact numeric results, branch precedence and index writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the false claim that the Boolean return boundary normalizes the result and records the relevant numeric and side-effect semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersblizzard:itClimbersBlizzard_UnkMotion0_Coll"
+        },
+        "type": "inferred_type",
+        "value": "Item-state collision callback declared bool (Item_GObj*). Here bool is typedef int, so the accumulated s32 wall/ceiling flags are returned without normalization to 0 or 1. After shared collision processing, both queries execute: the wall helper returns 0, 8, or 4, with the right-wall branch overriding the left-wall result when both match; the ceiling helper returns 0 or 2. Their bitwise OR is returned, and nonzero indicates wall or ceiling contact. The queries also update xC30; a ceiling hit overwrites the wall index."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPopo/ftpopospeciallw.c#L175-L190",
+            "why": "Fighter object, emission position and facing supplied by the caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersblizzard.c#L34-L131",
+            "why": "Descriptor construction, null guard, initialization and updates."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing parent-item description using the actual fighter call site while retaining the declared signature and distinct position fields.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itclimbersblizzard.c"
+        },
+        "type": "data_flow",
+        "value": "Receives an originating fighter object, caller-computed emission position, and facing direction, although the public spawner spells its first parameter Item_GObj*. It copies the emission position into SpawnItem.prev_pos with Z cleared, obtains SpawnItem.pos through the fighter, and records that fighter as both parent references. It requests It_Kind_IceClimber_Blizzard; only successful construction proceeds to scale snapshot, randomized attribute-driven velocity, lifetime initialization, state-0 entry, and common setup. Updates expose lifetime and collision results through callbacks and accumulate article-defined vertical acceleration."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPopo/ftpopospeciallw.c#L175-L190",
+            "why": "SpecialLw emits Blizzard articles."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersblizzard.c#L52-L166",
+            "why": "Construction, movement, lifetime and complete event response surface."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unsupported eligibility adjectives with the implemented response surface, preserving the independently verified SpecialLw connection.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itclimbersblizzard.c"
+        },
+        "type": "game_mapping",
+        "value": "Implements the generated attack articles emitted during the Ice Climbers' Blizzard down special: attribute-driven randomized travel, lifetime progression, and wall/ceiling collision reporting. It supplies response callbacks for damage dealt, reflection, clanking, shield contact, absorption, and shield bounce, plus object-reference invalidation. The presence of these callbacks does not by itself establish the article's configured eligibility for every interaction."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

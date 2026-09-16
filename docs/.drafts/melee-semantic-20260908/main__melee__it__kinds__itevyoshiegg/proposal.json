@@ -1,0 +1,153 @@
+{
+  "tu": "main/melee/it/kinds/itevyoshiegg",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itevyoshiegg.c#L73-L116",
+            "why": "Shows entry setup, velocity reset, state-0 selection, and landing callback use."
+          }
+        ],
+        "op": "write",
+        "rationale": "The function performs grounded-entry setup, resets velocity, and selects state 0; falling collision supplies it as the landing transition. EnterGrounded communicates this demonstrated role more clearly than UnkMotion0 and pairs with the supported EnterFall name. This is a semantic proposal, not a recovered historical spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itevyoshiegg:it_8029B1D8"
+        },
+        "type": "inferred_name",
+        "value": "itEvYoshiEgg_EnterGrounded"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itevyoshiegg.c#L204-L238",
+            "why": "Complete damage callback and inline break initializer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1712-L1722",
+            "why": "Generic damage handling accumulates xC9C before dispatching the item-specific callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unqualified zero-velocity description while retaining the full producer/consumer flow and the literal ordered comparison semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itevyoshiegg:itEvYoshiEgg_Logic42_DmgReceived"
+        },
+        "type": "data_flow",
+        "value": "Reads the Item and its article special attributes, rejects a nonzero evyoshiegg.xDD4 break flag, then rejects xC9C < attrs->x0. Otherwise it passes the item position and a local value of 1.5 to effect 1231 twice and passes sound parameters 244/0x7F/0x40 to Item_8026AE84. The break helper hides the model, calls it_802756D0, explicitly sets x40_vel.x and x40_vel.y to zero without locally writing z, sets xDD4 = 1 and xDD8 = 60, calls it_8026B3A8, and requests state 5 with ITEM_ANIM_UPDATE. Every callback path returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itevyoshiegg.c#L89-L98",
+            "why": "Wrapper, supplied callback, and state-1 request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Both floor-support branches and the additional conditional helper call."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported-floor exceptional branch omitted by the existing claim that floor support simply keeps the egg in the same state. The additional helper's effect is left at its demonstrated call boundary.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itevyoshiegg:itEvyoshiegg_UnkMotion0_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Delegates state-0 terrain handling to it_8026D62C with it_8029B268 as the unsupported-floor callback. The helper refreshes collision position and records the floor index when supported. When unsupported, it calls it_802762BC and then the supplied callback, which selects state 1 with ITEM_ANIM_UPDATE. On the supported path, it can additionally call Item_8026ADC0 when it_80277544 returns nonzero and xDCD_flag.b3 is clear. The egg-specific wrapper itself always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itevyoshiegg.c#L153-L166",
+            "why": "Notification check precedes decrement and completion uses the updated counter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itevyoshiegg.c#L204-L215",
+            "why": "Hidden break entry initializes the counter to 60."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1280-L1290",
+            "why": "Animation callback execution is gated, and true requests destruction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmevent.c#L1619-L1662",
+            "why": "Event-side spawn and failure-flag consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmevent.c#L2558-L2561",
+            "why": "Notification writes event state rather than executing the full failure path."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces ambiguous 20-update timing with exact invocation numbering and distinguishes the notification setter, event-side consumer, and item-removal dispatcher.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itevyoshiegg:itEvyoshiegg_UnkMotion5_Anim"
+        },
+        "type": "game_mapping",
+        "value": "Implements the delayed failure notification and removal countdown for Event 13's broken protected egg. Break entry has already hidden the model and cleared x/y velocity. Starting from countdown 60, this callback notifies event logic on its 21st invocation, after 20 prior decrements, and returns true on its 60th invocation. The event routine consumes the notification flag separately, and the generic item animation dispatcher uses true to request item destruction; callback counts do not by themselves establish elapsed wall-clock frames."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itevyoshiegg.c#L153-L166",
+            "why": "Complete countdown algorithm."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itevyoshiegg.c#L204-L215",
+            "why": "Normal state-entry counter initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the check-before-decrement ordering and exact invocation boundaries explicit, resolving the existing 20-update ambiguity without assuming scheduling cadence.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itevyoshiegg:itEvyoshiegg_UnkMotion5_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation first checks whether evyoshiegg.xDD8 equals 40 and, if so, calls gm_801BEB68(1). It then decrements xDD8 and returns false only while the updated value is positive, otherwise true. From the normal initial value 60 with no intervening counter changes, invocation 20 changes 41 to 40 without notifying; invocation 21 notifies and changes 40 to 39; invocation 60 changes 1 to 0 and returns true. A nonpositive updated counter also takes the true branch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itevyoshiegg.c#L175-L202",
+            "why": "Exact velocity writes and identical delegation by all four callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1576-L1625",
+            "why": "Conditional generic reflection work surrounding the item-specific callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported three-dimensional implication of purely upward and preserves the cross-file boundary between this local rebound and the complete reflection operation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itevyoshiegg:it_3F14_Logic42_Reflected"
+        },
+        "type": "state_behavior",
+        "value": "On every invocation, without a local guard, delegates to the shared bounce helper: sets horizontal x velocity to 0 and vertical y velocity to 1.5, does not locally write z velocity, selects state 1 with ITEM_ANIM_UPDATE, and returns false. Damage-dealt, clank, and shield-hit callbacks use the same response. Generic reflection dispatch separately performs conditional ownership/team updates before this callback and conditional hitbox-damage updates afterward."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

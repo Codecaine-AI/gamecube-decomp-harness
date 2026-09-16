@@ -3,6 +3,7 @@ import type { Database } from "bun:sqlite";
 type RunEnvelopeValue = bigint | boolean | null | number | string | Uint8Array;
 
 export interface RunEnvelopeCasInput {
+  allowInputsAfterActivation?: boolean;
   blockersJson?: string;
   desiredWorkers?: number;
   eventId: string;
@@ -44,6 +45,7 @@ export function casRunEnvelope(db: Database, input: RunEnvelopeCasInput): boolea
     const alreadyActivated = current.status !== "draft" && current.status !== "ready";
     if (
       (activationAccepted || alreadyActivated) &&
+      !input.allowInputsAfterActivation &&
       canonicalInputs(input.inputsJson) !== canonicalInputs(current.inputs_json)
     ) {
       throw new Error(`Run ${input.runId} inputs are immutable after activation`);

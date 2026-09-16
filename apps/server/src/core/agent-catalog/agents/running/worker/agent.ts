@@ -2,13 +2,14 @@ import { defineHarnessAgent } from "@server/core/agent-catalog/agent-definition.
 
 import { context } from "./context.js";
 import { prompt } from "./prompt.js";
-import { tools } from "./tools.js";
+import { REQUEST_WRITE_SET_WIDENING_TOOL_ID, tools } from "./tools.js";
 
 export const agent = defineHarnessAgent({
   name: "worker",
   description: "Execute one claimed Melee decomp target while the runner owns checkpoints and lifecycle state.",
   model: "codex-lb/gpt-6-astra",
   coreTools: [
+    REQUEST_WRITE_SET_WIDENING_TOOL_ID,
     "knowledge_render_file",
       "knowledge_record",
       "pr_search",

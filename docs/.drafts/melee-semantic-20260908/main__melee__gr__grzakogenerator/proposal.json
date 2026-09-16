@@ -1,0 +1,217 @@
+{
+  "tu": "main/melee/gr/grzakogenerator",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.static.h#L6-L18",
+            "why": "Declares the source singleton fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L147-L159",
+            "why": "Registry update reads the enable guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L344-L373",
+            "why": "Cleanup clears the bit without testing its prior value."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that the enable flag gates shutdown while preserving the supported singleton role without asserting compiled section layout.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzakogenerator:.bss"
+        },
+        "type": "purpose",
+        "value": "The source singleton holds the stage-supplied spawn-descriptor pointer, allocated runtime-registry pointer, cyclic scan index and update-enable bit. The enable bit gates registry servicing; cleanup unconditionally clears it before sweeping eligible item kinds, rather than being gated by it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L147-L250",
+            "why": "Complete update guard, timer branches, spatial tests, dispatch and cyclic termination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing normal-state explanation while correcting its zero-only characterization and making decrement timing and scan-index assumptions explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzakogenerator:grZakoGenerator_801CA8B4"
+        },
+        "type": "state_behavior",
+        "value": "Does nothing unless the registry exists and updates are enabled. Entries with marker -1, a non-null object or timer -1 are skipped. A positive timer is decremented once without attempting a spawn on that visit, even when it becomes zero. Otherwise position resolution and spawn checks run: zero is the normal ready value, but the literal branch also accepts negative timers other than -1; no reviewed producer establishes those other negatives as intended states. Failed resolution, spatial rejection, payload -1 on the special path, unsupported ordinary kind or failed construction leaves the entry vacant for retry. Candidates must be strictly inside blast bounds; mode zero additionally excludes the strict interior of the intermediate camera/blast rectangle. Successful construction records occupancy, and ordinary actors receive the reciprocal slot index. With a valid start index, wrapping through 0\u201380 returns to that same start after one complete pass and stores it unchanged. The 0xFF iteration budget does not validate an invalid starting index."
+      },
+      {
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L331-L342",
+            "why": "Writes only unused entries in the reserved tail."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L239-L248",
+            "why": "Traversal terminates by index, not by a sentinel entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "The tail entry is usable reserved storage, not a traversal sentinel. Configure describes the conditional field stores without promising a successful spawn.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzakogenerator:grZakoGenerator_801CAEB0"
+        },
+        "type": "inferred_name",
+        "value": "grZakoGenerator_ConfigureReservedEntry"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L181-L188",
+            "why": "Special dispatch passes payload and marker separately."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L331-L342",
+            "why": "Source signature, narrowing and field stores."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L3251-L3259",
+            "why": "Ground resolves the second argument as a position marker and forwards the first to the collectible constructor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L375-L438",
+            "why": "The forwarded payload is retained and used to obtain the trophy-display model."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces opaque entry-value/entry-kind labels with roles independently established by the special-path consumer, while retaining the exact source signature and narrowing.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzakogenerator:grZakoGenerator_801CAEB0"
+        },
+        "type": "inferred_type",
+        "value": "Source signature `void (int payload, int stage_marker)`. The first argument is stored in entry.x8; the second is narrowed to s16 and stored in entry.x0. On the special marker path, x8 is the trophy identifier passed to Ground_801C58E0 and x0 supplies the stage-position marker. The function returns no status and validates neither argument."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L331-L342",
+            "why": "Complete conditional registration body."
+          }
+        ],
+        "op": "write",
+        "rationale": "Describes the actual stores rather than an unconditional installation into a sentinel slot.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzakogenerator:grZakoGenerator_801CAEB0"
+        },
+        "type": "purpose",
+        "value": "Conditionally writes a marker and payload into unused reserved generator entries beginning at index 80, clearing their object pointers for subsequent processing. It leaves timers unchanged and does not validate the marker, guarantee activation or create an item itself."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L331-L342",
+            "why": "Unused guard and unchecked narrowed marker store."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L147-L188",
+            "why": "Independent eligibility conditions and marker -1 exclusion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L3270-L3304",
+            "why": "Marker selector explicitly returns -1 on failure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grshrineroute.c#L199-L212",
+            "why": "Route startup forwards selection results unchecked."
+          }
+        ],
+        "op": "write",
+        "rationale": "Directly repairs the separately retained erroneous unused-to-configured transition, distinguishing field mutation from successful activation.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzakogenerator:grZakoGenerator_801CAEB0"
+        },
+        "type": "state_behavior",
+        "value": "For each reserved-tail entry whose marker x0 equals -1, stores `(s16)arg1` into x0, arg0 into x8 and NULL into x4, leaving x2 unchanged. If no reserved entry has marker -1, nothing changes. These stores do not necessarily transition an entry out of unused state: when the stored signed-16-bit marker is -1, including arg1 == -1, the entry remains marker-unused despite the payload and object writes and can be written again by a later call. A stored marker other than -1 removes that unused marker, but successful spawning still depends on marker validity, timer, payload, bounds and update enablement. Ground_801C5940 can return -1, and reviewed route callers forward that result without checking it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L142-L175",
+            "why": "Initial enabled state and update-only guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L252-L301",
+            "why": "Lifecycle mutations have no enable-bit guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L331-L373",
+            "why": "Ungated registration, setter and disable-before-destruction cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1925-L1959",
+            "why": "Item destruction invokes the item's destroyed callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L494-L497",
+            "why": "Destroyed callback forwards to generator occupancy/timer handling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Directly repairs the overly broad preservation claim by bounding it to disabled update invocations and preserving callback-driven mutation while disabled.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzakogenerator:grZakoGenerator_801CAEF0"
+        },
+        "type": "state_behavior",
+        "value": "Immediately and unconditionally assigns the persistent update-enable bit. True permits later registry updates when the registry pointer is non-null. False makes each invocation of grZakoGenerator_801CA8B4 leave the registry, timers and scan index untouched. This is not a freeze of all registry state until re-enabling: grZakoGenerator_801CAC14 and grZakoGenerator_801CACB8 still mutate occupancy and timers without testing the bit, and reserved-entry registration is also ungated. grZakoGenerator_801CAF08 disables the bit before invoking item destruction, whose destroyed callbacks can reach generator lifecycle handlers. Registry allocation initializes the same enable bit to true."
+      },
+      {
+        "confidence": 0.93,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L349-L373",
+            "why": "Disables updates and sweeps items without freeing manager state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L428-L478",
+            "why": "Route transition later re-enables the same generator."
+          }
+        ],
+        "op": "write",
+        "rationale": "More accurately describes reversible update disablement plus kind-filtered global item cleanup; it avoids implying that the registry or manager is destroyed.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzakogenerator:grZakoGenerator_801CAF08"
+        },
+        "type": "inferred_name",
+        "value": "grZakoGenerator_DisableAndCleanupItems"
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

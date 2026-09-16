@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/it/kinds/itpeachparasol",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachparasol.c#L9-L34",
+            "why": "Complete state table, static integer declaration and unchecked indexing expression."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the demonstrated type, values and indexing relationship while removing unsupported compiled-layout assertions and clarifying the exceptional state-0 input.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpeachparasol:.sdata"
+        },
+        "type": "inferred_type",
+        "value": "The corresponding source object is a function-local static int[2], initialized to { 15, 16 }. It is indexed by animation IDs 0 and 1, corresponding to Peach Parasol item states 1 and 2. The lookup is unchecked; state 0 has animation ID -1 and is outside the valid domain of this span table. Compiled section placement and byte layout are not established by the source declaration alone."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachparasol.c#L126-L132",
+            "why": "Helper argument consumption and state installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachparasol.c#L89-L95",
+            "why": "Pickup's temporary speed and final normalization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1052-L1084",
+            "why": "Indirect caller, requested-status mapping and duration-dependent speed calculation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the sole-caller premise by including the function-pointer-table consumer and its speed calculation while preserving the local and pickup data flows.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpeachparasol:it_802BDDB4"
+        },
+        "type": "data_flow",
+        "value": "Receives the Peach Parasol Item_GObj and a floating-point animation speed, resolves its Item, writes the speed to x5D0_animFrameSpeed, enters item state 2 through Item_80268E5C with ITEM_ANIM_UPDATE, and stores it_802BDD3C in on_accessory. PickedUp supplies 16.0, immediately advances animation/script processing, then writes speed 1.0. The shared fighter controller also invokes this helper indirectly for requested status 6, supplying frame_speed_mul when duration is zero or frame_speed_mul * (16 / duration) otherwise."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachparasol.c#L115-L132",
+            "why": "Empty accessory callback and complete state-2 entry implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachparasol.c#L89-L95",
+            "why": "Pickup initialization use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1052-L1084",
+            "why": "Additional timed-transition use through indirect dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "The helper is a general state-2 entry point, not a pickup-only helper; the shared controller explicitly stores and calls its function pointer.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpeachparasol:it_802BDDB4"
+        },
+        "type": "purpose",
+        "value": "Sets up Peach Parasol item motion state 2 at a caller-supplied animation speed with animation updating enabled and the no-op accessory callback installed. It serves both PickedUp initialization, which primes the animation at speed 16 before an immediate update and restoration to speed 1, and shared fighter-side timed Parasol transitions dispatched indirectly through ftCommon_8007E83C."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachparasol.c#L9-L28",
+            "why": "Shared animation callback across all three states."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachparasol.c#L77-L113",
+            "why": "Distinct threshold query, pickup sequence and owner-dependent completion callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialhi.c#L115-L143",
+            "why": "Landing consumer and broader protected fighter-state ranges."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the frame-threshold query from actual article completion, avoiding the incorrect implication that state 2 automatically ends at frame 16.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itpeachparasol.c"
+        },
+        "type": "state_behavior",
+        "value": "Three item states use animation IDs -1, 0 and 1 and share an owner-lifetime callback. Pickup enters state 2 at temporary speed 16, performs an immediate animation/script update and leaves speed 1. A separate query returns true only for state 2 at animation frame 16 or later; it performs no transition or cleanup and releases Peach's LandingFallSpecial retention guard. Article completion remains controlled by the shared callback, which notifies destruction and returns true when the owner is absent or the fighter-side SpecialHi/parasol-use predicate reports inactivity."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

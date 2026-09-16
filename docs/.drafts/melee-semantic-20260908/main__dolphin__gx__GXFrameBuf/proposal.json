@@ -1,0 +1,65 @@
+{
+  "tu": "main/dolphin/gx/GXFrameBuf",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXFrameBuf.c#L689-L744",
+            "why": "Complete display-copy state transitions and restoration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPixel.c#L154-L200",
+            "why": "Independent blend, logic, color/alpha-update, depth and comparison-location field definitions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the mistaken identification of cmode0 bits 0 and 1 as color/alpha-update enables. GXPixel independently identifies those bits as blending and logic-operation enables and places color/alpha updates at bits 3 and 4. The replacement preserves the distinct conditional overrides and restoration lifetime.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXFrameBuf:GXCopyDisp"
+        },
+        "type": "state_behavior",
+        "value": "After the GXBegin guard and DEBUG-only copy verification, a nonzero clear argument causes temporary register writes enabling depth comparison with comparison code 7 and disabling blending and logic operations through cmode0 bits 0 and 1. The cached depth-update and color/alpha-update fields are preserved; color and alpha updates are not disabled by this branch. Independently, if clearing or the cached pixel-format code is 3, and peCtrl bit 6 is set, a temporary peCtrl clears bit 6. The function emits the configured display-copy command, restores cached zmode and cmode0 when clearing and peCtrl when temporarily changed, and sets gx->bpSent to 0. Temporary pixel-engine values do not overwrite their cached originals, while the copy-control shadow retains the command-field updates. Command submission does not wait for copy completion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXFrameBuf.c#L746-L807",
+            "why": "Ordered temporary-state changes, command submission and restoration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXFrameBuf.c#L633-L687",
+            "why": "Shared DEBUG verifier explicitly reads display-copy shadows."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPixel.c#L154-L200",
+            "why": "Independent register-field semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L1578-L1582",
+            "why": "Caller separately performs optional synchronization and texture invalidation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the same blend/logic-versus-update-field error and makes the ordered depth-copy overrides explicit without collapsing numeric format state or the exceptional DEBUG verification behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXFrameBuf:GXCopyTex"
+        },
+        "type": "state_behavior",
+        "value": "After the GXBegin guard and DEBUG-only shared copy verification, a nonzero clear argument temporarily enables depth comparison with comparison code 7 and disables blending and logic operations through cmode0 bits 0 and 1, preserving the cached depth-update and color/alpha-update fields. Starting from cached peCtrl, a nonzero cpTexZ changes the temporary low three bits to numeric pixel-format code 3 when necessary. Then, if clearing or the temporary format is 3, bit 6 is cleared when set. The temporary peCtrl is emitted only if either change occurred. After submitting texture-copy geometry, destination and control state, the routine restores cached zmode/cmode0 when clearing and cached peCtrl when changed, then sets gx->bpSent to 0. The cached pixel-engine originals remain intact; copy-control command fields persist. The DEBUG verifier reads display-copy shadows rather than texture-copy shadows. No completion wait or texture-cache invalidation occurs here."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

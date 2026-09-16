@@ -1,0 +1,29 @@
+## Counter state family
+
+The owned C file implements grounded and aerial Counter stance and retaliation callbacks; the header declares all 23 public functions. Full canonical/rendered coverage is inherited from research; the distinct lead independently checked proposal citations and contradiction evidence. Rendered names remain descriptive hypotheses, not independent evidence.
+
+### Entry and detection window
+
+Ground entry clears vertical self-velocity and enters numeric state 369. Air entry divides horizontal self-velocity by attribute x4C, clears vertical self-velocity, and enters 371. Both call ftAnim_8006EBA4 and then clear cmd_vars[1] and speciallw.x0. No divisor validation is present. [Entry](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L33-L68)
+
+Both stance animations consume command 1 by writing 2, installing the x64 ShieldDesc with ftMs_SpecialLw_80139140, setting x221B_b1, and copying x60 to both shield parameters. Command 0 clears x221B_b0; other values do neither. Animation exhaustion independently calls ft_8008A2BC on ground or ftCo_Fall_Enter in air. Registration copies descriptor geometry and stores shield_hit_cb; it does not allocate an independently owned shield object. [Animations](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L70-L114), [registration](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3174-L3187)
+
+### Physics and terrain continuity
+
+Ground stance and hit physics delegate to ft_80084F3C, whose friction is conditionally multiplied above maximum walk speed. Air stance uses move attributes x54, x58 and x50 for falling and friction; air retaliation uses common attributes through ft_80084EEC. Only stance physics also clears shield_hit.skip_update_pos, enabling a subsequent position update rather than immediately recomputing geometry. All four IASA callbacks are empty; this proves absence of processing through those slots, not immunity to external transitions. [Physics](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L33-L53), [shield update flag](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3077-L3080)
+
+Ground collision tests differ between stance and retaliation: ft_800827A0 versus ft_80082708. Their zero branches dispatch to states 371 and 372 respectively. Air collision callbacks dispatch on nonzero ft_80081D0C to states 369 and 370. Common transition inlines preserve cur_anim_frame. Stance conversions reinstall the descriptor only when cmd_vars[1] equals 2; hit conversions instead use the mask with additional KeepGfx. [Stance transitions](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L139-L196), [hit transitions](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L309-L339), [common inlines](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L71-L89)
+
+The apparent landing role must not erase a source-level return-label ambiguity: GA_Ground is 0 and GA_Air is 1. ft_80081D0C first returns GA_Ground if ft_80081A00 succeeds; otherwise it returns GA_Air for a true map-collision result and GA_Ground for false. These callers take the nonzero branch to ground conversion. Preserve the numeric branch and intended conversion separately pending collision-owner review. [Enum](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445), [callee](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123)
+
+### Successful response and retaliation
+
+The response restores facing_dir from specialn_facing_dir, converts x19A4 to s32, tests that converted value for positivity, and only then writes the converted product with x5C to speciallw.x0. A failed guard preserves the previous value. It obtains the hip position, calls lb_800119DC with 120, 0.9, 0.02 and M_PI/3, and enters 370 for GA_Ground or 372 otherwise. Its inline tail conditionally spawns shoulder effect 1265 for MARS or 1296 for EMBLEM. The default kind spawns nothing but still sets x2219_b0. pre_hitlag_cb, post_hitlag_cb and accessory4_cb are always cleared. This cleanup does not explicitly clear shield_hit_cb. [Response](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L341-L407)
+
+Both hit animations update four capsules only when speciallw.x0 is positive and kind is FTKIND_EMBLEM. Active SOLUTION 1 uses byte-offset iteration; the inactive alternative expresses the corresponding array loop. Only HitCapsule_Enabled entries are passed to ftColl_8007ABD0. That helper applies further scaling and attack-instance processing, so the stored value is an input to damage calculation, not necessarily final damage. Completion remains independent of this character/value guard. [Hit animations](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L198-L285), [damage consumer](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L2987-L3003)
+
+No compiled evidence establishes .sdata2 extent, ordering, precision, pooling or conversion-bias membership. Those four baseline section facts remain unresolved. The grounded completion helper's exact destination and authored fixed-damage/multiplier numbers were not independently re-established by this source pass.
+
+Evidence correction inherited from research and independently verified: the research checkpoint's aerial-hit-physics group contains a mistyped revision in its final gravity locator. The correct supporting locator is code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L462-L468; the other group evidence remains applicable.
+
+Status: synthesized; independent review and live promotion pending.

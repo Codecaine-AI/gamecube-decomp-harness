@@ -1,0 +1,158 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_BarrelWait",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_BarrelWait:ftCo_8009EB18"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains the supplied Fighter; calls ftCommon_8007DB58, ftCo_8009750C, and ftCo_800DD168; changes to ftCo_MS_BarrelWait with Ft_MF_None and 0.0f, 1.0f, 0.0f, NULL; calls ftAnim_8006EBA4; installs death2_cb = ftCo_8009EAF8 and accessory1_cb = ftCo_8009EC44; calls ftCommon_8007E2FC; writes x1988 = 2 and invisible = true; calls ftCommon_8007E2F4(fp, 0x1FF); copies common-data x4DC/x4E4 to camera target_ext.h/v; and calls ftCommon_8007EFC0(fp, 1). The accessory callback copies stage position into cur_pos on eligible dispatcher invocations, not necessarily every frame.",
+        "rationale": "Replaces unsupported cleanup/collision aliases and unconditional frequency with canonical ordered flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_BarrelWait.c#L26-L51",
+            "why": "Complete entry calls and writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2532-L2548",
+            "why": "Gated accessory dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2891-L2896",
+            "why": "Stage-to-output copy direction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_BarrelWait:ftCo_BarrelWait_IASA"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads GET_FIGHTER(gobj)->input.pressed_buttons & HSD_PAD_AB. Nonzero overlap produces one parameterless Ground_801C4DD0 call; zero overlap produces none. The body has no direct fighter-field write and ignores the ground return value.",
+        "rationale": "Corrects obsolete input.x668 and states exact mask semantics.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_BarrelWait.c#L55-L60",
+            "why": "Complete input read and conditional call."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_BarrelWait:ftCo_BarrelWait_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation tests pressed buttons, not held buttons. Either A/B masked bit or both yields one Ground_801C4DD0 request; neither yields a no-op. There is no direct launch or state transition in this callback. Ground dispatch acts only for Gr_Kind_Kongo or Gr_Kind_OldKongo; the reviewed Old Kongo request handler changes occupancy xC6 from 1 to 2 only.",
+        "rationale": "Makes input boundaries and optional downstream request acceptance explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_BarrelWait.c#L55-L60",
+            "why": "Pressed-mask boundary."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2898-L2907",
+            "why": "Stage-kind dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/groldkongo.c#L566-L572",
+            "why": "Occupancy request guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_BarrelWait:ftCo_8009EC70"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes fighter, position, hit-descriptor pointer, and launch angle. Copies common bury_timer_unk2 to bury_timer_2 and *pos to cur_pos; calls mpColl_80043680 and ftCamera_80076064; initializes selected fields of a local SmallerHitCapsule through lbColl_80008D30; calls ftColl_800788D4; applies ftCo_Barrel_ApplyKnockback; invokes Fighter_UnkTakeDamage_8006CC30 with hit.damage; then calls ftCo_8008DCE0(gobj, 91, 0). Old Kongo supplies an lbColl_80008D30_arg1 populated from stage barrel attack parameters and a rotation-derived degree angle. Percent addition within the damage helper is flag-dependent and capped above 999, not guaranteed by this routine.",
+        "rationale": "Preserves verified provenance and consumers without inferring final parameter meanings or unconditional damage.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_BarrelWait.c#L73-L88",
+            "why": "Ordered launch flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/groldkongo.c#L407-L429",
+            "why": "Descriptor and angle provenance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2642-L2669",
+            "why": "Conditional percent update."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_BarrelWait:ftCo_8009EC70"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Has no local eligibility guard and ends with ftCo_8008DCE0(gobj, 91, 0). The reviewed Old Kongo caller invokes it only after hit_timer++ tests an old value greater than 10 and retained fighter_gobj->p_link equals 8. Old 10 fails; old 11 passes. The controller advances to occupancy 4 even when p_link prevents launch, then later resets to 0. Its state-1 null branch has fallthrough into firing setup, so safe null cancellation is not proved. The shared inline adds 360 once for strictly negative launch angle and then preserves it for negative facing or computes 180 minus it otherwise, without general wrapping or finite validation.",
+        "rationale": "Corrects unconditional timing and retains explicit uncertainty about the newly verified null fallthrough.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/groldkongo.c#L390-L437",
+            "why": "Timer boundary, p_link guard, fallthrough, and progression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_BarrelWait.c#L73-L88",
+            "why": "Unguarded local body and final call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L40-L53",
+            "why": "Angle and facing branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_BarrelWait:ftCo_BarrelWait_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides the no-op physics callback registered for BarrelWait. It performs no callback-local motion or state update. Stage-position synchronization is separately performed by the installed accessory callback; the empty body does not prove suppression of all common fighter physics.",
+        "rationale": "Narrows unsupported global prevention language to proved callback-local purpose.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_BarrelWait.c#L62-L71",
+            "why": "Empty Phys and separate position callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3357-L3367",
+            "why": "Active registration."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

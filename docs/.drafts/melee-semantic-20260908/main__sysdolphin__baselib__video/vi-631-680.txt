@@ -1,0 +1,50 @@
+631: static void setVerticalRegs(u16 dispPosY, u16 dispSizeY, u8 equ, u16 acv, u16 prbOdd, u16 prbEven, u16 psbOdd, u16 psbEven, int black)
+632: {
+633:     u16 actualPrbOdd;
+634:     u16 actualPrbEven;
+635:     u16 actualPsbOdd;
+636:     u16 actualPsbEven;
+637:     u16 actualAcv;
+638:     u16 c;
+639:     u16 d;
+640: 
+641:     if (equ >= 10) {
+642:         c = 1;
+643:         d = 2;
+644:     } else {
+645:         c = 2;
+646:         d = 1;
+647:     }
+648:     if ((dispPosY % 2) == 0) {
+649:         actualPrbOdd = prbOdd + (d * dispPosY);
+650:         actualPsbOdd = psbOdd + (d * (((c * acv) - dispSizeY) - dispPosY));
+651:         actualPrbEven = prbEven + (d * dispPosY);
+652:         actualPsbEven = psbEven + (d * (((c * acv) - dispSizeY) - dispPosY));
+653:     } else {
+654:         actualPrbOdd = prbEven + (d * dispPosY);
+655:         actualPsbOdd = psbEven + (d * (((c * acv) - dispSizeY) - dispPosY));
+656:         actualPrbEven = prbOdd + (d * dispPosY);
+657:         actualPsbEven = psbOdd + (d * (((c * acv) - dispSizeY) - dispPosY));
+658:     }
+659:     actualAcv = dispSizeY / c;
+660:     if (black) {
+661:         actualPrbOdd += actualAcv * 2 - 2;
+662:         actualPsbOdd += 2;
+663:         actualPrbEven += actualAcv * 2 - 2;
+664:         actualPsbEven += 2;
+665:         actualAcv = 0;
+666:     }
+667:     regs[0] = equ | (actualAcv << 4);
+668:     MARK_CHANGED(0);
+669:     regs[7] = (u16)(u32)actualPrbOdd;
+670:     MARK_CHANGED(7);
+671:     regs[6] = (u16)(u32)actualPsbOdd;
+672:     MARK_CHANGED(6);
+673:     regs[9] = (u16)(u32)actualPrbEven;
+674:     MARK_CHANGED(9);
+675:     regs[8] = (u16)(u32)actualPsbEven;
+676:     MARK_CHANGED(8);
+677: }
+678: 
+679: void VIConfigure(GXRenderModeObj* rm)
+680: {

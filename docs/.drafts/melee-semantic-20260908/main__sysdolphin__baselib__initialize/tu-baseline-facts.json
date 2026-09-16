@@ -1,0 +1,2287 @@
+{
+  "tu": "main/sysdolphin/baselib/initialize",
+  "facts": [
+    {
+      "id": "fact:6af4df85-202a-4cfe-8324-3f7ea3b56a13",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_AllocateXFB writes allocated XFB addresses into `FrameBuffer`, clears unused entries, returns the table, and HSD_InitComponent passes its first three entries to HSD_VIInit. XFB allocation writes `memReport.xfb`, FIFO registration writes `memReport.gxfifo`, and HSD_OSInit combines those reservations with physical-memory and arena values to produce the report's total, system, and heap amounts.",
+      "rationale": "The current allocation and startup paths directly trace every framebuffer and memory-report write and their downstream consumers; arena bounds, render state, and FIFO-object retention belong to the separately extracted small-BSS state and are therefore removed from this section-specific claim.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows framebuffer allocation, unused-slot clearing, XFB accounting, and the framebuffer entries flowing into VI initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows FIFO, physical-memory, system-memory, and main-heap values flowing into memReport."
+        }
+      ]
+    },
+    {
+      "id": "fact:f3e78a1c-9e58-4e78-b7b1-d7ba3a803bdd",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 56-byte zero-filled writable-data section containing the `void* FrameBuffer[HSD_VI_XFB_MAX]` table and one `HSD_MemReport`, together with section alignment padding.",
+      "rationale": "The current source declares FrameBuffer and memReport as the unit's bulk uninitialized objects, while the separately extracted small-BSS target accounts for the word-sized arena, render, FIFO, pixel-format, and flag state that the previous claim incorrectly duplicated here.",
+      "confidence": 0.92,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Provides the declarations and typed uses of FrameBuffer and memReport alongside the separate word-sized bootstrap statics."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the individual HSD_MemReport fields being populated during FIFO and OS initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:03a23dcf-6e2e-4b63-9dca-ee4a45011c7d",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides zero-initialized bulk state for framebuffer addresses and aggregate HSD bootstrap memory accounting.",
+      "rationale": "The current declarations place the framebuffer table and memory report among the unit's uninitialized statics, and the allocation and OS-startup code uses them to retain XFB addresses and account for XFB, FIFO, physical, system, and heap memory.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Declares FrameBuffer and memReport and shows XFB allocation populating the table and recording its total size."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows FIFO and OS initialization completing the memory report's gxfifo, total, system, and heap accounting."
+        }
+      ]
+    },
+    {
+      "id": "fact:87474683-7351-48f1-916a-9a82cc397491",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The section begins zeroed. Successful XFB provisioning fills the requested prefix of `FrameBuffer` and restores every remaining slot to NULL, while repeated allocation replaces the XFB accounting total. FIFO registration replaces the recorded FIFO byte count, and OS initialization establishes the physical, system-reservation, and main-heap totals.",
+      "rationale": "BSS supplies the initial zero state, and the current functions explicitly overwrite the framebuffer table and memory-report fields during resource provisioning and platform startup.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Declares the uninitialized objects and shows the requested framebuffer prefix being populated while the remainder is cleared."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows OS initialization replacing the retained total, system, and heap accounting values."
+        }
+      ]
+    },
+    {
+      "id": "fact:98e44ef5-9de9-4626-b5eb-1896195e168c",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_ObjDumpStat walks the getter-and-label mapping until its null terminator. For each entry it invokes the getter, reads the allocator's using, freed, and peak counters through HSD_ObjAlloc accessors, and passes the label, counters, and common format to OSReport. HSD_SetInitParameter passes the section's other diagnostic text to OSReport only on the first attempted parameter change after initialization.",
+      "rationale": "The current loops and calls directly trace the table records and warning text into their diagnostic consumers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L303",
+          "why": "Shows traversal of the mapping and each getter, label, and allocator counter flowing into OSReport."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Shows the warning string flowing to OSReport under the init_done and shown guards."
+        }
+      ]
+    },
+    {
+      "id": "fact:0b3f6ed3-fb9b-4d73-90e8-2fecf2a9677a",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 288-byte initialized writable-data section containing initializer data for a 14-element table of `{ HSD_ObjAllocData* (*func)(void), char* label }` records, thirteen NUL-terminated allocator labels, the object-statistics report format, and the late-initialization warning text, with alignment padding.",
+      "rationale": "The current source provides fourteen pointer-bearing records, including a null sentinel, and the associated labels and diagnostic strings; these initialized relocatable values explain the section's layout and size.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L303",
+          "why": "Defines the complete getter-and-label table, all thirteen labels, and the object-allocation report format."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Defines the remaining warning string used after initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:337f3c9d-8890-40e3-8e8e-83f0f198dc6e",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides initialized data for HSD object-allocation diagnostics and the warning issued when initialization parameters are changed too late. Its allocation-diagnostic portion associates each supported statistics getter with a report label and supplies the common report format consumed by HSD_ObjDumpStat.",
+      "rationale": "The current object-statistics routine contains the initialized getter-and-label mapping and common report text, while the parameter setter contains the separate late-initialization warning.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L303",
+          "why": "Shows the fourteen-entry getter-and-label mapping and the formatted allocator-statistics report."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Shows the late-initialization warning text consumed by OSReport."
+        }
+      ]
+    },
+    {
+      "id": "fact:a155f347-34a2-428a-9481-9b35ab54d1cb",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.data",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The allocator mapping is sentinel-terminated: HSD_ObjDumpStat processes records while the current label is non-NULL and stops at the final `{ NULL, NULL }` record. The late-initialization warning participates in one-shot reporting: the first rejected parameter change prints it and sets `shown`, while later rejected changes return false silently.",
+      "rationale": "The current table initializer and traversal condition establish the sentinel behavior, and the setter's nested guards establish the warning latch transition.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L303",
+          "why": "Shows the terminal null record and the label-based traversal guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Shows the first-use warning, shown transition, and silent handling of subsequent rejected changes."
+        }
+      ]
+    },
+    {
+      "id": "fact:4b5cd5b8-4cad-4767-afc0-d5649e6d7b9b",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.rodata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_AllocateXFB reads the XFB exhaustion message when its completed arena reservation exceeds the aligned high bound. HSD_AllocateFifo reads one FIFO message when current-heap allocation returns NULL and another when its arena reservation exceeds the arena high boundary. Each path passes its message with `__FILE__` and a source-line number to HSD_Panic; the section itself produces no mutable state.",
+      "rationale": "The current guards immediately surrounding the three panic calls identify each diagnostic's originating failure condition and destination.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.rodata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Traces XFB arena exhaustion into HSD_Panic with __FILE__, line 265, and the XFB message."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Traces FIFO heap and arena exhaustion into HSD_Panic with lines 295 and 302 and their messages."
+        }
+      ]
+    },
+    {
+      "id": "fact:b81932d2-a90d-43e0-b330-923ee1ea71f9",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.rodata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 144-byte read-only character-data pool containing one pooled source-file-name string used by `__FILE__` and three NUL-terminated allocation-failure messages, with string alignment padding.",
+      "rationale": "The three panic sites each use `__FILE__` and a distinct diagnostic literal, supporting one pooled file-name value plus three failure strings rather than numeric or structured read-only data.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.rodata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the XFB panic site with __FILE__ and its distinct message."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows two FIFO panic sites reusing __FILE__ with two additional distinct messages."
+        }
+      ]
+    },
+    {
+      "id": "fact:3b873b88-ec38-40b0-a0c4-f8c3074c24ac",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.rodata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides immutable diagnostic text for fatal framebuffer and GX FIFO allocation failures during HSD platform initialization.",
+      "rationale": "The current XFB and FIFO allocators contain three HSD_Panic sites whose messages identify the corresponding exhausted-memory conditions.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.rodata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the fatal XFB exhaustion diagnostic in HSD_AllocateXFB."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the heap-allocation and arena-exhaustion diagnostics in HSD_AllocateFifo."
+        }
+      ]
+    },
+    {
+      "id": "fact:f8205fe7-0a57-4a16-80a6-2c363d3a3d97",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sbss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_OSInit derives and saves the main-heap bounds after reserving the audio heap; HSD_GetNextArena returns them, and HSD_CreateMainHeap may replace them before recreating the current heap. HSD_GXSetFifoObj stores its FIFO pointer. HSD_StartRender stores the requested render pass and reads the retained pixel format, while HSD_GetCurrentRenderPass returns the pass. HSD_InitComponent sets `init_done`, after which HSD_SetInitParameter reads it and uses `shown` to report only the first prohibited late configuration attempt.",
+      "rationale": "The current heap, FIFO, render, initialization, and parameter-setting functions directly trace every small-BSS value between its writers and consumers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows init_done and DefaultFifoObj being written."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Traces saved heap bounds through OS initialization, access, and heap recreation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L303",
+          "why": "Shows render-pass writes and reads and retained pixel-format consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Shows init_done and shown controlling rejected late parameter changes."
+        }
+      ]
+    },
+    {
+      "id": "fact:e23f3512-1b5c-4208-aa74-a33408e525ee",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sbss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 32-byte small-BSS block containing seven consecutive zero-initialized 32-bit values\u2014two arena pointers, an HSD_RenderPass, a GXFifoObj pointer, an integer GX pixel-format value, and two 32-bit flags\u2014followed by four bytes of section padding.",
+      "rationale": "The current declarations provide seven word-sized uninitialized objects in this functional group; seven words occupy 28 bytes, leaving four bytes of padding in the 32-byte target.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Provides the types and declaration order of the saved arena, render, FIFO, pixel-format, and flag values."
+        }
+      ]
+    },
+    {
+      "id": "fact:1eec8379-394c-45a0-9784-3cfdf3d4ecae",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sbss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the initialization unit's small, zero-initialized mutable bootstrap state: saved main-heap arena bounds, the current render pass, the default GX FIFO pointer, the current pixel format, the initialization-complete flag, and the one-time warning flag.",
+      "rationale": "The current declarations and their heap, FIFO, render, and parameter-setting consumers preserve the standing small-BSS interpretation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Declares the word-sized uninitialized bootstrap objects and shows initialization and FIFO registration writing part of them."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows saved arena-bound establishment, access, and replacement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L303",
+          "why": "Shows current-render-pass and pixel-format state being consumed during rendering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Shows init_done and shown enforcing the post-initialization parameter-setting behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:33a74e58-9e40-4014-839b-114e24dc5d00",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sbss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The block begins zeroed. Platform initialization establishes the saved heap bounds and eventually changes `init_done` from false to true. Before that transition parameters may be changed; afterward every request fails, with `shown` changing from false to true on the first rejected request so later requests remain silent. Main-heap recreation preserves either saved bound when its corresponding replacement is NULL. Each render start replaces `current_render_pass` and reapplies GX pixel and field state.",
+      "rationale": "The current source explicitly implements the initialization-completion transition, one-shot warning latch, conditional heap-bound replacement, and per-render state update.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Declares the zero-initialized state and shows HSD_InitComponent setting init_done."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows saved bounds being established and conditionally replaced."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L303",
+          "why": "Shows current_render_pass replacement and GX mode application."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Shows post-initialization rejection and the one-time shown transition."
+        }
+      ]
+    },
+    {
+      "id": "fact:94bb3495-bb21-41de-b654-959c0c59f878",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_SetInitParameter can replace the render-mode pointer and positive FIFO-size, XFB-count, heap-count, and audio-heap-size defaults before initialization. HSD_OSInit uses the heap count and audio size to partition the arena and stores the created main-heap handle in `current_heap`. The render-mode pointer feeds VI startup and GX field configuration; `current_z_fmt` feeds the antialiased depth path; FIFO size is copied into the memory report; and the zero GXColor initializes the default GX light object.",
+      "rationale": "The current setter establishes the inputs and validation rules, and the OS, VI, FIFO, light, and rendering routines trace each retained value into its consumer.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the defaults and their use by VI startup and FIFO registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Traces light color, heap count, audio size, and current_heap through GX and OS initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L303",
+          "why": "Shows render-mode and depth-format consumption by rendering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Shows pre-initialization updates of the render and allocation parameters."
+        }
+      ]
+    },
+    {
+      "id": "fact:5ba29d85-2aa4-411a-8912-1ed41ef9ddf3",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A heterogeneous small initialized-data block containing word-sized mutable objects: an OSHeapHandle initialized to -1; a GXRenderModeObj pointer; an integer GX depth-format selector; two u32 size parameters; two integer count parameters; and a four-byte GXColor.",
+      "rationale": "The source provides explicit C types and initializers for each visible object: current_heap, rmode, current_z_fmt, iparam_fifo_size, iparam_xfb_max_num, iparam_heap_max_num, iparam_audio_heap_size, and HSD_Init_804D5E1C. This supports describing the section as mixed typed state rather than as one homogeneous table or structure.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:07:57.435Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L33-L53",
+          "why": "Directly declares the types and initial values of the initialized small-data objects."
+        }
+      ]
+    },
+    {
+      "id": "fact:5867ed0b-850a-4c32-a5c0-2f37e848184a",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Holds the base-library initializer's mutable initialized defaults and persistent runtime handle: the current OS heap, selected GX render mode and depth format, FIFO/XFB/heap/audio initialization parameters, and the zero-valued color used to initialize GX lights.",
+      "rationale": "The current declarations identify these initialized objects, and their consumers show that they supply OS heap construction, video, rendering, FIFO accounting, and default-light setup.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Declares the initialized heap handle, render defaults, allocation parameters, and light color."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows these values used by GX light setup and OS heap construction and current_heap being updated."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L303",
+          "why": "Shows render-mode and depth-format values feeding GX rendering configuration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Shows the configurable initialization values being replaced before initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:376fd67b-0f4e-4df0-8cdf-e6885d6be68b",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sdata",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The block begins with no current heap (-1), the interlaced NTSC render mode, GX_ZC_MID, default FIFO/XFB/audio settings, four OS heaps, and a zero light color. Before HSD_InitComponent completes, positive scalar parameters may replace their defaults; the render-mode pointer is also replaced, although that selector returns false because it does not set the success flag. After initialization an external guard prevents further changes. Independently, `current_heap` transitions from -1 to the created main heap and may later be replaced or destroyed and recreated.",
+      "rationale": "The declarations establish the initial state, the setter establishes the guarded parameter transitions and render-mode return quirk, and the heap routines establish the current_heap transitions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows every stated initialized default and the init_done transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows current_heap creation, replacement access, and reconstruction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L305-L365",
+          "why": "Shows positive-value validation, post-initialization rejection, and render-mode assignment without setting ok."
+        }
+      ]
+    },
+    {
+      "id": "fact:276698bc-c915-4544-bcea-f9bada4686e8",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_GXInit reads the zero and one constants into GXInitLightPos, GXInitLightDir, and GXInitLightAttn. Those calls populate a temporary GXLightObj; after its color is initialized, the completed object is loaded into all eight GX hardware light slots before HSD invalidates its cached GX state.",
+      "rationale": "The current initialization sequence directly traces the floating constants into the temporary light object and then through the eight-slot upload loop.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the constants feeding light construction, the resulting object loading into eight light IDs, and final HSD state invalidation."
+        }
+      ]
+    },
+    {
+      "id": "fact:02533364-c5e0-41df-89d4-1b95a8df2c17",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A read-only small-data constant pool containing single-precision floating-point zero and one values used as GX light-vector and attenuation coefficients rather than mutable initialization state.",
+      "rationale": "The constants are consumed by GX APIs taking floating-point components, and no code writes them.",
+      "confidence": 0.92,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the constant components being read by GXInitLightPos, GXInitLightDir, and GXInitLightAttn without mutation."
+        }
+      ]
+    },
+    {
+      "id": "fact:97177858-c1dc-435a-b542-1adfafbe860c",
+      "target_id": "target:data:main/sysdolphin/baselib/initialize:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides read-only floating-point zero and one constants used while constructing the default GX light object during HSD graphics initialization.",
+      "rationale": "The current HSD_GXInit passes zero and one into the floating-point position, direction, and attenuation APIs that build its default light object.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows zero and one used as GX light position, direction, and attenuation components."
+        }
+      ]
+    },
+    {
+      "id": "fact:04f62c01-d382-4997-b5c9-c8d0e7ba4903",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the OS arena bounds and rounds them to 32-byte boundaries before selecting an allocation backend. The heap path forwards `size` to OSAllocFromHeap on `__OSCurrHeap`. The arena path returns the aligned low boundary, adds `size`, validates the new cursor against OSGetArenaHi, and commits it through OSSetArenaLo. Main passes the result and the same byte count to GXInit, then registers GXInit's returned FIFO object.",
+      "rationale": "The allocator directly shows each input, transformation, and arena mutation, while main establishes the downstream GX initialization and registration flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows arena reads and rounding, heap allocation, cursor arithmetic, validation, commit, and return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L150-L190",
+          "why": "Shows the result and matching size flowing into GXInit and its result flowing into HSD_GXSetFifoObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:e6d04046-9796-4261-828e-2d25c9d3d585",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the memory-provisioning step of GX command FIFO setup: it reserves the command-buffer storage that GXInit turns into the FIFO descriptor used by the graphics pipeline.",
+      "rationale": "The allocator's diagnostics identify GX FIFO memory, and main supplies the returned address and size directly to GXInit before retaining its descriptor.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Identifies both allocation paths and failures as provisioning GX FIFO memory."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L150-L190",
+          "why": "Shows GXInit consuming the allocation and producing the FIFO object registered with HSD."
+        }
+      ]
+    },
+    {
+      "id": "fact:0f4fb599-8a4f-4ce4-aad4-51226773e3fa",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `GXFifoObj* HSD_AllocateFifo(u32 size)`, where `size` is a byte count and the returned pointer denotes the start of memory used as GXInit's FIFO base. The arena path begins at a 32-byte-aligned address, and allocation failure is fatal rather than represented by an ordinary NULL return.",
+      "rationale": "The current definition supplies the signature, byte-address arithmetic, alignment, and panic paths; the caller confirms the result and size roles at GXInit.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Provides the signature, aligned arena address, byte arithmetic, failure guards, and panic behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L150-L190",
+          "why": "Shows the result used as GXInit's FIFO base with the identical size."
+        }
+      ]
+    },
+    {
+      "id": "fact:8fd73dce-8da6-4e3d-9079-caf18128d967",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Obtains a requested-size block of memory to serve as the GX command FIFO's backing store during graphics startup, using the current OS heap when no arena is available and otherwise reserving the block from the low end of the OS arena.",
+      "rationale": "The current body implements the two allocation paths and identifies both failures as GX FIFO memory failures; main passes the returned block and matching size directly to GXInit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the complete heap and arena allocation paths and their GX FIFO diagnostics."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L150-L190",
+          "why": "Shows the returned block being passed to GXInit as a 0x40000-byte FIFO backing allocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:f403e181-78b2-4d7e-b8c9-000b726077e3",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If both rounded arena boundaries are zero, the function allocates from the current heap and panics if allocation returns NULL. Otherwise it reserves from arena-low, panics if the requested block advances the cursor beyond arena-high, and commits the new low boundary on success. Every ordinary return therefore represents successful FIFO-memory acquisition.",
+      "rationale": "The current branch guard, two failure checks, panic calls, and OSSetArenaLo transition define the complete state behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateFifo",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows backend selection, both fatal failure states, successful arena-cursor advancement, and the common return."
+        }
+      ]
+    },
+    {
+      "id": "fact:f539deac-d568-4873-bf8d-f28db4319fea",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The render mode becomes a per-buffer byte count by rounding `fbWidth` up to 16 pixels, multiplying by `xfbHeight`, and multiplying by two bytes per pixel. That count times `nbuffer` is written to `memReport.xfb`. Equal aligned arena bounds select current-heap allocations; otherwise sequential addresses come from arena-low, with each next address rounded to 32 bytes. The final cursor is committed, unused slots are cleared, and FrameBuffer is returned.",
+      "rationale": "Every stated transformation, memory source, destination, and output is explicit in the current matched body.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Traces render dimensions and buffer count through size calculation, accounting, address production, arena mutation, table cleanup, and return."
+        }
+      ]
+    },
+    {
+      "id": "fact:737651b7-4f25-4b7a-9d38-230ad9fdf288",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the framebuffer-provisioning portion of video-output initialization by creating XFB backing-memory addresses for the selected render mode, after which HSD startup supplies those addresses to HSD_VIInit for presentation.",
+      "rationale": "The allocator derives and stores XFB regions from the render mode, and the component initializer passes the resulting framebuffer entries to HSD_VIInit.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows XFB allocation based on the render mode and the populated entries being supplied to HSD_VIInit."
+        }
+      ]
+    },
+    {
+      "id": "fact:ae1982f1-55f0-47d7-b4e4-5acb55341537",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void** HSD_AllocateXFB(s32 nbuffer, GXRenderModeObj* rm)`. `nbuffer` is a framebuffer count, `rm` supplies framebuffer width and XFB height, and the result is the global array of framebuffer addresses; a NULL render-mode pointer produces NULL.",
+      "rationale": "The current definition directly supplies the signature and shows each parameter's role and both return forms.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Provides the exact signature, parameter uses, global table return, and NULL result for a missing render mode."
+        }
+      ]
+    },
+    {
+      "id": "fact:39dcde92-d3c4-4803-bb76-58f97e6dec62",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provisions the requested number of external framebuffers for a GX render mode, records their total memory cost, stores their addresses in the global FrameBuffer table, clears unused entries, and returns that table for video initialization.",
+      "rationale": "The current body derives the buffer size, allocates from the heap or arena, updates accounting and the table, clears its unused suffix, and returns it; HSD_InitComponent consumes the table during VI initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Contains the complete allocation, accounting, table-population, clearing, and return behavior and shows table consumption by HSD_VIInit."
+        }
+      ]
+    },
+    {
+      "id": "fact:0ca43dba-d233-44f6-9bd2-d2bd5b0c3864",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A NULL render mode immediately returns NULL. Otherwise, equal 32-byte-aligned arena bounds select independent current-heap allocations, while unequal bounds select contiguous low-arena reservations. The arena path assigns and advances all requested buffers before checking whether the resulting cursor exceeds arena-high; exhaustion panics and success commits the cursor. Both successful paths clear every unused FrameBuffer entry and return the table.",
+      "rationale": "The current control flow establishes the null guard, allocation-path condition, post-reservation capacity check, fatal failure, arena commit, and common finalization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_AllocateXFB",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows all guards, branches, arena-capacity handling, unused-slot clearing, and return behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:01f1bf19-060e-40e9-b83b-987bca902623",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_CreateMainHeap",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Before applying either input, the saved arena bounds flow to the AObj, display, ID, object-allocation, random, and RObj forget-memory callbacks. Non-NULL inputs then replace their corresponding bounds. The old current_heap flows to OSDestroyHeap; the resulting saved range flows to OSCreateHeap; its returned handle becomes current_heap, is selected with OSSetCurrentHeap, and is returned. The replacement range size flows to HSD_ObjSetHeap with a NULL base.",
+      "rationale": "The current statement order proves that callbacks receive the old bounds and directly traces the replacement range and heap handle through every later destination; HSD_ObjSetHeap confirms the size and NULL-base effects.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_CreateMainHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the exact flow and ordering of old bounds, optional replacements, heap destruction and creation, current selection, allocator sizing, and return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+          "why": "Shows HSD_ObjSetHeap storing the supplied size and that a NULL base causes later pool storage to use HSD_MemAlloc."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/os/OSAlloc.c#L344-L457",
+          "why": "Shows OS heap creation, destruction, and current-heap selection semantics."
+        }
+      ]
+    },
+    {
+      "id": "fact:c2cbf109-ac82-4e65-a983-77911710dd30",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_CreateMainHeap",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `OSHeapHandle HSD_CreateMainHeap(void* lo, void* hi)`. Each pointer is an independently nullable arena-bound override, and the return value is the newly created Dolphin OS heap handle, which is also stored as the HSD current heap.",
+      "rationale": "The current definition supplies the signature, separate NULL checks, assignment of OSCreateHeap's result to current_heap, and return of that handle.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_CreateMainHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Directly establishes the return type, parameter types, nullable override semantics, and returned heap handle."
+        }
+      ]
+    },
+    {
+      "id": "fact:7fb79fbc-1294-483d-b1db-cefe214d2b7d",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_CreateMainHeap",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Rebuilds the process-global HSD main heap, first invalidating class and subsystem state that may retain references to the old arena, then recreating the Dolphin OS heap over saved or newly supplied bounds, selecting it as current, and resetting HSD object-allocation capacity for the replacement range.",
+      "rationale": "The current target performs the ordered teardown, forget callbacks, bound updates, OS heap replacement, and object-allocator reset; the class and object-allocation implementations confirm the invalidation effects.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_CreateMainHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the complete ordered teardown, callback, bound replacement, heap reconstruction, and allocator-reset sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L419-L500",
+          "why": "Shows class amnesia callbacks, hierarchy detachment, initialized-state clearing, and hash invalidation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows the object allocator's forget-memory callback clearing its descriptor registry."
+        }
+      ]
+    },
+    {
+      "id": "fact:08aa1f6b-cbad-43b2-8b80-7503b636f551",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_CreateMainHeap",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine performs an ordered teardown-and-rebuild transition. It forgets the base class hierarchy, refreshes HSD object descriptors, and invokes every forget-memory callback on the old arena. NULL inputs preserve their corresponding saved bounds; non-NULL inputs replace them afterward. It then destroys the old OS heap, creates and selects a replacement over the resulting bounds, and resets object-allocation capacity to that range. It has no local recovery path if heap creation cannot return a valid handle.",
+      "rationale": "The target establishes the phase ordering and nullable-bound transitions, while the OS allocator establishes range validation, the inactive descriptor transition, the -1 creation failure, and valid-handle requirements.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_CreateMainHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows ordered invalidation, optional bound replacement, heap destruction and creation, current selection, and allocator reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L419-L500",
+          "why": "Shows the class-library state transition invoked during teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/os/OSAlloc.c#L344-L457",
+          "why": "Shows heap descriptor destruction, validated creation with a -1 failure result, and current-heap validity checks."
+        }
+      ]
+    },
+    {
+      "id": "fact:5e4c7887-3ded-4dc3-86df-7c08da015f53",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_DVDInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives no inputs, reads no globals, invokes no callees, performs no writes, and returns control to HSD_InitComponent so startup can continue with HSD_IDSetup.",
+      "rationale": "The parameterless empty body excludes internal data operations, and its call-site position establishes the continuation of startup control.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_DVDInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the empty no-argument function and HSD_IDSetup following its return."
+        }
+      ]
+    },
+    {
+      "id": "fact:a659e9fe-bd5e-48c7-9ab8-350b06dba4bf",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_DVDInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A translation-unit-private initialization routine with signature `void HSD_DVDInit(void)`: it accepts no arguments and returns no value.",
+      "rationale": "The current forward declaration gives the function internal linkage, while the definition and call establish its void return and parameterless signature.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_DVDInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the static forward declaration, no-argument call, and complete `void HSD_DVDInit(void)` definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:05f64b7b-347a-4a4b-ba98-97d784e39ee5",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_DVDInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Occupies the DVD-initialization stage of HSD component startup, between graphics initialization and identifier setup, while performing no runtime work in this build.",
+      "rationale": "The current component initializer calls HSD_DVDInit between HSD_GXInit and HSD_IDSetup, and the complete current definition is empty.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_DVDInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the startup-sequence position and the complete empty HSD_DVDInit definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:d1543a4c-26b4-4515-8589-5a6d2f698869",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_DVDInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has invariant no-op behavior: it has no guards, calls, mutations, timers, or state transitions, and every invocation returns immediately.",
+      "rationale": "The complete current function body contains no statements.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_DVDInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Contains the complete empty HSD_DVDInit definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:b94a33cc-6478-48e9-a26c-a5d7dc830062",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine fills a stack-local GXLightObj with position, direction, angular attenuation, and distance attenuation values of `(1, 0, 0)` and with `HSD_Init_804D5E1C` as its color. For indices zero through seven, HSD_Index2LightID converts the index to a GXLightID and GXLoadLightObjImm copies the completed object into that hardware slot.",
+      "rationale": "Each initializer call establishes one component of the local object, and the fixed loop is its sole downstream consumer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows every light-object input and the index-to-light-ID upload loop."
+        }
+      ]
+    },
+    {
+      "id": "fact:b3efc80d-6161-4572-a538-9b02e1c6afbf",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes startup initialization of the GameCube GX fixed-function lighting resources: all eight hardware light slots begin with identical defined color, position, direction, and attenuation data before later scene-specific light setup.",
+      "rationale": "The current routine builds a complete GXLightObj and uploads it through every indexed GX hardware light identifier.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows one complete GXLightObj being loaded into each of the eight GX light identifiers."
+        }
+      ]
+    },
+    {
+      "id": "fact:cd8670f7-94e0-422c-a2a2-5436b887211f",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A translation-unit-private parameterless initialization routine with signature `void HSD_GXInit(void)`. It uses a stack-local GXLightObj and an integer loop index and returns no value.",
+      "rationale": "The current forward declaration establishes internal linkage, while the definition directly supplies the signature and local variable types.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the static forward declaration for HSD_GXInit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the exact definition and local GXLightObj and integer declarations."
+        }
+      ]
+    },
+    {
+      "id": "fact:83a85f67-59c2-4102-bd2c-d6f35b3d700c",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Establishes a known baseline for HSD lighting at graphics startup by constructing one default GX light object, loading it into every GX hardware light slot, and invalidating HSD's cached graphics-state categories.",
+      "rationale": "The current body initializes all principal GXLightObj components, uploads the object for indices zero through seven, and finishes with HSD_StateInvalidate(-1).",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows complete default-light construction, eight-slot upload, and all-category state invalidation."
+        }
+      ]
+    },
+    {
+      "id": "fact:e8c44988-4a2b-433e-9f68-4f70372d485f",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Every invocation unconditionally replaces all eight GX light slots with the same baseline object. After all uploads it passes -1 to HSD_StateInvalidate, selecting all represented HSD graphics-state categories; there are no alternate paths or retained local state.",
+      "rationale": "The fixed-bound loop and unconditional final invalidation are the only control-flow operations in the current body.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GXInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the unconditional eight-iteration upload loop and unconditional HSD_StateInvalidate(-1)."
+        }
+      ]
+    },
+    {
+      "id": "fact:aba1a476-ec60-4b4f-a91d-755459b25dc7",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GXSetFifoObj",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Main allocates 0x40000 bytes for the GX FIFO, passes that address and size to GXInit, and passes GXInit's returned `GXFifoObj*` into this function. HSD_GXSetFifoObj stores the pointer in `DefaultFifoObj` and copies `iparam_fifo_size` into `memReport.gxfifo`; HSD_OSInit later consumes that byte count when deriving `memReport.system`.",
+      "rationale": "The current caller restores the previously unresolvable input chain, while the target and OS initialization code show both stored outputs and the later accounting consumer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GXSetFifoObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L150-L190",
+          "why": "Shows the 0x40000 allocation, GXInit call, and direct transfer of its result to HSD_GXSetFifoObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the FIFO pointer and configured byte count flowing into DefaultFifoObj and memReport.gxfifo."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows memReport.gxfifo being consumed in the system-memory calculation."
+        }
+      ]
+    },
+    {
+      "id": "fact:aadf8883-6c83-415f-91cd-308a3151f6a4",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GXSetFifoObj",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_GXSetFifoObj(GXFifoObj* fifo)`. The parameter is the initialized GX FIFO object returned by GXInit; the function returns no value and updates process-global HSD initialization state.",
+      "rationale": "The current definition supplies the exact signature and assignments, while the current main startup sequence supplies GXInit's result directly as the argument.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GXSetFifoObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the exact return type, parameter type, and complete body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L150-L190",
+          "why": "Shows that the argument is the GXFifoObj pointer returned by GXInit."
+        }
+      ]
+    },
+    {
+      "id": "fact:4dec13bd-b144-4664-9e48-751cf3c03c53",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GXSetFifoObj",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Registers the initialized GX FIFO object as HSD's default FIFO and charges the configured FIFO reservation to HSD's memory report before component initialization computes available system memory.",
+      "rationale": "The target performs both global writes, main calls it with GXInit's result before HSD_InitComponent, and HSD_OSInit later subtracts the recorded FIFO reservation while computing system memory.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GXSetFifoObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the complete function storing iparam_fifo_size and its FIFO argument."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows HSD_OSInit consuming memReport.gxfifo in its system-memory calculation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L150-L190",
+          "why": "Shows GXInit's result flowing into HSD_GXSetFifoObj immediately before HSD_InitComponent."
+        }
+      ]
+    },
+    {
+      "id": "fact:b6946674-a1c8-457d-996c-8758bd94708f",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GXSetFifoObj",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Unconditionally replaces both pieces of FIFO registration state: `DefaultFifoObj` becomes the supplied pointer and `memReport.gxfifo` becomes the current configured FIFO size. It has no NULL check, initialization guard, or incremental accounting; its normal startup invocation occurs before HSD component initialization.",
+      "rationale": "The complete target body consists of two unconditional assignments, and the restored current caller shows its pre-initialization position.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:26.001Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GXSetFifoObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the two unconditional overwrites and absence of guards."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L150-L190",
+          "why": "Shows HSD_GXSetFifoObj being called immediately before HSD_InitComponent."
+        }
+      ]
+    },
+    {
+      "id": "fact:51e7cfbd-efbd-436e-9a47-1ae1cc8a11f7",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetCurrentRenderPass",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_StartRender receives a requested HSD_RenderPass and stores it in current_render_pass. HSD_GetCurrentRenderPass reads and returns that stored value without transformation; HSD_CObjSetCurrent consumes it to select the camera setup appropriate to the active rendering region.",
+      "rationale": "The current source still shows HSD_StartRender producing current_render_pass and the target returning it directly, while HSD_CObjSetCurrent consumes the result in its four-way render-pass dispatch. The standing claim therefore remains valid and is re-cited at head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetCurrentRenderPass",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L233-L260",
+          "why": "Shows HSD_GetCurrentRenderPass returning current_render_pass and HSD_StartRender assigning its pass argument to that state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L485-L519",
+          "why": "Shows HSD_CObjSetCurrent consuming the returned pass to select offscreen, screen, top-half, or bottom-half camera setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:ef675e72-6f86-4c0f-bf2b-d1fbac93cb7a",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetCurrentRenderPass",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless accessor with signature `HSD_RenderPass (void)`. Its result belongs to the render-pass enum domain demonstrated by HSD_RP_OFFSCREEN, HSD_RP_SCREEN, HSD_RP_TOPHALF, and HSD_RP_BOTTOMHALF.",
+      "rationale": "The matched definition establishes the exact return and parameter types. Its recovered consumer switches on the returned value using the four named HSD_RenderPass constants and rejects values outside that domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:53:55.505Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetCurrentRenderPass",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L238-L241",
+          "why": "Directly establishes the function's HSD_RenderPass return type, void parameter list, and untransformed enum-valued return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L485-L519",
+          "why": "Demonstrates the known enum domain by switching on the result with four named HSD render-pass constants."
+        }
+      ]
+    },
+    {
+      "id": "fact:99934c94-9b73-4245-b40b-90e303fc5e27",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetCurrentRenderPass",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Exposes the active HSD render-pass mode so camera activation and other rendering code can select pass-specific graphics setup.",
+      "rationale": "The complete function returns the translation unit's current_render_pass value unchanged. HSD_CObjSetCurrent immediately consumes that result to choose offscreen, normal-screen, top-half, or bottom-half camera setup, establishing why the accessor exists in the rendering subsystem.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:53:55.505Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetCurrentRenderPass",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L238-L241",
+          "why": "Shows that the accessor directly returns current_render_pass."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L485-L519",
+          "why": "Shows HSD_CObjSetCurrent using the returned mode to dispatch among four render-pass-specific camera setup paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:014d836e-4177-49b3-806f-8d54cce5b27d",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetCurrentRenderPass",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The accessor is observational: it has no guard, branch, initialization, or mutation and simply reflects the current render-pass state. After HSD_StartRender records a new pass, subsequent calls return that pass until the state is changed again.",
+      "rationale": "At the current head the accessor remains a mutation-free direct return, and the adjacent HSD_StartRender remains the routine that updates the persistent pass. This confirms the standing state behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetCurrentRenderPass",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L233-L260",
+          "why": "Shows the accessor's branch-free global read and the neighboring update of current_render_pass by HSD_StartRender."
+        }
+      ]
+    },
+    {
+      "id": "fact:9ba574c2-2a81-406a-807f-f250a6d2e67a",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetHeap",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads current_heap and returns it unchanged. That module-global handle is initially the invalid value -1, is established and selected by HSD_OSInit, may be replaced directly by HSD_SetHeap, and is destroyed and recreated by HSD_CreateMainHeap. Callers consume the returned handle for OS heap allocation, deallocation, and available-space checks.",
+      "rationale": "The head source preserves current_heap's initial value, all producers and replacements, and the direct getter. Current memory and object-allocation callers still pass the result to the Dolphin OS heap APIs, so the full standing flow remains valid.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows current_heap initialized to the invalid OS heap handle -1."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows HSD_OSInit creating current_heap, HSD_GetHeap returning it, HSD_SetHeap replacing it, and HSD_CreateMainHeap destroying and recreating it."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/memory.c#L9-L26",
+          "why": "Shows HSD_Free and HSD_MemAlloc passing HSD_GetHeap's result to OSFreeToHeap and OSAllocFromHeap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+          "why": "Shows the object allocator passing HSD_GetHeap's result to OSCheckHeap for available-space checks."
+        }
+      ]
+    },
+    {
+      "id": "fact:9d084b9e-6286-4f69-b224-8fb54b69bd08",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetHeap",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Parameterless accessor with signature `OSHeapHandle HSD_GetHeap(void)`; its return value is the currently selected Dolphin OS heap handle.",
+      "rationale": "The matched definition gives the exact return and parameter types and returns current_heap without conversion. Its resolved consumers pass the result directly to OSAllocFromHeap, OSFreeToHeap, and OSCheckHeap, confirming that the value belongs to the OSHeapHandle domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:53:49.539Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L189-L192",
+          "why": "Provides the exact C signature and identifies current_heap as the returned value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/memory.c#L9-L26",
+          "why": "Shows the return value being consumed directly as the heap-handle argument to Dolphin OS allocation and free operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+          "why": "Shows the return value being accepted directly by OSCheckHeap."
+        }
+      ]
+    },
+    {
+      "id": "fact:e9c74c2f-6640-415d-9afe-90c9d8878298",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetHeap",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns the heap handle currently selected by the HSD baselib so general memory allocation, deallocation, and heap-aware object-allocation checks all operate against the same active Dolphin OS heap.",
+      "rationale": "The accessor directly returns current_heap. HSD_MemAlloc and HSD_Free pass its result to the Dolphin OS heap allocation APIs, while HSD_ObjAlloc uses it to query available heap space when no private object heap is active. These consumers establish its role as the shared active-heap accessor rather than merely an incidental global getter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:53:49.539Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L189-L192",
+          "why": "The complete function directly returns the translation unit's current_heap handle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/memory.c#L9-L26",
+          "why": "Shows both general HSD allocation and deallocation obtaining their OS heap handle through HSD_GetHeap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+          "why": "Shows the HSD object allocator using HSD_GetHeap when checking available space in the active OS heap."
+        }
+      ]
+    },
+    {
+      "id": "fact:376af87a-482c-49d2-86d1-671919e3d710",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetHeap",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The function is observational: it performs no initialization, validation, fallback, or state transition and always reflects the current value of current_heap. Consequently it can return the initial invalid handle -1 before heap setup, and after initialization, explicit heap selection, or main-heap recreation it immediately reflects the newly stored handle.",
+      "rationale": "The target remains a direct global accessor. The head source still initializes current_heap to -1 and performs all later transitions in HSD_OSInit, HSD_SetHeap, and HSD_CreateMainHeap, confirming that the getter only observes those states.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the static initial value of current_heap as -1."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the getter's direct return and all initialization, selection, and recreation updates occurring outside it."
+        }
+      ]
+    },
+    {
+      "id": "fact:7a62ff3e-61a9-468d-8673-2214cd0d29fb",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetNextArena",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The lower output receives hsd_heap_next_arena_lo and the upper output receives hsd_heap_next_arena_hi without conversion or mutation. HSD_OSInit initially derives these values from the 32-byte-aligned Dolphin OS arena after reserving the audio heap, while HSD_CreateMainHeap may later replace either saved bound before recreating the current heap.",
+      "rationale": "The current source still traces aligned arena bounds through audio-heap reservation into the saved globals, conditionally replaces those globals during main-heap recreation, and copies them directly to the getter's outputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetNextArena",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows creation, conditional replacement, and direct output of hsd_heap_next_arena_lo and hsd_heap_next_arena_hi."
+        }
+      ]
+    },
+    {
+      "id": "fact:ddf2f7c5-4650-4a56-839a-7dce0d01f6f7",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetNextArena",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void accessor with signature void (void** lo, void** hi); both parameters are writable output pointers that receive the lower and upper arena addresses respectively.",
+      "rationale": "The matched declaration gives the exact void return and pointer-to-pointer parameter types. Each parameter is dereferenced once as an assignment destination, proving that both are required output slots rather than input arena addresses.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:53:38.690Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetNextArena",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L199-L203",
+          "why": "Shows the exact function signature and assignments through lo and hi."
+        }
+      ]
+    },
+    {
+      "id": "fact:83722194-942c-4ad0-b66b-c0923ec8ecf0",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetNextArena",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns the saved lower and upper bounds of the arena region used to create the HSD main heap, allowing callers to recover the currently configured main-heap memory range.",
+      "rationale": "At head, HSD_OSInit saves the bounds immediately before creating the main heap from the same interval, and HSD_GetNextArena copies those saved pointers to caller-provided locations. The standing purpose remains accurate.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetNextArena",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the saved bounds defining the main-heap range and the getter returning those bounds through its output pointers."
+        }
+      ]
+    },
+    {
+      "id": "fact:f9dcc2e9-afa0-4194-a9f5-5db05a4a97d7",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_GetNextArena",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "This function is observational and does not alter heap or arena state. Its returned bounds reflect the latest initialization or main-heap-recreation state: HSD_OSInit establishes them, and a later HSD_CreateMainHeap call updates each bound only when the corresponding replacement argument is non-null.",
+      "rationale": "The getter still performs only two reads and output assignments. The same head span shows initial establishment of both bounds and independent non-null guards for later replacements, confirming the documented state lifecycle.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_GetNextArena",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows the getter's non-mutating body and the initialization and conditional-replacement rules for both saved arena bounds."
+        }
+      ]
+    },
+    {
+      "id": "fact:d6207703-79a9-4a93-a844-8c20efe3bdb4",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_InitComponent",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the selected GXRenderModeObj through rmode and copies it into a stack-local HSD_VIStatus, augments that status with black-screen, vertical-filter, gamma-1.0, maximum-depth clear, and color/alpha/depth update settings, and passes it together with FrameBuffer[0..2] to HSD_VIInit. Its only direct persistent output is init_done = true after the called subsystems have established their own global state.",
+      "rationale": "The source directly traces the render-mode and framebuffer globals into the HSD_VIInit arguments and shows the exact fields assigned to the local status structure. The final write to init_done is the function's direct completion output.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:52:45.305Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_InitComponent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L50-L77",
+          "why": "Shows every HSD_VIStatus field assignment, the three framebuffer inputs, all subsystem calls, and the final init_done write."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728659736458690570",
+          "why": "Corroborates that the temporary structure reference and its values are passed into HSD_VIInit."
+        }
+      ]
+    },
+    {
+      "id": "fact:6a4c140c-5d53-40b8-b2d4-c4b010fbb65e",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_InitComponent",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Parameterless initialization routine with signature void HSD_InitComponent(void); it receives no caller-supplied data and returns no status, operating through private translation-unit configuration and subsystem globals.",
+      "rationale": "The matched definition explicitly has a void(void) signature. Its body reads rmode and FrameBuffer and writes init_done without accepting arguments or returning a value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:52:45.305Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_InitComponent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L50-L77",
+          "why": "Directly provides the complete function signature and shows its global-state operations and lack of a returned value."
+        }
+      ]
+    },
+    {
+      "id": "fact:21688c66-f0ac-401d-9218-d70682d8074a",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_InitComponent",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the ordered HSD base-component bootstrap needed before the game proceeds: it initializes OS-managed memory, establishes the initial video and framebuffer state, initializes GX, invokes the DVD setup hook, clears the default ID registry, waits for the first subsequent video retrace, initializes object allocators and diagnostic logging, and finally marks initialization complete.",
+      "rationale": "The matched body explicitly contains this complete ordered sequence. The neighboring records establish that HSD_VIInit bootstraps video presentation, HSD_IDSetup clears the default ID registry, VIWaitForRetrace is a synchronization barrier, and HSD_LogInit installs diagnostic logging, explaining the subsystem purpose of the calls rather than merely restating their names.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:52:45.305Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_InitComponent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L50-L77",
+          "why": "Directly shows the complete startup sequence and the final init_done assignment."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728712548081467493",
+          "why": "Provides an independent reconstruction of the same video configuration, subsystem-call order, retrace wait, and final initialization flag write."
+        }
+      ]
+    },
+    {
+      "id": "fact:4c2eaf2a-b9bd-4a0d-90d8-2fd3390b99eb",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_InitComponent",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Runs an unconditional, linear startup transition with no already-initialized guard: OS and video state are established first, followed by GX, DVD, and ID setup; execution then blocks until a subsequent VI retrace before object allocators and logging are initialized. The global initialization state changes to complete only after the final logging stage.",
+      "rationale": "The body contains no branch around the startup sequence. VIWaitForRetrace appears between ID setup and object/log initialization, and init_done is written only after every call returns, which defines both the synchronization point and the completion transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:52:45.305Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_InitComponent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L50-L77",
+          "why": "Directly shows the unguarded linear call order, the retrace barrier's position, and the final completion-state write."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728712548081467493",
+          "why": "Independently records the same ordering of the retrace wait before object initialization and the final initialization flag assignment."
+        }
+      ]
+    },
+    {
+      "id": "fact:bf17c1fb-8352-44f3-8d56-aae00f5eb7e0",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the translation unit's current_render_pass state and compares it with HSD_RP_OFFSCREEN. When equal, it evaluates `current_render_pass == 0` and discards the boolean result; it writes no state, calls no downstream routine, and produces no output.",
+      "rationale": "The complete matched body exposes the only data reference and control path. Because the inner expression uses equality rather than assignment and its result is unused, neither branch changes current_render_pass or any other observable state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:11:56.564Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L255-L261",
+          "why": "Directly shows the read of current_render_pass, the offscreen guard, and the discarded comparison with zero."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1062608444995149865",
+          "why": "Confirms community recognition that the written comparison is ineffective and may reflect an assignment typo."
+        }
+      ]
+    },
+    {
+      "id": "fact:ba8a6b06-2369-45a5-9ab5-05e1a018fcc2",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "HSD_EndRender",
+      "rationale": "This remains a naming inference rather than a recovered symbol. At head, screen rendering calls the routine after drawing and before framebuffer copy, while offscreen shadow rendering calls it after HSD_ShadowEndRender; its placement after HSD_StartRender also continues to support an end-render role. The ineffective body prevents higher confidence.",
+      "confidence": 0.84,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L233-L260",
+          "why": "Places the routine immediately after HSD_StartRender and shows its render-pass-oriented body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0192.c#L98-L184",
+          "why": "Shows the routine called after screen-pass drawing and immediately before asynchronous framebuffer copy."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L500-L567",
+          "why": "Shows the routine called after HSD_ShadowEndRender in an offscreen shadow-render sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:86dceb78-fd12-43d2-bf3e-b1dc5ac9279f",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless function returning void: void (void).",
+      "rationale": "The current definition still explicitly has a void return and void parameter list, and its resolved screen-rendering caller invokes it without arguments or consuming a result.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L233-L260",
+          "why": "Shows the complete `void HSD_Init_803755A8(void)` declaration and body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0192.c#L98-L184",
+          "why": "Shows a no-argument call with no consumed return value."
+        }
+      ]
+    },
+    {
+      "id": "fact:be1d5011-5004-4f5a-8fcc-ac7801a02314",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Acts as an end-of-render marker used after both screen and offscreen drawing, but its matched body currently has no runtime side effects. It only checks whether the active pass is offscreen and then evaluates and discards another comparison.",
+      "rationale": "The refreshed call sites preserve the routine's placement at the end of screen and offscreen rendering sequences, while the current complete body still contains only an offscreen guard and discarded comparison. The standing purpose remains supported despite the ineffective implementation.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L233-L260",
+          "why": "Shows the routine's complete side-effect-free body and its adjacency to HSD_StartRender."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0192.c#L98-L184",
+          "why": "Shows it marking the end of a screen drawing sequence before framebuffer copy."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L500-L567",
+          "why": "Shows it called after completion of an offscreen shadow-render sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:5c3c4b50-f9f1-45af-a383-fd3fec56b1de",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Branches on whether the current render pass is HSD_RP_OFFSCREEN, but both outcomes leave render-pass state unchanged. The offscreen branch performs only a discarded comparison, so the routine cannot transition the renderer back to a screen pass or an inactive state.",
+      "rationale": "The current source continues to contrast HSD_StartRender's explicit state assignment with this routine's non-mutating equality expression. Neither control-flow path writes state, confirming the standing behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_Init_803755A8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L233-L260",
+          "why": "Shows HSD_StartRender assigning current_render_pass and HSD_Init_803755A8 only testing it and discarding a second comparison."
+        }
+      ]
+    },
+    {
+      "id": "fact:4a7f3264-cce0-4995-823d-bddc628ce992",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_OSInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function reads the OS arena's old low and high bounds, physical memory size, configured maximum heap count, configured audio-heap size, and prior framebuffer and GX FIFO accounting. It computes total and system memory reporting, replaces the low cursor with OSInitAlloc's post-metadata address, rounds the usable range inward to 32-byte boundaries, assigns the first `iparam_audio_heap_size` bytes to HSD_Synth_804D6018, saves the remaining bounds for later heap recreation, creates `current_heap` over that remainder, records its byte extent in memReport and HSD object-allocation state, and publishes the aligned high bound as the new OS arena low frontier.",
+      "rationale": "The current complete body preserves every described input, arithmetic transformation, allocator call, persistent store, accounting update, and final arena-bound publication. The drift is therefore citation-only.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_OSInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L158-L187",
+          "why": "Traces the OS arena, configuration, and accounting inputs through allocator initialization, alignment, audio/main heap partitioning, persistent outputs, and the final OSSetArenaLo call."
+        }
+      ]
+    },
+    {
+      "id": "fact:95a824a0-5865-424b-b862-e33cb0743c83",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_OSInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A private, argument-free startup routine with signature `static void HSD_OSInit(void)`. It returns no handle because its outputs are process-global heap handles, arena bounds, and memory-accounting fields.",
+      "rationale": "The current translation-unit declaration gives HSD_OSInit internal linkage and a void parameter list, while the complete definition returns no value and writes its results to persistent allocator, arena, and accounting state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_OSInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the `static void HSD_OSInit(void)` translation-unit declaration and the persistent globals it updates."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L158-L187",
+          "why": "Shows the argument-free void definition and all persistent outputs written by the routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:84ef8fc9-539b-4245-bfc8-c74a463789cc",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_OSInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Bootstraps HSD's heap environment from the Dolphin OS arena: it initializes OS heap-descriptor management, reserves a fixed low-end heap for audio/synthesis use, creates and selects a main heap over the remaining aligned range, initializes HSD object-allocation accounting against that main heap, and removes the claimed range from the general OS arena.",
+      "rationale": "The head definition still performs the complete allocator bootstrap, creates the audio and main heaps from adjacent aligned ranges, selects the main heap, initializes object allocation against its extent, and advances the OS arena frontier past the claimed memory.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_OSInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L158-L187",
+          "why": "Shows allocator initialization, audio/synthesis and main heap creation, current-heap selection, object-allocator setup, and final arena reservation."
+        }
+      ]
+    },
+    {
+      "id": "fact:7048c122-00f3-4967-854f-12b570854dde",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_OSInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On each invocation, HSD_OSInit replaces the allocator's startup state rather than incrementally extending it: OS heap descriptors are reinitialized for the current arena, an audio/synthesis heap and main heap are created, the main heap becomes current, HSD object-allocator capacity is reset to that heap's full extent in general-heap mode, and the OS arena is left with its low frontier equal to the claimed range's high boundary. The routine contains no local conditional recovery path; invalid or undersized ranges are delegated to the called OS allocator routines' guards.",
+      "rationale": "The current HSD_OSInit remains a straight-line replacement sequence. HSD_ObjSetHeap with a null base resets general-heap accounting, and OSCreateHeap still contains the range and descriptor guards that HSD_OSInit does not duplicate locally.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_OSInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L158-L187",
+          "why": "Shows the unconditional transition to newly initialized allocator descriptors, audio and main heaps, selected current heap, reset object-allocation capacity, and advanced arena frontier."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+          "why": "Shows HSD_ObjSetHeap resetting object-heap cursors and capacity, with a null pointer selecting general-heap mode."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/os/OSAlloc.c#L384-L431",
+          "why": "Shows OSCreateHeap providing the initialization, range, alignment, minimum-size, and descriptor-availability checks relied on by HSD_OSInit."
+        }
+      ]
+    },
+    {
+      "id": "fact:9478fabb-e028-49d7-b5c3-10bcbf9e0aa7",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For each table row, the label flows to OSReport as the category name, while the row's provider is invoked separately for the using, freed, and peak queries. Each returned HSD_ObjAllocData pointer is passed directly to the corresponding shared accessor, and the three integer results become that row's reported counters.",
+      "rationale": "The three OSReport arguments explicitly call `types[i].func()` and immediately pass its result to HSD_ObjAllocGetUsing, HSD_ObjAllocGetFreed, or HSD_ObjAllocGetPeak. Both the source and maintainer discussion confirm this direct provider-to-accessor flow, with no intermediate wrapper object.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:55:11.166Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L281-L308",
+          "why": "Directly shows the label and provider fields flowing into OSReport and the three allocator-stat accessors."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1243249885680107581",
+          "why": "Quotes the direct using, freed, and peak calls made with `types[i].func()`."
+        }
+      ]
+    },
+    {
+      "id": "fact:6d3ecf26-5579-4f32-8f2a-db545d8c92ef",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements developer-facing runtime diagnostics rather than normal gameplay. At debug level 3 or higher, the main loop checks a controller chord of X plus D-pad Right and invokes this routine as part of a broader report containing heap, class, entity, thread, and leak information.",
+      "rationale": "The current game-loop source still gates the diagnostic input handler on the debug-ROM level, and that handler still maps X plus D-pad Right to a report sequence containing HSD_ObjDumpStat and the surrounding runtime diagnostics.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L76-L126",
+          "why": "Shows X plus D-pad Right triggering HSD_ObjDumpStat alongside heap, class, entity, thread, and leak reporting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L196-L314",
+          "why": "Shows the main loop invoking the containing controller diagnostic handler only when DbLevel is at least the debug-ROM level."
+        }
+      ]
+    },
+    {
+      "id": "fact:c19b7167-be60-412a-b277-dbdb13499449",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless reporting procedure with signature `void HSD_ObjDumpStat(void)`. Its local table consists of pairs containing an `HSD_ObjAllocData* (*)(void)` allocator-data provider and a `char*` report label, terminated by a `{ NULL, NULL }` row.",
+      "rationale": "The matched definition provides the exact public function signature and local anonymous-structure layout. Community review independently identifies the provider member as a function pointer returning HSD_ObjAllocData directly and rejects the former HSD_ObjAllocInfo/getData abstraction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:55:11.166Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L281-L308",
+          "why": "Provides the exact function signature, anonymous table-member types, and sentinel row."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1243249802670772255",
+          "why": "States that the structure is local to HSD_ObjDumpStat and that a public HSD_ObjAllocInfo type does not exist."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1243250077581971679",
+          "why": "Identifies the table callback type as `HSD_ObjAllocData* (*func)(void)` and rejects an extra getData indirection."
+        }
+      ]
+    },
+    {
+      "id": "fact:16763e67-ef0a-475c-94c4-6b1e9e61bcb9",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Prints a diagnostic summary of HSD object-pool usage by reporting the current in-use count, cumulative freed count, and peak count for each of thirteen allocator-backed object categories.",
+      "rationale": "The function iterates a fixed table of allocator-data providers labeled aobj, fobj, id, slist, dlist, vec, mtx, robj, rval, shadow, render, chan, and tevreg. For each row it obtains the three allocation counters and emits one OSReport line, directly establishing its role as an object-allocation statistics dump.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:55:11.166Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L281-L308",
+          "why": "Shows all thirteen reported allocator categories, the using/freed/peak queries, and the exact diagnostic output operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:0d45908f-0713-4e31-9507-1d112675b3c8",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine performs a deterministic sentinel-terminated scan of its fixed local table. It emits exactly one line for every row whose label is non-null, stops at the null-label sentinel, and does not itself mutate allocator state; its observable effect is diagnostic output.",
+      "rationale": "The loop guard is solely `types[i].label`, the index advances once per iteration, and the final table row has a null label. The body only reads allocator statistics and calls OSReport, with no writes to the returned allocator data.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:55:11.166Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_ObjDumpStat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L281-L308",
+          "why": "Shows the fixed table, null sentinel, loop condition, per-row reporting, and absence of allocator-state writes."
+        }
+      ]
+    },
+    {
+      "id": "fact:446780fa-f226-45e1-9a91-ac2f58656634",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_ObjInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes no arguments and returns no value. It passes no explicit values between components; all outputs are delegated side effects on the persistent allocation descriptors owned by the ten invoked HSD subsystems and on the common allocator registry into which those descriptors are inserted.",
+      "rationale": "The target remains a sequence of ten parameterless calls with no direct values transported. The current common allocator initializer still mutates and registers the persistent descriptors, confirming where the delegated outputs reside.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_ObjInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L263-L275",
+          "why": "Shows HSD_ObjInit transporting only control and ordering through ten parameterless initializer calls."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows the persistent descriptor reset, sizing, alignment, and allocator-registry insertion performed by the common initializer."
+        }
+      ]
+    },
+    {
+      "id": "fact:2580185d-5a22-44de-9498-9cf0ca7d666b",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_ObjInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Private parameterless initializer with signature `static void HSD_ObjInit(void)`.",
+      "rationale": "The current forward declaration establishes internal linkage and the exact void signature, while the current definition confirms the parameterless initializer body.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_ObjInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the `static void HSD_ObjInit(void)` translation-unit declaration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L263-L275",
+          "why": "Shows the parameterless void definition and complete initializer body."
+        }
+      ]
+    },
+    {
+      "id": "fact:070fac60-c3e1-4986-b601-f53d6781ced2",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_ObjInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the common HSD object-allocation startup sequence by invoking the allocation-data initializers for list nodes, animation and function objects, ID entries, vectors, matrices, relation objects, rendering records, shadows, and depth-sorted display lists.",
+      "rationale": "The current body retains the same ten type-specific InitAllocData calls, and the current common allocator routine shows that such calls initialize and register fixed-size allocation descriptors. The standing startup-coordinator purpose remains valid.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_ObjInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L263-L275",
+          "why": "Shows the complete ordered sequence of ten type-specific allocation-data initializers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows HSD_ObjAllocInit clearing, sizing, aligning, and registering an HSD_ObjAllocData descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:191f3e03-f9fe-4f4b-aa33-dfcdcaf8726a",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_ObjInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Every invocation unconditionally repeats the same fixed initialization order: List, AObj, FObj, ID, Vec, Mtx, RObj, Render, Shadow, then ZList. HSD_ObjInit itself has no guard or local state; reinitialization handling is delegated to the allocation initializers, whose common allocator routine removes an existing descriptor registration before clearing and registering it again.",
+      "rationale": "The current target remains branch-free and preserves the documented call order. The current HSD_ObjAllocInit still removes an existing descriptor, clears and restores it, and prepends it to the registry, confirming the delegated reinitialization behavior.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_ObjInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L263-L275",
+          "why": "Shows the unconditional fixed order of all ten initializer calls."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows repeated initialization unlinking prior registrations before clearing, restoring defaults, and re-registering the descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:d7b3801c-a3ca-4d5b-b094-38e74c655a35",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_SetHeap",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The supplied OSHeapHandle flows unchanged into the translation unit's current_heap slot. HSD_GetHeap returns that slot, and HSD_MemAlloc and HSD_Free pass the returned handle to OSAllocFromHeap and OSFreeToHeap respectively. The lbHeap allocation and free paths obtain a heap descriptor's OS handle, save the prior HSD heap, install the descriptor's handle for one operation, and then restore the saved handle.",
+      "rationale": "The current setter and getter retain their direct slot write and read, the memory wrappers still consume the selected handle, and both lbHeap paths still implement the save-select-operate-restore pattern. The standing flow is unchanged.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_SetHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows current_heap creation, direct return by HSD_GetHeap, and direct replacement by HSD_SetHeap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/memory.c#L9-L26",
+          "why": "Shows HSD_GetHeap's result flowing into OSFreeToHeap and OSAllocFromHeap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L150-L225",
+          "why": "Shows lbHeap saving the previous handle, selecting a descriptor's heap for one allocation or free, and restoring the prior handle."
+        }
+      ]
+    },
+    {
+      "id": "fact:82218ff3-cb71-4a7c-98d5-17794abda778",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_SetHeap",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void HSD_SetHeap(OSHeapHandle handle)`. Its parameter is a Dolphin OS heap handle, stored unchanged as the HSD allocation context; the function returns no value.",
+      "rationale": "The current definition continues to provide the exact void return and OSHeapHandle parameter types and stores the argument without conversion. The surrounding heap bootstrap still sources such handles from OSCreateHeap.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_SetHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows OSCreateHeap producing current_heap and the complete `void HSD_SetHeap(OSHeapHandle handle)` definition assigning that domain unchanged."
+        }
+      ]
+    },
+    {
+      "id": "fact:00ded362-f35e-4d76-a1b3-769dea28c438",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_SetHeap",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Selects the OS heap handle that HSD's general allocation and deallocation wrappers treat as the active HSD heap, allowing higher-level heap management code to redirect an allocation or free to a particular HSD-compatible heap.",
+      "rationale": "At head, HSD_SetHeap still replaces current_heap, HSD_MemAlloc and HSD_Free still obtain their OS heap through HSD_GetHeap, and lbHeap still uses the setter to redirect individual operations. This confirms the routing purpose rather than heap creation or destruction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_SetHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows HSD_SetHeap selecting the HSD-maintained current heap handle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/memory.c#L9-L26",
+          "why": "Shows general HSD allocation and deallocation operating through the handle returned by HSD_GetHeap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L150-L225",
+          "why": "Shows higher-level heap management temporarily selecting a requested heap around HSD_MemAlloc or HSD_Free."
+        }
+      ]
+    },
+    {
+      "id": "fact:c12e4cc6-2009-47ff-8dcd-9acc4963ac07",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_SetHeap",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each call unconditionally replaces the single current HSD heap handle; it performs no validation, allocation, destruction, or preservation of the former value. Callers that need temporary heap selection must save and restore the old handle themselves. The setter changes only HSD's current_heap slot and does not call OSSetCurrentHeap.",
+      "rationale": "The current setter remains a single unconditional assignment. HSD_OSInit separately invokes OSSetCurrentHeap, while lbHeap callers still explicitly save and restore the HSD-maintained handle, confirming all parts of the standing behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_SetHeap",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows OSSetCurrentHeap as a separate initialization call and HSD_SetHeap as only an assignment to current_heap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L150-L225",
+          "why": "Shows callers explicitly saving and restoring the old HSD heap around temporary selection."
+        }
+      ]
+    },
+    {
+      "id": "fact:55d5bc76-4b6a-4669-8093-9bd575716e8a",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_SetInitParameter",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies an HSD_InitParam selector followed by one selector-dependent value. Before initialization, positive scalar values are copied into `iparam_fifo_size`, `iparam_xfb_max_num`, `iparam_heap_max_num`, or `iparam_audio_heap_size`, while the render-mode pointer is copied into `rmode`. The configured render mode is later copied into HSD_VIStatus by HSD_InitComponent, the FIFO size is used by HSD_GXSetFifoObj for memory accounting, and the heap-count and audio-size settings feed OS allocator and heap creation. The setter returns whether a scalar update passed validation; notably, the render-mode pointer is stored even though that case returns false.",
+      "rationale": "The head setter preserves all selector-dependent extraction, validation, storage, and return paths. Current initialization code still consumes rmode, FIFO size, heap-count, and audio-heap size in the documented locations, so the standing flow remains valid.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_SetInitParameter",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L310-L365",
+          "why": "Shows each variadic value flowing into its selector-specific persistent setting and the success flag controlling the return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows HSD_InitComponent consuming rmode and HSD_GXSetFifoObj consuming iparam_fifo_size."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows HSD_OSInit passing iparam_heap_max_num to OSInitAlloc and using iparam_audio_heap_size to partition the arena."
+        }
+      ]
+    },
+    {
+      "id": "fact:f757c656-f47e-45f6-839d-5f5b278824a0",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_SetInitParameter",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Variadic configuration function with source signature `bool HSD_SetInitParameter(HSD_InitParam param, ...)`. The selector domain is `HSD_INIT_FIFO_SIZE`, `HSD_INIT_XFB_MAX_NUM`, `HSD_INIT_HEAP_MAX_NUM`, `HSD_INIT_AUDIO_HEAP_SIZE`, and `HSD_INIT_RENDER_MODE_OBJ`; the first four consume one `u32`, while the render-mode selector consumes one `GXRenderModeObj*`.",
+      "rationale": "The former header citation no longer resolves, but the current complete definition independently establishes the bool variadic signature, all five selector names, four u32 extractions, and the GXRenderModeObj pointer extraction. The fact therefore remains supportable from the relocated source evidence.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_SetInitParameter",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L310-L365",
+          "why": "Shows the exact bool variadic definition, complete five-selector switch domain, four u32 arguments, and one GXRenderModeObj pointer argument."
+        }
+      ]
+    },
+    {
+      "id": "fact:2f116161-4977-493e-8213-d5b6edebbca0",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_SetInitParameter",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the pre-start configuration interface for HSD platform initialization, allowing the caller to override resource-sizing and video-mode defaults before HSD_InitComponent consumes them.",
+      "rationale": "The function dispatches an HSD_InitParam selector into persistent FIFO, XFB, allocator, audio-heap, or render-mode settings and explicitly rejects calls after initialization. Melee's main routine invokes it four times immediately before allocating graphics resources and starting HSD components, establishing its role as the initialization configuration boundary.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:55:04.553Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_SetInitParameter",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L310-L365",
+          "why": "The complete function shows selector-based writes to persistent initialization settings and rejection after init_done."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L130-L165",
+          "why": "Shows the game calling the setter for XFB count, render mode, FIFO size, and heap capacity immediately before graphics-resource allocation and HSD_InitComponent."
+        }
+      ]
+    },
+    {
+      "id": "fact:2148201c-08eb-4f8b-be71-ce0038fd5de6",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_SetInitParameter",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "When `init_done` is clear, the function dispatches on the selector. A scalar setting changes only if its supplied value is greater than zero, returning true on that change and false for zero, unsupported selectors, or otherwise unaccepted input. The render-mode case unconditionally stores its supplied pointer but leaves the result false. Once `init_done` is set, every invocation returns false before reading its unnamed argument; the first rejected invocation reports that parameters must be set before HSD initialization and sets `shown`, while later rejected invocations do not repeat the report.",
+      "rationale": "The current setter retains every documented selector branch, positivity guard, render-mode anomaly, and one-time post-initialization warning. HSD_InitComponent still sets init_done only after startup, preserving the pre-start and post-start phases.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:25.097Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_SetInitParameter",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L310-L365",
+          "why": "Shows the init_done and shown guards, scalar positivity checks, render-mode assignment without setting ok, and all return paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows HSD_InitComponent setting init_done after completing its initialization sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:7ba3a4c4-b3ea-4696-8061-3fd2afbc6074",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-supplied `HSD_RenderPass` is stored in `current_render_pass` and later read by `HSD_CObjSetCurrent` to choose pass-specific camera setup. Independently, `HSD_VIGetRenderMode` supplies antialiasing, field-rendering, XFB-height, and VI-height settings. Antialiasing selects RGB565/Z16 with the saved depth format; otherwise the saved pixel format is paired with linear depth. The field-rendering flag and the `xfbHeight < viHeight` comparison flow into GX field-mode configuration.",
+      "rationale": "The target body directly traces the pass and render-mode fields into persistent pass state and the two GX setters. The camera consumer demonstrates where the stored pass is used, while the GX setter implementations show that the selected values become embedded-framebuffer pixel/depth state and field/aspect raster state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:55:05.373Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L243-L253",
+          "why": "Shows the complete flow from the render-pass argument and active VI render mode into current_render_pass, GXSetPixelFmt, and GXSetFieldMode."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L485-L519",
+          "why": "Shows the stored render pass being consumed to select one of four camera-setup paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXPixel.c#L203-L229",
+          "why": "Shows GXSetPixelFmt encoding its color and depth selections into GX pixel-engine state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXPixel.c#L261-L272",
+          "why": "Shows GXSetFieldMode encoding its field-mode and half-aspect-ratio inputs into GX raster state."
+        }
+      ]
+    },
+    {
+      "id": "fact:3af9a71c-c6fb-4999-b6b3-85293692ee6a",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes HSD's render-pass boundary setup for Melee's graphics pipeline: it identifies whether subsequent camera rendering targets an offscreen, full-screen, top-half, or bottom-half pass and synchronizes GX embedded-framebuffer and field-rasterization state with the active television render mode, including its antialiasing and vertically scaled output requirements.",
+      "rationale": "The pass written here governs the four camera setup modes used downstream. At the same boundary, the function maps VI antialiasing and display geometry into GX pixel/depth and field/aspect settings, grounding the behavior in render-target and display-mode preparation rather than gameplay state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:55:05.373Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L243-L253",
+          "why": "Shows render-pass establishment and display-mode-dependent GX pixel and field configuration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L485-L519",
+          "why": "Grounds the pass state in offscreen, full-screen, top-half, and bottom-half camera rendering modes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXPixel.c#L203-L229",
+          "why": "Shows that the selected formats control embedded-framebuffer pixel, depth, and antialiasing state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXPixel.c#L261-L272",
+          "why": "Shows that the selected display flags control GX field rendering and half-aspect-ratio state."
+        }
+      ]
+    },
+    {
+      "id": "fact:a7b99358-05d9-45cc-988c-34c5712cc21c",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A side-effecting render-state initializer with exact signature `void HSD_StartRender(HSD_RenderPass pass)`. The parameter is an HSD render-pass enum whose recognized downstream modes are `HSD_RP_OFFSCREEN`, `HSD_RP_SCREEN`, `HSD_RP_TOPHALF`, and `HSD_RP_BOTTOMHALF`.",
+      "rationale": "The matched definition supplies the exact return and parameter types and stores the parameter as the current render pass. The downstream consumer switches over four named HSD_RenderPass values and treats any other value as invalid.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:55:05.373Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L243-L253",
+          "why": "Provides the exact `void HSD_StartRender(HSD_RenderPass)` signature and shows the parameter being stored as current render-pass state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L485-L519",
+          "why": "Shows the four recognized HSD_RenderPass values and the invalid-value panic path in the state consumer."
+        }
+      ]
+    },
+    {
+      "id": "fact:8740413e-d8e1-4b0b-b0e7-59af68e22615",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Establishes the active HSD render-pass context and reapplies the GX embedded-framebuffer pixel/depth format and display-field mode required by the current VI render mode before pass-specific camera setup and drawing.",
+      "rationale": "The function records the supplied render pass, obtains the active VI render mode, and configures GX pixel and field state from that mode. HSD_CObjSetCurrent subsequently reads the recorded pass to select offscreen, normal-screen, top-half, or bottom-half camera setup, showing why this state is established at the start of rendering.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:55:05.373Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L243-L253",
+          "why": "Shows HSD_StartRender recording the pass and configuring pixel/depth and field modes from the current GXRenderModeObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L485-L519",
+          "why": "Shows subsequent camera activation reading the current render pass and dispatching to pass-specific camera and viewing-matrix setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:a57dbee9-171f-4f2d-854b-825856470796",
+      "target_id": "target:function:main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Every invocation unconditionally replaces the current render pass and reapplies GX output state. If the active render mode enables antialiasing, the function forces `GX_PF_RGB565_Z16` while retaining `current_z_fmt`; otherwise it uses `current_pix_fmt` and forces `GX_ZC_LINEAR`. It then enables field rendering according to the render mode and enables the associated half-aspect-ratio state exactly when the XFB is shorter than the VI output.",
+      "rationale": "The matched body contains an unconditional pass assignment, a single antialiasing branch with explicit pixel/depth-format pairs, and an unconditional field-mode call whose second Boolean is the framebuffer-versus-output-height comparison.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:55:05.373Z",
+      "subject": "main/sysdolphin/baselib/initialize:HSD_StartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L243-L253",
+          "why": "Directly shows the unconditional state replacement, the antialiasing-dependent format transition, and the field/aspect-mode update."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXPixel.c#L203-L229",
+          "why": "Shows that RGB565_Z16 also sets GX antialiasing state and that the supplied depth encoding is written into pixel-engine state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXPixel.c#L261-L272",
+          "why": "Shows the field-mode and half-aspect-ratio state transitions performed by the final setter call."
+        }
+      ]
+    },
+    {
+      "id": "fact:33ba326b-47cd-4fea-8e58-8914b3faf010",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/initialize.c",
+      "type": "data_flow",
+      "value": "Static initialization parameters and the Dolphin OS arena feed framebuffer, FIFO, audio-heap, and main-heap allocation. The resulting framebuffer pointers, FIFO size, heap bounds and handle, and memory totals are retained in translation-unit state for later initialization and reporting. Render-pass input is similarly retained and translated into GX pixel and field configuration.",
+      "rationale": "The current globals and allocation routines preserve the flow from retained parameters and arena bounds into framebuffers, FIFO and heaps, while HSD_StartRender still stores the requested pass and translates it into GX state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/initialize.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Defines retained initialization, framebuffer, FIFO, heap, render-pass, and memory-report state and shows framebuffer allocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L303",
+          "why": "Shows FIFO allocation, arena partitioning into audio and main heaps, retained heap bounds, and render-pass configuration."
+        }
+      ]
+    },
+    {
+      "id": "fact:c965bf9f-5a52-4718-b0a8-520ec32f7c23",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/initialize.c",
+      "type": "purpose",
+      "value": "Centralizes the HSD base library's platform bootstrap and associated runtime resource setup: it initializes OS heaps, video, GX, DVD, IDs, object allocators, and logging; allocates framebuffers and the GX FIFO; manages the current heap and render pass; and exposes object-allocation diagnostics.",
+      "rationale": "The refreshed source still sequences platform initialization, allocates display and FIFO resources, creates and replaces the main heap, configures rendering, initializes object allocators, and reports allocator statistics.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/initialize.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows the subsystem initialization sequence and framebuffer-allocation infrastructure."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L303",
+          "why": "Shows FIFO allocation, OS and GX initialization, heap management, render setup, and allocator initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L365",
+          "why": "Shows render-pass setup, per-type allocator initialization, allocator diagnostics, and initialization-parameter handling."
+        }
+      ]
+    },
+    {
+      "id": "fact:bba1105f-d529-4af1-867d-7826a4320285",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/initialize.c",
+      "type": "state_behavior",
+      "value": "The unit has a configurable pre-initialization phase followed by an initialized phase. Before initialization, HSD_SetInitParameter accepts only positive values for its four scalar selectors and stores them with a true result; the render-mode selector stores its pointer without validation but, because it does not set the success flag, returns false. HSD_InitComponent consumes the accumulated configuration, initializes the HSD platform components, and then sets init_done. Every later parameter-setting attempt returns false without modifying configuration; the first such attempt emits a warning and sets shown so subsequent attempts remain silent. Main-heap recreation tells HSD subsystems to forget the old arena, optionally replaces the saved bounds, destroys and recreates the current heap, and resets object-allocation state. Each render start records the requested pass and reapplies pixel, depth, and field modes.",
+      "rationale": "At head, initialization still sets init_done after subsystem startup; parameter setting retains its scalar validation, render-mode return quirk, and one-time post-initialization warning; heap recreation and render startup preserve their state transitions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/initialize.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L1-L120",
+          "why": "Shows HSD_InitComponent consuming retained configuration, starting subsystems, and setting init_done."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L303",
+          "why": "Shows main-heap teardown and recreation plus persistent render-pass setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L241-L365",
+          "why": "Shows render-state reapplication, the init_done guard, one-time warning, positive scalar checks, and render-mode assignment without setting the success flag."
+        }
+      ]
+    }
+  ]
+}

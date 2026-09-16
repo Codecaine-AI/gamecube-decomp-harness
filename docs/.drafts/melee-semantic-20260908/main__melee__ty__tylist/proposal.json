@@ -1,0 +1,121 @@
+{
+  "tu": "main/melee/ty/tylist",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tylist.c#L181-L249",
+            "why": "Complete refresh flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tylist.c#L530-L532",
+            "why": "Panel root belongs to state->gobj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tylist.c#L566-L569",
+            "why": "state->jobj receives the Baseend endpoint asset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the mistaken container identity while preserving the supported ordering, row and animation flows.",
+        "subject": {
+          "target_stable_key": "main/melee/ty/tylist:_tyList_80312BAC"
+        },
+        "type": "data_flow",
+        "value": "Reads the selected trophy identifier through Toy_sbss_804D6EDC, changes ordering through Toy_803067BC(state->x29B, state->x29C), and remaps that identifier through Toy_803062BC into selectedIdx. It derives a wrapped starting index from the selected logical slot, assigns successive wrapped indices to entryCount linked rows, and invokes both row-presentation helpers. Row Y coordinates reposition state->jobj, the separately constructed list endpoint model, not the panel container. Finally, x29B selects frame 1 versus frame 0 for three archive JObjs, whose texture-animation rates are individually set to zero before evaluation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tylist.c#L181-L249",
+            "why": "Selection remapping, row refresh, endpoint translation and indicators."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tylist.c#L566-L569",
+            "why": "Endpoint provenance."
+          }
+        ],
+        "op": "write",
+        "rationale": "The endpoint marker, not the panel container, is repositioned.",
+        "subject": {
+          "target_stable_key": "main/melee/ty/tylist:_tyList_80312BAC"
+        },
+        "type": "purpose",
+        "value": "Refreshes the trophy-list window after an ordering change while preserving the selected trophy identifier: it remaps selection, repopulates linked rows, refreshes their text and trophy visuals, repositions the list endpoint marker, and updates the three ordering indicators."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tylist.c#L181-L249",
+            "why": "Complete state transitions and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tylist.c#L566-L569",
+            "why": "Endpoint asset assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects endpoint identity and makes the three-way indicator domain explicit without changing the preserved wraparound behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ty/tylist:_tyList_80312BAC"
+        },
+        "type": "state_behavior",
+        "value": "Preserves the previously selected trophy identifier across an ordering change and replaces selectedIdx with its remapped index. It walks backward by the selected row's logical offset plus one with wraparound, then assigns increasing wrapped indices to exactly entryCount linked rows. If present, the endpoint model is first placed at the initial row's Y coordinate and then moved to any interior visible row representing the final trophy. For each of three ordering indicators it requests frame 1 when its index equals x29B, otherwise frame 0, freezes that indicator's texture-animation rate, and evaluates it. Exactly one indicator receives frame 1 when x29B is in the normal 0\u20132 domain."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tylist.c#L619-L840",
+            "why": "Complete input callback, including distinct ordering, paging and transition branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported shoulder-button characterization and preserves the exact numeric page controls and collection-size guards.",
+        "subject": {
+          "target_stable_key": "main/melee/ty/tylist:_tyList_80313BD8"
+        },
+        "type": "game_mapping",
+        "value": "Handles navigation of Melee's collected-trophy list: horizontal input cycles the three ordering choices, vertical input changes the selected visible row and supports repeated edge scrolling, and held-button masks 0x400 and 0x800 request boundary-limited paging of up to nine row movements when the collection exceeds ten trophies. Confirmation opens the selected-trophy path for a nonempty collection; cancel/back initiates the lightweight exit handoff."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tylist.c#L969-L1007",
+            "why": "Public initialization sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/toy.c#L2320-L2373",
+            "why": "Independent canonical evidence for the panel-label callee."
+          }
+        ],
+        "op": "write",
+        "rationale": "Canonical Toy_80307470 constructs a panel-label GObj and animations, contradicting the baseline's list-mode-reset description.",
+        "subject": {
+          "target_stable_key": "main/melee/ty/tylist:tyList_803147C4"
+        },
+        "type": "data_flow",
+        "value": "Clears the persistent camera/process entry, delegates camera and startup-process setup, and clears the auxiliary GObj array. It validates the loaded background archive, optionally resolves ScMenFigure_scene_lights into a light GObj with the standard light callback, and calls Toy_80307470(0) to replace and construct the panel-label model and its animations. For a nonzero trophy total it clears TyListState and constructs the trophy-indexed row interface. It finishes by renewing controller status. The panel-label call is not a reset of the saved Toy list-order or navigation state."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

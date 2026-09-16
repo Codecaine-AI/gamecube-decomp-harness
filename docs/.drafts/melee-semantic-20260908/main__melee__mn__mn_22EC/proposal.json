@@ -1,0 +1,96 @@
+{
+  "tu": "main/melee/mn/mn_22EC",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.86,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mn_22EC.c#L268-L282",
+            "why": "The wrapper accepts a JObj, selector and category mask; the callback instead accepts an AObj, owner and selector."
+          }
+        ],
+        "op": "write",
+        "rationale": "Names the JObj-rooted traversal scope and distinguishes this wrapper from mn_8022F360, the per-AObj callback. Both currently share an inferred name and consequently collide in the rendered view. This is a descriptive reconstruction, not recovered historical spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mn_22EC:mn_8022F3D8"
+        },
+        "type": "inferred_name",
+        "value": "mn_StopJObjFObjAnimByType"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mn_22EC.c#L227-L266",
+            "why": "Direct dereference, ordered early returns, child-only recursion, flag guard and exact sentinel test establish these behaviors."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported lookup precedence while correcting the unconditional first-match interpretation and documenting the numeric sentinel ambiguity and limited attachment search.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mn_22EC:mn_8022F298"
+        },
+        "type": "state_behavior",
+        "value": "Requires a valid non-null JObj. It immediately returns curr_frame from the node's AObj, otherwise from the first DObj's material AObj, otherwise from that material's first TObj AObj. It does not scan DObj or TObj next chains. Only when these controllers are absent and flag 0x1000 is clear does it recursively search children in sibling order. A child result is accepted only if it differs from -1.0f; consequently a real controller frame of -1.0f is indistinguishable from not found to a recursive parent, which continues to later siblings. A direct controller return also prevents searching that node's descendants, even when its frame equals -1.0f. Exhaustion returns -1.0f."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mn_22EC.c#L293-L305",
+            "why": "Each return is determined by entry comparisons rather than by comparing old and newly stored values."
+          }
+        ],
+        "op": "write",
+        "rationale": "The existing signature is correct, but its movement-based return interpretation fails for zero steps, rounding and unordered comparisons.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mn_22EC:mn_8022F410"
+        },
+        "type": "inferred_type",
+        "value": "Signature: int (float* current, const float* target, float step). current is the in/out scalar and target is read through a const pointer. The return domain is {-1, 0, +1}: 0 means equality at entry, +1 means the pre-update current < target branch, and -1 means the remaining branch. These results describe branch selection, not guaranteed actual movement or post-update completion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mn_22EC.c#L284-L305",
+            "why": "Macro definitions and complete float implementation establish branch results, clamp expressions and absence of input validation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the existing convergence explanation precise at zero step, on the arrival call, and for exceptional floating-point inputs without changing the supported intended behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mn_22EC:mn_8022F410"
+        },
+        "type": "state_behavior",
+        "value": "Equality at entry returns 0 without a store. Otherwise current < target stores MY_MIN(current + step, target) and returns +1; the remaining branch stores MY_MAX(current - step, target) and returns -1. Reaching the target in a moving branch still returns that branch's nonzero result. For finite ordered values and a nonnegative step, the clamps prevent crossing the target, but zero step or floating-point rounding can leave the value unchanged with a nonzero result. Negative steps are not rejected and can move away from the target. NaN current or target makes both entry comparisons false and selects the -1 branch; the comparison-based macros are not NaN-normalizing fmin/fmax operations."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mn_22EC.c#L284-L320",
+            "why": "Integer arithmetic is evaluated before macro clamping, and return values are fixed by the pre-update branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unconditional movement and nonnegative-step convergence claims while preserving the intended integer approach semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mn_22EC:mn_8022F470"
+        },
+        "type": "state_behavior",
+        "value": "Equality at entry returns 0 without mutation. Otherwise current < target stores MY_MIN(current + step, target) and returns +1; current > target stores MY_MAX(current - step, target) and returns -1. The return describes the pre-update comparison branch: landing exactly on the target still returns nonzero, and step == 0 leaves unequal current unchanged while returning +1 or -1. Nonnegative steps clamp toward the target provided signed intermediate arithmetic is representable. Negative steps are not rejected and can move away from the target. Signed overflow is not guarded, so the source does not establish saturating or wrapping behavior for overflowing intermediates."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

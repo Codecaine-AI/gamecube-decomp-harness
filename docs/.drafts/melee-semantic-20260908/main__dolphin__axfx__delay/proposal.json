@@ -1,0 +1,50 @@
+{
+  "tu": "main/dolphin/axfx/delay",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/delay.c#L45-L82",
+            "why": "Shows signature, configuration reads, runtime writes, allocation assertions and sole return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that user-configured fields are mutated and distinguishes source assertions from guaranteed failure recovery.",
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/delay:AXFXDelaySettings"
+        },
+        "type": "inferred_type",
+        "value": "Has signature int AXFXDelaySettings(struct AXFX_DELAY* delay). It reads the instance's user-configured delay, feedback and output arrays and mutates its runtime sizes, positions, gain coefficients and buffer pointers. Its only explicit ordinary return is 1. The source asserts that all three allocations are non-null but provides no checked allocation-failure return or rollback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/delay.c#L45-L112",
+            "why": "Shows teardown ordering, separate interrupt guards, unvalidated conversions, allocations, assertions and clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/delay.c#L19-L42",
+            "why": "Callback unconditionally accesses storage and wraps positions modulo currentSize."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported reset lifecycle while removing the assertion-based guarantee that partial allocation states cannot occur and documenting the separate critical sections and unchecked callback preconditions.",
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/delay:AXFXDelaySettings"
+        },
+        "type": "state_behavior",
+        "value": "Performs complete reconfiguration: shutdown frees old buffers under its own interrupt guard, then settings disables interrupts separately, resets all three positions, derives runtime parameters, allocates replacement buffers and zeroes their history before restoring interrupts and returning 1. Shutdown leaves old pointer values unchanged until replacement. All three allocation calls precede the non-null assertions; there is no rollback or ordinary failure return. The routine does not validate parameter ranges or ensure nonzero block counts, although the callback requires valid storage and nonzero currentSize values."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

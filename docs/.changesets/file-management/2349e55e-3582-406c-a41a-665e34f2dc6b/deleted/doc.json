@@ -1,0 +1,356 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-15-board-prioritization",
+  "title": "Board Prioritization",
+  "root": "b-15-board-prioritization-root-27",
+  "blocks": {
+    "b-15-board-prioritization-root-27": {
+      "id": "b-15-board-prioritization-root-27",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-15-board-prioritization-board-prioritization-ca-2",
+        "b-15-board-prioritization-board-helpers-produce-de-3",
+        "b-15-board-prioritization-snapshot-and-admission-s-5",
+        "b-15-board-prioritization-loadboardsnapshot-read-6",
+        "b-15-board-prioritization-when-a-resource-graph-da-7",
+        "b-15-board-prioritization-candidate-prior-14",
+        "b-15-board-prioritization-text-15",
+        "b-15-board-prioritization-information-priority-sc-16",
+        "b-15-board-prioritization-this-means-a-context-poo-17",
+        "b-15-board-prioritization-signals-18",
+        "b-15-board-prioritization-signal-why-it-matter-19",
+        "b-15-board-prioritization-scheduler-contract-20",
+        "b-15-board-prioritization-the-scheduler-receives-t-21"
+      ]
+    },
+    "b-15-board-prioritization-board-prioritization-ca-2": {
+      "id": "b-15-board-prioritization-board-prioritization-ca-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Board prioritization produces a deterministic full ranking. The "
+        },
+        {
+          "insert": "Run Loop",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-run-loop"
+            }
+          }
+        },
+        {
+          "insert": " admits every eligible target once at epoch open and carries board priority into job-queue order."
+        }
+      ],
+      "children": []
+    },
+    "b-15-board-prioritization-board-helpers-produce-de-3": {
+      "id": "b-15-board-prioritization-board-helpers-produce-de-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Ranking is graph-first: information gain, readiness, and reusable evidence outrank local closeness alone. A bounded closeness lane keeps targets ordered when graph evidence is unavailable or carries no useful information signal."
+        }
+      ],
+      "children": []
+    },
+    "b-15-board-prioritization-snapshot-and-admission-s-5": {
+      "id": "b-15-board-prioritization-snapshot-and-admission-s-5",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Snapshot and Ranking"
+        }
+      ],
+      "children": []
+    },
+    "b-15-board-prioritization-loadboardsnapshot-read-6": {
+      "id": "b-15-board-prioritization-loadboardsnapshot-read-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "loadBoardSnapshot",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " reads the current "
+        },
+        {
+          "insert": "build/GALE01/report.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "objdiff.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Snapshotting does not run either build pipeline; regenerated artifacts become visible on the next read."
+        }
+      ],
+      "children": []
+    },
+    "b-15-board-prioritization-when-a-resource-graph-da-7": {
+      "id": "b-15-board-prioritization-when-a-resource-graph-da-7",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Produce the ranked board",
+            "steps": [
+              {
+                "text": "Read the current comparison artifacts",
+                "steps": [
+                  {
+                    "text": "Read `build/GALE01/report.json`"
+                  },
+                  {
+                    "text": "Read `objdiff.json`"
+                  },
+                  {
+                    "text": "Snapshotting does not run the build or objdiff pipeline.",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Build one candidate for each imperfect function"
+              },
+              {
+                "text": "Add resource-graph evidence when available",
+                "steps": [
+                  {
+                    "text": "Exclude `read_only_complete`, `locked`, and `blocked` targets"
+                  },
+                  {
+                    "text": "Measure information gain, unlock potential, completion readiness, context quality, risk, and analog evidence"
+                  }
+                ]
+              },
+              {
+                "text": "Compute deterministic priority",
+                "steps": [
+                  {
+                    "text": "Use graph-first priority when information signals exist"
+                  },
+                  {
+                    "text": "Use bounded closeness ordering when graph evidence is unavailable or carries no information signal"
+                  }
+                ]
+              },
+              {
+                "text": "Sort candidates and return the ranked board"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-15-board-prioritization-candidate-prior-14": {
+      "id": "b-15-board-prioritization-candidate-prior-14",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Candidate Prior"
+        }
+      ],
+      "children": []
+    },
+    "b-15-board-prioritization-text-15": {
+      "id": "b-15-board-prioritization-text-15",
+      "type": "code",
+      "props": {
+        "language": "text"
+      },
+      "text": [
+        {
+          "insert": "candidate_prior =\n  information_priority_score\n  + high_accuracy_bonus\n  + accuracy_readiness_bonus\n  + closeness_fallback_score\n  + opseq_rerank_bonus"
+        }
+      ],
+      "children": []
+    },
+    "b-15-board-prioritization-information-priority-sc-16": {
+      "id": "b-15-board-prioritization-information-priority-sc-16",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Component",
+          "Inputs",
+          "Scheduling effect"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "information_priority_score",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Information gain, unlock potential, completion readiness, context quality, and risk.",
+            "Supplies the graph-first priority."
+          ],
+          [
+            [
+              {
+                "insert": "high_accuracy_bonus",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Capped log-compressed local closeness.",
+            "Adds a bounded finishability bonus; without graph data it carries the local closeness score."
+          ],
+          [
+            [
+              {
+                "insert": "accuracy_readiness_bonus",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Closeness combined with readiness and information gain, capped at 18.",
+            "Promotes nearly exact targets only when actionable evidence exists."
+          ],
+          [
+            [
+              {
+                "insert": "closeness_fallback_score",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Raw closeness, fuzzy gap, and size, capped at 3.",
+            "Spreads the low-priority lane when graph data has no information signal."
+          ],
+          [
+            [
+              {
+                "insert": "opseq_rerank_bonus",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Matched analog score and counts, capped at 48.",
+            "Adds the opseq hot-lane board-scoring bonus."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-15-board-prioritization-this-means-a-context-poo-17": {
+      "id": "b-15-board-prioritization-this-means-a-context-poo-17",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A context-poor 99.x% target does not outrank a lower-fuzzy target likely to add reusable knowledge."
+        }
+      ],
+      "children": []
+    },
+    "b-15-board-prioritization-signals-18": {
+      "id": "b-15-board-prioritization-signals-18",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Ranking Signals"
+        }
+      ],
+      "children": []
+    },
+    "b-15-board-prioritization-signal-why-it-matter-19": {
+      "id": "b-15-board-prioritization-signal-why-it-matter-19",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Signal",
+          "Why it matters"
+        ],
+        "rows": [
+          [
+            "Matched duplicate ref",
+            "A matched source shape can be adapted across unrelated files when assembly shape supports it."
+          ],
+          [
+            "Matched opseq analog",
+            "A strong already-matched assembly analog can place a target in the configured opseq hot lane."
+          ],
+          [
+            "Graph degree",
+            "A target connected to many similar functions can propagate more facts if solved or partially improved."
+          ],
+          [
+            "Linked incomplete functions",
+            "Sibling or connected imperfect functions can benefit from evidence discovered for this target."
+          ],
+          [
+            "Worker context quality",
+            "Nearby matched siblings, graph edges, or reducer facts make deep research more grounded."
+          ],
+          [
+            "Recent stalls",
+            "Repeated no-delta attempts cool a target unless new facts arrive."
+          ],
+          [
+            "Data/rodata risk",
+            "Header, static, section-order, split, and relocation-sensitive work needs slower validation and fewer parallel edits."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-15-board-prioritization-scheduler-contract-20": {
+      "id": "b-15-board-prioritization-scheduler-contract-20",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Scheduler Boundary"
+        }
+      ],
+      "children": []
+    },
+    "b-15-board-prioritization-the-scheduler-receives-t-21": {
+      "id": "b-15-board-prioritization-the-scheduler-receives-t-21",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "At epoch open, the Run Loop admits every eligible target once. Board priority sets job-queue order; durable claims and the hard gate control edit authority."
+        }
+      ],
+      "children": []
+    }
+  }
+}

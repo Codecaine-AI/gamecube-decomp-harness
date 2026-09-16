@@ -35,7 +35,7 @@ function headerPaths(root: string): string[] {
       else if (entry.isFile() && entry.name.endsWith(".h")) paths.push(path);
     }
   };
-  visit(join(root, "src", "melee"));
+  visit(join(root, "src"));
   return paths.sort();
 }
 

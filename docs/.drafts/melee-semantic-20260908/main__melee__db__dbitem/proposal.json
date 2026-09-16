@@ -1,0 +1,133 @@
+{
+  "tu": "main/melee/db/dbitem",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbitem.c#L243-L295",
+            "why": "Complete navigation guards and assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the erroneous 0xE8 endpoint: the preincrement comparison against 0xE9 permits reaching 0xE9. Preserves gap transitions and independent branch behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbitem:db_HandleItemPokemonMenuInput"
+        },
+        "type": "state_behavior",
+        "value": "From initialized menu state, held L plus repeated vertical input navigates item ranges 0x00\u20130x22, 0x2B\u20130x2E, and 0xD0\u20130xE9, inclusive. Up jumps 0x22\u21920x2B and 0x2E\u21920xD0; down performs the inverse jumps. Navigation does not wrap at 0 or 0xE9. Held L plus repeated right/left changes the independent Pok\u00e9mon index within 0\u20130x1E without wrapping. The four directional tests execute independently in up, down, right, left order; this is navigation from expected state, not general validation of arbitrary incoming values."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbitem.c#L365-L419",
+            "why": "Complete input, descriptor, eligibility and result paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates direct selected-item creation from later Pok\u00e9mon generation and from the automatic spawn gate.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbitem:db_CheckAndSpawnItem"
+        },
+        "type": "purpose",
+        "value": "Handles the developer selected-item drop command for a player: recognizes the eligible D-pad-down press, builds a spawn descriptor for CurrentlySelectedItem 60 units above that player's coordinates, enforces item-system eligibility and capacity checks, and applies diagnostic state and effect 0x420 only after successful creation. It does not directly consume the independent Pok\u00e9mon selection or the automatic-spawner enable latch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbitem.c#L365-L419",
+            "why": "Manual command reads CurrentlySelectedItem only."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1434-L1510",
+            "why": "Separate consumer of the Pok\u00e9mon menu index."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline conflation of two menu domains while preserving the supported developer-control mapping.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbitem:db_CheckAndSpawnItem"
+        },
+        "type": "game_mapping",
+        "value": "Implements the in-match developer menu's D-pad-down selected-item drop above the specified player. The independently selected Pok\u00e9mon is not spawned directly by this function; it is consumed later by the Pok\u00e9mon-generation path when higher-priority game-mode overrides do not take precedence."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbitem.c#L365-L419",
+            "why": "Exact early returns and nested eligibility conditions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the incorrect Maxim Tomato-like interpretation of M_Ball and preserves exact guard ranges, button mask, and successful-result branch.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbitem:db_CheckAndSpawnItem"
+        },
+        "type": "state_behavior",
+        "value": "Returns unless D-pad down is newly pressed and none of D-pad left/right/up, Z, R, L, A, B, X, Y or Start is held. For kinds below It_Common_End it requires Item_80266F3C() nonzero and rejects Item_804A0C64.x0 at or above the configured x0 limit. Independently, any kind below It_Kind_Octarock_Stone is rejected when x2C reaches the configured x14 limit; this test has no explicit lower kind bound. Kinds in [It_Kind_Old_Kuri, It_Kind_Arwing_Laser) additionally require a nonzero availability-table entry. It_Kind_M_Ball additionally requires it_8026C704() == 0. After these checks it attempts one creation; only a non-null result receives the collision-mode OR and effect 0x420. The automatic-spawner enable latch is not tested."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbitem.c#L163-L176",
+            "why": "Setter and getter interface."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L153-L201",
+            "why": "Automatic countdown and spawning are entirely inside the enabled guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbitem.c#L365-L419",
+            "why": "Manual drop has separate eligibility checks."
+          }
+        ],
+        "op": "write",
+        "rationale": "The actual consumer is the automatic callback; the manual drop never reads this field.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbitem:db_DisableItemSpawns"
+        },
+        "type": "purpose",
+        "value": "Clears the shared enable gate for ordinary automatic random-item spawning. The automatic callback then skips countdown and spawn processing without resetting its countdown. This setter leaves item and Pok\u00e9mon selections unchanged and does not disable the separate manual developer selected-item drop path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L153-L201",
+            "why": "Actual automatic-spawn consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbitem.c#L365-L419",
+            "why": "Independent manual path."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline association with manual DEVELOP-mode spawning.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbitem:db_DisableItemSpawns"
+        },
+        "type": "game_mapping",
+        "value": "Provides the disabled side of the gate for Melee's ordinary timed random-item appearances, pausing that schedule rather than disabling the developer menu's manual selected-item drop."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

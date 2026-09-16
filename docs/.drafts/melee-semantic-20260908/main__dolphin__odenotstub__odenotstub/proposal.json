@@ -1,0 +1,116 @@
+{
+  "tu": "main/dolphin/odenotstub/odenotstub",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/odenotstub/odenotstub.c#L103-L131",
+            "why": "Exact signature, address encoding, full-word stores and signed remainder clamp."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/odenotstub/odenotstub.c#L241-L256",
+            "why": "Caller rounds an unchecked unsigned size before passing it to the signed helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported assertion that the caller guarantees a nonnegative length and distinguishes actual loop behavior from intended aligned usage.",
+        "subject": {
+          "target_stable_key": "main/dolphin/odenotstub/odenotstub:DBGRead"
+        },
+        "type": "inferred_type",
+        "value": "Private synchronous helper declared `static BOOL DBGRead(u32 param1, u32* data, s32 byte_size)`. The first argument encodes a device address masked to the domain `param1 & 0x1FFFC`; data is writable u32 storage. For positive lengths, it transfers complete words until the signed remainder reaches or crosses zero, so nonmultiples of four still write a final full word. Zero skips payload words but not the command. DBRead normally supplies a four-byte-rounded u32 size, without validating signed range or unsigned rounding overflow. Negative lengths are not rejected before the first word transfer; signed subtraction can itself overflow for extreme values."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/odenotstub/odenotstub.c#L133-L161",
+            "why": "Signature, masked address, word loads and signed loop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/odenotstub/odenotstub.c#L258-L289",
+            "why": "Unchecked public size is rounded and passed to the helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an overstated alignment/nonnegative guarantee with the implemented transfer shape and unchecked conversion boundary.",
+        "subject": {
+          "target_stable_key": "main/dolphin/odenotstub/odenotstub:DBGWrite"
+        },
+        "type": "inferred_type",
+        "value": "Private synchronous helper declared `static BOOL DBGWrite(u32 param1, u32* data, s32 byte_size)`. The first argument is a device address masked by 0x1FFFC; data is consumed as u32 words and is not modified. For positive lengths, each iteration loads and sends a complete word, subtracts four and clamps a negative remainder to zero; nonmultiples therefore consume a final full word. Zero skips payload words but still sends the command. DBWrite supplies an unsigned four-byte-rounded size without signed-range or overflow validation. Negative lengths enter the loop rather than being rejected, and extreme signed subtraction can overflow."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/odenotstub/odenotstub.c#L195-L239",
+            "why": "Mailbox acceptance, low-15-bit extraction, unconditional flag clear and conditional initialization of enable."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the pending-length guard while exposing the uninitialized restore and separating a signaled flag from a nonzero payload length.",
+        "subject": {
+          "target_stable_key": "main/dolphin/odenotstub/odenotstub:DBQueryData"
+        },
+        "type": "state_behavior",
+        "value": "Every call first clears EXIInputFlag. If RecvDataLeng is zero, it saves OSDisableInterrupts(), polls the mailbox and restores that saved state. Status bit 0 and tag 0x1F000000 guard acceptance; an accepted descriptor stores SendMailData, extracts the low 15-bit length and sets the flag, including when that length is zero. A nonzero retained length suppresses polling and preserves metadata, but the source still calls OSRestoreInterrupts(enable) although enable was not initialized on that path. Thus the nonzero-pending path does not establish a valid saved interrupt state. The function returns the retained length."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/odenotstub/odenotstub.c#L163-L208",
+            "why": "Status transfer and receive-bit consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/odenotstub/odenotstub.c#L258-L289",
+            "why": "Three output busy-poll phases."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the substantial transmit-side role omitted by the receive-only explanation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/odenotstub/odenotstub:DBGReadStatus"
+        },
+        "type": "purpose",
+        "value": "Synchronously reads the ODE debug device's status word over EXI for both receive and transmit coordination. CheckMailBox tests bit 0 to decide whether to fetch a receive descriptor; DBWrite repeatedly tests bit 1 (0x2) to wait for the device to become non-busy before and between payload/mailbox phases and after mailbox publication."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/odenotstub/odenotstub.c#L221-L227",
+            "why": "Integer declaration and fall-through body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/dolphin_trk_glue.c#L66-L104",
+            "why": "Callback installation and invocation without result consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Records a useful missing return-contract exception instead of assuming a conventional initialization status.",
+        "subject": {
+          "target_stable_key": "main/dolphin/odenotstub/odenotstub:DBInitInterrupts"
+        },
+        "type": "inferred_type",
+        "value": "Declared `int DBInitInterrupts(void)`, but its complete source body has no return statement. It installs interrupt/callback state for side effects; no defined integer success status should be inferred. MetroTRK installs it as initinterrupts_func and invokes that callback without consuming its result."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

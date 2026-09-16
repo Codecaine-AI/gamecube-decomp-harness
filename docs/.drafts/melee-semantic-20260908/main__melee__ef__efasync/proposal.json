@@ -1,0 +1,202 @@
+{
+  "tu": "main/melee/ef/efasync",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efasync:efAsync_Dispatch"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Dispatches handled graphics IDs to particle-generator or model-effect construction recipes, including recipe-specific transforms, colors, callbacks, lifetimes, flags and compound-effect links, then drains the initial-animation queue. Returns a type-erased selected result, not a universal creation-success indicator: 0x41B, 0x432, 0x43F, 0x443 and 0x44A\u20130x44C can create generators while leaving ret_obj NULL. Unhandled IDs execute no construction recipe and also return NULL after the common drain.",
+        "rationale": "Preserves the factory responsibility while correcting the unconditional primary-created-object return claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L71-L1133",
+            "why": "Complete switch establishes handled recipes, all return assignments and the common epilogue."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L506-L520",
+            "why": "0x41B creates without assigning ret_obj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L674-L687",
+            "why": "0x432 creates without assigning ret_obj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L758-L862",
+            "why": "Remaining five handled IDs leave the return variable unchanged."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efasync:efAsync_Dispatch"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Starts with ret_obj NULL and executes at most one matching graphics-ID recipe. Constructor-dependent configuration and further variadic consumption are generally conditional on successful construction. Many model-effect recipes set EF_STATE_ASYNC; selected recipes write the global efLib_LoadKind to EF_LOADKIND_SYNC without saving or restoring it locally, including on constructor failure. The normal efSync_Spawn wrapper resets load kind and animation count before dispatch and returns directly from this call. Case 0x427 links up to six effects, stopping on allocation failure. The common epilogue decrements efLib_AnimCount and calls HSD_JObjAnimAll on each selected queued animation target until the count reaches zero.",
+        "rationale": "Corrects temporary-mode and exactly-one-recipe implications while preserving guarded writes, compound effects and animation draining.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L71-L1133",
+            "why": "Complete control flow contains global mode writes, bounded compound creation and no local restoration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L65-L80",
+            "why": "Wrapper resets globals and directly returns Dispatch's result."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efasync:efAsync_OnLoad"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Prepares a retrieved preloaded effect DAT: initializes the supplied archive from its loaded bytes, resolves the public export named by the supplied effect-catalog index, and passes the export's first two fields to psInitDataBankLocate when either is nonzero. It does not perform the indexed psInitDataBankLoad/psInitDataBank calls or publish the catalog data cache; those operations belong to efAsync_LoadSync.",
+        "rationale": "Distinguishes the callback's Locate preparation from the separate indexed initialization and cache-publication path.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1274-L1316",
+            "why": "Adjacent functions show the exact division of work."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbdvd.c#L374-L402",
+            "why": "Type-3 retrieval invokes the callback under the one-time initialization guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efasync:efAsync_QueueProcessDeferred"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the stored u8 spawn_kind, graphics ID and borrowed JObj anchor. Attachment forms pass the JObj directly to efSync_Spawn; positional forms call lb_8000B1CC with either NULL for the joint origin or the stored vector offset, then pass a stack Vec3 and kind-selected addresses within the command payload. The camera form passes the transformed position and graphics ID to Camera_RequestQuake. With a NULL JObj, the transform helper copies a supplied offset directly; origin forms supplying both NULL JObj and NULL offset are invalid. Transforms are evaluated at consumption time. Stack positions and command-payload addresses are temporary call inputs; the command is returned to efAsync_AllocData after returning dispatch, while the owner GObj is supplied separately by the caller.",
+        "rationale": "Corrects the stale camera symbol and records useful anchor, owner and temporary-storage distinctions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1318-L1389",
+            "why": "Exact per-kind arguments, temporary positions, camera call, free and owner forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L105-L140",
+            "why": "Transform helper's null-anchor and origin/offset behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efasync:efAsync_QueueProcessDeferred"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Consumes a required allocator-owned command using its stored discriminator: recognized effect forms select synchronous spawn call shapes, and EF_SPAWN_CAMERA_SHAKE selects camera dispatch. Unknown kinds report/assert. The record is freed only when control reaches the common post-switch HSD_ObjFree; this does not guarantee reclamation after a nonreturning assertion or downstream failure. The function neither removes the record from an owner list nor resets a sentinel. QueueFlush preserves successors and resets its head after successful traversal; immediate Spawn processing transfers an unlinked command directly.",
+        "rationale": "Removes the unsupported regardless-of-branch reclamation guarantee and makes list responsibility explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1318-L1389",
+            "why": "Assertion precedes free, and list management is in Flush."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1458-L1464",
+            "why": "Immediate command transfer versus insertion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efasync:efAsync_Spawn"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Allocates an EF_QueuedEffect, stores the discriminator, graphics ID and borrowed JObj pointer, and copies kind-selected vector/scalar values from variadic pointer arguments. It does not store the owner GObj or queue-head pointer. Deferred commands are pushed onto the supplied sentinel; later QueueFlush supplies the owner used for execution. Immediate processing uses this call's gobj. The copied payload survives the originating argument storage, but the JObj remains externally owned and must remain valid when its selected processing form uses it. The consumer computes positions at execution time, invokes efSync_Spawn or Camera_RequestQuake, and recycles the command after returning dispatch.",
+        "rationale": "Corrects the implication that owner and all common inputs are copied, while preserving payload-copy and downstream flow knowledge.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1377-L1464",
+            "why": "Exact stored fields, copied values, queue insertion and separately supplied owner."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1318-L1375",
+            "why": "Consumption-time transforms, current camera symbol and recycling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efasync:efAsync_Spawn"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Attempts one allocation and immediately dereferences the result without a local failure check. The original u32 spawn_kind selects payload decoding, while assignment stores it in the command's u8 discriminator; unsupported original values reach the producer assertion rather than being accepted solely by their low byte. Recognized forms initialize only their required payload fields. After decoding, a non-NULL current GObj process with s_link < 9 causes front insertion into the supplied queue; otherwise the command is processed immediately. Queue-head validity is required on the insertion path. Normal consumption recycles the command, but allocation failure, assertions and nonreturning downstream errors are not handled as recoverable transitions here.",
+        "rationale": "Preserves the exact scheduling condition while exposing unchecked allocation, discriminator narrowing and exceptional paths.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1405-L1464",
+            "why": "Allocation, original-kind switch, assertion and conditional insertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L81-L89",
+            "why": "Stored discriminator is u8."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ef/efasync.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resource indices select catalog filenames and public-export names. LoadAsync registers a preload request carrying the index; retrieval invokes OnLoad to initialize the archive and call psInitDataBankLocate on nonempty export bank pointers. LoadSync resolves a preload-aware archive, selects an indexed particle initializer, and caches the interior export address &spC->data, whose validity depends on backing archive storage. For presentation requests, Spawn copies kind-selected scalar/vector values and stores a borrowed JObj, graphics ID and discriminator in an allocated command; it does not copy the owner GObj or queue head. Immediate execution uses the supplied owner, while deferred execution receives the owner from Flush. Processing computes positions as needed, invokes effect spawning or Camera_RequestQuake, and recycles the command on returning control; Clear recycles pending commands without execution.",
+        "rationale": "Corrects owner-storage implications and preserves separate resource-preparation, cache-pointer and queued-command lifetimes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1260-L1470",
+            "why": "Complete resource and command flows, including exact cache assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbdvd.c#L374-L402",
+            "why": "Retrieval routes the saved effect index into OnLoad."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbarchive.c#L181-L219",
+            "why": "Archive acquisition and preload-result semantics."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

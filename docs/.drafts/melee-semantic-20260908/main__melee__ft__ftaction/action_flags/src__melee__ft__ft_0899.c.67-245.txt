@@ -1,0 +1,179 @@
+67:     }
+68: 
+69:     pos->y += delta_y;
+70:     return 1;
+71: }
+72: 
+73: void ft_80089B08(Fighter_GObj* gobj)
+74: {
+75:     u8 _[8];
+76:     IKState ik;
+77:     Vec3 spA4;
+78:     Quaternion rot_save0;
+79:     Quaternion rot_save1;
+80:     Quaternion rot_save2;
+81:     Quaternion rot_save3;
+82:     Quaternion rot_save4;
+83:     Quaternion rot_save5;
+84:     Vec3 sp38;
+85:     Vec3 sp2C;
+86:     volatile f32 line_len_sqrt;
+87:     Vec3 sp1C;
+88: 
+89:     Fighter* fp = gobj->user_data;
+90:     (void) &line_len_sqrt;
+91: 
+92:     if (!fp->x2219_b5 && fp->ground_or_air == GA_Ground) {
+93:         if (db_804D4AF8 != 0) {
+94:             f32 scale_y = fp->x34_scale.y;
+95:             ik.len0 = ((ftData_x58_t*) fp->ft_data->x58)->x4 * scale_y;
+96:             ik.len1 = scale_y * (((ftData_x58_t*) fp->ft_data->x58)->xC +
+97:                                  ((ftData_x58_t*) fp->ft_data->x58)->x18);
+98: 
+99:             if (fp->x221C_u16_y & 2) {
+100:                 ik.jobj0 =
+101:                     fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x0].joint;
+102:                 ik.jobj1 =
+103:                     fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x8].joint;
+104:                 ik.jobj2 =
+105:                     fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x10].joint;
+106:                 ik.angle_max = M_PI_2_F;
+107:                 ik.angle_limit = 1.2217305f;
+108:                 lb_8000B1CC(ik.jobj0, NULL, &ik.pos0);
+109:                 lb_8000B1CC(ik.jobj1, NULL, &ik.pos1);
+110:                 lb_8000B1CC(ik.jobj2, NULL, &ik.pos2);
+111:                 {
+112:                     f32 len;
+113:                     lbVector_Diff(&ik.pos2, &ik.pos1, &ik.pos3);
+114:                     len = ik.len1;
+115:                     lbVector_Normalize(&ik.pos3);
+116:                     ik.pos3.x *= len;
+117:                     ik.pos3.y *= len;
+118:                     ik.pos3.z *= len;
+119:                     lbVector_Add(&ik.pos3, &ik.pos1);
+120:                     ik.pos4 = ik.pos3;
+121:                 }
+122:                 rot_save0 = ik.jobj0->rotate;
+123:                 rot_save1 = ik.jobj1->rotate;
+124:                 rot_save2 = ik.jobj2->rotate;
+125:                 if (fn_8008998C(fp, &ik, &spA4) != 0) {
+126:                     lbBgFlash_80021410(&ik);
+127:                 }
+128:                 lbBgFlash_80020E38(ik.jobj2, &spA4, 0.34906584f, 0.34906584f,
+129:                                    -1.0f);
+130:                 ik.jobj0->rotate = rot_save0;
+131:                 ik.jobj1->rotate = rot_save1;
+132:                 ik.jobj2->rotate = rot_save2;
+133:             }
+134:             if (fp->x221C_u16_y & 1) {
+135:                 ik.jobj0 =
+136:                     fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x1].joint;
+137:                 ik.jobj1 =
+138:                     fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x9].joint;
+139:                 ik.jobj2 =
+140:                     fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x11].joint;
+141:                 ik.angle_max = M_PI_2_F;
+142:                 ik.angle_limit = 1.2217305f;
+143:                 lb_8000B1CC(ik.jobj0, NULL, &ik.pos0);
+144:                 lb_8000B1CC(ik.jobj1, NULL, &ik.pos1);
+145:                 lb_8000B1CC(ik.jobj2, NULL, &ik.pos2);
+146:                 {
+147:                     f32 len;
+148:                     lbVector_Diff(&ik.pos2, &ik.pos1, &ik.pos3);
+149:                     len = ik.len1;
+150:                     lbVector_Normalize(&ik.pos3);
+151:                     ik.pos3.x *= len;
+152:                     ik.pos3.y *= len;
+153:                     ik.pos3.z *= len;
+154:                     lbVector_Add(&ik.pos3, &ik.pos1);
+155:                     ik.pos4 = ik.pos3;
+156:                 }
+157:                 rot_save3 = ik.jobj0->rotate;
+158:                 rot_save4 = ik.jobj1->rotate;
+159:                 rot_save5 = ik.jobj2->rotate;
+160:                 if (fn_8008998C(fp, &ik, &spA4) != 0) {
+161:                     lbBgFlash_80021410(&ik);
+162:                 }
+163:                 lbBgFlash_80020E38(ik.jobj2, &spA4, 0.34906584f, 0.34906584f,
+164:                                    1.0f);
+165:                 ik.jobj0->rotate = rot_save3;
+166:                 ik.jobj1->rotate = rot_save4;
+167:                 ik.jobj2->rotate = rot_save5;
+168:             }
+169:         }
+170:         if (fp->x221C_u16_y & 4) {
+171:             s32 line_id = fp->coll_data.floor.index;
+172:             f32 angle = fp->facing_dir * atan2f(fp->coll_data.floor.normal.x,
+173:                                                 fp->coll_data.floor.normal.y);
+174:             f32 dx, dy, line_len;
+175:             f32 adj_angle;
+176: 
+177:             mpLineGetV1Pos(line_id, &sp38);
+178:             mpLineGetV0Pos(line_id, &sp2C);
+179:             dy = sp38.y - sp2C.y;
+180:             dx = sp38.x;
+181:             dx -= sp2C.x;
+182:             line_len = dx * dx + dy * dy;
+183:             (void) line_len;
+184:             if (line_len > 0.0f) {
+185:                 f64 guess = __frsqrte((f64) line_len);
+186:                 guess = 0.5 * guess * (3.0 - guess * guess * line_len);
+187:                 guess = 0.5 * guess * (3.0 - guess * guess * line_len);
+188:                 guess = 0.5 * guess * (3.0 - guess * guess * line_len);
+189:                 ((volatile f32*) &sp1C)[-1] = (f32) ((f64) line_len * guess);
+190:                 line_len = ((volatile f32*) &sp1C)[-1];
+191:             }
+192:             if (line_len < 5.0f) {
+193:                 adj_angle = 0.0f;
+194:                 {
+195:                     s32 next_check = mpLineGetNext(line_id);
+196:                     s32 next_id = next_check;
+197:                     if (next_check != -1 &&
+198:                         (mpLineGetKind(next_id) & CollLine_Floor))
+199:                     {
+200:                         mpLineGetNormal(next_id, &sp1C);
+201:                         adj_angle = fp->facing_dir * atan2f(sp1C.x, sp1C.y);
+202:                     }
+203:                 }
+204:                 {
+205:                     s32 prev_check = mpLineGetPrev(line_id);
+206:                     s32 prev_id = prev_check;
+207:                     if (prev_check != -1 &&
+208:                         (mpLineGetKind(prev_id) & CollLine_Floor))
+209:                     {
+210:                         mpLineGetNormal(prev_id, &sp1C);
+211:                         adj_angle =
+212:                             0.5f * ((fp->facing_dir * atan2f(sp1C.x, sp1C.y)) +
+213:                                     adj_angle);
+214:                     }
+215:                 }
+216:                 {
+217:                     f32 diff = adj_angle - angle;
+218:                     diff = ABS(diff);
+219:                     if (diff > 0.17453292f) {
+220:                         angle = adj_angle;
+221:                     }
+222:                 }
+223:             }
+224:             {
+225:                 f32 max_angle = 0.017453292f * p_ftCommonData->x804;
+226:                 if (angle > max_angle) {
+227:                     angle = max_angle;
+228:                 } else if (angle < -max_angle) {
+229:                     angle = -max_angle;
+230:                 }
+231:             }
+232:             ftPartSetRotX(fp, 0, angle);
+233:         }
+234:     }
+235:     PAD_STACK(16);
+236: }
+237: 
+238: void ft_8008A1B8(Fighter_GObj* gobj, u32 flags)
+239: {
+240:     Fighter* fp = GET_FIGHTER(gobj);
+241:     fp->x221C_u16_y = flags;
+242:     if (!(flags & (1 << 2))) {
+243:         ftPartSetRotX(fp, 0, 0.0F);
+244:     }
+245: }

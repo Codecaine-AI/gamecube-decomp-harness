@@ -1,0 +1,1044 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:.bss"
+    },
+    "facts": [
+      {
+        "id": "fact:a015bf28-a71c-434c-894e-2eb3494ba794",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.bss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "When panicCallback is non-null, OSSaveContext writes the current processor state into the section's embedded OSContext and HSD_Panic immediately passes a pointer to that same field to panicCallback. No access to the trailing 16-byte region is shown, and the section is bypassed when no panic callback is registered.",
+        "rationale": "The callback guard encloses both the OSSaveContext write and callback consumption, and both operations use `&HSD_Debug_804C2608.context`. The declaration identifies the untouched bytes that follow this field.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:58:13.026Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L7-L11",
+            "why": "Identifies the context field and its trailing unknown storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "Directly shows the guarded write into the context field and the subsequent callback read through its address."
+          }
+        ]
+      },
+      {
+        "id": "fact:e2308043-50a8-438d-a574-895a2cf7c254",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.bss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports runtime diagnostic logging rather than gameplay state by retaining a panic-time CPU context that optional debugging instrumentation can inspect before operating-system panic handling takes over.",
+        "rationale": "The object is used exclusively by HSD_Panic: processor state is saved into it, exposed to the registered diagnostic callback, and followed by OSPanic. This directly grounds the data in the existing runtime-diagnostic-logging concept.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:58:13.026Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "Shows that the stored context is produced and consumed solely in the optional diagnostic callback path immediately before OSPanic."
+          }
+        ]
+      },
+      {
+        "id": "fact:aeee012d-9f84-4fbe-9b42-53f206d903dc",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.bss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A single uninitialized `struct DebugContext` object laid out as an `OSContext context` followed by a 16-byte `u8` tail whose purpose is unknown. Only the OSContext field has an observed use in this translation unit.",
+        "rationale": "The matched declaration gives the complete source-level layout, including field order and the 0x10-byte trailing array. The only references shown by HSD_Panic take the address of the context field, so no stronger interpretation of the trailing bytes is supported.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:58:13.026Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L7-L11",
+            "why": "Directly defines the section object's layout as an OSContext followed by sixteen unknown bytes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "Shows that runtime accesses target only the embedded context field."
+          }
+        ]
+      },
+      {
+        "id": "fact:d7cbd0cf-6ac6-493c-b28d-970476e6f847",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.bss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides persistent zero-initialized storage in which the fatal-diagnostic path can snapshot the current processor context before passing that snapshot to an installed panic callback.",
+        "rationale": "The section begins at the address represented by HSD_Debug_804C2608, whose declaration contains an OSContext. HSD_Panic supplies that field to OSSaveContext and then to panicCallback, establishing that this storage exists to preserve processor state for panic-time instrumentation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:58:13.026Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L7-L11",
+            "why": "Declares the address-bearing debug-context object with an OSContext as its first field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "Shows HSD_Panic saving the current context into this object and passing the saved context to panicCallback."
+          }
+        ]
+      },
+      {
+        "id": "fact:f3f58a76-22ea-49c8-bade-0b98b8e4dbd4",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.bss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The stored context is updated only on the panic-callback branch: if no callback is registered, HSD_Panic proceeds to OSPanic without touching this section; if a callback is registered, the current context overwrites the embedded OSContext before the callback runs. OSPanic remains the terminal path in either case.",
+        "rationale": "The sole guard around OSSaveContext and panicCallback proves that capture is conditional, while OSPanic lies after the guarded block. Because OSSaveContext writes into the persistent object on each guarded invocation, its context field represents the latest captured panic-time state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:58:13.026Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "Shows the callback-dependent context-capture branch and the unconditional OSPanic call after it."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:ebfc2aaa-7dc8-451d-9e00-16263bf60614",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The assertion format is passed to OSReport with the failed-expression string. The empty string is passed from __assert to HSD_Panic as its message and is ultimately forwarded to OSPanic. The panic report format is passed to OSReport, when a panic callback is installed, with the supplied message, source-file name, and line number.",
+        "rationale": "The matched call sites explicitly show each literal's consumer and argument flow: __assert uses one literal as an OSReport format and forwards the empty literal into HSD_Panic, while HSD_Panic uses the remaining format for its callback-dependent report and always forwards its message argument to OSPanic.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:01:06.679Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L53",
+            "why": "The two complete function bodies directly show how every string represented by the data section enters OSReport, HSD_Panic, or OSPanic."
+          }
+        ]
+      },
+      {
+        "id": "fact:170dd5c2-1e50-4df2-8dd1-3e09cf7c1505",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports the runtime diagnostic-logging system by supplying human-readable assertion and fatal-error messages, including failed-expression text and source-file/line context.",
+        "rationale": "The strings are used exclusively by __assert and HSD_Panic to report assertion failures and fatal diagnostics, grounding this data section in the unit's runtime diagnostic role rather than gameplay state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:01:06.679Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L53",
+            "why": "The source shows the section's strings formatting assertion-failure and panic diagnostics with expression and source-location information."
+          }
+        ]
+      },
+      {
+        "id": "fact:6f7fa9c1-ba1c-4284-b3a3-fde565c176fa",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A translation-unit-local pool of three NUL-terminated C string literals: `\"assertion \\\"%s\\\" failed\"` (22 bytes), `\"\"` (1 byte), and `\"%s in %s on line %d.\\n\"` (22 bytes), followed by section-alignment padding to the 48-byte section size.",
+        "rationale": "The source directly exposes the three literals. Counting their encoded characters and terminating NUL bytes gives 45 bytes; the target's 48-byte extent is therefore consistent with three trailing alignment bytes rather than an additional semantic object.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:01:06.679Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L53",
+            "why": "The source shows the complete contents represented by the section: two strings referenced by __assert and one format string referenced by HSD_Panic."
+          }
+        ]
+      },
+      {
+        "id": "fact:4034531d-d08d-4184-8b9d-29581bf3817a",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the fixed diagnostic strings used by debug.c's assertion-failure and panic-reporting paths: the assertion-failure format, an empty panic message, and the source-location report format.",
+        "rationale": "The matched unit contains exactly three string literals in these paths: `assertion \"%s\" failed` and `\"\"` in __assert, plus `%s in %s on line %d.\\n` in HSD_Panic. Their encoded lengths, including NUL terminators, total 45 bytes, consistent with this 48-byte data section after alignment padding.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:01:06.679Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L53",
+            "why": "The matched assertion and panic implementations show all three fixed strings and the diagnostic operations that consume them."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:.sbss"
+    },
+    "facts": [
+      {
+        "id": "fact:142d29f9-b498-4b9e-b3ea-fa39a4c8deec",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "`HSD_LogInit` copies stdout's preexisting `write_proc` into `logFunc` on first initialization, after which `report_func` uses that slot to forward every intercepted write. `HSD_SetReportCallback` and `HSD_SetPanicCallback` write caller-supplied callbacks into `reportCallback` and `panicCallback`; `report_func` reads the former to observe output buffers, while `HSD_Panic` reads the latter before capturing context and invoking panic instrumentation.",
+        "rationale": "The current source still shows every producer and consumer of the three uninitialized global slots: guarded initialization of the saved writer, direct callback registration, and callback-dependent report and panic paths.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows values flowing from stdout and the callback-setter arguments into the three global slots, then from those slots into output forwarding and panic instrumentation."
+          }
+        ]
+      },
+      {
+        "id": "fact:c718ee45-0833-4d5d-bb17-1f72353adb0e",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.sbss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Holds the mutable routing state for the game's runtime diagnostic-logging system, enabling optional observation of ordinary reports and fatal-error context while preserving the normal stdout and operating-system panic paths.",
+        "rationale": "The current unit consumes these globals exclusively in its stdout interception and fatal-diagnostic paths. The callbacks remain optional, while the saved writer and `OSPanic` preserve the underlying output and fatal-error behavior.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows the globals controlling report observation, output forwarding, panic-context instrumentation, and final operating-system panic delegation."
+          }
+        ]
+      },
+      {
+        "id": "fact:bb50d4ab-0c10-41db-933f-02feb260b68e",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Small-data BSS layout containing three pointer-typed globals in current declaration order: `ReportCallback reportCallback`, `PanicCallback panicCallback`, and `__io_proc logFunc`. The section may include alignment padding beyond these pointer slots.",
+        "rationale": "The head revision changes the declaration order represented by the previous fact. The current declarations and their uses establish three callable-pointer slots ordered as report callback, panic callback, and saved MSL I/O procedure.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows the current source order of the three uninitialized globals and their uses as two HSD callbacks and an MSL write procedure."
+          }
+        ]
+      },
+      {
+        "id": "fact:2288fb50-8ee5-4fd0-82d3-a4457a91b129",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides zero-initialized mutable storage for the debug unit's three runtime routing endpoints: the saved underlying stdout writer, the optional panic callback, and the optional report callback.",
+        "rationale": "The current file still declares the three slots without initializers and uses them as persistent state shared by logging initialization, report interception, panic handling, and callback registration.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows the three uninitialized global slots and the routines that initialize, read, or replace them."
+          }
+        ]
+      },
+      {
+        "id": "fact:b78b0229-30c3-488c-9c6b-8f469fe37d98",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.sbss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "All three slots begin null. `logFunc` has a one-way initialization guard in normal operation: it is populated only when null so repeated `HSD_LogInit` calls do not save the already-installed wrapper as the underlying writer. The report and panic callback slots remain replaceable at runtime, including being reset to null; null disables only the optional observer path and does not suppress forwarding or the final OS panic.",
+        "rationale": "The uninitialized static pointer storage establishes null startup state. The current code retains the `logFunc` null guard, unconditional callback assignments, guarded observer calls, and mandatory forwarding or `OSPanic` operations.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows the null-initialized slots, saved-writer guard, replaceable callback assignments, and callback branches that reconverge at mandatory forwarding or panic delegation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:c760ddd2-67b3-405f-98bd-63477dcb1fa7",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The empty string enters `__assert` as an inline argument to `HSD_Panic`. `HSD_Panic` treats it as the diagnostic message: when a panic callback is installed it supplies the string to `OSReport`, and regardless of callback presence it forwards the same string to `OSPanic`.",
+        "rationale": "The current assertion and panic bodies preserve the same producer, argument position, optional reporting path, and unconditional final consumer for the empty literal.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows `__assert` passing an empty string to `HSD_Panic`, which uses its message argument in optional reporting and always forwards it to `OSPanic`."
+          }
+        ]
+      },
+      {
+        "id": "fact:65f4cb1b-a73a-44f8-af1a-b629eda8e9a9",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.sdata",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports runtime assertion diagnostics: the failed expression is printed first, while this empty message lets the assertion path invoke the shared panic machinery for source-location reporting, optional context-aware instrumentation, and termination.",
+        "rationale": "The current source still reports the failed expression separately and then enters the common panic path with the empty message, where context can be captured for an installed callback before the operating-system panic call.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Connects the empty literal to assertion reporting, panic-context capture, the optional panic callback, and final operating-system panic handling."
+          }
+        ]
+      },
+      {
+        "id": "fact:a87e5ae0-b52c-4baf-bae6-4936835d4a9d",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An 8-byte small-data contribution whose meaningful payload is a NUL-terminated empty C string (`char[1]`); the remaining bytes are section alignment or padding rather than additional semantic values.",
+        "rationale": "The target remains the unit's eight-byte `.sdata` contribution, and the current matched source still contains the empty literal consumed by `__assert` as its meaningful short initialized payload.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows the empty C-string literal used by `__assert` and its diagnostic consumer in the current complete unit."
+          }
+        ]
+      },
+      {
+        "id": "fact:6e8f94fd-bcd1-4990-8f24-dd29dd2db9bc",
+        "target_id": "target:data:main/sysdolphin/baselib/debug:.sdata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the empty diagnostic-message literal that `__assert` passes to `HSD_Panic` after separately reporting the failed assertion expression, allowing assertion failures to reuse the unit's common fatal-error path without adding a second message.",
+        "rationale": "The current source explicitly reports the assertion expression before passing the empty string as `HSD_Panic`'s message, and the panic routine consumes that message before delegating to `OSPanic`.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows `__assert` passing `\"\"` to `HSD_Panic` after its separate assertion report and shows the message's subsequent diagnostic use."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:HSD_LogInit"
+    },
+    "facts": [
+      {
+        "id": "fact:50fc53ea-f8a7-4a1b-8389-1c62d1b56407",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_LogInit",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "On the first initialization, the current `stdout->write_proc` flows into the global `logFunc` slot. The function then writes `report_func` into `stdout->write_proc` and clears `stdout->state.error`; later writes enter `report_func`, which optionally passes their buffer and length to `reportCallback` before forwarding the original write arguments to `logFunc`.",
+        "rationale": "The current source preserves the saved-writer assignment, hook installation, and error reset, while the adjacent wrapper shows how intercepted output reaches the observer and then the saved writer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows `HSD_LogInit` mutating stdout and the installed `report_func` consuming and forwarding subsequent writes."
+          }
+        ]
+      },
+      {
+        "id": "fact:740f9c21-cf06-4b37-9188-24907b1bcf07",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_LogInit",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements initialization of the runtime diagnostic-logging channel, allowing HSD instrumentation to observe standard-output reports without suppressing the stream's original output path.",
+        "rationale": "The current initializer still redirects stdout through a wrapper that conditionally invokes the report observer and then calls the saved original writer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows initialization of an observer-capable stdout wrapper that preserves delivery through the prior writer."
+          }
+        ]
+      },
+      {
+        "id": "fact:5f88eb2b-b79f-4810-8de9-e94ef5351eef",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_LogInit",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Parameterless initialization routine with signature `void HSD_LogInit(void)`; it configures the global MSL `stdout` stream and returns no status.",
+        "rationale": "The matched definition explicitly has a void(void) signature, accepts no caller-supplied data, mutates stdout and the saved writer slot, and has no return value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:04:38.120Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L30-L37",
+            "why": "Provides the complete function signature and body, including its global stream mutations and absence of a return value."
+          }
+        ]
+      },
+      {
+        "id": "fact:81eab2e8-277d-4860-baed-20fccb82ae9d",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_LogInit",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes HSD diagnostic logging by replacing MSL standard output's write procedure with the HSD report wrapper while retaining the original writer so intercepted output can still reach its normal destination.",
+        "rationale": "The current code still installs `report_func`, conditionally saves stdout's previous procedure, and uses that saved procedure from the wrapper after optional report observation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows `HSD_LogInit` preserving stdout's prior writer and installing the wrapper that observes and forwards later writes."
+          }
+        ]
+      },
+      {
+        "id": "fact:e8b9592c-04f1-4a00-8f3a-acbb254f4485",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_LogInit",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Initialization is repeat-safe with respect to the saved underlying writer: `logFunc` is captured only while it is NULL, preventing later calls from replacing it with the already-installed wrapper. Every call nevertheless reinstalls `report_func` as stdout's writer and resets the stream error flag to zero.",
+        "rationale": "The NULL guard applies only to the assignment into logFunc, while the write-procedure replacement and error reset are outside the guard. This establishes the distinct first-call and repeated-call behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:04:38.120Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L30-L37",
+            "why": "Directly shows the one-time saved-writer guard and the unconditional hook installation and error-state reset."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:HSD_Panic"
+    },
+    "facts": [
+      {
+        "id": "fact:e7d6de95-33ff-4ccf-8118-70e12f19d8c0",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_Panic",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "When panicCallback is installed, the current processor context is saved into HSD_Debug_804C2608.context; the message, source-file string, and line number are formatted through OSReport; and the saved context address is passed to the callback. Regardless of callback registration, the original source-file, line, and message arguments are then forwarded unchanged to OSPanic.",
+        "rationale": "The matched source explicitly identifies the global context destination, the OSReport argument ordering, the callback input, and the unconditional forwarding of all three caller inputs to OSPanic.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:48.820Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "The function directly shows context capture and all argument flows into OSReport, panicCallback, and OSPanic."
+          }
+        ]
+      },
+      {
+        "id": "fact:dfad9faa-daa3-4010-a5a9-0f5693445a97",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_Panic",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the fatal side of the game's runtime diagnostic logging system: internal assertion and validation failures can expose a formatted source-location report and saved execution context to debugging instrumentation before the operating system panic path takes over.",
+        "rationale": "The HSD assertion implementation calls HSD_Panic with its source file and line, while HSD_Panic reports those diagnostics and supplies saved context to an installed callback before OSPanic. This grounds the function in runtime diagnostics rather than a gameplay state or mechanic.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-01T23:03:48.820Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L43",
+            "why": "The assertion-failure implementation routes its originating source file and line into HSD_Panic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "HSD_Panic emits the source diagnostic and exposes saved execution context before invoking OSPanic."
+          }
+        ]
+      },
+      {
+        "id": "fact:ea5e70a7-2bf9-4c7a-b1fe-4e5e45fb5eb9",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_Panic",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Void function with the matched definition `(char* source_file, u32 source_line, char* message)`. The first and third parameters are diagnostic strings, the second is a 32-bit source line number, and an installed PanicCallback receives a pointer to a saved OSContext.",
+        "rationale": "The definition supplies the exact return and parameter types. Their uses in OSReport and OSPanic establish the source-file, line-number, and message roles, while OSSaveContext and the callback invocation establish the callback argument's context-pointer shape.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:03:48.820Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "The signature and body directly show the three parameter types, their diagnostic roles, and the OSContext pointer passed to panicCallback."
+          }
+        ]
+      },
+      {
+        "id": "fact:7d96ad9a-868d-4fd8-a81e-b53d594e7c7f",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_Panic",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles an HSD fatal diagnostic by optionally capturing the current OS context, reporting the supplied message and source location, and invoking a registered panic callback before unconditionally transferring final panic handling to OSPanic.",
+        "rationale": "The matched body guards only the context-capture, report, and callback sequence on panicCallback being non-null; OSPanic is outside that guard and therefore remains the terminal path for every invocation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:48.820Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "The complete function shows the optional pre-panic diagnostic callback path followed by an unconditional OSPanic call."
+          }
+        ]
+      },
+      {
+        "id": "fact:db33802e-e803-4e5a-a2e8-99747d50484e",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_Panic",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has one callback-dependent branch: with no registered panic callback it proceeds directly to OSPanic; with a callback it first snapshots context, emits a diagnostic, and invokes the callback. The callback does not replace or suppress the terminal panic path, because OSPanic executes after either branch.",
+        "rationale": "The sole guard tests panicCallback, and the OSPanic call lies after the guarded block. This proves both the optional preprocessing behavior and the invariant final transition into OS panic handling.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:48.820Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L45-L53",
+            "why": "The control flow shows the callback-present and callback-absent paths reconverging at the unconditional OSPanic call."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:HSD_SetPanicCallback"
+    },
+    "facts": [
+      {
+        "id": "fact:cbf53fce-e244-4b1e-9fb2-17e2bbb69add",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetPanicCallback",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input callback is written to the global panicCallback slot. On a later HSD_Panic call, baselib saves the current CPU state into HSD_Debug_804C2608.context, reports the panic message and source location, and passes that saved context to the registered callback; after the callback returns, the original panic file, line, and message continue to OSPanic. During crash-handler setup, the game supplies fn_HSDPanicHandler, which uses the received context to report a stack trace and drive the debug-console crash display.",
+        "rationale": "The setter assignment establishes the registration flow, HSD_Panic explicitly establishes the saved-context and diagnostic flow through the callback and onward to OSPanic, and db_SetupCrashHandler plus fn_HSDPanicHandler show the concrete producer and consumer on the game side.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:06:36.593Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L63",
+            "why": "Shows callback storage, context capture, diagnostic reporting, indirect callback invocation, and unconditional forwarding to OSPanic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L25-L81",
+            "why": "Shows db_SetupCrashHandler supplying fn_HSDPanicHandler and that callback consuming OSContext for stack-trace and debug-console reporting."
+          }
+        ]
+      },
+      {
+        "id": "fact:c6df9d4d-ff4d-40fa-b136-17ddc4deae0f",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetPanicCallback",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Connects baselib panic handling to Melee's debugger-independent crash-reporting path: when no external debugger is present, startup installs a handler that suppresses retrace callbacks, reports the build timestamp and saved-context stack trace, and transfers control to the debug-console crash display before the OS panic completes.",
+        "rationale": "db_SetupCrashHandler installs fn_HSDPanicHandler only when DBIsDebuggerPresent returns false. That handler disables user retrace callbacks, reports the build timestamp and stack trace from the supplied context, stores the debug level, and enters the debug-console path; HSD_Panic supplies that context through the registered hook before OSPanic.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T00:06:36.593Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L25-L81",
+            "why": "Shows the no-debugger installation guard and the concrete crash handler's retrace suppression, build identification, stack tracing, and debug-console operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L63",
+            "why": "Shows that the registered game handler receives a freshly saved OSContext during panic processing before control reaches OSPanic."
+          }
+        ]
+      },
+      {
+        "id": "fact:70da2cc5-98f0-47e2-bbb1-b1103bf5cf7b",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetPanicCallback",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Callback-registration function with signature void HSD_SetPanicCallback(PanicCallback cb), where PanicCallback is a variadic function pointer of type void (*)(OSContext*, ...).",
+        "rationale": "The owning header explicitly declares both the setter and PanicCallback typedef, while the matched definition accepts the typedef and stores it without conversion.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:06:36.593Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.h#L8-L9",
+            "why": "Defines PanicCallback as a void-returning variadic callback whose first argument is OSContext*."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.h#L35-L36",
+            "why": "Declares HSD_SetPanicCallback as a void function accepting one PanicCallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L63",
+            "why": "Contains the matched setter definition and the callback invocation with a saved OSContext pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:90c75b46-8495-4b3f-a131-27b1fe51ce3f",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetPanicCallback",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Registers the process-global callback that HSD_Panic invokes with a saved CPU context before delegating to OSPanic, providing an extension point for game-specific crash diagnostics without coupling baselib's panic routine to the debug-console implementation.",
+        "rationale": "The setter directly installs its argument in panicCallback, and HSD_Panic saves an OSContext and invokes that callback before unconditionally calling OSPanic. The game's crash setup installs fn_HSDPanicHandler, which reports the build timestamp and stack trace and enters the debug-console path, demonstrating why this registration point exists.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:06:36.593Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L63",
+            "why": "Shows HSD_SetPanicCallback writing the global panicCallback slot and HSD_Panic consuming it after saving context and before calling OSPanic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L25-L81",
+            "why": "Shows the game installing fn_HSDPanicHandler and that handler performing stack-trace and debug-console crash diagnostics."
+          }
+        ]
+      },
+      {
+        "id": "fact:f8ab2f70-4cc7-4d3c-b3d4-682c196aa2ca",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetPanicCallback",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each call unconditionally replaces the single global panic handler, including allowing NULL to disable the extension hook. HSD_Panic invokes the handler only while the slot is non-NULL; regardless of whether a handler is installed, it ultimately calls OSPanic.",
+        "rationale": "The setter has no guard and directly overwrites panicCallback. HSD_Panic guards context capture and callback dispatch with a NULL check but places OSPanic after that guarded block, establishing enabled, disabled, replacement, and terminal-delegation behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:06:36.593Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L63",
+            "why": "Directly shows unconditional callback-slot replacement, the non-NULL dispatch guard, and the unconditional final OSPanic call."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:HSD_SetReportCallback"
+    },
+    "facts": [
+      {
+        "id": "fact:316bc7c0-aa4e-4e9f-8b3c-bce08e065d72",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetReportCallback",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The `cb` argument is stored directly in the global `reportCallback` slot. After `HSD_LogInit` replaces stdout's write procedure with `report_func`, each intercepted write supplies its buffer and byte count to the stored callback; the same write is then always forwarded through the saved `logFunc` procedure.",
+        "rationale": "The current setter remains a direct assignment, and the surrounding unit still shows the slot's consumer receiving each output buffer before unconditional forwarding through the saved writer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows callback registration, stdout interception, callback consumption of the buffer and length, and subsequent forwarding to `logFunc`."
+          }
+        ]
+      },
+      {
+        "id": "fact:33da0eea-8f90-42db-888d-d4aaece5e1b0",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetReportCallback",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the registration point for runtime diagnostic logging observers, so debug-console or diagnostic facilities can receive HSD report text while normal stdout output continues through its original destination.",
+        "rationale": "The current implementation still integrates the registered callback into stdout interception without replacing the saved writer, grounding the setter as an observer-registration point.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows the registered observer receiving intercepted report output while the original stdout writer remains in the forwarding path."
+          }
+        ]
+      },
+      {
+        "id": "fact:2b7d6fb4-d029-47a1-a404-64a50be17745",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetReportCallback",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Callback-registration function with signature `void HSD_SetReportCallback(ReportCallback cb)`. A registered `ReportCallback` is invoked with an unsigned-character output-buffer pointer and the buffer's `size_t` byte count.",
+        "rationale": "The current definition gives the setter's signature, while `report_func` invokes the stored callback with its `unsigned char*` buffer and dereferenced `size_t` write length.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows the declared setter signature and the stored callback's effective buffer-and-byte-count call shape."
+          }
+        ]
+      },
+      {
+        "id": "fact:16db0de4-97a8-446b-acda-34afdc701b93",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetReportCallback",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Registers the process-global observer for HSD diagnostic report output, allowing another subsystem to inspect each intercepted stdout buffer without replacing or suppressing the original stdout writer.",
+        "rationale": "The current setter stores its argument in `reportCallback`; the wrapper conditionally invokes that slot for each write and then unconditionally calls `logFunc`, establishing observation rather than output replacement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows `HSD_SetReportCallback` updating the observer slot and `report_func` invoking it before forwarding every write."
+          }
+        ]
+      },
+      {
+        "id": "fact:9b2ff50a-f37b-415b-a41a-156c1cc40702",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:HSD_SetReportCallback",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each call unconditionally replaces the single global report callback. Passing `NULL` disables callback observation because `report_func` tests the slot for null before dispatching, while stdout forwarding remains enabled independently of that state.",
+        "rationale": "The current setter has no assignment guard, the wrapper retains its explicit null test, and the `logFunc` call remains outside that guarded block.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows unconditional replacement of `reportCallback`, guarded callback invocation, and unconditional output delegation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:__assert"
+    },
+    "facts": [
+      {
+        "id": "fact:88d227d5-1c04-4555-951c-2b63f43a20ed",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:__assert",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The failed-expression string is interpolated into an OSReport diagnostic; the source-file string and line number are then forwarded to HSD_Panic, whose variadic message argument is an empty string.",
+        "rationale": "Both calls and their argument routing are explicit in the matched source: `arg2` supplies OSReport's `%s`, whereas `str` and `arg1` become the first two HSD_Panic arguments and `\"\"` supplies its format/message argument.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T22:46:31.538Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L43",
+            "why": "The body directly shows the expression string flowing to OSReport and the file/line pair flowing to HSD_Panic."
+          }
+        ]
+      },
+      {
+        "id": "fact:56267f17-67dd-45ea-aa26-58806fb58a8b",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:__assert",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "void function taking `(char* source_file, u32 source_line, char* failed_expression)`; the first and third parameters are C strings and the second is a 32-bit line number.",
+        "rationale": "The matched signature is `void __assert(char*, u32, char*)`. The third parameter is consumed by OSReport's `%s`, while the first and second are forwarded to HSD_Panic in the positions used for source location, supporting the semantic parameter interpretation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T22:46:31.538Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L43",
+            "why": "The source gives the exact return and parameter types and shows how each parameter is consumed."
+          }
+        ]
+      },
+      {
+        "id": "fact:af562fa6-f01a-4dba-b21c-dc5314406a4e",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:__assert",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles an already-failed assertion by reporting which assertion expression failed and then entering the HSD panic path with the originating source file and line.",
+        "rationale": "The matched body has no condition evaluation of its own: it immediately prints the third argument as the failed expression, then passes the first and second arguments to HSD_Panic. It is therefore the failure-side implementation called after an assertion condition has been determined to be false.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T22:46:31.538Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L43",
+            "why": "The complete matched body unconditionally reports `assertion \"%s\" failed` using the third argument and calls HSD_Panic with the first two arguments."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/debug:report_func"
+    },
+    "facts": [
+      {
+        "id": "fact:5e8e8750-2da2-4b8f-adb9-7a92589e2abf",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:report_func",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a stream handle, output buffer, pointer to the requested byte count, and idle procedure from stdout's write path. Before forwarding, it passes the same buffer and the current dereferenced byte count to `reportCallback` when registered. It then forwards all four original arguments to `logFunc`, ignores that procedure's return value, and returns 0.",
+        "rationale": "The current body explicitly preserves the callback and forwarding argument flow and fixed return value. `HSD_LogInit` still establishes `logFunc` as stdout's previous write procedure.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+            "why": "Shows the callback receiving the buffer and dereferenced length, all four parameters flowing to `logFunc`, and the fixed zero return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L30-L37",
+            "why": "Shows that `logFunc` captures stdout's prior write procedure before `report_func` is installed."
+          }
+        ]
+      },
+      {
+        "id": "fact:8233b70d-1802-49e2-bc27-2276c5d446f7",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:report_func",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the nonfatal output side of the runtime diagnostic logging system by teeing stdout writes to optional debugging instrumentation while retaining the program's underlying output behavior.",
+        "rationale": "The current unit still installs this function on stdout, conditionally exposes each output buffer to the report observer, and always invokes the retained writer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows `report_func` as the observer-capable stdout interception path within the current diagnostic unit."
+          }
+        ]
+      },
+      {
+        "id": "fact:290453cc-6968-448d-bd16-001c1aeab376",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:report_func",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "MSL-compatible stream write procedure with the matched signature `int (__file_handle handle, unsigned char* buffer, size_t* length, __idle_proc idle_proc)`. The buffer and dereferenced byte count are also the arguments supplied to the optional `ReportCallback`.",
+        "rationale": "The current definition provides the exact return and parameter types and forwards all four parameters to the saved stream procedure. Its assignment to `stdout->write_proc` confirms the MSL write-procedure role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+            "why": "Shows the exact signature, stream-procedure forwarding, and buffer-length pair supplied to the optional report callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L30-L37",
+            "why": "Assignment to `stdout->write_proc` confirms that `report_func` is used as an MSL stream write procedure."
+          }
+        ]
+      },
+      {
+        "id": "fact:621b7373-af60-4c40-9d49-d29a54f3e4db",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:report_func",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Acts as the stdout write-procedure wrapper installed by `HSD_LogInit`: it lets an optional HSD report callback observe each output buffer, then preserves normal output by passing the write to the previously installed procedure.",
+        "rationale": "The current initializer still saves stdout's previous procedure and installs `report_func`; the current wrapper still invokes the observer conditionally and the saved writer unconditionally.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+            "why": "Shows the optional report callback followed by unconditional delegation to `logFunc`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L30-L37",
+            "why": "Shows `HSD_LogInit` retaining stdout's existing writer and installing `report_func` in its place."
+          }
+        ]
+      },
+      {
+        "id": "fact:660b982f-c150-46d2-bddc-45ef5b7e55c8",
+        "target_id": "target:function:main/sysdolphin/baselib/debug:report_func",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has one callback-dependent branch: with `reportCallback` unset, it delegates directly to the saved writer; with `reportCallback` set, it first exposes the output buffer to that callback. Both paths reconverge at the unconditional `logFunc` call, so callback registration never suppresses normal output forwarding.",
+        "rationale": "In the current body only the observer call is guarded by the null test, while delegation to `logFunc` follows the guarded block on both paths.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:28:53.168Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+            "why": "Shows the optional observer branch reconverging at unconditional delegation to the saved writer."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/debug.c"
+    },
+    "facts": [
+      {
+        "id": "fact:359045f5-0830-40ef-b7fb-5706e5f70dfe",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/debug.c",
+        "type": "data_flow",
+        "value": "HSD_LogInit saves stdout's existing write procedure in logFunc and replaces it with report_func. Each intercepted write is first offered to reportCallback when one is installed and is then always forwarded to logFunc. Assertion inputs flow through OSReport into HSD_Panic; panic inputs are used to report the message and source location to an installed panic callback, then are always forwarded to OSPanic. The two setter functions update the callback slots consumed by these paths.",
+        "rationale": "The current assignments, callback guards, callback arguments, retained-writer call, assertion path, context capture, and unconditional `OSPanic` call preserve the established diagnostic flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T16:59:05.391Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows output buffers and assertion diagnostics flowing through optional callbacks and then to the retained writer or `OSPanic`, plus the callback-slot setters."
+          }
+        ]
+      },
+      {
+        "id": "fact:d0c63c01-a63a-4cdb-b212-c41f70a8cfeb",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/debug.c",
+        "type": "game_mapping",
+        "value": "Realizes the game's runtime diagnostic-logging layer by intercepting standard output for optional observation, formatting assertion failures, and exposing saved execution context to panic instrumentation before delegating fatal errors to the operating system.",
+        "rationale": "The current unit directly implements standard-output observation, assertion reporting, saved-context panic callbacks, and operating-system panic delegation, so the prior mapping remains valid after the include-only drift.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T16:59:05.391Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows the runtime logging and fatal-diagnostic operations that ground this developer-facing mapping."
+          }
+        ]
+      },
+      {
+        "id": "fact:ac756395-b923-4081-b638-c4ee206d8033",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/debug.c",
+        "type": "purpose",
+        "value": "Provides HSD baselib's runtime diagnostic infrastructure: it intercepts standard-output writes so an optional report callback can observe them without replacing the underlying writer, handles assertion failures, and routes fatal diagnostics through an optional context-aware panic callback before invoking the OS panic facility.",
+        "rationale": "The current complete span installs an output wrapper while retaining the original writer, exposes diagnostic callback setters, formats assertion failures, saves context for panic observers, and always delegates fatal errors to `OSPanic`.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T16:59:05.391Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows stdout interception, callback-backed report observation, assertion handling, panic context capture, and final OS panic delegation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:HSD_Panic#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:HSD_Panic#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:HSD_Panic#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:HSD_SetPanicCallback#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:HSD_SetReportCallback#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:__assert#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:__assert#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:__assert#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:report_func#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:report_func#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:report_func#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/debug:report_func#r6"
+    },
+    "facts": []
+  }
+]

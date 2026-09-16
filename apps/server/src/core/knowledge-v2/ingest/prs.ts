@@ -14,6 +14,7 @@ import type { LaneOptions, PrImportResult } from "./types.js";
 
 export interface PrImportOptions extends LaneOptions {
   prsRoot: string;
+  sourceIdentity?: { game_id: string; source_id: string; kind: "pr"; upstream: string };
   reattribute?: boolean;
 }
 
@@ -323,7 +324,7 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
       const entry: PullRequestEntryInput = {
         id,
         entityId: entity.id,
-        prRef: `melee#${pr.number}`,
+        prRef: `${!options.sourceIdentity || (options.sourceIdentity.game_id === "melee" && options.sourceIdentity.upstream === "doldecomp/melee") ? "melee" : options.sourceIdentity.upstream}#${pr.number}`,
         mergedAt: pr.mergedAt,
         outcome: "no_change",
         summary: `[mechanical] PR #${pr.number} '${pr.title}' touched ${touched}; narrative pending librarian pass`,
@@ -347,7 +348,7 @@ export function importPrs(store: KnowledgeStoreHandle, options: PrImportOptions)
       const entry: PullRequestEntryInput = {
         id,
         targetId: target.id,
-        prRef: `melee#${pr.number}`,
+        prRef: `${!options.sourceIdentity || (options.sourceIdentity.game_id === "melee" && options.sourceIdentity.upstream === "doldecomp/melee") ? "melee" : options.sourceIdentity.upstream}#${pr.number}`,
         mergedAt: pr.mergedAt,
         outcome,
         summary: `[ci] PR #${pr.number} '${pr.title}' — ${row.unit}:${row.function} ${row.before}% -> ${row.after}% (${row.bytes} bytes), reported by decomp-dev CI as '${row.sectionLabel}'; narrative pending librarian pass`,

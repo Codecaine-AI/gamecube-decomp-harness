@@ -1,0 +1,55 @@
+{
+  "tu": "main/dolphin/card/CARDCreate",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDCreate.c#L69-L121",
+            "why": "Shows validation order, distinct error exits, pending-state writes and allocation initiation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDCreate.c#L19-L49",
+            "why": "Shows subsequent use of pending state and deferred handle initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the exceptional post-acquisition no-release branch explicit and documents the deferred output-handle lifetime and absence of local rollback, rather than obscuring these under general cleanup wording.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDCreate:CARDCreateAsync"
+        },
+        "type": "state_behavior",
+        "value": "Checks filename length before acquiring channel control, then checks nonzero sector-aligned byte size. The invalid-size branch returns CARD_RESULT_FATAL_ERROR directly without __CARDPutControlBlock; duplicate-file, directory-full, insufficient-space and immediate allocation failures call that helper. A null callback is replaced by __CARDDefaultApiCallback. Before starting __CARDAllocBlock with CreateCallbackFat, the routine stages the directory entry, callback and CARDFileInfo pointer and writes the handle's channel and file number. Initial allocation acceptance is not completed creation: the continuation later writes offset and iBlock through the retained caller-owned handle. This function performs no explicit rollback of staged metadata or clearing of pending pointers on immediate allocation failure."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDCreate.c#L56-L132",
+            "why": "Establishes request ordering, cleanup exceptions, allocation setup and synchronous waiting."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDCreate.c#L13-L52",
+            "why": "Establishes callback detachment, directory-update handoff and shared failure cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the original acquisition-first ordering and preserves the exceptional invalid-size branch while retaining the supported asynchronous ownership transitions.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/card/CARDCreate.c"
+        },
+        "type": "state_behavior",
+        "value": "Creation proceeds from filename validation to channel-control acquisition, size validation, directory and capacity checks, metadata staging, asynchronous FAT allocation and directory-update submission. Overlong names are rejected before acquisition. Invalid size returns CARD_RESULT_FATAL_ERROR after acquisition without an explicit control-block release; duplicate, directory-full, insufficient-space and immediate allocation failures use __CARDPutControlBlock. The allocation continuation detaches the saved API callback and, for nonnegative results, initializes directory metadata and the handle's block position before passing completion to __CARDUpdateDir. Negative allocation results or immediate directory-update errors release control and notify the saved callback if present; an accepted update returns without local release or notification. CARDCreate propagates startup errors and otherwise waits through __CARDSync."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

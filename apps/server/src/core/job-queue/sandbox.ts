@@ -18,6 +18,8 @@ export interface SandboxCreateParams {
   labels: Record<string, string>;
   resources: SandboxResourceClass;
   ttlMinutes: number;
+  /** Build sandboxes expire on inactivity and delete upon stopping. */
+  ephemeral?: boolean;
 }
 
 export interface SandboxHandle {
@@ -81,7 +83,8 @@ interface DaytonaClient {
   create(params: {
     snapshot: string;
     labels: Record<string, string>;
-    autoStopInterval: 0;
+    autoStopInterval: number;
+    autoDeleteInterval?: number;
     ttlMinutes: number;
   }): Promise<DaytonaSandbox>;
   get(sandboxId: string): Promise<DaytonaSandbox>;
@@ -250,7 +253,8 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       snapshot: params.snapshot,
       labels: { ...params.labels },
       // Daytona API: "Cannot specify Sandbox resources when using a snapshot".
-      autoStopInterval: 0,
+      autoStopInterval: params.ephemeral ? params.ttlMinutes : 0,
+      ...(params.ephemeral ? { autoDeleteInterval: 0 } : {}),
       ttlMinutes: params.ttlMinutes,
     });
     return handle(sandbox);

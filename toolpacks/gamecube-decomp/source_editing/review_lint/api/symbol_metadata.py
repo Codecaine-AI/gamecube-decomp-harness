@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Look up symbol and declaration metadata in a Melee checkout.
+"""Look up symbol and declaration metadata in a decomp checkout.
 
-Parses ``config/GALE01/symbols.txt`` into a symbol metadata table, including
-addresses and sizes used by ownership-aware lint rules. It can also locate
-canonical function/type declarations in the project's header trees. Parsed
-symbols are cached as JSON under ``review_lint/cache/`` keyed by the
-symbols.txt mtime+size. Missing metadata fails open: callers receive ``None``.
+Parses the active version's ``config/<version>/symbols.txt`` into a symbol
+metadata table, including addresses and sizes used by ownership-aware lint
+rules. It can also locate canonical function/type declarations in the
+project's header trees. Parsed symbols are cached as JSON under
+``review_lint/cache/`` keyed by the symbols.txt mtime+size. Missing metadata
+fails open: callers receive ``None``.
 """
 
 from __future__ import annotations
@@ -18,12 +19,11 @@ from pathlib import Path
 from typing import Any
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from toolpack_runtime import print_json
+from toolpack_runtime import import_tool_module, print_json
 from search_index import tool_storage_root  # type: ignore
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
 CACHE_DIR = tool_storage_root(TOOL_ROOT) / "cache"
-SYMBOLS_REL_PATH = Path("config") / "GALE01" / "symbols.txt"
 CACHE_SCHEMA_VERSION = 2
 DATA_SECTIONS = {".data", ".rodata", ".sdata", ".sdata2", ".bss", ".sbss"}
 HEADER_ROOTS = ("src", "include")
@@ -46,7 +46,10 @@ TYPE_QUALIFIERS = {
 
 
 def _symbols_path(repo_root: Path) -> Path:
-    return repo_root / SYMBOLS_REL_PATH
+    layout = import_tool_module("project_layout", repo_root).get_project_layout(
+        repo_root
+    )
+    return repo_root / "config" / layout.version / "symbols.txt"
 
 
 def _cache_path() -> Path:
@@ -76,7 +79,7 @@ def parse_symbols(symbols_path: Path) -> dict[str, dict[str, Any]]:
 def load_symbol_metadata(
     repo_root: Path | str,
 ) -> dict[str, dict[str, Any]]:
-    """Load and cache the symbols.txt metadata for a Melee checkout."""
+    """Load and cache the symbols.txt metadata for a project checkout."""
 
     symbols_path = _symbols_path(Path(repo_root))
     if not symbols_path.is_file():
@@ -324,7 +327,7 @@ def find_type_declaration_headers(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo", required=True, help="Melee repo root.")
+    parser.add_argument("--repo", required=True, help="Project repo root.")
     parser.add_argument("--symbol", required=True, help="Symbol name to look up.")
     parser.add_argument("--json", action="store_true", help="Emit JSON output.")
     args = parser.parse_args()

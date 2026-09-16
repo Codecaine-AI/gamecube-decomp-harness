@@ -1,0 +1,65 @@
+.include "macros.inc"
+.file "ftCo_0C60.c"
+
+# 0x800C60C8..0x800C6150 | size: 0x88
+.text
+.balign 4
+
+# .text:0x0 | 0x800C60C8 | size: 0x48
+.fn ftCo_800C60C8, global
+/* 800C60C8 000C2CA8  7C 08 02 A6 */	mflr r0
+/* 800C60CC 000C2CAC  90 01 00 04 */	stw r0, 0x4(r1)
+/* 800C60D0 000C2CB0  94 21 FF E8 */	stwu r1, -0x18(r1)
+/* 800C60D4 000C2CB4  93 E1 00 14 */	stw r31, 0x14(r1)
+/* 800C60D8 000C2CB8  7C 7F 1B 78 */	mr r31, r3
+/* 800C60DC 000C2CBC  4B FD 3E 41 */	bl ftCo_80099F1C
+/* 800C60E0 000C2CC0  2C 03 00 00 */	cmpwi r3, 0x0
+/* 800C60E4 000C2CC4  41 82 00 14 */	beq .L_800C60F8
+/* 800C60E8 000C2CC8  7F E3 FB 78 */	mr r3, r31
+/* 800C60EC 000C2CCC  48 00 00 25 */	bl ftCo_800C6110
+/* 800C60F0 000C2CD0  38 60 00 01 */	li r3, 0x1
+/* 800C60F4 000C2CD4  48 00 00 08 */	b .L_800C60FC
+.L_800C60F8:
+/* 800C60F8 000C2CD8  38 60 00 00 */	li r3, 0x0
+.L_800C60FC:
+/* 800C60FC 000C2CDC  80 01 00 1C */	lwz r0, 0x1c(r1)
+/* 800C6100 000C2CE0  83 E1 00 14 */	lwz r31, 0x14(r1)
+/* 800C6104 000C2CE4  38 21 00 18 */	addi r1, r1, 0x18
+/* 800C6108 000C2CE8  7C 08 03 A6 */	mtlr r0
+/* 800C610C 000C2CEC  4E 80 00 20 */	blr
+.endfn ftCo_800C60C8
+
+# .text:0x48 | 0x800C6110 | size: 0x40
+.fn ftCo_800C6110, global
+/* 800C6110 000C2CF0  7C 08 02 A6 */	mflr r0
+/* 800C6114 000C2CF4  38 80 01 37 */	li r4, 0x137
+/* 800C6118 000C2CF8  90 01 00 04 */	stw r0, 0x4(r1)
+/* 800C611C 000C2CFC  38 A0 00 00 */	li r5, 0x0
+/* 800C6120 000C2D00  94 21 FF E8 */	stwu r1, -0x18(r1)
+/* 800C6124 000C2D04  93 E1 00 14 */	stw r31, 0x14(r1)
+/* 800C6128 000C2D08  C0 22 93 D8 */	lfs f1, "@233"@sda21(r0)
+/* 800C612C 000C2D0C  83 E3 00 2C */	lwz r31, 0x2c(r3)
+/* 800C6130 000C2D10  4B FD 40 55 */	bl ftCo_8009A184
+/* 800C6134 000C2D14  7F E3 FB 78 */	mr r3, r31
+/* 800C6138 000C2D18  4B FF ED 5D */	bl ftCo_800C4E94
+/* 800C613C 000C2D1C  80 01 00 1C */	lwz r0, 0x1c(r1)
+/* 800C6140 000C2D20  83 E1 00 14 */	lwz r31, 0x14(r1)
+/* 800C6144 000C2D24  38 21 00 18 */	addi r1, r1, 0x18
+/* 800C6148 000C2D28  7C 08 03 A6 */	mtlr r0
+/* 800C614C 000C2D2C  4E 80 00 20 */	blr
+.endfn ftCo_800C6110
+
+# 0x804D8DB8..0x804D8DC0 | size: 0x8
+.section .sdata2, "a"
+.balign 8
+
+# .sdata2:0x0 | 0x804D8DB8 | size: 0x4
+.obj "@233", local
+	.float 0
+.endobj "@233"
+
+# .sdata2:0x4 | 0x804D8DBC | size: 0x4
+.obj gap_11_804D8DBC_sdata2, global
+.hidden gap_11_804D8DBC_sdata2
+	.4byte 0x00000000
+.endobj gap_11_804D8DBC_sdata2

@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_HammerWalk",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWalk.c#L27-L48",
+            "why": "Exact reads, writes and transition arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L178-L214",
+            "why": "Reads accel_mul and overwrites x0 before applying ground movement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the actual downstream consumer from a general claim that both initialized values are consumed by physics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_HammerWalk:ftCo_800C5614"
+        },
+        "type": "data_flow",
+        "value": "Resolves the supplied Fighter_GObj to its Fighter, writes mv.co.walk.accel_mul from unity or ftCo_CalcYScaledKnockback(1, x34_scale.y, Fighter_804D6524->xC), and snapshots gr_vel into mv.co.walk.x0 before entering HammerWalk with shared Hammer flags and start frame. HammerWalk physics later reads accel_mul for both acceleration and target velocity, but overwrites x0 with target_vel * p_ftCommonData->x440 without first reading that snapshot."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWalk.c#L16-L48",
+            "why": "Internal declaration, sole local call, two stores, optional scale branch and ordered calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftchangeparam.c#L9-L22",
+            "why": "Zero-scale assertion and coefficient-dependent arithmetic."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces whole-state initialization and unverified parameter semantics with exact source behavior and domain caveats.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_HammerWalk:ftCo_800C5614"
+        },
+        "type": "state_behavior",
+        "value": "Internally linked entry routine called by the local successful walking-input branch. It initializes only walk.accel_mul and walk.x0 explicitly. Vertical scale exactly one yields multiplier one without reading the scale coefficient; otherwise it calls ftCo_CalcYScaledKnockback, whose zero-scale assertion and unsanitized arithmetic remain applicable. It then calls Fighter_ChangeMotionState(gobj, ftCo_MS_HammerWalk, flags, shared_start_frame, 1, 0, NULL), ftAnim_8006EBA4(gobj), and ftCo_800C4E94(fp), in that order. It adds no local item-kind, groundedness, null-pointer or finite-value validation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWalk.c#L27-L70",
+            "why": "Entry flow and independent callback definitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3522-L3532",
+            "why": "Active callback registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L164-L169",
+            "why": "RETURN_IF short-circuit convention."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates locally proved dispatch ordering from external engine scheduling.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_HammerWalk.c"
+        },
+        "type": "data_flow",
+        "value": "Entry writes a vertical-scale-derived common walking multiplier and a ground-velocity snapshot, then transitions the supplied fighter object to HammerWalk and invokes animation initialization and shared Hammer setup. The active motion table separately registers Anim, IASA, Phys and Coll callbacks. Each receives and forwards the same Fighter_GObj; only IASA defines a local priority sequence, checking jump startup, platform pass and stop-walking in that order. The source does not establish an overall execution order among the four engine callbacks."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

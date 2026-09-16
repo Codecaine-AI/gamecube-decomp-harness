@@ -42,10 +42,8 @@ export interface ManagedProcess {
 }
 
 export interface ProcessStatusInput {
-  freshRunActive: boolean;
   operation: JsonObject | null;
   game: ManagedProcessGame | null;
-  gameSyncActive: boolean;
   stateDir: string;
 }
 
@@ -67,20 +65,6 @@ export interface StopManagedInput {
 }
 
 export interface ManagedProcessControllerDeps {
-  mirrorProcessState: (params: {
-    command?: string[];
-    createIfMissing?: boolean;
-    endedAt?: string | null;
-    graphDbPath?: string | null;
-    name?: string | null;
-    pid?: number | null;
-    processFilePath?: string | null;
-    game: ManagedProcessGame | JsonObject | null | undefined;
-    repoRoot?: string | null;
-    startedAt?: string | null;
-    state?: string | null;
-    stateDir: string;
-  }) => void;
   packageRoot: string;
   gameToSummary: (game: ManagedProcessGame) => JsonObject;
 }
@@ -242,7 +226,7 @@ export class ManagedProcessController {
   }
 
   status(input: ProcessStatusInput): JsonObject {
-    const { freshRunActive, operation, game, gameSyncActive, stateDir } = input;
+    const { operation, game, stateDir } = input;
     const knownProcesses = this.savedProcessRecords(stateDir);
     const activeSaved = knownProcesses.find((record) => {
       if (record.alive !== true) return false;
@@ -280,8 +264,6 @@ export class ManagedProcessController {
       stdoutPath: this.managed?.stdoutPath ?? (stringValue(activeSaved?.stdoutPath) || null),
       stderrPath: this.managed?.stderrPath ?? (stringValue(activeSaved?.stderrPath) || null),
       knownProcesses,
-      freshRunActive,
-      gameSyncActive,
       operation,
     };
   }
@@ -351,38 +333,12 @@ export class ManagedProcessController {
     };
     this.managed = proc;
     this.writeProcessFile(proc);
-    this.deps.mirrorProcessState({
-      command: proc.command,
-      createIfMissing: true,
-      graphDbPath: proc.graphDbPath,
-      name: proc.name,
-      pid: proc.pid,
-      processFilePath: proc.pidFilePath,
-      game,
-      repoRoot: proc.repoRoot,
-      startedAt: proc.startedAt,
-      state: proc.state,
-      stateDir,
-    });
     child.on("exit", (code, signal) => {
       proc.state = "exited";
       proc.exitCode = code;
       proc.signal = signal;
       proc.endedAt = new Date().toISOString();
       this.writeProcessFile(proc);
-      this.deps.mirrorProcessState({
-        command: proc.command,
-        endedAt: proc.endedAt,
-        graphDbPath: proc.graphDbPath,
-        name: proc.name,
-        pid: proc.pid,
-        processFilePath: proc.pidFilePath,
-        game: proc.game,
-        repoRoot: proc.repoRoot,
-        startedAt: proc.startedAt,
-        state: proc.state,
-        stateDir,
-      });
       uiLog("ui", `process exited code=${code ?? "null"} signal=${signal ?? "null"}`);
     });
     uiLog("ui", `started ${name} pid=${pid}: ${command.join(" ")}`);
@@ -396,18 +352,6 @@ export class ManagedProcessController {
     if (this.managed && this.managed.state !== "exited") {
       this.managed.state = "stopping";
       this.writeProcessFile(this.managed);
-      this.deps.mirrorProcessState({
-        command: this.managed.command,
-        graphDbPath: this.managed.graphDbPath,
-        name: this.managed.name,
-        pid: this.managed.pid,
-        processFilePath: this.managed.pidFilePath,
-        game: this.managed.game,
-        repoRoot: this.managed.repoRoot,
-        startedAt: this.managed.startedAt,
-        state: this.managed.state,
-        stateDir,
-      });
       uiLog("ui", "stop requested");
       if (this.managed.pid) {
         try {
@@ -430,20 +374,8 @@ export class ManagedProcessController {
     } else {
       const saved = this.savedProcessRecords(stateDir).find((record) => stringValue(record.name) === name);
       const pid = intValue(saved?.pid, 0, 0);
-      if (!pid || saved?.alive !== true) return { stopped: false, reason: "not_running", process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
+      if (!pid || saved?.alive !== true) return { stopped: false, reason: "not_running", process: this.status({ operation: null, game, stateDir }) };
       this.updateSavedProcessFile(stateDir, name, { state: "stopping", pid });
-      this.deps.mirrorProcessState({
-        command: savedCommand(saved),
-        graphDbPath: stringValue(saved?.graphDbPath, game?.graphDbPath ?? ""),
-        name,
-        pid,
-        processFilePath: this.pidFilePath(stateDir, name),
-        game,
-        repoRoot: stringValue(saved?.repoRoot, game?.repoRoot ?? ""),
-        startedAt: stringValue(saved?.startedAt),
-        state: "stopping",
-        stateDir,
-      });
       uiLog("ui", `stop requested for saved process ${name} pid=${pid}`);
       try {
         process.kill(-pid, "SIGTERM");
@@ -464,19 +396,6 @@ export class ManagedProcessController {
       }
       const endedAt = exited ? new Date().toISOString() : null;
       this.updateSavedProcessFile(stateDir, name, { state: exited ? "exited" : "stopping", endedAt, signal });
-      this.deps.mirrorProcessState({
-        command: savedCommand(saved),
-        endedAt,
-        graphDbPath: stringValue(saved?.graphDbPath, game?.graphDbPath ?? ""),
-        name,
-        pid,
-        processFilePath: this.pidFilePath(stateDir, name),
-        game,
-        repoRoot: stringValue(saved?.repoRoot, game?.repoRoot ?? ""),
-        startedAt: stringValue(saved?.startedAt),
-        state: exited ? "exited" : "stopping",
-        stateDir,
-      });
       stopped = true;
     }
 
@@ -486,7 +405,7 @@ export class ManagedProcessController {
       recovery = { command: recoveryCommand, ...result };
       uiLog("ui", `recover-claims exit=${result.exitCode}`);
     }
-    return { stopped, recovery, process: this.status({ freshRunActive: false, operation: null, game, gameSyncActive: false, stateDir }) };
+    return { stopped, recovery, process: this.status({ operation: null, game, stateDir }) };
   }
 
 }

@@ -1,0 +1,38 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyspecialluigi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialluigi:fn_800F98F4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Acts as a consumptive release gate shared by grounded and aerial copied-Luigi SpecialN. With throw-B0 clear, it performs no release work. With throw-B0 set, it clears that flag before computing the left-hand position, calling the void item constructor `it_802C01AC` for `It_Kind_Kirby_LuigiFire`, and requesting effect `0x4B1`. Each consumed event produces one such request sequence, not a guaranteed successfully created projectile-and-effect pair: the constructor internally permits item allocation failure, and the effect request still follows. Entries install this callback and collision continuations restore it; restoring the callback does not itself raise a new throw-B0 event.",
+        "rationale": "Corrects the existing guarantee of one emitted projectile-and-effect pair per event while preserving supported event-consumption and callback-lifecycle knowledge. The nullable value belongs to the constructor's internal allocation, not its void return type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialluigi.c#L25-L119",
+            "why": "Shows entry installation, collision restoration, release guard, item call and subsequent effect request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L245-L253",
+            "why": "Throw-B0 is cleared before the guarded release body executes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itluigifireball.c#L28-L51",
+            "why": "The constructor returns void and initializes the projectile only when its internal allocation returns non-NULL."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

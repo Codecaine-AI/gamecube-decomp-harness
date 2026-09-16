@@ -1,0 +1,17 @@
+## Master Hand Squeeze
+
+The unit defines the Squeeze entry routine and its Anim, IASA, Phys, and Coll callbacks; the header declares all five with `void(HSD_GObj*)` signatures. Canonical and rendered views were read completely. Rendered names were treated as hypotheses, not independent evidence.
+
+### Entry and cross-file continuation
+`ftMh_MS_378_80154A78` clears `cmd_vars[1]`, selects `ftMh_MS_Squeeze`, initializes animation, sets `x2222_b2`, calls common setup with argument 511, and passes `victim_gobj` to `ftMh_CaptureMasterHand_80155B80` without a local null check. It copies attribute `x118_pos` X/Y into move-state `xC`, forcing Z to zero. It does not explicitly initialize `x18` or the continuation selector `u.mh.x2250`. The preceding Squeezing animation calls this entry only after animation completion with `x20 == 1`; its other branch goes elsewhere. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsqueeze.c#L18-L32 and code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsqueezing.c#L20-L31.
+
+### Animation and IASA
+A nonzero command slot 1 invokes `ftBossLib_8015C5F8` and is immediately cleared. A separate completion check compares `u.mh.x2250` with `ftMh_MS_Throw`: equality calls `ftMh_MS_376_80154E78`, while every other value calls `ftMh_MS_379_80155014`. Both checks can act on one update. Independently read canonical destination bodies select Throw and Slam respectively; filenames and numeric symbol suffixes are not used as state-number proof. IASA delegates to `ftBossLib_8015BD20` only when the player-slot query returns exactly zero, with no direct local state mutation. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsqueeze.c#L34-L59, code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsqueezing.c#L53-L59, and code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandthrow.c#L27-L33.
+
+### Movement and stopping
+Physics calls `ft_80085134`, then supplies target `xC`, mutable result `x18`, threshold `x2C`, and scale `x28` to `ftBossLib_8015BE40`. That helper computes destination displacement and distance. Strictly below the threshold it writes zero to the result but still writes raw displacement X/Y to self velocity. Otherwise, including equality, it stores distance and scales normalized displacement by distance times the scale. It writes no self-velocity Z. Collision clears all three self-velocity components only when `x18 == 0`; nonzero values leave velocity unchanged. Thus stopping is completed by collision, not solely by the movement helper. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsqueeze.c#L61-L79 and code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L57-L80.
+
+### Evidence limits
+The gameplay Squeeze/pummel mapping is consistent with the held-victim lifecycle, but this unit does not establish squeeze count, damage amount, or directional input rules. Shared-helper rendered names do not establish their complete semantics. Source constants do not prove `.sdata2` size, layout, or literal provenance; all four data-subject facts remain unresolved pending compiled evidence.
+
+Status: synthesized; independent review and live promotion pending.

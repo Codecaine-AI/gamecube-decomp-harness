@@ -1,0 +1,117 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbycaptureyoshi",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbycaptureyoshi:fn_8010A930"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives the captured opponent as gobj and the grabbing fighter as attacker_gobj in the registered Kirby Yoshi-special callback flow. Resolves both Fighter payloads; calls ftCommon_8007DB58, ftCo_8009750C, and ftCo_800DD168 on gobj; stores attacker_gobj in x1A5C and victim_gobj; clears x221B_b5/x221B_b7; negates attacker facing into victim facing; calls ftCo_800DB368(attacker_fp,fp); requests Fighter_ChangeMotionState(gobj,0x14B,0,0.0f,1.0f,0.0f,NULL); installs ftCo_800DB464 as accessory1_cb; then calls ftCommon_8007D5D4, ftCommon_8007E2F4(fp,0x1FF), ftAnim_8006EBA4, and ftCommon_8007E2FC. No local null, kind, or distinct-object guard makes the victim specifically Kirby.",
+        "rationale": "Repairs reversed character attribution while preserving exact source-level operations and order.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbycaptureyoshi.c#L18-L37",
+            "why": "Complete entry body and exact arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialyoshi.c#L138-L177",
+            "why": "Registers the victim callback in Kirby-special routines."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L895-L904",
+            "why": "Stores grabbed_cb."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2597-L2604",
+            "why": "Victim-first, grabber-second dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbycaptureyoshi:ftKb_SpecialNYs_8010AA2C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "With a valid supplied fighter object, unconditionally sets invisible=true and calls ftColl_8007B62C(gobj,2); that callee writes x1988=2 and calls ftCo_800BFFD0(fp,2,false). Both observed Kirby-special animation callers require cmd_vars[1]!=0 and victim_gobj!=NULL, pass that victim, and clear cmd_vars[1] afterward. A null victim leaves the command uncleared by that branch. An independent subsequent cmd_vars[0]/victim guard resets the grabber's x1A6A to zero, calls ftCo_800DE2CC and ftKb_SpecialNYs_8010AC78, then clears cmd_vars[0]. Both branches can execute in one update; the second does not require the first. Independent animation-completion handling means an uncleared command is not guaranteed eventual execution.",
+        "rationale": "Preserves verified mutations and repairs the unsupported mandatory later-phase interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbycaptureyoshi.c#L47-L52",
+            "why": "Unconditional local body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3292-L3307",
+            "why": "Exact mode-2 path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L906-L909",
+            "why": "x1A6A setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialyoshi.c#L560-L581",
+            "why": "Grounded guards, acknowledgment, and completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialyoshi.c#L637-L658",
+            "why": "Airborne equivalent."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftKirby/ftkirbycaptureyoshi.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies captured-opponent handling registered by Kirby's Yoshi-special routines: a victim entry establishing attacker associations, requesting common CaptureKirbyYoshi motion state 0x14B, and installing a position-updating accessory callback; four empty Anim/IASA/Phys/Coll callbacks in that state's table entry; and a helper setting a supplied victim invisible and selecting ftColl_8007B62C mode 2. The state name does not restrict the victim to Kirby. Empty local callbacks do not eliminate accessory position updates or independently commanded processing in the grabbing fighter's special.",
+        "rationale": "Corrects the TU-wide role reversal using complete bodies, callback dispatch, and active table evidence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbycaptureyoshi.c#L18-L52",
+            "why": "All owned function bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3775-L3785",
+            "why": "Active callback table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialyoshi.c#L138-L177",
+            "why": "Registration context."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2597-L2604",
+            "why": "Victim/grabber roles."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CapturePulled.c#L357-L367",
+            "why": "Accessory position update."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

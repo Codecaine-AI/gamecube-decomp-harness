@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolveLocalEnvPath } from "../../../config/orchestrator.js";
 
 import { packageRoot } from "../../../knowledge/paths.js";
 
@@ -25,7 +25,7 @@ export function resolveOpenAiApiKey(): string | undefined {
   const environmentKey = process.env.OPENAI_API_KEY?.trim();
   if (environmentKey) return environmentKey;
 
-  const localEnvPath = resolve(packageRoot(), "local.env");
+  const localEnvPath = resolveLocalEnvPath(packageRoot());
   if (!existsSync(localEnvPath)) return undefined;
 
   const contents = readFileSync(localEnvPath, "utf8");

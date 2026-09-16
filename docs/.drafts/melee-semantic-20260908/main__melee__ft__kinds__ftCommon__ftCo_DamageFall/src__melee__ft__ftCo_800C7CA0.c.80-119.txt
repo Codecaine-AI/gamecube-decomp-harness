@@ -1,0 +1,40 @@
+80:     vel.z *= mag;
+81:     {
+82:         f32 mul = p_ftCommonData->x1BC;
+83:         vel.x *= mul;
+84:         vel.y *= mul;
+85:     }
+86:     fp->x8c_kb_vel = vel;
+87:     fp->self_vel.z = 0.0f;
+88:     fp->self_vel.y = 0.0f;
+89:     fp->self_vel.x = 0.0f;
+90:     {
+91:         f32 fdir;
+92:         if (fp->x8c_kb_vel.x < 0.0f) {
+93:             fdir = -1.0f;
+94:         } else {
+95:             fdir = 1.0f;
+96:         }
+97:         fp->facing_dir = fdir;
+98:     }
+99:     Fighter_ChangeMotionState(gobj, motion_state, 0x18040, 0.0f, 1.0f, 0.0f,
+100:                               NULL);
+101: 
+102:     // @todo fix branch structure
+103:     if (coll->env_flags & Collide_RightWallHug) {
+104:         goto t1;
+105:     }
+106:     if (!(coll->env_flags & Collide_RightWallHug)) {
+107:         goto t2;
+108:     }
+109: t1:
+110:     fp->cur_pos.x = -(fp->x68C_transNPos.z * -fp->facing_dir -
+111:                       (fp->cur_pos.x + offset->x));
+112:     goto end;
+113: t2:
+114:     fp->cur_pos.y = fp->x68C_transNPos.y + (fp->cur_pos.y + offset->y);
+115: end:
+116: 
+117:     ftCo_80090574(gobj);
+118:     fp->dmg.x18A8 = mag;
+119:     ftCommon_8007EBAC(fp, 7, 0);

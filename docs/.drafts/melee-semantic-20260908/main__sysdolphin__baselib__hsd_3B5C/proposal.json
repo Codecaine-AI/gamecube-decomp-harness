@@ -1,0 +1,65 @@
+{
+  "tu": "main/sysdolphin/baselib/hsd_3B5C",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B5C.c#L660-L801",
+            "why": "Shared initialization, quantization loading and frame/scan parsing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B5C.c#L802-L887",
+            "why": "Six-block reconstruction, full-region traversal and nominal size return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B5C.c#L572-L619",
+            "why": "Rounded destination stride and unconditionally complete region writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the established pipeline while correcting the assertion that the returned count always equals destination bytes produced.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4"
+        },
+        "type": "data_flow",
+        "value": "Stores src and size in shared stream state, resets three DC predictors and the entropy-bit cache, and loads two 64-entry quantization tables through the zigzag map. SOF0 supplies dimensions and SOS locates entropy data. Each 16-by-16 region reconstructs four luma blocks with the first quantizer and one Cb plus one Cr block with the second: entropy decoding, dequantization and inverse transformation precede tiled RGB565 output. The normal return is the nominal width * height * 2 image size, not a measurement of bytes written; the output helper rounds the width stride to 16 pixels and writes complete edge regions without clipping."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B5C.c#L523-L619",
+            "why": "Unused height, rounded width stride and full MCU output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B5C.c#L660-L801",
+            "why": "Recovery zero and incompletely checked marker/payload accesses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B5C.c#L802-L895",
+            "why": "Dimension-controlled traversal, nominal return and public signature."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unpadded allocation guarantee and the implication that all parsing or entropy failures are detected and returned as zero.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4"
+        },
+        "type": "inferred_type",
+        "value": "Concrete signature: s32 (char* src, s32 size, void* dst). src and size initialize compressed-input cursor and bound state; dst is caller-owned writable storage for tiled RGB565 output. For positive dimensions, complete 16-by-16 regions require storage accommodating the width and height rounded up to 16 pixels, at two bytes per pixel; no destination-capacity argument or edge clipping is present. Normal completion returns nominal decoded_width * decoded_height * 2, while the setjmp recovery path returns 0. Zero dimensions can also produce a normal zero return, and malformed input is not comprehensively validated."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

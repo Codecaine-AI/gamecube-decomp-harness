@@ -1,0 +1,757 @@
+[
+  {
+    "id": "fact:05322ed1-4b83-4215-b396-52ce931f6297",
+    "target_id": "target:data:main/sysdolphin/baselib/quatlib:.rodata",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The initializer values populate `MatToQuat`'s local `nxt` lookup. After the function chooses `i` as the position of the largest normalized matrix diagonal, it reads `nxt[i]` to obtain `j` and then `nxt[j]` to obtain `k`; those three indices direct the fallback formula's reads from the normalized 3\u00d73 matrix and writes into the quaternion's vector components.",
+    "rationale": "The source directly traces the values from the local initializer through two indexed reads. The resulting cyclic indices select matrix rows and columns for the largest-diagonal extraction formula and select which temporary quaternion component is derived first.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T06:46:41.558Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:.rodata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L6-L57",
+        "why": "Shows `i` being selected from normalized diagonal elements, `j` and `k` being obtained through the lookup, and all three indices subsequently controlling matrix accesses and quaternion-component assignments."
+      }
+    ]
+  },
+  {
+    "id": "fact:370d1523-733b-4edd-8825-9a1de924f80e",
+    "target_id": "target:data:main/sysdolphin/baselib/quatlib:.rodata",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A compiler-emitted read-only initializer image whose meaningful source payload corresponds to `int[3]` with signed integer values `{ 1, 2, 0 }`. It backs an automatic lookup array in `MatToQuat`; it is not a table of quaternion or floating-point values.",
+    "rationale": "The matched source gives the initializer's exact element type, count, and values. Its consumers use the loaded elements as array indices, proving an integer index domain rather than rotation-valued scalar data. Because the declaration is function-local, the section object is best understood as compiler backing for that initializer rather than an authored global table.",
+    "confidence": 0.95,
+    "updated_at": "2026-09-02T06:46:41.558Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:.rodata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L6-L57",
+        "why": "Defines `nxt` as an inferred three-element `int` array initialized to 1, 2, and 0 and shows its elements being consumed as indices."
+      },
+      {
+        "kind": "pr",
+        "locator": "pr://pr-2662--fn--main-sysdolphin-baselib-quatlib-rodata--1601fe848604",
+        "why": "Confirms that quatlib owns a distinct matched `.rodata` data target associated with the linked source unit."
+      }
+    ]
+  },
+  {
+    "id": "fact:5ce9ed3a-cc42-4faf-a786-c49744e2131a",
+    "target_id": "target:data:main/sysdolphin/baselib/quatlib:.rodata",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the read-only initializer for `MatToQuat`'s cyclic next-component lookup. The mapping `{ 1, 2, 0 }` lets the non-positive-trace extraction path advance from a selected quaternion vector component to the other two components without a branch ladder.",
+    "rationale": "The matched `MatToQuat` body declares `int nxt[] = { 1, 2, 0 }`, selects an index `i` from the largest normalized matrix diagonal, and then computes `j = nxt[i]` and `k = nxt[j]`. This establishes that the initializer's semantic role is cyclic x\u2192y\u2192z\u2192x component selection. The target-specific PR record independently identifies this translation unit's `.rodata` section as a matched data target.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T06:46:41.558Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:.rodata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L6-L57",
+        "why": "Shows the `{ 1, 2, 0 }` integer initializer and its use to derive cyclic indices `j` and `k` in `MatToQuat`'s largest-diagonal quaternion extraction path."
+      },
+      {
+        "kind": "pr",
+        "locator": "pr://pr-2662--fn--main-sysdolphin-baselib-quatlib-rodata--1601fe848604",
+        "why": "Identifies `.rodata` as the quatlib data target brought to a complete match when the translation unit was linked."
+      }
+    ]
+  },
+  {
+    "id": "fact:1b7a4e3a-e30c-4896-a24b-858e91a4a563",
+    "target_id": "target:data:main/sysdolphin/baselib/quatlib:.sdata2",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Constants from the pool are read by quatlib's scalar rotation calculations. Matrix conversion and Euler extraction use zero, unit, half-scale, and singularity thresholds; axis-angle conversion uses a minimum-length guard, normalization and half-angle factors; Euler conversion uses half angles; and quaternion interpolation uses unit weights, epsilon guards, doubling factors, and \u03c0/2. These values control numerical branches and scale trigonometric or quaternion-component calculations, while the read-only pool itself is not modified.",
+    "rationale": "The current source still uses floating-point literals throughout the conversion and interpolation routines, but it now calls `sqrtf` rather than exposing the previously cited inline square-root refinement coefficients. The revised claim follows the current literal uses and removes that obsolete detail.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/quatlib.c#L1-L120",
+        "why": "Shows literals controlling matrix conversion, Euler singularity handling, quaternion multiplication's status return, and axis-angle normalization and degeneracy handling."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L199",
+        "why": "Shows half-angle literals in Euler conversion and epsilon, unit-weight, doubling, and \u03c0/2 factors in quaternion interpolation."
+      }
+    ]
+  },
+  {
+    "id": "fact:33c9fefb-d4f7-4feb-8fcf-53afd7e9c51b",
+    "target_id": "target:data:main/sysdolphin/baselib/quatlib:.sdata2",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A compiler-generated read-only small-data literal pool containing scalar single- and double-precision floating-point constants. It backs inline numeric literals rather than an authored array of quaternions, vectors, or configuration records.",
+    "rationale": "The current translation unit contains numerous `f32` literals as well as explicitly double-precision interpolation arithmetic and `M_PI_2`, but declares no source-level aggregate corresponding to `.sdata2`. Together with the target's section identity, that supports a mixed floating-point literal pool rather than semantic structured data.",
+    "confidence": 0.94,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/quatlib.c#L1-L120",
+        "why": "Shows scalar single-precision literals embedded directly in the matrix, Euler, multiplication, and axis-angle routines without a source-level data table."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L199",
+        "why": "Shows additional single-precision literals together with an explicit `f64` subtraction and `M_PI_2`, establishing mixed floating-point literal requirements."
+      }
+    ]
+  },
+  {
+    "id": "fact:e61e9c54-22e8-43d9-be8a-f475eba188cb",
+    "target_id": "target:data:main/sysdolphin/baselib/quatlib:.sdata2",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the compiler-emitted floating-point literal pool used by quatlib's rotation-conversion, quaternion-composition, and quaternion-interpolation calculations, including unit and half-scale factors, degeneracy and interpolation tolerances, and angular factors.",
+    "rationale": "The current source uses inline floating-point constants across matrix, Euler, axis-angle, multiplication-status, and interpolation routines. Because the earlier inline square-root refinement is no longer present at head, the purpose is revised to describe only the literal classes demonstrated by the current code.",
+    "confidence": 0.95,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/quatlib.c#L1-L120",
+        "why": "Shows the constants used by matrix-to-quaternion, matrix-to-Euler, quaternion multiplication's return, and axis-angle conversion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L199",
+        "why": "Shows half-angle factors in Euler conversion and interpolation tolerances, unit weights, doubling factors, and \u03c0/2 in quaternion interpolation."
+      }
+    ]
+  },
+  {
+    "id": "fact:a9219a56-d2f9-4d51-8276-f6696dea2b98",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:EulerToQuat",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads each Euler component, multiplies it by one half, and computes its sine and cosine. It then forms shared `sy \u00d7 sz` and `cy \u00d7 cz` products and combines the six trigonometric values into the quaternion's scalar component `w` and vector components `x`, `y`, and `z`; the completed quaternion is returned through `q`, while the integer return value is always zero.",
+    "rationale": "Every input read, intermediate value, and output store is explicit in the matched body. There are no external data accesses or helper calls other than the three `sinf` and three `cosf` evaluations.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:41:57.292Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:EulerToQuat"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L146",
+        "why": "Directly traces the three input angles through half-angle sine and cosine calculations into all four output quaternion components and the final status return."
+      }
+    ]
+  },
+  {
+    "id": "fact:5a575a82-c390-4446-a510-102f47bfb215",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:EulerToQuat",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Has signature `s32 EulerToQuat(Vec3* euler, Quaternion* q)`: `euler` is a read-only-in-practice vector of three floating-point angles, `q` is a writable four-component quaternion output, and the function returns zero on completion.",
+    "rationale": "The matched definition establishes the exact declared signature. Its body only reads `euler->x`, `euler->y`, and `euler->z`, writes `q->w`, `q->x`, `q->y`, and `q->z`, and ends with an unconditional zero return.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:41:57.292Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:EulerToQuat"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L146",
+        "why": "Contains the exact signature and demonstrates the access mode and component layout of both pointer parameters and the return value."
+      }
+    ]
+  },
+  {
+    "id": "fact:4fc5630a-239b-4d46-a0b8-1b9aa774df7f",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:EulerToQuat",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Converts three Euler rotation angles into the equivalent quaternion for the Rz \u00d7 Ry \u00d7 Rx rotation composition.",
+    "rationale": "The function evaluates sine and cosine of half of each Euler component and uses the standard quaternion expansion whose corresponding rotation matrix is Rz \u00d7 Ry \u00d7 Rx. The nearby matrix routine independently expands the same Euler composition directly into matrix coefficients, corroborating the convention.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:41:57.292Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:EulerToQuat"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L146",
+        "why": "Shows all three half-angle trigonometric evaluations and the complete four-component Euler-to-quaternion formula."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L323-L355",
+        "why": "Shows the corresponding Rz \u00d7 Ry \u00d7 Rx Euler-angle expansion into a rotation matrix, corroborating the rotation-order interpretation."
+      }
+    ]
+  },
+  {
+    "id": "fact:388f09f2-3dee-4a10-afb5-e47e272a2230",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:EulerToQuat",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The routine has no alternate state or error path: it performs the conversion without validating either pointer or the angle values, writes all four output components, and unconditionally returns success (`0`). Callers must therefore provide valid pointers and usable finite angle inputs.",
+    "rationale": "The matched body contains no branches or guards between entry and the four output stores, and its sole return is zero. This demonstrates both the unconditional-success behavior and the absence of local pointer or numeric validation.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T04:41:57.292Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:EulerToQuat"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L146",
+        "why": "Shows a branch-free conversion, unconditional dereferences of both parameters, stores to every quaternion component, and the sole `return 0` statement."
+      }
+    ]
+  },
+  {
+    "id": "fact:55f65231-2a05-4112-9cb2-e792bcf5fc4e",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads elements from the matrix's upper-left 3\u00d73 portion, computes `len = sqrt(m[0][0]^2 + m[1][0]^2)`, and writes the output Euler vector through `atan2f` expressions. When `len > 1e-05`, it derives x from `(m[2][1], m[2][2])`, y from `(-m[2][0], len)`, and z from `(m[1][0], m[0][0])`; otherwise it derives x from `(-m[1][2], m[1][1])`, computes y the same way, and writes z as zero. No external state is modified, and the status result is always zero.",
+    "rationale": "The complete body explicitly exposes every matrix read, scalar intermediate, branch guard, output write, and return value. The alternate branch resolves the underdetermined near-singular orientation by choosing a fixed zero z component.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:46:54.025Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L59-L75",
+        "why": "Shows the exact flow from matrix elements through `sqrtf` and `atan2f` into each `Vec3` component in both the ordinary and near-singular branches."
+      }
+    ]
+  },
+  {
+    "id": "fact:ef4d573b-5e87-4290-8a94-23e0af80dc40",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "MatToEuler",
+    "rationale": "The current body converts an `Mtx` into an Euler-angle `Vec3`. The same current translation unit retains the recovered names `MatToQuat` and `EulerToQuat`, making `MatToEuler` the most plausible name under its representation-to-representation naming convention.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/quatlib.c#L1-L120",
+        "why": "Shows the recovered sibling `MatToQuat` and the target's matrix-to-Euler signature and formulas."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L199",
+        "why": "Shows the complementary recovered conversion name `EulerToQuat` at the current head."
+      }
+    ]
+  },
+  {
+    "id": "fact:0afe2dc2-68b4-495c-9811-4c797275d4da",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Matrix-to-Euler conversion routine with signature `s32 MatToEuler(Mtx m, Vec3* euler)`: `m` supplies a 3\u00d74 single-precision matrix, `euler` receives three single-precision angular components, and the function returns zero unconditionally.",
+    "rationale": "The matched declaration directly establishes the `s32`, `Mtx`, and `Vec3*` types. Every successful and singular path writes all three output components before reaching the sole `return 0`.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:46:54.025Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L59-L75",
+        "why": "Provides the complete typed declaration, all writes to the Euler output, and the unconditional zero status return."
+      }
+    ]
+  },
+  {
+    "id": "fact:964e4cb1-21b2-4ff7-852d-34cab09a6da8",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Extracts Euler rotation angles from a 3\u00d74 matrix, using a separate near-singular decomposition when the matrix's first-column XY projection is too small for the ordinary formulas.",
+    "rationale": "The function computes three angles from the matrix's 3\u00d73 rotation portion with `atan2f`. Its branch on the first-column XY length selects between the ordinary three-angle extraction and a singular fallback that derives x from different matrix elements and fixes z at zero.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:46:54.025Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L59-L75",
+        "why": "The complete matched body shows the matrix-to-Euler formulas, the `1e-05` singularity threshold, and the fallback that writes zero to the z angle."
+      }
+    ]
+  },
+  {
+    "id": "fact:060c7ddc-79b1-42a1-bd85-f200407a2b36",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads both input quaternions completely into four scalar result temporaries, then writes those temporaries to `out->x`, `out->y`, `out->z`, and `out->w`. Because every result component is calculated before the first output store, `out` may alias either input without an earlier store corrupting a later calculation. No global data or callees participate.",
+    "rationale": "The source computes `x`, `y`, `z`, and `w` in sequence using only fields of `p` and `q`; only after all four computations does it begin storing through `out`. The body contains no calls or global accesses, directly supporting the local, alias-safe data-flow description.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:47:48.050Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L77-L96",
+        "why": "Shows all input-dependent temporary calculations preceding every output-field store and shows that the routine has no external calls or global accesses."
+      }
+    ]
+  },
+  {
+    "id": "fact:845467f6-bcfe-40cc-afe6-dc279c5a9de0",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "QuatMul",
+    "rationale": "The current body unambiguously implements quaternion multiplication, while the recovered neighboring names use concise representation and operation terms without an HSD prefix. No surviving symbol establishes the exact spelling, so `QuatMul` remains a qualified naming inference.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original-style name is `QuatMul`, following the unit's concise operation-oriented names such as `MatToQuat` and `EulerToQuat`; the exact historical spelling is not recovered.",
+    "confidence": 0.78,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/quatlib.c#L1-L120",
+        "why": "Shows the complete Hamilton-product body and the recovered neighboring name `MatToQuat`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L199",
+        "why": "Shows the recovered name `EulerToQuat`, corroborating the unit's concise rotation-operation naming style."
+      }
+    ]
+  },
+  {
+    "id": "fact:93f25e79-664e-4aed-8f9b-43594cdfaf7b",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Quaternion output-parameter routine with matched signature `s32 (Quaternion* p, Quaternion* q, Quaternion* out)`. The first two pointers supply four-component floating-point quaternions, `out` receives their product, and the function returns the status value zero.",
+    "rationale": "The declaration establishes the exact pointer and return types. The body reads `x`, `y`, `z`, and `w` from both inputs, writes those four fields through `out`, and unconditionally returns zero.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:47:48.050Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L77-L96",
+        "why": "Provides the complete signature, four-component input accesses, output stores, and unconditional integer return value."
+      }
+    ]
+  },
+  {
+    "id": "fact:8c3bf045-1160-4ebb-96ea-4ee9aa407902",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Computes the Hamilton product of two quaternions, writing `p * q` to the output. For unit quaternions this composes their represented rotations; the routine itself does not normalize or otherwise constrain the operands or result.",
+    "rationale": "The three vector-component expressions equal `p.w*q.xyz + q.w*p.xyz + p.xyz \u00d7 q.xyz`, while the scalar expression equals `p.w*q.w - dot(p.xyz, q.xyz)`. These are exactly the Hamilton-product equations for `p * q`, and the body performs no normalization.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:47:48.050Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L77-L96",
+        "why": "Shows all four Hamilton-product component formulas and their assignment to the output quaternion."
+      }
+    ]
+  },
+  {
+    "id": "fact:784e2243-53ec-49ff-b40a-377ba02707e6",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads all three components of `axis` to calculate its Euclidean length. If the length is nondegenerate, it computes the reciprocal length, halves `angle`, writes `cos(angle/2)` to `q->w`, and writes `sin(angle/2)` times each normalized axis component to `q->x`, `q->y`, and `q->z`; otherwise it leaves the output unwritten and returns -1.",
+    "rationale": "The function has moved to lines 99\u2013119, but its transformation is unchanged. Its failure return precedes every output store, while the successful path normalizes the axis and constructs all four quaternion components from the half-angle.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L98-L118",
+        "why": "Shows all axis-component reads, the magnitude guard, reciprocal and half-angle calculations, quaternion stores, and 0/-1 return paths at the current location."
+      }
+    ]
+  },
+  {
+    "id": "fact:f8672548-1c05-48aa-9132-1311db375e66",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "AxisToQuat",
+    "rationale": "The current body converts a rotation supplied as an axis plus an angle into a quaternion. Its neighboring recovered names use the form `<source representation>ToQuat`, making `AxisToQuat` the most locally consistent reconstruction, although no surviving symbol confirms it.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: The likely original name is `AxisToQuat`, following the translation unit's recovered `MatToQuat` and `EulerToQuat` representation-to-quaternion naming convention.",
+    "confidence": 0.76,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/quatlib.c#L1-L120",
+        "why": "Shows the recovered name `MatToQuat` and the target's axis-angle-to-quaternion parameters and formulas."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L199",
+        "why": "Shows the recovered sibling name `EulerToQuat`, establishing the local source-representation-to-quaternion naming pattern."
+      }
+    ]
+  },
+  {
+    "id": "fact:c51908d9-b110-484d-b3db-5d0e3c524cd3",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function signature `s32 (Vec3* axis, Quaternion* q, f32 angle)`: `axis` points to a three-component rotation axis, `q` is a caller-provided quaternion output, and `angle` is a rotation angle interpreted in radians. The return domain is 0 for success and -1 for a degenerate axis.",
+    "rationale": "The current declaration establishes the parameter and return types. Directly passing half of `angle` to `sinf` and `cosf` supports radian interpretation, while the guarded and successful returns establish the status domain.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L98-L118",
+        "why": "Provides the complete current declaration, trigonometric use of the half-angle, output writes, and explicit -1 and 0 return values."
+      }
+    ]
+  },
+  {
+    "id": "fact:883dcacf-3d31-4102-aa4e-fec85985e925",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Converts an axis-angle rotation into a quaternion, normalizing the supplied axis and rejecting a degenerate zero-length axis.",
+    "rationale": "The current body computes the axis magnitude, rejects effectively zero magnitude before writing output, and otherwise constructs the standard axis-angle quaternion from the normalized axis and sine and cosine of half the angle.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L98-L118",
+        "why": "Shows axis normalization, the degenerate-axis guard, and construction of all four quaternion components from the half-angle."
+      }
+    ]
+  },
+  {
+    "id": "fact:9d830eb1-2c75-423e-86bf-3e09ea063a31",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Computes `cosom` as the four-component dot product of `p` and `q`. On the ordinary path it derives complementary weights `sp` and `sq` from `acosf(cosom)` and `sinf`, or uses `1 - t` and `t` when the inputs are nearly coincident, then writes `sp * p + sq * q` componentwise to `out`. Its JObj callers first convert Euler rotations to quaternions when needed and negate the second quaternion when its difference norm exceeds its sum norm, choosing the equivalent representation that yields the shorter interpolation arc before passing the result and their blend weight to this function.",
+    "rationale": "The current target body preserves the dot-product-to-weight-to-output flow. Both current callers preserve the upstream Euler conversion and sum-versus-difference sign selection, so the claim remains valid after replacing its drifted caller citation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L148-L199",
+        "why": "Shows the complete local flow from quaternion dot product through spherical or linear weights into all four output components."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lb_00B0.c#L469-L557",
+        "why": "Shows one JObj caller converting Euler inputs, comparing quaternion sum and difference norms, conditionally negating the second quaternion, and supplying the destination rotation and blend parameter."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lb_00B0.c#L619-L655",
+        "why": "Shows the second caller performing the same Euler conversion, quaternion-sign selection, and interpolation call at the current head."
+      }
+    ]
+  },
+  {
+    "id": "fact:b590d0b1-d578-478e-82b6-b5eef9b8ec52",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "QuatSlerp",
+    "rationale": "The current body implements quaternion spherical linear interpolation through a quaternion dot product, angular separation, and complementary sine-ratio weights. The current unit retains concise names such as `MatToQuat` and `EulerToQuat`, making `QuatSlerp` the most plausible local authored name, though its exact spelling remains inferred.",
+    "confidence": 0.94,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/quatlib.c#L1-L120",
+        "why": "Shows the recovered name `MatToQuat` and the unit's concise naming style at the current head."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L120-L199",
+        "why": "Shows the neighboring recovered name `EulerToQuat` and the target's dot-product, arccosine, and sine-ratio interpolation body."
+      }
+    ]
+  },
+  {
+    "id": "fact:ae5a7f00-0f80-4b46-a534-a8fdc6d72f51",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A quaternion interpolation operation with signature `s32 QuatSlerp(Quaternion* p, Quaternion* q, Quaternion* out, f32 t)`. `p` and `q` supply quaternion orientations, `out` receives the interpolated quaternion, and dimensionless `t` selects progress from the first orientation toward the second. The implementation always returns `0`.",
+    "rationale": "The matched definition establishes the exact parameter and return types. Every quaternion component is read from `p` and `q`, all four components are written through `out`, and `t` appears only in complementary interpolation weights before the unconditional zero return. Callers pass rotations produced by `EulerToQuat` or stored as quaternion JObj rotations.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:48:51.130Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L148-L199",
+        "why": "Contains the exact recovered signature, component-level input and output accesses, use of `t`, and unconditional `return 0`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lb_00B0.c#L446-L571",
+        "why": "Shows concrete caller argument roles: two source rotation quaternions, a destination JObj rotation, and a floating-point blend parameter."
+      }
+    ]
+  },
+  {
+    "id": "fact:0dc1d11e-a244-4da1-8cee-771f7e7dafd1",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Interpolates between two quaternion orientations at parameter `t`. It normally performs spherical linear interpolation, falls back to linear component blending for nearly identical quaternions, and has a separate near-antipodal path. HSD joint-transform blending routines use it to produce the rotational portion of a transform blended from two source objects.",
+    "rationale": "The current implementation retains its spherical, near-coincident, and near-antipodal numerical branches. Both current callers continue to prepare source JObj rotations as quaternions, select an equivalent quaternion sign, and use this routine to write the destination object's rotation.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:35:04.628Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L148-L199",
+        "why": "Shows spherical interpolation weights, the nearly identical linear fallback, and the separate near-antipodal branch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lb_00B0.c#L469-L557",
+        "why": "Shows an HSD JObj transform-blending routine preparing quaternion rotations and calling the target to write the destination rotation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lb_00B0.c#L619-L655",
+        "why": "Shows the second transform-blending caller using the same quaternion preparation, sign selection, and interpolation operation."
+      }
+    ]
+  },
+  {
+    "id": "fact:6614098c-f47a-401f-8911-92c2733ed7fb",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The routine has three numerical regimes. When `cosom` is more than `1e-10` away from both \u22121 and +1, it performs trigonometric spherical interpolation. When `cosom` lies within `1e-10` of +1, it uses linear weights `1 - t` and `t` to avoid division by a vanishing sine. When `cosom` lies within `1e-10` of \u22121, it first writes a quaternion orthogonal to `p` and then selects one of two half-interval sine-weight calculations according to whether `t < 0.5`; these are per-call numerical branches, not persistent states.",
+    "rationale": "The nested comparisons against `1 \u00b1 cosom` explicitly define the ordinary, nearly coincident, and nearly antipodal regimes. The final regime constructs the orthogonal component permutation and divides the interpolation interval at `t = 0.5`.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:48:51.130Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L148-L199",
+        "why": "Directly shows all threshold guards, the spherical and linear formulas, the orthogonal quaternion writes, and the `t < 0.5` split."
+      }
+    ]
+  },
+  {
+    "id": "fact:c5c7125b-0f4b-4d69-88c1-6acb8a395ac3",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:MatToQuat",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads the matrix's upper-left 3\u00d73 values, computes one length for each column, and uses the corresponding length as the divisor for every element in that column. The resulting scale-normalized diagonal and off-diagonal terms are transformed into quaternion components and stored through q; the matrix is not modified, its translation column is ignored, and the function returns 0.",
+    "rationale": "The three lenCol calculations establish the normalization inputs and each later matrix access is divided by the length associated with its column. Both extraction branches terminate by assigning the complete output quaternion, with no matrix stores or translation-column reads.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:41:52.504Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:MatToQuat"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L6-L57",
+        "why": "Shows the complete flow from matrix-column magnitudes through normalized matrix terms to the output Quaternion and constant return."
+      }
+    ]
+  },
+  {
+    "id": "fact:dfb72c40-78ad-44c4-96f2-d67de10bf78f",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:MatToQuat",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: s32 MatToQuat(Mtx m, Quaternion* q). The first argument is a 3\u00d74 single-precision affine matrix whose upper-left 3\u00d73 portion supplies rotation and scale; q is an output pointer receiving Quaternion components x, y, z, and w. The function currently has no meaningful status domain because every path returns 0.",
+    "rationale": "The matched definition supplies the exact C types. Its accesses are restricted to m[row][0..2], its only externally visible writes are q->x, q->y, q->z, and q->w, and the final unconditional return establishes the constant result.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:41:52.504Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:MatToQuat"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L6-L57",
+        "why": "Provides the exact signature, all matrix indices read, every Quaternion field written, and the unconditional return value."
+      }
+    ]
+  },
+  {
+    "id": "fact:629742a5-c6f6-4f1c-b8ef-a7b4cdd1dd8f",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:MatToQuat",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Converts the rotational portion of an affine transformation matrix into a quaternion. Before extracting the quaternion, it normalizes each of the matrix's three basis columns so independent axis scale does not affect the recovered rotation.",
+    "rationale": "The function computes the Euclidean length of each 3\u00d73 matrix column and divides every rotation-matrix term by its column length. It then applies the standard trace/diagonal quaternion-extraction formulas and writes x, y, z, and w, while never reading the affine translation column.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:41:52.504Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:MatToQuat"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L6-L57",
+        "why": "Directly shows per-column length calculation, scale removal, trace-based matrix-to-quaternion extraction, and writes to all four output components."
+      }
+    ]
+  },
+  {
+    "id": "fact:7a4d9241-c00c-450e-8d22-7f7cfed1e185",
+    "target_id": "target:function:main/sysdolphin/baselib/quatlib:MatToQuat",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Uses two numerical extraction paths. If the normalized 3\u00d73 trace is positive, it derives w first and computes x, y, and z from antisymmetric off-diagonal differences. Otherwise it selects the largest normalized diagonal element, derives that corresponding vector component first, and computes the remaining components through cyclic indices. There is no guard for a zero-length matrix column, and both paths return 0.",
+    "rationale": "The s > 0 branch visibly uses the trace formula centered on q->w. The alternate branch compares all three normalized diagonal terms, follows the cyclic table {1, 2, 0}, and fills q3 before copying it into the vector portion of q. Column lengths are used as divisors without prior validation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:41:52.504Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/quatlib:MatToQuat"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L6-L57",
+        "why": "Shows the trace guard, largest-diagonal fallback, cyclic component selection, unchecked column divisors, and common success return."
+      }
+    ]
+  },
+  {
+    "id": "fact:66dc9d71-69ee-4b0b-97b5-be8bbd9419d7",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/quatlib.c",
+    "type": "data_flow",
+    "value": "The unit consumes rotations represented as 3\u00d74 matrices, Euler-angle `Vec3` values, axis-angle pairs, or input quaternions and writes converted, composed, or interpolated results through caller-provided `Vec3` and `Quaternion` outputs. Its routines perform the transformations locally with scalar trigonometric and square-root calculations and generally report completion through an `s32` status return.",
+    "rationale": "Current-head routines still read matrix, Euler, axis, and quaternion components, transform them with square-root and trigonometric operations, write caller-provided outputs, and return status values including the degenerate-axis failure.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T02:10:55.659Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/quatlib.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L19-L113",
+        "why": "Shows matrix and quaternion components producing converted and multiplied outputs and the axis-angle routine's failure guard."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L114-L173",
+        "why": "Shows axis and Euler inputs becoming quaternions and two quaternion inputs entering interpolation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L162-L199",
+        "why": "Shows interpolation weights and fallback paths producing a caller-provided quaternion output."
+      }
+    ]
+  },
+  {
+    "id": "fact:2529c324-628a-4ef9-b448-811e89ad2a11",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/quatlib.c",
+    "type": "purpose",
+    "value": "Provides HSD rotation-representation utilities centered on quaternions: it converts rotation matrices, Euler angles, and axis-angle rotations to or from quaternion-compatible forms, multiplies quaternions, and interpolates between quaternion orientations.",
+    "rationale": "The current unit still implements matrix-to-quaternion, matrix-to-Euler, quaternion multiplication, axis-angle and Euler conversion, and quaternion interpolation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:10:55.659Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/quatlib.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L19-L113",
+        "why": "Shows matrix conversion, Euler extraction, quaternion multiplication, and axis-angle conversion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L114-L173",
+        "why": "Shows Euler-to-quaternion conversion and the main spherical interpolation path."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/quatlib.c#L162-L199",
+        "why": "Shows interpolation output and the near-opposite-orientation fallback."
+      }
+    ]
+  }
+]

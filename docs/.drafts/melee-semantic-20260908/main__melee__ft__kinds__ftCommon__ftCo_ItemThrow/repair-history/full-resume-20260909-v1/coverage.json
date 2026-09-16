@@ -1,0 +1,2783 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "medium",
+  "role": "librarian/full-TU reviewer",
+  "started_at": "2026-09-08T16:12:35.724Z",
+  "files": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow",
+      "sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+      "lines": 700,
+      "bytes": 20415,
+      "canonical_ranges": [
+        [
+          1,
+          700
+        ]
+      ],
+      "rendered_ranges": [
+        [
+          1,
+          700
+        ]
+      ],
+      "pages": [
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.1-120.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 1,
+            "end_line": 120,
+            "total_lines": 700,
+            "next_line": 121,
+            "content": "#include \"ftCo_ItemThrow.h\"\n\n#include <Runtime/platform.h>\n\n#include <melee/ft/forward.h>\n#include <sysdolphin/baselib/forward.h>\n\n#include <math.h>\n#include <placeholder.h>\n\n#include \"forward.h\"\n#include \"ftCo_Fall.h\"\n#include \"ftCo_FallSpecial.h\"\n#include \"ftCo_Lift.h\"\n#include \"types.h\"\n#include <melee/ft/fighter.h>\n#include <melee/ft/ft_081B.h>\n#include <melee/ft/ft_084E.h>\n#include <melee/ft/ft_0DF1.h>\n#include <melee/ft/ftanim.h>\n#include <melee/ft/ftcommon.h>\n#include <melee/ft/inlines.h>\n#include <melee/ft/types.h>\n#include <melee/it/it_26B1.h>\n#include <melee/it/it_2725.h>\n#include <melee/it/item.h>\n#include <melee/lb/lb_00B0.h>\n#include <melee/pl/plbonuslib.h>\n\n/* 09549C */ static void ftCo_HeavyThrow_Enter(Fighter_GObj* gobj, int);\n/* 0955D0 */ static void ftCo_LightThrow_EnterFromLStick(Fighter_GObj* gobj);\n/* 0958FC */ static void ftCo_ItemThrow_CalcThrowVelocity(Fighter* fp, Vec3* arg1);\n/* 095A9C */ static void ftCo_ItemThrow_Accessory(Fighter_GObj* gobj);\n\ntypedef struct ftCo_ItemThrowAttrs {\n    float velocity_mul;\n    float angle;\n    float x8;\n} ftCo_ItemThrowAttrs;\n\ntypedef struct ftCo_ItemThrowCmd {\n    /* +0:0  */ u32 pad : 20;\n    /* +0:20 */ s32 angle : 12;\n} ftCo_ItemThrowCmd;\n\nbool ftCo_80094E54(Fighter* fp)\n{\n    if (fp->input.pressed_buttons & HSD_PAD_A &&\n        (fp->input.held_buttons[0] & HSD_PAD_LR ||\n         !it_8026B30C(fp->item_gobj)))\n    {\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_HeavyThrow_CheckInput(HSD_GObj* gobj)\n{\n    float stick_angle;\n    float var_f28;\n    float stick_x;\n    float stick_y;\n    float var_f31;\n    Fighter* fp;\n    FtMotionId msid;\n    int ret;\n    PAD_STACK(8);\n\n    fp = gobj->user_data;\n    msid = fp->motion_id;\n\n    if (fp->item_gobj != NULL) {\n        if (fp->input.pressed_buttons & (HSD_PAD_A | HSD_PAD_B)) {\n            stick_x = fp->input.lstick[0].x;\n            stick_y = fp->input.lstick[0].y;\n            var_f28 = fp->x673;\n            var_f31 = fp->x674;\n            stick_angle = ftCo_GetLStickAngle(fp);\n            ret = true;\n        } else {\n            var_f28 = 0.0f;\n            stick_x = fp->input.cstick[0].x;\n            var_f31 = 0.0f;\n            stick_y = fp->input.cstick[0].y;\n            stick_angle = ftCo_GetCStickAngle(fp);\n            ret = false;\n        }\n    } else {\n        return false;\n    }\n    if (ABS(stick_x) >= p_ftCommonData->dash_smash_stick_threshold &&\n        var_f28 < p_ftCommonData->dash_smash_window + p_ftCommonData->x44)\n    {\n        msid = stick_x * fp->facing_dir >= 0.0f ? ftCo_MS_HeavyThrowF4\n                                                : ftCo_MS_HeavyThrowB4;\n    } else {\n        if (stick_y >= p_ftCommonData->xCC &&\n            var_f31 < p_ftCommonData->xD0 + fp->co_attrs.jump_startup_time)\n        {\n            msid = ftCo_MS_HeavyThrowHi4;\n        } else {\n            if (stick_y <= p_ftCommonData->xD4 &&\n                var_f31 < p_ftCommonData->xD8)\n            {\n                msid = ftCo_MS_HeavyThrowLw4;\n            } else {\n                if (ABS(stick_x) >= p_ftCommonData->x98) {\n                    if (ABS(stick_angle) <= p_ftCommonData->x20_radians) {\n                        msid = stick_x * fp->facing_dir >= 0\n                                   ? ftCo_MS_HeavyThrowF\n                                   : ftCo_MS_HeavyThrowB;\n                    } else {\n                        goto block_32;\n                    }\n                } else {\n                block_32:\n                    if (stick_y >=\n                            p_ftCommonData->attackhi3_stick_threshold_y &&\n                        stick_angle > p_ftCommonData->x20_radians)\n                    {",
+            "substitutions": 5,
+            "symbols": [
+              {
+                "canonical": "ftCo_800958FC",
+                "proposed": "ftCo_HeavyThrow_Enter",
+                "confidence": 0.88,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC",
+                "fact_id": "fact:6fe4a0ad-50c0-4b6d-bc6f-7bf79fdef479",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095A30",
+                "proposed": "ftCo_LightThrow_EnterFromLStick",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095A30",
+                "fact_id": "fact:b0435778-9420-410d-bf93-e1f67b523564",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095D5C",
+                "proposed": "ftCo_ItemThrow_CalcThrowVelocity",
+                "confidence": 0.77,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C",
+                "fact_id": "fact:3da1939c-a9fc-4f6b-b7b4-36093e6214c4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095EFC",
+                "proposed": "ftCo_ItemThrow_Accessory",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+                "fact_id": "fact:e9bed42f-c2dc-4e05-878b-68956eb818ca",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80094E54",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+                "fact_id": "fact:5db5a1f7-0358-4943-bdec-ad182dbdb5dd",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80094EA4",
+                "proposed": "ftCo_HeavyThrow_CheckInput",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094EA4",
+                "fact_id": "fact:a47e8e92-21e3-439b-9f3e-34410cbe0684",
+                "fact_updated_at": "2026-09-05T05:10:15.349Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "it_8026B30C",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/it/it_26B1:it_8026B30C",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "PAD_STACK",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_GetLStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetLStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_GetCStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetCStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ABS",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.1-240.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 1,
+            "end_line": 240,
+            "total_lines": 700,
+            "next_line": 241,
+            "content": "#include \"ftCo_ItemThrow.h\"\n\n#include <Runtime/platform.h>\n\n#include <melee/ft/forward.h>\n#include <sysdolphin/baselib/forward.h>\n\n#include <math.h>\n#include <placeholder.h>\n\n#include \"forward.h\"\n#include \"ftCo_Fall.h\"\n#include \"ftCo_FallSpecial.h\"\n#include \"ftCo_Lift.h\"\n#include \"types.h\"\n#include <melee/ft/fighter.h>\n#include <melee/ft/ft_081B.h>\n#include <melee/ft/ft_084E.h>\n#include <melee/ft/ft_0DF1.h>\n#include <melee/ft/ftanim.h>\n#include <melee/ft/ftcommon.h>\n#include <melee/ft/inlines.h>\n#include <melee/ft/types.h>\n#include <melee/it/it_26B1.h>\n#include <melee/it/it_2725.h>\n#include <melee/it/item.h>\n#include <melee/lb/lb_00B0.h>\n#include <melee/pl/plbonuslib.h>\n\n/* 09549C */ static void ftCo_HeavyThrow_Enter(Fighter_GObj* gobj, int);\n/* 0955D0 */ static void ftCo_LightThrow_EnterFromLStick(Fighter_GObj* gobj);\n/* 0958FC */ static void ftCo_ItemThrow_CalcThrowVelocity(Fighter* fp, Vec3* arg1);\n/* 095A9C */ static void ftCo_ItemThrow_Accessory(Fighter_GObj* gobj);\n\ntypedef struct ftCo_ItemThrowAttrs {\n    float velocity_mul;\n    float angle;\n    float x8;\n} ftCo_ItemThrowAttrs;\n\ntypedef struct ftCo_ItemThrowCmd {\n    /* +0:0  */ u32 pad : 20;\n    /* +0:20 */ s32 angle : 12;\n} ftCo_ItemThrowCmd;\n\nbool ftCo_80094E54(Fighter* fp)\n{\n    if (fp->input.pressed_buttons & HSD_PAD_A &&\n        (fp->input.held_buttons[0] & HSD_PAD_LR ||\n         !it_8026B30C(fp->item_gobj)))\n    {\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_HeavyThrow_CheckInput(HSD_GObj* gobj)\n{\n    float stick_angle;\n    float var_f28;\n    float stick_x;\n    float stick_y;\n    float var_f31;\n    Fighter* fp;\n    FtMotionId msid;\n    int ret;\n    PAD_STACK(8);\n\n    fp = gobj->user_data;\n    msid = fp->motion_id;\n\n    if (fp->item_gobj != NULL) {\n        if (fp->input.pressed_buttons & (HSD_PAD_A | HSD_PAD_B)) {\n            stick_x = fp->input.lstick[0].x;\n            stick_y = fp->input.lstick[0].y;\n            var_f28 = fp->x673;\n            var_f31 = fp->x674;\n            stick_angle = ftCo_GetLStickAngle(fp);\n            ret = true;\n        } else {\n            var_f28 = 0.0f;\n            stick_x = fp->input.cstick[0].x;\n            var_f31 = 0.0f;\n            stick_y = fp->input.cstick[0].y;\n            stick_angle = ftCo_GetCStickAngle(fp);\n            ret = false;\n        }\n    } else {\n        return false;\n    }\n    if (ABS(stick_x) >= p_ftCommonData->dash_smash_stick_threshold &&\n        var_f28 < p_ftCommonData->dash_smash_window + p_ftCommonData->x44)\n    {\n        msid = stick_x * fp->facing_dir >= 0.0f ? ftCo_MS_HeavyThrowF4\n                                                : ftCo_MS_HeavyThrowB4;\n    } else {\n        if (stick_y >= p_ftCommonData->xCC &&\n            var_f31 < p_ftCommonData->xD0 + fp->co_attrs.jump_startup_time)\n        {\n            msid = ftCo_MS_HeavyThrowHi4;\n        } else {\n            if (stick_y <= p_ftCommonData->xD4 &&\n                var_f31 < p_ftCommonData->xD8)\n            {\n                msid = ftCo_MS_HeavyThrowLw4;\n            } else {\n                if (ABS(stick_x) >= p_ftCommonData->x98) {\n                    if (ABS(stick_angle) <= p_ftCommonData->x20_radians) {\n                        msid = stick_x * fp->facing_dir >= 0\n                                   ? ftCo_MS_HeavyThrowF\n                                   : ftCo_MS_HeavyThrowB;\n                    } else {\n                        goto block_32;\n                    }\n                } else {\n                block_32:\n                    if (stick_y >=\n                            p_ftCommonData->attackhi3_stick_threshold_y &&\n                        stick_angle > p_ftCommonData->x20_radians)\n                    {\n                        msid = ftCo_MS_HeavyThrowHi;\n                    } else {\n                        if (stick_y <= p_ftCommonData->xB0 &&\n                            (stick_angle < -p_ftCommonData->x20_radians))\n                        {\n                            msid = ftCo_MS_HeavyThrowLw;\n                        } else if (ret != 0) {\n                            msid = ftCo_MS_HeavyThrowF;\n                        }\n                    }\n                }\n            }\n        }\n    }\n    if (msid != fp->motion_id) {\n        ftCo_HeavyThrow_Enter(gobj, msid);\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_ItemThrow_CheckInputFromGuard(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && fp->input.pressed_buttons & HSD_PAD_A) {\n        if (fp->mv.co.itemthrow.x20 != 0) {\n            ftCo_LightThrow_Enter(gobj, ftCo_MS_LightThrowDash);\n        } else {\n            ftCo_LightThrow_EnterFromLStick(gobj);\n        }\n        return true;\n    }\n    if (fp->mv.co.itemthrow.x20 != 0) {\n        --fp->mv.co.itemthrow.x20;\n    }\n    return false;\n}\n\nbool ftCo_800951D0(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && ftCo_80094E54(fp)) {\n        ftCo_LightThrow_EnterFromLStick(gobj);\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_80095254(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && ftCo_80094E54(fp)) {\n        ftCo_LightThrow_Enter(gobj, ftCo_MS_LightThrowDash);\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_800952DC(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && fp->input.held_buttons[0] & HSD_PAD_LR) {\n        ftCo_LightThrow_Enter(gobj, ftCo_MS_LightThrowDash);\n        return true;\n    }\n    return false;\n}\n\n/// @todo A lot of shared code with #ftCo_80094EA4.\nbool ftCo_LightThrowAir_CheckInput(Fighter_GObj* gobj, bool* arg1)\n{\n    float angle;\n    float var_f31;\n    float var_f30;\n    float var_f29;\n    float var_f28;\n    int msid;\n    Fighter* fp;\n\n    fp = GET_FIGHTER(gobj);\n    if (fp->item_gobj != NULL && ftCo_HasCStickItemThrowInput(fp)) {\n        var_f31 = fp->input.cstick[0].x;\n        var_f28 = fp->input.cstick[0].y;\n        var_f29 = 0.0f;\n        var_f30 = 0.0f;\n        angle = ftCo_GetCStickAngle(fp);\n    } else if (fp->item_gobj != NULL && ftCo_80094E54(fp)) {\n        var_f31 = fp->input.lstick[0].x;\n        var_f28 = fp->input.lstick[0].y;\n        var_f30 = fp->x673;\n        var_f29 = fp->x674;\n        angle = ftCo_GetLStickAngle(fp);\n    } else {\n        return false;\n    }\n\n    if (ABS(var_f31) < p_ftCommonData->xDC &&\n        ABS(var_f28) < p_ftCommonData->xE0)\n    {\n        if (it_8026B30C(fp->item_gobj) == 0 &&\n            !(fp->input.held_buttons[0] & HSD_PAD_LR))\n        {\n            ftCo_LightThrow_Enter(gobj, 0x64);\n            if (arg1 != NULL) {\n                *arg1 = true;\n            }\n            return true;\n        } else {\n            ftCo_80095744(gobj, arg1);\n            fp->x2224_b1 = true;\n            return true;\n        }\n    }\n    if (angle > p_ftCommonData->x20_radians) {\n        msid = var_f29 < p_ftCommonData->x3FC ? 0x72 : 0x66;\n    } else if (angle < -p_ftCommonData->x20_radians) {\n        msid = var_f29 < p_ftCommonData->x3FC ? 0x73 : 0x67;\n    } else if (var_f31 * fp->facing_dir >= 0.0F) {\n        msid = var_f30 < p_ftCommonData->x3FC ? 0x70 : 0x64;\n    } else {",
+            "substitutions": 15,
+            "symbols": [
+              {
+                "canonical": "ftCo_800958FC",
+                "proposed": "ftCo_HeavyThrow_Enter",
+                "confidence": 0.88,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC",
+                "fact_id": "fact:6fe4a0ad-50c0-4b6d-bc6f-7bf79fdef479",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095A30",
+                "proposed": "ftCo_LightThrow_EnterFromLStick",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095A30",
+                "fact_id": "fact:b0435778-9420-410d-bf93-e1f67b523564",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095D5C",
+                "proposed": "ftCo_ItemThrow_CalcThrowVelocity",
+                "confidence": 0.77,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C",
+                "fact_id": "fact:3da1939c-a9fc-4f6b-b7b4-36093e6214c4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095EFC",
+                "proposed": "ftCo_ItemThrow_Accessory",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+                "fact_id": "fact:e9bed42f-c2dc-4e05-878b-68956eb818ca",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80094E54",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+                "fact_id": "fact:5db5a1f7-0358-4943-bdec-ad182dbdb5dd",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80094EA4",
+                "proposed": "ftCo_HeavyThrow_CheckInput",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094EA4",
+                "fact_id": "fact:a47e8e92-21e3-439b-9f3e-34410cbe0684",
+                "fact_updated_at": "2026-09-05T05:10:15.349Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_8009515C",
+                "proposed": "ftCo_ItemThrow_CheckInputFromGuard",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009515C",
+                "fact_id": "fact:8ed3518b-6c25-450d-9b1b-edc86ae04aad",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800957F4",
+                "proposed": "ftCo_LightThrow_Enter",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+                "fact_id": "fact:8d0a4160-813d-4254-94c0-1e4d55fdc1e8",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800951D0",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800951D0",
+                "fact_id": "fact:49981cd6-8580-4b6a-b261-5d5918e6c10c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80095254",
+                "proposed": "ftCo_LightThrowDash_CheckInput",
+                "confidence": 0.87,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095254",
+                "fact_id": "fact:71c459c7-0602-4cc5-8870-c12248324e3e",
+                "fact_updated_at": "2026-09-02T13:18:02.663Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_800952DC",
+                "proposed": "ftCo_LightThrowDash_CheckInput",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800952DC",
+                "fact_id": "fact:32cbef6b-1e65-4d3f-83c4-8007bf790dfc",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80095328",
+                "proposed": "ftCo_LightThrowAir_CheckInput",
+                "confidence": 0.85,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095328",
+                "fact_id": "fact:e043687e-3824-4e12-a39a-e104a8d7e71b",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800DF50C",
+                "proposed": "ftCo_HasCStickItemThrowInput",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/ft_0DF1:ftCo_800DF50C",
+                "fact_id": "fact:8a68d711-d2e6-486b-83a2-cc3c2286d720",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "it_8026B30C",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/it/it_26B1:it_8026B30C",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "PAD_STACK",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_GetLStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetLStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_GetCStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetCStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ABS",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_80095744",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.121-240.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 121,
+            "end_line": 240,
+            "total_lines": 700,
+            "next_line": 241,
+            "content": "                        msid = ftCo_MS_HeavyThrowHi;\n                    } else {\n                        if (stick_y <= p_ftCommonData->xB0 &&\n                            (stick_angle < -p_ftCommonData->x20_radians))\n                        {\n                            msid = ftCo_MS_HeavyThrowLw;\n                        } else if (ret != 0) {\n                            msid = ftCo_MS_HeavyThrowF;\n                        }\n                    }\n                }\n            }\n        }\n    }\n    if (msid != fp->motion_id) {\n        ftCo_HeavyThrow_Enter(gobj, msid);\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_ItemThrow_CheckInputFromGuard(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && fp->input.pressed_buttons & HSD_PAD_A) {\n        if (fp->mv.co.itemthrow.x20 != 0) {\n            ftCo_LightThrow_Enter(gobj, ftCo_MS_LightThrowDash);\n        } else {\n            ftCo_LightThrow_EnterFromLStick(gobj);\n        }\n        return true;\n    }\n    if (fp->mv.co.itemthrow.x20 != 0) {\n        --fp->mv.co.itemthrow.x20;\n    }\n    return false;\n}\n\nbool ftCo_800951D0(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && ftCo_80094E54(fp)) {\n        ftCo_LightThrow_EnterFromLStick(gobj);\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_80095254(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && ftCo_80094E54(fp)) {\n        ftCo_LightThrow_Enter(gobj, ftCo_MS_LightThrowDash);\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_800952DC(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && fp->input.held_buttons[0] & HSD_PAD_LR) {\n        ftCo_LightThrow_Enter(gobj, ftCo_MS_LightThrowDash);\n        return true;\n    }\n    return false;\n}\n\n/// @todo A lot of shared code with #ftCo_80094EA4.\nbool ftCo_LightThrowAir_CheckInput(Fighter_GObj* gobj, bool* arg1)\n{\n    float angle;\n    float var_f31;\n    float var_f30;\n    float var_f29;\n    float var_f28;\n    int msid;\n    Fighter* fp;\n\n    fp = GET_FIGHTER(gobj);\n    if (fp->item_gobj != NULL && ftCo_HasCStickItemThrowInput(fp)) {\n        var_f31 = fp->input.cstick[0].x;\n        var_f28 = fp->input.cstick[0].y;\n        var_f29 = 0.0f;\n        var_f30 = 0.0f;\n        angle = ftCo_GetCStickAngle(fp);\n    } else if (fp->item_gobj != NULL && ftCo_80094E54(fp)) {\n        var_f31 = fp->input.lstick[0].x;\n        var_f28 = fp->input.lstick[0].y;\n        var_f30 = fp->x673;\n        var_f29 = fp->x674;\n        angle = ftCo_GetLStickAngle(fp);\n    } else {\n        return false;\n    }\n\n    if (ABS(var_f31) < p_ftCommonData->xDC &&\n        ABS(var_f28) < p_ftCommonData->xE0)\n    {\n        if (it_8026B30C(fp->item_gobj) == 0 &&\n            !(fp->input.held_buttons[0] & HSD_PAD_LR))\n        {\n            ftCo_LightThrow_Enter(gobj, 0x64);\n            if (arg1 != NULL) {\n                *arg1 = true;\n            }\n            return true;\n        } else {\n            ftCo_80095744(gobj, arg1);\n            fp->x2224_b1 = true;\n            return true;\n        }\n    }\n    if (angle > p_ftCommonData->x20_radians) {\n        msid = var_f29 < p_ftCommonData->x3FC ? 0x72 : 0x66;\n    } else if (angle < -p_ftCommonData->x20_radians) {\n        msid = var_f29 < p_ftCommonData->x3FC ? 0x73 : 0x67;\n    } else if (var_f31 * fp->facing_dir >= 0.0F) {\n        msid = var_f30 < p_ftCommonData->x3FC ? 0x70 : 0x64;\n    } else {",
+            "substitutions": 10,
+            "symbols": [
+              {
+                "canonical": "ftCo_800958FC",
+                "proposed": "ftCo_HeavyThrow_Enter",
+                "confidence": 0.88,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC",
+                "fact_id": "fact:6fe4a0ad-50c0-4b6d-bc6f-7bf79fdef479",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_8009515C",
+                "proposed": "ftCo_ItemThrow_CheckInputFromGuard",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009515C",
+                "fact_id": "fact:8ed3518b-6c25-450d-9b1b-edc86ae04aad",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800957F4",
+                "proposed": "ftCo_LightThrow_Enter",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+                "fact_id": "fact:8d0a4160-813d-4254-94c0-1e4d55fdc1e8",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095A30",
+                "proposed": "ftCo_LightThrow_EnterFromLStick",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095A30",
+                "fact_id": "fact:b0435778-9420-410d-bf93-e1f67b523564",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800951D0",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800951D0",
+                "fact_id": "fact:49981cd6-8580-4b6a-b261-5d5918e6c10c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80094E54",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+                "fact_id": "fact:5db5a1f7-0358-4943-bdec-ad182dbdb5dd",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80095254",
+                "proposed": "ftCo_LightThrowDash_CheckInput",
+                "confidence": 0.87,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095254",
+                "fact_id": "fact:71c459c7-0602-4cc5-8870-c12248324e3e",
+                "fact_updated_at": "2026-09-02T13:18:02.663Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_800952DC",
+                "proposed": "ftCo_LightThrowDash_CheckInput",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800952DC",
+                "fact_id": "fact:32cbef6b-1e65-4d3f-83c4-8007bf790dfc",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80095328",
+                "proposed": "ftCo_LightThrowAir_CheckInput",
+                "confidence": 0.85,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095328",
+                "fact_id": "fact:e043687e-3824-4e12-a39a-e104a8d7e71b",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800DF50C",
+                "proposed": "ftCo_HasCStickItemThrowInput",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/ft_0DF1:ftCo_800DF50C",
+                "fact_id": "fact:8a68d711-d2e6-486b-83a2-cc3c2286d720",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_GetCStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetCStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_GetLStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetLStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ABS",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "it_8026B30C",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/it/it_26B1:it_8026B30C",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_80095744",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.190-257.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 190,
+            "end_line": 257,
+            "total_lines": 700,
+            "next_line": 258,
+            "content": "bool ftCo_LightThrowAir_CheckInput(Fighter_GObj* gobj, bool* arg1)\n{\n    float angle;\n    float var_f31;\n    float var_f30;\n    float var_f29;\n    float var_f28;\n    int msid;\n    Fighter* fp;\n\n    fp = GET_FIGHTER(gobj);\n    if (fp->item_gobj != NULL && ftCo_HasCStickItemThrowInput(fp)) {\n        var_f31 = fp->input.cstick[0].x;\n        var_f28 = fp->input.cstick[0].y;\n        var_f29 = 0.0f;\n        var_f30 = 0.0f;\n        angle = ftCo_GetCStickAngle(fp);\n    } else if (fp->item_gobj != NULL && ftCo_80094E54(fp)) {\n        var_f31 = fp->input.lstick[0].x;\n        var_f28 = fp->input.lstick[0].y;\n        var_f30 = fp->x673;\n        var_f29 = fp->x674;\n        angle = ftCo_GetLStickAngle(fp);\n    } else {\n        return false;\n    }\n\n    if (ABS(var_f31) < p_ftCommonData->xDC &&\n        ABS(var_f28) < p_ftCommonData->xE0)\n    {\n        if (it_8026B30C(fp->item_gobj) == 0 &&\n            !(fp->input.held_buttons[0] & HSD_PAD_LR))\n        {\n            ftCo_LightThrow_Enter(gobj, 0x64);\n            if (arg1 != NULL) {\n                *arg1 = true;\n            }\n            return true;\n        } else {\n            ftCo_80095744(gobj, arg1);\n            fp->x2224_b1 = true;\n            return true;\n        }\n    }\n    if (angle > p_ftCommonData->x20_radians) {\n        msid = var_f29 < p_ftCommonData->x3FC ? 0x72 : 0x66;\n    } else if (angle < -p_ftCommonData->x20_radians) {\n        msid = var_f29 < p_ftCommonData->x3FC ? 0x73 : 0x67;\n    } else if (var_f31 * fp->facing_dir >= 0.0F) {\n        msid = var_f30 < p_ftCommonData->x3FC ? 0x70 : 0x64;\n    } else {\n        msid = var_f30 < p_ftCommonData->x3FC ? 0x71 : 0x65;\n    }\n    ftCo_LightThrow_Enter(gobj, msid);\n    if (arg1 != NULL) {\n        *arg1 = true;\n    }\n    return true;\n}\n\nbool ftCo_LightThrow4_CheckInput(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && ftCo_80094E54(fp) &&\n        fp->mv.co.itemthrow4.unk_timer != 0)\n    {\n        ftCo_LightThrow_Enter(gobj, fp->motion_id == ftCo_MS_EscapeF\n                                ? ftCo_MS_LightThrowF4",
+            "substitutions": 6,
+            "symbols": [
+              {
+                "canonical": "ftCo_80095328",
+                "proposed": "ftCo_LightThrowAir_CheckInput",
+                "confidence": 0.85,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095328",
+                "fact_id": "fact:e043687e-3824-4e12-a39a-e104a8d7e71b",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800DF50C",
+                "proposed": "ftCo_HasCStickItemThrowInput",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/ft_0DF1:ftCo_800DF50C",
+                "fact_id": "fact:8a68d711-d2e6-486b-83a2-cc3c2286d720",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80094E54",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+                "fact_id": "fact:5db5a1f7-0358-4943-bdec-ad182dbdb5dd",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_800957F4",
+                "proposed": "ftCo_LightThrow_Enter",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+                "fact_id": "fact:8d0a4160-813d-4254-94c0-1e4d55fdc1e8",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_8009563C",
+                "proposed": "ftCo_LightThrow4_CheckInput",
+                "confidence": 0.68,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009563C",
+                "fact_id": "fact:f1839747-f5f8-4f00-a636-acde846e2b19",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_GetCStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetCStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_GetLStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetLStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ABS",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "it_8026B30C",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/it/it_26B1:it_8026B30C",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_80095744",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.241-360.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 241,
+            "end_line": 360,
+            "total_lines": 700,
+            "next_line": 361,
+            "content": "        msid = var_f30 < p_ftCommonData->x3FC ? 0x71 : 0x65;\n    }\n    ftCo_LightThrow_Enter(gobj, msid);\n    if (arg1 != NULL) {\n        *arg1 = true;\n    }\n    return true;\n}\n\nbool ftCo_LightThrow4_CheckInput(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && ftCo_80094E54(fp) &&\n        fp->mv.co.itemthrow4.unk_timer != 0)\n    {\n        ftCo_LightThrow_Enter(gobj, fp->motion_id == ftCo_MS_EscapeF\n                                ? ftCo_MS_LightThrowF4\n                                : ftCo_MS_LightThrowB4);\n        return true;\n    }\n    if (fp->mv.co.itemthrow4.unk_timer != 0) {\n        --fp->mv.co.itemthrow4.unk_timer;\n    }\n    return false;\n}\n\nstatic void ftCo_ItemThrow_SetFacingDir(Fighter_GObj* gobj, enum_t arg1)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    switch (arg1) {\n    case 95:\n    case 101:\n    case 105:\n    case 109:\n    case 113:\n    case 117:\n        fp->mv.co.itemthrow.facing_dir = -fp->facing_dir;\n        return;\n    default:\n        fp->mv.co.itemthrow.facing_dir = fp->facing_dir;\n        return;\n    }\n}\n\nvoid ftCo_80095744(Fighter_GObj* gobj, bool* arg1)\n{\n    Vec3 vec;\n    Fighter* fp = gobj->user_data;\n    vec.x = vec.y = vec.z = 0;\n    PAD_STACK(4);\n\n    if (ftGetParasolStatus(gobj) != -1) {\n        if (fp->motion_id == ftCo_MS_ItemParasolFallSpecial) {\n            ftCo_FallSpecial_Enter(gobj);\n        } else {\n            ftCo_Fall_Enter(gobj);\n        }\n        if (arg1 != NULL) {\n            *arg1 = true;\n        }\n    } else if (arg1 != NULL) {\n        *arg1 = false;\n    }\n    Item_8026ABD8(fp->item_gobj, &vec, 1);\n}\n\nstatic inline float getAnimSpeed(Fighter_GObj* gobj, int msid)\n{\n    Fighter* fp;\n    float speed = 1;\n    fp = GET_FIGHTER(gobj);\n    if (msid >= ftCo_MS_LightThrowF4) {\n        speed *= p_ftCommonData->x400;\n    }\n    speed *= (1 / itGetDamageMultiplier(fp->item_gobj));\n    return speed;\n}\n\nvoid ftCo_LightThrow_Enter(Fighter_GObj* gobj, int msid)\n{\n    float anim_spd;\n    Fighter* fp = GET_FIGHTER(gobj);\n\n    fp->cmd_vars[0] = 0;\n    fp->cmd_vars[1] = 0;\n    fp->throw_flags = 0;\n\n    fp->mv.co.itemthrow4.anim_spd = anim_spd = getAnimSpeed(gobj, msid);\n    ftCo_ItemThrow_SetFacingDir(gobj, msid);\n    Fighter_ChangeMotionState(gobj, msid, Ft_MF_None, 0, anim_spd, 0, NULL);\n\n    ftAnim_Advance(gobj);\n    fp->accessory4_cb = ftCo_ItemThrow_Accessory;\n    ftCo_ItemThrow_Accessory((HSD_GObj*) gobj);\n}\n\n/// @todo Mostly just an inline of #ftCo_800957F4.\nvoid ftCo_HeavyThrow_Enter(HSD_GObj* gobj, FtMotionId msid)\n{\n    Fighter* temp_r4;\n    Fighter* fp;\n    float base_throw_speed;\n\n    fp = GET_FIGHTER(gobj);\n    fp->cmd_vars[0] = 0;\n    fp->cmd_vars[1] = 0;\n    fp->throw_flags = 0;\n\n    base_throw_speed = getAnimSpeed(gobj, msid);\n    temp_r4 = GET_FIGHTER(gobj);\n    switch (msid) {\n    case 0x5F:\n    case 0x65:\n    case 0x69:\n    case 0x6D:\n    case 0x71:\n    case 0x75:\n        temp_r4->mv.co.itemthrow.facing_dir = -temp_r4->facing_dir;\n        break;\n    default:",
+            "substitutions": 11,
+            "symbols": [
+              {
+                "canonical": "ftCo_800957F4",
+                "proposed": "ftCo_LightThrow_Enter",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+                "fact_id": "fact:8d0a4160-813d-4254-94c0-1e4d55fdc1e8",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_8009563C",
+                "proposed": "ftCo_LightThrow4_CheckInput",
+                "confidence": 0.68,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009563C",
+                "fact_id": "fact:f1839747-f5f8-4f00-a636-acde846e2b19",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80094E54",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+                "fact_id": "fact:5db5a1f7-0358-4943-bdec-ad182dbdb5dd",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80095700",
+                "proposed": "ftCo_ItemThrow_SetFacingDir",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095700",
+                "fact_id": "fact:0f1e7175-11be-468f-8b08-f5a56ae0fec1",
+                "fact_updated_at": "2026-09-04T19:07:24.400Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800968C8",
+                "proposed": "ftCo_FallSpecial_Enter",
+                "confidence": 0.84,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_FallSpecial:ftCo_800968C8",
+                "fact_id": "fact:6b9f8e13-6599-4902-bab2-9fbac0aac335",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "Item_8026ABD8",
+                "proposed": "Item_Drop",
+                "confidence": 0.82,
+                "subject": "main/melee/it/item:Item_8026ABD8",
+                "fact_id": "fact:7d370fa8-72b7-4157-a872-e21d0d8a4603",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftAnim_8006EBA4",
+                "proposed": "ftAnim_Advance",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/ftanim:ftAnim_8006EBA4",
+                "fact_id": "fact:325b0d0e-0ab3-49d6-96dc-1f2db31715df",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095EFC",
+                "proposed": "ftCo_ItemThrow_Accessory",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+                "fact_id": "fact:e9bed42f-c2dc-4e05-878b-68956eb818ca",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800958FC",
+                "proposed": "ftCo_HeavyThrow_Enter",
+                "confidence": 0.88,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC",
+                "fact_id": "fact:6fe4a0ad-50c0-4b6d-bc6f-7bf79fdef479",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_80095744",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "PAD_STACK",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftGetParasolStatus",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftGetParasolStatus",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Fall_Enter",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_Fall_Enter",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "getAnimSpeed",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "itGetDamageMultiplier",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/it/it_26B1:itGetDamageMultiplier",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "Fighter_ChangeMotionState",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/fighter:Fighter_ChangeMotionState",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.241-480.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 241,
+            "end_line": 480,
+            "total_lines": 700,
+            "next_line": 481,
+            "content": "        msid = var_f30 < p_ftCommonData->x3FC ? 0x71 : 0x65;\n    }\n    ftCo_LightThrow_Enter(gobj, msid);\n    if (arg1 != NULL) {\n        *arg1 = true;\n    }\n    return true;\n}\n\nbool ftCo_LightThrow4_CheckInput(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->item_gobj != NULL && ftCo_80094E54(fp) &&\n        fp->mv.co.itemthrow4.unk_timer != 0)\n    {\n        ftCo_LightThrow_Enter(gobj, fp->motion_id == ftCo_MS_EscapeF\n                                ? ftCo_MS_LightThrowF4\n                                : ftCo_MS_LightThrowB4);\n        return true;\n    }\n    if (fp->mv.co.itemthrow4.unk_timer != 0) {\n        --fp->mv.co.itemthrow4.unk_timer;\n    }\n    return false;\n}\n\nstatic void ftCo_ItemThrow_SetFacingDir(Fighter_GObj* gobj, enum_t arg1)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    switch (arg1) {\n    case 95:\n    case 101:\n    case 105:\n    case 109:\n    case 113:\n    case 117:\n        fp->mv.co.itemthrow.facing_dir = -fp->facing_dir;\n        return;\n    default:\n        fp->mv.co.itemthrow.facing_dir = fp->facing_dir;\n        return;\n    }\n}\n\nvoid ftCo_80095744(Fighter_GObj* gobj, bool* arg1)\n{\n    Vec3 vec;\n    Fighter* fp = gobj->user_data;\n    vec.x = vec.y = vec.z = 0;\n    PAD_STACK(4);\n\n    if (ftGetParasolStatus(gobj) != -1) {\n        if (fp->motion_id == ftCo_MS_ItemParasolFallSpecial) {\n            ftCo_FallSpecial_Enter(gobj);\n        } else {\n            ftCo_Fall_Enter(gobj);\n        }\n        if (arg1 != NULL) {\n            *arg1 = true;\n        }\n    } else if (arg1 != NULL) {\n        *arg1 = false;\n    }\n    Item_8026ABD8(fp->item_gobj, &vec, 1);\n}\n\nstatic inline float getAnimSpeed(Fighter_GObj* gobj, int msid)\n{\n    Fighter* fp;\n    float speed = 1;\n    fp = GET_FIGHTER(gobj);\n    if (msid >= ftCo_MS_LightThrowF4) {\n        speed *= p_ftCommonData->x400;\n    }\n    speed *= (1 / itGetDamageMultiplier(fp->item_gobj));\n    return speed;\n}\n\nvoid ftCo_LightThrow_Enter(Fighter_GObj* gobj, int msid)\n{\n    float anim_spd;\n    Fighter* fp = GET_FIGHTER(gobj);\n\n    fp->cmd_vars[0] = 0;\n    fp->cmd_vars[1] = 0;\n    fp->throw_flags = 0;\n\n    fp->mv.co.itemthrow4.anim_spd = anim_spd = getAnimSpeed(gobj, msid);\n    ftCo_ItemThrow_SetFacingDir(gobj, msid);\n    Fighter_ChangeMotionState(gobj, msid, Ft_MF_None, 0, anim_spd, 0, NULL);\n\n    ftAnim_Advance(gobj);\n    fp->accessory4_cb = ftCo_ItemThrow_Accessory;\n    ftCo_ItemThrow_Accessory((HSD_GObj*) gobj);\n}\n\n/// @todo Mostly just an inline of #ftCo_800957F4.\nvoid ftCo_HeavyThrow_Enter(HSD_GObj* gobj, FtMotionId msid)\n{\n    Fighter* temp_r4;\n    Fighter* fp;\n    float base_throw_speed;\n\n    fp = GET_FIGHTER(gobj);\n    fp->cmd_vars[0] = 0;\n    fp->cmd_vars[1] = 0;\n    fp->throw_flags = 0;\n\n    base_throw_speed = getAnimSpeed(gobj, msid);\n    temp_r4 = GET_FIGHTER(gobj);\n    switch (msid) {\n    case 0x5F:\n    case 0x65:\n    case 0x69:\n    case 0x6D:\n    case 0x71:\n    case 0x75:\n        temp_r4->mv.co.itemthrow.facing_dir = -temp_r4->facing_dir;\n        break;\n    default:\n        temp_r4->mv.co.itemthrow.facing_dir = temp_r4->facing_dir;\n        break;\n    }\n    Fighter_ChangeMotionState(gobj, msid, 0, 0.0F, base_throw_speed, 0.0F,\n                              NULL);\n    ftAnim_Advance(gobj);\n\n    fp->accessory4_cb = ftCo_ItemThrow_Accessory;\n    fp->take_dmg_cb = ftCo_Lift_Take_Dmg_Cb;\n    if (fp->x2222_b0) {\n        fp->phys_cb = ftCo_LightThrowDrop_Phys;\n        fp->coll_cb = ftCo_HeavyWait2_Coll;\n    }\n    ftCo_ItemThrow_Accessory(gobj);\n}\n\nvoid ftCo_LightThrow_EnterFromLStick(HSD_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    float var_f1_2;\n    float var_f1_3;\n    int var_r0;\n    int var_r0_2;\n    int var_r0_3;\n    int var_r29;\n    float var_f1;\n\n    PAD_STACK(0x8);\n\n    var_f1 = fp->input.lstick[0].x;\n    if (var_f1 < 0.0f) {\n        var_f1 = -var_f1;\n    }\n    if (var_f1 >= p_ftCommonData->dash_smash_stick_threshold &&\n        fp->x673 < p_ftCommonData->dash_smash_window + p_ftCommonData->x44)\n    {\n        if (fp->input.lstick[0].x * fp->facing_dir >= 0.0f) {\n            var_r0 = 0x6C;\n        } else {\n            var_r0 = 0x6D;\n        }\n        var_r29 = var_r0;\n    } else {\n        if (fp->input.lstick[0].y >= p_ftCommonData->xCC &&\n            fp->x674 < p_ftCommonData->xD0 + fp->co_attrs.jump_startup_time)\n        {\n            var_r29 = 0x6E;\n        } else {\n            if (fp->input.lstick[0].y <= p_ftCommonData->xD4 &&\n                fp->x674 < p_ftCommonData->xD8)\n            {\n                var_r29 = 0x6F;\n            } else {\n                var_f1_2 = fp->input.lstick[0].x;\n                if (var_f1_2 < 0.0f) {\n                    var_f1_2 = -var_f1_2;\n                }\n                if (var_f1_2 >= p_ftCommonData->x98) {\n                    if (ftCo_GetLStickAngle(fp) < 0.0f) {\n                        var_f1_3 = -ftCo_GetLStickAngle(fp);\n                    } else {\n                        var_f1_3 = ftCo_GetLStickAngle(fp);\n                    }\n                    if (var_f1_3 <= p_ftCommonData->x20_radians) {\n                        if (fp->input.lstick[0].x * fp->facing_dir >= 0.0f) {\n                            var_r0_2 = 0x5E;\n                        } else {\n                            var_r0_2 = 0x5F;\n                        }\n                        var_r29 = var_r0_2;\n                    } else {\n                        goto block_25;\n                    }\n                } else {\n                block_25:\n                    if (fp->input.lstick[0].y >=\n                            p_ftCommonData->attackhi3_stick_threshold_y &&\n                        ftCo_GetLStickAngle(fp) > p_ftCommonData->x20_radians)\n                    {\n                        var_r29 = 0x60;\n                    } else {\n                        if (fp->input.lstick[0].y <= p_ftCommonData->xB0 &&\n                            ftCo_GetLStickAngle(fp) <\n                                -p_ftCommonData->x20_radians)\n                        {\n                            var_r29 = 0x61;\n                        } else {\n                            if (it_8026B30C(fp->item_gobj) == 0) {\n                                var_r0_3 = 0x5E;\n                            } else {\n                                var_r0_3 = 0x63;\n                            }\n                            var_r29 = var_r0_3;\n                        }\n                    }\n                }\n            }\n        }\n    }\n    ftCo_LightThrow_Enter(gobj, var_r29);\n}\n\nvoid ftCo_ItemThrow_CalcThrowVelocity(Fighter* fp, Vec3* arg1)\n{\n    float vel;\n    float angle;\n    float vel_mul;\n    u8* array_element;\n    ftCo_DatAttrs* co_attrs = getFtAttrs(fp);\n    u32 cmd_var0 = fp->cmd_vars[0];\n\n    vel = 1;\n    if (cmd_var0 != 0) {\n        vel = 0.01f * ((cmd_var0 >> 12) & 0x3FF);\n    }\n    array_element = (u8*) Fighter_804D6550;\n    vel_mul = co_attrs->item_throw_velocity_multiplier;\n    co_attrs = (ftCo_DatAttrs*) (array_element + fp->motion_id * 12);\n    array_element = (u8*) co_attrs;\n    vel *= vel_mul * *(float*) (array_element - 0x468);",
+            "substitutions": 20,
+            "symbols": [
+              {
+                "canonical": "ftCo_800957F4",
+                "proposed": "ftCo_LightThrow_Enter",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+                "fact_id": "fact:8d0a4160-813d-4254-94c0-1e4d55fdc1e8",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_8009563C",
+                "proposed": "ftCo_LightThrow4_CheckInput",
+                "confidence": 0.68,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009563C",
+                "fact_id": "fact:f1839747-f5f8-4f00-a636-acde846e2b19",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80094E54",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+                "fact_id": "fact:5db5a1f7-0358-4943-bdec-ad182dbdb5dd",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80095700",
+                "proposed": "ftCo_ItemThrow_SetFacingDir",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095700",
+                "fact_id": "fact:0f1e7175-11be-468f-8b08-f5a56ae0fec1",
+                "fact_updated_at": "2026-09-04T19:07:24.400Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800968C8",
+                "proposed": "ftCo_FallSpecial_Enter",
+                "confidence": 0.84,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_FallSpecial:ftCo_800968C8",
+                "fact_id": "fact:6b9f8e13-6599-4902-bab2-9fbac0aac335",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "Item_8026ABD8",
+                "proposed": "Item_Drop",
+                "confidence": 0.82,
+                "subject": "main/melee/it/item:Item_8026ABD8",
+                "fact_id": "fact:7d370fa8-72b7-4157-a872-e21d0d8a4603",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftAnim_8006EBA4",
+                "proposed": "ftAnim_Advance",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/ftanim:ftAnim_8006EBA4",
+                "fact_id": "fact:325b0d0e-0ab3-49d6-96dc-1f2db31715df",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095EFC",
+                "proposed": "ftCo_ItemThrow_Accessory",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+                "fact_id": "fact:e9bed42f-c2dc-4e05-878b-68956eb818ca",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800958FC",
+                "proposed": "ftCo_HeavyThrow_Enter",
+                "confidence": 0.88,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC",
+                "fact_id": "fact:6fe4a0ad-50c0-4b6d-bc6f-7bf79fdef479",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800974C4",
+                "proposed": "ftCo_Lift_Take_Dmg_Cb",
+                "confidence": 0.92,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Lift:ftCo_800974C4",
+                "fact_id": "fact:c5c19443-80c1-447a-998d-9b5d0623e845",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800961D0",
+                "proposed": "ftCo_LightThrowDrop_Phys",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800961D0",
+                "fact_id": "fact:1d87335f-daa6-4f7e-aa96-2c8a50afc2f4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096498",
+                "proposed": "ftCo_HeavyWait2_Coll",
+                "confidence": 0.9,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096498",
+                "fact_id": "fact:aac3257e-6dbe-4fef-896d-d673adae9d0c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095A30",
+                "proposed": "ftCo_LightThrow_EnterFromLStick",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095A30",
+                "fact_id": "fact:b0435778-9420-410d-bf93-e1f67b523564",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095D5C",
+                "proposed": "ftCo_ItemThrow_CalcThrowVelocity",
+                "confidence": 0.77,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C",
+                "fact_id": "fact:3da1939c-a9fc-4f6b-b7b4-36093e6214c4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_80095744",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "PAD_STACK",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftGetParasolStatus",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftGetParasolStatus",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Fall_Enter",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_Fall_Enter",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "getAnimSpeed",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "itGetDamageMultiplier",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/it/it_26B1:itGetDamageMultiplier",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "Fighter_ChangeMotionState",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/fighter:Fighter_ChangeMotionState",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_GetLStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetLStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "getFtAttrs",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.361-480.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 361,
+            "end_line": 480,
+            "total_lines": 700,
+            "next_line": 481,
+            "content": "        temp_r4->mv.co.itemthrow.facing_dir = temp_r4->facing_dir;\n        break;\n    }\n    Fighter_ChangeMotionState(gobj, msid, 0, 0.0F, base_throw_speed, 0.0F,\n                              NULL);\n    ftAnim_Advance(gobj);\n\n    fp->accessory4_cb = ftCo_ItemThrow_Accessory;\n    fp->take_dmg_cb = ftCo_Lift_Take_Dmg_Cb;\n    if (fp->x2222_b0) {\n        fp->phys_cb = ftCo_LightThrowDrop_Phys;\n        fp->coll_cb = ftCo_HeavyWait2_Coll;\n    }\n    ftCo_ItemThrow_Accessory(gobj);\n}\n\nvoid ftCo_LightThrow_EnterFromLStick(HSD_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    float var_f1_2;\n    float var_f1_3;\n    int var_r0;\n    int var_r0_2;\n    int var_r0_3;\n    int var_r29;\n    float var_f1;\n\n    PAD_STACK(0x8);\n\n    var_f1 = fp->input.lstick[0].x;\n    if (var_f1 < 0.0f) {\n        var_f1 = -var_f1;\n    }\n    if (var_f1 >= p_ftCommonData->dash_smash_stick_threshold &&\n        fp->x673 < p_ftCommonData->dash_smash_window + p_ftCommonData->x44)\n    {\n        if (fp->input.lstick[0].x * fp->facing_dir >= 0.0f) {\n            var_r0 = 0x6C;\n        } else {\n            var_r0 = 0x6D;\n        }\n        var_r29 = var_r0;\n    } else {\n        if (fp->input.lstick[0].y >= p_ftCommonData->xCC &&\n            fp->x674 < p_ftCommonData->xD0 + fp->co_attrs.jump_startup_time)\n        {\n            var_r29 = 0x6E;\n        } else {\n            if (fp->input.lstick[0].y <= p_ftCommonData->xD4 &&\n                fp->x674 < p_ftCommonData->xD8)\n            {\n                var_r29 = 0x6F;\n            } else {\n                var_f1_2 = fp->input.lstick[0].x;\n                if (var_f1_2 < 0.0f) {\n                    var_f1_2 = -var_f1_2;\n                }\n                if (var_f1_2 >= p_ftCommonData->x98) {\n                    if (ftCo_GetLStickAngle(fp) < 0.0f) {\n                        var_f1_3 = -ftCo_GetLStickAngle(fp);\n                    } else {\n                        var_f1_3 = ftCo_GetLStickAngle(fp);\n                    }\n                    if (var_f1_3 <= p_ftCommonData->x20_radians) {\n                        if (fp->input.lstick[0].x * fp->facing_dir >= 0.0f) {\n                            var_r0_2 = 0x5E;\n                        } else {\n                            var_r0_2 = 0x5F;\n                        }\n                        var_r29 = var_r0_2;\n                    } else {\n                        goto block_25;\n                    }\n                } else {\n                block_25:\n                    if (fp->input.lstick[0].y >=\n                            p_ftCommonData->attackhi3_stick_threshold_y &&\n                        ftCo_GetLStickAngle(fp) > p_ftCommonData->x20_radians)\n                    {\n                        var_r29 = 0x60;\n                    } else {\n                        if (fp->input.lstick[0].y <= p_ftCommonData->xB0 &&\n                            ftCo_GetLStickAngle(fp) <\n                                -p_ftCommonData->x20_radians)\n                        {\n                            var_r29 = 0x61;\n                        } else {\n                            if (it_8026B30C(fp->item_gobj) == 0) {\n                                var_r0_3 = 0x5E;\n                            } else {\n                                var_r0_3 = 0x63;\n                            }\n                            var_r29 = var_r0_3;\n                        }\n                    }\n                }\n            }\n        }\n    }\n    ftCo_LightThrow_Enter(gobj, var_r29);\n}\n\nvoid ftCo_ItemThrow_CalcThrowVelocity(Fighter* fp, Vec3* arg1)\n{\n    float vel;\n    float angle;\n    float vel_mul;\n    u8* array_element;\n    ftCo_DatAttrs* co_attrs = getFtAttrs(fp);\n    u32 cmd_var0 = fp->cmd_vars[0];\n\n    vel = 1;\n    if (cmd_var0 != 0) {\n        vel = 0.01f * ((cmd_var0 >> 12) & 0x3FF);\n    }\n    array_element = (u8*) Fighter_804D6550;\n    vel_mul = co_attrs->item_throw_velocity_multiplier;\n    co_attrs = (ftCo_DatAttrs*) (array_element + fp->motion_id * 12);\n    array_element = (u8*) co_attrs;\n    vel *= vel_mul * *(float*) (array_element - 0x468);",
+            "substitutions": 9,
+            "symbols": [
+              {
+                "canonical": "ftAnim_8006EBA4",
+                "proposed": "ftAnim_Advance",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/ftanim:ftAnim_8006EBA4",
+                "fact_id": "fact:325b0d0e-0ab3-49d6-96dc-1f2db31715df",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095EFC",
+                "proposed": "ftCo_ItemThrow_Accessory",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+                "fact_id": "fact:e9bed42f-c2dc-4e05-878b-68956eb818ca",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800974C4",
+                "proposed": "ftCo_Lift_Take_Dmg_Cb",
+                "confidence": 0.92,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Lift:ftCo_800974C4",
+                "fact_id": "fact:c5c19443-80c1-447a-998d-9b5d0623e845",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800961D0",
+                "proposed": "ftCo_LightThrowDrop_Phys",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800961D0",
+                "fact_id": "fact:1d87335f-daa6-4f7e-aa96-2c8a50afc2f4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096498",
+                "proposed": "ftCo_HeavyWait2_Coll",
+                "confidence": 0.9,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096498",
+                "fact_id": "fact:aac3257e-6dbe-4fef-896d-d673adae9d0c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095A30",
+                "proposed": "ftCo_LightThrow_EnterFromLStick",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095A30",
+                "fact_id": "fact:b0435778-9420-410d-bf93-e1f67b523564",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800957F4",
+                "proposed": "ftCo_LightThrow_Enter",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+                "fact_id": "fact:8d0a4160-813d-4254-94c0-1e4d55fdc1e8",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095D5C",
+                "proposed": "ftCo_ItemThrow_CalcThrowVelocity",
+                "confidence": 0.77,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C",
+                "fact_id": "fact:3da1939c-a9fc-4f6b-b7b4-36093e6214c4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "Fighter_ChangeMotionState",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/fighter:Fighter_ChangeMotionState",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "PAD_STACK",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_GetLStickAngle",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCo_GetLStickAngle",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "getFtAttrs",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.481-600.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 481,
+            "end_line": 600,
+            "total_lines": 700,
+            "next_line": 601,
+            "content": "    if (cmd_var0 != 0) {\n        int int_angle = ((ftCo_ItemThrowCmd*) fp->cmd_vars)->angle;\n        if (int_angle == 361) {\n            angle = *(float*) (array_element - 0x464);\n        } else {\n            angle = MTXDegToRad(int_angle);\n        }\n        fp->cmd_vars[0] = 0;\n    } else {\n        angle = *(float*) (array_element - 0x464);\n    }\n    arg1->x = fp->mv.co.itemthrow.facing_dir * (vel * cosf(angle));\n    arg1->y = vel * sinf(angle);\n    arg1->z = 0;\n}\n\nvoid ftCo_ItemThrow_Anim(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    if (ftCheckThrowB4(fp)) {\n        fp->facing_dir = -fp->facing_dir;\n    }\n    if (!ftAnim_IsFramesRemaining(gobj)) {\n        ftCommon_8007D92C(gobj);\n    }\n}\n\nvoid ftCo_ItemThrow_Accessory(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    float interpolation;\n    Vec3 vec0;\n    Vec3 vec1;\n    Vec3 vec2;\n\n    if (fp->item_gobj != NULL) {\n        lbJObjTransformPoint(itGetBoneAttachJObj(fp->item_gobj), NULL, &vec0);\n        if (ftCheckThrowB3(fp)) {\n            ftCo_ItemThrow_CalcThrowVelocity(fp, &vec1);\n            {\n                u32 cmd_var1 = fp->cmd_vars[1];\n                ftCo_DatAttrs* co_attrs = &fp->co_attrs;\n                // Aggregate storage preserves MWCC register allocation.\n                struct {\n                    /* +0 */ float value;\n                } scale;\n                scale.value = 1;\n                if (cmd_var1 != 0) {\n                    scale.value = 0.01f * (cmd_var1 & 0x3FFFFF);\n                    fp->cmd_vars[1] = 0;\n                }\n                {\n                    float fsm;\n                    ftCo_ItemThrowAttrs* throw_speed_arr;\n                    float throw_speed;\n                    fsm = -fp->cmd_timer / fp->frame_speed_mul;\n                    throw_speed_arr = (ftCo_ItemThrowAttrs*) Fighter_804D6550;\n                    scale.value *=\n                        co_attrs->heavy_throw_velocity_multiplier *\n                        throw_speed_arr[fp->motion_id - ftCo_MS_LightThrowF]\n                            .x8;\n                    throw_speed = scale.value;\n                    interpolation =\n                        fsm * (fp->mv.co.itemthrow4.x8.x - vec0.x) + vec0.x;\n                    vec2.x = interpolation;\n                    interpolation =\n                        fsm * (fp->mv.co.itemthrow4.x8.y - vec0.y) + vec0.y;\n                    vec2.y = interpolation;\n                    vec2.z = 0;\n                    plBonusLib_OnItemThrow(fp->player_id, fp->x221F_b4, fp->item_gobj);\n                    {\n                        FtMoveId msid = fp->motion_id;\n                        if (msid == (FtMoveId) ftCo_MS_LightThrowDrop) {\n                            Item_8026AC74(fp->item_gobj, &vec2, &vec1,\n                                          throw_speed);\n                        } else if (msid >= (FtMoveId) ftCo_MS_LightThrowF4) {\n                            if (itIsHeavy(fp->item_gobj) == 1) {\n                                ftCommon_TriggerRumble(fp, 29, 0);\n                            } else {\n                                ftCommon_TriggerRumble(fp, 27, 0);\n                            }\n                            it_Throw(fp->item_gobj, &vec2, &vec1,\n                                          throw_speed, true);\n                        } else {\n                            if (itIsHeavy(fp->item_gobj) == 1) {\n                                ftCommon_TriggerRumble(fp, 28, 0);\n                            } else {\n                                ftCommon_TriggerRumble(fp, 26, 0);\n                            }\n                            it_Throw(fp->item_gobj, &vec2, &vec1,\n                                          throw_speed, false);\n                        }\n                    }\n                }\n            }\n        } else {\n            fp->mv.co.itemthrow4.x8 = vec0;\n        }\n    }\n}\n\nvoid ftCo_ItemThrow_IASA(Fighter_GObj* gobj) {}\n\nvoid ftCo_ItemThrow_Phys(Fighter_GObj* gobj)\n{\n    ftCommon_ApplyFrictionGroundAndMovement(gobj);\n}\n\n#ifdef MUST_MATCH\n#pragma push\n#pragma global_optimizer off\n#endif\nvoid ftCo_LightThrowDash_Phys(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    ftCommonData* cd = p_ftCommonData;\n    if (fp->cur_anim_frame <= cd->x408) {\n        if (cd != NULL) {\n            // Needed for matching register allocation.\n        }",
+            "substitutions": 12,
+            "symbols": [
+              {
+                "canonical": "ftCo_80095EFC",
+                "proposed": "ftCo_ItemThrow_Accessory",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+                "fact_id": "fact:e9bed42f-c2dc-4e05-878b-68956eb818ca",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "it_80272C90",
+                "proposed": "itGetBoneAttachJObj",
+                "confidence": 0.79,
+                "subject": "main/melee/it/it_2725:it_80272C90",
+                "fact_id": "fact:e430efd5-3b7f-468d-9ff2-1d644e53547b",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "lb_8000B1CC",
+                "proposed": "lbJObjTransformPoint",
+                "confidence": 0.76,
+                "subject": "main/melee/lb/lb_00B0:lb_8000B1CC",
+                "fact_id": "fact:dccdf7fa-e632-4601-bf5e-af8a3e418f0d",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095D5C",
+                "proposed": "ftCo_ItemThrow_CalcThrowVelocity",
+                "confidence": 0.77,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C",
+                "fact_id": "fact:3da1939c-a9fc-4f6b-b7b4-36093e6214c4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "pl_8003E978",
+                "proposed": "plBonusLib_OnItemThrow",
+                "confidence": 0.72,
+                "subject": "main/melee/pl/plbonuslib:pl_8003E978",
+                "fact_id": "fact:41888e5e-8b67-4961-b139-e7303693edfd",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "Item_8026AC74",
+                "proposed": "Item_Drop",
+                "confidence": 0.78,
+                "subject": "main/melee/it/item:Item_8026AC74",
+                "fact_id": "fact:d41aa524-f56f-4441-9583-65d74e584f0d",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCommon_8007EBAC",
+                "proposed": "ftCommon_TriggerRumble",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007EBAC",
+                "fact_id": "fact:82ae3a5f-14a4-4a75-892c-35f831ab1a16",
+                "fact_updated_at": "2026-09-02T06:59:37.152Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "Item_8026AD20",
+                "proposed": "it_Throw",
+                "confidence": 0.88,
+                "subject": "main/melee/it/item:Item_8026AD20",
+                "fact_id": "fact:c9649502-f497-4d54-8da8-32f14a3c7c1d",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80084F3C",
+                "proposed": "ftCommon_ApplyFrictionGroundAndMovement",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/ft_084E:ft_80084F3C",
+                "fact_id": "fact:73e10c0a-ced1-4aa6-97d4-ec465870c9d5",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "MTXDegToRad",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "cosf",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/MSL/trigf:cosf",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "sinf",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/MSL/trigf:sinf",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_ItemThrow_Anim",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Anim",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCheckThrowB4",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftAnim_IsFramesRemaining",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftanim:ftAnim_IsFramesRemaining",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCommon_8007D92C",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007D92C",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCheckThrowB3",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "itIsHeavy",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/it/it_26B1:itIsHeavy",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_ItemThrow_IASA",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_IASA",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_ItemThrow_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowDash_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDash_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.481-700.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 481,
+            "end_line": 700,
+            "total_lines": 700,
+            "next_line": null,
+            "content": "    if (cmd_var0 != 0) {\n        int int_angle = ((ftCo_ItemThrowCmd*) fp->cmd_vars)->angle;\n        if (int_angle == 361) {\n            angle = *(float*) (array_element - 0x464);\n        } else {\n            angle = MTXDegToRad(int_angle);\n        }\n        fp->cmd_vars[0] = 0;\n    } else {\n        angle = *(float*) (array_element - 0x464);\n    }\n    arg1->x = fp->mv.co.itemthrow.facing_dir * (vel * cosf(angle));\n    arg1->y = vel * sinf(angle);\n    arg1->z = 0;\n}\n\nvoid ftCo_ItemThrow_Anim(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    if (ftCheckThrowB4(fp)) {\n        fp->facing_dir = -fp->facing_dir;\n    }\n    if (!ftAnim_IsFramesRemaining(gobj)) {\n        ftCommon_8007D92C(gobj);\n    }\n}\n\nvoid ftCo_ItemThrow_Accessory(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    float interpolation;\n    Vec3 vec0;\n    Vec3 vec1;\n    Vec3 vec2;\n\n    if (fp->item_gobj != NULL) {\n        lbJObjTransformPoint(itGetBoneAttachJObj(fp->item_gobj), NULL, &vec0);\n        if (ftCheckThrowB3(fp)) {\n            ftCo_ItemThrow_CalcThrowVelocity(fp, &vec1);\n            {\n                u32 cmd_var1 = fp->cmd_vars[1];\n                ftCo_DatAttrs* co_attrs = &fp->co_attrs;\n                // Aggregate storage preserves MWCC register allocation.\n                struct {\n                    /* +0 */ float value;\n                } scale;\n                scale.value = 1;\n                if (cmd_var1 != 0) {\n                    scale.value = 0.01f * (cmd_var1 & 0x3FFFFF);\n                    fp->cmd_vars[1] = 0;\n                }\n                {\n                    float fsm;\n                    ftCo_ItemThrowAttrs* throw_speed_arr;\n                    float throw_speed;\n                    fsm = -fp->cmd_timer / fp->frame_speed_mul;\n                    throw_speed_arr = (ftCo_ItemThrowAttrs*) Fighter_804D6550;\n                    scale.value *=\n                        co_attrs->heavy_throw_velocity_multiplier *\n                        throw_speed_arr[fp->motion_id - ftCo_MS_LightThrowF]\n                            .x8;\n                    throw_speed = scale.value;\n                    interpolation =\n                        fsm * (fp->mv.co.itemthrow4.x8.x - vec0.x) + vec0.x;\n                    vec2.x = interpolation;\n                    interpolation =\n                        fsm * (fp->mv.co.itemthrow4.x8.y - vec0.y) + vec0.y;\n                    vec2.y = interpolation;\n                    vec2.z = 0;\n                    plBonusLib_OnItemThrow(fp->player_id, fp->x221F_b4, fp->item_gobj);\n                    {\n                        FtMoveId msid = fp->motion_id;\n                        if (msid == (FtMoveId) ftCo_MS_LightThrowDrop) {\n                            Item_8026AC74(fp->item_gobj, &vec2, &vec1,\n                                          throw_speed);\n                        } else if (msid >= (FtMoveId) ftCo_MS_LightThrowF4) {\n                            if (itIsHeavy(fp->item_gobj) == 1) {\n                                ftCommon_TriggerRumble(fp, 29, 0);\n                            } else {\n                                ftCommon_TriggerRumble(fp, 27, 0);\n                            }\n                            it_Throw(fp->item_gobj, &vec2, &vec1,\n                                          throw_speed, true);\n                        } else {\n                            if (itIsHeavy(fp->item_gobj) == 1) {\n                                ftCommon_TriggerRumble(fp, 28, 0);\n                            } else {\n                                ftCommon_TriggerRumble(fp, 26, 0);\n                            }\n                            it_Throw(fp->item_gobj, &vec2, &vec1,\n                                          throw_speed, false);\n                        }\n                    }\n                }\n            }\n        } else {\n            fp->mv.co.itemthrow4.x8 = vec0;\n        }\n    }\n}\n\nvoid ftCo_ItemThrow_IASA(Fighter_GObj* gobj) {}\n\nvoid ftCo_ItemThrow_Phys(Fighter_GObj* gobj)\n{\n    ftCommon_ApplyFrictionGroundAndMovement(gobj);\n}\n\n#ifdef MUST_MATCH\n#pragma push\n#pragma global_optimizer off\n#endif\nvoid ftCo_LightThrowDash_Phys(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    ftCommonData* cd = p_ftCommonData;\n    if (fp->cur_anim_frame <= cd->x408) {\n        if (cd != NULL) {\n            // Needed for matching register allocation.\n        }\n        ft_80085030(gobj, (cd->x404 * fp->co_attrs.ground_friction) * cd->x40C,\n                    fp->facing_dir);\n    } else {\n        ft_80085030(gobj, p_ftCommonData->x404 * fp->co_attrs.ground_friction,\n                    fp->facing_dir);\n    }\n}\n#ifdef MUST_MATCH\n#pragma pop\n#endif\n\nvoid ftCo_LightThrowAir_Phys(Fighter_GObj* gobj)\n{\n    ftCommon_ApplyAerialPhysics(gobj);\n}\n\nvoid ftCo_LightThrowDrop_Phys(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->ground_or_air == GA_Air) {\n        ftCommon_ApplyAerialPhysics(gobj);\n    } else {\n        ftCommon_ApplyFrictionGroundAndMovement(gobj);\n    }\n}\n\nvoid ftCo_LightThrowDashDrop_Coll(Fighter_GObj* gobj)\n{\n    ft_CheckGroundAndFall(gobj);\n}\n\nvoid ftCo_LightThrow_Coll(Fighter_GObj* gobj)\n{\n    ft_800841B8(gobj, ftCo_LightThrow_GroundToAir);\n}\n\nstatic inline void inlineA0(Fighter_GObj* gobj, FtMotionId msid)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    float facing_dir = fp->facing_dir;\n    if (facing_dir != fp->facing_dir1) {\n        fp->facing_dir = fp->facing_dir1;\n    }\n    Fighter_ChangeMotionState(\n        gobj, msid,\n        Ft_MF_SkipMatAnim | Ft_MF_SkipColAnim | Ft_MF_UpdateCmd |\n            Ft_MF_SkipItemVis | Ft_MF_Unk19 | Ft_MF_SkipModelPartVis |\n            Ft_MF_SkipModelFlags | Ft_MF_Unk27,\n        fp->cur_anim_frame, fp->mv.co.itemthrow4.anim_spd, 0, NULL);\n    fp->facing_dir = facing_dir;\n    fp->accessory4_cb = ftCo_ItemThrow_Accessory;\n    ftCo_ItemThrow_Accessory(gobj);\n}\n\nvoid ftCo_LightThrow_GroundToAir(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    ftCommon_SetAirborne(fp);\n    if (fp->motion_id >= ftCo_MS_LightThrowF4) {\n        inlineA0(gobj, fp->motion_id + 4);\n    } else {\n        inlineA0(gobj, fp->motion_id + 6);\n    }\n}\n\nvoid ftCo_LightThrowAir_Coll(Fighter_GObj* gobj)\n{\n    ft_CheckGroundAndCall(gobj, ftCo_LightThrowAir_AirToGround);\n}\n\nvoid ftCo_LightThrowAir_AirToGround(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    ftCommon_SetGrounded(fp);\n    {\n        if (fp->motion_id >= ftCo_MS_LightThrowF4) {\n            inlineA0(gobj, fp->motion_id - 4);\n        } else {\n            inlineA0(gobj, fp->motion_id - 6);\n        }\n    }\n}\n\nvoid ftCo_HeavyThrow_Coll(Fighter_GObj* gobj)\n{\n    ft_800841B8(gobj, ftCo_80096E68);\n}\n\nvoid ftCo_HeavyWait2_Coll(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    if (fp->ground_or_air == GA_Ground) {\n        if (EnvironmentCollision_AllowGroundToAir(gobj) == GA_Ground) {\n            ftCommon_SetAirborne(fp);\n        }\n    } else if (ft_CheckGround(gobj) != GA_Ground) {\n        ftCommon_SetGrounded(fp);\n    }\n}\n",
+            "substitutions": 31,
+            "symbols": [
+              {
+                "canonical": "ftCo_80095EFC",
+                "proposed": "ftCo_ItemThrow_Accessory",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+                "fact_id": "fact:e9bed42f-c2dc-4e05-878b-68956eb818ca",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "it_80272C90",
+                "proposed": "itGetBoneAttachJObj",
+                "confidence": 0.79,
+                "subject": "main/melee/it/it_2725:it_80272C90",
+                "fact_id": "fact:e430efd5-3b7f-468d-9ff2-1d644e53547b",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "lb_8000B1CC",
+                "proposed": "lbJObjTransformPoint",
+                "confidence": 0.76,
+                "subject": "main/melee/lb/lb_00B0:lb_8000B1CC",
+                "fact_id": "fact:dccdf7fa-e632-4601-bf5e-af8a3e418f0d",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095D5C",
+                "proposed": "ftCo_ItemThrow_CalcThrowVelocity",
+                "confidence": 0.77,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C",
+                "fact_id": "fact:3da1939c-a9fc-4f6b-b7b4-36093e6214c4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "pl_8003E978",
+                "proposed": "plBonusLib_OnItemThrow",
+                "confidence": 0.72,
+                "subject": "main/melee/pl/plbonuslib:pl_8003E978",
+                "fact_id": "fact:41888e5e-8b67-4961-b139-e7303693edfd",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "Item_8026AC74",
+                "proposed": "Item_Drop",
+                "confidence": 0.78,
+                "subject": "main/melee/it/item:Item_8026AC74",
+                "fact_id": "fact:d41aa524-f56f-4441-9583-65d74e584f0d",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCommon_8007EBAC",
+                "proposed": "ftCommon_TriggerRumble",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007EBAC",
+                "fact_id": "fact:82ae3a5f-14a4-4a75-892c-35f831ab1a16",
+                "fact_updated_at": "2026-09-02T06:59:37.152Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "Item_8026AD20",
+                "proposed": "it_Throw",
+                "confidence": 0.88,
+                "subject": "main/melee/it/item:Item_8026AD20",
+                "fact_id": "fact:c9649502-f497-4d54-8da8-32f14a3c7c1d",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80084F3C",
+                "proposed": "ftCommon_ApplyFrictionGroundAndMovement",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/ft_084E:ft_80084F3C",
+                "fact_id": "fact:73e10c0a-ced1-4aa6-97d4-ec465870c9d5",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80084DB0",
+                "proposed": "ftCommon_ApplyAerialPhysics",
+                "confidence": 0.72,
+                "subject": "main/melee/ft/ft_081B:ft_80084DB0",
+                "fact_id": "fact:c7aad93d-f8c7-4cfe-9f7b-bde04262dc97",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800961D0",
+                "proposed": "ftCo_LightThrowDrop_Phys",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800961D0",
+                "fact_id": "fact:1d87335f-daa6-4f7e-aa96-2c8a50afc2f4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80084104",
+                "proposed": "ft_CheckGroundAndFall",
+                "confidence": 0.72,
+                "subject": "main/melee/ft/ft_081B:ft_80084104",
+                "fact_id": "fact:cfa04dbb-2211-4bcd-ae19-57ded44d68a9",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096250",
+                "proposed": "ftCo_LightThrow_GroundToAir",
+                "confidence": 0.9,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096250",
+                "fact_id": "fact:9ba07235-b5d0-4590-a772-db9e74dfd35a",
+                "fact_updated_at": "2026-09-02T15:00:44.168Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCommon_8007D5D4",
+                "proposed": "ftCommon_SetAirborne",
+                "confidence": 0.68,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007D5D4",
+                "fact_id": "fact:bdedd0c3-f999-42e4-8627-37e6a8e568c5",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096374",
+                "proposed": "ftCo_LightThrowAir_AirToGround",
+                "confidence": 0.88,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096374",
+                "fact_id": "fact:6b5c2cdd-1b32-49f8-8c37-d7aeee95c399",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80082C74",
+                "proposed": "ft_CheckGroundAndCall",
+                "confidence": 0.68,
+                "subject": "main/melee/ft/ft_081B:ft_80082C74",
+                "fact_id": "fact:35bee8ca-0e05-4ffc-90d4-9e52620efeea",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCommon_8007D7FC",
+                "proposed": "ftCommon_SetGrounded",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007D7FC",
+                "fact_id": "fact:0ec7863b-18aa-498d-9473-a67e66272fdb",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096498",
+                "proposed": "ftCo_HeavyWait2_Coll",
+                "confidence": 0.9,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096498",
+                "fact_id": "fact:aac3257e-6dbe-4fef-896d-d673adae9d0c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80082708",
+                "proposed": "EnvironmentCollision_AllowGroundToAir",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/ft_081B:ft_80082708",
+                "fact_id": "fact:b8b34623-fb07-4574-8a2c-694ddaf8327a",
+                "fact_updated_at": "2026-09-04T18:42:06.954Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80081D0C",
+                "proposed": "ft_CheckGround",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/ft_081B:ft_80081D0C",
+                "fact_id": "fact:8db4569e-d81b-4556-b4b4-5fd5ae6f1f6c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "MTXDegToRad",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "cosf",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/MSL/trigf:cosf",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "sinf",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/MSL/trigf:sinf",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_ItemThrow_Anim",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Anim",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCheckThrowB4",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftAnim_IsFramesRemaining",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftanim:ftAnim_IsFramesRemaining",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCommon_8007D92C",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007D92C",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCheckThrowB3",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "itIsHeavy",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/it/it_26B1:itIsHeavy",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_ItemThrow_IASA",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_IASA",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_ItemThrow_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowDash_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDash_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ft_80085030",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ft_084E:ft_80085030",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowAir_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowDashDrop_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDashDrop_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrow_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrow_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ft_800841B8",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ft_081B:ft_800841B8",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "inlineA0",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "Fighter_ChangeMotionState",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/fighter:Fighter_ChangeMotionState",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowAir_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_HeavyThrow_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_HeavyThrow_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_80096E68",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Lift:ftCo_80096E68",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.c.601-700.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+            "source_sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+            "start_line": 601,
+            "end_line": 700,
+            "total_lines": 700,
+            "next_line": null,
+            "content": "        ft_80085030(gobj, (cd->x404 * fp->co_attrs.ground_friction) * cd->x40C,\n                    fp->facing_dir);\n    } else {\n        ft_80085030(gobj, p_ftCommonData->x404 * fp->co_attrs.ground_friction,\n                    fp->facing_dir);\n    }\n}\n#ifdef MUST_MATCH\n#pragma pop\n#endif\n\nvoid ftCo_LightThrowAir_Phys(Fighter_GObj* gobj)\n{\n    ftCommon_ApplyAerialPhysics(gobj);\n}\n\nvoid ftCo_LightThrowDrop_Phys(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    if (fp->ground_or_air == GA_Air) {\n        ftCommon_ApplyAerialPhysics(gobj);\n    } else {\n        ftCommon_ApplyFrictionGroundAndMovement(gobj);\n    }\n}\n\nvoid ftCo_LightThrowDashDrop_Coll(Fighter_GObj* gobj)\n{\n    ft_CheckGroundAndFall(gobj);\n}\n\nvoid ftCo_LightThrow_Coll(Fighter_GObj* gobj)\n{\n    ft_800841B8(gobj, ftCo_LightThrow_GroundToAir);\n}\n\nstatic inline void inlineA0(Fighter_GObj* gobj, FtMotionId msid)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    float facing_dir = fp->facing_dir;\n    if (facing_dir != fp->facing_dir1) {\n        fp->facing_dir = fp->facing_dir1;\n    }\n    Fighter_ChangeMotionState(\n        gobj, msid,\n        Ft_MF_SkipMatAnim | Ft_MF_SkipColAnim | Ft_MF_UpdateCmd |\n            Ft_MF_SkipItemVis | Ft_MF_Unk19 | Ft_MF_SkipModelPartVis |\n            Ft_MF_SkipModelFlags | Ft_MF_Unk27,\n        fp->cur_anim_frame, fp->mv.co.itemthrow4.anim_spd, 0, NULL);\n    fp->facing_dir = facing_dir;\n    fp->accessory4_cb = ftCo_ItemThrow_Accessory;\n    ftCo_ItemThrow_Accessory(gobj);\n}\n\nvoid ftCo_LightThrow_GroundToAir(Fighter_GObj* gobj)\n{\n    Fighter* fp = gobj->user_data;\n    ftCommon_SetAirborne(fp);\n    if (fp->motion_id >= ftCo_MS_LightThrowF4) {\n        inlineA0(gobj, fp->motion_id + 4);\n    } else {\n        inlineA0(gobj, fp->motion_id + 6);\n    }\n}\n\nvoid ftCo_LightThrowAir_Coll(Fighter_GObj* gobj)\n{\n    ft_CheckGroundAndCall(gobj, ftCo_LightThrowAir_AirToGround);\n}\n\nvoid ftCo_LightThrowAir_AirToGround(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    ftCommon_SetGrounded(fp);\n    {\n        if (fp->motion_id >= ftCo_MS_LightThrowF4) {\n            inlineA0(gobj, fp->motion_id - 4);\n        } else {\n            inlineA0(gobj, fp->motion_id - 6);\n        }\n    }\n}\n\nvoid ftCo_HeavyThrow_Coll(Fighter_GObj* gobj)\n{\n    ft_800841B8(gobj, ftCo_80096E68);\n}\n\nvoid ftCo_HeavyWait2_Coll(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    if (fp->ground_or_air == GA_Ground) {\n        if (EnvironmentCollision_AllowGroundToAir(gobj) == GA_Ground) {\n            ftCommon_SetAirborne(fp);\n        }\n    } else if (ft_CheckGround(gobj) != GA_Ground) {\n        ftCommon_SetGrounded(fp);\n    }\n}\n",
+            "substitutions": 19,
+            "symbols": [
+              {
+                "canonical": "ft_80084DB0",
+                "proposed": "ftCommon_ApplyAerialPhysics",
+                "confidence": 0.72,
+                "subject": "main/melee/ft/ft_081B:ft_80084DB0",
+                "fact_id": "fact:c7aad93d-f8c7-4cfe-9f7b-bde04262dc97",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800961D0",
+                "proposed": "ftCo_LightThrowDrop_Phys",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800961D0",
+                "fact_id": "fact:1d87335f-daa6-4f7e-aa96-2c8a50afc2f4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80084F3C",
+                "proposed": "ftCommon_ApplyFrictionGroundAndMovement",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/ft_084E:ft_80084F3C",
+                "fact_id": "fact:73e10c0a-ced1-4aa6-97d4-ec465870c9d5",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80084104",
+                "proposed": "ft_CheckGroundAndFall",
+                "confidence": 0.72,
+                "subject": "main/melee/ft/ft_081B:ft_80084104",
+                "fact_id": "fact:cfa04dbb-2211-4bcd-ae19-57ded44d68a9",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096250",
+                "proposed": "ftCo_LightThrow_GroundToAir",
+                "confidence": 0.9,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096250",
+                "fact_id": "fact:9ba07235-b5d0-4590-a772-db9e74dfd35a",
+                "fact_updated_at": "2026-09-02T15:00:44.168Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095EFC",
+                "proposed": "ftCo_ItemThrow_Accessory",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+                "fact_id": "fact:e9bed42f-c2dc-4e05-878b-68956eb818ca",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCommon_8007D5D4",
+                "proposed": "ftCommon_SetAirborne",
+                "confidence": 0.68,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007D5D4",
+                "fact_id": "fact:bdedd0c3-f999-42e4-8627-37e6a8e568c5",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096374",
+                "proposed": "ftCo_LightThrowAir_AirToGround",
+                "confidence": 0.88,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096374",
+                "fact_id": "fact:6b5c2cdd-1b32-49f8-8c37-d7aeee95c399",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80082C74",
+                "proposed": "ft_CheckGroundAndCall",
+                "confidence": 0.68,
+                "subject": "main/melee/ft/ft_081B:ft_80082C74",
+                "fact_id": "fact:35bee8ca-0e05-4ffc-90d4-9e52620efeea",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCommon_8007D7FC",
+                "proposed": "ftCommon_SetGrounded",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007D7FC",
+                "fact_id": "fact:0ec7863b-18aa-498d-9473-a67e66272fdb",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096498",
+                "proposed": "ftCo_HeavyWait2_Coll",
+                "confidence": 0.9,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096498",
+                "fact_id": "fact:aac3257e-6dbe-4fef-896d-d673adae9d0c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80082708",
+                "proposed": "EnvironmentCollision_AllowGroundToAir",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/ft_081B:ft_80082708",
+                "fact_id": "fact:b8b34623-fb07-4574-8a2c-694ddaf8327a",
+                "fact_updated_at": "2026-09-04T18:42:06.954Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80081D0C",
+                "proposed": "ft_CheckGround",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/ft_081B:ft_80081D0C",
+                "fact_id": "fact:8db4569e-d81b-4556-b4b4-5fd5ae6f1f6c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ft_80085030",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ft_084E:ft_80085030",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowAir_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowDashDrop_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDashDrop_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrow_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrow_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ft_800841B8",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ft_081B:ft_800841B8",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "inlineA0",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "Fighter_ChangeMotionState",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/fighter:Fighter_ChangeMotionState",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowAir_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_HeavyThrow_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_HeavyThrow_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_80096E68",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Lift:ftCo_80096E68",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.h",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow",
+      "sha256": "7004b89d3547e16d34c9ff6f940981e595d211553e78b6e10101676a63b107e7",
+      "lines": 31,
+      "bytes": 1400,
+      "canonical_ranges": [
+        [
+          1,
+          31
+        ]
+      ],
+      "rendered_ranges": [
+        [
+          1,
+          31
+        ]
+      ],
+      "pages": [
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_ItemThrow/pages/src__melee__ft__kinds__ftCommon__ftCo_ItemThrow.h.1-31.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.h",
+            "source_sha256": "7004b89d3547e16d34c9ff6f940981e595d211553e78b6e10101676a63b107e7",
+            "start_line": 1,
+            "end_line": 31,
+            "total_lines": 31,
+            "next_line": null,
+            "content": "#ifndef GALE01_0949F4\n#define GALE01_0949F4\n\n#include <melee/ft/forward.h>\n\n/* 0949F4 */ bool ftCo_80094E54(Fighter* fp);\n/* 094CFC */ bool ftCo_ItemThrow_CheckInputFromGuard(Fighter_GObj* gobj);\n/* 094D70 */ bool ftCo_800951D0(Fighter_GObj* gobj);\n/* 094DF4 */ bool ftCo_80095254(Fighter_GObj* gobj);\n/* 094EA4 */ bool ftCo_HeavyThrow_CheckInput(Fighter_GObj* gobj);\n/* 094E7C */ bool ftCo_800952DC(Fighter_GObj* gobj);\n/* 0951DC */ bool ftCo_LightThrow4_CheckInput(Fighter_GObj* gobj);\n/* 0952E4 */ void ftCo_80095744(Fighter_GObj* gobj, bool*);\n/* 095328 */ bool ftCo_LightThrowAir_CheckInput(Fighter_GObj*, bool*);\n/* 095394 */ void ftCo_LightThrow_Enter(Fighter_GObj* gobj, FtMotionId msid);\n/* 095A20 */ void ftCo_ItemThrow_Anim(Fighter_GObj* gobj);\n/* 095CC0 */ void ftCo_ItemThrow_IASA(Fighter_GObj* gobj);\n/* 095CC4 */ void ftCo_ItemThrow_Phys(Fighter_GObj* gobj);\n/* 095CE4 */ void ftCo_LightThrowDash_Phys(Fighter_GObj* gobj);\n/* 095D50 */ void ftCo_LightThrowAir_Phys(Fighter_GObj* gobj);\n/* 095DA8 */ void ftCo_LightThrowDashDrop_Coll(Fighter_GObj* gobj);\n/* 095DC8 */ void ftCo_LightThrow_Coll(Fighter_GObj* gobj);\n/* 095EEC */ void ftCo_LightThrowAir_Coll(Fighter_GObj* gobj);\n/* 096010 */ void ftCo_HeavyThrow_Coll(Fighter_GObj* gobj);\n/* 0961D0 */ void ftCo_LightThrowDrop_Phys(Fighter_GObj* gobj);\n/* 096250 */ void ftCo_LightThrow_GroundToAir(Fighter_GObj* gobj);\n/* 096374 */ void ftCo_LightThrowAir_AirToGround(Fighter_GObj* gobj);\n/* 096498 */ void ftCo_HeavyWait2_Coll(Fighter_GObj* gobj);\n\n#endif\n",
+            "substitutions": 9,
+            "symbols": [
+              {
+                "canonical": "ftCo_80094E54",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+                "fact_id": "fact:5db5a1f7-0358-4943-bdec-ad182dbdb5dd",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_8009515C",
+                "proposed": "ftCo_ItemThrow_CheckInputFromGuard",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009515C",
+                "fact_id": "fact:8ed3518b-6c25-450d-9b1b-edc86ae04aad",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800951D0",
+                "proposed": "ftCo_ItemThrow_CheckInput",
+                "confidence": 0.82,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800951D0",
+                "fact_id": "fact:49981cd6-8580-4b6a-b261-5d5918e6c10c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80095254",
+                "proposed": "ftCo_LightThrowDash_CheckInput",
+                "confidence": 0.87,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095254",
+                "fact_id": "fact:71c459c7-0602-4cc5-8870-c12248324e3e",
+                "fact_updated_at": "2026-09-02T13:18:02.663Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_80094EA4",
+                "proposed": "ftCo_HeavyThrow_CheckInput",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094EA4",
+                "fact_id": "fact:a47e8e92-21e3-439b-9f3e-34410cbe0684",
+                "fact_updated_at": "2026-09-05T05:10:15.349Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800952DC",
+                "proposed": "ftCo_LightThrowDash_CheckInput",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800952DC",
+                "fact_id": "fact:32cbef6b-1e65-4d3f-83c4-8007bf790dfc",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "name_collision"
+              },
+              {
+                "canonical": "ftCo_8009563C",
+                "proposed": "ftCo_LightThrow4_CheckInput",
+                "confidence": 0.68,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009563C",
+                "fact_id": "fact:f1839747-f5f8-4f00-a636-acde846e2b19",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095328",
+                "proposed": "ftCo_LightThrowAir_CheckInput",
+                "confidence": 0.85,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095328",
+                "fact_id": "fact:e043687e-3824-4e12-a39a-e104a8d7e71b",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800957F4",
+                "proposed": "ftCo_LightThrow_Enter",
+                "confidence": 0.86,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+                "fact_id": "fact:8d0a4160-813d-4254-94c0-1e4d55fdc1e8",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_800961D0",
+                "proposed": "ftCo_LightThrowDrop_Phys",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800961D0",
+                "fact_id": "fact:1d87335f-daa6-4f7e-aa96-2c8a50afc2f4",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096250",
+                "proposed": "ftCo_LightThrow_GroundToAir",
+                "confidence": 0.9,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096250",
+                "fact_id": "fact:9ba07235-b5d0-4590-a772-db9e74dfd35a",
+                "fact_updated_at": "2026-09-02T15:00:44.168Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096374",
+                "proposed": "ftCo_LightThrowAir_AirToGround",
+                "confidence": 0.88,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096374",
+                "fact_id": "fact:6b5c2cdd-1b32-49f8-8c37-d7aeee95c399",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80096498",
+                "proposed": "ftCo_HeavyWait2_Coll",
+                "confidence": 0.9,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096498",
+                "fact_id": "fact:aac3257e-6dbe-4fef-896d-d673adae9d0c",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_80095744",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_ItemThrow_Anim",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Anim",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_ItemThrow_IASA",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_IASA",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_ItemThrow_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowDash_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDash_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowAir_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowDashDrop_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDashDrop_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrow_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrow_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_LightThrowAir_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_HeavyThrow_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_HeavyThrow_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        }
+      ]
+    }
+  ],
+  "subjects": [
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:.data",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:.sdata2",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094EA4",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009515C",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800951D0",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095254",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800952DC",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095328",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009563C",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095700",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095A30",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800961D0",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096250",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096374",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096498",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_HeavyThrow_Coll",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Anim",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_IASA",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Phys",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Coll",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Phys",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDashDrop_Coll",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDash_Phys",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrow_Coll",
+    "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094EA4#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009515C#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800951D0#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095254#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800952DC#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095328#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095328#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009563C#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095700#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095700#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095A30#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800961D0#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096250#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096374#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096498#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_HeavyThrow_Coll#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Anim#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_IASA#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Phys#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Coll#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Phys#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDashDrop_Coll#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDash_Phys#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrow_Coll#r3"
+  ],
+  "targets": [
+    {
+      "id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:.data",
+      "kind": "data",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:.data",
+      "symbol": ".data",
+      "address": "0x803C55C0"
+    },
+    {
+      "id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:.sdata2",
+      "kind": "data",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:.sdata2",
+      "symbol": ".sdata2",
+      "address": "0x804D8590"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094E54",
+      "symbol": "ftCo_80094E54",
+      "address": "0x80094E54"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094EA4",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80094EA4",
+      "symbol": "ftCo_80094EA4",
+      "address": "0x80094EA4"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009515C",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009515C",
+      "symbol": "ftCo_8009515C",
+      "address": "0x8009515C"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800951D0",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800951D0",
+      "symbol": "ftCo_800951D0",
+      "address": "0x800951D0"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095254",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095254",
+      "symbol": "ftCo_80095254",
+      "address": "0x80095254"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800952DC",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800952DC",
+      "symbol": "ftCo_800952DC",
+      "address": "0x800952DC"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095328",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095328",
+      "symbol": "ftCo_80095328",
+      "address": "0x80095328"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009563C",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_8009563C",
+      "symbol": "ftCo_8009563C",
+      "address": "0x8009563C"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095700",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095700",
+      "symbol": "ftCo_80095700",
+      "address": "0x80095700"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095744",
+      "symbol": "ftCo_80095744",
+      "address": "0x80095744"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800957F4",
+      "symbol": "ftCo_800957F4",
+      "address": "0x800957F4"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800958FC",
+      "symbol": "ftCo_800958FC",
+      "address": "0x800958FC"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095A30",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095A30",
+      "symbol": "ftCo_80095A30",
+      "address": "0x80095A30"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095D5C",
+      "symbol": "ftCo_80095D5C",
+      "address": "0x80095D5C"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80095EFC",
+      "symbol": "ftCo_80095EFC",
+      "address": "0x80095EFC"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800961D0",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_800961D0",
+      "symbol": "ftCo_800961D0",
+      "address": "0x800961D0"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096250",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096250",
+      "symbol": "ftCo_80096250",
+      "address": "0x80096250"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096374",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096374",
+      "symbol": "ftCo_80096374",
+      "address": "0x80096374"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096498",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_80096498",
+      "symbol": "ftCo_80096498",
+      "address": "0x80096498"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_HeavyThrow_Coll",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_HeavyThrow_Coll",
+      "symbol": "ftCo_HeavyThrow_Coll",
+      "address": "0x80096470"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Anim",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Anim",
+      "symbol": "ftCo_ItemThrow_Anim",
+      "address": "0x80095E80"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_IASA",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_IASA",
+      "symbol": "ftCo_ItemThrow_IASA",
+      "address": "0x80096120"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Phys",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_ItemThrow_Phys",
+      "symbol": "ftCo_ItemThrow_Phys",
+      "address": "0x80096124"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Coll",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Coll",
+      "symbol": "ftCo_LightThrowAir_Coll",
+      "address": "0x8009634C"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Phys",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowAir_Phys",
+      "symbol": "ftCo_LightThrowAir_Phys",
+      "address": "0x800961B0"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDashDrop_Coll",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDashDrop_Coll",
+      "symbol": "ftCo_LightThrowDashDrop_Coll",
+      "address": "0x80096208"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDash_Phys",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrowDash_Phys",
+      "symbol": "ftCo_LightThrowDash_Phys",
+      "address": "0x80096144"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrow_Coll",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemThrow:ftCo_LightThrow_Coll",
+      "symbol": "ftCo_LightThrow_Coll",
+      "address": "0x80096228"
+    }
+  ],
+  "counts": {
+    "files_expected": 2,
+    "files_reviewed": 2,
+    "canonical_lines": 731,
+    "rendered_lines": 731,
+    "targets": 30,
+    "entities": 35,
+    "subjects": 65,
+    "existing_facts": 172,
+    "proposed_writes": 30,
+    "baseline_links": 76,
+    "fact_dispositions": {
+      "retain": 136,
+      "supersede": 30,
+      "unresolved": 6
+    }
+  },
+  "supplemental_canonical_ranges": [
+    {
+      "path": "src/melee/ft/ft_084E.c",
+      "start_line": 42,
+      "end_line": 53,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_084E.c",
+      "start_line": 79,
+      "end_line": 89,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 51,
+      "end_line": 59,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 133,
+      "end_line": 152,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 1363,
+      "end_line": 1375,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 393,
+      "end_line": 424,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 1052,
+      "end_line": 1060,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 1043,
+      "end_line": 1050,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 105,
+      "end_line": 123,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 549,
+      "end_line": 556,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 515,
+      "end_line": 525,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 546,
+      "end_line": 594,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/inlines.h",
+      "start_line": 255,
+      "end_line": 273,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/it/item.c",
+      "start_line": 1994,
+      "end_line": 2037,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/it/it_2725.c",
+      "start_line": 327,
+      "end_line": 352,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/it/it_2725.c",
+      "start_line": 755,
+      "end_line": 798,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 1088,
+      "end_line": 1120,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_0DF1.c",
+      "start_line": 72,
+      "end_line": 97,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/it/it_26B1.c",
+      "start_line": 120,
+      "end_line": 124,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Guard.c",
+      "start_line": 468,
+      "end_line": 479,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Guard.c",
+      "start_line": 539,
+      "end_line": 548,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Escape.c",
+      "start_line": 172,
+      "end_line": 175,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Lift.c",
+      "start_line": 35,
+      "end_line": 41,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 596,
+      "end_line": 604,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftanim.c",
+      "start_line": 515,
+      "end_line": 538,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_08A1.c",
+      "start_line": 54,
+      "end_line": 109,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Lift.c",
+      "start_line": 48,
+      "end_line": 60,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c",
+      "start_line": 95,
+      "end_line": 109,
+      "ownership": "foreign_read_only"
+    }
+  ],
+  "reused_same_session_canonical_ranges": [
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 51,
+      "end_line": 59,
+      "prior_assignment": "Run/TurnRun/Attack1"
+    },
+    {
+      "path": "src/melee/ft/ft_08A1.c",
+      "start_line": 54,
+      "end_line": 109,
+      "prior_assignment": "Run/TurnRun/Attack1"
+    },
+    {
+      "path": "src/melee/ft/ftanim.c",
+      "start_line": 515,
+      "end_line": 538,
+      "prior_assignment": "Run/TurnRun/Attack1"
+    }
+  ],
+  "source_only_helpers": [
+    {
+      "symbol": "getAnimSpeed",
+      "range": [
+        307,
+        317
+      ]
+    },
+    {
+      "symbol": "inlineA0",
+      "range": [
+        637,
+        653
+      ]
+    }
+  ],
+  "exceptions": [],
+  "finished_at": "2026-09-08T16:30:07.884593Z",
+  "duration_seconds": 1052.160593,
+  "execution_scope": "Draft and dry-run validation only; no source/shared KB modifications, builds or publishing."
+}

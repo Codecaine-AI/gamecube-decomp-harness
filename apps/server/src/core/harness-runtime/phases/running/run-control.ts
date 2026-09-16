@@ -1,0 +1,852 @@
+import { randomUUID } from "node:crypto";
+import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { immediateTransaction } from "@server/core/orchestrator-state";
+import { reconcilePendingIntegrations } from "@server/core/harness-state/pending-integrations.js";
+import { newSpanId, type EventActor } from "@server/core/harness-state/events.js";
+import { getHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
+import {
+  getDispatchState,
+  initializeDispatchState,
+  recoverDispatch,
+  releaseDispatch,
+  releaseDispatchDetailed,
+  requestDispatch,
+  requireLease,
+  STALE_DISPATCH_LEASE_MS,
+  type DispatchLease,
+} from "@server/core/harness-state";
+import {
+  completeRunRecoveryJournal,
+  prepareRunClaimRecovery,
+  settlePreparedRunClaimRecovery,
+} from "@server/core/harness-runtime/phases/running/jobs/recover-claims.js";
+import {
+  activeClaimsForRun,
+  getRun,
+  transitionRun,
+  resetEpochBoundaryRetries,
+  type StateStore,
+} from "@server/core/harness-runtime/run-state";
+import { activateAcquiredSync } from "@server/core/harness-runtime/phases/sync/activation.js";
+import type { RunBlocker, RunRecord } from "@server/core/shared/types";
+
+interface ConfirmedRunControlInput {
+  commandId?: string;
+  confirmed: boolean;
+  reason: string;
+  runId: string;
+  spanId?: string;
+  store: StateStore;
+}
+
+interface SettlingRunControlInput extends ConfirmedRunControlInput {
+  globals: GlobalArgs;
+  processIntegrations?: boolean;
+  repoRoot?: string;
+}
+
+export interface RecoverRunInput extends SettlingRunControlInput {
+  hasActiveProcess?: (stateDir: string) => { active: boolean };
+  now?: Date | number | string;
+}
+
+export type ProcessLiveness = "live" | "not_live" | "unknown";
+export type RunDispatchLeaseStaleness = "stale" | "not_stale" | "process_liveness_unknown";
+export const FORCE_RELEASE_HEARTBEAT_FRESH_MS = 10_000;
+
+export type HardStopRunInput = SettlingRunControlInput;
+export type CancelRunInput = ConfirmedRunControlInput;
+
+export interface RunActionInput extends Omit<ConfirmedRunControlInput, "confirmed"> {
+  actor?: "guardian" | "operator" | "runner";
+}
+
+export interface SettleStoppedRunInput extends RunActionInput {
+  leaseId?: string;
+}
+
+export interface ActivateRunInput extends RunActionInput {
+  gameId?: string;
+}
+
+export interface SettledRunControlResult {
+  cancelledClaimIds: string[];
+  cancelledOperationIds: [];
+  run: RunRecord;
+}
+
+export interface RecoverRunResult extends SettledRunControlResult {
+  dispatchLeaseRecovered: boolean;
+  recoveryReason: string;
+}
+
+export interface HardStopRunResult extends SettledRunControlResult {
+  dispatchLeaseRecovered: boolean;
+}
+
+export interface StoppedRunSettlementResult {
+  leaseId: string | null;
+  run: RunRecord;
+  settled: boolean;
+}
+
+export interface RunLeaseReconciliation {
+  action: "released_unexpected_lease" | "paused_lease_free_run";
+  message: string;
+  run: RunRecord;
+}
+
+export interface ForceReleaseDispatchLeaseInput {
+  commandId?: string;
+  confirmed: boolean;
+  gameId: string;
+  hasActiveLeaseProcess: (stateDir: string, leaseId: string) => { active: boolean };
+  now?: Date | number | string;
+  reason: string;
+  stateDir: string;
+  store: StateStore;
+}
+
+export class RunControlConfirmationRequiredError extends Error {
+  constructor(action: string) {
+    super(`${action} requires operator confirmation`);
+    this.name = "RunControlConfirmationRequiredError";
+  }
+}
+
+export class RunControlBlockedError extends Error {
+  readonly blockerCodes: string[];
+
+  constructor(message: string, blockerCodes: string[]) {
+    super(message);
+    this.name = "RunControlBlockedError";
+    this.blockerCodes = blockerCodes;
+  }
+}
+
+function requireConfirmation(confirmed: boolean, action: string): void {
+  if (!confirmed) throw new RunControlConfirmationRequiredError(action);
+}
+
+export function forceReleaseDispatchLease(input: ForceReleaseDispatchLeaseInput): { leaseId: string; released: true } {
+  requireConfirmation(input.confirmed, "run.force_release_lease");
+  return immediateTransaction(input.store.db, () => {
+    const lease = getDispatchState(input.store, input.gameId)?.active_workflow ?? null;
+    if (!lease) {
+      throw new RunControlBlockedError(
+        `Game ${input.gameId} has no active dispatch lease`,
+        ["dispatch_lease_missing"],
+      );
+    }
+
+    const heartbeatAt = Date.parse(lease.heartbeat_at);
+    const at = timeMs(input.now);
+    if (!Number.isFinite(heartbeatAt) || !Number.isFinite(at) || at - heartbeatAt <= FORCE_RELEASE_HEARTBEAT_FRESH_MS) {
+      throw new RunControlBlockedError(
+        `Dispatch lease ${lease.lease_id} heartbeat is recent; force-release refused`,
+        ["dispatch_lease_heartbeat_recent"],
+      );
+    }
+
+    let active: boolean;
+    try {
+      active = input.hasActiveLeaseProcess(input.stateDir, lease.lease_id).active;
+    } catch {
+      throw new RunControlBlockedError(
+        `Dispatch lease ${lease.lease_id} process liveness could not be determined; force-release refused`,
+        ["process_liveness_unknown"],
+      );
+    }
+    if (active) {
+      throw new RunControlBlockedError(
+        `Dispatch lease ${lease.lease_id} still has a live scheduler process; force-release refused`,
+        ["dispatch_lease_process_live"],
+      );
+    }
+
+    recoverDispatch(input.store, {
+      actor: "operator",
+      cancelledSubjectIds: [],
+      commandId: input.commandId ?? `command-run-force-release-lease-${randomUUID()}`,
+      correlationId: lease.workflow_id,
+      gameId: input.gameId,
+      leaseId: lease.lease_id,
+      now: new Date(at).toISOString(),
+      recoveryReason: input.reason,
+    });
+    return { leaseId: lease.lease_id, released: true };
+  });
+}
+
+function requireRun(store: StateStore, runId: string): RunRecord {
+  const run = getRun(store, runId);
+  if (!run) throw new Error(`Run not found: ${runId}`);
+  return run;
+}
+
+function commandId(input: ConfirmedRunControlInput, action: string): string {
+  return input.commandId ?? `command-${action}-${randomUUID()}`;
+}
+
+function runLease(store: StateStore, run: RunRecord): DispatchLease | null {
+  const lease = getDispatchState(store, run.gameId ?? undefined)?.active_workflow ?? null;
+  return lease?.kind === "run" && lease.workflow_id === run.id ? lease : null;
+}
+
+export function reconcileHardStoppedHarnessState(input: {
+  cancelledClaimIds: string[];
+  commandId: string;
+  runId: string;
+  store: StateStore;
+}): void {
+  const run = requireRun(input.store, input.runId);
+  const gameId = requireGameId(run);
+  const harness = getHarnessState(input.store.db, gameId);
+  if (!harness || harness.execution.workflow !== "run") return;
+  transitionHarnessState(input.store.db, {
+    gameId,
+    expectedRevision: harness.identity.revision,
+    commandId: `${input.commandId}:harness-hard-stopped`,
+    patch: { execution: { workflow: "none", status: "paused" } },
+    boundary: {
+      eventId: `${input.commandId}:harness-hard-stopped`,
+      kind: "recovered",
+      outcome: "hard_stopped",
+      runId: input.runId,
+      evidence: {
+        run_id: input.runId,
+        cancelled_claim_ids: input.cancelledClaimIds,
+      },
+    },
+  });
+}
+
+function timeMs(value: Date | number | string | undefined): number {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Date.parse(value);
+  return Date.now();
+}
+
+function mergeRunBlockers(current: RunBlocker[], additions: RunBlocker[]): RunBlocker[] {
+  const merged = new Map(current.map((blocker) => [`${blocker.code}\0${blocker.source_kind}\0${blocker.source_id}`, blocker]));
+  for (const blocker of additions) {
+    merged.set(`${blocker.code}\0${blocker.source_kind}\0${blocker.source_id}`, blocker);
+  }
+  return [...merged.values()];
+}
+
+function requireGameId(run: RunRecord, explicit?: string): string {
+  const gameId = explicit ?? run.gameId ?? run.game?.gameId;
+  if (!gameId) throw new Error(`Run ${run.id} has no game id; dispatch authority cannot be managed`);
+  return gameId;
+}
+
+function dispatchReleaseEventId(store: StateStore, causedByEventId: string | null): string {
+  if (!causedByEventId) throw new Error("Dispatch release did not record a causal event");
+  const event = store.db
+    .query("SELECT event_type, causation_id FROM game_events WHERE event_id = ?")
+    .get(causedByEventId) as { event_type: string; causation_id: string } | null;
+  if (!event) throw new Error(`Dispatch release event ${causedByEventId} was not found`);
+  if (event.event_type === "game.dispatch_released") return causedByEventId;
+  if (event.event_type === "game.dispatch_acquired") return event.causation_id;
+  throw new Error(`Dispatch release ended with unexpected event ${event.event_type}`);
+}
+
+/** Atomically acquires dispatch authority and activates a ready/paused run. */
+export function activateRun(input: ActivateRunInput): { leaseId: string; run: RunRecord } {
+  const operationCommandId = commandId({ ...input, confirmed: true }, "run-activate");
+  const actionSpanId = input.spanId ?? newSpanId();
+  return immediateTransaction(input.store.db, () => {
+    const original = requireRun(input.store, input.runId);
+    if (original.status === "active") {
+      const existing = runLease(input.store, original);
+      if (!existing || existing.status !== "active") {
+        throw new RunControlBlockedError(`Run ${original.id} is active without its active dispatch lease`, ["run_lease_disagreement"]);
+      }
+      return { leaseId: existing.lease_id, run: original };
+    }
+    if (original.status !== "ready" && original.status !== "paused") {
+      throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; activation requires ready or paused`, ["run_not_ready_or_paused"]);
+    }
+    const gameId = requireGameId(original, input.gameId);
+    initializeDispatchState(input.store, { gameId, traceId: `trace-game-${gameId}` });
+    const actor = input.actor ?? "operator";
+    if (original.status === "paused") resetEpochBoundaryRetries(input.store, original.id);
+    const decision = requestDispatch(input.store, {
+      actor,
+      commandId: operationCommandId,
+      correlationId: original.id,
+      kind: "run",
+      gameId,
+      reason: input.reason,
+      spanId: actionSpanId,
+      workflowId: original.id,
+    });
+    if (decision.queued) {
+      throw new RunControlBlockedError(
+        `Dispatch lease is held by ${decision.blockedBy.kind}:${decision.blockedBy.workflow_id}; run ${original.id} was queued`,
+        ["dispatch_lease_unavailable"],
+      );
+    }
+    const run = transitionRun(input.store, original.id, {
+      actor,
+      causationId: decision.state.caused_by_event_id ?? operationCommandId,
+      commandId: operationCommandId,
+      correlationId: original.id,
+      eventType: "run.activated",
+      expectedRevision: original.revision,
+      patch: { status: "active", stopRequest: null },
+      payload: { lease_id: decision.leaseId },
+      spanId: actionSpanId,
+    });
+    return { leaseId: decision.leaseId, run };
+  });
+}
+
+/** Run-loop exit boundary: release authority, activate a waiting successor, and park the run. */
+export function settleStoppedRun(input: SettleStoppedRunInput): StoppedRunSettlementResult {
+  const operationCommandId = commandId({ ...input, confirmed: true }, "run-stop-settled");
+  const actionSpanId = input.spanId ?? newSpanId();
+  return immediateTransaction(input.store.db, () => {
+    const original = requireRun(input.store, input.runId);
+    const lease = runLease(input.store, original);
+    if (original.status === "paused" && !lease) {
+      reconcileHardStoppedHarnessState({
+        cancelledClaimIds: [],
+        commandId: operationCommandId,
+        runId: original.id,
+        store: input.store,
+      });
+      return { leaseId: null, run: original, settled: true };
+    }
+    if (original.status !== "active") {
+      throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; stop settlement requires active`, ["run_not_settling"]);
+    }
+    const activeClaims = activeClaimsForRun(input.store, original.id);
+    if (activeClaims.length > 0) {
+      throw new RunControlBlockedError(
+        `Run ${original.id} still has ${activeClaims.length} active claim(s) at run-loop exit settlement: ${activeClaims.map((claim) => claim.claimId).join(", ")}`,
+        ["unsettled_claims"],
+      );
+    }
+    if (!lease || (input.leaseId && lease.lease_id !== input.leaseId)) {
+      throw new RunControlBlockedError(`Run ${original.id} lost its dispatch lease before run-loop exit settlement`, ["run_lease_disagreement"]);
+    }
+    const actor = input.actor ?? "runner";
+    const gameId = requireGameId(original);
+    const release = releaseDispatchDetailed(input.store, {
+      actor,
+      commandId: operationCommandId,
+      correlationId: original.id,
+      leaseId: lease.lease_id,
+      gameId,
+      spanId: actionSpanId,
+    });
+    const released = release.state;
+    if (released.active_workflow?.kind === "run" && released.active_workflow.workflow_id === original.id) {
+      throw new RunControlBlockedError(`Run ${original.id} dispatch lease could not be released`, ["dispatch_release_blocked"]);
+    }
+    if (!release.releasedEventId) throw new Error(`Run ${original.id} dispatch release did not accept a release event`);
+    const releaseEventId = release.releasedEventId;
+    if (released.active_workflow?.kind === "sync") {
+      const successor = release.successorActivation;
+      if (
+        !successor || successor.kind !== "sync" ||
+        successor.workflowId !== released.active_workflow.workflow_id ||
+        successor.leaseId !== released.active_workflow.lease_id
+      ) {
+        throw new Error(`Run ${original.id} sync handoff is missing its accepted request activation context`);
+      }
+      activateAcquiredSync({
+        actor: successor.actor,
+        causationId: successor.causationId,
+        store: input.store,
+        gameId,
+        syncId: successor.workflowId,
+        leaseId: successor.leaseId,
+        commandId: successor.commandId,
+        correlationId: successor.correlationId,
+        spanId: successor.spanId,
+      });
+    }
+    if (lease.requested_handoff?.target_kind === "pr") {
+      console.error(
+        `[run-control] released run ${original.id} without activating dormant PR successor ${lease.requested_handoff.target_workflow_id}`,
+      );
+    }
+    const run = transitionRun(input.store, original.id, {
+      actor,
+      causationId: releaseEventId,
+      commandId: operationCommandId,
+      correlationId: original.id,
+      eventType: "run.paused",
+      expectedRevision: original.revision,
+      patch: { status: "paused" },
+      payload: {},
+      spanId: actionSpanId,
+    });
+    reconcileHardStoppedHarnessState({
+      cancelledClaimIds: [],
+      commandId: operationCommandId,
+      runId: run.id,
+      store: input.store,
+    });
+    return { leaseId: null, run, settled: true };
+  });
+}
+
+/** Loud startup repair for the two status/lease crash-window shapes. */
+export function reconcileRunLeaseState(input: RunActionInput): RunLeaseReconciliation | null {
+  const operationCommandId = commandId({ ...input, confirmed: true }, "run-lease-reconcile");
+  const actionSpanId = input.spanId ?? newSpanId();
+  return immediateTransaction(input.store.db, () => {
+    const original = requireRun(input.store, input.runId);
+    const gameId = requireGameId(original);
+    const lease = runLease(input.store, original);
+    if ((original.status === "ready" || original.status === "paused") && lease) {
+      const released = releaseDispatch(input.store, {
+        actor: "guardian",
+        commandId: operationCommandId,
+        correlationId: original.id,
+        leaseId: lease.lease_id,
+        gameId,
+        spanId: actionSpanId,
+      });
+      if (released.active_workflow?.kind === "run" && released.active_workflow.workflow_id === original.id) {
+        throw new Error(`Startup reconciliation could not release unexpected lease ${lease.lease_id} from ${original.status} run ${original.id}`);
+      }
+      return {
+        action: "released_unexpected_lease",
+        message: `Startup reconciliation released dispatch lease ${lease.lease_id} held by ${original.status} run ${original.id}`,
+        run: original,
+      };
+    }
+    if (original.status === "active" && !lease) {
+      const run = transitionRun(input.store, original.id, {
+        actor: "guardian",
+        commandId: operationCommandId,
+        correlationId: original.id,
+        eventType: "run.paused",
+        expectedRevision: original.revision,
+        patch: {
+          status: "paused",
+          stopRequest: original.stopRequest,
+        },
+        payload: {},
+        spanId: actionSpanId,
+      });
+      return {
+        action: "paused_lease_free_run",
+        message: `Startup reconciliation paused ${original.status} run ${original.id} because it did not own dispatch authority`,
+        run,
+      };
+    }
+    return null;
+  });
+}
+
+function processLiveness(
+  hasActiveProcess: ((stateDir: string) => { active: boolean }) | undefined,
+  stateDir: string,
+): ProcessLiveness {
+  if (!hasActiveProcess) return "unknown";
+  try {
+    return hasActiveProcess(stateDir).active ? "live" : "not_live";
+  } catch {
+    return "unknown";
+  }
+}
+
+export function runDispatchLeaseStaleness(input: {
+  hasActiveProcess?: (stateDir: string) => { active: boolean };
+  lease: DispatchLease | null;
+  now?: Date | number | string;
+  stateDir: string;
+}): RunDispatchLeaseStaleness {
+  if (!input.lease) return "not_stale";
+  const heartbeatAt = Date.parse(input.lease.heartbeat_at);
+  const at = timeMs(input.now);
+  if (!Number.isFinite(heartbeatAt) || !Number.isFinite(at) || at - heartbeatAt <= STALE_DISPATCH_LEASE_MS) {
+    return "not_stale";
+  }
+  const liveness = processLiveness(input.hasActiveProcess, input.stateDir);
+  if (liveness === "unknown") return "process_liveness_unknown";
+  return liveness === "not_live" ? "stale" : "not_stale";
+}
+
+export function isStaleRunDispatchLease(input: {
+  hasActiveProcess?: (stateDir: string) => { active: boolean };
+  lease: DispatchLease | null;
+  now?: Date | number | string;
+  stateDir: string;
+}): boolean {
+  return runDispatchLeaseStaleness(input) === "stale";
+}
+
+async function prepareSettlingRunClaims(
+  input: SettlingRunControlInput,
+  run: RunRecord,
+  action: "run.recover" | "run.hard_stop",
+  operationCommandId: string,
+) {
+  const repoRoot = input.repoRoot ?? run.game?.repoRoot ?? input.globals.repoRoot;
+  return prepareRunClaimRecovery({
+    action,
+    commandId: operationCommandId,
+    correlationId: run.id,
+    expectedRunRevision: run.revision,
+    force: true,
+    globals: input.globals,
+    processIntegrations: input.processIntegrations,
+    reason: input.reason,
+    repoRoot,
+    runId: run.id,
+    store: input.store,
+  });
+}
+
+function recoverHeldLease(
+  input: ConfirmedRunControlInput,
+  run: RunRecord,
+  lease: DispatchLease | null,
+  cancelledClaimIds: string[],
+  operationCommandId: string,
+  actionSpanId: string,
+  actor: EventActor,
+): string | null {
+  if (!lease) return null;
+  if (!run.gameId) throw new Error(`Run ${run.id} cannot recover its dispatch lease without a game id`);
+  const recovered = recoverDispatch(input.store, {
+    actor,
+    cancelledSubjectIds: cancelledClaimIds,
+    commandId: operationCommandId,
+    correlationId: run.id,
+    leaseId: lease.lease_id,
+    gameId: run.gameId,
+    recoveryReason: input.reason,
+    spanId: actionSpanId,
+  });
+  return dispatchReleaseEventId(input.store, recovered.state.caused_by_event_id);
+}
+
+/**
+ * Reconciles durable boundaries, settles orphaned claims, breaks a stale run
+ * lease when present, then records the recovery point as the final operation.
+ */
+export async function recoverRun(input: RecoverRunInput): Promise<RecoverRunResult> {
+  requireConfirmation(input.confirmed, "run.recover");
+  const operationCommandId = commandId(input, "run-recover");
+  const actionSpanId = input.spanId ?? newSpanId();
+  const original = requireRun(input.store, input.runId);
+  if (original.status === "completed" || original.status === "cancelled") {
+    throw new RunControlBlockedError(`Run ${original.id} is terminal (${original.status})`, ["run_terminal"]);
+  }
+  if (original.status !== "failed" && original.status !== "active" && original.status !== "paused") {
+    throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; recovery requires failed, active, or paused`, [
+      "run_status_not_recoverable",
+    ]);
+  }
+  const gameId = requireGameId(original);
+  let lease = runLease(input.store, original);
+  const leaseStaleness = runDispatchLeaseStaleness({
+    hasActiveProcess: input.hasActiveProcess,
+    lease,
+    now: input.now,
+    stateDir: input.globals.stateDir,
+  });
+  if (original.status !== "failed") {
+    const heldLease = getDispatchState(input.store, gameId)?.active_workflow ?? null;
+    if (!heldLease) {
+      const liveness = processLiveness(input.hasActiveProcess, input.globals.stateDir);
+      if (liveness === "unknown") {
+        throw new RunControlBlockedError(`Run ${original.id} process liveness could not be determined`, ["process_liveness_unknown"]);
+      }
+      if (liveness === "live") {
+        throw new RunControlBlockedError(`Run ${original.id} has no dispatch lease but its scheduler process is still live`, ["dispatch_process_alive"]);
+      }
+      console.log("recover: no dispatch lease held and no live scheduler - proceeding");
+    } else if (leaseStaleness === "process_liveness_unknown") {
+      throw new RunControlBlockedError(`Run ${original.id} process liveness could not be determined`, ["process_liveness_unknown"]);
+    } else if (leaseStaleness !== "stale") {
+      throw new RunControlBlockedError(`Run ${original.id} is not failed and its dispatch lease is not stale`, ["run_not_failed", "dispatch_lease_not_stale"]);
+    }
+  }
+
+  initializeDispatchState(input.store, { gameId, traceId: `trace-game-${gameId}` });
+  if (!lease) {
+    const decision = requestDispatch(input.store, {
+      actor: "operator",
+      commandId: operationCommandId,
+      correlationId: original.id,
+      kind: "run",
+      gameId,
+      reason: `recover run: ${input.reason}`,
+      spanId: actionSpanId,
+      workflowId: original.id,
+    });
+    if (!decision.queued) lease = decision.state.active_workflow;
+  }
+  if (!lease) {
+    throw new RunControlBlockedError(`Run ${original.id} recovery dispatch authority is unavailable`, [
+      "dispatch_authority_unavailable",
+    ]);
+  }
+  requireLease(input.store, lease.lease_id, gameId);
+  reconcilePendingIntegrations(input.store, { runId: original.id });
+  const preparedRun = requireRun(input.store, original.id);
+  const prepared = await prepareSettlingRunClaims(input, preparedRun, "run.recover", operationCommandId);
+  const cancelledClaimIds = prepared.journal.cancelledClaimIds;
+  const cancelledOperationIds = prepared.journal.cancelledOperationIds;
+  let dispatchLeaseRecovered = false;
+  const run = immediateTransaction(input.store.db, () => {
+    const current = requireRun(input.store, original.id);
+    if (current.revision !== prepared.journal.expectedRunRevision) {
+      throw new Error(
+        `Recovery journal ${prepared.journal.recoveryId} expects run revision ${prepared.journal.expectedRunRevision}, found ${current.revision}`,
+      );
+    }
+    if (current.status !== "failed" && current.status !== "active" && current.status !== "paused") {
+      throw new RunControlBlockedError(`Run ${current.id} changed to ${current.status} during recovery`, ["run_status_changed"]);
+    }
+    const recovery = settlePreparedRunClaimRecovery(
+      {
+        ...input,
+        action: "run.recover",
+        commandId: prepared.journal.commandId,
+        correlationId: prepared.journal.correlationId,
+        expectedRunRevision: prepared.journal.expectedRunRevision,
+        force: true,
+        repoRoot: input.repoRoot ?? current.game?.repoRoot ?? input.globals.repoRoot,
+      },
+      prepared,
+    );
+    const currentLease = runLease(input.store, current);
+    dispatchLeaseRecovered = Boolean(currentLease);
+    const releaseEventId = currentLease
+      ? recoverHeldLease(
+          {
+            ...input,
+            reason: prepared.journal.recoveryReason,
+          },
+          current,
+          currentLease,
+          cancelledClaimIds,
+          prepared.journal.commandId,
+          actionSpanId,
+          "operator",
+        )
+      : null;
+    const transitioned = transitionRun(input.store, current.id, {
+      actor: "operator",
+      causationId: releaseEventId ?? prepared.journal.commandId,
+      commandId: prepared.journal.commandId,
+      correlationId: current.id,
+      eventType: "run.recovered",
+      expectedRevision: current.revision,
+      patch: {
+        blockers: mergeRunBlockers(current.blockers, recovery.blockers),
+        status: "paused",
+        stopRequest: null,
+        terminalReason: null,
+      },
+      payload: {
+        recovery_id: prepared.journal.recoveryId,
+        recovery_reason: prepared.journal.recoveryReason,
+        cancelled_claim_ids: cancelledClaimIds,
+        cancelled_operation_ids: cancelledOperationIds,
+        queued_work: recovery.workerOutputIntegration?.queued ?? [],
+        resulting_status: "paused",
+      },
+      spanId: actionSpanId,
+    });
+    if (!transitioned.causedByEventId) {
+      throw new Error(`Recovered run ${transitioned.id} has no transition event id`);
+    }
+    completeRunRecoveryJournal(input.store, {
+      recoveryId: prepared.journal.recoveryId,
+      causedByEventId: transitioned.causedByEventId,
+    });
+    const harness = getHarnessState(input.store.db, gameId);
+    const clearedBlockers = harness?.execution.blockers ?? [];
+    const canClearHarnessBlockers = harness?.execution.status === "blocked"
+      && clearedBlockers.length > 0
+      && clearedBlockers.every((blocker) => blocker.recoverable && (blocker.source_kind === "epoch" || blocker.source_kind === "run"))
+      && Object.values(harness.readiness).every((status) => status !== "blocked");
+    if (harness && canClearHarnessBlockers) {
+      transitionHarnessState(input.store.db, {
+        gameId,
+        expectedRevision: harness.identity.revision,
+        commandId: prepared.journal.commandId,
+        patch: { execution: { workflow: "none", status: "paused", blockers: [] } },
+        boundary: {
+          eventId: `harness-recovered-${prepared.journal.recoveryId}`,
+          kind: "recovered",
+          outcome: "blockers_cleared",
+          runId: transitioned.id,
+          evidence: {
+            cleared_blockers: clearedBlockers,
+            recovery_id: prepared.journal.recoveryId,
+          },
+        },
+      });
+    }
+    return transitioned;
+  });
+  return {
+    cancelledClaimIds,
+    cancelledOperationIds,
+    dispatchLeaseRecovered,
+    recoveryReason: prepared.journal.recoveryReason,
+    run,
+  };
+}
+
+/** Force-settles in-flight claims and returns an active run to paused. */
+export async function hardStopRun(input: HardStopRunInput): Promise<HardStopRunResult> {
+  requireConfirmation(input.confirmed, "run.hard_stop");
+  const operationCommandId = commandId(input, "run-hard-stop");
+  const actionSpanId = input.spanId ?? newSpanId();
+  const original = requireRun(input.store, input.runId);
+  const originalLease = runLease(input.store, original);
+  if (original.status === "paused" && !originalLease && activeClaimsForRun(input.store, original.id).length === 0) {
+    immediateTransaction(input.store.db, () => reconcileHardStoppedHarnessState({
+      cancelledClaimIds: [],
+      commandId: operationCommandId,
+      runId: original.id,
+      store: input.store,
+    }));
+    return { cancelledClaimIds: [], cancelledOperationIds: [], dispatchLeaseRecovered: false, run: original };
+  }
+  if (original.status !== "active" && original.status !== "paused") {
+    throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; hard stop requires active or paused`, ["run_not_active_or_paused"]);
+  }
+  const lease = originalLease;
+  const prepared = await prepareSettlingRunClaims(input, original, "run.hard_stop", operationCommandId);
+  const cancelledClaimIds = prepared.journal.cancelledClaimIds;
+  const cancelledOperationIds = prepared.journal.cancelledOperationIds;
+  let dispatchLeaseRecovered = Boolean(lease);
+  const run = immediateTransaction(input.store.db, () => {
+    const current = requireRun(input.store, original.id);
+    if (current.revision !== prepared.journal.expectedRunRevision) {
+      throw new Error(
+        `Recovery journal ${prepared.journal.recoveryId} expects run revision ${prepared.journal.expectedRunRevision}, found ${current.revision}`,
+      );
+    }
+    if (current.status !== "active" && current.status !== "paused") {
+      throw new RunControlBlockedError(`Run ${current.id} changed to ${current.status} during hard stop`, ["run_status_changed"]);
+    }
+    const recovery = settlePreparedRunClaimRecovery(
+      {
+        ...input,
+        action: "run.hard_stop",
+        commandId: prepared.journal.commandId,
+        correlationId: prepared.journal.correlationId,
+        expectedRunRevision: prepared.journal.expectedRunRevision,
+        force: true,
+        repoRoot: input.repoRoot ?? current.game?.repoRoot ?? input.globals.repoRoot,
+      },
+      prepared,
+    );
+    const currentLease = runLease(input.store, current);
+    dispatchLeaseRecovered = Boolean(currentLease);
+    const releaseEventId = currentLease
+      ? recoverHeldLease(
+          {
+            ...input,
+            reason: prepared.journal.recoveryReason,
+          },
+          current,
+          currentLease,
+          cancelledClaimIds,
+          prepared.journal.commandId,
+          actionSpanId,
+          "operator",
+        )
+      : null;
+    const transitioned =
+      current.status === "paused"
+        ? current
+        : transitionRun(input.store, current.id, {
+            actor: "operator",
+            causationId: releaseEventId ?? prepared.journal.commandId,
+            commandId: prepared.journal.commandId,
+            correlationId: current.id,
+            eventType: "run.paused",
+            expectedRevision: current.revision,
+            patch: {
+              blockers: mergeRunBlockers(current.blockers, recovery.blockers),
+              status: "paused",
+              stopRequest: { mode: "hard_stop", reason: input.reason },
+            },
+            payload: {
+              recovery_id: prepared.journal.recoveryId,
+              recovery_reason: prepared.journal.recoveryReason,
+              cancelled_claim_ids: cancelledClaimIds,
+              cancelled_operation_ids: cancelledOperationIds,
+              queued_work: recovery.workerOutputIntegration?.queued ?? [],
+            },
+            spanId: actionSpanId,
+          });
+    const causedByEventId =
+      transitioned === current
+        ? getDispatchState(input.store, requireGameId(current))?.caused_by_event_id ?? null
+        : transitioned.causedByEventId;
+    if (!causedByEventId) throw new Error(`Hard-stopped run ${transitioned.id} has no transition event id`);
+    completeRunRecoveryJournal(input.store, {
+      recoveryId: prepared.journal.recoveryId,
+      causedByEventId,
+    });
+    reconcileHardStoppedHarnessState({
+      cancelledClaimIds,
+      commandId: prepared.journal.commandId,
+      runId: transitioned.id,
+      store: input.store,
+    });
+    return transitioned;
+  });
+  return { cancelledClaimIds, cancelledOperationIds, dispatchLeaseRecovered, run };
+}
+
+/** Cancels a settled paused or failed run; cancellation is terminal. */
+export function cancelRun(input: CancelRunInput): RunRecord {
+  requireConfirmation(input.confirmed, "run.cancel");
+  const operationCommandId = commandId(input, "run-cancel");
+  const actionSpanId = input.spanId ?? newSpanId();
+  const original = requireRun(input.store, input.runId);
+  if (original.status !== "paused" && original.status !== "failed") {
+    throw new RunControlBlockedError(`Run ${original.id} is ${original.status}; cancellation requires paused or failed`, ["run_not_paused_or_failed"]);
+  }
+  const unsettledClaims = activeClaimsForRun(input.store, original.id);
+  if (unsettledClaims.length > 0) {
+    throw new RunControlBlockedError(
+      `Run ${original.id} has ${unsettledClaims.length} unsettled claim(s): ${unsettledClaims.map((claim) => claim.claimId).join(", ")}`,
+      ["unsettled_claims"],
+    );
+  }
+  return immediateTransaction(input.store.db, () => {
+    const current = requireRun(input.store, original.id);
+    const releaseEventId = recoverHeldLease(
+      input,
+      current,
+      runLease(input.store, current),
+      [],
+      operationCommandId,
+      actionSpanId,
+      "operator",
+    );
+    return transitionRun(input.store, current.id, {
+      actor: "operator",
+      causationId: releaseEventId ?? operationCommandId,
+      commandId: operationCommandId,
+      correlationId: current.id,
+      eventType: "run.cancelled",
+      expectedRevision: current.revision,
+      patch: { status: "cancelled", stopRequest: null, terminalReason: input.reason },
+      payload: {
+        cancellation_reason: input.reason,
+      },
+      spanId: actionSpanId,
+    });
+  });
+}

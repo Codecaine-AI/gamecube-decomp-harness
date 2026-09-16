@@ -1,0 +1,102 @@
+{
+  "tu": "main/melee/ft/ftlipstickswing",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftlipstickswing:ftCo_800CDAB4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally initializes cmd_vars[0]=540000 and cmd_vars[1]=0, calls ftCo_800CD140 with the selected motion, flags zero, variant and rate, then installs ft_800CDB9C as accessory4_cb and ft_800CD31C as take_dmg_cb. The common initializer clears throw flags, enters motion at frame zero, calls ftAnim_8006EBA4, sets the common swing latch to 1, stores the variant, and calls ftCommon_8007E79C(gobj,1). The damage callback calls ftCommon_8007E7E4(gobj,1) only if an item remains held. The dispatcher asserts item presence and selects family 5 before this call; neither that assertion nor this unguarded entry establishes general validation of arbitrary motion/variant/rate inputs. Complete callback cleanup/lifetime is a framework dependency.",
+        "rationale": "Supersedes the baseline's overbroad validation/restoration description with explicit initialization order, guards and named operations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlipstickswing.c#L13-L21",
+            "why": "Exact local writes, argument forwarding and installation order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L14-L24",
+            "why": "Exact common-entry state operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L65-L71",
+            "why": "Held-item guard and exact damage callback operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L63-L98",
+            "why": "Dispatcher assertion, lookup and entry call."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftlipstickswing:ft_800CDB9C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Reads fighter data and evaluates a Lipstick-kind assertion before the explicit item null guard. In the guarded body, cmd_vars[0] != 540000 triggers one sound request (command value if resource is positive, otherwise 288; fixed arguments 127 and 64), then resets the command to 540000. Independently, ftCheckThrowB0 consumes a set throw bit and gates emission-position calculation. The subsequent resource query treats Lipstick xD4C <= 0 as exhausted and selects effect 1032; positive resource selects it_80295770, which decrements a positive resource before calling it_8029A114. With one unit remaining this request is allowed and leaves zero. Sound and emission use separate status queries. No local validation clamps sound IDs, facing, script mode, joint index or floating-point inputs; the callback does not unregister itself. The null guard alone is not assertion-enabled null safety because itGetKind dereferences its object.",
+        "rationale": "Preserves the baseline event behavior while adding exact boundaries, assertion ordering and callback lifetime limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlipstickswing.c#L43-L74",
+            "why": "Guards, two status queries, sentinel reset, emission paths and absence of local cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L245-L253",
+            "why": "Throw bit is consumed rather than merely tested."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L301-L320",
+            "why": "Lipstick depletion is the <=0 resource condition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstick.c#L43-L50",
+            "why": "Positive-only decrement precedes constructor request using item owner."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L113-L117",
+            "why": "Kind accessor has no null guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftlipstickswing:ftCo_LipstickSwing_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The wrapper unconditionally delegates to ftCo_800CD278. That helper uses ft_80084FA8 for variants other than 4; for variant 4 it calls ft_80085030 with p_ftCommonData->x420 multiplied by fp->co_attrs.ground_friction and with fp->facing_dir. There is no local floating-point sanitization or Lipstick-specific physics arithmetic in the wrapper.",
+        "rationale": "Documents the previously unstated variant-specific dependency using the active common implementation rather than an inferred helper alias.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlipstickswing.c#L33-L36",
+            "why": "Complete physics adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L45-L55",
+            "why": "Exact variant boundary and arithmetic."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftpickupitem",
+  "owner": "/root/semantic_coordinator",
+  "dependent_tu": "main/melee/ft/kinds/ftCommon/ftCo_AttackAir",
+  "status": "resolved_for_lead_review",
+  "claims": [
+    {
+      "claim": "In all five common AttackAir IASA expansions, the delayed pickup timer-write path cannot execute under ordinary sequential C execution.",
+      "proof": "Reaching ftCo_800D705C requires the preceding local checkItemThrowInput to return false. That false path establishes no pressed A and performs no write; its sole possible helper ftCo_800DF478 is read-only. The next predicate requires pressed A, so it returns false without setting x209C. Earlier callee effects do not invalidate this implication because the false-path read occurs afterward."
+    },
+    {
+      "claim": "Immediate aerial pickup acceptance does not mean a required new fighter motion.",
+      "proof": "ftCo_800D7100 searches mode1 and calls fn_800D6F58, which assigns and attaches the item, calls owned fttpickupitem_8009447C, and marks pickup state. The owned handler can request recovery/status or consumption and return false; Warp Star/Hammer return true after dedicated entry. The aerial acquisition wrapper ignores that return and reports item acquisition true regardless."
+    },
+    {
+      "claim": "Grounded pickup entry acceptance does mean LightGet/HeavyGet initialization was invoked, but does not reserve the candidate or guarantee later acquisition.",
+      "proof": "Owned 80094790 calls 80094694 then returns true. Anim later consumes bit3 and repeats a weight-filtered search; a missing or changed candidate is possible."
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackAir.c#L147-L155",
+      "why": "Aerial attack checker immediately precedes delayed pickup."
+    },
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackAir.c#L29-L47",
+      "why": "False path requires A absent and no C-stick crossing; no mutation on false path."
+    },
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF1.c#L72-L82",
+      "why": "Crossing predicate only reads input."
+    },
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L297-L308",
+      "why": "Delayed predicate requires A and only then writes timer."
+    },
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L272-L325",
+      "why": "Immediate acquisition calls owned notification and immediate-effect helper."
+    },
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftpickupitem.c#L153-L204",
+      "why": "Only Warp Star and Hammer return true from immediate-effect dispatcher."
+    }
+  ]
+}

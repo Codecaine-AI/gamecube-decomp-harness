@@ -1,0 +1,94 @@
+{
+  "tu": "main/melee/gm/gmopening",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmopening.c#L150-L187",
+            "why": "Explicit initialization, camera arguments, masks, startup and hook publication."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes callback priorities from render masks and publication from registration.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmopening:gm_Scene_Opening_OnEnter"
+        },
+        "type": "data_flow",
+        "value": "Clears the opening timeline, one-shot guards and temporary-object slots; stores primary camera and movie-renderer GObjs; configures two 640\u00d7480 cameras with helper priorities 8 and 11 and separate gxlink_prios masks 0x800 and 0x20000; passes MvOpen.mth and gm_803DBFB4 to lbMthp_8001F410; then publishes fn_801AA0E8 in gm_804D6724 for deferred diagnostic registration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmopening.c#L197-L290",
+            "why": "Complete timeline and exit logic."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves equality boundaries, branch precedence, bounded creation windows and conditional menu routing.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmopening:gm_Scene_Opening_OnFrame"
+        },
+        "type": "state_behavior",
+        "value": "Updates MTHP and copies its counter unless the previous stored timeline exceeds 5400, in which case it increments locally. One-shot guards control language-dependent sounds at 4980/5034/5100 and a main-library call at 4980. Temporary objects are created only within [454,514) and [950,974), and removed at or beyond their upper bounds. At >=5130 a title helper runs once and stores a u32 deadline from 600.0f + (400.0f + timeline). Nonzero MTHP status after title activation triggers preload once. Exit precedence is exact deadline equality, then global xC with zero MTHP status, then late Start at timeline >5500, otherwise early Start/A at <=5500. Deadline equality requests scene exit without explicitly selecting a mode. The exceptional and early paths select GM_TITLE. The late path selects GM_MENU only if gm_80173754(GM_MENU,0) returns false, but marks a new mode pending either way."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmopening.c#L139-L290",
+            "why": "Startup resources, callback publication and timeline consumers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional-copy wording and avoids unsupported decoding of the startup table.",
+        "subject": {
+          "entity_locator": "src/melee/gm/gmopening.c"
+        },
+        "type": "data_flow",
+        "value": "Entry creates 640\u00d7480 camera/display objects, initializes title/audio helpers, and passes MvOpen.mth plus the six-word gm_803DBFB4 table to MTHP startup. It publishes a shared diagnostic-registration hook after startup. Each frame reads MTHP's counter; the stored timeline copies that value unless its previous value exceeds 5400, when it increments independently. The resulting timeline drives language-dependent sound calls, temporary presentation objects, title activation and an exact transition deadline. MTHP status, global xC and controller triggers choose distinct preload and exit paths."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmopening.c#L143-L290",
+            "why": "Entry and frame state transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L107-L131",
+            "why": "Deferred diagnostic-hook invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L214-L238",
+            "why": "Shared registry and hook reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtitle.c#L239-L252",
+            "why": "Externally populated sprite descriptor."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates registration publication, playback-status handling and timed exit while preserving cross-file state ownership.",
+        "subject": {
+          "entity_locator": "src/melee/gm/gmopening.c"
+        },
+        "type": "state_behavior",
+        "value": "Entry resets the timeline, event guards and temporary slots, constructs the presentation, starts MvOpen.mth and publishes a diagnostic-registration hook rather than invoking it. Frame processing combines persistent one-shot flags, bounded object-creation windows, language-dependent sound thresholds and a title-activation deadline. Nonzero MTHP status causes one-shot preload after title activation; normal exit instead requires exact deadline equality. A higher-priority global-xC/zero-status branch and separate early Start/A versus late Start branches perform different cleanup and mode-selection sequences. Descriptor loading and diagnostic hook/registry lifetime cross TU boundaries."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "tu": "main/sysdolphin/baselib/class",
+  "reader": "tu_cobj_wave4",
+  "notes": [
+    {
+      "finding": "ClassInfoInit checks initialized bit but does not set it. hsdInitClassInfo assigns flags=1, narrows signed sizes and resets all hierarchy/counters before parent initialization and assertions; repeated direct initialization can lose descendants or self-link a sibling.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L22-L58"
+    },
+    {
+      "finding": "GetMemoryEntry publishes table growth before recycling old table and creating requested metadata. Size-class insertion searches nearest lower/higher existing entry. Allocation first pops exact list, then splits larger free block, then makes table-capacity slab. Rounding and doubling overflow, double frees, invalid storage and missing metadata are unguarded.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L79-L245"
+    },
+    {
+      "finding": "HSD_MemAlloc returns NULL for nonpositive size and asserts positive-size allocation failure; local NULL branches do not establish recoverable exhaustion. Metadata mutations can precede a later failure.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/memory.c#L14-L26"
+    },
+    {
+      "finding": "Default allocation increments live/peak only on nonnull storage; destruction decrements live and recycles. hsdNew rechecks class initialization after allocation, zeroes obj_size bytes, sets class_info, then init; negative init invokes destroy without release. Root amnesia drops allocator/hash references without freeing backing allocations.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L248-L316"
+    },
+    {
+      "finding": "Rebinding initializes requested descriptor, requires equal object size and equal roots after climbing same-size ancestors. It decrements normalized old ancestor rather than necessarily concrete class, increments destination and changes class_info without object init/release/destroy. Discarded !oldclass expression is no assertion.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L318-L371"
+    },
+    {
+      "finding": "Class ancestry initializes both descriptors; object ancestry initializes requested descriptor only. Forgetting visits children before parent, clears child sibling links but preserves selected root next and incoming link for caller unlinking. Non-root library search scans immediate root children only. current_hash has no nonnull producer locally.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L373-L481"
+    },
+    {
+      "finding": "Dump NULL forces recursive root selection; uninitialized node suppresses its entire subtree. Header hsdDelete calls release then rereads runtime class for destroy. Signed size fields, unsigned counters, method types and source-only signatures independently reviewed.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.h#L14-L93"
+    },
+    {
+      "finding": "Full independent canonical and separately rendered C516/H96 complete; C1 parser error and header0, zero substitutions. Reset token annotated as unrelated Peach reset without text replacement. All 97 fact values, 8 operations, 30 empty positional parameters, 20 target functions and 7 source-only functions reviewed. All leaf supplemental canonical ranges independently read; both exact diagnostic links retained.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/class.c#L1-L515"
+    }
+  ]
+}

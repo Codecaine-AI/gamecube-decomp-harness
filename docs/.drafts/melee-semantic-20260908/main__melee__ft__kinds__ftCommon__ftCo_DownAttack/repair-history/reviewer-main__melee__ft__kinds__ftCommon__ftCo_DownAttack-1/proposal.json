@@ -1,0 +1,92 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_DownAttack",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownAttack:ftCo_8009856C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally forwards the supplied Fighter_GObj and FtMotionId to Fighter_ChangeMotionState with Ft_MF_None, animation start 0.0f, speed 1.0f, blend argument 0.0f, and NULL alternate animation source, then calls ftAnim_8006EBA4. It validates neither eligibility nor the motion ID. Where the receiver initializes the selected animation, zero blend selects its animation-data default rather than guaranteeing zero effective blend duration.",
+        "rationale": "Confirms and refines the librarian correction with the receiver's conditional animation-initialization branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L45-L49",
+            "why": "Complete entry helper and exact arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1246-L1295",
+            "why": "Conditional initialization and zero/default versus -1/no-blend selection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownAttack:ftCo_80098634"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Traverses HSD_GObj_Entities->fighters in next-link order, overwrites only the visited prefix of ecb_offset_arr and ft_pos_arr, then sets count. Empty input sets count=0 without clearing arrays; stale tails and other fields remain untouched. Source arrays each have eleven elements, but the producer has no capacity check. The head-item caller refreshes Item_804A0CCC then clears x154.b0; the overlap consumer skips the snapshot when that bit equals 1.",
+        "rationale": "Repairs full-overwrite wording without asserting compiled layout or a global capacity invariant.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L70-L85",
+            "why": "Indexed writes, termination, count, and missing bounds guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/types.h#L789-L801",
+            "why": "Source array capacities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1342-L1348",
+            "why": "Head-item refresh and flag clear."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1159-L1185",
+            "why": "Consumer flag gate and count-bounded use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownAttack:ftCo_80098634"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supports grounded item-versus-fighter body-overlap resolution by supplying positions and fixed ECB offsets. The item consumer tests ECB overlap and, on success, assigns a horizontal nudge and ORs item xDC0 with mask 1, setting zero-based bit 0. Multiple overlaps can replace the nudge rather than accumulate it.",
+        "rationale": "Retains the supported mechanic while explicitly repairing the baseline rationale's ambiguous bit numbering.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L70-L85",
+            "why": "Produces the fighter-side snapshot."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1159-L1185",
+            "why": "Overlap loop assigns nudge and uses xDC0 |= 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1297-L1317",
+            "why": "Grounded and item-flag gating."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

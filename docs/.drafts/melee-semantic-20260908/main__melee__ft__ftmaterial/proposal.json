@@ -1,0 +1,89 @@
+{
+  "tu": "main/melee/ft/ftmaterial",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftmaterial:ftMaterial_800BF6BC"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "With clear x2223_b3, obtains the active embedded ColorOverlay and derives a candidate index from x61A_controller_index, overridden to 4 for is_metal or otherwise 5 for x2227_b3 when both x2228_b0 and x2224_b0 are set. x2223_b2 has highest color priority and selects x610_color_rgba[1]. Otherwise a nonzero index selects the integer composite of x610_color_rgba[0] with enabled overlay color; only disabled overlay color selects the indexed common GXColor at &p_ftCommonData->x6D8. With index zero, enabled overlay color is used directly; otherwise no stage is emitted. A selected color feeds two allocated TEV registers for RGB and alpha-derived RGB ratio, with optional x61D scalar alpha, then one descriptor submission. The nullable preceding expression chain reserves resources during allocation rather than becoming persistent storage.",
+        "rationale": "Repairs incorrect common-table-before-composite priority and makes optional execution explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmaterial.c#L218-L357",
+            "why": "Exact source-selection ladder, resource chaining and guarded uploads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdevice.c#L16-L19",
+            "why": "Embedded overlay selection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftmaterial:ftMaterial_800BF6BC"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void ftMaterial_800BF6BC(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp): side-effect-only conditional tint helper. Fighter state supplies selection flags, palette/overlay colors and optional x61D alpha. The material and nullable preceding expression chain describe occupied TEV resources. It returns no expression and emits at most one stage, only with clear x2223_b3 and a selected color.",
+        "rationale": "Replaces unconditional stage wording with the verified conditional contract.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmaterial.c#L199-L360",
+            "why": "Signature, disable guard, color guard, resource allocation and conditional submission."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftmaterial:ftMaterial_800BFB4C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Copies a supplied GXColor into the diffuse field of each valid material reached from the fighter GObj's JObj root. It processes DObj chains and follows child, sibling and parent links, excluding descent into children of JOBJ_INSTANCE nodes. Materials are modified in place without cloning geometry, textures or material objects. Model-limited traversal requires a proper root.",
+        "rationale": "Replaces unsupported complete-hierarchy coverage with actual traversal and ownership behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmaterial.c#L362-L468",
+            "why": "Diffuse writes, null guards, instance exclusion and parent-based termination."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftmaterial:ftMaterial_800BFB4C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Used during Mr. Game & Watch load initialization to apply x4_GAMEWATCH_COLOR[x619_costume_id] to diffuse fields of materials reached by its instance-pruned traversal. This establishes costume-indexed body recoloring; loaded color bytes and index-to-named-color ordering remain unresolved.",
+        "rationale": "Preserves the verified caller mapping while removing unsupported named palette and blanket traversal claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatch.c#L522-L539",
+            "why": "Costume-indexed GXColor argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmaterial.c#L362-L395",
+            "why": "Actual material propagation and instance-child exclusion."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

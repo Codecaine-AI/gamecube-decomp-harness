@@ -52,6 +52,7 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="Explicit PR number to fetch. Repeat to fetch a merged/intake set without a time-window discovery query.",
     )
+    parser.add_argument("--refresh-existing", action="store_true", help="Recapture selected existing PRs so changed text and reviews receive new capture hashes.")
     parser.add_argument(
         "--activity",
         choices=("created", "updated"),
@@ -622,7 +623,7 @@ def main() -> int:
     )
 
     if explicit_numbers:
-        missing = [number for number in explicit_numbers if not has_complete_pr(dump_root, number)]
+        missing = [number for number in explicit_numbers if args.refresh_existing or not has_complete_pr(dump_root, number)]
         selected_prs: list[dict[str, Any]] = []
         discovered_count = len(explicit_numbers)
     else:
@@ -630,7 +631,7 @@ def main() -> int:
         prs = discover_prs(args.repo, since, args.activity, args.limit)
         by_number = {int(pr["number"]): pr for pr in prs}
         numbers = list(by_number)
-        missing = [number for number in numbers if not has_complete_pr(dump_root, number)]
+        missing = [number for number in numbers if args.refresh_existing or not has_complete_pr(dump_root, number)]
         selected_prs = [by_number[number] for number in missing]
         discovered_count = len(prs)
 

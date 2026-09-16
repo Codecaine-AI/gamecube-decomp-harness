@@ -1,0 +1,89 @@
+{
+  "tu": "main/melee/it/kinds/itkirbyyoshispecialn",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkirbyyoshispecialn.c#L17-L38",
+            "why": "Callback signatures, sole initializer, table installation and state-index selection."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve the directly supported type and initializer while removing an unsupported compiled 16-byte layout assertion.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkirbyyoshispecialn:.data"
+        },
+        "type": "inferred_type",
+        "value": "The source declares it_803F9490 as a one-element ItemStateTable array. Its sole initializer contains numeric motion value -1 followed by animation, physics and collision callbacks with signatures bool(Item_GObj*), void(Item_GObj*) and bool(Item_GObj*), respectively. Setup selects table state index 0. Compiled byte size and section placement are not established by this source declaration alone."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkirbyyoshispecialn.c#L59-L76",
+            "why": "Complete teardown data flow and field lifetimes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1649-L1689",
+            "why": "Both helpers conditionally call player routines rather than clearing associations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Correct the unsupported association-removal interpretation and preserve ordering, helper guards and the boolean's precise effect.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkirbyyoshispecialn:it_802F2E7C"
+        },
+        "type": "data_flow",
+        "value": "Reads the article attachment-bone ID and the fighter stored in grab_victim. It invokes attachment cleanup, obtains the fighter joint through the copied-Yoshi bone accessor, and samples that joint into item->pos. It passes the fighter and item to it_8027B4A4 and it_8027B378, supplying zero as the latter's floating-point argument; these helpers conditionally forward fighter data to player bookkeeping when it_8026B6C8(item) succeeds, rather than removing associations. A true has_destroy_type argument writes destroy_type = 0; false leaves that field unchanged. It then clears atk_victim and grab_victim and calls it_8027CE44 and Item_8026A8EC. The stored fighter must remain usable until the preceding joint and bookkeeping calls finish."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkirbyyoshispecialn.c#L59-L76",
+            "why": "Ordered teardown operations and explicit reference clears."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1649-L1689",
+            "why": "Canonical behavior contradicts association-release wording."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace the incorrect association-release explanation with the behavior of the canonical callees, without asserting a separately spawned tongue object.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkirbyyoshispecialn:it_802F2E7C"
+        },
+        "type": "purpose",
+        "value": "Tears down the fighter-attached item used by Kirby's copied-Yoshi capture handling: it invokes model-attachment cleanup, samples the fighter attachment joint into the item's position, performs conditional player bookkeeping, optionally resets destroy_type to zero, clears both stored fighter references, and invokes the final cleanup and destruction routines. The bookkeeping calls themselves do not release fighter/item associations."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialyoshi.c#L506-L635",
+            "why": "Both item completion callbacks, independent creation guards and adjacent fighter-victim handling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Correct the immediate tongue-to-egg sequencing claim by preserving independent command branches and the distinction between item and fighter targets.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkirbyyoshispecialn:it_802F2E7C"
+        },
+        "type": "game_mapping",
+        "value": "Removes the retained target item during Kirby's grounded and aerial copied-Yoshi Egg Lay completion handling. The callers require command variable 1 and a non-null target_item_gobj, pass false, then clear their target references and consume command variable 1. The same callbacks prepare a Kirby_YoshiEggLay object under a separate command-variable-0 guard; item removal does not itself create that object or guarantee creation on the same update. Adjacent fighter-victim completion paths use different routines."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

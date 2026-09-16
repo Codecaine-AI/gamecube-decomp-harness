@@ -1,0 +1,187 @@
+{
+  "tu": "main/melee/db/dbcamera",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L146-L159",
+            "why": "Local population guards and suppression write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbshadow.c#L154-L171",
+            "why": "Additional guards and activation decision."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing suppression interpretation while correcting the unconditional immediate-inactivity claim.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbcamera:fn_802270C4"
+        },
+        "type": "state_behavior",
+        "value": "For every currently listed fighter with non-null fighter data and an allocated shadow, writes !arg0 to x20A4.x0_b5 and calls lbShadow_8000EEE0. Zero sets this debug suppression bit; nonzero clears only this bit. The delegated updater performs an activation write only if ftLib_80086960 succeeds and its shadow-state lookup is non-null. Within that path, any of six suppression bits or a failed ftLib_800872BC predicate disables the shadow; otherwise it activates it. Thus suppression requests and immediate HSD activation side effects must be distinguished, and clearing this bit does not guarantee visibility."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L389-L422",
+            "why": "Complete orbit computation and sole output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L575-L611",
+            "why": "Eye-vector fallback/error and distance behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an unconditional resulting-angle guarantee with the exact comparisons and exceptional-path limitations.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbcamera:fn_802279E8"
+        },
+        "type": "state_behavior",
+        "value": "With both axes zero, leaves the supplied vectors unchanged. Otherwise computes a polar angle from acos(dot(forward, world_up)), adjusts the requested 2*cstick_y degree increment using comparisons against 179 and 1 degrees, applies pitch and unrestricted 2*cstick_x degree world-up yaw, rescales by the camera's eye distance, and writes camera_pos = camera_interest - displacement. The interest vector is not written. For valid finite geometry this implements a constant-radius orbit with the intended polar limits; it is not a general numerical-safety guarantee. The acos argument is not clamped, a pole can yield a zero rotation axis, normalization is unchecked, nonfinite inputs are not rejected, and the eye-vector accessor's failure return is ignored."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L389-L431",
+            "why": "Shared algorithm and thin free-camera wrapper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves wrapper behavior while removing its inherited unconditional pitch guarantee.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbcamera:fn_80227B64"
+        },
+        "type": "state_behavior",
+        "value": "Does nothing when both C-stick inputs are zero. Otherwise forwards the active camera, persistent free_eye_pos output, unchanged free_int_pos anchor, and both axes to fn_802279E8. For valid finite geometry the helper performs pitch/yaw orbiting at the current eye distance and adjusts requested polar-angle changes toward the 1..179-degree limits. This wrapper adds no validation and inherits the helper's unchecked acos domain, pole-axis normalization, nonfinite-input, and accessor-failure limitations."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L389-L454",
+            "why": "Single orbit output, numerical operations and exact wrapper assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Keeps zero-input refresh and fallback knowledge, qualifies numerical claims, and makes the cross-named assignments explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbcamera:fn_80227BA8"
+        },
+        "type": "state_behavior",
+        "value": "With a non-null anchor, calls fn_802279E8 using follow_eye_offset as its output and follow_int_offset as its unchanged orbit anchor, then always writes follow_eye_pos = follow_int_offset + anchor and follow_int_pos = follow_eye_offset + anchor, even when both input axes are zero. These assignments are literal source behavior despite the field names. With a null anchor, calls the orbit helper on the free-camera pair only when either axis is nonzero; otherwise performs no writes. The anchor itself is not modified. Orbiting inherits the shared helper's intended ordinary-input polar limits and its unchecked numerical exceptional cases, rather than guaranteeing a bounded resulting pitch for every input."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L45-L144",
+            "why": "Selector transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L174-L386",
+            "why": "Reset, creation, visibility, conditional decrement and unconditional reload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L224-L229",
+            "why": "Four camera-handler invocations per frame."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects timing and reset-lifetime semantics while retaining supported persistent-state behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbcamera:.sbss"
+        },
+        "type": "state_behavior",
+        "value": "The source-level persistent selector advances from zero through states 1..6 on R-held/new-Down events and returns to zero through the default branch. Camera setup clears the retained display pointer, timer and show flag without freeing or hiding an earlier display object. Creation is lazy. B toggles the show flag only in free mode with selector 3 or 4; other states clear it. Every free-camera dispatcher invocation reloads the timer to 60, including idle input. With an existing panel, camera and enabled show flag, the updater shows/refills at timer >1, hides at 1, and decrements in those two branches; zero returns. Missing camera or a cleared flag hides without decrementing. The debug dispatcher calls the camera handler four times per frame, so this is invocation-based shared state, not an independently running 60-frame inactivity countdown. No exact section layout is asserted."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L174-L199",
+            "why": "Three assignments and subsequent creation path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L201-L386",
+            "why": "Conditional countdown, guarded toggle and unconditional free-update reload."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes startup state reset from object lifetime management and movement-triggered timing.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbcamera:fn_SetupCameraInfo"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally assigns NULL to db_CameraInfoDisplay and zero to db_CameraInfoDisplayTimer and db_ShowCameraInfo. It performs no allocation, hide, unregister, or free operation; if called after display creation, clearing the retained pointer alone does not establish that the earlier object has been destroyed or hidden. Later input handling may create a display lazily and toggle its show flag under the eligible free-camera/stage-state guard. Every free-camera update reloads the timer to 60 even with zero movement, and timer decrement is conditional per updater invocation rather than an established 60-frame interval."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L50-L144",
+            "why": "Stage state machine and independent effects-status consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L201-L386",
+            "why": "Overlay, mode requests, movement and timer behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L221-L249",
+            "why": "Call order and four-slot loops."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3835-L3906",
+            "why": "Conditional follow entry and saved-mode restoration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects frame-countdown and movement-only wording while preserving mode guards, shared-state call order and separate status ownership.",
+        "subject": {
+          "entity_locator": "src/melee/db/dbcamera.c"
+        },
+        "type": "state_behavior",
+        "value": "R-held/new-Down advances the shared stage selector through six nonzero presets and a default reset to zero. Camera transition requests are game-state guarded: strong C-stick activation takes precedence over Up; otherwise unmodified new-Up requests free, follow, or saved-mode restoration according to the active predicate. Follow entry remains conditional on camera.c's player/subject checks. Movement dispatch proceeds outside the transition guard. B toggles the shared overlay flag only in free mode with stage selector 3 or 4, and other states clear it. Every free dispatcher call reloads 60 even at rest; the panel updater decrements only with a panel, camera and enabled flag, shows at >1, hides at 1, and returns at zero. The debug dispatcher performs four camera-handler calls per frame after miscellaneous-effects processing and before the later stage-handler loop. Thus timer and toggles are shared invocation-driven state, not a movement-only 60-frame timeout. X-held/new-Down reads the external effects status to apply white/black camera backgrounds here and stage visibility in the separate stage handler."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L50-L144",
+            "why": "Complete argument matrix, default reset and independent X branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unsupported universal enabled/disabled interpretation with exact canonical numeric states and branch behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbcamera:fn_CheckMiscStageEffects"
+        },
+        "type": "state_behavior",
+        "value": "On R held with newly pressed D-pad Down, increments the unsigned selector before dispatch. In setter order [fn_802270C4, Camera_80030B0C, Camera_80030A60, Camera_80030A8C, fn_8022713C, Camera_80030B38, Camera_80030B64, Camera_80030B90], states 1..6 pass respectively [0,0,0,0,0,0,0,0], [1,1,0,1,0,0,0,1], [0,0,0,1,1,0,0,1], [0,0,1,1,1,0,0,1], [0,0,1,1,1,1,0,1], and [0,0,1,1,1,0,1,1]. The default branch passes [1,0,0,0,0,0,0,0] and resets the selector to zero. These are argument values, not proof that zero disables every downstream visual feature. Independently, X held with newly pressed Down shows the stage and reapplies its background for external effects status 0/1, otherwise hides the stage; it does not modify that external status. Both branches may execute in one call. Without either chord, the function applies no changes."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

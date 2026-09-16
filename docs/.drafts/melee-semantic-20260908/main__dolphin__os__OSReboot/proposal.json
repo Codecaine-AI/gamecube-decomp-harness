@@ -1,0 +1,79 @@
+{
+  "tu": "main/dolphin/os/OSReboot",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSReboot.c#L5-L7",
+            "why": "Declares the three source objects without compiled placement information."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the evidenced types and initialization while removing unsupported compiled-layout assertions.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSReboot:.sbss"
+        },
+        "type": "inferred_type",
+        "value": "The source-level state associated with this target consists of static void* SaveStart and SaveEnd, both initialized to NULL, and static volatile BOOL Prepared, zero-initialized. The declarations do not establish compiled section membership, object order, section extent, or padding."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSReboot.c#L30-L41",
+            "why": "Supplies the exact declaration and indirect branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's stronger no-argument prototype claim while preserving the execution-entry role.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSReboot:Run"
+        },
+        "type": "inferred_type",
+        "value": "A file-local assembly routine declared `static asm void Run(register void (*addr)())`. It returns no value and uses addr as an executable destination through `mtlr addr; blr`. The empty parameter list in the C function-pointer declaration leaves argument types unspecified; it is not an explicit `(void)` prototype."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSReboot.c#L43-L121",
+            "why": "Shows preparation, numeric polling branches, interrupt masks and final handoff."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces generalized state labels with exact branches, including unknown-state polling and exceptional return behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSReboot:__OSReboot"
+        },
+        "type": "state_behavior",
+        "value": "With interrupts disabled, initializes reboot metadata, installs a cleared stack context, initializes DVD handling and starts asynchronous reset preparation. A false DVDCheckDisk result calls __OSDoHotReset; if it returns, execution continues. The routine masks 0xFFFFFFE0, unmasks 0x400 and enables interrupts. Each ReadApploader waits while Prepared is FALSE, submits a read, and polls its command block: 0 completes, 1 and default values continue waiting, and -1 or 2\u201311 call __OSDoHotReset and continue polling if it returns. Submission results are unchecked and there is no timeout. Prepared is not cleared on entry. Two completed reads lead to cache invalidation and the intended terminal Run handoff."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSReboot.c#L5-L121",
+            "why": "Complete unit establishes initialization, absence of clearing, polling branches and success sequence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves synchronization knowledge while documenting numeric-state ambiguity and potentially indefinite waits.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/os/OSReboot.c"
+        },
+        "type": "state_behavior",
+        "value": "The volatile Prepared latch is statically zero-initialized, set TRUE unconditionally by Callback, and never cleared in this unit. ReadApploader waits on that latch before each submission, then returns only on command state 0. State 1 and unlisted values keep polling; -1 and 2\u201311 invoke hot reset and resume polling if it returns. There is no timeout or submission-result check. A failed disc check also invokes hot reset, with subsequent code still present if it returns. Two completed reads advance to cache invalidation and execution of the loaded reboot payload."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,989 @@
+{
+  "tu": "main/sysdolphin/baselib/hsd_3A94",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L83-L90",
+            "why": "Six-field record."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L591-L680",
+            "why": "Ring traversal and callback use."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the extra operation-word count while preserving signature and ring semantics.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AA790"
+        },
+        "type": "inferred_type",
+        "value": "s32 fn_803AA790(void): consumes one request from a 32-entry ring of six-word CardQueueEntry records: request type, context word, three operation-specific words, and optional void (*)(s32 id, s32 result) callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1432-L1463",
+            "why": "Exact snapshot/insertion sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1128-L1164",
+            "why": "Deferred state and payload consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact publication order and deferred pointer lifetime instead of implying copy-before-advance or fully protected insertion.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AC168"
+        },
+        "type": "data_flow",
+        "value": "Snapshots consumer cursor, busy/mode value and consumer-slot type with interrupts disabled, then restores interrupts before admission and insertion. On admission it saves the producer slot index, advances the producer modulo128, and then copies sizeof(CardCmd) from cmd_buf into that saved slot. It does not modify cmd_buf. The copy is shallow: referenced state and data buffers are consumed later and must remain valid. Mode2 is reset to0 after insertion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1465-L1475",
+            "why": "Exact constructor fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L538-L586",
+            "why": "Completion uses stored slot."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects blanket zeroing of unused fields while retaining the producer/consumer mapping.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AC258"
+        },
+        "type": "data_flow",
+        "value": "Constructs type13 with state, physical block slot in x10, zero x14/x20, null x18, and calculated sector offset in x1C; x8 and xC are not initialized by this constructor. The command is shallow-copied into the ring. Dispatch reads one state->x8-byte sector into state->x0; completion uses the slot to validate and update x170/x270 or mark it invalid."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1666-L1737",
+            "why": "Prefix computation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2295-L2328",
+            "why": "Prefix subtracted from logical map entries."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates logical prefix numbering from physical placement.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AC6B8"
+        },
+        "type": "purpose",
+        "value": "Calculates the logical-block identifier base for an indexed subfile: the specially sized file-zero contribution (or one reserved initial block) plus single-copy block counts of preceding subfiles. This is not the physical sector offset of that file after redundancy allocation or updates; physical placement is resolved through block maps."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1666-L1737",
+            "why": "Actual arithmetic inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2295-L2328",
+            "why": "Logical identifier consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects physical-allocation interpretation of the returned prefix.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AC6B8"
+        },
+        "type": "data_flow",
+        "value": "Reads x8 sector size, x24 presentation extent and x4C payload sizes. For a nonzero index below9 it starts at1, replaces that baseline with file zero's block count when present, and adds ordinary block counts for slots1 through file_count-1. It does not read allocation modes or include duplicate/spare copies. Consumers subtract this prefix from x170 logical identifiers to form file-relative block indices."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1666-L1711",
+            "why": "Guards and accumulation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects index-domain enforcement and result meaning.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AC6B8"
+        },
+        "type": "inferred_type",
+        "value": "Pure s32 (CardState* state, s32 file_index) logical-prefix query. Intended file indices are0..8; index0 or >=9 returns0. Negative indices are not rejected: they reach baseline/file-zero accumulation and skip the later-file loop. The result is a logical-block identifier base, not a mapped physical slot or byte offset."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1666-L1711",
+            "why": "Complete query."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves actual negative-input branch and logical-prefix scope.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AC6B8"
+        },
+        "type": "state_behavior",
+        "value": "Read-only calculation. Index0 and indices>=9 return0; negative input is not rejected and returns the initial contribution because the later-file loop does not run. For intended indices1..8, the initial contribution is file zero's specially aligned block count when its size is positive, otherwise1; each preceding positive-sized later file adds its single-copy block count. No physical block-map lookup or redundancy allocation occurs."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2295-L2354",
+            "why": "Logical interval mapped to selected physical slots."
+          }
+        ],
+        "op": "write",
+        "rationale": "Avoids promising physical file placement from a single-copy prefix.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AC6B8"
+        },
+        "type": "game_mapping",
+        "value": "Supports logical subfile addressing in Melee's HSD memory-card container by assigning each subfile a prefix in the logical-block identifier space. Generation and redundancy logic separately maps those identifiers to physical data-area slots."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1832-L1844",
+            "why": "Direct arithmetic without map lookup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1465-L1475",
+            "why": "Physical scan command consumes offset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects physical-slot versus logical-ID semantics.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803ACBE8"
+        },
+        "type": "purpose",
+        "value": "Calculates the sector-aligned CARD file byte offset for a physical data-area slot, accounting for the presentation extent and 0x30-byte digest trailer before the embedded block-zero payload. It does not resolve a logical block identifier through x170."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1832-L1844",
+            "why": "Signature and arithmetic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L538-L580",
+            "why": "Physical slot indexes logical metadata."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects semantic index type while retaining ABI.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803ACBE8"
+        },
+        "type": "inferred_type",
+        "value": "Pure s32 (CardState* state, s32 physical_block_slot) offset query. Reads x8 and x24 and returns a sector-size multiple; the slot indexes the physical data area, distinct from the logical identifier stored in x170[slot]. Requires valid geometry, including nonzero sector size."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1832-L1844",
+            "why": "Offset helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2854-L2912",
+            "why": "Mapping precedes physical-block read submission."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes physical addressing from logical mapping.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803ACBE8"
+        },
+        "type": "game_mapping",
+        "value": "Provides physical data-slot to CARD file-offset translation for Melee's HSD memory-card container. Logical identifiers and generations are resolved separately before callers supply a physical slot to read or write."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1845-L1915",
+            "why": "Complete verifier."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the slot domain and preserves return distinctions.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803ACC0C"
+        },
+        "type": "inferred_type",
+        "value": "Synchronous s32 (CardState* state, s32 physical_block_slot, s32 expected_logical_id, s32 expected_sequence, void* expected_data, s32 data_size). Reads through an already-open CARDFileInfo into the shared sector buffer, then checks the decoded 16-bit identifier at0x10, sequence byte at0x12 and payload at0x20. Returns0 for matching content or zero-size no-op,1 for integrity/content mismatch, or a negative CARD read result. Physical slot and expected logical ID are distinct inputs."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2045-L2125",
+            "why": "Complete writer branches and returns."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects physical-slot condition and clarifies map ownership.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803ACFC0"
+        },
+        "type": "state_behavior",
+        "value": "Physical slot0 requires logical file_id0 or returns-257. It first reads the containing sector to preserve bytes before the embedded block; other physical slots use header offset0 without a preliminary read. Read/write calls retry only result-1, up to ten attempts, and propagate remaining read failure or final write result. The function constructs and transforms the shared buffer but does not update x170/x270 itself; callers handle those maps."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2260-L2287",
+            "why": "Signature and extent guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2444-L2502",
+            "why": "No-free-slot skip and returned status."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes unsupported full-success guarantee.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AD16C"
+        },
+        "type": "inferred_type",
+        "value": "s32 (CardState* state): synchronously reconciles nine logical subfiles using the inclusive physical slot limit x460 and x170/x270 maps, while scheduling corrective CARD commands. Returns0 or negative HSD statuses for layout/generation/queue-repair problems. Zero means no recorded error, not proof of full redundancy restoration: a missing duplicate with no negative/free slot is silently left unrepaired."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2260-L2503",
+            "why": "Complete reconciliation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exceptional shortages, mutation timing and error precedence.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AD16C"
+        },
+        "type": "state_behavior",
+        "value": "Rejects extent mismatch with-257. Selects complete sequence-consistent generations where available; missing blocks set-0x103, partial mixed generations-0x104. Modes1/2 negate nonselected mappings. Mode0 retains one secondary, queues disposal of extras, and queues source-read/destination-write pairs for missing or stale duplicates. Disposal failure sets-0x10B only if no earlier error, yet immediately invalidates that map entry regardless. Copy-submission failure sets-0x102 only over0/-0x10B. If no free destination exists, missing-copy repair is skipped without a new error. No local batch rollback or reservation of a newly chosen free destination occurs; map changes and accepted commands can survive a negative return."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2505-L2557",
+            "why": "Setup and rollback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L961-L967",
+            "why": "Callback ID/result separation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects result-field confusion.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803ADE4C"
+        },
+        "type": "state_behavior",
+        "value": "Checkpoints the producer, enqueues type12 status inspection and type17 maintenance, and clears/rewinds appended commands if either admission fails. Success publishes active context type5, state and callback with callback identifier xC=0, then sets checkpoint=-1. The aggregate result is the separate hsd_804D7988 global, not context xC. Queue rollback does not undo CARD work already executed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2809-L2987",
+            "why": "Signature and destination slicing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L2750-L2757",
+            "why": "Null only suppresses copy."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes erroneous null-as-clear interpretation and preserves lifetime caveat.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803ADF90"
+        },
+        "type": "inferred_type",
+        "value": "s32 (CardState* state, s32 file_index, u8* destination, s32 asynchronous, void (*callback)(s32,s32)). Reads one logical payload synchronously when mode0, otherwise queues reads and stores completion context. Returns0, negative CARD/setup errors or HSD errors-259/-260/-264/-267. Block helpers skip copying when the supplied destination is null, but this is not a clear-only mode: the wrapper advances destination slices without a null guard, so arbitrary multi-block null-destination use is not established as safe."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L3020-L3435",
+            "why": "Complete duplicate updater."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents nonterminal negative admission result and ignored substep rather than blanket transactional claims.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AE7F8"
+        },
+        "type": "state_behavior",
+        "value": "Sync mode rejects busy1 with-264. Missing primary capacity returns-257; missing secondary capacity records-258 but continues. Complete matching copies return1 only synchronously; queued comparisons plus type6 gate later writes. Rewrites use (newest_sequence+1)&255; sync failures invalidate the affected map and return-260 for primary or-258 for secondary. Checked enqueue failures rewind the batch, but a preliminary physical-slot0 preservation-read enqueue is ignored. Queued setup publishes context type2 and releases the checkpoint even when returning pending-258, so a negative immediate result can coexist with queued work and a later callback. Terminal sync close returns-267 unless-258 already takes precedence."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L3646-L3956",
+            "why": "Verification, fallback and replacement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Qualifies copy-on-write claim with explicit in-place fallback.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AF3F0"
+        },
+        "type": "purpose",
+        "value": "Verifies and updates one indexed logical payload, normally writing a new sequence into alternate/free physical slots and then retiring remaining old mappings. When alternate/free capacity is insufficient, it reuses current slots; therefore preserving a complete recoverable prior generation is not guaranteed. Supports synchronous execution and queued compare-before-write execution."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L3839-L3955",
+            "why": "Current-slot fallback and retirement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves subsystem mapping without overstating recoverability.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AF3F0"
+        },
+        "type": "game_mapping",
+        "value": "Implements a generation-based update policy for Melee's HSD logical save components, with unchanged-data detection and preference for alternate-block replacement. Current blocks may be reused when spare capacity is insufficient, so its recovery properties are conditional rather than an unconditional copy-on-write guarantee."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L3487-L3520",
+            "why": "Ignored preservation-read enqueue."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L3646-L3956",
+            "why": "Complete orchestration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves allocation-failure and ignored-admission exceptions.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803AF3F0"
+        },
+        "type": "state_behavior",
+        "value": "Sync mode rejects busy1 with-264 and opens the selected CARD file. Matching current data returns1 after close; otherwise excess alternates are cleared, then free slots and if needed current slots fill the replacement set. Insufficient capacity returns-257; in queued mode this path does not rewind earlier verification commands. Sequence advances modulo256. Checked enqueue failures rewind, but preliminary slot0 preservation-read admission is ignored. Sync writes update maps, invalidate failed destinations and negate remaining old mappings; queued completion publishes active context type3 rather than appending a terminal command. Successful sync close failure becomes-267."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4084-L4411",
+            "why": "Recovery orchestration and cleanup return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes exceptional early return part of the purpose contract.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0120"
+        },
+        "type": "purpose",
+        "value": "Recovery-oriented logical-payload updater: fills missing physical mappings from secondary/free slots, verifies the selected generation, and can dispose stale secondaries and rewrite a new sequence. The canonical synchronous path with any remaining secondary returns immediately after disposing its first secondary, even on success, before payload rewriting; the queued path schedules all remaining disposal and rewrite work."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4140-L4411",
+            "why": "Map and I/O data flow including early return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the previously unconditional disposal-to-rewrite flow.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0120"
+        },
+        "type": "data_flow",
+        "value": "State geometry, x4C sizes and x170/x270 maps produce current, secondary and free-slot lists for the selected logical interval. Missing current slots are filled from secondary then free lists. Current slots and caller payload slices feed verification; remaining secondaries feed disposal. Queued mode proceeds to sequence-tagged writes and stores state/file-index/callback in context type4. Sync mode returns the first secondary-disposal result when any secondary remains; otherwise writes update maps and a final close precedes return."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4084-L4411",
+            "why": "Signature and all return paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects success-return interpretation.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0120"
+        },
+        "type": "inferred_type",
+        "value": "Effective s32 (CardState* state, s32 file_index, const void* payload, BOOL asynchronous, void (*callback)(s32 id,s32 result)); payload and callback are carried as s32 in the source ABI. Return1 denotes synchronous unchanged data; negative values report CARD/HSD/setup failures. Return0 can mean completed rewriting, successful queued setup, or only successful first-secondary disposal on the synchronous early-return branch; it does not always prove a completed payload update."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4306-L4411",
+            "why": "Cleanup versus replacement paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains CARD recovery mapping while removing an unconditional completion guarantee.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0120"
+        },
+        "type": "game_mapping",
+        "value": "Implements recovery-oriented updates of HSD logical save components using surviving mappings, spare slots, content checks and sequence-tagged writes. This describes its role, not a guarantee of coherent replacement on every successful return: synchronous stale-secondary cleanup can return before rewriting the requested payload."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4047-L4411",
+            "why": "Complete helper and orchestration branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the unusual successful early return and associated file lifetime.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0120"
+        },
+        "type": "state_behavior",
+        "value": "Sync mode rejects busy1 with-264; missing-map allocation exhausts secondary then free slots and returns-257 when insufficient. Matching data returns1 after close. Otherwise queued mode disposes all remaining secondaries then rewrites with sequence+1 modulo256. Sync mode instead disposes only the first remaining secondary, invalidates its map, closes only on negative disposal result, and returns that result unconditionally; successful disposal leaves the file open and skips rewriting. With no remaining secondary, sync rewriting updates or invalidates maps and final close failure becomes-267. Checked queued failures rewind, but preliminary slot0 preservation-read enqueue is ignored. Queued success publishes context type4 and releases checkpoint."
+      },
+      {
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4488-L4682",
+            "why": "Presentation writer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Names generic demonstrated presentation serialization instead of inferring snapshots from a helper name; distinguishes logical data-block population.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0E9C"
+        },
+        "type": "inferred_name",
+        "value": "HSD_CardWritePresentationData"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4488-L4682",
+            "why": "Writer extent and components."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5125-L5139",
+            "why": "Separate presentation and logical-data builders."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects whole-snapshot interpretation and serialized scope.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0E9C"
+        },
+        "type": "purpose",
+        "value": "Builds and writes the HSD CARD presentation region: 0x40-byte comments/header, optional banner, icon/palette bytes, and a trailing0x30-byte digest array. It refreshes x24 from the presentation descriptor and supports synchronous or queued execution, optionally comparing existing presentation bytes to avoid rewriting. Logical application payload blocks are populated by a separate routine; snapshot-specific image serialization is not established here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4507-L4682",
+            "why": "Source field construction and synchronous assembly."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1256-L1332",
+            "why": "Deferred pointer consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces rendered-name evidence with canonical component and lifetime tracing.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0E9C"
+        },
+        "type": "data_flow",
+        "value": "hsd_803AC340(&state->x3B0) refreshes presentation extent x24. Source arg1 supplies banner bytes (format1:0xE00; format2:0x1800); arg2 supplies the remaining presentation bytes, including icons/palette, after the comments and banner. Sync mode assembles these in state->x0, computes per-sector16-byte digests and appends a0x30-byte digest array before CARDWrite. Queued type10 comparisons and type9 writes retain source pointers and sector indices for later use; caller buffers must outlive queued consumption. These inputs are not logical subfile IDs or a proven snapshot image."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1511-L1553",
+            "why": "Presentation extent definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4488-L4682",
+            "why": "Presentation serialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes unsupported snapshot-specific mapping while retaining proven CARD role.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0E9C"
+        },
+        "type": "game_mapping",
+        "value": "Implements presentation-metadata persistence for Melee's HSD-managed GameCube CARD files, including comments, optional banner, animated-icon material, integrity digests and compare-before-write behavior. The function is generic to this container layer; snapshot-specific callers or image payload semantics require independent evidence."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4488-L4682",
+            "why": "Complete mode branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L172-L177",
+            "why": "Negative-selector read completion skips decoding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects clear extent, preserves literal exceptional conditions and transaction scope.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B0E9C"
+        },
+        "type": "state_behavior",
+        "value": "initialize=0 enables comparison: synchronous match returns1, queued mode emits type10 comparisons followed by type6 gating. Queued initialization omits comparison and queues type4 clearing of the entire shared sector buffer before the final type9 write; noninitializing queued mode instead queues a type2 read with negative selector to preserve that sector without decoding it. Synchronous first-sector clear/read occurs only when x24+0x30<sector_size; subsequent clear/read uses the literal condition remaining+0x30<x24. Negative checked I/O/admission results return immediately; accepted prefix commands are not rolled back locally. CARD retry helpers retry only-1 up to ten attempts."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L4765-L5083",
+            "why": "Complete population routine."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves first-slot exceptions, full-capacity source requirement and correct map direction.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B1338"
+        },
+        "type": "state_behavior",
+        "value": "Processes file zero, later files1..8, shared spare region, then mode0 duplicate copies. Mode1 reserves the maximum full-file block count; mode2 ensures one spare; modes0/3 add no shared spare. Spare writes use logical ID0xFFFF. Nonnull payloads are read at full block capacity, including last blocks, rather than clamped to remaining file size. Checked errors stop without local queue rollback; preliminary slot0 read-enqueue errors are ignored. Sync slot0 tolerates-0x105 and does not record a success map update there; later success writes logical IDs into x170[physical_slot] and zero sequence, while failure invalidates the affected slot."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5085-L5188",
+            "why": "Constructor and context fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1205-L1217",
+            "why": "Filename consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1277-L1314",
+            "why": "Presentation pointer consumers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects presentation pointer semantics and callback identifier.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B1F78"
+        },
+        "type": "inferred_type",
+        "value": "Effective s32 (CardState* state, const char* filename, const void* banner_data, const void* icon_data, void (*callback)(s32 id,s32 result)). The source ABI carries the last four values as s32; canonical channel/file_id/seq_num names do not describe their consumers. Returns0 for admitted create transaction or first checked negative staging error; eventual callback ID is0."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5085-L5188",
+            "why": "All argument routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1256-L1314",
+            "why": "Source-pointer consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Traces actual downstream types and deferred lifetimes.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B1F78"
+        },
+        "type": "data_flow",
+        "value": "Computes file bytes as sector_size times total configured block count. The second argument is a filename pointer in type7; the third/fourth are banner and remaining icon/palette source pointers forwarded to the presentation builder, not file-ID/sequence metadata. fn_803B1338 supplies logical payload blocks from state->x70, and type8 supplies status metadata. Success stores state/callback in context type6 with ID0. Filename, state, presentation sources and configured payload buffers remain borrowed through deferred execution."
+      },
+      {
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5190-L5253",
+            "why": "Only presentation builder and status command."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes presentation/status update from logical-subfile update and all-payload population.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B21E8"
+        },
+        "type": "inferred_name",
+        "value": "HSD_CardUpdatePresentationAsync"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5190-L5253",
+            "why": "Complete transaction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects overly broad file-content update scope.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B21E8"
+        },
+        "type": "purpose",
+        "value": "Transactionally stages comparison and conditional replacement of an existing CARD file's HSD presentation region and digest trailer, followed by CARD banner/icon status update and callback context publication. It does not populate or update the separately mapped logical application payload blocks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5190-L5253",
+            "why": "Transaction and context."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L961-L967",
+            "why": "Callback arguments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects context field meaning and rollback scope.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B21E8"
+        },
+        "type": "state_behavior",
+        "value": "Saves the producer checkpoint, invokes noninitializing queued presentation writing and appends type8. Checked staging failure clears/rewinds appended command types. Success publishes context type7 with state/callback and callback ID xC=0, releases checkpoint and returns0. The shared result is hsd_804D7988, not xC. Rollback does not undo the presentation builder's x24 refresh or already executed I/O."
+      },
+      {
+        "confidence": 0.92,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L862-L894",
+            "why": "Type11 construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1004-L1027",
+            "why": "Read dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Type11 direction and output destinations are independently traced, making this more precise than HeaderOperation.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B26CC"
+        },
+        "type": "inferred_name",
+        "value": "HSD_CardReadPresentationAsync"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5366-L5391",
+            "why": "Complete setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L378-L452",
+            "why": "Type11 output and digest semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects direction and semantic arguments.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B26CC"
+        },
+        "type": "purpose",
+        "value": "Starts a callback-driven queued read of the HSD presentation region and digest trailer. Refreshes x24, checkpoints the producer, queues type11 reads covering that extent, rolls back a partial batch on admission failure, and publishes context type5 on success. Three caller words are optional comments/banner/icon output buffers, not versioned or sequenced header values."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L862-L894",
+            "why": "Argument-to-command mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L403-L450",
+            "why": "Nullable output copies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5366-L5391",
+            "why": "ABI and callback ID."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces file/sequence/version interpretation with callback-proven output types.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B26CC"
+        },
+        "type": "inferred_type",
+        "value": "ABI s32 (CardState*, s32, s32, s32, void (*)(s32,s32)); effective middle arguments are optional void* comments_out, banner_out and icon_data_out. Returns0 on accepted batch or negative enqueue error after rollback. Completion callback receives identifier0 and aggregate result. Output buffers and state must remain valid until deferred reads/copies complete."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L862-L894",
+            "why": "Field construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L378-L452",
+            "why": "Actual output consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5366-L5391",
+            "why": "Context/rollback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Traces producer through asynchronous consumer rather than trusting parameter spellings.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B26CC"
+        },
+        "type": "data_flow",
+        "value": "Presentation descriptor x3B0 determines refreshed x24. queueHeaderBlocks places each sector index and three caller words into type11 fields x8/xC/x10/x14. CARDReadAsync fills state->x0; completion interprets xC/x10/x14 as comments/banner/remaining-presentation destinations, computes digests and checks the trailing0x30 bytes. Success stores state/callback and ID0 in active context type5; construction failure clears the appended ring prefix. Copied command records do not own the pointed-to output storage."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L378-L452",
+            "why": "Read completion extraction and integrity check."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5366-L5391",
+            "why": "Public setup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects game-facing operation interpretation.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B26CC"
+        },
+        "type": "game_mapping",
+        "value": "Implements asynchronous loading and integrity validation of an HSD CARD file's presentation metadata, with optional delivery of comments, banner and icon/palette bytes to higher-level code. It is not a versioned-header write operation and does not read all separately mapped logical save components."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5366-L5391",
+            "why": "Ordering and context fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L961-L967",
+            "why": "Callback result source."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects result-field and atomicity scope.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:fn_803B26CC"
+        },
+        "type": "state_behavior",
+        "value": "Refreshes x24 before saving the producer checkpoint. Negative header-read construction result clears appended commands and rewinds the producer, but does not restore x24. Success publishes active context type5, state, callback and identifier xC=0, then sets checkpoint=-1. Aggregate result is hsd_804D7988, delivered as the callback's second argument. This is rollback of queue construction, not cancellation of executed I/O or rollback of output-buffer writes."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L142-L586",
+            "why": "Complete callback data flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds important exceptional result and output-lifetime behavior.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:hsd_803A949C"
+        },
+        "type": "data_flow",
+        "value": "CARD completion result and current command fields drive shared-buffer decoding, expected-content comparisons, optional copies, presentation digest checks and block-map updates. Most CARD/close failures enter hsd_804D7988, but type13 ignores close result and converts read/integrity/identifier failures solely into x170=-0x7FFF and x270=0. Type2 with negative selector stores the incoming arg1 (normally0 on that branch), not the negative close result. Type11 copies outputs before final digest mismatch can be detected. Accepted completion always clears command type and busy state and advances consumer modulo128, including unrecognized types that fall through the switch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L142-L586",
+            "why": "Complete callback branches and epilogue."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves numeric distinctions and exceptional branches instead of normalizing all failures.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:hsd_803A949C"
+        },
+        "type": "state_behavior",
+        "value": "Returns without mutation unless shared mode is1. Types2/15 normally report decoding failure-0x105; comparison types5/10 report mismatch2; type11 reports trailing-digest mismatch-0x107 after optional output copies. Type2 negative selector skips decoding and, on failed close, assigns incoming arg1 rather than close error. Type13 always ignores close result and invalidates maps for failed read/validation without assigning shared result. Types1/16 update or invalidate written-slot maps; type7 copies the captured fileNo through a bounded loop that does not poll it; type8 reports status failure without closing. After any accepted switch path, command type becomes0, busy becomes0 and consumer advances modulo128."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L1511-L1553",
+            "why": "Format offsets and size additions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.h#L28-L35",
+            "why": "Separate comments, format and digest fields."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects input-descriptor versus serialized-header confusion.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:hsd_803AC340"
+        },
+        "type": "purpose",
+        "value": "Calculates the serialized presentation-region byte length from a compact format descriptor: optional banner, up to eight active icon frames, one shared indexed-icon palette when needed, plus a fixed0x40-byte comments/header region. The input descriptor at CardState.x3B0 is separate from the serialized comments at x370; the0x30-byte digest trailer is not included in this return value."
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5255-L5278",
+            "why": "Two distinct initialization scopes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes global queue initialization from per-CardState initialization and resolves rendered HSD_CardInit collision; historical spelling remains unknown.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:hsd_803B2374"
+        },
+        "type": "inferred_name",
+        "value": "HSD_CardInitQueues"
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5271-L5278",
+            "why": "State memset and baseline configuration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Names per-object CardState reset and distinguishes global queue reset, resolving rendered collision without claiming recovered historical spelling.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:hsd_803B24E4"
+        },
+        "type": "inferred_name",
+        "value": "HSD_CardInitState"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3A94.c#L5285-L5352",
+            "why": "Complete request submission."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects polling claim and preserves exceptional handle lifetime and ignored close result.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3A94:hsd_803B2550"
+        },
+        "type": "state_behavior",
+        "value": "Retries CARDOpen only while result=-1, up to ten attempts, and propagates negative result. Its fileNo loop tests a captured tmp value rather than polling the field; captured negative fileNo returns the later loaded value without closing. Otherwise CARDClose is retried on-1 up to ten times and its final result is ignored. Ring admission rejects coincident producer/consumer with nonzero slot type using-265; success publishes request type5 with state, fileNo and callback, advances producer modulo32 and returns0. No interrupt masking is performed locally."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

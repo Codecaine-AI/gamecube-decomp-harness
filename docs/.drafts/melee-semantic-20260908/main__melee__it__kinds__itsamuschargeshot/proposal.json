@@ -1,0 +1,141 @@
+{
+  "tu": "main/melee/it/kinds/itsamuschargeshot",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.c#L60-L98",
+            "why": "Definition, parameter uses, and nullable return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.h#L12-L15",
+            "why": "Header parameter spelling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSamus/ftsamusspecialn.c#L83-L92",
+            "why": "Native caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialsamus.c#L274-L291",
+            "why": "Copied caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claimed exact signature's ItemKind substitution and records the canonical header/definition discrepancy while retaining supported semantic parameter roles.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamuschargeshot:it_802B55C8"
+        },
+        "type": "inferred_type",
+        "value": "Nullable Charge Shot constructor defined as HSD_GObj* (Fighter_GObj* gobj, Vec3* pos, enum Fighter_Part arg2, s32 arg3, f32 facing_dir). The arguments supply the originating fighter, requested previous position, attachment part, item-kind selector, and facing. Known callers select native Samus or Kirby-Samus Charge Shot. The owned header instead spells the first parameter Item_GObj* owner; this spelling discrepancy is preserved rather than silently normalized. The result is the created item object or NULL."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.c#L100-L155",
+            "why": "Ordered writes, ownership guard, interpolation inputs and launch outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.c#L293-L313",
+            "why": "Stored charge mutation before returning to launch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the consequential state-entry mutation and differing interpolation inputs explicit, and preserves the unguarded denominator and ownership-failure path.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamuschargeshot:it_802B56E4"
+        },
+        "type": "data_flow",
+        "value": "Receives an existing article, launch position, angle, current charge and maximum charge. It unconditionally stores angle, resets lifetime, applies ordered lower-then-upper comparisons to the local charge, and stores charge and maximum in xDEC/xDF0. Only a non-null recorded fighter matching Item.owner permits launch. The called fired-entry helper first modifies xDEC for state selection: negative becomes 0 and values >=8 become 7. After entry and detachment, speed xDDC and integer property xDF8 are interpolated using the bounded local charge and supplied maximum, whereas scale xDE4 uses the possibly modified stored xDEC/xDF0. Launch then records fighter facing and supplied position, resets effect/counter fields, computes XY velocity from speed and angle with Z=0, and sets xDE8=1. Neither the input comparisons nor interpolation validate a positive, nonzero maximum; the two charge representations must not be conflated."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.c#L17-L36",
+            "why": "Shared state registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.c#L315-L326",
+            "why": "Signature and returned helper result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L458-L468",
+            "why": "Exact decrement and threshold."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects exact-zero wording to the canonical post-decrement <=0 predicate.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamuschargeshot:itSamuschargeshot_UnkMotion8_Anim"
+        },
+        "type": "inferred_type",
+        "value": "Item animation callback with signature bool(Item_GObj*), shared by fired states 1 through 8. After applying stored scale it returns it_80273130's result: true when the life timer is nonpositive after decrement, otherwise false. Expiry does not require the timer to equal exactly zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.c#L315-L326",
+            "why": "Scale precedes lifetime processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L458-L468",
+            "why": "Post-decrement nonpositive predicate."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exceptional timer values and operation order omitted by the previous reaches-zero description.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamuschargeshot:itSamuschargeshot_UnkMotion8_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Runs in fired states 1 through 8. Every invocation first reapplies stored release-time uniform scale to the model grandchild, then decrements the floating-point life timer through it_80273130. It returns true when the resulting timer is <=0 and false otherwise. Thus fractional timers can cross below zero, and already nonpositive timers still receive a decrement and true result; there is no exact-zero-only expiry condition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.c#L117-L153",
+            "why": "Entry call precedes counter reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.c#L293-L313",
+            "why": "Selector mutation and callback installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsamuschargeshot.c#L346-L372",
+            "why": "Equality, variant/default paths and unconditional counter update."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects initialization ordering and preserves the unknown-kind and mutated-charge branches while retaining the supported cadence.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsamuschargeshot:it_802B5EDC"
+        },
+        "type": "state_behavior",
+        "value": "Fired entry installs this accessory callback; the enclosing successful launch subsequently resets xDF4 to zero. On each invocation, effects are attempted only when stored xDEC equals xDF0 and xDF4 is zero. Native Samus spawns 0x480/0x481, copied Kirby spawns 0x4A2/0x4A3, and an unhandled kind spawns nothing. Every invocation then increments xDF4 and reduces it modulo three, even when charge differs or the kind is unhandled. Starting from launch's zero counter, recognized variants satisfying the equality emit on the first and every third accessory invocation. The equality uses xDEC after fired-entry mutation, not necessarily the original supplied charge."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

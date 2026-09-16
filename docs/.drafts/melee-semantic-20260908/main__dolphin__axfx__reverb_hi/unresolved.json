@@ -1,0 +1,27 @@
+{
+  "unresolved": [
+    "Canonical HandleReverb pre-delay stores use preDelayPtr(r30), where r30 was loaded from preDelayLine, and wrap compares the advanced pointer to base + 4*(preDelayTime-1); preserve this suspicious source behavior rather than silently describing an ordinary ring. No compiled evidence available.",
+    "No compiled artifacts establish the correspondence of lens to .data, literal membership in .sdata2, section extents or alignment padding. Source-level roles remain supported, but section-associated baseline claims are unresolved.",
+    "HandleReverb's pre-delay store base and wrap endpoint require compiled instruction comparison before concluding whether they reflect executable defects or source reconstruction errors.",
+    "Parameter entity suffixes #r5 through #r9 are preserved exactly; they are not independently verified physical argument-register assignments for floating-point parameters.",
+    "Creation uses relational bounds rather than explicit finite-value validation. Allocation failure is unchecked, and a small nonzero pre-delay can quantize to zero samples while entering the allocation branch; cleanup is guarded by the resulting sample count."
+  ],
+  "family_followups": [
+    {
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_hi.c#L53-L135",
+          "why": "Mismatched validation bounds, allocation hooks and destructive recreation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_hi.c#L678-L688",
+          "why": "Ignored modification result, guard reset and unconditional success."
+        }
+      ],
+      "reason": "ReverbHIModify accepts preDelay through 100.0, frees existing resources, then calls a constructor limited to 0.1. AXFXReverbHiSettings discards the failure result and re-enables processing. Modification uses OSFreeToHeap for pre-delay while creation and ordinary teardown use AXFX hooks; inspect allocator integration before asserting compatibility.",
+      "scope": "High-quality reverb lifecycle and allocator integration"
+    }
+  ]
+}

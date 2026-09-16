@@ -1,0 +1,196 @@
+{
+  "tu": "main/melee/db/dbeffect",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/db/dbeffect:.sbss"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Shared selector for X-held plus D-pad-down developer visuals. Local mode0 clears the HUD hidden flag; modes1-3 set it. Independently read dbcamera consumers show the stage with its background for0/1, hide the stage for2/3, and set the camera background white for2 or black for3 on the same shortcut. These companion effects execute later through separate all-player loops.",
+        "confidence": 0.99,
+        "rationale": "Correct exact state/section bounds or remove redundant canonical-name hypothesis.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbeffect.c#L4-L21",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L229",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L247-L255",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L130-L144",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L317-L328",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifall.c#L134-L157",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/db/dbeffect:.sbss"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "confidence": 0.99,
+        "rationale": "Correct exact state/section bounds or remove redundant canonical-name hypothesis.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbeffect.c#L4-L21",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L229",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L247-L255",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L130-L144",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L317-L328",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifall.c#L134-L157",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/db/dbeffect:.sbss"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical source declares db_MiscVisualEffectsStatus as a writable signed C int with static storage duration and implicit zero initialization. Starting from that initialized state, this handler cycles the selector through 0, 1, 2, 3 and back to 0. The sole post-increment >3 check is not general normalization of arbitrary signed values. Exact compiled .sbss membership, symbol extent, and the meaning of additional bytes in existing artifacts remain unresolved.",
+        "confidence": 0.99,
+        "rationale": "Remove the unsupported target-padding interpretation identified by independent review. Retain only the source declaration, initialization and normal-state transitions; defer compiled layout.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbeffect.c#L4-L21",
+            "why": "Declares the signed selector and implements its guarded increment, upper-bound reset and HUD state changes; does not establish compiled section layout."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/db/dbeffect:fn_CheckMiscVisualEffects"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Acts per invocation, not once per frame. It tests stored X-held and down-pressed masks without consuming them, increments the shared signed selector, resets it only if the result is >3, then clears the HUD-hidden flag for0 or sets it for nonzero when needed. No chord means no local writes or HUD reconciliation. The four-slot caller permits several advances in one frame; during Hand-boss presence slots2-3 are unrefreshed but still dispatched, so a retained qualifying mask can retrigger on later frames. There is no local DbLevel or index guard.",
+        "confidence": 0.99,
+        "rationale": "Correct exact state/section bounds or remove redundant canonical-name hypothesis.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbeffect.c#L4-L21",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L229",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L247-L255",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L130-L144",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L317-L328",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifall.c#L134-L157",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/db/dbeffect.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "One shared selector is advanced separately for each qualifying controller invocation. Normally it cycles0-1-2-3-0; the signed implementation checks only the post-increment upper bound. Mode0 shows the HUD by clearing its hidden flag; nonzero hides it if not already hidden. No-input calls do not reconcile unrelated HUD changes. dbinit executes all four visual handlers before camera/background and stage handlers, so several simultaneous inputs select a final shared mode before those later consumers run; stale unrefreshed Hand-boss slots can repeat old input.",
+        "confidence": 0.99,
+        "rationale": "Correct exact state/section bounds or remove redundant canonical-name hypothesis.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbeffect.c#L4-L21",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L229",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L247-L255",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L130-L144",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbcamera.c#L317-L328",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifall.c#L134-L157",
+            "why": "Pinned source independently establishes handler, dispatch ordering, selector consumers or HUD flag behavior."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "tu": "main/melee/gr/grcorneria",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2069-L2079",
+            "why": "Shows the complete callback arithmetic, comparison, and writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2210-L2228",
+            "why": "Shows the controller transition and inert state-5 case."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an unconditional permanent-increase claim with the actual floating-point addition and explicitly distinguishes the callback's unguarded state request from the controller's state-4-to-state-5 transition.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grcorneria:fn_801E12D4"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation adds the supplied f32 damage to the shared x114 accumulator. If the resulting total is below yakumono_param->x38, this callback leaves x108 unchanged. At or above the threshold, it writes x108=4 and calls grMaterial_801C8E28 for both cannon objects. It neither validates the sign of damage nor guards against an existing controller state. When the controller processes state 4, it performs effects, camera, visibility, and map-library operations and advances to state 5; state 5 itself does nothing."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2253-L2315",
+            "why": "Complete update body distinguishes velocity clamps from acceleration steering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the incorrect displacement-clamping claim and avoids an unverified asset identity.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grcorneria:grCorneria_801E1970"
+        },
+        "type": "purpose",
+        "value": "Updates a Corneria Ground object's planar translation. On countdown expiry it chooses a new duration and independent random X/Y accelerations. Each invocation decrements the countdown, integrates and clamps velocity, saves previous offsets, integrates displacement, and sets inward acceleration when an offset exceeds its configured threshold. It applies base position plus offsets with Z zero; displacement itself is not clamped."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2390-L2452",
+            "why": "Complete guards, state mutations, timer ordering, and strict endpoint tests."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the verified state machine while making timer ordering and strict termination semantics explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grcorneria:grCorneria_801E2228"
+        },
+        "type": "state_behavior",
+        "value": "While inactive, a clear attempt latch and classifier result 4 permit one HSD_Randi(3) trial; success sets the active flag and resets timer and speed, and the latch is set regardless of success. Classifier result 9 clears the latch in this inactive branch. Activation does not execute movement on the same invocation. While active, the routine saves the old timer, increments the stored timer, and uses old timer < 900 for the downward leg toward 50 * Ground_801C0498() - 250; otherwise it moves upward. Each leg adjusts speed by 0.005 using a stopping-distance test, caps acceleration at speed 3, and floors deceleration at 0.005. The lower endpoint is clamped after subtraction. On the upward leg only a strictly positive resulting displacement is clamped to zero and clears the active flag; exact equality to zero leaves the cycle active."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2781-L2789",
+            "why": "Defines the input, stage guard, conversion, and joint comparison."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_0A01.c#L8584-L8634",
+            "why": "Shows the current cpu member and grounded floor-line consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the verified classifier and consumer flow while replacing the obsolete x1A88 field spelling with the current canonical cpu member; no compiled-offset equivalence is asserted.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grcorneria:grCorneria_801E2E50"
+        },
+        "type": "data_flow",
+        "value": "Consumes an integer collision-line ID and reads stage_info.grkind. On Corneria, for an ID other than -1, it passes the ID to mpJointFromLine and returns whether the resulting joint index is 4; otherwise it returns false. Current CPU processing consumes a true result for a grounded fighter's floor line to set Fighter.cpu.xFA_b6."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2000-L2159",
+            "why": "Contains the complete grCorneria_801E1060 definition and translation helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "The complete body never references gobj and obtains each modified object through Ground_GetMapGObj.",
+        "subject": {
+          "entity_locator": "main/melee/gr/grcorneria:grCorneria_801E1060#r3"
+        },
+        "type": "purpose",
+        "value": "Unused Ground_GObj* parameter; the function instead retrieves map objects 8, 9, and 4 and updates their joint X translations."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2000-L2159",
+            "why": "Contains the complete empty grCorneria_801E12CC definition."
+          }
+        ],
+        "op": "write",
+        "rationale": "The canonical definition explicitly declares arg and has an empty body.",
+        "subject": {
+          "entity_locator": "main/melee/gr/grcorneria:grCorneria_801E12CC#r3"
+        },
+        "type": "purpose",
+        "value": "Unused Ground_GObj* parameter of an empty function."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2000-L2159",
+            "why": "Shows parameter declaration, state access, cannon animation operations, and initial state branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2160-L2319",
+            "why": "Completes the state machine, including joint access and forwarding gobj to it_802EAF34."
+          }
+        ],
+        "op": "write",
+        "rationale": "GET_GROUND(gobj) supplies the state machine, Ground_801C3FA4 resolves joints from gobj, and the same object is forwarded during case 3.",
+        "subject": {
+          "entity_locator": "main/melee/gr/grcorneria:grCorneria_801E1348#r3"
+        },
+        "type": "purpose",
+        "value": "Ground object supplying mutable cannon-control state and joints; also passed to it_802EAF34 during the firing-state branch."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2160-L2319",
+            "why": "Contains the complete grCorneria_801E1878 body."
+          }
+        ],
+        "op": "write",
+        "rationale": "The body obtains both the source joint and associated target through the input object, then performs an explicit translation get/set pair.",
+        "subject": {
+          "entity_locator": "main/melee/gr/grcorneria:grCorneria_801E1878#r3"
+        },
+        "type": "data_flow",
+        "value": "Supplies the source joint translation and Ground state; its hsd_obj translation is copied to the hsd_obj of the object referenced by u.corneria.x128."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2160-L2319",
+            "why": "Contains the complete grCorneria_801E1970 body and final translation write."
+          }
+        ],
+        "op": "write",
+        "rationale": "The body directly reads user_data and hsd_obj, updates randomized acceleration and clamped velocity state, and writes the resulting joint translation.",
+        "subject": {
+          "entity_locator": "main/melee/gr/grcorneria:grCorneria_801E1970#r3"
+        },
+        "type": "purpose",
+        "value": "Ground object whose user_data motion state is updated and whose hsd_obj translation is set to base position plus evolving offsets, with Z set to zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2320-L2479",
+            "why": "Contains the complete grCorneria_801E2228 state-update body."
+          }
+        ],
+        "op": "write",
+        "rationale": "GET_GROUND(gobj) supplies every modified field; the body gates activation, increments a timer, adjusts speed and offset, and clears the active flag after returning past zero.",
+        "subject": {
+          "entity_locator": "main/melee/gr/grcorneria:grCorneria_801E2228#r3"
+        },
+        "type": "purpose",
+        "value": "Ground object providing mutable flags, timer, speed, and offset state for a randomly triggered timed excursion of u.corneria.xD0 followed by a return to zero."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

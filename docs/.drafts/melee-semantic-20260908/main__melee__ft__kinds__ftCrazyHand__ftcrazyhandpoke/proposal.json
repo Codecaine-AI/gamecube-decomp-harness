@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandpoke",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandpoke.c#L55-L126",
+            "why": "Active entry, physics wrapper and four explicit laser-kind creations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L120-L125",
+            "why": "Delegated animation-translation velocity assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "The active initializer installs the four-laser accessory callback, while this phase's physics wrapper applies shared animation-translation velocity.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandpoke:ftCh_Poke1_Phys"
+        },
+        "type": "game_mapping",
+        "value": "Supplies animation-driven movement for the active four-laser phase of Crazy Hand's sequence behaviorally identified as Laser Nail. The Poke1 code label is not evidence of the separate Tri-Poke mechanic."
+      },
+      {
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandpoke.c#L64-L146",
+            "why": "Four-laser lifecycle and final animation handoff."
+          }
+        ],
+        "op": "write",
+        "rationale": "The preceding active phase creates four laser items and requests their shutdown when entering 0x168; this callback handles that ending state's completion.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandpoke:ftCh_Poke2_Anim"
+        },
+        "type": "game_mapping",
+        "value": "Handles animation completion of the ending phase of Crazy Hand's four-laser sequence, behaviorally identified as Laser Nail, and hands control to shared post-action positioning setup. Its Poke2 label does not establish a third physical poke."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandpoke.c#L55-L139",
+            "why": "Latch producer/consumer, retained handles and ordered normal cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmasterhandlaser.c#L87-L115",
+            "why": "Deferred request flag, reset branch and subsequent destruction test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtaggrab.c#L22-L60",
+            "why": "External cleanup consumer for the same item and audio slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L201-L205",
+            "why": "Audio cleanup delegates to AXDriverKeyOff."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact normal cleanup order, distinguishes pointer clearing from object destruction, and records the external handle consumer without assuming all interruption paths are covered.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCrazyHand/ftcrazyhandpoke.c"
+        },
+        "type": "data_flow",
+        "value": "Entry to 0x167 installs an accessory callback and arms cmd_vars[0]. The callback consumes any nonzero latch to create four attached laser items, storing pointers in mv.ch.grab.x28/x2C/x30/x34, and three audio results in mv.ch.unk0.x38/x3C/x40, then clears the latch. On active-animation exhaustion, the 0x168 initializer first keys off the voices and resets their slots to -1; the returning active animation callback then requests item shutdown and clears the four fighter-held pointers. Item shutdown is deferred to item-side processing, whose animation-reset branch can clear the request flag before its test. The same handles also have a cross-file cleanup consumer in ftCh_GrabUnk1_8015ADD0."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

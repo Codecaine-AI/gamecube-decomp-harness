@@ -1,0 +1,422 @@
+{
+  "tu": "main/melee/ft/ft_081B",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ftCo_AirCatchHit_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Always synchronizes collision position, runs mpColl_800471F8 and copies the corrected position back before calling ft_80081A00. No accepted contact or a true item-response guard suppresses the subsequent landing dispatch, but does not prove unchanged action state: the guard can itself invoke ftCo_800C703C. On accepted contact, self_vel.y strictly above ftCo_800D0EC8 selects ft_8008A2BC; otherwise basic landing is entered.",
+        "rationale": "Corrects the unchanged-state claim while preserving guard order and inclusive velocity split.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L514-L546",
+            "why": "Ordered callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0819.c#L68-L91",
+            "why": "Guard side effect."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_8008239C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Advances CollData position history and seeds current position from the Fighter. ft_80082838 returns the input collision descriptor for nonnegative facing, or writes a horizontally reflected descriptor to local scratch and returns that scratch for negative facing. The selected descriptor enters mpColl_8004730C when ledge cooldown or x2224_b2 blocks ledges; otherwise dir is installed and mpColl_800475F4 runs. Corrected position is copied back before the item-response veto; surviving map floor contact is returned, with other contacts retained separately in CollData.",
+        "rationale": "Corrects unconditional local-copy description and preserves pointer lifetime and mode distinction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L296-L323",
+            "why": "Wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L426-L439",
+            "why": "Alias alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L599-L622",
+            "why": "Synchronous descriptor consumption."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_8008239C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "bool (Fighter_GObj* gobj, int dir, ftCollisionBox* height_attributes). Mutates fighter collision state and position; reads the supplied descriptor without modifying it. Negative facing uses reflected local scratch, otherwise the original pointer is submitted. dir is used only on the ledge-enabled branch. Return is accepted floor contact after the item-response veto, not ledge acquisition.",
+        "rationale": "Preserves exact signature while correcting mandatory temporary-geometry claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L296-L323",
+            "why": "Signature and roles."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L426-L439",
+            "why": "Conditional scratch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_800824A0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Advances CollData.last_pos, seeds cur_pos from Fighter.cur_pos, and selects the caller's descriptor unchanged for nonnegative facing or a reflected stack descriptor for negative facing. mpColl_8004730C consumes the selected geometry and mutates CollData; corrected position is copied to the Fighter. ft_80081A00 can independently invoke an item response and forces false when true; otherwise the map floor-contact result is returned.",
+        "rationale": "Corrects unconditional stack-copy claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L325-L345",
+            "why": "Wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L426-L439",
+            "why": "Pointer selection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80082638"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Advances collision position history and copies fighter position into CollData. ft_80082838 returns the original descriptor unless facing is negative, when it returns reflected local scratch. mpColl_80047A08 consumes that descriptor in a stay-airborne pass; its return is ignored. Corrected position is copied back, then ft_80081A00 can veto the result. Otherwise the returned boolean is derived solely from Collide_FloorMask.",
+        "rationale": "Corrects original-versus-temporary aliasing without changing floor-mask semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L367-L439",
+            "why": "Wrapper and reflection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80082F28"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Accepted ft_CheckGroundAndLedge contact selects neutral dispatch when self_vel.y is strictly above the scaled threshold, otherwise basic landing, and returns. A false result tries wall jump then cliff, each short-circuiting on success. No final direct transition follows declined fallbacks; however unchanged state is not guaranteed because the ground query's ft_80081A00 guard may already have invoked an item response.",
+        "rationale": "Removes unsupported unchanged-state conclusion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L624-L639",
+            "why": "Priority."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0819.c#L68-L91",
+            "why": "Guard response."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80083464"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Selects callback-aware non-ledge collision when ledge cooldown or x2224_b2 is active, otherwise installs normalized facing and enables ledge processing. Corrected position is copied back before ft_80081A00 can veto floor success. Accepted contact invokes cb and returns; every false result, including veto, attempts wall jump then cliff. Declining these fallbacks causes no further direct transition, but does not undo or exclude a prior item response.",
+        "rationale": "Corrects unchanged-state claim while preserving ordered branches.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L745-L790",
+            "why": "Query and fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0819.c#L68-L91",
+            "why": "Item response."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_800835B0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Accepted callback-aware floor contact invokes cb and returns. Otherwise checks wall jump, cliff and ceiling stop in that order, stopping at the first success. If all decline, no additional direct transition occurs; the shared query may nevertheless already have invoked an item response through ft_80081A00, so unchanged action state is not guaranteed.",
+        "rationale": "Corrects blanket unchanged-state assertion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L641-L672",
+            "why": "Shared query veto."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L792-L804",
+            "why": "Priority."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0819.c#L68-L91",
+            "why": "Guard response."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80083844"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Runs an airborne fighter map-collision pass using mpColl_80048654 (ECB load mode5, collision mode0), copies the resolved position back, and invokes a caller-supplied event only for floor contact surviving the item-response veto. It does not use the grounded resolver despite its floor-contact role.",
+        "rationale": "Canonical callee uses inline0 and airborne resolver; ECB mode does not identify resolver family.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L850-L876",
+            "why": "Wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L2651-L2665",
+            "why": "Airborne inline0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L2907-L2911",
+            "why": "ECB5, collision0."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80083844"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every call performs an airborne map-collision update and commits position correction. A true ft_80081A00 result or false map floor result suppresses cb; otherwise cb receives the same fighter object. There is no wall/cliff fallback or local timer. RebirthWait supplies fn_800D5A30, which applies its post-rebirth setting and invokes neutral dispatch. The item guard may independently respond before callback suppression.",
+        "rationale": "Corrects grounded-resolver description and preserves callback ownership and veto side effects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L850-L876",
+            "why": "Exact guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L2907-L2911",
+            "why": "Airborne pass."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D4D.c#L362-L371",
+            "why": "Concrete continuation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80083910"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Ledge cooldown or x2224_b2 selects non-ledge mpColl_80048654; otherwise normalized facing is installed and mpColl_800474E0 enables ledges. Both are airborne passes using ECB mode5. Position correction precedes the item-response veto. Surviving floor contact invokes cb and returns; a false result, including a veto, still reaches wall-jump then cliff checks. Thus the veto suppresses the floor callback, not all remaining handling.",
+        "rationale": "Corrects suppression scope by following the false inline result into the exported wrapper.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L878-L921",
+            "why": "Complete control flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80083A48"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Accepted ft_CheckGroundAndLedge(gobj,0) floor contact invokes cb and returns. Otherwise wall-jump handling has priority over the final cliff check. No additional direct transition follows declined checks, but the ground query's item guard may already have invoked a response, so an unchanged action state cannot be inferred from all final checks declining.",
+        "rationale": "Corrects unsupported unchanged-state conclusion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L923-L933",
+            "why": "Dispatcher."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0819.c#L68-L91",
+            "why": "Guard response."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80083DCC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Unconditionally synchronizes fighter position through CollData, runs mpColl_800478F4 using ECB load mode5 and airborne stay-airborne collision mode1, copies the correction back and invokes ft_80081A00. It discards both returned booleans and has no direct landing callback. Collision mode1 is not the callback/platform-pass mode.",
+        "rationale": "Corrects platform-pass misclassification without inferring more from ECB flags.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L981-L993",
+            "why": "Wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L2790-L2795",
+            "why": "Exact mode selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L2446-L2489",
+            "why": "Separate platform and stay-airborne branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80083E64"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Advances collision history and seeds CollData from fighter position. The facing helper returns the input descriptor unchanged unless facing is negative, when it writes and returns reflected local scratch. mpColl_8004730C consumes the selected geometry; corrected position is copied back before the item-response veto. Only surviving map floor contact invokes cb with the same object.",
+        "rationale": "Corrects unconditional temporary-box claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L995-L1025",
+            "why": "Query and callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L426-L439",
+            "why": "Conditional aliasing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_80083E64"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void (Fighter_GObj* gobj, ftCollisionBox* ecb, HSD_GObjEvent cb). Reads caller geometry and mutates fighter CollData and position. Negative facing submits a reflected stack descriptor; nonnegative facing submits the original pointer. cb is a one-object void event invoked at most once on accepted floor contact.",
+        "rationale": "Preserves exact signature and corrects alias behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L995-L1025",
+            "why": "Signature and dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L426-L439",
+            "why": "Pointer alternatives."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_800846B0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Advances CollData position history and copies fighter position into the query. ft_80082838 returns the original box for nonnegative facing, or a reflected stack box for negative facing. mpColl_8004B21C consumes that selected descriptor in grounded mode0. Corrected position is copied back unconditionally; only a false support result invokes cb(gobj). No ft_80081A00 veto occurs here.",
+        "rationale": "Corrects temporary-pointer overstatement while preserving grounded support semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1156-L1179",
+            "why": "Wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L426-L439",
+            "why": "Alias branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_800846B0"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void (Fighter_GObj* gobj, ftCollisionBox* box, HSD_GObjEvent cb). A grounded explicit-geometry collision adapter: box is read-only in use and may be submitted directly, or reflected into local scratch for negative facing. CollData and fighter position are mutable; cb receives the same object once only on support loss.",
+        "rationale": "Preserves signature but corrects mandatory local transformation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1156-L1179",
+            "why": "Signature and callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L426-L439",
+            "why": "Conditional scratch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_081B:ft_800847D0"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void (Fighter_GObj* gobj, ftCollisionBox* box). Mutating grounded collision helper with read-only caller geometry. The original box pointer is submitted for nonnegative facing; negative facing uses a reflected local scratch descriptor. Corrected position is committed and support loss invokes ftCo_Fall_Enter; no value is returned.",
+        "rationale": "Corrects unconditional copy-to-temporary description.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1181-L1205",
+            "why": "Signature and support branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L426-L439",
+            "why": "Conditional reflection."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

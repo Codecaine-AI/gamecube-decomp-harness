@@ -1,0 +1,2775 @@
+{
+  "campaign": "melee-semantic-20260908",
+  "tu": "main/melee/db/dberror",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "reader": "dberror_leaf",
+  "started_at": "2026-09-08T16:10:21.816Z",
+  "completed_at": "2026-09-08T16:12:30.769853+00:00",
+  "read_receipts": [
+    {
+      "path": "src/melee/db/dberror.c",
+      "canonical_range": [
+        1,
+        81
+      ],
+      "rendered_range": [
+        1,
+        82
+      ],
+      "source_sha256": "72d6faae47d1eddb1a1dbb1f18b3d2131269f389095e8fbf7b900a3ff07cb14d",
+      "artifact": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__db__dberror/pages/src__melee__db__dberror.c.1-82.json",
+      "render_metadata": {
+        "status": "ok",
+        "path": "src/melee/db/dberror.c",
+        "source_sha256": "72d6faae47d1eddb1a1dbb1f18b3d2131269f389095e8fbf7b900a3ff07cb14d",
+        "start_line": 1,
+        "end_line": 82,
+        "total_lines": 82,
+        "next_line": null,
+        "content": "#include <stdarg.h>\n\n#include \"db.h\"\n#include <dolphin/base/PPCArch.h>\n#include <dolphin/db.h>\n#include <dolphin/os.h>\n#include <melee/lb/lb_0195.h>\n#include <sysdolphin/baselib/debug.h>\n#include <sysdolphin/baselib/debugconsole_main.h>\n#include <sysdolphin/baselib/hsd_393C.h>\n#include <sysdolphin/baselib/video.h>\n\n/* 228AB4 */ static void fn_HSDPanicHandler(OSContext* ctx);\n/* 228B28 */ static void fn_OSErrorHandler(u16 error, OSContext* ctx, ...);\n\nvoid db_ClearFPUExceptions(void)\n{\n    OSContext* ctx;\n\n    PPCMtmsr(PPCMfmsr() | 0x900);\n    ctx = OSGetCurrentContext();\n    OSSaveFPUContext(ctx);\n    ctx->fpscr &= 0xFFFFF;\n    OSLoadFPUContext(ctx);\n}\n\nstatic void fn_HSDPanicHandler(OSContext* ctx)\n{\n    HSD_VISetUserPreRetraceCallback(NULL);\n    HSD_VISetUserPostRetraceCallback(NULL);\n    lb_80019A48();\n    OSReport(\"%s\\n\", db_build_timestamp);\n    Exception_ReportStackTrace(ctx, 0x10);\n    hsd_80397DFC(0x1388);\n    Exception_StoreDebugLevel(DbLevel);\n    Exception_StartDebugThread(ctx);\n}\n\nstatic void fn_OSErrorHandler(u16 error, OSContext* ctx, ...)\n{\n    int dsisr, dar;\n\n    va_list va;\n    va_start(va, ctx);\n\n    dsisr = va_arg(va, int);\n    dar = va_arg(va, int);\n\n    HSD_VISetUserPreRetraceCallback(NULL);\n    HSD_VISetUserPostRetraceCallback(NULL);\n    lb_80019A48();\n    OSReport(\"%s\\n\", db_build_timestamp);\n    Exception_ReportStackTrace(ctx, 0x10);\n    Exception_ReportCodeline(error, dsisr, dar, ctx);\n    hsd_80397DFC(0x1388);\n    Exception_StoreDebugLevel(DbLevel);\n    hsd_80397DA4(ctx);\n\n    va_end(va);\n}\n\nvoid db_SetupCrashHandler(void)\n{\n    u16 x;\n    if (DBIsDebuggerPresent() == 0) {\n        void* mem = OSAllocFromArenaLo(0x2000, 4);\n        HSD_ReportConsoleInit(mem, 0x2000);\n        HSD_SetPanicCallback((PanicCallback) fn_HSDPanicHandler);\n        for (x = 0; x < 16; x++) {\n            switch (x) {\n            case 4:\n            case 7:\n            case 8:\n            case 9:\n                break;\n            default:\n                OSSetErrorHandler(x, fn_OSErrorHandler);\n            }\n        }\n    }\n}\n",
+        "substitutions": 2,
+        "symbols": [
+          {
+            "canonical": "hsd_80397DA4",
+            "proposed": "Exception_StartDebugThread",
+            "confidence": 0.73,
+            "subject": "main/sysdolphin/baselib/debugconsole_main:hsd_80397DA4",
+            "fact_id": "fact:a5f2ed62-0e56-4481-bf4c-b1ba3566aab6",
+            "fact_updated_at": "2026-09-06T02:34:38.472Z",
+            "status": "substituted"
+          },
+          {
+            "canonical": "hsd_80397DA4",
+            "proposed": "Exception_StartDebugThread",
+            "confidence": 0.73,
+            "subject": "main/sysdolphin/baselib/debugconsole_main:hsd_80397DA4",
+            "fact_id": "fact:a5f2ed62-0e56-4481-bf4c-b1ba3566aab6",
+            "fact_updated_at": "2026-09-06T02:34:38.472Z",
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "hsd_80393DA0",
+            "proposed": "HSD_ReportConsoleInit",
+            "confidence": 0.78,
+            "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393DA0",
+            "fact_id": "fact:04e54192-a5a1-4c32-b1de-e5abbe15decd",
+            "fact_updated_at": "2026-09-06T02:34:38.472Z",
+            "status": "substituted"
+          },
+          {
+            "canonical": "fn_HSDPanicHandler",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/melee/db/dberror:fn_HSDPanicHandler",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "fn_OSErrorHandler",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/melee/db/dberror:fn_OSErrorHandler",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "db_ClearFPUExceptions",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/melee/db/dberror:db_ClearFPUExceptions",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "PPCMfmsr",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/base/PPCArch:PPCMfmsr",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "PPCMtmsr",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/base/PPCArch:PPCMtmsr",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "OSGetCurrentContext",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/os/OSContext:OSGetCurrentContext",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "OSSaveFPUContext",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/os/OSContext:OSSaveFPUContext",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "OSLoadFPUContext",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/os/OSContext:OSLoadFPUContext",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "HSD_VISetUserPreRetraceCallback",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/video:HSD_VISetUserPreRetraceCallback",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "HSD_VISetUserPostRetraceCallback",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/video:HSD_VISetUserPostRetraceCallback",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "lb_80019A48",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/melee/lb/lb_0195:lb_80019A48",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "OSReport",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/os/OSError:OSReport",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "Exception_ReportStackTrace",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/debugconsole_main:Exception_ReportStackTrace",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "hsd_80397DFC",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/debugconsole_main:hsd_80397DFC",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "Exception_StoreDebugLevel",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/debugconsole_main:Exception_StoreDebugLevel",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "fn_OSErrorHandler",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/melee/db/dberror:fn_OSErrorHandler",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "va_start",
+            "proposed": null,
+            "confidence": null,
+            "subject": null,
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "va_arg",
+            "proposed": null,
+            "confidence": null,
+            "subject": null,
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "HSD_VISetUserPostRetraceCallback",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/video:HSD_VISetUserPostRetraceCallback",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "lb_80019A48",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/melee/lb/lb_0195:lb_80019A48",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "OSReport",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/os/OSError:OSReport",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "Exception_ReportStackTrace",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/debugconsole_main:Exception_ReportStackTrace",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "Exception_ReportCodeline",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/debugconsole_main:Exception_ReportCodeline",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "hsd_80397DFC",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/debugconsole_main:hsd_80397DFC",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "Exception_StoreDebugLevel",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/debugconsole_main:Exception_StoreDebugLevel",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "va_end",
+            "proposed": null,
+            "confidence": null,
+            "subject": null,
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "parse_uncertain"
+          },
+          {
+            "canonical": "db_SetupCrashHandler",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/melee/db/dberror:db_SetupCrashHandler",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "DBIsDebuggerPresent",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/db/db:DBIsDebuggerPresent",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "OSAllocFromArenaLo",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/os/OSArena:OSAllocFromArenaLo",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "HSD_SetPanicCallback",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/sysdolphin/baselib/debug:HSD_SetPanicCallback",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          },
+          {
+            "canonical": "OSSetErrorHandler",
+            "proposed": null,
+            "confidence": null,
+            "subject": "main/dolphin/os/OSError:OSSetErrorHandler",
+            "fact_id": null,
+            "fact_updated_at": null,
+            "status": "no_guess"
+          }
+        ],
+        "symbols_omitted": 0,
+        "parse_errors": 3,
+        "knowledge_status": "frozen_baseline"
+      }
+    }
+  ],
+  "supporting_canonical_reads": [
+    {
+      "path": "src/sysdolphin/baselib/debug.c",
+      "canonical_range": [
+        1,
+        63
+      ],
+      "source_sha256": "744079d202042e534ed2229473efc5c4d1db6d40b9379d337a9a7c31baf1ed81",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/src__sysdolphin__baselib__debug.c.1-63.txt"
+    },
+    {
+      "path": "src/sysdolphin/baselib/debugconsole_main.c",
+      "canonical_range": [
+        824,
+        860
+      ],
+      "source_sha256": "8a103b9dccc49d7117bc98b010805e278eae981b04504632ea6f91c4d0c0975f",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/src__sysdolphin__baselib__debugconsole_main.c.824-860.txt"
+    },
+    {
+      "path": "src/sysdolphin/baselib/debugconsole_main.c",
+      "canonical_range": [
+        2840,
+        2868
+      ],
+      "source_sha256": "8a103b9dccc49d7117bc98b010805e278eae981b04504632ea6f91c4d0c0975f",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/src__sysdolphin__baselib__debugconsole_main.c.2840-2868.txt"
+    },
+    {
+      "path": "src/sysdolphin/baselib/hsd_393C.c",
+      "canonical_range": [
+        88,
+        113
+      ],
+      "source_sha256": "4dc6d88c26f2f29e6ecd5d6f1fec61a04075901dcdd7801536b309eb03815d2a",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/src__sysdolphin__baselib__hsd_393C.c.88-113.txt"
+    },
+    {
+      "path": "src/melee/lb/lb_0195.c",
+      "canonical_range": [
+        161,
+        192
+      ],
+      "source_sha256": "6e68d0ffdc61baa8bcc0aed049fd98fca5fdc25df2d85dc8634c17508813fdb3",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/src__melee__lb__lb_0195.c.161-192.txt"
+    },
+    {
+      "path": "extern/dolphin/src/dolphin/os/OSError.c",
+      "canonical_range": [
+        42,
+        114
+      ],
+      "source_sha256": "c24f0ed7a7fc4ada2fd5acf76fc00b908bf8b7914e8880127b6ed3ceb7631193",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/extern__dolphin__src__dolphin__os__OSError.c.42-114.txt"
+    },
+    {
+      "path": "extern/dolphin/src/dolphin/os/OSArena.c",
+      "canonical_range": [
+        35,
+        56
+      ],
+      "source_sha256": "f66794bfd3b90df0c214abefdf798d6ee4c2bf9d24cdd55ba9483479b9a1792e",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/extern__dolphin__src__dolphin__os__OSArena.c.35-56.txt"
+    },
+    {
+      "path": "extern/dolphin/src/dolphin/db/db.c",
+      "canonical_range": [
+        1,
+        27
+      ],
+      "source_sha256": "206a1cfc221d4924baeecf547727b7586e66f19c9be373cb7cd7850a10d63097",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/extern__dolphin__src__dolphin__db__db.c.1-27.txt"
+    },
+    {
+      "path": "extern/dolphin/src/dolphin/os/OSContext.c",
+      "canonical_range": [
+        1,
+        200
+      ],
+      "source_sha256": "8cfc70b92ed2c6e5f80e7c613bb2a6a325792b67a72b727d3e6ab2348df1e896",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/extern__dolphin__src__dolphin__os__OSContext.c.1-200.txt"
+    },
+    {
+      "path": "src/sysdolphin/baselib/video.c",
+      "canonical_range": [
+        25,
+        49
+      ],
+      "source_sha256": "6dd8839dcbb4f283bf1870b65a4db780ae7c92144aee19d070ea76dde4883545",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/src__sysdolphin__baselib__video.c.25-49.txt"
+    },
+    {
+      "path": "src/sysdolphin/baselib/debugconsole_main.c",
+      "canonical_range": [
+        849,
+        930
+      ],
+      "source_sha256": "8a103b9dccc49d7117bc98b010805e278eae981b04504632ea6f91c4d0c0975f",
+      "snapshot": "docs/.drafts/melee-semantic-20260908/main__melee__db__dberror/src__sysdolphin__baselib__debugconsole_main.c.849-930.txt"
+    }
+  ],
+  "object_evidence": [
+    {
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/worktrees/cycles/5f955426-0cc8-4421-8ff0-068979ee5636/current/build/GALE01/obj/melee/db/dberror.o",
+      "sha256": "974dc05b77f99ccfead88212459319f52548aae39f4dcb5044b6846d96f77854",
+      "sections": [
+        {
+          "name": ".sdata",
+          "size": 8,
+          "alignment": 8,
+          "hex": "25730a0000000000"
+        }
+      ]
+    },
+    {
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/worktrees/cycles/5f955426-0cc8-4421-8ff0-068979ee5636/current/build/GALE01/src/melee/db/dberror.o",
+      "sha256": "f8a2579e76cac7a2e28ad409ec965440e8657fee52f28f49b55a2aa6c745cbee",
+      "sections": [
+        {
+          "name": ".sdata",
+          "size": 4,
+          "alignment": 8,
+          "hex": "25730a00"
+        }
+      ]
+    }
+  ],
+  "subjects": [
+    {
+      "subject": {
+        "target_stable_key": "main/melee/db/dberror:.sdata"
+      },
+      "canonical_range": [
+        27,
+        60
+      ],
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L60",
+          "why": "Pinned owned implementation for this subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        }
+      ],
+      "facts": [
+        {
+          "id": "fact:a837f4e5-6913-49b9-a2a8-f00bf68ff966",
+          "version": {
+            "updated_at": "2026-09-04T18:25:15.921Z",
+            "numeric_version": null
+          },
+          "type": "data_flow",
+          "value": "Both fn_HSDPanicHandler and fn_OSErrorHandler read the shared \"%s\\n\" format data and pass it as OSReport's first argument, with the externally supplied db_build_timestamp as the substitution argument; the resulting timestamp report precedes each callback's stack and exception-console processing.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L60",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:4743daf1-55b0-4a79-a5b7-29408732f281",
+          "version": {
+            "updated_at": "2026-09-04T18:25:15.921Z",
+            "numeric_version": null
+          },
+          "type": "game_mapping",
+          "value": "Contributes build-identification output to Melee's internal runtime crash diagnostics, allowing either an HSD panic or a selected OS exception to report which game build produced the failure.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L60",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:5d6b6d34-e423-407f-ac2f-5f9f552a4cb3",
+          "version": {
+            "updated_at": "2026-09-04T18:25:15.921Z",
+            "numeric_version": null
+          },
+          "type": "inferred_type",
+          "value": "Compiler-owned small-data storage whose meaningful payload is the NUL-terminated character literal \"%s\\n\" used as an OSReport format string; it is constant formatting data, not a source-level mutable object or table.",
+          "disposition": "supersede",
+          "reason": "Correct or narrow inherited claim with pinned canonical source and saved existing-object observations.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L60",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:b0ac8c8d-01bd-42c1-ae69-f6c562527c1f",
+          "version": {
+            "updated_at": "2026-09-04T18:25:15.921Z",
+            "numeric_version": null
+          },
+          "type": "purpose",
+          "value": "Supplies the short OSReport format literal used by both crash callbacks to print the build timestamp before they emit stack, exception, debug-level, and processor-context diagnostics.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L60",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        }
+      ],
+      "review": "Supplies the short OSReport format literal used by both crash callbacks to print the build timestamp before they emit stack, exception, debug-level, and processor-context diagnostics."
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/db/dberror:db_ClearFPUExceptions"
+      },
+      "canonical_range": [
+        16,
+        25
+      ],
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "Pinned owned implementation for this subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        }
+      ],
+      "facts": [
+        {
+          "id": "fact:98fe4684-b1cc-44e6-9ad8-822a9fd292de",
+          "version": {
+            "updated_at": "2026-09-02T00:23:02.340Z",
+            "numeric_version": null
+          },
+          "type": "data_flow",
+          "value": "It reads the current Machine State Register, writes back that value with bits 0x900 set, obtains the current OSContext, copies the live FPU state into that context, transforms `ctx->fpscr` from its previous value to `ctx->fpscr & 0x000FFFFF`, and reloads the resulting FPU state. It returns no data; its outputs are the modified MSR and live FPSCR state.",
+          "disposition": "supersede",
+          "reason": "Correct or narrow inherited claim with pinned canonical source and saved existing-object observations.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:747e47bd-389a-4976-adf5-2cc77a8f90da",
+          "version": {
+            "updated_at": "2026-09-04T18:25:15.921Z",
+            "numeric_version": null
+          },
+          "type": "game_mapping",
+          "value": "This is developer-facing runtime error infrastructure rather than a player-visible gameplay mechanic: within the `dberror` unit it normalizes floating-point exception state, while neighboring routines implement panic and OS-exception reporting.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:9623db44-21d9-4943-9f8f-35297a04026c",
+          "version": {
+            "updated_at": "2026-09-02T00:23:02.340Z",
+            "numeric_version": null
+          },
+          "type": "inferred_type",
+          "value": "A parameterless, void-returning processor-state routine with signature `void db_ClearFPUExceptions(void)`; its only local value is an `OSContext*` obtained from the operating system.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:f087a667-4d90-4bb7-aaf3-fcaad3392732",
+          "version": {
+            "updated_at": "2026-09-02T00:23:02.340Z",
+            "numeric_version": null
+          },
+          "type": "purpose",
+          "value": "Clears the exception/status portion of the live floating-point status and control register by updating the current OS context and reloading that context into the FPU.",
+          "disposition": "supersede",
+          "reason": "Correct or narrow inherited claim with pinned canonical source and saved existing-object observations.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:753173c9-c2ae-4315-8a9d-425973dec695",
+          "version": {
+            "updated_at": "2026-09-02T00:23:02.340Z",
+            "numeric_version": null
+          },
+          "type": "state_behavior",
+          "value": "The routine is unconditional and has no alternate state or guard: it permanently sets the MSR bits selected by 0x900 for subsequent execution, then clears all but the low 20 stored bits of FPSCR in one save-modify-reload sequence. Repeated calls are idempotent with respect to those masks.",
+          "disposition": "supersede",
+          "reason": "Correct or narrow inherited claim with pinned canonical source and saved existing-object observations.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        }
+      ],
+      "review": "Masks saved FPSCR with 0x000FFFFF and reloads the current FPU context after setting MSR mask 0x900. This precisely clears stored high twelve FPSCR bits while retaining low twenty; it should not be interpreted as clearing every possible exception-related FPSCR field."
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/db/dberror:db_SetupCrashHandler"
+      },
+      "canonical_range": [
+        62,
+        81
+      ],
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L62-L81",
+          "why": "Pinned owned implementation for this subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        }
+      ],
+      "facts": [
+        {
+          "id": "fact:62484edd-40c4-4e73-a042-7d1e6cead9d0",
+          "version": {
+            "updated_at": "2026-09-02T00:22:55.874Z",
+            "numeric_version": null
+          },
+          "type": "data_flow",
+          "value": "The routine reads debugger-presence state from DBIsDebuggerPresent. If no debugger is present, it obtains an 0x2000-byte, 4-byte-aligned block from the low arena and passes that block and size to hsd_80393DA0, passes fn_HSDPanicHandler into HSD_SetPanicCallback, and passes each selected error number together with fn_OSErrorHandler into OSSetErrorHandler.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L62-L81",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:624b461c-2324-497a-9493-b229e511791f",
+          "version": {
+            "updated_at": "2026-09-02T00:22:55.874Z",
+            "numeric_version": null
+          },
+          "type": "game_mapping",
+          "value": "Realizes the installation step of Melee's internal runtime crash diagnostics: it activates game-provided panic and operating-system exception reporting only when an attached debugger is unavailable.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L62-L81",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:09145734-00ce-4a54-a9de-2539c74c2638",
+          "version": {
+            "updated_at": "2026-09-02T00:22:55.874Z",
+            "numeric_version": null
+          },
+          "type": "inferred_type",
+          "value": "Initialization routine with signature void db_SetupCrashHandler(void). It takes no inputs and returns no value; its outputs are process-global crash-handler registrations and low-arena/debug-console state.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L62-L81",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:e40e5faf-90d5-4f43-892f-7a05d4fe2d95",
+          "version": {
+            "updated_at": "2026-09-02T00:22:55.874Z",
+            "numeric_version": null
+          },
+          "type": "purpose",
+          "value": "Configures Melee's fallback crash-handling path when no external debugger is attached by allocating diagnostic workspace, registering the game's HSD panic callback, and installing its OS-exception callback for the supported error-number set.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L62-L81",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:13c67bd4-d46a-4a0d-8765-1fc081fc73a2",
+          "version": {
+            "updated_at": "2026-09-02T00:22:55.874Z",
+            "numeric_version": null
+          },
+          "type": "state_behavior",
+          "value": "If DBIsDebuggerPresent returns nonzero, the routine performs no setup. If it returns zero, the panic callback is installed once and the OS-error callback is registered for error numbers 0 through 15 except 4, 7, 8, and 9, which are explicitly skipped.",
+          "disposition": "supersede",
+          "reason": "Correct or narrow inherited claim with pinned canonical source and saved existing-object observations.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L62-L81",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        }
+      ],
+      "review": "Configures Melee's fallback crash-handling path when no external debugger is attached by allocating diagnostic workspace, registering the game's HSD panic callback, and installing its OS-exception callback for the supported error-number set."
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/db/dberror:fn_HSDPanicHandler"
+      },
+      "canonical_range": [
+        27,
+        37
+      ],
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L37",
+          "why": "Pinned owned implementation for this subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        }
+      ],
+      "facts": [
+        {
+          "id": "fact:508d3e0c-e713-4060-8fde-85dfbaba6e7e",
+          "version": {
+            "updated_at": "2026-09-02T00:22:30.883Z",
+            "numeric_version": null
+          },
+          "type": "data_flow",
+          "value": "Consumes the panic-time `OSContext*` supplied by HSD. It uses that context to request a stack trace with a limit argument of 0x10 and later forwards the same context to `hsd_80397DA4`; independently, it sends `db_build_timestamp` through OSReport, passes 0x1388 to `hsd_80397DFC`, and stores the global `DbLevel` through `Exception_StoreDebugLevel`.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L37",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:14ff7aef-00ab-466a-938b-4a352b70edb0",
+          "version": {
+            "updated_at": "2026-09-02T00:22:30.883Z",
+            "numeric_version": null
+          },
+          "type": "game_mapping",
+          "value": "Realizes the HSD-panic branch of Melee's internal runtime crash diagnostics, used in the no-external-debugger configuration to expose build and execution-state information after a fatal engine panic.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L37",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:f3895466-2f28-4615-8952-9024b3ddb32d",
+          "version": {
+            "updated_at": "2026-09-02T00:22:30.883Z",
+            "numeric_version": null
+          },
+          "type": "inferred_type",
+          "value": "Implementation-private HSD panic callback with effective signature `static void fn_HSDPanicHandler(OSContext* ctx)`. It receives the processor context associated with the panic and is registered through the HSD `PanicCallback` interface.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L37",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:3396b55c-fe56-480c-934e-33a7a86a09a0",
+          "version": {
+            "updated_at": "2026-09-02T00:22:30.883Z",
+            "numeric_version": null
+          },
+          "type": "purpose",
+          "value": "Handles an HSD panic by quiescing user video-retrace hooks and assembling crash diagnostics for the internal exception console, including the build timestamp, a stack trace, and the active debug level.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L37",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:13446135-75fb-41b8-949e-318a272b9878",
+          "version": {
+            "updated_at": "2026-09-02T00:22:30.883Z",
+            "numeric_version": null
+          },
+          "type": "state_behavior",
+          "value": "The callback has no internal branch or recovery path. On every invocation it first disables both HSD user retrace hooks by replacing the pre- and post-retrace callbacks with NULL, then executes a fixed diagnostic sequence: crash preparation, build-timestamp reporting, stack-trace reporting, debug-console setup with 0x1388, debug-level storage, and final context handoff.",
+          "disposition": "supersede",
+          "reason": "Correct or narrow inherited claim with pinned canonical source and saved existing-object observations.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L37",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        }
+      ],
+      "review": "Handles an HSD panic by quiescing user video-retrace hooks and assembling crash diagnostics for the internal exception console, including the build timestamp, a stack trace, and the active debug level."
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/db/dberror:fn_OSErrorHandler"
+      },
+      "canonical_range": [
+        39,
+        60
+      ],
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L39-L60",
+          "why": "Pinned owned implementation for this subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        }
+      ],
+      "facts": [
+        {
+          "id": "fact:fc446d1f-adf4-46c8-87fc-ad86ad0444e8",
+          "version": {
+            "updated_at": "2026-09-01T23:16:56.426Z",
+            "numeric_version": null
+          },
+          "type": "data_flow",
+          "value": "Receives an OS error number and saved OSContext directly and extracts DSISR followed by DAR from its unnamed arguments. It sends the context and a depth of 16 to Exception_ReportStackTrace, sends the error, DSISR, DAR, and context to Exception_ReportCodeline, passes 0x1388 to hsd_80397DFC, stores the global DbLevel through Exception_StoreDebugLevel, and passes the context to hsd_80397DA4.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L39-L60",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:794b25de-b5b4-47f5-b019-e79d5458b679",
+          "version": {
+            "updated_at": "2026-09-01T23:16:56.426Z",
+            "numeric_version": null
+          },
+          "type": "game_mapping",
+          "value": "Realizes Melee's internal crash-diagnostic path for selected OS exceptions when no external debugger is available, preserving enough machine state to report the failing exception and its call stack.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L39-L60",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:ea98fe5a-516a-4307-a0c1-32c02f1d277b",
+          "version": {
+            "updated_at": "2026-09-01T23:16:56.426Z",
+            "numeric_version": null
+          },
+          "type": "inferred_type",
+          "value": "Static variadic OS error callback with source signature `void fn_OSErrorHandler(u16 error, OSContext* ctx, ...)`; its first two unnamed arguments are read as `int dsisr` and `int dar`, respectively.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L39-L60",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:febae4a8-ecec-4be7-b7ef-5764275757e2",
+          "version": {
+            "updated_at": "2026-09-01T23:16:56.426Z",
+            "numeric_version": null
+          },
+          "type": "purpose",
+          "value": "Handles a selected operating-system exception by stopping user retrace callbacks and feeding build, stack, exception-register, debug-level, and processor-context information into Melee's internal exception-reporting console.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L39-L60",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:432bb92b-2a56-4bc7-ac47-5932fb933c87",
+          "version": {
+            "updated_at": "2026-09-01T23:16:56.426Z",
+            "numeric_version": null
+          },
+          "type": "state_behavior",
+          "value": "On entry it unconditionally removes both user retrace callbacks before performing any reporting. It then follows a fixed diagnostic sequence with no internal guard: initialize the crash-side subsystem, print the build timestamp, report up to 16 stack frames, report exception details, invoke the 0x1388-parameterized console operation, store DbLevel, and hand off the saved context.",
+          "disposition": "supersede",
+          "reason": "Correct or narrow inherited claim with pinned canonical source and saved existing-object observations.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L39-L60",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        }
+      ],
+      "review": "Handles a selected operating-system exception by stopping user retrace callbacks and feeding build, stack, exception-register, debug-level, and processor-context information into Melee's internal exception-reporting console."
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/db/dberror.c"
+      },
+      "canonical_range": [
+        1,
+        81
+      ],
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L1-L81",
+          "why": "Pinned owned implementation for this subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        }
+      ],
+      "facts": [
+        {
+          "id": "fact:db29f7f1-cdcf-4a73-919c-845a64cf2bb9",
+          "version": {
+            "updated_at": "2026-09-06T16:49:50.986Z",
+            "numeric_version": null
+          },
+          "type": "data_flow",
+          "value": "At initialization, the unit tests whether a debugger is present; otherwise it allocates 0x2000 bytes from the low arena for the exception console and passes its local callbacks to HSD and OS registration APIs. At failure time, those callbacks consume an `OSContext` and, for OS errors, an error number plus DSISR and DAR values, then forward the build timestamp, stack trace, exception details, current `DbLevel`, and context into the debug-console subsystem.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L1-L81",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:8267e1b8-f352-4ccd-a3ec-27bdd286e96b",
+          "version": {
+            "updated_at": "2026-09-06T16:49:50.986Z",
+            "numeric_version": null
+          },
+          "type": "game_mapping",
+          "value": "Implements Melee's internal runtime crash diagnostics used when the game is running without an attached debugger, covering both HSD panics and selected operating-system exceptions.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L1-L81",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:621310fb-2d88-430c-9ab8-12c4d8567da3",
+          "version": {
+            "updated_at": "2026-09-06T16:49:50.986Z",
+            "numeric_version": null
+          },
+          "type": "purpose",
+          "value": "Centralizes low-level error handling for the game's debug subsystem: it clears pending floating-point exceptions, implements panic and OS-exception diagnostic callbacks, and installs those callbacks when no external debugger is present.",
+          "disposition": "retain",
+          "reason": "Pinned implementation and independently read supporting source substantiate the inherited claim.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L1-L81",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        },
+        {
+          "id": "fact:c016c0ad-7b95-436e-aca3-d099e7cd1dfd",
+          "version": {
+            "updated_at": "2026-09-06T16:49:50.986Z",
+            "numeric_version": null
+          },
+          "type": "state_behavior",
+          "value": "Crash-handler installation occurs only when `DBIsDebuggerPresent` returns zero. In that case the panic callback is installed once, while the OS-error callback is installed for error numbers 0 through 15 except 4, 7, 8, and 9; both crash callbacks disable the user pre- and post-retrace callbacks before emitting diagnostics.",
+          "disposition": "supersede",
+          "reason": "Correct or narrow inherited claim with pinned canonical source and saved existing-object observations.",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L1-L81",
+              "why": "Pinned owned implementation for this subject."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L1-L200",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+              "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+            }
+          ]
+        }
+      ],
+      "review": "Centralizes low-level error handling for the game's debug subsystem: it clears pending floating-point exceptions, implements panic and OS-exception diagnostic callbacks, and installs those callbacks when no external debugger is present."
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/db/dberror:fn_HSDPanicHandler#r3"
+      },
+      "canonical_range": [
+        27,
+        37
+      ],
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L37",
+          "why": "Pinned owned implementation for this subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        }
+      ],
+      "facts": [],
+      "review": "Canonical signature, section or parameter uses reviewed.",
+      "disposition": "reviewed_no_existing_facts",
+      "parameter_review": "Canonical callback parameter uses read; no speculative register-to-parameter naming fact added."
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/db/dberror:fn_OSErrorHandler#r3"
+      },
+      "canonical_range": [
+        39,
+        60
+      ],
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L39-L60",
+          "why": "Pinned owned implementation for this subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        }
+      ],
+      "facts": [],
+      "review": "Canonical signature, section or parameter uses reviewed.",
+      "disposition": "reviewed_no_existing_facts",
+      "parameter_review": "Canonical callback parameter uses read; no speculative register-to-parameter naming fact added."
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/db/dberror:fn_OSErrorHandler#r4"
+      },
+      "canonical_range": [
+        39,
+        60
+      ],
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L39-L60",
+          "why": "Pinned owned implementation for this subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L1-L63",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L824-L860",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2840-L2868",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L88-L113",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L161-L192",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L114",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L35-L56",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L1-L27",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L25-L49",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L849-L930",
+          "why": "Independently read foreign callback, setter or SDK support; ownership not claimed."
+        }
+      ],
+      "facts": [],
+      "review": "Canonical signature, section or parameter uses reviewed.",
+      "disposition": "reviewed_no_existing_facts",
+      "parameter_review": "Canonical callback parameter uses read; no speculative register-to-parameter naming fact added."
+    }
+  ],
+  "counts": {
+    "targets": 5,
+    "entities": 4,
+    "facts": 28,
+    "proposals": 8,
+    "dispositions": {
+      "retain": 20,
+      "supersede": 8,
+      "reject": 0,
+      "unresolved": 0
+    }
+  },
+  "exceptions": [
+    "Owned C81 physical lines/rendered82, two substitutions and three parse errors; final phantom blank excluded from citations. Canonical source resolves parse-uncertain callback reads.",
+    "No owned header in manifest. Foreign support remains foreign.",
+    "Existing object inspection is not a rebuild or source-object equivalence check."
+  ],
+  "unresolved": []
+}

@@ -1,0 +1,45 @@
+{
+  "tu": "main/dolphin/card/CARDDir",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDDir.c#L14-L94",
+            "why": "Shows starter returns, preparation mutations, continuation guards, success-only copy switching and conditional completion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes an attempted erase start and its immediate return from asynchronous continuation, and limits completion guarantees to the actual callback tails.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDDir:__CARDUpdateDir"
+        },
+        "type": "state_behavior",
+        "value": "The function asserts the channel range. A detached card returns CARD_RESULT_NOCARD before directory mutation or callback storage. For an attached card, it increments checkCode, refreshes checksums, stores the directory cache range, saves eraseCallback, and returns __CARDEraseSector's immediate result directly; it performs no local rollback, release, or callback-slot cleanup after that call. In the callback chain, nonnegative erase completion starts a 0x2000-byte write and nonnegative write-start status leaves completion pending. Negative erase completion or immediate write-start failure reaches EraseCallback's terminal tail; write completion reaches WriteCallback's terminal tail. These tails release the control block only when apiCallback is absent and clear a nonnull eraseCallback before invoking it with chan and result. Successful write completion additionally switches currentDir to the alternate work-area directory image and copies the written image there."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDDir.c#L14-L94",
+            "why": "The callback cleanup tails are separate from detached rejection and the direct erase-start return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the blanket claim that every terminal path releases the control block and consumes the callback, preserving the distinct immediate initiation-return paths.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/card/CARDDir.c"
+        },
+        "type": "state_behavior",
+        "value": "Directory persistence uses an asynchronous erase-then-write chain. Detached updates return CARD_RESULT_NOCARD without preparation. Attached updates prepare integrity metadata and save eraseCallback before directly returning the erase starter's result, with no local rollback or cleanup after that call. In EraseCallback, a nonnegative erase result starts a 0x2000-byte write; a nonnegative write-start result returns with completion pending, while a negative erase result or immediate write-start failure reaches the terminal tail. WriteCallback toggles currentDir between work-area offsets 0x2000 and 0x4000 and mirrors the previous image into the selected buffer only for nonnegative completion. Both callback terminal tails conditionally release the control block when apiCallback is null and clear a nonnull eraseCallback before invoking it. These callback-tail guarantees do not describe the entry point's immediate-return paths."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

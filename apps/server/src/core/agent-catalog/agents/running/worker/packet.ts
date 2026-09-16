@@ -1,5 +1,5 @@
 import type { RunRecord } from "@server/core/shared/types";
-import type { ClaimedTarget } from "@server/core/cycle-runtime/run-state";
+import type { ClaimedTarget } from "@server/core/harness-runtime/run-state";
 import type { WorkerFirstDiff } from "./change-validation.js";
 
 export function enabledCapabilities(packet: Record<string, unknown>): string[] {

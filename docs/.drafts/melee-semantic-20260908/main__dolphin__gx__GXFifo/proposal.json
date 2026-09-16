@@ -1,0 +1,50 @@
+{
+  "tu": "main/dolphin/gx/GXFifo",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXFifo.c#L140-L152",
+            "why": "Complete body contains GP-only attachment assertion and two sequential field assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXFifo.c#L195-L234",
+            "why": "GP attachment performs the later hardware transfer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported atomic-update claim and distinguishes current GP detachment from a requirement that the object has never been attached.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXFifo:GXInitFifoLimits"
+        },
+        "type": "state_behavior",
+        "value": "In assertion-enabled builds, rejects the currently GP-attached FIFO, thresholds not aligned to 32 bytes, a high threshold at or beyond top - base, and a low threshold not strictly below the high threshold. CPU-only attachment is not prohibited. The routine then stores hiWatermark and loWatermark sequentially, without interrupt exclusion or an atomic-pair guarantee; it does not modify cursors, occupancy, attachment state, or hardware registers. GXSetGPFifo subsequently transfers the stored thresholds into CP registers."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXFifo.c#L10-L21",
+            "why": "Independent typed globals and DEBUG-only redirection state."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an unsupported compiled-layout inference with the directly evidenced declarations and their build-conditional distinction.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXFifo:.sbss"
+        },
+        "type": "inferred_type",
+        "value": "The source-level persistent FIFO state comprises separately declared struct __GXFifoObj pointers CPUFifo and GPFifo, OSThread pointer __GXCurrentThread, GXBool CPGPLinked, BOOL GXOverflowSuspendInProgress, GXBreakPtCallback BreakPointCB, u32 __GXOverflowCount, and void pointer __GXCurrentBP. DEBUG additionally declares int IsWGPipeRedirected. These declarations establish logical C types, not a single aggregate or compiled .sbss membership, ordering, padding, or uniform word-sized storage."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

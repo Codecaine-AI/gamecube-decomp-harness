@@ -1,0 +1,16 @@
+## Tournament bracket scene
+Canonical and rendered views of gmtou_1.c (2493 lines) and its guard-only header (5 lines), all 87 subjects, 263 facts and 57 links were reviewed. Existing role-bearing names mostly fit; the bounce callback needs a distinct name to resolve its collision with fn_80197FD8.
+
+The unit maintains random-stage caches, classifies stage policies, generates or imports bracket standings, builds common/player-setup/result presentation, dispatches option handlers, prepares next-match DVD/audio resources, and owns four archive lifetimes. The frame dispatcher selects transition options 0x13–0x1A, setup options 0x1B–0x1E, and otherwise the result handler, then assembles a 13-word snapshot consumed by an empty function.
+
+Setup callbacks differ materially in pad-error and slot-type handling: fn_801977AC restores base placement on a disconnected non-type-1 slot after bounce processing; fn_80197FD8 applies state-4 hiding only on the no-error branch; fn_801981A0 allows controller-error continuation for animation state 4. Numbered animation states, cursor choices and participant types are distinct domains. UI initialization is partial: each six-byte record starts with start=0, cur=0, end=30, state=0, done=0, loop=0. It does not erase result metadata, cached transforms, x29 or x21.
+
+The result resolver has sole-active, imported MatchEnd and generated-standing branches with different inactive sentinels and propagation. The four-slot ordering tree always assigns a permutation but has an asymmetric remaining-pair comparison when slot 0 is first and slot 3 second. The outcome constructor can return after common scene setup when x18 is zero and mode is not 2. Selection fallbacks can produce -1 without local validation before later indexed access.
+
+The anchor callback publishes a child transform and suppression flag consumed by the overlay. Result text uses a presentation counter, not a match countdown: after 250 it may advance by two or clamp, and with x18 zero it is merely raised to 250. The 7200 threshold is therefore not a universal elapsed-frame timeout. x33 is written by progression-rank classification. Stage policies 0/2 consult x32 while 1/3 ignore it. Pending routing is deferred; scene reset can bypass normal exit callbacks.
+
+Entry loads GmTou1p, TmBox.dat, GmTou3p and GmTou4p, publishes archive-backed descriptors including shared box arrays, installs language-dependent SIS data and selects audio 0x5D/0x5E. Exit frees all four handles without clearing them or extracted pointers. The external archive destructor frees both backing data and descriptor. Source declarations and size assertions support source-level types but do not certify compiled section layout or literal ordering.
+
+All baseline facts have explicit dispositions (249 retained, 11 superseded, 3 unresolved); all 57 links are retained. Earlier progress notes are superseded by this completed summary. One saved stage-cache retention evidence locator contains a transcription error: code://c302741689bd67c3617faadb221df3193992c3/src/melee/gm/gm_1601.c#L2201-L2225 should read code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L2201-L2225; that exact canonical evidence was delivered in this attempt.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

@@ -1,0 +1,45 @@
+{
+  "tu": "main/dolphin/os/OSResetSW",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSResetSW.c#L21-L35",
+            "why": "Separate register tests, clear-before-call dispatch, and final write ordering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unconditional early-release rejection claim by distinguishing the loop's register read from the subsequent acceptance read, and preserves callback-dependent completion.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSResetSW:__OSResetSWInterruptHandler"
+        },
+        "type": "state_behavior",
+        "value": "On entry the handler records HoldDown and loops while elapsed time is below 100 microseconds and the sampled reset input is low. A separate post-loop PI-register read determines acceptance: if low, it sets LastState and Down to TRUE, masks PI reset-switch interrupts, and clears a nonnull ResetCallback before invoking its saved value. A high sample can terminate the loop yet a subsequent low sample can still enter this action path, so uninterrupted assertion for the entire window is not guaranteed. Both branches reach the final PI-register write of 2 provided any invoked callback returns."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSResetSW.c#L10-L87",
+            "why": "Declarations, handler resampling, polling timestamp guards and override ordering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported continuous-assertion guarantee and makes the sampling-dependent release hold and separation of filtered history from simulated output explicit.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/os/OSResetSW.c"
+        },
+        "type": "state_behavior",
+        "value": "The module retains Down, LastState, HoldDown and HoldUp across calls. The interrupt handler attempts a 100-microsecond low-input validation, but acceptance is determined by a separate post-loop sample; a high loop sample followed by a low acceptance sample can still latch the press. Acceptance masks reset-switch interrupts and consumes a nonnull callback by clearing its slot before invocation. Polling starts HoldDown on a newly sampled press and otherwise requires a down interval strictly greater than 100 microseconds unless HoldUp is nonzero. The first released sample repeats LastState and sets HoldUp to the current time only if that state is true; subsequent released samples retain true while nonzero HoldUp is less than 40 milliseconds old. Pressed branches test HoldUp for nonzero without checking its age. LastState is updated before the GameChoice override, which begins strictly after the selected startup delay and alternates the returned result in two-second phases without changing LastState."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

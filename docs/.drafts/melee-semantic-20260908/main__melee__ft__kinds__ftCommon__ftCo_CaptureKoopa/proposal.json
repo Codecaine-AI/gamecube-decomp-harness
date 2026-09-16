@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L20-L23",
+            "why": "Complete wrapper forwards its argument to the scale updater."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L213-L230",
+            "why": "Updater chooses the three scale components and writes root JObj scale."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c#L91-L103",
+            "why": "YoshiEgg entry installs the function as take_dmg_cb."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces a TU-placement inference with the actual wrapper behavior and a canonical cross-file installation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa:ftCo_800BC438"
+        },
+        "type": "purpose",
+        "value": "Forwards its fighter object unchanged to Fighter_UpdateModelScale, refreshing the root model's scale. The checked external installation is as take_dmg_cb during YoshiEgg entry; its placement in CaptureKoopa does not establish a Koopa-specific invocation."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_YoshiEgg.c#L91-L103",
+            "why": "Installation follows entry into ftCo_MS_YoshiEgg."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L20-L23",
+            "why": "Callback contains no Koopa-specific logic."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's unsupported Koopa-only gameplay attribution using an active caller.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa:ftCo_800BC438"
+        },
+        "type": "game_mapping",
+        "value": "Provides a model-scale refresh callback installed by YoshiEgg entry as the captive's take_dmg_cb. The callback itself performs only Fighter_UpdateModelScale; no Koopa Klaw-specific caller is established by its owning filename."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L33-L62",
+            "why": "Shows all guards, source fields, writes, and animation-rate calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKoopa/ftkoopa.c#L409-L421",
+            "why": "Identifies the two reload accessor outputs as x40 and x3C."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact canonical data flow without treating field-layout comments or rendered aliases as compiled evidence.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa:ftCo_800BC4A8"
+        },
+        "type": "data_flow",
+        "value": "When mv.ca.specialhi.vel.y is nonzero, resolves the captive's YRotN joint and scales x1A50/x1A51 by capturekoopa.xC. It independently adds these deltas to Z/Y only if the absolute proposed coordinate is <= capturekoopa.x10 / mv.co.walk.fast_anim_frame, respectively. It then decrements capturekoopa.x8 and rereads mv.ca.specialhi.vel.y for the no-mash normal-rate reset. A final independent x8<=0 && x0 check reloads x8 and animation rate from the linked captor's Koopa attributes x40 and x3C. Exact compiled aliasing of the mixed motion-variable views is unresolved."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L33-L62",
+            "why": "Complete body establishes ordering, independent restart, inclusive bounds, and lack of validation or transition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes boundary behavior and post-decrement ordering explicit while avoiding the baseline's potentially independent-control interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa:ftCo_800BC4A8"
+        },
+        "type": "state_behavior",
+        "value": "The outer nonzero test on mv.ca.specialhi.vel.y gates translation attempts and x8-=1, but not the final restart check. After decrement, mv.ca.specialhi.vel.y<=0 && !x0 restores rate 1 and clears x8. Independently, x8<=0 && x0 reloads the interval and rate. Translation equality is accepted and out-of-bound steps are rejected, not clamped. Zero skips the outer body; ordered comparisons reject NaNs under ordinary float semantics. No interval, rate, or bound is validated for positivity or finiteness. Mixed-view timer aliasing remains unresolved without compiled layout evidence, and this helper performs no motion-state transition."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

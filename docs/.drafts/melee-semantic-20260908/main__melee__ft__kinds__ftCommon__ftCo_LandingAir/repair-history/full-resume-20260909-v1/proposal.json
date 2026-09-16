@@ -1,0 +1,62 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:.sdata2"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The split literal section is 24 bytes: an eight-byte conversion bias 0x4330000080000000 (f64 4503601774854144), f32 zero/one/0.1 at offsets 8/12/16, then four zero bytes. Existing source section is 28 bytes: the same bias at 0, eight zero bytes at 8, and f32 zero/one/0.1 at 16/20/24. Source flags are WRITE|ALLOC; split flags ALLOC. It is mixed compiler literal/conversion storage, not a gameplay aggregate; runtime protection is not established.",
+        "rationale": "Assembly confirms the conversion bias and scalar loads. Existing source and split differ in layout, size and SHF_WRITE.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L43-L65",
+            "why": "Assembly confirms the conversion bias and scalar loads. Existing source and split differ in layout, size and SHF_WRITE."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:.sdata2"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides compiler scalar literals for aerial-landing state initialization and rate calculation, plus the signed integer-to-floating conversion bias for the reduced lag. Local code reads this storage without writing it; source/split object permissions are recorded separately.",
+        "rationale": "Observed source ELF is writable despite read-only use; conversion support is confirmed rather than hypothetical.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L43-L65",
+            "why": "Observed source ELF is writable despite read-only use; conversion support is confirmed rather than hypothetical."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When command variable 0 is active and the current motion is one of the five standard aerial attacks, select the matching LandingAir state and lag attribute. If x67F is below common xE4, truncate lag/xE8 toward zero and replace an exactly zero integer result with one; otherwise retain the original lag. A selected state enters with that lag. No selected state enters basic landing. LandingAir has an empty IASA callback and delegates animation completion, physics and collision to ordinary landing handlers.",
+        "rationale": "The local code tests integer result == 0 rather than applying a general minimum clamp. Failure of the timing guard preserves full aerial lag; only missing state selection uses basic landing.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The local code tests integer result == 0 rather than applying a general minimum clamp. Failure of the timing guard preserves full aerial lag; only missing state selection uses basic landing."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,4 +1,8 @@
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { gameKnowledgeRoot } from "../../knowledge/paths.js";
+import { configuredSourcePath, loadGameSources } from "../ingest/source-config.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import {
   openKnowledgeIndexDb,
@@ -13,7 +17,7 @@ import {
 } from "./fts.js";
 import { buildEmbeddingIndex } from "./embeddings/indexer.js";
 import { createOpenAiEmbeddingProvider } from "./embeddings/provider.js";
-import { createPastPrsArchive } from "./pr-archive.js";
+import { createEmptyPrArchive, createPastPrsArchive, type PrArchive } from "./pr-archive.js";
 import {
   rebuildSearchIndexes,
   type RebuildSearchIndexesResult,
@@ -37,6 +41,13 @@ export async function kg2Index(
   const knowledgeRoot = optionalStringArg(args, "--knowledge-root");
   const embeddingModel = optionalStringArg(args, "--embedding-model");
   const gameId = globals.gameId ?? "melee";
+  const gameRoot = dirname(resolve(knowledgeRoot ?? gameKnowledgeRoot(gameId)));
+  const prSource = existsSync(resolve(gameRoot, "game.json"))
+    ? loadGameSources(gameRoot, gameId).find(source => source.identity.kind === "pr" && source.configuration.enabled)
+    : undefined;
+  const prArchive = prSource
+    ? createPastPrsArchive(configuredSourcePath(gameRoot, prSource, "capture_root"), prSource.identity.upstream)
+    : createEmptyPrArchive();
 
   if (
     knowledgeRoot === undefined
@@ -70,6 +81,7 @@ export async function kg2Index(
         sources,
         allWikiRevisions,
         provider,
+        prArchive,
       });
     } else {
       result = await buildIndexesIncrementally(store, indexDb, {
@@ -78,6 +90,7 @@ export async function kg2Index(
         sources,
         allWikiRevisions,
         provider,
+        prArchive,
       });
     }
     console.log(JSON.stringify(result));
@@ -88,6 +101,7 @@ export async function kg2Index(
 }
 
 interface BuildIndexesOptions {
+  prArchive: PrArchive;
   fts: boolean;
   embeddings: boolean;
   sources?: FtsSource[];
@@ -101,7 +115,7 @@ async function buildIndexesIncrementally(
   options: BuildIndexesOptions,
 ): Promise<RebuildSearchIndexesResult> {
   const sources = options.sources ?? [...FTS_SOURCES];
-  const prArchive = createPastPrsArchive();
+  const prArchive = options.prArchive;
   const result: RebuildSearchIndexesResult = {};
 
   if (options.fts) {

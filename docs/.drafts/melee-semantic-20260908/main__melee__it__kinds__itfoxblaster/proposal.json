@@ -1,0 +1,148 @@
+{
+  "tu": "main/melee/it/kinds/itfoxblaster",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L651-L799",
+            "why": "Full cleanup helper, synchronization and alternate destruction branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1942-L1980",
+            "why": "Common destruction performs resource cleanup and GObj unlinking."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing description of the alternate branch as detachment. Canonical common-item code establishes Item_8026A8EC as terminal destruction, and the caller preserves a distinct cleanup order.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfoxblaster:itFoxblaster_UnkMotion8_Anim"
+        },
+        "type": "data_flow",
+        "value": "Reads the Item's kind, motion state and saved fighter owner. Native Fox/Falco or Kirby classifiers and lifecycle predicates drive state synchronization and removal decisions. Full cleanup conditionally clears fighter-side bookkeeping when generic and saved ownership match, clears both item owner fields, destroys effects and invokes Item_8026A8EC. In the alternate removal branch it clears only the saved foxblaster.owner before invoking Item_8026A8EC, then calls efLib_DestroyAll. The callback returns false even after explicit item destruction."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L32-L55",
+            "why": "State-table assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L692-L799",
+            "why": "Signature, removal paths and unconditional false return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported signature and table role while removing misleading detachment wording and distinguishing the return value from object survival.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfoxblaster:itFoxblaster_UnkMotion8_Anim"
+        },
+        "type": "inferred_type",
+        "value": "Item animation callback with signature bool (HSD_GObj*), installed for held-Blaster item states 0 through 8. Its argument supplies the mutable Item, and it returns false even on paths that explicitly invoke item destruction."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L651-L799",
+            "why": "Distinct removal paths and false return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1942-L1980",
+            "why": "Destruction semantics independent of rendered naming."
+          }
+        ],
+        "op": "write",
+        "rationale": "Both removal branches reach common destruction. The prior purpose incorrectly contrasted full cleanup with a merely detached prop and implied continued state lifetime from the false return.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfoxblaster:itFoxblaster_UnkMotion8_Anim"
+        },
+        "type": "purpose",
+        "value": "Maintains the held Blaster across item states 0 through 8 by synchronizing eligible motion states with the owner's Blaster action and explicitly destroying the article when its owner/action lifecycle checks require removal. Full reciprocal cleanup and the alternate destruction branch have different ownership-clearing and effect-cleanup order. The callback always returns false; that return does not mean a destroyed article remains active."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L574-L579",
+            "why": "Identity and pickup maps are separate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L716-L799",
+            "why": "Exact synchronization exclusions, lifetime guards and alternate branch order."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact numeric exclusions, sentinel and branch structure while correcting the alternate branch's destruction semantics and call order.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfoxblaster:itFoxblaster_UnkMotion8_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Skips animation resynchronization for current item states 2, 5, 6, 7 and 8. Otherwise it obtains the native or copied owner-action discriminator, compares through the identity map, and changes a mismatched motion state with ITEM_ANIM_UPDATE followed by Item_802694CC. Lifetime processing performs full cleanup when the saved owner is absent, the action is 9, or the removal predicate returns true. Otherwise, a true CheckBlasterAction result clears the saved foxblaster.owner, calls Item_8026A8EC, then calls efLib_DestroyAll; this branch does not directly call the reciprocal fighter-clear helper. It always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L321-L328",
+            "why": "Firing-index progression and reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L409-L427",
+            "why": "Exact draw/holster progression and asymmetric endpoint handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L804-L808",
+            "why": "Fixed helper call order."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the overgeneralized claim that reaching either endpoint clears the step. The canonical upper threshold is >=5, so the ordinary 3-to-4 transition does not clear +1.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfoxblaster:itFoxblaster_UnkMotion8_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Runs for held-Blaster states 0 through 8 and invokes draw/holster articulation before firing articulation, without directly changing the item motion state. The draw/holster helper applies the current pose and adds its signed step only at indices 1 through 3. Normal +1 progression reaches index 4 and stops advancing with the step still +1; a result >=5 instead clamps to 4 and clears the step, while a result <=0 clamps to 0 and clears it. The firing helper advances indices 1 through 13 and resets to 0 upon reaching 14."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxblaster.c#L453-L511",
+            "why": "Baseline initialization, failure branches and owner-before-initializer order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1983-L1992",
+            "why": "Attachment precedes synchronous PickedUp callback invocation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim that owner recording follows initialization and preserves the pickup callback's cross-file timing.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfoxblaster:it_802AE8A8"
+        },
+        "type": "state_behavior",
+        "value": "A null fighter returns null without creation. Failed generic item creation returns its null result without Blaster-specific initialization or pickup. On success, the constructor first stores the fighter in foxblaster.owner, then initializes all item commands to zero, clears xDCC_flag.b3, resets the private animation and sound/effect-latch fields, sets set_sfx_var2 to 1, and clears all six shot-history slots. It then invokes Item_8026AB54 with the fighter and attachment part; that helper attaches the item and invokes its PickedUp callback before the constructor returns."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

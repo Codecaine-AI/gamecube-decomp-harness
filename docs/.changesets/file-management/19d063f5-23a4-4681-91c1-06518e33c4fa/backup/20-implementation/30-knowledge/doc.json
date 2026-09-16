@@ -1,0 +1,344 @@
+{
+  "schemaVersion": 1,
+  "id": "20-implementation-30-knowledge-00-overview",
+  "title": "Knowledge: Overview",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-impk-intro",
+        "b-impk-gov-h",
+        "b-impk-g-k",
+        "b-impk-g-rc",
+        "b-impk-g-ag",
+        "b-impk-mod-h",
+        "b-impk-modules",
+        "b-impk-dec-h",
+        "b-impk-d1",
+        "b-impk-d2",
+        "b-impk-d3",
+        "b-impk-d4",
+        "b-impk-d5"
+      ]
+    },
+    "b-impk-intro": {
+      "id": "b-impk-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The V2 store and its import, retrieval, and curation code live in apps/server/src/core/knowledge-v2. The code graph, its builders, and authored standards remain in apps/server/src/core/knowledge. Game-owned data lives under each game's knowledge directory."
+        }
+      ],
+      "children": []
+    },
+    "b-impk-gov-h": {
+      "id": "b-impk-gov-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Governed By"
+        }
+      ],
+      "children": []
+    },
+    "b-impk-g-k": {
+      "id": "b-impk-g-k",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Knowledge System",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge",
+              "label": "Knowledge System"
+            }
+          }
+        },
+        {
+          "insert": ": the tables, sources, pathways, and worker surfaces this code implements."
+        }
+      ],
+      "children": []
+    },
+    "b-impk-g-rc": {
+      "id": "b-impk-g-rc",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Record Contracts",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/20-record-contracts",
+              "label": "Record Contracts"
+            }
+          }
+        },
+        {
+          "insert": ": the load-bearing schema."
+        }
+      ],
+      "children": []
+    },
+    "b-impk-g-ag": {
+      "id": "b-impk-g-ag",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Agents",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-agents",
+              "label": "Agents"
+            }
+          }
+        },
+        {
+          "insert": ": the three knowledge agents the librarian and summarizer modules invoke."
+        }
+      ],
+      "children": []
+    },
+    "b-impk-mod-h": {
+      "id": "b-impk-mod-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Modules"
+        }
+      ],
+      "children": []
+    },
+    "b-impk-modules": {
+      "id": "b-impk-modules",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Module",
+          "Owns",
+          "Entry points"
+        ],
+        "rows": [
+          [
+            "storage",
+            "DDL, ordered migrations, the store handle, immediate transactions with busy retry",
+            "openKnowledgeStore, runKnowledgeStorageMigrations"
+          ],
+          [
+            "records",
+            "Insert and update helpers per table; writeFactWithEvidence, insertLink, admitCuratedEntity, mergeEntities, claim and complete for index_task, stampSubjectIndexed",
+            "records/index.ts"
+          ],
+          [
+            "views",
+            "knowledgeRecord, targetLedger, unitView as TypeScript queries",
+            "views/index.ts"
+          ],
+          [
+            "locator",
+            "parseLocator and formatLocator for the five schemes",
+            "locator.ts"
+          ],
+          [
+            "ingest",
+            "Source importers, report reconciliation, entity extraction, and attempt history ingestion",
+            "kg2-ingest --lane"
+          ],
+          [
+            "index",
+            "knowledge-index.sqlite: FTS builders, chunker, embedding provider and indexer, rebuild",
+            "kg2-index"
+          ],
+          [
+            "migration/prioritize",
+            "The backfill ranking",
+            "kg2-prioritize"
+          ],
+          [
+            "apply",
+            "applyLibrarianPass and resolveCitation: the only write path for facts, evidence, links, curated entities",
+            "apply/index.ts"
+          ],
+          [
+            "librarian",
+            "Queue consumer, lanes, per-pathway context, the run-loop lane",
+            "kg2-librarian, --librarian-consumer"
+          ],
+          [
+            "backfill",
+            "Target-driven runner and its context",
+            "kg2-backfill"
+          ],
+          [
+            "summarizer-job, renarrate",
+            "The worker_summary job, transcript condensing, historical renarration",
+            "--worker-summary, kg2-renarrate"
+          ],
+          [
+            "card",
+            "The worker target card",
+            "loadV2TargetCard"
+          ],
+          [
+            "tools",
+            "Read-only V2 source search, knowledge_record, entity lookup, locator resolution, and unit context; registered wrappers live in core/tools/wrappers/knowledge-v2.ts",
+            "tools.ts"
+          ],
+          [
+            "drift",
+            "Read-only citation scan and mechanical re-anchoring of unchanged code spans",
+            "kg2-drift-scan, kg2-drift-reanchor"
+          ],
+          [
+            "source-view, source-context",
+            "Proposed-name source excerpts with canonical symbol mappings",
+            "knowledge_render_file"
+          ],
+          [
+            "ingest/harness-intake",
+            "Shared sync-publication and epoch-boundary intake coordinator",
+            "runKnowledgeIntake"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-impk-dec-h": {
+      "id": "b-impk-dec-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Decisions"
+        }
+      ],
+      "children": []
+    },
+    "b-impk-d1": {
+      "id": "b-impk-d1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision: storage/ddl.ts is the schema authority. Every schema change must update storage/schema.ts, the ordered migrations where required, and the fresh-store parity test in storage/schema.test.ts. Why: DDL carries CHECK constraints while the typed mirror supports queries; an outdated mirror hides schema drift. Applies to: every future table, column, and named index. The test compares table and column sets and verifies every declared named index exists."
+        }
+      ],
+      "children": []
+    },
+    "b-impk-d2": {
+      "id": "b-impk-d2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision: model-produced semantic proposals go through apply before facts, evidence, links, or curated entities change. The model never receives a writable store handle. Why: shape, scope, citation, and overwrite checks share one implementation. Applies to: librarian, backfill, and future semantic model writers. Deterministic reconciliation and citation re-anchoring have their own bounded maintenance contracts."
+        }
+      ],
+      "children": []
+    },
+    "b-impk-d3": {
+      "id": "b-impk-d3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the index database is derived and disposable; nothing reads it as truth and every build is a full replacement per table. "
+        },
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": search quality changes with chunking and models; a rebuild must be free. "
+        },
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": index/*."
+        }
+      ],
+      "children": []
+    },
+    "b-impk-d4": {
+      "id": "b-impk-d4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": knowledge jobs are CLIs inside their owning module, dispatched by the application job runner as kg2-*. "
+        },
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the dispatcher stays a routing table and each job's flags live beside the code they drive. "
+        },
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": every future knowledge job."
+        }
+      ],
+      "children": []
+    },
+    "b-impk-d5": {
+      "id": "b-impk-d5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision: core/knowledge retains the code graph, its builders and jobs, and authored standards used by current callers. The V1 learnings ledger, classification lane, learnings API, and legacy dashboard are retired; frozen V1 data is historical archive material. Why: graph retrieval still has active users while V2 owns semantic knowledge and attempt records. Applies to: apps/server/src/core/knowledge; new knowledge behavior belongs in knowledge-v2."
+        }
+      ],
+      "children": []
+    }
+  }
+}

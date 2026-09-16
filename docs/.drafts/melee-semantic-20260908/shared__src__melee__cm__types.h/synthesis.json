@@ -1,0 +1,178 @@
+{
+  "task": "shared/src/melee/cm/types.h",
+  "status": "family review complete; no writable subjects and no KB proposal; owned-TU followups and negative/caller claims remain pending",
+  "findings": [
+    {
+      "id": "cm-layout-subject",
+      "status": "source_confirmed",
+      "claim": "Canonical CmSubject separates owner anchor pos from bone_pos and current ext from target_ext. ftCamera initialization copies pos into bone_pos and target extents into current extents; ordinary updates refresh only horizontal target extents/pos/facing, clear on_ledge and delegate bone_pos. Do not conflate the two paths or claim bone_pos is always bone-derived.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L15-L30",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L21-L47",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L51-L93",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        }
+      ]
+    },
+    {
+      "id": "cm-layout-copy",
+      "status": "source_comment_contradicted",
+      "claim": "The tentative types.h comment that transform_copy is unused is not supported. camera.c passes it to Camera_8002AF68 with cm_804D6464 in STANDARD/FIXED modes and smooths it independently. This establishes a consumer, not the final visual purpose of that second camera.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L91-L94",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L1036-L1046",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L1543-L1554",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        }
+      ]
+    },
+    {
+      "id": "cm-layout-spherical",
+      "status": "source_confirmed_with_unresolved_preconditions",
+      "claim": "x35C is a vector/callback/bitfield union and bits.x2 is s16. The float radius setter assigns into that field. The position updater interprets the beginning of Vec3 x368 as s16 for starting radius and uses y/z as angles. Partial component flags still leave interpolation locals potentially uninitialized; the header does not supply a missing runtime guarantee.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L125-L158",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2935-L2980",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3278-L3285",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        }
+      ]
+    },
+    {
+      "id": "cm-layout-interpolation",
+      "status": "source_confirmed",
+      "claim": "CameraTransformState begins with interest. This explains the position interpolation call that casts &transform.position to CameraTransformState*: the helper writes its first Vec3 field into position. This is a description of source aliasing, not a general type-safety or compiler guarantee.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L32-L39",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2935-L2941",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        }
+      ]
+    },
+    {
+      "id": "cm-layout-unknown-vectors",
+      "status": "partly_confirmed",
+      "claim": "x54 and x60 are declared Vec3 and the subject reset zeroes them. The dox claim that they are unused and force_inactive has exclusive writers is not established by this bounded family review. Keep those negative/exclusive claims unresolved.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L19-L29",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L231-L254",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.dox#L102-L105",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.dox#L148-L155",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        }
+      ]
+    },
+    {
+      "id": "cm-layout-ui-boundary",
+      "status": "separate_family",
+      "claim": "gmCamera_VsCamUiState is a gmCameraUnkStruct and its x54 stores a SIS context-creation result. It is not Camera or CmSubject merely because offsets or module names overlap. Camera Mode hooks point to gmCamera scene/frame routines; that wiring does not identify the nine CameraModeCallbacks entries.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L85-L94",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L249-L251",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L13-L45",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L206-L216",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L212-L217",
+          "why": "Canonical declarations and explicit field uses establish this bounded family conclusion."
+        }
+      ]
+    }
+  ],
+  "coverage": {
+    "family_files_expected": 1,
+    "family_files_reviewed": 1,
+    "canonical_lines_expected": 263,
+    "canonical_lines_read": 263,
+    "rendered_lines_read": 263,
+    "declared_types_reviewed": 11,
+    "writable_subjects_expected": 0,
+    "writable_subjects_reviewed": 0,
+    "owned_facts_expected": 0,
+    "owned_facts_reviewed": 0,
+    "tu_count_increment": 0,
+    "read_exceptions": [
+      {
+        "kind": "renderer_parse_diagnostic",
+        "parse_errors": 3,
+        "pages": [
+          [
+            1,
+            240
+          ],
+          [
+            241,
+            263
+          ]
+        ],
+        "status": "Both full views returned status ok with zero substitutions; declarations manually read. Diagnostics do not establish a C compile failure."
+      }
+    ]
+  }
+}

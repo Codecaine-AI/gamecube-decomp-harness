@@ -1,0 +1,77 @@
+{
+  "tu": "main/melee/it/kinds/itlipstickspore",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstickspore.c#L57-L60",
+            "why": "Constructor stores the supplied selector unchanged."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstickspore.c#L94-L174",
+            "why": "Complete initialization switch and strict post-step clamp."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that physics clamps before overshoot and avoids treating three handled selectors as a validated input domain, while preserving the established attribute and braking data flow.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlipstickspore:it_8029A31C"
+        },
+        "type": "data_flow",
+        "value": "The fighter-owned constructor stores its s32 selector in Item.xDD4_itemVar.lipstickspore.xDD4 before calling this initializer. After common setup and state-0 selection, handled selectors 0, 1 and 2 choose lifetime and hitbox-0 settings from the spore attributes. Selectors 0 and 1 also derive facing-signed horizontal velocity and xDD8 = ABS(velocity / selected lifetime); selector 2 sets both horizontal velocity and xDD8 to zero. There is no default branch or duration-zero guard. The initializer always clears xDCE_flag.b7 after the switch. State-0 physics subsequently uses xDD8 for a sign-dependent velocity step, then clears the resulting velocity only when its absolute magnitude is strictly less than xDD8."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstickspore.c#L39-L198",
+            "why": "Both constructors, their distinct initializers, and both physics callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/inlines.h#L21-L24",
+            "why": "Exact components cleared by state-1 physics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the two constructor data flows instead of implying that both use their selector to choose attribute-derived projectile settings.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itlipstickspore.c"
+        },
+        "type": "data_flow",
+        "value": "Both constructors consume owner, emission position, facing and an s32 selector, build a zero-velocity LipStick Spore spawn record, and retain the selector only after successful creation. The fighter-owned path calls the state-0 initializer, where handled selectors 0\u20132 select attribute-derived lifetime, horizontal motion, braking and hitbox settings. The generic-owner path instead calls the state-1 initializer, which ignores the retained selector and supplies a fixed initial lifetime of 5.0. State-0 physics consumes stored xDD8 with sign-dependent horizontal braking and a strict post-step magnitude clamp; state-1 physics clears all x40_vel components. Successful constructors subsequently run debug setup and request effects 0x440 or 0x441 respectively."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstickspore.c#L94-L234",
+            "why": "Variant configurations, state callbacks and event responses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L418-L468",
+            "why": "Shared reflection resets lifetime; shared countdown decrements before testing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the distinction between motion states and numeric variants and adds the verified cross-file lifetime-reset exception.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itlipstickspore.c"
+        },
+        "type": "state_behavior",
+        "value": "Motion state 0 supports attribute-configured variants 0 and 1 with horizontal braking, plus variant 2 with zero initial horizontal velocity and braking; variant 2 remains state 0 and retains its environment-collision callback. Motion state 1 has an initial lifetime of 5.0, clears velocity each physics update, and performs no terrain-collision processing. Both states delegate animation updates to a decrement-before-test lifetime helper. Damage dealt, clank, ordinary shield hit and absorption return terminal true. Reflection and shield bounce return false after shared trajectory updates. Reflection additionally resets the active countdown to xD48_halfLifeTimer before the local callback aligns model Z rotation with the resulting velocity, so the initial five-count lifetime is not invariant across interactions."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

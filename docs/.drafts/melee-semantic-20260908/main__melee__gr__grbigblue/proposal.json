@@ -1,0 +1,87 @@
+{
+  "tu": "main/melee/gr/grbigblue",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblue:grBigBlue_801E6884"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation calls grBigBlue_801EF424 before Ground_801C2FE0. The first helper dispatches four indexed car updates and runs at most ten pair-separation passes, stopping earlier if a pass makes no correction. Collision refresh is requested after the helper returns, whether separation stopped early or exhausted its pass limit; convergence is not guaranteed.",
+        "rationale": "Preserves the proven ordering while distinguishing bounded termination from convergence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblue.c#L587-L591",
+            "why": "Complete ordered process wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblue.c#L4423-L4495",
+            "why": "Four indexed updates and both solver termination conditions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblue:grBigBlue_801E6C60"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads three platform records and their indexed child JObjs, shared control-slot query results, yakumono timing and movement parameters, random values, surface heights and normals, spatial-query results, camera bounds and blast-zone bounds. Through grBigBlue_LaneSpeed it also uses an indexed component of grBb_803B8114 multiplied by Ground_801C0498() for placement distances, rotated probes and height-query bounds; horizontal translation separately uses stored x44.x. It writes lifecycle, delay, direction, target-height, velocity, tilt and substate fields, child-JObj translation, rotation and visibility, and shared spawn counters and control slots. It finishes by requesting map-collision refresh.",
+        "rationale": "Corrects the inherited omission of LaneSpeed's multiplier while avoiding an unsupported interpretation of that multiplier or conflation of spatial probes with horizontal velocity.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblue.c#L656-L821",
+            "why": "Multiplier definition, lifecycle inputs, placement probes and stored horizontal motion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblue.c#L822-L1066",
+            "why": "Activation, shared coordination, delay handling and orientation processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblue.c#L1067-L1191",
+            "why": "Query bounds, target-height processing, separate X translation, resets and final maintenance request."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblue:grBigBlue_801E6C60"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For each of three records, state 0 waits for control slot 0, initializes a randomized delay and clears motion before entering state 1. State 1 resets to 0 if control is disabled, otherwise falling through to the state-2 path. Positive delays are set to zero or decremented according to other platforms' states and positions. With a nonpositive delay and at least one valid edge-height sample, the function selects entry direction and height, tries bounded upward placement adjustments, and falls back above the camera if probes remain obstructed. It initializes motion, reveals the model and enters state 3. State 3 adjusts height and tilt, advances horizontal translation, and on its directional exit test hides and resets the model, returning to state 1 with half a newly randomized delay. Collision refresh follows the three-record loop.",
+        "rationale": "Makes fallback placement and coordination-dependent timing explicit instead of implying failed probes always prevent activation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblue.c#L662-L821",
+            "why": "Initial states, sample gate, direction selection and placement fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblue.c#L822-L1066",
+            "why": "Reveal, coordination-dependent delays and active tilt processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblue.c#L1067-L1191",
+            "why": "Height adjustment, translation, directional exits, reset and half-delay recycling."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

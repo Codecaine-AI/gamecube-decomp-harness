@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-40-durable-records",
+  "title": "Background Jobs",
+  "root": "b-index-root-21",
+  "blocks": {
+    "b-index-root-21": {
+      "id": "b-index-root-21",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "jobs-opening",
+        "jobs-fields-h",
+        "jobs-fields",
+        "jobs-policy",
+        "jobs-ownership-h",
+        "jobs-ownership",
+        "jobs-tracing",
+        "jobs-source",
+        "consumer-execution",
+        "consumer-model",
+        "consumer-outline",
+        "consumer-settlement",
+        "consumer-source"
+      ]
+    },
+    "jobs-opening": {
+      "id": "jobs-opening",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The persisted jobs table records executable requests so consumers can claim work, retry failures, and recover after a restart. Job status describes execution; the result reference points to the domain record that explains what was produced."
+        }
+      ],
+      "children": []
+    },
+    "jobs-fields-h": {
+      "id": "jobs-fields-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Stored Job Fields"
+        }
+      ],
+      "children": []
+    },
+    "jobs-fields": {
+      "id": "jobs-fields",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Concern",
+          "Stored Fields",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            "Identity",
+            "job_id, kind, dedupe_key, game_id, run_id",
+            "Identify the executable request and its game or run. The kind and dedupe key pair is unique."
+          ],
+          [
+            "State and ordering",
+            "status, revision, priority",
+            "Status is queued, claimed, running, waiting, succeeded, failed, or cancelled. Revision guards concurrent updates."
+          ],
+          [
+            "Execution and lease",
+            "concurrency_key, execution_class, lease_id, lease_expires_at",
+            "Execution class is local or sandbox. A fenced job claim and expiration govern one consumer's work."
+          ],
+          [
+            "Retry and result",
+            "attempts, next_attempt_at, payload_json, result_ref, error_json",
+            "Persist attempt count, retry eligibility, small input parameters, and references to results or failure details."
+          ],
+          [
+            "Provenance and timing",
+            "trace_id, caused_by_event_id, created_at, updated_at, completed_at",
+            "Connect accepted job changes to trace evidence and timestamps."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "jobs-policy": {
+      "id": "jobs-policy",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Retry limits and backoff are consumer policy; they are not max_attempts or backoff columns in this table. Job leases are distinct from the game's Dispatch State lease. A claimed background job does not independently authorize protected checkout mutation."
+        }
+      ],
+      "children": []
+    },
+    "jobs-ownership-h": {
+      "id": "jobs-ownership-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Record Ownership"
+        }
+      ],
+      "children": []
+    },
+    "jobs-ownership": {
+      "id": "jobs-ownership",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run records own claims, workers, epochs, and integration outcomes. Knowledge records own source material, attempts, facts, and evidence. Jobs retain the request and execution result reference without absorbing those domain records."
+        }
+      ],
+      "children": []
+    },
+    "jobs-tracing": {
+      "id": "jobs-tracing",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Envelope and Lineage",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/60-tracing/10-envelope-and-lineage"
+            }
+          }
+        },
+        {
+          "insert": " defines causal event contracts. Apply each store's actual transition rules rather than assuming every initialization writes the same event envelope."
+        }
+      ],
+      "children": []
+    },
+    "jobs-source": {
+      "id": "jobs-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The SQL contract is defined in "
+        },
+        {
+          "insert": "apps/server/src/core/orchestrator-state/storage/migrations/final-schema.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The job consumer lives in "
+        },
+        {
+          "insert": "apps/server/src/core/job-queue",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "consumer-execution": {
+      "id": "consumer-execution",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Consumer Execution"
+        }
+      ],
+      "children": []
+    },
+    "consumer-model": {
+      "id": "consumer-model",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "One consumer serializes claim ticks while allowing jobs to execute up to the descriptor's concurrency limit. The default tick interval is one second. A claim predicate can suspend new work without rewriting queued jobs."
+        }
+      ],
+      "children": []
+    },
+    "consumer-outline": {
+      "id": "consumer-outline",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Check the claim gate and available concurrency before acquiring a job."
+          },
+          {
+            "text": "Execute inline handlers locally, or submit dispatched jobs through their executor."
+          },
+          {
+            "text": "Heartbeat job claims during execution. Poll dispatched tasks and run descriptor hooks."
+          },
+          {
+            "text": "Complete or fail with the current ClaimToken. Persist retry timing through descriptor policy."
+          },
+          {
+            "text": "Stop new claims, drain execution, and wait for settlement hooks within their configured limit."
+          }
+        ]
+      },
+      "text": [],
+      "children": []
+    },
+    "consumer-settlement": {
+      "id": "consumer-settlement",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Execution and settlement hooks are tracked separately. The default settlement warning starts after 60 seconds, and shutdown waits up to 120 seconds for pending settlement hooks. "
+        },
+        {
+          "insert": "cancelAll",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " cancels tracked dispatched tasks. Stale completion writes cannot claim another consumer's result."
+        }
+      ],
+      "children": []
+    },
+    "consumer-source": {
+      "id": "consumer-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/core/job-queue/consumer.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/job-queue/consumer.ts"
+            }
+          }
+        },
+        {
+          "insert": " implements the shared consumer used by worker and knowledge job descriptors."
+        }
+      ],
+      "children": []
+    }
+  }
+}

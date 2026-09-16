@@ -1,0 +1,48 @@
+{
+  "owner_tu": "main/melee/ft/ft_081B",
+  "reconciliation_owner": "/root/semantic_coordinator",
+  "at": "2026-09-08T15:56:46.364812+00:00",
+  "status": "unresolved_foreign_owner_contract",
+  "issue": "ft_80082708 converts true underlying mpColl result to GA_Air1 and false to GA_Ground0; callers consume the enum as a Boolean with historical physical ground/fall descriptions inconsistent with those names.",
+  "affected_tus": [
+    "main/melee/ft/kinds/ftCommon/ftCo_CargoLanding",
+    "main/melee/ft/kinds/ftCommon/ftCo_HammerLanding",
+    "main/melee/ft/kinds/ftCommon/ftCo_Run",
+    "main/melee/ft/kinds/ftCommon/ftCo_Dash"
+  ],
+  "literal_dispatch": [
+    {
+      "wrapper": "ft_8008403C",
+      "condition": "ft_80082708 result equals zero",
+      "action": "invoke supplied CargoFall/HammerFall callback"
+    },
+    {
+      "wrapper": "ft_800844EC",
+      "condition": "ft_80082708 result nonzero",
+      "action": "StopWall check; zero invokes Fall"
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+      "why": "GroundOrAir conversion around underlying query"
+    },
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1035-L1041",
+      "why": "Callback-on-zero wrapper"
+    },
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1129-L1137",
+      "why": "Nonzero StopWall versus zero Fall"
+    },
+    {
+      "kind": "code",
+      "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+      "why": "Ground0 Air1 enum"
+    }
+  ],
+  "policy": "Preserve literal predicates. Resolve underlying map-query semantics and declaration history with the owner before physical interpretation. No shared source or KB mutation requested by children."
+}

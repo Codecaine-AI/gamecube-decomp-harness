@@ -1,0 +1,13 @@
+## PPCArch.h semantic review
+
+This shared header supplies PowerPC register identifiers, register-control constants, source-level register representations, and function declarations. It contains no function implementations or runtime ownership/lifetime logic.
+
+- Special-purpose register numbers and MSR/HID control masks cover interrupts, privilege, translation, caches, speculation, quantization, and DMA. MSR/HID bit-index constants use MSB-first numbering; they must not be treated as ordinary shift counts from the least-significant bit. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/base/PPCArch.h#L10-L203)
+- GQR and DMA types pair named bitfield structures with raw `u32` union members. DMA constants distinguish load (`0x10`) from store (`0`), trigger, and queue flush. These declarations do not establish compiler-specific bitfield layout or transfer-buffer lifetimes. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/base/PPCArch.h#L205-L266)
+- WPAR, SRR1, L2CR, and performance-monitor definitions describe address/status masks, cache configuration, counting controls, overflow indicators, and counter-specific event selectors. Unlike the MSR/HID index constants, `SRR1_DMA_BIT` and `SRR1_L2DP_BIT` are masks. `MMCR0_THRESHOLD(n)` shifts by 16 without masking or validating the documented 0–63 range. Event selectors are encoded alternatives, not independent boolean flags. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/base/PPCArch.h#L269-L416)
+- FPSCR exception/status masks and bit indices are provided in separately guarded blocks, controlled by `FPSCR_FX` and `FPSCR_FX_BIT`, respectively. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/base/PPCArch.h#L418-L473)
+- The final declarations expose register access, synchronization, halt, speculation and floating-point mode interfaces, followed by performance-monitor interfaces attributed by comments to `PPCArch.c` and `PPCPm.c`. Declarations alone do not prove instruction sequences, barriers, return-value semantics of MSR modifiers, or profiling-session behavior. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/base/PPCArch.h#L475-L534)
+
+All canonical and rendered pages were reviewed. Rendering made no substitutions and reported no parse errors; several declarations were marked `shadowed_binding` and remained unchanged. No rendered hypothesis was used to establish implementation behavior. The frozen subject, fact, and link inventories are empty, so no retention IDs or supported knowledge changes are required.
+
+Status: synthesized; independent review and live promotion pending.

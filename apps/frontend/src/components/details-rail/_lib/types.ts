@@ -1,6 +1,6 @@
 import type { Dashboard, FormState, RunDetails } from "@/lib/format";
 import type { AppRoute } from "@/routing";
-import type { CycleView, DashboardAction } from "@/pages/workspace/_lib/types";
+import type { HarnessView, DashboardAction } from "@/pages/workspace/_lib/types";
 
 export type DetailsTab = "logs" | "process" | "run";
 
@@ -21,7 +21,7 @@ export interface DetailsRailProps {
   route: AppRoute;
   setForm: (updates: Partial<FormState>) => void;
   tabRequest?: { nonce: number; tab: DetailsTab } | null;
-  view: CycleView;
+  view: HarnessView;
 }
 
 export type RunDetailsControls = Pick<DetailsRailProps, "loadRunDetails" | "loadingRunDetails" | "runDetails">;

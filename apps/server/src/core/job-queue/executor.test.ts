@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { LocalProcessExecutor } from "./executor.js";
+import { defaultConfigureCommand, LocalProcessExecutor } from "./executor.js";
 import type { TaskHandle, TaskSpec } from "./types.js";
 
 function task(command: string[], timeoutMs: number | null = null): TaskSpec {
@@ -63,5 +63,17 @@ describe("LocalProcessExecutor", () => {
     await expect(executor.poll(unknown)).rejects.toThrow("Unknown local process handle");
     await expect(executor.collect(unknown)).rejects.toThrow("Unknown local process handle");
     await expect(executor.cancel(unknown)).rejects.toThrow("Unknown local process handle");
+  });
+});
+
+describe("defaultConfigureCommand", () => {
+  const paths = { repoRoot: "/nonexistent/configure-command/repo", stateDir: "/nonexistent/configure-command/state" };
+
+  test("omits require-protos for SMS", () => {
+    expect(defaultConfigureCommand({ ...paths, game: { kind: "doldecomp-sms" } as any })).not.toContain("--require-protos");
+  });
+
+  test("keeps require-protos for Melee", () => {
+    expect(defaultConfigureCommand({ ...paths, game: { kind: "doldecomp-melee" } as any })).toContain("--require-protos");
   });
 });

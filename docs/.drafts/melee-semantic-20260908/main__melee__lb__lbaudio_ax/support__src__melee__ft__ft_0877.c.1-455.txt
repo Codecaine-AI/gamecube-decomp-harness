@@ -1,0 +1,455 @@
+1: #include "ft_0877.h"
+2: 
+3: #include "fighter.h"
+4: #include "ftcommon.h"
+5: #include "ftdevice.h"
+6: #include "kinds/ftCommon/ftCo_0A01.h"
+7: #include "types.h"
+8: #include <dolphin/mtx.h>
+9: #include <melee/it/it_26B1.h>
+10: #include <melee/lb/lbaudio_ax.h>
+11: #include <sysdolphin/baselib/gobj.h>
+12: #include <sysdolphin/baselib/random.h>
+13: 
+14: #define TEST(expr) (expr) ? true : false
+15: 
+16: bool ft_800877F8(HSD_GObj* gobj, s32 arg1)
+17: {
+18:     Fighter* fp = GET_FIGHTER(gobj);
+19:     return TEST(fp->input.held_buttons[0] & arg1);
+20: }
+21: 
+22: bool ft_80087818(HSD_GObj* gobj, s32 arg1)
+23: {
+24:     Fighter* fp = GET_FIGHTER(gobj);
+25:     return TEST(fp->input.pressed_buttons & arg1);
+26: }
+27: 
+28: bool ft_80087838(HSD_GObj* gobj)
+29: {
+30:     Fighter* fp = GET_FIGHTER(gobj);
+31:     return TEST(fp->x221D_b7 & 1);
+32: }
+33: 
+34: bool ft_80087858(HSD_GObj* gobj)
+35: {
+36:     Fighter* fp = GET_FIGHTER(gobj);
+37:     return TEST(fp->x2227_b1 & 1);
+38: }
+39: 
+40: bool ft_80087878(HSD_GObj* gobj, s32 arg1)
+41: {
+42:     Fighter* fp = GET_FIGHTER(gobj);
+43: 
+44:     if ((fp->x1968_jumpsUsed <= 1) && (fp->motion_id == 0) && (arg1 != 0x23) &&
+45:         (arg1 != 0x24) && (arg1 != 0x25))
+46:     {
+47:         return true;
+48:     }
+49: 
+50:     return false;
+51: }
+52: 
+53: bool ft_800878BC(HSD_GObj* gobj)
+54: {
+55:     Fighter* fp = GET_FIGHTER(gobj);
+56: 
+57:     if ((fp->item_gobj != NULL) && (itIsHeavy(fp->item_gobj) == 1)) {
+58:         return true;
+59:     }
+60: 
+61:     return false;
+62: }
+63: 
+64: bool ft_80087900(HSD_GObj* gobj)
+65: {
+66:     Fighter* fp = GET_FIGHTER(gobj);
+67: 
+68:     if (fp->item_gobj != NULL && itGetKind(fp->item_gobj) == It_Kind_ScBall) {
+69:         return true;
+70:     }
+71: 
+72:     return false;
+73: }
+74: 
+75: bool ft_80087944(HSD_GObj* gobj)
+76: {
+77:     Fighter* fp = GET_FIGHTER(gobj);
+78: 
+79:     if (fp->item_gobj != NULL && itGetKind(fp->item_gobj) == It_Kind_Dosei) {
+80:         return true;
+81:     }
+82: 
+83:     return false;
+84: }
+85: 
+86: bool ft_80087988(HSD_GObj* gobj)
+87: {
+88:     if ((ftGetParasolStatus(gobj) == 4) || (ftGetParasolStatus(gobj) == 5)) {
+89:         return true;
+90:     }
+91: 
+92:     return false;
+93: }
+94: 
+95: bool ft_800879D8(HSD_GObj* gobj)
+96: {
+97:     Fighter* fp = GET_FIGHTER(gobj);
+98: 
+99:     if (fp->x1980 != 0) {
+100:         return true;
+101:     }
+102: 
+103:     return false;
+104: }
+105: 
+106: bool ft_800879F8(HSD_GObj* gobj)
+107: {
+108:     Fighter* fp = GET_FIGHTER(gobj);
+109: 
+110:     if (fp->x221D_b6 & 1) {
+111:         return true;
+112:     }
+113: 
+114:     return false;
+115: }
+116: 
+117: bool ft_80087A18(HSD_GObj* gobj)
+118: {
+119:     s32 var1;
+120:     Fighter* fp = GET_FIGHTER(gobj);
+121: 
+122:     if ((fp->x2226_b4) &&
+123:         ((var1 = ftCo_800C06B4(fp), ((var1 == 0x7B) != 0)) ||
+124:          (var1 == 0x80)) &&
+125:         (fp->x2226_b5))
+126:     {
+127:         return true;
+128:     }
+129: 
+130:     return false;
+131: }
+132: 
+133: int ft_80087A80(HSD_GObj* gobj)
+134: {
+135:     Fighter* fp = GET_FIGHTER(gobj);
+136:     return fp->smash_attrs.x2134_vibrateFrame;
+137: }
+138: 
+139: float ft_80087A8C(HSD_GObj* gobj)
+140: {
+141:     Fighter* fp = GET_FIGHTER(gobj);
+142:     return fp->smash_attrs.x2138_smashSinceHitbox;
+143: }
+144: 
+145: s32 ft_80087A98(HSD_GObj* gobj)
+146: {
+147:     Fighter* fp = GET_FIGHTER(gobj);
+148:     return fp->x213C;
+149: }
+150: 
+151: bool ft_80087AA4(HSD_GObj* gobj)
+152: {
+153:     Fighter* fp = GET_FIGHTER(gobj);
+154:     return fp->x2227_b5;
+155: }
+156: 
+157: u8 ft_80087AB4(HSD_GObj* gobj)
+158: {
+159:     Fighter* fp = GET_FIGHTER(gobj);
+160:     return fp->x1968_jumpsUsed;
+161: }
+162: 
+163: void ft_80087AC0(HSD_GObj* gobj, s32 arg1)
+164: {
+165:     s32 var0;
+166:     u8 var1;
+167:     u8 var2;
+168:     Fighter* fp = GET_FIGHTER(gobj);
+169:     if (arg1 != 0) {
+170:         var1 = false;
+171:     } else {
+172:         var1 = true;
+173:     }
+174:     var0 = var1;
+175:     var2 = fp->x221E_b7;
+176:     var2 = var0;
+177:     fp->invisible = var2;
+178: }
+179: 
+180: bool ft_80087AEC(HSD_GObj* gobj)
+181: {
+182:     Fighter* fp = GET_FIGHTER(gobj);
+183: 
+184:     if (fp->x34_scale.y != fp->x34_scale.x || fp->x2226_b4 || fp->is_metal ||
+185:         fp->x197C != NULL)
+186:     {
+187:         return true;
+188:     }
+189: 
+190:     return false;
+191: }
+192: 
+193: s32 ft_80087B34(HSD_GObj* gobj)
+194: {
+195:     Fighter* fp = GET_FIGHTER(gobj);
+196:     float atk_shield_kb_x = fp->x98_atk_shield_kb.x;
+197:     float fVar1 =
+198:         (fp->self_vel.x * fp->self_vel.x) + (fp->self_vel.y * fp->self_vel.y);
+199:     float* atk_shield_kb_y = &fp->x98_atk_shield_kb.y;
+200:     float fVar2 = (atk_shield_kb_x * atk_shield_kb_x) +
+201:                   ((*atk_shield_kb_y) * (*atk_shield_kb_y));
+202: 
+203:     if (fVar1 > ((fp->x8c_kb_vel.x * fp->x8c_kb_vel.x) +
+204:                  (fp->x8c_kb_vel.y * fp->x8c_kb_vel.y)))
+205:     {
+206:         if (fVar1 > ((atk_shield_kb_x * atk_shield_kb_x) +
+207:                      (fp->x98_atk_shield_kb.y * fp->x98_atk_shield_kb.y)))
+208:         {
+209:             return 0;
+210:         }
+211: 
+212:         return 2;
+213:     }
+214: 
+215:     if ((fp->x8c_kb_vel.x * fp->x8c_kb_vel.x) +
+216:             (fp->x8c_kb_vel.y * fp->x8c_kb_vel.y) >
+217:         fVar2)
+218:     {
+219:         return 1;
+220:     }
+221: 
+222:     return 2;
+223: }
+224: 
+225: void ft_80087BAC(HSD_GObj* gobj, s32 arg1)
+226: {
+227:     Fighter* fp = GET_FIGHTER(gobj);
+228:     fp->x2228_b5 = arg1;
+229: }
+230: 
+231: void ft_80087BC0(HSD_GObj* gobj, int arg1)
+232: {
+233:     Fighter* fp = GET_FIGHTER(gobj);
+234:     ftCo_800A101C(fp, arg1, fp->cpu.level, fp->cpu.x14);
+235: }
+236: 
+237: void ft_80087BEC(HSD_GObj* gobj, int arg1)
+238: {
+239:     Fighter* fp = GET_FIGHTER(gobj);
+240:     ftCo_800A101C(fp, fp->cpu.xC, arg1, fp->cpu.x14);
+241: }
+242: 
+243: s32 ft_GetFtKindMask(void)
+244: {
+245:     HSD_GObj* gobj;
+246:     s32 ftKind;
+247:     u32 result = 0;
+248: 
+249:     for (gobj = HSD_GObj_Entities->fighters; gobj != 0; gobj = gobj->next) {
+250:         ftKind = (GET_FIGHTER(gobj))->kind;
+251:         if (ftKind < FTKIND_MASTERH) {
+252:             result = result | 1 << ftKind;
+253:         }
+254:     }
+255:     return result;
+256: }
+257: 
+258: s32 ft_80087C58(HSD_GObj* gobj)
+259: {
+260:     Fighter* fp = GET_FIGHTER(gobj);
+261:     return fp->x1988;
+262: }
+263: 
+264: void ft_80087C64(HSD_GObj* gobj, s32 arg1)
+265: {
+266:     Fighter* fp = GET_FIGHTER(gobj);
+267:     fp->x1988 = arg1;
+268: }
+269: 
+270: /// Player_AdjustSFXIDForSizeModifier(r3=fighter,r4=sfx)
+271: s32 ft_80087C70(Fighter* fp, s32 arg1)
+272: {
+273:     s32 var_r4 = arg1;
+274:     s32 temp_r0 = fp->x2228_b3;
+275: 
+276:     switch (temp_r0) {
+277:     case 0:
+278:         if (fp->x2220_b5) {
+279:             var_r4 += 1;
+280:         } else if (fp->x2220_b6) {
+281:             var_r4 += 2;
+282:         }
+283:         break;
+284:     case 1:
+285:         if (!fp->x2220_b5) {
+286:             if (fp->x2220_b6) {
+287:                 var_r4 += 2;
+288:             } else {
+289:                 var_r4 += 2;
+290:             }
+291:         }
+292:         break;
+293:     case 2:
+294:         if (fp->x2220_b5) {
+295:             var_r4 += 1;
+296:         } else if (!fp->x2220_b6) {
+297:             var_r4 += 1;
+298:         }
+299:         break;
+300:     }
+301:     return var_r4;
+302: }
+303: 
+304: s32 ft_80087D0C(Fighter* fighter, s32 sfx_id)
+305: {
+306:     enum_t sfx = lbAudioAx_800233EC(sfx_id);
+307:     enum_t ssm_id = lbAudioAx_80023130(sfx);
+308: 
+309:     switch (ssm_id) {
+310:     case 0:
+311:         switch (sfx) {
+312:         case 407:
+313:         case 467:
+314:         case 503:
+315:         case 515:
+316:         case 290051:
+317:         case 509:
+318:         case 485:
+319:         case 491:
+320:         case 479:
+321:         case 473:
+322:         case 437:
+323:         case 455:
+324:         case 461:
+325:         case 449:
+326:         case 443:
+327:         case 425:
+328:         case 431:
+329:         case 419:
+330:         case 413:
+331:         case 377:
+332:         case 395:
+333:         case 401:
+334:         case 389:
+335:         case 383:
+336:         case 371:
+337:             sfx_id = ft_80087C70(fighter, sfx);
+338:             if (fighter->is_metal) {
+339:                 sfx_id += 3;
+340:             }
+341:             sfx = sfx_id;
+342:             break;
+343:         case 359:
+344:         case 368:
+345:         case 365:
+346:         case 362:
+347:         case 344:
+348:         case 353:
+349:         case 356:
+350:         case 350:
+351:         case 347:
+352:         case 338:
+353:         case 341:
+354:         case 335:
+355:         case 332:
+356:             sfx = ft_80087C70(fighter, sfx);
+357:             break;
+358:         }
+359:         break;
+360:     case 13: {
+361:         switch (fighter->kind) {
+362:         case FTKIND_POPO:
+363:         case FTKIND_NANA:
+364:             if (0x1FBFD <= sfx && sfx <= 0x1FC62 &&
+365:                 ftCommon_80080144(fighter) == true)
+366:             {
+367:                 sfx += 0x66;
+368:             }
+369: 
+370:             if (0x1FC63 <= sfx && sfx <= 0x1FCC8 &&
+371:                 ftCommon_80080144(fighter) != true)
+372:             {
+373:                 sfx -= 0x66;
+374:             }
+375:             break;
+376:         default:
+377:             break;
+378:         }
+379:     }
+380:     case 6:
+381:     case 7:
+382:     case 8:
+383:     case 9:
+384:     case 10:
+385:     case 11:
+386:     case 12:
+387:     case 14:
+388:     case 15:
+389:     case 16:
+390:     case 17:
+391:     case 18:
+392:     case 19:
+393:     case 20:
+394:     case 21:
+395:     case 22:
+396:     case 23:
+397:     case 24:
+398:     case 25:
+399:     case 26:
+400:     case 27:
+401:     case 28:
+402:     case 29:
+403:     case 30:
+404:     case 31:
+405:     case 33: {
+406:         int sfx_offset;
+407:         int unused_output;
+408:         int _[1];
+409: 
+410:         if (lbAudioAx_800230C8(ssm_id, &sfx_offset, &unused_output) == 0 &&
+411:             sfx >= sfx_offset + lbAudioAx_80023220(ssm_id))
+412:         {
+413:             sfx = ft_80087C70(fighter, sfx);
+414:         }
+415:         break;
+416:     }
+417:     default:
+418:         break;
+419:     }
+420: 
+421:     return sfx;
+422: }
+423: 
+424: void ft_8008805C(Fighter* arg0, s32 arg1)
+425: {
+426:     lbAudioAx_80024DC4(ft_80087D0C(arg0, arg1));
+427: }
+428: 
+429: void ft_80088080(Fighter* fp)
+430: {
+431:     fp->x2164 += 1;
+432:     lbAudioAx_80024FDC();
+433: }
+434: 
+435: void ft_800880AC(Fighter* fp)
+436: {
+437:     fp->x2168 += 1;
+438:     lbAudioAx_80024FF4();
+439: }
+440: 
+441: void ft_800880D8(Fighter* fp)
+442: {
+443:     lbAudioAx_8002500C(fp->x2164);
+444:     fp->x2164 = 0;
+445: }
+446: 
+447: void ft_80088110(Fighter* fp)
+448: {
+449:     lbAudioAx_80025038(fp->x2168);
+450:     fp->x2168 = 0;
+451: }
+452: 
+453: void ft_PlaySFX(Fighter* fp, enum_t sfx_id, u8 sfx_vol, u8 sfx_pan)
+454: {
+455:     sfx_id = ft_80087D0C(fp, sfx_id);

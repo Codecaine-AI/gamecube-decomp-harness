@@ -1,0 +1,14 @@
+## Fighter inline utilities
+
+`src/melee/ft/inlines.h` provides shared fighter attribute macros, field accessors, input calculations, item/knockback callbacks, collision handling, and script helpers.
+
+- `PUSH_ATTRS` copies typed external attributes into existing backup storage and points `dat_attrs` there; `COPY_ATTRS` copies into the current attribute destination. Neither allocates storage or establishes its lifetime. Hitlag setup installs effect pause/resume callbacks. Accessors expose existing fighter fields, including `motion_id` through `ftGetAction`; numeric ground/air meaning is not established here. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L21-L112)
+- Stick sign returns +1 at zero. `stickGetDir` conditionally negates its first argument by comparison with its second, not necessarily by comparison with zero. Dash acceleration combines stick-scaled acceleration with a signed base; zero stick takes the negative-base branch while target velocity is zero. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L114-L140)
+- Non-heavy pickup maps hold kinds 1/2/3/4 to animation-call values 1/0/2/3. Unrecognized kinds skip that call but still permit the catch-flag call. Visibility helpers also exclude heavy items; drop does not perform that exclusion and always passes -1 to `ftAnim_80070FB4`. Knockback helpers call `ftAnim_800704F0` for both the supplied index and index zero, using 3.0 on entry and 0.0 on exit. The rendered saved/apply/remove animation names fit these call patterns but are not independently proven by this header. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L142-L205)
+- Teleport collision handling independently checks ceiling, left-wall, and right-wall masks and compares normal/velocity angles strictly against radians of `90 + *angle_clamp`. It has no floor check or early return: callbacks can occur multiple times, and later tests read state after earlier callbacks. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L218-L242)
+- Throw-bit helpers test and clear bits 0, 3, and 4. Integer-facing accessors return +1 for zero. The script pointer macro advances by exactly four bytes regardless of its `type` parameter; this is source arithmetic, not compiled-layout evidence. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L244-L302)
+- `canUseCstick` returns `!gm_8016B0FC() || it_8026B30C(fp->item_gobj) == 0`, short-circuiting the item query when the first term succeeds. Its comment incorrectly describes an AND relationship. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L304-L313)
+
+The complete canonical and rendered file was reviewed. No owned subjects, baseline facts, or links exist, so no retention entries or fact changes are warranted.
+
+Status: synthesized; independent review and live promotion pending.

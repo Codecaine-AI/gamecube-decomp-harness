@@ -1,0 +1,82 @@
+{
+  "tu": "main/dolphin/os/OSThread",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L405",
+            "why": "Selector signature, guards, yield test, return paths, and wrappers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L171-L175",
+            "why": "Switch helper installs and loads the selected context."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L352",
+            "why": "Save establishes the restored return value; load ends in rfi."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the recovered signature and flag meaning while correcting the implication that dispatch normally returns a newly selected thread pointer to its caller.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSThread:SelectThread"
+        },
+        "type": "inferred_type",
+        "value": "Private helper with source signature `static struct OSThread* SelectThread(int yield)`. Zero requests ordinary priority-based selection; nonzero bypasses the running-thread priority-retention comparison after the scheduler and context guards pass. Guarded no-dispatch paths and execution resumed through OSSaveContext return NULL. Although the source ends with `return nextThread`, the preceding switch helper calls OSLoadContext, whose rfi transfers execution to the selected context rather than returning normally to that statement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L392",
+            "why": "Complete conditional requeue, save, idle, and dispatch sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSContext.c#L240-L276",
+            "why": "Immediate-zero and restored-nonzero save convention."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the material save-bypass branch and avoids suggesting that every dispatch requeues an old running thread or necessarily saves a continuation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSThread:SelectThread"
+        },
+        "type": "state_behavior",
+        "value": "Returns without dispatch when Reschedule is positive or the installed context differs from the current thread's context. For a current thread in state 2, ordinary selection retains it when its priority is at least as urgent as the best ready priority; yielding bypasses that comparison. Only a state-2 current thread is changed to state 1 and requeued. A present current thread is saved only when its context-state mask 2 is clear; a nonzero OSSaveContext result returns NULL on restored execution, while a set mask bypasses the save. Selection then clears the current-thread pointer, waits in IdleContext if necessary, clears RunQueueHint, dequeues the highest-priority queue head, updates its bitmap bit, clears the selected thread's queue pointer, marks it state 2, and transfers to its context."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L452-L482",
+            "why": "Exit finalization, cleanup calls, hint, and scheduling request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L344",
+            "why": "Dispatch suppression and context guards."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the supported lifecycle purpose while correcting the unconditional handoff claim.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSThread:OSExitThread"
+        },
+        "type": "purpose",
+        "value": "Finalizes the current Dolphin OS thread according to detached or joinable semantics, invokes release of its owned mutexes, wakes join waiters, and requests scheduler reconsideration. Detached exit removes the thread from active tracking and writes state 0; joinable exit retains it in state 8 with the supplied completion value. The requested handoff is subject to SelectThread's scheduler-suppression and context guards rather than being unconditional."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

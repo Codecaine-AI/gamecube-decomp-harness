@@ -1,0 +1,3216 @@
+{
+  "pr": 161,
+  "repository": "doldecomp/sms",
+  "head": "f37da262e537d5cc4e8a2e15ae311370a0d67039",
+  "score_source": "historical runner checkpoints, not a fresh PR-head build",
+  "findings": [
+    {
+      "id": "F01",
+      "title": "Return a Reference to a Destroyed Local",
+      "file": "src/Player/Tongue.cpp",
+      "start_line": 27,
+      "end_line": 32,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/Tongue.cpp#L27-L32",
+      "category": "partial function",
+      "certainty": "Definite source defect",
+      "snippet": "static inline const JGeometry::TVec3<f32>&\nscaleVector(JGeometry::TVec3<f32> vector, f32 scale)\n{\n\tvector *= scale;\n\treturn vector;\n}",
+      "checkpoints": [
+        {
+          "commit": "ff29c11cf5e17268639b276529737f96b4525f54",
+          "files": [
+            "src/Player/Tongue.cpp"
+          ],
+          "target": {
+            "unit": "mario/Player/Tongue",
+            "symbol": "emit__12TYoshiTongueFRCQ29JGeometry8TVec3<f>RCQ29JGeometry8TVec3<f>RCQ29JGeometry8TVec3<f>",
+            "before": 93.64356,
+            "after": 99.73267,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target emit__12TYoshiTongueFRCQ29JGeometry8TVec3<f>RCQ29JGeometry8TVec3<f>RCQ29JGeometry8TVec3<f> improved from 93.64356 to 99.73267 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/4ec3623a-ba29-4823-91c7-027e70100ea1/runner_validation/attempt-4.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/4ec3623a-ba29-4823-91c7-027e70100ea1/runner_validation/attempt-4.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/4ec3623a-ba29-4823-91c7-027e70100ea1",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/4ec3623a-ba29-4823-91c7-027e70100ea1/runner_validation/attempt-4.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/4ec3623a-ba29-4823-91c7-027e70100ea1/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-08542939-b0b0-4081-9cda-c2a49cc3a374/summary.json"
+        }
+      ],
+      "why": "scaleVector takes vector by value and returns const TVec3<f32>& to that parameter. The parameter dies when the helper returns. emit then reads the dangling reference when assigning mInitialVelocity at line 106. Inlining and a favorable instruction sequence do not make this valid C++. The pre-existing similarly broken JGeometry operators are not evidence that another dangling-reference helper is correct.",
+      "score_attribution": "The worker explicitly reports choosing the reference-return helper to remove the extra return object and 12 copy instructions. The retained checkpoint patch adds this helper and replaces its one call-site expression. That change raises the score by 6.08911 points, but it remains partial at 99.73267%.",
+      "lint_candidate": "Hard error for returning a pointer or reference to an automatic local or by-value parameter.",
+      "related": [],
+      "occurrences": {
+        "count": 1,
+        "unit": "helper definition",
+        "file_count": 1,
+        "detail": "One invalid helper definition, called once at line 106. Definition and use are not counted as two independent defects.",
+        "locations": [
+          {
+            "file": "src/Player/Tongue.cpp",
+            "line": 27,
+            "description": "scaleVector",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/Tongue.cpp#L27"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F02",
+      "title": "Invent Class Layouts and Allocate the Wrong Size",
+      "file": "src/System/MarNameRefGen_Enemy.cpp",
+      "start_line": 86,
+      "end_line": 104,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L86-L104",
+      "category": "data section",
+      "certainty": "Definite target-layout defect",
+      "snippet": "class TFruitsBoat : public TTypicalEnemy {\npublic:\n\tTFruitsBoat(const char*);\n};\n\nclass TFruitsBoatManager : public TEnemyManager {\npublic:\n\tTFruitsBoatManager(int, const char*);\n};\n\nclass TAnimalBird : public TAnimalBase {\npublic:\n\tTAnimalBird(const char*);\n};\n\nclass TAnimalBirdManager : public TAnimalManagerBase {\npublic:\n\tTAnimalBirdManager(const char*);\n};",
+      "checkpoints": [
+        {
+          "commit": "5f9576f26ed0b993976c98bb07624b228a2edd39",
+          "files": [
+            "src/System/MarNameRefGen_Enemy.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarNameRefGen_Enemy",
+            "symbol": ".rodata",
+            "before": 70.84811,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/14f66001-7334-456a-922f-c6127b5fb0f2/runner_validation/attempt-12.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/14f66001-7334-456a-922f-c6127b5fb0f2/runner_validation/attempt-12.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/14f66001-7334-456a-922f-c6127b5fb0f2",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/14f66001-7334-456a-922f-c6127b5fb0f2/runner_validation/attempt-12.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/14f66001-7334-456a-922f-c6127b5fb0f2/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-a01788ae-0473-4e16-92ad-98d2072aeb1f/summary.json"
+        },
+        {
+          "commit": "a0a91afba5766ff315b67dad99fb3801d85e1d0a",
+          "files": [
+            "src/System/MarNameRefGen_Enemy.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarNameRefGen_Enemy",
+            "symbol": "getNameRef_Enemy__14TMarNameRefGenCFPCc",
+            "before": 96.27693,
+            "after": 98.132034,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target getNameRef_Enemy__14TMarNameRefGenCFPCc improved from 96.27693 to 98.132034 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/460d8e2d-e956-4aea-9e2f-8bd4b73b6881/runner_validation/attempt-1.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/460d8e2d-e956-4aea-9e2f-8bd4b73b6881/runner_validation/attempt-1.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/460d8e2d-e956-4aea-9e2f-8bd4b73b6881",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/460d8e2d-e956-4aea-9e2f-8bd4b73b6881/runner_validation/attempt-1.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/460d8e2d-e956-4aea-9e2f-8bd4b73b6881/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-c1efe7a5-a4f6-4de4-9044-120e278d93db/summary.json"
+        }
+      ],
+      "why": "The new DECL_ENEMY/DECL_MANAGER macros and nearby local classes define concrete types with just a guessed base and constructor. The factory uses new on them. Saved target/candidate instructions independently show TFruitsBoat allocating 0x178 versus 0x150 bytes, TFruitsBoatManager 0x58 versus 0x54, and TAnimalBird 0x184 versus 0x154. Those are wrong allocation operands, with an under-allocation risk when the real constructors access their members. This is more than a missing method or an uncertain name.",
+      "score_attribution": "The placeholder declarations arrived with the .rodata worker, which raised that section from 70.84811% to 100%. A later function checkpoint improved 96.27693% to 98.132034% while preserving the wrong sizes. Its notes explicitly identify incomplete local declarations and incorrect sizeof values. The later constructor fixes are not themselves the complaint. See allocation-evidence.json for extracted instruction windows.",
+      "lint_candidate": "Require layout evidence for newly defined source-local classes used in new. Compare sizeof-derived allocation operands with target allocation sizes; a blanket ban on all small classes would produce false positives.",
+      "related": [
+        [
+          "src/System/MarNameRefGen_Enemy.cpp",
+          31
+        ],
+        [
+          "src/System/MarNameRefGen_Enemy.cpp",
+          227
+        ]
+      ],
+      "occurrences": {
+        "count": 54,
+        "unit": "wrong-size allocation site",
+        "file_count": 1,
+        "detail": "54 allocation sites across 45 newly declared local classes: 53 undersized and one oversized. The file contains 51 new local classes used at 60 allocation sites; six classes have no size mismatch in this saved comparison and are not counted as confirmed wrong-size layouts. Three other mismatched allocations use header-owned types and are outside this finding.",
+        "locations": [
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 227,
+            "description": "TFruitsBoat",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L227",
+            "class_name": "TFruitsBoat",
+            "local_class": true,
+            "target": {
+              "aligned_row": 84,
+              "size": 376,
+              "instruction": "li r3, 0x178",
+              "address": "332",
+              "constructor": "bl __ct__11TFruitsBoatFPCc"
+            },
+            "candidate": {
+              "aligned_row": 84,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "332",
+              "constructor": "bl __ct__11TFruitsBoatFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 230,
+            "description": "TFruitsBoat",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L230",
+            "class_name": "TFruitsBoat",
+            "local_class": true,
+            "target": {
+              "aligned_row": 98,
+              "size": 376,
+              "instruction": "li r3, 0x178",
+              "address": "388",
+              "constructor": "bl __ct__11TFruitsBoatFPCc"
+            },
+            "candidate": {
+              "aligned_row": 98,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "388",
+              "constructor": "bl __ct__11TFruitsBoatFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 233,
+            "description": "TFruitsBoat",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L233",
+            "class_name": "TFruitsBoat",
+            "local_class": true,
+            "target": {
+              "aligned_row": 112,
+              "size": 376,
+              "instruction": "li r3, 0x178",
+              "address": "444",
+              "constructor": "bl __ct__11TFruitsBoatFPCc"
+            },
+            "candidate": {
+              "aligned_row": 112,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "444",
+              "constructor": "bl __ct__11TFruitsBoatFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 236,
+            "description": "TFruitsBoat",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L236",
+            "class_name": "TFruitsBoat",
+            "local_class": true,
+            "target": {
+              "aligned_row": 126,
+              "size": 376,
+              "instruction": "li r3, 0x178",
+              "address": "500",
+              "constructor": "bl __ct__11TFruitsBoatFPCc"
+            },
+            "candidate": {
+              "aligned_row": 126,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "500",
+              "constructor": "bl __ct__11TFruitsBoatFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 239,
+            "description": "TFruitsBoatManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L239",
+            "class_name": "TFruitsBoatManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 140,
+              "size": 88,
+              "instruction": "li r3, 0x58",
+              "address": "556",
+              "constructor": "bl __ct__18TFruitsBoatManagerFiPCc"
+            },
+            "candidate": {
+              "aligned_row": 140,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "556",
+              "constructor": "bl __ct__18TFruitsBoatManagerFiPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 242,
+            "description": "TFruitsBoatManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L242",
+            "class_name": "TFruitsBoatManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 155,
+              "size": 88,
+              "instruction": "li r3, 0x58",
+              "address": "616",
+              "constructor": "bl __ct__18TFruitsBoatManagerFiPCc"
+            },
+            "candidate": {
+              "aligned_row": 155,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "616",
+              "constructor": "bl __ct__18TFruitsBoatManagerFiPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 245,
+            "description": "TFruitsBoatManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L245",
+            "class_name": "TFruitsBoatManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 170,
+              "size": 88,
+              "instruction": "li r3, 0x58",
+              "address": "676",
+              "constructor": "bl __ct__18TFruitsBoatManagerFiPCc"
+            },
+            "candidate": {
+              "aligned_row": 170,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "676",
+              "constructor": "bl __ct__18TFruitsBoatManagerFiPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 248,
+            "description": "TFruitsBoatManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L248",
+            "class_name": "TFruitsBoatManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 185,
+              "size": 88,
+              "instruction": "li r3, 0x58",
+              "address": "736",
+              "constructor": "bl __ct__18TFruitsBoatManagerFiPCc"
+            },
+            "candidate": {
+              "aligned_row": 185,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "736",
+              "constructor": "bl __ct__18TFruitsBoatManagerFiPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 257,
+            "description": "TAnimalBird",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L257",
+            "class_name": "TAnimalBird",
+            "local_class": true,
+            "target": {
+              "aligned_row": 233,
+              "size": 388,
+              "instruction": "li r3, 0x184",
+              "address": "928",
+              "constructor": "bl __ct__11TAnimalBirdFPCc"
+            },
+            "candidate": {
+              "aligned_row": 233,
+              "size": 340,
+              "instruction": "li r3, 0x154",
+              "address": "928",
+              "constructor": "bl __ct__11TAnimalBirdFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 260,
+            "description": "TAnimalBirdManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L260",
+            "class_name": "TAnimalBirdManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 247,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "984",
+              "constructor": "bl __ct__18TAnimalBirdManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 247,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "984",
+              "constructor": "bl __ct__18TAnimalBirdManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 278,
+            "description": "TBeeHive",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L278",
+            "class_name": "TBeeHive",
+            "local_class": true,
+            "target": {
+              "aligned_row": 335,
+              "size": 448,
+              "instruction": "li r3, 0x1c0",
+              "address": "1336",
+              "constructor": "bl __ct__8TBeeHiveFPCc"
+            },
+            "candidate": {
+              "aligned_row": 335,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "1336",
+              "constructor": "bl __ct__8TBeeHiveFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 317,
+            "description": "TEffectEnemyManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L317",
+            "class_name": "TEffectEnemyManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 520,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "2076",
+              "constructor": "bl __ct__18TSmallEnemyManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 520,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "2076",
+              "constructor": "bl __ct__13TEnemyManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 320,
+            "description": "TEffectEnemy",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L320",
+            "class_name": "TEffectEnemy",
+            "local_class": true,
+            "target": {
+              "aligned_row": 537,
+              "size": 408,
+              "instruction": "li r3, 0x198",
+              "address": "2144",
+              "constructor": "bl __ct__12TEffectEnemyFPCc"
+            },
+            "candidate": {
+              "aligned_row": 537,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "2144",
+              "constructor": "bl __ct__12TEffectEnemyFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 377,
+            "description": "TPakkunManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L377",
+            "class_name": "TPakkunManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 806,
+              "size": 108,
+              "instruction": "li r3, 0x6c",
+              "address": "3220",
+              "constructor": "bl __ct__14TPakkunManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 806,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "3220",
+              "constructor": "bl __ct__14TPakkunManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 380,
+            "description": "TPakkun",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L380",
+            "class_name": "TPakkun",
+            "local_class": true,
+            "target": {
+              "aligned_row": 820,
+              "size": 448,
+              "instruction": "li r3, 0x1c0",
+              "address": "3276",
+              "constructor": "bl __ct__7TPakkunFPCc"
+            },
+            "candidate": {
+              "aligned_row": 820,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "3276",
+              "constructor": "bl __ct__7TPakkunFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 383,
+            "description": "TStayPakkun",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L383",
+            "class_name": "TStayPakkun",
+            "local_class": true,
+            "target": {
+              "aligned_row": 834,
+              "size": 448,
+              "instruction": "li r3, 0x1c0",
+              "address": "3332",
+              "constructor": "bl __ct__7TPakkunFPCc"
+            },
+            "candidate": {
+              "aligned_row": 834,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "3332",
+              "constructor": "bl __ct__7TPakkunFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 386,
+            "description": "THanaSamboManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L386",
+            "class_name": "THanaSamboManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 853,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "3408",
+              "constructor": "bl __ct__17THanaSamboManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 853,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "3408",
+              "constructor": "bl __ct__17THanaSamboManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 389,
+            "description": "THanaSambo",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L389",
+            "class_name": "THanaSambo",
+            "local_class": true,
+            "target": {
+              "aligned_row": 867,
+              "size": 484,
+              "instruction": "li r3, 0x1e4",
+              "address": "3464",
+              "constructor": "bl __ct__10THanaSamboFPCc"
+            },
+            "candidate": {
+              "aligned_row": 867,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "3464",
+              "constructor": "bl __ct__10THanaSamboFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 392,
+            "description": "TSamboHeadManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L392",
+            "class_name": "TSamboHeadManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 881,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "3520",
+              "constructor": "bl __ct__17TSamboHeadManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 881,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "3520",
+              "constructor": "bl __ct__17TSamboHeadManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 395,
+            "description": "TSamboHead",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L395",
+            "class_name": "TSamboHead",
+            "local_class": true,
+            "target": {
+              "aligned_row": 895,
+              "size": 436,
+              "instruction": "li r3, 0x1b4",
+              "address": "3576",
+              "constructor": "bl __ct__10TSamboHeadFPCc"
+            },
+            "candidate": {
+              "aligned_row": 895,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "3576",
+              "constructor": "bl __ct__10TSamboHeadFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 398,
+            "description": "TYumboManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L398",
+            "class_name": "TYumboManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 909,
+              "size": 100,
+              "instruction": "li r3, 0x64",
+              "address": "3632",
+              "constructor": "bl __ct__13TYumboManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 909,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "3632",
+              "constructor": "bl __ct__13TYumboManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 401,
+            "description": "TSamboFlowerManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L401",
+            "class_name": "TSamboFlowerManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 923,
+              "size": 104,
+              "instruction": "li r3, 0x68",
+              "address": "3688",
+              "constructor": "bl __ct__13TEnemyManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 923,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "3688",
+              "constructor": "bl __ct__13TEnemyManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 404,
+            "description": "TSamboFlower",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L404",
+            "class_name": "TSamboFlower",
+            "local_class": true,
+            "target": {
+              "aligned_row": 945,
+              "size": 368,
+              "instruction": "li r3, 0x170",
+              "address": "3776",
+              "constructor": "bl __ct__12TSamboFlowerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 945,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "3756",
+              "constructor": "bl __ct__12TSamboFlowerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 407,
+            "description": "TPopoManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L407",
+            "class_name": "TPopoManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 959,
+              "size": 108,
+              "instruction": "li r3, 0x6c",
+              "address": "3832",
+              "constructor": "bl __ct__12TPopoManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 959,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "3812",
+              "constructor": "bl __ct__12TPopoManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 410,
+            "description": "TPopo",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L410",
+            "class_name": "TPopo",
+            "local_class": true,
+            "target": {
+              "aligned_row": 973,
+              "size": 576,
+              "instruction": "li r3, 0x240",
+              "address": "3888",
+              "constructor": "bl __ct__5TPopoFPCc"
+            },
+            "candidate": {
+              "aligned_row": 973,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "3868",
+              "constructor": "bl __ct__5TPopoFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 434,
+            "description": "TElecNokonokoManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L434",
+            "class_name": "TElecNokonokoManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1095,
+              "size": 100,
+              "instruction": "li r3, 0x64",
+              "address": "4376",
+              "constructor": "bl __ct__20TElecNokonokoManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1095,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "4356",
+              "constructor": "bl __ct__20TElecNokonokoManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 437,
+            "description": "TElecNokonoko",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L437",
+            "class_name": "TElecNokonoko",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1109,
+              "size": 436,
+              "instruction": "li r3, 0x1b4",
+              "address": "4432",
+              "constructor": "bl __ct__13TElecNokonokoFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1109,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "4412",
+              "constructor": "bl __ct__13TElecNokonokoFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 476,
+            "description": "TChuuHanaManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L476",
+            "class_name": "TChuuHanaManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1296,
+              "size": 100,
+              "instruction": "li r3, 0x64",
+              "address": "5180",
+              "constructor": "bl __ct__16TChuuHanaManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1296,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "5160",
+              "constructor": "bl __ct__16TChuuHanaManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 485,
+            "description": "TTobiPukuLaunchPadManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L485",
+            "class_name": "TTobiPukuLaunchPadManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1338,
+              "size": 100,
+              "instruction": "li r3, 0x64",
+              "address": "5348",
+              "constructor": "bl __ct__25TTobiPukuLaunchPadManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1338,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "5328",
+              "constructor": "bl __ct__25TTobiPukuLaunchPadManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 488,
+            "description": "TTobiPukuLaunchPad",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L488",
+            "class_name": "TTobiPukuLaunchPad",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1352,
+              "size": 428,
+              "instruction": "li r3, 0x1ac",
+              "address": "5404",
+              "constructor": "bl __ct__18TTobiPukuLaunchPadFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1352,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "5384",
+              "constructor": "bl __ct__18TTobiPukuLaunchPadFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 491,
+            "description": "TTobiPukuLaunchPadManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L491",
+            "class_name": "TTobiPukuLaunchPadManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1366,
+              "size": 100,
+              "instruction": "li r3, 0x64",
+              "address": "5460",
+              "constructor": "bl __ct__25TTobiPukuLaunchPadManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1366,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "5440",
+              "constructor": "bl __ct__25TTobiPukuLaunchPadManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 494,
+            "description": "TTobiPukuLaunchPad",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L494",
+            "class_name": "TTobiPukuLaunchPad",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1383,
+              "size": 428,
+              "instruction": "li r3, 0x1ac",
+              "address": "5528",
+              "constructor": "bl __ct__18TTobiPukuLaunchPadFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1383,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "5496",
+              "constructor": "bl __ct__18TTobiPukuLaunchPadFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 497,
+            "description": "TTobiPukuManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L497",
+            "class_name": "TTobiPukuManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1402,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "5604",
+              "constructor": "bl __ct__16TTobiPukuManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1402,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "5552",
+              "constructor": "bl __ct__16TTobiPukuManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 500,
+            "description": "TTobiPukuManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L500",
+            "class_name": "TTobiPukuManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1416,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "5660",
+              "constructor": "bl __ct__16TTobiPukuManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1416,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "5608",
+              "constructor": "bl __ct__16TTobiPukuManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 503,
+            "description": "TPukuPuku",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L503",
+            "class_name": "TPukuPuku",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1433,
+              "size": 500,
+              "instruction": "li r3, 0x1f4",
+              "address": "5728",
+              "constructor": "bl __ct__9TPukuPukuFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1433,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "5664",
+              "constructor": "bl __ct__9TPukuPukuFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 506,
+            "description": "TTobiPuku",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L506",
+            "class_name": "TTobiPuku",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1447,
+              "size": 500,
+              "instruction": "li r3, 0x1f4",
+              "address": "5784",
+              "constructor": "bl __ct__9TTobiPukuFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1447,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "5720",
+              "constructor": "bl __ct__9TTobiPukuFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 509,
+            "description": "TTabePukuManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L509",
+            "class_name": "TTabePukuManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1466,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "5860",
+              "constructor": "bl __ct__16TTabePukuManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1466,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "5776",
+              "constructor": "bl __ct__16TTabePukuManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 512,
+            "description": "TTabePuku",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L512",
+            "class_name": "TTabePuku",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1480,
+              "size": 496,
+              "instruction": "li r3, 0x1f0",
+              "address": "5916",
+              "constructor": "bl __ct__9TTabePukuFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1480,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "5832",
+              "constructor": "bl __ct__9TTabePukuFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 518,
+            "description": "TWireTrap",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L518",
+            "class_name": "TWireTrap",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1508,
+              "size": 388,
+              "instruction": "li r3, 0x184",
+              "address": "6028",
+              "constructor": "bl __ct__9TWireTrapFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1508,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "5944",
+              "constructor": "bl __ct__9TWireTrapFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 521,
+            "description": "TRocketManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L521",
+            "class_name": "TRocketManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1522,
+              "size": 108,
+              "instruction": "li r3, 0x6c",
+              "address": "6084",
+              "constructor": "bl __ct__14TRocketManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1522,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "6000",
+              "constructor": "bl __ct__14TRocketManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 527,
+            "description": "TYumbo",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L527",
+            "class_name": "TYumbo",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1550,
+              "size": 476,
+              "instruction": "li r3, 0x1dc",
+              "address": "6196",
+              "constructor": "bl __ct__6TYumboFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1550,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "6112",
+              "constructor": "bl __ct__6TYumboFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 530,
+            "description": "TCannonManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L530",
+            "class_name": "TCannonManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1564,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "6252",
+              "constructor": "bl __ct__14TCannonManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1564,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "6168",
+              "constructor": "bl __ct__14TCannonManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 533,
+            "description": "TCannon",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L533",
+            "class_name": "TCannon",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1578,
+              "size": 692,
+              "instruction": "li r3, 0x2b4",
+              "address": "6308",
+              "constructor": "bl __ct__7TCannonFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1578,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "6224",
+              "constructor": "bl __ct__7TCannonFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 536,
+            "description": "TBombHeiManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L536",
+            "class_name": "TBombHeiManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1592,
+              "size": 100,
+              "instruction": "li r3, 0x64",
+              "address": "6364",
+              "constructor": "bl __ct__15TBombHeiManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1592,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "6280",
+              "constructor": "bl __ct__15TBombHeiManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 539,
+            "description": "TBombHei",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L539",
+            "class_name": "TBombHei",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1606,
+              "size": 424,
+              "instruction": "li r3, 0x1a8",
+              "address": "6420",
+              "constructor": "bl __ct__8TBombHeiFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1606,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "6336",
+              "constructor": "bl __ct__8TBombHeiFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 542,
+            "description": "TKillerManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L542",
+            "class_name": "TKillerManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1620,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "6476",
+              "constructor": "bl __ct__14TKillerManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1620,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "6392",
+              "constructor": "bl __ct__14TKillerManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 545,
+            "description": "TKiller",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L545",
+            "class_name": "TKiller",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1634,
+              "size": 528,
+              "instruction": "li r3, 0x210",
+              "address": "6532",
+              "constructor": "bl __ct__7TKillerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1634,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "6448",
+              "constructor": "bl __ct__7TKillerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 548,
+            "description": "TAmiNokoManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L548",
+            "class_name": "TAmiNokoManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1648,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "6588",
+              "constructor": "bl __ct__15TAmiNokoManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1648,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "6504",
+              "constructor": "bl __ct__15TAmiNokoManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 551,
+            "description": "TAmiNoko",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L551",
+            "class_name": "TAmiNoko",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1662,
+              "size": 532,
+              "instruction": "li r3, 0x214",
+              "address": "6644",
+              "constructor": "bl __ct__8TAmiNokoFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1662,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "6560",
+              "constructor": "bl __ct__8TAmiNokoFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 572,
+            "description": "TSeal",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L572",
+            "class_name": "TSeal",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1768,
+              "size": 340,
+              "instruction": "li r3, 0x154",
+              "address": "7068",
+              "constructor": "bl __ct__5TSealFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1768,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "6984",
+              "constructor": "bl __ct__5TSealFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 604,
+            "description": "TKukkuManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L604",
+            "class_name": "TKukkuManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1925,
+              "size": 100,
+              "instruction": "li r3, 0x64",
+              "address": "7696",
+              "constructor": "bl __ct__13TKukkuManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1925,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "7612",
+              "constructor": "bl __ct__13TKukkuManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 607,
+            "description": "TKukku",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L607",
+            "class_name": "TKukku",
+            "local_class": true,
+            "target": {
+              "aligned_row": 1939,
+              "size": 436,
+              "instruction": "li r3, 0x1b4",
+              "address": "7752",
+              "constructor": "bl __ct__6TKukkuFPCc"
+            },
+            "candidate": {
+              "aligned_row": 1939,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "7668",
+              "constructor": "bl __ct__6TKukkuFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 622,
+            "description": "TKazekunManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L622",
+            "class_name": "TKazekunManager",
+            "local_class": true,
+            "target": {
+              "aligned_row": 2009,
+              "size": 96,
+              "instruction": "li r3, 0x60",
+              "address": "8032",
+              "constructor": "bl __ct__15TKazekunManagerFPCc"
+            },
+            "candidate": {
+              "aligned_row": 2009,
+              "size": 84,
+              "instruction": "li r3, 0x54",
+              "address": "7948",
+              "constructor": "bl __ct__15TKazekunManagerFPCc"
+            },
+            "size_mismatch": true
+          },
+          {
+            "file": "src/System/MarNameRefGen_Enemy.cpp",
+            "line": 625,
+            "description": "TKazekun",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Enemy.cpp#L625",
+            "class_name": "TKazekun",
+            "local_class": true,
+            "target": {
+              "aligned_row": 2023,
+              "size": 468,
+              "instruction": "li r3, 0x1d4",
+              "address": "8088",
+              "constructor": "bl __ct__8TKazekunFPCc"
+            },
+            "candidate": {
+              "aligned_row": 2023,
+              "size": 336,
+              "instruction": "li r3, 0x150",
+              "address": "8004",
+              "constructor": "bl __ct__8TKazekunFPCc"
+            },
+            "size_mismatch": true
+          }
+        ],
+        "affected_class_count": 45,
+        "affected_classes": [
+          "TAmiNoko",
+          "TAmiNokoManager",
+          "TAnimalBird",
+          "TAnimalBirdManager",
+          "TBeeHive",
+          "TBombHei",
+          "TBombHeiManager",
+          "TCannon",
+          "TCannonManager",
+          "TChuuHanaManager",
+          "TEffectEnemy",
+          "TEffectEnemyManager",
+          "TElecNokonoko",
+          "TElecNokonokoManager",
+          "TFruitsBoat",
+          "TFruitsBoatManager",
+          "THanaSambo",
+          "THanaSamboManager",
+          "TKazekun",
+          "TKazekunManager",
+          "TKiller",
+          "TKillerManager",
+          "TKukku",
+          "TKukkuManager",
+          "TPakkun",
+          "TPakkunManager",
+          "TPopo",
+          "TPopoManager",
+          "TPukuPuku",
+          "TRocketManager",
+          "TSamboFlower",
+          "TSamboFlowerManager",
+          "TSamboHead",
+          "TSamboHeadManager",
+          "TSeal",
+          "TStayPakkun",
+          "TTabePuku",
+          "TTabePukuManager",
+          "TTobiPuku",
+          "TTobiPukuLaunchPad",
+          "TTobiPukuLaunchPadManager",
+          "TTobiPukuManager",
+          "TWireTrap",
+          "TYumbo",
+          "TYumboManager"
+        ],
+        "undersized_count": 53,
+        "oversized_count": 1,
+        "local_class_count": 51,
+        "local_allocation_site_count": 60,
+        "saved_checkpoint": "a0a91afba5766ff315b67dad99fb3801d85e1d0a",
+        "score_source": "historical saved target/candidate objdiff; no fresh compilation"
+      }
+    },
+    {
+      "id": "F03",
+      "title": "Index Across Scalar Members as if They Were an Array",
+      "file": "src/Player/MarioDraw.cpp",
+      "start_line": 475,
+      "end_line": 484,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/MarioDraw.cpp#L475-L484",
+      "category": "partial function",
+      "certainty": "Definite C++ object-bounds defect",
+      "snippet": "\t\ts16* unk = &gpMarioForCallBack->unkFC;\n\t\tif (gpMarioForCallBack == gpMarioOriginal\n\t\t    && gpCamera->isLButtonCamera() == true\n\t\t    && gpMarioForCallBack->canBendBody() != 0\n\t\t    && gpCamera->mCurrentTarget.mPitch > 0) {\n\t\t\t*unk       = gpCamera->mCurrentTarget.mPitch;\n\t\t\ts16 unk100 = -unk[2];\n\t\t\ts16 unkFC  = *unk;\n\t\t\tMsMtxSetRotRPH(transform, SHORTANGLE2DEG(unk100), 0.0f,\n\t\t\t               SHORTANGLE2DEG(unkFC));",
+      "checkpoints": [
+        {
+          "commit": "d22ecee7daf89dab5a583c7258ee4c5bcbc65e22",
+          "files": [
+            "src/Player/MarioDraw.cpp"
+          ],
+          "target": {
+            "unit": "mario/Player/MarioDraw",
+            "symbol": "MarioWaistCtrl__FP7J3DNodei",
+            "before": 94.66879,
+            "after": 98.47771,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target MarioWaistCtrl__FP7J3DNodei improved from 94.66879 to 98.47771 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/b2bb9748-d936-4fc8-bc4e-95fadfc787c3/runner_validation/attempt-1.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/b2bb9748-d936-4fc8-bc4e-95fadfc787c3/runner_validation/attempt-1.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/b2bb9748-d936-4fc8-bc4e-95fadfc787c3",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/b2bb9748-d936-4fc8-bc4e-95fadfc787c3/runner_validation/attempt-1.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/b2bb9748-d936-4fc8-bc4e-95fadfc787c3/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-7acde7ab-6026-42c9-9918-0eaca9b183ab/summary.json"
+        },
+        {
+          "commit": "e0aee8f3083b95b5c2ba8b4fc3cbdefdeb6aa26e",
+          "files": [
+            "src/Player/MarioDraw.cpp"
+          ],
+          "target": {
+            "unit": "mario/Player/MarioDraw",
+            "symbol": "MarioWaistCtrl__FP7J3DNodei",
+            "before": 98.47771,
+            "after": 98.64331,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target MarioWaistCtrl__FP7J3DNodei improved from 98.47771 to 98.64331 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98c25339-6ad2-4637-9f13-b4fbb06277ee/runner_validation/attempt-7.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98c25339-6ad2-4637-9f13-b4fbb06277ee/runner_validation/attempt-7.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98c25339-6ad2-4637-9f13-b4fbb06277ee",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98c25339-6ad2-4637-9f13-b4fbb06277ee/runner_validation/attempt-7.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98c25339-6ad2-4637-9f13-b4fbb06277ee/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-eec320b2-56fa-461f-a5a3-d82fdb2caec1/summary.json"
+        }
+      ],
+      "why": "unk points to the scalar s16 member unkFC. The new unk[2] reads the separately declared unk100 member through out-of-bounds pointer arithmetic. Mario.hpp declares unkFC, unkFE, and unk100 as separate scalar members. Their physical adjacency explains the desired assembly but does not make them an array. A recovered array layout would need evidence and a change in the owning declaration.",
+      "score_attribution": "The introducing checkpoint combines several changes, 94.66879% to 98.47771%. Worker ablation isolates the pointer-relative field access at 95.05733% to 96.59872%; adding the s16 truncation then reaches 98.47771%. A later checkpoint reaches 98.64331%. The truncation itself is plausible and is not flagged.",
+      "lint_candidate": "Flag arithmetic or indexing on pointers to individual scalar members when it crosses the member boundary.",
+      "related": [
+        [
+          "include/Player/Mario.hpp",
+          1572
+        ]
+      ],
+      "occurrences": {
+        "count": 1,
+        "unit": "out-of-bounds expression",
+        "file_count": 1,
+        "detail": "One out-of-bounds member access in MarioWaistCtrl. The pointer declaration is supporting code, not a second occurrence.",
+        "locations": [
+          {
+            "file": "src/Player/MarioDraw.cpp",
+            "line": 481,
+            "description": "unk[2]",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/MarioDraw.cpp#L481"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F04",
+      "title": "Disable a Header and Substitute a Different TTakeActor",
+      "file": "src/System/MarNameRefGen_MapObj.cpp",
+      "start_line": 1,
+      "end_line": 14,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L1-L14",
+      "category": "data section",
+      "certainty": "Definite conflicting class/linkage implementation",
+      "snippet": "#define STRATEGIC_TAKE_ACTOR_HPP\n#include <Strategic/HitActor.hpp>\n\nclass TTakeActor : public THitActor {\npublic:\n\tTTakeActor(const char* name)\n\t    : THitActor(name)\n\t    , mHolder(nullptr)\n\t    , mHeldObject(nullptr)\n\t{\n\t}\n\tvirtual ~TTakeActor();\n\tvirtual MtxPtr getTakingMtx() = 0;\n\tvirtual void ensureTakeSituation()",
+      "checkpoints": [
+        {
+          "commit": "e98abb82487926359278d99ea9f6ab0b44d5a9d2",
+          "files": [
+            "src/System/MarNameRefGen_MapObj.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarNameRefGen_MapObj",
+            "symbol": ".data",
+            "before": 56.64557,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505/runner_validation/attempt-2.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505/runner_validation/attempt-2.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505/runner_validation/attempt-2.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-604e5d4f-9de1-4f1d-bdb7-a386259a1d02/summary.json"
+        }
+      ],
+      "why": "The file defines STRATEGIC_TAKE_ACTOR_HPP before includes, suppresses the real header, and supplies its own TTakeActor definition. It changes the canonical inline destructor into an out-of-line definition at line 80. Different translation units now see different definitions of the same class. The PR description also acknowledges that the introduced destructor is global where the map expects weak linkage.",
+      "score_attribution": "The .data checkpoint moves from 56.64557% to 100%, bundled with the dummy destructor calls in F08. An earlier worker response correctly identifies the owning-header repair but records that widening was denied. The local replacement then bypasses that ownership boundary. Section parity does not resolve the class-definition or symbol-linkage defect.",
+      "lint_candidate": "Hard error for a source file predefining another project header's guard. Check duplicate externally linked class definitions and destructor linkage against the map.",
+      "related": [
+        [
+          "include/Strategic/TakeActor.hpp",
+          14
+        ],
+        [
+          "src/System/MarNameRefGen_MapObj.cpp",
+          80
+        ]
+      ],
+      "occurrences": {
+        "count": 1,
+        "unit": "class substitution",
+        "file_count": 1,
+        "detail": "One replacement class. The guard override, copied body, and out-of-line destructor are parts of the same substitution.",
+        "locations": [
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 1,
+            "description": "TTakeActor header suppression and replacement",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F05",
+      "title": "Macro-Rename a Library Class to Insert a Conflicting Copy",
+      "file": "src/System/MarDirectorSetupObjects.cpp",
+      "start_line": 8,
+      "end_line": 10,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorSetupObjects.cpp#L8-L10",
+      "category": "data section",
+      "certainty": "Definite conflicting class definition",
+      "snippet": "#define TOrthoProj TOrthoProjWithDefaultName\n#include <JSystem/JDrama/JDRCamera.hpp>\n#undef TOrthoProj",
+      "checkpoints": [
+        {
+          "commit": "31f53f2771f5fe89c01bccf0d4fc0925d3370a5a",
+          "files": [
+            "src/System/MarDirectorSetupObjects.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarDirectorSetupObjects",
+            "symbol": ".rodata",
+            "before": 98.82237,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f8284406-827f-49d7-9e57-c78dfa0bbdbf/runner_validation/attempt-2.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f8284406-827f-49d7-9e57-c78dfa0bbdbf/runner_validation/attempt-2.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f8284406-827f-49d7-9e57-c78dfa0bbdbf",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f8284406-827f-49d7-9e57-c78dfa0bbdbf/runner_validation/attempt-2.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f8284406-827f-49d7-9e57-c78dfa0bbdbf/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-38c831d7-9819-4906-983b-2c68b536fbce/summary.json"
+        }
+      ],
+      "why": "The macro changes the header's JDrama::TOrthoProj name to TOrthoProjWithDefaultName. A local JDrama::TOrthoProj is then recreated at lines 48-71 with a different constructor string. The target does support the blur-camera label, but this implementation leaves incompatible definitions of TOrthoProj across translation units. Recovering the correct constructor interface belongs in the owner.",
+      "score_attribution": "The .rodata score rises from 98.82237% to 100%. Earlier worker evidence precisely identifies the string mismatch and says header widening was denied because the header does not declare .rodata. That is evidence of the scope restriction encouraging a local workaround, not evidence that the workaround resembles original source.",
+      "lint_candidate": "Flag macros that rename known project/library types around includes, especially when a replacement class with the old name follows.",
+      "related": [
+        [
+          "src/System/MarDirectorSetupObjects.cpp",
+          48
+        ],
+        [
+          "include/JSystem/JDrama/JDRCamera.hpp",
+          112
+        ]
+      ],
+      "occurrences": {
+        "count": 1,
+        "unit": "class substitution",
+        "file_count": 1,
+        "detail": "One replacement class. The macro rename and local class body are parts of the same substitution.",
+        "locations": [
+          {
+            "file": "src/System/MarDirectorSetupObjects.cpp",
+            "line": 8,
+            "description": "TOrthoProj macro rename and replacement",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorSetupObjects.cpp#L8"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F06",
+      "title": "Replace the Pollution Header with a Different Local Class",
+      "file": "src/System/MarNameRefGen_Map.cpp",
+      "start_line": 18,
+      "end_line": 31,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Map.cpp#L18-L31",
+      "category": "data section",
+      "certainty": "Definite conflicting class definition",
+      "snippet": "#include <JSystem/JDrama/JDRViewObj.hpp>\n\nclass TPollutionTest : public JDrama::TViewObj {\npublic:\n\tTPollutionTest(const char* name = \"落書きテスト\")\n\t    : JDrama::TViewObj(name)\n\t{\n\t}\n\n\tvirtual void loadAfter();\n\tvirtual void perform(u32 cue, JDrama::TGraphics* graphics) { }\n\n\tvoid registerEvent(JDrama::TViewObj*);\n};",
+      "checkpoints": [
+        {
+          "commit": "c4d25c4ae2c7560c96a81a786fc2196d42f3d2b4",
+          "files": [
+            "src/System/MarNameRefGen_Map.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarNameRefGen_Map",
+            "symbol": ".rodata",
+            "before": 96.875,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/32193825-2c35-4331-8cd5-5ed55e173e35/runner_validation/attempt-0.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/32193825-2c35-4331-8cd5-5ed55e173e35/runner_validation/attempt-0.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/32193825-2c35-4331-8cd5-5ed55e173e35",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/32193825-2c35-4331-8cd5-5ed55e173e35/runner_validation/attempt-0.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/32193825-2c35-4331-8cd5-5ed55e173e35/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-b5490f90-faa3-4383-99e7-704a96b6f412/summary.json"
+        }
+      ],
+      "why": "The canonical TPollutionTest header is replaced with a local definition that adds a name-taking constructor. Other translation units still use the header definition with an implicit default constructor. The recovered Japanese label may be correct; maintaining two different definitions of the same externally linked class is wrong.",
+      "score_attribution": "The checkpoint targets .rodata, 96.875% to 100%. The worker also reports getNameRef_Map reaching a strict 100% function match. This example therefore includes a reported exact function even though its acceptance target was a section.",
+      "lint_candidate": "Compare new source-local definitions against owning headers. Flag replacement of an owner include with a conflicting class body.",
+      "related": [
+        [
+          "include/Map/PollutionEvent.hpp",
+          6
+        ]
+      ],
+      "occurrences": {
+        "count": 1,
+        "unit": "class substitution",
+        "file_count": 1,
+        "detail": "One local replacement class conflicting with its owning header.",
+        "locations": [
+          {
+            "file": "src/System/MarNameRefGen_Map.cpp",
+            "line": 20,
+            "description": "TPollutionTest local replacement",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_Map.cpp#L20"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F07",
+      "title": "Discard strcmp Results to Emit Constructor Labels",
+      "file": "src/System/MarNameRefGen_MapObj.cpp",
+      "start_line": 155,
+      "end_line": 158,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L155-L158",
+      "category": "data section",
+      "certainty": "Definite inert work for data emission",
+      "snippet": "\tif (strcmp(name, \"MapObjFlag\") == 0) {\n\t\tstrcmp(name, \"旗\");\n\t\treturn nullptr;\n\t}",
+      "checkpoints": [
+        {
+          "commit": "22b3c3bc7a0a03f1448df94697cc214eecb2e5b5",
+          "files": [
+            "src/System/MarNameRefGen_MapObj.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarNameRefGen_MapObj",
+            "symbol": ".rodata",
+            "before": 93.27765,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685/runner_validation/attempt-1.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685/runner_validation/attempt-1.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685/runner_validation/attempt-1.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-bb09a201-9e43-4416-aeed-3cccfeb63c44/summary.json"
+        }
+      ],
+      "why": "Fifteen newly active placeholder branches compare the input with a factory key, call strcmp again against a constructor label, discard that result, and return nullptr. The second comparison does no useful work and does not instantiate the missing object. Examples include MapObjFlag, BigWindmill, LeafBoat, and TelesaSlot. This encodes missing string bytes through fake work instead of recovering the missing factory implementations.",
+      "score_attribution": "The .rodata checkpoint reaches 100% from 93.27765%. Its patch also restores ordinary infectious strings and adds the vector filler in F08. The section-wide gain is shared; it is not fifteen independently measured improvements.",
+      "lint_candidate": "Flag discarded results of pure comparison functions such as strcmp. Escalate when a new factory branch contains such a call and returns null.",
+      "related": [],
+      "occurrences": {
+        "count": 15,
+        "unit": "discarded strcmp call",
+        "file_count": 1,
+        "detail": "15 discarded comparison calls in 15 distinct placeholder factory branches, all in one function.",
+        "locations": [
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 144,
+            "description": "MapObjFlagManager",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L144",
+            "expression": "strcmp(name, \"旗管理\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 156,
+            "description": "MapObjFlag",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L156",
+            "expression": "strcmp(name, \"旗\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 345,
+            "description": "RiccoLog",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L345",
+            "expression": "strcmp(name, \"丸太\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 375,
+            "description": "BigWindmill",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L375",
+            "expression": "strcmp(name, \"巨大風車\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 380,
+            "description": "MiniWindmill",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L380",
+            "expression": "strcmp(name, \"風車（ビアンコ小）\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 389,
+            "description": "MapObjRootPakkun",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L389",
+            "expression": "strcmp(name, \"ボスパックンの根\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 394,
+            "description": "BiaBell",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L394",
+            "expression": "strcmp(name, \"ベル水車\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 399,
+            "description": "BiaWatermill",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L399",
+            "expression": "strcmp(name, \"水車（ビアンコ大）\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 404,
+            "description": "BellWatermill",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L404",
+            "expression": "strcmp(name, \"ベル水車\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 409,
+            "description": "BiaWatermillVertical",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L409",
+            "expression": "strcmp(name, \"水車（ビアンコ垂直）\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 418,
+            "description": "LeafBoat",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L418",
+            "expression": "strcmp(name, \"リーフボート\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 423,
+            "description": "LeafBoatRotten",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L423",
+            "expression": "strcmp(name, \"腐ったリーフボート\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 428,
+            "description": "LampSeesawMain",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L428",
+            "expression": "strcmp(name, \"ランプシーソー\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 433,
+            "description": "LampSeesaw",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L433",
+            "expression": "strcmp(name, \"ランプシーソー（従）\");"
+          },
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 559,
+            "description": "TelesaSlot",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L559",
+            "expression": "strcmp(name, \"btelesaSlot\");"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F08",
+      "title": "Add an Uncalled Dummy to Force Constants and Vtables",
+      "file": "src/System/MarNameRefGen_MapObj.cpp",
+      "start_line": 82,
+      "end_line": 91,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L82-L91",
+      "category": "data section",
+      "certainty": "Definite artificial emission scaffold",
+      "snippet": "static void dummy(Vec* v, TSirenaGate* sirenaGate,\n                  TCasinoRoulette* casinoRoulette,\n                  TSirenaRollMapObj* sirenaRollMapObj)\n{\n\t*v = (Vec) { 0.0f, 0.0f, 0.0f };\n\t*v = (Vec) { 1.0f, 1.0f, 1.0f };\n\tsirenaGate->~TSirenaGate();\n\tcasinoRoulette->~TCasinoRoulette();\n\tsirenaRollMapObj->~TSirenaRollMapObj();\n}",
+      "checkpoints": [
+        {
+          "commit": "22b3c3bc7a0a03f1448df94697cc214eecb2e5b5",
+          "files": [
+            "src/System/MarNameRefGen_MapObj.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarNameRefGen_MapObj",
+            "symbol": ".rodata",
+            "before": 93.27765,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685/runner_validation/attempt-1.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685/runner_validation/attempt-1.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685/runner_validation/attempt-1.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d9a83321-fb62-4296-97fb-6a224d677685/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-bb09a201-9e43-4416-aeed-3cccfeb63c44/summary.json"
+        },
+        {
+          "commit": "e98abb82487926359278d99ea9f6ab0b44d5a9d2",
+          "files": [
+            "src/System/MarNameRefGen_MapObj.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarNameRefGen_MapObj",
+            "symbol": ".data",
+            "before": 56.64557,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505/runner_validation/attempt-2.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505/runner_validation/attempt-2.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505/runner_validation/attempt-2.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/e47cd2b2-4a5a-40a2-aa9d-47cc583ec505/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-604e5d4f-9de1-4f1d-bdb7-a386259a1d02/summary.json"
+        }
+      ],
+      "why": "This static function has no callers. It stores a zero vector and immediately overwrites it with a one vector, then calls three unrelated destructors. The vector writes first appeared in the .rodata patch; the destructor calls were added for .data emission. There is no recovered game operation that owns this collection of work. Its explicit purpose is retaining constants and virtual tables.",
+      "score_attribution": "The associated .rodata gain is 93.27765% to 100%, and the later .data gain is 56.64557% to 100%. Both scores are shared with other edits, including F07 and F04. Count this as a distinct source pattern, not additional independent score gain.",
+      "lint_candidate": "Flag newly added unreferenced static functions with overwritten stores or unrelated destructor calls. Confirm that they are not real registration or linker-retention hooks.",
+      "related": [],
+      "occurrences": {
+        "count": 1,
+        "unit": "uncalled helper",
+        "file_count": 1,
+        "detail": "One uncalled helper containing two vector stores and three explicit destructor calls. Those five statements are not five independent helper defects.",
+        "locations": [
+          {
+            "file": "src/System/MarNameRefGen_MapObj.cpp",
+            "line": 82,
+            "description": "dummy",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_MapObj.cpp#L82"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F09",
+      "title": "Create an Unused Array to Reproduce Missing Factory Strings",
+      "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+      "start_line": 24,
+      "end_line": 40,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L24-L40",
+      "category": "data section",
+      "certainty": "High confidence artificial source reconstruction",
+      "snippet": "static const char* bossEnemyNames[] = {\n\t\"マリオモドキ\",\n\t\"EMarioManager\",\n\t\"典型敵マネージャ\",\n\t\"BossHanachan\",\n\t\"BossHanachanManager\",\n\t\"SleepBossHanachan\",\n\t\"SleepBossHanachanManager\",\n\t\"/enemy/sleepBossHanachan.prm\",\n\t\"BossEelManager\",\n\t\"BEelTearsManager\",\n\t\"めおとウナギ涙マネージャー\",\n\t\"KoopaManager\",\n\t\"クッパマネージャー\",\n\t\"HinoKuri2\",\n\t\"ヒノクリ２\",\n\t\"HinoKuri2Manager\",",
+      "checkpoints": [
+        {
+          "commit": "da9c92da5772d5332e1bb9cd27702a2a671b576b",
+          "files": [
+            "src/System/MarNameRefGen_BossEnemy.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarNameRefGen_BossEnemy",
+            "symbol": ".rodata",
+            "before": 42.724747,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/38eed4e6-26f0-4b42-ae3e-c0bae83fdd8e/runner_validation/attempt-1.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/38eed4e6-26f0-4b42-ae3e-c0bae83fdd8e/runner_validation/attempt-1.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/38eed4e6-26f0-4b42-ae3e-c0bae83fdd8e",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/38eed4e6-26f0-4b42-ae3e-c0bae83fdd8e/runner_validation/attempt-1.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/38eed4e6-26f0-4b42-ae3e-c0bae83fdd8e/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-6ba9fd3c-d1e3-4fd6-853b-a995cb77c1d6/summary.json"
+        },
+        {
+          "commit": "dceb7ac969bb9150bc86f2b86a1fcd864beda0b3",
+          "files": [
+            "src/System/MarNameRefGen_BossEnemy.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarNameRefGen_BossEnemy",
+            "symbol": "getNameRef_BossEnemy__14TMarNameRefGenCFPCc",
+            "before": 16.026905,
+            "after": 32.881912,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target getNameRef_BossEnemy__14TMarNameRefGenCFPCc improved from 16.026905 to 32.881912 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/6521f408-c0c3-4e7c-bc0c-0620019e6085/runner_validation/attempt-2.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/6521f408-c0c3-4e7c-bc0c-0620019e6085/runner_validation/attempt-2.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/6521f408-c0c3-4e7c-bc0c-0620019e6085",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/6521f408-c0c3-4e7c-bc0c-0620019e6085/runner_validation/attempt-2.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/6521f408-c0c3-4e7c-bc0c-0620019e6085/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-e455a076-2aff-49e5-ac7c-dbea00a74294/summary.json"
+        }
+      ],
+      "why": "bossEnemyNames is an ordered array of literals with no references beyond its declaration. Many corresponding factory branches remain commented out. The worker explicitly calls this reconstruction of the complete ordered .rodata string pool. The byte order is supported; the invented unused pointer-array owner is not. A genuine named target table with references would be a different case.",
+      "score_attribution": "The .rodata checkpoint moves 42.724747% to 100%; worker evidence reports .text only 23.682926% at that stage. A later getNameRef_BossEnemy function checkpoint moves 16.026905% to 32.881912%. Those two kinds of score must not be conflated.",
+      "lint_candidate": "Review newly introduced unreferenced literal arrays used to fill missing strings, checking target symbols, relocations, and real consumers first.",
+      "related": [],
+      "occurrences": {
+        "count": 1,
+        "unit": "unused string array",
+        "file_count": 1,
+        "detail": "One unused array containing 72 string entries. Entries measure its extent; they are not 72 separate array defects.",
+        "locations": [
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 24,
+            "description": "bossEnemyNames",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L24"
+          }
+        ],
+        "string_entry_count": 72,
+        "string_entries": [
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 25,
+            "description": "\"マリオモドキ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L25"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 26,
+            "description": "\"EMarioManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L26"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 27,
+            "description": "\"典型敵マネージャ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L27"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 28,
+            "description": "\"BossHanachan\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L28"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 29,
+            "description": "\"BossHanachanManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L29"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 30,
+            "description": "\"SleepBossHanachan\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L30"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 31,
+            "description": "\"SleepBossHanachanManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L31"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 32,
+            "description": "\"/enemy/sleepBossHanachan.prm\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L32"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 33,
+            "description": "\"BossEelManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L33"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 34,
+            "description": "\"BEelTearsManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L34"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 35,
+            "description": "\"めおとウナギ涙マネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L35"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 36,
+            "description": "\"KoopaManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L36"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 37,
+            "description": "\"クッパマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L37"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 38,
+            "description": "\"HinoKuri2\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L38"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 39,
+            "description": "\"ヒノクリ２\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L39"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 40,
+            "description": "\"HinoKuri2Manager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L40"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 41,
+            "description": "\"ヒノクリ２マネージャ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L41"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 42,
+            "description": "\"BossGesso\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L42"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 43,
+            "description": "\"ボスゲッソー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L43"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 44,
+            "description": "\"BossGessoManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L44"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 45,
+            "description": "\"ボスゲッソーマネージャ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L45"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 46,
+            "description": "\"TinKoopa\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L46"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 47,
+            "description": "\"メカクッパ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L47"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 48,
+            "description": "\"TinKoopaManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L48"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 49,
+            "description": "\"メカクッパマネージャ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L49"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 50,
+            "description": "\"CoasterKillerManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L50"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 51,
+            "description": "\"コースターキラーマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L51"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 52,
+            "description": "\"CoasterKiller\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L52"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 53,
+            "description": "\"コースターキラー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L53"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 54,
+            "description": "\"KoopaJrManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L54"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 55,
+            "description": "\"クッパジュニアマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L55"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 56,
+            "description": "\"クッパジュニア\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L56"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 57,
+            "description": "\"KoopaJrSubmarineManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L57"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 58,
+            "description": "\"クッパジュニアサブマリンマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L58"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 59,
+            "description": "\"KoopaJrSubmarine\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L59"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 60,
+            "description": "\"クッパジュニアサブマリン\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L60"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 61,
+            "description": "\"LimitKoopaJrManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L61"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 62,
+            "description": "\"リミットクッパジュニアマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L62"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 63,
+            "description": "\"LimitKoopaJr\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L63"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 64,
+            "description": "\"リミットクッパジュニア\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L64"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 65,
+            "description": "\"LimitKoopaManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L65"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 66,
+            "description": "\"LimitKoopa\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L66"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 67,
+            "description": "\"BathtubKillerManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L67"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 68,
+            "description": "\"バスタブキラーマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L68"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 69,
+            "description": "\"BathtubKiller\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L69"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 70,
+            "description": "\"バスタブキラー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L70"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 71,
+            "description": "\"BathtubPeachManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L71"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 72,
+            "description": "\"バスタブピーチマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L72"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 73,
+            "description": "\"BathtubPeach\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L73"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 74,
+            "description": "\"バスタブピーチ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L74"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 75,
+            "description": "\"BossWanwan\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L75"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 76,
+            "description": "\"ボスワンワン\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L76"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 77,
+            "description": "\"BossWanwanManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L77"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 78,
+            "description": "\"ボスワンワンマネージャ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L78"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 79,
+            "description": "\"BossPakkun\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L79"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 80,
+            "description": "\"ボスパックン改\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L80"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 81,
+            "description": "\"KBossPakkun\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L81"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 82,
+            "description": "\"ボスパックン軽\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L82"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 83,
+            "description": "\"BossPakkunManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L83"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 84,
+            "description": "\"ボスパックンマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L84"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 85,
+            "description": "\"KBossPakkunManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L85"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 86,
+            "description": "\"ボスパックン軽マネージャ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L86"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 87,
+            "description": "\"BossTelesa\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L87"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 88,
+            "description": "\"ボステレサ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L88"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 89,
+            "description": "\"BossTelesaManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L89"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 90,
+            "description": "\"ボステレサマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L90"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 91,
+            "description": "\"BubbleManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L91"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 92,
+            "description": "\"バブルマネージャー\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L92"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 93,
+            "description": "\"BossManta\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L93"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 94,
+            "description": "\"ボスマンタ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L94"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 95,
+            "description": "\"BossMantaManager\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L95"
+          },
+          {
+            "file": "src/System/MarNameRefGen_BossEnemy.cpp",
+            "line": 96,
+            "description": "\"ボスマンタマネージャ\"",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarNameRefGen_BossEnemy.cpp#L96"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F10",
+      "title": "Put a Discarded String Literal in an Empty Function",
+      "file": "src/System/MarDirectorEvent.cpp",
+      "start_line": 30,
+      "end_line": 33,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L30-L33",
+      "category": "data section",
+      "certainty": "Definite inert work for data emission",
+      "snippet": "void TMarDirector::getTalkMsgID(TBaseNPC*)\n{\n\t(void)\"\\x83\\x6a\\x83\\x52\\x83\\x7d\\x83\\x7d\";\n}",
+      "checkpoints": [
+        {
+          "commit": "f17196c5edd304762976e3519a89702ec562dda7",
+          "files": [
+            "src/System/MarDirectorEvent.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarDirectorEvent",
+            "symbol": ".rodata",
+            "before": 98.595505,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/bdbcd5db-1722-453c-b29c-3d8d014bbbf6/runner_validation/attempt-0.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/bdbcd5db-1722-453c-b29c-3d8d014bbbf6/runner_validation/attempt-0.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/bdbcd5db-1722-453c-b29c-3d8d014bbbf6",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/bdbcd5db-1722-453c-b29c-3d8d014bbbf6/runner_validation/attempt-0.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/bdbcd5db-1722-453c-b29c-3d8d014bbbf6/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-fa4091bf-9cd7-4d75-ade8-14d46fd2f215/summary.json"
+        }
+      ],
+      "why": "getTalkMsgID remains an empty implementation apart from a discarded literal spelling ニコママ. The worker explicitly says it preserved the empty generated code and added only the missing .rodata string. This recovers bytes without implementing the operation that would have used those bytes.",
+      "score_attribution": "The section reaches 100% from 98.595505%. This is not evidence that getTalkMsgID was reconstructed or matched.",
+      "lint_candidate": "Flag standalone discarded literals in function bodies, with narrow exceptions for documented compiler or assertion idioms.",
+      "related": [],
+      "occurrences": {
+        "count": 1,
+        "unit": "discarded literal expression",
+        "file_count": 1,
+        "detail": "One discarded string-literal expression in one empty function.",
+        "locations": [
+          {
+            "file": "src/System/MarDirectorEvent.cpp",
+            "line": 32,
+            "description": "getTalkMsgID discarded literal",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L32"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F11",
+      "title": "Cast an Ordinary Flag to Volatile to Force Reloads",
+      "file": "src/System/MarDirectorEvent.cpp",
+      "start_line": 248,
+      "end_line": 253,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L248-L253",
+      "category": "partial function",
+      "certainty": "High confidence compiler workaround",
+      "snippet": "\t\tif (!((*(volatile u16*)&unk4C) & 0x100)) {\n\t\t\t(*(volatile u16*)&unk4C) |= 0x100;\n\t\t\tsetNextStage(0x1, nullptr);\n\t\t\tTFlagManager::smInstance->setBool(true, 0x10389);\n\t\t\tTFlagManager::smInstance->setBool(true, 0x30004);\n\t\t\tgpApplication.mMovie = param_1;",
+      "checkpoints": [
+        {
+          "commit": "21a5d157dc41ff4516e105647195c37cbd66e279",
+          "files": [
+            "src/System/MarDirectorEvent.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MarDirectorEvent",
+            "symbol": "fireStreamingMovie__12TMarDirectorFUc",
+            "before": 74.16393,
+            "after": 99.81967,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target fireStreamingMovie__12TMarDirectorFUc improved from 74.16393 to 99.81967 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/runner_validation/attempt-4.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/runner_validation/attempt-4.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/runner_validation/attempt-4.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-888f71d3-e82f-47f5-a950-47277f9a0114/summary.json"
+        }
+      ],
+      "why": "Seven flag-check/update pairs cast &unk4C to volatile u16*. The worker states this prevents common-subexpression elimination and reproduces repeated loads and scheduling. The field is an ordinary director flag, and no hardware or asynchronous-access contract was identified. This is a code-generation constraint substituted for an explanation of the original accessors or inline boundaries.",
+      "score_attribution": "The function improves 74.16393% to 99.81967%. The checkpoint also fixes selector 12 to take the default 0xF path; that jump-table-supported semantic correction is legitimate. Do not assign the entire gain to volatile or revert the selector fix with it.",
+      "lint_candidate": "Flag newly introduced volatile casts on ordinary game-object members unless an access contract justifies them.",
+      "related": [],
+      "occurrences": {
+        "count": 7,
+        "unit": "flag-check/update pair",
+        "file_count": 1,
+        "detail": "Seven pairs in fireStreamingMovie, containing 14 volatile cast expressions. Compound assignment can perform both a read and a write; this is a source-expression count, not a machine-access count.",
+        "locations": [
+          {
+            "file": "src/System/MarDirectorEvent.cpp",
+            "line": 248,
+            "description": "flag-check/update pair",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L248",
+            "update_line": 249,
+            "cast_expression_count": 2
+          },
+          {
+            "file": "src/System/MarDirectorEvent.cpp",
+            "line": 258,
+            "description": "flag-check/update pair",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L258",
+            "update_line": 259,
+            "cast_expression_count": 2
+          },
+          {
+            "file": "src/System/MarDirectorEvent.cpp",
+            "line": 266,
+            "description": "flag-check/update pair",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L266",
+            "update_line": 267,
+            "cast_expression_count": 2
+          },
+          {
+            "file": "src/System/MarDirectorEvent.cpp",
+            "line": 274,
+            "description": "flag-check/update pair",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L274",
+            "update_line": 275,
+            "cast_expression_count": 2
+          },
+          {
+            "file": "src/System/MarDirectorEvent.cpp",
+            "line": 282,
+            "description": "flag-check/update pair",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L282",
+            "update_line": 283,
+            "cast_expression_count": 2
+          },
+          {
+            "file": "src/System/MarDirectorEvent.cpp",
+            "line": 290,
+            "description": "flag-check/update pair",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L290",
+            "update_line": 291,
+            "cast_expression_count": 2
+          },
+          {
+            "file": "src/System/MarDirectorEvent.cpp",
+            "line": 299,
+            "description": "flag-check/update pair",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L299",
+            "update_line": 300,
+            "cast_expression_count": 2
+          }
+        ],
+        "cast_expression_count": 14
+      }
+    },
+    {
+      "id": "F12",
+      "title": "Use a Volatile Base-Class View for One Holder Test",
+      "file": "src/Player/MarioAccess.cpp",
+      "start_line": 134,
+      "end_line": 140,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/MarioAccess.cpp#L134-L140",
+      "category": "exact function",
+      "certainty": "High confidence compiler workaround",
+      "snippet": "{\n\tbool ret;\n\tif (((volatile TTakeActor*)gpMarioOriginal)->mHolder\n\t    && gpMarioOriginal->mHolder->mActorType == 0x40000098)\n\t\tret = true;\n\telse\n\t\tret = false;",
+      "checkpoints": [
+        {
+          "commit": "d97a50915300c01472abcf905427d0ee3e581d9d",
+          "files": [
+            "src/Player/MarioAccess.cpp"
+          ],
+          "target": {
+            "unit": "mario/Player/MarioAccess",
+            "symbol": "SMS_IsMarioOnWire__Fv",
+            "before": 93.833336,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98bda01d-2082-4edc-bc2a-a830124f63f4/runner_validation/attempt-2.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98bda01d-2082-4edc-bc2a-a830124f63f4/runner_validation/attempt-2.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98bda01d-2082-4edc-bc2a-a830124f63f4",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98bda01d-2082-4edc-bc2a-a830124f63f4/runner_validation/attempt-2.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/98bda01d-2082-4edc-bc2a-a830124f63f4/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-7e06ad70-28fc-488c-819c-6617d26392a5/summary.json"
+        }
+      ],
+      "why": "Only the null-check reads Mario through volatile TTakeActor*. The later holder dereference remains ordinary. Worker ablation says the nonvolatile cast keeps the old score, while adding volatile forces the independent load and reaches 100%. No independent reason for this asymmetric volatile access was found. It is strong evidence of forcing the observed reload rather than reconstructing its source cause.",
+      "score_attribution": "This is an actual exact-function checkpoint, 93.833336% to 100%. It is included because the mechanism is explicit, not because exact matches are generally suspect.",
+      "lint_candidate": "Use the volatile-cast rule from F11; require a reason beyond a favorable instruction diff.",
+      "related": [],
+      "occurrences": {
+        "count": 1,
+        "unit": "volatile cast expression",
+        "file_count": 1,
+        "detail": "One volatile cast in one holder-test condition.",
+        "locations": [
+          {
+            "file": "src/Player/MarioAccess.cpp",
+            "line": 136,
+            "description": "volatile TTakeActor view",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/MarioAccess.cpp#L136"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F13",
+      "title": "Add an Unused Matrix Solely to Enlarge the Frame",
+      "file": "src/Player/MarioEffect.cpp",
+      "start_line": 179,
+      "end_line": 183,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/MarioEffect.cpp#L179-L183",
+      "category": "exact function",
+      "certainty": "High confidence unexplained stack padding",
+      "snippet": "void TMarioEffect::perform(u32 cue, JDrama::TGraphics* graphics)\n{\n\tMtx mtx;\n\n\tif (cue & CUE_MOVE) {",
+      "checkpoints": [
+        {
+          "commit": "15b373156e3b88c348ce5a98660772733c05f12b",
+          "files": [
+            "src/Player/MarioEffect.cpp"
+          ],
+          "target": {
+            "unit": "mario/Player/MarioEffect",
+            "symbol": "perform__12TMarioEffectFUlPQ26JDrama9TGraphics",
+            "before": 99.972824,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/cdb57c4d-6bf8-4315-94ba-6aeb120039b1/runner_validation/attempt-1.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/cdb57c4d-6bf8-4315-94ba-6aeb120039b1/runner_validation/attempt-1.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/cdb57c4d-6bf8-4315-94ba-6aeb120039b1",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/cdb57c4d-6bf8-4315-94ba-6aeb120039b1/runner_validation/attempt-1.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/cdb57c4d-6bf8-4315-94ba-6aeb120039b1/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-c5dc56e8-786d-4dd4-b96a-e135ded678a2/summary.json"
+        }
+      ],
+      "why": "The new Mtx mtx is never read, written, or passed anywhere in perform. Worker evidence says its only effect is reserving 0x30 bytes, changing the frame from 0x50 to 0x80. An earlier attempt explicitly identifies this as unexplained padding and declines to add it; a later attempt adds precisely that local. A nearby matrix callback is not evidence for an unused matrix in this function.",
+      "score_attribution": "99.972824% to 100%, a gain of 0.027176 points. The worker reports that only five prologue/epilogue displacement rows changed. The exact bytes establish the layout effect, not the historical existence of this unused object.",
+      "lint_candidate": "Flag new unused automatic aggregates. A stack-only improvement should require evidence of a real local, inline-owned object, or documented original unused declaration.",
+      "related": [],
+      "occurrences": {
+        "count": 1,
+        "unit": "unused matrix declaration",
+        "file_count": 1,
+        "detail": "One unused matrix in TMarioEffect::perform.",
+        "locations": [
+          {
+            "file": "src/Player/MarioEffect.cpp",
+            "line": 181,
+            "description": "Mtx mtx",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/MarioEffect.cpp#L181"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F14",
+      "title": "Add an Unused Vector Solely to Move Stack Slots",
+      "file": "src/MarioUtil/LightUtil.cpp",
+      "start_line": 119,
+      "end_line": 127,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/LightUtil.cpp#L119-L127",
+      "category": "exact function",
+      "certainty": "High confidence unexplained stack padding",
+      "snippet": "\tif (cue & CUE_DRAW_INIT) {\n\t\tReInitializeGX();\n\t\tSMS_DrawInit();\n\t\tGXLightObj light;\n\t\tVec pos;\n\t\tGXInitLightPos(&light, getLightPosition(0)->x, getLightPosition(0)->y,\n\t\t               getLightPosition(0)->z);\n\t\tGXInitLightColor(&light, getLightColor(0));\n\t\tGXInitLightAttn(&light, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);",
+      "checkpoints": [
+        {
+          "commit": "3d33a2137718c7e5b2bd19993ea7469590b466c8",
+          "files": [
+            "src/MarioUtil/LightUtil.cpp"
+          ],
+          "target": {
+            "unit": "mario/MarioUtil/LightUtil",
+            "symbol": "perform__12TLightCommonFUlPQ26JDrama9TGraphics",
+            "before": 99.85714,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/ac862d9f-4ac0-4ea9-a11b-df4475c59867/runner_validation/attempt-1.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/ac862d9f-4ac0-4ea9-a11b-df4475c59867/runner_validation/attempt-1.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/ac862d9f-4ac0-4ea9-a11b-df4475c59867",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/ac862d9f-4ac0-4ea9-a11b-df4475c59867/runner_validation/attempt-1.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/ac862d9f-4ac0-4ea9-a11b-df4475c59867/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-5649cd66-14e0-4bc3-bccd-2ba4a5fb09f4/summary.json"
+        }
+      ],
+      "why": "Vec pos is unused in TLightCommon::perform. The worker says its 12-byte slot moves GXLightObj and rounds the frame from 0x70 to 0x80, changing no non-stack instruction. The neighboring setLight uses a Vec for an actual transform; this function accesses coordinates directly and never uses pos. Copying that neighboring declaration does not establish the missing source operation.",
+      "score_attribution": "99.85714% to 100%. This is the earliest strong finding in GitHub path order, in changed file 8 of 79. It is a concrete early-PR example, but there is no evidence identifying which hunk the reviewer actually saw.",
+      "lint_candidate": "Use the unused-aggregate rule from F13. Do not flag the used Vec locals in neighboring functions.",
+      "related": [],
+      "occurrences": {
+        "count": 1,
+        "unit": "unused vector declaration",
+        "file_count": 1,
+        "detail": "One unused vector in TLightCommon::perform. Neighboring used Vec declarations are excluded.",
+        "locations": [
+          {
+            "file": "src/MarioUtil/LightUtil.cpp",
+            "line": 123,
+            "description": "Vec pos",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/LightUtil.cpp#L123"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F15",
+      "title": "Enlarge a 3x4 Matrix to 4x4 for a Small Partial Gain",
+      "file": "src/Player/WaterGun.cpp",
+      "start_line": 134,
+      "end_line": 138,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/WaterGun.cpp#L134-L138",
+      "category": "partial function",
+      "certainty": "High confidence disguised stack padding",
+      "snippet": "\t\t\t\tMtx44 mtx;\n\t\t\t\t// Unused stack space\n\t\t\t\t// volatile u32 unused2[6];\n\t\t\t\tMsMtxSetRotRPH(mtx, 0.0f, 0.0f, SHORTANGLE2DEG(gunAngle));\n\t\t\t\tMTXConcat(J3DSys::mCurrentMtx, mtx, J3DSys::mCurrentMtx);",
+      "checkpoints": [
+        {
+          "commit": "d967bc83650a12c8ade8e248d3f59fee42199625",
+          "files": [
+            "src/Player/WaterGun.cpp"
+          ],
+          "target": {
+            "unit": "mario/Player/WaterGun",
+            "symbol": "NozzleCtrl__FP7J3DNodei",
+            "before": 99.46512,
+            "after": 99.60465,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target NozzleCtrl__FP7J3DNodei improved from 99.46512 to 99.60465 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/40b72315-c405-443c-b987-d5990519eaa5/runner_validation/attempt-2.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/40b72315-c405-443c-b987-d5990519eaa5/runner_validation/attempt-2.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/40b72315-c405-443c-b987-d5990519eaa5",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/40b72315-c405-443c-b987-d5990519eaa5/runner_validation/attempt-2.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/40b72315-c405-443c-b987-d5990519eaa5/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-bbacc0dc-9600-4abd-95f3-a35bd354dcd2/summary.json"
+        }
+      ],
+      "why": "NozzleCtrl changes Mtx to Mtx44 while both consumers remain 3x4 matrix operations. The added fourth row has no semantic consumer. The worker chooses this type because it supplies 16 extra bytes and recovers the frame size, while admitting that the actual matrix address is still wrong, target r1+0x28 versus candidate r1+0x14. Matching total frame size is not evidence that the original matrix had another row.",
+      "score_attribution": "99.46512% to 99.60465%, only 0.13953 points, still partial. This is a particularly direct example of the user's concern: accepting a larger, unexplained source object because a few operands become closer.",
+      "lint_candidate": "Flag aggregate widening whose added elements are unused, especially when all consuming APIs still use the smaller shape. Pair with stack-delta evidence.",
+      "related": [],
+      "occurrences": {
+        "count": 1,
+        "unit": "widened matrix declaration",
+        "file_count": 1,
+        "detail": "One matrix widened from 3x4 to 4x4 in NozzleCtrl.",
+        "locations": [
+          {
+            "file": "src/Player/WaterGun.cpp",
+            "line": 134,
+            "description": "Mtx44 mtx",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/Player/WaterGun.cpp#L134"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F16",
+      "title": "Invent a Negation Helper for Only One Operand",
+      "file": "src/MarioUtil/MathUtil.cpp",
+      "start_line": 134,
+      "end_line": 134,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/MathUtil.cpp#L134-L134",
+      "category": "partial function",
+      "certainty": "High confidence synthetic inline boundary",
+      "snippet": "static inline f32 matanNegate(f32 param_1) { return -param_1; }",
+      "checkpoints": [
+        {
+          "commit": "8cace3de44fce505e5aaccf5b236bbabe9c90aa9",
+          "files": [
+            "src/MarioUtil/MathUtil.cpp"
+          ],
+          "target": {
+            "unit": "mario/MarioUtil/MathUtil",
+            "symbol": "matan__Fff",
+            "before": 99.20119,
+            "after": 99.61539,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target matan__Fff improved from 99.20119 to 99.61539 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/runner_validation/attempt-4.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/runner_validation/attempt-4.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/runner_validation/attempt-4.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-c3dcf08e-5a58-445b-8755-995998092d6e/summary.json"
+        }
+      ],
+      "why": "matanNegate does only return -param_1. matan invokes it for negative param_2 while leaving analogous param_1 negation direct. The worker records that a permuter identified this boundary, applying it to both operands regressed, and the retained asymmetric form changes floating-point register allocation. No semantic or reusable abstraction explains the helper.",
+      "score_attribution": "99.20119% to 99.61539%, still partial. This is evidence of a retained allocation cue, not proof that unary-negation helpers can never be authentic.",
+      "lint_candidate": "Review new single-use trivial wrappers, especially asymmetric use across equivalent operations and gains confined to register assignment. Use a review warning rather than a universal hard error.",
+      "related": [
+        [
+          "src/MarioUtil/MathUtil.cpp",
+          156
+        ]
+      ],
+      "occurrences": {
+        "count": 1,
+        "unit": "synthetic helper definition",
+        "file_count": 1,
+        "detail": "One helper definition, called once at line 156. The call is not counted as a second helper.",
+        "locations": [
+          {
+            "file": "src/MarioUtil/MathUtil.cpp",
+            "line": 134,
+            "description": "matanNegate",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/MathUtil.cpp#L134"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F17",
+      "title": "Route a Fixed sqrt Through a Pointer to Defeat Inlining",
+      "file": "src/System/EventWatcher.cpp",
+      "start_line": 192,
+      "end_line": 198,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/EventWatcher.cpp#L192-L198",
+      "category": "partial function",
+      "certainty": "High confidence synthetic call boundary",
+      "snippet": "\t\tif (type == obj->getActorType()) {\n\t\t\tJGeometry::TVec3<f32> diff = which->mPosition;\n\t\t\tdiff -= obj->mPosition;\n\t\t\tf32 (*sqrt)(f32) = JGeometry::TUtil<f32>::sqrt;\n\t\t\tif (sqrt(diff.squared()) <= dist)\n\t\t\t\tcount++;\n\t\t}",
+      "checkpoints": [
+        {
+          "commit": "4921c34f880fb096af5a40b0a18dd2ab9b75ef8c",
+          "files": [
+            "src/System/EventWatcher.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/EventWatcher",
+            "symbol": "evIsNearSameActors__FP32TSpcTypedInterp<13TEventWatcher>Ul",
+            "before": 93.26398,
+            "after": 97.58074,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target evIsNearSameActors__FP32TSpcTypedInterp<13TEventWatcher>Ul improved from 93.26398 to 97.58074 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f419fe48-6b03-4468-ab2d-3d6ef28bff97/runner_validation/attempt-2.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f419fe48-6b03-4468-ab2d-3d6ef28bff97/runner_validation/attempt-2.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f419fe48-6b03-4468-ab2d-3d6ef28bff97",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f419fe48-6b03-4468-ab2d-3d6ef28bff97/runner_validation/attempt-2.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f419fe48-6b03-4468-ab2d-3d6ef28bff97/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-2a661081-5307-4953-8878-807e869baab7/summary.json"
+        },
+        {
+          "commit": "b6edca6f6497ec7754803ce978035546eeab9803",
+          "files": [
+            "src/System/EventWatcher.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/EventWatcher",
+            "symbol": "evIsNearSameActors__FP32TSpcTypedInterp<13TEventWatcher>Ul",
+            "before": 97.58074,
+            "after": 99.77019,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target evIsNearSameActors__FP32TSpcTypedInterp<13TEventWatcher>Ul improved from 97.58074 to 99.77019 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/1619221e-d0ef-47e8-8e85-3b8b75a5d5eb/runner_validation/attempt-1.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/1619221e-d0ef-47e8-8e85-3b8b75a5d5eb/runner_validation/attempt-1.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/1619221e-d0ef-47e8-8e85-3b8b75a5d5eb",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/1619221e-d0ef-47e8-8e85-3b8b75a5d5eb/runner_validation/attempt-1.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/1619221e-d0ef-47e8-8e85-3b8b75a5d5eb/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-8dc8b056-91a6-4883-8e34-c3245e12a392/summary.json"
+        },
+        {
+          "commit": "fef76b4e4f9b61c373c85616928722451977087b",
+          "files": [
+            "src/System/EventWatcher.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/EventWatcher",
+            "symbol": "evIsNearActors__FP32TSpcTypedInterp<13TEventWatcher>Ul",
+            "before": 86.95111,
+            "after": 98.977776,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target evIsNearActors__FP32TSpcTypedInterp<13TEventWatcher>Ul improved from 86.95111 to 98.977776 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d1b9de89-2f53-4f14-acf7-7001a4554a8d/runner_validation/attempt-6.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d1b9de89-2f53-4f14-acf7-7001a4554a8d/runner_validation/attempt-6.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d1b9de89-2f53-4f14-acf7-7001a4554a8d",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d1b9de89-2f53-4f14-acf7-7001a4554a8d/runner_validation/attempt-6.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/d1b9de89-2f53-4f14-acf7-7001a4554a8d/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-27227ccb-db33-4704-a9c6-6b0cfe39ff10/summary.json"
+        },
+        {
+          "commit": "ffc9885e09c26666f792a0310a736580c55c2b7e",
+          "files": [
+            "src/System/EventWatcher.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/EventWatcher",
+            "symbol": "evIsNearActors__FP32TSpcTypedInterp<13TEventWatcher>Ul",
+            "before": 98.977776,
+            "after": 99.844444,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target evIsNearActors__FP32TSpcTypedInterp<13TEventWatcher>Ul improved from 98.977776 to 99.844444 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/36e36faa-4cbe-4a78-96b7-e9590d72ce0c/runner_validation/attempt-6.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/36e36faa-4cbe-4a78-96b7-e9590d72ce0c/runner_validation/attempt-6.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/36e36faa-4cbe-4a78-96b7-e9590d72ce0c",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/36e36faa-4cbe-4a78-96b7-e9590d72ce0c/runner_validation/attempt-6.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/36e36faa-4cbe-4a78-96b7-e9590d72ce0c/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-9b70de3f-352d-4907-8216-408e14e33082/summary.json"
+        }
+      ],
+      "why": "Two distance checks replace diff.length() with a local function pointer fixed to JGeometry::TUtil<f32>::sqrt. There is no runtime choice of function. The introducing worker explicitly says this prevents MWCC from inlining the reciprocal-square-root refinement. The target direct call is real evidence of a missing call boundary; this redundant pointer is an unsupported way of forcing that boundary.",
+      "score_attribution": "The first same-actors checkpoint moves 93.26398% to 97.58074% using the pointer; later changes reach 99.77019%. The other actors checkpoint moves 86.95111% to 98.977776%, with the pointer step reported at 93.49333%; later changes reach 99.844444%. Later gains include other edits and are not all pointer effects.",
+      "lint_candidate": "Review immediately called function pointers whose target is fixed and whose only documented purpose is suppressing inlining. Genuine callbacks and dispatch tables should pass.",
+      "related": [
+        [
+          "src/System/EventWatcher.cpp",
+          227
+        ]
+      ],
+      "occurrences": {
+        "count": 2,
+        "unit": "fixed function-pointer call site",
+        "file_count": 1,
+        "detail": "Two fixed function-pointer declarations, each immediately used by its distance test, in two functions.",
+        "locations": [
+          {
+            "file": "src/System/EventWatcher.cpp",
+            "line": 195,
+            "description": "evIsNearSameActors",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/EventWatcher.cpp#L195"
+          },
+          {
+            "file": "src/System/EventWatcher.cpp",
+            "line": 227,
+            "description": "evIsNearActors",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/EventWatcher.cpp#L227"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F18",
+      "title": "Replace Simple Two-Value Tests with Goto Networks",
+      "file": "src/System/MenuDir.cpp",
+      "start_line": 128,
+      "end_line": 139,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MenuDir.cpp#L128-L139",
+      "category": "partial function",
+      "certainty": "High confidence synthetic branch topology",
+      "snippet": "\t\t\t} else {\n\t\t\t\tif (i == 17)\n\t\t\t\t\tgoto showMovie;\n\t\t\t\tif (i != 18)\n\t\t\t\t\tgoto noData;\n\t\t\tshowMovie:\n\t\t\t\tsnprintf(acStack_40, 22, \"show movie %d\", i == 17 ? 1 : 2);\n\t\t\t\tgoto setMessage;\n\t\t\tnoData:\n\t\t\t\tsnprintf(acStack_40, 22, \"%02d No Data            \", i);\n\t\t\t}\n\t\tsetMessage:",
+      "checkpoints": [
+        {
+          "commit": "4c5790f9c6319acb2f7f79ddad8df7b3d3ccae09",
+          "files": [
+            "src/System/MenuDir.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MenuDir",
+            "symbol": "rsetup__13TMenuDirectorFv",
+            "before": 99.255615,
+            "after": 99.770294,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target rsetup__13TMenuDirectorFv improved from 99.255615 to 99.770294 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/10e00a87-b53d-4397-98e6-2f49c041bae2/runner_validation/attempt-5.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/10e00a87-b53d-4397-98e6-2f49c041bae2/runner_validation/attempt-5.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/10e00a87-b53d-4397-98e6-2f49c041bae2",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/10e00a87-b53d-4397-98e6-2f49c041bae2/runner_validation/attempt-5.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/10e00a87-b53d-4397-98e6-2f49c041bae2/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-49b2c82d-e4ba-465e-b4e8-4b720e9838ee/summary.json"
+        },
+        {
+          "commit": "3debd20b87f484f3be42c77aae240e154ad08bc2",
+          "files": [
+            "src/System/MenuDir.cpp"
+          ],
+          "target": {
+            "unit": "mario/System/MenuDir",
+            "symbol": "direct__13TMenuDirectorFv",
+            "before": 96.06272,
+            "after": 96.728226,
+            "improved": true,
+            "exact": false
+          },
+          "reasons": [
+            "target direct__13TMenuDirectorFv improved from 96.06272 to 96.728226 but did not reach exact as claimed; runner records improved progress"
+          ],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/884944a5-bb10-4213-876e-d5823c00905c/runner_validation/attempt-6.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/884944a5-bb10-4213-876e-d5823c00905c/runner_validation/attempt-6.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/884944a5-bb10-4213-876e-d5823c00905c",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/884944a5-bb10-4213-876e-d5823c00905c/runner_validation/attempt-6.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/884944a5-bb10-4213-876e-d5823c00905c/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-dd5b6e84-cd75-4950-8985-68499ddefcc5/summary.json"
+        }
+      ],
+      "why": "The two-value movie tests in rsetup and direct become shared-label goto networks. Worker evidence says this is specifically to stop MWCC folding adjacent-value OR tests into range checks. The labels do not express cleanup, error recovery, or another independent operation; they preserve a selected comparison topology while the source cause remains unresolved. This is a review finding about these documented rewrites, not a ban on goto.",
+      "score_attribution": "rsetup moves 99.255615% to 99.770294% across bundled changes. The intermediate 99.502594% to 99.645940% step includes both goto topology and a legitimate failed-construction return fix, so it is not an isolated goto delta. direct moves 96.06272% to 96.728226%; its notes isolate the explicit dispatch step at 96.30139% to 96.72823%. Preserve real error-return, first-run, and audio fixes.",
+      "lint_candidate": "Review new forward-label networks replacing simple boolean tests when the stated benefit is preventing a compiler fold. This needs context and should not be a generic hard error.",
+      "related": [
+        [
+          "src/System/MenuDir.cpp",
+          276
+        ]
+      ],
+      "occurrences": {
+        "count": 2,
+        "unit": "control-flow rewrite",
+        "file_count": 1,
+        "detail": "Two rewritten control-flow regions in two functions, containing six goto statements in total.",
+        "locations": [
+          {
+            "file": "src/System/MenuDir.cpp",
+            "line": 129,
+            "description": "rsetup movie fallback",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MenuDir.cpp#L129",
+            "goto_lines": [
+              130,
+              132,
+              135
+            ]
+          },
+          {
+            "file": "src/System/MenuDir.cpp",
+            "line": 277,
+            "description": "direct movie/stage dispatch",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MenuDir.cpp#L277",
+            "goto_lines": [
+              278,
+              280,
+              308
+            ]
+          }
+        ],
+        "goto_statement_count": 6
+      }
+    },
+    {
+      "id": "F19",
+      "title": "Spell Addition as Subtraction of a Negation",
+      "file": "src/MarioUtil/MtxUtil.cpp",
+      "start_line": 15,
+      "end_line": 18,
+      "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/MtxUtil.cpp#L15-L18",
+      "category": "exact function",
+      "certainty": "High confidence algebraic code-generation cue",
+      "snippet": "{\n\tf32 q[4];\n\tf32 s = (m[0][0] + m[1][1]) - -m[2][2] + 1.0f;\n\tif (s >= 1.0f) {",
+      "checkpoints": [
+        {
+          "commit": "84db8d32166946d0b831a27c8fbcc09b90d8587d",
+          "files": [
+            "src/MarioUtil/MtxUtil.cpp"
+          ],
+          "target": {
+            "unit": "mario/MarioUtil/MtxUtil",
+            "symbol": "MtxToQuat__FPA4_fP10Quaternion",
+            "before": 99.92857,
+            "after": 100,
+            "improved": true,
+            "exact": true
+          },
+          "reasons": [],
+          "qaLint": "clean",
+          "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/runner_validation/attempt-1.runner_validation.summary.json",
+          "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/runner_validation/attempt-1.write_set.diff",
+          "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f",
+          "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/runner_validation/attempt-1.unit_diff.json",
+          "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/runner_validation/pre_worker_unit_snapshot.json",
+          "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-e2da959c-056a-4b51-b729-0e0daf713999/summary.json"
+        }
+      ],
+      "why": "The trace expression changes a+b+c into (a+b)- -c. The worker explicitly says it preserves the chosen left/right floating-point operand order while optimizing back to fadds. No algorithmic need explains this spelling; it exists to influence compiler operand ordering. Floating-point transformations require care, so this finding is the unsupported source spelling, not a blanket claim that all algebraic forms are interchangeable.",
+      "score_attribution": "99.92857% to 100%. Saved worker evidence identifies the previous residual as fadds f0,f4,f0 versus target fadds f0,f0,f4, and says no other source region changed.",
+      "lint_candidate": "Review newly introduced subtraction-of-negation and other cancelling arithmetic used only to influence register or operand order.",
+      "related": [],
+      "occurrences": {
+        "count": 1,
+        "unit": "subtraction-of-negation expression",
+        "file_count": 1,
+        "detail": "One arithmetic expression in MtxToQuat.",
+        "locations": [
+          {
+            "file": "src/MarioUtil/MtxUtil.cpp",
+            "line": 17,
+            "description": "(m[0][0] + m[1][1]) - -m[2][2]",
+            "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/MtxUtil.cpp#L17"
+          }
+        ]
+      }
+    }
+  ],
+  "excluded_candidates": [
+    [
+      "src/MarioUtil/DrawUtil.cpp",
+      "Duplicate t/t2 vector temporaries in clash",
+      "The notes show allocation experiments, but target assembly also contains additional vector-object copies and the existing JGeometry return interfaces are suspect. There is insufficient evidence to call the named copies highly likely wrong. Retained as an unresolved source-boundary question, outside the 19 findings."
+    ],
+    [
+      "src/System/MarDirectorDirect.cpp",
+      "tmp/uVar11/uVar4 copy chain",
+      "Syntax-level search and a partial gain are recorded. The existing temporaries and changed scopes leave a plausible lifetime explanation. This is weaker than a dead aggregate or a new unary wrapper and is excluded from the strong count."
+    ],
+    [
+      "src/Player/MarioParticle.cpp",
+      "Expanded SMS_LoadParticle calls",
+      "The duplicated branches predate the PR. Expanding an existing fabricated inline helper and recovering a flag-pointer lifetime can be a valid source-boundary correction. Exact matching alone does not settle provenance, but the evidence does not establish a strong defect."
+    ],
+    [
+      "src/M3DUtil/MActorData.cpp",
+      "Loop-index lifetime change",
+      "Ordinary C++ with a small gain is not enough to establish artificial reconstruction."
+    ],
+    [
+      "src/MarioUtil/DrawUtil.cpp",
+      "TSilhouette::loadAfter split arrays",
+      "Saved objdiff leaves one constant-relocation mismatch. No strong wrong-source claim follows from the remaining partial percentage."
+    ],
+    [
+      "src/NPC/NpcNerve.cpp",
+      "Local doThing helper",
+      "It uses GraphWait fields where the previous helper used GraphWander fields. That is meaningful semantic evidence; ownership placement can be reviewed separately."
+    ],
+    [
+      "src/System/Application.cpp",
+      "Explicit destructor before heap cleanup",
+      "The destructor flag and later mHeap->freeAll provide a plausible arena-ownership explanation."
+    ],
+    [
+      "src/MarioUtil/PacketUtil.cpp",
+      "8388638.0f conversion constant",
+      "The same constant occurs in existing JSystem/JRenderer.cpp. Its unusual appearance alone is not evidence of an invented score cue."
+    ],
+    [
+      "src/NPC/NpcCallback.cpp",
+      "Subtraction/cast rewrite",
+      "Existing fabricated JGeometry operators make the apparent expression reversal insufficient to prove a new semantic error."
+    ]
+  ]
+}

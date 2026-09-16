@@ -1,0 +1,39 @@
+# Peach neutral special: Toad
+
+This module implements fighter-side Toad behavior for grounded/aerial normal and successful-counter states. The header declares the public entry, animation, IASA, physics, collision, cleanup and lifetime-predicate functions. Rendered names were treated as hypotheses rather than evidence.
+
+## Entry and command processing
+
+Ground entry clears vertical self-velocity; aerial entry divides horizontal self-velocity by `specialairn_vel_x_div`. Both enter their normal motion at frame 0/rate 1, initialize animation processing, clear four command slots, capture facing direction and install `onAccessory4`. Entry does not reset `specialairn_used`. The source establishes division, not a numeric guarantee that the divisor attenuates velocity. [Entry/reset](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L146-L175).
+
+`onAccessory4` attempts creation only when accessory command state is zero. It changes that state to one before spawning Toad at `FtPart_109`, stores the result in both `toad_gobj` and `x1984_heldItemSpec`, and installs damage/death cleanup only on success. Both successful and failed attempts clear the accessory slot and install paired hitlag callbacks. A nonzero command returns without clearing the slot. [Spawn callback](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L61-L82).
+
+Normal animation consumes command state 1 by changing it to 2 and installing the attribute-backed `ShieldDesc` with `onUnkHit`; it sets `x221B_b3` and copies `xA8` into two shield fields. State zero clears `x221B_b0`, a different bit. Other command values do not execute either branch. Exhausted animation invokes the grounded common completion callback or aerial Fall entry. All four IASA functions are empty. [Normal animation](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L177-L209), [hit IASA](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L318-L320).
+
+## Counter response and spores
+
+`onUnkHit` copies `specialn_facing_dir` into move-local facing storage, selects the grounded or aerial hit state, enters at frame 9/rate 1 without preservation flags, initializes animation, activates Toad if present and restores hit-state lifecycle/hitlag callbacks. It does not directly spawn spores or assign the fighter's main facing field. [Counter response](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L378-L394).
+
+The shared hit-animation helper consumes any nonzero hit-animation command and arms `onHitAccessory4`. That callback creates a spore at the selected joint position with Y increased by 2.5 and Z forced to zero, using current fighter facing, then clears itself. This is one-shot per arming, not proof of one spore for the entire move. Hit-animation completion uses the same ground/common or air/Fall split. [Hit animation](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L296-L316), [spore callback](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L84-L100).
+
+Grounded common completion is not universally an unconditional Wait transition: the verified helper includes special-kind dispatch and DownSpot/other early-return handling before ordinary Wait setup. [Completion implementation](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109).
+
+## Physics and terrain continuity
+
+Normal ground physics applies common ground friction/movement and then `ftColl_8007AEE0`; hit ground physics omits that second call. Normal aerial physics uses basic falling below command value 1. Exactly at 1 it advances to 2 and either sets the persistent aerial-use flag and assigns configured vertical velocity, or assigns zero vertical velocity if already used. Every value at least 1 uses move-specific fall parameters afterward. Air friction and the ftColl follow-up execute on every normal-air path. Hit-air physics always uses move-specific fall and friction without the initial impulse logic. [Normal physics](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L211-L238), [hit physics](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L322-L334).
+
+Common falling subtracts gravity and clamps vertical self-velocity; air friction writes horizontal animation velocity rather than directly replacing horizontal self-velocity. [Fall](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L462-L473), [air friction](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L253-L261).
+
+Ground collision dispatches conversion on a false `ft_800827A0` result. Aerial collision dispatches conversion on a nonzero `ft_80081D0C` result. Conversion helpers select the corresponding ground/air state with `coll_mf`, preserving normal versus hit phase. Normal ground-to-air additionally consumes physics command 1; both air-to-ground helpers clear `specialairn_used`. Normal setup restores accessory and hitlag callbacks and reconstructs the shield only at animation command state 2. Hit setup restores lifecycle/hitlag callbacks but does not restore an accessory callback or recreate the shield. [Normal conversions](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L240-L294), [hit conversions](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L336-L376).
+
+The intended aerial-to-ground role is clear, but the shared aerial predicate has a numeric-label contradiction: its true map-result path returns `GA_Air`, and `GA_Air` is 1 while `GA_Ground` is 0. Thus the caller's nonzero branch must not be silently rewritten as an independently proven grounded result. [Predicate](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123), [enum](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445).
+
+## Cross-file lifetime and hitlag
+
+The paired hitlag callbacks forward only while `toad_gobj` is non-null. `ftPe_SpecialN_DoDeath2` invokes the guarded exit handler, clears that pointer, and clears damage/death callbacks; it does not clear `x1984_heldItemSpec`, accessory or hitlag slots. `ftPe_SpecialN_OnDeath2` does nothing without a tracked article; otherwise it requests item removal and calls owner cleanup. [Fighter cleanup](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L102-L134).
+
+Verified item removal invokes owner cleanup before item destruction, so the outer fighter cleanup normally repeats null writes without a second live-article hitlag forwarding. Item destruction also invokes owner cleanup. The owner-state predicate returns false inside the inclusive SpecialN-to-SpecialAirNHit interval and true outside, despite its canonical `IsActive` name. Item dispatch treats a missing owner as termination and selects Peach versus Kirby owner callbacks by item kind. Both item animation states consume that predicate; only state 0 explicitly invokes owner cleanup in its animation body. [Item owner dispatch/removal](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachtoad.c#L20-L96), [item animation states](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachtoad.c#L108-L155), [fighter predicate](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L136-L144).
+
+No compiled artifact was available. Source literal uses do not establish `.sdata2` size, ordering, bytes or provenance. Descriptive inferred names remain hypotheses, especially `Reset`, which must not imply a complete move-state reset.
+
+Status: synthesized; independent review and live promotion pending.

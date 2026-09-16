@@ -1,0 +1,119 @@
+{
+  "tu": "main/dolphin/base/PPCArch",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110",
+            "why": "Complete body shows the one-time sync, repeated loop and absence of an interrupt-disable operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40",
+            "why": "OSPanic disables interrupts before diagnostics and PPCHalt."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact terminal local control flow while replacing the overly broad claim that there are no interrupts with the supported distinction between the halt loop and caller-owned interrupt policy.",
+        "subject": {
+          "target_stable_key": "main/dolphin/base/PPCArch:PPCHalt"
+        },
+        "type": "state_behavior",
+        "value": "Executes sync once, then repeatedly executes nop, sets r3 to zero, executes another nop, and branches back to the loop label. There is no local guard, recovery transition, or normal return. The routine does not itself disable interrupts or alter MSR; interrupt policy belongs to the surrounding runtime state, and OSPanic explicitly disables interrupts before calling it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L202-L206",
+            "why": "Single direct HID2 write followed by return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L613-L646",
+            "why": "Reads HID2, classifies and reports errors, then explicitly writes the snapshot back to clear error bits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L487-L499",
+            "why": "Caller supplies configuration masks, cache invalidation and synchronization."
+          }
+        ],
+        "op": "write",
+        "rationale": "The instruction-level behavior is unchanged, but the existing exact-image persistence explanation ignores the error-acknowledgement semantics demonstrated by the cache error handler.",
+        "subject": {
+          "target_stable_key": "main/dolphin/base/PPCArch:PPCMthid2"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally issues mtspr HID2 with the supplied u32 and returns, with no local masking, guard, explicit synchronization instruction, or restoration. Callers compose control-bit updates and supply any subsequent ordering. This raw write does not guarantee that HID2 retains an identical copy of the supplied image: DMAErrorHandler writes a previously read HID2 value back specifically to clear its error bits."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L215-L219",
+            "why": "Direct argument-to-WPAR write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L36",
+            "why": "Programs the physical FIFO destination before setting HID2 mask 0x40000000."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L53-L58",
+            "why": "Additional reset caller waits while WPAR bit 0 is set, then reprograms the destination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the supported graphics-startup role while correcting the sole-caller explanation and recording the additional reset use and its caller-owned polling sequence.",
+        "subject": {
+          "target_stable_key": "main/dolphin/base/PPCArch:PPCMtwpar"
+        },
+        "type": "purpose",
+        "value": "Programs the PowerPC/Gekko write-pipe address register (WPAR) with a caller-supplied value. GX initialization uses it to select the physical GX FIFO address before enabling write gathering in HID2. GXResetWriteGatherPipe also uses it to reinstall that destination after polling WPAR until bit 0 is clear."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L79-L83",
+            "why": "Wrapper executes sc followed by blr."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSync.c#L9-L30",
+            "why": "Defines the synchronization handler and installs it at the system-call vector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L39-L51",
+            "why": "GXFlush commits state and writes eight zero words before invoking the hook."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L545-L562",
+            "why": "LCFlushQueue programs DMA registers and then calls PPCSync."
+          }
+        ],
+        "op": "write",
+        "rationale": "Grounds the synchronization meaning in the actual installed vector rather than the function name, and corrects the incomplete GX-only caller explanation without implying GPU completion.",
+        "subject": {
+          "target_stable_key": "main/dolphin/base/PPCArch:PPCSync"
+        },
+        "type": "purpose",
+        "value": "Provides Dolphin's trap-based processor synchronization hook by executing sc and then blr. With the system-call vector installed by __OSInitSystemCall, the trap handler saves HID0, sets mask 0x8, executes isync and sync, restores HID0, and returns through rfi. GXFlush uses the hook after committing dirty GX state and emitting eight zero words to the FIFO; LCFlushQueue also uses it after programming the DMA queue-flush request."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

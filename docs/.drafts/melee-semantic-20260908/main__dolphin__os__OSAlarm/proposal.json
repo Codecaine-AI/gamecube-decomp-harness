@@ -1,0 +1,55 @@
+{
+  "tu": "main/dolphin/os/OSAlarm",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L74-L127",
+            "why": "Complete periodic calculation and ordered insertion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the exact-boundary ambiguity while preserving the supported queue-admission purpose.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSAlarm:InsertAlarm"
+        },
+        "type": "purpose",
+        "value": "Activates an inactive OSAlarm by assigning its handler and fire time and inserting it in nondecreasing deadline order, after existing equal deadlines. For a positive period, fire is start when start >= current system time; otherwise it is start + period * (((now - start) / period) + 1), strictly after the sampled now, including when now is a later phase boundary. It rearms the decrementer when insertion creates or replaces the head."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L79-L86",
+            "why": "Equality and elapsed-start branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L155-L169",
+            "why": "Converted start and positive-period setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L230-L244",
+            "why": "Periodic reinsertion precedes callback invocation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that the initial deadline must always be strictly in the future.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSAlarm:OSSetPeriodicAlarm"
+        },
+        "type": "purpose",
+        "value": "Arms an inactive OSAlarm for recurring callbacks aligned to the converted caller-supplied start and positive period. Insertion uses start unchanged when it equals or exceeds sampled system time; if start is earlier, it advances to the first phase-aligned deadline strictly after that sample. Positive-period alarms are reinserted before their expiration callback is invoked."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

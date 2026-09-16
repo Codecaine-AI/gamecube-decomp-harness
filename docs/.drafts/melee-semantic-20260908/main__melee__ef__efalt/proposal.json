@@ -1,0 +1,198 @@
+{
+  "tu": "main/melee/ef/efalt",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efalt:efAlt_Spawn"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Selects one of the explicit0x479..0x4B9 effect recipes in synchronous library mode, consumes its prepared argument list and returns a nullable primary generator/effect or effect-chain head. Partial compositions remain allocated on later failure; some recipes attempt unreturned secondary generators even when the primary return is NULL. Unsupported IDs still set sync mode and drain the existing animation queue before returning NULL.",
+        "rationale": "Record partial-success and unsupported-ID side effects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L19-L55",
+            "why": "Entry and independent secondary."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L213-L251",
+            "why": "Partial chain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L528-L544",
+            "why": "Unsupported paths share epilogue."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efalt:efAlt_Spawn"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical void* efAlt_Spawn(s32 gfx_id,HSD_GObj* gobj,va_list vlist). This function takes an already-started va_list, not ellipsis arguments. EFALT_VA_ARG extracts pointer-valued HSD_JObj*,Vec3*,f32* payloads through the platform __va_arg interface; scalars are pointed-to f32 values. Arity/order and consumption after failure depend on recipe. gobj can be ignored by position generators but other recipes require valid owner/model/user-data structures. Return has no runtime type tag.",
+        "rationale": "Separate va_list adapter from a variadic entry point and document pointer payloads.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L12-L36",
+            "why": "Extraction macro and signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L42-L55",
+            "why": "Conditional trailing pointer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L223-L228",
+            "why": "Required owner user-data layout."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efalt:efAlt_Spawn"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Uses gfx_id to choose local EFALT_VA_ARG extractions or forward the prepared list to AppSRT helpers. Model recipes write transform, callback, parameters, lifetime, user data and links only after success.0x47A/0x49F/0x4B1 always attempt a secondary attached generator and return only the primary model result.0x48F/0x4AB/0x4B3 create a second linked model only after primary success;0x494 builds up to3 linked effects from raw owner joint pointers, each successful node getting lifetime65 and a transition callback, without rollback.",
+        "rationale": "Expose separate primary and secondary creation outcomes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L38-L56",
+            "why": "First independent secondary."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L153-L170",
+            "why": "Linked composition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L213-L251",
+            "why": "Owner-derived triple chain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L325-L344",
+            "why": "Independent secondary."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L465-L497",
+            "why": "Third independent/linked recipes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efalt:efAlt_Spawn"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Sets efLib_LoadKind=SYNC and does not restore its prior value. Does not reset AnimCount: common epilogue repeatedly decrements the shared count and animates pointer-sized queue slots in reverse order, including entries present on entry and entries added by constructors.0x4A9/0x4AA also animate their root immediately; if queued, it is animated again in the common drain. NULL/unsupported recipe outcomes still drain the queue. No local va_start/va_end or copied argument cursor is created.",
+        "rationale": "Make shared queue ownership and duplicate animation explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L19-L34",
+            "why": "Entry only sets mode."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L391-L429",
+            "why": "Immediate animation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L534-L544",
+            "why": "Reverse pointer-slot drain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L519-L529",
+            "why": "Queue producer writes JObj pointer slots."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ef/efalt.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives a graphics ID, conditional owner GObj and prepared va_list. Recipes extract JObj*,Vec3* and f32* pointers or forward that list to helpers; there are no local by-value scalar argument reads. Partial model chains and unreturned secondary generators may be produced; the returned void* identifies only the primary object. The common epilogue drains shared queued JObjs using pointer-sized indexing despite EF_ParamEntry array storage.",
+        "rationale": "Clarify pointer payloads and return coverage.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L12-L55",
+            "why": "Pointer extraction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L213-L251",
+            "why": "Chain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L534-L544",
+            "why": "Queue indexing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.h#L11-L16",
+            "why": "Declared queue element shape."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ef/efalt.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every call forces synchronous library mode but preserves the current animation count on entry. After its selected recipe, including unsupported IDs or allocation failures, it drains all current queue slots newest first and leaves count0. Composition failures preserve earlier successful objects. No save/restore isolates mode/count from nested spawning; caller normally clears count in efSync_Spawn before dispatch.",
+        "rationale": "Distinguish caller reset from this TU behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L19-L34",
+            "why": "Entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L213-L251",
+            "why": "Partial success."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L534-L544",
+            "why": "Drain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L65-L83",
+            "why": "Caller reset and actual alt range."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

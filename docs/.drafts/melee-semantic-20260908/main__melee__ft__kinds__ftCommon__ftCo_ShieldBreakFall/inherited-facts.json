@@ -1,0 +1,751 @@
+{
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:.sdata2": [
+    {
+      "id": "fact:92ed2991-f5bf-41fd-847a-47d7e9e157f9",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "ftCo_80098D90 reads the pool's 0.0f and 1.0f literals while constructing its Fighter_ChangeMotionState call. Zero is used for the initial animation frame and blend value, while one sets normal animation playback speed; the constants are not mutated and have no other consumer in this translation unit.",
+      "rationale": "The complete relocated unit contains one call requiring these floating-point values and no other use of non-integral constants. The call reuses zero for frame and blend and uses one for playback rate, preserving the established flow after the path relocation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the sole local consumer and the exact zero, one, zero argument sequence passed to Fighter_ChangeMotionState."
+        }
+      ]
+    },
+    {
+      "id": "fact:4b2fde7a-89e0-443e-b22d-c75debc8e93a",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Eight-byte read-only small-data literal pool containing two distinct IEEE-754 single-precision values: 0.0f and 1.0f. These are compiler-emitted constants rather than source-level named variables.",
+      "rationale": "The relocated source still expresses only the two distinct floating-point values 0 and 1 inline and declares no authored constant object. Together with the target's eight-byte .sdata2 identity, this remains consistent with two compiler-emitted f32 literals.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows 0 and 1 used inline as floating-point motion-state arguments and no source-level named constant declaration."
+        }
+      ]
+    },
+    {
+      "id": "fact:e869575e-5b9a-47ce-bcd2-e7ada8859278",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the floating-point literals used when entering the ShieldBreakFall motion state: a zero starting frame and blend value, together with normal 1.0 animation playback speed.",
+      "rationale": "At the relocated head path, the unit's only floating-point motion-state initialization supplies 0, 1, and 0 as the ShieldBreakFall frame, playback-rate, and blend arguments. This preserves the section's established role while replacing its unresolvable pre-relocation citation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the relocated unit and the ShieldBreakFall state-entry call using zero start frame, unit playback rate, and zero blend."
+        }
+      ]
+    },
+    {
+      "id": "fact:01c6df5e-1007-455e-bb2e-2f93bf171df1",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:.sdata2",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The constants configure ShieldBreakFall to begin at animation frame 0 with playback rate 1.0 and zero blend, making entry immediate and normally paced rather than resuming or blending from a nonzero frame.",
+      "rationale": "The relocated entry routine unconditionally selects ShieldBreakFall with frame 0, rate 1, and blend 0, so the constants continue to parameterize immediate, normally paced state entry rather than persistent state.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Directly shows the ShieldBreakFall transition initialized with zero start frame, unit playback rate, and zero blend."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_80098D90": [
+    {
+      "id": "fact:8f5b4d35-9937-4a94-ba8e-d64a08489e92",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_80098D90",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the Fighter_GObj forwarded by the completed ShieldBreakFly animation callback, reads its user_data as a Fighter, and passes the object to Fighter_ChangeMotionState with ftCo_MS_ShieldBreakFall, frame 0, playback rate 1, zero blend, and no animation source. It then passes the Fighter to ftCommon_ClampAirDrift and to ftCommon_8007EBAC with arguments 8 and 0; subsequent ShieldBreakFall physics and collision callbacks continue processing the same fighter object.",
+      "rationale": "The current ShieldBreakFly animation callback passes its game object directly to this routine when animation ends. The current ShieldBreakFall unit shows the Fighter lookup, every state-change argument, both post-transition helper calls, and the later callbacks operating on Fighter_GObj.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFly.c#L1-L61",
+          "why": "Shows the completed ShieldBreakFly animation callback forwarding the same Fighter_GObj to ftCo_80098D90."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the Fighter lookup, motion-state arguments, drift and airborne helper calls, and subsequent ShieldBreakFall callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:dd316f55-a7e4-48f9-8926-04b7c2a61bca",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_80098D90",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Begins the falling portion of Melee's shield-break recovery sequence after the initial upward shield-break launch; the fighter remains in this forced airborne phase until landing advances the sequence toward knockdown.",
+      "rationale": "The current ShieldBreakFly unit gives the fighter upward velocity and hands off to this routine after animation completion. This routine enters ShieldBreakFall and installs collision processing that leads to ShieldBreakDown, matching the documented launch-then-landing-knockdown sequence.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFly.c#L1-L61",
+          "why": "Shows the preceding state assigning upward shield-break velocity and calling ftCo_80098D90 when its animation ends."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows this routine entering ShieldBreakFall and the state continuing through airborne physics and landing collision processing."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://shield~shield-breaking@r2048764",
+          "why": "Documents that a shield break launches the fighter upward and knocks them down when they land."
+        }
+      ]
+    },
+    {
+      "id": "fact:64386b84-0b36-49aa-b16d-73fff9c44dd6",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_80098D90",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "ftCo_ShieldBreakFall_Enter",
+      "rationale": "The relocated function remains the initializer for ftCo_MS_ShieldBreakFall and precedes that state's conventionally suffixed callbacks. The comparable FallAerial initializer uses the _Enter suffix, supporting the same inferred convention here.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows ftCo_80098D90 entering ShieldBreakFall beside the state's Anim, IASA, Phys, and Coll callback suite."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L10-L17",
+          "why": "Shows a comparable common-fighter motion-state initializer named ftCo_FallAerial_Enter."
+        }
+      ]
+    },
+    {
+      "id": "fact:95a99334-4835-42a7-9fd7-f90aa98ff85c",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_80098D90",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Fighter motion-state entry routine with signature void(Fighter_GObj* gobj); it mutates the Fighter owned by the supplied game object and returns no value.",
+      "rationale": "The matched definition supplies the exact signature, obtains gobj->user_data as a Fighter pointer, changes the supplied object's motion state, and passes the derived Fighter to two movement or airborne-initialization helpers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:20:56.608Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L13-L23",
+          "why": "Provides the exact void(Fighter_GObj*) signature and shows all outputs occurring through the supplied game object and its Fighter data."
+        }
+      ]
+    },
+    {
+      "id": "fact:59668129-d3a0-44bc-945d-66fa12bd938a",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_80098D90",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Enters the common ShieldBreakFall motion state after the shield-break launch animation ends, preserves selected collision and visual state from the launch phase, clamps horizontal air drift, and initializes common airborne bookkeeping for the forced fall.",
+      "rationale": "The current entry body selects ShieldBreakFall with preservation flags and invokes the drift and airborne initialization helpers. The current ShieldBreakFly animation callback confirms that this entry routine is called when the launch animation has no frames remaining.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the ShieldBreakFall transition flags, air-drift clamping, and common airborne initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFly.c#L1-L61",
+          "why": "Shows ftCo_ShieldBreakFly_Anim invoking ftCo_80098D90 when no animation frames remain."
+        }
+      ]
+    },
+    {
+      "id": "fact:80c36363-9400-4c43-a023-de2b792df576",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_80098D90",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Unconditionally changes the fighter to ftCo_MS_ShieldBreakFall at animation frame 0 with playback rate 1 and zero blend. The transition retains collision-animation hit status and skips resetting selected model, material-animation, and collision-animation state, after which horizontal air drift is clamped and common airborne state is initialized. This transition occurs when ShieldBreakFly has no animation frames remaining; ShieldBreakFall itself has empty animation and IASA callbacks and therefore relies on airborne physics and landing collision processing for continued progression.",
+      "rationale": "The current entry has no local guard and retains the stated transition parameters, preservation flags, and initialization calls. Its current caller supplies the animation-completion guard, while the current fall callbacks remain inert for Anim and IASA and active for physics and collision.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFly.c#L1-L61",
+          "why": "Shows that the transition entry is called only after ShieldBreakFly has no animation frames remaining."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the unconditional state change, transition parameters and flags, initialization calls, inert Anim and IASA callbacks, and active physics and collision callbacks."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Anim": [
+    {
+      "id": "fact:570958f6-5efd-43ea-81ee-5091613639d2",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Anim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The callback is passed a `Fighter_GObj*` but neither reads nor modifies it, calls no other routine, and produces no output beyond returning to the action-state dispatcher.",
+      "rationale": "The complete empty function body proves the absence of reads, writes, calls, and return data.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T01:50:02.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L25-L25",
+          "why": "Shows that the supplied fighter object is unused and that the callback has no body or return value."
+        }
+      ]
+    },
+    {
+      "id": "fact:626f3baa-b179-4609-b27e-62d3e413f975",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Anim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports the airborne phase of shield-break recovery by preventing animation completion from ending the forced fall; progression toward the grounded stun sequence is collision-driven instead.",
+      "rationale": "The relocated callback remains empty and the same unit routes collision processing toward ShieldBreakDown. The documented shield-break sequence proceeds from launch to landing knockdown and later stun, grounding this callback's passive role in the airborne segment.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows that ShieldBreakFall has no animation-driven transition and delegates its collision path to the down-state entry callback."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://shield~shield-breaking@r2048764",
+          "why": "Documents the shield-break sequence of upward launch, knockdown upon landing, and stun after standing."
+        }
+      ]
+    },
+    {
+      "id": "fact:d6ee7ddc-404b-4fef-8f2a-d7b26438dfab",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Anim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An action-state animation callback with signature `void (Fighter_GObj*)`; it receives the active fighter object, returns no value, and intentionally does not use its parameter.",
+      "rationale": "The matched definition directly provides the return type, parameter type, and empty implementation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T01:50:02.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L25-L25",
+          "why": "Directly shows the callback's complete `void ftCo_ShieldBreakFall_Anim(Fighter_GObj* gobj) {}` definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:85113f2a-04bf-487a-a416-f594859bc7d6",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Anim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the ShieldBreakFall action state's animation callback as an intentional no-op, leaving progression out of the airborne phase to collision handling rather than animation completion.",
+      "rationale": "The relocated complete unit still gives the Anim callback an empty body while the collision callback supplies the ShieldBreakDown entry routine. This confirms the no-op role and replaces the obsolete path citation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the empty ShieldBreakFall Anim callback alongside active physics and collision callbacks, with collision routed to ftCo_80098E3C."
+        }
+      ]
+    },
+    {
+      "id": "fact:cf61e923-fb7c-4723-bd06-30c041ae79e7",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Anim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For every invocation during ShieldBreakFall, the callback returns immediately without testing animation frames, mutating fighter state, or initiating a transition. The state therefore cannot advance through its Anim callback; its collision callback instead routes the fighter toward ShieldBreakDown.",
+      "rationale": "The current Anim definition remains empty. The neighboring current collision callback supplies ftCo_80098E3C, whose current implementation changes the fighter to one of the ShieldBreakDown motion states.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the empty Anim callback and the separate collision route through ftCo_80098E3C."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L54",
+          "why": "Shows ftCo_80098E3C entering ShieldBreakDownU or ShieldBreakDownD."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Coll": [
+    {
+      "id": "fact:ddfb497e-fe71-41d3-a61f-88c02f1cd2d3",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Coll",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the current Fighter_GObj and forwards it unchanged to ft_80082C74 with ftCo_80098E3C. The shared helper updates and tests the fighter's collision state through ft_80081D0C; when the test succeeds, it passes the same object to ftCo_80098E3C, which reads ground_or_air, performs ground setup when still airborne, selects ShieldBreakDownU or ShieldBreakDownD, changes motion state, and initializes the knockdown.",
+      "rationale": "The current collision callback performs no local transformation. The shared collision wrapper conditionally invokes its event with the same object, and the current ftCo_80098E3C body derives the Fighter, handles airborne grounding, selects the down orientation, changes state, and initializes the resulting knockdown.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the target forwarding its Fighter_GObj unchanged to ft_80082C74 with ftCo_80098E3C."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L524-L643",
+          "why": "Shows ft_80082C74 testing collision through ft_80081D0C and passing the same gobj to its callback when the result triggers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L54",
+          "why": "Shows ftCo_80098E3C reading fighter state, performing airborne-to-ground setup when needed, selecting a down motion, changing state, and initializing knockdown."
+        }
+      ]
+    },
+    {
+      "id": "fact:df810671-4dc5-4c43-8c64-dd093b85c307",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Coll",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the landing step of Melee's shield-break recovery sequence, where the fighter's forced post-launch fall ends in a knockdown before the later standing and stunned phases.",
+      "rationale": "The current collision callback installs an event whose current implementation enters ShieldBreakDownU or ShieldBreakDownD. This corresponds to the documented shield-break sequence in which the upward-launched fighter is knocked down upon landing before standing and becoming stunned.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows ShieldBreakFall collision processing supplying the ShieldBreakDown entry callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L54",
+          "why": "Shows the supplied callback entering one of the shield-break knockdown motions."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://shield~shield-breaking@r2048764",
+          "why": "Documents upward launch from shield break, knockdown upon landing, and stun after standing."
+        }
+      ]
+    },
+    {
+      "id": "fact:34e5959b-6806-41fa-ad68-a55345510cb5",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Coll",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Fighter action-state collision callback with exact signature void ftCo_ShieldBreakFall_Coll(Fighter_GObj* gobj). It returns no value and passes the fighter game object to a shared collision routine together with ftCo_80098E3C, a compatible void (Fighter_GObj*) HSD_GObjEvent callback.",
+      "rationale": "The current target definition establishes its exact signature and callback argument. The shared routine accepts an HSD_GObjEvent and invokes it with gobj, while the current ftCo_80098E3C definition has the compatible void(Fighter_GObj*) shape.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the target's void return, Fighter_GObj pointer parameter, and use of ftCo_80098E3C as the callback argument."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L524-L643",
+          "why": "Shows ft_80082C74 accepting an HSD_GObjEvent and invoking it with the Fighter_GObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L54",
+          "why": "Shows ftCo_80098E3C defined with a void return and one Fighter_GObj pointer parameter."
+        }
+      ]
+    },
+    {
+      "id": "fact:ae1adc68-aa5f-4791-a6ec-27992cd86410",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Coll",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Runs environment-collision processing for the ShieldBreakFall action state and supplies ftCo_80098E3C as the landing transition, connecting ground contact during the forced fall to the shield-break knockdown state.",
+      "rationale": "The current wrapper delegates to ft_80082C74 with ftCo_80098E3C. The shared helper invokes that event when its collision query succeeds, and the current callback changes the fighter to a ShieldBreakDown state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the collision callback forwarding gobj to ft_80082C74 with ftCo_80098E3C."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L524-L643",
+          "why": "Shows ft_80082C74 conditionally invoking its supplied event after collision testing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L54",
+          "why": "Shows ftCo_80098E3C entering ShieldBreakDownU or ShieldBreakDownD."
+        }
+      ]
+    },
+    {
+      "id": "fact:091a0d30-1ef1-4ccf-87bb-e17f0861c2f5",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Coll",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Contains no local branch or timer: every invocation delegates to ft_80082C74. If the shared collision test does not request its event, ShieldBreakFall continues unchanged; if the test requests the event, ftCo_80098E3C transitions the fighter to ShieldBreakDownU or ShieldBreakDownD according to ftCo_80097570, performing airborne-to-ground setup first when required.",
+      "rationale": "The current target remains an unconditional one-call wrapper. The shared helper guards callback dispatch on its collision result, and the current event callback retains the ground-or-air guard and destination-state selection.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:45:28.669Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows that the target has no local condition and always delegates with the same callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L524-L643",
+          "why": "Shows the shared helper invoking its callback only when ft_80081D0C returns the triggering result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L54",
+          "why": "Shows the callback's airborne setup guard and selection between ShieldBreakDownU and ShieldBreakDownD."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_IASA": [
+    {
+      "id": "fact:68fc151d-c838-4b38-b230-358490e46191",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_IASA",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the affected fighter's `Fighter_GObj*` through the action-state callback interface but does not read it, call another routine, write state, or produce output.",
+      "rationale": "Although the function declares a fighter-object parameter, its complete body contains no statements, so the argument enters no further data flow and the callback has no output beyond returning.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T01:50:01.446Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L27-L27",
+          "why": "Shows the fighter-object input and proves that the complete body neither consumes it nor performs any operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:2301008c-7425-49bb-966d-26540fcf46b9",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_IASA",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Makes the falling phase of shield-break stun non-interruptible through its IASA hook: while this callback runs, it accepts no fighter input and initiates no alternate action.",
+      "rationale": "The callback's ShieldBreakFall/IASA identity places it at the falling state's interrupt-processing hook, while the empty body proves that the hook offers no transition. This is consistent with the documented mechanic that a fighter whose shield breaks is forcibly stunned for a period rather than immediately free to act.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T01:50:01.446Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L27-L27",
+          "why": "Shows that the ShieldBreakFall IASA callback performs no interrupt or transition processing."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://shield-break-combo~technical-details@r2016389",
+          "why": "Documents that breaking a fighter's shield forces that fighter into stun for a period of time."
+        }
+      ]
+    },
+    {
+      "id": "fact:4f174fbc-416f-4e19-b2fe-c7daa84d1f01",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_IASA",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A fighter action-state callback with signature `void (Fighter_GObj*)`; it receives the affected fighter's game object and returns no value.",
+      "rationale": "The matched definition directly establishes the void return type and single `Fighter_GObj*` parameter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T01:50:01.446Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L27-L27",
+          "why": "Directly supplies the function's complete return and parameter types."
+        }
+      ]
+    },
+    {
+      "id": "fact:495d007a-568c-4bc9-986d-0246302c1ac8",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_IASA",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the ShieldBreakFall action state's intentionally inert IASA callback, occupying the state's per-frame interrupt-processing phase without accepting input-driven actions or initiating a transition.",
+      "rationale": "The complete matched definition is explicitly the ShieldBreakFall IASA function and has an empty body. Its role is therefore to provide that callback phase while deliberately implementing no interrupt processing.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T01:50:01.446Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L27-L27",
+          "why": "Shows the complete `ftCo_ShieldBreakFall_IASA` definition as an empty function."
+        }
+      ]
+    },
+    {
+      "id": "fact:667c6c08-7c1b-4413-b90b-fa64b912d96c",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_IASA",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has invariant no-op behavior on every invocation: it contains no guards, timers, state mutations, or transitions and immediately returns, so the ShieldBreakFall state's IASA phase cannot itself interrupt the forced state.",
+      "rationale": "The entire matched implementation is empty, directly ruling out any conditional processing, timer update, state mutation, or transition within this callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T01:50:01.446Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L27-L27",
+          "why": "Shows that the callback has no statements and consequently performs no state transition or mutation."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Phys": [
+    {
+      "id": "fact:395f9893-fe5a-4bea-91bc-222f981fca6e",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Phys",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the ShieldBreakFall fighter object and forwards it unchanged to ft_80084EEC. That helper obtains the Fighter and its common attributes, reads gravity, terminal velocity, and aerial friction, then feeds those values into the common fall and aerial-friction routines that update the fighter's airborne motion.",
+      "rationale": "The relocated wrapper forwards gobj without transformation. The current helper body derives the Fighter and common attributes and passes the three movement attributes to the routines that mutate airborne motion, confirming the established flow after the helper span changed.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the unchanged Fighter_GObj pointer flowing directly into ft_80084EEC."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L100",
+          "why": "Shows extraction of Fighter and common attributes and consumption of gravity, terminal velocity, and aerial friction by the fall and friction routines."
+        }
+      ]
+    },
+    {
+      "id": "fact:69d3b9d7-b823-4d26-a9e7-8cdf61bfcb37",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Phys",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the passive airborne motion for the falling stage of a fighter's forced shield-break recovery sequence.",
+      "rationale": "The relocated function remains the ShieldBreakFall physics callback, and its current helper applies only passive fall and aerial-friction behavior. The surrounding unit routes landing into ShieldBreakDown, aligning this processing with the documented airborne segment before landing knockdown.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Identifies the function as ShieldBreakFall's Phys callback and shows the state's separate landing path."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L100",
+          "why": "Shows that the delegated behavior consists of passive falling and aerial friction."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://shield~shield-breaking@r2048764",
+          "why": "Documents that a shield break launches the fighter upward and leads to knockdown upon landing."
+        }
+      ]
+    },
+    {
+      "id": "fact:fb915890-2415-45d1-8610-1226e87c5ffc",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Phys",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void fighter action-state physics callback with signature void (Fighter_GObj* gobj).",
+      "rationale": "The relocated definition gives the exact return and parameter types, and its _Phys position within the ShieldBreakFall callback suite establishes its action-state physics role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the exact void(Fighter_GObj*) definition among the ShieldBreakFall action-state callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:9c03effa-a944-41a8-aaf4-39f44a30e6f9",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Phys",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the per-frame physics callback for ShieldBreakFall by applying passive falling and aerial-friction processing to the affected fighter.",
+      "rationale": "The relocated target still delegates exclusively to ft_80084EEC. At head, that helper obtains the fighter and common attributes, applies gravity with terminal velocity, and applies aerial friction, so the prior purpose remains valid.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows the ShieldBreakFall physics callback delegating directly and exclusively to ft_80084EEC."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L100",
+          "why": "Shows ft_80084EEC applying common falling with gravity and terminal velocity, followed by aerial friction."
+        }
+      ]
+    },
+    {
+      "id": "fact:f9eb7a2d-4385-4b68-a1db-1c12f9bf9741",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Phys",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "While ShieldBreakFall remains active, each physics tick applies ordinary gravity capped by terminal velocity and decelerates aerial movement using the fighter's aerial-friction attribute. This callback contains no guard or state transition; landing transitions are handled separately by ShieldBreakFall_Coll.",
+      "rationale": "The relocated target unconditionally calls ft_80084EEC, whose current body unconditionally performs falling and aerial-friction operations. The same fall unit keeps collision and the down-state event in a distinct collision callback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:05:53.975Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L100",
+          "why": "Shows ft_80084EEC unconditionally applying gravity and terminal-velocity-based falling followed by aerial friction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L38",
+          "why": "Shows unconditional physics delegation and separate collision processing through ShieldBreakFall_Coll."
+        }
+      ]
+    }
+  ],
+  "src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c": [
+    {
+      "id": "fact:19872769-a711-4379-9c83-b1b6d9081d45",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c",
+      "type": "data_flow",
+      "value": "Entry installs ShieldBreakFall and airborne drift handling; physics consumes the fighter through the airborne routine, and collision forwards it with ftCo_80098E3C, which selects a ShieldBreakDown orientation.",
+      "rationale": "The current fall and down units preserve this object and callback flow.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T03:31:38.337Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L37",
+          "why": "Shows ShieldBreakFall entry, airborne physics, and collision callback dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L52",
+          "why": "Shows ftCo_80098E3C selecting a ShieldBreakDown orientation."
+        }
+      ]
+    },
+    {
+      "id": "fact:24fcdd25-7368-4ea4-a9ac-372d80cc01ef",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c",
+      "type": "game_mapping",
+      "value": "Realizes the falling segment between the shield-break launch and knockdown.",
+      "rationale": "The current ShieldBreakFall collision callback hands landing to ShieldBreakDown.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T03:31:38.337Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L37",
+          "why": "Shows the airborne shield-break state and its landing handoff."
+        }
+      ]
+    },
+    {
+      "id": "fact:99f69d93-1741-45d9-b53b-c6b680410598",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c",
+      "type": "inferred_type",
+      "value": "A common-fighter action-state unit with one void(Fighter_GObj*) entry routine and standard Anim, IASA, Phys, and Coll callbacks, with collision supplying a fighter-object event callback.",
+      "rationale": "The current file directly exposes this entry and callback layout.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:31:38.337Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L37",
+          "why": "Shows the entry and all four action callbacks, including collision callback forwarding."
+        }
+      ]
+    },
+    {
+      "id": "fact:cf759a95-266d-44b7-a16f-b5e2eb1384cb",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c",
+      "type": "purpose",
+      "value": "Implements the airborne falling phase of shield break and collision-driven conversion to ShieldBreakDown on landing.",
+      "rationale": "The current fall unit enters ShieldBreakFall and supplies the current ShieldBreakDown entry callback to collision handling.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:31:38.337Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L37",
+          "why": "Shows ShieldBreakFall entry, airborne physics, and collision dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L52",
+          "why": "Shows the dispatched callback entering ShieldBreakDownU or ShieldBreakDownD."
+        }
+      ]
+    },
+    {
+      "id": "fact:35067dfe-a040-43c9-be6f-e7a99d283039",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c",
+      "type": "state_behavior",
+      "value": "ShieldBreakFall has inert animation and IASA callbacks and continues airborne physics until collision dispatch enters ShieldBreakDownU or ShieldBreakDownD.",
+      "rationale": "The current fall callbacks and down-state entry preserve these semantics.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:31:38.337Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L1-L37",
+          "why": "Shows empty Anim and IASA, active airborne physics, and collision dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L52",
+          "why": "Shows the two ShieldBreakDown destination states."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_80098D90#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Anim#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Coll#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_IASA#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall:ftCo_ShieldBreakFall_Phys#r3": []
+}

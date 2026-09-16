@@ -1,0 +1,673 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-worker-lifecycle",
+  "title": "Quality Gate",
+  "root": "b-40-worker-lifecycle-root-66",
+  "blocks": {
+    "b-40-worker-lifecycle-root-66": {
+      "id": "b-40-worker-lifecycle-root-66",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "gate-open",
+        "gate-hard",
+        "ec5547d8-3805-40ca-9772-e375bb59f0e7",
+        "gate-checks",
+        "gate-process",
+        "gate-review",
+        "gate-lint",
+        "b-45-worker-capabilities-rule-coverage-13",
+        "gate-lint-context",
+        "b-40-worker-lifecycle-runner-validation-26",
+        "b-40-worker-lifecycle-runner-validation-is-the-27",
+        "b-40-worker-lifecycle-validation-status-score-30",
+        "b-40-worker-lifecycle-the-pre-worker-object-bu-28",
+        "b-40-worker-lifecycle-hard-gate-result-build-31",
+        "b-40-worker-lifecycle-continuation-policy-50",
+        "b-40-worker-lifecycle-attempt-budget-intro-70",
+        "b-40-worker-lifecycle-attempt-budget-grants-71",
+        "b-40-worker-lifecycle-a-worker-continues-only-51",
+        "b-40-worker-lifecycle-attempt-budget-sequence-72",
+        "b-40-worker-lifecycle-when-the-runner-rejects-64",
+        "gate-integration"
+      ]
+    },
+    "gate-open": {
+      "id": "gate-open",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The quality gate decides whether a worker submission can become a selectable checkpoint. The runner checks the actual diff, compilation, match measurements, scope, and lint rules; the worker's claimed score cannot approve its own result."
+        }
+      ],
+      "children": []
+    },
+    "gate-hard": {
+      "id": "gate-hard",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every submission is checked again. A 100% match that fails a hard gate is rejected and returned with repair feedback. A gate-clean improvement can be banked while the same worker continues; selection and integration happen separately."
+        }
+      ],
+      "children": []
+    },
+    "ec5547d8-3805-40ca-9772-e375bb59f0e7": {
+      "id": "ec5547d8-3805-40ca-9772-e375bb59f0e7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Before the first attempt the runner builds the target object at baseline and records the pre-worker measurement. Object, symbol, and split paths come from the game's build layout, derived from the configured report path ("
+        },
+        {
+          "insert": "build/<version>/...",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "config/<version>/...",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "), so a second game never inherits another game's target names. If that baseline build fails, nothing the worker could do would validate: the runner closes the worker as an infrastructure error ("
+        },
+        {
+          "insert": "baseline_build_failed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") without launching an agent, re-admits the target for another worker under the consecutive infrastructure-failure cap, and records the build output for diagnosis."
+        }
+      ],
+      "children": []
+    },
+    "gate-checks": {
+      "id": "gate-checks",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "What the Runner Checks"
+        }
+      ],
+      "children": []
+    },
+    "gate-process": {
+      "id": "gate-process",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Validate one submission",
+            "steps": [
+              {
+                "text": "Capture the diff and check claim-authorized paths"
+              },
+              {
+                "text": "Compile and measure the target and required affected scope"
+              },
+              {
+                "text": "Run QA lint, review-diff lint, and configured post-return checks"
+              },
+              {
+                "text": "Record scores, hard-gate results, artifacts, and failure reasons"
+              },
+              {
+                "text": "Return repair feedback or preserve an eligible checkpoint"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "gate-review": {
+      "id": "gate-review",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Review here is the runner's validation path, including deterministic review-diff lint. A submission must pass runner validation and avoid failed review lint before "
+        },
+        {
+          "insert": "hardGatesPassed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " can be true. Rejection identifies the failing checks so the same worker can repair its next submission."
+        }
+      ],
+      "children": []
+    },
+    "gate-lint": {
+      "id": "gate-lint",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Deterministic Lint"
+        }
+      ],
+      "children": []
+    },
+    "b-45-worker-capabilities-rule-coverage-13": {
+      "id": "b-45-worker-capabilities-rule-coverage-13",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Rule",
+          "Deterministic coverage"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "define_alias",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Rejects identifier aliases and function-like macro shims that redirect a canonical symbol or signature."
+          ],
+          [
+            [
+              {
+                "insert": "bare_local_prototype",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Rejects non-static, non-extern file-scope prototypes in .c files that shadow the owning interface."
+          ],
+          [
+            [
+              {
+                "insert": "numeric_literal_to_symbol",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Consults symbols.txt section and type; mutable-data and function symbols do not produce literal-promotion findings."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "gate-lint-context": {
+      "id": "gate-lint-context",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "These checks reject source tricks that would make a measured match unsuitable for integration. Passing lint alone is insufficient: the compilation, score, write-scope, and configured validation checks must also pass."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-runner-validation-26": {
+      "id": "b-40-worker-lifecycle-runner-validation-26",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Checkpoint Evidence"
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-runner-validation-is-the-27": {
+      "id": "b-40-worker-lifecycle-runner-validation-is-the-27",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Runner validation is the source of truth for progress. It captures every attempt, including failed and neutral checks, while selectable and selected flags make the best durable integration candidate explicit."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-validation-status-score-30": {
+      "id": "b-40-worker-lifecycle-validation-status-score-30",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"id\": \"checkpoint-88\",\n  \"workerStateId\": \"worker-state-501\",\n  \"runId\": \"run-2026-08-11-01\",\n  \"epochId\": \"epoch-19\",\n  \"epochTargetId\": \"epoch-target-501\",\n  \"targetClaimId\": \"claim-501\",\n  \"attemptIndex\": 3,\n  \"validationTime\": \"2026-08-18T15:42:00Z\",\n  \"oldScore\": 97.1,\n  \"newScore\": 99.73,\n  \"delta\": 2.63,\n  \"exactMatch\": false,\n  \"hardGatesPassed\": true,\n  \"improvedOverBaseline\": true,\n  \"selectable\": true,\n  \"selected\": true,\n  \"buildStatus\": \"compiled\",\n  \"qaStatus\": \"passed\",\n  \"objdiffStatus\": \"available\",\n  \"validationStatus\": \"passed\",\n  \"patchPath\": \"artifacts/checkpoint-88.patch\",\n  \"diffPath\": \"artifacts/checkpoint-88.diff\",\n  \"writeSet\": [\n    \"src/melee/example.c\"\n  ],\n  \"validationState\": \"tentative\",\n  \"metadata\": {}\n}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "workerStateId",
+            "type": "string"
+          },
+          {
+            "name": "runId",
+            "type": "string"
+          },
+          {
+            "name": "epochId",
+            "type": "string"
+          },
+          {
+            "name": "epochTargetId",
+            "type": "string"
+          },
+          {
+            "name": "targetClaimId",
+            "type": "string"
+          },
+          {
+            "name": "attemptIndex",
+            "type": "number"
+          },
+          {
+            "name": "validationTime",
+            "type": "ISO timestamp"
+          },
+          {
+            "name": "oldScore",
+            "type": "number | null"
+          },
+          {
+            "name": "newScore",
+            "type": "number | null"
+          },
+          {
+            "name": "delta",
+            "type": "number | null"
+          },
+          {
+            "name": "exactMatch",
+            "type": "boolean"
+          },
+          {
+            "name": "hardGatesPassed",
+            "type": "boolean"
+          },
+          {
+            "name": "improvedOverBaseline",
+            "type": "boolean"
+          },
+          {
+            "name": "selectable",
+            "type": "boolean"
+          },
+          {
+            "name": "selected",
+            "type": "boolean"
+          },
+          {
+            "name": "buildStatus",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "qaStatus",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "objdiffStatus",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "validationStatus",
+            "type": "string"
+          },
+          {
+            "name": "artifactPath",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "patchPath",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "diffPath",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "writeSet",
+            "type": "string[]"
+          },
+          {
+            "name": "validationState",
+            "type": "\"tentative\" | \"confirmed\" | \"regressed\""
+          },
+          {
+            "name": "failureReasons",
+            "type": "string[]",
+            "required": false
+          },
+          {
+            "name": "metadata",
+            "type": "object",
+            "required": false
+          }
+        ],
+        "name": "WorkerCheckpointRecord",
+        "source": {
+          "path": "apps/server/src/core/harness-runtime/run-state/worker-state.ts",
+          "symbol": "WorkerCheckpointRecord"
+        }
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-the-pre-worker-object-bu-28": {
+      "id": "b-40-worker-lifecycle-the-pre-worker-object-bu-28",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Touched-Set Validation"
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-hard-gate-result-build-31": {
+      "id": "b-40-worker-lifecycle-hard-gate-result-build-31",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Category",
+          "Validation scope",
+          "Comparison"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "target-source",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Target translation unit.",
+            "Compile plus target and unit objdiff."
+          ],
+          [
+            [
+              {
+                "insert": "config-metadata",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Address-range-affected units.",
+            "Section measures."
+          ],
+          [
+            [
+              {
+                "insert": "owning-header",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Canonical owner and direct includers.",
+            "Strict object, function, and section checks."
+          ],
+          [
+            [
+              {
+                "insert": "foreign-source",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Edited owner unit after the target TU passes.",
+            "Strict object, function, and section checks."
+          ],
+          [
+            [
+              {
+                "insert": "other / out-of-set",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "No bankable validation scope.",
+            "Repair reason and telemetry; never bank."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-continuation-policy-50": {
+      "id": "b-40-worker-lifecycle-continuation-policy-50",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Selection and Continuation"
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-attempt-budget-intro-70": {
+      "id": "b-40-worker-lifecycle-attempt-budget-intro-70",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Continuation runs one unified attempt budget ("
+        },
+        {
+          "insert": "attempt_budget_v3",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "WORKER_ATTEMPT_BUDGET_POLICY",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in "
+        },
+        {
+          "insert": "worker-cycle.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). A worker gets 5 base submissions, and a submission that sets a strictly new best qualifying score grants +2 budget. A qualifying score is a finite score from a selectable checkpoint that passed hard gates and improved over baseline. Any exact match also qualifies, including one that failed hard gates. Repeated gate-failed exacts grant only once, and a score below the running best grants nothing. After each attempt "
+        },
+        {
+          "insert": "workerContinuationDecision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " replays the checkpoint history and applies the checks below in order."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-attempt-budget-grants-71": {
+      "id": "b-40-worker-lifecycle-attempt-budget-grants-71",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A banked improvement keeps the worker open. The checkpoint is durable in SQLite the moment it is recorded, so the worker keeps pushing toward exact, and each new best extends the budget by two attempts. A gate-failed 100% spends its remaining budget trying to become gate-clean; if it never does, the worker closes normally and the best selectable checkpoint is selected, or the baseline if no checkpoint is selectable. Budget extends attempts only, never time: the claim TTL is stamped at claim time as "
+        },
+        {
+          "insert": "agent_timeout_seconds",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " plus a 600-second grace, each attempt's Pi session gets "
+        },
+        {
+          "insert": "agent_timeout_seconds",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and the job process is killed at the TTL."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-a-worker-continues-only-51": {
+      "id": "b-40-worker-lifecycle-a-worker-continues-only-51",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Check (in order)",
+          "Decision",
+          "Reason"
+        ],
+        "rows": [
+          [
+            "A selectable exact checkpoint passed every hard gate",
+            "Stop; the accepted exact checkpoint is selected.",
+            [
+              {
+                "insert": "accepted_exact",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "Dry run",
+            "Stop after the single probe attempt.",
+            [
+              {
+                "insert": "dry_run",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "Claim deadline reached",
+            "Stop regardless of pending repair reasons; keep the best selectable checkpoint.",
+            [
+              {
+                "insert": "claim_deadline",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "Attempts used reached the attempt budget",
+            "Stop; the only exhaustion reason.",
+            [
+              {
+                "insert": "attempt_budget_exhausted",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "Budget remains",
+            "Continue the same worker with a continuation request.",
+            [
+              {
+                "insert": "attempt_budget_available",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-attempt-budget-sequence-72": {
+      "id": "b-40-worker-lifecycle-attempt-budget-sequence-72",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/attempt-budget.sequence.json",
+        "title": "Attempt budget continuation"
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-when-the-runner-rejects-64": {
+      "id": "b-40-worker-lifecycle-when-the-runner-rejects-64",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Continuation feedback returns to the same worker session and names the validation failure, QA finding, non-exact score, categorized out-of-set paths, and continuation reason. The worker refines the same evidence context instead of self-classifying its durable outcome."
+        }
+      ],
+      "children": []
+    },
+    "gate-integration": {
+      "id": "gate-integration",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker Result Integration",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/30-worker-result-integration"
+            }
+          }
+        },
+        {
+          "insert": " consumes the selected checkpoint after the attempt closes. Scoped validation remains tentative until the epoch-wide build checks the integrated result."
+        }
+      ],
+      "children": []
+    }
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-50-game-events-60-kernel-trace-linkage",
+  "title": "Agent Kernel Integration",
+  "root": "b-index-root-15",
+  "blocks": {
+    "b-index-root-15": {
+      "id": "b-index-root-15",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-intro",
+        "b-identity",
+        "b-identity-text",
+        "b-sandbox",
+        "b-submit",
+        "b-kernel-submission-sequence",
+        "b-submit-text",
+        "b-linkage-cursor-shape",
+        "b-retries",
+        "b-retries-text",
+        "b-limits",
+        "b-join",
+        "b-trace-link-shape",
+        "b-join-text",
+        "b-reading-link"
+      ]
+    },
+    "b-intro": {
+      "id": "b-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "GameKeep supplies game and workflow identity to Agent Kernel. Agent Kernel records containers, agent sessions, tool activity, and execution events. The bridge joins accepted game facts to that execution history so a reader can move from a state change to the work behind it."
+        }
+      ],
+      "children": []
+    },
+    "b-identity": {
+      "id": "b-identity",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Game and Worker Identity"
+        }
+      ],
+      "children": []
+    },
+    "b-identity-text": {
+      "id": "b-identity-text",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The application session groups execution under the harness session. Run, epoch, and worker claim identities locate work within that session. Worker trace lookup uses "
+        },
+        {
+          "insert": "gameId",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "sessionId",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "runId",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "epochId",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "claimId",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; the bridge derives the container identity from those values."
+        }
+      ],
+      "children": []
+    },
+    "b-sandbox": {
+      "id": "b-sandbox",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A sandbox is the worker's operating-system workspace. Its creation and deletion are game events, while remote execution and file-transfer timings are operation spans under the worker trace. A sandbox does not introduce another agent session."
+        }
+      ],
+      "children": []
+    },
+    "b-submit": {
+      "id": "b-submit",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Joining an Accepted Event"
+        }
+      ],
+      "children": []
+    },
+    "b-kernel-submission-sequence": {
+      "id": "b-kernel-submission-sequence",
+      "type": "sequence",
+      "props": {
+        "sequenceId": "b-kernel-submission-sequence",
+        "src": "./assets/sequences/kernel-linkage.sequence.json",
+        "title": "Event-to-kernel validated submission"
+      },
+      "children": []
+    },
+    "b-submit-text": {
+      "id": "b-submit-text",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The bridge loads the accepted event for the requested game, checks its correlation and same-game cause, and replaces caller-supplied protected metadata with those verified values. It creates the container lineage and deterministic kernel event, then persists the harness linkage cursor."
+        }
+      ],
+      "children": []
+    },
+    "b-linkage-cursor-shape": {
+      "id": "b-linkage-cursor-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "The durable harness-side cursor for the latest completed join.",
+        "example": "{\n  \"game_event_id\": \"event-dispatch-7\",\n  \"kernel_event_id\": \"kernel-event-7\",\n  \"correlation_id\": \"run-7\",\n  \"caused_by_event_id\": null,\n  \"linked_at\": \"2026-09-11T18:00:00Z\"\n}",
+        "fields": [
+          {
+            "name": "game_event_id",
+            "type": "EventId"
+          },
+          {
+            "name": "kernel_event_id",
+            "type": "KernelEventId"
+          },
+          {
+            "name": "correlation_id",
+            "type": "CorrelationId"
+          },
+          {
+            "name": "caused_by_event_id",
+            "type": "EventId | null"
+          },
+          {
+            "name": "linked_at",
+            "type": "timestamp"
+          }
+        ],
+        "name": "last_linkage_cursor"
+      },
+      "children": []
+    },
+    "b-retries": {
+      "id": "b-retries",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Retries and Missing Telemetry"
+        }
+      ],
+      "children": []
+    },
+    "b-retries-text": {
+      "id": "b-retries-text",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "When optional telemetry is unavailable or submission fails before emission, the bridge can return no trace result. Required telemetry failures surface as errors. If emission succeeds but cursor persistence fails, the operation fails in either mode; retry uses the deterministic kernel event identity."
+        }
+      ],
+      "children": []
+    },
+    "b-limits": {
+      "id": "b-limits",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "An absent trace link is not proof that the underlying game action failed. Use the accepted event and current state to determine the domain outcome."
+        }
+      ],
+      "children": []
+    },
+    "b-join": {
+      "id": "b-join",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Trace Links"
+        }
+      ],
+      "children": []
+    },
+    "b-trace-link-shape": {
+      "id": "b-trace-link-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "A server-projected navigation link for one reconstructed event.",
+        "example": "{\n  \"event_id\": \"event-dispatch-7\",\n  \"app_session_id\": \"11111111-1111-4111-8111-111111111111\",\n  \"container_id\": \"container-worker-7\",\n  \"kernel_event_id\": \"kernel-event-7\",\n  \"href\": \"/workspace/trace?traceId=11111111-1111-4111-8111-111111111111&containerId=container-worker-7\"\n}",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "EventId"
+          },
+          {
+            "name": "app_session_id",
+            "type": "AppSessionId"
+          },
+          {
+            "name": "container_id",
+            "type": "ContainerId"
+          },
+          {
+            "name": "kernel_event_id",
+            "type": "KernelEventId"
+          },
+          {
+            "name": "href",
+            "type": "string"
+          }
+        ],
+        "name": "KernelTraceLink",
+        "source": {
+          "path": "apps/server/src/core/harness-state/kernel-links.ts",
+          "symbol": "GameEventKernelTraceProjection"
+        }
+      },
+      "children": []
+    },
+    "b-join-text": {
+      "id": "b-join-text",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Reconstruction can return zero, one, or several links for an event. Links use the game's assigned application sessions and protected event metadata. The harness retains container references and its latest linkage cursor; Agent Kernel retains execution detail."
+        }
+      ],
+      "children": []
+    },
+    "b-reading-link": {
+      "id": "b-reading-link",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Reading Traces",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/60-tracing/30-reading-traces"
+            }
+          }
+        },
+        {
+          "insert": " explains how the dashboard selects and displays that detail."
+        }
+      ],
+      "children": []
+    }
+  }
+}

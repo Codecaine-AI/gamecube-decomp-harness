@@ -1,0 +1,438 @@
+{
+  "tu": "main/melee/ef/efalt",
+  "facts": [
+    {
+      "id": "fact:cc2ee31c-004f-43c8-ba4b-5126a77f88a2",
+      "target_id": "target:data:main/melee/ef/efalt:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "efAlt_Spawn uses the incoming graphics ID as the selector for this dispatch data; the selected code destination enters a case that consumes the caller's GObj and variadic arguments, creates or attaches an effect, and ultimately contributes the object returned by the dispatcher.",
+      "rationale": "The switch is directly controlled by gfx_id, and every resolved case uses that selection to choose a constructor and case-specific argument interpretation. The matched .data section is therefore control-flow input to efAlt_Spawn, while the selected case's constructed object is the resulting output.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T04:56:47.743Z",
+      "subject": "main/melee/ef/efalt:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L19-L138",
+          "why": "Shows gfx_id controlling the switch and selected cases consuming the GObj and variadic arguments to create return objects."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Shows the final dispatch cases, common post-dispatch animation handling, and return of ret_obj."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2340--fn--main-melee-ef-efalt-data--96c6b6f5ebe3",
+          "why": "Confirms the complete 300-byte data target matches alongside the recovered efalt code."
+        }
+      ]
+    },
+    {
+      "id": "fact:950e8c9b-3fdc-4b52-9616-7e98766f7bc1",
+      "target_id": "target:data:main/melee/ef/efalt:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 300-byte compiler-generated data payload dominated by a 65-entry table of 32-bit code addresses for the inclusive graphics-ID range 0x479 through 0x4B9; repeated entries may point at shared/default dispatch paths, and any remaining bytes are ancillary compiler-emitted data or alignment rather than a uniform gameplay-parameter array.",
+      "rationale": "The inclusive range 0x479\u20130x4B9 contains 65 indices, and the source supplies dispatch cases across that range. On this 32-bit target, a dense switch table contributes 65 four-byte branch destinations, or 260 bytes, within the independently reported 300-byte section. The evidence does not fully describe the residual bytes, so their exact layout is intentionally left unspecified.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-02T04:56:47.743Z",
+      "subject": "main/melee/ef/efalt:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L19-L138",
+          "why": "Establishes the switch's lower bound at graphics ID 0x479 and shows dense consecutive cases."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L259-L498",
+          "why": "Shows the middle and upper portions of the dense switch range, including reordered source cases that still occupy the same numeric dispatch domain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Establishes the switch's upper bound at graphics ID 0x4B9."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efalt-data--96c6b6f5ebe3",
+          "why": "Independently records the matched .data payload's total size as 300 bytes."
+        }
+      ]
+    },
+    {
+      "id": "fact:484f38ee-373e-403c-ab5d-9b2c10880ec3",
+      "target_id": "target:data:main/melee/ef/efalt:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the compiler-emitted dispatch data used by efAlt_Spawn's dense graphics-ID switch, allowing IDs in the alternate synchronous-effect range to branch to their corresponding effect-construction and configuration cases.",
+      "rationale": "efAlt_Spawn contains a dense case range beginning at 0x479 and ending at 0x4B9. The target is the translation unit's 300-byte matched .data section, and its match arrived with the matching implementation of efAlt_Spawn. That combination supports identifying its principal role as backing the dispatcher's switch rather than as authored gameplay parameters.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T04:56:47.743Z",
+      "subject": "main/melee/ef/efalt:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L19-L138",
+          "why": "Shows the beginning of efAlt_Spawn's dense graphics-ID switch at case 0x479."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L379-L498",
+          "why": "Shows the switch continuing through the high graphics-ID cases immediately preceding 0x4B4."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Shows the switch ending at case 0x4B9 and then leaving dispatch control flow."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efalt-data--96c6b6f5ebe3",
+          "why": "Records that PR #2339 matched the complete 300-byte efalt .data target when the translation unit's effect-dispatch implementation was introduced."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efalt-efalt-spawn--208bad48d782",
+          "why": "Records that the same PR matched the complete 7104-byte efAlt_Spawn function, tying the recovered data to that dispatcher."
+        }
+      ]
+    },
+    {
+      "id": "fact:38e17dc1-7fcc-4a68-a79c-5b9ff4aac869",
+      "target_id": "target:data:main/melee/ef/efalt:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "efAlt_Spawn reads addresses within this blob only on a failed JObj null check and passes them to __assert as its source-file and expression-text arguments; the data is diagnostic text and is not mutated by the dispatcher.",
+      "rationale": "The matched guard branches to __assert with the two literal arguments and performs no writes to them. Together with the target's classification as the unit's small-data section, this establishes a one-way flow from static diagnostic storage into the assertion routine.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-02T04:55:03.878Z",
+      "subject": "main/melee/ef/efalt:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Shows the null guard consuming the diagnostic strings as __assert arguments and no mutation of the string data."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efalt-sdata--785df317f667",
+          "why": "Associates the matched 13-byte small-data target with this completed translation unit."
+        }
+      ]
+    },
+    {
+      "id": "fact:4be5b86c-42db-4076-9de3-ae211008716f",
+      "target_id": "target:data:main/melee/ef/efalt:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 13-byte small-data literal blob whose meaningful contents are the NUL-terminated character strings \"jobj.h\" and \"jobj\", with the remaining byte attributable to section alignment or padding.",
+      "rationale": "The only short character payload demonstrated by the matched translation unit is the pair of assertion literals. Their NUL-terminated lengths total 12 bytes, while the target-specific match record reports a 13-byte .sdata section, supporting a packed character-literal layout with one non-semantic padding byte rather than a mutable scalar or pointer table.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-02T04:55:03.878Z",
+      "subject": "main/melee/ef/efalt:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Provides the exact two string literals consumed by the dispatcher's explicit JObj assertion."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efalt-sdata--785df317f667",
+          "why": "Establishes that this target is a 13-byte matched .sdata section."
+        }
+      ]
+    },
+    {
+      "id": "fact:1d54bb7d-28b7-4faa-81fd-b491f51b07a6",
+      "target_id": "target:data:main/melee/ef/efalt:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the small assertion-diagnostic string payload used by efAlt_Spawn's inlined JObj validity checks, allowing a failed null-JObj guard to identify jobj.h and the asserted jobj expression.",
+      "rationale": "The matched source passes the literals \"jobj.h\" and \"jobj\" to __assert when an effect JObj is null. The target-specific PR record identifies the translation unit's matched .sdata contribution as 13 bytes, consistent with those two short NUL-terminated diagnostic strings plus section padding.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T04:55:03.878Z",
+      "subject": "main/melee/ef/efalt:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Shows efAlt_Spawn calling __assert with \"jobj.h\" as the source identifier and \"jobj\" as the asserted expression when a JObj is null."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efalt-sdata--785df317f667",
+          "why": "Identifies efalt's .sdata target as a matched 13-byte section introduced with the completed effect-dispatch source."
+        }
+      ]
+    },
+    {
+      "id": "fact:9be6fb1b-04b9-461e-a5df-7e450e1ef395",
+      "target_id": "target:data:main/melee/ef/efalt:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The section is read by `efAlt_Spawn`: zero participates in sign comparisons, quarter-turn values become Y rotations chosen from the supplied facing sign, and the six-unit value is subtracted from a JObj translation before the resulting transforms are written to newly created effects. The pool itself is not modified.",
+      "rationale": "The matched source directly shows these literals entering comparisons and arithmetic and then feeding JObj rotation and translation setters. Its ownership as `.sdata2` identifies the storage as read-only constant data, so information flows out of the section into effect initialization without writes back to it.",
+      "confidence": 0.91,
+      "updated_at": "2026-09-02T04:54:52.812Z",
+      "subject": "main/melee/ef/efalt:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L259-L378",
+          "why": "Shows zero controlling the facing branch, `M_PI_2` supplying Y rotation, and `6.0f` participating in the child-JObj translation calculation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L379-L498",
+          "why": "Shows additional reads of zero and quarter-turn constants whose results are written into effect JObj rotations."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efalt-sdata2--1cd325b22466",
+          "why": "Establishes that the referenced constant storage is the unit's matched `.sdata2` target."
+        }
+      ]
+    },
+    {
+      "id": "fact:112b47d1-7a1c-4121-af71-bdde5c0a53da",
+      "target_id": "target:data:main/melee/ef/efalt:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 36-byte read-only small-data constant pool containing compiler-emitted floating-point representations for `efAlt_Spawn`, including constants representing zero, quarter-turn angles derived from `M_PI_2`, and a six-unit translation offset; it is not one homogeneous gameplay structure.",
+      "rationale": "The target-specific PR establishes the section's 36-byte extent. The matched source uses both `f32` literals and `f64` temporaries around `M_PI_2`, along with `0.0f` and `6.0f`, supporting a mixed floating-constant pool rather than an array or record with runtime-managed fields. The evidence does not establish a safe symbol-by-symbol subdivision, so the claim remains at section-layout level.",
+      "confidence": 0.88,
+      "updated_at": "2026-09-02T04:54:52.812Z",
+      "subject": "main/melee/ef/efalt:.sdata2",
+      "evidence": [
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2340--fn--main-melee-ef-efalt-sdata2--1cd325b22466",
+          "why": "Confirms that the complete `.sdata2` target is 36 bytes and matches exactly."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L259-L378",
+          "why": "Shows `f32` zero and offset literals together with `f64` temporaries receiving positive or negative `M_PI_2` before conversion for JObj rotation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L379-L498",
+          "why": "Shows the same floating constants reused across additional facing-dependent effect recipes."
+        }
+      ]
+    },
+    {
+      "id": "fact:fb377981-4adf-4827-a20a-b42a4f720e7b",
+      "target_id": "target:data:main/melee/ef/efalt:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the translation unit's read-only floating-point literals used to test facing signs and initialize effect JObj rotations and offsets.",
+      "rationale": "The matched PR identifies this target as the 36-byte `.sdata2` contribution of `efalt`. The unit's sole function repeatedly uses floating constants for sign tests, quarter-turn Y rotations, and a fixed child-JObj translation offset, which are the operations served by this compiler-emitted read-only small-data pool.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-02T04:54:52.812Z",
+      "subject": "main/melee/ef/efalt:.sdata2",
+      "evidence": [
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efalt-sdata2--1cd325b22466",
+          "why": "Identifies the target as the matched 36-byte `.sdata2` section belonging to the `efalt` translation unit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L259-L378",
+          "why": "Shows repeated zero-facing comparisons, positive and negative `M_PI_2` rotations, and a `6.0f` child-JObj translation adjustment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L379-L498",
+          "why": "Shows further effect recipes consuming zero and quarter-turn constants when configuring facing-dependent JObj rotations."
+        }
+      ]
+    },
+    {
+      "id": "fact:f0eb7a16-4e2a-43ed-9755-0152137b4e76",
+      "target_id": "target:function:main/melee/ef/efalt:efAlt_Spawn",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Uses `gfx_id` to select how `gobj` and the ordered variadic payload are consumed; passes positions or JObjs into effect constructors, then writes the resulting effects' JObj transforms, update callbacks, parameters, lifetime, user data, and `next` links. After construction it consumes queued animation entries and returns the selected recipe's primary object.",
+      "rationale": "Across the switch, variadic position, attachment, facing, and scalar inputs flow into constructor calls and post-construction JObj or EF_Effect fields. Multi-part recipes link additional effects through `next`. The common epilogue decrements efLib_AnimCount, reads each queued GObj, animates its JObj, and then exposes ret_obj to the caller.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:10:42.006Z",
+      "subject": "main/melee/ef/efalt:efAlt_Spawn",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L139-L258",
+          "why": "Shows variadic values flowing into attachment constructors and then into rotations, parameters, callbacks, lifetime, user data, and linked-effect fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L259-L378",
+          "why": "Shows owner scale and variadic facing values being copied into created effect JObjs and callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Shows queued animation objects being consumed before the primary result is returned."
+        }
+      ]
+    },
+    {
+      "id": "fact:8ea188ab-3b38-450d-ba5e-259f8ccb22bb",
+      "target_id": "target:function:main/melee/ef/efalt:efAlt_Spawn",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A heterogeneous variadic effect factory with signature `void* (s32 gfx_id, HSD_GObj* gobj, va_list vlist)`: the graphics ID determines the expected trailing argument sequence, including `HSD_JObj*`, `Vec3*`, and `f32*` values, and the result is null or the head object created by the selected recipe.",
+      "rationale": "The function declaration fixes the three formal parameters and void-pointer result. Individual switch cases consume different typed values through EFALT_VA_ARG according to gfx_id, so the va_list is a tagged-by-ID argument payload rather than one uniform structure. The initialized null return and constructor assignments establish the result domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:42.006Z",
+      "subject": "main/melee/ef/efalt:efAlt_Spawn",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L19-L138",
+          "why": "Shows the exact function signature and cases consuming `Vec3*`, `HSD_JObj*`, and `f32*` variadic arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L139-L258",
+          "why": "Shows that other IDs consume different ordered combinations of JObj, position, and scalar arguments and may return linked effects."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Shows the common `ret_obj` return after all ID-specific recipes."
+        }
+      ]
+    },
+    {
+      "id": "fact:337a9f25-35da-423a-ac9c-5fbf127a399e",
+      "target_id": "target:function:main/melee/ef/efalt:efAlt_Spawn",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Synchronously dispatches a graphics-effect ID to the corresponding particle generator or attached effect construction recipe, performs that recipe's initial configuration, and returns the created effect object or linked-list head.",
+      "rationale": "The matched body sets EF_LOADKIND_SYNC and switches on gfx_id. Each supported case invokes a specific generator or attachment constructor and may then configure transforms, callbacks, parameters, animation, or linked effects before the common return. Unsupported IDs and failed constructors leave the initialized return value null.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:42.006Z",
+      "subject": "main/melee/ef/efalt:efAlt_Spawn",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L19-L138",
+          "why": "Shows null initialization, synchronous load-mode selection, graphics-ID dispatch, effect creation, and case-specific callback or rotation setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L259-L378",
+          "why": "Shows further graphics IDs selecting generators or attachment recipes and configuring scale, rotation, animation, and update callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Shows the last dispatch cases, common animation processing, and return of ret_obj."
+        }
+      ]
+    },
+    {
+      "id": "fact:a0f32259-6cfd-4ded-a8e6-c5df817a11a0",
+      "target_id": "target:function:main/melee/ef/efalt:efAlt_Spawn",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For every dispatch, switches the effect library to synchronous loading. Successful recipes may install per-frame update callbacks or construct ordered effect chains; before returning, the function drains `efLib_AnimQueue` from the last occupied entry downward by decrementing `efLib_AnimCount` and invoking `HSD_JObjAnimAll` for each queued object.",
+      "rationale": "The prologue unconditionally sets EF_LOADKIND_SYNC. Multiple cases conditionally install update callbacks or chain effects only after successful creation. The common epilogue is a countdown loop over the global animation count, making queue draining a state transition shared by all IDs rather than behavior local to one case.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:42.006Z",
+      "subject": "main/melee/ef/efalt:efAlt_Spawn",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L19-L138",
+          "why": "Shows unconditional synchronous load-mode selection and conditional installation of effect update callbacks after successful creation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L139-L258",
+          "why": "Shows recipes constructing linked effects and assigning callback, lifetime, and user-data state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L499-L545",
+          "why": "Shows the common countdown loop decrementing `efLib_AnimCount` and animating every queued JObj before return."
+        }
+      ]
+    },
+    {
+      "id": "fact:287c9d12-7886-4115-a2ee-9fdc3f6a9079",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ef/efalt.c",
+      "type": "data_flow",
+      "value": "The unit's dispatcher receives a graphics ID, an owning or attachment HSD_GObj, and effect-specific variadic arguments. The selected case consumes JObj, Vec3, or scalar arguments, forwards them to effect-library or particle constructors, mutates the resulting effect's transform, callback, lifetime, parameters, user data, or next pointer, drains the global animation queue, and returns the constructed effect or generator object.",
+      "rationale": "The current dispatcher still decodes ID-specific variadic inputs, configures created effects and effect chains, drains queued JObj animations, and returns the selected result.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T02:08:01.542Z",
+      "subject": "src/melee/ef/efalt.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L16-L255",
+          "why": "Shows graphics-ID, GObj, JObj, Vec3, and scalar inputs flowing into constructors and persistent effect fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L496-L542",
+          "why": "Shows final construction cases and the shared animation-queue drain."
+        }
+      ]
+    },
+    {
+      "id": "fact:3d8a980e-5f6e-48b6-91a2-5f50e89c3e2f",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ef/efalt.c",
+      "type": "purpose",
+      "value": "Implements the alternate synchronous graphics-effect dispatcher: it maps a large range of graphics IDs to effect or particle-generator constructors and applies effect-specific attachment, transform, callback, chaining, and animation setup.",
+      "rationale": "The current switch still maps graphics IDs to generators and attached effects, applies ID-specific configuration, and synchronously processes queued animations.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:08:01.542Z",
+      "subject": "src/melee/ef/efalt.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L16-L255",
+          "why": "Shows numerous ID-specific effect and particle recipes with attachment, transform, callback, lifetime, and chaining setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L496-L542",
+          "why": "Shows the final dispatch recipes and common synchronous animation processing."
+        }
+      ]
+    },
+    {
+      "id": "fact:877b7fb8-61b5-4f80-8684-4fbda06a657a",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ef/efalt.c",
+      "type": "state_behavior",
+      "value": "Each dispatch places the effect library in synchronous-load mode. Individual recipes may install per-frame update callbacks or assemble ordered effect chains after successful allocation, and the shared epilogue counts `efLib_AnimCount` down to zero while animating queued JObjs in reverse insertion order.",
+      "rationale": "The current prologue still selects synchronous loading, successful cases still install callbacks and links, and the epilogue still pre-decrements the global animation count until the queue is empty.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T02:08:01.542Z",
+      "subject": "src/melee/ef/efalt.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L16-L255",
+          "why": "Shows synchronous-load selection and conditional callback and effect-chain initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L496-L542",
+          "why": "Shows `efLib_AnimCount` being decremented while queued JObjs are animated from the last entry backward."
+        }
+      ]
+    }
+  ]
+}

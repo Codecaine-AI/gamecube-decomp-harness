@@ -1,0 +1,126 @@
+{
+  "tu": "main/melee/ft/kinds/ftPeach/ftpeachfloatattack",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloatattack:ftPe_8011BF34"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Internal action-entry helper with signature static void (HSD_GObj*). The borrowed game-object pointer supplies the attached Fighter whose FloatAttack latch is initialized and is forwarded unchanged to common aerial entry. No local allocation, destruction, ownership transfer, or pointer retention occurs.",
+        "rationale": "Preserves verified signature and attachment while removing unsupported broader ownership semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatattack.c#L22-L49",
+            "why": "Static declaration, Fighter lookup, field initialization, and forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloatattack:ftPe_FloatAttackAir_Anim"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Fighter action-state animation callback with signature void (HSD_GObj*). It receives a borrowed game-object pointer, accesses its attached Fighter, updates duration and facing, and may delegate a motion transition. The body does not establish broader object ownership or compiled parameter-register assignment.",
+        "rationale": "Replaces ownership wording with the source-supported input contract.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatattack.c#L51-L67",
+            "why": "Exact signature and complete body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeach.c#L65-L119",
+            "why": "Active animation callback assignments."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloatattack:ftPe_FloatAttackAir_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation delegates to exactly one physics routine: zero floatattack.x0 selects ftPe_Float_Phys; nonzero selects ft_80084DB0. The wrapper has no local timer or transition logic. Entry clears x0; continuation failure sets it before IASA arbitration. Release persists only until re-entry or another state change: a successful chained attack can clear the latch during the same IASA invocation that set it.",
+        "rationale": "Repairs unqualified one-way-for-state wording and explicitly accounts for indirect IASA reset.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatattack.c#L43-L91",
+            "why": "Entry clear, continuation write, chained gate, and exclusive physics branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftPeach/ftpeachfloatattack.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Attack requests require u.pe.x4 > 0. FloatAttack entry clears mv.pe.floatattack.x0; IASA sets it when continuation fails, before checking allow_interrupt. A set latch selects common aerial physics and Fall at animation completion, whereas a clear latch selects Float physics and requests Float with false, without replenishing duration. Timer exhaustion alone does not set the latch or immediately end the attack. Interruptible IASA tries ftCo_80095328, the local attack gate, then ftCo_800CB870; successful chained entry may clear the latch in the same invocation that set it. Collision delegates to common aerial landing, whose unmatched Float-specific motions select basic landing.",
+        "rationale": "Independently verified librarian refinement distinguishes duration from release and bounds latch lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatattack.c#L24-L96",
+            "why": "Complete local state control."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloat.c#L64-L90",
+            "why": "False entry preserves duration; Float processes exhaustion separately."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L57",
+            "why": "Unmatched motion selects basic landing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachfloatattack:ftPe_FloatAttackAir_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards the borrowed game object and ftCo_LandingAir_EnterWithLag function address to ft_80082C74. That helper synchronously invokes the callback only when ft_80081D0C succeeds and does not retain it. With a FloatAttack motion, the landing routine selects basic landing whether cmd_vars[0] is clear or set, because only ordinary AttackAir motions match its switch. The unmatched path does not read its uninitialized lag local or execute lag-reduction division/conversion.",
+        "rationale": "Preserves verified landing mechanism while making callback lifetime and optional command branch explicit, without asserting fixed landing duration.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatattack.c#L93-L96",
+            "why": "Entire forwarding wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L549-L556",
+            "why": "Conditional synchronous invocation without storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L57",
+            "why": "Command guard, motion switch, guarded lag usage, and basic fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeach.c#L65-L119",
+            "why": "Active Float-specific aerial callback family."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

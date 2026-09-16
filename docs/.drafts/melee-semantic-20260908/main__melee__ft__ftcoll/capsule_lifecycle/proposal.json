@@ -1,0 +1,219 @@
+{
+  "tu": "main/melee/ft/ftcoll",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007AF60"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the Fighter from gobj and rechecks fp->x166C in each loop condition. For each x1670 entry, lb_8000B1CC transforms local v1 through its joint into world-space x18. The dynamics caller updates this array before passing it and x166C to lb_8001044C for its dynamic-bone sets.",
+        "rationale": "The count is not snapshotted in the canonical loop.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3101-L3110",
+            "why": "The count is not snapshotted in the canonical loop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdynamics.c#L395-L413",
+            "why": "The count is not snapshotted in the canonical loop."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007B320"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads default hurt descriptors from ft_data->x30 and dynamics descriptors from ft_data->x2C. It copies hurt count and per-capsule bone index, height, grabbability, enabled state, joint, endpoint offsets and scale. After that pass it checks and copies the dynamics count, then copies each dynamics bone index, resolves its joint, and copies Vec3 v1 and scalar float v2.",
+        "rationale": "The dynamics record contains one vector and one scalar, not two vectors.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3215-L3254",
+            "why": "The dynamics record contains one vector and one scalar, not two vectors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L1324-L1332",
+            "why": "The dynamics record contains one vector and one scalar, not two vectors."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007B320"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "First asserts if the hurt descriptor count exceeds 15, then populates and enables the hurt array. Only after that pass does it assert if the dynamics count exceeds 11 and populate the dynamics array. Neither loop clears hurt-capsule position-cache flags; the routine owns no timer or action-state transition.",
+        "rationale": "The dynamics limit check occurs after hurt-array population, not before either array is populated.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3215-L3254",
+            "why": "The dynamics limit check occurs after hurt-array population, not before either array is populated."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L1324-L1332",
+            "why": "The dynamics limit check occurs after hurt-array population, not before either array is populated."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007B7A4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, int duration). The signed duration request replaces x1994 only when greater than its existing value. The routine does not validate nonnegativity; ordinary callers use it as a protection countdown.",
+        "rationale": "Canonical input is signed and no nonnegative precondition is enforced locally.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3352-L3360",
+            "why": "Canonical input is signed and no nonnegative precondition is enforced locally."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1464-L1498",
+            "why": "Canonical input is signed and no nonnegative precondition is enforced locally."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007B868"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftColl_GetFighterHitStatus",
+        "rationale": "The previous alias ftColl_GetHitStatus collides with a distinct canonical local inline function at lines 3456-3466; this qualified hypothesis avoids that collision.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3372-L3383",
+            "why": "The previous alias ftColl_GetHitStatus collides with a distinct canonical local inline function at lines 3456-3466; this qualified hypothesis avoids that collision."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3292-L3307",
+            "why": "The previous alias ftColl_GetHitStatus collides with a distinct canonical local inline function at lines 3456-3466; this qualified hypothesis avoids that collision."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3456-L3466",
+            "why": "The previous alias ftColl_GetHitStatus collides with a distinct canonical local inline function at lines 3456-3466; this qualified hypothesis avoids that collision."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007B868"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Read-only query s32(Fighter_GObj* gobj), returning max(x221D_b6 ? 1 : 0, x1988, x198C). Normal status producers use levels 0, 1 and 2, but this query does not clamp arbitrary stored values to that domain.",
+        "rationale": "The whole-body setter stores arbitrary states, so the return domain is not guaranteed to be exactly {0,1,2}.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3372-L3383",
+            "why": "The whole-body setter stores arbitrary states, so the return domain is not guaranteed to be exactly {0,1,2}."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3292-L3307",
+            "why": "The whole-body setter stores arbitrary states, so the return domain is not guaranteed to be exactly {0,1,2}."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3456-L3466",
+            "why": "The whole-body setter stores arbitrary states, so the return domain is not guaranteed to be exactly {0,1,2}."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007B868"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Performs no state transition and returns the maximum of the Boolean source mapped to 0 or 1 and the two explicit status fields. Normal 0/1/2 inputs follow their usual precedence; values greater than 2 remain visible and negative explicit values cannot reduce the result below the Boolean source.",
+        "rationale": "Qualifies the claimed enum behavior for unconstrained stored state.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3372-L3383",
+            "why": "Qualifies the claimed enum behavior for unconstrained stored state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3292-L3307",
+            "why": "Qualifies the claimed enum behavior for unconstrained stored state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3456-L3466",
+            "why": "Qualifies the claimed enum behavior for unconstrained stored state."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007B8A8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Detaches a HitCapsule from its model joint and copies the supplied vector into b_offset. It does not immediately write the current or previous world-space endpoints; those are maintained by the separate position-update lifecycle.",
+        "rationale": "Distinguishes writing a detached offset from immediately placing the cached world-space capsule.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3385-L3389",
+            "why": "Distinguishes writing a detached offset from immediately placing the cached world-space capsule."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3028-L3066",
+            "why": "Distinguishes writing a detached offset from immediately placing the cached world-space capsule."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007BC90"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Finds the eligible item with the smallest absolute horizontal distance among items overlapping an active fighter catch capsule. It scans item availability, ground/air targeting, history and hurtbox overlap, records each overlapping item, and stores the best target; equal distances keep the first candidate.",
+        "rationale": "Nearest must explicitly mean absolute X distance, not Euclidean distance.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3544-L3625",
+            "why": "Nearest must explicitly mean absolute X distance, not Euclidean distance."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

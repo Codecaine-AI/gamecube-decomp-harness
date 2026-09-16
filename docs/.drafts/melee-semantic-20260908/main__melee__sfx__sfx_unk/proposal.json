@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/sfx/sfx_unk",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/sfx_unk.c#L5-L27",
+            "why": "Unconditional creation, registration, fixed-state publication and field reset, with no guard or teardown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L13-L24",
+            "why": "The callback obtains its state through the shared global pointer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported claim that startup necessarily transitions from having no active manager and records the consequential shared-state lifetime behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/sfx_unk:un_80321900"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally creates and registers a crowd-manager process, publishes the fixed shared backing object, and initializes it to baseline values. The recent-event timer starts at 0x10000, cheer/gasp counters at their configured limits, control and proximity fields at zero, and both audio handles at -1. There is no existing-instance guard or cleanup: repeated successful startup creates another registered process while resetting the same shared state, without stopping audio referenced by the overwritten handles."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/sfx_unk.c#L13-L27",
+            "why": "Exact initialization values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L16-L36",
+            "why": "Timer saturation and sequence completion behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L441-L466",
+            "why": "Configuration-dependent recent-event test and event-history replacement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported idle baseline while replacing an unconditional recent-hit-prevention claim with the actual configuration-dependent condition.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/sfx_unk:un_80321950"
+        },
+        "type": "state_behavior",
+        "value": "Sets x4 to its recurring-update saturation value 0x10000, x10 and x18 to their configured completion limits, x14 to 0x83D60, x28 and x2C to -1, and all remaining declared fields to zero. Later qualifying hit processing resets x4 and records the participant and knockback magnitude in x0 and x8. Whether event history is considered recent depends on participant equality and comparison of x4 against gCrowdConfig->x18; initialization alone does not prove that comparison false for every configuration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/sfx_unk.c#L13-L27",
+            "why": "Complete baseline writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L441-L466",
+            "why": "x8 preserves the previous qualifying event magnitude until overwritten with kb_mag."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the floating-accumulator interpretation and includes the otherwise omitted x14 baseline without assigning an unsupported meaning to its numeric value.",
+        "subject": {
+          "entity_locator": "src/melee/sfx/sfx_unk.c"
+        },
+        "type": "state_behavior",
+        "value": "Initializes shared crowd state with x0, xC, x1C, x20 and x24 cleared, the recent-event timer x4 at 0x10000, and the stored event knockback magnitude x8 at 0.0f. The cheer/gasp counters x10 and x18 begin at configured limits, x14 begins at 0x83D60, and both audio handles x28 and x2C begin at -1. The recurring process subsequently consumes this baseline; x8 is overwritten by qualifying hit events, not accumulated."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

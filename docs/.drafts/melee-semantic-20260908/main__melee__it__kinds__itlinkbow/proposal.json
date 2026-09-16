@@ -1,0 +1,92 @@
+{
+  "tu": "main/melee/it/kinds/itlinkbow",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkbow.c#L20-L35",
+            "why": "All six active rows share this animation callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkbow.c#L180-L233",
+            "why": "Defines scale maintenance, state-specific frame handling and lifetime checks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing explanation's restriction to state 5: the table registers this callback in every active row.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkbow:itLinkbow_UnkMotion5_Anim"
+        },
+        "type": "purpose",
+        "value": "Shared animation callback for the Link-family bow item's six active states, indexed 0 through 5. It reapplies cached uniform model scale, handles frame-bound retirement for current states 2 and 5, synchronizes other states with the owner's neutral-special phase, and returns a termination signal when the retained ownership relationship or fighter-specific lifetime check fails."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkbow.c#L180-L233",
+            "why": "Complete ordered callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkbow.c#L66-L86",
+            "why": "Destruction callback delegates owner notification only."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkbow.c#L95-L130",
+            "why": "Unsupported kinds leave the synchronization index uninitialized."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecialn.c#L97-L112",
+            "why": "Native lifetime predicate includes phase and flag checks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspeciallink.c#L102-L139",
+            "why": "Copied lifetime predicate includes pointer, copy-kind, phase and flag checks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes current state from an originating state, notification from deletion, and move-phase validity from the additional controlling flag. Preserves the exact comparisons and exceptional default behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkbow:itLinkbow_UnkMotion5_Anim"
+        },
+        "type": "state_behavior",
+        "value": "First reapplies the cached uniform scale. If current Item.msid is 2 or 5, frame == 0.0f or frame >= 24.0f invokes itLinkBow_Logic100_Destroyed and immediately returns true; this call notifies fighter-side cleanup rather than directly deleting the item. If neither comparison succeeds, those states skip synchronization and continue to ownership checks. Other current states call it_802AF32C. The callback then returns true for a NULL retained fighter reference, a mismatch with Item.owner, or a nonzero applicable Link/Kirby lifetime predicate. Those predicates reject departure from the supported neutral-special phases or a set x2071_b6 flag; Kirby additionally validates the copy kind and fighter pointer. Unrecognized item kinds take the final kind-switch default without a predicate call, although an earlier synchronization call is not safe for unsupported kinds. Otherwise the callback returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkbow.c#L20-L35",
+            "why": "Seventh row has animation ID -1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkbow.c#L253-L266",
+            "why": "Terminal callbacks return true around an empty physics callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the ambiguous claim of a terminal '-1 bow state' by separating table index 6 from animation ID -1.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlinkbow:itLinkbow_UnkMotion6_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Has invariant no-op behavior in the seventh bow state-table row, indexed 6 and carrying animation ID -1: it immediately returns without guards, timers, transitions, velocity integration or state mutation. The same row's animation and collision callbacks return true, so completion or removal signaling belongs to those callbacks rather than physics."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "tu": "main/melee/ft/kinds/ftDonkey/ftdonkeyspecialhi",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftDonkey/ftdonkeyspecialhi:ftDk_SpecialAirHi_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Obtains Fighter/attribute pointers and tests animation frames. While frames remain it performs no local state-writing work. On expiration it calls ftCommon_8007D60C, which establishes airborne mode, clears ground and vertical animation velocity, exhausts jumps and locks the ECB, with an optional player-system call. It then compares SpecialHi.x64_LANDING_LAG == 0: either signed zero calls ftCo_Fall_Enter; other values, including NaN under ordinary floating-point comparisons, call ftCo_80096900(gobj,1,0,1,1,landing_lag). That helper normally enters FallSpecial and stores the lag, but x2224_b2 redirects before the state change. Subsequent LandingFallSpecial lag application is conditional in the common consumer; this callback implements no lag timer.",
+        "rationale": "Reconciles the librarian's verified exception finding with exact local work, zero boundary and material preparation effects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyspecialhi.c#L74-L88",
+            "why": "Guard, attribute comparison and outgoing calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L527-L539",
+            "why": "Preparation effects and optional branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L28-L59",
+            "why": "Exceptional redirect and normal initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L145-L155",
+            "why": "Conditional landing-lag consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftDonkey/ftdonkeyspecialhi:ftDk_SpecialAirHi_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation selects gravity multiplier 1 if cmd_vars[0] is nonzero, otherwise SpecialHi.x50_AERIAL_GRAVITY. This is a reversible per-call selection, not a latched one-way phase. It calls ftCommon_Fall with multiplier times common gravity and common terminal velocity, then ftCommon_8007D344 with threshold 0, x60_AERIAL_MOBILITY and x58_AERIAL_HORIZONTAL_VELOCITY. The fall helper subtracts gravity and clamps only results strictly below negative terminal velocity; equality and unordered NaN comparisons do not trigger clamping. No local validation proves reduced gravity, finite attributes or positive limits, and command-script timing is external.",
+        "rationale": "Replaces inferred phase progression with verified selector, arithmetic and numerical boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyspecialhi.c#L103-L118",
+            "why": "Per-call selection, multiplication and movement arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L415-L428",
+            "why": "Horizontal stick/threshold consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L462-L468",
+            "why": "Subtraction and strict terminal clamp."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftDonkey/ftdonkeyspecialhi:ftDk_SpecialAirHi_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Tests self_vel.y >= 0. On true, only successful ft_80081D0C triggers ftCommon_AirToGroundStateChange to ftDk_MS_SpecialHi with coll_mf, callback restoration and x54 ground-velocity clamping. On false, ft_CheckGroundAndLedge(gobj,0) is tested first; success performs the same conversion, while failure permits ftCliffCommon_80081298 and conditional ftCliffCommon_80081370. Signed zero takes the first branch and NaN takes the else branch under ordinary floating-point comparisons. Failed applicable predicates request no further local transition, without proving absence of predicate-internal effects. The air-to-ground inline calls ftCommon_8007D7FC then forwards fp->cur_anim_frame, supplied flags, rate 1 and blend 0 to Fighter_ChangeMotionState; complete engine preservation semantics remain external.",
+        "rationale": "Preserves librarian branch corrections and resolves its source-level air-to-ground frame-argument uncertainty through independent inline inspection.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyspecialhi.c#L135-L159",
+            "why": "Full ordered collision control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyspecialhi.c#L22-L33",
+            "why": "Mask and callback identities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L81-L89",
+            "why": "Grounding preparation and explicit current-frame state-change arguments."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

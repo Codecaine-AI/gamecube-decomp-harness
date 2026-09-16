@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-30-global-flow-map-60-knowledge",
+  "title": "Knowledge Lane",
+  "root": "b-gf-knowledge-root-1",
+  "blocks": {
+    "b-gf-knowledge-root-1": {
+      "id": "b-gf-knowledge-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-gf-knowledge-intro-2",
+        "b-gfm-knowledge-v2-pointer",
+        "b-gf-knowledge-outline-4"
+      ]
+    },
+    "b-gf-knowledge-intro-2": {
+      "id": "b-gf-knowledge-intro-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The knowledge lane connects worker results and external sources to one shared per-game knowledge base. Importers and the summarizer job record material; the librarian proposes semantic changes and the apply layer validates and writes them. Later workers read the resulting records."
+        }
+      ],
+      "children": []
+    },
+    "b-gfm-knowledge-v2-pointer": {
+      "id": "b-gfm-knowledge-v2-pointer",
+      "type": "callout",
+      "props": {
+        "kind": "note",
+        "title": "Canonical Contract",
+        "tone": "info"
+      },
+      "text": [
+        {
+          "insert": "This flow summarizes "
+        },
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways"
+            }
+          }
+        },
+        {
+          "insert": ". Worker summarization and librarian consumption are independent opt-in lanes, both off by default. Their queues and write contracts are different."
+        }
+      ],
+      "children": []
+    },
+    "b-gf-knowledge-outline-4": {
+      "id": "b-gf-knowledge-outline-4",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Collect worker results when --worker-summary is enabled",
+            "steps": [
+              {
+                "text": "Enqueue a deduplicated worker_summary job for a closed worker state; startup catches closed states without a job."
+              },
+              {
+                "text": "The leased summarizer job runs the model over the transcript and deterministic checkpoint digest. Validate narrative fields against the exact submission set."
+              },
+              {
+                "text": "Commit worker_run, submission, run_narrative, the attempt watermark, and a run_closed index_task in one transaction. The model supplies narrative; scores and integration outcomes remain deterministic."
+              },
+              {
+                "text": "The summarizer processor uses concurrency 16, a 60-second lease, and a five-attempt ceiling. Missing targets or runs without a scored checkpoint or error signal can skip."
+              }
+            ]
+          },
+          {
+            "text": "Import PR and Discord material through shared harness intake",
+            "steps": [
+              {
+                "text": "During sync publication, repoint the canonical checkout before knowledge intake. Intake finishes before the publication boundary and dispatch release. Epoch boundaries also call intake after report recomputation."
+              },
+              {
+                "text": "Fetch merged-PR dumps into the archive with postmortem generation disabled. Against the selected checkout and report, reconcile identities, mechanically re-anchor unchanged code citations, then import PRs, Discord, and attempts."
+              },
+              {
+                "text": "PR import writes source and attributed pull_request rows and enqueues pr_imported. Discord import appends message rows and enqueues archival_ingest. Advance each source watermark."
+              },
+              {
+                "text": "Wiki import requires an explicit lane. Manual kg2-drift-scan can enqueue flagged subjects; accepted librarian follow-ups also enqueue drift_recheck. Source ingestion alone does not create semantic facts."
+              }
+            ]
+          },
+          {
+            "text": "Drain index_task when --librarian-consumer is enabled or kg2-librarian runs",
+            "steps": [
+              {
+                "text": "The run-loop lane polls every five seconds with concurrency four and pauses claims during active sync. Index tasks use started_at and done_at, separate from summarizer job leases."
+              },
+              {
+                "text": "Claim by pathway priority and FIFO. Split PR tasks over 24 attributed rows, drift batches over 12 subjects, and oversized archival slices before a model pass."
+              },
+              {
+                "text": "Build the current subject records, source material, head revision, and reading views. The librarian reads sources and returns a proposal; it has no writable store tool."
+              },
+              {
+                "text": "After two persisted task failures, split eligible multi-item tasks or abandon an unsplittable task with a warning. More than five consecutive pass failures abort a drain."
+              }
+            ]
+          },
+          {
+            "text": "Validate and apply semantic proposals",
+            "steps": [
+              {
+                "text": "Preview the proposal through the shared apply layer. Give rejected items one correction turn, then drop and log remaining rejected items."
+              },
+              {
+                "text": "Resolve subjects and evidence, enforce scope and pathway citation rules, and apply facts, evidence, links, and curated entities. Confirmed facts need no same-value rewrite."
+              },
+              {
+                "text": "Stamp every touched target and entities that received a fact or link. Accepted out-of-scope follow-ups enqueue later drift_recheck tasks."
+              },
+              {
+                "text": "Recheck flagged drift after PR, run-close, and drift passes. Release once if drift remains; complete with a recorded warning after the bounded retry."
+              }
+            ]
+          },
+          {
+            "text": "Read and maintain the shared knowledge base",
+            "steps": [
+              {
+                "text": "Later workers load target cards and query V2 records and source evidence. Worker edits and transcripts feed the next summary and librarian pass; workers never directly mutate semantic rows."
+              },
+              {
+                "text": "Source watermarks, task timestamps, subject indexing state, and citation revisions track progress. Search indexes and code-graph projections are derived stores with separate rebuild paths."
+              },
+              {
+                "text": "Operator-started kg2-backfill processes a ranked list of unstamped targets through the backfill librarian and the same apply layer. Its injected four-array schema and direct target list differ from the event-driven consumer."
+              },
+              {
+                "text": "Enabling the summarizer does not enable the librarian. A queued index task can remain pending until a consumer runs."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    }
+  }
+}

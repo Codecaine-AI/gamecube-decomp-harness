@@ -1,0 +1,22 @@
+## Crazy Hand BackDisappear
+
+The owned C file implements one entry routine and four callbacks; the header declares all five with `void(HSD_GObj*)` signatures. Canonical and rendered files were reviewed completely. Rendered substitutions are hypotheses, not independent evidence.
+
+### Entry and timed movement
+`fn_80159908` changes motion state to numeric `0x174` using arguments `(0, 0.0f, 1.0f, 0.0f, NULL)`, calls `ftAnim_8006EBA4`, copies attribute `xF0` into `mv.ch.unk0.x0`, obtains a selected fighter position through `ftBossLib_8015C208`, sets position X from that result and Y from attribute `xEC`, and clears all three self-velocity components. It does not assign position Z. The tentative name `ftCh_BackDisappear_StartAction` is consistent with this initialization role and the canonical callback prefix, but is not an original-symbol identification. [Entry](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackdisappear.c#L17-L29)
+
+Physics pre-decrements the stored countdown on every invocation. A positive result calls `ftBossLib_8015BF74` with attribute `xDC`; otherwise only horizontal self-velocity is cleared. There is no local motion-state transition or countdown saturation. The helper obtains a target position anew and adds either the X difference or a signed `xDC` amount to existing horizontal velocity. It is not a fixed-speed assignment. [Physics](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackdisappear.c#L47-L56), [movement helper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L82-L98)
+
+### Completion and cross-file lifetime
+The animation callback performs no local mutation while frames remain. On completion it clears horizontal velocity and calls `ftCh_GrabUnk1_8015BC88`. That routine clears `mv.ch.unk0.x20`, constructs an attribute-derived destination `(x18, x1C, 0)`, assigns `u.mh.x2258 = 0x184`, and takes the branch to `ftCh_GrabUnk1_8015B8FC`, rather than the alternative tested against `0x156`. The helper changes to numeric state `0x184`, preserving the current animation frame on this path. The outgoing routine stores callback `ftCh_Init_80156198` and copies the destination into persistent Fighter move storage; it does not retain a pointer to its stack vector. TagCancel physics consumes this destination, and its collision callback clears all velocity and invokes the stored callback only when `x18 == 0`, with a null-callback guard. [Completion](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackdisappear.c#L31-L38), [transition helper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagcancel.c#L22-L33), [destination lifetime and consumption](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagcancel.c#L89-L133)
+
+The rendered name `ftCh_Wait1_2_Enter` must not establish the identity of numeric `0x184`: the reviewed Crazy Hand table labels 388 (`0x184`) as TagCancel and 389 as Wait1_2, with shared callbacks. [Table](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhand.c#L568-L589)
+
+### Other callbacks and evidence limits
+IASA forwards the original GObj to `ftBossLib_8015BD20` only for a human player slot. That helper immediately returns; this is not implemented human-input transition logic. Collision is an empty callback, which does not imply global collision immunity. [Callbacks](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackdisappear.c#L39-L58), [empty hook](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L31-L34)
+
+The position helper forwards its selection result directly to the position-copy routine without a local null guard. A valid selected fighter is therefore a precondition of the reviewed path; no fallback position is demonstrated. [Selection wrapper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L146-L156), [position copy](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L299-L303)
+
+Source literals establish zero/one uses, not emitted `.sdata2` size, composition, or layout. Background-flight attack-family chronology also remains unproved. These claims were marked unresolved rather than promoted from rendered names or historical descriptions.
+
+Status: synthesized; independent review and live promotion pending.

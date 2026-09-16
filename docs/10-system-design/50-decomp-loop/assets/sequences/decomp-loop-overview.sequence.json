@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "id": "decomp-loop-overview",
+  "title": "Decomp Loop",
+  "style": {},
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Harness",
+      "kind": "participant"
+    },
+    {
+      "id": "p2",
+      "name": "Worker + sandbox",
+      "kind": "participant"
+    },
+    {
+      "id": "p3",
+      "name": "Quality gate",
+      "kind": "participant"
+    },
+    {
+      "id": "p4",
+      "name": "Harness worktree",
+      "kind": "participant"
+    },
+    {
+      "id": "p5",
+      "name": "Knowledge base",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p4",
+      "line": "sync",
+      "text": "Build baseline; read open targets"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "loop",
+      "operands": [
+        {
+          "guard": "Each epoch",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m2",
+              "from": "p1",
+              "to": "p1",
+              "line": "sync",
+              "text": "Seed queue; claim within capacity"
+            },
+            {
+              "kind": "message",
+              "id": "m3",
+              "from": "p1",
+              "to": "p2",
+              "line": "sync",
+              "text": "Provision at captured head"
+            },
+            {
+              "kind": "fragment",
+              "id": "f2",
+              "op": "loop",
+              "operands": [
+                {
+                  "guard": "Submissions within attempt budget",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "m4",
+                      "from": "p2",
+                      "to": "p3",
+                      "line": "sync",
+                      "text": "Submit candidate"
+                    },
+                    {
+                      "kind": "fragment",
+                      "id": "f3",
+                      "op": "alt",
+                      "operands": [
+                        {
+                          "guard": "Checks fail",
+                          "items": [
+                            {
+                              "kind": "message",
+                              "id": "m5",
+                              "from": "p3",
+                              "to": "p2",
+                              "line": "return",
+                              "text": "Return repair feedback"
+                            }
+                          ]
+                        },
+                        {
+                          "guard": "Validated improvement",
+                          "items": [
+                            {
+                              "kind": "message",
+                              "id": "m6",
+                              "from": "p3",
+                              "to": "p2",
+                              "line": "return",
+                              "text": "Bank checkpoint; continue or finish"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "message",
+              "id": "m7",
+              "from": "p2",
+              "to": "p1",
+              "line": "return",
+              "text": "Close with selected result and evidence"
+            },
+            {
+              "kind": "message",
+              "id": "m8",
+              "from": "p1",
+              "to": "p4",
+              "line": "sync",
+              "text": "Integrate serially; commit accepted code"
+            },
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p1",
+              "to": "p5",
+              "line": "async",
+              "text": "Queue enabled worker knowledge processing"
+            },
+            {
+              "kind": "note",
+              "id": "n1",
+              "anchor": "p1",
+              "side": "over",
+              "text": "Later claims use the new commit; active workers keep their base."
+            },
+            {
+              "kind": "message",
+              "id": "m10",
+              "from": "p1",
+              "to": "p1",
+              "line": "sync",
+              "text": "Settle work; record epoch evidence"
+            },
+            {
+              "kind": "message",
+              "id": "m11",
+              "from": "p1",
+              "to": "p4",
+              "line": "sync",
+              "text": "Sync upstream; defer displaced open targets"
+            },
+            {
+              "kind": "message",
+              "id": "m12",
+              "from": "p1",
+              "to": "p5",
+              "line": "sync",
+              "text": "Refresh sources and subjects; queue librarian work"
+            },
+            {
+              "kind": "note",
+              "id": "n2",
+              "anchor": "p5",
+              "side": "over",
+              "text": "Librarian completion is asynchronous."
+            },
+            {
+              "kind": "message",
+              "id": "m13",
+              "from": "p1",
+              "to": "p4",
+              "line": "sync",
+              "text": "Save reconciled report and head"
+            },
+            {
+              "kind": "message",
+              "id": "m14",
+              "from": "p1",
+              "to": "p1",
+              "line": "sync",
+              "text": "Admit next epoch when gates pass"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

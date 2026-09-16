@@ -11,18 +11,14 @@ export interface ProcessStatusService {
 export interface ProcessStatusServiceDeps {
   defaultStateDir: string;
   getOperationSnapshot: () => OperationRecord | null;
-  preparingState: () => { freshRunActive: boolean; gameSyncActive: boolean };
   processController: ManagedProcessController;
 }
 
 export function createProcessStatusService(deps: ProcessStatusServiceDeps): ProcessStatusService {
   function processStatus(stateDir = deps.defaultStateDir, game: ResolvedGame | null = null): JsonObject {
-    const preparingState = deps.preparingState();
     return deps.processController.status({
-      freshRunActive: preparingState.freshRunActive,
       operation: deps.getOperationSnapshot() as unknown as JsonObject | null,
       game,
-      gameSyncActive: preparingState.gameSyncActive,
       stateDir,
     });
   }

@@ -14,12 +14,16 @@ from typing import Any, Iterable
 
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(TOOL_ROOT.parents[1] / "_impl" / "gamecube" / "tools"))
 sys.path.append(str(TOOL_ROOT.parents[1] / "_shared"))
+from project_layout import get_project_layout  # type: ignore
 from search_index import package_root_for_tool, tool_storage_root  # type: ignore
+
+from toolpack_runtime import resolve_repo_root as runtime_repo_root
 
 PACKAGE_ROOT = package_root_for_tool(TOOL_ROOT)
 TOOL_STORAGE_ROOT = tool_storage_root(TOOL_ROOT)
-DEFAULT_REPO_ROOT = PACKAGE_ROOT / "projects" / "melee" / "checkout"
+DEFAULT_REPO_ROOT = runtime_repo_root()
 
 SYMBOL_PATTERN = r"[A-Za-z_$][A-Za-z0-9_$.]*"
 CALL_TARGET_RE = re.compile(rf"^({SYMBOL_PATTERN})(?:\s|,|$)")
@@ -27,7 +31,7 @@ DATA_REF_RE = re.compile(rf"({SYMBOL_PATTERN})@(ha|h|l|sda21|sda2)")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate call and data-reference indexes from build/GALE01/asm.")
+    parser = argparse.ArgumentParser(description="Generate call and data-reference indexes from the selected build's assembly.")
     parser.add_argument("--repo-root", type=Path, default=DEFAULT_REPO_ROOT)
     parser.add_argument("--limit", type=int, default=0, help="Maximum functions to scan; 0 means all.")
     parser.add_argument("--query", default="", help="Optional symbol query to include in the smoke summary.")
@@ -35,7 +39,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def has_required_artifacts(repo_root: Path) -> bool:
-    return (repo_root / "build" / "GALE01" / "asm").is_dir() and (repo_root / "build" / "GALE01" / "report.json").is_file()
+    layout = get_project_layout(repo_root)
+    return layout.asm_root.is_dir() and layout.report_path.is_file()
 
 
 def resolve_repo_root(requested: Path) -> tuple[Path, str | None]:
@@ -44,7 +49,8 @@ def resolve_repo_root(requested: Path) -> tuple[Path, str | None]:
         return requested, None
     fallback = DEFAULT_REPO_ROOT.expanduser().resolve()
     if fallback != requested and has_required_artifacts(fallback):
-        return fallback, "requested_repo_root_missing_build_GALE01_asm"
+        version = get_project_layout(fallback).version
+        return fallback, f"requested_repo_root_missing_build_{version}_asm"
     return requested, None
 
 
@@ -56,15 +62,23 @@ def read_json(path: Path, default: Any) -> Any:
 
 
 def report_metadata(repo_root: Path) -> dict[str, Any]:
-    report = read_json(repo_root / "build" / "GALE01" / "report.json", {})
+    layout = get_project_layout(repo_root)
+    report = read_json(layout.report_path, {})
     by_unit_symbol: dict[tuple[str, str], dict[str, Any]] = {}
     by_symbol: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    unit_by_asm_stem: dict[str, str] = {}
     for unit in report.get("units") or []:
         if not isinstance(unit, dict):
             continue
         unit_name = str(unit.get("name") or "")
         unit_meta = unit.get("metadata") if isinstance(unit.get("metadata"), dict) else {}
         source_path = str(unit_meta.get("source_path") or "")
+        try:
+            object_path = layout.root / layout.object_path_for_unit(unit_name)
+            object_stem = object_path.relative_to(layout.root / "build" / layout.version / "src").with_suffix("")
+            unit_by_asm_stem[object_stem.as_posix()] = unit_name
+        except (KeyError, ValueError):
+            pass
         for fn in unit.get("functions") or []:
             if not isinstance(fn, dict):
                 continue
@@ -82,7 +96,11 @@ def report_metadata(repo_root: Path) -> dict[str, Any]:
             }
             by_unit_symbol[(unit_name, symbol)] = metadata
             by_symbol[symbol].append(metadata)
-    return {"by_unit_symbol": by_unit_symbol, "by_symbol": by_symbol}
+    return {
+        "by_unit_symbol": by_unit_symbol,
+        "by_symbol": by_symbol,
+        "unit_by_asm_stem": unit_by_asm_stem,
+    }
 
 
 def resolve_report_metadata(metadata: dict[str, Any], unit: str, symbol: str) -> dict[str, Any]:
@@ -115,7 +133,7 @@ def safe_float(value: Any) -> float:
 
 def iter_asm_functions(repo_root: Path, metadata: dict[str, Any]) -> Iterable[dict[str, Any]]:
     """Yield functions delimited by .fn/.endfn with parsed instruction lines."""
-    asm_root = repo_root / "build" / "GALE01" / "asm"
+    asm_root = get_project_layout(repo_root).asm_root
     for asm_path in sorted(asm_root.rglob("*.s")):
         lines = asm_path.read_text(encoding="utf-8", errors="replace").splitlines()
         symbol = ""
@@ -162,7 +180,7 @@ def make_function_row(
     instructions: list[tuple[int, str]],
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
-    asm_unit = unit_from_asm_path(repo_root, asm_path)
+    asm_unit = unit_from_asm_path(repo_root, asm_path, metadata)
     meta = resolve_report_metadata(metadata, asm_unit, symbol)
     unit = str(meta.get("unit") or asm_unit)
     return {
@@ -182,9 +200,10 @@ def make_function_row(
     }
 
 
-def unit_from_asm_path(repo_root: Path, asm_path: Path) -> str:
+def unit_from_asm_path(repo_root: Path, asm_path: Path, metadata: dict[str, Any] | None = None) -> str:
+    layout = get_project_layout(repo_root)
     try:
-        rel = asm_path.relative_to(repo_root / "build" / "GALE01" / "asm").with_suffix("")
+        rel = asm_path.relative_to(layout.asm_root).with_suffix("")
     except ValueError:
         try:
             rel = asm_path.relative_to(repo_root).with_suffix("")
@@ -193,6 +212,11 @@ def unit_from_asm_path(repo_root: Path, asm_path: Path) -> str:
     parts = rel.parts
     if not parts:
         return ""
+    unit_by_asm_stem = metadata.get("unit_by_asm_stem") if isinstance(metadata, dict) else None
+    if isinstance(unit_by_asm_stem, dict):
+        resolved = unit_by_asm_stem.get(rel.as_posix())
+        if isinstance(resolved, str):
+            return resolved
     if parts[0] == "main":
         return "/".join(parts)
     return "main/" + "/".join(parts)
@@ -406,6 +430,7 @@ def write_manifest(
     generated_indexes: list[Path],
     smoke: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    layout = get_project_layout(args.repo_root)
     command = [
         "python3",
         "toolpacks/gamecube-decomp/research/callgraph/runners/extract_call_graph.py",
@@ -429,7 +454,10 @@ def write_manifest(
         "record_count": counts["call_edges"] + counts["data_ref_edges"],
         "generated_indexes": [str(path) for path in generated_indexes],
         "smoke_results": smoke,
-        "dependencies": ["build/GALE01/asm", "build/GALE01/report.json"],
+        "dependencies": [
+            str(layout.path_label(layout.asm_root)),
+            str(layout.path_label(layout.report_path)),
+        ],
     }
     status_path = TOOL_STORAGE_ROOT / "cache" / "runner_status.json"
     status_path.parent.mkdir(parents=True, exist_ok=True)

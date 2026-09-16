@@ -1,0 +1,70 @@
+{
+  "tu": "main/melee/it/kinds/ityoshitongue",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ityoshitongue.c#L57-L74",
+            "why": "Exact reads, calls, conditional reset, and reference clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1649-L1689",
+            "why": "Both helpers conditionally call player routines; neither unregisters relationships."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialn.c#L366-L371",
+            "why": "Ordinary false argument and caller-side clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c#L36-L51",
+            "why": "State-dependent Boolean and caller-owned references."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported relationship-unregistration interpretation while preserving item-side flow and caller-owned lifetime management.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ityoshitongue:it_802F2CE0"
+        },
+        "type": "data_flow",
+        "value": "Reads the item's model bone_attach_id and retained grab_victim fighter, removes the attachment, and samples that fighter's SpecialN bone into item->pos. It calls it_8027B4A4 and it_8027B378 with the fighter and item, passing zero to the latter; these helpers conditionally forward fighter metadata to player-reporting routines rather than unregistering relationships. It optionally resets destroy_type to zero, clears atk_victim and grab_victim, then calls it_8027CE44 and Item_8026A8EC. Ordinary SpecialN script cleanup passes false; general fighter cleanup selects the Boolean from four named SpecialN states. Both callers clear the fighter-side target pointers after the call."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ityoshitongue.c#L57-L74",
+            "why": "Complete terminal sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1649-L1689",
+            "why": "Canonical helper behavior contradicts unregistration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c#L36-L51",
+            "why": "Fighter pointers are cleared outside the item routine."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the incorrect claim that the two common helpers unregister the item from its fighter.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ityoshitongue:it_802F2CE0"
+        },
+        "type": "purpose",
+        "value": "Performs terminal cleanup of the item attached during Yoshi's SpecialN item-target interaction: removes its bone attachment, samples the retained fighter's SpecialN bone position, performs conditional player reporting through common helpers, optionally clears destroy_type, clears the item's retained fighter references, and invokes final item cleanup and destruction. Fighter-side target_item_gobj and x1A64 clearing is performed by callers, not by the reporting helpers."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,656 @@
+{
+  "head_revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "files": [
+    {
+      "path": "src/melee/ft/ftaction.c",
+      "owner": "main/melee/ft/ftaction",
+      "sha256": "f866206af4b9b1cd956e3206c5c95f0a5780947a4cfc71ed15ceef3ef98e79ba",
+      "lines": 1422,
+      "bytes": 43166
+    },
+    {
+      "path": "src/melee/ft/ftaction.h",
+      "owner": "main/melee/ft/ftaction",
+      "sha256": "828babd1b7ce3baa60ea0764242bd0ec775d7fdcb56316f4b9ba327184ba518c",
+      "lines": 17,
+      "bytes": 705
+    }
+  ],
+  "subjects": [
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftaction:.data"
+      },
+      "facts": [
+        {
+          "id": "fact:2d2afbb1-35f4-4503-a4ea-8471fa176b49",
+          "target_id": "target:data:main/melee/ft/ftaction:.data",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "A six-bit command opcode is decoded from the fighter's current `CommandInfo` word and offered first to the shared `Command_Execute` routine. If that routine does not handle it, subtracting 0x0A produces an index into one of the fighter callback tables; the selected handler receives the fighter object and mutable command cursor. In traversal-only mode, the same index selects a byte count that is added directly to `cmd->u`.",
+          "rationale": "The current source still shows opcode decoding, common-command execution, opcode rebasing, callback invocation, and the traversal-only byte-count lookup. The prior claim therefore remains valid and is re-cited at the checkout head.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:48:58.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1287-L1417",
+              "why": "Shows the normal and alternate interpreters decoding opcodes, trying `Command_Execute`, subtracting 0xA, and dispatching through the callback tables."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1377-L1417",
+              "why": "Shows traversal-only processing using the rebased opcode to obtain a byte-table cursor increment."
+            }
+          ]
+        },
+        {
+          "id": "fact:1f3e84d1-9711-4186-a9bd-54ff4d6199e6",
+          "target_id": "target:data:main/melee/ft/ftaction:.data",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Maps fighter subaction-event opcodes to the code that realizes their animation-timed gameplay and presentation effects, while also permitting throw-sensitive variants and effect-free traversal of the same packed event stream.",
+          "rationale": "At head, the data remains three parallel opcode-indexed tables consumed by normal, throw-aware, and traversal-only animation-command interpreters, confirming the existing game mapping.",
+          "confidence": 0.95,
+          "updated_at": "2026-09-04T18:48:58.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L117-L317",
+              "why": "Defines the two fighter-command callback tables and parallel command-length table, and identifies a representative entry as the GFXSpawn subaction event."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1287-L1417",
+              "why": "Shows the tables participating in animation-relative normal, throw-aware, and effect-free command processing."
+            }
+          ]
+        },
+        {
+          "id": "fact:10df9893-bd2c-4076-afab-1e35578da727",
+          "target_id": "target:data:main/melee/ft/ftaction:.data",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "Action command tables",
+          "rationale": "The current definitions and consumers preserve the three inferred roles: ordinary callback dispatch, alternate throw-aware dispatch, and command-length lookup. No exact original identifiers have been recovered.\n\nNaming cleanup: This is the best-supported direct name; the exact historical spelling remains uncertain.\nPrior naming claim: Plausibly the fighter subaction-command dispatch data, with component roles equivalent to `ftAction_CommandHandlers`, `ftAction_ThrowCommandHandlers`, and `ftAction_CommandWordCounts`; these are semantic guesses for the unnamed tables, not recovered symbols.",
+          "confidence": 0.76,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L117-L317",
+              "why": "Shows two parallel `FtCmd` tables and one parallel byte-count table."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1287-L1417",
+              "why": "Distinguishes the tables' normal-dispatch, alternate-dispatch, and traversal-only uses."
+            }
+          ]
+        },
+        {
+          "id": "fact:3276b386-a5c1-44a1-a0c2-58840b364a19",
+          "target_id": "target:data:main/melee/ft/ftaction:.data",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A writable data-section layout containing two parallel 49-entry arrays of `FtCmd` callbacks, where `FtCmd` has the effective signature `void(Fighter_GObj*, CommandInfo*)`, followed by a parallel 49-entry `u8` table of packed-command word counts. Index zero corresponds to fighter-specific opcode 0x0A because consumers index these arrays with `opcode - 0x0A`.",
+          "rationale": "The head definitions retain 49 callback entries in the first table, size the other arrays from it, and the interpreters continue to subtract 0x0A before indexing.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:48:58.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L117-L317",
+              "why": "Provides the complete parallel `FtCmd`, `FtCmd`, and `u8` table declarations and their shared size."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1287-L1417",
+              "why": "Shows callback consumers rebasing fighter-specific opcodes by subtracting 0x0A."
+            }
+          ]
+        },
+        {
+          "id": "fact:7a3cd12d-3dda-4518-83b7-5db5a0d90b6f",
+          "target_id": "target:data:main/melee/ft/ftaction:.data",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides the table-driven metadata used to process fighter-specific subaction commands: two opcode-indexed callback tables select the appropriate command handler for normal and alternate execution modes, while a parallel byte table supplies each command's encoded word count for traversal without executing fighter-specific effects.",
+          "rationale": "The current table declarations and all three consumers retain exactly these normal, alternate, and length-only roles, so the purpose remains unchanged.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:48:58.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L117-L317",
+              "why": "Defines the parallel callback and encoded-length tables."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1287-L1417",
+              "why": "Shows normal and alternate callback dispatch and traversal-only cursor advancement."
+            }
+          ]
+        },
+        {
+          "id": "fact:0cb1e1de-0284-423b-8fb6-38bbf57bf770",
+          "target_id": "target:data:main/melee/ft/ftaction:.data",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Supports three interpretations of the same fighter-specific opcode range. Normal script updates dispatch through the first callback table. A throw-aware update dispatches through the second table, clears `throw_flags` at entry, and clears them again when execution changes to another nonpositive command timer. A third update performs timing and common-command processing but skips fighter-specific commands by advancing according to the byte-count table.",
+          "rationale": "The head source preserves all three interpreter modes and the alternate resolver's two throw-flag reset points, confirming the standing state behavior.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:48:58.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1287-L1417",
+              "why": "Shows normal-table dispatch, alternate-table dispatch, the alternate resolver's throw-flag resets, and the traversal-only interpreter."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftaction:.sdata2"
+      },
+      "facts": [
+        {
+          "id": "fact:aa644387-b8bb-4130-b3fe-3605d7d8d628",
+          "target_id": "target:data:main/melee/ft/ftaction:.sdata2",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Handlers load constants from this pool while decoding CommandInfo payloads: 0.003906f scales packed numeric fields into floating-point effect, collision, charge, and wind parameters; zero and signed unit values initialize vectors or select audio direction; and 0.0f plus F32_MAX act as guards for the Fighter-owned command timer. The resulting values flow into fighter collision, animation, effect, audio, and command-interpreter operations, while the pool itself remains unchanged.",
+          "rationale": "Current handlers still use these literals for packed-field conversion, effect vectors, sound direction, charge and wind parameters, and resolver timing comparisons. All observed accesses remain reads.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:48:58.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L237-L356",
+              "why": "Shows 0.003906f scaling packed GFX and hitbox fields into floating-point vectors and collision properties."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L837-L956",
+              "why": "Shows zero and signed-unit floating-point values selected for stage-sensitive sound direction."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1197-L1316",
+              "why": "Shows zero-vector initialization and packed-field scaling for effects, smash charge, and wind."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1317-L1417",
+              "why": "Shows 0.0f and F32_MAX controlling fighter command-interpreter timing."
+            }
+          ]
+        },
+        {
+          "id": "fact:1c3fee64-2348-4282-b876-34b0aec43dc7",
+          "target_id": "target:data:main/melee/ft/ftaction:.sdata2",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Supports animation-timed fighter behavior by converting compact script payloads into gameplay-scale floating-point values and by supplying the boundary values used to schedule command execution. These constants contribute to hitbox geometry, particle placement, directional sound, smash charging, wind effects, and the timing of fighter subaction commands.",
+          "rationale": "The head source preserves each cited use of the compiler literal pool, so its contribution to animation-timed gameplay and presentation remains unchanged.",
+          "confidence": 0.93,
+          "updated_at": "2026-09-04T18:48:58.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L237-L356",
+              "why": "Shows constants contributing to particle placement and hitbox geometry."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L837-L956",
+              "why": "Shows signed direction constants contributing to scripted sound presentation."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1197-L1316",
+              "why": "Shows constants converting smash-charge and wind-effect payloads."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1317-L1417",
+              "why": "Shows boundary constants governing animation-timed command execution."
+            }
+          ]
+        },
+        {
+          "id": "fact:f1922ae1-ddd9-4c98-9684-b42b76e9ce52",
+          "target_id": "target:data:main/melee/ft/ftaction:.sdata2",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A small read-only compiler literal pool in the PowerPC .sdata2 section. Its source-level contents are floating-point constants and conversion support generated from uses of 0.003906f, 0.0f, 1.0f, -1.0f, F32_MAX, and integer-to-floating conversions of decoded command fields; it is not a mutable runtime structure or indexed gameplay-data table.",
+          "rationale": "At head the constants remain distributed scalar literals used by unrelated handlers and resolvers, with no structured indexing or write path, confirming the literal-pool interpretation.",
+          "confidence": 0.92,
+          "updated_at": "2026-09-04T18:48:58.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L237-L356",
+              "why": "Shows scalar floating-point scaling and numeric conversion rather than structured table access."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1077-L1196",
+              "why": "Shows repeated zero-valued floating-point initialization for effect vectors."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1197-L1316",
+              "why": "Shows additional scalar zero and 0.003906f uses across unrelated command handlers."
+            }
+          ]
+        },
+        {
+          "id": "fact:5ffa649e-0602-4c3a-9ffa-04379288f193",
+          "target_id": "target:data:main/melee/ft/ftaction:.sdata2",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides the read-only floating-point literal pool used by fighter action-command handlers for packed-payload scaling, zero-vector initialization, sound-direction selection, and animation-command timer comparisons.",
+          "rationale": "The head source retains all four classes of literal use and provides no evidence of mutable or independently authored data, so the standing purpose remains sound.",
+          "confidence": 0.94,
+          "updated_at": "2026-09-04T18:48:58.751Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L237-L356",
+              "why": "Shows packed payloads scaled by 0.003906f for effects and hitboxes."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L837-L956",
+              "why": "Shows 0.0f, 1.0f, and -1.0f used for sound direction."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1317-L1417",
+              "why": "Shows 0.0f and F32_MAX used in animation-command timer comparisons."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftaction:ftAction_80073240"
+      },
+      "facts": [
+        {
+          "id": "fact:1f9b2108-3c9a-489e-9a28-fa4056fccea7",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073240",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads fighter animation time, playback speed, and embedded command state; writes script `frame_count`, decreases a nonterminal timer by `frame_speed_mul`, decodes each due opcode, and forwards the mutable context to `Command_Execute` or `ftAction_803C06E8[opcode - 10]`.",
+          "rationale": "The current body retains every listed input, timing write, opcode transformation, and normal-table dispatch path.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1318-L1348",
+              "why": "Shows animation state flowing into command timing and repeated common or fighter-specific dispatch."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/lb/lbcommand.c#L91-L98",
+              "why": "Shows that opcodes below 10 use the common table and higher opcodes return to fighter-specific dispatch."
+            }
+          ]
+        },
+        {
+          "id": "fact:7e3a0fb4-0b0d-41eb-830e-cf391cda465e",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073240",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Realizes frame-synchronized fighter subaction-command execution during normal animation playback by applying due script events in order as the visible animation advances.",
+          "rationale": "The current resolver derives command timing from fighter animation state and repeatedly executes due commands through the normal fighter table.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1318-L1348",
+              "why": "Shows due events being selected from animation-relative timing and executed in stream order."
+            }
+          ]
+        },
+        {
+          "id": "fact:e1228b4d-e736-4381-ac1a-b416252503cc",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073240",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A void fighter-script update routine with signature `void(Fighter_GObj*)`. Its mutable execution context is the fighter's embedded `CommandInfo`, and fighter-specific dispatch entries have signature `void(Fighter_GObj*, CommandInfo*)`.",
+          "rationale": "The current definition supplies the public signature and embedded context, while its indexed call establishes the fighter-handler callback shape.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1318-L1348",
+              "why": "Shows the exact update-routine signature, embedded `CommandInfo`, and two-argument fighter callback invocation."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/lb/lbcommand.c#L91-L98",
+              "why": "Confirms that the same mutable context is accepted by the common command dispatcher."
+            }
+          ]
+        },
+        {
+          "id": "fact:46f27050-094d-4b73-8258-85e224101fd3",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073240",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Advances the fighter's active animation-command script by one playback step and executes every command currently due, routing common opcodes through `Command_Execute` and fighter-specific opcodes through `ftAction_803C06E8`.",
+          "rationale": "The current resolver still synchronizes script time, advances the active timer, and loops through due commands using these two dispatch paths.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1318-L1348",
+              "why": "Shows timing advancement, due-command iteration, and both dispatch paths."
+            }
+          ]
+        },
+        {
+          "id": "fact:2b917e27-2c97-4d00-8833-09d6c691f255",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073240",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Synchronizes script frame count to fighter animation time, subtracts one playback-speed step from a nonterminal timer, and executes due commands until the stream ends, a positive timer denotes a future event, a sufficiently distant `F32_MAX` boundary is reached, or a handler leaves the terminal timer. A near `F32_MAX` boundary becomes negative frame distance so processing can continue.",
+          "rationale": "The current matched control flow retains the timer update, all stop guards, special boundary conversion, and terminal loop condition.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1318-L1348",
+              "why": "Directly shows frame synchronization, timer progression, command-loop guards, dispatch, and terminal behavior."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftaction:ftAction_80073354"
+      },
+      "facts": [
+        {
+          "id": "fact:6602969d-387c-4c05-925b-191ad5bca807",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073354",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads fighter animation time, playback speed, embedded command state, and due opcodes; writes script `frame_count`, decreases a nonterminal timer, lets common or alternate fighter handlers mutate `CommandInfo`, and clears `Fighter.throw_flags` at entry and after crossed nonpositive timer boundaries.",
+          "rationale": "The current target retains every listed read and write, including the conditional post-dispatch throw-flag reset.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1350-L1388",
+              "why": "Shows animation and command-state reads, timing writes, alternate dispatch, and both throw-flag reset points."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/lb/lbcommand.c#L1-L98",
+              "why": "Shows how common commands mutate the supplied command context and how higher opcodes fall through."
+            }
+          ]
+        },
+        {
+          "id": "fact:5f38f166-b034-49cc-8531-473b5609b5a3",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073354",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Realizes fighter subaction-script catch-up during motion-state entry: when an action starts partway through its animation, already-due events are processed immediately while transient throw-event flags are reset across crossed script-time boundaries.",
+          "rationale": "The current motion-state caller selects this routine for a nonzero animation start, and the current routine repeatedly processes due commands while managing throw flags.",
+          "confidence": 0.94,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+              "why": "Shows this routine selected when a motion begins at a nonzero animation frame."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1350-L1388",
+              "why": "Shows due-command catch-up and throw-flag resets."
+            }
+          ]
+        },
+        {
+          "id": "fact:df39f0b1-5717-484c-90e8-92ee37c50e8a",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073354",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A void state-mutating routine with signature `void(Fighter_GObj*)`. Its execution context is the fighter's embedded `CommandInfo`, and its fighter-specific dispatch entries have signature `void(Fighter_GObj*, CommandInfo*)`.",
+          "rationale": "The current definition directly supplies the public signature, embedded command context, and two-argument alternate callback invocation.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1350-L1388",
+              "why": "Shows the exact routine signature, embedded mutable context, and alternate fighter-handler call."
+            }
+          ]
+        },
+        {
+          "id": "fact:87cc1e04-7413-40c6-94b1-79146d8db40d",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073354",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Executes all fighter subaction commands due when a motion begins at a nonzero animation frame, using the alternate fighter-command handler table and clearing transient throw flags so earlier script-time state does not carry into the entered frame.",
+          "rationale": "The current caller still selects this routine for nonzero `anim_start`, and the current body still synchronizes timing, clears throw flags, and dispatches due fighter commands through the alternate table.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+              "why": "Shows the motion-transition condition selecting this routine."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1350-L1388",
+              "why": "Shows script synchronization, throw-flag clearing, due-command processing, and alternate-table dispatch."
+            }
+          ]
+        },
+        {
+          "id": "fact:ebe0964d-7efc-414e-8d94-a9437d6080c6",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_80073354",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "On entry, synchronizes command frame count and clears throw flags. It decreases a nonterminal timer and executes due commands until the stream ends, a future timer or frame boundary is reached, or the terminal timer remains. Common commands execute first; other opcodes use `ftAction_803C07AC[opcode - 10]`. A changed timer that remains nonpositive triggers another throw-flag clear.",
+          "rationale": "The current body retains every guard, dispatch branch, loop condition, and throw-flag transition.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1350-L1388",
+              "why": "Directly shows synchronization, timer advancement, all loop guards, two-tier dispatch, and conditional throw-flag clearing."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/ftaction:ftAction_8007349C"
+      },
+      "facts": [
+        {
+          "id": "fact:335daedf-6784-447f-a76f-0e3388354646",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_8007349C",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads fighter animation time, playback speed, embedded command state, and each due opcode; writes script `frame_count`, decreases a nonterminal timer, forwards common commands to `Command_Execute`, and advances over every fighter-specific opcode by `ftAction_803C0870[opcode - 10]` command words.",
+          "rationale": "The current body still contains this complete data path, and the current common dispatcher still distinguishes opcodes below 10 from fighter-specific opcodes.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1390-L1421",
+              "why": "Shows frame and timer updates, opcode decoding, common dispatch, and opcode-indexed fighter-command skipping."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/lb/lbcommand.c#L91-L98",
+              "why": "Shows common opcode execution and fallback for fighter-specific opcodes."
+            }
+          ]
+        },
+        {
+          "id": "fact:d5cfd8b0-92a4-4455-8a9f-5ea91febe2b6",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_8007349C",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements a motion-state transition policy that aligns a newly selected fighter subaction script with the current animation frame without emitting crossed fighter-specific events, while preserving timing and control-flow commands needed to position later events.",
+          "rationale": "The current motion-state caller selects this variant under `Ft_MF_UpdateCmd`; the routine retains common command execution but replaces fighter-handler invocation with full-record cursor advancement.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+              "why": "Shows this interpreter variant selected by the `Ft_MF_UpdateCmd` transition policy."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1390-L1421",
+              "why": "Shows common commands being executed while fighter-specific events are skipped by encoded length."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/lb/lbcommand.c#L1-L98",
+              "why": "Shows the timer and control-flow operations retained through common command execution."
+            }
+          ]
+        },
+        {
+          "id": "fact:6b83582b-f6e5-4ffb-8dcb-3e71470790ac",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_8007349C",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftAction_UpdateCmd",
+          "rationale": "The current direct caller still uniquely associates the routine with the named `Ft_MF_UpdateCmd` transition branch. The exact historical function name remains uncertain because the body more specifically skips fighter-specific effects.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style semantic name is `ftAction_UpdateCmd`.",
+          "confidence": 0.72,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1337-L1359",
+              "why": "Associates this routine directly with the `Ft_MF_UpdateCmd` motion-transition flag."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1390-L1421",
+              "why": "Shows the command-stream update behavior motivating the inferred semantic name."
+            }
+          ]
+        },
+        {
+          "id": "fact:883425d5-8520-40fd-9189-893c77bcc243",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_8007349C",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A void fighter command-stream update routine with signature `void(Fighter_GObj*)`. Its mutable execution context is the fighter's embedded `CommandInfo`; fighter-specific opcode lengths are unsigned byte-sized counts measured in four-byte command words.",
+          "rationale": "The current definition provides the exact signature and embedded context and adds an entry from the `u8` length table directly to the `CmdUnion` pointer.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1390-L1421",
+              "why": "Shows the routine signature, embedded mutable context, and pointer advancement indexed by opcode."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L197-L236",
+              "why": "Defines the unsigned-byte per-opcode command-word length table used by the routine."
+            }
+          ]
+        },
+        {
+          "id": "fact:f4123e66-fe03-47a5-9a54-a37dec7274b7",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_8007349C",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Advances a fighter's animation-command stream to the current animation time while skipping fighter-specific subaction handlers. It still executes common commands needed for timing and control flow, but consumes each due fighter-specific opcode using its encoded word count.",
+          "rationale": "The current target retains the normal timing loop and `Command_Execute` call but advances through the length table instead of invoking a fighter handler. The current caller still selects it under `Ft_MF_UpdateCmd`.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1390-L1421",
+              "why": "Shows common-command execution and full-length skipping of fighter-specific commands."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1337-L1359",
+              "why": "Shows this routine selected by the `Ft_MF_UpdateCmd` transition branch."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/lb/lbcommand.c#L1-L98",
+              "why": "Shows the timing and control-flow semantics preserved by common command execution."
+            }
+          ]
+        },
+        {
+          "id": "fact:0bf9e0f7-3f6c-4e3f-a9e5-9dd26e2fd52b",
+          "target_id": "target:function:main/melee/ft/ftaction:ftAction_8007349C",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Synchronizes script frame count and returns if no stream exists. It decreases a nonterminal timer and processes due commands until the stream ends, a positive timer or sufficiently distant `F32_MAX` frame boundary is reached, or execution leaves the terminal timer. A near `F32_MAX` boundary becomes negative frame distance. Common opcodes execute normally; fighter-specific opcodes are skipped by complete encoded length.",
+          "rationale": "The current control flow retains each timing guard, boundary conversion, loop condition, common dispatch, and variable-length fighter-command skip.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:50:46.269Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L1390-L1421",
+              "why": "Directly shows synchronization, early return, timer progression, all loop guards, common dispatch, and fighter-command skipping."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftaction.c#L197-L236",
+              "why": "Shows that the indexed increments represent complete variable command lengths."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftaction:ftAction_80073240#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftaction:ftAction_80073354#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/ftaction:ftAction_8007349C#r3"
+      },
+      "facts": []
+    }
+  ]
+}

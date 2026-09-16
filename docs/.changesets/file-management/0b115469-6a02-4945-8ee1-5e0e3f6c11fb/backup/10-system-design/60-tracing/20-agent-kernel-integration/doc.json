@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-50-game-events-60-kernel-trace-linkage",
+  "title": "Kernel Trace Linkage",
+  "root": "b-index-root-15",
+  "blocks": {
+    "b-index-root-15": {
+      "id": "b-index-root-15",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-index-kernel-trace-linkage-2",
+        "harness-kernel-association",
+        "b-index-validated-submission-3",
+        "b-kernel-submission-sequence",
+        "b-kernel-submission-outline",
+        "b-index-persisted-cursor-and-fa-6",
+        "b-linkage-cursor-shape",
+        "b-linkage-failures",
+        "b-index-both-direction-joins-10",
+        "b-join-keys",
+        "b-trace-link-shape",
+        "b-index-no-kernel-table-or-col-13"
+      ]
+    },
+    "b-index-kernel-trace-linkage-2": {
+      "id": "b-index-kernel-trace-linkage-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Kernel trace linkage joins accepted game events to runtime spans through protected metadata and a persisted harness cursor. Optional telemetry may be absent, but a runtime event that was emitted must receive its durable join."
+        }
+      ],
+      "children": []
+    },
+    "harness-kernel-association": {
+      "id": "harness-kernel-association",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The orchestrator's harness_kernel_traces table associates each game and harness with one or more app_session_id values. Its key is (game_id, harness_id, app_session_id). kernel_trace_json retains container links, trace URL, and linkage cursor. Agent Kernel trace payloads and historical session identities remain immutable."
+        }
+      ],
+      "children": []
+    },
+    "b-index-validated-submission-3": {
+      "id": "b-index-validated-submission-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Validated Submission"
+        }
+      ],
+      "children": []
+    },
+    "b-kernel-submission-sequence": {
+      "id": "b-kernel-submission-sequence",
+      "type": "sequence",
+      "props": {
+        "sequenceId": "b-kernel-submission-sequence",
+        "src": "assets/sequences/kernel-linkage.sequence.json",
+        "title": "Event-to-kernel validated submission"
+      },
+      "children": []
+    },
+    "b-kernel-submission-outline": {
+      "id": "b-kernel-submission-outline",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Load the durable game event by game and event identity"
+          },
+          {
+            "text": "Validate correlation and the resolved same-game cause"
+          },
+          {
+            "text": "Overwrite caller-supplied protected metadata"
+          },
+          {
+            "text": "Upsert deterministic container lineage"
+          },
+          {
+            "text": "Emit the deterministic kernel event"
+          },
+          {
+            "text": "Persist the harness linkage cursor"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-index-persisted-cursor-and-fa-6": {
+      "id": "b-index-persisted-cursor-and-fa-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Persisted Cursor and Failures"
+        }
+      ],
+      "children": []
+    },
+    "b-linkage-cursor-shape": {
+      "id": "b-linkage-cursor-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "The durable harness-side cursor for the latest completed join.",
+        "example": "{\n  \"game_event_id\": \"event-dispatch-7\",\n  \"kernel_event_id\": \"kernel-event-7\",\n  \"correlation_id\": \"run-7\",\n  \"caused_by_event_id\": null,\n  \"linked_at\": \"2026-09-11T18:00:00Z\"\n}",
+        "fields": [
+          {
+            "name": "game_event_id",
+            "type": "EventId"
+          },
+          {
+            "name": "kernel_event_id",
+            "type": "KernelEventId"
+          },
+          {
+            "name": "correlation_id",
+            "type": "CorrelationId"
+          },
+          {
+            "name": "caused_by_event_id",
+            "type": "EventId | null"
+          },
+          {
+            "name": "linked_at",
+            "type": "timestamp"
+          }
+        ],
+        "name": "last_linkage_cursor"
+      },
+      "children": []
+    },
+    "b-linkage-failures": {
+      "id": "b-linkage-failures",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Condition",
+          "Disposition"
+        ],
+        "density": "compact",
+        "rows": [
+          [
+            "Optional runtime absent",
+            "Return no trace result."
+          ],
+          [
+            "Optional submission fails before kernel emission",
+            "Return no trace result."
+          ],
+          [
+            "Required runtime fails",
+            "Surface the failure."
+          ],
+          [
+            "Cursor persistence fails after kernel emission",
+            "Fail in every mode; retry the deterministic kernel event identity."
+          ]
+        ],
+        "title": "Failure modes"
+      },
+      "children": []
+    },
+    "b-index-both-direction-joins-10": {
+      "id": "b-index-both-direction-joins-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Both-Direction Joins"
+        }
+      ],
+      "children": []
+    },
+    "b-join-keys": {
+      "id": "b-join-keys",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Direction",
+          "Required keys",
+          "Exclusions"
+        ],
+        "density": "compact",
+        "rows": [
+          [
+            "Game to kernel",
+            "Assigned application session, protected game, game_event_id.",
+            "Cross-game collisions and unrequested identities."
+          ],
+          [
+            "Kernel to game",
+            "game_event_id, game, correlation, cause metadata, and last_linkage_cursor.",
+            "Incomplete or mismatched protected metadata."
+          ]
+        ],
+        "title": "Join keys"
+      },
+      "children": []
+    },
+    "b-trace-link-shape": {
+      "id": "b-trace-link-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "A server-projected navigation link for one reconstructed event.",
+        "example": "{\n  \"event_id\": \"event-dispatch-7\",\n  \"app_session_id\": \"11111111-1111-4111-8111-111111111111\",\n  \"container_id\": \"container-worker-7\",\n  \"kernel_event_id\": \"kernel-event-7\",\n  \"href\": \"/traces/11111111-1111-4111-8111-111111111111?event=kernel-event-7\"\n}",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "EventId"
+          },
+          {
+            "name": "app_session_id",
+            "type": "AppSessionId"
+          },
+          {
+            "name": "container_id",
+            "type": "ContainerId"
+          },
+          {
+            "name": "kernel_event_id",
+            "type": "KernelEventId"
+          },
+          {
+            "name": "href",
+            "type": "string"
+          }
+        ],
+        "name": "KernelTraceLink",
+        "source": {
+          "path": "apps/server/src/core/harness-state/kernel-links.ts",
+          "symbol": "GameEventKernelTraceProjection"
+        }
+      },
+      "children": []
+    },
+    "b-index-no-kernel-table-or-col-13": {
+      "id": "b-index-no-kernel-table-or-col-13",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The join uses protected JSON metadata already stored on kernel trace events and the harness trace cursor; it adds no kernel table or column."
+        }
+      ],
+      "children": []
+    }
+  }
+}

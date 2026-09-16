@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  initializeHarnessState,
+  initializeDispatchState,
   listGameEvents,
   releaseDispatch,
   requestDispatch,
@@ -13,7 +13,7 @@ import {
   claimNextEpochTarget,
   createRun,
   startSchedulerEpoch,
-} from "@server/core/cycle-runtime/run-state";
+} from "@server/core/harness-runtime/run-state";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { deleteSandboxForJob, reconcileSandboxes } from "./sandbox-lifecycle.js";
 import {
@@ -88,7 +88,7 @@ async function fixture(labelOverrides: Record<string, string> = {}): Promise<Fix
   });
   if (!target) throw new Error("Expected target claim");
 
-  initializeHarnessState(store, { gameId, traceId: `trace-game-${gameId}` });
+  initializeDispatchState(store, { gameId, traceId: `trace-game-${gameId}` });
   const dispatch = requestDispatch(store, {
     kind: "run",
     workflowId: run.id,

@@ -1,0 +1,396 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution-20-sandbox-contents",
+  "title": "Sandbox Contents",
+  "root": "b-day-img-root",
+  "blocks": {
+    "b-day-img-root": {
+      "id": "b-day-img-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "image",
+          "manifest",
+          "seed",
+          "bundle",
+          "toolchain",
+          "wibo"
+        ]
+      },
+      "children": [
+        "b-day-img-1",
+        "sandbox-package-kinds",
+        "b-day-img-3",
+        "b-day-img-4",
+        "b-day-img-5",
+        "b-day-img-6",
+        "b-day-img-7",
+        "b-day-img-8",
+        "sandbox-revision-example",
+        "sandbox-rebuild-boundary",
+        "sandbox-sleep-link",
+        "sandbox-provisioning-code",
+        "b-day-img-9",
+        "b-day-img-10",
+        "b-day-img-11"
+      ]
+    },
+    "b-day-img-1": {
+      "id": "b-day-img-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A sandbox combines a prepared image for one game, the shared GameCube toolpack, and a revision seed for one claim. The host selects and transfers these inputs before starting the worker. The agent and model loop, knowledge database, raw source archives, credentials, and harness state remain on the host."
+        }
+      ],
+      "children": []
+    },
+    "sandbox-package-kinds": {
+      "id": "sandbox-package-kinds",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Artifact",
+          "Scope",
+          "When Supplied"
+        ],
+        "rows": [
+          [
+            "Prepared worker image",
+            "One game and target, with compatible build tools and baseline artifacts.",
+            "Selected when creating a new sandbox."
+          ],
+          [
+            "GameCube toolpack",
+            "Shared editing, inspection, compilation, and scoring tools.",
+            "Baked into the image and refreshed from the host at provisioning when its content stamp differs."
+          ],
+          [
+            "Claim Git bundle",
+            "The selected game's commits needed for the recorded claim base.",
+            "Uploaded during provisioning when the claim revision differs from the baked revision."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-day-img-3": {
+      "id": "b-day-img-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Layer 1, the Game Image"
+        }
+      ],
+      "children": []
+    },
+    "b-day-img-4": {
+      "id": "b-day-img-4",
+      "type": "file-tree",
+      "props": {
+        "entries": [
+          {
+            "path": "<workspace>/",
+            "note": "Configured game workspace, with a shallow Git repository at snapshot_baked_rev"
+          },
+          {
+            "path": "<workspace>/src/",
+            "note": "Selected game's source files"
+          },
+          {
+            "path": "<workspace>/config/",
+            "note": "Selected target's build configuration"
+          },
+          {
+            "path": "<workspace>/orig/",
+            "note": "Original game inputs required by the upstream build"
+          },
+          {
+            "path": "<workspace>/build.ninja",
+            "note": "Generated Linux build rules"
+          },
+          {
+            "path": "<workspace>/build/compilers/",
+            "note": "Matching compiler versions required by this game"
+          },
+          {
+            "path": "<workspace>/build/binutils/",
+            "note": "Linux-compatible assembler and linker"
+          },
+          {
+            "path": "<workspace>/build/tools/",
+            "note": "Compatible dtk, objdiff, wibo, and build helpers"
+          },
+          {
+            "path": "<workspace>/build/mwcc-objcache/",
+            "note": "Prepared compiler cache on sandbox-local disk"
+          },
+          {
+            "path": "<workspace>/build/<target>/",
+            "note": "Built objects and the configured baseline report"
+          },
+          {
+            "path": "/opt/image-tools/",
+            "note": "Build cache installer and shim"
+          },
+          {
+            "path": "/opt/toolpacks/gamecube-decomp/",
+            "note": "Shared worker tools and their content stamp"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-day-img-5": {
+      "id": "b-day-img-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The image is configured and built for Linux before snapshot acceptance. Prepared objects and a populated compiler cache allow incremental builds in new sandboxes. The image recipe and toolpack are shared, but each game's checkout, inputs, compiler requirements, and target artifacts make its finished image game-specific."
+        }
+      ],
+      "children": []
+    },
+    "b-day-img-6": {
+      "id": "b-day-img-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Layer 2, the Per-Claim Seed"
+        }
+      ],
+      "children": []
+    },
+    "b-day-img-7": {
+      "id": "b-day-img-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The host records "
+        },
+        {
+          "insert": "base_rev",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " when it claims the worker job and target. Provisioning uses that recorded commit even if the host advances while the sandbox is starting. The host transfers commits from its game checkout, including local commits that may not be published upstream. The sandbox does not select or pull a remote branch."
+        }
+      ],
+      "children": []
+    },
+    "b-day-img-8": {
+      "id": "b-day-img-8",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Create the sandbox from the claim's configured snapshot",
+            "steps": [
+              {
+                "text": "Use the recorded game profile, snapshot name, baked revision, workspace, and resources."
+              }
+            ]
+          },
+          {
+            "text": "Supply the exact claim revision",
+            "steps": [
+              {
+                "text": "If base_rev equals the baked revision, verify that commit exists. Otherwise the host creates and uploads a Git bundle covering baked revision to claim revision; the sandbox verifies and fetches it."
+              }
+            ]
+          },
+          {
+            "text": "Check out the claim base",
+            "steps": [
+              {
+                "text": "Force a detached checkout at base_rev. A missing or invalid revision transfer fails provisioning."
+              }
+            ]
+          },
+          {
+            "text": "Refresh the shared toolpack and seed report artifacts",
+            "steps": [
+              {
+                "text": "Compare the sandbox's .ready stamp with the host toolpack content. Upload and extract the toolpack only when they differ. Upload the supplied claim report artifacts and verify required executables."
+              }
+            ]
+          },
+          {
+            "text": "Start worker execution",
+            "steps": [
+              {
+                "text": "The host worker uses the prepared sandbox workspace. Commands and file operations carry per-session environment settings."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "sandbox-revision-example": {
+      "id": "sandbox-revision-example",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "An image baked at "
+        },
+        {
+          "insert": "commit-A",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " can serve a claim at "
+        },
+        {
+          "insert": "commit-D",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The host transfers the required commits and the sandbox checks out "
+        },
+        {
+          "insert": "commit-D",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Later host commits do not replace that claim's base, and the original snapshot remains at "
+        },
+        {
+          "insert": "commit-A",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Ordinary epoch source changes therefore do not require rebuilding the image."
+        }
+      ],
+      "children": []
+    },
+    "sandbox-rebuild-boundary": {
+      "id": "sandbox-rebuild-boundary",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A new image is needed when the prepared game inputs, native tools, compiler, or build environment no longer support the selected target. Refreshing a compatible image can also reduce startup work as its baked revision ages."
+        }
+      ],
+      "children": []
+    },
+    "sandbox-sleep-link": {
+      "id": "sandbox-sleep-link",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Stop While Thinking",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/40-workers/40-sandbox-execution/35-sleep-wake"
+            }
+          }
+        },
+        {
+          "insert": " resumes the same claim workspace with its edits and build state intact. Waking a stopped sandbox does not reseed its revision or refresh the toolpack. Provisioning applies to a newly created sandbox, including a replacement after failure."
+        }
+      ],
+      "children": []
+    },
+    "sandbox-provisioning-code": {
+      "id": "sandbox-provisioning-code",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Claim-time revision capture lives in "
+        },
+        {
+          "insert": "worker-job.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/running/workers/worker-job.ts"
+            }
+          }
+        },
+        {
+          "insert": ". "
+        },
+        {
+          "insert": "provisionSandboxWorkspace",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/job-queue/provisioning.ts"
+            }
+          }
+        },
+        {
+          "insert": " transfers the revision and refreshes the shared toolpack."
+        }
+      ],
+      "children": []
+    },
+    "b-day-img-9": {
+      "id": "b-day-img-9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Layer 3, Run Traffic"
+        }
+      ],
+      "children": []
+    },
+    "b-day-img-10": {
+      "id": "b-day-img-10",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Inbound, every agent tool call and runner validation command arrives as an exec or file-API call; the prompt and the model never touch the sandbox."
+        }
+      ],
+      "children": []
+    },
+    "b-day-img-11": {
+      "id": "b-day-img-11",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Outbound, command output streams back per call, objdiff verdicts return per attempt, and the runner downloads required checkpoint patches and validation artifacts before worker-state close; the workspace itself is never copied out."
+        }
+      ],
+      "children": []
+    }
+  }
+}

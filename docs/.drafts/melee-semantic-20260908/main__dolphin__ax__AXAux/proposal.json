@@ -1,0 +1,84 @@
+{
+  "tu": "main/dolphin/ax/AXAux",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAux.c#L6-L7",
+            "why": "Exact array declarations and alignment attributes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAux.c#L92-L106",
+            "why": "Exact channel offsets and cache ranges."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves useful array and channel information while removing unsupported compiled-layout claims.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXAux:.bss"
+        },
+        "type": "inferred_type",
+        "value": "The source declares two sample arrays, `static long __AXBufferAuxA[3][480]` and `static long __AXBufferAuxB[3][480]`, each with `ATTRIBUTE_ALIGN(32)`. Processing divides a selected row into channel regions at long-element offsets 0, 160, and 320 and uses a 0x780-byte cache range. These declarations establish source-level storage shape, not exact compiled BSS extent or relative placement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAux.c#L9-L19",
+            "why": "Complete scalar declarations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates directly supported C types and storage duration from unverified compiled layout.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXAux:.sbss"
+        },
+        "type": "inferred_type",
+        "value": "AXAux's source-level scalar control state comprises eleven static globals: two `void (*)(void*, void*)` callback pointers, two opaque `void*` contexts, four `long*` DSP-slot pointers, and three `unsigned long` ring indices. They have static storage duration and no explicit initializers. Source declarations alone do not establish their compiled small-BSS membership or placement order."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAux.c#L21-L45",
+            "why": "Complete signature, DEBUG branch and initialization body."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the exclusive global-write description to include the explicit conditional diagnostic.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXAux:__AXAuxInit"
+        },
+        "type": "inferred_type",
+        "value": "A parameterless internal initializer with signature `void __AXAuxInit(void)`. It resets module-global callbacks, contexts, ring positions, and the first row of each auxiliary sample buffer, returning no value. Under `DEBUG`, it also calls `OSReport` with an initialization diagnostic."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXAux.c#L56-L63",
+            "why": "Callback guard and indexed address assignment are the complete behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported temporal claim that the selected block has already been written.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXAux:__AXGetAuxAInput"
+        },
+        "type": "purpose",
+        "value": "Writes the address of Aux A's current DSP-write ring slot through the caller's output word when the Aux A callback is non-null; otherwise writes zero. It exposes a selected send-buffer address and does not itself establish that DSP writing to that slot has completed."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

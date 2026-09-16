@@ -1,0 +1,489 @@
+{
+  "reviewer": "/root/review_gate/ftaction_review",
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CargoLanding",
+  "status": "independently_reviewed",
+  "baseline_links_sha256": "506fd0344e14f61de8ccb1000f4e974618b6cf440f7d3a2f8eaf6575e00796c2",
+  "lead_ledger_sha256": "ea067fbe5dda75eded970d2723c7b9204a91d10586012ca573eaafe996af3bab",
+  "records": [
+    {
+      "link_id": "link:9c53982b-8b88-45ec-b371-9d493c1cfbf3",
+      "baseline_record": {
+        "id": "link:9c53982b-8b88-45ec-b371-9d493c1cfbf3",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:cargo-carry",
+        "role": "implements",
+        "why": "The unit handles landing lag while victim_gobj remains shouldered and then returns the fighter to CargoWait, making it the landing-recovery implementation for the cargo carry.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_CargoLanding.c#L1-L46",
+        "digest": "sha256:e8d11db7930326a4"
+      },
+      "disposition": "retain",
+      "independent_reason": "Entry stores cargo lag, calls common landing base+8, requests rate0 and synchronizes victim0x10A. Donkey landing table and CargoFall collision registration establish cargo-carry landing recovery; explicit countdown later calls CargoWait.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L16-L44",
+          "why": "Complete entry and three callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L47",
+          "why": "allow_interrupt stored as data after state transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkey.c#L239-L248",
+          "why": "Cargo landing table entry has NULL IASA."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L490-L513",
+          "why": "Zero rate applied immediately or stored in x8A0 when x2223_b0 is set."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+          "why": "Shouldered updater synchronizes victim unless already waiting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L27-L34",
+          "why": "Test before transition and unconditional reloaded-slot subtraction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L29-L42",
+          "why": "Carrier base motion transition followed by victim update."
+        }
+      ]
+    },
+    {
+      "link_id": "link:ddd50056-9b77-4db8-a5d0-eb1bfdfcfff0",
+      "baseline_record": {
+        "id": "link:ddd50056-9b77-4db8-a5d0-eb1bfdfcfff0",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoLanding:ftCo_CargoLanding_Phys",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:cargo-carry",
+        "role": "implements",
+        "why": "This is the grounded physics callback within the cargo landing state that keeps the carried victim shouldered until CargoWait resumes.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_CargoLanding.c#L1-L46",
+        "digest": "sha256:e8d11db7930326a4"
+      },
+      "disposition": "retain",
+      "independent_reason": "Donkey ThrowFLanding359 table registers this exact Phys callback, which forwards to84F3C ground friction/movement. Entry and CargoWait sync victim ShoulderedWait, supporting grounded cargo recovery role without independent victim logic in this wrapper.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L36-L39",
+          "why": "Single physics call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+          "why": "Ground friction selection and movement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L16-L44",
+          "why": "Complete entry and three callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L47",
+          "why": "allow_interrupt stored as data after state transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkey.c#L239-L248",
+          "why": "Cargo landing table entry has NULL IASA."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L490-L513",
+          "why": "Zero rate applied immediately or stored in x8A0 when x2223_b0 is set."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+          "why": "Shouldered updater synchronizes victim unless already waiting."
+        }
+      ]
+    },
+    {
+      "link_id": "link:d1a90cc7-b9a8-4240-8da3-39daa7d15799",
+      "baseline_record": {
+        "id": "link:d1a90cc7-b9a8-4240-8da3-39daa7d15799",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoLanding:ftCo_CargoLanding_Anim",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:cargo-carry",
+        "role": "implements",
+        "why": "The callback expires the cargo-hold landing-lag timer and returns Donkey Kong to the grounded cargo-carry motion without releasing the victim.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_CargoLanding.c#L1-L46",
+        "digest": "sha256:e8d11db7930326a4"
+      },
+      "disposition": "retain",
+      "independent_reason": "Callback tests countdown<=0 then invokes9B518; CargoWait helper enters carrier base motion and updates victim to266 without a release helper. Exact expiry-to-cargo-carry relationship supported; finite countdown progress is not guaranteed at extreme float magnitudes.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L16-L44",
+          "why": "Complete entry and three callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L47",
+          "why": "allow_interrupt stored as data after state transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkey.c#L239-L248",
+          "why": "Cargo landing table entry has NULL IASA."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L490-L513",
+          "why": "Zero rate applied immediately or stored in x8A0 when x2223_b0 is set."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+          "why": "Shouldered updater synchronizes victim unless already waiting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L27-L34",
+          "why": "Test before transition and unconditional reloaded-slot subtraction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L29-L42",
+          "why": "Carrier base motion transition followed by victim update."
+        }
+      ]
+    },
+    {
+      "link_id": "link:f507b7a8-6de1-45ce-a23f-6635afed7a89",
+      "baseline_record": {
+        "id": "link:f507b7a8-6de1-45ce-a23f-6635afed7a89",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoLanding:ftCo_CargoLanding_Coll",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:cargo-carry",
+        "role": "implements",
+        "why": "The callback keeps CargoLanding connected to the grounded and airborne collision transitions used while Donkey Kong continues carrying an opponent.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_CargoLanding.c#L43-L46",
+        "digest": "sha256:2b2696e5a7a29e32"
+      },
+      "disposition": "retain",
+      "independent_reason": "CargoLanding_Coll forwards to CargoWait_Coll, then8403C with CargoFall callback. CargoFall enters base+6 and synchronizes ShoulderedWait. This supports continued cargo collision connection; source zero-result trigger is not equated with loss of ground.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L41-L44",
+          "why": "Collision delegates unchanged."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L66-L69",
+          "why": "Shared helper and CargoFall callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1035-L1041",
+          "why": "Callback on logically negated helper result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+          "why": "Helper returns enum from underlying query."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+          "why": "Ground enum is zero and Air is one."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L16-L27",
+          "why": "CargoFall configures carrier and victim."
+        }
+      ]
+    },
+    {
+      "link_id": "link:1affd5ce-3b1f-41aa-a1bd-6ef5d4f0b99a",
+      "baseline_record": {
+        "id": "link:1affd5ce-3b1f-41aa-a1bd-6ef5d4f0b99a",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoLanding:ftCo_8009BD4C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:cargo-carry",
+        "role": "implements",
+        "why": "The function initializes cargo-specific landing recovery while retaining and updating the carried victim, thereby preserving Donkey Kong's cargo-carry relationship through landing.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_CargoLanding.c#L1-L46",
+        "digest": "sha256:e8d11db7930326a4"
+      },
+      "disposition": "retain",
+      "independent_reason": "Entry stores cargo lag, calls common landing base+8, requests rate0 and synchronizes victim0x10A. Donkey landing table and CargoFall collision registration establish cargo-carry landing recovery; explicit countdown later calls CargoWait.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L16-L44",
+          "why": "Complete entry and three callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L47",
+          "why": "allow_interrupt stored as data after state transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkey.c#L239-L248",
+          "why": "Cargo landing table entry has NULL IASA."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L490-L513",
+          "why": "Zero rate applied immediately or stored in x8A0 when x2223_b0 is set."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+          "why": "Shouldered updater synchronizes victim unless already waiting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L27-L34",
+          "why": "Test before transition and unconditional reloaded-slot subtraction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L29-L42",
+          "why": "Carrier base motion transition followed by victim update."
+        }
+      ]
+    },
+    {
+      "link_id": "link:3361a51c-a826-47a1-b210-3495cffcd98e",
+      "baseline_record": {
+        "id": "link:3361a51c-a826-47a1-b210-3495cffcd98e",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoLanding:ftCo_8009BD4C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:cargo-carry",
+        "role": "implements",
+        "why": "The entry routine initializes cargo-specific landing recovery while retaining and updating the carried victim.",
+        "kind": "code",
+        "locator": "code://3c0e6117f5/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L46",
+        "digest": "sha256:dfc4f6146edbc1d6"
+      },
+      "disposition": "retain",
+      "independent_reason": "Entry stores cargo lag, calls common landing base+8, requests rate0 and synchronizes victim0x10A. Donkey landing table and CargoFall collision registration establish cargo-carry landing recovery; explicit countdown later calls CargoWait.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L16-L44",
+          "why": "Complete entry and three callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L47",
+          "why": "allow_interrupt stored as data after state transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkey.c#L239-L248",
+          "why": "Cargo landing table entry has NULL IASA."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L490-L513",
+          "why": "Zero rate applied immediately or stored in x8A0 when x2223_b0 is set."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+          "why": "Shouldered updater synchronizes victim unless already waiting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L27-L34",
+          "why": "Test before transition and unconditional reloaded-slot subtraction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L29-L42",
+          "why": "Carrier base motion transition followed by victim update."
+        }
+      ]
+    },
+    {
+      "link_id": "link:8dc113af-f2a2-4349-962c-b9e49580860b",
+      "baseline_record": {
+        "id": "link:8dc113af-f2a2-4349-962c-b9e49580860b",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoLanding:ftCo_CargoLanding_Anim",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:cargo-carry",
+        "role": "implements",
+        "why": "The callback expires cargo-specific landing lag and returns the carrier to the grounded cargo motion without releasing the victim.",
+        "kind": "code",
+        "locator": "code://3c0e6117f5/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L46",
+        "digest": "sha256:dfc4f6146edbc1d6"
+      },
+      "disposition": "retain",
+      "independent_reason": "Callback tests countdown<=0 then invokes9B518; CargoWait helper enters carrier base motion and updates victim to266 without a release helper. Exact expiry-to-cargo-carry relationship supported; finite countdown progress is not guaranteed at extreme float magnitudes.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L16-L44",
+          "why": "Complete entry and three callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L47",
+          "why": "allow_interrupt stored as data after state transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkey.c#L239-L248",
+          "why": "Cargo landing table entry has NULL IASA."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L490-L513",
+          "why": "Zero rate applied immediately or stored in x8A0 when x2223_b0 is set."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+          "why": "Shouldered updater synchronizes victim unless already waiting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L27-L34",
+          "why": "Test before transition and unconditional reloaded-slot subtraction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L29-L42",
+          "why": "Carrier base motion transition followed by victim update."
+        }
+      ]
+    },
+    {
+      "link_id": "link:0417d1b7-b5d7-42f2-bb49-e180f819462d",
+      "baseline_record": {
+        "id": "link:0417d1b7-b5d7-42f2-bb49-e180f819462d",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoLanding:ftCo_CargoLanding_Coll",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:cargo-carry",
+        "role": "implements",
+        "why": "The callback keeps CargoLanding connected to the grounded and airborne collision transitions used while the opponent remains carried.",
+        "kind": "code",
+        "locator": "code://3c0e6117f5/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L43-L46",
+        "digest": "sha256:2b2696e5a7a29e32"
+      },
+      "disposition": "retain",
+      "independent_reason": "CargoLanding_Coll forwards to CargoWait_Coll, then8403C with CargoFall callback. CargoFall enters base+6 and synchronizes ShoulderedWait. This supports continued cargo collision connection; source zero-result trigger is not equated with loss of ground.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L41-L44",
+          "why": "Collision delegates unchanged."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L66-L69",
+          "why": "Shared helper and CargoFall callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1035-L1041",
+          "why": "Callback on logically negated helper result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+          "why": "Helper returns enum from underlying query."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+          "why": "Ground enum is zero and Air is one."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L16-L27",
+          "why": "CargoFall configures carrier and victim."
+        }
+      ]
+    },
+    {
+      "link_id": "link:51a3cba9-0cc9-47fd-a3e8-fd751286199e",
+      "baseline_record": {
+        "id": "link:51a3cba9-0cc9-47fd-a3e8-fd751286199e",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoLanding:ftCo_CargoLanding_Phys",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:cargo-carry",
+        "role": "implements",
+        "why": "This callback supplies grounded movement processing during cargo landing recovery while the carried opponent remains shouldered.",
+        "kind": "code",
+        "locator": "code://3c0e6117f5/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L46",
+        "digest": "sha256:dfc4f6146edbc1d6"
+      },
+      "disposition": "retain",
+      "independent_reason": "Donkey ThrowFLanding359 table registers this exact Phys callback, which forwards to84F3C ground friction/movement. Entry and CargoWait sync victim ShoulderedWait, supporting grounded cargo recovery role without independent victim logic in this wrapper.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L36-L39",
+          "why": "Single physics call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+          "why": "Ground friction selection and movement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L16-L44",
+          "why": "Complete entry and three callbacks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L38-L47",
+          "why": "allow_interrupt stored as data after state transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkey.c#L239-L248",
+          "why": "Cargo landing table entry has NULL IASA."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L490-L513",
+          "why": "Zero rate applied immediately or stored in x8A0 when x2223_b0 is set."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+          "why": "Shouldered updater synchronizes victim unless already waiting."
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "retain": 9
+  },
+  "no_apply": true
+}

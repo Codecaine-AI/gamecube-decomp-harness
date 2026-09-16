@@ -1,0 +1,124 @@
+{
+  "tu": "main/melee/ft/kinds/ftNana/ftnanaspecialhi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNana/ftnanaspecialhi:ftNn_Init_801233F8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Enters Nana's initial SpecialHi_0 motion, 0x169 (361), and installs fn_80123218 as accessory4_cb to publish Nana's L4thNb position to Popo when Popo exists.",
+        "rationale": "The actual callback table associates 361 with SpecialHi_0; the neighboring SpecialHi_1 function does not establish state membership.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnanaspecialhi.c#L157-L162",
+            "why": "Motion value and callback assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnana.c#L246-L267",
+            "why": "361 is SpecialHi_0; 362 is SpecialHi_1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnanaspecialhi.c#L71-L84",
+            "why": "Callback operation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNana/ftnanaspecialhi:ftNn_Init_801233F8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally requests motion 0x169 (361, SpecialHi_0) with flags 0, frame 0, rate 1 and blend 0, then installs fn_80123218 as accessory4_cb. Its caller first copies available Popo facing and prepares Nana's airborne/jump state, and afterward clears cmd_vars[0] and sets x2222_b2. This callback is also installed by the launch and both terrain-transition helpers.",
+        "rationale": "Corrects the phase association while preserving transition parameters, caller ordering and the broader callback lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnanaspecialhi.c#L86-L109",
+            "why": "Caller ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnanaspecialhi.c#L157-L162",
+            "why": "Exact entry parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnana.c#L246-L267",
+            "why": "Table association."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnanaspecialhi.c#L247-L280",
+            "why": "Other installation sites."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNana/ftnanaspecialhi:ftNn_Init_801232A4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The Nana dispatcher invokes this entry when x221F_b3 and x2219_b5 are clear and x2070.x2071_b0_3 is outside {1,3,4,5,6,7,8,10,11,12,13}. Entry prepares airborne movement with all jumps used, selects motion 361 at frame 0/rate 1, installs the partner-position callback, clears cmd_vars[0], and sets x2222_b2. State-0 physics synchronizes Nana when Popo exists in motions 347\u2013352; existing out-of-range Popo causes backward displacement and Fall. Missing Popo causes no synchronization and does not trigger that Fall branch.",
+        "rationale": "Preserves the dispatcher and entry behavior while explicitly distinguishing absent from out-of-range partner.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnana.c#L389-L420",
+            "why": "Exact dispatch guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnanaspecialhi.c#L33-L162",
+            "why": "Entry, callback and null-partner exception."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L527-L539",
+            "why": "Grounded path makes Nana airborne and consumes jumps."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftNana/ftnanaspecialhi.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Attachment physics synchronizes Nana with an existing Popo in motion IDs 347\u2013352. An existing out-of-range Popo causes an eight-unit backward displacement and ordinary Fall, whereas missing Popo leaves this path unchanged. Initial animation completion launches Nana into motion 365 even without Popo. Terrain continuations select motions 365/362 and reinstall the coordinate callback. Aerial collision prioritizes its transition branch, then direction-sensitive wall rebounds that reverse facing and return, then ceiling contact that zeros vertical velocity regardless of its sign. Late animation callbacks request common action ending or FallSpecial, subject to those callees' exceptional branches.",
+        "rationale": "Makes exceptional partner behavior and collision ordering explicit without treating common transition requests as unconditional final outcomes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNana/ftnanaspecialhi.c#L33-L280",
+            "why": "Complete local state behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109",
+            "why": "Common action-ending exceptions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L28-L59",
+            "why": "FallSpecial exceptional redirect."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

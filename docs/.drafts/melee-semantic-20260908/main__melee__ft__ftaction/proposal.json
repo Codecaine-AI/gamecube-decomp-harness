@@ -1,0 +1,1554 @@
+{
+  "tu": "main/melee/ft/ftaction",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:.data"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Decodes the command opcode and offers it first to Command_Execute. Unhandled opcodes are rebased by subtracting 10 and index one of two fighter callback tables; each handler receives the fighter GObj and mutable CommandInfo. The traversal-only variant instead reads a u8 length-table entry and adds that command-word count to the typed CmdUnion pointer. The stored value is not a byte-distance increment.",
+        "rationale": "Correct byte-versus-word terminology or the overbroad effect-free label. The source performs typed pointer arithmetic and still calls Command_Execute. Section ownership is independently corroborated by action_dispatch/object-metadata.json, object-symbols.txt and object-report.json in this review packet; report hash matches the immutable manifest.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Two 49-entry FtCmd tables and one 49-entry u8 length table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1318-L1421",
+            "why": "Three interpreter consumers and opcode rebasing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:.data"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Maps fighter subaction-event opcodes to animation-timed gameplay and presentation handlers. The alternate table provides alternate command execution with throw-flag resets. The third interpreter skips fighter-specific handlers while still changing command timing and executing common commands, so it is not an effect-free interpreter.",
+        "rationale": "Correct byte-versus-word terminology or the overbroad effect-free label. The source performs typed pointer arithmetic and still calls Command_Execute. Section ownership is independently corroborated by action_dispatch/object-metadata.json, object-symbols.txt and object-report.json in this review packet; report hash matches the immutable manifest.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Two 49-entry FtCmd tables and one 49-entry u8 length table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1318-L1421",
+            "why": "Three interpreter consumers and opcode rebasing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:.data"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Supports normal callback dispatch, alternate callback dispatch with throw_flags cleared at entry and on a changed nonpositive timer, and fighter-specific command skipping. All variants perform timing updates and common-command execution; the skipping variant advances by command-word counts stored in a u8 table.",
+        "rationale": "Correct byte-versus-word terminology or the overbroad effect-free label. The source performs typed pointer arithmetic and still calls Command_Execute. Section ownership is independently corroborated by action_dispatch/object-metadata.json, object-symbols.txt and object-report.json in this review packet; report hash matches the immutable manifest.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Two 49-entry FtCmd tables and one 49-entry u8 length table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1318-L1421",
+            "why": "Three interpreter consumers and opcode rebasing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071028"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads bone flags and ID, optionally uses fp->ft_data->x8->x12, then reads GFX ID and an extra scalar. Multiplies offset/range components by the exact source literal 0.003906f, mapping source Z to output X and source X to output Z, and calls ftCo_8009F834 with the decoded flags/vectors/scalar. Advances cmd five positions.",
+        "rationale": "Remove unreviewed downstream randomization and use the actual multiplier, not exact 1/256.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L232-L278",
+            "why": "Reviewed canonical handler body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071028"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd). The GFX handler reads five command positions, current through current+4, then leaves the cursor at current+5; it is compatible with the FtCmd table.",
+        "rationale": "Five NEXT_CMD operations do not imply five continuation words plus an opcode. The final advance occurs after the final payload read.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L232-L278",
+            "why": "Reviewed canonical handler body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071028"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "If invisible, calls ftAction_800711DC to advance five command positions with no effect request. Otherwise decodes the payload, advances five positions and passes destroyOnStateChange to ftCo_8009F834.",
+        "rationale": "Correct cursor accounting: five positions total, not five continuation words plus the initial word.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L232-L278",
+            "why": "Reviewed canonical handler body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_800711DC"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd). Ignores gobj and increments cmd->u five times, matching the paired GFX handler cursor displacement.",
+        "rationale": "Correct continuation-word terminology from direct macro and body evidence.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L281-L284",
+            "why": "Reviewed canonical handler body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_800711DC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Consumes a GFX command by advancing cmd->u five positions without decoding it or submitting an effect.",
+        "rationale": "Five is total cursor displacement, not an additional continuation count.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L281-L284",
+            "why": "Reviewed canonical handler body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_8007121C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Unless the special flag and null thrown-hitbox owner select the skip path, selects x914[id], conditionally enables/reinitializes it on disabled state or changed hit group, resolves a joint, and decodes attack properties with five NEXT_CMD advances. Reads hit_grabbed_victim_only from create_hitbox_5 at the final cursor. Calls ftColl_8007AD18 only when the current GObj exists and s_link > 9; calls ftCommon_80080484 after either path.",
+        "rationale": "The assigned body does not establish that ftColl_8007AD18 is debug registration; state exact gating and preserve final cursor read.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L287-L362",
+            "why": "Reviewed canonical handler body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_8007121C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd). Decodes create_hitbox_0 through create_hitbox_5 views while advancing cmd five positions; scale and offsets multiply by literal 0.003906f. Packed field layout and the final-view relationship to the five-position event stride require separate family review.",
+        "rationale": "Avoid asserting a six-word stride; the size table and cursor advance are five, while the body reads a _5 view.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L287-L362",
+            "why": "Reviewed canonical handler body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_800715EC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Suppresses hitbox creation by advancing cmd->u five positions without changing a hitbox. The caller still executes ftCommon_80080484 afterward.",
+        "rationale": "State measured cursor displacement instead of unproven remaining-payload size.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L365-L368",
+            "why": "Reviewed canonical handler body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_8007162C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd). Reads a hitbox index and a packed unsigned 23-bit damage operand, forwards the operand to ftColl_8007ABD0 and advances once.",
+        "rationale": "The canonical command struct declares u32 value:23, not a floating-point payload.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L380-L385",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L652-L656",
+            "why": "Packed unsigned operand declaration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071708"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Changes x42_b5 or x42_b7 on the command-indexed hit capsule according to selector 0 or 1, then advances once. No local enabled-state check occurs.",
+        "rationale": "Remove unsupported active-hitbox prerequisite.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L410-L423",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L204",
+            "why": "Normal and alternate table pairing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071784"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Ends one selected attack hitbox at the scripted event, leaving other capsules unchanged by this handler.",
+        "rationale": "Canonical downstream body disables the selected hitbox, rather than applying throw-related flags.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L430-L434",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L204",
+            "why": "Normal and alternate table pairing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3112-L3125",
+            "why": "Indexed and all-hitbox helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1786-L1789",
+            "why": "Disable helper stores HitCapsule_Disabled."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071784"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftAction_DisableHitbox",
+        "rationale": "Canonical call chain ends in HitCapsule_Disabled; inherited throw-flags name is contradicted.",
+        "confidence": 0.88,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L430-L434",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L204",
+            "why": "Normal and alternate table pairing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3112-L3125",
+            "why": "Indexed and all-hitbox helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1786-L1789",
+            "why": "Disable helper stores HitCapsule_Disabled."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071784"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Disables the command-indexed fighter attack hitbox through ftColl_8007AFC8, then advances the command cursor once.",
+        "rationale": "Canonical downstream body disables the selected hitbox, rather than applying throw-related flags.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L430-L434",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L204",
+            "why": "Normal and alternate table pairing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3112-L3125",
+            "why": "Indexed and all-hitbox helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1786-L1789",
+            "why": "Disable helper stores HitCapsule_Disabled."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071784"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally forwards the selected hit index to ftColl_8007AFC8, whose lbColl_80008428 call stores HitCapsule_Disabled, then advances cmd once. It does not write throw flags.",
+        "rationale": "Canonical downstream body disables the selected hitbox, rather than applying throw-related flags.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L430-L434",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L204",
+            "why": "Normal and alternate table pairing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3112-L3125",
+            "why": "Indexed and all-hitbox helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1786-L1789",
+            "why": "Disable helper stores HitCapsule_Disabled."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_800717C8"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftAction_SkipDisableHitbox",
+        "rationale": "Alternate-table peer of the indexed disable command; inherited throw-flags name is contradicted.",
+        "confidence": 0.88,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L436-L439",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L204",
+            "why": "Normal and alternate table pairing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3112-L3125",
+            "why": "Indexed and all-hitbox helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1786-L1789",
+            "why": "Disable helper stores HitCapsule_Disabled."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_800717C8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Alternate handler for indexed hitbox disable. Consumes one command word without invoking the collision helper or modifying the fighter.",
+        "rationale": "Correct the semantic counterpart after verifying the disable call chain.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L436-L439",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L204",
+            "why": "Normal and alternate table pairing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3112-L3125",
+            "why": "Indexed and all-hitbox helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1786-L1789",
+            "why": "Disable helper stores HitCapsule_Disabled."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_800717C8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally advances the command cursor once. In the alternate table it suppresses the indexed hitbox-disable operation.",
+        "rationale": "Correct the semantic counterpart after verifying the disable call chain.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L436-L439",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L204",
+            "why": "Normal and alternate table pairing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3112-L3125",
+            "why": "Indexed and all-hitbox helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1786-L1789",
+            "why": "Disable helper stores HitCapsule_Disabled."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071998"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides script-controlled ground/air setup. Air selector 1 resets jumps used to one; selector 2 consumes the character maximum. This operation can replace prior jump-use state.",
+        "rationale": "Canonical callee assignments contradict preservation of remaining jumps.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L519-L534",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L594",
+            "why": "Ground/air writes and jump-count assignments."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071998"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd). The state selector dispatches 0/1/2 to ftCommon_8007D7FC/8007D5D4/8007D60C respectively; other values make no helper call, and all cases advance once.",
+        "rationale": "Use exact selector dispatch rather than claiming prior jump count is preserved.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L519-L534",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L594",
+            "why": "Ground/air writes and jump-count assignments."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071998"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Dispatches selector 0 to grounded setup, 1 to airborne setup that assigns jumpsUsed=1 and ECB lock 10, or 2 to airborne setup that assigns jumpsUsed=max_jumps and ECB lock 5. Advances once for every selector.",
+        "rationale": "Selector 1 overwrites jumpsUsed with 1; it does not preserve the previous remaining-jump count.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L519-L534",
+            "why": "Reviewed canonical handler body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L594",
+            "why": "Ground/air writes and jump-count assignments."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071D30"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftAction_SkipSmashSFX",
+        "rationale": "Alternate slot 8 replaces the primary smash-SFX command with one-element cursor advancement. This descriptive hypothesis identifies the exact event suppressed; original spelling is unknown.",
+        "confidence": 0.87,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L678-L681",
+            "why": "Complete canonical body establishes parameter use, branches, direct calls, field writes and cursor operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Primary and alternate FtCmd arrays pair handlers and establish encoded lengths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "NEXT_CMD increments cmd.u once; SKIP_CMD repeats that increment n times."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071D30"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Consumes the one-word smash-SFX command without accessing Fighter data or invoking audio. In the alternate FtCmd table it replaces ftAction_80071CCC at slot 8.",
+        "rationale": "The previous generic no-op description omitted the concrete paired event established by the table.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L678-L681",
+            "why": "Complete canonical body establishes parameter use, branches, direct calls, field writes and cursor operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Primary and alternate FtCmd arrays pair handlers and establish encoded lengths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "NEXT_CMD increments cmd.u once; SKIP_CMD repeats that increment n times."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80071D30"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Suppresses the smash-SFX event in the alternate fighter command table while preserving one-word command advancement.",
+        "rationale": "The existing intentionally effect-free-event description obscures that the primary-table event does invoke a sound helper. Alternate execution suppresses it.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L678-L681",
+            "why": "Complete canonical body establishes parameter use, branches, direct calls, field writes and cursor operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Primary and alternate FtCmd arrays pair handlers and establish encoded lengths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "NEXT_CMD increments cmd.u once; SKIP_CMD repeats that increment n times."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072320"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Decodes a four-word stage_sfx command, selects direction from 0, 1, -1 or facing_dir for pitch selectors 0\u20133, and passes the requested ID through ft_80087D0C. Destinations 0\u20136 may call lbAudioAx_800263E8 followed by lbAudioAx_800264E4 and store the result in the selected Fighter field. Destinations 2 and 6 suppress that call path when x2225_b6 is set except for GameWatch and Samus; unsupported destinations make no handle write.",
+        "rationale": "Corrects unconditional starts-and-stores wording by including the local suppression guards. Callee-specific ID adjustment and handle semantics are not independently asserted.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L845-L970",
+            "why": "Complete canonical body establishes parameter use, branches, direct calls, field writes and cursor operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Primary and alternate FtCmd arrays pair handlers and establish encoded lengths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "NEXT_CMD increments cmd.u once; SKIP_CMD repeats that increment n times."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_800727C8"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd), consuming one packed word. part_anim stores two signed 7-bit indices and an unsigned 12-bit timing operand; the timing operand converts to the callee float argument.",
+        "rationale": "The timing field is an integer bitfield, not floating-point encoded.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L988-L993",
+            "why": "The timing field is an integer bitfield, not floating-point encoded."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "The timing field is an integer bitfield, not floating-point encoded."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "The timing field is an integer bitfield, not floating-point encoded."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "The timing field is an integer bitfield, not floating-point encoded."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L1257-L1274",
+            "why": "The timing field is an integer bitfield, not floating-point encoded."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L586-L591",
+            "why": "The timing field is an integer bitfield, not floating-point encoded."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072894"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd), consuming one packed word. unk9 carries unsigned 13-bit status and duration operands, converted to the callee s32 and float arguments.",
+        "rationale": "Distinguishes packed operand storage from callee parameter types.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1002-L1006",
+            "why": "Distinguishes packed operand storage from callee parameter types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Distinguishes packed operand storage from callee parameter types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Distinguishes packed operand storage from callee parameter types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Distinguishes packed operand storage from callee parameter types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1045-L1121",
+            "why": "Distinguishes packed operand storage from callee parameter types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L592-L596",
+            "why": "Distinguishes packed operand storage from callee parameter types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_8007296C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives gobj and mutable CommandInfo from the alternate command dispatcher, ignores fighter and payload, and advances cmd->u once.",
+        "rationale": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1020-L1023",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1341-L1348",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_8007296C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Suppresses scripted rumble on the alternate fighter-command path, including nonzero-frame motion-entry catch-up.",
+        "rationale": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1020-L1023",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1341-L1348",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_8007296C"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftAction_SkipRumble",
+        "rationale": "Same-slot alternate handler suppresses the ordinary rumble request; nonzero-frame motion entry invokes this path, so Throw is too specific.",
+        "confidence": 0.74,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1020-L1023",
+            "why": "Same-slot alternate handler suppresses the ordinary rumble request; nonzero-frame motion entry invokes this path, so Throw is too specific."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Same-slot alternate handler suppresses the ordinary rumble request; nonzero-frame motion entry invokes this path, so Throw is too specific."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Same-slot alternate handler suppresses the ordinary rumble request; nonzero-frame motion entry invokes this path, so Throw is too specific."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Same-slot alternate handler suppresses the ordinary rumble request; nonzero-frame motion entry invokes this path, so Throw is too specific."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1341-L1348",
+            "why": "Same-slot alternate handler suppresses the ordinary rumble request; nonzero-frame motion entry invokes this path, so Throw is too specific."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_8007296C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Alternate-table counterpart of the one-word rumble request; consumes the event without requesting rumble.",
+        "rationale": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1020-L1023",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1341-L1348",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_8007296C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Advances cmd->u once without changing fighter fields, timing or throw_flags. ftAction_80073354 supplies alternate dispatch and handles throw_flags outside this callback.",
+        "rationale": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1020-L1023",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1341-L1348",
+            "why": "Removes unsupported throw-specific restriction; table pairing and nonzero anim_start caller establish alternate dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_800729D4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd), consuming one packed word. unk12 contains an unsigned 2-bit selector, unsigned 10-bit duration and unsigned 14-bit scale operand. Subtype 0 converts scale with factor 1/256; subtype 1 ignores that operand.",
+        "rationale": "The source scale field is unsigned, not signed fixed point.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1037-L1051",
+            "why": "The source scale field is unsigned, not signed fixed point."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "The source scale field is unsigned, not signed fixed point."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "The source scale field is unsigned, not signed fixed point."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "The source scale field is unsigned, not signed fixed point."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1213-L1233",
+            "why": "The source scale field is unsigned, not signed fixed point."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsword.c#L77-L149",
+            "why": "The source scale field is unsigned, not signed fixed point."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L607-L612",
+            "why": "The source scale field is unsigned, not signed fixed point."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072B14"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd), consuming one packed word. The encoded unk15.unk1 operand is unsigned 26-bit and is assigned to Fighter.x221E_b1.",
+        "rationale": "Source payload width is 26 bits, not one bit; destination naming does not establish operand width.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1081-L1086",
+            "why": "Source payload width is 26 bits, not one bit; destination naming does not establish operand width."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Source payload width is 26 bits, not one bit; destination naming does not establish operand width."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Source payload width is 26 bits, not one bit; destination naming does not establish operand width."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Source payload width is 26 bits, not one bit; destination naming does not establish operand width."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L622-L625",
+            "why": "Source payload width is 26 bits, not one bit; destination naming does not establish operand width."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072B14"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Sets Fighter.x221E_b1 from the command operand and advances cmd->u once.",
+        "rationale": "Removes incorrect one-bit encoded operand claim.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1081-L1086",
+            "why": "Removes incorrect one-bit encoded operand claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Removes incorrect one-bit encoded operand claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Removes incorrect one-bit encoded operand claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Removes incorrect one-bit encoded operand claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L622-L625",
+            "why": "Removes incorrect one-bit encoded operand claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072BF4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd). Consumes one packed word whose damage_amount is a signed 26-bit integer operand, converted to float for Fighter_TakeDamage_8006CC7C.",
+        "rationale": "The float callee parameter does not make the packed command a floating-point encoding.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1113-L1118",
+            "why": "The float callee parameter does not make the packed command a floating-point encoding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "The float callee parameter does not make the packed command a floating-point encoding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "The float callee parameter does not make the packed command a floating-point encoding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "The float callee parameter does not make the packed command a floating-point encoding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2648-L2669",
+            "why": "The float callee parameter does not make the packed command a floating-point encoding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L635-L638",
+            "why": "The float callee parameter does not make the packed command a floating-point encoding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072CB0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads unk20.unk1, stores it in Fighter.x2225_b2, then advances cmd->u. The demonstrated downstream consumer is ftPr_Init_UnkMtxFunc0 in ftPurin: when fp->u.pr.x223C and this flag are set, it copies the left-leg joint matrix to that auxiliary JObj and draws it.",
+        "rationale": "The cited behavior belongs to Purin/Jigglypuff code, not Peach. Source now uses u.pr, not the older fv.pr wording.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1131-L1136",
+            "why": "The cited behavior belongs to Purin/Jigglypuff code, not Peach. Source now uses u.pr, not the older fv.pr wording."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "The cited behavior belongs to Purin/Jigglypuff code, not Peach. Source now uses u.pr, not the older fv.pr wording."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "The cited behavior belongs to Purin/Jigglypuff code, not Peach. Source now uses u.pr, not the older fv.pr wording."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "The cited behavior belongs to Purin/Jigglypuff code, not Peach. Source now uses u.pr, not the older fv.pr wording."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPurin/ftpurin.c#L508-L522",
+            "why": "The cited behavior belongs to Purin/Jigglypuff code, not Peach. Source now uses u.pr, not the older fv.pr wording."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L643-L646",
+            "why": "The cited behavior belongs to Purin/Jigglypuff code, not Peach. Source now uses u.pr, not the older fv.pr wording."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072CB0"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Controls a flag used by fighter auxiliary-model rendering. The demonstrated consumer is Purin/Jigglypuff, whose conditional auxiliary JObj follows FtPart_LLegJA and is rendered when x2225_b2 is set.",
+        "rationale": "Corrects the mistaken Peach attribution with the canonical ftPurin consumer.",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1131-L1136",
+            "why": "Corrects the mistaken Peach attribution with the canonical ftPurin consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Corrects the mistaken Peach attribution with the canonical ftPurin consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Corrects the mistaken Peach attribution with the canonical ftPurin consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Corrects the mistaken Peach attribution with the canonical ftPurin consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPurin/ftpurin.c#L508-L522",
+            "why": "Corrects the mistaken Peach attribution with the canonical ftPurin consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L643-L646",
+            "why": "Corrects the mistaken Peach attribution with the canonical ftPurin consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072CD8"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj*, CommandInfo*), with nominal three-word footstep payload. Explicit skip consumes three words; sound-delegated advancement is three for supported sound behaviors and two for unrecognized behavior values.",
+        "rationale": "Qualifies the prior every-terminal-path length assertion against the sound helper.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1138-L1188",
+            "why": "Qualifies the prior every-terminal-path length assertion against the sound helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Qualifies the prior every-terminal-path length assertion against the sound helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Qualifies the prior every-terminal-path length assertion against the sound helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Qualifies the prior every-terminal-path length assertion against the sound helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1243-L1304",
+            "why": "Qualifies the prior every-terminal-path length assertion against the sound helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L574-L658",
+            "why": "Qualifies the prior every-terminal-path length assertion against the sound helper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072CD8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Grounded valid-floor lookup may supply sound and graphics replacements; each replacement is accepted when its ID differs from -1. A zero control value skips the original three words. Otherwise the original command is delegated to ftAction_80071B50, which consumes three words for supported sound behaviors 0-6 and 10-15, but two for other behavior values.",
+        "rationale": "Tests are != -1, not nonnegative. Unconditional three-word consumption was too broad because the sound delegate has a shorter default path.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1138-L1188",
+            "why": "Tests are != -1, not nonnegative. Unconditional three-word consumption was too broad because the sound delegate has a shorter default path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Tests are != -1, not nonnegative. Unconditional three-word consumption was too broad because the sound delegate has a shorter default path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Tests are != -1, not nonnegative. Unconditional three-word consumption was too broad because the sound delegate has a shorter default path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Tests are != -1, not nonnegative. Unconditional three-word consumption was too broad because the sound delegate has a shorter default path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1243-L1304",
+            "why": "Tests are != -1, not nonnegative. Unconditional three-word consumption was too broad because the sound delegate has a shorter default path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L574-L658",
+            "why": "Tests are != -1, not nonnegative. Unconditional three-word consumption was too broad because the sound delegate has a shorter default path."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80072E4C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Animation-scripted ground-contact feedback selects a surface-specific or embedded particle, conditionally emits default sound and command audio, and always attempts rumble through the guarded fighter rumble helper.",
+        "rationale": "Rumble attempt is unconditional at the handler level, independent of default indicator; fighter eligibility still gates actual rumble.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1195-L1245",
+            "why": "Rumble attempt is unconditional at the handler level, independent of default indicator; fighter eligibility still gates actual rumble."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Rumble attempt is unconditional at the handler level, independent of default indicator; fighter eligibility still gates actual rumble."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Rumble attempt is unconditional at the handler level, independent of default indicator; fighter eligibility still gates actual rumble."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Rumble attempt is unconditional at the handler level, independent of default indicator; fighter eligibility still gates actual rumble."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1243-L1308",
+            "why": "Rumble attempt is unconditional at the handler level, independent of default indicator; fighter eligibility still gates actual rumble."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L574-L658",
+            "why": "Rumble attempt is unconditional at the handler level, independent of default indicator; fighter eligibility still gates actual rumble."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1158-L1164",
+            "why": "Rumble attempt is unconditional at the handler level, independent of default indicator; fighter eligibility still gates actual rumble."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftaction:ftAction_80073008"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(Fighter_GObj* gobj, CommandInfo* cmd), consuming two packed words. The first stores unsigned 10-bit charge_frames and unsigned 16-bit charge_rate; the second stores unsigned 8-bit color_anim. Handler float locals convert these integer fields before the final call.",
+        "rationale": "Canonical shared declaration disproves the floating-point-encoded payload claim; no shared type subject is changed.",
+        "confidence": 0.95,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1252-L1266",
+            "why": "Canonical shared declaration disproves the floating-point-encoded payload claim; no shared type subject is changed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Canonical shared declaration disproves the floating-point-encoded payload claim; no shared type subject is changed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1350-L1388",
+            "why": "Canonical shared declaration disproves the floating-point-encoded payload claim; no shared type subject is changed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/inlines.h#L8-L19",
+            "why": "Canonical shared declaration disproves the floating-point-encoded payload claim; no shared type subject is changed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF0.c#L16-L26",
+            "why": "Canonical shared declaration disproves the floating-point-encoded payload claim; no shared type subject is changed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/types.h#L893-L901",
+            "why": "Canonical shared declaration disproves the floating-point-encoded payload claim; no shared type subject is changed."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftaction.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Fighter-owned CommandInfo supplies cursor and timer. Interpreter paths set frame_count from cur_anim_frame+x898_unk and subtract frame_speed_mul only from non-sentinel timers. Each due opcode first reaches Command_Execute; unhandled opcodes index a handler table or the skip-length table after subtracting 10. Handlers decode command-union fields, write fighter/collision records or call external subsystems, and advance the cursor.",
+        "rationale": "Replace a broad single-resolver description with all three canonical paths and explicit sentinel, timing and alternate-dispatch behavior. Do not infer shared word size or downstream game policy from aliases.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Normal/alternate handler tables and matching skip-length entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L287-L362",
+            "why": "Attack capsule decoding, state writes, conditional skip and post-handler call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L454-L572",
+            "why": "Command and throw flags, hurt-state requests and jab-related state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L683-L718",
+            "why": "Model-part calls and selected collision-record parameter writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L977-L1118",
+            "why": "Animation, rumble and damage requests plus matching skip handlers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1318-L1420",
+            "why": "Three interpreter paths, timer guards, common-command delegation and cursor advancement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftaction.c"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides animation-timed fighter subaction changes, including attack capsule configuration, throw and command flags, hurt-state requests, jab flags, model-part requests, audio requests and player damage. Alternate execution substitutes skip handlers for selected commands while retaining others; the cursor-only path omits all fighter-specific handlers.",
+        "rationale": "Replace a broad single-resolver description with all three canonical paths and explicit sentinel, timing and alternate-dispatch behavior. Do not infer shared word size or downstream game policy from aliases.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Normal/alternate handler tables and matching skip-length entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L287-L362",
+            "why": "Attack capsule decoding, state writes, conditional skip and post-handler call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L454-L572",
+            "why": "Command and throw flags, hurt-state requests and jab-related state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L683-L718",
+            "why": "Model-part calls and selected collision-record parameter writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L977-L1118",
+            "why": "Animation, rumble and damage requests plus matching skip handlers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1318-L1420",
+            "why": "Three interpreter paths, timer guards, common-command delegation and cursor advancement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftaction.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A fighter command-interpreter and handler translation unit. Handler callbacks use void(Fighter_GObj*, CommandInfo*); the three interpreter entry points use void(Fighter_GObj*). CommandInfo holds a mutable union cursor and timing state. Shared command-word layout and ABI types remain owned by their defining headers.",
+        "rationale": "Replace a broad single-resolver description with all three canonical paths and explicit sentinel, timing and alternate-dispatch behavior. Do not infer shared word size or downstream game policy from aliases.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Normal/alternate handler tables and matching skip-length entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L287-L362",
+            "why": "Attack capsule decoding, state writes, conditional skip and post-handler call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L454-L572",
+            "why": "Command and throw flags, hurt-state requests and jab-related state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L683-L718",
+            "why": "Model-part calls and selected collision-record parameter writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L977-L1118",
+            "why": "Animation, rumble and damage requests plus matching skip handlers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1318-L1420",
+            "why": "Three interpreter paths, timer guards, common-command delegation and cursor advancement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftaction.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Implements animation-timed fighter command handling. Two interpreter paths execute shared commands and dispatch other opcodes through normal or alternate fighter-handler tables; a third path executes shared commands but skips fighter-specific payloads by a length table. Handlers mutate fighter gameplay or presentation state and advance the command cursor.",
+        "rationale": "Replace a broad single-resolver description with all three canonical paths and explicit sentinel, timing and alternate-dispatch behavior. Do not infer shared word size or downstream game policy from aliases.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Normal/alternate handler tables and matching skip-length entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L287-L362",
+            "why": "Attack capsule decoding, state writes, conditional skip and post-handler call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L454-L572",
+            "why": "Command and throw flags, hurt-state requests and jab-related state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L683-L718",
+            "why": "Model-part calls and selected collision-record parameter writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L977-L1118",
+            "why": "Animation, rumble and damage requests plus matching skip handlers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1318-L1420",
+            "why": "Three interpreter paths, timer guards, common-command delegation and cursor advancement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftaction.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each interpreter updates frame_count even for a null cursor. A non-null stream decrements timer only when it differs from F32_MAX. Loops stop for null cursor, positive timer, or the sentinel/frame-boundary conditions. Normal and alternate loops call their respective handler table for unhandled opcodes; the third loop advances by stored lengths instead. The alternate loop clears throw_flags on entry and after an instruction changes timer to a nonpositive value.",
+        "rationale": "Replace a broad single-resolver description with all three canonical paths and explicit sentinel, timing and alternate-dispatch behavior. Do not infer shared word size or downstream game policy from aliases.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L174-L210",
+            "why": "Normal/alternate handler tables and matching skip-length entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L287-L362",
+            "why": "Attack capsule decoding, state writes, conditional skip and post-handler call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L454-L572",
+            "why": "Command and throw flags, hurt-state requests and jab-related state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L683-L718",
+            "why": "Model-part calls and selected collision-record parameter writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L977-L1118",
+            "why": "Animation, rumble and damage requests plus matching skip handlers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1318-L1420",
+            "why": "Three interpreter paths, timer guards, common-command delegation and cursor advancement."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

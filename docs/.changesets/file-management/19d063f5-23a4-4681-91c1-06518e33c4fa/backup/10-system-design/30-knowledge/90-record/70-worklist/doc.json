@@ -1,0 +1,676 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-e961f733ac158e488b10782505226769",
+  "title": "Worklist",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ks2-worklist-intro",
+        "b-ks2-worklist-schema-h",
+        "b-ks2-worklist-schema-table",
+        "b-ks2-worklist-ingest-h",
+        "b-ks2-worklist-ingest-table",
+        "b-ks2-worklist-agents-h",
+        "b-ks2-worklist-agents-table",
+        "b-ks2-worklist-migration-h",
+        "b-ks2-worklist-migration-table",
+        "b-ks2-worklist-surfaces-h",
+        "b-ks2-worklist-surfaces-table",
+        "b-ks2-worklist-hygiene-h",
+        "b-ks2-worklist-hygiene-table",
+        "b-ks2-worklist-related",
+        "b-ks2-worklist-related-sources",
+        "b-ks2-worklist-related-contracts",
+        "b-ks2-worklist-related-pathways",
+        "b-ks2-worklist-related-migration",
+        "b-knowledge-docs-verified-closures"
+      ]
+    },
+    "b-ks2-worklist-intro": {
+      "id": "b-ks2-worklist-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This worklist preserves dated rollout evidence and tracks remaining design or audit work. Current behavior belongs in the owning contract pages. An open historical observation is not a verified current defect."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-schema-h": {
+      "id": "b-ks2-worklist-schema-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Schema and Storage"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-schema-table": {
+      "id": "b-ks2-worklist-schema-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Item",
+          "Status",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "V2 schema DDL: core objects, knowledge system, target ledger tables",
+            "done",
+            "Restructured per operator direction: targets are workable items only (function | data, 22237 rows); translation units are entities (unit_entity_id FK); pull_request carries a target XOR entity subject; store rebuilt from scratch, all constraints tested"
+          ],
+          [
+            "Source tables: discord_message, wiki_section",
+            "done",
+            "discord_message and wiki_section landed with the schema; shapes per the source docs"
+          ],
+          [
+            "indexing_state tables: source_watermark, index_task, subject_index_state",
+            "done",
+            "source_watermark, index_task (status derived from timestamps), subject_index_state (subject XOR) landed with the schema"
+          ],
+          [
+            "Old-ledger classification: migrate attempts, quarantine the rest",
+            "done",
+            "Closed 2026-09-02 as the full semantic reset: read-only classification of the 22,114 V1 records gave 19,975 attempt (superseded by the run-state migration + 4,592 summarizer narratives), 1,171 lineage and 487 operational (never imported), 0 quarantine, 481 semantic candidates (166 map to targets V2 re-derived with code citations, 61 to retired symbols, 254 area/file notes with no V2 subject). none imported. V1 ledger moved to games/melee/knowledge/deprecated/ledger-v1/ with a README; temporary legacy readers were removed by the 2026-09-03 legacy exit."
+          ],
+          [
+            "Search indexes: FTS per source + embedding index",
+            "done",
+            "knowledge-index.sqlite: FTS5 per source + text-embedding-3-small indexer (concurrent requests, fake provider in tests); rebuildable wholesale; code has no index"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-worklist-ingest-h": {
+      "id": "b-ks2-worklist-ingest-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Ingestion and Sync"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-ingest-table": {
+      "id": "b-ks2-worklist-ingest-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Item",
+          "Status",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "Discord importer → V2 rows + watermark + enqueue",
+            "done",
+            "knowledge-v2/ingest/discord.ts over the raw JSONL export files; watermark + archival_ingest tasks; kg2-ingest CLI"
+          ],
+          [
+            "Wiki importer → wiki_section rows per mirror revision",
+            "done",
+            "knowledge-v2/ingest/wiki.ts; one row per (page, section, revid), re-sync inserts at new revision"
+          ],
+          [
+            "PR importer: archive + mechanical enrichment (touched targets from diff)",
+            "done",
+            "Unit-attributed rows key on the translation_unit entity; CI-table rows attribute functions (8052) and data sections (1270); 97 section rows unresolvable; deterministic throughout"
+          ],
+          [
+            "Entity extractor: translation_unit, struct, struct_field, parameter from the report and checkout",
+            "done",
+            "Implemented translation-unit, struct, struct-field, and parameter entities. The earlier parameter deferral was superseded on 2026-09-03; uncertain declarations are skipped and counted."
+          ],
+          [
+            "Harness knowledge intake: sync publish + epoch boundary feed V2",
+            "done",
+            "2026-09-03: the boundary's ingestMergedUpstream hook was a no-op and the operator sync staged PR postmortems only the deleted legacy path read, so the store sat at the Aug 11 checkout (242 PRs behind). runKnowledgeIntake (harness-intake.ts) now fetches merged-PR dumps into the canonical archive and runs the kg2-ingest sync lane at both seams; legacy sync knowledge tables dropped by orchestrator migration 005; operator sync merges upstream with the boundary's policy merge instead of rebasing (phases/running/epochs/policy-merge.ts shared)"
+          ],
+          [
+            "Reconcile: cross-unit rename continuity",
+            "done",
+            "2026-09-03: pairing was per unit, so a file move (melee#3304 moved 516 units holding 10,071 targets / 51,781 facts) would have stranded them. Second pass pairs by (kind, address) across units when unique on both sides, and a unit whose targets all land in one new unit merges its translation_unit entity into the new one (facts, links, PR rows, index stamps re-pointed; reported as renames.moved_units)"
+          ],
+          [
+            "Knowledge checkout: one resolver",
+            "done",
+            "2026-09-03: kg2-ingest, kg2-librarian, drift, backfill, and the kv2 tools resolve the checkout through knowledge-v2/checkout.ts (explicit flag → active harness worktree → legacy games/melee/checkout with a warning); kg2-librarian no longer defaults to process.cwd(); target.report_revision is the git head, report_digest kept for logs"
+          ],
+          [
+            "PR archive backlog 2823–3266",
+            "historical; verify coverage",
+            "The original observation used watermark PR 2822. Later dated validation rows record merged-PR imports and drains. Full interval coverage was not established by the harness documentation audit; audit the archive before declaring a remaining gap or running a backfill."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-worklist-agents-h": {
+      "id": "b-ks2-worklist-agents-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Agents"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-agents-table": {
+      "id": "b-ks2-worklist-agents-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Item",
+          "Status",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "Librarian design: context strategy, output contract, write gates",
+            "implemented; quality audit open",
+            "The event-driven prompt, per-pathway context, proposal gates, consumer, and CLI are implemented. The dated PR pilots and 2026-09-04 drain results below are historical evidence. Remaining source-quality and prompt-quality questions require a separate audit; they do not mean the consumer is unbuilt."
+          ],
+          [
+            "Backfill librarian design: per-target sweep across all search surfaces",
+            "done",
+            "Audited against a real rendered pass: context split into fill-out/supporting, standards trimmed to recognition fields, target entries now carry source span + analogs (has_facts) + grouped ledger with attempt:// locators; prompt gained thinking (source trust order, per-type quality guide, link roles) and a for-each workflow; dashboard preview renders a real pass; gate-1 signed off by the operator 2026-09-01"
+          ],
+          [
+            "Summarizer job + run-close seam wiring",
+            "done",
+            [
+              {
+                "insert": "worker_summary job kind + consumer wired behind --worker-summary, default off; now writes the "
+              },
+              {
+                "insert": "run_narrative",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " sidecar, composes "
+              },
+              {
+                "insert": "submission.description",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " from approach + outcome_reasoning, joins by echoed "
+              },
+              {
+                "insert": "submission_id",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " with strict set equality, and condenses transcripts (tool results stubbed to 300 chars, 400KB budget)"
+              }
+            ]
+          ],
+          [
+            "Librarian consumer run-loop lane (--librarian-consumer)",
+            "done",
+            "Mirrors the summarizer lane: flag default off, librarian_consumer_flag_recorded event, startLibrarianConsumerLane (knowledge-v2/librarian/lane.ts) polls the queue continuously, drains by priority, pauses on sync, idles when empty, stops in the run-loop finally; zero-footprint-when-off test"
+          ],
+          [
+            "Worker summarizer definition registered in the agents view",
+            "done",
+            "; "
+          ],
+          [
+            "Integration-resolver removal",
+            "done",
+            "Deterministic integration outcomes and target requeueing replaced the resolver. Outcomes live on worker_run; no active regression index-task producer exists."
+          ],
+          [
+            "Worker summarizer prompt rework + historical re-narration backfill",
+            "done",
+            [
+              {
+                "insert": "Prompt rebuilt to the house standard (purpose/goal/context_contract/workflow/rules/definition_of_done, singleOutput), output shape settled interactively: "
+              },
+              {
+                "insert": "run{summary}",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + "
+              },
+              {
+                "insert": "submissions[{submission_id, approach, outcome_reasoning}]",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " + "
+              },
+              {
+                "insert": "notable_observations",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "; no librarian framing, no hypothesis/dead_ends fields. "
+              },
+              {
+                "insert": "kg2-renarrate",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " (knowledge-v2/renarrate) backfilled history queue-silent in funnel order at 16→32→64→128 lanes: 4,592 of 5,378 runs narrated, 784 skipped no_transcript, 2 failed twice on mangled ids (re-runnable). Docs: Worker Runs page carries the "
+              },
+              {
+                "insert": "run_narrative",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " shape and enrichment exception."
+              }
+            ]
+          ],
+          [
+            "Post-build validation: librarian prompt audit, sync batch, new cycle",
+            "done",
+            "Closed 2026-09-04 on cycle c66a1559 (base a3ee42bb). Sync-down: reconcile paired 10,943 renames (206 same-unit, 10,737 across units from melee#3304) with 0 ambiguous, merged 514 moved unit entities, carried 119,611 facts; 242 PR dumps fetched and imported (3,467 unit-attributed rows, 202 pr_imported tasks), Discord refresh pulled 422 messages (11 archival tasks), attempts lane 166 rows. Drain validation-01: 364 real passes. pr_imported 323 (33 sweeping PRs split into 119 children; 1 failure context_length_exceeded before the split landed), archival_ingest 11, drift_recheck 30 (follow-ups). Gates: validation clean 320 / retried 10 / warned 0 (13 first-pass rejections: 10 irrelevant_pr_citation, 3 missing_pr_citation); drift clean 329 / released 1 / warned 0; Explorer drift warnings 0. Writes: 6,979 items applied, 0 final rejections; facts by type purpose 1,447 / data_flow 1,447 / game_mapping 1,349 / state_behavior 1,295 / inferred_type 1,058 / inferred_name 353; 28 links (all target→entity), 2 curated entities, 22 follow-ups → drift_recheck. Store after: 119,604 facts, 258,521 evidence rows (231,378 code), 30,602 links; 1,470 subjects re-stamped. Prompt-audit round one landed the same day (no target→target links, confirmed = propose nothing, inferred_name rule, head_revision + locator grammar, rejection gate, follow_ups, rename/drift audit). Round-two evidence in the next row.. Cleanup 2026-09-04: per-character target-test concepts merged into game_concept:target-test (602 links). Second sync on the cycle (5 PRs 3250/3305–3309, 36 Discord messages) published through the wired path after a baseline-cache gap was fixed (fresh cycles now seed build/GALE01/baseline.json). Drift backlog: the drift tooling had four scale bugs (git spawn per citation, cache thrash, evidence query plan, unindexed entity.merged_into_id, quadratic block search). all fixed; kg2-drift-scan now 33 s, kg2-drift-reanchor 2 min. Re-anchor rewrote 153,556 citations mechanically (39,913 same path, 14,160 moved path, 99,483 shifted); 73,128 changed-content and 5,238 gone-path spans went to the librarian as 1,020 unit rechecks (split into ≤12-subject children). Residual drain (validation-01 + 01b–01j, 8→64→32 concurrent; provider latency, not the host, was the ceiling): 2,102 passes completed (296 pr_imported, 12 archival, 1,799 drift_recheck), 399 splits, validation 2,064 clean / 43 retried / 0 warned, drift 2,090 clean / 5 released / 0 warned, 68,034 items applied (facts purpose 12,853 / data_flow 11,840 / game_mapping 10,819 / inferred_type 10,803 / state_behavior 10,176 / inferred_name 6,065; links 5,475; entities 3; follow-ups 110), 13 failures (11 provider upstream_unavailable on two oversized gmtou children before the per-task failure cap landed, 1 timeout, 1 pre-split context overflow), 0 abandoned. Final scan: 23,206 subjects, 0 drifted, 0 unresolvable; all 213,619 code citations at head 3c0e6117; Explorer drift warnings 0. Store: 119,335 facts, 232,815 evidence rows, 36,046 links. Attempt FTS rebuilt (4,633 of 5,425 rows with text, was 0).. Second live sync 2026-09-04 (sync-008ed5bd): 7 upstream PRs (3308, 3310, 3311, 3312, 3317, 3318 + one more commit), 104 Discord messages; head 3c0e6117 → cc248b79. melee#3317 renamed ~206 fighter-kind units: reconcile paired 3,567 targets / 203 units with 0 ambiguous; validation first blocked on 4,774 false regressions (evaluator keyed by unit name) → rename-aware regression evaluation landed (functions paired by address across units, moved_units reported; the boundary breakage gate shares it), then on upstream's own bookkeeping (2+2) → adopt-upstream when the cycle has only merge commits since the base; then on upstream_moved_after_validation → resumed and published. Residual drain (validation-02/03/04, 32 concurrent, provider incidents: 502 'previous response owner unavailable' on rejection-gate retry turns, a full no-accounts outage, then one LB account returning 403 on every request): 938 passes completed (919 unit rechecks, 17 PR, 3 Discord), 137 splits, validation 931 clean / 8 retried / 0 warned, drift 935 clean / 1 released / 0 warned, 17,604 items applied (facts inferred_type 3,604 / purpose 3,587 / data_flow 2,973 / game_mapping 2,755 / state_behavior 2,315 / inferred_name 1,657; links 713; follow-ups 30), 64 provider failures, 8 abandons (re-queued by the scan and finished in the mop-up). Final scan: 0 drifted, 0 unresolvable, 213,383 citations at head cc248b79; Explorer drift warnings 0. Store: 119,323 facts, 232,108 evidence rows, 36,759 links."
+          ],
+          [
+            "Fact re-cite without rewrite (op: recite)",
+            "open",
+            "Backfill finding: 22,542 unit-entity fact writes for 4,140 entity/type pairs because 'confirmed → re-cite' had only op write, and apply does not dedupe a same-value write. Prompt-side fix landed 2026-09-03 (confirmed = propose nothing). Mechanical fix still open: an op that attaches new evidence to the standing fact row without replacing it, in schema.json and apply/index.ts"
+          ],
+          [
+            "Librarian prompt audit round 2: evidence from validation-01",
+            "open",
+            "Historical validation-01 observations, retained below. Item 5 is superseded by implemented kg2-drift-reanchor and shared intake. Other observations need a separate current audit before their status changes. 1) pr_imported learned almost nothing from discussion: 6,856 of 6,865 facts were drift re-cites of standing facts (4,157 on unit entities, 2,690 on targets), 9 were new material; the drift audit dominates the pass on match-style PRs whose comments are CI reports. Decide whether drift re-cites belong in pr_imported at all or should route to drift_recheck, and whether unit-entity facts should re-cite on every member change. 2) inferred_name: 353 proposals; on real-symbol targets 41, of which the clears of landed guesses (rename audit, e.g. gmvsmode:onExitVs) are correct, but two 3304 passes proposed 'original module stem' names on already-named unit files (itdkinoko.c, itfflowerflame.c). the better-name rule needs a stronger bar for units. 3) Links: only 28 in 364 passes (25 implements), entities 2. the concept test may now be too strict; check concept coverage of new material in the follow-up passes, which produced all 93 new-material facts. 4) archival_ingest: 11 Discord passes, 0 facts, touched subjects 0–25 after the mention-map fix (was ~60); mention map quality still worth a look (one slice touched 25, another 15). 5) Sweeping PRs: 33 tasks split into 119 children; child passes still re-cite every drifted fact per unit. cost ~3 min/pass. Consider a cheaper mechanical re-cite for unchanged spans (digest match at head) before the model sees them. 6) Explorer target total counts moved rows (33,280 vs 22,332 current); record view has no rename lineage (renamed_from) yet. 7) PR archive raw/ and extracted/ are git-ignored and the new dumps have no tracked metadata (counts.json); the V2 importer no longer needs it, but the archive is local-only."
+          ],
+          [
+            "Drift tooling at scale",
+            "done",
+            "2026-09-04: code-file cache in the citation resolver (per pass / per scan, worktree reads at head, 4,096-file LRU), evidence queries driven from the fact index, entity.merged_into_id index, unit-ordered scan with progress and cache stats, unit-less entities enqueued singly, kg2-drift-reanchor (mechanical re-cite at head: same path, merged-unit path map, indexed block search; wired into the intake after reconcile), batched drift_recheck split at claim (≤12 subjects), per-task failure cap (split after two failures, else abandon with a warning; passesAbandoned in summaries)"
+          ],
+          [
+            "Librarian drain robustness (provider incidents)",
+            "open",
+            "Seen 2026-09-04 evening: (a) rejection-gate retry turns continue the previous model response and the Codex LB can route the continuation to another backend account → 502 'Previous response owner account is unavailable'; send the retry as a fresh request (full context, no previous_response_id) or pin the account per pass. (b) Four drains opening the store at the same instant → 'database is locked' at startup; the schema check needs a busy retry. (c) A provider outage burns failure counters and abandons tasks; the consumer should treat 5xx/403/no_accounts as provider errors that neither count toward the per-task cap nor abort the run, and back off instead. (d) One LB account answered 403 on every request; the LB should evict an account after N consecutive 403s. (e) Explorer target total still counts moved rows (36,883 vs 22,329 current)."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-worklist-migration-h": {
+      "id": "b-ks2-worklist-migration-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Migration Job"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-migration-table": {
+      "id": "b-ks2-worklist-migration-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Item",
+          "Status",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "Target prioritization query: rank targets by material across sources",
+            "done",
+            "kg2-prioritize, read-only; after function-level PR attribution 7584 of 20903 targets carry material (was 2743); ranking re-measured"
+          ],
+          [
+            "Backfill run plan: batches, coverage via subject_index_state, stop condition",
+            "done",
+            "Executed as run backfill-01-20260901 (2026-09-01/02) over ALL 22237 targets in funnel order, no direct-material cut (operator decision: completeness order over the whole report population); medium thinking via codex-lb; concurrency ramped 32 -> 64 -> 128, then 5 shard processes x 26 lanes after the runner proved single-thread CPU-bound. Plan assumptions superseded: batches/index_task rows unused (runner claims in-process), coverage = subject_index_state stamp."
+          ],
+          [
+            "Initial-build execution: phases 0–2 then backfill",
+            "done",
+            "Phase 3 complete: 22237/22237 targets stamped, 1070 unit entities stamped; store holds 119611 facts, 264410 evidence rows, 30574 links, 8297 entities (1872 game_concept, 109 pattern admitted); 22158 targets carry facts, 79 stamped with empty envelopes or rejected-only proposals. 22592 passes, 272 failed (241 relay 403/502/503 outage, 11 malformed envelopes, 5 timeouts, 2 kernel-lock collisions before the busy_timeout fix), all retried to completion by two sweeps. Fixes recorded during the run: runner covers zero-direct-material targets; --shard i/n; --max-consecutive-failures; kernel DB busy_timeout; evidence(fact_id) index + migration 003. Prompt evidence collected for the operator: out-of-scope callee links (4531), unit-entity fact churn, inferred_name on already-named symbols, build/ and stale-revision code citations, envelope key drift."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-worklist-surfaces-h": {
+      "id": "b-ks2-worklist-surfaces-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Worker Surfaces and Tooling"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-surfaces-table": {
+      "id": "b-ks2-worklist-surfaces-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Item",
+          "Status",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "Target card / knowledge-record card rebuilt on V2 records",
+            "done",
+            "knowledge-v2/card.ts on V2 records: ledger view first, facts by type with confidence, inferred names always marked as guesses; injected additively and gated on V2 data presence"
+          ],
+          [
+            "Worker knowledge tooling audit",
+            "done",
+            "Superseded by the 2026-09-03 legacy exit. The current worker profile uses V2 knowledge tools; ledger_search and legacy wrappers are retired. Code-graph support is separate from the learnings ledger."
+          ],
+          [
+            "Retire kgLibrarianCondense + the template-only pr-indexer",
+            "done",
+            "Legacy librarian fully removed: condense + pr-indexer door + curation door, the five legacy jobs, Discord librarian staging (raw sync preserved), the agent itself (catalog 5 to 4), and orphaned tools (smashwiki_*, decomp_standards_* wrappers); worker-facing legacy tools retained until worker surfaces migrate The temporary retention of worker-facing legacy learnings tools was superseded by the Legacy graph and ledger exit row on 2026-09-03."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-worklist-hygiene-h": {
+      "id": "b-ks2-worklist-hygiene-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Docs and Hygiene"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-hygiene-table": {
+      "id": "b-ks2-worklist-hygiene-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Item",
+          "Status",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "Record-linkage canvas regeneration",
+            "done",
+            "Regenerated 2026-09-01 from storage/ddl.ts: every table through migration 003, every foreign key, the locator kinds as dashed edges. Validates against the canvas schema."
+          ],
+          [
+            "Style and prose audit across the section",
+            "done",
+            "2026-09-01: draft-for-review language removed from every state-shape; proposal-era pages (audit, validation) moved to the record with dated callouts; retired concepts appear only as 'former' references or in the retired-concepts page; migration phases carry executed/pending status."
+          ],
+          [
+            "Entities doc: extractor-as-writer carve-out for the mechanical kinds",
+            "done",
+            "Entities \"Who writes\" now names reconciliation (translation_unit) and the extractor (struct, struct_field, parameter) as insert-if-missing mechanical writers, the librarian for curated kinds; landed with the units-to-entities restructure"
+          ],
+          [
+            "Commit the V2 docs + agent code",
+            "done",
+            "Baseline commit landed: docs rename + contracts/sources/pathways/worklist, integration-resolver removal, worker-summarizer scaffold"
+          ],
+          [
+            "Done this round: fact/evidence/link contracts, knowledge sources + search surfaces, pathways + diagrams, conflict requeue, summarizer registered, resolver removed",
+            "done",
+            "Details in the section docs"
+          ],
+          [
+            "Docs merged into system design",
+            "done",
+            "2026-09-01: the V2 tree moved under 10-system-design/40-knowledge; legacy knowledge pages deleted or moved to 90-record/80-deprecated (that section deleted 2026-09-03 with the legacy exit); agents got 10-system-design/45-agents; 20-implementation/10-agents collapsed to the runtime page and 30-knowledge rewritten as a module map. Plan and disposition table in objectives/knowledge-system-v2/docs-merge-plan.md"
+          ],
+          [
+            "Code/contract gap: regression and drift_recheck producers",
+            "done",
+            "Closed in current code. Integration outcomes live on worker_run, with no active regression producer. Drift contexts and the bounded consumer gate cover PR, run-close, and drift passes. Manual kg2-drift-scan and accepted librarian follow-ups enqueue drift_recheck; oversized batches split before a model pass."
+          ],
+          [
+            "Code/contract gap: librarian disable list is a no-op",
+            "done",
+            "Closed 2026-09-03 (commit 86c24ce5): the no-op toolProfile.disable lists were removed from both librarian runners; the librarian profile is the allow-list and a test asserts it holds no legacy search or lint tools."
+          ],
+          [
+            "Code/contract gap: drizzle schema lags the DDL",
+            "done",
+            "Done 2026-09-03 (18167651): storage/schema.ts models run_narrative, schema_migrations, target.moved_to_id, and evidence_fact_id; schema.test.ts introspects a fresh store against drizzle so parity is tested. ddl.ts stays the schema of record"
+          ],
+          [
+            "Code/contract gap: parameter entities",
+            "done",
+            "Done 2026-09-03 (18167651): the entity extractor writes parameter entities with locator <function stable_key>#<ABI slot>, no parent entity, insert-if-missing; declarations it cannot read with certainty are skipped and counted"
+          ],
+          [
+            "Docs: worker-summarizer registry role",
+            "done",
+            "Done 2026-09-03 (18167651): registered under its own tool-free 'summarizer' role and profile, grouped under knowledge in the kernel catalog; agent page and agents index updated"
+          ],
+          [
+            "Docs: implementation tier future",
+            "done",
+            "Keep both tiers, decided 2026-09-02: 10-system-design and 20-implementation both stay"
+          ],
+          [
+            "Explorer summary: count of passes whose drift gate ended warned",
+            "done",
+            "Done 2026-09-03 (18167651): the final drift-gate outcome is persisted on the task; /api/knowledge/v2/summary reports warned and released counts, /api/knowledge/v2/drift-warnings lists the warned passes, and the Explorer summary strip shows the count with a clickable list"
+          ],
+          [
+            "Legacy graph and ledger exit",
+            "done",
+            "Done 2026-09-03 (9fa6a39b): the V1 ledger is a frozen archive under games/melee/knowledge/deprecated/ledger-v1/; the learnings graph builder, the ledger classification lane, the legacy learnings API, the legacy dashboard view, and core/knowledge/ledger.ts are deleted; boundary notes are V2 events (kind note, cause upstream_change, migration 006); the worker profile replaced ledger_search with knowledge_record, pr_search, discord_search, wiki_search, attempt_search, resolve_locator. The code-graph tools are kept. 90-record/80-deprecated deleted from the docs"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-worklist-related": {
+      "id": "b-ks2-worklist-related",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-related-sources": {
+      "id": "b-ks2-worklist-related-sources",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Knowledge Sources",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/10-knowledge-sources",
+              "label": "Knowledge Sources"
+            }
+          }
+        },
+        {
+          "insert": ". the source docs whose draft shapes await review."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-related-contracts": {
+      "id": "b-ks2-worklist-related-contracts",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Record Contracts",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/20-record-contracts",
+              "label": "Record Contracts"
+            }
+          }
+        },
+        {
+          "insert": ". the settled fact, entity, and requeue contracts the open items build on."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-related-pathways": {
+      "id": "b-ks2-worklist-related-pathways",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/40-librarian-pathways",
+              "label": "Librarian Pathways"
+            }
+          }
+        },
+        {
+          "insert": ". the agent roster, backfill librarian included, and the indexing-state drafts awaiting review."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-worklist-related-migration": {
+      "id": "b-ks2-worklist-related-migration",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Migration, Pruning, and Rebuild",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/80-migration-and-rebuild",
+              "label": "Migration, Pruning, and Rebuild"
+            }
+          }
+        },
+        {
+          "insert": ". the initial-build order and the backfill phase the migration items execute."
+        }
+      ],
+      "children": []
+    },
+    "b-knowledge-docs-verified-closures": {
+      "id": "b-knowledge-docs-verified-closures",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Verified documentation closures on 2026-09-08: "
+        },
+        {
+          "insert": "Librarian V2",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-agents/20-librarian-v2"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "Backfill Librarian",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-agents/30-backfill-librarian"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "Dashboard and Operator Controls",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-knowledge/85-dashboard-and-operator-controls"
+            }
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "Knowledge Implementation",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "20-implementation/30-knowledge"
+            }
+          }
+        },
+        {
+          "insert": ". These pages own current tool, context, follow-up, task-failure, ledger-retirement, and schema-parity behavior. Game knowledge quality and historical provider incidents remain separate audit work."
+        }
+      ],
+      "children": []
+    }
+  }
+}

@@ -1,0 +1,17 @@
+## HEAL / All-Star Rest Area
+
+The module exports `grHeal_StageData` through its header and registers `/GrHe.dat`, five ground-object callback sets, and stage lifecycle/rendering hooks. Initialization caches Yakumono parameters, clears stage flag b4, sets b5, and attempts object setup in order 0, 1, 3. Missing objects are reported by the local setup wrapper; the initializer ignores its return values and continues. The wrapper selects callbacks by unchecked object ID, installs rendering, runs initialization synchronously, and schedules non-null processes at priority 4.
+
+Object 0 starts map animation and requests selector-8 items for nonzero persistent availability slots. Joint indices come from `{7,8,9,0}`. The item dispatcher independently identifies selector 8 as the special Heart Container path. Successful items retain the slot index; their destruction clears the corresponding availability entry, preventing recreation on later visits. Creation is not guaranteed: the dispatcher can suppress spawning and the constructor can return null; HEAL ignores the result.
+
+Object 1 starts animation, conditionally requests a collectible reward, constructs character displays, and installs the collision callback. The reward requires progress divisible by the configured interval and a reward/display ID other than -1—not a valid collision line. Its position starts at `{0,40,0}`. Marker 0xDC replaces that position when present; a missing marker leaves the fallback unchanged, and the caller ignores lookup success. Trophy-system notification follows the spawn request without checking its result.
+
+Upcoming character IDs select display frames for joints 58–60. The 26-slot roster uses joints 29–54 and skips character ID 33. Frame lookup aliases ID 19 to 18, searches 25 entries followed by -1, and reports unsupported IDs before returning fallback frame 0. Display helpers create temporary donor objects 4 and 2, assert success, select the requested frame, and reparent the first child beneath the supplied destination joint. Object 4 additionally clears hidden flags. Both helpers then destroy the donor GObj; this is not final registration of a persistent donor object.
+
+The collision callback sets xC4 only when the packed four-bit value at CollData offset 0x34 equals numeric 1 and the unsigned ground-kind test accepts 1 or 2. Other notifications leave the latch unchanged. The predicate safely handles missing map object 1 or missing user data and returns 0/1 without clearing the latch. The process registers that predicate with shared Ground control, advances transient interaction records, and clears xC4. `Ground_801C3D44` stores the predicate and half-scaled parameters; it does not invoke the predicate synchronously.
+
+Object 3 clears Ground flag b2 and starts animation 0. Its recurring hooks are inert. Objects 2 and 4 also have inert callback suites. Demo/load hooks do nothing, callback4 returns false, the touch-line callback returns a null dynamics descriptor, and shadow eligibility always returns true. The start hook requests a shared generator manager with a null descriptor and ignores its nullable result.
+
+Existing supported names and explanations are explicitly retained in the checkpoint ledger. Corrections address the colliding local setup name, donor destruction, fallback reward positioning, reward-ID versus collision-line terminology, and misuse of “non-returning” for a void callback. No compiled section layout is inferred from source literals.
+
+Status: synthesized; independent review and live promotion pending.

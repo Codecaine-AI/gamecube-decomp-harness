@@ -1,0 +1,366 @@
+{
+  "tu": "main/sysdolphin/baselib/axdriver",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:.bss"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The source-visible runtime storage includes a 96-record HSD_SM pool, a 64-entry synth-instance mapping, a two-by-sixteen send-default matrix, and paired AXFX contexts. Initialization clears only each record's SMSTATE_MASK bits and inserts it into the free list. Logical sound creation installs a command stream and channel defaults; successful pending-start processing installs the synth-to-record mapping. Channel send changes attempt updates to matching records subject to the external-override gate and always store the default for valid indices. Auxiliary setup copies caller settings into the selected persistent effect context and registers that context on successful initialization.",
+        "rationale": "Corrects whole-record clearing, mapping-producer attribution, and unconditional send-propagation claims without asserting compiled layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L204-L217",
+            "why": "Successful start installs mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L539-L617",
+            "why": "Logical record initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L697-L775",
+            "why": "Conditional record updates and persistent defaults."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L915-L1021",
+            "why": "Persistent effect contexts."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L1152-L1155",
+            "why": "State-bit clearing only."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:.sbss"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Source-declared uninitialized driver globals begin zeroed. Initialization inserts all 96 records into the free list and resets the AXFX arena, but does not explicitly reset the active-list head, generation, clock, or voice counters; repeatable reinitialization is not established. Sound creation assigns a generation-qualified handle, inserts an active record, and increments the logical-record count. Clock updates recycle state-zero records and decrement that count. The metadata loader clears its completion flag before the asynchronous read; its callback sets the flag only when result != -1, so a -1 result alone does not release the callback-pumped wait.",
+        "rationale": "Separates initial static state from explicit reset operations and preserves the exceptional DVD result.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.static.h#L22-L47",
+            "why": "Uninitialized globals."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L440-L487",
+            "why": "Clock and reclamation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L601-L617",
+            "why": "Generation and activation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L796-L834",
+            "why": "Completion exception."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L1147-L1172",
+            "why": "Actual initialization writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriverPause"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests pause for the singleton path-selected stream's retained synth handle. Returns false when the slot is -1; otherwise forwards the handle to HSD_SynthSFXPause and returns true without checking whether the synth node still exists. It preserves the retained handle and does not pause all pooled sound effects.",
+        "rationale": "Replaces a liveness guarantee with the actual sentinel-only request semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L1276-L1304",
+            "why": "Stream-handle producer and pause wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L741-L752",
+            "why": "Missing synth node is a no-op."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriverResume"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests resume for the singleton path-selected stream's retained synth handle. Returns false only when the slot is -1; otherwise forwards the handle and returns true, even if the synth lookup finds no node or the node is already unpaused. The wrapper preserves the retained handle.",
+        "rationale": "The Boolean result reports forwarding, not active-instance availability or a completed transition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L1306-L1313",
+            "why": "Sentinel-only wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L754-L765",
+            "why": "Node and paused-state guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038BF6C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Commits pending operations in one HSD_SM record: starts synth playback, forwards priority, volume, pan-control, two pitch-ratio and main/Aux A/Aux B mix updates, or transitions the record to sleep or key-off retirement. Pending bit 0x10 has no synth action. Bit 0x200 invokes the shared retirement helper, not a record callback.",
+        "rationale": "Corrects the callback interpretation using the actual helper body.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L179-L272",
+            "why": "Complete pending-operation dispatcher."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L68-L89",
+            "why": "Shared key-off retirement helper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038BF6C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Scans pending bits 0 through 9 in ascending order and clears each normally completed bit. Successful start records the returned synth handle, installs its mapping, clears start-related flags and increments the mapped-instance count. Failed start asserts active state, clears SMSTATE_MASK and returns. Bit 0x100 replaces the masked state with SMSTATE_SLEEP and returns. Bit 0x200 calls shared key-off retirement and returns. These exceptional paths bypass the normal per-bit clearing statement and stop later operations in that invocation.",
+        "rationale": "Preserves the ordering and early-return distinctions while replacing nonexistent callback dispatch with retirement.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L179-L272",
+            "why": "Ordering, success, failure and terminal branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L68-L89",
+            "why": "Retirement effects."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038CFF4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns -1 for the implemented bank/sample upper-bound failures, a track outside 0\u2013255, a channel outside 0\u201315, a paused channel, or an empty free list. It does not explicitly reject negative sound IDs, negative bank indices or negative resolved sample indices, so these guards are not complete malformed-ID validation. On success it reserves a record, resets its synth ID, schedule and flags, installs controls and the command stream, constructs a generation-qualified handle, and under interrupt protection marks it active, inserts it at AXDriver_804D7794 and increments AXDriver_804D77D0.",
+        "rationale": "Corrects the claim that every invalid bank or member is safely rejected.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L521-L617",
+            "why": "Complete reservation, guards and activation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038D5B4"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides externally controlled per-sound auxiliary-send routing. When the selected bus's external-override bit is set, it changes that sound's Aux A or Aux B send and, for an assigned synth instance, recomputes coupled direct/Aux A/Aux B gains. This permission is independent of whether an AXFX processor is installed on the bus; processor selection is stored in separate configuration nibbles.",
+        "rationale": "Distinguishes external command override from effect enable state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L697-L751",
+            "why": "Low-bit gate and routing calculation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L391-L426",
+            "why": "Complementary script gates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L945-L956",
+            "why": "Separate effect-type nibbles."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038D5B4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Rejects negative or out-of-pool logical handles, bus indices outside 0\u20131, a clear selected external-override bit, stale handles, and records with zero masked state. The selected gate is bit 0 for Aux A or bit 1 for Aux B in AXDriver_804D603C, not the effect-type field. Under interrupt protection, an assigned synth instance receives the stored send-byte change and recalculated mix immediately; a record with vID == -1 must be active, stores the byte and sets 0x80000 without a synth call. Both accepted paths restore interrupts and return true.",
+        "rationale": "Retains exact branches while correcting the meaning of the gate.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L697-L751",
+            "why": "All guards and mutation paths."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038D914"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The channel argument filters state-bearing records by itdflag. Each match supplies its logical handle to AXDriver_8038D5B4 together with the selected bus and send_level cast to u8. That helper may reject the request, including when the external-override gate is clear; its return is ignored. After traversal, the raw eight-bit level is stored in AXDriver_804C5A20[aux_bus][channel], which later sound creation copies into HSD_SM.x24.",
+        "rationale": "Corrects unconditional propagation while preserving the current/future data paths.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L697-L775",
+            "why": "Inner rejection, ignored result and default write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L584-L599",
+            "why": "New-record default inheritance."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038D914"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides channel-scoped auxiliary-send control for one of sixteen logical sound channels. It saves the selected Aux A or Aux B default for future sound records and attempts to update current matching records. Current records adopt the change only when the per-sound setter accepts it, so an override-disabled channel/bus combination can retain a new future default without changing current sounds.",
+        "rationale": "Separates guaranteed default storage from conditional current-sound updates.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L724-L775",
+            "why": "Conditional current updates and unconditional valid default."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L592-L595",
+            "why": "Future sound inheritance."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038D914"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "HSD_AudioSFXSetAuxLevelChannel",
+        "rationale": "Meaningfully improves the rendered SetAuxLevelAll hypothesis by exposing the required channel filter and channel-default update. This remains a behavioral inference, not a recovered historical spelling.",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L753-L775",
+            "why": "Channel validation, filtering and indexed default."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038D914"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Sets the saved send-level default for one auxiliary bus on one logical sound channel and attempts to apply that level to every current state-bearing record on the channel. Existing-record updates use the gated per-sound setter; future records inherit the saved default.",
+        "rationale": "Removes the unsupported guarantee that every existing record is updated.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L697-L775",
+            "why": "Per-sound gate and channel traversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L592-L595",
+            "why": "Default consumption."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038D914"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns false without mutation for channel indices outside 0\u201315 or bus indices outside 0\u20131. Valid indices enter an interrupt-disabled traversal, attempt a per-sound send update for each matching state-bearing record, then replace the saved default, restore interrupts and return true. Inner failures are ignored. A clear external-override bit can prevent current-record updates while the new default is still retained; this is independent of the installed effect type.",
+        "rationale": "Preserves the outer success semantics while correcting the bus-enable interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L697-L775",
+            "why": "Exact guards, ignored failures and default transition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/axdriver:AXDriver_8038E5D4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A parameterless int(void) accessor returning AXDriver_804D77C8, the count of driver-mapped synth instances. The lookup has 64 slots, but this is not a count of individual AX hardware voices: successful instance creation increments once even when the synth node owns two voices. Explicit key-off can remove the instance from this count before hardware teardown completes.",
+        "rationale": "Corrects the physical-voice count interpretation while preserving the exact accessor signature and diagnostic terminology.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L1174-L1177",
+            "why": "Exact accessor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L204-L217",
+            "why": "One increment per instance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L78-L84",
+            "why": "Immediate driver count decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L531-L585",
+            "why": "One or two AX voices owned by a synth node."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

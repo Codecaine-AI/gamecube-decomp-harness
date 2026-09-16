@@ -1,0 +1,156 @@
+{
+  "tu": "main/sysdolphin/baselib/controller",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.h#L38-L43",
+            "why": "Declares the complete enum domain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L127-L159",
+            "why": "Defines the signature, operational cases, default branch, and interrupt restoration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the incomplete enum-domain description while preserving the verified signature and operational policy meanings.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadFlushQueue"
+        },
+        "type": "inferred_type",
+        "value": "Signature: void HSD_PadFlushQueue(HSD_FlushType ftype). HSD_FlushType declares MERGE, THROWAWAY, LEAVE1, and TERMINATE enumerators with the HSD_PAD_FLUSH_QUEUE_ prefix. The first three select queue-reduction policies; TERMINATE has no dedicated case and follows the default no-op path, with interrupt state still restored."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+            "why": "Complete reset sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L20-L64",
+            "why": "Actual effects of rumble callees."
+          }
+        ],
+        "op": "write",
+        "rationale": "The reset body invokes list removal and OffN; OffN changes direct_status rather than calling PADControlMotor.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadReset"
+        },
+        "type": "purpose",
+        "value": "Resets HSD controller bookkeeping by removing scheduled rumble, clearing direct rumble requests for four ports, discarding queued samples, requesting all-channel PAD recalibration, and clearing the reset-switch latch. It does not directly command the motors."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+            "why": "Fixed inputs and immediate destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L127-L159",
+            "why": "THROWAWAY sets qread to qwrite and qcount to zero."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L20-L64",
+            "why": "Rumble state and list mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+            "why": "Mask filtering and recalibration scheduling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L255-L306",
+            "why": "Conditional downstream origin/calibration transfers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes immediate writes from conditional downstream calibration.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadReset"
+        },
+        "type": "data_flow",
+        "value": "With no caller data, reset removes four ports' scheduled rumble lists, writes zero to their direct_status fields, flushes the raw queue with THROWAWAY, passes 0xF0000000 to PADRecalibrate, and writes zero to reset_switch. PADRecalibrate merges pending work, excludes waiting/checking channels, updates reset/enabled masks, conditionally adds recalibration marks, and disables affected polling. Later origin acquisition depends on device type, spec, reset state and transfer success; fresh origins for every channel are not guaranteed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+            "why": "Interrupt-protected unconditional sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L20-L27",
+            "why": "Direct request clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L216-L253",
+            "why": "Interpreter owns motor command emission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+            "why": "Serialized PAD reset scheduling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves proven sequencing while separating requested rumble state from hardware command timing.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadReset"
+        },
+        "type": "state_behavior",
+        "value": "Saves and disables interrupts, unconditionally removes scheduled rumble and clears each port's direct rumble request, discards buffered input, requests PAD recalibration, clears reset_switch, and restores the prior interrupt state. Motor command emission remains in the rumble interpreter. PADRecalibrate merges eligible reset work and invokes DoReset only when ResettingChan is idle."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+            "why": "Four-port reset boundary."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L20-L64",
+            "why": "Software request/list effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L255-L306",
+            "why": "Origin acquisition is conditional."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+            "why": "Recalibration request filtering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Maps the demonstrated controller reset effects without treating asynchronous or conditional driver behavior as guaranteed completion.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadReset"
+        },
+        "type": "game_mapping",
+        "value": "Provides a four-controller software reset boundary: queued input and the reset-button latch are cleared, scheduled/direct force-feedback requests are removed, and the PAD driver receives an all-channel recalibration request. Immediate physical motor shutdown and newly acquired origins on every channel are not guaranteed by this routine."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

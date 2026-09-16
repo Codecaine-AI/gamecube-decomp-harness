@@ -1,0 +1,182 @@
+{
+  "tu": "main/melee/it/itspawn",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L377-L440",
+            "why": "Mask and total writes precede validation; later activation is conditional."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L153-L201",
+            "why": "Enable gate, exact-zero transition and renewal."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes partial state writes from successful process activation and preserves rejected and repeated-setup behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itspawn:.bss"
+        },
+        "type": "state_behavior",
+        "value": "After the outer match-rule and frequency guards pass, initialization stores the enabled-item mask before validating primary setup. With a nonzero mask and available stage counts, it overwrites the primary total even if that total is zero and activation subsequently fails. Only successful primary setup leads to optional secondary/monster population, callback registration and initial countdown assignment. During enabled processing, the countdown is decremented once; reaching zero causes at most one attempt and renews the countdown regardless of attempt success. This unit does not clear all prior state on rejected setup or free prior table allocations before rebuilding."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L24-L34",
+            "why": "Conditional ordering helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L153-L223",
+            "why": "Vector zeros, timing arithmetic and weighted integer accumulation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L277-L287",
+            "why": "Cumulative floating expression converted to integer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the rounding generalization and separates source arithmetic from compiled literal-pool claims.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itspawn:.sdata2"
+        },
+        "type": "data_flow",
+        "value": "The MUST_MATCH source ordering helper references S32_TO_F32, 0.0F and 0.99F. Runtime source uses zero for spawn-vector components and adds 0.99f during floating weighted accumulation before conversion back to integer totals or cumulative values. For nonnegative in-range values this is upward-biased truncation, not a general ceiling operation. The helper alone does not establish emitted literal placement or the compiler's conversion sequence."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L24-L34",
+            "why": "Explicit source ordering intent."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L207-L223",
+            "why": "Actual biased accumulation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains useful literal intent while qualifying unsupported emission and rounding claims.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itspawn:.sdata2"
+        },
+        "type": "purpose",
+        "value": "The source documents an intended small read-only numeric-literal ordering for conversion support, zero-valued spawn coordinates and velocities, and the 0.99f bias used when weighted floating expressions are converted to integer selection values. Actual section contents and order require compiled evidence; the bias is not an exact general-purpose ceiling operation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L207-L223",
+            "why": "Exact range, aligned mask and accumulation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L91-L95",
+            "why": "x8 consumed as random bound."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the established purpose while describing the actual arithmetic rather than guaranteed upward rounding.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itspawn:it_8026CA4C"
+        },
+        "type": "purpose",
+        "value": "Computes and overwrites an ItemPickTable's total integer selection weight over the range from the supplied starting kind to before It_Kind_L_Gun_Ray. The low mask bit initially corresponds to that starting count entry. For each enabled bit, it evaluates the floating weighted count plus 0.99f in the accumulation and converts the result back to the integer sum. This upward-biased conversion is not a general ceiling operation. The final x8 value is the random-draw bound, not the number of entries."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L109-L151",
+            "why": "Final-entry condition controls exclusion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the M-Ball ordering dependency explicit without changing the supported selector name.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itspawn:it_8026C75C"
+        },
+        "type": "purpose",
+        "value": "Selects a weighted random kind from a supplied ItemPickTable, returning -1 for an initially zero total or a sole final M-Ball bucket when M-Balls are unavailable. When unavailable M-Ball is the final entry of a larger table, it temporarily excludes that bucket and restores the table after selection. This is a tail-bucket safeguard, not general filtering of arbitrary supplied tables."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L119-L150",
+            "why": "Complete branch nesting and restoration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Captures the omitted restricted/non-tail branch, restoration and missing second zero-total guard.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itspawn:it_8026C75C"
+        },
+        "type": "state_behavior",
+        "value": "Computes M-Ball unavailability from x1C >= x20 or failed configuration eligibility, then returns -1 if the original total is zero. Only when M-Ball is unavailable and is the final entry does it reject a sole-entry table or save the total, replace it with the final bucket's lower threshold and decrement size. It performs one weighted selection without rechecking the shortened total, restores both fields, and converts a selected M-Ball to -1 only on that exclusion path. If the final entry is not M-Ball, even an unavailable-M-Ball case selects directly without filtering or mutation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L344-L440",
+            "why": "Separate monster source, primary/secondary inputs, registration and countdown assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects monster-input provenance and preserves the two-step numeric conversion order.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itspawn:it_8026D018"
+        },
+        "type": "data_flow",
+        "value": "Reads match frequency, enabled mask and weight together with the stage count pointer. The stored mask, stage counts and weight feed the primary table; a mask shifted by six feeds the secondary range. The monster builder separately reads four counts from ItemCommonData.x128, not the stage array. After successful primary setup, initialization invokes the optional table stages, registers fn_8026C88C on a new GObj, interpolates a frequency-indexed delay using HSD_Randf and assigns it to the integer countdown. A second assignment multiplies that already-converted countdown by the stage timing scale."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L443-L467",
+            "why": "Cap guard and unconditional true after submission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L996-L1002",
+            "why": "Void grounded marked wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L349-L450",
+            "why": "Both x60 updates include external predicate and marker checks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves admission-versus-success semantics and adds the external accounting gate omitted by the baseline.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itspawn:it_8026D258"
+        },
+        "type": "state_behavior",
+        "value": "Returns false without submission when x60 is at or above x64. Otherwise it submits one locally flattened, grounded, marked spawn request and returns true regardless of lower-level creation success. The void wrapper sets the request marker; in the external item accounting routines, x60 increments and decrements require both gm_8018841C() and item marker x18 == 1. Thus the paired counter updates are conditional, not unconditional consequences of every marked spawn and removal."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

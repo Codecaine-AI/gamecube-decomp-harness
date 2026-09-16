@@ -1,0 +1,282 @@
+[
+  {
+    "subject": "main/melee/ft/ft_0BEF:.sdata2",
+    "facts": [
+      {
+        "id": "fact:1292fea4-4131-4fa9-92cb-fd9ce8dc6a69",
+        "target_id": "target:data:main/melee/ft/ft_0BEF:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "`ftCo_800BEFD4` reads the pooled `0.0f` and `1.0f` values when calling `Fighter_ChangeMotionState`: zero supplies both `anim_start` and `anim_blend`, while one supplies `anim_speed`. The callee uses these values to begin `ftCo_MS_DeadUpFallIce` from its first frame at normal speed without blending.",
+        "rationale": "The complete call site fixes the values and their positions, and the callee definition supplies the parameter types and semantic names. Because zero appears twice but the section holds only two single-precision words, the zero value is shared between the start-frame and blend arguments.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:47:38.994Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0BEF.c#L1-L18",
+            "why": "Shows the section-owning unit's only consumer passing 0, 1, and 0 to the motion-state transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Identifies those positions as `f32 anim_start`, `f32 anim_speed`, and `f32 anim_blend`."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d8db5a3-7216-41bc-bbe5-61b3583d2dfb",
+        "target_id": "target:data:main/melee/ft/ft_0BEF:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An eight-byte small read-only data block containing two `f32` constants: `0.0f` and `1.0f`.",
+        "rationale": "The section is eight bytes, and the only source-level values requiring small read-only floating-point storage in this one-function unit are the two distinct literals passed to `Fighter_ChangeMotionState`. Its definition types all three relevant argument slots as `f32`, with zero reused for both start and blend.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:47:38.994Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0BEF.c#L1-L18",
+            "why": "Shows the complete unit and its use of only the distinct transition literals 0 and 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Establishes that the literal-bearing transition parameters are all `f32`."
+          }
+        ]
+      },
+      {
+        "id": "fact:d2b4cf13-fede-4b4a-8607-09197b36d73d",
+        "target_id": "target:data:main/melee/ft/ft_0BEF:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the two distinct floating-point literals used to initialize the DeadUpFallIce motion: zero for the animation start and blend values, and one for normal playback speed.",
+        "rationale": "The unit's only function passes the literals 0, 1, and 0 in the three animation-parameter positions of `Fighter_ChangeMotionState`. The callee signature proves those positions are `f32`, while the section target's eight-byte extent is exactly the storage required for the two distinct single-precision values 0.0 and 1.0.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:47:38.994Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0BEF.c#L1-L18",
+            "why": "Shows that the unit's only routine uses exactly the two distinct numeric literals 0 and 1 as motion-transition animation arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Shows that the corresponding arguments are single-precision `anim_start`, `anim_speed`, and `anim_blend` values."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ft_0BEF:ftCo_800BEFD4",
+    "facts": [
+      {
+        "id": "fact:e845a584-f27f-4e7c-834a-48274fe0c3b9",
+        "target_id": "target:function:main/melee/ft/ft_0BEF:ftCo_800BEFD4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a `Fighter_GObj*`, derives its `Fighter*`, and forwards the unchanged game object to `Fighter_ChangeMotionState` with destination `ftCo_MS_DeadUpFallIce`, `Ft_MF_None`, start frame 0, playback speed 1, blend 0, and no alternate animation source. It then writes `true` to `fp->x2219_b2` and `fp->x2219_b1` and returns no value.",
+        "rationale": "Every input, transition argument, and direct output mutation is explicit in the complete matched body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:44:38.334Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L9-L16",
+            "why": "Shows the full flow from the input fighter game object through the motion-state call to the two flag writes."
+          }
+        ]
+      },
+      {
+        "id": "fact:812d63d0-1aea-4ae6-8a91-84c4b2952edb",
+        "target_id": "target:function:main/melee/ft/ft_0BEF:ftCo_800BEFD4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the initial frozen-fighter phase of Melee's Screen KO presentation, before the fighter reaches the camera-impact phase and disappears.",
+        "rationale": "The selected motion is explicitly the iced DeadUpFall state. Shared DeadUpFall processing advances its frozen branch into the iced camera-hit motion and then performs invisibility, KO sound, rumble, and camera effects. SmashWiki independently identifies a Screen KO as one of the presentation outcomes for a fighter KO'd through the upper blast line.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T12:44:38.334Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L9-L16",
+            "why": "Shows entry into the explicitly named `DeadUpFallIce` motion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ft_0D31.c#L812-L881",
+            "why": "Shows the iced DeadUpFall branch advancing into camera impact, disappearance, KO audio, rumble, and camera effects."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://blast-line~overview@r2031008",
+            "why": "Establishes that Screen KOs are one of the special KO presentations produced at the upper blast line."
+          }
+        ]
+      },
+      {
+        "id": "fact:40c5fe2a-1f93-418f-824f-610fef3c2a61",
+        "target_id": "target:function:main/melee/ft/ft_0BEF:ftCo_800BEFD4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_DeadUpFallIce_Enter",
+        "rationale": "The routine's principal operation is entry into the explicitly named `ftCo_MS_DeadUpFallIce` state, and it performs one-time initialization rather than per-frame processing. The common-fighter state prefix and `_Enter` suffix make this the most plausible source-style reconstruction, although no preserved symbol directly confirms it.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_DeadUpFallIce_Enter`.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L9-L16",
+            "why": "Shows the unnamed routine unconditionally entering `ftCo_MS_DeadUpFallIce` and performing one-time flag initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:14eb105a-e6bf-418d-96e8-92f50ebd04fa",
+        "target_id": "target:function:main/melee/ft/ft_0BEF:ftCo_800BEFD4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Common-fighter motion-state entry routine with exact signature `void (Fighter_GObj* gobj)`. It returns no value and communicates entirely by changing the supplied fighter object's motion state and mutating its `Fighter` flags.",
+        "rationale": "The matched definition supplies the exact signature, obtains the associated `Fighter*`, forwards the game object to `Fighter_ChangeMotionState`, and performs only in-place fighter mutations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:44:38.334Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L9-L16",
+            "why": "Provides the exact parameter and return types and shows all outputs occurring through the supplied fighter object."
+          }
+        ]
+      },
+      {
+        "id": "fact:baf8c249-9936-450e-ba67-d764a9b96ddb",
+        "target_id": "target:function:main/melee/ft/ft_0BEF:ftCo_800BEFD4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enters the frozen variant of the common DeadUpFall state used at the beginning of a Screen KO presentation, starting its motion from frame 0 and enabling fighter flags `x2219_b2` and `x2219_b1`.",
+        "rationale": "The complete function unconditionally selects `ftCo_MS_DeadUpFallIce` and sets the two flags. The shared DeadUpFall animation handler identifies the frozen branch and later changes it to the `DeadUpFallHitCameraIce` motion before invisibility, KO audio, rumble, and camera effects, placing this routine at the entry of that presentation sequence.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:44:38.334Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L9-L16",
+            "why": "Shows the complete frozen DeadUpFall entry operation and both fighter-flag writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ft_0D31.c#L812-L881",
+            "why": "Shows the frozen DeadUpFall branch progressing through its camera-impact and terminal KO presentation phases."
+          }
+        ]
+      },
+      {
+        "id": "fact:a9e8d204-d5d3-40b2-8468-37d5e4bc9143",
+        "target_id": "target:function:main/melee/ft/ft_0BEF:ftCo_800BEFD4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Every invocation unconditionally transitions the fighter to `ftCo_MS_DeadUpFallIce` at frame 0 and normal playback speed, with no blend, preservation flags, or alternate animation source, then sets `x2219_b2` and `x2219_b1`. The routine has no local guard, timer, callback, or alternate path; subsequent shared DeadUpFall processing advances the frozen branch into `ftCo_MS_DeadUpFallHitCameraIce` and later presentation phases.",
+        "rationale": "The target remains branch-free and always performs the same transition and flag writes. At the current head, the shared DeadUpFall animation handler still selects motion state 10 for the frozen branch, while the refreshed paired entry routine explicitly identifies that state as `ftCo_MS_DeadUpFallHitCameraIce`; therefore the standing behavior remains sound and only its drifted citation requires replacement.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:40:19.480Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L9-L16",
+            "why": "Shows the target's unconditional transition parameters, post-transition flag writes, and absence of local guards, timers, callbacks, or alternate paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ft_0D31.c#L812-L881",
+            "why": "Shows the timed shared DeadUpFall phase machine selecting motion state 10 for its frozen branch and advancing through the later presentation phases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BF0.c#L14-L36",
+            "why": "At the current head, identifies the frozen branch's later motion as `ftCo_MS_DeadUpFallHitCameraIce`, replacing the drifted citation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "src/melee/ft/ft_0BEF.c",
+    "facts": [
+      {
+        "id": "fact:762b32e2-4558-48e6-b98b-120cbadbb6ea",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ft_0BEF.c",
+        "type": "data_flow",
+        "value": "The sole routine receives a Fighter_GObj, obtains its Fighter payload, forwards the object to Fighter_ChangeMotionState with DeadUpFallIce, no preservation flags, frame 0, speed 1, and blend 0, then writes x2219_b2 and x2219_b1 true.",
+        "rationale": "The complete current body directly shows the object-to-Fighter flow, exact transition arguments, and post-transition mutations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:20.720Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L1-L16",
+            "why": "Shows every input, call argument, and output write."
+          }
+        ]
+      },
+      {
+        "id": "fact:61aeebb4-88df-447f-a0c4-a3eab16b65a1",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ft_0BEF.c",
+        "type": "game_mapping",
+        "value": "Implements entry into the ice-specific variant of the upward-death fall sequence used by the staged upper-blast-line KO presentation.",
+        "rationale": "The current unit explicitly enters the common fighter motion named DeadUpFallIce.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-06T03:12:20.720Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L1-L16",
+            "why": "Names and enters the ice-specific DeadUpFall motion."
+          }
+        ]
+      },
+      {
+        "id": "fact:195ed541-0a25-4799-920e-2488740713b1",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ft_0BEF.c",
+        "type": "purpose",
+        "value": "Owns the entry routine for ftCo_MS_DeadUpFallIce: it begins that motion from its first frame at normal playback speed and leaves both associated shared fighter flags true.",
+        "rationale": "The complete current translation unit is a single straight-line state-entry routine with exactly these operations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:20.720Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L1-L16",
+            "why": "Shows the complete unit, DeadUpFallIce transition, and two flag writes."
+          }
+        ]
+      },
+      {
+        "id": "fact:f17333e6-8fa4-4754-b37d-da4f385c4abd",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ft_0BEF.c",
+        "type": "state_behavior",
+        "value": "Every call unconditionally enters ftCo_MS_DeadUpFallIce at frame 0 with playback speed 1 and zero blend, using the ordinary full-reset transition policy, then asserts x2219_b2 and x2219_b1. The unit has no guard, timer, branch, callback, or ongoing update.",
+        "rationale": "The complete source is straight-line state-entry code with no conditions or per-frame logic.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:20.720Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0BEF.c#L1-L16",
+            "why": "Shows the unconditional transition, arguments, flag writes, and absence of other behavior."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ft_0BEF:ftCo_800BEFD4#r3",
+    "facts": []
+  }
+]

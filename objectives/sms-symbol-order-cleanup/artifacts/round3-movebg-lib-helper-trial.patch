@@ -1,0 +1,45 @@
+--- a/src/MoveBG/MapObjLib.cpp
++++ b/src/MoveBG/MapObjLib.cpp
+@@ -547,23 +547,18 @@
+ 	velocity->z -= onePlus * dot * normal.z;
+ }
+ 
+-// TODO: fabricated hack
+-static inline void rotateVecByAxisY2(JGeometry::TVec3<f32>* vec, f32 angle)
+-{
+-	TMapObjBase::rotateVecByAxisY(vec, angle);
+-}
+-
+ void TMapObjBase::getVerticalVecToTargetXZ(f32 x, f32 z,
+                                            JGeometry::TVec3<f32>* vec) const
+ {
+-	vec->set(x - mPosition.x, 0.0f, z - mPosition.z);
++	getVerticalVecFromOffsetXZ(x - mPosition.x, z - mPosition.z, vec);
++}
++
++void TMapObjBase::getVerticalVecFromOffsetXZ(f32 x, f32 z,
++                                             JGeometry::TVec3<f32>* vec)
++{
++	vec->set(x, 0.0f, z);
+ 	MsVECNormalize(vec, vec);
+-
+-	rotateVecByAxisY2(vec, 1.5707963f);
+-}
+-
+-void TMapObjBase::getVerticalVecFromOffsetXZ(f32, f32, JGeometry::TVec3<f32>*)
+-{
++	rotateVecByAxisY(vec, 1.5707963f);
+ }
+ 
+ void TMapObjBase::rotateVecByAxisY(JGeometry::TVec3<f32>* vec, f32 angle)
+--- a/include/MoveBG/MapObjBase.hpp
++++ b/include/MoveBG/MapObjBase.hpp
+@@ -244,7 +244,7 @@
+ 	void getNormalVecFromTargetXZ(f32, f32, JGeometry::TVec3<f32>*) const;
+ 	void getNormalVecFromOffsetXZ(f32, f32, JGeometry::TVec3<f32>*);
+ 	static void rotateVecByAxisY(JGeometry::TVec3<f32>*, f32);
+-	void getVerticalVecFromOffsetXZ(f32, f32, JGeometry::TVec3<f32>*);
++	static void getVerticalVecFromOffsetXZ(f32, f32, JGeometry::TVec3<f32>*);
+ 	void getVerticalVecToTargetXZ(f32, f32, JGeometry::TVec3<f32>*) const;
+ 	void calcReflectingVelocity(const TBGCheckData* wall, f32,
+ 	                            JGeometry::TVec3<f32>* velocity) const;

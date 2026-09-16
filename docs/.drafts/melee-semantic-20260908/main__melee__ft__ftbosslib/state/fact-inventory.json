@@ -1,0 +1,2794 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C2A8"
+    },
+    "facts": [
+      {
+        "id": "fact:e7717ae2-fbb1-43db-99e6-4ede899a5204",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2A8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes FTKIND_CREZYH to the shared boss motion-ID query, compares the returned motion ID with 0x183, and exposes the comparison result to its caller as a boolean without modifying fighter state.",
+        "rationale": "The complete function consists solely of the motion-ID call, equality test, and boolean returns. The callee's source shows that it finds the fighter object of the requested kind and reads its current motion ID, with a fallback value when no such object exists.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:12:12.709Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L168-L176",
+            "why": "Shows the exact input, comparison, and returned boolean and contains no writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L236-L415",
+            "why": "Shows the called routine finding a fighter by kind and reading its current motion ID."
+          }
+        ]
+      },
+      {
+        "id": "fact:f1dd1e24-85a2-41b3-a96c-47bbc6e403fb",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2A8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps to Crazy Hand's battle-entry animation by reporting whether his current motion uses the shared Hand Entry state.",
+        "rationale": "The current predicate tests Crazy Hand motion ID 0x183, and the current Crazy Hand entry initializer changes to ftMh_MS_Entry before exiting after animation completion. This mapping remains supported without the relocated gmregclear caller.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L176",
+            "why": "Shows the Crazy Hand-specific predicate testing motion ID 0x183."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandentry.c#L1-L49",
+            "why": "Shows Crazy Hand entering the shared Hand Entry motion and leaving it when the animation completes."
+          }
+        ]
+      },
+      {
+        "id": "fact:0e9952cc-66be-4211-96c6-57be6577e850",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2A8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_IsCrazyHandInEntry",
+        "rationale": "The body is a parameterless Boolean predicate over FTKIND_CREZYH motion ID 0x183, and the current Crazy Hand entry routine identifies the corresponding motion as Entry.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-04T22:42:20.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L117-L236",
+            "why": "Shows the Crazy Hand-specific motion equality predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandentry.c#L1-L49",
+            "why": "Identifies the tested motion as Crazy Hand's Entry motion."
+          }
+        ]
+      },
+      {
+        "id": "fact:49515083-57a3-481a-947c-ba1133cf740b",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2A8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless boolean predicate with signature bool(void); its compared value belongs to the Crazy Hand motion-state ID domain.",
+        "rationale": "The matched definition has an explicit bool(void) signature and returns only true or false. Its sole compared input comes from the boss-library motion-ID accessor invoked for FTKIND_CREZYH, so 0x183 is a Crazy Hand motion-state identifier rather than an arbitrary integer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:12:12.709Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L168-L176",
+            "why": "Directly shows the bool(void) definition and boolean return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L236-L415",
+            "why": "Shows ftBossLib_8015C44C locating the requested fighter kind and returning ftLib_GetMotionId for that fighter."
+          }
+        ]
+      },
+      {
+        "id": "fact:e52200c7-c1ab-4e7c-bb1f-4ae7d92a81ef",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2A8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Reports whether the active Crazy Hand fighter is currently in his Entry motion state.",
+        "rationale": "The current predicate tests Crazy Hand's motion ID against 0x183, and the current Crazy Hand entry routine enters the named Entry motion.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T22:42:20.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L117-L236",
+            "why": "Shows true exactly when Crazy Hand's queried motion ID equals 0x183."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandentry.c#L1-L49",
+            "why": "Shows Crazy Hand's entry initializer changing to the Entry motion."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d7002b0-394b-4b0a-937f-fc88d85c6900",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2A8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Returns true only while Crazy Hand's current motion state is Entry (ID 0x183); it returns false for every other state and when no Crazy Hand fighter exists because the shared query then returns ftCo_MS_DeadDown.",
+        "rationale": "The current equality predicate has a single accepted motion ID, the current Entry implementation identifies that motion, and the shared query retains its nonmatching DeadDown fallback.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T22:42:20.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L117-L236",
+            "why": "Shows the sole true condition at Crazy Hand motion ID 0x183."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L237-L356",
+            "why": "Shows ftCo_MS_DeadDown returned when the requested fighter is absent."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandentry.c#L1-L49",
+            "why": "Identifies the tested motion as Crazy Hand's Entry state and shows its animation-completion exit."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C2E0"
+    },
+    "facts": [
+      {
+        "id": "fact:76d33361-2b3f-4234-8f14-5ac4c765d7f9",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2E0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes `FTKIND_MASTERH` to `ftBossLib_8015C44C`, which locates that fighter and returns its current motion ID or `ftCo_MS_DeadDown` if absent. The target reduces the returned ID to true for 0x158 or 0x159 and false otherwise. Crazy Hand's Squeeze, Throw, Squeezing1, and TagRockPaper animation callbacks consume the Boolean alongside Master Hand's x221F_b3 status and, in most cases, Crazy Hand's animation-completion status.",
+        "rationale": "The target and resolved lookup helper establish the complete producer path from FighterKind through nullable fighter lookup and motion ID to Boolean output. The resolved caller bodies show that output flowing into Crazy Hand's partner-sensitive transition guards.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:25:54.914Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L178-L187",
+            "why": "Shows `FTKIND_MASTERH` flowing into the motion lookup and the resulting ID being reduced to a Boolean."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L236-L275",
+            "why": "Shows the lookup helper returning the located fighter's motion ID or the DeadDown fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandthrow.c#L24-L41",
+            "why": "Shows the Boolean OR-combined with Master Hand's status predicate and Crazy Hand's animation completion in Throw."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagrockpaper.c#L21-L30",
+            "why": "Shows the Boolean feeding TagRockPaper's partner-condition branch independently of its animation-completion transition."
+          }
+        ]
+      },
+      {
+        "id": "fact:a595c5ef-b4cb-4d59-a0c6-bb774d21e9a9",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2E0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements Crazy Hand's partner-response check for Master Hand's Damage and Damage2 reaction states: Crazy Hand grab-family and coordinated phases use it to stop or redirect their behavior when Master Hand is taking damage.",
+        "rationale": "The current Master Hand motion enum identifies the two tested IDs as Damage and Damage2, and the replacement Crazy Hand Squeeze source routes a true result into partner cleanup and grab-family continuation.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T22:42:20.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L117-L236",
+            "why": "Shows the predicate accepting exactly Master Hand motion IDs 0x158 and 0x159."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftMasterHand/forward.h#L1-L120",
+            "why": "Identifies the tested Master Hand states as Damage and Damage2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandsqueeze.c#L1-L56",
+            "why": "Shows Crazy Hand's Squeeze phase reacting to the predicate by clearing the partner reference and continuing through the grab-family path."
+          }
+        ]
+      },
+      {
+        "id": "fact:c9926189-8bbe-4fb5-8560-1ee1ab4112b8",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2E0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Read-only, parameterless motion-state predicate with signature `bool(void)`; internally it consumes an `enum_t` motion ID for the active `FTKIND_MASTERH` fighter and tests membership in the two-value set `{0x158, 0x159}`.",
+        "rationale": "The complete matched definition provides the exact signature and enum-typed local and performs only two equality comparisons before returning a Boolean. The motion lookup helper reads the located fighter's motion ID and supplies a nonmatching fallback when no fighter of that kind exists.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:25:54.914Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L178-L187",
+            "why": "Provides the exact `bool(void)` signature, `enum_t` local, Master Hand query, and two accepted motion IDs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L236-L275",
+            "why": "Shows that the called helper returns a fighter motion ID when the requested fighter exists and `ftCo_MS_DeadDown` otherwise."
+          }
+        ]
+      },
+      {
+        "id": "fact:bfe6e4df-7bb9-4ad4-acd0-52dddb501f19",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2E0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Reports whether the active Master Hand is in either of his two damage-reaction motion states, allowing Crazy Hand callbacks to interrupt or hand off grab and coordinated-action phases.",
+        "rationale": "The current enum identifies 0x158 and 0x159 as Damage and Damage2, and the current Crazy Hand callbacks consume the predicate as a partner-sensitive transition condition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:52:54.431Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L117-L236",
+            "why": "Shows the Master Hand motion query and exact two-state membership test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftMasterHand/forward.h#L1-L120",
+            "why": "Identifies the tested states as Damage and Damage2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandthrow.c#L24-L41",
+            "why": "Shows a Crazy Hand grab-family callback using the predicate to enter cleanup and continuation."
+          }
+        ]
+      },
+      {
+        "id": "fact:4ee13a18-ecbd-45d0-927d-966fa0690703",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C2E0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Returns true exactly when Master Hand's current motion ID is 0x158 or 0x159 and false for every other ID, including the absent-Master-Hand fallback. In Crazy Hand's Squeeze, Throw, and Squeezing1 callbacks, true immediately joins the cleanup-and-Grab-continuation path; in TagRockPaper, true invokes that continuation in a branch evaluated separately from animation completion.",
+        "rationale": "The target's equality comparisons define the exact Boolean states, while the lookup helper establishes the absent-fighter behavior. The caller bodies distinguish the terminal OR-guard use in three grab-family phases from TagRockPaper's independent response branch.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:25:54.914Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L178-L187",
+            "why": "Defines the exact true and false conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L236-L275",
+            "why": "Shows that absence produces `ftCo_MS_DeadDown`, which does not satisfy either accepted comparison."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandsqueezing1.c#L23-L33",
+            "why": "Shows a true result immediately entering Crazy Hand's cleanup and Grab-family continuation path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagrockpaper.c#L21-L30",
+            "why": "Shows TagRockPaper reacting to the predicate before and independently of its animation-completion transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C31C"
+    },
+    "facts": [
+      {
+        "id": "fact:413f0379-0375-48d2-ae91-be1ef1e51c26",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C31C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes FTKIND_CREZYH to ftBossLib_8015C44C, which locates Crazy Hand in the global fighter list and returns his current motion ID, using ftCo_MS_DeadDown as the fallback when no such fighter exists. The target converts that motion ID into true only for 0x181 or 0x182; boss action-state callers consume the result as an initialization or animation-exit guard.",
+        "rationale": "The target shows the FighterKind input, returned motion ID, comparisons, and boolean output. The resolved callee implementation shows the underlying fighter lookup and absent-fighter fallback, while the resolved callers show how the boolean is consumed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:02.285Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L116-L255",
+            "why": "Shows the target, the FighterKind-based global fighter lookup, and ftBossLib_8015C44C returning the located fighter's motion ID or ftCo_MS_DeadDown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/kinds/ftMasterHand/ftmasterhandslam.c#L57-L67",
+            "why": "Shows the boolean output consumed to guard Crazy Hand initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagcrush.c#L14-L24",
+            "why": "Shows the boolean output consumed as a paired-action termination condition."
+          }
+        ]
+      },
+      {
+        "id": "fact:e7294169-0f45-4bd2-9b78-7c828c7836b2",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C31C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements a Crazy Hand synchronization guard shared by Master Hand–Crazy Hand combination attacks, including the TagCrush/Sandwich Punch, TagApplaud/Applause, and TagRockPaper coordinated state families.",
+        "rationale": "The target is polled by the named TagCrush, TagApplaud, and TagRockPaper callbacks and gates Crazy Hand initialization during TagCrush setup. The mechanics reference independently identifies TagCrush/Sandwich Punch and TagApplaud/Applause as attacks performed jointly by Master Hand and Crazy Hand, grounding these code states in the paired-boss combination-attack mechanic.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T12:10:02.285Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagcrush.c#L14-L24",
+            "why": "Shows the predicate synchronizing termination of the TagCrush phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Shows the predicate synchronizing termination of the TagApplaud phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagrockpaper.c#L21-L31",
+            "why": "Shows the predicate synchronizing termination of the TagRockPaper phase."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://master-hand-ssbm~in-combination-with-crazy-hand@r1952272",
+            "why": "Documents the paired Hands' combination attacks and maps TagCrush and TagApplaud to Sandwich Punch and Applause."
+          }
+        ]
+      },
+      {
+        "id": "fact:1763767f-58bc-4070-9ee1-a545cf66473c",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C31C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Parameterless boolean motion-state predicate with signature bool(void); internally it consumes an enum_t motion ID for the FTKIND_CREZYH fighter and tests that ID against the discrete values 0x181 and 0x182.",
+        "rationale": "The complete matched definition provides the exact return and parameter types, declares the retrieved motion state as enum_t, and compares it only for equality with two state identifiers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:02.285Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L189-L198",
+            "why": "Provides the exact bool(void) signature, enum_t local, Crazy Hand lookup, and state-ID comparisons."
+          }
+        ]
+      },
+      {
+        "id": "fact:42799b52-4382-417f-b9de-c26ebc0325c8",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C31C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Reports whether Crazy Hand is currently in either of two distinguished motion states, 0x181 or 0x182, so coordinated Hand actions can avoid reinitializing Crazy Hand in that state domain and can terminate active paired phases when he enters it.",
+        "rationale": "The target directly tests Crazy Hand's current motion ID for membership in {0x181, 0x182}. A TagCrush entry routine invokes its Crazy Hand initializer only when this predicate is false, while TagCrush, TagApplaud, and TagRockPaper animation callbacks use a true result as an immediate exit condition. These callers establish its shared guard role without requiring an unsupported semantic name for the two unresolved state IDs.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:10:02.285Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L189-L198",
+            "why": "Directly shows the Crazy Hand motion lookup and the exact 0x181-or-0x182 predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/kinds/ftMasterHand/ftmasterhandslam.c#L57-L67",
+            "why": "Shows the predicate preventing Crazy Hand's paired-state initializer from running when it is true."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagcrush.c#L14-L24",
+            "why": "Shows a true result terminating Master Hand's TagCrush animation phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Shows the same predicate serving as an exit condition for TagApplaud."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagrockpaper.c#L21-L31",
+            "why": "Shows the same predicate serving as an exit condition for TagRockPaper."
+          }
+        ]
+      },
+      {
+        "id": "fact:4ce403e4-844e-4c9f-b811-7df0b720a9e4",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C31C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Returns true exactly when Crazy Hand's current motion ID equals 0x181 or 0x182 and false otherwise. In coordinated Master Hand states, false permits partner initialization or continued animation, whereas true suppresses reinitialization and causes TagCrush, TagApplaud, and TagRockPaper animation callbacks to enter their cleanup-and-handoff paths.",
+        "rationale": "The target's two equality comparisons define the predicate precisely. The entry caller negates it around Crazy Hand initialization, and the three animation callbacks place it positively in OR-combined exit guards, establishing both sides of its state-control behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:02.285Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L189-L198",
+            "why": "Defines the exact true and false conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/kinds/ftMasterHand/ftmasterhandslam.c#L57-L67",
+            "why": "Shows that a false result permits Crazy Hand's paired-state initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagcrush.c#L14-L24",
+            "why": "Shows that a true result triggers TagCrush cleanup and transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Shows that a true result triggers TagApplaud cleanup and transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagrockpaper.c#L21-L31",
+            "why": "Shows that a true result triggers TagRockPaper cleanup and transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C358"
+    },
+    "facts": [
+      {
+        "id": "fact:8b441219-40da-4518-ad3c-2f115b013ce4",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C358",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes FTKIND_MASTERH to ftBossLib_8015C3E8, which traverses the global fighter GObj list and returns the first fighter of that kind. The result is converted to Fighter through GET_FIGHTER and x221F_b3 is read. The resulting Boolean is consumed by Crazy Hand animation callbacks, commonly OR-combined with a Master Hand motion-state predicate and Crazy Hand's own animation-completion condition.",
+        "rationale": "The containing source exposes the complete producer path from the global fighter list through kind matching and the status-bit read. The resolved Crazy Hand callbacks show the returned Boolean flowing into synchronized transition guards.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:38.661Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L159-L235",
+            "why": "Shows FTKIND_MASTERH flowing into the fighter-list lookup and the returned GObj flowing into the x221F_b3 test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandsqueezing1.c#L23-L33",
+            "why": "Shows the Boolean being OR-combined with Master Hand's monitored motion states and Crazy Hand's animation completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagrockpaper.c#L21-L30",
+            "why": "Shows the predicate feeding a partner-condition branch in Crazy Hand's TagRockPaper animation callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:02d4abbb-c40e-4aa4-8ff9-af9755a228a5",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C358",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements one of the Master Hand status signals used to synchronize or terminate Crazy Hand phases during paired-boss action sequences.",
+        "rationale": "Crazy Hand's named TagRockPaper, Squeezing1, and Throw animation callbacks all poll this Master Hand flag predicate to alter their action progression. SmashWiki confirms that Crazy Hand fights alongside Master Hand and that the two perform team attacks, supporting the paired-boss synchronization interpretation while leaving the exact meaning of x221F_b3 unspecified.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T12:10:38.661Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagrockpaper.c#L21-L30",
+            "why": "Shows Crazy Hand's explicitly coordinated TagRockPaper phase polling this Master Hand status predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandthrow.c#L24-L41",
+            "why": "Shows another Crazy Hand phase using the same Master Hand predicate as a synchronized termination condition."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://crazy-hand-ssbm~__intro__@r1902437",
+            "why": "Documents that Crazy Hand is fought alongside Master Hand and can team up with him for attacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:989f065a-14f8-497c-8a24-862d86b19487",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C358",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature `bool (void)`: a read-only Boolean predicate over the nullable active Master Hand fighter and its x221F_b3 bitfield flag.",
+        "rationale": "The matched definition explicitly has no parameters and returns bool. Its only outcomes are true when Master Hand exists with x221F_b3 set and false otherwise, and it performs no writes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:38.661Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L200-L208",
+            "why": "Provides the exact signature, guarded bitfield read, Boolean returns, and absence of mutations."
+          }
+        ]
+      },
+      {
+        "id": "fact:bb00c0e7-3423-4eec-919d-ba15c061ca2e",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C358",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides a null-safe global predicate for Master Hand's x221F_b3 status flag so Crazy Hand action callbacks can react to that partner condition without locating or dereferencing Master Hand themselves.",
+        "rationale": "The function looks up the active FTKIND_MASTERH fighter and returns true only when the object exists and x221F_b3 is set. Multiple Crazy Hand animation callbacks call it as a transition or early-exit condition, establishing why the flag is exposed through a parameterless boss-library query.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:10:38.661Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L159-L235",
+            "why": "Shows the complete Master Hand lookup and guarded x221F_b3 test, alongside the common fighter-kind lookup it uses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandthrow.c#L24-L41",
+            "why": "Shows Crazy Hand's Throw callback using the predicate as one of its partner-sensitive termination conditions."
+          }
+        ]
+      },
+      {
+        "id": "fact:a5bb4836-6baf-4245-9e2f-8d5847e5052c",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C358",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Returns false when no Master Hand fighter is present or when Master Hand's x221F_b3 flag is clear, and true when the flag is set. It never changes the flag. In Crazy Hand's Squeezing1 and Throw callbacks, a true result immediately joins the exit path that performs fighter cleanup and invokes the Grab-family continuation; in TagRockPaper it invokes that continuation independently of animation completion.",
+        "rationale": "The predicate's null guard and bit test define all of its own states and show that it is read-only. The separate caller bodies establish the concrete control-flow effects of a true result and distinguish the termination-style uses from TagRockPaper's independent response branch.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:38.661Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L200-L208",
+            "why": "Shows the exact absent-object, clear-flag, and set-flag outcomes and that the function performs no mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandsqueezing1.c#L23-L33",
+            "why": "Shows a true result entering Crazy Hand's cleanup-and-continuation path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagrockpaper.c#L21-L30",
+            "why": "Shows TagRockPaper responding to the predicate before and independently of its animation-completion transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C3A0"
+    },
+    "facts": [
+      {
+        "id": "fact:1330bc0a-b41f-4bcb-873b-1501f22c7571",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C3A0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes FTKIND_CREZYH to ftBossLib_8015C3E8, receives either Crazy Hand's HSD_GObj or NULL, reads GET_FIGHTER(gobj)->x221F_b3 only when the object exists, and reduces those inputs to a Boolean consumed by Master Hand's TagCrush, TagApplaud, TagRockPaper, and TagGrab animation callbacks.",
+        "rationale": "The target establishes the lookup-to-field-to-Boolean path. The resolved callers show that this Boolean feeds OR-combined termination guards in four Master Hand paired-action animation phases.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:53.900Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L210-L218",
+            "why": "Shows the complete internal lookup, guarded Fighter-field read, and returned value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Shows the query's output consumed by the TagApplaud animation exit guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagrockpaper.c#L21-L60",
+            "why": "Shows the same output consumed by both TagRockPaper and TagGrab animation exit guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagcrush.c#L14-L24",
+            "why": "Shows the query's output consumed by the TagCrush animation exit guard."
+          }
+        ]
+      },
+      {
+        "id": "fact:5453b7e9-b14e-4002-961c-62b8f1ca358a",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C3A0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies Master Hand's paired-action logic with a Crazy Hand status signal, allowing TagCrush, TagApplaud, TagRockPaper, and TagGrab phases to stop when the partner's shared Fighter flag is asserted.",
+        "rationale": "All known callers are Master Hand callbacks for coordinated Tag actions and use this Crazy Hand-specific predicate as an early-exit signal. SmashWiki independently confirms that Master Hand and Crazy Hand can perform combination attacks together, grounding these partner-sensitive callbacks in that mechanic without assigning an unsupported meaning to x221F_b3 itself.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T12:10:53.900Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagcrush.c#L14-L24",
+            "why": "Shows the Crazy Hand predicate controlling Master Hand's TagCrush phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Shows the Crazy Hand predicate controlling Master Hand's TagApplaud phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagrockpaper.c#L21-L60",
+            "why": "Shows the Crazy Hand predicate controlling Master Hand's TagRockPaper and TagGrab phases."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://master-hand-ssbm~__intro__@r1952272",
+            "why": "Confirms that Master Hand and Crazy Hand fight together and possess combination attacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:ba859778-822e-4172-8e14-e5063152914f",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C3A0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Parameterless Boolean boss-state query with signature bool(void); its implicit input is the currently registered FTKIND_CREZYH fighter, and absence of that fighter is represented as false.",
+        "rationale": "The function declaration supplies bool(void), while its body resolves Crazy Hand from the global fighter list and returns false when no such object exists.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:53.900Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L210-L218",
+            "why": "Provides the exact signature and explicitly encodes false for the missing-object case."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L116-L255",
+            "why": "Shows that ftBossLib_8015C3E8 resolves a FighterKind by traversing the global fighter list."
+          }
+        ]
+      },
+      {
+        "id": "fact:8c46031f-0d1e-4005-8689-b1a13f398f7f",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C3A0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs a null-safe query of Crazy Hand's Fighter x221F_b3 status flag so other boss-action code can detect that partner condition without directly locating Crazy Hand.",
+        "rationale": "The complete function looks up FTKIND_CREZYH, tests that a matching GObj exists, and returns whether its Fighter has x221F_b3 asserted. Its callers are Master Hand animation callbacks that use the result as one of their immediate exit conditions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:53.900Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L210-L218",
+            "why": "Directly shows the Crazy Hand lookup, null guard, x221F_b3 read, and Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagcrush.c#L14-L24",
+            "why": "Shows Master Hand's TagCrush animation callback consuming the query as a state-exit condition."
+          }
+        ]
+      },
+      {
+        "id": "fact:be060151-056d-4a43-822a-abee5b420832",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C3A0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Returns true exactly when an active Crazy Hand object exists and its Fighter x221F_b3 flag is set; otherwise it returns false. In the known Master Hand callers, a true result immediately terminates the current paired-action animation phase and triggers that phase's cleanup and next-state handoff.",
+        "rationale": "The target's conjunction defines its exact Boolean state behavior. Each resolved caller places it in an OR-combined exit guard and performs Fighter cleanup plus a state-entry call when that guard succeeds.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:53.900Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L210-L218",
+            "why": "Defines the exact true and false cases of the query."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagcrush.c#L14-L24",
+            "why": "Shows a true result causing immediate cleanup and transition out of TagCrush."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Shows the same true-result exit behavior in TagApplaud."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagrockpaper.c#L21-L60",
+            "why": "Shows the same true-result exit behavior in TagRockPaper and TagGrab."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C4C4"
+    },
+    "facts": [
+      {
+        "id": "fact:7e7e35fd-ecf5-4aa8-aec9-31eec46e0f5d",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C4C4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Calls the shared fighter-kind lookup with FTKIND_CREZYH, converts the resulting HSD_GObj to Crazy Hand's Fighter, and reads u.mh.x2250. If lookup fails it emits zero. Master Hand's CPU wait controller and human-input dispatcher consume the result in switches that select matching coordinated setup routines and destinations.",
+        "rationale": "The producer path is explicit in the target, including the null fallback. The two caller spans establish the downstream consumers and show that the enum-like output controls coordinated Master Hand dispatch.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:09:21.652Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L218-L261",
+            "why": "Shows the fighter-list lookup helper and the target's Crazy Hand-specific x2250 read and fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L200-L354",
+            "why": "Shows the CPU-controlled Master Hand wait path consuming the returned phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L356-L477",
+            "why": "Shows the human-controlled Master Hand action dispatcher consuming the same phase."
+          }
+        ]
+      },
+      {
+        "id": "fact:ac8a1be5-7493-4157-91e1-10bb142672a0",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C4C4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the phase handoff from Crazy Hand to Master Hand for their paired boss attacks: Crazy Hand's stored selection tells Master Hand which coordinated squeeze, throw, or slam-related response to prepare.",
+        "rationale": "Master Hand's wait logic calls the query inside code explicitly identified as Crazy Hand Combo Attack and dispatches according to Crazy Hand's selected phase. SmashWiki independently documents that these attacks require Crazy Hand to act first and Master Hand to follow, matching the direction of the code's state handoff.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T12:09:21.652Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L200-L354",
+            "why": "Shows Master Hand reading Crazy Hand's selected phase and preparing the corresponding combination behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L356-L477",
+            "why": "Shows the same Crazy-Hand-to-Master-Hand phase handoff in the human-control path."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://master-hand-ssbm~in-combination-with-crazy-hand@r1952272",
+            "why": "Documents that Crazy Hand initiates the paired attacks and Master Hand must subsequently join."
+          }
+        ]
+      },
+      {
+        "id": "fact:0052089b-cd16-4812-81a1-eb54405a0943",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C4C4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_GetCrazyHandActionState",
+        "rationale": "The routine is a parameterless getter specialized to FTKIND_CREZYH, and its callers interpret the returned enum-like value as an action or coordination phase. “ActionState” distinguishes this private selected state from the adjacent generic motion-ID query, although no surviving symbol confirms the exact original spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely semantic name: ftBossLib_GetCrazyHandActionState.",
+        "confidence": 0.75,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L218-L261",
+            "why": "Shows that this routine is a Crazy Hand-specific private-state getter adjacent to a separate generic motion-state getter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L200-L354",
+            "why": "Shows callers interpreting the result as one of several selected action phases."
+          }
+        ]
+      },
+      {
+        "id": "fact:c0160951-eb8d-41ea-87e6-567f60ad2545",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C4C4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless enum-valued Crazy Hand state query with signature enum_t (void); its result occupies the Hand motion/action-state enum domain used for values such as Squeezing1, Squeeze, Throw, and Slam, with zero as the no-Crazy-Hand fallback.",
+        "rationale": "The matched declaration returns enum_t and takes no parameters. Its body returns x2250 or zero, while both callers compare the result against named ftMh motion-state constants.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T12:09:21.652Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L250-L261",
+            "why": "Provides the exact parameterless enum_t declaration and the x2250-or-zero return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L356-L477",
+            "why": "Shows the returned value compared against ftMh_MS_Squeezing1, ftMh_MS_Squeeze, ftMh_MS_Throw, and ftMh_MS_Slam."
+          }
+        ]
+      },
+      {
+        "id": "fact:c2abef09-49f8-46a0-b62a-ef37cc86e9fb",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C4C4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Queries Crazy Hand's stored action-selection or coordination value so other boss logic can choose the corresponding follow-up phase.",
+        "rationale": "The function locates the active FTKIND_CREZYH fighter and returns its Hand-private x2250 field. Both resolved Master Hand callers switch on the result to choose squeezing, squeeze, throw, or slam behavior, showing that the query communicates Crazy Hand's selected phase to his partner.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:09:21.652Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L250-L261",
+            "why": "Shows the function locating Crazy Hand and returning that fighter's u.mh.x2250 value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L200-L354",
+            "why": "Shows Master Hand switching on the returned value to select a Crazy Hand combination phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L356-L477",
+            "why": "Shows the human-control path consuming the same value to dispatch the matching coordinated action."
+          }
+        ]
+      },
+      {
+        "id": "fact:e0ce5d8d-891f-4987-978e-99af8e53a965",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C4C4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a stateless snapshot read: when a Crazy Hand fighter is present it returns that fighter's current x2250 selection unchanged; when none is present it returns zero. It performs no state transition or persistent write itself. Consumers use recognized phase values to enter matching Master Hand combination behavior, while an unrecognized or fallback value selects no switch case.",
+        "rationale": "The target contains only lookup, null testing, and return operations. The caller switches have explicit recognized phase cases and no default transition, establishing the behavioral effect of zero or another unmatched value.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:09:21.652Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L250-L261",
+            "why": "Shows that the query does not mutate state and returns either the current field value or zero."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L200-L354",
+            "why": "Shows recognized returned phases causing coordinated setup, with no default action for other values."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C530"
+    },
+    "facts": [
+      {
+        "id": "fact:2cc0bfe2-47d8-412b-9f38-0667f7064282",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C530",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an integer level, locates the active FTKIND_MASTERH fighter, follows Fighter.ft_data.ext_attr to Master Hand's special attributes, and returns the level-selected signed integer field.",
+        "rationale": "The current complete body establishes the input, fighter lookup, attribute pointer chain, and selected output. The previous gmregclear lines now contain unrelated code, so the former caller-specific stamina flow is removed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L263-L290",
+            "why": "Shows the level input driving a switch over fields in the active Master Hand fighter's extended attributes."
+          }
+        ]
+      },
+      {
+        "id": "fact:10e29c83-1173-4015-9281-b42e79b2c99d",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C530",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Difficulty-indexed Master Hand stamina getter with signature s32 (int cpu_level). Recognized levels 0 through 4 select successive s32 fields at offsets 0x0 through 0x10; level 6 and every otherwise-unhandled value select the field at 0x14. It returns 0 when no active Master Hand object is found.",
+        "rationale": "The complete matched definition supplies the parameter and return types, the six four-byte attribute offsets, the switch domain, its shared case-6/default branch, and the null-object fallback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:20.403Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L263-L290",
+            "why": "Directly establishes the signature, selected attribute layout, switch cases, default behavior, and zero fallback."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/980903502211588136",
+            "why": "The resolved matching discussion independently records that placing case 6 with default and returning attr->x14 is the matching control-flow shape for this function."
+          }
+        ]
+      },
+      {
+        "id": "fact:356ef17d-dc96-43b2-a87d-adcca1bfd527",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C530",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Retrieves one of Master Hand's configured integer attributes according to a supplied level value.",
+        "rationale": "The target's current body directly selects among six Master Hand special-attribute fields according to its input. Its former stamina initialization purpose is narrowed because the old consumer location no longer contains that use.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L263-L290",
+            "why": "Shows a level-indexed read from the active Master Hand fighter's special attributes."
+          }
+        ]
+      },
+      {
+        "id": "fact:89a77142-4f83-4387-a994-0decfc833417",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C530",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a read-only runtime query: if Master Hand is active, it selects a configured stamina value by level without changing fighter state; if he is absent, it returns 0. Levels 0 through 4 have individual selections, while level 6 and all unhandled values share the final selection.",
+        "rationale": "The complete function contains only an active-fighter lookup, a null guard, attribute reads, and returns. No timer, persistent write, or state transition occurs, and the switch explicitly defines the level grouping.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:20.403Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L263-L290",
+            "why": "Shows the complete guard and selection behavior and confirms that the routine performs no state mutation."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/980903502211588136",
+            "why": "Confirms from the historical matching work that case 6 and default intentionally share the x14 return path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C5F8"
+    },
+    "facts": [
+      {
+        "id": "fact:82754d75-d821-4ab5-8ff1-7443195cb36c",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C5F8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter GObj from a boss animation callback and obtains its Fighter. It consumes the next shared pseudo-random sample through HSD_Randi(4), maps results 0 through 3 to SFX IDs 0x4E21A through 0x4E21D, and sends the selected ID to ft_PlaySFX with volume 0x7F and pan 0x40. Callers then clear their own cmd_vars[1] event latch.",
+        "rationale": "The target supplies the object conversion, random bound, exact case-to-ID mapping, and playback controls. HSD_Randi's implementation shows that its argument scales the next generator sample, and the resolved callers show the command latch's origin and post-call clearing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:12.880Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L289-L306",
+            "why": "Shows the complete mapping from the supplied GObj and HSD_Randi result to the selected fighter SFX request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/random.c#L18-L21",
+            "why": "Shows HSD_Randi scaling the next HSD_Rand sample by its caller-supplied maximum."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandwait10.c#L166-L276",
+            "why": "Shows a Crazy Hand caller passing its fighter GObj when cmd_vars[1] is set and clearing that latch immediately afterward."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Shows the same command-latch flow from a Master Hand animation callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:a14ac3bd-bbff-42f7-bee8-7eb7bad65527",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C5F8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes a shared randomized audio flourish triggered by animation scripts during Master Hand and Crazy Hand actions, including Master Hand's Applause sequence and Crazy Hand's waiting and Reverse Throw sequences.",
+        "rationale": "The target's only game-facing effect is choosing and playing one of four fighter sounds. The resolved caller modules place that effect in Master Hand's TagApplaud action and Crazy Hand's Wait1_0 and BackAirplane1 action families, grounding it as shared hand-boss action presentation rather than action-state selection or combat logic.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T12:10:12.880Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L289-L306",
+            "why": "Shows the randomized sound effect that supplies the presentation behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Places the sound cue in Master Hand's TagApplaud animation processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackairplane1.c#L37-L54",
+            "why": "Places the same sound cue in Crazy Hand's BackAirplane1 animation processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandwait10.c#L166-L276",
+            "why": "Places the same sound cue in Crazy Hand's waiting and attack-selection animation controller."
+          }
+        ]
+      },
+      {
+        "id": "fact:5b7dd1d3-066f-4e66-a5ba-39ea6d3104cd",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C5F8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_PlayRandomSFX",
+        "rationale": "The proposed name follows the translation unit's ftBossLib_ prefix and describes only the demonstrated operation: selecting one of four IDs pseudo-randomly and passing it to ft_PlaySFX. It deliberately avoids identifying the clips as speech or assigning them to one hand because the code does not establish either narrower meaning.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T12:10:12.880Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L289-L306",
+            "why": "Shows that the complete operation is random selection followed by one ft_PlaySFX call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Demonstrates that the helper is shared boss-library behavior rather than a Crazy Hand-specific routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:a2c7958a-ea85-40d6-ba9e-8193ca6022a3",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C5F8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Animation-event sound handler with signature void(HSD_GObj* gobj); gobj must own a Fighter suitable for GET_FIGHTER and fighter-associated SFX playback.",
+        "rationale": "The exact declaration accepts one HSD_GObj pointer and returns void. The body immediately resolves that object to a Fighter and supplies the Fighter to ft_PlaySFX, while the callers are fighter animation callbacks.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:12.880Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L289-L306",
+            "why": "Provides the exact signature and shows the argument being resolved to a Fighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackairplane1.c#L37-L54",
+            "why": "Shows the function receiving the unchanged fighter GObj from an animation callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:6dc33173-656a-42b2-a1c3-70a517eb49f9",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C5F8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Plays a randomized boss sound cue for the supplied fighter. It is a shared animation-event handler used by Master Hand and Crazy Hand actions, choosing one of four authored SFX at fixed volume and centered pan.",
+        "rationale": "The matched body obtains the Fighter, randomly selects one of four SFX IDs, and calls ft_PlaySFX with the same controls in every branch. Master Hand and Crazy Hand animation callbacks both invoke it when their animation scripts raise command variable 1.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:12.880Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L289-L306",
+            "why": "Directly shows random selection among four SFX IDs and playback with volume 0x7F and pan 0x40."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackairplane1.c#L37-L54",
+            "why": "Shows Crazy Hand's BackAirplane1 animation callback using the function to service command variable 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Shows Master Hand's TagApplaud animation callback using the same function to service command variable 1."
+          }
+        ]
+      },
+      {
+        "id": "fact:e49e152f-febe-4c5f-b0f3-b109b71e393b",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C5F8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Every invocation plays exactly one of four sound variants and then returns; the target has no local guard, timer, or persistent latch. One-shot behavior is imposed by its animation-callback callers, which invoke it only when cmd_vars[1] is nonzero and reset that command variable immediately after the call.",
+        "rationale": "All four possible switch cases call ft_PlaySFX and return, and HSD_Randi(4) supplies their selector. The caller bodies independently demonstrate the external event-latch guard and reset, so repeated playback requires the animation script to set the command variable again.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:12.880Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L289-L306",
+            "why": "Shows four terminal playback branches and no retained state or guard in the target itself."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackairplane1.c#L37-L54",
+            "why": "Shows the caller guarding the operation with cmd_vars[1] and clearing the command after playback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/ftmasterhandtagapplaud.c#L14-L32",
+            "why": "Confirms the same one-shot caller-managed event behavior for Master Hand."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C6BC"
+    },
+    "facts": [
+      {
+        "id": "fact:6e66994d-e8e8-4801-afbd-bc41d51e9f2c",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C6BC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Calls the unit's fighter-kind roster search with FTKIND_MASTERH; on success it reads HSD_GObj.user_data as Fighter, then Fighter.ft_data.ext_attr as ftMasterHand_SpecialAttrs*. The pointer is consumed by neighboring scalar accessors for fields x164 through x174 and by boss-camera setup for x178; failures propagate as NULL, which those consumers translate to sentinel values such as -1.",
+        "rationale": "The getter body proves the producer-side pointer chain. The resolved callers show the returned block's downstream use across multiple integer fields and a camera-offset field, including their sentinel handling when the getter returns NULL.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:12:00.782Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L176-L310",
+            "why": "Shows that ftBossLib_8015C3E8 searches HSD_GObj_Entities->fighters by FighterKind and returns the matching object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L311-L339",
+            "why": "Shows FTKIND_MASTERH flowing through the roster lookup and the resulting object flowing through user_data and ft_data to ext_attr."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L337-L372",
+            "why": "Shows consumers reading x164, x168, and x16C and returning -1 when this getter yields NULL."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L376-L450",
+            "why": "Shows further consumers reading x170, x174, and x178, with x178 contributing to a camera coordinate."
+          }
+        ]
+      },
+      {
+        "id": "fact:c4ae1fb6-4731-4302-a78c-67b3be99502d",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C6BC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Bridges the generic active-fighter roster to Master Hand's character-specific configuration, allowing shared boss systems to read parameters belonging to Melee's Master Hand boss only while that fighter is instantiated.",
+        "rationale": "The code selects FTKIND_MASTERH and returns an ftMasterHand_SpecialAttrs block from that live fighter. SmashWiki independently identifies MASTERH as Master Hand's internal identity and Master Hand as Melee's Classic Mode final boss, grounding the engine kind and attribute type in the corresponding game character.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:12:00.782Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L311-L339",
+            "why": "Shows that the retrieved configuration belongs specifically to the active FTKIND_MASTERH fighter and has type ftMasterHand_SpecialAttrs."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://master-hand-ssbm~__intro__@r1952272",
+            "why": "Identifies Master Hand as a Melee boss, notes the internal name MASTERH, and describes his role as the Classic Mode final boss."
+          }
+        ]
+      },
+      {
+        "id": "fact:d47a9d11-93b3-4346-b284-c38023a24102",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C6BC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_GetMasterHandSpecialAttrs",
+        "rationale": "The function is a parameterless getter whose successful result is exactly an ftMasterHand_SpecialAttrs pointer obtained from the active FTKIND_MASTERH fighter. The ftBossLib prefix and Get-style verb follow the surrounding subsystem's established naming vocabulary, while the character and returned object are directly evidenced by the matched type and body.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: ftBossLib_GetMasterHandSpecialAttrs.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L311-L339",
+            "why": "The declaration and body establish that this routine gets an ftMasterHand_SpecialAttrs pointer from the active Master Hand fighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L176-L310",
+            "why": "Shows the local ftBossLib naming context and the shared fighter-kind lookup used by the proposed getter name."
+          }
+        ]
+      },
+      {
+        "id": "fact:f071ff88-08cc-4b0f-b3f9-28a4f3e16ff1",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C6BC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless nullable attribute getter with signature ftMasterHand_SpecialAttrs* (void). The returned pointer aliases the active Master Hand FighterData ext_attr storage and is not newly allocated.",
+        "rationale": "The matched declaration gives the exact signature. The body returns fp->ft_data->ext_attr directly or NULL and performs no allocation or copy, proving both nullability and borrowed-storage semantics.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:12:00.782Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L311-L339",
+            "why": "Shows the exact return and parameter types and that the successful result is the existing ext_attr pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:fa08f9fd-d90c-4279-8940-c4a01281f56e",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C6BC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Retrieves the active Master Hand fighter's character-specific extended-attribute block, returning NULL when Master Hand, its Fighter userdata, or that attribute block is unavailable.",
+        "rationale": "The function searches specifically for FTKIND_MASTERH, follows the resulting object's userdata through Fighter.ft_data.ext_attr, and guards each nullable stage except ft_data itself. Its neighboring callers use the returned block as the common source for several Master Hand configuration fields.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:12:00.782Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L311-L339",
+            "why": "Shows the Master Hand lookup, Fighter userdata access, extended-attribute access, and all NULL return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L337-L372",
+            "why": "Shows three neighboring accessors calling this function before reading fields from the returned Master Hand attribute block."
+          }
+        ]
+      },
+      {
+        "id": "fact:342b7d1c-c532-4925-94fa-d4c804a71032",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C6BC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a stateless snapshot lookup with staged failure guards: it returns NULL if no active Master Hand object exists, if that object's userdata is NULL, or if its ext_attr pointer is NULL; otherwise it immediately returns the attribute pointer. It does not mutate fighter state, cache the result, or manage a timer.",
+        "rationale": "Every branch in the matched body either advances through the object-to-attribute pointer chain or returns NULL. The function contains no persistent writes, so availability reflects the current active roster and object data at call time.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:12:00.782Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L311-L339",
+            "why": "Shows all three explicit NULL guards, the successful immediate return, and the absence of persistent-state writes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C74C"
+    },
+    "facts": [
+      {
+        "id": "fact:fe69227a-229a-4fe1-b5e1-b27544362333",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C74C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Resolves the active Master Hand fighter's special attributes and returns x164 unchanged. Event 50 compares its sequence counter with this value and adds it to later duration fields to construct cumulative Hand-defeat presentation thresholds.",
+        "rationale": "The current accessor establishes the x164 source and sentinel behavior, while the current Event 50 controller loads it as the first threshold and combines it with later timing values. This replaces the drifted regular-clear citation with a live consumer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows the guarded Master Hand special-attribute lookup and x164 return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows Event 50 loading this accessor, comparing its timer with the result, and adding later duration fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:9e70273b-a7a9-440b-a559-d61c4f88350b",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C74C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Configures the initial delay before Event 50's dramatic Hand-defeat presentation begins; at that threshold the controller starts audio, camera restoration, slow motion, and a background transition.",
+        "rationale": "The live Event 50 controller enters its timed branches from Hand HP conditions and uses x164 as the first audiovisual transition boundary.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows Hand-defeat HP guards and the audiovisual and slow-motion transition at the x164 threshold."
+          }
+        ]
+      },
+      {
+        "id": "fact:21b9cd5d-fd83-481d-a3e5-a937b36fab88",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C74C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_GetDefeatPresentationDelay",
+        "rationale": "The accessor returns one Master Hand configuration field, and Event 50 consistently treats that field as the initial delay before its Hand-defeat presentation effects.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `ftBossLib_GetDefeatPresentationDelay`.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows a parameterless getter for Master Hand special-attribute x164."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows x164 acting as the initial Hand-defeat presentation delay."
+          }
+        ]
+      },
+      {
+        "id": "fact:fa542b82-ef2c-49c2-912c-bc2d56d32c99",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C74C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless signed update-tick-count accessor with signature `s32(void)`. Successful values come from `ftMasterHand_SpecialAttrs.x164`; `-1` is the unavailable-data sentinel.",
+        "rationale": "The implementation establishes the signature, x164 source, and -1 fallback, while Event 50 compares the result with a controller-owned counter incremented across updates.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows the `s32(void)` accessor, x164 return, and -1 fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows the value used as a threshold for an incremented encounter-controller counter."
+          }
+        ]
+      },
+      {
+        "id": "fact:0057c89e-f16f-4a8b-8806-65fc39d9b8c7",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C74C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Retrieves the configured initial delay for a Hand-boss defeat presentation, returning -1 when Master Hand's special attributes cannot be resolved.",
+        "rationale": "The current target performs the guarded x164 read, and Event 50 uses that result as the first threshold before defeat presentation effects begin.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows the guarded x164 return and -1 sentinel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows the value controlling the initial Hand-defeat presentation threshold."
+          }
+        ]
+      },
+      {
+        "id": "fact:57906830-e248-4961-b2d6-abadc25d68dd",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C74C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The accessor is stateless: it returns -1 if the Master Hand attribute block is unavailable and otherwise returns x164 without mutation. Consuming defeat states use x164 to leave the initial post-defeat delay and begin audiovisual and half-speed presentation behavior.",
+        "rationale": "The current accessor has only guarded return paths, while both current controllers own the mutable timers and transition at x164.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:52:54.431Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L237-L356",
+            "why": "Shows the stateless null guard and field return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2526",
+            "why": "Shows the caller-owned timer and transition at x164."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C7EC"
+    },
+    "facts": [
+      {
+        "id": "fact:1d77c5a9-acbd-4e48-94e0-58a380a80fd3",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C7EC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads x168 from the active Master Hand fighter's special attributes and returns it to game-mode state machines. Event 50 adds it to x164 to form the end boundary of a temporary one-Hand-defeat slow-motion interval.",
+        "rationale": "The current accessor establishes the source field, and the live Event 50 controller constructs and consumes the cumulative x164 plus x168 boundary.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows x168 returned from the guarded Master Hand special-attribute lookup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows Event 50 adding this result to x164 and restoring normal speed at that sum."
+          }
+        ]
+      },
+      {
+        "id": "fact:2229915a-8b95-4ec0-ac8c-a50a98e6b3ec",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C7EC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Controls how long Event 50's temporary one-Hand-defeat slow-motion presentation lasts after its initial delay before normal speed resumes.",
+        "rationale": "In the live Event 50 one-Hand-defeated path, the controller starts half speed at x164 and restores normal speed when its timer reaches x164 plus x168.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows the one-Hand-defeated branch restoring game speed at the cumulative x164 plus x168 threshold."
+          }
+        ]
+      },
+      {
+        "id": "fact:cec2ee82-870d-411d-a238-7225bb7f4ae8",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C7EC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless signed 32-bit Master Hand attribute accessor with signature s32 (void); nonnegative configured timing values are returned from ftMasterHand_SpecialAttrs.x168, while -1 denotes that the Master Hand object, fighter data, or extended attributes could not be obtained.",
+        "rationale": "The declaration and return paths establish s32 (void). The called helper searches for FTKIND_MASTERH and returns NULL if the object, Fighter pointer, or extended-attribute pointer is absent, after which this accessor converts that failure to -1.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:17.809Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L234-L353",
+            "why": "Shows that the helper returns Master Hand's ftMasterHand_SpecialAttrs pointer only after validating the object, Fighter pointer, and extended attributes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L350-L360",
+            "why": "Declares s32 ftBossLib_8015C7EC(void), returns -1 on a null attribute pointer, and otherwise returns x168."
+          }
+        ]
+      },
+      {
+        "id": "fact:9e7a7add-e81e-4873-8470-0783d879a2ec",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C7EC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Retrieves the Master Hand special-attribute timing interval x168, returning -1 when the attribute block is unavailable; Event 50 uses it to delimit a temporary slow-motion phase.",
+        "rationale": "The current getter returns x168 after a null guard, and the current Event 50 controller adds it to the initial threshold before restoring normal speed.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows the x168 getter and -1 fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows x168 delimiting the one-Hand-defeat slow-motion interval."
+          }
+        ]
+      },
+      {
+        "id": "fact:ce3a7dd5-e7b1-4b89-bca2-be885b3e8a7a",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C7EC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a stateless guarded read, returning -1 if Master Hand's special attributes are unavailable and x168 otherwise. In Event 50's one-Hand-defeated path, normal speed is restored when the controller timer reaches x164 + x168.",
+        "rationale": "The accessor contains no writes, while the live Event 50 controller owns the timer and transition driven by the returned value.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows the target's guarded return paths and absence of state mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows the caller-owned timer and normal-speed transition at x164 plus x168."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C88C"
+    },
+    "facts": [
+      {
+        "id": "fact:9f62cf74-ba69-40a3-a247-de03a64091da",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C88C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Resolves the active Master Hand fighter's special attributes and returns the signed x16C field unchanged, or -1 when the attribute block is unavailable.",
+        "rationale": "The current complete getter establishes the entire producer and fallback flow. The former gmregclear lines now contain unrelated code, so their downstream flash-specific flow is removed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows the guarded x16C read, return, and -1 fallback."
+          }
+        ]
+      },
+      {
+        "id": "fact:d13879b5-4725-41b6-96ae-f079839e08f5",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C88C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless signed frame-count accessor with signature `s32(void)`. It returns `ftMasterHand_SpecialAttrs.x16C` when the attribute block is available, or -1 otherwise.",
+        "rationale": "The current getter establishes the signature, x16C source, and sentinel; the current struct definition confirms its signed type, and the background-flash routine interprets the downstream value as a frame duration.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:42:20.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L357-L450",
+            "why": "Shows the s32(void) getter, x16C return, and -1 fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/types.h#L24-L103",
+            "why": "Defines ftMasterHand_SpecialAttrs.x16C as an s32 field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L479",
+            "why": "Shows the receiving count interpreted as a flash duration in frames."
+          }
+        ]
+      },
+      {
+        "id": "fact:00842332-bc41-43f3-aaeb-ff48185b7a13",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C88C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Exposes Master Hand special-attribute x16C to callers, using -1 to report unavailable attribute data.",
+        "rationale": "This narrower purpose is completely established by the current accessor without relying on the relocated regular-clear controller.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows the null-checked x16C accessor and its failure sentinel."
+          }
+        ]
+      },
+      {
+        "id": "fact:5507276c-c7c4-4eab-83c4-040516e1bd62",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C88C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a stateless guarded read: it returns -1 when Master Hand's special attributes are unavailable and otherwise returns x16C without mutation.",
+        "rationale": "The current function contains only the special-attribute lookup, null guard, and scalar return; the obsolete caller-owned phase description is removed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L338-L372",
+            "why": "Shows the two guarded return paths and no state mutation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C92C"
+    },
+    "facts": [
+      {
+        "id": "fact:9fd4e0a4-30cf-4cce-ae1b-66e0601db7d4",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C92C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Resolves the active Master Hand fighter's extended attributes and returns x170 unchanged, or -1 if the lookup fails. Event 50's controller passes the successful value to lbBgFlash_80020688 as the interpolation count for the both-Hands-defeated flash.",
+        "rationale": "The current getter preserves the producer path, while the split current Event 50 callback shows x170 used only in its both-Hands-defeated presentation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:52:54.431Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L357-L450",
+            "why": "Shows the guarded x170 return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2526",
+            "why": "Shows Event 50 loading x170 and passing it to lbBgFlash_80020688 after both Hand bosses reach zero HP."
+          }
+        ]
+      },
+      {
+        "id": "fact:f4d3e0f6-9344-44ef-9dbc-b345fdec6142",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C92C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies the white-flash duration for Event 50's final dramatic response after both Master Hand and Crazy Hand have been defeated.",
+        "rationale": "The current Event 50 callback obtains x170 and uses it for the white background fade only inside the branch where both Hand fighters have zero HP.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:52:54.431Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2526",
+            "why": "Shows the both-Hands-defeated guard and x170 supplied to the background flash."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L479",
+            "why": "Shows lbBgFlash_80020688 interpolating toward its target color over the supplied frame count."
+          }
+        ]
+      },
+      {
+        "id": "fact:7712779a-c44c-47c9-b0c8-258ed22ed8a2",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C92C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_GetEventDefeatFlashDuration",
+        "rationale": "The current caller evidence narrows the semantic role from a generic defeat flash to Event 50's final both-Hands-defeated flash, while the function remains a read-only ftBossLib getter.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `ftBossLib_GetEventDefeatFlashDuration`.",
+        "confidence": 0.75,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L357-L450",
+            "why": "Shows the function as a parameterless scalar getter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2526",
+            "why": "Shows its value used for Event 50's both-Hands-defeated flash."
+          }
+        ]
+      },
+      {
+        "id": "fact:43e94d61-a4c8-4a43-b6c9-6539a3b992f6",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C92C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless signed frame-count accessor with signature `s32(void)`; successful results are durations read from `ftMasterHand_SpecialAttrs.x170`, while -1 is the unavailable-data sentinel.",
+        "rationale": "The current getter establishes the signature, x170 source, and sentinel; the current struct definition confirms its signed type, and the background-flash consumer establishes the frame-count domain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:42:20.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L357-L450",
+            "why": "Shows the exact s32(void) getter, x170 return, and -1 fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftMasterHand/types.h#L24-L103",
+            "why": "Defines ftMasterHand_SpecialAttrs.x170 as an s32 field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L479",
+            "why": "Shows the receiving count treated as a minimum-one-frame background-flash duration."
+          }
+        ]
+      },
+      {
+        "id": "fact:96f4d8f7-127a-4d4a-8005-c8b2c1ec5d0b",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C92C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Retrieves the configured frame duration of Event 50's white background fade after both Hand bosses are defeated, returning -1 when Master Hand's special-attribute data is unavailable.",
+        "rationale": "The current accessor returns x170, and the current Event 50 callback passes it directly to the interpolating background-flash routine in the both-defeated branch.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:52:54.431Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L357-L450",
+            "why": "Shows the complete x170 accessor and failure sentinel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2526",
+            "why": "Shows the returned value used for the flash after both Hand bosses reach zero HP."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L479",
+            "why": "Shows the flash routine interpreting its argument as an interpolation duration."
+          }
+        ]
+      },
+      {
+        "id": "fact:be3f2c2a-15a7-4162-b425-e24545fe8cf8",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C92C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a stateless guarded read: each call resolves the current Master Hand attribute pointer, returns -1 if it is absent, and otherwise returns x170. Event 50's controller, not this accessor, owns the defeat phase and timer.",
+        "rationale": "The current body contains no writes or timer progression, while the current Event 50 callback owns the phase state, counter, and flash trigger.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:52:54.431Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L357-L450",
+            "why": "Shows only the attribute lookup, null guard, and x170 return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2526",
+            "why": "Shows EventData owning the boss phase and timer that schedule the flash."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015C9CC"
+    },
+    "facts": [
+      {
+        "id": "fact:6fcd03f4-946a-4e75-a2c0-1bdeba804244",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C9CC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Resolves the active Master Hand fighter's special attributes and returns the signed x174 field unchanged, or -1 when the attribute block is unavailable.",
+        "rationale": "The current complete getter establishes the source and fallback. The drifted gmregclear spans no longer contain the claimed final-flash consumer, so that downstream flow is removed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows the guarded x174 read, return, and -1 fallback."
+          }
+        ]
+      },
+      {
+        "id": "fact:6d1cd38a-7724-489a-8df6-92e2ea15ca62",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C9CC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless signed Master Hand attribute getter with signature `s32(void)`; it returns x174 when available and -1 otherwise.",
+        "rationale": "The current definition directly establishes the signature, source field, and sentinel. The unsupported update-duration domain is removed because its caller evidence drifted.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows the exact `s32(void)` definition, x174 return, and -1 fallback."
+          }
+        ]
+      },
+      {
+        "id": "fact:d0b52cf9-c920-4b89-92b1-cc88208cfc8d",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C9CC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Exposes Master Hand special-attribute x174 to callers, returning -1 when the attribute data cannot be resolved.",
+        "rationale": "The current target completely supports this narrower accessor purpose without relying on the obsolete regular-clear caller location.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows the complete null-checked x174 accessor."
+          }
+        ]
+      },
+      {
+        "id": "fact:d04e7030-62ee-48ae-8da1-6d8b956bc5b2",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015C9CC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a stateless guarded read: it returns -1 immediately if Master Hand's special-attribute pointer is absent and otherwise returns x174 without mutation.",
+        "rationale": "The current body has only a null guard and scalar return. The former consuming-controller state progression is removed because its cited span no longer contains that code.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows both return paths and the absence of persistent-state writes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015CA6C"
+    },
+    "facts": [
+      {
+        "id": "fact:5fef632e-f90b-4181-8b68-90ce3668fdb8",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CA6C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an integer value, forwards it to Player_80036790 for player slot 0, conditionally forwards it through ftLib_80086A4C to active Master Hand and Crazy Hand fighters, and then invokes the bulk active-item operation it_8026C3FC.",
+        "rationale": "The current target body directly establishes its complete dispatch flow. The former controller-origin claim is omitted because the cited gmregclear lines moved away.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows the argument dispatched to slot 0 and any present Hand fighters before the active-item-wide call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_26B1.c#L1137-L1169",
+            "why": "Shows it_8026C3FC traversing the global list of active item GObjs."
+          }
+        ]
+      },
+      {
+        "id": "fact:b0870315-5d15-4aed-92c6-6556376ea711",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CA6C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A no-return boss-encounter bulk mutator with signature `void (s32 hitlag_frames)`. Its integer argument is converted to the floating-point value accepted by the player and fighter hitlag setters; its affected population is fixed to player slot 0, any active `FTKIND_MASTERH` and `FTKIND_CREZYH` fighters, and all items present in the global active-item list.",
+        "rationale": "The current definition retains the void return and s32 parameter. Its calls establish the fixed player slot and conditional Hand population, while the refreshed player and item routines confirm the transformed-fighter iteration and complete active-item traversal.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:55.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L395-L450",
+            "why": "Provides the exact signature and shows the fixed player slot, conditional Master Hand and Crazy Hand lookups, and item-wide call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/player.c#L1834-L1904",
+            "why": "Shows the player-level callee accepting an f32 value and applying it to each instantiated transformed fighter mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftlib.c#L463-L533",
+            "why": "Shows the fighter-level setter accepting an `HSD_GObj*` and float and storing the value in fighter state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_26B1.c#L1137-L1169",
+            "why": "Shows the parameterless item-side operation traversing the entire current active-item list."
+          }
+        ]
+      },
+      {
+        "id": "fact:d8c9369c-e8c2-45c8-b792-81f642215d7b",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CA6C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Applies one integer-controlled effect to player slot 0 and any active Master Hand and Crazy Hand fighters, then marks every currently active item through a bulk item-list operation.",
+        "rationale": "The current target establishes the fixed player slot, conditional Hand lookups, and item-wide dispatch. This removes the unsupported claim that the operation specifically begins a half-HP encounter freeze.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows the complete player, Hand-fighter, and item dispatch sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_26B1.c#L1137-L1169",
+            "why": "Shows the final callee traversing all active items."
+          }
+        ]
+      },
+      {
+        "id": "fact:38f3ca2e-2a2b-4f38-a9e3-f8d8b8a345d5",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CA6C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs an immediate one-way bulk setup with no return value or internal timer: player slot 0 is always processed, each Hand fighter is processed only when its FighterKind lookup succeeds, and every item active at call time is visited.",
+        "rationale": "The current body is straight-line except for null guards around the two Hand objects, and its final callee iterates the complete active-item list. The former controller-owned cleanup lifecycle is omitted because that caller citation drifted.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows unconditional player and item dispatches, conditional Hand updates, and no internal timer or return value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_26B1.c#L1137-L1169",
+            "why": "Shows the active-item traversal performed by the final callee."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015CB7C"
+    },
+    "facts": [
+      {
+        "id": "fact:9c5e3a05-1143-4968-b942-90a2c558eee7",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB7C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Accepts no explicit input and forwards control directly to `it_8026C42C`; that routine reads the global active-item GObj list and mutates each associated Item's xDC8 flags, with no return value propagated to the caller.",
+        "rationale": "The wrapper body establishes the direct delegation and absence of local data transformation. The callee's complete body establishes the global-list input and per-item writes that constitute the wrapper's entire externally visible effect.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:09:15.331Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L423-L426",
+            "why": "Shows the direct, argument-free call from the target to it_8026C42C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_26B1.c#L1137-L1169",
+            "why": "Shows the delegated flow from the global item-list head through each GObj's Item data to the xDC8 flag writes."
+          }
+        ]
+      },
+      {
+        "id": "fact:0e1d3e73-24a6-445a-b7aa-2d6c065bbc64",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB7C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Parameterless state-changing wrapper with signature `void (void)`.",
+        "rationale": "The complete matched definition accepts no arguments, returns no value, and delegates all effects to another parameterless routine operating on global active-item state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:09:15.331Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L423-L426",
+            "why": "Provides the complete `void ftBossLib_8015CB7C(void)` definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_26B1.c#L1137-L1169",
+            "why": "Shows that the delegated parameterless routine obtains its inputs from the global active-item GObj list."
+          }
+        ]
+      },
+      {
+        "id": "fact:ffb9c298-414f-40ed-a9a4-5d566187eb1f",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB7C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Exposes a bulk active-item flag transition that propagates x7 into x5 and clears x3 across all currently active items.",
+        "rationale": "The current wrapper directly invokes it_8026C42C, whose complete current body traverses the active-item list and performs those two guarded writes. The unsupported scripted-phase context is removed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows the parameterless wrapper directly invoking it_8026C42C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_26B1.c#L1137-L1169",
+            "why": "Shows the active-item traversal, x7-to-x5 propagation, and x3 clearing."
+          }
+        ]
+      },
+      {
+        "id": "fact:27cc6398-d94b-418f-ac6e-d802359d31ba",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB7C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally performs one bulk transition over the currently active items: for each item, x7 being set causes x5 to be set, while x3 being set causes x3 to be cleared. The two guards are independent, and repeating the operation is idempotent with respect to these writes.",
+        "rationale": "The wrapper contains no guard or branch before its single call. Its callee has two separate conditionals per item; neither write is reversed by the routine, so subsequent calls leave the resulting x5/x3 state unchanged.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:09:15.331Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L423-L426",
+            "why": "Shows that the target always invokes the transition exactly once whenever called."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_26B1.c#L1137-L1169",
+            "why": "Shows the traversal and the two independent guarded item-flag transitions."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015CB9C"
+    },
+    "facts": [
+      {
+        "id": "fact:b1d4d3fa-89d5-4e52-a4f2-03d71b0f49a6",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB9C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The player-slot argument selects the active transformed fighter pose copied into a local Vec3. The unmodified vector becomes `target_interest`; a by-value copy has its Z component increased by Master Hand special-attribute field x178, or by -1 when those attributes are unavailable, and becomes `target_position`. The constant 10 is then stored as the camera transition count while the current interest, position, and field of view are captured as transition starting values.",
+        "rationale": "The current boss-library body preserves the slot-to-vector transformation and call sequence. The refreshed player accessor identifies the source pose, the relocated camera setters confirm the interest and position destinations, and the transition initializer confirms the count and captured starting values.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:50:55.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L395-L450",
+            "why": "Shows the player-slot coordinate load, unmodified interest vector, conditional Z adjustment, target-position call, and constant transition argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/player.c#L509-L519",
+            "why": "Shows the player slot selecting the stored pose for the active transformed fighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/cm/camera.c#L3104-L3214",
+            "why": "Shows `Camera_8002E818` copying its vector into fixed target-interest state and `Camera_8002EA64` copying its vector into fixed target-position state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/cm/camera.c#L3365-L3485",
+            "why": "Shows `Camera_8002F0E4` storing the transition count, resetting progress, and capturing current interest, position, and field of view."
+          }
+        ]
+      },
+      {
+        "id": "fact:7b7ba3a7-51b8-4e7e-a966-93d6c4e537e9",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB9C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides temporary cinematic camera framing for Hand-boss defeat presentation. Event 50 invokes it with the selected Hand player slot before audio effects, slow motion, and later restoration of the standard camera.",
+        "rationale": "The current Event 50 controller invokes the target at the start of both-Hand and one-Hand defeat branches, then performs the associated audiovisual and speed transitions. The current target constructs the camera framing from that player slot.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows the player-slot-based camera interest, position, offset, and transition setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows Event 50 invoking the target for a Hand slot at the start of defeat presentation branches."
+          }
+        ]
+      },
+      {
+        "id": "fact:74367d9b-77ec-436a-bdf5-ae6a1b37d830",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB9C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_StartCameraTransitionToPlayer",
+        "rationale": "The sole integer argument selects a player slot, while every side effect configures and starts a camera transition around that player's position. The proposed name follows the unit's ftBossLib prefix while retaining the two most strongly demonstrated roles.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftBossLib_StartCameraTransitionToPlayer`.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L422-L447",
+            "why": "Shows that the function transforms a player-slot coordinate into camera interest, target-position, and transition setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/player.c#L509-L519",
+            "why": "Establishes that Player_LoadPlayerCoords takes a validated player-slot index and outputs that slot's active transformed fighter position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/cm/camera.c#L3365-L3485",
+            "why": "Establishes that the final camera call initializes counted transition state from the current camera transform."
+          }
+        ]
+      },
+      {
+        "id": "fact:48c938af-3296-4c68-99c2-6139d63ea1bf",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB9C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "`void(s32 player_slot)`: a side-effect-only boss-camera setup routine whose argument is a player-slot index and whose outputs are writes to global camera interest, target-position, and transition state.",
+        "rationale": "The matched definition retains its void return and s32 argument. The argument is passed directly to the validated player-slot coordinate accessor, and the resulting vectors and constant are consumed by global camera target and transition setters.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:50:55.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L395-L450",
+            "why": "Provides the target's exact signature and shows its argument being passed to `Player_LoadPlayerCoords`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/player.c#L509-L519",
+            "why": "Shows that the integer argument is validated and used as a player-slot index and that the second argument receives a Vec3."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/cm/camera.c#L3104-L3214",
+            "why": "Shows the generated vectors being written into global camera target-interest and target-position state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/cm/camera.c#L3365-L3485",
+            "why": "Shows the final call initializing global counted-transition state."
+          }
+        ]
+      },
+      {
+        "id": "fact:05fcb79e-1bb3-49f2-a1dd-41f8dcccec7a",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB9C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Starts a scripted camera transition focused around the fighter in a selected player slot: it uses that fighter's stored position as the camera interest point, places the target camera position at the same point with a boss-configured Z offset, and initializes a transition with count 10.",
+        "rationale": "The current target still loads the selected fighter's stored coordinates, assigns them as fixed camera interest, applies the Master Hand attribute-derived Z offset to a copy, assigns that copy as fixed camera position, and starts a ten-count transition. The relocated camera implementations confirm each destination and transition write.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:55.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L395-L450",
+            "why": "Shows the complete boss-camera setup, including coordinate loading, interest assignment, Z displacement, target-position assignment, and transition count 10."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/player.c#L509-L519",
+            "why": "Shows that the source vector is the selected slot's active transformed fighter pose."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/cm/camera.c#L3104-L3214",
+            "why": "Shows the supplied vectors becoming fixed target-interest and target-position values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/cm/camera.c#L3365-L3485",
+            "why": "Shows the transition initializer resetting progress, storing its terminal count, and capturing the current camera transform."
+          }
+        ]
+      },
+      {
+        "id": "fact:06490ef0-7bf7-4796-8f5e-e551a12eee80",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CB9C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Synchronously replaces the camera's interest and position targets and initializes counted transition state with progress zero and terminal count 10. If Master Hand's special attributes are unavailable, it uses a Z offset of -1; Event 50 later restores the standard camera when its initial defeat delay expires.",
+        "rationale": "The current target establishes the conditional offset and transition call, the camera initializer establishes its counter state, and the current Event 50 controller shows the temporary setup followed by standard-camera restoration.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L389-L445",
+            "why": "Shows the camera targets, x178 or -1 Z offset, and transition count 10."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/cm/camera.c#L3365-L3484",
+            "why": "Shows Camera_8002F0E4 resetting progress, storing the terminal count, and capturing starting camera values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://514397e54e/src/melee/gm/gmevent.c#L2388-L2507",
+            "why": "Shows Event 50 starting this framing and later restoring the standard camera at the initial timing threshold."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_8015CC14"
+    },
+    "facts": [
+      {
+        "id": "fact:866a8555-02cb-4a99-b493-510d89021c02",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CC14",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Takes no explicit input and produces no return value; it forwards control to Camera_SetModeToStandard, whose camera-subsystem side effect is the function's only output.",
+        "rationale": "There are no local values, arguments, branches, or return data in the complete body. The only observable flow is invocation of the camera setter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:35.854Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L444-L447",
+            "why": "The full body contains exactly one parameterless camera call."
+          }
+        ]
+      },
+      {
+        "id": "fact:8840dbeb-c8fe-4dd5-8661-552c23678c23",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CC14",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes restoration of Melee's standard gameplay camera mode from boss-related game flow.",
+        "rationale": "The function belongs to the shared Hand-boss utility module and directly selects the camera subsystem's standard mode. This grounds it in the game's camera-mode behavior without claiming a more specific visual transition not shown by the body.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T12:10:35.854Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L356-L450",
+            "why": "The module tail places this standard-mode setter alongside the boss library's camera-positioning helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L444-L447",
+            "why": "The target explicitly selects the standard camera mode."
+          }
+        ]
+      },
+      {
+        "id": "fact:a39c0942-8dc6-4f8a-b7ad-7a1ee9c8e55f",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CC14",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_SetCameraModeToStandard",
+        "rationale": "The routine is a boss-library wrapper whose only operation is Camera_SetModeToStandard. Prefixing the callee's established semantic name with the translation unit's ftBossLib naming convention is the most direct plausible original-style name, though no symbol or review record confirms it.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-02T12:10:35.854Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L444-L447",
+            "why": "The wrapper's sole callee supplies the exact semantic phrase SetModeToStandard, while the current function and its siblings establish the ftBossLib prefix."
+          }
+        ]
+      },
+      {
+        "id": "fact:62da5d8d-4fb5-425e-9dd7-2fffe44c06b3",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CC14",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "void (void)",
+        "rationale": "The matched definition takes no parameters, returns void, and contains no returned value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:35.854Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L444-L447",
+            "why": "The complete function definition explicitly has a void parameter list and void return type."
+          }
+        ]
+      },
+      {
+        "id": "fact:d6b4161e-88f0-49dd-ba4b-a0e82000cb05",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CC14",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Restores the camera subsystem to its standard mode through the boss-library interface.",
+        "rationale": "The complete function body consists solely of a call to the explicitly named Camera_SetModeToStandard routine, so its entire purpose is to expose that camera restoration operation to users of ftBossLib.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:10:35.854Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L444-L447",
+            "why": "The complete matched body directly calls Camera_SetModeToStandard and performs no other operation."
+          }
+        ]
+      },
+      {
+        "id": "fact:337f8c79-e2b5-4a8a-96c9-6ea0448b7891",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_8015CC14",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally requests a transition of the active camera configuration to the standard camera mode; it has no guard, timer, or local state.",
+        "rationale": "The direct, unconditional Camera_SetModeToStandard call establishes a camera-mode transition, while the absence of any surrounding control flow rules out local guards or timing behavior.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:10:35.854Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftbosslib.c#L444-L447",
+            "why": "The complete function unconditionally invokes the standard-mode setter."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/919033543412305951",
+            "why": "The resolved community discussion independently notes that Melee has multiple camera modes, supporting interpretation of the setter as a mode transition rather than a generic camera update."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_GetFighterGObj"
+    },
+    "facts": [
+      {
+        "id": "fact:649eee84-f01e-4a13-ad75-9c6f87e609f3",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetFighterGObj",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a FighterKind enum value, reads HSD_GObj_Entities->fighters, follows each object's next pointer, and passes every candidate to ftLib_GetKind. The first equal kind produces the returned HSD_GObj pointer; callers then derive Fighter data, joints, partner references, motion IDs, or boss attributes from that object.",
+        "rationale": "The target establishes the complete input-to-output traversal. The resolved callers demonstrate concrete consumers: camera position providers derive waist joints, while paired-Hand action setup stores the returned object as the other Hand's partner.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:12:06.010Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L221-L234",
+            "why": "Shows the input kind comparison, global-list traversal, ftLib_GetKind call, and returned matching object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandgrabunk1b174.c#L162-L171",
+            "why": "Shows a consumer turning the returned Crazy Hand object into a Fighter and then a waist-joint world position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/kinds/ftMasterHand/ftmasterhandslam.c#L57-L67",
+            "why": "Shows a consumer storing the returned Crazy Hand object as Master Hand's partner and passing it into coordinated-action setup."
+          }
+        ]
+      },
+      {
+        "id": "fact:0673e646-74cc-4214-bad6-1f08f5b27945",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetFighterGObj",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports runtime coordination of the Hand bosses by resolving Master Hand or Crazy Hand from a FighterKind. Hand action code uses the result to establish cross-boss references, while camera-related code can derive a Hand's live joint position.",
+        "rationale": "The current lookup still returns the first active fighter of the requested kind, and the replacement Crazy Hand Squeeze source uses it to retain the active Master Hand object as partner state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:42:20.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L117-L236",
+            "why": "Shows active-fighter traversal and first-match return by FighterKind."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandsqueeze.c#L1-L56",
+            "why": "Shows Crazy Hand resolving and retaining the active Master Hand object during Squeeze setup."
+          }
+        ]
+      },
+      {
+        "id": "fact:48dc8885-1476-41a4-94ef-03bc9da851f6",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetFighterGObj",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_GetFighterGObj",
+        "rationale": "An adjacent source comment explicitly characterizes the routine as get_fighter_gobj(FighterKind), and the body returns an HSD_GObj from the fighter list. Prefixing that recovered semantic stem with the unit's established ftBossLib_ convention gives a plausible original-style name, although no preserved symbol proves the exact capitalization or wording.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-02T12:12:06.010Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L195-L275",
+            "why": "Contains the comment `get_fighter_gobj(FighterKind)` immediately above the function and shows that its result is reused by neighboring boss-library queries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L221-L234",
+            "why": "Confirms that the routine searches fighter GObjs by FighterKind and returns the matching GObj."
+          }
+        ]
+      },
+      {
+        "id": "fact:4d835caf-f52e-4c00-b8b2-abf395b18234",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetFighterGObj",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Nullable active-roster lookup with signature HSD_GObj* (FighterKind kind). The return value is a borrowed pointer to the first matching fighter object, or NULL if the requested kind is absent.",
+        "rationale": "The matched declaration establishes the exact argument and return types. Returning an existing node directly from HSD_GObj_Entities->fighters establishes borrowed ownership, while the fallthrough NULL return establishes nullability.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:12:06.010Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L221-L234",
+            "why": "Provides the exact signature and shows that an existing fighter-list node or NULL is returned."
+          }
+        ]
+      },
+      {
+        "id": "fact:227120e6-6f3c-460c-b99d-41f4e43a8683",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetFighterGObj",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finds the first active fighter game object whose identity equals a requested FighterKind, allowing boss routines to obtain another boss or participant without already holding its object pointer.",
+        "rationale": "The current body still performs a first-match traversal of the active fighter list, and the replacement Crazy Hand Squeeze source demonstrates a current consumer obtaining Master Hand through it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:42:20.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L117-L236",
+            "why": "Shows the FighterKind comparison, first-match return, and NULL result after list exhaustion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandsqueeze.c#L1-L56",
+            "why": "Shows a current consumer obtaining Master Hand for a coordinated Crazy Hand state."
+          }
+        ]
+      },
+      {
+        "id": "fact:af2adbfb-4a72-4748-ab4d-726f1edd8752",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetFighterGObj",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a stateless snapshot search. It exits immediately on the first fighter-kind match and returns NULL only after exhausting the current fighter list; it does not mutate, cache, create, or destroy fighter objects.",
+        "rationale": "The complete function contains only a local cursor, list reads, kind comparisons, and return paths. There are no persistent writes, so each invocation reflects the active roster at that moment.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:12:06.010Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L221-L234",
+            "why": "Shows first-match early return, end-of-list failure, and the absence of persistent mutation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_GetMotionId"
+    },
+    "facts": [
+      {
+        "id": "fact:7d777191-aae5-45c7-a885-b5c18e6067d7",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetMotionId",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a FighterKind, passes it to ftBossLib_8015C3E8, and thereby searches HSD_GObj_Entities->fighters for the first object whose ftLib_GetKind matches. A found HSD_GObj flows into ftLib_GetMotionId and its Fighter.motion_id becomes the result; an unsuccessful search instead emits ftCo_MS_DeadDown. Hand-specific predicates and Master Hand's wait controller consume the returned enum in motion-state comparisons.",
+        "rationale": "The adjacent lookup and target body establish the complete input-to-output path from FighterKind through the active roster to motion_id or fallback. The neighboring predicates and resolved Wait1_0 callback demonstrate downstream comparisons against Master Hand and Crazy Hand motion constants.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:25:47.365Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L248",
+            "why": "Shows the active-fighter-list traversal, kind comparison, target return paths, and four neighboring Hand-specific consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftlib.c#L574-L578",
+            "why": "Shows the final successful read from Fighter.motion_id."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L200-L354",
+            "why": "Shows Master Hand's wait controller passing FTKIND_CREZYH and comparing the returned value with ftMh_MS_TagRockPaper."
+          }
+        ]
+      },
+      {
+        "id": "fact:8f1cd960-743e-46f1-ae60-2e1cbe57c519",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetMotionId",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements shared motion-state polling for the Master Hand and Crazy Hand boss controllers. It supports recognition of character-specific Hand phases and allows Master Hand's idle controller to detect Crazy Hand's TagRockPaper combination phase before selecting the matching coordinated response.",
+        "rationale": "Neighboring routines invoke the target with FTKIND_MASTERH and FTKIND_CREZYH to build Hand-state predicates. Master Hand's wait callback directly queries Crazy Hand and branches into code labeled as a Crazy Hand combo attack when the reported motion is TagRockPaper; the mechanics reference independently documents that Crazy Hand initiates paired attacks and Master Hand subsequently joins.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T12:25:47.365Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L248",
+            "why": "Shows repeated target calls specialized to the Master Hand and Crazy Hand FighterKind values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait10.c#L200-L354",
+            "why": "Shows the target detecting Crazy Hand's TagRockPaper motion immediately before Master Hand dispatches a corresponding combo phase."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://master-hand-ssbm~in-combination-with-crazy-hand@r1952272",
+            "why": "Documents Melee's paired Hand attacks and explains that Crazy Hand enters the combination first and waits for Master Hand to join."
+          }
+        ]
+      },
+      {
+        "id": "fact:9fc9721f-6a25-4359-b5ca-1f30b5c06ea2",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetMotionId",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_GetMotionId",
+        "rationale": "The body is the boss-library wrapper around the established ftLib_GetMotionId accessor, differing by accepting a FighterKind and locating the corresponding active fighter first. Nearby comments describe callers as obtaining an `msid`, making `ftBossLib_GetMotionId` a plausible name in the unit's prefix convention, though no preserved symbol confirms the exact wording.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-02T12:25:47.365Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L248",
+            "why": "Shows nearby `Get msid` comments and the target delegating to ftLib_GetMotionId after resolving a FighterKind."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftlib.c#L574-L578",
+            "why": "Establishes the existing accessor name and confirms that its returned value is Fighter.motion_id."
+          }
+        ]
+      },
+      {
+        "id": "fact:b342df2e-fecb-4cc2-90bd-d629f77a90cc",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetMotionId",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Read-only query with signature enum_t (FighterKind kind). Its successful result belongs to the fighter motion-ID enum domain; failure to locate that kind is represented by the ftCo_MS_DeadDown motion constant rather than a separate optional or error value.",
+        "rationale": "The header and matched definition establish the exact parameter and return types. The success path returns ftLib_GetMotionId, whose body reads Fighter.motion_id, while the null path returns ftCo_MS_DeadDown.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:25:47.365Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.h#L20-L34",
+            "why": "Declares the exact enum_t return type and FighterKind parameter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L236-L248",
+            "why": "Shows the successful motion-ID return and the ftCo_MS_DeadDown absent-fighter fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftlib.c#L574-L578",
+            "why": "Shows that the successful value comes directly from the Fighter.motion_id field."
+          }
+        ]
+      },
+      {
+        "id": "fact:bbca5b0a-0bda-4d6b-b0a1-22f1a6379aee",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetMotionId",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Returns the current motion identifier of the active fighter having a requested FighterKind, giving boss controllers a single query that combines active-roster lookup with motion-state access and a defined absent-fighter fallback.",
+        "rationale": "The function first delegates to the adjacent FighterKind-based roster lookup, then passes the resulting fighter GObj to ftLib_GetMotionId when found and returns ftCo_MS_DeadDown otherwise. Its neighboring callers use this result to implement Master Hand and Crazy Hand motion predicates.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:25:47.365Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L248",
+            "why": "Shows the kind-based lookup, the target's two return paths, and neighboring Hand-specific predicates consuming the result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftlib.c#L574-L578",
+            "why": "Shows that ftLib_GetMotionId reads and returns the located Fighter's current motion_id field unchanged."
+          }
+        ]
+      },
+      {
+        "id": "fact:2c55e743-2945-4a81-b5b6-5440ffe935ea",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_GetMotionId",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a stateless snapshot query and never changes the located fighter's motion. If the requested fighter exists, it reports that fighter's motion at call time; otherwise it reports ftCo_MS_DeadDown. Consequently, callers cannot distinguish an absent fighter from a present fighter genuinely in DeadDown using this return value alone, while comparisons against other Hand-specific states naturally evaluate false when the Hand is absent.",
+        "rationale": "The function contains only lookup, null testing, and return operations. Its successful accessor is itself a field read, and the explicit fallback shares the same enum domain as successful motion IDs, establishing both the snapshot behavior and the fallback ambiguity.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:25:47.365Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L236-L248",
+            "why": "Shows that the target performs no writes and returns either the current motion ID or ftCo_MS_DeadDown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftlib.c#L574-L578",
+            "why": "Shows that the successful path merely reads Fighter.motion_id without causing a transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L248",
+            "why": "Shows callers comparing the query against non-DeadDown Master Hand and Crazy Hand state IDs, making absence produce false for those predicates."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftbosslib:ftBossLib_IsMasterHandEntry"
+    },
+    "facts": [
+      {
+        "id": "fact:42622fb7-2921-40c9-9dc7-05e1eeeb1e82",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_IsMasterHandEntry",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes FTKIND_MASTERH to the shared motion-ID query and converts equality with motion ID 0x157 into a Boolean result.",
+        "rationale": "The current definition directly establishes the fighter-kind input, tested motion ID, and Boolean output. The prior gmregclear citation now resolves to unrelated menu text, so the unsupported downstream-controller detail is removed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L176",
+            "why": "Shows the complete Master Hand motion-ID predicate and its Boolean return paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:1108653a-ee2f-47fa-8f63-1d4a5dcebf01",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_IsMasterHandEntry",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps to Master Hand's battle-entry animation by reporting whether his current motion is ftMh_MS_Entry.",
+        "rationale": "The predicate tests motion ID 0x157, while the current Master Hand entry implementation explicitly enters ftMh_MS_Entry and exits after the animation completes. The removed gmregclear presentation details are no longer needed for this narrower mapping.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L176",
+            "why": "Shows the Master Hand-specific motion predicate testing ID 0x157."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftMasterHand/ftmasterhandentry.c#L1-L120",
+            "why": "Shows Master Hand entering ftMh_MS_Entry and leaving that motion after its animation completes."
+          }
+        ]
+      },
+      {
+        "id": "fact:42f4b66d-6046-4a1e-9134-b7aa7604de0c",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_IsMasterHandEntry",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftBossLib_IsMasterHandInEntry",
+        "rationale": "The function is a side-effect-free Boolean predicate over Master Hand's current motion, and the current motion-state enum identifies the tested state as ftMh_MS_Entry.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T18:52:54.431Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L117-L236",
+            "why": "Shows a parameterless predicate selecting Master Hand and testing one motion ID."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftMasterHand/forward.h#L1-L120",
+            "why": "Identifies the third Master Hand-specific motion as ftMh_MS_Entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:b1ae1ec0-b0fa-4db7-963c-1028835e3172",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_IsMasterHandEntry",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless Boolean motion-state predicate with signature `bool(void)`.",
+        "rationale": "The current complete definition has a void parameter list, Boolean return type, and only Boolean return paths; the stale caller citation is unnecessary.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L176",
+            "why": "Shows the exact `bool(void)` definition and Boolean return paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:87146dd7-6779-411a-95b6-d21cdc88d51e",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_IsMasterHandEntry",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Reports whether the active Master Hand fighter is currently performing his Entry motion.",
+        "rationale": "The current predicate selects Master Hand and tests the motion ID used by his Entry initializer. The former game-mode-consumer claim is omitted because its cited lines moved away.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L176",
+            "why": "Shows the Master Hand-specific motion equality predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftMasterHand/ftmasterhandentry.c#L1-L120",
+            "why": "Identifies the tested motion as Master Hand's Entry motion."
+          }
+        ]
+      },
+      {
+        "id": "fact:266f0268-e0e7-4027-9ec7-3b83c9066ff2",
+        "target_id": "target:function:main/melee/ft/ftbosslib:ftBossLib_IsMasterHandEntry",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Returns true only when Master Hand's queried motion ID is 0x157, the ftMh_MS_Entry state; it returns false for every other query result.",
+        "rationale": "The current predicate has one accepted motion ID, and the current Entry implementation identifies that ID's behavior. The obsolete gmregclear phase-transition clause is removed.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:08:42.770Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftbosslib.c#L158-L176",
+            "why": "Shows the sole true condition and false fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftMasterHand/ftmasterhandentry.c#L1-L120",
+            "why": "Shows the corresponding ftMh_MS_Entry state and its animation-completion exit."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftbosslib:ftBossLib_8015C3E8#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftbosslib:ftBossLib_8015C44C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftbosslib:ftBossLib_8015C530#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftbosslib:ftBossLib_8015C5F8#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftbosslib:ftBossLib_8015CA6C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftbosslib:ftBossLib_8015CB9C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftbosslib:ftBossLib_GetFighterGObj#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftbosslib:ftBossLib_GetMotionId#r3"
+    },
+    "facts": []
+  }
+]

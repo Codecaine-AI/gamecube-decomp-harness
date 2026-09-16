@@ -1,7 +1,9 @@
+import { applyBackfillConfig } from './backfill-config';
 import { resolve } from "node:path";
 import { resolveGame, type ResolvedGame } from "./resolver.js";
 import type { RunGameMetadata } from "@server/core/shared/types";
-import { DEFAULT_PI_MODEL, DEFAULT_PI_PROVIDER, DEFAULT_PI_THINKING_LEVEL, DEFAULT_STATE_DIR_NAME } from "./runtime-defaults.js";
+import { DEFAULT_PI_MODEL, DEFAULT_PI_PROVIDER, DEFAULT_PI_THINKING_LEVEL } from "./runtime-defaults.js";
+import { resolveOrchestratorLayout } from "../config/orchestrator.js";
 
 export interface GlobalArgs {
   repoRoot: string;
@@ -144,8 +146,9 @@ export function parse(argv: string[]): ParsedArgs {
     globals.repoRoot = game.repoRoot;
     globals.stateDir = game.stateDir;
     globals.graphDbPath = game.graphDbPath;
+    if (command === "kg2-backfill") applyBackfillConfig(game.gameDir, globals, args, argv);
   } else if (!globals.stateDir) {
-    globals.stateDir = resolve(defaultStateRoot, DEFAULT_STATE_DIR_NAME);
+    globals.stateDir = resolveOrchestratorLayout(defaultStateRoot).stateDir;
   }
   return { command, globals, args };
 }

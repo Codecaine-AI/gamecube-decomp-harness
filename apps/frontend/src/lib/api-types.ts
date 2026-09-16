@@ -174,7 +174,6 @@ export interface DashboardBoundary {
 export interface Dashboard {
   game: GameSummary | null;
   harnessState?: JsonObject | null;
-  cycle?: JsonObject | null;
   gameWarnings?: string[];
   repoRoot: string;
   stateDir: string;
@@ -243,7 +242,6 @@ export type GameEventSubjectKind =
   | "run"
   | "sync_workflow"
   | "sync_push"
-  | "cycle"
   | "knowledge_job"
   | "game_knowledge";
 
@@ -332,7 +330,6 @@ export interface RunDetails {
   workerStates?: JsonObject[];
   events?: JsonObject[];
   sessions?: JsonObject[];
-  directorCycles?: JsonObject[];
   targetClaims?: JsonObject[];
   epochTargets?: JsonObject[];
   improvements?: JsonObject[];

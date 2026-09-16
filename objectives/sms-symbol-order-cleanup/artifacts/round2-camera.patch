@@ -1,0 +1,100 @@
+--- a/src/Camera/CubeManagerBase.cpp
++++ b/src/Camera/CubeManagerBase.cpp
+@@ -127,7 +127,7 @@
+ 	return false;
+ }
+ 
+-inline bool TCubeManagerFast::isInOtherCube(const Vec& pos) const
++bool TCubeManagerFast::isInOtherCube(const Vec& pos) const
+ {
+ 	bool result = false;
+ 	int in      = getInCubeNo(pos);
+--- a/src/Camera/sunmodel.cpp
++++ b/src/Camera/sunmodel.cpp
+@@ -144,38 +144,6 @@
+ 	param_1[7].y = param_2.y + fVar1;
+ }
+ 
+-// TODO: mark as inline or even move to the header maybe?
+-void TSunModel::calcDispRatioAndScreenPos_()
+-{
+-	unk191   = 0;
+-	bool* it = unk180;
+-	for (int i = 0; i < 17; ++i, ++it)
+-		if (*it)
+-			unk191 += 1;
+-
+-	unk194 = (f32)unk191 * (1.0f / 17.0f);
+-
+-	CLBCalc2DFPos(unkF8, gpCamera->getUnk16C(), gpCamera->getUnk1EC(), unk198,
+-	              nullptr, false);
+-
+-	f32 radius = unk1A4 * mScaling.y;
+-	calcOtherFPosFromCenterAndRadius_(&unkF8[1], unkF8[0], radius);
+-	radius /= 2.0f;
+-	calcOtherFPosFromCenterAndRadius_(&unkF8[9], unkF8[0], radius);
+-
+-	int i;
+-	JGeometry::TVec2<f32>* it2;
+-	JGeometry::TVec2<s16>* it1;
+-
+-	it1 = unkB4;
+-	it2 = unkF8;
+-	for (i = 0; i < 17; ++i) {
+-		CLBScreenFPosToSPos(it1, *it2);
+-		++it1;
+-		++it2;
+-	}
+-}
+-
+ void TSunModel::perform(u32 cue, JDrama::TGraphics*)
+ {
+ 	bool sunInBounds;
+--- a/include/Camera/SunModel.hpp
++++ b/include/Camera/SunModel.hpp
+@@ -4,6 +4,7 @@
+ #include <JSystem/J3D/J3DGraphBase/Components/J3DGXColorS10.hpp>
+ #include <JSystem/J3D/J3DGraphAnimator/J3DAnimation.hpp>
+ #include <JSystem/JDrama/JDRActor.hpp>
++#include <Camera/Camera.hpp>
+ 
+ class J3DModel;
+ class TMapStaticObj;
+@@ -49,7 +50,36 @@
+ 	void calcOtherFPosFromCenterAndRadius_(JGeometry::TVec2<f32>*,
+ 	                                       const JGeometry::TVec2<f32>&, f32);
+ 
+-	void calcDispRatioAndScreenPos_();
++	void calcDispRatioAndScreenPos_()
++	{
++		unk191   = 0;
++		bool* it = unk180;
++		for (int i = 0; i < 17; ++i, ++it)
++			if (*it)
++				unk191 += 1;
++
++		unk194 = (f32)unk191 * (1.0f / 17.0f);
++
++		CLBCalc2DFPos(unkF8, gpCamera->getUnk16C(), gpCamera->getUnk1EC(), unk198,
++		              nullptr, false);
++
++		f32 radius = unk1A4 * mScaling.y;
++		calcOtherFPosFromCenterAndRadius_(&unkF8[1], unkF8[0], radius);
++		radius /= 2.0f;
++		calcOtherFPosFromCenterAndRadius_(&unkF8[9], unkF8[0], radius);
++
++		int i;
++		JGeometry::TVec2<f32>* it2;
++		JGeometry::TVec2<s16>* it1;
++
++		it1 = unkB4;
++		it2 = unkF8;
++		for (i = 0; i < 17; ++i) {
++			CLBScreenFPosToSPos(it1, *it2);
++			++it1;
++			++it2;
++		}
++	}
+ 
+ public:
+ 	/* 0x44 */ J3DModelData* unk44;

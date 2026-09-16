@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution-30-lease-claims-and-lifecycle",
+  "title": "Deletion and Cleanup",
+  "root": "b-day-lease-root",
+  "blocks": {
+    "b-day-lease-root": {
+      "id": "b-day-lease-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "dispatch-lease",
+          "lease-id",
+          "target-claim",
+          "orphan",
+          "recovery",
+          "stop-while-thinking",
+          "warm-pool"
+        ]
+      },
+      "children": [
+        "cl-intro",
+        "block-sandbox-cleanup",
+        "cl-evidence",
+        "cl-normal",
+        "cl-host",
+        "cl-timeout",
+        "cl-integration",
+        "cl-recovery",
+        "cl-reconcile",
+        "cl-recovery-process",
+        "cl-ttl",
+        "cl-events"
+      ]
+    },
+    "cl-intro": {
+      "id": "cl-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The sandbox can be deleted once the worker has retained the evidence needed to evaluate and integrate its result. The host owns deletion. The worker's summary and librarian processing use host artifacts and do not keep the sandbox alive."
+        }
+      ],
+      "children": []
+    },
+    "block-sandbox-cleanup": {
+      "id": "block-sandbox-cleanup",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/sandbox-cleanup.sequence.json"
+      },
+      "children": []
+    },
+    "cl-evidence": {
+      "id": "cl-evidence",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Required checkpoint patches and validation artifacts must reach the host before worker state closes. The runner also finalizes the sleep controller and writes "
+        },
+        {
+          "insert": "sandbox_sleep_stats.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Closing that controller rejects new remote operations and waits for an in-progress stop or start; it does not drain active operations or delete the sandbox."
+        }
+      ],
+      "children": []
+    },
+    "cl-normal": {
+      "id": "cl-normal",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Normal Completion"
+        }
+      ],
+      "children": []
+    },
+    "cl-host": {
+      "id": "cl-host",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The host observes closed worker state and starts provider deletion with reason "
+        },
+        {
+          "insert": "settlement",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Job "
+        },
+        {
+          "insert": "settlement",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " also has a cleanup hook. The lifecycle service avoids recording a second deletion for a sandbox already marked deleted, and treats a provider not-found response as confirmation that the workspace is gone."
+        }
+      ],
+      "children": []
+    },
+    "cl-timeout": {
+      "id": "cl-timeout",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Transient provider failures receive bounded retries. Settlement deletion has a 120-second default deadline; if it cannot finish, the host leaves cleanup to "
+        },
+        {
+          "insert": "reconciliation",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". A successful match or checkpoint does not require the sandbox to remain running during code integration."
+        }
+      ],
+      "children": []
+    },
+    "cl-integration": {
+      "id": "cl-integration",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker Result Integration",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/30-worker-result-integration"
+            }
+          }
+        },
+        {
+          "insert": " owns applying the retained code changes to the harness worktree."
+        }
+      ],
+      "children": []
+    },
+    "cl-recovery": {
+      "id": "cl-recovery",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Recovery and Replacement"
+        }
+      ],
+      "children": []
+    },
+    "cl-reconcile": {
+      "id": "cl-reconcile",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Startup "
+        },
+        {
+          "insert": "reconciliation",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " lists the game's labeled sandboxes and compares them with the recorded worker job, sandbox ID, active target claim, and Run dispatch authority. A stopped sandbox with a live binding is retained. Stopped state by itself is never evidence of an orphan."
+        }
+      ],
+      "children": []
+    },
+    "cl-recovery-process": {
+      "id": "cl-recovery-process",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Recover sandbox resources",
+            "steps": [
+              {
+                "text": "Job reap removes the sandbox attached to the expired worker job",
+                "steps": [
+                  {
+                    "text": "Deletion reason: reap"
+                  }
+                ]
+              },
+              {
+                "text": "Reconciliation removes sandboxes without a live recorded binding",
+                "steps": [
+                  {
+                    "text": "Deletion reason: reconciliation"
+                  }
+                ]
+              },
+              {
+                "text": "Failed provisioning cleans up the newly created sandbox",
+                "steps": [
+                  {
+                    "text": "Deletion reason: provision_failure"
+                  }
+                ]
+              },
+              {
+                "text": "Retry provisioning records a replacement and attempts prior-sandbox deletion",
+                "steps": [
+                  {
+                    "text": "The replacement is provisioned first. Deletion of the prior sandbox uses retry_reprovision; its outcome is recorded before attaching the replacement."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "cl-ttl": {
+      "id": "cl-ttl",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The provider TTL remains a backstop. Sleeping does not extend that TTL, the job lease, or the claim deadline."
+        }
+      ],
+      "children": []
+    },
+    "cl-events": {
+      "id": "cl-events",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Agent Kernel Integration",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/60-tracing/20-agent-kernel-integration"
+            }
+          }
+        },
+        {
+          "insert": " records creation and deletion facts under the worker's existing trace identity."
+        }
+      ],
+      "children": []
+    }
+  }
+}

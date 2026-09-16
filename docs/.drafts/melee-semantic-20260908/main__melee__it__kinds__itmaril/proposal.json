@@ -1,0 +1,70 @@
+{
+  "tu": "main/melee/it/kinds/itmaril",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmaril:it_802D6A54"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Marill state-entry helper with signature `void(Item_GObj* gobj)`. It reads `itMarilAttributes` through the associated Item's article data, requests state 1, and writes the facing-adjusted attribute xC into `ItemVars.maril.x64`. The special-attribute block is read, not mutated. The helper is called by `it_802D69E4` rather than installed directly in the local ItemStateTable.",
+        "rationale": "Corrects the existing claim that this routine mutates the special-attribute block while preserving its signature, entry role, and runtime-storage behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmaril.c#L172-L194",
+            "why": "Shows the caller, attribute read, state request, and runtime speed write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmaril.c#L18-L43",
+            "why": "The helper is absent from the callback table."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itmaril.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Marill special attributes feed spawn setup, animation speed, lifetime setup, signed running speed, turn duration, and the damage threshold. Falling physics instead reads `x10_fall_speed` and `x14_fall_speed_max` from the common `ItemAttr` reached through `xCC_item_attr`. Separately, the Hinoarashi flame callback tuple updates velocity, copies and normalizes its travel vector, combines terrain-contact results, and forwards the mask to Hinoarashi normal and trajectory-angle helpers. The flame physics body retains Marill-named source views; those names do not establish runtime actor identity.",
+        "rationale": "Corrects the conflation of common fall attributes with Marill special attributes and preserves the independently verified cross-file flame flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmaril.c#L123-L210",
+            "why": "Marill special-attribute producers and consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmaril.c#L247-L290",
+            "why": "Common fall-attribute source and separate special-attribute damage threshold."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmaril.c#L65-L86",
+            "why": "Velocity-copy normalization and collision-mask forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L44-L46",
+            "why": "Independent registration identifies the early callback tuple."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L181-L259",
+            "why": "Normal aggregation and trajectory-angle consumers."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

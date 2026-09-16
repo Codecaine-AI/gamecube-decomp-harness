@@ -1,0 +1,38 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_ItemScrew",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ItemScrew:ft_800D2E7C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally scales the supplied vector's x/y components by p_ftCommonData->x800, volatile-reads z without writing it, calls ftCommon_8007D5D4, then enters ftCo_MS_ItemScrewAir through ftCo_800CBAC4 with timer-reset argument 1. The setup marks GA_Air, sets jumpsUsed to 1 and locks the ECB for 10; the aerial helper starts the motion at frame 0/rate 1, sets x2221_b7, copies the complete vector into self_vel, sets the vertical-stick timer to 0xFE and increments jumpsUsed to 2. Thus the composed entry resets then increments the count rather than incrementing the previous count. It has no local input guard; the inspected aerial-jump caller checks jump input and held-item eligibility before invocation. ItemScrewAir_Anim enters FallAerial when animation frames are exhausted.",
+        "rationale": "Replace the ambiguous 'consumes one available jump' description with the exact cross-file write sequence and preserve the vector's volatile z access.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScrew.c#L53-L69",
+            "why": "Shows vector operations, ordered calls and animation exit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Shows airborne state, jump-count reset and ECB lock."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L86-L156",
+            "why": "Shows caller acceptance and helper state, velocity, timer and count effects."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

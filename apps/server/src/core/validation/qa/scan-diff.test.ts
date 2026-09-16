@@ -2,8 +2,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { QA_SCAN_REQUIRES_GAME_ERROR, REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV, qaScanGlobalStandardsDir, runQaScanDiff } from "./scan-diff.js";
 
-const scanner = resolve(import.meta.dir, "../../../../../../toolpacks/gamecube-decomp/source_editing/review_lint/api/scan_diff.py");
+const orchestratorRoot = resolve(import.meta.dir, "../../../../../..");
+const scanner = resolve(orchestratorRoot, "toolpacks/gamecube-decomp/source_editing/review_lint/api/scan_diff.py");
 
 function run(cwd: string, command: string[]): string {
   const result = Bun.spawnSync(command, { cwd, stdout: "pipe", stderr: "pipe" });
@@ -74,5 +76,68 @@ RULES = [{"rule_id": "address_named_static_data", "severity": "error", "standard
     expect(bySymbolAndFile.get("src/b/data.c:lbl_80400008")?.severity).toBe("error");
     expect(bySymbolAndFile.get("src/a/data.c:lbl_80400000")?.disposition).toBe("informational");
     expect(bySymbolAndFile.get("src/a/data.c:lbl_8040000C")?.severity).toBe("error");
+  });
+});
+
+describe("runQaScanDiff game resolution", () => {
+  const cleanStdout = JSON.stringify({
+    tool: "review_lint",
+    operation: "review_lint:scan_diff",
+    status: "passed",
+    repo: "/repo",
+    base: null,
+    findings: [],
+    counts: { errors: 0, warnings: 0 },
+  });
+
+  async function invoke(game: { gameId?: string } | undefined): Promise<{ env: Record<string, string> | undefined; command: string[] } & Awaited<ReturnType<typeof runQaScanDiff>>> {
+    let seenEnv: Record<string, string> | undefined;
+    let seenCommand: string[] = [];
+    const invocation = await runQaScanDiff({
+      repoRoot: "/repo",
+      orchestratorRoot,
+      game,
+      stateDir: "/state",
+      diffFile: "/tmp/attempt.patch",
+      surface: "worker",
+      processRunner: async (_repoRoot, command, env) => {
+        seenEnv = env;
+        seenCommand = command;
+        return { exitCode: 0, stdout: cleanStdout, stderr: "" };
+      },
+    });
+    return { ...invocation, env: seenEnv, command: seenCommand };
+  }
+
+  test("fails closed without a game instead of defaulting to melee", async () => {
+    const invocation = await invoke(undefined);
+    expect(invocation.toolError).toBe(QA_SCAN_REQUIRES_GAME_ERROR);
+    expect(invocation.toolError).toBe("qa scan requires a game");
+    expect(invocation.result).toBeNull();
+    expect(invocation.exitCode).toBe(-1);
+    expect(invocation.env).toBeUndefined();
+
+    const noId = await invoke({});
+    expect(noId.toolError).toBe(QA_SCAN_REQUIRES_GAME_ERROR);
+  });
+
+  test("passes the game's ORCH_GAME_DIR and the global standards dir for a non-melee game", async () => {
+    const invocation = await invoke({ gameId: "sms" });
+    expect(invocation.toolError).toBeNull();
+    expect(invocation.env?.ORCH_GAME_ID).toBe("sms");
+    expect(invocation.env?.ORCH_GAME_DIR).toBe(resolve(orchestratorRoot, "games/sms"));
+    expect(invocation.env?.[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV]).toBe(qaScanGlobalStandardsDir(orchestratorRoot));
+    expect(invocation.env?.[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV]).toBe(
+      resolve(orchestratorRoot, "games/melee/knowledge/sources/injectable/decomp_standards/standards"),
+    );
+    expect(invocation.command).toContain("--diff-file");
+    expect(invocation.command).toContain("--surface");
+  });
+
+  test("does not set the global standards dir for melee itself", async () => {
+    const invocation = await invoke({ gameId: "melee" });
+    expect(invocation.toolError).toBeNull();
+    expect(invocation.env?.ORCH_GAME_DIR).toBe(resolve(orchestratorRoot, "games/melee"));
+    expect(invocation.env?.[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV]).toBeUndefined();
   });
 });

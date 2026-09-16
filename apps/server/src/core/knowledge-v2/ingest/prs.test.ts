@@ -832,3 +832,13 @@ describe("PR comment readers", () => {
     expect(resolvePrComment(prsRoot, 9999, 0)).toBeNull();
   });
 });
+
+test("configured PR sources retain repository identity in isolated game databases", () => {
+  const other = createFixture(); const melee = createFixture();
+  importPrs(other.store, { prsRoot: other.prsRoot, sourceIdentity: { game_id: "other", source_id: "upstream", kind: "pr", upstream: "example/other" } });
+  importPrs(melee.store, { prsRoot: melee.prsRoot, sourceIdentity: { game_id: "melee", source_id: "upstream", kind: "pr", upstream: "doldecomp/melee" } });
+  const refs = (store: KnowledgeStore) => (store.db.query("SELECT DISTINCT pr_ref FROM pull_request").all() as Array<{ pr_ref: string }>).map(row => row.pr_ref);
+  expect(refs(other.store).length).toBeGreaterThan(0);
+  expect(refs(other.store).every(ref => ref.startsWith("example/other#"))).toBe(true);
+  expect(refs(melee.store).every(ref => ref.startsWith("melee#"))).toBe(true);
+});

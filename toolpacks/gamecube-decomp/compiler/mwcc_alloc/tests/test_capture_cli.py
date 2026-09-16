@@ -149,6 +149,41 @@ class CaptureCliTests(unittest.TestCase):
         with self.assertRaises(capture.ArgumentError):
             capture.normalize_unit("src/bad\0name.c")
 
+    def test_object_path_uses_project_layout_for_c_and_cpp_units(self):
+        capture = load_capture_module()
+        fixtures = (
+            (
+                "main/melee/lb/lbmemory",
+                "src/melee/lb/lbmemory.c",
+                "build/GALE01/src/melee/lb/lbmemory.o",
+            ),
+            (
+                "mario/MarioUtil/MtxUtil",
+                "src/MarioUtil/MtxUtil.cpp",
+                "build/GMSJ01/src/MarioUtil/MtxUtil.o",
+            ),
+        )
+        for name, source_path, object_path in fixtures:
+            with self.subTest(source_path=source_path), tempfile.TemporaryDirectory() as root:
+                Path(root, "objdiff.json").write_text(
+                    json.dumps(
+                        {
+                            "units": [
+                                {
+                                    "name": name,
+                                    "base_path": object_path,
+                                    "target_path": object_path.replace("/src/", "/obj/"),
+                                    "metadata": {"source_path": source_path},
+                                }
+                            ]
+                        }
+                    )
+                )
+                self.assertEqual(
+                    capture.object_path_for_unit(Path(root), source_path),
+                    object_path,
+                )
+
     def test_bad_function_symbols_are_rejected(self):
         for symbol in ("9bad", "bad-name", "two words"):
             with self.subTest(symbol=symbol):

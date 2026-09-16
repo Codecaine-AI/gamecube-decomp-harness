@@ -179,10 +179,29 @@ def run_command(
 
 
 
-def object_path_for_unit(unit: str) -> str:
-    source = PurePosixPath(unit)
-    # The compiled object is build/GALE01/src/<unit>.o; build/GALE01/obj/ is the dtk-split baseline and not a ninja target.
-    return str(PurePosixPath("build/GALE01") / source.with_suffix(".o"))
+def project_layout_tools_dir() -> Path:
+    candidates = []
+    impl_root = os.environ.get("ORCH_TOOL_IMPL_ROOT")
+    if impl_root:
+        candidates.append(Path(impl_root) / "tools")
+    candidates.extend(
+        parent / "_impl" / "gamecube" / "tools"
+        for parent in (SCRIPT_DIR, *SCRIPT_DIR.parents)
+    )
+    candidates.append(Path("/opt/toolpacks/gamecube-decomp/_impl/gamecube/tools"))
+    for candidate in candidates:
+        if (candidate / "project_layout.py").is_file():
+            return candidate
+    raise ImportError("could not locate gamecube-decomp project layout tools")
+
+
+def object_path_for_unit(repo_root: Path, unit: str) -> str:
+    tools_dir = project_layout_tools_dir()
+    if str(tools_dir) not in sys.path:
+        sys.path.insert(0, str(tools_dir))
+    from project_layout import get_project_layout
+
+    return str(get_project_layout(repo_root).object_path_for_unit(unit))
 
 
 def extract_compile_command(
@@ -794,6 +813,7 @@ def execute_trace(args: argparse.Namespace) -> dict:
     modern_debugger_script()
     repo_root = args.repo_root
     workspace_path(repo_root, args.unit)
+    object_relative = object_path_for_unit(repo_root, args.unit)
     output_dir = workspace_path(repo_root, args.out_dir)
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ArgumentError("Trace output directory must be empty; choose a new --out-dir")
@@ -808,7 +828,7 @@ def execute_trace(args: argparse.Namespace) -> dict:
     try:
         # Resolve and hash the compiler before allowing any build.
         commands = run_command(
-            ["ninja", "-t", "commands", object_path_for_unit(args.unit)],
+            ["ninja", "-t", "commands", object_relative],
             repo_root, remaining(60),
         )
         if commands.returncode:
@@ -826,10 +846,10 @@ def execute_trace(args: argparse.Namespace) -> dict:
             if compiler_label is None:
                 return {"status": "compiler_hash_mismatch", "sha256": compiler_hash,
                         "compiler_path": str(compiler_path), "accepted": list(COMPILER_HASHES)}
-            build = run_command(["ninja", object_path_for_unit(args.unit)], repo_root, remaining(300))
+            build = run_command(["ninja", object_relative], repo_root, remaining(300))
             if build.returncode:
                 return {"status": "unit_build_failed", "stderr_tail": tail(build.stderr or build.stdout)}
-            functions = read_elf_functions(repo_root / object_path_for_unit(args.unit))
+            functions = read_elf_functions(repo_root / object_relative)
             if args.function not in functions:
                 return {"status": "function_not_found", "unit_functions": functions[:50]}
             capture_index = functions.index(args.function) + 1
@@ -904,7 +924,7 @@ def execute(args: argparse.Namespace) -> dict:
         return probe
 
     repo_root = args.repo_root
-    object_relative = object_path_for_unit(args.unit)
+    object_relative = object_path_for_unit(repo_root, args.unit)
     object_path = repo_root / object_relative
     try:
         build = run_command(

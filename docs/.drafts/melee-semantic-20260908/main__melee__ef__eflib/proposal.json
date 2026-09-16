@@ -1,0 +1,332 @@
+{
+  "tu": "main/melee/ef/eflib",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_Create"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "New effects start with active state, zero expiration and scale-inheritance flags, null attachment and custom callback, and is_async copied from efLib_LoadKind. When efLib_LoadKind equals EF_LOADKIND_ASYNC (0), creation calls efLib_RemoveLast if the count is at least 64, then increments the count before allocation. RemoveLast scans list x2C and then x30, requesting destruction of eligible candidates until the count is below 64; it does not explicitly select the last or oldest effect. IDs 25 and 26 use process link 12, others link 11. Descriptor lifetime is converted through u32 into the u16 lifetime field, and that stored value is incremented only when nonzero. Optional animations are requested at frame 0 and queued. Allocation failures are not uniformly rolled back: effect allocation failure follows the prior count increment, and GObj creation failure reaches the duplicate-free assertion after assigning a null effect->gobj.",
+        "rationale": "Corrects eviction-order and lifetime-conversion overstatements while preserving constructor states and exposing exceptional rollback behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L353-L385",
+            "why": "Ordered eviction scan and threshold."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L433-L535",
+            "why": "Initialization, count timing, failure branches, lifetime conversion, and animation setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L74",
+            "why": "Numeric load constants and field types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_CreateGenerator_AppSRT_SetScale"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Consumes the attachment HSD_JObj* before attempting generator/AppSRT creation. Failure returns NULL without consuming the scale pointer. Success consumes the next f32* and overwrites all three AppSRT scale components with its pointed-to value. The helper may reuse an existing AppSRT, so the overwritten scale is not necessarily an identity scale.",
+        "rationale": "Preserves conditional variadic consumption and corrects the assumption that every successful helper result contains a newly initialized transform.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L64-L84",
+            "why": "Existing AppSRT reuse."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L809-L820",
+            "why": "Conditional consumption and scale overwrite."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_Create_AttachChild"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Creates an ordinarily attached managed effect and, on success, adds a further RObj constraint to the effect root referencing the supplied attachment JObj. The additional helper creates an RObj with flags 0x90000004 and prepends it to the effect root; it does not insert the effect root into the attachment's child hierarchy.",
+        "rationale": "Canonical callee behavior contradicts the baseline reparenting explanation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L557-L565",
+            "why": "Guarded helper invocation and arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L418-L424",
+            "why": "RObj allocation and prepend, not child-list insertion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_Destroy"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supports effect-capacity recovery by selecting records with is_async == 0 and leaving nonzero records untouched. efLib_RemoveLast submits candidates from both effect lists until the counted population is below 64, and user-data cleanup decrements that count only for is_async == 0. This numeric class corresponds to the current EF_LOADKIND_ASYNC constant, despite the potentially misleading is_async field name; it should not be relabeled synchronous solely from the zero test.",
+        "rationale": "Corrects the inverted synchronous/asynchronous interpretation without inventing a new lifecycle classification.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L214-L235",
+            "why": "Eligibility guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L337-L385",
+            "why": "Counter and capacity recovery."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L43",
+            "why": "Numeric load labels."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_Destroy"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests teardown of one managed effect GObj when it has EF_Effect user data with is_async == 0. It clears parameter-table keys equal to that effect GObj, dispatches JObj-tree generator cleanup when applicable, and hands the GObj to the general removal routine. GObj deallocation can be deferred for the currently processed object, and generator reclamation can wait for dependent particles or shared transforms.",
+        "rationale": "Replaces unconditional immediate destruction with the actual cleanup handoffs and cross-file lifetime exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L214-L235",
+            "why": "Local teardown sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+            "why": "Current-object deferral and ordinary removal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Dependent-resource reclamation guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_Destroy"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The argument must be a valid GObj because user_data is read before the later gobj != NULL condition. Null effect user data or nonzero is_async causes no cleanup. For an eligible record, table-key clearing and optional JObj cleanup occur before the GObj removal request. That request ordinarily removes user data, object, processes, and links and frees the GObj, but when the removal routine's current-object guard applies it only marks deferred removal and returns.",
+        "rationale": "Preserves eligibility and no-op branches while correcting null-safety and unconditional-immediacy implications.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L214-L235",
+            "why": "Dereference order and guarded cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+            "why": "Both removal outcomes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_DestroyAll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests teardown of every managed effect whose parent_gobj equals the supplied owner across both effect lists, clears parameter-table keys equal to that owner, and dispatches generator cleanup over matching effect JObj trees and finally the owner's JObj tree. It does not itself request removal of the owner. Actual GObj or generator reclamation can be deferred by the downstream lifecycle routines.",
+        "rationale": "Retains owner-wide cleanup semantics while correcting the unconditional immediate-release claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L237-L283",
+            "why": "Owner filtering and ordered cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+            "why": "GObj deferral."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Generator retention conditions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_DestroyAll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clears owner-keyed parameter slots, traverses x2C then x30 with the successor saved or advanced before each removal request, and selects every non-null effect with matching parent_gobj without testing is_async. Each matching JObj-backed effect receives tree cleanup before its GObj removal request. The owner's JObj tree is cleaned afterward without removing the owner. This is a direct teardown request rather than an expiration-flag transition, but a current GObj can remain pending deferred removal after the call.",
+        "rationale": "Corrects the assertion that every matching GObj is necessarily unlinked during the wrapper call.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L237-L283",
+            "why": "Traversal, lack of is_async guard, and owner-tree cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+            "why": "Conditional deferred removal."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_PauseAll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For each owner-matched effect, writes state_flags = (state_flags & 0x80) | 1, producing 1 or 0x81. efLib_Update switches on the whole byte: exactly 1 increments to 2 and still runs the current lifetime, scale, animation, and callback work; exactly 2 returns immediately. The combined value 0x81 does not match either case and is not advanced by this updater. ResumeAll masks matching records back to 0 or 0x80. Any intended separate handling of the 0x80 class must be established outside this exact-value switch.",
+        "rationale": "Corrects the blanket claim that all pause requests advance to the paused state while preserving the final transition tick.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L285-L335",
+            "why": "Pause/resume producers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L387-L431",
+            "why": "Exact-value consumer and update order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L53-L57",
+            "why": "State values."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_SpawnParticleEffect"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "gfx_id selects an exceptional recipe or generic dispatch. Attached recipes use the supplied joint and quotient-derived bank, optionally copying root Y rotation or root scale; IDs 0x2D, 0x2E, and 0x31 instead add type bit 0x1000. IDs 0x16D\u20130x170 and 0x7E2 create standalone AppSRT generators with root Y rotation and root translation. IDs 0xD4 and 0x243 use link 2 and the caller's bank, copying root Z rotation and translation, with root scale additionally copied for 0xD4. ID 0xE3 derives position from the supplied joint through lb_8000B1CC and takes scale from its root. Every exceptional recipe returns after its attempt. Generic dispatch selects link 1 for 0xFC, 0xFF, 0xF7, and 0x7918, otherwise link 0, and forwards the original supplied joint, caller bank, and full gfx_id to hsd_8039EFAC when flag is true or hsd_8039F6CC otherwise. The generic-path variable named root has not been walked upward.",
+        "rationale": "Separates supplied-joint position from root transforms and prevents the local variable name from implying generic root traversal.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L857-L992",
+            "why": "All exceptional and generic dispatch branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_particles_proc_main"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation processes particle lists with links 1 and 2 excluded, then invokes generator processing with the same mask. Particle processing advances unmasked lists through the normal per-particle update. Generator processing first drains a pending attachment-work list independently of the mask, then skips masked generators and those with kind bit 0x800. Other generators update attachment state and accumulate emission count: negative random adds the deterministic value -random, while nonnegative random adds random * HSD_Randf(). Count >= 1 invokes emission processing. Nonzero genLife decrements and reaching zero requests removal, which may retain the generator while children or shared AppSRT users remain.",
+        "rationale": "Corrects universally randomized emission and immediate-removal claims and preserves the pre-mask pending-work exception.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L670-L674",
+            "why": "Wrapper ordering and mask."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2965-L2994",
+            "why": "Particle-list mask processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Pending work, skip guards, emission arithmetic, and lifetime."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Deferred generator reclamation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/eflib:efLib_remove_user_data"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Cleans up an effect GObj's type-erased EF_Effect payload. If effect->gobj is non-null, it decrements efLib_EffectCount only when is_async == 0 and returns the record through efLib_AllocData. A null gobj field instead produces the Duplicate Free diagnostic and assertion. The counted class is described numerically because current load constants label zero ASYNC and one SYNC; the callback does not itself null the gobj field or provide comprehensive duplicate-free detection.",
+        "rationale": "Corrects the synchronous-class label and bounds the meaning of the duplicate-free diagnostic.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L337-L351",
+            "why": "Cleanup branches and numeric count guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L43",
+            "why": "Conflicting intuitive load labels."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ef/eflib.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Owner pause requests preserve state bit 0x80 and set low state value 1; resume preserves only 0x80. The common updater compares the complete byte, not masked low bits: exactly 1 advances to 2 while completing that update, exactly 2 suppresses ordinary work, and combined values 0x81/0x82 do not match those cases. Outside the exact paused case, nonzero u16 lifetime decrements before scale, animation, and custom callbacks; reaching zero requests GObj removal and returns, with downstream removal potentially deferred. The state bit 0x80 is distinct from the is_async field used for capacity accounting and destruction eligibility.",
+        "rationale": "Replaces the TU-wide independent-pause-bit simplification with the exact numeric state behavior and separate lifecycle fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L285-L431",
+            "why": "State producers, counter cleanup, and exact updater."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L53-L74",
+            "why": "State constants and distinct fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+            "why": "Removal deferral."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

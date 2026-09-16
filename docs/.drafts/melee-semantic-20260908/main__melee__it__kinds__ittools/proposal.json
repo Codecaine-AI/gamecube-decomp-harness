@@ -1,0 +1,187 @@
+{
+  "tu": "main/melee/it/kinds/ittools",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L47-L77",
+            "why": "Registers the callback for states 5\u20139."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L173-L188",
+            "why": "Shows countdown and phase-specific calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L642-L652",
+            "why": "Resolves the complementary model helpers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L263-L271",
+            "why": "Confirms hidden-flag clearing and setting."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the state-9-only description using all five table registrations while preserving the existing countdown and warning behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittools:itTools_UnkMotion9_Anim"
+        },
+        "type": "purpose",
+        "value": "Runs the shared terminal animation update for Tools states 5\u20139. It decrements lifetime, returns true when the decremented timer is nonpositive, and otherwise alternates model visibility using integer timer bit 1, reapplying animation `tools.x0 + 5` at frame zero on the visible branch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L47-L77",
+            "why": "Shared terminal family."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L173-L188",
+            "why": "Exact ordering, bit test and returns."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects numeric-state scope and makes the decrement-before-expiry boundary explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittools:itTools_UnkMotion9_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Shared by terminal states 5\u20139, the callback first subtracts 1.0 from lifeTimer. A nonpositive result is clamped to zero and returns true before any visual update. Otherwise `(s32) lifeTimer & 2` selects between `it_8026BB20` followed by animation `tools.x0 + 5` at frame zero, and `it_8026BB44`; these phases occupy two-tick bands for an integer countdown. Every nonexpired path returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L47-L77",
+            "why": "All five terminal registrations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L192-L214",
+            "why": "Complete inline reset and guarded callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces state-9-only framing and exposes the useful terminal-state timer-reset behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittools:itTools_UnkMotion9_Coll"
+        },
+        "type": "purpose",
+        "value": "Provides collision handling shared by terminal Tools states 5\u20139. Only when X or Y velocity is nonzero does it call `it_8026DAA8`; a result intersecting mask 3 triggers the inline stop reset, clearing XY velocity, reinitializing lifetime with `(s32) attrs->x4 & 0xFFFE`, and selecting `tools.x0 + 5` again. It always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L47-L77",
+            "why": "Terminal callback assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L160-L214",
+            "why": "Entry reset, animation, empty physics and guarded collision."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported assertion that these states require a physics callback and distinguishes an entry reset from ongoing enforcement.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittools:itTools_UnkMotion9_Phys"
+        },
+        "type": "purpose",
+        "value": "Supplies an empty physics callback for Tools terminal states 5\u20139. It performs no acceleration, velocity reset, or motion-state update; terminal countdown and visual processing belong to the animation callback. The entry transition clears XY velocity, but this callback does not maintain that invariant."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L190-L214",
+            "why": "Empty body and exceptional terminal-motion handling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication that surrounding terminal logic continuously keeps velocity zero.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittools:itTools_UnkMotion9_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Is an invariant no-op in states 5\u20139: it does not consume its argument or mutate timers, velocity, collision data, or motion state. It therefore leaves any externally assigned velocity untouched. The sibling terminal collision callback explicitly accommodates nonzero XY velocity and resets the terminal state only when the collision result intersects mask 3."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L298-L312",
+            "why": "Transition followed by timer zero and false return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L173-L180",
+            "why": "Zero timer leads to the terminal true result."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces misleading continued-activity wording with the demonstrated deferred-expiry lifecycle.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittools:it_2725_Logic22_Absorbed"
+        },
+        "type": "purpose",
+        "value": "Handles Tools absorption by running the common stop helpers, clearing XY velocity, initializing the masked terminal timer, and selecting paired state `tools.x0 + 5` with animation updates enabled. It then overwrites lifeTimer with zero and returns false. The callback does not directly request destruction, but absent an intervening timer change the next terminal animation update returns true immediately."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L160-L188",
+            "why": "Exact writes, mask, state selection and timer consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the two-component description of a velocity vector with Z and preserves the full numeric mask.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittools:it_802EF320"
+        },
+        "type": "data_flow",
+        "value": "Obtains the Item and Tools special attributes from the supplied object, calls `it_802756D0` and `it_8026B3A8`, and explicitly clears only `x40_vel.y` and `x40_vel.x`. It assigns lifeTimer from `(s32) attrs->x4 & 0xFFFE`, retaining integer bits 1\u201315 rather than merely clearing bit 0, then passes `tools.x0 + 5` and `ITEM_ANIM_UPDATE` to `Item_80268E5C`. The terminal animation callback consumes this timer as a countdown and uses integer bit 1 for visual phase selection."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittools.c#L324-L327",
+            "why": "Tools callback only delegates cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L474-L525",
+            "why": "Independent reference clearing and post-callback conditional destruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the cleanup role while correcting the cross-file lifetime guarantee.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittools:it_802EFA24"
+        },
+        "type": "game_mapping",
+        "value": "Maintains the Tools hazard's interaction relationships when an event-supplied object reference is detached. Through `it_8026B894`, it clears matching owner, reflector, absorber, fighter and toucher references without itself changing motion state or requesting destruction. This local cleanup does not guarantee continued survival: the common fighter-reference dispatcher caches the original owner and can destroy an item after its callback when `xDC8_word.flags.x13` is set and that owner matches the fighter."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

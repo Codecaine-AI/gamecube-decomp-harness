@@ -1,0 +1,407 @@
+{
+  "tu": "main/melee/mn/mncharsel",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_8025BC20"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives a writable TextKerning position and an unsigned numeric value, reads decimal glyph entries from HSD_SisLib_804D1124[0][41].kerning, and copies the required digits after saturating values of at least 10000 to 9999. It always emits the ones digit, writes zero to the following entry's left field, and returns that following terminator entry. Callers use it for stock/time rule text and numeric KO-star presentation.",
+        "rationale": "Corrects the baseline's final-digit return claim while retaining its established glyph and caller flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L323-L440",
+            "why": "Digit writes, preincremented return and rule-text callers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L883-L888",
+            "why": "KO-star formatter caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_8025BC20"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "SisLib decimal formatter with signature TextKerning* (TextKerning* dst, u32 value). Each emitted digit occupies one TextKerning entry. Values above 9999 saturate to 9999, leading zeroes are suppressed, and the returned pointer addresses the entry immediately after the final digit, whose left field has been set to zero.",
+        "rationale": "The pointer still addresses the ones digit before return ++arg0; the returned entry is therefore the terminator, not the final digit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L323-L356",
+            "why": "Exact signature, digit emission and return arithmetic."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:fn_80262648"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "mnCharSel_SelectionTokenThink",
+        "rationale": "Meaningfully distinguishes the carried/released roster token from a fighter-model preview while preserving the unit's Think callback convention.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L3401-L3633",
+            "why": "Token ownership, portrait bounds, separation and cursor-following motion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:fn_80262648"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Hides the token and returns when its door has p_kind 3 or selected icon at least 25. In one-cursor layout, door zero uses the controlling port and a nonzero door, including Training's second participant, uses variant 8. Otherwise free-for-all uses the door for humans and variant 8 for CPUs; teams use the team lookup with a CPU offset. A variant change or timer above 39 refreshes animation. Released state 0 performs 20 separation/boundary-relaxation passes against other active released tokens and selected-icon bounds; nonzero state follows cursor[state-1] with offsets +2.7 X and -2.0 Y. Displayed coordinates snap when squared target distance is below 4, otherwise advance three units toward the target, and are written to the JObj at Z=1.",
+        "rationale": "Adds the omitted one-cursor nonzero-door presentation branch while retaining the existing numeric motion behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L3401-L3633",
+            "why": "Complete branch and motion logic."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_8025FB50"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature void (u8 door, s32 snap_display_position). The first argument indexes a CSS door. The second is boolean-like: when nonzero, it copies the newly assigned token target coordinates x8/xC into displayed coordinates x10/x14, bypassing their usual interpolated movement.",
+        "rationale": "Corrects the reversed current/destination interpretation using the downstream token translation code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L2031-L2066",
+            "why": "Signature and optional coordinate copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L3604-L3632",
+            "why": "Displayed pair is smoothed and applied to JObj."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_8025FB50"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Retries HSD_Randi(25) until the chosen icon's state is nonzero. One-cursor layout maps door zero and nonzero doors through separate player-port globals; otherwise door equals player. It writes the chosen fighter and icon, and if that icon differs from sel_icon_prev it tries costumes from zero until no duplicate is found. It releases the token by setting x5=0 and always assigns target coordinates x8/xC from icon bounds. Only a nonzero second argument also snaps displayed coordinates x10/x14 to that target. It relinks the token, chooses the layout-specific icon joint, requests frame 10, sets a 12-frame icon timer and emits selection audio.",
+        "rationale": "Preserves the chooser's guards and side effects while correcting coordinate direction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L2020-L2088",
+            "why": "Complete chooser and player mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L3604-L3632",
+            "why": "Target/display distinction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_CursorThink"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Runs one CSS hand cursor's frame-time input and presentation logic: controller motion, disconnection/reconnection, token pickup and placement, fighter/costume selection, slot and team controls, CPU/manual-handicap sliders, saved-name opening, single-player stock/difficulty controls, and back or rules-menu requests. Non-returning paths refresh cursor presentation. Match-start confirmation is handled separately by fn_80262F44, not by the cursor's top-right back control.",
+        "rationale": "Replaces the misleading confirmation-region characterization with the actual navigation roles.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L2385-L3377",
+            "why": "Cursor interaction and pending2/3 requests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L3736-L3739",
+            "why": "Start sets pending1 in readiness callback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_CursorThink"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements the port-associated CSS hand used to carry and place fighter tokens, choose alternate costumes, configure human/CPU/empty participants and teams, adjust CPU and handicap sliders, open saved names, change available one-player options, and request back navigation or the rules menu. Placing a fighter token is distinct from pressing Start to proceed, which belongs to the readiness callback.",
+        "rationale": "Separates local token confirmation from scene progression and correctly identifies the cursor's navigation controls.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L2642-L3377",
+            "why": "Placement, controls and navigation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L3736-L3763",
+            "why": "Separate Start gate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_CursorThink"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Normal input runs only while pending transition is 0. Cursor x5=1 holds an object: x6 values 0\u20133 are tokens, 4\u20137 CPU sliders and 8\u201311 handicap sliders. Display refresh preserves state1 but otherwise assigns state0 when Y is below 0.2 or above 22, and state2 inside that interval. The explicit disconnected-controller path sets state3, hides the cursor and returns before refresh; reconnection changes it to2. Holding button mask0x200 for more than30 calls can request pending2 only after the per-port release mask has been armed. Free-cursor A hit-tests controls or acquires eligible tokens/sliders; B can acquire its own released selected token. Token placement/restoration and slider release leave holding state. Back and rules controls request pending2 and3 respectively; Start confirmation is separate.",
+        "rationale": "Restores the omitted state0 and release-mask condition while preserving object identifiers, disconnect branching and navigation distinctions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L2222-L2236",
+            "why": "Free-state normalization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L2418-L3377",
+            "why": "Input states, release mask, object dispatch and navigation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_Scene_OnEnter"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Retains the incoming pointer as CSSData and derives the controlling-port global from unk_0x0 minus one. It scans up to120 saved-name entries, stores the first unused boundary plus one, sets the new-name requesting-port global mnCharSel_804D6CF9 to -1, and clears all four selected_since_load flags. Saved language selects the MnSlChr and MnExtAll .dat or .usd archives and matching SIS resource. It resolves MnSelectChrDataTable, derives the animation-table address at +0x10, clears the handicap-reset latch and invokes screen initialization.",
+        "rationale": "Corrects CF9 from a name index to a requesting player port, as established by its writer and submenu use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5306-L5353",
+            "why": "Entry dataflow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L4054-L4061",
+            "why": "CF9 receives a player port."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5463-L5467",
+            "why": "CF9 passed to name entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_Scene_OnEnter"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Prepares entry into Melee's Character Selection Screen by resetting session-specific selection flags and loading language-appropriate graphics and text before constructing the mode-specific interface. Four door flags are reset, but the resulting interface is not always four-port: the initializer chooses four-cursor multiplayer or one-cursor single-player, with a second participant for Training.",
+        "rationale": "Distinguishes the unconditional four-record reset from the mode-dependent constructed interface.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5306-L5353",
+            "why": "Entry reset and resource loads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L4263-L4275",
+            "why": "Layout and participant counts."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_Scene_OnEnter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Establishes entry-specific state before construction: discovers the saved-name boundary, sets the new-name requesting-port sentinel to -1, clears every door's selected_since_load flag, and loads exactly one language-dependent archive/SIS resource set. It clears the handicap-reset latch immediately before invoking the initializer. This fresh-entry clear differs from submenu reconstruction, which can consume a pending handicap reset.",
+        "rationale": "Corrects the sentinel's domain and preserves the cross-submenu latch lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5316-L5353",
+            "why": "Reset/load ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L4054-L4061",
+            "why": "Requesting-port semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmainrule.c#L239-L268",
+            "why": "Submenu return invokes initializer rather than fresh entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_Scene_OnFrame"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Coordinates CSS scene-level frame processing: increments the shared frame counter, synchronizes eligible fighter/costume preload entries while pending state is0 or1, handles global return-to-menu navigation, decrements a nonzero cooldown, dispatches forward/back exit requests, and replaces CSS objects/text with the rules menu or new-name-entry screen for pending states3 or4.",
+        "rationale": "Corrects the baseline's existing-name dispatch claim; state3 invokes the rules-menu initializer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5355-L5471",
+            "why": "Complete frame callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmainrule.c#L196-L241",
+            "why": "Rules data and reconstruction path."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_Scene_OnFrame"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Coordinates the Character Selection Screen's fighter/costume preloading, forward/back scene feedback, return to the main menu, and handoffs to match rules and separate new-name creation. Existing saved-name selection is handled within the CSS by fn_802633B0 rather than by the state3 submenu handoff.",
+        "rationale": "Separates the rules submenu, saved-name chooser and new-name screen.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5422-L5469",
+            "why": "Navigation and submenu calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L3991-L4124",
+            "why": "Saved-name selection remains in TagThink."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_Scene_OnFrame"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Increments the frame counter every call and updates preload data only for pending states at most1. A global back condition performs menu cleanup and requests GM_MENU before returning. Otherwise a nonzero cooldown decrements. State1 loops over four door kinds but repeatedly tests token entry0's x5; a nonempty door with that flag nonzero resets pending to0, otherwise it requests scene exit with forward feedback. State2 requests exit with back feedback. State3 destroys menu objects/resets text and calls mn_80231804(extension_archive,1) for rules; state4 similarly calls mnNameNew_EnterFromMnCharSel with the requesting port. Both submenu cases set pending5 and play forward feedback.",
+        "rationale": "Corrects state3's identity without normalizing the unusual repeated token0 predicate or state5 lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5355-L5471",
+            "why": "Exact counter, preload and transition logic."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:mnCharSel_Scene_OnExit"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Finalizes CSS text and archive resources, nulls released archive handles and writes the pending transition into CSSData. It returns immediately for any nonzero pending value. Only the zero-value path builds an eligible selected-fighter audio mask and submits the outgoing audio configuration. The local source does not establish that zero means ordinary Start-confirmed continuation; Start explicitly sets pending1 elsewhere.",
+        "rationale": "Replaces an unsupported normal-continuation interpretation with the exact numeric branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5473-L5530",
+            "why": "Cleanup and zero-only audio path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L3736-L3739",
+            "why": "Start sets pending1."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:.sbss"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The runtime globals retain active CSSData, controlling and name-entry requesting ports, saved-name boundary, localized archive/resource pointers, scene objects, text objects and callback state. Frame processing copies eligible selected fighters and colors into the preload cache only while pending state is0 or1, preserving the special second-entry no-write branch for invalid slot types. Exit releases and nulls both archive handles and writes pending_scene_change to CSSData; selected-fighter audio preparation occurs only if the pending value is0, not on every confirmed selection.",
+        "rationale": "Preserves the supported lifecycle flow while correcting the audio-path interpretation and retaining preload asymmetry; makes no compiled ordering claim.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L65-L90",
+            "why": "Runtime declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5306-L5530",
+            "why": "Entry, preload and exit flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mncharsel:.sbss"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Carries cross-callback CSS state. Initialization sets pending0 and a30-call input delay. One-player readiness sets a0/1 readiness value from cursor0 and icon0 while keeping the banner hidden; multiplayer invalidity additionally resets delay to10, and valid multiplayer readiness animates the banner. Start after cooldown sets pending1 and delay255. Scene-frame processing advances the frame counter, decrements cooldown and dispatches pending1 forward exit,2 back exit,3 rules and4 new-name creation, with submenu states becoming5. Exit writes the pending value back and performs selected-fighter audio preparation only when it is0. A separate handicap-reset latch survives rules-menu return until initialization consumes it; fresh scene entry clears it.",
+        "rationale": "Corrects blanket invalidity/cooldown and confirmed-exit claims while preserving numeric states and cross-file latch lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L3635-L3765",
+            "why": "Readiness branch distinctions and Start writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L4257-L4292",
+            "why": "Initial delay, pending state and reset consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mncharsel.c#L5351-L5530",
+            "why": "Fresh-entry clear, frame dispatch and zero-only exit branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmainrule.c#L239-L384",
+            "why": "Rules return and reset request calls."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

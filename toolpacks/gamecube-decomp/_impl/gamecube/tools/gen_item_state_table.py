@@ -14,20 +14,22 @@ from pathlib import Path
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
 from project_root import resolve_root
+from project_layout import get_project_layout
 
 ROOT = resolve_root()
+LAYOUT = get_project_layout(ROOT)
 
 
 def find_source_file(label: str) -> Path:
-    """Find the .c file that owns this data label via splits.txt."""
-    splits = ROOT / "config" / "GALE01" / "splits.txt"
+    """Find the source file that owns this data label via splits.txt."""
+    splits = ROOT / "config" / LAYOUT.version / "splits.txt"
     addr = label.replace("it_", "")  # e.g. "803F93A8"
     target = f"start:0x{addr.upper()}"
 
     current_file = None
     for line in splits.read_text().splitlines():
         stripped = line.strip()
-        if stripped.endswith(".c:"):
+        if stripped.endswith((".c:", ".cc:", ".cpp:", ".cxx:")):
             current_file = stripped.rstrip(":")
         elif target in stripped and current_file:
             return ROOT / "src" / current_file
@@ -37,7 +39,7 @@ def find_source_file(label: str) -> Path:
 def find_asm_file(source_file: Path) -> Path:
     """Derive the asm file path from the source file path."""
     rel = source_file.relative_to(ROOT / "src")
-    return ROOT / "build" / "GALE01" / "asm" / rel.with_suffix(".s")
+    return LAYOUT.asm_root / rel.with_suffix(".s")
 
 
 def parse_asm_table(asm_file: Path, label: str) -> list[dict]:

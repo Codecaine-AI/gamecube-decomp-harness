@@ -1,0 +1,15 @@
+## SEQ MIDI sequencing
+
+This file maintains an interrupt-protected sequence list, parses MIDI headers and track chunks, advances track events on audio-frame calls, and forwards synthesized MIDI messages through SYNMidiInput. Header parsing handles formats 0 and 1, asserts against negative SMPTE time divisions, and skips non-MTrk chunks. Track pointers reference the supplied stream rather than a copied buffer. Removing a sequence rebuilds the list in reverse survivor order and then calls SYNQuitSynth; SEQInit and SEQQuit merely clear the list, without synth teardown. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/seq/seq.c#L55-L104) [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/seq/seq.c#L214-L349)
+
+Event processing supports variable-length integers, running status, skipped SysEx payloads, tempo metadata, end-of-track metadata, and table-sized synth messages. Preserve the actual exceptional behavior: tempo accumulation multiplies by 0xFF, not 256; the callback test is `ch[0] & 0xB0`, not a control-change equality test; zero-data messages can index callbacks using uninitialized ch[1]. End-of-track metadata does not consume its length, and the subsequent cursor-boundary check can independently call the non-idempotent track-end helper. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/seq/seq.c#L87-L212)
+
+Sequence and track states 1 and 2 advance with 16-bit-fraction tick delays. Sequence state 2 restarts at completion; other completed states transition to 0. Entering 1 or 2 rewinds tracks only when the prior sequence state was 0. States 0 and 3 send all-notes-off on 16 channels, but do not reset track cursors; arbitrary requested numeric states are still stored. Stop does not clear the end flag, so later frame calls can repeat the stop path. State names beyond these observable distinctions are not established here. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/seq/seq.c#L286-L399)
+
+Tempo setters accept BPM and update one or all tracks; the getter reads beatsPerSec, which default track setup and restart do not initialize alongside default timing. Volume operations call synth master-volume APIs, but SEQGetVolume has no explicit return statement. SEQAddSequence likewise does not explicitly initialize the end flag. These are source-level observations, not claims about compiled return registers or external initialization guarantees. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/seq/seq.c#L326-L434)
+
+## Semantic assessment
+
+Both canonical and rendered pages were reviewed completely. The renderer reports no parse errors or substitutions; existing descriptive function names remain unchanged. There are no frozen subjects, facts, links, or writable subjects in this assignment, so no baseline corrections or speculative entity creation are proposed.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

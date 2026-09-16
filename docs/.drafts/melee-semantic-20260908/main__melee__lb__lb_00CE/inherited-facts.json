@@ -1,0 +1,546 @@
+{
+  "main/melee/lb/lb_00CE:.sdata2": [
+    {
+      "id": "fact:8d51f43a-0285-4d3d-bf67-7e431ccb9fce",
+      "target_id": "target:data:main/melee/lb/lb_00CE:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The compiler materializes constants listed by sdata2_order into this read-only section, and the unit's functions load them as operands. Zero, one, two, and the integer-conversion value support the exponential and power approximations; \u03c0/2, \u03c0, zero, and the signed 0.00001 tolerances support Cartesian-angle quadrant and near-zero handling; and zero plus the positive tolerance support degenerate-segment and distance-threshold tests. No routine writes values back to the section.",
+      "rationale": "The current ordering helper establishes the section's compile-time inputs, while the current matched bodies establish their arithmetic consumers. The literals appear only as operands in scalar calculations, with no mutation path back into the read-only pool.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:03:53.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L10-L24",
+          "why": "Shows the complete ordered set of constants emitted for the section."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_00CE.c#L1-L200",
+          "why": "Shows constants loaded as arithmetic operands by expf, powf, powi, and the Cartesian-angle helper without writes to constant storage."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L100-L220",
+          "why": "Shows \u03c0 and tolerance constants flowing into angle handling and the positive tolerance and zero values flowing into the segment-proximity predicate."
+        }
+      ]
+    },
+    {
+      "id": "fact:99868eda-2150-4ecb-9428-552a302e9430",
+      "target_id": "target:data:main/melee/lb/lb_00CE:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An ordered, immutable mixed-precision floating-point constant section. Its source-level sequence is M_PI_2, M_PI, 1.0f, 2.0f, S32_TO_F32, 0.0f, 0.5, 3.0, 0.00001f, and -0.00001f; suffixed entries are single precision while the unsuffixed mathematical literals are emitted with their source-level double precision.",
+      "rationale": "The current sdata2_order helper directly preserves the constant sequence and distinguishes f-suffixed single-precision literals from unsuffixed double-precision literals. This supports an immutable heterogeneous literal pool rather than a uniformly typed array or mutable structure.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:03:53.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L10-L24",
+          "why": "Provides the exact source-level order and precision spelling of the literals represented by the unit's .sdata2 pool."
+        }
+      ]
+    },
+    {
+      "id": "fact:58e58c58-bd79-4016-be39-8ffce3c12223",
+      "target_id": "target:data:main/melee/lb/lb_00CE:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the small read-only floating-point literal pool used by lb_00CE's exponential, power, Cartesian-angle, and point-to-segment proximity calculations.",
+      "rationale": "The current section-order helper still enumerates mathematical constants, identity and scaling values, the signed-integer conversion constant, and signed epsilon tolerances. The current function bodies consume those literals in approximation loops, angular quadrant handling, degeneracy checks, and distance-threshold comparisons, confirming that the section remains compiler-emitted backing storage for these calculations.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:03:53.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L10-L24",
+          "why": "Enumerates the literals emitted through the unit's .sdata2 ordering helper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_00CE.c#L1-L200",
+          "why": "Shows the exponential and power routines consuming identity, zero, scaling, and integer-conversion literals, and begins the Cartesian-angle helper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L100-L220",
+          "why": "Shows \u03c0 and signed epsilon literals used by the angle helper and zero and positive epsilon used by the point-to-segment proximity predicate."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_00CE:expf": [
+    {
+      "id": "fact:d4b4bb62-7b0b-4b06-8cd1-1356c9928cda",
+      "target_id": "target:function:main/melee/lb/lb_00CE:expf",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Copies the input exponent, records whether it was negative, and converts it to its magnitude. It maintains the current power of that magnitude, the current factorial, and a running sum initialized to 1 + |x|; each iteration advances the power and factorial and adds their quotient. For an originally negative input, it replaces the converged sum with its reciprocal before returning it.",
+      "rationale": "Each stage follows directly from the local assignments: var_f4 carries successive powers, var_f6 carries successive factorials, var_f3 carries the partial sum, and var_r4 controls the final reciprocal.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:48:21.136Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L27-L61",
+          "why": "Shows the sign normalization, power and factorial updates, partial-sum accumulation, reciprocal step, and returned result."
+        }
+      ]
+    },
+    {
+      "id": "fact:2fa95d50-0da8-4e9a-8626-4abf3909ee42",
+      "target_id": "target:function:main/melee/lb/lb_00CE:expf",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: f32 expf(f32 exponent). It accepts one dimensionless single-precision exponent and returns the corresponding single-precision natural exponential.",
+      "rationale": "The matched declaration directly establishes an f32 return and one f32 argument, while the arithmetic in the body establishes that the argument is the exponent rather than a stored state, pointer, or enum value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:48:21.136Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L27-L61",
+          "why": "Provides the exact f32(f32) declaration and shows the argument used as the exponent in the exponential series."
+        }
+      ]
+    },
+    {
+      "id": "fact:92db5eca-73d1-4dd3-acb9-ac04b2ea3051",
+      "target_id": "target:function:main/melee/lb/lb_00CE:expf",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Computes the single-precision natural exponential e raised to the supplied exponent using a Maclaurin-series accumulation, including reciprocal handling for negative exponents.",
+      "rationale": "The body forms 1 + x and repeatedly adds x^n/n!, which is the Maclaurin expansion of e^x. It evaluates the series using the magnitude of a negative input and takes the reciprocal afterward, implementing e^(-x) = 1/e^x.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:48:21.136Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L27-L61",
+          "why": "Shows initialization to 1 + |x|, iterative accumulation of successive powers divided by factorials, and reciprocal conversion for a negative input."
+        }
+      ]
+    },
+    {
+      "id": "fact:479c2bca-4979-4bd2-a25e-1efee1d871a6",
+      "target_id": "target:function:main/melee/lb/lb_00CE:expf",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The series loop executes at least once and continues until adding the next term no longer changes the single-precision partial sum under floating-point equality. Negative input is handled by a sign flag that selects a final reciprocal; nonnegative input returns the accumulated sum directly.",
+      "rationale": "The do-while saves the old partial sum, adds one term, and compares the resulting sum with the saved value. The pre-loop sign branch and post-loop reciprocal branch define the only other control state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:48:21.136Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L27-L61",
+          "why": "Shows the do-while convergence guard based on unchanged partial sums and the sign-controlled reciprocal transition."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_00CE:lb_8000D008": [
+    {
+      "id": "fact:21e44c7c-e5d4-4ced-8185-d2e4749f3e95",
+      "target_id": "target:function:main/melee/lb/lb_00CE:lb_8000D008",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives Y and X by value and produces a scalar angle without mutating external state. If |X| is below 0.00001, it returns zero when |Y| is also below that tolerance and otherwise returns sign(Y)\u00b7\u03c0/2. For positive X it returns atanf(Y/X). For negative X it computes |Y/X| and returns sign(Y)\u00b7(\u03c0\u2212atanf(|Y/X|)), yielding the appropriate left-half-plane angle.",
+      "rationale": "Each input transformation and return path is explicit in the matched source. All writes are confined to local temporaries, and the only callee is the scalar atanf routine, so the result is determined entirely by the two arguments.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T06:21:13.122Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L112-L158",
+          "why": "The complete function shows the tolerance tests, ratio calculations, atanf calls, quadrant corrections, and absence of external writes."
+        }
+      ]
+    },
+    {
+      "id": "fact:ef0ad5a1-a2fa-4279-a606-65059c264c1d",
+      "target_id": "target:function:main/melee/lb/lb_00CE:lb_8000D008",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMath_GetAngleFromOrigin",
+      "rationale": "Community analysis labeled address 0x8000D008 `Math_GetAngleFromOrigin`, while separate analysis proposed `lbmath` as the containing module's original identity. The implementation indeed derives an angle from Cartesian coordinates relative to the origin. The `lbMath_` prefix is a convention-based reconstruction, and the archived discussion explicitly warns that historical community labels were often contextual rather than recovered symbols, so the exact original spelling remains uncertain.",
+      "confidence": 0.66,
+      "updated_at": "2026-09-02T06:21:13.122Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L112-L158",
+          "why": "The implementation establishes that the function calculates a polar angle from Y and X coordinates."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/916562023175823390",
+          "why": "The archived address-to-name list labels 0x8000D008 `Math_GetAngleFromOrigin`, while its thread cautions that such community names were not trustworthy recovered symbols."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1197349968453840986",
+          "why": "The community analysis proposes `lbmath` as the containing translation unit's likely original module name."
+        }
+      ]
+    },
+    {
+      "id": "fact:3864883c-4aef-45ac-9d5b-24fc5058e36f",
+      "target_id": "target:function:main/melee/lb/lb_00CE:lb_8000D008",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "f32 function(f32 y, f32 x); both inputs are Cartesian coordinates or direction components in a common linear unit, and the returned f32 is an angle in radians in the range approximately [-\u03c0, \u03c0].",
+      "rationale": "The definition directly establishes two f32-by-value parameters and an f32 return. Dividing Y by X makes the arctangent argument dimensionless, while the use of M_PI and M_PI/2 establishes radians. The quadrant branches produce values spanning the conventional signed polar-angle interval.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T06:21:13.122Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L112-L158",
+          "why": "The declaration and complete body establish the scalar signature, Y/X ratio, radian constants, and signed quadrant range."
+        }
+      ]
+    },
+    {
+      "id": "fact:b09bf990-0ce0-46f7-a7c9-4b95f889ea69",
+      "target_id": "target:function:main/melee/lb/lb_00CE:lb_8000D008",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Computes the quadrant-aware polar angle, in radians, of a two-dimensional Cartesian point or direction relative to the positive X axis, with a small near-origin tolerance that maps two near-zero coordinates to zero.",
+      "rationale": "The matched function treats its arguments as Y and X coordinates, returns zero when both are within \u00b10.00001, returns signed \u03c0/2 for a near-zero X coordinate, uses atanf(y/x) in the right half-plane, and applies signed \u03c0 corrections in the left half-plane. Together these branches reconstruct the point's polar angle rather than merely computing a one-argument arctangent.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T06:21:13.122Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L112-L158",
+          "why": "The complete matched body shows the near-origin checks and the quadrant-dependent atanf, \u03c0/2, and \u03c0 return calculations."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_00CE:lb_8000D148": [
+    {
+      "id": "fact:6ba2640e-81e8-401c-b214-e0eff642755b",
+      "target_id": "target:function:main/melee/lb/lb_00CE:lb_8000D148",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes two segment endpoints, a circle center, and a radius without mutating external state. It derives the segment's squared length and an absolute line-equation value, divides by segment length to obtain the center-to-line distance, derives squared center-to-endpoint distances and the squared radius, and reduces those comparisons plus a coordinate-straddling test to a boolean result.",
+      "rationale": "All inputs arrive as scalar parameters and all intermediate values remain local. The determinant-like expression divided by segment length is the perpendicular distance from the center to the segment's supporting line. The later squared-distance comparisons classify each endpoint relative to the circle, while the final x/y opposition checks decide the two-outside-endpoint case. No output exists beyond the returned predicate value.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T06:17:41.814Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L160-L223",
+          "why": "Shows the complete flow from scalar coordinates through line distance, endpoint distances, radius comparisons, coordinate straddling, and the final boolean return."
+        }
+      ]
+    },
+    {
+      "id": "fact:ca82e395-d1aa-4492-a871-90d26a7816d7",
+      "target_id": "target:function:main/melee/lb/lb_00CE:lb_8000D148",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Boolean-valued scalar predicate with signature `s32 (f32 point0_x, f32 point0_y, f32 point1_x, f32 point1_y, f32 center_x, f32 center_y, f32 radius)`. The first two coordinate pairs are segment endpoints, the third pair is a circle center, and the final argument is a distance radius; every return is `0` or `1`.",
+      "rationale": "The matched definition establishes seven by-value `f32` parameters and an `s32` result. Their uses establish two endpoints, a center point, and a radius: the first four coordinates form the segment, distances are measured from both endpoints to the third coordinate pair, and the threshold is used both directly as a perpendicular-distance bound and squared as a radial-distance bound.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T06:17:41.814Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L160-L223",
+          "why": "Shows the concrete signature, geometric role of each scalar argument, and exclusively boolean `0`/`1` return values."
+        }
+      ]
+    },
+    {
+      "id": "fact:f4f214b7-ffef-4eb1-9054-97f8e9f0614a",
+      "target_id": "target:function:main/melee/lb/lb_00CE:lb_8000D148",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Tests whether a two-dimensional line segment intersects the boundary of a circle centered on a third point with the supplied threshold as its radius.",
+      "rationale": "The function first rejects a nearly zero-length segment and any supporting line whose perpendicular distance from the center exceeds the threshold. It then compares both endpoint distances with the squared threshold: a segment wholly inside the circle returns false, an inside-to-outside or boundary-touching segment returns true, and two outside endpoints return true only when the remaining coordinate-straddling test indicates that the segment crosses the circle's vicinity. Those cases characterize a segment/circle-boundary intersection predicate rather than an ordinary point-proximity test.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T06:17:41.814Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L160-L223",
+          "why": "Shows the complete computation and every return case for the segment, center point, and threshold radius."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5026c91-b697-4a88-b2f9-a876028cbcf0",
+      "target_id": "target:function:main/melee/lb/lb_00CE:lb_8000D148",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The predicate returns false for a segment with squared length below `0.00001`, for a supporting line farther from the center than the radius, and for two endpoints strictly inside the circle. It returns true when an endpoint lies exactly on the radius or the endpoints lie on opposite sides of the circle boundary. When both endpoints are outside, it returns true only if the line is within the radius and the center lies between the endpoints on at least one coordinate axis; otherwise it returns false. It maintains no persistent state.",
+      "rationale": "The early guards establish the degenerate-segment and perpendicular-distance rejection cases. The nested comparisons against `radius\u00b2` establish the inside, outside, and exact-boundary cases, and the final four comparisons implement the coordinate-axis straddling guard for two outside endpoints. The body contains no writes outside local variables.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T06:17:41.814Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L160-L223",
+          "why": "Shows every guard and return branch, including the degenerate segment, line-distance, endpoint-radius, and coordinate-straddling cases."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_00CE:powf": [
+    {
+      "id": "fact:5a60b2b4-8025-4783-9610-2dcac356fbc4",
+      "target_id": "target:function:main/melee/lb/lb_00CE:powf",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "A zero base flows directly to a 0.0f return. Otherwise the base is transformed into z = (base \u2212 1)/(base + 1); z\u00b2 is retained as the series multiplier while successive odd powers are divided by 3, 5, 7, and so on and accumulated. The stabilized sum is doubled, multiplied by the caller-supplied exponent, and consumed by expf; powf has no persistent side effects.",
+      "rationale": "The matched assignments and loop expose each transformation from the two scalar inputs to the expf argument. All writes target local variables, and the only call is the final expf evaluation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:49:02.902Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L63-L85",
+          "why": "Shows the zero shortcut, normalized base transform, odd-power recurrence, stabilization test, exponent multiplication, and expf call."
+        }
+      ]
+    },
+    {
+      "id": "fact:01265242-8c83-4fed-b103-8e3c4492bdb3",
+      "target_id": "target:function:main/melee/lb/lb_00CE:powf",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Serves as a shared engine exponentiation primitive rather than one isolated gameplay rule. The AX standard and high-quality reverb constructors use it to derive decay-dependent comb-filter feedback coefficients, while the HSD expression bytecode evaluator exposes it as a binary floating-point power opcode.",
+      "rationale": "At the current revision, both reverb constructors call powf with base 10 and an exponent derived from delay length and configured decay time. The current bytecode evaluator's opcode 0x21 removes the exponent operand, applies powf to the two floating-point operands, and stores the result on the expression stack, confirming both engine-level uses.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:03:53.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L274-L393",
+          "why": "Shows bytecode opcode 0x21 popping two floating-point operands, applying powf, and storing the result back on the expression stack."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/axfx/reverb_std.c#L43-L109",
+          "why": "Shows standard reverb construction using powf to calculate decay-dependent comb-filter coefficients."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/axfx/reverb_hi.c#L42-L108",
+          "why": "Shows high-quality reverb construction using powf to calculate coefficients for its larger comb-filter network."
+        }
+      ]
+    },
+    {
+      "id": "fact:dcab6513-9cc2-465f-a3ee-458d7946c9f5",
+      "target_id": "target:function:main/melee/lb/lb_00CE:powf",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: f32 powf(f32 base, f32 exponent). The intended ordinary domain is a positive, dimensionless base and a real exponent; the result is the single-precision value base^exponent. This implementation also special-cases a zero base to return 0.0f for every exponent.",
+      "rationale": "The definition establishes the two-f32-to-f32 signature. The logarithm identity used by the body establishes the positive-base domain, and the opening branch explicitly defines this implementation's zero-base behavior without inspecting the exponent.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:49:02.902Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L63-L85",
+          "why": "Provides the exact signature, the positive-base logarithmic reduction, and the unconditional zero-base return."
+        }
+      ]
+    },
+    {
+      "id": "fact:efd68e97-b739-40d7-a2c1-968f8bc12908",
+      "target_id": "target:function:main/melee/lb/lb_00CE:powf",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Computes a single-precision real power for a positive base by approximating its natural logarithm with an odd-power series and passing exponent \u00d7 logarithm to the unit's exponential approximation.",
+      "rationale": "For nonzero x, the body forms z = (x \u2212 1)/(x + 1), accumulates z + z^3/3 + z^5/5 + \u2026 until the f32 sum stops changing, doubles that sum to approximate ln(x), multiplies it by the exponent, and calls expf. This directly implements x^y = exp(y ln(x)) over the intended positive-base domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:49:02.902Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L63-L85",
+          "why": "The complete matched body shows the logarithm-series accumulation and final expf(exponent \u00d7 approximated logarithm) calculation."
+        }
+      ]
+    },
+    {
+      "id": "fact:6ffe1712-765a-42cd-ac98-e339b4fa9e3f",
+      "target_id": "target:function:main/melee/lb/lb_00CE:powf",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine has two numeric paths. A base exactly equal to zero returns 0.0f immediately, including when the exponent is zero or negative. A nonzero base enters a do-while approximation loop that always executes at least once and terminates only when adding the next odd-power term no longer changes the accumulated f32 value. It does not contain separate handling for negative bases, infinities, NaNs, or the usual zero-base corner cases of a full standard-library powf.",
+      "rationale": "The opening equality guard ignores the exponent and therefore proves the stated zero behavior. The do-while condition compares the updated sum with its previous f32 value, making representational stabilization the sole normal termination condition. No other domain or exceptional-value branches appear in the complete body.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T03:49:02.902Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L63-L85",
+          "why": "Shows the exact zero-base guard, mandatory first loop iteration, stabilization termination test, and absence of other exceptional-input branches."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_00CE:powi": [
+    {
+      "id": "fact:687371d1-bdb3-4b3f-b95c-edfa40859f0e",
+      "target_id": "target:function:main/melee/lb/lb_00CE:powi",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives `base` and `exponent` by value. For an accepted input, it initializes a local accumulator to 1 and a counter to 0, multiplies the accumulator by `base` while the counter is less than `exponent`, and returns the final accumulator. It reads no global data, calls no subordinate function, and produces no side effects beyond its return value.",
+      "rationale": "All data movement is visible in the complete leaf-function body: the two parameters feed guards and the multiplication loop, while only the local accumulator reaches the successful return.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:48:21.395Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L87-L110",
+          "why": "Directly traces both parameters through the guards and counted multiplication into the returned integer."
+        }
+      ]
+    },
+    {
+      "id": "fact:e9889438-1408-44f8-ac57-911de6cb8d4b",
+      "target_id": "target:function:main/melee/lb/lb_00CE:powi",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `s32 powi(s32 base, s32 exponent)`. Both operands and the result are signed 32-bit integers; the exponent is accepted as a signed value but only the nonnegative domain is evaluated.",
+      "rationale": "The matched declaration provides the exact C types, and the negative-exponent guard establishes the implemented exponent domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:48:21.395Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L87-L110",
+          "why": "Shows the exact return and parameter types together with the signed comparison against zero."
+        }
+      ]
+    },
+    {
+      "id": "fact:e0b96292-204f-4ae0-b6d1-e23c7777b6ed",
+      "target_id": "target:function:main/melee/lb/lb_00CE:powi",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Computes an integer base raised to a nonnegative integer exponent by repeated multiplication, while using zero as the result for a zero base or an unsupported negative exponent.",
+      "rationale": "The complete matched body initializes the result to one, multiplies it by the base once for every count below the exponent, and has explicit zero-return guards for a zero base and a negative exponent.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:48:21.395Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L87-L110",
+          "why": "Contains the complete exponentiation loop and both exceptional zero-return paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:c08c0ca2-8fc1-4dda-adfc-9ae12264219e",
+      "target_id": "target:function:main/melee/lb/lb_00CE:powi",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "There are three guarded outcomes: `base == 0` returns 0 immediately; `exponent < 0` also returns 0; otherwise the function performs exactly `exponent` multiplications starting from the identity value 1. Consequently a nonzero base with exponent 0 returns 1.",
+      "rationale": "The two early guards, accumulator initialization, and loop bound exhaustively define the routine's control states and boundary behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T03:48:21.395Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L87-L110",
+          "why": "Shows both early-return conditions and the zero-iteration identity case implied by initializing `result` to 1 before the counted loop."
+        }
+      ]
+    }
+  ],
+  "src/melee/lb/lb_00CE.c": [
+    {
+      "id": "fact:4a4be0e8-912b-44ad-a998-7d13ade569df",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_00CE.c",
+      "type": "data_flow",
+      "value": "The unit receives scalar arguments by value and returns scalar results without persistent mutation. expf accumulates an exponential series; powf reduces real exponentiation to a logarithmic series followed by expf; powi repeatedly multiplies integers; the Cartesian-angle helper combines tolerance checks with atanf; and the segment-circle predicate combines line-distance and endpoint-distance calculations with sqrtf. Their inline floating literals are emitted through the unit's .sdata2 constant pool.",
+      "rationale": "The current source preserves scalar-only approximation and geometry calculations and the constant-order helper, so the data-flow interpretation remains valid after the include-only drift.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L1-L200",
+          "why": "Shows the constant-order helper and scalar flow through exponential, power, angle, and geometry routines."
+        }
+      ]
+    },
+    {
+      "id": "fact:58f351f2-9a0f-4680-bcea-2f4ec20868c7",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_00CE.c",
+      "type": "inferred_name",
+      "value": "lbmath",
+      "rationale": "The unit remains a general collection of scalar mathematics and geometry routines, including exponential, power, angle, and segment-circle calculations. That breadth supports lbmath as a plausible but unconfirmed original basename.",
+      "confidence": 0.78,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L1-L200",
+          "why": "Shows a unit-wide collection of exponential, power, integer-power, angle, and two-dimensional geometry routines."
+        }
+      ]
+    },
+    {
+      "id": "fact:eeea0024-589a-4e83-8e78-dd4dfbae0095",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_00CE.c",
+      "type": "inferred_type",
+      "value": "A stateless mathematics translation unit whose callable surface consists of scalar f32 and s32 functions. It owns single-precision approximation routines, an integer-power routine, and two-dimensional geometry predicates, with their floating constants emitted in the unit's small read-only data section.",
+      "rationale": "Every current routine consumes scalar arguments, uses local temporaries, and returns a scalar result; no persistent mutable module state appears.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L1-L200",
+          "why": "Shows scalar signatures, local-only calculations, and the unit's read-only floating constants."
+        }
+      ]
+    },
+    {
+      "id": "fact:dbe33312-df3c-4d6f-a6ed-ace924f2f8ff",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_00CE.c",
+      "type": "purpose",
+      "value": "Provides low-level scalar mathematics and two-dimensional geometry helpers for the engine, including single-precision exponential and real-power approximations, integer exponentiation, quadrant-aware Cartesian-angle calculation, and a threshold-circle intersection test for a line segment.",
+      "rationale": "The current file retains expf, powf, powi, the Cartesian-angle routine, and the line-segment versus threshold-circle predicate; the include refactor did not alter those responsibilities.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00CE.c#L1-L200",
+          "why": "Shows the approximation, integer-power, angle, and segment-circle implementations."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_00CE:expf#r3": [],
+  "main/melee/lb/lb_00CE:lb_8000D008#r3": [],
+  "main/melee/lb/lb_00CE:lb_8000D008#r4": [],
+  "main/melee/lb/lb_00CE:lb_8000D148#r3": [],
+  "main/melee/lb/lb_00CE:lb_8000D148#r4": [],
+  "main/melee/lb/lb_00CE:lb_8000D148#r5": [],
+  "main/melee/lb/lb_00CE:lb_8000D148#r6": [],
+  "main/melee/lb/lb_00CE:lb_8000D148#r7": [],
+  "main/melee/lb/lb_00CE:lb_8000D148#r8": [],
+  "main/melee/lb/lb_00CE:lb_8000D148#r9": [],
+  "main/melee/lb/lb_00CE:powf#r3": [],
+  "main/melee/lb/lb_00CE:powf#r4": [],
+  "main/melee/lb/lb_00CE:powi#r3": [],
+  "main/melee/lb/lb_00CE:powi#r4": []
+}

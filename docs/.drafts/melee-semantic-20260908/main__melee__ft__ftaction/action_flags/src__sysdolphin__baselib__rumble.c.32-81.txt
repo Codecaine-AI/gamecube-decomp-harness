@@ -1,0 +1,50 @@
+32:     RumbleInfo* r6 = &HSD_PadLibData.rumble_info;
+33:     HSD_PadRumbleListData** r5 = &a->listdatap;
+34: 
+35:     while ((*r5) != b) {
+36:         r5 = &(*r5)->next;
+37:     }
+38:     *r5 = b->next;
+39:     a->nb_list--;
+40:     b->next = r6->listdatap;
+41:     r6->listdatap = b;
+42: }
+43: 
+44: void HSD_PadRumbleRemove(u8 no)
+45: {
+46:     HSD_RumbleData* r28 = &HSD_Rumble_804C22E0[no];
+47:     bool r29 = OSDisableInterrupts();
+48:     HSD_PadRumbleListData* r4 = r28->listdatap;
+49: 
+50:     while (r4 != NULL) {
+51:         HSD_PadRumbleListData* r30 = r4->next;
+52:         HSD_PadRumbleFree(r28, r4);
+53:         r4 = r30;
+54:     }
+55:     OSRestoreInterrupts(r29);
+56: }
+57: 
+58: void HSD_PadRumbleRemoveAll(void)
+59: {
+60:     int i;
+61: 
+62:     for (i = 0; i < 4; i++) {
+63:         HSD_PadRumbleRemove(i);
+64:     }
+65: }
+66: 
+67: void HSD_PadRumbleRemoveId(u8 no, int id)
+68: {
+69:     HSD_RumbleData* r31 = &HSD_Rumble_804C22E0[no];
+70:     bool r3 = OSDisableInterrupts();
+71:     HSD_PadRumbleListData* r7 = r31->listdatap;
+72: 
+73:     while (r7 != NULL) {
+74:         HSD_PadRumbleListData* r6 = r7->next;
+75:         if (r7->id == (unsigned) id) {
+76:             HSD_PadRumbleFree(r31, r7);
+77:         }
+78:         r7 = r6;
+79:     }
+80:     OSRestoreInterrupts(r3);
+81: }

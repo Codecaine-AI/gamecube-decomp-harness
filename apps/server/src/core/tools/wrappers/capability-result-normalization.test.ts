@@ -46,5 +46,16 @@ describe("capability wrapper result normalization", () => {
       status: "failed",
       reason: "parse failure at source path /opt/melee/src/melee/player.c",
     });
+
+    expect(promoteSourcePermuterInvocationFailure({
+      status: "ok",
+      parsed: {
+        status: "failed",
+        stderr: "parser error in MtxUtil.cpp",
+      },
+    })).toMatchObject({
+      status: "failed",
+      reason: "parser error in MtxUtil.cpp",
+    });
   });
 });

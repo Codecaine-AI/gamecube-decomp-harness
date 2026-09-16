@@ -1,0 +1,536 @@
+{
+  "schemaVersion": 1,
+  "id": "20-implementation-20-server-jobs-00-overview",
+  "title": "Server Jobs",
+  "root": "b-server-jobs-root-1",
+  "blocks": {
+    "b-server-jobs-root-1": {
+      "id": "b-server-jobs-root-1",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "server-jobs",
+          "job-runner",
+          "dispatcher",
+          "phase-owned-jobs"
+        ]
+      },
+      "children": [
+        "b-server-jobs-role-2",
+        "b-server-jobs-sources-3",
+        "b-server-jobs-governed-by-4",
+        "b-server-jobs-gov-workflows-5",
+        "b-server-jobs-gov-background-jobs-6",
+        "b-server-jobs-decisions-7",
+        "b-server-jobs-decision-dispatcher-8",
+        "b-server-jobs-decision-dispatcher-why-9",
+        "b-server-jobs-decision-dispatcher-applies-10",
+        "startup-order",
+        "startup-context",
+        "startup-outline",
+        "startup-source",
+        "compile-coordination",
+        "compile-policy",
+        "compile-recovery",
+        "compile-source",
+        "report-execution",
+        "report-policy",
+        "report-reuse",
+        "report-serialization",
+        "report-source"
+      ]
+    },
+    "b-server-jobs-role-2": {
+      "id": "b-server-jobs-role-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Server startup prepares host build coordination and recovers interrupted Sync publication before opening HTTP routes. The job dispatcher parses game and runtime options and invokes the owning domain implementation. This page maps those entry points and the shared report runner to their code."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-sources-3": {
+      "id": "b-server-jobs-sources-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sources: "
+        },
+        {
+          "insert": "apps/server/src/application/jobs",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/application/jobs",
+              "label": "apps/server/src/application/jobs"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-governed-by-4": {
+      "id": "b-server-jobs-governed-by-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Governed by"
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-gov-workflows-5": {
+      "id": "b-server-jobs-gov-workflows-5",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Sync",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-sync"
+            }
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "Decomp Loop",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop"
+            }
+          }
+        },
+        {
+          "insert": " define the workflow behavior the job commands invoke."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-gov-background-jobs-6": {
+      "id": "b-server-jobs-gov-background-jobs-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing"
+            }
+          }
+        },
+        {
+          "insert": " owns the queue and pathway contract the kg2 jobs serve."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decisions-7": {
+      "id": "b-server-jobs-decisions-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Decisions"
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decision-dispatcher-8": {
+      "id": "b-server-jobs-decision-dispatcher-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": "
+        },
+        {
+          "insert": "application/jobs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " owns only the command dispatcher. Every job's implementation lives with its owning domain slice. This places running-phase jobs under the running phase, PR jobs under the PR phase, knowledge jobs under "
+        },
+        {
+          "insert": "core/knowledge-v2/*/cli.ts (the kg2 jobs) or core/knowledge/jobs (the deprecated kg jobs)",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", validation jobs under "
+        },
+        {
+          "insert": "core/validation/jobs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decision-dispatcher-why-9": {
+      "id": "b-server-jobs-decision-dispatcher-why-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the rejected alternative was a standalone command app carrying job business logic in the application layer. Jobs are debuggable entrypoints over phase-owned workflow code, so workflow behavior stays with the phase that owns it and the dispatcher stays a thin routing table."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decision-dispatcher-applies-10": {
+      "id": "b-server-jobs-decision-dispatcher-applies-10",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": "
+        },
+        {
+          "insert": "apps/server/src/application/jobs",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/application/jobs",
+              "label": "apps/server/src/application/jobs"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases",
+              "label": "apps/server/src/core/harness-runtime/phases"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge/jobs",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge/jobs",
+              "label": "apps/server/src/core/knowledge/jobs"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge-v2",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2",
+              "label": "apps/server/src/core/knowledge-v2"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/validation/jobs",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/validation/jobs",
+              "label": "apps/server/src/core/validation/jobs"
+            }
+          }
+        },
+        {
+          "insert": ". For every future job, register the command in the dispatcher, implement it in the owning slice."
+        }
+      ],
+      "children": []
+    },
+    "startup-order": {
+      "id": "startup-order",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Server Startup"
+        }
+      ],
+      "children": []
+    },
+    "startup-context": {
+      "id": "startup-context",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Server startup configures shared host build capacity before reconciling interrupted Sync publication and opening HTTP routes. Job commands also configure build capacity before dispatching their domain implementation."
+        }
+      ],
+      "children": []
+    },
+    "startup-outline": {
+      "id": "startup-outline",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Configure the host compile jobserver when a slot budget is supplied."
+          },
+          {
+            "text": "Reconcile interrupted Sync publication before accepting operator requests."
+          },
+          {
+            "text": "Open the HTTP server with kernel reads, application APIs, and dashboard assets."
+          }
+        ]
+      },
+      "text": [],
+      "children": []
+    },
+    "startup-source": {
+      "id": "startup-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/server.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/server.ts"
+            }
+          }
+        },
+        {
+          "insert": " owns this ordering."
+        }
+      ],
+      "children": []
+    },
+    "compile-coordination": {
+      "id": "compile-coordination",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Host Compile Coordination"
+        }
+      ],
+      "children": []
+    },
+    "compile-policy": {
+      "id": "compile-policy",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The compile jobserver uses a shared FIFO token budget on macOS and Linux. Its Ninja wrapper inherits through "
+        },
+        {
+          "insert": "PATH",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "MAKEFLAGS",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", so cooperating host builds share capacity instead of each consuming a full independent pool. Daytona compilation uses its own sandbox resources."
+        }
+      ],
+      "children": []
+    },
+    "compile-recovery": {
+      "id": "compile-recovery",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Startup reuses a live daemon with the same slot count. A different requested count fails instead of restarting a daemon that may serve active builds. Dead process or missing FIFO state can be replaced. Wrapper execution returns its token when the child exits."
+        }
+      ],
+      "children": []
+    },
+    "compile-source": {
+      "id": "compile-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/infrastructure/shell/global-compile-jobserver.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/infrastructure/shell/global-compile-jobserver.ts"
+            }
+          }
+        },
+        {
+          "insert": " owns daemon startup, token coordination, and wrapper environment."
+        }
+      ],
+      "children": []
+    },
+    "report-execution": {
+      "id": "report-execution",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Report Generation"
+        }
+      ],
+      "children": []
+    },
+    "report-policy": {
+      "id": "report-policy",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The report runner configures a missing build graph, builds the configured report target, and optionally generates changes against the baseline. "
+        },
+        {
+          "insert": "--reset-baseline",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " replaces the comparison baseline with the fresh report. Report paths and targets come from the selected game."
+        }
+      ],
+      "children": []
+    },
+    "report-reuse": {
+      "id": "report-reuse",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "With "
+        },
+        {
+          "insert": "ORCH_REPORT_REUSE=1",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", a matching reuse key permits the existing report to be reused. The key includes the checkout head and build configuration inputs. A miss regenerates the report. Baseline reset and change generation remain explicit options."
+        }
+      ],
+      "children": []
+    },
+    "report-serialization": {
+      "id": "report-serialization",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Calls to "
+        },
+        {
+          "insert": "forceReportRun",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " are serialized by resolved repository root within the host process. A failed call does not prevent the next queued call from running. This map is process-local and does not lock independent host processes that write the same checkout."
+        }
+      ],
+      "children": []
+    },
+    "report-source": {
+      "id": "report-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/core/validation/report/run.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/validation/report/run.ts"
+            }
+          }
+        },
+        {
+          "insert": " implements report reuse and per-root execution ordering."
+        }
+      ],
+      "children": []
+    }
+  }
+}

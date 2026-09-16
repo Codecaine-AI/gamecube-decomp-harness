@@ -4,11 +4,18 @@
 Implements the deterministic maintainer-rejection rules from the QA ship
 gate flow (docs/10-system-design/60-score-and-pr-handoff.md). The rule
 implementations live in per-family vertical slices under
-``projects/melee/knowledge/sources/injectable/decomp_standards/standards/
+``games/melee/knowledge/sources/injectable/decomp_standards/standards/
 <family>/rules.py`` (env override ``REVIEW_LINT_STANDARDS_DIR``); this module
 keeps the shared helpers and regex primitives, loads every slice, validates
 each slice module against its ``slice.json`` manifest, and assembles the
 ``RULES`` registry in the canonical order below.
+
+Standards compose: the game's own standards directory (``ORCH_GAME_DIR`` /
+``ORCH_GAME_KNOWLEDGE_ROOT``) is loaded first, then the global set (env
+``REVIEW_LINT_GLOBAL_STANDARDS_DIR``, defaulting to the Melee-hosted tree)
+when it is a different directory. Families are deduplicated by name and the
+game's slice wins on collision. An explicit ``REVIEW_LINT_STANDARDS_DIR``
+override is used alone unless the global env is also set.
 
 Rule families and their slices:
 
@@ -40,7 +47,7 @@ to the base severity on both surfaces. Rules may also declare an optional
 Engine-owned data-driven rules:
 
 - banned-pattern rules loaded from
-  ``projects/melee/knowledge/sources/injectable/banned_patterns/data/banned.jsonl``.
+  ``games/melee/knowledge/sources/injectable/banned_patterns/data/banned.jsonl``.
 - resubmission tombstones (fuzzy token-shingle hashes of previously rejected
   hunks) loaded from ``.../banned_patterns/data/tombstones.jsonl``.
 
@@ -78,8 +85,35 @@ DEFAULT_STANDARDS_DIR = (
     / "decomp_standards"
     / "standards"
 )
+# Global (game-agnostic) standards are hosted under the Melee game dir. They
+# compose with the game's own standards at scan time (game wins per family).
+GLOBAL_STANDARDS_DIR_ENV = "REVIEW_LINT_GLOBAL_STANDARDS_DIR"
+GLOBAL_STANDARDS_GAME_ID = "melee"
+DEFAULT_GLOBAL_STANDARDS_DIR = (
+    ORCHESTRATOR_ROOT
+    / "games"
+    / GLOBAL_STANDARDS_GAME_ID
+    / "knowledge"
+    / "sources"
+    / "injectable"
+    / "decomp_standards"
+    / "standards"
+)
+GLOBAL_BANNED_DIR_ENV = "REVIEW_LINT_GLOBAL_BANNED_DIR"
+DEFAULT_GLOBAL_BANNED_DIR = (
+    ORCHESTRATOR_ROOT
+    / "games"
+    / GLOBAL_STANDARDS_GAME_ID
+    / "knowledge"
+    / "sources"
+    / "injectable"
+    / "banned_patterns"
+    / "data"
+)
 
-DEFAULT_APPLIES_TO = ["src/**/*.c"]
+# Global rules apply to authored C and C++ translation units. Vendor trees
+# (SDK, JSystem, MSL, ...) are carved out per rule via "excludes".
+DEFAULT_APPLIES_TO = ["src/**/*.c", "src/**/*.cpp"]
 
 # Optional per-rule severity surfaces (see rule "surfaces" maps).
 QA_SURFACES = ("worker", "pr_gate")
@@ -88,10 +122,18 @@ QA_SURFACES = ("worker", "pr_gate")
 # melee/sysdolphin source-quality rules. Rules opt in via their "excludes"
 # list; the engine never applies this implicitly.
 SDK_PATH_EXCLUDES = [
+    # Melee SDK-like trees.
     "src/dolphin/**",
     "src/MSL/**",
     "src/MetroTRK/**",
     "src/Runtime/**",
+    # SMS vendor / middleware trees.
+    "src/JSystem/**",
+    "src/PowerPC_EABI_Support/**",
+    "src/TRK_MINNOW_DOLPHIN/**",
+    "src/THPPlayer/**",
+    "include/JSystem/**",
+    "include/dolphin/**",
 ]
 
 # Canonical slice order (spec order of the source-quality families). Hook and
@@ -104,6 +146,7 @@ CANONICAL_FAMILY_ORDER = [
     "names_defines_headers_and_prototypes",
     "authored_source_shape",
     "pipeline_owned_verification",
+    "source_fidelity",
 ]
 
 # Canonical RULES registry order. Findings order is part of the gate contract
@@ -134,6 +177,24 @@ CANONICAL_RULE_ORDER = [
     "novel_pragma",
     "codegen_pragma",
     "type_erasing_cast",
+    # source_fidelity (global authored-source fidelity rules).
+    "dangling_ref_return",
+    "scalar_member_index",
+    "header_override_macro",
+    "mangled_symbol_in_source",
+    "manual_vtable",
+    "discarded_expression",
+    "unused_static_data",
+    "local_class_shadows_header",
+    "fixed_fn_pointer_call",
+    "storage_widening",
+    "duplicated_inline_body",
+    "single_use_wrapper",
+    "guard_removal",
+    "unassigned_member_deref",
+    "arg_order_change",
+    "cancelling_arithmetic",
+    "layout_cue_local",
 ]
 
 # Identifier ending in an encoded address: lbl_804DA60C, ftColl_804D82E0,
@@ -413,7 +474,7 @@ def _added_macro_definitions(hunk: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def standards_dir() -> Path:
-    """Resolve the standards slice directory (env-overridable for tests)."""
+    """Resolve the game standards slice directory (env-overridable for tests)."""
 
     override = os.environ.get(STANDARDS_DIR_ENV)
     if override:
@@ -421,11 +482,67 @@ def standards_dir() -> Path:
     return DEFAULT_STANDARDS_DIR
 
 
-def _family_rank(family: str) -> tuple[int, str]:
+def global_standards_dir() -> Path | None:
+    """Resolve the global standards directory that composes with the game's.
+
+    ``REVIEW_LINT_GLOBAL_STANDARDS_DIR`` wins when set. Otherwise the
+    Melee-hosted tree is the global set, unless an explicit
+    ``REVIEW_LINT_STANDARDS_DIR`` override is in effect (tests and ad-hoc
+    scans that point at a fixture tree get exactly that tree).
+    """
+
+    override = os.environ.get(GLOBAL_STANDARDS_DIR_ENV)
+    if override:
+        return Path(override)
+    if os.environ.get(STANDARDS_DIR_ENV):
+        return None
+    return DEFAULT_GLOBAL_STANDARDS_DIR
+
+
+def _same_dir(left: Path, right: Path) -> bool:
     try:
-        return (CANONICAL_FAMILY_ORDER.index(family), family)
+        return left.resolve() == right.resolve()
+    except OSError:
+        return left == right
+
+
+def standards_dirs() -> list[tuple[str, Path]]:
+    """Ordered ``(scope, path)`` standards roots: game first, then global.
+
+    The global entry is omitted when it is the same directory as the game's
+    (Melee itself) or when no global root applies.
+    """
+
+    game = standards_dir()
+    roots: list[tuple[str, Path]] = [("game", game)]
+    global_root = global_standards_dir()
+    if global_root is not None and not _same_dir(global_root, game):
+        roots.append(("global", global_root))
+    return roots
+
+
+def _family_rank(family: str, order: list[str] | None = None) -> tuple[int, str]:
+    ranking = order if order is not None else CANONICAL_FAMILY_ORDER
+    try:
+        return (ranking.index(family), family)
     except ValueError:
-        return (len(CANONICAL_FAMILY_ORDER), family)
+        return (len(ranking), family)
+
+
+def _dir_family_order(root: Path) -> list[str] | None:
+    """Return the ``families`` ranking from ``<root>/order.json`` if present."""
+
+    order_path = root / "order.json"
+    if not order_path.is_file():
+        return None
+    try:
+        payload = json.loads(order_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    families = payload.get("families") if isinstance(payload, dict) else None
+    if isinstance(families, list) and all(isinstance(item, str) for item in families):
+        return families
+    return None
 
 
 def _import_slice_rules(family: str, rules_py: Path) -> Any:
@@ -435,6 +552,13 @@ def _import_slice_rules(family: str, rules_py: Path) -> Any:
     existing = sys.modules.get(module_name)
     if existing is not None and getattr(existing, "__file__", None) == str(rules_py):
         return existing
+    if existing is not None:
+        # Same family name from a different root (game override vs global);
+        # keep both importable under distinct module names.
+        module_name = f"{module_name}_{abs(hash(str(rules_py))) & 0xFFFFFFFF:08x}"
+        existing = sys.modules.get(module_name)
+        if existing is not None and getattr(existing, "__file__", None) == str(rules_py):
+            return existing
     # Slices import shared helpers via `import _qa_rules`; make sure that name
     # resolves to this (possibly still-initializing) module even when this
     # file runs as a __main__ script, and that sibling api modules import.
@@ -474,16 +598,14 @@ def _validate_slice_rules(manifest: dict[str, Any], module: Any, slice_dir: Path
                 )
 
 
-def load_rule_slices() -> list[dict[str, Any]]:
-    """Discover and import standards/*/ rule slices (deterministic order)."""
+def _load_slices_from_dir(root: Path, scope: str) -> list[dict[str, Any]]:
+    """Load every ``<root>/*/slice.json`` slice in the directory's own order."""
 
-    root = standards_dir()
-    if not root.is_dir():
-        raise RuntimeError(f"review_lint: standards slice directory not found: {root}")
+    order = _dir_family_order(root)
     slices: list[dict[str, Any]] = []
     slice_dirs = sorted(
         (path.parent for path in root.glob("*/slice.json")),
-        key=lambda path: _family_rank(path.name),
+        key=lambda path: _family_rank(path.name, order),
     )
     for slice_dir in slice_dirs:
         manifest = json.loads((slice_dir / "slice.json").read_text(encoding="utf-8"))
@@ -492,12 +614,43 @@ def load_rule_slices() -> list[dict[str, Any]]:
             "path": slice_dir,
             "manifest": manifest,
             "module": None,
+            "scope": scope,
+            "root": root,
         }
         rules_py = slice_dir / "rules.py"
         if rules_py.is_file():
             record["module"] = _import_slice_rules(slice_dir.name, rules_py)
             _validate_slice_rules(manifest, record["module"], slice_dir)
         slices.append(record)
+    return slices
+
+
+def load_rule_slices() -> list[dict[str, Any]]:
+    """Discover and import rule slices from the composed standards roots.
+
+    Roots are visited in ``standards_dirs()`` order (game first, then global).
+    Within a root, ``order.json``'s ``families`` list ranks the slices (falling
+    back to ``CANONICAL_FAMILY_ORDER``). Families are deduplicated by name and
+    the first root to define a family wins, so a game slice overrides the
+    global slice of the same family.
+    """
+
+    roots = standards_dirs()
+    game_root = roots[0][1]
+    if not game_root.is_dir():
+        raise RuntimeError(f"review_lint: standards slice directory not found: {game_root}")
+    slices: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for scope, root in roots:
+        if not root.is_dir():
+            if scope == "global":
+                continue
+            raise RuntimeError(f"review_lint: standards slice directory not found: {root}")
+        for record in _load_slices_from_dir(root, scope):
+            if record["family"] in seen:
+                continue
+            seen.add(record["family"])
+            slices.append(record)
     return slices
 
 
@@ -567,12 +720,53 @@ _reexport_slice_checks()
 
 
 def banned_dir() -> Path:
-    """Resolve the banned-pattern data directory (env-overridable for tests)."""
+    """Resolve the game banned-pattern data directory (env-overridable for tests)."""
 
     override = os.environ.get(BANNED_DIR_ENV)
     if override:
         return Path(override)
     return DEFAULT_BANNED_DIR
+
+
+def global_banned_dir() -> Path | None:
+    """Resolve the global banned-pattern data dir (mirrors ``global_standards_dir``)."""
+
+    override = os.environ.get(GLOBAL_BANNED_DIR_ENV)
+    if override:
+        return Path(override)
+    if os.environ.get(BANNED_DIR_ENV):
+        return None
+    return DEFAULT_GLOBAL_BANNED_DIR
+
+
+def banned_dirs() -> list[Path]:
+    """Ordered banned-pattern data roots: game first, then global (deduped)."""
+
+    game = banned_dir()
+    roots = [game]
+    global_root = global_banned_dir()
+    if global_root is not None and not _same_dir(global_root, game):
+        roots.append(global_root)
+    return roots
+
+
+def _read_composed_jsonl(name: str) -> list[dict[str, Any]]:
+    """Read ``<root>/<name>`` from every banned root, deduplicating by ``id``.
+
+    The game's records come first and win on id collision.
+    """
+
+    records: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for root in banned_dirs():
+        for record in _read_jsonl(root / name):
+            record_id = record.get("id")
+            if isinstance(record_id, str):
+                if record_id in seen:
+                    continue
+                seen.add(record_id)
+            records.append(record)
+    return records
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -596,7 +790,7 @@ def load_banned_pattern_rules() -> list[dict[str, Any]]:
     """Load regex-type banned-pattern records as additional rules."""
 
     rules: list[dict[str, Any]] = []
-    for record in _read_jsonl(banned_dir() / "banned.jsonl"):
+    for record in _read_composed_jsonl("banned.jsonl"):
         detector = record.get("detector") or {}
         if detector.get("type") != "regex" or not detector.get("pattern"):
             continue
@@ -631,7 +825,7 @@ def load_tombstones() -> list[dict[str, Any]]:
 
     return [
         record
-        for record in _read_jsonl(banned_dir() / "tombstones.jsonl")
+        for record in _read_composed_jsonl("tombstones.jsonl")
         if record.get("shingles")
     ]
 

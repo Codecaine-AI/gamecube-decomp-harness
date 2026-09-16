@@ -1,0 +1,33 @@
+{
+  "tu": "main/MSL/string",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/string.c#L10-L11",
+            "why": "Defines the arithmetic constants."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/string.c#L155-L257",
+            "why": "Shows alignment dispatch, conservative word test, word-order exits, and bytewise resolution."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing exact-detection wording and distinguishes word-path return magnitudes from byte differences. For example, 0xffffffff contains no zero byte but produces a nonzero result under the implemented addition/mask test. This replaces the upstream rationale's incorrect 0x80808080 example, which produces a zero mask.",
+        "subject": {
+          "target_stable_key": "main/MSL/string:strcmp"
+        },
+        "type": "data_flow",
+        "value": "The input pointers become unsigned-byte cursors. After comparing the first bytes, differing modulo-four alignments select byte traversal; matching alignments permit a byte prefix followed by aligned unsigned-word loads. The test `(left_word + K2) & K1` conservatively selects bytewise resolution of a possible terminator: a nonzero result does not prove that a zero byte is present. Equal words with a clear test advance both cursors. Differing words with a clear test return +1 or -1 according to unsigned-word ordering; bytewise mismatches return the left byte minus the right byte, and a shared terminator returns zero. Neither input is modified."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

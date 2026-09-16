@@ -1,0 +1,231 @@
+{
+  "tu": "main/melee/pl/pltrick",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:pl_80037B2C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source signature: int(struct plActionStats*, int h_player, int idx). Reads an attack-indexed victim-player byte mask. Supported indices are 0..99 and asserted player indices are 0..7. The result is zero or the non-normalized bit 1<<h_player. Only the upper index bound is checked.",
+        "rationale": "Corrects the baseline implication that every index below 100 is valid.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L20-L26",
+            "why": "Signature, assertion, and exact return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L77-L81",
+            "why": "Declared mask storage."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:pl_80037B2C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Asserts 0<=h_player<8 and returns x504[idx] & (1<<(u8)h_player) only when idx<100. It does not modify statistics. Negative idx passes the guard but is outside the array; idx>=100 reaches the end without returning a value. Neither case is a supported false-result path.",
+        "rationale": "Records both boundary hazards.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L20-L26",
+            "why": "Complete body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:fn_80037F00"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Returning static void mutator with source parameters (HSD_GObj** gp, Fighter* fp, ft_800898B4_t* ev, s32 arg3, s32 arg4). fp is the victim; arg3 is caller-derived rear classification; arg4 is previous source player. The caller casts attacker Fighter storage to gp. ev may be null only when gp is null. Fighter declares gobj first, but compiled layout and cast correctness remain unresolved.",
+        "rationale": "Void is not non-returning; preserve exact parameter use without asserting compiled layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L141-L203",
+            "why": "Signature and event dependency."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L359-L360",
+            "why": "Actual cast."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L1126-L1131",
+            "why": "Source first member, not compiled proof."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:fn_80037F00"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Captures old saved knockback when x221C_b6 is set, then copies the supplied event or initializes named saved fields. Writes integer-converted current percentage and rear classification into victim dmg.x18d8. Additional bits may be set by magnify state, motion_id==0xFD, source change with x10_b0 and threshold-satisfying old knockback, and ft_80089914(*gp, victim->dmg.x18d4.x3) combined with victim-object comparison. The classifier receives a stored attack byte, not a proved attacker motion ID. With gp non-null, input ev->x10_b7 is marked after the saved-record copy. No input pointer is retained.",
+        "rationale": "Repairs classifier provenance and copy/mark ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L148-L203",
+            "why": "Ordered reads and writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:fn_80037F00"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A null event initializes explicitly named fields with xC=6; a non-null event replaces the saved record. Percentage and x11_b0 are always overwritten, while other context bits are only set and may stay true from a copied payload when a new predicate is false. Prior knockback defaults to zero unless x221C_b6 is set; equality passes the >= threshold. There is no float sanitization, and exceptional or out-of-range percentage-to-int conversion has no established portable result. gp!=NULL requires ev!=NULL for final input marking. Side-attack gameplay meaning of the stored-byte classifier input remains unresolved.",
+        "rationale": "Replaces preserved-motion inference and clarifies optional branches, sticky bits, and exceptional inputs.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L148-L203",
+            "why": "Complete reset/copy and conditional-set logic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0892.c#L238-L265",
+            "why": "Callee classifies its integer using motion-state bounds."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:pl_80038144"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source signature: void(HSD_GObj* attacker_gobj, HSD_GObj* victim_gobj, s32 x18d4_int, ft_800898B4_t* ev_data, u16 attack_instance, s32 arg5, s32 source_ply). Attacker may be null; victim must be valid. arg5 is unused and receives grounded context. source_ply receives the previous source identity. Every valid non-null-attacker call requires ev_data, including duplicate, zero-ID, and high-ID paths, because the final helper marks the input event.",
+        "rationale": "Strengthens the event precondition beyond the eligible-hit block.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L205-L234",
+            "why": "Canonical signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L195-L202",
+            "why": "Final marking requirement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1423-L1445",
+            "why": "Previous-source and grounded-context provenance."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:pl_80038144"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Rear classification and pl_800410F4 run for attacker-present nonzero IDs before instance suppression. Rear uses strict facing-relative horizontal comparison excluding 0x60,0x61,0x33..0x3D. Instance zero always accepts; matching nonzero instance skips only enclosed descriptor and hit accounting. Accepted instances replace victim descriptor/instance. Attributed IDs 1..99 increment ordinary hits; filtered hits increment only if input x10_b7 is clear and attempted count exceeds filtered count. Directional counters, the IDs 8/0xB split, victim mask, and bonus calls follow. The final context helper runs regardless of suppression. Count guards do not establish unique per-occurrence or no-wrap invariants.",
+        "rationale": "Corrects overly broad deduplication wording while preserving branch boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L236-L361",
+            "why": "Complete ordering and suppression scope."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:pl_800384DC"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical signature: void(HSD_GObj* gobj, int arg1, void* arg2). gobj is interpreted as a Fighter, arg1 through Struct2070, and arg2 as ft_800898B4_t*. IDs 1..99 require non-null arg2 because x10_b7 is read unguarded. Known item adapters pass only x2073 promoted to int, not the full packed word. Exact compiled byte interpretation and event-overlay compatibility remain unresolved.",
+        "rationale": "Separates canonical signature and actual caller data from inferred full metadata.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L363-L402",
+            "why": "Signature, reinterpretation, and unguarded read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1681-L1699",
+            "why": "ID-only arguments."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:pl_800384DC"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Known item adapters supply the interacting fighter or fighter owner, an ID-only integer from x2073, and fighter/item event storage. The callee reinterprets the integer as Struct2070 and for IDs 1..99 accumulates hits and optionally x358_hits; x10_b0 controls separate x1A8 increments. ID 0x63 invokes pl_8003FE40; eligible filtered increments invoke pl_8003DFF4. It always writes fighter x2074.x2084_b7, not directly the supplied event pointer. Full category metadata forwarding by these callers is unsupported.",
+        "rationale": "Repairs input provenance and marker ownership.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1681-L1699",
+            "why": "Adapter inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L375-L423",
+            "why": "Destinations and marker."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/pltrick:pl_800384DC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "IDs zero and >=100 skip accounting but still set fighter x2084_b7. IDs 1..99 always increment ordinary hits; x10_b0 may increment x1A8. ID 0x63 invokes the fixed 0x4B handler. Filtered hits increment only when input x10_b7 is clear and their per-ID count trails attempts, then invoke a three-way dispatcher. There is no local occurrence-ID deduplication. The final fighter marker is not an unconditional write to supplied event storage, particularly on the item-owned-event path. Unsigned counters are not saturated.",
+        "rationale": "Replaces unique-occurrence overclaim with exact aggregate guard and ownership.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L379-L423",
+            "why": "Range, guard, and marker behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L390-L395",
+            "why": "Three-way dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L1208-L1211",
+            "why": "Fixed numeric notification."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

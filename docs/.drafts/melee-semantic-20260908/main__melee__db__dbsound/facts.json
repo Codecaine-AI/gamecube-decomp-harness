@@ -1,0 +1,1310 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbsound:.bss"
+    },
+    "facts": [
+      {
+        "id": "fact:11b7d14a-851b-4bbb-ae49-cc08f9a624fe",
+        "target_id": "target:data:main/melee/db/dbsound:.bss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "fn_SetupSoundInfo passes the array to DevText_Create as storage for panel ID 9 with an 18-by-3 grid. DevText_Create records the array address in the returned DevText object and clears the grid storage. The returned object is retained in db_SoundInfoText, after which fn_UpdateSoundInfo erases and rewrites that panel with FGM/BGM state and PVoice/VVoice diagnostics.",
+        "rationale": "The current setup code passes db_SoundInfoText_buf into DevText_Create and retains the resulting panel pointer. The current DevText implementation stores and clears that buffer, while the current updater erases and repopulates the panel, so the existing data-flow claim remains valid at head.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:e8c1b925-d2c2-497e-a97f-368b90c26920",
+            "fact_id": "fact:11b7d14a-851b-4bbb-ae49-cc08f9a624fe",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Shows db_SoundInfoText_buf entering DevText_Create with dimensions 18 by 3 and the returned panel being stored in db_SoundInfoText.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:0da6f155-87e7-4ec4-8c98-48f7f3b5448f",
+            "fact_id": "fact:11b7d14a-851b-4bbb-ae49-cc08f9a624fe",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/if/textlib.c#L65-L125",
+            "digest": "sha256:a605e7aa1a218e09",
+            "why": "Shows DevText_Create retaining the supplied buffer in text->buf and clearing h * (w * 2) bytes.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:316d2479-dae0-4fef-92d0-2a68d2222f82",
+            "fact_id": "fact:11b7d14a-851b-4bbb-ae49-cc08f9a624fe",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows fn_UpdateSoundInfo erasing and rewriting the retained panel with FGM/BGM, PVoice, and VVoice diagnostics.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:0c58c871-40cd-4994-8249-c9b02e09b0d7",
+        "target_id": "target:data:main/melee/db/dbsound:.bss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Backs the additional sound-information display reached through Melee's DEVELOP-mode X plus D-pad-left control after cycling through the first four music and sound-effect settings.",
+        "rationale": "The current code uses this buffer for the FGM/BGM and voice-diagnostic panel, while the documented DEVELOP-mode control identifies X plus D-pad-left as the sound toggle whose additional information appears after four settings. The mapping therefore still holds.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:cf530af9-0a9b-47e3-8421-07f7d9c4a6df",
+            "fact_id": "fact:0c58c871-40cd-4994-8249-c9b02e09b0d7",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Shows the buffer being assigned to the developer sound-information panel.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:6d314831-458d-4888-902c-14a945a33a4b",
+            "fact_id": "fact:0c58c871-40cd-4994-8249-c9b02e09b0d7",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the panel presenting FGM/BGM state and voice diagnostics in its visible modes.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:353c475a-7458-41ad-8172-10690c01cea8",
+            "fact_id": "fact:0c58c871-40cd-4994-8249-c9b02e09b0d7",
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "digest": null,
+            "why": "Documents X plus D-pad-left as cycling four sound settings and then displaying additional information.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:095a0b16-c6cd-42db-be9b-37b7c36dc656",
+        "target_id": "target:data:main/melee/db/dbsound:.bss",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "db_SoundInfoText_buf",
+        "rationale": "The current source declares the section's 0x70-byte array as db_SoundInfoText_buf and passes it specifically when creating db_SoundInfoText. That direct pairing continues to support the reconstructed object name.\n\nNaming cleanup: Explicit array name.\nPrior naming claim: The section's sole object is plausibly named db_SoundInfoText_buf, identifying it as the backing buffer paired with db_SoundInfoText.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:95cc0ac4-ce94-44a9-9ec0-59ff54579992",
+            "fact_id": "fact:095a0b16-c6cd-42db-be9b-37b7c36dc656",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Declares db_SoundInfoText_buf and shows it being used as the backing buffer for db_SoundInfoText.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:bb558d43-57a8-47a7-99de-6480846ddd44",
+        "target_id": "target:data:main/melee/db/dbsound:.bss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A zero-initialized 0x70-byte character array (char[112]). DevText_Create uses it as storage for an 18-by-3 text grid at two bytes per cell, clearing 108 bytes; the declared array supplies four additional bytes beyond that active grid.",
+        "rationale": "The current declaration remains char[0x70], and setup still supplies dimensions 18 and 3. DevText_Create still clears h * (w * 2) bytes, establishing 108 active bytes within the 112-byte array.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:a224b7b9-c81f-48ad-bf91-68587b084c8d",
+            "fact_id": "fact:bb558d43-57a8-47a7-99de-6480846ddd44",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Declares static char db_SoundInfoText_buf[0x70] and passes it to DevText_Create with width 18 and height 3.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:56b024ef-1898-48c2-b5d7-8c79c0c1cdab",
+            "fact_id": "fact:bb558d43-57a8-47a7-99de-6480846ddd44",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/if/textlib.c#L65-L125",
+            "digest": "sha256:a605e7aa1a218e09",
+            "why": "Shows that DevText_Create retains a char buffer and clears h * (w * 2) bytes.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:5ae387ff-baa8-4f56-8ffb-5115f8861db5",
+        "target_id": "target:data:main/melee/db/dbsound:.bss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the module-owned character storage backing the developer sound-information DevText panel.",
+        "rationale": "The current setup routine still supplies the section's sole character array to DevText_Create, and the DevText implementation still retains it as the panel buffer. The section's purpose is unchanged.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:12b4e118-633e-45d1-bce3-cac327747b49",
+            "fact_id": "fact:5ae387ff-baa8-4f56-8ffb-5115f8861db5",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Shows the module-owned array being passed as the backing-buffer argument for the sound-information panel.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:49a773b4-9d67-4825-9d19-e2bc22e514b6",
+            "fact_id": "fact:5ae387ff-baa8-4f56-8ffb-5115f8861db5",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/if/textlib.c#L65-L125",
+            "digest": "sha256:a605e7aa1a218e09",
+            "why": "Shows DevText_Create storing the supplied buffer in the DevText object.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:fbdc8f2c-7084-45cb-964c-bf99f32feff2",
+        "target_id": "target:data:main/melee/db/dbsound:.bss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The array begins zero-initialized by virtue of .bss placement. Sound-panel setup clears the 108 bytes corresponding to the configured 18-by-3 two-byte-cell grid, and active sound-information updates repeatedly erase and repopulate that retained storage; hidden display modes preserve the panel object while suppressing its background and text.",
+        "rationale": "The current setup and DevText code preserve the initial dimensioned clear, and the current updater still divides modes into hidden and visible groups while erasing and rewriting the retained panel in visible modes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:ca7170b9-3b90-4eda-8aa2-0ef29d328c52",
+            "fact_id": "fact:fbdc8f2c-7084-45cb-964c-bf99f32feff2",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Shows the .bss array being used to create an initially hidden 18-by-3 panel.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:173314b1-312c-462b-8aa4-5be78e8fef14",
+            "fact_id": "fact:fbdc8f2c-7084-45cb-964c-bf99f32feff2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/if/textlib.c#L65-L125",
+            "digest": "sha256:a605e7aa1a218e09",
+            "why": "Shows the explicit h * (w * 2) clear of the retained panel buffer.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:b9337814-099b-48c8-a7da-bd1ae561034c",
+            "fact_id": "fact:fbdc8f2c-7084-45cb-964c-bf99f32feff2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows hidden modes suppressing the panel and visible modes erasing, repopulating, and showing it.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbsound:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:f0c4a31c-4a13-4dd8-bcbb-fd54ddda7ce6",
+        "target_id": "target:data:main/melee/db/dbsound:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "db_SoundToggles indexes db_SoundToggleOrder. fn_CheckSoundInfo splits the selected value into bit 0 and bit 1 and sends them to lbAudioAx_80025064 as the selected audio configuration. fn_UpdateSoundInfo masks the same value to select the matching FGM/BGM status string, then sends that string and the PVoice/VVoice formats with sampled statistics to the DevText panel.",
+        "rationale": "At the current head, the input handler still sends the table entry's low bits to the audio subsystem, while the updater uses the same table entry to choose an FGM/BGM label and consumes the diagnostic format strings through DevText_Printf.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:f6050b7f-460d-4b4a-9072-f07186373de3",
+            "fact_id": "fact:f0c4a31c-4a13-4dd8-bcbb-fd54ddda7ce6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows db_SoundToggles indexing db_SoundToggleOrder and the selected value's bits entering lbAudioAx_80025064.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:242a111a-f03d-421f-a50a-691108251cf0",
+            "fact_id": "fact:f0c4a31c-4a13-4dd8-bcbb-fd54ddda7ce6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the table entry selecting an FGM/BGM status string and the voice formats being consumed by DevText_Printf.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:11987721-40c6-4645-b945-299bc0cbfa03",
+        "target_id": "target:data:main/melee/db/dbsound:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Represents the static mode mapping and presentation text for Melee's DEVELOP-mode X plus D-pad-left sound control, including its normal, music-off, music-and-sound-effects-off, and sound-effects-off settings and the subsequent FGM/BGM and voice-information overlay.",
+        "rationale": "The current handler still applies the table after the X plus D-pad-left chord, and the updater still renders its FGM/BGM meaning and voice diagnostics. The documented DEVELOP-mode sequence independently confirms the four settings and additional-information phase.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:c8b8c933-3bd5-4b81-b020-1037b3526f66",
+            "fact_id": "fact:11987721-40c6-4645-b945-299bc0cbfa03",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows the X plus D-pad-left chord advancing the sound index and applying the corresponding table entry.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:43ed54fa-0f62-4c42-aaf4-fdb1b73847a8",
+            "fact_id": "fact:11987721-40c6-4645-b945-299bc0cbfa03",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the table and strings presenting FGM/BGM state and voice diagnostics.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:1d1401d8-7c85-46b9-8647-fda6ac3c7ce0",
+            "fact_id": "fact:11987721-40c6-4645-b945-299bc0cbfa03",
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "digest": null,
+            "why": "Documents the four sound configurations and the additional information displayed afterward.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:c140c938-74d2-4e2d-bf36-f20c5c9daf5b",
+        "target_id": "target:data:main/melee/db/dbsound:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Initialized writable data comprising a four-element array of 32-bit signed integers, db_SoundToggleOrder = {3, 2, 0, 1}, together with six NUL-terminated developer-text strings: four fixed FGM/BGM status labels and two printf-style voice-statistic formats.",
+        "rationale": "The current declaration preserves the exact int[4] table, and the current update body still contains four fixed status strings plus PVoice and VVoice printf formats. The section-layout claim therefore remains supported.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:91c0b5eb-befe-47f5-941a-2ade3f52935a",
+            "fact_id": "fact:c140c938-74d2-4e2d-bf36-f20c5c9daf5b",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Declares static int db_SoundToggleOrder[4] with values 3, 2, 0, and 1.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:8e68c833-e54b-4aa2-a129-a14777cc5bb3",
+            "fact_id": "fact:c140c938-74d2-4e2d-bf36-f20c5c9daf5b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Contains the four FGM/BGM labels and the two printf-style voice-statistic formats.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:e8e5b9c1-be73-4c6f-860a-77da43f6b0cb",
+        "target_id": "target:data:main/melee/db/dbsound:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Supplies the initialized lookup table and display strings used by the DEVELOP-mode sound control: the table translates its cyclic mode index into foreground-audio/background-music enable bits, while the strings label those combinations and format the developer voice diagnostics.",
+        "rationale": "The current code still uses the initialized table both to configure audio and to select the displayed FGM/BGM combination, while the remaining strings format the panel's voice diagnostics. Its purpose has not changed.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:0aa941e5-cae1-4504-8322-686b357267d1",
+            "fact_id": "fact:e8e5b9c1-be73-4c6f-860a-77da43f6b0cb",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Defines the initialized four-entry sound-toggle table.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:b8624138-414b-42fc-ae50-5dd3dbc7fd93",
+            "fact_id": "fact:e8e5b9c1-be73-4c6f-860a-77da43f6b0cb",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows the table entry being split into audio enablement inputs.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:cf50fca5-d92e-4a1d-bcfd-199c98f06afc",
+            "fact_id": "fact:e8e5b9c1-be73-4c6f-860a-77da43f6b0cb",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the table selecting FGM/BGM labels and the other strings formatting PVoice and VVoice output.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:f303affc-3f87-44d0-9943-2aae6476221b",
+        "target_id": "target:data:main/melee/db/dbsound:.data",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The table maps cyclic sound indices 0, 1, 2, and 3 to bit patterns 3, 2, 0, and 1 respectively: FGM and BGM on, FGM on with BGM off, both off, and FGM off with BGM on. Because an accepted chord advances the index before applying it, repeated inputs move from the initial normal state through music off, music and sound effects off, sound effects off, and back to normal; the overlay uses the same mapping to keep its status label synchronized.",
+        "rationale": "The current initializer gives the exact mapping, the handler advances the index modulo four before applying it, and the updater still labels each bit pattern's FGM/BGM state. This agrees with the documented DEVELOP-mode order.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:890cb41c-6de5-4931-814c-f97b4fdb5c40",
+            "fact_id": "fact:f303affc-3f87-44d0-9943-2aae6476221b",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Provides the exact index-to-bit-pattern mapping {3, 2, 0, 1}.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:6f5669d6-c028-44a9-98e9-adf4d6312a64",
+            "fact_id": "fact:f303affc-3f87-44d0-9943-2aae6476221b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows the index advancing modulo four before the mapped setting is applied.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:b36f26de-6e6f-4ba0-bed9-50f6010b4c2c",
+            "fact_id": "fact:f303affc-3f87-44d0-9943-2aae6476221b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Maps values 0 through 3 to explicit FGM/BGM off/on labels.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:264ebf4c-2ec1-4914-a4ef-c07053778443",
+            "fact_id": "fact:f303affc-3f87-44d0-9943-2aae6476221b",
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "digest": null,
+            "why": "Documents the sequence as normal, music off, music and SFX off, and SFX off.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbsound:.sbss"
+    },
+    "facts": [
+      {
+        "id": "fact:b96a7216-81c7-40fa-9835-69c940e2d5f6",
+        "target_id": "target:data:main/melee/db/dbsound:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "fn_SetupSoundInfo initializes all six integer slots and writes the DevText and HSD_GObj pointers. fn_CheckSoundInfo advances the two mode indices from player-0 controller input and uses the sound-mode index to select the audio enablement setting. fn_UpdateSoundInfo reads the display index and DevText pointer, samples two audio-library voice statistics into the retained-value/countdown pairs, and consumes the stored state while rendering FGM/BGM and voice information.",
+        "rationale": "The current setup, update, and input routines retain the same producer-consumer relationships across all eight small-BSS slots, so the standing data-flow account remains valid.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:96fdb46b-6be2-48d9-b469-17dda92cc680",
+            "fact_id": "fact:b96a7216-81c7-40fa-9835-69c940e2d5f6",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Shows setup initializing six integer globals and storing the DevText and HSD_GObj pointers.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:2fdad9e7-cbdb-4a84-a836-f221cc93f295",
+            "fact_id": "fact:b96a7216-81c7-40fa-9835-69c940e2d5f6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows player-0 input advancing the two mode indices and the sound index selecting the applied audio setting.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:a676ff0b-50bb-442a-ab5a-f1ccbac592e5",
+            "fact_id": "fact:b96a7216-81c7-40fa-9835-69c940e2d5f6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the updater reading panel state, sampling two audio statistics, updating both retained-value/countdown pairs, and rendering the results.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:42e166c0-e02b-42dd-a4d7-d2c612ce2d41",
+        "target_id": "target:data:main/melee/db/dbsound:.sbss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Backs Melee's DEVELOP-mode X plus D-pad-left sound control, including its four sound configurations and the diagnostic information panel that appears after cycling through the first four settings.",
+        "rationale": "The current code still binds the stored mode state to the X plus D-pad-left chord and uses the display state for the sound-information overlay. The wiki documents the same control, four configurations, and subsequent additional information.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:d6965d15-7aba-4775-96ba-8af87c043adb",
+            "fact_id": "fact:42e166c0-e02b-42dd-a4d7-d2c612ce2d41",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows the stored sound and display indices advancing on player 0's X plus D-pad-left chord.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:b79f79c8-cc46-4ce2-945d-1d03f60df35c",
+            "fact_id": "fact:42e166c0-e02b-42dd-a4d7-d2c612ce2d41",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows display states 4\u20137 presenting FGM/BGM settings and voice diagnostics.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:1dd8a609-5769-4bfd-9dda-c993ab0f4386",
+            "fact_id": "fact:42e166c0-e02b-42dd-a4d7-d2c612ce2d41",
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "digest": null,
+            "why": "Documents the chord, four sound configurations, and additional-information phase.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:d1d1ba98-fe78-4c94-86ac-20b6dfde4c4f",
+        "target_id": "target:data:main/melee/db/dbsound:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 32-byte small-BSS layout comprising eight 32-bit slots in declaration order: two signed integer mode indices, two pairs of signed integers used as retained voice-statistic values and countdowns, one DevText pointer, and one HSD_GObj pointer.",
+        "rationale": "The current declarations remain six int globals followed by DevText* and HSD_GObj*, and their uses continue to establish two mode counters and two retained-value/countdown pairs. On the target's 32-bit ABI, these eight slots account for the 32-byte section.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:9e766832-d700-441f-87d2-3dd4db0eaff5",
+            "fact_id": "fact:d1d1ba98-fe78-4c94-86ac-20b6dfde4c4f",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Declares six integer globals, one DevText pointer, and one HSD_GObj pointer and shows their initialization.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:8bf665d5-a3f4-4e17-bc00-375c0d3a0928",
+            "fact_id": "fact:d1d1ba98-fe78-4c94-86ac-20b6dfde4c4f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows four of the integer slots operating as two retained voice-statistic and countdown pairs.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:0e76d278-761d-4f07-8c69-b5dc270d5cf1",
+        "target_id": "target:data:main/melee/db/dbsound:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Holds the zero-initialized persistent state for the DEVELOP-mode sound controls and sound-status overlay: the sound-output and information-display mode indices, two retained audio voice-statistic values with their retention countdowns, and the DevText and game-object pointers used to present the panel.",
+        "rationale": "The current declarations and setup preserve all eight persistent state objects, while the current updater and input handler continue to consume them for sound-mode cycling, voice-peak retention, and panel control.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:83669662-befa-4730-b1a8-88bee867448d",
+            "fact_id": "fact:0e76d278-761d-4f07-8c69-b5dc270d5cf1",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Shows the small uninitialized globals and setup of the mode, statistic, timer, DevText, and game-object state.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:81a62de4-a904-4968-8a09-0359c8af1759",
+            "fact_id": "fact:0e76d278-761d-4f07-8c69-b5dc270d5cf1",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the globals being consumed for panel visibility, voice-statistic retention, and diagnostic rendering.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:147cdabc-338e-4abe-b453-eac53f9faa11",
+            "fact_id": "fact:0e76d278-761d-4f07-8c69-b5dc270d5cf1",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows the stored mode indices driving the controller-triggered sound transitions.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:450d9e51-81ed-48b6-8bf4-2b81df4f29f8",
+        "target_id": "target:data:main/melee/db/dbsound:.sbss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The sound-output index cycles modulo 4 and the information-display index cycles modulo 8 on each accepted X plus D-pad-left chord. Display states 0\u20133 hide the panel and states 4\u20137 show it. For each sampled voice statistic, a new high value replaces the retained value and starts a 240-update countdown; the countdown decreases during visible updates, after which the retained value follows the current sample and the countdown is clamped to zero.",
+        "rationale": "The current input routine still implements the modulo-4 and modulo-8 transitions, and the current updater preserves the hidden/visible partition and both 0xF0-countdown peak-hold state machines.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:4bfee9bd-14d1-400f-b104-a5fce6a7719d",
+            "fact_id": "fact:450d9e51-81ed-48b6-8bf4-2b81df4f29f8",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows accepted X plus D-pad-left input incrementing the sound index modulo four and display index modulo eight.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:3a328b19-2d5a-4c28-bc3b-5862f831f03d",
+            "fact_id": "fact:450d9e51-81ed-48b6-8bf4-2b81df4f29f8",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows states 0\u20133 hiding the panel, states 4\u20137 showing it, and both retained-statistic countdown state machines.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbsound:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:04851f79-fc1e-47b5-bc9e-0631469713b9",
+        "target_id": "target:data:main/melee/db/dbsound:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The integer `db_804D4AF8` receives the compile-time initial value 1. None of the translation unit's setup, display-update, or controller-input routines reads or writes it; those routines instead operate on the separate sound-toggle, display-state, voice-statistic, and DevText globals.",
+        "rationale": "The current declaration still initializes db_804D4AF8 to 1. Reading the current setup, update, and input bodies shows that they continue to bypass it in favor of the other module globals, so its local data-flow status is unchanged.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:0b2af1bb-a725-4588-b64a-44b7c7b99852",
+            "fact_id": "fact:04851f79-fc1e-47b5-bc9e-0631469713b9",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Defines db_804D4AF8 with initializer 1 and shows setup operating on other globals.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:ad8cab4b-982a-44ea-b56e-a3d64aa362b1",
+            "fact_id": "fact:04851f79-fc1e-47b5-bc9e-0631469713b9",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the display updater using sound modes, voice-statistic state, and db_SoundInfoText without accessing db_804D4AF8.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:0803b393-5eb7-4963-9330-d80db418528f",
+            "fact_id": "fact:04851f79-fc1e-47b5-bc9e-0631469713b9",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows the input handler using the toggle and display counters without accessing db_804D4AF8.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:1e796b30-96be-4f78-ae2b-4736570f1daf",
+        "target_id": "target:data:main/melee/db/dbsound:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An initialized writable small-data section whose demonstrated authored payload is one externally visible 32-bit signed integer, `db_804D4AF8`, initialized to 1.",
+        "rationale": "The section target begins at the address embedded in the global's current address-derived name, and the matched source defines that object as a non-static `int` with initializer 1. No other initialized small-data object is declared in the translation unit.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:02:34.253Z",
+        "evidence": [
+          {
+            "id": "evidence:66e03e9e-0264-49d5-8b85-1957e10ee91f",
+            "fact_id": "fact:1e796b30-96be-4f78-ae2b-4736570f1daf",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L20",
+            "digest": "sha256:4720b0ccaac736f6",
+            "why": "The matched source directly defines `int db_804D4AF8 = 1` and shows the surrounding declarations are either the BSS buffer or uninitialized static state.",
+            "captured_at": "2026-09-02T05:02:34.253Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbsound:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:800790ac-4be8-4343-aec6-aed6aa21bb3b",
+        "target_id": "target:data:main/melee/db/dbsound:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "fn_SetupSoundInfo reads the section-backed literals corresponding to 12.0F and 16.0F and passes them as the X and Y scale arguments to DevText_SetScale for db_SoundInfoText. They are immutable setup inputs; the update and controller-handling paths subsequently change panel visibility, contents, sound modes, voice peaks, and timers without modifying these scale values.",
+        "rationale": "The current declaration retains float X and Y parameters, and the setup routine still feeds them the literals 12 and 16. The update and controller routines manipulate diagnostic display and audio state without issuing another scale write, so the established data flow remains valid after the header drift.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:36:14.106Z",
+        "evidence": [
+          {
+            "id": "evidence:90583b42-e690-403c-b9f6-48908c901642",
+            "fact_id": "fact:800790ac-4be8-4343-aec6-aed6aa21bb3b",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/if/textlib.h#L1-L57",
+            "digest": "sha256:1729962711db6566",
+            "why": "The current declaration shows that DevText_SetScale consumes X and Y as float arguments.",
+            "captured_at": "2026-09-04T22:36:14.106Z"
+          },
+          {
+            "id": "evidence:4a449bec-9bd2-465e-a1d7-8a59e3146621",
+            "fact_id": "fact:800790ac-4be8-4343-aec6-aed6aa21bb3b",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "fn_SetupSoundInfo passes 12 and 16 as the X and Y scale arguments for db_SoundInfoText.",
+            "captured_at": "2026-09-04T22:36:14.106Z"
+          },
+          {
+            "id": "evidence:411c06ab-0da7-4c18-90e0-05480e515e04",
+            "fact_id": "fact:800790ac-4be8-4343-aec6-aed6aa21bb3b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "The updater changes panel visibility and contents, voice peaks, and timers without changing the panel scale.",
+            "captured_at": "2026-09-04T22:36:14.106Z"
+          },
+          {
+            "id": "evidence:3b084466-a7db-461c-af11-3b371e2653e2",
+            "fact_id": "fact:800790ac-4be8-4343-aec6-aed6aa21bb3b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "The controller path advances sound and display modes and applies audio settings without modifying either scale value.",
+            "captured_at": "2026-09-04T22:36:14.106Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:510808fc-cf27-4ea3-acc1-4e44add0ed24",
+        "target_id": "target:data:main/melee/db/dbsound:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies presentation constants for Melee's DEVELOP-mode sound-status overlay. The values determine the diagnostic panel's text scale rather than changing the FGM/BGM configuration or the audio voice statistics displayed by that panel.",
+        "rationale": "The current code routes the constants only into DevText_SetScale during panel creation, while separate logic supplies FGM/BGM state and voice statistics. The documented DEVELOP-mode control grounds the panel as the additional sound-information display.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:c848988b-0ad1-49e2-b518-34f54349700c",
+            "fact_id": "fact:510808fc-cf27-4ea3-acc1-4e44add0ed24",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "Shows the constants configuring the scale of db_SoundInfoText.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:28f62433-a22c-4d0b-b1b0-87fd58115bf0",
+            "fact_id": "fact:510808fc-cf27-4ea3-acc1-4e44add0ed24",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows that the panel separately presents FGM/BGM state and voice statistics.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:257b072e-06f7-49f3-bc96-7fb748c60804",
+            "fact_id": "fact:510808fc-cf27-4ea3-acc1-4e44add0ed24",
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "digest": null,
+            "why": "Documents the DEVELOP-mode sound control and its additional-information display.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:44052278-a6ae-48bf-a861-443ba1429c45",
+        "target_id": "target:data:main/melee/db/dbsound:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A read-only small-data literal pool. Its source-visible contents include the single-precision constants 12.0F and 16.0F used as the DevText panel's X and Y scales; the available evidence does not establish that every byte of the 16-byte section is a distinct authored value rather than compiler alignment or padding.",
+        "rationale": "The current setup still supplies the immutable literals 12 and 16 to DevText_SetScale, and the current API declaration confirms that both destination parameters are floats. The header change does not alter the section's inferred type or establish meanings for its remaining bytes.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T22:36:14.106Z",
+        "evidence": [
+          {
+            "id": "evidence:2aefe9e6-8193-47c2-9f21-1c06b86f6803",
+            "fact_id": "fact:44052278-a6ae-48bf-a861-443ba1429c45",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/if/textlib.h#L1-L57",
+            "digest": "sha256:1729962711db6566",
+            "why": "The current declaration defines the X and Y parameters of DevText_SetScale as float values.",
+            "captured_at": "2026-09-04T22:36:14.106Z"
+          },
+          {
+            "id": "evidence:7f269ba0-c34d-48c1-8ca3-938fa179ce92",
+            "fact_id": "fact:44052278-a6ae-48bf-a861-443ba1429c45",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "The current setup routine supplies the literals 12 and 16 when configuring the sound-information panel's scale.",
+            "captured_at": "2026-09-04T22:36:14.106Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:736a1f7d-c45f-41b4-8e6c-a971ce8522fc",
+        "target_id": "target:data:main/melee/db/dbsound:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the translation unit's immutable small-data literals used to configure the developer sound-information panel, including the horizontal and vertical text scales 12.0F and 16.0F.",
+        "rationale": "At the current head, fn_SetupSoundInfo still passes 12 and 16 to the float-typed DevText_SetScale API for db_SoundInfoText. The drifted header changed textually but continues to support the existing presentation-constant purpose.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:36:14.106Z",
+        "evidence": [
+          {
+            "id": "evidence:0512d0d1-3dc8-4d54-9d1b-7f586fb6227a",
+            "fact_id": "fact:736a1f7d-c45f-41b4-8e6c-a971ce8522fc",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/if/textlib.h#L1-L57",
+            "digest": "sha256:1729962711db6566",
+            "why": "The current header declares DevText_SetScale with float X and Y scale parameters.",
+            "captured_at": "2026-09-04T22:36:14.106Z"
+          },
+          {
+            "id": "evidence:18e3dde6-e03f-4b85-b9ed-c444d124caf4",
+            "fact_id": "fact:736a1f7d-c45f-41b4-8e6c-a971ce8522fc",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbsound.c#L1-L47",
+            "digest": "sha256:aaa4de949547063b",
+            "why": "fn_SetupSoundInfo passes 12 and 16 to DevText_SetScale while initializing db_SoundInfoText.",
+            "captured_at": "2026-09-04T22:36:14.106Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbsound:fn_CheckSoundInfo"
+    },
+    "facts": [
+      {
+        "id": "fact:9ff75160-583a-4916-acad-450a8487f403",
+        "target_id": "target:function:main/melee/db/dbsound:fn_CheckSoundInfo",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the current sound-mode index and the selected player's pressed/down button masks. When player 0 newly presses either X while holding D-pad-left or D-pad-left while holding X, it increments the sound index modulo 4 and display index modulo 8. It maps the new sound index through db_SoundToggleOrder, passes the mapped bit fields to lbAudioAx_80025064, and then delegates display and diagnostic processing to fn_UpdateSoundInfo.",
+        "rationale": "Every input, transformation, and consumer in this flow is explicit in the function body, including the two symmetric chord paths, modulo operations, table lookup, audio call, and updater call.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:17:30.360Z",
+        "evidence": [
+          {
+            "id": "evidence:1b154543-78a0-43f0-a913-802e9fa060e3",
+            "fact_id": "fact:9ff75160-583a-4916-acad-450a8487f403",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "The complete body directly shows the controller inputs, counter transformations, sound-mode lookup, audio-library consumer, and display-update consumer.",
+            "captured_at": "2026-09-01T23:17:30.360Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:9f71c70d-8c64-494d-8e7d-e8af2b3f9494",
+        "target_id": "target:function:main/melee/db/dbsound:fn_CheckSoundInfo",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the per-frame input and state-transition portion of Melee's DEVELOP-mode X plus D-pad-left control for cycling normal, music-off, music-and-SFX-off, and SFX-off audio configurations and eventually showing additional sound diagnostics.",
+        "rationale": "The source recognizes precisely the documented chord and cycles four audio states alongside an eight-state display counter. The wiki identifies the same chord, configuration sequence, and delayed information display.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:17:30.360Z",
+        "evidence": [
+          {
+            "id": "evidence:c9e3b8e8-55d0-44c2-ac61-a7f1a9c9bef0",
+            "fact_id": "fact:9f71c70d-8c64-494d-8e7d-e8af2b3f9494",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "The function recognizes X plus D-pad-left, cycles four sound states and eight display states, applies the selected audio mode, and updates sound information.",
+            "captured_at": "2026-09-01T23:17:30.360Z"
+          },
+          {
+            "id": "evidence:a5034096-f98f-403b-af63-7138decb7f5e",
+            "fact_id": "fact:9f71c70d-8c64-494d-8e7d-e8af2b3f9494",
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "digest": null,
+            "why": "The DEVELOP-mode controls table documents this chord as cycling the four music/SFX configurations and displaying additional information afterward.",
+            "captured_at": "2026-09-01T23:17:30.360Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:83280943-36e8-4dd9-a39e-d4346e6c9c49",
+        "target_id": "target:function:main/melee/db/dbsound:fn_CheckSoundInfo",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void fn_CheckSoundInfo(int player). The argument is a controller/player index, although only index 0 is permitted to change the sound modes.",
+        "rationale": "The matched source declares an int parameter, passes it to the debug button-query functions, and guards all mode-changing behavior with player == 0.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:17:30.360Z",
+        "evidence": [
+          {
+            "id": "evidence:8d1d7c39-a473-41a4-940d-c050631c976c",
+            "fact_id": "fact:83280943-36e8-4dd9-a39e-d4346e6c9c49",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "The function declaration and body directly establish the return type, parameter type, controller-query use, and player-0 restriction.",
+            "captured_at": "2026-09-01T23:17:30.360Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:38a1012e-5b02-490d-926d-93167fbdef54",
+        "target_id": "target:function:main/melee/db/dbsound:fn_CheckSoundInfo",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Processes the player-0 DEVELOP-mode sound-control chord once per new button press, advances the sound-output and information-display modes, applies a newly selected sound configuration, and refreshes the sound-information display every time it is called.",
+        "rationale": "The function accepts either edge ordering for the X/D-pad-left chord, changes modes only inside the player-0 guard, invokes the audio setter only when the sound index changed, and calls fn_UpdateSoundInfo outside that guard on every invocation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:17:30.360Z",
+        "evidence": [
+          {
+            "id": "evidence:30f5f094-ad0d-43bd-80d4-effb6cbf85f0",
+            "fact_id": "fact:38a1012e-5b02-490d-926d-93167fbdef54",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "The complete function body shows its player guard, chord recognition, state changes, conditional audio update, and unconditional display refresh.",
+            "captured_at": "2026-09-01T23:17:30.360Z"
+          },
+          {
+            "id": "evidence:a4cd9dc8-eb7d-4362-b626-9cdcc6e7d06f",
+            "fact_id": "fact:38a1012e-5b02-490d-926d-93167fbdef54",
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "digest": null,
+            "why": "The DEVELOP-mode controls table establishes the gameplay-facing role of the X plus D-pad-left combination as toggling music and sound effects and revealing additional information.",
+            "captured_at": "2026-09-01T23:17:30.360Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:7d7d7a07-9065-459e-bd61-bdbdd710ad65",
+        "target_id": "target:function:main/melee/db/dbsound:fn_CheckSoundInfo",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Mode changes are restricted to player 0 and require a chord with one constituent newly pressed while the other remains held. Each accepted chord advances the four-state sound index and eight-state display index exactly once. The audio configuration is reapplied only if the sound index changed, while display updating occurs unconditionally, including calls for other player indices.",
+        "rationale": "The nested pressed/down tests enforce edge-triggered chord recognition, the modulo assignments define both cycles, comparison against the saved original index guards the audio setter, and fn_UpdateSoundInfo is positioned after the player-0 conditional.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:17:30.360Z",
+        "evidence": [
+          {
+            "id": "evidence:16c224b4-3160-45a2-bb40-b781138a2935",
+            "fact_id": "fact:7d7d7a07-9065-459e-bd61-bdbdd710ad65",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "The control flow directly establishes the player restriction, input guard, cyclic transitions, conditional audio call, and unconditional updater call.",
+            "captured_at": "2026-09-01T23:17:30.360Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbsound:fn_SetupSoundInfo"
+    },
+    "facts": [
+      {
+        "id": "fact:aa90ac6d-aa1a-4acb-b2f8-f0490b5a7409",
+        "target_id": "target:function:main/melee/db/dbsound:fn_SetupSoundInfo",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Stores the developer-text GObj returned by DevText_GetGObj, clears six persistent sound control/status values, passes the unit-owned text buffer to DevText_Create, stores the returned text object globally, and, when creation succeeds, feeds that GObj and text object into the DevText registration and presentation APIs.",
+        "rationale": "Every input and output is explicit in the matched body: the GObj and text object are obtained from DevText, the buffer is supplied to creation, persistent subsystem state is zeroed, and the resulting handles are consumed by the show, color, scale, and visibility calls.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:17:08.692Z",
+        "evidence": [
+          {
+            "id": "evidence:1aacb59e-7207-44bf-ae02-c6f8e286b68b",
+            "fact_id": "fact:aa90ac6d-aa1a-4acb-b2f8-f0490b5a7409",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L22-L44",
+            "digest": "sha256:55e8d90d17cf7f78",
+            "why": "The source directly shows the values returned by DevText_GetGObj and DevText_Create flowing into globals and then into the display configuration calls.",
+            "captured_at": "2026-09-01T23:17:08.692Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:627bf2e9-af31-4673-a627-513a264c4d90",
+        "target_id": "target:function:main/melee/db/dbsound:fn_SetupSoundInfo",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Prepares the informational overlay and initial state used by DEVELOP mode's sound control, which cycles normal audio, music off, music and sound effects off, and sound effects off, then displays additional sound information.",
+        "rationale": "The routine initializes globals explicitly named for sound toggles and showing sound information and creates a hidden developer-text panel. SmashWiki independently documents the matching DEVELOP-mode sound toggle and its additional-information display, so this function is the initialization portion of that mechanic rather than a general audio-engine initializer.",
+        "confidence": 0.88,
+        "updated_at": "2026-09-01T23:17:08.692Z",
+        "evidence": [
+          {
+            "id": "evidence:a3c96224-3939-47c3-bf8b-e0237ff678af",
+            "fact_id": "fact:627bf2e9-af31-4673-a627-513a264c4d90",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L22-L44",
+            "digest": "sha256:55e8d90d17cf7f78",
+            "why": "The source initializes sound-toggle/show-info state and creates the hidden developer-text panel needed to present debug information.",
+            "captured_at": "2026-09-01T23:17:08.692Z"
+          },
+          {
+            "id": "evidence:dc0a2d84-6362-4482-b9d8-433ac9055e43",
+            "fact_id": "fact:627bf2e9-af31-4673-a627-513a264c4d90",
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "digest": null,
+            "why": "The DEVELOP-mode table identifies a sound-effects/music toggle with four audio settings and an additional-information display.",
+            "captured_at": "2026-09-01T23:17:08.692Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:00594853-858d-4f8f-8327-43d30a67a7ce",
+        "target_id": "target:function:main/melee/db/dbsound:fn_SetupSoundInfo",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless initialization routine with signature void (void).",
+        "rationale": "The matched definition accepts no arguments, returns no value, and communicates its results entirely through persistent globals and the developer-text object it creates.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:17:08.692Z",
+        "evidence": [
+          {
+            "id": "evidence:6e52d2a8-3505-486a-a85b-a00de67aa44e",
+            "fact_id": "fact:00594853-858d-4f8f-8327-43d30a67a7ce",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L22-L44",
+            "digest": "sha256:55e8d90d17cf7f78",
+            "why": "The source definition is explicitly void fn_SetupSoundInfo(void), with all initialized state stored globally.",
+            "captured_at": "2026-09-01T23:17:08.692Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:9c7fa045-25e7-4933-95b4-8b0a7bc6785b",
+        "target_id": "target:function:main/melee/db/dbsound:fn_SetupSoundInfo",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the debug sound-information subsystem and prepares its developer-text panel in a registered but initially hidden state for later update and display.",
+        "rationale": "The function clears the sound subsystem's control globals, obtains the developer-text GObj, creates a text object, registers it with DevText_Show, configures its presentation, and hides its cursor, background, and text. These operations establish dormant display state rather than rendering current sound data immediately.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:17:08.692Z",
+        "evidence": [
+          {
+            "id": "evidence:bfc983fb-840f-42ef-8eac-6205f606691b",
+            "fact_id": "fact:9c7fa045-25e7-4933-95b4-8b0a7bc6785b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L22-L44",
+            "digest": "sha256:55e8d90d17cf7f78",
+            "why": "The complete matched body directly shows state reset, DevText allocation and registration, visual configuration, and initial hiding.",
+            "captured_at": "2026-09-01T23:17:08.692Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:2c7aea31-a3a7-45b5-8cef-886576f0be76",
+        "target_id": "target:function:main/melee/db/dbsound:fn_SetupSoundInfo",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Resets the sound-toggle mode, the show-information flag, and four additional sound-related state slots to zero. Text-object creation is the sole guard: if it fails, setup stops after retaining the null result; if it succeeds, the panel is registered, assigned gray translucent background and white text colors, scaled to 12 by 16, and left with cursor, background, and text hidden.",
+        "rationale": "The six zero assignments establish the initial control state, while the conditional around DevText_Create cleanly separates allocation failure from successful display initialization. The sequence of Show followed by HideCursor, HideBackground, and HideText establishes an available but visually dormant panel.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:17:08.692Z",
+        "evidence": [
+          {
+            "id": "evidence:0f59dd07-7c00-473d-a540-e5dfeb169c02",
+            "fact_id": "fact:2c7aea31-a3a7-45b5-8cef-886576f0be76",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L22-L44",
+            "digest": "sha256:55e8d90d17cf7f78",
+            "why": "The matched body explicitly contains the state resets, allocation guard, RGBA colors, scale values, registration call, and initial visibility settings.",
+            "captured_at": "2026-09-01T23:17:08.692Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbsound:fn_UpdateSoundInfo"
+    },
+    "facts": [
+      {
+        "id": "fact:07303079-25f3-4e57-bdeb-1c9f3988bcb1",
+        "target_id": "target:function:main/melee/db/dbsound:fn_UpdateSoundInfo",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads db_ShowSoundInfo to drive lbAudioAx_80025098 and panel visibility. When visible, it samples lbAudioAx_80028B2C and lbAudioAx_80028B4C, folds each sample into a stored peak and countdown, derives the displayed FGM/BGM combination from db_SoundToggleOrder[db_SoundToggles] & 3, erases and rewrites db_SoundInfoText, then shows it. If the text object does not yet exist, it initializes both stored peaks from the audio queries and clears both countdowns. In the matched body, the local sample is overwritten by the second query before rendering, so the same second-query value is passed as the current value on both PVoice and VVoice lines.",
+        "rationale": "The complete current function still contains every described read, mutation, and consumer, including the reuse of local x after the second audio query for both displayed current-value arguments.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:36e52456-2d51-4afc-8f2d-27c7173ca787",
+            "fact_id": "fact:07303079-25f3-4e57-bdeb-1c9f3988bcb1",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the mode read, audio queries, peak/countdown updates, table lookup, DevText rendering, null-panel initialization, and reuse of x for both displayed current values.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:5ff7846d-e960-44bc-91b8-490825152aed",
+        "target_id": "target:function:main/melee/db/dbsound:fn_UpdateSoundInfo",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements Melee's developer sound-status overlay, presenting FGM/BGM enablement and live voice-usage diagnostics. FGM and BGM correspond to the foreground-audio and background-music categories also exposed by Melee's debug sound tooling.",
+        "rationale": "The current function still draws FGM, BGM, PVoice, and VVoice information through DevText. The debug sound-test documentation independently identifies FGM as foreground music and BGM as background music, so the game mapping remains supported.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:e36b7749-e4fa-44b6-a5b4-f463c1f0b315",
+            "fact_id": "fact:5ff7846d-e960-44bc-91b8-490825152aed",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the developer-text overlay presenting FGM/BGM enablement and PVoice/VVoice diagnostics.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          },
+          {
+            "id": "evidence:3ad9234c-d755-4960-8241-1c9bb8fc2e01",
+            "fact_id": "fact:5ff7846d-e960-44bc-91b8-490825152aed",
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-debug-sound-test-menu~__intro__@r2043300",
+            "digest": null,
+            "why": "Documents Melee's debug sound tooling and identifies its FGM and BGM audio categories.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:ff70fd64-5c96-4bb3-84b3-199ec4344b68",
+        "target_id": "target:function:main/melee/db/dbsound:fn_UpdateSoundInfo",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Frame-update routine with signature void (void); it receives no explicit arguments and operates entirely on dbsound globals, audio-library queries, and a retained DevText object.",
+        "rationale": "The current definition remains void fn_UpdateSoundInfo(void), has no parameters or returned value, and obtains all operational state through globals and subsystem calls.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:51bb2e8d-0f52-42d2-a629-b9e76efa99bd",
+            "fact_id": "fact:ff70fd64-5c96-4bb3-84b3-199ec4344b68",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the exact void(void) definition and its exclusive use of globals, audio-library calls, and the retained DevText pointer.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:8df94ea1-64c1-4587-8396-be1a4df5f1b4",
+        "target_id": "target:function:main/melee/db/dbsound:fn_UpdateSoundInfo",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Updates the developer sound-status display for the current frame: it synchronizes an audio debug enable with the display mode, hides the panel in inactive modes, and in active modes redraws FGM/BGM state plus current and recent-peak voice measurements.",
+        "rationale": "The current body still drives the audio debug enable from db_ShowSoundInfo, hides or shows the panel according to that mode, tracks two voice peaks, and redraws the diagnostic text. Its purpose is unchanged.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:4cd4d9a0-d720-443c-895a-941733c66255",
+            "fact_id": "fact:8df94ea1-64c1-4587-8396-be1a4df5f1b4",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the function's audio-debug synchronization, visibility control, voice sampling and peak tracking, and FGM/BGM and voice-diagnostic rendering.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:68ffd654-9aca-4ff1-bbcc-d2d05cab0b75",
+        "target_id": "target:function:main/melee/db/dbsound:fn_UpdateSoundInfo",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Display modes 0-3 disable the associated audio debug flag and hide both panel background and text; modes 4-7 enable the flag and display the panel. For each of the two sampled voice values, a new value above the stored peak replaces the peak and starts a 0xF0-update hold countdown. The countdown is decremented on active updates, and when it reaches zero the stored peak falls back to the current sample. With no DevText object, the routine only seeds the peaks and zeroes their timers.",
+        "rationale": "The current switch retains the same hidden and visible mode partitions, both comparison-and-countdown peak-hold machines remain intact, and the null-panel branch still initializes the stored samples and clears the timers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:30:28.740Z",
+        "evidence": [
+          {
+            "id": "evidence:42e61f38-bfdf-4357-aed3-9a7952046319",
+            "fact_id": "fact:68ffd654-9aca-4ff1-bbcc-d2d05cab0b75",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L46-L115",
+            "digest": "sha256:02f6e8d9514ce5de",
+            "why": "Shows the exact mode partitions, visibility transitions, 0xF0 peak timers, countdown expiry behavior, and null-panel initialization branch.",
+            "captured_at": "2026-09-04T18:30:28.740Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/db/dbsound.c"
+    },
+    "facts": [
+      {
+        "id": "fact:0bde01a0-1fca-4c42-b34a-4c49761c83d4",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbsound.c",
+        "type": "data_flow",
+        "value": "Player-0 controller state advances sound-output and display indices; a four-entry order table maps the output index to audio enable bits. The updater samples physical and virtual voice counts, maintains delayed peaks, and sends audio status and statistics to DevText.",
+        "rationale": "The current input handler and updater preserve the controller-to-mode, table-to-audio, and audio-query-to-panel flows.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "id": "evidence:4c21f348-ffd8-4ae5-b838-77c813fb7faf",
+            "fact_id": "fact:0bde01a0-1fca-4c42-b34a-4c49761c83d4",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L1-L116",
+            "digest": "sha256:09c3872d0600ca44",
+            "why": "Shows the mapping table, voice queries, retained peak timers, and formatted panel output.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          },
+          {
+            "id": "evidence:d5b7f3cd-ffd3-46cd-8741-63cf34ed4311",
+            "fact_id": "fact:0bde01a0-1fca-4c42-b34a-4c49761c83d4",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows controller state advancing both counters and the selected table entry feeding the audio subsystem.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:9cc827fe-6576-4f9e-ab77-1cf5e9a9043e",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbsound.c",
+        "type": "game_mapping",
+        "value": "Realizes Melee's DEVELOP-mode X plus D-pad Left sound control, cycling music and sound-effect enablement configurations and then exposing an on-screen audio-information display.",
+        "rationale": "The current code retains the controller chord, four-state output map, FGM/BGM status labels, and delayed visible diagnostic states.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "id": "evidence:c2c43640-ecd4-44bd-9ee8-9382e5afccc7",
+            "fact_id": "fact:9cc827fe-6576-4f9e-ab77-1cf5e9a9043e",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L1-L116",
+            "digest": "sha256:09c3872d0600ca44",
+            "why": "Shows the four FGM/BGM combinations and the visible sound-status panel.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          },
+          {
+            "id": "evidence:337df965-eef8-48c7-92ed-5ffc2abc7c05",
+            "fact_id": "fact:9cc827fe-6576-4f9e-ab77-1cf5e9a9043e",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Binds sound-mode cycling to player 0's X and D-pad-left chord.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:e4b4a16f-ef7e-4710-8ad6-8b39c172c454",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbsound.c",
+        "type": "purpose",
+        "value": "Implements the DEVELOP-mode sound-control subsystem: it creates a developer-text panel, maintains sound-output and information-display modes, applies music and sound-effect enablement changes, samples voice statistics, and refreshes diagnostics.",
+        "rationale": "Current setup, update, and input routines retain the sound state, panel lifecycle, audio queries, and mode application.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "id": "evidence:395828b2-b85a-4aa2-80b8-68748e098a49",
+            "fact_id": "fact:e4b4a16f-ef7e-4710-8ad6-8b39c172c454",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L1-L116",
+            "digest": "sha256:09c3872d0600ca44",
+            "why": "Shows sound state, DevText setup, voice statistics, and diagnostic rendering.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          },
+          {
+            "id": "evidence:a9466889-6cdc-41e7-8f5b-2a3cb97d638c",
+            "fact_id": "fact:e4b4a16f-ef7e-4710-8ad6-8b39c172c454",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows the controller chord, mode transitions, and audio configuration call.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:c5a0d9ce-1a34-4067-8deb-8f0f03db76fb",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbsound.c",
+        "type": "state_behavior",
+        "value": "The subsystem has four cyclic sound-output configurations and eight cyclic display states. States 0-3 hide the panel and states 4-7 show diagnostics; each accepted chord advances both indices, so the four-state output cycle repeats as the display enters its visible half.",
+        "rationale": "The current handler advances the counters modulo four and eight, while the updater partitions hidden and visible display states exactly as described.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "id": "evidence:240b1cd0-3de7-4a02-9f51-9afdd40b6f40",
+            "fact_id": "fact:c5a0d9ce-1a34-4067-8deb-8f0f03db76fb",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L1-L116",
+            "digest": "sha256:09c3872d0600ca44",
+            "why": "Shows states 0-3 hiding the panel and states 4-7 rendering diagnostics.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          },
+          {
+            "id": "evidence:60bd2857-2576-4d2b-adb5-fcdb9eca5d30",
+            "fact_id": "fact:c5a0d9ce-1a34-4067-8deb-8f0f03db76fb",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbsound.c#L117-L138",
+            "digest": "sha256:3158c3780e4663eb",
+            "why": "Shows modulo-four and modulo-eight transitions on each accepted chord.",
+            "captured_at": "2026-09-06T03:12:01.317Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/db/dbsound:fn_CheckSoundInfo#r3"
+    },
+    "facts": []
+  }
+]

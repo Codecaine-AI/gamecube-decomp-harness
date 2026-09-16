@@ -1,0 +1,98 @@
+{
+  "campaign": "melee-semantic-20260908",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "cluster": "camera_integration",
+  "dispositions": [
+    {
+      "subject": {
+        "entity_locator": "src/melee/gm/gmcameramode.c"
+      },
+      "fact_id": "fact:185ec055-923b-4c00-ad54-9b2e9f0bc889",
+      "version": "2026-09-07T01:40:02.321Z",
+      "type": "data_flow",
+      "old_value": "Persistent Camera Mode settings live in gmMainLib_804D3EE0->modes.vs_camera. Entry callbacks copy them into CSS, SSS, and StartMeleeData payloads; exit callbacks copy edited CSS/SSS selections back, while the VS exit callback folds match results into gmVsMelee_VsExitInfo and updates KO counts.",
+      "disposition": "supersede",
+      "reason": "Corrects direction: match_end is consumed from the shared exit record, not newly folded into it by this callback; source explicitly exposes persistent settings and KO update inputs.",
+      "replacement": "Persistent settings live in gmMainLib_804D3EE0->modes.vs_camera. CSS and SSS entry callbacks copy this record to scene payloads; accepted exits copy selections back. Match preparation copies rules and players into StartMeleeData and installs camera callbacks. Match exit consumes gmVsMelee_VsExitInfo.match_end through result helpers, passes persistent settings to gm_80168710, updates KO counts, and selects state 1.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L113-L187",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L189-L249"
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/gm/gmcameramode.c"
+      },
+      "fact_id": "fact:7e770447-dc10-44a0-9880-b12724b2a614",
+      "version": "2026-09-07T01:40:02.321Z",
+      "type": "game_mapping",
+      "old_value": "Implements Melee's Camera Mode, the Special Melee variant in which the fourth controller operates the camera and can take pictures.",
+      "disposition": "supersede",
+      "reason": "Pins controller-index-3 snapshot behavior through the installed camera update callback. Avoids treating function-name overlays as evidence for camera motion or a menu category.",
+      "replacement": "Coordinates GM_CAMERA_MODE scene selection and VS setup, installing Camera Mode pause, frame and match-start hooks and snapshot resources. The installed camera frame-update path delegates to a camera UI state table whose normal state reads controller index 3 for B and Z; Z enters a snapshot capture sequence. This unit wires those mechanics into the match rather than implementing the camera UI itself.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L189-L233",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L219-L231",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L282-L332",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L550-L579",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmscdata.c#L456-L463"
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/gm/gmcameramode.c"
+      },
+      "fact_id": "fact:90d11393-82cf-4e7b-99dd-889c43970aa9",
+      "version": "2026-09-04T21:39:22.195Z",
+      "type": "inferred_type",
+      "old_value": "A scene-sequencing translation unit centered on a sentinel-terminated GameModeState table; it also owns an aligned 64-bit small-BSS object used as both the enter and exit payload for the GS_CAMERA_VS state.",
+      "disposition": "supersede",
+      "reason": "Keeps source-declared storage and table shape, removes unverified alignment and small-BSS placement.",
+      "replacement": "Scene-sequencing translation unit defining a GameModeState array with four entries and a {-1} terminator. It declares static s64 gm_804D68C8 and uses its address for both enter and exit payloads of state 0. CSS and SSS use their respective shared payload records; the VS state uses separate StartData and VsExitInfo records. Section placement and explicit alignment are not established by these declarations.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L28-L80"
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/gm/gmcameramode.c"
+      },
+      "fact_id": "fact:7069656a-b08e-471e-905f-48f2d07f4c24",
+      "version": "2026-09-07T01:40:02.321Z",
+      "type": "purpose",
+      "old_value": "Owns the game-mode controller for Camera Mode, coordinating resource preloading, character and stage selection, Camera Mode-specific VS setup, post-match bookkeeping, and return transitions.",
+      "disposition": "retain",
+      "reason": "Four scene registrations, preload setup, scene payload preparation and match-exit bookkeeping support the unit-controller role.",
+      "replacement": null,
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L30-L102",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L113-L249",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmscdata.c#L456-L463"
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/gm/gmcameramode.c"
+      },
+      "fact_id": "fact:71deeeab-fe98-42cd-9802-413adb2f3a51",
+      "version": "2026-09-07T01:40:02.321Z",
+      "type": "state_behavior",
+      "old_value": "Camera Mode is represented by states 0 through 3 for its Camera VS prelude, character select, stage select, and VS match scenes. Prelude exit values 1 or 2 and CSS pending-scene value 2 leave for the menu; canceling stage selection or completing a match explicitly returns to state 1.",
+      "disposition": "retain",
+      "reason": "Four registered state IDs and all explicit exit/cancel routes are visible; normal implicit progression is left to the scene engine.",
+      "replacement": null,
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L30-L80",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L104-L111",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L135-L187",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L235-L244"
+      ]
+    }
+  ],
+  "counts": {
+    "retain": 2,
+    "supersede": 3,
+    "reject": 0,
+    "unresolved": 0
+  }
+}

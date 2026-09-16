@@ -1,0 +1,28 @@
+{
+  "tu": "main/MetroTRK/dispatch",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/dispatch:TRKDispatchMessage"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The dispatcher ignores the return values of TRKSetBufferPosition and TRKReadBuffer1_ui8. Its command local has no explicit initializer, and it performs the bound comparison without checking whether command extraction succeeded. Consequently, the ordinary out-of-range kDispatchError behavior must not be treated as a guaranteed malformed-buffer error path. There is also no NULL-callback check: normal exclusion of the two trailing NULL entries depends on gTRKDispatchTableSize remaining at the initialized value of 32.",
+        "rationale": "Adds a useful exceptional-path qualification absent from the retained normal-flow descriptions without asserting an unverified result for failed buffer reads.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/dispatch.c#L42-L65",
+            "why": "Shows trailing NULL entries, initialization to 32, uninitialized command local, ignored buffer-operation results and the sole guard before callback invocation."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

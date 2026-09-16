@@ -1,0 +1,42 @@
+682: int gm_CameraModeVSGetPauser(void)
+683: {
+684:     HSD_PadStatus* temp_r3;
+685:     bool var_r0;
+686:     int var_r30;
+687:     int var_r29;
+688:     PAD_STACK(0x10);
+689: 
+690:     for (var_r30 = 0; var_r30 < PAD_MAX_CONTROLLERS; var_r30++) {
+691:         temp_r3 = &HSD_PadCopyStatus[(u8) var_r30];
+692:         if (temp_r3->err == 0) {
+693:             if (DbLevel >= DbLKind_DebugRom) {
+694:                 if ((temp_r3->trigger & HSD_PAD_DPADUP) &&
+695:                     (temp_r3->button & HSD_PAD_X))
+696:                 {
+697:                     var_r0 = 1;
+698:                 } else {
+699:                     var_r0 = 0;
+700:                 }
+701:             } else {
+702:                 var_r0 = temp_r3->trigger & HSD_PAD_START;
+703:             }
+704:             if (var_r0 != 0) {
+705:                 if (var_r30 == 3) {
+706:                     return var_r30;
+707:                 }
+708:                 for (var_r29 = 0; var_r29 < 6; var_r29++) {
+709:                     if (var_r30 == Player_GetPlayerId(var_r29) &&
+710:                         Player_GetPlayerSlotType(var_r29) != Gm_PKind_NA)
+711:                     {
+712:                         return var_r30;
+713:                     }
+714:                 }
+715:             }
+716:         }
+717:     }
+718:     return -1;
+719: }
+720: 
+721: MatchOutcome gm_GetFFAOutcome(void)
+722: {
+723:     bool isSingleplayer;

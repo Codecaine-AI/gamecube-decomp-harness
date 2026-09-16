@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-30-games-30-cycles",
+  "title": "Harness Timeline and Cycle Transition",
+  "root": "b-20-cycles-root-56",
+  "blocks": {
+    "b-20-cycles-root-56": {
+      "id": "b-20-cycles-root-56",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "continuing-harness-0",
+        "continuing-harness-1",
+        "continuing-harness-2",
+        "continuing-harness-3",
+        "continuing-harness-4",
+        "continuing-harness-5",
+        "continuing-harness-6",
+        "continuing-harness-7",
+        "continuing-harness-8",
+        "continuing-harness-9",
+        "continuing-harness-10",
+        "continuing-harness-11",
+        "continuing-harness-12"
+      ]
+    },
+    "continuing-harness-0": {
+      "id": "continuing-harness-0",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each game has one continuing harness worktree and durable timeline. Epochs, Sync operations, and save points record progress within the harness. Historical cycle records remain available for explicit migration and evidence lookup."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-1": {
+      "id": "continuing-harness-1",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Harness Timeline"
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-2": {
+      "id": "continuing-harness-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Timeline entries carry game and harness identity, event and command IDs, durable order, occurrence time, outcome, optional run/epoch/Sync IDs, source transitions, evidence, and recovery context. Stored kinds include initial_sync_accepted, epoch_completed, sync_completed, remote_application, epoch_admitted, pause_requested, resumed, failed, save_point, and legacy."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-3": {
+      "id": "continuing-harness-3",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Boundary",
+          "Timeline Evidence",
+          "Source Effect"
+        ],
+        "rows": [
+          [
+            "Initial Sync accepted",
+            "Initialized worktree identity, upstream revision, configuration provenance, and initial save point.",
+            "Establishes the first accepted harness head."
+          ],
+          [
+            "Epoch settled",
+            "Epoch identity, input head, accepted output head, outcomes, and epoch save point.",
+            "Advances the head only when integration accepted source changes."
+          ],
+          [
+            "Sync settled",
+            "Sync identity, prior and resulting heads, prior and accepted upstream revisions, source refresh outcomes, and evidence references.",
+            "Advances the head only when source reconciliation changes it. A no-change Sync still records completion."
+          ],
+          [
+            "Next epoch admitted",
+            "Epoch identity, accepted head, report provenance, and selected knowledge/index versions or watermarks.",
+            "Starts work from the accepted post-sync state without moving head."
+          ],
+          [
+            "Pause, failure, or resume",
+            "Requested action, settled work, blockers, causal operation, and recovery result.",
+            "Does not manufacture a source revision or end the harness."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "continuing-harness-4": {
+      "id": "continuing-harness-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Evidence and Recovery"
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-5": {
+      "id": "continuing-harness-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Epoch evidence measures worker progress before the following Sync. Post-sync evidence measures the reconciled checkout. Attribute these deltas separately so upstream improvements are not reported as worker gains. Compare matching scores only when their target scope, build configuration, and metric definition agree."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-6": {
+      "id": "continuing-harness-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The next epoch refreshes report truth and board eligibility against the accepted post-sync head. Historical measurements remain attached to their original revisions; refreshing the baseline does not reset history. Source-stable Sync can reuse verified build evidence when its build inputs are unchanged, while recording separate knowledge refresh outcomes."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-7": {
+      "id": "continuing-harness-7",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Persist a recoverable boundary for accepted head changes and their timeline entries. Git and database writes require recovery coordination; they are not assumed to share one transaction. Retrying a boundary reuses its identity and cannot double-count progress. Record a failure without creating a success event or moving head."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-8": {
+      "id": "continuing-harness-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Save-point failure marks evidence stale and blocks admission until repaired. It does not undo already accepted source publication. Resume reconciles durable workflow and worktree state before scheduling new work."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-9": {
+      "id": "continuing-harness-9",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Cycle Responsibility Transfer"
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-10": {
+      "id": "continuing-harness-10",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Existing Cycle Responsibility",
+          "Accepted Owner"
+        ],
+        "rows": [
+          [
+            "Canonical worktree and mutable head",
+            "Harness state identifies the maintained worktree and accepted head."
+          ],
+          [
+            "Opening baseline and upstream lineage",
+            "Initial save point preserves origin; harness state tracks the latest accepted upstream revision; timeline preserves earlier revisions."
+          ],
+          [
+            "Timeline and workflow links",
+            "Harness timeline links durable run, epoch, Sync, and save-point records."
+          ],
+          [
+            "Blockers, process state, and trace grouping",
+            "Harness coordination and workflow records preserve pause, recovery, and causation."
+          ],
+          [
+            "Explicit open and close",
+            "Initial Sync establishes readiness. Pause and resume replace lifecycle closure; historical cycle records remain readable during migration."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "continuing-harness-11": {
+      "id": "continuing-harness-11",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Historical Migration"
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-12": {
+      "id": "continuing-harness-12",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Legacy cycle tables remain readable as historical evidence. Explicit import transfers a verified worktree, accepted head, upstream anchor, and existing timeline into continuing ownership. Import does not fabricate completed readiness checks. Active operation does not require opening a successor cycle or closing the harness after an epoch."
+        }
+      ],
+      "children": []
+    }
+  }
+}

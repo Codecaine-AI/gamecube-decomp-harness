@@ -1,0 +1,60 @@
+{
+  "tu": "main/melee/gm/gm_1A36",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A36.c#L72-L100",
+            "why": "Exact edge, countdown and emission branch order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A36.c#L113-L162",
+            "why": "Physical-only callback execution and all-slot initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's exact-period wording while preserving the source's countdown ordering and aggregate exception.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1A36:gm_801A3E88"
+        },
+        "type": "state_behavior",
+        "value": "Resets controller inputs and repeat-duration state, configures initial countdown 20, duration thresholds 40 and 100, and repeat countdown reloads 8, 4, and 2. Every physical and aggregate slot starts with timer 20; the installed callback subsequently updates only physical slots. A trigger or release reloads 20, clears duration, and emits the trigger mask. Otherwise a nonzero entry timer decrements and suppresses output even when the decrement reaches zero; a later invocation entering with zero emits held buttons. Stable-tier emission spacing is therefore reload plus one callback invocations, absent edges or timer overrides."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A36.c#L13-L70",
+            "why": "Read-only accessor and exact alias guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A36.c#L113-L143",
+            "why": "Concrete mappings and per-port trigger aggregation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L484-L492",
+            "why": "Underlying physical trigger expression."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes physical rising edges from independently synthesized semantic aliases and aggregate OR behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1A36:gm_GetButtonsTriggered"
+        },
+        "type": "purpose",
+        "value": "Returns the selected controller-map slot's processed trigger snapshot without consuming it. Physical triggers originate in HSD rising-edge detection; semantic trigger bits are added from matching source edges, with an additional current-chord condition for chord aliases. The aggregate slot ORs physical-port trigger masks. Semantic and aggregate trigger bits are not necessarily rising edges of their corresponding held masks: another source button or port can trigger the same command while that command is already held."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

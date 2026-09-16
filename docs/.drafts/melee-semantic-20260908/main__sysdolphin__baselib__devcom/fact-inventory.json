@@ -1,0 +1,2042 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:.bss"
+    },
+    "facts": [
+      {
+        "id": "fact:b8ee782a-71f9-43d8-81df-56e1c7c58eba",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.bss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_DevComRequest appends descriptors through the section's per-lane queue arrays. The DVD and ARAM dispatchers consume queue heads and populate the reusable DVD and ARQ objects; payloads move directly to their destinations or through one of the two relay buffers. Completion callbacks map ARQRequest addresses back to relay slots, advance or retire descriptors, release relay ownership, and wake pending work.",
+        "rationale": "The current request path appends descriptors through the four lane arrays, while the dispatch and callback paths still move request fields through reusable hardware request objects and relay storage and map completed ARQ records back to their slots.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows queue traversal and unlinking, ARQ request-to-slot mapping, relay release, and completion wake-ups."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows queued ARAM request fields flowing into reusable ARQ records and relay buffers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows descriptors being appended through the per-lane queue tails."
+          }
+        ]
+      },
+      {
+        "id": "fact:12fa9e12-e6ee-4df1-8b24-123735e57748",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.bss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies the queue and payload-staging storage behind asynchronous DVD and ARAM data movement. Its paired 16 KiB buffers permit DVD-to-ARAM handoff and relay-mediated ARAM operations without requiring both hardware operations to use the caller's destination directly.",
+        "rationale": "The current DVD callback forwards relay-buffer contents into ARAM, while the ARAM dispatcher uses the same buffers for zero-fill, callback-visible reads, and staged copies. This preserves the section's mapping to low-level data-transfer staging.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows relay-buffered ARAM reads, writes, zero-fill, and staged transfer behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows DVD data entering a relay buffer and being forwarded to ARAM or delivered to a client."
+          }
+        ]
+      },
+      {
+        "id": "fact:4d59548d-20ab-4efb-914b-9e923b647037",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.bss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A heterogeneous zero-initialized data section containing `ARQRequest devComARQR[2][2]`, two four-element `HSD_DevCom*` queue arrays, two `DEVCOM_BUF_SIZE` integer relay buffers, and one `DVDFileInfo` object.",
+        "rationale": "The current static header directly declares each object with its source-level type and dimensions, and the implementation confirms the indexed queue, relay-buffer, and ARQ-record semantics.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.static.h#L4-L41",
+            "why": "Declares the ARQ request matrix, two four-element pointer arrays, two 0x4000-byte integer buffers, and DVDFileInfo storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Confirms four-lane queue semantics and pointer-identity use of the indexed ARQ records and relay slots."
+          }
+        ]
+      },
+      {
+        "id": "fact:51612da2-2b50-4d75-ac15-d2d1aa378012",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.bss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides DevCom's large zero-initialized transfer workspace: reusable ARQ request records, head and tail pointers for four request lanes, two 16 KiB relay buffers shared by DVD and ARAM operations, and the DVD file-information object used for asynchronous disc reads.",
+        "rationale": "The head declarations retain the ARQ matrix, four-lane queue arrays, paired relay buffers, and DVDFileInfo object, and current dispatch code continues using them as DevCom's transfer workspace.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.static.h#L4-L41",
+            "why": "Declares the reusable ARQ records, queue arrays, paired 16 KiB relay buffers, and DVDFileInfo object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows the ARAM dispatcher using the reusable ARQ records and relay buffers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows DVD callbacks and dispatch using the relay buffers and shared DVDFileInfo object."
+          }
+        ]
+      },
+      {
+        "id": "fact:d52c1657-7762-417b-b52f-43454e440c4a",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.bss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The queue arrays encode four FIFO lanes with head selection and constant-time tail insertion. Unlinking advances a head or splices an interior descriptor and repairs the tail. The two relay buffers and ARQ records are persistent reusable slots protected by separate ownership flags, and the shared DVDFileInfo object is repopulated when DVD work begins.",
+        "rationale": "Current unlink and insertion code preserves FIFO head and tail invariants, while dispatch and callbacks reserve and release indexed relay slots and reuse the shared ARQ and DVD request objects.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows queue-head and tail repair, ARQ-record identity checks, relay ownership transitions, and reusable slot behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows relay acquisition and repopulation of the shared DVDFileInfo object before asynchronous reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows constant-time per-lane tail insertion and initialization of empty lane heads."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:1ba77efb-81b5-4fa5-9f58-094d3d735dac",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "At compile time, each HSD_ASSERT contributes the DevCom source-file name and condition text to this pool. During execution the text is unused when a guard succeeds; a failed guard passes the relevant strings and source-line value to `__assert` for diagnostic reporting.",
+        "rationale": "The current assertion macro passes `__FILE__`, a line value, and stringized condition text only on failure, and the current DevCom assertion sites supply the queue, callback, capacity, allocation, alignment, and size conditions represented by the pool.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L37",
+            "why": "Defines the successful no-op and failed `__assert` flow carrying file, line, and condition strings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows queue and ARQ callback-identity assertions supplying diagnostic conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows request-allocation, capacity, alignment, and size assertions supplying additional condition strings."
+          }
+        ]
+      },
+      {
+        "id": "fact:9a2196f6-a0fd-4a95-b767-f5ea6cb1c5b1",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports development-time diagnosis of invalid asynchronous DVD and ARAM transfer requests and broken DevCom invariants. It contains diagnostic explanations for failures in loading and streaming infrastructure rather than game assets, transfer payloads, or a player-facing mechanic.",
+        "rationale": "The current assertion sites validate queue integrity, relay capacity, callback presence, allocation, and transfer alignment and size, while actual payload movement remains in the ARQ, DVD, destination, and relay-buffer paths.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows actual ARAM payload movement occurring through ARQ requests and relay buffers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows actual DVD movement alongside diagnostic assertions protecting relay use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows that request-condition strings correspond to validation of the asynchronous transfer interface."
+          }
+        ]
+      },
+      {
+        "id": "fact:a705897e-aa5a-4119-afbe-ae312c9220a5",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A compiler-emitted pool of NUL-terminated character arrays, principally the DevCom `__FILE__` string and distinct stringized expressions supplied by HSD_ASSERT invocations; it is not mutable transfer state or an HSD_DevCom descriptor table.",
+        "rationale": "The assertion macro materializes file and condition text as character-pointer arguments, while the current static header separately declares all mutable DevCom transfer and scheduler objects.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L37",
+            "why": "Shows HSD_ASSERT materializing `__FILE__` and stringized conditions as arguments to `__assert`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.static.h#L4-L41",
+            "why": "Separately declares the mutable queue, ARQ, relay, DVD, and scheduler objects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Supplies distinct request-validation expressions that HSD_ASSERT stringizes."
+          }
+        ]
+      },
+      {
+        "id": "fact:31135ef2-026e-4653-9b72-0d2b27179e12",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides DevCom's assertion-diagnostic string pool, including the source-file name and stringized conditions used when queue invariants, callback assumptions, relay-buffer limits, descriptor allocation, or transfer alignment and size requirements fail.",
+        "rationale": "The relocated debug header still defines HSD_ASSERT as passing `__FILE__` and condition text to `__assert`, and the current DevCom source retains assertions covering the listed invariants. The previous missing header span is therefore replaced by the current resolvable span.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L37",
+            "why": "Defines HSD_ASSERT as forwarding the source-file string and condition text to __assert on failure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows allocation, relay-capacity, alignment, and nonzero-size assertion sites."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows assertions enforcing DVD relay-buffer size and callback requirements."
+          }
+        ]
+      },
+      {
+        "id": "fact:a491a8d5-1b91-41b3-92b9-06fd1f1a7e95",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.data",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The section carries no evolving DevCom state and is not modified by the unit. Its strings remain dormant during valid operation and are selected only when assertions detect impossible queue or callback identities, oversized relay requests, missing callbacks, allocation failure, misalignment, or zero-sized transfers.",
+        "rationale": "The macro only reads its file and condition strings on a failed assertion branch, while current DevCom sites enumerate the exceptional conditions represented by the immutable pool.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L37",
+            "why": "Shows assertion text selected only on the failing branch and never modified."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows impossible queue-unlink and ARQ callback-identity guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows relay-capacity and required-callback guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows allocation, alignment, capacity, and nonzero-size guards."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:.sbss"
+    },
+    "facts": [
+      {
+        "id": "fact:9f60e203-1a32-4bbb-9e70-dc974c5809a6",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Request submission removes a descriptor from the free-list head or creates a replacement pool. Dispatchers publish queue heads as active ARAM or DVD requests and record acquired relay indices. Completion paths consume that state, notify clients, recycle completed descriptors, retain final DVD-to-ARAM descriptors until ARQ completion, and release device and relay state so dispatch can resume.",
+        "rationale": "The current request path shows free-list consumption and pool creation. Current ARAM and DVD callbacks read the active and relay state, while the final DVD-to-ARAM path writes and later clears the indexed pending-request slot before recycling the descriptor.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L58-L104",
+            "why": "Shows ARAM completion consuming active state and returning a descriptor to the free list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows DVD completion consuming relay and active state and retaining final requests until ARQ completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows free-list allocation, fallback pool creation, and request initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:abc1e586-d03a-4b16-9e90-f0f1a960c8d7",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sbss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies the control state that enables asynchronous DVD loading, ARAM transfers, and relay-staged DVD-to-ARAM streaming. It tracks transfer ownership and completion rather than containing the asset bytes being moved.",
+        "rationale": "The current state controls device dispatch, relay ownership, pending final transfers, and callback completion, while payload bytes reside in caller memory, ARAM, or the separate relay buffers.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows the state coordinating direct and relay-staged ARAM work."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows the state coordinating DVD reads and DVD-to-ARAM relay handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L383",
+            "why": "Shows DVD dispatch using activity and relay-selection state."
+          }
+        ]
+      },
+      {
+        "id": "fact:729d5c80-fd57-4001-970f-7da7114ee6a8",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 32-byte small-BSS collection of zero-initialized pointer and scalar globals rather than one homogeneous object. It includes `HSD_DevCom*` values for free, active, and pending requests; byte- or integer-sized activity, error, and relay-index state; and a two-element pending-request pointer array.",
+        "rationale": "The current header directly distinguishes the pointer, two-slot array, byte-latch, signed-integer, and relay-flag globals, while their current uses confirm free-list, activity, error, and pending-transfer roles.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.static.h#L4-L41",
+            "why": "Declares the section's pointer, array, byte, signed-integer, and relay-flag globals."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Demonstrates free-list, active-request, ARAM-state, and relay-ownership semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Demonstrates pending-pointer, relay-index, DVD activity, and error-latch semantics."
+          }
+        ]
+      },
+      {
+        "id": "fact:eb8b921e-7194-45a0-b52d-a19b06d7e383",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores DevCom's small zero-initialized runtime-control state: the reusable descriptor free-list head, active ARAM and DVD request pointers, activity and DVD-error latches, relay-buffer selection and ownership state, and two descriptors awaiting final DVD-to-ARAM ARQ completion.",
+        "rationale": "The current declarations identify all listed pointer and scalar globals, and the completion paths still use them for descriptor reuse, device activity, relay ownership, DVD error suppression, and retention of final DVD-to-ARAM requests.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.static.h#L4-L41",
+            "why": "Declares the free-list, active-request, relay, pending-request, error, and activity globals."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows the free-list head, active ARAM pointer, activity latch, and relay ownership state in use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows DVD completion using error, activity, relay-index, pending-request, and free-list state."
+          }
+        ]
+      },
+      {
+        "id": "fact:dce85fc0-da51-46e3-a0ca-7a56c89d9541",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sbss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Encodes the scheduler's idle, active, staged, failed, and reusable states. DVD and ARAM work starts only while the corresponding activity latch is clear; relay work additionally reserves one of two ownership flags. Completion restores idle state, except that a final DVD-to-ARAM descriptor remains pending until its ARQ callback. DVD result -1 sets an error latch that suppresses client notification, and completed descriptors return to the free list under interrupt protection.",
+        "rationale": "Current wake-up paths guard dispatch on activity and relay state, and current callbacks clear those states. The final DVD-to-ARAM path defers descriptor recycling through an indexed pending slot, while DVD callbacks set and test the persistent error latch.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows ARAM idle guarding, relay reservation, and transition to active state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows DVD failure latching, active-to-idle transitions, deferred final completion, and descriptor recycling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L383",
+            "why": "Shows the DVD-active guard and transition to active after read submission."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:1bf6805e-ceec-45fc-8500-e9db88bcd1c3",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "During request submission, the normalized priority supplies a value from 0 through 3. HSD_DevComRequest adds that lane value to the section's counter, writes the encoded result into `HSD_DevCom.dcReq`, returns it to the caller, and advances the counter by four. The returned handle subsequently flows into cancellation and queue lookup, where its low two bits select `devComStatus[dcReq & 3]` and its full value identifies the descriptor.",
+        "rationale": "The producer path and consumer path are explicit in the matched source. Adding priority to a multiple-of-four base encodes the queue lane in the low bits without changing the advancing request sequence, while cancellation decodes those bits and validates the complete stored handle.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:02:32.906Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L442",
+            "why": "Shows the counter and priority producing dcReq, the counter update, queue insertion, and return of the handle to the caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L443-L483",
+            "why": "Shows a returned dcReq being consumed to choose a queue and locate or cancel the matching descriptor."
+          }
+        ]
+      },
+      {
+        "id": "fact:8d51ba26-3234-49b7-aeec-6a65c020befe",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sdata",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports asynchronous DVD and ARAM data movement by assigning the handles used to track and cancel queued DevCom operations. It contains transfer-control metadata rather than disc data, ARAM payloads, or a player-facing value.",
+        "rationale": "Every submitted descriptor receives a generated handle before queue insertion and dispatcher wake-up, and cancellation consumes that handle to find the corresponding queued or pending transfer.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows handle generation, attachment to queued transfers, dispatcher wake-up, and handle-based cancellation lookup."
+          }
+        ]
+      },
+      {
+        "id": "fact:4891c94e-20c2-48d0-9664-8f0f646e2bbd",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sdata",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "nextDevComReq",
+        "rationale": "The current source uses the object only to construct a new `dcReq` and advance the sequence by four, which supports a next-request or request-counter name while leaving the exact original identifier uncertain.\n\nNaming cleanup: Selected the concise supported candidate; alternate wording remains uncertain.\nPrior naming claim: The address-derived object `HSD_DevCom_804D6050` was plausibly named `nextDevComReq` or `devComReqCounter`, reflecting its role as the advancing base for newly allocated request handles.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows that HSD_DevCom_804D6050 exclusively supplies and advances the base used to form new request handles."
+          }
+        ]
+      },
+      {
+        "id": "fact:ca3b1b40-4d46-45a3-80f1-29596bfac99a",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A writable integer request-handle sequence counter aligned to multiples of four, rather than a pointer, payload buffer, transfer size, or HSD_DevCom aggregate. Its former specific initializer of 4 is no longer established by the current source declaration.",
+        "rationale": "At head, all observed operations are integer addition, assignment to the integer `dcReq` field, and increment by four. The prior declaration citation no longer contains the object, so the semantic integer type remains supported but the initializer claim is removed.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows integer counter semantics through addition to a lane, assignment to dcReq, and advancement by four."
+          }
+        ]
+      },
+      {
+        "id": "fact:81c90610-71cb-4ebb-a6ab-4d00c1c91b3e",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sdata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores DevCom's writable request-number counter. HSD_DevComRequest combines it with the selected lane to allocate a request handle whose low two bits identify one of four queues, then advances the counter by four.",
+        "rationale": "The current request path reads the object as an integer, adds the normalized priority, stores and returns the resulting handle, and increments the object by four. Cancellation later masks the handle with three to recover its lane. The removed declaration no longer supports asserting a specific initializer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows the object producing request handles, advancing by four, and those handles later selecting queues through their low bits."
+          }
+        ]
+      },
+      {
+        "id": "fact:a2cf0448-f089-4c05-8980-466889355219",
+        "target_id": "target:data:main/sysdolphin/baselib/devcom:.sdata",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The counter advances in steps of four whenever a request is enqueued. Allocation, descriptor handle assignment, and queue insertion occur in one interrupt-disabled critical section, and the selected lane remains encoded in the handle's low two bits for the descriptor's lifetime.",
+        "rationale": "The current request function performs the read, assignment, increment, and queue publication while interrupts are disabled. The cancellation lookup later uses `dcReq & 3`, confirming that the four-step progression preserves the lane encoding. The unsupported claim about an initial value is omitted.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L483",
+            "why": "Shows interrupt-protected handle allocation, advancement by four, queue publication, and later low-bit lane decoding."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComARAMCallback"
+    },
+    "facts": [
+      {
+        "id": "fact:858f9914-22f5-44c8-b9ee-cc1d116d9c32",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMCallback",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the active request `aramDC` and the completed ARQRequest. Type 0x1A maps the ARQRequest to relay slot 0 or 1 and passes that buffer to the client; other types pass NULL. It forwards request metadata, unlinks and recycles the descriptor, then releases ARAM and relay state through the standard completion helper.",
+        "rationale": "The current callback still decodes a relay slot for type 0x1A, forwards the active request's fields, unlinks and recycles the descriptor, and delegates ARAM and relay-state release to the standard callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows relay-buffer selection, client callback arguments, unlinking, free-list insertion, ARAM-state release, and dispatcher wake-ups."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows `aramDC` loaded from lane 3 and this callback installed for direct and final ARQ transfers."
+          }
+        ]
+      },
+      {
+        "id": "fact:cc233a28-bd68-4f6f-9fe7-9e2dfc397085",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMCallback",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements completion of asynchronous transfers involving GameCube ARAM. An ARAM-to-relay-buffer request of type 0x1A returns the filled staging buffer to the client, while direct transfers and other final staged operations report completion without a buffer.",
+        "rationale": "The current dispatcher posts type 0x1A from ARAM into a relay buffer and selects this callback, which returns that indexed buffer only for type 0x1A.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L67-L91",
+            "why": "Shows type 0x1A returning the completed relay buffer while other request types return no buffer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows the ARAM transfer directions, relay destination, and registration of this terminal callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:66a8d0ee-548c-4ba3-b397-d0f30b367eda",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMCallback",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An ARQ completion callback with signature static void HSD_DevComARAMCallback(ARQRequest* request). Its argument identifies the completed relay-slot request, and completion results are delivered through the callback stored in the active HSD_DevCom record rather than through a return value.",
+        "rationale": "The definition directly establishes the void(ARQRequest*) signature. The argument is compared against devComARQR entries to recover the relay index, while the actual client-facing result is emitted through aramDC->callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:14:47.246Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L67-L91",
+            "why": "Shows the exact static void callback definition, its ARQRequest pointer parameter, relay-slot identification, and client callback invocation."
+          }
+        ]
+      },
+      {
+        "id": "fact:5079c69c-ee9c-49ec-ac3a-b406bb2f8aa3",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMCallback",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finalizes a queued DevCom ARAM operation after ARQ completion: it reports the result to the request's client, removes and recycles the completed DevCom descriptor, releases ARAM and relay-buffer state, and restarts both device dispatchers.",
+        "rationale": "The current callback invokes the active request's client callback, unlinks and recycles the descriptor, then calls the standard completion helper that releases ARAM and relay ownership and wakes both dispatchers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows the complete terminal ARAM completion path, including notification, unlinking, recycling, state release, and both dispatcher wake-ups."
+          }
+        ]
+      },
+      {
+        "id": "fact:fe0dbcf4-f2b6-49ea-95fe-c33e69514973",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMCallback",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Represents terminal ARAM-request completion rather than intermediate chunk completion. It notifies the client before unlinking, recycles the descriptor under interrupt exclusion, resets ARAM and relay state, and wakes DVD then ARAM dispatch. Type 0x1A alone exposes a relay-buffer pointer to the client.",
+        "rationale": "The dispatcher uses the standard callback for intermediate chunks and this callback for final work; the callback preserves client-notification, unlinking, interrupt-protected recycling, cleanup order, and the type-0x1A relay-buffer rule.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows terminal notification, unlinking, interrupt-protected recycling, idle restoration, relay release, wake-up order, and type-0x1A buffer selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Distinguishes the standard callback used for intermediate chunks from this callback used for final or single transfers."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComARAMWakeUp"
+    },
+    "facts": [
+      {
+        "id": "fact:dc6ee5e0-7e67-48be-bee2-de819ea29871",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMWakeUp",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads lane 3's head into `aramDC` and consumes its type, addresses, size, cancellation state, callback, handle, and argument. It acquires a relay slot, performs required cache maintenance, posts ARQ requests, and advances addresses and remaining size for chunked work. Completion callbacks consume the posted request, notify the client, retire the descriptor, release ARAM and relay state, and wake dispatch again.",
+        "rationale": "The current dispatcher traces the lane-3 descriptor's fields through cache operations and ARQ submissions and updates chunk progress; the current callbacks consume those requests and active descriptor state to complete or continue work.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows request-field inputs, relay acquisition, cache operations, ARQ arguments, and chunk-progress mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows completion notification, unlinking, recycling, ARAM and relay-state release, and renewed dispatch."
+          }
+        ]
+      },
+      {
+        "id": "fact:2dafe2dc-bcce-4c69-aa37-62c997a385d2",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMWakeUp",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes asynchronous ARAM data operations: type 3 writes zero-filled chunks to ARAM, type 0xB transfers main memory to ARAM, type 0x19 transfers ARAM to main memory, type 0x1A exposes ARAM data through a relay buffer, and type 0x1B performs relay-staged ARAM-to-main-memory copying.",
+        "rationale": "The current request-type branches retain the corresponding ARQ directions, source and destination choices, cache operations, relay-buffer use, and chunk sizes.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows every ARAM request-type branch and its transfer direction, addresses, staging behavior, and chunking."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L67-L91",
+            "why": "Shows type 0x1A exposing the completed relay buffer to the client."
+          }
+        ]
+      },
+      {
+        "id": "fact:e16189ed-b4e6-47df-a236-3cb72faf7402",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMWakeUp",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless, void-returning queue dispatcher with signature `void HSD_DevComARAMWakeUp(void)`; it initiates asynchronous ARQ work and reports completion through callbacks and shared state.",
+        "rationale": "The current definition directly supplies the void(void) signature, and all successful paths post asynchronous requests rather than returning a transfer result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows the exact signature and asynchronous ARQ callback-based operation."
+          }
+        ]
+      },
+      {
+        "id": "fact:d0835677-5c03-4e80-9ac9-214640f7abe5",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMWakeUp",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Dispatches the next queued ARAM-side DevCom request when the ARAM engine and any required relay buffer are available, translating its request type into a direct, staged, chunked, or zero-fill ARQ operation.",
+        "rationale": "The current complete body retains the activity guard, lane-3 queue-head selection, relay acquisition, type dispatch, cache maintenance, and ARQ submissions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Contains the dispatcher body, including its busy guard, queue selection, relay allocation, request-type branches, and ARQ submissions."
+          }
+        ]
+      },
+      {
+        "id": "fact:15330500-ff40-4e10-86e7-2535e03f257b",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComARAMWakeUp",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Runs dispatch decisions with interrupts disabled. It exits while ARAM is active, consumes and removes cancelled heads, and defers if no relay slot is free. Supported requests set `aramstate` active after posting ARQ work. Types 3 and 0x1B use at most one relay-buffer-sized chunk per dispatch, selecting the standard callback for intermediate chunks and HSD_DevComARAMCallback for final or single transfers.",
+        "rationale": "The head function retains interrupt exclusion, the active-state guard, recursive cancelled-head removal, relay exhaustion handling, chunk-size limits, intermediate-versus-final callback selection, and active-state entry after submission.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows the interrupt guard, busy exit, cancelled-head transition, relay availability guard, chunk sizing, callback selection, and active-state entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows standard and final completion restoring ARAM and relay state and waking both dispatchers."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComCancelEx"
+    },
+    "facts": [
+      {
+        "id": "fact:24cd7459-6592-4350-b301-ad27fc8c7dd7",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComCancelEx",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "dcReq selects one of four request queues through dcReq & 3, and that lane is searched for a descriptor whose stored request ID matches. For a queued match, flags may replace the descriptor's callback and argument; the descriptor is then either marked cancelled if it is the lane head or passed to its callback and HSD_DevComUnlink if it is pending behind the head. If no queued descriptor matches, both active relay-request slots are searched by request ID, and a matching slot receives the supplied callback and argument and has cancelflag set.",
+        "rationale": "The current lookup still selects a lane from the request ID's low two bits, walks by `next`, conditionally replaces callback fields, distinguishes a queue head from an interior request, and falls back to the two retained relay slots.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L443-L490",
+            "why": "Shows lane selection, request-ID lookup, flag-controlled field replacement, head-versus-interior handling, and fallback scanning of both retained relay slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows HSD_DevComUnlink removing a descriptor from the low-two-bit-selected queue and maintaining its head and tail pointers."
+          }
+        ]
+      },
+      {
+        "id": "fact:86a70bac-8137-49b7-acbe-c675d4e4e843",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComCancelEx",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Has signature int HSD_DevComCancelEx(int dcReq, u32 flags, HSD_DevComCallback cb, void* args). flags is a bitmask: bit 0 replaces the callback and bit 1 replaces its argument for a request found in a normal queue. Cancellation callbacks receive the request ID, the stored argument converted to int, a NULL data pointer, and true for the cancellation flag. The function always returns 0, including when no request is found.",
+        "rationale": "The declaration and body establish the parameter and return types. The two bit tests independently gate callback and argument replacement in the queue path, the immediate callback call establishes the cancellation callback arguments, and the sole return statement is return 0 after every search outcome.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:14:45.853Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L456-L490",
+            "why": "Directly provides the complete function signature, flag-bit interpretation, callback invocation shape, active-slot fallback behavior, and constant return value."
+          }
+        ]
+      },
+      {
+        "id": "fact:e1d82d0a-6556-4c43-8ab7-834f7c0c94ab",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComCancelEx",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Cancels an asynchronous DevCom request by handle while protecting shared queue state from interrupts. Pending non-head requests are removed immediately, while queue heads and retained final-transfer requests are marked for cooperative cancellation so normal dispatch or completion can finish their lifecycle.",
+        "rationale": "The current body still distinguishes non-head queue entries from heads and retained relay-slot requests, immediately notifying and unlinking only the former while setting `cancelflag` for the latter.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L456-L490",
+            "why": "Shows interrupt-protected lookup, immediate non-head cancellation, and deferred cancellation of heads and retained final-transfer requests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows the ARAM dispatcher consuming a cancelled queue head through notification and unlinking."
+          }
+        ]
+      },
+      {
+        "id": "fact:48dbe18b-37e5-4789-8f23-98448ab34073",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComCancelEx",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Cancellation is position-sensitive and cooperative. A request behind its queue head transitions immediately to notified-and-unlinked state. A queue head or retained relay-slot request only has `cancelflag` set; this function does not abort hardware work. Dispatch and completion later propagate cancellation and perform ordinary unlinking or recycling. Lookup and mutation occur in one interrupt-disabled critical section.",
+        "rationale": "The current function performs lookup and mutation under interrupt exclusion, immediately notifies and unlinks only non-head requests, and merely marks heads or retained final-stage requests; current dispatch and completion code consumes that flag through normal lifecycle paths.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L443-L490",
+            "why": "Shows the interrupt critical section and position-sensitive immediate versus deferred cancellation without a hardware-abort call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows deferred cancellation consumed by ARAM dispatch through notification and ordinary unlinking before hardware work begins."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows completion forwarding the cancellation flag and then following ordinary unlink and recycling paths."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComDVDARAMEndCallback"
+    },
+    "facts": [
+      {
+        "id": "fact:2237c836-7076-46b3-863f-21c1086e0305",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDARAMEndCallback",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the ARQRequest for the final relay-buffer-to-ARAM copy, derives relay index 0 or 1, reads the retained HSD_DevCom descriptor from that slot, and conditionally forwards its handle, argument, cancellation flag, and a NULL data pointer to the client. It then returns the descriptor to the reusable list and clears the retained slot.",
+        "rationale": "The current producer retains the final type-0x23 descriptor by relay index, and the callback maps the completed ARQRequest back to that index, consumes the descriptor's client fields, recycles it, and clears the slot.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows pending-slot production, final ARQ submission, request-to-slot mapping, client callback arguments, descriptor recycling, and slot clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows the interrupt-protected helper used to return the retained descriptor to the reusable list."
+          }
+        ]
+      },
+      {
+        "id": "fact:6c9e00d7-2513-453a-b2c9-779f304f88a9",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDARAMEndCallback",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements completion of a staged DVD-to-ARAM transfer in which DVD data is read into a main-memory relay buffer, copied from that buffer into ARAM through ARQ, and finalized here after the last ARAM copy.",
+        "rationale": "The current type-0x23 branch uses the relay buffer as ARQ source, the request destination as the ARAM destination, and this callback specifically for the final chunk.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows relay-buffer-to-destination ARQ copies and registration of this function for final type-0x23 completion."
+          }
+        ]
+      },
+      {
+        "id": "fact:77da09da-7d73-40e3-b06c-6126b9819f67",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDARAMEndCallback",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An ARQ completion callback with signature void HSD_DevComDVDARAMEndCallback(ARQRequest* request). The ARQRequest pointer identifies which of the two shared relay-buffer request slots completed; the function returns no synchronous result.",
+        "rationale": "The matched definition directly supplies the void-returning ARQRequest-pointer signature. Its comparison against the two devComARQR slots demonstrates that the parameter identifies the completed relay slot rather than carrying the client DevCom request directly.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:14:43.423Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L216-L235",
+            "why": "Contains the exact function signature and maps the incoming ARQRequest pointer to relay index 0 or 1."
+          }
+        ]
+      },
+      {
+        "id": "fact:85adc343-8752-475c-b5c7-fa83c98e3917",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDARAMEndCallback",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finalizes the last ARQ stage of a type-0x23 DVD-to-ARAM request: it releases the relay buffer, resumes DVD and ARAM work, conditionally notifies the client, recycles the completed descriptor, and clears the relay slot's retained request pointer.",
+        "rationale": "The current type-0x23 path retains the request by relay index and installs this callback for the final relay-to-ARAM copy. The callback then performs standard relay release, notification, recycling, and pending-slot clearing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows both final type-0x23 ARQ submission and the callback's complete finalization sequence."
+          }
+        ]
+      },
+      {
+        "id": "fact:b4dc1ea8-d4e8-464b-a852-33e763fa247b",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDARAMEndCallback",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On final ARQ completion, first releases the completed relay slot and wakes both dispatchers through HSD_DevComDVDStdCallback. A latched DVD error suppresses only client notification; recycling and retained-slot clearing remain unconditional. The descriptor was already unlinked before final ARQ submission and is recycled under interrupt protection.",
+        "rationale": "The current callback first performs standard relay release, scopes the DVD-error test only around client notification, and then unconditionally recycles and clears the retained descriptor; the producer path unlinks it before posting the final ARQ request.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows relay release, error-guarded notification, unconditional recycling and slot clearing, and unlinking before final ARQ submission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows reusable-list insertion protected by interrupt disable and restore."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComDVDCallback"
+    },
+    "facts": [
+      {
+        "id": "fact:e17cd545-f48b-4d03-8637-6cb5ad7e2b1f",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDCallback",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the DVD result, active `dvdDC`, and selected relay index. A DVD error sets the subsystem error latch. Type 0x22 passes the relay buffer to the client, unlinks the request, and recycles it. Type 0x23 posts the buffer to `dvdDC->dest` through ARQ; intermediate chunks advance source, destination, and remaining size, while a final chunk retains the descriptor by relay index for the ARQ end callback.",
+        "rationale": "The current callback directly reads the descriptor fields and selected relay index into client and ARQ outputs, mutates the remaining range for continuation, and writes the final descriptor into the indexed pending array consumed by the end callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L267-L320",
+            "why": "Shows DVD result handling, relay use, callback and ARQ outputs, recycling, chunk progress, and final pending-slot publication."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L216-L235",
+            "why": "Shows the final ARQ callback consuming the retained descriptor by relay index."
+          }
+        ]
+      },
+      {
+        "id": "fact:53fe0738-a675-442e-96e8-07012e6537bf",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDCallback",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes two relay-buffered optical-disc transfer modes: type 0x22 exposes a completed DVD block in main memory to the client, while type 0x23 pipelines DVD data into ARAM in relay-buffer-sized chunks through ARQ.",
+        "rationale": "The current 0x22 branch passes the selected relay-buffer address to the client, whereas 0x23 uses that buffer as the ARQ source and the request destination as the ARAM destination.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L267-L320",
+            "why": "Directly distinguishes callback-visible DVD-buffer delivery from chunked DVD-to-ARAM transfer."
+          }
+        ]
+      },
+      {
+        "id": "fact:0eda5c52-dea8-4999-95f2-594bd87525e4",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDCallback",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A DVD asynchronous-completion callback with signature `static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)`; the DVDFileInfo argument is unused, and completion is communicated through shared state, ARQ requests, and the active descriptor's client callback.",
+        "rationale": "The current definition directly supplies the signature and unused second parameter, while its body routes the result through global state and asynchronous callbacks rather than a return value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L267-L320",
+            "why": "Shows the exact callback signature, unused DVDFileInfo parameter, and callback- and state-based outputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:11eab14c-c9d2-4ab3-87fd-f4d629765851",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDCallback",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles completion of relay-buffered DVD reads for request types 0x22 and 0x23: type 0x22 delivers the loaded relay buffer to the client and retires the request, while type 0x23 forwards the loaded chunk into ARAM and arranges continuation or final completion.",
+        "rationale": "The current callback retains its distinct 0x22 client-delivery path and 0x23 ARQ-staging path, including callback selection for intermediate and final chunks.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L267-L320",
+            "why": "Shows the complete type-0x22 delivery and retirement path and type-0x23 relay-to-ARAM path."
+          }
+        ]
+      },
+      {
+        "id": "fact:0b6c7db9-23ca-49f8-bfda-7fd1dc9f8eaf",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDCallback",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "DVD result -1 sets a persistent error latch that suppresses client notification. Type 0x22 conditionally notifies, retires and recycles the request, clears DVD and relay activity, and wakes both dispatchers. Type 0x23 starts an ARQ copy: intermediate chunks advance the request and resume DVD reading while ARQ completion later releases the relay; the final chunk is unlinked, retained by relay slot, and retired only by the ARQ end callback.",
+        "rationale": "The current callback preserves the error transition, both request-type state machines, interrupt-protected recycling, continuation mutations, and final-request handoff. The current standard and end callbacks establish deferred relay release and final retirement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L267-L320",
+            "why": "Shows the error latch, type-0x22 lifecycle, type-0x23 continuation, and final pending-state transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows relay release and final pending-request completion."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComDVDMemCallback"
+    },
+    "facts": [
+      {
+        "id": "fact:2978d1ad-5eeb-4c8a-8209-1f33de549e4b",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDMemCallback",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the DVD result together with the globally active dvdDC request. For a nonfinal chunk it increments dvdDC->src and dvdDC->dest by 0x80000 and subtracts 0x80000 from dvdDC->size before redispatch. At final completion it passes dcReq, args converted to int, a NULL data pointer, and cancelflag to the request callback when no DVD error is latched; it then unlinks dvdDC and pushes the descriptor onto the free list headed by HSD_DevCom_804D77F0 under interrupt protection.",
+        "rationale": "The callback's field mutations and callback arguments are explicit in the matched body. The wake-up routine establishes that src is the DVD file offset, dest is the direct read destination, size is the remaining transfer length, and dvdDC is the currently selected queued request.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:14:59.879Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L237-L265",
+            "why": "Directly shows every request-field update, the client callback arguments, unlinking, and interrupt-protected insertion into the descriptor free list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L442",
+            "why": "Establishes how dvdDC's source offset, destination address, and remaining size feed the asynchronous DVD read that invokes this callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:a9476689-efb8-4f43-be5d-74a6f77a83d4",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDMemCallback",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the completion and chunk-progression portion of HSD's direct DVD-to-main-memory data-transfer path, allowing queued disc data larger than 512 KiB to be loaded through successive asynchronous reads.",
+        "rationale": "The wake-up path reads type-0x21 DVD requests directly into their destination addresses with a 0x80000-byte cap, and this callback advances those addresses and the file offset until the complete requested range has been transferred.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-01T23:14:59.879Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L237-L265",
+            "why": "Shows that the callback progresses transfers in 0x80000-byte increments and completes the request after its final chunk."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L442",
+            "why": "Shows direct asynchronous reads from a DVD file offset into destination memory and identifies the callback as the handler for that path."
+          }
+        ]
+      },
+      {
+        "id": "fact:b9e60f91-e8e0-4c33-ae0c-a8774e867227",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDMemCallback",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A DVD asynchronous-read completion callback with signature void(s32 result, DVDFileInfo* file_info); the DVDFileInfo argument is unused, and result == -1 is treated as a read failure.",
+        "rationale": "The matched declaration provides the callback signature and marks the second parameter unused. The function tests the result parameter only for -1, while HSD_DevComDVDWakeUp passes it directly to DVDReadAsyncPrio as the completion callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:14:59.879Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L237-L265",
+            "why": "Provides the exact static function signature, demonstrates that the DVDFileInfo parameter is unused, and identifies -1 as the failure result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L442",
+            "why": "Shows the function being supplied to DVDReadAsyncPrio as the callback for direct-to-memory DVD reads."
+          }
+        ]
+      },
+      {
+        "id": "fact:eb4e9583-b777-4ffd-b571-937655a05250",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDMemCallback",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Completes and advances asynchronous type-0x21 DVD reads that transfer file data directly into the request's destination memory. It continues reads larger than 0x80000 bytes in 0x80000-byte chunks, then notifies the client on successful final completion, removes and recycles the request descriptor, releases the DVD worker, and dispatches the next queued DVD operation.",
+        "rationale": "HSD_DevComDVDWakeUp selects this callback specifically for type-0x21 requests and starts a direct DVDReadAsyncPrio into dvdDC->dest with a maximum length of 0x80000. The callback advances src, dest, and size by that chunk while data remains; on the final chunk it performs client completion, unlinks and recycles the descriptor, clears the DVD-active flag, and wakes the dispatcher.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:14:59.879Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L237-L265",
+            "why": "Directly shows chunk continuation, successful client notification, request unlinking and recycling, DVD-active-state release, and wake-up of the next operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L442",
+            "why": "Shows that type-0x21 requests read directly from the opened DVD file into the request destination in chunks capped at 0x80000 and register HSD_DevComDVDMemCallback as their completion callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:77be1bac-877e-4f46-94ae-e550e9506cea",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDMemCallback",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On result -1, latches the shared DVD error state. If more than one 0x80000-byte chunk remains in the request, it advances the request, clears the DVD-active flag, and wakes the DVD dispatcher to issue the next chunk. Otherwise it suppresses the client callback when the error latch is set, finalizes and recycles the request, clears the active flag, and wakes the dispatcher. Thus continuation retains the queued request, whereas final completion removes it.",
+        "rationale": "The callback first records failure, then branches solely on remaining size. Its continuation arm updates the request and returns after redispatch; its terminal arm conditionally notifies the client, unlinks and recycles the request, and resumes queue processing. The wake-up routine separately guards against dispatch while the DVD-active flag is set.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:14:59.879Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L237-L265",
+            "why": "Shows the failure latch, continuation-versus-final branch, callback suppression on error, descriptor lifecycle, active-state clearing, and redispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L442",
+            "why": "Shows that the DVD wake-up routine refuses to dispatch while active and starts each direct-memory chunk with this callback before setting the active flag."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComDVDStdCallback"
+    },
+    "facts": [
+      {
+        "id": "fact:a6ec262b-a04b-44cc-86f2-49bc30f876b0",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDStdCallback",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a completed ARQRequest, derives relay index 0 or 1 by comparing it with the primary request in each relay slot, clears that slot's ownership flag, and calls the DVD and ARAM dispatchers. In the type-0x23 path, the request originated from copying DVD-filled relay data to the queued destination.",
+        "rationale": "The current callback explicitly transforms the input pointer into an ownership-flag update and two wake-up calls. The current DVD callback supplies the origin and transfer meaning of that ARQ request.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L201-L214",
+            "why": "Shows pointer-to-index mapping, relay ownership clearing, and both dispatcher calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L267-L320",
+            "why": "Shows type-0x23 posting ARQ work from a DVD-filled relay buffer to the request destination."
+          }
+        ]
+      },
+      {
+        "id": "fact:0688c831-cc9d-4582-8f7f-8edd0b665de1",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDStdCallback",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements relay-release synchronization in chunked DVD-to-ARAM transfers: after a DVD-staged main-memory block has been copied into ARAM by ARQ, it makes that staging buffer reusable and resumes pending work.",
+        "rationale": "The current type-0x23 path posts relay-to-destination ARQ copies using this callback for intermediate chunks, and the callback releases the shared staging slot and wakes both sides of the pipeline.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows the relay-buffered DVD-to-ARAM pipeline and callback selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L201-L214",
+            "why": "Shows completion releasing the staging slot and resuming both dispatchers."
+          }
+        ]
+      },
+      {
+        "id": "fact:0e825413-1f90-4282-ad74-d6cc37c20258",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDStdCallback",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A static, void-returning ARQ completion callback with signature void HSD_DevComDVDStdCallback(ARQRequest* request). The argument must point to the first ARQRequest in relay slot 0 or 1.",
+        "rationale": "The matched definition establishes the callback signature. Its pointer comparisons accept only &devComARQR[0][0] and &devComARQR[1][0], while any other pointer reaches an assertion.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:14:50.358Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L201-L214",
+            "why": "Directly shows the static void(ARQRequest*) definition and the two valid request-pointer identities."
+          }
+        ]
+      },
+      {
+        "id": "fact:5dfce295-74bb-41a6-9751-21875da30ab4",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDStdCallback",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles completion of an ARQ stage that used a DevCom DVD relay buffer: it releases the corresponding buffer and resumes both DVD and ARAM dispatch so queued or cross-device work can continue.",
+        "rationale": "The current callback maps the completed ARQRequest to a relay slot, clears that slot's ownership flag, and wakes both dispatchers. The surrounding DVD-to-ARAM path continues to use it for intermediate chunks and as the release step for the final callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L201-L214",
+            "why": "Shows relay-slot identification, ownership release, and wake-up of both dispatchers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L359",
+            "why": "Shows its use in intermediate and final DVD-to-ARAM transfer completion."
+          }
+        ]
+      },
+      {
+        "id": "fact:8f0c681b-9fe3-45ae-a296-546bc4e6b0c6",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDStdCallback",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Completes the occupied-to-free transition for exactly one of the two shared relay slots. It accepts only each slot's primary ARQRequest object and asserts on other pointers; after freeing the slot, it wakes DVD dispatch first and ARAM dispatch second.",
+        "rationale": "The current pointer branches define the two valid identities, the assertion guards that invariant, clearing the ownership flag performs the state transition, and the two calls establish wake-up order.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L201-L214",
+            "why": "Shows both valid ARQRequest identities, the assertion, relay release, and ordered dispatcher wake-ups."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows that ARAM work also competes for the shared relay slots."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComDVDWakeUp"
+    },
+    "facts": [
+      {
+        "id": "fact:41ce05aa-b35b-4718-b71b-241b7d80d9ab",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDWakeUp",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the head descriptor from DVD lanes 0 through 2 into `dvdDC`, opens its file, and passes its offset, destination, remaining size, and type-derived path to DVDReadAsyncPrio. Type 0x21 reads up to 0x80000 bytes directly into the destination; other DVD types read up to one relay-buffer-sized block into an acquired staging buffer. Completion advances ranges, exposes type-0x22 data, or posts type-0x23 data onward through ARQ.",
+        "rationale": "The current dispatcher directly traces queue-head fields into DVDFastOpen and DVDReadAsyncPrio. Current completion code shows how those outputs feed chunk continuation, client notification, and DVD-to-ARAM staging.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L383",
+            "why": "Shows queue selection and the file, offset, destination, size, callback, and priority arguments for each DVD read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows direct-read progression, type-0x22 delivery, and type-0x23 forwarding through ARQ."
+          }
+        ]
+      },
+      {
+        "id": "fact:25fd50a6-101c-4180-89f0-2167ccb03f38",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDWakeUp",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes asynchronous loading from the game disc: type 0x21 streams data directly into main memory in chunks of at most 0x80000 bytes, type 0x22 reads a relay-sized block for delivery to a client callback, and type 0x23 stages disc data through a relay buffer before transfer to ARAM.",
+        "rationale": "The current dispatcher reads from an opened DVD file into either caller memory or a shared relay buffer, and the current callbacks distinguish direct completion, client-visible relay data, and relay-to-ARAM transfer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L383",
+            "why": "Shows asynchronous DVD reads and direct versus relay-buffered destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows direct chunk continuation, callback-visible relay data, and DVD-to-ARAM staging."
+          }
+        ]
+      },
+      {
+        "id": "fact:b8500b48-466b-4dc9-b1e3-c5f9a928f5b9",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDWakeUp",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless, void-returning asynchronous queue dispatcher with signature void HSD_DevComDVDWakeUp(void); it returns no transfer result, instead publishing progress through shared DevCom state and DVD completion callbacks.",
+        "rationale": "The matched definition explicitly has a void(void) signature. Every successful branch initiates DVDReadAsyncPrio and returns immediately, with completion and continuation handled by callback functions rather than by a synchronous return value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:15:00.583Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L322-L366",
+            "why": "Provides the exact function signature and shows that its observable result is asynchronous DVD work plus shared-state mutation."
+          }
+        ]
+      },
+      {
+        "id": "fact:e6b79211-933a-4d2d-bdf1-424b230b52f4",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDWakeUp",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Dispatches the highest-priority pending DVD-side DevCom request while the DVD engine is idle, starting either a direct chunked read into main memory or a relay-buffered read whose callback exposes the data or forwards it to ARAM.",
+        "rationale": "The current dispatcher still scans lanes 0 through 2 in order, opens the selected file, and submits either a direct or relay-buffered asynchronous read. Current completion paths retain the corresponding client-delivery and ARAM-forwarding behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L383",
+            "why": "Shows the idle guard, ordered queue scan, file opening, direct-versus-relay choice, and asynchronous read submission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows completion of direct reads and relay-buffered delivery or forwarding."
+          }
+        ]
+      },
+      {
+        "id": "fact:ebdf8e6c-5ee4-4e9e-9811-d3ba0b9524b4",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComDVDWakeUp",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Runs with interrupts disabled and exits while a DVD operation is active. It scans lanes 0, 1, and 2 in order, removes cancelled heads with cancellation notification, starts direct type-0x21 work immediately, and starts other DVD work only after acquiring a relay slot. Submission sets the DVD-active latch; completion clears it before continuation or dispatch of later work.",
+        "rationale": "The current body contains the interrupt exclusion, active guard, ordered lane selection, cancelled-head path, relay availability guard, and active-state entry. Current callbacks show the corresponding state exit and continuation behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L383",
+            "why": "Shows the activity guard, priority scan, cancellation handling, relay acquisition, read submission, and active-state transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows completion clearing DVD activity, continuing chunks, and releasing or transferring relay ownership."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComIsBusy"
+    },
+    "facts": [
+      {
+        "id": "fact:11cccdc9-e78e-449e-9ce8-dc4a26a44183",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComIsBusy",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a lane index, reads `devComStatus[idx]`, converts that request-head pointer to bool, and returns it without mutating the queue. The game-mode reset path repeatedly queries lane 1 and advances only after the result becomes false.",
+        "rationale": "The complete function remains a single indexed read and conversion, and the relocated caller span confirms that the returned value is consumed as a reset polling condition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L7-L10",
+            "why": "Shows the complete lane-index-to-boolean return path with no writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A3F.c#L168-L228",
+            "why": "Shows lane 1 being repeatedly polled during reset until the query returns false."
+          }
+        ]
+      },
+      {
+        "id": "fact:5bb7e4fe-ef1e-47fd-b8b1-dfda1dd5d31d",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComIsBusy",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "The game-mode reset sequence uses this query to wait for DevCom lane 1 to drain before clearing and rebuilding game-mode state and returning to boot mode.",
+        "rationale": "The current reset branch performs device cleanup, waits on HSD_DevComIsBusy(1), then resets the game-mode state machine and schedules GM_BOOT.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:33:43.265Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A3F.c#L168-L228",
+            "why": "Places lane-1 polling immediately before game-mode reinitialization and transition to GM_BOOT."
+          }
+        ]
+      },
+      {
+        "id": "fact:95e76cb6-a021-4f42-91a2-6db78fd5989f",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComIsBusy",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: bool HSD_DevComIsBusy(int idx). The parameter is an unchecked DevCom request-lane index; the surrounding queue logic derives lane indices with dcReq & 3, indicating a four-lane domain of 0 through 3. The return value is true when that lane's HSD_DevCom list head is non-null.",
+        "rationale": "The current definition directly supplies the bool(int) signature and unchecked indexed read, while adjacent queue code derives indices with a two-bit mask and treats each entry as an HSD_DevCom list head.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows the exact bool(int) definition, direct devComStatus indexing, and surrounding four-lane queue selection through `dcReq & 3`."
+          }
+        ]
+      },
+      {
+        "id": "fact:9c98fcf1-a180-43b4-9e8d-5e469f6f9d14",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComIsBusy",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Reports whether a selected DevCom request lane is nonempty, allowing callers to wait until queued device-communication work in that lane has drained.",
+        "rationale": "The function still converts the selected queue-head pointer directly to bool, and the game-mode reset caller still polls lane 1 until the result becomes false before proceeding.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows the query returning the selected request-list head as a boolean and the surrounding code treating those entries as queue heads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A3F.c#L168-L228",
+            "why": "Shows reset handling waiting on HSD_DevComIsBusy(1) before rebuilding game-mode state and scheduling boot mode."
+          }
+        ]
+      },
+      {
+        "id": "fact:cf881c75-ad02-4f13-a4be-1f95696ee14a",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComIsBusy",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "This is an observational queue-state query: it performs no transition itself and returns true exactly while the selected lane has a non-null request-list head. Consequently, it can remain true for active or merely queued work and becomes false only after other DevCom paths remove the lane's final request.",
+        "rationale": "The current query only reads a queue head, while the adjacent unlink routine performs the transitions that advance or clear that head, confirming that the result reflects queue occupancy rather than an independently maintained hardware-active flag.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows the read-only boolean query alongside the unlink routine that advances or clears each request-list head."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComRequest"
+    },
+    "facts": [
+      {
+        "id": "fact:9f1be17d-76c9-47e1-accb-e5a4f9e43549",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComRequest",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Takes a transfer description from the caller, copies it into a pooled HSD_DevCom node, clears its cancellation flag, and appends it to the tail of the selected lane. It returns HSD_DevCom_804D6050 + lane as the request handle and advances the global handle base by four, so the handle's low two bits retain the lane used later by unlink and cancellation lookup.",
+        "rationale": "The current implementation still copies every transfer input into the descriptor, constructs dcReq by adding the selected lane to a counter advanced in multiples of four, and inserts the descriptor through the lane-specific tail. Current unlink and cancellation code continue to recover the lane with dcReq & 3, so the standing claim remains valid and the drifted unit-wide citation can be replaced with head-revision spans.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:29:21.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L442",
+            "why": "Shows descriptor field assignment, handle construction, four-step counter advancement, and lane-specific FIFO insertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L12-L40",
+            "why": "Shows unlink selecting the descriptor's queue lane from the low two bits of dcReq."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L443-L483",
+            "why": "Shows cancellation using dcReq & 3 to select the queue searched for the returned request handle."
+          }
+        ]
+      },
+      {
+        "id": "fact:8bf88f00-3092-49fa-9751-5ece09c3f0b1",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComRequest",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: int HSD_DevComRequest(int file, uintptr_t src, uintptr_t dest, size_t size, int type, int pri, HSD_DevComCallback cb, void* args). Source, destination, and size must be nonzero-transfer values aligned to 32 bytes; the callback and opaque argument are retained in the request descriptor for asynchronous completion.",
+        "rationale": "The matched definition provides the exact parameter and return types. Its assertions require 32-byte alignment for both addresses and the byte count, reject a zero size, and constrain transfers targeting the shared buffer. The callback and argument are stored unchanged for later completion processing. Archived discussion independently identifies this function's actual prototype as authoritative for correcting caller types.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:10:50.938Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L442",
+            "why": "Provides the exact signature, alignment and size assertions, and storage of the callback and opaque argument."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1202369989022187572",
+            "why": "States that HSD_DevComRequest's actual prototype was used to correct incorrect types in callers such as lbfile."
+          }
+        ]
+      },
+      {
+        "id": "fact:399dcd1b-b68e-4dee-aa48-fbad1fe299a7",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComRequest",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Creates and submits an asynchronous HSD device-transfer request, returning a handle that identifies the request and its scheduling lane while starting the DVD and ARAM workers when the selected lane was previously idle.",
+        "rationale": "The matched body acquires or allocates an HSD_DevCom descriptor, validates transfer constraints, records the transfer and callback inputs, assigns a request identifier, appends the descriptor to a lane, and invokes both wake-up routines when it installs the first request in that lane. The exact match recorded for this function supports treating this body as the recovered implementation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:10:50.938Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L442",
+            "why": "Directly shows descriptor acquisition, validation, initialization, queue submission, worker wake-up, and returned request handle."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1600--fn--main-sysdolphin-baselib-devcom-hsd-devcomrequest--118b0c615c14",
+            "why": "Records that this 640-byte implementation became an exact match in PR #1600."
+          }
+        ]
+      },
+      {
+        "id": "fact:8c91f65e-7011-47ef-bcca-a858e43bb748",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComRequest",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Allocates descriptors from an interrupt-protected free list, expanding that pool in INIT_N_DEVCOMS-sized blocks when empty. Transfer classes whose type bits 3\u20135 equal 0x20 retain the caller's priority lane; all other classes are forced onto lane 3. Queue insertion is interrupt-protected, preserves FIFO order, and changes an empty lane to active by setting its head and waking both device workers.",
+        "rationale": "The body disables interrupts around free-list removal and queue mutation, allocates and links a new descriptor block on exhaustion, applies the explicit type-mask priority rule, updates the lane tail, and only installs the head and calls the wake-up functions when devComStatus[pri] is null.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:10:50.938Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L384-L442",
+            "why": "Directly shows free-list expansion, the type-dependent lane rule, interrupt-protected FIFO insertion, and the empty-to-active transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComStdCallback"
+    },
+    "facts": [
+      {
+        "id": "fact:18e0cbdc-c437-448a-921d-82be5144cad7",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComStdCallback",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the completed ARQRequest from the ARQ subsystem, derives relay index 0 or 1 by comparing it with devComARQR[i][0], clears the global aramstate latch and devComRelayBufFlag[i], and invokes HSD_DevComDVDWakeUp followed by HSD_DevComARAMWakeUp. It does not notify the client, unlink the DevCom descriptor, or recycle it; those final-completion operations are left to HSD_DevComARAMCallback.",
+        "rationale": "The current standard callback contains only request-to-slot identification, ARAM and relay-state release, and dispatcher wake-ups, while the adjacent final callback performs client notification, unlinking, and recycling before delegating to it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:45:30.173Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows HSD_DevComStdCallback's request-to-slot mapping and state outputs alongside HSD_DevComARAMCallback's separate notification, unlinking, and recycling responsibilities."
+          }
+        ]
+      },
+      {
+        "id": "fact:75342280-0d60-450b-a90f-4a1d0416db4d",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComStdCallback",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports asynchronous ARAM data movement by continuing transfers that exceed the shared relay-buffer size, including chunked ARAM zero-fill and relay-staged ARAM-to-main-memory copies, while also releasing the shared buffer for DVD-to-ARAM staging or other pending device work.",
+        "rationale": "The current dispatcher still assigns this callback to oversized type-3 zero-fill chunks and oversized type-0x1B relay-staged copies after recording chunk progress. Completion still frees the shared relay resource and wakes both device dispatchers, so the transfer-pipeline mapping remains valid.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:29:21.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows intermediate callback selection for oversized zero-fill and relay-staged ARAM transfer chunks, including progress updates before submission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L42-L57",
+            "why": "Shows completion releasing shared ARAM and relay-buffer state and waking both transfer dispatchers."
+          }
+        ]
+      },
+      {
+        "id": "fact:14477122-e6e8-4c2d-81f9-e453afd92e42",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComStdCallback",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An ARQ completion callback with signature void HSD_DevComStdCallback(ARQRequest* request). Its argument must be the first ARQRequest in one of the two devComARQR relay-request pairs.",
+        "rationale": "The current definition retains the void ARQRequest-pointer signature and accepts only the first request object in relay pair zero or one. The current ARAM dispatcher installs it on those same relay-array entries for intermediate chunks, preserving both the callback type and argument domain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:29:21.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L42-L57",
+            "why": "Shows the exact callback signature and the two accepted ARQRequest identities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows HSD_DevComStdCallback passed to ARQPostRequest for first entries of devComARQR relay-request pairs."
+          }
+        ]
+      },
+      {
+        "id": "fact:157ce513-8956-40d8-a415-f1cae0a8c74e",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComStdCallback",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles completion of an intermediate relay-buffer ARQ transfer by releasing the ARAM engine and relay slot, then restarting both the DVD and ARAM dispatchers so the next transfer stage or queued request can proceed.",
+        "rationale": "At head, the callback still identifies the completed relay slot, clears ARAM and relay ownership state, and wakes both dispatchers. The ARAM dispatcher still chooses this callback for non-final chunks while choosing HSD_DevComARAMCallback for final chunks, confirming its intermediate-completion role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:29:21.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L42-L57",
+            "why": "Shows the callback releasing ARAM activity and relay-slot ownership before waking the DVD and ARAM dispatchers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows the callback selected for non-final transfer chunks, with final chunks using HSD_DevComARAMCallback instead."
+          }
+        ]
+      },
+      {
+        "id": "fact:ae7e0dfd-b733-4e59-a921-53994cfa5798",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComStdCallback",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Transitions the ARAM side from active to idle by setting aramstate to 0, releases exactly the relay slot associated with the completed request, then wakes the DVD queue before the ARAM queue. An unrecognized ARQRequest violates the callback's invariant and triggers an assertion. For chunked request types, this transition permits the dispatcher to submit the next chunk while the original DevCom request remains queued.",
+        "rationale": "The current callback preserves the two-request identity invariant, active-to-idle transition, slot release, assertion, and fixed wake-up order. The current dispatcher advances source, destination, and remaining-size state before installing this callback on intermediate chunks, so its wake-up allows the still-queued request to continue.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:29:21.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L42-L57",
+            "why": "Shows valid request identities, the assertion for any other request, state releases, and DVD-before-ARAM wake-up order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows chunk progress recorded before HSD_DevComStdCallback is installed, leaving the request available for continuation after wake-up."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/devcom:HSD_DevComUnlink"
+    },
+    "facts": [
+      {
+        "id": "fact:ea4dd362-bc10-48c7-a97b-2b229b03b127",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComUnlink",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads dc->dcReq to select devComStatus[dc->dcReq & 3], follows next pointers to locate dc, and writes either the selected queue head or the predecessor's next pointer to dc->next. If dc is also the recorded tail in HSD_DevCom_804C6330 for that lane, it writes the new tail as NULL for a removed head or as the predecessor for an interior removal. It does not recycle the descriptor itself; callers perform any subsequent completed/free-list insertion.",
+        "rationale": "The current helper still derives the lane from dcReq, traverses and rewires the selected queue, and corrects the lane tail without touching the descriptor free list. Current ARAM and DVD completion callers still invoke unlink before separately inserting the descriptor into HSD_DevCom_804D77F0, confirming that recycling remains outside this helper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:29:21.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L12-L40",
+            "why": "Shows lane derivation, queue traversal, head or predecessor rewiring, and tail-pointer correction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L58-L104",
+            "why": "Shows an ARAM completion caller unlinking the descriptor and then separately inserting it into the reusable descriptor list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L319",
+            "why": "Shows DVD completion paths likewise performing descriptor recycling separately after HSD_DevComUnlink."
+          }
+        ]
+      },
+      {
+        "id": "fact:ebcfbc57-17fe-48a6-8c81-aa9f264e5e91",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComUnlink",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A file-local, void-returning helper with signature static void HSD_DevComUnlink(HSD_DevCom* dc); its argument is the queued DevCom descriptor to remove.",
+        "rationale": "The matched definition directly supplies the storage class, return type, and parameter type. Every field access and pointer comparison treats the argument as an HSD_DevCom queue node.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:14:30.439Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L12-L40",
+            "why": "Shows the exact static void signature and the HSD_DevCom pointer parameter used throughout the function."
+          }
+        ]
+      },
+      {
+        "id": "fact:e980cdab-7876-4c44-94ca-a88d5d2c0575",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComUnlink",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Removes a DevCom request descriptor from its request-class queue while preserving that queue's head and tail bookkeeping, providing the common queue-removal operation used by completion, cancellation, and cancelled-head processing.",
+        "rationale": "The current body still performs complete queue removal and head/tail maintenance. Current ARAM completion, DVD completion, cancelled-head dispatch, and explicit cancellation paths continue to call it, preserving its shared request-lifecycle role.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:29:21.124Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L12-L40",
+            "why": "Shows the complete interrupt-protected queue removal operation, including head and interior splicing and tail correction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L58-L104",
+            "why": "Shows HSD_DevComUnlink used by final ARAM completion handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows HSD_DevComUnlink used when dispatch encounters a cancelled ARAM queue head."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L319",
+            "why": "Shows HSD_DevComUnlink used by DVD completion and DVD-to-ARAM handoff paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L443-L483",
+            "why": "Shows explicit cancellation unlinking a queued request that is not currently the active lane head."
+          }
+        ]
+      },
+      {
+        "id": "fact:264782ee-4a45-4a25-92c0-f79501233960",
+        "target_id": "target:function:main/sysdolphin/baselib/devcom:HSD_DevComUnlink",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs the entire queue search and mutation with interrupts disabled, then restores the prior interrupt state on every successful exit. Removing the head advances the head and clears the tail if the queue becomes empty; removing a non-head node links its predecessor around it and moves the tail back to that predecessor when necessary. If the descriptor cannot be found in its selected lane, the function asserts instead of silently leaving queue state unchanged.",
+        "rationale": "The critical section begins before lane selection and encloses all head, next, and tail mutations. Both successful control-flow paths restore interrupts, while traversal exhaustion reaches HSD_ASSERT, demonstrating that membership in the selected queue is a required invariant.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:14:30.439Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L12-L40",
+            "why": "Shows interrupt exclusion, the distinct head and interior removal transitions, tail-state updates, restoration on successful exits, and the failed-membership assertion."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/devcom.c"
+    },
+    "facts": [
+      {
+        "id": "fact:155858dc-39bc-44fa-8c38-7870ef3c94b4",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/devcom.c",
+        "type": "data_flow",
+        "value": "Requests reside in indexed devComStatus linked lists. Wake-up routines select queue heads and acquire one of two shared relay buffers where required; ARAM work is submitted through ARQPostRequest while DVD callbacks may feed data into the same relay buffers. Completion callbacks notify the request's client, unlink the request, place it on the completed/free list headed by HSD_DevCom_804D77F0, release transfer state and relay ownership, and wake both DVD and ARAM dispatchers so pending work can continue.",
+        "rationale": "Current queue, callback, and wake-up code preserves the complete flow from indexed request lists through relay-buffer and device dispatch to notification, recycling, state release, and renewed scheduling.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T16:48:24.354Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows indexed queues, request unlinking, callback notification, free-list insertion, relay release, and cross-device wake-ups."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L319",
+            "why": "Shows DVD data moving through relay buffers into ARQ transfers and completion callbacks recycling requests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L439",
+            "why": "Shows pending requests entering DVD dispatch or the four indexed queues."
+          }
+        ]
+      },
+      {
+        "id": "fact:52d93316-3839-428a-ad2e-2a873367df08",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/devcom.c",
+        "type": "game_mapping",
+        "value": "Realizes the low-level asynchronous data-transfer paths used to move game data from DVD into main memory, between main memory and ARAM, and from DVD into ARAM through shared staging buffers. It is infrastructure for loading and streaming data rather than a player-facing gameplay rule.",
+        "rationale": "The current ARAM dispatcher continues to post transfers in both directions, including relay-mediated ARAM-to-ARAM movement, while the DVD dispatcher still reads directly to main memory or through relay buffers for DVD-to-ARAM handoff. The infrastructure mapping remains unchanged.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:31:37.129Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L105-L199",
+            "why": "Shows main-memory-to-ARAM, ARAM-to-main-memory, and relay-mediated ARAM transfer operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L240-L383",
+            "why": "Shows asynchronous DVD reads into caller memory or shared relay buffers and the relay-buffer handoff into ARAM."
+          }
+        ]
+      },
+      {
+        "id": "fact:336d7f21-5b31-4a6f-aa9f-8e0abec406a7",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/devcom.c",
+        "type": "purpose",
+        "value": "Implements HSD's queued device-communication subsystem for asynchronous ARAM and DVD operations, including request-list management, shared relay-buffer arbitration, transfer dispatch, cancellation, completion callbacks, and recycling completed request records.",
+        "rationale": "The current source retains request unlinking and recycling, ARAM callback and relay handling, DVD dispatch and chunk continuation, shared staging buffers, cancellation checks, and queued request insertion.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T16:48:24.354Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows request-list management, ARAM completion, relay release, descriptor recycling, and ARAM dispatch guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L200-L319",
+            "why": "Shows DVD completion callbacks, chunk continuation, DVD-to-ARAM staging, and request recycling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L439",
+            "why": "Shows DVD dispatch, cancellation handling, relay acquisition, request allocation, and FIFO insertion."
+          }
+        ]
+      },
+      {
+        "id": "fact:031ab574-4d13-4544-a60b-22d328e55e9a",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/devcom.c",
+        "type": "state_behavior",
+        "value": "Maintains four FIFO request lanes, a reusable descriptor free list, two relay-buffer ownership flags, and independent DVD and ARAM active states. Wake-up routines do nothing while their device is active; otherwise they select pending work, skip cancelled heads with cancellation notification, and start an asynchronous operation. Completion clears the relevant active or relay state, advances or removes the request, recycles completed descriptors, and wakes both workers so blocked cross-device transfers can continue.",
+        "rationale": "The current implementation retains four indexed lanes, independent busy guards, two relay slots, cancelled-head handling, descriptor reuse, and completion-driven wake-ups.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T16:48:24.354Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L1-L120",
+            "why": "Shows indexed queue selection, ARAM busy state, relay ownership, completion cleanup, and wake-up ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/devcom.c#L320-L439",
+            "why": "Shows the DVD busy guard, cancelled-head handling, relay acquisition, four-lane insertion, and dispatcher wake-ups."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComARAMCallback#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComCancelEx#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComCancelEx#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComCancelEx#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComCancelEx#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComDVDARAMEndCallback#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComDVDCallback#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComDVDCallback#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComDVDMemCallback#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComDVDMemCallback#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComDVDStdCallback#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComIsBusy#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComRequest#r10"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComRequest#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComRequest#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComRequest#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComRequest#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComRequest#r7"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComRequest#r8"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComRequest#r9"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComStdCallback#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/devcom:HSD_DevComUnlink#r3"
+    },
+    "facts": []
+  }
+]

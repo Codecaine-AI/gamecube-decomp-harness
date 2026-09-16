@@ -1,0 +1,426 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-20-stop-while-thinking",
+  "title": "Sleep and Wake",
+  "root": "b-stop-thinking-root",
+  "blocks": {
+    "b-stop-thinking-root": {
+      "id": "b-stop-thinking-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "sandbox-idling",
+          "model-turns",
+          "wake-latency",
+          "billing",
+          "execution-class",
+          "claim-lifecycle"
+        ]
+      },
+      "children": [
+        "b-stop-thinking-1",
+        "block-sandbox-sleep-wake",
+        "b-stop-thinking-3",
+        "b-stop-thinking-4",
+        "b-stop-thinking-13",
+        "b-stop-thinking-7",
+        "b-stop-thinking-sandbox-consequence-1",
+        "b-stop-thinking-sandbox-consequence-2",
+        "b-stop-thinking-sandbox-consequence-3",
+        "b-stop-thinking-sandbox-consequence-4",
+        "b-stop-thinking-18",
+        "b-stop-thinking-knowledge-heading",
+        "b-stop-thinking-6",
+        "b-stop-thinking-8",
+        "b-stop-thinking-12",
+        "b-stop-thinking-9",
+        "b-stop-thinking-17",
+        "b-stop-thinking-knowledge-details"
+      ]
+    },
+    "b-stop-thinking-1": {
+      "id": "b-stop-thinking-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker sandbox sleep is enabled by default. A host-side controller stops the sandbox after remote operations become idle and wakes the same workspace before the next operation. The agent continues its model turn on the host."
+        }
+      ],
+      "children": []
+    },
+    "block-sandbox-sleep-wake": {
+      "id": "block-sandbox-sleep-wake",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/sandbox-sleep-wake.sequence.json"
+      },
+      "children": []
+    },
+    "b-stop-thinking-3": {
+      "id": "b-stop-thinking-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Structure"
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-4": {
+      "id": "b-stop-thinking-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "wrapSandboxHandleWithSleep",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " wraps exec, upload, download, read, and write operations. It serializes stop/start transitions and counts active operations. A stopped sandbox retains its source files and incremental build state."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-13": {
+      "id": "b-stop-thinking-13",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Run Option",
+          "Behavior"
+        ],
+        "rows": [
+          [
+            "Default",
+            "Sleep enabled with a 250 ms idle debounce."
+          ],
+          [
+            [
+              {
+                "insert": "--no-sandbox-sleep",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Keep the sandbox running between operations. Close-time deletion still applies."
+          ],
+          [
+            [
+              {
+                "insert": "--sandbox-sleep-debounce-ms <milliseconds>",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Set the non-negative idle delay before stop."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-stop-thinking-7": {
+      "id": "b-stop-thinking-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The Rule"
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-sandbox-consequence-1": {
+      "id": "b-stop-thinking-sandbox-consequence-1",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "When the last remote operation finishes, arm the debounce. A new operation cancels a pending stop. Stop begins only with zero active operations."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-sandbox-consequence-2": {
+      "id": "b-stop-thinking-sandbox-consequence-2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "An operation arriving during stop waits for that transition. If stopped, the controller starts the sandbox before invoking the operation. Concurrent callers share the start transition."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-sandbox-consequence-3": {
+      "id": "b-stop-thinking-sandbox-consequence-3",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A failed stop increments "
+        },
+        {
+          "insert": "stopFailures",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and leaves the controller started. A failed start gets one retry after 25 ms. Two failures reject the operation and leave the controller stopped."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-sandbox-consequence-4": {
+      "id": "b-stop-thinking-sandbox-consequence-4",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Pass the exec timeout to the underlying handle after wake. Sleep/wake does not extend the job lease or claim deadline."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-18": {
+      "id": "b-stop-thinking-18",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Finish required evidence transfers before closing worker state. Controller "
+        },
+        {
+          "insert": "close()",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rejects new operations, cancels the debounce, and waits for a pending state transition. It does not itself delete the sandbox or drain active operations."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-knowledge-heading": {
+      "id": "b-stop-thinking-knowledge-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Close and Evidence"
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-6": {
+      "id": "b-stop-thinking-6",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The runner finalizes the controller and writes "
+        },
+        {
+          "insert": "sandbox_sleep_stats.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " to the host artifact directory. Counters include "
+        },
+        {
+          "insert": "stopCount",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "startCount",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "stoppedMs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "stopFailures",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "startFailures",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "lastTransitionAt",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The host observes closed worker state and deletes the sandbox through the lifecycle cleanup path."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-8": {
+      "id": "b-stop-thinking-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker summaries and librarian ingestion use retained host evidence. They do not need the sandbox and do not delay its deletion. "
+        },
+        {
+          "insert": "Worker Result Integration",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/30-worker-result-integration",
+              "label": "Evidence and Integration"
+            }
+          }
+        },
+        {
+          "insert": " owns these handoffs."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-12": {
+      "id": "b-stop-thinking-12",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Why"
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-9": {
+      "id": "b-stop-thinking-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Model turns occupy intervals when no workspace operation is running. Stopping during those intervals avoids active compute while retaining the claim workspace. Exact savings depend on the workload and provider billing."
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-17": {
+      "id": "b-stop-thinking-17",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Sources"
+        }
+      ],
+      "children": []
+    },
+    "b-stop-thinking-knowledge-details": {
+      "id": "b-stop-thinking-knowledge-details",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/core/job-queue/sandbox-sleep.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/job-queue/sandbox-sleep.ts",
+              "label": "apps/server/src/core/job-queue/sandbox-sleep.ts"
+            }
+          }
+        },
+        {
+          "insert": " implements the controller. "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/running/scheduler/run-loop.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/running/scheduler/run-loop.ts",
+              "label": "apps/server/src/core/harness-runtime/phases/running/scheduler/run-loop.ts"
+            }
+          }
+        },
+        {
+          "insert": " parses the options. "
+        },
+        {
+          "insert": "worker-cycle.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " finalizes statistics, and "
+        },
+        {
+          "insert": "worker-job.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " observes close."
+        }
+      ],
+      "children": []
+    }
+  }
+}

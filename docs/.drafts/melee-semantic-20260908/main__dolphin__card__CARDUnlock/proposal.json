@@ -1,0 +1,33 @@
+{
+  "tu": "main/dolphin/card/CARDUnlock",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDUnlock.c#L217-L298",
+            "why": "Initial read guards, scramble updates, DSP submission, flash-ID stores and READY return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDUnlock.c#L363-L400",
+            "why": "Response transactions, explicit release branches, presence override and READY-with-clear-bit IOERROR condition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the previous rationale's reversed status-bit polarity and the overgeneralization that all terminal failures release EXI locally. Preserves the asynchronous phase boundary and exact exceptional branches.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/card/CARDUnlock.c"
+        },
+        "type": "state_behavior",
+        "value": "Unlocking proceeds in two phases. `__CARDUnlock` performs the initial synchronous reads, derives persistent scramble state, queues the DSP task, writes the flash ID, and returns `CARD_RESULT_READY` without waiting for final verification; either initial read failure returns `CARD_RESULT_NOCARD`. `DoneCallback` sends two response-derived transactions and advances scramble between them. Either transaction failure or a failed presence probe releases EXI and reports `CARD_RESULT_NOCARD`. After the status read and successful presence probe, a `CARD_RESULT_READY` result with status bit 0x40 clear releases EXI and becomes `CARD_RESULT_IOERROR`. All other status-read results are forwarded unchanged to `__CARDMountCallback` without a local EXI unlock."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

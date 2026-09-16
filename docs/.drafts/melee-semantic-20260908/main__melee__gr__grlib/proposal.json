@@ -1,0 +1,277 @@
+{
+  "tu": "main/melee/gr/grlib",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:.bss"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source declares static VecMtx grLib_8049EF58, followed by static Vec3 grLib_unusedvec1 and grLib_unusedvec2. The cache is used as four indexed Vec3 entries. These uninitialized static objects have source-level zero initialization; their compiled section membership, adjacency, extent and retention are not established by these declarations.",
+        "rationale": "Preserves demonstrated types while removing the unsupported inference from declaration order to compiled layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L28-L30",
+            "why": "Exact source declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L160-L189",
+            "why": "Four vector entries and complete-vector access."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:.bss"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "The source-level persistent vector storage comprises a four-entry, caller-mutable cache of stage or cinematic reference positions and two additional Vec3 declarations with no uses in this translation unit. The cache is refreshed through Ground position lookups and exposed directly to callers; survival and placement of the unused declarations in the compiled object remain unverified.",
+        "rationale": "Retains the useful storage role without claiming that unused objects are retained in a particular compiled layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L28-L30",
+            "why": "Persistent vector declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L160-L189",
+            "why": "Cache refresh, mutable return and indexed copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi1101.c#L84-L116",
+            "why": "Cinematic writes through the returned pointer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9834"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Forwards the pointer to hsd_8039D4DC without adding flags. The manager searches the active list and updates its global traversal cursor even if no matching generator is found; an absent pointer causes no generator retirement. For a match, an already-set type bit 0x80 first dispatches hsd_8039D0A0. Remaining children, or an attached type-0x100 generator with type bits 0x1800 and an AppSRT owned by that generator whose usedCount is not one, defer reclamation by setting random to zero and genLife to one. Otherwise cleanup unlinks the generator, releases its AppSRT and JObj reference, frees its allocation and decrements the generator count.",
+        "rationale": "Corrects the blanket absent-pointer no-change claim and preserves the pre-cleanup branch and precise dependency conditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L76-L79",
+            "why": "Unmodified delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L155",
+            "why": "Manager cursor writes, pre-cleanup dispatch, deferral and final reclamation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9854"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grLib_RemoveGeneratorsForJObjTree",
+        "rationale": "Describes ordinary subtree removal without implying guaranteed immediate destruction; contrasts with the explicit premarking recursive variant.",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L81-L84",
+            "why": "Delegates to ordinary JObj-tree removal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L198",
+            "why": "Removal can defer and traversal is instance-bounded."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9874"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grLib_MarkAndRemoveGenerator",
+        "rationale": "Resolves the collision with ordinary RemoveGenerator and exposes the additional premark without assigning an unproved immediate-free meaning to bit 0x80.",
+        "confidence": 0.91,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L76-L90",
+            "why": "The two wrappers differ by the explicit type-bit OR."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9874"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests retirement of a specific stage particle generator after ORing 0x80 into its type. The marked bit selects an additional hsd_8039D0A0 call when the generator manager finds the generator; subsequent child and shared-AppSRT dependency checks may still defer reclamation. This wrapper requires a valid mutable generator pointer and does not clear the caller's retained handle.",
+        "rationale": "Replaces the overbroad forced-removal interpretation with demonstrated behavior and its lifetime limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L86-L90",
+            "why": "Unconditional premark and removal request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L155",
+            "why": "Bit-dependent dispatch followed by dependency guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9908"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grLib_MarkAndRemoveGeneratorsForJObjTree",
+        "rationale": "Distinguishes explicit premarking from ordinary tree removal and avoids the unqualified Destroy/All implication.",
+        "confidence": 0.91,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L125-L149",
+            "why": "Premarked exact-attachment removal over an instance-bounded subtree."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C99C0"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grLib_SpawnParticleEffectByMode",
+        "rationale": "Resolves the collision with the three-argument wrapper and exposes the final argument's zero/nonzero dispatch role.",
+        "confidence": 0.93,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L151-L158",
+            "why": "Mode selects one of two creation calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9A10"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source signature: VecMtxPtr grLib_801C9A10(void). Returns mutable access to static storage used as four Vec3 entries corresponding to Ground position identifiers 0\u20133, after attempting each lookup. This is a source-level type statement, not a compiled ABI or layout determination.",
+        "rationale": "Preserves the exact declaration and semantic pointer role while removing the unsupported compiled qualifier.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.h#L23-L23",
+            "why": "Exported source declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L160-L167",
+            "why": "Four lookup attempts and direct static-storage return."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9A70"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source signature: void grLib_801C9A70(enum_t position_id, Vec3* out_position). Selectors 0\u20133 copy the corresponding cached Vec3 into required writable output storage; other selectors reach HSD_ASSERT. This function does not refresh the cache. No compiled ABI claim is implied.",
+        "rationale": "Retains the source signature and valid domain without treating source declarations as compiled evidence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L169-L189",
+            "why": "Signature, exhaustive selector mapping and vector copy."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9CEC"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source signature: HSD_GObj* grLib_801C9CEC(CmQuakeKind kind). Accepted values are QuakeKind_Loop, QuakeKind_Small, QuakeKind_Medium and QuakeKind_Large (1\u20134), selecting animation indices 0\u20133. Other kinds or a missing stage quake ModelSet return NULL. The success path returns the created stage GObj; GObj and JObj allocation results are not checked locally.",
+        "rationale": "Corrects the obsolete s32 parameter description and preserves both explicit failure guards and the absence of allocation-result guards.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L229-L270",
+            "why": "Canonical signature and constructor branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L57-L64",
+            "why": "Enum names and numeric values."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9EE8"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Read-only entity-occupancy predicate defined as bool grLib_801C9EE8(Vec3* point, float offset), while grlib.h declares an int return. Both spellings are preserved as source evidence rather than normalized into an ABI claim. Only point.x and point.y are tested. The signed offset is added to each ECB rectangle half-extent, expanding for positive values and shrinking for negative values. True means at least one fighter or non-It_PKind_Random item passes the test.",
+        "rationale": "Records the header/definition difference and makes the actual parameter semantics explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.h#L32-L32",
+            "why": "Header int declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L308-L369",
+            "why": "Bool definition, signed margin and XY-only test."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grlib:grLib_801C9EE8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Determines whether a point lies within the inclusive XY bounding rectangle derived from any fighter's or eligible item's ECB extrema plus current position, with a caller-supplied signed margin added to both half-extents. It ignores Z, checks fighters before items, excludes exactly It_PKind_Random items, and returns on the first match. It does not test an ECB polygon, resolve collision, or mutate entity state.",
+        "rationale": "Replaces vague collision-region and ordinary-item wording with the geometry and exact filter demonstrated by the owned inline and caller.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L308-L369",
+            "why": "Center/half-extent arithmetic, strict rejection comparisons, ordered scans and item-kind exclusion."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

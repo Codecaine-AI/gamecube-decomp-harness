@@ -1,0 +1,65 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_DownAttack",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownAttack:ftCo_8009856C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally forwards the supplied FtMotionId and Fighter_GObj to Fighter_ChangeMotionState with Ft_MF_None, animation start 0.0f, speed 1.0f, blend argument 0.0f, and NULL alternate animation source, then calls ftAnim_8006EBA4. It validates neither input eligibility nor the motion ID. The zero blend argument selects animation-data default blending in the receiver; it does not guarantee zero effective blend duration.",
+        "rationale": "Corrects the baseline's zero-blend interpretation using the actual receiving branch while preserving exact entry behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L45-L49",
+            "why": "Complete unconditional entry helper and literal arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1288-L1295",
+            "why": "Zero anim_blend selects the animation-data byte; -1 selects zero."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownAttack:ftCo_80098634"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "On each invocation, traverses HSD_GObj_Entities->fighters in next-link order, overwrites the visited prefix of ecb_offset_arr and ft_pos_arr, and sets count to the number visited. An empty list sets count=0 without clearing arrays; stale tail entries and all other track fields remain untouched. The source declares eleven elements per array, but this routine has no capacity check. The item-side head-item caller refreshes Item_804A0CCC and then clears x154.b0; the overlap consumer skips that snapshot while x154.b0 equals 1.",
+        "rationale": "Refines full-overwrite wording and documents actual boundary, capacity, and refresh protocol without claiming compiled layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L70-L85",
+            "why": "Only visited indexed fields and count are written; loop lacks bounds guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/types.h#L789-L801",
+            "why": "Source-level array capacities, not compiled layout proof."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1342-L1348",
+            "why": "Head-item refresh and flag clear."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1159-L1185",
+            "why": "Consumer flag gate and count-bounded use."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

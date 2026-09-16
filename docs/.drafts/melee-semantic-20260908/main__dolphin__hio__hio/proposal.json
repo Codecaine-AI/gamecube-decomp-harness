@@ -1,0 +1,172 @@
+{
+  "tu": "main/dolphin/hio/hio",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L62-L104",
+            "why": "Enumeration and initialization compare exactly against -1 and assign the supplied signed channel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L158-L165",
+            "why": "Operational rejection also uses exact equality."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the generic negative-value characterization to the literal equality tests. This source-level description does not establish compiled .sdata membership.",
+        "subject": {
+          "target_stable_key": "main/dolphin/hio/hio:.sdata"
+        },
+        "type": "purpose",
+        "value": "The source-level Chan state stores the selected HIO EXI channel and uses exactly -1 as its disconnected/uninitialized sentinel. Enumeration requires Chan == -1, whereas operational APIs reject that value. These guards do not classify every negative value as disconnected or validate the channel range."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L7-L21",
+            "why": "Initial sentinel and external reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L62-L171",
+            "why": "Enumeration conditions, initialization ordering and rollback, and operational guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact numeric guards, DI-check precedence, and the distinction between initialization reset and operational rejection. No compiled section claim is made.",
+        "subject": {
+          "target_stable_key": "main/dolphin/hio/hio:.sdata"
+        },
+        "type": "state_behavior",
+        "value": "Chan starts at -1. HIOInit first checks DI configuration 0xFF and resets Chan to -1 and Dev to zero on that path; otherwise any stored Chan != -1 causes immediate success without changing the requested channel or callbacks. New setup assigns the caller's channel before EXI setup and restores -1 on failure. ExtHandler also restores -1. Transfer APIs reject Chan == -1 or DI configuration 0xFF without themselves resetting selection. Enumeration additionally requires a non-null callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L62-L83",
+            "why": "Complete guarded scan, literal probe condition, ID filter and return behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Avoids interpreting the probe loop's nonzero exit as necessarily successful discovery; ID retrieval is separately checked.",
+        "subject": {
+          "target_stable_key": "main/dolphin/hio/hio:HIOEnumDevices"
+        },
+        "type": "data_flow",
+        "value": "Reads Chan and the enumeration callback as entry guards, resets Dev to zero, and scans channels 0 through 2. For channels below 2, it repeats EXIProbeEx only while the result equals zero; any nonzero result ends that wait. It then passes the channel and current Dev to EXIGetID, filters successful ID reads for 0x01010000, and passes matching channel numbers to the callback. Its BOOL reports an admitted scan, not whether a device was found."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L62-L83",
+            "why": "All enumeration branches and return values."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported 'until ready' interpretation with the exact numeric wait and retains callback-controlled enumeration semantics.",
+        "subject": {
+          "target_stable_key": "main/dolphin/hio/hio:HIOEnumDevices"
+        },
+        "type": "state_behavior",
+        "value": "Returns false when Chan != -1 or callback is NULL. Otherwise it resets Dev to zero and scans channels 0, 1, and 2 in order. Channels 0 and 1 wait while EXIProbeEx returns zero, with no timeout in this function; channel 2 skips that wait. A successful EXIGetID returning 0x01010000 triggers callback(chan). A zero callback result stops the scan early. Both early termination and normal exhaustion return true, including when no matching device was found."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L208-L233",
+            "why": "Complete synchronous read and exact err contributors."
+          }
+        ],
+        "op": "write",
+        "rationale": "Precisely identifies the success accumulator instead of implying that every cleanup result contributes to the BOOL.",
+        "subject": {
+          "target_stable_key": "main/dolphin/hio/hio:HIORead"
+        },
+        "type": "state_behavior",
+        "value": "Rejects Chan == -1 or DI configuration 0xFF, then asserts four-byte address alignment, locks the configured EXI endpoint, and selects it at frequency code 4. Lock failure returns false; selection failure unlocks and returns false. After selection, it attempts command transmission, synchronization, receive DMA, a second synchronization, and deselection without short-circuiting on failures. It then calls EXIUnlock and returns true only if the five recorded operations succeeded; the unlock result is ignored."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L262-L285",
+            "why": "Assignment before locking, non-short-circuit launch and absent post-selection cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L53-L60",
+            "why": "Completion uses current global state and leaves the callback slot intact."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds missing exceptional resource and callback lifetimes visible in the initiating and completion bodies, without assuming lower-level cancellation behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/hio/hio:HIOReadAsync"
+        },
+        "type": "state_behavior",
+        "value": "Rejects Chan == -1 or DI configuration 0xFF, asserts address alignment, and writes RxCallback before attempting the lock. Lock failure returns false with that callback assignment retained; selection failure unlocks and returns false. After selection, EXIImm, EXISync and receive EXIDma with RxHandler are all attempted, even if an earlier operation failed. The returned BOOL is true only if all three reported success. There is no inline deselect/unlock after selection, even on false, so false neither proves that no DMA was launched nor that EXI ownership was released. RxHandler later attempts teardown using current global Chan and invokes current RxCallback if non-null, without clearing the slot."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L287-L310",
+            "why": "Assignment before locking, unconditional selected-path DMA attempt and immediate return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L44-L51",
+            "why": "Completion uses current global selection and callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents the write-side exceptional ownership and mutable callback lifetime, matching the actual non-short-circuit launch sequence.",
+        "subject": {
+          "target_stable_key": "main/dolphin/hio/hio:HIOWriteAsync"
+        },
+        "type": "state_behavior",
+        "value": "Rejects Chan == -1 or DI configuration 0xFF, asserts address alignment, and writes TxCallback before attempting the lock. Lock failure returns false with that callback assignment retained; selection failure unlocks and returns false. After selection, EXIImm, EXISync and write EXIDma with TxHandler are all attempted, even if an earlier operation failed. The returned BOOL is true only if all three reported success. There is no inline deselect/unlock after selection, even on false, so false neither proves that no DMA was launched nor that EXI ownership was released. TxHandler later attempts teardown using current global Chan and invokes current TxCallback if non-null, without clearing the slot."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L7-L21",
+            "why": "State declarations and external reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/hio/hio.c#L85-L171",
+            "why": "Initialization early returns, callback writes, rollback and operational rejection."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication that initialization failure rolls back callback state along with selection and preserves exact guard ordering.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/hio/hio.c"
+        },
+        "type": "state_behavior",
+        "value": "Chan == -1 is the module's explicit disconnected sentinel. HIOInit checks DI configuration 0xFF first and resets Chan and Dev on that path; otherwise Chan != -1 returns success without rebuilding state. New setup assigns Chan and ExiCallback and clears TxCallback/RxCallback before EXI setup. Subsequent setup or identity failure resets Chan and Dev but does not undo those callback assignments. ExtHandler likewise resets selection without clearing the three callback slots, and clears the EXI callback only when chan < 2. Operational APIs reject the sentinel or DI configuration 0xFF without resetting module state."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

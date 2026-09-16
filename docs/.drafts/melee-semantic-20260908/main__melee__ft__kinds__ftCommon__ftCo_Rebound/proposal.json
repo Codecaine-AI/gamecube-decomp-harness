@@ -1,0 +1,242 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Rebound",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Rebound:ftCo_80099D9C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Initializes grounded attack-clash recovery through ReboundStop. Fighter/fighter and item/fighter clash producers derive dmg.x191C as integerized damage*x3D0+x3D4 when the responding capsule has x40_b1, the fighter is grounded, and selected damage exceeds accumulated dmg.int_value. The engine further requires nonzero x191C and absent victim_gobj and target_item_gobj. The later rate is (clank_animation_length+0.1f)/x191C; exact raw-damage proportionality, recovery frames, and frozen-phase duration are not established.",
+        "rationale": "Replace overbroad duration/freeze claims with actual producer, caller, and rate behavior.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L317-L442",
+            "why": "Fighter clash eligibility and derived timing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1004-L1105",
+            "why": "Item clash also produces the fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2920-L2927",
+            "why": "Engine entry guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Rebound.c#L16-L43",
+            "why": "Rate formula and consumption."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Rebound:ftCo_80099D9C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requests ReboundStop unconditionally with Ft_MF_None, anim_start=0, anim_speed=1, anim_blend=0, and NULL alternate source, then calculates rebound.anim_speed and rebound.x0 and forwards x0 to ftCommon_800804A0. No local pointer, denominator, finite-value, or sign check exists. Stop's animation callback later requests Rebound at the stored rate when invoked. API start zero is not guaranteed immediate stored frame zero, and blend zero uses metadata defaults where applicable rather than guaranteeing no blending.",
+        "rationale": "Correct API argument versus effective state semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Rebound.c#L16-L43",
+            "why": "Exact transitions and unchecked calculations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1220-L1295",
+            "why": "Stored frame and blend resolution."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Rebound:ftCo_80099E44"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives unchanged gobj from ftCo_ReboundStop_Anim, reads its Fighter user_data and mv.co.rebound.anim_speed, and passes gobj to Fighter_ChangeMotionState for Rebound with Ft_MF_None, anim_start=0, the stored rate, anim_blend=0, and NULL alternate source. These are API arguments; zero blend can resolve to destination metadata and start zero does not imply immediate cur_anim_frame zero.",
+        "rationale": "Preserve pointer/rate flow while correcting argument interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Rebound.c#L33-L43",
+            "why": "Forwarding and transition arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1220-L1295",
+            "why": "Effective frame/blend semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Rebound:ftCo_80099E44"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "On every invocation requests ftCo_MS_Rebound with Ft_MF_None, anim_start=0, stored rebound.anim_speed, anim_blend=0, and NULL alternate source. There is no local guard, timer, alternate path, or rate validation. The API initializes cur_anim_frame to start minus rate and can resolve blend zero to metadata, so immediate stored frame zero and effective no blending are not guaranteed.",
+        "rationale": "Replace ambiguous effective-state assertions with exact call semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Rebound.c#L38-L43",
+            "why": "Complete helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1220-L1295",
+            "why": "Frame and blending rules."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Rebound:ftCo_ReboundStop_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When invoked, unconditionally calls ftCo_80099E44 with unchanged gobj. That helper requests Rebound with Ft_MF_None, anim_start=0, stored rebound.anim_speed, anim_blend=0, and NULL alternate source. This callback has no local freeze timer. Start zero is an API argument, not proof that cur_anim_frame is immediately zero; the engine gates animation callback invocation.",
+        "rationale": "Apply the frame-argument correction consistently and avoid interpreting unconditional invocation behavior as zero elapsed Stop duration.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Rebound.c#L33-L43",
+            "why": "Complete callback/helper path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1220-L1224",
+            "why": "Stored frame initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1660-L1696",
+            "why": "External invocation gate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Rebound:ftCo_Rebound_Phys"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides the common-physics gate for grounded attack-clash Rebound, not surface bounce. Nonzero rebound.x0 is cleared while suppressing ft_80084F3C on that invocation; an initially zero value delegates immediately. Thus the first update is not unconditionally skipped. The delegate applies ground friction and movement.",
+        "rationale": "Correct unconditional first-update and after-consumption wording.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Rebound.c#L16-L62",
+            "why": "Initialization and mutually exclusive physics branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L347-L442",
+            "why": "Clash provenance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Actual common helper behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_Rebound.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Entry uses damage-derived x191C, damage-facing sign, clank_animation_length and common x3D8/x3DC to calculate rebound.anim_speed and x0. Upstream x191C is integerized clash damage*x3D0+x3D4. ftCommon_800804A0 conditionally scales x0 for a friction multiplier below 1 and stores xE8_ground_accel_2; the original move-local x0 separately gates physics. Entry stores the rate before the engine resets transient damage fields; the later Rebound transition reads the stored rate, but is not proved to precede that reset. No pointer ownership transfer occurs.",
+        "rationale": "Distinguish derived timing, acceleration, and local gate; repair the librarian proposal's unsupported transition-before-reset chronology.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L347-L407",
+            "why": "Derived timing and facing inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Rebound.c#L16-L62",
+            "why": "Storage and distinct later consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1771-L1779",
+            "why": "Acceleration destination and scaling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2920-L3025",
+            "why": "Entry precedes transient reset, without invoking Stop's animation callback here."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_Rebound.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "ReboundStop's animation callback requests Rebound at the stored rate whenever invoked, without a local timer. The active table gives Stop ftCo_SM_None and only this callback, while Rebound has its submotion, Anim/IASA/Phys/Coll callbacks and shared camera callback. IASA is empty. Anim dispatches completion only when the parts-based remaining-animation query is false. Phys clears nonzero x0 instead of delegating but immediately delegates for zero. Coll always delegates and the helper can enter Fall on its literal GA_Ground result. Engine gating controls elapsed duration, destination transitions replace callbacks, and neither an unconditional physics skip nor a guaranteed Wait final destination is implied.",
+        "rationale": "Replace overly absolute TU behavior with exact branches, active dispatch, and lifetime constraints.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Rebound.c#L33-L67",
+            "why": "All callback bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2741-L2762",
+            "why": "Active table bindings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1370-L1391",
+            "why": "Destination callback replacement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1660-L1696",
+            "why": "External animation dispatch gate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L515-L538",
+            "why": "Parts-based query."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L54-L109",
+            "why": "Guarded completion alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1027-L1033",
+            "why": "Independent conditional Fall path."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

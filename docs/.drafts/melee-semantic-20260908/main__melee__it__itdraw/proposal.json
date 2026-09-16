@@ -1,0 +1,185 @@
+{
+  "tu": "main/melee/it/itdraw",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/itdraw:.sdata2"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "At source level, 0.0f is passed as the final scalar argument to both item hurtbox renderers, each with a NULL matrix. xD0C selects ordinary hurtbox-state rendering when zero and numeric state/color-override rendering when nonzero, not transformed versus untransformed geometry. Zero also initializes all coordinates of the local model-display offset before owner checks and in the helper's absent/non-fighter-owner fallback. Attribution of these literals to this compiled section remains unverified.",
+        "rationale": "Corrects the transform interpretation and separates observed source flow from unproven constant-pool placement.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L105-L127",
+            "why": "Both calls supply NULL matrices and zero scalars."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L2529-L2578",
+            "why": "Override argument selects the color table independently of the matrix."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L183-L233",
+            "why": "Both position-zeroing sites."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/itdraw:.sdata2"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The source-level hurtbox zero arguments are used for non-Unk4 items when b6 and b1 are set, x13 is clear, and configured hurtboxes are traversed. xD0C selects the ordinary or state-override renderer; both receive NULL matrices. The local position is zero-initialized whenever the model-enabled b7 branch is entered, before owner checks, not only when an owner is absent or non-fighter. The owner helper additionally zeroes it for that fallback case. These conditions do not establish compiled literal-pool placement.",
+        "rationale": "Corrects the overly restrictive zero-initialization condition and preserves numeric state selection.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L93-L127",
+            "why": "Hurtbox guards and arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L183-L233",
+            "why": "Helper fallback and initialization before owner tests."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/itdraw:it_8026EB18"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Item-model rendering helper declared as void(HSD_GObj* gobj, s32 render_pass, Vec3* render_offset). The GObj supplies the JObj hierarchy, render_pass is converted through HSD_GObj_80390EB8, and render_offset is nullable and only read by this function. Read-only use does not make its declared pointer type const-qualified.",
+        "rationale": "Distinguishes the exact canonical signature from a possible const-correct interface.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L14-L36",
+            "why": "Definition and parameter uses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.h#L10-L10",
+            "why": "Matching non-const declaration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/itdraw:it_8026ECE0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes item kind and display flags, scale, facing, position, four hitboxes, configured hurtboxes, the numeric xD0C hurtbox display-state override, auxiliary rectangle and matrix data, and the special it_266F collision record. The pass selector is forwarded to each selected renderer. Hurtbox calls supply NULL matrices and zero final scalars; xD0C is not a transform reference. Successful helper results accumulate into a 0-or-1 output controlling the caller's graphics-state cleanup. Hurtbox callees may populate endpoint caches and set skip_update_pos.",
+        "rationale": "Corrects xD0C's semantic domain and records downstream mutations while preserving the established input/result flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L76-L143",
+            "why": "Complete dispatch and accumulated return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L2529-L2578",
+            "why": "Numeric palette override and cache updates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L234-L238",
+            "why": "Return value controls cleanup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/itdraw:it_8026ECE0"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements diagnostic visualization of enabled item attack hitboxes, hurtboxes, special collision data and auxiliary extents, rather than collision detection or combat resolution. This rendering path is not entirely read-only: hurtbox renderers can refresh cached endpoint positions and mark them updated, without changing the hurtbox's collision-state classification.",
+        "rationale": "Retains the diagnostic mapping but removes the false implication that downstream drawing never mutates collision records.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L76-L143",
+            "why": "Diagnostic dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L2462-L2505",
+            "why": "Ordinary renderer writes endpoint caches and skip_update_pos."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L2529-L2578",
+            "why": "Override renderer has the same cache side effects."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/itdraw:it_8026ECE0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "It_Kind_Unk4 bypasses ordinary geometry and submits its special record only under b0 and either it_266F.x18 flag. Other items require b6 for the hitbox/hurtbox group, b2 for four hitbox submissions, and b1 plus clear x13 for hurtboxes. xD0C == 0 uses each hurtbox's own state palette; nonzero xD0C supplies a numeric palette/state override, except that an intangible hurtbox forces palette index 2. Both calls use NULL matrices. Rectangle and auxiliary-matrix rendering remain independently gated outside b6. Individual renderer pass checks can reject emission; any successful call leaves the accumulated return at 1.",
+        "rationale": "Replaces null/nonnull transform language with the verified numeric override behavior and preserves the exceptional intangible branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L76-L143",
+            "why": "All item-level guards and independent branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L2462-L2505",
+            "why": "Ordinary state palette and pass selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L2529-L2578",
+            "why": "Override palette with intangible exception."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/it/itdraw.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The common callback gates model work on xDAA_flag.b7 and applies owner permission checks only under xDC8_word.flags.x13. Camera value 1 with xDCF_flag.b3 set submits three configurations, writing (b4,b5) as (1,0), (0,0), then (1,1); camera value 0 with b3 clear submits only (0,0). Other combinations submit no model. These display flags retain their last written values; configured bone-group show/hide operations are reversed around the first and third submissions without saving arbitrary initial visibility. The owner-displacement flag b7 is refreshed only in the x13 owner-preparation path, while the local position is initialized to zero before owner tests. Collision visualization runs independently, followed by graphics-state cleanup only on a nonzero collision-render result.",
+        "rationale": "Corrects the claim of temporary display-flag changes and documents persistent flags, unmatched camera branches and conditional owner-offset refresh.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L148-L181",
+            "why": "Configuration writes and paired bone operations without flag restoration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdraw.c#L183-L239",
+            "why": "Conditional displacement refresh, numeric camera cases and independent collision cleanup."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

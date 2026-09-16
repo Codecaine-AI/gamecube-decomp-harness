@@ -1,0 +1,523 @@
+{
+  "tu": "main/melee/ft/ftmotionstates",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "facts": [
+    {
+      "subject": "main/melee/ft/ftmotionstates:.data",
+      "fact_id": "fact:006a4e2e-d99a-4a83-9585-dd32475f7611",
+      "version": null,
+      "updated_at": "2026-09-04T18:52:40.494Z",
+      "type": "data_flow",
+      "value": "The main array flows into each newly initialized Fighter through `x1C_actionStateList`. A requested motion ID below 341 indexes that array in `Fighter_ChangeMotionState`; the resulting record drives move bookkeeping and animation/script setup, after which its animation, input, physics, collision, and camera pointers become the fighter's active per-frame callbacks.",
+      "original_fact": {
+        "id": "fact:006a4e2e-d99a-4a83-9585-dd32475f7611",
+        "target_id": "target:data:main/melee/ft/ftmotionstates:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The main array flows into each newly initialized Fighter through `x1C_actionStateList`. A requested motion ID below 341 indexes that array in `Fighter_ChangeMotionState`; the resulting record drives move bookkeeping and animation/script setup, after which its animation, input, physics, collision, and camera pointers become the fighter's active per-frame callbacks.",
+        "rationale": "The current fighter initialization installs `ftData_MotionStateList` with a common-state boundary of 0x155 (341). The motion-change routine selects that table for IDs below the boundary, consumes the selected record's metadata during move and animation setup, and copies its five callbacks into the Fighter. The drifted evidence changed textually but still supports the standing claim.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:52:40.494Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/fighter.c#L693-L812",
+            "why": "Shows fighter initialization setting the common-state boundary to 0x155 and assigning `ftData_MotionStateList` to `x1C_actionStateList`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1152-L1189",
+            "why": "Shows motion IDs below the boundary indexing `x1C_actionStateList`, while higher IDs use the fighter-kind-specific table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1179-L1298",
+            "why": "Shows the selected descriptor's move flags, move ID, animation ID, and animation resources being consumed during state entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows the descriptor's animation, input, physics, collision, and camera callbacks being installed as the Fighter's active callbacks."
+          }
+        ]
+      },
+      "disposition": "unresolved",
+      "reason": "Source table contents and consumers verified, but exact compiled .data attribution/size/order not independently proven. Claim includes source-supported portions; preserve until section verification.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L133-L177",
+          "why": "Main records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3887-L4028",
+          "why": "Demo records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L853-L883",
+          "why": "Source type."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/ft/ftmotionstates:.data",
+      "fact_id": "fact:2567cd0d-e499-421e-ab11-bab6bda22ca1",
+      "version": null,
+      "updated_at": "2026-09-04T22:41:03.107Z",
+      "type": "game_mapping",
+      "value": "Maps common fighter motion IDs to the engine behavior behind Melee's shared actions and conditions, from death, respawn, standing, walking, and attacking through shielding, dodging, damage, grabs, ledge actions, item use, size transformations, and special capture interactions.",
+      "original_fact": {
+        "id": "fact:2567cd0d-e499-421e-ab11-bab6bda22ca1",
+        "target_id": "target:data:main/melee/ft/ftmotionstates:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps common fighter motion IDs to the engine behavior behind Melee's shared actions and conditions, from death, respawn, standing, walking, and attacking through shielding, dodging, damage, grabs, ledge actions, item use, size transformations, and special capture interactions.",
+        "rationale": "The current descriptor array still begins with indexed death states and spans the common action repertoire through its transformation, entry, damage, boss-capture, enemy-capture, and barrel states. The textual drift did not change that mapping.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:41:03.107Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftmotionstates.c#L120-L3960",
+            "why": "Shows the indexed common descriptor array spanning the shared fighter action repertoire."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftmotionstates.c#L120-L220",
+            "why": "Shows the common descriptor array beginning with indexed death-state mappings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L3594-L3714",
+            "why": "Shows mappings for size transformations, fighter entry, and ice-damage states."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L3714-L3834",
+            "why": "Shows mappings for Master Hand capture, Yoshi interactions, enemy captures, and reflected-down behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L3834-L3954",
+            "why": "Shows the final Crazy Hand and barrel mappings at the end of the common table."
+          }
+        ]
+      },
+      "disposition": "unresolved",
+      "reason": "Source table contents and consumers verified, but exact compiled .data attribution/size/order not independently proven. Claim includes source-supported portions; preserve until section verification.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L133-L177",
+          "why": "Main records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3887-L4028",
+          "why": "Demo records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L853-L883",
+          "why": "Source type."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/ft/ftmotionstates:.data",
+      "fact_id": "fact:3f2aec70-dd65-4993-a862-2b80a31e5dce",
+      "version": null,
+      "updated_at": "2026-09-04T22:41:03.107Z",
+      "type": "inferred_type",
+      "value": "A contiguous 11,360-byte data section laid out as `MotionState[341]` followed by `MotionState[14]`. Each 32-byte record consists of three metadata words\u2014animation ID, motion flags, and packed move/state flags\u2014followed by five `void(HSD_GObj*)` callback pointers for animation, input, physics, collision, and camera phases.",
+      "original_fact": {
+        "id": "fact:3f2aec70-dd65-4993-a862-2b80a31e5dce",
+        "target_id": "target:data:main/melee/ft/ftmotionstates:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A contiguous 11,360-byte data section laid out as `MotionState[341]` followed by `MotionState[14]`. Each 32-byte record consists of three metadata words\u2014animation ID, motion flags, and packed move/state flags\u2014followed by five `void(HSD_GObj*)` callback pointers for animation, input, physics, collision, and camera phases.",
+        "rationale": "The current header places the primary array at 0x803C2800 and the 14-entry auxiliary array at 0x803C52A0. The source ends the primary array at index 340, and MotionState still contains three four-byte metadata components plus five event pointers, yielding 32-byte records and 11,360 bytes across 355 records.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:41:03.107Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftdata.h#L1-L60",
+            "why": "Declares the primary MotionState array at 0x803C2800 and the following 14-entry array at 0x803C52A0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L3834-L3954",
+            "why": "Shows common state index 340 ending the primary array and the auxiliary array beginning immediately afterward."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/types.h#L756-L996",
+            "why": "Defines MotionState's animation ID, flags word, and packed move/state metadata word."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/types.h#L876-L996",
+            "why": "Defines the five HSD_GObjEvent callback pointers that complete each MotionState record."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L4004-L4028",
+            "why": "Shows the final auxiliary records and the end of the initialized data section."
+          }
+        ]
+      },
+      "disposition": "unresolved",
+      "reason": "Source table contents and consumers verified, but exact compiled .data attribution/size/order not independently proven. Claim includes source-supported portions; preserve until section verification.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L133-L177",
+          "why": "Main records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3887-L4028",
+          "why": "Demo records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L853-L883",
+          "why": "Source type."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/ft/ftmotionstates:.data",
+      "fact_id": "fact:6e9083de-04d6-41e5-91d5-0f5519db3b78",
+      "version": null,
+      "updated_at": "2026-09-04T22:41:03.107Z",
+      "type": "purpose",
+      "value": "Stores the complete initialized descriptor data owned by `ftmotionstates.c`: the 341-entry common fighter motion-state table used by normal fighter state changes, followed by a 14-entry auxiliary MotionState table.",
+      "original_fact": {
+        "id": "fact:6e9083de-04d6-41e5-91d5-0f5519db3b78",
+        "target_id": "target:data:main/melee/ft/ftmotionstates:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the complete initialized descriptor data owned by `ftmotionstates.c`: the 341-entry common fighter motion-state table used by normal fighter state changes, followed by a 14-entry auxiliary MotionState table.",
+        "rationale": "The current declarations and definitions still show a common table ending at indexed state 340 followed immediately by a 14-entry auxiliary table. Fighter initialization continues to install the primary array as the common action-state list with boundary 0x155.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:41:03.107Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftdata.h#L1-L60",
+            "why": "Declares the primary common MotionState array and the following 14-entry auxiliary array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L3834-L3954",
+            "why": "Shows state 340 ending the common table and the auxiliary MotionState table beginning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/fighter.c#L698-L817",
+            "why": "Shows fighter initialization assigning boundary 0x155 and installing `ftData_MotionStateList` as the common action-state table."
+          }
+        ]
+      },
+      "disposition": "unresolved",
+      "reason": "Source table contents and consumers verified, but exact compiled .data attribution/size/order not independently proven. Claim includes source-supported portions; preserve until section verification.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L133-L177",
+          "why": "Main records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3887-L4028",
+          "why": "Demo records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L853-L883",
+          "why": "Source type."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/ft/ftmotionstates:.data",
+      "fact_id": "fact:e12e5803-ab50-4f76-b838-595ea69d1266",
+      "version": null,
+      "updated_at": "2026-09-04T22:41:03.107Z",
+      "type": "state_behavior",
+      "value": "Each main-table index defines one common motion state's execution profile. Its metadata selects the animation and move behavior, while non-null phase callbacks control animation completion, interrupt/input handling, physics, collision, and camera updates; null callback slots intentionally omit that phase. Entering another motion ID selects a different record and replaces all five active standard callbacks.",
+      "original_fact": {
+        "id": "fact:e12e5803-ab50-4f76-b838-595ea69d1266",
+        "target_id": "target:data:main/melee/ft/ftmotionstates:.data",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each main-table index defines one common motion state's execution profile. Its metadata selects the animation and move behavior, while non-null phase callbacks control animation completion, interrupt/input handling, physics, collision, and camera updates; null callback slots intentionally omit that phase. Entering another motion ID selects a different record and replaces all five active standard callbacks.",
+        "rationale": "Current early table entries still demonstrate distinct metadata and deliberately null callback slots. The transition routine selects a descriptor by motion ID, consumes its metadata, and assigns all five callback fields to the Fighter, preserving the standing state behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:41:03.107Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftmotionstates.c#L120-L220",
+            "why": "Shows indexed death-state descriptors with differing animation, physics, collision, and camera callbacks and intentionally null phase slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1178-L1398",
+            "why": "Shows selection of a MotionState record and consumption of its move, flags, and animation metadata during state entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows each transition replacing the Fighter's animation, input, physics, collision, and camera callbacks with those from the selected descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/types.h#L876-L996",
+            "why": "Defines the five standard phase callback slots carried by every MotionState descriptor."
+          }
+        ]
+      },
+      "disposition": "unresolved",
+      "reason": "Source table contents and consumers verified, but exact compiled .data attribution/size/order not independently proven. Claim includes source-supported portions; preserve until section verification.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L133-L177",
+          "why": "Main records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3887-L4028",
+          "why": "Demo records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L853-L883",
+          "why": "Source type."
+        }
+      ]
+    },
+    {
+      "subject": "src/melee/ft/ftmotionstates.c",
+      "fact_id": "fact:97da64a6-7420-4778-be71-dfc6a78220a7",
+      "version": null,
+      "updated_at": "2026-09-04T01:57:49.249Z",
+      "type": "data_flow",
+      "value": "Fighter construction installs ftData_MotionStateList as the common-state table with boundary 341. Motion changes below that boundary select a common descriptor whose animation ID, move ID, flags, and five callbacks are copied into the fighter's active state processing; higher IDs select the fighter-kind table.",
+      "original_fact": {
+        "id": "fact:97da64a6-7420-4778-be71-dfc6a78220a7",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftmotionstates.c",
+        "type": "data_flow",
+        "value": "Fighter construction installs ftData_MotionStateList as the common-state table with boundary 341. Motion changes below that boundary select a common descriptor whose animation ID, move ID, flags, and five callbacks are copied into the fighter's active state processing; higher IDs select the fighter-kind table.",
+        "rationale": "Current initialization and motion-change code still consume the table in this way.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T01:57:49.249Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/fighter.c#L698-L817",
+            "why": "Shows fighter initialization assigning boundary 0x155 and ftData_MotionStateList."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1178-L1398",
+            "why": "Shows descriptor selection and consumption of move, flag, and animation metadata during a motion-state change."
+          }
+        ]
+      },
+      "disposition": "supersede",
+      "reason": "Include verified demo consumer and dynamic boundary.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L724-L735",
+          "why": "Normal construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L58-L72",
+          "why": "Demo overrides."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1177-L1222",
+          "why": "Selection and metadata."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1370-L1374",
+          "why": "Five callbacks installed."
+        }
+      ]
+    },
+    {
+      "subject": "src/melee/ft/ftmotionstates.c",
+      "fact_id": "fact:516ee991-6b38-4f39-83ea-67bc2154ce9d",
+      "version": null,
+      "updated_at": "2026-09-06T03:12:12.440Z",
+      "type": "game_mapping",
+      "value": "Represents the universal portion of Melee's fighter action repertoire, including death and respawn, locomotion, attacks, defense and evasion, damage and capture, item interactions, ledge actions, transformations, and shared boss or hazard captures; character-exclusive actions remain in fighter-kind tables.",
+      "original_fact": {
+        "id": "fact:516ee991-6b38-4f39-83ea-67bc2154ce9d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftmotionstates.c",
+        "type": "game_mapping",
+        "value": "Represents the universal portion of Melee's fighter action repertoire, including death and respawn, locomotion, attacks, defense and evasion, damage and capture, item interactions, ledge actions, transformations, and shared boss or hazard captures; character-exclusive actions remain in fighter-kind tables.",
+        "rationale": "The current table still begins with shared death states and extends through transformation, entry, damage, and specialized capture states.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:12:12.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L120-L3960",
+            "why": "Shows the indexed common MotionState table spanning the shared fighter action repertoire."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L3594-L4028",
+            "why": "Shows later transformation, entry, ice-damage, capture, and auxiliary states."
+          }
+        ]
+      },
+      "disposition": "supersede",
+      "reason": "Bound universal wording and account for demo profiles.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L133-L286",
+          "why": "Death/rebirth."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L618-L695",
+          "why": "Attack families."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3159-L3289",
+          "why": "Specialized captures."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3588-L3699",
+          "why": "Size/entry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3887-L4028",
+          "why": "Demo records."
+        }
+      ]
+    },
+    {
+      "subject": "src/melee/ft/ftmotionstates.c",
+      "fact_id": "fact:975cdc01-69b7-459e-b959-aafbcc120f80",
+      "version": null,
+      "updated_at": "2026-09-06T03:12:12.440Z",
+      "type": "inferred_type",
+      "value": "A data-only unit containing a 341-record common MotionState array and a 14-record auxiliary array. Each MotionState stores animation identity, motion flags, packed move metadata, and five callbacks for animation, input, physics, collision, and camera processing.",
+      "original_fact": {
+        "id": "fact:975cdc01-69b7-459e-b959-aafbcc120f80",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftmotionstates.c",
+        "type": "inferred_type",
+        "value": "A data-only unit containing a 341-record common MotionState array and a 14-record auxiliary array. Each MotionState stores animation identity, motion flags, packed move metadata, and five callbacks for animation, input, physics, collision, and camera processing.",
+        "rationale": "The current header still declares the common array using ftCo_MS_Count and the following 14-entry auxiliary array; the definitions remain data tables of MotionState records.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:12.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdata.h#L1-L60",
+            "why": "Declares ftData_MotionStateList[ftCo_MS_Count] and ftData_803C52A0[14]."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L120-L3960",
+            "why": "Shows initialized MotionState records containing metadata and callback slots."
+          }
+        ]
+      },
+      "disposition": "supersede",
+      "reason": "Identify auxiliary domain and separate source shape from compiled section claims.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L133-L155",
+          "why": "Primary declaration/initializers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3887-L3927",
+          "why": "Auxiliary declaration/initializers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L853-L883",
+          "why": "Record fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/forward.h#L108-L108",
+          "why": "Callback typedef."
+        }
+      ]
+    },
+    {
+      "subject": "src/melee/ft/ftmotionstates.c",
+      "fact_id": "fact:de2ed857-c4b8-4de5-a6ab-72081438883b",
+      "version": null,
+      "updated_at": "2026-09-06T03:12:12.440Z",
+      "type": "purpose",
+      "value": "Owns the fighter subsystem's shared motion-state descriptor tables, binding common fighter motion IDs to animation metadata, motion and move flags, and animation, input, physics, collision, and camera callbacks; it also contains a smaller auxiliary table.",
+      "original_fact": {
+        "id": "fact:de2ed857-c4b8-4de5-a6ab-72081438883b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftmotionstates.c",
+        "type": "purpose",
+        "value": "Owns the fighter subsystem's shared motion-state descriptor tables, binding common fighter motion IDs to animation metadata, motion and move flags, and animation, input, physics, collision, and camera callbacks; it also contains a smaller auxiliary table.",
+        "rationale": "The current source remains a common MotionState descriptor table followed by a smaller auxiliary MotionState table.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:12.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L120-L3960",
+            "why": "Shows common motion IDs bound to metadata and five callback phases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftmotionstates.c#L3594-L4028",
+            "why": "Shows the end of the common table and the following auxiliary records."
+          }
+        ]
+      },
+      "disposition": "supersede",
+      "reason": "Replace generic auxiliary wording with verified demo ownership.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L133-L177",
+          "why": "Normal table."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3863-L3927",
+          "why": "End normal/start demo."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L58-L72",
+          "why": "Demo table consumer."
+        }
+      ]
+    }
+  ],
+  "subjects_without_facts": []
+}

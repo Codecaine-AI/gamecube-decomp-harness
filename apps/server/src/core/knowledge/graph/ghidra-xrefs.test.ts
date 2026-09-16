@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { renameSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildGhidraXrefGraphRecords, GHIDRA_XREFS_SOURCE_ID } from "./ghidra-xrefs.js";
@@ -17,6 +17,8 @@ describe("Ghidra xref graph records", () => {
     const repoRoot = tempDir("ghidra-repo-");
     const indexesRoot = tempDir("ghidra-indexes-");
     writeReport(repoRoot);
+    mkdirSync(join(repoRoot, "build/GMSJ01"), {recursive:true});
+    renameSync(join(repoRoot, "build/GALE01/report.json"), join(repoRoot, "build/GMSJ01/report.json"));
     writeJsonl(join(indexesRoot, "xrefs.jsonl"), [
       {
         id: "xref:0x80001008:0x80002000",
@@ -57,7 +59,7 @@ describe("Ghidra xref graph records", () => {
       },
     ]);
 
-    const records = buildGhidraXrefGraphRecords(repoRoot, { indexesRoot });
+    const records = buildGhidraXrefGraphRecords(repoRoot, { indexesRoot, reportPath: "build/GMSJ01/report.json" });
 
     expect(records).not.toBeNull();
     expect(records?.sourceVersion.sourceId).toBe(GHIDRA_XREFS_SOURCE_ID);

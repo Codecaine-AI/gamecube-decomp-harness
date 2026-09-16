@@ -1,0 +1,77 @@
+{
+  "tu": "main/melee/gr/grtpurin",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpurin:grTPurin_8022320C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature: `HSD_GObj* (int id)`. The signed integer selects both `grTPr_StageCallbacks[id]` and `Ground_GetStageGObj(id)`. The array contains four records: three populated object configurations and an all-null fourth record. Initialization supplies IDs 0, 1 and 2; the helper itself does not validate the index. It returns the configured lookup result, or NULL when lookup fails.",
+        "rationale": "Corrects the baseline's three-entry table claim and distinguishes observed caller values from an enforced input range.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpurin.c#L15-L23",
+            "why": "Four array records."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpurin.c#L50-L94",
+            "why": "Observed caller IDs, unchecked indexing and nullable return."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpurin:grTPurin_80223388"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The local s16 list supplies IDs 0x37, 0x39, 0x3B, 0x3D, 0x3F, 0x41 and 0x43, terminated by -1. Each ID flows into `Ground_801C32D4(2, value)`; mapping result -1 skips further work for that entry. Otherwise the supplied GObj and ID locate a JObj. If it exists, `lb_8000B1CC(jobj, NULL, &vec)` supplies the position tested by `vec.x < 130.0f`. A successful conjunction sends the mapped index to `mpJointListAdd`; a missing JObj or failed comparison sends it to `mpLib_80057BC0`. After the loop, `lb_800115F4()` updates shared global effect records, including scale/count evolution and expired-record recycling, before `Ground_801C2FE0(gobj)` performs the delegated Ground update.",
+        "rationale": "Preserves the complete mapping and collision flow while correcting the post-loop call's misidentification as a common collision refresh. The effect updater's body independently establishes cross-file shared state and lifetimes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpurin.c#L127-L152",
+            "why": "Exact local flow and post-loop call order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00F9.c#L939-L992",
+            "why": "Global effect-list updates and recycling rather than collision refresh."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpurin:grTPurin_802234F8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The callback rejects line ID -1, then mapped joint -1. For any other mapped joint it calls `mpLineGetKind` but does not use the result. Joints 0 and 1 both return the same cached `yakumono_param->x0`; other joints return null. There is no local null guard on the cached parameter block before either successful dereference. Initialization supplies the cache, and this module neither copies nor frees the returned descriptor or resets the cache in its empty load/demo hooks; the external parameter-block lifetime must cover successful lookups.",
+        "rationale": "Adds useful missing knowledge about the cache validity/lifetime precondition and the distinction between explicit sentinel guards and unvalidated pointer state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpurin.c#L39-L73",
+            "why": "Static cache, initialization writer and lifecycle hooks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpurin.c#L179-L196",
+            "why": "Sentinel guards, discarded kind result and unguarded cache dereferences."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

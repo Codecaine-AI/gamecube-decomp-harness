@@ -1,0 +1,77 @@
+{
+  "tu": "main/melee/gm/gmscdata",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmscdata.c#L65-L762",
+            "why": "Defines both static arrays, their initializers and sentinels, and direct pointer-returning accessors."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the supported typed-registry description while removing a compiled-section claim not established by available evidence.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmscdata:.data"
+        },
+        "type": "inferred_type",
+        "value": "The source defines two mutable-typed static registries: GameScene scenes[], ending in a GS_COUNT record with null callbacks, and GameMode modes[], ending in a GM_COUNT record with null callback and state-array pointers. Scene records associate GS_* discriminators with lifecycle callback slots; mode records associate metadata and GM_* discriminators with lifecycle callbacks and subordinate GameModeState-array pointers. This describes source-level objects, not verified compiled section membership, extent, or layout."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A3F.c#L276-L343",
+            "why": "Shows mode lookup, routing resets, preload/load, override handling, reset-gated unload, and startup callback traversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L243-L252",
+            "why": "Shows independent sentinel-bounded scene lookup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves supported startup and descriptor behavior while explicitly documenting override routing and reset suppression of unload.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmscdata:.data"
+        },
+        "type": "state_behavior",
+        "value": "Encodes scene and mode lifecycle configuration as descriptors rather than mutable routing state. Consumers search scenes through GS_COUNT and modes through GM_COUNT. Startup invokes every non-null mode initialization callback. The mode runner resets routing indices to zero, applies the selected descriptor's preload field, invokes its optional load callback, and runs states until a mode transition is pending. An active override can run another mode's states with routing backed up; routing is restored afterward only when not resetting. The selected mode's unload callback runs only when non-null and not resetting."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A3F.c#L276-L325",
+            "why": "Lookup failure result, selected-descriptor use, override routing, and reset-dependent unload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L243-L252",
+            "why": "Scene sentinel traversal and NULL failure result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmscdata.c#L754-L762",
+            "why": "Getter bodies only return array bases."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the simplified execution account to preserve the canonical override and reset branches and the boundary between configuration and execution.",
+        "subject": {
+          "entity_locator": "src/melee/gm/gmscdata.c"
+        },
+        "type": "state_behavior",
+        "value": "Defines two sentinel-terminated registries configuring game-manager lifecycle behavior. Scene lookup stops at GS_COUNT; mode lookup stops at GM_COUNT, and either lookup returns NULL if no identifier matches. The mode runner assumes a valid selected descriptor, invokes its optional load callback, and executes subordinate states until a mode transition is pending. An override may substitute another mode's states while backing up routing, with restoration suppressed during reset. The selected mode's optional unload callback is also suppressed during reset. These execution and routing operations occur in consumers, not in this unit's getters."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

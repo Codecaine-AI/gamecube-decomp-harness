@@ -1,0 +1,92 @@
+{
+  "unresolved": [
+    {
+      "detail": "No compiled artifacts were supplied. Header size/offset comments and the source global do not independently prove the .bss target's full object coverage, padding, offsets or size.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.h#L16-L26",
+          "why": "Layout annotations are comments."
+        }
+      ],
+      "issue": "Compiled layout and section extent remain unverified."
+    },
+    {
+      "detail": "The pointer-sized temporary defect is visible in source. No compiled stack layout, execution trace or claim that the affected branch executes on the pinned target is supplied.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L314-L344",
+          "why": "Conditional temporary use and mismatched size expressions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L69-L89",
+          "why": "Endian flag is initialized through a runtime representation test."
+        }
+      ],
+      "issue": "Alternate-endian ui64 reader runtime manifestation is not established."
+    },
+    {
+      "detail": "TRK_InitializeMessageBuffers is a separately spelled declaration alongside TRKInitializeMessageBuffers; no alias relationship is inferred. The TRKMessageBufferGet macro references buf->data, whereas the declared payload field is fData. No usage or compiled impact of that macro is established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.h#L12-L36",
+          "why": "Macro field spelling and both initializer declarations."
+        }
+      ],
+      "issue": "Header identity inconsistencies remain unresolved."
+    }
+  ],
+  "family_followups": [
+    {
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L41",
+          "why": "Allocation result and id handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L64-L72",
+          "why": "Event transfer ignores post result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L53-L76",
+          "why": "Posting can fail when the queue is full."
+        }
+      ],
+      "path": "src/MetroTRK/serpoll.c",
+      "reason": "Review exceptional buffer ownership paths: TRKTestForPacket ignores allocation failure and can inspect an uninitialized id when no bytes are available; TRKProcessInput ignores TRKPostEvent failure after assigning the buffer ID. Do not generalize the normal event-release lifetime into an all-path cleanup guarantee."
+    },
+    {
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L302-L315",
+          "why": "FP status replacement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L418-L428",
+          "why": "Paired-single status replacement."
+        }
+      ],
+      "path": "src/MetroTRK/targimpl.c",
+      "reason": "Review FP and paired-single error propagation: the register-access call overwrites a preceding ui64 read status on the write path, and the append call overwrites the preceding register-read status on the read path. The buffer helper's first-error semantics do not extend automatically through these callers."
+    },
+    {
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/dispatch.c#L52-L65",
+          "why": "Ignored read status followed by command use."
+        }
+      ],
+      "path": "src/MetroTRK/dispatch.c",
+      "reason": "Review failed command-byte reads: dispatch ignores the reader's return status before comparing and indexing with command. This is a caller-level exception to any assumption that failed decoding prevents dispatch."
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+The owned file `src/melee/ft/kinds/dir.dox` contains only a Doxygen directory comment. Its TODO proposes renaming the directory to `entities` to match `gr` and `it`; it does not establish that such a rename has occurred or independently verify those directories. There is no executable behavior, state, or lifetime logic in this file. Canonical and rendered views agree, with zero substitutions or parse errors. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/dir.dox#L1-L4. The complete frozen subject and link inventories are empty, so no existing semantic knowledge requires correction or retention and no proposal is warranted.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

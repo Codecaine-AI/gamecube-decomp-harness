@@ -6,12 +6,10 @@ import { TraceSource, type TraceEvent } from "@agent-kernel/protocol";
 import type { NewContainer } from "@agent-kernel/db";
 
 import { openState } from "@server/core/orchestrator-state";
-import {
-  createCycle,
-  getCycleById,
-  mergeCycleKernelTrace,
-  transitionCycle,
-} from "@server/core/cycle/store.js";
+import { initializeHarnessState } from "@server/core/harness-state/state.js";
+import { persistHarnessKernelTrace } from "@server/core/harness-state/kernel-trace-state.js";
+import { appendGameEvent, eventSpan } from "@server/core/harness-state/events.js";
+import type { Database } from "bun:sqlite";
 import type { GameRuntimeContext } from "@server/core/game-registry";
 import type { MeleeKernelRuntime } from "./bridge/runtime.js";
 import { createMeleeTraceWriter } from "./bridge/trace-writer.js";
@@ -23,11 +21,26 @@ import {
 import {
   createDashboardKernelRuntimeService,
   KernelTraceCursorPersistenceError,
-  persistCycleKernelTraceLinkage,
+  persistHarnessKernelTraceLinkage,
   resolveWorkflowTraceLinkage,
 } from "./runtime.js";
 
 const tempDirs: string[] = [];
+
+function harnessFixture(db: Database, gameId: string, harnessId: string) {
+  initializeHarnessState(db, { gameId, harnessId, worktree: "/tmp/checkout", configurationRevision: "config", commandId: `initialize-${harnessId}` });
+  return dispatchFixture(db, { game_id: gameId, harness_id: harnessId }, `command-${harnessId}`);
+}
+
+function dispatchFixture(db: Database, harness: { game_id: string; harness_id: string }, cause: string) {
+  const event = appendGameEvent(db, {
+    eventType: "game.dispatch_requested", gameId: harness.game_id, subjectKind: "game", subjectId: harness.game_id,
+    correlationId: harness.harness_id, causationId: cause, traceId: `trace-${harness.harness_id}`,
+    ...eventSpan(), actor: "operator",
+    payload: { requested_kind: "sync", workflow_id: "sync-test", current_lease_holder: null, reason: "test" },
+  });
+  return { ...harness, caused_by_event_id: event.eventId };
+}
 
 afterEach(() => {
   for (const dir of tempDirs.splice(0)) {
@@ -85,29 +98,25 @@ describe("dashboard kernel trace linkage persistence", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-"));
     tempDirs.push(stateDir);
     const store = openState(stateDir);
-    const created = createCycle(store.db, {
-      actor: "operator",
-      id: "cycle:cycle-runtime",
-      gameId: "melee",
-      cycleUuid: "cycle-runtime",
-    });
-    mergeCycleKernelTrace(store.db, created.id, {
+    const created = harnessFixture(store.db, "melee", "harness-runtime");
+    persistHarnessKernelTrace(store.db, "melee", created.harness_id, {
+      app_session_id: "app-harness-runtime",
       collector: { retained: true },
     });
     store.db.close();
 
-    persistCycleKernelTraceLinkage(
+    persistHarnessKernelTraceLinkage(
       stateDir,
       "melee",
-      "cycle-runtime",
+      "harness-runtime",
       {
         activeContainerId: "container-active",
-        appSessionId: "app-cycle-runtime",
+        appSessionId: "app-harness-runtime",
         rootContainerId: "container-root",
         traceUrl: "/trace?containerId=container-active",
         gameEventId: created.caused_by_event_id!,
         kernelEventId: "kernel-event-runtime",
-        correlationId: "cycle-runtime",
+        correlationId: "harness-runtime",
         causedByEventId: null,
         linkedAt: "2026-08-13T13:00:00.000Z",
       },
@@ -115,8 +124,8 @@ describe("dashboard kernel trace linkage persistence", () => {
 
     const reopened = openState(stateDir);
     try {
-      expect(getCycleById(reopened.db, created.id)?.kernel_trace_json).toMatchObject({
-        app_session_id: "app-cycle-runtime",
+      expect(JSON.parse((reopened.db.query("SELECT kernel_trace_json FROM harness_kernel_traces WHERE harness_id = ?").get(created.harness_id) as { kernel_trace_json: string }).kernel_trace_json)).toMatchObject({
+        app_session_id: "app-harness-runtime",
         root_container_id: "container-root",
         active_container_id: "container-active",
         trace_url: "/trace?containerId=container-active",
@@ -124,7 +133,7 @@ describe("dashboard kernel trace linkage persistence", () => {
         last_linkage_cursor: {
           game_event_id: created.caused_by_event_id,
           kernel_event_id: "kernel-event-runtime",
-          correlation_id: "cycle-runtime",
+          correlation_id: "harness-runtime",
           caused_by_event_id: null,
           linked_at: "2026-08-13T13:00:00.000Z",
         },
@@ -138,47 +147,21 @@ describe("dashboard kernel trace linkage persistence", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-scope-"));
     tempDirs.push(stateDir);
     const store = openState(stateDir);
-    const created = createCycle(store.db, {
-      actor: "operator",
-      id: "cycle:session-scope",
-      gameId: "melee",
-      cycleUuid: "session-scope",
-    });
-    const other = createCycle(store.db, {
-      actor: "operator",
-      id: "cycle:session-other-game",
-      gameId: "other-game",
-      cycleUuid: "session-other-game",
-    });
-    const transitioned = transitionCycle(store.db, created.id, {
-      actor: "runner",
-      causationId: created.caused_by_event_id!,
-      commandId: "command-session-running",
-      correlationId: created.cycle_uuid,
-      eventType: "cycle.running_started",
-      expectedRevision: created.revision,
-      patch: { phase: "running" },
-    });
-    const crossGameCause = transitionCycle(store.db, other.id, {
-      actor: "runner",
-      causationId: created.caused_by_event_id!,
-      commandId: "command-cross-game-cause",
-      correlationId: other.cycle_uuid,
-      eventType: "cycle.running_started",
-      expectedRevision: other.revision,
-      patch: { phase: "running" },
-    });
+    const created = harnessFixture(store.db, "melee", "session-scope");
+    const other = harnessFixture(store.db, "other-game", "session-other-game");
+    const transitioned = dispatchFixture(store.db, created, created.caused_by_event_id);
+    const crossGameCause = dispatchFixture(store.db, other, created.caused_by_event_id);
     store.db.close();
 
     const baseInput = {
       kind: "session" as const,
-      operation: "cycle.running",
-      correlationId: created.cycle_uuid,
+      operation: "harness.running",
+      correlationId: created.harness_id,
       gameEventId: created.caused_by_event_id!,
       causedByEventId: null,
     };
     expect(resolveWorkflowTraceLinkage(stateDir, "melee", baseInput)).toEqual({
-      correlationId: created.cycle_uuid,
+      correlationId: created.harness_id,
       gameEventId: created.caused_by_event_id!,
       causedByEventId: null,
     });
@@ -189,7 +172,7 @@ describe("dashboard kernel trace linkage persistence", () => {
         causedByEventId: created.caused_by_event_id,
       }),
     ).toEqual({
-      correlationId: created.cycle_uuid,
+      correlationId: created.harness_id,
       gameEventId: transitioned.caused_by_event_id!,
       causedByEventId: created.caused_by_event_id,
     });
@@ -198,7 +181,7 @@ describe("dashboard kernel trace linkage persistence", () => {
       resolveWorkflowTraceLinkage(stateDir, "melee", {
         ...baseInput,
         gameEventId: other.caused_by_event_id!,
-        correlationId: other.cycle_uuid,
+        correlationId: other.harness_id,
       }),
     ).toThrow(`was not found in game melee`);
     expect(() =>
@@ -222,7 +205,7 @@ describe("dashboard kernel trace linkage persistence", () => {
     expect(() =>
       resolveWorkflowTraceLinkage(stateDir, "other-game", {
         ...baseInput,
-        correlationId: other.cycle_uuid,
+        correlationId: other.harness_id,
         gameEventId: crossGameCause.caused_by_event_id!,
       }),
     ).toThrow("has cross-game causation");
@@ -232,21 +215,8 @@ describe("dashboard kernel trace linkage persistence", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-sync-workflow-"));
     tempDirs.push(stateDir);
     const store = openState(stateDir);
-    const created = createCycle(store.db, {
-      actor: "operator",
-      id: "cycle:sync-workflow",
-      gameId: "melee",
-      cycleUuid: "cycle-sync-workflow",
-    });
-    const milestone = transitionCycle(store.db, created.id, {
-      actor: "runner",
-      causationId: created.caused_by_event_id!,
-      commandId: "command-sync-workflow",
-      correlationId: created.cycle_uuid,
-      eventType: "cycle.running_started",
-      expectedRevision: created.revision,
-      patch: {},
-    });
+    const created = harnessFixture(store.db, "melee", "cycle-sync-workflow");
+    const milestone = dispatchFixture(store.db, created, created.caused_by_event_id);
     store.db.close();
 
     const lineages: NewContainer[][] = [];
@@ -267,7 +237,7 @@ describe("dashboard kernel trace linkage persistence", () => {
       json: (data, init) => Response.json(data, init),
       latestRunId: () => "",
       packageRoot: "/repo",
-      persistCycleKernelTraceLinkage: () => {},
+      persistHarnessKernelTraceLinkage: () => {},
       port: 8787,
     });
     const paths: GameRuntimeContext = {
@@ -277,14 +247,14 @@ describe("dashboard kernel trace linkage persistence", () => {
       stateDir,
       usePathOverrides: true,
     };
-    const ref = { gameId: "melee", sessionId: created.cycle_uuid };
+    const ref = { gameId: "melee", sessionId: created.harness_id };
 
     const result = await service.submitWorkflowEvent(paths, {
       kind: "sync-intake",
       operation: "sync.ingest",
       status: "started",
-      sessionId: created.cycle_uuid,
-      correlationId: created.cycle_uuid,
+      sessionId: created.harness_id,
+      correlationId: created.harness_id,
       gameEventId: milestone.caused_by_event_id!,
       causedByEventId: created.caused_by_event_id!,
       metadata: { syncId: "sync-aaaaaaaa-bbbb", milestone: "ingest" },
@@ -304,12 +274,7 @@ describe("dashboard kernel trace linkage persistence", () => {
     const stateDir = mkdtempSync(join(tmpdir(), "kernel-runtime-retry-"));
     tempDirs.push(stateDir);
     const store = openState(stateDir);
-    const created = createCycle(store.db, {
-      actor: "operator",
-      id: "cycle:session-retry",
-      gameId: "melee",
-      cycleUuid: "session-retry",
-    });
+    const created = harnessFixture(store.db, "melee", "session-retry");
     store.db.close();
 
     const submissionAttempts: TraceEvent[] = [];
@@ -341,7 +306,7 @@ describe("dashboard kernel trace linkage persistence", () => {
       json: (data, init) => Response.json(data, init),
       latestRunId: () => "",
       packageRoot: "/repo",
-      persistCycleKernelTraceLinkage: () => {
+      persistHarnessKernelTraceLinkage: () => {
         throw new Error("simulated cursor write failure");
       },
       port: 8787,
@@ -355,10 +320,10 @@ describe("dashboard kernel trace linkage persistence", () => {
     };
     const input = {
       kind: "session" as const,
-      operation: "cycle.opened",
+      operation: "harness.initialized",
       status: "completed" as const,
-      sessionId: created.cycle_uuid,
-      correlationId: created.cycle_uuid,
+      sessionId: created.harness_id,
+      correlationId: created.harness_id,
       gameEventId: created.caused_by_event_id!,
       causedByEventId: null,
       metadata: {
@@ -380,8 +345,8 @@ describe("dashboard kernel trace linkage persistence", () => {
       source: TraceSource.APP,
       eventData: {
         gameId: "melee",
-        sessionId: created.cycle_uuid,
-        correlation_id: created.cycle_uuid,
+        sessionId: created.harness_id,
+        correlation_id: created.harness_id,
         game_event_id: created.caused_by_event_id,
         caused_by_event_id: null,
       },

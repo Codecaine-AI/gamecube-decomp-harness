@@ -1,0 +1,104 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L43-L71",
+            "why": "Rate configuration is performed at entry; Anim only delegates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L115-L120",
+            "why": "The delegated handler tests completion and invokes the transition helper without advancing animation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline attribution of animation advancement while preserving the supported aerial-landing and common reduced-lag context.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Anim"
+        },
+        "type": "game_mapping",
+        "value": "Monitors completion of an attack-specific aerial landing animation through the ordinary landing completion handler; it does not advance animation. The common entry path selects the landing motion and configures its rate from full or qualifying reduced lag before this callback handles completion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "Shows all inputs, the wrapper-to-helper pair, separate motion and lag consumers, and callback forwarding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that lag is passed to Fighter_ChangeMotionState and distinguishes both actual consumers.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c"
+        },
+        "type": "data_flow",
+        "value": "The common wrapper reads cmd_vars[0], motion_id, per-aerial lag attributes, x67F, and shared threshold/divisor fields to select a landing motion and lag. It passes the motion/lag pair to ftCo_LandingAir_EnterWithMsidLag, or forwards the object to basic landing when no motion is selected. The entry helper passes the motion ID to Fighter_ChangeMotionState; lag is consumed separately as the divisor in (ftAnim_8006F484(gobj) + 0.1f) / lag, whose result is passed to ftAnim_SetAnimRate. Animation, physics, and collision callbacks forward the object to the ordinary landing subsystem."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "Independent selection/timing tests, exact conversion and zero substitution, unguarded divisors, and callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L83-L91",
+            "why": "Basic entry includes a HammerLanding branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the fallback scope and zero-only substitution, bounds conversion semantics, and preserves exceptional numeric and basic-entry branches.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c"
+        },
+        "type": "state_behavior",
+        "value": "The common wrapper selects a matching LandingAirN/F/B/Hi/Lw motion only when cmd_vars[0] is nonzero and motion_id is the corresponding standard aerial attack. For a selected motion, x67F < p_ftCommonData->xE4 enables division by xE8 followed by float-to-int conversion; for finite values whose truncated result is representable as int, conversion truncates toward zero. Only an integer result equal to zero is replaced with one before assignment back to floating lag; this is not a general minimum-one clamp. Failing the timing test keeps the selected motion's full lag. Only failure to select a motion invokes basic landing, whose callee can select HammerLanding. No local validation excludes NaN, infinity, out-of-range conversion, zero divisors, or negative lag. LandingAir IASA is empty, while animation-completion, physics, and collision processing delegate to ordinary landing callbacks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L52-L66",
+            "why": "Common caller and direct helper data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L551-L557",
+            "why": "Direct N motion and lag pair."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L602-L608",
+            "why": "Direct B motion and lag pair."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L650-L657",
+            "why": "Hi explicitly supplies the back-aerial lag attribute."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful cross-file consumers and the nonmatching Hi lag attribute, preventing an incorrect assumption that every invocation receives common-wrapper selection or L-cancel reduction.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag"
+        },
+        "type": "data_flow",
+        "value": "Receives a fighter object, caller-selected motion ID, and floating lag. It resolves the Fighter for ftCommon_8007D7FC, passes the object and motion ID to Fighter_ChangeMotionState, then passes (ftAnim_8006F484(gobj) + 0.1f) / lag to ftAnim_SetAnimRate. The common EnterWithLag caller supplies a selected standard LandingAir motion and full or timing-reduced lag. Game & Watch also calls this helper directly for LandingAirN with landingairn_lag, LandingAirB with landingairb_lag, and LandingAirHi with landingairb_lag. These direct callers bypass the common selection/reduction wrapper; the helper neither derives lag from motion nor validates their pairing."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

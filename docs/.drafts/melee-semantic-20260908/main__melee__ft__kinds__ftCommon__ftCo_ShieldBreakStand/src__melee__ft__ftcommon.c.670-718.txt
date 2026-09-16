@@ -1,0 +1,49 @@
+670: void ftCommon_InitGrab(Fighter* fp, bool arg1, float timer)
+671: {
+672:     fp->grab_timer = timer;
+673:     fp->x1A51 = 0;
+674:     fp->x1A50 = 0;
+675:     fp->x2224_b6 = arg1;
+676:     if (fp->x2224_b6) {
+677:         fp->x1A52 = 0;
+678:         fp->x1A53 = Fighter_GrabMashShake->x4;
+679:     }
+680: }
+681: 
+682: bool ftCommon_GrabMash(Fighter* fp, float arg1)
+683: {
+684:     bool result = false;
+685:     if (fp->input.pressed_buttons & (HSD_PAD_AB | HSD_PAD_XY | HSD_PAD_LR)) {
+686:         fp->grab_timer -= arg1;
+687:         result = true;
+688:     }
+689:     {
+690:         s8 r5 = fp->x1A50;
+691:         s8 r6 = fp->x1A51;
+692:         if (fp->input.lstick[0].x < -p_ftCommonData->x308) {
+693:             fp->x1A50 = -1;
+694:         }
+695:         if (fp->input.lstick[0].x > p_ftCommonData->x308) {
+696:             fp->x1A50 = 1;
+697:         }
+698:         if (fp->input.lstick[0].y < -p_ftCommonData->x308) {
+699:             fp->x1A51 = -1;
+700:         }
+701:         if (fp->input.lstick[0].y > p_ftCommonData->x308) {
+702:             fp->x1A51 = 1;
+703:         }
+704:         if (r5 != fp->x1A50 || r6 != fp->x1A51) {
+705:             fp->grab_timer -= arg1;
+706:             result = true;
+707:         }
+708:     }
+709:     if (result && fp->x2224_b6) {
+710:         fp->x2224_b5 = true;
+711:         fp->x1A52 += 1;
+712:         if (fp->x1A52 >= fp->x1A53) {
+713:             fp->x1A52 = 0;
+714:         }
+715:     } else {
+716:         fp->x2224_b5 = false;
+717:     }
+718:     pl_800402D0(fp->player_id, fp->x221F_b4, result);

@@ -1,0 +1,124 @@
+{
+  "tu": "main/melee/it/kinds/itgamewatchrescue",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchrescue.c#L57-L72",
+            "why": "Item resolution precedes the guard; shows ordered cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/inlines.h#L13-L13",
+            "why": "GET_ITEM calls HSD_GObjGetUserData."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.h#L147-L150",
+            "why": "Accessor unconditionally dereferences gobj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialhi.c#L73-L80",
+            "why": "Exact reciprocal fighter fields cleared."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported nullable-object claim while preserving the established reciprocal-cleanup flow.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgamewatchrescue:it_802C8158"
+        },
+        "type": "data_flow",
+        "value": "First resolves the supplied Rescue object's Item through GET_ITEM, before checking either pointer. This requires a valid non-NULL object; NULL user data on that object skips teardown. For non-NULL Item data, it reads the Rescue-specific xDD8 fighter reference and compares it with owner. A non-NULL matching fighter is passed to ftGw_SpecialHi_ItemRescueSetNULL, which clears the fighter's Rescue handle and damage and secondary-death callbacks. The routine then clears the item's xDD8 and owner and passes the item object to Item_8026A8EC."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchrescue.c#L57-L72",
+            "why": "Signature and pre-guard access."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/inlines.h#L13-L13",
+            "why": "Accessor expansion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.h#L147-L150",
+            "why": "No NULL-object guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the exact signature but corrects the argument's nullability contract.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgamewatchrescue:it_802C8158"
+        },
+        "type": "inferred_type",
+        "value": "A void item-lifecycle routine with signature void(Item_GObj* item_gobj). The object must be valid and non-NULL because GET_ITEM dereferences it before the explicit guard. A valid object with NULL Item user data is tolerated and produces no teardown."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchrescue.c#L57-L72",
+            "why": "Guard placement and conditional versus unconditional mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/inlines.h#L13-L13",
+            "why": "GET_ITEM expansion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.h#L147-L150",
+            "why": "Dereference precedes the caller's guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates a genuinely guarded NULL-data path from the unsafe NULL-object case without changing the ownership-consistency rule.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgamewatchrescue:it_802C8158"
+        },
+        "type": "state_behavior",
+        "value": "For a valid object with NULL Item user data, the routine performs no teardown. A NULL object is not a supported no-op input: GET_ITEM dereferences it before the apparent NULL guard. For non-NULL Item data, it always clears the Rescue fighter back-reference and owner before generic removal. Fighter-side Rescue bookkeeping is cleared only when the stored fighter is non-NULL and exactly equals owner."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialhi.c#L32-L54",
+            "why": "Actual constructor inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchrescue.c#L27-L55",
+            "why": "Item-owned special-attribute source and successful initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchrescue.c#L90-L147",
+            "why": "Stored-parent lifetime and reciprocal-cleanup flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the TU summary's attribution of article attributes to Fire's arguments: those attributes originate from the created item.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itgamewatchrescue.c"
+        },
+        "type": "data_flow",
+        "value": "Fire supplies the fighter parent, computed position, grounded/aerial state selector and facing direction, plus part and scale arguments unused by the constructor body. After successful creation, the constructor reads special attributes from the new item's article data, initializes command variables and a flag, stores the parent, invokes attachment/setup and enters the selected state. The retained parent later drives the SpecialHi lifetime check and ownership-conditional reciprocal cleanup."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

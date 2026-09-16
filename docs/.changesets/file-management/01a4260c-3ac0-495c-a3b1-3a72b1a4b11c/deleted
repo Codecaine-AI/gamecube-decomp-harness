@@ -1,0 +1,153 @@
+{
+  "version": 1,
+  "id": "guardian-successor",
+  "title": "Guardian Settlement and Successor Acquisition",
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Guardian",
+      "kind": "actor"
+    },
+    {
+      "id": "p2",
+      "name": "Run Controller",
+      "kind": "participant"
+    },
+    {
+      "id": "p3",
+      "name": "Dispatch Authority",
+      "kind": "participant"
+    },
+    {
+      "id": "p4",
+      "name": "State and Event Store",
+      "kind": "participant"
+    },
+    {
+      "id": "p5",
+      "name": "Sync Runtime",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "Request recovery with settlement evidence"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p2",
+      "to": "p4",
+      "line": "sync",
+      "text": "Record paused Run under settlement lineage"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "p2",
+      "to": "p3",
+      "line": "sync",
+      "text": "Release outgoing lease with handoff evidence"
+    },
+    {
+      "kind": "message",
+      "id": "m4",
+      "from": "p3",
+      "to": "p4",
+      "line": "sync",
+      "text": "Begin atomic dispatch transaction"
+    },
+    {
+      "kind": "message",
+      "id": "m5",
+      "from": "p3",
+      "to": "p4",
+      "line": "sync",
+      "text": "Append game.dispatch_released; clear outgoing lease"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "Queued successor is eligible",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m6",
+              "from": "p3",
+              "to": "p4",
+              "line": "sync",
+              "text": "Append game.dispatch_acquired; install fresh lease"
+            },
+            {
+              "kind": "note",
+              "id": "n1",
+              "anchor": "p4",
+              "side": "over",
+              "text": "Keep request lineage"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "message",
+      "id": "m7",
+      "from": "p3",
+      "to": "p4",
+      "line": "sync",
+      "text": "Commit state revisions and handoff snapshot"
+    },
+    {
+      "kind": "message",
+      "id": "m8",
+      "from": "p3",
+      "to": "p2",
+      "line": "return",
+      "text": "Accepted release and optional successor activation"
+    },
+    {
+      "kind": "fragment",
+      "id": "f2",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "Sync acquired authority",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p2",
+              "to": "p5",
+              "line": "sync",
+              "text": "Activate using original queued request lineage"
+            },
+            {
+              "kind": "message",
+              "id": "m10",
+              "from": "p5",
+              "to": "p4",
+              "line": "sync",
+              "text": "Append sync.ingesting with operator credit"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "note",
+      "id": "n2",
+      "anchor": "p1",
+      "side": "over",
+      "text": "Guardian owns pause"
+    }
+  ],
+  "style": {}
+}

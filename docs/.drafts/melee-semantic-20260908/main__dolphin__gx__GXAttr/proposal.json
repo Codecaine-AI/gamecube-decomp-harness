@@ -1,0 +1,145 @@
+{
+  "tu": "main/dolphin/gx/GXAttr",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L441-L457",
+            "why": "Derives cpAttr and passes cpAttr - 12 to both write macros."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L107-L128",
+            "why": "Macros emit commands and conditionally update indexBase/indexStride."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that the function performs no cached-context update: the conditional updates are present in the expanded write macros.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXAttr:GXSetArray"
+        },
+        "type": "state_behavior",
+        "value": "Applies the selected array binding immediately through paired GX base-address and stride commands, without setting a dirty-state category. NBT aliases the normal binding. The register-write macros also update gx->indexBase[cpAttr - 12] and gx->indexStride[cpAttr - 12] when that derived index is in 0..3; other array slots do not receive those shadow updates. The function programs an address and stride rather than copying the array contents."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L465-L564",
+            "why": "Signature, dispatch domains, post-matrix subtraction, and field widths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact signature and parameter roles while distinguishing the post-matrix API ID from its encoded register representation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXAttr:GXSetTexCoordGen2"
+        },
+        "type": "inferred_type",
+        "value": "void GXSetTexCoordGen2(GXTexCoordID dst_coord, GXTexGenType func, GXTexGenSrc src_param, u32 mtx, GXBool normalize, u32 pt_texmtx). dst_coord selects one of eight generator slots; func selects matrix, bump, or SRTG generation; src_param selects geometric, color, input-texture, or generated-coordinate input. mtx is inserted into a six-bit primary matrix-index field. pt_texmtx is a u32 API matrix ID translated as pt_texmtx - 64 before insertion into a six-bit post-matrix field; it is not itself a six-bit API ID. normalize occupies one bit."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L40-L97",
+            "why": "Attribute dispatch, normal bookkeeping, and literal dirty mask."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L127-L129",
+            "why": "Deferred descriptor emission and XF update."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the ambiguous phrase 'bit 8' without changing the supported descriptor data flow.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXAttr:GXSetVtxDesc"
+        },
+        "type": "data_flow",
+        "value": "attr selects a cached descriptor field in gx->vcdLo or gx->vcdHi, and type supplies its delivery mode. Normal and NBT requests instead update hasNrms, hasBiNrms, and the shared nrmType; the setter reconstructs their shared two-bit descriptor from the surviving presence flags. It then ORs mask 0x8 (bit index 3) into dirtyState. __GXSetVCD later emits both descriptor words and invokes the XF vertex-specification update."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L16-L38",
+            "why": "Exact flag selection, counts, packing, and outputs."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes actual attribute counts from the normal/NBT mode encoding.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXAttr:__GXXfVtxSpecs"
+        },
+        "type": "data_flow",
+        "value": "Counts nonzero CLR0/CLR1 descriptor fields in vcdLo and TEX0..TEX7 fields in vcdHi. Separately selects a normal-mode encoding: 2 when hasBiNrms is set, otherwise 1 when hasNrms is set, otherwise 0. It packs colorCount | (normalMode << 2) | (texCoordCount << 4), writes XF selector 8 through GX_WRITE_XF_REG, and sets bpSent to 1. The NBT encoding 2 is not a literal count of two vectors."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L16-L38",
+            "why": "Summarizes descriptors and normal flags into XF state."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects literal-cardinality wording for the normal field while preserving the supported GX subsystem mapping.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXAttr:__GXXfVtxSpecs"
+        },
+        "type": "game_mapping",
+        "value": "Realizes GX transform-stage vertex-specification state by summarizing the current VCD as active color and texture-coordinate counts plus an encoded normal/NBT mode. It does not configure component representation or array addresses."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L16-L38",
+            "why": "Static signature and packed mode expression."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the exact signature and field positions but corrects the normal field's interpretation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXAttr:__GXXfVtxSpecs"
+        },
+        "type": "inferred_type",
+        "value": "File-local static void(void) GX state-commit helper. Its packed value places color count in bits 0..1, normal/NBT mode in bits 2..3, and texture-coordinate count beginning at bit 4. Normal-mode values are 0 for neither flag, 1 for normals, and 2 for NBT, with hasBiNrms taking precedence."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L16-L38",
+            "why": "Specification construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L127-L129",
+            "why": "Ordering within descriptor commit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the misleading normal-vector count description with the mode actually selected by the source.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXAttr:__GXXfVtxSpecs"
+        },
+        "type": "purpose",
+        "value": "Updates the GX transform unit's vertex-specification register to reflect the current descriptor's active color channels, texture-coordinate attributes, and normal/NBT mode. __GXSetVCD invokes it immediately after emitting the cached low and high descriptor words."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

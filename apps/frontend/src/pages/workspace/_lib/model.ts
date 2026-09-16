@@ -2,15 +2,16 @@ import { asArray, asObject, numberValue, shortId, text, type Dashboard, type For
 import { processView } from "@/lib/processView";
 import type {
   PrFlowRecord,
-  HarnessStateActionProjection,
-  HarnessStateBlocker,
   HarnessStateReadModel,
-  HarnessStateRepoSyncReadModel,
-  HarnessStateRunRecoveryPoint,
-  HarnessStateRunSchedulerCondition,
-  HarnessStateRunStatus,
-  HarnessStateSyncStatus,
-  CycleView,
+  DispatchStateActionProjection,
+  DispatchStateBlocker,
+  HarnessStateViewModel,
+  DispatchStateRepoSyncReadModel,
+  DispatchStateRunRecoveryPoint,
+  DispatchStateRunSchedulerCondition,
+  DispatchStateRunStatus,
+  DispatchStateSyncStatus,
+  HarnessView,
 } from "./types";
 
 function isLocalBranchPrRecord(record: PrFlowRecord): boolean {
@@ -91,7 +92,7 @@ function knowledgeIntakeSummary(value: unknown) {
   };
 }
 
-function harnessStateBlocker(value: unknown): HarnessStateBlocker {
+function harnessStateBlocker(value: unknown): DispatchStateBlocker {
   const blocker = asObject(value);
   return {
     code: text(blocker.code),
@@ -102,7 +103,7 @@ function harnessStateBlocker(value: unknown): HarnessStateBlocker {
   };
 }
 
-function harnessStateActionProjection(value: unknown): HarnessStateActionProjection {
+function harnessStateActionProjection(value: unknown): DispatchStateActionProjection {
   const action = asObject(value);
   return {
     action_id: text(action.action_id),
@@ -115,13 +116,15 @@ function harnessStateActionProjection(value: unknown): HarnessStateActionProject
   };
 }
 
-export function harnessStateReadModel(dashboard: Dashboard | null): HarnessStateReadModel | null {
+export function harnessStateReadModel(dashboard: Dashboard | null): HarnessStateViewModel | null {
   const raw = asObject(dashboard?.harnessState);
   if (Object.keys(raw).length === 0) return null;
 
+  const stateRaw = asObject(raw.state);
+  const canonicalState = typeof asObject(stateRaw.identity).harness_id === "string"
+    ? stateRaw as unknown as HarnessStateReadModel : null;
   const activeWorkflowRaw = asObject(raw.active_workflow);
   const requestedHandoffRaw = asObject(activeWorkflowRaw.requested_handoff);
-  const cycleRaw = asObject(raw.cycle);
   const runRaw = asObject(raw.run);
   const syncRaw = asObject(raw.sync);
   const knowledgeRaw = asObject(raw.knowledge);
@@ -140,7 +143,6 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
   const syncPublicationRaw = asObject(syncRaw.publication);
   const syncStalenessRaw = asObject(syncRaw.staleness);
   const syncStalenessBlockerRaw = asObject(syncStalenessRaw.blocker);
-  const latestSavePointRaw = asObject(cycleRaw.latest_save_point);
   const activeWorkflow = Object.keys(activeWorkflowRaw).length > 0
     ? {
         kind: text(activeWorkflowRaw.kind) as "run" | "pr" | "sync",
@@ -164,44 +166,11 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
       }
     : null;
 
-  const cycle = Object.keys(cycleRaw).length > 0
-    ? {
-        cycle_uuid: text(cycleRaw.cycle_uuid),
-        head_revision: text(cycleRaw.head_revision) || null,
-        status: text(cycleRaw.status),
-        latest_save_point: Object.keys(latestSavePointRaw).length > 0
-          ? {
-              id: text(latestSavePointRaw.id),
-              triggerKind: text(latestSavePointRaw.triggerKind),
-              label: text(latestSavePointRaw.label) || null,
-              commitSha: text(latestSavePointRaw.commitSha) || null,
-              matchedCodePercent: Number.isFinite(numberValue(latestSavePointRaw.matchedCodePercent, NaN))
-                ? numberValue(latestSavePointRaw.matchedCodePercent)
-                : null,
-              createdAt: text(latestSavePointRaw.createdAt),
-            }
-          : null,
-        save_point_stale: booleanValue(cycleRaw.save_point_stale),
-        timeline: asArray(cycleRaw.timeline).map((value) => {
-          const entry = asObject(value);
-          return {
-            id: numberValue(entry.id),
-            cycle_uuid: text(entry.cycle_uuid),
-            entry_kind: text(entry.entry_kind) as "epoch_completed" | "remote_application" | "pr_phase" | "save_point",
-            entry_id: text(entry.entry_id),
-            occurred_at: text(entry.occurred_at),
-            payload: asObject(entry.payload),
-            caused_by_event_id: text(entry.caused_by_event_id) || null,
-          };
-        }),
-      }
-    : null;
-
   const run = Object.keys(runRaw).length > 0
     ? {
         workflow_id: text(runRaw.workflow_id),
-        status: text(runRaw.status) as HarnessStateRunStatus,
-        scheduler_condition: (text(runRaw.scheduler_condition) || null) as HarnessStateRunSchedulerCondition | null,
+        status: text(runRaw.status) as DispatchStateRunStatus,
+        scheduler_condition: (text(runRaw.scheduler_condition) || null) as DispatchStateRunSchedulerCondition | null,
         active_epoch: Object.keys(activeEpochRaw).length > 0
           ? {
               epoch_id: text(activeEpochRaw.epoch_id),
@@ -218,7 +187,7 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
           confirmed_changes: numberValue(progressRaw.confirmed_changes),
           regressed_changes: numberValue(progressRaw.regressed_changes),
         },
-        recovery_points: asArray(runRaw.recovery_points).map((value): HarnessStateRunRecoveryPoint => {
+        recovery_points: asArray(runRaw.recovery_points).map((value): DispatchStateRunRecoveryPoint => {
           const point = asObject(value);
           return {
             event_id: text(point.event_id),
@@ -227,7 +196,7 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
             recovery_reason: text(point.recovery_reason) || null,
             cancelled_claim_ids: asArray(point.cancelled_claim_ids).map((id) => text(id)).filter(Boolean),
             cancelled_operation_ids: asArray(point.cancelled_operation_ids).map((id) => text(id)).filter(Boolean),
-            resulting_status: (text(point.resulting_status) || null) as HarnessStateRunStatus | null,
+            resulting_status: (text(point.resulting_status) || null) as DispatchStateRunStatus | null,
           };
         }),
       }
@@ -236,7 +205,7 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
   const sync = Object.keys(syncRaw).length > 0
     ? {
         workflow_id: text(syncRaw.workflow_id),
-        status: text(syncRaw.status) as HarnessStateSyncStatus,
+        status: text(syncRaw.status) as DispatchStateSyncStatus,
         blockers: asArray(syncRaw.blockers).map(harnessStateBlocker),
         intake: {
           upstream_from: text(syncIntakeRaw.upstream_from),
@@ -333,9 +302,9 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
   // Server-owned head-vs-upstream repo state. Older servers do not send it;
   // consumers render "-" placeholders when it is null.
   const repoSyncRaw = asObject(raw.repo_sync);
-  const repoSync: HarnessStateRepoSyncReadModel | null = Object.keys(repoSyncRaw).length > 0
+  const repoSync: DispatchStateRepoSyncReadModel | null = Object.keys(repoSyncRaw).length > 0
     ? {
-        cycle_head: text(repoSyncRaw.cycle_head) || null,
+        head: text(repoSyncRaw.head) || null,
         upstream_ref: text(repoSyncRaw.upstream_ref),
         upstream_anchor: text(repoSyncRaw.upstream_anchor) || null,
         local_upstream_sha: text(repoSyncRaw.local_upstream_sha) || null,
@@ -349,6 +318,18 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
   const knowledgeLeaseRaw = asObject(knowledgeRaw.active_lease);
 
   return {
+    state: canonicalState,
+    timeline: asArray(raw.timeline).map((value) => {
+      const entry = asObject(value);
+      const identity = asObject(entry.identity);
+      return {
+        identity: { game_id: text(identity.game_id), harness_id: text(identity.harness_id), event_id: text(identity.event_id), order: numberValue(identity.order), occurred_at: text(identity.occurred_at), command_id: text(identity.command_id) },
+        kind: text(entry.kind), outcome: text(entry.outcome),
+        runId: text(entry.runId) || null, epochId: text(entry.epochId) || null, syncId: text(entry.syncId) || null,
+        source: asObject(entry.source), evidence: asObject(entry.evidence),
+        recovery: entry.recovery ? asObject(entry.recovery) : null,
+      };
+    }),
     game_id: text(raw.game_id),
     harness_revision: numberValue(raw.harness_revision),
     active_workflow: activeWorkflow,
@@ -362,7 +343,6 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
         requested_by: text(request.requested_by),
       };
     }),
-    cycle,
     run,
     repo_sync: repoSync,
     knowledge: {
@@ -404,33 +384,17 @@ export function harnessStateReadModel(dashboard: Dashboard | null): HarnessState
       return { ...event, event_type: text(event.event_type), sequence: numberValue(event.sequence) };
     }),
     available_actions: asArray(raw.available_actions).map(harnessStateActionProjection),
-    compatibility_actions: asArray(raw.compatibility_actions).map(harnessStateActionProjection),
   };
 }
 
 export function harnessStateAction(
-  harnessState: HarnessStateReadModel | null,
+  harnessState: HarnessStateViewModel | null,
   actionId: string,
-): HarnessStateActionProjection | null {
+): DispatchStateActionProjection | null {
   return harnessState?.available_actions.find((action) => action.action_id === actionId) ?? null;
 }
 
-export function harnessStateCompatibilityAction(
-  harnessState: HarnessStateReadModel | null,
-  actionId: string,
-): HarnessStateActionProjection | null {
-  return harnessState?.compatibility_actions.find((action) => action.action_id === actionId) ?? null;
-}
-
-function artifactStatus(value: JsonObject, keys: string[]): boolean {
-  return keys.some((key) => Boolean(value[key]));
-}
-
-function operationLooksPrMode(name: string): boolean {
-  return /pr|qa|handoff|reconcile|split|draft|open/i.test(name);
-}
-
-function prRecordMatchesCycle(record: JsonObject, runId: string, activeBranches: Set<string>): boolean {
+function prRecordMatchesRun(record: JsonObject, runId: string, activeBranches: Set<string>): boolean {
   if (!runId) return true;
   const recordRunId = text(record.runId);
   if (recordRunId) return recordRunId === runId;
@@ -447,7 +411,7 @@ function derivedPrRecords(dashboard: Dashboard | null, hasMeleePrFixture: boolea
   const splitPlan = asObject(asObject(dashboard?.handoff).splitPlan);
   const activeBranches = new Set(asArray(splitPlan.slices).map((slice) => text(asObject(slice).branchName)).filter(Boolean));
   if (records.length > 0) {
-    return records.filter((record) => prRecordMatchesCycle(record, runId, activeBranches)).map((record): PrFlowRecord => {
+    return records.filter((record) => prRecordMatchesRun(record, runId, activeBranches)).map((record): PrFlowRecord => {
       const local = asObject(record.local);
       const validation = asObject(record.validation);
       const sourcePlan = asObject(record.sourcePlan);
@@ -498,267 +462,36 @@ function derivedPrRecords(dashboard: Dashboard | null, hasMeleePrFixture: boolea
     }));
   }
 
-  if (!hasMeleePrFixture) return [];
-  return [
-    {
-      branch: "planned/mock/melee-match-slice-a",
-      ci: "",
-      comments: 0,
-      displayName: "Planned match slice A",
-      files: ["18 routed warning-only candidate files"],
-      localBranch: "",
-      localStatus: "not_prepared",
-      localWorktreePath: "",
-      prepStartedAt: "",
-      prNumber: NaN,
-      repairNote: "",
-      reviewSubState: "",
-      source: "current_objective_fixture",
-      sourceDetail: "current_objective_fixture",
-      status: "planned_mock",
-      title: "Mock PR slice from routed QA handoff state",
-      url: "",
-      validationStatus: "not_run",
-    },
-    {
-      branch: "planned/mock/melee-match-slice-b",
-      ci: "",
-      comments: 0,
-      displayName: "Planned match slice B",
-      files: ["ship set isolation required before draft opening"],
-      localBranch: "",
-      localStatus: "blocked",
-      localWorktreePath: "",
-      prepStartedAt: "",
-      prNumber: NaN,
-      repairNote: "",
-      reviewSubState: "",
-      source: "current_objective_fixture",
-      sourceDetail: "current_objective_fixture",
-      status: "blocked",
-      title: "Blocked until PR promotion gate is clean",
-      url: "",
-      validationStatus: "failed",
-    },
-  ];
+  return [];
 }
 
-export function deriveCycleView(dashboard: Dashboard | null, config: UiConfig | null, form: FormState): CycleView {
+export function deriveHarnessView(dashboard: Dashboard | null, config: UiConfig | null, form: FormState): HarnessView {
   const harnessState = harnessStateReadModel(dashboard);
-  const game =
-    dashboard?.game ??
-    config?.availableGames.find((item) => item.id === form.gameId) ??
-    config?.selectedGame ??
-    null;
-  const selectedProcessName = processName(form.processName || game?.processName);
-  const process = processView(dashboard, selectedProcessName);
-  const canonicalCycle = asObject(dashboard?.cycle);
-  const canonicalGates = asObject(canonicalCycle.gates);
-  const canonicalPhases = asObject(canonicalCycle.phases);
-  // The Prepare stage is retired as a UI framing. The preparing phase still
-  // exists server-side; the run configuration and automatic baseline status
-  // render on the Run page, so only their state is derived here.
-  const preparingPhase = asObject(canonicalPhases.preparing);
-  const prepareSync = asObject(preparingPhase.sync);
-  const prepareIntake = asObject(preparingPhase.intake);
-  const prepareKnowledge = asObject(preparingPhase.knowledge);
-  const prepareBaseline = asObject(preparingPhase.baseline);
-  const intakeDone = text(prepareIntake.status) === "complete" || Boolean(prepareIntake.completedAt);
-  const knowledgeDone = text(prepareKnowledge.status) === "complete" || Boolean(prepareKnowledge.completedAt);
-  const baselineDone = text(prepareBaseline.status) === "complete" || Boolean(prepareBaseline.completedAt);
-  const canonicalPhase = text(canonicalCycle.phase);
-  const canonicalSubphase = text(canonicalCycle.activeSubphase);
-  const canonicalStatus = text(canonicalCycle.status);
-  const canonicalCycleId = harnessState?.cycle?.cycle_uuid || text(canonicalCycle.cycleUuid, text(canonicalCycle.id));
-  const canonicalBlockers = asArray(canonicalCycle.blockers)
-    .map(asObject)
-    .map((blocker) => text(blocker.message, text(blocker.code)))
-    .filter(Boolean);
-  const hasCanonicalCycle = Boolean(canonicalCycleId && canonicalPhase);
-  const status = asObject(dashboard?.status);
-  const run = asObject(status.run);
-  const runStatus = text(run.status);
-  const runId = text(run.id);
-  const completedLegacyRun = Boolean(runId) && runStatus === "completed" && !hasCanonicalCycle;
-  const activeClaims = numberValue(status.activeClaims, 0);
+  const canonicalState = harnessState?.state;
+  const game = dashboard?.game ?? config?.availableGames.find((item) => item.id === form.gameId) ?? config?.selectedGame ?? null;
+  const process = processView(dashboard, processName(form.processName || game?.processName));
+  const run = harnessState?.run;
   const campaign = asObject(dashboard?.campaign);
-  const head = asObject(campaign.head);
   const handoff = asObject(dashboard?.handoff);
-  const checkpoint = asObject(handoff.checkpoint || dashboard?.checkpoint);
-  const qa = asObject(handoff.qa);
-  const qaRepair = asObject(handoff.qaRepair);
-  const splitPlan = asObject(handoff.splitPlan);
-  const ship = asObject(handoff.ship);
   const prs = asObject(dashboard?.prs);
-  const rawPrRecords = asArray(prs.records).map(asObject);
   const operation = asObject(asObject(dashboard?.process).operation);
-  const operationStatus = text(operation.status);
-  const operationName = text(operation.name);
-  const operationActive = operationStatus === "running" || asObject(dashboard?.process).freshRunActive === true;
-  const syncing = asObject(dashboard?.process).gameSyncActive === true;
-  const syncLocked = runStatus === "active";
-  const handoffCanDerivePrMode = !hasCanonicalCycle || canonicalPhase === "pr";
-  const hasHandoffEvidence =
-    !completedLegacyRun &&
-    handoffCanDerivePrMode &&
-    (artifactStatus(checkpoint, ["id", "checkpointPath", "prCandidatesPath"]) ||
-      artifactStatus(qa, ["status", "summaryPath", "prReportPath"]) ||
-      artifactStatus(qaRepair, ["status", "recommendation", "schema_version", "summaryPath", "shipStatusPath"]) ||
-      artifactStatus(splitPlan, ["status", "summaryPath", "outputPath", "matchSlices"]) ||
-      artifactStatus(ship, ["status", "patchPath"]) ||
-      rawPrRecords.length > 0 ||
-      operationLooksPrMode(operationName));
-  const hasMeleePrFixture = game?.id === "melee" && !process.running && runStatus !== "active" && !completedLegacyRun && rawPrRecords.length === 0;
-  const modeEvidence: string[] = [];
-  if (hasCanonicalCycle) modeEvidence.push(`canonical phase ${prettyStatus(canonicalPhase)}${canonicalSubphase ? ` / ${prettyStatus(canonicalSubphase)}` : ""}`);
-  if (canonicalBlockers.length > 0) modeEvidence.push(`${canonicalBlockers.length.toLocaleString()} canonical blocker(s)`);
-  if (process.running) modeEvidence.push("worker process running");
-  if (activeClaims > 0) modeEvidence.push(`${activeClaims.toLocaleString()} active claim(s)`);
-  if (runStatus === "active") modeEvidence.push("run status active");
-  if (hasHandoffEvidence) modeEvidence.push("handoff, QA, split, ship, or PR evidence exists");
-  if (hasMeleePrFixture && !hasHandoffEvidence) modeEvidence.push("current Melee PR-flow planned/mock fixture");
-
-  let mode: CycleView["mode"] = "none";
-  if (canonicalPhase === "running") mode = "run";
-  else if (canonicalPhase === "pr") mode = "pr";
-  else if (canonicalPhase === "preparing" || canonicalPhase === "complete") mode = "none";
-  else if (process.running || activeClaims > 0) mode = "run";
-  else if (hasHandoffEvidence || hasMeleePrFixture) mode = "pr";
-  else if (runStatus === "active" || (runId && !completedLegacyRun)) mode = "run";
-
-  const hasActivePrCycle = !completedLegacyRun && (canonicalPhase === "pr" || mode === "pr" || hasHandoffEvidence || hasMeleePrFixture);
-  const prRecords = hasActivePrCycle ? derivedPrRecords(dashboard, hasMeleePrFixture) : [];
-  const prBlockedReasons: string[] = [];
-  const shipStatus = text(ship.status);
-  const qaStatus = text(asObject(qa.prPromotion).status, text(qa.status));
-  const qaRepairStatus = text(qaRepair.recommendation, text(qaRepair.status));
-  if (hasActivePrCycle) {
-    if (shipStatus && shipStatus !== "pr_ready") prBlockedReasons.push(`ship set ${prettyStatus(shipStatus)}`);
-    if (qaStatus === "blocked" || qaStatus === "failed") prBlockedReasons.push(`QA ${prettyStatus(qaStatus)}`);
-    if (qaRepairStatus && !["passed", "clean", "pr_ready"].includes(qaRepairStatus)) prBlockedReasons.push(`QA repair ${prettyStatus(qaRepairStatus)}`);
-    if (canonicalPhase === "pr") prBlockedReasons.push(...canonicalBlockers);
-    if (hasMeleePrFixture) prBlockedReasons.push("current PR repair campaign is routed-blocked; isolate ship set before draft opening");
-  }
-
-  const activePrStatuses = new Set(["planned", "planned_mock", "branch_pushed", "draft", "open", "changes_requested", "blocked"]);
-  const unresolvedPrRecords = prRecords.filter((record) => activePrStatuses.has(record.status));
-  const localPrRecords = prRecords.filter((record) => !["merged", "closed"].includes(record.status) && ["ready", "blocked", "dirty"].includes(record.localStatus));
-  const newCycleReasons: string[] = [];
-  if (hasCanonicalCycle && canonicalStatus !== "complete") newCycleReasons.push(`canonical cycle is ${prettyStatus(canonicalPhase)}${canonicalSubphase ? ` / ${prettyStatus(canonicalSubphase)}` : ""}`);
-  if (canonicalBlockers.length > 0) newCycleReasons.push(...canonicalBlockers);
-  if (process.running) newCycleReasons.push("worker process is running or detached");
-  if (activeClaims > 0) newCycleReasons.push(`${activeClaims.toLocaleString()} active claim(s) remain`);
-  if (runStatus === "active") newCycleReasons.push("run status is active");
-  if (hasActivePrCycle && unresolvedPrRecords.length > 0) newCycleReasons.push(`${unresolvedPrRecords.length.toLocaleString()} PR slice(s) unresolved`);
-  if (hasActivePrCycle && localPrRecords.length > 0) newCycleReasons.push(`${localPrRecords.length.toLocaleString()} local PR workspace(s) unresolved`);
-  if (hasActivePrCycle && prBlockedReasons.length > 0) newCycleReasons.push(...prBlockedReasons);
-  if (head.dirty === true) newCycleReasons.push("campaign head is dirty");
-
-  const handoffIdle = Boolean(runId) && !completedLegacyRun && !process.running && activeClaims === 0 && !syncing && !operationActive;
-  const handoffReason = !runId
-    ? "No run yet."
-    : completedLegacyRun
-      ? "This legacy run is complete."
-      : process.running
-        ? "Stop workers first."
-        : syncing
-          ? "Sync is in progress."
-          : operationActive
-            ? `${text(operation.label, "An operation")} is in progress.`
-            : activeClaims > 0
-              ? `Waiting on ${activeClaims.toLocaleString()} active claim(s).`
-              : "";
-
-  const baseline = asObject(handoff.baseline);
-  const baselineSha = text(canonicalCycle.baseSha, text(baseline.baseSha, text(campaign.baseSha)));
-  const branch = canonicalPhase === "preparing"
-    ? text(prepareSync.cycleBranch, text(canonicalCycle.baseRef, text(head.branch, text(campaign.branch, "-"))))
-    : text(head.branch, text(campaign.branch, "-"));
-  const fallbackCycleId = text(asObject(campaign.savePoint).commit_sha, `${game?.id ?? "game"}:no-run`);
-  const activeRunId = completedLegacyRun && mode === "none" ? "" : runId;
-  const activeCycleId = canonicalCycleId || activeRunId || (mode === "none" ? "" : fallbackCycleId);
-  const activeCycleLabel = canonicalCycleId ? `Cycle ${shortId(canonicalCycleId)}` : activeRunId ? `Run ${shortId(activeRunId)}` : "No active cycle";
-  const recommendedSub = harnessState?.active_workflow?.kind === "sync" ? "sync" : canonicalPhase === "preparing" ? "run" : canonicalPhase === "pr" ? "pr" : canonicalPhase === "running" ? "run" : mode === "pr" ? "pr" : mode === "run" ? "run" : "done";
-  const cycleStageStates: CycleView["cycleStageStates"] = {
-    run: text(asObject(canonicalPhases.running).completed_at) ? "done" : "todo",
-    pr: text(asObject(canonicalPhases.pr).completed_at) ? "done" : "todo",
-    done: text(canonicalCycle.completedAt) || canonicalStatus === "complete" || canonicalPhase === "complete" || (completedLegacyRun && !hasCanonicalCycle) ? "done" : "todo",
-  };
-  const canStartWorkers = hasCanonicalCycle
-    ? booleanValue(canonicalGates.can_start_workers)
-    : mode === "run" && !process.running && !syncing && !operationActive;
-  const canOpenPrs = hasCanonicalCycle
-    ? booleanValue(canonicalGates.can_publish_prs) || booleanValue(canonicalGates.can_prepare_prs)
-    : mode !== "none" && !process.running && activeClaims === 0 && !syncing && !operationActive;
-  const canCompleteRun =
-    !hasCanonicalCycle &&
-    Boolean(runId) &&
-    (runStatus === "active" || runStatus === "paused") &&
-    !process.running &&
-    activeClaims === 0 &&
-    !syncing &&
-    !operationActive;
-  // The server's "preparing" phase still exists as a contract; the UI no
-  // longer presents it as a stage, so it reads as a neutral not-started state.
-  const modeLabel =
-    canonicalPhase === "preparing"
-      ? "Not started"
-      : canonicalPhase === "complete"
-        ? "Complete"
-        : mode === "pr"
-          ? "PR Mode"
-          : mode === "run"
-            ? "Run Mode"
-            : "No Active Cycle";
-
+  const operationActive = operation.status === "running";
+  const syncing = harnessState?.active_workflow?.kind === "sync" || canonicalState?.execution.workflow === "sync";
+  const activeClaims = run?.running ?? numberValue(dashboard?.status?.activeClaims);
+  const ready = Boolean(canonicalState?.source.head) && Object.values(canonicalState?.readiness ?? {}).every((status) => status === "ready") && canonicalState?.execution.blockers.length === 0;
+  const mode = run && ["active", "paused", "ready"].includes(run.status) ? "run" as const : "none" as const;
   return {
-    activeCycleId,
-    activeCycleLabel,
-    activeClaims,
-    baselineLabel: baselineSha ? baselineSha.slice(0, 10) : "not built",
-    branchLabel: `${branch}${head.dirty === true ? " dirty" : ""}`,
-    canCompleteRun,
-    canOpenPrs,
-    canStartWorkers,
-    canonicalBlockers,
-    canonicalGates,
-    canonicalPhase,
-    canonicalSubphase,
-    handoffIdle,
-    handoffReason,
-    hasMeleePrFixture,
-    mode,
-    modeEvidence,
-    modeLabel,
-    newCycleBlocked: newCycleReasons.length > 0,
-    newCycleReasons,
-    operationActive,
-    operationLabel: text(operation.label, "An operation"),
-    prBlockedReasons,
-    prRecords,
-    prepareState: {
-      baseline: prepareBaseline,
-      baselineDone,
-      intakeDone,
-      knowledgeDone,
-      readyToStartRun: hasCanonicalCycle && canonicalPhase === "preparing" && !process.running && activeClaims === 0 && !syncing && !operationActive,
-    },
-    prSummary: {
-      checkpoint,
-      qa,
-      qaRepair,
-      ship,
-      splitPlan,
-      upstreamOpen: numberValue(prs.upstreamOpen, NaN),
-      warning: text(prs.warning),
-    },
-    process,
-    game,
-    harnessState,
-    recommendedSub,
-    runStatus,
-    cycleStageStates,
-    syncLocked,
-    syncing,
+    harnessId: canonicalState?.identity.harness_id ?? "", harnessLabel: canonicalState ? `Harness ${shortId(canonicalState.identity.harness_id)}` : "Not initialized",
+    activeClaims, baselineLabel: canonicalState?.source.upstream_revision?.slice(0, 10) ?? "Not recorded", branchLabel: text(asObject(campaign.head).branch, "-"),
+    canOpenPrs: !process.running && !syncing && activeClaims === 0,
+    canStartWorkers: ready && !process.running && !syncing && !operationActive,
+    canonicalBlockers: canonicalState?.execution.blockers.map((blocker) => blocker.message) ?? [],
+    canonicalPhase: canonicalState?.execution.workflow ?? "none", canonicalSubphase: run?.scheduler_condition ?? "idle",
+    handoffIdle: !process.running && activeClaims === 0 && !syncing && !operationActive, handoffReason: syncing ? "Sync is in progress" : process.running ? "Workers are running" : "",
+    mode, modeEvidence: canonicalState ? [`Desired ${canonicalState.execution.desired}`, `Status ${canonicalState.execution.status}`] : [], modeLabel: canonicalState?.execution.status ?? "Not initialized",
+    operationActive, operationLabel: text(operation.label), prBlockedReasons: [], prRecords: derivedPrRecords(dashboard, false),
+    prepareState: { baseline: {}, baselineDone: canonicalState?.readiness.build === "ready", intakeDone: canonicalState?.readiness.sources === "ready", knowledgeDone: canonicalState?.readiness.sources === "ready", readyToStartRun: ready && !process.running && activeClaims === 0 && !syncing && !operationActive },
+    prSummary: { checkpoint: asObject(handoff.checkpoint), qa: asObject(handoff.qa), qaRepair: asObject(handoff.qaRepair), ship: asObject(handoff.ship), splitPlan: asObject(handoff.splitPlan), upstreamOpen: numberValue(prs.upstreamOpen, NaN), warning: text(prs.warning) },
+    process, game, harnessState, recommendedSub: syncing ? "sync" : "run", runStatus: run?.status ?? "", syncLocked: process.running || activeClaims > 0, syncing,
   };
 }

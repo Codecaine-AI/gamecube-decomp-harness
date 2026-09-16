@@ -1,0 +1,77 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyspecials",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecials:ftKb_SpecialAirS_Enter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clears cmd_vars[0]. If u.kb.x64 is false, assigns specials_aerial_vertical_momentum to self_vel.y and sets x64 true; otherwise it skips that local velocity assignment. Requests ftKb_MS_SpecialAirS with arguments 0, 0.0f, 1.0f, 0.0f, NULL, calls ftAnim_8006EBA4 and installs fn_800F53AC as accessory4_cb. The assignment is not additive and performs no sign or finite-value check. Re-entry while x64 remains true skips reapplication; a universal once-per-airtime invariant is unproved.",
+        "rationale": "Replaces unsupported upward-launch wording with exact guarded source behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecials.c#L108-L122",
+            "why": "Complete entry shows the guard, assignment and publication order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecials:ftKb_SpecialAirS_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls ft_80081D0C and performs move-local cleanup only for a nonzero result: calls it_802ADC34 for a non-NULL u.kb.hat.x0 and clears it, unconditionally clears u.kb.x64, then requests ftCo_LandingFallSpecial_Enter(gobj, false, specials_landing_lag). The landing callee can instead select HammerLanding; otherwise it supplies (0.1F + fp->x2EC) / landing_lag as animation rate. Neither this caller nor that division validates zero, negative, infinite or NaN lag. Exact contact semantics are not inferred from GroundOrAir names.",
+        "rationale": "Preserves the proved guard and writes while incorporating optional landing and float boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecials.c#L163-L176",
+            "why": "Shows exact branch and arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+            "why": "Shows override and unchecked division."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftKirby/ftkirbyspecials.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Implements Kirby ground/air SpecialS Hammer entry and action callbacks, a shared command-driven article lifecycle with callback-conflict diagnostics, and SpecialN helpers exporting fighter position, scaled star-state collision bounds, recovery velocity parameters and an HSD_Joint accessory descriptor. Source diagnostic arrays are present; compiled section contents, full object layouts and upstream capture/copy gameplay causation remain unresolved.",
+        "rationale": "Records complete owned TU scope without adopting rendered names or unproved section/layout claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecials.c#L26-L211",
+            "why": "Contains all owned functionality."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkirbyhammer.c#L50-L72",
+            "why": "Explicit constructor kind establishes Hammer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ThrownKirby.c#L124-L282",
+            "why": "Active consumers establish descriptor, geometry and velocity roles."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

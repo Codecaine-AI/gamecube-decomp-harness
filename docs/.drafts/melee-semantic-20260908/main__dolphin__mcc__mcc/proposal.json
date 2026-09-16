@@ -1,0 +1,131 @@
+{
+  "tu": "main/dolphin/mcc/mcc",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/mcc/mcc:MCCExit"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Deactivates MCC lifecycle state. When initialized, it requests closure of each locally open channel in 1\u201315, ignores individual close results, and then clears gLastError. When already uninitialized it records error 1. Both paths clear gMccInitialized and gMccSession; successful channel closure and release of HIO ownership are not guaranteed.",
+        "rationale": "Corrects guaranteed-shutdown wording: close failures are ignored, including rejection while the asynchronous resource is busy.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L713-L729",
+            "why": "Complete exit control flow and ignored close results."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L984-L1003",
+            "why": "Close can reject busy-resource state."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/mcc/mcc:MCCInit"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Sets up MCC communication and advances its host/target initialization handshake. Fresh initialization validates EXI channel 0\u20132, initializes HIO, attempts adapter-mode setup and initial notification, installs the system callback, partially clears channel records, resets asynchronous state, and delegates to mccInitializeCheck. Already-initialized calls only invalidate channel metadata and rerun that checker. The caller timeout controls an optional peer wait, not an overall initialization deadline: zero skips that wait, and a successful return need not imply an active session.",
+        "rationale": "Preserves setup purpose while correcting the unconditional readiness/deadline implication.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L613-L711",
+            "why": "Conditional peer wait, success without activation, and fresh/reuse setup branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L343-L352",
+            "why": "Reset does not clear every runtime field."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/mcc/mcc:MCCSetChannelEventMask"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Configures suppression of generated MCC channel events, returning the previous mask so callers can restore it. A set bit disables the corresponding generated peer notification or local callback; clear bits permit delivery. The setter stores only the low 16 bits. This is not an incoming-event subscription filter: MailboxCheck dispatches received channel events without consulting eventMask.",
+        "rationale": "Corrects mask polarity and distinguishes generated-event suppression from incoming mailbox dispatch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L870-L892",
+            "why": "Old-mask return and low-16-bit storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L1288-L1332",
+            "why": "Complement-mask tests enable generated completion events."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L569-L597",
+            "why": "Received-event dispatch has no mask guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/mcc/mcc:WaitAMinute"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Captures an initial OS tick and repeatedly reads the integer through the volatile flag pointer. While it differs from value, fresh tick samples feed an elapsed-tick calculation, the source's high-bit correction, and conversion to seconds. The helper does not modify the flag or gLastError. It returns 1 on observing the expected value or 0 on timeout; the timeout calls mccDebugPrint, whose empty implementation produces no observable message.",
+        "rationale": "Retains the established flow but removes the incorrect diagnostic-output claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L494-L508",
+            "why": "Tick calculation, volatile reads and return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L57-L59",
+            "why": "Empty diagnostic hook."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/mcc/mcc:WaitAMinute"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns 1 immediately if the flag already equals the expected value. Otherwise it busy-polls without yielding until equality is observed or the implemented elapsed-seconds calculation reaches timeout. Timeout calls the empty debug hook and returns 0 without changing the flag or MCC error state. Callers such as MCCStreamWrite clear consumed flags after successful waits and translate timeout failure to gLastError = 2.",
+        "rationale": "Corrects the assertion that timeout prints a message while retaining polling and caller-owned state transitions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L494-L508",
+            "why": "Immediate success, polling and timeout."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L57-L59",
+            "why": "No printed output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mcc/mcc.c#L115-L146",
+            "why": "Caller clears flags and publishes timeout errors."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

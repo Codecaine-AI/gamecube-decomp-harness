@@ -1,0 +1,95 @@
+24: void ftCo_CargoWait2_Anim(Fighter_GObj* gobj)
+25: {
+26:     Fighter* fp = gobj->user_data;
+27:     ftCo_8008F744(gobj);
+28:     if (!fp->x221C_b6) {
+29:         if (fp->ground_or_air == GA_Air) {
+30:             ftCo_8009BC58(gobj);
+31:         } else {
+32:             ftCo_8009B518(gobj);
+33:         }
+34:     }
+35: }
+36: 
+37: void ftCo_CargoWait2_Phys(Fighter_GObj* gobj)
+38: {
+39:     ftCo_Damage_Phys(gobj);
+40: }
+41: 
+42: void ftCo_CargoWait2_Coll(Fighter_GObj* gobj)
+43: {
+44:     Fighter* fp = gobj->user_data;
+45:     if (fp->ground_or_air == GA_Ground) {
+46:         if (ft_80082708(gobj) == GA_Ground) {
+47:             ftCommon_8007D5D4(fp);
+48:         }
+49:     } else if (ft_80081D0C(gobj) != GA_Ground) {
+50:         ftCommon_8007D7FC(fp);
+51:     }
+52: }
+53: 
+54: static inline FtMotionId inlineA0(Fighter* fp)
+55: {
+56:     FtMotionId msid = fp->motion_id;
+57:     if (fp->input.pressed_buttons & HSD_PAD_AB) {
+58:         if (ABS(fp->input.lstick[0].x) >= p_ftCommonData->x98) {
+59:             if (fp->input.lstick[0].x * fp->facing_dir > 0) {
+60:                 msid = fp->x2CC->x4_motion_state;
+61:                 msid += 10;
+62:             } else {
+63:                 msid = fp->x2CC->x4_motion_state;
+64:                 msid += 11;
+65:             }
+66:         } else {
+67:             if (fp->input.lstick[0].y >=
+68:                 p_ftCommonData->attackhi3_stick_threshold_y)
+69:             {
+70:                 msid = fp->x2CC->x4_motion_state;
+71:                 msid += 12;
+72:             } else if (fp->input.lstick[0].y <= p_ftCommonData->xB0) {
+73:                 msid = fp->x2CC->x4_motion_state;
+74:                 msid += 13;
+75:             }
+76:         }
+77:     }
+78:     return msid;
+79: }
+80: 
+81: bool ftCo_8009BF3C(Fighter_GObj* gobj)
+82: {
+83:     FtMotionId msid = inlineA0(gobj->user_data);
+84:     if (msid != GET_FIGHTER(gobj)->motion_id) {
+85:         ftCo_8009C02C(gobj, msid);
+86:         return true;
+87:     }
+88:     return false;
+89: }
+90: 
+91: void ftCo_8009C02C(Fighter_GObj* gobj, FtMotionId msid)
+92: {
+93:     u8 _[16] = { 0 };
+94:     Fighter* fp = gobj->user_data;
+95:     {
+96:         MotionFlags mf;
+97:         FtMotionId msid1;
+98:         if (fp->ground_or_air == GA_Air) {
+99:             mf = 1;
+100:         } else {
+101:             mf = 0;
+102:         }
+103:         if (fp->ground_or_air == GA_Air) {
+104:             msid1 = msid + 4;
+105:         } else {
+106:             msid1 = msid;
+107:         }
+108:         Fighter_ChangeMotionState(gobj, msid1, mf, 0, 1, 0, NULL);
+109:     }
+110:     ftAnim_8006EBA4(gobj);
+111:     ftCommon_8007E2F4(fp, 0x1FF);
+112:     {
+113:         FtMotionId msid1 = msid;
+114:         msid1 -= fp->x2CC->x4_motion_state + 10;
+115:         msid1 += ftCo_MS_ThrownFF;
+116:         ftCo_800DE3FC(fp->victim_gobj, msid1, 1);
+117:     }
+118: }

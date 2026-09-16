@@ -1,0 +1,880 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-35-write-safety",
+  "title": "Write Safety",
+  "root": "b-35-write-safety-root-24",
+  "blocks": {
+    "b-35-write-safety-root-24": {
+      "id": "b-35-write-safety-root-24",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-35-write-safety-target-claim-write-sets-2",
+        "b-35-write-safety-write-safety-starts-with-3",
+        "b-35-write-safety-claim-rule-4",
+        "b-35-write-safety-before-editing-a-worker-5",
+        "b-35-write-safety-text-6",
+        "b-35-write-safety-write-set-categories-25",
+        "b-35-write-safety-the-necessity-ladder-26",
+        "b-35-write-safety-widening-requests-travel-27",
+        "b-35-write-safety-rollout-controls-29",
+        "b-35-write-safety-mode-selection-33",
+        "b-35-write-safety-widening-request-shape-34",
+        "b-35-write-safety-rung3-decision-35",
+        "b-write-safety-widening-denial-response",
+        "79b32949-4a38-4ede-ba15-561f12ce1026",
+        "3f2d9943-bb97-48cf-aa42-7b8a11156eca",
+        "b-35-write-safety-owning-header-validation-36",
+        "b-35-write-safety-recycled-targets-reset-28",
+        "b-35-write-safety-workspace-rule-7",
+        "b-35-write-safety-the-main-checkout-remain-8",
+        "b-35-write-safety-risk-rule-20",
+        "safety-integration"
+      ]
+    },
+    "b-35-write-safety-target-claim-write-sets-2": {
+      "id": "b-35-write-safety-target-claim-write-sets-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Write safety fences every durable worker mutation, limits source changes to an approved category-typed write set, isolates attempts in host-provisioned sandbox workspaces, and serializes selected output into harness ancestry."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-write-safety-starts-with-3": {
+      "id": "b-35-write-safety-write-safety-starts-with-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The target claim is the live authorization record. Lease expiry, cancellation, or reaping invalidates the ClaimToken inside the same transaction that would mutate worker evidence, while explicit host markers reserve recovery and settlement operations to named host paths."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-claim-rule-4": {
+      "id": "b-35-write-safety-claim-rule-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Fenced Mutations"
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-before-editing-a-worker-5": {
+      "id": "b-35-write-safety-before-editing-a-worker-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The host creates the claim, worker state, lease, target-source write set, and ClaimToken atomically with the worker-job claim. The six mutation operations below accept that current authority and reject stale children before durable state changes."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-text-6": {
+      "id": "b-35-write-safety-text-6",
+      "type": "interaction-surface",
+      "props": {
+        "operations": [
+          {
+            "name": "recordWorkerCheckpoint",
+            "description": "Validate authority and append one runner-owned checkpoint.",
+            "params": [
+              {
+                "name": "input",
+                "type": "WorkerCheckpointInput",
+                "description": "Includes authority: WorkerWriteAuthority and checkpoint evidence."
+              }
+            ],
+            "returns": "WorkerCheckpointRecord"
+          },
+          {
+            "name": "closeWorkerState",
+            "description": "Validate authority and close the worker lifecycle ledger.",
+            "params": [
+              {
+                "name": "input",
+                "type": "WorkerStateCloseInput",
+                "description": "Includes authority: WorkerWriteAuthority and the runner-owned terminal outcome."
+              }
+            ],
+            "returns": "void"
+          },
+          {
+            "name": "widenClaimWriteSet",
+            "description": "Apply an approved write-set decision to the live claim.",
+            "params": [
+              {
+                "name": "claimId",
+                "type": "string"
+              },
+              {
+                "name": "entries",
+                "type": "WriteSetEntry[]"
+              },
+              {
+                "name": "authority",
+                "type": "WorkerWriteAuthority",
+                "description": "Verifies ClaimToken { jobId, kind, leaseId } or an explicit { host: string } marker in the same transaction."
+              }
+            ],
+            "returns": "{ writeSet: string[]; entries: WriteSetEntry[] }"
+          },
+          {
+            "name": "setClaimWorktreePath",
+            "description": "Attach the sandbox workspace path to the claim. The field name remains worktreePath.",
+            "params": [
+              {
+                "name": "claimId",
+                "type": "string"
+              },
+              {
+                "name": "workerStateId",
+                "type": "string"
+              },
+              {
+                "name": "worktreePath",
+                "type": "string"
+              },
+              {
+                "name": "authority",
+                "type": "WorkerWriteAuthority",
+                "description": "Verifies ClaimToken { jobId, kind, leaseId } or an explicit { host: string } marker in the same transaction."
+              }
+            ],
+            "returns": "void"
+          },
+          {
+            "name": "appendWorkerSessionId",
+            "description": "Append an executor session identity to the worker ledger.",
+            "params": [
+              {
+                "name": "workerStateId",
+                "type": "string"
+              },
+              {
+                "name": "sessionId",
+                "type": "string"
+              },
+              {
+                "name": "authority",
+                "type": "WorkerWriteAuthority",
+                "description": "Verifies ClaimToken { jobId, kind, leaseId } or an explicit { host: string } marker in the same transaction."
+              }
+            ],
+            "returns": "void"
+          },
+          {
+            "name": "updateWorkerStateBaselineScore",
+            "description": "Record the runner-owned baseline used to test improvement.",
+            "params": [
+              {
+                "name": "workerStateId",
+                "type": "string"
+              },
+              {
+                "name": "score",
+                "type": "number | null"
+              },
+              {
+                "name": "authority",
+                "type": "WorkerWriteAuthority",
+                "description": "Verifies ClaimToken { jobId, kind, leaseId } or an explicit { host: string } marker in the same transaction."
+              }
+            ],
+            "returns": "void"
+          }
+        ],
+        "title": "ClaimToken-fenced worker mutations"
+      },
+      "children": []
+    },
+    "b-35-write-safety-write-set-categories-25": {
+      "id": "b-35-write-safety-write-set-categories-25",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Widening and Reset"
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-the-necessity-ladder-26": {
+      "id": "b-35-write-safety-the-necessity-ladder-26",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Rung",
+          "Category",
+          "Scope",
+          "Required evidence",
+          "Decision"
+        ],
+        "rows": [
+          [
+            "1",
+            [
+              {
+                "insert": "target-source",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Target .c file.",
+            "Target compile and objdiff evidence.",
+            "The initial claim grants it."
+          ],
+          [
+            "2",
+            [
+              {
+                "insert": "config-metadata",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Relevant symbols or splits file.",
+            "Rung-1 failure, symbol or range owner, and before/after objdiff.",
+            "Runner may approve."
+          ],
+          [
+            "3",
+            [
+              {
+                "insert": "owning-header",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Exactly one canonical declaring header.",
+            "Rung-1 and rung-2 failures, expected owner, and declaration evidence.",
+            "Runner approves in header mode, the default."
+          ],
+          [
+            "4",
+            [
+              {
+                "insert": "foreign-source",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Definition-owner .c file.",
+            "Every lower-rung failure plus definition owner and consumer scope.",
+            "Always routed_cross_module; never auto-granted."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-35-write-safety-widening-requests-travel-27": {
+      "id": "b-35-write-safety-widening-requests-travel-27",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A request names one category, exact paths, the mismatched declaration or symbol, expected owner, measured comparison evidence, and every lower-rung failure. The durable decision vocabulary is "
+        },
+        {
+          "insert": "approved",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | "
+        },
+        {
+          "insert": "denied",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | "
+        },
+        {
+          "insert": "routed_cross_module",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-rollout-controls-29": {
+      "id": "b-35-write-safety-rollout-controls-29",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Mode",
+          "Runtime effect"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "off",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Keep claims target-only and do not evaluate widening requests."
+          ],
+          [
+            [
+              {
+                "insert": "shadow",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Record decisions but expose or apply no grant."
+          ],
+          [
+            [
+              {
+                "insert": "config",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Apply approved config-metadata grants."
+          ],
+          [
+            [
+              {
+                "insert": "header",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Apply approved config-metadata and owning-header grants."
+          ]
+        ],
+        "title": "Write-set widening modes; default: header"
+      },
+      "children": []
+    },
+    "b-35-write-safety-mode-selection-33": {
+      "id": "b-35-write-safety-mode-selection-33",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The mode is a run-loop flag, "
+        },
+        {
+          "insert": "--write-set-widening <off|shadow|config|header>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", read by "
+        },
+        {
+          "insert": "writeSetWideningArg",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in "
+        },
+        {
+          "insert": "apps/server/src/core/game-registry/runtime-options.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/game-registry/runtime-options.ts",
+              "label": "apps/server/src/core/game-registry/runtime-options.ts"
+            }
+          }
+        },
+        {
+          "insert": ". Omitting it selects "
+        },
+        {
+          "insert": "header",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The run loop passes the effective mode on every worker command and records it once per run as a "
+        },
+        {
+          "insert": "write_set_integration_flags",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " event, so the policy a run ran under is auditable. A recorded mode other than "
+        },
+        {
+          "insert": "off",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " also activates confirmed-only PR eligibility in the run checkpoint: tentative checkpoints become deferred patches until the boundary confirms them."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-widening-request-shape-34": {
+      "id": "b-35-write-safety-widening-request-shape-34",
+      "type": "state-shape",
+      "props": {
+        "description": "The widening_request object a worker attaches to its runner_validation_handoff note. The runner parses it with parseWideningRequest; a malformed object is a denial, not a silent drop.",
+        "example": "{\n  \"schema_version\": \"write_set_widening_request_v1\",\n  \"paths\": [\n    \"src/melee/ft/ftcommon.h\"\n  ],\n  \"category\": \"owning-header\",\n  \"rung\": 3,\n  \"evidence\": {\n    \"mismatched_declaration\": {\n      \"symbol\": \"ftCo_800BFFD0\",\n      \"current\": \"void ftCo_800BFFD0(void*);\",\n      \"required\": \"void ftCo_800BFFD0(HSD_GObj*);\",\n      \"expected_owner\": \"src/melee/ft/ftcommon.h\"\n    },\n    \"objdiff\": {\n      \"unit\": \"main/melee/ft/ftcommon\",\n      \"score_without\": 98.0,\n      \"score_with\": null\n    },\n    \"ladder_evidence\": {\n      \"rung1_in_slice\": \"A local redeclaration conflicts with the included prototype.\",\n      \"rung2_config\": \"Symbol metadata cannot change the C parameter type.\"\n    }\n  }\n}",
+        "fields": [
+          {
+            "name": "schema_version",
+            "type": "\"write_set_widening_request_v1\""
+          },
+          {
+            "name": "paths",
+            "type": "string[]",
+            "description": "Repo-relative paths, all from one category. Rung 3 accepts exactly one header."
+          },
+          {
+            "name": "category",
+            "type": "\"config-metadata\" | \"owning-header\" | \"foreign-source\""
+          },
+          {
+            "name": "rung",
+            "type": "2 | 3 | 4",
+            "description": "Must match the category: 2 config-metadata, 3 owning-header, 4 foreign-source."
+          },
+          {
+            "name": "evidence.mismatched_declaration",
+            "type": "{ symbol, current, required, expected_owner }",
+            "description": "expected_owner must be one of the requested paths."
+          },
+          {
+            "name": "evidence.objdiff",
+            "type": "{ unit, score_without, score_with | null, artifact_path? }",
+            "description": "score_without is the measured score at the lower rung; score_with may be null when it could not be measured."
+          },
+          {
+            "name": "evidence.ladder_evidence",
+            "type": "{ rung1_in_slice, rung2_config?, rung3_header? }",
+            "description": "Each lower rung's failure. Rung 3 requires rung2_config; rung 4 requires rung3_header."
+          }
+        ],
+        "name": "WideningRequest",
+        "source": {
+          "path": "apps/server/src/core/harness-runtime/run-state/write-set-categories.ts",
+          "symbol": "WideningRequest"
+        }
+      },
+      "children": []
+    },
+    "b-35-write-safety-rung3-decision-35": {
+      "id": "b-35-write-safety-rung3-decision-35",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Runner policy ("
+        },
+        {
+          "insert": "decideWidening",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") denies a request whose paths span categories, whose rung and category disagree, whose evidence is incomplete, or whose expected owner is not among the requested paths. Rung 2 is approved on complete evidence. Rung 3 additionally requires one header that textually declares the evidence symbol and a mode that allows owning headers ("
+        },
+        {
+          "insert": "header",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " applies the grant, "
+        },
+        {
+          "insert": "shadow",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " only records it). Rung 4 is always "
+        },
+        {
+          "insert": "routed_cross_module",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and emits a "
+        },
+        {
+          "insert": "widening_routed_cross_module",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " event for the operator."
+        }
+      ],
+      "children": []
+    },
+    "b-write-safety-widening-denial-response": {
+      "id": "b-write-safety-widening-denial-response",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A denial or routing comes back to the worker as a repair reason prefixed "
+        },
+        {
+          "insert": "widening_denied",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " or "
+        },
+        {
+          "insert": "widening_routed_cross_module",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; the worker then records "
+        },
+        {
+          "insert": "exact requires cross-file edit to <path>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in its blockers and returns the best gate-clean version inside its write set. In "
+        },
+        {
+          "insert": "config",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " or "
+        },
+        {
+          "insert": "header",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " mode, an unrequested edit outside the write set is not banked: the runner drafts a request from the surfaced paths and returns "
+        },
+        {
+          "insert": "widening_request_required",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " so the worker either justifies or reverts it."
+        }
+      ],
+      "children": []
+    },
+    "79b32949-4a38-4ede-ba15-561f12ce1026": {
+      "id": "79b32949-4a38-4ede-ba15-561f12ce1026",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A worker does not have to wait for its submission to request widening. The runner-side tool "
+        },
+        {
+          "insert": "request_write_set_widening",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " takes "
+        },
+        {
+          "insert": "paths",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "reason",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and optional "
+        },
+        {
+          "insert": "evidence",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", classifies each path, and runs the same "
+        },
+        {
+          "insert": "decideWidening",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " pipeline under the claim's write authority. It answers immediately with "
+        },
+        {
+          "insert": "approved_paths",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", per-path denials with rung guidance, "
+        },
+        {
+          "insert": "write_set_after",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and the mode. In "
+        },
+        {
+          "insert": "shadow",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " mode the decision is recorded but not applied. Repeated identical requests are idempotent."
+        }
+      ],
+      "children": []
+    },
+    "3f2d9943-bb97-48cf-aa42-7b8a11156eca": {
+      "id": "3f2d9943-bb97-48cf-aa42-7b8a11156eca",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "When validation still finds edits outside the write set, the repair feedback lists each path with its category and tells the worker to request those paths, through the tool or the note's "
+        },
+        {
+          "insert": "widening_request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", before resubmitting. An attempt with unresolved out-of-set paths fails hard gates and cannot be selected or integrated. C++ owning headers ("
+        },
+        {
+          "insert": ".hpp",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ") are classified like "
+        },
+        {
+          "insert": ".h",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " headers."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-owning-header-validation-36": {
+      "id": "b-35-write-safety-owning-header-validation-36",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "An approved grant widens the live claim through "
+        },
+        {
+          "insert": "widenClaimWriteSet",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and switches the attempt to scope-following checks ("
+        },
+        {
+          "insert": "validateWidenedChange",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). For an owning header the runner resolves the owner unit and every direct includer from the Ninja dependency map, falling back to an include grep, and runs strict object checks on each; an explicit "
+        },
+        {
+          "insert": "maxConsumers",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ceiling rejects a hot header instead of escalating to a full build. For config metadata it measures the sections of every unit whose address ranges the hunks touch. A passing scoped check is bankable but "
+        },
+        {
+          "insert": "tentative",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " until the epoch boundary's global build confirms it; no per-attempt full build is permitted."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-recycled-targets-reset-28": {
+      "id": "b-35-write-safety-recycled-targets-reset-28",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "An expired, cancelled, or reaped token loses authority. A later claim mints a new token and starts again at target-source; old requests and decisions remain telemetry rather than authorization."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-workspace-rule-7": {
+      "id": "b-35-write-safety-workspace-rule-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Workspaces and Shared Writers"
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-the-main-checkout-remain-8": {
+      "id": "b-35-write-safety-the-main-checkout-remain-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker sandboxes isolate simultaneous attempts and keep unfinished edits out of the harness checkout. The host integrates selected patches serially. Each sandbox owns its compiler resources, while write-set authority remains claim-specific."
+        }
+      ],
+      "children": []
+    },
+    "b-35-write-safety-risk-rule-20": {
+      "id": "b-35-write-safety-risk-rule-20",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Risk",
+          "Control"
+        ],
+        "rows": [
+          [
+            "Same-file or shared-support edits",
+            "Run in isolated sandbox workspaces. Integrate selected checkpoints serially and persist collision evidence."
+          ],
+          [
+            "Unrequested out-of-set edits",
+            "Categorize paths, record telemetry, and return a repair reason; bank only after authorization or revert."
+          ],
+          [
+            "Stale patch base",
+            "Check the patch against current harness ancestry. Persist conflicting paths and failure reasons as a blocking integration outcome."
+          ],
+          [
+            "Shared build/tool pressure",
+            "Use each sandbox's vCPU and local build state. Host jobserver limits apply to host builds."
+          ],
+          [
+            "Shared CSV/artifact writes",
+            "Workers write shards; reducers alone write merged summaries, charts, and artifacts."
+          ],
+          [
+            "Bad integration",
+            "Record scoped passes as tentative; the boundary records confirmation or regression evidence, defers findings, and applies pause gates."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "safety-integration": {
+      "id": "safety-integration",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker Result Integration",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/30-worker-result-integration"
+            }
+          }
+        },
+        {
+          "insert": " owns serial patch application, conflict records, and the base revision used by later workers."
+        }
+      ],
+      "children": []
+    }
+  }
+}

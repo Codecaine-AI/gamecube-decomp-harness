@@ -1,0 +1,175 @@
+{
+  "tu": "main/melee/if/if_2FD9",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L51-L79",
+            "why": "Complete guards and writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L221-L236",
+            "why": "Normal direction producer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects human-only wording to the actual CPU-exclusion predicate and distinguishes the caller's normal directions from the callee's acceptance rules.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2FD9:un_802FD928"
+        },
+        "type": "purpose",
+        "value": "Registers a non-CPU player's supplied arrow state and color in the retained four-entry pool when slot <4, the player's registration flag is clear, and a direction-zero entry is available. The magnifier normally supplies direction 1 for left or 2 for right; the routine itself does not validate direction or positively require a human slot type."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L51-L92",
+            "why": "Allocation and release transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L138-L219",
+            "why": "Only states 0/1/2 have cases; initialization clears state."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unconditional activation and release-only lifetime claims with the actual unchecked-state and reset behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2FD9:un_802FD928"
+        },
+        "type": "state_behavior",
+        "value": "Ignores slots >=4, CPU slots, already registered players, and requests with no direction-zero entry available. On success, the first direction-zero entry receives the owner, supplied state byte and copied GXColor, and the player becomes registered. Duplicate requests do not refresh color or direction. The state byte is unchecked: zero leaves the entry available despite setting registration, while values above 2 occupy it without selecting a normal update-switch case. Normal states 1/2 persist until release or initialization clears direction and registration. The color pointer is dereferenced without a NULL check only on successful allocation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L81-L92",
+            "why": "Signature and conditional indexing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L178-L238",
+            "why": "Slot derivation and narrowing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L596-L610",
+            "why": "Six-entry construction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's four-entry caller-domain claim while retaining the exact signature.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2FD9:un_802FD9D8"
+        },
+        "type": "inferred_type",
+        "value": "Void routine with signature `void (unsigned char slot)`. The argument is a player-slot identifier, compared with each stored owner and used as a registration-array index only on a match. The magnifier caller derives it from a six-entry player array and narrows it to u8; this routine has no internal range guard."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L20-L92",
+            "why": "Static storage, bounded owner writes and unguarded owner-match release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L138-L141",
+            "why": "Inactive hiding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L596-L610",
+            "why": "Six possible caller entries."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the caller domain and active-only characterization without falsely labeling normal slot-4/5 release calls as unconditional invalid writes.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2FD9:un_802FD9D8"
+        },
+        "type": "state_behavior",
+        "value": "Scans all four stored owners without checking whether entries are active. For every owner equal to slot, clears x24[slot] registration and x28[i] direction, preserving owner, color and GObj. It does not stop at the first match. Cleared entries are available for later requests and hidden by their next update. There is no slot bound; the six-entry magnifier caller can pass 4/5, but these cannot match owners under the source-visible invariant that static owners start at zero and successful requests write only slots 0..3. An out-of-range matching owner would make the registration write out of bounds."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L192-L219",
+            "why": "Exact construction and state writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L101-L138",
+            "why": "Indexed consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects assignment-array clearing to registration-array clearing and records the resulting preserved-state lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2FD9:un_802FE260"
+        },
+        "type": "data_flow",
+        "value": "Resolves `Stc_rarwmdls` from the shared IfAll archive into the module's DynamicModelDesc**. For indices 0..3 it creates a UI GObj and a JObj hierarchy from descriptor 0, installs a pointer to the corresponding static index byte as user_data, attaches the JObj, registers draw and update callbacks, applies descriptor animation data and evaluates frame 0. It clears per-player registration x24 and per-entry direction x28, stores each GObj in x4, and leaves owner x2C and color x14 unchanged. It also clears the draw latch, resets shared sound owner/counter and samples gm_8016B124() into the suppression byte. Later updates dereference the installed index to consume color and direction."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L51-L138",
+            "why": "Request, release and indexed consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L192-L231",
+            "why": "Initialization and teardown writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes registration clearing from owner-map clearing across request, release and lifecycle operations.",
+        "subject": {
+          "entity_locator": "src/melee/if/if_2FD9.c"
+        },
+        "type": "data_flow",
+        "value": "Requests copy a player slot, state byte and color into an available entry of a four-GObj pool and separately set per-player registration. Each GObj carries a pointer to a stable pool-index byte in user_data; update consumes its indexed color and direction to recolor and position the model. Release clears registration and direction for every matching stored owner but preserves owner and color. Initialization constructs the four GObjs and clears registration/direction without clearing owner/color; teardown requests destruction and nulls retained GObj pointers."
+      },
+      {
+        "confidence": 0.88,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2FD9.c#L81-L92",
+            "why": "Clears matching request state without destruction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifmagnify.c#L221-L238",
+            "why": "Caller chooses request or release."
+          }
+        ],
+        "op": "write",
+        "rationale": "Names the currently unchanged counterpart to Request: it releases per-player request state rather than destroying the retained GObj. This is a behavior-based semantic name, not a recovered original spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2FD9:un_802FD9D8"
+        },
+        "type": "inferred_name",
+        "value": "ifMagnifyArrow_Release"
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

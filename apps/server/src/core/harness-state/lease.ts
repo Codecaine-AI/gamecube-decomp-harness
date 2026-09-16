@@ -16,8 +16,8 @@ import type {
   DispatchRecoveryResult,
   DispatchHandoffRequest,
   HeartbeatDispatchInput,
-  InitializeHarnessStateInput,
-  HarnessState,
+  InitializeDispatchStateInput,
+  DispatchState,
   QueuedDispatchRequest,
   RecoverDispatchInput,
   ReleaseDispatchInput,
@@ -27,7 +27,7 @@ import type {
   TransitionContext,
 } from "./types.js";
 
-type HarnessStateRow = {
+type DispatchStateRow = {
   game_id: string;
   revision: number;
   active_workflow_json: string | null;
@@ -80,11 +80,11 @@ function parseJson<T>(value: string | null, fallback: T, label: string): T {
   try {
     return JSON.parse(value) as T;
   } catch (error) {
-    throw new Error(`Invalid ${label} JSON in harness_state`, { cause: error });
+    throw new Error(`Invalid ${label} JSON in dispatch_state`, { cause: error });
   }
 }
 
-function rowToHarnessState(row: HarnessStateRow): HarnessState {
+function rowToDispatchState(row: DispatchStateRow): DispatchState {
   return {
     game_id: row.game_id,
     revision: Number(row.revision),
@@ -98,14 +98,14 @@ function rowToHarnessState(row: HarnessStateRow): HarnessState {
   };
 }
 
-function selectRows(db: Database, gameId?: string): HarnessStateRow[] {
+function selectRows(db: Database, gameId?: string): DispatchStateRow[] {
   const rows = (gameId
-    ? db.query("SELECT * FROM harness_state WHERE game_id = ?").all(gameId)
-    : db.query("SELECT * FROM harness_state ORDER BY game_id ASC LIMIT 2").all()) as HarnessStateRow[];
+    ? db.query("SELECT * FROM dispatch_state WHERE game_id = ?").all(gameId)
+    : db.query("SELECT * FROM dispatch_state ORDER BY game_id ASC LIMIT 2").all()) as DispatchStateRow[];
   return rows;
 }
 
-function requireState(store: StateStore, gameId?: string): HarnessState {
+function requireState(store: StateStore, gameId?: string): DispatchState {
   const rows = selectRows(store.db, gameId);
   if (rows.length === 0) {
     throw new Error(gameId ? `Game state is not initialized for ${gameId}` : "Game state is not initialized");
@@ -113,24 +113,24 @@ function requireState(store: StateStore, gameId?: string): HarnessState {
   if (!gameId && rows.length > 1) {
     throw new Error("Game id is required when a state database contains more than one game");
   }
-  return rowToHarnessState(rows[0]!);
+  return rowToDispatchState(rows[0]!);
 }
 
-export function getHarnessState(store: StateStore, gameId?: string): HarnessState | null {
+export function getDispatchState(store: StateStore, gameId?: string): DispatchState | null {
   const rows = selectRows(store.db, gameId);
   if (rows.length === 0) return null;
   if (!gameId && rows.length > 1) {
     throw new Error("Game id is required when a state database contains more than one game");
   }
-  return rowToHarnessState(rows[0]!);
+  return rowToDispatchState(rows[0]!);
 }
 
-export function initializeHarnessState(store: StateStore, input: InitializeHarnessStateInput): HarnessState {
+export function initializeDispatchState(store: StateStore, input: InitializeDispatchStateInput): DispatchState {
   const at = input.now ?? currentTime();
   store.db
     .query(
       `
-        INSERT INTO harness_state (
+        INSERT INTO dispatch_state (
           game_id, revision, active_workflow_json, queued_requests_json,
           blockers_json, trace_id, caused_by_event_id, created_at, updated_at
         )
@@ -142,13 +142,13 @@ export function initializeHarnessState(store: StateStore, input: InitializeHarne
   return requireState(store, input.gameId);
 }
 
-export const initHarnessState = initializeHarnessState;
+export const initDispatchState = initializeDispatchState;
 
 function leaseId(): string {
   return `lease-${randomBytes(16).toString("hex")}`;
 }
 
-function contextValues(state: HarnessState, context: TransitionContext, at: string, traceId: string) {
+function contextValues(state: DispatchState, context: TransitionContext, at: string, traceId: string) {
   return {
     correlationId: context.correlationId,
     ...eventSpan(context.spanId),
@@ -161,7 +161,7 @@ function contextValues(state: HarnessState, context: TransitionContext, at: stri
 
 function appendEvent(
   store: StateStore,
-  state: HarnessState,
+  state: DispatchState,
   context: TransitionContext,
   at: string,
   traceId: string,
@@ -181,15 +181,15 @@ function appendEvent(
 
 function updateRevision(
   store: StateStore,
-  state: HarnessState,
+  state: DispatchState,
   eventId: string,
   at: string,
   patch: StatePatch,
-): HarnessState {
+): DispatchState {
   const result = store.db
     .query(
       `
-        UPDATE harness_state
+        UPDATE dispatch_state
         SET revision = ?, active_workflow_json = ?, queued_requests_json = ?,
             caused_by_event_id = ?, updated_at = ?
         WHERE game_id = ? AND revision = ?
@@ -205,12 +205,12 @@ function updateRevision(
       state.revision,
     );
   if (result.changes !== 1) {
-    throw new Error(`Stale harness_state revision ${state.revision} for ${state.game_id}`);
+    throw new Error(`Stale dispatch_state revision ${state.revision} for ${state.game_id}`);
   }
   return requireState(store, state.game_id);
 }
 
-function assertGame(state: HarnessState, requestedGameId: string | undefined): void {
+function assertGame(state: DispatchState, requestedGameId: string | undefined): void {
   if (requestedGameId && state.game_id !== requestedGameId) {
     throw new Error(`Game state ${state.game_id} does not match requested game ${requestedGameId}`);
   }
@@ -253,7 +253,7 @@ function requireRequestProvenance(
 
 function assertDurableRequestProvenance(
   store: StateStore,
-  state: HarnessState,
+  state: DispatchState,
   request: QueuedDispatchRequest,
 ): void {
   const provenance = requireRequestProvenance(request, `Queued dispatch ${request.kind}:${request.workflow_id}`);
@@ -299,7 +299,7 @@ function assertDurableRequestProvenance(
 
 function matchingQueuedHandoff(
   store: StateStore,
-  state: HarnessState,
+  state: DispatchState,
   handoff: DispatchHandoffRequest,
 ): QueuedDispatchRequest {
   const queued = state.queued_dispatch_requests.find(
@@ -363,7 +363,7 @@ type DurableWorkflowTraceRow = {
 
 function durableWorkflowTrace(
   db: Database,
-  state: HarnessState,
+  state: DispatchState,
   kind: DispatchLease["kind"],
   workflowId: string,
 ): string {
@@ -410,7 +410,7 @@ interface HandoffSnapshot {
 }
 
 function handoffSnapshot(
-  state: HarnessState,
+  state: DispatchState,
   lease: DispatchLease,
   handoff: NonNullable<DispatchLease["requested_handoff"]>,
   requestedSnapshotId?: string,
@@ -621,10 +621,10 @@ export function heartbeatDispatch(store: StateStore, input: HeartbeatDispatchInp
     // A heartbeat refresh is fenced liveness evidence, not an accepted workflow
     // transition. It intentionally leaves revision and caused_by_event_id alone.
     const result = store.db
-      .query("UPDATE harness_state SET active_workflow_json = ?, updated_at = ? WHERE game_id = ? AND revision = ?")
+      .query("UPDATE dispatch_state SET active_workflow_json = ?, updated_at = ? WHERE game_id = ? AND revision = ?")
       .run(JSON.stringify(heartbeat), heartbeat.heartbeat_at, state.game_id, state.revision);
     if (result.changes !== 1) {
-      throw new Error(`Stale harness_state revision ${state.revision} for ${state.game_id}`);
+      throw new Error(`Stale dispatch_state revision ${state.revision} for ${state.game_id}`);
     }
     return heartbeat;
   });
@@ -635,7 +635,7 @@ export function heartbeatDispatch(store: StateStore, input: HeartbeatDispatchInp
  * authority. A run already stopping for that handoff settles without
  * promoting the cancelled target.
  */
-export function cancelDispatchRequest(store: StateStore, input: CancelDispatchRequestInput): HarnessState {
+export function cancelDispatchRequest(store: StateStore, input: CancelDispatchRequestInput): DispatchState {
   return immediateTransaction(store.db, () => {
     assertWorkflowCorrelation(input, input.workflowId);
     const context = { ...input, spanId: input.spanId ?? newSpanId() };
@@ -823,7 +823,7 @@ export function releaseDispatchDetailed(store: StateStore, input: ReleaseDispatc
   });
 }
 
-export function releaseDispatch(store: StateStore, input: ReleaseDispatchInput): HarnessState {
+export function releaseDispatch(store: StateStore, input: ReleaseDispatchInput): DispatchState {
   return releaseDispatchDetailed(store, input).state;
 }
 

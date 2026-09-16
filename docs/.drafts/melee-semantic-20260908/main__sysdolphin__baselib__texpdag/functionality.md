@@ -1,0 +1,28 @@
+# HSD texture-expression DAG backend
+
+## Construction and scheduling
+`texpdag.c` constructs dependency records, computes dependency closure, searches candidate orders, assigns TEV destination registers, remaps inter-expression operands to GX selectors, and simplifies expressions in place. The header supplies the DAG record and function declarations. Existing function names fit these responsibilities; no renaming is proposed.
+
+`CalcDistance` locates expression pointers in a collected array and propagates only greater candidate depths through TEV color and alpha dependencies. This computes maximum root-to-node depth for an acyclic graph; it is not cycle protection. `HSD_TExpMakeDag` collects distinct nodes, applies paired adjacent swaps based on depth, and builds deduplicated dependency edges in reverse array order. Its scratch capacity is 32, but the traversal-index assertion does not guard every append. The adjacent-swap loop does not establish a general sorting guarantee. Dependency lookup searches only from the current position onward. The header's `dist` member is not populated by this implementation. [texpdag.c L128-L287; texpdag.h L12-L19]
+
+Dependency closure grows u32 masks monotonically until stable. `order_dag` constructs a consumer-to-dependency order using a filtered frontier, with a single-dependency shortcut. `done_set` is updated and passed onward but does not filter candidates. Complete orders are scored by `assign_reg`, which walks them backward, retires input references, and assigns the highest free color and alpha slots independently. Its u8 occupancy counters and destination writes assume consistent graph/reference state. Exhaustion has no explicit failure result. [texpdag.c L9-L126, L289-L331]
+
+`HSD_TExpSchedule` initializes its best score to 5 and best-order array to zero. Only strictly lower scores save an order. Each trial mutates destination fields, but neither the winning allocation nor a replay of it is retained. Consequently, the selected order and remaining destinations need not belong to the same trial; without an improving candidate, the zero-filled order remains. Channel processing is guarded by destination != 0xFF. Color resources receive numeric state 3 and alpha resources state 1. Both color-input tables—including the color-visible alpha table—are indexed by producer `c_dst`; alpha-combiner inputs use producer `a_dst`. These observations should not be normalized into a more conventional allocator. [texpdag.c L333-L385]
+
+## Simplification and ownership
+`HSD_TExpSimplify` rejects non-TEV expressions and independently invokes source, local, and merge passes in that order. Its return aggregates reported flags, not every possible mutation. `SimplifySrc` propagates recursive flags from color traversal but discards the alpha recursion result. Its RGB TEV bypass checks clamp compatibility; the alpha TEV bypass has no corresponding clamp check. The raster color branch compares parent `ras_swap` to child `tex_swap` in one condition and conditionally inherits `tex_swap`. [texpdag.c L394-L534, L1242-L1259]
+
+`SimplifyThis` folds zero/one operands, removes unused resource metadata, and disables eligible outputs. Color processing is gated by the alpha opcode. Resource cleanup does not set its change flag. The alpha add/subtract zero-form disable differs from color: it neither tests bias nor releases/clears operand C. The loop follows flagged rewrites, not exhaustive mutation detection. [texpdag.c L549-L811]
+
+`SimplifyByMerge` folds selected nested color and alpha forms with branch-specific guards. First-operand-child branches reject unrepresentable bias sums; zero-first-operand/fourth-child branches instead use a different bias eligibility test and default computed bias values to zero. Texture and raster-channel conflicts are checked, but swap conflicts are not generally checked; color branches inherit unset swaps while alpha branches do not. Preparatory operand swaps do not set the merge flag. A later alpha bias rejection can clear the shared flag after a color merge, so neither its return nor continuation proves a complete fixed point. [texpdag.c L813-L1240]
+
+`HSD_TExpSimplify2` makes separate color and alpha scans, bypassing through nodes only for immediate or compatible konst fourth inputs. Color additionally requires RGB selection. It references copied dependencies before unreferencing the displaced source and always returns zero. [texpdag.c L1261-L1316]
+
+The compiler references both root outputs, simplifies, builds/schedules, assigns resources, applies Simplify2 backward, rebuilds/reschedules, and emits descriptors in reverse schedule order. Expression storage is subsequently freed through list operations. `HSD_TExpUnref` updates counts and can recursively release dependency references; it does not itself free the expression. This distinction matters when reviewing copied operands and bypassed nodes. [texp.c L53-L104, L1181-L1224]
+
+## Evidence limits
+All owned canonical and rendered pages, all 49 frozen subjects, and all 21 links were reviewed. The rendered C reports one parse error and zero substitutions; the header reports neither errors nor substitutions. Rendered names provide no independent semantic proof. Source establishes the selector arrays and shared cleared argument record, but not compiled section membership, section sizes, or runtime addresses. Eight section facts and two section links remain unresolved. No compiled-layout claim or new entity/link is proposed.
+
+All line references above refer to revision c302741689bd67c361cd7faadb221df3193992c3 under src/sysdolphin/baselib/.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

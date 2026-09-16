@@ -1,0 +1,42 @@
+{
+  "tu": "main/sysdolphin/baselib/tobj",
+  "reader": "tu_cobj_wave4",
+  "notes": [
+    {
+      "finding": "Animation replacement is nontransactional; image table is borrowed, runtime palettes and table are replaced, and palette sentinel is 255. n_imagetbl is not used to validate animation index. Transform writes dirty the matrix; image/palette indices and color narrowing remain unchecked.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L249"
+    },
+    {
+      "finding": "Descriptor loading recursively builds next, shallow-copies image/LOD pointers, allocates TLUT/TEV records and ignores virtual load status. Named classes have no local ancestry check; fallback allocation uses selected default. Runtime Quaternion W and image/palette tables are not explicitly initialized by TObjLoad.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L251-L338"
+    },
+    {
+      "finding": "Matrix construction composes scale, Euler rotation and translation; mirror-T division is independent of epsilon scale guards. Toon returns before dirty processing. Highlight normalization has no zero check and direct camera accessor does not refresh state; shadow requires current camera inverse.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L365-L483"
+    },
+    {
+      "finding": "Bump texgen takes priority over toon, while resource discovery classifies toon before bump. Last toon and last non-toon bump win. Unknown coordinate modes retain coordinate fields. Volatile TEV stops at first shadow-lightmap flag and the inner coordinate-shadow run does not skip disabled maps.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L485-L623"
+    },
+    {
+      "finding": "Custom expression selector scans cover inactive halves too; active color and alpha halves share primary node with independent writes. Immediate one and half belong only to color domain. Constants borrow field addresses. TObjMakeTExp always builds color and leaves incoming alpha unchanged when lightmap_done intersects object flags.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L625-L1046"
+    },
+    {
+      "finding": "Palette reuse compares n_entries only: pointer self-comparison under MUST_MATCH cannot distinguish palettes, and format is ignored. Setup NULL only changes global head. Indexed trilinear downgrade and nonmipmap filter masking precede GX load.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L1048-L1248"
+    },
+    {
+      "finding": "All enum conversion domains checked, including rejection of coordinate7 as texgen source. Free dispatches destroy without release; RemoveAll delegates hsdDelete per saved next. Release frees runtime palette/TEV/AObj resources, not borrowed image payloads or next. EFB clear mutates depth state without restoring it.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L1250-L1627"
+    },
+    {
+      "finding": "Independent complete canonical and separate rendered C1627/H315 coverage; C parser7/H0, no substitutions. All 212 facts, 10 proposal operations, 64 empty positional parameter entities and 59 functions reviewed. All 30 exact outgoing baseline records preserved and verified. No compiled section attribution inferred.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.h#L1-L315"
+    },
+    {
+      "finding": "Foreign canonical support independently read aobj91-105/121-174/220-240 and mobj47-58/74-85/145-156/548-559. Prior own full mobj,mtx,cobj,lobj reviews support callers and transforms; texp181-238 independently confirms head insertion and borrowed constant pointers. AObj NO_UPDATE blanket suppression remains unresolved due boundary stop callbacks.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L181-L238"
+    }
+  ]
+}

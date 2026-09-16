@@ -1,0 +1,2161 @@
+{
+  "main/melee/gr/grtmars:.data": [
+    {
+      "id": "fact:c8c955f6-41df-4a5a-915d-4181e54d75a1",
+      "target_id": "target:data:main/melee/gr/grtmars:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`grTMs_StageData` passes `stage_callbacks` and `setupStageCallbacks` into the common target-stage path. At initialization, `Ground_InitTargetStage` invokes that setup path with a ground-object ID; the ID selects `stage_callbacks[gobj_id]`, and the selected record is installed on the corresponding `Ground_GObj` by `Ground_SetupStageCallbacks`. The descriptor also directs asset loading to `/GrTMs.dat`.",
+      "rationale": "The descriptor-to-table reference, target-stage initializer, indexed callback lookup, ground-object lookup, and callback installation establish the complete flow from static data to runtime ground objects.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:31:45.400Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L107",
+          "why": "Shows `grTMs_StageData` referencing the table and archive, initialization through `Ground_InitTargetStage`, and indexed installation of each callback record on its ground object."
+        }
+      ]
+    },
+    {
+      "id": "fact:87b3120a-0c86-417e-96d9-eecd850dfac3",
+      "target_id": "target:data:main/melee/gr/grtmars:.data",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Configures Marth's character-specific Target Test stage, identified in-game and in the debug stage selector as TMARS and used in Stadium and Marth's Classic Mode bonus stage.",
+      "rationale": "The data descriptor registers `Gr_Kind_TMars` and `/GrTMs.dat`; the stage-selector documentation maps TMARS to Marth's Target Test, while archived community discussion independently identifies GrTMars as that stage.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:31:45.400Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L80",
+          "why": "Identifies the configured stage as `Gr_Kind_TMars`, uses the `/GrTMs.dat` archive, and initializes it through the target-stage framework."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Maps debug stage TMARS to Marth's Target Test and lists its Stadium and Classic Mode usage."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/947281338254389288",
+          "why": "Directly identifies GrTMars as Marth's Target Test in the surrounding discussion."
+        }
+      ]
+    },
+    {
+      "id": "fact:78d33185-759d-4eea-84db-41cd074319ee",
+      "target_id": "target:data:main/melee/gr/grtmars:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An initialized data block containing a four-element `StageCallbacks` array\u2014three active ground-object records followed by a zero terminator\u2014and one `StageData` descriptor.",
+      "rationale": "The source explicitly types the two declarations and shows the callback array's three populated entries and terminating `{ 0 }`; the historical table-typing change independently identifies the unit's table as `StageCallbacks`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:31:45.400Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L80",
+          "why": "Shows the exact typed layout of `stage_callbacks` and `grTMs_StageData`."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-1796--main-melee-gr-grtmars",
+          "why": "Records that the tables in this translation unit were converted to the shared `StageCallbacks` type."
+        }
+      ]
+    },
+    {
+      "id": "fact:f8295c64-9518-42b3-ad90-3c101ae1fd4e",
+      "target_id": "target:data:main/melee/gr/grtmars:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the TMARS stage's initialized runtime configuration: the per-ground-object callback table and the exported stage descriptor that registers the stage kind, asset archive, lifecycle hooks, dynamics lookup, and map-query callback.",
+      "rationale": "The initialized declarations consist of `stage_callbacks` and `grTMs_StageData`; the latter directly references the former and supplies every stage-level hook used to register and operate TMARS.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T05:31:45.400Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L80",
+          "why": "Shows the initialized callback table and `StageData` descriptor, including the stage kind, archive path, lifecycle functions, dynamics function, and map-query function."
+        }
+      ]
+    },
+    {
+      "id": "fact:67d84275-04a3-42bd-b0db-d0ac23db6cec",
+      "target_id": "target:data:main/melee/gr/grtmars:.data",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The callback table configures ground-object IDs 0, 1, and 2 with separate initialization, boolean, per-frame process, and final callback functions. The object-2 record additionally sets callback flags 30 and 31, and an all-zero fourth record terminates the table.",
+      "rationale": "These distinctions are encoded directly in the three populated `StageCallbacks` records and their terminating record; they determine which behavior set the common stage setup installs for each ground object.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T05:31:45.400Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L107",
+          "why": "Shows all three callback records, the extra two high-bit flags on object 2, the zero terminator, and selection of records by ground-object ID."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:grTMars_80221EF4": [
+    {
+      "id": "fact:80e0621b-6072-424a-b3d7-40f56ecd5555",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF4",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a boolean from the stage demo-initialization interface, ignores it, performs no calls, reads, writes, or output-producing operations, and immediately returns to the stage framework.",
+      "rationale": "The current descriptor places this function in `StageData.on_demo_init`, and its complete definition remains empty.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the callback's descriptor registration, Boolean parameter, and empty implementation."
+        }
+      ]
+    },
+    {
+      "id": "fact:f67eee52-1674-4e54-947d-e83405536e09",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF4",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Represents the absence of demo-specific initialization for Marth's Target Test course: entering TMARS through this lifecycle hook applies no additional course or gameplay-state setup.",
+      "rationale": "The current TMARS descriptor registers the callback for demo initialization and the body is empty; the documented stage mapping identifies TMARS as Marth's Target Test.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows `Gr_Kind_TMars`, the demo-initialization registration, and the callback's empty body."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Identifies TMARS as Marth's Target Test stage."
+        }
+      ]
+    },
+    {
+      "id": "fact:8f0ca9c8-f166-4675-bd4e-7b6b6bac0422",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF4",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grTMars_OnDemoInit",
+      "rationale": "The current TMARS descriptor places the function in the demo-initialization slot, and the equivalent slot in the parallel Captain Falcon target-stage descriptor is named `grTCaptain_OnDemoInit`.\n\nNaming cleanup: Recognized identifier form; no lexical audit flags.\nPrior naming claim: `grTMars_OnDemoInit`",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function occupying the TMARS demo-initialization descriptor position."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtcaptain.c#L1-L120",
+          "why": "Shows the corresponding target-stage callback named `grTCaptain_OnDemoInit`."
+        }
+      ]
+    },
+    {
+      "id": "fact:131f61b9-5843-46d6-a2c5-d2dfc2bc63de",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF4",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A static stage demo-initialization callback with concrete signature `void (bool)`. It receives one Boolean lifecycle argument, returns no value, and intentionally leaves the argument unused.",
+      "rationale": "The current TMARS declaration and definition establish the concrete signature and empty body, while its descriptor position and the corresponding named Captain callback establish the demo-initialization role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the exact `static void grTMars_80221EF4(bool)` declaration, descriptor placement, and empty definition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtcaptain.c#L1-L120",
+          "why": "Names the corresponding lifecycle position `grTCaptain_OnDemoInit`."
+        }
+      ]
+    },
+    {
+      "id": "fact:d3e1b55d-809f-4459-8aac-33a0a834bb6e",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF4",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides Marth's Target Test stage descriptor with a demo-initialization lifecycle hook while intentionally performing no stage-specific demo setup.",
+      "rationale": "The current TMARS descriptor registers this empty function in the same lifecycle position explicitly named `OnDemoInit` in the parallel Captain target-stage unit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the callback installed in the TMARS descriptor and defined with an empty body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtcaptain.c#L1-L120",
+          "why": "Shows the corresponding descriptor callback named `grTCaptain_OnDemoInit`."
+        }
+      ]
+    },
+    {
+      "id": "fact:ae57f65f-2021-45c6-95cb-250b957592d1",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF4",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has invariant no-op behavior for either boolean input: it contains no guards, transitions, timers, callback chaining, or state mutation and returns immediately.",
+      "rationale": "Because the complete matched function body is empty, neither the argument nor existing stage state can select a different path, and the callback cannot itself cause a state transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:43:01.268Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L72-L72",
+          "why": "Shows the callback's entire empty implementation."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:grTMars_80221EF8": [
+    {
+      "id": "fact:a5ba71dd-1037-4d47-b2be-15491cd24b6d",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Takes no explicit input and returns no value. It passes `setupStageCallbacks` to `Ground_InitTargetStage`; that local callback receives a ground-object ID, selects `stage_callbacks[gobj_id]`, retrieves the corresponding runtime ground object, installs the selected callbacks when the object exists, and returns the object.",
+      "rationale": "The resolved source directly exposes both the function-pointer handoff and the complete downstream flow from ground-object ID through callback-table indexing to runtime callback installation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:34:39.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L104",
+          "why": "Shows the no-argument/no-result initializer, the callback handoff, and the supplied callback's ID-indexed lookup, installation, and return path."
+        }
+      ]
+    },
+    {
+      "id": "fact:4f28b855-f3c6-46aa-8195-3bc8e605455b",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Performs stage initialization for Marth's character-specific Target Test course, used in Stadium and Marth's Classic Mode bonus stage.",
+      "rationale": "The code places this initializer in the `Gr_Kind_TMars` descriptor and explicitly invokes the target-stage initializer; the stage-selector record independently maps TMARS to Marth's Target Test and identifies its Stadium and Classic Mode usage.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:34:39.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L104",
+          "why": "Places the function in the `Gr_Kind_TMars` stage descriptor and shows it invoking `Ground_InitTargetStage`."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Maps debug stage TMARS to Marth's Target Test and lists Stadium and Classic Mode as its in-game uses."
+        }
+      ]
+    },
+    {
+      "id": "fact:19450a0b-ebe9-4ef1-ae58-37a0029add01",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grTMars_OnInit",
+      "rationale": "The TMars function occupies the same `StageData` lifecycle slot and has the same `void (void)` body shape as the exact opseq analog `grTCaptain_OnInit`, making `grTMars_OnInit` the strongest locally conventional original-name inference.\n\nNaming cleanup: Recognized identifier form; no lexical audit flags.\nPrior naming claim: `grTMars_OnInit`",
+      "confidence": 0.9,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L104",
+          "why": "Shows the unnamed TMars function in the stage descriptor and its target-stage initialization body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtcaptain.c#L62-L108",
+          "why": "Shows the analogous descriptor slot and identical initialization form carrying the recovered name `grTCaptain_OnInit`."
+        }
+      ]
+    },
+    {
+      "id": "fact:830af497-9756-4c18-8902-7bbc3ce98d16",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A static `void (void)` stage lifecycle initialization callback stored in the initialization slot of the unit's `StageData` descriptor.",
+      "rationale": "The declaration and definition establish the exact static no-argument, no-result signature, while the named Captain Falcon analog identifies the corresponding `StageData` position as an `OnInit` lifecycle callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:34:39.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L104",
+          "why": "Directly shows the function's `static void (void)` definition and its placement in `grTMs_StageData`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtcaptain.c#L62-L108",
+          "why": "Identifies the equivalent descriptor position with the named and identically typed `grTCaptain_OnInit` callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:5fb05770-dd05-4071-b4e6-c8deb56fcda4",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221EF8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes Marth's Target Test stage through the common target-stage subsystem, supplying the local callback that retrieves each stage ground object and installs the callback-table row selected by its object ID.",
+      "rationale": "The function is the initialization callback in the `Gr_Kind_TMars` stage descriptor and delegates to `Ground_InitTargetStage` with `setupStageCallbacks`; the same resolved source shows that callback indexing `stage_callbacks`, retrieving the corresponding ground object, and installing its callbacks.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:34:39.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L32-L104",
+          "why": "Shows the function's placement in the TMars `StageData`, its call to `Ground_InitTargetStage`, and the supplied callback's ground-object lookup and callback-table installation."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:grTMars_80221F90": [
+    {
+      "id": "fact:8f78b803-8957-4447-b491-1ef6b24d0abe",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221F90",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives no arguments, reads no stage or object state, performs no calls or writes, and returns `false` through its callback slot in `grTMs_StageData`.",
+      "rationale": "The current descriptor registers the function, and its entire parameterless body is a constant false return.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the callback's descriptor registration, parameterless signature, and unconditional false result."
+        }
+      ]
+    },
+    {
+      "id": "fact:65598adb-0d86-4d1e-97dd-86f0a66a4405",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221F90",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Parameterless stage-descriptor callback with signature `bool (void)`.",
+      "rationale": "The current declaration and definition explicitly accept no parameters and return `bool`, while the descriptor initializer establishes the callback domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the exact signature and registration in `grTMs_StageData`."
+        }
+      ]
+    },
+    {
+      "id": "fact:cd72b8a6-8281-4805-8faa-6d87ff9e3281",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221F90",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the parameterless Boolean hook registered in the TMARS stage descriptor. Its implementation is an unconditional negative result, so TMARS never affirmatively signals the condition represented by this still-unnamed `StageData` callback slot.",
+      "rationale": "The current source places the function in the descriptor's still-generically-named `callback4` position and defines it solely as `return false`, supporting a constant-negative policy without assigning an unsupported mechanic.",
+      "confidence": 0.92,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function registered in `grTMs_StageData` and its complete unconditional false-returning body."
+        }
+      ]
+    },
+    {
+      "id": "fact:462c5149-4875-43ce-b728-5c165f1b99dc",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_80221F90",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has no guards, timers, or state transitions and deterministically returns `false` whenever the TMARS stage callback is queried.",
+      "rationale": "Because the entire matched function is a constant false return with no state access, its outcome cannot vary with stage state or invocation timing.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:31:45.780Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L86-L89",
+          "why": "The complete function demonstrates invariant false behavior and the absence of any guard, timer, read, write, or transition."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:grTMars_802221C8": [
+    {
+      "id": "fact:efabc23e-8bdc-4f43-8294-109661085c0e",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221C8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a collision-line index through the TMARS `StageData` callback interface, discards it, performs no calls or memory accesses, and returns a null `DynamicsDesc` pointer to the stage subsystem.",
+      "rationale": "The current shared declarations type the descriptor member as `GrTouchLineCallback`, whose argument is an integer index and whose result is `DynamicsDesc*`; the current TMARS body ignores its argument and returns `NULL`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T20:16:09.270Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/forward.h#L121-L194",
+          "why": "Defines `GrTouchLineCallback` as `DynamicsDesc* (int index)`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the concrete callback ignoring its argument and returning `NULL`."
+        }
+      ]
+    },
+    {
+      "id": "fact:61367c60-0aac-4c9b-af8d-e4d148e95525",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221C8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements Marth's Target Test collision-line descriptor hook as a null policy: querying any collision line does not select a stage-specific `DynamicsDesc`.",
+      "rationale": "The current TMARS descriptor installs this function in the touch-line position, and its body always returns `NULL`; the stage-selector documentation maps TMARS to Marth's Target Test.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function registered in the TMARS descriptor's touch-line callback position."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the complete unconditional `NULL` return."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Maps TMARS to Marth's Target Test course."
+        }
+      ]
+    },
+    {
+      "id": "fact:96455a81-9e84-404d-8f61-85ea7c6c0952",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221C8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grTMars_OnTouchLine",
+      "rationale": "The current descriptor places the function in `on_touch_line`, and the identically shaped Samus target-stage analog is named `grTSamus_OnTouchLine`.\n\nNaming cleanup: Recognized identifier form; no lexical audit flags.\nPrior naming claim: `grTMars_OnTouchLine`",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function in the TMARS touch-line descriptor position."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtsamus.c#L160-L168",
+          "why": "Shows the equivalent null-returning callback named `grTSamus_OnTouchLine`."
+        }
+      ]
+    },
+    {
+      "id": "fact:b2023335-6002-47ee-baf1-244c93e0c0be",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221C8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "`GrTouchLineCallback` with effective signature `DynamicsDesc* (int line_index)`; the concrete definition spells the parameter as `enum_t`, while the shared callback typedef defines it as an integer collision-line index.",
+      "rationale": "The current callback typedef and `StageData` field establish the effective callback type, while the current concrete definition establishes the local `enum_t` spelling and matching pointer result.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T20:16:09.270Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/forward.h#L121-L194",
+          "why": "Defines `GrTouchLineCallback` as returning `DynamicsDesc*` from an integer index."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/types.h#L121-L260",
+          "why": "Shows `StageData.on_touch_line` stored through the shared callback type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the concrete `DynamicsDesc* (enum_t)` definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:03b8f947-f68a-48d8-b22e-834d449cd901",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221C8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides Marth's Target Test stage-level collision-line callback while deliberately supplying no `DynamicsDesc` for any queried collision line.",
+      "rationale": "The current descriptor installs the function as its touch-line callback, and the complete body unconditionally returns `NULL`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function installed in the TMARS touch-line descriptor position."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows that the callback always returns no `DynamicsDesc`."
+        }
+      ]
+    },
+    {
+      "id": "fact:45ecdb31-ce40-4545-812d-35c48c128b21",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221C8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has no guards, timers, state reads, or transitions: every collision-line index deterministically produces `NULL`, so this hook never performs index-dependent `DynamicsDesc` selection for TMARS.",
+      "rationale": "Although the current callback typedef supplies an index from which a descriptor could be selected, the complete current implementation contains only an unconditional null return.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T20:16:09.270Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/forward.h#L121-L194",
+          "why": "Shows that the callback interface supplies an integer index."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the callback's complete side-effect-free, unconditional null-return behavior."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:grTMars_802221D0": [
+    {
+      "id": "fact:ceda9596-c13a-4a22-ae20-c20e7da353f5",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221D0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a fighter-position `Vec3*`, an integer selector or index, and an `HSD_JObj*` from the stage shadow-render query path. It reads none of them, performs no calls or writes, and returns `true` to the callback consumer.",
+      "rationale": "The current `on_check_shadow_render` declaration identifies the first argument as a fighter position and gives the complete signature, while the current TMARS implementation ignores all three parameters and returns true.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T20:16:09.270Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/types.h#L70-L105",
+          "why": "Declares the stage shadow-render callback's three inputs and identifies the first as `fighter_pos`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows that all parameters are ignored and true is the sole output."
+        }
+      ]
+    },
+    {
+      "id": "fact:5aa30317-1efe-4e09-a82d-f59eb0f042b0",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221D0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements Marth's Target Test course policy of always permitting the queried shadow-render operation, independent of the supplied fighter location, selector, or joint.",
+      "rationale": "The current descriptor installs the function as the shadow-render check and its implementation always returns true; the stage-selector documentation maps TMARS to Marth's Target Test.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows this predicate installed in the final TMARS `StageData` callback position."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the matching three-argument predicate and its unconditional true result."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Maps TMARS to Marth's Target Test course."
+        }
+      ]
+    },
+    {
+      "id": "fact:54176a54-8ffd-4cae-a24e-442c466fa936",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221D0",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grTMars_OnCheckShadowRender",
+      "rationale": "The current function occupies the TMARS shadow-render callback position, and the identical Samus target-stage predicate is named `grTSamus_OnCheckShadowRender`.\n\nNaming cleanup: Recognized identifier form; no lexical audit flags.\nPrior naming claim: `grTMars_OnCheckShadowRender`",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function occupying the final callback position in the TMARS descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtsamus.c#L160-L168",
+          "why": "Shows the analogous constant-true callback named `grTSamus_OnCheckShadowRender`."
+        }
+      ]
+    },
+    {
+      "id": "fact:801068c3-a3b2-40af-a338-5679204cdd37",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221D0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Boolean stage shadow-render predicate with signature `bool (Vec3* fighter_pos, int selector, HSD_JObj* joint)`. The callback interface supplies a fighter position, an integer selector or index, and a scene-graph joint, although this implementation ignores all three.",
+      "rationale": "The current shared declaration and current concrete definition agree on the return and parameter types; the field name and named first parameter establish the callback domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T20:16:09.270Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/types.h#L70-L105",
+          "why": "Declares `on_check_shadow_render` as `bool (*)(Vec3* fighter_pos, int, HSD_JObj*)`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the concrete matching signature and that all parameters are unused."
+        }
+      ]
+    },
+    {
+      "id": "fact:7116dd89-c22e-49f5-aa29-8a06e67a3351",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221D0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as Marth's Target Test stage-level shadow-render eligibility callback. It unconditionally approves every query rather than filtering by fighter position, selector value, or scene-graph joint.",
+      "rationale": "The current descriptor registers the function in the shadow-render position, while its complete implementation ignores all three inputs and returns true.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function installed in the TMARS stage descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the complete constant-true implementation and its three parameters."
+        }
+      ]
+    },
+    {
+      "id": "fact:a802a890-531a-49f7-83a5-6f2ab7169342",
+      "target_id": "target:function:main/melee/gr/grtmars:grTMars_802221D0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has no guards, timers, state reads, or transitions. Every invocation deterministically returns true, so TMARS never rejects a shadow-render query through this stage callback.",
+      "rationale": "The current callback field establishes that its Boolean result controls a shadow-render check, while the complete implementation is a side-effect-free constant-true predicate.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T20:16:09.270Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/types.h#L70-L105",
+          "why": "Identifies the result as the stage-level shadow-render decision."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the unconditional true return and absence of state-dependent behavior."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:grTmars_UnkStage0_OnLoad": [
+    {
+      "id": "fact:15f4a413-f666-4cea-9050-5edc60b65eb7",
+      "target_id": "target:function:main/melee/gr/grtmars:grTmars_UnkStage0_OnLoad",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Its function pointer flows from the static `grTMs_StageData` descriptor into the ground-stage lifecycle interface. Invocation supplies no arguments; the callback reads no globals or stage data, performs no calls or writes, and returns no value.",
+      "rationale": "The current descriptor stores this callback in its load position, and the current parameterless definition is empty.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the callback pointer in `grTMs_StageData` and its complete empty, parameterless implementation."
+        }
+      ]
+    },
+    {
+      "id": "fact:200ad6da-ed29-4896-b805-2784ff8be775",
+      "target_id": "target:function:main/melee/gr/grtmars:grTmars_UnkStage0_OnLoad",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless stage lifecycle callback with signature `void (void)`.",
+      "rationale": "The current declaration and definition directly establish the signature, while descriptor registration establishes its stage-lifecycle role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the exact declaration, descriptor registration, and empty definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:13377895-30cc-4967-827e-79db2b6173a1",
+      "target_id": "target:function:main/melee/gr/grtmars:grTmars_UnkStage0_OnLoad",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Supplies the TMars stage descriptor's load-callback slot with a valid callback while deliberately requiring no Marth Target Test-specific load-time setup.",
+      "rationale": "The current descriptor places the callback between demo initialization and the non-empty start callback, while its body remains empty.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the load-lifecycle registration, the empty body, and the neighboring non-empty start callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:2a8c0f17-3494-4cb2-8193-9d1c68694832",
+      "target_id": "target:function:main/melee/gr/grtmars:grTmars_UnkStage0_OnLoad",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has invariant no-op behavior: whenever the TMars load lifecycle reaches this callback, it immediately returns without guards, transitions, timer changes, object creation, or state mutation.",
+      "rationale": "The current descriptor establishes when the function is invoked, and its complete body remains empty.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows both the load-callback registration and the complete empty implementation."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:grTmars_UnkStage0_OnStart": [
+    {
+      "id": "fact:9473c031-f5ca-45a9-8df6-8ce3ac28d09d",
+      "target_id": "target:function:main/melee/gr/grtmars:grTmars_UnkStage0_OnStart",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives no explicit input, passes a NULL configuration pointer to grZakoGenerator_801CAE04, and produces no direct return value; all effects are delegated to that shared generator routine.",
+      "rationale": "The complete function body contains only the NULL-argument call and has a void return type, demonstrating that it neither transforms local data nor returns a result.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:20:35.503Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L81-L84",
+          "why": "Shows the complete function body and its sole NULL-argument call."
+        }
+      ]
+    },
+    {
+      "id": "fact:fef600ee-d0b2-4664-8769-97fd3d541b36",
+      "target_id": "target:function:main/melee/gr/grtmars:grTmars_UnkStage0_OnStart",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Performs startup work for Marth's Target Test stage, internally named TMARS.",
+      "rationale": "The surrounding StageData identifies the stage as Gr_Kind_TMars and initializes it as a target stage, while the stage selector maps TMARS specifically to Marth's Target Test.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T02:20:35.503Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L60-L84",
+          "why": "Places this callback in the TMars StageData lifecycle and shows the same module invoking Ground_InitTargetStage."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Identifies TMARS as Marth's Target Test stage."
+        }
+      ]
+    },
+    {
+      "id": "fact:b58ae8bd-7c02-41ee-b762-453454b00a91",
+      "target_id": "target:function:main/melee/gr/grtmars:grTmars_UnkStage0_OnStart",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless, void-returning StageData stage-start callback with signature void(void).",
+      "rationale": "The matched definition is static void with no parameters, and the surrounding StageData initializer stores it in a lifecycle callback slot.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T02:20:35.503Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L60-L84",
+          "why": "Shows both the callback-table placement and the complete static void(void) definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:764a52c3-51e0-4c82-83a3-b2bfa1351e47",
+      "target_id": "target:function:main/melee/gr/grtmars:grTmars_UnkStage0_OnStart",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as Marth's Target Test stage-start hook and initializes the shared Zako generator with its NULL/default configuration, likely enabling the general stage item-spawn service.",
+      "rationale": "The StageData record installs this function in the stage-start slot, and its entire body calls grZakoGenerator_801CAE04(NULL). Community analysis notes that this shared routine is called by nearly every stage and may control item spawning generally, so the item-spawn interpretation is plausible but less certain than the delegation itself.",
+      "confidence": 0.82,
+      "updated_at": "2026-09-02T02:20:35.503Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L60-L84",
+          "why": "Shows this function installed among the TMars StageData lifecycle callbacks and calling grZakoGenerator_801CAE04 with NULL."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1210150425961955398",
+          "why": "Records community analysis that grZakoGenerator_801CAE04 is called in essentially every stage and may control item spawning in general."
+        }
+      ]
+    },
+    {
+      "id": "fact:ffd3f2ee-400d-4e2a-9280-efc73d2d11fc",
+      "target_id": "target:function:main/melee/gr/grtmars:grTmars_UnkStage0_OnStart",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Runs unconditionally when the TMars stage-start lifecycle hook is dispatched; it has no local guard, timer, branch, or persistent state and immediately delegates initialization to the shared generator.",
+      "rationale": "Its placement in StageData establishes the lifecycle phase, while the branch-free one-call body proves that it performs no local state machine or guarded transition.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T02:20:35.503Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L60-L84",
+          "why": "Shows the function's lifecycle registration and unconditional one-call implementation."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:setupStageCallbacks": [
+    {
+      "id": "fact:7d70b7df-c3b5-436a-88e0-b98d08143fc8",
+      "target_id": "target:function:main/melee/gr/grtmars:setupStageCallbacks",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a stage-object ID from the common target-stage initializer, uses it both to select `stage_callbacks[gobj_id]` and to request the corresponding `Ground_GObj`, installs the selected callbacks into a non-NULL object, and returns that object to the initializer.",
+      "rationale": "The current target-stage initialization path passes this helper, whose body uses the ID for both table indexing and object lookup before conditionally installing callbacks and returning the pointer.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows `Ground_InitTargetStage(setupStageCallbacks)` and every ID-to-table, ID-to-object, installation, and return step."
+        }
+      ]
+    },
+    {
+      "id": "fact:093a8a1d-026b-4fb4-b856-3453439884bc",
+      "target_id": "target:function:main/melee/gr/grtmars:setupStageCallbacks",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the per-stage-object callback installation step used while initializing Marth's Target Test.",
+      "rationale": "The current TMARS initialization function passes this helper to the common target-stage initializer, and the helper installs one indexed callback record on each successfully retrieved object.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows `Gr_Kind_TMars`, target-stage initialization, the callback table, and per-object callback installation."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Identifies TMARS as Marth's Target Test."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e1ea419-eabc-41c0-981c-5d3316a40ccf",
+      "target_id": "target:function:main/melee/gr/grtmars:setupStageCallbacks",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A target-stage object setup callback with signature `Ground_GObj* (*)(int gobj_id)`; its integer argument indexes the module's `StageCallbacks` array and its return value is the obtained `Ground_GObj`, or `NULL` on lookup failure.",
+      "rationale": "The current signature, use by `Ground_InitTargetStage`, indexed callback selection, object lookup, and returned pointer establish the complete callback shape.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the exact signature, registration, indexed lookup, and successful pointer or `NULL` return."
+        }
+      ]
+    },
+    {
+      "id": "fact:1878c328-d5f3-4dcb-b00f-0d0140853317",
+      "target_id": "target:function:main/melee/gr/grtmars:setupStageCallbacks",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Obtains the stage ground object for a requested object ID and installs that ID's lifecycle and process callbacks, serving as the object-setup callback passed to the common target-stage initializer.",
+      "rationale": "The current function indexes the callback table, retrieves the corresponding stage object, and installs the callbacks on success; the stage initializer passes it directly to `Ground_InitTargetStage`.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the callback table, target-stage registration, object lookup, conditional callback installation, and return."
+        }
+      ]
+    },
+    {
+      "id": "fact:af6b4d0b-eb71-4936-a18a-5aa79b066b13",
+      "target_id": "target:function:main/melee/gr/grtmars:setupStageCallbacks",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On successful ground-object lookup, installs the selected StageCallbacks and returns the object; on lookup failure, performs no callback installation, emits an OSReport diagnostic containing the object ID, and returns NULL.",
+      "rationale": "The function's explicit NULL guard divides success from failure: only the success branch invokes Ground_SetupStageCallbacks, while the failure branch reports the failed ID. Returning gobj after either branch preserves the successful pointer or propagates NULL.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:20:28.955Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L91-L104",
+          "why": "Directly shows the success and failure branches, diagnostic side effect, and returned pointer."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj0_Callback1": [
+    {
+      "id": "fact:6adb4725-50d2-4fd5-be30-4de0cc2cd81f",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback1",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives stage object 0's `Ground_GObj` from the ground callback machinery, performs no reads or writes, and returns false directly to that machinery.",
+      "rationale": "The current first callback-table record assigns this predicate to object 0, and its complete body ignores the object pointer and returns false.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function in object 0's `callback1` slot and its complete false-returning implementation."
+        }
+      ]
+    },
+    {
+      "id": "fact:764b3673-9595-4f7e-a475-f087db397ee5",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback1",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the inactive `callback1` behavior for the first ground object in Marth's Target Test arena; it contributes to that arena's object lifecycle but does not itself create, detect, or break targets.",
+      "rationale": "The current TMARS callback table places the function on object 0 and its body only returns false; the documented TMARS mapping grounds the structural hook without attributing unsupported target manipulation.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Places the function in stage object 0's callback record and shows its inert false-returning body."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Identifies TMARS as Marth's Target Test stage."
+        }
+      ]
+    },
+    {
+      "id": "fact:bf9ed954-50e5-495f-85bb-5ebe8b915dee",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback1",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Stage callback with signature `bool (Ground_GObj*)`; its `Ground_GObj` argument is accepted but unused.",
+      "rationale": "The current declaration and definition establish the Boolean result and object-pointer parameter, while the callback table identifies it as object 0's `callback1`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the exact signature, unused parameter, and assignment to object 0's `callback1` slot."
+        }
+      ]
+    },
+    {
+      "id": "fact:44127fbb-b8f8-4d6e-b6b7-87df411efcf9",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback1",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Fills `callback1` in Marth Target Test stage object 0's `StageCallbacks` record with an inert implementation that never reports an affirmative condition.",
+      "rationale": "The current callback table assigns this function to the first record's `callback1`, and the complete implementation unconditionally returns false.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the callback's position in the first object record and its unconditional false result."
+        }
+      ]
+    },
+    {
+      "id": "fact:4d48ae99-b5d6-4d88-b6b8-cf53928ed4cd",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback1",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Stateless and invariant: every invocation returns false, with no guard, timer, transition, side effect, or dependence on the Ground_GObj.",
+      "rationale": "The complete four-line function consists solely of an unconditional false return, so it cannot alter or branch on stage state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:20:36.100Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L112-L115",
+          "why": "Shows the complete function body and its unconditional false result."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj0_Callback3": [
+    {
+      "id": "fact:0515228b-6eab-4780-b0c1-750f332bfb5a",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback3",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a `Ground_GObj*` from the stage callback interface but does not read or mutate the object, call another routine, write global state, or produce a value.",
+      "rationale": "Although the pointer parameter is present, the complete body contains no statements or expressions through which it or any other state could flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:38.030Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L119",
+          "why": "Shows the complete empty body and therefore the absence of reads, writes, calls, and outputs."
+        }
+      ]
+    },
+    {
+      "id": "fact:52a9f37b-5c73-4e00-9fa8-4a049f9ae00d",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback3",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Acts as a no-op integration hook for ground object 0 in Marth's Target Test stage; it does not itself implement a visible gameplay effect.",
+      "rationale": "The code places the empty callback in the `grtmars` ground-stage unit, while the stage selector maps TMARS to Marth's Target Test. Because the callback body is empty, its contribution is structural stage integration rather than a visible mechanic.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T02:19:38.030Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L119",
+          "why": "Shows that this TMARS ground-object callback performs no gameplay operation."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Maps TMARS to Marth's Target Test stage."
+        }
+      ]
+    },
+    {
+      "id": "fact:86522653-794f-4bab-82e5-1a5b6342ec75",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback3",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void ground-stage callback with signature `void (Ground_GObj*)`.",
+      "rationale": "The complete matched definition directly declares a `void` return type and one `Ground_GObj*` parameter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:38.030Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L119",
+          "why": "Directly shows the function's return type and sole parameter type."
+        }
+      ]
+    },
+    {
+      "id": "fact:9bdb6999-cd46-409c-b1c7-133263ce30fc",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback3",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the intentionally empty third stage callback for TMARS stage ground object 0, satisfying that ground object's callback interface when no work is required in this callback phase.",
+      "rationale": "The complete function is named as callback 3 for stage GObj 0, accepts the expected ground-object pointer, and has an empty body. The unit's callback tables were explicitly typed as `StageCallbacks`, supporting its interpretation as a deliberately supplied no-op table handler rather than unfinished logic.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T02:19:38.030Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L119",
+          "why": "Shows the complete empty implementation and its `stageGObj0_Callback3` role."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-1796--main-melee-gr-grtmars",
+          "why": "Records that the unit's stage callback tables were converted to the typed `StageCallbacks` representation."
+        }
+      ]
+    },
+    {
+      "id": "fact:08f82a2e-ce4f-436c-9c3b-71d10324f8a0",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_Callback3",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has invariant no-op behavior: for every ground-object input it immediately returns without guards, timers, state transitions, or callback chaining.",
+      "rationale": "The complete matched body is empty, so no input-dependent branch or state operation can occur.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:38.030Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L119",
+          "why": "Shows that the callback contains no executable behavior."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj0_GObjProc": [
+    {
+      "id": "fact:fe81814c-b89d-4f42-a6a5-b5da8448cbe3",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_GObjProc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the ground-object-0 `Ground_GObj*` through the installed stage callback interface, ignores the pointer, performs no reads, writes, or calls, and produces no output beyond returning to the ground-object process dispatcher.",
+      "rationale": "The current first callback record places the function in object 0's process slot, and the complete current definition is empty.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function in ground object 0's process slot and its complete empty definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:b854f456-1122-4394-8340-abcd0e351c7f",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_GObjProc",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Represents the absence of per-frame stage-specific processing for ground object 0 in Marth's Target Test; that object is initialized with its map animation, but this callback adds no recurring gameplay behavior.",
+      "rationale": "The module and external stage list identify the surrounding stage as Marth's Target Test. Within the module, object 0's initializer starts its map animation while its installed process callback is empty, grounding the callback's mechanic-level meaning as no additional frame-by-frame behavior for that stage component.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T02:19:38.763Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L106-L142",
+          "why": "Shows object 0's map-animation initialization followed by its empty recurring GObj process callback."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Identifies TMARS as Marth's Target Test stage."
+        }
+      ]
+    },
+    {
+      "id": "fact:e1c5e173-3dba-4011-94a6-031edd658c93",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_GObjProc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A stage ground-object process callback with signature `void (Ground_GObj*)`; it receives the stage object being processed, returns no value, and intentionally leaves its parameter unused.",
+      "rationale": "The current declaration and definition establish the exact signature, while the callback table places the function in object 0's `gobj_proc` position.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the typed declaration, process-slot placement, and complete empty `void (Ground_GObj*)` definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:4850098b-7fb7-4964-a9f3-3b4af582c7cb",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_GObjProc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the deliberately empty GObj process callback for Marth Target Test stage object 0, satisfying that object's `StageCallbacks` process slot while requiring no recurring object-specific work.",
+      "rationale": "The current first callback record places the function in the recurring process position; object 0's initializer performs animation setup, but this process callback remains empty.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows object 0's callback record, animation initializer, and empty process callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:1ab54f71-f833-4657-bb75-8196b8c1ddab",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_GObjProc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has invariant no-op behavior on every invocation: it contains no guards, timers, transitions, animation advancement, callback chaining, or state mutation and returns immediately regardless of the ground object's state.",
+      "rationale": "The complete matched definition is empty, so there is no possible state-dependent branch or mutation within this callback. The neighboring initialization callback handles the object's initial animation setup, confirming that no equivalent setup or update occurs here.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:38.763Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L106-L142",
+          "why": "Shows the complete empty process callback beside the stateful object-0 initialization callback."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj0_OnInit": [
+    {
+      "id": "fact:49eca18a-f88f-45d7-86dc-ed8d75bd0f2b",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_OnInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the `Ground*` stored in `gobj->user_data`, extracts its `map_id`, and forwards the original `Ground_GObj*`, that map ID, and constant animation selection 0 to `grAnime_801C8138`; it produces no direct return value.",
+      "rationale": "Every input transformation and output of the function is visible in its four-line matched body.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:21:02.268Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L106-L110",
+          "why": "Directly shows the user-data read, `map_id` extraction, and arguments passed to the animation routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:7fda0fd0-92b3-4b65-92e1-05d55daaf7c1",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_OnInit",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Performs initial animation setup for one ground component of Marth's Target Test stage.",
+      "rationale": "The current source places this function in object 0's initialization slot and shows it requesting animation selection 0; the stage-selector documentation maps TMARS to Marth's Target Test.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows `stageGObj0_OnInit` in the first callback slot and its ground-animation setup call."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Identifies TMARS as Marth's Target Test stage."
+        }
+      ]
+    },
+    {
+      "id": "fact:0df03c4a-10f3-47e6-b3a2-aa539d49d43e",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_OnInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A `StageCallbacks` initialization callback with signature `void (Ground_GObj*)`.",
+      "rationale": "The current typed callback table places the function in object 0's first slot, and the current declaration and definition establish the exact signature.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function's signature, placement in the first callback-table slot, and implementation."
+        }
+      ]
+    },
+    {
+      "id": "fact:b86276d1-00d2-43b3-a8cb-f39ccbdfff99",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_OnInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes ground object 0's stage animation by invoking the common ground-animation routine for that object, using its map ID and animation selection 0.",
+      "rationale": "The matched body retrieves the object's `Ground` user data and makes exactly one animation-system call with the original object, `Ground.map_id`, and constant zero.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T02:21:02.268Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L106-L110",
+          "why": "Shows the complete function body and its call to `grAnime_801C8138(gobj, gp->map_id, 0)`."
+        }
+      ]
+    },
+    {
+      "id": "fact:10f1b125-4772-47b1-8d2d-c65a9580b352",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj0_OnInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Runs unconditionally when ground object 0 is initialized: it has no guard, branch, loop, or timer and always requests animation selection 0 for the object's current map ID.",
+      "rationale": "The complete matched function contains only the user-data lookup and unconditional animation call, so there is no alternate initialization state or transition in this callback itself.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T02:21:02.268Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L106-L110",
+          "why": "Shows the callback's complete straight-line control flow and constant animation argument."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj1_Callback1": [
+    {
+      "id": "fact:010fe9ad-3791-4ed0-aec9-df162f6f8316",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_Callback1",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a stage Ground_GObj from the callback dispatcher, reads and modifies nothing on it, and returns the constant false status to the dispatcher.",
+      "rationale": "The parameter type establishes the input object, while the complete four-line body proves that the object is never dereferenced and that the only output is false.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:18.945Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L144-L147",
+          "why": "The full function body does not reference arg0 or any global state and returns only false."
+        }
+      ]
+    },
+    {
+      "id": "fact:25317662-0fcb-4667-868b-21f51516816e",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_Callback1",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Acts as an inert stage-object callback within Marth's Target Test stage rather than implementing an active target, hazard, or platform behavior itself.",
+      "rationale": "The source proves this callback performs no active behavior, while the GrTMars identification and stage-selector table place its containing implementation in Marth's Target Test.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T02:19:18.945Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L144-L147",
+          "why": "The function has no gameplay action and only returns false."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/947281338254389288",
+          "why": "The discussion directly identifies GrTMars as Marth's Target Test."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "The stage list maps TMARS to Marth's Target Test used in Stadium and Classic Mode."
+        }
+      ]
+    },
+    {
+      "id": "fact:012b4510-97c7-42aa-b7e8-7d1d4adf738e",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_Callback1",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "StageCallbacks callback1-compatible predicate with effective signature bool (Ground_GObj*); its Ground_GObj argument is accepted but unused.",
+      "rationale": "The matched source gives the exact current signature and shows the parameter is unused. The callback-table discussion independently places callback1 in the scalar-returning StageCallbacks slot.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T02:19:18.945Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L144-L147",
+          "why": "The function is declared static bool with one Ground_GObj* parameter and returns a Boolean constant."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1062901383449280542",
+          "why": "The archived StageCallbacks declaration shows callback1 as the callback-table member that returns a scalar status."
+        }
+      ]
+    },
+    {
+      "id": "fact:21051a90-9aa5-44cd-b309-05381a069c3f",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_Callback1",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides stage object 1's callback1 predicate as an inert implementation that always reports false.",
+      "rationale": "The matched function body consists solely of returning false, and the StageCallbacks signature discussion identifies callback1 as the integer/Boolean-returning slot in the stage-object callback table. Thus this function fills the required slot without performing stage-specific work.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T02:19:18.945Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L144-L147",
+          "why": "The complete matched body takes a Ground_GObj pointer and immediately returns false."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1062901383449280542",
+          "why": "The message presents the StageCallbacks layout and identifies callback1 as the callback-table member with a scalar return value."
+        }
+      ]
+    },
+    {
+      "id": "fact:9f9a3155-7291-492f-b61b-a763547faf8e",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_Callback1",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Never signals the callback1 condition and causes no state transition or side effect, regardless of the supplied stage object.",
+      "rationale": "An unconditional false return with no reads, writes, or calls means every invocation has the same negative result and cannot itself mutate stage state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:18.945Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L144-L147",
+          "why": "The matched implementation contains no branches, calls, or assignments and unconditionally returns false."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj1_Callback3": [
+    {
+      "id": "fact:e296bbd6-71c6-42c0-ac86-477fd6e83dfb",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_Callback3",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a Ground_GObj pointer from the stage callback dispatcher but does not read it, call other routines, mutate state, or produce output.",
+      "rationale": "The complete function body is empty, and the graph reports no callees or data references; therefore the callback consumes no data beyond accepting the interface argument and has no observable output.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:20:30.399Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L118-L164",
+          "why": "Shows that the Ground_GObj parameter is unused and that the callback body performs no operations."
+        }
+      ]
+    },
+    {
+      "id": "fact:3c3d6f2f-2551-46e7-84d8-25f65076f421",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_Callback3",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides an inactive callback hook for one environment object in Marth's Target Test stage; it does not itself alter targets, terrain, or stage progression.",
+      "rationale": "The current TMARS table assigns the function to object 1's fourth callback slot, and the current body is empty; the documented stage mapping identifies the surrounding course.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function assigned to the fourth slot of the object-1 callback record."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the callback's complete empty implementation."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Identifies TMARS as Marth's Target Test stage."
+        }
+      ]
+    },
+    {
+      "id": "fact:fb422d3b-8232-439d-8cec-1cb7494e4d74",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_Callback3",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Stage callback with signature `void (Ground_GObj*)`; it occupies the fourth function slot of object 1's `StageCallbacks` record, receives the associated ground object, and returns no value.",
+      "rationale": "The current callback table establishes fourth-slot placement, and the current concrete definition establishes the `void (Ground_GObj*)` signature.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function assigned to the fourth slot of object 1's callback record."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the complete typed definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:b5defc94-3111-4b3e-924a-0b2135c0619d",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_Callback3",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the fourth callback-table hook for Marth Target Test stage GObj 1, intentionally performing no stage-specific work while satisfying the `StageCallbacks` interface.",
+      "rationale": "The current callback table places the function in the fourth slot of object 1's record, and its current implementation remains completely empty.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the callback's fourth-slot placement in `stage_callbacks[1]`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows that the callback performs no work."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj1_GObjProc": [
+    {
+      "id": "fact:46ffe3bd-928d-490e-bc2b-709f32d71d14",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_GObjProc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a Ground_GObj pointer from the stage GObj process system and passes the same pointer unchanged to Ground_801C2FE0; it returns no value and produces no local output beyond the shared routine's side effects.",
+      "rationale": "The body performs a single direct call using the unmodified parameter and has neither local transformations nor a return expression.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:41.706Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L149-L152",
+          "why": "The resolved source shows the unchanged `gobj` parameter as the only argument to the only operation in the function."
+        }
+      ]
+    },
+    {
+      "id": "fact:4424aea1-637c-409f-897e-cd2b9a26e53e",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_GObjProc",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Participates in updating one ground object of Marth's Target Test stage, whose debug-stage identifier is TMARS.",
+      "rationale": "The source locates the callback in GrTMars and identifies it as the process routine for stage GObj 1, while the resolved community and wiki records identify GrTMars/TMARS as Marth's Target Test.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-02T02:19:41.706Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L149-L152",
+          "why": "The resolved source identifies the function as the process callback for stage ground object 1."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/947281258646495292",
+          "why": "The resolved discussion identifies GrTMars as Marth's Target Test."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "The resolved stage table identifies TMARS as Marth's Target Test stage."
+        }
+      ]
+    },
+    {
+      "id": "fact:33b179b4-b0a4-4e1e-b086-67cddf0f1074",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_GObjProc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A static process callback with signature void (Ground_GObj* gobj).",
+      "rationale": "The matched declaration directly gives the internal linkage, void return type, and Ground_GObj pointer parameter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:41.706Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L149-L152",
+          "why": "The resolved declaration is `static void stageGObj1_GObjProc(Ground_GObj* gobj)`."
+        }
+      ]
+    },
+    {
+      "id": "fact:280846f9-f271-4dea-937f-468b6e36f6ee",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_GObjProc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the process callback for Marth's Target Test stage ground object 1, delegating that object's processing entirely to the shared Ground_801C2FE0 routine.",
+      "rationale": "The complete matched body contains only a call to Ground_801C2FE0 with the callback's ground object, demonstrating that this function is a thin stage-specific adapter rather than an independent state machine.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T02:19:41.706Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L149-L152",
+          "why": "The resolved source shows stageGObj1_GObjProc forwarding its sole argument directly to Ground_801C2FE0 with no other logic."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/947281258646495292",
+          "why": "The resolved discussion establishes that the enclosing GrTMars stage module is Marth's Target Test."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj1_OnInit": [
+    {
+      "id": "fact:dd85cc81-724b-4b09-9ac5-b5b2c6be323c",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_OnInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the Ground_GObj selected by the stage callback dispatcher and forwards that same pointer unchanged to Ground_JObjInline1; it has no direct return value or alternate output.",
+      "rationale": "The complete body has no locals, guards, field accesses, or transformations: its only operation passes the callback argument to Ground_JObjInline1 before returning void.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:18:57.693Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L139-L142",
+          "why": "The resolved source directly shows the unchanged Ground_GObj pointer flowing into the sole helper call."
+        }
+      ]
+    },
+    {
+      "id": "fact:83871230-9ef4-4c78-994a-b38f865b5ca2",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_OnInit",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Initializes one ground map object belonging to Marth's character-specific Target Test stage.",
+      "rationale": "The source places the object-1 initialization callback in the GrTMars stage module, and the resolved community discussion identifies GrTMars as Marth's Target Test.",
+      "confidence": 0.92,
+      "updated_at": "2026-09-02T02:18:57.693Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L139-L142",
+          "why": "The resolved source identifies this routine as the initialization callback for stage ground object 1 in grtmars.c."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/947281258646495292",
+          "why": "The resolved thread maps the GrTMars stage module to Marth's Target Test."
+        }
+      ]
+    },
+    {
+      "id": "fact:17242667-3a42-4ddc-9cb8-8afe97ac4f2d",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_OnInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Stage ground-object initialization callback with signature void (Ground_GObj*).",
+      "rationale": "The resolved definition explicitly returns void, accepts exactly one Ground_GObj pointer, and its stageGObj1_OnInit role identifies it as the initialization callback for stage object 1.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:18:57.693Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L139-L142",
+          "why": "The function declaration directly supplies the return type and sole parameter type."
+        }
+      ]
+    },
+    {
+      "id": "fact:f1fe5f66-a8c7-4d1f-bd06-be5d38c02bd1",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj1_OnInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the standard joint-object initialization for Marth Target Test stage object 1 when that object's initialization callback runs.",
+      "rationale": "The complete function body delegates object 1's Ground_GObj directly to Ground_JObjInline1. An exact-operation analog in grbattle has the same complete body and is independently characterized as the standard joint-object setup callback shape.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T02:18:57.693Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L139-L142",
+          "why": "The complete source shows stageGObj1_OnInit doing nothing except invoking Ground_JObjInline1 on its ground object."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grbattle.c#L239-L242",
+          "why": "The resolved exact-operation analog uses the identical one-call body for another stage object's callback-0 initialization routine."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj2_Callback1": [
+    {
+      "id": "fact:80b3e2a9-40f1-44b1-9a51-9a700820f158",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback1",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a Ground_GObj pointer from the stage callback machinery but discards it, performs no calls, reads or writes no object state, and returns false as its sole output.",
+      "rationale": "The entire function consists only of a constant false return, so its input does not participate in computation and it has no observable side effects beyond the returned Boolean value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:42.949Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L126-L129",
+          "why": "Shows that the Ground_GObj parameter is never referenced and that no operation occurs before returning false."
+        }
+      ]
+    },
+    {
+      "id": "fact:d1b72930-df9b-4775-8c1f-06a9397e9ec9",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback1",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides callback infrastructure for one ground object in Marth's Target Test stage but implements no standalone visible mechanic because it ignores the object and always returns false.",
+      "rationale": "The function belongs to grtmars and is explicitly a stage ground-object callback, while community evidence maps GrTMars to Marth's Target Test. Its complete no-op body supports the narrower conclusion that this particular handler contributes infrastructure rather than an active gameplay behavior.",
+      "confidence": 0.92,
+      "updated_at": "2026-09-02T02:19:42.949Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L126-L129",
+          "why": "Shows that this ground-object callback performs no active behavior and always returns false."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/947281338254389288",
+          "why": "Identifies the containing GrTMars stage module as Marth's Target Test."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://target-smash~layouts-2@r2026376",
+          "why": "Confirms Marth has a distinct Target Test layout in Melee."
+        }
+      ]
+    },
+    {
+      "id": "fact:42b227bf-019b-431e-834b-13b4424d6ab7",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback1",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Stage ground-object Boolean callback with signature bool (Ground_GObj*); the Ground_GObj argument is unused and the result is always false.",
+      "rationale": "The complete declaration and body directly establish the parameter type, Boolean return type, lack of argument use, and invariant return value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:42.949Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L126-L129",
+          "why": "Directly shows the exact signature and complete implementation."
+        }
+      ]
+    },
+    {
+      "id": "fact:de0bcbba-a359-4b16-9643-4ba6c49e6f43",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback1",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Fills the Boolean callback slot for ground object 2 in the Marth Target Test stage with an inert negative implementation, allowing the stage callback table to invoke the slot without this handler signaling any condition.",
+      "rationale": "The function's name and exact signature identify it as ground object 2's callback, the StageCallbacks typing change establishes the containing callback-table role, and the complete body always returns false.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T02:19:42.949Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L126-L129",
+          "why": "Shows the complete stageGObj2_Callback1 implementation and its unconditional false result."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-1796--main-melee-gr-grtmars",
+          "why": "Establishes that the containing grtmars tables are typed as StageCallbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:79f327db-e864-41eb-ac9e-0a505ca58725",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback1",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has no guards, timers, or state transitions and deterministically reports the callback condition as false on every invocation.",
+      "rationale": "There are no branches, state accesses, calls, or mutations in the complete function; the unconditional false return makes its behavior invariant across all ground-object states.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:42.949Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L126-L129",
+          "why": "The complete body demonstrates a side-effect-free unconditional false result."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj2_Callback3": [
+    {
+      "id": "fact:d49fd380-d213-4cee-bc62-2b6246207c8d",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback3",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the ground-object-2 `Ground_GObj*` through the stage callback interface, ignores that pointer, performs no reads, writes, or calls, and produces no output beyond returning to its invoker.",
+      "rationale": "The current third callback record assigns this function to object 2's fourth slot, and the current body is empty.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function connected to ground object 2's fourth callback entry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows that its object parameter is unused and the entire body is empty."
+        }
+      ]
+    },
+    {
+      "id": "fact:0724adec-9330-44ba-9f0d-658f1fb030e5",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback3",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Contributes no direct gameplay behavior to Marth's Target Test course; it preserves an unused callback hook for the course's third registered ground object.",
+      "rationale": "The current TMARS callback table assigns this empty function to object 2, the third populated record, while the stage-selector documentation identifies TMARS as Marth's Target Test.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the target-stage descriptor and the function's placement in the third populated callback record."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows that the callback performs no gameplay operation."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "Identifies TMARS as Marth's Target Test course."
+        }
+      ]
+    },
+    {
+      "id": "fact:6f7b0050-d0b2-45ae-9300-37411c2fbd4a",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback3",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A stage-ground-object callback with signature `void (Ground_GObj*)`. It occupies the fourth function slot of object 2's `StageCallbacks` entry, receives the associated ground GObj, and returns no value.",
+      "rationale": "The current callback table establishes fourth-slot placement for object 2, and the current definition establishes the exact signature.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the function assigned to the fourth slot of object 2's callback record."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the concrete `void (Ground_GObj*)` definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:c1a37b15-984d-4ac3-93c9-fc62f3c1f6bd",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback3",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the intentionally empty fourth stage callback for TMars ground object 2, satisfying that object's `StageCallbacks` entry without performing callback-specific work.",
+      "rationale": "The current third populated callback record places this function in its fourth slot, and the complete current implementation is empty.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:11:40.990Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows `stageGObj2_Callback3` installed as the fourth function for ground object 2."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L119-L164",
+          "why": "Shows the complete empty callback definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:3146a046-a65a-428c-ad99-a2f4b27c9d2b",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_Callback3",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has invariant no-op behavior for every `Ground_GObj*`: it contains no guards, transitions, timers, callback chaining, or state mutation and returns immediately.",
+      "rationale": "The complete matched function consists solely of an empty body. Consequently, invocation cannot vary with object state and cannot itself cause a state transition or timed behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:18.217Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L137-L137",
+          "why": "Shows the complete empty implementation, proving immediate return with no conditional or stateful behavior."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj2_GObjProc": [
+    {
+      "id": "fact:5f6c8f5c-6f94-4214-9c41-0628c71cf1c1",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_GObjProc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a Ground_GObj pointer, invokes lb_800115F4 without passing that object, and then forwards the original pointer unchanged to Ground_801C2FE0; it produces no direct return value.",
+      "rationale": "The complete matched body exposes all local data movement: the parameter is neither inspected nor modified locally and is used only as the argument to the second call.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:36.639Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L131-L135",
+          "why": "The source shows the parameter being forwarded unchanged only to Ground_801C2FE0 after the argument-free lb_800115F4 call."
+        }
+      ]
+    },
+    {
+      "id": "fact:2a15c20d-a798-40ec-a0f3-4a1f545f5721",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_GObjProc",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides per-process servicing for ground object 2 within Marth's character-specific Target Test arena.",
+      "rationale": "The source places this ground-object callback in the GrTMars unit; community identification maps GrTMars to Marth's Target Test, while the debug-stage table independently maps TMARS to that same arena.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T02:19:36.639Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L131-L135",
+          "why": "This source identifies the function as the GrTMars stage ground-object-2 process routine."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/947281338254389288",
+          "why": "This message identifies GrTMars as Marth's Target Test stage."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-full-stage-selector~full-stage-selector-list@r1890550",
+          "why": "The stage table independently maps TMARS to Marth's Target Test."
+        }
+      ]
+    },
+    {
+      "id": "fact:bbd97d87-66a9-4c53-bdcf-acd6dcbdeb71",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_GObjProc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Ground-object process callback with signature void(Ground_GObj*), operating on the supplied stage ground game object and returning no value.",
+      "rationale": "The matched function definition directly declares a Ground_GObj pointer parameter and void return type, and the object is forwarded to the ground-system helper.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:36.639Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L131-L135",
+          "why": "The definition directly establishes the void(Ground_GObj*) signature."
+        }
+      ]
+    },
+    {
+      "id": "fact:fb903acd-7731-44c7-a9f4-5212ba6ec7ff",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_GObjProc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the process callback for GrTMars stage ground object 2, sequencing shared library housekeeping before invoking the shared ground-system update for that object.",
+      "rationale": "The complete matched body is a stage-object process routine that unconditionally calls lb_800115F4 first and Ground_801C2FE0 with its supplied ground object second.",
+      "confidence": 0.91,
+      "updated_at": "2026-09-02T02:19:36.639Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L131-L135",
+          "why": "The matched source shows the callback's complete two-call body and establishes the fixed order of the shared library and ground-system operations."
+        }
+      ]
+    },
+    {
+      "id": "fact:3046fdbc-a17f-4ea0-84fe-81c661cd2385",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_GObjProc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On every invocation, performs both delegated operations unconditionally and in fixed order\u2014lb_800115F4 first, then Ground_801C2FE0. It contains no local guard, timer, branch, or state transition.",
+      "rationale": "The complete five-line matched definition contains exactly two sequential calls and no conditional or local state manipulation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:19:36.639Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L131-L135",
+          "why": "The complete callback body demonstrates its unconditional ordering and absence of local state logic."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:stageGObj2_OnInit": [
+    {
+      "id": "fact:28fcb2ca-76fd-44fb-806d-7bbb51411405",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_OnInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the Ground_GObj selected for stage object 2 and forwards that same pointer unchanged to Ground_JObjInline1; it has no direct return value or other output.",
+      "rationale": "The complete body has no locals, guards, transformations, or alternate calls: its sole parameter flows directly into Ground_JObjInline1 and the callback returns void.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:18:27.001Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L121-L124",
+          "why": "The source directly shows the unchanged gobj argument passed to the only callee and no returned result."
+        }
+      ]
+    },
+    {
+      "id": "fact:b9043f84-338e-4ce4-8269-900aa329d42f",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_OnInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Stage-object initialization callback with signature void (Ground_GObj*).",
+      "rationale": "The resolved definition explicitly returns void, accepts exactly one Ground_GObj pointer, and is named and structured as object 2's initialization callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T02:18:27.001Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L121-L124",
+          "why": "The function declaration directly provides the void return type and sole Ground_GObj* parameter."
+        }
+      ]
+    },
+    {
+      "id": "fact:ab2d4591-8456-4dcf-8894-b32ee5bfebf8",
+      "target_id": "target:function:main/melee/gr/grtmars:stageGObj2_OnInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the standard Ground joint-object setup for grTMars stage object 2 when that object is initialized.",
+      "rationale": "The complete function body consists solely of forwarding its Ground_GObj to Ground_JObjInline1. An exact opseq analog in grbattle has the same callback signature and operation, corroborating that this is the standard joint-object setup callback shape.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T02:18:27.001Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L121-L124",
+          "why": "The complete definition shows stageGObj2_OnInit invoking only Ground_JObjInline1 on the supplied stage object."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grbattle.c#L239-L242",
+          "why": "An exact analog is likewise a Ground_GObj callback whose entire body delegates to Ground_JObjInline1, showing the shared callback role."
+        }
+      ]
+    }
+  ],
+  "src/melee/gr/grtmars.c": [
+    {
+      "id": "fact:8009253f-b584-4d6e-b769-da5f8dac2c02",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grtmars.c",
+      "type": "data_flow",
+      "value": "`grTMs_StageData` associates `Gr_Kind_TMars` and `/GrTMs.dat` with the local callback table. Initialization passes `setupStageCallbacks` to `Ground_InitTargetStage`; that helper uses each Ground-object ID to select and install the corresponding callback row.",
+      "rationale": "The current descriptor, common target-stage initialization call, indexed lookup, Ground-object retrieval, and guarded callback installation preserve the standing data flow after the include-only drift.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:45:08.323Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the TMars descriptor, resource, callback table, target-stage initialization, and indexed callback installer."
+        }
+      ]
+    },
+    {
+      "id": "fact:2d8918d8-1983-4f56-9b41-07a48858516b",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grtmars.c",
+      "type": "game_mapping",
+      "value": "Implements Marth's character-specific Target Test stage.",
+      "rationale": "The current unit registers `Gr_Kind_TMars`, initializes through `Ground_InitTargetStage`, and starts the shared generator.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:45:08.323Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Identifies the TMars stage and its common Target Test initialization and generator-start paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:54d6371e-0ff2-4610-8af1-d2bfb430435e",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grtmars.c",
+      "type": "inferred_type",
+      "value": "A target-stage implementation translation unit centered on one `StageData` descriptor and a sentinel-terminated `StageCallbacks` array with three populated Ground-object rows.",
+      "rationale": "The current declarations contain one TMars descriptor, three active callback rows, and a zero terminator.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:45:08.323Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the complete callback-table shape and its owning `StageData` descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:8dd9cb7c-874f-4dfb-823e-3a681f197c20",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grtmars.c",
+      "type": "purpose",
+      "value": "Defines and controls the TMars target stage by registering its descriptor, initializing its Ground objects, starting the shared generator, and supplying per-object animation, map-collision, touch-line, and shadow-render callbacks.",
+      "rationale": "Both halves of the current source retain the descriptor, lifecycle path, Ground-object callbacks, and stage-level callbacks.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:45:08.323Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows the stage descriptor, lifecycle callbacks, generator startup, callback installation, and first Ground-object behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L121-L164",
+          "why": "Shows the remaining Ground-object processing and stage-wide touch-line and shadow callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:eca916ac-fc8e-42b8-8f2e-87e25b279102",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grtmars.c",
+      "type": "state_behavior",
+      "value": "Stage start activates the shared generator. Ground object 0 initializes animation; objects 1 and 2 initialize joints and update map collision, with object 2 also invoking `lb_800115F4`. The stage predicate and all three object predicates return false, touch-line lookup returns null, and shadow rendering is always permitted.",
+      "rationale": "The current callback bodies preserve these lifecycle actions and invariant callback results.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:45:08.323Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L1-L120",
+          "why": "Shows startup, object-0 initialization, the stage predicate, and indexed callback setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grtmars.c#L121-L164",
+          "why": "Shows objects 1 and 2 processing and the null touch-line and true shadow policies."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grtmars:grTMars_80221EF4#r3": [],
+  "main/melee/gr/grtmars:grTMars_802221C8#r3": [],
+  "main/melee/gr/grtmars:grTMars_802221D0#r3": [],
+  "main/melee/gr/grtmars:grTMars_802221D0#r4": [],
+  "main/melee/gr/grtmars:grTMars_802221D0#r5": [],
+  "main/melee/gr/grtmars:setupStageCallbacks#r3": [],
+  "main/melee/gr/grtmars:stageGObj0_Callback1#r3": [],
+  "main/melee/gr/grtmars:stageGObj0_Callback3#r3": [],
+  "main/melee/gr/grtmars:stageGObj0_GObjProc#r3": [],
+  "main/melee/gr/grtmars:stageGObj0_OnInit#r3": [],
+  "main/melee/gr/grtmars:stageGObj1_Callback1#r3": [],
+  "main/melee/gr/grtmars:stageGObj1_Callback3#r3": [],
+  "main/melee/gr/grtmars:stageGObj1_GObjProc#r3": [],
+  "main/melee/gr/grtmars:stageGObj1_OnInit#r3": [],
+  "main/melee/gr/grtmars:stageGObj2_Callback1#r3": [],
+  "main/melee/gr/grtmars:stageGObj2_Callback3#r3": [],
+  "main/melee/gr/grtmars:stageGObj2_GObjProc#r3": [],
+  "main/melee/gr/grtmars:stageGObj2_OnInit#r3": []
+}

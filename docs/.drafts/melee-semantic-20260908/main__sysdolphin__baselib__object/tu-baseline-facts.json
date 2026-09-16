@@ -1,0 +1,413 @@
+{
+  "tu": "main/sysdolphin/baselib/object",
+  "facts": [
+    {
+      "id": "fact:10c59e83-762c-4369-a948-97efb2ecccaa",
+      "target_id": "target:data:main/sysdolphin/baselib/object:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The static descriptor supplies `ObjInfoInit` as its initialization entry point. `ObjInfoInit` passes the descriptor's address, the root `hsdClass` descriptor, the `sysdolphin_base_library` and `hsd_obj` labels, and the `HSD_ObjInfo` and `HSD_Obj` sizes to `hsdInitClassInfo`; that routine writes the descriptor header, identity, sizes, parent pointer, counters, inherited dispatch data, and class-hierarchy links back into this mutable data.",
+      "rationale": "The current object definition shows the static callback and all six values passed for `hsdObj`. The current common initializer shows those values and inherited parent state being written into the destination descriptor and its hierarchy links.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Declares `hsdObj` with `ObjInfoInit` and shows the descriptor, parent, labels, and sizes passed to `hsdInitClassInfo`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the common initializer writing identity, size, parent, counters, links, and inherited descriptor state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L50-L65",
+          "why": "Shows completion of the inherited-region copy and insertion of the descriptor into its parent's child list."
+        }
+      ]
+    },
+    {
+      "id": "fact:af89d5a6-b5ea-47e3-8fbb-f91f87fb33e3",
+      "target_id": "target:data:main/sysdolphin/baselib/object:.data",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "hsdObj",
+      "rationale": "The current matched source directly names the unit's mutable class-descriptor object `hsdObj`.\n\nNaming cleanup: single source identifier\nPrior naming claim: The data represented by this section target is plausibly named `hsdObj`, following the recovered HSD class-descriptor naming convention.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/object:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Declares the unit's `HSD_ClassInfo` object under the symbol `hsdObj`."
+        }
+      ]
+    },
+    {
+      "id": "fact:c7344cfb-ce6a-45db-bcb5-19a4b6fc9962",
+      "target_id": "target:data:main/sysdolphin/baselib/object:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A single mutable `HSD_ClassInfo` object named `hsdObj`. Its static image installs `ObjInfoInit` as the descriptor's InfoInit callback; the remaining descriptor state is supplied during runtime initialization.",
+      "rationale": "The current declaration gives the object's exact type and static callback initializer. The callback invokes the common initializer, whose current body populates the descriptor's runtime metadata and hierarchy state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Declares `hsdObj` as one `HSD_ClassInfo` initialized with `ObjInfoInit` and shows that callback invoking runtime initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the runtime metadata and inherited state subsequently written into an `HSD_ClassInfo` destination."
+        }
+      ]
+    },
+    {
+      "id": "fact:75938466-a6bd-4946-baf8-404a4e47668f",
+      "target_id": "target:data:main/sysdolphin/baselib/object:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the mutable runtime class descriptor for the base HSD object type, including the callback that bootstraps the descriptor before it serves as the parent class for more specialized Sysdolphin object descriptors.",
+      "rationale": "The current object unit defines and initializes `hsdObj` beneath `hsdClass`; the common initializer makes that descriptor usable by installing metadata, inherited state, and hierarchy links. The fog-adjustment class provides a current concrete example of a specialized descriptor using `hsdObj` as its parent.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Defines `hsdObj`, seeds it with its initialization callback, and initializes it as `hsd_obj` beneath `hsdClass`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the common initializer installing descriptor metadata and inherited parent state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L248-L253",
+          "why": "Shows the specialized `hsdFogAdj` descriptor being initialized with `hsdObj` as its parent."
+        }
+      ]
+    },
+    {
+      "id": "fact:c0a7f407-6b2c-4585-b2b7-c22f945eac70",
+      "target_id": "target:data:main/sysdolphin/baselib/object:.data",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Before class initialization, the descriptor carries its InfoInit callback but lacks its completed runtime metadata. Initialization marks it initialized, clears its child and sibling links and live and peak instance counters, initializes `hsdClass` first if that parent is not ready, verifies that the child descriptor and object extents are compatible with the parent, copies the parent's inheritable allocation and dispatch region, and inserts `hsdObj` at the head of the parent's child list.",
+      "rationale": "The current static declaration establishes the callback-seeded initial state and identifies `hsdClass` as the parent. The current initializer body directly implements the flag and metadata writes, reset fields, lazy-parent guard, size assertions, inherited-region copy, and child-list insertion.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Shows the callback-seeded `hsdObj` declaration and identifies `hsdClass` and the two object extents used during initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the initialized flag, metadata and reset writes, lazy-parent initialization, size guards, and inherited-region copy."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L50-L65",
+          "why": "Shows the descriptor being inserted as the newest child of its parent."
+        }
+      ]
+    },
+    {
+      "id": "fact:3d7109e2-2efa-468b-86dd-09aa39e1e553",
+      "target_id": "target:data:main/sysdolphin/baselib/object:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`ObjInfoInit` passes this string as the `type` argument to `hsdInitClassInfo`; that routine stores the pointer in `hsdObj.head.class_name`, where it remains the runtime class-name identity for the descriptor.",
+      "rationale": "The current caller identifies `\"hsd_obj\"` as the fourth initializer argument, and the current callee copies that `type` pointer directly into the destination descriptor's `class_name` field.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Shows `ObjInfoInit` passing `\"hsd_obj\"` as the fourth argument to `hsdInitClassInfo`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the fourth parameter, `type`, being stored directly in `class_info->head.class_name`."
+        }
+      ]
+    },
+    {
+      "id": "fact:bb423735-1773-4ca1-b685-27cc9508e7bc",
+      "target_id": "target:data:main/sysdolphin/baselib/object:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An eight-byte null-terminated C character sequence containing `\"hsd_obj\"` (`'h','s','d','_','o','b','j','\\0'`) in the small-data section.",
+      "rationale": "The current source recovers the target value as the seven-character C string literal `\"hsd_obj\"`; the required terminating null byte completes its eight-byte character-array layout.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Shows the class-name value as the C string literal `\"hsd_obj\"`, whose seven characters plus terminator occupy eight bytes."
+        }
+      ]
+    },
+    {
+      "id": "fact:f0f23b84-cbc6-47cd-b631-455fdaa97041",
+      "target_id": "target:data:main/sysdolphin/baselib/object:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the `hsd_obj` class-name label used to identify the base HSD object descriptor when its runtime class metadata is initialized.",
+      "rationale": "The current callback passes `\"hsd_obj\"` for the base descriptor's type label, and the current common initializer stores that argument in the descriptor's `class_name` field.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Identifies `\"hsd_obj\"` as the class label supplied while initializing `hsdObj`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the supplied type label being retained in `class_info->head.class_name`."
+        }
+      ]
+    },
+    {
+      "id": "fact:4b83935b-7e34-479c-9bb3-a2b450a6c213",
+      "target_id": "target:function:main/sysdolphin/baselib/object:ObjInfoInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Uses no caller-supplied inputs. It forwards the global destination `hsdObj`, global parent `hsdClass`, fixed library and class-name strings, and compile-time `HSD_ObjInfo` and `HSD_Obj` sizes to `hsdInitClassInfo`; that routine writes the resulting identity, size, counter, inheritance, and hierarchy state into `hsdObj` and updates `hsdClass`'s child link.",
+      "rationale": "The current parameterless function supplies all six initializer inputs. The current callee body shows the resulting descriptor writes, inherited-state copy, counter resets, and parent-child hierarchy update.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:ObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Shows the parameterless callback and every value it forwards to `hsdInitClassInfo`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the destination metadata writes, resets, parent guard, and inherited-region copy produced from those inputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L50-L65",
+          "why": "Shows `hsdInitClassInfo` completing the hierarchy update by linking the descriptor as the parent's newest child."
+        }
+      ]
+    },
+    {
+      "id": "fact:cb811807-0372-4f2d-9d60-e99b1df348b0",
+      "target_id": "target:function:main/sysdolphin/baselib/object:ObjInfoInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Parameterless class-info initialization callback with signature `void ObjInfoInit(void)`; it initializes an `HSD_ClassInfo` descriptor whose metadata and instance extents are `sizeof(HSD_ObjInfo)` and `sizeof(HSD_Obj)`, respectively.",
+      "rationale": "The matched definition proves the callback signature, while its final two arguments identify the descriptor-info and object-instance types whose sizes are recorded.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:13:02.390Z",
+      "subject": "main/sysdolphin/baselib/object:ObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L5-L9",
+          "why": "Provides the complete `void(void)` definition and the `HSD_ObjInfo` and `HSD_Obj` size arguments."
+        }
+      ]
+    },
+    {
+      "id": "fact:f3033cde-6cdc-4e41-9112-da9dd41ed5f6",
+      "target_id": "target:function:main/sysdolphin/baselib/object:ObjInfoInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes the runtime class descriptor for the base HSD object type, establishing it as a child of the root HSD class and recording the identity and allocation sizes used by the HSD class system.",
+      "rationale": "The current function calls the common class-descriptor initializer with `hsdObj` as destination, `hsdClass` as parent, fixed identity labels, and the exact descriptor and object sizes. The current callee constructs the metadata and registers the descriptor beneath its parent.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:ObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Shows `ObjInfoInit` supplying the object descriptor, root parent, identity labels, and type sizes to the common initializer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the called routine constructing class metadata and inheriting parent descriptor state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L50-L65",
+          "why": "Shows the initialized descriptor being registered in its parent's child hierarchy."
+        }
+      ]
+    },
+    {
+      "id": "fact:d32c9da9-7b06-4fd7-8803-bae516a285ea",
+      "target_id": "target:function:main/sysdolphin/baselib/object:ObjInfoInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Transitions `hsdObj` into initialized class state: the common initializer sets its initialized flag, clears its child and sibling links and current and peak instance counters, ensures `hsdClass` is initialized through its own InfoInit callback if necessary, verifies that the object descriptor is large enough to inherit from the parent, copies the parent's inheritable dispatch region, and installs `hsdObj` as the parent's newest child.",
+      "rationale": "The current callback selects `hsdObj` and `hsdClass` as destination and parent. The current initializer directly implements the initialized-state flag, reset fields, lazy-parent guard, size assertions, inheritance copy, and hierarchy insertion.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:33:44.580Z",
+      "subject": "main/sysdolphin/baselib/object:ObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Identifies `hsdObj` as the descriptor being initialized and `hsdClass` as its parent."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the initialized flag, reset fields, lazy-parent initialization, size guards, and inherited-region copy."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L50-L65",
+          "why": "Shows the final insertion of the initialized descriptor at the head of the parent's child list."
+        }
+      ]
+    },
+    {
+      "id": "fact:b05618eb-7362-4eca-8c66-993b33bef79d",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/object.c",
+      "type": "data_flow",
+      "value": "Static data initially supplies hsdObj only with its ObjInfoInit callback. When that callback runs, it passes hsdObj, its hsdClass parent, the library and class labels, and the HSD_ObjInfo and HSD_Obj sizes to the common class initializer, which fills the descriptor's remaining runtime metadata and hierarchy links.",
+      "rationale": "The current object definition proves the static callback seed and every argument supplied to hsdInitClassInfo. The current common initializer shows those inputs populating class metadata, inherited state, and parent-child hierarchy links.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:29:57.086Z",
+      "subject": "src/sysdolphin/baselib/object.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Shows the initial hsdObj value and the descriptor, parent, labels, and sizes passed to hsdInitClassInfo."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the common initializer consuming those arguments to populate metadata and inherit parent descriptor state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L50-L65",
+          "why": "Shows inherited state and hierarchy links being written into the initialized descriptor and its parent."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/741008189432266836",
+          "why": "Explains that class-info state beyond the statically supplied InfoInit pointer is initialized at runtime."
+        }
+      ]
+    },
+    {
+      "id": "fact:b1e1f69f-9f13-4945-8f20-d8a23ae19153",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/object.c",
+      "type": "inferred_type",
+      "value": "This translation unit owns the global HSD_ClassInfo hsdObj, statically initialized with the parameterless ObjInfoInit callback, and references the externally owned parent descriptor HSD_ClassInfo hsdClass.",
+      "rationale": "The complete current translation unit directly declares the hsdObj class descriptor, installs ObjInfoInit as its static initializer, defines that callback without parameters, and passes hsdClass as the parent descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T02:29:57.086Z",
+      "subject": "src/sysdolphin/baselib/object.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Declares hsdObj as HSD_ClassInfo, initializes it with ObjInfoInit, defines the parameterless callback, and references hsdClass as its parent."
+        }
+      ]
+    },
+    {
+      "id": "fact:bc2b90ba-2bd6-4a4a-bf6e-5faad0a10624",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/object.c",
+      "type": "purpose",
+      "value": "Owns and bootstraps the runtime class descriptor for the base HSD object type, deriving it from the root HSD class descriptor so other Sysdolphin object classes can inherit the common object metadata and behavior.",
+      "rationale": "The current object unit still initializes hsdObj from hsdClass with the HSD_ObjInfo and HSD_Obj extents. The common class initializer establishes inheritance and hierarchy links, and the current fog-adjustment initializer demonstrates another HSD class deriving from hsdObj.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:29:57.086Z",
+      "subject": "src/sysdolphin/baselib/object.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Shows that this unit owns hsdObj, seeds it with ObjInfoInit, and initializes it as hsd_obj derived from hsdClass."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the common class initializer installing metadata, inheriting parent state, and beginning hierarchy insertion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L50-L65",
+          "why": "Shows inherited descriptor state being copied and the initialized class being inserted as the parent's newest child."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L248-L253",
+          "why": "Shows the concrete hsdFogAdj class using hsdObj as its parent descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:79be3684-1bbc-4879-a40d-749386f0fc0b",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/object.c",
+      "type": "state_behavior",
+      "value": "Running ObjInfoInit transitions hsdObj into initialized class state: its initialized flag is set, identity and size metadata are installed, child and sibling links and instance counters are cleared, hsdClass is initialized through its own InfoInit callback if necessary, inherited descriptor state is copied, and hsdObj is inserted as the newest child of hsdClass.",
+      "rationale": "The current object callback identifies hsdObj and hsdClass as destination and parent. The current common initializer directly implements the initialized flag, metadata and reset writes, lazy-parent guard, inheritance copy, and parent-child insertion.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:29:57.086Z",
+      "subject": "src/sysdolphin/baselib/object.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/object.c#L1-L9",
+          "why": "Identifies hsdObj as the descriptor being initialized and hsdClass as its parent."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L55",
+          "why": "Shows the initialized flag, identity and size metadata, reset fields, lazy-parent initialization, and inherited-state copy."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L50-L65",
+          "why": "Shows the descriptor being linked as the newest child of its parent."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/741008189432266836",
+          "why": "Corroborates that the class-info structure beyond its InfoInit pointer is populated at runtime."
+        }
+      ]
+    }
+  ]
+}

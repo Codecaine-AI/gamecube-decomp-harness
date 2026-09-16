@@ -1,0 +1,233 @@
+{
+  "tu": "main/melee/ft/ftcoll",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80077464"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Converts damage by truncation, replacing a nonzero value whose integer cast is zero with 1. Values above maxDamage update the selected item damage maximum and fighter damageOver; other values install reflector GObj, metadata and multipliers. Success copies xDCC_flag.b2 but only sets b1 when the fighter flag is true, leaving prior b1 unchanged otherwise. Both branches derive item direction from relative X and reflector direction opposite nonzero item X velocity or from relative X.",
+        "rationale": "Inherited flag-copy wording misses the one-way set of item flag b1; no direct owner/velocity mutation occurs here.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L747-L845",
+            "why": "Reviewed canonical function body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80077688"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Calls it_8026FAC4 with mode 1 or 2, converts damage with nonzero-subunit fallback to 1, and updates detailed item response only when dmg > item->xC34_damageDealt. That branch writes xC50, defender, direction and conditional bounce geometry. Always adds max(dmg + hit.x34,0) to shield damage, updates owner attribution and stronger fighter-side contact as applicable, and spawns effect 0x41C.",
+        "rationale": "The comparator is xC34_damageDealt, not the xC50 shield-response value; zero damage remains zero.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L847-L974",
+            "why": "Reviewed canonical function body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80077688"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Processes item attack contact with fighter shield state: registers the contact, conditionally stages item response geometry using xC34_damageDealt as threshold, accumulates nonnegative shield damage, records attribution/contact metadata and spawns contact feedback.",
+        "rationale": "Remove unverified callback selection and incorrect strongest-shield-response interpretation.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L847-L974",
+            "why": "Reviewed canonical function body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80077688"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Detailed response is guarded by dmg > item->xC34_damageDealt; the branch stores dmg into xC50, not xC34. Bounce flag b5 requires hit permission and no defender suppression. Direction uses relative position below the speed threshold and velocity sign otherwise. Qualified geometry uses either the supplied axis/angle or a fixed-angle axis. Shield-damage accumulation and attribution run on every invocation.",
+        "rationale": "Correct the claim that this necessarily retains the strongest prior shield response.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L847-L974",
+            "why": "Reviewed canonical function body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80077C60"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Type-4 special items register contact, conditionally update the three handled kinds and return false. Low coll_distance processing requires an empty primary log, zero frame guard and no matching victims_2 entry; it then registers secondary contact and returns true after sound, even when fighter eligibility prevents secondary-log insertion. Ordinary processing clears the secondary log, updates item response, applies eligible damage/reserve handling and primary logging, produces fallback feedback if unlogged, and returns true. Rejected low-distance candidates return false.",
+        "rationale": "True does not imply damage was logged; separate acceptance from eligibility-gated log mutation.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1107-L1342",
+            "why": "Reviewed canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L526-L548",
+            "why": "Low-distance predicate and prior-contact lookup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80078710"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftColl_RecordFighterHitAttribution",
+        "rationale": "Existing ftColl_RecordFighterHit collides with 8007891C; this wrapper packages source attribution, while 8007891C calls stale/combo/statistics helpers.",
+        "confidence": 0.88,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1448-L1454",
+            "why": "Reviewed canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1411-L1446",
+            "why": "Shared attribution writes and parameter forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_800787B4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads item owner, kind and attack metadata. BombHei first invokes pl_80041B08, then still performs the attribution branch. Fighter-recognized owners are forwarded as source; other owners use null source with preserve flag selected by pl_8003D60C. All paths submit class 2 and item metadata to ftColl_8007861C.",
+        "rationale": "The BombHei update is additional, not mutually exclusive with attribution as inherited otherwise wording suggests.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1472-L1494",
+            "why": "Reviewed canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1411-L1446",
+            "why": "Shared attribution writes and parameter forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_800787B4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftColl_RecordItemHitAttribution",
+        "rationale": "Existing ftColl_ProcessItemHit collides with 80077C60; this wrapper packages item source metadata for attribution rather than resolving collision damage.",
+        "confidence": 0.88,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1472-L1494",
+            "why": "Reviewed canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1411-L1446",
+            "why": "Shared attribution writes and parameter forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80078A2C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Clears victim_gobj and sets unk_grab_val to F32_MAX, then scans fighter candidates and four non-disabled Catch capsules against grabbable hurt capsules. State/team/helper guards filter candidates. Accepted contacts update selection only when absolute X separation is smaller, writing x1A5C, victim_gobj, x221B_b5 and distance. x1A5C and x221B_b5 are not reset locally on a miss.",
+        "rationale": "F32_MAX is finite; specify horizontal metric and stale-output behavior.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1566-L1633",
+            "why": "Reviewed canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1550-L1563",
+            "why": "Strict absolute-X reduction and selected-output writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80078A2C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Selects the eligible overlapped fighter with the smallest absolute horizontal separation. Tests non-disabled Catch capsules compatible with target ground/air state against grabbable hurt capsules, records accepted contact after the final helper permits it, and stores a strictly closer victim.",
+        "rationale": "Nearest refers to absolute X separation, not Euclidean distance; final helper semantics remain separately reviewed.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1566-L1633",
+            "why": "Reviewed canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1550-L1563",
+            "why": "Strict absolute-X reduction and selected-output writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80078A2C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Starts with victim_gobj null and F32_MAX best distance. Guarded candidates require compatible non-disabled Catch capsules and grabbable hurt-capsule overlap. After the first overlapping hurt capsule, it moves to the next fighter even if ft_80084CE4 rejects the pair. Accepted strictly smaller absolute X distance replaces the result; ties retain the earlier list candidate. No match leaves x1A5C and x221B_b5 unchanged.",
+        "rationale": "Capture exact loop exit, strict horizontal reduction and partial output reset; avoid equating non-disabled with enabled.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1566-L1633",
+            "why": "Reviewed canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1550-L1563",
+            "why": "Strict absolute-X reduction and selected-output writes."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

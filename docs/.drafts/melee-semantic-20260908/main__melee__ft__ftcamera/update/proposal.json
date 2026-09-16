@@ -1,0 +1,147 @@
+{
+  "tu": "main/melee/ft/ftcamera",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:ftCamera_800762F4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives a fighter GObj, obtains its CmSubject, and delegates writing bone_pos to ftLib_800866DC. That helper selects ft_data->x0->camera_zoom_target_bone, obtains fp->parts[index].joint, and transforms co_attrs.x170 into the destination. A null selected joint copies the local offset directly; the wrapper does not rewrite other CmSubject fields.",
+        "rationale": "Adds independently read joint selection and local-offset behavior, including the null-joint fallback.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L89-L93",
+            "why": "Complete owned definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L293-L297",
+            "why": "Returns the configured part joint."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L325-L331",
+            "why": "Selects camera_zoom_target_bone and co_attrs.x170 offset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L105-L140",
+            "why": "Transforms the local offset into the destination, or copies the offset for a null joint."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L120-L123",
+            "why": "Jump camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L232-L235",
+            "why": "Fall camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Throw.c#L438-L446",
+            "why": "Kirby motion-ID branch chooses bone-only update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L121-L131",
+            "why": "Thrown camera callback selects by referenced fighter kind and motion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:ftCamera_800762F4"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Used by WarpStarJump_Cam and WarpStarFall_Cam for bone-position-only updates. ThrowHi_Cam chooses it for Kirby with motion ID 221; ThrownHi_Cam chooses it when the fighter referenced by victim_gobj is Kirby in ftCo_MS_ThrowHi. Both throw callbacks otherwise call ftCamera_UpdateCameraBox.",
+        "rationale": "Replace an inferred offscreen condition with the exact callback selection conditions.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L89-L93",
+            "why": "Complete owned definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L293-L297",
+            "why": "Returns the configured part joint."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L325-L331",
+            "why": "Selects camera_zoom_target_bone and co_attrs.x170 offset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L105-L140",
+            "why": "Transforms the local offset into the destination, or copies the offset for a null joint."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L120-L123",
+            "why": "Jump camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L232-L235",
+            "why": "Fall camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Throw.c#L438-L446",
+            "why": "Kirby motion-ID branch chooses bone-only update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L121-L131",
+            "why": "Thrown camera callback selects by referenced fighter kind and motion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcamera:ftCamera_80076320"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides specialized camera-subject positioning for the DeadUpStar and DeadUpFall camera callbacks. It pins subject Y to the stage top blast-zone offset and multiplies subject X by the ratio of top camera-bound height to top blast-zone height, each measured relative to the stage camera Y offset.",
+        "rationale": "Named callers support DeadUp. The source establishes a ratio but does not guarantee its magnitude is below one, so the inherited compression assertion is removed.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcamera.c#L95-L114",
+            "why": "Complete owned definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D31.c#L697-L700",
+            "why": "Named DeadUpStar camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D4D.c#L50-L53",
+            "why": "Named DeadUpFall camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L132-L137",
+            "why": "Stage camera offset vector."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

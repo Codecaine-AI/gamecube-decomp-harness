@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chmod, copyFile, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, relative, resolve } from "node:path";
+import { baseConfigureCommand, configureCommandWithWrapper } from "@server/core/game-registry/configure-command.js";
 import {
   isHostToolPlatform,
   requiredStateToolArtifactError,
@@ -10,6 +11,7 @@ import {
 } from "@server/core/tools/platform.js";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell/index.js";
 import { actionableFailureOutput } from "../failure-output.js";
+import { executeBuildTask, remoteBuildsEnabled } from "../build/execution.js";
 
 export interface ReportRunStep extends CommandResult {
   command: string[];
@@ -54,11 +56,39 @@ export interface ReportRunResult {
 }
 
 export interface ReportRunOptions {
+  /** Boundary-specific configure command, executed inside the build sandbox. */
+  configureCommand?: string;
+  kind?: string;
+  reportPath?: string;
+  reportChangesPath?: string;
+  baselinePath?: string;
+  dolConfigPath?: string;
+  reportTarget?: string;
+  changesTarget?: string;
   generateChanges?: boolean;
   logDir?: string;
   resetBaseline?: boolean;
   timeoutMs?: number;
   toolPlatform?: ToolPlatform;
+}
+
+interface ReportGameConfig {
+  kind?: string;
+  reportPath?: string;
+  reportChangesPath?: string;
+  qaTarget?: string;
+  validation?: { reportPath?: string; reportChangesPath?: string; qaTarget?: string };
+}
+
+export function reportRunOptionsForGame(game?: ReportGameConfig | null): ReportRunOptions {
+  if (!game) return {};
+  const config = game.validation ?? game;
+  return {
+    ...(game.kind ? { kind: game.kind } : {}),
+    ...(config.reportPath ? { reportPath: config.reportPath } : {}),
+    ...(config.reportChangesPath ? { reportChangesPath: config.reportChangesPath } : {}),
+    ...(config.qaTarget ? { changesTarget: config.qaTarget } : {}),
+  };
 }
 
 export interface ReportReuseKeyInput {
@@ -106,10 +136,6 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
-
 async function pathCommandExists(command: string): Promise<boolean> {
   const pathValue = process.env.PATH ?? "";
   for (const entry of pathValue.split(":")) {
@@ -146,7 +172,8 @@ async function stateWiboPath(repoRoot: string, toolPlatform: ToolPlatform): Prom
   return null;
 }
 
-async function preferredConfigureCommand(repoRoot: string, toolPlatform: ToolPlatform): Promise<string[]> {
+async function preferredConfigureCommand(repoRoot: string, toolPlatform: ToolPlatform, gameKind?: string): Promise<string[]> {
+  const base = baseConfigureCommand({ kind: gameKind });
   const localWibo = resolve(repoRoot, "build", "tools", "wibo");
   if (!isHostToolPlatform(toolPlatform) || !(await pathExists(localWibo))) {
     const source = await stateWiboPath(repoRoot, toolPlatform);
@@ -158,12 +185,12 @@ async function preferredConfigureCommand(repoRoot: string, toolPlatform: ToolPla
     }
   }
   if (await pathExists(localWibo)) {
-    return ["/bin/sh", "-c", `python3 configure.py --require-protos --wrapper ${shellQuote("build/tools/wibo")}`];
+    return ["/bin/sh", "-c", configureCommandWithWrapper(base, "build/tools/wibo")];
   }
   if (isHostToolPlatform(toolPlatform) && (await pathCommandExists("wibo"))) {
-    return ["/bin/sh", "-c", "python3 configure.py --require-protos --wrapper wibo"];
+    return ["/bin/sh", "-c", configureCommandWithWrapper(base, "wibo")];
   }
-  return ["python3", "configure.py", "--require-protos"];
+  return base.split(" ");
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -306,23 +333,24 @@ async function ensureConfigured(
   repoRoot: string,
   steps: ReportRunStep[],
   toolPlatform: ToolPlatform,
+  gameKind: string | undefined,
   options: RunStepOptions,
 ): Promise<void> {
   if (await pathExists(resolve(repoRoot, "build.ninja"))) return;
   if (!(await pathExists(resolve(repoRoot, "configure.py")))) {
     throw new Error(`configure failed: build.ninja is missing and configure.py was not found in ${repoRoot}`);
   }
-  await runStep(repoRoot, steps, "configure", await preferredConfigureCommand(repoRoot, toolPlatform), options);
+  await runStep(repoRoot, steps, "configure", await preferredConfigureCommand(repoRoot, toolPlatform, gameKind), options);
 }
 
-async function reportReuseMetadata(repoRoot: string): Promise<ReportReuseMetadata> {
+async function reportReuseMetadata(repoRoot: string, dolConfigPath: string): Promise<ReportReuseMetadata> {
   const head = await runCommand(repoRoot, ["git", "rev-parse", "--verify", "HEAD"]);
   if (head.exitCode !== 0 || !head.stdout.trim()) {
     throw new Error(`report reuse key failed to resolve worktree HEAD: ${(head.stderr || head.stdout).trim() || `exit ${head.exitCode}`}`);
   }
   const [buildNinja, dolConfig] = await Promise.all([
     readFile(resolve(repoRoot, "build.ninja")),
-    readFile(resolve(repoRoot, "config/GALE01/config.yml")),
+    readFile(resolve(repoRoot, dolConfigPath)),
   ]);
   const headCommit = head.stdout.trim();
   const buildNinjaSha256 = sha256(buildNinja);
@@ -348,10 +376,13 @@ async function storedReportReuseKey(path: string): Promise<string | null> {
 const reportRuns = new Map<string, Promise<unknown>>();
 
 async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = {}): Promise<ReportRunResult> {
-  const buildDir = resolve(repoRoot, "build/GALE01");
-  const reportPath = resolve(buildDir, "report.json");
-  const baselinePath = resolve(buildDir, "baseline.json");
-  const reportChangesPath = resolve(buildDir, "report_changes.json");
+  if (remoteBuildsEnabled()) return executeBuildTask(repoRoot, { kind: "report", input: { ...options } });
+  const reportPath = resolve(repoRoot, options.reportPath ?? "build/GALE01/report.json");
+  const buildDir = dirname(reportPath);
+  const baselinePath = resolve(repoRoot, options.baselinePath ?? resolve(buildDir, "baseline.json"));
+  const reportChangesPath = resolve(repoRoot, options.reportChangesPath ?? resolve(buildDir, "report_changes.json"));
+  const dolConfigPath = options.dolConfigPath ?? `config/${basename(buildDir)}/config.yml`;
+  const reportTarget = options.reportTarget ?? relative(repoRoot, reportPath);
   const reportReusePath = resolve(buildDir, "report.reuse-key.json");
   const generateChanges = options.generateChanges !== false;
   const resetBaseline = options.resetBaseline === true;
@@ -368,9 +399,9 @@ async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = 
     : undefined;
   const stepOptions = { logDir: invocationLogDir, timeoutMs: options.timeoutMs };
 
-  await ensureConfigured(repoRoot, steps, toolPlatform, stepOptions);
+  await ensureConfigured(repoRoot, steps, toolPlatform, options.kind, stepOptions);
   await removeIfExists(reportChangesPath);
-  const reuseMetadata = reportReuseEnabled ? await reportReuseMetadata(repoRoot) : null;
+  const reuseMetadata = reportReuseEnabled ? await reportReuseMetadata(repoRoot, dolConfigPath) : null;
   const reusedReport = Boolean(
     reuseMetadata &&
       (await pathExists(reportPath)) &&
@@ -378,7 +409,7 @@ async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = 
   );
   if (!reusedReport) {
     await removeIfExists(reportPath);
-    await runStep(repoRoot, steps, "generate report", ["ninja", "-k", "0", "build/GALE01/report.json"], stepOptions);
+    await runStep(repoRoot, steps, "generate report", ["ninja", "-k", "0", reportTarget], stepOptions);
     if (reuseMetadata) await writeFile(reportReusePath, `${JSON.stringify(reuseMetadata, null, 2)}\n`);
   }
 
@@ -387,7 +418,7 @@ async function runReportUnguarded(repoRoot: string, options: ReportRunOptions = 
   }
 
   if (generateChanges) {
-    await runStep(repoRoot, steps, "generate report changes", ["ninja", "changes_all"], stepOptions);
+    await runStep(repoRoot, steps, "generate report changes", ["ninja", options.changesTarget ?? "changes_all"], stepOptions);
   }
 
   return {

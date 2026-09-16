@@ -1,0 +1,120 @@
+1035: }
+1036: 
+1037: void it_8028B718(HSD_GObj*, float);
+1038: void it_8028B780(HSD_GObj*, float);
+1039: void it_8028B7E8(HSD_GObj*, float);
+1040: void it_8028B850(HSD_GObj*, float);
+1041: void it_8028B648(HSD_GObj*, float);
+1042: void it_8028B6B0(HSD_GObj*, float);
+1043: void it_8028B618(HSD_GObj*, float);
+1044: 
+1045: static void (*parasol_table_1[7])(HSD_GObj*, float) = {
+1046:     it_8028B718, it_8028B780, it_8028B7E8, it_8028B850,
+1047:     it_8028B648, it_8028B6B0, it_8028B618,
+1048: };
+1049: static s32 parasol_table_2[7] = {
+1050:     7, 8, 9, 10, 5, 6, 4,
+1051: };
+1052: static void (*parasol_table_3[7])(HSD_GObj*, float) = {
+1053:     NULL, NULL, NULL, NULL, it_802BDD40, NULL, it_802BDDB4,
+1054: };
+1055: static s32 parasol_table_4[7] = {
+1056:     -1, -1, -1, -1, 1, -1, 2,
+1057: };
+1058: 
+1059: s32 it_8028B08C(void*, s32);
+1060: 
+1061: static const int FtParasol_None = -1;
+1062: 
+1063: void ftCommon_8007E83C(HSD_GObj* gobj, s32 arg1, float div)
+1064: {
+1065:     float val;
+1066: 
+1067:     Fighter* fp = gobj->user_data;
+1068: 
+1069:     HSD_ASSERT(1276, ftGetParasolStatus(gobj) != FtParasol_None);
+1070: 
+1071:     if (div == 0) {
+1072:         val = fp->frame_speed_mul;
+1073:     } else if (itGetKind(fp->item_gobj) == It_Kind_Parasol) {
+1074:         val = fp->frame_speed_mul *
+1075:               (it_8028B08C(fp->item_gobj, parasol_table_2[arg1]) / div);
+1076:     } else {
+1077:         val = fp->frame_speed_mul *
+1078:               (it_802BDA40(fp->item_gobj, parasol_table_4[arg1]) / div);
+1079:     }
+1080:     if (itGetKind(fp->item_gobj) == It_Kind_Parasol) {
+1081:         parasol_table_1[arg1](fp->item_gobj, val);
+1082:     } else {
+1083:         parasol_table_3[arg1](fp->item_gobj, val);
+1084:     }
+1085: }
+1086: 
+1087: /// @was{ftGetParasolStatus}
+1088: s32 ftGetParasolStatus(HSD_GObj* gobj)
+1089: {
+1090:     Fighter* fp = gobj->user_data;
+1091:     if (fp->item_gobj != NULL && itGetKind(fp->item_gobj) == It_Kind_Parasol) {
+1092:         switch (itGetMotionId(fp->item_gobj)) {
+1093:         case 7:
+1094:             return 0;
+1095:         case 8:
+1096:             return 1;
+1097:         case 9:
+1098:             return 2;
+1099:         case 10:
+1100:             return 3;
+1101:         case 5:
+1102:             return 4;
+1103:         case 6:
+1104:             return 5;
+1105:         case 4:
+1106:             return 6;
+1107:         }
+1108:     }
+1109:     if (fp->item_gobj != NULL &&
+1110:         itGetKind(fp->item_gobj) == It_Kind_Peach_Parasol)
+1111:     {
+1112:         switch (itGetMotionId(fp->item_gobj)) {
+1113:         case 1:
+1114:             return 4;
+1115:         case 0:
+1116:         case 2:
+1117:             return 6;
+1118:         }
+1119:     }
+1120:     return FtParasol_None;
+1121: }
+1122: 
+1123: void ftCommon_8007EA90(Fighter* fp, s32 arg1)
+1124: {
+1125:     s32 temp_r31;
+1126:     float phi_f31;
+1127:     float phi_f30;
+1128:     Vec3 sp10;
+1129: 
+1130:     if (gm_8016B0B4() == 0) {
+1131:         return;
+1132:     }
+1133:     if (fp->dmg.kb_applied) {
+1134:         phi_f30 = fp->dmg.kb_applied;
+1135:         phi_f31 = ftCo_Damage_CalcAngle(fp, phi_f30);
+1136:         if (fp->dmg.facing_dir_1 > 0) {
+1137:             if (phi_f31 > M_PI) {
+1138:                 phi_f31 = M_PI * 3 - phi_f31;
+1139:             } else {
+1140:                 phi_f31 = M_PI - phi_f31;
+1141:             }
+1142:         }
+1143:         sp10.x = fp->dmg.x1854_collpos.x;
+1144:         sp10.y = fp->dmg.x1854_collpos.y;
+1145:         sp10.z = 0;
+1146:     } else {
+1147:         phi_f31 = M_PI / 2;
+1148:         phi_f30 = p_ftCommonData->x5C0;
+1149:         ftLib_800866DC(fp->gobj, &sp10);
+1150:     }
+1151:     temp_r31 = it_802E5F8C(fp->gobj, &sp10, arg1, 1, phi_f31, phi_f30);
+1152:     if (fp->dmg.x18c4_source_ply != 6) {
+1153:         Player_SetUnk98(fp->dmg.x18c4_source_ply,
+1154:                         temp_r31 + Player_GetUnk98(fp->dmg.x18c4_source_ply));

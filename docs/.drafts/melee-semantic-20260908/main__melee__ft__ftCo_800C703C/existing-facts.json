@@ -1,0 +1,302 @@
+[
+  {
+    "subject": "main/melee/ft/ftCo_800C703C:.sdata2",
+    "facts": [
+      {
+        "id": "fact:9f7c35ad-37ad-43c8-a7ea-61ccded6b1d9",
+        "target_id": "target:data:main/melee/ft/ftCo_800C703C:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "ftCo_800C703C consumes the section's 0.0f value and stores it in Fighter.xA4_unk_vel.z while copying self_vel.x into x and common-data x6D0 into y. The completed vector remains in the Fighter as part of the response initialized before the caller clears dmg.x1950.",
+        "rationale": "The current helper still places zero in the vector's z component alongside the horizontal self velocity and common-data vertical value. Its current caller invokes the helper on the successful item-contact path and then clears `dmg.x1950`, so the standing flow remains valid with current-head evidence.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T22:37:52.594Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C703C.c#L6-L13",
+            "why": "Shows zero becoming `xA4_unk_vel.z` alongside `self_vel.x` and common-data `x6D0` in the other vector components."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+            "why": "Shows the response helper being called after eligible item contact and `dmg.x1950` being cleared immediately afterward."
+          }
+        ]
+      },
+      {
+        "id": "fact:ad5f71a3-6fc3-4ed1-90fd-969639569f7d",
+        "target_id": "target:data:main/melee/ft/ftCo_800C703C:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies the cleared third velocity component used when initializing the fighter side of Melee's item jumped-on response.",
+        "rationale": "The helper still uses zero as the response vector's third component, and the current collision scanner invokes that helper after eligible fighter-item contact. The item system's `jumped_on` callback dispatch and the documented behavior of Melee's Green and Red Shells continue to ground this response in the item jumped-on mechanic.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T22:37:52.594Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C703C.c#L6-L13",
+            "why": "Shows zero supplying the third component of the fighter's prepared response velocity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+            "why": "Shows eligible fighter-item contact causing the fighter response initializer to run."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/item.c#L1439-L1451",
+            "why": "Shows the item system dispatching the contacted item's `jumped_on` callback when a contacting fighter has been recorded."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://item~regular-items@r2047023",
+            "why": "Documents Green and Red Shells in Melee as items that react when landed on."
+          }
+        ]
+      },
+      {
+        "id": "fact:b1306f61-c580-40b5-b748-805553b0a4e6",
+        "target_id": "target:data:main/melee/ft/ftCo_800C703C:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A small read-only floating-point constant-pool section whose evidenced semantic payload is the f32 value 0.0f.",
+        "rationale": "The current translation unit continues to contain a single attributable floating-point literal use, assigning zero to a Vec3 component; this preserves the evidenced semantic interpretation of the section at the new source location.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-04T18:31:52.622Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C703C.c#L1-L13",
+            "why": "Shows the unit's attributable floating-point zero use in the assignment to `xA4_unk_vel.z`."
+          }
+        ]
+      },
+      {
+        "id": "fact:7dabf9ae-7099-488d-bf52-74c8dbeabeed",
+        "target_id": "target:data:main/melee/ft/ftCo_800C703C:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the floating-point zero used to clear the third component of the fighter's prepared item-jump response velocity.",
+        "rationale": "The current source still assigns the unit's floating-point zero to `Fighter.xA4_unk_vel.z` while constructing the fighter response vector, so the purpose remains unchanged and can be cited at the current head.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T18:31:52.622Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C703C.c#L1-L13",
+            "why": "Shows the source-level zero assigned to the response vector's z component in the current translation unit."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftCo_800C703C:ftCo_800C703C",
+    "facts": [
+      {
+        "id": "fact:bf06dc45-5f52-42f6-a994-098d8f31cc9e",
+        "target_id": "target:function:main/melee/ft/ftCo_800C703C:ftCo_800C703C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the Fighter's current horizontal `self_vel.x` and common fighter-data values `x6D0` and `x6CC`. It writes `xA4_unk_vel` as `{ self_vel.x, x6D0, 0 }` and writes `dmg.x1948` and `dmg.x194C` to the same `x6CC` value. The caller subsequently clears the separate `dmg.x1950` contact trigger.",
+        "rationale": "The current definition preserves every stated input and output, and the current caller still uses `dmg.x1950` to gate the call before clearing that trigger. The drifted caller evidence can therefore be replaced without changing the claim.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:37:52.594Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C703C.c#L6-L13",
+            "why": "Shows the exact source of each input and the Fighter fields receiving the resulting assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+            "why": "Shows `dmg.x1950` gating the call and being cleared immediately afterward."
+          }
+        ]
+      },
+      {
+        "id": "fact:b58a142b-89ab-435f-bbb4-cf7196b149c7",
+        "target_id": "target:function:main/melee/ft/ftCo_800C703C:ftCo_800C703C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the common fighter response portion of Melee's item jumped-on interaction, used when a fighter lands on a responsive item such as a Green Shell or Red Shell.",
+        "rationale": "The current collision code still records eligible fighter-item landing contact and calls this response initializer, while the item system dispatches the contacted item's `jumped_on` callback. The wiki documents Green and Red Shells as reacting when landed on, so the standing game mapping remains supported.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T22:37:52.594Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+            "why": "Shows eligible fighter-item landing contact causing `ftCo_800C703C` to initialize the fighter response."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/item.c#L1439-L1451",
+            "why": "Shows the item system dispatching an item's `jumped_on` callback when a contacting fighter has been recorded."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://item~regular-items@r2047023",
+            "why": "Documents that Melee's Green and Red Shells activate when landed on."
+          }
+        ]
+      },
+      {
+        "id": "fact:bb0c00ef-6a6b-415d-8a8b-aa45437ab559",
+        "target_id": "target:function:main/melee/ft/ftCo_800C703C:ftCo_800C703C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_ApplyItemJumpResponse",
+        "rationale": "This remains a descriptive name hypothesis: the current caller establishes the eligible item landing-contact context, and the current body applies the complete fighter response-field initialization. The `ftCo_` prefix remains consistent with the existing fighter-common symbol convention.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-04T22:37:52.594Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C703C.c#L6-L13",
+            "why": "Shows that the helper applies the complete set of fighter response values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+            "why": "Establishes the eligible item-contact context in which the helper is called."
+          }
+        ]
+      },
+      {
+        "id": "fact:06a8f685-6ca9-4544-a660-d63aba0d563f",
+        "target_id": "target:function:main/melee/ft/ftCo_800C703C:ftCo_800C703C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An in-place fighter response initializer with signature `void(Fighter_GObj* gobj)`; it returns no status and mutates the Fighter obtained from the supplied fighter object.",
+        "rationale": "The current definition directly preserves the `void(Fighter_GObj*)` signature, obtains the associated Fighter, and performs only in-place field assignments.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:31:52.622Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C703C.c#L6-L13",
+            "why": "Directly establishes the function signature and its in-place mutations of the Fighter obtained from the supplied object."
+          }
+        ]
+      },
+      {
+        "id": "fact:6bab6bde-0eef-46fa-9c1c-d3a4b7b87264",
+        "target_id": "target:function:main/melee/ft/ftCo_800C703C:ftCo_800C703C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the fighter-side response to landing on an eligible item by preparing a configured response velocity and two equal common-data-driven damage-state values.",
+        "rationale": "The current body still constructs `xA4_unk_vel` from horizontal self velocity, common-data `x6D0`, and zero, then initializes both damage-state fields from `x6CC`. Its current caller continues to invoke it after eligible fighter-item contact, preserving the standing purpose.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:37:52.594Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C703C.c#L6-L13",
+            "why": "Shows every response-velocity and paired damage-state assignment performed by the function."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+            "why": "Shows the function being dispatched after eligible item contact sets `Fighter.dmg.x1950`."
+          }
+        ]
+      },
+      {
+        "id": "fact:f3edd97b-57bd-4c60-945a-22c4e91b9683",
+        "target_id": "target:function:main/melee/ft/ftCo_800C703C:ftCo_800C703C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs an unconditional one-shot initialization with no internal guards or transitions. The surrounding collision routine calls it once when one or more eligible item overlaps have accumulated into `Fighter.dmg.x1950`, then clears that trigger and reports successful item contact.",
+        "rationale": "The current target remains straight-line assignment code without an internal branch or loop. Its current caller scans eligible items, accumulates contact in `dmg.x1950`, invokes the helper once after the scan, clears the trigger, and returns true, preserving the standing state behavior.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:37:52.594Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C703C.c#L6-L13",
+            "why": "Shows that the initializer consists only of unconditional assignments with no internal guard, loop, or transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0819.c#L1-L93",
+            "why": "Shows contact accumulation, the single post-scan call, trigger clearing, and successful return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "src/melee/ft/ftCo_800C703C.c",
+    "facts": [
+      {
+        "id": "fact:c1119389-8b6c-462e-b4b9-2cb6fd536756",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftCo_800C703C.c",
+        "type": "data_flow",
+        "value": "Reads the fighter's horizontal self velocity and common-data values `x6D0` and `x6CC`, writes `xA4_unk_vel` as `{self_vel.x, x6D0, 0}`, and initializes `dmg.x1948` and `dmg.x194C` to `x6CC`; the caller then clears `dmg.x1950`.",
+        "rationale": "The current helper exposes every read and write, while the caller retains the trigger guard and clearing operation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C703C.c#L1-L13",
+            "why": "Shows the fighter and common-data inputs and response-field outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0819.c#L1-L92",
+            "why": "Shows x1950 gating the call and being cleared afterward."
+          }
+        ]
+      },
+      {
+        "id": "fact:b84f7230-557d-442d-9d17-947273d2dc19",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftCo_800C703C.c",
+        "type": "game_mapping",
+        "value": "Implements the common fighter-response portion of Melee's item jumped-on interaction.",
+        "rationale": "The current collision scanner records eligible fighter-over-item contact and invokes this response initializer when that contact sets the fighter trigger.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0819.c#L1-L92",
+            "why": "Shows eligible item-contact geometry recording the fighter interaction and dispatching ftCo_800C703C."
+          }
+        ]
+      },
+      {
+        "id": "fact:c1da8a78-9e06-4513-8c10-5d948d3e0500",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftCo_800C703C.c",
+        "type": "purpose",
+        "value": "Provides the common fighter-response initializer used after collision code detects that a fighter has landed on an eligible item.",
+        "rationale": "The unit initializes response fields, and the current caller invokes it only after eligible item overlap sets the contact trigger.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C703C.c#L1-L13",
+            "why": "Shows the complete fighter response-field initializer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0819.c#L1-L92",
+            "why": "Shows eligible item overlap setting x1950, invoking ftCo_800C703C, and clearing the trigger."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftCo_800C703C:ftCo_800C703C#r3",
+    "facts": []
+  }
+]

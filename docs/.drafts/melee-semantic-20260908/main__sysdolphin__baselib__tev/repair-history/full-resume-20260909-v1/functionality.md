@@ -1,0 +1,85 @@
+# main/sysdolphin/baselib/tev
+
+Status: TU synthesis complete; independent root review pending.
+
+# Tev semantic review
+
+Pinned revision `c302741689bd67c361cd7faadb221df3193992c3`. Canonical and separate rendered C1–548/H1–37 fully reviewed. 585lines, no parse errors/substitutions; three header accessors shadowed. Hashes/timing in coverage.json.
+
+## Functions
+
+| Signature | Behavior | Evidence |
+|---|---|---|
+| `void HSD_RenderInitAllocData(void)` | Initializes and registers the HSD fixed-size object pools used for render records, TEV-register records, and channel records as part of the baselib-wide object-allocation initialization sequence. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L31-L36) |
+| `HSD_ObjAllocData* HSD_RenderGetAllocData(void)` | Exposes the HSD object-allocator descriptor dedicated to the unit's 28-byte render objects, allowing allocation code outside the unit to use the render pool without directly naming its backing global. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L38-L41) |
+| `HSD_ObjAllocData* HSD_TevRegGetAllocData(void)` | Provides access to the unit-owned allocation descriptor for HSD TEV-register objects, whose pool is configured for 20-byte objects with 4-byte alignment. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L43-L46) |
+| `HSD_ObjAllocData* HSD_ChanGetAllocData(void)` | Provides access to the allocator metadata used for HSD channel records, so allocation clients can operate on the same channel-object allocator initialized by the TEV subsystem. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L48-L51) |
+| `static bool CompareRGB(GXColor* c0, GXColor* c1)` | Returns nonzero when XOR of packed colors differs in mask0xFFFFFF00; low alpha byte ignored. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L53-L58) |
+| `static bool CompareRGBA(GXColor* c0, GXColor* c1)` | Returns nonzero when packed u32 colors differ. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L60-L65) |
+| `static void CopyRGB(GXColor* dst, GXColor* src)` | Copies upper24 bits from source and preserves destination low8 bits. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L67-L72) |
+| `void HSD_SetupChannel(HSD_Chan* ch)` | Programs register-sourced channel colors and lighting controls according to per-component cached comparisons and invalidation flags. Combined color/alpha control requests compare only the RGB-side control cache, so this routine does not guarantee restoration of a separately diverged alpha configuration. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L74-L155) |
+| `void HSD_StateSetNumChans(int num)` | Conditionally installs the requested GX fixed-function lighting/color-channel count, avoiding the GX state-setting call when the request equals HSD's retained previous-channel-count value. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L157-L162) |
+| `void HSD_SetupChannelAll(HSD_Chan* channel)` | Installs an entire linked set of HSD color-channel descriptors for subsequent rendering and selects the zero-, one-, or two-channel GX configuration required by the highest channel referenced by that set. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L164-L176) |
+| `void HSD_StateRegisterTexGen(int coord)` | Registers a texture-coordinate generator as required by the current render setup, increasing the pending GX texture-generator count when the supplied coordinate lies beyond all coordinates registered so far. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L180-L186) |
+| `void HSD_StateSetNumTexGens(void)` | Finalizes the texture-coordinate-generator requirement accumulated for the current render-state setup by installing that count in GX and reopening the accumulator for the next setup. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L188-L192) |
+| `void HSD_StateInitTev(void)` | Starts a fresh TEV-stage allocation pass by resetting HSD's current TEV-stage cursor before a material or specialized render path constructs and installs its TEV configuration. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L194-L197) |
+| `int HSD_StateGetNumTevStages(void)` | Reports how many TEV stages have been accumulated for the render state currently being assembled, allowing render-mode finalization to detect an empty TEV pipeline and install a pass-through color stage before committing the stage count to GX. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L199-L202) |
+| `int HSD_StateAssignTev(void)` | Reserves the next sequential TEV stage in the current HSD render-state batch and returns its GX TEV-stage identifier. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L204-L207) |
+| `void HSD_StateSetNumTevStages(void)` | Finalizes the current TEV-stage allocation pass by installing the number of stages assigned through HSD's TEV state allocator into GX, then prepares the allocator for a new pass. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L209-L213) |
+| `void HSD_SetupTevStage(HSD_TevDesc* desc)` | Programs one GameCube GX texture-environment stage from an HSD_TevDesc, installing both the stage's texture/raster input routing and either a predefined TEV mode or a fully specified color-and-alpha combiner configuration. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L215-L240) |
+| `void HSD_SetupTevStageAll(HSD_TevDesc* desc)` | Configures an entire linked list of HSD TEV-stage descriptions and installs the GX stage count needed to cover the greatest stage referenced by that list. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L246-L261) |
+| `int HSD_Channel2Num(int chan)` | Converts a GX color/alpha channel identifier into the number of GX lighting color channels that must be enabled to accommodate it: channel-0 variants require one channel, channel-1 variants require two, and the null channel requires none. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L266-L287) |
+| `int HSD_Index2TevStage(int idx)` | Performs a checked conversion from a zero-based TEV-stage ordinal to the corresponding hardware TEV-stage identifier so HSD render and texture-expression code can assign numbered stages without depending directly on the identifier representation. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L289-L328) |
+| `int HSD_TevStage2Index(int stage)` | Provides a checked conversion from an HSD/GX TEV-stage selector to its zero-based TEV-stage slot index. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L334-L373) |
+| `int HSD_TevStage2Num(int stage)` | Converts a zero-based GX TEV stage identifier into the number of stages required to include that stage, allowing list-wide TEV setup to derive the hardware stage count from the highest stage encountered. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L378-L417) |
+| `void HSD_SetTevRegAll(void)` | Flushes all marked entries in HSD's four-slot signed TEV color-register state to the corresponding GX TEV registers as part of finalizing render-mode setup. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L419-L446) |
+| `int HSD_TexCoordID2Num(int id)` | Converts a texture-coordinate identifier into the number of texture generators required to make that coordinate available: identifiers 0 through 7 become counts 1 through 8, the null identifier 0xFF requires zero generators, and any other identifier triggers an assertion. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L448-L473) |
+| `void ChanUpdateFunc(HSD_Chan* chan, int arg1, const f32* arg2)` | Acts as an HSD color-channel animation update callback, dispatching an evaluated track value to one selected material- or ambient-color component of an HSD_Chan. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L479-L509) |
+| `void _HSD_StateInvalidateColorChannel(void)` | Invalidates HSD's cached GX color-channel state so subsequent channel setup cannot suppress the GX writes needed to re-establish ambient colors, material colors, lighting controls, and the active channel count. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L521-L529) |
+| `void _HSD_StateInvalidateTevStage(void)` | Invalidates HSD's pending TEV-stage allocation state by discarding the accumulated stage count, causing the next staged TEV setup pass to allocate again from the first GX TEV stage. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L531-L534) |
+| `void _HSD_StateInvalidateTevRegister(void)` | Clears the pending-state markers for all four software TEV color-register slots so the subsequent TEV-register flush does not submit stale slot values to GX. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L536-L542) |
+| `void _HSD_StateInvalidateTexCoordGen(void)` | Discards the texture-coordinate-generator count accumulated by HSD's render-state registration pass so subsequent registration begins with no pending generator requirement, without immediately programming GX hardware. | [source](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L544-L547) |
+
+## State boundaries
+
+Channel colors cache packed RGBA by channel group. Ambient updates require enable and REG source; material updates only require REG source. Invalid color flags force combined RGBA writes. Otherwise RGB comparisons/copies use upper24 bits and preserve low alpha. Control comparisons use six fields at chan&3. Combined writes synchronize the paired alpha cache only after a detected RGB-side difference. A sequence that modifies alpha alone and then requests the unchanged RGB settings as combined can skip restoring alpha. This is a source-level valid sequence, not an observed gameplay failure.
+
+The channel-count setter only compares prev_num_chans. Its sole explicit assignment is -1 in invalidation; static initialization is zero. Consequently valid counts always issue writes after invalidation, including repeated requests. The previous record correctly noted no setter update, but invalidator state_behavior overclaimed cache restoration.
+
+TEV allocation is current_tev++ passed into checked identity conversion0..15; invalid allocation has already advanced the counter before the converter asserts. Count commits always call GX and reset. Bulk stage setup replaces existing count with maximum stage+1, programs duplicate stages in traversal order and leaves sparse holes untouched; NULL emits0. Stage programming itself does not allocate a stage or register texgens. flags==0 chooses preset+swap0/0, all nonzero flags choose full explicit combiner setup.
+
+Texgen registration converts0..7 to1..8 and0xFF to0, accumulating maximum; commit and invalidation reset independently. Four TevReg slots map0,1,2,3 toGX1,2,3,0 when marked. Full owned source has only zero initialization and clearing of these private markers, no nonzero producer or payload setter. No hardware-write reachability is inferred from the conditional flush alone.
+
+ChanUpdateFunc selectors5..8 update material RGBA,9..12 ambient RGBA. Null channel and unhandled selector avoid value dereference. Handled selectors require readable arg2 and perform unchecked255.0 scaling/byte assignment. Normalization is an input convention, not validation or clamping.
+
+## Inventory and evidence limits
+
+All26 function targets,14 parameter entities,5 section targets and the TU entity are inventoried. Three source-only helpers are separately recorded. Header contains25 prototypes and imports the HSD_Chan/HSD_TevDesc definitions; HSD_TexCoordID2Num has no declaration in this owned header. Anonymous TevReg entry shape is local; channel layout is defined in foreign state.h20–33. No new aliases or inferred numeric ABI claims are proposed.
+
+Allocator getters return shared descriptors without checking initialization; initializer requests sizes28/20/48, alignment4. ObjAllocInit clears and registers descriptors. Pool-object layouts for28/20 bytes are not inferred. Source objects are catalogued independently from compiled sections; every section fact and section-origin link remains unresolved until compiled attribution is supplied.
+.sdata padding/residue and .sdata2 pooled-double claims are unresolved rather than inferred from source absence or the255.0 literal. Existing archive PR references are not evidence of a fresh matching check.
+
+All 136 facts reviewed: {'retain': 91, 'supersede': 9, 'reject': 0, 'unresolved': 36}. Nine proposal operations; all remain drafts. No shared KB/source/Git/UI/matching edits.
+
+
+## TU independent review
+
+Allocator getters alias mutable shared descriptors without initialization checks; initializer configures literal sizes 28,20,48 with alignment4, not inferred object layouts. Three source-only packed-color helpers compare/copy upper RGB bits and preserve alpha as coded. Evidence: `code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L8-L72`.
+
+Ambient caching requires enabled lighting and REG source; material caching only REG source. Invalid color flags force combined writes. Combined controls compare only RGB-side cache, so separate alpha changes can survive a subsequent combined request matching RGB. Evidence: `code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L74-L155`.
+
+Channel-count setter never writes prev_num_chans; static zero becomes -1 at invalidation and remains there. GX receives u8 narrowing and asserts counts above2, independently checked in GXLight.c562-570. Evidence: `code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L157-L176`.
+
+Texgen count is maximum requirement, TEV count is sequential postincrement. Assignment advances before checked converter; commits reset unconditionally. Individual stage setup does not allocate stages or register texture generators. Evidence: `code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L180-L240`.
+
+Bulk stage setup writes every descriptor in order, so duplicates overwrite and holes remain untouched. Maximum stage+1 replaces prior count; null input emits zero. Converters have exact bounded switch domains and post-assert fallbacks. Evidence: `code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L246-L417`.
+
+Private signed-color table starts zero and has no nonzero marker or payload producer in owned source. Conditional flush maps slots to GX registers1,2,3,0 then clears marks. Evidence: `code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L419-L473`.
+
+Channel update selectors5-8 choose material RGBA,9-12 ambient. Handled selectors multiply readable f32 by double255.0 and assign byte without normalization/clamp. Invalidators reset counters/markers and channel template independently. Evidence: `code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L479-L548`.
+
+All46 subjects,136 exact frozen fact values/types/timestamps and9 proposal operations reviewed. Full C548/H37 canonical and separately rendered reads complete; three header shadowed accessor bindings cause no substitutions. Exact38 baseline link records retained with individual dispositions. Evidence: `code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.h#L1-L37`.
+
+## Packet
+
+[Coverage](coverage.json), [fact dispositions](dispositions.json), [subject coverage](subject-coverage.json), [unresolved claims](unresolved.json), [proposal](proposal.json), [validation](validation.json).

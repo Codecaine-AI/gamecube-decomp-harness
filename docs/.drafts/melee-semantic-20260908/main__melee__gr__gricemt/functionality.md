@@ -1,0 +1,19 @@
+# Icicle Mountain semantic review
+
+The owned C file and header were read completely in canonical and rendered form, followed by all 196 frozen subjects (413 facts) and all 69 links. The ledger explicitly retains 374 facts, supersedes 32 and leaves seven compiled-section claims unresolved; all links are retained.
+
+StageData registers terrain rows 1–6, background 8 and controllers 9/10 (row 7 empty). Its lifecycle order makes 801F7080 the on_load hook, not on_start. Initialization loads Yakumono tuning, creates objects 0/8 and disables terrain collision. Numeric stage 76 creates three extra positioned sections and controller 10; other variants use controller 9. The load hook destroys the extra objects without clearing its cached pointers, refreshes existing terrain collision and initializes generator paths.
+
+Terrain rows cache twelve joints and create 2,2,4,4,5,4 material proxies. Models attach before nullable proxy creation; failed proxy creation still leaves the attached model. The material system retains Ground and parent-JObj pointers, so terrain teardown invokes callback3 to release proxies before unlinking the terrain object. Damage hides the represented hierarchy and requests effect 0x445, sound 310 and a small quake. This differs from contact-activated timed terrain animation on collision joints 37/38/117. Those operational seven-s16 records suppress retriggering, toggle collision at configured counts and stop updating on animation completion. Their source union aliases and short-array declarations remain imperfect; no repaired compiled layout is asserted.
+
+Controller 9 selects randomized speed presets and terrain with cooldowns. Stage 212 excludes speed indices below 4. Initial pair distinctness depends on nonzero marker tuning. Controller 10 consumes scripted sequences, contact-gated player-height acceleration, terminal braking and event status. Its terminal branch leaves var_r30 locally unassigned before a possible later test; the speed helper's true return is not a one-frame transition pulse.
+
+Shared speed state tests the old signed delay, decrements interpolation count before dividing, and independently substitutes x3C times ground scale while decrementing burst_count. That multiplier is not random. Whitebea's motion-7 entry triggers the stage burst; the stage helper does not command the actor to jump. The public motion vector returns negative base cur, which can differ from the actual burst/boost displacement.
+
+Movement adds a common Y delta to each ID other than -1. Its float declaration lacks a return; recycling ignores its float parameter and reads upper-root Y directly. Recycling handles both directions and -1 replacement, publishes retained anchors and refreshes map-0 references. Initial pair setup performs an asserting spacing lookup before its -1 guards. Background movement subtracts 30% of the published amount and applies at most one wrap-span correction, not general normalization.
+
+Rendered hypotheses were checked against behavior rather than used as proof. OnDestroy names fit the Ground destruction callback path; movement, selector and anchor-publication names remain useful. The on_load misname, Whitebea trigger direction, unregister explanations, random-burst claims and missing-return data-flow claims require correction. Renderer reports no parse errors; setupStageCallbacks and grIceMt_801FA8F8 are shadowed bindings, and fields/parameters/data labels are outside substitution coverage.
+
+Canonical evidence for the contact-animation lifecycle is code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1458-L1570. A previously checkpointed retention-group locator for this span accidentally omitted the characters cd after c361; this full locator is the correction, not a different revision.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

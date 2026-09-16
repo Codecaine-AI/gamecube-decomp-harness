@@ -1,0 +1,12 @@
+## Game & Watch shared declarations
+
+`src/melee/ft/kinds/ftGameWatch/forward.h` defines motion-transition flag combinations and three enums; it contains no executable routines.
+
+- **Motion flags:** The base combines `Ft_MF_SkipItemVis` and `Ft_MF_FreezeState`. Attack, landing, and special variants add explicit flags through composition. Back-air variants add `Ft_MF_KeepGfx`, up-air variants additionally retain fast fall, and the declared airborne special variants add `Ft_MF_SkipParasol`. Distinct combinations for jab, rapid jab, forward smash, neutral special, and down-special catch must not be collapsed. The meanings of `Ft_MF_Unk19` and `Ft_MF_UnkUpdatePhys` remain unspecified here. [Canonical declarations](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/forward.h#L7-L69)
+- **Motion-state IDs:** `ftGameWatch_MotionState` extends `ftCo_MS_Count` with attack and landing states followed by neutral, nine grounded and nine airborne side-special variants, up-special states, and grounded/airborne down-special, catch, and shoot states. Its self-count is expressed relative to the common motion-state count. Absolute IDs depend on that external count. [Canonical enum](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/forward.h#L71-L115)
+- **Submotion IDs:** `ftGw_Submotion` starts at the separate `ftCo_SM_Count` and lists the special variants, with its own relative self-count. These IDs are not interchangeable with motion-state IDs merely because their suffixes match. [Canonical enum](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/forward.h#L117-L148)
+- **Panic levels:** `ftGameWatch_PanicLevel` declares Empty, Low, Mid, and Full as implicit consecutive values 0–3. This header supplies no thresholds or runtime transition behavior. [Canonical enum](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/forward.h#L150-L155)
+
+The complete canonical and rendered views agree; the renderer reports zero substitutions and zero parse errors. No supported naming correction emerged. The frozen subject and link inventories are empty, so no baseline knowledge requires disposition and no proposals are warranted. No compiled placement, runtime resource lifetime, or flag-consumer behavior is inferred from these declarations.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

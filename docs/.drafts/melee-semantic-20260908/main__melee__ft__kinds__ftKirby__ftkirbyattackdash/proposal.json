@@ -1,0 +1,119 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyattackdash",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyattackdash:ftKb_AttackDashAir_800F21C0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Returns ftPartGetRotX(GET_FIGHTER(gobj), 0) unchanged. it_8029BB90 snapshots the result into kirbycutterbeam.angle and computes initial velocity (facing_dir * (speed * cosf(angle)), -speed * sinf(angle), 0) and dir (facing_dir * sinf(angle), cosf(angle), 0). The stored dir is not the velocity direction. With conventional facing_dir \u00b11 it is mathematically unit length, subject to floating-point approximation; exact normalization is not performed. The accessor performs no angle normalization or finiteness check.",
+        "rationale": "Independently confirms the librarian's repair and preserves the consumer's multiplication grouping while avoiding an exact-unit-length promise.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c#L93-L96",
+            "why": "Unchanged fixed-part accessor return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkirbycutterbeam.c#L47-L72",
+            "why": "Snapshot and exact velocity/dir expressions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyattackdash:ftKb_AttackDash_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally delegates to ftCo_AttackDash_IASA. That handler evaluates ftCo_800D8AE0 first and calls ftCo_Wait_IASA only if the priority result is false and allow_interrupt is true. A true priority result can already have changed state: after its earlier checks, ftCo_800D8AE0 enters CatchDash when LR is held and mv.co.common.x0 is nonzero. If those earlier checks permit execution and the grab branch is not taken, nonzero common.x0 is decremented; zero is not decremented. No exact interrupt frame or compiled overlap between common.x0 and attackdash.x0 is established.",
+        "rationale": "Replaces the false blanket otherwise-unchanged claim with verified short-circuit and priority behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c#L47-L50",
+            "why": "Unconditional delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L84-L90",
+            "why": "Ordered short-circuit guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Catch.c#L60-L81",
+            "why": "Early checks, CatchDash branch, and nonzero decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Catch.c#L106-L116",
+            "why": "Priority branch performs an actual motion-state change."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyattackdash:ftKb_AttackDashAir_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation calls ft_80082C74 with fn_800F1FDC. The helper synchronously invokes the supplied callback iff ft_80081D0C returns a truthy result and does not retain the callback pointer. The callback performs common grounding preprocessing and requests ftKb_MS_AttackDash with flags 0x0C4C5082, current animation frame, current speed, zero blend, and final pointer argument NULL. A false query result means the supplied callback is not invoked; it does not prove globally unchanged state because the query updates positions and calls shared ft_80081A00 processing.",
+        "rationale": "Replaces universal false-path state retention with exact invocation and lifetime semantics, without guessing final pointer semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c#L88-L91",
+            "why": "Supplied callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c#L32-L40",
+            "why": "Exact grounded transition arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123",
+            "why": "Position mutation and shared result override."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L548-L556",
+            "why": "Immediate conditional invocation without storage."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyattackdash:ftKb_AttackDashAir_800F21C0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires a valid associated Fighter and model part 0. ftPartGetRotX reads the primary joint's X rotation unless it uses quaternions, in which case it uses the alternate joint; if both joints use quaternions it asserts. The wrapper adds no NULL check, bounds check, normalization, or floating-point validation and returns the helper's float unchanged.",
+        "rationale": "Records independently verified alternate-joint branch and failure precondition omitted by the simple accessor description.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c#L93-L96",
+            "why": "Fixed part index and unchanged return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L1038-L1049",
+            "why": "Quaternion fallback and assertion."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

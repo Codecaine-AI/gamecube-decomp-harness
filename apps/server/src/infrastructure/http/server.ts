@@ -1,8 +1,11 @@
+import { updatePreparedRunConfiguration } from "@server/core/harness-runtime/run-state/runs";
+import { handleHarnessApiRoute, reconcileDesiredHarnessRun, type HarnessControlDeps } from "@server/api/routes/harness.js";
+import { getHarnessState } from "@server/core/harness-state/state.js";
 import { randomUUID } from "node:crypto";
+import { resolveOrchestratorLayout } from "@server/core/config/orchestrator";
 import { existsSync, watch, type FSWatcher } from "node:fs";
 import { resolve } from "node:path";
 import { Database } from "bun:sqlite";
-import { handleCycleApiRoute } from "@server/api/cycle/routes";
 import { handleAgentsApiRoute } from "@server/api/routes/agents";
 import { createCampaignStatusService } from "@server/application/dashboard/campaign-status";
 import { createDashboardKernelRuntimeService } from "@server/infrastructure/kernel/runtime";
@@ -14,9 +17,9 @@ import {
   gameRunActionState,
   type ActionProjection,
 } from "@server/application/dashboard/read-model";
-import { latestChildDirectory, latestPrSplitPlanSummary } from "@server/core/cycle-runtime/phases/pr/artifacts";
-import { createPrRecordsService } from "@server/core/cycle-runtime/phases/pr/pr-records";
-import { createSavePointRuntime } from "@server/core/cycle-runtime/phases/pr/save-points-runtime";
+import { latestChildDirectory, latestPrSplitPlanSummary } from "@server/core/harness-runtime/phases/pr/artifacts";
+import { createPrRecordsService } from "@server/core/harness-runtime/phases/pr/pr-records";
+import { createSavePointRuntime } from "@server/core/harness-runtime/phases/pr/save-points-runtime";
 import { handleHandoffApiRoute } from "@server/api/routes/handoff";
 import { handleKernelApiRoute, handleKernelReadRoute } from "@server/api/routes/kernel";
 import { handleKnowledgeApiRoute } from "@server/api/routes/knowledge";
@@ -43,25 +46,22 @@ import {
   type KernelTraceEventObservation,
   type KernelTraceLinkage,
 } from "@server/core/harness-state/kernel-links";
-import { createProcessControlRuntime } from "@server/core/cycle-runtime/phases/running/process-control/runtime";
-import { createRunControlRuntime } from "@server/core/cycle-runtime/phases/running/run-control-runtime";
+import { createProcessControlRuntime } from "@server/core/harness-runtime/phases/running/process-control/runtime";
+import { createRunControlRuntime } from "@server/core/harness-runtime/phases/running/run-control-runtime";
 import { handleProcessControlApiRoute } from "@server/api/routes/process-control";
 import { createProcessStatusService } from "@server/application/dashboard/process-status";
-import { latestRunId } from "@server/core/cycle-runtime/run-state/latest-run";
-import { getRun } from "@server/core/cycle-runtime/run-state";
+import { latestRunId } from "@server/core/harness-runtime/run-state/latest-run";
+import { getRun } from "@server/core/harness-runtime/run-state";
 import { handleRunsApiRoute } from "@server/api/routes/runs";
-import { createPreparingRuntime } from "@server/core/cycle-runtime/phases/preparing/runtime";
-import { handleCyclesApiRoute } from "@server/api/routes/cycles";
+import { initRunCommand } from "@server/core/harness-runtime/phases/running/service/init-run-command.js";
+import { handleDashboardApiRoute } from "@server/api/routes/dashboard";
 import { handleSyncApiRoute } from "@server/api/routes/sync";
-import { createSyncRuntime } from "@server/core/cycle-runtime/phases/sync/runtime";
-import { activateRun } from "@server/core/cycle-runtime/phases/running/run-control";
+import { createSyncRuntime } from "@server/core/harness-runtime/phases/sync/runtime";
+import { activateRun } from "@server/core/harness-runtime/phases/running/run-control";
 import { createValidationRuntime } from "@server/core/validation/runtime";
 import { handleValidationApiRoute } from "@server/api/routes/validation";
 import { createManagedProcessController, type ManagedProcessController } from "@server/infrastructure/process-control/managed-process-controller";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
-import { createCycleProcessMirror } from "@server/core/cycle/process-mirror";
-import { getActiveCycle, getCycleByUuid, updateCycle } from "@server/core/cycle/store";
-import { canonicalCycleSessionId } from "@server/core/cycle/session.js";
 import { openState } from "@server/core/orchestrator-state";
 import { createUiCommandRunner } from "@server/infrastructure/shell/ui-command-runner";
 import { localFontResponse } from "@server/infrastructure/http/local-fonts";
@@ -72,7 +72,7 @@ type JsonObject = Record<string, unknown>;
 
 const packageRoot = resolve(import.meta.dir, "../../../../..");
 const defaultRepoRoot = packageRoot;
-const defaultStateDir = resolve(packageRoot, ".decomp-orchestrator-state");
+const defaultStateDir = resolveOrchestratorLayout(packageRoot).stateDir;
 const serverJobPath = resolve(packageRoot, "apps/server/src/job-runner.ts");
 const builtStaticRoot = resolve(packageRoot, "apps/frontend/dist");
 const staticRoot = builtStaticRoot;
@@ -89,43 +89,10 @@ let hotReloadWatcher: FSWatcher | null = null;
 
 let processController: ManagedProcessController;
 
-function activeCycleUuid(stateDir: string, gameId: string): string | null {
+function activeHarnessId(stateDir: string, gameId: string): string | null {
   const store = openState(stateDir);
-  try {
-    return getActiveCycle(store.db, gameId)?.cycle_uuid ?? null;
-  } finally {
-    store.db.close();
-  }
-}
-
-function recordCycleKernelTrace(
-  stateDir: string,
-  gameId: string,
-  cycleUuid: string,
-  trace: {
-    activeContainerId: string;
-    appSessionId: string;
-    rootContainerId: string;
-    traceUrl: string;
-  },
-): void {
-  const store = openState(stateDir);
-  try {
-    const record = getCycleByUuid(store.db, cycleUuid);
-    if (!record || record.game_id !== gameId) return;
-    updateCycle(store.db, record.id, {
-      kernel_trace_json: {
-        ...(record.kernel_trace_json ?? {}),
-        cycle_uuid: record.cycle_uuid,
-        app_session_id: trace.appSessionId,
-        root_container_id: trace.rootContainerId,
-        active_container_id: trace.activeContainerId,
-        trace_url: trace.traceUrl,
-      },
-    });
-  } finally {
-    store.db.close();
-  }
+  try { return getHarnessState(store.db, gameId)?.identity.harness_id ?? null; }
+  finally { store.db.close(); }
 }
 
 function json(data: unknown, init: ResponseInit = {}): Response {
@@ -261,29 +228,21 @@ const gameContext = createDashboardGameContextService({
   packageRoot,
 });
 
-const cycleProcessMirror = createCycleProcessMirror();
-
 processController = createManagedProcessController({
   packageRoot,
   gameToSummary: (game) => gameToSummary(game as ResolvedGame) as unknown as JsonObject,
-  mirrorProcessState: (params) =>
-    cycleProcessMirror.mirrorProcessStateToCycle({
-      ...params,
-      game: params.game as ResolvedGame | GameSummary | null | undefined,
-    }),
 });
 
 const commandRunner = createUiCommandRunner({ packageRoot });
 const operationState = createOperationStateService();
 
 const kernelRuntime = createDashboardKernelRuntimeService({
-  activeCycleUuid,
+  activeHarnessId,
   env: Bun.env as Record<string, string | undefined>,
   json,
   latestRunId,
   packageRoot,
   port,
-  recordCycleKernelTrace,
   stateDir: gameContext.defaultGame()?.stateDir ?? defaultStateDir,
 });
 
@@ -390,6 +349,8 @@ const eventReadApi = {
 };
 
 export async function closeKernelRuntimeForTests(): Promise<void> {
+  if (harnessReconcileTimer) clearInterval(harnessReconcileTimer);
+  harnessReconcileTimer = undefined;
   await kernelRuntime.closeForTests();
 }
 
@@ -426,20 +387,6 @@ const prRecords = createPrRecordsService({
   latestChildDirectory,
   latestPrSplitPlanSummary,
   latestRunId,
-  cycleUuidForRun: (stateDir, runId) => {
-    const store = openState(stateDir);
-    try {
-      const run = runId ? getRun(store, runId) : null;
-      return canonicalCycleSessionId({
-        db: store.db,
-        gameId: run?.gameId,
-        cycleUuid: run?.cycleUuid,
-        fallback: "",
-      });
-    } finally {
-      store.db.close();
-    }
-  },
   localPrepOperationRunning: () => {
     const operation = operationState.getOperation();
     return Boolean(
@@ -449,31 +396,9 @@ const prRecords = createPrRecordsService({
   },
 });
 
-const preparingRuntime = createPreparingRuntime({
-  activeCyclePrBlockers: prRecords.activeCyclePrBlockers,
-  beginOperation: operationState.beginOperation,
-  boundarySavePoint: (paths, trigger, cycleUuid, label) =>
-    savePoints.boundarySavePoint(paths as GameRuntimeContext, trigger, cycleUuid, label),
-  endOperation: operationState.endOperation,
-  hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
-  kernelDatabaseUrl: kernelRuntime.databaseUrl,
-  kernelEnabled: kernelRuntime.enabled,
-  operationStep: operationState.operationStep,
-  operationStepDetail: operationState.operationStepDetail,
-  packageRoot,
-  gameToSummary,
-  resolveDashboardGame: gameContext.resolveDashboardGame,
-  runCli: commandRunner.runCli,
-  runGit: commandRunner.runGit,
-  serverJobPath,
-  sourceRoot,
-  submitWorkflowEvent: (paths, input) => kernelRuntime.submitWorkflowEvent(paths as GameRuntimeContext, input),
-});
-
 const processStatusService = createProcessStatusService({
   defaultStateDir,
   getOperationSnapshot: operationState.getOperationSnapshot,
-  preparingState: preparingRuntime.state,
   processController,
 });
 
@@ -625,8 +550,6 @@ async function checkpointRun(body: JsonObject): Promise<JsonObject> {
     }
   })();
   if (!run) throw new Error(`Run not found: ${runId}`);
-  const cycleUuid = run.cycleUuid?.trim();
-  if (!cycleUuid) throw new Error(`Run ${runId} has no cycle UUID for its checkpoint save-point.`);
 
   const command = ["bun", serverJobPath];
   if (paths.game) command.push("--game", paths.game.gameId);
@@ -649,7 +572,6 @@ async function checkpointRun(body: JsonObject): Promise<JsonObject> {
   const savePoint = await savePoints.boundarySavePoint(
     paths,
     "checkpoint",
-    cycleUuid,
     `run ${runId} checkpoint`,
   );
   return {
@@ -720,7 +642,7 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   });
   if (sync) return sync;
 
-  const cycles = await handleCyclesApiRoute(req, url, {
+  const dashboard = await handleDashboardApiRoute(req, url, {
     availableGames: gameContext.availableGames,
     dashboardEvents,
     dashboardStreamIntervalMs,
@@ -734,7 +656,6 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     json,
     packageRoot,
     port,
-    indexPrsForPrepare: preparingRuntime.indexPrsForPrepare,
     gameDefaults: (game) => gameContext.gameDefaults(game as ResolvedGame | null),
     gameToSummary: (game) => gameToSummary(game as ResolvedGame),
     requestPaths: gameContext.requestPaths,
@@ -742,80 +663,8 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     runDetails: (stateDir, runId, game) => dashboardReadModel.runDetails(stateDir, runId, game as ResolvedGame | null),
     boundaryStepDetail: (stateDir, runId, query) => dashboardReadModel.boundaryStepDetail(stateDir, runId, query),
     workerStateTrace: (stateDir, runId, workerStateId) => dashboardReadModel.workerStateTrace(stateDir, runId, workerStateId),
-    syncGitForPrepare: preparingRuntime.syncGitForPrepare,
   });
-  if (cycles) return cycles;
-
-  const cycleResponse = await handleCycleApiRoute(req, url, {
-    baseRefForGame: (game) => (game as ResolvedGame | null)?.baseRef ?? "origin/master",
-    campaignStatus: campaignStatus.campaignStatus,
-    createSavePoint: savePoints.createSavePoint,
-    invalidateCampaignCache: campaignStatus.invalidateCampaignCache,
-    json,
-    gameIdForGame: (game) => (game as ResolvedGame | null)?.gameId ?? "",
-    requestPaths: gameContext.requestPaths,
-    runGit: commandRunner.runGit,
-    submitCycleStartedTrace: async (paths, cycle) => {
-      const runtimePaths = paths as GameRuntimeContext;
-      const gameId = kernelRuntime.gameId(runtimePaths);
-      if (cycle.gameId !== gameId) {
-        throw new Error(
-          `Cycle trace game ${cycle.gameId} does not match request game ${gameId}`,
-        );
-      }
-      const { resolveGameEventTraceLinkage } = await import(
-        "@server/core/harness-state/kernel-links"
-      );
-      const traceLinkage = (() => {
-        const store = openState(runtimePaths.stateDir);
-        try {
-          const durableCycle = getCycleByUuid(
-            store.db,
-            cycle.cycleUuid,
-          );
-          if (!durableCycle || durableCycle.game_id !== gameId) {
-            throw new Error(
-              `Cycle ${cycle.cycleUuid} has no durable state in game ${gameId}`,
-            );
-          }
-          if (!durableCycle.caused_by_event_id) {
-            throw new Error(
-              `Cycle ${cycle.cycleUuid} has no durable opening event`,
-            );
-          }
-          const linkage = resolveGameEventTraceLinkage(
-            store.db,
-            gameId,
-            durableCycle.caused_by_event_id,
-          );
-          if (linkage.correlationId !== cycle.cycleUuid) {
-            throw new Error(
-              `Cycle trace correlation ${linkage.correlationId} does not match ${cycle.cycleUuid}`,
-            );
-          }
-          return linkage;
-        } finally {
-          store.db.close();
-        }
-      })();
-      return kernelRuntime.submitWorkflowEvent(runtimePaths, {
-        kind: "session",
-        operation: "New cycle started",
-        status: "started",
-        sessionId: cycle.cycleUuid,
-        detail: "New cycle started.",
-        metadata: {
-          baseRef: cycle.baseRef,
-          baseSha: cycle.baseSha,
-          cycleUuid: cycle.cycleUuid,
-        },
-        correlationId: traceLinkage.correlationId,
-        gameEventId: traceLinkage.gameEventId,
-        causedByEventId: traceLinkage.causedByEventId,
-      });
-    },
-  });
-  if (cycleResponse) return cycleResponse;
+  if (dashboard) return dashboard;
 
   const kernel = await handleKernelApiRoute(url, {
     json,
@@ -869,6 +718,9 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   const knowledgeV2 = await handleKnowledgeV2ApiRoute(req, url, { json });
   if (knowledgeV2) return knowledgeV2;
 
+  const harnessControl = await handleHarnessApiRoute(req, url, harnessControlDeps);
+  if (harnessControl) return harnessControl;
+
   const processControl = await handleProcessControlApiRoute(req, url, {
     json,
     processStatus: (stateDir, game) => processStatusService.processStatus(stateDir, game as ResolvedGame | null),
@@ -886,13 +738,33 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   });
   if (handoff) return handoff;
 
+  if (url.pathname === "/api/run/configuration" && (req.method === "GET" || req.method === "POST")) {
+    const body = req.method === "GET" ? Object.fromEntries(url.searchParams) : await req.json();
+    if (typeof body.gameId !== "string" || !body.gameId.trim()) return json({ error: "gameId is required" }, { status: 400 });
+    const paths = gameContext.resolveDashboardGame(body);
+    const store = openState(paths.stateDir);
+    try {
+      const harness = getHarnessState(store.db, body.gameId);
+      const runId = harness?.history.run_id;
+      if (!runId) throw new Error("Initialize a Run before saving settings");
+      if (req.method === "GET") return json({ run: getRun(store, runId) });
+      const settings = body.settings;
+      if (!settings || typeof settings !== "object" || Array.isArray(settings)) throw new Error("settings must be an object");
+      if (settings.sandbox_profile && !paths.game?.sandbox.profiles[settings.sandbox_profile]) throw new Error("Unknown sandbox profile");
+      return json({
+        run: updatePreparedRunConfiguration(store, runId, body.expectedRevision, settings, `run-config-${randomUUID()}`, {
+          hasActiveProcess: (stateDir) => processController.hasActiveProcess(stateDir),
+        }),
+      });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
+    } finally { store.db.close(); }
+  }
+
   const runs = await handleRunsApiRoute(req, url, {
     cancelRun: runControlRuntime.cancel,
-    completeRun: preparingRuntime.completeRun,
-    freshRun: preparingRuntime.freshRun,
     forceReleaseLease: runControlRuntime.forceReleaseLease,
     hardStopRun: runControlRuntime.hardStop,
-    initRun: preparingRuntime.initRun,
     json,
     recoverRun: runControlRuntime.recover,
     resumeRun: async (body) => {
@@ -919,6 +791,56 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
   if (validation) return validation;
 
   return json({ error: "not found" }, { status: 404 });
+}
+
+
+const harnessControlDeps: HarnessControlDeps = {
+    openStore: (body) => {
+      const paths = gameContext.resolveDashboardGame(body, { useDefaultGame: false });
+      if (paths.game?.gameId !== body.gameId) throw new Error("The selected game does not match its resolved configuration");
+      return openState(paths.stateDir);
+    },
+    processActive: (stateDir) => processController.hasActiveProcess(stateDir).active,
+    initializeRun: async (body) => {
+      const paths = gameContext.resolveDashboardGame(body, { useDefaultGame: false });
+      const store = openState(paths.stateDir);
+      let worktree: string;
+      try {
+        const harness = getHarnessState(store.db, String(body.gameId));
+        if (!harness) throw new Error("Initial Sync is required");
+        worktree = harness.source.worktree;
+        // Reconcile a CLI completion whose HTTP response or ownership attachment was interrupted.
+        const existing = store.db.query("SELECT subject_id FROM game_events WHERE game_id = ? AND event_type = 'run.drafted' AND causation_id = ? ORDER BY sequence DESC LIMIT 1").get(String(body.gameId), String(body.commandId)) as { subject_id: string } | null;
+        if (existing) {
+          const run = getRun(store, existing.subject_id);
+          if (run?.status === "ready") return run.id;
+          throw new Error("Run initialization was interrupted; recover its existing run before retrying");
+        }
+      } finally { store.db.close(); }
+      const init = initRunCommand(paths, body, serverJobPath, worktree);
+      init.command.push("--command-id", String(body.commandId));
+      const result = await commandRunner.runCli(init.command);
+      if (result.exitCode !== 0) throw new Error(`Run initialization failed: ${commandRunner.outputTail(result.stderr || result.stdout, 800)}`);
+      const parsed = savePoints.parseCliJsonOutput(result.stdout);
+      const runId = String((parsed.run as JsonObject | undefined)?.id || "");
+      if (!runId) throw new Error("Run initialization returned no run identity");
+      return runId;
+    },
+    startRun: processControlRuntime.startManagedProcess,
+    resumeRun,
+  };
+let harnessReconcileTimer: ReturnType<typeof setInterval> | undefined;
+let harnessReconcileInFlight = false;
+
+export async function reconcileDesiredHarnesses(): Promise<void> {
+  if (harnessReconcileInFlight) return;
+  harnessReconcileInFlight = true;
+  try {
+    for (const game of gameContext.availableGames()) {
+      const response = await reconcileDesiredHarnessRun({ gameId: game.id }, harnessControlDeps);
+      if (!response.ok) uiLog("stderr", `Harness reconciliation for ${game.id}: ${await response.text()}`);
+    }
+  } finally { harnessReconcileInFlight = false; }
 }
 
 function staticResponse(pathname: string): Response {
@@ -951,6 +873,11 @@ export function serveServer(): ReturnType<typeof Bun.serve> {
     port,
     fetch: fetchServer,
   });
+  if (!harnessReconcileTimer) {
+    harnessReconcileTimer = setInterval(() => { void reconcileDesiredHarnesses().catch((error) => uiLog("stderr", String(error))); }, 2500);
+    harnessReconcileTimer.unref();
+    void reconcileDesiredHarnesses().catch((error) => uiLog("stderr", String(error)));
+  }
   console.log(`decomp-orchestrator UI listening on http://localhost:${port}${hotReloadEnabled ? " (hot reload enabled)" : ""}`);
   return server;
 }

@@ -1,0 +1,9 @@
+## GXVert.c
+
+The entire file is guarded by `#if DEBUG`. It defines macro-generated GX FIFO writer functions; this source alone does not establish which definitions occur in any compiled build. The macros generate names from the operation, component count, and scalar type. Each function writes its arguments to the corresponding `GXWGFifo` member in argument order. The index variants write one `u8` or `u16` value; they do not perform an array lookup. There is no validation, branching, allocation, or retained local state in these bodies. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXVert.c#L1-L22 and code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXVert.c#L83-L86.
+
+The instantiated families cover unsigned command writes; signed, unsigned, and floating-point parameter writes; two- and three-component positions; three-component normals; scalar and multi-component colors; one- and two-component texture coordinates; and an unsigned-byte matrix index. Position, normal, color, and texture-coordinate families also provide 8- and 16-bit index writes. These functions emit values only: they do not configure vertex formats or establish how subsequent consumers interpret the stream. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXVert.c#L24-L84.
+
+Canonical and rendered lines 1–87 were reviewed completely. The rendered view has no substitutions or reported parse errors and matches the canonical behavior. Existing source names accurately describe the generated operations; no supported naming correction is needed. Subject and link enumeration returned no records, so there are no frozen facts or links to retain or correct and no writable subjects for new proposals.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

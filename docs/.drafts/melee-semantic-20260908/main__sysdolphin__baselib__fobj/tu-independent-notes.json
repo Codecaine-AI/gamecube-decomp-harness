@@ -1,0 +1,84 @@
+{
+  "tu": "main/sysdolphin/baselib/fobj",
+  "reader": "tu_cobj_wave4",
+  "reviewed_at": "2026-09-08T15:08:01.389561+00:00",
+  "owned_full_canonical_and_rendered": true,
+  "notes": [
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L10-L112",
+      "finding": "State setter preserves upper nibble and returns unmasked input. Request clears0x40 but preserves other high bits while resetting data/time/interpolation fields. Stop KEY path conditionally invokes interpretation then stores0. RemoveAll frees tail first."
+    },
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L114-L217",
+      "finding": "Little-endian float and fixed scalar decoders are unbounded. Denominator is signed32 1<<fraction; fraction31 requires machine/compiler qualification. Pack count u32 narrows to u16; wait s32 narrows to u16. Exhaustion returns local6 without persistence."
+    },
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L219-L388",
+      "finding": "CON/LIN preserve previous slope under op_intrp5; SLP does not change state. KEY staging flags40/80. Null callback returns before access. Unsupported interpolation passes uninitialized stack payload; key not-ready returns without callback. Zero-duration LIN writes p0=p1 and zero slope."
+    },
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L390-L497",
+      "finding": "Interpreter adds rate before negative-time guard; NaN bypasses negative check. States1/2 load,3 wait,4 interval evaluation/advance,5 returns to4, local6 restores last subtracted duration and flushes. Invalid7..15 no switch arm. Descriptor float startframe narrows s16, ad borrowed, node zeroed."
+    },
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.h#L1-L91",
+      "finding": "Confirmed flags/op/type u8, nb_pack and fterm u16, startframe s16, descriptor startframe f32, scalar/vector union. C4 parse errors H0, no substitutions."
+    }
+  ],
+  "foreign_canonical_support": [
+    {
+      "path": "src/sysdolphin/baselib/objalloc.c",
+      "ranges": [
+        [
+          71,
+          161
+        ]
+      ],
+      "finding": "Allocator nullable paths, free list/counter writes, init unlink/reset/default size alignment verified."
+    },
+    {
+      "path": "src/sysdolphin/baselib/initialize.c",
+      "ranges": [
+        [
+          263,
+          307
+        ]
+      ],
+      "finding": "Object init includes AObj/FObj; stats table uses both accessors."
+    },
+    {
+      "path": "src/sysdolphin/baselib/jobj.c",
+      "ranges": [
+        [
+          509,
+          565
+        ],
+        [
+          667,
+          672
+        ]
+      ],
+      "finding": "JObj hierarchy animation resets/invokes completion counters; joint loader delegates creation/ref resolution."
+    },
+    {
+      "path": "src/MSL/math.h",
+      "ranges": [
+        [
+          75,
+          100
+        ]
+      ],
+      "finding": "fmodf inline divides and converts quotient to signed long long, then subtracts product; finite/range limitations apply."
+    },
+    {
+      "path": "src/sysdolphin/baselib/aobj.c",
+      "ranges": [
+        [
+          91,
+          174
+        ]
+      ],
+      "finding": "AObj requests/interprets/stops FObj list. Fully read separately under owned aobj review; supporting evidence for fobj only."
+    }
+  ]
+}

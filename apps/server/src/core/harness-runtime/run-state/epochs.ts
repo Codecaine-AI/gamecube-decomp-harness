@@ -1,0 +1,701 @@
+import { getHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
+import { randomUUID } from "node:crypto";
+import type { TargetCandidate } from "@server/core/shared/types/index.js";
+import { immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
+import {
+  recordEpochCompletedInTransaction,
+} from "@server/core/harness-state/epoch-integration.js";
+import type { DeferredSavePointEvidence } from "@server/core/harness-state/evidence.js";
+import type { JsonObject } from "@server/core/harness-state";
+import {
+  cancelJob,
+  enqueueJob,
+  getJob,
+  getJobByDedupeKey,
+  requeueJob,
+} from "@server/core/job-queue/kernel.js";
+import { enqueuePayloadForWorkerJob } from "@server/core/harness-runtime/phases/running/workers/worker-job-payload.js";
+
+export type EpochStatus = "active" | "completed" | "error" | "paused";
+
+export interface SchedulerEpochConfig {
+  workerPoolSize: number;
+  freshReportGate?: boolean;
+  /** Optional cap on targets admitted to one epoch; unset admits every candidate. */
+  epochTargetCap?: number | null;
+}
+
+export interface SchedulerEpochRecord {
+  id: string;
+  runId: string;
+  ordinal: number;
+  workerPoolSize: number;
+  status: string;
+  admittedCount: number;
+  finishedCount: number;
+  boundaryStatus: string | null;
+  boundaryAttemptCount: number;
+  boundaryNextAttemptAt: string | null;
+  routingSummary: Record<string, unknown>;
+  createdAt: string;
+  closedAt: string | null;
+}
+
+export interface SchedulerEpochCloseResult {
+  epochId: string;
+  status: string;
+  finishedCount: number;
+  closedAt: string;
+  integrationEventId: string | null;
+}
+
+export interface SchedulerEpochIntegrationResult {
+  commandId: string;
+  correlationId: string;
+  integrationCommit: string;
+  occurredAt?: string;
+  payload?: JsonObject;
+  gameId?: string;
+  runId: string;
+  scoreDelta?: number | null;
+  spanId?: string;
+}
+
+export interface EpochAdmissionResult {
+  epochId: string;
+  candidateCount: number;
+  admitted: number;
+  skippedExisting: number;
+  skippedMissingSource: number;
+}
+
+export interface EpochAvailabilityRefreshResult {
+  epochId: string;
+  availableBefore: number;
+  availableAfter: number;
+  retiredExact: number;
+}
+
+export interface RequeueEpochTargetResult {
+  epochId: string;
+  epochTargetId: string;
+  infraFailureCountAfter: number;
+  infraFailureCountBefore: number;
+  jobId: string;
+  targetKey: string;
+}
+
+export interface ReconcileEpochTargetJobsResult {
+  epochId: string;
+  added: number;
+  removed: number;
+  liveJobs: number;
+  unfinishedTargets: number;
+}
+
+export interface EpochProgressSummary {
+  epochId: string;
+  ordinal: number;
+  workerPoolSize: number;
+  admitted: number;
+  available: number;
+  claimed: number;
+  finished: number;
+  remaining: number;
+  boundaryStatus: string | null;
+  routingSummary: Record<string, unknown>;
+}
+
+function targetKey(unit: string, symbol: string): string {
+  return `${unit}::${symbol}`;
+}
+
+function normalizePositiveInt(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) return Math.max(1, Math.floor(fallback));
+  return Math.max(1, Math.floor(value));
+}
+
+function existingTargetKeys(store: StateStore, epochId: string): Set<string> {
+  const rows = store.db
+    .query("SELECT target_key FROM epoch_targets WHERE epoch_id = ?")
+    .all(epochId) as Record<string, unknown>[];
+  return new Set(rows.map((row) => String(row.target_key)));
+}
+
+export function selectEpochAdmissionCandidates(params: {
+  candidates: TargetCandidate[];
+  existingKeys?: Set<string>;
+}): {
+  selected: TargetCandidate[];
+  skippedExisting: number;
+  skippedMissingSource: number;
+} {
+  const existingKeys = params.existingKeys ?? new Set<string>();
+  const eligible: TargetCandidate[] = [];
+  let skippedExisting = 0;
+  let skippedMissingSource = 0;
+  const seenKeys = new Set<string>();
+
+  for (const candidate of params.candidates) {
+    const sourcePath = candidate.sourcePath.trim();
+    if (!sourcePath) {
+      skippedMissingSource += 1;
+      continue;
+    }
+    const key = targetKey(candidate.unit, candidate.symbol);
+    if (existingKeys.has(key) || seenKeys.has(key)) {
+      skippedExisting += 1;
+      continue;
+    }
+    seenKeys.add(key);
+    eligible.push(candidate);
+  }
+
+  return { selected: eligible, skippedExisting, skippedMissingSource };
+}
+
+function rowToEpoch(row: Record<string, unknown>): SchedulerEpochRecord {
+  const routingRaw = String(row.routing_summary_json ?? "{}");
+  let routingSummary: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(routingRaw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) routingSummary = parsed as Record<string, unknown>;
+  } catch {
+    routingSummary = {};
+  }
+  return {
+    id: String(row.id),
+    runId: String(row.run_id),
+    ordinal: Number(row.ordinal),
+    workerPoolSize: Number(row.worker_pool_size),
+    status: String(row.status),
+    admittedCount: Number(row.admitted_count ?? 0),
+    finishedCount: Number(row.finished_count ?? 0),
+    boundaryStatus: row.boundary_status == null ? null : String(row.boundary_status),
+    boundaryAttemptCount: Number(row.boundary_attempt_count ?? 0),
+    boundaryNextAttemptAt: row.boundary_next_attempt_at == null ? null : String(row.boundary_next_attempt_at),
+    routingSummary,
+    createdAt: String(row.created_at),
+    closedAt: row.closed_at == null ? null : String(row.closed_at),
+  };
+}
+
+export interface EpochBoundaryRetryFailure {
+  attemptCount: number;
+  delayMs: number | null;
+  nextAttemptAt: string | null;
+  terminal: boolean;
+}
+
+export function recordEpochBoundaryRetryFailure(
+  store: StateStore,
+  epochId: string,
+  config: { enabled: boolean; maxAttempts: number; baseMs: number; maxMs: number },
+  occurredAt = new Date(),
+): EpochBoundaryRetryFailure {
+  return immediateTransaction(store.db, () => {
+    const row = store.db.query("SELECT boundary_attempt_count FROM epochs WHERE id = ?").get(epochId) as
+      | { boundary_attempt_count: number }
+      | undefined;
+    if (!row) throw new Error(`Epoch not found: ${epochId}`);
+    const attemptCount = Number(row.boundary_attempt_count ?? 0) + 1;
+    const terminal = !config.enabled || attemptCount >= Math.max(1, Math.floor(config.maxAttempts));
+    const delayMs = terminal
+      ? null
+      : Math.min(
+          Math.max(0, Math.floor(config.maxMs)),
+          Math.max(0, Math.floor(config.baseMs)) * 2 ** Math.max(0, attemptCount - 1),
+        );
+    const nextAttemptAt = delayMs === null ? null : new Date(occurredAt.getTime() + delayMs).toISOString();
+    store.db.query(`UPDATE epochs
+      SET status = 'error', boundary_status = ?, boundary_attempt_count = ?, boundary_next_attempt_at = ?
+      WHERE id = ?`).run(terminal ? "retry_exhausted" : "retry_scheduled", attemptCount, nextAttemptAt, epochId);
+    return { attemptCount, delayMs, nextAttemptAt, terminal };
+  });
+}
+
+export function resetEpochBoundaryRetries(store: StateStore, runId: string): void {
+  store.db.query(`UPDATE epochs
+    SET boundary_attempt_count = 0, boundary_next_attempt_at = NULL,
+        boundary_status = CASE WHEN boundary_status = 'retry_exhausted' THEN 'error' ELSE boundary_status END
+    WHERE run_id = ? AND boundary_attempt_count > 0`).run(runId);
+}
+
+function nextEpochOrdinal(store: StateStore, runId: string): number {
+  const row = store.db.query("SELECT COALESCE(MAX(ordinal), 0) + 1 AS ordinal FROM epochs WHERE run_id = ?").get(runId) as
+    | Record<string, unknown>
+    | undefined;
+  return Number(row?.ordinal ?? 1);
+}
+
+export function activeSchedulerEpoch(store: StateStore, runId: string): SchedulerEpochRecord | null {
+  const row = store.db
+    .query("SELECT * FROM epochs WHERE run_id = ? AND status = 'active' ORDER BY ordinal DESC LIMIT 1")
+    .get(runId) as Record<string, unknown> | undefined;
+  return row ? rowToEpoch(row) : null;
+}
+
+export function startSchedulerEpoch(store: StateStore, runId: string, config: SchedulerEpochConfig): SchedulerEpochRecord {
+  const id = randomUUID();
+  const createdAt = now();
+  const workerPoolSize = normalizePositiveInt(config.workerPoolSize, 1);
+  return immediateTransaction(store.db, () => {
+    const active = activeSchedulerEpoch(store, runId);
+    if (active) return active;
+    const ordinal = nextEpochOrdinal(store, runId);
+    store.db
+      .query(
+        `
+          INSERT INTO epochs (
+            id, run_id, ordinal, worker_pool_size, status,
+            routing_summary_json, created_at
+          )
+          VALUES (?, ?, ?, ?, 'active', '{}', ?)
+        `,
+      )
+      .run(id, runId, ordinal, workerPoolSize, createdAt);
+    const row = store.db.query("SELECT * FROM epochs WHERE id = ?").get(id) as Record<string, unknown>;
+    return rowToEpoch(row);
+  });
+}
+
+export function closeSchedulerEpoch(
+  store: StateStore,
+  epochId: string,
+  params: {
+    status: EpochStatus;
+    boundaryStatus?: string | null;
+    routingSummary?: Record<string, unknown>;
+    integration?: SchedulerEpochIntegrationResult;
+  },
+): SchedulerEpochCloseResult {
+  const closedAt = now();
+  return immediateTransaction(store.db, () => {
+    const row = store.db.query("SELECT id FROM epochs WHERE id = ?").get(epochId) as Record<string, unknown> | undefined;
+    if (!row) throw new Error(`Epoch not found: ${epochId}`);
+    store.db
+      .query(
+        `
+          UPDATE epochs
+          SET status = ?,
+              finished_count = (
+                SELECT COUNT(*)
+                FROM epoch_targets
+                WHERE epoch_targets.epoch_id = epochs.id
+                  AND epoch_targets.status = 'finished'
+              ),
+              boundary_status = ?,
+              routing_summary_json = ?,
+              closed_at = ?
+          WHERE id = ?
+        `,
+      )
+      .run(params.status, params.boundaryStatus ?? params.status, JSON.stringify(params.routingSummary ?? {}), closedAt, epochId);
+    const pendingWorkerJobs = store.db
+      .query(
+        `
+          SELECT jobs.job_id
+          FROM jobs
+          JOIN epoch_targets ON epoch_targets.id = jobs.dedupe_key
+          WHERE epoch_targets.epoch_id = ?
+            AND jobs.kind = 'worker'
+            AND jobs.status IN ('queued', 'waiting')
+            AND NOT EXISTS (
+              SELECT 1
+              FROM target_claims
+              WHERE target_claims.id = json_extract(jobs.payload_json, '$.target_claim_id')
+                AND target_claims.worker_id = json_extract(jobs.payload_json, '$.worker_id')
+                AND target_claims.status = 'active'
+            )
+        `,
+      )
+      .all(epochId) as Array<{ job_id: string }>;
+    for (const job of pendingWorkerJobs) {
+      cancelJob(store, { jobId: job.job_id, reason: "epoch_closed", actor: "runner" });
+    }
+    let integrationEventId: string | null = null;
+    if (params.integration) {
+      const integrationEntry = recordEpochCompletedInTransaction(store.db, {
+        ...params.integration,
+        actor: "runner",
+        epochId,
+        occurredAt: params.integration.occurredAt ?? closedAt,
+      });
+      integrationEventId = integrationEntry.caused_by_event_id;
+    }
+    const updated = store.db.query("SELECT finished_count, status FROM epochs WHERE id = ?").get(epochId) as Record<string, unknown>;
+    return {
+      epochId,
+      status: String(updated.status),
+      finishedCount: Number(updated.finished_count ?? 0),
+      closedAt,
+      integrationEventId,
+    };
+  });
+}
+
+/**
+ * Accepts the head-advancing epoch boundary before appending its save-point
+ * evidence. Each event keeps its owning workflow correlation while sharing
+ * one command/root span and linking the harness evidence to the run event.
+ */
+export function closeSchedulerEpochWithEvidence(
+  store: StateStore,
+  epochId: string,
+  params: {
+    status: EpochStatus;
+    boundaryStatus?: string | null;
+    routingSummary?: Record<string, unknown>;
+    integration: SchedulerEpochIntegrationResult;
+    savePointEvidence: DeferredSavePointEvidence;
+  },
+): SchedulerEpochCloseResult {
+  const run = store.db.query("SELECT game_id FROM runs WHERE id = ?").get(params.integration.runId) as { game_id: string } | null;
+  const gameId = params.integration.gameId ?? run?.game_id;
+  const harness = gameId ? getHarnessState(store.db, gameId) : null;
+  if (harness && gameId) {
+    if (params.savePointEvidence?.status !== "recorded") throw new Error("Epoch evidence capture failed; Sync admission is blocked");
+    const evidence = params.savePointEvidence;
+    const closed = closeSchedulerEpoch(store, epochId, params);
+    const eventId = `epoch-save-point:${epochId}`;
+    const existing = store.db.query("SELECT event_id FROM harness_timeline_entries WHERE game_id = ? AND event_id = ?").get(gameId, eventId);
+    const current = getHarnessState(store.db, gameId)!;
+    if (!existing) transitionHarnessState(store.db, {
+      gameId, expectedRevision: current.identity.revision, commandId: eventId,
+      patch: { readiness: { build: "ready", evidence: "ready" }, history: { save_point_id: evidence.savePointId }, execution: { workflow: "sync", status: "active" } },
+      boundary: { eventId, kind: "save_point", outcome: "recorded", runId: params.integration.runId, epochId,
+        evidence: { save_point_id: evidence.savePointId, artifacts: evidence.artifactPaths, score_delta: params.integration.scoreDelta, freshness: "valid" } },
+    });
+    return closed;
+  }
+  throw new Error("Epoch evidence requires an initialized harness");
+}
+
+export function admitEpochTargets(
+  store: StateStore,
+  params: {
+    epochId: string;
+    runId: string;
+    candidates: TargetCandidate[];
+    workerPoolSize: number;
+  },
+): EpochAdmissionResult {
+  const insertTarget = store.db.query(
+    `
+      INSERT INTO epoch_targets (
+        id, epoch_id, run_id, target_key, unit, symbol, source_path, size,
+        baseline_score, priority, reason, admission_index, status, admitted_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'admitted', ?)
+    `,
+  );
+
+  return immediateTransaction(store.db, () => {
+    const epoch = store.db.query("SELECT run_id FROM epochs WHERE id = ?").get(params.epochId) as Record<string, unknown> | undefined;
+    if (!epoch) throw new Error(`Epoch not found: ${params.epochId}`);
+    const runId = String(epoch.run_id);
+    const run = store.db
+      .query("SELECT COALESCE(game_id, 'melee') AS game_id, trace_id FROM runs WHERE id = ?")
+      .get(runId) as Record<string, unknown> | undefined;
+    if (!run) throw new Error(`Run not found: ${runId}`);
+    const startIndexRow = store.db
+      .query("SELECT COALESCE(MAX(admission_index), -1) + 1 AS start_index FROM epoch_targets WHERE epoch_id = ?")
+      .get(params.epochId) as Record<string, unknown> | undefined;
+    const startIndex = Number(startIndexRow?.start_index ?? 0);
+    const selected = selectEpochAdmissionCandidates({
+      candidates: params.candidates,
+      existingKeys: existingTargetKeys(store, params.epochId),
+    });
+    const admittedAt = now();
+    selected.selected.forEach((candidate, index) => {
+      const key = targetKey(candidate.unit, candidate.symbol);
+      const epochTargetId = randomUUID();
+      insertTarget.run(
+        epochTargetId,
+        params.epochId,
+        runId,
+        key,
+        candidate.unit,
+        candidate.symbol,
+        candidate.sourcePath,
+        candidate.size,
+        candidate.fuzzy,
+        0,
+        null,
+        startIndex + index,
+        admittedAt,
+      );
+      enqueueJob(store, {
+        kind: "worker",
+        dedupeKey: epochTargetId,
+        gameId: String(run.game_id),
+        runId,
+        priority: 0,
+        payload: {
+          epoch_target_id: epochTargetId,
+          epoch_id: params.epochId,
+          target_key: key,
+        },
+        traceId: run.trace_id == null ? undefined : String(run.trace_id),
+        executionClass: "sandbox",
+      });
+    });
+    store.db.query("UPDATE epochs SET admitted_count = admitted_count + ? WHERE id = ?").run(selected.selected.length, params.epochId);
+    return {
+      epochId: params.epochId,
+      candidateCount: params.candidates.length,
+      admitted: selected.selected.length,
+      skippedExisting: selected.skippedExisting,
+      skippedMissingSource: selected.skippedMissingSource,
+    };
+  });
+}
+
+/** Keeps fungible worker-job coverage close to the epoch's unfinished target count. */
+export function reconcileEpochTargetJobs(
+  store: StateStore,
+  params: { epochId: string; slack?: number },
+): ReconcileEpochTargetJobsResult {
+  return immediateTransaction(store.db, () => {
+    const slack = Math.max(0, Math.floor(params.slack ?? 2));
+    const unfinishedTargets = Number((store.db
+      .query("SELECT COUNT(*) AS count FROM epoch_targets WHERE epoch_id = ? AND status IN ('admitted', 'claimed')")
+      .get(params.epochId) as { count: number }).count);
+    const liveJobs = Number((store.db
+      .query(`SELECT COUNT(*) AS count FROM jobs
+              WHERE kind = 'worker'
+                AND status IN ('queued', 'claimed', 'running', 'waiting')
+                AND json_extract(payload_json, '$.epoch_id') = ?`)
+      .get(params.epochId) as { count: number }).count);
+    const deficit = Math.max(0, unfinishedTargets - liveJobs);
+    const claimableAt = now();
+    const rows = store.db
+      .query(
+        `SELECT epoch_targets.id, epoch_targets.epoch_id, epoch_targets.run_id,
+                epoch_targets.target_key,
+                COALESCE(runs.game_id, 'melee') AS game_id, runs.trace_id
+         FROM epoch_targets
+         JOIN runs ON runs.id = epoch_targets.run_id
+         WHERE epoch_targets.epoch_id = ?
+           AND epoch_targets.status = 'admitted'
+           AND NOT EXISTS (
+             SELECT 1
+             FROM epoch_targets AS active_targets
+             JOIN target_claims AS active_claims
+               ON active_claims.epoch_target_id = active_targets.id
+             WHERE active_targets.epoch_id = epoch_targets.epoch_id
+               AND active_targets.source_path = epoch_targets.source_path
+               AND active_targets.id != epoch_targets.id
+               AND active_claims.status = 'active'
+               AND (
+                 julianday(active_claims.ttl) IS NULL
+                 OR julianday(active_claims.ttl) > julianday(?)
+               )
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM jobs
+             WHERE jobs.kind = 'worker'
+               AND jobs.run_id = epoch_targets.run_id
+               AND jobs.status IN ('queued', 'claimed', 'running', 'waiting')
+               AND (
+                 json_extract(jobs.payload_json, '$.claimed_epoch_target_id') = epoch_targets.id
+                 OR (
+                   json_extract(jobs.payload_json, '$.claimed_epoch_target_id') IS NULL
+                   AND json_extract(jobs.payload_json, '$.epoch_target_id') = epoch_targets.id
+                 )
+               )
+           )
+         ORDER BY epoch_targets.admission_index
+         LIMIT ?`,
+      )
+      .all(params.epochId, claimableAt, deficit) as Array<Record<string, unknown>>;
+    for (const row of rows) {
+      const epochTargetId = String(row.id);
+      enqueueJob(store, {
+        kind: "worker",
+        dedupeKey: `${epochTargetId}:reenqueue:${randomUUID()}`,
+        gameId: String(row.game_id),
+        runId: String(row.run_id),
+        priority: 0,
+        payload: {
+          epoch_target_id: epochTargetId,
+          epoch_id: String(row.epoch_id),
+          target_key: String(row.target_key),
+        },
+        traceId: row.trace_id == null ? undefined : String(row.trace_id),
+        executionClass: "sandbox",
+      });
+    }
+    const excess = Math.max(0, liveJobs - unfinishedTargets - slack);
+    const queued = store.db
+      .query(`SELECT job_id FROM jobs
+              WHERE kind = 'worker'
+                AND status = 'queued'
+                AND json_extract(payload_json, '$.epoch_id') = ?
+              ORDER BY created_at DESC, job_id DESC
+              LIMIT ?`)
+      .all(params.epochId, excess) as Array<{ job_id: string }>;
+    const reason = `epoch job coverage exceeded unfinished targets by more than ${slack}; newest queued job cancelled`;
+    for (const row of queued) {
+      cancelJob(store, { jobId: row.job_id, actor: "runner", reason });
+      store.db.query("UPDATE jobs SET error_json = ? WHERE job_id = ?").run(JSON.stringify({ message: reason }), row.job_id);
+    }
+    return {
+      epochId: params.epochId,
+      added: rows.length,
+      removed: queued.length,
+      liveJobs,
+      unfinishedTargets,
+    };
+  });
+}
+
+function refreshEpochFinishedCount(store: StateStore, epochId: string): void {
+  store.db
+    .query(
+      `
+        UPDATE epochs
+        SET finished_count = (
+          SELECT COUNT(*)
+          FROM epoch_targets
+          WHERE epoch_targets.epoch_id = epochs.id
+            AND epoch_targets.status = 'finished'
+        )
+        WHERE id = ?
+      `,
+    )
+    .run(epochId);
+}
+
+/** Reopens a finished epoch target and ensures its worker job is queued for another attempt. */
+export function requeueEpochTarget(
+  store: StateStore,
+  params: {
+    epochTargetId: string;
+    actor?: Parameters<typeof requeueJob>[1]["actor"];
+    at?: string;
+  },
+): RequeueEpochTargetResult {
+  return immediateTransaction(store.db, () => {
+    const target = store.db
+      .query("SELECT id, epoch_id, target_key, status, infra_failure_count FROM epoch_targets WHERE id = ?")
+      .get(params.epochTargetId) as Record<string, unknown> | undefined;
+    if (!target) throw new Error(`Epoch target not found: ${params.epochTargetId}`);
+    if (target.status !== "finished") {
+      throw new Error(`Only finished epoch targets can be requeued: ${params.epochTargetId} is ${String(target.status)}`);
+    }
+    const associatedJobRow = store.db.query(`SELECT job_id FROM jobs
+      WHERE kind = 'worker'
+        AND status IN ('queued', 'waiting')
+        AND (
+          json_extract(payload_json, '$.claimed_epoch_target_id') = ?
+          OR (
+            json_extract(payload_json, '$.claimed_epoch_target_id') IS NULL
+            AND json_extract(payload_json, '$.epoch_target_id') = ?
+          )
+        )
+      ORDER BY created_at ASC, job_id ASC
+      LIMIT 1`).get(params.epochTargetId, params.epochTargetId) as { job_id: string } | undefined;
+    const associatedJob = associatedJobRow ? getJob(store, associatedJobRow.job_id) : null;
+    const terminalJob = getJobByDedupeKey(store, "worker", params.epochTargetId);
+    const job = associatedJob
+      ? associatedJob
+      : requeueJob(store, {
+          kind: "worker",
+          dedupeKey: params.epochTargetId,
+          payload: enqueuePayloadForWorkerJob(terminalJob?.payload ?? {}),
+          actor: params.actor ?? "runner",
+          at: params.at,
+        });
+    const infraFailureCountBefore = Number(target.infra_failure_count ?? 0);
+    store.db
+      .query("UPDATE epoch_targets SET status = 'admitted', claimed_at = NULL, finished_at = NULL, infra_failure_count = 0 WHERE id = ?")
+      .run(params.epochTargetId);
+    const epochId = String(target.epoch_id);
+    refreshEpochFinishedCount(store, epochId);
+    return {
+      epochId,
+      epochTargetId: params.epochTargetId,
+      infraFailureCountAfter: 0,
+      infraFailureCountBefore,
+      jobId: job.jobId,
+      targetKey: String(target.target_key),
+    };
+  });
+}
+
+export function refreshEpochTargetAvailability(
+  store: StateStore,
+  epochId: string,
+  params: { exactTargetKeys?: Set<string> } = {},
+): EpochAvailabilityRefreshResult {
+  const before = availableCountForEpoch(store, epochId);
+  let retiredExact = 0;
+  const exactTargetKeys = params.exactTargetKeys ?? new Set<string>();
+  if (exactTargetKeys.size > 0) {
+    const rows = store.db
+      .query("SELECT id, target_key FROM epoch_targets WHERE epoch_id = ? AND status = 'admitted'")
+      .all(epochId) as Record<string, unknown>[];
+    const retiredAt = now();
+    const retireTarget = store.db.query("UPDATE epoch_targets SET status = 'finished', finished_at = ? WHERE id = ?");
+    immediateTransaction(store.db, () => {
+      for (const row of rows) {
+        if (!exactTargetKeys.has(String(row.target_key))) continue;
+        retireTarget.run(retiredAt, String(row.id));
+        const job = getJobByDedupeKey(store, "worker", String(row.id));
+        if (job && ["queued", "waiting"].includes(job.status)) {
+          cancelJob(store, { jobId: job.jobId, reason: "target_retired", actor: "runner" });
+        }
+        retiredExact += 1;
+      }
+      if (retiredExact > 0) refreshEpochFinishedCount(store, epochId);
+    });
+  }
+  const after = availableCountForEpoch(store, epochId);
+  return {
+    epochId,
+    availableBefore: before,
+    availableAfter: after,
+    retiredExact,
+  };
+}
+
+function availableCountForEpoch(store: StateStore, epochId: string): number {
+  const row = store.db
+    .query("SELECT COUNT(*) AS count FROM epoch_targets WHERE epoch_id = ? AND status = 'admitted'")
+    .get(epochId) as Record<string, unknown> | undefined;
+  return Number(row?.count ?? 0);
+}
+
+export function schedulerEpochProgress(store: StateStore, epochId: string): EpochProgressSummary {
+  const epoch = store.db.query("SELECT * FROM epochs WHERE id = ?").get(epochId) as Record<string, unknown> | undefined;
+  if (!epoch) throw new Error(`Epoch not found: ${epochId}`);
+  const counts = store.db
+    .query(
+      `
+        SELECT status, COUNT(*) AS count
+        FROM epoch_targets
+        WHERE epoch_id = ?
+        GROUP BY status
+      `,
+    )
+    .all(epochId) as Record<string, unknown>[];
+  const byStatus = new Map(counts.map((row) => [String(row.status), Number(row.count)]));
+  const record = rowToEpoch(epoch);
+  const admitted = Number(epoch.admitted_count ?? 0);
+  const available = byStatus.get("admitted") ?? 0;
+  const claimed = byStatus.get("claimed") ?? 0;
+  const finished = byStatus.get("finished") ?? 0;
+  return {
+    epochId,
+    ordinal: record.ordinal,
+    workerPoolSize: record.workerPoolSize,
+    admitted,
+    available,
+    claimed,
+    finished,
+    remaining: Math.max(0, admitted - finished),
+    boundaryStatus: record.boundaryStatus,
+    routingSummary: record.routingSummary,
+  };
+}

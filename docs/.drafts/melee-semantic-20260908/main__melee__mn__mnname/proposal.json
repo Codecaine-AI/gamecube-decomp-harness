@@ -1,0 +1,146 @@
+{
+  "tu": "main/melee/mn/mnname",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnname:DeleteName"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Performs persistent-name deletion maintenance after the caller has marked the selected slot empty. For every occupied record, it removes the selected column from the leading 120-element u16 region by shifting later elements left and zeroing element 119. It then swaps later occupied NameTagData records into empty slots at or after the supplied index. It does not itself clear the selected name; the deletion-confirmation caller clears and initializes that record before invoking this helper.",
+        "rationale": "The previous purpose could imply that calling DeleteName alone clears an occupied profile. The helper has no such write, and its caller explicitly establishes the hole before compaction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L224-L268",
+            "why": "Shows the u16-column shift and occupancy-guarded whole-record compaction, without clearing a name."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L496-L516",
+            "why": "Shows the caller clearing and initializing the selected record before DeleteName and subsequent list/game-state synchronization."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnname:mnName_8023AC40"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the retained menu archive from mn_804D6BB8 and loads seven model-resource groups into objects defined by this translation unit: three management MnNameArchive records and four shared editor groups, mnNameNew_804A06F0, mnNameNew_804A0700, mnNameNew_804A0710, and mnNameNew_804A0720[0]. The loader does not explicitly fill mnNameNew_804A0720[1]. It then selects localized AutoNamesList and NotAllowedNamesList resources, updates shared menu state, restores the 120-entry identity display map, creates the initial screen, and returns the newly registered input-process pointer cast to s32. The shared descriptors are also loaded by the editor's character-select entry path and consumed by editor, keyboard, and glyph-variant construction; physical contiguity is not established by these source operations.",
+        "rationale": "Corrects the ownership distinction and removes unsupported physical-contiguity language while retaining all demonstrated loading and initialization behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L28-L32",
+            "why": "Defines the shared editor descriptors, including a two-element array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L1679-L1748",
+            "why": "Shows all seven loader destinations, localized lists, state initialization, and process return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1486-L1547",
+            "why": "Shows the shared variant-overlay descriptors being consumed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1830-L1891",
+            "why": "Shows keyboard and editor construction using the other shared groups."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1960-L1999",
+            "why": "Shows the alternate entry path loading the same groups and localized lists."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnname:.data"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Name Entry presentation reads animation configuration to choose requested start frames, find inclusive frame windows, and detect transition completion. In the current initializer, model-resource names are explicit string literals passed to lbArchive_LoadSections. Localized automatic/refused-name identifiers are instead supplied through byte offsets 0x4D0/0x4E4 for saved US language and 0x4F8/0x508 otherwise, relative to mnName_803ED538. These source accesses describe configuration and resource flow, not proof of the literals' compiled section placement.",
+        "rationale": "The baseline explanation described archive labels generally as relative to the section anchor. Current source distinguishes explicit model-label literals from the still-relative localized-list labels.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L825-L943",
+            "why": "Shows animation start-frame selection and inclusive window lookup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L1001-L1088",
+            "why": "Shows transition completion using animation endpoints."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L1693-L1758",
+            "why": "Shows explicit model labels, relative localized-list labels, and corresponding declared strings."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnname:.sdata2"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Presentation scalars convert the saved-name count into ceil(count / 6) horizontal columns and compare that extent with the four-column viewport. Above four columns, the current six-name column offset is scaled by 14 / (column_count - 1) and written to the scrollbar slider's X translation; this is not a 24-name page offset. Other scalar literals supply SIS text positions and font sizes and the deletion-confirmation choice animation frames. Their use does not by itself establish compiled literal-pool placement.",
+        "rationale": "Corrects row and page terminology using the constructor's X/Y placement and the scrollbar's explicit formula, while preserving the useful presentation-data flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L750-L775",
+            "why": "Shows six-name grouping, four-column threshold, and column-offset formula."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L1213-L1244",
+            "why": "Shows index/6 controlling X placement, index%6 controlling Y placement, and text position/font scalars."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L1409-L1434",
+            "why": "Shows modal text geometry and complementary choice frames."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnname:.sdata2"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The saved-name scrollbar is hidden when the list occupies at most four six-name columns, equivalent to at most 24 occupied names. For larger lists it is shown and its slider is positioned proportionally to the current horizontal column offset across a 14-unit range. Outside the deletion modal's opening-animation interval, confirmed_selection chooses complementary animation frames 0 and 1 for the two choice JObjs; nonzero selects frames 1 and 0, and zero selects frames 0 and 1.",
+        "rationale": "Corrects the four-row/page interpretation and preserves the modal interval guard and exact complementary-frame polarity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L750-L775",
+            "why": "Defines scrollbar visibility and normalized column positioning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L1398-L1434",
+            "why": "Defines the opening interval and complementary choice-frame branch."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

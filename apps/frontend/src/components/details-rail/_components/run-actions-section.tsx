@@ -1,7 +1,7 @@
 import { Play } from "@/icons";
 import { Button } from "@/components/primitives";
 import { RunActionsGrid } from "@/pages/workspace/_components/run";
-import type { CycleView, HarnessStateReadModel, DashboardAction } from "@/pages/workspace/_lib/types";
+import type { HarnessView, HarnessStateViewModel, DashboardAction } from "@/pages/workspace/_lib/types";
 
 export function RunActionsSection({
   busy,
@@ -10,9 +10,9 @@ export function RunActionsSection({
   view,
 }: {
   busy: boolean;
-  harnessState: HarnessStateReadModel | null;
+  harnessState: HarnessStateViewModel | null;
   onAction: (action: DashboardAction) => void;
-  view: CycleView;
+  view: HarnessView;
 }) {
   const startBlocked = view.prepareState.readyToStartRun
     ? ""

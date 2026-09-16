@@ -5,6 +5,11 @@ import { dropLegacyEpochColumnsMigration } from "./002-drop-legacy-epoch-columns
 import { addEpochBoundaryRetryMigration } from "./003-add-epoch-boundary-retry.js";
 import { addTargetInfraFailureCountMigration } from "./004-add-target-infra-failure-count.js";
 import { dropLegacySyncKnowledgeTablesMigration } from "./005-drop-legacy-sync-knowledge-tables.js";
+import { harnessStateMigration } from "./006-harness-state.js";
+import { retireCycleOwnershipMigration } from "./007-retire-cycle-ownership.js";
+import { harnessKernelTracesMigration } from "./008-harness-kernel-traces.js";
+import { canonicalSyncStagingMigration } from "./009-canonical-sync-staging.js";
+import { harnessStateNamesMigration } from "./010-harness-state-names.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
@@ -16,6 +21,11 @@ export const storageMigrations: readonly StorageMigration[] = Object.freeze([
   addEpochBoundaryRetryMigration,
   addTargetInfraFailureCountMigration,
   dropLegacySyncKnowledgeTablesMigration,
+  harnessStateMigration,
+  retireCycleOwnershipMigration,
+  harnessKernelTracesMigration,
+  canonicalSyncStagingMigration,
+  harnessStateNamesMigration,
 ]);
 
 interface AppliedMigrationRow {
@@ -69,8 +79,8 @@ function columnExists(db: Database, table: string, column: string): boolean {
 function hasBaselineSentinels(db: Database): boolean {
   return (
     tableExists(db, "game_events") &&
-    tableExists(db, "harness_state") &&
-    tableExists(db, "cycles") &&
+    (tableExists(db, "dispatch_state") || columnExists(db, "harness_state", "active_workflow_json")) &&
+    (tableExists(db, "cycles") || tableExists(db, "historical_cycles")) &&
     tableExists(db, "game_upstream_anchors") &&
     columnExists(db, "dispatch_handoff_snapshots", "terminal_game_revision")
   );

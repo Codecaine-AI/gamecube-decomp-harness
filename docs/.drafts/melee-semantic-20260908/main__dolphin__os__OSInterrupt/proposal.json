@@ -1,0 +1,131 @@
+{
+  "tu": "main/dolphin/os/OSInterrupt",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L352-L370",
+            "why": "Exact pending-work expression, global update and critical-section bracket."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L299-L305",
+            "why": "Default returns work unchanged."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim that every already-clear global request avoids hardware work and preserves the helper's unchanged-default edge case.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSInterrupt:__OSUnmaskInterrupts"
+        },
+        "type": "state_behavior",
+        "value": "Saves and disables processor external interrupts, clears requested bits from the global mask, reconciles hardware against the new global/local union, then restores the saved processor enable state. Pending work is `(previousGlobal | local) & requested`: a request already clear globally can still refresh hardware when locally masked, without enabling that source. No helper iteration occurs exactly when this pending work is zero. Supported groups are consumed one per iteration; unsupported nonzero work can prevent completion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L15-L18",
+            "why": "Source declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L130-L151",
+            "why": "Initialization assigns and clears the external table, not diagnostics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L516-L528",
+            "why": "Guarded separate diagnostic assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported lifetime and guards while removing unsupported atomic-record and compiled-block implications.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSInterrupt:.sbss"
+        },
+        "type": "state_behavior",
+        "value": "At source level, the uninitialized static-storage globals begin zero-initialized. Interrupt initialization assigns InterruptHandlerTable to cached physical address 0x3040 and clears the pointed-to callback table without resetting the diagnostic globals. Dispatch updates __OSLastInterrupt, __OSLastInterruptTime and __OSLastInterruptSrr0 through separate volatile assignments only when the selected interrupt has a handler and its index exceeds __OS_INTERRUPT_MEM_ADDRESS. These stores precede the callback; other dispatch paths preserve the record. This describes source-global behavior, not verified compiled section membership or an atomic multi-field transaction."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L120-L128",
+            "why": "Complete getter."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an overbroad assertion guarantee with the exact checks and normal-path behavior present in the source.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSInterrupt:__OSGetInterruptHandler"
+        },
+        "type": "state_behavior",
+        "value": "For a valid initialized request, observes and returns the indexed callback without mutation or invocation. The source contains ASSERTMSGLINE checks for a nonnull InterruptHandlerTable and `interrupt < 0x20`; it contains no explicit lower-bound check, ordinary failure return or internal synchronization. These assertion expressions should not be treated as an unconditional runtime validation guarantee."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L130-L151",
+            "why": "Complete initialization sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os/OSInterrupt.h#L34-L40",
+            "why": "PI_ERROR, PI_DEBUG and logical mask encoding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the DEBUG source identity and distinguishes the temporary zero-mask baseline from the resulting masked state.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSInterrupt:__OSInterruptInit"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation destructively clears the callback table, resets both logical mask words, establishes supported-group hardware masking through __OSMaskInterrupts, and replaces the exception-4 handler. There is no local one-time guard or preservation path, and the final global mask is not the initial zero value. Under DEBUG, the final operations write 1 to PI register 0 and unmask logical bit 0x100, corresponding to PI_ERROR at index 23 rather than PI_DEBUG at index 25. Existing last-interrupt diagnostics are not reset."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L130-L151",
+            "why": "Initialization and DEBUG branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L313-L390",
+            "why": "Exact mask updates and spurious handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L506-L541",
+            "why": "Single selection, optional callback and fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L328-L398",
+            "why": "Rescheduling can retain the current thread."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the changed-groups-only characterization and makes the handlerless and conditional-rescheduling branches explicit.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/os/OSInterrupt.c"
+        },
+        "type": "state_behavior",
+        "value": "Initialization clears callback entries and both mask words, masks supported device groups and installs the external-interrupt entry stub, with additional DEBUG PI-error operations. Mask mutations save and disable processor external interrupts, update the appropriate logical word and refresh hardware groups selected by their exact work expressions before restoring the saved enable state. These refreshes need not represent effective-mask changes: global unmasking includes locally masked requested bits, and local replacement uses `(global | previousLocal) ^ newLocal`. Dispatch restores context for spurious entries and selects at most one priority-ranked unmasked cause. Only a nonnull selected handler receives a callback under scheduler suppression, followed by conditional rescheduling; a missing handler does not trigger selection of another cause. Remaining paths restore context, with additional DEBUG reporting."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

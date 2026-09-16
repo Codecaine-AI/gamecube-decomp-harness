@@ -1,0 +1,713 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dberror:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:a837f4e5-6913-49b9-a2a8-f00bf68ff966",
+        "target_id": "target:data:main/melee/db/dberror:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Both fn_HSDPanicHandler and fn_OSErrorHandler read the shared \"%s\\n\" format data and pass it as OSReport's first argument, with the externally supplied db_build_timestamp as the substitution argument; the resulting timestamp report precedes each callback's stack and exception-console processing.",
+        "rationale": "At the current head, both callback bodies still call OSReport(\"%s\\n\", db_build_timestamp) after crash preparation and before stack tracing and the remaining exception-console operations. The data's consumers, argument flow, and output ordering therefore remain unchanged.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:25:15.921Z",
+        "evidence": [
+          {
+            "id": "evidence:10caefd6-3ef6-43c5-bf60-e1691bfa488d",
+            "fact_id": "fact:a837f4e5-6913-49b9-a2a8-f00bf68ff966",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dberror.c#L1-L79",
+            "digest": "sha256:05a8420e4d2401f4",
+            "why": "Both crash callbacks use the same \"%s\\n\" format with db_build_timestamp before invoking stack and exception-console reporting routines.",
+            "captured_at": "2026-09-04T18:25:15.921Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:4743daf1-55b0-4a79-a5b7-29408732f281",
+        "target_id": "target:data:main/melee/db/dberror:.sdata",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Contributes build-identification output to Melee's internal runtime crash diagnostics, allowing either an HSD panic or a selected OS exception to report which game build produced the failure.",
+        "rationale": "The current source retains the build-timestamp report in both crash callbacks and conditionally registers those callbacks when no debugger is present. This confirms that the format data supports build identification in the fallback runtime crash-diagnostic path.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:25:15.921Z",
+        "evidence": [
+          {
+            "id": "evidence:461ce508-1db8-47a3-bb09-ff0965026766",
+            "fact_id": "fact:4743daf1-55b0-4a79-a5b7-29408732f281",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dberror.c#L1-L79",
+            "digest": "sha256:05a8420e4d2401f4",
+            "why": "The source shows both panic and OS-error callbacks printing db_build_timestamp and shows their registration under the no-debugger guard.",
+            "captured_at": "2026-09-04T18:25:15.921Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:5d6b6d34-e423-407f-ac2f-5f9f552a4cb3",
+        "target_id": "target:data:main/melee/db/dberror:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Compiler-owned small-data storage whose meaningful payload is the NUL-terminated character literal \"%s\\n\" used as an OSReport format string; it is constant formatting data, not a source-level mutable object or table.",
+        "rationale": "The current translation unit defines no mutable source-level object for this section target, while both diagnostic callbacks use the same short string literal solely as an OSReport format. This continues to support character-string formatting data as the section's meaningful payload rather than a mutable object or table.",
+        "confidence": 0.88,
+        "updated_at": "2026-09-04T18:25:15.921Z",
+        "evidence": [
+          {
+            "id": "evidence:8d57f757-25c5-4aab-a7da-d740a4359881",
+            "fact_id": "fact:5d6b6d34-e423-407f-ac2f-5f9f552a4cb3",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dberror.c#L1-L79",
+            "digest": "sha256:05a8420e4d2401f4",
+            "why": "The unit contains no corresponding mutable object and uses the short NUL-terminated \"%s\\n\" literal as OSReport formatting data in both callbacks.",
+            "captured_at": "2026-09-04T18:25:15.921Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:b0ac8c8d-01bd-42c1-ae69-f6c562527c1f",
+        "target_id": "target:data:main/melee/db/dberror:.sdata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Supplies the short OSReport format literal used by both crash callbacks to print the build timestamp before they emit stack, exception, debug-level, and processor-context diagnostics.",
+        "rationale": "At head, the HSD panic and OS-error callbacks both use \"%s\\n\" to report db_build_timestamp before their subsequent diagnostic calls. The section target's standing purpose as shared constant formatting data therefore remains valid.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T18:25:15.921Z",
+        "evidence": [
+          {
+            "id": "evidence:ebb5d2f2-cc06-4c76-98c8-1a899d97df2d",
+            "fact_id": "fact:b0ac8c8d-01bd-42c1-ae69-f6c562527c1f",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dberror.c#L1-L79",
+            "digest": "sha256:05a8420e4d2401f4",
+            "why": "Both callback bodies invoke OSReport with \"%s\\n\" and db_build_timestamp before stack, exception, debug-level, and processor-context reporting.",
+            "captured_at": "2026-09-04T18:25:15.921Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dberror:db_ClearFPUExceptions"
+    },
+    "facts": [
+      {
+        "id": "fact:98fe4684-b1cc-44e6-9ad8-822a9fd292de",
+        "target_id": "target:function:main/melee/db/dberror:db_ClearFPUExceptions",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "It reads the current Machine State Register, writes back that value with bits 0x900 set, obtains the current OSContext, copies the live FPU state into that context, transforms `ctx->fpscr` from its previous value to `ctx->fpscr & 0x000FFFFF`, and reloads the resulting FPU state. It returns no data; its outputs are the modified MSR and live FPSCR state.",
+        "rationale": "Each operation and its ordering are explicit in the straight-line body. The PPCMfmsr implementation independently confirms that the first helper returns the current MSR, which the target ORs with 0x900 before passing it to PPCMtmsr.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:23:02.340Z",
+        "evidence": [
+          {
+            "id": "evidence:193db377-eeaa-4e18-89fd-f177790f27fa",
+            "fact_id": "fact:98fe4684-b1cc-44e6-9ad8-822a9fd292de",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L16-L25",
+            "digest": "sha256:ad4654f94f1db10c",
+            "why": "The target source shows the complete MSR read-modify-write and OSContext save-mask-load flow.",
+            "captured_at": "2026-09-02T00:23:02.340Z"
+          },
+          {
+            "id": "evidence:b76c8f9b-adc3-4e60-9f22-c5ab2ab41545",
+            "fact_id": "fact:98fe4684-b1cc-44e6-9ad8-822a9fd292de",
+            "kind": "code",
+            "locator": "code://c302741689/extern/dolphin/src/dolphin/base/PPCArch.c#L4-L8",
+            "digest": "sha256:eb5af48055822992",
+            "why": "PPCMfmsr consists of `mfmsr r3` followed by return, confirming that it supplies the current MSR value used by the target.",
+            "captured_at": "2026-09-02T00:23:02.340Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:747e47bd-389a-4976-adf5-2cc77a8f90da",
+        "target_id": "target:function:main/melee/db/dberror:db_ClearFPUExceptions",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "This is developer-facing runtime error infrastructure rather than a player-visible gameplay mechanic: within the `dberror` unit it normalizes floating-point exception state, while neighboring routines implement panic and OS-exception reporting.",
+        "rationale": "The current complete unit still places db_ClearFPUExceptions beside panic and OS-error callbacks that report build, stack, exception, debug-level, and processor-context information, and beside setup logic that installs those callbacks when no external debugger is present. This preserves the function's mapping to internal runtime error infrastructure without implying that it directly emits diagnostics.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T18:25:15.921Z",
+        "evidence": [
+          {
+            "id": "evidence:01ea7d87-0623-4485-890f-31f684f09a1a",
+            "fact_id": "fact:747e47bd-389a-4976-adf5-2cc77a8f90da",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dberror.c#L1-L79",
+            "digest": "sha256:05a8420e4d2401f4",
+            "why": "The current unit contains the FPU-state cleanup routine together with diagnostic callbacks and their conditional registration when no debugger is present.",
+            "captured_at": "2026-09-04T18:25:15.921Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:9623db44-21d9-4943-9f8f-35297a04026c",
+        "target_id": "target:function:main/melee/db/dberror:db_ClearFPUExceptions",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless, void-returning processor-state routine with signature `void db_ClearFPUExceptions(void)`; its only local value is an `OSContext*` obtained from the operating system.",
+        "rationale": "The complete definition supplies the return and parameter types, while the body declares one OSContext pointer and obtains it internally rather than accepting a caller-provided context.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:23:02.340Z",
+        "evidence": [
+          {
+            "id": "evidence:e194a01d-104f-45bf-ac63-4fb4674b3e2c",
+            "fact_id": "fact:9623db44-21d9-4943-9f8f-35297a04026c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L16-L25",
+            "digest": "sha256:ad4654f94f1db10c",
+            "why": "The definition explicitly has a void return and void parameter list, and its sole local is `OSContext* ctx`.",
+            "captured_at": "2026-09-02T00:23:02.340Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:f087a667-4d90-4bb7-aaf3-fcaad3392732",
+        "target_id": "target:function:main/melee/db/dberror:db_ClearFPUExceptions",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Clears the exception/status portion of the live floating-point status and control register by updating the current OS context and reloading that context into the FPU.",
+        "rationale": "The function obtains the current OSContext, saves the live FPU state into it, masks the stored FPSCR to retain only its low 20 bits, and reloads the modified FPU state. Its recovered symbol and the explicit FPSCR operation identify this as floating-point exception-state cleanup.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:23:02.340Z",
+        "evidence": [
+          {
+            "id": "evidence:ed0874f3-5f9f-4ec7-a4cc-a879fc1427d9",
+            "fact_id": "fact:f087a667-4d90-4bb7-aaf3-fcaad3392732",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L16-L25",
+            "digest": "sha256:ad4654f94f1db10c",
+            "why": "The complete body shows the current FPU context being saved, its FPSCR being ANDed with 0x000FFFFF, and the modified context being loaded back.",
+            "captured_at": "2026-09-02T00:23:02.340Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:753173c9-c2ae-4315-8a9d-425973dec695",
+        "target_id": "target:function:main/melee/db/dberror:db_ClearFPUExceptions",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine is unconditional and has no alternate state or guard: it permanently sets the MSR bits selected by 0x900 for subsequent execution, then clears all but the low 20 stored bits of FPSCR in one save-modify-reload sequence. Repeated calls are idempotent with respect to those masks.",
+        "rationale": "The body has no branches and does not restore the original MSR. OR with 0x900 and AND with 0x000FFFFF are idempotent transformations, so applying the routine again leaves those selected bit states unchanged unless intervening execution has altered them.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:23:02.340Z",
+        "evidence": [
+          {
+            "id": "evidence:77214d0c-0bd0-4d24-9bed-f84e3c81a7b4",
+            "fact_id": "fact:753173c9-c2ae-4315-8a9d-425973dec695",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L16-L25",
+            "digest": "sha256:ad4654f94f1db10c",
+            "why": "The complete straight-line body shows the unguarded MSR OR, FPSCR mask, absence of an MSR restoration, and absence of any conditional path.",
+            "captured_at": "2026-09-02T00:23:02.340Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dberror:db_SetupCrashHandler"
+    },
+    "facts": [
+      {
+        "id": "fact:62484edd-40c4-4e73-a042-7d1e6cead9d0",
+        "target_id": "target:function:main/melee/db/dberror:db_SetupCrashHandler",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The routine reads debugger-presence state from DBIsDebuggerPresent. If no debugger is present, it obtains an 0x2000-byte, 4-byte-aligned block from the low arena and passes that block and size to hsd_80393DA0, passes fn_HSDPanicHandler into HSD_SetPanicCallback, and passes each selected error number together with fn_OSErrorHandler into OSSetErrorHandler.",
+        "rationale": "The function body directly identifies the guard input, allocation size and alignment, initialization arguments, panic-callback destination, and the per-error OS-handler registrations. These calls constitute the complete input-to-side-effect flow of this no-argument setup routine.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:55.874Z",
+        "evidence": [
+          {
+            "id": "evidence:cd254ddd-f7a1-4838-a4e7-f598aee6f302",
+            "fact_id": "fact:62484edd-40c4-4e73-a042-7d1e6cead9d0",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+            "digest": "sha256:6c7fcc4b3576423e",
+            "why": "Shows the debugger query and every allocation, initialization, and callback-registration output performed by the routine.",
+            "captured_at": "2026-09-02T00:22:55.874Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:624b461c-2324-497a-9493-b229e511791f",
+        "target_id": "target:function:main/melee/db/dberror:db_SetupCrashHandler",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the installation step of Melee's internal runtime crash diagnostics: it activates game-provided panic and operating-system exception reporting only when an attached debugger is unavailable.",
+        "rationale": "The setup guard selects the internal path specifically when DBIsDebuggerPresent reports no debugger. The callbacks installed by this function disable retrace callbacks and report the build timestamp, stack trace, exception details, current debug level, and saved context, grounding the setup in developer-facing crash diagnosis.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:22:55.874Z",
+        "evidence": [
+          {
+            "id": "evidence:364c6e52-d44c-40b5-afbc-527bdff5707d",
+            "fact_id": "fact:624b461c-2324-497a-9493-b229e511791f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L25-L81",
+            "digest": "sha256:66beaf6db6006027",
+            "why": "Shows both the no-debugger installation condition and the diagnostic behavior of the panic and OS-error callbacks being installed.",
+            "captured_at": "2026-09-02T00:22:55.874Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:09145734-00ce-4a54-a9de-2539c74c2638",
+        "target_id": "target:function:main/melee/db/dberror:db_SetupCrashHandler",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Initialization routine with signature void db_SetupCrashHandler(void). It takes no inputs and returns no value; its outputs are process-global crash-handler registrations and low-arena/debug-console state.",
+        "rationale": "The matched definition explicitly has a void return type and void parameter list. All observable results occur through OSAllocFromArenaLo, the diagnostic-buffer initializer, HSD_SetPanicCallback, and OSSetErrorHandler rather than through a return value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:55.874Z",
+        "evidence": [
+          {
+            "id": "evidence:9aca4530-9ae4-4b13-a746-a6dc393b2cea",
+            "fact_id": "fact:09145734-00ce-4a54-a9de-2539c74c2638",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+            "digest": "sha256:6c7fcc4b3576423e",
+            "why": "Directly shows the function signature and its side-effect-only implementation.",
+            "captured_at": "2026-09-02T00:22:55.874Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:e40e5faf-90d5-4f43-892f-7a05d4fe2d95",
+        "target_id": "target:function:main/melee/db/dberror:db_SetupCrashHandler",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Configures Melee's fallback crash-handling path when no external debugger is attached by allocating diagnostic workspace, registering the game's HSD panic callback, and installing its OS-exception callback for the supported error-number set.",
+        "rationale": "The function is guarded by DBIsDebuggerPresent, allocates and initializes an 0x2000-byte region, supplies fn_HSDPanicHandler to HSD_SetPanicCallback, and supplies fn_OSErrorHandler to OSSetErrorHandler. The callback bodies then use saved processor context and exception data to produce crash diagnostics, establishing why the setup operations are performed.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:22:55.874Z",
+        "evidence": [
+          {
+            "id": "evidence:8fee3aac-6340-40fe-bc0d-9ebc02825088",
+            "fact_id": "fact:e40e5faf-90d5-4f43-892f-7a05d4fe2d95",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L25-L81",
+            "digest": "sha256:66beaf6db6006027",
+            "why": "Shows the debugger guard, diagnostic-memory allocation, callback registrations, and the registered callbacks' stack-trace, exception, build, and debug-level reporting behavior.",
+            "captured_at": "2026-09-02T00:22:55.874Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:13c67bd4-d46a-4a0d-8765-1fc081fc73a2",
+        "target_id": "target:function:main/melee/db/dberror:db_SetupCrashHandler",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If DBIsDebuggerPresent returns nonzero, the routine performs no setup. If it returns zero, the panic callback is installed once and the OS-error callback is registered for error numbers 0 through 15 except 4, 7, 8, and 9, which are explicitly skipped.",
+        "rationale": "The outer conditional completely guards all side effects. Inside it, HSD_SetPanicCallback occurs once, while a u16 loop covers the 0\u201315 domain and a switch suppresses OSSetErrorHandler only for the four enumerated cases.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:55.874Z",
+        "evidence": [
+          {
+            "id": "evidence:d963f5fe-98d5-4777-8a9f-35facc9b9758",
+            "fact_id": "fact:13c67bd4-d46a-4a0d-8765-1fc081fc73a2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+            "digest": "sha256:6c7fcc4b3576423e",
+            "why": "Directly shows the no-debugger guard, one-time panic-handler installation, loop bounds, skipped cases, and default OS-handler registration.",
+            "captured_at": "2026-09-02T00:22:55.874Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dberror:fn_HSDPanicHandler"
+    },
+    "facts": [
+      {
+        "id": "fact:508d3e0c-e713-4060-8fde-85dfbaba6e7e",
+        "target_id": "target:function:main/melee/db/dberror:fn_HSDPanicHandler",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the panic-time `OSContext*` supplied by HSD. It uses that context to request a stack trace with a limit argument of 0x10 and later forwards the same context to `hsd_80397DA4`; independently, it sends `db_build_timestamp` through OSReport, passes 0x1388 to `hsd_80397DFC`, and stores the global `DbLevel` through `Exception_StoreDebugLevel`.",
+        "rationale": "Each input and destination is explicit in the matched body. Separating the context flow from the global and literal diagnostic inputs avoids assigning unsupported semantics to the still-unnamed debug-console routines.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:30.883Z",
+        "evidence": [
+          {
+            "id": "evidence:2529dbe6-e79c-4ec8-90cd-1134f7b58fe5",
+            "fact_id": "fact:508d3e0c-e713-4060-8fde-85dfbaba6e7e",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L27-L37",
+            "digest": "sha256:c021e716a8018577",
+            "why": "The body directly shows the context, build timestamp, DbLevel, 0x10, and 0x1388 values flowing into their respective diagnostic callees.",
+            "captured_at": "2026-09-02T00:22:30.883Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:14ff7aef-00ab-466a-938b-4a352b70edb0",
+        "target_id": "target:function:main/melee/db/dberror:fn_HSDPanicHandler",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the HSD-panic branch of Melee's internal runtime crash diagnostics, used in the no-external-debugger configuration to expose build and execution-state information after a fatal engine panic.",
+        "rationale": "The setup routine installs this function specifically as HSD's panic callback only when DBIsDebuggerPresent returns zero. The callback's build timestamp, stack trace, debug-level, and context outputs are diagnostic state rather than gameplay behavior, grounding it in the existing runtime-crash-diagnostics concept.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:22:30.883Z",
+        "evidence": [
+          {
+            "id": "evidence:4e4e8a8e-987f-4ad5-93f6-db1acbb3df4f",
+            "fact_id": "fact:14ff7aef-00ab-466a-938b-4a352b70edb0",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L27-L37",
+            "digest": "sha256:c021e716a8018577",
+            "why": "The callback emits build, stack, debug-level, and processor-context information through reporting and exception-console routines.",
+            "captured_at": "2026-09-02T00:22:30.883Z"
+          },
+          {
+            "id": "evidence:a373d0eb-11c0-42e5-9f0e-8d5330f2a6b1",
+            "fact_id": "fact:14ff7aef-00ab-466a-938b-4a352b70edb0",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+            "digest": "sha256:6c7fcc4b3576423e",
+            "why": "The setup routine installs this callback as the HSD panic handler only when an external debugger is absent.",
+            "captured_at": "2026-09-02T00:22:30.883Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:f3895466-2f28-4615-8952-9024b3ddb32d",
+        "target_id": "target:function:main/melee/db/dberror:fn_HSDPanicHandler",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Implementation-private HSD panic callback with effective signature `static void fn_HSDPanicHandler(OSContext* ctx)`. It receives the processor context associated with the panic and is registered through the HSD `PanicCallback` interface.",
+        "rationale": "The definition directly establishes static linkage, a void return, and one OSContext pointer parameter. The setup routine casts this function to PanicCallback when passing it to HSD_SetPanicCallback, establishing its callback role without requiring a more specific unproven typedef shape.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:30.883Z",
+        "evidence": [
+          {
+            "id": "evidence:6aa4b22a-c8f0-4bb7-9e36-9ed298ae6e5a",
+            "fact_id": "fact:f3895466-2f28-4615-8952-9024b3ddb32d",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L27-L37",
+            "digest": "sha256:c021e716a8018577",
+            "why": "The function definition gives its static linkage, void return type, and OSContext pointer parameter.",
+            "captured_at": "2026-09-02T00:22:30.883Z"
+          },
+          {
+            "id": "evidence:7ca6c282-5c28-4d30-9330-4d36132d4c5c",
+            "fact_id": "fact:f3895466-2f28-4615-8952-9024b3ddb32d",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+            "digest": "sha256:6c7fcc4b3576423e",
+            "why": "The setup code registers the function with HSD_SetPanicCallback using a PanicCallback cast.",
+            "captured_at": "2026-09-02T00:22:30.883Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:3396b55c-fe56-480c-934e-33a7a86a09a0",
+        "target_id": "target:function:main/melee/db/dberror:fn_HSDPanicHandler",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles an HSD panic by quiescing user video-retrace hooks and assembling crash diagnostics for the internal exception console, including the build timestamp, a stack trace, and the active debug level.",
+        "rationale": "The matched callback first removes both optional user retrace callbacks, then performs crash preparation, reports the build timestamp, requests a stack trace from the supplied context, stores DbLevel, and passes the context into the debug-console subsystem. Its registration as HSD's panic callback confirms that this sequence is specifically the HSD panic path.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:22:30.883Z",
+        "evidence": [
+          {
+            "id": "evidence:1b7352b4-9932-4e26-b4fe-c766c86180e4",
+            "fact_id": "fact:3396b55c-fe56-480c-934e-33a7a86a09a0",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L27-L37",
+            "digest": "sha256:c021e716a8018577",
+            "why": "The complete matched body shows retrace-hook removal followed by build, stack, debug-level, and context processing through diagnostic routines.",
+            "captured_at": "2026-09-02T00:22:30.883Z"
+          },
+          {
+            "id": "evidence:03615d4f-ea66-47f6-9e6e-e7aa83dd851e",
+            "fact_id": "fact:3396b55c-fe56-480c-934e-33a7a86a09a0",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+            "digest": "sha256:6c7fcc4b3576423e",
+            "why": "The crash-handler setup routine installs fn_HSDPanicHandler through HSD_SetPanicCallback when no external debugger is present.",
+            "captured_at": "2026-09-02T00:22:30.883Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:13446135-75fb-41b8-949e-318a272b9878",
+        "target_id": "target:function:main/melee/db/dberror:fn_HSDPanicHandler",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The callback has no internal branch or recovery path. On every invocation it first disables both HSD user retrace hooks by replacing the pre- and post-retrace callbacks with NULL, then executes a fixed diagnostic sequence: crash preparation, build-timestamp reporting, stack-trace reporting, debug-console setup with 0x1388, debug-level storage, and final context handoff.",
+        "rationale": "The complete body is a straight-line call sequence. Placing both NULL callback assignments before all reporting establishes the transition from ordinary retrace-hook operation into panic diagnostics, while the remaining call order establishes the callback's deterministic panic-state behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:30.883Z",
+        "evidence": [
+          {
+            "id": "evidence:ed26edce-0e3a-4fdd-ba25-d5ffb3e62dd3",
+            "fact_id": "fact:13446135-75fb-41b8-949e-318a272b9878",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L27-L37",
+            "digest": "sha256:c021e716a8018577",
+            "why": "The source shows an unconditional straight-line sequence beginning with removal of both user retrace callbacks and ending with the context handoff.",
+            "captured_at": "2026-09-02T00:22:30.883Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dberror:fn_OSErrorHandler"
+    },
+    "facts": [
+      {
+        "id": "fact:fc446d1f-adf4-46c8-87fc-ad86ad0444e8",
+        "target_id": "target:function:main/melee/db/dberror:fn_OSErrorHandler",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an OS error number and saved OSContext directly and extracts DSISR followed by DAR from its unnamed arguments. It sends the context and a depth of 16 to Exception_ReportStackTrace, sends the error, DSISR, DAR, and context to Exception_ReportCodeline, passes 0x1388 to hsd_80397DFC, stores the global DbLevel through Exception_StoreDebugLevel, and passes the context to hsd_80397DA4.",
+        "rationale": "Every input extraction and downstream call is explicit in the matched source. Keeping the unresolved HSD routines identified by symbol and argument avoids assigning semantics beyond what the body demonstrates.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:16:56.426Z",
+        "evidence": [
+          {
+            "id": "evidence:568d9f0b-14b7-4703-b251-5f7f3f9fb190",
+            "fact_id": "fact:fc446d1f-adf4-46c8-87fc-ad86ad0444e8",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L39-L60",
+            "digest": "sha256:cffea1c859106d56",
+            "why": "The source directly shows variadic extraction and the complete flow of the error number, exception registers, context, constants, and DbLevel into diagnostic callees.",
+            "captured_at": "2026-09-01T23:16:56.426Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:794b25de-b5b4-47f5-b019-e79d5458b679",
+        "target_id": "target:function:main/melee/db/dberror:fn_OSErrorHandler",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes Melee's internal crash-diagnostic path for selected OS exceptions when no external debugger is available, preserving enough machine state to report the failing exception and its call stack.",
+        "rationale": "The setup routine installs this callback only behind the no-debugger guard and only for selected OS error numbers. The callback then consumes OS exception state and emits stack and code-line diagnostics, grounding the mapping to internal crash diagnosis.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:16:56.426Z",
+        "evidence": [
+          {
+            "id": "evidence:a76d971f-8598-4953-afd7-cbdd423f2e7b",
+            "fact_id": "fact:794b25de-b5b4-47f5-b019-e79d5458b679",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L39-L60",
+            "digest": "sha256:cffea1c859106d56",
+            "why": "The handler reports the saved stack and exception-specific state from the supplied OSContext and exception arguments.",
+            "captured_at": "2026-09-01T23:16:56.426Z"
+          },
+          {
+            "id": "evidence:990db070-4292-46d4-8aa1-791330107217",
+            "fact_id": "fact:794b25de-b5b4-47f5-b019-e79d5458b679",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+            "digest": "sha256:6c7fcc4b3576423e",
+            "why": "The setup function registers the handler for selected OS errors only when an external debugger is not present.",
+            "captured_at": "2026-09-01T23:16:56.426Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:ea98fe5a-516a-4307-a0c1-32c02f1d277b",
+        "target_id": "target:function:main/melee/db/dberror:fn_OSErrorHandler",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Static variadic OS error callback with source signature `void fn_OSErrorHandler(u16 error, OSContext* ctx, ...)`; its first two unnamed arguments are read as `int dsisr` and `int dar`, respectively.",
+        "rationale": "The function definition supplies the exact fixed parameter and return types, and its va_list operations establish the types and ordering of the two consumed variadic arguments. Registration through OSSetErrorHandler confirms that this signature serves the OS error-callback interface.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:16:56.426Z",
+        "evidence": [
+          {
+            "id": "evidence:0c417cc3-cd28-4377-a6f6-57cdb56c96c1",
+            "fact_id": "fact:ea98fe5a-516a-4307-a0c1-32c02f1d277b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L39-L60",
+            "digest": "sha256:cffea1c859106d56",
+            "why": "The definition gives the exact signature and explicitly extracts DSISR and DAR as the first two variadic integers.",
+            "captured_at": "2026-09-01T23:16:56.426Z"
+          },
+          {
+            "id": "evidence:058831e1-31df-40e1-a5c7-9b339b2b13a3",
+            "fact_id": "fact:ea98fe5a-516a-4307-a0c1-32c02f1d277b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+            "digest": "sha256:6c7fcc4b3576423e",
+            "why": "OSSetErrorHandler receives this function as its callback argument.",
+            "captured_at": "2026-09-01T23:16:56.426Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:febae4a8-ecec-4be7-b7ef-5764275757e2",
+        "target_id": "target:function:main/melee/db/dberror:fn_OSErrorHandler",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles a selected operating-system exception by stopping user retrace callbacks and feeding build, stack, exception-register, debug-level, and processor-context information into Melee's internal exception-reporting console.",
+        "rationale": "The matched body clears both user retrace callbacks, reports the build timestamp and a bounded stack trace, reports the error with DSISR and DAR, stores DbLevel, and finally passes the OSContext to the debug-console routine. This ordered sequence directly establishes an OS-exception diagnostic callback.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:16:56.426Z",
+        "evidence": [
+          {
+            "id": "evidence:a33565da-c42c-4294-986c-92f479634278",
+            "fact_id": "fact:febae4a8-ecec-4be7-b7ef-5764275757e2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L39-L60",
+            "digest": "sha256:cffea1c859106d56",
+            "why": "The complete matched function shows its exception arguments and every diagnostic operation in execution order.",
+            "captured_at": "2026-09-01T23:16:56.426Z"
+          },
+          {
+            "id": "evidence:14f00a27-590f-4e68-9a89-2d930ece4c82",
+            "fact_id": "fact:febae4a8-ecec-4be7-b7ef-5764275757e2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+            "digest": "sha256:6c7fcc4b3576423e",
+            "why": "The neighboring setup routine confirms that this function is registered as the OS error handler for selected error numbers.",
+            "captured_at": "2026-09-01T23:16:56.426Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:432bb92b-2a56-4bc7-ac47-5932fb933c87",
+        "target_id": "target:function:main/melee/db/dberror:fn_OSErrorHandler",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On entry it unconditionally removes both user retrace callbacks before performing any reporting. It then follows a fixed diagnostic sequence with no internal guard: initialize the crash-side subsystem, print the build timestamp, report up to 16 stack frames, report exception details, invoke the 0x1388-parameterized console operation, store DbLevel, and hand off the saved context.",
+        "rationale": "The body is straight-line after variadic extraction, and its call order places video callback removal before all crash diagnostics. This supports a one-way transition into exception processing without claiming that the final unresolved callee is non-returning.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-01T23:16:56.426Z",
+        "evidence": [
+          {
+            "id": "evidence:2c777f70-38a8-4e62-b1cc-af6a8924666f",
+            "fact_id": "fact:432bb92b-2a56-4bc7-ac47-5932fb933c87",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L39-L60",
+            "digest": "sha256:cffea1c859106d56",
+            "why": "The complete function shows unconditional retrace-callback removal and the exact straight-line diagnostic call sequence.",
+            "captured_at": "2026-09-01T23:16:56.426Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/db/dberror.c"
+    },
+    "facts": [
+      {
+        "id": "fact:db29f7f1-cdcf-4a73-919c-845a64cf2bb9",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dberror.c",
+        "type": "data_flow",
+        "value": "At initialization, the unit tests whether a debugger is present; otherwise it allocates 0x2000 bytes from the low arena for the exception console and passes its local callbacks to HSD and OS registration APIs. At failure time, those callbacks consume an `OSContext` and, for OS errors, an error number plus DSISR and DAR values, then forward the build timestamp, stack trace, exception details, current `DbLevel`, and context into the debug-console subsystem.",
+        "rationale": "The current setup and callback bodies preserve the complete allocation, registration, variadic diagnostic-input, and debug-console output flow.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T16:49:50.986Z",
+        "evidence": [
+          {
+            "id": "evidence:bf15ed93-537d-4f34-bb24-35590e95765e",
+            "fact_id": "fact:db29f7f1-cdcf-4a73-919c-845a64cf2bb9",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L1-L79",
+            "digest": "sha256:da59f3ae0b3b393f",
+            "why": "Shows DSISR and DAR extraction, diagnostic forwarding, low-arena allocation, exception-console initialization, and callback registration.",
+            "captured_at": "2026-09-06T16:49:50.986Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:8267e1b8-f352-4ccd-a3ec-27bdd286e96b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dberror.c",
+        "type": "game_mapping",
+        "value": "Implements Melee's internal runtime crash diagnostics used when the game is running without an attached debugger, covering both HSD panics and selected operating-system exceptions.",
+        "rationale": "The current implementation installs internal panic and selected OS-exception reporting paths only when no external debugger is detected.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T16:49:50.986Z",
+        "evidence": [
+          {
+            "id": "evidence:ed2993f2-30b0-41ff-b716-7a71cbb0cbd8",
+            "fact_id": "fact:8267e1b8-f352-4ccd-a3ec-27bdd286e96b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L1-L79",
+            "digest": "sha256:da59f3ae0b3b393f",
+            "why": "Shows build, stack, exception, and debug-level reporting and conditional installation of the handlers when a debugger is absent.",
+            "captured_at": "2026-09-06T16:49:50.986Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:621310fb-2d88-430c-9ab8-12c4d8567da3",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dberror.c",
+        "type": "purpose",
+        "value": "Centralizes low-level error handling for the game's debug subsystem: it clears pending floating-point exceptions, implements panic and OS-exception diagnostic callbacks, and installs those callbacks when no external debugger is present.",
+        "rationale": "The current head retains the FPU cleanup routine, panic and OS-error callbacks, and debugger-guarded handler registration; the source drift did not change these responsibilities.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T16:49:50.986Z",
+        "evidence": [
+          {
+            "id": "evidence:502f18a8-1c2a-4f2a-a53f-d3332dc039dc",
+            "fact_id": "fact:621310fb-2d88-430c-9ab8-12c4d8567da3",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L1-L79",
+            "digest": "sha256:da59f3ae0b3b393f",
+            "why": "Shows FPU exception cleanup, both diagnostic callbacks, the debugger-presence guard, console allocation, and panic and OS-error handler registration.",
+            "captured_at": "2026-09-06T16:49:50.986Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:c016c0ad-7b95-436e-aca3-d099e7cd1dfd",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dberror.c",
+        "type": "state_behavior",
+        "value": "Crash-handler installation occurs only when `DBIsDebuggerPresent` returns zero. In that case the panic callback is installed once, while the OS-error callback is installed for error numbers 0 through 15 except 4, 7, 8, and 9; both crash callbacks disable the user pre- and post-retrace callbacks before emitting diagnostics.",
+        "rationale": "The current callbacks clear both user retrace callbacks, and the guarded setup loop registers the OS handler across the stated domain while skipping exactly errors 4, 7, 8, and 9.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T16:49:50.986Z",
+        "evidence": [
+          {
+            "id": "evidence:22acaa54-1038-4f48-b513-5ef4d5f2130e",
+            "fact_id": "fact:c016c0ad-7b95-436e-aca3-d099e7cd1dfd",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dberror.c#L1-L79",
+            "digest": "sha256:da59f3ae0b3b393f",
+            "why": "Shows retrace-callback clearing, the debugger guard, and registration over the 0\u201315 error domain with cases 4, 7, 8, and 9 excluded.",
+            "captured_at": "2026-09-06T16:49:50.986Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/db/dberror:fn_HSDPanicHandler#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/db/dberror:fn_OSErrorHandler#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/db/dberror:fn_OSErrorHandler#r4"
+    },
+    "facts": []
+  }
+]

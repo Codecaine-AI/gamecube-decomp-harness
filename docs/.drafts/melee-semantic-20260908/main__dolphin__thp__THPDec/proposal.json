@@ -1,0 +1,182 @@
+{
+  "tu": "main/dolphin/thp/THPDec",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/thp/THPDec:THPDec_8032F8D4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Probes a compressed THP frame's JPEG-derived header and extracts SOF0 height, width, and a sampling classification into a cleared metadata descriptor. It performs selected SOI, marker, JFIF, component-count, and sampling checks, but is not a complete validator: reaching SOS returns success even if JFIF or usable sampling metadata has not been established.",
+        "rationale": "Corrects the implication that every successful probe has validated all named properties while retaining the supported metadata-query role and tentative existing name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L141-L250",
+            "why": "Complete probe, including unconditional success after the SOS break."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/thp/THPDec:THPDec_8032F8D4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clears 0xC output bytes and requires SOI, then processes marker-prefixed segments. SOF0 requires three components and assigns sampling codes 4, 2, or 1 from the explicit horizontal integer-ratio and vertical ratio/equality tests. Unmatched vertical relationships can leave the sampling code zero without immediate failure; horizontal relationships outside the handled cases return zero. APP0 must match JFIF\\0 when encountered. The probe returns one at SOS regardless of metadata completeness, or stops early once both a nonzero sampling code and valid JFIF have been seen. It has no input-bound checks or guards against zero sampling divisors. Its fill-byte loop uses `(s8)*data == 0xFF`, unlike the unsigned comparison in THPVideoDecode.",
+        "rationale": "Preserves exceptional branches and literal numeric tests rather than normalizing the probe into a comprehensive JPEG/sampling validator.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L155-L249",
+            "why": "Initialization, checks, incomplete sampling classification and success exits."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/thp/THPDec:THPDec_803310CC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Prepares THP scan geometry by deriving the MCU grid and per-component block dimensions from image size and sampling factors, constructing an ordered component-index schedule, and resetting processed component accumulators. The visible fixed-640 and general-width row routines instead use a hard-coded four-Y/one-U/one-V sequence; this source does not show them consuming the constructed schedule.",
+        "rationale": "Retains geometry and schedule production while removing the unsupported claim that the visible block-decoding paths use that schedule.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L914-L951",
+            "why": "Geometry and schedule construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L1883-L2016",
+            "why": "Both row routines hard-code six component-block calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/thp/THPDec:THPDec_80331340"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Void-returning fixed-640-width decode driver with effective signature `void (THPDecodeInfo* info, void* y_plane, void* u_plane, void* v_plane)`. The first source argument is declared `s32` and immediately cast to mutable decoder state. The function runs the CPU row-decode loop before returning, but performs no final locked-cache queue drain and therefore does not itself establish completion of all output DMA.",
+        "rationale": "Preserves the effective argument types while replacing the ambiguous synchronous-output characterization with the observed completion boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L968-L991",
+            "why": "Signature, context cast, row loop and absence of a final wait."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L504-L543",
+            "why": "LC stores queue transactions; queue wait is threshold-based."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/thp/THPDec:__THPDecompressiMCURow640x480"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls LCQueueWait(3), then iterates with a u8 MCU index against the u16 MCUsPerRow field; counts above 255 cannot be completed normally by this index. Enabled restart handling decrements the u16 counter and, on zero, reloads the interval, sets cnt to `1 + ((cnt + 6) & 0xFFFFFFF8)` clamped to 33, and clears all three DC predictors without reading or validating restart marker bytes. A zero interval remains enabled and underflows on its first decrement. Row completion makes three LCStoreData calls for 0x2800, 0xA00, and 0xA00 bytes and advances the output pointers. These calls generate five DMA transactions in total with the current LCStoreData implementation, and the routine performs no final drain.",
+        "rationale": "Corrects the unrestricted exact-loop-count claim and distinguishes store calls from DMA transactions while preserving restart and output transitions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L1883-L1947",
+            "why": "Loop type, restart handling, transfer sizes and pointer advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L504-L543",
+            "why": "4096-byte transaction splitting and threshold wait."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/thp/THPDec:__THPDecompressiMCURowNxN"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls LCQueueWait(3), then uses a u8 MCU index against u16 MCUsPerRow; counts above 255 cannot be completed normally by that index. Enabled restart handling decrements the u16 interval counter, reloads it on zero, realigns cnt with `1 + ((cnt + 6) & 0xFFFFFFF8)` clamped to 33, and resets Y/U/V DC predictors without consuming restart marker bytes. An installed zero interval remains enabled and underflows on the first decrement. Completion makes three LCStoreData calls and advances destinations by `256*(x/16)` for Y and `64*(x/16)` for each chroma plane. LCStoreData rounds to cache blocks and may split a call into multiple transactions; neither the entry threshold wait nor return establishes a fully drained output queue.",
+        "rationale": "Preserves exact integer geometry, exceptional counter behavior and the cross-file transfer lifetime instead of implying unrestricted dimensions or synchronous DMA completion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L1949-L2016",
+            "why": "General-width row loop and all state transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L504-L543",
+            "why": "Transfer rounding, splitting and queue-wait semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/thp/THPDec:__THPPrepBitStream"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Computes `offset = (u32)info->file & 3` and aligns the cursor downward with mask 0xFFFFFFFC. If cnt is not 33, it subtracts `(3 - offset) * 8`; if cnt is 33, it assigns `offset * 8 + 1`. It then replaces file with the aligned address and loads that word into currByte. The non-sentinel subtraction is not simply the number of bytes rewound times eight, and this helper does not validate the incoming count.",
+        "rationale": "Replaces an inaccurate alignment explanation with the exact two count formulas and preserves the sentinel distinction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L88-L98",
+            "why": "Exact alignment and count arithmetic."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/thp/THPDec:__THPReadScaneHeader"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns 12 when the scan component count differs from the frame count. For each component, it discards the serialized identifier, records the selector nibbles, and returns 15 unless validHuffmanTabs contains bits `DCSelector` and `ACSelector + 1`. These checks differ from DHT's `(id << 1) + class` indexing and preparation's `DCSelector << 1` / `(ACSelector << 1) + 1` selection, so passing them does not generally prove the finally selected tables are present. After each component passes, it assigns and advances workspace using the source's row-rounding arithmetic. It skips three trailing control bytes and returns THPDec_803310CC's status, including that helper's report-and-zero exceptional path. Earlier cursor and state mutations are not rolled back on failure.",
+        "rationale": "Corrects the overly strong selected-table validation claim while retaining actual status values, partial-state behavior and delegated setup.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L747-L797",
+            "why": "Actual selector checks, workspace updates and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L709-L736",
+            "why": "DHT table indexing and validity marking."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L123-L137",
+            "why": "Final component table selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/thp/THPDec.c#L934-L950",
+            "why": "Distinct capacity-error and report-and-zero exits."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

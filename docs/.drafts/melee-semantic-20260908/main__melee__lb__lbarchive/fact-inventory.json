@@ -1,0 +1,1603 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:547af6e7-069b-41f0-8478-2b9a5b56271d",
+        "target_id": "target:data:main/melee/lb/lbarchive:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The section's strings are read directly by archive routines and passed to OSReport or assertion handling. The parse-error text is selected when HSD_ArchiveParse returns -1; the missing-symbol format receives the unresolved public-symbol name; release assertions describe the descriptor and ownership-flag guards; and the relocation mismatch format receives the archive header's serialized file size and the caller-supplied byte count. The section receives no runtime writes and produces only diagnostic arguments.",
+        "rationale": "The head source retains the parse, missing-symbol, release, and relocation diagnostic sites and the values passed to them, with no writes to the literals.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows parse-error and missing-public-symbol diagnostic strings and their arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the archive-release assertion sites."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Shows the relocation mismatch format receiving serialized and supplied file sizes."
+          }
+        ]
+      },
+      {
+        "id": "fact:a2edbed9-b6e0-4291-bfde-191838035b1c",
+        "target_id": "target:data:main/melee/lb/lbarchive:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A compiler-emitted pool of NUL-terminated character strings in the unit's initialized data section. Its contents are consumed as const diagnostic format strings, assertion file/expression strings, and other report text; it is not a typed runtime table and contains no archive descriptor or DAT payload.",
+        "rationale": "All visible uses at head consume initialized constants as diagnostic text, while archive descriptors and DAT images are supplied by callers or allocated separately.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows diagnostic literals being consumed as strings while archive state is separately supplied or allocated."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Shows further report text used as a format string rather than structured archive data."
+          }
+        ]
+      },
+      {
+        "id": "fact:9076017f-0f27-4c9e-b1ae-d92cfe01283d",
+        "target_id": "target:data:main/melee/lb/lbarchive:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the translation unit's diagnostic and assertion text used to report malformed DAT archives, unresolved public symbols, invalid archive-release preconditions, and byte-order or serialized-size mismatches during relocation.",
+        "rationale": "The current source still uses its initialized text for all four classes of archive-operation failures.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows malformed-archive and unresolved-symbol diagnostics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows archive-release validation assertions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Shows the byte-order or serialized-size mismatch diagnostic."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:bca03e47-dfb7-4410-b414-cd82a7fb2ff1",
+        "target_id": "target:data:main/melee/lb/lbarchive:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The section's strings originate from source expressions passed to HSD_ASSERT. Normal successful archive operations do not consume them; they flow into assertion diagnostics only when parsing fails, a required public symbol is absent in a fatal binding path, or archive release receives a null descriptor. No code writes back to this section.",
+        "rationale": "The head source continues to use the compact assertion expressions only on the parse, fatal lookup, and release failure paths, with no mutable access.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows parse and fatal symbol-resolution failures asserting the compact expression `0`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows archive release asserting the `archive` expression before deallocation."
+          }
+        ]
+      },
+      {
+        "id": "fact:bf8afc66-cff0-4cd1-98a5-b1243afb268a",
+        "target_id": "target:data:main/melee/lb/lbarchive:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A compiler-owned small-data string pool containing compact assertion-expression strings such as `\"0\"` and `\"archive\"`; it is diagnostic constant data rather than mutable archive state.",
+        "rationale": "The current assertion sites still use these compact expression strings, and the unit performs no mutable small-data access associated with them.",
+        "confidence": 0.89,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows multiple assertion sites using the compact expression `0`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the release assertion using the compact expression `archive`."
+          }
+        ]
+      },
+      {
+        "id": "fact:b5175f5e-2eee-4aa5-94f0-5cf56cff0a6c",
+        "target_id": "target:data:main/melee/lb/lbarchive:.sdata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Supplies compact assertion-condition labels for lbarchive's fatal parse, missing-symbol, and archive-release validation paths so assertion reports can identify the failed source expression.",
+        "rationale": "All three assertion contexts remain present at head and continue to use compact source-expression labels.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows fatal parse and missing-public-symbol assertions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows archive-release pointer and ownership assertions."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchiveRelocate"
+    },
+    "facts": [
+      {
+        "id": "fact:2d803a95-ed1c-4e77-b270-a126d734ab0a",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchiveRelocate",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The routine clears the destination descriptor, marks it initialized, and copies the serialized HSD_ArchiveHeader from src. Starting immediately after that header, it advances through the data body, relocation table, public table, and external table using the header's byte size and entry counts; each nonempty section becomes a typed pointer into src, and any trailing bytes become the symbol-string table. It then forwards the populated descriptor and base_addr to Locate and returns a status code to the caller.",
+        "rationale": "The head implementation preserves the complete sequential mapping of archive sections into the source image and forwards the caller's relocation base to Locate.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Directly shows descriptor initialization, header-controlled section mapping, relocation-base forwarding, and return values."
+          }
+        ]
+      },
+      {
+        "id": "fact:84976a80-c74d-474e-a7fd-ec3c8989a058",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchiveRelocate",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Archive-image relocation routine with signature `int lbArchiveRelocate(HSD_Archive* archive, u8* src, size_t file_size, intptr_t base_addr)`. `archive` is an output descriptor, `src` is the byte-addressed backing image retained through section pointers, `file_size` is the actual loaded-image size, and `base_addr` is the relocation base forwarded to Locate. Its observed return domain is `0` on success and `-1` for a null output descriptor or declared-size mismatch.",
+        "rationale": "The current definition provides the exact signature and still demonstrates each parameter role, retained pointers into src, and the complete return domain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Provides the function signature, parameter uses, retained section views, and every return statement."
+          }
+        ]
+      },
+      {
+        "id": "fact:ed622c5f-8380-4ffa-bf0e-42eeafa0a649",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchiveRelocate",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes an HSD_Archive descriptor as a runtime view of a serialized archive image, validates the image's declared size, maps its data and metadata sections, and invokes Locate with a caller-supplied base address to finalize relocation.",
+        "rationale": "The current body directly retains descriptor construction, size validation, section mapping, and relocation. The baselib parser corroborates that the shared shape constructs an HSD archive view, while this routine's explicit base address distinguishes its relocation behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Shows the target constructing and relocating the runtime archive view."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows the analogous HSD archive parser mapping the same serialized sections and finalizing internal relocation."
+          }
+        ]
+      },
+      {
+        "id": "fact:654dcac1-5317-4bc9-be55-d095d9449ea7",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchiveRelocate",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "There are three observable outcomes. If archive is NULL, the routine immediately returns -1 without touching an output descriptor. Otherwise it clears and begins populating the descriptor; if the copied header's file_size differs from the supplied file_size, it reports a byte-order/data-format mismatch and returns -1 with initialization incomplete. With a valid size, it conditionally binds only sections whose size or count is nonzero, assigns a symbol table only when bytes remain, calls Locate, and returns 0.",
+        "rationale": "The current control flow still contains the untouched-output null failure, the post-copy size failure, conditional mapping of optional sections, and one successful Locate-and-return path.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Shows both failure guards, all optional-section conditions, and the successful relocation outcome."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchive_80016DBC"
+    },
+    "facts": [
+      {
+        "id": "fact:095d5078-3da2-41ca-9b2d-b85b49f99dda",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016DBC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The filename first supplies a file size, which is rounded up to 32 bytes for the backing-image heap allocation. A second allocation creates the HSD_Archive descriptor. The file is read into the backing allocation and its actual byte length is passed with that allocation to lbArchive_InitializeDAT. The initialized descriptor, fixed first output destination, and remaining va_list then flow into nonfatal section resolution, which writes resolved public-entry addresses into the caller's destinations; the descriptor is returned.",
+        "rationale": "The target and nonfatal helper at head preserve the complete allocation, loading, initialization, request-resolution, and return flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the nonfatal helper mapping names to addresses in caller-owned destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the target's size query, two allocations, file load, initialization, forwarding, and return."
+          }
+        ]
+      },
+      {
+        "id": "fact:eef1e87b-78a1-490a-9535-c51f32c1a024",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016DBC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes a nonfatal DAT asset-loading convenience path: higher-level game systems can load one serialized resource archive and populate multiple pointers to its named public roots in a single call, while absent optional roots are reported and left NULL rather than making section resolution fatal.",
+        "rationale": "The target still combines DAT loading with the report-only resolver, whose loop clears each destination and continues after a lookup miss.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows nonfatal named-root resolution, destination clearing, and continuation after misses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows DAT loading and nonfatal public-entry resolution combined in this target."
+          }
+        ]
+      },
+      {
+        "id": "fact:df4e8b0d-abef-45ec-94d3-e8f4268da38c",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016DBC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Declared signature: `HSD_Archive* lbArchive_80016DBC(const char* filename, void* symbols, ...)`. Semantically, `symbols` is the first caller-owned output-pointer slot in a NULL-terminated sequence of alternating `(void** destination, const char* public_symbol_name)` requests; the returned descriptor and its separately allocated backing image remain resident after the call.",
+        "rationale": "The current definition proves the declared signature, two allocations, and descriptor return, while the current helper proves the destination/name request shape and NULL terminator.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the alternating destination/name request sequence and NULL destination terminator."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Provides the target signature, separate allocations, variadic forwarding, and returned descriptor."
+          }
+        ]
+      },
+      {
+        "id": "fact:2e708f88-3f82-4694-a6c0-cf44940971c4",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016DBC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Synchronously loads and initializes a DAT archive, resolves a caller-supplied variadic list of named public entries into caller-owned pointer slots through the nonfatal section-loading path, and returns the allocated HSD_Archive descriptor.",
+        "rationale": "The complete current implementation performs the synchronous load pipeline and explicitly invokes the nonfatal resolver before returning the descriptor.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Defines the nonfatal section-resolution behavior used by the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the target loading, initializing, resolving sections, and returning the archive."
+          }
+        ]
+      },
+      {
+        "id": "fact:20fd8fb6-ac6e-422c-9c97-19232629ea1b",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016DBC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Runs as a straight-line synchronous initialization transaction with no local retry or cleanup branch: it opens the variadic cursor, allocates and initializes the archive, processes all requests through the nonfatal section loader, closes the cursor, and returns. During section processing, each destination is cleared before lookup; a missing public symbol remains NULL, is reported, and does not prevent later requests from being processed. A NULL destination terminates the request list.",
+        "rationale": "The target remains straight-line code, and the current nonfatal helper retains destination clearing, report-only miss handling, continuation, and NULL termination.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the nonfatal request loop, destination clearing, continuation after misses, and NULL termination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the target's synchronous variadic lifetime and straight-line loading transaction."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchive_80016EFC"
+    },
+    "facts": [
+      {
+        "id": "fact:411030d2-12ea-467c-81b1-7fe767a9eb32",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016EFC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an HSD_Archive descriptor whose data member points 0x20 bytes into the originally loaded DAT image. It subtracts 0x20 to reconstruct that image's allocation base, sends the base to heap-0 deallocation, and then sends the descriptor pointer itself to the same deallocator. No pointer is returned or cleared for the caller.",
+        "rationale": "The current target retains the exact pointer adjustment and two ordered heap calls. The current parser places archive data after the header, and the current heap implementation confirms that both supplied pointers are freed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the 0x20 reverse adjustment, heap index, deallocation order, and void return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows archive data beginning immediately after the serialized header."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbheap.c#L160-L225",
+            "why": "Shows lbHeap_80015CA8 freeing its pointer argument."
+          }
+        ]
+      },
+      {
+        "id": "fact:d07c55de-aec0-4718-9b81-e5162826ecf0",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016EFC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the unload side of Melee's DAT asset lifecycle, reclaiming the persistent file-image and archive-descriptor memory allocated when a scene or subsystem loaded a DAT resource.",
+        "rationale": "The head source still allocates the DAT image and descriptor separately in loading paths and frees those paired objects in this target.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows separate image and descriptor allocations in loading paths and this target's paired deallocation."
+          }
+        ]
+      },
+      {
+        "id": "fact:54737850-04a5-4c58-9151-b4544f4d71e3",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016EFC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbArchive_FreeArchive",
+        "rationale": "The current unit retains the complementary `lbArchive_LoadArchive` name, while this target reverses that operation by freeing both load-path allocations; no stronger evidence establishes exact spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `lbArchive_FreeArchive`.",
+        "confidence": 0.8,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the target freeing the loaded image and descriptor and nearby loading paths creating those objects."
+          }
+        ]
+      },
+      {
+        "id": "fact:8264cfcb-1ddf-4a3f-9d36-7bdeeb5294a9",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016EFC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Archive-destruction routine with signature `void (HSD_Archive* archive)`. The parameter is a required mutable descriptor for an externally owned, heap-backed archive image; the routine consumes the descriptor and its backing allocation and returns no value.",
+        "rationale": "The current definition supplies the signature and asserts the descriptor and ownership flag before passing both the recovered image and descriptor to the deallocator.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Provides the signature, preconditions, and both consumed pointers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbheap.c#L160-L225",
+            "why": "Shows that the called heap routine frees each pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:b9629b37-de90-4303-885e-a35e26aeb5de",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016EFC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Destroys a heap-backed HSD DAT archive created by the lbArchive loading path. It validates that the descriptor is present and marked for externally managed storage, then frees the original loaded file image followed by the HSD_Archive descriptor.",
+        "rationale": "The current code preserves both assertions, reconstruction of the image base, and ordered deallocation of the image and descriptor.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the target's ownership guards and ordered release of the two load-path allocations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbheap.c#L160-L225",
+            "why": "Shows that both heap calls free their pointer arguments."
+          }
+        ]
+      },
+      {
+        "id": "fact:920caec1-e5e5-4048-bc6a-3e7e6782c254",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016EFC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Teardown is permitted only when the archive pointer is non-null and its flags contain HSD_ARCHIVE_DONT_FREE; either violated precondition triggers HSD_ASSERT before deallocation. Once both guards pass, destruction is unconditional and ordered: free the backing image first, then free the descriptor. The function has no alternate success path, timer, or retained state and leaves any caller-held pointer dangling.",
+        "rationale": "The complete current body still consists of the two precondition assertions followed by two unconditional frees, with no output slot through which a caller pointer could be cleared.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows both guards, ordered teardown, void return, and absence of caller-pointer clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbheap.c#L160-L225",
+            "why": "Confirms that the post-assert operations deallocate memory."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchive_80016F80"
+    },
+    "facts": [
+      {
+        "id": "fact:5c43dda0-983f-4b5e-b943-ecfd40152210",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016F80",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The resource basename first flows through lbDvd_8001819C into the preload cache. On a hit, the cached HSD_Archive pointer becomes the result directly. On a miss, the basename is used to query file size, the rounded size determines the backing-buffer allocation, a second allocation supplies the HSD_Archive descriptor, and the file loader writes both the bytes and their actual length. The descriptor, bytes, and actual length then flow into lbArchive_InitializeDAT. The selected descriptor is written to `*archive` when that destination exists, while cache provenance is returned separately as a Boolean.",
+        "rationale": "The current target retains both complete acquisition paths and their join at the optional output store. The current DVD helper still maps the resource basename to the preloaded archive cache.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows cache-hit and fallback data paths, initialization, optional output storage, and Boolean provenance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbdvd.c#L346-L507",
+            "why": "Shows basename expansion, DVD-entry conversion, preload lookup, and archive retrieval."
+          }
+        ]
+      },
+      {
+        "id": "fact:aacfd15c-8e0a-4eac-97fa-4c14c79891e8",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016F80",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements preload-aware DAT asset acquisition for scene and interface setup: systems can reuse an archive prepared during scene preloading, while still having a synchronous disk-loading fallback when the asset was not cached. The HUD initializer uses it to obtain the `IfAll` archive before resolving `ScInfDmg_scene_data` and constructing the in-match interface.",
+        "rationale": "The current acquisition function still prefers the preload cache and falls back to loading. The current HUD initializer still obtains `IfAll` through this function, resolves its scene root, and initializes interface components.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows preload-aware reuse and synchronous fallback loading."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/if/ifall.c#L179-L249",
+            "why": "Shows the HUD initializer obtaining `IfAll`, resolving `ScInfDmg_scene_data`, and using it for interface setup."
+          }
+        ]
+      },
+      {
+        "id": "fact:3ef3cdb6-cfbb-4ef1-8a0c-ace5d0313457",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016F80",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `bool lbArchive_80016F80(HSD_Archive** archive, const char* filename)`. `filename` is a resource basename accepted by the lbFile path-expansion layer. `archive` is an optional output destination for the resulting HSD_Archive pointer. The return value is a provenance flag: true means the descriptor was obtained from the preload cache, while false means this call allocated backing storage and a descriptor and loaded the archive synchronously.",
+        "rationale": "The current header and body establish the exact signature, optional output, and branch-specific provenance values; the DVD lookup still accepts a basename.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.h#L1-L23",
+            "why": "Provides the exact Boolean return and parameter types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows optional output storage and true-versus-false preload provenance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbdvd.c#L346-L507",
+            "why": "Shows the preload subsystem's basename-oriented archive lookup path."
+          }
+        ]
+      },
+      {
+        "id": "fact:6b38ea87-f66a-4c62-9cc7-a82285c8468b",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016F80",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Obtains an HSD DAT archive for a resource basename, reusing the preload cache when possible and otherwise synchronously loading and initializing a new heap-backed archive. It optionally stores the resulting descriptor through an output pointer and reports whether the returned archive came from the preload cache.",
+        "rationale": "The current implementation and preload helper preserve the cache-first lookup, complete fallback construction, optional archive output, and provenance return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows cache lookup, fallback construction, output assignment, and Boolean return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbdvd.c#L346-L507",
+            "why": "Shows the cache lookup returning a preloaded archive or NULL."
+          }
+        ]
+      },
+      {
+        "id": "fact:e75a0b87-93d3-43f6-89f7-b145352d6380",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80016F80",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has two acquisition states. If the preload lookup returns a descriptor, it performs no new file or archive allocation and returns true. If the lookup returns NULL, it synchronously allocates, loads, and initializes an archive and returns false. In either state, acquisition occurs even when the output destination is NULL; only the final pointer store is skipped. Under debug preload enforcement, the lookup helper reports and asserts when preloading is active but the requested resource is absent.",
+        "rationale": "The target still branches solely on preload lookup and guards only the final store. The current lookup helper retains its debug report-and-assert condition for a missing required preload.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows both acquisition states, their return values, and the final nullable output guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbdvd.c#L466-L507",
+            "why": "Shows debug preload enforcement reporting and asserting when the archive is absent."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchive_80017040"
+    },
+    "facts": [
+      {
+        "id": "fact:125eb398-0fab-49c4-aec6-7303fa4f302f",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80017040",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The filename is converted by lbDvd_8001819C into a preload-cache lookup. On a hit, the returned HSD_Archive flows directly into symbol resolution. On a miss, the filename supplies a file size for a 32-byte-rounded backing-data allocation, the file is read into that allocation, its actual length initializes a separately allocated HSD_Archive, and that descriptor then flows into symbol resolution. Resolved public-entry addresses are written through caller-provided variadic destinations; the descriptor is also written through dst when non-NULL, while the return value carries only the preload-hit flag.",
+        "rationale": "The head implementation retains both acquisition paths, fatal public-symbol output, optional archive output, and the separate provenance return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the fatal resolver translating public names into caller-owned pointer outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows both acquisition branches, fatal resolution, optional descriptor output, and provenance return."
+          }
+        ]
+      },
+      {
+        "id": "fact:eb60e113-d0b4-4ccb-9906-4c7dc58728bb",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80017040",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes preload-aware DAT asset acquisition: game systems can request a file and its required named resource roots in one synchronous call, reusing scene-preloaded data when present and otherwise loading the DAT from storage before exposing its public entries.",
+        "rationale": "The current target still joins preload retrieval or synchronous disk loading with mandatory named public-entry resolution.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the fatal public-symbol resolver used to expose required archive roots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows preload-aware archive acquisition followed by fatal public-symbol resolution."
+          }
+        ]
+      },
+      {
+        "id": "fact:9428ae79-7df7-4dc6-b6d7-01811dafec57",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80017040",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbArchive_LoadSymbolsOrPreloadedFatal",
+        "rationale": "The unit still names the direct-loading wrapper `lbArchive_LoadSymbols`; this target adds preload lookup and uses the fatal resolver, while its adjacent counterpart uses the nonfatal resolver. Exact original spelling remains uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Plausible original-style name: lbArchive_LoadSymbolsOrPreloadedFatal.",
+        "confidence": 0.58,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the local `LoadSymbols` naming convention and fatal resolver."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows this target adding preload-aware acquisition and invoking the fatal resolver."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Shows the adjacent preload-aware counterpart using the nonfatal resolver."
+          }
+        ]
+      },
+      {
+        "id": "fact:75c51079-212f-464f-828a-b793da00844a",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80017040",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Declared signature: `bool lbArchive_80017040(HSD_Archive** dst, const char* filename, void* symbols, ...)`. Semantically, `symbols` is the first `void**` destination in a NULL-terminated sequence of `(void** destination, const char* public_symbol_name)` pairs. `dst` may be NULL. The Boolean return denotes whether the archive came from the preload cache, not whether loading or symbol resolution succeeded.",
+        "rationale": "The head declaration uses `void*` for the fixed variadic anchor, correcting the previous signature wording; the fatal helper establishes its semantic destination type and pair ordering, while the body establishes optional `dst` and provenance semantics.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.h#L1-L23",
+            "why": "Provides the exact declared return type and fixed parameter types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the semantic destination/name request shape and NULL termination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows optional `dst`, variadic forwarding, and preload-provenance return values."
+          }
+        ]
+      },
+      {
+        "id": "fact:c35f5647-6d10-42cb-bf9f-f264dc119edf",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80017040",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Obtains a DAT archive by reusing the filename's preloaded archive when available or synchronously loading and initializing it otherwise, then fatally resolves a NULL-terminated variadic list of public-symbol requests, optionally returns the archive descriptor through an output parameter, and reports whether the preloaded path was used.",
+        "rationale": "The current target preserves cache-first acquisition, complete fallback loading, fatal request processing, optional archive output, and Boolean provenance.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the fatal public-symbol request helper and its NULL-terminated loop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the target's complete preload-or-load pipeline, resolution, output, and return."
+          }
+        ]
+      },
+      {
+        "id": "fact:124e238a-e497-4d7a-8ab3-8ca7e43fa216",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_80017040",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The function has two archive-acquisition states: a preload-cache hit sets the result to true and reuses the cached descriptor, while a miss synchronously allocates, reads, and initializes a new archive and sets the result to false. Both states converge on mandatory symbol resolution. Symbol requests continue until a NULL destination; any missing symbol is reported and immediately asserted rather than returned as a recoverable failure. After resolution, dst is updated only when supplied.",
+        "rationale": "The current acquisition branch still converges on the fatal resolver, whose loop terminates on NULL and asserts after a missing lookup; the final descriptor store remains independently guarded.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows fatal missing-symbol handling and NULL-terminated request processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the preload-hit and fallback states, convergence on resolution, and guarded `dst` output."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchive_800171CC"
+    },
+    "facts": [
+      {
+        "id": "fact:7a960702-b758-42cc-b373-a25fca633965",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_800171CC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The filename first flows through lbDvd_8001819C to a preload-cache lookup. On a miss, the filename supplies a file size for a 32-byte-rounded backing-data allocation, the file is read into that allocation, and its actual length is passed with a separately allocated HSD_Archive to lbArchive_InitializeDAT. The resulting cached or newly initialized descriptor then supplies named public-entry addresses to caller-owned pointer slots; it is also written to `*dst` when requested, while the cache-hit decision becomes the Boolean return value.",
+        "rationale": "The current body retains both acquisition paths and routes the selected archive through nonfatal public-symbol lookup, optional descriptor output, and Boolean provenance.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows how the nonfatal helper writes resolved public addresses into caller destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows preload selection and the beginning of fallback archive construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Shows completion of fallback initialization, nonfatal resolution, optional output, and Boolean return."
+          }
+        ]
+      },
+      {
+        "id": "fact:01aea5b7-e06b-41b5-898d-31299e113f98",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_800171CC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements cache-aware DAT asset acquisition and public-symbol binding. Stage loading uses it to obtain a stage archive, bind the named `map_head` root, and distinguish preloaded data from synchronously loaded data so the particle-data setup follows the appropriate load path.",
+        "rationale": "The target still combines cache-aware acquisition and nonfatal binding, and the stage loader still requests `map_head` and branches particle initialization on the returned preload flag.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the target's cache-aware acquisition path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L241-L320",
+            "why": "Shows nonfatal named public-entry resolution and preload provenance return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/gr/grdatfiles.c#L1-L110",
+            "why": "Shows stage loading requesting `map_head` and using preload provenance to choose particle-data initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:d434d9bd-92d6-4c38-97f6-c547f42072f7",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_800171CC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `bool lbArchive_800171CC(HSD_Archive** dst, const char* filename, void* first_output, ...)`. The fixed third argument and variadic tail form a NULL-terminated sequence of `(void** destination, const char* public_symbol_name)` pairs. `dst` is optional, and the return value is a provenance flag: true for a preload-cache hit and false when the function had to load and initialize the archive itself.",
+        "rationale": "The current declaration and body establish the fixed parameter types, optional descriptor output, and provenance values; the helper and stage caller corroborate the destination/name pair sequence.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.h#L1-L23",
+            "why": "Provides the exact declared signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Defines the nonfatal request list as destination/name pairs terminated by a NULL destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L320",
+            "why": "Shows branch-specific return values, variadic forwarding, and optional descriptor output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/gr/grdatfiles.c#L1-L110",
+            "why": "Shows a concrete destination/name request terminated by zero and consumption of the return as preload provenance."
+          }
+        ]
+      },
+      {
+        "id": "fact:9cddc029-8157-4ab8-a261-ed1b2fe7951e",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_800171CC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Obtains a DAT archive by reusing a matching preload-cache entry when available or synchronously loading and initializing the file otherwise, resolves a variadic list of requested public symbols through the nonfatal section-loading path, optionally returns the archive descriptor through an output pointer, and reports whether the archive came from the preload cache.",
+        "rationale": "The complete current implementation preserves the cache-first/fallback-load pipeline, report-only resolver, optional output, and provenance result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:00.255Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L320",
+            "why": "Shows the target's complete acquisition, nonfatal resolution, output, and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbdvd.c#L346-L507",
+            "why": "Shows the preload subsystem returning a cached archive or NULL for the requested resource."
+          }
+        ]
+      },
+      {
+        "id": "fact:5e5dc975-a83b-47ba-9815-3e8a8fa52b0e",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_800171CC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A successful preload lookup selects the cached descriptor and sets the result to true. A lookup miss synchronously allocates, reads, and initializes a replacement archive and sets the result to false. Both paths then process symbol requests until a NULL destination is reached; an unresolved symbol leaves that destination NULL, emits a diagnostic, and does not abort later requests. Finally, a non-NULL `dst` receives the selected descriptor.",
+        "rationale": "The target's two acquisition paths still converge on the nonfatal helper, which clears destinations, reports misses, continues processing, and terminates on NULL.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the nonfatal resolver's NULL termination, destination clearing, and continuation after misses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L320",
+            "why": "Shows cache-hit and fallback states, convergence on nonfatal resolution, and guarded `dst` output."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchive_InitializeDAT"
+    },
+    "facts": [
+      {
+        "id": "fact:2a28b49c-c731-4f7d-99d3-25b372521c1a",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_InitializeDAT",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes the caller's descriptor, loaded image, and byte length to HSD_ArchiveParse. On success, it increments an integer index from zero, converts each valid external-table entry into its symbol-name pointer with HSD_ArchiveGetExtern, and feeds that name back into HSD_ArchiveLocateExtern with a NULL binding. Enumeration ends when the getter returns NULL at the external-table bound; the resulting descriptor retains views into data, and all visited external reference slots contain zero.",
+        "rationale": "The head wrapper preserves the indexed parse-and-clear loop, while the current baselib implementation retains image views, bounds external enumeration, and writes the supplied NULL through each reference chain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows all three inputs flowing into Parse and every enumerated external name flowing into LocateExtern with NULL."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Defines retained archive views, external-table bounds, and writes to external reference sites."
+          }
+        ]
+      },
+      {
+        "id": "fact:5feb6d41-3d4f-4584-8187-b2ebcd64fc35",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_InitializeDAT",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the initialization stage of DAT archive external-symbol resolution: serialized external-reference chains are converted into safe NULL runtime pointers before surrounding game systems optionally bind or otherwise use archive symbols.",
+        "rationale": "The wrapper still enumerates every external name and supplies NULL to the locator, whose implementation overwrites each matching serialized reference-chain slot with that runtime value.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows exhaustive external-name enumeration and NULL binding during DAT initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows LocateExtern writing the supplied address through a named external's reference chain."
+          }
+        ]
+      },
+      {
+        "id": "fact:faab567d-f351-4d47-b237-6d5619425fd1",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_InitializeDAT",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)`. `archive` is an output descriptor, `data` is mutable persistent backing storage for the loaded DAT image, and `length` is its byte size. The routine returns no status because parse failure is reported and asserted rather than propagated.",
+        "rationale": "The current declaration provides the exact signature and report-and-assert failure policy, while the parser retains pointers into and mutates the supplied image.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Provides the exact signature and converts parse failure into reporting and assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows the descriptor retaining section pointers into the mutable image and external binding writing into it."
+          }
+        ]
+      },
+      {
+        "id": "fact:0c7e63a4-e82c-4f45-bc5a-5e3274d65eb0",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_InitializeDAT",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes an HSD_Archive descriptor from an already-loaded DAT image and sanitizes every encoded external import by resolving its reference chain to NULL, leaving the archive parsed and internally relocated but with external references explicitly unbound.",
+        "rationale": "The current wrapper still parses the image and passes every external name with NULL to HSD_ArchiveLocateExtern; the baselib implementation confirms that parsing relocates the archive and external location replaces reference slots.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows parsing followed by complete external enumeration and NULL binding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows parsing constructing and relocating archive views and LocateExtern replacing reference slots."
+          }
+        ]
+      },
+      {
+        "id": "fact:3e470969-f917-4475-a954-4545fd003c73",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_InitializeDAT",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has a fatal parse-failure path and one successful initialization path. If HSD_ArchiveParse returns -1, it reports \"HSD_ArchiveParse error!\" and triggers an assertion. Otherwise it repeatedly processes one external entry per index; a non-NULL name causes that external's references to be cleared, and the first NULL name terminates the function. Archives with no external entries therefore return immediately after parsing.",
+        "rationale": "The current wrapper retains the parse guard, report, assertion, increasing index, per-entry NULL binding, and NULL termination; the getter returns NULL when an index is outside the external table.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the fatal parse branch and complete external-enumeration loop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows Parse's failure domain and GetExtern returning NULL outside the external-entry range."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchive_LoadArchive"
+    },
+    "facts": [
+      {
+        "id": "fact:2dd48869-9b0f-4fbc-9e68-ff3a49814592",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadArchive",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Passes `filename` first to the file-size query and then to the synchronous file loader. The reported size is rounded up to 32 bytes to determine backing-buffer allocation capacity, while the loader writes the actual loaded byte count to `length`. That buffer, actual length, and a newly allocated descriptor flow into lbArchive_InitializeDAT; the initialized descriptor is then returned to the caller.",
+        "rationale": "The current inline implementation still distinguishes rounded allocation capacity from actual loaded length and forwards the buffer, length, and descriptor into initialization before return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows filename-derived size, two allocations, file loading, actual length, initialization, and returned descriptor."
+          }
+        ]
+      },
+      {
+        "id": "fact:1cd70d43-3373-42b7-bb93-8aab5bef50ac",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadArchive",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements synchronous DAT archive loading for game assets, turning a resource filename into a relocated runtime archive that menu, scene, result, camera, and text systems can subsequently query for their serialized resources.",
+        "rationale": "The current wrapper still turns a filename into an initialized DAT descriptor, and the current parser relocates the serialized image and exposes named public-resource addresses.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows filename-based synchronous archive loading and initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows the resulting archive being relocated and supporting named public-resource lookup."
+          }
+        ]
+      },
+      {
+        "id": "fact:1b21e37c-d375-47a8-bec0-346b06cb7431",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadArchive",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `HSD_Archive* lbArchive_LoadArchive(const char* filename)`. The input is a NUL-terminated resource filename. The return value is a separately heap-allocated HSD_Archive descriptor whose section pointers refer into a second heap allocation containing the mutable loaded DAT image; the descriptor therefore depends on that backing allocation remaining live.",
+        "rationale": "The current header and wrapper establish the exact public signature and distinct allocations, while the parser maps descriptor fields into the supplied backing image.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.h#L1-L23",
+            "why": "Provides the exact public signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows separate image and descriptor allocations before returning the descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows archive section pointers being retained as views into the supplied image."
+          }
+        ]
+      },
+      {
+        "id": "fact:0c81c6ee-a983-4db8-a383-5079423434e3",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadArchive",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Synchronously loads a named DAT file into newly allocated heap storage, creates and initializes an HSD_Archive descriptor over that storage, and returns the descriptor for subsequent named-symbol access.",
+        "rationale": "The current inline helper preserves the complete allocation, file-load, DAT-initialization, and return sequence, while initialization parses and relocates the image.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the complete load and initialization pipeline and the public wrapper returning its result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows archive parsing mapping and relocating the loaded image."
+          }
+        ]
+      },
+      {
+        "id": "fact:fe4aa6d5-a9a0-44f5-ae84-94b6c5648604",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadArchive",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs one fixed synchronous construction sequence with no local recovery branch: allocate the rounded file buffer, allocate the descriptor, load the file, initialize the DAT, and return. During initialization, a DAT size or parse failure is reported and asserted; on success, every external entry is visited and its encoded references are set to NULL before the descriptor becomes available to the caller.",
+        "rationale": "The load helper remains straight-line code, and its initialization callee retains fatal parse handling and exhaustive external-reference clearing before return.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the fixed loading sequence and initializer's fatal parse and external-clearing behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows parser rejection of invalid descriptors or size mismatches and relocation of valid images."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchive_LoadSections"
+    },
+    "facts": [
+      {
+        "id": "fact:a247f047-d936-4e28-8276-ae3f04ef44bd",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSections",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "For each variadic pair, the public-symbol name is passed to HSD_ArchiveGetPublicAddress with the supplied archive. The destination is first cleared to NULL and then overwritten with the returned archive-data address; a NULL result and the same symbol name flow to OSReport for diagnostics. The next void** argument advances the sequence.",
+        "rationale": "Every stage of this flow is explicit in the matched source. The lookup callee further shows that a successful output is calculated from the archive data base plus the selected public-entry offset.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:23:04.068Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L41-L56",
+            "why": "The body directly shows extraction of names and destinations, destination clearing, lookup assignment, failure reporting, and variadic iteration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+            "why": "The callee demonstrates that the successful pointer written by LoadSections is the archive data base plus a matching public entry's offset."
+          }
+        ]
+      },
+      {
+        "id": "fact:8c577e61-a50f-496d-a5fa-6cdce51b4446",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSections",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements batched DAT archive public-symbol resolution for game assets: callers use it to populate pointers to named resources from loaded archives, including menu and in-match interface data.",
+        "rationale": "The function is called from menu-name and interface subsystems, and its matched body performs repeated named public-entry resolution. The concrete menu-name example supplies named archive resources and destination globals, grounding the operation as asset pointer population rather than an abstract symbol-table utility.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T04:23:04.068Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L41-L56",
+            "why": "The function resolves named public archive entries and stores their payload addresses for callers."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197452622832074813",
+            "why": "The example call shows menu-name resources being requested by name and loaded into destination globals through this routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:8f7f2065-cb1b-45b0-97e0-2b10333216f7",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSections",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Variadic signature: void lbArchive_LoadSections(HSD_Archive* archive, void** symbol, ...). The argument sequence is a NULL-terminated series of (void** destination, const char* public_symbol_name) pairs; destinations are void** because archive exports may designate different payload types.",
+        "rationale": "The declaration and va_arg operations establish the concrete signature and alternating argument types. The loop guard establishes that a NULL destination terminates the sequence. The example call supplies two destination/name pairs followed by zero, while HSD_ArchiveGetPublicAddress returns an intentionally generic void pointer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:23:04.068Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L41-L56",
+            "why": "The source declares HSD_Archive*, void**, and variadic arguments, then consumes const char* names and subsequent void** destinations until the destination is NULL."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197452622832074813",
+            "why": "The resolved example call passes destination, symbol-name, destination, symbol-name, and a final zero, corroborating the alternating pair layout and terminator."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+            "why": "The lookup routine returns void*, consistent with destinations that can receive heterogeneous archive payload types."
+          }
+        ]
+      },
+      {
+        "id": "fact:9dbdc367-e185-4121-a105-2b84aa67cd06",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSections",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Resolves any number of named public entries from one HSD archive and stores their payload addresses into caller-provided pointer variables, reporting each requested name that the archive does not export.",
+        "rationale": "The matched body iterates over destination/name pairs, calls HSD_ArchiveGetPublicAddress for each name, writes the result through the destination, and reports a failed lookup. The callee's matched body establishes that its result is the address of the matching public entry within archive data.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:23:04.068Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L41-L56",
+            "why": "The complete matched function directly shows repeated lookup, output assignment, NULL detection, and the missing-symbol report."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+            "why": "The lookup callee searches the archive's public table by name and returns archive->data plus the matching entry offset, or NULL on a miss."
+          }
+        ]
+      },
+      {
+        "id": "fact:d284bf77-f987-433f-bddd-092be3c6c45a",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSections",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Processes pairs until the current destination pointer is NULL. Each pair independently transitions its destination from NULL to either a resolved archive address or NULL on lookup failure; failure is nonfatal, emits \"Cannot find symbol %s.\\n\", and does not prevent later pairs from being processed. Supplying NULL as the first destination performs no lookup.",
+        "rationale": "The loop condition, assignments, diagnostic branch, and lack of an early return establish the per-pair behavior and continuation after misses. The resolved call-signature discussion confirms that an initial zero is a valid empty-list form and that omitting the required terminator is unsafe.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:23:04.068Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L41-L56",
+            "why": "The source shows NULL termination, destination clearing and replacement, a report-only failure branch, and continued loop iteration."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197457926093295626",
+            "why": "The discussion identifies a call with archive and zero as a valid empty sequence and notes that a terminating zero is required."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbarchive:lbArchive_LoadSymbols"
+    },
+    "facts": [
+      {
+        "id": "fact:0ae7a3ab-e4dc-4673-987d-6ecfde4f8e9f",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSymbols",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The filename first supplies a file size used for a 32-byte-rounded data allocation. The complete file is then read into that buffer and its actual length is passed with the buffer to lbArchive_InitializeDAT. A separately allocated HSD_Archive and the initialized data become inputs to lbArchive_vLoadSectionsFatal, which consumes the fixed first output pointer and continuing va_list; the initialized archive is the function's return value.",
+        "rationale": "The current implementation still traces the filename through allocation, file loading, initialization, fatal variadic resolution, and archive return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows file sizing, allocation, loading, initialization, and the beginning of fatal section resolution."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows completion of fatal resolution, variadic cleanup, and the returned archive."
+          }
+        ]
+      },
+      {
+        "id": "fact:86c0ab9b-89ae-4e9e-8bb7-25a3007bdb7f",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSymbols",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes DAT-archive public-symbol resolution as part of asset loading, allowing scene, menu, trophy, and other game systems to request named roots from a file while loading and initializing that archive in one call.",
+        "rationale": "The current body still combines synchronous DAT loading and initialization with fatal processing of a caller-supplied named public-symbol request list.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows loading an archive and resolving requested named public entries as one operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the wrapper completing fatal symbol resolution and returning the loaded archive."
+          }
+        ]
+      },
+      {
+        "id": "fact:d6fc0f71-5ed3-413f-923f-2490ca4d46bc",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSymbols",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `HSD_Archive* lbArchive_LoadSymbols(const char* filename, void* first_output, ...)`. Semantically, `first_output` is the first `void**` destination in a NULL-terminated sequence of `(void** destination, const char* public_symbol_name)` pairs; each following destination and name is obtained from the variadic tail.",
+        "rationale": "The current declaration proves the fixed signature, while the fatal helper shows that the fixed variadic anchor is used as a destination followed by a name, with subsequent destination/name pairs ending at a NULL destination.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.h#L1-L23",
+            "why": "Provides the exact declared signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the fatal helper consuming destination/name pairs until a NULL destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows the wrapper forwarding its fixed variadic anchor and va_list to the fatal helper."
+          }
+        ]
+      },
+      {
+        "id": "fact:363942d0-21b1-48b6-bf77-17aca2400849",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSymbols",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Synchronously loads a DAT archive from a filename, initializes its archive metadata and relocations, resolves a variadic list of requested public symbols into caller-provided destinations using the fatal section-loading path, and returns the allocated HSD_Archive.",
+        "rationale": "Every pipeline stage remains explicit at head, from allocation and file loading through DAT initialization and fatal named-symbol resolution to descriptor return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows archive allocation, loading, initialization, and the fatal helper's symbol-resolution behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows completion of fatal resolution and return of the allocated archive."
+          }
+        ]
+      },
+      {
+        "id": "fact:1448f73e-6cb9-45f9-9068-1af09b0a065b",
+        "target_id": "target:function:main/melee/lb/lbarchive:lbArchive_LoadSymbols",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Runs as a single synchronous initialization transaction: start the variadic cursor, allocate both backing objects, read and initialize the archive, perform fatal symbol resolution, close the variadic cursor, and return. It contains no retry, asynchronous callback, or partial-success branch of its own; failure handling is delegated to the called file, DAT-initialization, and fatal section-resolution routines.",
+        "rationale": "The current body remains straight-line code and still invokes the fatal resolver before variadic cleanup and return.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T23:41:06.534Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows the synchronous ordering through allocation, loading, initialization, and fatal resolution."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L121-L240",
+            "why": "Shows variadic cleanup and unconditional archive return after fatal resolution."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/lb/lbarchive.c"
+    },
+    "facts": [
+      {
+        "id": "fact:0ba54218-ef6d-4e84-9f81-af8f663997b6",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbarchive.c",
+        "type": "data_flow",
+        "value": "Supports construction, consumption, and destruction of DAT archives. During construction, a filename is converted to a file size, rounded to a 32-byte boundary for a backing-image heap allocation, paired with a separately allocated HSD_Archive descriptor, loaded from storage, and parsed into relocated views over that image. During consumption, requested public-symbol names are resolved to payload addresses and written into caller-provided pointer slots. During destruction, the descriptor's data pointer is moved back by the 0x20-byte archive header to recover the original image allocation; that allocation and then the descriptor are freed from heap 0.",
+        "rationale": "At head, archive construction still allocates and loads an image plus descriptor, symbol lookup still writes public addresses to caller slots, and release still frees the image base recovered from `archive->data - 0x20` followed by the descriptor.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T01:28:05.550Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L36-L160",
+            "why": "Shows named-symbol output, heap-backed archive construction, and release of the image base and descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows `archive->data` beginning immediately after the serialized archive header and public addresses being derived from it."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbheap.c#L160-L225",
+            "why": "Shows the heap-free routine actually deallocating its pointer argument through the selected allocator backend."
+          }
+        ]
+      },
+      {
+        "id": "fact:cfc19423-ac42-40e2-9ad1-88eb085e9b83",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbarchive.c",
+        "type": "game_mapping",
+        "value": "Realizes Melee's heap-backed DAT asset lifecycle: serialized resource files are loaded and relocated into runtime archive descriptors, named resources are exposed to gameplay and interface systems, and both the retained file image and descriptor can be reclaimed during subsystem or scene teardown.",
+        "rationale": "The current load, public-symbol lookup, parse, and release paths still realize the full runtime DAT lifecycle described by the existing mapping.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T01:28:05.550Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L36-L160",
+            "why": "Shows heap-backed DAT loading, named-resource exposure, and reclamation of image and descriptor storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows serialized DAT data being mapped into runtime archive sections and public resource addresses."
+          }
+        ]
+      },
+      {
+        "id": "fact:6001130b-8b09-4971-8755-1c5b36584756",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbarchive.c",
+        "type": "purpose",
+        "value": "Provides Melee's DAT-archive lifecycle and binding utilities: it parses loaded images and resolves their external references, allocates and synchronously loads archives, optionally reuses DVD-preloaded archives, binds named public entries into caller-owned pointer slots through fatal and nonfatal variants, releases heap-owned archive storage, and reconstructs serialized archive descriptors for relocation against a supplied base address.",
+        "rationale": "The refreshed opening still contains DAT parsing, external resolution, public-symbol lookup, synchronous allocation and loading, and fatal versus nonfatal binding, consistent with the unaffected later lifecycle operations.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:55:40.132Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows DAT parsing, external clearing, public-symbol binding, synchronous loading, and fatal and nonfatal lookup behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:96fbe93c-8a90-407c-adfd-2394064766e1",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbarchive.c",
+        "type": "state_behavior",
+        "value": "Archive operations distinguish several guarded outcomes. DAT parse failure reports an error and asserts. Public-symbol lookup always clears an output slot before lookup; missing symbols are either only reported or reported and asserted, depending on the wrapper used. Preload-aware loaders return true when the requested archive was already registered by the DVD layer and false when they had to allocate and load it, while still optionally returning the resulting descriptor. Archive release asserts that the descriptor is non-NULL and marked as independently owned before freeing it. Explicit relocation returns -1 for a NULL descriptor or a serialized-size/byte-order mismatch and returns 0 after successful section mapping and pointer relocation.",
+        "rationale": "The current opening directly preserves parse-failure handling and the two missing-symbol policies; the unaffected later source retains preload provenance, guarded destruction, and relocation outcomes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:55:40.132Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L1-L120",
+            "why": "Shows parse failure reporting and assertion plus fatal and nonfatal public-symbol resolution."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchiveRelocate#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchiveRelocate#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchiveRelocate#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchiveRelocate#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_80016DBC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_80016DBC#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_80016EFC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_80016F80#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_80016F80#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_80017040#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_80017040#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_80017040#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_800171CC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_800171CC#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_800171CC#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_InitializeDAT#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_InitializeDAT#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_InitializeDAT#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_LoadArchive#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_LoadSections#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_LoadSections#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_LoadSymbols#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbarchive:lbArchive_LoadSymbols#r4"
+    },
+    "facts": []
+  }
+]

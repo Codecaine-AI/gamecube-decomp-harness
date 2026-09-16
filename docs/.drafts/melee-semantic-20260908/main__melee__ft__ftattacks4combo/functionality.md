@@ -1,0 +1,24 @@
+## AttackS42 follow-up subsystem
+
+This unit implements the Link-family forward-smash follow-up detector, state entry, and four lifecycle callbacks. The header declares all six functions with matching Fighter_GObj pointer signatures; only the detector returns a boolean. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L8-L70), [header](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.h#L1-L14).
+
+### Detection and entry
+
+`ftCo_800CECE8` requires both nonzero `cmd_vars[0]` and `HSD_PAD_A` in `input.pressed_buttons`. It forwards the same object to `ftCo_800CED30`, returning true after that call returns; otherwise it returns false. Historical descriptions of this access as `input.x668` or held A are superseded. The current expression is established without inferring how the input producer computes that mask. AttackS4 IASA invokes this predicate between two interrupt-gated groups, so it is not itself gated by `allow_interrupt`; earlier accepted checks can still preempt it. [Detector](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L8-L16), [caller](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234).
+
+`ftCo_800CED30` accepts the intended `FTKIND_LINK` and `FTKIND_CLINK` branches. Other kinds reach `HSD_ASSERTREPORT(0x36, 0, "don't have smash42 motion!!!\n")`. The shared transition follows the assertion in source; this review does not assume the reporting machinery returns. Entry clears `allow_interrupt`, calls `Fighter_ChangeMotionState(gobj, ftLk_MS_AttackS42, 0, 0.0F, 1.0F, 0.0F, NULL)`, then calls `ftAnim_8006EBA4`. No numeric motion-state identity or cross-character table equivalence is inferred from the symbolic constant alone. [Entry](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L18-L47).
+
+### Lifecycle and cross-file behavior
+
+- **Anim:** unconditionally forwards to `ftCo_AttackS4_Anim`, which invokes `ft_8008A2BC` only when animation frames are exhausted. The latter has exceptional hand branches and otherwise calls the neutral dispatcher. That dispatcher can take DownSpot or another special neutral path before ordinary Wait entry; its ordinary path also performs Link-family cleanup. It is not an unconditional direct transition to Wait. [Wrapper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L49-L52), [completion test](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L200-L205), [dispatcher](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109).
+- **IASA:** does nothing locally while `allow_interrupt` is false. Once enabled, it forwards the object to Wait IASA's priority-ordered, first-success transition checks. This unit does not establish the script frame that enables interruption. [Gate](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L54-L60), [standing checks](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67).
+- **Phys:** forwards through common AttackS4 physics to `ft_80084FA8`. Ground friction is scaled only above maximum walking speed. The downstream helper either derives acceleration from animation translation, facing direction and ground velocity, or applies friction; ground movement follows either branch. [Wrapper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L62-L65), [common callback](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L236-L239), [movement](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L55-L89).
+- **Coll:** unconditionally forwards through `ftCo_AttackS4_Coll` to `ft_80084104`; there is no local guard or explicit state transition. [Wrapper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L67-L70), [common callback](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L241-L244).
+
+### Evidence boundaries
+
+Canonical and rendered views were read completely for both owned files. The renderers reported no parse errors. `ftCo_AttackS42_CheckInput` and `ftCo_AttackS42_Enter` remain plausible inferred names grounded in canonical bodies, not recovered symbols. The rendered external name `ftAnim_Advance` is not independent evidence for the callee's implementation. Source literals and diagnostics do not establish compiled section placement, object sizes, padding, deduplication or relocation ownership. All ten section-target facts remain unresolved pending appropriate compiled evidence.
+
+Baseline accounting: 32 retained facts, four superseded facts, ten unresolved facts, and all eleven links retained.
+
+Status: synthesized; independent review and live promotion pending.

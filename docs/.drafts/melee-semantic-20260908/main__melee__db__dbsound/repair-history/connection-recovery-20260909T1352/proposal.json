@@ -1,0 +1,146 @@
+{
+  "tu": "main/melee/db/dbsound",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/db/dbsound:.sdata2"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies presentation constants for Melee's DEVELOP-mode sound-status overlay: translucent gray background RGBA (128,128,128,128), white text RGBA (255,255,255,255), and horizontal/vertical text scales 12.0 and 16.0. These configure the panel's colors and scale rather than changing FGM/BGM configuration or the audio voice statistics displayed by the panel.",
+        "rationale": "Corrects the baseline's scale-only account while preserving its presentation-versus-audio distinction. Canonical setup consumes both colors and both scales; the recorded .sdata2 words agree with those values.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbsound.c#L24-L40",
+            "why": "Declares both RGBA colors and passes them and the two scale values to DevText."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/db/dbsound:.sdata2"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A read-only small-data literal pool whose recorded 16-byte contents are 80808080 ffffffff 41400000 41800000. These four words correspond to the source's background RGBA color, text RGBA color, and single-precision X/Y scales 12.0 and 16.0; the recorded bytes need not be explained as unidentified padding. Exact load relocations are not established by the available section-byte observations.",
+        "rationale": "Independently interpreted object-evidence.json's identical .sdata2 observations against canonical source and the float-typed DevText_SetScale implementation. This replaces the obsolete uncertainty about the other two words without inventing relocation evidence.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbsound.c#L24-L40",
+            "why": "Provides source meanings for both color words and scale values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib.c#L207-L211",
+            "why": "Confirms the scale arguments and stored fields are floating-point values."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/db/dbsound:.data"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The table maps sound indices 0, 1, 2 and 3 to bit patterns 3, 2, 0 and 1: both FGM/BGM enabled, FGM only, neither, and BGM only. Accepted chords advance the index before applying the selected bits, cycling from the initial selection through music off, both off, sound effects off, and back to both on. The overlay labels the same local selection, not a readback of effective mixer state. Setup resets indices without calling the audio-mode setter, so repeated setup does not guarantee that local labels remain synchronized with stored audio enables.",
+        "rationale": "Preserves the exact baseline mode mapping while correcting its unqualified synchronization claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbsound.c#L20-L44",
+            "why": "Table initialization and setup reset without audio-mode application."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbsound.c#L85-L137",
+            "why": "Labels read local table values; accepted chords apply those values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1021-L1025",
+            "why": "Setter independently stores the two audio enable factors."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/db/dbsound:fn_UpdateSoundInfo"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation sets the associated audio debug flag from db_ShowSoundInfo > 3, including calls with no DevText object. With a panel, states 0\u20133 hide background/text and freeze retained samples and timers; states 4\u20137 sample, update and show diagnostics. A strict new high sets its timer to 240 and the same invocation decrements it to 239. Each visible invocation decrements the timers; nonpositive expiry replaces the retained value with the current sample and clamps the timer to zero. Without a panel, both values are resampled and both timers cleared on every invocation. An out-of-range state with a panel has no switch action beyond the preceding debug-flag write. Timers count updater calls, not frames: db_RunEveryFrame calls fn_CheckSoundInfo for all four players, each of which invokes this updater.",
+        "rationale": "Corrects the baseline's unqualified null-panel 'only seeds' claim and records immediate decrement, hidden-state freezing, exceptional numeric states and demonstrated caller cadence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbsound.c#L46-L115",
+            "why": "Unconditional debug write, switch branches, timer operations and null-panel behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbsound.c#L117-L138",
+            "why": "Every player-index call invokes the updater."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L230-L232",
+            "why": "Four sound-check calls per eligible caller pass."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/db/dbsound.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Player-0 pressed/held controller state advances sound-output and display indices; a four-entry table supplies audio-enable bits and matching local display labels. The updater samples two AXDriver counters through lbAudioAx_80028B2C and lbAudioAx_80028B4C, maintains separate retained values/countdowns, and writes DevText diagnostics. The second sample is reused as the current value on both PVoice and VVoice lines. Separately, the TU defines exported int db_804D4AF8 initialized to 1, untouched by its local sound routines. A soundtest menu entry labelled 'Ik Debug Flag :' references its address, and ft_80089B08 tests it for nonzero to gate two grounded-fighter IK processing branches; the subsequent bit-4 floor-angle branch is outside that flag guard.",
+        "rationale": "Makes the TU flow faithful to the actual driver-query and formatting behavior and completes the independently demonstrated cross-file review of the exported integer. This complements, rather than contradicts, the retained local-only .sdata data-flow fact.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbsound.c#L9-L138",
+            "why": "Exported definition, local mode flow, sampling and exact display arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L2255-L2263",
+            "why": "The two queries delegate to AXDriver getters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L1174-L1182",
+            "why": "Getters return distinct driver counters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbsound.h#L7-L7",
+            "why": "Public declaration of the exported integer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L73-L234",
+            "why": "Exact IK flag consumer and boundary excluding the following floor-angle branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/soundtest.c#L2325-L2339",
+            "why": "IK menu label and address reference."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

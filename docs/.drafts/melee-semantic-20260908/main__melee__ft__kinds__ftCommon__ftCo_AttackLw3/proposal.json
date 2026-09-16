@@ -1,0 +1,158 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L67-L109",
+            "why": "Repeat dispatch reaches the conditional common entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattacklw3.c#L140-L151",
+            "why": "The other dispatch destination also preserves pickup precedence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L50-L86",
+            "why": "Completion helper enters SquatWait."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unconditional attack-start description while retaining repeat priority and completion behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Anim"
+        },
+        "type": "purpose",
+        "value": "Runs the down-tilt animation-phase check: when both the command gate and buffered-repeat latch are nonzero, it dispatches a fighter-specific entry request, which may be consumed as item pickup rather than starting another down tilt. Otherwise, it enters SquatWait after the current animation finishes."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L67-L109",
+            "why": "Guard, dispatch, pickup branch and completion ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattacklw3.c#L140-L151",
+            "why": "Character-specific pickup guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SquatWait.c#L50-L86",
+            "why": "Resolves the completion destination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes an immediate dispatch from a guaranteed attack transition and preserves the exact early-return branch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Anim"
+        },
+        "type": "state_behavior",
+        "value": "The repeat request has priority over animation completion. If cmd_vars[cmd_unk0_bool] and mv.co.attacklw3.x0 are both nonzero, the callback dispatches through wrapper and decideFighter, then returns without testing remaining frames. Both possible entry destinations permit item pickup to consume that request. If the repeat guard is false, the callback leaves the action running while animation frames remain and invokes SquatWait entry when none remain."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L164-L167",
+            "why": "Down-tilt physics delegates to the helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Conditional scaling and movement order are explicit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the gameplay mapping without claiming that an unmeasured scaling factor necessarily increases deceleration.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:ftCo_AttackLw3_Phys"
+        },
+        "type": "game_mapping",
+        "value": "Updates grounded sliding and deceleration during common down tilt using character-specific ground friction followed by grounded movement. When absolute ground velocity exceeds maximum walking speed, the friction value is multiplied by friction_when_above_walk_speed; this source does not establish the multiplier's magnitude."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L162",
+            "why": "Input, setup, repeat producers/consumers and follow-up dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattacklw3.c#L140-L151",
+            "why": "Pickup is also possible through dedicated entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the incomplete output description and preserves the distinction between consuming a request and entering an attack.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c"
+        },
+        "type": "data_flow",
+        "value": "Reads newly pressed attack input, downward-stick thresholds, held-item state, fighter kind, command variable 0, the move-local repeat latch and allow_interrupt. Accepted downward input invokes a light-item throw or fighter-specific entry request; either entry path may instead consume the request as item pickup. Common entry resets repeat state and installs occurrence bookkeeping. Animation and IASA read the repeat gate/latch, dispatch repeat requests, and select completion or prioritized follow-up paths."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L42-L162",
+            "why": "Exact state writes and ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattacklw3.c#L140-L151",
+            "why": "Dedicated entry also checks pickup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the missing pickup qualification and distinguishes the command gate from the input-produced latch.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c"
+        },
+        "type": "state_behavior",
+        "value": "Qualifying downward attack input gives an eligible held-item throw priority, otherwise dispatching to Game & Watch's dedicated entry or common entry. Both entries allow pickup to replace the attack. Only after pickup fails does common entry clear the command gate and repeat latch, disable interruption and enter AttackLw3. A newly pressed A either requests entry when the command gate is open or buffers a repeat when it is closed. Animation prioritizes a gated buffered request over completion; IASA arbitrates other follow-ups around the independently polled A path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L79-L91",
+            "why": "Pickup guard, initialization and literal arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1211-L1218",
+            "why": "Hook invocation, clearing and attack-count flag handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1288-L1294",
+            "why": "Zero blend argument selects metadata default."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful cross-file hook lifetime and the precise zero-blend semantics missing from the supported local entry summary; does not attribute literals to a compiled section.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackLw3:doEnter"
+        },
+        "type": "state_behavior",
+        "value": "If item pickup consumes the request, performs no common down-tilt initialization. Otherwise clears command variable 0 and the repeat latch, disables interruption, installs callUnk in x21EC, and calls Fighter_ChangeMotionState for AttackLw3 with Ft_MF_SkipAttackCount and literal arguments frame 0, rate 1, blend/default argument 0, then calls ftAnim_8006EBA4. The state-change routine invokes and clears the installed x21EC hook. Its zero blend argument selects the animation metadata default where blending is initialized, rather than guaranteeing zero effective blending."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

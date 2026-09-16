@@ -10,6 +10,13 @@ code is never flagged.
 declare a "surfaces" map; without it every finding keeps its base severity
 (fully backward compatible).
 
+Post-change file text (``post_file_text``) is handed to every hunk: in ref
+mode from ``git show HEAD:<file>`` (or the worktree with
+``--include-worktree``); in ``--diff-file`` mode from ``--post-tree <dir>``
+when given, else from ``--repo`` when the post-change file exists there.
+Pre-change text (``pre_file_text``) comes from ``--pre-tree <dir>`` or, in ref
+mode, from the merge-base blob.
+
 Output contract (mirrors apps/server/src/core/validation/qa/scan-diff.ts):
   stdout: JSON {tool, operation, status, repo, base, findings, counts}
   stderr: human-readable summary
@@ -33,7 +40,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _qa_rules
 
 HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
-GLOBAL_APPLIES_TO = ["src/**/*.c"]
+GLOBAL_APPLIES_TO = list(dict.fromkeys(
+    pattern for rule in _qa_rules.RULES
+    for pattern in rule.get("applies_to", _qa_rules.DEFAULT_APPLIES_TO)
+))
 MOVED_LINE_DOWNGRADE_RULES = {
     # The melee tree still carries hundreds of legacy externs in .c files;
     # code moved within a file must not hard-fail the gate.
@@ -181,6 +191,66 @@ def post_diff_file_text(
         return run_git(repo, ["show", f"HEAD:{rel_path}"])
     except RuntimeError:
         return None
+
+
+def read_tree_file(root: Path | None, rel_path: str) -> str | None:
+    """Read ``<root>/<rel_path>`` as text, or None when absent."""
+
+    if root is None:
+        return None
+    path = root / rel_path
+    if not path.is_file():
+        return None
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def resolve_post_file_text(
+    repo: Path,
+    rel_path: str,
+    mode: str,
+    file_diffs: list[dict[str, Any]],
+    post_tree: Path | None = None,
+) -> str | None:
+    """Resolve the full post-change file text handed to hunks as ``post_file_text``.
+
+    ``--post-tree`` always wins. Ref/worktree modes then fall back to
+    ``post_diff_file_text``. In ``--diff-file`` mode the repo file is used when
+    it exists (the caller is expected to point ``--repo`` at the attempt
+    tree); otherwise None, so rules cannot mistake an unrelated worktree
+    branch for the post-change state.
+    """
+
+    text = read_tree_file(post_tree, rel_path)
+    if text is not None:
+        return text
+    if mode != "diff":
+        return post_diff_file_text(repo, rel_path, mode, file_diffs)
+    return read_tree_file(repo, rel_path)
+
+
+def resolve_pre_file_text(
+    repo: Path,
+    rel_path: str,
+    merge_base: str | None,
+    pre_tree: Path | None = None,
+    cache: dict[str, str | None] | None = None,
+) -> str | None:
+    """Resolve the pre-change file text (``--pre-tree`` or the merge-base blob)."""
+
+    text = read_tree_file(pre_tree, rel_path)
+    if text is not None:
+        return text
+    if not merge_base:
+        return None
+    if cache is not None and rel_path in cache:
+        return cache[rel_path]
+    try:
+        text = run_git(repo, ["show", f"{merge_base}:{rel_path}"])
+    except RuntimeError:
+        text = None
+    if cache is not None:
+        cache[rel_path] = text
+    return text
 
 
 def symbol_in_diff_base(
@@ -387,19 +457,23 @@ def collect_findings(
     merge_base: str | None = None,
     surface: str | None = None,
     address_named_static_data_allowlist: list[dict[str, str]] | None = None,
+    post_tree: Path | None = None,
+    pre_tree: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Run all rules (built-ins, banned patterns, tombstones) over the diff."""
 
     rules = _qa_rules.all_rules(include_banned=True)
     tombstones = _qa_rules.load_tombstones()
     findings: list[dict[str, Any]] = []
+    pre_text_cache: dict[str, str | None] = {}
     for record in file_diffs:
         if not _qa_rules.path_matches(record["file"], GLOBAL_APPLIES_TO):
             continue
-        post_file_text = (
-            post_diff_file_text(repo, record["file"], mode, file_diffs)
-            if mode != "diff"
-            else None
+        post_file_text = resolve_post_file_text(
+            repo, record["file"], mode, file_diffs, post_tree
+        )
+        pre_file_text = resolve_pre_file_text(
+            repo, record["file"], merge_base, pre_tree, pre_text_cache
         )
         file_removed_hsd_asserts = sum(
             1
@@ -412,6 +486,7 @@ def collect_findings(
                 **hunk,
                 "file_removed_hsd_asserts": file_removed_hsd_asserts,
                 "post_file_text": post_file_text,
+                "pre_file_text": pre_file_text,
             }
             findings.extend(
                 _qa_rules.run_rules_on_hunk(rules, hunk_for_rules, surface=surface)
@@ -449,6 +524,19 @@ def main() -> int:
         "--diff-file",
         default=None,
         help="Pre-computed unified diff to scan instead of a ref diff.",
+    )
+    parser.add_argument(
+        "--post-tree",
+        default=None,
+        help=(
+            "Directory holding the post-change files (overrides --repo as the "
+            "source of post_file_text; e.g. a retained attempt-N.qa_current/ tree)."
+        ),
+    )
+    parser.add_argument(
+        "--pre-tree",
+        default=None,
+        help="Directory holding the pre-change files (source of pre_file_text).",
     )
     parser.add_argument(
         "--path",
@@ -496,6 +584,19 @@ def main() -> int:
     if not repo.is_dir():
         print(f"scan_diff: repo not found: {repo}", file=sys.stderr)
         return 3
+    post_tree: Path | None = None
+    pre_tree: Path | None = None
+    for label, value in (("--post-tree", args.post_tree), ("--pre-tree", args.pre_tree)):
+        if value is None:
+            continue
+        tree = Path(value).expanduser().resolve()
+        if not tree.is_dir():
+            print(f"scan_diff: {label} directory not found: {tree}", file=sys.stderr)
+            return 3
+        if label == "--post-tree":
+            post_tree = tree
+        else:
+            pre_tree = tree
 
     merge_base: str | None = None
     mode = "worktree" if args.include_worktree else "head"
@@ -506,9 +607,9 @@ def main() -> int:
                 print(f"scan_diff: diff file not found: {diff_path}", file=sys.stderr)
                 return 3
             diff_text = diff_path.read_text(encoding="utf-8", errors="replace")
-            # In --diff-file mode the post-diff state is reconstructed from
-            # the diff's own added lines (the repo worktree may be on an
-            # unrelated branch).
+            # In --diff-file mode the in-file-definition check reconstructs
+            # the post-diff state from the diff's own added lines; the full
+            # post_file_text comes from --post-tree or the repo file.
             mode = "diff"
         else:
             base_ref = args.base or "origin/master"
@@ -540,6 +641,8 @@ def main() -> int:
         merge_base,
         surface=args.surface,
         address_named_static_data_allowlist=address_named_static_data_allowlist,
+        post_tree=post_tree,
+        pre_tree=pre_tree,
     )
 
     errors = sum(1 for f in findings if f["severity"] == "error")

@@ -1,0 +1,33 @@
+{
+  "tu": "main/melee/gm/gmopeningmode",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmopeningmode.c#L429-L458",
+            "why": "Complete preload helper, cache mutations and audio call sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1684-L1851",
+            "why": "Character/stage masks, category-bit operations, load initiation and separate wait function."
+          }
+        ],
+        "op": "write",
+        "rationale": "The canonical caller establishes cache writes and exact arguments; the audio implementations establish bit-category handling and distinguish request initiation from completion.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmopeningmode:gm_PreloadTitleDemo"
+        },
+        "type": "data_flow",
+        "value": "Obtains the shared DVD game cache, invokes lbDvd_80018C6C, copies four configured character/color pairs and the exposed stage value into the cache, and invokes lbDvd_80018254. Builds a u64 audio mask starting at 4, ORs character masks for entries other than CHKIND_NONE, and ORs the stage mask. Calls lbAudioAx_80026F2C with category flags 0x1E to mark the corresponding request entries -1, then lbAudioAx_8002702C with category flags 0xE and the accumulated mask to mark selected entries 1, then lbAudioAx_80027168 to initiate loading. This helper does not call the separate lbAudioAx_80027648 completion-wait API."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

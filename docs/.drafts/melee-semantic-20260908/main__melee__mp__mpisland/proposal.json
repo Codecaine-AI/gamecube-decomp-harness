@@ -1,0 +1,253 @@
+{
+  "tu": "main/melee/mp/mpisland",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005A6F8"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Exact source signature void mpIsland_8005A6F8(void). Returns normally without a value after clearing nine global descriptor pointers. It is not noreturn and performs no traversal or deallocation.",
+        "rationale": "Corrects non-returning terminology with the complete canonical body.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L36-L47",
+            "why": "Nine NULL assignments and normal exit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005A728"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Resets all roots, clears a 0x600-byte visited table, and constructs floor then ceiling descriptors from map ranges, requesting 0x2C bytes per allocation and asserting success. Floor traversal uses next_id0 and MapLine floor flags; ceiling uses prev_id0 and ceiling flags. A chain stops at -1, a classification boundary, or return to its starting ID. In the return-to-start case end_idx has already become the starting ID, so recorded first and last IDs coincide. Disabled or hidden constituents set status 2, otherwise 0; both statuses initially remain in primary lists. Empty categories retain NULL heads/boundaries. Index validity, nonnegative counts and terminating well-formed adjacency are external preconditions.",
+        "rationale": "Adds the omitted cycle termination and its metadata consequence without asserting geometric extrema or complete object size.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L54-L207",
+            "why": "Both complete directional construction passes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005AB54"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns NULL for -1, disabled/hidden lines, or absence from represented primary floor chains. Other out-of-range IDs report an error and loop forever in mpLib_80054ED8. Searches list order, comparing an ID before checking the recorded final line, then following next_id0 only through floor-classified successors. No x20 filtering, allocation, relinking or topology mutation occurs. Coincident first/final IDs cause only that ID to be checked, including initial return-to-start chains. Returned storage is borrowed and may be repurposed by dynamic rebuilding or lose manager membership on reset.",
+        "rationale": "Includes boundary failures, cycle metadata interaction and storage lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L209-L241",
+            "why": "Ordered comparisons and termination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L4522-L4538",
+            "why": "Sentinel rejection and invalid-ID infinite loop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L454-L575",
+            "why": "Descriptor recycling and field replacement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005AC14"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Queries mpCheckFloor from (origin.x,origin.y) to (origin.x,origin.y+extent), requesting only the selected line ID, then delegates that ID to mpIsland_8005AB54; returns NULL on floor-query failure or failed island resolution, without retrying another hit. Z is ignored and signed extent is unclamped. The inspected callee keeps strictly smaller squared-distance accepted hits from the origin, initialized against F32_MAX; ties keep the earlier candidate. Near-horizontal intersections require ay>=by. This is not an unconditional nearest-represented-island guarantee, and detailed exceptional intersection behavior remains unresolved.",
+        "rationale": "Refines the librarian's unresolved nearest-hit issue using independently inspected canonical callee evidence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L243-L252",
+            "why": "Exact query arguments and delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L1611-L1754",
+            "why": "Eligibility, strict distance replacement and near-horizontal branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005AC14"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Does not itself allocate, relink or modify island descriptors. It passes NULL callback/context and retains neither. The complete call is not globally read-only: mpCheckFloor checks existing bounding state and, if not already checked, calls mpBoundingCheck2 and later mpUncheckBounding; cleanup clears CollJoint_TooFar on the joint list and sets didCheckBounding false. If already checked, the callee reuses that bounding state. No local input validation handles NULL origin, zero extent, NaN, infinity or overflow. NaN/infinite squared distances and distances equal to F32_MAX do not win the callee's strict replacement comparison.",
+        "rationale": "Repairs the baseline and librarian observational overclaim using actual delegated writes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L243-L252",
+            "why": "Wrapper has local-only writes and NULL callback arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L1611-L1754",
+            "why": "Bounding-state branch and strict distance tests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L6088-L6098",
+            "why": "Explicit global and joint-flag cleanup writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005ACE8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Obtains the owning joint's floor range before testing outputs; copies each cached endpoint to its non-NULL output. Scans only when both outputs exist. A v0/x4 match takes precedence over v1/x6 through else-if, so a line matching both refreshes only the left output. Availability flags never clear, allowing later matching lines to overwrite outputs throughout the range. Endpoint helpers can traverse further connectivity. Outputs aliasing each other or descriptor storage can overwrite earlier values or mutate the descriptor; observational behavior requires independent output storage.",
+        "rationale": "States optional branches, precedence, repeated writes and aliasing rather than unconditional read-only behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L266-L303",
+            "why": "Complete output and scan control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L4144-L4216",
+            "why": "Endpoint helpers traverse connectivity and write vectors."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005AE1C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Computes end=start+count and refreshes a descriptor unless both endpoint IDs are below start or both are at least end. Zero count can therefore select a span crossing start. Selected endpoints receive current vertex XY and zero Z. From the first list, false activity with bit 2 clear sets the bit and migrates to the second; from the second list, true activity with bit 2 set clears it and migrates to the first. Other nodes keep their partition, even if nominal partition and bit disagree. Prepending reverses traversed groups including unaffected nodes. Negative counts, signed overflow, overlapping/cyclic lists and aliased head pointers are not validated.",
+        "rationale": "Captures exact implemented selection and transition rules.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L305-L426",
+            "why": "Both span tests, migrations and prepend reconstruction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005B004"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Recycles selected-joint nodes and reverses the remainder, clears a 0x600 visited array, and accepts dynamic-range lines only when (flags&0x1F)==(arg3|0x10). Walks matching prev_id0 and next_id0; an unexpected forward return-to-start asserts. Closed cycles decrease v0 X from F32_MAX, but also compare v1 X with greater-than from -F32_MAX, leaving the latter choice unchanged for finite coordinates rather than finding a rightmost endpoint. NaN comparisons do not update choices; -infinity can update the latter. Reuses pooled nodes before requesting 0x2C bytes, assigns status arg6?0:2, and prepends every replacement to the same dynamic output. arg4/arg5 are unused. Empty ranges still recycle old nodes. Valid indices, well-formed cycles and disjoint lists are external preconditions.",
+        "rationale": "Preserves exact behavior without interpreting the asymmetric comparator as a correct extrema algorithm.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L428-L576",
+            "why": "Complete recycling, traversal, comparator and replacement logic."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005B334"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source signature void(int joint_id,int vertex_start,int vertex_count,bool active). Joint ID selects dynamic ownership; start/count feed retained endpoint-span refresh and are forwarded unused to dynamic builders. Activity controls retained bit/list migrations and replacement dynamic status, not whether all dynamic nodes are appended. Outputs are global list mutations rather than a return value; source types do not prove physical register bindings.",
+        "rationale": "Corrects activity-to-membership overstatement while retaining verified argument roles.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L559-L626",
+            "why": "Status assignment and unconditional dynamic append."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpisland:mpIsland_8005B334"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives joint ID and that joint's vertex start/count from mplib callers, forwards the range/activity to both retained pairs and the joint/selectors 1 and 2 to dynamic builders, then republishes combined roots and retained boundaries. Geometry/visibility and B11 paths commonly supply Enabled && !(Hidden|B11), but individual line enable/disable and joint-add paths supply !B11, while joint removal supplies false. Activity is caller policy, not universally identical to constituent line availability. Dynamic builders ignore the forwarded interval.",
+        "rationale": "Repairs universal caller-expression wording after inspecting additional active callers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L578-L626",
+            "why": "Forwarding and publication."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5035-L5088",
+            "why": "Full activity expression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5387-L5413",
+            "why": "Line toggles pass !B11."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5476-L5599",
+            "why": "Joint-add, removal and B11 caller policies."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/mp/mpisland.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Map ranges and runtime collision lines, vertices and joints become linked floor/ceiling/dynamic descriptors; updates refresh caches, conditionally repartition retained nodes, recycle dynamic nodes and republish roots. Separately, canonical const mpIsland_TerrainPalette supplies nineteen terrain/color records plus a -1 sentinel to mplib's terrain drawing branch, which copies and iterates it with mask 0xFF and draws Basic separately. These source flows establish neither emitted section identity nor complete descriptor layout.",
+        "rationale": "Includes independently verified palette consumption at owned TU grain without writing unowned objects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L11-L32",
+            "why": "Canonical palette."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpisland.c#L54-L626",
+            "why": "Topology flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L6824-L6846",
+            "why": "Active palette consumer."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

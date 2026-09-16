@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/ft/kinds/ftNess/ftnessattacklw4",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattacklw4.c#L116-L124",
+            "why": "Complete input callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces obsolete held_inputs spelling with the canonical field and preserves exact branch polarity.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattacklw4:ftNs_AttackLw4Charge_IASA"
+        },
+        "type": "data_flow",
+        "value": "Obtains the Fighter from gobj and tests input.held_buttons[0] & HSD_PAD_A. If the bit is absent, forwards the same fighter object to ftNs_AttackLw4Release_Enter; otherwise this callback performs no state-changing call."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattacklw4.c#L94-L124",
+            "why": "Increment, helper order, comparison and independent manual release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L333-L354",
+            "why": "Normal charge counter reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L511-L540",
+            "why": "Optional item branch and division before caller threshold."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents actual float comparison and exceptional-value boundaries without asserting validated configuration.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattacklw4:ftNs_AttackLw4Charge_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Increments the s32 yo-yo counter, calls YoyoSetUnkRate and YoyoCheckTimedRehit, then enters Release only if (float)yoyoCurrentFrame >= xAC_YOYO_CHARGE_DURATION. No local input or lifetime check occurs. For ordinary positive finite duration the inclusive threshold determines automatic release. With the normal reset counter, nonpositive duration or negative infinity releases on the first update; NaN or positive infinity does not satisfy the comparison for finite counters. Maintenance precedes the comparison, including the shared rate helper's unguarded division by duration when an item exists. There is no local signed-overflow or attribute-validation guard; A-release is handled by Charge_IASA."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattacklw4.c#L37-L55",
+            "why": "Exact nested control flow, including lack of return after charge entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L498-L508",
+            "why": "Normal removal versus creation-failure return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implied transition-supersedes-completion guard and distinguishes creation failure from normal removal.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattacklw4:ftNs_AttackLw4_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Increments yoyoCurrentFrame before YoyoThink_IsRemove. A false helper result permits timed-rehit maintenance and, exactly at counter 13, charge entry when isChargeDisable is false and YoyoCheckNoObstruct succeeds. After any Charge_Enter call, control still evaluates ftAnim_IsFramesRemaining; false calls ft_8008A2BC. A true lifetime-helper result skips all those later operations. The reviewed helper returns true on failed item creation after calling ft_8008A2BC; normal scheduled item removal returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattacklw4.c#L196-L221",
+            "why": "Counter branch, scalar ramp, clamps and direct path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L225-L260",
+            "why": "Current target and previous stored position are multiplied and summed unconditionally."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes frame domain, recursive blend and exceptional-coordinate qualifications explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattacklw4:ftNs_AttackLw4Release_Phys"
+        },
+        "type": "state_behavior",
+        "value": "After common ground physics, tests the integer yo-yo counter, not the animation-frame field. Below 19 it passes clamp(0.20000000298023224f * ((float)counter - 14.0f), 0, 1) to YoyoSetHitPosUnk and returns; at 19 or above it calls YoyoSetHitPos directly. Counters through 14 give zero weight and 15\u201318 give approximately 0.2, 0.4, 0.6, 0.8. The early helper blends the current target with the previously stored position on every invocation, not a fixed release origin. Zero weight preserves ordinary finite previous coordinates algebraically but does not suppress NaN/infinity propagation from target multiplication. The upper clamp is unreachable for ordinary valid s32 values in the <19 branch."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

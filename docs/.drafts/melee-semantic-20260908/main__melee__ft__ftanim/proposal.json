@@ -1,0 +1,163 @@
+{
+  "tu": "main/melee/ft/ftanim",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L425-L488",
+            "why": "Selected-part setup and evaluation sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L774-L858",
+            "why": "Ignored tree argument, active-tree dispatch, and costume setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L638-L698",
+            "why": "Remapped branch obtains tracks from fp->x590."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L265-L312",
+            "why": "Visible-part evaluation brackets completion callback accounting."
+          }
+        ],
+        "op": "write",
+        "rationale": "Following the forwarded argument into both dispatch branches corrects the baseline's erroneous supplied-tree provenance while preserving the directly observed setup and evaluation flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftanim:ftAnim_8006EED4"
+        },
+        "type": "data_flow",
+        "value": "The selected part supplies the visible root and, in blended mode, the auxiliary root. Costume-joint lookup feeds primary or secondary part setup. The FigaTree argument is forwarded to ftAnim_8006F954 but ignored there: both ordinary and remapped track installation use fp->x590. The requested frame and speed configure the selected hierarchy or hierarchies; looping comes from current motion metadata without blending and from the fighter loop bit during blending. Blended setup evaluates the auxiliary hierarchy first, followed by visible-part evaluation and its guarded completion-callback dispatch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L425-L488",
+            "why": "Signature and frame/rate consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L774-L782",
+            "why": "Unused forwarded pointer and active-tree selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L638-L698",
+            "why": "Alternate dispatch likewise selects fp->x590."
+          }
+        ],
+        "op": "write",
+        "rationale": "The definition establishes the signature, while the callee establishes that the pointer parameter has no track-selection effect in this implementation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftanim:ftAnim_8006EED4"
+        },
+        "type": "inferred_type",
+        "value": "Void fighter-part playback initializer with signature void(Fighter* fp, Fighter_Part part, FigaTree* tree, float frame, float speed). The part indexes the fighter part table; frame is the requested animation frame and speed is the AObj playback rate. The tree pointer is forwarded to ftAnim_8006F954 but ignored by that helper; installed tracks instead come from fp->x590."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L649-L788",
+            "why": "Shows the seek, conditional skips, pre-remap depth test, eligibility checks, and dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L489-L648",
+            "why": "Defines primary versus auxiliary joint selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbanim.c#L89-L137",
+            "why": "Proves the no-op conditions and guarded replacement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported traversal and dispatch behavior while adding the explicit constructor guards omitted by the baseline state claim.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftanim:ftAnim_8006F628"
+        },
+        "type": "state_behavior",
+        "value": "Seeks the source node/track streams to the requested part, consuming entries only for unconditional or active conditional slots. Traversal then skips inactive conditional indices without consuming tracks and stops at the node sentinel or when fp->parts[i].xC is no greater than the root's saved value for i != part; this depth check occurs before remapping. Invalid remaps and mapped parts failing flags_b1, !flags_b0, or !flags_b5 receive no installation. Otherwise flags_b3 selects lbAnim_8001E6D8 versus lbAnim_8001E7E8 for the primary or auxiliary joint selected by do_blending. Those constructors replace the animation controller only when the selected joint is non-null and the node's track count is nonzero; otherwise they leave it unchanged."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L1187-L1255",
+            "why": "Caller traversal and stream advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbanim.c#L89-L112",
+            "why": "Guarded animation-object replacement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the verified traversal rules while including the installer's explicit no-op guards.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftanim:ftAnim_80070A10"
+        },
+        "type": "state_behavior",
+        "value": "Traversal stops at the node-stream -1 terminator or the selected subtree's depth boundary. It skips runtime slots according to flags_b1 and conditional-mask eligibility. Entries marked flags_b0 or flags_b5 consume their aligned descriptor without installation. Otherwise the counted track slice is dispatched to lbAnim_8001E6D8, which replaces animation state only when the secondary JObj is non-null and the count is nonzero; zero-count entries still advance the caller's node cursor."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L1285-L1327",
+            "why": "Complete cleanup and forwarding flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L447-L488",
+            "why": "Typed Figa restoration input and implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "The callee signature establishes the FigaTree role of the forwarded x590 value; it must not be described as a skeleton object.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftanim:ftAnim_80070CC4"
+        },
+        "type": "data_flow",
+        "value": "Uses the channel to select x8B0 runtime state and the parallel ft_data->x1C descriptor. For an active x11, walks the selected AnimJoint tree from the descriptor's starting part, skips slots whose fighter-kind lookup is nonzero, clears corresponding flags_b5, and writes x11 = -1. If x590 is non-null, forwards that FigaTree with the current frame and rate to ftAnim_8006EED4; otherwise restores through ftAnim_8006FA58 using the costume-joint-remapped descriptor."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L1304-L1327",
+            "why": "Inactive guard, cleanup transition and representation choice."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L447-L488",
+            "why": "Independent blend-dependent restoration behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the data-representation branch in removal from the skeleton/blending branch inside restoration.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftanim:ftAnim_80070CC4"
+        },
+        "type": "state_behavior",
+        "value": "An x11 value of -1 makes removal a no-op. Otherwise the routine clears the active override's corresponding part flags, marks x11 inactive and requests restoration. Non-null x590 selects Figa-based restoration at the current frame and rate; that callee uses primary-only or blended skeleton processing according to x8A4_animBlendFrames. Null x590 selects costume-joint-based restoration."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

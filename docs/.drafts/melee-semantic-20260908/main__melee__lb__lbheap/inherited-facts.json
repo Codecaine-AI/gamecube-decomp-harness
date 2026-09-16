@@ -1,0 +1,1546 @@
+{
+  "main/melee/lb/lbheap:.bss": [
+    {
+      "id": "fact:76c2bf20-53c8-4ca6-9108-fa68eb8f18d4",
+      "target_id": "target:data:main/melee/lb/lbheap:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`lbHeap_80015F3C` writes HSD main-memory bounds and lbMemory ARAM bounds into this object, resets all six entries, and applies descriptor metadata. `lbHeap_80015900` reads those bounds and records to rebuild allocator backends. Indexed APIs then read selected entries for lifecycle, allocation, freeing, and compaction operations, while the report routine reads all entries and both boundary pairs.",
+      "rationale": "The current initialization, reconstruction, indexed API, and reporting code preserves the same producer-to-consumer flow through the shared BSS object.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows reconstruction and indexed allocation, free, status, and compaction operations using the registry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows reporting from the registry and initialization of its bounds and descriptor fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:884b4e44-6578-408f-aa9d-4105f7cbb21d",
+      "target_id": "target:data:main/melee/lb/lbheap:.bss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Stores runtime state for Melee's engine-level partitioning of GameCube main RAM and ARAM into the six logical regions reported as HSD, ARAM, Seq, Stay, AllM, and AllA. This supports startup and resource-memory management rather than a player-facing gameplay mechanic.",
+      "rationale": "The current code backs the records with HSD/OS and lbMemory allocators and reports the six logical labels together with total main-RAM and ARAM extents.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows registry entries backed by the HSD main-memory and lbMemory allocator systems."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Names the six logical regions and reports total main-RAM and ARAM ranges."
+        }
+      ]
+    },
+    {
+      "id": "fact:f52fedb0-6bec-434e-9f12-54e09b678fad",
+      "target_id": "target:data:main/melee/lb/lbheap:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "One zero-initialized, translation-unit-local `struct lbHeap_HeapState` object of size `0xB8`. Its layout is `void* arena_lo`, `void* arena_hi`, `uintptr_t aram_lo`, `uintptr_t aram_hi`, followed by `struct Heap heap_array[6]`; each `0x1C`-byte entry stores an OS heap ID, lbMemory handle, start address, byte size, allocator type, transient flag, and `LbHeapStatus`.",
+      "rationale": "The shortened private header still resolves at head and explicitly provides the object declaration, field order, array extent, entry fields, and size assertions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.static.h#L1-L31",
+          "why": "Provides the complete current `Heap` and `lbHeap_HeapState` layouts and their asserted sizes."
+        }
+      ]
+    },
+    {
+      "id": "fact:3c8b4f36-3508-4767-b316-b53b858a6e01",
+      "target_id": "target:data:main/melee/lb/lbheap:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides lbHeap's shared mutable state: captured main-RAM and ARAM boundaries plus a six-entry logical heap registry used by initialization, reconstruction, allocation, freeing, lifecycle queries, compaction, and diagnostics.",
+      "rationale": "The current private header defines one static state object containing both boundary pairs and six heap records, while the current implementation uses that object throughout the subsystem.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.static.h#L1-L31",
+          "why": "Defines the static lbHeap state object, its four boundaries, and its six heap records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows reconstruction and indexed heap APIs consuming and updating the shared state."
+        }
+      ]
+    },
+    {
+      "id": "fact:f23f2ac5-9b92-4edc-aa3d-7a3a37dade71",
+      "target_id": "target:data:main/melee/lb/lbheap:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Reset places each entry in `LbHeapStatus_Destroy` with invalid backend identifiers, zero start and size, type 1, and `transient == 1`. Initialization configures slots 2 through 5 without creating them. Reconstruction destroys created transient subordinate heaps, reserves non-transient ranges, creates slots 0 and 1 over the remaining main-RAM and ARAM ranges, and creates destroyed non-transient subordinate heaps. Allocation returns null for a destroyed slot, while freeing requires a created slot.",
+      "rationale": "The reset and lifecycle helpers at head still establish the initial values and guarded transitions, while initialization, reconstruction, allocation, and free paths retain the described behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Defines all reset values, guarded create and destroy transitions, and the transient teardown check."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows retained-range handling, heap recreation, null allocation for a destroyed slot, and the created-state free guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows all six entries being reset before descriptor metadata is applied."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:.data": [
+    {
+      "id": "fact:f7e4a77b-5185-4e48-ab46-bef1e7cf68f9",
+      "target_id": "target:data:main/melee/lb/lbheap:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`lbHeap_80015F3C` walks `lbHeap_803BA380`, using each row's index to select a heap record and copying its type and byte size before deriving its start from an arena boundary or predecessor heap. `lbHeap_80015DF8` pairs each index from 0 through 5 with `lbHeap_803BA448[i]` and the corresponding heap record, then sends the label and computed capacity values to `OSReport`.",
+      "rationale": "The initialization and reporting loops still provide the complete descriptor-to-registry and label-to-report flows.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows both the indexed label-report flow and descriptor-driven heap metadata initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:9d1dc7b9-9ba8-4251-9841-bb22b1ceca05",
+      "target_id": "target:data:main/melee/lb/lbheap:.data",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports Melee's engine-level main-RAM and ARAM partition scheme and developer heap diagnostics. The descriptor rows define the Seq, Stay, AllM, and AllA subordinate regions, while the labels expose all six logical regions\u2014HSD, ARAM, Seq, Stay, AllM, and AllA\u2014in diagnostic output.",
+      "rationale": "The descriptor rows at head configure indices 2 through 5 with main-RAM or ARAM allocator types and fixed sizes, and the report labels identify those entries as Seq, Stay, AllM, and AllA alongside HSD and ARAM.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Defines subordinate region indices, allocator types, predecessor references, and sizes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows the six logical labels, diagnostic output, and descriptor placement within main RAM and ARAM."
+        }
+      ]
+    },
+    {
+      "id": "fact:39f617d9-6b47-4f6f-ac4f-c5401327825f",
+      "target_id": "target:data:main/melee/lb/lbheap:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An initialized-data section containing at least `struct lbHeap_HeapDesc lbHeap_803BA380[5]`, whose rows contain four `u32` fields (`idx`, `type`, `prev_idx`, and `size`), and a six-element `char*` label table `lbHeap_803BA448`. The descriptor table's fifth row is an index-6 sentinel.",
+      "rationale": "The head source explicitly defines the descriptor structure and five initialized rows, including the sentinel, and defines six initialized label pointers used by the report loop.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Defines the four-word descriptor structure and five initialized rows, including the index-6 terminator."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Defines the six-element initialized heap-label table and shows its indexed use."
+        }
+      ]
+    },
+    {
+      "id": "fact:b2d4cb6e-9210-42d6-a982-67e81adb1844",
+      "target_id": "target:data:main/melee/lb/lbheap:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Holds lbHeap's initialized configuration and reporting metadata: a fixed descriptor table defines subordinate heap partitions, while a six-entry label table and report strings identify logical heaps in developer memory diagnostics.",
+      "rationale": "At head, the initialized descriptor rows supply heap metadata to startup initialization, while the initialized label and format strings are consumed by the diagnostic report.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Defines the initialized five-row subordinate-heap descriptor table."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Defines and consumes the six heap labels and consumes the descriptor table during initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:48ddddb8-d17d-45f4-a23e-1e498defd6cc",
+      "target_id": "target:data:main/melee/lb/lbheap:.data",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The descriptor rows configure slots 2 through 5 without creating them: slot 2 is a `0x800`-byte type-1 region at the main-RAM lower bound; slot 3 is a `0x4F8800`-byte type-1 region chained after slot 2; slot 4 is a `0x64B400`-byte type-2 region placed backward from the main-RAM upper bound; and slot 5 is a `0x96C800`-byte type-4 region at the ARAM lower bound. The index-6 row terminates the walk, while the label table remains read-only reporting metadata.",
+      "rationale": "The initialized rows provide each slot's exact type, predecessor, and size, while the initialization switch at head establishes their placements and leaves lifecycle status unchanged after reset.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Provides the exact four configuration rows, sentinel row, and destroyed reset state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows descriptor placement branches, sentinel termination, and fixed-order observational use of the labels."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:.sdata": [],
+  "main/melee/lb/lbheap:lbHeap_800158D0": [
+    {
+      "id": "fact:4fe8292d-b2e7-4217-8c16-c45624427ff0",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158D0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The arguments select a logical heap and write its transient flag in `lbHeap_80431FA0.heap_array`. DVD scene-transition setup produces these values from its persistence mode; the paired getter and heap reconstruction later consume the stored flags.",
+      "rationale": "The setter establishes the indexed write, the DVD transition path supplies the values, and the adjacent getter and reconstruction path read the same field.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the indexed transient write, paired read, and transient destruction consumer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L732-L813",
+          "why": "Shows scene preload modes producing transient-policy writes and subsequent queries."
+        }
+      ]
+    },
+    {
+      "id": "fact:47ca2973-c188-48c0-afe8-9fd8b229a25b",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158D0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the heap-tagging primitive used by Melee's scene-transition preload persistence system, marking asset heaps as reclaimable or persistent before memory is rebuilt for the incoming scene.",
+      "rationale": "The scene-transition routine maps preload modes to zero-or-one tags for heaps 2 through 5, and reconstruction uses those tags to reclaim or retain their ranges.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L732-L813",
+          "why": "Shows scene-transition preload modes selecting transient or persistent tags."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows transient-tagged created heaps becoming eligible for destruction."
+        }
+      ]
+    },
+    {
+      "id": "fact:0abefc31-2f16-4873-a809-2996197667e6",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158D0",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbHeap_SetTransient",
+      "rationale": "The current body directly assigns the selected heap's `transient` field and is immediately followed by its direct getter; the exact historical spelling remains unconfirmed.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `lbHeap_SetTransient`.",
+      "confidence": 0.86,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the adjacent setter/getter pair operating directly on `Heap.transient`."
+        }
+      ]
+    },
+    {
+      "id": "fact:e6c90eba-8b86-4a77-a606-3171815c3093",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158D0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Setter with signature `void (int heap_index, int transient)`. The first parameter directly indexes the six-entry registry, and observed callers use the second as a Boolean-like value where 1 is transient and 0 is persistent. The body performs no bounds or value validation.",
+      "rationale": "The complete head body establishes the unchecked two-integer setter signature, and the scene-transition caller supplies logical heap indices with zero-or-one policy values.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Provides the complete direct `void(int, int)` setter body with unchecked indexed assignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L732-L813",
+          "why": "Shows calls for logical heaps 2 through 5 using transient values zero and one."
+        }
+      ]
+    },
+    {
+      "id": "fact:2d52bc5e-1590-42e1-81f7-f64c7cc99d4f",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158D0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Sets whether one indexed lbHeap entry is transient. Reconstruction later uses the flag to decide whether the heap may be destroyed and reclaimed or must have its occupied range preserved.",
+      "rationale": "The function at head directly writes the policy field; reconstruction tests one to destroy a created subordinate heap and zero to preserve its occupied range.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the direct transient-field assignment and teardown of created entries marked transient."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows non-transient entries reserving arena ranges and being created when needed."
+        }
+      ]
+    },
+    {
+      "id": "fact:33c9ba53-d16e-459b-940d-f0e0da16b419",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158D0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The function changes only transient-policy state and performs no immediate allocator operation. A value of 1 makes a created subordinate heap eligible for destruction during reconstruction; a value of 0 causes its occupied range to constrain reconstructed arena bounds and causes it to be created if currently destroyed.",
+      "rationale": "The current setter performs only a field assignment, while reconstruction gives the two policy values their deferred destroy, preserve, and create consequences.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the policy-only assignment and destruction of created transient entries."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows non-transient ranges constraining allocators and destroyed non-transient entries being created."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:lbHeap_800158E8": [
+    {
+      "id": "fact:08ab84a6-f797-466a-80f5-e67aad5620fe",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158E8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The heap index selects a registry record and the function returns its transient flag unchanged. The adjacent setter and scene preload mode produce the stored values; DVD cleanup and `lbHeap_80015900` consume them to drain transient resources, destroy transient heaps, and preserve non-transient ranges.",
+      "rationale": "The setter/getter bodies establish the direct data path, while current DVD and reconstruction code show the value's production and downstream use.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the setter, getter, and transient-created-heap destruction path."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L732-L813",
+          "why": "Shows scene-transition policy writes and cleanup queries for logical heaps 2 through 5."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows non-transient flags controlling range preservation and subordinate heap creation."
+        }
+      ]
+    },
+    {
+      "id": "fact:0be4e4fe-07ef-4dc7-ba7c-9f8fc9a2db2e",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158E8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports scene-transition heap persistence for preloaded assets by exposing whether each preload heap is disposable or retained across the next heap reconstruction.",
+      "rationale": "DVD transition cleanup queries the flag to drain disposable heaps, and reconstruction uses the same flag to reclaim or retain memory.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L732-L813",
+          "why": "Shows transient queries integrated into scene-transition preload cleanup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows transient flags controlling destruction of created resource heaps."
+        }
+      ]
+    },
+    {
+      "id": "fact:35693dc9-213e-461b-9618-c21fdbe0f604",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158E8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbHeap_GetTransient",
+      "rationale": "The routine at head is the direct read-only counterpart to the immediately preceding transient setter; exact historical spelling remains unconfirmed.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbHeap_GetTransient`.",
+      "confidence": 0.78,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the adjacent transient setter/getter pair and direct return of the field."
+        }
+      ]
+    },
+    {
+      "id": "fact:ffdfe135-baa5-45be-a710-fea5c7abdfe5",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158E8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `int (int heap_index)`. The parameter directly indexes the six-entry registry and the return is the selected record's integer transient flag, used with the effective domain 0 for persistent and 1 for transient. The body performs no bounds validation or normalization.",
+      "rationale": "The current declaration and complete body establish the integer signature and unchecked field return, while the private layout and callers establish the six-entry registry and effective zero-or-one domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows unchecked direct indexing and return of the integer transient field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.static.h#L1-L31",
+          "why": "Defines the six-entry array and signed integer transient field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.h#L1-L19",
+          "why": "Declares the function with one integer parameter and integer result."
+        }
+      ]
+    },
+    {
+      "id": "fact:b5c97bcc-978b-4b17-8b31-c8eba82f9b23",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158E8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns the transient flag of one indexed logical heap. DVD scene-transition code uses the query to decide whether resources allocated from that heap must be drained before heap reconstruction.",
+      "rationale": "The current accessor directly returns the selected field, and the DVD transition cleanup loops test that result before draining resources.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the complete indexed transient-field getter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L732-L813",
+          "why": "Shows the getter controlling cleanup of scene-transition preload heaps."
+        }
+      ]
+    },
+    {
+      "id": "fact:37d01597-0bdd-448f-bece-3c1a9030515e",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_800158E8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "This is a read-only snapshot accessor and does not change heap lifecycle state. A returned one designates the selected heap as disposable during reconstruction, while zero designates a range that reconstruction preserves and creates if necessary.",
+      "rationale": "The body at head contains only an indexed field return; reconstruction destroys created entries marked one and preserves or creates entries marked zero.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the read-only accessor and destruction behavior for transient value one."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows range preservation and creation behavior for transient value zero."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:lbHeap_80015900": [
+    {
+      "id": "fact:59a09650-1f6c-4b5a-905a-ff83ab60e217",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015900",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine reads `transient`, `status`, `type`, `start`, and `size` from slots 2 through 5. Transient created heaps are destroyed. Retained type-1, type-2, and type-4 heaps constrain the main-RAM lower, main-RAM upper, and ARAM lower bounds respectively. The resulting ranges flow into `HSD_CreateMainHeap` and `lbMemory_800154D4`, whose identifiers and ranges populate slots 0 and 1; non-transient subordinate slots are then created if destroyed.",
+      "rationale": "The current teardown loop reads transient and lifecycle state, and the remaining function scans retained metadata, calls both allocator constructors, populates base entries, and recreates retained subordinate entries.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows transient checks and status-guarded destruction for slots 2 through 5."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows type-dependent boundary updates, allocator calls, base-registry writes, and final subordinate creation."
+        }
+      ]
+    },
+    {
+      "id": "fact:1eca8c2e-4aff-4656-a4f0-1f8075a5d1a6",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015900",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes scene-transition heap persistence: retained asset heaps keep their address ranges while disposable heaps are reclaimed so the surrounding main-RAM and ARAM allocators can expand into released space.",
+      "rationale": "The DVD transition path chooses which preload heaps are transient, and the reconstruction code destroys those heaps while using retained ranges to constrain the rebuilt allocators.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L732-L813",
+          "why": "Shows scene preload modes selecting transient and persistent heaps."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows disposal of created heaps marked transient."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows retained ranges constraining the rebuilt main-RAM and ARAM allocators."
+        }
+      ]
+    },
+    {
+      "id": "fact:3e1252ab-fd89-46b9-ac83-3d3618138fd8",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015900",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbHeap_RebuildPersistentLayout",
+      "rationale": "The head routine destroys transient heaps and reconstructs both base allocators specifically around retained subordinate ranges; exact historical spelling remains unconfirmed.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `lbHeap_RebuildPersistentLayout`.",
+      "confidence": 0.76,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows transient resource heaps being selected for teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows main-RAM and ARAM allocator layout being rebuilt around non-transient ranges."
+        }
+      ]
+    },
+    {
+      "id": "fact:d354212a-89d7-4750-a5d8-27f90ea84f2f",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015900",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void lbHeap_80015900(void)`. It is a synchronous global-state heap-layout transition with no explicit parameters or return value; its inputs and outputs reside in `lbHeap_80431FA0` and the allocator backends referenced by its entries.",
+      "rationale": "The current parameterless definition reads the global registry and writes reconstructed ranges, handles, types, and statuses back to global heap-manager and allocator state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the parameterless definition and the initial global registry inputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows resulting ranges, handles, types, and statuses being written to global state."
+        }
+      ]
+    },
+    {
+      "id": "fact:16dc21a7-dd1e-4dfb-a04f-f35ba10d1754",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015900",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Rebuilds the lbHeap layout around resource heaps selected to persist. It destroys transient heaps, reserves retained heap ranges, recreates the HSD main heap and ARAM allocator over the remaining space, and ensures each retained subordinate heap has an active backend.",
+      "rationale": "The head function retains the ordered transient teardown, retained-range scan, base-allocator recreation, and final creation pass for retained subordinate heaps.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows the transient subordinate-heap teardown phase."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows retained-range calculation, base heap recreation, and retained subordinate-heap creation."
+        }
+      ]
+    },
+    {
+      "id": "fact:85c3ca33-e65e-4b36-b6d3-f62b5386fc5c",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015900",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For resource slots 2 through 5, `transient == 1` permits a created heap to transition to destroyed, while `transient == 0` preserves its range and permits a destroyed heap to transition to created. Slots 0 and 1 are established as created HSD-main and ARAM heaps over the recomputed ranges. Helper guards avoid duplicate backend destruction or creation.",
+      "rationale": "The guarded helper bodies at head define the create/destroy transitions, and the reconstruction passes apply them according to transient policy before and after recreating slots 0 and 1.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Defines status-guarded create and destroy transitions and applies destruction to transient resource slots."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows persistent-range preservation and creation of base and retained subordinate heaps."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:lbHeap_80015BB8": [
+    {
+      "id": "fact:459bc849-5868-4f4c-8b9a-06721b7f7504",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BB8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The heap index selects a registry entry and the function returns its stored `status` unchanged. Reset, creation, destruction, and reconstruction produce that field; scene preload setup consumes created results for persistence, while DVD registration consumes destroyed results as an unavailable-heap error condition.",
+      "rationale": "The current reset and lifecycle helpers produce the status values, the accessor returns them directly, and current callers retain both downstream interpretations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows reset and helper transitions producing created and destroyed statuses."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows base-heap status writes and the direct indexed status accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gm/gm_1A3F.c#L1-L100",
+          "why": "Shows created results being mapped to scene preload persistence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L116-L166",
+          "why": "Shows destroyed results entering an unavailable-heap assertion path."
+        }
+      ]
+    },
+    {
+      "id": "fact:e352c0f3-eea5-4b4d-8371-6b5e64a5cf80",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BB8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the availability query for Melee's logical main-RAM and ARAM heaps. Resource-loading and scene-transition code use it to avoid registering preload storage against a destroyed heap and to retain active preload heaps across reconstruction.",
+      "rationale": "Current DVD code rejects registration against a destroyed destination heap, while current scene-preload code maps active heap statuses to persistence flags.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L116-L166",
+          "why": "Shows destination-heap lifecycle validation during preload registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gm/gm_1A3F.c#L1-L100",
+          "why": "Shows active heap states mapped to scene preload persistence."
+        }
+      ]
+    },
+    {
+      "id": "fact:5f838bf1-dcfd-40fe-bc57-2dbf192abd97",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BB8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbHeap_IsDestroyed",
+      "rationale": "Although the function now has an explicit `LbHeapStatus` return type, all observed callers use its created-zero/destroyed-one result as a destroyed-state test; exact historical spelling remains unconfirmed.\n\nNaming cleanup: single proposed identifier\nPrior naming claim: A plausible predicate-style name is `lbHeap_IsDestroyed`.",
+      "confidence": 0.7,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.h#L1-L19",
+          "why": "Defines created as zero and destroyed as one and declares the enum-valued function."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L116-L166",
+          "why": "Demonstrates predicate-style use where a nonzero result denotes a destroyed destination heap."
+        }
+      ]
+    },
+    {
+      "id": "fact:89c9a0a4-7fb0-4ab8-980f-caa8f3b86ce2",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BB8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `LbHeapStatus (int heap_index)`. The parameter directly indexes the six-entry registry and the result is the selected entry's lifecycle enum: `LbHeapStatus_Create` is zero and `LbHeapStatus_Destroy` is one. The body performs no explicit range validation.",
+      "rationale": "The current header and definition supersede the prior effective-`bool` description by explicitly typing the return as `LbHeapStatus`; the private layout confirms the six-entry array.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.h#L1-L19",
+          "why": "Provides the explicit enum return type, integer parameter, and enum values."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.static.h#L1-L31",
+          "why": "Defines the six-entry registry and status field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows direct unchecked indexing and return of the status field."
+        }
+      ]
+    },
+    {
+      "id": "fact:072d1b90-9989-4643-825b-3350ffeffa1c",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BB8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns the lifecycle status of one indexed logical lbHeap slot. Callers use `LbHeapStatus_Destroy` as an unavailable-heap condition and `LbHeapStatus_Create` as an active heap that may be retained or used for resource registration.",
+      "rationale": "The accessor at head returns the lifecycle field unchanged; the enum defines created as zero and destroyed as one, while current scene and DVD callers use those results for persistence and availability decisions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows the complete accessor directly returning the selected status field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.h#L1-L19",
+          "why": "Defines the two-value lifecycle enum and declares the enum-valued accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L116-L166",
+          "why": "Shows a destroyed or nonzero result treated as invalid during preload registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gm/gm_1A3F.c#L1-L100",
+          "why": "Shows created or zero results used to mark scene preload heaps persistent."
+        }
+      ]
+    },
+    {
+      "id": "fact:d2b65dd5-6d6d-49f0-975c-975412e103e9",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BB8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "This is a read-only snapshot accessor: it neither creates nor destroys a heap and does not alter the selected record. It returns `LbHeapStatus_Create` or `LbHeapStatus_Destroy` exactly as stored and performs no bounds check or synchronization.",
+      "rationale": "The complete accessor body at head performs only an unchecked indexed field read, while reset and separate create/destroy helpers perform lifecycle mutations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows the complete direct-read accessor with no mutation, validation, or interrupt exclusion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows lifecycle transitions being performed by separate reset, create, and destroy helpers."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:lbHeap_80015BD0": [
+    {
+      "id": "fact:f9468698-4d3a-4bc1-ad7a-fbad4179f138",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BD0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The heap ID selects `lbHeap_80431FA0.heap_array[heap_id]` and the size flows unchanged to the chosen allocator. Type 0 temporarily selects the record's HSD heap ID; other types pass the record's lbMemory handle to `lbMemory_80014FC8`, with type 3 exposing the returned handle's low address. Returned pointers become archive images, archive descriptors, and DVD preload buffers.",
+      "rationale": "The current allocator wrapper traces both inputs and the result, while current archive and DVD callers demonstrate concrete resource-buffer consumers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Traces record lookup, allocator selection, size forwarding, conversion, and return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarchive.c#L52-L69",
+          "why": "Shows returned pointers becoming a DAT image and `HSD_Archive` descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L250-L288",
+          "why": "Shows returned pointers becoming raw preload and optional archive storage."
+        }
+      ]
+    },
+    {
+      "id": "fact:2a714acd-9c30-4851-82ca-ff0384b97446",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BD0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements allocation within Melee's engine-level logical main-RAM and ARAM heap system, supplying storage used by DAT archive loading and prioritized DVD asset preloading.",
+      "rationale": "The wrapper dispatches across HSD and lbMemory backends, and current callers use its results for archive and preload resource storage.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows logical heap allocation across the HSD and lbMemory backends."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarchive.c#L52-L69",
+          "why": "Demonstrates archive-loading allocations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L250-L288",
+          "why": "Demonstrates DVD preload-cache allocations."
+        }
+      ]
+    },
+    {
+      "id": "fact:6f4f9d66-d122-4e95-a34c-380d8137363c",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BD0",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbHeap_Alloc",
+      "rationale": "The function is the allocation half of the adjacent indexed allocation/free API and returns storage for a requested byte count; exact historical spelling remains unconfirmed.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbHeap_Alloc`.",
+      "confidence": 0.78,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows the allocation routine and adjacent backend-symmetric free routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:abd856ca-4824-48ee-9f7b-76c270e35b5c",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BD0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void* (int heap_id, size_t size)`. The first parameter selects one of six heap records and the second is a byte count passed to the selected backend. The internal result is an HSD address for type 0, an lbMemory handle for ordinary custom heaps, or that handle's `x4_lo` address for type 3; a destroyed heap returns null.",
+      "rationale": "The current declaration and definition now explicitly type the byte count as `size_t`, while the body establishes each result representation and the inactive return.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.h#L1-L19",
+          "why": "Declares the function as returning `void*` from an integer heap ID and `size_t` byte count."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows backend dispatch, result representations, and null return for destroyed heaps."
+        }
+      ]
+    },
+    {
+      "id": "fact:5f1b63a9-f862-4525-a793-c6ced956b193",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BD0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Allocates a requested number of bytes from one selected lbHeap slot. It returns null for a destroyed slot, dispatches a created slot to either HSD or lbMemory, and converts the base ARAM backend's handle result to its address for callers.",
+      "rationale": "The current body directly shows the lifecycle guard, backend dispatch, type-3 conversion, and result return.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows heap-slot selection, null inactive path, backend calls, ARAM result conversion, and return."
+        }
+      ]
+    },
+    {
+      "id": "fact:ee3a246b-8a3e-4cfc-a3c6-f5b9a456f7f3",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015BD0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The allocation transaction runs with interrupts disabled and restores the prior interrupt state. A destroyed heap returns null without allocator activity. A created type-0 heap temporarily replaces and then restores the selected HSD heap; created nonzero types allocate through lbMemory without changing HSD selection.",
+      "rationale": "The current function explicitly brackets the status check, temporary HSD selection, backend branch, and return with interrupt disable/restore calls.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows interrupt exclusion, lifecycle guard, temporary HSD state, backend selection, and restoration."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:lbHeap_80015CA8": [
+    {
+      "id": "fact:aae9f01e-9888-44dc-aa18-20e9af327fbf",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015CA8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The first argument indexes `lbHeap_80431FA0.heap_array`, and the second argument flows unchanged to the selected deallocator. For a type-0 record, the record's heap ID temporarily becomes the active HSD heap before the pointer reaches `HSD_Free`; for any other type, the record's lbMemory handle and the pointer flow to `lbMemFreeToHeap`. Callers supply heap-owned archive images, archive descriptors, and DVD preload buffers through this interface.",
+      "rationale": "The target body completely traces both inputs through the registry lookup and backend branches. The archive and preload-cache callers independently show concrete allocation addresses and their owning heap indices flowing into the routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T08:21:46.589Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L211-L226",
+          "why": "Traces the heap index and pointer through record lookup, HSD heap selection or custom-handle selection, and the final free call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarchive.c#L147-L153",
+          "why": "Shows heap-0 archive-image and descriptor addresses flowing into the deallocator."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L31-L41",
+          "why": "Shows each preload entry's heap field being paired with its archive and raw-data addresses for deallocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:f80d8817-161a-47f7-b84d-1dce3b42d9d9",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015CA8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the deallocation operation within Melee's engine-level main-RAM and ARAM heap management. It reclaims memory used by systems such as DAT archive loading and prioritized DVD asset preloading; it is resource-lifecycle infrastructure rather than a player-facing gameplay mechanic.",
+      "rationale": "The implementation routes frees through either the HSD main-memory backend or the custom lbMemory backend selected by the logical heap record. Concrete callers use it to tear down loaded DAT archives and cached DVD resources, grounding its role in engine asset-memory reclamation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T08:21:46.589Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L211-L226",
+          "why": "Shows logical-heap deallocation dispatch across the HSD and lbMemory backends."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarchive.c#L147-L153",
+          "why": "Demonstrates use of the operation during DAT archive resource teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L31-L41",
+          "why": "Demonstrates use of the operation during DVD preload-cache resource reclamation."
+        }
+      ]
+    },
+    {
+      "id": "fact:48048ddf-d8f3-4287-8977-ff81dfe8ea15",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015CA8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbHeap_Free",
+      "rationale": "The current source still shows this routine as the deallocation half of the adjacent indexed allocation/free API, dispatching an address to the selected heap backend; exact historical spelling remains unconfirmed.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbHeap_Free`.",
+      "confidence": 0.82,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows the adjacent allocation and backend-symmetric deallocation routines."
+        }
+      ]
+    },
+    {
+      "id": "fact:4d5773d8-586a-4c2b-be46-833409cde451",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015CA8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Effective signature: `void (int heap_index, void* ptr)`. `heap_index` directly selects a record in the manager's heap array, and `ptr` is a generic allocation address consumed by the selected backend's free operation. The function returns no value and performs no explicit index or null-pointer validation.",
+      "rationale": "The matched definition provides the return and parameter types, directly subscripts the heap array with the first parameter, and passes the second parameter unchanged to `HSD_Free` or `lbMemFreeToHeap`. The archive and preload-cache callers supply addresses belonging to the same heap index, confirming the parameters' operational domains.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T08:21:46.589Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L211-L226",
+          "why": "Provides the complete signature and shows the index and pointer used directly for record selection and backend deallocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L31-L41",
+          "why": "Shows callers pairing an entry's owning heap index with generic archive and raw-data allocation addresses."
+        }
+      ]
+    },
+    {
+      "id": "fact:0a5a5a6e-1900-4547-b855-c4a667994aac",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015CA8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Frees an allocation from one selected lbHeap slot. It requires the slot to be active and dispatches the supplied address to either the HSD main-memory deallocator or the custom lbMemory deallocator associated with that slot.",
+      "rationale": "The matched body indexes the shared heap registry, asserts that the selected record is created, and then calls either `HSD_Free` under the record's HSD heap ID or `lbMemFreeToHeap` with the record's custom-heap handle. Archive and DVD-cache teardown callers pass their owned allocation addresses to this routine, confirming that it is the heap manager's general deallocation entry point.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T08:21:46.589Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L211-L226",
+          "why": "Directly shows heap-slot selection, active-state validation, backend dispatch, and deallocation of the supplied pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarchive.c#L147-L153",
+          "why": "Shows DAT archive teardown using the function to release both a loaded file image and its archive descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L31-L41",
+          "why": "Shows preload-cache teardown using the function to release optional archive and raw-file allocations from their owning heap."
+        }
+      ]
+    },
+    {
+      "id": "fact:c278fce1-072a-4d7e-af5b-e90886b69a6c",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015CA8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The complete deallocation transaction runs with interrupts disabled and restores the caller's prior interrupt state afterward. The selected heap must be in `LbHeapStatus_Create`, or an assertion is raised. A type-0 heap temporarily replaces the globally selected HSD heap and restores the previous selection after freeing; a nonzero type leaves HSD heap selection unchanged and frees through lbMemory. The routine does not change the heap record's lifecycle status.",
+      "rationale": "The matched body explicitly brackets record access and deallocation with interrupt disable and restore calls, asserts the created state, and brackets the HSD free with save, select, and restore operations. No assignment modifies the record's status or other lifecycle fields.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T08:21:46.589Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L211-L226",
+          "why": "Directly shows interrupt exclusion, the created-state guard, temporary HSD heap-state transition, backend branch, and absence of heap-record mutation."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:lbHeap_80015D6C": [
+    {
+      "id": "fact:40ab54f6-81d2-4901-9579-43eaff396541",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015D6C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`heap_index` selects a registry entry. For indices above 1, that entry's lbMemory handle, the callback, and callback argument flow to `lbMemory_8001529C`. lbMemory stores the callback context, scans allocation handles from the heap's low address, starts relocation at the first gap, advances through remaining handles, and invokes the stored callback at completion. The wrapper returns the compactor's immediate zero-or-one status.",
+      "rationale": "The current wrapper establishes selection and forwarding, and the current compactor implementation establishes the scan, relocation chain, callback, and result.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Traces the heap index and callback arguments into lbMemory and propagates its result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Traces stored callback state, gap scanning, relocation progression, and final callback invocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:f4eb023f-f236-4bb8-9b23-59832cae96d0",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015D6C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements compaction within Melee's main-RAM and ARAM heap-management infrastructure. The DVD preload cache uses it after freeing stale resources and before allocating new disc-resource buffers, deferring allocation until relocation completes when necessary.",
+      "rationale": "The custom allocator packs live blocks, and the current DVD preload path invokes the wrapper after cleanup and proceeds immediately only when its result is zero.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Shows live allocations being compacted toward the selected heap's low address."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L178-L397",
+          "why": "Shows stale preload resources being freed, compaction requested, and allocation deferred or performed immediately."
+        }
+      ]
+    },
+    {
+      "id": "fact:2f0d56c6-1984-489b-9879-4aad994ec9a8",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015D6C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbHeap_Compact",
+      "rationale": "The delegated operation detects gaps and relocates live allocations toward the heap's low bound, which is heap compaction; exact historical spelling remains unconfirmed.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbHeap_Compact`.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Identifies the function as an indexed wrapper around the custom lbMemory operation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Shows allocations being scanned and relocated to contiguous lower addresses."
+        }
+      ]
+    },
+    {
+      "id": "fact:bff4d986-939f-4099-98ca-6ef08c535da5",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015D6C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `int (u32 heap_index, void (*callback)(u32), u32 callback_arg)`. The heap index selects an lbHeap record; lbMemory stores the callback and argument until asynchronous compaction completes. The return is Boolean-like: 1 when relocation started and 0 when no relocation was needed or the index is 0 or 1.",
+      "rationale": "The current header and wrapper supply the exact signature and slot guard, while the lbMemory implementation stores and invokes the callback and exposes the zero-or-one result domain.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.h#L1-L19",
+          "why": "Declares the exact callback-bearing signature."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows heap selection, the slot-0/1 guard, argument forwarding, and integer result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Shows callback retention, completion invocation, and the zero-or-one return domain."
+        }
+      ]
+    },
+    {
+      "id": "fact:4763cfe3-df86-41e8-9d1a-9d6bb2eb500c",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015D6C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Requests compaction of one custom lbHeap slot so live allocations are packed toward its low address. Slots 0 and 1 return immediately with no work; other slots delegate to lbMemory and report whether an asynchronous relocation sequence began.",
+      "rationale": "The current wrapper retains the slot guard and delegation, while the current lbMemory implementation scans for the first gap and returns one only when relocation starts.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows no-op handling for slots 0 and 1 and delegation for custom slots."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Shows gap detection, relocation initiation, and zero-or-one result behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:8f0dbbb8-3539-476c-9031-282d7a4944c9",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015D6C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The wrapper disables interrupts around registry access and restores the prior state before returning. Slots 0 and 1 synchronously return 0. A contiguous custom heap also returns 0 without callback execution. If a gap exists, lbMemory returns 1 after starting asynchronous relocation; chained completion advances through all handles and invokes the callback only when compaction finishes.",
+      "rationale": "The wrapper supplies the interrupt and slot guards, while lbMemory supplies the no-gap, relocation-start, chained-progress, and completion states.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows interrupt exclusion, slot guard, delegation, restoration, and returned status."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Shows the no-work return, asynchronous relocation start, chained moves, and callback completion."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:lbHeap_80015DF8": [
+    {
+      "id": "fact:006fdf79-b5bb-4ffa-8573-65ebac8560ab",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015DF8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For indices 0 through 5, the function selects both a display label and heap record. Created type-0 entries pass their OS heap ID to `OSCheckHeap`; other created entries pass their lbMemory handle to `lbMemory_80014F7C`. The returned byte count and its complement against configured size are converted to kilobytes and printed. Stored high-minus-low boundaries produce total main-RAM and ARAM outputs.",
+      "rationale": "The current loop and final calculations explicitly establish each input, backend query, arithmetic transformation, and report consumer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows label and record selection, backend queries, capacity arithmetic, and arena-bound subtraction."
+        }
+      ]
+    },
+    {
+      "id": "fact:807abe88-1630-4866-81c0-5c4c45586530",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015DF8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the heap portion of Melee's developer runtime-diagnostic suite. An X-plus-D-pad-Right controller chord invokes it immediately before class, object-allocation, entity-count, thread, and leak reports.",
+      "rationale": "The current controller handler places this function first in a coordinated developer diagnostic sequence, and the function emits the heap snapshot consumed by that sequence.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L96-L145",
+          "why": "Shows the X-plus-D-pad-Right chord invoking the heap report before the other diagnostic reports."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows the detailed formatted heap and arena snapshot."
+        }
+      ]
+    },
+    {
+      "id": "fact:319c127c-797e-4155-85c7-f844c022d13c",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015DF8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbHeap_Report",
+      "rationale": "The function prints an explicit `[lbHeap] -- Report --` banner and performs exclusively reporting work, strongly supporting this conventional name though no recovered symbol confirms it.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `lbHeap_Report`.",
+      "confidence": 0.88,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows the explicit lbHeap report banner and exclusively diagnostic behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:1230189e-d97c-4dc6-a609-313cbd0d4c06",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015DF8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Synchronous diagnostic function with signature `void lbHeap_80015DF8(void)`. It accepts no parameters, returns no value, reads module-global heap records and arena boundaries, and emits formatted output through `OSReport`.",
+      "rationale": "The current definition establishes the exact signature and all global inputs and reporting outputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Provides the signature and shows global-state reads and `OSReport` output."
+        }
+      ]
+    },
+    {
+      "id": "fact:4fa4760f-16fb-4a4d-b842-bedacd7952bf",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015DF8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Emits a developer-facing snapshot of lbHeap, reporting each logical heap's lifecycle state, used-versus-available capacity when created, configured total size, and total main-RAM and ARAM ranges.",
+      "rationale": "The current body prints a report banner, iterates over all six labeled records, queries the appropriate allocator, reports destroyed entries, and finishes with both arena totals.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows the complete six-entry heap report and final main-RAM and ARAM totals."
+        }
+      ]
+    },
+    {
+      "id": "fact:3eaea260-cc41-489a-89b7-eb8f7bfd7e8a",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015DF8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The function is observational and does not transition lbHeap records. A created entry selects backend-specific capacity accounting\u2014type 0 through `OSCheckHeap`, all other types through lbMemory. A non-created entry prints `destroy` while still reporting configured size. Both arena totals are always printed after the six-entry loop.",
+      "rationale": "The current function contains only reads and reports; its lifecycle and type branches determine output without mutating heap state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows the created/destroyed branches, backend selection, output ordering, and absence of state writes."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:lbHeap_80015F3C": [
+    {
+      "id": "fact:2de6ea10-86f3-4d1e-a85f-43e89614c468",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015F3C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`HSD_GetNextArena` supplies main-RAM lower and upper bounds and `lbMemory_800154BC` supplies ARAM bounds. After six resets, descriptor rows are read until index 6. Each row selects a heap slot and writes its type and size; its start comes from a memory boundary or is computed relative to a predecessor heap according to allocator type.",
+      "rationale": "The current implementation directly traces both bound queries and every descriptor field into the selected registry entries.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L121-L240",
+          "why": "Shows `HSD_GetNextArena` returning the saved HSD main-heap arena bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Traces main-RAM and ARAM bounds and descriptor fields into heap records."
+        }
+      ]
+    },
+    {
+      "id": "fact:c727a4a3-6c46-4fcd-a645-bb6300c69adc",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015F3C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements bootstrap layout for Melee's main-RAM and ARAM heap partitions, preparing logical memory regions needed by later resource-loading and subsystem initialization code rather than a player-visible mechanic.",
+      "rationale": "The function constructs fixed partition metadata from HSD and ARAM boundaries, and current startup code invokes it immediately before DVD and other resource-oriented systems.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows fixed main-RAM and ARAM partition metadata being constructed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L142-L220",
+          "why": "Places lbHeap initialization before DVD, ARQ, snapshot, and other resource systems."
+        }
+      ]
+    },
+    {
+      "id": "fact:3618b188-013d-4979-bcc4-efc64172f4bc",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015F3C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbHeap_Init",
+      "rationale": "The parameterless routine is invoked in the one-time startup sequence and establishes all persistent lbHeap metadata rather than servicing an operational allocation request; exact historical spelling remains unconfirmed.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original name: `lbHeap_Init`.",
+      "confidence": 0.89,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows complete initialization of global lbHeap bounds and descriptors."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L142-L220",
+          "why": "Places the routine among one-time subsystem initialization calls."
+        }
+      ]
+    },
+    {
+      "id": "fact:a94feeab-8751-45eb-a8b5-5c56ac6cbafd",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015F3C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Parameterless initialization routine with signature `void (void)`. It returns no value and publishes all results through the global lbHeap state.",
+      "rationale": "The current definition supplies the exact signature and performs only global-state writes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Provides the parameterless void definition and global-state outputs."
+        }
+      ]
+    },
+    {
+      "id": "fact:32b96a25-7a61-43f3-bf14-3aefd0fcfa98",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015F3C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes lbHeap's persistent memory bounds and six heap descriptors. It captures available HSD main-RAM and ARAM ranges, resets every slot to common defaults, and applies the fixed descriptor table that assigns subordinate heap types, sizes, and starting addresses.",
+      "rationale": "The current body retains the two bounds queries, six resets, and complete descriptor-table walk, and current startup code invokes it after lbMemory initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:13:24.638Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows bounds capture, all six resets, and descriptor-driven metadata initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L142-L220",
+          "why": "Shows the routine invoked during ordered application startup after lbMemory initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:785191be-e3da-4693-9331-ed6f20b41d78",
+      "target_id": "target:function:main/melee/lb/lbheap:lbHeap_80015F3C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Establishes metadata-only startup state rather than creating backing heaps: all six entries begin destroyed and transient with invalid backend identifiers. Descriptor rows then configure slots 2 through 5 while leaving them destroyed. An `idx` value of 6 terminates the table; `prev_idx == 6` means placement from a memory-region boundary, while another predecessor index means relative placement.",
+      "rationale": "The reset helper at head establishes invalid identifiers, transient policy, and destroyed status, while the initialization loop changes only type, size, and start and uses index 6 for both termination and boundary-relative placement.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:40:52.697Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Defines invalid backend identifiers and transient/destroyed reset defaults."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L338",
+          "why": "Shows six resets, metadata-only descriptor writes, and both index-6 sentinel uses."
+        }
+      ]
+    }
+  ],
+  "src/melee/lb/lbheap.c": [
+    {
+      "id": "fact:2c4326ef-130e-4fe4-8a34-820d83af8157",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbheap.c",
+      "type": "data_flow",
+      "value": "Initialization obtains available main-memory bounds from HSD and ARAM bounds from lbMemory, then combines those bounds with the descriptor table to populate the shared six-entry registry. Heap reconstruction excludes occupied non-transient regions from the available bounds, creates registry entries 0 and 1 as the remaining main-RAM and ARAM heaps, and recreates configured persistent entries. Later APIs consume a heap index to query status, allocate, free, or perform a custom-heap operation; the report path consumes the same registry and emits labeled capacity measurements through `OSReport`.",
+      "rationale": "At head, HSD and lbMemory still supply bounds to registry initialization, reconstruction still accounts for persistent regions, indexed APIs still dispatch operations, and the report still reads the same state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T01:28:05.550Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows stored bounds becoming main-RAM and ARAM heaps and indexed allocation, free, and compaction dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L332",
+          "why": "Shows diagnostic consumption of the registry and initialization from HSD and lbMemory arena bounds."
+        }
+      ]
+    },
+    {
+      "id": "fact:e1dfc46c-6a4e-44e9-92da-dac13ae7f23b",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbheap.c",
+      "type": "game_mapping",
+      "value": "Realizes Melee's engine-level partitioning and lifecycle management of GameCube main RAM and ARAM, including dedicated logical regions labeled HSD, ARAM, Seq, Stay, AllM, and AllA. This is startup and resource-management infrastructure rather than a player-facing gameplay rule.",
+      "rationale": "The head source still maps logical heap entries to HSD/OS and lbMemory backends, reports the six labels, and is initialized during global executable startup before resource-loading and scene systems.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T01:28:05.550Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L121-L240",
+          "why": "Shows logical heaps backed by main-RAM and ARAM allocator implementations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L242-L332",
+          "why": "Shows the HSD, ARAM, Seq, Stay, AllM, and AllA labels and total arena reporting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L142-L220",
+          "why": "Places lbMemory and lbHeap initialization in the application's ordered startup sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:21b12366-d181-4799-9a38-174f0ea9d820",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbheap.c",
+      "type": "inferred_type",
+      "value": "A heap-management translation unit built around a persistent registry containing six struct Heap entries plus main-RAM and ARAM boundary pairs. Entries carry an allocator type, backend identifier or handle, start address, byte size, transient flag, and create/destroy status; a five-row descriptor table configures logical entries 2 through 5 and terminates with index 6.",
+      "rationale": "The current opening defines the five-row descriptor table and sentinel and shows helpers operating on heap-record backend, range, transient, and status fields.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Defines the descriptor table, index-6 sentinel, heap-record fields, and lifecycle helpers."
+        }
+      ]
+    },
+    {
+      "id": "fact:94d07e38-1922-441c-8a58-5e5f8863fdcc",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbheap.c",
+      "type": "purpose",
+      "value": "Manages Melee's fixed logical heap registry across main RAM and ARAM. The unit initializes heap regions, creates and destroys transient heaps, dispatches indexed allocation and freeing to either Dolphin OS/HSD heaps or the custom lbMemory allocator, and provides a diagnostic report of every heap and the total memory arenas.",
+      "rationale": "The current opening retains the descriptor table, backend-specific create and destroy helpers, transient controls, and reconstruction logic, consistent with the unaffected indexed operations and reporting routines.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows heap configuration plus backend-specific reset, creation, destruction, and reconstruction operations."
+        }
+      ]
+    },
+    {
+      "id": "fact:2cdbb76c-c5ea-4500-8d74-00b709b8fab9",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbheap.c",
+      "type": "state_behavior",
+      "value": "Each heap record transitions between LbHeapStatus_Destroy and LbHeapStatus_Create. Resetting a record installs invalid backend identifiers, zero bounds, a default type, marks it transient, and places it in the destroyed state. Reconstruction first destroys created transient entries 2 through 5, preserves non-transient entries as occupied regions when recomputing arena bounds, recreates the main-RAM and ARAM entries, and then creates destroyed non-transient configured entries. Indexed allocation returns null for a destroyed heap, while freeing requires the selected heap to be created.",
+      "rationale": "The current reset and backend helpers preserve the create/destroy transitions and defaults, and the reconstruction opening still begins by destroying transient entries 2 through 5.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L1-L120",
+          "why": "Shows reset defaults, guarded backend creation and destruction, and transient-entry teardown during reconstruction."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbheap:lbHeap_800158D0#r3": [],
+  "main/melee/lb/lbheap:lbHeap_800158D0#r4": [],
+  "main/melee/lb/lbheap:lbHeap_800158E8#r3": [],
+  "main/melee/lb/lbheap:lbHeap_80015BB8#r3": [],
+  "main/melee/lb/lbheap:lbHeap_80015BD0#r3": [],
+  "main/melee/lb/lbheap:lbHeap_80015BD0#r4": [],
+  "main/melee/lb/lbheap:lbHeap_80015CA8#r3": [],
+  "main/melee/lb/lbheap:lbHeap_80015CA8#r4": [],
+  "main/melee/lb/lbheap:lbHeap_80015D6C#r3": [],
+  "main/melee/lb/lbheap:lbHeap_80015D6C#r4": [],
+  "main/melee/lb/lbheap:lbHeap_80015D6C#r5": []
+}

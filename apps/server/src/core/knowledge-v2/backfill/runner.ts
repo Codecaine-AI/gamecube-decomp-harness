@@ -1,5 +1,6 @@
 import { globalStandardsContext } from "@server/core/knowledge";
 import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -152,7 +153,10 @@ function errorMessage(error: unknown): string {
 }
 
 function targetSlug(stableKey: string): string {
-  return stableKey.replace(/[^A-Za-z0-9]+/g, "-");
+  const slug = stableKey.replace(/[^A-Za-z0-9]+/g, "-");
+  if (slug.length <= 180) return slug;
+  const suffix = createHash("sha256").update(stableKey).digest("hex").slice(0, 16);
+  return `${slug.slice(0, 180)}-${suffix}`;
 }
 
 function runDirectory(stateDir: string, runId: string): string {
@@ -215,7 +219,9 @@ async function modelProposal(
   context: BackfillPassContext,
   deps: BackfillPassDeps,
   outputDir: string,
+  correction?: { previous_output: string; parse_error: string },
 ): Promise<LibrarianPassEnvelope> {
+  const startedAt = Date.now();
   const timeoutMs = deps.timeoutMs
     ?? (deps.globals.agentTimeoutSeconds || DEFAULT_TIMEOUT_MS / 1_000) * 1_000;
   await mkdir(outputDir, { recursive: true });
@@ -228,12 +234,17 @@ async function modelProposal(
     prompt: backfillLibrarianPrompt({
       task: {
         run_id: deps.runId,
+        game_id: deps.globals.gameId ?? "melee",
+        head_revision: deps.headRevision,
         target_stable_key: target.stable_key,
-        instruction: "Work the fill-out subjects in order — linked entities first, the target last — researching each across every resource before devising its facts.",
+        ...(correction ? { output_correction: correction } : {}),
+        instruction: correction
+          ? "Correct the JSON syntax in output_correction.previous_output using output_correction.parse_error. Preserve the research and return the complete corrected object."
+          : "Work the fill-out subjects in order — linked entities first, the target last — researching each across every resource before devising its facts.",
       },
       fillOutSubjects: context.fillOut,
       supportingSubjects: context.supporting,
-      decompStandards: librarianStandardsView(globalStandardsContext()),
+      decompStandards: librarianStandardsView(globalStandardsContext({ gameId: deps.globals.gameId })),
       checkoutRoot: deps.checkoutRoot,
       repoRoot: deps.globals.repoRoot,
       stateDir: deps.globals.stateDir,
@@ -284,7 +295,23 @@ async function modelProposal(
   }
   const parsed = parseJsonObject(result.rawText);
   if (parsed.object === null) {
-    throw new Error(parsed.error ?? "backfill librarian output was not JSON");
+    let parseError = parsed.error ?? "backfill librarian output was not JSON";
+    try {
+      JSON.parse(result.rawText);
+    } catch (error) {
+      parseError += `: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    // One correction call shares the original deadline and slot. Invalid output
+    // never reaches applyLibrarianPass; the corrected proposal uses all its gates.
+    const remainingMs = timeoutMs - (Date.now() - startedAt);
+    if (!correction && remainingMs > 0) {
+      return modelProposal(target, context, { ...deps, timeoutMs: remainingMs },
+        resolve(outputDir, "json-correction"), {
+          previous_output: result.rawText,
+          parse_error: parseError,
+        });
+    }
+    throw new Error(parseError);
   }
   return validateEnvelope(parsed.object);
 }
@@ -356,7 +383,7 @@ export async function runPass(
     const proposal = await modelProposal(
       target,
       context,
-      { ...deps, checkoutRoot },
+      { ...deps, checkoutRoot, headRevision },
       resolve(directory, "agent-output", slug),
     );
     modelMs = clockMs() - modelStarted;

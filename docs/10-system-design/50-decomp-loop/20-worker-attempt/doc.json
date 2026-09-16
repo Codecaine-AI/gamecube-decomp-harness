@@ -1,0 +1,413 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-30-workers-00-overview",
+  "title": "Worker Attempt",
+  "root": "b-40-workers-root-9",
+  "blocks": {
+    "b-40-workers-root-9": {
+      "id": "b-40-workers-root-9",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "worker-open",
+        "worker-context",
+        "worker-flow",
+        "worker-delegation-sequence",
+        "b-40-worker-lifecycle-text-20",
+        "worker-gate-connect",
+        "worker-gate",
+        "worker-tactics",
+        "worker-tactics-intro",
+        "worker-tactics-evidence",
+        "worker-safety",
+        "worker-sandbox",
+        "worker-completion",
+        "b-40-worker-lifecycle-worker-state-lifecycle-s-41",
+        "worker-close",
+        "worker-integrate"
+      ]
+    },
+    "worker-open": {
+      "id": "worker-open",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "One worker attempt owns one claimed epoch target and may submit several candidate improvements. The host claims the work, provisions its sandbox, and supplies a compact "
+        },
+        {
+          "insert": "TaskSpec",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; the runner validates each submission and preserves the best eligible checkpoint."
+        }
+      ],
+      "children": []
+    },
+    "worker-context": {
+      "id": "worker-context",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The claim captures the newest committed harness head. The model session runs on the host and uses remote tools against the sandbox checkout. Other workers can advance the harness worktree while this worker retains its original base."
+        }
+      ],
+      "children": []
+    },
+    "worker-flow": {
+      "id": "worker-flow",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "From Claim to Result"
+        }
+      ],
+      "children": []
+    },
+    "worker-delegation-sequence": {
+      "id": "worker-delegation-sequence",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/worker-delegation.sequence.json",
+        "title": "Worker delegation"
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-text-20": {
+      "id": "b-40-worker-lifecycle-text-20",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Worker lifecycle",
+            "steps": [
+              {
+                "text": "Claim",
+                "steps": [
+                  {
+                    "text": "Admit one worker job per eligible epoch target, deduplicated by epoch-target id"
+                  },
+                  {
+                    "text": "Atomically claim the worker job and epoch target"
+                  },
+                  {
+                    "text": "Creates the active target claim, running worker state, lease, and current `ClaimToken`",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Provision",
+                "steps": [
+                  {
+                    "text": "Provision and seed one sandbox at the claim-time base revision, captured from the newest committed integration tree"
+                  },
+                  {
+                    "text": "Write `TaskSpec` with target identity, compact context, resources, approved write set, and claim authority"
+                  },
+                  {
+                    "text": "Submit `job-runner worker-task --task-file …` through `WorkerExecutor`"
+                  }
+                ]
+              },
+              {
+                "text": "Attempt",
+                "steps": [
+                  {
+                    "text": "Collect target evidence and choose capabilities for one grounded hypothesis"
+                  },
+                  {
+                    "text": "Edit only paths authorized by the current claim"
+                  },
+                  {
+                    "text": "Return a checkpoint note or reach a turn boundary for runner validation"
+                  },
+                  {
+                    "text": "An out-of-set need is handed to Write Safety; widening is not decided here",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Validate",
+                "steps": [
+                  {
+                    "text": "Diff the touched set against the pre-worker source snapshot"
+                  },
+                  {
+                    "text": "Run target and scope-following compile checks, objdiff, QA lint, post-return checks, and baseline comparison"
+                  },
+                  {
+                    "text": "Record the checkpoint and deterministically select the best eligible checkpoint"
+                  },
+                  {
+                    "text": "An exact score that fails a hard gate is repair evidence, not a selectable exact result",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Continue or close",
+                "steps": [
+                  {
+                    "text": "Close immediately when an exact checkpoint passes every hard gate"
+                  },
+                  {
+                    "text": "Return repair or continuation feedback to the same worker session while its attempt budget remains"
+                  },
+                  {
+                    "text": "A banked improvement does not close the worker; the checkpoint is durable and each strictly new best extends the budget",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "On budget exhaustion or claim deadline, preserve the best prior selectable checkpoint or the baseline"
+                  },
+                  {
+                    "text": "On provider, infrastructure, tool, build, parse, or session failure, close as error while preserving prior selectable evidence"
+                  }
+                ]
+              },
+              {
+                "text": "Settle or recover",
+                "steps": [
+                  {
+                    "text": "Close the worker state and target claim, finish the target, enqueue worker knowledge processing, and enqueue one integration job (dedupe key: the checkpoint id) for any selected checkpoint"
+                  },
+                  {
+                    "text": "The host observes worker-state close and deletes the sandbox independently of knowledge processing"
+                  },
+                  {
+                    "text": "Settle the worker job and wake the Decomp Loop"
+                  },
+                  {
+                    "text": "If a claim is interrupted, host recovery closes it as error and re-admits only when no selectable checkpoint can settle the target"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "worker-gate-connect": {
+      "id": "worker-gate-connect",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The quality gate runs throughout the attempt. A rejected submission returns concrete repair feedback to the same worker; a passing improvement becomes a selectable checkpoint while the worker continues toward exact within its budget."
+        }
+      ],
+      "children": []
+    },
+    "worker-gate": {
+      "id": "worker-gate",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Quality Gate",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/10-quality-gate"
+            }
+          }
+        },
+        {
+          "insert": " explains validation, checkpoint evidence, and the decision to continue or close."
+        }
+      ],
+      "children": []
+    },
+    "worker-tactics": {
+      "id": "worker-tactics",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Research and Edit"
+        }
+      ],
+      "children": []
+    },
+    "worker-tactics-intro": {
+      "id": "worker-tactics-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Workers choose tactics within the claimed target and approved write set. Context packaging, symbol and type research, prior-attempt evidence, and duplicate comparisons support a concrete source-change hypothesis. Narrow compile and objdiff checks test that hypothesis before submission."
+        }
+      ],
+      "children": []
+    },
+    "worker-tactics-evidence": {
+      "id": "worker-tactics-evidence",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every claim needs evidence: source and assembly paths, measured score changes, rejected hypotheses, and provenance for public scratches or prior results. Experimental search and permuter output still need understandable source and runner validation. Workers write isolated artifact shards; reducers own shared summaries."
+        }
+      ],
+      "children": []
+    },
+    "worker-safety": {
+      "id": "worker-safety",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Write Safety",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/20-write-safety"
+            }
+          }
+        },
+        {
+          "insert": " explains claim authority and how a worker requests another file when the canonical fix crosses its current boundary."
+        }
+      ],
+      "children": []
+    },
+    "worker-sandbox": {
+      "id": "worker-sandbox",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sandbox",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/30-sandbox"
+            }
+          }
+        },
+        {
+          "insert": " explains provisioning, tooling, sleep and wake, and deletion."
+        }
+      ],
+      "children": []
+    },
+    "worker-completion": {
+      "id": "worker-completion",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Closing the Attempt"
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-worker-state-lifecycle-s-41": {
+      "id": "b-40-worker-lifecycle-worker-state-lifecycle-s-41",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Lifecycle status",
+          "Meaning",
+          "Preserved result"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "exact",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Runner validation selected an exact checkpoint that passed every hard gate.",
+            "The accepted exact checkpoint."
+          ],
+          [
+            [
+              {
+                "insert": "timeout",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The runner-controlled attempt budget ended.",
+            "The best prior selectable checkpoint, or baseline when none improved."
+          ],
+          [
+            [
+              {
+                "insert": "error",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Provider, infrastructure, tool, build, parse, or session failure blocked trustworthy evaluation.",
+            "Any prior selectable checkpoint and all failure evidence."
+          ],
+          [
+            [
+              {
+                "insert": "cancelled",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "An operator or process-control path stopped the attempt.",
+            "Recorded checkpoints and lifecycle evidence under the control path."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "worker-close": {
+      "id": "worker-close",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The runner archives required evidence before closing worker state. The host settles the job and deletes its sandbox; enabled summarizer and librarian work can continue from the archived evidence. Recovery preserves recorded checkpoints when a worker is interrupted."
+        }
+      ],
+      "children": []
+    },
+    "worker-integrate": {
+      "id": "worker-integrate",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker Result Integration",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/30-worker-result-integration"
+            }
+          }
+        },
+        {
+          "insert": " applies the selected result to the current harness worktree. A selectable checkpoint is an eligible candidate; its code reaches other workers only after integration commits it."
+        }
+      ],
+      "children": []
+    }
+  }
+}

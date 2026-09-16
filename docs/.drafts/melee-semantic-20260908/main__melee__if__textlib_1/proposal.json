@@ -1,0 +1,111 @@
+{
+  "tu": "main/melee/if/textlib_1",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L377-L482",
+            "why": "Every context assignment is inside an entry-callback presence guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional context-publication wording and preserves fallback's dependence on mutable global context.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textlib_1:un_80303AC4"
+        },
+        "type": "data_flow",
+        "value": "Combines controller-zero trigger bits with un_803039A4(0). Up/down can change selection and set dirty bit 0; right/left invoke selected-value mutators and dispatch events only after acceptance. Start, A, B and accepted right/left edits send events 6, 1, 0, 3 and 2 respectively. When the selected entry has a callback, the handler first publishes that descriptor in un_804D6E48 and invokes it; a zero result permits fallback through the then-current un_804D6E44->xC. With no entry callback, fallback is attempted without updating un_804D6E48."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L28-L43",
+            "why": "Dispatcher returns menu fallback results as int."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L377-L482",
+            "why": "Handler signature, row fields and callback consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "An ignored result does not establish a void callback type; un_80302E00 returns the same menu callback's result.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textlib_1:un_80303AC4"
+        },
+        "type": "inferred_type",
+        "value": "A void(struct un_80304138_objalloc_t*) menu-input routine. Its menu argument supplies an 8-bit selected-row index, a DevText panel whose height bounds downward traversal, and descriptors whose nonzero type marks selectable rows. Entry and menu fallback callbacks have integer-compatible event results, effectively int(int event); this handler tests entry results but ignores fallback results."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L541-L609",
+            "why": "Initializer guards do not propagate failure; root allocation is unchecked."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves both explicit NULL guards while documenting the unchecked allocation and partial-initialization paths omitted by the baseline.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textlib_1:un_80304168"
+        },
+        "type": "state_behavior",
+        "value": "Returns NULL if the shared DevText GObj is absent or compatible GObj creation fails. After GObj creation it allocates pooled root state, publishes it in un_804D6E40, calls the common initializer and installs fn_80303EF4. The pooled allocation is not checked before dereference. The initializer returns no status, so buffer or DevText creation failure does not prevent process installation or returning the created GObj. A non-NULL return therefore does not by itself establish a fully initialized panel."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L530-L586",
+            "why": "Sentinel-derived count and unused initializer argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L611-L631",
+            "why": "Exact child coordinates, forwarding and links."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the incorrect supplied-count interpretation and preserves coordinate conversion and post-initializer linking.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textlib_1:un_80304210"
+        },
+        "type": "data_flow",
+        "value": "Allocates a child menu record and derives its origin from the parent DevText panel: X is parent X plus the integer conversion of caller X offset plus scale_x * width; Y is parent Y plus the integer conversion of scale_y * selected-row index plus caller Y offset. It forwards the parent's GObj context, supplied descriptors and an opaque integer option to un_80303FD4. That option is unread by the initializer; row count is derived from the type-9 sentinel, not supplied by this argument. After initialization returns, it links parent and child, sets parent flag 0x10 and child flag 0x02, and returns the allocated child."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L530-L586",
+            "why": "Initializer computes count internally and returns no status."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L611-L631",
+            "why": "Factory signature, allocation guard and return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects entry_count and distinguishes pooled allocation success from panel initialization success.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textlib_1:un_80304210"
+        },
+        "type": "inferred_type",
+        "value": "A nullable child-menu factory with effective signature (parent_menu, entry_descriptors, unused_or_option, x_offset, y_offset) -> struct un_80304138_objalloc_t*. The third argument is forwarded to the common initializer but not consumed there; it is not an entry count. NULL is returned when pooled child allocation fails. A non-NULL result identifies an allocated and linked child record, not a separately verified successful DevText panel initialization."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

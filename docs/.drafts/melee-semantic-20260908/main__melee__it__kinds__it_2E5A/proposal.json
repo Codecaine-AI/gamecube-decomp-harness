@@ -1,0 +1,55 @@
+{
+  "tu": "main/melee/it/kinds/it_2E5A",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/it_2E5A.c#L171-L246",
+            "why": "Independent request fields, allocation loop and conditional return-local assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/it_2E5A.c#L363-L384",
+            "why": "Launch guard and per-item mode copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/it_2E5A.c#L444-L461",
+            "why": "Initial state depends on item x8, not request x10."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects conflation of launch-generation mode with per-item runtime mode and preserves allocation-failure and zero-request branches omitted by the existing explanation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/it_2E5A:it_802E609C"
+        },
+        "type": "state_behavior",
+        "value": "Loops while request xC is nonzero, calling the capacity helper before each allocation attempt. A failed allocation leaves the budget unchanged and has no local failure exit. Request x10 == 1 enables a once-only budget adjustment after the first successful allocation and generated velocity during each instance's initialization. Runtime state selection is independent: request x14 is copied to item-variable x8, and item x8 == 1 selects state 0 with accessory tracking; other values select state 1. Thus the direct-velocity wrapper, which sets request x10 = 0 and x14 = 1, initializes state 0. The returned local is assigned only by the first successful mode-1 adjustment; an initially zero budget or a completed direct-mode request has no initialized return value in this source. The direct wrapper ignores that result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/it_2E5A.c#L434-L461",
+            "why": "Complete helper and activation routine establish exact read, write and call order."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim that descriptor evaluation precedes setting xC. Canonical code sets the initialization flag before invoking the descriptor helper.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/it_2E5A:it_802E66A0"
+        },
+        "type": "data_flow",
+        "value": "Reads item-variable x8, animation-initialized flag xC and tier index x4. When x8 == 1 and xC is nonzero, it selects state 0 with ITEM_HIT_PRESERVE | ITEM_UNK_0x1 and skips tier-descriptor reapplication. When x8 == 1 and xC is zero, it selects state 0 with ITEM_ANIM_UPDATE, writes xC = 1, then applies and evaluates the selected tier's state descriptor. Both state-0 paths subsequently assign it_802E6A74 to on_accessory. For other x8 values it selects state 1 with ITEM_ANIM_UPDATE and applies/evaluates the tier descriptor, without a local xC write or accessory assignment."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

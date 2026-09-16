@@ -95,12 +95,15 @@ export function readGameKernelAppSessionIds(
   const rows = db
     .query(
       `SELECT kernel_trace_json
-       FROM cycles
+       FROM historical_cycles
        WHERE game_id = ?
        ORDER BY id`,
     )
     .all(requestedGameId) as Array<{ kernel_trace_json: unknown }>;
   const appSessionIds = new Set<string>();
+  const current = db.query("SELECT harness_id FROM harness_state WHERE game_id = ?").get(requestedGameId) as { harness_id: string } | null;
+  const currentSessionId = normalizedUuid(current?.harness_id);
+  if (currentSessionId) appSessionIds.add(currentSessionId);
   for (const row of rows) {
     let trace: unknown = row.kernel_trace_json;
     if (typeof trace === "string") {

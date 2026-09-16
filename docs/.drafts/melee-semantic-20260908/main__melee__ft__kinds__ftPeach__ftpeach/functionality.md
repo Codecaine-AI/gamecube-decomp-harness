@@ -1,0 +1,25 @@
+## Peach fighter integration
+
+`ftpeach.c` defines Peach's motion dispatch, resource metadata, attribute initialization, lifecycle hooks, and model-selection toggle. The header declares these callbacks and exported data. The motion table has 30 records, commented as states 341–370, covering Float, directional FloatFall, five floating aerials, three forward-smash variants, ground/air specials, and common parasol continuations. These comments are not independent compiled-state evidence. Every record uses `ftCamera_UpdateCameraBox`; down-special records have NULL IASA callbacks, and grounded SpecialSJump has NULL animation, IASA, physics, and collision callbacks. The parasol continuation records use common fighter callbacks and set bit 23 alongside the move ID. Resource declarations include five costume groups, four demo labels, fighter data, and animation data. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeach.c#L29-L405)
+
+## Initialization and reset
+
+OnLoad derives two FloatFall fields from fighter-data entries 18 and 19 before PUSH_ATTRS copies the external attributes into backup storage and points active attributes there. It then processes item resources 0–4 as Explode, Turnip, Parasol, Toad, and ToadSpore. LoadSpecialAttrs instead copies external attributes into already-selected active storage. Neither callback spawns these articles. [Load](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeach.c#L438-L451) [Attribute macros](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L21-L40)
+
+OnDeath restores Float availability, clears the stored smash motion and aerial-neutral-special usage, and forgets both parasol references, Toad, and vegetable references. It does not itself destroy those objects. Fixed model selections are (0,0), (2,0), (3,-1), and (4,0). Costume 1 selects (1,-1), (5,0), (6,-1); all other costumes select (1,0), (5,-1), (6,0). [Reset](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeach.c#L407-L436)
+
+## Cross-file article lifetime
+
+OnDeath2 always calls parasol, Toad, then vegetable cleanup. Parasol cleanup is guarded by the active parasol reference and can restore a displaced held item; this happens before the vegetable ownership test. Toad cleanup requires its stored reference and clears its death/damage callbacks. Vegetable cleanup requires a non-NULL tracked object equal to the current held item and a Peach Turnip kind; failed guards leave that reference untouched. Article setup installs the aggregate callback for damage and death, so its role is broader than the name alone suggests. [Wrapper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeach.c#L453-L458) [Parasol](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialhi.c#L36-L95) [Toad](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspecialn.c#L102-L118) [Vegetable](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspeciallw.c#L69-L107)
+
+## Shared event adapters
+
+Pickup and drop forward their boolean and two true options. Pickup excludes heavy items, maps hold kinds 1–4 to animation selections 1,0,2,3, and conditionally invokes the visible-presentation helper; its default hold-kind branch performs no selection update. Drop unconditionally requests selection -1 and conditionally invokes the invisible-presentation helper. Visible/invisible callbacks pass true and exclude heavy items in the shared implementation. Knockback entry/exit pass integer selector 1; shared code calls animation handling for selectors 1 and 0 with values 3.0 and 0.0 respectively. These hooks do not calculate knockback magnitude. [Adapters](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeach.c#L460-L506) [Shared implementations](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L142-L205)
+
+## Model toggle and evidence limits
+
+`ftPe_Init_8011B93C` reads model slot 2 and maps -1 to 0, every other value to -1. The setter changes the pending selection and marks parts dirty. The observed caller invokes it only for Peach at `DbLevel >= DbLKind_DebugRom`, before side-taunt selection. The rendered `Peach_RemoveDress` name does not establish the asset's identity or an original authored name; behavior is two-way, not simple removal. [Toggle](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeach.c#L485-L496) [Caller](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AppealS.c#L89-L104) [Parts helpers](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L555-L577)
+
+Canonical and rendered owned pages were reviewed completely. Rendered substitutions were treated as hypotheses. No compiled artifacts were supplied; section membership, layout, anonymous small-data size, and padding provenance remain unverified.
+
+Status: synthesized; independent review and live promotion pending.

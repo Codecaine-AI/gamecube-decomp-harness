@@ -1,0 +1,114 @@
+{
+  "tu": "main/dolphin/axfx/reverb_std",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L375-L408",
+            "why": "Continuous sample-pointer advancement, three-bank termination and left-only call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L463-L470",
+            "why": "Public gate and argument forwarding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects an overgeneralized three-buffer description by exposing the actual contiguous-bank assumption.",
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/reverb_std:AXFXReverbStdCallback"
+        },
+        "type": "game_mapping",
+        "value": "Dispatches standard reverb for the current audio update only when tempDisableFX is zero. Although the public callback forwards left, right and surround pointers, the private callback invokes HandleReverb only with left; processing walks three consecutive 160-sample banks from that address rather than independently using the right and surround pointers."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L175-L240",
+            "why": "Predelay boundary calculation, exchange and comb length comparisons."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L294-L389",
+            "why": "Final-sample boundary handling and complete state persistence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves history and bypass behavior while replacing the misleading generic ring-end description with the assembly's exact boundary rule.",
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/reverb_std:HandleReverb"
+        },
+        "type": "state_behavior",
+        "value": "A zero preDelayTime bypasses predelay; otherwise each sample exchanges with the current predelay cursor. The cursor advances by four bytes and resets to its base only when the advanced address equals base+4*(preDelayTime-1). For an initialized count greater than one this cycles over count-1 slots; count one does not wrap after the first increment. Comb and all-pass offsets instead reset on reaching their configured byte lengths. Updated offsets, last outputs, damping history and predelay cursors are persisted for each bank."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L28-L99",
+            "why": "Unchecked allocations, comparisons and distinct predelay setting/count."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L175-L216",
+            "why": "Processing bypass depends on stored count."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L410-L425",
+            "why": "Predelay release also depends on stored count."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates allocation state from processing activation and avoids treating construction as a fully checked two-outcome operation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/reverb_std:ReverbSTDCreate"
+        },
+        "type": "state_behavior",
+        "value": "Range-comparison failure returns 0 before modifying the work object. Otherwise construction clears it, allocates and initializes the fixed delay network, and returns 1 if execution reaches the end; allocation results are not checked before memset, and the comparisons do not explicitly reject NaNs. Predelay allocation is selected by the floating setting being nonzero, but preDelayTime stores the converted 32000*predelay sample count. A tiny positive setting can yield count zero while still requesting three zero-byte allocations and assigning their pointers. Processing and teardown test the count, not the original setting. Exactly zero predelay sets the count and all predelay pointers to zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L57-L64",
+            "why": "Creation rejects predelay above 0.1 before clearing work."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L102-L133",
+            "why": "Modification's wider bound and free-before-create sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_std.c#L410-L470",
+            "why": "Uncleared teardown state and ignored settings result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L949-L1018",
+            "why": "Caller unregisters old callback before destruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful exceptional-branch and cross-file lifetime knowledge absent from the general lifecycle description.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/axfx/reverb_std.c"
+        },
+        "type": "state_behavior",
+        "value": "Settings replacement is destructive rather than transactional. ReverbSTDModify allows predelay up to 100.0 in its initial guard, updates coefficients and frees existing delay buffers, then calls ReverbSTDCreate, whose upper predelay bound is 0.1. With otherwise accepted settings and predelay in (0.1,100], creation returns 0 after the old buffers have been freed, leaving their stored pointers uncleared. AXFXReverbStdSettings ignores that return, clears tempDisableFX and returns 1. Shutdown likewise leaves pointers and the callback gate unchanged; safe external lifetime management requires stopping callback use before teardown, as AXDriverSetupAux does by unregistering the old bus callback."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

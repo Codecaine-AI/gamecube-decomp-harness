@@ -1,0 +1,553 @@
+{
+  "reviewer": "/root/review_gate/kernel/reviewer-main__melee__pl__plbonus-2",
+  "tu": "main/melee/pl/plbonus",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "proposal_sha256": "e93742b16697d3a958f925cda8e0090ebf1b018ac51163729e3ea75eba82d982",
+  "baseline_links_sha256": "d88af27f87d6e559bfa6852f8571199770de4f64ab5f6c5139de28e39421c0bb",
+  "status": "accepted_relationship_review",
+  "review_scope": "full_independent",
+  "records": [
+    {
+      "link_id": "link:7b83a104-56ab-4e65-8465-838e3bcb0818",
+      "baseline_record": {
+        "id": "link:7b83a104-56ab-4e65-8465-838e3bcb0818",
+        "from_target_id": "target:function:main/melee/pl/plbonus:fn_80038FB8",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stale-moves",
+        "role": "uses",
+        "why": "The function reaches its per-player tracking region through Player_GetStaleMoveTableIndexPtr2 and a pl_StaleMoveTableExt_t view, directly coupling the reset to storage owned by the stale-move subsystem, even though this routine does not itself calculate move staleness.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L276-L285",
+        "digest": "sha256:90cc64535c4bf547"
+      },
+      "disposition": "unresolved",
+      "reason": "Shared storage naming does not establish a gameplay stale-moves dependency; this routine clears decisions rather than the queue.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L285-L294",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1758-L1766"
+      ]
+    },
+    {
+      "link_id": "link:2f1dea2b-9ffe-4d7c-a34f-0fc0e79d4b1b",
+      "baseline_record": {
+        "id": "link:2f1dea2b-9ffe-4d7c-a34f-0fc0e79d4b1b",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/pl/plbonus.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The unit owns typed bonus-decision storage, initialization, reset, and the per-player evaluation sequence.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L361-L415",
+        "digest": "sha256:878c0377e824b59a"
+      },
+      "disposition": "retain",
+      "reason": "Implements bookkeeping and evaluation; physical storage ownership is in player.c, not allocation by this TU.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L387-L423",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1758-L1766"
+      ]
+    },
+    {
+      "link_id": "link:f5dd9e49-21e6-416d-9922-cbfa367fecee",
+      "baseline_record": {
+        "id": "link:f5dd9e49-21e6-416d-9922-cbfa367fecee",
+        "from_target_id": "target:function:main/melee/pl/plbonus:fn_80039618",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function translates recorded match-performance conditions into indexed bonus flags for the evaluated player.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L416-L735",
+        "digest": "sha256:8c826b41c84bd4e7"
+      },
+      "disposition": "retain",
+      "reason": "Direct predicates and flag writes establish the relationship.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L425-L744"
+      ]
+    },
+    {
+      "link_id": "link:c5f10942-9683-4f66-b5bd-3c36db045436",
+      "baseline_record": {
+        "id": "link:c5f10942-9683-4f66-b5bd-3c36db045436",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/pl/plbonus.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The translation unit maintains per-player flag and point entries for indexed bonus decisions and provides operations for updating and resetting that bookkeeping.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L1-L125",
+        "digest": "sha256:4f9ef911f57008d5"
+      },
+      "disposition": "retain",
+      "reason": "Typed operations directly establish the relationship; overlapping links are not merged.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L20-L97"
+      ]
+    },
+    {
+      "link_id": "link:8c0df701-6be1-426a-841f-ee6d3da0abce",
+      "baseline_record": {
+        "id": "link:8c0df701-6be1-426a-841f-ee6d3da0abce",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_80038788",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function assigns the per-player numeric value of a point-type bonus decision, and bonus-library condition detectors call it to register specific bonus identifiers.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonuslib.c#L180-L240",
+        "digest": "sha256:e55f170bc302bd69"
+      },
+      "disposition": "retain",
+      "reason": "Setter and active detector calls agree.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L29-L36",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L180-L212"
+      ]
+    },
+    {
+      "link_id": "link:ec24388c-b556-4066-9fe5-03f7add33046",
+      "baseline_record": {
+        "id": "link:ec24388c-b556-4066-9fe5-03f7add33046",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_8003906C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function directly enables or clears point-valued decision entries from periodic threshold checks over player statistics.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L287-L326",
+        "digest": "sha256:600605bf59b03948"
+      },
+      "disposition": "retain",
+      "reason": "Indexed branch directly updates point decisions.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L296-L335"
+      ]
+    },
+    {
+      "link_id": "link:816a5752-bc4c-4455-845f-65df7a198a3f",
+      "baseline_record": {
+        "id": "link:816a5752-bc4c-4455-845f-65df7a198a3f",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_80039450",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function clears and reevaluates the selected player's indexed bonus decisions, producing the earned bonus flags consumed by match-results and debug-display paths.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L361-L415",
+        "digest": "sha256:878c0377e824b59a"
+      },
+      "disposition": "retain",
+      "reason": "Pipeline and both consumers independently verified.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L387-L423",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16AE.c#L935-L954",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbbonus.c#L142-L154"
+      ]
+    },
+    {
+      "link_id": "link:c1f49901-68e3-4654-922d-2926549ab4c3",
+      "baseline_record": {
+        "id": "link:c1f49901-68e3-4654-922d-2926549ab4c3",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_80038F10",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function is the player-reset cleanup operation within plbonus, resetting local bookkeeping and removing cross-record references to the reinitialized player.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L246-L274",
+        "digest": "sha256:d0599704b3b391f8"
+      },
+      "disposition": "retain",
+      "reason": "Cleanup and reset caller agree; xCAC is later consumed by bonus evaluation.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L255-L283",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L1214-L1219",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L2019-L2023"
+      ]
+    },
+    {
+      "link_id": "link:4de4615c-5d1f-4bb3-a5cc-2b3a3d8181c5",
+      "baseline_record": {
+        "id": "link:4de4615c-5d1f-4bb3-a5cc-2b3a3d8181c5",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_8003891C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stale-moves",
+        "role": "implements",
+        "why": "The routine directly invokes the player-specific stale-move-table reset as part of establishing a fresh per-player statistics baseline.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L95-L244",
+        "digest": "sha256:3fef075b02ee5eb4"
+      },
+      "disposition": "retain",
+      "reason": "Direct canonical reset call establishes integration, not damage-scaling implementation.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L111-L116"
+      ]
+    },
+    {
+      "link_id": "link:71ae23a7-1692-4132-b00c-cd9f20f91618",
+      "baseline_record": {
+        "id": "link:71ae23a7-1692-4132-b00c-cd9f20f91618",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_8003891C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The routine initializes the per-player extended bookkeeping that includes the complete indexed bonus-tracking region and is applied during player-slot initialization.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L95-L244",
+        "digest": "sha256:3fef075b02ee5eb4"
+      },
+      "disposition": "retain",
+      "reason": "Complete decision-array reset and initialization callers agree; no byte-complete record guarantee is adopted.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L118-L131",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L285-L294",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L2013-L2035"
+      ]
+    },
+    {
+      "link_id": "link:b712ebae-c3b4-4135-9072-230f2941de50",
+      "baseline_record": {
+        "id": "link:b712ebae-c3b4-4135-9072-230f2941de50",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_80039418",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:match-bonus-tracking",
+        "role": "implements",
+        "why": "The function exposes a player-and-bonus-indexed stored value that callers use to test and display recorded match bonuses.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/db/dbbonus.c#L62-L103",
+        "digest": "sha256:00bc117161e16725"
+      },
+      "disposition": "retain",
+      "reason": "Active debug consumer demonstrates presence and numeric display uses.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbbonus.c#L85-L104"
+      ]
+    },
+    {
+      "link_id": "link:02dbf3df-4ff6-4713-82f8-44e756e1bc00",
+      "baseline_record": {
+        "id": "link:02dbf3df-4ff6-4713-82f8-44e756e1bc00",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_80038824",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "Gameplay-specific bonus detectors call this routine to increment the selected player's stored value for concrete point-type bonus decisions.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonuslib.c#L180-L240",
+        "digest": "sha256:e55f170bc302bd69"
+      },
+      "disposition": "retain",
+      "reason": "Point increment and concrete calls agree.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L79-L86",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L180-L240"
+      ]
+    },
+    {
+      "link_id": "link:7c8c7348-bc6c-46b2-a035-a6250a6df9bf",
+      "baseline_record": {
+        "id": "link:7c8c7348-bc6c-46b2-a035-a6250a6df9bf",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_80038898",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function directly reduces the selected player's stored quantity for an indexed point-type bonus decision while guarding against underflow.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L79-L88",
+        "digest": "sha256:6e16ead464cc0fa5"
+      },
+      "disposition": "retain",
+      "reason": "Direct guarded point decrement agrees.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L88-L97"
+      ]
+    },
+    {
+      "link_id": "link:a4ed9dd7-84da-449b-8c02-d813626824ff",
+      "baseline_record": {
+        "id": "link:a4ed9dd7-84da-449b-8c02-d813626824ff",
+        "from_target_id": "target:function:main/melee/pl/plbonus:fn_8003CC84",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function evaluates numerous final player and match conditions and records each satisfied condition as an indexed bonus-decision flag.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L1145-L1236",
+        "digest": "sha256:41dadb63f140a485"
+      },
+      "disposition": "retain",
+      "reason": "Generic relationship holds despite incorrect stage interpretations in associated facts.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L1154-L1245"
+      ]
+    },
+    {
+      "link_id": "link:817c0be1-2f31-451d-add5-bb5da6195efd",
+      "baseline_record": {
+        "id": "link:817c0be1-2f31-451d-add5-bb5da6195efd",
+        "from_target_id": "target:function:main/melee/pl/plbonus:fn_8003BD60",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function evaluates accumulated player-performance conditions and records each satisfied condition as an indexed bonus-decision flag.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L907-L956",
+        "digest": "sha256:2311cd5d63bef3f8"
+      },
+      "disposition": "retain",
+      "reason": "Rate, counter, and bit predicates directly set flags.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L916-L965"
+      ]
+    },
+    {
+      "link_id": "link:cdcbc154-8797-4219-ab84-5056f5eac3c9",
+      "baseline_record": {
+        "id": "link:cdcbc154-8797-4219-ab84-5056f5eac3c9",
+        "from_target_id": "target:function:main/melee/pl/plbonus:fn_8003B9A4",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function converts recorded grab and throw performance into indexed per-player bonus flags.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L844-L905",
+        "digest": "sha256:eca236258513620d"
+      },
+      "disposition": "retain",
+      "reason": "Canonical Catch/Throw conditions and outputs support the broad relationship.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L853-L914"
+      ]
+    },
+    {
+      "link_id": "link:942484af-70d0-4035-a32e-40cab9e5b17e",
+      "baseline_record": {
+        "id": "link:942484af-70d0-4035-a32e-40cab9e5b17e",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_80039238",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The helper directly enables or clears an indexed point-valued bonus decision according to initial and periodically sustained growth in a floating-point player statistic.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L328-L370",
+        "digest": "sha256:6e191294f6634f58"
+      },
+      "disposition": "retain",
+      "reason": "Indexed branch and concrete 0x44 caller agree.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L337-L379",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L932-L939"
+      ]
+    },
+    {
+      "link_id": "link:935967d9-a723-4e4b-be32-b9e103735630",
+      "baseline_record": {
+        "id": "link:935967d9-a723-4e4b-be32-b9e103735630",
+        "from_target_id": "target:function:main/melee/pl/plbonus:fn_8003B044",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function evaluates accumulated per-player performance conditions and records each satisfied condition as a checked flag-type bonus decision.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L737-L842",
+        "digest": "sha256:aa6bf9958e986123"
+      },
+      "disposition": "retain",
+      "reason": "Predicates and checked flag setter establish the relationship.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L746-L851"
+      ]
+    },
+    {
+      "link_id": "link:c59a85f2-4bd4-46c4-942c-6d6706434ff4",
+      "baseline_record": {
+        "id": "link:c59a85f2-4bd4-46c4-942c-6d6706434ff4",
+        "from_target_id": "target:data:main/melee/pl/plbonus:.data",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The section supplies the generated switch dispatch used by evaluator case bodies that classify gameplay identifiers and set indexed bonus decisions.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L976-L1095",
+        "digest": "sha256:8b184566be8e2b11"
+      },
+      "disposition": "unresolved",
+      "reason": "Switch syntax cannot prove section contents or generated dispatch ownership.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L1021-L1078"
+      ]
+    },
+    {
+      "link_id": "link:5c374829-6b04-477e-92d6-ebc3a546ee73",
+      "baseline_record": {
+        "id": "link:5c374829-6b04-477e-92d6-ebc3a546ee73",
+        "from_target_id": "target:function:main/melee/pl/plbonus:fn_8003C340",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The function evaluates accumulated item and Pok\u00e9mon activity and records each satisfied condition as an indexed player bonus flag.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L958-L1019",
+        "digest": "sha256:02583f783662d910"
+      },
+      "disposition": "unresolved",
+      "reason": "Item-log relationship holds; complete Pok\u00e9mon interpretation and valid compiled high-kind indexing remain deferred.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L967-L1152",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L579-L600"
+      ]
+    },
+    {
+      "link_id": "link:1dad6cfc-56eb-4f3d-a68a-d3bb3c7bc412",
+      "baseline_record": {
+        "id": "link:1dad6cfc-56eb-4f3d-a68a-d3bb3c7bc412",
+        "from_target_id": "target:function:main/melee/pl/plbonus:fn_8003D2EC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stale-moves-bonus",
+        "role": "implements",
+        "why": "The function tests the documented attack-usage conditions for the Stale Moves bonus and records the corresponding indexed bonus flag.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L1238-L1285",
+        "digest": "sha256:a6e9ba58b68363dc"
+      },
+      "disposition": "unresolved",
+      "reason": "0x59 concentration predicate holds; named bonus mapping needs active table/configuration proof.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L1247-L1294"
+      ]
+    },
+    {
+      "link_id": "link:9ea3a143-4753-45fc-8cf2-ab0644ce2fe7",
+      "baseline_record": {
+        "id": "link:9ea3a143-4753-45fc-8cf2-ab0644ce2fe7",
+        "from_target_id": "target:function:main/melee/pl/plbonus:fn_80038700",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The helper supplies the two attack-count aggregates whose guarded equality causes the general evaluator to record bonus flag `0x23`.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L656-L735",
+        "digest": "sha256:75393c24b607d4e5"
+      },
+      "disposition": "retain",
+      "reason": "Exact local calls establish aggregate-to-0x23 flow.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L669-L675"
+      ]
+    },
+    {
+      "link_id": "link:7ff36f8a-4af3-4c70-9247-2c60bdc73a11",
+      "baseline_record": {
+        "id": "link:7ff36f8a-4af3-4c70-9247-2c60bdc73a11",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_800386E8",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The helper computes the player-statistics measurement passed to the recurring evaluator for indexed bonus decision `0x49`.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonuslib.c#L889-L956",
+        "digest": "sha256:f06dfd30b540241f"
+      },
+      "disposition": "retain",
+      "reason": "Active caller forwards the sum to decision 0x49.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L912-L916"
+      ]
+    },
+    {
+      "link_id": "link:14312f22-c9aa-4018-8c8b-519533d77cb2",
+      "baseline_record": {
+        "id": "link:14312f22-c9aa-4018-8c8b-519533d77cb2",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_800386D8",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "Bonus evaluators use this accessor to test accumulated usage of specific attack or action identifiers before recording earned bonus flags.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/pl/plbonus.c#L737-L842",
+        "digest": "sha256:aa6bf9958e986123"
+      },
+      "disposition": "retain",
+      "reason": "Direct evaluator calls establish use despite unresolved array reconstruction.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L746-L793"
+      ]
+    },
+    {
+      "link_id": "link:fa2cf059-96b0-4f4c-8e75-6816027806c2",
+      "baseline_record": {
+        "id": "link:fa2cf059-96b0-4f4c-8e75-6816027806c2",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_800386D8",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:star-fox-smash-taunt",
+        "role": "implements",
+        "why": "The Star Fox special-taunt gates use this accessor to detect whether dedicated action identifier 0x72 has already been recorded, enforcing the mechanic's one-use restriction.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftFox/ftFx_AppealS.c#L15-L63",
+        "digest": "sha256:19299504b6bf1a59"
+      },
+      "disposition": "retain",
+      "reason": "Relocated canonical caller establishes 0x72 eligibility gating across all six slots.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxappeals.c#L19-L66"
+      ]
+    },
+    {
+      "link_id": "link:faa731b0-b7d3-4895-a9ed-fd0c6837b6ab",
+      "baseline_record": {
+        "id": "link:faa731b0-b7d3-4895-a9ed-fd0c6837b6ab",
+        "from_target_id": "target:function:main/melee/pl/plbonus:pl_80038914",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bonuses",
+        "role": "implements",
+        "why": "The accessor supplies shared threshold values directly consumed when the game-results subsystem evaluates indexed bonus decisions `0xFE` and `0xFF`.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gm/gm_16F1.c#L1020-L1200",
+        "digest": "sha256:8ffad206c8b6e176"
+      },
+      "disposition": "retain",
+      "reason": "Active cases read x13C and x140 through the accessor.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1020-L1108"
+      ]
+    }
+  ],
+  "kernel_job": {
+    "id": "reviewer-main__melee__pl__plbonus-2",
+    "role": "reviewer",
+    "task_id": "main__melee__pl__plbonus",
+    "output_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__pl__plbonus-2",
+    "attempt": 2,
+    "prior_result": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/librarian-main__melee__pl__plbonus-3/packet.json",
+    "input_proposal_sha256": "e93742b16697d3a958f925cda8e0090ebf1b018ac51163729e3ea75eba82d982"
+  },
+  "database_changes": false
+}

@@ -1,0 +1,146 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_PassiveStand",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveStand:ftCo_80098928"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls ftCo_800986B0, which requires !ftCo_800C5240(gobj), fp->x680 < common x250, and fp->x684 >= common x1C. On success, requires ABS(left-stick X) >= common x254. A stick-X times facing product >= 0 selects PassiveStandF; all other comparison results select PassiveStandB. Calls the private entry helper before returning true. Failed guards return false without local motion entry. Under ordinary IEEE comparisons, signed-zero products select F, NaN magnitude or threshold fails the magnitude guard, and an accepted unordered direction product selects B. No local input-range or finiteness validation occurs.",
+        "rationale": "Repairs negative-only B description and limits unchanged-state claims to the local transition behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveStand.c#L22-L35",
+            "why": "Exact comparisons, helper invocation and returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L87-L96",
+            "why": "Complete prerequisite conjunction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L198-L198",
+            "why": "ABS is conditional negation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveStand:ftCo_800989D4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For valid objects and normally returning callees, calls ftCommon_8007D7FC only when ground_or_air is GA_Air, then Fighter_ChangeMotionState(gobj,msid,Ft_MF_None,0,1,0,NULL), with animation start 0, speed 1 and blend 0. It next requests ft_800881D8(fp,fp->ft_data->x4C_sfx->x24,127,64), ft_PlaySFX(fp,3,127,64), and ftCo_SpawnEf(gobj,TopN joint,1,1053), in that order. Its caller supplies PassiveStandF/B; the private helper does not validate msid. Ground normalization can assert on an invalid floor reference. Exact audio/effect asset meanings and realization are not established.",
+        "rationale": "Replaces unconditional-success and unsupported asset/source labels with verified ordered calls and validity conditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveStand.c#L20-L47",
+            "why": "Private helper, caller domain and complete entry body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.h#L44-L48",
+            "why": "Scalar argument roles."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L546-L594",
+            "why": "Normalization work and invalid-ground assertion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveStand:ftCo_PassiveStand_Coll"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides collision processing for the directional ground-recovery states PassiveStandF and PassiveStandB, not the separate in-place Passive state. It forwards to ft_80084104, which enters Fall when ft_800827A0 returns false.",
+        "rationale": "Corrects neutral-tech misclassification using the active callback table and actual delegate.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2323-L2355",
+            "why": "Separate Passive callbacks and shared F/B collision slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveStand.c#L63-L66",
+            "why": "Local unconditional forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1043-L1050",
+            "why": "False-result Fall entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveStand:ftCo_PassiveStand_Phys"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides shared grounded movement processing for PassiveStandF/B directional recovery. The delegate multiplies ground friction by friction_when_above_walk_speed when absolute ground speed strictly exceeds walk_max_vel; the multiplier's configured value is not established here. With x594_b0 set it computes translation-Z times facing minus ground velocity as ground acceleration; otherwise it applies selected friction. Both branches run common ground movement. Stronger braking is not proved solely by the multiplication.",
+        "rationale": "Preserves directional-state and optional-branch mapping without unsupported claims about friction strength.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2334-L2355",
+            "why": "Active directional physics assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveStand.c#L58-L61",
+            "why": "Physics delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L55-L89",
+            "why": "Strict guard, multiplication and alternative movement branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_PassiveStand.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "After the prerequisite and inclusive horizontal-magnitude guard pass, enters the facing-relative PassiveStandF/B motion, first normalizing an airborne fighter when necessary, then making audio/effect requests. IASA is inert. Anim invokes ft_8008A2BC when the shared animation query returns false; completion can take boss-specific, DownSpot, special or Wait paths rather than universally ordinary grounded behavior. Phys delegates shared grounded movement. Coll delegates a check that can enter Fall.",
+        "rationale": "Repairs the universal completion outcome while retaining the complete local lifecycle.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveStand.c#L22-L66",
+            "why": "Complete local gate, entry and callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109",
+            "why": "Conditional completion destinations and optional processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1043-L1050",
+            "why": "Collision-triggered Fall."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

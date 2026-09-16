@@ -1,0 +1,77 @@
+{
+  "tu": "main/melee/it/kinds/itnesspkfire",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkfire.c#L88-L97",
+            "why": "Shows the exact attribute-based Y adjustment, constructor arguments, and true return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkfirepillar.c#L51-L65",
+            "why": "The void constructor handles a nullable allocation result internally."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported 'slightly above' characterization and distinguishes requesting allocation from guaranteed creation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itnesspkfire:it_2725_Logic23_Clanked"
+        },
+        "type": "purpose",
+        "value": "Handles the PK Fire projectile's clank event by requesting a separate PK Fire pillar at the projectile's position with special-attribute x4 added to Y, then returning true. The attribute's sign and magnitude are not fixed by this function, and pillar allocation can fail inside the constructor."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkfire.c#L88-L97",
+            "why": "The constructor call and true return are unconditional."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkfirepillar.c#L51-L65",
+            "why": "Creation may fail and no success status is returned."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the unconditional callback path while accounting for the cross-file allocation-failure branch.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itnesspkfire:it_2725_Logic23_Clanked"
+        },
+        "type": "state_behavior",
+        "value": "On every clank-event invocation, without a local guard or timer check, the callback attempts one pillar allocation using the projectile's current owner, facing direction, and position with special-attribute x4 added to Y. It returns true even if the pillar constructor's allocation fails; it does not inspect or report allocation success."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkfire.c#L77-L86",
+            "why": "The callback unconditionally calls the void constructor and returns true."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkfirepillar.c#L51-L65",
+            "why": "Only a non-null allocation receives pillar initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects guaranteed-creation wording and preserves the distinction between an interaction callback result and the constructor's hidden allocation outcome.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itnesspkfire:it_2725_Logic23_DmgDealt"
+        },
+        "type": "state_behavior",
+        "value": "On every damage-dealt invocation, without an additional local guard, the callback requests a separate PK Fire pillar using the projectile's current owner, facing direction, and attribute-adjusted position. It then returns true regardless of whether the pillar constructor successfully allocates the new article; the result is not an allocation-success report."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

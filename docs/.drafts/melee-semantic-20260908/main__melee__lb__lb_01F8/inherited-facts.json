@@ -1,0 +1,553 @@
+{
+  "main/melee/lb/lb_01F8:.bss": [
+    {
+      "id": "fact:3022836f-db71-477e-8eeb-deb3bc081ab1",
+      "target_id": "target:data:main/melee/lb/lb_01F8:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "lbMthp8001FAA0 writes the requested dimensions and loaded-file bookkeeping into this object, allocates its full-size luma plane and two quarter-size chroma planes, and decodes the selected THP image into them. lbMthp8001F890 reads the dimensions to populate the embedded HSD descriptors and stores the created HSD_SObj pointer. lbMthp8001F928 reads the three plane pointers and dimensions, initializes the embedded texture objects at full and half resolution, and loads them into GX texture units 0, 1, and 2.",
+      "rationale": "The current unit shows a direct producer-to-consumer chain through the BSS object, from file loading and planar decoding through display-object construction and texture binding.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The structure declaration and all three functions show which fields are written and subsequently consumed, including the decoded-plane sizes and GX texture-unit assignments."
+        }
+      ]
+    },
+    {
+      "id": "fact:1f3dbad7-60b7-4280-a866-c1a08c4a04fd",
+      "target_id": "target:data:main/melee/lb/lb_01F8:.bss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Backs presentation of the character-specific ending THP in Melee's Congratulations scene after completion of Classic, Adventure, or All-Star mode.",
+      "rationale": "The current Congratulations-scene setup selects a character-indexed THP according to the completed single-player mode, decodes it through this shared state, constructs its display object, and installs the corresponding rendering callback.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A9B.c#L86-L166",
+          "why": "The scene selects among Classic, Adventure, and All-Star character THP tables and invokes all three routines that exchange data through this BSS object."
+        }
+      ]
+    },
+    {
+      "id": "fact:70f93c68-339b-4c00-9cf9-46fdf0c455f6",
+      "target_id": "target:data:main/melee/lb/lb_01F8:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A zero-initialized 0xA0-byte singleton structure containing three GXTexObj values at offsets 0x00, 0x24, and 0x48; corresponding image-plane pointers at 0x20, 0x44, and 0x68; u16 width and height at 0x6C and 0x6E; an HSD_ImageDesc at 0x70; an HSD_SObjDesc at 0x88; an HSD_SObj pointer at 0x90; a loaded-file pointer at 0x94; and its size at 0x98.",
+      "rationale": "The current declaration, offset annotations, size assertion, static instance, and field accesses establish the complete layout and refine the formerly generic bookkeeping fields to a file pointer and size.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The source declares every field with its current type and offset, asserts the structure size as 0xA0, and defines the instance as static BSS state."
+        }
+      ]
+    },
+    {
+      "id": "fact:76f57f8b-5000-44b8-bed7-e3eb14130089",
+      "target_id": "target:data:main/melee/lb/lb_01F8:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the persistent shared workspace for the auxiliary THP image pipeline, retaining the decoded image planes, dimensions, GX texture objects, HSD image and screen-object descriptors, created screen object, and loaded-file bookkeeping used across the unit's decode, construction, and rendering routines.",
+      "rationale": "The entire BSS target is one static structure through which the decoder, SObj constructor, and GX rendering callback exchange their persistent inputs and outputs.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The current unit defines the shared object and shows its fields used by the THP decode, SObj-construction, and GX-rendering stages."
+        }
+      ]
+    },
+    {
+      "id": "fact:98d1e721-ff48-45d7-b40a-1274fd4b483b",
+      "target_id": "target:data:main/melee/lb/lb_01F8:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "As BSS-backed singleton state, the object begins zero-initialized. A decode call establishes its dimensions, loaded-file data, and three image buffers; object construction establishes the embedded descriptors and retained HSD_SObj; each rendering callback refreshes the three embedded GXTexObj values from the retained planes before drawing. Only the temporary decoder context and work buffer are freed, leaving the decoded planes and display state resident for subsequent rendering.",
+      "rationale": "The static BSS declaration establishes the initial state, while the current function bodies show the ordered decode-ready, display-object-ready, and render-use phases and free only the temporary local allocations.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The source shows static BSS storage, persistent field writes, per-render texture reconstruction, and HSD_Free calls limited to the decoder context and decode buffer."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_01F8:.sdata2": [
+    {
+      "id": "fact:00508962-f827-447d-8c6c-0ba8edf029b1",
+      "target_id": "target:data:main/melee/lb/lb_01F8:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "lbMthp8001F890 consumes the zero constant to initialize HSD_ImageDesc.minLOD and maxLOD, while lbMthp8001F928 reuses it as the minimum LOD, maximum LOD, and LOD-bias arguments for each of the three GX texture objects. Those configured objects are then loaded on texture units 0, 1, and 2 before SObj rendering.",
+      "rationale": "The current source traces the shared floating-point zero through descriptor initialization and all three GX texture LOD calls to the texture loads and rendering dispatch.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The code shows every 0.0F use in the image and texture LOD setup, followed by loading the three textures and invoking the SObj display routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:c157e2c3-3a47-4c11-86b7-a5159af744d6",
+      "target_id": "target:data:main/melee/lb/lb_01F8:.sdata2",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports the fixed base-level texture setup used to render the character-specific THP image in the Congratulations scene after Classic, Adventure, or All-Star mode.",
+      "rationale": "The constant supplies the zero LOD range and bias for the THP display textures, while the current scene installs that display callback and selects a character-specific THP according to the completed mode.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The unit uses 0.0F to configure the image descriptor and all three textures used by its THP rendering callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A9B.c#L86-L166",
+          "why": "The Congratulations scene installs the callback and selects a character-specific Classic, Adventure, or All-Star THP for decoding and display."
+        }
+      ]
+    },
+    {
+      "id": "fact:9fc5ea1b-c38a-461b-899b-e9ba8830789d",
+      "target_id": "target:data:main/melee/lb/lb_01F8:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A read-only small-data constant-pool contribution whose observable semantic payload is the single-precision value 0.0F used by the unit's HSD and GX LOD setup.",
+      "rationale": "The target is the unit's .sdata2 contribution, and the current source repeatedly exposes 0.0F as the floating-point constant consumed by both display-setup routines without defining a separately named source object.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The matched source shows the repeated single-precision 0.0F literal consumed by the HSD image descriptor setup and GX texture initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:543a42de-148d-4bcc-8bd5-35fc1e37cf10",
+      "target_id": "target:data:main/melee/lb/lb_01F8:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the shared floating-point zero used to configure the decoded THP image and each of its three GX texture planes with zero minimum LOD, maximum LOD, and LOD bias.",
+      "rationale": "The current unit assigns 0.0F to the HSD image descriptor's LOD bounds and passes it for all three floating-point LOD arguments while initializing each GX texture object.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The source shows 0.0F assigned to the image descriptor's minLOD and maxLOD and reused as the three floating-point LOD arguments for all three textures."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_01F8:lbMthp8001F890": [
+    {
+      "id": "fact:fdbe0366-3114-4503-b29c-f874fcbf2cef",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F890",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads decoded width and height from the unit's shared THP state, writes them and fixed RGBA8, no-mipmap, and no-TLUT settings into shared image and SObj descriptors, passes the caller's GObj and that descriptor to HSD_SObjLib_803A477C, stores the returned HSD_SObj in shared state, sets its 0x10 flag, and returns it to the scene for positioning.",
+      "rationale": "The current function exposes every shared-state read and write and returns the constructor result; the current caller immediately centers and further flags that returned display object.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The function body shows the descriptor writes, constructor arguments, stored result, flag mutation, and returned HSD_SObj pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A9B.c#L86-L166",
+          "why": "The caller consumes the returned pointer by assigning its horizontal and vertical position and setting another display flag."
+        }
+      ]
+    },
+    {
+      "id": "fact:2364ea80-da50-4f44-82d0-0a3c679ac9c9",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F890",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Creates the on-screen object that presents the selected character's ending THP in the post-game Congratulations scene.",
+      "rationale": "The scene selects and decodes a character-specific ending THP, then immediately calls this function to obtain and center the associated display object.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A9B.c#L86-L166",
+          "why": "The current scene selects the appropriate mode-specific character THP, decodes it, calls this function, and positions the returned HSD_SObj at screen center."
+        }
+      ]
+    },
+    {
+      "id": "fact:a8b705f3-5187-40be-9e63-72284fcf82d5",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F890",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMthp_CreateSObj",
+      "rationale": "The established lbMthp prefix identifies the subsystem, and the function's dominant operation is constructing and returning an HSD_SObj from the shared THP display descriptor. The exact historical suffix remains uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: lbMthp_CreateSObj.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The target exclusively prepares image and SObj descriptors, calls the SObj constructor, flags the result, and returns it."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L99-L219",
+          "why": "The called routine is declared as returning HSD_SObj* and allocates and initializes an HSD_SObj from the supplied descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:884e6263-39fe-4ca3-b1f2-a96bfe37c768",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F890",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: HSD_SObj* function(HSD_GObj* gobj).",
+      "rationale": "The current declaration now directly provides the typed signature, and the body stores, mutates, and returns the HSD_SObj pointer produced by the SObj constructor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The current declaration has an HSD_GObj* parameter and HSD_SObj* return type, and the body returns the constructor result retained in shared state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L99-L219",
+          "why": "HSD_SObjLib_803A477C is declared and implemented as an HSD_SObj-returning constructor."
+        }
+      ]
+    },
+    {
+      "id": "fact:c82a31e3-dcc8-403d-b06d-6e9efea9f664",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F890",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Creates the HSD sprite object used as the display surface for the decoded THP image, using the stored movie dimensions and enabling an additional SObj behavior flag before returning the object.",
+      "rationale": "The target constructs an RGBA8 HSD_ImageDesc from shared dimensions, wraps it in an HSD_SObjDesc, invokes the SObj constructor, sets bit 0x10 on the result, stores it globally, and returns it for scene positioning.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The target shows descriptor initialization, SObj creation, result storage, flagging, and return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L99-L219",
+          "why": "The called SObj routine allocates and initializes an HSD_SObj from the supplied image descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A9B.c#L86-L166",
+          "why": "The ending-scene caller treats the return value as the THP display object and assigns its screen position."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_01F8:lbMthp8001F928": [
+    {
+      "id": "fact:330b397c-aecd-4e42-8a6e-5a3544cd8c72",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F928",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The shared full-resolution plane pointer and stored width and height initialize texture unit 0. The other two plane pointers initialize texture units 1 and 2 at width\u00f72 and height\u00f72. Each descriptor receives non-mipmapped, zero-range LOD state before being loaded, after which gobj and arg1 flow into HSD_SObjLib_803A49E0 for drawing.",
+      "rationale": "The three repeated call groups directly map each shared pointer and dimension pair to a distinct GX texture unit, and the common tail shows where the callback inputs are consumed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:16:47.634Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L48-L72",
+          "why": "The complete function explicitly shows the source pointer, dimensions, LOD initialization, destination texture unit, and final render-call flow for all three planes."
+        }
+      ]
+    },
+    {
+      "id": "fact:d27773a8-cd62-4310-abc2-efcbbba84ea3",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F928",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the texture-binding and draw stage of THP movie-frame presentation: the full-size luminance plane and two half-width, half-height chroma planes are made available to the renderer as three GX textures.",
+      "rationale": "The decoder creates one width-by-height plane and two quarter-area planes, while this callback consumes those buffers at full and half dimensions and binds them before drawing.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The unit shows the decoder allocating and filling the three planes and this target binding them as one full-size and two half-dimension GX textures before rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:b92beece-1fc5-4a1a-ab75-6686a288e423",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F928",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMthp_DrawDecodedFrame",
+      "rationale": "The target performs only presentation-side texture setup and rendering, while the sibling lbMthp8001FAA0 performs allocation and THP decoding. The exact historical suffix remains uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style semantic name is lbMthp_DrawDecodedFrame, reflecting that the routine binds the already-decoded planes and dispatches screen-object rendering rather than performing THP decoding itself.",
+      "confidence": 0.68,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The sibling function performs the decode, while this function initializes and binds the resulting planes as textures and invokes the SObj rendering routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:4fc210b6-0315-4083-9e24-353693ef7ea2",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F928",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void HSD rendering callback with signature void (HSD_GObj* gobj, int arg1). It consumes frame dimensions and three decoded-plane pointers from the unit's private singleton and forwards both callback arguments to the HSD screen-object render path without returning a value.",
+      "rationale": "The declaration provides the callback shape, while the body shows that its image inputs come from shared state and that gobj and arg1 are consumed by HSD_SObjLib_803A49E0 after texture binding.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:16:47.634Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L48-L72",
+          "why": "The resolved declaration and body show the exact parameters, void return, shared texture inputs, and final forwarding call."
+        }
+      ]
+    },
+    {
+      "id": "fact:fa5e5df2-2e95-4913-b87b-0b69de2a0708",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F928",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Prepares and binds the three decoded THP image planes as GX textures, then invokes the HSD screen-object rendering path to draw the frame.",
+      "rationale": "The matched body initializes three GXTexObj descriptors from the shared image pointers, sets their LOD state, loads them into texture units 0 through 2, and only then calls the HSD screen-object routine. This is a frame-render setup callback rather than a decoder or allocator.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:16:47.634Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L48-L72",
+          "why": "The complete matched function shows all three texture initialization/load sequences followed by the HSD screen-object call."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2481--fn--main-melee-lb-lb-01f8-lbmthp8001f928--643b222b13ed",
+          "why": "The resolved function-level PR record establishes that this 376-byte implementation reached a complete assembly match."
+        }
+      ]
+    },
+    {
+      "id": "fact:328097cd-4f99-4c7b-a137-085955400d6f",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001F928",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On every invocation, the routine reconstructs all three GX texture descriptors, installs fixed non-mipmapped zero-LOD sampling state, and binds them in the invariant order full-resolution plane to unit 0 followed by the two half-resolution planes to units 1 and 2 before rendering. It contains no conditional state transition or timer.",
+      "rationale": "The matched body is a straight-line sequence with no guards: each texture is always initialized, assigned identical LOD policy, and loaded into its fixed texture unit before the render routine is reached.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:16:47.634Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L48-L72",
+          "why": "The straight-line body demonstrates the unconditional per-call descriptor rebuild and fixed texture-unit ordering."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_01F8:lbMthp8001FAA0": [
+    {
+      "id": "fact:7b4b714d-6748-49f0-b5cc-3527169d35b6",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001FAA0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The filename is passed to lbFile_80016760 to obtain the asset pointer and size in shared state. The dimensions determine one width-by-height destination and two width-by-height-divided-by-four destinations; THPVideoDecode produces an intermediate decoded result that is converted into the three retained planes. Temporary 0xC-byte decoder context and work-buffer allocations are freed, while the loaded-file metadata, dimensions, and decoded-plane pointers remain available to the module's object-construction and rendering routines.",
+      "rationale": "The current unit shows the complete input, allocation, decode, conversion, and cleanup flow and shows the neighboring routines consuming the retained dimensions and planes.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The source shows the filename and dimensions flowing through file loading, dimension-derived allocations, THP decoding, planar conversion, temporary frees, and later object and texture setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:84ed0ff8-305b-4b7f-b4aa-b579c0fd19d1",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001FAA0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Decodes the selected character-specific ending image used by the post-completion Congratulations scene for Classic, Adventure, and All-Star modes.",
+      "rationale": "The current ending scene chooses a character-indexed THP from mode-specific tables and passes it with display dimensions to this function before constructing the on-screen object.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A9B.c#L86-L166",
+          "why": "The scene selects a Classic, Adventure, or All-Star character THP and invokes lbMthp8001FAA0 before creating and positioning its display object."
+        }
+      ]
+    },
+    {
+      "id": "fact:f24d80bf-2adc-4d3a-a2d7-0e79e2e1d7b2",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001FAA0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void-returning synchronous initializer and decoder with signature void (const char* filename, int width, int height); width and height are persisted as u16 values and determine the sizes of three decoded image planes.",
+      "rationale": "The current declaration provides the complete signature, and the body truncates both dimensions to u16 shared fields before deriving the luma and chroma allocation sizes from them.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The declaration shows the filename and integer dimension parameters and void return, while the body demonstrates u16 persistence and dimension-derived allocations."
+        }
+      ]
+    },
+    {
+      "id": "fact:d643f395-a1ae-41dd-9b5d-09ce22a9d164",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001FAA0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Synchronously loads a THP asset and decodes its image into retained full-resolution luma and half-resolution chroma planes that the module's GX callback can render.",
+      "rationale": "The function loads the named file, allocates one full-area and two quarter-area buffers, performs a THP video decode, converts the result into those three planes, and retains their pointers while freeing only temporary decoder allocations.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The complete function shows synchronous file loading, allocation, THP decoding, planar conversion, retained plane pointers, and temporary cleanup."
+        }
+      ]
+    },
+    {
+      "id": "fact:6d69cb0c-05d9-44b6-be6f-1df3d0b65342",
+      "target_id": "target:function:main/melee/lb/lb_01F8:lbMthp8001FAA0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Initializes a fresh decoded-image state on each call. After decoding, it selects a specialized planar-conversion routine when the stored width is exactly 640 (0x280); all other widths use the general conversion routine, which receives the actual width.",
+      "rationale": "The function overwrites the shared dimensions and plane pointers for the requested asset, then contains one explicit width guard selecting THPDec_80331340 at 640 pixels and THPDec_803313D0 otherwise.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:06:52.666Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lb_01F8.c#L1-L117",
+          "why": "The current body shows shared-state initialization and the exact 0x280 specialized-versus-general planar-conversion branch."
+        }
+      ]
+    }
+  ],
+  "src/melee/lb/lb_01F8.c": [
+    {
+      "id": "fact:f34cc207-cb30-4e72-98a5-c0c4f69d07d7",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_01F8.c",
+      "type": "data_flow",
+      "value": "A caller supplies a THP filename and display dimensions; the unit loads the file, allocates Y plus two quarter-size chroma buffers, decodes the THP image into those buffers, uses the stored dimensions to build an SObj descriptor, and later binds the three planes as GX textures before rendering the SObj.",
+      "rationale": "The current source preserves the complete flow from filename and dimensions through file loading, planar-buffer allocation, THP decoding, sprite construction, and three-plane GX texture binding.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T16:56:16.722Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L1-L115",
+          "why": "Shows filename and dimension inputs becoming decoded luma and chroma buffers, an SObj descriptor, and three bound GX textures."
+        }
+      ]
+    },
+    {
+      "id": "fact:86ef91aa-8f8a-4715-9b0b-4dcc9ed06a12",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_01F8.c",
+      "type": "game_mapping",
+      "value": "Implements display support for the character-specific ending THP shown after Classic, Adventure, or All-Star completion.",
+      "rationale": "The current Congratulations-scene setup still selects separate Classic, Adventure, and All-Star THP tables by character and passes the selected asset through this unit's decode and display pipeline.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T01:28:05.550Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A9B.c#L86-L166",
+          "why": "Shows the scene selecting a character-specific THP by completed mode and invoking the unit's decoder and display-object constructor."
+        }
+      ]
+    },
+    {
+      "id": "fact:94e6fea1-776c-4696-884f-37662ea21dd6",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_01F8.c",
+      "type": "inferred_type",
+      "value": "An auxiliary THP display translation unit owning a 0xA0-byte static state object containing three GXTexObj values and their image-plane pointers, decoded width and height, an HSD_ImageDesc/HSD_SObjDesc pair, the resulting HSD_SObj pointer, and file/decode bookkeeping.",
+      "rationale": "The explicit size assertion and current field accesses establish the 0xA0-byte state layout and show that the unit owns its three texture objects, planar image pointers, dimensions, image and sprite descriptors, sprite pointer, and decode bookkeeping.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T16:56:16.722Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L1-L115",
+          "why": "Defines and size-checks the static state structure and shows its texture, image-plane, sprite, dimension, and file/decode fields being used."
+        }
+      ]
+    },
+    {
+      "id": "fact:b7be7673-39eb-4e22-8ef2-912a2d967297",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lb_01F8.c",
+      "type": "purpose",
+      "value": "Provides the auxiliary THP ending-image pipeline: it allocates and decodes a selected THP image into full-resolution luma and half-resolution chroma planes, creates an HSD sprite object for the decoded image, and supplies the GX callback that binds those planes for display.",
+      "rationale": "The current unit retains the cooperating THP decode, sprite-construction, and three-plane texture-binding routines. The current Congratulations-scene caller selects character-specific Classic, Adventure, or All-Star THP assets and invokes those routines together, grounding the pipeline's ending-image role.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T16:56:16.722Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L1-L115",
+          "why": "Shows the unit's shared image state, sprite creation, three-plane texture setup, and THP decoding path."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gm_1A9B.c#L86-L166",
+          "why": "Shows the Congratulations scene selecting a character-specific THP according to completed mode and invoking the unit's decoder, sprite constructor, and rendering callback."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_01F8:lbMthp8001F890#r3": [],
+  "main/melee/lb/lb_01F8:lbMthp8001F928#r3": [],
+  "main/melee/lb/lb_01F8:lbMthp8001F928#r4": [],
+  "main/melee/lb/lb_01F8:lbMthp8001FAA0#r3": [],
+  "main/melee/lb/lb_01F8:lbMthp8001FAA0#r4": [],
+  "main/melee/lb/lb_01F8:lbMthp8001FAA0#r5": []
+}

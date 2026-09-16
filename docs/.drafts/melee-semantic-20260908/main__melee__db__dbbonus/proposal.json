@@ -1,0 +1,70 @@
+{
+  "tu": "main/melee/db/dbbonus",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbbonus.c#L14-L63",
+            "why": "Initial palette, selection sentinel, registration and cursor hiding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib.c#L35-L83",
+            "why": "Creation initializes flags and clears the backing buffer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib.c#L159-L198",
+            "why": "Background/text hiding uses separate flags."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L63-L96",
+            "why": "Developer-debug-gated setup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing description of a hidden initial overlay by distinguishing inactive selection and blank transparent presentation from explicit text/background hide flags.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbbonus:fn_SetupBonusInfo"
+        },
+        "type": "game_mapping",
+        "value": "Initializes Melee's developer-debug bonus-information viewer by establishing no selected player and preparing two buffered DevText panels in the primary palette. The panels are registered, their buffers begin cleared, and their cursors are hidden; setup does not hide their text or backgrounds. The initial background is transparent, and no normal player slot qualifies for redraw until selected."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbbonus.c#L108-L155",
+            "why": "Complete toggle branches and selected-player checker."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbbonus.c#L65-L106",
+            "why": "Overflow-only continuation onto panel one."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L256",
+            "why": "Conditional input-refresh range, edge-mask calculation and four-slot dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unqualified next-trigger recolor description, preserves cross-player palette state and distinguishes stored input masks, entity-gated bonus updating and selective panel regeneration.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbbonus:fn_CheckBonusInfo"
+        },
+        "type": "state_behavior",
+        "value": "Tests B in the slot's stored held mask and D-pad left in its stored pressed mask. A successful test delegates to the overlay toggle: a different slot is selected and shown with the current palette preserved; the selected slot changes palette zero to one, or, if already using palette one, is deselected to 0xFF while both panels are hidden and the palette resets. After the toggle, only a still-selected slot reaches rendering. It calls pl_80039450 only if Player_GetEntity is nonnull, then always starts rendering at panel zero and bonus zero. Panel one is regenerated only through overflow recursion. The dispatcher checks all four slots, but refreshes input masks for only two when a Hand boss is present, so the stored pressed bit is not necessarily a freshly computed edge for every checked slot."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "tu": "main/MetroTRK/serpoll",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L62",
+            "why": "Complete acquisition and classification path."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the caller's guard from the effects and exceptional behavior of the packet test.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/serpoll:TRKGetInput"
+        },
+        "type": "state_behavior",
+        "value": "Performs one packet test and does no additional work if its result is -1; that test may itself have transport and buffer side effects. Otherwise it resets the returned buffer's cursor to zero, reads a command byte, processes values below 0x80, and releases values at or above 0x80. Buffer lookup and cursor/read results are unchecked. It retains no automatic local state between calls."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L82-L85",
+            "why": "No-op implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L58-L62",
+            "why": "Shutdown hook invocation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes an unsupported inference about cleanup requirements while retaining the lifecycle role.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/serpoll:TRKTerminateSerialHandler"
+        },
+        "type": "purpose",
+        "value": "Provides the serial-handler teardown hook invoked by TRKTerminateNub. This implementation performs no cleanup or state mutation and unconditionally returns kNoError; the no-op body does not establish that outstanding resources cannot exist."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42",
+            "why": "Acquisition logic and unchecked exceptional paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the acquisition purpose without promising safe rejection on all paths.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/serpoll:TRKTestForPacket"
+        },
+        "type": "purpose",
+        "value": "Attempts to acquire one MetroTRK packet from UART availability into a message buffer, returning its identifier after a successful positive-count read of at most 0x880 bytes. Oversized input triggers bounded discard-read requests and an attempted kDSReplyNAK/error-6 reply. This implementation does not safely handle every unsuccessful acquisition path: allocation status is ignored and the cleanup identifier is uninitialized when polling reports a nonpositive count."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42",
+            "why": "Producer, buffer writes, return sites and cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L27-L51",
+            "why": "Allocation outputs on success and failure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L12-L50",
+            "why": "Reply-buffer rewriting and transmission attempts."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects universal cleanup wording and records the actual allocation output contract.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/serpoll:TRKTestForPacket"
+        },
+        "type": "data_flow",
+        "value": "TRKPollUART supplies a signed byte count. For a positive count, TRKGetFreeBuffer is called for an identifier and pointer, but its status is ignored. With successful allocation, a read of at most 0x880 bytes targets b->fData; kNoError causes b->fLength to be set and the identifier returned. Oversized counts drive repeated reads into the same data array, followed by TRKStandardACK(b, kDSReplyNAK, 6), which rewrites the buffer as a reply and attempts transmission. Remaining control flow tests id against -1, conditionally releases it, and returns -1. However, id has no initializer: nonpositive polling leaves it indeterminate, and allocation failure leaves b null and id untouched."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/serpoll.c#L11-L42",
+            "why": "Guards, loop progress, ignored statuses and uninitialized identifier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L27-L51",
+            "why": "Unchecked allocation failure contract."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact acceptance conditions while distinguishing requested work from guaranteed transport outcomes.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/serpoll:TRKTestForPacket"
+        },
+        "type": "state_behavior",
+        "value": "With successful allocation, a positive count no greater than 0x880 becomes a returned packet only when its UART read reports kNoError; a failed read reaches release and -1. Oversized input requests batches of min(remaining, 0x880), subtracting each requested batch regardless of read status, then attempts a NAK with numeric error 6 and releases the temporary buffer. Neither discard-read nor ACK status is checked, so complete draining and successful transmission are not guaranteed. Allocation failure is unchecked; a nonpositive poll reaches a comparison of uninitialized id. These source-level hazards prevent a defined no-packet/failure transition from being asserted for every call. No automatic local state is retained between calls."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

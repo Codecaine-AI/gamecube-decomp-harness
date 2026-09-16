@@ -36,7 +36,7 @@ function parseEnvLine(line: string): [string, string] | undefined {
 
 export function loadLocalEnv(options: LoadLocalEnvOptions = {}): string[] {
   const root = resolve(options.root ?? packageRoot());
-  const filenames = options.filenames ?? ["local.env"];
+  const filenames = options.filenames ?? ["config/local.env"];
   const loaded: string[] = [];
 
   for (const filename of filenames) {

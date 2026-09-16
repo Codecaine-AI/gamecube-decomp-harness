@@ -1,0 +1,3 @@
+This file contains only a Doxygen directory comment describing `gm` as top-level game code and referring to `main`; it defines no executable behavior or symbols (code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/dir.dox#L1-L4). The complete canonical and rendered views agree, with no name substitutions or renderer errors. The comment documents directory intent; it does not independently establish the implementation or placement of `main`. No baseline subjects, facts, or links exist in this scope, and no semantic correction is warranted.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

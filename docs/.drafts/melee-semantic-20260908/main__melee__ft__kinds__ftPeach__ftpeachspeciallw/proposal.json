@@ -1,0 +1,119 @@
+{
+  "tu": "main/melee/ft/kinds/ftPeach/ftpeachspeciallw",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachspeciallw:pickVeg"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Selects an ItemKind from Peach's weighted down-special table only when getVeg takes its zero-RNG-result branch; otherwise getVeg returns It_Kind_Peach_Turnip. Turnip variant and damage selection occur separately in the item constructor. Active table outcomes and exact rarity remain unresolved.",
+        "rationale": "Corrects the baseline conflation of item-kind and turnip-variant selection.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspeciallw.c#L34-L59",
+            "why": "Returns the selected entry's ItemKind."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspeciallw.c#L84-L94",
+            "why": "Shows default and conditional table path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachturnip.c#L119-L127",
+            "why": "Separately selects variant and associated damage."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachspeciallw:pickVeg"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Uses strict randi < cumulative_weight selection with result initially -1 and no invalid-data fallback. The source loop reads table[idx + 1].randi_max even after selecting an entry; selecting index two therefore evaluates an access beyond the declared three-entry array. Compiled execution of that unused final read is unresolved. Count, weights, total, overflow and RNG bounds are not validated locally.",
+        "rationale": "Records exact boundaries without converting source adjacency or dead-read assumptions into compiled safety claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspeciallw.c#L34-L59",
+            "why": "Shows threshold, unchecked result and unconditional next-entry expression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/types.h#L23-L35",
+            "why": "Declares three table entries and integer fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L18-L21",
+            "why": "Uses unchecked signed multiplication and scaling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPeach/ftpeachspeciallw:handleColl"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls ftCommon_AirToGroundStateChange with ftPe_MS_SpecialLw and coll_mf, then installs spawnVeg in accessory4_cb. The inline passes current animation frame, speed 1 and blend 0. The handler does not directly set throw bit zero. Reinstallation permits later event-gated work but does not establish that an event remains pending, survives the complete state consumer, or produces another item.",
+        "rationale": "Replaces the unsupported pending-event guarantee with exact local operations and explicit consumer uncertainty.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspeciallw.c#L168-L174",
+            "why": "Complete local handler."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L81-L89",
+            "why": "Current-frame transition arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L245-L253",
+            "why": "Event check consumes its bit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftPeach/ftpeachspeciallw.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Grounded entry begins SpecialLw and installs spawnVeg only with no held item. Every held item suppresses a fresh pull; only a held Peach Turnip invokes common throw entry with LightThrowF4 on ground or LightThrowAirF4 in air. Aerial entry has no pull fallback. Collision handlers request opposing SpecialLw states at the current animation frame and reinstall spawnVeg. When the frame predicate is false, animation callbacks invoke ft_8008A2BC on ground or ftCo_Fall_Enter in air, then clear only the vegetable tracker. Grounded completion normally requests Wait but has conditional alternatives.",
+        "rationale": "Preserves the lifecycle while correcting unconditional Wait and fresh-aerial-pull interpretations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachspeciallw.c#L126-L193",
+            "why": "Entry, transition and completion branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L71-L89",
+            "why": "Current-frame conversion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L98",
+            "why": "Conditional common completion destinations."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

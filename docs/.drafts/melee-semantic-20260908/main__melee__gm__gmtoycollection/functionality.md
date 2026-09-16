@@ -1,0 +1,11 @@
+## Toy-collection mode routing
+
+`gmtoycollection.c` defines `gm_Mode_ToyCollection_States`: one populated entry beginning with numeric state value `0`, preload constant `lbDvdPreload_2`, a null callback slot, `gm_801BED14`, and a nested initializer containing `GS_TOY_COLLECTION`, `NULL`, and `&gm_804D6918`. A `{ -1 }` entry follows. The private backing object is declared `static UNK_T gm_804D6918[2]`; its address escapes through the exported table. The header declares the table externally. These observations do not establish compiled section placement, structure offsets, or the backing object's downstream contents or ownership. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoycollection.c#L5-L22), [header](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoycollection.h#L1-L8).
+
+`gm_801BED14` has a `void` return type and an unused `GameModeState*` argument. Every invocation calls `gm_SetPendingGameMode(GM_MENU)` and then `gm_SetNewGameModePending()`, with no local guards, alternate destinations, timers, or argument-dependent branches. [Callback](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoycollection.c#L24-L28).
+
+Canonical callee definitions confirm that these calls replace `state_machine.routing.pending_mode` and set `state_machine.pending_mode_change` to true. This schedules a transition rather than directly loading a menu screen. The external runner tests the pending flag, conditionally invokes unload handling when not resetting, and returns the pending destination; its override path can restore saved routing when not resetting. Thus the callback's unconditional writes should not be generalized into an unconditional immediate screen change across the entire manager. [Setters](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A3F.c#L224-L232), [runner](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A3F.c#L287-L325).
+
+Both owned canonical and rendered files were read completely. Rendered views reported no substitutions or parse errors and supplied no independent semantic proof. All five baseline facts and the single menu-use link remain supported by current canonical evidence; the link's historical source locator is not treated as current-location evidence.
+
+Status: synthesized; independent review and live promotion pending.

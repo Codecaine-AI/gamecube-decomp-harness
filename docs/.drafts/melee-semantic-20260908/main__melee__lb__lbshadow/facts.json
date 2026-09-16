@@ -1,0 +1,1305 @@
+{
+  "main/melee/lb/lbshadow:.data": [
+    {
+      "id": "fact:b12b9fa3-845a-4919-a787-6a8871d750ba",
+      "target_id": "target:data:main/melee/lb/lbshadow:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The assertion macros and explicit shadow assertion read the section's diagnostic strings. lbShadow_8000F214 reads the embedded HSD_Chan through HSD_SetupChannelAll, then configures the shadow texture's scissor and vertex state and emits an oversized camera-plane quad before the surrounding routine completes the offscreen shadow render.",
+      "rationale": "At head, the assertions still consume the section-backed text, while the channel descriptor flows through HSD_SetupChannelAll into the quad draw. The caller still executes that draw between HSD_ShadowStartRender and HSD_ShadowEndRender.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L111-L238",
+          "why": "Shows the section-backed assertion text and the static HSD_Chan definition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L200-L280",
+          "why": "Shows the HSD_Chan flowing into HSD_SetupChannelAll and the subsequent scissor, matrix, vertex-state, and quad operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows lbShadow_8000F214 executing inside the active offscreen shadow-render interval."
+        }
+      ]
+    },
+    {
+      "id": "fact:e416874d-5240-4c7c-854a-94188847eb04",
+      "target_id": "target:data:main/melee/lb/lbshadow:.data",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports fighter projected-shadow rendering by providing the fixed color-channel configuration for the offscreen shadow pass's clearing geometry.",
+      "rationale": "The current HSD_Chan descriptor is installed by the quad helper, and that helper remains conditionally invoked inside each fighter's offscreen HSD shadow render.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L200-L280",
+          "why": "Shows the fixed channel descriptor driving GX setup for the camera-covering quad."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Places the quad operation within the fighter-shadow texture generation pass."
+        }
+      ]
+    },
+    {
+      "id": "fact:cabca3d9-b25a-4fb4-a540-534752c69d68",
+      "target_id": "target:data:main/melee/lb/lbshadow:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 0x78-byte writable data-section layout consisting of compiler-emitted, four-byte-aligned assertion strings at the front, followed at address 0x803BA0FC by one HSD_Chan object, with a final aligned zero word retained at the end of the object file's data contribution.",
+      "rationale": "The target spans 0x803BA0D8 through 0x803BA150, and the source places the static HSD_Chan at 0x803BA0FC after assertion literals used earlier in the file. Archived linker investigation independently identifies an aligned `.4byte NULL` at the end of lbshadow's contribution and notes that discarding it shifts all following .data.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-02T14:22:14.380Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L111-L238",
+          "why": "Shows the assertion literals that precede the explicitly addressed static HSD_Chan definition."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/942942355626016828",
+          "why": "Records that lbshadow's data contribution includes an aligned four-byte NULL whose removal shifts all subsequent .data, and provides the following map boundary at 0x803BA150."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2481--fn--main-melee-lb-lbshadow-data--b7191dabdf1c",
+          "why": "Identifies this exact lbshadow .data section as the data contribution corrected by the dedicated miscellaneous-LB-data change."
+        }
+      ]
+    },
+    {
+      "id": "fact:a0dff58d-68d7-43cd-9a33-58e5bf56b99e",
+      "target_id": "target:data:main/melee/lb/lbshadow:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Supplies writable-section support data for the fighter-shadow subsystem: assertion text used by shadow validation and a static HSD_Chan descriptor used to establish the channel state for the shadow-camera clearing quad.",
+      "rationale": "The current source retains the shadow assertion literals and the static HSD_Chan object, then passes that object to HSD_SetupChannelAll before drawing the clearing quad. The earlier claim therefore remains valid and is re-cited at the checkout head.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L111-L238",
+          "why": "Shows shadow assertions consuming diagnostic literals and the static HSD_Chan definition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L200-L280",
+          "why": "Shows the HSD_Chan initializer and its use by lbShadow_8000F214 before GX state setup and quad submission."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbshadow:.sdata": [],
+  "main/melee/lb/lbshadow:.sdata2": [
+    {
+      "id": "fact:f88023cb-1295-4bd7-9ae9-32793eb43a95",
+      "target_id": "target:data:main/melee/lb/lbshadow:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The section is read-only. Its anonymous literals enter spline-polynomial, shadow-camera, texture-scale, and clearing-quad arithmetic. Its named constants supply zero and unit vectors, reciprocal-square-root Newton refinement factors, horizontal-light and normalization thresholds, alternate up-vector signs, and \u00b1128 fallback orthographic bounds; the resulting vectors and bounds are written into each fighter's HSD shadow camera and viewing rectangle.",
+      "rationale": "The refreshed head span still shows anonymous floating-point literals entering spline tangent polynomials. Other current spans show literals and named constants feeding clearing geometry, reciprocal-square-root refinement, light-basis construction, camera fitting, and fallback projection; their computed vectors and bounds are then assigned to fighter shadow cameras and viewing rectangles, with no writes back into the constant pool.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:38:59.904Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbshadow.c#L1-L120",
+          "why": "Shows anonymous scalar coefficients combining with spline control points to produce tangent-vector components."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L232-L359",
+          "why": "Shows inline clearing-quad scale literals, direct declarations and reads of named constants, and reciprocal-square-root refinement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L360-L440",
+          "why": "Shows zero, unit, threshold, and alternate-sign constants entering light-vector normalization and camera-basis calculations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L539",
+          "why": "Shows the resulting basis, eye and interest positions, and fitted bounds flowing into each fighter's shadow camera and viewing rectangle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L500-L567",
+          "why": "Shows camera-bound scaling, the \u00b1128 fallback projection, and the corresponding constant definitions used by the render path."
+        }
+      ]
+    },
+    {
+      "id": "fact:1f40295e-7447-4718-8c3d-2cabbc419648",
+      "target_id": "target:data:main/melee/lb/lbshadow:.sdata2",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supplies numerical parameters for fighter projected-shadow rendering, including light-relative camera orientation, camera-box fitting, clearing-quad margins, and a fixed orthographic fallback when viewing-rectangle fitting fails.",
+      "rationale": "The constants still control stable light-basis selection, camera-box expansion, and fallback projection immediately before the fighter's offscreen HSD shadow pass.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L360-L440",
+          "why": "Shows constants controlling degenerate-light handling, up-vector selection, normalization, and light-relative camera orientation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L500-L567",
+          "why": "Shows camera-box fitting, the \u00b1128 orthographic fallback, and the subsequent fighter-shadow render sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:69def65f-1675-43fa-aea5-7b9f9ac8fd43",
+      "target_id": "target:data:main/melee/lb/lbshadow:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A read-only mixed floating-point constant pool containing compiler-emitted scalar literals and nine explicitly defined trailing constants: seven `const f32` values and two 8-byte-aligned `const f64` values. It is not an authored array or runtime-indexed structure.",
+      "rationale": "The refreshed source still embeds independent scalar literals directly in spline expressions rather than indexing an aggregate. The trailing declarations and definitions identify seven single-precision objects and two double-precision objects, while all observed uses are direct reads, confirming the standing section layout.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T23:38:59.904Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbshadow.c#L1-L120",
+          "why": "Shows independent floating-point literals embedded directly in spline-polynomial expressions rather than accesses through an indexed table."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L232-L359",
+          "why": "Declares nine trailing constants as seven `const f32` objects and two `const f64` objects and shows direct scalar reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Defines all nine trailing constants and confirms their individual C types and scalar values."
+        }
+      ]
+    },
+    {
+      "id": "fact:3ed40a5a-3eea-4ef0-b805-0d7073b6ca92",
+      "target_id": "target:data:main/melee/lb/lbshadow:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the read-only floating-point constants used by `lbshadow.c` for spline-tangent basis calculations, shadow-camera initialization, clearing-quad expansion, reciprocal-square-root refinement, light-direction degeneracy handling, and fallback orthographic bounds.",
+      "rationale": "The refreshed head span confirms that inline constants remain part of the cardinal, B-spline, and B\u00e9zier tangent formulas. Current later spans confirm the clearing-quad scales and named constants used for shadow setup, square-root refinement, light-basis guards, camera fitting, and \u00b1128 fallback projection, so the standing purpose remains valid.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:38:59.904Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbshadow.c#L1-L120",
+          "why": "Shows floating-point coefficients used by the cardinal, B-spline, B\u00e9zier, and spline-dispatch tangent calculations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L112-L239",
+          "why": "Shows floating-point constants used to initialize the orthographic fighter-shadow camera and texture scales."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L232-L359",
+          "why": "Shows clearing-quad expansion literals, declarations of the trailing constants, and reciprocal-square-root refinement using them."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L360-L440",
+          "why": "Shows named constants controlling degenerate-light handling, normalization thresholds, and alternate camera up vectors."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows the complete trailing constant definitions, including the positive and negative 128 fallback orthographic bounds."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbshadow:lbShadow_8000E9F0": [
+    {
+      "id": "fact:0422b63d-7cbf-4953-8c22-410ac6654160",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000E9F0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For an accepted parameter, the function preserves the original `u`, scales `u` by `spline->numcv - 1`, truncates the result into a control-point index, and retains the fractional remainder as the segment-local parameter. It then reads the appropriate control-point neighborhood from `spline->cv`, additionally reads `spline->tension` for cardinal curves, and writes the resulting tangent into the caller-provided Vec3. Ground and Big Blue callers normalize or otherwise combine that tangent with reference vectors to produce object orientation.",
+      "rationale": "The complete input transformation and type-dependent control-point addressing are explicit in the target body. The resolved callers show the output flowing into normalization, cross products, rotation construction, and stage-object path calculations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T15:09:52.411Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L75-L115",
+          "why": "Shows `u`, `numcv`, `type`, `cv`, and `tension` flowing through segment selection and the representation-specific tangent calculations into the output Vec3."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L2829-L2881",
+          "why": "Shows the tangent output being normalized and converted through cross products and trigonometric decomposition into an orientation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grbigblueroute.c#L840-L959",
+          "why": "Shows Big Blue route logic consuming spline tangents to construct tangent, side, and up vectors and derive route-object rotations."
+        }
+      ]
+    },
+    {
+      "id": "fact:86fb1dc7-fb27-4869-8c12-f4392191cf21",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000E9F0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports spline-driven stage-object motion and orientation. Big Blue uses the evaluated direction to orient route-controlled racing objects along road and airborne paths, while common Ground code converts it into rotation angles that Kongo stage logic applies together with a sampled spline position to a moving stage model.",
+      "rationale": "The current Kongo code still applies the point and tangent-derived rotation returned by Ground_801C4B50 to a moving JObj. The standing Big Blue and common Ground evidence remains unchanged, so the gameplay mapping still holds.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L2829-L2881",
+          "why": "Shows common Ground code converting a sampled spline tangent into orientation angles."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grkongo.c#L757-L857",
+          "why": "Shows Kongo stage logic applying the sampled spline position and tangent-derived rotation to a moving JObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grbigblueroute.c#L840-L959",
+          "why": "Shows Big Blue route logic using spline tangents to construct route-object orientation."
+        }
+      ]
+    },
+    {
+      "id": "fact:7668539c-a6fa-4b0f-9808-976ef04633f8",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000E9F0",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "splGetSplineTangent",
+      "rationale": "This is a name inference rather than a rename instruction. The matched baselib routine splGetSplinePoint has the same signature, range handling, segment mapping, and spline-type dispatch but evaluates positions, while the target calls helpers named splGetBezierTangent, splGetBSplineTangent, and splGetCardinalTangent. That local API vocabulary makes splGetSplineTangent the most plausible original-style name despite the target currently residing in lbshadow.c.",
+      "confidence": 0.87,
+      "updated_at": "2026-09-02T15:09:52.411Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L75-L115",
+          "why": "Shows that the target is the common dispatcher for the three named splGet*\u200bTangent helpers and the equivalent linear tangent calculation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/spline.c#L82-L135",
+          "why": "Shows the parallel developer-facing symbol splGetSplinePoint and its nearly identical HSD_Spline dispatch structure."
+        }
+      ]
+    },
+    {
+      "id": "fact:888a3dd7-3771-4004-8361-28c645a79852",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000E9F0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void (Vec3* tangent_out, HSD_Spline* spline, f32 u)`. `u` is a normalized spline parameter in the inclusive range [0, 1], `tangent_out` receives a generally unnormalized derivative vector, and the observed `spline->type` domain is 0 = linear, 1 = B\u00e9zier, 2 = B-spline, and 3 = cardinal.",
+      "rationale": "The definition supplies the concrete C types and range guard. The switch maps values 0 through 3 to linear subtraction and the three named tangent helpers. The Ground caller explicitly normalizes the result afterward, demonstrating that the function's output is a tangent but is not guaranteed to have unit length.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T15:09:52.411Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L75-L115",
+          "why": "Provides the exact signature, inclusive normalized-parameter guard, output writes, and four observed spline type values."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L2829-L2881",
+          "why": "Shows the returned Vec3 being normalized before use, establishing its derivative-vector role and non-unit output contract."
+        }
+      ]
+    },
+    {
+      "id": "fact:8aaed06a-4eb3-470a-a170-1bd5e45ca8d7",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000E9F0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Evaluates the three-dimensional tangent of an HSD spline at a normalized parameter, dispatching among linear, B\u00e9zier, B-spline, and cardinal representations so callers can derive a direction or orientation along the curve.",
+      "rationale": "The function converts the normalized parameter into a control-point segment and segment-local fraction, then either subtracts adjacent linear control points or invokes the corresponding representation-specific tangent helper. Its close structural analog splGetSplinePoint performs the complementary point evaluation over the same HSD_Spline representation, while stage callers consume this function's output as a path direction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T15:09:52.411Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L75-L115",
+          "why": "Directly shows normalized-parameter validation, segment selection, and tangent evaluation for all four observed spline representations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/spline.c#L82-L135",
+          "why": "Shows the complementary splGetSplinePoint routine using the same parameter-to-segment mapping and four-way HSD_Spline type dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L2829-L2881",
+          "why": "Shows a caller normalizing the returned vector and using it to construct an orientation frame along the spline."
+        }
+      ]
+    },
+    {
+      "id": "fact:32bef9b6-1737-43c8-944d-26cbd7df8446",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000E9F0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The function returns without modifying the output when `u` is outside [0, 1]. For a valid parameter it dispatches solely on `spline->type`; type 0 computes the constant difference between adjacent linear control points and, at `u == 1`, decrements the segment index so the final segment is used. Types 1 through 3 evaluate their respective tangent helpers at the segment-local fraction, while an unrecognized type falls through without writing an output. The routine retains no persistent state.",
+      "rationale": "The initial guard, switch, linear endpoint correction, helper returns, and absence of a default output are all explicit in the source. Unlike the complementary point evaluator, this routine does not have a separate general endpoint branch; only its linear case adjusts the index at the inclusive endpoint.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T15:09:52.411Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L75-L115",
+          "why": "Directly shows the out-of-range return, type dispatch, linear `u == 1` index correction, and no-write fallthrough for unknown types."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/spline.c#L82-L135",
+          "why": "Provides the complementary point evaluator's explicit endpoint handling, clarifying the target's distinct tangent endpoint behavior."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbshadow:lbShadow_8000ED54": [
+    {
+      "id": "fact:edbb0ec1-550b-4120-9355-1d8d143e846e",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000ED54",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies an LbShadow storage record and a fighter model-root JObj. HSD_ShadowAlloc supplies the underlying shadow, whose camera receives orthographic projection, 0.001 near and 5000.0 far planes, flags value 1, and a 256-by-256 render size. On successful allocation, the function writes intensity 0xC0 and scales +0.45/-0.45, adds the input JObj, and activates the shadow. It then clears x0_b0, x0_b1, x0_b3, x0_b4, and x0_b5 and stores the allocation result in `lbshadow->shadow`; x0_b2 is left unchanged.",
+      "rationale": "Each input, call, constant, and destination field is explicit in the matched body. The fighter constructors establish the source of both arguments, while the unconditional trailing assignments establish the persistent outputs and show that x0_b2 is not initialized here.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T14:21:57.144Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L117-L144",
+          "why": "Shows the complete transformation of the allocation result and input JObj into configured HSD_Shadow and LbShadow state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://514397e54e/src/melee/ft/fighter.c#L846-L926",
+          "why": "Identifies the ordinary caller's arguments as the fighter's embedded LbShadow record and root model JObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdemo.c#L58-L128",
+          "why": "Confirms the same argument flow for demo-context fighters."
+        }
+      ]
+    },
+    {
+      "id": "fact:815f1879-6423-44ce-b6b8-6fe8812fa76a",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000ED54",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Creates the per-fighter projected-shadow resource used for both ordinary gameplay fighters and demo fighters, registering the fighter's model hierarchy as the initial silhouette rendered into its active shadow texture.",
+      "rationale": "Both fighter constructors pass their model root and embedded shadow record to this function. The function allocates a rendered HSD shadow, configures its orthographic camera and texture size, adds that model as a caster, and activates it, directly grounding the routine in fighter projected-shadow creation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T14:21:57.144Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L117-L144",
+          "why": "Shows creation and activation of an orthographic rendered shadow using the supplied JObj as its caster."
+        },
+        {
+          "kind": "code",
+          "locator": "code://514397e54e/src/melee/ft/fighter.c#L846-L926",
+          "why": "Shows the resource being created as part of ordinary gameplay fighter instantiation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdemo.c#L58-L128",
+          "why": "Shows the same resource being created for demo-context fighters."
+        }
+      ]
+    },
+    {
+      "id": "fact:d3cbc106-8188-403b-89bd-dd5a6762f9da",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000ED54",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbShadow_Init",
+      "rationale": "The routine still completely initializes caller-owned LbShadow state and its allocated HSD_Shadow, and the adjacent unit member still removes that stored shadow. This supports an initializer/remover lifecycle pairing, though no recovered symbol confirms the exact suffix.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `lbShadow_Init`.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L117-L152",
+          "why": "Shows complete LbShadow initialization followed immediately by the paired wrapper operation that removes its stored HSD_Shadow."
+        },
+        {
+          "kind": "code",
+          "locator": "code://514397e54e/src/melee/ft/fighter.c#L846-L926",
+          "why": "Places the target in ordinary fighter construction with the fighter's embedded LbShadow and model root."
+        }
+      ]
+    },
+    {
+      "id": "fact:5b4d3ce0-5156-475a-8bae-1cde2459f9ea",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000ED54",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void lbShadow_8000ED54(LbShadow* lbshadow, HSD_JObj* jobj)`. The first argument is mutable persistent shadow-owner state and must be non-null; the second is a model hierarchy root registered as the initial shadow caster. The function returns no value and records allocation failure by storing a null HSD_Shadow pointer.",
+      "rationale": "The definition provides the exact C signature and asserts the LbShadow pointer. All owner-state writes target the first argument, while the second is passed to HSD_ShadowAddObject. HSD_ShadowAlloc's result is assigned to the owner even when null, and no status is returned.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T14:21:57.144Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L117-L144",
+          "why": "Provides the exact signature, non-null assertion, parameter uses, null-allocation branch, and final owner assignment."
+        }
+      ]
+    },
+    {
+      "id": "fact:1532cd74-322f-49a4-aaf3-8a6b9b4f8694",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000ED54",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes an LbShadow owner with a newly allocated, active HSD shadow for the supplied model hierarchy. It configures an orthographic camera and 256-by-256 render target, sets the shadow's opacity and texture-coordinate scales, registers the supplied JObj as its initial caster, clears the owner's initial suppression flags, and stores the resulting HSD_Shadow pointer.",
+      "rationale": "The matched body performs exactly this construction sequence, from HSD_ShadowAlloc through camera and texture setup, caster registration, activation, flag clearing, and assignment into the LbShadow. Both callers invoke it while assembling a fighter, confirming that this is persistent owner initialization rather than a transient render operation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T14:21:57.144Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L117-L144",
+          "why": "Directly shows all allocation, camera, texture, intensity, scale, caster, activation, flag, and owner-pointer writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://514397e54e/src/melee/ft/fighter.c#L846-L926",
+          "why": "Shows the routine being called during ordinary fighter construction with the fighter's embedded LbShadow and model root."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdemo.c#L58-L128",
+          "why": "Shows the same routine being used to install persistent shadow state during demo fighter construction."
+        }
+      ]
+    },
+    {
+      "id": "fact:8b0e7577-9962-4dde-be32-8a5346b314f9",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000ED54",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If HSD_ShadowAlloc succeeds, the new shadow is fully configured, given the supplied caster, and activated immediately. If allocation fails, all HSD configuration is skipped and the owner receives a null shadow pointer. In either case, five persistent suppression flags are cleared; the capacity-management flag x0_b2 is deliberately not modified by this initializer.",
+      "rationale": "The allocation guard still encloses all HSD configuration, caster registration, and activation, while the five flag clears and owner-pointer assignment remain unconditional. The later global capacity pass, not this initializer, resets and assigns x0_b2.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L117-L152",
+          "why": "Shows the successful-allocation branch and unconditional owner-state writes on both success and failure."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L146-L360",
+          "why": "Shows x0_b2 being managed separately by the global five-shadow capacity pass."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbshadow:lbShadow_8000EE8C": [
+    {
+      "id": "fact:5522cca9-375a-4844-b698-b7e3eeca50a5",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EE8C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives an `LbShadow*`, validates it, reads `lbshadow->shadow`, and forwards that pointer to `HSD_ShadowRemove` only when non-null. In its known call path, the input originates as the Fighter's embedded `x20A4` shadow wrapper; the callee consumes the contained HSD shadow and releases all resources reachable through it.",
+      "rationale": "The current call path still passes `&fp->x20A4`; the target reads its shadow field and conditionally forwards it, and the HSD callee consumes that pointer through complete resource destruction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/fighter.c#L3074-L3111",
+          "why": "Shows the input originating from the Fighter's embedded x20A4 LbShadow member."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L146-L152",
+          "why": "Shows the target reading the contained shadow and forwarding it only when non-null."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Shows the forwarded pointer being consumed to release the underlying shadow resource graph."
+        }
+      ]
+    },
+    {
+      "id": "fact:9d8df3b6-54fa-44e4-b1ee-71256f2906d5",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EE8C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the teardown side of a Fighter's projected character shadow by disconnecting the Fighter-owned gameplay wrapper from the lifetime of the HSD camera, texture, render image, and retained objects used to produce that shadow.",
+      "rationale": "Fighter unload still calls this routine on the Fighter-owned wrapper, and HSD_ShadowRemove still destroys the concrete camera, texture, image, and caster resources used for projected-shadow rendering.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/fighter.c#L3074-L3111",
+          "why": "Shows projected-shadow teardown occurring during final Fighter resource unload."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L146-L152",
+          "why": "Shows the Fighter-facing wrapper delegating removal of its contained HSD shadow."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Shows destruction of the rendering resources that implement the projected shadow."
+        }
+      ]
+    },
+    {
+      "id": "fact:a417b286-8500-41a9-8b2a-941151e809ab",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EE8C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbShadow_Remove",
+      "rationale": "The function remains the lbShadow-layer wrapper around the preserved HSD_ShadowRemove API, and its only known caller uses it during Fighter unload. Mirroring the callee's lifecycle verb remains the strongest local naming inference.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `lbShadow_Remove`.",
+      "confidence": 0.84,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L146-L152",
+          "why": "Shows that the function's sole substantive operation is conditional delegation to HSD_ShadowRemove."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/fighter.c#L3074-L3111",
+          "why": "Shows the routine used in a resource-removal context during Fighter unload."
+        }
+      ]
+    },
+    {
+      "id": "fact:a13eed3c-4fff-4a32-bb88-8c046fad33c3",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EE8C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void (LbShadow* lbshadow)`. The argument must be a valid mutable `LbShadow` wrapper, while its contained `HSD_Shadow* shadow` field is nullable.",
+      "rationale": "The matched definition gives the exact return and parameter types. Its assertion requires a non-null wrapper before field access, whereas the explicit field check permits an `LbShadow` whose underlying shadow pointer is null.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T14:21:26.772Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L146-L152",
+          "why": "Provides the exact signature and distinguishes the required wrapper pointer from the nullable contained shadow pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:3deccdd1-8377-464a-8174-6daca7224528",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EE8C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Tears down the underlying HSD shadow held by an `LbShadow` wrapper. It validates the wrapper and, when the wrapper currently contains a shadow, delegates comprehensive destruction of that shadow and its rendering resources to `HSD_ShadowRemove`.",
+      "rationale": "The target still asserts the wrapper, guards its contained pointer, and delegates removal. The HSD callee releases the camera, caster objects, active texture registration, image storage, texture object, and shadow allocation, while the current Fighter caller places the operation in unload teardown.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L146-L152",
+          "why": "Shows the wrapper assertion, contained-shadow guard, and delegation to HSD_ShadowRemove."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Shows comprehensive destruction of the contained HSD shadow and its rendering resources."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/fighter.c#L3074-L3111",
+          "why": "Shows the function being invoked on the Fighter's embedded LbShadow during Fighter unload."
+        }
+      ]
+    },
+    {
+      "id": "fact:cf16f524-c4cf-42a3-b09a-65a16e0bc56c",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EE8C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null wrapper violates the routine's assertion contract. A valid wrapper with no underlying shadow produces no lifecycle change. A valid wrapper with a non-null shadow undergoes a terminal contained-shadow transition: `HSD_ShadowRemove` destroys that object and its resources. This routine does not clear `lbshadow->shadow`, so the wrapper must not treat the retained field value as a live shadow after successful removal.",
+      "rationale": "The assertion and conditional in the complete target define the invalid-wrapper and empty-wrapper cases. The callee ends the HSD shadow's lifetime by returning it to its object pool, while the absence of an assignment to the wrapper field proves that this routine does not itself reset the stored pointer.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T14:21:26.772Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L146-L152",
+          "why": "Shows the wrapper assertion, null-contained-shadow no-op, conditional removal, and absence of any field reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Shows that successful delegation ends the contained HSD shadow's lifetime rather than merely deactivating it."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbshadow:lbShadow_8000EEE0": [
+    {
+      "id": "fact:47a9d43f-05c3-4732-bed4-9ea54b2789f5",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EEE0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a fighter GObj from global shadow-budget, stage-display, or debug-visual processing. It passes that GObj through `ftLib_80086960`, obtains its `LbShadow` through `ftLib_800872B0`, reads suppression bits `x0_b0` through `x0_b5`, and queries `ftLib_800872BC`. The combined result becomes an active value of 1 or 0 passed with `lbshadow->shadow` to `HSD_ShadowSetActive`, which registers or unregisters the shadow texture when the effective state changes.",
+      "rationale": "The target body establishes the complete local input-to-decision flow. The neighboring global updater supplies fighters after recomputing the capacity bit, while the stage and debug callers invoke the target after changing their respective suppression bits. The resolved HSD callee establishes the downstream rendering-state consequence.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T15:13:02.580Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L120-L210",
+          "why": "Shows the target's complete data path and the global caller that recomputes `x0_b2` before passing each fighter to it."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdisplay.c#L117-L153",
+          "why": "Shows stage-display processing clearing `x0_b4` and passing each fighter to the target before drawing the stage object."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/db/dbcamera.c#L146-L159",
+          "why": "Shows debug-visual processing writing `x0_b5` and immediately passing the affected fighter to the target."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Shows the target's output being consumed as an HSD shadow transition that adds or removes the generated shadow texture."
+        }
+      ]
+    },
+    {
+      "id": "fact:cb268cfa-a611-47f8-bbc0-b8df854a15d7",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EEE0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the final per-fighter visibility gate for projected shadows. It combines independent suppression causes\u2014including the global five-shadow budget, stage-display preparation, and debug shadow suppression\u2014with fighter-side eligibility before allowing the fighter's generated shadow texture to participate in rendering.",
+      "rationale": "The global updater writes `x0_b2` to suppress otherwise eligible shadows beyond the first five, the stage display path clears `x0_b4`, and the debug helper controls `x0_b5`; each then invokes this target. The target combines all six bits with the fighter predicate and calls the HSD routine whose activation branch registers the generated shadow texture.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T15:13:02.580Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L120-L210",
+          "why": "Shows the five-shadow capacity flag being recomputed and then consumed with the other suppression bits by the target's activation decision."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdisplay.c#L117-L153",
+          "why": "Shows stage rendering updating one fighter-shadow suppression cause and using the target to apply the resulting visibility state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/db/dbcamera.c#L146-L159",
+          "why": "Shows the debug visual control updating its fighter-shadow suppression bit and using the target to apply it."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Shows that activation makes the shadow texture participate in the HSD material shadow path and deactivation removes it."
+        }
+      ]
+    },
+    {
+      "id": "fact:ef970365-acf4-4076-9cdd-400144a8d84b",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EEE0",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbShadow_UpdateFighterActive",
+      "rationale": "The function updates the active state of one fighter's shadow, while its neighboring parameterless routine iterates the entire fighter list and invokes it. The `lbShadow_` prefix follows the translation unit's established convention; `UpdateFighterActive` is a behavior-based reconstruction and remains speculative because no preserved symbol supplies the original suffix.",
+      "confidence": 0.62,
+      "updated_at": "2026-09-02T15:13:02.580Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L120-L210",
+          "why": "Shows this routine evaluating one supplied fighter and the neighboring global routine invoking it once for each fighter after recomputing the five-shadow capacity flag."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/db/dbcamera.c#L146-L159",
+          "why": "Shows a caller changing one suppression cause and immediately invoking the target to refresh each affected fighter's active-shadow state."
+        }
+      ]
+    },
+    {
+      "id": "fact:4993f093-c09d-4d9f-8dc7-a936cb6256fe",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EEE0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Synchronous per-fighter shadow-state updater with signature `void (HSD_GObj* gobj)`. The argument is expected to identify a fighter game object; the function returns no value and communicates solely by potentially changing the active state of that fighter's existing `HSD_Shadow`.",
+      "rationale": "The matched declaration provides the exact return and parameter types. The body derives all further inputs from the supplied GObj, performs no direct field writes or return-value computation, and forwards a Boolean-like state request to `HSD_ShadowSetActive` only when the fighter and its `LbShadow` pass the guards.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T15:13:02.580Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L154-L171",
+          "why": "Provides the exact `void(HSD_GObj*)` signature and shows the argument being used for fighter validation, shadow-state lookup, and fighter-side eligibility testing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Shows the side-effect endpoint of the target's decision: mutation of `HSD_Shadow::active` and synchronization of the shadow texture registry."
+        }
+      ]
+    },
+    {
+      "id": "fact:1465bfd4-4a0e-4c2d-8af0-7787824284d8",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EEE0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Reevaluates one fighter's projected-shadow activation. For a fighter accepted by `ftLib_80086960` and owning an `LbShadow`, it enables the underlying `HSD_Shadow` only when all six suppression bits are clear and the fighter passes the additional `ftLib_800872BC` eligibility predicate; otherwise it disables the shadow.",
+      "rationale": "The complete matched body performs no shadow allocation or rendering itself. It resolves the fighter's `LbShadow`, aggregates all six inhibit bits, combines their clear state with the fighter-side eligibility predicate, and sends the resulting enable or disable request to `HSD_ShadowSetActive`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T15:13:02.580Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L154-L171",
+          "why": "Shows the fighter guard, `LbShadow` lookup, six-bit suppression aggregate, additional fighter eligibility test, and complementary calls enabling or disabling the associated `HSD_Shadow`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Shows that `HSD_ShadowSetActive` changes the shadow's effective active state and registers or unregisters its texture with the material shadow-rendering path."
+        }
+      ]
+    },
+    {
+      "id": "fact:7fa81439-e6d2-460d-947d-897804a1ecca",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EEE0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If the initial fighter predicate fails, or if no `LbShadow` exists, the function leaves shadow state unchanged. Otherwise, any set bit among `x0_b0` through `x0_b5` forces an inactive request. With all six bits clear, the shadow receives an active request only when `ftLib_800872BC` is true; a false result forces an inactive request. Repeated requests for the already-effective state are idempotent in `HSD_ShadowSetActive`.",
+      "rationale": "The nested guards define the no-op cases. The OR of all six bits and the additional predicate define the sole enabling state and route every other handled state to disabling. The resolved HSD callee explicitly returns without mutation when current and requested truth values already agree.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T15:13:02.580Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L154-L171",
+          "why": "Shows the early no-op guards, the exact six-bit inhibition condition, the fighter eligibility guard, and the active-versus-inactive requests."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Shows that repeated enable or disable requests whose truth value matches the current state return without changing the HSD shadow."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbshadow:lbShadow_8000EFEC": [
+    {
+      "id": "fact:fd389d20-f8e6-4583-85a3-cf745a2c9bd3",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EFEC",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `HSD_GObj_Entities->fighters` twice and resolves each fighter's embedded LbShadow through ftLib_800872B0. The first pass clears x0_b2. The second reads x0_b0 through x0_b5, counts entries with no suppression bit set, writes x0_b2 for entries beyond the first five, and passes every available fighter shadow to lbShadow_8000EEE0, which combines those flags with fighter eligibility and visibility checks before calling HSD_ShadowSetActive.",
+      "rationale": "The target directly establishes the two list scans, flag reads and writes, and outgoing update call. The resolved callee establishes the downstream consumption of the flags and the resulting HSD_Shadow state transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T14:20:49.932Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L173-L210",
+          "why": "Shows the complete upstream list traversal, LbShadow lookup, flag aggregation, count, x0_b2 write, and call to lbShadow_8000EEE0."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L120-L172",
+          "why": "Shows the called evaluator consuming the aggregate suppression state and forwarding the resulting enable or disable request to HSD_ShadowSetActive."
+        }
+      ]
+    },
+    {
+      "id": "fact:4688366f-07cd-4c98-b92d-e90dd40daf90",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EFEC",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the rendering budget for fighter projected shadows: among fighters not suppressed by lighting, visibility, stage eligibility, object availability, or other shadow conditions, only the first five in the global fighter list may remain active.",
+      "rationale": "The target imposes an explicit five-entry limit on fighters whose complete suppression-bit aggregate is clear. The stage renderer supplies one of those bits from stage and position eligibility, and the per-fighter evaluator turns the aggregate into HSD_Shadow activation, grounding the counter in visible projected-shadow rendering.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T14:20:49.932Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L173-L210",
+          "why": "Shows the five-shadow selection rule and the x0_b2 suppression applied to later eligible fighters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L120-L172",
+          "why": "Shows suppression flags directly controlling HSD_Shadow activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdisplay.c#L21-L70",
+          "why": "Shows stage- and position-dependent projected-shadow eligibility being stored in the same flag set before this routine runs."
+        }
+      ]
+    },
+    {
+      "id": "fact:1e611cb5-8b60-4945-8792-6643188c704c",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EFEC",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbShadow_UpdateActive",
+      "rationale": "The routine performs a global active-shadow update rather than allocation or rendering: it applies the subsystem's active-shadow limit and immediately calls the per-fighter activation evaluator. The `lbShadow_` prefix is established by the unit, while `UpdateActive` is a behavior-based reconstruction and remains speculative because no preserved symbol supplies the suffix.",
+      "confidence": 0.68,
+      "updated_at": "2026-09-02T14:20:49.932Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L173-L210",
+          "why": "Shows that the function's sole operation is globally recomputing which fighter shadows may remain active."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L120-L172",
+          "why": "Shows the callee performing the final active/inactive transition implied by the proposed suffix."
+        }
+      ]
+    },
+    {
+      "id": "fact:290971fe-f915-4cf9-b5e4-9e03126e3e6a",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EFEC",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless global update routine with signature `void (void)`. It obtains all inputs through `HSD_GObj_Entities->fighters` and mutates the LbShadow state embedded in those fighters.",
+      "rationale": "The matched declaration supplies the exact void signature. Both traversals originate at the global fighter-list head, and each mutable LbShadow pointer is obtained from the current fighter GObj rather than from an argument or return value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T14:20:49.932Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L173-L210",
+          "why": "Provides the exact declaration and shows all input and output state being accessed through the global fighter list."
+        }
+      ]
+    },
+    {
+      "id": "fact:f7cc217d-8851-4317-af8f-98c751ce0184",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EFEC",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Updates all fighters' projected-shadow activation while enforcing a global limit of five otherwise eligible shadows. It clears the limit-suppression bit, assigns that bit to the sixth and later eligible fighters in fighter-list order, and then reevaluates each fighter's HSD_Shadow active state.",
+      "rationale": "The first traversal clears x0_b2 for every available LbShadow. The second traversal counts only entries for which all six suppression bits are clear, sets x0_b2 once the count exceeds five, and invokes the per-fighter activation evaluator. The neighboring evaluator proves that the aggregate flags determine whether HSD_Shadow is enabled.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T14:20:49.932Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L173-L210",
+          "why": "The complete matched body shows both fighter-list passes, the suppression-bit reset, the count threshold, and the per-fighter update call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L120-L172",
+          "why": "Shows that lbShadow_8000EEE0 aggregates the same six flags and activates the HSD_Shadow only when none are set and the fighter passes the remaining ftLib checks."
+        }
+      ]
+    },
+    {
+      "id": "fact:4a3bff75-cafb-4509-9974-0df043f9f7a2",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000EFEC",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "At the start of each invocation, x0_b2 is cleared for every fighter with LbShadow state, so the limit is recomputed rather than accumulated. During the second pass, fighters already suppressed by any other flag do not consume one of the five slots. The first five entries with all flags clear retain x0_b2=false; the sixth and every later such entry receive x0_b2=true. Every fighter with LbShadow state is then reevaluated for activation.",
+      "rationale": "The separate reset pass makes x0_b2 transient per invocation. The count is incremented only inside the no-flags branch, and the `count > 5` guard precisely divides eligible fighters into the first five and the remainder. The unconditional call after this branch ensures both selected and suppressed entries have their active state refreshed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T14:20:49.932Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L173-L210",
+          "why": "Directly shows the reset, eligibility guard, threshold transition, list-order behavior, and unconditional per-fighter update."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L120-L172",
+          "why": "Shows the active-state consequence of the recomputed suppression flags."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbshadow:lbShadow_8000F214": [
+    {
+      "id": "fact:86757a35-f46e-41b4-b132-af751d9ed4a9",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F214",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the shadow texture image width and height to establish a full-image scissor and reads the shadow camera's top, bottom, left, right, and near projection values. It multiplies each lateral bound by 1.2 and near by -1.1, then serializes twelve floating-point components to GX as four direct XYZ vertices ordered left-top, right-top, right-bottom, and left-bottom.",
+      "rationale": "The current body explicitly obtains the image dimensions and five camera values, applies the stated scale factors, and submits the four XYZ vertices in that order.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L238-L292",
+          "why": "Shows the texture dimensions, all camera-bound inputs, exact scale factors, and ordered direct-position submissions."
+        }
+      ]
+    },
+    {
+      "id": "fact:91797c66-0c54-4109-ac26-ca393bdc0fc0",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F214",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements an optional full-view black-rectangle stage within generation of a fighter's projected shadow texture.",
+      "rationale": "The target still draws an opaque-black camera-covering quad, and its caller still conditionally places that draw between the start and end operations of the fighter's offscreen shadow texture pass.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L200-L280",
+          "why": "Shows the opaque-black channel descriptor and camera-covering rectangle draw."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows the operation occurring conditionally within fighter-shadow texture generation."
+        }
+      ]
+    },
+    {
+      "id": "fact:b50f077f-fa13-445d-9d0d-4b0d1b8d6ee1",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F214",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbShadow_DrawBackgroundRect",
+      "rationale": "The target still shares the distinctive camera-bound scaling, near-depth offset, direct-position GX setup, culling, and rectangle submission algorithm of HSD's preserved `drawBackgroundRect` helper. Applying the unit's prefix remains the most plausible original-style reconstruction.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `lbShadow_DrawBackgroundRect`.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L238-L292",
+          "why": "Shows the target's complete camera-bound rectangle-drawing algorithm."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L138-L171",
+          "why": "Shows the corresponding preserved helper named drawBackgroundRect with the same bound scaling, depth offset, GX setup, and rectangle geometry."
+        }
+      ]
+    },
+    {
+      "id": "fact:6768b032-1624-48ec-9448-bc2c682a1fe9",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F214",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "`void (HSD_Shadow* shadow)`: a rendering helper that requires an initialized shadow camera and texture image descriptor and produces only GX/render-state side effects.",
+      "rationale": "The current definition provides the signature, immediately dereferences the shadow's camera and texture image descriptor, mutates no shadow fields, and emits only graphics and performance-counter side effects.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L238-L292",
+          "why": "Provides the function's parameter use, required shadow subobjects, and graphics-only outputs."
+        }
+      ]
+    },
+    {
+      "id": "fact:3d40eeb1-e947-4944-9940-538c85feb06e",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F214",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Draws a camera-covering, opaque black rectangle into the current fighter-shadow render target when the caller requests the optional extra pass. The rectangle is slightly larger than the shadow camera's projection bounds and lies just beyond its near plane.",
+      "rationale": "The current body still installs an opaque-black channel, selects the entire shadow image as its scissor, expands all four camera bounds by 1.2, offsets near depth by -1.1, and submits a quad. Its caller still invokes it conditionally inside the offscreen fighter-shadow pass.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L200-L280",
+          "why": "Shows the opaque-black HSD_Chan and the complete expanded camera-bound quad operation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows the function called conditionally between HSD_ShadowStartRender and HSD_ShadowEndRender."
+        }
+      ]
+    },
+    {
+      "id": "fact:abaa7f69-81b7-4376-a14c-624f20b82562",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F214",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Runs as a straight-line GX state-and-draw operation: installs the unit's black channel state, selects a full-texture scissor, loads the identity position matrix into GX_PNMTX0 and increments the matrix-load statistic, clears existing vertex descriptors, enables direct position submission in XYZ/F32 format, selects back-face culling, and emits one four-vertex GX_QUADS primitive. It has no internal guards or persistent shadow-object mutation.",
+      "rationale": "The complete current body contains no branches and performs the stated graphics-state sequence before one GXBegin/GXEnd region. It only reads the HSD_Shadow while changing GX state and the matrix-load counter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:11:11.015Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L238-L292",
+          "why": "Directly shows the ordered channel, scissor, matrix, vertex-format, culling, performance-counter, and primitive-submission side effects."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbshadow:lbShadow_8000F38C": [
+    {
+      "id": "fact:a92db8ec-4636-4178-b09e-36a82b8c2d91",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F38C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the global fighter list, the scene-light GX-link list, each Fighter's embedded LbShadow state, root model, accessory, visibility flags and camera box, plus stage-provided shadow intensity. It derives light position, direction and up vectors; rewrites every existing shadow's caster list and inhibit bits; writes intensity, camera eye, interest, up vector and projection bounds into each HSD_Shadow; then renders the registered casters to the shadow texture through the HSD offscreen shadow lifecycle.",
+      "rationale": "At the current head, the first half of the routine obtains fighters and light objects from global lists and derives the light-relative camera basis. The second half consumes fighter model, accessory, visibility, camera-box, and stage-intensity data, writes the resulting caster, inhibit, camera, and projection state, and passes it into the HSD offscreen renderer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T02:36:40.387Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L315-L442",
+          "why": "Shows fighter and scene-light global inputs and the derivation and validation of the common light-relative basis."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L443-L562",
+          "why": "Shows fighter model, accessory, visibility, camera-box, and stage-intensity inputs flowing into caster lists, inhibit state, HSD_Shadow camera fields, projection bounds, and offscreen rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:08db7f48-a0aa-4246-a69f-27aaf1b8a253",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F38C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the per-camera generation of Melee's projected fighter shadows: each eligible fighter and attached accessory becomes a light-oriented silhouette rendered into a stage-intensity-controlled texture whose projection is fitted around that fighter.",
+      "rationale": "The current implementation selects a scene light, registers eligible fighter and accessory models as shadow casters, derives each shadow camera from that light and the fighter's camera box, assigns stage-provided intensity, and performs an offscreen shadow render.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:36:40.387Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L315-L442",
+          "why": "Shows selection and normalization of the scene light used to orient the projected-shadow cameras."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L443-L562",
+          "why": "Shows fighter and accessory caster selection, stage-derived intensity, per-fighter camera fitting, and offscreen generation of each shadow texture."
+        }
+      ]
+    },
+    {
+      "id": "fact:271c0c2d-b8c2-43e0-9951-47af719ec126",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F38C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbShadow_RenderAll",
+      "rationale": "The current routine traverses the complete fighter list and performs the full preparation and offscreen-render sequence for every eligible fighter shadow. `lbShadow_RenderAll` follows the translation unit's established prefix and captures that global rendering role, but no recovered symbol or discussion confirms the original suffix.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `lbShadow_RenderAll`.",
+      "confidence": 0.68,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L315-L442",
+          "why": "Shows process-wide fighter and scene-light setup before the rendering traversal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L443-L562",
+          "why": "Shows the routine iterating over all fighters and carrying out a complete HSD shadow render for each eligible one."
+        }
+      ]
+    },
+    {
+      "id": "fact:5d36d892-dd43-43a6-8b00-ffe0a562dd53",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F38C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A synchronous process-wide rendering routine with signature `void (s32 draw_background)`. It obtains fighters and scene lights from global GObj lists rather than caller-supplied objects. The integer argument is interpreted by truth value and controls whether an additional camera-covering black rectangle is drawn inside each eligible offscreen shadow pass.",
+      "rationale": "The definition at the current head establishes the void return and signed integer parameter, while its body obtains fighters and lights from global lists and uses the argument only as the nonzero guard around the additional background-rectangle helper. A video-scene camera callback supplies zero before running its camera pass.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T02:36:40.387Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L315-L442",
+          "why": "Provides the exact signature and shows fighter and light inputs being obtained from global GObj lists."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L443-L562",
+          "why": "Shows the parameter used as a truth-value guard for the optional background-rectangle helper within each eligible offscreen shadow pass."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/vi/vi0102.c#L89-L94",
+          "why": "Shows a video-scene camera callback invoking the routine with zero before rendering its camera."
+        }
+      ]
+    },
+    {
+      "id": "fact:1a2eaa36-ec12-4d24-8333-1a307d37dc2d",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F38C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Updates and renders every fighter's projected-shadow texture for the current camera pass. It selects a scene light, derives a stable light-relative basis, switches fighters to their shadow-specific model profile, rebuilds each shadow's caster list, applies activation guards and stage intensity, fits an orthographic shadow camera around the fighter's camera box, runs the offscreen HSD shadow pass, and finally restores ordinary fighter model visibility.",
+      "rationale": "The current head still shows the routine selecting and validating a scene light before traversing all fighters. During that traversal it rebuilds fighter and accessory caster lists, controls shadow activation, configures intensity and camera geometry, executes the offscreen shadow-render lifecycle, and then restores normal fighter drawing state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:36:40.387Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L315-L442",
+          "why": "Shows the function signature, global fighter reset, scene-light selection, light-vector validation, fallback basis, and preparation of shadow-specific fighter drawing state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L443-L562",
+          "why": "Shows caster reconstruction, activation gating, intensity and camera configuration, offscreen shadow rendering, and restoration of ordinary fighter drawing state."
+        }
+      ]
+    },
+    {
+      "id": "fact:268cb4f4-d161-405f-8234-e8142b870721",
+      "target_id": "target:function:main/melee/lb/lbshadow:lbShadow_8000F38C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "At the start of each invocation, the routine clears every fighter's capacity-related shadow inhibit bit. A missing or degenerate light sets the no-light inhibit bit and selects a fallback camera basis. For each fighter shadow it removes all prior casters, conditionally registers the visible fighter model and accessory, and sets the no-caster bit when neither is available. The shadow becomes active only when all six LbShadow inhibit bits are clear and the fighter passes the additional eligibility predicate. Camera fitting retries up to twenty rectangle expansions; success installs the fitted viewing rectangle, while exhaustion installs fixed orthographic bounds. Eligible shadows then receive one offscreen render, optionally including the extra black rectangle when the argument is nonzero.",
+      "rationale": "The current control flow retains the initial inhibit-bit reset, degenerate-light fallback, per-fighter caster rebuilding, combined six-bit activation guard, bounded twenty-attempt viewing-rectangle loop, fixed-projection fallback, and argument-controlled optional drawing stage.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:36:40.387Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L315-L442",
+          "why": "Shows the global inhibit-bit reset, scene-light search, degenerate-light detection, and fallback camera basis."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L443-L562",
+          "why": "Shows caster and inhibit-state transitions, six-bit activation gating, the twenty-attempt camera-fit loop, fixed orthographic fallback, and optional argument-controlled drawing."
+        }
+      ]
+    }
+  ],
+  "src/melee/lb/lbshadow.c": [
+    {
+      "id": "fact:4912161b-a227-430c-8284-a7861c1070f0",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbshadow.c",
+      "type": "data_flow",
+      "value": "Consumes the global fighter GObj list, scene light objects, each fighter's model and accessory objects and camera box, and the stage-provided shadow intensity. It writes LbShadow inhibit flags and caster lists, updates each HSD_Shadow camera and viewing rectangle, then passes that shadow through the HSD rendering lifecycle to produce its offscreen texture.",
+      "rationale": "The current source still traverses global fighters and lights, reads fighter model, accessory, and camera-box state, updates LbShadow and HSD_Shadow fields, and configures the offscreen shadow pass.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:10:24.266Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L360-L440",
+          "why": "Shows scene-light traversal and construction of the light position, direction, and camera basis."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L539",
+          "why": "Shows fighter data flowing into caster lists, inhibit state, intensity, camera position, and viewing-rectangle configuration."
+        }
+      ]
+    },
+    {
+      "id": "fact:a9c4db89-9b13-470f-83f1-0d3a8daab026",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbshadow.c",
+      "type": "game_mapping",
+      "value": "Realizes the projected shadows drawn for fighters and their attached accessories, including stage-light orientation, per-fighter shadow intensity, camera fitting around the fighter, and a limit of five simultaneously eligible fighter shadows.",
+      "rationale": "The current setup and update paths still add fighter models and accessories as shadow casters, orient each shadow camera from a scene light, obtain intensity from Ground, fit the view to the fighter camera box, and suppress eligible shadows after the fifth.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:10:24.266Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L112-L239",
+          "why": "Shows fighter-shadow construction and the five-shadow capacity rule."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L360-L539",
+          "why": "Shows light-oriented camera construction, fighter and accessory casters, stage-derived intensity, and view fitting."
+        }
+      ]
+    },
+    {
+      "id": "fact:8210d930-5026-4534-b053-ca4535ae9153",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbshadow.c",
+      "type": "purpose",
+      "value": "Implements Melee's fighter-facing layer over the HSD projected-shadow renderer: it evaluates spline tangents, allocates and configures each fighter's HSD_Shadow, manages caster eligibility and activation, derives a shadow camera from scene lighting and fighter camera bounds, and runs the per-fighter offscreen shadow pass.",
+      "rationale": "The current opening still evaluates cardinal, B-spline, and B\u00e9zier tangents, dispatches among supported spline forms, and begins fighter shadow setup; unaffected later spans retain the projected-shadow lifecycle.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L1-L120",
+          "why": "Shows spline-tangent evaluation, spline-type dispatch, and the beginning of fighter shadow setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:d0eac0ea-a670-4d71-9eee-c51935edb3a3",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbshadow.c",
+      "type": "state_behavior",
+      "value": "A fighter shadow is active only when all six LbShadow inhibit bits are clear and the fighter passes the additional ftLib eligibility check. The global update clears the capacity bit and then sets it for eligible shadows beyond the first five; the render update separately marks missing light or caster conditions, rebuilds each caster list, and enables or disables the HSD shadow from the combined flags.",
+      "rationale": "The current activation routine still ORs the six inhibit bits, the global pass still reapplies the capacity bit after five eligible fighters, and the render pass still records missing-light and missing-caster conditions before applying the same combined guard.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T02:10:24.266Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L112-L239",
+          "why": "Shows the six-bit activation guard and the capacity bit being set after the fifth otherwise eligible fighter shadow."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L539",
+          "why": "Shows missing-light and missing-caster flags, caster reconstruction, and active-state selection from the combined inhibit flags."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbshadow:lbShadow_8000E9F0#r3": [],
+  "main/melee/lb/lbshadow:lbShadow_8000E9F0#r4": [],
+  "main/melee/lb/lbshadow:lbShadow_8000E9F0#r5": [],
+  "main/melee/lb/lbshadow:lbShadow_8000ED54#r3": [],
+  "main/melee/lb/lbshadow:lbShadow_8000ED54#r4": [],
+  "main/melee/lb/lbshadow:lbShadow_8000EE8C#r3": [],
+  "main/melee/lb/lbshadow:lbShadow_8000EEE0#r3": [],
+  "main/melee/lb/lbshadow:lbShadow_8000F214#r3": [],
+  "main/melee/lb/lbshadow:lbShadow_8000F38C#r3": []
+}

@@ -1,0 +1,152 @@
+[
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_0D72:ftCo_800D72A0",
+    "facts": [
+      {
+        "id": "fact:1d96b6db-91c5-4bbd-9b83-fa67b078b9ee",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D72:ftCo_800D72A0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the fighter's current `motion_id` and the `x2D0` configuration fields `x2C`, `x30`, and `x28`. It produces only a Boolean classification: true when the motion lies in either enabled configured range and false otherwise. The later-multi-jump input path combines that result with `cmd_vars[0]`, remaining-jump capacity, and controller input before deciding whether to enter JumpAerialF1; this predicate performs no mutation itself.",
+        "rationale": "The relocated predicate contains only configuration and motion reads, comparisons, iteration over the two range starts, and Boolean returns. Its current caller consumes that result as one part of the later-multi-jump transition guard, then independently evaluates jump capacity and controller input before entering JumpAerialF1.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:46.316Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_0D72.c#L4-L19",
+            "why": "Shows the predicate reading `fp->x2D0`, both contiguous configured range starts, the shared range length, and `motion_id`, with no mutation or calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_JumpAerialF1.c#L18-L78",
+            "why": "Shows the predicate result combined with command-variable, remaining-jump, and controller-input checks before JumpAerialF1 entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:de5e86aa-e262-457d-84cb-2442b48b33f6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D72:ftCo_800D72A0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports Melee's multiple-midair-jump mechanic by enforcing the character-configured animation interval between successive aerial jumps, while allowing an animation command event to reopen the next-jump transition before the fighter leaves the broader motion family.",
+        "rationale": "The wiki identifies a brief delay between successive multi-jumps. At the current checkout head, the code suppresses a later JumpAerialF1 transition while the current motion belongs to one of two configured ranges and command variable 0 remains clear, grounding that delay in an animation-sensitive transition guard.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T18:56:46.316Z",
+        "evidence": [
+          {
+            "kind": "wiki",
+            "locator": "wiki://double-jump~multiple-double-jumps@r2048735",
+            "why": "States that fighters with multiple midair jumps have a brief delay between the end of one jump and the ability to start the next."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_0D72.c#L4-L19",
+            "why": "Shows the character-configured current-motion range classifier at its relocated source path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_JumpAerialF1.c#L18-L78",
+            "why": "Shows that the classifier and animation command variable gate entry into the next JumpAerialF1 action."
+          }
+        ]
+      },
+      {
+        "id": "fact:99f00462-a2df-442d-b254-afbfaa130b4d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D72:ftCo_800D72A0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_JumpAerialF1_IsMotion",
+        "rationale": "The relocated function remains a pure current-motion membership predicate, and its visible use is in the neighboring JumpAerialF1 input routine. The proposed name follows the local state-family prefix and Boolean classification role, although the exact original wording remains unrecovered.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `ftCo_JumpAerialF1_IsMotion`.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_0D72.c#L4-L19",
+            "why": "Shows that the routine only classifies the current motion against two configured ranges."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_JumpAerialF1.c#L18-L78",
+            "why": "Places the classifier directly in the input routine that dispatches the neighboring JumpAerialF1 action."
+          }
+        ]
+      },
+      {
+        "id": "fact:ea19eae1-eedc-46c7-90d1-9052529ba220",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D72:ftCo_800D72A0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A pure fighter-state predicate with signature `bool (Fighter*)`. The `x2C` and `x30` fields are optional motion-ID range starts using `-1` as a disabled sentinel, while `x28` is the shared integer range length; each active range is interpreted as `[start, start + length)`.",
+        "rationale": "The relocated definition supplies the Boolean return and `Fighter*` parameter. Its two-iteration loop treats the contiguous fields beginning at `x2C` as range starts, rejects `-1`, and performs inclusive-lower and exclusive-upper comparisons using the shared `x28` length.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:46.316Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_0D72.c#L4-L19",
+            "why": "Provides the exact signature and shows the two sentinel-guarded half-open range calculations over `x2C` and `x30`."
+          },
+          {
+            "kind": "attempt",
+            "locator": "attempt://run/run:b7247d00-49ae-477d-8c42-1de89d416729/submission/1",
+            "why": "Independently records the decompilation interpretation of `x2C` and `x30` as separate range starts, with motion membership tested only after the corresponding sentinel check."
+          }
+        ]
+      },
+      {
+        "id": "fact:431ff3ac-a4f0-4a8f-ac4e-791b46f25f96",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D72:ftCo_800D72A0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Determines whether a fighter's current motion belongs to either of two character-configured aerial-jump motion ranges. The common multiple-midair-jump input routine uses this predicate to prevent another jump while one of those motions remains in its guarded interval, unless an animation command variable has enabled the transition.",
+        "rationale": "At the current source location, the function returns true precisely when `motion_id` lies within either enabled half-open range represented by the two starts beginning at `x2C` and the shared length `x28`. Its current caller invokes it in the later-jump branch and suppresses JumpAerialF1 entry when the predicate is true and command variable 0 is clear.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:56:46.316Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_0D72.c#L4-L19",
+            "why": "Shows the complete predicate, including both optional motion-range starts, their shared length, the half-open comparisons, and the Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_JumpAerialF1.c#L18-L78",
+            "why": "Shows the predicate used in the later multi-jump input path to block JumpAerialF1 entry while command variable 0 remains clear."
+          }
+        ]
+      },
+      {
+        "id": "fact:c30e072a-1b1b-4262-9f97-6e0bb1c47eac",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D72:ftCo_800D72A0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The first configured range is active only when `x2C != -1`, and the second only when `x30 != -1`. Membership in either range immediately returns true; otherwise the routine returns false. During the later-multi-jump branch, a true result blocks the next JumpAerialF1 transition while `cmd_vars[0] == 0`; setting that command variable bypasses this motion-range block, after which remaining-jump and input guards still apply.",
+        "rationale": "The current implementation iterates over the two contiguous range starts, skips any `-1` entry, returns true upon the first matching half-open interval, and otherwise returns false. Its current caller turns a true result combined with a clear command variable into a failed transition guard while leaving jump-capacity and input checks independent.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:46.316Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_0D72.c#L4-L19",
+            "why": "Shows the two enabled-range guards, immediate true return for membership, and final false result in the relocated loop implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_JumpAerialF1.c#L18-L78",
+            "why": "Shows exactly how the predicate and command variable control eligibility for the next JumpAerialF1 transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "src/melee/ft/kinds/ftCommon/ftCo_0D72.c",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_0D72:ftCo_800D72A0#r3",
+    "facts": []
+  }
+]

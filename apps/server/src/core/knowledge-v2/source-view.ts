@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { Database } from "bun:sqlite";
 import { parser } from "@lezer/cpp";
 import type { SyntaxNode } from "@lezer/common";
-import { gameKnowledgeRoot } from "../knowledge/paths.js";
+import { gameKnowledgeRoot, knowledgeStorePath } from "../knowledge/paths.js";
 import { inferredNameProblem } from "./naming.js";
 
 export interface SourceName {
@@ -98,7 +98,7 @@ function isBinding(node: SyntaxNode): boolean {
 
 /** Query canonical identities too, so missing guesses and duplicate symbols cannot silently resolve. */
 export function loadSourceNames(source: string, gameId = "melee"): { names: SourceName[]; status: string } {
-  const path = resolve(gameKnowledgeRoot(gameId), "knowledge.sqlite");
+  const path = knowledgeStorePath(gameKnowledgeRoot(gameId));
   if (!existsSync(path)) return { names: [], status: "knowledge_unavailable" };
   const identifiers = [...new Set(source.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [])];
   const db = new Database(path, { readonly: true });

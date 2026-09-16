@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { HarnessStateSyncReadModel } from "@/pages/workspace/_lib/types";
+import type { DispatchStateSyncReadModel } from "@/pages/workspace/_lib/types";
 import {
   SYNC_CONTROL_ACTION_IDS,
   SYNC_CONTROL_ENDPOINTS,
@@ -15,7 +15,7 @@ const sync = {
     new_head: "new-head",
     series_pushes: 3,
   },
-} as HarnessStateSyncReadModel;
+} as DispatchStateSyncReadModel;
 const sourceRoot = resolve(import.meta.dir, "../../..");
 
 describe("projected sync controls", () => {
@@ -52,7 +52,7 @@ describe("projected sync controls", () => {
       "Publish this validated sync?\n\nHead advance: old-head → new-head\nPR series pushes: 3",
     );
     expect(syncConfirmationMessage("syncCancel", sync)).toBe(
-      "Cancel this sync?\n\nStaging is discarded. The cycle remains untouched.",
+      "Cancel this sync?\n\nStaging is discarded. The accepted harness head remains unchanged.",
     );
     expect(syncConfirmationMessage("syncRecover", sync)).toContain("preserve staging");
     expect(syncConfirmationMessage("syncRecoverDiscard", sync)).toContain("cancels the sync and discards staged work");

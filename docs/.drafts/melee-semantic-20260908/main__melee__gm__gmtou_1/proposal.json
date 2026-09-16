@@ -1,0 +1,273 @@
+{
+  "tu": "main/melee/gm/gmtou_1",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:fn_801977AC"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "gm_TouPlayerSetupSlotBounce_OnFrame",
+        "rationale": "Distinguishes this callback from fn_80197FD8, which currently has the same inferred name. The state-4 bounce counter and sampled Y curve are canonical distinguishing behavior; the name does not guess the artwork's identity.",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L755-L801",
+            "why": "Advances a bounded bounce counter, applies bounce_y, and restores base placement for disconnected non-type-1 slots."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:.bss"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The declared lbl_804799D8 aggregate carries shared presentation counters, per-player animation and cursor state, and result metadata. fn_80198BA0 partially initializes it: x0, x10 and x1C become zero; x1A becomes 0x50 or 0x5A according to TmData.x2C; each configured player's x12, x1D and x25 are cleared, x44 becomes 6, and the six-byte animation record becomes start=0, cur=0, end=30, state=0, done=0, loop=0. It does not clear x4/x8/xC, x1B, x21, x29, the MatchEnd pointer, selected-slot/name fields, or cached transforms. Subsequent callbacks implement distinct looping, held-frame and countdown behavior; result presentation consumes the retained metadata and conditionally advances its text counter.",
+        "rationale": "Corrects the existing claim that current frame starts at 30 and preserves the partial-reset lifetime required by result initialization.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L1160-L1205",
+            "why": "Exact initializer writes and player-count loop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/types.h#L1130-L1162",
+            "why": "Maps record offsets to start, cur, end, state, done and loop and identifies fields not reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L2448-L2457",
+            "why": "Result resolution and outcome construction precede the partial UI reset."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:.data"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "The declared lbl_803DA0D0 lookup object supplies the Tournament interface's character-icon model map and entrant-indexed rows of six progression thresholds, which classify progress into seven numeric results 0 through 6. Its mutable bounce_y[41] field is populated during player-setup scene construction by sampling a model's Y translation at animation frames 10 through 50, then consumed by state-4 slot-bounce callbacks.",
+        "rationale": "Corrects the six-step characterization and distinguishes initialized lookup bytes from the runtime-sampled bounce curve without asserting compiled section layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/types.h#L1327-L1334",
+            "why": "Explicit lookup-object fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L395-L419",
+            "why": "Six thresholds produce results 0\u20136."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L1441-L1453",
+            "why": "Runtime bounce-curve sampling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L781-L799",
+            "why": "Bounded curve consumption and controller-error override."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:fn_801967E0"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Generates a random permutation of standings 0 through 3 for the four slots of an indexed Tournament bracket entry, using their x51 weights in a three-draw selection tree. The tree mostly follows weighted sampling without replacement, but one remaining-pair branch reverses the weight-to-recipient association: after slot 0 receives standing 0 and slot 3 receives standing 1, a draw below slot 2's weight gives slot 1 standing 2. The caller uses the resulting permutation to synthesize MatchEnd standings.",
+        "rationale": "Preserves the supported ordering role while removing an unqualified probability claim contradicted by canonical code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L196-L389",
+            "why": "Complete selection tree and full permutation assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L1722-L1749",
+            "why": "Four-slot dispatch and downstream standings propagation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:fn_801967E0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the four x51 byte weights in lbl_80473AB8[arg0].slots, supplies all-slot and remaining-slot sums to HSD_Randi, and writes a complete 0\u20133 permutation into the four x4C standing bytes. In the branch where slot 0 is first and slot 3 second, the final bound is weight1+weight2, but the comparison is against weight2 while its true branch assigns standing 2 to slot 1 and standing 3 to slot 2. fn_8019A158 copies all four generated x4C values into both MatchEnd standing bytes and selects the slot assigned zero.",
+        "rationale": "Records the exact exceptional comparison rather than normalizing it to the surrounding weighted-selection pattern.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L196-L245",
+            "why": "First-slot branch and asymmetric final pair."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L1730-L1749",
+            "why": "Copies to both standing fields and selects zero."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:fn_801967E0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Completes one four-slot permutation per invocation using three random draws followed by assignment of the final remaining standing. Already selected slots are excluded from subsequent random bounds, and every terminal branch assigns distinct standings 0\u20133 before returning. The slot-0-first/slot-3-second branch compares the final draw with slot 2's weight but awards slot 1 standing 2 on success, so the implementation is not uniformly the usual weight-proportional sampling-without-replacement algorithm. It has no persistent timer or intermediate update state.",
+        "rationale": "Separates the proven permutation invariant from the inaccurate universal weighted-sampling claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L196-L389",
+            "why": "All draws, bounds, terminal assignments and the exceptional branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:fn_80198BA0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads TmData.x2C and x30 to initialize a subset of lbl_804799D8. It clears x0, x10 and x1C, selects x1A=0x50 for nonzero x2C or 0x5A otherwise, and for each configured player clears x12, x1D and x25, writes x44=6, and sets the animation record to start=0, cur=0, end=0x1E, state=0, done=0, loop=0. The value 0x1E is an end-frame value, not a timer. Result metadata, cached transforms and other unwritten counters remain available to subsequent callbacks.",
+        "rationale": "Uses the declared six-byte record layout to correct the timer interpretation and document the useful preservation boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L1160-L1205",
+            "why": "Complete writes and loop strides."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/types.h#L1130-L1162",
+            "why": "Typed interpretation of initialized and preserved fields."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:fn_80198BA0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each call performs a partial presentation reset rather than clearing the whole shared object. It initializes shared counters x0/x10/x1C and option-animation byte x1A, and resets configured player records to animation state 0 with current frame 0 and end frame 30, cursor choice 6, and the explicitly written counters zero. It leaves x4/x8/xC, x1B, x21, x29, x48, x4C/x4D, x4E and cached transforms untouched. This allows result initialization to resolve selected metadata and construct frame bounds before calling this reset without losing those outputs.",
+        "rationale": "Corrects the supposed 30-frame timer and preserves the cross-routine lifetime visible in the result-entry sequence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L1160-L1205",
+            "why": "Partial reset implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/types.h#L1130-L1162",
+            "why": "Record member meanings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L2448-L2457",
+            "why": "Result preparation precedes the reset."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:fn_8019A86C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source signature: void fn_8019A86C(TmData* tm, u32 arg1, u32 arg2). The first argument is mutable Tournament state. arg1 is unused in the complete body; the caller obtains it from fn_8018F674(4), so it should not be labeled held_inputs. arg2 is the setup-wide triggered-button mask obtained from fn_8018F640(4). Results are communicated through TmData, local presentation state, the current BracketEntry and scene-routing calls.",
+        "rationale": "Preserves the exact ABI and removes a misleading semantic parameter name; the held-button wrapper is a distinct function.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L1836-L2091",
+            "why": "Complete definition and parameter use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L2224-L2243",
+            "why": "Caller input sources."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoulib.c#L2200-L2229",
+            "why": "Triggered, second-input and held-button wrappers are distinct."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:fn_8019AF50"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Option 0x1F invokes result initialization. When x33==6, audio substate advances 0\u21921 after selecting an entrant and issuing audio, 1\u21922 when its byte timer is already greater than 60, and 2\u21923 when the audio-status call returns zero. With bracket x18 nonzero, x0 increments by one below 250 and reveals floor((x0-100)/15) two-byte text units once x0 reaches 100. At or above 250 it adds two, but clamps back to 250 when selected slot type x4D is not 1; the full name is displayed. With x18 zero it only raises x0 to at least 250. Terminal actions require option 0x27 and x0>=250: x33==6 requests the menu when x0>=7200 or A/Start is triggered, while other x33 values clean up and return to 0x13. The 7200 value is a counter threshold, not a universal elapsed-frame timeout. x33 is written elsewhere as a progression rank.",
+        "rationale": "Corrects timing and numeric-state interpretation while preserving the audio sequence, text reveal and terminal guards.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L2103-L2207",
+            "why": "Complete audio, counter, text and exit branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L2276-L2302",
+            "why": "Progression-rank assignment to x33."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_1:gm_8019A828"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation unconditionally clears TmData.x32, sets lbl_804D6678 to 1, and selects option 0x1B. The setup handler dispatches 0x1B to fn_8019B81C, which constructs setup, writes 0x1C and clears its counter. Later stage-policy routing sets x32 to 1 when a selection path is committed. That latch suppresses repeated selection for policies 0 and 2 only; policies 1 and 3 remain unconditional regardless of x32.",
+        "rationale": "Corrects the baseline's blanket one-time-selection claim while retaining the supported reset and setup-entry sequence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L1823-L1847",
+            "why": "Reset and setup dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L103-L144",
+            "why": "Exact policy truth tables and latch writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_1.c#L2440-L2446",
+            "why": "Transition to option 0x1C."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,17 @@
+## Title-mode dispatch
+
+`gm_Mode_Title_States` is a writable source-level `GameModeState` array containing state 0 with `lbDvdPreload_3`, entry callback `gmTitleMode_OnEnter`, exit callback `onExit`, destination `GS_TITLE`, NULL entry data, and the address of static `exit_data`; a `{-1}` record follows. The header exports the array and entry callback, not the exit callback. Source declarations do not independently establish compiled section extent or object size. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtitlemode.c#L10-L37), [header](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtitlemode.h#L1-L9).
+
+## Entry and cache lifetime
+
+Entry ignores its state parameter and calls `lbDvd_SetupVsPreloadCache()` synchronously. That routine calls `lbDvd_80018C6C`, `lbDvd_80018254`, then `lbDvd_80017700(4)`. This is not proof that every asynchronous preload finishes. The last helper yields while `persistent_heap == 4`; otherwise it scans and frees only heap-4 entries whose state is 3 or 4, score is negative, and load state is 2. Reconciliation returns early when scene descriptors compare equal; its cleanup resets negative-score state-1 entries and changes negative-score state 4 to 3. Numeric states are preserved rather than assigned stronger lifecycle names. [Setup](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbdvd.c#L20-L25), [cleanup/polling](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbdvd.c#L74-L105), [reconciliation](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbdvd.c#L507-L567).
+
+## Exit-data lifetime and routing
+
+Static exit storage contains `int buttons` and an unknown `UNK_T x4`; entry does not reset it. The title frame callback writes the full triggered-input word when an accepted input causes departure, or zero when the incremented frame count exceeds 600. Scene entry initializes the countdown to 20 and count to zero; countdown frames return before incrementing, making the first timeout active tick 601. Producer-side input tests do not filter the stored word. [Producer](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtitle.c#L255-L295), [initialization](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtitle.c#L328-L336).
+
+`onExit` reads an integer pointer from `gm_GetGameModeStateExitData(scene)`. At debug-ROM level or higher its priority is A, START, X, Y, then default: destinations are debug versus, the conditional menu path, debug sound test, general debug, and opening movie respectively. Below that level only START receives the menu path. START calls `gm_80173EEC()`, `gm_80172898(0x100)`, and `gm_80173754(1, 0)`; `GM_MENU` is selected only when the last returns false. Its true branch makes no explicit destination selection here. Default calls `gm_801BF708(1)` before selecting `GM_OPENING_MV`. Every branch reaches `gm_SetNewGameModePending()`. Combined button words follow consumer priority, which differs from the producer's acceptance order. [Complete consumer](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtitlemode.c#L39-L70).
+
+The proposed name `gmTitleMode_OnExit` is supported by canonical table pairing, not by its rendered substitution. Rendered names for external helpers remain hypotheses and are not used to establish their deeper semantics. The results-screen-test relationship is stale for this title-only table; both separately identified opening-movie relationships remain supported.
+
+Status: synthesized; independent review and live promotion pending.

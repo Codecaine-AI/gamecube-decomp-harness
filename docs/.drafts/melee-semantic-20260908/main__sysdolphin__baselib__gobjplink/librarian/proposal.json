@@ -1,0 +1,599 @@
+{
+  "tu": "main/sysdolphin/baselib/gobjplink",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjplink:CreateGObj"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "After asserting the p_link bound, requests storage from gobj_alloc_data. On success, copies classifier, p_link and priority, sets GX/object/user-data sentinel fields, clears the listed callback, attachment and GX-link fields, and selects insertion for modes 0 through 3. It returns NULL on allocation failure. Process next/prev are assigned by insertion; x34_unk is not initialized here.",
+        "rationale": "Distinguishes explicit field initialization from allocator behavior and unsupported placement values.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L96",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.h#L28-L47",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjplink:CreateGObj"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Allocates an HSD_GObj and initializes its classifier, process-link/priority and attachment fields. For placement modes 0 through 3 it inserts the new object using priority or relative position. Allocation failure returns NULL. Other mode values return the allocated object without performing insertion.",
+        "rationale": "The switch has no default and therefore does not guarantee a linked result for every successful allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L96",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.h#L28-L47",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjplink:CreateGObj"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Mode 0 inserts after equal-priority entries; mode 1 inserts before them. Mode 2 inserts after position, with NULL meaning the bucket head. Mode 3 inserts before position and dereferences position without a null check. Unknown modes perform no insertion after allocation. The p_link bound is asserted, and NULL allocation returns NULL before field writes.",
+        "rationale": "Records nullable mode-2 position and the unchecked mode domain instead of implying all successful allocations are linked.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L96",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.h#L28-L47",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjplink:GObj_Create"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards classifier, p_link and priority unchanged to CreateGObj with mode zero and position NULL. The callee initializes the explicit fields at lines 66-80 and inserts in nondecreasing priority order after equal-priority objects, returning the object or NULL on allocation failure. It does not explicitly initialize x34_unk.",
+        "rationale": "The prior all-other-fields wording included storage not written by this constructor.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L101",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.h#L28-L47",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "On deferral, saves placement mode, p_link, priority and position into the pending-operation record and sets b3. Otherwise unlinks each process from scheduling, reverses its child chain temporarily, clears gobj->proc, repairs the old GObj bucket, changes p_link/priority, and uses modes 0-3 to insert. It reinserts the saved processes through HSD_GObjProc_8038FAA8, which prepends each child and restores original child order.",
+        "rationale": "The active GObj pointer is implicit in scheduler context rather than copied into the deferred record; unknown modes skip GObj insertion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L53",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L126",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L94-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(u32 arg0, HSD_GObj* gobj, u8 p_link, u8 priority, HSD_GObj* position). arg0 is the unchecked placement mode: 0/1 use priority tie policies, 2 inserts after a nullable predecessor, and 3 inserts before a required position. p_link is checked against the configured maximum.",
+        "rationale": "Mode 2 permits NULL through GObj_PReorder; only mode 3 directly dereferences position.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L53",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L126",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L94-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Relocates an existing GObj using placement modes zero through three while unlinking and reinserting its attached processes. Requests affecting the active process-owned GObj defer unless deferred operations are being drained. Unknown modes are unchecked and can leave the object absent from its process-link bucket after detachment.",
+        "rationale": "Qualifies the valid-mode contract and makes the unchecked failure case explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L53",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L126",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L94-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When the target is the active GObj and b0 is clear, stores a deferred relocation and returns. Otherwise mode 0 places after equal priorities, mode 1 before equal priorities, mode 2 after position or at head for NULL, and mode 3 before a required position. Other values skip insertion. After process reinsertion, stamps equal to two generations before the current generation are changed to the immediately previous generation; other stamps are retained.",
+        "rationale": "Records exact mode edge cases and modulo-three stamp adjustment without implying unchecked modes are safe.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L53",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L126",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L94-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:CreateGObj#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "s32 where: placement selector; valid cases 0-3 are implemented, other values skip insertion.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L96",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:CreateGObj#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u16 classifier: copied unchanged into the new GObj classifier.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L96",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:CreateGObj#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 p_link: destination process bucket, asserted <= configured p_link_max.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L96",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:CreateGObj#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 priority: copied into p_priority and used by modes 0 and 1 for ordered insertion.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L96",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:CreateGObj#r7"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_GObj* position: mode 2 nullable predecessor, mode 3 required object to insert before; unused for modes 0 and 1.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L96",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:GObj_Create#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u16 classifier: forwarded unchanged to CreateGObj.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L101",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:GObj_Create#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 p_link: forwarded as the destination process bucket to CreateGObj.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L101",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:GObj_Create#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 priority: forwarded as p_priority for mode-zero insertion after existing equal priorities.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L31-L101",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:GObj_PReorder#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_GObj* gobj: required insertion object; p_link chooses the bucket and next/prev are rewritten. Caller must detach a previously linked object first.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L27",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:GObj_PReorder#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_GObj* hiprio_gobj: nullable insertion predecessor; NULL selects the bucket head. The helper does not validate bucket membership.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L27",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_GObj* gobj: asserted non-null teardown target, potentially deferred when it owns the active process callback.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.c#L15-L25",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjobject.c#L39-L46",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L167-L185",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjgxlink.c#L104-L127",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L105-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 arg0: unchecked placement mode 0-3, saved in pending type on deferral.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L53",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L126",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L94-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_GObj* gobj: required existing object to detach and relocate, or identify as the active deferred target.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L53",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L126",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L94-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 p_link: destination process bucket, bounded by assertion before either deferral or immediate relocation.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L53",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L126",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L94-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 priority: destination p_priority, saved for deferred replay or written before immediate insertion.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L53",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L126",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L94-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C#r7"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_GObj* position: nullable predecessor for mode 2, required insertion-before reference for mode 3, saved unchanged on deferral.",
+        "rationale": "Exact canonical signature and direct parameter use; source type is attested, not guessed from the rendered name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L11-L53",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L126",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L94-L138",
+            "why": "Canonical source branches, assignments and calls establish the claim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

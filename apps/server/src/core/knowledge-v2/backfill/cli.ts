@@ -1,10 +1,9 @@
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { gameKnowledgeRoot, knowledgeIndexPath } from "@server/core/knowledge/paths.js";
 import { resolveKnowledgeCheckout } from "../checkout.js";
 import {
-  KNOWLEDGE_INDEX_DB_FILENAME,
   openKnowledgeIndexDb,
   type KnowledgeIndexDb,
 } from "../index/db.js";
@@ -76,7 +75,7 @@ export async function kg2Backfill(globals: GlobalArgs, args: Map<string, string 
   const previousKnowledgeRoot = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
   try {
     store = explicitRoot === undefined ? openKnowledgeStore({ gameId }) : openKnowledgeStore({ knowledgeRoot });
-    if (existsSync(resolve(knowledgeRoot, KNOWLEDGE_INDEX_DB_FILENAME))) {
+    if (existsSync(knowledgeIndexPath(knowledgeRoot))) {
       indexDb = openKnowledgeIndexDb({ knowledgeRoot });
     }
     if (explicitRoot !== undefined) process.env.ORCH_GAME_KNOWLEDGE_ROOT = knowledgeRoot;

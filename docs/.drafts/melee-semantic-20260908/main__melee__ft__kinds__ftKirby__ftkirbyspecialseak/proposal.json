@@ -1,0 +1,195 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyspecialseak",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L286-L300",
+            "why": "Current input fields, branch order and callback assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L466-L504",
+            "why": "Request and stock consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects obsolete input-field spellings while preserving the supported release-first ordering and downstream firing flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialseak:ftKb_SkSpecialNLoop_IASA"
+        },
+        "type": "data_flow",
+        "value": "Reads `fp->input.held_buttons[0]` for B and, only while B remains held, `fp->input.pressed_buttons` for LR. B release resets `mv.kb.specialhi.x0`, enters `ftKb_MS_SkSpecialNEnd`, reinstalls copied-special callbacks and assigns `fn_80106DB0` to `accessory4_cb`. Otherwise an LR press enters `ftKb_MS_SkSpecialNCancel` and reinstalls callbacks without assigning the firing helper. With neither condition, the callback makes no local mutation. The firing helper later consumes End-animation requests and positive stored needle stock."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L449-L458",
+            "why": "Nonzero guard and local cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123",
+            "why": "Collision and fighter-position writes precede the return."
+          }
+        ],
+        "op": "write",
+        "rationale": "The previous unqualified no-writes claim omitted side effects in the collision query.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialseak:ftKb_SkSpecialAirNEnd_Coll"
+        },
+        "type": "data_flow",
+        "value": "Passes the fighter object to `ft_80081D0C`, which synchronizes collision positions, runs map collision and writes the corrected position back before returning its query result. A nonzero result causes this callback to clear `u.kb.xB4` and `mv.kb.specialhi.x4`, then pass the unchanged object to `ftCo_Landing_Enter_Basic`. A zero result skips those local cleanup writes and the landing call, but does not imply that collision processing performed no writes."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L388-L401",
+            "why": "Caller guard and fall selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L28-L59",
+            "why": "Early diversion, configuration and mutually exclusive conversion/jump branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact caller guard and parameters while correcting unconditional jump consumption and retaining the exceptional early diversion.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialseak:ftKb_SkSpecialNCancel_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Tests `ft_80082708(gobj) == GA_Ground`; if the test fails, it performs no local state transition. On the guarded path, zero `specialn_sk_freefall_toggle` calls ordinary Fall, while a nonzero value calls `ftCo_80096900(gobj, 1, 0, 1, 1.0F, attribute)`. The common helper first diverts through `ftCo_80090780` when `x2224_b2` is set. Otherwise it enters FallSpecial and stores interrupt permission, mobility scaling and the attribute as landing lag. A fighter still marked grounded takes `ftCommon_8007D60C`; only the alternative already-airborne branch explicitly calls `ftCommon_UseAllJumps`."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L403-L418",
+            "why": "Exact guard, stock/request resets and outgoing parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L28-L59",
+            "why": "Conditional configuration and jump consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects overbroad jump-consumption behavior while preserving End-specific cleanup and the common helper's exceptional branch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialseak:ftKb_SkSpecialNEnd_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Tests `ft_80082708(gobj) == GA_Ground`; if the test fails, it performs no local cleanup or state transition. On the guarded path it clears stored needles `u.kb.xB4` and pending shot `mv.kb.specialhi.x4`, then calls ordinary Fall for a zero `specialn_sk_freefall_toggle` or `ftCo_80096900(gobj, 1, 0, 1, 1.0F, attribute)` otherwise. That helper can first divert through `ftCo_80090780` for `x2224_b2`. Its ordinary path enters FallSpecial and records interrupt permission, mobility and landing lag; grounded fighters take the ground-to-air conversion helper, whereas the alternative already-airborne branch explicitly consumes all jumps."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L47-L54",
+            "why": "Field read and pre-guard lookup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L37-L41",
+            "why": "GET_FIGHTER expansion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.h#L147-L150",
+            "why": "Unconditional user-data dereference."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedleheld.c#L23-L59",
+            "why": "Guarded six-model visibility consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the useful stock-to-display flow and distinguishes the explicit fallback branch from an unsupported null-safety guarantee.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialseak:ftKb_SpecialNSk_80106020"
+        },
+        "type": "data_flow",
+        "value": "For a valid Kirby fighter object, obtains its Fighter and returns `u.kb.xB4` unchanged without writing state. The held-needle item consumes this count to show or hide six needle models; charging and release callbacks separately mutate the underlying stock. Although the body contains an explicit null-object return of zero, `GET_FIGHTER(gobj)` is evaluated before that guard and expands to an accessor that dereferences `gobj`, so the canonical C does not establish safe null-input behavior."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L47-L54",
+            "why": "Signature, unchanged field return and evaluation order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L150-L169",
+            "why": "Normal six-needle cap."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L37-L41",
+            "why": "Macro calls the user-data accessor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.h#L147-L150",
+            "why": "Accessor dereferences its argument."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported null-tolerant characterization while preserving the exact signature and normal stock domain.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialseak:ftKb_SpecialNSk_80106020"
+        },
+        "type": "inferred_type",
+        "value": "Read-only stored-needle accessor with signature `s32(Fighter_GObj*)`. For an expected valid Kirby fighter object it returns the stored Needle Storm count unchanged; normal move-generated stock is 0 through 6. It does not validate or clamp the returned value. Its explicit zero fallback is preceded by Fighter extraction, so null tolerance is not established by the canonical C."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L56-L89",
+            "why": "Reference invalidation, nonzero loop, conditional setup and unconditional decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialseak.c#L35-L45",
+            "why": "Inverse held-reference predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedleheld.c#L89-L133",
+            "why": "Held-item lifetime consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L98-L197",
+            "why": "Mode-1 dispatch and dropped-item setup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves failure handling and cross-file lifetime while limiting the previous universal final-reset guarantee to the supported stock domain.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialseak:ftKb_SpecialNSk_8010603C"
+        },
+        "type": "state_behavior",
+        "value": "With no held-needle reference, emits no items and clears stock. Otherwise clears the reference before a `while (u.kb.xB4 != 0)` loop, attempts one dropped-needle item per iteration, conditionally performs mode-1 setup on successful construction, and decrements stock regardless of construction success. For normal nonnegative stock the loop exhausts the count and reaches the final zero assignment. The loop is not a positive-stock guard: malformed negative stock is decremented away from zero, so safe termination and reaching the final reset are not guaranteed for arbitrary integer state. The helper does not directly destroy the old held item; its cleared reference is observed by the held-item lifetime predicate."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

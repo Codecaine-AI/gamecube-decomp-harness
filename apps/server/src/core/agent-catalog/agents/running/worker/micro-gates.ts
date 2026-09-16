@@ -189,6 +189,16 @@ interface StaticDefinition extends AddedCodeLine {
 }
 
 const STATIC_FUNCTION_RE = /^\s*static\b[^=;(]*\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/;
+/** C and C++ source/header paths the banned-idiom lint inspects. */
+const LINTED_SOURCE_PATH_RE = /\.(?:c|h|cpp|hpp|cc|hh)$/i;
+/**
+ * Static helpers that exist only to steer section emission/order (`dummy`,
+ * `forceSdata2Order`, `pad`, `filler`, ...). These are exactly the shapes that
+ * show up in section-target attempts, so section targets never exempt them.
+ */
+const SECTION_EMITTER_NAME_RE = /dummy|order|force|pad|filler/i;
+/** Names of section-order hacks: any `order` helper plus the force/sdata spellings. */
+const SECTION_ORDER_HACK_NAME_RE = /order|force.*order|order.*sdata|sdata.*order/i;
 const STATIC_DEFINITION_RE = /^\s*static\b[^=;]*\b([A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*$/;
 const KR_FUNCTION_RE = /^\s*(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s+[A-Za-z_][A-Za-z0-9_]*)*\s*\**\s*[A-Za-z_][A-Za-z0-9_]*\s*\(\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*\s*\)\s*$/;
 const CONTROL_KEYWORDS = new Set(["if", "for", "while", "switch", "return", "else", "do", "goto", "case"]);
@@ -205,7 +215,7 @@ export function lintBannedIdioms(diffText: string, context: BannedIdiomContext =
   for (const line of diffText.split(/\r?\n/)) {
     const fileMatch = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
     if (fileMatch) {
-      currentPath = /\.(?:c|h)$/i.test(fileMatch[2]) ? fileMatch[2] : "";
+      currentPath = LINTED_SOURCE_PATH_RE.test(fileMatch[2]) ? fileMatch[2] : "";
       continue;
     }
     if (!currentPath || (!line.startsWith("+") && !line.startsWith("-")) || line.startsWith("+++") || line.startsWith("---")) continue;
@@ -243,7 +253,7 @@ export function lintBannedIdioms(diffText: string, context: BannedIdiomContext =
         if (reason && !isSectionTarget) reasons.push(`static_added_to_global_symbol: '${staticName}' gains static but is ${reason}: "${entry.body.trim().replaceAll('"', '\\"')}"`);
       }
       const staticFunction = STATIC_FUNCTION_RE.exec(entry.stripped);
-      if (!isSectionTarget && staticFunction?.[1] && /order/i.test(staticFunction[1])) {
+      if (staticFunction?.[1] && SECTION_ORDER_HACK_NAME_RE.test(staticFunction[1])) {
         reasons.push(findingReason("section-order-hack", entry.body));
       }
       const definition = STATIC_DEFINITION_RE.exec(entry.stripped);
@@ -265,7 +275,11 @@ export function lintBannedIdioms(diffText: string, context: BannedIdiomContext =
         otherPath !== path && otherEntries.some((entry) => namePattern.test(entry.stripped))
       );
       const referenced = referencedInFile || referencedInOtherFile;
-      if (!referenced) reasons.push(findingReason("unused-static-function", definition.body));
+      // Section targets get no exemption here: an unreferenced static named
+      // like a section emitter (dummy/order/force/pad/filler) is the hack
+      // itself, and any other unreferenced static is dead code either way.
+      const sectionEmitter = isSectionTarget && SECTION_EMITTER_NAME_RE.test(definition.name);
+      if (!referenced || sectionEmitter) reasons.push(findingReason("unused-static-function", definition.body));
     }
   }
   return { gate, status: reasons.length > 0 ? "failed" : "passed", reasons };

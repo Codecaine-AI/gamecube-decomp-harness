@@ -1,0 +1,46 @@
+1036: extern struct {
+1037:     HSD_GObjEvent x0;
+1038:     void (*x4)(Fighter_GObj*, int, float frame);
+1039: } ftData_UnkCallbackPairs0[FTKIND_MAX];
+1040: 
+1041: static inline void tobjAnim(HSD_TObj** temp_r30, f32 frame)
+1042: {
+1043:     HSD_AObjReqAnim((*temp_r30)->aobj, frame);
+1044:     HSD_TObjAnim(*temp_r30);
+1045: }
+1046: 
+1047: void ftAnim_80070458(Fighter* fp, CostumeTObjList* tobj_list, u32 tobj_idx,
+1048:                      float frame)
+1049: {
+1050:     if (tobj_idx >= tobj_list->n_costume_tobjs) {
+1051:         HSD_ASSERTREPORT(1264, 0, "texture no exist! %d %d\n", fp->player_id,
+1052:                          tobj_idx);
+1053:     }
+1054:     tobjAnim(&tobj_list->costume_tobjs[tobj_idx], frame);
+1055: }
+1056: 
+1057: void ftAnim_800704F0(Fighter_GObj* gobj, int tobj_idx, float frame)
+1058: {
+1059:     Fighter* fp;
+1060:     HSD_TObj** temp_r30;
+1061: 
+1062:     fp = gobj->user_data;
+1063:     ftAnim_80070458(fp, &fp->tobj_list, tobj_idx, frame);
+1064:     if (ftData_UnkCallbackPairs0[fp->kind].x4 != NULL) {
+1065:         ftData_UnkCallbackPairs0[fp->kind].x4(gobj, tobj_idx, frame);
+1066:     }
+1067:     fp->x221E_b7 = true;
+1068: }
+1069: 
+1070: void ftAnim_800705E0(CostumeTObjList* tobj_list)
+1071: {
+1072:     int i;
+1073: 
+1074:     for (i = 0; i < tobj_list->n_costume_tobjs; i++) {
+1075:         HSD_AObjReqAnim(tobj_list->costume_tobjs[i]->aobj, 0.0F);
+1076:         HSD_TObjAnim(tobj_list->costume_tobjs[i]);
+1077:     }
+1078: }
+1079: 
+1080: void ftAnim_80070654(Fighter_GObj* fighter_gobj)
+1081: {

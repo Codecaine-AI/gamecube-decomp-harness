@@ -1,0 +1,352 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-50-game-events-10-envelope-and-lineage",
+  "title": "Game Events",
+  "root": "b-index-root-15",
+  "blocks": {
+    "b-index-root-15": {
+      "id": "b-index-root-15",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-intro",
+        "b-envelope",
+        "b-envelope-state-shape",
+        "b-example",
+        "b-lineage",
+        "b-lineage-text",
+        "b-actor",
+        "b-families",
+        "b-families-text",
+        "b-registry",
+        "b-signals",
+        "b-signal-text",
+        "b-run-link",
+        "b-dispatch-link",
+        "b-kernel-link"
+      ]
+    },
+    "b-intro": {
+      "id": "b-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A game event records an accepted fact for one game. Its envelope identifies the subject, the workflow, and the action that caused it. Harness State remains the durable record of the current harness position; the event log explains how accepted changes happened."
+        }
+      ],
+      "children": []
+    },
+    "b-envelope": {
+      "id": "b-envelope",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Event Envelope"
+        }
+      ],
+      "children": []
+    },
+    "b-envelope-state-shape": {
+      "id": "b-envelope-state-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "The immutable header stored with every accepted game fact.",
+        "example": "{\n  \"event_id\": \"event-dispatch-7\",\n  \"sequence\": 7,\n  \"event_type\": \"game.dispatch_acquired\",\n  \"schema_version\": 1,\n  \"game_id\": \"melee\",\n  \"subject_kind\": \"game\",\n  \"subject_id\": \"melee\",\n  \"correlation_id\": \"run-7\",\n  \"causation_id\": \"command-run-7\",\n  \"trace_id\": \"trace-run-7\",\n  \"span_id\": \"span-11111111-1111-4111-8111-111111111111\",\n  \"parent_span_id\": null,\n  \"actor\": \"runner\",\n  \"occurred_at\": \"2026-09-11T18:00:00Z\",\n  \"payload\": {\n    \"kind\": \"run\",\n    \"workflow_id\": \"run-7\",\n    \"lease_id\": \"lease-run-7\",\n    \"state_revision\": 7\n  }\n}",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "EventId"
+          },
+          {
+            "name": "sequence",
+            "type": "integer",
+            "description": "Monotonic within one game event log."
+          },
+          {
+            "name": "event_type",
+            "type": "registered string"
+          },
+          {
+            "name": "schema_version",
+            "type": "positive integer"
+          },
+          {
+            "name": "game_id",
+            "type": "GameId"
+          },
+          {
+            "name": "subject_kind",
+            "type": "registered string"
+          },
+          {
+            "name": "subject_id",
+            "type": "string"
+          },
+          {
+            "name": "correlation_id",
+            "type": "CorrelationId"
+          },
+          {
+            "name": "causation_id",
+            "type": "CommandId | EventId"
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId"
+          },
+          {
+            "name": "span_id",
+            "type": "SpanId"
+          },
+          {
+            "name": "parent_span_id",
+            "type": "SpanId | null"
+          },
+          {
+            "name": "actor",
+            "type": "operator | runner | agent | guardian | external_observer"
+          },
+          {
+            "name": "occurred_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "payload",
+            "type": "registered closed object"
+          }
+        ],
+        "name": "GameEventEnvelope"
+      },
+      "children": []
+    },
+    "b-example": {
+      "id": "b-example",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This example records acquisition of a Run dispatch lease. The payload describes that transition; it does not repeat the whole Dispatch State."
+        }
+      ],
+      "children": []
+    },
+    "b-lineage": {
+      "id": "b-lineage",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Following a Change"
+        }
+      ],
+      "children": []
+    },
+    "b-lineage-text": {
+      "id": "b-lineage-text",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "correlation_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " groups a workflow's related events. "
+        },
+        {
+          "insert": "causation_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " identifies the immediate command or preceding event. Following causation explains why a particular change happened, including handoffs between workflows with different correlations. "
+        },
+        {
+          "insert": "trace_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "span_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "parent_span_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " retain the operation's trace lineage."
+        }
+      ],
+      "children": []
+    },
+    "b-actor": {
+      "id": "b-actor",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The "
+        },
+        {
+          "insert": "actor",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " credits the operator, deterministic runner, agent, recovery guardian, or external observer responsible for the fact. Recovery must preserve the queued command's identity when a successor workflow acquires authority."
+        }
+      ],
+      "children": []
+    },
+    "b-families": {
+      "id": "b-families",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "What Events Explain"
+        }
+      ],
+      "children": []
+    },
+    "b-families-text": {
+      "id": "b-families-text",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Dispatch events explain requests, acquisition, blocking, and release. Run and worker events describe accepted execution changes. Sync events retain observation, staging, validation, and publication evidence. Job events describe queue execution. Sandbox creation and deletion connect provider resources to worker ownership."
+        }
+      ],
+      "children": []
+    },
+    "b-registry": {
+      "id": "b-registry",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Exact payload fields and retained historical names live in "
+        },
+        {
+          "insert": "apps/server/src/core/harness-state/event-registry.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Registration alone does not mean a current producer emits that event."
+        }
+      ],
+      "children": []
+    },
+    "b-signals": {
+      "id": "b-signals",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Facts and Wake Signals"
+        }
+      ],
+      "children": []
+    },
+    "b-signal-text": {
+      "id": "b-signal-text",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A scheduler wake signal asks the runner to reconsider work, for example after a worker finishes. Handling that signal does not itself prove that a game transition was accepted. The runner evaluates current state and records any accepted change through the owning state operation."
+        }
+      ],
+      "children": []
+    },
+    "b-run-link": {
+      "id": "b-run-link",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/10-run-state"
+            }
+          }
+        },
+        {
+          "insert": " shows the worker-to-scheduler handshake and current scheduling conditions."
+        }
+      ],
+      "children": []
+    },
+    "b-dispatch-link": {
+      "id": "b-dispatch-link",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Dispatch Coordination",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness-process/40-dispatch-coordination"
+            }
+          }
+        },
+        {
+          "insert": " explains how accepted release and acquisition connect two workflow owners."
+        }
+      ],
+      "children": []
+    },
+    "b-kernel-link": {
+      "id": "b-kernel-link",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Agent Kernel Integration",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/60-tracing/20-agent-kernel-integration"
+            }
+          }
+        },
+        {
+          "insert": " connects accepted facts to execution detail."
+        }
+      ],
+      "children": []
+    }
+  }
+}

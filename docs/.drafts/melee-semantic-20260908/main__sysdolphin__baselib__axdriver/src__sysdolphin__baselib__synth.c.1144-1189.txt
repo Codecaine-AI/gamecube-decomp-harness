@@ -1,0 +1,46 @@
+1144: void HSD_SynthCallback(void)
+1145: {
+1146:     int i;
+1147:     int j;
+1148:     bool enabled;
+1149:     int base;
+1150:     PAD_STACK(0x8);
+1151: 
+1152:     base = HSD_Synth_804D775C % 8 * 8;
+1153: 
+1154:     enabled = OSDisableInterrupts();
+1155: 
+1156:     while (HSD_Synth_804D7720-- > 0) {
+1157:         if (HSD_Synth_804C28E0[HSD_Synth_804D7720] != 0) {
+1158:             AXFreeVoice(HSD_Synth_804C28E0[HSD_Synth_804D7720]);
+1159:         }
+1160:     }
+1161:     HSD_Synth_804D7720 = 0;
+1162: 
+1163:     for (i = 0; i < 8; i++) {
+1164:         struct HSD_SynthSFXNode* node = &hsd_SynthSFXNodes[base + i];
+1165:         if (node->x0 > 0) {
+1166:             if (!(node->flags & 8) && node->voice[0]->pb.state == 0 &&
+1167:                 (node->voice_count == 1 || node->voice[1]->pb.state == 0))
+1168:             {
+1169:                 HSD_SynthSFXStopNode(node);
+1170:             }
+1171:         }
+1172:     }
+1173: 
+1174:     HSD_Synth_8038A000();
+1175: 
+1176:     if (driverMasterClockCallback != NULL) {
+1177:         driverMasterClockCallback(HSD_Synth_804D775C);
+1178:     }
+1179: 
+1180:     HSD_Synth_8038ADD0();
+1181:     HSD_Synth_804D775C++;
+1182:     OSRestoreInterrupts(enabled);
+1183: }
+1184: 
+1185: void HSD_SynthResetStreamCounters(int result, int length, void* buf, bool b)
+1186: {
+1187:     HSD_Synth_804D776C = HSD_Synth_804D7768;
+1188:     HSD_Synth_804D7778 = 0;
+1189: }

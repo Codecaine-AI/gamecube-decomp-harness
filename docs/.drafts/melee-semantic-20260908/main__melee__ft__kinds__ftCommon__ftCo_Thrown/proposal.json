@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Thrown",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Thrown:ftCo_800DE7C0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves the released fighter from gobj. A non-null secondary fighter is stored in mv.co.fighterthrow.victim and installs fn_800DE798 in x21EC. The boolean maps to numeric 90 or -1, passed as the motion override argument of ftCo_8008DCE0, not as a knockback angle. Existing dmg.x1848_kb_angle strictly inside (90,270) selects -dmg.facing_dir_1; otherwise positive zero requests no facing override. After damage initialization, the Fighter is passed to ftCo_8008E5A4.",
+        "rationale": "The caller establishes exact values and ordering; the callee independently calculates knockback angle and consumes its integer argument as msid.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L150-L185",
+            "why": "Input transformations and outgoing calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L319-L446",
+            "why": "Independent angle calculation, motion override, facing sentinel and transition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Thrown:ftCo_800DE7C0"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Void helper with exact signature void(Fighter_GObj* gobj, Fighter_GObj* victim, bool is_upward). gobj is the released fighter; victim is an optional associated fighter for attribution; is_upward selects numeric damage-motion override 90 versus automatic selection sentinel -1. The canonical parameter and inline-helper names do not establish a forced vertical knockback angle.",
+        "rationale": "Preserves the exact source signature while correcting the integer argument's semantics from its consumer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Thrown.h#L27-L28",
+            "why": "Public signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L419-L446",
+            "why": "Integer argument selects motion rather than angle."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Thrown:ftCo_800DE7C0"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes a released throw victim's damage reaction, optionally arranging associated-fighter hitbox attribution, selecting automatic damage motion or numeric motion override 90, and deriving an optional facing override from existing damage direction. It invokes common damage initialization and then ftCo_8008E5A4; it does not force knockback to a 90-degree angle.",
+        "rationale": "Victim-side callers establish its release role; inspecting the damage callee corrects the misleading local angle terminology.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L174-L185",
+            "why": "Wrapper sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Throw.c#L269-L277",
+            "why": "Ordinary victim release caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L319-L446",
+            "why": "Actual damage-motion semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Thrown:ftCo_800DE7C0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "With a non-null secondary object, installs fn_800DE798 and stores its attribution reference before entering damage processing; with null, performs neither local assignment. Damage initialization runs unconditionally and changes motion state. Boolean true supplies override 90 and forces damage level 3 in the callee; false supplies -1 for automatic selection. Knockback angle is calculated independently. Ice handling may override the selected motion. Facing override is supplied only for existing angles strictly between 90 and 270. Motion-state setup invokes and clears x21EC, so the installed attribution callback can be consumed within this call, rather than remaining armed for a later frame; an existing callback can likewise be consumed on the null-secondary path.",
+        "rationale": "Tracks local guards through the damage callee and motion-state callback consumer, preserving numeric semantics and cross-file lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L144-L185",
+            "why": "Callback, stored reference, strict facing bounds and optional installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L319-L447",
+            "why": "Damage level, independent angle, motion override, ice exception and transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1211-L1214",
+            "why": "One-shot callback consumption and clearing."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

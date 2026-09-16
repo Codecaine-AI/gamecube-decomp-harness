@@ -1,0 +1,3 @@
+The owned file `src/melee/ft/kinds/ftCommon/ftCo_BuryWait.c` contains only blank lines; it defines no source-level behavior, symbols, or state transitions. Canonical and rendered lines 1–2 agree, with no substitutions or renderer parse errors. The filename alone does not establish BuryWait behavior. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_BuryWait.c#L1-L2. Subject and link enumeration both completed with no records; there is no baseline knowledge to retain or correct. No compiled layout conclusions are drawn.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

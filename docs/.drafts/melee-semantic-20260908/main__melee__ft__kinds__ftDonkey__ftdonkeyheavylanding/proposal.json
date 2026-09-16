@@ -1,0 +1,70 @@
+{
+  "tu": "main/melee/ft/kinds/ftDonkey/ftdonkeyheavylanding",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyheavylanding.c#L29-L62",
+            "why": "Internal linkage, caller branch, and exact helper arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L419-L469",
+            "why": "Explicit-motion sentinel, Ice replacement, facing override, motion transition, and callback initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L948-L951",
+            "why": "Common caller selects the public handler by heavy-item and fighter flags, not motion 349."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unconditional HeavyWait2/state-349 claim with exact local arguments and the inspected common-callee exception.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftDonkey/ftdonkeyheavylanding:doSomething"
+        },
+        "type": "state_behavior",
+        "value": "Internal helper called by the true branch of ftDk_MS_349_800E06D8. It unconditionally calls ftCo_8008DCE0(gobj, ((ftDonkeyAttributes*) fp->x2CC)->motion_state + 9, 0), with no local guard or timer. This requests an explicit damage motion and no facing override; it does not guarantee the final motion. The common initializer uses -1 as its automatic-selection sentinel and can replace an explicit motion other than 0x145 with 0x5A for Ice at base knockback class >=2 before changing motion and installing damage callbacks/flags. Neither the function name nor its caller restricts this helper to motion 349."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyheavylanding.c#L82-L92",
+            "why": "Complete mutually exclusive branch structure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123",
+            "why": "Aerial query updates collision and fighter positions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L392-L404",
+            "why": "Ground query updates collision and fighter positions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L594",
+            "why": "Air/ground mode changes and associated bookkeeping."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline no-change assertion while preserving exact branch polarity and distinguishing mode changes from motion changes.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftDonkey/ftdonkeyheavylanding:ftDk_HeavyWait2_Coll"
+        },
+        "type": "state_behavior",
+        "value": "For exactly GA_Ground, calls ft_80082708 and invokes ftCommon_8007D5D4(fp) only on zero. For every other ground_or_air value, calls ft_80081D0C and invokes ftCommon_8007D7FC(fp) only on nonzero. The paths are mutually exclusive and there is no direct motion-change call. A query result that skips the mode helper does not imply unchanged fighter state: both query helpers update collision positions and copy the resulting position back to the Fighter. The mode helpers set air or ground and perform additional velocity/jump/ECB bookkeeping."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

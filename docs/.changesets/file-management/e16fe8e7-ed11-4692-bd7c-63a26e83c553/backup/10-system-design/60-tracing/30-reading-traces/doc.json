@@ -1,0 +1,374 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-50-game-events-50-read-api-and-reconstruction",
+  "title": "Game Event Read API and Reconstruction",
+  "root": "b-index-root-26",
+  "blocks": {
+    "b-index-root-26": {
+      "id": "b-index-root-26",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-index-the-event-read-surface-2",
+        "b-trace-inspection-heading",
+        "b-query-filters-table",
+        "b-page-shape",
+        "b-query-ordering",
+        "b-index-safe-summary-projection-10",
+        "b-summary-shape",
+        "b-index-the-summary-admits-only-12",
+        "b-index-reconstruction-13",
+        "b-cause-shape",
+        "b-reconstruction-contract",
+        "b-index-route-boundary-3",
+        "b-response-outcomes"
+      ]
+    },
+    "b-index-the-event-read-surface-2": {
+      "id": "b-index-the-event-read-surface-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Trace inspection starts with bounded, game-scoped summaries and correlation reconstruction. The HTTP boundary exposes the same ordered query and safe projection without raw payloads or caller-controlled storage paths."
+        }
+      ],
+      "children": []
+    },
+    "b-trace-inspection-heading": {
+      "id": "b-trace-inspection-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Trace Inspection"
+        }
+      ],
+      "children": []
+    },
+    "b-query-filters-table": {
+      "id": "b-query-filters-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Parameter",
+          "Constraint",
+          "Behavior"
+        ],
+        "density": "compact",
+        "rows": [
+          [
+            "correlation_id",
+            "Nonblank.",
+            "Select one workflow lineage."
+          ],
+          [
+            "subject_kind + subject_id",
+            "Both present; registered kind and nonblank identity.",
+            "Select one subject stream."
+          ],
+          [
+            "event_type_prefix",
+            "Nonblank literal.",
+            "Select registered event families by prefix."
+          ],
+          [
+            "from_sequence + to_sequence",
+            "Inclusive safe integers; from ≤ to.",
+            "Bound a sequence range."
+          ],
+          [
+            "after_sequence",
+            "Nonnegative safe integer.",
+            "Continue after the prior page."
+          ],
+          [
+            "limit",
+            "1–200; default 50.",
+            "Return at most limit events; never clamp."
+          ]
+        ],
+        "title": "Event query filters"
+      },
+      "children": []
+    },
+    "b-page-shape": {
+      "id": "b-page-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "The bounded ordered projection returned by event inspection.",
+        "example": "{\n  \"events\": [],\n  \"has_more\": false,\n  \"next_after_sequence\": null\n}",
+        "fields": [
+          {
+            "name": "events",
+            "type": "SafeEventSummary[]"
+          },
+          {
+            "name": "has_more",
+            "type": "boolean"
+          },
+          {
+            "name": "next_after_sequence",
+            "type": "integer | null"
+          }
+        ],
+        "name": "EventPage"
+      },
+      "children": []
+    },
+    "b-query-ordering": {
+      "id": "b-query-ordering",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Queries are game-scoped and ordered by sequence ascending. The reader fetches limit + 1 rows, returns at most limit, and exposes the last returned sequence only when another row exists."
+        }
+      ],
+      "children": []
+    },
+    "b-index-safe-summary-projection-10": {
+      "id": "b-index-safe-summary-projection-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Safe Summary Projection"
+        }
+      ],
+      "children": []
+    },
+    "b-summary-shape": {
+      "id": "b-summary-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "A redacted event header plus bounded payload summary.",
+        "example": "{\n  \"event_id\": \"event-dispatch-7\",\n  \"sequence\": 7,\n  \"event_type\": \"game.dispatch_acquired\",\n  \"correlation_id\": \"run-7\",\n  \"causation_id\": \"command-run-7\",\n  \"actor\": \"runner\",\n  \"occurred_at\": \"2026-09-11T18:00:00Z\",\n  \"payload_summary\": {\n    \"kind\": \"run\",\n    \"workflow_id\": \"run-7\",\n    \"lease_id\": \"lease-run-7\",\n    \"state_revision\": 7\n  },\n  \"schema_version\": 1,\n  \"game_id\": \"melee\",\n  \"subject_kind\": \"game\",\n  \"subject_id\": \"melee\",\n  \"trace_id\": \"trace-run-7\",\n  \"span_id\": \"span-11111111-1111-4111-8111-111111111111\",\n  \"parent_span_id\": null\n}",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "EventId"
+          },
+          {
+            "name": "sequence",
+            "type": "integer"
+          },
+          {
+            "name": "event_type",
+            "type": "string"
+          },
+          {
+            "name": "correlation_id",
+            "type": "CorrelationId"
+          },
+          {
+            "name": "causation_id",
+            "type": "CommandId | EventId"
+          },
+          {
+            "name": "actor",
+            "type": "Actor"
+          },
+          {
+            "name": "occurred_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "payload_summary",
+            "type": "redacted object"
+          },
+          {
+            "name": "schema_version",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "game_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "subject_kind",
+            "type": "GameEventSubjectKind",
+            "required": true
+          },
+          {
+            "name": "subject_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "trace_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "span_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "parent_span_id",
+            "type": "string | null",
+            "required": true
+          }
+        ],
+        "name": "SafeEventSummary",
+        "source": {
+          "path": "apps/server/src/core/harness-state/event-query.ts",
+          "symbol": "GameEventDto"
+        }
+      },
+      "children": []
+    },
+    "b-index-the-summary-admits-only-12": {
+      "id": "b-index-the-summary-admits-only-12",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Credential-shaped values and filesystem fields are redacted. Projection is capped at depth 4, 64 entries, 256 characters per string, and 4096 serialized bytes; capped summaries carry _truncated: true."
+        }
+      ],
+      "children": []
+    },
+    "b-index-reconstruction-13": {
+      "id": "b-index-reconstruction-13",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Correlation Reconstruction"
+        }
+      ],
+      "children": []
+    },
+    "b-cause-shape": {
+      "id": "b-cause-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Same-game event identities resolve to event causes; every other causation token remains a command cause.",
+        "example": "{\n  \"kind\": \"command\",\n  \"command_id\": \"command-run-7\"\n}",
+        "fields": [
+          {
+            "name": "kind",
+            "type": "\"event\" | \"command\"",
+            "required": true
+          },
+          {
+            "name": "command_id",
+            "type": "string",
+            "description": "Present for a command cause."
+          },
+          {
+            "name": "event_id",
+            "type": "string",
+            "description": "Present for an event cause."
+          },
+          {
+            "name": "sequence",
+            "type": "number",
+            "description": "Event cause only."
+          },
+          {
+            "name": "event_type",
+            "type": "string",
+            "description": "Event cause only."
+          },
+          {
+            "name": "correlation_id",
+            "type": "string",
+            "description": "Event cause only."
+          },
+          {
+            "name": "subject_kind",
+            "type": "GameEventSubjectKind",
+            "description": "Event cause only."
+          },
+          {
+            "name": "subject_id",
+            "type": "string",
+            "description": "Event cause only."
+          }
+        ],
+        "name": "caused_by",
+        "source": {
+          "path": "apps/server/src/core/harness-state/event-query.ts",
+          "symbol": "GameEventCause"
+        }
+      },
+      "children": []
+    },
+    "b-reconstruction-contract": {
+      "id": "b-reconstruction-contract",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Reconstruction requires correlation_id, preserves ascending order, and returns zero, one, or many kernel links. Empty history is a successful empty page, not a missing-resource response."
+        }
+      ],
+      "children": []
+    },
+    "b-index-route-boundary-3": {
+      "id": "b-index-route-boundary-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "HTTP Boundary"
+        }
+      ],
+      "children": []
+    },
+    "b-response-outcomes": {
+      "id": "b-response-outcomes",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Outcome",
+          "Status",
+          "Body or behavior"
+        ],
+        "density": "compact",
+        "rows": [
+          [
+            "Valid query or empty reconstruction",
+            "200",
+            "Bounded projection; empty events and traces are valid."
+          ],
+          [
+            "Invalid context, filter, cursor, or unsafe override",
+            "400",
+            "Sanitized specific validation error."
+          ],
+          [
+            "Recognized route with non-GET method",
+            "405",
+            "method not allowed plus Allow: GET."
+          ],
+          [
+            "Unknown path",
+            "outer router",
+            "No route-local 404."
+          ],
+          [
+            "Storage, payload, linkage, or reconstruction failure",
+            "500",
+            "Game event read failed; no internal detail."
+          ]
+        ],
+        "title": "Exact response outcomes"
+      },
+      "children": []
+    }
+  }
+}

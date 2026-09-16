@@ -1,0 +1,1496 @@
+[
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L9-L31",
+        "why": "Source declarations only; additional profiling globals also exist."
+      }
+    ],
+    "fact_id": "fact:2e59d841-bbbe-4462-908c-d0c5d6378d71",
+    "reason": "Declarations establish independent typed globals, not a compiled 64-byte .sbss extent, ordering or padding. Remove unsupported layout claim.",
+    "updated_at": "2026-09-02T05:05:31.766Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L363",
+        "why": "Guard/reset and persistent saved-stack write/read without clear."
+      }
+    ],
+    "fact_id": "fact:0228ae87-bfea-4fb6-b7a4-14ed5a93dff5",
+    "reason": "__OldStack is not cleared after dispatch; saved address remains stale afterward. Preserve semantic initialization/lifetime knowledge without claiming section placement.",
+    "updated_at": "2026-09-02T05:05:31.766Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L240",
+        "why": "Rate setters preserve playback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L296",
+        "why": "No unconditional stop command."
+      }
+    ],
+    "fact_id": "fact:e8c557f9-c355-444c-ad29-08c06b863a15",
+    "reason": "AIInit does not force stopped playback: called rate setters preserve incoming play state. Remove stopped-default guarantee.",
+    "updated_at": "2026-09-02T00:37:31.598Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L94",
+        "why": "Exact writes differ from getter field masks."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L57-L61",
+        "why": "0x280-byte alternating buffers."
+      }
+    ],
+    "fact_id": "fact:20e5089a-e173-44fb-bc18-3564b6b8693f",
+    "reason": "Incoming address halves are not masked to ten/eleven-bit fields; low address bits can be ORed into preserved bits. Length mask is 0xFFFF after shifting, allowing bit 15 to set enable. Describe exact expressions and supported aligned AX case.",
+    "updated_at": "2026-09-02T00:37:08.733Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L79",
+        "why": "Length OR includes bit 15; start/stop separate."
+      }
+    ],
+    "fact_id": "fact:d559a742-dec8-4058-9eb0-d19e664f1997",
+    "reason": "Descriptor purpose is correct but unconditional never-changes-enable guarantee is false for lengths whose shifted bit 15 is set.",
+    "updated_at": "2026-09-02T00:37:08.733Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L64",
+        "why": "Exact ordering and length mask."
+      }
+    ],
+    "fact_id": "fact:ca38a832-f6e2-4add-aa73-a89274d954e2",
+    "reason": "Critical section and no polling are correct; enable preservation needs input-range qualification. Assertion occurs after address writes and checks only length alignment.",
+    "updated_at": "2026-09-02T00:37:08.733Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L42-L52",
+        "why": "Snapshot before disabling interrupts."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L301",
+        "why": "Initialization clears registrations; reset permits reinitialization."
+      }
+    ],
+    "fact_id": "fact:73d76210-6219-48e2-aa77-1d47225e6aef",
+    "reason": "Registration also ends when AIInit executes and clears callbacks. Prior-value snapshot precedes interrupt exclusion, so replacement is not an entirely protected exchange.",
+    "updated_at": "2026-09-02T00:38:00.616Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L156",
+        "why": "Crosswise saves and setters."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L247-L265",
+        "why": "Channel fields."
+      }
+    ],
+    "fact_id": "fact:2a3f525c-6a74-4521-b2dc-e32a419bef47",
+    "reason": "Start path restores old left value to right and old right value to left, not same-channel restoration implied by this flow explanation.",
+    "updated_at": "2026-09-02T00:36:10.942Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L387-L419",
+        "why": "Exact stop/classify/retry sequence."
+      }
+    ],
+    "fact_id": "fact:951d7527-6a5a-4396-9af2-605cc624c3b5",
+    "reason": "Rate-zero/stop writes happen before classification on every attempt, not after delay selection. Preserve retry ordering.",
+    "updated_at": "2026-09-02T00:38:17.607Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L432",
+        "why": "Global timing reads and DEBUG profile writes."
+      }
+    ],
+    "fact_id": "fact:3bb159bf-e0c8-4788-a03e-729b7c028538",
+    "reason": "No parameters is not no software inputs: routine reads retained timing globals. DEBUG also writes profile timestamps.",
+    "updated_at": "2026-09-02T00:38:17.607Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L118-L156",
+        "why": "Counter-reset bit and nested start calibration."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L214-L240",
+        "why": "Setter invokes play restoration after interrupt restore."
+      }
+    ],
+    "fact_id": "fact:5a28f45d-7590-400c-9481-4e857d1fa94b",
+    "reason": "Bit 5 is also written by sample-count reset API; calling it converter enable is unsupported. Restoring active playback at new rate zero re-enters SRC through AISetStreamPlayState; not always one calibration.",
+    "updated_at": "2026-09-02T00:38:40.215Z"
+  },
+  {
+    "disposition": "supersede",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L240",
+        "why": "Distinct transition branches."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L301",
+        "why": "Initialization and reset behavior."
+      }
+    ],
+    "fact_id": "fact:120d2987-2423-46d1-bf09-07600f1d1a24",
+    "reason": "Not all sample-rate changes mute/recalibrate: changed non-32 DSP request only clears bit 6, equal requests do nothing, public stream setter rejects non-48 values. Initialization does not force stopped playback.",
+    "updated_at": "2026-09-02T00:38:24.910Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L9-L18",
+        "why": "Typed state declarations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L423",
+        "why": "Initialization and downstream state consumers."
+      }
+    ],
+    "fact_id": "fact:c59d49d1-2313-4bc5-baaa-1f735cccbb50",
+    "reason": "Source supports persistent callbacks, initialization guard, stack bookkeeping and calibration thresholds; no compiled placement inferred.",
+    "updated_at": "2026-09-02T05:05:31.766Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L9-L18",
+        "why": "Typed state declarations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L423",
+        "why": "Initialization and downstream state consumers."
+      }
+    ],
+    "fact_id": "fact:6f47c53c-1ca5-4db5-a120-64fb579d8eb4",
+    "reason": "Source supports persistent callbacks, initialization guard, stack bookkeeping and calibration thresholds; no compiled placement inferred.",
+    "updated_at": "2026-09-02T05:05:31.766Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L196",
+        "why": "Getter and setter."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ai.h#L13-L17",
+        "why": "Rate constants."
+      }
+    ],
+    "fact_id": "fact:25ad1a4e-3046-426f-8b30-f601456dc00d",
+    "reason": "DSP getter returns bit 6 XOR 1; setter uses equality guard; header confirms numeric domain.",
+    "updated_at": "2026-09-02T00:37:39.966Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L196",
+        "why": "Getter and setter."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ai.h#L13-L17",
+        "why": "Rate constants."
+      }
+    ],
+    "fact_id": "fact:aef1c8fa-6b42-4878-80f2-0cf0e62d614d",
+    "reason": "DSP getter returns bit 6 XOR 1; setter uses equality guard; header confirms numeric domain.",
+    "updated_at": "2026-09-02T00:37:39.966Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L196",
+        "why": "Getter and setter."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ai.h#L13-L17",
+        "why": "Rate constants."
+      }
+    ],
+    "fact_id": "fact:60d710d6-fefa-46ad-aaa7-8df1ad6216fa",
+    "reason": "DSP getter returns bit 6 XOR 1; setter uses equality guard; header confirms numeric domain.",
+    "updated_at": "2026-09-02T00:37:39.966Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L196",
+        "why": "Getter and setter."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ai.h#L13-L17",
+        "why": "Rate constants."
+      }
+    ],
+    "fact_id": "fact:77baa1c5-624b-4848-8454-1754744e5a48",
+    "reason": "DSP getter returns bit 6 XOR 1; setter uses equality guard; header confirms numeric domain.",
+    "updated_at": "2026-09-02T00:37:39.966Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L245",
+        "why": "Accessors and all transition consumers."
+      }
+    ],
+    "fact_id": "fact:99ce4fce-c6aa-4aad-9424-18e9a98f32c5",
+    "reason": "Read-only play/rate bit snapshots are compared, saved and restored by transitions. DSP setter restores play directly, internal stream setter through the API; core facts remain supported.",
+    "updated_at": "2026-09-02T00:36:09.348Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L245",
+        "why": "Accessors and all transition consumers."
+      }
+    ],
+    "fact_id": "fact:19e820b1-67f5-4dde-abf8-0b2b9d4ee415",
+    "reason": "Read-only play/rate bit snapshots are compared, saved and restored by transitions. DSP setter restores play directly, internal stream setter through the API; core facts remain supported.",
+    "updated_at": "2026-09-02T00:36:09.348Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L245",
+        "why": "Accessors and all transition consumers."
+      }
+    ],
+    "fact_id": "fact:5012d79b-8877-4e79-aed6-f29cc952f8c3",
+    "reason": "Read-only play/rate bit snapshots are compared, saved and restored by transitions. DSP setter restores play directly, internal stream setter through the API; core facts remain supported.",
+    "updated_at": "2026-09-02T00:36:09.348Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L245",
+        "why": "Accessors and all transition consumers."
+      }
+    ],
+    "fact_id": "fact:647989b0-e6f5-4285-985c-38fba3477c79",
+    "reason": "Read-only play/rate bit snapshots are compared, saved and restored by transitions. DSP setter restores play directly, internal stream setter through the API; core facts remain supported.",
+    "updated_at": "2026-09-02T00:36:09.348Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L245",
+        "why": "Accessors and all transition consumers."
+      }
+    ],
+    "fact_id": "fact:51768e12-21aa-4677-8121-c2c0dd12a792",
+    "reason": "Read-only play/rate bit snapshots are compared, saved and restored by transitions. DSP setter restores play directly, internal stream setter through the API; core facts remain supported.",
+    "updated_at": "2026-09-02T00:36:34.434Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L245",
+        "why": "Accessors and all transition consumers."
+      }
+    ],
+    "fact_id": "fact:d858f73b-812b-4da0-a1b4-e236ba1b3ff7",
+    "reason": "Read-only play/rate bit snapshots are compared, saved and restored by transitions. DSP setter restores play directly, internal stream setter through the API; core facts remain supported.",
+    "updated_at": "2026-09-02T00:36:34.434Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L245",
+        "why": "Accessors and all transition consumers."
+      }
+    ],
+    "fact_id": "fact:005122ea-e8c2-407b-8f06-689a85731d88",
+    "reason": "Read-only play/rate bit snapshots are compared, saved and restored by transitions. DSP setter restores play directly, internal stream setter through the API; core facts remain supported.",
+    "updated_at": "2026-09-02T00:36:34.434Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L245",
+        "why": "Accessors and all transition consumers."
+      }
+    ],
+    "fact_id": "fact:d90d2d40-42cd-4d5f-8658-5270a6b5a21c",
+    "reason": "Read-only play/rate bit snapshots are compared, saved and restored by transitions. DSP setter restores play directly, internal stream setter through the API; core facts remain supported.",
+    "updated_at": "2026-09-02T00:36:34.434Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L265",
+        "why": "Stream controls, disk diagnostic and wrapper gate."
+      }
+    ],
+    "fact_id": "fact:6aa9ac68-9a9d-45ab-9306-339000bcce01",
+    "reason": "Stream controls belong to the disc-stream path explicitly identified by the public rate wrapper; debug helper bypasses the 48-kHz gate.",
+    "updated_at": "2026-09-02T00:36:09.348Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L265",
+        "why": "Stream controls, disk diagnostic and wrapper gate."
+      }
+    ],
+    "fact_id": "fact:ed09acbc-5d42-4032-be6f-33de884cbad6",
+    "reason": "Stream controls belong to the disc-stream path explicitly identified by the public rate wrapper; debug helper bypasses the 48-kHz gate.",
+    "updated_at": "2026-09-02T00:36:34.434Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L265",
+        "why": "Stream controls, disk diagnostic and wrapper gate."
+      }
+    ],
+    "fact_id": "fact:48ffad25-bc74-4d71-9a45-68daa3c55ef7",
+    "reason": "Stream controls belong to the disc-stream path explicitly identified by the public rate wrapper; debug helper bypasses the 48-kHz gate.",
+    "updated_at": "2026-09-02T00:36:11.366Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L265",
+        "why": "Stream controls, disk diagnostic and wrapper gate."
+      }
+    ],
+    "fact_id": "fact:453e850b-724d-4e96-ba9d-b3b93526ede9",
+    "reason": "Stream controls belong to the disc-stream path explicitly identified by the public rate wrapper; debug helper bypasses the 48-kHz gate.",
+    "updated_at": "2026-09-02T00:36:35.055Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L265",
+        "why": "Stream controls, disk diagnostic and wrapper gate."
+      }
+    ],
+    "fact_id": "fact:9f991c21-3968-4511-8da4-9ffdd9e44ad3",
+    "reason": "Stream controls belong to the disc-stream path explicitly identified by the public rate wrapper; debug helper bypasses the 48-kHz gate.",
+    "updated_at": "2026-09-01T23:05:39.848Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L265",
+        "why": "Stream controls, disk diagnostic and wrapper gate."
+      }
+    ],
+    "fact_id": "fact:d03781d4-f381-471a-98b1-9fed2844349a",
+    "reason": "Stream controls belong to the disc-stream path explicitly identified by the public rate wrapper; debug helper bypasses the 48-kHz gate.",
+    "updated_at": "2026-09-02T00:36:10.942Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L265",
+        "why": "Stream controls, disk diagnostic and wrapper gate."
+      }
+    ],
+    "fact_id": "fact:93933f05-407e-4912-9ac9-d77982912673",
+    "reason": "Stream controls belong to the disc-stream path explicitly identified by the public rate wrapper; debug helper bypasses the 48-kHz gate.",
+    "updated_at": "2026-09-02T00:36:11.836Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L265",
+        "why": "Stream controls, disk diagnostic and wrapper gate."
+      }
+    ],
+    "fact_id": "fact:91afc0b9-e33d-4a4f-a0cb-5a30170260ad",
+    "reason": "Stream controls belong to the disc-stream path explicitly identified by the public rate wrapper; debug helper bypasses the 48-kHz gate.",
+    "updated_at": "2026-09-02T00:38:40.215Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:a77fb486-9f46-48a4-a5b5-a4c5c84f4156",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:11.366Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:7094d130-4962-42e3-851c-75a512dc341b",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:11.366Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:55b7a251-d47a-4e00-bc85-7f21264a110d",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:11.366Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:b5e72f5c-a0fa-451d-a6bc-d2470b3d10b1",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:11.366Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:ebf2a058-c385-42c1-b9cd-38659e85cec0",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:35.055Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:2f750533-62fd-4599-98a0-f8fdbfcb12a4",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:35.055Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:cd892cae-3207-4326-a521-a7dbd0e8020a",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:35.055Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:b524d1f9-3b1d-47aa-8e09-bead656fb3d7",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:10.942Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:c9aad822-dbc9-438a-a1ad-04a688002ca4",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:10.942Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:7a8b21e3-0a8c-47a1-b07c-132b4fa7c81e",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:11.836Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L265",
+        "why": "Rate consumers and exact volume accessor bodies."
+      }
+    ],
+    "fact_id": "fact:66ca8fdc-c7ed-4149-ba31-783f5d2c232b",
+    "reason": "Byte-wide left/right fields and signatures match; rate changes save/mute/restore same-channel values, while the separately documented start branch swaps channels.",
+    "updated_at": "2026-09-02T00:36:11.836Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L423",
+        "why": "Initialization, reset, stack consumer and timing consumer."
+      }
+    ],
+    "fact_id": "fact:49173ae0-171d-4444-8bfb-b273ffba777f",
+    "reason": "Initialization guard, tick constants, optional stack and handler setup match; reset only clears the guard.",
+    "updated_at": "2026-09-02T00:37:31.598Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L423",
+        "why": "Initialization, reset, stack consumer and timing consumer."
+      }
+    ],
+    "fact_id": "fact:6bc81159-3616-4a0c-a493-00efc7fbe14a",
+    "reason": "Initialization guard, tick constants, optional stack and handler setup match; reset only clears the guard.",
+    "updated_at": "2026-09-02T00:37:31.598Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L423",
+        "why": "Initialization, reset, stack consumer and timing consumer."
+      }
+    ],
+    "fact_id": "fact:3263ad18-f99a-48a2-a476-6934f8b1b95e",
+    "reason": "Initialization guard, tick constants, optional stack and handler setup match; reset only clears the guard.",
+    "updated_at": "2026-09-02T00:37:31.598Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L196",
+        "why": "Exact transitions."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L423",
+        "why": "Calibration."
+      }
+    ],
+    "fact_id": "fact:8df3d682-314c-453d-bfd5-34a38881d078",
+    "reason": "DSP setter has no-op guard, common bit clear and exceptional 32-kHz calibration preserving stream state. Non-32 requests take the ordinary clear branch.",
+    "updated_at": "2026-09-02T00:36:33.166Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L196",
+        "why": "Exact transitions."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L423",
+        "why": "Calibration."
+      }
+    ],
+    "fact_id": "fact:458e5ec0-694d-4693-8e6a-40ba76e4c06c",
+    "reason": "DSP setter has no-op guard, common bit clear and exceptional 32-kHz calibration preserving stream state. Non-32 requests take the ordinary clear branch.",
+    "updated_at": "2026-09-02T00:36:33.166Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L196",
+        "why": "Exact transitions."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L423",
+        "why": "Calibration."
+      }
+    ],
+    "fact_id": "fact:c1bc1d5d-c801-470c-89a8-cf89ef505e01",
+    "reason": "DSP setter has no-op guard, common bit clear and exceptional 32-kHz calibration preserving stream state. Non-32 requests take the ordinary clear branch.",
+    "updated_at": "2026-09-02T00:36:33.166Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L196",
+        "why": "Exact transitions."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L423",
+        "why": "Calibration."
+      }
+    ],
+    "fact_id": "fact:ee9abcb7-3e46-4373-8bab-07ff509ef955",
+    "reason": "DSP setter has no-op guard, common bit clear and exceptional 32-kHz calibration preserving stream state. Non-32 requests take the ordinary clear branch.",
+    "updated_at": "2026-09-02T00:36:33.166Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L163-L196",
+        "why": "Exact transitions."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L423",
+        "why": "Calibration."
+      }
+    ],
+    "fact_id": "fact:144fa553-33c4-4a05-8672-eb17f68190ca",
+    "reason": "DSP setter has no-op guard, common bit clear and exceptional 32-kHz calibration preserving stream state. Non-32 requests take the ordinary clear branch.",
+    "updated_at": "2026-09-02T00:36:33.166Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L161",
+        "why": "Complete play transition."
+      }
+    ],
+    "fact_id": "fact:24126f1e-9c21-453f-abd8-d38a25397984",
+    "reason": "Start at numeric rate zero takes muted calibration branch with cross-channel restoration; other changed states write bit zero. Existing explicit swap knowledge retained.",
+    "updated_at": "2026-09-01T23:05:39.848Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L161",
+        "why": "Complete play transition."
+      }
+    ],
+    "fact_id": "fact:1ac5c54f-9049-44bc-95b8-237042430fdc",
+    "reason": "Start at numeric rate zero takes muted calibration branch with cross-channel restoration; other changed states write bit zero. Existing explicit swap knowledge retained.",
+    "updated_at": "2026-09-01T23:05:39.848Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L161",
+        "why": "Complete play transition."
+      }
+    ],
+    "fact_id": "fact:04b68408-0e18-4e3e-bd87-99682dd05ca8",
+    "reason": "Start at numeric rate zero takes muted calibration branch with cross-channel restoration; other changed states write bit zero. Existing explicit swap knowledge retained.",
+    "updated_at": "2026-09-01T23:05:39.848Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L161",
+        "why": "Complete play transition."
+      }
+    ],
+    "fact_id": "fact:724c0474-558e-41ef-bd20-7279213f2c00",
+    "reason": "Start at numeric rate zero takes muted calibration branch with cross-channel restoration; other changed states write bit zero. Existing explicit swap knowledge retained.",
+    "updated_at": "2026-09-01T23:05:39.848Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L7-L109",
+        "why": "Buffers, alternating frame production and readiness callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L152-L175",
+        "why": "Registration, descriptor and start."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L363",
+        "why": "Retained state and dispatch."
+      }
+    ],
+    "fact_id": "fact:c781c3b3-bcbc-4f93-ab95-faf1104ae120",
+    "reason": "AX owns two 320-sample buffers, registers its callback before DMA start, alternates 0x280-byte descriptors and coordinates DSP readiness; driver retains and dispatches that callback. Retention concerns source-state roles, not compiled section placement.",
+    "updated_at": "2026-09-02T05:05:31.766Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L7-L109",
+        "why": "Buffers, alternating frame production and readiness callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L152-L175",
+        "why": "Registration, descriptor and start."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L363",
+        "why": "Retained state and dispatch."
+      }
+    ],
+    "fact_id": "fact:4469259e-471b-4753-988f-df0dbc5d5c44",
+    "reason": "AX owns two 320-sample buffers, registers its callback before DMA start, alternates 0x280-byte descriptors and coordinates DSP readiness; driver retains and dispatches that callback. Retention concerns source-state roles, not compiled section placement.",
+    "updated_at": "2026-09-02T00:37:08.733Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L7-L109",
+        "why": "Buffers, alternating frame production and readiness callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L152-L175",
+        "why": "Registration, descriptor and start."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L363",
+        "why": "Retained state and dispatch."
+      }
+    ],
+    "fact_id": "fact:a1262e73-d165-45da-9823-001d6384e7d8",
+    "reason": "AX owns two 320-sample buffers, registers its callback before DMA start, alternates 0x280-byte descriptors and coordinates DSP readiness; driver retains and dispatches that callback. Retention concerns source-state roles, not compiled section placement.",
+    "updated_at": "2026-09-02T00:38:00.616Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L7-L109",
+        "why": "Buffers, alternating frame production and readiness callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L152-L175",
+        "why": "Registration, descriptor and start."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L363",
+        "why": "Retained state and dispatch."
+      }
+    ],
+    "fact_id": "fact:789cc716-043c-4d40-a794-b87d99fbbbbc",
+    "reason": "AX owns two 320-sample buffers, registers its callback before DMA start, alternates 0x280-byte descriptors and coordinates DSP readiness; driver retains and dispatches that callback. Retention concerns source-state roles, not compiled section placement.",
+    "updated_at": "2026-09-02T00:38:00.616Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L7-L109",
+        "why": "Buffers, alternating frame production and readiness callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L152-L175",
+        "why": "Registration, descriptor and start."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L363",
+        "why": "Retained state and dispatch."
+      }
+    ],
+    "fact_id": "fact:ac15bcc5-0da3-4b61-b3c9-f24f606161ee",
+    "reason": "AX owns two 320-sample buffers, registers its callback before DMA start, alternates 0x280-byte descriptors and coordinates DSP readiness; driver retains and dispatches that callback. Retention concerns source-state roles, not compiled section placement.",
+    "updated_at": "2026-09-02T00:38:37.889Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L94",
+        "why": "Exact signature, assertion and decoded descriptor."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L152-L175",
+        "why": "Aligned buffers and byte size."
+      }
+    ],
+    "fact_id": "fact:7925502d-9e1c-46b7-b0e9-25ebde141ef3",
+    "reason": "Signature and hardware address granularity/length contract stand. Granularity is established by getter and aligned AX inputs, not by assuming the setter masks all incoming low bits.",
+    "updated_at": "2026-09-02T00:37:08.733Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ai.h#L10-L19",
+        "why": "Callback type."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L42-L52",
+        "why": "Registration."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L336",
+        "why": "Dispatch."
+      }
+    ],
+    "fact_id": "fact:0d174d92-ecb4-48e0-86f7-3407dcebcf9a",
+    "reason": "Exact callback typedef, replacement and prior snapshot return, and no-argument guarded dispatch match.",
+    "updated_at": "2026-09-02T00:38:00.616Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ai.h#L10-L19",
+        "why": "Callback type."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L42-L52",
+        "why": "Registration."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L336",
+        "why": "Dispatch."
+      }
+    ],
+    "fact_id": "fact:17ebf5a9-918b-45f3-9a21-ad73f9307dac",
+    "reason": "Exact callback typedef, replacement and prior snapshot return, and no-argument guarded dispatch match.",
+    "updated_at": "2026-09-02T00:38:00.616Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L94",
+        "why": "DMA commands and fields."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L336",
+        "why": "Asynchronous callback path."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L169-L174",
+        "why": "Configuration then start."
+      }
+    ],
+    "fact_id": "fact:ade27400-26ec-4f8c-8865-96484629bc6d",
+    "reason": "Start is unconditional OR 0x8000, preserving low bits with no synchronous completion; stop clears enable and AX configures before starting. No hardware auto-clear behavior inferred.",
+    "updated_at": "2026-09-02T00:38:37.889Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L94",
+        "why": "DMA commands and fields."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L336",
+        "why": "Asynchronous callback path."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L169-L174",
+        "why": "Configuration then start."
+      }
+    ],
+    "fact_id": "fact:27a4f7e6-707d-493d-a556-674c2803e909",
+    "reason": "Start is unconditional OR 0x8000, preserving low bits with no synchronous completion; stop clears enable and AX configures before starting. No hardware auto-clear behavior inferred.",
+    "updated_at": "2026-09-02T00:38:37.889Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L94",
+        "why": "DMA commands and fields."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L336",
+        "why": "Asynchronous callback path."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L169-L174",
+        "why": "Configuration then start."
+      }
+    ],
+    "fact_id": "fact:5159ca13-fd31-4036-9a3d-22b6abcfb976",
+    "reason": "Start is unconditional OR 0x8000, preserving low bits with no synchronous completion; stop clears enable and AX configures before starting. No hardware auto-clear behavior inferred.",
+    "updated_at": "2026-09-02T00:38:37.889Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L54-L94",
+        "why": "DMA commands and fields."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L336",
+        "why": "Asynchronous callback path."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L169-L174",
+        "why": "Configuration then start."
+      }
+    ],
+    "fact_id": "fact:90ebc1d1-10bf-4601-88f9-df716ddb1880",
+    "reason": "Start is unconditional OR 0x8000, preserving low bits with no synchronous completion; stop clears enable and AX configures before starting. No hardware auto-clear behavior inferred.",
+    "updated_at": "2026-09-02T00:38:37.889Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L363",
+        "why": "Guarded call and full source assembly."
+      }
+    ],
+    "fact_id": "fact:25612751-03e7-42bf-bf4d-780536847472",
+    "reason": "Canonical assembly supports synchronous save-switch-call-restore with caller-provided non-null guards; callback uses no explicit arguments, not a stronger C prototype claim.",
+    "updated_at": "2026-09-02T00:38:01.438Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L363",
+        "why": "Guarded call and full source assembly."
+      }
+    ],
+    "fact_id": "fact:7b366bbd-610a-4cf1-a2c1-e5ab1be75884",
+    "reason": "Canonical assembly supports synchronous save-switch-call-restore with caller-provided non-null guards; callback uses no explicit arguments, not a stronger C prototype claim.",
+    "updated_at": "2026-09-02T00:38:01.438Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L363",
+        "why": "Guarded call and full source assembly."
+      }
+    ],
+    "fact_id": "fact:a9be416e-b173-4f71-a224-4b563bd195ae",
+    "reason": "Canonical assembly supports synchronous save-switch-call-restore with caller-provided non-null guards; callback uses no explicit arguments, not a stronger C prototype claim.",
+    "updated_at": "2026-09-02T00:38:01.438Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L317-L363",
+        "why": "Guarded call and full source assembly."
+      }
+    ],
+    "fact_id": "fact:5a77ccdf-362d-416c-81da-65ed4cb582d2",
+    "reason": "Canonical assembly supports synchronous save-switch-call-restore with caller-provided non-null guards; callback uses no explicit arguments, not a stronger C prototype claim.",
+    "updated_at": "2026-09-02T00:38:01.438Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L284-L336",
+        "why": "Handler installation and full body."
+      }
+    ],
+    "fact_id": "fact:21dd2978-7afa-48b8-b060-3671088f2076",
+    "reason": "DMA handler acknowledges DSP register, creates temporary context, chooses null/direct/alternate-stack dispatch and restores context on normal return; interrupt identifier unused.",
+    "updated_at": "2026-09-02T00:38:24.910Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L284-L336",
+        "why": "Handler installation and full body."
+      }
+    ],
+    "fact_id": "fact:0bab9a19-b66d-4998-9fdb-730cd15d88fc",
+    "reason": "DMA handler acknowledges DSP register, creates temporary context, chooses null/direct/alternate-stack dispatch and restores context on normal return; interrupt identifier unused.",
+    "updated_at": "2026-09-02T00:38:24.910Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L284-L336",
+        "why": "Handler installation and full body."
+      }
+    ],
+    "fact_id": "fact:5821a279-4a37-4a30-8740-2cfa08aae1dc",
+    "reason": "DMA handler acknowledges DSP register, creates temporary context, chooses null/direct/alternate-stack dispatch and restores context on normal return; interrupt identifier unused.",
+    "updated_at": "2026-09-02T00:38:24.910Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L284-L336",
+        "why": "Handler installation and full body."
+      }
+    ],
+    "fact_id": "fact:df5a2d63-a1ff-4d97-9683-0d6d1200bb95",
+    "reason": "DMA handler acknowledges DSP register, creates temporary context, chooses null/direct/alternate-stack dispatch and restores context on normal return; interrupt identifier unused.",
+    "updated_at": "2026-09-02T00:38:24.910Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L284-L336",
+        "why": "Handler installation and full body."
+      }
+    ],
+    "fact_id": "fact:acc1a0f6-b4cf-439d-9429-140c18631ffe",
+    "reason": "DMA handler acknowledges DSP register, creates temporary context, chooses null/direct/alternate-stack dispatch and restores context on normal return; interrupt identifier unused.",
+    "updated_at": "2026-09-02T00:38:24.910Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L101-L131",
+        "why": "Registration/count/trigger."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L198-L207",
+        "why": "Disc-stream domain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L290-L315",
+        "why": "Installation and dispatch."
+      }
+    ],
+    "fact_id": "fact:4d8e4395-369b-4e6c-9d3c-4bbd76edcc68",
+    "reason": "Stream registration feeds interrupt handler; sample count is forwarded under temporary OS context. Null suppresses only call; source identifies disc-stream domain.",
+    "updated_at": "2026-09-02T00:38:58.083Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L101-L131",
+        "why": "Registration/count/trigger."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L198-L207",
+        "why": "Disc-stream domain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L290-L315",
+        "why": "Installation and dispatch."
+      }
+    ],
+    "fact_id": "fact:ea458d1c-8429-4b52-99d3-3fec63654199",
+    "reason": "Stream registration feeds interrupt handler; sample count is forwarded under temporary OS context. Null suppresses only call; source identifies disc-stream domain.",
+    "updated_at": "2026-09-02T00:38:58.083Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L101-L131",
+        "why": "Registration/count/trigger."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L198-L207",
+        "why": "Disc-stream domain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L290-L315",
+        "why": "Installation and dispatch."
+      }
+    ],
+    "fact_id": "fact:dde850a0-60e2-4e88-b9b2-81fa4c3c87df",
+    "reason": "Stream registration feeds interrupt handler; sample count is forwarded under temporary OS context. Null suppresses only call; source identifies disc-stream domain.",
+    "updated_at": "2026-09-02T00:38:58.083Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L101-L131",
+        "why": "Registration/count/trigger."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L198-L207",
+        "why": "Disc-stream domain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L290-L315",
+        "why": "Installation and dispatch."
+      }
+    ],
+    "fact_id": "fact:946dcb25-3600-417a-9552-b387e8dea72d",
+    "reason": "Stream registration feeds interrupt handler; sample count is forwarded under temporary OS context. Null suppresses only call; source identifies disc-stream domain.",
+    "updated_at": "2026-09-02T00:38:58.083Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L101-L131",
+        "why": "Registration/count/trigger."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L198-L207",
+        "why": "Disc-stream domain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L290-L315",
+        "why": "Installation and dispatch."
+      }
+    ],
+    "fact_id": "fact:87dd469e-504f-44c8-bffe-687d4b2c024a",
+    "reason": "Stream registration feeds interrupt handler; sample count is forwarded under temporary OS context. Null suppresses only call; source identifies disc-stream domain.",
+    "updated_at": "2026-09-02T00:38:58.083Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L423",
+        "why": "Complete calibration loop."
+      }
+    ],
+    "fact_id": "fact:172c6f76-38f5-48a0-8cd7-672d54479092",
+    "reason": "Two-rate calibration, exact acceptance ranges, retries and settling deadline all match; polling has no timeout.",
+    "updated_at": "2026-09-02T00:38:17.607Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L423",
+        "why": "Complete calibration loop."
+      }
+    ],
+    "fact_id": "fact:5fbf5b8d-bbc9-4d69-a9b3-7b9edada62b0",
+    "reason": "Two-rate calibration, exact acceptance ranges, retries and settling deadline all match; polling has no timeout.",
+    "updated_at": "2026-09-02T00:38:17.607Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L365-L423",
+        "why": "Complete calibration loop."
+      }
+    ],
+    "fact_id": "fact:eda94092-24a6-4da5-aa1b-23ea12313226",
+    "reason": "Two-rate calibration, exact acceptance ranges, retries and settling deadline all match; polling has no timeout.",
+    "updated_at": "2026-09-02T00:38:17.607Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L198-L245",
+        "why": "Wrappers and full helper."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ai.h#L13-L17",
+        "why": "Binary constants."
+      }
+    ],
+    "fact_id": "fact:b0ac5daa-d7d6-43b0-ba2d-73690f9616ba",
+    "reason": "Internal setter saves play/volume/DSP bit, calibrates, commits stream rate and restores state; named binary domain and static signature match. Bit 5 is treated numerically, not as a proven converter enable.",
+    "updated_at": "2026-09-02T00:38:40.215Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L198-L245",
+        "why": "Wrappers and full helper."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ai.h#L13-L17",
+        "why": "Binary constants."
+      }
+    ],
+    "fact_id": "fact:b375fbca-29e7-4c8e-9954-359e23069563",
+    "reason": "Internal setter saves play/volume/DSP bit, calibrates, commits stream rate and restores state; named binary domain and static signature match. Bit 5 is treated numerically, not as a proven converter enable.",
+    "updated_at": "2026-09-02T00:38:40.215Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L198-L245",
+        "why": "Wrappers and full helper."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ai.h#L13-L17",
+        "why": "Binary constants."
+      }
+    ],
+    "fact_id": "fact:c3948d91-6ee2-49c2-9629-b0330d708998",
+    "reason": "Internal setter saves play/volume/DSP bit, calibrates, commits stream rate and restores state; named binary domain and static signature match. Bit 5 is treated numerically, not as a proven converter enable.",
+    "updated_at": "2026-09-02T00:38:40.215Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L42-L265",
+        "why": "Hardware APIs."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L423",
+        "why": "Initialization, callbacks and calibration."
+      }
+    ],
+    "fact_id": "fact:f2a3727e-e2e9-4e50-a5f8-48fac7c70ede",
+    "reason": "TU implements separate DSP-DMA and disc-stream register/control paths, callbacks and calibration, not game-specific sound effects.",
+    "updated_at": "2026-09-02T00:38:40.215Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L42-L265",
+        "why": "Hardware APIs."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L423",
+        "why": "Initialization, callbacks and calibration."
+      }
+    ],
+    "fact_id": "fact:fc5b961b-4795-456a-b2de-76e54aed49c9",
+    "reason": "TU implements separate DSP-DMA and disc-stream register/control paths, callbacks and calibration, not game-specific sound effects.",
+    "updated_at": "2026-09-02T00:38:58.083Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L42-L265",
+        "why": "Hardware APIs."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L267-L423",
+        "why": "Initialization, callbacks and calibration."
+      }
+    ],
+    "fact_id": "fact:5ff0642c-5b29-4abd-ae2e-64758d0c37c6",
+    "reason": "TU implements separate DSP-DMA and disc-stream register/control paths, callbacks and calibration, not game-specific sound effects.",
+    "updated_at": "2026-09-02T00:38:40.215Z"
+  },
+  {
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ai/ai.c#L133-L280",
+        "why": "Setter and driver consumers."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L1465-L1480",
+        "why": "Pinned search returns synth calls at both endpoints."
+      }
+    ],
+    "fact_id": "fact:5157c3dc-c7f2-4d4f-9a1b-8410d4854fc0",
+    "reason": "Right setter writes byte field; driver mute/restore uses and higher-level synth writes are present in pinned source search.",
+    "updated_at": "2026-09-02T00:36:11.836Z"
+  }
+]

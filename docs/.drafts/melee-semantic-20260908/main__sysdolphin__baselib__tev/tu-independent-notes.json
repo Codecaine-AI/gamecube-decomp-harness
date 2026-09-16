@@ -1,0 +1,79 @@
+{
+  "tu": "main/sysdolphin/baselib/tev",
+  "reader": "tu_cobj_wave4",
+  "owned_complete": true,
+  "notes": [
+    {
+      "finding": "Allocator getters alias mutable shared descriptors without initialization checks; initializer configures literal sizes 28,20,48 with alignment4, not inferred object layouts. Three source-only packed-color helpers compare/copy upper RGB bits and preserve alpha as coded.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L8-L72"
+    },
+    {
+      "finding": "Ambient caching requires enabled lighting and REG source; material caching only REG source. Invalid color flags force combined writes. Combined controls compare only RGB-side cache, so separate alpha changes can survive a subsequent combined request matching RGB.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L74-L155"
+    },
+    {
+      "finding": "Channel-count setter never writes prev_num_chans; static zero becomes -1 at invalidation and remains there. GX receives u8 narrowing and asserts counts above2, independently checked in GXLight.c562-570.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L157-L176"
+    },
+    {
+      "finding": "Texgen count is maximum requirement, TEV count is sequential postincrement. Assignment advances before checked converter; commits reset unconditionally. Individual stage setup does not allocate stages or register texture generators.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L180-L240"
+    },
+    {
+      "finding": "Bulk stage setup writes every descriptor in order, so duplicates overwrite and holes remain untouched. Maximum stage+1 replaces prior count; null input emits zero. Converters have exact bounded switch domains and post-assert fallbacks.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L246-L417"
+    },
+    {
+      "finding": "Private signed-color table starts zero and has no nonzero marker or payload producer in owned source. Conditional flush maps slots to GX registers1,2,3,0 then clears marks.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L419-L473"
+    },
+    {
+      "finding": "Channel update selectors5-8 choose material RGBA,9-12 ambient. Handled selectors multiply readable f32 by double255.0 and assign byte without normalization/clamp. Invalidators reset counters/markers and channel template independently.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L479-L548"
+    },
+    {
+      "finding": "All46 subjects,136 exact frozen fact values/types/timestamps and9 proposal operations reviewed. Full C548/H37 canonical and separately rendered reads complete; three header shadowed accessor bindings cause no substitutions. Exact38 baseline link records retained with individual dispositions.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.h#L1-L37"
+    }
+  ],
+  "foreign_canonical_reads": [
+    {
+      "path": "src/sysdolphin/baselib/texp.c",
+      "start_line": 1168,
+      "end_line": 1225,
+      "sha256": "55d765ae4d223e42e357ea6177caa9099953b80b26fd52b8b7f42af886d76949",
+      "mode": "canonical-only context"
+    },
+    {
+      "path": "src/sysdolphin/baselib/state.c",
+      "start_line": 179,
+      "end_line": 339,
+      "sha256": "cae23ac2632de9ec379ecb507f3cddec23fc259c3a7eac1c1e9abe0f0b277b5d",
+      "mode": "canonical-only context"
+    },
+    {
+      "path": "src/sysdolphin/baselib/objalloc.c",
+      "start_line": 127,
+      "end_line": 161,
+      "sha256": "b986ad5ea00a6b9d73de000641b46cb0aa3513208e6097c4bc21ab986b04357f",
+      "mode": "canonical-only context"
+    },
+    {
+      "path": "extern/dolphin/src/dolphin/gx/GXLight.c",
+      "start_line": 562,
+      "end_line": 570,
+      "sha256": "6221578a73fef45fd4e5aa46a906397a0adacb4aec6c3cd8419bc938bbf937e2",
+      "mode": "canonical-only context"
+    },
+    {
+      "path": "src/sysdolphin/baselib/state.h",
+      "start_line": 20,
+      "end_line": 33,
+      "sha256": "429aac2fcc875436a749e880620e1af54d229c0c2d68c653cf0bc0f53393e800",
+      "mode": "canonical-only context"
+    }
+  ],
+  "baseline_facts_exact": 136,
+  "proposal_operations_reviewed": 9,
+  "links_reviewed": 38
+}

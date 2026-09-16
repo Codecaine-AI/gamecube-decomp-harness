@@ -1,0 +1,242 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_JumpAerial",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_JumpAerial:ftCo_JumpAerial_Phys_Cb"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides the shared physics override installed by Yoshi, Peach and Mewtwo aerial-jump entry, and directly reused by Peach FloatFall. It calls ftCommon_8007D268 for horizontal control and then ft_800851D0 to assign vertical self velocity from transNOffset.y, optionally scaled when x197C is present. The ordinary JumpAerialF/B table callback is ftCo_JumpAerial_Phys, not this function.",
+        "rationale": "Corrects the baseline default-callback claim using the active table, entry assignments and canonical vertical consumer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L200-L270",
+            "why": "Character entries install the override."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L321-L326",
+            "why": "Ordered helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L144-L153",
+            "why": "Vertical assignment and optional scale."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L431-L451",
+            "why": "Different ordinary table callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatfall.c#L44-L47",
+            "why": "Direct FloatFall reuse."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_JumpAerial:ftCo_JumpAerial_Phys_Cb"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements shared translation-driven vertical movement for the Yoshi, Peach and Mewtwo aerial-jump overrides, together with common horizontal control; also implements the physics delegated by Peach FloatFall. It is not the ordinary gravity/fast-fall JumpAerial table callback.",
+        "rationale": "Separates the two distinct physics paths without inferring exact trajectories.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L200-L270",
+            "why": "Active character entry assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L144-L153",
+            "why": "Translation-derived vertical velocity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPeach/ftpeachfloatfall.c#L44-L47",
+            "why": "FloatFall consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L431-L451",
+            "why": "Ordinary table uses ftCo_JumpAerial_Phys."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_JumpAerial:ftNs_JumpAerial_Phys_Cb"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates Ness's retained horizontal jump component: first calls ftCommon_8007D28C with init_h_vel for input-driven horizontal-control calculation, then accumulates x74_anim_vel.x into init_h_vel and clears x74_anim_vel.x. It sets self_vel.x to transNOffset.z * facing_dir + init_h_vel and calls ft_800851D0 for translation-derived vertical velocity. The x74_anim_vel field name does not establish exclusively animation-authored provenance.",
+        "rationale": "Includes preliminary input computation and final vertical behavior omitted by the baseline description.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L310-L319",
+            "why": "Complete ordered field flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L379-L394",
+            "why": "Preliminary helper derives control from stick and drift attributes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L144-L153",
+            "why": "Final vertical assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_JumpAerial:ftYs_JumpAerial_Anim_Cb"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Obtains Fighter and Yoshi attributes, calls ftCo_JumpAerial_Anim, then unconditionally calls ft_800CB6EC with the Yoshi duration. The first call may enter FallAerial and initialize its move variables before the second call reads the current jumpaerial counter. There is no early return after a motion change. The turn helper itself skips a zero counter and uses integer duration/2 for its facing-flip comparison; continued execution of the old turn across animation completion is not guaranteed.",
+        "rationale": "Corrects the baseline implication that completion and turn updates operate independently on unchanged move state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L272-L286",
+            "why": "Call order with no transition guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L10-L17",
+            "why": "First call can replace motion and move state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L35-L44",
+            "why": "Counter guard and integer midpoint."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_JumpAerial:ft_800CB6EC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "If mv.co.jumpaerial.x0 is zero, performs no mutation. Otherwise decrements it, rotates the root joint by -MTXDegToRad(180.0F / arg1), and negates facing_dir exactly when the decremented counter equals integer arg1/2. A positive duration N with an initial counter N and uninterrupted calls gives N steps and a flip after ceil(N/2) calls. The function validates neither a positive/nonzero divisor nor a matching counter; termination and exactly-once reversal are not unconditional guarantees. Yoshi and JumpAerialF1 both invoke this shared helper.",
+        "rationale": "Preserves exact behavior while qualifying invalid-duration and counter assumptions and recording cross-file reuse.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L35-L44",
+            "why": "Exact guard, arithmetic and comparison."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L218-L225",
+            "why": "Yoshi initialization and immediate step."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerialF1.c#L105-L121",
+            "why": "External multijump entry and animation consumers."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The ordinary eligibility predicate requires remaining capacity and either qualifying tap-jump stick/timer input or newly pressed X/Y, with an optional separate x68A-versus-common-x1C rejection. Pressed X/Y bypass the tap-stick timer test. Each local Basic/Ness/Yoshi/Peach/Mewtwo entry calls ftCommon_8007D5D4, resetting jumpsUsed to 1, before the shared initializer increments it to 2. Basic supplies immediate attribute-derived vertical velocity; the four explicit character variants initially supply zero Y and install specialized physics. Yoshi additionally assigns dmg.armor1 and immediately advances an optional opposite-input turn. Multijump dispatch is external and does not apply the optional timing flag in every branch.",
+        "rationale": "Makes boundary, reset and cross-file branch semantics explicit rather than implying a uniform timing test or arbitrary incoming-count increment.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L46-L84",
+            "why": "Eligibility and wrapper modes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L141-L270",
+            "why": "Shared increment and all local entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Setup resets jump count to 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerialF1.c#L35-L79",
+            "why": "Later multijump branch does not consume mode flag."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_JumpAerial:ftCo_800CBAC4#r5"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Caller-supplied Vec3* vel is synchronously copied component-by-component into Fighter.self_vel after the motion-state change. This helper does not retain the pointer or transfer ownership; local entry callers pass stack vectors. The separate ItemScrewAir adapter mutates its supplied vector's X/Y components before forwarding it here.",
+        "rationale": "Documents pointer lifetime and the distinction between this copy-only helper and its mutating external adapter.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L125-L176",
+            "why": "Component copy, argument use and stack-vector caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScrew.c#L53-L62",
+            "why": "Adapter scales vector in place before forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_JumpAerial:ftCo_800CBAC4#r6"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Boolean arg3 controls only the direct assignment of x671_timer_lstick_tilt_y to 0xFE in this helper. False skips that assignment. Local character entries and ItemScrewAir pass true; JumpAerialF1 entry actively passes false.",
+        "rationale": "Both boolean branches have active caller proof.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerial.c#L141-L176",
+            "why": "Boolean use and true caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_JumpAerialF1.c#L105-L111",
+            "why": "Active false caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScrew.c#L53-L62",
+            "why": "External true caller."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

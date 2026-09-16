@@ -1,0 +1,222 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090574"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards its Fighter_GObj unchanged to ft_80081DD4 and discards the boolean result. The callee copies collision cur_pos to last_pos, seeds collision cur_pos from Fighter.cur_pos, and chooses collision queries using allow_sdi, ledge cooldown, and x2224_b2. On the ordinary path, only ECBSource_JObj receives a ledge-snap-height assignment of fighter-data height times model Y scale times common x1CC before the query, followed by a reset to fighter-data height times model Y scale. This is not restoration of a saved previous height, and the multiplier is not inherently an enlargement. Resolved collision position is copied back to the Fighter; ft_80081A00 can force the returned contact result false.",
+        "rationale": "Corrects the saved-height and guaranteed-enlargement implications while preserving the established collision-refresh flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L26-L29",
+            "why": "Unchanged forwarding and discarded result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L125-L167",
+            "why": "Exact collision branches, height assignments and result handling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads two independent pending damage-sound slots. When x1908 != -1, forwards that ID to ft_PlaySFX with volume 127 and pan 64, then resets x1908 to -1; the local guard is not a nonnegative-ID test. When x190C != NULL, forwards the FtSFXArr pointer to ft_800889F4, which selects sfx_ids[HSD_Randi(num)] and plays it with 0x7F and 0x40 controls, then resets x190C to NULL.",
+        "rationale": "Corrects the sentinel comparison without changing the supported array-consumption explanation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "Exact guards, calls and resets."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L213-L218",
+            "why": "Random-array selection and playback controls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies damage-audio playback that fighter processing can synchronize with hitlag expiry. Hit processing calls it immediately on the !bool1 branch. On the bool1 branch, positive computed hitlag enables SDI and bool2 additionally sets x221A_b3; the frame process dispatches pending sounds when positive hitlag counts down to zero only if that flag is set. Thus the demonstrated behavior is conditional hitlag synchronization, not an unconditional immediate-versus-deferred partition for every interaction.",
+        "rationale": "Preserves the hitlag-audio relationship while exposing the actual nested scheduling gates.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2965-L2991",
+            "why": "Immediate branch and conditional deferral flag."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1413-L1420",
+            "why": "Flag-gated hitlag-expiry dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Processes the direct-ID and array slots independently, clearing each present request after its dispatch call; absent slots are untouched. It has no local hitlag guard. Fighter hit processing invokes it immediately when bool1 is zero; otherwise x221A_b3 is set only inside the positive-computed-hitlag branch when bool2 is true. The frame process invokes it when positive hitlag reaches zero and x221A_b3 is set, then clears that flag. The inspected bool1 branch with nonpositive computed hitlag does not itself dispatch immediately or establish this deferral flag.",
+        "rationale": "Replaces the overbroad otherwise-deferral statement with the exact cross-file lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "Independent one-shot slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2965-L2991",
+            "why": "Scheduling branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1413-L1420",
+            "why": "Deferred consumption and flag reset."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the Fighter from gobj->user_data. If grounded, ftCommon_8007D5D4 sets GA_Air, clears gr_vel, x98_atk_shield_kb.z, cur_pos.z and x74_anim_vel.y, records one jump used, sets ecb_lock to 10 and locks collision data. ftGetParasolStatus classifies recognized ordinary or Peach Parasol item motion states; a result != -1 forwards the same object to ItemParasolDamageFall entry. Otherwise Fighter_ChangeMotionState receives motion 0x26, flags 0x18001, frame 0, speed 1 and blend 0, followed by ftCommon_ClampAirDrift(fp) and ftCommon_8007EBAC(fp, 8, 0). The feedback argument is the Fighter pointer, not its clamped velocity.",
+        "rationale": "Corrects the feedback data-flow ambiguity and makes Parasol classification precise.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Exact entry arguments and forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Ground-to-air field writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1088-L1121",
+            "why": "Recognized Parasol item states."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Coll"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Connects terrain contact during DamageFall tumble to ground-tech recovery and a knockdown-oriented fallback. The landing callback tries directional PassiveStand recovery before neutral Passive, then invokes ftCo_80097D40. Its ordinary fallback selects DownBoundU/D, but x2228_b2 enables an orientation-sensitive route that can instead call ft_8008A2BC or ftSb_Init_8014FBA4; a failed tech therefore does not universally imply a DownBound bounce.",
+        "rationale": "Preserves the supported tech/knockdown mapping while correcting the universal missed-tech outcome.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L140-L143",
+            "why": "Landing callback registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L53-L58",
+            "why": "Tech priority and fallback call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L148-L227",
+            "why": "Exceptional fallback behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally calls ft_8008370C with ftCo_80090984. The shared contact path invokes that callback and returns; otherwise it tries wall-jump then cliff handling. The callback short-circuits through directional PassiveStand and neutral Passive checks before calling ftCo_80097D40. That initializer normally selects DownBoundU/D, but when x2228_b2 is set it uses ftCo_80097AF4: one hip-orientation branch still selects DownBoundU/D, while the other requests a large quake and calls ft_8008A2BC or ftSb_Init_8014FBA4 according to facing_dir * rot0. After either initializer route, mv.co.downspot.x4 is reset to zero.",
+        "rationale": "Adds the omitted shared-collision alternatives and exceptional downstream branch, retaining the unconditional wrapper and reset.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L140-L143",
+            "why": "Wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L838-L848",
+            "why": "Contact versus wall-jump/cliff handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L53-L58",
+            "why": "Landing priority."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L120-L227",
+            "why": "Ordinary and exceptional fallback plus reset."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "ftCo_800C5240 is a pure Hammer-possession predicate. Only when it is false does IASA check, in order: ftCo_SpecialAir_CheckInput; ftCo_80095328(gobj, 0); ftCo_800D7100; ftCo_800C3B10; ftCo_AttackAir_CheckItemThrowInput; ftCo_800D705C; and ftCo_800CB870, returning on each successful result. ftCo_800D705C can succeed by setting x209C without changing motion. If none succeeds, absolute horizontal stick >= common x210 and tilt timer < common x214 enters Fall and returns. Only paths without an earlier return reach ftCo_800C5DDC followed by ftCo_800C5CD4. The former has item-release/Fall behavior under its own input and timer gates; the latter requires a held Hammer and pressed A/B before entering HammerFall.",
+        "rationale": "Corrects the initial predicate's meaning and distinguishes successful input handling from guaranteed state transition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "Exact priority and early returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L139-L146",
+            "why": "Pure possession check."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L297-L309",
+            "why": "Timer-only successful predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerFall.c#L16-L67",
+            "why": "Distinct trailing handlers."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

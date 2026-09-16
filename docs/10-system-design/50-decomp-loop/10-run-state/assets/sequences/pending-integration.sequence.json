@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "id": "run-pending-integration",
+  "title": "Pending Integration and Recovery",
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Runner",
+      "kind": "participant"
+    },
+    {
+      "id": "p2",
+      "name": "Run and Harness State",
+      "kind": "participant"
+    },
+    {
+      "id": "p3",
+      "name": "Git History",
+      "kind": "participant"
+    },
+    {
+      "id": "p4",
+      "name": "Recovery",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "Prepare integration with run, epoch, branch, parent, and marker"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p1",
+      "to": "p3",
+      "line": "sync",
+      "text": "Commit with Epoch-Integration trailer"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "Atomically close epoch, advance head lineage, and remove pending row"
+    },
+    {
+      "kind": "message",
+      "id": "m4",
+      "from": "p4",
+      "to": "p2",
+      "line": "sync",
+      "text": "Load pending integration before admission"
+    },
+    {
+      "kind": "message",
+      "id": "m5",
+      "from": "p4",
+      "to": "p3",
+      "line": "sync",
+      "text": "Search parent-to-branch history for recorded trailer"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "Commit found",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m6",
+              "from": "p4",
+              "to": "p2",
+              "line": "sync",
+              "text": "Accept branch tip in epoch-close transaction and remove pending row"
+            }
+          ]
+        },
+        {
+          "guard": "Prepared commit missing",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m7",
+              "from": "p4",
+              "to": "p2",
+              "line": "sync",
+              "text": "Retain failed attempt and failed boundary evidence"
+            },
+            {
+              "kind": "message",
+              "id": "m8",
+              "from": "p4",
+              "to": "p1",
+              "line": "return",
+              "text": "Block admission and report recovery failure"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "style": {
+    "accent": "#C77D2E"
+  }
+}

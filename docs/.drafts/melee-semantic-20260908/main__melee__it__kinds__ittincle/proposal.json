@@ -1,0 +1,319 @@
+{
+  "tu": "main/melee/it/kinds/ittincle",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion0_Coll"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides terrain-collision processing during Tingle's hidden pre-appearance state 0 on Great Bay. It forwards to the shared collision helper and returns false; the paired physics callback owns the countdown and transition into visible descent.",
+        "rationale": "The surrounding initializer and successor reveal establish the formerly unknown numbered phase.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L140-L210",
+            "why": "Hidden-state setup, countdown, collision callback, and reveal."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion1_Anim"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Occupies the inert animation slot during Tingle's initial visible descent from hidden state 0 toward his balloon-hovering altitude. This is distinct from the post-pop, gravity-driven fall in state 8.",
+        "rationale": "Corrects the prior association of state 1 with descent after balloon loss.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L178-L229",
+            "why": "Hidden countdown enters visible state 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L556-L579",
+            "why": "Separate gravity-driven state 8."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion2_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation runs it_8026DAA8, which refreshes collision data and copies the corrected collision position into Item.pos even when its combined result is zero. A nonzero result invokes it_802EC870(gobj, 1), reversing facing, horizontal velocity, and horizontal acceleration without resetting drift duration or progress. The callback always returns false and makes no direct motion-state selection.",
+        "rationale": "Replaces the incorrect claim that the zero-result branch has no effect and identifies the selector-1 response.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L333-L340",
+            "why": "Guard and false return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L224-L242",
+            "why": "Unconditional position propagation and combined result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L736-L746",
+            "why": "Exact reversal operations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion2_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Vertical processing first tests floating counter x3C. At zero it reloads x3C to 2, reloads integer x2C to twice attribute x28, and reverses acceleration x38. Otherwise, a zero x2C decrements x3C without reloading x2C; successive updates therefore consume x3C before a later reload, rather than running two complete bobs. While x2C is nonzero, velocity subtracts x38 when x2C is at least attribute x28 and adds it below that threshold, then decrements x2C. Horizontal processing decrements any nonzero x20 and returns. At zero, an inactive drift either initializes a new drift on HSD_Randi(x30) == 0 or reloads the pause. An active drift reverses acceleration at integer midpoint, accumulates horizontal velocity, and clears its fields once progress reaches duration. Drift initialization does not change motion state 2.",
+        "rationale": "Preserves literal counter sequencing, integer midpoint behavior, and the distinction between a drift substate and item motion state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L270-L331",
+            "why": "Complete vertical and horizontal control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L736-L769",
+            "why": "Drift helper changes fields without selecting another motion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion3_Anim"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides the inert animation slot during the initial contact-load bounce of Great Bay's Tingle balloon platform. State 3's physics owns the timed dip and restoration of starting height before state 4; the animation callback itself only returns false.",
+        "rationale": "Stage-side contact handling establishes the visible role previously left unidentified.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreatbay.c#L652-L703",
+            "why": "Contact-dependent state-3 entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L342-L375",
+            "why": "Timed bounce and inert animation callback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion3_Coll"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Handles terrain contact during Tingle's initial platform-contact bounce, before the ordinary balloon-loss falling phase. Floor contact invokes the state-6 reaction initializer; absent that interruption, state-3 physics restores the starting height and enters sustained-contact state 4.",
+        "rationale": "Corrects the prior characterization as balloon-loss descent.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L342-L381",
+            "why": "Bounce, timeout, and collision event."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L497-L506",
+            "why": "Event enters reaction state 6."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion3_Phys"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Item motion-state physics callback with signature void(Item_GObj* gobj). It reads the stored vertical acceleration and directly updates vertical velocity, the integer countdown, and, on expiration, vertical position before invoking state-4 entry. It does not directly mutate the acceleration field.",
+        "rationale": "Removes an unsupported acceleration-write claim while preserving the signature and mutation roles.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L364-L375",
+            "why": "Complete callback reads and writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion4_Coll"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Processes terrain contact during the delayed platform-depression phase following Tingle's contact bounce. Floor contact starts reaction state 6, rather than directly entering the ordinary landing state 9. The subsequent shared reaction logic can enter grounded recovery; normal post-pop falling is state 8.",
+        "rationale": "Distinguishes the pre-disruption contact response from the later fall-and-landing sequence.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L383-L429",
+            "why": "State-4 depression and floor event."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L497-L591",
+            "why": "Reaction, fall, and landing are separate entries."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion4_Phys"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements delayed depression of Tingle's balloon platform under sustained contact: after its countdown, it imposes downward velocity and starts reaction state 6 when absolute displacement from the saved height exceeds the configured threshold. This precedes balloon-loss falling. Great Bay can interrupt the phase on contact release or restart the bounce when contact count changes.",
+        "rationale": "Corrects the prior post-balloon-loss interpretation and preserves external interruption paths.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L406-L429",
+            "why": "Countdown, velocity, and reaction guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreatbay.c#L664-L670",
+            "why": "Release and changed-contact branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:itTincle_UnkMotion5_Phys"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Controls return toward hovering after release of Tingle's depressed balloon platform. State 5 may receive a newly calculated upward trajectory or restored saved vertical-motion values; its physics returns to hover once vertical velocity is nonpositive. It is distinct from state 12, which launches after the grounded pre-ascent animation.",
+        "rationale": "The stage release caller resolves the previously uncertain state-5/state-12 distinction.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreatbay.c#L664-L670",
+            "why": "Release invokes recovery helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L431-L489",
+            "why": "State-5 branches and velocity gate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L657-L699",
+            "why": "Separate grounded-recovery launch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:it_802EBFAC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Great Bay calls this helper when state 4 has no current platform contacts. If signed distance x5C - pos.y exceeds attribute x4C, it initializes state 5 with vertical velocity x4C, zero X/Z velocity, distance converted into integer x2C, calculated x38, and x20 = 0. Otherwise it restores saved velocity x44, acceleration x48, and motion parameter x40. A saved state x30 == 2 selects state 2, reloads x20 from attribute x2C, and clears drift duration x24; other saved states select state 5 without those timer/drift writes. State-4 entry overwrites these snapshots with its immediate predecessor's values, normally state 3, so the original pre-bounce hover snapshot is not guaranteed to survive.",
+        "rationale": "Corrects timer restoration wording and makes snapshot lifetime and all three branches explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L342-L470",
+            "why": "Both snapshot producers and all release branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreatbay.c#L664-L670",
+            "why": "External release guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:it_802EC18C"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "itTincle_EnterBalloonPopLeadIn",
+        "rationale": "Distinguishes the state-6 entry with counter 3 from direct state-7 entry and resolves the rendered name collision. This is a descriptive inference, not recovered historical spelling.",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L497-L535",
+            "why": "State-6 lead-in and shared progression."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:it_802EC1F4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "itTincle_EnterBalloonPopDirect",
+        "rationale": "Distinguishes direct state-7 initialization from state-6 lead-in without falsely making the caller's repeated-entry guard part of this helper.",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L508-L535",
+            "why": "Direct state-7 entry with zero counter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L131-L138",
+            "why": "Guard belongs to damage-dealt caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittincle:it_802ECC98"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "itTincle_SetContactBounceMagnitude",
+        "rationale": "The stored scalar comes from platform contacts and drives both initial downward bounce velocity and restoring acceleration. It does not configure the common falling-speed attributes used in state 8.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L824-L827",
+            "why": "Exact setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittincle.c#L342-L356",
+            "why": "Bounce velocity and acceleration consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgreatbay.c#L652-L736",
+            "why": "Contact accumulator transfer and production."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,62 +1,66 @@
+import { getHarnessState, initializeHarnessState, transitionHarnessState, type TransitionHarnessStateInput } from "@server/core/harness-state/state.js";
 import { afterAll, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createCycle, getActiveCycle } from "@server/core/cycle";
-import { addSavePoint, ensureCampaign } from "@server/core/cycle-runtime/phases/pr/state";
-import { admitEpochTargets, createRun, openState, startSchedulerEpoch } from "@server/core/cycle-runtime/run-state";
-import { recordDashboardArtifact, type StateStore } from "@server/core/orchestrator-state";
+import { addSavePoint, ensureCampaign } from "@server/core/harness-runtime/phases/pr/state";
+import { admitEpochTargets, createRun, openState, startSchedulerEpoch } from "@server/core/harness-runtime/run-state";
+import { type StateStore } from "@server/core/orchestrator-state";
 import { scoreTiersProjection } from "./score-tiers.js";
-import { classifyMasterBreakages } from "@server/core/cycle-runtime/phases/running/epochs/breakage-gate.js";
 
 const tempDirs: string[] = [];
-
 afterAll(() => {
   for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
 });
 
-function git(repo: string, ...args: string[]): string {
-  const result = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
-  if (result.status !== 0) throw new Error(result.stderr);
-  return result.stdout.trim();
-}
-
-function commit(repo: string, subject: string): string {
-  git(repo, "commit", "--allow-empty", "-q", "-m", subject);
-  return git(repo, "rev-parse", "HEAD");
-}
-
-function addTimelineSavePoint(
-  store: StateStore,
-  campaignId: string,
-  input: {
-    id: string;
-    trigger: "init" | "epoch_finish" | "pr_sync" | "sync";
-    commitSha: string;
-    score: number | null;
-    reportPath?: string | null;
-    at: string;
-  },
-): void {
-  const point = addSavePoint(store, {
-    campaignId,
-    triggerKind: input.trigger,
-    label: input.trigger === "init" ? "prepare baseline" : input.trigger === "pr_sync" ? "PR sync" : "epoch 1 finish",
-    commitSha: input.commitSha,
-    matchedCodePercent: input.score,
-    reportPath: input.reportPath,
-    payload: input.score === null
-      ? {}
-      : { measures: { matched_code_percent: input.score, matched_functions_percent: input.score - 1 } },
+function transition(store: StateStore, patch: TransitionHarnessStateInput["patch"], savePointId?: string): void {
+  const current = getHarnessState(store.db, "melee")!;
+  transitionHarnessState(store.db, {
+    gameId: "melee", expectedRevision: current.identity.revision, commandId: `command-${current.identity.revision}`,
+    patch,
+    ...(savePointId ? { boundary: { eventId: `event-${current.identity.revision}`, kind: "save_point" as const, outcome: "accepted", evidence: { save_point_id: savePointId } } } : {}),
   });
-  store.db.query(
-    `INSERT INTO cycle_timeline_entries
-       (cycle_uuid, entry_kind, entry_id, occurred_at, payload_json)
-     VALUES ('cycle-score-tiers', 'save_point', ?, ?, '{}')`,
-  ).run(point.id, input.at);
-  store.db.query("UPDATE save_points SET id = ?, created_at = ? WHERE id = ?").run(input.id, input.at, point.id);
-  store.db.query("UPDATE cycle_timeline_entries SET entry_id = ? WHERE entry_id = ?").run(input.id, point.id);
+}
+
+function addPoint(
+  store: StateStore,
+  id: string,
+  head: string,
+  score: number | null,
+  at: string,
+  reportPath?: string,
+  triggerKind: "init" | "sync" | "epoch_finish" = id === "baseline" ? "init" : "epoch_finish",
+): void {
+  const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
+  const point = addSavePoint(store, {
+    campaignId: campaign.id, triggerKind, commitSha: head,
+    matchedCodePercent: score, reportPath, payload: score === null ? {} : { measures: { matched_code_percent: score } },
+  });
+  store.db.query("UPDATE save_points SET id = ?, created_at = ? WHERE id = ?").run(id, at, point.id);
+}
+
+function fixture() {
+  const stateDir = mkdtempSync(join(tmpdir(), "score-tiers-"));
+  tempDirs.push(stateDir);
+  const store = openState(stateDir);
+  initializeHarnessState(store.db, { gameId: "melee", worktree: stateDir, configurationRevision: "config", commandId: "init" });
+  addPoint(store, "baseline", "upstream", 90.8, "2026-08-26T00:00:00Z");
+  transition(store, { source: { upstream_revision: "upstream" } }, "baseline");
+  addPoint(store, "confirmed", "head", 91.08, "2026-08-26T01:00:00Z");
+  transition(store, { source: { head: "head" }, readiness: { evidence: "ready" }, history: { save_point_id: "confirmed" } }, "confirmed");
+  return store;
+}
+
+const fresh = { sourceState: { head: "head", dirty: false } };
+
+function writeReport(path: string, matchedCodePercent: number, functions: Array<{ name: string; score: number }>): void {
+  writeFileSync(path, JSON.stringify({
+    measures: { matched_code_percent: matchedCodePercent },
+    units: [{
+      name: "main/test", metadata: { source_path: "src/test.c" },
+      functions: functions.map(fn => ({ name: fn.name, size: "40", fuzzy_match_percent: fn.score })),
+    }],
+  }));
 }
 
 function addCheckpoint(
@@ -94,249 +98,170 @@ function addCheckpoint(
   );
 }
 
-function fixture(): {
-  store: StateStore;
-  repo: string;
-  runOne: string;
-  runTwo: string;
-  exactTargetId: string;
-  improvementTargetId: string;
-} {
-  const stateDir = mkdtempSync(join(tmpdir(), "score-tiers-state-"));
-  const repo = mkdtempSync(join(tmpdir(), "score-tiers-repo-"));
-  tempDirs.push(stateDir, repo);
-  git(repo, "init", "-q");
-  git(repo, "config", "user.email", "score-tiers@example.com");
-  git(repo, "config", "user.name", "score tiers fixture");
-  const anchor = commit(repo, "upstream anchor");
-  commit(repo, "worker-integration(job-exact): main/melee/test::ExactFn [checkpoint exact123]");
-  const confirmed = commit(repo, "worker-integration(job-improve): main/melee/test::ImproveFn [checkpoint improve1]");
-
-  const store = openState(stateDir);
-  createCycle(store.db, {
-    actor: "operator",
-    gameId: "melee",
-    cycleUuid: "cycle-score-tiers",
-    id: "cycle:score-tiers",
-    baseSha: anchor,
-  });
-  store.db.query(
-    `INSERT INTO game_upstream_anchors
-       (game_id, cycle_uuid, upstream_revision, sync_id, caused_by_event_id, updated_at)
-     VALUES ('melee', 'cycle-score-tiers', ?, 'sync-anchor', 'event-anchor', '2026-08-26T00:00:00.000Z')`,
-  ).run(anchor);
-  store.db.query("UPDATE cycles SET head_revision = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(confirmed);
-  const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
-  addTimelineSavePoint(store, campaign.id, {
-    id: "save-baseline", trigger: "init", commitSha: anchor, score: 90.8, at: "2026-08-26T00:01:00.000Z",
-  });
-  addTimelineSavePoint(store, campaign.id, {
-    id: "save-confirmed", trigger: "epoch_finish", commitSha: confirmed, score: 91.08, at: "2026-08-26T01:00:00.000Z",
-  });
-
-  const runOne = createRun(store, "matched_code_percent", 100, 2, { gameId: "melee" }, {
-    baseRevision: anchor, cycleUuid: "cycle-score-tiers",
-  });
-  const epoch = startSchedulerEpoch(store, runOne.id, { workerPoolSize: 2 });
-  admitEpochTargets(store, {
-    epochId: epoch.id,
-    runId: runOne.id,
-    workerPoolSize: 2,
-    candidates: [
-      { kind: "function", unit: "main/melee/test", symbol: "ExactFn", sourcePath: "src/test.c", size: 32, fuzzy: 98 },
-      { kind: "function", unit: "main/melee/test", symbol: "ImproveFn", sourcePath: "src/test.c", size: 32, fuzzy: 80 },
-    ],
-  });
-  const targets = store.db.query(
-    "SELECT id, symbol FROM epoch_targets WHERE epoch_id = ? ORDER BY symbol",
-  ).all(epoch.id) as Array<{ id: string; symbol: string }>;
-  const exactTargetId = targets.find((target) => target.symbol === "ExactFn")!.id;
-  const improvementTargetId = targets.find((target) => target.symbol === "ImproveFn")!.id;
-  addCheckpoint(store, {
-    id: "exact123-fixture", runId: runOne.id, epochId: epoch.id, epochTargetId: exactTargetId,
-    exact: true, oldScore: 98, newScore: 100, at: "2026-08-26T00:20:00.000Z",
-  });
-  addCheckpoint(store, {
-    id: "improve1-fixture", runId: runOne.id, epochId: epoch.id, epochTargetId: improvementTargetId,
-    exact: false, oldScore: 80, newScore: 86.25, at: "2026-08-26T00:30:00.000Z",
-  });
-  const runTwo = createRun(store, "matched_code_percent", 100, 2, { gameId: "melee" }, {
-    baseRevision: confirmed, cycleUuid: "cycle-score-tiers",
-  }).id;
-  return { store, repo, runOne: runOne.id, runTwo, exactTargetId, improvementTargetId };
-}
-
 describe("score tiers projection", () => {
-  test("selects a newer scoreless sync point and hydrates it from the fallback report", async () => {
-    const { store, repo } = fixture();
+  test("compares recorded reports from a run's local accepted base even when the worktree is dirty", async () => {
+    const store = fixture();
     try {
-      store.db.query("UPDATE save_points SET trigger_kind = 'pr_sync', matched_code_percent = 98.2, payload_json = ? WHERE id = 'save-confirmed'")
-        .run(JSON.stringify({ measures: { matched_code_percent: 98.2, matched_functions_percent: 97.2 } }));
-      const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
-      addTimelineSavePoint(store, campaign.id, {
-        id: "save-sync", trigger: "sync", commitSha: "sync-head", score: null, at: "2026-08-26T02:00:00.000Z",
-      });
-      const reportPath = join(repo, "build/GALE01/report.json");
-      mkdirSync(join(repo, "build/GALE01"), { recursive: true });
-      writeFileSync(reportPath, JSON.stringify({ measures: { matched_code_percent: 100, matched_functions_percent: 99.5 } }));
-      const changesPath = join(repo, "sync-changes.json");
-      writeFileSync(changesPath, JSON.stringify({ units: [] }));
-      let gateInput: { oursReportPath?: string; changesOutPath?: string } | undefined;
+      const baselineReport = join(store.stateDir, "local-baseline.json");
+      const confirmedReport = join(store.stateDir, "local-confirmed.json");
+      writeReport(baselineReport, 39.164, [{ name: "Exact", score: 90 }, { name: "Better", score: 50 }, { name: "Broken", score: 100 }]);
+      writeReport(confirmedReport, 39.766, [{ name: "Exact", score: 100 }, { name: "Better", score: 75 }, { name: "Broken", score: 80 }]);
+      addPoint(store, "local-base", "local-base-sha", 39.164, "2026-08-26T02:00:00Z", join(store.stateDir, "mutable-report.json"));
+      transition(store, { source: { head: "local-base-sha" }, readiness: { build: "ready", sources: "ready", sandbox: "ready", evidence: "ready" } }, "local-base");
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "melee" });
+      addPoint(store, "local-base-snapshot", "local-base-sha", 39.164, "2026-08-26T02:30:00Z", baselineReport);
+      transition(store, {}, "local-base-snapshot");
+      addPoint(store, "local-confirmed", "local-confirmed-sha", 39.766, "2026-08-26T03:00:00Z", confirmedReport);
+      transition(store, {
+        source: { head: "local-confirmed-sha" }, readiness: { evidence: "ready" },
+        history: { run_id: run.id, save_point_id: "local-confirmed" },
+      }, "local-confirmed");
 
-      const projection = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo, {
-        runMasterBreakageGate: async (input) => {
-          gateInput = input;
-          return {
-            status: "pass", baselineKind: "upstream_ci", baselineSha: "anchor", baselineReportPath: null,
-            oursReportPath: input.oursReportPath, changesPath, breakages: [], moved: [], reasons: [],
-          };
-        },
-      });
-
+      const projection = await scoreTiersProjection(store, "melee", { sourceState: { head: "local-confirmed-sha", dirty: true } });
+      expect(projection.baseline).toMatchObject({ score: 39.164, anchorRevision: "local-base-sha", savePointId: "local-base" });
       expect(projection.confirmed).toMatchObject({
-        savePointId: "save-sync", score: 100,
-        measures: { matched_code_percent: 100, matched_functions_percent: 99.5 },
+        score: null, delta: null, savePointId: "local-confirmed", anchorRevision: "local-base-sha", comparisonStatus: "vs_upstream",
       });
-      expect(gateInput?.oursReportPath).toBe(reportPath);
-      expect(gateInput?.changesOutPath).toEndWith("dashboard_master_changes/cycle-score-tiers-save-sync.json");
-    } finally {
-      store.db.close();
-    }
+      expect(projection.confirmed.matches.map(entry => entry.symbol)).toEqual(["Exact"]);
+      expect(projection.confirmed.improvements.map(entry => entry.symbol)).toEqual(["Better"]);
+      expect(projection.confirmed.breakages.map(entry => entry.symbol)).toEqual(["Broken"]);
+    } finally { store.db.close(); }
   });
 
-  test("uses score and report path stored on a sync point directly", async () => {
-    const { store, repo } = fixture();
+  test("keeps the upstream save point as the baseline for the typical Melee case", async () => {
+    const store = fixture();
     try {
-      const reportPath = join(repo, "published-sync-report.json");
-      writeFileSync(reportPath, JSON.stringify({ measures: { matched_code_percent: 12 } }));
-      const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
-      addTimelineSavePoint(store, campaign.id, {
-        id: "save-sync-scored", trigger: "sync", commitSha: "sync-head", score: 99.75, reportPath,
-        at: "2026-08-26T02:00:00.000Z",
+      const projection = await scoreTiersProjection(store, "melee", fresh);
+      expect(projection.baseline).toEqual({
+        score: 90.8, measures: { matched_code_percent: 90.8 }, anchorRevision: "upstream", savePointId: "baseline",
       });
-      const changesPath = join(repo, "scored-sync-changes.json");
-      writeFileSync(changesPath, JSON.stringify({ units: [] }));
-      let oursReportPath: string | undefined;
-
-      const projection = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo, {
-        runMasterBreakageGate: async (input) => {
-          oursReportPath = input.oursReportPath;
-          return {
-            status: "pass", baselineKind: "upstream_ci", baselineSha: "anchor", baselineReportPath: null,
-            oursReportPath: input.oursReportPath, changesPath, breakages: [], moved: [], reasons: [],
-          };
-        },
-      });
-
-      expect(projection.confirmed).toMatchObject({
-        savePointId: "save-sync-scored", score: 99.75,
-        measures: { matched_code_percent: 99.75, matched_functions_percent: 98.75 },
-      });
-      expect(oursReportPath).toBe(reportPath);
-    } finally {
-      store.db.close();
-    }
+    } finally { store.db.close(); }
   });
 
-  test("uses anchor/save-point sources and is invariant across run restaging artifacts", async () => {
-    const { store, repo, runOne, runTwo } = fixture();
+  test("sync fallback uses the accepted head at run creation instead of any previously accepted head", async () => {
+    const store = fixture();
     try {
-      store.db.query("UPDATE cycles SET active_run_id = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(runOne);
-      recordDashboardArtifact(store, {
-        runId: runOne, artifactType: "board_snapshot", artifactKey: "initial", payload: { measures: { matched_code_percent: 12 } },
-      });
-      const before = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo);
-      store.db.query("UPDATE cycles SET active_run_id = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(runTwo);
-      recordDashboardArtifact(store, {
-        runId: runTwo, artifactType: "board_snapshot", artifactKey: "current", payload: { measures: { matched_code_percent: 99 } },
-      });
-      const after = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo);
+      addPoint(store, "stale-sync", "stale-head", 80, "2026-08-26T02:00:00Z", undefined, "sync");
+      transition(store, { source: { head: "stale-head" } }, "stale-sync");
+      addPoint(store, "accepted-sync", "accepted-head", 81, "2026-08-26T03:00:00Z", undefined, "sync");
+      transition(store, { source: { head: "accepted-head" }, readiness: { build: "ready", sources: "ready", sandbox: "ready", evidence: "ready" } }, "accepted-sync");
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "melee" });
+      store.db.query("UPDATE runs SET inputs_json = ? WHERE id = ?").run(JSON.stringify({ base_revision: "missing-save-point" }), run.id);
+      transition(store, { history: { run_id: run.id } });
 
-      expect(after).toEqual(before);
-      expect(after.baseline).toMatchObject({ score: 90.8, anchorRevision: expect.any(String), savePointId: "save-baseline" });
-      expect(after.confirmed).toMatchObject({ score: 91.08, savePointId: "save-confirmed" });
-      expect(after.confirmed.delta).toBeCloseTo(0.28);
-      expect(after.confirmed).toMatchObject({ comparisonStatus: "baseline_unavailable", matches: [], improvements: [], breakages: [] });
-      expect(after.timeline.map((point) => point.kind)).toEqual(["baseline", "epoch_finish"]);
-    } finally {
-      store.db.close();
-    }
+      expect((await scoreTiersProjection(store, "melee", fresh)).baseline).toMatchObject({
+        savePointId: "accepted-sync", anchorRevision: "accepted-head", score: 81,
+      });
+    } finally { store.db.close(); }
   });
 
-  test("projects only open-epoch checkpoints and returns empty tentative when no run is active", async () => {
-    const { store, repo, runTwo } = fixture();
+  test("uses stored boundary evidence without claiming an unproven upstream comparison", async () => {
+    const store = fixture();
     try {
-      store.db.query("UPDATE runs SET status = 'active' WHERE id = ?").run(runTwo);
-      const epoch = startSchedulerEpoch(store, runTwo, { workerPoolSize: 1 });
+      const projection = await scoreTiersProjection(store, "melee", fresh);
+      expect(projection.baseline).toMatchObject({ score: 90.8, anchorRevision: "upstream", savePointId: "baseline" });
+      expect(projection.confirmed).toEqual({
+        score: 91.08, measures: { matched_code_percent: 91.08 }, delta: null,
+        savePointId: "confirmed", anchorRevision: "upstream", comparisonStatus: "baseline_unavailable",
+        matches: [], improvements: [], breakages: [],
+      });
+      expect(projection.timeline.map(point => [point.savePointId, point.kind])).toEqual([["baseline", "baseline"], ["confirmed", "epoch_finish"]]);
+    } finally { store.db.close(); }
+  });
+
+  test("hides confirmed evidence for dirty, unknown, drifted, or pending source state", async () => {
+    const store = fixture();
+    try {
+      for (const sourceState of [undefined, { head: "head", dirty: true }, { head: "head", dirty: null }, { head: "changed", dirty: false }]) {
+        const projection = await scoreTiersProjection(store, "melee", { sourceState });
+        expect(projection.confirmed.score).toBeNull();
+        expect(projection.confirmed.measures).toEqual({});
+        expect(projection.timeline[1]?.score).toBe(91.08);
+      }
+      transition(store, { readiness: { evidence: "pending" } });
+      expect((await scoreTiersProjection(store, "melee", fresh)).confirmed.score).toBeNull();
+      transition(store, { source: { head: "new-head" }, readiness: { evidence: "ready" } });
+      expect((await scoreTiersProjection(store, "melee", { sourceState: { head: "new-head", dirty: false } })).confirmed.score).toBeNull();
+    } finally { store.db.close(); }
+  });
+
+  test("does not hydrate scoreless evidence from a worktree report or an unrelated save point", async () => {
+    const store = fixture();
+    try {
+      mkdirSync(join(store.stateDir, "build/GALE01"), { recursive: true });
+      writeFileSync(join(store.stateDir, "build/GALE01/report.json"), JSON.stringify({ measures: { matched_code_percent: 100 } }));
+      addPoint(store, "scoreless", "head", null, "2026-08-26T02:00:00Z");
+      transition(store, { history: { save_point_id: "scoreless" } }, "scoreless");
+      addPoint(store, "unlinked", "head", 99, "2026-08-26T03:00:00Z");
+      const projection = await scoreTiersProjection(store, "melee", fresh);
+      expect(projection.confirmed).toMatchObject({ savePointId: "scoreless", score: null, measures: {}, delta: null });
+      expect(projection.timeline.map(point => point.savePointId)).toEqual(["baseline", "confirmed", "scoreless"]);
+      transition(store, { history: { save_point_id: "unlinked" } });
+      expect((await scoreTiersProjection(store, "melee", fresh)).confirmed.savePointId).toBeNull();
+    } finally { store.db.close(); }
+  });
+
+  test("keeps score evidence stable across run changes and dashboard artifacts", async () => {
+    const store = fixture();
+    try {
+      const before = await scoreTiersProjection(store, "melee", fresh);
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "melee" });
+      transition(store, { history: { run_id: run.id } });
+      const withRun = await scoreTiersProjection(store, "melee", fresh);
+      store.db.query(`INSERT INTO dashboard_artifacts
+        (id, run_id, game_id, artifact_type, artifact_key, payload_json, created_at)
+        VALUES ('artifact', ?, 'melee', 'board_snapshot', 'current', ?, '2026-08-26T03:00:00Z')`)
+        .run(run.id, JSON.stringify({ measures: { matched_code_percent: 99 } }));
+      expect(withRun.baseline).not.toEqual(before.baseline);
+      expect(await scoreTiersProjection(store, "melee", fresh)).toEqual(withRun);
+    } finally { store.db.close(); }
+  });
+
+  test("projects selected passing checkpoints only for the harness run's open epoch", async () => {
+    const store = fixture();
+    try {
+      const run = createRun(store, "matched_code_percent", 100, 2, { gameId: "melee" });
+      store.db.query("UPDATE runs SET status = 'active' WHERE id = ?").run(run.id);
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 2 });
       admitEpochTargets(store, {
-        epochId: epoch.id,
-        runId: runTwo,
-        workerPoolSize: 1,
-        candidates: [{ kind: "function", unit: "main/melee/open", symbol: "OpenWin", sourcePath: "src/open.c", size: 16, fuzzy: 70 }],
+        epochId: epoch.id, runId: run.id, workerPoolSize: 2,
+        candidates: [
+          { kind: "function", unit: "main/test", symbol: "Exact", sourcePath: "src/test.c", size: 32, fuzzy: 98 },
+          { kind: "function", unit: "main/test", symbol: "Better", sourcePath: "src/test.c", size: 32, fuzzy: 70 },
+        ],
       });
-      const target = store.db.query("SELECT id FROM epoch_targets WHERE epoch_id = ?").get(epoch.id) as { id: string };
-      addCheckpoint(store, {
-        id: "open-win-checkpoint", runId: runTwo, epochId: epoch.id, epochTargetId: target.id,
-        exact: false, oldScore: 70, newScore: 75, at: "2026-08-26T02:00:00.000Z",
+      const targets = store.db.query("SELECT id, symbol FROM epoch_targets WHERE epoch_id = ?").all(epoch.id) as Array<{ id: string; symbol: string }>;
+      for (const target of targets) addCheckpoint(store, {
+        id: target.symbol, runId: run.id, epochId: epoch.id, epochTargetId: target.id,
+        exact: target.symbol === "Exact", oldScore: target.symbol === "Exact" ? 98 : 70,
+        newScore: target.symbol === "Exact" ? 100 : 75, at: "2026-08-26T02:00:00Z",
       });
-      store.db.query("UPDATE cycles SET active_run_id = ? WHERE cycle_uuid = 'cycle-score-tiers'").run(runTwo);
-      expect((await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo)).tentative.improvements).toEqual([
-        { targetKey: "main/melee/open::OpenWin", unit: "main/melee/open", symbol: "OpenWin", oldScore: 70, newScore: 75, delta: 5, state: "in_branch" },
-      ]);
-
-      store.db.query("UPDATE cycles SET active_run_id = NULL WHERE cycle_uuid = 'cycle-score-tiers'").run();
-      expect((await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo)).tentative).toEqual({
-        matches: [], improvements: [],
-      });
-    } finally {
-      store.db.close();
-    }
+      transition(store, { history: { run_id: run.id, epoch_id: epoch.id } });
+      const tentative = (await scoreTiersProjection(store, "melee", fresh)).tentative;
+      expect(tentative.matches).toEqual([{ targetKey: "main/test::Exact", unit: "main/test", symbol: "Exact", score: 100, oldScore: 98, newScore: 100, delta: 2, state: "in_branch" }]);
+      expect(tentative.improvements).toEqual([{ targetKey: "main/test::Better", unit: "main/test", symbol: "Better", oldScore: 70, newScore: 75, delta: 5, state: "in_branch" }]);
+      store.db.query("UPDATE worker_checkpoints SET hard_gates_passed = 0 WHERE id = 'Exact'").run();
+      store.db.query("UPDATE worker_checkpoints SET selected = 0 WHERE id = 'Better'").run();
+      expect((await scoreTiersProjection(store, "melee", fresh)).tentative).toEqual({ matches: [], improvements: [] });
+      store.db.query("UPDATE worker_checkpoints SET hard_gates_passed = 1, selected = 1").run();
+      store.db.query("UPDATE epochs SET status = 'completed' WHERE id = ?").run(epoch.id);
+      expect((await scoreTiersProjection(store, "melee", fresh)).tentative).toEqual({ matches: [], improvements: [] });
+      store.db.query("UPDATE epochs SET status = 'active' WHERE id = ?").run(epoch.id);
+      store.db.query("UPDATE runs SET status = 'completed' WHERE id = ?").run(run.id);
+      expect((await scoreTiersProjection(store, "melee", fresh)).tentative).toEqual({ matches: [], improvements: [] });
+      transition(store, { history: { run_id: null } });
+      expect((await scoreTiersProjection(store, "melee", fresh)).tentative).toEqual({ matches: [], improvements: [] });
+    } finally { store.db.close(); }
   });
 
-  test("projects ours vs master matches, improvements, and non-moved breakages", async () => {
-    const { store, repo } = fixture();
+  test("returns empty evidence when the requested game has no harness", async () => {
+    const store = fixture();
     try {
-      const oursPath = join(repo, "ours-report.json");
-      const masterPath = join(repo, "master-report.json");
-      const changesPath = join(repo, "master-breakage-changes.json");
-      const row = (name: string, from: number, to: number, size = 100) => ({
-        name, from: { fuzzy_match_percent: from, size }, to: { fuzzy_match_percent: to, size },
-      });
-      const changes = {
-        units: [{
-          name: "main/melee/test",
-          sections: [row(".data", 80, 100, 20), row(".bss", 40, 60, 10)],
-          functions: [row("NewExact", 90, 100), row("Better", 50, 75), row("Broken", 100, 80), row("Moved", 100, 0)],
-        }],
-      };
-      const ours = { units: [
-        { name: "main/melee/test", functions: [{ name: "NewExact", fuzzy_match_percent: 100 }, { name: "Better", fuzzy_match_percent: 75 }, { name: "Broken", fuzzy_match_percent: 80 }] },
-        { name: "main/melee/moved", functions: [{ name: "Moved", fuzzy_match_percent: 100 }] },
-      ] };
-      writeFileSync(masterPath, JSON.stringify({ units: [] }));
-      writeFileSync(oursPath, JSON.stringify(ours));
-      writeFileSync(changesPath, JSON.stringify(changes));
-      store.db.query("UPDATE save_points SET report_path = ? WHERE id = 'save-confirmed'").run(oursPath);
-      const classified = classifyMasterBreakages(changes, ours);
-      const projection = await scoreTiersProjection(store, "melee", getActiveCycle(store.db, "melee"), repo, {
-        runMasterBreakageGate: async () => ({
-          status: "breakage", baselineKind: "upstream_ci", baselineSha: "anchor", baselineReportPath: masterPath,
-          oursReportPath: oursPath, changesPath, breakages: classified.breakages, moved: classified.moved, reasons: [],
-        }),
-      });
-      expect(projection.confirmed.comparisonStatus).toBe("vs_upstream");
-      expect(projection.confirmed.matches.map((item) => [item.symbol, item.oldScore, item.newScore, item.bytesDelta])).toEqual([
-        ["NewExact", 90, 100, 10], [".data", 80, 100, 4],
-      ]);
-      expect(projection.confirmed.improvements.map((item) => [item.symbol, item.oldScore, item.newScore, item.bytesDelta])).toEqual([
-        ["Better", 50, 75, 25], [".bss", 40, 60, 2],
-      ]);
-      expect(projection.confirmed.breakages.map((item) => [item.symbol, item.oldScore, item.newScore, item.bytesDelta])).toEqual([
-        ["Broken", 100, 80, -20],
-      ]);
-      expect(classified.moved.map((item) => item.itemName)).toEqual(["Moved"]);
-    } finally {
-      store.db.close();
-    }
+      const projection = await scoreTiersProjection(store, "other", fresh);
+      expect(projection.baseline.score).toBeNull();
+      expect(projection.confirmed.score).toBeNull();
+      expect(projection.timeline).toEqual([]);
+      expect(projection.tentative).toEqual({ matches: [], improvements: [] });
+    } finally { store.db.close(); }
   });
 });

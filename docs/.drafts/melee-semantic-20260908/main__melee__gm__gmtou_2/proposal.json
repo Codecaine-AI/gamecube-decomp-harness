@@ -1,0 +1,131 @@
+{
+  "tu": "main/melee/gm/gmtou_2",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_2.c#L191-L208",
+            "why": "Reset, pose, increment ordering"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_2.c#L757-L760",
+            "why": "Initial counter"
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the displayed-endpoint error and preserves initialization and transition behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_2:fn_8019BF8C"
+        },
+        "type": "state_behavior",
+        "value": "Before posing, options outside 0x1B..0x1E reset xE above 119 to 90; options inside that interval reset xE above 159 to 130. The resulting frame is applied, then xE increments. Eventual displayed cycles are 90..119 and 130..159; stored 120/160 are reset before display. There is no lower-bound clamp or reset merely on option change. Scene setup initializes xE to 80, allowing an initial or cross-option transient below the eventual loop start."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_2.c#L720-L773",
+            "why": "Complete initializer"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_2.c#L257-L292",
+            "why": "Animation field consumption"
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes animation bounds, selection state, auxiliary values, and persistent fields.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_2:fn_8019DD60"
+        },
+        "type": "state_behavior",
+        "value": "Plays a match-type-dependent entry sound only if x2C is zero, then clears x2C unconditionally. After presentation construction, initializes scene counters x0/x4/xF to zero and xE to 80. For indices below x30 it clears x18, x6, x10 and animation a/b/completion/loop/state, sets animation end c to 30, and auxiliary x38 to 6. The 30 is an animation end frame, not a separate delay; selection state begins at 0, not 6. This is selective initialization and does not reset x1C."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoumode.c#L221-L236",
+            "why": "Results origin and call"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_2.c#L1003-L1129",
+            "why": "Arrays, lookup keys, rotation and audio"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3154-L3157",
+            "why": "Standings accessor"
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the actual result-key, identity, and character-domain distinctions rather than repairing them semantically.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_2:gm_8019E634"
+        },
+        "type": "data_flow",
+        "value": "The Results caller copies match_end to gm_80477738 before invoking this routine for nonzero Tournament match types. The routine collects fn_80166CBC standings values, stably sorts results[] while carrying indices.values[], and conditionally reads/writes handicap through xF-position lookups keyed by sorted results[i], not by the parallel player identities. Rotation instead uses indices.values[] to reassign xE positions. Active x4B8 fields are rebuilt through xE-position lookups. Finally the audio mask starts at 8 and incorporates lbAudioAx_80026E84 calls using raw x4B8[k].x1 cast to CharacterKind; unlike scene entry, this path does not call fn_8018F6FC first."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoumode.c#L221-L236",
+            "why": "Outer routing"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_2.c#L775-L799",
+            "why": "Lookup fallback"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_2.c#L1018-L1093",
+            "why": "Sort, handicap and replacement"
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains verified rotation while making the handicap indexing ambiguity and fallback explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_2:gm_8019E634"
+        },
+        "type": "state_behavior",
+        "value": "The external Results caller bypasses this routine for match_type 0 and selects state 1; nonzero types invoke it and then select state 2. The routine sorts standings ascending, swapping only on greater-than. Handicap rule 1 enables read-adjust-write using sorted result values as xF lookup keys. For match_type 1, replacement uses indices.values[i]; otherwise it uses indices.values[(x30-1)-i]. Replaced entrants move to tail positions, waiting entrants inherit vacated active positions, and later positions decrease by hmn_cpu_count. Both xE/xF lookup helpers return entrant zero on failure. No local bounds or key-validity validation establishes that result values are interchangeable with player identities."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_2.c#L801-L992",
+            "why": "Complete frame control flow"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtou_2.c#L257-L292",
+            "why": "b is current animation frame"
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates animation frame position from elapsed time, transition request from teardown, and eligible input processing from all-ready processing.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtou_2:gm_Scene_TouAlt_OnFrame"
+        },
+        "type": "state_behavior",
+        "value": "The immediate menu-exit branch plays the back sound, calls menu/scene transition helpers, requests GM_MENU, and returns; it does not directly free archives. Readiness requires state 2, current animation frame b>=60, and controller error zero. If every configured player qualifies, x0 increments and at >=30 commits xF=xE for all entrants and calls fn_801965C4. Otherwise x0 resets and only connected players process input. Held B increments a per-player counter and aborts to state 0 after >90; its release reset occurs only on this eligible path. Character and special-selection edits exclude states 1/2. A/Start enters state 1 unless already state 2; B changes state 2 to 3; X/Y adjust bounded color only in editable states. The non-all-ready path builds and submits a preload summary unless an earlier exit returns."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

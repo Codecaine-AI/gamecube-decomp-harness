@@ -1,0 +1,19 @@
+## Shadow Ball article lifecycle
+
+The source defines an eighteen-entry item-state table with four callback groups: owner-attached state 0, Motion8 travel entries 1–8, distinct Motion9 entry 9, and Motion17 impact entries 10–17. The held constructor attaches a nullable newly created article to the supplied fighter bone. Native Mewtwo and copied-Mewtwo Kirby callers retain that article. A separate constructor directly initializes state 9 for Mewtwo's forward-throw projectile; state 9 is not a mandatory intermediate phase.
+
+Held animation queries fighter removal, cancellation, and charge only when the retained origin is non-null and equals the current owner. Missing or mismatched ownership and unhandled kinds fall through to model transforms rather than requesting removal. The callback interpolates scale from charge and applies a cached translation multiplied by the negative originating fighter model scale. Held physics is empty and held stage collision returns false; neither proves offensive hitboxes are disabled.
+
+Release stores angle, lifetime, and bounded charge before checking ownership. Only a matching retained owner permits detachment, charge-dependent launch setup, repositioning, and model reset. Release entry selects stored charge plus one and installs modulo-three accessory bookkeeping. The first Motion8 physics update preserves launch velocity; subsequent updates reconstruct XY velocity from stored speed and heading. Its offset helper independently changes grandchild translation and periodically selects one of three sound IDs. The declared u32 helper has no return statement, and its shown caller ignores the nominal result.
+
+Both travel collision callbacks refresh collision and test velocity signs against environment flags. Zero vertical velocity takes the floor branch; zero horizontal velocity takes the right-wall branch. Qualifying contact enters stored charge plus ten, hides the model, replaces effects, installs impact lifetime, clears the accessory callback, and captures an impact hitbox scale. Motion17 restores that scale only while hitbox zero is enabled, resets velocity, and performs no further terrain transition. Harmlessness of the impact cannot be concluded from these callbacks.
+
+Reflection changes stored heading by pi without directly changing velocity; shield bounce mirrors XY velocity before deriving heading. Both wrap with strict lower/upper tests and return false. Damage, clank, absorption, and ordinary shield-contact callbacks return true without local mutation. Generic item dispatch independently confirms destruction for true clank, damage, and absorption results.
+
+The callable removal helper delegates common item teardown, which separately invokes the registered destroyed callback. Destroyed cleanup contacts fighter bookkeeping only for an unreleased article still owned by its retained origin; private origin clearing is confined to the unreleased branch. Generic reference invalidation clears common interaction references but not the private Shadow Ball origin pointer. Fighter charge retention/reset remains separate from article removal.
+
+## Semantic review
+
+Existing rendered function names are supported and retained. Corrections address state-9 characterization, amplitude timing, model-scale provenance, impact hitbox versus effect scale, and unsupported harmlessness or fixed charge-range assumptions. Source declarations do not establish compiled section placement, pooling, padding, or adjacency. The rendered header suppresses the two constructor substitutions as shadowed bindings, while the C view substitutes them. External sound functions collide on the proposed Item_PlaySFX name; neither renderer issue justifies changing owned semantic names.
+
+Status: synthesized; independent review and live promotion pending.

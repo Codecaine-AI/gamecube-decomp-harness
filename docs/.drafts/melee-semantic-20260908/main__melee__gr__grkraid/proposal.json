@@ -1,0 +1,160 @@
+{
+  "tu": "main/melee/gr/grkraid",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L187-L259",
+            "why": "Explicit initialized fields and complete consumer timing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects delayed-rotation wording and preserves the exact initialization and stopping conditions.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkraid:grKraid_801FE3B4"
+        },
+        "type": "state_behavior",
+        "value": "Initializes map object 3 with state x0=0 and activation/direction x4, angular step x8 and signed deceleration xC all zero. It does not explicitly initialize x1 or x10. A later strike supplies signed motion. The map process then enters state 1 and applies rotation while its randomized hold timer counts down; only deceleration is delayed. After the timer reaches zero, each update subtracts xC from x8. When abs(x8) is strictly less than abs(xC), the process clears the four controller fields and returns to state 0."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L207-L294",
+            "why": "Exact producer arithmetic, guard, notifications and consumer behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L442-L473",
+            "why": "Observed unit-sign callers and integer-cast outer guards."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the float-zero reentry guard and deceleration delay from the caller's integer-cast idle tests and avoids implying validated parameters.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkraid:grKraid_801FE6D8"
+        },
+        "type": "state_behavior",
+        "value": "Performs rotation initialization only when map object 3's x4 compares equal to 0.0f; otherwise it does nothing. It stores the supplied direction, derives and sequentially clamps angular speed from hand X, applies the direction, stores speed/map_time_acl as signed deceleration, and requests sound 420005 and a medium quake at the hand position. The subsequent map process rotates during its randomized hold interval and begins deceleration only after that timer reaches zero. Completion clears the activation and motion fields. Actual callers pass \u00b11.0f; the function itself neither restricts the argument to those values nor validates the divisors map_rot_spd_min and map_time_acl."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L296-L381",
+            "why": "Zero-anchored scan, cached joints, initial timer and policy flag."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L498-L510",
+            "why": "Consumer of the initial selection flag and extreme indices."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unqualified leftmost/rightmost description while retaining the useful initializer explanation.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkraid:grKraid_801FE818"
+        },
+        "type": "purpose",
+        "value": "Initializes Kraid's object-4 controller by caching joints 31 and 47, scanning six configured X positions for negative and positive extrema anchored at zero, constructing the initial base-plus-optional-random wait, and resetting runtime state. Both extreme indices initially equal 0: x3 changes only for a new value below the running minimum starting at zero, and x4 only for a new value above the running maximum starting at zero. Thus either index may remain 0 when no candidate lies on its corresponding side of zero, rather than necessarily identifying the mathematical minimum or maximum of an arbitrary same-sign table. It sets x5=1 so the first position selection uses the nonrepeating six-index path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L388-L496",
+            "why": "Complete state machine and operation ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L546-L562",
+            "why": "Timer-only impact predicate."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects contact-test language and preserves numeric states, cast guards, exact strike windows, transition-frame counter behavior and overwritten timer assignment.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkraid:grKraid_801FEA00"
+        },
+        "type": "state_behavior",
+        "value": "Runs states 0\u20134. State 0 decrements a positive wait counter; on a later invocation with counter <=0 and (int) map.x4==0, it selects position, reveals Kraid and object 1, selects animation 3 and enters state 1. Entrance completion selects a random animation 0\u20132, resets the counter and enters state 2. State 2 emits animation-dependent sounds at fixed counter values; completion selects animation x8+5, resets the counter and enters state 3, then the same invocation increments the counter to 1. State 3 checks animation 5 during counter 147\u2013169 with variant 1, or every other animation during 123\u2013138 with variant 0, always behind the integer-cast map-idle guard. The helper checks only timer >=158 or >=130, not geometric contact; success rearms position policy, sets x8=1 and starts rotation using joint x14 with -1 or x10 with +1. Each strike branch increments the counter. Attack completion selects animation 4 and enters state 4. Departure completion hides both objects, replaces an initial base-plus-add timer assignment with base plus an optional random offset, and returns to state 0. Unrecognized numeric states have no switch action."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L546-L562",
+            "why": "Inclusive comparison, repeated-per-evaluation side effect and lack of Ground writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L442-L473",
+            "why": "Caller windows and map-idle guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L266-L294",
+            "why": "Starter's float-zero guard and activation assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that the normal caller repeatedly refreshes rotation until the window closes by restoring both reentry guards.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkraid:grKraid_801FF0E0"
+        },
+        "type": "state_behavior",
+        "value": "Does not advance the timer or directly mutate Ground state. Exactly flag==1 selects threshold 158; every other value selects 130. It returns false below the threshold and true at or above it, dispatching the feedback request on every true evaluation. The actual caller additionally requires a bounded strike window and (int) map.x4==0. A normal successful call starts rotation with map.x4 set to \u00b11, suppressing subsequent predicate evaluations while that activation remains set; the rotation starter also independently refuses a nonzero float x4. Therefore repeated feedback is possible if the helper is repeatedly evaluated, but the normal active rotation is not refreshed on every remaining window frame."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L84-L87",
+            "why": "Complete ordinary void wrapper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces ambiguous and technically incorrect non-returning wording with the actual void-returning behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkraid:grKraid_OnStart"
+        },
+        "type": "inferred_type",
+        "value": "Parameterless stage-start lifecycle callback with signature void grKraid_OnStart(void). It returns no value and returns normally after invoking grZakoGenerator_801CAE04(NULL); it is not a noreturn routine."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L207-L294",
+            "why": "Map-state integration, strict stopping test and independent animation branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkraid.c#L388-L562",
+            "why": "Kraid states, synchronized helpers and timer-only strike check."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the stationary-delay and accumulated-motion implications in the TU summary and preserves the distinct numeric controllers and guards.",
+        "subject": {
+          "entity_locator": "src/melee/gr/grkraid.c"
+        },
+        "type": "state_behavior",
+        "value": "Runs two cooperating controllers. Kraid's object uses states 0\u20134 for hidden waiting, entrance, an intermediate animation, a timed hand-dependent strike and departure, synchronizing object 1's position, animation and visibility. Appearance and strike checks require the map activation float to cast to integer zero. Strike readiness is an elapsed-counter threshold, not geometric contact. The map object uses states 0 and 1: activation selects a randomized hold interval, state 1 applies the signed per-update angular step throughout that interval, and only deceleration waits for the timer to reach zero. It then subtracts the signed decrement each update, clearing activation, angular step, decrement and state when abs(step)<abs(decrement). It does not track an accumulated-motion budget or restore a fixed orientation. Map-animation completion is checked independently of the rotation-state switch."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

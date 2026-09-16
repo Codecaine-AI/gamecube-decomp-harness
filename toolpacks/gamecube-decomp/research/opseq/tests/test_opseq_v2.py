@@ -19,6 +19,27 @@ STATUS = REPO_ROOT / "toolpacks" / "gamecube-decomp" / "research" / "opseq" / "a
 
 
 class OpseqV2SmokeTest(unittest.TestCase):
+    def test_explicit_sms_build_and_missing_inputs_stay_in_selected_game(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "sms"
+            self.write_fixture(repo)
+            (repo / "build/GALE01").rename(repo / "build/GMSJ01")
+            env = {**os.environ, "ORCH_TOOL_SHARED_DATA_ROOT": str(root / "storage"), "ORCH_GAME_ID": "sms"}
+            command = [sys.executable, str(RUNNER), "--repo-root", str(repo), "--build-dir", "build/GMSJ01"]
+            payload = self.run_json(command, env)
+            self.assertEqual(payload["record_count"], 3)
+            self.assertIn("build/GMSJ01", payload["command"])
+            self.assertEqual(payload["repo_root"], str(repo.resolve()))
+            missing = root / "missing"
+            missing.mkdir()
+            result = subprocess.run([sys.executable, str(RUNNER), "--repo-root", str(missing), "--build-dir", "build/GMSJ01"], env=env, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 1)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["repo_root"], str(missing.resolve()))
+            self.assertEqual(payload["record_count"], 0)
+            self.assertFalse(payload["success"])
+
     def test_runner_api_and_status_use_temp_storage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_root = Path(tmp)

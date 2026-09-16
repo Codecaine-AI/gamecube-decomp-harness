@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/ft/kinds/ftFox/ftfoxspecials",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxspecials.c#L314-L326",
+            "why": "Canonical pressed-button guard and ending-state destinations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects held-input wording to the explicit pressed_buttons guard while preserving terrain-dependent dispatch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftFox/ftfoxspecials:ftFx_SpecialAirS_IASA"
+        },
+        "type": "state_behavior",
+        "value": "If pressed_buttons lacks HSD_PAD_B, this callback makes no transition. A B press enters SpecialAirSEnd when ground_or_air equals GA_Air and returns immediately; otherwise it enters SpecialSEnd. Merely holding B is not the tested condition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxspecials.c#L47-L57",
+            "why": "Inclusive state-range predicate returns false inside and true outside."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxillusion.c#L125-L147",
+            "why": "Item checks owner/predicate and independently advances its initial lifetime."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxillusion.c#L197-L221",
+            "why": "Ending timer can terminate the item independently of the owner's move-state membership."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported move-lifetime relationship while correcting the claim that this predicate keeps the ghost alive for the full side special.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftFox/ftfoxspecials:ftFx_SpecialS_CheckGhostRemove"
+        },
+        "type": "game_mapping",
+        "value": "Participates in Fox Illusion/Falco Phantasm ghost-item lifetime by permitting removal once the owner leaves the inclusive SpecialSStart through SpecialAirSEnd motion-state range. Returning false inside that range does not guarantee survival for the entire move: the item also terminates for a missing owner or expiration of its independent ending-state lifetime."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxspecials.c#L180-L245",
+            "why": "Startup delayed falling and phase-preserving terrain conversion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxspecials.c#L268-L418",
+            "why": "Dash completion, pressed-B shortening and terrain conversions with command reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxspecials.c#L477-L569",
+            "why": "Aerial completion request and exceptional ending collision destinations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the overly broad phase-preserving collision explanation by documenting the materially different ending-phase destinations.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftFox/ftfoxspecials.c"
+        },
+        "type": "state_behavior",
+        "value": "The move has paired grounded and aerial startup, dash and ending states. Startup and dash collision conversions preserve phase, and dash conversions clear command variable 2. Aerial startup delays falling; dash animation exhaustion enters its matching ending state, while a B press during either dash callback selects ending by actual ground_or_air. Ending collision is asymmetric: grounded End enters ordinary Fall on lost ground, whereas aerial End enters LandingFallSpecial on ground contact and otherwise tries cliff handling. Aerial End animation exhaustion requests the common special-fall entry with move-specific mobility and landing lag."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

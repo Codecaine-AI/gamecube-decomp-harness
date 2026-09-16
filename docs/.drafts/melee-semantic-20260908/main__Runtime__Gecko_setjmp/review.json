@@ -1,0 +1,346 @@
+{
+  "review_notes": [
+    "Independently verified both proposed facts and both superseded claims against canonical Gecko_setjmp.c and Gecko_setjmp.h; functionality.md and proposal.json agree. Retain inherited nine facts and both links without overrides. Existing runtime names fit canonical behavior despite renderer parse uncertainty. Accept document limits on caller lifetime and compiled layout: neither is established here, and neither is asserted by the proposal."
+  ],
+  "unresolved": [],
+  "contract": "lean-v2",
+  "use_checkpoint": true,
+  "verdict": "accepted",
+  "adopt_handoff_sha256": "2d67af7c0089f6eff25fa385ae18b9ccf8a32badf49ca5e8ab49a15d92054a33",
+  "proposal_sha256": "5154c1626398097073edbe2f76f0c8986b3c7ed1af748943fdb6d27fc1cb7f17",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "fact_overrides": [],
+  "link_overrides": [],
+  "rejected": [],
+  "independent_checks": {
+    "handoff_sha256": "2d67af7c0089f6eff25fa385ae18b9ccf8a32badf49ca5e8ab49a15d92054a33",
+    "document_proposal_reconciled": true,
+    "reviewed_contradiction_ids": [
+      "fact:eb635a72-f4e4-40b1-a7d9-4dec89fd8ed2",
+      "fact:ebe4d804-e007-410b-abd2-f80f99f7c42f"
+    ],
+    "proposed_facts": [
+      {
+        "index": 0,
+        "supported": true,
+        "reason": "Canonical lines 40\u201377 establish the guarded register restoration, including FPSCR, and transfer through saved LR. cmpwi updates CR0 after mtcrf; nonzero val passes through in r3, while zero reaches li r3,1. The proposed data-flow correction and functionality document accurately preserve these qualifications."
+      },
+      {
+        "index": 1,
+        "supported": true,
+        "reason": "The header explicitly declares void longjmp(register __jmp_buf* env, register int val), without a noreturn annotation. The guarded implementation restores the saved LR and stack rather than returning to its current caller, with zero normalized to one. The complementary __setjmp implementation establishes the saved-context relationship."
+      }
+    ],
+    "contradictions": [
+      {
+        "reason": "The upstream data-flow claim's unqualified injection of the supplied integer omits the zero-to-one exception. Proposal fact 0 resolves this and also correctly qualifies final CR preservation.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L40-L77"
+          }
+        ]
+      },
+      {
+        "reason": "The upstream interface claim uses jmp_buf rather than the actual __jmp_buf* declaration. Proposal fact 1 resolves that mismatch and distinguishes nonlocal control transfer from an explicit noreturn annotation. Caller-specific context lifetimes and compiled layout remain appropriately outside the claims; their deferral is accepted.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.h#L32-L33"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L40-L77"
+          }
+        ]
+      }
+    ]
+  },
+  "fact_dispositions": [
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L40-L77",
+          "why": "Restores environment and passes val only if nonzero, otherwise returns one."
+        }
+      ],
+      "fact_id": "fact:eb635a72-f4e4-40b1-a7d9-4dec89fd8ed2",
+      "reason": "Unqualified injection of the supplied integer omits the exceptional zero-to-one conversion; replace identity-based rationale with direct source behavior.",
+      "updated_at": "2026-09-01T23:10:44.349Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.h#L32-L33",
+          "why": "Exact declarations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L40-L77",
+          "why": "Guarded implementation restores saved LR and normalizes result."
+        }
+      ],
+      "fact_id": "fact:ebe4d804-e007-410b-abd2-f80f99f7c42f",
+      "reason": "Actual interface uses __jmp_buf*, not the asserted jmp_buf type; non-returning describes transfer away from the current caller, not a declaration attribute. Include result normalization and conditional implementation scope.",
+      "updated_at": "2026-09-01T23:10:44.349Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Explicit context stores, matching loads, restored LR/SP and zero-to-one result branch."
+        }
+      ],
+      "fact_id": "fact:a0bfa9ef-c5f6-49d2-a064-fd97c3ccf8fc",
+      "reason": "Canonical MWERKS_GEKKO save/restore paths support the paired context-transfer purposes, signatures, register flow and initial-zero versus normalized-nonzero resumed results. Retain existing semantics rather than reword them; historical match claims are not independently established here.",
+      "updated_at": "2026-09-04T18:13:59.416Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Explicit context stores, matching loads, restored LR/SP and zero-to-one result branch."
+        }
+      ],
+      "fact_id": "fact:e07e7e65-dadc-4f8f-a8a3-ab714a6242bb",
+      "reason": "Canonical MWERKS_GEKKO save/restore paths support the paired context-transfer purposes, signatures, register flow and initial-zero versus normalized-nonzero resumed results. Retain existing semantics rather than reword them; historical match claims are not independently established here.",
+      "updated_at": "2026-09-04T18:13:59.416Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Explicit context stores, matching loads, restored LR/SP and zero-to-one result branch."
+        }
+      ],
+      "fact_id": "fact:d9773062-dd66-473a-8ec6-8bdc165ef8b5",
+      "reason": "Canonical MWERKS_GEKKO save/restore paths support the paired context-transfer purposes, signatures, register flow and initial-zero versus normalized-nonzero resumed results. Retain existing semantics rather than reword them; historical match claims are not independently established here.",
+      "updated_at": "2026-09-04T18:13:59.416Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Explicit context stores, matching loads, restored LR/SP and zero-to-one result branch."
+        }
+      ],
+      "fact_id": "fact:88f8c458-7675-4539-b5fa-4c29f43e97e5",
+      "reason": "Canonical MWERKS_GEKKO save/restore paths support the paired context-transfer purposes, signatures, register flow and initial-zero versus normalized-nonzero resumed results. Retain existing semantics rather than reword them; historical match claims are not independently established here.",
+      "updated_at": "2026-09-04T18:13:59.416Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Explicit context stores, matching loads, restored LR/SP and zero-to-one result branch."
+        }
+      ],
+      "fact_id": "fact:c079e9d8-ab1d-4b68-b737-bcd4228755f2",
+      "reason": "Canonical MWERKS_GEKKO save/restore paths support the paired context-transfer purposes, signatures, register flow and initial-zero versus normalized-nonzero resumed results. Retain existing semantics rather than reword them; historical match claims are not independently established here.",
+      "updated_at": "2026-09-01T23:10:44.349Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Explicit context stores, matching loads, restored LR/SP and zero-to-one result branch."
+        }
+      ],
+      "fact_id": "fact:0b2cafad-b8a8-44c7-abcd-8c8ba0f0eae4",
+      "reason": "Canonical MWERKS_GEKKO save/restore paths support the paired context-transfer purposes, signatures, register flow and initial-zero versus normalized-nonzero resumed results. Retain existing semantics rather than reword them; historical match claims are not independently established here.",
+      "updated_at": "2026-09-01T23:10:44.349Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Explicit context stores, matching loads, restored LR/SP and zero-to-one result branch."
+        }
+      ],
+      "fact_id": "fact:1f61a40f-73cf-4d2b-ac4d-f22f83443554",
+      "reason": "Canonical MWERKS_GEKKO save/restore paths support the paired context-transfer purposes, signatures, register flow and initial-zero versus normalized-nonzero resumed results. Retain existing semantics rather than reword them; historical match claims are not independently established here.",
+      "updated_at": "2026-09-06T03:12:01.317Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Explicit context stores, matching loads, restored LR/SP and zero-to-one result branch."
+        }
+      ],
+      "fact_id": "fact:57948f3c-7ad6-4bcc-b82a-38fd74f63513",
+      "reason": "Canonical MWERKS_GEKKO save/restore paths support the paired context-transfer purposes, signatures, register flow and initial-zero versus normalized-nonzero resumed results. Retain existing semantics rather than reword them; historical match claims are not independently established here.",
+      "updated_at": "2026-09-06T03:12:01.317Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Explicit context stores, matching loads, restored LR/SP and zero-to-one result branch."
+        }
+      ],
+      "fact_id": "fact:45a76e50-0e99-43d7-85d9-604c07341fa6",
+      "reason": "Canonical MWERKS_GEKKO save/restore paths support the paired context-transfer purposes, signatures, register flow and initial-zero versus normalized-nonzero resumed results. Retain existing semantics rather than reword them; historical match claims are not independently established here.",
+      "updated_at": "2026-09-06T03:12:01.317Z"
+    }
+  ],
+  "link_dispositions": [
+    {
+      "baseline_record": {
+        "id": "link:9c1c29d8-f9cd-4cb5-b569-1cd4fb13f8fb",
+        "from_target_id": "target:function:main/Runtime/Gecko_setjmp:longjmp",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:nonlocal-control-transfer",
+        "role": "exhibits",
+        "why": "The exact target address is identified as longjmp, whose purpose is to restore a saved environment and resume an earlier setjmp invocation rather than return through the current call chain.",
+        "kind": "discord",
+        "locator": "discord://message/730645876753563668",
+        "digest": null
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Saved LR/SP are subsequently restored before bnelr/blr."
+        }
+      ],
+      "link_id": "link:9c1c29d8-f9cd-4cb5-b569-1cd4fb13f8fb",
+      "reason": "Both entries participate in nonlocal control transfer: capture preserves the return point and restoration branches through it with the saved stack pointer."
+    },
+    {
+      "baseline_record": {
+        "id": "link:538c6570-4817-4cc3-ad29-4fcc3c61a5c9",
+        "from_target_id": "target:function:main/Runtime/Gecko_setjmp:__setjmp",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:nonlocal-control-transfer",
+        "role": "exhibits",
+        "why": "__setjmp records a resumable machine context that longjmp later restores to continue from the saved return address rather than unwind through the current call chain.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/Runtime/Gecko_setjmp.c#L1-L89",
+        "digest": "sha256:8ea42ec727158462"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L5-L77",
+          "why": "Saved LR/SP are subsequently restored before bnelr/blr."
+        }
+      ],
+      "link_id": "link:538c6570-4817-4cc3-ad29-4fcc3c61a5c9",
+      "reason": "Both entries participate in nonlocal control transfer: capture preserves the return point and restoration branches through it with the saved stack pointer."
+    }
+  ],
+  "coverage": {
+    "fact_count": 11,
+    "files": [
+      {
+        "canonical_complete": true,
+        "path": "src/Runtime/Gecko_setjmp.c",
+        "rendered_complete": true,
+        "renderer_issues": [
+          "107 reported parse errors; both functions marked parse_uncertain; zero substitutions. Entire rendered view reviewed against canonical assembly."
+        ],
+        "total_lines": 78
+      },
+      {
+        "canonical_complete": true,
+        "path": "src/Runtime/Gecko_setjmp.h",
+        "rendered_complete": true,
+        "renderer_issues": [],
+        "total_lines": 36
+      }
+    ],
+    "link_count": 2,
+    "subjects": [
+      {
+        "target_stable_key": "main/Runtime/Gecko_setjmp:__setjmp"
+      },
+      {
+        "target_stable_key": "main/Runtime/Gecko_setjmp:longjmp"
+      },
+      {
+        "entity_locator": "src/Runtime/Gecko_setjmp.c"
+      },
+      {
+        "entity_locator": "main/Runtime/Gecko_setjmp:__setjmp#r3"
+      },
+      {
+        "entity_locator": "main/Runtime/Gecko_setjmp:longjmp#r3"
+      },
+      {
+        "entity_locator": "main/Runtime/Gecko_setjmp:longjmp#r4"
+      }
+    ]
+  },
+  "review_scope": "proposed_changes_and_explicit_contradictions",
+  "coverage_basis": {
+    "kind": "inherited_full_librarian_or_legacy_research",
+    "upstream_job_id": "lead-main__Runtime__Gecko_setjmp-2",
+    "handoff_sha256": "2d67af7c0089f6eff25fa385ae18b9ccf8a32badf49ca5e8ab49a15d92054a33"
+  },
+  "reviewer": "/root/review_gate/kernel/reviewer-main__Runtime__Gecko_setjmp-1",
+  "tu": "main/Runtime/Gecko_setjmp",
+  "status": "accepted_for_staged_apply",
+  "kernel_job": {
+    "id": "reviewer-main__Runtime__Gecko_setjmp-1",
+    "role": "reviewer",
+    "task_id": "main__Runtime__Gecko_setjmp",
+    "output_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__Runtime__Gecko_setjmp-1",
+    "attempt": 1,
+    "prior_result": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/lead-main__Runtime__Gecko_setjmp-2/packet.json",
+    "input_proposal_sha256": "5154c1626398097073edbe2f76f0c8986b3c7ed1af748943fdb6d27fc1cb7f17",
+    "packet_contract": "lean-v2",
+    "handoff_path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__Runtime__Gecko_setjmp-1/inputs/handoff.json",
+    "input_handoff_sha256": "2d67af7c0089f6eff25fa385ae18b9ccf8a32badf49ca5e8ab49a15d92054a33",
+    "input_artifacts": {
+      "proposal.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__Runtime__Gecko_setjmp-1/inputs/proposal.json",
+        "sha256": "5154c1626398097073edbe2f76f0c8986b3c7ed1af748943fdb6d27fc1cb7f17"
+      },
+      "functionality.md": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__Runtime__Gecko_setjmp-1/inputs/functionality.md",
+        "sha256": "c78990c89d7f76694d5bd08d35c01bcf3b845944ccd14de94e6980a826036711"
+      },
+      "fact-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__Runtime__Gecko_setjmp-1/inputs/fact-dispositions.json",
+        "sha256": "48c40ef7a8db2d971b21628709f46da0430e3c133d6532539e46e7f47481fe13"
+      },
+      "link-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__Runtime__Gecko_setjmp-1/inputs/link-dispositions.json",
+        "sha256": "72f49d26222be3d678d2cf424b451d809e3cacee1205363f0694b83622073192"
+      },
+      "coverage.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__Runtime__Gecko_setjmp-1/inputs/coverage.json",
+        "sha256": "1254c89eb1efeb8920584f5cd8b7f2b1e14775682e67b8e5cb55ecf9c4cd2860"
+      },
+      "unresolved.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__Runtime__Gecko_setjmp-1/inputs/unresolved.json",
+        "sha256": "bbb68f122e4fd4e30892eebfdd27f3f1a1e4a2d905c7bd2eef9d1356d78e4c73"
+      }
+    }
+  },
+  "completed_at": "2026-09-08T22:07:16.183278+00:00"
+}

@@ -1,0 +1,1954 @@
+{
+  "tu": "main/sysdolphin/baselib/mtx",
+  "facts": [
+    {
+      "id": "fact:9ed8077e-4519-4087-b92f-b9cc35ae1b54",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_VecGetAllocData and HSD_MtxGetAllocData expose pointers to the section's first and second descriptors. Startup passes those pointers to HSD_ObjAllocInit with configurations of Vec size/alignment 4 and Mtx size/alignment 4, respectively. HSD_VecAlloc and HSD_MtxAlloc mutate the corresponding descriptor while obtaining entries, HSD_VecFree and HSD_MtxFree return entries through it, and HSD_ObjDumpStat reads both descriptors to report current, freed, and peak usage.",
+      "rationale": "The current allocator-wrapper cluster maps each descriptor to its getter, initializer, allocation wrapper, and release wrapper. HSD_ObjAlloc and HSD_ObjFree establish the descriptor mutations, while startup and statistics code show the descriptors' initialization and later reporting use.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows both descriptors flowing through vector and matrix allocation, release, access, and size-based initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows how allocation, release, and initialization mutate persistent HSD_ObjAllocData state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows startup invoking both initializers and statistics reporting consuming both descriptor getters."
+        }
+      ]
+    },
+    {
+      "id": "fact:5799e6ba-a37c-4bc5-8458-3b064c0b8196",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An 88-byte BSS layout containing two consecutive mutable HSD_ObjAllocData records: HSD_Mtx_804C2310 for the vector pool followed by HSD_Mtx_804C233C for the matrix pool. Each record is an allocator descriptor containing pool configuration, free-list, usage, limit, and registry-link state; the section does not contain vector or matrix entries themselves.",
+      "rationale": "The current source declares two consecutive HSD_ObjAllocData objects whose address-derived names are 0x2C bytes apart. Their consumers consistently treat them as allocator descriptors, while HSD_ObjAlloc returns the separately allocated vector or matrix entries.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mtx.c#L1-L120",
+          "why": "Types and orders the two BSS objects as HSD_ObjAllocData records."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Distinguishes the descriptors from the individual entries obtained through HSD_ObjAlloc."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows allocator descriptors carrying limits, free-list state, usage counters, entry layout, and registry linkage."
+        }
+      ]
+    },
+    {
+      "id": "fact:9532f00a-35ce-4aed-8557-77097bcdfd17",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides persistent allocator state for the mtx subsystem's two fixed-size object pools: one for three-component vectors and one for 3\u00d74 matrices. These descriptors let allocation, release, initialization, and allocator-statistics routines share the live state of each pool.",
+      "rationale": "The current mtx source uses one global descriptor exclusively for Vec-sized entries and the other for Mtx-sized entries. Engine startup initializes both, and the statistics routine queries them under the labels \"vec\" and \"mtx\".",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows separate vector and matrix descriptors shared by each pool's allocator, free, getter, and initializer routines."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows both pools initialized during HSD object startup and reported as the vec and mtx allocator categories."
+        }
+      ]
+    },
+    {
+      "id": "fact:96665c74-3629-4e0e-abf5-70c815b85d94",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The two descriptors begin as zero-initialized static storage and are transitioned during HSD object startup into separate empty, registered pool states. Initialization removes any prior registry occurrence, clears the descriptor, restores default unlimited allocation limits, sets an alignment mask of 3, records a stride equal to sizeof(Vec) or sizeof(Mtx), and reinserts the descriptor at the allocator-registry head. Subsequent allocation and release operations update each pool's free-list and usage counters independently.",
+      "rationale": "The file-scope declarations establish static storage. HSD_ObjInit invokes both descriptor initializers, and HSD_ObjAllocInit defines the unlink, reset, configuration, and registration transition. Separate descriptor addresses preserve independent pool accounting.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mtx.c#L1-L120",
+          "why": "Shows both descriptors as uninitialized file-scope objects."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows separate descriptors and fixed Vec/Mtx size and alignment configurations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows unlink-before-clear initialization, default limits, alignment and stride calculation, registry insertion, and allocation/free accounting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows both pool initializers called during common HSD object startup."
+        }
+      ]
+    },
+    {
+      "id": "fact:efd56b6a-1116-4dbf-9287-8f0774ec18ed",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_VecAlloc and HSD_MtxAlloc first receive a pointer from HSD_ObjAlloc and test it through HSD_ASSERT. On success they return the pointer without consuming the assertion strings; on a null result, the corresponding source and expression text from this section is supplied to the HSD assertion-reporting path.",
+      "rationale": "The matched source places each assertion immediately after its pool allocation and before the return. The assertion-recovery pull request establishes that these macro calls replace explicit assertion machinery, so the section's text is diagnostic input on the allocation-failure branch rather than ordinary transform data.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T04:56:47.101Z",
+      "subject": "main/sysdolphin/baselib/mtx:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L459-L482",
+          "why": "Shows the allocation result flowing directly into an HSD_ASSERT and then, if execution continues, being returned unchanged."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2676--main-sysdolphin-baselib-mtx",
+          "why": "Shows that the allocation checks are HSD assertion sites whose expanded diagnostic arguments were replaced by macros."
+        }
+      ]
+    },
+    {
+      "id": "fact:49b3a83f-7373-4b3e-8ad9-06eb378c8f53",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A compiler-emitted small-data character pool, effectively holding NUL-terminated assertion text for the source basename `mtx.c` and the asserted expressions `vec` and `mtx`, with alignment padding rather than an authored mutable structure.",
+      "rationale": "HSD_ASSERT must retain textual assertion metadata, and the two recovered macro invocations expose the exact expression spellings `vec` and `mtx`; the owning source supplies the `mtx.c` filename text. These three short strings account for the section's role and are more consistent with compiler-pooled character data than with a named matrix or allocator object.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T04:56:47.101Z",
+      "subject": "main/sysdolphin/baselib/mtx:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L459-L482",
+          "why": "Provides the owning source unit and the exact asserted expression tokens `vec` and `mtx` whose string forms are retained by the assertion expansion."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2676--main-sysdolphin-baselib-mtx",
+          "why": "Confirms that the recovered macro calls represent previously explicit HSD assertion expansions, which require source and expression strings."
+        }
+      ]
+    },
+    {
+      "id": "fact:97070189-9814-4821-9d9f-41ac7b8c730a",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the short assertion strings used when HSD_VecAlloc or HSD_MtxAlloc fails to obtain storage, allowing the HSD assertion path to identify the mtx source unit and the failed allocation-result expression.",
+      "rationale": "The only short textual data required by the recovered unit comes from the two allocation assertions: one asserts the local named `vec` and the other asserts `mtx`. The later pull request explicitly identifies these sites as formerly hand-expanded HSD assertions, supporting that the unit's small initialized-data contribution is assertion metadata rather than mutable matrix state.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T04:56:47.101Z",
+      "subject": "main/sysdolphin/baselib/mtx:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L459-L482",
+          "why": "Shows HSD_VecAlloc asserting the allocation result named `vec` and HSD_MtxAlloc asserting the result named `mtx` before either pointer is returned."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2676--main-sysdolphin-baselib-mtx",
+          "why": "Identifies the two affected mtx.c sites as hand-expanded assertions that were recovered as HSD assertion macros."
+        }
+      ]
+    },
+    {
+      "id": "fact:ddd6c644-87ac-4345-bda1-521411f30bed",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Code in mtx.c loads literals represented by this pool as operands and branch thresholds: 1e-10 rejects nearly singular determinants before inversion; the minimum normal f32 guards degenerate matrix bases and Euler singularities; \u00b11 and \u00b1\u03c0/2 bound rotation extraction; and zero, one, and negative-one values initialize matrix terms, form reciprocals, and correct reflected scale. No routine treats the section as mutable state or writes results back to it.",
+      "rationale": "The current source uses each value only as a fixed arithmetic operand or comparison threshold and writes computed results to caller-provided matrices and vectors. The archived address record identifies the pool's first word as the f32 value used by EPSILON.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mtx.c#L1-L120",
+          "why": "Shows the 1e-10 epsilon, zero, one, and sign literals used by matrix inversion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L121-L240",
+          "why": "Shows epsilon and minimum-normal-float guards plus angular saturation constants entering inverse-transpose and rotation extraction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L241-L360",
+          "why": "Shows \u00b1\u03c0/2, zero, and negative-one literals driving rotation extraction, matrix initialization, and reflected-scale correction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L361-L448",
+          "why": "Shows one-valued reciprocal numerators used during parent-scale compensation."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/992573693119176775",
+          "why": "Records the first word at 0x804DE658 as 0x2EDBE6FF."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/992574183240368170",
+          "why": "Decodes that first floating-point word as 1e-10."
+        }
+      ]
+    },
+    {
+      "id": "fact:5ede5a77-eba4-4928-8f9d-84ac70e2eeaa",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A compiler-emitted, read-only small-data literal pool containing independently addressed IEEE-754 floating-point scalars at ABI-required alignments, not a logical C array or matrix. Its first 4-byte entry at 0x804DE658 is the f32 value 1e-10 (bit pattern 0x2EDBE6FF).",
+      "rationale": "The address-level archival evidence supplies the first word's exact bits and decoded f32 value. Current source defines that value as EPSILON and consumes it alongside unrelated scalar constants across multiple routines, supporting a literal-pool layout rather than a coherent indexed structure.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mtx.c#L1-L120",
+          "why": "Defines EPSILON as 0.0000000001f and demonstrates scalar literal use in matrix calculations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L121-L240",
+          "why": "Shows additional unrelated scalar thresholds and angle limits consumed independently."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/992573693119176775",
+          "why": "Records the exact first 32-bit word at 0x804DE658 as 0x2EDBE6FF."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/992574183240368170",
+          "why": "Identifies the word as the f32 value 1e-10."
+        }
+      ]
+    },
+    {
+      "id": "fact:1ecae3c3-2c48-409c-af03-66cda83f3883",
+      "target_id": "target:data:main/sysdolphin/baselib/mtx:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the translation unit's read-only floating-point literal pool for affine-matrix calculations, including degeneracy thresholds, angular limits, signs, zeroes, and reciprocal numerators used by inversion, decomposition, and transform-construction routines.",
+      "rationale": "Current inversion, decomposition, rotation extraction, and SRT construction code repeatedly consumes fixed floating-point values for guards and arithmetic. The archived first-word identification connects the section address to the source's 1e-10 determinant epsilon.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mtx.c#L1-L120",
+          "why": "Shows determinant epsilon and reciprocal and sign literals used during inversion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L121-L240",
+          "why": "Shows fixed thresholds and angular bounds used during inverse-transpose and rotation decomposition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L241-L360",
+          "why": "Shows fixed zero, sign, and trigonometric literals used during decomposition and rotation-matrix construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L361-L448",
+          "why": "Shows fixed reciprocal numerators used by Euler- and quaternion-based SRT construction."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/992573693119176775",
+          "why": "Connects the section's starting address to the bit pattern 0x2EDBE6FF."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/992574183240368170",
+          "why": "Identifies that starting value as 1e-10."
+        }
+      ]
+    },
+    {
+      "id": "fact:94c335c8-2c10-468b-a1a1-2fd304d7b7f0",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MkRotationMtx",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the input vector's X, Y, and Z angles directly, computes one sine and cosine for each, combines those six values into the nine coefficients of the matrix's rotational 3\u00d73 block, and writes zero to each translation-column entry. It has no return value or other visible output.",
+      "rationale": "The source directly traces every input component through `sinf` and `cosf` into the nine rotational stores. The final three stores clear the affine translation column, so the supplied matrix is the routine's sole output.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:06.620Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MkRotationMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L323-L355",
+          "why": "Shows each angle read, all six trigonometric computations, every rotational coefficient written, and the three zero translation stores."
+        }
+      ]
+    },
+    {
+      "id": "fact:eec7a6ca-8528-4138-acdf-5dcfbc801db1",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MkRotationMtx",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A `void` matrix-construction routine with signature `void HSD_MkRotationMtx(Mtx out, Vec3* angles)`. `out` is a writable 3\u00d74 affine matrix, while `angles` supplies three floating-point angular components that the implementation only reads.",
+      "rationale": "The recovered definition supplies the exact return and parameter types. The body writes all twelve output matrix elements, reads each member of the Vec3 through `sinf` and `cosf`, does not modify the vector, and returns no separate result.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:06.620Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MkRotationMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L323-L355",
+          "why": "Contains the exact function signature and demonstrates read-only use of the Vec3 input and in-place writes to every element of the Mtx output."
+        }
+      ]
+    },
+    {
+      "id": "fact:554c8daa-b568-476c-91b5-31da8e63c7a2",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MkRotationMtx",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Constructs a 3\u00d74 affine rotation matrix from three Euler-angle components, representing the composition Rz \u00d7 Ry \u00d7 Rx and leaving the translation column zero.",
+      "rationale": "The matched body evaluates sine and cosine for the input vector's X, Y, and Z components and writes the resulting Rz \u00d7 Ry \u00d7 Rx coefficient expansion into the matrix's 3\u00d73 linear portion. Explicitly zeroing all three entries of the fourth column establishes that the result contains rotation only, with no translation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:06.620Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MkRotationMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L323-L355",
+          "why": "Shows the complete trigonometric expansion of the Euler rotation into the output matrix and the explicit zeroing of its translation column."
+        }
+      ]
+    },
+    {
+      "id": "fact:d3773f60-3edc-40c7-b291-c3c081ef18ff",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxAlloc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function supplies the global matrix-pool descriptor HSD_Mtx_804C233C to HSD_ObjAlloc, receives the removed free-list entry, asserts that pointer is non-null, and returns it unchanged to the caller. On successful allocation, HSD_ObjAlloc has already advanced the pool's free-list head, incremented used, decremented free, and updated peak usage if necessary.",
+      "rationale": "The wrapper exposes the descriptor-to-result path directly. The matched generic allocator establishes the accounting and free-list mutations completed before that pointer reaches the wrapper.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:25.479Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L475-L482",
+          "why": "Shows the matrix descriptor passed to HSD_ObjAlloc and the resulting pointer asserted and returned unchanged."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+          "why": "Shows HSD_ObjAlloc removing freehead, updating used, free, and peak counters, and returning that entry."
+        }
+      ]
+    },
+    {
+      "id": "fact:987c5c9c-25c5-41f0-b632-e918afeb6ca8",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxAlloc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void* HSD_MtxAlloc(void). The returned pointer addresses a mutable Mtx-sized pool entry intended to hold one 3\u00d74 matrix; allocation failure is handled internally by an assertion rather than exposed as an ordinary nullable result.",
+      "rationale": "The current definition supplies the exact signature, descriptor, assertion, and unchanged return. The matrix initializer configures that descriptor with sizeof(Mtx), while the generic allocator shows that its void pointer can otherwise be NULL.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the no-argument void-pointer signature, non-null assertion, matrix descriptor, and sizeof(Mtx) pool initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows that HSD_ObjAlloc returns an untyped entry pointer or NULL."
+        }
+      ]
+    },
+    {
+      "id": "fact:309866d0-9773-47eb-89ea-2f927a210c9b",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxAlloc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Allocates one 3\u00d74 matrix-sized block from HSD's dedicated matrix object pool, requires the allocation to succeed, and returns the storage without initializing its matrix elements.",
+      "rationale": "The current wrapper allocates from the matrix descriptor, asserts the result, and returns without writing through it. The same source initializes that descriptor with sizeof(Mtx).",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows allocation from the matrix descriptor, the success assertion, unchanged return, and sizeof(Mtx) pool configuration."
+        }
+      ]
+    },
+    {
+      "id": "fact:a6f28d41-ff1d-46f0-a3a7-b8ff4f493e73",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxAlloc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A successful call transitions one matrix-pool entry from free to used. If allocator limits reject the request or the empty free list cannot be replenished, HSD_ObjAlloc returns NULL and HSD_MtxAlloc immediately enters the assertion failure path instead of returning that failure to its caller.",
+      "rationale": "The generic allocator contains the limit guards, replenishment attempt, NULL returns, and successful free-to-used accounting transition. HSD_MtxAlloc places an unconditional non-null assertion immediately after that call.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:25.479Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+          "why": "Shows allocation rejection under configured limits, failure after unsuccessful free-list replenishment, and the successful transition of one entry from free to used."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L475-L482",
+          "why": "Shows that the matrix wrapper asserts the generic allocator's result before returning it."
+        }
+      ]
+    },
+    {
+      "id": "fact:180cb375-0035-4096-ac15-6c503b9cd3b3",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxFree",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a nullable matrix-storage pointer and produces no return value. NULL is discarded without accessing allocator state; otherwise, the unchanged pointer and the dedicated matrix allocator record HSD_Mtx_804C233C are forwarded to HSD_ObjFree. That callee stores the former free-list head into the released entry, makes the entry the new head, increments the allocator's free count, and decrements its used count.",
+      "rationale": "The complete target body establishes the guard and both arguments passed to HSD_ObjFree. The resolved callee establishes how those inputs mutate the released storage and matrix-pool accounting.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:36.895Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L484-L489",
+          "why": "Shows NULL being ignored and every non-NULL argument being forwarded unchanged with HSD_Mtx_804C233C to HSD_ObjFree."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows the forwarded pointer and allocator record driving free-list head insertion and the free/used counter updates."
+        }
+      ]
+    },
+    {
+      "id": "fact:40341cff-11bb-45d1-ae9d-1cda12c0af59",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxFree",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_MtxFree(void* arg0). The parameter is nullable and, when non-NULL, must point to one Mtx-sized entry obtained from the dedicated HSD matrix allocator. Upon release, the entry's leading storage is reused as an HSD_ObjAllocLink node in the allocator's intrusive free list.",
+      "rationale": "The current definition establishes the signature, NULL guard, and matrix descriptor, while the paired initializer establishes the Mtx-sized entry type. HSD_ObjFree reinterprets the supplied entry as a link and overwrites its leading next pointer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows HSD_MtxFree's exact signature, NULL guard, matrix descriptor, and sizeof(Mtx) allocator configuration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows released storage being treated as an HSD_ObjAllocLink for intrusive free-list insertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:9d9a4204-0061-429a-948b-7db18e6a69b2",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxFree",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns a non-NULL 3\u00d74 matrix allocation to HSD's dedicated reusable matrix pool. It is a low-level storage-release routine used after an owning object has finished with a projection or envelope matrix; it does not perform owner-specific teardown.",
+      "rationale": "The target delegates non-NULL storage to HSD_ObjFree with the matrix descriptor, whose initializer uses sizeof(Mtx). Camera and JObj teardown code call it for projection and envelope matrices after performing their own owner-specific cleanup.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows non-NULL matrix storage returned through the dedicated Mtx-sized pool."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows HSD_ObjFree recycling storage through an intrusive free list rather than a general heap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1511-L1527",
+          "why": "Shows JObj teardown using HSD_MtxFree for an optional envelope matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1358-L1383",
+          "why": "Shows camera teardown using HSD_MtxFree for an optional projection matrix."
+        }
+      ]
+    },
+    {
+      "id": "fact:597e02e5-2b6c-4bdc-b813-43c2d75f7af7",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxFree",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has two outcomes: a NULL input is a no-op, while a non-NULL input is unconditionally transitioned from the matrix allocator's used population to its free population. The function does not clear owner fields, inspect matrix contents, validate pool ownership, or guard against duplicate release; callers are responsible for invoking it only for a live allocation after owner-specific cleanup.",
+      "rationale": "The target branches only on pointer nullness and otherwise immediately delegates to HSD_ObjFree. That callee performs a branch-free used-to-free transition with no ownership or duplicate-release checks. The camera and JObj callers place the operation within their own teardown sequences, confirming that owner-specific lifecycle handling remains outside HSD_MtxFree.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:36.895Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L484-L489",
+          "why": "Shows the sole NULL guard and unconditional delegation for every non-NULL pointer, with no owner-field or matrix-content handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows the unconditional free-list and counter transition and the absence of ownership, null, or duplicate-release validation in the allocator callee."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1358-L1383",
+          "why": "Shows camera-specific resource cleanup surrounding the projection-matrix release, placing ownership teardown in the caller."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1511-L1527",
+          "why": "Shows JObj-specific hierarchy, registration, and allocation cleanup being ordered by the caller before superclass release."
+        }
+      ]
+    },
+    {
+      "id": "fact:66a7f35e-6611-48ea-991b-0507c1f72a9b",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetAllocData",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "With no input arguments, the function returns &HSD_Mtx_804C233C unchanged. HSD_MtxInitAllocData consumes that pointer to initialize the descriptor for Mtx-sized entries with alignment 4; HSD_MtxAlloc and HSD_MtxFree use the same descriptor directly when obtaining and returning matrix storage.",
+      "rationale": "The current end-of-file routine cluster displays the accessor and every relevant producer and consumer of the same descriptor in one span.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows HSD_Mtx_804C233C flowing through matrix allocation, release, descriptor access, and sizeof(Mtx) initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:75360394-3e77-4869-a7b6-3184d9c448d9",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetAllocData",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: HSD_ObjAllocData* HSD_MtxGetAllocData(void). Its result is a mutable pointer to a statically stored HSD object-pool descriptor, not a pointer to an allocated Mtx entry.",
+      "rationale": "The current definition directly supplies the typed signature and returns the address of global descriptor storage. Nearby HSD_MtxAlloc separately obtains individual entry pointers through HSD_ObjAlloc.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the exact accessor signature, static descriptor address, and distinction from matrix-entry allocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:d49a57f6-f8cd-4a65-916e-c254c52c7c84",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetAllocData",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Exposes the singleton HSD object-allocation descriptor that manages the translation unit's dedicated pool of 3\u00d74 matrix-sized entries, allowing allocator setup and external inspection or configuration of that pool.",
+      "rationale": "The accessor returns the live matrix descriptor by address. The same current source shows that descriptor used by matrix allocation and release and obtained through this accessor for sizeof(Mtx) initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the returned descriptor shared by matrix allocation, release, and allocator initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:ebacb10a-ab5c-46b4-ba9c-46ebc9133401",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetRotation",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The upper 3\u00d73 matrix columns supply three basis lengths. The function computes `y = asin(-m[2][0] / length0)`, with saturation to \u00b1\u03c0/2; in the nonsingular case it computes `x = atan2(m[2][1] / length1, m[2][2] / length2)` and `z = atan2(m[1][0], m[0][0])`. These radian angles are written to `vec`. Downstream, relation-object expressions use the function to obtain world-matrix rotation channels from JObjs and convert selected components to degrees before evaluating expressions.",
+      "rationale": "The current helper and function body establish the complete normalized matrix-to-Euler flow. The current relation-expression evaluator calls the function for world-matrix channels and multiplies the selected result by 57.29578.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetRotation",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L121-L240",
+          "why": "Shows calcVal's atan2 behavior, basis-length computation, normalized pitch input, and saturation setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L241-L360",
+          "why": "Shows the remaining Euler extraction paths and writes to vec."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L691-L810",
+          "why": "Shows relation expressions consuming selected world-matrix rotation components and converting them from radians to degrees."
+        }
+      ]
+    },
+    {
+      "id": "fact:ecc3614b-8dcd-40eb-b72b-3373f25eb5e2",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetRotation",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature `void HSD_MtxGetRotation(Mtx m, Vec3* vec)`: `m` is a 3\u00d74 single-precision affine matrix read as input, and `vec` receives single-precision X, Y, and Z Euler angles in radians.",
+      "rationale": "The matched definition establishes the void return, Mtx input, and Vec3 output pointer. The body reads matrix elements without modifying them and writes all three vector components. Its use of asin, atan2, \u03c0/2, and cos establishes radians as the angular unit; the expression evaluator's caller subsequently multiplies these results by 57.29578 to obtain degrees, independently confirming the unit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:40.915Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetRotation",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L218-L266",
+          "why": "Provides the exact function signature and shows the matrix reads, Vec3 writes, and radian-valued trigonometric operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L691-L810",
+          "why": "Shows a caller extracting each matrix-rotation component and multiplying it by 57.29578 before expression evaluation, confirming that HSD_MtxGetRotation returns radians."
+        }
+      ]
+    },
+    {
+      "id": "fact:e47be8a8-b339-47f8-aa6f-7dac69486164",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetRotation",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Decomposes the rotational part of an HSD 3\u00d74 affine matrix into XYZ Euler angles in radians, removing the magnitude of each basis column so embedded per-axis scale does not affect the recovered orientation.",
+      "rationale": "The current function computes lengths for the three upper-3\u00d73 columns, divides selected components by those lengths, and applies asin and quadrant-aware atan2 calculations. It never consumes the translation column.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetRotation",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L121-L240",
+          "why": "Shows the atan2 helper and the start of basis-column normalization and Euler extraction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L241-L360",
+          "why": "Shows the completed normalized angle calculations and Vec3 outputs without translation-column use."
+        }
+      ]
+    },
+    {
+      "id": "fact:e8021068-d232-41c1-96c1-5220264a8f26",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetRotation",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If any of the three basis-column lengths is below FLOAT_MIN, the matrix is treated as degenerate and all three output angles are set to zero. Otherwise the normalized pitch input is saturated to \u00b1\u03c0/2 before asin. When cos(y) is at least FLOAT_MIN, the function uses the ordinary three-angle solution; at the pitch singularity it instead derives X from matrix elements m[1][1] and m[0][1] and fixes Z to zero, choosing one deterministic representative of the non-unique Euler solution.",
+      "rationale": "The current nested guards lead to the all-zero fallback, the pitch comparisons prevent out-of-range asin input, and the cosine guard explicitly separates the regular solution from the singular branch.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetRotation",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L121-L240",
+          "why": "Shows the FLOAT_MIN guards, calcVal behavior, and pitch saturation conditions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L241-L360",
+          "why": "Shows the regular extraction path, singular path fixing Z to zero, and all-zero degenerate fallback."
+        }
+      ]
+    },
+    {
+      "id": "fact:7b64ad25-0f04-4074-8920-136ead0b3483",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetScale",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Matrix column 0 flows directly through magnitude and normalization to output X and the first unit basis vector. Column 1 has its projection onto that first basis vector subtracted, after which its residual magnitude becomes output Y and its normalized residual becomes the second basis vector. Column 2 has its projections onto the second and first basis vectors subtracted in sequence, and the remaining magnitude becomes output Z. The normalized basis is then used for a handedness test; if `dot(axis0, cross(axis1, axis2))` is negative, all three output components are multiplied by \u22121.",
+      "rationale": "The ordered VECMag, VECNormalize, VECDotProduct, VECScale, and VECSubtract calls directly establish the projection-removal pipeline. The final VECCrossProduct and dot-product branch establish how orientation changes the signs of the completed output vector.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:35.878Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetScale",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L276-L321",
+          "why": "Directly shows the complete flow from the three matrix columns through projection removal, normalization, magnitude outputs, and the final handedness-based sign adjustment."
+        }
+      ]
+    },
+    {
+      "id": "fact:ed98fff5-b7e0-461e-845e-be671defaf4b",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetScale",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Output-parameter matrix operation with signature `void HSD_MtxGetScale(Mtx mtx, Vec3* scale)`: `mtx` supplies a 3\u00d74 affine matrix, only its upper-left 3\u00d73 linear portion is read, and the three floating-point scale components are written through `scale`.",
+      "rationale": "The matched declaration establishes the void return, Mtx input, and Vec3 output pointer. Every input access is within columns 0 through 2 of rows 0 through 2, while the translation column is untouched; all results are communicated through scale.x, scale.y, and scale.z.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:35.878Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetScale",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L276-L321",
+          "why": "Provides the exact function signature and shows reads restricted to the matrix's 3\u00d73 basis block and writes to the three Vec3 output components."
+        }
+      ]
+    },
+    {
+      "id": "fact:f0ca47e6-20dc-415c-b69e-55fff0a934da",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetScale",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Decomposes the linear 3\u00d73 portion of an affine matrix into three scale factors, first removing inter-axis projections so shear does not inflate the later-axis scales, then assigning a common negative sign when the resulting basis has reflected handedness.",
+      "rationale": "The function takes the matrix's first three columns as basis vectors. It records the first column's magnitude, removes the first normalized axis from the second column before measuring it, removes both preceding normalized axes from the third column before measuring it, and finally tests basis handedness with a cross and dot product. A real caller uses the resulting components specifically as matrix-derived X, Y, and Z scale inputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:35.878Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetScale",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L276-L321",
+          "why": "Shows extraction and orthogonalization of the matrix's three basis columns, magnitude calculation for each residual axis, and reflected-handedness sign handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L691-L810",
+          "why": "Shows relation-expression evaluation calling HSD_MtxGetScale and consuming its three outputs as matrix-derived X, Y, and Z scale values."
+        }
+      ]
+    },
+    {
+      "id": "fact:7fa88117-6be5-4f0a-91d2-b1631b582c44",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetScale",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine has no null or zero-length guards before normalizing the first column and the two orthogonalized residuals, so its valid-input contract requires three nondegenerate independent basis directions. For a non-reflected basis it leaves all measured magnitudes nonnegative; for a reflected basis it negates all three together rather than assigning the reflection sign to only one axis.",
+      "rationale": "The source unconditionally normalizes each basis or residual immediately after measuring it, with no validation branches. Its sole conditional compares the handedness scalar with zero and multiplies every output component by \u22121 when that scalar is negative.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:31:35.878Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetScale",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L276-L321",
+          "why": "Shows unconditional normalization of all three derived axes and the single branch that uniformly negates X, Y, and Z for negative handedness."
+        }
+      ]
+    },
+    {
+      "id": "fact:d9435b07-627a-4f7c-9c1b-0d13f70050be",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetTranslate",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads matrix elements `[0][3]`, `[1][3]`, and `[2][3]` and writes them respectively to `vec->x`, `vec->y`, and `vec->z`. JObj animation uses the result as a joint's local translation after converting its matrix into parent-relative space, while the Joint1 inverse-kinematics solver uses a parent matrix's extracted translation as the chain's positional anchor.",
+      "rationale": "The function body establishes the exact element-to-field mapping. JObjUpdateFunc first obtains a local matrix through inverse concatenation and then passes it to this routine to replace the JObj translation. resolveIKJoint1 passes the parent JObj matrix to the routine and subsequently subtracts the extracted position from the effector and bend-reference positions, showing how the output feeds skeletal calculations.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:43.223Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetTranslate",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L269-L274",
+          "why": "Shows the exact flow from the affine matrix's fourth column into the output vector."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L471-L529",
+          "why": "Shows JObj animation deriving a parent-relative matrix and using HSD_MtxGetTranslate to update the joint's local translation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1104-L1252",
+          "why": "Shows the Joint1 IK solver extracting its parent matrix translation and using that position as the origin for effector-target and bend-reference vectors."
+        }
+      ]
+    },
+    {
+      "id": "fact:05b8c5c4-4170-45e3-9b48-f4cfa7c503f2",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetTranslate",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports hierarchical model posing by recovering joint positions from affine transforms, including animation-driven local-transform decomposition and parent anchoring for inverse-kinematics chains.",
+      "rationale": "The helper itself performs generic affine translation extraction. Its JObj callers ground that operation in two model-pose paths: decomposing an animated joint matrix into local translation and obtaining the parent position used to solve an articulated IK chain.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-01T23:31:43.223Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetTranslate",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L471-L529",
+          "why": "Shows the helper recovering local translation while animation channels decompose a JObj matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1104-L1252",
+          "why": "Shows the helper recovering the parent joint position used as the positional anchor for a Joint1 IK solution."
+        }
+      ]
+    },
+    {
+      "id": "fact:218905f6-a7c1-4e07-8c6d-71823672aa5d",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetTranslate",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Exact signature `void HSD_MtxGetTranslate(Mtx mat, Vec3* vec)`: `mat` is the input 3\u00d74 affine matrix and `vec` is a mutable output vector receiving its three translation coordinates.",
+      "rationale": "The matched definition supplies the return and parameter types, and all writes go through the Vec3 pointer while the matrix is only read.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:43.223Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetTranslate",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L269-L274",
+          "why": "Provides the exact signature and demonstrates that the matrix is read while all three Vec3 fields are written."
+        }
+      ]
+    },
+    {
+      "id": "fact:49a7dcbd-5c45-46ba-a583-8a3f0ab39dba",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxGetTranslate",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Extracts the translation component of a 3\u00d74 affine matrix into a three-component vector.",
+      "rationale": "The matched body copies the fourth column of the matrix's three rows into the output vector's x, y, and z components. In HSD's affine-matrix layout, that column is the translation component.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:43.223Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxGetTranslate",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L269-L274",
+          "why": "The complete function directly copies mat[0][3], mat[1][3], and mat[2][3] to the output vector's x, y, and z fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:d005c232-6920-41aa-95fd-15cf45f3d2d6",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInitAllocData",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine has no caller-supplied inputs or return value. It obtains the persistent matrix allocation descriptor from HSD_MtxGetAllocData and forwards it with sizeof(Mtx) and alignment 4 to HSD_ObjAllocInit. That callee clears and configures the descriptor, records an alignment mask of 3 and an aligned Mtx-sized stride, and prepends it to the global allocator-descriptor registry; later matrix allocation, release, and allocator-statistics operations consume the descriptor.",
+      "rationale": "The current target proves the exact descriptor, type-sized entry configuration, and alignment passed to HSD_ObjAllocInit. The allocator implementation establishes how those values become descriptor state, and current startup/statistics code shows later consumers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the descriptor getter feeding sizeof(Mtx) and alignment 4 to initialization and the same descriptor used by allocation and release."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows the supplied descriptor, size, and alignment becoming reset allocator state and registry membership."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows startup invoking the initializer and statistics reporting querying the resulting matrix descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:a9d978d8-246f-4c5f-9c2f-c2aa4cd5f5eb",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInitAllocData",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_MtxInitAllocData(void). It takes no parameters and returns no value; it configures a persistent HSD_ObjAllocData descriptor for Mtx-sized entries aligned to four bytes.",
+      "rationale": "The current definition directly establishes the void(void) signature and passes the mutable descriptor, sizeof(Mtx), and alignment 4 to HSD_ObjAllocInit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the exact signature and the descriptor, sizeof(Mtx), and alignment arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows HSD_ObjAllocInit interpreting its arguments as descriptor, byte size, and alignment."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e8b0ac5-5ad8-4dad-a2c2-63dbd2620445",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInitAllocData",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes and registers the fixed-size allocation descriptor used by HSD_MtxAlloc and HSD_MtxFree for 3\u00d74 matrices, configuring Mtx-sized entries with four-byte alignment during the common HSD object-allocation startup sequence.",
+      "rationale": "The target configures the same descriptor used by the matrix allocation and release wrappers. HSD_ObjInit invokes the target alongside the engine's other allocator-family initializers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the matrix allocator, free wrapper, getter, and sizeof(Mtx)-based initializer sharing one descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows HSD_ObjInit invoking HSD_MtxInitAllocData during common allocator startup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows HSD_ObjAllocInit registering the configured descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:20fccc8d-fed7-4da7-9ae6-c246b617408b",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInitAllocData",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Calling the routine transitions the matrix allocator descriptor to a freshly initialized, registered pool state. If the descriptor was already registered, HSD_ObjAllocInit removes all of its existing registry links before clearing it, restoring default unlimited allocation limits, setting four-byte alignment and an Mtx-sized stride, and reinserting it at the head of the allocator registry.",
+      "rationale": "The target always invokes HSD_ObjAllocInit on the same persistent descriptor. The current callee explicitly unlinks every prior occurrence, clears the record, restores limits, computes layout fields, and reinserts the descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows every invocation applying fixed Mtx size and alignment configuration to the persistent matrix descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows unlink-before-clear reinitialization, default limits, alignment and stride setup, and registry reinsertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:73101af9-dc8e-4741-a50e-00d0ba66152d",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverse",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `src` to calculate its determinant. If the determinant magnitude is below `EPSILON`, it overwrites `dest` with an identity matrix and returns. Otherwise it replaces the determinant with its reciprocal, reads source coefficients to write the inverse 3\u00d73 linear component into `dest`, and then combines that result with the source translation column to write the inverse translation. When `src` and `dest` are the same matrix, it first copies the source into a local `Mtx` and uses that copy while deriving the inverse linear coefficients.",
+      "rationale": "The source directly exposes the determinant input, singular output path, reciprocal determinant, cofactor writes, translation-column calculation, and the local-copy selection used by the equal-pointer branch.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:06.793Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverse",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L21-L57",
+          "why": "Directly demonstrates the function's source reads, destination writes, singular fallback, reciprocal-determinant transformation, and source/destination alias branch."
+        }
+      ]
+    },
+    {
+      "id": "fact:ce39935c-8309-49fe-b895-f6ab242494b7",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverse",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void matrix operation with signature `void HSD_MtxInverse(Mtx src, Mtx dest)`, where each `Mtx` is a 3-row by 4-column single-precision affine matrix. `src` supplies the transform and `dest` receives either its inverse or the singular-case identity fallback; the implementation explicitly recognizes that the two operands may designate the same storage.",
+      "rationale": "The recovered declaration supplies the exact return and parameter types. Indexing rows 0\u20132 and columns 0\u20133 establishes the 3\u00d74 layout, while the `src == dest` branch establishes permitted storage aliasing.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:06.793Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverse",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L21-L57",
+          "why": "Contains the exact function signature, complete matrix indexing, source/destination roles, and explicit equality test between the two matrix operands."
+        }
+      ]
+    },
+    {
+      "id": "fact:cef6187b-25b3-406a-88e8-41f1f7ef9272",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverse",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Computes the inverse of a 3\u00d74 affine transformation matrix. For a nonsingular source, it inverts the 3\u00d73 linear component with determinant-scaled cofactors and derives the inverse translation as the negated product of that inverse linear component and the source translation; when the determinant magnitude is below `EPSILON`, it writes the identity transform instead.",
+      "rationale": "The function tests the source matrix's determinant, writes the cofactor matrix divided by that determinant into the destination's first three columns, and computes the translation column as `-A^-1 t`. Its early singular-matrix branch explicitly initializes the destination to identity.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:06.793Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverse",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L21-L57",
+          "why": "Shows the determinant guard, identity fallback, determinant-scaled cofactor calculation for the inverse linear component, and inverse-translation calculation."
+        }
+      ]
+    },
+    {
+      "id": "fact:6e7bd43c-5226-49d6-829c-373d97505a37",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverseConcat",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `inv` to calculate its determinant and inverse affine coefficients, combines those coefficients with every column of `src`, and writes the resulting 3\u00d74 matrix to `dest`. When `dest` aliases either input, it first writes the complete result to a local `Mtx` and copies it back, preventing output stores from clobbering unread input elements. For a determinant with magnitude below `EPSILON`, it copies `src` only when `src` and `dest` differ.",
+      "rationale": "The source visibly separates determinant/inverse calculation from the matrix products, selects a local-matrix-and-copy path for `inv == dest || src == dest`, writes directly only for non-aliasing operands, and guards the singular fallback copy with `src != dest`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:08.081Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverseConcat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L60-L157",
+          "why": "Directly demonstrates all input reads, output products, singular handling, alias checks, temporary storage, and copy-back behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:a6889d55-516b-47bb-a2d9-ad2591937960",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverseConcat",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void matrix operation with signature `void (Mtx inv, Mtx src, Mtx dest)`, where each `Mtx` is used as a 3-row by 4-column single-precision affine transformation matrix; `inv` and `src` are inputs and `dest` is the output.",
+      "rationale": "The recovered declaration supplies the exact return and parameter types, while indexed accesses from rows 0\u20132 and columns 0\u20133 and the `f32` arithmetic establish the 3\u00d74 single-precision affine layout and parameter directions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:08.081Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverseConcat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L60-L157",
+          "why": "Contains the complete function signature and all matrix-indexed reads and writes needed to establish the operands' layout and roles."
+        }
+      ]
+    },
+    {
+      "id": "fact:73acfa84-f409-4652-a2d9-3c8e698bbf2f",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverseConcat",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Computes the affine transform obtained by concatenating the inverse of `inv` with `src`, producing `dest = inverse(inv) * src`; if `inv` is effectively singular, it leaves the transform uninverted and returns a copy of `src` instead.",
+      "rationale": "The code calculates the determinant of `inv`, derives its inverse linear and translation components from cofactors divided by that determinant, and uses those components as the left-hand matrix in every output dot product with `src`. Its determinant guard explicitly copies `src` to `dest` when the determinant magnitude is below EPSILON.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:08.081Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverseConcat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L60-L157",
+          "why": "Directly shows determinant testing, construction of the affine inverse components, multiplication by `src`, and the singular-matrix copy fallback."
+        }
+      ]
+    },
+    {
+      "id": "fact:7ed13b39-bfa0-4a67-9e31-19ae8a8ac600",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverseTranspose",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the source's upper 3\u00d73 elements to obtain its determinant and inverse-transpose cofactors, then writes the nine transformed coefficients and three zero translation entries to `dest`. For an in-place nonsingular operation, it copies the complete source into a local `Mtx` before writing so destination stores cannot clobber unread source elements. For a near-singular source, it copies `src` only when `src` and `dest` differ.",
+      "rationale": "The source first derives `det` from `src`, redirects reads to `tempMatrix` when the operands alias, and only then performs destination stores. The singular branch separately guards its copy with a source/destination inequality test.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:15.951Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverseTranspose",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L159-L203",
+          "why": "Directly demonstrates all source reads, output stores, temporary-matrix alias protection, and singular-case copy behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:7b932189-fb7b-46c1-ae60-f7f1f3160746",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverseTranspose",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes surface-normal transformation for model lighting. Fighter-parts rendering invokes it after optionally composing the model matrix with a fighter-specific Z-scale matrix, then loads the result into GX as a normal matrix when the current joint uses lighting.",
+      "rationale": "The fighter-parts setup helpers call `HSD_MtxInverseTranspose` on either the model matrix or a Z-scaled composition. The resulting matrix is subsequently passed to `GXLoadNrmMtxImm`, and that load is guarded by `JOBJ_LIGHTING`, grounding the routine in the lit-model normal transformation path.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:32:15.951Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverseTranspose",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L64-L154",
+          "why": "Shows optional Z-scale composition followed by `HSD_MtxInverseTranspose`, and shows the result being loaded through `GXLoadNrmMtxImm` when `JOBJ_LIGHTING` is set."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L159-L203",
+          "why": "Shows that the produced matrix is the inverse transpose of the source's linear component with translation removed."
+        }
+      ]
+    },
+    {
+      "id": "fact:d8127eef-ceb9-4a86-8058-c02f12148d90",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverseTranspose",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void matrix operation with signature `void (Mtx src, Mtx dest)`, where `Mtx` is used as a 3-row by 4-column single-precision affine matrix. `src` is the input and `dest` is the output, and the two operands are permitted to alias.",
+      "rationale": "The recovered declaration provides the return and parameter types. Indexed accesses cover rows 0\u20132 and columns 0\u20133, determinant arithmetic uses `f32`, and the explicit equality check between source and destination proves that in-place use is supported.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:15.951Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverseTranspose",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L159-L203",
+          "why": "Contains the complete function signature, matrix-indexed floating-point operations, and source/destination alias check."
+        }
+      ]
+    },
+    {
+      "id": "fact:f6b27f47-ec1a-4fb1-976e-e3fb9cd1039e",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxInverseTranspose",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Computes the inverse transpose of the linear 3\u00d73 portion of a 3\u00d74 affine matrix and writes it as a translation-free matrix. If the source determinant has magnitude below `EPSILON`, it falls back to the original source matrix instead of attempting the inverse transpose.",
+      "rationale": "The function calculates the determinant of the source matrix's upper 3\u00d73 section, divides its cofactor terms by that determinant, stores those terms in transposed row/column positions, and explicitly zeros the destination's translation column. Its determinant guard copies the source to a distinct destination and otherwise leaves an in-place source unchanged.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:15.951Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxInverseTranspose",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L159-L203",
+          "why": "Directly shows determinant testing, transposed cofactor assignments scaled by the reciprocal determinant, zeroing of all three translation entries, and the near-singular copy fallback."
+        }
+      ]
+    },
+    {
+      "id": "fact:a8950a34-23e9-4f85-8ba9-3acfed836eff",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxQuat",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Forwards the caller-supplied destination matrix and quaternion to `MTXQuat`. In the retail mapping, `PSMTXQuat` reads `(x, y)` and `(z, w)`, computes a scale equivalent to `2 / (x\u00b2 + y\u00b2 + z\u00b2 + w\u00b2)`, combines scaled square and cross terms into the nine rotation coefficients, and writes zero to all three translation-column elements. The completed matrix is returned to the caller through the original `Mtx` argument.",
+      "rationale": "The wrapper demonstrates unchanged argument forwarding. The header identifies the retail `MTXQuat` mapping, and the paired-single and scalar implementations together establish the component loads, magnitude-derived scale, rotation-coefficient calculations, destination stores, and zero translation output.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:17.073Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxQuat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L357-L360",
+          "why": "Shows that no intermediate state is introduced: both caller arguments are passed directly to `MTXQuat`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/include/dolphin/mtx.h#L42-L113",
+          "why": "Shows that the non-DEBUG build resolves `MTXQuat` to the paired-single `PSMTXQuat` implementation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/mtx/mtx.c#L801-L849",
+          "why": "Shows the packed quaternion loads, reciprocal refinement, bilinear arithmetic, and stores that populate the output matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/mtx/mtx.c#L850-L900",
+          "why": "Expresses the equivalent scalar formula explicitly, including the squared-magnitude divisor, all nine rotation coefficients, and the three zero translation assignments."
+        }
+      ]
+    },
+    {
+      "id": "fact:dc3001a6-c270-4f30-a30f-647a8dd71929",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxQuat",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_MtxQuat(Mtx m, Quaternion* q)`. `m` is an output array of three rows by four `f32` elements. `q` points to four input `f32` components ordered `x`, `y`, `z`, and `w`; the delegated conversion reads but does not modify the quaternion.",
+      "rationale": "The wrapper declaration establishes the return and parameter types. The Dolphin type definitions provide the exact matrix dimensions and quaternion field layout, while the conversion implementation only loads quaternion components and stores matrix elements.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:17.073Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxQuat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L357-L360",
+          "why": "Provides the wrapper's concrete `void`, `Mtx`, and `Quaternion*` signature."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/include/dolphin/mtx.h#L42-L113",
+          "why": "Defines `Quaternion` as the four `f32` fields `x`, `y`, `z`, and `w`, and defines `Mtx` as `f32[3][4]`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/mtx/mtx.c#L801-L849",
+          "why": "Shows the optimized implementation loading the quaternion's two component pairs and writing the destination matrix without storing through the quaternion pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:a6d069bb-819c-4f6c-a2cd-16916f54ef9c",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxQuat",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides HSD with a thin quaternion-to-matrix conversion wrapper. It delegates to Dolphin's `MTXQuat` implementation, which constructs a translation-free 3\u00d74 affine rotation matrix from a nonzero quaternion and compensates for a quaternion that is not already unit length by dividing its terms by the squared magnitude.",
+      "rationale": "The HSD function consists solely of forwarding its matrix and quaternion arguments to `MTXQuat`. The Dolphin header maps that operation to `PSMTXQuat` in the retail non-DEBUG configuration, while the scalar counterpart exposes the same conversion formula, its nonzero-quaternion precondition, normalization by squared magnitude, and zero translation column.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:17.073Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxQuat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L357-L360",
+          "why": "Shows that `HSD_MtxQuat` is a direct wrapper around `MTXQuat`, forwarding both arguments unchanged."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/include/dolphin/mtx.h#L42-L113",
+          "why": "Defines `Quaternion` as four `f32` components, `Mtx` as a 3\u00d74 `f32` matrix, and maps `MTXQuat` to `PSMTXQuat` in non-DEBUG builds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/mtx/mtx.c#L850-L900",
+          "why": "The scalar implementation documents the nonzero input requirement and shows the magnitude-adjusted quaternion-to-rotation-matrix formula with a zero translation column."
+        }
+      ]
+    },
+    {
+      "id": "fact:63f90656-6eab-48c8-a801-af882da8e716",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function evaluates sine and cosine for the input X, Y, and Z Euler angles, duplicates the three local-scale components into coefficient-specific temporaries, and, when parent_scale is present, multiplies those temporaries by cross-axis parent-scale ratios. It then writes a scaled Rz\u00b7Ry\u00b7Rx rotation into output[0..2][0..2] and copies translation.x, translation.y, and translation.z into output[0][3], output[1][3], and output[2][3]. In JObj use, that local result is subsequently concatenated with the parent's matrix.",
+      "rationale": "The displayed coefficient formulas exactly match the Rz\u00b7Ry\u00b7Rx Euler rotation matrix, with each coefficient multiplied by a local-scale term. The optional branch explicitly forms ratios from the fourth vector before those writes, while the JObj caller shows the produced matrix flowing into parent/local concatenation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:38.208Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L362-L410",
+          "why": "Shows every input read, intermediate trigonometric and scale-ratio calculation, and destination matrix write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows the resulting local matrix being consumed by PSMTXConcat with the parent JObj matrix."
+        }
+      ]
+    },
+    {
+      "id": "fact:91e51522-68d1-4185-af4b-2c2142c1925d",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes local scene-graph node transformation for Euler-rotated HSD JObjs: it converts a node's scale, rotation, and translation into the local matrix that is then combined with the parent transform to place the node hierarchically.",
+      "rationale": "HSD_JObjMakeMatrix chooses HSD_MtxSRT for the non-quaternion rotation path, supplies the JObj's local transform fields, and immediately concatenates the result with the parent matrix when a parent exists. This directly grounds the generic matrix operation in HSD's hierarchical object transformation mechanism.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:38.208Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Directly shows HSD_MtxSRT constructing an Euler-rotation JObj's local transform before hierarchical parent-matrix concatenation."
+        }
+      ]
+    },
+    {
+      "id": "fact:ac970f08-d3e5-49d5-8d70-c9a1018500aa",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void (Mtx output, Vec3* scale, Vec3* euler_rotation, Vec3* translation, Vec3* parent_scale); output is a writable 3\u00d74 affine matrix, the first three vectors are required inputs, and parent_scale is nullable. The rotation components are angles consumed directly by sinf and cosf.",
+      "rationale": "The matched definition establishes the return type and five parameters. Every component of the first three vectors is dereferenced unconditionally, while the fourth vector is guarded by a null check. The output receives exactly three rows and four columns, and each rotation component is passed directly to the trigonometric functions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:38.208Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L362-L410",
+          "why": "Directly establishes the signature, pointer nullability behavior, trigonometric angle inputs, and 3\u00d74 output layout."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Confirms the semantic roles of the vectors by passing JObj scale, vector-form rotation, translation, and optional parent accumulated scale in that order."
+        }
+      ]
+    },
+    {
+      "id": "fact:839e068f-7967-4c24-ab0d-4ded3145174c",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Constructs a 3\u00d74 affine matrix from componentwise scale, Euler rotation, and translation, with an optional accumulated parent-scale correction used before hierarchical matrix concatenation.",
+      "rationale": "The function computes the sine and cosine of all three rotation components, combines them with the supplied scale into the matrix's 3\u00d73 linear portion, and copies translation into the final column. When a fourth vector is supplied, it adjusts the scale terms by ratios of that vector's components. HSD_JObjMakeMatrix identifies that vector as the parent's accumulated scale and concatenates the resulting local matrix with the parent matrix, establishing why the correction exists.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:38.208Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L362-L410",
+          "why": "Shows the complete matrix construction, including Euler trigonometry, scale application, optional component-ratio adjustment, and translation-column writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows HSD_JObjMakeMatrix passing local scale, Euler rotation, local translation, and optional parent accumulated scale to HSD_MtxSRT before concatenating the local matrix with the parent matrix."
+        }
+      ]
+    },
+    {
+      "id": "fact:bb98e7e2-62f5-4b31-be8c-4ddd29ef39a0",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null parent_scale selects ordinary local SRT construction. A non-null parent_scale selects the compensated path, where each affected rotation-scale coefficient is adjusted by a ratio between two parent-scale axes; because the function takes reciprocals without zero guards, callers must supply nonzero components on this path.",
+      "rationale": "The only control-flow distinction in the function is the null check around three reciprocal calculations and six ratio-based scale adjustments. The absence of denominator checks establishes the nonzero-component precondition. HSD_JObjMakeMatrix enters this path only when its parent has an accumulated-scale vector.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-01T23:31:38.208Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRT",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L362-L410",
+          "why": "Shows the nullable fourth-vector branch, unguarded component reciprocals, and the exact coefficient adjustments made only on that branch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows that the caller passes the parent's accumulated scale when one exists and otherwise passes null."
+        }
+      ]
+    },
+    {
+      "id": "fact:0da39985-da99-4e0e-b5a0-8dd523fab24b",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Let `S` be the local-scale matrix, `R` the quaternion rotation, `T` the translation, and `P` the optional parent-scale matrix. The function initializes `out = S`; without `P` it produces `out = T \u00d7 R \u00d7 S`. With `P`, it successively left-multiplies by `P`, `R`, `P\u207b\u00b9`, and `T`, producing `out = T \u00d7 P\u207b\u00b9 \u00d7 R \u00d7 P \u00d7 S`. All intermediate matrices use a stack-local `Mtx`, and every concatenation writes back into `out`.",
+      "rationale": "The source gives the exact constructor and concatenation sequence. The resolved MTX concatenation implementation establishes that `MTXConcat(a, b, out)` calculates `a \u00d7 b`, allowing the final products to be derived directly rather than inferred from names alone.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:56.284Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L412-L434",
+          "why": "Shows initialization from local scale and every subsequent in-place concatenation, including optional scale and inverse-scale matrices."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/mtx/mtx.c#L90-L250",
+          "why": "Gives the explicit affine-product formulas proving the operand order of each concatenation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/mtx/mtx.c#L801-L900",
+          "why": "Shows that the quaternion constructor emits a translation-free rotation matrix used as `R` in the composition."
+        }
+      ]
+    },
+    {
+      "id": "fact:b9eef6ce-d661-4447-8afa-f839a962e4e0",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the quaternion-rotation path for JObj local transforms. HSD_JObjMakeMatrix selects it when JObj flag `0x20000` is set, passes the node's local scale, quaternion, and translation plus any accumulated parent scale, and then composes the generated matrix with the parent's matrix to obtain the node's hierarchical transform.",
+      "rationale": "The direct caller's branch on flag 0x20000 invokes HSD_MtxSRTQuat with the JObj's transform fields and parent scale, then concatenates the parent matrix. This grounds the generic matrix routine in Melee's scene-graph transform pipeline.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:56.284Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows the JObj flag selecting quaternion SRT construction, the exact JObj fields supplied, and the subsequent parent-matrix concatenation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L412-L434",
+          "why": "Shows how those JObj transform inputs are converted into the local affine matrix."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e6cfcdb-88cd-43c1-ae9b-46ec5ee51769",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_MtxSRTQuat(Mtx out, Vec3* scale, Quaternion* rotation, Vec3* translation, Vec3* parent_scale)`. `out` is a writable 3\u00d74 affine matrix; the next three pointers provide local scale, quaternion rotation, and translation; `parent_scale` is optional. A non-null parent scale must have nonzero components because the function takes their reciprocals, and the quaternion must be nonzero for the quaternion-to-matrix conversion to be defined.",
+      "rationale": "The matched definition supplies the concrete signature and shows the first argument being overwritten while the pointer arguments are only read. The optional fifth pointer is guarded against null but its components are later divided into 1.0. The resolved quaternion conversion computes 2 divided by the quaternion's squared magnitude and documents a nonzero-quaternion requirement.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:56.284Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L412-L434",
+          "why": "Provides the exact function signature, establishes each parameter's role, and shows reciprocal use of every non-null parent-scale component."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/mtx/mtx.c#L801-L900",
+          "why": "Shows the quaternion representation and conversion formula, including division by squared magnitude and the scalar counterpart's nonzero-quaternion precondition."
+        }
+      ]
+    },
+    {
+      "id": "fact:6ee5c183-8cae-4b2c-bc9b-e7c0d137ceb2",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Constructs a local 3D affine transform from scale, quaternion rotation, and translation, optionally conjugating the rotation-and-scale portion by an accumulated parent scale so the result can be composed into a scaled JObj hierarchy.",
+      "rationale": "The function builds scale, quaternion-rotation, and translation matrices and left-multiplies them into the output. When an optional scale is supplied, it inserts that scale before rotation and its componentwise inverse afterward. The sole caller supplies a parent's accumulated scale and subsequently concatenates the resulting local matrix with the parent matrix, establishing why this compensation exists.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:56.284Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L412-L434",
+          "why": "Shows the complete scale, optional parent-scale, quaternion-rotation, inverse-parent-scale, and translation construction sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows HSD_JObjMakeMatrix passing local transform fields and an optional parent accumulated scale to HSD_MtxSRTQuat before composing the result with the parent matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/mtx/mtx.c#L90-L250",
+          "why": "Establishes that MTX concatenation computes its first matrix multiplied by its second, which determines the transform order used by HSD_MtxSRTQuat."
+        }
+      ]
+    },
+    {
+      "id": "fact:7a53e30c-de1d-4891-87f0-9883b0659ecd",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The only conditional mode is controlled by whether `parent_scale` is null. A null pointer selects ordinary quaternion SRT composition. A non-null pointer inserts the parent scale before rotation and its reciprocal after rotation; both branches finish by applying translation. The function has no persistent state and always replaces the supplied output matrix.",
+      "rationale": "The matched body contains two guards on the same optional pointer around the parent-scale and reciprocal-parent-scale operations, while quaternion rotation and translation execute unconditionally. No globals or retained state are read or written.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:56.284Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxSRTQuat",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L412-L434",
+          "why": "Directly shows the two parent-scale guards, the unconditional rotation and translation steps, and in-place replacement of the output."
+        }
+      ]
+    },
+    {
+      "id": "fact:b8b674f3-b2c7-4327-953d-477aaab9ccb8",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxScaledAdd",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the twelve elements of arg0 and arg1 in contiguous matrix storage order, multiplies each arg0 element by arg3, adds the same-position arg1 element, and immediately writes the result to the corresponding element of arg2. Because each index is completely read before that index is written and no element is reused, the operation remains valid when the destination aliases either input.",
+      "rationale": "The current unrolled body advances all three pointers in lockstep through twelve independent read-multiply-add-write expressions, with no cross-element dependency.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxScaledAdd",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L361-L448",
+          "why": "Shows the signature, pointer setup, and first part of the lockstep element-wise operation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the remaining independent assignments completing all twelve matrix elements."
+        }
+      ]
+    },
+    {
+      "id": "fact:35764c26-6c33-487f-aaa2-3810f6775548",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxScaledAdd",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_MtxScaledAdd(Mtx scaled_input, Mtx addend_input, Mtx destination, f32 scale), where every Mtx is a contiguous 3\u00d74 array of twelve f32 elements and the scalar is dimensionless with respect to the matrix entries.",
+      "rationale": "The current signature supplies three Mtx arguments and one f32. Taking each matrix's first element as an f32 pointer and advancing through twelve assignments demonstrates the contiguous twelve-float layout and each argument's role.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxScaledAdd",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L361-L448",
+          "why": "Shows the exact signature, contiguous float pointers, and scaled-input/addend/destination roles."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows traversal continuing until all twelve Mtx elements have been processed."
+        }
+      ]
+    },
+    {
+      "id": "fact:e2b87b1d-371c-4208-9d99-0fd706528482",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_MtxScaledAdd",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs a component-wise scaled addition of two 3\u00d74 affine matrices, producing each destination element as the corresponding element of the second input plus a scalar multiple of the corresponding element of the first input.",
+      "rationale": "The current body repeats `destination = addend + scale * scaled_input` once for each of the twelve Mtx elements, establishing a matrix-wide scaled-add rather than transform composition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_MtxScaledAdd",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L361-L448",
+          "why": "Shows the component-wise scaled-add expression applied across the first portion of the matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the same expression completing the remaining matrix elements."
+        }
+      ]
+    },
+    {
+      "id": "fact:a2dd5057-db81-4ba4-b19f-d6754355b172",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecAlloc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_VecAlloc supplies the address of HSD_Mtx_804C2310 to HSD_ObjAlloc. On success, the generic allocator removes the descriptor's free-list head, increments used, decrements free, updates peak usage when needed, and returns that entry; HSD_VecAlloc asserts the pointer and forwards it unchanged. HSD_JObjMakeMatrix consumes such entries as its JObj accumulated-scale cache, and HSD_VecFree later returns them to the same descriptor.",
+      "rationale": "The current wrapper cluster establishes the descriptor-to-entry ownership cycle, the generic allocator establishes the free-to-used accounting transition, and the current JObj caller shows the entry retained and populated as accumulated scale.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the vector descriptor passed to allocation, the result asserted and returned, and the matching free wrapper and initializer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows free-list removal and used, free, and peak counter updates on allocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows the returned entry stored in jobj->scl and populated with local or inherited scale values."
+        }
+      ]
+    },
+    {
+      "id": "fact:ef0f581e-3114-42dd-86bb-de01c71c50d2",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecAlloc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Effective signature: Vec3* HSD_VecAlloc(void). The recovered definition currently exposes the return as void*, but the pool entry size is sizeof(Vec) and the resolved caller consumes the result as a mutable Vec3 containing three 32-bit components.",
+      "rationale": "The current definition establishes a parameterless pointer return and initializes the pool with sizeof(Vec). HSD_JObjMakeMatrix assigns that return directly to a Vec3 pointer and accesses x, y, and z.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the implemented void* return and the vector descriptor configured with sizeof(Vec)."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows callers storing the result in a Vec3* field and accessing its three components."
+        }
+      ]
+    },
+    {
+      "id": "fact:98bdcbfd-8988-432f-9424-5fab4e235614",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecAlloc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Allocates one three-component vector from the mtx subsystem's reusable vector pool for transform bookkeeping, requiring the allocation to succeed before returning it.",
+      "rationale": "The current wrapper allocates from the vector descriptor and asserts success. Its initializer uses sizeof(Vec), and HSD_JObjMakeMatrix consumes the result as an accumulated-scale Vec3.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows allocation from the vector pool, the success assertion, and sizeof(Vec) pool initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows the allocated vector used as JObj accumulated-scale transform bookkeeping."
+        }
+      ]
+    },
+    {
+      "id": "fact:2ae75c81-a0a1-447f-8dae-05e90e0a20ae",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecAlloc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A successful call transitions one vector-pool entry from free to used and may establish a new peak-use count. If the pool is empty, the generic allocator first attempts to add one free entry; allocator limits or failed replenishment yield NULL, which HSD_VecAlloc treats as a fatal assertion rather than a nullable result.",
+      "rationale": "HSD_ObjAlloc explicitly performs the empty-pool replenishment attempt, failure returns, and accounting transition. HSD_VecAlloc immediately asserts the returned pointer, establishing that callers are not expected to handle an exhausted pool.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:33.608Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+          "why": "Shows limit-based rejection, empty-pool replenishment, NULL on failure, and the free-to-used accounting updates on success."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L459-L466",
+          "why": "Shows HSD_VecAlloc asserting that HSD_ObjAlloc returned a non-null vector before returning it."
+        }
+      ]
+    },
+    {
+      "id": "fact:048a861f-b8d6-43ae-908e-c6d03daf22fe",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecFree",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a nullable vector pointer and returns no value. NULL stops at the local guard; otherwise, the unchanged pointer and the dedicated vector allocator record HSD_Mtx_804C2310 are forwarded to HSD_ObjFree. That callee stores the former free-list head into the released allocation, makes it the new head, increments the allocator's free count, and decrements its used count.",
+      "rationale": "The complete target body directly establishes the guard and both forwarded inputs. The resolved allocator callee shows precisely how those inputs mutate the vector pool and recycle the supplied storage.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:05.347Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L468-L473",
+          "why": "Shows NULL being discarded and every non-NULL pointer being forwarded unchanged with HSD_Mtx_804C2310 to HSD_ObjFree."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows the forwarded allocation becoming the free-list head and the allocator's free and used counters being updated."
+        }
+      ]
+    },
+    {
+      "id": "fact:10f33b32-ab1e-4d92-add1-fe77b6da6f97",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecFree",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Implemented signature: void HSD_VecFree(void* vector). Semantically, the nullable argument is one pool-owned Vec3-sized allocation: the vector pool uses sizeof(Vec) entries, and known callers pass Vec3* accumulated-scale values. On release, its leading storage becomes an HSD_ObjAllocLink node in the allocator's intrusive free list.",
+      "rationale": "The current definition establishes the void/void* signature and NULL guard, while the initializer fixes the pool entry type as Vec. The JObj caller treats entries as Vec3 pointers, and HSD_ObjFree reuses the leading storage as a link.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the exact signature, NULL guard, vector descriptor, and sizeof(Vec) initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows HSD_VecAlloc and HSD_VecFree operating on a Vec3* accumulated-scale field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows released storage reinterpreted as an HSD_ObjAllocLink for free-list insertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:251e7bd3-3a82-4c37-9018-ee189b1b24c5",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecFree",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns a non-NULL three-component vector allocation to HSD's dedicated vector pool for reuse. It is a low-level storage-release wrapper used for optional JObj accumulated-scale vectors; it does not clear the owner's pointer or perform any higher-level JObj teardown.",
+      "rationale": "The current target only guards against NULL and delegates to HSD_ObjFree with the Vec-sized pool descriptor. JObj code demonstrates both the accumulated-scale role and that caller code performs pointer clearing and surrounding teardown.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows non-NULL entries returned through the dedicated sizeof(Vec) allocator."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows HSD_ObjFree recycling entries through the pool free list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows a JObj freeing its accumulated-scale vector and clearing its own pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1511-L1527",
+          "why": "Shows higher-level JObj teardown surrounding release of an optional accumulated-scale vector."
+        }
+      ]
+    },
+    {
+      "id": "fact:5eca2648-7214-4d23-96d6-ece5c49b293b",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecFree",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has two outcomes: NULL is a no-op, while a non-NULL allocation is unconditionally transitioned from the vector allocator's used population into its free population. HSD_VecFree performs no ownership validation, duplicate-free check, pointer clearing, or counter-underflow guard, so callers must pass a live allocation from the matching vector pool and update their own ownership state.",
+      "rationale": "The target branches only on NULL and otherwise immediately invokes HSD_ObjFree. That callee performs a branch-free free-list insertion and accounting transition, with no validation. HSD_JObjMakeMatrix demonstrates the caller-side ownership step by setting jobj->scl to NULL after release.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:32:05.347Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L468-L473",
+          "why": "Shows the sole NULL guard and unconditional delegation for every non-NULL input, without ownership checks or pointer clearing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows the unguarded used-to-free pool transition, including intrusive insertion and counter updates."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L138-L196",
+          "why": "Shows a caller explicitly clearing its own jobj->scl pointer after invoking HSD_VecFree."
+        }
+      ]
+    },
+    {
+      "id": "fact:d6761d6c-5fc0-4f58-827e-498b9dc56e4c",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecGetAllocData",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function takes no input and returns &HSD_Mtx_804C2310 unchanged. HSD_VecInitAllocData consumes that pointer by passing it to HSD_ObjAllocInit with an entry size of sizeof(Vec) and alignment 4; HSD_VecAlloc and HSD_VecFree subsequently use the same descriptor directly to acquire and return pooled vector entries.",
+      "rationale": "The current end-of-file cluster shows the accessor and all initialization, allocation, and release uses of the same vector descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the descriptor returned unchanged, passed to sizeof(Vec) initialization, and used by vector allocation and release."
+        }
+      ]
+    },
+    {
+      "id": "fact:2b194d7e-6340-408c-8793-3cca0b28d6ae",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecGetAllocData",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: HSD_ObjAllocData* HSD_VecGetAllocData(void). The returned pointer is a non-owning mutable reference to a statically stored allocator descriptor, not a newly allocated vector.",
+      "rationale": "The current definition directly provides the no-argument typed return and returns the address of global storage. Nearby HSD_VecAlloc separately obtains individual entries through HSD_ObjAlloc.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the exact accessor signature, static descriptor address, and distinction from vector-entry allocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:c3a74b1f-0f9a-4a92-940c-afa85eacc979",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecGetAllocData",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides access to the mtx subsystem's persistent object-allocation descriptor for pooled three-component vectors, allowing allocator setup and inspection to operate on the same descriptor used by vector allocation and release.",
+      "rationale": "The accessor returns the static vector descriptor by address. The current neighboring routines use that same object for allocation and release and obtain it through the accessor before sizeof(Vec) initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the returned descriptor shared by vector allocation, release, and allocator setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:4ca889f0-1e34-4491-a392-e49e85fcb564",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecInitAllocData",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine has no explicit inputs or return value. HSD_VecGetAllocData supplies the address of the module-global vector allocation descriptor; sizeof(Vec) and 4 supply its entry size and alignment to HSD_ObjAllocInit. That call records a Vec-sized stride and alignment mask 3, resets the descriptor's counters, limits, and free-list state, and places it in the global allocator registry. HSD_VecAlloc, HSD_VecFree, and allocator-statistics reporting later consume the initialized descriptor.",
+      "rationale": "The current vector routine cluster establishes the descriptor and fixed configuration passed to HSD_ObjAllocInit. The allocator body defines the resulting state, and current initialization/statistics code establishes startup and reporting consumers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the getter feeding sizeof(Vec) and alignment 4 to initialization and the same descriptor used by allocation and release."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows descriptor reset, layout-field calculation, default limits, and registry insertion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows startup invoking the vector initializer and statistics reporting querying the descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:787b3cff-e467-4421-887c-d075db8efc10",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecInitAllocData",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_VecInitAllocData(void). It takes no parameters and returns no value; its effect is mutation of the persistent HSD_ObjAllocData descriptor returned by HSD_VecGetAllocData.",
+      "rationale": "The current definition directly supplies the void(void) signature, obtains the vector descriptor, and passes it as mutable state to HSD_ObjAllocInit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows the exact signature and that its sole operation initializes the descriptor returned by HSD_VecGetAllocData."
+        }
+      ]
+    },
+    {
+      "id": "fact:328e730f-bf27-415c-9c2e-80b7a3dc4c91",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecInitAllocData",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes and registers the HSD fixed-size allocation descriptor used for three-component vectors, configuring Vec-sized entries with four-byte alignment during the engine-wide HSD object-allocation startup sequence.",
+      "rationale": "The target passes the persistent vector descriptor, sizeof(Vec), and alignment 4 to HSD_ObjAllocInit. The allocator initializer registers it, HSD_ObjInit invokes the target during startup, and the paired allocation/free routines use the same descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows sizeof(Vec)-based initialization and subsequent allocation and release through the same descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows HSD_ObjAllocInit clearing, configuring, and registering the supplied descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows HSD_ObjInit invoking HSD_VecInitAllocData and statistics reporting labeling its descriptor as vec."
+        }
+      ]
+    },
+    {
+      "id": "fact:3f661e71-5925-4f14-baee-4822e37f91ab",
+      "target_id": "target:function:main/sysdolphin/baselib/mtx:HSD_VecInitAllocData",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Calling the routine transitions the vector allocation descriptor to an empty, registered pool state. If the descriptor was already registered, HSD_ObjAllocInit first unlinks its existing registry occurrences, then clears the record, restores unlimited allocation sentinels, sets four-byte alignment and a Vec-sized stride, and reinserts it at the registry head; reinitialization therefore does not leave a duplicate registry node.",
+      "rationale": "The target always initializes the same persistent vector descriptor. The current allocator implementation explicitly removes every existing occurrence before clearing and reinserting the descriptor, establishing both first-call and repeated-call transitions.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:12.420Z",
+      "subject": "main/sysdolphin/baselib/mtx:HSD_VecInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L449-L509",
+          "why": "Shows every call applying the same sizeof(Vec) and alignment configuration to the persistent descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L161",
+          "why": "Shows unlink-before-clear behavior, empty-state initialization, limit sentinels, layout normalization, and registry reinsertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:8ef099ae-1930-4426-94b0-74c052fa36d9",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/mtx.c",
+      "type": "data_flow",
+      "value": "Matrix routines read 3\u00d74 affine matrices, vectors, quaternions, and scalar weights and write inverted, transposed, composed, decomposed, or newly constructed matrices and vectors. Allocation wrappers obtain and release vector and matrix objects through two unit-owned HSD allocator records initialized for `Vec` and `Mtx` sizes.",
+      "rationale": "The current mathematical routines preserve the transform inputs and outputs, while the end-of-file routines preserve the two allocator-backed storage flows. The drift reflects mechanical source changes rather than changed behavior.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T17:02:00.587Z",
+      "subject": "src/sysdolphin/baselib/mtx.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L1-L448",
+          "why": "Shows affine-matrix inversion, decomposition, construction, quaternion conversion, and scaled-combination inputs and outputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L420-L509",
+          "why": "Shows vector and matrix allocation, freeing, allocator lookup, and size-based initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:c41868c5-442d-4543-9bcb-dce4495cf249",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/mtx.c",
+      "type": "purpose",
+      "value": "Provides HSD's low-level affine-matrix operations together with dedicated pooled allocation and release services for three-component vectors and 3\u00d74 matrices.",
+      "rationale": "The current unit retains determinant-based inversion, composition and decomposition, SRT construction, scaled addition, and separate vector and matrix allocators, so the standing purpose remains valid at head.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T17:02:00.587Z",
+      "subject": "src/sysdolphin/baselib/mtx.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L1-L448",
+          "why": "Shows the unit's affine-matrix inversion, decomposition, construction, and combination operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L420-L509",
+          "why": "Shows the dedicated vector and matrix allocation, release, and allocator-initialization routines."
+        }
+      ]
+    }
+  ]
+}

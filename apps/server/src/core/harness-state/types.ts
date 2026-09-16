@@ -44,7 +44,7 @@ export interface QueuedDispatchRequest {
   request_event_id: string;
 }
 
-export interface HarnessState {
+export interface DispatchState {
   game_id: string;
   revision: number;
   active_workflow: DispatchLease | null;
@@ -56,7 +56,7 @@ export interface HarnessState {
   updated_at: string;
 }
 
-export interface InitializeHarnessStateInput {
+export interface InitializeDispatchStateInput {
   gameId: string;
   traceId: string;
   now?: string;
@@ -106,13 +106,13 @@ export interface DispatchAcquiredDecision {
   queued: false;
   leaseId: string;
   acquiredEventId: string;
-  state: HarnessState;
+  state: DispatchState;
 }
 
 export interface DispatchQueuedDecision {
   queued: true;
   blockedBy: DispatchLease;
-  state: HarnessState;
+  state: DispatchState;
 }
 
 export type RequestDispatchDecision = DispatchAcquiredDecision | DispatchQueuedDecision;
@@ -129,7 +129,7 @@ export interface DispatchSuccessorActivationContext {
 }
 
 export interface ReleaseDispatchResult {
-  state: HarnessState;
+  state: DispatchState;
   releasedEventId?: string;
   acquiredEventId?: string;
   successorActivation?: DispatchSuccessorActivationContext;
@@ -138,5 +138,5 @@ export interface ReleaseDispatchResult {
 export interface DispatchRecoveryResult {
   recovered: true;
   cancelledSubjectIds: string[];
-  state: HarnessState;
+  state: DispatchState;
 }

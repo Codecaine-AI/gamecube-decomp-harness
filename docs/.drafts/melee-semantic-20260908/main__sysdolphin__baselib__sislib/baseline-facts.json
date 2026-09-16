@@ -1,0 +1,2597 @@
+[
+  {
+    "subject": "main/sysdolphin/baselib/sislib:.bss",
+    "facts": [
+      {
+        "id": "fact:f82dcd19-20fd-4e9d-be63-05c1999e9981",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.bss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Initialization writes NULL to all ten pointers. The font-resource loader opens the caller-named archive into `archives[font_idx]`, resolves the caller-named public symbol into `sis_tables[font_idx]`, and HSD_Text setup reads `sis_tables[text->font_idx][sis_idx]`. Per-font and global teardown release occupied archive slots and clear their paired pointers.",
+        "rationale": "The current initialization, loading, binding, and teardown code still exposes the complete producer-consumer lifecycle of the paired arrays. References to copy and append routines are omitted because their former source span no longer resolves in this unit.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows initialization clearing all slots and per-font and global teardown consuming and clearing occupied slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L518-L604",
+            "why": "Shows archive and symbol inputs populating paired slots and indexed SIS entries flowing into HSD_Text state."
+          }
+        ]
+      },
+      {
+        "id": "fact:947eb150-54a1-4ecb-9ca6-17326739211a",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.bss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports the game's text-presentation system by retaining up to five selectable archive-backed SIS resource tables and routing each HSD_Text object to an authored SIS entry belonging to its selected font slot.",
+        "rationale": "The current code loads SIS tables as font-indexed resources and binds an indexed SIS entry to HSD_Text interpreter state, directly grounding the registry in text presentation.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L518-L604",
+            "why": "Shows font-indexed SIS-table loading and selection of an authored SIS entry for an HSD_Text."
+          }
+        ]
+      },
+      {
+        "id": "fact:93806d4a-a8ed-429e-8556-701c290071e3",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.bss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 40-byte zero-initialized layout consisting of `HSD_Archive* archives[5]` at 0x804D1110 followed immediately by `SIS* sis_tables[5]` at 0x804D1124. Each array occupies 20 bytes on the 32-bit target, and each SIS pointer is used as the base of an indexed SIS-pointer table.",
+        "rationale": "The declarations provide two five-element pointer arrays, exactly accounting for the section's 40-byte size, while SIS-entry binding casts a selected second-array element to SIS** and indexes it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sislib.c#L1-L120",
+            "why": "Declares the two five-element arrays and their concrete pointer types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L518-L604",
+            "why": "Shows each selected SIS slot being treated as an indexed SIS-pointer table."
+          }
+        ]
+      },
+      {
+        "id": "fact:8add2be4-4799-4f65-8987-031367bafb12",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.bss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Holds SisLib's five-slot font-resource registry, pairing each retained HSD archive with the public SIS table resolved from that archive so HSD_Text objects can select authored SIS entries by font index.",
+        "rationale": "The current source declares two adjacent five-element pointer arrays, populates paired entries from an opened archive and resolved public symbol, and uses the SIS-table array when binding an indexed SIS entry to an HSD_Text. The prior claim about stream-manipulation routines is removed because those routines no longer reside in this source span.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L518-L604",
+            "why": "Shows per-font archive loading, public SIS-table resolution, and indexed SIS-entry binding to HSD_Text objects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sislib.c#L1-L120",
+            "why": "Declares the five HSD_Archive pointers and five SIS pointers that comprise the section."
+          }
+        ]
+      },
+      {
+        "id": "fact:6c659a68-01ab-4ce7-ac08-f16f408dba87",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.bss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each font slot has an unloaded state in which both pointers are NULL and a loaded state in which the archive pointer owns a loaded archive while the paired SIS pointer references a public table inside it. Initialization unloads every slot. Loading requires archive opening and symbol resolution to succeed and otherwise reports and panics. Per-font teardown removes dependent objects before releasing and clearing an occupied pair; global shutdown performs equivalent clearing for every occupied archive slot.",
+        "rationale": "Initialization, guarded loading, and teardown explicitly define the paired slot lifecycle and its failure behavior at the current head.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows per-font and global cleanup, paired NULL assignments, and initialization of all five pairs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L518-L604",
+            "why": "Shows the archive-open and symbol-resolution transitions and their report-and-panic failure paths."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:.data",
+    "facts": [
+      {
+        "id": "fact:1417a762-2d5b-4314-923b-e956528505eb",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The camera descriptor receives pointers to the section's two world-object descriptors as its eye and interest definitions. When HSD_SisLib_803A611C is called without a parent GObj, it passes that descriptor to HSD_CObjLoadDesc, changes the resulting camera to a 640×480 orthographic projection, attaches it to a newly created GObj, and registers the camera's GX link for later text rendering.",
+        "rationale": "The initialized descriptor explicitly links the two world-object records into the camera description. The context-registration code then demonstrates the complete consumption path from that descriptor through camera construction, orthographic setup, GObj attachment, and render-link registration. The prior glyph-texture and kerning flow no longer applies to this section after the source split.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:34:50.612Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L17-L64",
+            "why": "Shows the eye and interest world-object addresses flowing into the initialized camera descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L604",
+            "why": "Shows the descriptor being loaded, converted to an orthographic camera, attached to a GObj, and registered with the requested rendering layer."
+          }
+        ]
+      },
+      {
+        "id": "fact:d2a83919-5894-4b8f-afc8-3ef0e9a0f1fd",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the default screen-space camera setup used by SisLib's UI text-presentation system when a caller does not supply a parent camera GObj. It supports placement of text in a 640×480 orthographic presentation context, rather than supplying glyph images or spacing metrics itself.",
+        "rationale": "The camera descriptor declares a 640×480 viewport and references its eye and interest objects. SisLib's context-registration path uses it specifically in the no-parent-GObj branch, converts the loaded camera to orthographic projection, and registers it for rendering. The separately defined font atlas confirms that visual glyph data is no longer part of this section's role.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T02:34:50.612Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L17-L64",
+            "why": "Shows the initialized 640×480 camera description and its supporting world-object definitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L604",
+            "why": "Shows the default camera being created only when no parent GObj is supplied and configured as an orthographic SisLib rendering context."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib_font.c#L1-L5",
+            "why": "Shows that the built-in font atlas is now a separate resource, narrowing this section's text-presentation role to camera setup."
+          }
+        ]
+      },
+      {
+        "id": "fact:a5f50fd0-74ca-43cc-9604-875e6b5385d9",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An initialized camera-description layout containing two HSD_WObjDesc objects followed by an HSD_CameraDescPerspective whose eye and interest pointers reference those objects.",
+        "rationale": "The current declarations provide the concrete types and pointer relationships. The formerly attributed u8 kerning table and glyph-image payload have moved to other translation units and therefore are not part of this section's current layout.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:34:50.612Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L17-L64",
+            "why": "Provides the concrete HSD_WObjDesc and HSD_CameraDescPerspective declarations and shows the camera descriptor pointing to both world-object descriptors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib_font.c#L1-L5",
+            "why": "Establishes that the aligned TextGlyphTexture atlas is now owned by sislib_font.c, excluding it from this section's current type."
+          }
+        ]
+      },
+      {
+        "id": "fact:3e38592b-119f-453e-a67a-04f602fc6ad0",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores SisLib's initialized default camera-description resources: two world-object descriptors used as the camera's eye and interest objects, plus the perspective camera descriptor that references them. SisLib uses these resources when creating its own text-rendering camera context; the built-in glyph atlas and kerning tables no longer belong to this section.",
+        "rationale": "At the current head, the initialized data at the start of sislib.c consists of two HSD_WObjDesc objects and an HSD_CameraDescPerspective that points to them. The context-registration routine loads that camera descriptor only when it must create a camera GObj. The glyph atlas is now defined separately in sislib_font.c, so the prior purpose incorrectly attributed font-image and kerning resources to this section.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:34:50.612Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L17-L64",
+            "why": "Shows the two initialized HSD_WObjDesc values and the HSD_CameraDescPerspective that references them."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L604",
+            "why": "Shows SisLib loading the initialized camera descriptor while creating its default camera GObj and configuring that camera for orthographic text presentation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib_font.c#L1-L5",
+            "why": "Shows that HSD_SisLib_FontAtlas is now defined in the separate sislib_font translation unit rather than in sislib's initialized-data section."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:.sbss",
+    "facts": [
+      {
+        "id": "fact:020c24ec-2a6d-4070-ac2f-146e1d727dd7",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The initialization size is stored in the size word and passed to HSD_MemAlloc; the returned region is stored as both the persistent pool base and initial free-list head. Allocation and freeing mutate the free and used heads, text creation and removal mutate the HSD_Text head, and context registration and removal mutate the context head. Reset rebuilds one free block from the saved base and size, while shutdown passes the saved base to HSD_Free.",
+        "rationale": "The allocator, text lifecycle, context lifecycle, reset, initialization, and shutdown paths continue to expose every producer and consumer of the section's runtime roots.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L120-L199",
+            "why": "Shows allocation release mutating the free and used lists."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Shows text creation and removal mutating the active text and context-related state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows reset, initialization, and shutdown consuming the saved pool metadata and rewriting list heads."
+          }
+        ]
+      },
+      {
+        "id": "fact:e40fbacc-d0c1-452c-9b30-673b8a1df983",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.sbss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports Melee's UI text presentation by retaining the allocator and active-object roots used for HSD_Text objects and their rendering camera/context records.",
+        "rationale": "The current code directly ties these roots to construction, retention, destruction, and rendering-context setup for HSD_Text objects.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Shows the text-list root used to create, retain, and destroy HSD_Text objects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the context-list root used by SisLib lifecycle and camera-context registration."
+          }
+        ]
+      },
+      {
+        "id": "fact:6579b749-52f3-4aac-8b59-3c16066cc38a",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 24-byte zero-initialized runtime-state layout comprising, in address order: `u32 pool_size` at 0x804D7968, `SisBlock* pool_base` at 0x804D796C, `SisBlock* free_head` at 0x804D7970, `SisBlock* used_head` at 0x804D7974, `HSD_Text* text_head` at 0x804D7978, and `sislib_UnkAlloc3* context_head` at 0x804D797C.",
+        "rationale": "One 32-bit word and five pointers exactly account for the section's 24 bytes, and their current uses confirm the operational types and roles.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sislib.c#L1-L120",
+            "why": "Provides the declared types for the size word and four list-head pointers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Provides the saved SisBlock base pointer and confirms the allocator and context-list roles."
+          }
+        ]
+      },
+      {
+        "id": "fact:43aa2e55-31ae-4951-b1f2-dab24c6c1da6",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores SisLib's compact mutable runtime state: the private allocation-pool size and base, free- and used-block list heads, the active HSD_Text list head, and the list head for text camera/render-context records.",
+        "rationale": "The declarations and lifecycle code identify one pool-size word and five pointers whose consumers establish their allocator, text-list, and context-list roles.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sislib.c#L1-L120",
+            "why": "Declares the pool-size word and the text, context, used-block, and free-block heads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Declares the saved pool base and shows all six values participating in reset, shutdown, and initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:e0ed22d1-26d7-4d6a-89e1-e71142ba0044",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.sbss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Initialization transitions the state to an active pool with one free block, no used blocks, and empty text and camera/context lists. During operation, allocations and object creation populate the used and object lists. Reset returns the state to one free block and empty object lists without releasing the pool; final shutdown performs that reset and then frees the saved pool base.",
+        "rationale": "The current lifecycle code preserves the distinction between reusable reset state and terminal shutdown, while allocator and object routines establish the intervening active state.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L120-L199",
+            "why": "Shows blocks moving out of the used list and back into allocator free state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the initialized, reset, and final shutdown configurations."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:.sdata",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:.sdata2",
+    "facts": [
+      {
+        "id": "fact:636b7640-c11c-41d2-a18b-1622fe6d57ca",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Zero and unit constants flow into newly allocated HSD_Text objects as position, clipping, font-size, scale, and spacing defaults. Screen-bound constants flow into HSD_CObjSetOrtho when SisLib creates a fallback camera, establishing a 640×480 presentation space. The renderer-specific consumers formerly in this unit now read their constants from hsd_3A76's section instead.",
+        "rationale": "The current sislib.c construction paths show the surviving constant consumers, while the relocated renderer demonstrates why the old measurement, clipping, and glyph-rendering flow no longer belongs to this target.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L237-L318",
+            "why": "Shows numeric defaults flowing into persistent HSD_Text state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L547",
+            "why": "Shows screen-bound constants flowing into fallback orthographic camera configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L442-L964",
+            "why": "Shows the renderer-specific constants now consumed in the split hsd_3A76 unit."
+          }
+        ]
+      },
+      {
+        "id": "fact:0a0651e8-58bf-4924-9d9c-bf2e3d6aa028",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies basic numeric defaults and fallback screen-space camera bounds for Melee's SIS-driven text-presentation foundation. Detailed text measurement, alignment, fitting, clipping, and glyph texture mapping are now supplied by constants in the split hsd_3A76 unit rather than this section.",
+        "rationale": "The remaining constants support creation of default HSD_Text state and a 640×480 orthographic camera, while the player-visible rendering calculations have moved with the interpreter and renderer.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L237-L318",
+            "why": "Shows the default numeric state used when creating text-presentation objects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L547",
+            "why": "Shows creation of the fallback orthographic text-presentation camera."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L682-L964",
+            "why": "Shows that detailed measurement, fitting, clipping, and glyph rendering now occur in the split unit."
+          }
+        ]
+      },
+      {
+        "id": "fact:3f8a271a-635d-475c-8ab8-4ceccdccc5cf",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A small read-only pool of compiler-emitted IEEE-754 floating-point scalar constants used by the remaining sislib.c object and camera-management code; it is not a runtime struct or indexed gameplay table.",
+        "rationale": "The surviving unit consumes scalar literals independently for text defaults and camera bounds. The broad measurement and renderer literal set previously attributed to this section moved with those functions into hsd_3A76.c.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L237-L318",
+            "why": "Shows scalar floating-point literals assigned independently to HSD_Text fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L547",
+            "why": "Shows independent scalar bounds used for orthographic camera setup."
+          }
+        ]
+      },
+      {
+        "id": "fact:69f8aa77-f9dc-4ef0-bebb-2638b769a473",
+        "target_id": "target:data:main/sysdolphin/baselib/sislib:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the remaining core sislib translation unit's immutable floating-point constants for HSD_Text default initialization and construction of its fallback 640×480 orthographic camera context. Text measurement, SIS fixed-point interpretation, clipping, and glyph-rendering constants now belong to the split hsd_3A76 translation unit.",
+        "rationale": "After the source split, sislib.c retains text-object defaults and fallback camera setup, while the measurement and rendering code that used most of the former constant pool resides in hsd_3A76.c. The section purpose must therefore be narrowed.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L237-L318",
+            "why": "Shows floating-point zero and unit defaults initializing HSD_Text layout and formatting fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L547",
+            "why": "Shows constants used to create the fallback 640×480 orthographic camera."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L418",
+            "why": "Shows that text measurement and fixed-point interpretation now reside in hsd_3A76.c."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L442-L964",
+            "why": "Shows that projection, fitting, clipping, texture-coordinate, and glyph-rendering constants now reside in hsd_3A76.c."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5A2C",
+    "facts": [
+      {
+        "id": "fact:c3141d7a-41be-4b2a-98bd-80184bcafcd5",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5A2C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The supplied text identity is matched against nodes reached from HSD_SisLib_804D7978. On a match, the saved predecessor and current node's next pointer update either the predecessor's next field or the global list head. The matched node's alloc_data->data, alloc_data, string_buffer, and object pointer then flow to HSD_SisLib_Free in inside-out ownership order.",
+        "rationale": "The traversal initializes its cursor from the global head and preserves both predecessor and successor information. The successful branch consumes those values to repair the list before extracting each optional nested pointer and passing it to the private SisLib deallocator, ending with the containing HSD_Text pointer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:38:34.728Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L202-L235",
+            "why": "Shows the complete flow from the input identity and global list through link repair and ordered HSD_SisLib_Free calls."
+          }
+        ]
+      },
+      {
+        "id": "fact:9777010b-9023-42db-94c5-71896faf7471",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5A2C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements final lifecycle teardown for a SisLib text-presentation object by removing an HSD_Text from active management and reclaiming its text data, string storage, metadata, and object storage for reuse by SisLib.",
+        "rationale": "The current destruction helper operates exclusively on active HSD_Text ownership and returns all subordinate storage to SisLib's private allocator.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Shows final removal and storage reclamation for one active HSD_Text."
+          }
+        ]
+      },
+      {
+        "id": "fact:a7d9bd1b-9400-4143-8b92-5f877aac5044",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5A2C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Current signature: `void HSD_SisLib_803A5A2C(void* ptr)`. Semantically, `ptr` is the identity of an HSD_Text node expected to belong to the global active-text list; the function does not dereference the argument directly and ignores values that do not equal a listed HSD_Text pointer.",
+        "rationale": "The definition establishes the void-returning, one-void-pointer signature. The argument is used only in an equality comparison with each HSD_Text list node, and all field accesses occur through the matched list node after equality succeeds, proving both its semantic domain and safe no-op behavior for unknown identities.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:38:34.728Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L202-L235",
+            "why": "Provides the exact current signature and shows that the parameter is compared by identity against HSD_Text nodes rather than dereferenced."
+          }
+        ]
+      },
+      {
+        "id": "fact:23121c0e-e46f-4b2e-83fc-0b7dd4087e9f",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5A2C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Destroys one active HSD_Text object. It finds the object by identity in SisLib's global text list, unlinks it, releases its nested allocation payload and metadata, releases its string buffer, and finally releases the HSD_Text storage itself.",
+        "rationale": "The current body directly retains the complete identity lookup, unlinking, nested deallocation, and final object release behavior; the obsolete neighboring-span citation can be replaced by this exact head span.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Shows identity lookup, list repair, conditional nested releases, and final HSD_Text release."
+          }
+        ]
+      },
+      {
+        "id": "fact:36b9aec1-0674-46a1-96da-18347dd8893d",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5A2C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If the active-text list is empty or contains no node equal to the supplied pointer, the function leaves all state unchanged. If the matching node is the list head, HSD_SisLib_804D7978 advances to its successor; otherwise its predecessor bypasses it. The function then releases all present subordinate allocations and the node and returns immediately, so at most one text object is removed per call.",
+        "rationale": "There is no mutation before the identity match, establishing the unknown-pointer no-op. The predecessor-null test distinguishes head removal from interior removal, and the unconditional return after deallocation prevents traversal from continuing or removing another node.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:38:34.728Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L202-L235",
+            "why": "Directly establishes the failed-search no-op, head and interior unlink transitions, conditional subordinate releases, and immediate return after one successful removal."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC",
+    "facts": [
+      {
+        "id": "fact:d1dffd82-03ed-404f-9596-ff78cbb765a4",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads SisLib's camera-entry list and global HSD_Text head. For a nonnegative context ID it selects the requested zero-based entry among records tagged with `font_idx`, forwards that record's GObj and GX-link configuration fields, allocates an HSD_Text from SisLib's private allocator, appends it to the global text list, attaches it to the GObj with HSD_SisLib_803A5A2C as destructor, copies the position and box dimensions, establishes defaults, and returns the pointer.",
+        "rationale": "The current function exposes the complete flow from global context and text lists plus caller arguments into the created GObj, HSD_Text fields, ownership registration, and return value.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Shows camera selection, GObj configuration, allocation, list linkage, user-data registration, field writes, and return."
+          }
+        ]
+      },
+      {
+        "id": "fact:5a99ffe4-62de-4156-853d-f476925dbda9",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the reusable text-object construction layer used to place rendered text in Melee's interfaces, with caller-selected font, rendering context, position, and text-box dimensions.",
+        "rationale": "The constructor exposes and initializes all geometry and context needed for a render-associated interface text object.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Shows construction of a render-associated HSD_Text with caller-controlled font, position, and box geometry."
+          }
+        ]
+      },
+      {
+        "id": "fact:e717968a-db02-4bb6-b74b-b944876f93f2",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_CreateText",
+        "rationale": "The routine remains constructor-shaped at head: it allocates, links, initializes, optionally equips with a renderer, and returns an HSD_Text. No recovered symbol establishes the exact suffix.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `HSD_SisLib_CreateText`.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Demonstrates complete construction and initialization of a returned HSD_Text."
+          }
+        ]
+      },
+      {
+        "id": "fact:5ee90323-4ad9-4465-b0fa-cd75d54bf8f9",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "`HSD_Text* (int font_idx, s32 context_id, f32 pos_x, f32 pos_y, f32 pos_z, f32 box_w, f32 box_h)`: `font_idx` selects the text font and participates in camera-context lookup, `context_id` is a zero-based matching context ordinal or a negative value for no rendering GObj, and the five floats specify three-dimensional position and two-dimensional text-box size.",
+        "rationale": "The current definition supplies the exact signature and directly stores or consumes every parameter according to the stated role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Provides the exact signature and shows each parameter's camera-selection or field-initialization use."
+          }
+        ]
+      },
+      {
+        "id": "fact:08f9a2fc-bce8-46d2-b8a8-a6e78f26d69d",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Creates and fully initializes an HSD_Text object, optionally creates and configures the HSD_GObj that renders it in a selected SisLib camera context, appends the text to SisLib's global text list, and returns the new object for subsequent string or SIS-resource assignment.",
+        "rationale": "The current constructor still performs camera-context lookup, optional GObj creation, private allocation, list insertion, user-data ownership registration, and complete HSD_Text default initialization.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Shows the complete HSD_Text construction and optional render-GObj setup path."
+          }
+        ]
+      },
+      {
+        "id": "fact:e20269b8-0cff-4200-840d-9ba50654a909",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A negative context_id skips camera lookup and leaves the new text's entity pointer NULL. A nonnegative context_id selects the corresponding occurrence among context entries matching font_idx and creates a render-linked GObj. The new text is appended to the active list and begins visible, with white text, a transparent background, unit scales, zero offsets and auxiliary buffers, mode defaults of zero, and no per-text render callback.",
+        "rationale": "The current guard, matching-entry countdown, list insertion, conditional user-data setup, and explicit field assignments define these construction states and defaults.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L200-L399",
+            "why": "Shows the context-dependent branch, list insertion, entity assignment, colors, scales, visibility, modes, buffers, and callback defaults."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5CC4",
+    "facts": [
+      {
+        "id": "fact:7ade6b9f-b0a6-4f5d-af87-881249c2de02",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5CC4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes an HSD_Text pointer, searches from the global active-text head through `next` links, and forwards the matching node either to HSD_GObjPLink_80390228 through its `entity` field or directly to HSD_SisLib_803A5A2C.",
+        "rationale": "The current function exposes the input, traversal source, and two ownership-dependent destruction outputs without requiring the former broad source spans.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows traversal from the active-text head and forwarding to GObj-mediated or direct teardown."
+          }
+        ]
+      },
+      {
+        "id": "fact:595513ef-f535-4bcb-82c9-7c17b85b49ca",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5CC4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements lifecycle cleanup for dynamically presented UI and scene text rather than a gameplay-rule mechanic, allowing an individual HSD_Text and its optional rendering entity to be dismissed.",
+        "rationale": "The target manipulates generic HSD_Text ownership and rendering-entity state only, establishing it as presentation lifecycle cleanup.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows generic single-object HSD_Text and rendering-GObj cleanup."
+          }
+        ]
+      },
+      {
+        "id": "fact:80803399-39a1-4107-aa59-d7cbe00ebe00",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5CC4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_RemoveText",
+        "rationale": "The target accepts one HSD_Text and performs a one-object removal, contrasting with the adjacent all-text and font-filtered routines. No preserved symbol confirms the suffix.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `HSD_SisLib_RemoveText`.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows singular removal beside bulk and font-filtered text cleanup routines."
+          }
+        ]
+      },
+      {
+        "id": "fact:5235090c-01eb-4629-9f01-04dfc39ce2fe",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5CC4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void HSD_SisLib_803A5CC4(HSD_Text* text)`. The argument is an HSD_Text identity to remove; a null pointer or a pointer not present in SisLib's active-text list is tolerated and produces no action.",
+        "rationale": "The matched definition supplies the exact return and parameter types. Because the function compares the argument with each active-list node without dereferencing the argument, null and nonmember pointers simply exhaust the search and return without side effects.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:37:38.296Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L327-L342",
+            "why": "Provides the exact function signature and shows that the parameter is used only for pointer-identity comparison against active HSD_Text nodes."
+          }
+        ]
+      },
+      {
+        "id": "fact:aae4bcb7-79f5-48ce-87f7-04d98c27b608",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5CC4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Removes one specified HSD_Text from SisLib's active text system. It finds the exact text object in the global list and destroys its associated rendering HSD_GObj when present, or directly unlinks and frees the text when it has no GObj.",
+        "rationale": "The current body directly preserves the identity search and ownership-dependent teardown branch.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows exact-node lookup and the entity-backed versus direct text-removal paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:6b549929-d2ce-4faa-8936-30ac0fe1b116",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5CC4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine is a one-shot, membership-guarded teardown operation. If no node equals `text`, it leaves state unchanged. On a match, a non-null entity selects GObj-mediated destruction and the entity field is cleared; a null entity selects immediate direct removal. It returns after that single match.",
+        "rationale": "The current loop, identity comparison, entity guard, field clearing, and return directly define the operation's transitions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows the no-match no-op, ownership branch, entity clearing, and immediate return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5D30",
+    "facts": [
+      {
+        "id": "fact:b1a67029-9890-4791-86c9-b398a157673d",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5D30",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the global HSD_Text list head and snapshots each node's successor before cleanup. A text with a non-NULL entity sends that HSD_GObj to HSD_GObjPLink_80390228 and clears the entity field; an entity-less text is sent directly to HSD_SisLib_803A5A2C.",
+        "rationale": "The current loop directly exposes the list input, successor preservation, branch condition, and destruction calls.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows the complete bulk traversal and per-node data flow."
+          }
+        ]
+      },
+      {
+        "id": "fact:94e6e7b0-c3fb-445e-9927-f66a05ffaa84",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5D30",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements bulk teardown for SisLib-rendered interface text. A concrete use is leaving Melee's Name Entry management screen, where the menu removes all SisLib text before requesting its next transition.",
+        "rationale": "The target removes every active HSD_Text, and the current Name Entry input path calls it during back-out transition handling.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows bulk removal of all active SisLib text."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/mn/mnname.c#L549-L667",
+            "why": "Shows Name Entry invoking the routine immediately before a menu transition request."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d5d7e97-ac79-4817-b0e3-bdc62e1a326f",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5D30",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_RemoveAllText",
+        "rationale": "The parameterless routine visits every global HSD_Text entry, distinguishing it from the adjacent single-text and font-filtered removal routines. Exact original spelling remains unconfirmed.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows a no-argument traversal that removes every active HSD_Text."
+          }
+        ]
+      },
+      {
+        "id": "fact:df508b7b-51ba-4c00-82e5-4cab3f2b87e2",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5D30",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function signature: void HSD_SisLib_803A5D30(void). It is a global SisLib text-list cleanup operation with no caller-supplied selection or result.",
+        "rationale": "The matched definition directly establishes the void(void) signature, and the body obtains all of its work from the global HSD_Text list rather than parameters.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:38:13.283Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L346-L359",
+            "why": "Provides the exact function definition and shows that traversal begins from the global HSD_Text list head."
+          }
+        ]
+      },
+      {
+        "id": "fact:a3125cf9-e478-4d08-96a1-b298086103ae",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5D30",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initiates removal of every HSD_Text object registered in SisLib. Text objects that own an HSD_GObj are removed through that object's lifecycle, while entity-less text objects are unlinked and freed directly.",
+        "rationale": "The current body traverses every active text and selects the same ownership-aware cleanup branches for each node.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows full active-text traversal and both per-node removal paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:14bcc472-72bb-41c0-8ab4-b231380d7ded",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5D30",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "An empty text list produces no state change. Otherwise the routine processes every node reachable from the list head in order, preserving the successor before destructive cleanup. Nodes with entities transition through GObj destruction and have their entity fields cleared; entity-less nodes are directly removed.",
+        "rationale": "The while guard, saved successor, ownership branch, and continued traversal directly establish the empty-list and full-cleanup behavior.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows the empty guard, successor preservation, both transitions, and traversal of all nodes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5DA0",
+    "facts": [
+      {
+        "id": "fact:3aa7e28b-a637-4657-a6bb-1f482433e07b",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5DA0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The font index filters the global HSD_Text list, sending matching texts through GObj-mediated or direct destruction. The same index then filters the context list; each match contributes an optional GObj for destruction, has its list link adjusted using the saved successor and predecessor cursor, and is passed to HSD_SisLib_Free.",
+        "rationale": "The current implementation directly exposes both global inputs, the shared selector, downstream destruction calls, list mutations, and deallocation output.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L328-L403",
+            "why": "Shows the complete flow through both font-filtered traversals."
+          }
+        ]
+      },
+      {
+        "id": "fact:ef550eae-9310-4095-a5b9-819e108b87ab",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5DA0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements per-font runtime teardown within Melee's SisLib text-presentation system by discarding interface text and rendering contexts tied to one font before the caller unloads that font's archive-backed SIS data.",
+        "rationale": "The target removes runtime objects selected by font index, and its caller immediately releases the archive and paired SIS-table slot for that same index.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L328-L403",
+            "why": "Shows font-index-filtered text and context destruction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the caller subsequently releasing the selected font archive and SIS-table pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:d8bfa859-5aad-480b-8db2-3c55d8cb0bc2",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5DA0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_RemoveFontObjects",
+        "rationale": "The target removes matching text and context objects, while the adjacent per-font lifecycle routine separately performs archive release.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `HSD_SisLib_RemoveFontObjects`; the routine removes runtime objects for a font but does not itself unload the font archive.",
+        "confidence": 0.74,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L328-L403",
+            "why": "Shows selective runtime-object removal without archive access."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the separate caller performing archive release after invoking this routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:0a34f507-52dd-4520-b315-2c9d8b85c853",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5DA0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void HSD_SisLib_803A5DA0(s32 font_idx)`. The argument selects HSD_Text font indices and camera/context-entry font tags; the routine returns no result and performs no bounds validation.",
+        "rationale": "The definition provides the exact signature, and both traversals compare the parameter directly with stored font-index fields.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L328-L403",
+            "why": "Provides the exact signature and both selector uses."
+          }
+        ]
+      },
+      {
+        "id": "fact:034c3d6e-96e1-487d-800b-509b6950559d",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5DA0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Removes SisLib runtime objects associated with one font slot. It destroys every active HSD_Text whose font index matches the argument, then destroys the optional HSD_GObj and frees each matching camera/context entry.",
+        "rationale": "The current inline text phase and context-list phase both filter by the supplied font index and remove their matching runtime objects.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L328-L403",
+            "why": "Shows both font-filtered phases and their destruction operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:2eb4ce85-c993-402a-bb8d-22b28b1772e7",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5DA0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Cleanup proceeds in two phases. The text phase preserves each successor and leaves nonmatching texts active. The context phase likewise visits saved successors; matching entries conditionally destroy a nonzero GObj, then are unlinked and freed. Empty or nonmatching lists are unchanged. The context traversal still assigns `last = curr` after freeing a match, so consecutive matches repair links through a released predecessor.",
+        "rationale": "The current source explicitly preserves the two-phase ordering and the unconditional predecessor update that creates the stated consecutive-match caveat.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L328-L403",
+            "why": "Shows both phases, match guards, successor handling, unlinking, freeing, and unconditional predecessor assignment."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5E70",
+    "facts": [
+      {
+        "id": "fact:3645a9c5-8894-4c15-b4c6-a753283ac4f3",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5E70",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The active HSD_Text list flows into HSD_SisLib_803A5D30. The function then consumes every context-list node, sending its optional GObj to HSD_GObjPLink_80390228 and the node to HSD_SisLib_Free. Finally, the saved arena base and size become the new free-list head and payload capacity, while the context and used-list heads become NULL.",
+        "rationale": "The current source directly shows each global input, destruction handoff, list output, and allocator-reset derivation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the text-cleanup call, context-node consumption, and allocator reset outputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:a803ab11-02d5-499c-a1ac-eba24bbea060",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5E70",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements wholesale reset of Melee's SisLib-backed UI text presentation state, allowing text objects, rendering GObjs, camera/context registrations, and temporary text allocations to be discarded before the subsystem is reused.",
+        "rationale": "The function removes every presentation object and registration while retaining and reformatting the private arena for subsequent use.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows complete presentation-state cleanup and reusable arena reconstruction."
+          }
+        ]
+      },
+      {
+        "id": "fact:0ed8d6b9-62d8-4988-90a1-3294c3e8ce40",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5E70",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_Reset",
+        "rationale": "The routine performs subsystem-wide object cleanup but explicitly rebuilds a usable free block instead of freeing the arena.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `HSD_SisLib_Reset`; unlike final shutdown, it leaves the backing arena initialized and reusable.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows global cleanup followed by reusable allocator reconstruction."
+          }
+        ]
+      },
+      {
+        "id": "fact:54933388-dbef-4ea5-a19e-ba7f1bc234b2",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5E70",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void HSD_SisLib_803A5E70(void)`. It is a parameterless global reset whose inputs are SisLib's active-text list, context list, saved arena base, and arena size.",
+        "rationale": "The current definition supplies the exact signature and obtains all inputs from retained global state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Provides the signature and shows all global inputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:4a4d4daa-d2fe-43ee-975f-f1a8ce279eef",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5E70",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Completely resets SisLib's runtime text state. It removes every active HSD_Text, destroys and frees every camera/context entry and its optional HSD_GObj, clears the associated global lists, and restores the private allocator to one empty free block spanning the original arena.",
+        "rationale": "The current body invokes all-text removal, traverses and frees every context entry, then reconstructs the allocator from the retained arena base and size.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows complete context cleanup and reconstruction of one empty free block."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L320-L399",
+            "why": "Shows the called routine removing all active HSD_Text objects."
+          }
+        ]
+      },
+      {
+        "id": "fact:35c280cc-f265-4fbe-b74f-980b6c7299c2",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5E70",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Cleanup is unconditional and ordered: all active texts are removed first, then every context entry is processed. A context GObj is destroyed only when nonzero, but every entry is freed. The postcondition is no context entries, no used allocations, and one free block whose payload follows its 0xC-byte header and spans the original arena size minus that header.",
+        "rationale": "The straight-line call, context loop, optional-GObj guard, unconditional free, and final assignments completely define the transition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the ordered cleanup and exact empty allocator postcondition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5F50",
+    "facts": [
+      {
+        "id": "fact:89816c08-6470-4edc-91c8-0146acefd24e",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5F50",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The caller-supplied font index first flows to `HSD_SisLib_803A5DA0`, which removes runtime objects tagged with that index. The same index then selects `HSD_SisLib_804D1110[font_idx]`; a non-NULL archive pointer flows to `HSD_SisLib_803A947C`, after which the selected archive slot and `HSD_SisLib_804D1124[font_idx]` are both set to NULL.",
+        "rationale": "The target's straight-line sequence directly establishes the common selector, the ordering between dependent-object cleanup and archive release, the guarded pointer passed downstream, and the two resulting global writes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T15:35:04.400Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L432-L443",
+            "why": "Directly shows the font-index input flowing through per-font object cleanup, archive lookup and release, and paired slot clearing."
+          }
+        ]
+      },
+      {
+        "id": "fact:9d927608-24c7-476c-9178-34b4a89388a2",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5F50",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements per-font resource unloading within Melee's SIS-driven text-presentation system, ensuring that text and rendering contexts using one font are removed before its archive-backed SIS table becomes unavailable.",
+        "rationale": "The target orders font-tagged runtime cleanup before archive release and clearing of the corresponding SIS table.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows dependent-object removal preceding archive and SIS-table teardown for one font."
+          }
+        ]
+      },
+      {
+        "id": "fact:cda3869d-4ac2-41ca-98b4-052cc7978d40",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5F50",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_FreeFont",
+        "rationale": "The routine releases all runtime objects and archive-backed data belonging to one font index, while the adjacent `HSD_SisLib_Free` name is already used for the subsystem's private block deallocator. A `FreeFont` suffix concisely distinguishes this higher-level per-font resource operation, although no surviving symbol or discussion establishes the original suffix.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `HSD_SisLib_FreeFont`. `HSD_SisLib_RemoveFont` is another possibility.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L432-L443",
+            "why": "Shows that the routine removes all objects associated with one font index and releases that index's retained archive and SIS-data state."
+          }
+        ]
+      },
+      {
+        "id": "fact:9f7e7c29-22d9-431b-b175-73d8dc460b7e",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5F50",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Per-font lifecycle routine with signature `void HSD_SisLib_803A5F50(s32 font_idx)`. The index is used directly for runtime-object cleanup and for selecting entries in two five-element resource tables; no bounds validation is performed.",
+        "rationale": "The current definition provides the exact signature and direct index uses, while the initialization loop establishes the tables' five-slot extent.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the exact signature, direct table indexing, and five-entry initialization loop."
+          }
+        ]
+      },
+      {
+        "id": "fact:48c2a00b-a688-468e-a614-b3be099ec663",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5F50",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs complete teardown of one SisLib font slot: it first removes active text and rendering-context objects associated with the selected font index, then releases that slot's retained archive and clears its archive and SIS-table pointers.",
+        "rationale": "The current body invokes per-font object cleanup before guarded archive release and paired slot clearing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the complete per-font teardown sequence."
+          }
+        ]
+      },
+      {
+        "id": "fact:0520e272-2bd4-42da-a722-e74b453729e1",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5F50",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Per-font teardown always removes matching runtime objects first. If the selected archive slot is occupied, the function unloads the archive and transitions both that archive slot and its associated-data slot to NULL; if the archive slot is already NULL, it skips archive release and leaves the associated-data slot unchanged. The function is therefore idempotent for a normally paired empty slot, but it does not repair an inconsistent state containing a NULL archive and non-NULL associated-data pointer.",
+        "rationale": "The unconditional first call establishes cleanup ordering. The sole guard tests only the archive pointer, and both NULL assignments occur inside that guarded block, directly proving both the normal occupied-to-empty transition and the behavior of an already-empty or inconsistent slot.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T15:35:04.400Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L432-L443",
+            "why": "Shows unconditional dependent-object cleanup followed by an archive-pointer guard that encloses release and both resource-slot NULL assignments."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5FBC",
+    "facts": [
+      {
+        "id": "fact:c8b4ac61-0ab8-4cf9-9c3e-75c69ee95968",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5FBC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads each of the five retained archive pointers. Every non-NULL archive is forwarded to HSD_SisLib_803A947C, after which its archive slot and corresponding SIS-table slot are set to NULL. After traversal, the saved backing-region pointer is forwarded to HSD_Free. The function accepts no caller data and returns no value.",
+        "rationale": "The current target body exposes the complete flow from retained globals to release routines and cleared slots; the former unresolvable wrapper citation is unnecessary.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the five-entry traversal, archive-pointer forwarding, paired NULL writes, and final backing-pointer forwarding."
+          }
+        ]
+      },
+      {
+        "id": "fact:8eb34d26-c054-4a04-9ec0-42dcf786afd3",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5FBC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements terminal teardown of Melee's SIS-backed text-presentation subsystem by discarding active presentation state, retained font resources, and the subsystem's private storage arena.",
+        "rationale": "The current function combines global HSD_Text/context reset, all-font archive cleanup, and backing-memory release.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows terminal cleanup of SisLib runtime objects, font resource pairs, and private storage."
+          }
+        ]
+      },
+      {
+        "id": "fact:f824a6bd-4f3c-4dfd-825a-e1632601d58d",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5FBC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_Exit",
+        "rationale": "The parameterless routine releases all runtime, archive, and backing-memory resources owned by SisLib, making an exit-style subsystem lifecycle name plausible, though no preserved symbol confirms it.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `HSD_SisLib_Exit`.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows whole-subsystem teardown rather than single-object or per-font cleanup."
+          }
+        ]
+      },
+      {
+        "id": "fact:64d0c2bd-6805-48da-bad1-ec033fd11bef",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5FBC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Parameterless subsystem lifecycle routine with signature `void(void)`; all inputs are retained SisLib globals, including the five-element archive arrays and the private allocator's backing pointer.",
+        "rationale": "The matched definition directly establishes the void return and absence of parameters. Every consumed value is read from subsystem-global state, and the function produces its effects solely through destruction calls and global writes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:40:25.596Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L445-L457",
+            "why": "Provides the exact function signature and shows all archive, associated-data, and backing-pool inputs being obtained from globals."
+          }
+        ]
+      },
+      {
+        "id": "fact:0471dca2-04ea-4d7f-8eec-7790852e96fe",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5FBC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs complete SisLib shutdown: it resets active text, context, and private-allocator state, releases every retained font/SIS archive, clears each occupied archive and SIS-table pair, and finally frees the allocator's backing region.",
+        "rationale": "The current body calls global reset, traverses all five archive slots with guarded release and paired clearing, and passes the backing pointer to HSD_Free. The removed archive-wrapper span is no longer needed to establish this target's shutdown sequence.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows reset-first shutdown, five-slot archive cleanup, paired NULL writes, and final backing-pool free."
+          }
+        ]
+      },
+      {
+        "id": "fact:16fd0d14-5d19-4e29-bc9f-e9c25b2e0048",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A5FBC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Transitions SisLib from initialized or active to fully torn down. Runtime text and context state is reset first; each occupied archive slot is then released and both members of that pair are cleared, while empty archive slots are skipped. The backing pool is freed last. Because the backing pointer is not cleared, repeated shutdown is not made safe by this body.",
+        "rationale": "The current reset-first ordering, independent archive guards, paired clearing, unconditional final free, and lack of a backing-pointer NULL assignment directly establish this terminal transition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L519",
+            "why": "Shows the complete shutdown ordering and retained stale backing pointer."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6048",
+    "facts": [
+      {
+        "id": "fact:db4ab1d3-78a1-4803-909a-9043fd15b247",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6048",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Takes a byte capacity from scene setup, stores it in the retained size global, and passes it to HSD_MemAlloc. The returned base is stored as both the persistent arena base and free-list head; its header becomes the initial SisBlock and the remainder its payload. The function publishes empty used-block, HSD_Text, context, font-archive, and SIS-table state. Scene preload supplies 0xC000 for staff roll and results, 0x2400 for character select, and 0x4800 otherwise.",
+        "rationale": "The initializer still stores and allocates the supplied capacity, formats the allocation as one free block, and clears the subsystem roots. The caller at the current head retains the same scene-kind switch and all three capacity values, so the drifted caller evidence can be replaced without changing the claim.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:44:19.857Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L459-L476",
+            "why": "Shows the size write, allocation, dual publication of the allocation base, initial free-block formatting, and registry clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/gm/gm_1A3F.c#L1-L80",
+            "why": "Shows preloadState passing 0xC000 for Staff Roll and Results, 0x2400 for Character Select, and 0x4800 for other scene kinds."
+          }
+        ]
+      },
+      {
+        "id": "fact:aa541e60-1e50-4d80-b95e-0655fe2ead46",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6048",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the memory and empty resource state required for Melee's UI text presentation. Scene classes reserve different capacities: staff roll and results use 0xC000 bytes, character select uses 0x2400, and other scenes use 0x4800.",
+        "rationale": "The SisLib body still initializes the text arena and associated empty resource tables, while the current preloadState implementation preserves the exact scene-class capacity mapping. The meaning therefore remains unchanged and only the drifted caller citation needs refreshing.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T23:44:19.857Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L459-L476",
+            "why": "Shows initialization of SisLib's private text-storage arena and empty resource registries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/gm/gm_1A3F.c#L1-L80",
+            "why": "Shows the Staff Roll, Results, Character Select, and default scene-kind capacity choices at the current head."
+          }
+        ]
+      },
+      {
+        "id": "fact:d5c606cb-1e11-4cde-a26c-0a7982a834d9",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6048",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_Init",
+        "rationale": "The routine still creates all foundational SisLib arena and registry state, and the current named caller invokes it during common scene preloading with a scene-dependent capacity. This continues to support an initialization role, although no recovered symbol confirms the exact original name.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original name: `HSD_SisLib_Init`.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L459-L476",
+            "why": "Shows comprehensive SisLib subsystem initialization rather than an isolated allocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/gm/gm_1A3F.c#L1-L80",
+            "why": "Shows preloadState invoking the routine as common scene preparation with a capacity selected from the incoming scene kind."
+          }
+        ]
+      },
+      {
+        "id": "fact:a01fe59e-325c-484b-a25d-a940dc518896",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6048",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Initialization function with signature `void HSD_SisLib_803A6048(size_t size)`, where `size` is the total byte capacity of the private SisLib arena, including its initial `sizeof(SisBlock)` header.",
+        "rationale": "The current definition uses `size_t`, not the previously recorded `u32`. It passes that value to HSD_MemAlloc and subtracts `sizeof(SisBlock)` to derive payload capacity.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L459-L476",
+            "why": "Provides the current size_t signature and shows the allocation and header subtraction."
+          }
+        ]
+      },
+      {
+        "id": "fact:29fbadba-fd08-4817-ae70-e3c71fd868d7",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6048",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes SisLib's private text-storage arena and associated runtime registries so text objects, buffers, font resources, and rendering-context records begin from an empty state.",
+        "rationale": "The current body allocates a caller-sized region, formats one free block, clears the used and object-list heads, and clears all five archive/SIS-table pairs.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:04.939Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L459-L476",
+            "why": "Directly shows arena allocation and formatting plus clearing of every associated registry."
+          }
+        ]
+      },
+      {
+        "id": "fact:5fbe8c95-2ef0-4bb7-84dc-9d0bea59a40e",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6048",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally replaces SisLib's tracked arena state with a newly allocated single-free-block state: the used-list and both object-list heads become NULL, and every entry in the two five-element resource tables becomes NULL. It performs no size guard and does not tear down a previously tracked arena, so replacement must occur at a lifecycle boundary where prior state has already been handled.",
+        "rationale": "The initializer still contains no validation or teardown branch and overwrites all retained roots after allocating the new arena. The current preloadState caller still places this unconditional reconstruction in common scene-entry preparation, preserving the lifecycle interpretation while replacing the drifted citation.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T23:44:19.857Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L459-L476",
+            "why": "Shows unconditional allocation and publication of a fresh one-free-block arena, clearing of all list heads and resource slots, and no old-state teardown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/gm/gm_1A3F.c#L1-L80",
+            "why": "Places the initialization in preloadState, the common resource-preparation routine for an incoming scene state."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C",
+    "facts": [
+      {
+        "id": "fact:369c1d54-c548-4038-9652-121dd7599724",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Scans the global context list to find its tail and count entries whose font index equals `font_idx`, allocates and appends a 16-byte context entry, and copies `font_idx`, `class_id`, `p_link`, `p_prio`, `gx_link`, and `gx_prio` into it. If no external camera is indicated, `class_id`, `p_link`, and `p_prio` also feed camera-GObj construction; a static descriptor supplies its CObj, `render_prio` controls camera render ordering, and `gx_link` becomes the camera's GX-link priority mask. The returned count later selects this entry by per-font ordinal, after which its class and link fields configure each associated HSD_Text render GObj.",
+        "rationale": "The current target still performs the list traversal, per-font count, entry allocation and population, optional camera construction, render setup, and count return. The current HSD_Text constructor still consumes the returned ordinal and stored entry fields, while the Trophy-list caller still retains returned context identifiers for caller-provided camera layers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L491-L547",
+            "why": "Shows the complete context-list insertion, field writes, optional camera setup, GX mask construction, and returned per-font count at head."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L218-L339",
+            "why": "Shows the returned context ordinal selecting a font-matched entry whose class and link fields configure a new HSD_Text render GObj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ty/tylist.c#L902-L967",
+            "why": "Shows a Trophy-list caller supplying existing camera GObjs and retaining the returned SisLib context identifiers."
+          }
+        ]
+      },
+      {
+        "id": "fact:e5162f71-4876-48c6-8f7d-0560a4758365",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Establishes the camera and render-layer context through which SisLib text is presented in menus and other UI scenes, allowing a screen either to place text under an existing camera or to request SisLib's default orthographic text camera.",
+        "rationale": "The current function creates the font-indexed rendering configuration and conditionally provisions an orthographic camera. The current Trophy-list setup demonstrates the external-camera mode for distinct UI presentation layers.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L491-L547",
+            "why": "Shows creation of the text-rendering context and its optional default orthographic camera."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ty/tylist.c#L902-L967",
+            "why": "Demonstrates two Trophy-list text contexts being attached to caller-created camera layers."
+          }
+        ]
+      },
+      {
+        "id": "fact:f8a7c077-4bd6-4b10-a071-4a3eb47213b4",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_CreateContext",
+        "rationale": "The target still creates and appends a persistent rendering-configuration entry and returns the per-font ordinal that downstream code treats as a context identifier. `CreateContext` therefore remains a plausible semantic suffix within the unit's `HSD_SisLib_` convention, although the original spelling is not established.\n\nNaming cleanup: Recognized identifier form; no lexical audit flags.\nPrior naming claim: `HSD_SisLib_CreateContext`",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L491-L547",
+            "why": "Shows construction of a persistent font-indexed configuration and return of its zero-based per-font ordinal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L218-L339",
+            "why": "Shows downstream code interpreting the returned value as the ordinal of a camera/rendering context for HSD_Text construction."
+          }
+        ]
+      },
+      {
+        "id": "fact:fdd4001a-9860-4b64-992c-77dc958bea84",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Context-construction routine with signature `s32 (int font_idx, HSD_GObj* parent_gobj, u16 class_id, u8 p_link, u8 p_prio, u8 gx_link, u8 gx_prio, u32 render_prio)`. `parent_gobj` is nullable and is used as an external-camera-presence flag rather than retained in the context entry. The return value is the zero-based ordinal of the new context among entries with the same `font_idx`, suitable for use as SisLib's per-font `context_id`.",
+        "rationale": "The current declaration preserves all parameter widths and the integer result. The implementation only null-tests `parent_gobj`, counts prior entries for the selected font, and returns that count; the HSD_Text constructor traverses font-matched entries using the supplied context ordinal.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L491-L547",
+            "why": "Provides the complete signature, the parent-GObj null test, the per-font counting rule, and the returned count."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L218-L339",
+            "why": "Shows `context_id` selecting a corresponding font-matched context entry by ordinal."
+          }
+        ]
+      },
+      {
+        "id": "fact:94af7f34-7542-42a4-adf3-254b0153e0c6",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Registers a SisLib text-rendering context for one font, recording the HSD_GObj class, process-link, GX-link, and priority configuration that later-created HSD_Text objects use. When the caller does not supply an existing camera GObj, it also provisions a dedicated orthographic camera GObj for the context.",
+        "rationale": "At head, the target still appends a font-indexed configuration, conditionally constructs an orthographic camera, and returns its per-font ordinal. The current HSD_Text constructor resolves that ordinal and applies the entry's class and link configuration to a text render GObj.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L491-L547",
+            "why": "Shows the context entry being allocated and populated and the optional dedicated orthographic camera being constructed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L218-L339",
+            "why": "Shows the resulting context ordinal and stored configuration being consumed during HSD_Text construction."
+          }
+        ]
+      },
+      {
+        "id": "fact:e734ddfa-57f0-4b44-94e8-d0afa7ce0029",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Always appends a new context entry and returns the number of earlier entries for the same font. With a non-null `parent_gobj`, it records no owned camera, leaving camera provisioning to the caller. With a null `parent_gobj`, it attempts to create an owned camera GObj; successful CObj loading transitions it to an orthographic 640-by-480 text camera with render scheduling and a removal callback, while CObj-load failure destroys the new GObj and leaves the context's camera pointer null. Later teardown destroys only camera GObjs retained in these entries.",
+        "rationale": "The current target preserves both camera-ownership branches, successful camera configuration, callback registration, and CObj-load failure cleanup. Current teardown code still destroys only non-null camera pointers retained in context entries.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L491-L547",
+            "why": "Shows unconditional context insertion, both ownership branches, successful orthographic setup, callback registration, and failed-CObj cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L319-L479",
+            "why": "Shows per-font and global teardown destroying only non-null camera GObjs retained by context entries before freeing those entries."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0",
+    "facts": [
+      {
+        "id": "fact:6cc72744-b3a8-47b5-8ae5-e4eeaada7c3f",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "archive_name flows to HSD_SisLib_803A945C, and its returned HSD_Archive pointer is stored in HSD_SisLib_804D1110[font_idx]. That archive and symbol_name flow to HSD_ArchiveGetPublicAddress, whose result is stored in HSD_SisLib_804D1124[font_idx]. Later HSD_Text setup uses text->font_idx to recover this SIS table and sis_idx to select text->sis_buffer.",
+        "rationale": "The target establishes both per-slot writes and the archive-to-public-symbol transformation, while the adjacent setup routine demonstrates the downstream indexed SIS-program selection.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L549-L604",
+            "why": "Shows the archive and symbol inputs becoming retained per-slot resources and the stored SIS table later supplying an HSD_Text's stream."
+          }
+        ]
+      },
+      {
+        "id": "fact:e4b7aaf7-acc4-4c01-8848-214460f3f594",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides scene-specific and localized SIS text data for Melee's UI text-presentation system. For example, the progressive-scan scene loads either SdProge.usd or SdProge.dat into slot 0, resolves SIS_ProgeData, and then creates an HSD_Text object using that slot.",
+        "rationale": "The target performs generic SIS-resource registration, and the progressive-scan initializer supplies a concrete localized UI use of that registration.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L549-L566",
+            "why": "Shows generic registration of a named SIS export in a selected text slot."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gmprogressive.c#L33-L70",
+            "why": "Shows language-specific progressive-scan SIS archives loaded into slot 0 before creation of the scene's HSD_Text."
+          }
+        ]
+      },
+      {
+        "id": "fact:8822f3c6-d61c-4d6e-80a1-1a01d67a2aa7",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "LoadSIS",
+        "rationale": "The implementation loads an archive and registers its named SIS export in a selected slot. The existing inferred community name remains semantically consistent with the current matched body, although the exact namespace or prefix is not preserved.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L549-L566",
+            "why": "Shows the operation loading an archive and resolving and retaining its named SIS export."
+          }
+        ]
+      },
+      {
+        "id": "fact:b06224ac-395e-4af1-806c-06f85e8858cc",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "void (s32 font_idx, char* archive_name, char* symbol_name). font_idx selects one of five parallel archive and SIS resource slots and therefore has an intended domain of 0 through 4. Both string parameters are read but not modified. Results are published through the slot arrays rather than returned.",
+        "rationale": "The current declaration uses mutable char pointers, while the body treats both strings as read-only names and uses font_idx to index two five-element arrays without a local bounds check.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L17-L64",
+            "why": "Declares the parallel archive and SIS arrays with five entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L549-L566",
+            "why": "Provides the current signature and shows slot selection and read-only use of both string arguments."
+          }
+        ]
+      },
+      {
+        "id": "fact:14550fd4-1a13-4095-9218-921c1c096f61",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Loads an archive containing SIS text resources into a selected SisLib font slot, resolves a named public symbol from that archive as the slot's SIS table, and treats either a missing archive or missing symbol as a fatal initialization error.",
+        "rationale": "The current body loads and stores the archive, resolves and stores the named SIS export, and panics after either NULL result. The adjacent text-reset routine indexes the stored pointer as a SIS table.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L549-L604",
+            "why": "Shows archive loading, per-slot storage, public-symbol lookup, fatal failure paths, and downstream SIS-entry selection."
+          }
+        ]
+      },
+      {
+        "id": "fact:ba899aeb-6ce6-4189-8c08-80f892f55d04",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Initialization succeeds only if both archive loading and public-symbol lookup return non-NULL. Each result is stored in its selected slot before validation; a NULL archive reports and panics, and a NULL SIS symbol does likewise. There is no index guard, recovery path, fallback resource, or success return value.",
+        "rationale": "The current control flow consists of two store-before-validation stages followed by fatal NULL guards, with no alternate branch or returned status.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L549-L566",
+            "why": "Shows both sequential initialization stages, their report-and-panic failures, and the absence of bounds checking or fallback."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6368",
+    "facts": [
+      {
+        "id": "fact:b8886c82-64e1-47b6-835e-54b5f048a4ec",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6368",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads text->font_idx to select a per-font resource from HSD_SisLib_804D1124, treats that resource as a table of SIS pointers, and writes entry sis_idx to text->sis_buffer when the table is non-NULL. It then copies the text object's stored default color, positions, dimensions, alignment, kerning, and fitting into active working fields, clears progress fields, releases the prior string_buffer through HSD_SisLib_Free, and installs a newly allocated zero-filled 16-byte buffer.",
+        "rationale": "The current archive-loading neighbor still populates the per-font SIS-table slot, and the current target immediately consumes that slot before performing all formatting, progress, ownership, and buffer writes. The allocator at head still returns private-pool payload storage used for the replacement buffer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L517-L604",
+            "why": "Shows the per-font SIS table being produced and consumed, followed by all HSD_Text state copies, clears, old-buffer release, allocation, and zero filling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L79-L164",
+            "why": "Shows HSD_SisLib_Alloc returning payload storage from SisLib's private block pool."
+          }
+        ]
+      },
+      {
+        "id": "fact:8ca9d37e-6287-4e46-9a2b-0ef8ae39ede3",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6368",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes runtime switching of authored text messages and layouts on persistent UI and scene text objects. Concrete uses include changing the boot-time progressive-scan prompt and result message and selecting fixed layouts for Pokémon Stadium's in-stage display.",
+        "rationale": "The progressive-scan scene passes different SIS indices to the same HSD_Text for its prompt, choices, and results. Pokémon Stadium likewise passes mode-dependent indices to its static display text. These independent callers ground the routine as a reusable authored-text selection operation rather than a mechanic specific to one screen.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:38:44.078Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gmprogressive.c#L71-L114",
+            "why": "Shows the function selecting the authored messages associated with several progressive-scan presentation states."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gr/grpstadium.c#L1792-L1819",
+            "why": "Shows the function selecting static SIS layouts for the Pokémon Stadium display."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L568-L604",
+            "why": "Shows the common mechanism that binds an indexed authored SIS entry to an HSD_Text."
+          }
+        ]
+      },
+      {
+        "id": "fact:3e59e796-e798-498f-a6ff-eaddbd4a6f9e",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6368",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_SetText",
+        "rationale": "Callers use the routine as the operation that changes which authored SIS message an existing HSD_Text presents, while the body also resets that object's active text state. The HSD_SisLib prefix follows the translation unit's established exported naming convention, but the exact original suffix is not preserved by the available sources.\n\nNaming cleanup: source explicitly prefers this candidate over the listed alternatives\nPrior naming claim: Likely `HSD_SisLib_SetText` or, more explicitly, `HSD_SisLib_SetTextSIS`.",
+        "confidence": 0.67,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L568-L604",
+            "why": "Shows that the function selects SIS content for an HSD_Text and reinitializes its active presentation state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gmprogressive.c#L71-L114",
+            "why": "Demonstrates caller usage as a set-message operation on a persistent text object."
+          }
+        ]
+      },
+      {
+        "id": "fact:853bbf58-e8d1-4204-a342-1c6b27539739",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6368",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Synchronous mutator with signature `void (HSD_Text* text, s32 sis_idx)`. The second parameter is an index into the `SIS**` table stored for `text->font_idx`; the function performs no bounds check, so callers must supply an index valid for that font's loaded SIS table.",
+        "rationale": "The matched definition establishes the exact C signature and indexes the selected per-font table directly as sis_table[sis_idx]. The progressive-scan and Pokémon Stadium callers pass resource-specific integer indices, confirming that the parameter identifies an entry rather than a byte offset or font ID.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:38:44.078Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L568-L604",
+            "why": "Provides the exact signature and direct SIS-table indexing operation without a local bounds guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gmprogressive.c#L71-L114",
+            "why": "Shows resource entry indices 2 through 6 being supplied for different authored messages."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gr/grpstadium.c#L1792-L1819",
+            "why": "Shows another resource using indices 3 and 0x12 through 0x15 for distinct static layouts."
+          }
+        ]
+      },
+      {
+        "id": "fact:8d8b713c-48c7-465c-8685-4efe693fd419",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6368",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Selects an authored SIS entry for an HSD_Text and restarts that text object's presentation state. It binds the entry indexed by sis_idx in the text's per-font SIS table, restores active formatting and cursor-related values from the object's defaults, clears accumulated layout and interpreter state, and replaces the mutable string buffer with a zeroed 16-byte buffer.",
+        "rationale": "The matched body performs an indexed lookup through the SIS table associated with text->font_idx, assigns the resulting entry to sis_buffer, copies the text's default color, positions, alignment, kerning, and fitting into active fields, zeros progress fields, and frees and recreates string_buffer. Callers use it when changing the authored message or layout shown by an existing text object.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:38:44.078Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L568-L604",
+            "why": "Contains the complete matched routine, including SIS entry selection, formatting-state reset, buffer replacement, and zero initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gmprogressive.c#L71-L114",
+            "why": "Shows an existing HSD_Text being switched among several authored progressive-scan prompt and result messages by passing different SIS indices."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gr/grpstadium.c#L1792-L1819",
+            "why": "Shows an existing Pokémon Stadium display text object being switched among static SIS layouts according to the display mode."
+          }
+        ]
+      },
+      {
+        "id": "fact:f0058530-4b94-41a5-8725-c01128a90006",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_803A6368",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When the text's per-font SIS table is non-NULL, the selected entry becomes the new sis_buffer; when the table is NULL, sis_buffer is left unchanged. In either case, the function restarts presentation state: measured width and height become zero, active formatting returns to stored defaults, cursor and interpreter-progress fields are cleared, and any previous mutable string buffer is discarded and replaced by sixteen zero bytes.",
+        "rationale": "The sis_buffer assignment is the only operation guarded by the table-null check. All remaining reset operations occur unconditionally afterward, including freeing an existing string buffer, allocating its replacement, setting its capacity to 0x10, and clearing every byte.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:38:44.078Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L568-L604",
+            "why": "Directly establishes the conditional SIS assignment and the unconditional post-selection reset state."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_Alloc",
+    "facts": [
+      {
+        "id": "fact:3ae5173d-890f-4a30-9668-69c1ce3a3166",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Alloc",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The requested byte count is rounded upward to four-byte granularity and compared with every block reachable from free_head. The smallest suitable block is selected, with an exact-size encounter ending the search. A selected head block is carved from the front and replaced by a remainder header; a selected non-head block is unlinked whole. The selected record is appended to used_head and its data pointer is returned.",
+        "rationale": "The current body directly exposes request rounding, free-list traversal, selection, head splitting, non-head unlinking, used-list insertion, and final payload return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L63-L146",
+            "why": "Shows the complete flow from request and allocator roots to updated free and used lists and returned payload."
+          }
+        ]
+      },
+      {
+        "id": "fact:07d1aaaf-61eb-4cc5-a502-82da16cb7c59",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Alloc",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the memory-management layer underlying Melee's SisLib text presentation: the pool supplies persistent HSD_Text objects, font-indexed rendering-context records, and mutable buffers used while selecting and interpreting authored SIS text.",
+        "rationale": "Current allocator consumers construct HSD_Text objects and per-font contexts and allocate the mutable buffer installed when a SIS entry is selected.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L237-L318",
+            "why": "Shows private-pool allocation and initialization of HSD_Text objects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L604",
+            "why": "Shows private-pool allocation of font-indexed rendering contexts and mutable text buffers."
+          }
+        ]
+      },
+      {
+        "id": "fact:7817b5f2-28a1-47e4-bcb9-073ff9ab7556",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Alloc",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Synchronous private-pool allocator with signature void* (s32 size). size is a positive requested byte count rounded upward to a multiple of four; the return value points to a selected SisBlock payload and remains caller-owned until returned through HSD_SisLib_Free.",
+        "rationale": "The declaration, positive-size panic, modulo-based rounding, and returned best->data establish the allocator contract; consumers cast the untyped payload to several SisLib object types.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L63-L146",
+            "why": "Provides the signature, positive-size guard, four-byte rounding, and returned payload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L237-L318",
+            "why": "Shows the untyped result consumed as an HSD_Text allocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L527",
+            "why": "Shows the result consumed as a SisLib rendering-context record."
+          }
+        ]
+      },
+      {
+        "id": "fact:13764bab-f607-4b83-a570-09d314d4ceb4",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Alloc",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Allocates storage from SisLib's private preallocated memory pool. It rounds requests to four-byte boundaries, selects a best-fitting free block, removes or splits that block, appends the allocation record to the used list, and returns its payload for HSD_Text objects, rendering-context records, and mutable text buffers.",
+        "rationale": "The allocator algorithm remains unchanged at head, while current consumers still allocate HSD_Text objects, context records, and per-text mutable buffers from it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L63-L146",
+            "why": "Shows alignment, best-fit selection, free-list mutation, used-list insertion, and payload return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L237-L318",
+            "why": "Shows construction of an HSD_Text object through HSD_SisLib_Alloc."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L497-L604",
+            "why": "Shows allocation of a rendering-context record and a mutable text string buffer."
+          }
+        ]
+      },
+      {
+        "id": "fact:8c931d9f-140a-481f-8c3b-e98cfcaf5d9a",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Alloc",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A zero-byte request reports an error and panics. If no free block satisfies the aligned request, the function reports an empty pool and panics. A selected head block becomes an allocated prefix plus a replacement free block only when enough space remains for its header; a negative remainder also panics. A selected non-head block moves whole from the free list to the used list. The first allocation establishes used_head and later allocations append in allocation order.",
+        "rationale": "The report-and-panic guards define invalid-size, exhaustion, and unsplittable-head states; the selected-block branches define split versus unlink transitions and used-list initialization versus append.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L63-L146",
+            "why": "Shows all allocator guards and successful free-list and used-list transitions."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_Free",
+    "facts": [
+      {
+        "id": "fact:36050e1e-688e-413b-9f3d-bcb4000da6d1",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Free",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input payload pointer is matched against SisBlock::data while traversing used_head. The matching block's predecessor and successor determine how used_head or the predecessor's next link is repaired. Its address, size, and the current free_head's size and successor then determine whether it becomes a larger replacement free head; otherwise the block is linked after the current free-list tail. SisLib text teardown supplies pointers for HSD_Text objects, string buffers, allocation metadata, and nested allocation payloads to this function.",
+        "rationale": "The current free routine still traces the supplied pointer through used-list lookup and link repair into either free-head coalescing or free-tail insertion. Current HSD_Text teardown still supplies every listed allocation category to this routine.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L148-L200",
+            "why": "Shows the payload lookup and every predecessor, successor, address, size, head, and tail value consumed or updated by the free operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L199-L235",
+            "why": "Shows HSD_Text teardown passing nested allocation data, allocation metadata, string buffers, and the text object itself to HSD_SisLib_Free."
+          }
+        ]
+      },
+      {
+        "id": "fact:fa4a1f17-d4b7-43bb-8106-636e1b3c9495",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Free",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the deallocation side of SisLib text-presentation lifecycle management: removing an HSD_Text instance can use this routine to reclaim the text object itself, its string buffer, its allocation metadata, and nested text allocation data for reuse by later SisLib content.",
+        "rationale": "At head, HSD_Text removal still passes all of its owned private-pool allocations to this function, which transfers recognized blocks from the used list back to the reusable free list consumed by HSD_SisLib_Alloc.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L199-L235",
+            "why": "Shows HSD_Text removal reclaiming nested allocation data, metadata, the string buffer, and object storage through HSD_SisLib_Free."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L148-L200",
+            "why": "Shows recognized allocations being transferred from the used list to the reusable free list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L79-L164",
+            "why": "Shows subsequent SisLib allocations consuming blocks from that private free pool."
+          }
+        ]
+      },
+      {
+        "id": "fact:0af4c6c6-142f-403d-9b17-b19e3669d2ff",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Free",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void HSD_SisLib_Free(void* ptr)`. The parameter is an opaque payload pointer previously returned by HSD_SisLib_Alloc; it must exactly equal a live SisBlock's data field to be released. An unrecognized pointer, including NULL unless NULL is itself recorded as a live payload, is ignored.",
+        "rationale": "The current definitions preserve the exact signature and allocator contract: allocation returns `SisBlock::data`, while free compares its opaque argument only against that field and returns without mutation when no live block matches.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L79-L164",
+            "why": "Shows HSD_SisLib_Alloc returning a selected block's data payload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L148-L200",
+            "why": "Provides the exact free signature, exact payload-identity comparison, and no-match return."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d21d122-0e2c-498c-b004-ccbc4f35b1df",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Free",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Returns one SisLib allocation to the library's private reusable block pool. It locates the allocation by its payload pointer, removes its SisBlock header from the used list, and either merges it with the immediately following free-head region or appends it as a separate free block.",
+        "rationale": "The matched body searches used_head for a block whose data field equals the supplied pointer. Every successful path removes that block from the used list and places it on the free side; the address-adjacency branch additionally combines the released payload, its header, and the existing free-head payload into one larger block.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:08:33.161Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L148-L200",
+            "why": "Directly shows payload lookup, used-list removal, contiguous free-head merging, and fallback insertion at the free-list tail."
+          }
+        ]
+      },
+      {
+        "id": "fact:dd8d845c-bfb3-47c1-82d0-9f7194adbe08",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:HSD_SisLib_Free",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If no used block owns the supplied payload, the allocator state is unchanged. For a recognized allocation immediately preceding free_head in memory, the function removes it from the used list, promotes its header to free_head, preserves the old free head's successor, and sets the new payload capacity to the sum of both payload sizes plus one SisBlock header. For every other recognized allocation, it appends the block to the free-list tail, removes it from the used list, and clears its next link. Removing the used-list head updates used_head; removing an interior block patches its predecessor.",
+        "rationale": "These are the complete branches in the matched function. The initial failed-search return establishes the no-op state, the address equality establishes the sole coalescing transition, and the predecessor checks establish the separate head and interior removal transitions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:08:33.161Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L148-L200",
+            "why": "The complete function directly establishes the unknown-pointer guard, contiguous merge transition, fallback free-tail transition, and used-list head versus interior updates."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:fn_803A60EC",
+    "facts": [
+      {
+        "id": "fact:fc584e50-155c-4b2c-80d9-477e1da4fbed",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:fn_803A60EC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the removed GObj as an opaque user-data payload, reads the head of the global SisLib manager-entry list, and follows each entry's x0 next link. On the first entry whose x4 object pointer equals the payload, it writes NULL to x4 and returns; it does not unlink or free the entry.",
+        "rationale": "The current registration site passes the created GObj itself as this callback's payload and retains that pointer in the entry's x4 field. The callback at head traverses only the x0 links, clears the first matching x4 field, and performs no unlinking or deallocation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L429-L559",
+            "why": "Shows both the callback's list traversal and field clear and the context-creation site storing and registering the same GObj pointer as its payload."
+          }
+        ]
+      },
+      {
+        "id": "fact:133dbc53-2bd9-41b7-9d98-ae40f271b345",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:fn_803A60EC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports SisLib text presentation by keeping its per-font text-rendering manager entries synchronized with the lifetime of their associated camera/rendering GObjs.",
+        "rationale": "The current creation routine stores an orthographic text-camera GObj in a font-indexed manager entry and registers this callback for that object. The callback clears the retained pointer when removal occurs, preserving the standing lifecycle-bookkeeping interpretation.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L429-L559",
+            "why": "Shows creation and text-camera setup of the manager entry's GObj, registration of this removal callback, and the callback clearing the matching retained reference."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d6c0ae4-7b43-4bd3-b619-040fd37fccbd",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:fn_803A60EC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_GObjRemoveCallback",
+        "rationale": "The head source still labels the routine as a GObj remove callback, registers it through GObj_InitUserData, and shows its sole role as clearing SisLib's retained reference to that GObj. The proposed name remains plausible within the unit's naming convention, though the exact original suffix is unknown.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `HSD_SisLib_GObjRemoveCallback`.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L429-L559",
+            "why": "Contains the local GObj-remove-callback annotation, callback implementation, and registration site beside the SisLib context-management code."
+          }
+        ]
+      },
+      {
+        "id": "fact:8836a5e5-3f27-4c52-bb54-81bb655a121b",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:fn_803A60EC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Removal-callback signature `void (void* user_data)`. For this registration, the opaque payload is an `HSD_GObj*` that is also stored in the SisLib manager entry's x4 field.",
+        "rationale": "The current callback definition and GObj user-data API agree on a void function receiving an opaque pointer. The SisLib registration site supplies the newly created HSD_GObj pointer as that payload while retaining it in the manager entry's x4 field.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L429-L559",
+            "why": "Shows the `void fn_803A60EC(void*)` definition and the created entry->x4 GObj being passed as the callback payload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/gobjuserdata.c#L6-L25",
+            "why": "Defines the removal callback type as `void (*)(void* user_data)` and shows removal invoking it with the registered opaque data pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:f9d3f57c-e733-4d46-bf35-e38242e08a0d",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:fn_803A60EC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles removal of a SisLib-owned rendering GObj by clearing the corresponding manager entry's object pointer, preventing SisLib from retaining a reference to an object whose user data is being torn down.",
+        "rationale": "At head, SisLib still stores a newly created rendering GObj in a manager entry and registers this function as its user-data removal callback with that GObj as payload. The generic removal path invokes the callback, which finds and clears the retained entry pointer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:02.737Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L429-L559",
+            "why": "Shows the rendering GObj being stored and registered with this callback and the callback clearing the matching manager-entry pointer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/gobjuserdata.c#L6-L25",
+            "why": "Shows GObj user-data removal invoking the registered callback with the object's opaque user-data payload."
+          }
+        ]
+      },
+      {
+        "id": "fact:4ac9e3ad-dc23-435e-be75-a4185bee1c9f",
+        "target_id": "target:function:main/sysdolphin/baselib/sislib:fn_803A60EC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Transitions at most one SisLib manager entry from holding the removed rendering GObj to having no associated GObj. It stops after the first match; if the list is empty or no entry matches, it returns without changing state. Repeating the callback for the same pointer after a successful clear is therefore a no-op.",
+        "rationale": "The loop returns immediately after setting the matching x4 field to zero and otherwise terminates naturally without writes. Because the cleared field no longer equals the former non-NULL pointer, a repeated invocation cannot alter that entry again.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:38:49.192Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L479-L489",
+            "why": "The complete control flow establishes first-match clearing, no-match behavior, and the resulting idempotence for a previously cleared pointer."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "src/sysdolphin/baselib/sislib.c",
+    "facts": [
+      {
+        "id": "fact:0e44503a-f37e-4610-8d4f-ee0252ce894f",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/sislib.c",
+        "type": "data_flow",
+        "value": "Initialization receives a pool size, allocates one backing region through `HSD_MemAlloc`, constructs the SisLib free list over that region, and clears five archive and SIS-table slots. Text creation obtains `HSD_Text` objects and auxiliary storage from this pool and optionally associates them with a camera-context GObj. Per-font archive loading resolves a named SIS table, and indexed entries from that table flow into each text object's SIS buffer and reset state. Shutdown unloads retained archives and returns the backing pool to HSD memory management.",
+        "rationale": "The current unit still carries pool size into allocator initialization, allocates text and context objects from that pool, resolves archive symbols into per-font SIS-table slots, binds selected entries to text objects, and tears down both archives and backing memory. Claims about bytecode interpretation and glyph rendering were removed because those implementations have moved out of this unit.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T01:37:58.118Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L199-L399",
+            "why": "Shows text objects and their auxiliary buffers being allocated, initialized, linked, and released."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L400-L606",
+            "why": "Shows allocator reset, archive and pool teardown, initialization, camera-context setup, and archive-table loading."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L517-L604",
+            "why": "Shows resolved SIS tables and indexed SIS entries flowing into text-object interpreter state."
+          }
+        ]
+      },
+      {
+        "id": "fact:507a51e5-9bc5-4a46-bcdd-95c7bfdcbb53",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/sislib.c",
+        "type": "game_mapping",
+        "value": "Provides the object, authored-resource, camera, and lifecycle foundation for Melee's SIS-driven text-presentation system. It creates positioned text objects, selects per-font authored SIS entries, initializes their formatting state, and supplies camera contexts used by the rendering code in adjacent SisLib units; it no longer contains the stream interpreter or glyph renderer itself.",
+        "rationale": "The current unit creates positioned `HSD_Text` objects, links optional render GObjs to SisLib camera contexts, loads authored SIS tables, and selects entries into text state. Because the former interpreter and rendering spans were split out, the prior whole-renderer mapping is narrowed to the presentation foundation actually implemented here.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T01:37:58.118Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L199-L399",
+            "why": "Shows positioned HSD_Text construction, render-GObj association, formatting defaults, and object lifecycle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L517-L604",
+            "why": "Shows orthographic text-camera setup, authored SIS table loading, entry selection, and formatting-state initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:5a79d948-84a5-4da5-a723-cde8ba6be366",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/sislib.c",
+        "type": "purpose",
+        "value": "Implements the core object, resource, camera-context, and memory-lifecycle portion of HSD SisLib. It owns the private block allocator, creates and destroys `HSD_Text` objects, manages text and camera-context lists, loads per-font SIS archive tables, binds indexed SIS entries to text objects, and resets or shuts down those resources. SIS stream manipulation and rendering now reside in adjacent split translation units.",
+        "rationale": "The current unit ends after SIS-entry binding and interpreter-state initialization; the former interpreter and renderer spans no longer exist here. Its surviving code directly implements allocation, text construction and teardown, camera-context creation, archive loading, and lifecycle cleanup, requiring the purpose to be narrowed after the source split.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T01:37:58.118Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L79-L606",
+            "why": "Shows the private allocator and the current unit's surviving SisLib object and resource-management implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L199-L399",
+            "why": "Shows `HSD_Text` construction, initialization, list insertion, and destruction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L517-L604",
+            "why": "Shows camera-context finalization, per-font archive-table loading, SIS entry binding, and text-state initialization at the end of the current unit."
+          }
+        ]
+      },
+      {
+        "id": "fact:5e96298a-df03-4b4a-8249-38b620ea07a6",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/sislib.c",
+        "type": "state_behavior",
+        "value": "SisLib has three lifecycle levels in this unit: initialization creates an empty private allocation pool and clears five archive and SIS-table slot pairs; reset destroys active text and camera-context objects and reconstructs an empty free list while retaining the backing region; final shutdown performs that reset, unloads every occupied archive slot, clears its paired table slot, and frees the backing region. Per-font cleanup removes only objects and archive state associated with the selected font index.",
+        "rationale": "The head source retains distinct initialization, global reset, per-font cleanup, and final shutdown paths. Their behavior still supports the standing lifecycle interpretation, while the wording now reflects that the paired resource is specifically the resolved SIS table.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T01:37:58.118Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/sislib.c#L319-L519",
+            "why": "Shows global and per-font object teardown, allocator reconstruction, archive cleanup, final pool release, and initialization of all five resource pairs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sislib.c#L517-L604",
+            "why": "Shows the paired archive and SIS-table resources populated during per-font loading."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5A2C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC#r8",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5ACC#r9",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5CC4#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5DA0#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A5F50#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6048#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C#r10",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C#r8",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A611C#r9",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A62A0#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6368#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6368#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6478#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6478#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6530#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6530#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6530#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A660C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A660C#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A660C#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6754#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6754#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A67EC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A67EC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6B98#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6B98#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6B98#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A6B98#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A70A0#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A70A0#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A70A0#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A746C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A746C#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A746C#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A746C#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A74F0#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A74F0#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A74F0#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7548#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7548#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7548#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7548#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A75E0#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A75E0#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7664#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7684#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7684#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7684#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7F0C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A7F0C#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A8134#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A8134#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A8134#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A8134#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A84BC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A84BC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A945C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_803A947C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_Alloc#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:HSD_SisLib_Free#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:fn_803A60EC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:fn_803A6FEC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:fn_803A6FEC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/sislib:fn_803A6FEC#r5",
+    "facts": []
+  }
+]

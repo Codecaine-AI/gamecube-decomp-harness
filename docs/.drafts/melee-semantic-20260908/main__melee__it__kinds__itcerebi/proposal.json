@@ -1,0 +1,72 @@
+{
+  "tu": "main/melee/it/kinds/itcerebi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1106-L1120",
+            "why": "Shared physics call, countdown test, scale restoration and decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcerebi.c#L132-L147",
+            "why": "Successful guard branch performs the state-1 effect handoff."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing false-path no-change assertion by accounting for side effects inside the guard and preserving the countdown's test-before-decrement ordering.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcerebi:itCerebi_UnkMotion0_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Every invocation calls it_8027A09C, which invokes shared physics processing before testing the stored Pok\u00e9mon appearance countdown. If the countdown is greater than zero, the helper subtracts 1.0 and returns false, so waiting is not a no-op. If the countdown is already at or below zero, it restores the model's normal scale and returns true; the Celebi callback then resets velocity, enters motion state 1 with ITEM_ANIM_UPDATE, installs effect hitlag callbacks, and spawns synchronized effect 0x472 with a local scalar of 1.0. The countdown is tested before decrementing, so reaching zero through subtraction does not trigger this transition until a subsequent invocation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcerebi.c#L27-L34",
+            "why": "Explicit three-row ItemStateTable definition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the demonstrated source type while removing unsupported compiled-layout claims.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcerebi:.data"
+        },
+        "type": "inferred_type",
+        "value": "A three-element ItemStateTable array whose source initializers pair identifiers 0, 1 and 2 with their respective animation, physics and collision callbacks over Item_GObj objects. The source definition establishes the array type and three-row extent, but does not by itself establish compiled row sizes or the complete compiled section size."
+      },
+      {
+        "confidence": 0.84,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcerebi.c#L126-L130",
+            "why": "Complete animation callback delegates to it_80279FF8."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1077-L1099",
+            "why": "Delegated helper advances appearance-scale phases."
+          }
+        ],
+        "op": "write",
+        "rationale": "The callback delegates to shared Pok\u00e9mon appearance-scale processing and always returns false. Spawn describes that demonstrated role more accurately than Fall; airborne state entry alone does not establish falling behavior in this animation callback. This remains a semantic naming hypothesis, not recovered historical spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcerebi:itCerebi_UnkMotion0_Anim"
+        },
+        "type": "inferred_name",
+        "value": "itCerebi_Spawn_Anim"
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

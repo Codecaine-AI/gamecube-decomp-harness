@@ -9,6 +9,25 @@ import { runSandboxTypeLayoutIndexFallback } from "./type-layout-fetch.js";
 const WORKSPACE_ROOT = "/sandbox/workspace";
 const CONTEXT = "build/ctx.c";
 
+function layoutFixture(kind: "melee" | "sms"): string {
+  const sms = kind === "sms";
+  const version = sms ? "GMSJ01" : "GALE01";
+  return JSON.stringify({
+    version,
+    report_path: `build/${version}/report.json`,
+    object_root: `build/${version}/obj`,
+    asm_root: `build/${version}/asm`,
+    context_script: sms ? "tools/decompctx.py" : "tools/m2ctx/m2ctx.py",
+    include_paths: sms ? ["include", `build/${version}/include`] : [],
+    units: [{
+      name: sms ? "mario/main" : "main/melee/lb/lbcommand",
+      base_path: sms ? `build/${version}/src/main.o` : `build/${version}/src/melee/lb/lbcommand.o`,
+      target_path: sms ? `build/${version}/obj/main.o` : `build/${version}/obj/melee/lb/lbcommand.o`,
+      source_path: sms ? "src/main.cpp" : "src/melee/lb/lbcommand.c",
+    }],
+  });
+}
+
 const createParams: SandboxCreateParams = {
   snapshot: "melee-type-layout-test",
   labels: { game_id: "melee", claim_id: "claim-type-layout" },
@@ -23,6 +42,7 @@ describe("sandbox type_layout_lookup fetch-first fallback", () => {
     const tempParent = await mkdtemp(resolve(tmpdir(), "type-layout-fetch-test-"));
     const cacheRoot = resolve(tempParent, "cache");
     provider.scriptExec(
+      { exitCode: 0, stdout: layoutFixture("melee"), stderr: "" },
       { exitCode: 1, stdout: "", stderr: "" },
       async () => {
         await handle.writeFile(`${WORKSPACE_ROOT}/${CONTEXT}`, "sandbox context");
@@ -62,12 +82,16 @@ describe("sandbox type_layout_lookup fetch-first fallback", () => {
     });
 
     expect(result).toEqual({ parsed: { status: "ok", record: "HSD_GObj" } });
-    expect(provider.execCalls).toHaveLength(2);
+    expect(provider.execCalls).toHaveLength(3);
     expect(provider.execCalls[0]).toMatchObject({
-      command: ["test", "-f", CONTEXT],
+      command: ["python3", "-c", expect.stringContaining("objdiff.json")],
       opts: { cwd: WORKSPACE_ROOT, timeoutMs: 10_000 },
     });
     expect(provider.execCalls[1]).toMatchObject({
+      command: ["test", "-f", CONTEXT],
+      opts: { cwd: WORKSPACE_ROOT, timeoutMs: 10_000 },
+    });
+    expect(provider.execCalls[2]).toMatchObject({
       command: ["python3", "tools/m2ctx/m2ctx.py", "--quiet", "--preprocessor"],
       opts: { cwd: WORKSPACE_ROOT, timeoutMs: 120_000 },
     });
@@ -79,6 +103,72 @@ describe("sandbox type_layout_lookup fetch-first fallback", () => {
       ["--record", "HSD_GObj", "--mode", "near", "--index-root", cacheRoot, "--json"],
     ]);
     expect(existsSync(resolve(mirrorContext, "../.."))).toBe(false);
+    await rm(tempParent, { recursive: true, force: true });
+  });
+
+  test("does not build an SMS index from an arbitrary translation unit", async () => {
+    const provider = new FakeSandboxProvider();
+    const handle = await provider.create(createParams);
+    const tempParent = await mkdtemp(resolve(tmpdir(), "type-layout-sms-test-"));
+    provider.scriptExec(
+      { exitCode: 0, stdout: layoutFixture("sms"), stderr: "" },
+      { exitCode: 1, stdout: "", stderr: "" },
+    );
+
+    const result = await runSandboxTypeLayoutIndexFallback({
+      sandboxHandle: handle,
+      workspaceRoot: WORKSPACE_ROOT,
+      gameId: "sms",
+      worktreeCacheRoot: resolve(tempParent, "cache"),
+      args: ["--mode", "summary", "--json"],
+      tempParent,
+      runHostApi: async (args) => args.includes("--index-root")
+        ? { parsed: { status: "ok" } }
+        : { parsed: { status: "index_not_built" } },
+      runHostRunner: async () => ({ exit_code: 0, parsed: { success: true } }),
+    });
+
+    expect(result).toMatchObject({
+      status: "type_index_build_failed",
+      stage: "context_generation",
+      error_summary: "tools/decompctx.py requires a source file, but the project layout has none",
+    });
+    expect(provider.execCalls).toHaveLength(2);
+    await rm(tempParent, { recursive: true, force: true });
+  });
+
+  test("builds an SMS index from an existing prepared context", async () => {
+    const provider = new FakeSandboxProvider();
+    const handle = await provider.create(createParams);
+    const tempParent = await mkdtemp(resolve(tmpdir(), "type-layout-sms-context-test-"));
+    await handle.writeFile(`${WORKSPACE_ROOT}/${CONTEXT}`, "prepared sms context");
+    provider.scriptExec(
+      { exitCode: 0, stdout: layoutFixture("sms"), stderr: "" },
+      { exitCode: 0, stdout: "", stderr: "" },
+    );
+
+    const result = await runSandboxTypeLayoutIndexFallback({
+      sandboxHandle: handle,
+      workspaceRoot: WORKSPACE_ROOT,
+      gameId: "sms",
+      worktreeCacheRoot: resolve(tempParent, "cache"),
+      args: ["--mode", "summary", "--json"],
+      tempParent,
+      runHostApi: async (args) => args.includes("--index-root")
+        ? { parsed: { status: "ok" } }
+        : { parsed: { status: "index_not_built" } },
+      runHostRunner: async (args) => {
+        const contextPath = args[args.indexOf("--ctx") + 1];
+        expect(readFileSync(contextPath, "utf8")).toBe("prepared sms context");
+        return { exit_code: 0, parsed: { success: true } };
+      },
+    });
+
+    expect(result).toEqual({ parsed: { status: "ok" } });
+    expect(provider.execCalls).toHaveLength(2);
+    expect(provider.downloadCalls.map(({ remotePath }) => remotePath)).toEqual([
+      `${WORKSPACE_ROOT}/${CONTEXT}`,
+    ]);
     await rm(tempParent, { recursive: true, force: true });
   });
 
@@ -123,7 +213,10 @@ describe("sandbox type_layout_lookup fetch-first fallback", () => {
     const handle = await provider.create(createParams);
     const tempParent = await mkdtemp(resolve(tmpdir(), "type-layout-failure-test-"));
     await handle.writeFile(`${WORKSPACE_ROOT}/${CONTEXT}`, "sandbox context");
-    provider.scriptExec({ exitCode: 0, stdout: "", stderr: "" });
+    provider.scriptExec(
+      { exitCode: 0, stdout: layoutFixture("melee"), stderr: "" },
+      { exitCode: 0, stdout: "", stderr: "" },
+    );
 
     const result = await runSandboxTypeLayoutIndexFallback({
       sandboxHandle: handle,

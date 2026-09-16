@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_KinokoSmallStart",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallStart.c#L25-L77",
+            "why": "Shows all reads, direct write, dispatches, returns and a possible x4 finalizer that changes continuation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Supersedes the ambiguous transition-indicator summary with exact branch outputs and callback-before-status ordering.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_KinokoSmallStart:Fighter_PoisonMushroomApply"
+        },
+        "type": "data_flow",
+        "value": "Borrows gobj and reads its Fighter user_data. After eligibility succeeds, an inclusive mushroom-motion-range test may invoke mv.co.mushroom.x4 before status and ground/air are read again. The only direct Fighter-field assignment is x2008 = p_ftCommonData->x688 in the b6 refresh branch. The b5 branch forwards gobj and argument 1 to a ground/air giant-end entry; otherwise gobj goes to a ground/air small-start entry. Returns false on failed eligibility or the b6 refresh branch and true after the latter dispatches. A false result can follow an x4-induced state transition and is not a no-mutation guarantee."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallStart.c#L25-L59",
+            "why": "Exact signature, dereference and branch-specific returns."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact type while removing an overly strong return-value interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_KinokoSmallStart:Fighter_PoisonMushroomApply"
+        },
+        "type": "inferred_type",
+        "value": "Exact source signature: bool Fighter_PoisonMushroomApply(Fighter_GObj* gobj). Requires a valid borrowed fighter game object whose user_data is a Fighter. True means the call selected a giant-end or small-start entry after eligibility and active-callback handling; false means eligibility failed or the post-callback b6 refresh branch was selected. False does not imply that no state transition or mutation occurred earlier in the call."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallStart.c#L64-L77",
+            "why": "Ordering of restore, status/timer/scale commitment, zeroing call and dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D27.c#L179-L192",
+            "why": "Exact restored fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L911-L939",
+            "why": "The common helper zeros those live movement fields."
+          }
+        ],
+        "op": "write",
+        "rationale": "Supersedes the vague common-state refresh description with the resolved helper's material effect.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_KinokoSmallStart:ftCo_800D1F6C"
+        },
+        "type": "data_flow",
+        "value": "Calls fn_800D2BF8 to restore saved movement fields, sets x2220_b6 true, loads x2008 from common-data x688, and applies mv.co.walk.fast_anim_frame as terminal scale through ftCo_800D2770. It then unconditionally calls ftCommon_8007E2FC, which zeros the restored acceleration/animation/self/ground/knockback movement fields before dispatch. GA_Ground selects ft_8008A324 and returns; every other ground_or_air value invokes mv.co.mushroom.x0(gobj) without a null check. Restoration is intermediate, not preservation of outgoing velocity."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallStart.c#L25-L176",
+            "why": "Complete owned state flow and scale branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D27.c#L70-L205",
+            "why": "Continuation selection, capture cleanup, animation endpoints and movement helpers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L911-L939",
+            "why": "Final movement reset semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1429-L1437",
+            "why": "Pending request consumer ignores the Boolean."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1500-L1511",
+            "why": "Timer countdown and size-effect-end consumers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the broad TU data-flow baseline with verified cross-file consumers and the restore-then-zero distinction.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallStart.c"
+        },
+        "type": "data_flow",
+        "value": "The TU consumes borrowed fighter objects, reading eligibility, motion, size flags, current/baseline scale and ground/air state. Initial entries capture old motion before interruption/capture cleanup, save and zero movement, choose an air continuation, create or reuse an auxiliary scale-animation object and store start/target endpoints in walk-named move-state fields. Target is current y scale times common x684 when x scale < 1, otherwise times x680. Both Anim callbacks update the auxiliary interpolation and finalize on its terminal flag. Finalization temporarily restores saved movement, enables b6, loads x688 into x2008, commits target scale, then zeros movement before its ground or saved-air continuation. Fighter update consumes x2008 as a countdown and processes pending x2010 applications while ignoring the apply Boolean. Surface transfers reuse current timing rather than repeating full initialization."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

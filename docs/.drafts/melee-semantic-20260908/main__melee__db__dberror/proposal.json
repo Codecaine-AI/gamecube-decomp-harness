@@ -1,0 +1,129 @@
+{
+  "tu": "main/melee/db/dberror",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L62-L81",
+            "why": "Allocation, panic registration and attempted OS range."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L50",
+            "why": "Setter enforces a boundary before accessing the table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os/OSException.h#L25-L27",
+            "why": "The asserted maximum is 15."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that the complete selected range is supported while preserving the setup routine's demonstrated purpose.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dberror:db_SetupCrashHandler"
+        },
+        "type": "purpose",
+        "value": "Prepares Melee's fallback crash diagnostics when no debugger is detected: allocates report-buffer workspace, registers the HSD panic callback, and attempts selected OS-error callback registrations. Completion of the full attempted range is not established because index 15 conflicts with the pinned SDK's handler-table boundary."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L62-L81",
+            "why": "Guard, allocation, loop bounds and skips."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L10-L10",
+            "why": "Declared table has 15 elements."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L50",
+            "why": "Assertion and indexed replacement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os/OSException.h#L25-L27",
+            "why": "MAX evaluates to 15."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes source-level attempts from supported installation and per-invocation registration from one-time initialization.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dberror:db_SetupCrashHandler"
+        },
+        "type": "state_behavior",
+        "value": "A nonzero DBIsDebuggerPresent result skips setup. Otherwise each invocation allocates and initializes 0x2000 bytes, registers the panic callback once within that invocation, and attempts OS handler registrations for 0 through 15 except 4, 7, 8 and 9. There is no local once-only guard or rollback. The final attempted index 15 conflicts with OSErrorTable[15] and the assertion error < __OS_EXCEPTION_MAX, where MAX is 15: assertion-active execution fails there; assertion-disabled shown C accesses outside the declared table. Successful full-range installation requires reconciliation with the linked SDK/build and is deferred."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L81",
+            "why": "Complete owned functionality and exact masks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L50",
+            "why": "OS registration is constrained by an asserted boundary."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os/OSException.h#L25-L27",
+            "why": "Boundary conflicts with final attempted index."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces broad pending-exception cleanup and installation language with precise operations and the unresolved registration boundary.",
+        "subject": {
+          "entity_locator": "src/melee/db/dberror.c"
+        },
+        "type": "purpose",
+        "value": "Provides low-level debug error infrastructure: a current-context FPU save/mask/reload routine that retains only the low 20 FPSCR bits after ORing MSR with 0x900, two crash-diagnostic callbacks, and debugger-guarded report-buffer preparation and attempted handler registration. This is not a complete floating-point-state reset, and successful registration of the entire attempted OS-error range is not established."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L27-L81",
+            "why": "Callback ordering and guarded registration attempts."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L10-L10",
+            "why": "Table declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L42-L50",
+            "why": "Assertion and array accesses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os/OSException.h#L25-L27",
+            "why": "Maximum is 15."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the TU's successful full-range installation claim while retaining callback ordering and the debugger guard.",
+        "subject": {
+          "entity_locator": "src/melee/db/dberror.c"
+        },
+        "type": "state_behavior",
+        "value": "Setup side effects are guarded by DBIsDebuggerPresent returning zero. Each qualifying invocation prepares report storage, registers the panic callback and attempts OS-error registrations over 0\u201315 except 4, 7, 8 and 9. Index 15 is not a proven successful installation: the pinned SDK declares 15 table elements and asserts error < 15, so active assertions fail on this final attempt and disabled assertions leave an out-of-bounds C access. Linked SDK/build reconciliation remains deferred. Both diagnostic callbacks clear user retrace hooks before reporting; the OS callback first extracts DSISR and DAR."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

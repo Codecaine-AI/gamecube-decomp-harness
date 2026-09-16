@@ -1,0 +1,422 @@
+{
+  "schemaVersion": 1,
+  "id": "10-game-model",
+  "title": "Game Model",
+  "root": "b-10-game-model-root-38",
+  "blocks": {
+    "b-10-game-model-root-38": {
+      "id": "b-10-game-model-root-38",
+      "type": "paragraph",
+      "props": {},
+      "text": [],
+      "children": [
+        "b-10-game-model-game-model-1",
+        "game-configuration-heading",
+        "game-configuration-intro",
+        "setup-game-descriptor-shape",
+        "game-configuration-paths",
+        "game-files-heading",
+        "game-files-intro",
+        "setup-grouped-tree",
+        "game-state-heading",
+        "game-state-explanation",
+        "game-model-next"
+      ]
+    },
+    "b-10-game-model-game-model-1": {
+      "id": "b-10-game-model-game-model-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each game has its own configuration, source checkout, knowledge, and runtime state under "
+        },
+        {
+          "insert": "games/<game-id>/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Shared orchestration and GameCube tools operate on the selected game's files. The configuration identifies what to build and which sources to learn from. Harness State records accepted progress as the game runs."
+        }
+      ],
+      "children": []
+    },
+    "game-configuration-heading": {
+      "id": "game-configuration-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Configuration"
+        }
+      ],
+      "children": []
+    },
+    "game-configuration-intro": {
+      "id": "game-configuration-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "game.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the entry point. It gives the game a stable identity and points to its checkout, state, tools, and supporting configuration files. The example shows the configuration layout, not a game that is ready to run."
+        }
+      ],
+      "children": []
+    },
+    "setup-game-descriptor-shape": {
+      "id": "setup-game-descriptor-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "Tracked game.json entry point, including configuration references consumed before descriptor resolution.",
+        "example": "{\n  \"id\": \"example-game\",\n  \"displayName\": \"Example Game\",\n  \"repoRoot\": \"./workspace/checkout\",\n  \"stateDir\": \"./runtime/state\",\n  \"graphDb\": \"./knowledge/graph/graph.sqlite\",\n  \"baseRef\": \"origin/main\",\n  \"processName\": \"example-game-live\",\n  \"tools\": {\n    \"toolpacks\": [\n      \"gamecube-decomp\"\n    ],\n    \"bindingsRoot\": \"./config/tools\"\n  },\n  \"config\": {\n    \"build\": \"./config/build.json\",\n    \"sandbox\": \"./config/sandbox.json\",\n    \"sources\": [\n      \"./config/sources/prs.json\",\n      \"./config/sources/discord.json\",\n      \"./config/sources/wiki.json\"\n    ]\n  }\n}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "Stable game identity."
+          },
+          {
+            "name": "displayName",
+            "type": "string",
+            "description": "Operator-facing name.",
+            "required": false
+          },
+          {
+            "name": "repoRoot",
+            "type": "string",
+            "description": "Game-relative canonical checkout; grouped default workspace/checkout.",
+            "required": false
+          },
+          {
+            "name": "stateDir",
+            "type": "string",
+            "description": "Game state directory; grouped default runtime/state.",
+            "required": false
+          },
+          {
+            "name": "graphDb",
+            "type": "string",
+            "description": "Graph database path.",
+            "required": false
+          },
+          {
+            "name": "baseRef",
+            "type": "string",
+            "description": "Upstream Git ref.",
+            "required": false
+          },
+          {
+            "name": "processName",
+            "type": "string",
+            "description": "Stable managed process name; melee-live for Melee.",
+            "required": false
+          },
+          {
+            "name": "tools",
+            "type": "object",
+            "description": "toolpacks, bindingsRoot, sharedDataRoot, and worktreeCacheRoot.",
+            "required": false,
+            "fields": [
+              {
+                "name": "toolpacks",
+                "type": "string[]",
+                "description": "Shared toolpack identifiers."
+              },
+              {
+                "name": "bindingsRoot",
+                "type": "string",
+                "description": "Game-relative tool bindings directory."
+              },
+              {
+                "name": "sharedDataRoot",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "worktreeCacheRoot",
+                "type": "string",
+                "required": false
+              }
+            ]
+          },
+          {
+            "name": "config",
+            "type": "object",
+            "description": "Game-relative build, sandbox, tools, and sources configuration references.",
+            "required": false,
+            "fields": [
+              {
+                "name": "build",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "sandbox",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "tools",
+                "type": "string",
+                "required": false
+              },
+              {
+                "name": "sources",
+                "type": "string[]",
+                "required": false
+              }
+            ]
+          }
+        ],
+        "name": "Game Configuration",
+        "source": {
+          "path": "apps/server/src/core/game-registry/config.ts",
+          "symbol": "readGameDescriptorConfig"
+        }
+      },
+      "children": []
+    },
+    "game-configuration-paths": {
+      "id": "game-configuration-paths",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Paths in the descriptor resolve relative to "
+        },
+        {
+          "insert": "games/<game-id>/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Referenced configuration keeps build settings, sandbox profiles, and source definitions separate. Machine-specific overrides live in "
+        },
+        {
+          "insert": "config/local.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "game-files-heading": {
+      "id": "game-files-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Game Files"
+        }
+      ],
+      "children": []
+    },
+    "game-files-intro": {
+      "id": "game-files-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This tree shows the contents of "
+        },
+        {
+          "insert": "games/<game-id>/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Setup creates the configuration and checkout. Source intake and execution populate the knowledge and runtime directories. Shared application code and toolpack implementations live outside the game folder."
+        }
+      ],
+      "children": []
+    },
+    "setup-grouped-tree": {
+      "id": "setup-grouped-tree",
+      "type": "file-tree",
+      "props": {
+        "entries": [
+          {
+            "path": "game.json",
+            "note": "Game identity and configuration references"
+          },
+          {
+            "path": "config/",
+            "note": "Settings for this game"
+          },
+          {
+            "path": "config/build.json",
+            "note": "Build and report settings"
+          },
+          {
+            "path": "config/sandbox.json",
+            "note": "Execution images and resource profiles"
+          },
+          {
+            "path": "config/tools/",
+            "note": "Bindings to shared tool implementations"
+          },
+          {
+            "path": "config/sources/prs.json",
+            "note": "Repository and PR capture policy"
+          },
+          {
+            "path": "config/sources/discord.json",
+            "note": "Server, channels, and capture policy"
+          },
+          {
+            "path": "config/sources/wiki.json",
+            "note": "Wiki scope, capture location, and refresh"
+          },
+          {
+            "path": "config/local.json",
+            "note": "Ignored machine-specific overrides"
+          },
+          {
+            "path": "config/local.env",
+            "note": "Game-specific environment values"
+          },
+          {
+            "path": "workspace/",
+            "note": "Source checkouts"
+          },
+          {
+            "path": "workspace/checkout/",
+            "note": "Canonical checkout used by the harness"
+          },
+          {
+            "path": "workspace/checkout/build/",
+            "note": "Generated build output"
+          },
+          {
+            "path": "workspace/repository/",
+            "note": "Git repository for a linked worktree, if used"
+          },
+          {
+            "path": "workspace/staging/",
+            "note": "Isolated Sync worktrees"
+          },
+          {
+            "path": "knowledge/",
+            "note": "Evidence and knowledge for this game"
+          },
+          {
+            "path": "knowledge/sources/",
+            "note": "Captured PR, Discord, and wiki material"
+          },
+          {
+            "path": "knowledge/store/",
+            "note": "Knowledge database"
+          },
+          {
+            "path": "knowledge/indexes/",
+            "note": "Rebuildable search indexes"
+          },
+          {
+            "path": "knowledge/graph/",
+            "note": "Derived source graph"
+          },
+          {
+            "path": "runtime/",
+            "note": "Execution state and generated tool data"
+          },
+          {
+            "path": "runtime/state/",
+            "note": "Harness records and operation evidence"
+          },
+          {
+            "path": "runtime/tool-data/",
+            "note": "Generated tool indexes and caches"
+          },
+          {
+            "path": "runtime/tools/",
+            "note": "Installed tool binaries"
+          }
+        ]
+      },
+      "children": []
+    },
+    "game-state-heading": {
+      "id": "game-state-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Configuration and Runtime State"
+        }
+      ],
+      "children": []
+    },
+    "game-state-explanation": {
+      "id": "game-state-explanation",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Configuration tells the harness where and how to work. "
+        },
+        {
+          "insert": "Harness State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-harness/20-harness-state"
+            }
+          }
+        },
+        {
+          "insert": " records the accepted source head, readiness, execution intent, and history. "
+        },
+        {
+          "insert": "DispatchState",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " separately records the lease that controls exclusive execution authority. Both belong to the selected game."
+        }
+      ],
+      "children": []
+    },
+    "game-model-next": {
+      "id": "game-model-next",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Registration and Setup",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "30-game-registration-and-setup"
+            }
+          }
+        },
+        {
+          "insert": " connects these files to the upstream project and original game inputs, prepares the knowledge sources, and establishes readiness for Run."
+        }
+      ],
+      "children": []
+    }
+  }
+}

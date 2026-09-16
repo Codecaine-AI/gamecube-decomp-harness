@@ -162,11 +162,11 @@ def load_crosswalk_titles(crosswalk_path: Path) -> dict[str, list[str]]:
     return titles_by_glob
 
 
-def build_sibling_rules(repo_root: Path) -> dict[str, Any]:
-    guide_path = repo_root / "projects/melee/knowledge/tree_guide/ft/README.md"
+def build_sibling_rules(repo_root: Path, game_id: str = "melee") -> dict[str, Any]:
+    guide_path = repo_root / "games" / game_id / "knowledge/tree_guide/ft/README.md"
     crosswalk_path = (
-        repo_root
-        / "projects/melee/knowledge/sources/rag_search/smashwiki/data/crosswalk.jsonl"
+        repo_root / "games" / game_id
+        / "knowledge/sources/rag_search/smashwiki/data/crosswalk.jsonl"
     )
     guide_text = guide_path.read_text(encoding="utf-8")
     families = parse_families(guide_text)
@@ -186,11 +186,14 @@ def build_sibling_rules(repo_root: Path) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=default_repo_root())
+    parser.add_argument("--game", default="melee", help="Game whose fighter guide supplies sibling rules")
     args = parser.parse_args()
+    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", args.game):
+        parser.error("--game must be a game identifier")
 
     repo_root = args.repo_root.expanduser().resolve()
-    output_path = repo_root / "projects/melee/knowledge/config/sibling_rules.json"
-    payload = build_sibling_rules(repo_root)
+    output_path = repo_root / "games" / args.game / "knowledge/config/sibling_rules.json"
+    payload = build_sibling_rules(repo_root, args.game)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

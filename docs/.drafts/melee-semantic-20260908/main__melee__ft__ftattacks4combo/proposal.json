@@ -1,0 +1,89 @@
+{
+  "tu": "main/melee/ft/ftattacks4combo",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L8-L16",
+            "why": "Exact field access, forwarding and boolean results."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234",
+            "why": "Caller consumes the predicate with RETURN_IF."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace obsolete input.x668/held-input wording with the exact current canonical field while preserving the verified caller-to-entry flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftattacks4combo:ftCo_800CECE8"
+        },
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj, derives its Fighter, and reads cmd_vars[0] and the HSD_PAD_A bit of input.pressed_buttons. When both tests pass, it forwards the unchanged object to ftCo_800CED30 and returns true after that call returns; otherwise it returns false. ftCo_AttackS4_IASA consumes the result with RETURN_IF."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L8-L16",
+            "why": "Exact success and failure paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234",
+            "why": "Priority and interrupt-gate placement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve caller priority and independent combo gating without treating the current pressed_buttons mask as held input.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftattacks4combo:ftCo_800CECE8"
+        },
+        "type": "state_behavior",
+        "value": "AttackS4 IASA places this specialized check outside both allow_interrupt-gated groups, though earlier accepted checks can return before reaching it. It dispatches AttackS42 entry only when cmd_vars[0] is nonzero and input.pressed_buttons contains HSD_PAD_A. After entry returns it returns true, stopping the caller's remaining checks. A failed guard returns false, allowing the subsequent ordinary checks when allow_interrupt permits them."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L8-L70",
+            "why": "Complete input, entry and lifecycle flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Correct the obsolete held-input field description and retain exact source-level flow, including the exceptional report.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ftattacks4combo.c"
+        },
+        "type": "data_flow",
+        "value": "The detector reads Fighter.cmd_vars[0] and HSD_PAD_A in Fighter.input.pressed_buttons. Success forwards the same object to entry, which reads Fighter.kind, reports unsupported kinds, clears allow_interrupt in the shared transition block, calls Fighter_ChangeMotionState with ftLk_MS_AttackS42, 0, 0.0F, 1.0F, 0.0F and NULL, then calls ftAnim_8006EBA4. Lifecycle callbacks forward the object to common AttackS4 animation, physics and collision handling; IASA reads allow_interrupt before forwarding to Wait IASA."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L8-L70",
+            "why": "Exact guards, exceptional branch, state initialization and callback gates."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace held-input wording and preserve the distinction between supported entry, assertion behavior and shared transition code.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ftattacks4combo.c"
+        },
+        "type": "state_behavior",
+        "value": "The detector requires nonzero cmd_vars[0] and HSD_PAD_A in input.pressed_buttons. Intended entry kinds are Link and child Link; other kinds reach a constant-false assertion report before the shared transition block. That block clears allow_interrupt, installs ftLk_MS_AttackS42 with arguments 0, 0.0F, 1.0F, 0.0F and NULL, and calls ftAnim_8006EBA4. AttackS42 IASA delegates to Wait IASA only after allow_interrupt is enabled; animation, physics and collision delegate to common AttackS4 callbacks. The source does not establish whether the unsupported-kind assertion returns."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

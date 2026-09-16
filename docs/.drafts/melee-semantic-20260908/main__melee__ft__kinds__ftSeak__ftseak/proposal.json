@@ -1,0 +1,65 @@
+{
+  "tu": "main/melee/ft/kinds/ftSeak/ftseak",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseak.c#L344-L348",
+            "why": "Exact forwarding order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecialn.c#L31-L66",
+            "why": "Placement, null-spawn branch, decrement, and terminal reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecials.c#L402-L440",
+            "why": "Chain ownership guard and cleanup writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces guaranteed per-stock spawning with the actual fallible creation path and preserves the ordered cross-file data flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftSeak/ftseak:ftSk_Init_80110198"
+        },
+        "type": "data_flow",
+        "value": "Forwards the fighter object unchanged first to ftSk_SpecialN_80111FBC and then to ftSk_SpecialS_CheckAndDestroyChain. With a non-null held-needle reference, the first callee clears that reference and repeatedly attempts thrown-needle creation while stored stock is nonzero, using ground/air-specific vertical placement; each iteration decrements stock even if creation returns null. It always finally resets stock to zero. The Chain callee guards on its owned pointer, requests destruction, invokes guarded working-state handling, then clears Chain ownership and both damage/death callbacks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseak.c#L344-L348",
+            "why": "Unconditional ordered delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecialn.c#L31-L73",
+            "why": "Nested callback identity test and both callback clears."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecials.c#L402-L440",
+            "why": "Separate Chain guards, numeric state write, and terminal clears."
+          }
+        ],
+        "op": "write",
+        "rationale": "Restores the omitted outer held-object guard and preserves the separate Chain helper guard without assigning an unsupported meaning to state 2.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftSeak/ftseak:ftSk_Init_80110198"
+        },
+        "type": "state_behavior",
+        "value": "Always invokes needle cleanup before Chain cleanup. Needle discharge attempts and callback-identity testing occur only when the held-needle reference was non-null. Inside that branch, either death2_cb or take_dmg_cb matching this wrapper causes both callbacks to be cleared; without a held reference, needle cleanup only resets stock. Chain cleanup is a no-op without an owned Chain; otherwise it requests destruction, invokes ChainSomething (whose own non-null guard controls its article call and numeric working-state write of 2), and clears Chain ownership and both interruption callbacks."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

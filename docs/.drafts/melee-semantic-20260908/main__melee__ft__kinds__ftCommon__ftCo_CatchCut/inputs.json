@@ -1,0 +1,659 @@
+{
+  "head_revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "files": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut",
+      "sha256": "f830d08fcf236bbafb552fc8cea2fa00940c829270c5982a3e55bbb839860743",
+      "lines": 54,
+      "bytes": 1431
+    }
+  ],
+  "subjects": [
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:.sdata2"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_800DA698"
+      },
+      "facts": [
+        {
+          "id": "fact:c827c4a5-bd11-4505-bde3-4463bcf31546",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_800DA698",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives the grabbing fighter's game object and a release-victim flag, then reads `ground_or_air`, `facing_dir`, and, conditionally, `victim_gobj`. Grounded fighters receive `gr_vel = -facing_dir * p_ftCommonData->x370`; airborne fighters receive `self_vel.x = -facing_dir * p_ftCommonData->x374` and `self_vel.y = p_ftCommonData->x378`. The game object is passed to `Fighter_ChangeMotionState`, and a true flag forwards `victim_gobj` to `ftCo_CaptureCut_Enter`.",
+          "rationale": "The relocated function at head preserves every fighter and common-data read, the situation-specific velocity writes, the CatchCut state transition, and the conditional forwarding of the linked victim. The current CaptureCut entry confirms how that forwarded object is consumed.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L22",
+              "why": "Shows all local inputs, velocity writes, the CatchCut state transition, and conditional forwarding of `victim_gobj`."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L24-L36",
+              "why": "Shows the forwarded victim object being separated from the capture pair and transitioned into CaptureCut."
+            }
+          ]
+        },
+        {
+          "id": "fact:3b244769-99c9-491f-9776-e7dac194b631",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_800DA698",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the grabber side of Melee's grab-release boundary: the grabber recoils into CatchCut, and when requested the held opponent is synchronously separated into the complementary CaptureCut release reaction.",
+          "rationale": "At head, the routine applies recoil and enters CatchCut for the grabber, then can invoke the complementary CaptureCut entry on the linked victim. CaptureCut explicitly separates the linked fighters before entering the victim-side state, preserving the standing grab-release mapping after relocation.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L22",
+              "why": "Shows the grabber entering CatchCut and the optional linked-victim handoff to CaptureCut."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L24-L36",
+              "why": "Shows CaptureCut separating the capture pair and beginning the complementary captured-fighter reaction."
+            }
+          ]
+        },
+        {
+          "id": "fact:047a4009-2d45-49b4-b558-bf9569207fa5",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_800DA698",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftCo_CatchCut_Enter",
+          "rationale": "The relocated address-style function initializes `ftCo_MS_CatchCut` and directly precedes the named CatchCut callback suite. Its role parallels the explicitly named `ftCo_CaptureCut_Enter`, so `ftCo_CatchCut_Enter` remains the likely original name.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_CatchCut_Enter`.",
+          "confidence": 0.9,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L53",
+              "why": "Places the target before the named CatchCut callback suite and shows it initializing the CatchCut motion state."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L24-L36",
+              "why": "Provides the neighboring state family's explicit `_Enter` naming convention and analogous initialization role."
+            }
+          ]
+        },
+        {
+          "id": "fact:585e8336-5ff1-4108-8081-88ef55a8e011",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_800DA698",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A fighter action-state entry helper with signature `void(Fighter_GObj* gobj, bool release_victim)`. The Boolean controls whether the linked victim is also sent through its complementary release-state entry.",
+          "rationale": "The current definition directly establishes the void return, fighter-object parameter, and Boolean parameter. Its body uses the Boolean solely to guard entry of `fp->victim_gobj` into CaptureCut.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L22",
+              "why": "Shows the exact `void(Fighter_GObj*, bool)` definition and the Boolean-controlled victim transition."
+            }
+          ]
+        },
+        {
+          "id": "fact:07c02929-db5a-4f82-b8eb-f0fb6c2cef06",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_800DA698",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Begins the grabbing fighter's CatchCut release reaction. It applies situation-specific recoil away from the fighter's facing direction, enters the CatchCut motion state, and can also start the linked victim's complementary CaptureCut reaction.",
+          "rationale": "The function's relocated body still assigns backward ground recoil or backward-and-upward aerial recoil, enters `ftCo_MS_CatchCut`, and conditionally invokes the complementary CaptureCut entry for the linked victim.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L22",
+              "why": "Shows the complete recoil initialization, CatchCut transition, and optional victim-side CaptureCut transition."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L24-L36",
+              "why": "Shows that CaptureCut is the complementary captured-fighter release entry."
+            }
+          ]
+        },
+        {
+          "id": "fact:40e5ccfd-e210-4f52-9f0d-9712896bc56a",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_800DA698",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "On entry, an airborne grabber is launched backward and upward using `p_ftCommonData->x374` and `x378`, whereas a grounded grabber receives backward ground velocity using `x370`. Both paths enter `ftCo_MS_CatchCut` at frame 0 with animation rate 1 and blend 0. If the second argument is true, the linked victim then enters CaptureCut; if false, only the supplied fighter is transitioned.",
+          "rationale": "The current body contains the same exhaustive ground-versus-air branch, convergent CatchCut transition parameters, and Boolean guard controlling the paired victim transition.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L22",
+              "why": "Shows the exact situation branch, initial velocities, motion-state parameters, and optional CaptureCut entry."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Anim"
+      },
+      "facts": [
+        {
+          "id": "fact:ad38b99c-875e-4d04-a85c-1daa71fbe596",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Anim",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Passes the fighter game object to `ftAnim_IsFramesRemaining`; while that predicate is true, it produces no further effect. Once false, it forwards the same unchanged object to `ftCommon_8007D92C`, which reads the fighter's `ground_or_air` value and delegates to either `ftCo_Fall_Enter` or the common grounded-action dispatcher. The callback returns no value and performs no direct Fighter-field writes.",
+          "rationale": "The relocated callback contains only the animation query and conditional forwarding of its unchanged argument. The current completion helper shows the subsequent environment read and destination dispatch.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L24-L29",
+              "why": "Shows the complete local flow from the frame-remaining predicate to forwarding the unchanged game object."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcommon.c#L596-L604",
+              "why": "Shows the forwarded object's `ground_or_air` value selecting Fall or the common grounded-action dispatcher."
+            }
+          ]
+        },
+        {
+          "id": "fact:a80541c0-ba35-4716-a7ea-ea8a7059fcc8",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Anim",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the animation-expiry boundary of the grabber-side CatchCut reaction during grab release: after the capture pair has been released and the CatchCut animation finishes, the grabbing fighter becomes actionable through the normal grounded path or begins falling if airborne.",
+          "rationale": "The current unit shows CatchCut entry paired with optional victim-side CaptureCut entry and shows this callback waiting for animation exhaustion. The completion helper then routes the grabber into Fall or the ordinary grounded path.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L29",
+              "why": "Shows paired release-state entry and the CatchCut animation-completion boundary."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcommon.c#L596-L604",
+              "why": "Shows the ordinary grounded-or-falling transition performed after animation expiry."
+            }
+          ]
+        },
+        {
+          "id": "fact:11a09aa7-eb77-412c-868d-b59eb5ae3c60",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Anim",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Fighter animation-state callback with signature `void(Fighter_GObj* gobj)`.",
+          "rationale": "The relocated definition preserves the exact void return and fighter-object parameter, while its frame-remaining check identifies its animation-callback role.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L24-L29",
+              "why": "Provides the exact signature and complete animation-completion callback body."
+            }
+          ]
+        },
+        {
+          "id": "fact:ab59575c-db06-4a73-b7cd-3331db2b78b3",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Anim",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Handles completion of the grabbing fighter's CatchCut release animation, preserving the reaction while animation frames remain and returning the fighter to the environment-appropriate ordinary action path when it finishes.",
+          "rationale": "The callback does nothing while animation frames remain and invokes the common completion helper only after exhaustion. That helper selects Fall for an airborne fighter or the common grounded action path otherwise.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L24-L29",
+              "why": "Shows the animation-exhaustion guard and sole completion call."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcommon.c#L596-L604",
+              "why": "Shows the completion helper selecting the airborne or grounded ordinary-action path."
+            }
+          ]
+        },
+        {
+          "id": "fact:e1aff74d-d9d9-4ae1-8192-411a96559154",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Anim",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Retains the CatchCut action while animation frames remain. On the first update after animation exhaustion, it immediately leaves the reaction through a two-way environment-dependent transition: an airborne fighter enters common Fall, while a grounded fighter enters the common grounded-action path. It has no input guard, independent timer, or direct environment mutation.",
+          "rationale": "The current callback has one negated animation-remaining guard and one completion call. The completion helper branches exhaustively on `ground_or_air`, and neither routine maintains an additional timer or changes the environment classification.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L24-L29",
+              "why": "Shows that CatchCut remains active until animation exhaustion and then performs exactly one completion action."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcommon.c#L596-L604",
+              "why": "Shows the immediate grounded-versus-airborne destination selection."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Coll"
+      },
+      "facts": [
+        {
+          "id": "fact:dfdc0134-d0ac-45c2-9a74-ded1de1315b7",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Coll",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives a `Fighter_GObj`, obtains its Fighter from user data, and reads `Fighter.ground_or_air`. `GA_Ground` forwards the unchanged object to `ft_80084104`. Any airborne value forwards the object and function pointer `ft_80082B1C` to `ft_8008370C`; accepted floor contact then passes that same object to `ft_80082B1C`, which reads `Fighter.self_vel.y` and dispatches to the common neutral-state path or basic landing entry.",
+          "rationale": "The relocated target establishes the Fighter extraction, situation read, and exact grounded and airborne calls. The current helper bodies show callback forwarding on floor contact and the final vertical-speed-dependent landing dispatch.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L45-L53",
+              "why": "Shows the Fighter extraction and the exact object and callback forwarded by each situation branch."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L814-L848",
+              "why": "Shows accepted airborne floor contact forwarding the original game object to the supplied callback."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L504-L512",
+              "why": "Shows the landing callback reading vertical self-velocity and selecting neutral dispatch or basic landing."
+            }
+          ]
+        },
+        {
+          "id": "fact:b4f66a65-c59f-41ab-b709-2722ed541043",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Coll",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Maintains stage-contact behavior for the grabbing fighter during grab release: a grounded release can become falling after leaving floor support, while an airborne release can resolve through ordinary landing, wall-jump, or ledge-grab handling. This complements CaptureCut, which performs situation maintenance for the released opponent.",
+          "rationale": "The current CatchCut callback selects grounded or airborne collision handling. Its helpers implement floor-loss, landing, wall-jump, and ledge transitions, while the current CaptureCut unit shows the complementary released-opponent state with its own situation-dependent collision paths.",
+          "confidence": 0.94,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L45-L53",
+              "why": "Shows distinct grounded and airborne terrain-response paths for CatchCut."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L814-L848",
+              "why": "Shows airborne floor-contact, wall-jump, and ledge-contact handling."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L24-L117",
+              "why": "Shows the complementary CaptureCut release state and its grounded-versus-airborne collision maintenance."
+            }
+          ]
+        },
+        {
+          "id": "fact:37d75930-8773-4df5-966e-6cf0594ac581",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Coll",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Fighter action-state collision callback with signature `void(Fighter_GObj* gobj)`. The game object must carry a Fighter whose `ground_or_air` field selects the collision path; transitions are performed through side effects rather than a return value.",
+          "rationale": "The relocated definition directly establishes the signature, retrieves the Fighter from the supplied object, and delegates to side-effecting collision routines according to `ground_or_air`.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L45-L53",
+              "why": "Shows the exact void fighter-object signature, Fighter lookup, situation read, and collision delegation."
+            }
+          ]
+        },
+        {
+          "id": "fact:b3f7b533-7a1e-4767-b4b5-2fb36d88f7d9",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Coll",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Serves as the CatchCut action state's per-frame collision callback. It applies the standard grounded collision response while the releasing fighter is on the floor and, while airborne, runs common airborne terrain handling with the normal ground-contact response supplied as its landing callback.",
+          "rationale": "The current target branches on `ground_or_air`, invoking the grounded floor-support helper or the airborne terrain helper with `ft_80082B1C`. The resolved helpers show floor-loss entry into Fall and airborne floor-contact, wall-jump, and ledge handling.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L45-L53",
+              "why": "Shows the complete CatchCut collision callback and its exact grounded and airborne delegates."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1032-L1054",
+              "why": "Shows the grounded helper entering Fall when floor support is lost."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L814-L848",
+              "why": "Shows the airborne helper invoking its floor-contact callback or attempting wall-jump and ledge transitions."
+            }
+          ]
+        },
+        {
+          "id": "fact:3437cc31-c891-49a1-a80d-2d7e459d7b34",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Coll",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "While CatchCut is grounded, the current action continues while floor support remains; losing support immediately enters the common Fall dispatcher. While CatchCut is airborne, accepted floor contact invokes `ft_80082B1C`, which selects the common neutral-state dispatcher when `self_vel.y` is above the fighter-adjusted threshold and basic landing otherwise. If no floor transition occurs, the airborne collision routine may instead transition through wall jumping or CliffCatch.",
+          "rationale": "The relocated callback selects the two helpers according to the fighter's current situation. The grounded helper enters Fall on support loss; the airborne helper prioritizes its floor callback before wall-jump and ledge handling; and that callback contains the vertical-velocity destination guard.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L45-L53",
+              "why": "Shows which transition-capable collision path applies in each fighter situation."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1032-L1054",
+              "why": "Shows immediate Fall entry when grounded floor support is lost."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L814-L848",
+              "why": "Shows floor-contact callback priority followed by wall-jump and CliffCatch handling."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L504-L512",
+              "why": "Shows the vertical-speed guard selecting neutral dispatch versus basic landing."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_IASA"
+      },
+      "facts": [
+        {
+          "id": "fact:607bd239-295d-48c9-ab0b-063d9cbbfb32",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_IASA",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives the CatchCut fighter's `Fighter_GObj*`, does not read or forward it, performs no calls or writes, and produces no output beyond returning to the action-state dispatcher.",
+          "rationale": "The complete relocated definition has an empty body, so its parameter enters no expression and no data, call, write, or return value leaves the callback.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L31-L31",
+              "why": "Shows the complete empty callback and its unused Fighter_GObj parameter."
+            }
+          ]
+        },
+        {
+          "id": "fact:b2f1d753-40bf-4944-a7dd-696d6c71da5c",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_IASA",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Represents the non-interruptible input-processing phase of the grabber-side CatchCut grab-release reaction. CatchCut applies recoil to the grabbing fighter and can place the victim into CaptureCut, after which the release animation runs without accepting IASA transitions.",
+          "rationale": "The current unit shows CatchCut entry applying recoil and optionally transitioning the linked victim into CaptureCut, followed by an entirely empty IASA callback. This preserves the standing interpretation that the reaction accepts no IASA-driven transition.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L31",
+              "why": "Shows CatchCut release-state entry, the optional victim CaptureCut handoff, and the empty IASA phase."
+            }
+          ]
+        },
+        {
+          "id": "fact:f7be20c3-46fb-4ee6-b62e-26de4c29ae01",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_IASA",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A fighter action-state IASA callback with signature `void(Fighter_GObj*)`; it receives the fighter game object and returns no value.",
+          "rationale": "The relocated definition directly supplies the void return and `Fighter_GObj*` parameter, while the `_IASA` symbol identifies its action-state callback slot.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L31-L31",
+              "why": "Shows the exact complete `void ftCo_CatchCut_IASA(Fighter_GObj*)` definition."
+            }
+          ]
+        },
+        {
+          "id": "fact:db2c2476-e9ae-433d-8d26-d3f2a6dfb0fe",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_IASA",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Supplies the deliberately empty IASA callback for the captor's CatchCut state, occupying the action state's input-processing phase while allowing no input-driven interruption or transition.",
+          "rationale": "The current definition is an empty function named as CatchCut's IASA callback. The adjacent animation, physics, and collision callbacks perform the state's completion, movement, and terrain work instead.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L24-L53",
+              "why": "Shows the empty IASA callback between the separate animation, physics, and collision callbacks."
+            }
+          ]
+        },
+        {
+          "id": "fact:21dc9f22-89d4-45af-b08e-27550dde0255",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_IASA",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Has invariant no-op behavior: it contains no input guards, timers, state mutations, or transitions. CatchCut therefore cannot be interrupted through this IASA phase; animation completion returns the fighter to an ordinary action, while the sibling physics and collision callbacks independently update release recoil and ground/air interaction.",
+          "rationale": "The IASA body remains empty at head, while the adjacent callbacks separately implement animation expiry, grounded or aerial movement, and terrain-driven transitions. That division confirms both the no-op behavior and the work intentionally omitted from this phase.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L24-L53",
+              "why": "Shows the empty IASA body and the separate animation, physics, and collision callbacks that maintain or end CatchCut."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Phys"
+      },
+      "facts": [
+        {
+          "id": "fact:eb17f689-d702-4df2-ac82-b7e111bff70e",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Phys",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives a `Fighter_GObj`, obtains its `Fighter`, and reads `ground_or_air`. On the ground it multiplies `p_ftCommonData->x64` by `fp->co_attrs.ground_friction`, passes the product to `ftCommon_ApplyFrictionGround`, and then forwards the original game object to `ftCommon_ApplyGroundMovement`; these routines write ground acceleration and floor-aligned animation and self-velocity components. In the air it forwards the game object to `ft_80084DB0`, which reads movement attributes and fast-fall state and updates vertical descent and horizontal aerial movement.",
+          "rationale": "The relocated target preserves the situation branch, current `ground_friction` field name, coefficient multiplication, and movement calls. The current aerial delegate shows fast-fall recognition, vertical descent selection, and the final shared horizontal aerial-control update.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L33-L43",
+              "why": "Shows the object-to-Fighter conversion, situation read, current ground-friction field, coefficient multiplication, and outgoing movement calls."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1363-L1375",
+              "why": "Shows the aerial delegate applying fast-fall or ordinary descent and then horizontal aerial control."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcommon.c#L51-L59",
+              "why": "Shows supplied friction being clamped and stored as ground acceleration."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ftcommon.c#L133-L152",
+              "why": "Shows ground acceleration and velocity producing floor-aligned animation and self-velocity components."
+            }
+          ]
+        },
+        {
+          "id": "fact:4c3229db-9c29-4e14-9f76-52532078e051",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Phys",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the movement phase of the grabber-side grab-release reaction: after the capture pair is released, the grabbing fighter remains in CatchCut lag while grounded traction or ordinary aerial physics continues to update its movement.",
+          "rationale": "The current unit shows recoil and entry into CatchCut for the grabber, with an optional complementary CaptureCut transition for the victim. The physics callback then applies grounded traction and movement or the common aerial-physics routine while CatchCut remains active.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L43",
+              "why": "Shows release-state entry and the situation-dependent movement update used during CatchCut."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1363-L1375",
+              "why": "Shows the ordinary aerial-physics update delegated to by airborne CatchCut."
+            }
+          ]
+        },
+        {
+          "id": "fact:6226ccfe-dd4a-44d7-a204-8f791ba8ec0e",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Phys",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Common-fighter action-state physics callback with exact signature `void(Fighter_GObj* gobj)`. It resolves the supplied game object to its mutable `Fighter` and communicates movement results through fighter state rather than a return value.",
+          "rationale": "The current definition directly establishes the void return and fighter-object parameter, retrieves the associated Fighter, and invokes only side-effecting movement routines. Its `_Phys` placement in the CatchCut callback family establishes the action-state physics role.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L33-L43",
+              "why": "Shows the exact signature, Fighter lookup, situation read, and side-effecting movement operations."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L24-L53",
+              "why": "Places the function as the `_Phys` member of the CatchCut callback suite."
+            }
+          ]
+        },
+        {
+          "id": "fact:ed62c5b0-a41c-4220-aa4d-314c8ddf68fb",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Phys",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Supplies the per-frame movement update for the grabbing fighter's CatchCut release reaction. A grounded fighter receives release-specific traction followed by normal floor-aligned movement, while an airborne fighter receives the shared falling, fast-fall, and aerial-drift update.",
+          "rationale": "The relocated callback branches on the fighter's situation, applying a CatchCut-specific common-data coefficient scaled by `ground_friction` before common ground movement or delegating to the shared aerial routine. The current aerial routine performs fast-fall recognition, vertical descent, and horizontal control.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L33-L43",
+              "why": "Shows the complete CatchCut physics callback, including scaled grounded traction, ground movement, and the aerial delegate."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1363-L1375",
+              "why": "Shows the shared airborne delegate applying falling or fast-fall behavior followed by aerial control."
+            }
+          ]
+        },
+        {
+          "id": "fact:04c30292-4ec2-4f79-821a-a972a51048bd",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Phys",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "On every CatchCut physics update, `GA_Ground` selects scaled traction and grounded displacement, while every non-ground situation selects the shared aerial movement path. The callback has no timer, animation guard, collision test, or action-state transition of its own; animation completion and changes between grounded and airborne situations are handled by the neighboring CatchCut callbacks.",
+          "rationale": "The current target contains only the exhaustive situation-selected movement paths. The surrounding callback suite separately assigns animation completion to `_Anim` and terrain-driven transitions to `_Coll`, confirming that `_Phys` does not decide when CatchCut ends or changes situation.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T19:02:01.948Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L33-L43",
+              "why": "Shows the exhaustive ground-versus-non-ground movement selection and absence of timing, collision, or motion-state operations."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L24-L53",
+              "why": "Shows animation completion and terrain-driven transitions implemented by the neighboring CatchCut callbacks."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_800DA698#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_800DA698#r4"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Anim#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Coll#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_IASA#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CatchCut:ftCo_CatchCut_Phys#r3"
+      },
+      "facts": []
+    }
+  ]
+}

@@ -1,0 +1,180 @@
+{
+  "tu": "main/melee/cm/cmsnap",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/cmsnap:cmSnap_80031618"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads cmsnap_data.status. Any value except CmSnapStatus_Unk5 returns null without mutation. At Unk5 it writes Sleep and returns unk1.image_ptr without clearing or freeing it, even if that pointer is null. gmCamera_801A28AC polls after ++x10 > 2, stores the result in gmCamera_VsCamUiState.snap_image, and forwards a non-null pointer to lbSnap_8001DC0C.",
+        "rationale": "Replace stale x1C with canonical snap_image and explicitly distinguish terminal-null consumption from incomplete polling.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/cmsnap.c#L24-L31",
+            "why": "Guard, reset, and stored-pointer return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L318-L332",
+            "why": "Canonical result member and consumer branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/cmsnap:cmSnap_800316B4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Writes Sleep and NULL to the singleton status and descriptor image_ptr. Creates a GObj with classifier 0x12, process link 0x12, and process priority 0, then registers cmSnap_80031640 at render priority 4 using gx_link_max+1. Calls lb_800121FC for a 640x480 descriptor, texture-format value 4, and entry 0x7D6. The helper sets mipmap and LODs to zero, adopts a non-null preloaded entry pointer or allocates a buffer with requested size rounded up to a multiple of 32. Pointer alignment is not proved by that rounding. The TU does not check GObj creation failure.",
+        "rationale": "Correct registration bucket and storage semantics while preserving the optional preloaded path and allocation-failure boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/cmsnap.c#L52-L58",
+            "why": "Exact writes, constants, and calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjgxlink.c#L55-L70",
+            "why": "Actual link and render priority."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L57-L101",
+            "why": "Constructor argument meanings and null return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbspdisplay.c#L278-L305",
+            "why": "Descriptor initialization and conditional allocation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/cmsnap:cmSnap_800316B4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Exact signature void cmSnap_800316B4(void). Parameterless initializer with singleton mutation, GObj creation, and render-registration side effects; image storage is obtained from a preloaded entry or fallback allocation.",
+        "rationale": "Preserve the exact function type without implying unconditional buffer allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/cmsnap.c#L52-L58",
+            "why": "Definition and side effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbspdisplay.c#L286-L305",
+            "why": "Allocation is conditional."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/cmsnap:cmSnap_800316B4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally resets the shared latch to Sleep, clears the descriptor image_ptr, creates a new GX callback object, and obtains image storage. It does not locally free the old buffer, invalidate copies of previously returned pointers, or unregister earlier callbacks. Repeated initialization is not guarded. The callback does nothing in Sleep; a later request enters Unk1, whose copying invocation enters Unk2, followed by three increments to Unk5.",
+        "rationale": "Replace unsupported pointer invalidation with actual state writes and explicit local lifetime limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/cmsnap.c#L18-L58",
+            "why": "Complete state machine and absence of local teardown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbspdisplay.c#L278-L305",
+            "why": "Storage helper does not release a prior buffer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/cm/cmsnap.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "A private static source-level record shares status and an HSD_ImageDesc across initialization, request, GX callback, and polling. Initialization obtains a 640x480 descriptor backed by preloaded entry 0x7D6 or fallback allocation. Request asserts Sleep and sets Unk1. The next callback copies EFB origin (0,0) without clearing through lb_800122C8 and sets Unk2; three subsequent callback invocations advance to Unk5. Terminal polling restores Sleep and returns the stored pointer without clearing it. Camera Mode stores the result in snap_image and forwards a non-null pointer to lbSnap_8001DC0C. Exact frame cadence and compiled section placement are not established.",
+        "rationale": "Replace frame-based wording with verified invocation-based transitions and canonical downstream storage.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/cmsnap.c#L10-L58",
+            "why": "Full singleton lifecycle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L40-L47",
+            "why": "Consecutive status values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbspdisplay.c#L278-L311",
+            "why": "Storage and copy wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L318-L332",
+            "why": "Canonical consumer flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/cm/cmsnap:cmSnap_80031640#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_GObj* callback parameter, named arg0 in the definition and gobj in the header. The body does not read or dereference it and operates on singleton capture state.",
+        "rationale": "Independently verified signature and complete body support the owned parameter claim without assigning an inferred object role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/cmsnap.c#L33-L50",
+            "why": "Exact type and absence of parameter use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/cmsnap.h#L12-L12",
+            "why": "Header type and spelling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/cm/cmsnap:cmSnap_80031640#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "int callback parameter named code; unused by cmSnap_80031640. No interpretation or value-dependent behavior for this argument is implemented in the TU.",
+        "rationale": "Complete callback body never reads the second parameter.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/cmsnap.c#L33-L50",
+            "why": "Exact type and parameter-independent switch."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

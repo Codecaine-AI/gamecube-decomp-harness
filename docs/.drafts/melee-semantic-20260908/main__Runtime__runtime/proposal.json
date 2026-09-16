@@ -1,0 +1,45 @@
+{
+  "tu": "main/Runtime/runtime",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/runtime.c#L3-L17",
+            "why": "Six literal words and three double loads establish the representation and consumption, not compiled alignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported constant representation while removing the unsupported inference that lfd proves compiled alignment.",
+        "subject": {
+          "target_stable_key": "main/Runtime/runtime:.rodata"
+        },
+        "type": "inferred_type",
+        "value": "The source declares a file-local constant array `static const unsigned long __constants[6]`. Its consecutive big-endian word pairs are consumed as binary64 values at offsets 0, 8, and 16: 0.0 (0x0000000000000000), 2^32 (0x41F0000000000000), and 2^31 (0x41E0000000000000). Source declaration and loads alone do not establish compiled section extent or 8-byte alignment."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/runtime.c#L409-L422",
+            "why": "Complete raw variable-shift sequence; no validation of the full requested count."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's unqualified out-of-range-zero claim without changing the supported register ABI or normal shift behavior.",
+        "subject": {
+          "target_stable_key": "main/Runtime/runtime:__shr2u"
+        },
+        "type": "data_flow",
+        "value": "Consumes high:low words in r3:r4 and count n in r5, returning the logical-right-shifted pair in r3:r4. For n=0 it preserves the pair. For n=1\u201331, low becomes (low >> n) | (high << (32-n)) and high becomes high >> n. For n=32\u201363, low becomes high >> (n-32) and high becomes zero. Derived counts 32-n and n-32 allow a branchless sequence. These formulas are restricted to 0\u201363: PowerPC variable word shifts use the low six count bits, so arbitrary counts outside the word range are not universally suppressed."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

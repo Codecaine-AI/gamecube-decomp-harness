@@ -1,0 +1,82 @@
+849: void Exception_ReportCodeline(u16 error, int dsisr, int dar, OSContext* ctx)
+850: {
+851:     char* exception_type;
+852:     char* around_or_at;
+853:     int srr1;
+854: 
+855:     OSReport("- UNHANDLED EXCEPTION -------------------------------\n");
+856:     OSReport("DSISR=%08X DAR=%08X\n", dsisr, dar);
+857: #ifdef MUST_MATCH
+858:     error = error;
+859: #endif
+860:     OSReport("ERROR %d: ", error);
+861: 
+862:     switch (error) {
+863:     case 0:
+864:         OSReport("(SYSTEM RESET)\n");
+865:         return;
+866:     case 1:
+867:         OSReport("(MACHINE CHECK)\n");
+868:         return;
+869:     case 2:
+870:         OSReport("(DSI)\n");
+871:         OSReport("Instruction at %08X (read from SRR0) attempted\n"
+872:                  "to access invalid address %08X (read from DAR)\n",
+873:                  ctx->srr0, dar);
+874:         if (dsisr & 0x02000000) {
+875:             OSReport("Store operation.\n");
+876:         } else {
+877:             OSReport("Load operation.\n");
+878:         }
+879:         if (dsisr & 0x40000000) {
+880:             OSReport("No appropriate page entry or DBAT exist.\n");
+881:         }
+882:         if (dsisr & 0x08000000) {
+883:             OSReport("Memory access is not permitted by the page or DBAT.\n");
+884:         }
+885:         if (dsisr & 0x400000) {
+886:             OSReport("DABR match occurs.\n");
+887:         }
+888:         return;
+889:     case 3:
+890:         OSReport("(ISI)\n");
+891:         OSReport("Attempted to fetch instruction from invalid address\n"
+892:                  "%08X (read from SRR0)\n",
+893:                  ctx->srr0);
+894:         if (ctx->srr1 & 0x40000000) {
+895:             OSReport("No appropriate page entry or IBAT exist.\n");
+896:         }
+897:         if (ctx->srr1 & 0x10000000) {
+898:             OSReport("Illegal address.\n");
+899:         }
+900:         if (ctx->srr1 & 0x08000000) {
+901:             OSReport("Memory access is not permitted by the page or IBAT.\n");
+902:         }
+903:         break;
+904:     case 4:
+905:         OSReport("(EXTERNAL INTERRUPT)\n");
+906:         return;
+907:     case 5:
+908:         OSReport("(ALIGNMNET)\n");
+909:         OSReport("Instruction at %08X (read from SRR0) attempted\n"
+910:                  "to access unaligned address %08X (read from DAR)\n",
+911:                  ctx->srr0, dar);
+912:         return;
+913:     case 6:
+914:         OSReport("(PROGRAM)\n");
+915:         srr1 = ctx->srr1;
+916:         around_or_at = (srr1 & 0x10000) ? "around" : "at";
+917:         if (srr1 & 0x100000) {
+918:             exception_type = "IEEE floating point enabled program exception";
+919:         } else if (srr1 & 0x80000) {
+920:             exception_type = "Illegal instruction";
+921:         } else if (srr1 & 0x40000) {
+922:             exception_type = "Privileged instruction";
+923:         } else if (srr1 & 0x20000) {
+924:             exception_type = "Trap program exception";
+925:         } else {
+926:             exception_type = "Unknown type of program exception";
+927:         }
+928:         OSReport("%s %s %08X (read from SRR0)\n", exception_type, around_or_at,
+929:                  ctx->srr0);
+930:         return;

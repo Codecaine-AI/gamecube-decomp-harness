@@ -31,7 +31,7 @@ def project_dir_for_tool(tool_root: Path) -> Path:
         path = Path(override).expanduser()
         return path if path.is_absolute() else package_root_for_tool(tool_root) / path
     project_id = os.environ.get("ORCH_GAME_ID", "melee")
-    return package_root_for_tool(tool_root) / "projects" / project_id
+    return package_root_for_tool(tool_root) / "games" / project_id
 
 
 def project_knowledge_root(tool_root: Path) -> Path:
@@ -57,15 +57,38 @@ def tools_resource_root(tool_root: Path) -> Path:
     return tool_root.parents[3]
 
 
+def load_game_config(game_dir: Path) -> dict[str, Any]:
+    descriptor = game_dir / "game.json"
+    config = json.loads(descriptor.read_text()) if descriptor.is_file() else {}
+    tools_ref = config.get("config", {}).get("tools")
+    tools = json.loads((game_dir / tools_ref).read_text()) if tools_ref else {}
+    tools.update(config.get("tools", {}))
+    config["tools"] = tools
+    canonical_local = game_dir / "config" / "local.json"
+    legacy_local = game_dir / "local.game.json"
+    if canonical_local.exists() and legacy_local.exists():
+        raise RuntimeError("Both canonical and legacy local game configuration exist")
+    local_path = canonical_local if canonical_local.exists() else legacy_local
+    if local_path.is_file():
+        local = json.loads(local_path.read_text())
+        merged_tools = {**tools, **local.get("tools", {})}
+        config.update(local)
+        config["tools"] = merged_tools
+    return config
+
+
 def default_project_shared_data_root(tool_root: Path) -> Path:
-    package_root = package_root_for_tool(tool_root)
-    project_id = os.environ.get("ORCH_GAME_ID", "melee")
-    try:
-        rel = tool_root.resolve().relative_to(tools_resource_root(tool_root).resolve())
-    except ValueError:
-        return package_root / "games" / project_id / "shared" / "tool-data" / tool_root.name
-    tool_id = rel.parts[-1] if rel.parts else tool_root.name
-    return package_root / "games" / project_id / "shared" / "tool-data" / tool_id
+    game_dir = project_dir_for_tool(tool_root)
+    configured = load_game_config(game_dir).get("tools", {}).get("sharedDataRoot")
+    if configured:
+        root = game_dir / configured
+    else:
+        canonical = game_dir / "runtime" / "tool-data"
+        legacy = game_dir / "shared" / "tool-data"
+        if canonical.exists() and legacy.exists():
+            raise RuntimeError("Both canonical and legacy tool data roots exist")
+        root = legacy if legacy.exists() else canonical
+    return root / tool_root.name
 
 
 def tool_storage_root(tool_root: Path) -> Path:

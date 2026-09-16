@@ -7,7 +7,10 @@ MAX_HIT_SECONDS="0.150"
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd -P)
 REPO_ROOT=$(cd "$SCRIPT_DIR/../../../../.." && pwd -P)
-MELEE_ROOT="$REPO_ROOT/projects/melee/checkout"
+MELEE_ROOT="${ORCH_GAME_REPO_ROOT:-$REPO_ROOT/games/melee/workspace/checkout}"
+if [ ! -d "$MELEE_ROOT" ] && [ -d "$REPO_ROOT/games/melee/checkout" ]; then
+    MELEE_ROOT="$REPO_ROOT/games/melee/checkout"
+fi
 SHIM="$SCRIPT_DIR/mwcc_objcache.py"
 REAL_WIBO="$MELEE_ROOT/build/tools/wibo"
 PYTHON="/Users/Ford/anaconda3/bin/python3"
@@ -537,7 +540,7 @@ rm -f build/probe.o build/probe.d
 [ "$(wc -l <"$SYNTH_LOG" | tr -d ' ')" -eq 5 ] ||
     fail "relative outside-cwd source entry was displaced by worktree B"
 
-printf '6/7 default synthesize mode in projects/melee/checkout...\n'
+printf '6/7 default synthesize mode in configured Melee checkout...\n'
 REAL_SYNTH_CACHE="$TEST_ROOT/real-checkout-cache"
 REAL_SYNTH_OUT="$TEST_ROOT/real checkout out"
 REAL_SYNTH_LOG="$TEST_ROOT/real-checkout-compiler-runs"

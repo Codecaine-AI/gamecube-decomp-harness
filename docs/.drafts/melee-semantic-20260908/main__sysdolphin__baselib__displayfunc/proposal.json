@@ -1,0 +1,55 @@
+{
+  "tu": "main/sysdolphin/baselib/displayfunc",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L532-L597",
+            "why": "Shows the no-op guard, depth branches, common TEX0 descriptor and coordinate emission, and final invalidation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim that the depth-disabled path has no texture coordinates: texture generation is disabled, but the common vertex format and submitted coordinates remain present.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect"
+        },
+        "type": "state_behavior",
+        "value": "If color, alpha, and depth clearing are all disabled, returns without changing GX state. Otherwise, depth-enabled setup installs a Z8 replacement texture and enables one texture generator; depth-disabled setup selects zero texture generators and a TEV stage with null texture inputs. Both paths configure TEX0 as a direct vertex attribute and emit texture coordinates for all four quad vertices. The common path sets unconditional comparison/copy-style state and independent write masks, draws the quad, disables Z-texturing, and invalidates the entire HSD state cache rather than restoring prior GX state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L245-L276",
+            "why": "Shows inclusive skeleton search, root handling, exact operands, ignored inverse status, and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L60-L157",
+            "why": "Shows inverse-concat arithmetic and the determinant-tested source-copy fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Shows the returned correction entering rigid and weighted envelope matrix setup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported matrix formulas and consumer relationship while documenting the exceptional near-singular fallback and avoiding an implication that a returned buffer certifies inversion success.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx"
+        },
+        "type": "data_flow",
+        "value": "For a non-root model JObj m, finds the nearest skeleton-marked node x, including m itself, and requires a non-NULL result. If x == m, calls MTXInverse on x->envelopemtx into the supplied output buffer and ignores its status. Otherwise, the intended result is inverse(x->mtx) * m->mtx for a skeleton root, or inverse(x->mtx * x->envelopemtx) * m->mtx for a non-root skeleton node. These latter paths use HSD_MtxInverseConcat: when its determinant-magnitude test is below EPSILON, it copies m->mtx instead of computing the inverse-relative product. Every non-root path returns the supplied buffer; a root input returns NULL without writing it. Envelope PObj setup consumes the result as its optional model-node correction."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,1155 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:9cc26d0b-79ef-4d19-88aa-584353e79c3d",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Elapsed CPU, draw, and total times derived from OSGetTime and the module's start-time baseline are written into HSD_PerfCurrentStat. Matrix-load instrumentation increments nb_mtx_load, and envelope-blending instrumentation increments an indexed env_blend counter. At frame completion, the entire current record is copied to HSD_PerfLastStat and the current record is zeroed for reuse.",
+        "rationale": "The current implementation still writes all three elapsed-time measurements and the envelope count into HSD_PerfCurrentStat, while the header supplies the matrix-load update. HSD_PerfInitStat still copies the current record to the last record and clears the current record, so the standing flow remains valid at head.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows all three timing writes, the indexed envelope-counter update, and the copy-then-clear transition between current and last statistics records."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Defines the statistics fields and shows matrix-load instrumentation incrementing HSD_PerfCurrentStat.nb_mtx_load."
+          }
+        ]
+      },
+      {
+        "id": "fact:0b75a2c4-e096-4171-b134-aca72bbd1419",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "This storage is the snapshot state for runtime performance profiling, retaining frame-budget-relative timing measurements and counts of rendering work for the active and immediately preceding frames.",
+        "rationale": "The current source continues to measure CPU, draw, and total elapsed time, count rendering operations, and rotate current and previous records. The header identifies the exact profiling fields, confirming the standing mapping at head.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows elapsed-time measurement, rendering-work counting, and rolling snapshot management in the two stored records."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Names and types the CPU, draw, total, matrix-load, and envelope-blending statistics retained by each snapshot."
+          }
+        ]
+      },
+      {
+        "id": "fact:2a67accb-9af6-41fb-bb13-330862f11e03",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "The section contains two zero-initialized HSD_PerfStat objects, HSD_PerfLastStat followed by HSD_PerfCurrentStat. Each object is 0x90 bytes: three f32 timing values, one u32 matrix-load count, and 32 u32 envelope-blending counters. Together they occupy 0x120 bytes.",
+        "rationale": "The current source retains the two zero-initialized declarations in that order. The current header's field layout still totals 0x90 bytes per record, so the two-record 0x120-byte layout remains valid.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the names, declaration order, HSD_PerfStat type, and zero initializers of both objects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Defines the three f32 fields, one u32 count, and 32-element u32 array that comprise each HSD_PerfStat."
+          }
+        ]
+      },
+      {
+        "id": "fact:0b7fd743-6ec3-4a06-8282-3697efc745fe",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the persistent current-frame and previous-frame records used by HSD's runtime performance profiler. HSD_PerfCurrentStat accumulates timing and rendering-work statistics for the frame in progress, while HSD_PerfLastStat preserves the completed frame's snapshot.",
+        "rationale": "The current code still updates HSD_PerfCurrentStat and promotes it into HSD_PerfLastStat before clearing it. The header confirms that the records hold timing and rendering-work measurements, preserving the standing purpose.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Defines both persistent records and shows the current record being updated, promoted, and cleared."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Defines the timing and rendering-work fields accumulated in each performance-statistics record."
+          }
+        ]
+      },
+      {
+        "id": "fact:bd0938da-f9b7-480b-870b-3931a0df48a3",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.data",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The data implements a two-snapshot rolling state: HSD_PerfCurrentStat is the mutable accumulator for the active frame, and HSD_PerfLastStat is the retained snapshot of the most recently finalized frame. Finalization replaces the previous snapshot with the completed current record and resets every field of the current record to zero.",
+        "rationale": "At head, instrumentation still targets the current record and HSD_PerfInitStat still performs a whole-record assignment followed by a whole-record clear. The header shows that the clear covers all timing and counter fields.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Demonstrates the mutable-current, retained-last transition and the complete current-record reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Defines every timing and counter field affected by the whole-record copy and clear."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sbss"
+    },
+    "facts": [
+      {
+        "id": "fact:b228e5ce-7528-45ba-9fed-36556f6734c2",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_PerfSetStartTime writes the current OSGetTime result into this storage. HSD_PerfSetCPUTime, HSD_PerfSetDrawTime, and HSD_PerfSetTotalTime each read it, subtract it from a later OSGetTime result, normalize the elapsed ticks by OSSecondsToTicks(1) / 60, and write the result to the corresponding field of HSD_PerfCurrentStat.",
+        "rationale": "The refreshed implementation preserves the single producer and three consumers but now expresses the normalization denominator through OSSecondsToTicks rather than a raw hardware-clock expression. OSGetTime still supplies a 64-bit processor time-base snapshot.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows start_time being produced by HSD_PerfSetStartTime and consumed by all three timing setters, including the current OSSecondsToTicks normalization expressions and destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+            "why": "Shows OSGetTime obtaining a coherent 64-bit snapshot from the processor time-base registers."
+          }
+        ]
+      },
+      {
+        "id": "fact:41240d95-8ea7-4884-8228-a06177f8346d",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sbss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports runtime performance profiling by providing the timestamp origin from which HSD computes frame-budget-relative CPU, rendering, and total elapsed-time statistics; it does not represent player-visible game state.",
+        "rationale": "The baseline is still used exclusively by the three performance-statistics calculations, and the main game loop still establishes it before measured work and samples the progressively later CPU, draw, and total boundaries.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the baseline used exclusively by HSD's CPU, drawing, and total performance-time calculations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Places baseline capture and the three timing samples at processing, rendering, and frame-completion boundaries in the main game loop."
+          }
+        ]
+      },
+      {
+        "id": "fact:ff11a707-9eb2-4cce-bdfc-fa216b738877",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sbss",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "start_time",
+        "rationale": "The current matched translation unit explicitly declares this uninitialized 64-bit baseline as start_time and uses that spelling in each timing expression, directly supporting the inferred symbol name.\n\nNaming cleanup: single source identifier\nPrior naming claim: The data symbol was plausibly named start_time.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Declares s64 start_time and shows its producer and all three consumers using that identifier."
+          }
+        ]
+      },
+      {
+        "id": "fact:d74c2c76-9545-472f-95aa-6efa0f714898",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An uninitialized s64 scalar holding a 64-bit processor time-base tick snapshot returned by OSGetTime.",
+        "rationale": "The current source declares start_time as an uninitialized s64 and assigns OSGetTime directly to it. OSGetTime still returns the combined processor time-base value through its long long interface.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the uninitialized s64 declaration and direct assignment from OSGetTime."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+            "why": "Shows OSGetTime returning a coherent long long value read from the processor time-base registers."
+          }
+        ]
+      },
+      {
+        "id": "fact:63dd96e8-091d-4f53-95da-f3dda1343533",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the shared start timestamp for HSD performance-measurement intervals. Capturing this baseline once lets the CPU, draw, and total timing routines measure different completion boundaries against the same frame-relative origin.",
+        "rationale": "At head, HSD_PerfSetStartTime still assigns the one baseline and all three elapsed-time setters subtract it. The main loop still captures the baseline before measured work and records the three completion samples in sequence.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the shared start_time storage, its assignment, and its use by all three elapsed-time setters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Shows the baseline captured before frame processing and the CPU, draw, and total measurements taken at progressively later boundaries."
+          }
+        ]
+      },
+      {
+        "id": "fact:d64174ec-5e58-4243-98bf-9877b1e6ba89",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sbss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each call to HSD_PerfSetStartTime unconditionally replaces the previous baseline. The value then remains the common origin for subsequent CPU, draw, and total measurements until another start-time call overwrites it. HSD_PerfInitStat rotates and clears the statistics records but does not reset this baseline.",
+        "rationale": "The current start-time routine remains one unconditional assignment, all three timing routines read the same global, and the statistics initializer modifies only HSD_PerfStat records. The caller order confirms that one captured value persists through the measured boundaries.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows unconditional replacement of start_time, its repeated reads, and that statistics rotation does not modify it."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Shows a baseline established before measured processing and retained through CPU, draw, and total measurement before record rotation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:12766b10-8f39-467b-867d-e790ef25e2f7",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_PerfCountEnvelopeBlending supplies n to the assertion condition. If n is at least 32, HSD_ASSERT passes the stored source-file and \"n < 32\" strings, together with assertion line information, to __assert. __assert reports the condition text and forwards the file identifier and line to HSD_Panic; if n is less than 32, execution instead increments HSD_PerfCurrentStat.env_blend[n] without consuming the diagnostic path.",
+        "rationale": "The current performance routine retains the same assertion and indexed update. The relocated, shorter debug header still expands a failed HSD_ASSERT into __assert with __FILE__, a line value, and the stringized condition, while the current assertion implementation preserves the reporting and panic flow.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows HSD_ASSERT(0xA4, n < 32) immediately before the indexed envelope-counter increment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+            "why": "Shows that a failed HSD_ASSERT passes __FILE__, assertion line information, and the stringized condition to __assert."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows __assert reporting the condition string and forwarding the source-file identifier and line to HSD_Panic."
+          }
+        ]
+      },
+      {
+        "id": "fact:b952ae32-b72e-400e-90f8-32478e592e64",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An initialized small-data byte sequence containing the NUL-terminated assertion operands generated for HSD_ASSERT: the translation unit's __FILE__ string and the stringized condition \"n < 32\".",
+        "rationale": "The current translation unit still contains the same sole assertion, and the current debug header still demonstrates that HSD_ASSERT materializes __FILE__ and #cond string operands. For this call, the condition operand is exactly \"n < 32\", so the standing section-layout inference remains supported.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the translation unit's sole assertion and its exact n < 32 condition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+            "why": "Shows that HSD_ASSERT generates a source-file string operand and a stringized-condition operand."
+          }
+        ]
+      },
+      {
+        "id": "fact:44bc621b-de43-43ea-94f0-cbcd5a96d935",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sdata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Supplies the diagnostic strings for HSD_PerfCountEnvelopeBlending's upper-bound assertion. These identify the failed condition and its source file when an envelope-blending counter index is not less than 32.",
+        "rationale": "The current performance source retains the n < 32 guard. The current macro definition still passes __FILE__ and the stringized condition to __assert, whose implementation reports the condition and invokes the panic path with the file and line.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the assertion guarding the 32-entry env_blend array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+            "why": "Shows HSD_ASSERT supplying __FILE__ and the stringized failed condition to __assert."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows the assertion implementation consuming the condition string and passing the file and line to HSD_Panic."
+          }
+        ]
+      },
+      {
+        "id": "fact:55ea989b-0f15-4b88-a900-363163d7db10",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sdata",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The section is immutable diagnostic data. Its strings are relevant only on the failed branch of the n < 32 guard; that branch enters the non-returning assertion/panic path, while the passing branch leaves the strings unused and permits the indexed counter increment.",
+        "rationale": "The current HSD_ASSERT macro still selects __assert only for a false condition and declares that routine non-returning. The counter update remains after the guard, while __assert still proceeds into HSD_Panic and OSPanic, preserving the standing branch behavior.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+            "why": "Shows the failed-condition branch of HSD_ASSERT and declares __assert as non-returning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the assertion guard immediately preceding the env_blend indexed increment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+            "why": "Shows assertion failure reporting diagnostics and entering the panic path rather than returning to the counter update."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:a76d889a-c9b3-4d62-a7ec-5d4971aa8e6e",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Each of HSD_PerfSetCPUTime, HSD_PerfSetDrawTime, and HSD_PerfSetTotalTime derives a denominator for one nominal 1/60-second interval as OSSecondsToTicks(1) / 60. The generated conversion sequence reads this pooled bias while converting that denominator to floating point; the converted value then divides the elapsed OSGetTime-minus-start_time tick count, and the resulting measurements are stored in cpu_time, draw_time, and total_time respectively.",
+        "rationale": "The current source replaces the formerly exposed raw clock expression with OSSecondsToTicks(1) but preserves the repeated unsigned tick-denominator-to-f32 conversion and all three destinations. The section therefore continues to feed the same generated conversion path.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the three parallel paths from elapsed tick counts and the OSSecondsToTicks-derived denominator to cpu_time, draw_time, and total_time."
+          }
+        ]
+      },
+      {
+        "id": "fact:b6c8d5cf-2330-435f-992e-bd39c137a9fa",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports HSD runtime performance profiling rather than a player-facing mechanic. By enabling conversion of the tick-frequency-derived normalization denominator, it indirectly supports CPU, drawing, and total elapsed-time measurements expressed relative to a nominal 60 Hz frame interval.",
+        "rationale": "The current implementation still casts a denominator representing one sixtieth of a second to floating point and uses it exclusively for the three HSD performance-time fields, preserving the profiling mapping.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the per-60th-second normalization expression feeding all three HSD performance-statistics timing fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:03d31e47-76bb-433d-8333-93fad9bb92bf",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "One immutable, eight-byte double-precision conversion-bias constant emitted by the compiler for unsigned 32-bit integer-to-floating-point conversion. It is pooled compiler support data rather than an authored mutable profiler variable.",
+        "rationale": "The current matched source still performs the repeated cast of the OSSecondsToTicks-derived unsigned denominator to f32. That operation accounts for the same compiler-emitted read-only conversion support represented by this eight-byte section target.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the repeated conversion of the tick-denominator expression to f32 in all three timing routines."
+          }
+        ]
+      },
+      {
+        "id": "fact:f613912b-72ac-45cd-badb-c1e8b22078c1",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Supplies the compiler-emitted floating-point conversion bias used while converting the OSSecondsToTicks-derived denominator to floating point. That conversion lets all three HSD performance timing routines divide elapsed ticks by the number of time-base ticks in a nominal 1/60-second interval.",
+        "rationale": "At head, all three timing routines still explicitly cast OSSecondsToTicks(1) / 60 to f32 before division. This preserves the need for and use of the pooled conversion-support literal while clarifying the current source-level denominator.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows each timing routine casting the OSSecondsToTicks-derived per-frame denominator to f32 before normalizing elapsed ticks."
+          }
+        ]
+      },
+      {
+        "id": "fact:d90efeb9-2893-4f31-8496-5f1207b3d401",
+        "target_id": "target:data:main/sysdolphin/baselib/perf:.sdata2",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The section is immutable conversion support data. It is reused by each CPU, draw, and total timing calculation and is never accumulated, reset, or otherwise changed when HSD rotates its per-frame statistics records.",
+        "rationale": "The current code repeats the same conversion in all three timing routines, while HSD_PerfInitStat modifies only HSD_PerfStat objects. No operation writes the conversion-support data, preserving its immutable lifetime.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows repeated timing conversions and that frame finalization copies and clears only the mutable HSD_PerfStat records."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending"
+    },
+    "facts": [
+      {
+        "id": "fact:0d3f24f2-e9b0-4e70-87d1-ae38f7ef0a74",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an envelope-work category from matrix-palette setup: the caller passes zero for the single-joint full-weight fast path, or the number of influence nodes accumulated for a blended envelope. The value selects `HSD_PerfCurrentStat.env_blend[n]`, whose counter is incremented in place.",
+        "rationale": "In `SetupEnvelopeModelMtx`, `perf` begins at zero, remains zero in the full-weight branch, and is incremented inside the multi-influence accumulation loop. The target then uses that value solely to select and increment a counter in the active performance record.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:07.187Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Shows where the argument originates and distinguishes zero for the rigid fast path from positive weighted-influence counts."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L42-L46",
+            "why": "Shows the argument flowing directly into the active statistics histogram index and the selected counter being incremented."
+          }
+        ]
+      },
+      {
+        "id": "fact:c0d615ff-bcd5-4720-82c9-ac80b048275a",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Profiles the workload distribution of skeletal skinning by categorizing each processed envelope as either the zero-count single-joint fast path or a weighted blend with a recorded number of joint influences.",
+        "rationale": "The caller constructs the GX matrix palette for envelope-skinned geometry. It leaves the performance count at zero when one joint supplies the transform directly, but counts each weighted joint transform in the blended path before reporting that count to this function.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:22:07.187Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Demonstrates rigid and weighted multi-joint envelope transforms being prepared for the GX matrix palette and the corresponding workload count being reported."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L42-L46",
+            "why": "Shows that the reported workload category is accumulated as an envelope-blending histogram."
+          }
+        ]
+      },
+      {
+        "id": "fact:7c33fe7f-74ac-4c10-b380-79d344149388",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A `void(s32 n)` statistics-update routine. The signed 32-bit argument is an index into a 32-slot envelope-blending histogram and is expected by its demonstrated caller to be a nonnegative influence count.",
+        "rationale": "The matched definition supplies the exact return and parameter types and asserts that the index is below 32 before subscripting `env_blend`. The matrix-setup caller initializes the value to zero and only increments it, demonstrating its intended nonnegative count domain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:07.187Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L42-L46",
+            "why": "Provides the exact `void`/`s32` signature, the upper-bound assertion, and the indexed histogram access."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Shows a concrete caller producing the argument from a zero-initialized counter incremented once per weighted influence."
+          }
+        ]
+      },
+      {
+        "id": "fact:e1f7715d-7143-462e-b91d-5b48bfd97a8c",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Records one processed model envelope in the active performance-statistics histogram, using the supplied blending-work count as the histogram-bin index.",
+        "rationale": "The function increments exactly one `HSD_PerfCurrentStat.env_blend[n]` element. Its envelope-matrix caller initializes the supplied count to zero and increments it once for every weighted influence accumulated, establishing that the argument categorizes the envelope's blending workload.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:07.187Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L42-L46",
+            "why": "Shows the supplied index selecting one envelope-blending counter in the active statistics object and that counter being incremented once."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Shows the caller deriving the argument by counting weighted envelope influences before calling this routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:617c5c62-8369-45bd-a282-1a2ba12959fc",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Before updating statistics, asserts that the supplied index is less than 32; after that guard, it increments exactly one histogram slot. It neither resets the histogram nor performs any transition beyond this accumulation, and the routine itself has no explicit nonnegative-index guard.",
+        "rationale": "The complete body consists of the upper-bound assertion followed by one indexed post-increment. Because the parameter is signed and only `n < 32` is tested, nonnegativity is an intended caller invariant rather than a condition enforced here.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:07.187Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L42-L46",
+            "why": "Shows the sole guard, the single counter update, and the absence of clearing or a lower-bound assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Shows the demonstrated caller maintaining the index as a nonnegative counter, explaining the routine's implicit lower-bound invariant."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfInitStat"
+    },
+    "facts": [
+      {
+        "id": "fact:682c6fd7-cac3-4ddf-961a-a4aa06244441",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfInitStat",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The function consumes the accumulated global HSD_PerfCurrentStat as its sole logical input, copies all of its timing and counter fields to the global HSD_PerfLastStat, and then overwrites every field of HSD_PerfCurrentStat with zero. Later instrumentation writes into the cleared current record, while consumers of HSD_PerfLastStat can observe the completed preceding record.",
+        "rationale": "The struct assignment establishes a full-record current-to-last transfer, and the typed memset establishes complete invalidation of the source record after transfer. The structure definition identifies the transferred fields, while the frame loop establishes that the input has already received CPU, draw, and total measurements when the function runs.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:14.570Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L13-L17",
+            "why": "Shows the exact source, destination, operation order, zero value, and full-structure extent."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Identifies every timing and counter field transferred and reset as part of HSD_PerfStat."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L357-L378",
+            "why": "Shows that drawing and total measurements have been written before the rollover and that the next loop iteration follows it."
+          }
+        ]
+      },
+      {
+        "id": "fact:7b2582d8-169c-4c4a-8db3-eddcb3c37c6b",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfInitStat",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_PerfInitStat(void). It takes no parameters and returns no value; its side effects are a full HSD_PerfStat copy into HSD_PerfLastStat and a full HSD_PerfStat zero fill of HSD_PerfCurrentStat.",
+        "rationale": "The matched definition and public declaration directly establish the void(void) signature. The typed assignment and sizeof(HSD_PerfStat) memset establish the exact type and extent of both global side effects.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:14.570Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L13-L17",
+            "why": "Shows the complete signature and the two typed HSD_PerfStat operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Declares the void(void) API and defines the HSD_PerfStat type operated on by the function."
+          }
+        ]
+      },
+      {
+        "id": "fact:cdcc19b9-be95-48ca-b699-2595fc4e8920",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfInitStat",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finalizes the current frame's HSD performance statistics by preserving the completed current record as the last-frame record, then prepares an empty current record for the next frame's timing and instrumentation counters.",
+        "rationale": "The function's only operations are a complete HSD_PerfStat assignment from current to last followed by a complete zero fill of current. Its caller invokes it immediately after recording total frame time, proving that this is a frame-statistics rollover rather than initial program setup.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:14.570Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L13-L17",
+            "why": "Directly shows the completed current record copied to the last record and the current record then cleared."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L357-L378",
+            "why": "Shows the function called at the end of the main rendered-frame loop immediately after total-time capture."
+          }
+        ]
+      },
+      {
+        "id": "fact:53cec915-3710-4fe1-ac9b-dfc3ac74b669",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfInitStat",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Transitions the performance-statistics subsystem from a completed-current-frame state to a previous-frame-plus-empty-current state. The copy occurs before clearing, so HSD_PerfLastStat retains the completed snapshot while HSD_PerfCurrentStat has cpu_time, draw_time, total_time, nb_mtx_load, and all 32 env_blend counters reset to zero.",
+        "rationale": "The statement order guarantees preservation before reset. Because memset spans sizeof(HSD_PerfStat), the structure definition proves that every listed field participates in the reset. The end-of-frame caller placement establishes which subsystem transition this operation represents.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:22:14.570Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L13-L17",
+            "why": "Shows the ordered snapshot-then-reset transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Shows the complete set of fields reset by the whole-structure clear."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L357-L378",
+            "why": "Places the transition after completion of timing and rendering work at the frame boundary."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetCPUTime"
+    },
+    "facts": [
+      {
+        "id": "fact:2357be1a-52ef-434d-bce6-59acfbdbbce5",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetCPUTime",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the current 64-bit OS time from OSGetTime, subtracts the previously captured global start_time, converts the elapsed ticks to floating point, divides by OSSecondsToTicks(1) / 60, and stores the quotient in HSD_PerfCurrentStat.cpu_time.",
+        "rationale": "The current body preserves the timestamp subtraction and cpu_time destination but now presents the denominator through the canonical OSSecondsToTicks helper. The refreshed claim follows that source-level expression.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the complete CPU-time expression from OSGetTime and start_time through OSSecondsToTicks normalization to the cpu_time write."
+          }
+        ]
+      },
+      {
+        "id": "fact:58851603-2549-4d87-a4e2-26be9120cb6a",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetCPUTime",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes runtime performance profiling rather than a player-visible rule: the stored value expresses measured CPU elapsed time in units of the nominal 60 Hz frame interval.",
+        "rationale": "The destination remains the CPU-time field of the current HSD performance record, and division by OSSecondsToTicks(1) / 60 expresses elapsed ticks relative to one nominal 60 Hz interval.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows elapsed CPU ticks normalized by a per-60th-second denominator and stored in HSD_PerfCurrentStat.cpu_time."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d4638df-9764-4d1a-b1ab-63e570e068ea",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetCPUTime",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_PerfSetCPUTime(void). It takes no explicit inputs and communicates its result by writing a floating-point CPU-time value to global performance-statistics state.",
+        "rationale": "The current definition still has a void return and void parameter list, while its sole result is the floating-point assignment to HSD_PerfCurrentStat.cpu_time.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Provides the function signature and the floating-point assignment to the global cpu_time field."
+          }
+        ]
+      },
+      {
+        "id": "fact:0926f7ec-8564-4aa0-8371-7a38c9bcfd9f",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetCPUTime",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finishes the current CPU timing interval by measuring the time elapsed since start_time, normalizing that duration against a 1/60-second tick allotment, and recording it in HSD_PerfCurrentStat.cpu_time.",
+        "rationale": "The current body directly subtracts start_time from OSGetTime, divides by the tick count for one sixtieth of a second, and writes the result to cpu_time, preserving the function's purpose.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the elapsed-time subtraction, 60 Hz normalization, and write to HSD_PerfCurrentStat.cpu_time."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetDrawTime"
+    },
+    "facts": [
+      {
+        "id": "fact:53a3c1cd-ad0b-4b78-ae95-be9230913f35",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetDrawTime",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads a coherent 64-bit processor time-base snapshot through OSGetTime, subtracts the previously saved start_time, converts the elapsed tick count to floating point, divides it by OSSecondsToTicks(1) / 60, and overwrites HSD_PerfCurrentStat.draw_time with the quotient.",
+        "rationale": "The current draw-time body retains the timestamp subtraction and destination while expressing normalization through OSSecondsToTicks. The OSGetTime implementation still obtains a coherent split time-base snapshot.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows every transformation from OSGetTime and start_time through OSSecondsToTicks normalization to the draw_time store."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+            "why": "Shows OSGetTime reading the upper, lower, and upper time-base registers and retrying across a carry."
+          }
+        ]
+      },
+      {
+        "id": "fact:7509d66a-0561-4327-85e0-c3ead6899970",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetDrawTime",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_PerfSetDrawTime(void). Its computed output is a floating-point elapsed-time measurement stored in HSD_PerfCurrentStat.draw_time rather than returned to the caller.",
+        "rationale": "The current definition still returns void and takes no parameters. Its normalized quotient is assigned directly to the floating-point draw_time field.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Provides the void(void) definition and assignment of the normalized result to HSD_PerfCurrentStat.draw_time."
+          }
+        ]
+      },
+      {
+        "id": "fact:3e8a77ec-9a5d-4ffc-b79d-7cbf3f913a15",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetDrawTime",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finalizes the current draw-phase timing sample by measuring elapsed time from the saved performance start timestamp and recording the normalized duration in the current HSD performance statistics.",
+        "rationale": "The current function still subtracts start_time from the current timestamp, normalizes the interval, and assigns it specifically to draw_time, confirming the standing purpose.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the complete normalized elapsed-time assignment to HSD_PerfCurrentStat.draw_time."
+          }
+        ]
+      },
+      {
+        "id": "fact:69a8fc2d-9e4c-4b29-9675-eac38123fddc",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetDrawTime",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Per invocation, performs one unconditional timing update: there are no local guards or state transitions, and the previous draw_time sample is replaced with a newly measured value relative to the shared start_time.",
+        "rationale": "The current body remains one guard-free assignment and never reads the prior draw_time value, so each invocation independently replaces the field.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the entire draw-time routine as one unconditional assignment that does not inspect the previous field value."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetStartTime"
+    },
+    "facts": [
+      {
+        "id": "fact:aeb69747-e7a9-4711-9f17-1f214bcf96f9",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetStartTime",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Takes no explicit input, obtains the current 64-bit processor time-base snapshot from OSGetTime, and overwrites the global s64 start_time. That value is later read by HSD_PerfSetCPUTime, HSD_PerfSetDrawTime, and HSD_PerfSetTotalTime to calculate elapsed intervals.",
+        "rationale": "The current target still consists of an OSGetTime call and assignment to start_time, and the neighboring timing routines still consume that global. OSGetTime continues to return a coherent processor time-base snapshot.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the complete producer-consumer path from OSGetTime through start_time to all three elapsed-time calculations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+            "why": "Shows OSGetTime obtaining a coherent 64-bit processor time-base value."
+          }
+        ]
+      },
+      {
+        "id": "fact:630536f7-a02b-49d6-bf37-2c0948472b23",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetStartTime",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_PerfSetStartTime(void). Its stored timestamp is an s64 time-base tick value returned by OSGetTime.",
+        "rationale": "The current function definition still has a void return and void parameter list, start_time remains s64, and OSGetTime still exposes a long long processor time-base result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Provides the void(void) definition, s64 start_time declaration, and assignment from OSGetTime."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+            "why": "Shows OSGetTime returning a long long value assembled from processor time-base registers."
+          }
+        ]
+      },
+      {
+        "id": "fact:81388fc9-6151-44c5-a38d-b6a387a76aa0",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetStartTime",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Begins an HSD performance-measurement interval by recording the current OS time-base value as the shared baseline used by the CPU, draw, and total elapsed-time setters.",
+        "rationale": "At head, the target still records OSGetTime into start_time and each subsequent timing setter subtracts that same value, preserving its role as the interval initializer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows HSD_PerfSetStartTime assigning start_time and the CPU, draw, and total setters consuming that baseline."
+          }
+        ]
+      },
+      {
+        "id": "fact:40505a22-e363-4ace-a44b-c5cd837cf5ce",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetStartTime",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally replaces the previous measurement baseline on every call. Until it is called again, any CPU, draw, or total timing setter measures from this most recently stored baseline; the target performs no accumulation, guard, or reset of statistic fields.",
+        "rationale": "The current body remains a single unconditional assignment, and all three timing routines still subtract the one shared start_time value. No branch, accumulation, or statistics-record mutation occurs in the target.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows unconditional replacement of the shared baseline and all three subsequent consumers."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime"
+    },
+    "facts": [
+      {
+        "id": "fact:3cc01e00-38b2-4fc2-9c9d-205cf910e879",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads a coherent 64-bit processor time-base snapshot through OSGetTime, subtracts the s64 start_time previously captured by HSD_PerfSetStartTime, converts the elapsed tick count to floating point, divides it by OSSecondsToTicks(1) / 60, and stores the quotient in HSD_PerfCurrentStat.total_time. HSD_PerfInitStat then copies the completed current record to HSD_PerfLastStat and clears the current record.",
+        "rationale": "The current target preserves the timestamp source, baseline subtraction, total_time destination, and frame-record consumption, while the normalization is now represented by OSSecondsToTicks. The main-loop ordering still invokes HSD_PerfInitStat immediately afterward.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows start_time capture, the OSSecondsToTicks-normalized total_time assignment, and the copy-then-clear operation on the completed record."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/extern/dolphin/src/dolphin/os/OSTime.c#L14-L30",
+            "why": "Shows OSGetTime returning a coherent processor time-base snapshot."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Shows HSD_PerfInitStat immediately following HSD_PerfSetTotalTime in the frame loop."
+          }
+        ]
+      },
+      {
+        "id": "fact:d6c95d1b-1490-4f08-918b-5c8663432e23",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes runtime performance profiling rather than a player-visible gameplay rule: total_time expresses the measured end-to-end frame interval as a floating-point multiple of the nominal 1/60-second frame budget.",
+        "rationale": "The current function divides elapsed ticks by the tick count for one sixtieth of a second and stores the result in the total-time field. The caller still samples it after rendered-frame work, preserving its end-to-end profiling interpretation.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows elapsed ticks normalized by OSSecondsToTicks(1) / 60 and stored as total_time."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Shows total-time capture at the end of rendering, display-copy setup, and screenshot work."
+          }
+        ]
+      },
+      {
+        "id": "fact:c112fa62-38aa-4935-a443-6acb90fadd2b",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_PerfSetTotalTime(void). It takes no explicit inputs and communicates its result by overwriting the floating-point HSD_PerfCurrentStat.total_time field.",
+        "rationale": "The current definition still has a void return and void parameter list, and its normalized quotient is assigned to global total_time state rather than returned.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Provides the void(void) definition, floating-point normalization expression, and total_time destination."
+          }
+        ]
+      },
+      {
+        "id": "fact:6e1cfb27-ef5a-47ae-a7e0-8a04a701fae5",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finalizes the current frame's total performance-timing sample by measuring elapsed time from the shared start timestamp through the end-of-frame display and screenshot work, normalizing that interval to a nominal 60 Hz frame allotment, and recording it in HSD_PerfCurrentStat.total_time.",
+        "rationale": "The current function still computes and stores the normalized elapsed interval, and the main loop still calls it after draw timing, framebuffer-copy setup, and pending screenshot handling and immediately before statistics rotation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the elapsed-time calculation and assignment to HSD_PerfCurrentStat.total_time."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Shows total-time capture after draw, framebuffer-copy, and screenshot work and immediately before statistics-record rotation."
+          }
+        ]
+      },
+      {
+        "id": "fact:4e50673c-f1ce-4eff-9e17-9e9e2d77e523",
+        "target_id": "target:function:main/sysdolphin/baselib/perf:HSD_PerfSetTotalTime",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each invocation performs one unconditional replacement of HSD_PerfCurrentStat.total_time; it does not accumulate with or inspect the prior value. In the frame loop this final update is immediately followed by HSD_PerfInitStat, which promotes the completed current statistics record to HSD_PerfLastStat and zeroes the current record for the next frame.",
+        "rationale": "The current target remains a guard-free assignment that never reads the old total_time field. HSD_PerfInitStat still copies then clears the current record, and its caller still performs that transition directly after total-time capture.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:33.284Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the unconditional total_time replacement and HSD_PerfInitStat's current-to-last copy followed by clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Shows the total-time update and statistics-record rotation occurring consecutively at the frame boundary."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/perf.c"
+    },
+    "facts": [
+      {
+        "id": "fact:d13ee1f8-a755-4d27-a2e3-23f3c677a1ca",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/perf.c",
+        "type": "data_flow",
+        "value": "HSD_PerfSetStartTime captures OSGetTime into the module's start_time baseline. The CPU, draw, and total setters subtract that baseline from a later OSGetTime result and divide by the number of processor time-base ticks in one 1/60-second interval, storing the resulting 60 Hz frame-time quantities in HSD_PerfCurrentStat. Matrix-load operations increment nb_mtx_load, while envelope-blending operations increment one of 32 indexed counters. At frame completion, HSD_PerfInitStat copies the accumulated current record into HSD_PerfLastStat and clears the current record for the next frame.",
+        "rationale": "The current implementation captures a shared OS timestamp, normalizes all three elapsed measurements to 1/60-second intervals, updates matrix and envelope counters in the current record, and copies then clears that record after the main loop records total frame time.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T17:02:00.587Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows timestamp capture, elapsed-time normalization, writes to the three timing fields, indexed envelope-counter updates, and current-to-last record rotation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Defines the performance-statistics layout and shows matrix-load instrumentation incrementing nb_mtx_load."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Shows baseline capture before frame processing, CPU and draw measurements after their work, and total-time capture followed by statistics rotation."
+          }
+        ]
+      },
+      {
+        "id": "fact:2ea86594-0f46-4cc9-a537-7a9a0b9604a6",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/perf.c",
+        "type": "game_mapping",
+        "value": "Realizes runtime performance profiling around the main game loop rather than a player-facing mechanic. Its shared baseline and rolling statistics quantify CPU processing, rendering, total frame duration, matrix loads, and envelope blending for successive rendered frames.",
+        "rationale": "The current performance module records elapsed CPU, drawing, and total times alongside rendering-work counters, and the main loop invokes those operations at processing, rendering, and frame-completion boundaries.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T17:02:00.587Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows the shared timing baseline, rolling statistics records, elapsed-time setters, and envelope-blending instrumentation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Shows that the profiled record contains CPU, draw, total-time, matrix-load, and envelope-blending measurements."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Places the profiling calls around game-frame processing, rendering, display work, and final record rotation."
+          }
+        ]
+      },
+      {
+        "id": "fact:7a178df1-95d5-43f0-80a2-33379df854ff",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/perf.c",
+        "type": "purpose",
+        "value": "Implements HSD's lightweight per-frame performance instrumentation. It measures elapsed CPU-processing, drawing, and total frame time; accumulates matrix-load and envelope-blending counts in the current statistics record; and preserves the completed record as the previous frame's statistics.",
+        "rationale": "The current source owns current and previous statistics records, measures three elapsed frame intervals, accumulates rendering counters, and rotates the records after the main loop completes its rendering and total-time measurements.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T17:02:00.587Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows current and previous records and the timing, envelope-counting, snapshot, and clearing operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Defines all recorded measurements and the inline matrix-load counter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Shows the timing routines called at CPU-processing, rendering, and completed-frame boundaries."
+          }
+        ]
+      },
+      {
+        "id": "fact:73b304b8-e324-49a4-967c-4ffe732d47dd",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/perf.c",
+        "type": "state_behavior",
+        "value": "The subsystem maintains a two-record rolling state. During a frame, timing setters overwrite their respective fields and instrumentation counters accumulate in HSD_PerfCurrentStat. At the end of the frame, HSD_PerfInitStat atomically at source level promotes that completed record to HSD_PerfLastStat and resets every current timing and counter field to zero. The next frame establishes a new start_time before accumulating another record.",
+        "rationale": "The current globals and setters preserve the accumulating current state, while struct assignment followed by whole-record clearing preserves the completed-to-last transition. The main-loop ordering establishes a new baseline before measured work and rotates the record after total-time capture.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T17:02:00.587Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.c#L1-L46",
+            "why": "Shows persistent current and last records, timing and counter updates, and the copy-then-clear transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/perf.h#L1-L29",
+            "why": "Shows that clearing the HSD_PerfStat record resets all timing fields, the matrix-load count, and all 32 envelope-blending counters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L256-L375",
+            "why": "Shows each measured frame establishing a baseline and the completed record rotating after rendering and total-time measurement."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/perf:HSD_PerfCountEnvelopeBlending#r3"
+    },
+    "facts": []
+  }
+]

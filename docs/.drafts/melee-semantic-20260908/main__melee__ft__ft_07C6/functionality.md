@@ -1,0 +1,13 @@
+## Fighter-side coin pickup support
+
+The canonical implementation and rendered header/source consistently support the existing `ftCoin` module hypothesis and its three function names. No cosmetic renaming or equivalent fact rewrites are proposed.
+
+- **`ft_8007C630` — initialization:** Unconditionally traverses the runtime probe array, resolves descriptor-selected fighter joints, copies each probe parameter, transforms its offset, forces Z to zero, and seeds previous position equal to current position.
+- **`ft_8007C6DC` — advancement:** Under `gm_8016B0B4`, copies current positions to previous before recomputing and flattening current positions. The restored canonical predicate tests `match_kind == 2`; the coin-accounting consumer supports the Coin Battle interpretation independently of rendered names. `Fighter_8006C80C` calls advancement after transformation and shared maintenance, within its `!x221F_b3` branch. History therefore represents successive executed updates, not an unconditional wall-clock interval.
+- **`ft_8007C77C` — collection:** Returns outside the mode without updating the parity flag. Otherwise it records parity mismatch between `gm_801A4BB8()` and player ID in `x2229_b4`, returns on mismatch, and also returns for collision status 2. The scan saves the next item pointer before possible removal, filters `It_Kind_Unk4`, and selects eligibility bit b1 for same-player ownership or b0 otherwise, including null ownership. It tests up to two fighter probes with item and fighter scales. A successful test adds the returned item value separately to current and total coin counters, emits sound and effect 0x432 with a local scalar initialized to one, removes the item, and breaks only the inner probe loop. The outer scan can collect additional items.
+
+The collision caller additionally requires `!x221F_b3 && !x2219_b1`. Thus caller gates, probe history, ownership relationships, and removal-safe traversal are preserved rather than reduced to an unconditional per-frame pickup description.
+
+Both owned files were independently reviewed in canonical and rendered form. Header signatures agree with definitions; no renderer issues were observed. Existing supported knowledge is explicitly retained in the checkpoint ledger. Four section-attribution facts and their related link remain unresolved because source literals do not prove compiled `.sdata2` contents or extent. One gameplay fact is deferred only for its specific denomination/color mapping; value crediting and pickup feedback are directly supported. Collision status 2 and the effect identifier remain numeric.
+
+Status: synthesized; independent review and live promotion pending.

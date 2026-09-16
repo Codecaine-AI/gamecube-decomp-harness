@@ -1,0 +1,156 @@
+{
+  "tu": "main/melee/gr/grtzelda",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L38-L60",
+            "why": "Declares the array and descriptor and supplies their explicit initializers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L131-L171",
+            "why": "Defines callback members and shows flags2 followed by joints and joint_count."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.h#L4-L6",
+            "why": "Exports the StageData descriptor."
+          }
+        ],
+        "op": "write",
+        "rationale": "Correct the unsupported compiled-section/layout inference and identify the descriptor fields after the last explicit initializer.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtzelda:.data"
+        },
+        "type": "inferred_type",
+        "value": "The canonical source declares a file-local StageCallbacks grTZd_StageCallbacks[4] and an externally visible StageData grTZd_StageData, both with static storage duration. The callback array has three populated rows followed by a row of four null callbacks and zero flags. Each row contains on_init, callback1, gobj_proc, callback3 and a flags union. The descriptor initializes the stage identity, table/resource pointers, lifecycle and global hooks, and flags2 = 1; its omitted joints and joint_count fields default to NULL and zero. These declarations establish source types and initial values, not compiled section contents or adjacency."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/stdbool.h#L4-L14",
+            "why": "Defines bool as int and true/false as 1/0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L17-L20",
+            "why": "Shows the bool parameter spelling in the forward declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L48-L62",
+            "why": "Shows descriptor registration and the empty int-parameter definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L157-L171",
+            "why": "Types the consuming descriptor field as void (*)(int)."
+          }
+        ],
+        "op": "write",
+        "rationale": "Resolve the apparent bool/int discrepancy using the directly available typedef and avoid inferring an input domain from an unused parameter.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtzelda:grTZelda_OnDemoInit"
+        },
+        "type": "inferred_type",
+        "value": "A void stage demo-initialization callback with effective signature void (int). Its forward declaration spells the parameter bool, its definition spells it int unused, and StageData.on_demo_init takes int. The canonical typedef is typedef int bool, so these are compatible source spellings, not evidence of a distinct Boolean-sized representation or incompatible signature. This implementation does not inspect or constrain the input."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L38-L46",
+            "why": "Establishes row-0 callback1 membership."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L103-L106",
+            "why": "Shows the unused pointer and sole false output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Shows the complete setup implementation without callback1 consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve the exact input/output behavior while correcting the unsupported claim that table membership proves runtime dispatch.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtzelda:grTZelda_80223FE4"
+        },
+        "type": "data_flow",
+        "value": "Its function pointer occupies callback1 in grTZd_StageCallbacks[0]. If called, it ignores its Ground_GObj* input, performs no calls or state accesses, and returns false. Ground_SetupStageCallbacks does not read, install or invoke callback1, so this setup path does not establish dispatcher provenance for an invocation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L38-L46",
+            "why": "Places the pointer in row 2's Boolean slot."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L117-L120",
+            "why": "Provides the complete constant-false implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Does not install or invoke callback1."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retain the constant result and unused-input semantics, but distinguish pointer registration in a table from an established invocation path.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtzelda:grTZelda_80224044"
+        },
+        "type": "data_flow",
+        "value": "Its function pointer occupies callback1 in grTZd_StageCallbacks[2]. If called, it ignores its Ground_GObj* input and returns false without calls or state accesses. The reviewed Ground_SetupStageCallbacks path consumes other callback members but not callback1; the table alone therefore does not establish that a dispatcher supplies this input at runtime."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L38-L46",
+            "why": "Establishes row-1 callback membership."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L81-L95",
+            "why": "Shows indexed selection and guarded row handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtzelda.c#L135-L138",
+            "why": "Shows the predicate's exact input/output behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Shows which callback members setup actually consumes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Correct the specific claim that passing row 1 to setup installs its Boolean callback, while preserving the supported row selection and local behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtzelda:grTZelda_802240D4"
+        },
+        "type": "data_flow",
+        "value": "Ground-object ID 1 selects a callback-table row containing this function in callback1, and the factory passes that row to Ground_SetupStageCallbacks on successful acquisition. That helper does not consume callback1, so it does not establish installation or dispatch of this predicate. If invoked, the predicate ignores its Ground_GObj* argument, performs no calls or state accesses, and returns false."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

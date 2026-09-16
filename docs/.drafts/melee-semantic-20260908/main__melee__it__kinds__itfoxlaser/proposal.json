@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/it/kinds/itfoxlaser",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfoxlaser:it_8029C504"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "itFoxLaser_SpawnWithState",
+        "rationale": "Distinguishes the common constructor's explicit motion-state input from the standard state-0 wrapper, whose retained Spawn hypothesis currently collides in both rendered files. Descriptive proposal, not recovered historical spelling.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxlaser.c#L44-L81",
+            "why": "The common constructor consumes msid; its two wrappers insert fixed state IDs."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfoxlaser:itFoxlaser_UnkMotion1_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Installed as the physics callback for both motion-state IDs 0 and 1. Every invocation unconditionally copies Item.pos into Item.xDD4_itemVar.foxlaser.pos, refreshing the stored endpoint used by collision processing. It performs no local velocity update, timer mutation or motion-state transition.",
+        "rationale": "The explicit table, rather than the UnkMotion1 suffix, establishes both callback slots.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxlaser.c#L20-L32",
+            "why": "Both table rows use this physics callback, and the collision adapter consumes the stored endpoint."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxlaser.c#L92-L96",
+            "why": "Complete unconditional position-copy body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfoxlaser:it_8029C4D4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves the Item from its game object and passes the addresses of the stored foxlaser position and current Item.pos to it_8026E9A4. The fourth argument, written as 0, is a null Vec3 pointer rather than a numeric mode. The CollData pointer is unused. The delegated map query overwrites the current-position endpoint on contact, and its Boolean result is returned unchanged.",
+        "rationale": "Corrects the baseline's mode interpretation using the canonical callee signature and preserves the important endpoint mutation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxlaser.c#L27-L32",
+            "why": "Exact adapter arguments and ignored CollData input."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L780-L793",
+            "why": "Fourth parameter is Vec3*; successful query writes through the current endpoint."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itfoxlaser.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Motion-state IDs 0 and 1 share the same animation, physics and collision callbacks. Stage contact sets lifetime to 1.0, restores the pre-test position and returns false rather than immediately removing the projectile. Reflection realigns and resets the existing ray and returns false; shield bounce delegates to the shared rebound helper, which also returns false. Clank, absorption and ordinary shield-hit callbacks return true without local cleanup or destruction calls, leaving interpretation of that result to the item system. Reference invalidation delegates matching-reference cleanup without selecting another motion state.",
+        "rationale": "Replaces ambiguous immediate-termination wording with exact local return and lifetime behavior, preserving the distinction between callback policy and caller-owned destruction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxlaser.c#L20-L25",
+            "why": "Shared callback assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfoxlaser.c#L98-L146",
+            "why": "Collision lifetime response and complete interaction callback bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/inlines.h#L177-L203",
+            "why": "Shared rebound return and reflection reset."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

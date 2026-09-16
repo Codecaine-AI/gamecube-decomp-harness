@@ -1,0 +1,114 @@
+{
+  "tu": "main/melee/ft/ftdevice",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdevice:ftCo_800C06B4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Queries the Fighter's x508 color-animation representation with the literal expression `(int) &fp->x508.x28_colanim.ptr->x7B`, without loading the x7B byte or mutating state. Dispatcher subtraction of 0x7B and integer-arm installation support intended reconstruction of a reserved global color-animation ID; a consumer tests 0x7B and 0x80. Exact compiled member displacement, pointer/integer representation, and behavior for null or invalid pointer representations remain unresolved.",
+        "rationale": "Replace unconditional arithmetic semantics with verified literal behavior and separately qualified intended meaning.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdevice.c#L32-L35",
+            "why": "Member-address expression, not byte load."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcolanim.c#L113-L128",
+            "why": "Reserved ID normalization and x508 routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_013B.c#L224-L236",
+            "why": "Installer writes integer union member."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0877.c#L117-L130",
+            "why": "Guarded reserved-value consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdevice:ftCo_800C06E8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Scans the sole wind record by null Ground marker. A free record receives all three unchecked arguments, ft_804D6578.x0 increments, and the function returns; an occupied record reports and asserts without replacement. Null Ground input still increments while leaving the slot free, so count and occupancy can diverge and count-driven traversal can exceed capacity. Null callbacks are accepted. Reset clears the count and Ground marker but leaves type and callback unchanged. No count saturation or signed-overflow protection is provided.",
+        "rationale": "Correct the implicit empty-to-occupied guarantee and document actual boundary behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdevice.c#L37-L65",
+            "why": "Unchecked insertion, count increment, reset, and overflow path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3414-L3434",
+            "why": "Consumer trusts count and invokes retained callback without callback-null validation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdevice:ftCo_800C0764"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Scans two catch slots in ascending order and stores the three unchecked arguments in the first null-object record, increments ftDevice_BuryThingCount once, and returns. Both occupied records cause reporting and assertion without replacement. Null Ground input leaves the chosen slot free despite incrementing the count; null callbacks and duplicate objects are not rejected. Reset clears both object markers and the count, not discriminator or callback payloads. Count-driven consumers require valid registrations to keep the count within two. No count saturation or signed-overflow protection is provided.",
+        "rationale": "Remove the unsupported non-null stored-object guarantee and expose consumer bounds preconditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdevice.c#L37-L81",
+            "why": "First-fit writes, reset, unchecked arguments, increment, and assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3436-L3453",
+            "why": "Count-driven deferred catch traversal."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdevice:ftCo_800C07F8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Uses the sole collision record's Ground marker as the free predicate. A free record receives all three unchecked arguments, ft_804D6570 increments, and the function returns; an occupied record reports collision overflow and asserts without replacement. Null Ground input increments while leaving the record free, permitting count/occupancy divergence and out-of-bounds count-driven traversal. Null callbacks are accepted. Reset clears marker and count but preserves discriminator and callback. No count saturation or signed-overflow protection is provided.",
+        "rationale": "Qualify the one-slot state machine for actual unchecked inputs rather than assuming successful insertion occupies it.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdevice.c#L37-L49",
+            "why": "Reset write set."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdevice.c#L83-L99",
+            "why": "Unchecked tuple insertion and full-record assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L3487-L3501",
+            "why": "Count-driven callback consumer."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

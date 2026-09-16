@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gameLayoutPath, readGameConfigWithLocal } from "../game-registry/config.js";
 
 interface SourceRegistryEntry {
   id: string;
@@ -96,19 +97,31 @@ export function gameRoot(gameId = "melee"): string {
 }
 
 export function gameToolBindingRoot(gameId = "melee"): string {
-  return resolve(gameRoot(gameId), "tool-bindings");
+  return configuredToolPath(gameId, "bindingsRoot") ?? gameLayoutPath(gameRoot(gameId), "config/tools");
 }
 
 export function gameSharedToolDataRoot(gameId = "melee"): string {
-  return resolve(gameRoot(gameId), "shared/tool-data");
+  return configuredToolPath(gameId, "sharedDataRoot") ?? gameLayoutPath(gameRoot(gameId), "runtime/tool-data");
 }
 
 export function gameWorktreeRoot(gameId = "melee", worktreeId = "main"): string {
-  return resolve(gameRoot(gameId), "worktrees", worktreeId);
+  return gameLayoutPath(gameRoot(gameId), `workspace/staging/${worktreeId}`);
 }
 
 export function gameWorktreeToolCacheRoot(gameId = "melee", worktreeId = "main"): string {
-  return resolve(gameWorktreeRoot(gameId, worktreeId), "tool-cache");
+  return configuredToolPath(gameId, "worktreeCacheRoot", worktreeId)
+    ?? gameLayoutPath(gameRoot(gameId), `runtime/tool-data/claims/${worktreeId}`);
+}
+
+function configuredToolPath(gameId: string, key: string, worktreeId = "main"): string | undefined {
+  const root = gameRoot(gameId);
+  const descriptorPath = resolve(root, "game.json");
+  if (!existsSync(descriptorPath)) return undefined;
+  const config = readGameConfigWithLocal(descriptorPath);
+  const value = (config.tools as Record<string, unknown> | undefined)?.[key];
+  return typeof value === "string" && value.trim()
+    ? resolve(root, value.replaceAll("{game_id}", gameId).replaceAll("{worktree_id}", worktreeId))
+    : undefined;
 }
 
 export function resourceGraphRoot(): string {
@@ -140,4 +153,12 @@ function sourceRegistryPath(sourceId: string): string {
     if (normalized.id === sourceId) return normalized.path ?? normalized.id;
   }
   return sourceId;
+}
+
+/** Knowledge databases live in the canonical game-owned store and index directories. */
+export function knowledgeStorePath(root: string): string {
+  return gameLayoutPath(root, "store/knowledge.sqlite");
+}
+export function knowledgeIndexPath(root: string): string {
+  return gameLayoutPath(root, "indexes/knowledge-index.sqlite");
 }

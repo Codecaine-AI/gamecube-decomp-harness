@@ -1,0 +1,95 @@
+179: void AXDriver_8038BF6C(HSD_SM* v)
+180: {
+181:     u32 flag;
+182:     int i;
+183:     /// sqrtf result slots; retail frame offsets 0x10..0x2C (base aligned 8)
+184:     float sqrt_tmp[8] ATTRIBUTE_ALIGN(8);
+185: 
+186:     for (i = 0; i <= 9; i++) {
+187:         flag = 1 << i;
+188: 
+189:         if (v->flags & flag) {
+190:             switch (flag) {
+191:             case 0x1: {
+192:                 float left_vol = (v->x26 * v->x24[0]) / 65535.0F;
+193:                 float right_vol = (v->x27 * v->x24[1]) / 65535.0F;
+194:                 float left_sqrt = sqrtf_store(left_vol, &sqrt_tmp[7]);
+195:                 float left_inv_sqrt =
+196:                     sqrtf_store(1.0F - left_vol, &sqrt_tmp[6]);
+197:                 float right_sqrt = sqrtf_store(right_vol, &sqrt_tmp[5]);
+198:                 float right_inv_sqrt =
+199:                     sqrtf_store(1.0F - right_vol, &sqrt_tmp[4]);
+200:                 float tmp2 = left_inv_sqrt * right_inv_sqrt;
+201:                 float pitch1 = powf(2.0F, v->x20 / 1200.0F);
+202:                 float pitch2 = powf(2.0F, v->fadetime / 1200.0F);
+203: 
+204:                 v->vID = HSD_SynthSFXPlayWithGroup(
+205:                     v->fid, v->x1A, v->volume,
+206:                     (v->flags & 0x20000) ? v->pan : v->x1C, v->pri, v->itdflag,
+207:                     v->track, pitch1, pitch2, left_inv_sqrt * tmp2, left_sqrt,
+208:                     right_sqrt * left_inv_sqrt);
+209: 
+210:                 if (v->vID != -1) {
+211:                     AXDriver_804C5920[v->vID & 0x3F] = v;
+212:                     v->flags &= 0xFFF4FF99;
+213:                     if (v->flags & 0x40000) {
+214:                         v->flags &= ~0x40000;
+215:                     }
+216:                     AXDriver_804D77C8++;
+217:                 } else {
+218:                     HSD_ASSERT(0x13B,
+219:                              (v->flags&SMSTATE_MASK) == SMSTATE_ACTIVE);
+220:                     v->flags &= ~SMSTATE_MASK;
+221:                     return;
+222:                 }
+223:                 break;
+224:             }
+225:             case 0x2:
+226:                 HSD_SynthSFXSetPriority(v->vID, v->pri);
+227:                 break;
+228:             case 0x4:
+229:                 HSD_SynthSFXSetVolumeFade(v->vID, v->x1A, 0);
+230:                 break;
+231:             case 0x8:
+232:                 HSD_SynthSFXSetUserVol(v->vID, v->x1C);
+233:                 break;
+234:             case 0x10:
+235:                 break;
+236:             case 0x20:
+237:                 HSD_SynthSFXSetPitchRatio(v->vID, 0,
+238:                                           powf(2.0F, v->x20 / 1200.0F));
+239:                 break;
+240:             case 0x40:
+241:                 HSD_SynthSFXSetPitchRatio(v->vID, 1,
+242:                                           powf(2.0F, v->fadetime / 1200.0F));
+243:                 break;
+244:             case 0x80: {
+245:                 float left_vol = (v->x26 * v->x24[0]) / 65535.0F;
+246:                 float right_vol = (v->x27 * v->x24[1]) / 65535.0F;
+247:                 float left_sqrt = sqrtf_store(left_vol, &sqrt_tmp[3]);
+248:                 float left_inv_sqrt =
+249:                     sqrtf_store(1.0F - left_vol, &sqrt_tmp[2]);
+250:                 float right_sqrt = sqrtf_store(right_vol, &sqrt_tmp[1]);
+251:                 float right_inv_sqrt =
+252:                     sqrtf_store(1.0F - right_vol, &sqrt_tmp[0]);
+253: 
+254:                 HSD_SynthSFXSetMix(
+255:                     v->vID, left_inv_sqrt * (left_inv_sqrt * right_inv_sqrt),
+256:                     left_sqrt, right_sqrt * left_inv_sqrt);
+257:                 break;
+258:             }
+259:             case 0x100:
+260:                 v->flags = (v->flags & ~SMSTATE_MASK) | SMSTATE_SLEEP;
+261:                 return;
+262:             case 0x200:
+263:                 if (v != NULL) {
+264:                     tmp(v);
+265:                 }
+266:                 return;
+267:             }
+268:         }
+269: 
+270:         v->flags &= ~flag;
+271:     }
+272: }
+273: 

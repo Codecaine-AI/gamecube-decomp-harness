@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -17,7 +18,9 @@ from typing import Any
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(TOOL_ROOT.parents[1] / "_shared"))
+sys.path.append(str(TOOL_ROOT.parents[1] / "_impl" / "gamecube" / "tools"))
 from search_index import package_root_for_tool, tool_storage_root  # type: ignore
+from project_layout import get_project_layout  # type: ignore
 
 PACKAGE_ROOT = package_root_for_tool(TOOL_ROOT)
 TOOL_STORAGE_ROOT = tool_storage_root(TOOL_ROOT)
@@ -39,9 +42,28 @@ def positive_int(value: str) -> int:
     return parsed
 
 
+def resolve_input_elf(
+    repo_root: Path, version: str, explicit: Path | None
+) -> tuple[Path, Path]:
+    if explicit is not None:
+        return (repo_root / explicit).resolve(), explicit
+
+    default = Path("build") / version / "main.elf"
+    default_path = repo_root / default
+    if default_path.is_file():
+        return default_path.resolve(), default
+
+    candidates = sorted((repo_root / "build" / version).glob("*.elf"))
+    if candidates:
+        selected = candidates[0]
+        return selected.resolve(), selected.relative_to(repo_root)
+    return default_path.resolve(), default
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Export Ghidra xrefs from build/GALE01/main.elf to JSONL.")
+    parser = argparse.ArgumentParser(description="Export Ghidra xrefs from the selected project's ELF to JSONL.")
     parser.add_argument("--repo-root", type=Path, default=DEFAULT_REPO_ROOT)
+    parser.add_argument("--input-elf", type=Path, help="Executable path, relative to the selected checkout unless absolute.")
     parser.add_argument("--analyze-headless", default=os.environ.get("GHIDRA_ANALYZE_HEADLESS", ""))
     parser.add_argument("--script-flavor", choices=("java", "python"), default="java")
     parser.add_argument("--project-name", default="melee-ghidra-xrefs")
@@ -117,9 +139,12 @@ def summary_count(stdout: str) -> int | None:
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
+    layout = get_project_layout(repo_root)
+    input_elf, input_elf_arg = resolve_input_elf(
+        repo_root, layout.version, args.input_elf
+    )
     analyze = find_analyze_headless(args.analyze_headless)
     java = java_home()
-    input_elf = repo_root / "build" / "GALE01" / "main.elf"
     project_dir = TOOL_STORAGE_ROOT / "cache" / "ghidra_xrefs_project"
     log_path = TOOL_STORAGE_ROOT / "cache" / "ghidra_export_xrefs.log"
     status_path = TOOL_STORAGE_ROOT / "cache" / "export_xrefs_status.json"
@@ -209,6 +234,8 @@ def main() -> int:
         "--limit",
         str(args.limit),
     ]
+    if args.input_elf is not None:
+        command[4:4] = ["--input-elf", str(args.input_elf)]
     stderr_excerpt = (proc.stderr or "") if proc else ""
     if runner_error:
         stderr_excerpt = (stderr_excerpt + "\n" + runner_error).strip()
@@ -228,7 +255,7 @@ def main() -> int:
         "dependencies": [
             analyze or args.analyze_headless or "analyzeHeadless",
             java or "openjdk@21",
-            "build/GALE01/main.elf",
+            str(input_elf_arg),
             str(script_path),
         ],
         "analyze_headless": analyze,
@@ -236,6 +263,14 @@ def main() -> int:
         "stderr_excerpt": stderr_excerpt[-2000:],
         "log": str(log_path),
     }
+    default_input = Path("build") / layout.version / "main.elf"
+    if input_elf_arg != default_input or args.input_elf is not None:
+        manifest["input_elf"] = str(input_elf)
+        manifest["input_sha256"] = (
+            hashlib.sha256(input_elf.read_bytes()).hexdigest()
+            if input_elf.is_file()
+            else None
+        )
     status_path.parent.mkdir(parents=True, exist_ok=True)
     status_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps(manifest, indent=2, sort_keys=True))

@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/pl/plbonus",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plbonus:fn_8003B044"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads selected-player action statistics and extended bookkeeping, configuration thresholds, mode queries, frame count, Camera_80030E10, and a six-slot participant-filtered aggregate. Qualifying tests call setFlag for exactly 0x31,0x32,0x33,0x35,0x38,0x39,0x3A,0x47,0x50,0x51,0x52,0x53,0x57,0x5A,0x65,0x69,0x6A,0x6B,0x6C. It does not set 0x34; that output belongs to fn_8003BD60.",
+        "rationale": "Repairs the baseline's erroneous contiguous output range while preserving demonstrated inputs.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L746-L851",
+            "why": "Complete evaluator input and output paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L916-L925",
+            "why": "Shows the actual 0x34 writer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plbonus:fn_8003B9A4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Adds flags without clearing them. Nonzero Catch attempts permit 0x26 when the configured attempt minimum is reached with zero Catch hits, otherwise 0x25 when hit/attempt ratio is at most x44. With nonzero Catch hits, only [StatsAttack_Catch,StatsAttack_LedgeAttackSlow) is scanned for attempts other than Catch and CatchAttack; passing this limited scan permits 0x27 for enough Catch hits and zero CatchAttack hits, or 0x2C for nonzero CatchAttack hits. Independently, a scan of [StatsAttack_ThrowF,StatsAttack_CargoThrowF) with no entry equal to StatsAttack_None sets 0x28, and positive xC6C with xC70/xC6C >= x48 sets 0x2B. The limited scan does not establish absence of all other attacks.",
+        "rationale": "Preserves the librarian's correction of global grab-only exclusivity and states the exact canonical comparison.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L866-L913",
+            "why": "Complete guards, bounded scans, ratios, and outputs."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plbonus:fn_8003CC84"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Evaluates player/fighter, mode, timer, and current-damage conditions into indexed bonus flags, with preliminary bookkeeping calls when gm_8016B1EC() is false. Its gm_8016AEEC() switch tests timer seconds 0,7,0xD5 rather than stage identifiers. Zero Player_GetDamage sets 0x92 only under the nested player/fighter guards and does not prove the player never took damage. Whole-routine purity or idempotence is not established.",
+        "rationale": "Canonical callee returns timer_seconds and the evaluator reads current damage; preserves the independently verified librarian repair.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L1154-L1245",
+            "why": "Bookkeeping calls, guards, switch, and current-damage predicates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16AE.c#L98-L101",
+            "why": "Defines the switched value as timer_seconds."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plbonus:pl_8003891C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Performs broad per-player statistics initialization: invokes stale-move, attack, and auxiliary reset helpers; clears three item-log arrays, a 30-entry array, and all 215 decision entries; and assigns the explicitly listed counters, measurements, nested fields, flags, and sentinels. Player initialization invokes it after core slot reset. It is not proved to reset every byte or declared field of the extended record: xCB0 and xDB0 lack explicit assignments in this body, and xDB0 is later used as a periodic baseline.",
+        "rationale": "Preserves demonstrated initialization while removing unsupported complete-record reset guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L104-L253",
+            "why": "Complete explicit reset sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L2013-L2035",
+            "why": "Initialization callers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L919-L922",
+            "why": "Persistent xDB0 baseline consumer."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

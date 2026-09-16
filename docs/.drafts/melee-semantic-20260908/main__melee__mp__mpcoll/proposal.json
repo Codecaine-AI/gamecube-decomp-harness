@@ -1,0 +1,106 @@
+{
+  "tu": "main/melee/mp/mpcoll",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L4512-L4515",
+            "why": "Direct signature and complete single-assignment body."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's misleading non-returning wording using the complete canonical body.",
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpcoll:mpClearFloorSkip"
+        },
+        "type": "inferred_type",
+        "value": "A void-returning collision-state mutator with signature `void mpClearFloorSkip(CollData* coll)`. It accepts a mutable collision-data pointer, writes -1 to floor_skip, and returns normally without a value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L1464-L1623",
+            "why": "Contains the complete query-point selection, projection, fallback, and mutation flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the omitted positive-bottom origin branch and records the exact endpoint assignments rather than assuming full bottom-point alignment.",
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpcoll:mpColl_80044948_Floor"
+        },
+        "type": "data_flow",
+        "value": "Reads cur_pos, ecb.bottom, and floor.index. If ecb.bottom.y <= 0, the initial floor query uses cur_pos + ecb.bottom; otherwise it uses cur_pos directly. A successful query updates floor.index and adds its vertical correction to cur_pos.y, with flags and normal supplied through output pointers. On failure it selects a floor endpoint and checks its adjacent non-floor line for the corresponding wall orientation. It always sets cur_pos.y = edge.y - ecb.bottom.y on that fallback. An accepted junction additionally sets cur_pos.x = edge.x and re-queries floor metadata, updating floor.index if successful and reporting a diagnostic otherwise."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L1464-L1623",
+            "why": "Defines the signature and all conditions controlling hit_wall and its return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L2383-L2542",
+            "why": "Shows success gating seam processing without setting touched_floor in this branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact C signature while distinguishing branch acceptance from bottom support, final metadata-query success, and caller grounding.",
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpcoll:mpColl_80044948_Floor"
+        },
+        "type": "inferred_type",
+        "value": "bool(CollData* coll), with mutable collision state. Returns true if the initial tracked-floor query succeeds or the selected endpoint adjoins the accepted wall orientation; otherwise returns false. The query uses the ECB bottom only when ecb.bottom.y <= 0 and uses the origin otherwise. Endpoint acceptance remains true even if the subsequent metadata re-query fails, so the result is not a guarantee of successful final projection or grounded state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L2932-L2989",
+            "why": "Complete helper inputs, outputs, and endpoint branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L3919-L3967",
+            "why": "Caller consumes support result and performs fallback processing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported CollData filter input while preserving the directly observed projection and endpoint data flow.",
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpcoll:mpColl_800488F4"
+        },
+        "type": "data_flow",
+        "value": "Reads the stored floor line ID, current position, and ECB bottom offset. After validating the floor, it projects the world-space bottom point using that line; success updates cur_pos.y, floor.index, floor.flags, and floor.normal. Otherwise it reads floor endpoints and adjoining non-floor lines, replacing cur_pos with a wall-bounded endpoint or ORing the corresponding ledge-slip flag. It returns a support result to the enclosing collision loop and does not directly consume CollData joint inclusion/exclusion filters."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L3116-L3285",
+            "why": "Reset expression, candidate comparisons, and final guarded writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the reset sentinel without changing the verified maximum-selection and guarded-contact behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/mp/mpcoll:mpColl_800491C8_RightWall"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation resets the accumulated x constraint to -F32_MAX, scans the right-wall candidates, and replaces the selected constraint and metadata only for a greater valid x value. If the final constraint does not exceed cur_pos.x, CollData is unchanged and the function returns false. Otherwise it assigns that x coordinate, installs the selected right-facing-wall line ID, flags, and normal, and returns true."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

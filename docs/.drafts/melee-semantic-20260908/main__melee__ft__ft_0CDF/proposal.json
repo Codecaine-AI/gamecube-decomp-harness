@@ -1,0 +1,141 @@
+{
+  "tu": "main/melee/ft/ft_0CDF",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDF.c#L14-L180",
+            "why": "Complete controller implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L1762-L1805",
+            "why": "Active bindings for all four motions, including callback sharing by empty variants."
+          }
+        ],
+        "op": "write",
+        "rationale": "Supersedes the TU purpose claim with canonical terminology and request-level behavior, without importing public identity from rendered names.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ft_0CDF.c"
+        },
+        "type": "purpose",
+        "value": "Implements the fighter-side L-Gun shooting controller: grounded and aerial loaded/empty motion entry, timing-reusing terrain transitions, event-bit-driven item firing and audiovisual requests, and paired animation-completion, inert IASA, physics-delegation, and collision callbacks. Public Ray Gun identity and asset-specific firing statistics are not established by this source alone."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDF.c#L14-L180",
+            "why": "Entry arguments, transition branches, and complete callback suite."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDD.c#L59-L74",
+            "why": "Completion check and physics forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L1762-L1805",
+            "why": "Loaded/empty callback sharing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's animation-advancement wording and records broad else branches and table-proved empty-state sharing.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ft_0CDF.c"
+        },
+        "type": "state_behavior",
+        "value": "Initial entry chooses loaded versus empty L-Gun motion from current item status and starts with frame 0, speed 1, and flags 0. Terrain transitions forward current frame and speed with mask 0x0C4C5080, reinstall accessory4_cb, and do not locally recheck ammunition or restart the item timer. Each transition tests only the loaded source motion; every other motion takes its empty destination. Loaded and empty variants share their terrain-specific Anim/IASA/Phys/Coll callbacks. Anim callbacks check completion through ftCo_800CDE18 rather than advancing animation; IASA callbacks are empty, physics is delegated, and collision helpers conditionally invoke terrain transitions."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDF.c#L106-L143",
+            "why": "Complete event and audiovisual branch implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L53-L69",
+            "why": "Configured offset producer and item-side firing request."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the mixed public-identity claim with fully evidenced canonical behavior and the important ordering of position flattening.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CDF:ftCo_800CE1D4"
+        },
+        "type": "purpose",
+        "value": "Processes a pending L-Gun accessory event by consuming throw_flags_b0 when an item is present, obtaining and transforming its configured firing offset, and rechecking current ammunition. The nonempty branch requests item-side firing at the unflattened position, then requests effect 1073 at z=0 and sound 228 for facing_dir exactly +1 or 229 otherwise. The empty branch requests effect 1029 at the unflattened transformed position and sound 230."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDF.c#L14-L143",
+            "why": "Registration, nested guards, bit consumption, and unchecked request calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L300-L320",
+            "why": "Exact ammunition boundary and kind-sensitive predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlgun.c#L61-L69",
+            "why": "Conditional decrement and item-owner forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1370-L1389",
+            "why": "Motion setup clears accessory4_cb."
+          }
+        ],
+        "op": "write",
+        "rationale": "Avoids guaranteed-allocation and one-command/one-projectile overclaims while recording no-item event persistence and callback lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CDF:ftCo_800CE1D4"
+        },
+        "type": "state_behavior",
+        "value": "With no held item the callback returns without consuming throw_flags_b0. With an item and a clear bit it does nothing. With an item and a set bit it clears the bit before all work and issues at most one request sequence for that consumed bit. For an L-Gun, ammunition <=0 selects only empty feedback; positive ammunition selects the firing helper, which decrements positive ammunition and forwards a projectile request using the item's owner. Requests are not checked for success and failures do not restore the bit or ammunition. The callback does not unregister itself and reads the current item each invocation; entry and terrain transitions reinstall it after motion changes."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDF.c#L162-L165",
+            "why": "Owned unchanged-pointer wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDD.c#L66-L69",
+            "why": "Intermediate helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Ground friction and movement consumer with strict threshold."
+          }
+        ],
+        "op": "write",
+        "rationale": "Extends the existing local-only forwarding fact with independently inspected downstream physics behavior and the strict speed boundary.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CDF:ftCo_LGunShoot_Phys"
+        },
+        "type": "data_flow",
+        "value": "Forwards the fighter unchanged to ftCo_800CDE54, which calls ft_80084F3C. The terminal helper starts with co_attrs.ground_friction, multiplies it by the common above-walk-speed factor only when ABS(gr_vel) > walk_max_vel, then calls ftCommon_ApplyFrictionGround and ftCommon_ApplyGroundMovement. The wrapper itself has no state reads, branches, or return value."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

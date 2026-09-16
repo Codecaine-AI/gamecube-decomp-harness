@@ -1,0 +1,59 @@
+import json,pathlib,hashlib,datetime,struct,shutil
+D=pathlib.Path('docs/.drafts/melee-semantic-20260908/main__melee__ft__kinds__ftCommon__ftCo_LandingAir');S=pathlib.Path('games/melee/state/knowledge_v2/semantic-sweep-20260908');M=json.load(open(S/'manifest.json'));R=M['head_revision'];root=pathlib.Path(M['checkout_root']);C=json.load(open(D/'context.json'));X=json.load(open(D/'baseline-facts.json'));tu=C['task']['tu'];P=C['task']['source_path'];U=S/'units'/C['task']['id'];start='2026-09-08T16:03:42Z'
+def c(p,a,b):
+ assert 1<=a<=b<=len((root/p).read_text().splitlines()),(p,a,b)
+ return f'code://{R}/{p}#L{a}-L{b}'
+foreign=[]
+def add(p,*pairs):
+ for a,b in pairs:foreign.append(('src/melee/'+p,a,b))
+add('ft/ft_084E.c',(42,53));add('ft/ft_081B.c',(1081,1099));add('ft/ft_08A1.c',(54,98));add('ft/ftanim.c',(490,537),(573,581));add('ft/ftcommon.c',(546,563),(581,594));add('ft/fighter.c',(2101,2105),(1072,1076),(1235,1244));add('ft/ftmotionstates.c',(905,958));add('ft/kinds/ftCommon/ftCo_Landing.c',(1,160));add('ft/kinds/ftCommon/ftCo_AttackAir.c',(189,192))
+fr=[]
+for p,a,b in foreign:
+ c(p,a,b);t=(root/p).read_text();fr.append(dict(path=p,start_line=a,end_line=b,sha256=hashlib.sha256(t.encode()).hexdigest(),canonical_read=True,rendered_read=False,ownership='foreign evidence only'));(D/(p.replace('/','__')+f'.{a}-{b}.txt')).write_text('\n'.join(f'{i}: {l}' for i,l in enumerate(t.splitlines(),1) if a<=i<=b))
+E=[c(P,1,83)]+[c(p,a,b) for p,a,b in foreign]
+report=root/'build/GALE01/report.json';rh=hashlib.sha256(report.read_bytes()).hexdigest();assert rh==M['report_sha256'];unit=next(u for u in json.load(open(report))['units'] if u['name']==tu);objects=[]
+for typ in ['src','obj']:
+ p=root/f'build/GALE01/{typ}/melee/ft/kinds/ftCommon/ftCo_LandingAir.o';b=p.read_bytes();e='>' if b[5]==2 else '<';off=struct.unpack_from(e+'I',b,32)[0];sz,n,si=struct.unpack_from(e+'HHH',b,46);sh=[struct.unpack_from(e+'10I',b,off+i*sz) for i in range(n)];st=sh[si];names=b[st[4]:st[4]+st[5]]
+ for s in sh:
+  if names[s[0]:].split(b'\0')[0]==b'.sdata2':objects.append(dict(path=str(p),sha256=hashlib.sha256(b).hexdigest(),section='.sdata2',size=s[5],elf_flags=s[2],writable=bool(s[2]&1),allocated=bool(s[2]&2),bytes_hex=b[s[4]:s[4]+s[5]].hex()))
+asm=root/'build/GALE01/asm/melee/ft/kinds/ftCommon/ftCo_LandingAir.s'
+json.dump(dict(report_path=str(report),report_sha256=rh,pinned_report_hash_matches=True,unit=unit,objects=objects,assembly=dict(path=str(asm),sha256=hashlib.sha256(asm.read_bytes()).hexdigest(),read='complete',finding='Split @251 is f64 4503601774854144 (0x4330000080000000) used with xoris/lis and subtraction for signed integer-to-float conversion; @255/@256/@257 are f32 zero/one/0.1 at 8/12/16, followed by a four-byte gap.'),permission_limit='Object flags do not prove final runtime protection.'),open(D/'section-evidence.json','w'),indent=2)
+O={}
+def replace(n,t,v,why,ev):O[n,t]=(v,why,ev)
+replace('.sdata2','inferred_type','The split literal section is 24 bytes: an eight-byte conversion bias 0x4330000080000000 (f64 4503601774854144), f32 zero/one/0.1 at offsets 8/12/16, then four zero bytes. Existing source section is 28 bytes: the same bias at 0, eight zero bytes at 8, and f32 zero/one/0.1 at 16/20/24. Source flags are WRITE|ALLOC; split flags ALLOC. It is mixed compiler literal/conversion storage, not a gameplay aggregate; runtime protection is not established.','Assembly confirms the conversion bias and scalar loads. Existing source and split differ in layout, size and SHF_WRITE.',[c(P,43,65)])
+replace('.sdata2','purpose','Provides compiler scalar literals for aerial-landing state initialization and rate calculation, plus the signed integer-to-floating conversion bias for the reduced lag. Local code reads this storage without writing it; source/split object permissions are recorded separately.','Observed source ELF is writable despite read-only use; conversion support is confirmed rather than hypothetical.',[c(P,43,65)])
+replace(P,'state_behavior','When command variable 0 is active and the current motion is one of the five standard aerial attacks, select the matching LandingAir state and lag attribute. If x67F is below common xE4, truncate lag/xE8 toward zero and replace an exactly zero integer result with one; otherwise retain the original lag. A selected state enters with that lag. No selected state enters basic landing. LandingAir has an empty IASA callback and delegates animation completion, physics and collision to ordinary landing handlers.','The local code tests integer result == 0 rather than applying a general minimum clamp. Failure of the timing guard preserves full aerial lag; only missing state selection uses basic landing.',[c(P,14,83)])
+
+rows=[];disp=[];facts=[]
+for s in X:
+ name=next(iter(s['subject'].values())).split(':')[-1];rows.append(dict(subject=s['subject'],status='reviewed' if s['facts'] else 'reviewed_no_existing_facts',fact_count=len(s['facts']),evidence=E,notes='Parameter records are empty; no ABI register-to-source mapping promoted.'))
+ for f in s['facts']:
+  q=O.get((name,f['type']));new,why,ev=q if q else (None,'Complete owned canonical/rendered source and bounded dependencies support the existing value. Historical citations are preserved, not asserted re-read.',E)
+  disp.append(dict(subject=s['subject'],fact_id=f['id'],version=f['updated_at'],type=f['type'],old_value=f['value'],disposition='supersede' if q else 'retain',reason=why,replacement=new,evidence=ev))
+  if q:facts.append(dict(subject=s['subject'],type=f['type'],op='write',value=new,rationale=why,confidence=0.97,evidence=[dict(kind='code',locator=e,why=why) for e in ev]))
+end=datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z');reads=[json.loads(l) for l in open(U/'reads.jsonl') if json.loads(l).get('reader')=='LandingAir'];L=S/'baseline-links'/f'{C["task"]["id"]}.json';links=json.load(open(L));ld=[]
+for l in links:
+ ld.append(dict(link_id=l['id'],baseline_record=l,from_target_id=l['from_target_id'],from_entity_id=l['from_entity_id'],to_target_id=l['to_target_id'],to_entity_id=l['to_entity_id'],role=l['role'],prior_rationale=l['why'],version_or_digest=l.get('digest'),disposition='retain',reconciliation_owner='/root/semantic_coordinator',reason='LandingAir callback registration, aerial collision caller, command-gated attack-specific landing selection, LR-input-age lag reduction, rate calculation and ordinary landing delegation support these relationships. One-frame-minimum historical wording describes nonnegative configured lag; exact local operation is zero-only substitution. Anim relationship denotes completion handling, not local animation advancement. Complete original record retained; historical wiki and old-revision resources not asserted re-read.',evidence=E))
+def dump(n,v):json.dump(v,open(D/n,'w'),indent=2)
+dump('proposal.json',dict(tu=tu,proposal=dict(facts=facts,links=[],entities=[],merges=[],follow_ups=[])))
+dump('fact-dispositions.json',dict(revision=R,start_utc=start,end_utc=end,counts=dict(retain=len(disp)-len(facts),supersede=len(facts)),dispositions=disp))
+dump('link-dispositions.json',dict(revision=R,input_path=str(L),input_sha256=hashlib.sha256(L.read_bytes()).hexdigest(),expected_count=len(links),reviewed_count=len(ld),counts=dict(retain=len(ld)),reconciliation_owner='/root/semantic_coordinator',dispositions=ld))
+dump('coverage.json',dict(campaign=M['campaign_id'],tu=tu,revision=R,role='TU librarian',model=M['model'],reasoning_effort=M['reasoning_effort'],start_utc=start,end_utc=end,input_files=C['files'],canonical_and_rendered_receipts=reads,foreign_evidence_reads=fr,subjects=rows,counts=dict(targets=7,source_entities=1,parameter_entities=8,existing_facts=len(disp),outgoing_links=len(ld),proposal_facts=len(facts),owned_lines=99),exceptions=[],section_evidence='section-evidence.json'))
+dump('unresolved.json',dict(unresolved=[],family_followups=['Source/split literal layouts differ (28/24 bytes); runtime protection unverified.','Explicit-msid helper does not validate lag divisor or state identity; no full caller-domain claim promoted.','No ABI parameter mapping promoted. Historical link locators preserved, not re-read; coordinator owns reconciliation.']))
+(D/'functionality.md').write_text(f"""# Aerial landing lag
+
+Revision `{R}`. Complete canonical/rendered C1-84/H1-15 reviewed, two receipts/no parser errors. Terminal empty lines account for renderer totals; canonical citations stop at C83/H14.
+
+AttackAir collision supplies EnterWithLag as landing callback. Only command variable zero being nonzero permits mapping standard AirN/F/B/Hi/Lw to LandingAirN/F/B/Hi/Lw and their respective character lag attributes. Inactive command or unmatched current motion uses basic landing. A successful match with x67F below common xE4 divides lag by xE8, truncates toward zero and substitutes one only for integer zero. Failed timing preserves the original lag; it does not take basic landing. Fighter input processing resets x67F on pressed LR and increments toward 255 otherwise, grounding the L-cancel timing interpretation without assuming numeric common-data values.
+
+Explicit-state entry calls grounded setup, changes the supplied motion at frame zero, speed one and zero blend, then sets rate to (animation end frame + 0.1)/lag. It performs no lag validation. Grounded setup resets jumps/wall jumps, unlocks ECB, carries horizontal velocity into ground velocity and checks supporting geometry. The animation getter chooses the main or blend skeleton by remaining blend frames. The rate setter normally updates both animation hierarchies and frame_speed_mul; its freeze path is not selected by this entry because the motion change resets the flag and uses no FreezeState flag.
+
+Anim checks completion through ordinary Landing_Anim; it does not itself advance animation. IASA is empty, so ordinary Landing_IASA input handling is not reused. Phys delegates ordinary landing friction and ground movement. Coll delegates ordinary landing collision: its shared helper chooses a ground query based on opposing nudge, accepts a secondary transition on loss, or enters Fall. Basic-landing fallback itself can choose HammerLanding, otherwise ordinary Landing with interruptions allowed. Five LandingAir states 70..74 register this callback suite.
+
+The split section has f64 conversion bias 0x4330000080000000 at offset zero, f32 zero/one/0.1 at 8/12/16 and a trailing gap, totaling 24 bytes. Existing source section totals 28 bytes with an extra eight zero bytes before those f32 values. Source WRITE|ALLOC and split ALLOC differ. Full assembly confirms fctiwz and bias conversion followed by the initial-state and rate literal uses. Frozen report hash matches; no build ran.
+
+All {len(disp)} fact versions and {len(ld)} exact outgoing records are reviewed individually; baseline endpoints, roles, rationales and locators remain intact. All 16 subjects are covered, including eight empty parameter entities.
+""")
+(D/'naming.md').write_text('# Naming review\n\nOwned targets have canonical descriptive names and no inferred aliases. Preserve EnterWithLag, EnterWithMsidLag and the four callbacks. Explicit-msid entry is parameterized and has no local lag guard; no narrower inferred name is proposed. Foreign rendered names remain hypotheses verified where used as evidence.\n')
+(D/'README.md').write_text(f'# LandingAir review packet\n\nRevision `{R}`. UTC `{start}` to `{end}`. Model `{M["model"]}`, role TU librarian.\n\n16 owned subjects: seven targets, source entity and eight empty parameters. {len(disp)} facts: {len(disp)-len(facts)} retain, {len(facts)} corrections. All {len(ld)} exact outgoing records retained. Two complete owned render receipts/no parser errors.\n\nNo source/shared KB/build edits. Dry-run proposal only.\n')
+print(len(disp),len(facts),len(ld),end)

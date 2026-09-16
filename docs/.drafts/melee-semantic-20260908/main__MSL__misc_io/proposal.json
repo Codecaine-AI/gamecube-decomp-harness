@@ -1,0 +1,33 @@
+{
+  "tu": "main/MSL/misc_io",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/misc_io.c#L1-L3",
+            "why": "Complete empty definition establishes absence of internal state changes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/direct_io.c#L15-L44",
+            "why": "Shows orientation handling, initial guards, console-hook invocation, and subsequent write-state preparation and rejection."
+          }
+        ],
+        "op": "write",
+        "rationale": "The empty definition establishes invariant no-op behavior. The caller's initial rejection checks do not establish that the request is otherwise valid: the subsequent non-writing-state branch sets the error flag, clears buffer_len, and returns zero.",
+        "subject": {
+          "target_stable_key": "main/MSL/misc_io:__stdio_atexit"
+        },
+        "type": "state_behavior",
+        "value": "Has no internal guards, states, timers, or transitions: every invocation returns without changing runtime state. Its observed fwrite caller invokes it for a __console_file stream after orientation handling and after rejecting a zero computed byte count, an existing stream error, or a closed stream. The call precedes write-state preparation and validation, so a request reaching the hook can still be rejected because the stream is not in the writing state."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

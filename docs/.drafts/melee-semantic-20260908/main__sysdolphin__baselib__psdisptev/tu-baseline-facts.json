@@ -1,0 +1,680 @@
+{
+  "tu": "main/sysdolphin/baselib/psdisptev",
+  "facts": [
+    {
+      "id": "fact:1a5f28f7-77ab-420f-8b4a-3b50c77d9678",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:.sbss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "psSetupTevInvalidState writes UINT32_MAX to prevTev[0]. psSetupTev derives a key from descriptor word 1 with mask 0x80100480, compares it with prevTev[0], stores it on a miss, and in designated bit-0x80 cases clears that bit in both the caller-owned descriptor word and the cached key before selecting the normalized GX recipe.",
+      "rationale": "The source explicitly shows the shared write, read, comparison, replacement, and paired normalization operations. This establishes data flow from the particle descriptor into the cache and from the resulting cache miss into GX configuration.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:02:18.278Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L29-L60",
+          "why": "Shows the invalidator's -1 write, descriptor masking, cache comparison and replacement, and paired bit-0x80 normalization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L34-L203",
+          "why": "Shows the GX TEV recipes reached after the cached key is accepted or normalized."
+        }
+      ]
+    },
+    {
+      "id": "fact:7036ddf0-07d1-4a86-8371-e888c5e98f61",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:.sbss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports particle rendering by remembering which packed particle display mode currently owns the GX TEV configuration, so consecutive particles using the same color/alpha recipe do not redundantly reprogram the graphics pipeline.",
+      "rationale": "The cached key controls entry into a switch whose cases install textured and untextured combinations of texture, raster, constant, and previous-stage color and alpha inputs. Its equality guard therefore optimizes repeated particle rendering with the same visual mode.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T05:02:18.278Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L34-L203",
+          "why": "Connects the cached selector to particle TEV recipes using texture, raster, constant-register, and previous-stage inputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L29-L60",
+          "why": "Shows that an unchanged selector skips the GX recipe while a changed selector updates the cache and begins programming it."
+        }
+      ]
+    },
+    {
+      "id": "fact:e3721ed2-7e71-40e5-a33e-1637f21e5387",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:.sbss",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "prevTev",
+      "rationale": "The matched source represents this unit-local allocation as `static u32 prevTev[2]`, and every demonstrated access treats its first element as the prior TEV mode. Although an exact match does not independently prove a non-exported identifier's original spelling, the recovered name directly describes the evidenced role.\n\nNaming cleanup: single source identifier\nPrior naming claim: The allocation was plausibly named `prevTev`, following the matched source declaration and its role as storage for the previously installed particle TEV selector.",
+      "confidence": 0.88,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L5",
+          "why": "Shows the matched declaration spelling `static u32 prevTev[2]`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L29-L60",
+          "why": "Shows that prevTev[0] stores, invalidates, compares, and normalizes the previous TEV-mode key."
+        }
+      ]
+    },
+    {
+      "id": "fact:4296356c-a9d0-43ab-ba68-3f83e1a1966e",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:.sbss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An uninitialized translation-unit-local array of two 32-bit unsigned words, represented as `static u32 prevTev[2]`; its first element is the active cached TEV selector.",
+      "rationale": "The declaration directly establishes the two-element u32 layout. The setup and invalidation routines both access element zero as an unsigned selector and sentinel slot.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:02:18.278Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L5",
+          "why": "Provides the complete `static u32 prevTev[2]` declaration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L29-L60",
+          "why": "Demonstrates that element zero holds the masked TEV selector and the invalid sentinel."
+        }
+      ]
+    },
+    {
+      "id": "fact:86330baf-96c4-47f7-bb6d-f94693779199",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:.sbss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides translation-unit-local storage for the particle renderer's previously selected TEV mode, allowing psSetupTev to avoid reinstalling an unchanged GX combiner configuration and allowing psSetupTevInvalidState to force the next configuration to be reapplied.",
+      "rationale": "The allocation is declared as prevTev, and its first word is shared by the setup and invalidation routines. The setup routine returns on equality before any GX calls, while the invalidator writes a sentinel that cannot equal a selector produced by the setup mask.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:02:18.278Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Defines prevTev and shows its use as the equality-guarded selector cache shared by psSetupTev and psSetupTevInvalidState."
+        }
+      ]
+    },
+    {
+      "id": "fact:6ceb1801-1468-456e-afe8-cdf2cd701ca7",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:.sbss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Represents either a concrete cached particle TEV-mode key or an invalid sentinel. Equality with the next masked request is a cache hit that suppresses all GX programming; a different key transitions the cache to the requested mode and installs its recipe. Invalidation transitions it unconditionally to UINT32_MAX, deferring hardware-state restoration until the next setup request.",
+      "rationale": "The invalidator performs only the sentinel assignment, while psSetupTev checks equality before its GX calls and updates the cache only on a miss. Because valid keys are restricted by mask 0x80100480, UINT32_MAX cannot be a valid cached request and therefore guarantees a later miss.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:02:18.278Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L29-L60",
+          "why": "Shows the unconditional invalid transition, the cache-hit return, and the cache-miss transition preceding GX programming."
+        }
+      ]
+    },
+    {
+      "id": "fact:cf576ea1-bc42-425d-9c15-d68e36fed2d5",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:extab",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Generated and linked as exception metadata by the CodeWarrior PPCEABI toolchain, with lookup coverage supplied through the companion extabindex section and runtime exception machinery rather than through ordinary reads in psdisptev.c.",
+      "rationale": "The archive explicitly attributes extab/extabindex to CodeWarrior PPCEABI and identifies the index as C++ exception support from the PPC runtime. The psdisptev split lists both sections alongside\u2014but separately from\u2014the unit's .text, while the matched C source contains no reference to extab, supporting toolchain generation and runtime consumption rather than application-level data flow.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-02T05:00:21.751Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:extab",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/728071986902728766",
+          "why": "Shows that CodeWarrior PPCEABI links the extab and extabindex sections into the executable."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728105692283666473",
+          "why": "Identifies extabindex as C++ exception support originating in the PPC runtime, specifically Runtime.PPCEABI.H.a."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1197326451398148216",
+          "why": "Shows that psdisptev contributes distinct extab, extabindex, and .text ranges."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Shows ordinary source-level state limited to prevTev and GX setup operations, with no application-level access to extab metadata."
+        }
+      ]
+    },
+    {
+      "id": "fact:b2ad7be1-c3d3-43a9-9753-c430b70ba753",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:extab",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 16-byte object-file contribution to the executable's extab exception-table section, spanning 0x80005618 through 0x80005627. It is paired with psdisptev's separate 24-byte extabindex contribution at 0x80005834\u20130x8000584B.",
+      "rationale": "The resolved split report gives half-open bounds 0x80005618\u20130x80005628 for extab and 0x80005834\u20130x8000584C for extabindex, establishing their sizes and separate section layout. Independent runtime discussion identifies these as the paired CodeWarrior exception-table sections.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T05:00:21.751Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:extab",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/1197326451398148216",
+          "why": "Provides the exact extab and extabindex address ranges attributed to psdisptev.c."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728071986902728766",
+          "why": "Identifies extab and extabindex as paired sections supplied through CodeWarrior PPCEABI linkage."
+        }
+      ]
+    },
+    {
+      "id": "fact:a3d80c17-0152-45e7-b615-3e124b15801f",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:extab",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the CodeWarrior C++ exception-unwinding metadata emitted for the psdisptev object. It is compiler/runtime support associated with the unit's code rather than particle TEV configuration data authored or consumed by psSetupTev.",
+      "rationale": "The project archive identifies extab and extabindex as C++ exception tables linked by CodeWarrior's PPCEABI runtime. A map/split report assigns this exact extab contribution to psdisptev.c while assigning the unit's executable routines to a separate .text range, distinguishing the metadata from the particle renderer's own state data.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T05:00:21.751Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:extab",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/1530962022408392876",
+          "why": "The resolved discussion identifies extab sections generated for exception-enabled C objects as C++ exception tables."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728071986902728766",
+          "why": "States that extab and extabindex are linked in by CodeWarrior's PPCEABI."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1197326451398148216",
+          "why": "Lists psdisptev.c's extab contribution at 0x80005618\u20130x80005628 separately from its extabindex and .text contributions."
+        }
+      ]
+    },
+    {
+      "id": "fact:f7410f5f-d311-4c91-9d7a-dceb762415fb",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:extabindex",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The CodeWarrior/PPCEABI toolchain derives this metadata from compiled code and exception-table information, the linker places it in the executable's extabindex section, and the PowerPC exception runtime uses it to locate the corresponding exception metadata. Its attribution to psdisptev is determined by section splitting and can change when source-file splits are introduced.",
+      "rationale": "The sources identify PPCEABI as the producer/linker source and the C++ exception runtime as the consumer-facing subsystem. The discussion of the exact psdisptev split shows that adding the split partitioned extabindex at 0x80005834, while participants noted that DTK's file assignment was arbitrary and likely belonged conceptually to runtime-library material.",
+      "confidence": 0.88,
+      "updated_at": "2026-09-02T04:59:45.382Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:extabindex",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/728105692283666473",
+          "why": "Places extabindex in the C++ exception path and attributes it to the PowerPC runtime library."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728071986902728766",
+          "why": "Identifies CodeWarrior PPCEABI as the component that links extabindex into the executable."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1197326451398148216",
+          "why": "Shows that introducing the psdisptev split partitioned the section at 0x80005834 and assigned the following 24 bytes to this unit."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1197325531528560670",
+          "why": "States that DTK's assignment of extab/extabindex to source files is a consequence of split creation rather than meaningful source ownership."
+        }
+      ]
+    },
+    {
+      "id": "fact:4dedc69c-27f7-42c2-aed6-d182e3c4cd08",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:extabindex",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 24-byte, pointer-bearing fragment of the executable's extabindex section, spanning 0x80005834 through 0x8000584C. Its layout is PowerPC EABI exception-index metadata generated by the toolchain, not a C object declared in psdisptev.c.",
+      "rationale": "The exact split report gives the fragment's start and end addresses, establishing its 0x18-byte extent. The archived pull-request notification describes labels for pointers in extabindex, while the runtime discussion identifies the section as PPCEABI-generated exception metadata. Together these support a pointer-bearing metadata-section type without inventing an authored psdisptev structure.",
+      "confidence": 0.91,
+      "updated_at": "2026-09-02T04:59:45.382Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:extabindex",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/1197326451398148216",
+          "why": "Records psdisptev's extabindex interval as 0x80005834\u20130x8000584C and contrasts it with the adjacent psdisp interval."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/929140279703924796",
+          "why": "Records a project pull request whose purpose was to label pointers contained in extabindex."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728071986902728766",
+          "why": "Establishes that extabindex is linked in by CodeWarrior's PowerPC EABI support rather than declared as ordinary source data."
+        }
+      ]
+    },
+    {
+      "id": "fact:2c954f3a-ef6f-43de-a0f0-26d6de41539a",
+      "target_id": "target:data:main/sysdolphin/baselib/psdisptev:extabindex",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the CodeWarrior PowerPC EABI exception runtime with an index into exception-table metadata for the covered compiled code. It is compiler/linker-generated C++ exception-support data rather than particle-rendering data authored by psdisptev.c.",
+      "rationale": "Community investigation identifies extabindex as C++ exception metadata supplied by the PowerPC runtime, specifically Runtime.PPCEABI.H.a, and separately states that extab and extabindex are linked in by CodeWarrior's PPCEABI. Discussion of this exact psdisptev range says the decompilation split caused DTK to assign extabindex bytes to the file even though such attribution should not be interpreted as source-level ownership.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-02T04:59:45.382Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:extabindex",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/728105692283666473",
+          "why": "Identifies extabindex as C++ exception support originating in the PowerPC runtime, specifically Runtime.PPCEABI.H.a."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728071986902728766",
+          "why": "States that CodeWarrior's PPCEABI links extab and extabindex into the executable."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1197325531528560670",
+          "why": "Explains that file splits can make DTK assign extab/extabindex to a source file even though the metadata should not be treated as naturally belonging to that file."
+        }
+      ]
+    },
+    {
+      "id": "fact:f662f5b9-3a17-4363-8926-bb6de6153724",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads selected bits from descriptor word 1, compares the resulting mode key with prevTev[0], and returns if it is unchanged. Otherwise it stores the key in prevTev[0], optionally normalizes bit 0x80 in both the descriptor and cache, and emits the selected recipe to the GX TEV and texture-generation state setters.",
+      "rationale": "This is the complete visible flow from the packed descriptor word through the local cache to GX state. Updating both the caller-owned word and cached key before intentional switch fallthrough keeps later comparisons aligned with the normalized recipe.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:50.326Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Shows extraction of the mode key, cache comparison and update, paired descriptor/cache normalization, fallthrough, and resulting GX calls."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L120-L203",
+          "why": "Shows the same paired normalization and fallthrough behavior for additional raster-only modes, plus the GX calls consuming each selected recipe."
+        }
+      ]
+    },
+    {
+      "id": "fact:d2e4ef6e-8c1a-474c-b375-33fba49f5230",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes particle rendering modes that may be untextured or texture-mapped and may combine texture color/alpha, per-vertex raster color/alpha, and TEV constant registers across multiple combiner stages.",
+      "rationale": "The mode recipes select zero or one texture generator and feed GX_CC_TEXC/GX_CA_TEXA, GX_CC_RASC/GX_CA_RASA, and constant-register inputs such as C0/C1/C2 and A0/A1/A2 into the TEV pipeline. In this psdisptev unit, those combinations map the packed particle display mode to its rendered appearance.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-01T23:10:50.326Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L34-L203",
+          "why": "Shows untextured and textured recipes and their combinations of texture, raster, previous-stage, and constant color/alpha inputs."
+        }
+      ]
+    },
+    {
+      "id": "fact:7135749f-d45b-4498-9de3-b66e78301567",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void psSetupTev(u32* descriptor). The argument addresses a word-oriented particle display descriptor whose second u32 is a packed mode/flag word; this function consumes bits selected by mask 0x80100480 and may clear bit 0x80 in that word.",
+      "rationale": "The matched definition is void with a u32 pointer parameter. Every descriptor access in the function is through arg0[1]: it is masked to obtain the switch selector and, for normalization cases, modified in place by clearing bit 0x80.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:10:50.326Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Shows the exact function signature, the arg0[1] mask, and an in-place bit-0x80 clear before fallthrough."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L120-L203",
+          "why": "Shows further switch cases that normalize arg0[1] by clearing bit 0x80 and then use the normalized mode's TEV recipe."
+        }
+      ]
+    },
+    {
+      "id": "fact:7b0ead50-d053-45c5-b180-f1f5b74ba59c",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Selects and installs the GX texture-environment pipeline needed by a particle display-mode descriptor, choosing the number of TEV stages and texture generators and the ordered color/alpha combinations for that mode.",
+      "rationale": "The function derives a selector from the descriptor's second word and dispatches to recipes made entirely of GX TEV and texture-generator configuration calls. The recipes vary between untextured constant/raster-color paths and textured paths with one to three TEV stages, which establishes its role as the particle mode's TEV pipeline selector.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:10:50.326Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L34-L203",
+          "why": "Shows the selector switch and its mode-specific GXSetNumTevStages, GXSetNumTexGens, GXSetTevOrder, GXSetTevColorIn, GXSetTevAlphaIn, and GXSetTevOp calls."
+        }
+      ]
+    },
+    {
+      "id": "fact:52afe94a-cf88-4c1d-bb77-93cc94c8a7ab",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Implements a cached mode dispatch over the masked keys 0x80100480. Depending on the key, it installs an untextured one- or two-stage path or a textured one-, two-, or three-stage path. Keys containing bit 0x80 in designated cases clear that bit in both the descriptor and cached key and deliberately fall through to the corresponding normalized recipe.",
+      "rationale": "The early equality guard establishes the cached state transition. The switch bodies explicitly vary stage and texture-generator counts, while the cases ending in 0x80 perform paired mutation without a break before the normalized case, proving intentional normalization by fallthrough.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:10:50.326Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L34-L203",
+          "why": "Contains the full cached switch structure, its stage-count and texture-generator variants, and all bit-0x80 normalization fallthrough cases."
+        }
+      ]
+    },
+    {
+      "id": "fact:a13b7e05-5bbb-4db8-9ff8-c944f553c198",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTevCommon",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes no caller-supplied data. It writes directly to GX's TEV configuration through GXSetTevOrder, GXSetTevColorOp, GXSetTevAlphaOp, and GXSetTevSwapMode; the resulting GPU state is then available to subsequent particle draw submission.",
+      "rationale": "There are no parameters, local computations, memory reads, or returned outputs in the matched body. Every operation is a GX state setter, so the function's sole output is the configured graphics-pipeline state.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:10:23.808Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTevCommon",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L7-L27",
+          "why": "Shows a parameterless body made entirely of GX TEV state-setting calls with literal enum arguments."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1007047478606053466",
+          "why": "Places the function in the recovered particle-display symbol group, supporting that its configured state serves particle rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:411a573c-c099-4e23-9800-7c31908cd86f",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTevCommon",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void psSetupTevCommon(void); it accepts no parameters and returns no value.",
+      "rationale": "The matched function definition explicitly has a void return type and a void parameter list, and its body communicates exclusively through GX state-setting calls.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:23.808Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTevCommon",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L7-L27",
+          "why": "Contains the exact definition `void psSetupTevCommon(void)` and no return expression."
+        }
+      ]
+    },
+    {
+      "id": "fact:83b22842-c901-4f6b-8d32-0f5b98ec33a1",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTevCommon",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Establishes the particle display subsystem's common GX TEV baseline by configuring TEV stages 0, 1, and 2 identically for texture, raster-color, combiner-operation, and channel-swap selection.",
+      "rationale": "The complete matched body consists solely of parallel GX configuration calls for stages 0 through 2. Its placement and recovered name alongside psDispParticles and the other particle TEV setup routines support interpreting this as shared particle-rendering setup rather than drawing geometry itself.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:10:23.808Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTevCommon",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L7-L27",
+          "why": "Shows identical GXSetTevOrder, GXSetTevColorOp, GXSetTevAlphaOp, and GXSetTevSwapMode configuration for TEV stages 0, 1, and 2."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1007047478606053466",
+          "why": "Identifies psSetupTevCommon as part of the symbol group immediately following psDispParticles and preceding the other particle TEV setup routines."
+        }
+      ]
+    },
+    {
+      "id": "fact:8ca1275d-5126-42c5-858d-bf9817b17af3",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTevCommon",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For each of TEV stages 0\u20132, selects texture coordinate 0, texture map 0, and raster channel GX_COLOR0A0; selects additive color and alpha operations with zero bias, scale 1, clamping enabled, and GX_TEVPREV as the destination; then assigns GX_TEV_SWAP0 to both raster and texture channel swaps. The routine has no conditional branches or internal persistent state.",
+      "rationale": "The matched source enumerates the same order and combiner settings for all three stages and then applies the same swap mode to each. Its straight-line body contains no guards, timers, or state-dependent branches.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:23.808Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTevCommon",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L7-L27",
+          "why": "Explicitly records every TEV-stage enum argument and shows that the routine is an unconditional straight-line GX setup sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:ae26f7b9-d74e-40e0-9002-9d902dac4e21",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Writes UINT32_MAX into prevTev[0]. psSetupTev later reads that same cache entry beside a mode key derived from descriptor word 1; the sentinel forces a cache miss, after which psSetupTev replaces it with the requested key and emits the corresponding GX state calls.",
+      "rationale": "The invalidator has no input other than shared state and writes only prevTev[0]. The neighboring setup function visibly consumes that field in its equality guard, overwrites it on a miss, and dispatches to GX configuration recipes, establishing the sentinel's complete downstream flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:59.988Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Shows the shared cache declaration, sentinel write, subsequent masked descriptor-key comparison, cache replacement, and initial GX recipe calls."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L120-L203",
+          "why": "Shows further GX TEV recipes that consume the mode dispatch reached after a cache miss."
+        }
+      ]
+    },
+    {
+      "id": "fact:e7a13724-4b8b-450a-8509-ab6bcc399d9a",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports particle rendering by resetting the cached particle display-mode pipeline, ensuring that a subsequent particle mode request reinstalls the required textured or untextured TEV recipe.",
+      "rationale": "The invalidated field is the selector cache used by psSetupTev, whose switch selects textured and untextured combinations of texture, raster, and constant color and alpha sources. Invalidating that selector therefore realizes the reset step for particle rendering's cached TEV configuration.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-01T23:12:59.988Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Connects the invalidator's shared cache write to psSetupTev's cached particle-mode dispatch and initial TEV recipes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L120-L203",
+          "why": "Shows the downstream textured and untextured particle TEV configurations selected after cache invalidation."
+        }
+      ]
+    },
+    {
+      "id": "fact:4c9cf14b-1d98-4115-9ded-b8209abb4129",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Parameterless state-invalidation routine with signature void(void); it mutates the first u32 element of the translation-unit-local prevTev cache and returns no value.",
+      "rationale": "The matched definition has no parameters and a void return type. Its body performs one assignment to prevTev[0], whose declaration identifies it as a u32 cache element.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:59.988Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Provides the static u32 prevTev declaration and the complete void psSetupTevInvalidState(void) definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:53ea7c21-230e-468e-b65d-74db33b25110",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Invalidates the particle TEV-mode cache so the next psSetupTev request cannot be treated as already installed and must reapply its GX configuration.",
+      "rationale": "The function stores -1 into the u32 cache entry read by psSetupTev. Since psSetupTev's requested selector is masked by 0x80100480, it cannot equal UINT32_MAX; therefore the next call bypasses the cache-hit return and proceeds to update the cache and program the selected TEV recipe.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:59.988Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L29-L32",
+          "why": "Shows the invalidation routine's sole operation: assigning -1 to prevTev[0]."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Shows that prevTev is an unsigned cache and that psSetupTev skips GX setup only when a selector masked by 0x80100480 equals prevTev[0]."
+        }
+      ]
+    },
+    {
+      "id": "fact:bde78eba-7a66-405f-befa-9bd0555e17e8",
+      "target_id": "target:function:main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Performs an unconditional transition from any cached TEV selector to an invalid sentinel state. It does not program GX immediately; instead, it ensures that the next psSetupTev call performs the deferred transition to a concrete cached mode and installs that mode's TEV state.",
+      "rationale": "There is no guard in the invalidator, and its only operation is the sentinel assignment. GX calls occur in psSetupTev only after its equality guard, so invalidation changes software cache state immediately while deferring hardware-state installation until the next setup request.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:59.988Z",
+      "subject": "main/sysdolphin/baselib/psdisptev:psSetupTevInvalidState",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L29-L32",
+          "why": "Shows the invalidator's unconditional sentinel assignment and absence of GX calls."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Shows that psSetupTev performs the later cache comparison, concrete cache update, and GX programming."
+        }
+      ]
+    },
+    {
+      "id": "fact:44c5a029-03fc-4663-a028-827a385c1871",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/psdisptev.c",
+      "type": "data_flow",
+      "value": "Receives a packed particle display descriptor through psSetupTev, masks its second word into a TEV-mode key, and compares that key with the translation-unit-local prevTev cache. On a miss it updates or normalizes the cached key and sends the selected stage count, texture-generator count, TEV order, and color/alpha inputs to GX; psSetupTevInvalidState can instead replace the cached key with an invalid sentinel.",
+      "rationale": "The source connects the descriptor's second word to a masked selector, prevTev[0], the mode switch, and the GX state setters. The neighboring invalidation routine writes -1 to the same cache entry, establishing the unit's complete input-to-cache-to-GX flow.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T05:02:18.278Z",
+      "subject": "src/sysdolphin/baselib/psdisptev.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L29-L60",
+          "why": "Shows the sentinel writer and the subsequent descriptor-mask, cache comparison, cache update, normalization, and initial GX state output."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L34-L203",
+          "why": "Shows the mode-specific GX recipes that consume the cached selector and configure textured and untextured TEV pipelines."
+        }
+      ]
+    },
+    {
+      "id": "fact:39d5d908-0f4f-4b89-bc00-45c2d3d2be99",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/psdisptev.c",
+      "type": "game_mapping",
+      "value": "Maps packed particle display modes to their rendered color and alpha treatment, including untextured paths and texture-mapped paths that combine texture samples, per-vertex raster color, previous-stage output, and TEV constant registers.",
+      "rationale": "The mode switch varies whether a texture generator is enabled and selects texture, raster, constant, and previous-stage color and alpha sources. In the particle-display TEV unit, those choices determine how particle appearance is composed by the GameCube graphics pipeline.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-02T05:02:18.278Z",
+      "subject": "src/sysdolphin/baselib/psdisptev.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L34-L203",
+          "why": "Shows mode recipes using zero or one texture generator and combinations of texture, raster, constant-register, and previous-stage TEV inputs."
+        }
+      ]
+    },
+    {
+      "id": "fact:f94ff3c5-34ad-4fad-85b1-5e676c97e497",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/psdisptev.c",
+      "type": "purpose",
+      "value": "Provides the particle renderer's TEV-state support: it establishes common TEV-stage operations, exposes cache invalidation, and selects concrete texture/raster/constant-color combiner recipes for particle draw modes.",
+      "rationale": "The unit defines a common initializer for three TEV stages, an invalidator for its cached selector, and psSetupTev, whose mode switch programs TEV-stage count, texture-generator count, TEV order, and color and alpha inputs. These operations establish a focused particle TEV-configuration module rather than a general drawing implementation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:12:59.988Z",
+      "subject": "src/sysdolphin/baselib/psdisptev.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Shows the unit-owned TEV selector cache, common three-stage setup, cache invalidator, and beginning of the mode-specific GX setup routine."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L120-L203",
+          "why": "Shows additional textured and untextured mode recipes combining texture, raster, previous-stage, and constant color and alpha sources."
+        }
+      ]
+    },
+    {
+      "id": "fact:464c3a18-ac15-4dcf-839f-c97f3f4b5d12",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/psdisptev.c",
+      "type": "state_behavior",
+      "value": "Maintains a translation-unit-local cache of the previously selected particle TEV mode. The invalidation entry point writes UINT32_MAX as an impossible selector, while psSetupTev suppresses redundant GX state programming when the next masked mode equals the cached value.",
+      "rationale": "prevTev is a static u32 array. psSetupTevInvalidState assigns -1 to its first element, producing UINT32_MAX, whereas psSetupTev derives valid keys with mask 0x80100480. psSetupTev returns before issuing GX calls when that masked key equals the cache, so the impossible value invalidates the cache and guarantees that the next setup request is processed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:59.988Z",
+      "subject": "src/sysdolphin/baselib/psdisptev.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/psdisptev.c#L1-L60",
+          "why": "Defines static u32 prevTev, shows invalidation by assigning -1, and shows psSetupTev's masked-key equality guard and cache update."
+        }
+      ]
+    }
+  ]
+}

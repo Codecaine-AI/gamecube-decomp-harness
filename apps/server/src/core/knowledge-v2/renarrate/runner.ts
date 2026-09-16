@@ -8,7 +8,7 @@ import {
   loadWorkerCondenseInput,
   type AttemptRecordWorkerCondenseInput,
 } from "@server/core/knowledge/jobs/attempt-record.js";
-import { knowledgeCycleSessionId } from "@server/core/knowledge/jobs/cycle-session.js";
+import { knowledgeHarnessSessionId } from "@server/core/knowledge/jobs/harness-session.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { runMeleeKernelPiAgent as realRunPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { parseJsonObject } from "@server/infrastructure/agent-runtime/runtime";
@@ -229,7 +229,7 @@ async function modelNarrative(
     kernelContext: createMeleeKernelSpawnContext({
       kind: "knowledge-curation",
       gameId: options.globals.game?.gameId ?? options.globals.gameId,
-      sessionId: knowledgeCycleSessionId({
+      sessionId: knowledgeHarnessSessionId({
         globals: options.globals,
         db: options.orchestratorStore.db,
         fallback: row.run_id ?? row.worker_state_id,

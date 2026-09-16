@@ -1,0 +1,158 @@
+{
+  "tu": "main/melee/ft/kinds/ftNess/ftness",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftness:ftNs_Init_LoadSpecialAttrs"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves Fighter from gobj and copies the complete ftNessAttributes value from fp->ft_data->ext_attr into storage already addressed by fp->dat_attrs. COPY_ATTRS does not assign dat_attrs or select dat_attrs_backup; valid typed source and destination storage are required.",
+        "rationale": "Canonical macro expansion contradicts baseline pointer activation/restoration.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftness.c#L520-L523",
+            "why": "Owned callback invokes typed COPY_ATTRS."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L31-L35",
+            "why": "Copies through existing active pointer without assigning it."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftness:ftNs_Init_LoadSpecialAttrs"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Refreshes Ness's existing active character-attribute storage from external ftNessAttributes; unlike OnLoad's PUSH_ATTRS operation, it does not install or redirect the active pointer.",
+        "rationale": "Distinguishes refresh from installation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftness.c#L520-L523",
+            "why": "Complete owned callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L21-L35",
+            "why": "Contrasting macro implementations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftness:ftNs_Init_OnDamage"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Centralizes yo-yo, PK Flash, PK Thunder and bat cleanup in that order. Successful bat and PK Flash creation install it as both take_dmg_cb and death2_cb. Callees guard stored article references; Thunder effect/graphics cleanup is limited to its nine SpecialHi-family states, while its interruption callbacks and part-0 X rotation are reset on all paths. This does not guarantee complete removal of all move callbacks or effects.",
+        "rationale": "Repairs absolute teardown claim and records verified secondary-death use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftness.c#L482-L488",
+            "why": "Ordered fan-out."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialhi.c#L211-L243",
+            "why": "Conditional effects and unconditional fallthrough resets."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattacks4.c#L47-L55",
+            "why": "Both callback slots installed on success."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L206-L215",
+            "why": "Independent successful-creation installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L571-L631",
+            "why": "Yo-yo cleanup and additional callbacks distinguish limited teardown."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftness:ftNs_Init_OnItemPickup"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Delegates with both fixed options true. Heavy held items skip all common-inline updates. Otherwise hold kinds 1,2,3,4 select ftAnim_80070FB4 arguments 1,0,2,3; other kinds skip that call. A true catchItemFlag then independently invokes ftAnim_80070C48(gobj,true) within the non-heavy branch. Numeric hold kinds are not assigned gameplay categories.",
+        "rationale": "Records exact optional branches and default behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftness.c#L500-L503",
+            "why": "Owned options."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L142-L168",
+            "why": "Heavy-item guard, switch and catch branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftness:ftNs_Init_OnItemDrop"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Through the shared inline always calls ftAnim_80070FB4(gobj,true,-1), then calls ftAnim_80070CC4(gobj,true) only when dropItemFlag is true. Unlike pickup and visibility handling, this path has no heavy-item guard.",
+        "rationale": "Documents exact sentinel and optional branch without invented option meanings.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftness.c#L515-L518",
+            "why": "Owned argument selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L186-L193",
+            "why": "Unconditional reset and conditional second call."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftness:ftNs_Init_GetAbsorbHeal"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns active x94_PSI_MAGNET_HEAL_MUL unchanged, without validation, clamping or hard-coded default. The absorption consumer casts absorbed damage times this value to int before subtracting it from percent. Finite representable products truncate toward zero; zero/sub-unit products can yield zero recovery and negative products can increase percent. No portable result is asserted for NaN, infinity or out-of-range integer conversions.",
+        "rationale": "Makes numeric limits explicit without claiming a default multiplier.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftness.c#L495-L498",
+            "why": "Unvalidated direct float getter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspeciallw.c#L904-L920",
+            "why": "Conversion, subtraction, lower clamp and credited-healing adjustment."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

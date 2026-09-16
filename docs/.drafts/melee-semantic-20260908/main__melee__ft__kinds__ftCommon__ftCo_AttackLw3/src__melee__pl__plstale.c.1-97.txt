@@ -1,0 +1,97 @@
+1: #include "plstale.h"
+2: 
+3: #include "player.h"
+4: #include "types.h"
+5: #include <melee/ft/ftlib.h>
+6: #include <melee/ft/inlines.h>
+7: #include <melee/ft/types.h>
+8: #include <melee/it/inlines.h>
+9: #include <melee/it/types.h>
+10: 
+11: u16 staleAttackInstance;
+12: 
+13: void plStale_InitAttackInstance(void)
+14: {
+15:     staleAttackInstance = 1;
+16: }
+17: 
+18: void plStale_ResetStaleMoveTableForPlayer(s32 slot)
+19: {
+20:     int i;
+21:     StaleMoveTable* stale_table = Player_GetStaleMoveTableIndexPtr(slot);
+22:     stale_table->current_index = 0;
+23:     for (i = 0; i < 10; i++) {
+24:         stale_table->StaleMoves[i].move_id = 0;
+25:         stale_table->StaleMoves[i].attack_instance = 0;
+26:     }
+27: }
+28: 
+29: u16 plStale_IncrementAttackInstance(void)
+30: {
+31:     u16 before = staleAttackInstance;
+32:     staleAttackInstance += 1;
+33:     if (staleAttackInstance == 0) {
+34:         staleAttackInstance = 1;
+35:     }
+36:     return before;
+37: }
+38: 
+39: void plStale_UpdateStaleMovesFromFighter(HSD_GObj* gobj, HSD_GObj* gobj_2)
+40: {
+41:     int i;
+42:     s32 attack_id;
+43:     u16 instance;
+44:     StaleMoveTable* smtp;
+45: 
+46:     if (gobj != gobj_2) {
+47:         Fighter* ft = GET_FIGHTER(gobj);
+48: 
+49:         instance = ft->x206C_attack_instance;
+50:         attack_id = ft->x2068_attackID;
+51:         smtp = Player_GetStaleMoveTableIndexPtr(ft->player_id);
+52:         if (attack_id != 1) {
+53:             for (i = 0; i < 10; i++) {
+54:                 if (attack_id == smtp->StaleMoves[i].move_id &&
+55:                     instance == smtp->StaleMoves[i].attack_instance)
+56:                 {
+57:                     return;
+58:                 }
+59:             }
+60:             smtp->StaleMoves[smtp->current_index].move_id = attack_id;
+61:             smtp->StaleMoves[smtp->current_index].attack_instance = instance;
+62:             smtp->current_index =
+63:                 smtp->current_index == 9 ? 0 : smtp->current_index + 1;
+64:         }
+65:     }
+66: }
+67: 
+68: void plStale_UpdateStaleMovesFromItem(HSD_GObj* gobj, HSD_GObj* gobj_2)
+69: {
+70:     int i;
+71:     s32 attack_id;
+72:     u16 instance;
+73:     StaleMoveTable* smtp;
+74:     HSD_GObj* owner;
+75:     Item* it;
+76: 
+77:     it = GET_ITEM(gobj);
+78:     owner = it->owner;
+79:     if (ftLib_80086960(owner) && owner != gobj_2) {
+80:         instance = it->xD8C_attack_instance;
+81:         attack_id = it->xD88_attackID;
+82:         smtp = Player_GetStaleMoveTableIndexPtr(GET_FIGHTER(owner)->player_id);
+83:         if (attack_id != 1) {
+84:             for (i = 0; i < 10; i++) {
+85:                 if (attack_id == smtp->StaleMoves[i].move_id &&
+86:                     instance == smtp->StaleMoves[i].attack_instance)
+87:                 {
+88:                     return;
+89:                 }
+90:             }
+91:             smtp->StaleMoves[smtp->current_index].move_id = attack_id;
+92:             smtp->StaleMoves[smtp->current_index].attack_instance = instance;
+93:             smtp->current_index =
+94:                 smtp->current_index == 9 ? 0 : smtp->current_index + 1;
+95:         }
+96:     }
+97: }

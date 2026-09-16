@@ -1,0 +1,3 @@
+`GDLight.h` is an include-guarded header defining only `XF_AMBIENT0_ID` as `0x100a` and `XF_MATERIAL0_ID` as `0x100c`. It contains no functions, objects, branches, or lifetime management. Canonical evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/GDLight.h#L1-L8. The rendered view matches the canonical directives, with zero substitutions and no parse errors. No baseline subjects, facts, or links exist to revise or retain; no semantic correction is warranted. Runtime use and compiled layout are not established by this header.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

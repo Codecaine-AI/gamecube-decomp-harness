@@ -1,0 +1,13 @@
+## Common-item registries and shared storage
+
+This data-only translation unit defines parallel 43-entry rendering and logic registries, three resource strings, an Article-pointer array, a damage-record array, and small item-system globals. The header supplies declarations and two supporting structure types; its RandomItemSpawner and ItemPickTable extern declarations are not definitions in this C file.
+
+`it_803F1418` registers `it_8026EECC` everywhere except index 11, which registers `it_80284E10`. `it_803F14C4` supplies per-kind state-table pointers and optional lifecycle/combat callbacks. NULL slots are meaningful: not every item implements every event. The projectile rows, consumables, and ordinary throwable items have different callback sets. WStar and ScBall share `itWStar_Logic30_EvtUnk`; ScBall also registers `itRabbitC_Logic30_ShieldBounced`. These registrations must not be normalized from symbol names. See code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_3F14.c#L48-L836.
+
+The constructor selects the common render callback by kind and initialization installs the corresponding Article and logic-table pointers. Stage items instead obtain their Article from `it_804A0F60` and their logic record from `it_803F4D20`; a missing stage Article triggers an assertion. The state container comes from the logic record, while the model descriptor and common attributes come from the Article. Later lifecycle processing dispatches through the installed callbacks. The entered-air flag is set only inside the non-NULL entered-air callback branch. See code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L532-L575, code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L924-L974, and code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1982-L2046.
+
+The strings are `ItCo.dat`, `ItCo.usd`, and `itPublicData`. Shared arrays are `Article* it_804A0F60[30]` and `DamageLogEntry it_804A0E70[15]`; each damage record carries an entity-kind discriminator, entity pointer, HitCapsule pointer, and HurtCapsule pointer. Source declarations establish types and extents, not compiled section sizes or ordering.
+
+Canonical and rendered files were read completely. Rendered family/event substitutions generally fit their registration positions, but registration alone cannot prove callback internals, reference-cleanup behavior, or lifetime semantics. In particular, the rendered `itSword_Draw` hypothesis occurs at render index 11, while the logic table labels index 11 Bat and index 12 Sword; no item identity or correction was inferred from that hypothesis.
+
+Status: synthesized; independent review and live promotion pending.

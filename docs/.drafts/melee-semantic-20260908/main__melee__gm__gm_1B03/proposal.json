@@ -1,0 +1,50 @@
+{
+  "tu": "main/melee/gm/gm_1B03",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1B03.c#L106-L136",
+            "why": "Complete mapping and caller overwrite."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/types.h#L102-L113",
+            "why": "Source declares slot and team as u8."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unrestricted integer-domain claim while preserving the exact ordinary mapping, destination conversions, and adjacent CPU overwrite.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1B03:gm_801B05F4"
+        },
+        "type": "state_behavior",
+        "value": "Immediately writes the supplied int slot plus one to the u8 slot field, then maps input 2 to team 3 and input 3 to team 2, otherwise assigning the input to the u8 team field. Inputs 0, 1, 2, and 3 therefore produce slot/team pairs 1/0, 2/1, 3/3, and 4/2. Other inputs undergo unsigned-byte conversion on assignment; the routine performs no validation, and slot + 1 must be representable as int for defined C arithmetic. CPU setup subsequently replaces the resulting team with 4."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1B03.c#L41-L104",
+            "why": "Both inline helpers and the complete exported transformation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Uses the current timer field name and preserves the complete numeric qualification branches instead of conflating qualification with raw stock count.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1B03:gm_SetupSuddenDeath"
+        },
+        "type": "state_behavior",
+        "value": "Forces MatchKind_Stock, disables timer_enabled, and clears rules.x2_5. Slots already Gm_PKind_NA are skipped. For each other slot, a qualifying value defaults to 1; when end->match_kind is numerically 1, timeout returns recorded stocks, while a non-timeout returns stocks if player_standings[i].x28 < frame_count or the stocks value converted to u8 is nonzero. Otherwise it falls back to 1, including zero stocks at or after frame_count. A slot is retained only if this value is positive and its relevant is_big_loser flag is zero: team standing is used when end->is_teams == 1, otherwise player standing. Retained players receive stocks = 1 and x12 = 300; character kinds 0x12/0x13 become 0x13 when fighter kind is 7 and 0x12 otherwise. Rejected occupied slots become Gm_PKind_NA. Other fields are preserved."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

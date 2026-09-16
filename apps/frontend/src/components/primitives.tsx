@@ -228,7 +228,7 @@ export function NavItem({ active, description, icon, label, onClick }: { active:
   );
 }
 
-// Compact horizontal sub-navigation (used inside the active cycle page).
+// Compact horizontal sub-navigation (used inside the harness page).
 export function SubNav({ items }: { items: Array<{ active: boolean; id: string; label: string; onClick: () => void }> }) {
   return (
     <nav className="flex flex-wrap gap-x-3 gap-y-1.5" role="tablist">

@@ -1,0 +1,55 @@
+{
+  "tu": "main/melee/ft/kinds/ftMars/ftmarsspeciallw",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMars/ftmarsspeciallw:ftMs_SpecialLw_80139140"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Restores facing_dir from specialn_facing_dir and converts x19A4 to s32. Only if that converted integer is positive does it write (s32)(integer * MarsAttributes.x5C) to mv.ms.speciallw.x0; otherwise the previous value survives. It obtains the hip position, passes it with 120, 0.9, 0.02 and M_PI/3 to lb_800119DC, and selects motion state 370 for GA_Ground or 372 otherwise. The inline tail conditionally spawns right-shoulder effect 1265 for MARS or 1296 for EMBLEM, then clears pre_hitlag_cb, post_hitlag_cb and accessory4_cb. Positive speciallw.x0 is subsequently consumed by EMBLEM-only enabled-capsule updates in both hit animations.",
+        "rationale": "Preserves conversion order, guarded write lifetime, concrete effect selection and downstream consumption without equating the input value to final hit damage.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L341-L407",
+            "why": "Complete response and inline tail."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L198-L285",
+            "why": "Grounded and aerial consumers of the stored value."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMars/ftmarsspeciallw:ftMs_SpecialLw_80139140"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Invocation enters state 370 when ground_or_air equals GA_Ground and state 372 otherwise, with frame 0, rate 1 and zero preservation flags. The retaliation value is refreshed only when (s32)x19A4 is positive; a failed guard leaves the previous speciallw.x0 unchanged. Fresh stance entries initialize that field to zero, but this callback does not enforce that prior value. If x2219_b0 is clear, MARS and EMBLEM spawn their respective shoulder effects; other kinds spawn nothing, and all switch paths then set the latch. An already-set latch skips spawning. pre_hitlag_cb, post_hitlag_cb and accessory4_cb are cleared regardless of latch or kind.",
+        "rationale": "Corrects the original scalar-positivity shortcut and preserves the default-kind and prior-state branches.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L33-L68",
+            "why": "Fresh-entry initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMars/ftmarsspeciallw.c#L341-L407",
+            "why": "Exact guards, default branch, state arguments and unconditional cleanup."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,3 @@
+`extern/dolphin/include/global.h` is a guarded aggregation header: `_global_h_` prevents repeated inclusion of its body, which includes `dolphin/types.h` followed by `macros.h`. It declares no functions, objects, or other local types. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/global.h#L1-L9. The complete rendered view matches canonical source, with zero substitutions and zero parse errors. There are no baseline subjects, facts, or links to assess or rename; no semantic correction is warranted.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

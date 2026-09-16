@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/gm/gmtoumode",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoumode.c#L80-L103",
+            "why": "Shared enter buffer and distinct exit buffers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoumode.c#L185-L199",
+            "why": "Exact assignments and result-pointer derivation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact source operations and shared-buffer lifetime without promoting pointer arithmetic into a compiled-layout claim.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtoumode:gm_801B18D4"
+        },
+        "type": "data_flow",
+        "value": "Gets StartMeleeData from the entering state, assigns players 0 through 3 from gm_804876D8, then calls gm_SetupSuddenDeath with the destination and &((MatchExitInfo*)(src + 1))->match_end. The tournament table supplies gm_804876D8 as this state's enter buffer as well as the VS enter buffer, so these assignments nominally alias their source. The expression alone does not establish the identity or compiled placement of the result object."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoumode.c#L92-L103",
+            "why": "Sudden-death registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoumode.c#L185-L199",
+            "why": "Preparation body."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates demonstrated setup behavior from the unresolved storage assumption.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtoumode:gm_801B18D4"
+        },
+        "type": "purpose",
+        "value": "Prepares Tournament state 5, GS_SUDDEN_DEATH, by obtaining its shared battle-start payload, assigning four retained player configurations and delegating to gm_SetupSuddenDeath. The intended prior-match result is addressed through a cast of src + 1; its compiled adjacency is unverified."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoumode.c#L204-L219",
+            "why": "Arguments, time conversion and later results copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3159-L3239",
+            "why": "Selective, potentially bidirectional mutation."
+          }
+        ],
+        "op": "write",
+        "rationale": "The callee body disproves the baseline wholesale-copy claim.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtoumode:gm_801B1A2C"
+        },
+        "type": "data_flow",
+        "value": "Gets sudden-death MatchExitInfo, passes frame_count / 60 to gm_801629B4, and passes the retained original MatchEnd and sudden-death MatchEnd to gm_80166CCC. That helper selectively propagates NO_CONTEST or RETRY outcomes, updates standings under winner-count and activity guards, accumulates player xE, and can modify the sudden-death standings too. It does not replace the entire original MatchEnd. Results entry subsequently copies the updated original record."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoumode.c#L204-L219",
+            "why": "Exit processing and results handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3159-L3239",
+            "why": "Selective application rather than replacement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the complete-copy interpretation while retaining the demonstrated exit and handoff role.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtoumode:gm_801B1A2C"
+        },
+        "type": "purpose",
+        "value": "Handles Tournament sudden-death exit by forwarding elapsed whole seconds to gm_801629B4 and applying the tiebreak result selectively to the retained original VS MatchEnd for results consumption. It does not itself choose the next state."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

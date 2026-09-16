@@ -1,0 +1,73 @@
+42: OSErrorHandler OSSetErrorHandler(OSError error, OSErrorHandler handler)
+43: {
+44:     OSErrorHandler oldHandler;
+45: 
+46:     ASSERTMSGLINE(0x8F, error < __OS_EXCEPTION_MAX,
+47:                   "OSSetErrorHandler(): unknown error.");
+48:     oldHandler = OSErrorTable[error];
+49:     OSErrorTable[error] = handler;
+50:     return oldHandler;
+51: }
+52: 
+53: void __OSUnhandledException(unsigned char exception, struct OSContext* context,
+54:                             unsigned long dsisr, unsigned long dar)
+55: {
+56:     if (!(context->srr1 & MSR_RI)) {
+57:         OSReport("Non-recoverable Exception %d", exception);
+58:     } else {
+59:         if (OSErrorTable[exception]) {
+60:             OSDisableScheduler();
+61:             OSErrorTable[exception](exception, context, dsisr, dar);
+62:             OSEnableScheduler();
+63:             __OSReschedule();
+64:             OSLoadContext(context);
+65:         }
+66:         if (exception == __OS_EXCEPTION_DECREMENTER) {
+67:             OSLoadContext(context);
+68:         }
+69:         OSReport("Unhandled Exception %d", exception);
+70:     }
+71: #if DEBUG
+72:     OSReport("(%s)", __OSExceptionNames[exception]);
+73: #endif
+74:     OSReport("\n");
+75:     OSDumpContext(context);
+76:     OSReport("\nDSISR = 0x%08x                   DAR  = 0x%08x\n", dsisr, dar);
+77:     OSReport("TB = 0x%016llx\n", OSGetTime());
+78: 
+79:     switch (exception) {
+80:     case __OS_EXCEPTION_DSI:
+81:         OSReport("\nInstruction at 0x%x (read from SRR0) attempted to access "
+82:                  "invalid address 0x%x (read from DAR)\n",
+83:                  context->srr0, dar);
+84:         break;
+85:     case __OS_EXCEPTION_ISI:
+86:         OSReport("\nAttempted to fetch instruction from invalid address 0x%x "
+87:                  "(read from SRR0)\n",
+88:                  context->srr0);
+89:         break;
+90:     case __OS_EXCEPTION_ALIGNMENT:
+91:         OSReport("\nInstruction at 0x%x (read from SRR0) attempted to access "
+92:                  "unaligned address 0x%x (read from DAR)\n",
+93:                  context->srr0, dar);
+94:         break;
+95:     case __OS_EXCEPTION_PROGRAM:
+96:         OSReport(
+97:             "\nProgram exception : Possible illegal instruction/operation "
+98:             "at or around 0x%x (read from SRR0)\n",
+99:             context->srr0, dar);
+100:         break;
+101:     case __OS_EXCEPTION_MEMORY_PROTECTION:
+102:         OSReport("\n");
+103:         OSReport("AI DMA Address =   0x%04x%04x\n",
+104:                  __DSPRegs[DSP_DMA_START_HI], __DSPRegs[DSP_DMA_START_LO]);
+105:         OSReport("ARAM DMA Address = 0x%04x%04x\n",
+106:                  __DSPRegs[DSP_ARAM_DMA_MM_HI], __DSPRegs[DSP_ARAM_DMA_MM_LO]);
+107:         OSReport("DI DMA Address =   0x%08x\n", __DIRegs[5]);
+108:         break;
+109:     }
+110: 
+111:     OSReport("\nLast interrupt (%d): SRR0 = 0x%08x  TB = 0x%016llx\n",
+112:              __OSLastInterrupt, __OSLastInterruptSrr0, __OSLastInterruptTime);
+113:     PPCHalt();
+114: }

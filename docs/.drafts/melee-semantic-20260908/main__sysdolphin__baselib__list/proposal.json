@@ -1,0 +1,381 @@
+{
+  "tu": "main/sysdolphin/baselib/list",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/list:.bss"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "confidence": 0.98,
+        "rationale": "Clear a prose section label that is not a source identifier; this section contains two distinct canonical allocator objects.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L9-L91",
+            "why": "Canonical statements support this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.c#L71-L156",
+            "why": "Canonical statements support this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.h#L19-L50",
+            "why": "Canonical statements support this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L263-L308",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/list:.sdata"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "On a failed list allocation/insertion assertion, compiled code passes the source filename and applicable list/next/prev expression text to __assert. Under MUST_MATCH the explicit legacy line argument is used; otherwise the macro uses __LINE__. __assert reports the expression and calls HSD_Panic, which calls OSPanic after any returning panic callback. Successful checks bypass these diagnostics.",
+        "confidence": 0.98,
+        "rationale": "Distinguish literal legacy line values from the actual pinned source lines and record the callback-return condition.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L9-L91",
+            "why": "Canonical statements support this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L16-L33",
+            "why": "Canonical statements support this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.c#L39-L53",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/list:HSD_DListGetAllocData"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Returns &dlist_alloc_data directly without allocation, mutation or an initialization check. HSD_ListInitAllocData configures that object for sizeof(HSD_DList) and alignment 4 when invoked; the getter itself does not establish that initialization already occurred.",
+        "confidence": 0.98,
+        "rationale": "Remove the inherited unconditional initialized-descriptor guarantee.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L23-L26",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/list:HSD_SListAllocAndAppend"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Allocates a node carrying the opaque data pointer and inserts it immediately after the supplied anchor. It returns the same anchor when non-NULL, or the new singleton when NULL. The anchor may be an interior node; this function does not locate the tail or a containing list head.",
+        "confidence": 0.98,
+        "rationale": "The inherited purpose called an arbitrary anchor the list head; preserve the literal returned pointer.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L39-L47",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/list:HSD_SListAppendList"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Asserts next is non-NULL. With non-NULL list, overwrites next->next with list->next, then sets list->next=next and returns list. With NULL list, overwrites next->next with NULL and returns next. It does not preserve a preexisting chain after next or check membership/aliasing; list==next creates a self-link.",
+        "confidence": 0.98,
+        "rationale": "This is a single-node splice, not chain concatenation or validated insertion.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L59-L71",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/list:HSD_SListGetAllocData"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Returns &slist_alloc_data directly without allocation, transformation or initialization check. HSD_ListInitAllocData configures the object when invoked. HSD_SListAlloc and HSD_SListRemove pass this descriptor to HSD_ObjAlloc and HSD_ObjFree.",
+        "confidence": 0.98,
+        "rationale": "Do not infer that calling the getter forces or proves earlier initialization.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L18-L21",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/list:HSD_SListRemove"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL input returns NULL without allocator access. Otherwise saves list->next, passes only list to HSD_ObjFree and returns the saved pointer. It does not rewrite any predecessor or caller-owned head pointer, touch the saved successor, or free the opaque data payload. The caller must store the returned head or update any enclosing link.",
+        "confidence": 0.98,
+        "rationale": "Distinguish the returned replacement pointer from an automatic mutation of the caller list.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L80-L91",
+            "why": "Canonical statements support this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.c#L119-L126",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/list.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Startup calls this unit initializer, which resets and registers both allocator descriptors with alignment mask 3 and node-size strides. Allocation asserts success and zeros each SList node. Append inserts immediately after an anchor, overwriting the inserted node successor; prepend overwrites its node successor with the old head. Neither insertion validates aliasing. Removal frees only the supplied node and returns its saved successor, leaving caller head/predecessor updates and payload disposal to callers.",
+        "confidence": 0.98,
+        "rationale": "State literal mutation boundaries and correct the ambiguous alignment-mask wording.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L9-L91",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/list:HSD_SListAllocAndAppend#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Nullable insertion anchor; the new node is placed immediately after it and this anchor is returned when non-NULL.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal parameter use; no physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L39-L47",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/list:HSD_SListAllocAndAppend#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Opaque data pointer stored unchanged in the new node; not freed by HSD_SListRemove.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal parameter use; no physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L39-L47",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/list:HSD_SListAllocAndPrepend#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Existing list head, possibly NULL, which becomes the new node successor.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal parameter use; no physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L49-L57",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/list:HSD_SListAllocAndPrepend#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Opaque data pointer stored unchanged in the newly allocated node.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal parameter use; no physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L49-L57",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/list:HSD_SListAppendList#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Nullable anchor after which next is inserted.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal parameter use; no physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L59-L71",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/list:HSD_SListAppendList#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Required node to insert; its old next field is overwritten.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal parameter use; no physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L59-L71",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/list:HSD_SListPrependList#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Existing list head, possibly NULL.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal parameter use; no physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L73-L78",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/list:HSD_SListPrependList#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Required node that becomes the returned head; its next field is overwritten with list.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal parameter use; no physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L73-L78",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/list:HSD_SListRemove#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Nullable node to return to the SList allocator; its saved successor is returned and data payload is not freed.",
+        "confidence": 0.98,
+        "rationale": "Role follows canonical formal parameter use; no physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L80-L91",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/list:HSD_SListPrependList"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Asserts prev is non-NULL, overwrites prev->next with list, and returns prev. No payload, allocator or old-head field is changed. Existing linkage after prev is discarded; prev==list produces a self-link because no alias check occurs.",
+        "confidence": 0.98,
+        "rationale": "Record single-node insertion and aliasing boundaries visible in the entire body.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L73-L78",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/list:HSD_DListGetAllocData"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_ObjAllocData* HSD_DListGetAllocData(void). Takes no arguments and returns the persistent dlist_alloc_data descriptor address. HSD_ListInitAllocData configures this descriptor for HSD_DList nodes when invoked; the getter does not initialize it or check prior initialization.",
+        "confidence": 0.98,
+        "rationale": "Do not imply that the getter guarantees descriptor configuration.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L23-L26",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/list.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Initialization passes separate SList and DList descriptors, node sizes and alignment 4 to the object allocator initializer. Singly linked construction allocates and zeros a node, stores the opaque payload and rewrites next links. Append returns the original non-NULL insertion anchor, which can be an interior node, or the new singleton for NULL. Prepend returns the newly inserted node. Remove returns the supplied node to its allocator and returns its saved successor; NULL removal returns NULL.",
+        "confidence": 0.98,
+        "rationale": "Distinguish append anchor returns from replacement list heads.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L9-L91",
+            "why": "Canonical statements support this claim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

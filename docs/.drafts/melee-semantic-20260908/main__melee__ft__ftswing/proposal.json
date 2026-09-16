@@ -1,0 +1,163 @@
+{
+  "tu": "main/melee/ft/ftswing",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftswing:ftCo_FallAerial_Coll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides the common FallAerial motion state's collision callback. It forwards the fighter to ft_800831CC with terrain predicate ftCo_80096CC8 and contact response ft_80082B1C; accepted shared contact invokes that response, otherwise wall-jump checking precedes ledge-grab checking. Its placement in ftswing.c does not make it a held-item swing-specific falling phase.",
+        "rationale": "Corrects subsystem attribution using the active motion-table consumer and exact canonical callees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L21-L24",
+            "why": "Complete wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L486-L496",
+            "why": "Active common FallAerial registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L685-L696",
+            "why": "Response and fallback order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftswing:ftCo_FallAerial_Coll"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements environmental collision processing for the common FallAerial state, not an inferred held-item swing aftermath. The supplied predicate rejects line -1, accepts other solid lines, and requires stick Y strictly above the common threshold for platforms; the shared dispatcher may invoke the velocity-dependent contact response or attempt wall jumping and ledge grabbing.",
+        "rationale": "Active registration outranks source-file proximity; predicate and dispatcher establish the actual interaction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L486-L496",
+            "why": "Identifies the consuming state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L134-L143",
+            "why": "Exact terrain acceptance predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L641-L696",
+            "why": "Collision acceptance and fallback handling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftswing:fn_800CCEC4#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "int item-kind identifier; the observed caller passes itGetKind(fp->item_gobj). Accepted values are 12, 11, 13, 24, 22 and 23; all others report and assert.",
+        "rationale": "Definition and caller directly establish semantic input domain.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L27-L45",
+            "why": "Input declaration and cases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L75-L76",
+            "why": "Held-item kind source."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftswing:ftCo_Attack_800CCF58#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Fighter_GObj* borrowed fighter object; its Fighter data supplies held-item identity, fighter kind and shared setup context. No null-object guard is provided locally.",
+        "rationale": "Concrete signature and all accesses are explicit; no local ownership transfer occurs.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L63-L99",
+            "why": "Object extraction and forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftswing:ftCo_Attack_800CCF58#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "enum_t attack-form selector with valid semantic domain 0\u20134: 0 from Attack1, 1 from AttackS3, 2 from AttackS4, 4 from AttackDash, and 3 from the shared swing held-A continuation path. The dispatcher does not range-check it; selector 3 requires FTKIND_CAPTAIN and bypasses only the integer motion table.",
+        "rationale": "Cross-file callers prove selector meanings; local indexing establishes the unchecked boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L47-L99",
+            "why": "Signature, indexing and special branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L54-L57",
+            "why": "Selector 0 caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L40-L43",
+            "why": "Selector 1 caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L131-L135",
+            "why": "Selector 2 caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L37-L40",
+            "why": "Selector 4 caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L34-L43",
+            "why": "Selector 3 continuation caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftswing:ftCo_FallAerial_Coll#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Fighter_GObj* borrowed active fighter object, forwarded unchanged to ft_800831CC with two globally defined callback functions. The wrapper neither stores the object nor transfers ownership.",
+        "rationale": "The complete wrapper contains only the delegation call.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L21-L24",
+            "why": "Exact parameter declaration and use."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

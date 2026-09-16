@@ -1,0 +1,327 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-e7afc89ee6b7943cbf86262318b7ea53",
+  "title": "Capture the Wiki",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "wiki-capture-intro",
+        "wiki-capture-sms",
+        "wiki-capture-flow",
+        "wiki-capture-helper",
+        "wiki-command-parameters",
+        "wiki-capture-command",
+        "wiki-capture-layout-intro",
+        "wiki-capture-tree",
+        "wiki-capture-retry",
+        "wiki-cdn-retry",
+        "wiki-capture-boundary",
+        "wiki-capture-import-boundary"
+      ]
+    },
+    "wiki-capture-intro": {
+      "id": "wiki-capture-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A wiki capture belongs to one game and one configured site. Its scope starts with seed categories and pages. Full coverage means the complete category subtree, full page contents, galleries and multimedia pages, transcluded template sources, and all media discovered through categories or rendered pages. Shared articles retain their full context, including sections about other games."
+        }
+      ],
+      "children": []
+    },
+    "wiki-capture-sms": {
+      "id": "wiki-capture-sms",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Select the wiki and declare the game's seed categories and pages in "
+        },
+        {
+          "insert": "config/sources/wiki.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". For a MediaWiki site, configure its API endpoint and use the shared helper below. Other wiki engines need an acquisition helper suited to their site, producing the same import layout. If the game has no suitable wiki, declare that source unavailable or disabled."
+        }
+      ],
+      "children": []
+    },
+    "wiki-capture-flow": {
+      "id": "wiki-capture-flow",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Capture the wiki",
+            "steps": [
+              {
+                "text": "Discover the configured category tree",
+                "steps": [
+                  {
+                    "text": "Follow every category-membership continuation and retain all page namespaces, including galleries and multimedia."
+                  }
+                ]
+              },
+              {
+                "text": "Capture page revisions",
+                "steps": [
+                  {
+                    "text": "Save raw wikitext, page identity, revision, timestamp, source URL, and rendered HTML. Record redirects and transcluded template sources."
+                  }
+                ]
+              },
+              {
+                "text": "Download every discovered media file",
+                "steps": [
+                  {
+                    "text": "Capture images, animations, audio, video, and other attached files at their original download URLs. Verify each file's size and SHA-1 against MediaWiki metadata."
+                  }
+                ]
+              },
+              {
+                "text": "Verify the local capture",
+                "steps": [
+                  {
+                    "text": "Check page hashes, retain missing-item and failure manifests, and mark the capture complete only when all required items succeed."
+                  }
+                ]
+              },
+              {
+                "text": "Prepare knowledge",
+                "steps": [
+                  {
+                    "text": "Import captured page sections, build search indexes, then run librarian curation or backfill. Downloaded media remains available beside the source archive."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "wiki-capture-helper": {
+      "id": "wiki-capture-helper",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The shared acquisition helper is "
+        },
+        {
+          "insert": "helpers/mediawiki_mirror.py",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "helpers/mediawiki_mirror.py"
+            }
+          }
+        },
+        {
+          "insert": ". Run it from the harness repository root with the game's source definition:"
+        }
+      ],
+      "children": []
+    },
+    "wiki-command-parameters": {
+      "id": "wiki-command-parameters",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Replace "
+        },
+        {
+          "insert": "<game-id>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with the registered game ID. Configure the site and capture scope before running the command."
+        }
+      ],
+      "children": []
+    },
+    "wiki-capture-command": {
+      "id": "wiki-capture-command",
+      "type": "code",
+      "props": {
+        "language": "sh"
+      },
+      "text": [
+        {
+          "insert": "python3 helpers/mediawiki_mirror.py \\\n  --source games/<game-id>/config/sources/wiki.json"
+        }
+      ],
+      "children": []
+    },
+    "wiki-capture-layout-intro": {
+      "id": "wiki-capture-layout-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The capture root contains the evidence needed to audit and reuse the download:"
+        }
+      ],
+      "children": []
+    },
+    "wiki-capture-tree": {
+      "id": "wiki-capture-tree",
+      "type": "file-tree",
+      "props": {
+        "entries": [
+          {
+            "path": "index.jsonl",
+            "note": "Page index consumed by wiki import"
+          },
+          {
+            "path": "index.html",
+            "note": "Entry point for local HTML reading"
+          },
+          {
+            "path": "pages/",
+            "note": "Full article and category wikitext"
+          },
+          {
+            "path": "html/",
+            "note": "Rendered pages with local archive links"
+          },
+          {
+            "path": "dependencies/",
+            "note": "Template and file-description sources"
+          },
+          {
+            "path": "media/",
+            "note": "Verified original media files"
+          },
+          {
+            "path": "manifest/",
+            "note": "Discovery, revisions, redirects, and failures"
+          },
+          {
+            "path": "api/",
+            "note": "Cached responses for resumable acquisition"
+          },
+          {
+            "path": "source-definition.json",
+            "note": "Pinned site and scope configuration"
+          },
+          {
+            "path": "capture-manifest.json",
+            "note": "Capture counts and completion status"
+          }
+        ]
+      },
+      "children": []
+    },
+    "wiki-capture-retry": {
+      "id": "wiki-capture-retry",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Rerunning the same command resumes the capture using cached API responses and verified media files. To acquire newer revisions, choose a fresh directory with "
+        },
+        {
+          "insert": "--output",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and retain the old capture. "
+        },
+        {
+          "insert": "--inventory-only",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " captures page material and lists media without downloading the binaries. It leaves the capture incomplete."
+        }
+      ],
+      "children": []
+    },
+    "wiki-cdn-retry": {
+      "id": "wiki-cdn-retry",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A CDN may serve an optimized image whose bytes differ from MediaWiki's original. The helper requests download=1 and retries with a fresh cache key after a hash mismatch. It still requires the original size and SHA-1. Keep unresolved files in the failure manifest rather than accepting transformed bytes as verified originals."
+        }
+      ],
+      "children": []
+    },
+    "wiki-capture-boundary": {
+      "id": "wiki-capture-boundary",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The archive captures current page revisions and the wiki-hosted media discovered within its configured scope. It records external links without crawling unrelated websites or page history. Local HTML links use downloaded originals where available. This is a content archive, not a copy of the wiki's interactive application."
+        }
+      ],
+      "children": []
+    },
+    "wiki-capture-import-boundary": {
+      "id": "wiki-capture-import-boundary",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The source pipeline consumes the result through "
+        },
+        {
+          "insert": "local-mirror",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Acquisition does not itself import records, generate embeddings, or run the librarian. The wiki importer reads "
+        },
+        {
+          "insert": "index.jsonl",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "pages/",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " into "
+        },
+        {
+          "insert": "wiki_section",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows. Rendered HTML, template sources, and media remain companion evidence rather than automatically becoming semantic facts."
+        }
+      ],
+      "children": []
+    }
+  }
+}

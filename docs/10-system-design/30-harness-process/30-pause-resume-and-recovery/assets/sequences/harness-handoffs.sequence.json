@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "id": "harness-workflow-handoffs",
+  "title": "Initial Sync, Pause, and Resume",
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Operator",
+      "kind": "actor"
+    },
+    {
+      "id": "p2",
+      "name": "Controller",
+      "kind": "participant"
+    },
+    {
+      "id": "p3",
+      "name": "Dispatch State",
+      "kind": "participant"
+    },
+    {
+      "id": "p4",
+      "name": "Sync",
+      "kind": "participant"
+    },
+    {
+      "id": "p5",
+      "name": "Harness State",
+      "kind": "participant"
+    },
+    {
+      "id": "p6",
+      "name": "Run",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "Request initial or manual Sync"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p2",
+      "to": "p3",
+      "line": "sync",
+      "text": "Acquire exclusive Sync lease"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "p2",
+      "to": "p4",
+      "line": "sync",
+      "text": "Prepare checkout, source stages, and build evidence"
+    },
+    {
+      "kind": "message",
+      "id": "m4",
+      "from": "p4",
+      "to": "p1",
+      "line": "return",
+      "text": "Validated staging is ready for publication"
+    },
+    {
+      "kind": "message",
+      "id": "m5",
+      "from": "p1",
+      "to": "p4",
+      "line": "sync",
+      "text": "Confirm publication"
+    },
+    {
+      "kind": "message",
+      "id": "m6",
+      "from": "p4",
+      "to": "p5",
+      "line": "sync",
+      "text": "Accept head, source evidence, and Sync boundary"
+    },
+    {
+      "kind": "message",
+      "id": "m7",
+      "from": "p4",
+      "to": "p3",
+      "line": "sync",
+      "text": "Release Sync lease"
+    },
+    {
+      "kind": "note",
+      "id": "n1",
+      "anchor": "p5",
+      "side": "over",
+      "text": "Pause is preserved"
+    },
+    {
+      "kind": "message",
+      "id": "m8",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "Request Run at current state revision"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "Required readiness gates pass",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p2",
+              "to": "p3",
+              "line": "sync",
+              "text": "Acquire fresh Run lease"
+            },
+            {
+              "kind": "message",
+              "id": "m10",
+              "from": "p2",
+              "to": "p6",
+              "line": "async",
+              "text": "Start or resume epochs at accepted head"
+            }
+          ]
+        },
+        {
+          "guard": "A required gate is blocked",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m11",
+              "from": "p2",
+              "to": "p1",
+              "line": "return",
+              "text": "Persist Run intent and report blockers"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "fragment",
+      "id": "f2",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "Operator pauses an active Run",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m12",
+              "from": "p1",
+              "to": "p2",
+              "line": "sync",
+              "text": "Request pause"
+            },
+            {
+              "kind": "message",
+              "id": "m13",
+              "from": "p2",
+              "to": "p5",
+              "line": "sync",
+              "text": "Persist desired paused"
+            },
+            {
+              "kind": "message",
+              "id": "m14",
+              "from": "p2",
+              "to": "p6",
+              "line": "async",
+              "text": "Stop admission and drain active work"
+            },
+            {
+              "kind": "message",
+              "id": "m15",
+              "from": "p6",
+              "to": "p5",
+              "line": "sync",
+              "text": "Retain head, epoch, and timeline evidence"
+            },
+            {
+              "kind": "message",
+              "id": "m16",
+              "from": "p6",
+              "to": "p3",
+              "line": "sync",
+              "text": "Release settled Run lease"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "note",
+      "id": "n2",
+      "anchor": "p6",
+      "side": "over",
+      "text": "Automatic epoch Sync retains the Run lease; a settled manual handoff releases it"
+    }
+  ],
+  "style": {
+    "accent": "#5B7FBD",
+    "fragmentAccent": "#7A6AA8"
+  }
+}

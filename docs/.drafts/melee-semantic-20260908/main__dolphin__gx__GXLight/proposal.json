@@ -1,0 +1,33 @@
+{
+  "tu": "main/dolphin/gx/GXLight",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXLight.c#L572-L615",
+            "why": "Shows channel validation, reconstruction, numeric attenuation comparisons, XF writes and bpSent assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/gx/GXEnum.h#L465-L470",
+            "why": "Defines GX_AF_SPEC, GX_AF_SPOT and GX_AF_NONE in numeric order 0, 1, 2."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's mistaken identification of attn_fn == 0 as disabled attenuation while preserving the supported full-word replacement and paired-register behavior. The canonical enum establishes SPEC=0 and NONE=2.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXLight:GXSetChanCtrl"
+        },
+        "type": "state_behavior",
+        "value": "The routine asserts a channel ID from 0 through 5 and reconstructs the complete channel-control word. Color-only and alpha-only IDs write one XF register; GX_COLOR0A0 and GX_COLOR1A1 write identical control state to the corresponding color and alpha registers. GX_AF_SPEC (0) forces the encoded diffuse mode to zero; other attenuation values, including GX_AF_NONE (2), use the requested diff_fn. Attenuation bits 9 and 10 are respectively (attn_fn != 2) and (attn_fn != 0), giving (1,0) for SPEC, (1,1) for SPOT, and (0,1) for NONE. The first XF write is followed by gx->bpSent = 1."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

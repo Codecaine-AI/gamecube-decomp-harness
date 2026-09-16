@@ -1,0 +1,204 @@
+{
+  "tu": "main/melee/ft/ftCo_800C7CA0",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L20-L185",
+            "why": "Complete implementation includes rebound and both rendering helpers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Covers the entire TU rather than only its dominant callback family.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ftCo_800C7CA0.c"
+        },
+        "type": "purpose",
+        "value": "Implements common-fighter DownReflect wall-contact eligibility, normal-derived knockback entry and Anim/IASA/Phys/Coll callbacks. Also initializes the shared ft_804D6580 material cache from Fighter_804D6504 and provides ft_800C80A4's guarded fighter-model render-flag configuration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L22-L185",
+            "why": "Exact owned inputs and outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L125-L167",
+            "why": "Scale belongs to delegated ledge-snap processing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects source-local scale attribution and includes omitted resource/model flows.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ftCo_800C7CA0.c"
+        },
+        "type": "data_flow",
+        "value": "Rebound eligibility reads x8c_kb_vel.x, x1B0, wall flags, ECB points, wall normals and the recorded side. Entry uses xF0_ground_kb_vel and x1BC to construct knockback, clears self velocity, sets facing, changes motion and corrects position. Separate rendering paths cache a loaded DObj's MObj and modify guarded model JObj/DObj flags. No fighter-scale read occurs in the owned rebound implementation; delegated collision handling has its own scale-dependent ledge-snap calculations."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L22-L57",
+            "why": "Complete ordered guard and marker logic."
+          }
+        ],
+        "op": "write",
+        "rationale": "Records exact boundaries without assuming asset ranges.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftCo_800C7CA0:ftCo_800C7CA0"
+        },
+        "type": "state_behavior",
+        "value": "Tests, in order, vel_x < -x1B0 with RightWallHug and marker != 1, then vel_x > x1B0 with LeftWallHug and marker != 2. A successful branch invokes fn_800C7DC4 with DownReflect, its wall normal and the opposing ECB-side offset, then stores 1 or 2 and returns true; otherwise false. Comparisons are strict. NaN velocity/threshold rejects both branches; negative thresholds are not validated and can overlap, with first-success priority. No timer or marker reset is implemented here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L59-L121",
+            "why": "Complete entry body and operation order."
+          }
+        ],
+        "op": "write",
+        "rationale": "Uses canonical fields and exact asymmetric formula rather than inferred magnitude semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftCo_800C7CA0:fn_800C7DC4"
+        },
+        "type": "data_flow",
+        "value": "After ftCommon_8007D5D4, forms spawn_pos=cur_pos+offset and angle=atan2f(-normal.x,normal.y), requests effect 0x406 and a small quake. With m=xF0_ground_kb_vel and k=x1BC, stores knockback (normal.x*m*k, normal.y*m*k, normal.z*m), zeros self velocity, and selects facing by resulting x<0. Changes to the supplied motion state, corrects x when RightWallHug is set and y otherwise, calls ftCo_80090574, stores saved m in dmg.x18A8, then calls ftCommon_8007EBAC(fp,7,0) and ftColl_8007B760(gobj,x1B8)."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L76-L115",
+            "why": "Exact float arithmetic, facing and positional branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects multiplier scope, exceptional comparisons and branch interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftCo_800C7CA0:fn_800C7DC4"
+        },
+        "type": "state_behavior",
+        "value": "Has no local eligibility/status branch: valid inputs proceed to Fighter_ChangeMotionState with flags 0x18040, frame 0 and speed 1. It does not normalize normals or sanitize floats. x1BC scales only x/y knockback; zero, signed zero and NaN resulting x select facing +1 because only x<0 selects -1. The post-transition RightWallHug branch updates cur_pos.x using translation-node z and facing; absence of that bit updates cur_pos.y using translation-node y. No symmetric left-wall x correction or universal speed reduction is asserted."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L124-L129",
+            "why": "Completion guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Successor branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L552-L562",
+            "why": "Active DamageFall table entry corroborates state 0x26."
+          }
+        ],
+        "op": "write",
+        "rationale": "Includes the explicit optional successor rather than claiming unconditional DamageFall.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftCo_800C7CA0:ftCo_DownReflect_Anim"
+        },
+        "type": "purpose",
+        "value": "On animation exhaustion, delegates completion to ftCo_80090780; otherwise performs no local transition. That successor normally enters DamageFall, but parasol status != -1 selects ftCo_800CF4DC instead."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L138-L143",
+            "why": "Wrapper guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L157-L165",
+            "why": "Handled-result suppression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L148-L233",
+            "why": "Pose-sensitive and ordinary dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates local control flow from delegated transitions and optional destinations.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftCo_800C7CA0:ftCo_DownReflect_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Always calls ft_80081DD4; only a true result invokes ftCo_80097D88. False means no additional successor call by this wrapper, not proof of retaining DownReflect, because the collision helper can return false after ft_80081A00 handles the result. The true successor selects ordinary DownBound handling or x2228_b2-dependent pose-sensitive handling, whose alternatives need not all enter DownBoundU/D."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L160-L185",
+            "why": "Exact configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C88.c#L31-L40",
+            "why": "Refraction consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C8C.c#L136-L146",
+            "why": "Additional consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Canonical consumers and exact mutations support shared rendering purpose, not cloak-exclusive naming.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftCo_800C7CA0:ft_800C80A4"
+        },
+        "type": "purpose",
+        "value": "Applies a shared special-render flag configuration to fighter parts selected by flags_b1: sets JOBJ_LIGHTING, JOBJ_TEXGEN, JOBJ_SPECULAR and JOBJ_UNK_B18; clears JOBJ_UNK_B19 and JOBJ_UNK_B20; replaces mask 0xE with 2 in each attached DObj. Used by a refraction activation path and another x2227_b3-setting path; does not itself enable refraction or replace material pointers."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L160-L185",
+            "why": "Loop, guards and set/clear operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L46-L53",
+            "why": "Exact masked replacement semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves proven bit idempotence without asserting independent ownership of all model nodes.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftCo_800C7CA0:ft_800C80A4"
+        },
+        "type": "state_behavior",
+        "value": "Iterates indices below the fighter-kind parts_num, skips unmarked bones, and visits each marked joint's DObj next-chain until NULL. Zero count and empty chains perform no corresponding mutations. Selected flag bits are forced to fixed values and are idempotent under repeated calls. Valid table/parts and acyclic chains are assumed; no bounds/cycle validation is present, and shared-node aliases can observe the same mutations."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

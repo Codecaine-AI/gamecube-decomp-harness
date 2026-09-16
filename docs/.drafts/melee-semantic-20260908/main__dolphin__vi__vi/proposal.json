@@ -1,0 +1,177 @@
+{
+  "tu": "main/dolphin/vi/vi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L362-L462",
+            "why": "ImportAdjustingValues reads only the horizontal SRAM field and zeros the vertical offset; VIInit consumes it."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that both horizontal and vertical adjustments are imported from persisted storage.",
+        "subject": {
+          "target_stable_key": "main/dolphin/vi/vi:VIInit"
+        },
+        "type": "data_flow",
+        "value": "Obtains the encoder type and current VI display configuration, programs filter taps, imports displayOffsetH from SRAM, and explicitly initializes displayOffsetV to zero. It derives scan and television fields from the hardware configuration, selects and publishes timing, constructs initial display/framebuffer/pan geometry, initializes the retrace queue, clears pending interrupt bits, clears callbacks, and installs and enables the retrace handler."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L372-L462",
+            "why": "Low-level initialization is conditional; the common path assigns HorVer.black without staging vertical blanking."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes software black-state initialization from an unconditional hardware blackout.",
+        "subject": {
+          "target_stable_key": "main/dolphin/vi/vi:VIInit"
+        },
+        "type": "purpose",
+        "value": "Initializes the Dolphin VI driver's software state, filter registers, and retrace synchronization around the current hardware mode. If VI is disabled it first programs an NTSC-interlaced hardware baseline; otherwise it retains the enabled hardware mode. It derives initial 640-wide geometry, sets the requested software state to black and non-3D, and enables retrace handling. Setting HorVer.black here does not itself force already-enabled hardware into black output."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L959-L984",
+            "why": "Uninitialized assertion operand, complete switch, missing default, and interrupt restoration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the normal read-only mapping while recording exceptional source behavior omitted from the baseline.",
+        "subject": {
+          "target_stable_key": "main/dolphin/vi/vi:VIGetTvFormat"
+        },
+        "type": "state_behavior",
+        "value": "For supported CurrTvMode values, the interrupt-protected switch maps 0/3 to 0, 1/4 to 1, and passes 2/5 through, then restores the prior interrupt state without changing VI configuration. The canonical source also places an assertion on the uninitialized local format before the switch; if that assertion expression is evaluated, it reads an indeterminate value. There is no default case, so unsupported current-mode values leave the return local unassigned. The function therefore is not a total validated format conversion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L570-L608",
+            "why": "Conditional right-base calculation and collective representation conversion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L821-L851",
+            "why": "Separate snapshot operation and framebuffer setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L63-L97",
+            "why": "HSD supplies the selected XFB pointer and requests flushing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication that all four bases are always derived from the updated left-buffer state.",
+        "subject": {
+          "target_stable_key": "main/dolphin/vi/vi:VISetNextFrameBuffer"
+        },
+        "type": "data_flow",
+        "value": "Receives an XFB pointer selected by HSD, asserts 32-byte alignment, and stores its u32 address in HorVer.bufAddr while interrupts are disabled. It sets FBSet and calls setFbbRegs, which recomputes left top/bottom bases; right bases are recomputed from rbufAddr only when threeD is enabled. All four stored base values still participate in address-representation selection and may be shifted. Dirty register values remain pending until VIFlush snapshots them and a permitted retrace commit writes them to hardware."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L464-L475",
+            "why": "The loop can terminate and execution reaches the end of the void function."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's misleading non-returning classification.",
+        "subject": {
+          "target_stable_key": "main/dolphin/vi/vi:VIWaitForRetrace"
+        },
+        "type": "inferred_type",
+        "value": "Signature: void VIWaitForRetrace(void). This parameterless, void-returning synchronization API sleeps until retraceCount differs from its captured value, restores the caller's interrupt state, and then returns normally; it is not a non-returning function."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L278-L337",
+            "why": "Exact signature, mask, format extraction, and full-mode branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/vi/vitypes.h#L6-L34",
+            "why": "Packed-mode construction and scan constants."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the source's numeric ambiguity instead of normalizing the local variable name into an incorrect scan-bit interpretation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/vi/vi:__VIInit"
+        },
+        "type": "inferred_type",
+        "value": "Signature: void __VIInit(VITVMode mode). The input is a packed television/scan-mode value. This implementation literally computes nonInter = mode & 2 and tv = (u32)mode >> 2, uses the full mode for timing selection, and separately recognizes NTSC progressive and numeric mode 3 for its terminal control-register path. The mask must not be described as extracting the ordinary non-interlace flag: VI_NON_INTERLACE is 1, while VI_PROGRESSIVE is 2. Results are hardware and platform-memory side effects, not a return value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L570-L608",
+            "why": "The calculation, threshold, shift, and register-write guards differ explicitly."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the useful lifetime distinction between conditionally refreshed right addresses and unconditionally consumed representation state.",
+        "subject": {
+          "target_stable_key": "main/dolphin/vi/vi:setFbbRegs"
+        },
+        "type": "state_behavior",
+        "value": "Always recomputes left top/bottom bases, but recomputes right top/bottom bases only when threeD is enabled. It nevertheless tests all four pointed-to values against 0x01000000. If any is at or above that threshold, it shifts all four values right by five and sets the shift flag in register 14; otherwise it retains byte units. Thus non-3D calls still read, and may mutate, existing right-base storage. Left register pairs are always staged; right pairs are staged only in 3D. Every staged slot is marked dirty rather than written directly to hardware."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L631-L677",
+            "why": "Helper inputs and five dirty register outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L781-L817",
+            "why": "Configure and pan use different height fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L867-L877",
+            "why": "Black setter passes DispSizeY."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/vi/vi.c#L986-L1002",
+            "why": "Adjustment setter passes AdjustedDispSizeY."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that the helper always receives adjusted display height and preserves caller-specific behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/vi/vi:setVerticalRegs"
+        },
+        "type": "data_flow",
+        "value": "Consumes a vertical origin and height plus the selected timing record's equ, acv, and odd/even blanking baselines, then stages regs[0], regs[6], regs[7], regs[8], and regs[9] and marks them dirty for VIFlush. Callers supply adjusted vertical origin, but their height inputs differ: VIConfigure and __VISetAdjustingValues pass AdjustedDispSizeY, whereas VIConfigurePan and VISetBlack pass DispSizeY. The helper itself does not perform position clipping or choose between those height representations."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

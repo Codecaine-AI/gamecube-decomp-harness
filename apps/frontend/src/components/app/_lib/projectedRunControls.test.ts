@@ -34,8 +34,7 @@ describe("run controls", () => {
   test("wires every Stop control through the shared projected action", () => {
     const actionUsage = new Map([
       ["components/details-rail/_components/now-panel.tsx", ["hardStop"]],
-      ["pages/workspace/cycles/active/subphases/run/components/RunControls.tsx", ["hardStop"]],
-      ["pages/workspace/overview/index.tsx", ["hardStop"]],
+      ["pages/workspace/harness/subphases/run/components/RunControls.tsx", ["hardStop"]],
     ]);
 
     for (const [relativePath, actions] of actionUsage) {

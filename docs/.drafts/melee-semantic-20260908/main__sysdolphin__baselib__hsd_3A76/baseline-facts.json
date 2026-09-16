@@ -1,0 +1,1039 @@
+[
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:.data",
+    "facts": [
+      {
+        "id": "fact:937ab9af-6817-4261-a82d-89986fe146b6",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3A76:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The two parallel character tables retain corresponding two-byte external and internal character codes for SisLib conversion. HSD_SisLib_8040CB00 supplies the built-in kerning pair for glyph codes below 0x4000: HSD_SisLib_803A8134 reads those pairs while calculating text dimensions, and HSD_SisLib_803A84BC reads the same pairs while advancing rendered text. Higher glyph codes instead obtain kerning from the selected SIS font texture data.",
+        "rationale": "The first two arrays have matching entry counts and visibly aligned code-pair sequences. Both text consumers bind HSD_SisLib_8040CB00 as default_kerning, index it with a two-byte glyph offset for built-in codes, and contrast that path with selected-font data for codes at or above 0x4000.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T04:23:22.286Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L965-L1084",
+            "why": "Shows the paired and equally sized character-code arrays and the adjacency of the default kerning table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L393",
+            "why": "Shows HSD_SisLib_803A8134 reading two-byte entries from HSD_SisLib_8040CB00 for codes below 0x4000 and font texture data for higher codes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L442-L561",
+            "why": "Shows HSD_SisLib_803A84BC acquiring both the built-in default kerning table and optional per-font resources."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L897-L987",
+            "why": "Shows the renderer applying the default table's two bytes to built-in glyph advance and using selected-font texture data for the alternate glyph range."
+          }
+        ]
+      },
+      {
+        "id": "fact:e14daa6c-1440-4001-9121-92889621402c",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3A76:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An initialized lookup-table section whose explicitly declared tail contains three contiguous u8[0x240] arrays. HSD_SisLib_8040C680 and lbl_8040C8C0 each encode 288 two-byte character-code entries, while HSD_SisLib_8040CB00 encodes 288 two-byte TextKerning entries with left and right metrics.",
+        "rationale": "The current header still declares all three arrays with identical 0x240-byte extents and defines TextKerning as two adjacent u8 fields. Their contiguous source definitions organize the first two arrays as two-byte character codes and the third as paired metric bytes, so the existing inferred layout remains sound and is re-cited at the checkout head.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T23:43:32.958Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sislib.h#L1-L120",
+            "why": "At the current head, defines TextKerning as adjacent left and right u8 fields and declares HSD_SisLib_8040C680, lbl_8040C8C0, and HSD_SisLib_8040CB00 as u8[0x240] arrays."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L965-L1084",
+            "why": "Shows the contiguous initialized definitions of the first two 0x240-byte character-code arrays and the beginning of the equally sized third array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L1077-L1127",
+            "why": "Shows HSD_SisLib_8040CB00 as a complete initialized u8[0x240] table organized into metric-byte pairs."
+          }
+        ]
+      },
+      {
+        "id": "fact:74beedc1-a7ff-41e7-af8e-14a2a7f506b4",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3A76:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides SisLib's built-in character-code mapping and default glyph-kerning lookup data for measuring and rendering UI text.",
+        "rationale": "The section declares two parallel character tables containing two-byte code values and a third table of paired metric bytes. The measurement and rendering routines use the third table as their default kerning source when processing built-in glyph codes.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T04:23:22.286Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L965-L1084",
+            "why": "Shows the initialized HSD_SisLib_8040C680 and lbl_8040C8C0 character-code tables followed by the start of HSD_SisLib_8040CB00."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L1077-L1127",
+            "why": "Shows the complete initialized HSD_SisLib_8040CB00 byte table used as built-in kerning data."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L393",
+            "why": "Shows the text-measurement routine selecting HSD_SisLib_8040CB00 as its default kerning table and applying its byte pairs to glyph width."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L897-L987",
+            "why": "Shows the renderer indexing the default kerning table and applying each pair to the current rendered width."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:.sdata2",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684",
+    "facts": [
+      {
+        "id": "fact:26b990ad-de82-4a98-bd8d-f9c02d6973de",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The HSD_Text supplies the state value to save, string_buffer supplies existing serialized records, x6C is the append position, and x6E is capacity. When a record will not fit, the function allocates a buffer 16 bytes larger, copies the old contents, zero-fills the added region, frees the old allocation, and updates x6E. It then appends the selected payload and flags while advancing x6C; cursor contributes data only to type 5.",
+        "rationale": "All allocation, copying, clearing, field reads, cursor use, and append-position updates remain explicit at the function's new source location.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L23-L177",
+            "why": "Shows capacity checks, 16-byte growth, copy and zero-fill loops, old-buffer release, state-byte appends, and type-5 cursor serialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:8aeaaf96-8004-42b0-9100-876962ca7765",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the save side of scoped formatting and control-flow state used by Melee's SIS-driven text presentation, allowing nested text commands to preserve scale-like vector attributes, color, alignment, and a stream cursor for later restoration or unwinding.",
+        "rationale": "The saved records are produced from live HSD_Text presentation and interpreter fields and consumed by the adjacent restoration routine during text measurement and rendering.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L23-L272",
+            "why": "Shows formatting and cursor state being serialized and later restored or unwound as part of SisLib interpretation."
+          }
+        ]
+      },
+      {
+        "id": "fact:dde05a3c-8a5a-4af1-8811-28a1cc9c0fc9",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_SaveTextState",
+        "rationale": "The routine appends a typed snapshot of one live HSD_Text attribute, while the immediately following complementary routine restores a selected snapshot. SaveTextState describes the common operation across all cases, though the exact original spelling is unknown.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L23-L177",
+            "why": "Shows the function encoding current HSD_Text fields and a stream cursor into typed records."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L179-L272",
+            "why": "Shows the adjacent inverse operation restoring those record types."
+          }
+        ]
+      },
+      {
+        "id": "fact:85de2959-c7fa-4329-a214-5fc9fe4e02b1",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "void (HSD_Text* text, const u8* cursor, u8 flags). Bits 0–6 of flags select record types 1 through 5 and bit 7 is retained as a qualifier. Types 1 and 3 encode two 8.8 fixed-point components plus flags, type 2 encodes RGB plus flags, type 4 encodes alignment plus flags, and type 5 encodes the 32-bit cursor address in big-endian byte order plus flags.",
+        "rationale": "The current declaration confirms that cursor is const-qualified. The switch mask and stores establish the selector domain and each record's payload layout.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L23-L177",
+            "why": "Provides the current signature, dispatch mask, fixed-point and byte payloads, cursor serialization, and trailing flags."
+          }
+        ]
+      },
+      {
+        "id": "fact:57a6e325-132b-4528-ad33-1c6ff251f71a",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serializes one selected piece of the current HSD_Text interpreter state into the text object's auxiliary string buffer so later SIS commands can restore or unwind that state. It supports two vector-valued attributes, active RGB color, alignment, and the current SIS cursor.",
+        "rationale": "The relocated function still dispatches over five record types, appends the selected live text field or cursor followed by flags, and produces the records consumed by the adjacent restoration routine.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L23-L177",
+            "why": "Shows all five state-record encodings, buffer growth, and payload-plus-flags appends."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L179-L272",
+            "why": "Shows the complementary routine decoding the same records to restore or unwind state."
+          }
+        ]
+      },
+      {
+        "id": "fact:d94ce665-d378-496c-b5a8-6aae4e34b0f2",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Dispatches on flags & 0x7F. Types 1, 2, 3, 4, and 5 append records of 5, 4, 5, 2, and 5 bytes respectively; any other type performs no operation. Each recognized record stores its payload first and the complete flags byte last, enabling backward traversal. Capacity grows in 16-byte increments when needed, and the retained high flag bit lets the complementary restore routine decide whether a matching record is consumed.",
+        "rationale": "The switch and per-case stores establish recognized states, record sizes, and growth behavior. The adjacent reverse scanner reads trailing flags and conditionally removes records according to the high-bit qualifier.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L23-L177",
+            "why": "Shows low-seven-bit dispatch, all record sizes, payload-first encoding, trailing flags, and capacity growth."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L179-L272",
+            "why": "Shows backward traversal and conditional record consumption based on the retained high-bit qualifier."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7F0C",
+    "facts": [
+      {
+        "id": "fact:0515ab20-cb77-4415-ba5a-66ecf8182fc1",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7F0C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input HSD_Text supplies the serialized byte stream and used length x6C. Low flag bits select a record type and bit 7 supplies a qualifier. A matching record updates text->x78, active_color, x80, or alignment; type 5 instead becomes the return value. If qualifier bits match, later bytes shift left over the record, vacated tail bytes are zeroed, and x6C is reduced by the record size.",
+        "rationale": "The current body explicitly traces flags and serialized bytes into restored HSD_Text fields or the return value and shows the conditional in-place stream mutation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L179-L272",
+            "why": "Shows all inputs, restored outputs, optional compaction, tail clearing, and x6C adjustment."
+          }
+        ]
+      },
+      {
+        "id": "fact:f8feec2e-2b25-4726-a6bb-af9f88512f63",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7F0C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements restoration and scoped unwinding of inline text-formatting state used by Melee's SIS-driven menu and message presentation, including color, alignment, and two fixed-point vector attributes.",
+        "rationale": "The function restores formatting-related HSD_Text fields from typed serialized records used by SisLib's text measurement and renderer.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L179-L272",
+            "why": "Shows serialized records restoring active color, alignment, fixed-point vector attributes, and interpreter cursor state."
+          }
+        ]
+      },
+      {
+        "id": "fact:a5c1455a-8434-4797-8df6-100bc2388b7f",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7F0C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_RestoreTextState",
+        "rationale": "The central operation restores one selected category of serialized HSD_Text state. Record removal is conditional, so RestoreTextState is better supported than a name implying unconditional popping.",
+        "confidence": 0.75,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L179-L272",
+            "why": "Shows matching records restoring vector attributes, active color, alignment, or a returned cursor value while removal remains conditional."
+          }
+        ]
+      },
+      {
+        "id": "fact:ff975026-e635-489c-9ba5-b12052dac3d8",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7F0C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "s32 (HSD_Text* text, s32 flags), where flags packs a record-type selector in bits 0–6 and a qualifier in bit 7. Recognized types are 1 through 5; types 1 and 3 carry two 8.8 fixed-point components, type 2 carries RGB, type 4 carries alignment, and type 5 carries a signed 32-bit value.",
+        "rationale": "The current signature, masks, per-case cursor decrements, and typed loads establish the selector domains and payload layouts.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L179-L272",
+            "why": "Provides the signature, flag masks, recognized record types, payload widths, numeric conversions, byte fields, and 32-bit result."
+          }
+        ]
+      },
+      {
+        "id": "fact:f150bdab-0354-487c-a874-2e2d58798b45",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7F0C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Searches an HSD_Text object's serialized SIS control stream backward for the most recent record of a requested text-state type, restores that record into live text state, and conditionally removes the matched record from the stream.",
+        "rationale": "The function remains a reverse scanner over typed trailing-opcode records; it restores matching values and compacts the stream only when qualifier bits agree.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L179-L272",
+            "why": "Shows reverse record scanning, type-specific restoration, optional compaction, cursor reduction, and the returned integer payload."
+          }
+        ]
+      },
+      {
+        "id": "fact:092b8f91-34c6-4b35-a224-35a8722e69d6",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7F0C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Begins at the stream cursor and scans backward until it finds a record whose seven-bit opcode equals the requested type or reaches the beginning. Record opcodes trail their payloads, so each recognized opcode moves backward by its payload width. A match restores the saved value and stops scanning. Equal requested and stored high-bit qualifiers consume the complete record; unequal qualifiers leave it intact. If no match exists, no text state changes and the function returns zero.",
+        "rationale": "The reverse loop, per-case cursor decrements, qualifier comparison, removal sizes, and zero-initialized result define this state machine.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L179-L272",
+            "why": "Shows reverse traversal, trailing opcodes, type-match termination, qualifier-controlled consumption, and no-match defaults."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134",
+    "facts": [
+      {
+        "id": "fact:1e661aaa-f94f-44f8-be0e-b1b4fc71aefc",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes encoded commands from cursor and current layout attributes from HSD_Text. The text's font index selects an SIS font and glyph texture data; printable codes below 0x4000 use the global default kerning table, while higher codes use the selected font's texture kerning data. Each printable glyph first contributes x80.x scaled by the nominal 32-unit advance plus x78.x spacing; when kerning is enabled, the routine computes left + right - 2 from the selected kerning record and subtracts that value scaled by x80.x. These advances accumulate into out_width, while the greatest scaled 32-unit glyph height is written to out_height.",
+        "rationale": "The current implementation makes the previously general kerning flow explicit: both kerning-table branches calculate left plus right minus two, scale that correction by the horizontal text scale, and subtract it from the nominal scaled glyph advance. The same walk maintains the maximum scaled glyph height.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T21:04:51.300Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L418",
+            "why": "Shows font and kerning-table selection, nominal glyph advances, the duplicated left-plus-right-minus-two kerning calculation scaled by text->x80.x, and writes to the width and height outputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:6659c2f2-12ff-441c-ac9b-3bfe2e498a14",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements text-layout measurement for Melee's UI text-presentation system, allowing encoded text to be sized consistently with its eventual glyph scale, spacing, and kerning.",
+        "rationale": "The routine interprets the presentation stream and font metrics but emits dimensions rather than graphics, making it the measurement side of text presentation.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L418",
+            "why": "Demonstrates calculation of text-presentation dimensions from encoded commands, font selection, scale, spacing, and kerning."
+          }
+        ]
+      },
+      {
+        "id": "fact:59f0c727-eb52-45bb-84ba-879661ba2f27",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_CalcTextSize",
+        "rationale": "The routine belongs to HSD_SisLib, traverses encoded text, and writes both width and height measurements. CalcTextSize remains a plausible subsystem-style name, though no surviving symbol establishes the exact spelling.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L418",
+            "why": "Shows a SisLib routine traversing encoded text and producing width and height rather than rendering geometry."
+          }
+        ]
+      },
+      {
+        "id": "fact:e25cbb98-6848-4130-88d4-69d20e355037",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "void (void* cursor, HSD_Text* text, f32* out_width, f32* out_height); cursor points into an encoded SIS command stream, and the final two parameters are required floating-point output pointers.",
+        "rationale": "The current definition provides the complete signature, treats cursor as a byte-oriented command stream, reads layout state from HSD_Text, and writes through both output pointers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L418",
+            "why": "Provides the signature and demonstrates command-stream reads and f32 output writes."
+          }
+        ]
+      },
+      {
+        "id": "fact:b859f25d-3b98-4c56-b711-d512051add1d",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Measures the rendered width and maximum glyph height of an encoded SIS text stream without drawing it, interpreting inline formatting commands and applying the same scale, spacing, and kerning adjustments used for presentation.",
+        "rationale": "The relocated routine initializes dimension outputs, walks the command stream, updates measurements for formatting commands and printable glyphs, and restores temporary HSD_Text state at termination.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L418",
+            "why": "Shows the stream interpreter accumulating width and height from commands, scale, spacing, glyph advances, and kerning without issuing drawing commands."
+          }
+        ]
+      },
+      {
+        "id": "fact:4232a371-f346-468c-82f3-b461dffb945a",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Runs a command interpreter that can push and pop formatting state, follow embedded stream pointers, change scale and spacing, and locally enable or disable kerning while measuring. Opcodes 1, 2, 3, and 7 terminate the measurement walk immediately; opcode 0 terminates when no saved stream continuation can be popped, but otherwise redirects the cursor and continues. The routine saves horizontal and vertical scale, spacing, and string-buffer position before interpretation; on termination it restores those fields and zeroes remaining string-buffer entries from the restored position through x6E.",
+        "rationale": "The switch sends opcodes 1, 2, 3, and 7 directly to the common completion path, while opcode 0 resumes through a popped continuation only when one exists. Other cases mutate temporary interpreter state or advance or redirect the cursor, and the common exit restores the saved HSD_Text state and clears temporary string-buffer records.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T21:04:51.300Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L418",
+            "why": "Shows the exact terminating opcode cases, conditional continuation behavior for opcode 0, formatting-state mutations, cursor control, and common restoration and cleanup path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A84BC",
+    "facts": [
+      {
+        "id": "fact:5cc7f222-1f07-4269-91fb-e1dd1d4372f9",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A84BC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes an HSD_Text, its current SIS cursor, per-font SIS texture and kerning resources, and the built-in font atlas and kerning table. Inline commands and measured line dimensions update cursor, delay, fitting, alignment, layout, color, scale, and formatting state. Printable glyph codes select 32×32 I4 textures, apply glyph and kerning metrics, clip geometry and UVs to optional bounds, and send colored quads to GX.",
+        "rationale": "The relocated implementation still obtains font resources from the text's slot, applies command operands and measured dimensions to text state, and converts printable codes into clipped textured geometry.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L442-L561",
+            "why": "Shows acquisition of the HSD_Text, its SIS cursor, per-font resources, built-in font resources, and initial rendering inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L682-L801",
+            "why": "Shows command operands and measured line dimensions changing timing, scale, color, alignment, fitting, and layout."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L802-L964",
+            "why": "Shows glyph-code conversion, resource selection, kerning, geometry and UV clipping, texture loading, GX submission, and committed progress state."
+          }
+        ]
+      },
+      {
+        "id": "fact:b51c386b-f013-4b59-9511-117931bbeb8a",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A84BC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the drawing and animated-command-interpreter side of Melee's UI text-presentation system, including text-box backgrounds, alignment and fit-to-box behavior, font-specific glyphs and kerning, clipping, inline style changes, and progressive line or character reveal delays.",
+        "rationale": "The function turns encoded text resources into UI background and glyph quads while applying authored layout, style, clipping, and reveal-timing controls.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L562-L801",
+            "why": "Shows background drawing, fitting, alignment, inline style commands, and progressive reveal timing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L802-L964",
+            "why": "Shows font glyph selection, kerning, clipping, text coloration, and textured glyph rendering."
+          }
+        ]
+      },
+      {
+        "id": "fact:aae0a39c-bb1e-4b2f-8881-d8a2e7daf86a",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A84BC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_Draw",
+        "rationale": "The routine prepares GX state and draws an HSD_Text background and glyph geometry while interpreting its SIS stream. Draw remains a plausible concise verb under the HSD_SisLib naming convention, although no surviving symbol establishes the original spelling.",
+        "confidence": 0.7,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L442-L561",
+            "why": "Shows that the routine's top-level role is to prepare rendering for an HSD_Text object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L802-L964",
+            "why": "Shows the routine drawing printable glyphs as textured GX quads."
+          }
+        ]
+      },
+      {
+        "id": "fact:b5e6e3d9-da4d-468a-b21a-204aab3fbdc0",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A84BC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "void (HSD_GObj* gobj, int pass). In normal GObj rendering, pass must equal 2 and the HSD_Text comes from gobj user data; when gobj is NULL, the 32-bit pass argument is overloaded to carry an HSD_Text pointer for direct rendering.",
+        "rationale": "The current declaration supplies the signature, and the opening branches distinguish the pass-2 GObj callback path from the null-GObj direct-pointer path.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L442-L497",
+            "why": "Provides the complete signature and shows both supported calling conventions."
+          }
+        ]
+      },
+      {
+        "id": "fact:df499077-173d-41cd-9b96-c3216562ad83",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A84BC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Renders an HSD_Text object's encoded SIS stream. It configures GX text-rendering state, optionally draws the text-box background, measures lines for fitting and alignment, interprets inline presentation commands, and emits clipped textured quads for printable glyphs.",
+        "rationale": "The implementation has moved from sislib.c into hsd_3A76.c, but its behavior is unchanged: the entry path selects an HSD_Text and configures GX, the interpreter handles formatting and timing commands, and the glyph path submits textured quads. The fact is therefore retained with evidence at the new head location.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L442-L561",
+            "why": "Shows HSD_Text selection, visibility guards, camera or orthographic projection setup, GX state setup, and the beginning of background rendering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L682-L801",
+            "why": "Shows inline SIS command interpretation, line measurement, fitting, alignment, formatting-state changes, and timing controls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L802-L964",
+            "why": "Shows glyph selection, kerning, clipping, texture setup, GX quad emission, progress updates, and restoration of transient text state."
+          }
+        ]
+      },
+      {
+        "id": "fact:89314f45-d321-46a2-92b0-8fba2951be17",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A84BC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Rendering is skipped while the text is hidden or has no SIS buffer. During interpretation, termination and reset commands can end or restart processing; newline, glyph, and explicit delay commands update reveal timing and continuation state; jump and formatting-stack commands redirect or restore interpreter state; and other commands change color, scale, alignment, kerning, and fitting. Transient presentation attributes are restored after processing while cursor, pause, skip, layout, and processed-item fields retain progress for subsequent invocations.",
+        "rationale": "The entry guards define inactivity, the switch defines interpreter transitions and pauses, and the exit block distinguishes restored presentation attributes from retained continuation state.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L442-L561",
+            "why": "Shows the hidden and null-buffer guards that suppress rendering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L562-L801",
+            "why": "Shows snapshots and command-driven termination, reset, delay, jump, formatting-stack, alignment, fitting, color, and kerning transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L922-L964",
+            "why": "Shows persistent progress updates followed by restoration of transient attributes and cleanup of temporary string-buffer entries."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A945C",
+    "facts": [
+      {
+        "id": "fact:8da522b6-35e9-4fb5-8275-810d33502a28",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A945C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Forwards path unchanged to lbArchive_LoadArchive and returns its result unchanged. The delegate queries file size, allocates a rounded-capacity image buffer and an archive descriptor, receives the actual loaded length, and passes image, length, and descriptor into DAT initialization before returning the descriptor.",
+        "rationale": "The wrapper performs only direct forwarding. The current delegate distinguishes rounded allocation capacity from actual loaded length and traces both allocations into archive initialization.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L966-L969",
+            "why": "Shows unchanged argument forwarding and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L58-L74",
+            "why": "Traces the filename through size lookup and loading and traces the image, actual length, and descriptor through initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:f4ed7bc5-123a-4f64-b52a-86dd30734275",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A945C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the load side of SisLib's DAT-resource lifecycle, turning a resource path into a relocated runtime archive from which SisLib can obtain serialized text and presentation resources.",
+        "rationale": "The wrapper exposes common DAT loading through SisLib, while the delegate and archive parser create a relocated archive supporting named public-resource lookup.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L966-L974",
+            "why": "Shows the paired SisLib archive load and teardown wrappers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L58-L74",
+            "why": "Shows conversion of a named file into an initialized HSD archive."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L93",
+            "why": "Shows DAT parsing, relocation, section construction, and named public-resource lookup."
+          }
+        ]
+      },
+      {
+        "id": "fact:5bd513cf-a906-4dc0-bd00-2dc023c64887",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A945C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_LoadArchive",
+        "rationale": "The routine directly wraps lbArchive_LoadArchive and is adjacent to the complementary SisLib archive teardown wrapper. The local prefix and delegated operation support LoadArchive, though no retained symbol establishes the exact original name.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L966-L974",
+            "why": "Shows adjacent SisLib wrappers for archive loading and teardown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L58-L74",
+            "why": "Identifies the directly wrapped operation as lbArchive_LoadArchive."
+          }
+        ]
+      },
+      {
+        "id": "fact:deeb1aaa-12c5-4d31-a627-1c68deb42a48",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A945C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Archive-loading wrapper with signature HSD_Archive* (char* path). The path is a NUL-terminated resource name accepted by a const-qualified delegate, and the returned descriptor refers into a separately allocated mutable DAT image that must remain live with it.",
+        "rationale": "The target provides the wrapper signature. The loader separately allocates image and descriptor storage, while HSD_ArchiveParse retains the source image and constructs section pointers into it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L966-L969",
+            "why": "Provides the exact wrapper parameter and return types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L58-L74",
+            "why": "Shows separate allocation of the loaded image and HSD_Archive descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L71",
+            "why": "Shows the archive retaining the image and mapping its section views into that image."
+          }
+        ]
+      },
+      {
+        "id": "fact:5686702e-d4da-4a15-a1e2-ad3f280cd7d1",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A945C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides SisLib's archive-loading wrapper: it accepts a resource path, delegates synchronous DAT loading and initialization to lbArchive_LoadArchive, and returns the resulting HSD_Archive descriptor for resource lookup.",
+        "rationale": "The function has moved into hsd_3A76.c but still directly returns lbArchive_LoadArchive(path). The delegate allocates the image and descriptor, loads the file, initializes the DAT archive, and returns it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L966-L969",
+            "why": "Shows the complete SisLib wrapper forwarding its path and returning the archive loader's result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L58-L74",
+            "why": "Shows the delegated synchronous allocation, file loading, DAT initialization, and return sequence."
+          }
+        ]
+      },
+      {
+        "id": "fact:d51839b1-6118-4f85-b184-f7b71144484f",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A945C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The wrapper has no local branch or persistent state transition; every call immediately enters a synchronous construction sequence and returns after DAT initialization. The delegate allocates backing image and descriptor storage, loads and parses the file, asserts after parse failure, and on success resolves each external-reference chain to NULL before exposing the archive.",
+        "rationale": "The target is an unconditional wrapper. The current loader is straight-line construction code, while DAT initialization contains the parse-failure assertion and external-reference traversal.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L966-L969",
+            "why": "Shows unconditional immediate delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L17-L37",
+            "why": "Shows parse-failure handling and traversal that locates external references to NULL."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L58-L74",
+            "why": "Shows the fixed synchronous allocation, loading, initialization, and return sequence."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A947C",
+    "facts": [
+      {
+        "id": "fact:ad87211c-b50e-490d-99a7-35d7aa809b28",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A947C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an HSD_Archive pointer, forwards it unchanged to lbArchive_80016EFC, and returns no value. The callee derives the loaded-image base from archive->data - 0x20, frees that image through heap 0, and then frees the descriptor; the wrapper does not clear any caller-held pointer.",
+        "rationale": "The wrapper proves unchanged forwarding and no output. The delegate establishes pointer derivation and ordered deallocation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L971-L974",
+            "why": "Shows direct forwarding of the sole input and no return value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L136-L145",
+            "why": "Shows backing-image address recovery and ordered deallocation of image and descriptor."
+          }
+        ]
+      },
+      {
+        "id": "fact:7abd4749-d2de-46df-a6be-8c3327df1885",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A947C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the unload side of SisLib's DAT-resource lifecycle, reclaiming the loaded archive image and descriptor after SisLib no longer needs text or presentation resources from that archive.",
+        "rationale": "The target is the teardown half of adjacent SisLib load and teardown wrappers, and the common archive routine reclaims both allocations constituting a loaded DAT archive.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L966-L974",
+            "why": "Shows paired SisLib wrappers for archive loading and teardown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L58-L74",
+            "why": "Shows creation of the image and descriptor allocations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L136-L145",
+            "why": "Shows destruction of both archive allocations."
+          }
+        ]
+      },
+      {
+        "id": "fact:bff9a295-f8ae-4a15-8382-bb1552ed936b",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A947C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SisLib_FreeArchive",
+        "rationale": "The adjacent SisLib routine wraps lbArchive_LoadArchive, while this routine wraps the inverse destruction operation. The local prefix and paired lifecycle support FreeArchive, though exact original spelling is not preserved.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L966-L974",
+            "why": "Shows adjacent complementary SisLib load and teardown wrappers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L136-L145",
+            "why": "Shows the wrapped operation reclaiming archive storage."
+          }
+        ]
+      },
+      {
+        "id": "fact:451d4035-924b-4ce6-b77c-b3d91948d93a",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A947C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Archive-destruction wrapper with signature void (HSD_Archive* archive). Its non-null argument is a consumed, heap-backed archive descriptor rather than a borrowed read-only reference.",
+        "rationale": "The current definition establishes the exact signature. The callee asserts ownership conditions and frees the image and descriptor, proving that the argument is consumed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L971-L974",
+            "why": "Provides the exact void return and HSD_Archive pointer parameter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L136-L145",
+            "why": "Shows that the forwarded archive identifies storage consumed by the callee."
+          }
+        ]
+      },
+      {
+        "id": "fact:bafe3c9b-922e-401b-ba1e-cf89b20b6746",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A947C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides SisLib's teardown wrapper for a heap-backed HSD DAT archive. It delegates destruction to the common lbArchive routine, which validates the archive and frees both its loaded file image and its HSD_Archive descriptor.",
+        "rationale": "The relocated wrapper directly forwards its archive to lbArchive_80016EFC, whose current body enforces ownership preconditions and performs both frees.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L971-L974",
+            "why": "Shows the complete SisLib teardown wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L136-L145",
+            "why": "Shows validation and deallocation of the backing image and descriptor."
+          }
+        ]
+      },
+      {
+        "id": "fact:a0f305e8-571b-4dbb-bf3a-4bdb37cff8bd",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A947C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Initiates unconditional archive teardown through its delegate. Successful destruction requires a non-null descriptor whose flags contain HSD_ARCHIVE_DONT_FREE; the delegate asserts on either violated precondition, otherwise frees the backing image first and the descriptor second. No cleared pointer is returned to the caller.",
+        "rationale": "The wrapper has no local alternate path. The current destructor contains both guards followed by the ordered frees.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:50:49.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L971-L974",
+            "why": "Shows that every invocation immediately enters delegated teardown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbarchive.c#L136-L145",
+            "why": "Establishes the non-null and ownership-flag guards and ordered destruction."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "src/sysdolphin/baselib/hsd_3A76.c",
+    "facts": [
+      {
+        "id": "fact:e16b493b-aba5-4d17-9630-e95fa901781b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3A76.c",
+        "type": "data_flow",
+        "value": "An `HSD_Text` object's encoded SIS buffer, formatting defaults, font index, box geometry, and reveal counters enter the interpreter. Font-indexed SIS texture and kerning resources supply glyph metrics and atlas data. The measurement pass produces line width and height without retaining its temporary formatting changes; the render pass updates the text cursor, delay and progress fields while issuing GX state changes and textured background or glyph quads.",
+        "rationale": "The measurement routine consumes the encoded cursor and font metrics through output width and height pointers, then restores the text object's saved formatting stack. The renderer consumes those measurements together with the object's placement and box fields, reads font textures and kerning data, advances persistent stream-progress fields, and sends the resulting geometry and textures to GX.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T04:21:43.680Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L437",
+            "why": "Shows an encoded SIS cursor and font resources flowing into measured width and height, followed by restoration and clearing of temporary formatting-stack state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L598-L837",
+            "why": "Shows SIS opcodes and reveal counters driving line measurement, fitting, formatting changes, and updates to the persistent stream cursor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L838-L957",
+            "why": "Shows kerning and atlas data being converted into glyph positions, texture objects, clipped coordinates, and GX quad commands."
+          }
+        ]
+      },
+      {
+        "id": "fact:4b4243d3-ba9b-4166-901d-6003e3cb584d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3A76.c",
+        "type": "game_mapping",
+        "value": "Realizes the visible rendering stage of Melee's SIS-driven UI text presentation: authored encoded text can be aligned or fitted into boxes, colored and scaled within the stream, clipped to a display region, and revealed progressively by character or line before being drawn from font atlases.",
+        "rationale": "The code turns SIS text streams into screen- or camera-space backgrounds and glyph quads while honoring presentation controls and timed reveal state. This directly maps the unit to the player-visible text-presentation behavior whose object and resource foundation remains in `sislib.c`.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T04:21:43.680Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L478-L597",
+            "why": "Shows screen- or camera-space rendering setup and drawing of the configured text-box background."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L598-L837",
+            "why": "Shows authored stream controls governing layout, pauses, delays, formatting, fitting, and progressive text advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L838-L957",
+            "why": "Shows player-visible glyph presentation through font-atlas selection, clipping, coloring, and textured-quad emission."
+          }
+        ]
+      },
+      {
+        "id": "fact:39874897-e9e9-4314-8e1d-9d8e9f1a8b3d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3A76.c",
+        "type": "purpose",
+        "value": "Implements the interpretation, measurement, and GX rendering portion of HSD SisLib. It processes SIS command streams, maintains nested formatting state, measures and fits lines, and draws backgrounds and textured glyph quads with alignment, kerning, scaling, and clipping.",
+        "rationale": "The unit contains a non-rendering stream pass that measures glyphs while interpreting formatting commands, followed by the main renderer that configures GX state, interprets the same command language, fits each line, and emits clipped glyph quads. These coordinated responsibilities establish the unit as the interpreter-and-renderer portion split from SisLib's object and resource lifecycle code.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T04:21:43.680Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L274-L437",
+            "why": "Shows SIS opcode interpretation for line measurement, including formatting-state changes, glyph widths, kerning, and restoration of temporary text state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L478-L597",
+            "why": "Shows the renderer establishing camera or screen-space GX state and drawing the text-box background."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L718-L957",
+            "why": "Shows the rendering interpreter handling formatting commands, measuring and fitting lines, selecting font textures, clipping glyph geometry, and emitting textured quads."
+          }
+        ]
+      },
+      {
+        "id": "fact:fd5cf668-2c23-41e6-a96a-646cc6939984",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3A76.c",
+        "type": "state_behavior",
+        "value": "The SIS interpreter supports nested formatting and control-flow state. It pushes spacing, color, scale, alignment, and return-pointer records into a dynamically grown byte stack and later searches, restores, and optionally removes matching records. During rendering, stream opcodes can reset or advance the stream, start new lines, pause indefinitely, install explicit delays, jump or return, change formatting, toggle kerning or fitting, and reveal glyphs incrementally through saved cursor and countdown state.",
+        "rationale": "The stack helpers encode formatting values and return addresses with typed flag bytes, then restore and remove matching entries in reverse order. The renderer's opcode switch uses those helpers while also mutating the resume cursor, pause flag, countdown, processed-item count, and formatting fields, demonstrating a persistent state machine rather than a stateless draw loop.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T04:21:43.680Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L17-L272",
+            "why": "Shows dynamic stack-record creation and reverse restoration for spacing, color, scale, alignment, and saved stream pointers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A76.c#L598-L837",
+            "why": "Shows reset, line-break, pause, delay, jump, formatting, fitting, kerning, and incremental-reveal opcode transitions and their persistent HSD_Text fields."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7684#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7F0C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A7F0C#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A8134#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A84BC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A84BC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A945C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/sysdolphin/baselib/hsd_3A76:HSD_SisLib_803A947C#r3",
+    "facts": []
+  }
+]

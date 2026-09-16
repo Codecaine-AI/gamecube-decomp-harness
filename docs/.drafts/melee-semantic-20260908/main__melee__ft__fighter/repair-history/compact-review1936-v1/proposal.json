@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/ft/fighter",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L933-L1165",
+            "why": "Motion assignment and flag-controlled cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1166-L1391",
+            "why": "Descriptor, timing, freeze, animation/command branches, and exact callback cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the freeze guard and exact accessory cleanup explicit while preserving the verified transition pipeline.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/fighter:Fighter_ChangeMotionState"
+        },
+        "type": "state_behavior",
+        "value": "Each call assigns the requested motion and performs flag-controlled cleanup before selecting the common or character-specific descriptor. It initializes animation timing from the supplied speed and start frame. FreezeState zeroes frame_speed_mul and the local playback speed only when the selected animation ID is not -1. Animation loading, command processing, blending, and grounded animation-derived velocity remain conditional. An eventual animation ID of -1 clears animation flags, animation skeleton state, script pointer, and blend/frame fields. Entry replaces anim/input/phys/coll/cam callbacks and clears the explicitly listed transient callbacks, including accessory1_cb and accessory4_cb; accessory2_cb and accessory3_cb are not cleared here."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L846-L931",
+            "why": "Allocation, resource selection, process setup, startup dispatch, and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L383-L388",
+            "why": "Input reset and x221D_b4 assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the final helper's meaning without asserting registration or unverified startup-helper gameplay semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/fighter:Fighter_Create"
+        },
+        "type": "data_flow",
+        "value": "Allocates a Fighter GObj, Fighter state, and attribute backup; attaches Fighter state with Fighter_Unload_8006DABC as destructor; forwards input->internal_id to character loading and the descriptor to Fighter_UnkInitLoad_80068914. Initialized kind and costume fields select subsequent resources and the optional OnLoad callback. The constructor installs model-related state, camera and shadow handles, and scheduled processes. Initialized fighter/player fields and input->has_transformation select startup helpers. Finally ftLib_800867E8 calls Fighter_ResetInputData_80068854 and sets x221D_b4 true, after which the GObj is returned."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L846-L931",
+            "why": "Complete object-construction sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L383-L388",
+            "why": "Actual finishing operation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the constructor role while replacing the incorrect claim of final library registration.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/fighter:Fighter_Create"
+        },
+        "type": "purpose",
+        "value": "Constructs a scheduled fighter runtime object: allocates and attaches Fighter state, invokes character/costume and model-related setup, initializes collision, camera and shadow infrastructure, dispatches optional character OnLoad setup, installs fighter processes, and selects an initial startup helper. It finishes by resetting input through ftLib_800867E8 and setting x221D_b4 true, then returns the GObj."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L912-L930",
+            "why": "Complete startup branch ladder and return ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L383-L388",
+            "why": "Post-dispatch input reset and flag write."
+          }
+        ],
+        "op": "write",
+        "rationale": "Uses exact predicates and callees, preserves the ordered branch ladder, and corrects the final operation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/fighter:Fighter_Create"
+        },
+        "type": "state_behavior",
+        "value": "After process installation and Fighter_UnkProcessDeath_80068354, startup dispatch tests FTKIND_MASTERH, then FTKIND_CREZYH, then input->has_transformation, then Player_GetFlagsBit3(fp->player_id). These select ftMh_MS_341_8014FE10, ftCh_Init_80155FCC, ftCo_800BFD04, and ftCo_800C61B0 respectively. Otherwise it calls ftCommon_8007D92C only when no_normal_motion is false and reports an assertion when that invariant fails. On the returning path, ftLib_800867E8 then resets input and sets x221D_b4 true before the GObj is returned."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

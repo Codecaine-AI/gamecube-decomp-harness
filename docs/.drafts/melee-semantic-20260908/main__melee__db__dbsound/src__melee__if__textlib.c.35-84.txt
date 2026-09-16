@@ -1,0 +1,50 @@
+35: DevText* DevText_Create(char id, int x, int y, int w, int h, char* buf)
+36: {
+37:     static GXColor const cyan = { 0x60, 0xD0, 0xB0, 0x70 };
+38:     DevText* text;
+39:     UNUSED u32 pad;
+40:     GXColor bg = cyan;
+41:     PAD_STACK(0x14);
+42: 
+43:     if ((text = find_by_id(id))) {
+44:         return NULL;
+45:     }
+46:     text = devtext_poolhead;
+47:     if (text != NULL) {
+48:         devtext_poolhead = text->next;
+49:     } else {
+50:         text = NULL;
+51:     }
+52:     if (text == NULL) {
+53:         HSD_ASSERTREPORT(309, 0, "TW : Screen alloc Fail\n");
+54:     }
+55:     if (text != NULL) {
+56:         static GXColor const white = { 0xFF, 0xFF, 0xFF, 0xFF };
+57:         static GXColor const red = { 0xFF, 0x80, 0x80, 0xFF };
+58:         static GXColor const green = { 0x80, 0xFF, 0x80, 0xFF };
+59:         static GXColor const blue = { 0x80, 0x80, 0xFF, 0xFF };
+60:         text->x = x;
+61:         text->y = y;
+62:         text->w = w;
+63:         text->h = h;
+64:         text->cursor_x = 0;
+65:         text->cursor_y = 0;
+66:         text->scale_x = 10.0f;
+67:         text->scale_y = 16.0f;
+68:         text->bg_color = bg;
+69:         text->text_colors[0] = white;
+70:         text->text_colors[1] = red;
+71:         text->text_colors[2] = green;
+72:         text->text_colors[3] = blue;
+73:         text->id = (int) id;
+74:         text->line_width = 10;
+75:         text->flags = DEVTEXT_FLAG_SHOWCURSOR;
+76:         text->unk = 0;
+77:         text->current_color = 0;
+78:         text->prev = NULL;
+79:         text->next = NULL;
+80:         text->buf = buf;
+81:         memzero(buf, h * (w * 2));
+82:     }
+83:     return text;
+84: }

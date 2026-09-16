@@ -1,0 +1,82 @@
+{
+  "tu": "main/sysdolphin/baselib/hsd_3B34",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3B34:.data"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source consumer overlays lbl_80430C40 with JpegEncodeTables: u8 quant_luma[0x40], u8 quant_chroma[0x40], u16 ac_code_luma[0xA2], u8 ac_length_luma[0xA2], two explicit padding bytes, u16 ac_code_chroma[0xA2], u8 ac_length_chroma[0xA2], and two explicit padding bytes. The backing source declarations are separate u8 arrays of 0x40 and 0x410 bytes. This describes the authored consumer layout; it does not independently prove compiled section contiguity or extent.",
+        "rationale": "Corrects the prior interpretation of each 0xA4-byte length region as entirely length entries and separates source overlay evidence from compiled layout claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B34.c#L93-L101",
+            "why": "Separate backing-array declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B34.c#L433-L442",
+            "why": "Explicit 0xA2 length arrays and padding fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B34.c#L542-L548",
+            "why": "Consumer casts the leading array to the typed overlay."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3B34:.data"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The DQT writer traverses the luminance and chrominance matrices through the zigzag map, divides each selected byte by the persistent scale, and emits the narrowed quotient. The coefficient encoder selects component-specific AC code and length arrays through JpegEncodeTables. For each nonzero AC coefficient, the current source first indexes those arrays by bit_length(zero_run + 1) and emits zero_run + 1, then separately indexes them by bit_length(abs(coefficient)) and emits the signed magnitude payload, decrementing negative values first. Trailing zeros select entry zero. This is not expressed as a combined JPEG run/category symbol lookup.",
+        "rationale": "Preserves supported quantization flow while replacing a materially inaccurate description of the current AC table indexing.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B34.c#L460-L470",
+            "why": "Run bit length increments the run first."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B34.c#L507-L586",
+            "why": "Run payload and separate AC code lookups."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B34.c#L793-L858",
+            "why": "Both scaled DQT traversals."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/hsd_3B34:hsd_803B3408"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The converter traverses tile_y and tile_x over a fixed two-by-two range. Each tile iteration performs a four-by-four chroma pass before its luminance pass. In the luminance pass, each luma coordinate enters a four-iteration pixel_index loop that writes luma_base[pixel_index * 64], distributing samples across all four 8-by-8 luminance blocks rather than completing one corresponding Y block per tile iteration. Source traversal advances incrementally, and the full fixed region is read without height-based clipping.",
+        "rationale": "Corrects the previous one-quadrant/one-Y-block attribution while retaining the demonstrated chroma-before-luma ordering and fixed traversal.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3B34.c#L203-L278",
+            "why": "Complete converter shows fixed loops, unused height, and four-block luminance indexing."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

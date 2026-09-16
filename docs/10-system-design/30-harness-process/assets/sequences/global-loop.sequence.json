@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "id": "harness-global-loop",
+  "title": "From Initial Sync to Repeated Epochs",
+  "style": {},
+  "participants": [
+    {
+      "id": "controller",
+      "name": "Harness Controller",
+      "kind": "participant"
+    },
+    {
+      "id": "sync",
+      "name": "Sync",
+      "kind": "participant"
+    },
+    {
+      "id": "run",
+      "name": "Run",
+      "kind": "participant"
+    },
+    {
+      "id": "workers",
+      "name": "Workers",
+      "kind": "participant"
+    },
+    {
+      "id": "knowledge",
+      "name": "Knowledge Processing",
+      "kind": "participant"
+    },
+    {
+      "id": "state",
+      "name": "Harness State and Evidence",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "g1",
+      "from": "controller",
+      "to": "sync",
+      "text": "Initial Sync accepts source and readiness evidence",
+      "line": "sync"
+    },
+    {
+      "kind": "message",
+      "id": "g2",
+      "from": "sync",
+      "to": "knowledge",
+      "text": "Import prepared sources; queue librarian work",
+      "line": "async"
+    },
+    {
+      "kind": "message",
+      "id": "g3",
+      "from": "sync",
+      "to": "state",
+      "text": "Record accepted head and initial boundary",
+      "line": "sync"
+    },
+    {
+      "kind": "note",
+      "id": "gn1",
+      "anchor": "knowledge",
+      "side": "over",
+      "text": "Initial backfill researches subjects; curation coverage is tracked separately"
+    },
+    {
+      "kind": "message",
+      "id": "g4",
+      "from": "controller",
+      "to": "run",
+      "text": "Start when required gates pass and Run is requested",
+      "line": "sync"
+    },
+    {
+      "kind": "fragment",
+      "id": "gl",
+      "op": "loop",
+      "operands": [
+        {
+          "guard": "While Run may continue",
+          "items": [
+            {
+              "kind": "message",
+              "id": "g5",
+              "from": "run",
+              "to": "workers",
+              "text": "Admit eligible targets at accepted baseline",
+              "line": "async"
+            },
+            {
+              "kind": "message",
+              "id": "g6",
+              "from": "workers",
+              "to": "run",
+              "text": "Return code and scored attempt evidence",
+              "line": "return"
+            },
+            {
+              "kind": "message",
+              "id": "g7",
+              "from": "workers",
+              "to": "knowledge",
+              "text": "Completed attempts enter enabled summary and librarian processing",
+              "line": "async"
+            },
+            {
+              "kind": "message",
+              "id": "g8",
+              "from": "run",
+              "to": "state",
+              "text": "Settle integration; record epoch result and save point",
+              "line": "sync"
+            },
+            {
+              "kind": "message",
+              "id": "g9",
+              "from": "run",
+              "to": "sync",
+              "text": "Automatic epoch Sync under retained Run lease",
+              "line": "sync"
+            },
+            {
+              "kind": "message",
+              "id": "g10",
+              "from": "sync",
+              "to": "knowledge",
+              "text": "Refresh configured sources and reconcile knowledge inputs",
+              "line": "async"
+            },
+            {
+              "kind": "message",
+              "id": "g11",
+              "from": "sync",
+              "to": "state",
+              "text": "Record Sync result and post-sync evidence",
+              "line": "sync"
+            },
+            {
+              "kind": "message",
+              "id": "g12",
+              "from": "sync",
+              "to": "run",
+              "text": "Accepted baseline or blocker",
+              "line": "return"
+            },
+            {
+              "kind": "fragment",
+              "id": "ga",
+              "op": "alt",
+              "operands": [
+                {
+                  "guard": "Ready, unblocked, and desired run",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "g13",
+                      "from": "run",
+                      "to": "run",
+                      "text": "Refresh eligibility and admit next epoch",
+                      "line": "sync"
+                    }
+                  ]
+                },
+                {
+                  "guard": "Paused or blocked",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "g14",
+                      "from": "run",
+                      "to": "state",
+                      "text": "Keep progress; do not admit another epoch",
+                      "line": "sync"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

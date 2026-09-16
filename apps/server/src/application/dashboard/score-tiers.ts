@@ -1,11 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { getHarnessState } from "@server/core/harness-state/state.js";
 import type { StateStore } from "@server/core/orchestrator-state";
-import type { CycleRecord } from "@server/core/cycle";
-import {
-  runMasterBreakageGate,
-  type MasterBreakageGateResult,
-} from "@server/core/cycle-runtime/phases/running/epochs/breakage-gate.js";
 import { buildRegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 
 export type ScoreTierState = "in_branch" | "in_upstream";
@@ -107,26 +102,81 @@ function score(row: SavePointRow): number | null {
   return finiteNumber(row.matched_code_percent) ?? finiteNumber(measures(row).matched_code_percent);
 }
 
-function confirmedReport(row: SavePointRow, repoRoot: string): {
-  path: string;
-  score: number | null;
-  measures: Record<string, unknown>;
-} | null {
-  const savedPath = row.report_path ?? "";
-  const path = savedPath && existsSync(savedPath)
-    ? savedPath
-    : resolve(repoRoot, "build/GALE01/report.json");
-  if (!existsSync(path)) return null;
+function reportItem(entry: ReportEntry): ScoreTierImprovement {
+  return {
+    targetKey: `${entry.unitName}::${entry.itemName}`,
+    unit: entry.unitName,
+    symbol: entry.itemName,
+    oldScore: entry.fromPercent,
+    newScore: entry.toPercent,
+    delta: entry.toPercent - entry.fromPercent,
+    bytesDelta: entry.bytesDelta,
+    kind: entry.itemName.startsWith(".") ? "section" : "function",
+    state: "in_branch",
+  };
+}
+
+function comparisonReport(fromPath: string, toPath: string): Record<string, unknown> | null {
+  if (!existsSync(fromPath) || !existsSync(toPath)) return null;
   try {
-    const report = parseObject(readFileSync(path, "utf8"));
-    const reportMeasures = parseObject(report.measures);
-    return { path, score: finiteNumber(reportMeasures.matched_code_percent), measures: reportMeasures };
+    const from = parseObject(readFileSync(fromPath, "utf8"));
+    const to = parseObject(readFileSync(toPath, "utf8"));
+    const units = new Map<string, { from?: Record<string, unknown>; to?: Record<string, unknown> }>();
+    for (const [side, report] of [["from", from], ["to", to]] as const) {
+      for (const rawUnit of Array.isArray(report.units) ? report.units : []) {
+        const unit = parseObject(rawUnit);
+        const name = typeof unit.name === "string" ? unit.name : "";
+        if (!name) continue;
+        const pair = units.get(name) ?? {};
+        pair[side] = unit;
+        units.set(name, pair);
+      }
+    }
+    const pairedUnits = [...units.entries()].map(([name, pair]) => {
+      const result: Record<string, unknown> = { name, metadata: pair.to?.metadata ?? pair.from?.metadata };
+      for (const kind of ["functions", "sections"] as const) {
+        const rows = new Map<string, { from?: Record<string, unknown>; to?: Record<string, unknown> }>();
+        for (const side of ["from", "to"] as const) {
+          const unit = pair[side];
+          for (const rawRow of unit && Array.isArray(unit[kind]) ? unit[kind] : []) {
+            const row = parseObject(rawRow);
+            const rowName = typeof row.name === "string" ? row.name : "";
+            if (!rowName) continue;
+            const rowPair = rows.get(rowName) ?? {};
+            rowPair[side] = row;
+            rows.set(rowName, rowPair);
+          }
+        }
+        result[kind] = [...rows.entries()].map(([rowName, rowPair]) => ({
+          name: rowName,
+          ...(rowPair.from ? { from: rowPair.from } : {}),
+          ...(rowPair.to ? { to: rowPair.to } : {}),
+          metadata: rowPair.to?.metadata ?? rowPair.from?.metadata,
+        }));
+      }
+      return result;
+    });
+    return { from: parseObject(from.measures), to: parseObject(to.measures), units: pairedUnits };
   } catch {
     return null;
   }
 }
 
-/** Phase-2 backfill: legacy init/sync/epoch labels immediately become chart steps. */
+function confirmedComparison(baseline: SavePointRow | null, confirmed: SavePointRow | null) {
+  const unavailable = { comparisonStatus: "baseline_unavailable" as const, matches: [], improvements: [], breakages: [] };
+  if (!baseline?.report_path || !confirmed?.report_path) return unavailable;
+  const changes = comparisonReport(baseline.report_path, confirmed.report_path);
+  if (!changes) return unavailable;
+  const report = buildRegressionReport(changes, "Dashboard confirmed comparison", 0);
+  return {
+    comparisonStatus: "vs_upstream" as const,
+    matches: report.newMatches.map((entry) => ({ ...reportItem(entry), score: entry.toPercent })),
+    improvements: report.improvements.map(reportItem),
+    breakages: report.brokenMatches.map(reportItem),
+  };
+}
+
+/** Normalize saved evidence labels for the score chart. */
 export function scoreTimelineKind(triggerKind: string, label: string | null): ScoreTimelineKind {
   if (triggerKind === "baseline" || triggerKind === "init") return "baseline";
   if (triggerKind === "pr_sync" || triggerKind === "sync") return "pr_sync";
@@ -136,85 +186,9 @@ export function scoreTimelineKind(triggerKind: string, label: string | null): Sc
   return "legacy";
 }
 
-function cycleSavePoints(store: StateStore, cycleUuid: string): SavePointRow[] {
-  return store.db.query(
-    `SELECT save_points.id, save_points.trigger_kind, save_points.label,
-            save_points.commit_sha, save_points.matched_code_percent, save_points.report_path,
-            save_points.payload_json, save_points.created_at
-       FROM cycle_timeline_entries
-       JOIN save_points ON save_points.id = cycle_timeline_entries.entry_id
-      WHERE cycle_timeline_entries.cycle_uuid = ?
-        AND cycle_timeline_entries.entry_kind = 'save_point'
-      ORDER BY cycle_timeline_entries.occurred_at ASC, cycle_timeline_entries.id ASC`,
-  ).all(cycleUuid) as SavePointRow[];
-}
-
-type MasterGate = typeof runMasterBreakageGate;
-
-function reportItem(entry: ReportEntry): ScoreTierImprovement {
-  const kind = entry.itemName.startsWith(".") ? "section" : "function";
-  return {
-    targetKey: `${entry.unitName}::${entry.itemName}`,
-    unit: entry.unitName,
-    symbol: entry.itemName,
-    oldScore: entry.fromPercent,
-    newScore: entry.toPercent,
-    delta: entry.toPercent - entry.fromPercent,
-    bytesDelta: entry.bytesDelta ?? 0,
-    kind,
-    state: "in_branch",
-  };
-}
-
-async function confirmedVsMaster(input: {
-  store: StateStore;
-  cycleUuid: string;
-  repoRoot: string;
-  anchorRevision: string | null;
-  confirmedRow: SavePointRow | null;
-  gate: MasterGate;
-}): Promise<Pick<DashboardScoreTiers["confirmed"], "comparisonStatus" | "matches" | "improvements" | "breakages">> {
-  const unavailable = { comparisonStatus: "baseline_unavailable" as const, matches: [], improvements: [], breakages: [] };
-  if (!input.anchorRevision || !input.confirmedRow) return unavailable;
-  const oursReportPath = confirmedReport(input.confirmedRow, input.repoRoot)?.path
-    ?? resolve(input.repoRoot, "build/GALE01/report.json");
-  const changesOutPath = resolve(
-    input.store.stateDir,
-    "dashboard_master_changes",
-    `${input.cycleUuid}-${input.confirmedRow.id}.json`,
-  );
-  const gate = await input.gate({
-    repoRoot: input.repoRoot,
-    stateDir: input.store.stateDir,
-    worktreeDir: null,
-    oursReportPath,
-    anchorSha: input.anchorRevision,
-    reportRelPath: "build/GALE01/report.json",
-    changesOutPath,
-    prSyncFallbackReportPath: null,
-  });
-  if ((gate.status === "skipped" || gate.status === "error") || !gate.changesPath || !existsSync(gate.changesPath)) return unavailable;
-  const report = buildRegressionReport(JSON.parse(readFileSync(gate.changesPath, "utf8")), "Dashboard vs upstream", 0);
-  const breakages = gate.breakages.map((entry) => reportItem({
-    unitName: entry.unitName,
-    itemName: entry.itemName,
-    sourcePath: "",
-    size: 0,
-    fromPercent: entry.fromPercent,
-    toPercent: entry.toPercent,
-    bytesDelta: entry.bytesDelta ?? 0,
-  }));
-  return {
-    comparisonStatus: "vs_upstream",
-    matches: report.newMatches.map((entry) => ({ ...reportItem(entry), score: entry.toPercent })),
-    improvements: report.improvements.map(reportItem),
-    breakages,
-  };
-}
-
-function tentativeWins(store: StateStore, cycle: CycleRecord): DashboardScoreTiers["tentative"] {
-  if (!cycle.active_run_id) return { matches: [], improvements: [] };
-  const activeRun = store.db.query("SELECT id FROM runs WHERE id = ? AND status = 'active'").get(cycle.active_run_id) as { id: string } | null;
+function tentativeWins(store: StateStore, runId: string | null): DashboardScoreTiers["tentative"] {
+  if (!runId) return { matches: [], improvements: [] };
+  const activeRun = store.db.query("SELECT id FROM runs WHERE id = ? AND status = 'active'").get(runId) as { id: string } | null;
   if (!activeRun) return { matches: [], improvements: [] };
   const epoch = store.db.query(
     "SELECT id FROM epochs WHERE run_id = ? AND status = 'active' ORDER BY ordinal DESC LIMIT 1",
@@ -256,9 +230,7 @@ function tentativeWins(store: StateStore, cycle: CycleRecord): DashboardScoreTie
 export async function scoreTiersProjection(
   store: StateStore,
   gameId: string,
-  cycle: CycleRecord | null,
-  repoRoot: string,
-  options: { runMasterBreakageGate?: MasterGate } = {},
+  options: { sourceState?: { head: string | null; dirty: boolean | null } } = {},
 ): Promise<DashboardScoreTiers> {
   const empty: DashboardScoreTiers = {
     baseline: { score: null, measures: {}, anchorRevision: null, savePointId: null },
@@ -269,58 +241,63 @@ export async function scoreTiersProjection(
     tentative: { matches: [], improvements: [] },
     timeline: [],
   };
-  if (!cycle) return empty;
-  const anchor = store.db.query(
-    "SELECT upstream_revision FROM game_upstream_anchors WHERE game_id = ? AND cycle_uuid = ?",
-  ).get(gameId, cycle.cycle_uuid) as { upstream_revision: string } | null;
-  const savePoints = cycleSavePoints(store, cycle.cycle_uuid);
-  const timeline = savePoints.map((row): ScoreTierPoint => ({
-    savePointId: row.id,
-    commitSha: row.commit_sha,
-    score: score(row),
-    measures: measures(row),
-    kind: scoreTimelineKind(row.trigger_kind, row.label),
-    label: row.label,
-    createdAt: row.created_at,
-  }));
-  const anchorRevision = anchor?.upstream_revision ?? cycle.base_sha ?? null;
-  const anchorPoints = savePoints.filter((row) => row.commit_sha === anchorRevision);
-  const baselineRow = anchorPoints.find((row) => score(row) !== null) ?? anchorPoints[0] ?? null;
-  const typedConfirmed = [...savePoints].reverse().find(
-    (row) => row.trigger_kind === "epoch_finish" || row.trigger_kind === "pr_sync" || row.trigger_kind === "sync",
-  );
-  const confirmedRow = typedConfirmed ?? [...savePoints].reverse().find((row) => score(row) !== null) ?? null;
-  const baselineScore = baselineRow ? score(baselineRow) : null;
-  const storedConfirmedScore = confirmedRow ? score(confirmedRow) : null;
-  const confirmedReportData = confirmedRow && storedConfirmedScore === null
-    ? confirmedReport(confirmedRow, repoRoot)
-    : null;
-  const confirmedScore = storedConfirmedScore ?? confirmedReportData?.score ?? null;
-  const confirmedMeasures = confirmedReportData?.measures ?? (confirmedRow ? measures(confirmedRow) : {});
-  const wins = await confirmedVsMaster({
-    store,
-    cycleUuid: cycle.cycle_uuid,
-    repoRoot,
-    anchorRevision,
-    confirmedRow,
-    gate: options.runMasterBreakageGate ?? runMasterBreakageGate,
-  });
-  return {
-    baseline: {
-      score: baselineScore,
-      measures: baselineRow ? measures(baselineRow) : {},
-      anchorRevision,
-      savePointId: baselineRow?.id ?? null,
-    },
-    confirmed: {
-      score: confirmedScore,
-      measures: confirmedMeasures,
-      delta: baselineScore !== null && confirmedScore !== null ? confirmedScore - baselineScore : null,
-      savePointId: confirmedRow?.id ?? null,
-      anchorRevision,
-      ...wins,
-    },
-    tentative: tentativeWins(store, cycle),
-    timeline,
-  };
+  const canonicalState = getHarnessState(store.db, gameId);
+  if (canonicalState) {
+    const savePoints = store.db.query(`
+      SELECT DISTINCT s.id, s.trigger_kind, s.label, s.commit_sha, s.matched_code_percent,
+             s.report_path, s.payload_json, s.created_at
+      FROM save_points s JOIN harness_timeline_entries t
+        ON s.id = json_extract(t.payload_json, '$.evidence.save_point_id')
+      WHERE t.game_id = ? ORDER BY s.created_at ASC, s.id ASC
+    `).all(gameId) as SavePointRow[];
+    const run = canonicalState.history.run_id
+      ? store.db.query("SELECT created_at, inputs_json FROM runs WHERE id = ?").get(canonicalState.history.run_id) as { created_at: string; inputs_json: string } | null
+      : null;
+    const baseRevision = typeof parseObject(run?.inputs_json).base_revision === "string"
+      ? String(parseObject(run?.inputs_json).base_revision)
+      : null;
+    const runBaseline = baseRevision
+      ? savePoints.find((row) => row.commit_sha === baseRevision) ?? null
+      : null;
+    const acceptedHeadAtRunCreation = run
+      ? store.db.query(`SELECT json_extract(payload_json, '$.source.resulting_head') AS head
+          FROM harness_timeline_entries
+         WHERE game_id = ? AND occurred_at <= ?
+         ORDER BY occurred_at DESC, id DESC LIMIT 1`).get(gameId, run.created_at) as { head: string | null } | null
+      : null;
+    const acceptedSyncBaseline = run && acceptedHeadAtRunCreation?.head
+      ? [...savePoints].reverse().find((row) => row.trigger_kind === "sync" && row.created_at <= run.created_at &&
+        row.commit_sha === acceptedHeadAtRunCreation.head) ?? null
+      : null;
+    const upstreamBaseline = savePoints.find((row) => row.commit_sha === canonicalState.source.upstream_revision) ?? null;
+    const baseline = runBaseline ?? acceptedSyncBaseline ?? upstreamBaseline;
+    const latest = [...savePoints].reverse().find((row) => row.id === canonicalState.history.save_point_id) ?? null;
+    const baselineReportRow = baseline && latest
+      ? [...savePoints].reverse().find((row) => row.id !== latest.id && row.commit_sha === baseline.commit_sha &&
+        row.created_at <= latest.created_at && row.report_path != null) ?? baseline
+      : baseline;
+    const fresh = canonicalState.readiness.evidence === "ready" && options.sourceState?.dirty === false &&
+      options.sourceState.head === canonicalState.source.head && latest?.commit_sha === canonicalState.source.head;
+    const comparison = confirmedComparison(baselineReportRow, latest);
+    return {
+      ...empty,
+      baseline: { score: baseline ? score(baseline) : null, measures: baseline ? measures(baseline) : {}, anchorRevision: baseline?.commit_sha ?? canonicalState.source.upstream_revision, savePointId: baseline?.id ?? null },
+      // A scalar comparison needs matching metric/build scope. Keep delta unknown
+      // until the boundary evidence carries that proof; never rebuild in a read.
+      confirmed: {
+        ...empty.confirmed,
+        score: fresh && latest ? score(latest) : null,
+        measures: fresh && latest ? measures(latest) : {},
+        delta: fresh && comparison.comparisonStatus === "vs_upstream" && baseline && latest && score(baseline) !== null && score(latest) !== null
+          ? score(latest)! - score(baseline)!
+          : null,
+        savePointId: latest?.id ?? null,
+        anchorRevision: baseline?.commit_sha ?? canonicalState.source.upstream_revision,
+        ...comparison,
+      },
+      tentative: tentativeWins(store, canonicalState.history.run_id),
+      timeline: savePoints.map((row) => ({ savePointId: row.id, commitSha: row.commit_sha, score: score(row), measures: measures(row), kind: scoreTimelineKind(row.trigger_kind, row.label), label: row.label, createdAt: row.created_at })),
+    };
+  }
+  return empty;
 }

@@ -17,18 +17,18 @@ import {
   runWorkerCycleFromTask,
   workerAttemptRepairReasons,
   type WorkerCycleResult,
-} from "../src/core/cycle-runtime/phases/running/workers/worker-cycle.js";
-import { workerKernelOps, type WorkerJobRunContext } from "../src/core/cycle-runtime/phases/running/workers/worker-job.js";
-import { activateRun } from "../src/core/cycle-runtime/phases/running/run-control.js";
-import { settleRunOnExit } from "../src/core/cycle-runtime/phases/running/jobs/settle-supervised-run.js";
-import { runRunLoop, type RunLoopResult } from "../src/core/cycle-runtime/phases/running/scheduler/run-loop.js";
+} from "../src/core/harness-runtime/phases/running/workers/worker-cycle.js";
+import { workerKernelOps, type WorkerJobRunContext } from "../src/core/harness-runtime/phases/running/workers/worker-job.js";
+import { activateRun } from "../src/core/harness-runtime/phases/running/run-control.js";
+import { settleRunOnExit } from "../src/core/harness-runtime/phases/running/jobs/settle-supervised-run.js";
+import { runRunLoop, type RunLoopResult } from "../src/core/harness-runtime/phases/running/scheduler/run-loop.js";
 import { LocalProcessExecutor } from "../src/core/job-queue/executor.js";
 import { completeJob, markJobRunning } from "../src/core/job-queue/kernel.js";
 import { FakeSandboxProvider } from "../src/core/job-queue/sandbox.js";
 import type { TaskHandle, TaskOutcome, TaskStatus } from "../src/core/job-queue/types.js";
-import { getHarnessState } from "../src/core/harness-state/index.js";
+import { getDispatchState } from "../src/core/harness-state/index.js";
 import { loadKnowledgeBoardSnapshot, openKnowledgeGraph } from "@server/core/knowledge";
-import { planRegressionRepair } from "@server/core/cycle-runtime/phases/running/epochs";
+import { planRegressionRepair } from "@server/core/harness-runtime/phases/running/epochs";
 import { evaluatePrPromotion, readRegressionReport } from "@server/core/validation/objdiff/report";
 import {
   activeClaimsForRun,
@@ -44,7 +44,7 @@ import {
   startSchedulerEpoch,
   updateRunStatus,
   type StateStore,
-} from "@server/core/cycle-runtime/run-state";
+} from "@server/core/harness-runtime/run-state";
 import { listGames, resolveGame } from "@server/core/game-registry";
 import { scoreOrPercent, scorePairLooksPercent } from "../../frontend/src/lib/format.js";
 import { loadTrustedReport } from "../src/core/validation/report/trusted-report.js";
@@ -435,13 +435,13 @@ async function main(): Promise<void> {
   assertSmoke("server job default state dir does not follow repo root", parsedDefaultState.globals.stateDir !== resolve(fixtureRoot, ".decomp-orchestrator-state"));
   const parsedGame = parse(["--game", "melee", "status"]);
   assertSmoke("server job game flag resolves game identity", parsedGame.globals.game?.gameId === "melee");
-  assertSmoke("server job game flag resolves game state dir", parsedGame.globals.stateDir.endsWith("games/melee/state"));
+  assertSmoke("server job game flag resolves game state dir", parsedGame.globals.stateDir.endsWith("games/melee/runtime/state"));
 
   const gameWorkspace = await mkdtemp(join(tmpdir(), "decomp-orchestrator-games-"));
   const gameDir = resolve(gameWorkspace, "games/fixture");
   const externalRepo = resolve(gameWorkspace, "external-checkout");
   const explicitStateDir = resolve(gameWorkspace, "explicit-state");
-  await mkdir(gameDir, { recursive: true });
+  await mkdir(resolve(gameDir, "config"), { recursive: true });
   await mkdir(externalRepo, { recursive: true });
   await writeFile(
     resolve(gameDir, "game.json"),
@@ -461,7 +461,7 @@ async function main(): Promise<void> {
     ),
   );
   await writeFile(
-    resolve(gameDir, "local.game.json"),
+    resolve(gameDir, "config/local.json"),
     JSON.stringify(
       {
         repoRoot: externalRepo,
@@ -480,7 +480,7 @@ async function main(): Promise<void> {
   assertSmoke("game resolver lets local override repo root win", resolvedGame.repoRoot === externalRepo);
   assertSmoke("game resolver lets explicit state dir win", resolvedGame.stateDir === explicitStateDir);
   assertSmoke("game resolver uses local graph override", resolvedGame.graphDbPath === resolve(gameDir, "graph/local.sqlite"));
-  assertSmoke("game resolver reports local override path", resolvedGame.localOverridePath === resolve(gameDir, "local.game.json"));
+  assertSmoke("game resolver reports local override path", resolvedGame.localOverridePath === resolve(gameDir, "config/local.json"));
   assertSmoke("game listing returns configured fixture", listGames({ orchestratorRoot: gameWorkspace }).some((game) => game.id === "fixture"));
   assertSmoke("game resolver rejects missing ids", (() => {
     try {
@@ -1443,7 +1443,7 @@ async function main(): Promise<void> {
     assertSmoke("run-loop does not record director cycles", count(triggerStore, "SELECT COUNT(*) AS count FROM director_cycles WHERE run_id = ?", triggerInit.run.id) === 0);
     assertSmoke("run-loop records one worker state per started worker", count(triggerStore, "SELECT COUNT(*) AS count FROM worker_state WHERE run_id = ?", triggerInit.run.id) === triggerRun.workersStarted);
     assertSmoke("run-loop handled all wake events", count(triggerStore, "SELECT COUNT(*) AS count FROM events WHERE run_id = ? AND handled_at IS NULL", triggerInit.run.id) === 0);
-    assertSmoke("run-loop settles its dispatch lease on exit", getHarnessState(triggerStore, "melee")?.active_workflow == null);
+    assertSmoke("run-loop settles its dispatch lease on exit", getDispatchState(triggerStore, "melee")?.active_workflow == null);
   } finally {
     triggerStore.db.close();
   }

@@ -1,0 +1,844 @@
+{
+  "campaign": "melee-semantic-20260908",
+  "tu": "main/sysdolphin/baselib/controller",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "baseline_path": "games/melee/state/knowledge_v2/semantic-sweep-20260908/baseline-links/main__sysdolphin__baselib__controller.json",
+  "baseline_sha256": "320e381e392e7611f6a681fd3042b905c02ac0b3ec128eb2b78a26d544bdf151",
+  "reviewed_at_utc": "2026-09-08T15:36:45.113995+00:00",
+  "links": [
+    {
+      "link_id": "link:cf0d9871-7781-4380-b506-6e819689fc40",
+      "baseline_record": {
+        "id": "link:cf0d9871-7781-4380-b506-6e819689fc40",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/sysdolphin/baselib/controller.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The translation unit consumes four-port PAD samples and publishes transformed, normalized, edge-detected, and repeating controller status for game use.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L370-L450",
+        "digest": "sha256:a3fd84f5b558c6ab"
+      },
+      "disposition": "retain",
+      "reason": "Owned four-port input and reset pipeline branches support the stated subsystem relationship.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L55-L159",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L547",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L595",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:8ed41c11-a9b7-4622-9e08-22c323eab380",
+      "baseline_record": {
+        "id": "link:8ed41c11-a9b7-4622-9e08-22c323eab380",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:analog-stick-digital-direction-conversion",
+        "role": "implements",
+        "why": "The function thresholds a stick vector, classifies its angle into cardinal sectors, and emits caller-selected digital direction bits.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L242-L279",
+        "digest": "sha256:98b8e8ca0f36527d"
+      },
+      "disposition": "retain",
+      "reason": "Computes magnitude and angle (x0 uses +/-pi/2 with y>=0 choosing positive), compares magnitude against signed adc_th, then ORs supplied masks using independent angular inequalities expanded by adc_angle/2. Left wraps across +/-pi. Does not clear existing bits or require positive threshold/angle; zero vector can be accepted when threshold<=0.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L240-L277",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L199-L221",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L279-L307",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:b51e1cbc-88c9-4f3f-9f2c-5393f14a2a0a",
+      "baseline_record": {
+        "id": "link:b51e1cbc-88c9-4f3f-9f2c-5393f14a2a0a",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function supplies the raw acquisition and buffering stage of controller-input processing by polling four PAD channels, managing their queued samples, and initiating recovery for unavailable ports.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L59-L129",
+        "digest": "sha256:6f5715220dce3f37"
+      },
+      "disposition": "retain",
+      "reason": "Services rumble before PADRead. If err_check and all four err fields are nonzero, returns before queue/reset processing. Otherwise writes one four-port group; full policy0 advances oldest and OR-merges buttons into surviving next group (or new sample when capacity1), policy1 drops oldest, policy2 skips insertion. Nonfull increments u8 count. Invalid policy has no full-queue read-index adjustment but still writes. After handling, error-1 port bits request PADReset and reset-switch press/release updates history/sticky latch. No local interrupt masking or queue validation.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L42-L53",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.h#L76-L105",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:143a3593-b075-48cb-9c61-278a256d5888",
+      "baseline_record": {
+        "id": "link:143a3593-b075-48cb-9c61-278a256d5888",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function publishes processed controller state for four ports and derives press, release, and held-repeat signals for game use.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L511-L549",
+        "digest": "sha256:f9b55b907b1ec5b6"
+      },
+      "disposition": "retain",
+      "reason": "For each of four ports saves game-local previous buttons and master err, copies current input on err0 or clears input otherwise, computes game-local press/release and repeat countdown. Independent of CopyStatus and no local interrupt mask.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L509-L547",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.h#L49-L74",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L427-L468",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:5770e445-3076-4e69-a90d-2ef53d02bfdb",
+      "baseline_record": {
+        "id": "link:5770e445-3076-4e69-a90d-2ef53d02bfdb",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function filters the directional portion of each processed controller button mask before the controller pipeline derives game-facing button transitions and repeats.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L370-L450",
+        "digest": "sha256:a3fd84f5b558c6ab"
+      },
+      "disposition": "retain",
+      "reason": "Filters physical D-pad low bits only. Mode0/unknown preserve input;1 favors vertical;2 favors horizontal;3 records sole-axis input as1/2 and when both axes active favors vertical only for remembered1, otherwise horizontal. Neither-axis case preserves memory. Mutates in place, returns void; synthetic stick bits are untouched.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L309-L349",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L199-L221",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L279-L307",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:b0858333-a494-4675-ae26-a60994b6ce81",
+      "baseline_record": {
+        "id": "link:b0858333-a494-4675-ae26-a60994b6ce81",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function transforms buffered four-port PAD samples into calibrated master input with digital transitions and held-input repeats.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L353-L427",
+        "digest": "sha256:0f14877e480dba01"
+      },
+      "disposition": "retain",
+      "reason": "Under saved interrupt mask, empty queue leaves all statuses unchanged; otherwise consumes oldest four-port group. Saves previous buttons, copies err; err0 copies raw fields and runs clamp/AD/scale/cross in order. err-3 becomes0 while retaining prior input; other errors clear button/raw/normalized fields. Computes press/release masks. Any button change emits trigger as repeat and reloads repeat_start; unchanged decrements s32 counter, emits held mask/reloads interval only on exact zero, otherwise repeat0. Does not saturate counters.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.h#L49-L74",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L427-L468",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:ac72dbfb-ba4a-43f6-ad30-d4c7d5dbee6e",
+      "baseline_record": {
+        "id": "link:ac72dbfb-ba4a-43f6-ad30-d4c7d5dbee6e",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function conditions four raw analog controller channels using configured lower and upper bounds before those values continue through the master-status processing pipeline.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L163-L241",
+        "digest": "sha256:d49264bced246258"
+      },
+      "disposition": "retain",
+      "reason": "For unsigned byte, below min becomes0 and returns; above max clamps to max. Exactly shift==1 then subtracts min and narrows to u8. No min<=max validation, so malformed bounds can wrap subtraction.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L161-L174",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L199-L221",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L279-L307",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:6bcdbf2d-a80b-413c-9c1e-fd8dc4435a99",
+      "baseline_record": {
+        "id": "link:6bcdbf2d-a80b-413c-9c1e-fd8dc4435a99",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:analog-stick-radial-clamping",
+        "role": "implements",
+        "why": "The function performs magnitude-based dead-zone suppression, maximum-radius clamping, and optional radial shifting on both controller stick vectors.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L150-L241",
+        "digest": "sha256:037540b750ce8d40"
+      },
+      "disposition": "retain",
+      "reason": "Computes stick radius; below signed min clears pair. Above signed max, scales components by max/r into s8, then recomputes radius from rounded components. If shift==1 and radius>1e-10, subtracts each component*min/r and narrows again. Integer conversion means exact boundary magnitude and direction are not guaranteed; negative bounds are not rejected.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L176-L197",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L199-L221",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L279-L307",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:629d687b-5e36-428b-ac3d-439dc7cb7df6",
+      "baseline_record": {
+        "id": "link:629d687b-5e36-428b-ac3d-439dc7cb7df6",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function converts the current master controller state into a four-port published snapshot with error filtering, button edges, and held-button repeats.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L472-L509",
+        "digest": "sha256:bfc73434f485e552"
+      },
+      "disposition": "retain",
+      "reason": "For each of four ports saves copy-local previous buttons and master err, copies current input on err0 or clears input otherwise, computes copy-local press/release and repeat countdown. Does not consume queue or copy master repeat/history/cross_dir. No local interrupt mask.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L470-L507",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.h#L49-L74",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L427-L468",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:aff40081-f083-4615-9555-61b0315e66ff",
+      "baseline_record": {
+        "id": "link:aff40081-f083-4615-9555-61b0315e66ff",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadReset",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gamecube-controller-startup-and-calibration",
+        "role": "implements",
+        "why": "HSD_PadReset requests recalibration for the all-four-channel PAD mask as part of resetting the controller subsystem.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L559-L579",
+        "digest": "sha256:cbdd034c171a0e34"
+      },
+      "disposition": "retain",
+      "reason": "Under saved interrupt mask removes queued rumble, writes direct-status0 on ports0..3 through OffN, throws away raw queue, requests PADRecalibrate(0xF0000000), clears reset_switch and restores interrupts. Does not clear reset_switch_status or published status arrays; does not directly issue PADControlMotor. Hardware recalibration completion is not guaranteed by this call.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L21-L65",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L217-L254",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:ee99e185-a42e-4200-8151-d8c2964106ba",
+      "baseline_record": {
+        "id": "link:ee99e185-a42e-4200-8151-d8c2964106ba",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadReset",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-rumble",
+        "role": "implements",
+        "why": "The reset sequence removes all scheduled rumble and explicitly turns the motor off on each of the four controller channels.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L559-L579",
+        "digest": "sha256:cbdd034c171a0e34"
+      },
+      "disposition": "unresolved",
+      "reason": "The exact rationale says the reset explicitly turns motors off. OffN only writes direct_status0 and list removal has no motor call; PADControlMotor occurs in later interpretation. An immediate hardware-off assertion is unsupported.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L21-L65",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L217-L254",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:ccf1fe39-0542-4c78-bdbe-686d4b7af887",
+      "baseline_record": {
+        "id": "link:ccf1fe39-0542-4c78-bdbe-686d4b7af887",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function coordinates raw four-port polling, master input transformation, and publication of copy and game controller statuses as one controller-input processing pass.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L450-L597",
+        "digest": "sha256:0578084cea6f341b"
+      },
+      "disposition": "retain",
+      "reason": "Calls raw renewal with err_check0, then master, copy and game renewal exactly once in that order. Master can consume an older queued group rather than the just-polled group.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L549-L555",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L55-L125",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L547",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:163a082d-4446-4428-83d5-2bdfc6375cd8",
+      "baseline_record": {
+        "id": "link:163a082d-4446-4428-83d5-2bdfc6375cd8",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function manages the buffered history of four-port raw PAD samples that feeds HSD's controller-input pipeline, including policies for preserving button activity, discarding stale input, or retaining only the newest sample.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L131-L161",
+        "digest": "sha256:1bc7e0bb32f97270"
+      },
+      "disposition": "retain",
+      "reason": "Interrupt-masked merge ORs old button activity forward until count<=1, preserving newer analog/error fields; throwaway sets read=write/count0; leave1 retains latest only when count>1. TERMINATE and other selectors do nothing. Restores saved interrupt state.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L127-L159",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L42-L53",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L264-L295",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.h#L38-L43",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:6e59114c-9368-4020-af5f-e400c0cb198d",
+      "baseline_record": {
+        "id": "link:6e59114c-9368-4020-af5f-e400c0cb198d",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function installs the raw-sample queue and initializes the four-port master, copy, and game status arrays required by HSD's controller-processing pipeline.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L581-L597",
+        "digest": "sha256:7aa60ce9579c59ab"
+      },
+      "disposition": "retain",
+      "reason": "Copies default PadLibData, installs u8 qnum and borrowed queue pointer, initializes supplied rumble pool, copies default status to all12 records, calls PADInit. No qnum/storage validation or allocation. Reinitialization clears reset latch and press history through default copy.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L579-L595",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L9-L19",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L258-L275",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L514-L547",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:2baf505e-31bc-490a-bf5e-ed81f97aa500",
+      "baseline_record": {
+        "id": "link:2baf505e-31bc-490a-bf5e-ed81f97aa500",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-rumble",
+        "role": "implements",
+        "why": "The function forwards a caller-supplied rumble-list pool to HSD_PadRumbleInit as part of controller subsystem startup.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L581-L597",
+        "digest": "sha256:7aa60ce9579c59ab"
+      },
+      "disposition": "retain",
+      "reason": "Copies default PadLibData, installs u8 qnum and borrowed queue pointer, initializes supplied rumble pool, copies default status to all12 records, calls PADInit. No qnum/storage validation or allocation. Reinitialization clears reset latch and press history through default copy.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L579-L595",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L9-L19",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L258-L275",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L514-L547",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:4d31ea35-740a-4523-8886-24c5fcd8bf24",
+      "baseline_record": {
+        "id": "link:4d31ea35-740a-4523-8886-24c5fcd8bf24",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gamecube-controller-startup-and-calibration",
+        "role": "implements",
+        "why": "After establishing HSD's software-side controller state, the function calls PADInit to start the lower-level four-channel GameCube controller driver.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L581-L597",
+        "digest": "sha256:7aa60ce9579c59ab"
+      },
+      "disposition": "retain",
+      "reason": "Copies default PadLibData, installs u8 qnum and borrowed queue pointer, initializes supplied rumble pool, copies default status to all12 records, calls PADInit. No qnum/storage validation or allocation. Reinitialization clears reset latch and press history through default copy.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L579-L595",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L9-L19",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L258-L275",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L514-L547",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:b5fe3db9-fd49-4b6e-a4fd-669fbeabac6a",
+      "baseline_record": {
+        "id": "link:b5fe3db9-fd49-4b6e-a4fd-669fbeabac6a",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The function exposes the occupancy of the raw four-port PAD sample queue used by HSD's controller-input pipeline.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L1-L120",
+        "digest": "sha256:93d58d80bf3699f2"
+      },
+      "disposition": "retain",
+      "reason": "Saves interrupt state, reads qcount byte once and restores state; returns snapshot without consuming queue or checking its relation to qnum.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L21-L33",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L55-L159",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L120-L128",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:be681e53-dfa0-40f0-8d41-fcbb7521bd01",
+      "baseline_record": {
+        "id": "link:be681e53-dfa0-40f0-8d41-fcbb7521bd01",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/sysdolphin/baselib/controller.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:console-reset-handling",
+        "role": "implements",
+        "why": "The translation unit polls the console RESET switch, latches a completed activation, exposes it to callers, and provides the reset operation that clears the latch.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L60-L160",
+        "digest": "sha256:60919660fac5806b"
+      },
+      "disposition": "retain",
+      "reason": "Owned four-port input and reset pipeline branches support the stated subsystem relationship.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L55-L159",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L547",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L595",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:98ea6ccd-64a3-40c6-830e-c8b76552e66f",
+      "baseline_record": {
+        "id": "link:98ea6ccd-64a3-40c6-830e-c8b76552e66f",
+        "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:console-reset-handling",
+        "role": "implements",
+        "why": "The accessor supplies the latched console RESET request to code that blanks video and invokes OSResetSystem.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/lb/lb_0195.c#L1-L80",
+        "digest": "sha256:0e2f7ff58ba83175"
+      },
+      "disposition": "retain",
+      "reason": "Returns0 or1 according to reset_switch byte, without clearing it or masking interrupts.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L35-L40",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L117-L124",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L579-L595",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L30-L45",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:756b0f68-fd95-4ff3-96e7-55bbdecefed2",
+      "baseline_record": {
+        "id": "link:756b0f68-fd95-4ff3-96e7-55bbdecefed2",
+        "from_target_id": "target:data:main/sysdolphin/baselib/controller:.rodata",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The table translates four controller-port indices into PAD channel masks used to recover selected ports after controller read errors, making it part of the controller input processing and recovery path.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L100-L125",
+        "digest": "sha256:d9c2611d1afcaa8d"
+      },
+      "disposition": "unresolved",
+      "reason": "Source declarations and uses support the authored objects, but pinned compiled section-to-symbol evidence is absent. Preserve exact baseline pending mapping.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L9-L19",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:b8d4f606-424d-4c2b-94ab-667dffc421ae",
+      "baseline_record": {
+        "id": "link:b8d4f606-424d-4c2b-94ab-667dffc421ae",
+        "from_target_id": "target:data:main/sysdolphin/baselib/controller:.bss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The section stores the queue bookkeeping and the master, copy, and game status arrays through which four-port PAD samples become transformed and published controller input.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L353-L427",
+        "digest": "sha256:0f14877e480dba01"
+      },
+      "disposition": "unresolved",
+      "reason": "Source declarations and uses support the authored objects, but pinned compiled section-to-symbol evidence is absent. Preserve exact baseline pending mapping.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L9-L19",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:01fd30e8-a264-4191-8a9d-418526bcc813",
+      "baseline_record": {
+        "id": "link:01fd30e8-a264-4191-8a9d-418526bcc813",
+        "from_target_id": "target:data:main/sysdolphin/baselib/controller:.bss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:console-reset-handling",
+        "role": "implements",
+        "why": "HSD_PadLibData, which resides in this section, stores both the observed RESET-switch press history and the sticky request latched when the switch is released.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L60-L160",
+        "digest": "sha256:60919660fac5806b"
+      },
+      "disposition": "unresolved",
+      "reason": "Source declarations and uses support the authored objects, but pinned compiled section-to-symbol evidence is absent. Preserve exact baseline pending mapping.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L9-L19",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:acd86485-a7a8-49e9-b4e4-b4ec225e925b",
+      "baseline_record": {
+        "id": "link:acd86485-a7a8-49e9-b4e4-b4ec225e925b",
+        "from_target_id": "target:data:main/sysdolphin/baselib/controller:.data",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The initialized records provide the per-port neutral status and processing parameters that HSD_PadInit installs for the controller sampling, transformation, edge-detection, repeat, and publication pipeline.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L581-L597",
+        "digest": "sha256:7aa60ce9579c59ab"
+      },
+      "disposition": "unresolved",
+      "reason": "Source declarations and uses support the authored objects, but pinned compiled section-to-symbol evidence is absent. Preserve exact baseline pending mapping.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L9-L19",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    },
+    {
+      "link_id": "link:81fcf1e4-37f1-45e6-931d-70c5f8844e8a",
+      "baseline_record": {
+        "id": "link:81fcf1e4-37f1-45e6-931d-70c5f8844e8a",
+        "from_target_id": "target:data:main/sysdolphin/baselib/controller:.sdata2",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The section supplies immutable mathematical constants used to condition stick vectors and convert both controller sticks into synthetic digital direction inputs.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L242-L279",
+        "digest": "sha256:98b8e8ca0f36527d"
+      },
+      "disposition": "unresolved",
+      "reason": "Source declarations and uses support the authored objects, but pinned compiled section-to-symbol evidence is absent. Preserve exact baseline pending mapping.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L9-L19",
+          "why": "Pinned canonical evidence; foreign paths are supporting canonical-only reads."
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "expected": 24,
+    "reviewed": 24,
+    "retain": 18,
+    "reject": 0,
+    "unresolved": 6
+  },
+  "duplicate_policy": "Every exact original baseline record preserved independently."
+}

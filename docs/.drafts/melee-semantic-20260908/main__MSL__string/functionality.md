@@ -1,0 +1,16 @@
+## MSL string support
+
+The canonical and rendered files preserve recognizable library names; no renaming is warranted. `string.c` implements `strlen`, `strcpy`, `strncpy`, `strcmp`, `strncmp`, `strchr`, and `__StringRead`. The header additionally declares string/memory routines implemented elsewhere; these declarations do not establish their implementations here.
+
+- `strlen` scans bytes through the first zero and returns the preceding byte count.
+- `strcpy` copies through the terminator and returns the original destination. Differing modulo-four alignments select byte copying. Matching alignments permit a byte prefix followed by aligned word copying, then a byte tail. K1/K2 addition and masking conservatively trigger fallback; they are not an exact zero-byte predicate. The expression `t & w;` at line 118 has no effect and must not be interpreted as an assignment or complementary-word filter.
+- `strcmp` similarly selects byte or aligned-word processing. Byte mismatches return a byte difference, whereas differing words on the fast path return +1 or -1. Word-value ordering reflects the target's byte order, not an endian-independent implementation. Possible-null words are resolved bytewise.
+- `strncpy` writes exactly the requested destination range when its inputs satisfy the routine's requirements: it copies until count exhaustion or a copied zero, then pads remaining positions with zeros. Count exhaustion without encountering zero does not append a terminator. `strncmp` compares at most the requested count, stopping at a mismatch or shared zero. Both use unsigned `n++` followed by pre-decrement; unsigned wraparound does not make the maximum count behave like zero. Zero count performs no buffer loads or stores, though pointer-before-input expressions are still formed.
+- `strchr` masks the integer search value to eight bits, returns the first matching byte, and returns the terminator address for a zero search.
+- `__StringRead` operates on caller-provided control state. Reading zero sets `NullCharDetected`, returns EOF, and leaves the cursor at the terminator. A successful read advances the cursor and promotes a plain `char` to `int`; unsigned-byte promotion is not established. Unget clears a nonzero flag without moving the cursor, otherwise decrements the cursor, and returns the supplied `ch` without writing it into the string. Error-test returns the flag unchanged; unsupported actions return zero. This routine does not initialize the control, check backward bounds, or manage the lifetime of its backing string. Successful reads do not explicitly clear a preexisting flag.
+
+Canonical evidence: [string implementations](code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/string.c#L10-L318), [public declarations](code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/string.h#L4-L18).
+
+The rendered views contain no substitutions or parse errors. Header shadowed-binding reports limit rendering coverage but do not contradict the canonical declarations. Parameter and data names are outside this renderer's substitution coverage. Source definitions establish K1/K2 initializers and consumers, not compiled section size, ordering, or placement.
+
+Status: synthesized; independent review and live promotion pending.

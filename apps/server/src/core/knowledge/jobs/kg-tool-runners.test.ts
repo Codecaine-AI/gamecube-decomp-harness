@@ -2,12 +2,12 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createRun, openState, startSchedulerEpoch, type StateStore } from "@server/core/cycle-runtime/run-state";
+import { createRun, openState, startSchedulerEpoch, type StateStore } from "@server/core/harness-runtime/run-state";
 import {
   runEpochBoundary,
   type EpochBoundaryDependencies,
   type EpochBoundaryParams,
-} from "@server/core/cycle-runtime/phases/running/scheduler/epoch-boundary";
+} from "@server/core/harness-runtime/phases/running/scheduler/epoch-boundary";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { readToolRegistry, readToolRegistryEntries } from "@server/core/knowledge/graph/registry/sources";
 import { packageRoot } from "@server/core/knowledge/paths";
@@ -141,7 +141,7 @@ test("epoch boundary refreshes the successful cycle worktree and keeps failed ru
   const callOrder: string[] = [];
   const dependencies = {
     reconcilePendingIntegrationAttempt: () => ({ status: "none" }),
-    runEpochCycle: async () => {
+    runEpochSettlement: async () => {
       callOrder.push("cycle");
       return {
         artifactDir: resolve(value.dir, "artifacts"),
@@ -169,7 +169,7 @@ test("epoch boundary refreshes the successful cycle worktree and keeps failed ru
       maintenanceRepoRoot = globals.repoRoot;
       return { tool_runners: [{ tool: "asm_window_search", failed: true }] };
     },
-    publishCycleDraftPr: async () => ({ status: "skipped" }),
+    publishHarnessDraftPr: async () => ({ status: "skipped" }),
     ensureSchedulerEpochFromBoard: () => ({
       progress: { ordinal: 2, admitted: 1, available: 1, claimed: 0, remaining: 1 },
       epoch: { id: "next-epoch" },
@@ -190,7 +190,7 @@ test("epoch boundary refreshes the successful cycle worktree and keeps failed ru
       epochLinkPaths: [],
       epochPauseThreshold: 12,
       epochRequeueLimit: 32,
-      cycleDraftPrEnabled: false,
+      harnessDraftPrEnabled: false,
       ciParityEnabled: false,
       preCommitGateEnabled: false,
       preCommitAutofixEnabled: false,

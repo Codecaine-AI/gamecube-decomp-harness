@@ -1,0 +1,191 @@
+{
+  "version": 1,
+  "id": "worker-attempt-budget",
+  "title": "Submission, Quality Gate, and Continuation",
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Worker",
+      "kind": "participant"
+    },
+    {
+      "id": "p2",
+      "name": "Runner / quality gate",
+      "kind": "participant"
+    },
+    {
+      "id": "p3",
+      "name": "Harness State",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "loop",
+      "operands": [
+        {
+          "guard": "Submission budget and claim time remain",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m1",
+              "from": "p1",
+              "to": "p2",
+              "line": "sync",
+              "text": "Submit changed source and validation-ready note"
+            },
+            {
+              "kind": "message",
+              "id": "m2",
+              "from": "p2",
+              "to": "p2",
+              "line": "sync",
+              "text": "Check write scope; compile and measure; run QA, review lint, and configured checks"
+            },
+            {
+              "kind": "message",
+              "id": "m3",
+              "from": "p2",
+              "to": "p3",
+              "line": "sync",
+              "text": "Record checkpoint with scores, gate results, and artifacts"
+            },
+            {
+              "kind": "fragment",
+              "id": "f2",
+              "op": "alt",
+              "operands": [
+                {
+                  "guard": "Any hard gate fails",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "m4",
+                      "from": "p2",
+                      "to": "p1",
+                      "line": "return",
+                      "text": "Reject submission; return failure details for repair"
+                    },
+                    {
+                      "kind": "note",
+                      "id": "n1",
+                      "anchor": "p2",
+                      "side": "over",
+                      "text": "An exact score cannot override a failed gate."
+                    }
+                  ]
+                },
+                {
+                  "guard": "Gate-clean improvement",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "m5",
+                      "from": "p2",
+                      "to": "p3",
+                      "line": "sync",
+                      "text": "Preserve selectable checkpoint"
+                    },
+                    {
+                      "kind": "fragment",
+                      "id": "f3",
+                      "op": "opt",
+                      "operands": [
+                        {
+                          "guard": "Exact match",
+                          "items": [
+                            {
+                              "kind": "message",
+                              "id": "m6",
+                              "from": "p2",
+                              "to": "p3",
+                              "line": "sync",
+                              "text": "Select exact checkpoint and close attempt"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "fragment",
+                      "id": "f4",
+                      "op": "opt",
+                      "operands": [
+                        {
+                          "guard": "Non-exact and budget remains",
+                          "items": [
+                            {
+                              "kind": "message",
+                              "id": "m7",
+                              "from": "p2",
+                              "to": "p1",
+                              "line": "return",
+                              "text": "Improvement banked; continue toward exact"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "guard": "No selectable improvement",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "m8",
+                      "from": "p2",
+                      "to": "p1",
+                      "line": "return",
+                      "text": "Return measured result and continuation feedback"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p2",
+              "to": "p2",
+              "line": "sync",
+              "text": "Recompute budget from history: 5 base submissions, +2 per new best qualifying score"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "note",
+      "id": "n2",
+      "anchor": "p2",
+      "side": "over",
+      "text": "Claim deadline caps time. A gate-failed exact may grant budget once, but is never selectable."
+    },
+    {
+      "kind": "fragment",
+      "id": "f5",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "Budget or claim deadline ends",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m10",
+              "from": "p2",
+              "to": "p3",
+              "line": "sync",
+              "text": "Select best eligible checkpoint, or retain baseline"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "style": {
+    "accent": "#4C78A8"
+  }
+}

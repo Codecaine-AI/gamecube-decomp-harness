@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_RunDirect",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_RunDirect:ftCo_RunDirect_IASA"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Implements RunDirect's ordered interrupt dispatcher, returning on the first true checker result. Dash-attack and guard success additionally perform their prescribed setup calls before returning; predicate truth, rather than independently verified completion of every downstream motion-state transition, controls termination.",
+        "rationale": "Replaces transition-completion overstatement and removes the unsupported rapid-attack interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Complete dispatcher with explicit setup and returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L164-L169",
+            "why": "RETURN_IF returns when its condition is true."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_RunDirect:ftCo_RunDirect_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Checks ftCo_SpecialS_CheckInput, ftCo_Attack100_CheckInput, ftCo_800D6824, ftCo_800D68C0, ftCo_800D8A38, dash attack with SetMv0, guard with ftCo_80091B90 then ftCo_80091B9C, ftCo_800DE9D8, fn_800CAF78, nonpositive mv.ca.specials.grav AND fn_800CA698, then ft_8008A244. The Attack100-named checker actually dispatches ftData_SpecialHi, not rapid jab; the next two dispatch SpecialN and SpecialLw. Earlier truth skips all later checks. The late float guard admits signed zero and negative values, rejects positive values and, under IEEE comparison semantics, NaN; failing that guard does not suppress the final check.",
+        "rationale": "Corrects the rapid-attack error using active handler-table calls and preserves exact canonical control flow and boundary behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L26-L46",
+            "why": "Exact order, setup, short-circuit comparison and independent final call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "Actual SpecialN/Lw/Hi handler dispatch proves semantics independently of names."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_RunDirect:ftCo_RunDirect_IASA"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains Fighter state from the supplied game object and forwards that same object through ordered checkers. On guard success it passes common-data x410 to ftCo_80091B90, which writes mv.co.guard.x20, then ftCo_80091B9C writes mv.co.guard.x24 from common-data x68. It reads mv.ca.specials.grav only if earlier checks fail; a nonpositive value permits fn_800CA698, whose successful stick-threshold check enters Run preserving animation frame and speed. No ownership transfer or local pointer retention beyond this invocation is expressed.",
+        "rationale": "Retains direct data flow, expands verified setup, and avoids asserting all successful character handlers necessarily transition.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Object forwarding, common-data read and late field access."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Guard.c#L118-L128",
+            "why": "Exact guard member assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L48-L74",
+            "why": "Thresholded Run entry with preserved animation parameters."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,19 @@
+# Pikachu/Pichu SpecialHi semantic review
+
+The TU implements paired grounded/aerial startup, active directional travel, and ending/recovery. Entry clears command 0, loads x0 from x5C, resets x8 and x18, clears ground and XY self velocity, and enters 353 or 356. Startup animation completion selects a burst; airborne startup physics delays falling while x0 is nonzero and always runs the trailing horizontal adjustment. All six IASA callbacks are empty, which proves no local IASA handling, not global interrupt immunity.
+
+Ground burst setup caps stick magnitude at 0.999, requires a non-less-than magnitude and floor-angle test plus !ftCo_8009A134, and otherwise converts to air. Aerial setup uses input only strictly above x8C, otherwise maximum upward travel; horizontal facing changes only above 0.001 in its directed branch. Both initialize x4 from x60 and consume jumps. x8 conditionally applies x98 and frame-12 setup, followed unconditionally by frame-13 setup and animation freeze. Ground/air travel states 354/357 therefore serve both bursts; Start1 does not mean second-burst startup.
+
+Travel animation decrements x4 and enters recovery when nonpositive. Effect 1012 is emitted only for non-Pichu: positive-timer ground offsets are 6*r-3, airborne offsets 10*r-5; expiry effects are unjittered and follow recovery entry. Both visual paths install effect-hitlag callbacks. Ground travel projects movement along the floor and conforms model rotation/scale; aerial travel updates velocity-directed model presentation, preserves the full self_vel vector across a common helper and clears listed translation/transient fields.
+
+Ground travel collision distinguishes ordinary ground loss, loss with wall contact, and grounded wall contact. Air travel increments x18, gates floor response by x18/x88 or !ftCo_8009A134, and chooses grounded recovery for a strict impact-angle excess, otherwise grounded travel; cliff handling precedes teleport-collision fallback. x18 is reset at move entry only in this file, not per burst.
+
+Recovery initializers snapshot XY self and ground velocity, clear active XY/ground velocity, restore xA4-scaled ground or XY momentum, enter 355/358 at frame zero, and install UpdateVel. Ending command 1 gives one second-burst decision priority over animation completion; success marks x8 and calls the appropriate initializer, failure writes command 2. Ground initializer can still fall back to air. Ordinary aerial completion calls ftCo_80096900 with xAC/xB0; landing uses LandingFallSpecial with false/xB0. Recovery physics switches on command nonzero; before that, air vertical velocity loses one ninth per update and runs horizontal adjustment.
+
+UpdateVel changes only gr_vel, self_vel.x and saved direction x10.x to facing_dir*ABS(value). Magnitude preservation assumes normal facing ±1. It is installed in travel and recovery; dispatcher invocation/reset lifetime is not established here.
+
+The source action table independently confirms 353/354/355 as ground Start0/Start1/End and 356/357/358 as air counterparts: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPikachu/ftpikachu.c#L153-L218. This is source-level mapping, not compiled layout evidence. Numeric flags 2 and 10 remain numeric. Header declarations sharing address comments are not proven aliases.
+
+Canonical and rendered pages were fully reviewed. The five owned inferred names fit canonical behavior and rendered usage and are retained; external rendered names were not used as self-proving evidence. Renderer reported zero parse errors. The explicit ledger retains 192 facts and 75 links, with 14 facts and 7 links deferred for compiled-section attribution or identified behavioral defects. No cosmetic rewrites, source/KB writes, entity/link proposals or merges are made.
+
+Status: synthesized; independent review and live promotion pending.

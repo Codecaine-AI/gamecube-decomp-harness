@@ -299,7 +299,7 @@ async function modelProposal(
       object: context.object,
       touchedSubjects: context.touched,
       supportingSubjects: context.supporting,
-      decompStandards: librarianStandardsView(globalStandardsContext()),
+      decompStandards: librarianStandardsView(globalStandardsContext({ gameId: deps.globals.gameId })),
       checkoutRoot: deps.checkoutRoot ?? deps.globals.repoRoot,
       headRevision: context.head_revision,
       ...(retry === undefined ? {} : { retry }),

@@ -1,0 +1,2295 @@
+[
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071B50",
+    "facts": [
+      {
+        "id": "fact:e2cfc0bc-edb6-4897-b8e5-443c595f81d2",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071B50",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current Fighter object and mutable command cursor from a fighter command dispatcher. It resolves the `Fighter`, consumes the behavior selector, and for behaviors 0\u20136 passes the scripted SFX ID, volume, and pan into one of seven fighter audio paths. Those paths perform fighter-aware SFX-ID selection and store playback handles in the general handle `x2160` or managed-channel handles `x2144` through `x2158`. Behaviors 10\u201315 instead select the corresponding six managed-channel reset operations, which issue a stop command and replace that channel's handle with -1. The handler advances `CommandInfo` as it consumes or skips command words.",
+        "rationale": "The target still performs the complete behavior and parameter dispatch. Current managed audio routines confirm Fighter-aware playback, handle destinations, and stop-and-invalidate behavior; the current color-animation adapter still forwards the same callback arguments.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L574-L658",
+            "why": "Shows the command operands flowing into behavior-selected fighter audio calls and the command-cursor advances."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0881.c#L1-L120",
+            "why": "Shows Fighter-aware SFX resolution and returned handles stored in several managed Fighter audio fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L121-L222",
+            "why": "Shows the remaining managed playback destinations and reset routines that issue the stop control and write -1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcolanim.c#L13-L110",
+            "why": "Shows a concrete FtCmd-table adapter forwarding Fighter and CommandInfo arguments to this handler."
+          }
+        ]
+      },
+      {
+        "id": "fact:a88c19ef-ce71-4d43-be6f-c5eb09edacb5",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071B50",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes animation-timed fighter sound-event playback and control: subaction or related fighter command lists can start a sound with authored ID, volume, and pan parameters, route it through a selected fighter audio channel, or explicitly stop a previously managed channel.",
+        "rationale": "The current handler still decodes authored SFX controls and selects playback or reset operations, and the current color-animation command tables continue to reuse it as their sound-event callback.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L567-L672",
+            "why": "Shows sound-event parameter decoding, playback selection, managed-channel stopping, and script advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcolanim.c#L13-L110",
+            "why": "Shows the sound-event handler reused by a fighter color-animation command table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L121-L222",
+            "why": "Shows managed fighter sounds being started, stopped, and marked inactive."
+          }
+        ]
+      },
+      {
+        "id": "fact:2350d604-91f0-4554-b006-b45d5a1d8c13",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071B50",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SoundEffect",
+        "rationale": "The target's command views remain consistently named `sound_effect_*`, every recognized operation remains fighter SFX playback or reset, and the color-animation subsystem still uses it as the sound-command adapter.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L574-L658",
+            "why": "Shows an ftAction callback decoding only sound-effect command fields and invoking audio operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcolanim.c#L13-L110",
+            "why": "Shows another fighter command interpreter using the function as its sound-command implementation."
+          }
+        ]
+      },
+      {
+        "id": "fact:61a02c3b-2ed8-4505-a33c-f20773952eaf",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071B50",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An `FtCmd`-compatible callback with effective signature `void (Fighter_GObj*, CommandInfo*)`. Its recognized command layout is three consecutive command words: a signed behavior selector, an SFX identifier, and packed unsigned 8-bit volume and panning controls. Behaviors 10\u201315 retain the same three-word width but ignore the latter operands.",
+        "rationale": "The current body still exposes the signature, three typed command views, and three-word recognized paths, while the current color-animation table confirms compatible FtCmd use.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L574-L658",
+            "why": "Shows the callback signature, typed operands, behavior families, and cursor advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcolanim.c#L13-L110",
+            "why": "Shows an FtCmd-compatible adapter forwarding the same Fighter and CommandInfo parameters."
+          }
+        ]
+      },
+      {
+        "id": "fact:2ec71303-c4e4-4ab0-8c71-ea077c13dedf",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071B50",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Interprets the fighter action-script sound-effect command. It decodes a behavior selector and either starts an SFX through the selected general or fighter-managed audio channel using the scripted sound ID, volume, and pan, or stops and clears one of six managed fighter sound channels.",
+        "rationale": "The current handler preserves the behavior mapping. Current audio implementations confirm that behaviors 0\u20136 start sounds and retain handles while behaviors 10\u201315 issue channel stops and invalidate the paired fields.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L574-L658",
+            "why": "Shows the complete sound-command decoder and its playback and reset dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_0881.c#L1-L120",
+            "why": "Shows representative parameterized playback routines resolving IDs and storing handles."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L121-L222",
+            "why": "Shows all corresponding managed-channel reset routines issuing stop controls and clearing handles."
+          }
+        ]
+      },
+      {
+        "id": "fact:728c51fb-bdd7-492e-9ca9-2c1ccb636d59",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071B50",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Behavior values 0\u20136 start or replace sounds through seven distinct fighter audio paths: behavior 0 uses general fighter SFX playback, while behaviors 1\u20136 target six managed sound channels. Behaviors 10\u201315 stop and clear the managed channels corresponding respectively to behaviors 1\u20136. Both recognized behavior families consume three command words. An unrecognized behavior performs no audio operation and advances only past the behavior word plus the handler's common final word, consuming two words.",
+        "rationale": "The two switches explicitly define the accepted behavior sets and their one-to-one call mapping. Counting each `NEXT_CMD` establishes the three-word recognized paths and two-word default path. The called audio routines show that the first family starts channel-bound playback and that the second family submits a stop sentinel and clears the corresponding stored handle.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T08:00:23.962Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L574-L658",
+            "why": "Shows the complete behavior-state dispatch, default case, and exact cursor advancement on each path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L92-L222",
+            "why": "Shows that the behavior-selected parameterized routines start managed sounds and the paired reset routines stop them and clear their handles."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071CA4",
+    "facts": [
+      {
+        "id": "fact:bef7e01f-ba07-44c5-8eaa-30ef169f7904",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CA4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter object and mutable command cursor, leaves the fighter object and audio subsystem untouched, and advances the cursor past three packed command words so interpretation resumes at the following command.",
+        "rationale": "The body never reads `gobj` or any command payload and makes no subsystem call; its only operation is the three-word cursor skip. Comparison with the adjacent sound handler confirms that those words would otherwise supply sound behavior, ID, volume, and panning.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:33.787Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L660-L663",
+            "why": "Shows that the routine's sole data transformation is advancing `cmd` by three command words."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L547-L677",
+            "why": "Shows the corresponding sound handler consuming the same command extent and identifies the payload that the target intentionally ignores."
+          }
+        ]
+      },
+      {
+        "id": "fact:e9bdaab6-9453-476b-9df6-588e11c232d7",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CA4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Prevents an overlapping fighter color-animation stream from replaying its animation-script sound effect while another color animation is active, without desynchronizing the secondary stream's remaining timed commands.",
+        "rationale": "Current paired callback tables still substitute the skip wrapper for the playback wrapper, and the current updater still selects the alternate x488 dispatcher while x408 has an active color animation.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftcolanim.c#L1-L95",
+            "why": "Shows paired callback tables whose corresponding sound slots call the playback and skip handlers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcolanim.c#L260-L290",
+            "why": "Shows x408 activity selecting the alternate dispatcher for the x488 color-animation stream."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L547-L677",
+            "why": "Shows the target consuming the sound command's full three-word extent without audio calls."
+          }
+        ]
+      },
+      {
+        "id": "fact:be820581-64b5-4ee4-8937-cb504911f2c7",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CA4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SkipSFXCommand",
+        "rationale": "The current target remains a three-word skip directly paired with the sound-effect handler, and current color-animation callback tables continue to place their wrappers in corresponding slots.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftAction_SkipSFXCommand`.",
+        "confidence": 0.69,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L547-L677",
+            "why": "Shows the target immediately following the sound-effect handler and consuming the same three-word command extent."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftcolanim.c#L1-L95",
+            "why": "Shows the skip and playback wrappers occupying corresponding callback-table slots."
+          }
+        ]
+      },
+      {
+        "id": "fact:4a1e86cb-80bb-46a2-acd1-40e5fd93249c",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CA4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A `FtCmd`-compatible fighter command callback with signature `void (Fighter_GObj*, CommandInfo*)`; its command format occupies three consecutive command words, although this suppression implementation does not inspect their payload fields.",
+        "rationale": "The target's exact signature and `SKIP_CMD(cmd, 3)` remain unchanged, and the current color-animation FtCmd table still reaches it through a compatible adapter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L660-L663",
+            "why": "Shows the exact callback signature and unconditional three-word skip."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftcolanim.c#L1-L95",
+            "why": "Shows an FtCmd table containing a wrapper that forwards Fighter and CommandInfo arguments to the target."
+          }
+        ]
+      },
+      {
+        "id": "fact:1a671c34-f623-4a65-adc6-472e95a60672",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CA4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Consumes a three-word fighter sound-effect command without executing its audio behavior. It serves as the no-play counterpart to `ftAction_80071B50` for color-animation command processing that must remain synchronized while suppressing the encoded sound.",
+        "rationale": "The current target remains a pure three-word skip, while the adjacent handler decodes those words as sound behavior, ID, volume, and pan; current paired color-animation tables preserve the substitution relationship.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L547-L677",
+            "why": "Shows the active three-word sound handler and the target's side-effect-free skip of the same command."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftcolanim.c#L1-L95",
+            "why": "Shows corresponding dispatch slots delegating to the playback and no-play handlers."
+          }
+        ]
+      },
+      {
+        "id": "fact:40da97ff-6973-43b6-bbd1-2fb71198a755",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CA4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally suppresses the current three-word sound command. In color-animation processing, this alternate callback path is selected for the x488 command stream while x408 has an active color animation; when x408 is inactive, the corresponding primary-table callback executes the encoded sound instead.",
+        "rationale": "The target remains branch-free, current paired callback tables retain the skip-versus-play distinction, and the current updater retains the x408-active selection guard.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L547-L677",
+            "why": "Shows unconditional three-word suppression and the playback behavior it replaces."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftcolanim.c#L1-L95",
+            "why": "Shows the skip and playback callbacks in corresponding table slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcolanim.c#L260-L290",
+            "why": "Shows x408 activity controlling whether x488 uses the primary or alternate dispatcher."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071CCC",
+    "facts": [
+      {
+        "id": "fact:7e495b80-162f-4025-be96-bdcfb823c778",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CCC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Derives the `Fighter` from `gobj`, follows `fp->ft_data->x4C_sfx` to its `smash` collection, and, when non-null, forwards the Fighter and collection to `ft_800889F4`. That helper uses the collection's `num` as the random-selection bound, indexes `sfx_ids`, and sends the selected identifier to fighter SFX playback at volume `0x7F` and pan `0x40`. The command cursor is advanced afterward on every path.",
+        "rationale": "The handler establishes the source of the fighter and sound collection and the conditional delegation. The callee establishes how the collection count and IDs become a concrete playback request. Both branches in the handler consume the command.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:28.372Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L665-L676",
+            "why": "Shows data flowing from the fighter object through fighter data and the smash SFX collection into the playback helper, followed by cursor advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L213-L218",
+            "why": "Shows the collection count and randomly indexed SFX ID flowing into fighter playback with fixed volume and pan."
+          }
+        ]
+      },
+      {
+        "id": "fact:755aa27e-54c9-4e5e-81da-899b54d51219",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CCC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes an animation-timed, fighter-specific smash sound event. A fighter subaction script can trigger one randomly chosen sound from that character's configured `smash` SFX pool, while fighters without such a pool silently continue the script.",
+        "rationale": "The function's placement and `CommandInfo` interface identify it as an action-script event handler, while its matched body explicitly selects the fighter-data collection named `smash`. The delegated helper proves that one member of that event-specific collection is chosen randomly for playback.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T12:04:28.372Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L665-L676",
+            "why": "Shows an animation-command handler triggering the fighter's configured `smash` sound collection and tolerating absent configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L213-L218",
+            "why": "Shows that the configured smash collection is realized as one randomly selected fighter sound playback request."
+          }
+        ]
+      },
+      {
+        "id": "fact:35e5a345-107c-46ca-87ff-b5ed751a5acc",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CCC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_PlaySmashSFX",
+        "rationale": "The function is an `ftAction` command handler whose sole event operation is playing from the fighter-data SFX collection explicitly named `smash`. The proposed name follows the unit prefix and describes the evidenced operation without asserting whether the sound marks charge, release, or impact, which the handler alone does not establish.\n\nNaming cleanup: Recognized leading_name form; no lexical audit flags.\nPrior naming claim: `ftAction_PlaySmashSFX` is a plausible original-style name.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L665-L676",
+            "why": "Shows that this `ftAction` handler exclusively retrieves the `smash` SFX collection and requests its playback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L213-L218",
+            "why": "Confirms that the requested operation is fighter SFX playback with random selection from a collection."
+          }
+        ]
+      },
+      {
+        "id": "fact:eea7add0-d3c7-4d82-b86c-224bdde3a35f",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CCC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-command handler with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`. The command carries no payload consumed by this handler beyond its opcode: the handler reads configuration from the fighter's `FtSFX`, treats the `smash` member as a nullable `FtSFXArr*`, and advances the command cursor by one command word.",
+        "rationale": "The matched definition supplies the exact signature, accesses no command-union payload fields, and calls `NEXT_CMD` exactly once on either control-flow path. Its fighter-data accesses establish the nullable `FtSFXArr*` configuration shape.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:28.372Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L665-L676",
+            "why": "Provides the exact signature, fighter-data types, nullable smash-collection test, absence of payload decoding, and one-word command advancement."
+          }
+        ]
+      },
+      {
+        "id": "fact:b25af809-48db-4651-a3b4-294e1e415496",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CCC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles the fighter action-script command that plays a fighter-specific smash sound effect. It obtains the fighter's configured smash SFX collection, delegates random selection and playback when that collection exists, and then consumes the command.",
+        "rationale": "The matched handler reads `fp->ft_data->x4C_sfx->smash`, conditionally passes that collection to `ft_800889F4`, and advances `CommandInfo` on both branches. The callee's matched body shows that delegation selects one collection entry randomly and submits it for fighter-associated playback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:28.372Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L665-L676",
+            "why": "Shows the complete command handler, including retrieval of the fighter's smash SFX collection, the nullable playback branch, and command advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L213-L218",
+            "why": "Shows that the delegated helper randomly selects one SFX ID from the supplied collection and plays it for the fighter."
+          }
+        ]
+      },
+      {
+        "id": "fact:f0ff0495-abe0-4a07-b05b-469502ac234b",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071CCC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If the fighter's configured smash SFX collection is null, the command produces no sound. If it is non-null, exactly one collection entry is selected randomly and one fighter SFX playback request is initiated. Both paths advance the action-command cursor once, so missing character-specific sound configuration does not stall script execution.",
+        "rationale": "The handler branches solely on whether `sfx->smash` is null and invokes the playback helper only on the non-null path, while `NEXT_CMD` appears in both branches. The helper performs one random index operation and one playback call.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:28.372Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L665-L676",
+            "why": "Shows the sound-present and sound-absent paths and confirms that each advances the command stream."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0881.c#L213-L218",
+            "why": "Shows that a non-null collection causes one random selection and one fighter SFX playback operation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071D30",
+    "facts": [
+      {
+        "id": "fact:e0cc6fdf-81f1-43ab-8420-6b2e56e946b2",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D30",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter object and the current CommandInfo cursor, ignores the fighter object and command payload, and advances the cursor by one encoded command word. It produces no output other than the updated script position.",
+        "rationale": "There are no reads from `gobj`, no decoded command fields, and no calls or fighter-field writes. The sole operation is `SKIP_CMD(cmd, 1)`, so cursor advancement is the complete data flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:13.727Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L678-L681",
+            "why": "Shows that the function's only data mutation is skipping one word through the supplied CommandInfo cursor."
+          }
+        ]
+      },
+      {
+        "id": "fact:c157e7b4-19c6-48b1-bd64-f0dae27c8682",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D30",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Represents an intentionally effect-free fighter subaction event: encountering it advances the animation-script stream while causing no visible, audible, or gameplay-state change.",
+        "rationale": "The function is installed in the fighter action-handler family but only consumes its event. Its lack of fighter or subsystem access grounds the in-game result as no observable effect while preserving script progression.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T12:04:13.727Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L647-L747",
+            "why": "Shows the no-op handler within a sequence of fighter action-event handlers whose neighboring entries produce concrete sound, model, visibility, and combat effects."
+          }
+        ]
+      },
+      {
+        "id": "fact:c9df44a2-6511-4784-8cad-0541df98d907",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D30",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A `void(Fighter_GObj* gobj, CommandInfo* cmd)` fighter action-command handler for a one-word encoded event; `gobj` is intentionally unused and `cmd` is mutable because the handler advances its command-stream cursor.",
+        "rationale": "The declared signature supplies the standard fighter object and command cursor used by neighboring handlers, while the body uses only the mutable CommandInfo argument and skips exactly one word.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:04:13.727Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L678-L681",
+            "why": "Provides the exact callback signature and shows that only the CommandInfo cursor is used."
+          }
+        ]
+      },
+      {
+        "id": "fact:932e09c9-3fd2-4ded-b18c-1cae1fa745fe",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D30",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles a one-word fighter action-script event as a no-op: it consumes the encoded command so script interpretation can continue without applying any fighter, audiovisual, collision, or other gameplay change.",
+        "rationale": "The complete function body consists solely of `SKIP_CMD(cmd, 1)`. Unlike the neighboring handlers, it neither reads the fighter object nor invokes any subsystem, showing that its role is to acknowledge and consume this event without performing an effect.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T12:04:13.727Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L678-L681",
+            "why": "Shows the entire handler advancing past one command word and performing no other operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L647-L747",
+            "why": "Places the function among fighter action-command handlers and contrasts its cursor-only behavior with neighboring handlers that alter sound, model-part, visibility, and hitbox state."
+          }
+        ]
+      },
+      {
+        "id": "fact:b2515b4a-c5f1-4073-ac92-58e7079ddb42",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D30",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Executes unconditionally and leaves fighter and subsystem state unchanged; after consuming one command word, control returns to the surrounding interpreter, which may process the next due event.",
+        "rationale": "The target remains an unconditional one-word skip with no state access, and the current surrounding interpreter still repeatedly dispatches due commands until a stopping condition is reached.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L678-L681",
+            "why": "Shows unconditional one-word cursor advancement with no fighter-state side effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L1357-L1417",
+            "why": "Shows the surrounding due-command interpreter continuing according to the command state after callback execution."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071D40",
+    "facts": [
+      {
+        "id": "fact:7946e8f4-a4ca-4fc8-9710-6350f91932c7",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D40",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads `idx` and `value` from `cmd->u->set_dobj_flags` and forwards them unchanged with the fighter object to `ftParts_80074B0C`. If the requested value differs from the fighter's current selection, the callee writes `fp->x5F4_arr[idx].idx`, sets the model-parts dirty flag, and invalidates visibility group 0; the handler then advances the script cursor regardless of whether the selection changed.",
+        "rationale": "The target directly exposes the command-to-callee handoff and unconditional cursor advancement. The callee exposes the guarded writes and visibility invalidation that consume those decoded values.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:05:51.506Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L683-L688",
+            "why": "Shows both command fields flowing unchanged into `ftParts_80074B0C` before unconditional `NEXT_CMD` execution."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L590-L680",
+            "why": "Shows where the forwarded index and selector are compared, stored, and propagated into dirty and visibility-invalidation state."
+          }
+        ]
+      },
+      {
+        "id": "fact:8b57edee-b51c-44f3-a6a6-ea500374eb5b",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D40",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Allows fighter subaction scripts to synchronize model-part and accessory changes with animation events. It exposes the same model-variant primitive used by character mechanics such as displaying Mr. Game & Watch's Oil Panic bucket-fill segments and restoring Yoshi's ordinary presentation after Egg Roll.",
+        "rationale": "The target makes model-part selection available as an action-script command. Independent named callers of the delegated primitive use different model-group selectors to represent Oil Panic charge and restore Yoshi's model after Egg Roll, demonstrating the visible in-game role of the operation.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T08:05:51.506Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L683-L688",
+            "why": "Shows model-part selection being exposed as a consumable fighter action-script event."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftGameWatch/ftgamewatchspeciallw.c#L107-L137",
+            "why": "Shows the same delegated primitive selecting visible Oil Panic bucket segments according to charge state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftYoshi/ftyoshispecials.c#L187-L204",
+            "why": "Shows the same primitive restoring Yoshi's model-part selection during Egg Roll presentation cleanup."
+          }
+        ]
+      },
+      {
+        "id": "fact:10c96c10-3482-40a3-aa9a-f48a6b5848bc",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D40",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SetDObjFlags",
+        "rationale": "The decoded command arm is explicitly called `set_dobj_flags`, favoring `SetDObjFlags` as the event-oriented name, while the callee demonstrates that the operation actually selects one model-part variant rather than accepting an arbitrary flag mask. No retained symbol establishes which wording the original developers used, so both plausible interpretations are retained in one qualified claim.\n\nNaming cleanup: This is the best-supported direct name; the exact historical spelling remains uncertain.\nPrior naming claim: Likely `ftAction_SetDObjFlags` or, semantically, `ftAction_SetModelPart`.",
+        "confidence": 0.68,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L683-L688",
+            "why": "Provides the locally recovered command-arm name `set_dobj_flags` and establishes that the function is its action-command handler."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L500-L598",
+            "why": "Shows that the called operation's arguments are a model-group index and selected variant, grounding the semantic `SetModelPart` alternative."
+          }
+        ]
+      },
+      {
+        "id": "fact:d29120ff-11a3-4b00-ba99-999f85ddcd4a",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D40",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A one-word fighter action-command callback with signature `void (Fighter_GObj* gobj, CommandInfo* cmd)`. Its payload supplies an indexed model-part group and an integer variant selector, after which the callback advances `cmd` once.",
+        "rationale": "The matched definition establishes the callback signature and one `NEXT_CMD` advancement. Its two payload fields are passed to a callee whose exact parameters are `int model_idx` and `int val`, establishing their effective domains.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:05:51.506Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L683-L688",
+            "why": "Provides the exact callback signature, payload accesses, and single command-cursor advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L590-L680",
+            "why": "Provides the callee's exact integer parameter types and shows that they denote a model-group index and selected value."
+          }
+        ]
+      },
+      {
+        "id": "fact:bce07c19-58ae-4ddf-85ac-9c6259933939",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D40",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles the fighter action-script command that selects a visual variant for one fighter model-part group. It decodes the group index and requested selector, delegates the model update to `ftParts_80074B0C`, and consumes the command.",
+        "rationale": "The target reads the `idx` and `value` fields from the command's `set_dobj_flags` view, passes them directly to `ftParts_80074B0C`, and advances the command cursor. The callee shows that these arguments select an indexed fighter-model variant and invalidate the associated visibility state when the selection changes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T08:05:51.506Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L683-L688",
+            "why": "Shows the complete command handler decoding `set_dobj_flags.idx` and `.value`, calling the fighter-parts routine, and advancing to the next command."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L590-L680",
+            "why": "Shows that the delegated operation changes the selected variant of an indexed fighter-model group and invalidates its DObj visibility configuration."
+          }
+        ]
+      },
+      {
+        "id": "fact:f47a09e6-9ed6-4abc-84d9-eefec4f93327",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D40",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The command is always consumed exactly once. Its model-state effect is change-sensitive: requesting the already-active variant causes no fighter or DObj-state mutation, while a changed variant updates the selection, marks model-part state dirty, and invalidates the currently applied visibility group so the selected DObj configuration can be reapplied.",
+        "rationale": "The handler has no guard around `NEXT_CMD`, so command progression is unconditional. All model mutations in the callee are enclosed by a selector-inequality guard, and the adjacent invalidator only traverses DObjs when the visibility group is presently applied.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:05:51.506Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L683-L688",
+            "why": "Shows unconditional advancement after invoking the model-part update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L590-L680",
+            "why": "Shows the equality no-op path, changed-selection writes, and applied-state guard used when invalidating DObj visibility."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071D94",
+    "facts": [
+      {
+        "id": "fact:50fc3cf8-04a5-4fa7-847d-3656211e5c88",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D94",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The handler passes its `Fighter_GObj` to `ftParts_80074A8C`. That helper obtains the fighter, reads `x5AC.model_num` and each saved `x5F4_arr[i].prev` selection, writes those selections into the corresponding active `x5F4_arr[i].idx` entries, and clears `x221D_b2`. The active indices are later consumed by fighter-parts visibility logic to choose which DObj alternative is shown; after the helper returns, the handler advances `cmd` once.",
+        "rationale": "The wrapper establishes the flow of `gobj` to the fighter-parts subsystem and the subsequent command-cursor update. The callee and visibility traversal establish the saved-to-active copy, flag clear, and later consumption of the restored indices.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:07:36.400Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L690-L694",
+            "why": "Shows `gobj` being forwarded to the restoration helper and `cmd` being advanced afterward."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L568-L577",
+            "why": "Shows model count and saved selections being read, active selections being written, and `x221D_b2` being cleared."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L590-L700",
+            "why": "Shows active selection indices being consumed to reveal selected DObj groups and hide their alternatives."
+          }
+        ]
+      },
+      {
+        "id": "fact:e2b64271-a145-4508-8ba1-56d2097ae98a",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D94",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes an animation-timed reset of a fighter's model-part appearance state: a subaction script can end temporary alternate-model selections by restoring each model category's saved baseline, rather than relying solely on the next ordinary motion-state transition to perform that reset.",
+        "rationale": "The command exposes model-selection restoration directly to the subaction stream. The restored active indices drive table-based visibility selection among DObj alternatives, and motion-state entry independently uses the same helper as its normal guarded reset path.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T12:07:36.400Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L597-L757",
+            "why": "Shows adjacent subaction commands setting, restoring, and clearing fighter model-part selections."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L520-L625",
+            "why": "Shows the saved and active model-part selections and the operation that restores the latter from the former."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L590-L700",
+            "why": "Shows active model-part indices selecting visible DObj alternatives and hiding unselected alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Shows the ordinary motion-state transition path using the same restoration operation unless model state is explicitly preserved."
+          }
+        ]
+      },
+      {
+        "id": "fact:b31cc14a-3a29-4124-93b9-f0c35a7e2a77",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D94",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_RestoreModelParts",
+        "rationale": "The handler has no operands and delegates solely to the fighter-parts routine that restores active selections from saved selections. Its immediate local family contains a command that sets one active selection before it and a command that clears all selections after it, making \u201cRestore\u201d the strongest semantic distinction; the exact original suffix remains uncertain because the family is address-named.\n\nNaming cleanup: Selected the most direct name supported by the documented behavior; exact historical spelling is unverified.\nPrior naming claim: Likely `ftAction_RestoreModelParts` or, more explicitly, `ftAction_RestoreModelPartSelections`.",
+        "confidence": 0.79,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L597-L757",
+            "why": "Places the function between command handlers that set one model-part selection and clear every model-part selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L520-L625",
+            "why": "Shows the fighter-parts operation family and establishes that `ftParts_80074A8C` specifically restores active selections from saved values."
+          }
+        ]
+      },
+      {
+        "id": "fact:b119c7ea-30cc-4f23-ab3e-81dbf7150317",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D94",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A one-word, operand-free fighter subaction-command callback with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`. It mutates state through the fighter object, advances the mutable command cursor exactly once, and returns no value.",
+        "rationale": "The matched definition provides the exact signature and complete body. It reads no command payload fields, delegates the fighter mutation through `gobj`, and invokes `NEXT_CMD(cmd)` once.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:07:36.400Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L690-L694",
+            "why": "Provides the exact callback signature and complete operand-free implementation."
+          }
+        ]
+      },
+      {
+        "id": "fact:241e2b9c-2ac3-4a1e-a6ae-b2e21e75b71b",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D94",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles the operand-free fighter subaction command that restores every active model-part selection from its saved baseline, clears the model-modified status, and consumes the command so script execution can continue.",
+        "rationale": "The complete wrapper calls `ftParts_80074A8C` and then advances `CommandInfo`. The callee iterates over all configured model groups, copies each saved `prev` selection into the active `idx` selection, and clears `x221D_b2`.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:07:36.400Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L690-L694",
+            "why": "Shows the complete handler invoking `ftParts_80074A8C` and then advancing to the next command."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L568-L577",
+            "why": "Shows the invoked helper restoring every active model-part index from its saved value and clearing the associated status flag."
+          }
+        ]
+      },
+      {
+        "id": "fact:083ac7d2-b5b2-4fdc-bf1c-3354eb7f1cb0",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071D94",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When this command becomes due, it unconditionally restores every active model-part index from the fighter's saved baseline and clears `x221D_b2`. It has no payload-dependent guard or branch and advances the script cursor exactly once. This is the explicit script-driven counterpart to the guarded restoration normally performed during a motion-state change when modified model state is not preserved by `Ft_MF_SkipModel`.",
+        "rationale": "The handler contains only the restoration call and one cursor advancement. The helper performs the all-model restoration and flag clear, while `Fighter_ChangeMotionState` shows the same helper being conditionally invoked when model state is marked modified and the transition does not preserve it.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:07:36.400Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L690-L694",
+            "why": "Shows unconditional helper execution followed by exactly one command-cursor advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L568-L577",
+            "why": "Shows the complete all-model restoration loop and transition of `x221D_b2` to false."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Shows ordinary motion-state entry invoking the same restoration helper only when model state is modified and `Ft_MF_SkipModel` is absent."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071DCC",
+    "facts": [
+      {
+        "id": "fact:49275c90-12da-4b00-bf0f-6b4708e56222",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071DCC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter object and mutable action-script cursor. The fighter object flows to `ftParts_80074ACC`, which obtains the `Fighter`, reads `x5AC.model_num`, writes `-1` into each corresponding `x5F4_arr[i].idx`, and clears `x221D_b2`. Those current indices are consumed by fighter-parts visibility traversal when choosing which DObj alternatives are selected; after the helper returns, the command cursor advances once.",
+        "rationale": "The wrapper establishes the flow from `gobj` into the fighter-parts subsystem and the subsequent cursor update. The helper and neighboring visibility traversal establish the model-count read, per-group writes, flag clear, and later use of each current index.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:24:03.491Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L696-L700",
+            "why": "Shows `gobj` flowing to the fighter-parts helper and `cmd` being advanced afterward."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L579-L588",
+            "why": "Shows the model-group count being read and every current selection index plus the associated status bit being written."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L530-L620",
+            "why": "Shows the current selection indices being consumed by the DObj visibility lookup and contrasts clear, restore, and indexed-set data paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:5c7215b0-7c77-4a50-a054-20f263942b4f",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071DCC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes an animation-timed clearing of fighter model-part variant state. A subaction script can remove all current alternate-model selections at a specific animation event, distinguishing this operation from restoring saved baseline selections or choosing one explicit visual variant.",
+        "rationale": "The target is a `CommandInfo` callback situated beside model-part set and restore commands. Its helper clears the indices that the fighter-parts visibility traversal uses to select visible DObj alternatives, grounding the command in scripted fighter appearance control.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T12:24:03.491Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L597-L717",
+            "why": "Shows model-part setting, restoration, and clearing exposed as neighboring fighter action-script commands."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L530-L620",
+            "why": "Shows the cleared indices belonging to the model-part selection state consumed when controlling DObj alternatives."
+          }
+        ]
+      },
+      {
+        "id": "fact:4dafcc77-5d6a-48e1-81b5-a6003735bbdf",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071DCC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_ClearModelPartSelections",
+        "rationale": "The local `ftAction_` family contains an indexed model-selection setter immediately followed by handlers that restore or clear all selections. This handler specifically invokes the helper that replaces every current selection with `-1`, making `ClearModelPartSelections` a conservative description; the exact original suffix remains uncertain because the family is still address-named.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftAction_ClearModelPartSelections`.",
+        "confidence": 0.8,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L597-L717",
+            "why": "Places the target beside the model-part selection setter and restoration handlers, establishing its clear-all role within the local command family."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L530-L620",
+            "why": "Distinguishes the invoked clear operation from the neighboring saved-selection restore and indexed-selection setter operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:c2b3f00b-5aee-42ac-8b85-1af3f494d563",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071DCC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A one-word, operand-free fighter subaction-command callback with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`. It returns no value, reads no command payload fields, and advances the mutable command cursor exactly once.",
+        "rationale": "The matched definition provides the exact signature and complete implementation. Only `gobj` is passed into the state-mutating helper, while `cmd` is used solely by one `NEXT_CMD` invocation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:24:03.491Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L696-L700",
+            "why": "Provides the exact callback signature and shows an operand-free implementation with one command-cursor advancement."
+          }
+        ]
+      },
+      {
+        "id": "fact:6e95d81c-bfb7-4642-9e7b-085d98c4fd55",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071DCC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles the operand-free fighter subaction command that clears every current model-part selection, resets the associated model-selection status flag, and advances execution to the next encoded command.",
+        "rationale": "The complete handler calls `ftParts_80074ACC` and then invokes `NEXT_CMD`. The resolved helper iterates over every configured fighter model group, assigns the inactive `-1` sentinel to its current selection index, and clears `x221D_b2`.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:24:03.491Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L696-L700",
+            "why": "Shows the complete command handler delegating to `ftParts_80074ACC` and then consuming one command word."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L579-L588",
+            "why": "Shows the delegated operation clearing every current model-group index to `-1` and clearing `x221D_b2`."
+          }
+        ]
+      },
+      {
+        "id": "fact:ac7595c8-2051-4db9-a4f6-9da565bb3920",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071DCC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When executed, the handler unconditionally transitions every current model-group selection to the inactive `-1` state, leaves `x221D_b2` false, and proceeds to the next script command. It has no operand-dependent branch or guard. Unlike the adjacent restore command, it does not copy saved `prev` selections into the active indices; unlike the indexed setter, it does not select a replacement variant or mark a visibility update pending.",
+        "rationale": "The target contains only an unconditional helper call and cursor advancement. The helper's complete loop establishes the all-groups transition and flag value, while its neighboring routines demonstrate the distinct restore and setter transitions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:24:03.491Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L696-L700",
+            "why": "Shows unconditional execution with no payload access or guard, followed by exactly one cursor advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L579-L588",
+            "why": "Shows every current model selection transitioning to `-1` and `x221D_b2` transitioning to false."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftparts.c#L530-L620",
+            "why": "Shows that the neighboring restore operation copies `prev` values, whereas the setter installs an indexed value and marks the state changed."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071E04",
+    "facts": [
+      {
+        "id": "fact:776e6fd8-cc06-477b-a1ea-d5c2b186bb1a",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071E04",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The fighter object supplies `fp->xDF4`, while the first command word supplies the capsule index and damage. The second word is passed to `ftColl_8007AC9C` and supplies `x24` and `x28`; the third supplies `x2C`, element, sound-effect severity, and sound-effect kind. These values are accumulated into the same selected HitCapsule as the mutable CommandInfo cursor advances to the following script command.",
+        "rationale": "The body retains one `HitCapsule*` derived before the first cursor advance, then uses it for both collision-helper calls and every direct assignment across all three command words. The final `NEXT_CMD` leaves the caller's cursor after the complete payload.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:06:53.270Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L702-L719",
+            "why": "Directly shows the origin and destination of every decoded field and the cursor movement between the three payload words."
+          }
+        ]
+      },
+      {
+        "id": "fact:dd273ca6-b109-4498-940b-7320cf20d6bf",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071E04",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes animation-timed throw-hitbox setup: fighter action data determines which throw-associated hit capsule is used and supplies its damage, element, collision parameters, and impact-sound attributes before the throw's active hitbox interval.",
+        "rationale": "The command and payload views explicitly identify the operation as setting a throw hitbox, and the destination is a fighter HitCapsule carrying damage, element, and sound fields. Documented move timing independently shows that a throw animation can have a scheduled hitbox interval distinct from the eventual throw frame, consistent with this setup being driven by animation commands.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T08:06:53.270Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L702-L719",
+            "why": "Shows a `set_throw_hitbox` command configuring a fighter HitCapsule's damage, element, collision fields, and sound attributes."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://sheik-ssbm-down-throw~timing@r1577737",
+            "why": "Documents an example throw animation with a defined hitbox interval followed by a separate throw frame."
+          }
+        ]
+      },
+      {
+        "id": "fact:66f3bda2-bab0-472f-9718-467cb25f1a31",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071E04",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SetThrowHitbox",
+        "rationale": "All three command-union views are named `set_throw_hitbox_0`, `set_throw_hitbox_1`, and `set_throw_hitbox_2`, and their combined operation configures one selected HitCapsule. `ftAction_SetThrowHitbox` is therefore the most direct convention-aligned reconstruction, although no surviving symbol confirms it.",
+        "confidence": 0.88,
+        "updated_at": "2026-09-02T08:06:53.270Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L702-L719",
+            "why": "Identifies the three payload views as parts of one `set_throw_hitbox` command and shows their combined effect on a selected HitCapsule."
+          }
+        ]
+      },
+      {
+        "id": "fact:5cba1feb-34a4-4634-9644-caa7047837b1",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071E04",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A three-word fighter animation-command handler with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`. The command cursor exposes three consecutive `set_throw_hitbox` payload views, and the first word's index selects an element of the fighter's embedded `HitCapsule` array.",
+        "rationale": "The matched definition establishes the exact return and parameter types. Three successive `NEXT_CMD` operations separate accesses through the `_0`, `_1`, and `_2` command views, proving that the logical command occupies three packed command words.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:06:53.270Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L702-L719",
+            "why": "Provides the exact function signature, indexed HitCapsule selection, three command-union views, and three cursor advances."
+          }
+        ]
+      },
+      {
+        "id": "fact:61493397-9827-420d-91d0-01f629ccbade",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071E04",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles the three-word fighter subaction command that configures a throw hitbox. It selects one of the fighter's embedded HitCapsules, initializes it through fighter-collision helpers, writes the command's remaining hit and sound attributes, and consumes all three command words.",
+        "rationale": "The matched body selects `fp->xDF4[idx]` through the explicitly named `set_throw_hitbox_0` command view. It then processes three successive command views, calls two collision helpers, writes the capsule's remaining fields, and invokes `NEXT_CMD` after each word.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T08:06:53.270Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L702-L719",
+            "why": "Shows the complete handler selecting a HitCapsule, applying all three `set_throw_hitbox` payload words, and advancing the command cursor three times."
+          }
+        ]
+      },
+      {
+        "id": "fact:4134c24a-3750-42a2-9cba-52dd11b7ed25",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071E04",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Execution is unconditional: the handler always processes exactly three consecutive command words in order. It first initializes the indexed capsule with damage and fighter ownership, then applies the second-word collision parameters, then commits the final collision-element and sound attributes; it performs no local guard or alternate transition before returning with the cursor advanced by three words.",
+        "rationale": "The target remains a branch-free three-stage HitCapsule update, and the current interpreter still dispatches fighter-specific handlers only while their animation commands are due.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L702-L719",
+            "why": "Shows the ordered, branch-free processing of three SetThrowHitbox command words."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L1357-L1417",
+            "why": "Shows fighter-specific callbacks being dispatched from the due-command loop."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071F0C",
+    "facts": [
+      {
+        "id": "fact:b0fef5e6-4556-4d98-86fc-61db01a04c71",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F0C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current fighter object and mutable CommandInfo cursor from the alternate fighter-command dispatcher. It reads no payload fields and writes no fighter or collision state; its only output is advancing the command cursor by three packed words, leaving it positioned at the next command.",
+        "rationale": "The target remains a pure three-word skip, while the current alternate interpreter still invokes callbacks with the fighter object and mutable command state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L1346-L1384",
+            "why": "Shows the alternate interpreter passing the fighter object and CommandInfo state to the selected callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L697-L747",
+            "why": "Shows the target changing only the command cursor by three words."
+          }
+        ]
+      },
+      {
+        "id": "fact:42ef6186-a1c7-467b-9eaf-584bf3e2e1aa",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F0C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Prevents a throw-hitbox setup event from being applied retroactively when a fighter enters a motion partway through its animation. The event is treated as already passed: its three encoded words are consumed, but its damage, element, collision, and impact-sound settings are not written into the fighter's throw-associated HitCapsule.",
+        "rationale": "The current normal handler still applies the three-word throw-hitbox update, the alternate handler still skips it, and current motion-state code still selects the alternate interpreter for nonzero animation starts.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L697-L747",
+            "why": "Contrasts the normal throw-hitbox configuration with the target's three-word skip."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows nonzero animation starts selecting `ftAction_80073354`, the alternate command interpreter."
+          }
+        ]
+      },
+      {
+        "id": "fact:a1a03662-e3b5-43b7-b0be-16f2ae5cd44b",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F0C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SkipSetThrowHitbox",
+        "rationale": "The target replaces the explicitly identified SetThrowHitbox handler at the same opcode index in the alternate dispatch table and advances past all three payload words without applying them. `ftAction_SkipSetThrowHitbox` describes that role in the unit's prefix convention, though no surviving symbol confirms the name.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-02T12:05:31.433Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L697-L747",
+            "why": "Shows the neighboring normal handler using three `set_throw_hitbox` payload views and the target skipping exactly three words."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L117-L257",
+            "why": "Places the normal SetThrowHitbox implementation and the target at the corresponding index of the two fighter-command handler tables."
+          }
+        ]
+      },
+      {
+        "id": "fact:895a866d-58c2-4506-9424-3e0f6c60cf57",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F0C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A three-word fighter animation-command callback with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`. It is an `FtCmd` table entry; `gobj` is unused and `cmd` is a mutable cursor advanced across the complete SetThrowHitbox payload.",
+        "rationale": "The definition provides the exact parameter and return types and performs `SKIP_CMD(cmd, 3)`. The surrounding declarations type both dispatch arrays as `FtCmd`, and corresponding table entries establish that this callback handles the same three-word opcode as the normal SetThrowHitbox routine.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:05:31.433Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L697-L747",
+            "why": "Provides the exact callback signature and shows the three-word cursor advance with no access to the fighter object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L117-L257",
+            "why": "Declares the alternate dispatch table as an FtCmd array and places the target at the SetThrowHitbox opcode index."
+          }
+        ]
+      },
+      {
+        "id": "fact:5e1775c4-23d6-4375-affd-2eee7db7e08f",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F0C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Acts as the catch-up interpreter's no-op counterpart to the normal three-word SetThrowHitbox handler. It consumes the complete command so interpretation remains synchronized, but deliberately avoids configuring the fighter's HitCapsule when a motion begins at a nonzero animation frame.",
+        "rationale": "Current code preserves the normal-versus-alternate handler pairing, the target's three-word skip, and the motion-entry condition that selects alternate command processing.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L697-L747",
+            "why": "Shows the ordinary SetThrowHitbox handler and the target's no-op consumption of the same payload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows the alternate interpreter selected when a motion starts at a nonzero animation frame."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L1346-L1384",
+            "why": "Shows that interpreter dispatching due fighter commands through the alternate callback table."
+          }
+        ]
+      },
+      {
+        "id": "fact:d38f9c45-a590-4872-a37a-3b085ac14c58",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F0C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Execution is unconditional and branch-free: whenever the alternate dispatcher encounters this opcode, the handler advances past exactly three command words and returns. It neither initializes nor changes a throw HitCapsule, allowing nonzero-frame script catch-up to continue at the next command without replaying the skipped collision-state update.",
+        "rationale": "The target remains a branch-free three-word skip, and the current alternate interpreter and motion-entry code preserve the catch-up execution context.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L697-L747",
+            "why": "Shows the target's branch-free skip and the ordinary collision-state update it replaces."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L1346-L1384",
+            "why": "Shows the alternate table used while processing currently due commands."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows the alternate interpreter selected at nonzero motion-entry frames."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071F34",
+    "facts": [
+      {
+        "id": "fact:00c3e44d-619e-45aa-bcff-ed4ddff912a2",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F34",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the current command's `unk27.value` as a visibility boolean and passes it with the script-owning fighter object to `ftCommon_8007F5CC`. That dispatcher reads the fighter's held-item pointer, fighter kind, and cached visibility mode; on an applicable transition it invokes the fighter kind's invisible or visible callback, then stores the requested mode. The handler finally advances the CommandInfo cursor to the next command.",
+        "rationale": "The target directly exposes the command-to-dispatcher flow and cursor update. The resolved dispatcher exposes the downstream Fighter fields, callback-table selection, and cached-state write resulting from that operand.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:42.335Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L726-L731",
+            "why": "Shows the command operand and fighter object flowing into the common dispatcher before the command cursor advances."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1378-L1405",
+            "why": "Shows the operand driving held-item checks, fighter-kind callback dispatch, and the final cached-mode write."
+          }
+        ]
+      },
+      {
+        "id": "fact:9303872e-3f38-4357-aed8-cc20980ad785",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F34",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes animation-timed concealment and restoration of a fighter's held-item presentation. A fighter subaction command can request the invisible mode while an action uses an alternate model presentation and later request the visible mode to restore ordinary held-item presentation.",
+        "rationale": "The target converts an embedded fighter action-command operand into the common visibility-mode operation. That operation selects roster-wide OnItemInvisible or OnItemVisible callbacks, grounding the event in held-item presentation rather than generic fighter visibility.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T12:04:42.335Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L726-L731",
+            "why": "Shows held-item visibility control being triggered from a fighter action-script command and then consumed from the stream."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1378-L1405",
+            "why": "Shows that the command's mode selects per-fighter item-invisible or item-visible presentation callbacks."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/993773095187923004",
+            "why": "Identifies OnItemInvisible and OnItemVisible as complementary callback families repeated across the fighter roster."
+          }
+        ]
+      },
+      {
+        "id": "fact:8de44c71-dcac-40a4-b78a-2207aeab0b1c",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F34",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SetItemVisibility",
+        "rationale": "The function is an `ftAction` command handler whose sole semantic operation is to pass a command boolean into the common item-visibility setter before consuming the command. `SetItemVisibility` agrees with the callee's paired OnItemInvisible and OnItemVisible dispatch behavior, but no original symbol establishes the exact wording.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftAction_SetItemVisibility`.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L726-L731",
+            "why": "Shows that the handler consists of decoding one command value, invoking the common dispatcher, and consuming the command."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1378-L1405",
+            "why": "Establishes that the invoked common routine sets a cached mode and selects item-invisible or item-visible behavior."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/993773095187923004",
+            "why": "Documents the roster-wide complementary callback families named OnItemInvisible and OnItemVisible."
+          }
+        ]
+      },
+      {
+        "id": "fact:392b9c3d-40af-4d44-a161-679bdb54d7f9",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F34",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A synchronous one-word fighter action-command handler with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`. Its payload contains a boolean visibility-mode selector, and it advances `cmd` exactly once with `NEXT_CMD`.",
+        "rationale": "The complete matched body establishes the function signature, the single command-union operand, the void call into fighter-common code, and one `NEXT_CMD` operation. The callee accepts the operand as a boolean and treats the object as carrying Fighter user data.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:42.335Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L726-L731",
+            "why": "Provides the exact handler signature, one decoded payload value, and one command-cursor advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1378-L1405",
+            "why": "Shows that the forwarded payload is a boolean and that the object supplies Fighter user data."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d87a110-4162-47f7-b9ec-ac975e8e6433",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F34",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles the fighter action-script command that requests a held-item visibility mode. It decodes the command's boolean operand, forwards that mode to the common fighter visibility dispatcher, and consumes the command from the packed script stream.",
+        "rationale": "The matched handler passes `cmd->u->unk27.value` to `ftCommon_8007F5CC` and immediately advances with `NEXT_CMD`. The resolved callee shows that this boolean selects the fighter kind's held-item invisible or visible callback and updates the cached visibility mode.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:04:42.335Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L726-L731",
+            "why": "Shows the handler decoding the current command's `unk27.value`, forwarding it to `ftCommon_8007F5CC`, and advancing the command cursor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1378-L1405",
+            "why": "Shows that the forwarded boolean controls complementary per-fighter held-item invisible and visible callbacks and is retained as the current mode."
+          }
+        ]
+      },
+      {
+        "id": "fact:c44ea284-f3e3-445f-9252-6c3bab9a679b",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F34",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Consumes every invocation's command exactly once. The requested boolean represents one of two cached visibility modes: a changed request with a held item dispatches the corresponding invisible or visible callback, while an unchanged request or absent held item performs no callback work. Regardless of callback execution, the requested mode becomes the fighter's cached state.",
+        "rationale": "The target unconditionally executes `NEXT_CMD`. In the callee, the item-presence and changed-mode guards surround callback dispatch, the boolean selects the two callback paths, and the cache assignment lies outside all guards.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:42.335Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L726-L731",
+            "why": "Shows unconditional execution of the visibility operation followed by exactly one command advance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L1378-L1405",
+            "why": "Shows the two-mode transition guards, complementary callback branches, and unconditional cached-state update."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071F78",
+    "facts": [
+      {
+        "id": "fact:d4cdcfd1-5a68-486a-805a-c572e9d0ea9d",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F78",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The current command's `set_article_vis.value` flows directly into Fighter field `x221E_b4`; afterward, `NEXT_CMD` advances `CommandInfo` so the interpreter can process the following command.",
+        "rationale": "The function contains one payload read, one Fighter-field write, and one command-cursor advancement, with no conversion, helper call, or conditional path between them.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:45.502Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L733-L738",
+            "why": "Directly shows the payload-to-Fighter assignment and subsequent `NEXT_CMD` operation."
+          }
+        ]
+      },
+      {
+        "id": "fact:3b8aefea-8cc0-471e-93fb-de396b3749dc",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F78",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes animation-script control over whether a fighter-associated article is visible, distinct from the adjacent command that controls fighter visibility.",
+        "rationale": "The command payload and destination are identified as article visibility, while the immediately following handler uses the separate `set_fighter_vis` payload and Fighter flag. This pairing grounds the operation as article-specific presentation control embedded in fighter action commands.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-02T12:04:45.502Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L712-L752",
+            "why": "Shows separate adjacent handlers and state fields for article visibility and fighter visibility."
+          }
+        ]
+      },
+      {
+        "id": "fact:f40c5584-445b-48cb-b4c3-ba25333ac1ae",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F78",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SetArticleVisibility",
+        "rationale": "The command union arm is explicitly named `set_article_vis`, and the complete function does nothing beyond applying that value to the owning Fighter and advancing the command stream. Expanding `vis` to `Visibility` follows the operation's evident meaning, but the original symbol spelling remains uncertain.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftAction_SetArticleVisibility`.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L733-L738",
+            "why": "Shows the function's sole operation is handling the `set_article_vis` command payload."
+          }
+        ]
+      },
+      {
+        "id": "fact:6cd5e4db-7284-4166-96ab-993ce9a41d65",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F78",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A one-word fighter action-command handler with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`; `gobj` owns the Fighter state being changed, while `cmd` is a mutable cursor whose current union view is `set_article_vis`.",
+        "rationale": "The matched signature and body directly establish both parameter roles. A single `NEXT_CMD` after reading the current union arm identifies it as a one-command-word handler in the packed command stream.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:45.502Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L733-L738",
+            "why": "Provides the complete typed signature, `CommandInfo` union access, Fighter lookup, and one-step cursor advancement."
+          }
+        ]
+      },
+      {
+        "id": "fact:fa38109d-7741-4cea-ab05-20a5bff5576c",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F78",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles the fighter action-script command that updates article visibility: it copies the command's visibility value into the fighter's article-visibility flag and consumes the command.",
+        "rationale": "The matched body reads the `set_article_vis.value` payload, writes it to Fighter field `x221E_b4`, and invokes `NEXT_CMD`. The neighboring handler separately maps `set_fighter_vis.value` to `x221E_b5`, supporting the article-specific interpretation rather than generic fighter-model visibility.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:04:45.502Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L712-L752",
+            "why": "Shows this handler assigning `set_article_vis.value` to `x221E_b4`, advancing the command cursor, and contrasts it with the adjacent fighter-visibility handler."
+          }
+        ]
+      },
+      {
+        "id": "fact:e22fcf99-08c8-48e9-b894-d692cecd56f9",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071F78",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Whenever dispatched, it unconditionally replaces the fighter's article-visibility state with the command's encoded value and then advances to the next script command; it has no local guard, timer, or alternate transition.",
+        "rationale": "The complete matched function is straight-line code: obtain the Fighter, assign the command value, and execute `NEXT_CMD`. Therefore timing and dispatch guards belong to the surrounding interpreter rather than this handler.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:04:45.502Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L733-L738",
+            "why": "Shows the handler's unconditional state replacement and cursor transition, with no branches or local timing logic."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071FA0",
+    "facts": [
+      {
+        "id": "fact:70900b5d-ba43-4ffd-b08c-99624a213ccd",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FA0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The current command's `set_fighter_vis.value` flows directly into Fighter field `x221E_b5`; afterward, `NEXT_CMD` advances `CommandInfo` so the surrounding interpreter can process the following command.",
+        "rationale": "The complete function contains a direct payload-to-Fighter assignment followed by command-cursor advancement, with no conversion, helper call, or conditional path between them.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:07:08.723Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L740-L745",
+            "why": "Directly shows the visibility value flowing from the current command into Fighter state and the cursor advancing afterward."
+          }
+        ]
+      },
+      {
+        "id": "fact:f2cde20c-1927-49c7-a669-5c0c2eb729e1",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FA0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes animation-script control over fighter visibility, distinct from the adjacent command that controls the visibility of a fighter-associated article.",
+        "rationale": "The command payload is explicitly identified as `set_fighter_vis`, while the immediately preceding parallel handler uses `set_article_vis` and a separate Fighter flag. Together they ground this operation as the fighter-specific visibility event embedded in action data.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T12:07:08.723Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L712-L752",
+            "why": "Shows separate adjacent action-command handlers and Fighter fields for article visibility and fighter visibility."
+          }
+        ]
+      },
+      {
+        "id": "fact:d4f0a664-26bd-474f-b2f3-891b0da80db2",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FA0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SetFighterVisibility",
+        "rationale": "The command union arm is explicitly named `set_fighter_vis`, and the function's only substantive operation is applying that value to Fighter state. Expanding `vis` to `Visibility` follows the evident operation and the neighboring inferred `SetArticleVisibility` naming, although no original symbol source establishes the exact spelling.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftAction_SetFighterVisibility`.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L740-L745",
+            "why": "Shows that the function exclusively handles the `set_fighter_vis` command payload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L712-L752",
+            "why": "Shows the adjacent parallel handler for `set_article_vis`, supporting the inferred SetFighterVisibility naming distinction."
+          }
+        ]
+      },
+      {
+        "id": "fact:42e4d6f6-e34f-4a0a-a9c8-834fe6028792",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FA0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A one-word fighter action-command handler with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`; `gobj` owns the Fighter state being changed, while `cmd` is a mutable packed-command cursor whose current union view is `set_fighter_vis`.",
+        "rationale": "The matched signature establishes the two parameter types and roles. The body obtains the Fighter from `gobj`, reads one value from the current command union arm, and performs one `NEXT_CMD` advancement, identifying the routine as a one-command-word callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:07:08.723Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L740-L745",
+            "why": "Provides the complete typed signature, Fighter lookup, command-union access, and single command-cursor advancement."
+          }
+        ]
+      },
+      {
+        "id": "fact:281b071f-02bd-40c1-a066-2b72e658fb29",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FA0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles the fighter action-script command that updates fighter visibility: it copies the command's visibility value into Fighter flag `x221E_b5` and consumes the command.",
+        "rationale": "The complete matched body reads `cmd->u->set_fighter_vis.value`, writes it directly to the Fighter, and invokes `NEXT_CMD`. The adjacent handler separately applies `set_article_vis` to `x221E_b4`, confirming that this handler is specifically the fighter-visibility counterpart rather than generic article visibility.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:07:08.723Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L712-L752",
+            "why": "Shows the complete fighter-visibility handler and contrasts it with the adjacent article-visibility handler."
+          }
+        ]
+      },
+      {
+        "id": "fact:2b1fdf4e-358d-4b03-a0d0-c9094006df20",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FA0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Whenever dispatched, it unconditionally replaces `Fighter.x221E_b5` with the command's encoded visibility value and then advances to the next script command; it has no local guard, timer, toggle, or alternate transition.",
+        "rationale": "The matched body is straight-line code consisting of Fighter retrieval, a direct assignment, and `NEXT_CMD`. Because it does not inspect the previous flag value or branch on the payload, the command explicitly selects the new state rather than toggling it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:07:08.723Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L740-L745",
+            "why": "Shows the unconditional state replacement and cursor transition, with no branch or local timing logic."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071FC8",
+    "facts": [
+      {
+        "id": "fact:b143a2e4-2fcc-4e2b-9851-4b0d50efd000",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FC8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Obtains Fighter state from gobj; copies volume, panning, behavior, and random_range from the command header; advances to the candidate list; passes random_range to HSD_Randi; reads the indexed SFX ID while traversing all six candidate slots; advances beyond the payload; then passes Fighter, selected SFX ID, volume, and panning to the sound routine selected by behavior.",
+        "rationale": "This is the complete input-to-output path visible in the matched implementation. HSD_Randi's matched body confirms that random_range scales the generated integer, while ft_PlaySFX's body confirms that the behavior-zero destination consumes the four dispatched values as fighter-associated sound playback inputs.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T07:56:54.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L838",
+            "why": "Shows all command inputs, cursor movements, random candidate access, and behavior-based output calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/random.c#L18-L21",
+            "why": "Shows how the random_range argument is consumed to produce the selection index."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0877.c#L453-L468",
+            "why": "Shows that ft_PlaySFX consumes the dispatched Fighter, SFX ID, volume, and pan to start and adjust fighter-associated playback."
+          }
+        ]
+      },
+      {
+        "id": "fact:d7d07c6b-e7b8-4444-9355-6860bf3f253b",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FC8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements action-script-controlled variation of fighter sound effects: one script event can request a random choice among several authored SFX IDs and route that choice through a specified fighter sound playback mode.",
+        "rationale": "The pseudo_random_sfx payload explicitly combines a random bound, six candidate SFX IDs, presentation controls, and a playback behavior selector. Its behavior-zero destination is the centralized fighter SFX player, grounding the command in fighter-associated in-game audio rather than generic random-number processing.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T07:56:54.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L838",
+            "why": "Shows an action command selecting among authored SFX candidates and dispatching the result through fighter sound functions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0877.c#L453-L468",
+            "why": "Establishes that one dispatch destination performs centralized fighter-associated SFX playback with the supplied sound ID, volume, and pan."
+          }
+        ]
+      },
+      {
+        "id": "fact:2007568c-4e97-4b52-a84d-d539d14f5888",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FC8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_PseudoRandomSFX",
+        "rationale": "The current translation unit retains the `ftAction_` prefix for this command-handler family, and the target still exclusively decodes `pseudo_random_sfx_0` and `pseudo_random_sfx_1` payload views to select and dispatch a sound candidate pseudo-randomly. The semantic suffix remains inferred because no original symbol is preserved.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: ftAction_PseudoRandomSFX.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftaction.c#L1-L180",
+            "why": "Shows the current `ftAction_` naming convention among the translation unit's fighter command handlers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L838",
+            "why": "Shows the target decoding the `pseudo_random_sfx` command views, choosing one of six SFX IDs with `HSD_Randi`, and dispatching it through a selected fighter sound path."
+          }
+        ]
+      },
+      {
+        "id": "fact:8773e146-5a42-4297-851f-79cfe195ca43",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FC8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Command-handler signature: void ftAction_80071FC8(Fighter_GObj* gobj, CommandInfo* cmd). The command layout consists of a header carrying an integer random-selection bound, an unsigned behavior selector, and u8 volume and panning controls, followed by six candidate sound-ID entries consumed through the mutable CommandInfo cursor.",
+        "rationale": "The exact function declaration proves the callback signature. The local variable types and typed pseudo_random_sfx union accesses establish the header fields, while the six switch cases and uniform cursor traversal establish the fixed candidate capacity.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T07:56:54.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L838",
+            "why": "Contains the exact signature, local types, command-union field accesses, six candidate positions, and cursor advancement."
+          }
+        ]
+      },
+      {
+        "id": "fact:cd71f324-948a-4ae7-ad73-158713efa855",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FC8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Executes a pseudo-random fighter sound action command by choosing one sound ID from a fixed payload of up to six candidates and invoking the playback behavior selected by the command while preserving its requested volume and panning.",
+        "rationale": "The matched body reads random_range, behavior, volume, and panning from the pseudo_random_sfx command header, obtains an index from HSD_Randi, selects the corresponding one of six subsequent SFX entries, and dispatches that ID and the audio controls through one of seven fighter sound routines.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T07:56:54.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L838",
+            "why": "Directly shows random candidate selection and behavior-based dispatch of the selected SFX ID with volume and panning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/random.c#L18-L21",
+            "why": "Shows that HSD_Randi scales a fresh generator value by the supplied random_range, confirming the command field's role as the random-selection bound."
+          }
+        ]
+      },
+      {
+        "id": "fact:2e6c15ce-fa2f-42b0-8174-868793ca1f5c",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80071FC8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "For selection indices 0 through 5, the corresponding candidate SFX ID is chosen while the command cursor is advanced across the same fixed six-slot candidate payload. Behavior values 0 through 6 select seven distinct fighter sound paths; values outside that domain perform no playback. The handler owns no timer or persistent state transition beyond effects performed by the selected callee.",
+        "rationale": "The first switch enumerates exactly six valid random indices and each arm traverses the full candidate region. The second switch enumerates behavior values 0\u20136 and defaults to return. No timer, looped state, or direct persistent write appears in this handler.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T07:56:54.351Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L838",
+            "why": "Directly shows the six selection cases, fixed payload traversal, seven behavior cases, default no-op return, and absence of local timer state."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_800722C8",
+    "facts": [
+      {
+        "id": "fact:964ba495-318f-44eb-98d0-f651561fa9d1",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800722C8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter object and mutable `CommandInfo` cursor from the alternate fighter-command interpreter, reads neither the fighter nor any pseudo-random-SFX fields, and advances the cursor by seven packed command words. It produces no random-number request or audio output, and the interpreter resumes at the following command.",
+        "rationale": "The target remains a pure seven-word skip, while the current alternate interpreter still supplies the callback arguments and continues its due-command loop.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L840-L843",
+            "why": "Shows that the target only advances the command cursor by seven words."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L1337-L1392",
+            "why": "Shows the alternate interpreter passing Fighter and CommandInfo state to callbacks and continuing through due commands."
+          }
+        ]
+      },
+      {
+        "id": "fact:efc343ec-a5ca-46e1-9434-4e4cd12eb5f6",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800722C8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Prevents a pseudo-random fighter sound event whose scripted frame has already passed from playing retroactively when a fighter enters an action partway through its animation. The full event is still consumed so subsequent animation-timed gameplay and presentation commands remain synchronized.",
+        "rationale": "The current primary counterpart still decodes and plays a pseudo-random SFX command, while the target skips the same seven-word event and current motion-state code selects alternate execution at nonzero start frames.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L843",
+            "why": "Shows the normal pseudo-random SFX operation followed by the target's seven-word suppression handler."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows alternate command execution selected when entering a motion at a nonzero animation frame."
+          }
+        ]
+      },
+      {
+        "id": "fact:6f9337dc-3a5e-4ccb-8478-0db56b979815",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800722C8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SkipPseudoRandomSFX",
+        "rationale": "The target is paired with the handler whose typed command views are named `pseudo_random_sfx_0` and `pseudo_random_sfx_1`, but it replaces that handler's selection and playback behavior with a seven-word skip. The `ftAction_` prefix and `SkipPseudoRandomSFX` role fit the local handler family, although no surviving symbol establishes the exact original spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `ftAction_SkipPseudoRandomSFX`.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L843",
+            "why": "Identifies the paired command through its `pseudo_random_sfx` union views and contrasts its audio behavior with the target's seven-word skip."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L177-L236",
+            "why": "Shows the target substituting for `ftAction_80071FC8` at the corresponding alternate-table opcode slot."
+          }
+        ]
+      },
+      {
+        "id": "fact:0f5bef16-d172-456f-996f-87c7c9207640",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800722C8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An `FtCmd`-compatible fighter subaction-command callback with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`. It ignores `gobj` and the command payload, mutating only the `CommandInfo` cursor by advancing it across a fixed seven-word command.",
+        "rationale": "The matched definition provides the exact signature and contains only `SKIP_CMD(cmd, 7)`. Its placement in the alternate `FtCmd` dispatch table establishes its opcode-callback role, while the paired primary handler confirms that the seven words comprise one header and six pseudo-random SFX candidates.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:24:43.976Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L840-L843",
+            "why": "Provides the exact callback signature and unconditional seven-word cursor advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L177-L236",
+            "why": "Shows the function stored in an `FtCmd` alternate-handler table and gives seven as the encoded command length at its opcode index."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L843",
+            "why": "Shows the corresponding primary handler consuming the header and six candidate words that form the complete command."
+          }
+        ]
+      },
+      {
+        "id": "fact:29bd5cfe-95b2-419c-8410-3114fbadea45",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800722C8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Consumes the complete seven-word pseudo-random-SFX fighter subaction command without selecting or playing a sound. It is the alternate-dispatch counterpart to `ftAction_80071FC8`, preserving command-stream alignment while suppressing an already-due audio event during nonzero-frame motion entry.",
+        "rationale": "The target remains a seven-word skip paired with the pseudo-random playback handler, and current fighter motion-state code still uses the alternate interpreter for nonzero animation starts.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L747-L843",
+            "why": "Shows the seven-word pseudo-random SFX payload, its playback handler, and the target's side-effect-free skip."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows nonzero motion-entry frames selecting the alternate interpreter."
+          }
+        ]
+      },
+      {
+        "id": "fact:ad914ccf-831d-4eca-9bf5-562874017821",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800722C8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The handler itself is unconditional and branch-free: every invocation consumes exactly seven command words and returns without executing the event. Timing and eligibility are controlled by `ftAction_80073354`, whose due-command loop dispatches this alternate-table callback; fighter motion-state entry selects that interpreter when the action begins at a nonzero animation frame.",
+        "rationale": "Current code retains the branch-free skip, the alternate due-command loop, and the nonzero-animation-start selection condition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L840-L843",
+            "why": "Shows the target's unconditional seven-word skip."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L1337-L1392",
+            "why": "Shows `ftAction_80073354` applying timing guards and dispatching due commands through the alternate table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows the alternate interpreter selected for nonzero animation starts."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80072320",
+    "facts": [
+      {
+        "id": "fact:17da4d14-0bbd-44e9-a8b3-263b8c09bdbf",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80072320",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The first command word supplies a four-way direction selector, the audio behavior value, and a seven-way destination selector. Direction becomes `0.0`, `1.0`, `-1.0`, or `Fighter.facing_dir`. The next three words supply the requested SFX ID and three additional audio parameters. The SFX ID flows through `ft_80087D0C`; the resulting ID, direction, behavior, fixed values `127, 127`, command parameters, Fighter object, and a destination-dependent player channel value flow into `lbAudioAx_800263E8` and then `lbAudioAx_800264E4`. The final returned handle is written to `x2160`, `x214C`, `x2144`, `x2150`, `x2154`, `x2158`, or `x2148` according to the destination selector.",
+        "rationale": "The current target still exposes all four command views, direction conversion, audio arguments, routing arithmetic, and Fighter handle destinations; the current resolver still returns a Fighter-adjusted SFX ID.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L845-L964",
+            "why": "Shows the complete command-to-audio flow and destination-specific handle writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0877.c#L304-L422",
+            "why": "Shows `ft_80087D0C` transforming and returning a Fighter-dependent sound identifier."
+          }
+        ]
+      },
+      {
+        "id": "fact:37d2f813-097d-46d5-9457-d829b220cb3e",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80072320",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes fighter sound-effect playback requested by a subaction event, including orientation-dependent sound presentation, Fighter-specific sound variants, per-player audio routing, and registration of the active sound in category-specific Fighter handle slots.",
+        "rationale": "The current handler still derives direction from the command or Fighter facing, resolves the sound for Fighter state, computes player-relative routing, and stores the returned handle in a selected Fighter slot.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L845-L964",
+            "why": "Shows directional, per-player fighter audio playback and retained handle registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0877.c#L304-L422",
+            "why": "Shows Fighter-state and sound-bank rules selecting the sound variant."
+          }
+        ]
+      },
+      {
+        "id": "fact:ca907204-4f06-446b-ac9c-84907102bc2a",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80072320",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_StageSFX",
+        "rationale": "The current translation unit retains the `ftAction_` command-handler prefix, while this target still exclusively interprets the four `stage_sfx` command views and performs their associated audio operation. That supports `StageSFX` as a semantic suffix, though the exact original name remains unconfirmed.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style semantic name is `ftAction_StageSFX`.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftaction.c#L1-L180",
+            "why": "Shows the current `ftAction_` naming convention for the translation unit's command-handler family."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L845-L964",
+            "why": "Shows the target decoding consecutive `stage_sfx_0` through `stage_sfx_3` command views and converting them into routed fighter audio playback."
+          }
+        ]
+      },
+      {
+        "id": "fact:40a65462-0b07-4015-9da3-0f74a7963f92",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80072320",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Command-handler signature: `void ftAction_80072320(Fighter_GObj* gobj, CommandInfo* cmd)`. The command is four 32-bit words long, represented by the consecutive `stage_sfx_0`, `stage_sfx_1`, `stage_sfx_2`, and `stage_sfx_3` union views. The routine mutates the command cursor and stores an audio handle in the Fighter.",
+        "rationale": "The current definition retains the exact signature, four typed command views, four cursor advances, and Fighter-side handle outputs.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L845-L964",
+            "why": "Shows the signature, all four command views, cursor advancement, and Fighter handle writes."
+          }
+        ]
+      },
+      {
+        "id": "fact:aa15ba58-88ca-4337-a772-44f4cc09ff3e",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80072320",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Executes a four-word fighter subaction sound command. It derives the sound's directional parameter from the command and Fighter facing, resolves the requested sound ID for the current Fighter, starts the sound with the command's behavior and additional audio parameters, and stores the returned audio handle in the Fighter slot selected by the command.",
+        "rationale": "The current target still performs each step of the command decode and playback path, and the current `ft_80087D0C` still supplies Fighter-aware sound-ID resolution.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L845-L964",
+            "why": "Shows the four-word decode, direction selection, audio calls, routing, and handle storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0877.c#L304-L422",
+            "why": "Shows the requested SFX ID being adjusted according to Fighter and sound-bank state."
+          }
+        ]
+      },
+      {
+        "id": "fact:e8fe60ba-31e9-446a-8883-67642f9a94fc",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_80072320",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Direction selector values 0\u20133 choose neutral, positive, negative, or facing-dependent direction. Destination selectors 0, 1, 3, 4, and 5 always start and register the sound in their respective Fighter slots. Selectors 2 and 6 normally write `x2144` and `x2148`, but when `x2225_b6` is set they suppress playback for every Fighter kind except Mr. Game & Watch and Samus. Selector 0 uses channel value 0 and terminal parameter -1; selectors 1\u20136 derive a per-player value from `player_id + x221F_b4` and add selector-specific offsets.",
+        "rationale": "The current switches retain every direction case, destination path, suppression guard, Fighter-kind exception, routing calculation, and handle destination.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L845-L964",
+            "why": "Shows the complete direction and destination switches, including the guarded cases and character exceptions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L937-L977",
+            "why": "Shows the complete selector-6 branch, its routing offset, and the Game & Watch and Samus exceptions."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_800726C0",
+    "facts": [
+      {
+        "id": "fact:9e59d993-b5ef-48f3-b160-82be0d4dc144",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800726C0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The alternate command interpreter supplies a Fighter_GObj and a CommandInfo cursor after decoding opcode 39. The fighter object and all four stage-SFX payload words are ignored; the function advances `cmd->u` past those four words so interpretation can resume at the following command.",
+        "rationale": "The current interpreter still rebases fighter-specific opcodes before alternate-table dispatch, while the target remains a four-word skip opposite the normal four-word stage-SFX handler.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L1317-L1382",
+            "why": "Shows the alternate interpreter decoding, rebasing, and dispatching fighter-specific opcodes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L972-L975",
+            "why": "Shows the target ignoring Fighter and payload data and advancing exactly four words."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L817-L977",
+            "why": "Shows the paired normal handler interpreting the same extent as a four-word stage-SFX command."
+          }
+        ]
+      },
+      {
+        "id": "fact:34dc210d-58fe-4981-bf62-8166f5089250",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800726C0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Prevents a stage-related fighter sound event whose scripted frame has already passed from playing retroactively when an action begins or resumes partway through its animation.",
+        "rationale": "The current normal handler still plays the stage-SFX event, the target still suppresses it by consuming four words, and current motion-state code still selects alternate processing for nonzero animation starts.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L817-L977",
+            "why": "Shows the normal stage-SFX playback and the target's no-play consumption of the same event."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows alternate command interpretation selected for nonzero animation starts."
+          }
+        ]
+      },
+      {
+        "id": "fact:7cab90a7-22f4-49f2-949d-edb06ac9ae0e",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800726C0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftAction_SkipStageSFX",
+        "rationale": "Current code still pairs the target with the four-word `stage_sfx` handler and implements the alternate side solely as a four-word skip, preserving this semantic name guess.",
+        "confidence": 0.74,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L817-L977",
+            "why": "Identifies the paired command through its four `stage_sfx` union views and shows the target skipping it."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L972-L975",
+            "why": "Confirms that the target consumes four words without executing the event."
+          }
+        ]
+      },
+      {
+        "id": "fact:69015e67-60f3-463e-9d3e-b99a6ef5068a",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800726C0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter subaction-command callback with signature `void(Fighter_GObj* gobj, CommandInfo* cmd)`. It ignores `gobj`, consumes exactly four packed command words through `cmd`, and produces no fighter or subsystem mutation.",
+        "rationale": "The definition supplies the exact callback signature and contains only `SKIP_CMD(cmd, 4)`. Its placement in the alternate `FtCmd` dispatch table confirms that it has the standard fighter-command handler type.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:06:03.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L972-L975",
+            "why": "Provides the exact parameters and shows that only the command cursor is advanced by four words."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L117-L337",
+            "why": "Shows the function stored in an `FtCmd` handler table alongside callbacks with the same interface."
+          }
+        ]
+      },
+      {
+        "id": "fact:2af04566-0754-407e-aafa-4d8d24171666",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800726C0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Consumes, without executing, the four-word stage-SFX subaction command while a fighter command script is being advanced to a nonzero animation start frame, preventing the command's audio effect from being replayed during motion-state entry.",
+        "rationale": "The current normal counterpart still decodes and plays four stage-SFX words, the target still only skips four words, and current Fighter motion entry retains the nonzero-frame alternate-interpreter branch.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L817-L977",
+            "why": "Shows the normal four-word stage-SFX command and the target's suppression implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows nonzero animation starts choosing the alternate command interpreter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L972-L975",
+            "why": "Shows the target performing no operation other than `SKIP_CMD(cmd, 4)`."
+          }
+        ]
+      },
+      {
+        "id": "fact:b8347230-702e-4ec2-a255-9ea99cbefd23",
+        "target_id": "target:function:main/melee/ft/ftaction:ftAction_800726C0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "During motion-state entry at a nonzero animation start frame, `Fighter_ChangeMotionState` runs the alternate command interpreter to advance through commands already due at that frame. If it encounters opcode 39, this handler consumes all four words while deliberately omitting the normal stage-SFX playback; command interpretation then continues from the next event.",
+        "rationale": "Current motion-state code retains the nonzero-start branch, the alternate interpreter retains its due-command loop and opcode rebase, and the target remains a four-word no-op consumer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:50:13.894Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L1299-L1399",
+            "why": "Shows nonzero animation starts invoking `ftAction_80073354`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L1357-L1417",
+            "why": "Shows the alternate interpreter executing currently due commands through its alternate callback table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftaction.c#L972-L975",
+            "why": "Shows the target consuming all four words without an audio or gameplay side effect."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071B50#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071B50#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071CA4#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071CA4#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071CCC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071CCC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071D30#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071D30#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071D40#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071D40#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071D94#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071D94#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071DCC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071DCC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071E04#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071E04#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071F0C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071F0C#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071F34#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071F34#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071F78#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071F78#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071FA0#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071FA0#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071FC8#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80071FC8#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_800722C8#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_800722C8#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80072320#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_80072320#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_800726C0#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftaction:ftAction_800726C0#r4",
+    "facts": []
+  }
+]

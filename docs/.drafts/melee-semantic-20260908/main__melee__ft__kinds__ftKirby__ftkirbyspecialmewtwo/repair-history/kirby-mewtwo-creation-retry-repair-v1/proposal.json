@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo.c#L646-L699",
+            "why": "Complete current input callback establishes every stated read, call and write."
+          }
+        ],
+        "op": "write",
+        "rationale": "Uses current canonical field names and preserves exact branch ordering without inferring a compiled field offset.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo:ftKb_MtSpecialNLoop_IASA"
+        },
+        "type": "data_flow",
+        "value": "Obtains Fighter state from gobj. If ftCo_8009917C succeeds, it removes the non-null item in u.kb.x98, clears that reference, destroys fighter effects and clears u.kb.xA0. Otherwise it reads input.pressed_buttons: A with specialhi.xC <= 0 enters MtSpecialNEnd and returns after callback setup; B enters the same state only under that timer guard. With B absent, mask 0x80000000 selects MtSpecialNCancel, performs the same transient cleanup and reinstalls callbacks. These local cleanup paths do not write u.kb.x9C."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo.c#L841-L909",
+            "why": "Complete forwarding wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L1-L158",
+            "why": "Complete helper shows conditional scaling and downstream arguments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Describes the observed arithmetic without assuming the data-driven multiplier increases friction.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo:ftKb_MtSpecialNLoop_Phys"
+        },
+        "type": "data_flow",
+        "value": "Forwards gobj unchanged to ft_80084F3C. That helper reads ground_friction, gr_vel and walk_max_vel; when absolute ground velocity exceeds walk_max_vel, it multiplies the selected friction by p_ftCommonData->friction_when_above_walk_speed. It passes the selected friction and Fighter pointer to ftCommon_ApplyFrictionGround, then passes gobj to ftCommon_ApplyGroundMovement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo.c#L157-L191",
+            "why": "Contains the complete input accesses, writes and conditional cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcolanim.c#L108-L111",
+            "why": "Shows the precise x488 handoff."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's erroneous claim that xA0 is an input while preserving the verified cleanup and conditional charge flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo:ftKb_SpecialNMt_80107130"
+        },
+        "type": "data_flow",
+        "value": "For a nonnull fighter GObj, reads Kirby attributes, the held-object reference u.kb.x98 and stored charge u.kb.x9C. If x98 is nonnull, passes it to it_802C573C and clears it. Destroys fighter-owned effects and writes zero to u.kb.xA0 without reading its prior value. If the float-converted charge differs from specialn_mt_charge_time, resets x9C, calls ftCo_800BFFAC on the Fighter and destroys fighter effects again; that visual helper forwards &fp->x488 to lb_80014498."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo.c#L314-L402",
+            "why": "Shows entry and grounded Start branching."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo.c#L430-L510",
+            "why": "Shows grounded charge accumulation and phase completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo.c#L512-L644",
+            "why": "Shows aerial x0 clearing, charging, cancellation and End exit selection."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the verified phase lifecycle while correcting the unsupported claim that both startup variants honor a preexisting release-request field.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftKirby/ftkirbyspecialmewtwo.c"
+        },
+        "type": "state_behavior",
+        "value": "Grounded and aerial entry initialize Start while preserving stored charge. Start creates a held Shadow Ball when cmd_vars[3] == 1 and no held object exists. At animation completion, grounded Start selects End when move-local x0 == 1 or stored charge exactly equals the configured maximum; otherwise it selects Loop. Aerial Start explicitly clears x0 before the analogous test, so its direct End selection depends on the charge equality. Charging loops decrement the entry delay, periodically increment charge and cap it while entering LoopFull. Cancel removes held-object state and effects; End services the guarded release helper. Grounded completion returns through ft_8008A2BC; aerial Cancel enters Fall, while aerial End selects Fall or the configured special-fall path. The two variants share phase structure but not every internal flag operation."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

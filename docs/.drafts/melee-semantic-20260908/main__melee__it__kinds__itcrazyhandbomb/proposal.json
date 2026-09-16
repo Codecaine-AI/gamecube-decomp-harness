@@ -1,0 +1,163 @@
+{
+  "tu": "main/melee/it/kinds/itcrazyhandbomb",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcrazyhandbomb.c#L13-L18",
+            "why": "Two typed source records."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1180-L1184",
+            "why": "State index selects a record whose anim_id is separately loaded."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the leading-field interpretation and removes an unsupported compiled byte-size claim.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcrazyhandbomb:.data"
+        },
+        "type": "inferred_type",
+        "value": "The source object it_803F93A8 is an array of two ItemStateTable records. Each record supplies an animation ID followed by animation, physics and collision callback pointers. Array indices 0 and 1 select item states; their animation IDs also happen to be 0 and 1. Compiled extent and section layout are not established by the source declaration alone."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcrazyhandbomb.c#L13-L144",
+            "why": "Table, initialization, distinct entry paths and callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1429-L1450",
+            "why": "Impact timer initialization and countdown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1701-L1741",
+            "why": "Damage callback's true result causes destruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves table flow while distinguishing state selection from the object's cross-file lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcrazyhandbomb:.data"
+        },
+        "type": "data_flow",
+        "value": "Initialization selects table index 0. The stage-contact response performs impact preparation, including common life-timer initialization, before selecting index 1; surviving state-1 updates use the countdown animation callback and inert local physics/collision callbacks. Damage dealt also selects index 1, but its callback then returns true, causing the item event dispatcher to set destroy_type to 2 and destroy the item rather than continue into subsequent timed updates."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcrazyhandbomb.c#L60-L64",
+            "why": "State-entry call followed by unconditional true."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1701-L1741",
+            "why": "Damage dispatch and destruction predicate consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "The canonical caller establishes the consequential meaning of the callback's return value.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcrazyhandbomb:itCrazyHandBomb_Logic86_DmgDealt"
+        },
+        "type": "purpose",
+        "value": "Handles the Crazy Hand bomb's damage-dealt event by selecting motion state 1 and then returning true to request destruction through the item event dispatcher. The dispatcher sets destroy_type to 2 and calls Item_8026A8EC; this is not merely an event-handled acknowledgment or a guarantee of a surviving timed second phase."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcrazyhandbomb.c#L87-L111",
+            "why": "Motion helper precedes random-axis selection and velocity-scaled increment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing explanation's implication that axis selection depends on velocity.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcrazyhandbomb:itCrazyhandbomb_UnkMotion0_Phys"
+        },
+        "type": "purpose",
+        "value": "Runs state-0 airborne physics for the Crazy Hand bomb, applying article-configured vertical-motion processing and visual tumbling. HSD_Randi(3) selects the rotation axis independently of vertical velocity; the selected component receives an increment of MTXDegToRad(10.0f times the updated vertical velocity)."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcrazyhandbomb.c#L43-L64",
+            "why": "Distinct impact and damage callers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcrazyhandbomb.c#L124-L144",
+            "why": "Entry helper and destination callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1229-L1242",
+            "why": "Callback installation and accessory clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1701-L1741",
+            "why": "Damage caller's destruction boundary."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the exact writes and callback restoration while correcting unconditional claims about subsequent updates.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcrazyhandbomb:it_802F1344"
+        },
+        "type": "data_flow",
+        "value": "Receives the bomb Item_GObj from impact preparation or the damage-dealt callback, derives its Item, calls Item_80268E5C with state index 1 and ITEM_ANIM_UPDATE, and then assigns it_802F13B0 to on_accessory. The state changer installs the selected table callbacks and clears on_accessory before this assignment. Subsequent state/accessory dispatch requires the object to survive: the damage-dealt caller returns true and the engine destroys the item immediately afterward, whereas the impact path has initialized the countdown used by surviving state-1 animation updates."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcrazyhandbomb.c#L43-L144",
+            "why": "Controller branches and complete local callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1429-L1450",
+            "why": "Impact timer setup and expiration test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1701-L1741",
+            "why": "Damage-event destruction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L418-L428",
+            "why": "Reflection mutations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the module summary preserve the exceptional damage path rather than treating both entries as a surviving countdown phase.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itcrazyhandbomb.c"
+        },
+        "type": "state_behavior",
+        "value": "State 0 has an always-false animation callback, article-configured vertical physics, random-axis velocity-scaled rotation, and stage-contact processing guarded by GA_Air. Impact preparation hides the model, initializes the common life timer and enters state 1; surviving state-1 animation updates decrement that timer until expiration, while local physics and accessory callbacks are empty and collision returns false. Damage dealt bypasses impact preparation, selects state 1 and returns true, which causes the engine to set destroy_type to 2 and destroy the item immediately. Reflection reverses/scales X/Y velocity and facing and resets the life timer without a local state transition."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

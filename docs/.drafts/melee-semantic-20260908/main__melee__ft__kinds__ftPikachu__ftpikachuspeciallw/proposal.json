@@ -1,0 +1,136 @@
+{
+  "tu": "main/melee/ft/kinds/ftPikachu/ftpikachuspeciallw",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPikachu/ftpikachuspeciallw:ftPk_SpecialLwLoop0_Anim"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads mv.pk.specialhi.x4 and cmd_vars[0]. If the control word equals 3 or the command is nonzero, it clears take_dmg_cb, enters ending motion 362, and returns. Otherwise it calls ftPk_SpecialLw_8012765C, whose contact decision uses the tracked Thunder item, Pikachu's position, and attributes xBC, xC4, and xC8. Accepted contact enters motion 361, clears cmd_vars[0] and take_dmg_cb, and spawns effect 1216 on TopN; rejected contact leaves the waiting state unchanged.",
+        "rationale": "Corrects the baseline's ambiguous 'neither is set': control value 1 is nonzero yet permits contact testing because termination compares specifically against 3.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPikachu/ftpikachuspeciallw.c#L246-L265",
+            "why": "Exact termination guard, early return, contact consumer and outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPikachu/ftpikachuspeciallw.c#L62-L91",
+            "why": "Contact helper's item, position and attribute inputs."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPikachu/ftpikachuspeciallw:ftPk_SpecialLwLoop0_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates grounded Thunder's waiting phase. A leading-article destruction marker of 3 or a nonzero animation command ends the wait; otherwise accepted contact with the tracked Thunder article enters the grounded self-hit phase and spawns its discharge effect. Damage writes the distinct control value 0, which suppresses contact detection rather than directly satisfying this callback's ending guard.",
+        "rationale": "Corrects the baseline attribution of termination to a damage-driven control value and preserves the distinct damage and article-destruction paths.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPikachu/ftpikachuspeciallw.c#L56-L97",
+            "why": "Value-3 setter, contact zero guard, and damage callback's zero write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L123-L131",
+            "why": "Eligible leading-item destruction invokes the value-3 setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPikachu/ftpikachuspeciallw.c#L246-L265",
+            "why": "Ordered ending and self-contact branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPikachu/ftpikachuspeciallw:ftPk_SpecialAirLwStart_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "While startup animation frames remain, this callback performs no transition. On completion it enters motion 364 at frame 0, rate 1, with motion flag 2048; clears throw_flags; installs ftPk_SpecialLw_SetState_Unk1 as take_dmg_cb; and installs ftPk_SpecialLw_SpawnEffect as accessory4_cb. The accessory callback remains event- and item-slot-gated rather than being intrinsically one-shot: a non-null stored constructor result suppresses subsequent creation, but a null result does not.",
+        "rationale": "Removes an unsupported one-shot callback guarantee while retaining the exact startup transition and deferred callback setup.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPikachu/ftpikachuspeciallw.c#L231-L244",
+            "why": "Exact startup completion guard and assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPikachu/ftpikachuspeciallw.c#L99-L130",
+            "why": "Accessory callback checks the event and tracked slot, stores the result, and does not remove itself."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPikachu/ftpikachuspeciallw:ftPk_SpecialLw_SpawnEffect"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the throw event, tracked article slot, fighter position and Pikachu attributes. With an event and null slot, it forms an article position at cur_pos plus xD0 in y, an effect position another xCC higher, and velocity (0, xC0, 0); spawns effect 1219; passes the fighter owner, article position, velocity, xD4 count, xD8 delay and xDC kind to it_802B1DF8; and stores its first-allocation result in speciallw.x0. The constructor initially gives segments zero velocity, stores the supplied vector for delayed activation, and can return null despite later successful allocations. The sign of xC0 is not established by this source.",
+        "rationale": "Replaces the unsupported upward-motion claim with exact configured velocity flow and preserves the constructor's delayed activation and partial-allocation behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPikachu/ftpikachuspeciallw.c#L99-L130",
+            "why": "Event/null guards, position calculations, effect and constructor arguments, stored return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L45-L103",
+            "why": "Constructor argument roles, initial velocity, stored vector and first-allocation return semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L144-L165",
+            "why": "Delay expiration activates a segment and copies its stored velocity."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPikachu/ftpikachuspeciallw:ftPk_SpecialLw_80127608"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The leading Thunder article's guarded terrain-collision path passes its stored fighter-owner GObj. This routine resolves the Fighter, passes &fp->cur_pos to Camera_RequestQuake with QuakeKind_Small, and calls ftCommon_8007EBAC(fp, 11, 0). The common feedback routine checks player availability and fighter flags, then routes the request using x618_player_id. The target performs no local Thunder-state write.",
+        "rationale": "Corrects the obsolete camera-callee reference while preserving the supported owner, position and controller-feedback flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPikachu/ftpikachuspeciallw.c#L49-L54",
+            "why": "Canonical camera call and exact feedback arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L177-L198",
+            "why": "Leading-segment terrain collision and eligible-owner routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1158-L1165",
+            "why": "Player and fighter guards and final controller-routing inputs."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

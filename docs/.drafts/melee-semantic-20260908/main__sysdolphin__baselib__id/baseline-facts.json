@@ -1,0 +1,889 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/id:.bss"
+    },
+    "facts": [
+      {
+        "id": "fact:35b17c59-9777-42ae-95dd-47162f61801f",
+        "target_id": "target:data:main/sysdolphin/baselib/id:.bss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_IDInitAllocData passes the address of hsd_iddata, sizeof(IDEntry), and four-byte alignment to HSD_ObjAllocInit; IDEntry allocation and removal subsequently retrieve this descriptor for HSD_ObjAlloc and HSD_ObjFree, and generic allocator-statistics reporting reads its usage counters. HSD_IDSetup clears default_table, while insertion, lookup, and removal substitute its address whenever their table argument is NULL. Loader code then writes descriptor-address-to-runtime-object mappings into this default table and reads them back during object reuse and reference resolution.",
+        "rationale": "The current ID implementation preserves both storage flows: hsd_iddata is initialized and consumed by the entry allocator, while default_table is cleared and selected by nullable-table registry operations. The allocator implementation still configures the descriptor, statistics reporting still reads it through HSD_IDGetAllocData, and JObj loading still produces and consumes default-table mappings.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows hsd_iddata flowing into allocator initialization, entry allocation, and entry freeing, and shows default_table being cleared and selected by insert, lookup, and removal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows HSD_ObjAllocInit clearing and configuring the persistent allocator descriptor and registering it in the global allocator list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+            "why": "Shows startup initializing the ID allocator and statistics reporting retrieving its descriptor to read usage counters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L633-L704",
+            "why": "Shows a serialized joint address and runtime JObj being inserted into the default table and a later reference lookup consuming that mapping."
+          }
+        ]
+      },
+      {
+        "id": "fact:da3b4276-5ecf-4f6b-96e2-9d7f1b136b5c",
+        "target_id": "target:data:main/sysdolphin/baselib/id:.bss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 0x1C0-byte BSS layout containing, in declaration order, the 0x2C-byte HSD_ObjAllocData object hsd_iddata followed by the 0x194-byte HSD_IDTable object default_table. HSD_IDTable is an array of 101 IDEntry pointers; each IDEntry contains a next pointer, a u32 ID, and a void* payload.",
+        "rationale": "The declarations at the current head still place hsd_iddata before default_table. The refreshed headers establish that HSD_ObjAllocData is 0x2C bytes and HSD_IDTable contains 101 four-byte pointers, making default_table 0x194 bytes and the combined BSS layout 0x1C0 bytes; id.h also preserves the three-field IDEntry layout.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:44:13.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows the declaration order and concrete HSD_ObjAllocData and HSD_IDTable types of the two BSS objects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.h#L1-L31",
+            "why": "Defines IDEntry as a next pointer, u32 ID, and void-pointer payload, and defines HSD_IDTable as 101 IDEntry pointers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.h#L1-L79",
+            "why": "Defines HSD_ObjAllocData and asserts that its size is 0x2C bytes."
+          }
+        ]
+      },
+      {
+        "id": "fact:bbfa145c-6c49-4afc-8915-3c165fa20d3c",
+        "target_id": "target:data:main/sysdolphin/baselib/id:.bss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the ID subsystem's persistent zero-initialized storage: the allocator descriptor used for IDEntry nodes and the global default ID table used when registry operations receive no caller-supplied table.",
+        "rationale": "At the current head, the unit still declares hsd_iddata and default_table as its two uninitialized globals. The allocator initializer configures hsd_iddata for IDEntry objects, while setup and every nullable-table registry operation use default_table as the shared registry.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Declares both persistent globals and shows hsd_iddata driving IDEntry allocation and freeing while default_table supplies the shared registry."
+          }
+        ]
+      },
+      {
+        "id": "fact:8154688a-b63f-4f86-8329-592bbb109fcc",
+        "target_id": "target:data:main/sysdolphin/baselib/id:.bss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "At startup, hsd_iddata transitions from zero-initialized storage to a registered empty-pool descriptor configured for four-byte-aligned IDEntry objects, and default_table is cleared so all 101 bucket heads are NULL. Registry insertion either overwrites an existing entry's payload or prepends a newly allocated node; removal unlinks and returns one node to the allocator; lookup leaves storage unchanged. HSD_IDSetup and _HSD_IDForgetMemory can reset every default-table bucket at once, making all prior mappings unreachable without individually freeing their entry nodes.",
+        "rationale": "The refreshed header confirms that the table still consists of 101 linked-node bucket heads. The current implementation preserves allocator initialization, replacement-versus-prepend insertion, unlink-and-free removal, read-only lookup, and whole-table reset behavior; HSD_ObjAllocInit still creates the registered empty-pool descriptor state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:44:13.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.h#L1-L31",
+            "why": "Establishes that HSD_IDTable has 101 IDEntry bucket-head pointers and that each entry is a linked node carrying an ID and payload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows allocator setup, full-table initialization, replacement-or-prepend insertion, unlink-and-free removal, and lookup over the bucket chains."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L124-L127",
+            "why": "Shows _HSD_IDForgetMemory clearing the entire default table without traversing or freeing individual entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows HSD_ObjAllocInit clearing, configuring, and registering the persistent allocator descriptor."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/id:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:70d30972-e259-4c94-818b-8fc91c92487a",
+        "target_id": "target:data:main/sysdolphin/baselib/id:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Aggregate initialized small-data section contribution owned by src/sysdolphin/baselib/id.c, rather than a single semantically named data object.",
+        "rationale": "The target is represented as the unit-level .sdata section, and the historical change explicitly split the shared sdata material into its owning translation units while modifying id.c. This supports classifying the target as id.c's aggregate small-data contribution; the available evidence does not identify a more specific constituent layout or semantic name.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T04:58:46.543Z",
+        "evidence": [
+          {
+            "kind": "pr",
+            "locator": "pr://pr-201--main-sysdolphin-baselib-id",
+            "why": "Records that PR #201, titled \"Finish splitting sdata, remove list.s,\" modified src/sysdolphin/baselib/id.c as part of assigning sdata material to source translation units."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/id:HSD_IDGetAllocData"
+    },
+    "facts": [
+      {
+        "id": "fact:d1b77517-369d-4f23-9906-420c03090d42",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDGetAllocData",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "With no input parameters, the function returns &hsd_iddata without modifying it. HSD_IDInitAllocData uses the returned pointer to configure an IDEntry pool with four-byte alignment; IDEntryAlloc and IDEntryFree pass it to the generic HSD allocation and free routines; and HSD_ObjDumpStat obtains it through a function-pointer table to read allocator usage statistics.",
+        "rationale": "The target remains a pure address-returning accessor. The surrounding ID implementation still routes its result to allocator initialization, allocation, and freeing, while the statistics routine still invokes the getter indirectly to read the descriptor's counters.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows the unchanged descriptor address flowing from the getter into HSD_ObjAllocInit, HSD_ObjAlloc, and HSD_ObjFree."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+            "why": "Shows the getter stored in the allocator-type table and called when reporting the ID allocator's usage counters."
+          }
+        ]
+      },
+      {
+        "id": "fact:53085dd4-6cad-46b5-8c21-573c8b103455",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDGetAllocData",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function signature: HSD_ObjAllocData* HSD_IDGetAllocData(void). It accepts no arguments and returns a mutable pointer to the single static-lifetime HSD_ObjAllocData descriptor used for IDEntry objects.",
+        "rationale": "The refreshed header and current definition preserve the exact no-argument HSD_ObjAllocData-pointer signature. The definition returns the address of the global hsd_iddata object, and its subsequent initialization for sizeof(IDEntry) establishes the descriptor's allocation role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:44:13.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.h#L1-L31",
+            "why": "Declares HSD_IDGetAllocData with an HSD_ObjAllocData* return type and a void parameter list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows hsd_iddata declared as HSD_ObjAllocData, its address returned by the getter, and the descriptor initialized for IDEntry-sized objects."
+          }
+        ]
+      },
+      {
+        "id": "fact:3014cdd6-7630-4e25-87ce-ab2ff46b74c0",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDGetAllocData",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Exposes the ID registry's shared HSD object-allocation descriptor so IDEntry pool initialization, entry allocation and release, and generic allocator-statistics reporting all operate on the same allocator state.",
+        "rationale": "The function still returns the address of hsd_iddata, which the ID unit passes to initialization, allocation, and freeing. HSD_ObjDumpStat still registers this getter under the ID allocator label and uses its result to query allocator counters.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows the getter returning hsd_iddata and the ID subsystem using it for allocator initialization, allocation, and release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+            "why": "Shows HSD_ObjDumpStat invoking HSD_IDGetAllocData to obtain the ID allocator counters."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/id:HSD_IDGetDataFromTable"
+    },
+    "facts": [
+      {
+        "id": "fact:96d72ecc-a780-4f74-aa19-0428e42a22e4",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDGetDataFromTable",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input ID is reduced modulo 101 to select one HSD_IDTable bucket. The function follows that bucket's IDEntry `next` chain in order, compares each entry's ID with the requested key, and returns the first matching entry's data pointer. If supplied, the success output receives 1 immediately before a successful return or 0 after the chain is exhausted. No table entry or payload is modified.",
+        "rationale": "Every transformation and field access is visible in the matched body: table selection, bucket indexing through the hash, ordered linked-list traversal, key comparison, optional status writes, and payload-or-NULL output. The absence of table or entry assignments establishes that lookup is read-only.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:13:38.118Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L99-L122",
+            "why": "Shows the complete flow from table, ID, and optional status pointer through bucket traversal to the returned payload or NULL."
+          }
+        ]
+      },
+      {
+        "id": "fact:80e2d0bf-4605-4758-ae68-96e2dc5bae83",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDGetDataFromTable",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Read-only registry lookup with signature `void* HSD_IDGetDataFromTable(HSD_IDTable* table, u32 id, s32* success)`. `table` is nullable and selects the global default table when NULL; `id` is the 32-bit lookup key; `success` is an optional out-parameter receiving 1 for a match or 0 for a miss; the return is the borrowed registered data pointer or NULL.",
+        "rationale": "The matched declaration supplies the exact parameter and return types. The body establishes nullable-table and nullable-out-parameter semantics, writes only to the optional status output, and returns an existing entry's untyped payload without transferring or modifying it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:13:38.118Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L99-L122",
+            "why": "Provides the exact signature and demonstrates the default-table fallback, optional success output, borrowed payload return, and NULL miss result."
+          }
+        ]
+      },
+      {
+        "id": "fact:d1798304-9f36-4f8d-875d-637fbc4ff14d",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDGetDataFromTable",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Retrieves the pointer registered under a numeric HSD ID, allowing loaders and post-load reference-fixup routines to turn serialized IDs into existing runtime objects instead of recreating or leaving unresolved object references.",
+        "rationale": "The function itself performs the ID-to-pointer lookup. HSD_JObjResolveRefs uses it to replace an instance joint's serialized child ID with a runtime JObj, while HSD_AObjLoadDesc uses it to reuse and retain an already registered HSD object before falling back to loading a new joint hierarchy.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:13:38.118Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L99-L122",
+            "why": "Shows the registry lookup returning the data pointer associated with the requested numeric ID."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L682-L700",
+            "why": "Shows post-load JObj reference resolution converting a serialized instance-child ID into a runtime child pointer through this function."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L218",
+            "why": "Shows an AObj descriptor loader using this function to find and retain an existing runtime object, with joint loading used only when lookup fails."
+          }
+        ]
+      },
+      {
+        "id": "fact:68e720ae-6a11-4671-b2c9-1dff1ffda078",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDGetDataFromTable",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A NULL table argument redirects lookup to default_table. The first entry whose ID equals the requested key terminates the search, optionally marks success, and returns its payload. If no entry matches, exhaustion of the selected chain optionally marks failure and returns NULL. A NULL success pointer suppresses status reporting without changing lookup behavior.",
+        "rationale": "The function's guards and immediate returns define all observable lookup outcomes. The default-table branch precedes traversal, the match branch returns on the first hit, and the terminal path handles misses; both status writes are independently guarded by a NULL check.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:13:38.118Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L99-L122",
+            "why": "Directly shows the NULL-table fallback, first-match termination, optional status reporting, exhausted-chain failure, and NULL return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/id:HSD_IDInitAllocData"
+    },
+    "facts": [
+      {
+        "id": "fact:bf5918d7-f115-4860-8895-bbb47e59ce91",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDInitAllocData",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The routine has no caller-supplied inputs or return value. It obtains the address of the persistent hsd_iddata descriptor through HSD_IDGetAllocData and forwards it with sizeof(IDEntry) and alignment 4 to HSD_ObjAllocInit. That call clears the descriptor, installs default unlimited allocation limits, stores an alignment mask of 3, rounds the entry stride to four-byte alignment, and prepends the descriptor to the global allocator registry. IDEntry allocation, freeing, and allocator-statistics reporting subsequently consume this descriptor.",
+        "rationale": "The current target still supplies the persistent descriptor, IDEntry size, and four-byte alignment to HSD_ObjAllocInit. The allocator implementation preserves the resulting field updates and registry insertion, and the ID and initialization units preserve the later allocation, free, and statistics consumers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows the descriptor getter, initialization inputs, and later IDEntry allocation and freeing through the same descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows size and alignment becoming initialized limits, alignment state, rounded stride, and allocator-registry membership."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+            "why": "Shows HSD_ObjDumpStat retrieving the ID allocation descriptor for allocator-usage reporting."
+          }
+        ]
+      },
+      {
+        "id": "fact:31bc8072-6821-453b-b795-414b955093c9",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDInitAllocData",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_IDInitAllocData(void). It takes no parameters and returns no value; its effect is to configure a persistent HSD_ObjAllocData descriptor for sizeof(IDEntry)-byte entries aligned to four bytes.",
+        "rationale": "The refreshed header and current definition retain the exact void(void) signature. The body passes an HSD_ObjAllocData pointer, sizeof(IDEntry), and 4 to HSD_ObjAllocInit, whose typed parameters and stride calculation interpret those arguments as object size and byte alignment.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:44:13.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.h#L1-L31",
+            "why": "Declares HSD_IDInitAllocData with an exact void(void) signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows the void(void) definition passing the persistent descriptor, sizeof(IDEntry), and alignment 4 to HSD_ObjAllocInit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows HSD_ObjAllocInit accepting typed size and alignment arguments and deriving the descriptor's alignment mask and object stride from them."
+          }
+        ]
+      },
+      {
+        "id": "fact:33ca06c9-a95a-470b-91b6-68aa1e4d883f",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDInitAllocData",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes and registers the fixed-size HSD object-allocation descriptor used for IDEntry nodes, configuring it for sizeof(IDEntry) entries with four-byte alignment during the common HSD object-allocation startup sequence.",
+        "rationale": "The current target still configures the persistent ID allocator through HSD_ObjAllocInit. That callee still clears, configures, and registers the descriptor, the ID routines still use it for entry nodes, and HSD_ObjInit still invokes this initializer alongside those for other HSD object families.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows the initializer supplying the ID allocator descriptor, sizeof(IDEntry), and alignment 4 and shows later entry allocation and release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows HSD_ObjAllocInit clearing, configuring, and registering the supplied fixed-size allocator descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+            "why": "Shows HSD_ObjInit calling HSD_IDInitAllocData as part of the shared HSD object-allocator startup sequence."
+          }
+        ]
+      },
+      {
+        "id": "fact:2177f6c8-3558-4ee8-9ee8-3f1bb9476aa2",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDInitAllocData",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Calling the routine transitions the persistent IDEntry allocator descriptor to a freshly initialized, registered empty-pool state. If the descriptor was already registered, HSD_ObjAllocInit first removes every existing registry link to it, then clears the descriptor, restores unlimited numeric and heap-derived allocation limits, sets four-byte alignment and the aligned IDEntry stride, and reinserts it at the head of the allocator registry.",
+        "rationale": "The target unconditionally applies HSD_ObjAllocInit to the persistent ID descriptor. At the current head, the callee still removes prior links, clears the descriptor, assigns default limits, derives the alignment mask and stride, and inserts the descriptor at the registry head.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows every invocation initializing the persistent ID allocator descriptor for IDEntry objects with four-byte alignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows removal of prior registry links, state clearing, default-limit restoration, alignment and stride calculation, and reinsertion."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/id:HSD_IDInsertToTable"
+    },
+    "facts": [
+      {
+        "id": "fact:fba0addd-263f-40ef-ad5d-63b322a2217a",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDInsertToTable",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input ID is hashed modulo 101 to select a bucket. The routine walks that bucket's IDEntry chain comparing entry IDs. On a hit, the input data pointer replaces the entry's payload. On a miss, a zeroed IDEntry obtained from the unit's HSD object allocator receives the ID and payload, points to the former bucket head, and becomes the new head.",
+        "rationale": "The current implementation preserves the modulo-101 helper, allocator-backed zeroed node creation, bucket traversal, existing-payload replacement, and missing-entry head insertion.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows the modulo-101 hash helper, allocator-backed zeroed IDEntry creation, and the complete flow into an existing or newly prepended entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:7fa26db0-2bad-449b-a705-a49af48ad3af",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDInsertToTable",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function signature: `void HSD_IDInsertToTable(HSD_IDTable* table, u32 id, void* data)`. The table argument is nullable, with NULL selecting the global default table; the key is an unsigned 32-bit identifier and the stored value is an untyped pointer.",
+        "rationale": "The matched definition supplies the exact return and parameter types, while its initial guard establishes the nullable-table convention and default-table substitution.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:13:44.369Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L42-L68",
+            "why": "Provides the exact signature and shows that a NULL HSD_IDTable pointer is replaced with `&default_table`."
+          }
+        ]
+      },
+      {
+        "id": "fact:e87521d0-98b9-412d-a29b-6da74c377a4d",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDInsertToTable",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Registers an arbitrary data pointer under a 32-bit identifier in an HSD_IDTable, replacing the payload for an identifier already present and creating a chained hash-table entry otherwise. This supports HSD loaders that associate serialized descriptor addresses with the runtime objects created from them.",
+        "rationale": "The insertion routine searches the identifier's bucket and either updates the matching entry or allocates and links a new entry. JObjLoad provides a concrete subsystem use: it inserts the source HSD_Joint address as the key and the newly populated runtime HSD_JObj as the payload.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:13:44.369Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L42-L68",
+            "why": "Shows the complete insert-or-replace operation over a hashed ID bucket."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L629-L665",
+            "why": "Shows JObjLoad registering a source joint descriptor address as the ID that maps to its runtime JObj."
+          }
+        ]
+      },
+      {
+        "id": "fact:659864dc-8535-4776-ab84-a1fe5236aec2",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDInsertToTable",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Insertion has two terminal states after bucket traversal: if the ID already exists, the table retains its chain topology and the entry's data pointer is overwritten; if the ID is absent, the bucket grows by one entry prepended at its head. Repeated insertion of the same ID therefore updates one mapping rather than creating duplicate entries.",
+        "rationale": "The matching-ID branch modifies the found entry without relinking it, whereas the miss branch allocates exactly one node and installs it ahead of the former head. Because traversal stops at the first matching ID and allocation occurs only when no match was found, a repeated insertion does not add a duplicate.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:13:44.369Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L42-L68",
+            "why": "Directly shows the mutually exclusive existing-entry update and missing-entry head-insertion states."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/id:HSD_IDRemoveByIDFromTable"
+    },
+    "facts": [
+      {
+        "id": "fact:c9675b2f-a46d-49b0-a6ea-a45f57d81ba6",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDRemoveByIDFromTable",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input ID is hashed modulo 101 to select one bucket. The function advances entry and prev pointers through that bucket's singly linked chain; on a match it copies entry->next into either prev->next or the bucket head, then passes the detached entry to the ID-entry allocator's free path. It produces no return value and performs no mutation when the ID is absent.",
+        "rationale": "The current implementation still defines hashing as ID modulo 0x65, tracks the current and predecessor nodes, unlinks either a head or interior match, and routes the detached entry through HSD_ObjFree. Exhausting the chain performs no mutation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows modulo-101 bucket selection, predecessor-guided unlinking, IDEntryFree delegating to HSD_ObjFree, and the no-op miss path."
+          }
+        ]
+      },
+      {
+        "id": "fact:b2b4b331-a5a8-4fc0-9a1f-1adc5e339747",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDRemoveByIDFromTable",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_IDRemoveByIDFromTable(HSD_IDTable* table, u32 id). The table parameter is nullable, with NULL denoting the unit's global default_table.",
+        "rationale": "The declaration directly establishes the return and parameter types, and the opening null check explicitly replaces a null table argument with the address of default_table.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:13:57.458Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L75-L97",
+            "why": "Provides the exact function signature and the NULL-to-default_table parameter behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:c37908c3-d8b0-4f35-8da2-fcc89713bcdb",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDRemoveByIDFromTable",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Removes the registry entry for a specified numeric ID from an HSD_IDTable, returning the removed node to the ID-entry allocator while leaving other entries and their payload objects intact.",
+        "rationale": "The current function still searches only the selected bucket, unlinks the matching IDEntry, frees that node, and returns. It never frees or otherwise modifies the payload pointer, so it removes the mapping rather than destroying the registered object.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows bucket-chain traversal, unlinking, IDEntryFree's allocator call, and the separation between the entry node and its payload pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:c469c0db-4eaf-4d36-a114-c03a49b66212",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDRemoveByIDFromTable",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Removal has three guarded outcomes: if the matching entry is the bucket head, the head advances to its successor; if it has a predecessor, that predecessor skips over it; if no matching ID exists, the table remains unchanged. The function removes at most one entry because it returns immediately after the first match.",
+        "rationale": "The prev-null branch exactly distinguishes head removal from interior removal. The immediate return bounds the transition to one node, while loop exhaustion contains no mutation and therefore implements a silent no-op for a missing ID.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:13:57.458Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L75-L97",
+            "why": "Shows the head and non-head unlink transitions, the return after the first match, and the mutation-free missing-ID path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/id:HSD_IDSetup"
+    },
+    "facts": [
+      {
+        "id": "fact:e4107ba9-78a3-4727-9b8d-b4ef328a2418",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDSetup",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The routine takes no caller-supplied data. It passes the address of default_table, a zero fill byte, and sizeof(HSD_IDTable) to memset; the resulting zeroed table is later consumed implicitly whenever an ID-table operation receives NULL and substitutes default_table.",
+        "rationale": "The setup body still establishes the write destination, value, and extent, while the current insertion, lookup, and removal implementations still substitute the same global table for a NULL table argument.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows the full-table zeroing operation and subsequent registry operations selecting default_table for NULL table arguments."
+          }
+        ]
+      },
+      {
+        "id": "fact:3ce4bd82-4312-4a00-93aa-6ef2f85c3402",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDSetup",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Parameterless initialization routine with signature void HSD_IDSetup(void); it operates only on the global HSD_IDTable default_table and returns no value.",
+        "rationale": "The matched definition explicitly has a void(void) signature and its sole operation addresses the global default_table for a full-table memset.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:10:33.527Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L21-L24",
+            "why": "Directly shows the function signature and its sole global-table operation."
+          }
+        ]
+      },
+      {
+        "id": "fact:877b637c-4897-4a84-a9aa-49830c2206d4",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDSetup",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the global default HSD ID registry to an empty state during engine component startup.",
+        "rationale": "HSD_IDSetup still zeroes the entire default_table, and HSD_InitComponent still calls it during engine initialization before object-system startup and before setting initialization complete.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows HSD_IDSetup clearing the global default_table across sizeof(HSD_IDTable)."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L40-L90",
+            "why": "Shows HSD_InitComponent invoking HSD_IDSetup during the engine initialization sequence."
+          }
+        ]
+      },
+      {
+        "id": "fact:91e0c068-8851-4b49-a9ab-d74f6d8f2c57",
+        "target_id": "target:function:main/sysdolphin/baselib/id:HSD_IDSetup",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Transitions every bucket of the global default ID table to the empty state by clearing the entire HSD_IDTable object; any previously reachable bucket heads and registry entries are forgotten by this table.",
+        "rationale": "The refreshed header confirms that HSD_IDTable remains an array of 101 IDEntry bucket-head pointers. HSD_IDSetup still zeroes the entire object, while the surrounding registry operations interpret those pointers as chain roots; because setup performs no traversal or entry-free calls, it empties observable registry state by forgetting the old chains.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:44:13.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.h#L1-L31",
+            "why": "Defines HSD_IDTable as an array of 101 IDEntry bucket-head pointers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows HSD_IDSetup clearing the complete table and the registry operations treating its fields as linked-list bucket heads, with explicit freeing occurring only in ordinary removal."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/id:_HSD_IDForgetMemory"
+    },
+    "facts": [
+      {
+        "id": "fact:7f08a52b-2b2c-433f-8341-cde27e249d81",
+        "target_id": "target:function:main/sysdolphin/baselib/id:_HSD_IDForgetMemory",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The caller-supplied low and high pointers do not influence execution. The function instead passes the address of default_table, a zero fill value, and sizeof(HSD_IDTable) to memset; subsequent ID operations that receive a NULL table argument consume this cleared global table.",
+        "rationale": "The target still ignores both parameters and performs one full-table zeroing operation. The current registry implementations still redirect NULL table arguments to the same default_table global.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L124-L127",
+            "why": "Shows that low and high are unused and identifies the destination, fill value, and extent of the only write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows insertion, lookup, and removal redirecting NULL table arguments to default_table."
+          }
+        ]
+      },
+      {
+        "id": "fact:94427c12-ee83-49e2-bfdb-df88fa056cc8",
+        "target_id": "target:function:main/sysdolphin/baselib/id:_HSD_IDForgetMemory",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Memory-forget callback-shaped routine with signature void _HSD_IDForgetMemory(void* low, void* high); both range-bound parameters are unused, and the function returns no value.",
+        "rationale": "The matched definition explicitly supplies the void return type and two void-pointer parameters, while its body references neither parameter and operates only on the global ID table. The callback role is inferred from the recovered name and range-shaped signature, but its concrete behavior is directly established by the body.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T00:13:34.429Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L124-L127",
+            "why": "Directly shows the complete signature and that low and high are unused."
+          }
+        ]
+      },
+      {
+        "id": "fact:80b26d06-3b18-4323-bd2d-f48800f6b469",
+        "target_id": "target:function:main/sysdolphin/baselib/id:_HSD_IDForgetMemory",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Forgets all mappings in the global default HSD ID registry by resetting the complete default table to its empty state, without traversing or individually freeing its IDEntry chains.",
+        "rationale": "The target still performs only a full-object zero fill over default_table. The surrounding implementation represents mappings through bucket-head chains and performs explicit entry freeing only in ordinary removal, so this routine makes mappings unreachable without invoking per-entry cleanup.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:33:02.995Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L124-L127",
+            "why": "Shows the complete default-table reset and the absence of traversal or deallocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows that the table stores linked-list heads and that ordinary removal explicitly unlinks and frees an IDEntry."
+          }
+        ]
+      },
+      {
+        "id": "fact:dbea2c33-f3df-46d8-b81d-9458b143c730",
+        "target_id": "target:function:main/sysdolphin/baselib/id:_HSD_IDForgetMemory",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Transitions every bucket of default_table to the empty state in one operation. Any chains previously headed by those buckets cease to be reachable through the registry, but their entries are not individually returned to the HSD object allocator by this routine.",
+        "rationale": "The refreshed header confirms that default_table's 101 fields are linked-node bucket heads. The routine still zeroes the whole table without traversing it, while ordinary removal demonstrates that returning an entry to the allocator requires an explicit free call that is absent here.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:44:13.374Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.h#L1-L31",
+            "why": "Defines HSD_IDTable as 101 IDEntry bucket-head pointers and IDEntry as a linked node."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows the bucket heads serving as chain roots and ordinary removal explicitly returning an unlinked entry to the HSD object allocator."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L124-L127",
+            "why": "Shows _HSD_IDForgetMemory clearing the complete default table without traversal or per-entry deallocation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/id.c"
+    },
+    "facts": [
+      {
+        "id": "fact:f21fd7a8-5742-4bba-be8d-d224dc9228b5",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/id.c",
+        "type": "data_flow",
+        "value": "An insertion hashes a u32 ID with id % 101, searches that bucket's linked list, and either updates the existing entry's data pointer or allocates and prepends a new IDEntry. Lookup follows the same bucket chain and returns the associated void pointer while optionally reporting success. Removal unlinks the matching entry and returns it to the unit's HSD object allocator. Passing NULL as the table selects the global default_table.",
+        "rationale": "The current implementation preserves bucket selection, collision-chain traversal, update-versus-allocation behavior, payload lookup, allocator-backed removal, and default-table selection.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows IDs and payload pointers entering the table, collision chains being modified, removed entries returning to the allocator, and null table arguments selecting default_table."
+          }
+        ]
+      },
+      {
+        "id": "fact:4c773cba-471c-4491-b3e6-e578cf0fd190",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/id.c",
+        "type": "inferred_type",
+        "value": "Registry implementation unit owning an HSD_ObjAllocData pool for IDEntry nodes and a global HSD_IDTable whose 101 bucket heads point to singly linked IDEntry chains containing a u32 ID and an arbitrary data pointer.",
+        "rationale": "The refreshed globals, allocator initialization, modulo-101 hash, and field accesses establish the allocator ownership and bucket-chain layout.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Declares the allocator and default table, initializes IDEntry-sized storage, hashes IDs into 101 buckets, and accesses each entry's ID, payload, and next link."
+          }
+        ]
+      },
+      {
+        "id": "fact:bafefa95-b18b-4137-9c0e-e9ea27123d82",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/id.c",
+        "type": "purpose",
+        "value": "Implements HSD's numeric-ID registry: a fixed 101-bucket chained hash table mapping 32-bit IDs to arbitrary data pointers, with shared allocator-backed IDEntry storage and operations to initialize, insert, retrieve, remove, and forget mappings. During HSD resource loading, the registry associates serialized descriptor addresses or object IDs with the runtime objects created from them so later loaders and reference-fixup passes can reuse or resolve those objects.",
+        "rationale": "The refreshed registry implementation retains its allocator-backed 101-bucket operation set, while current JObj and AObj loaders still register, retrieve, and reuse runtime objects through it.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows allocator-backed registry setup, modulo-101 hashing, chained insertion, lookup, and removal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L633-L704",
+            "why": "Shows JObj loading registering serialized joint addresses and resolving instance-child references through the registry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L221",
+            "why": "Shows AObj descriptor loading reusing an object found under a descriptor ID."
+          }
+        ]
+      },
+      {
+        "id": "fact:73f94adf-ba7f-4566-b8a6-1071b85fe3cc",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/id.c",
+        "type": "state_behavior",
+        "value": "HSD_IDSetup resets every bucket of the default table to empty. Insertion preserves one entry per ID by replacing the payload of an existing match or prepending a new node on a miss. Removal deletes only the first matching node and otherwise leaves the table unchanged, while lookup reports either a found payload or an unsuccessful miss without modifying the table.",
+        "rationale": "The refreshed setup, insertion, removal, and lookup branches preserve each stated registry transition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/id.c#L1-L120",
+            "why": "Shows table clearing, replacement-versus-prepend insertion, first-match removal, and read-only lookup with optional success reporting."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:HSD_IDGetDataFromTable#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:HSD_IDGetDataFromTable#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:HSD_IDGetDataFromTable#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:HSD_IDInsertToTable#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:HSD_IDInsertToTable#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:HSD_IDInsertToTable#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:HSD_IDRemoveByIDFromTable#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:HSD_IDRemoveByIDFromTable#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:_HSD_IDForgetMemory#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/id:_HSD_IDForgetMemory#r4"
+    },
+    "facts": []
+  }
+]

@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/it/kinds/itwhitebea",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwhitebea.c#L492-L497",
+            "why": "Attribute forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L177-L204",
+            "why": "Exact sign-dependent precheck and subtraction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces a maximum-speed description that could incorrectly imply saturation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwhitebea:itWhitebea_UnkMotion3_Phys"
+        },
+        "type": "purpose",
+        "value": "Applies Whitebea motion-3 vertical acceleration by forwarding the item's fall-speed and maximum-fall-speed attributes to it_80272860. The helper gates subtraction using the existing velocity's sign and magnitude; it does not clamp the resulting velocity."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwhitebea.c#L492-L504",
+            "why": "Physics delegation and separate collision callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L177-L204",
+            "why": "Both operands are classified by < 0, assigning negative values -1 and nonnegative values, including zero, +1; the delegated update uses a pre-subtraction magnitude guard and no clamp."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the callback's lack of local guards and the no-clamp correction while explicitly defining the helper's negative-versus-nonnegative partition, including zero.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwhitebea:itWhitebea_UnkMotion3_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Each motion-3 physics invocation unconditionally calls it_80272860 with the fall attributes and performs no local transition or collision decision. The helper classifies acceleration and existing vertical velocity separately using < 0: negative values map to -1, while nonnegative values, including zero, map to +1. It subtracts acceleration when the classifications match, or when they differ and the existing velocity magnitude is below the supplied limit; otherwise it leaves vertical velocity unchanged. A permitted subtraction can overshoot the limit; the result is not clamped."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwhitebea.c#L224-L381",
+            "why": "Defines the complete current target body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L530-L689",
+            "why": "Defines the sound-selection and accumulator-contribution helpers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Updates the obsolete camera symbol and avoids misclassifying sound selection as cleanup. Preserves the directly observed data and branch flow without interpreting numeric damage categories.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwhitebea:it_802E3884"
+        },
+        "type": "data_flow",
+        "value": "Obtains the Item and Whitebea special attributes, saves facing_dir in init_facing_dir, and adds it_8027CBFC(gobj) to xC9C. That contribution is selected from shared configured values according to xCC4, with zero as the default. If the updated xC9C exceeds attr->x0->x0 or msid is 9, the routine calls it_8027C9D8, it_802756D0, it_80275474, and it_8027CE44 in order, then calls Camera_RequestQuake(QuakeKind_Small, &ip->pos). it_8027C9D8 selects a nonrepeated sound ID and forwards it to Item_8026AE84. The routine dispatches gobj to it_802E4980 when HSD_Randf() < it_804D6D40->x8, otherwise to it_802E48B4. The other branch forwards gobj to it_802E3ED0. It always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwhitebea.c#L224-L381",
+            "why": "Shows initialization and state-0 collision uses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwhitebea.c#L382-L541",
+            "why": "Shows the movement collision caller, exact transition body, and falling callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Describes both observed call contexts and the exact multiplication without assuming that the unknown attribute attenuates velocity or relying on an external actor mapping.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwhitebea:it_802E3DA0"
+        },
+        "type": "purpose",
+        "value": "Enters Whitebea motion state 3, whose physics applies item falling acceleration. Used during initialization and by local collision transitions, it clears whitebea.x40, multiplies horizontal velocity by special attribute x4, conditionally reverses facing when horizontal nudge opposes it, synchronizes collision facing on that reversal, and requests state 3 with ITEM_ANIM_UPDATE."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname } from "node:path";
 import { Database } from "bun:sqlite";
-import { gameKnowledgeRoot } from "../../knowledge/paths.js";
+import { gameKnowledgeRoot, knowledgeIndexPath } from "../../knowledge/paths.js";
 import { configureConnection } from "../storage/ddl.js";
 
 export const KNOWLEDGE_INDEX_DB_FILENAME = "knowledge-index.sqlite";
@@ -29,8 +29,8 @@ export function openKnowledgeIndexDb(options: OpenKnowledgeIndexDbOptions): Know
   const root = "knowledgeRoot" in options && options.knowledgeRoot !== undefined
     ? options.knowledgeRoot
     : gameKnowledgeRoot(options.gameId);
-  mkdirSync(root, { recursive: true });
-  const dbPath = resolve(root, KNOWLEDGE_INDEX_DB_FILENAME);
+  const dbPath = knowledgeIndexPath(root);
+  mkdirSync(dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
   try {
     configureConnection(db);

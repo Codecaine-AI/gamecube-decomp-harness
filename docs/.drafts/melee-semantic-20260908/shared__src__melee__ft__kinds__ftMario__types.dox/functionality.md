@@ -1,0 +1,3 @@
+This documentation-only file describes `ftMario_DatAttrs::ftMario_SpecialLw_DatAttrs::vel_y` as vertical momentum from the initial grounded B-tap, with `f32`, `@at{0}`, and `@sz{4}` annotations (code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/types.dox#L1-L4). These are documentation statements, not independent verification of runtime behavior or compiled layout. The complete rendered view matches canonical text, with no substitutions or parse errors. There are no frozen subjects, facts, or links to revise; no semantic correction is warranted from this file alone.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

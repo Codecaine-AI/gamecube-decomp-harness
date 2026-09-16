@@ -86,6 +86,9 @@ function assertNonBlankEnvelopeValue(label: string, value: unknown): void {
 }
 
 function validateGameEventEnvelope(envelope: GameEventEnvelope): void {
+  if (envelope.eventType.startsWith("cycle.") || envelope.subjectKind === "cycle") {
+    throw new Error("Cycle lifecycle events are historical; new work belongs to the harness");
+  }
   assertNonBlankEnvelopeValue("eventType", envelope.eventType);
   assertNonBlankEnvelopeValue("gameId", envelope.gameId);
   assertNonBlankEnvelopeValue("subjectKind", envelope.subjectKind);

@@ -1,0 +1,146 @@
+{
+  "tu": "main/sysdolphin/baselib/psdisptev",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisptev:psSetupTev"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Uses arg0[1] & 0x80100480 as its cache key; all 16 possible masked combinations have switch cases. Equality returns before all writes. On a miss, four untextured bit-0x80 cases clear that bit in both input and cache before fallthrough; other modes retain it. The static cache begins at zero, so a first zero-mode call skips programming unless invalidated. Cache validity depends on external GX state ownership; this routine does not reinstall common operations on ordinary paths.",
+        "rationale": "Record startup and external-state assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisptev.c#L5-L203",
+            "why": "Record startup and external-state assumptions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1880-L1922",
+            "why": "Particle setup invalidates cache and initializes common stage state and TEV registers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L2008-L2025",
+            "why": "Particle pointer is cast to u32* for setup; further register setup follows."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisptev:psSetupTevCommon"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally configures stages 0..2 order, add/zero-bias/scale1/clamped operations writing PREV, and swap0 selectors. Does not set stage counts, texgen counts, color/alpha inputs, register values or cache. Calling it does not invalidate prevTev[0], so the caller must maintain cache coherence when resetting GX state.",
+        "rationale": "Separate common setup from cache invalidation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisptev.c#L5-L41",
+            "why": "Separate common setup from cache invalidation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1880-L1922",
+            "why": "Particle setup invalidates cache and initializes common stage state and TEV registers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L2008-L2025",
+            "why": "Particle pointer is cast to u32* for setup; further register setup follows."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisptev:psSetupTev#r3"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "display_words",
+        "rationale": "Canonical u32* addresses a word-oriented mutable display input; avoid asserting an owned struct type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisptev.c#L34-L45",
+            "why": "Canonical u32* addresses a word-oriented mutable display input; avoid asserting an owned struct type."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1880-L1922",
+            "why": "Particle setup invalidates cache and initializes common stage state and TEV registers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L2008-L2025",
+            "why": "Particle pointer is cast to u32* for setup; further register setup follows."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisptev:psSetupTev#r3"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Nonnull u32* input with at least two accessible words. Word1 supplies mask 0x80100480. On cache misses for keys 0x80,0x80000080,0x100080,0x80100080, bit0x80 is cleared in that caller-owned word; other bits and word0 are untouched.",
+        "rationale": "Record exact access and mutation domain.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisptev.c#L34-L203",
+            "why": "Record exact access and mutation domain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1880-L1922",
+            "why": "Particle setup invalidates cache and initializes common stage state and TEV registers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L2008-L2025",
+            "why": "Particle pointer is cast to u32* for setup; further register setup follows."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisptev:.sbss"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "rationale": "The compiled section target is not established to be identical to the source array prevTev; clear its object-name alias pending attribution.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisptev.c#L5-L5",
+            "why": "The compiled section target is not established to be identical to the source array prevTev; clear its object-name alias pending attribution."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1880-L1922",
+            "why": "Particle setup invalidates cache and initializes common stage state and TEV registers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L2008-L2025",
+            "why": "Particle pointer is cast to u32* for setup; further register setup follows."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

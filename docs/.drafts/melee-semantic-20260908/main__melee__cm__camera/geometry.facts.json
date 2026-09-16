@@ -1,0 +1,2119 @@
+{
+  "main/melee/cm/camera:Camera_80028F5C": [
+    {
+      "id": "fact:aab80ae2-9275-4f3b-aa6b-b5bcff5068b1",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80028F5C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a mutable `CmSubject` and a `CmSubjectState`; stores the state, clears position, bone position, facing direction, ledge/force-inactive/was-framed flags, timer, and auxiliary vectors; installs default current extents; and copies those extents into the target extents.",
+      "rationale": "The current semantic field names replace the earlier offset-based interpretation and make every input-to-field assignment explicit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows the state parameter and every semantic `CmSubject` field written by the initializer."
+        }
+      ]
+    },
+    {
+      "id": "fact:575b291a-c817-4a68-a626-fc9c94d4ee68",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80028F5C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_InitSubject",
+      "rationale": "The function establishes all non-linkage baseline state for a reusable camera subject immediately after checkout; no surviving source establishes the exact original name.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `Camera_InitSubject`.",
+      "confidence": 0.8,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows a dedicated in-place initialization operation over one `CmSubject`."
+        }
+      ]
+    },
+    {
+      "id": "fact:a1690e2a-31ad-421b-ba8b-bc06f8a9672a",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80028F5C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A null-tolerant in-place initializer with exact signature `void Camera_80028F5C(CmSubject* subject, CmSubjectState state)`. The first parameter is mutable pool storage and the second is the camera-subject state enum stored in the record.",
+      "rationale": "The current function definition retains the exact pointer and enum parameters and its null guard, while the refreshed structure declaration identifies the destination field as `CmSubjectState`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:37:49.869Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L162-L384",
+          "why": "Shows the exact definition, null guard, enum parameter, and in-place field initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/cm/types.h#L1-L220",
+          "why": "Defines `CmSubject` and its `CmSubjectState state` field."
+        }
+      ]
+    },
+    {
+      "id": "fact:875e8a69-0e1f-4ddd-af99-38d2a35a1c86",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80028F5C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes a `CmSubject` for active use after pool checkout by assigning its requested state and restoring tracking position, extents, flags, timer, facing, and accumulated auxiliary vectors to a deterministic baseline without changing intrusive-list links.",
+      "rationale": "The current semantic fields show that the function resets camera-subject tracking state, while the absence of writes to `next` and `prev` preserves linkage established by the allocator.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows initialization of every demonstrated non-linkage field and no writes to list links."
+        }
+      ]
+    },
+    {
+      "id": "fact:91994d71-86f2-4509-8f30-951d526e8287",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80028F5C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null subject is ignored. Otherwise the supplied state is installed, `on_ledge`, `force_inactive`, and `was_framed` become false, `state_timer` and motion-related vectors become zero, horizontal extents become `(-1, 1)`, vertical extents become `(1, -1, 1)`, and target extents are synchronized to those defaults; list links remain untouched.",
+      "rationale": "The current body has one null guard followed by the complete deterministic reset expressed through recovered semantic fields.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows the null guard, exact reset values, extent synchronization, and untouched links."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_80029020": [
+    {
+      "id": "fact:d287751a-3945-45ea-a37d-14ea0f6819a7",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029020",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Supplies zero to `Camera_80029044`. The delegated allocator removes the free-list head, appends it to the active list, passes the value through to the subject initializer as the initial `CmSubjectState`, and returns the record; callers retain it as fighter or stage camera-subject state.",
+      "rationale": "The wrapper, allocator, and current callers directly trace the constant argument and returned record.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows the zero-valued wrapper call and complete delegated pool transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://514397e54e/src/melee/ft/fighter.c#L846-L926",
+          "why": "Shows the returned subject stored as a fighter's camera box."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grpstadium.c#L230-L247",
+          "why": "Shows the returned subject retained and configured by Pok\u00e9mon Stadium."
+        }
+      ]
+    },
+    {
+      "id": "fact:def6a1eb-612b-4b00-81cb-b631a112f8ee",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029020",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides standard camera-subject records through which fighters and stage mechanisms contribute tracked positions and framing extents to the camera system, including fighter camera boxes and Pok\u00e9mon Stadium's display subject.",
+      "rationale": "Resolved callers store the returned record in persistent fighter or stage state and configure its camera position and extents.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://514397e54e/src/melee/ft/fighter.c#L846-L926",
+          "why": "Shows fighter construction assigning the returned record as its camera box."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grpstadium.c#L230-L247",
+          "why": "Shows stage code configuring the returned record's state, position, and extents."
+        }
+      ]
+    },
+    {
+      "id": "fact:f901b57e-a89a-42c3-870a-63495ef48520",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029020",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_AllocSubject",
+      "rationale": "The public parameterless entry point returns one newly active pooled `CmSubject`; the exact historical distinction from the parameterized allocator remains uncertain.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `Camera_AllocSubject`.",
+      "confidence": 0.82,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows a parameterless wrapper returning a pooled camera subject."
+        }
+      ]
+    },
+    {
+      "id": "fact:17913dd5-b6ca-4e1b-a38e-4fcd5809f5e6",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029020",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Exact signature `CmSubject* Camera_80029020(void)`. It is a parameterless allocating accessor that returns a mutable camera-subject record from the module's fixed pool; exhaustion in the delegated allocator does not return null.",
+      "rationale": "The current definition gives the exact wrapper signature, and the delegated allocator's null-free-head branch reports and loops forever.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows the exact wrapper signature, return path, and delegated non-returning exhaustion behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:ad019389-64c3-4747-9e83-18388707f34e",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029020",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Allocates a standard camera subject for a fighter, stage object, or other tracked scene element by checking a `CmSubject` out of the fixed pool, activating it, initializing it with state value zero, and returning it.",
+      "rationale": "The wrapper always delegates with zero, and current fighter and stage callers retain the returned active subject for camera tracking.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows the zero-valued allocation delegation and the callee's free-to-active transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://514397e54e/src/melee/ft/fighter.c#L846-L926",
+          "why": "Shows fighter construction retaining the returned camera subject."
+        }
+      ]
+    },
+    {
+      "id": "fact:82a6c51e-9f96-4bf0-82eb-93647d9250b2",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029020",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Every call attempts one free-to-active pool transition through the parameterized allocator. On success the record is appended to the active tail and reset with state value zero and baseline tracking fields. If the free pool is exhausted, the allocator reports an error and loops forever, so this wrapper has no recoverable failure state.",
+      "rationale": "The wrapper has no branching of its own, while the current allocator and initializer define the complete success and failure behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows the wrapper, active-list insertion, baseline initialization, and fatal exhaustion path."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_80029044": [
+    {
+      "id": "fact:f72da280-117f-4563-ba01-46c4b5cba34b",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029044",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the free-subject head, advances it through the selected record's `prev`, clears the selected record's `next`, appends the record after the active tail or installs it as the active head, updates the tail, forwards the caller's value to `Camera_80028F5C` as the initial subject state, and returns the initialized record.",
+      "rationale": "Every pointer and argument transfer is explicit in the current matched body.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Directly traces free-list, active-list, state argument, initializer call, and return value."
+        }
+      ]
+    },
+    {
+      "id": "fact:3e4a2126-c908-4d8b-97ea-ea7c477a7665",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029044",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides lifecycle infrastructure for the tracked-subject camera system by activating a reusable camera-subject record that fighter, item, and stage systems can populate. It establishes participation state but does not itself calculate camera framing or transforms.",
+      "rationale": "The current function performs only free-list checkout, active-list registration, and initialization of a `CmSubject`, whose refreshed layout contains the tracking state, position, and extents later consumed by camera processing.",
+      "confidence": 0.92,
+      "updated_at": "2026-09-04T22:37:49.869Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L162-L384",
+          "why": "Shows pool checkout, active-list insertion, and subject initialization without camera-view calculations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/cm/types.h#L1-L220",
+          "why": "Defines the activated record's camera-tracking state, positions, flags, and extents."
+        }
+      ]
+    },
+    {
+      "id": "fact:32b9d31e-8cad-491a-a640-c8e9440564df",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029044",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_AllocSubjectWithState",
+      "rationale": "Unlike the adjacent parameterless wrapper, this allocator accepts the initial `CmSubjectState` value forwarded to the record initializer, so the refined name distinguishes its demonstrated interface; the exact original spelling is unknown.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `Camera_AllocSubjectWithState`.",
+      "confidence": 0.79,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows a pool-backed subject allocator whose argument initializes the returned subject's state."
+        }
+      ]
+    },
+    {
+      "id": "fact:64ecf3f5-9a19-4262-865a-5f5b33b4ddb3",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029044",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Pool-backed constructor with signature `CmSubject* Camera_80029044(int state)`. The integer is forwarded to a `CmSubjectState` parameter and stored in `CmSubject.state`; pool exhaustion reports an error and loops indefinitely rather than returning a failure value.",
+      "rationale": "Current source retains the integer-parameter function signature, forwards the value to the enum-typed initializer, returns the selected record, and has a non-returning exhaustion branch; the refreshed type declaration confirms the stored enum domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:37:49.869Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L162-L384",
+          "why": "Shows the target signature, enum-typed initializer call, returned record, and terminal pool-exhaustion loop."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/cm/types.h#L1-L220",
+          "why": "Defines the destination field as `CmSubjectState state`."
+        }
+      ]
+    },
+    {
+      "id": "fact:0b58080e-6d7f-46bc-8fb8-ce77f665afcf",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029044",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Checks out and activates one reusable `CmSubject` from the preallocated camera-subject pool, appends it to the active list, initializes its state and non-linkage fields, and returns it.",
+      "rationale": "The current body performs the complete free-to-active transfer and delegates deterministic field initialization before returning the same record.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows pool checkout, active-list insertion, initialization, and return."
+        }
+      ]
+    },
+    {
+      "id": "fact:923be954-e49c-4191-b315-701ac5fd66b6",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029044",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "With a free record available, performs an immediate free-to-active transition, making the record both active head and tail when the list was empty or appending it otherwise, then initializes it before return. If the pool is exhausted, reports `couldn't get CmSubject struct.` and loops forever without mutating list state.",
+      "rationale": "The current free-head guard and active-head branch define all allocation states, and all list mutations occur after the exhaustion check.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L229-L385",
+          "why": "Shows exhausted, empty-active-list, and nonempty-active-list paths."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_800290D4": [
+    {
+      "id": "fact:3b29139a-5801-4f0e-a607-2bbb0287f6db",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800290D4",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the subject's `next` and `prev`, propagates them into adjacent active subjects, updates the active head or tail when removing an endpoint, writes the previous free-list head into `subject->prev`, and makes the subject the new free-list head. Other subject state remains until the next checkout initializes it.",
+      "rationale": "The current function directly exposes all linkage reads and writes and performs no non-linkage reset.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L286-L302",
+          "why": "Shows the complete active-list unlink and free-list prepend operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:893efc86-8054-4d39-b71e-a1748dc0c1f7",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800290D4",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Ends camera participation for a tracked gameplay subject. Callers use it when fighters unload, item camera boxes are disabled, and temporary stage subjects such as Fourside's UFO focus end.",
+      "rationale": "Resolved fighter, item, and stage callers release their retained camera-subject records through this function.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/fighter.c#L3074-L3111",
+          "why": "Shows fighter teardown releasing its camera box."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/it/item.c#L268-L280",
+          "why": "Shows item camera-box removal releasing and clearing the retained subject."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grfourside.c#L487-L606",
+          "why": "Shows Fourside releasing its temporary UFO camera subject."
+        }
+      ]
+    },
+    {
+      "id": "fact:391ee8e8-3e68-4e13-9cf2-d96fc19bed64",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800290D4",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_FreeSubject",
+      "rationale": "The function removes one active `CmSubject` and returns it to the reusable free list; no surviving symbol confirms the exact original spelling.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `Camera_FreeSubject`.",
+      "confidence": 0.8,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L286-L302",
+          "why": "Shows release from active membership into the subject free list."
+        }
+      ]
+    },
+    {
+      "id": "fact:76f08504-e8e0-46ef-899d-5a437940c969",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800290D4",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A side-effect-only subject-release routine with signature `void(CmSubject* subject)`. The argument must be a currently linked mutable `CmSubject` from the camera module's active intrusive list; the routine returns no status and does not accept NULL safely.",
+      "rationale": "The matched definition supplies the exact return and parameter types. It immediately dereferences both linkage fields without a null guard and uses them to update neighboring records and module-level list endpoints, establishing the active-list membership precondition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:38:00.701Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L286-L302",
+          "why": "Provides the exact `void(CmSubject*)` definition and shows unconditional dereferences of the supplied subject's `next` and `prev` fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:c39c8144-bc49-4c5b-b493-8a4a06502f5d",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800290D4",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Releases a `CmSubject` from active camera tracking by unlinking it from the doubly linked active list and returning the record to the head of the preallocated subject free list for later reuse.",
+      "rationale": "The current body repairs active neighbors and endpoints before prepending the same record to the free list without deallocation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L286-L302",
+          "why": "Shows the inverse active-to-free pool transition."
+        }
+      ]
+    },
+    {
+      "id": "fact:08ad5bb9-2f20-4f20-824b-d7ff7151088d",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800290D4",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Transitions one `CmSubject` from active-list membership to free-list membership. For an interior subject it joins the predecessor and successor; for the active tail it moves `cm_804D6468` to the predecessor; for the active head it moves `cm_804D6460` to the successor; and for a sole active subject both endpoints become NULL. Every valid path then prepends the released record to the free list. There is no null or membership validation.",
+      "rationale": "The two independent linkage branches cover successor-present versus tail and predecessor-present versus head. Their combination handles interior, head, tail, and sole-node cases, after which the common free-list insertion always executes. Direct dereferences and unconditional mutation show that callers must provide a valid active record.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:38:00.701Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L286-L302",
+          "why": "Shows all active-list boundary branches, unconditional free-list insertion, and the absence of argument or membership guards."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L11-L27",
+          "why": "Provides a matched intrusive doubly linked-list splice analog whose predecessor, successor, head, and tail updates corroborate the target's list-boundary interpretation."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_80029124": [
+    {
+      "id": "fact:562efbf4-1f50-4734-9ebb-2d116ff0e501",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029124",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads a candidate position, the stage camera edges, and the current stage-controlled lower level. It adds one to that level, chooses the greater of it and the configured camera bottom, expands all four edges by `distance`, and returns an accumulated directional bounds mask.",
+      "rationale": "The current target and Ground accessor directly expose the effective-rectangle calculation and returned flags.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows stage edges, dynamic lower level, margin, comparisons, and returned bitmask."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L2490-L2535",
+          "why": "Shows the current and previous stage-controlled values returned by `Ground_801C4368`."
+        }
+      ]
+    },
+    {
+      "id": "fact:425dfb4c-a5d4-44b2-8c38-4ea3935055b8",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029124",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements stage-camera-bounds containment for camera tracking, identifying when a tracked position lies beyond the active view region. The effective lower camera edge may rise with a stage-controlled level; this is camera framing behavior rather than a blast-zone or KO test.",
+      "rationale": "The function reads camera-bound accessors and returns directional camera-bound flags, with a separate stage value able to raise the lower edge.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows classification against effective stage camera bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L2490-L2535",
+          "why": "Shows the independently maintained stage-controlled lower level."
+        }
+      ]
+    },
+    {
+      "id": "fact:aedaa492-0642-44d1-a623-01d4679de8a9",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029124",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_GetBoundsFlags",
+      "rationale": "The function performs a read-only position query and returns accumulated `CAM_BOUNDS_*` flags rather than clamping or mutating the supplied point.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `Camera_GetBoundsFlags`.",
+      "confidence": 0.8,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows a directional camera-bounds bitmask as the sole result."
+        }
+      ]
+    },
+    {
+      "id": "fact:fdd0bfae-890d-4430-bff1-cbc32e4aafbf",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029124",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Exact signature `u32 Camera_80029124(Vec3* subject_pos, s32 distance)`: the position is read-only in practice, `distance` is a symmetric outward margin converted into the coordinate domain, and the result is a combinable `CAM_BOUNDS_*` bitmask.",
+      "rationale": "The current definition reads only X and Y, expands lower and upper edges oppositely by the margin, and independently ORs four directional flags.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Provides the exact signature and demonstrates the margin and bitmask semantics."
+        }
+      ]
+    },
+    {
+      "id": "fact:6f9ce885-f646-45f4-92fb-2e8adfe3947e",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029124",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Classifies a camera-subject position against the active stage camera rectangle, with an optional outward margin, and returns directional flags for every crossed boundary.",
+      "rationale": "The current body obtains all four effective camera edges and independently compares the supplied coordinates against each expanded edge.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows complete four-edge classification and directional flag accumulation."
+        }
+      ]
+    },
+    {
+      "id": "fact:4d2092ce-c187-40fc-aef7-199ae00184b8",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029124",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A stateless classification query that starts with `CAM_BOUNDS_INSIDE`, independently adds flags for crossed edges, and performs no mutation. Strict comparisons leave points exactly on an edge inside, while corner points may receive two flags; the effective bottom edge changes as the external stage level changes.",
+      "rationale": "The current body contains four independent strict comparisons and only local writes, while the Ground setter maintains the external current/previous level pair.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows inside initialization, strict independent tests, bitwise accumulation, and no mutation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L2490-L2535",
+          "why": "Shows the external state update that can move the effective lower edge."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_8002928C": [
+    {
+      "id": "fact:b2e6d995-1fea-4caa-b080-cd3f364b91dc",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002928C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `CmSubject.state`, `force_inactive`, `was_framed`, `state_timer`, and `pos`. For `CmSubjectState_Auto`, it normalizes X and Y within stage camera bounds and requires both values to remain from 0.35 through 0.65, while updating the timer and `was_framed`; it returns the resulting eligibility boolean to camera-processing callers.",
+      "rationale": "Current semantic field and enum names replace the former offset-based description while preserving the demonstrated normalized-region and output flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows all subject-state reads, normalized bounds tests, state writes, and return paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L394-L794",
+          "why": "Shows the predicate controlling subject inclusion in camera processing."
+        }
+      ]
+    },
+    {
+      "id": "fact:10468135-eb27-4ab7-b054-6a4161a45b38",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002928C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements camera-subject participation gating for automatic match framing. Auto-state subjects that leave the central portion of the stage camera region are temporarily excluded and must complete a cooldown and re-enter the central region before influencing framing again.",
+      "rationale": "The predicate's current enum-aware state machine controls whether active subjects are counted and processed by aggregate framing.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows the auto-state central-region requirement and 600-frame cooldown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L394-L794",
+          "why": "Shows camera framing processing only subjects accepted by the predicate."
+        }
+      ]
+    },
+    {
+      "id": "fact:169edc62-cb1e-4dad-bc51-d3e416193d3a",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002928C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_CheckSubjectEligibility",
+      "rationale": "The function returns whether a subject may currently participate while maintaining auto-state cooldown history; no surviving symbol confirms the exact wording.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `Camera_CheckSubjectEligibility`.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows a stateful eligibility predicate over one camera subject."
+        }
+      ]
+    },
+    {
+      "id": "fact:ad30b918-9b59-4300-9a2c-35d4750da995",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002928C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Exact signature `bool Camera_8002928C(CmSubject* subject)`. The required pointer is mutable: the function reads subject state, exclusion state, position, prior-framing state, and a signed 16-bit timer, and may update `was_framed` and `state_timer` before returning eligibility.",
+      "rationale": "The current function body establishes the boolean signature and mutations, while the refreshed `CmSubject` declaration confirms the enum, bit flags, position vector, and signed 16-bit timer domains.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:37:49.869Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Provides the exact signature and shows the subject-state reads and `was_framed` and `state_timer` writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/cm/types.h#L1-L220",
+          "why": "Defines the relevant enum state, bit flags, position, and signed 16-bit timer fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:27fd7069-f891-499f-b18a-741e9e3f97c3",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002928C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Determines whether a `CmSubject` may currently participate in camera processing. It rejects inactive or force-disabled subjects and applies a position-sensitive cooldown to auto-state subjects before allowing them to contribute to camera framing.",
+      "rationale": "The current state and exclusion guards define eligibility, while aggregate camera processing invokes the predicate before including a subject.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows the complete state, exclusion, position, cooldown, and boolean-return logic."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L394-L794",
+          "why": "Shows accepted subjects contributing to camera updates and aggregate framing."
+        }
+      ]
+    },
+    {
+      "id": "fact:0ff75f28-1f11-4396-b621-c7d426d7672e",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002928C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "`CmSubjectState_Inactive` or `force_inactive` subjects are always rejected. Non-auto active subjects are accepted and marked `was_framed = true`. An auto subject with a nonzero timer is decremented and rejected. With no timer, it is accepted only while both normalized coordinates lie within 0.35\u20130.65; a previously framed auto subject leaving that region clears `was_framed`, starts a 600-frame cooldown, and is rejected until the timer expires and it re-enters.",
+      "rationale": "The current enum and semantic fields make each guard, transition, and timer mutation explicit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L304-L385",
+          "why": "Shows inactive and forced exclusion, ordinary acceptance, auto-state central-region testing, cooldown arming, countdown, and re-entry behavior."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_800293E0": [
+    {
+      "id": "fact:4ad145e6-e6d5-4121-a93c-3345b2b49534",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800293E0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Fighter camera-box updates place newly calculated horizontal and vertical framing metadata in `CmSubject.target_ext`. For each eligible active subject, this function compares those targets with the corresponding current values in `CmSubject.ext`, changes each current component by `sign(target-current) * 0.5` when the gap exceeds 0.5, and otherwise copies the target exactly. Gameplay and specialized camera updates call it before deriving camera bounds, whose calculations consume the smoothed extents.",
+      "rationale": "Current fighter code still writes and initially synchronizes `target_ext` and `ext`; the target performs the bounded transfer, and the gameplay update invokes it before the bounds and transform pipeline.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:37:49.869Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ftcamera.c#L1-L114",
+          "why": "Shows fighter camera-box code producing `target_ext` and initialization copying it into `ext`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L387-L462",
+          "why": "Shows the component-wise bounded approach from `target_ext` to `ext` for eligible active subjects."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1513-L1579",
+          "why": "Shows the gameplay-camera update invoking this routine before bounds and transform calculations."
+        }
+      ]
+    },
+    {
+      "id": "fact:81bbe7fc-e9bf-4722-abbb-23768674f8c1",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800293E0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Contributes to automatic match-camera framing by smoothing changes to each fighter's camera-box dimensions before those dimensions expand the collective framing rectangle, preventing facing-, scale-, or metadata-driven extent changes from immediately discontinuously changing the framing inputs.",
+      "rationale": "Current fighter code derives target camera-box extents, this routine gradually transfers them into current extents, and the neighboring bounds calculation uses those current values for aggregate framing.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L387-L462",
+          "why": "Shows camera-subject extents changing gradually rather than snapping to new target values."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L468-L638",
+          "why": "Shows the smoothed current extents being incorporated into the collective subject-framing bounds."
+        }
+      ]
+    },
+    {
+      "id": "fact:0227043b-fc73-4c29-b5af-4fd0ec16fc3d",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800293E0",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_ApproachSubjectBounds",
+      "rationale": "The current body exclusively approaches each eligible camera subject's current extents toward its target extents. The proposed name follows the unit's `Camera_` convention, although no surviving symbol confirms the exact wording.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `Camera_ApproachSubjectBounds`.",
+      "confidence": 0.74,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L387-L462",
+          "why": "Shows an eligibility-gated bounded approach operation over every component of each camera subject's extents."
+        }
+      ]
+    },
+    {
+      "id": "fact:ffa39395-2938-477f-b26d-2213b49dcc48",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800293E0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless `void` camera-maintenance routine. It reads the module-owned intrusive list of `CmSubject` records through `cm_804D6468` and mutates the `CmSubjectExtents ext` record in place; it returns no result.",
+      "rationale": "The current definition retains the exact `void(void)` signature and global-list traversal, and the refreshed type declaration still defines `ext` and `target_ext` as paired `CmSubjectExtents` records.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:37:49.869Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L387-L462",
+          "why": "Shows the parameterless definition, traversal from `cm_804D6468`, eligibility test, and in-place extent writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/cm/types.h#L1-L220",
+          "why": "Defines `CmSubjectExtents` and the paired `CmSubject.ext` and `target_ext` fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:2cb2c6ec-afa3-4232-827b-ba7e99f03dcd",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800293E0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Advances every eligible active camera subject's current framing extents toward its latest target extents, limiting each component to a 0.5-unit change per invocation so changes in a fighter's camera box feed into camera framing gradually rather than immediately.",
+      "rationale": "The current function traverses eligible subjects and approaches all five `ext` components toward `target_ext` by at most 0.5. Fighter code supplies those targets, and the following bounds calculation consumes the current extents.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L387-L462",
+          "why": "Shows the five component-wise bounded approach operations over the active camera-subject list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L468-L638",
+          "why": "Shows the resulting current extents being used to construct aggregate camera-framing bounds."
+        }
+      ]
+    },
+    {
+      "id": "fact:b6c7af6e-e691-4dbc-936e-55903899368c",
+      "target_id": "target:function:main/melee/cm/camera:Camera_800293E0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each invocation independently updates five extent components for every active subject accepted by `Camera_8002928C`. A component already equal to its target remains unchanged; a gap greater than 0.5 advances by 0.5, a gap below -0.5 retreats by 0.5, and a residual gap snaps to the target. Repeated calls therefore converge without overshoot, while rejected subjects retain their prior extents.",
+      "rationale": "The current loop and predicate define participating subjects, and the repeated three-way comparisons define the complete transition rule for all five components.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L387-L462",
+          "why": "Directly shows the eligibility guard and positive, negative, residual, and equal cases for all updated components."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_8002958C": [
+    {
+      "id": "fact:73cd3c22-a6b4-41df-bcac-f2ac0d2e44c2",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002958C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the module's linked list of camera subjects and filters it with `Camera_8002928C`. It scales each accepted subject's horizontal and vertical extents by a subject-count weight and the active stage's camera tracking ratio, constrains samples to stage camera edges and the stage-controlled lower level, and writes the extrema, accepted-subject count, and absolute camera-position Z into `CameraBounds`. That Z magnitude additionally contributes 10 to 400 units of downward allowance to `y_min` as it rises from 80 to 5000.",
+      "rationale": "The current implementation retains the complete subject-to-bounds transformation, including filtering, weighted extents, stage clamps, fallback values, Z-dependent lower padding, and output writes. The Ground getter still supplies the moving lower level used by the bottom clamp.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L464-L676",
+          "why": "Shows the subject traversal, weighted extent sampling, stage constraints, fallback, Z adjustment, and `CameraBounds` outputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L2490-L2535",
+          "why": "Shows `Ground_801C4368` exporting the current stage-controlled vertical level and its difference from the preceding value."
+        }
+      ]
+    },
+    {
+      "id": "fact:0aff1424-af5d-46b7-9135-9f0de2b60e55",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002958C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements automatic match-camera framing by forming a stage-constrained box representing all camera-eligible fighters or other subjects, with additional lower-screen room as the camera pulls farther back.",
+      "rationale": "The current code still combines all eligible subjects into collective framing extrema and applies stage and camera-distance constraints, preserving the standing mechanic mapping.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L464-L676",
+          "why": "Shows collective subject framing, stage-bound enforcement, and camera-distance-dependent enlargement of the lower edge."
+        }
+      ]
+    },
+    {
+      "id": "fact:ad8a391d-fdf9-4473-8db7-a22549f4325a",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002958C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_CalcSubjectBounds",
+      "rationale": "The routine's output remains a `CameraBounds` record calculated from eligible `CmSubject` entries, with a deterministic fallback when none qualify. The spelling remains a convention-based guess.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `Camera_CalcSubjectBounds`.",
+      "confidence": 0.76,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L464-L676",
+          "why": "Shows the function calculating subject count and horizontal and vertical extrema into a `CameraBounds` output."
+        }
+      ]
+    },
+    {
+      "id": "fact:1675e30f-f197-4d1a-8794-4b771fde14d1",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002958C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Exact signature `void Camera_8002958C(CameraBounds* bounds, CameraTransformState* transform)`: `bounds` is a required writable output record, while `transform` is read for the absolute camera-position Z value used to adjust the lower framing edge.",
+      "rationale": "The current definition preserves the signature and writes the bounds extrema, count, and Z while only reading `transform->position.z` from the transform parameter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L464-L676",
+          "why": "Provides the signature and shows the respective output and input roles of the two parameters."
+        }
+      ]
+    },
+    {
+      "id": "fact:af78803f-df83-4e53-817a-09854bfb875d",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002958C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds the camera-framing rectangle for the current set of eligible camera subjects, constraining subject-derived extents to the stage camera region and supplying a stage-centered fallback rectangle when no eligible subject exists.",
+      "rationale": "The current source still filters subjects, accumulates constrained extrema, and substitutes fixed bounds around the stage camera offset when the accepted count is zero.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L464-L676",
+          "why": "Shows eligible-subject counting, extent sampling, stage constraints, fallback initialization, and final bounds writes."
+        }
+      ]
+    },
+    {
+      "id": "fact:9e3a1928-1c35-4f53-971b-25ce2820033d",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002958C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "With at least one eligible subject, selects a count-dependent tracking weight for one through four subjects, uses full weight for five or more, and accumulates constrained extents. With no eligible subjects, substitutes fixed \u00b140-unit bounds around the stage camera offset. Independently, downward allowance is 10 units below camera-Z magnitude 80, rises linearly to 400 between 80 and 5000, and remains 400 above 5000.",
+      "rationale": "The current count branches, fallback rectangle, and piecewise Z-factor calculation continue to establish these framing cases and thresholds.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L464-L676",
+          "why": "Shows the count-dependent paths, no-subject fallback, and piecewise camera-distance adjustment."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_80029AAC": [
+    {
+      "id": "fact:55064f6d-1e16-4ca6-a800-a2c6b91c29f1",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029AAC",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes the tracked-subject count and planar extents of `CameraBounds`, choosing the larger extent as subject spread when subjects exist and a large sentinel otherwise. It derives a follow speed from that spread, multiplies it by the caller's speed and a reciprocal scale derived from `cm_80452C68.x2BC`, clamps the interpolation factor to `[0.0001, 1.0]`, and advances only `transform->interest.x` and `.y` toward `target_interest`.",
+      "rationale": "The current function still maps bounds to spread, spread to follow speed, and the clamped product to planar interest writes. The gameplay update supplies stage tracking smoothness as the scalar input.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L700-L742",
+          "why": "Shows the complete spread, follow-speed, reciprocal, clamp, and planar interpolation flow."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1513-L1579",
+          "why": "Shows gameplay camera processing supplying `Stage_GetCamTrackSmooth()` and retaining the updated transform."
+        }
+      ]
+    },
+    {
+      "id": "fact:d74ffa68-e83f-4fcd-b181-3127c31ac550",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029AAC",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes smooth gameplay-camera tracking of the view's focal point: rather than snapping to a newly computed focus, the camera interest moves toward it over time, with response adjusted according to the tracked subjects' spread.",
+      "rationale": "The routine advances current interest toward target interest using subject bounds, and the recurring gameplay update supplies the stage's tracking-smoothness setting.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L700-L742",
+          "why": "Shows subject spread controlling the rate at which the planar camera interest approaches its target."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1513-L1579",
+          "why": "Places the routine in recurring gameplay-camera transform smoothing."
+        }
+      ]
+    },
+    {
+      "id": "fact:09d4d171-c2cd-488f-86f2-8dce91c5b382",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029AAC",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_ApproachTargetInterest",
+      "rationale": "The body is specifically an approach/interpolation operation on the interest point rather than a general transform update: it modifies only the current interest's X and Y components toward the corresponding target components. The inferred name remains tentative because no symbol or discussion supplies an original semantic name.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `Camera_ApproachTargetInterest`, reflecting that the routine approaches `target_interest` from the current `interest` in the camera module's `Camera_*` naming convention.",
+      "confidence": 0.78,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L700-L742",
+          "why": "Shows that the routine exclusively computes and applies an approach from `interest` toward `target_interest` in two dimensions."
+        }
+      ]
+    },
+    {
+      "id": "fact:70676c75-5b1d-437f-b1a6-d2479a544f27",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029AAC",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A `void` camera-update routine with signature `void (CameraBounds* bounds, CameraTransformState* transform, f32 speed)`. It reads bounds and transform state, treats `speed` as a dimensionless tracking-rate multiplier, and writes only `transform->interest.x` and `.y`.",
+      "rationale": "The current definition establishes the signature and exact field access modes, while the caller identifies the scalar as stage camera tracking smoothness.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L700-L742",
+          "why": "Provides the complete signature and identifies every transform field read and written."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1513-L1579",
+          "why": "Shows the scalar argument being supplied by `Stage_GetCamTrackSmooth()`."
+        }
+      ]
+    },
+    {
+      "id": "fact:ac4e3f74-84df-453d-a466-1a90b2eee687",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029AAC",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs one smoothing step for a camera transform's interest point, moving its current X and Y coordinates toward target interest at a rate derived from tracked-subject spread, the caller's tracking-speed scale, and camera-global zoom state.",
+      "rationale": "The current body computes target-minus-current planar offsets and applies a spread-sensitive, clamped interpolation factor. Gameplay processing invokes the step for both retained camera transforms.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L700-L742",
+          "why": "Shows the complete interest-smoothing calculation and X/Y updates."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1513-L1579",
+          "why": "Shows the routine applied to primary and copied gameplay transforms."
+        }
+      ]
+    },
+    {
+      "id": "fact:26968c9e-693d-4afe-9a4d-5bfff236109f",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029AAC",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Populated bounds select spread as `max(x_max-x_min, y_max-y_min)` and therefore a threshold-interpolated follow speed; empty bounds select the large-spread sentinel path. The final interpolation factor is capped at 1.0 and floored at 0.0001, after which only planar interest state advances.",
+      "rationale": "The current subject-count branch, extent selection, helper branches, factor clamps, and X/Y-only assignments preserve the standing transition behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L614-L754",
+          "why": "Shows both subject-presence regimes, follow-speed selection, interpolation clamps, and resulting planar updates."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_80029BC4": [
+    {
+      "id": "fact:ba135b63-8ce2-44f4-871f-70590efae7b1",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029BC4",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the bounds' vertical span, horizontal span, the transform's target field of view, and the camera descriptor's aspect ratio. It converts the field of view to radians, computes separate vertical and aspect-adjusted horizontal distance candidates, selects their maximum, clamps that value between the active stage's `cam_zoom_rate` and `cam_max_depth`, and writes the resulting floating-point depth to `bounds->z_pos` without modifying the transform.",
+      "rationale": "Every stage of this flow is explicit in the matched body. The two resolved stage accessors confirm that the clamp inputs come directly from the active stage camera configuration fields named `cam_zoom_rate` and `cam_max_depth`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:37:34.281Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L749-L766",
+          "why": "Shows all local inputs, arithmetic transformations, comparisons, stage accessor calls, and the output write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/stage.c#L60-L63",
+          "why": "Shows that `Stage_GetCamZoomRate` returns the active stage camera configuration's `cam_zoom_rate` value unchanged."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/stage.c#L55-L58",
+          "why": "Shows that `Stage_GetCamMaxDepth` returns the active stage camera configuration's `cam_max_depth` value unchanged."
+        }
+      ]
+    },
+    {
+      "id": "fact:5647c86f-1319-4e63-b9e4-1c1107f83f32",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029BC4",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the depth-selection step of automatic match-camera zoom: the view moves far enough back to accommodate horizontal and vertical framing bounds, while stage settings prevent it from becoming closer or deeper than the stage permits.",
+      "rationale": "The current function converts planar framing spans and target field of view into camera depth and applies the stage zoom floor and maximum-depth ceiling; the gameplay pipeline invokes it after selecting target FOV.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L749-L766",
+          "why": "Shows the framing-span and field-of-view calculation producing stage-constrained camera depth."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1454-L1594",
+          "why": "Places the helper in the ordinary gameplay-camera transform pipeline."
+        }
+      ]
+    },
+    {
+      "id": "fact:ada013ff-d545-4d8b-8e05-146bf1afb175",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029BC4",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_CalcBoundsDepth",
+      "rationale": "The current routine calculates rather than incrementally updates its sole output, deriving `bounds->z_pos` from planar `CameraBounds` dimensions. The exact developer wording remains unrecovered.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `Camera_CalcBoundsDepth`.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L749-L766",
+          "why": "Shows the function's sole output is a calculated and constrained depth stored in `CameraBounds`."
+        }
+      ]
+    },
+    {
+      "id": "fact:f490fa78-8b5b-411d-a368-94c4386a49c4",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029BC4",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature `void(CameraBounds* bounds, CameraTransformState* transform)`. `bounds` is a mutable input/output record whose X/Y extents are inputs and whose `z_pos` field is the output; `transform` is read-only in practice and supplies a target field-of-view angle in degrees.",
+      "rationale": "The definition provides the exact pointer signature. It reads all four planar bounds and writes only `bounds->z_pos`; from the transform it reads only `target_fov`, converting that value with `MTXDegToRad` before passing it to `tanf`, which identifies the stored angle unit as degrees.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:37:34.281Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L749-L766",
+          "why": "Provides the declared signature, field access modes, degree-to-radian conversion, and sole output field."
+        }
+      ]
+    },
+    {
+      "id": "fact:6cecfa36-7112-4da1-b2e0-67f93cbea8f7",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029BC4",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Calculates the camera depth needed to fit a supplied two-dimensional framing region at the transform's target field of view and active aspect ratio, constrains the result to the current stage's permitted zoom range, and stores it in the bounds.",
+      "rationale": "The current implementation derives horizontal and vertical depth candidates, keeps the greater one, applies stage limits, and writes `bounds->z_pos`; gameplay processing invokes it after establishing target FOV.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L749-L766",
+          "why": "Shows the complete depth calculation, maximum selection, stage clamps, and output write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1454-L1594",
+          "why": "Shows the helper being called after target field of view is selected during gameplay-camera updating."
+        }
+      ]
+    },
+    {
+      "id": "fact:d3d3fe0c-870a-4894-b42a-c9c64256e9a1",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029BC4",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine has no persistent internal state and always replaces `bounds->z_pos`. It first chooses whichever dimension requires the greater camera distance, then raises that distance to the stage zoom-rate floor when it is too small and lowers it to the stage maximum-depth ceiling when it is too large.",
+      "rationale": "The complete body has one straight-line calculation followed by three ordered comparisons: horizontal-versus-vertical selection, lower-bound enforcement, and upper-bound enforcement. Its unconditional final assignment proves replacement rather than accumulation, and it performs no other writes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:37:34.281Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L749-L766",
+          "why": "Directly shows the ordered maximum selection, lower and upper clamps, and unconditional replacement of `bounds->z_pos`."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_80029C88": [
+    {
+      "id": "fact:d3d20b19-c6b0-47c6-940d-a2202ffc333a",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029C88",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `transform->target_position` and `transform->position` to form a three-axis displacement, reads the base coefficient `cm_803BCCA0.x3C` and multiplies it by the caller-supplied rate scale, upper-clamps that product to 1, then writes the interpolated result back into `transform->position`. It does not read or modify the supplied `CameraBounds` object or alter `target_position`.",
+      "rationale": "Every effective read and write is visible in the complete body: the displacement comes from the two position vectors, the interpolation coefficient comes from the module constant and scalar argument, and only the current position's x, y, and z fields receive stores.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:37:18.687Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L768-L787",
+          "why": "Directly shows all input reads, coefficient calculation and cap, output stores, and the absence of any bounds or target-position writes."
+        }
+      ]
+    },
+    {
+      "id": "fact:ea1e06f5-2434-4a77-8cc7-544fcb7c14f7",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029C88",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes camera-position smoothing: when camera logic changes the desired target position, the active position can follow it gradually instead of discontinuously jumping, while larger requested rates can produce an immediate snap.",
+      "rationale": "The affected structure explicitly distinguishes current and target camera positions, and the routine moves the former a bounded fraction of the way toward the latter. That directly implements eased positional tracking and its full-rate snap case.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T13:37:18.687Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L768-L787",
+          "why": "Shows a camera transform's current position being advanced toward its separately maintained target position by a capped fractional rate."
+        }
+      ]
+    },
+    {
+      "id": "fact:5e3d2f0d-0005-4fdc-9987-f1e5e52e74a1",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029C88",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_SmoothPositionTowardTarget",
+      "rationale": "The routine exclusively interpolates `CameraTransformState.position` toward `CameraTransformState.target_position`; the proposed name follows the translation unit's `Camera_` naming convention and identifies both the affected property and the directional smoothing behavior. The exact original semantic name is not preserved, so this remains a moderate-confidence reconstruction.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `Camera_SmoothPositionTowardTarget`.",
+      "confidence": 0.78,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L768-L787",
+          "why": "Shows that the routine's sole effective operation is smoothing the transform's current position toward its target position."
+        }
+      ]
+    },
+    {
+      "id": "fact:ed588993-1251-476f-99c4-75b72aefb170",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029C88",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void (CameraBounds* unused, CameraTransformState* transform, f32 rate_scale)`. The first pointer is ABI-visible but unused; the second points to mutable current and target three-dimensional positions; and the scalar multiplicatively adjusts the module's base position-smoothing coefficient.",
+      "rationale": "The declaration supplies the exact parameter and return types. No expression references the leading `CameraBounds*`, while the body reads `transform->target_position`, reads and writes `transform->position`, and multiplies `arg_scale` by the module coefficient before applying it to each axis.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:37:18.687Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L768-L787",
+          "why": "Provides the complete signature and demonstrates the unused bounds parameter, mutable transform fields, and multiplicative role of the floating-point argument."
+        }
+      ]
+    },
+    {
+      "id": "fact:3132d3ee-e8ee-4491-ac1d-9c52e64b7e0c",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029C88",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Smoothly advances a camera transform's current position toward its target position using a configurable interpolation rate, while capping the per-call interpolation coefficient at 1 so a sufficiently large rate snaps to the target rather than overshooting it.",
+      "rationale": "The matched body computes the three-component displacement from `position` to `target_position`, multiplies that displacement by `min(cm_803BCCA0.x3C * arg_scale, 1.0f)`, and adds the result to the current position. This is a position-smoothing operation whose upper cap permits an exact snap at a coefficient of 1.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:37:18.687Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L768-L787",
+          "why": "Shows the complete matched function computing the target-to-current displacement, upper-capping its interpolation coefficient, and updating all three current-position components."
+        }
+      ]
+    },
+    {
+      "id": "fact:9c99c192-f0e3-4f84-944d-164c202f5ddc",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029C88",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Per invocation, updates the current position with `position += (target_position - position) * t`, where `t = min(cm_803BCCA0.x3C * rate_scale, 1)`. Thus `t == 0` preserves the position, `0 < t < 1` performs a partial approach, and `t == 1` reaches the target exactly. Only an upper cap is applied; the routine itself does not enforce a nonnegative coefficient.",
+      "rationale": "Expanding the three component-wise assignments yields the stated interpolation equation. The explicit comparison and assignment establish the upper cap, while the absence of a lower-bound comparison shows that nonnegativity must come from the configured coefficient and caller input rather than this routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:37:18.687Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L768-L787",
+          "why": "Shows the exact per-call update equation, the coefficient's upper clamp, and the absence of a corresponding lower clamp."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_80029CF8": [
+    {
+      "id": "fact:9afddf0e-34f7-4cec-9d49-ef0da083e9eb",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029CF8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the supplied horizontal and vertical bounds, the transform's field of view, global camera aspect and angle limits, and per-stage camera offsets, pan scales, pan angle, zoom rate, and maximum depth. It converts these inputs into clamped pitch and yaw angles, tangent-derived horizontal and vertical framing distances, compensating x/y offsets, and finally writes `target_interest` and `target_position`; the eye is placed at the interest point plus the compensating x offset, minus the compensating y offset, and plus the constrained depth.",
+      "rationale": "The source directly traces each input through the angular and frustum calculations to the six output components. The resolved worker attempt independently confirms that the vertical offset must remain distinct through both the interest-y and position-y calculations, supporting its role as a paired framing compensation rather than an unrelated temporary.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:36:04.038Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L806-L908",
+          "why": "Shows the complete flow from bounds, FOV, global camera tuning, and stage parameters into the target interest and position vectors."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/stage.c#L132-L137",
+          "why": "Identifies the stage-provided vector consumed twice by the target as the configured camera x/y offset with zero depth."
+        },
+        {
+          "kind": "attempt",
+          "locator": "attempt://run/run:70af59e5-796b-4323-8d8d-d514dfa5935d/submission/5",
+          "why": "Confirms from reference comparison that the computed vertical camera offset is preserved and used in both `target_interest.y` and `target_position.y`."
+        }
+      ]
+    },
+    {
+      "id": "fact:a938282d-9305-430c-a191-84c7d44e8748",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029CF8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the geometric core of Melee's automatic match-camera framing: it aims the camera at the bounded action region and chooses enough viewing distance to contain that region within the configured field of view, subject to stage-specific pan, minimum zoom, and maximum-depth constraints.",
+      "rationale": "The code dynamically derives the look-at target and camera distance from a rectangular bounds region instead of using a fixed view. SmashWiki independently describes the match camera as automatically zooming to show all characters, grounding this bounds-fitting calculation in the visible automatic-camera behavior without claiming that this function alone gathers the character bounds.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T13:36:04.038Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L806-L908",
+          "why": "Shows dynamic FOV-based fitting of supplied action bounds and construction of the resulting camera interest and eye positions."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://camera~__intro__@r2048237",
+          "why": "States that during a match the camera automatically zooms to show all characters."
+        }
+      ]
+    },
+    {
+      "id": "fact:08fb9485-4fb3-481a-9cb3-5bb52d00999f",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029CF8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_CalcTransformFromBounds",
+      "rationale": "The complete body reads all four bounds and the transform's field of view, then calculates and writes `target_interest` and `target_position`. The `Camera_` prefix and operation-oriented naming are consistent with the translation unit, but the exact original verb and suffix are not preserved, so confidence remains moderate.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible convention-aligned original name is `Camera_CalcTransformFromBounds`, reflecting that the routine derives the target portion of a camera transform from supplied camera bounds; this is a naming inference, not a rename instruction.",
+      "confidence": 0.67,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L806-L908",
+          "why": "Shows that the function's defining operation is calculating camera transform targets from a `CameraBounds` input."
+        }
+      ]
+    },
+    {
+      "id": "fact:87fa3626-8037-45bd-b78f-18ad13309eda",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029CF8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Exact signature `void Camera_80029CF8(CameraBounds* bounds, CameraTransformState* transform)`. `bounds` is semantically read-only and supplies x/y minima and maxima; `transform` is an in/out parameter whose `fov` is read and whose `target_interest` and `target_position` vectors are written.",
+      "rationale": "The definition provides the concrete pointer types and return type. Every bounds access is a read, while the transform supplies the field of view and receives all three components of both target vectors.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:36:04.038Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L806-L908",
+          "why": "Provides the exact signature and demonstrates the read-only role of the bounds and the read/write role of the transform."
+        }
+      ]
+    },
+    {
+      "id": "fact:2226a075-3854-432a-897b-b504543e774a",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029CF8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Computes a camera interest point and eye position that frame a supplied rectangular camera-bounds region within the current field of view, while accounting for stage camera offsets and pan tuning and constraining the resulting viewing depth to stage-configured limits.",
+      "rationale": "The function derives vertical and horizontal angular offsets from the bounds, stage camera offset, field of view, and stage pan parameters. It uses tangent-based frustum calculations to determine the distances required to contain both axes, chooses the larger distance, clamps it with the stage zoom-rate and maximum-depth settings, and writes the resulting look-at transform.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T13:36:04.038Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L806-L908",
+          "why": "Shows the complete bounds-to-frustum calculation, stage-offset and pan adjustments, depth constraints, and final writes to the transform's interest and position vectors."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/stage.c#L55-L63",
+          "why": "Shows that the two final depth constraints are the active stage's camera maximum-depth and zoom-rate parameters."
+        }
+      ]
+    },
+    {
+      "id": "fact:cb356b67-e626-45b4-b066-25c26b79017f",
+      "target_id": "target:function:main/melee/cm/camera:Camera_80029CF8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For each calculation, selects the larger of the bounds' width and height to determine vertical bias, clamps the derived vertical and horizontal view angles to configured lower and upper limits, asserts that each half-FOV-plus-or-minus-angle remains below 90 degrees, selects the larger of the vertical and horizontal required framing distances, raises that distance to the stage zoom-rate floor when necessary, and caps it at the stage maximum depth.",
+      "rationale": "The function contains explicit max-selection branches, angle-limit guards, four FOV validity assertions, and lower-then-upper depth guards. These determine how the output transform responds to differently shaped or extreme bounds even though the routine does not itself change the camera's discrete mode.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:36:04.038Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/cm/camera.c#L806-L908",
+          "why": "Shows every selection, clamp, assertion, and depth guard governing the calculated transform."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/stage.c#L55-L63",
+          "why": "Establishes that the lower and upper distance guards consume the active stage's camera zoom-rate and maximum-depth values."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_8002A4AC": [
+    {
+      "id": "fact:9e436d03-d1d6-4356-be12-b7abe1153a1e",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002A4AC",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The supplied GObj provides the destination `HSD_CObj`, while `cm_80452C68.mode` selects source state. Standard, fixed, and free modes apply retained gameplay transforms through `Camera_8002AF68`; standard and fixed additionally update the secondary camera. Pause and other specialized modes install FOV, interest, eye, and fixed clipping values directly, while debug modes source their view values from `cm_80453004`.",
+      "rationale": "The current dispatcher preserves the mode-specific source-to-destination mapping, and the current delegated helper shows how a gameplay transform becomes HSD camera state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1033-L1086",
+          "why": "Shows the destination CObj, mode dispatch, source records, clipping choices, and setter paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1342-L1387",
+          "why": "Shows delegated gameplay-transform data flowing into HSD camera FOV, interest, and eye properties."
+        }
+      ]
+    },
+    {
+      "id": "fact:da45d19a-2be8-4a30-bb17-8224f0b065dc",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002A4AC",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes final mode-dependent presentation of ordinary and fixed match views, free view, pause, training-menu and stage-clear views, boss introductions, and developer follow/free cameras. Its pause path also keeps the visible viewpoint above stage-specific camera floors where one is provided.",
+      "rationale": "The current switch names and presents each camera mode through HSD camera setters, and the pause branch applies the stage-selected minimum eye height.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1033-L1086",
+          "why": "Shows all mode-specific presentation branches and the pause camera's minimum-eye-height handling."
+        }
+      ]
+    },
+    {
+      "id": "fact:1cc6818a-5759-4209-97a8-4e46fb082640",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002A4AC",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_UpdateCObj",
+      "rationale": "The demonstrated operation updates the `HSD_CObj` owned by the supplied GObj from the currently active camera mode, while `Camera_8002AF68` has the narrower role of applying one transform. No surviving symbol confirms the wording.\n\nNaming cleanup: Recognized function_named form; no lexical audit flags.\nPrior naming claim: The original function was plausibly named `Camera_UpdateCObj`.",
+      "confidence": 0.79,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1033-L1086",
+          "why": "Shows a one-way mode-dependent update from module camera state into the GObj-owned HSD_CObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1342-L1387",
+          "why": "Shows the delegated helper's narrower single-transform application role."
+        }
+      ]
+    },
+    {
+      "id": "fact:663f6ee7-bdec-4e29-be89-935ee6756099",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002A4AC",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: `void Camera_8002A4AC(HSD_GObj* gobj)`. The argument must be a GObj owning an `HSD_CObj`, obtained through `GET_COBJ`; the function returns no value and updates that camera object through HSD camera setters.",
+      "rationale": "The matched definition provides the exact signature. Its first operation extracts an HSD camera from the argument, and all mode branches use that object as the destination of camera-property updates. The reflection-camera caller passes the camera subsystem's GObj, corroborating the argument's ownership role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T15:05:56.372Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1033-L1086",
+          "why": "Provides the exact return and parameter types and shows `GET_COBJ(gobj)` supplying the destination HSD camera."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grizumi.c#L741-L797",
+          "why": "Shows the function being called with the GObj returned by the camera subsystem's camera-GObj accessor."
+        }
+      ]
+    },
+    {
+      "id": "fact:d17748c7-83f1-40f0-a3e5-e2bfd2bb21b5",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002A4AC",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Synchronizes the HSD camera object owned by a supplied GObj with the camera subsystem's selected view mode, installing the appropriate field of view, interest point, eye position, and clipping planes while delegating ordinary gameplay transforms to `Camera_8002AF68`.",
+      "rationale": "The current function extracts the CObj and configures it through a complete mode switch; the current helper confirms the semantics of delegated gameplay-transform application.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1033-L1086",
+          "why": "Shows the complete mode dispatch and HSD camera properties installed by each branch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1342-L1387",
+          "why": "Shows the delegated helper applying transform FOV, interest, and eye position."
+        }
+      ]
+    },
+    {
+      "id": "fact:a76a0d29-b48e-4c63-8c5f-b3f7939fdaee",
+      "target_id": "target:function:main/melee/cm/camera:Camera_8002A4AC",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Does not transition camera modes; it presents state selected elsewhere. Standard and fixed modes update active and secondary cameras, free mode updates only the active camera, and pause clamps a temporary eye-position copy to a stage-specific minimum before installation. Training-menu, clear, and boss-intro modes share a direct transform path, while debug-follow and debug-free use dedicated debug vectors and FOV values.",
+      "rationale": "The current function only reads `mode`; its grouped switch cases establish the affected cameras and shared paths, and the pause branch clamps local state without mutating the retained transform.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L1033-L1086",
+          "why": "Shows all mode branches, grouped behavior, pause-only local clamp, and absence of a mode assignment."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_ApplyQuake": [
+    {
+      "id": "fact:09ffe686-2a38-4e1e-8f8e-471ca9b9c173",
+      "target_id": "target:function:main/melee/cm/camera:Camera_ApplyQuake",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the pending quake sample from `cm_80452C68.xA4/xA8`, scales it by camera intensity, a factor of 10, the dedicated 1-P factor when applicable, and zoom multiplier `x2BC`. It converts the pair to camera-world displacement using depth, FOV, aspect, and viewport dimensions; interpolates axis-specific tuning over the stage camera-depth range; publishes the final pair through `Camera_80030DE4`; and resets the pending sample to zero.",
+      "rationale": "The current body preserves every scaling, projection, stage-depth interpolation, output call, and source reset. Current stage code establishes the pending pair's origin, and the resolved setter stores the output as camera translation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L965",
+          "why": "Shows the complete pending-sample conversion, output call, and clearing operation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Shows stage quake animations forwarding animated root X/Y translation into the pending camera sample."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L4376-L4380",
+          "why": "Shows `Camera_80030DE4` storing the resulting pair in the camera singleton's translation fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:9eda3676-c43f-476e-8820-d45abdd00d5c",
+      "target_id": "target:function:main/melee/cm/camera:Camera_ApplyQuake",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the camera-side normalization and application stage of camera shake: stage-authored quake animations provide raw motion, while this routine adjusts that motion for the current camera projection and zoom depth before publishing it as visible camera translation.",
+      "rationale": "The stage library identifies and evaluates the quake-model animation source, while the target projection- and depth-scales its sample and publishes a camera translation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Shows stage-authored quake animations generating the raw X/Y motion sample."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L965",
+          "why": "Shows the raw sample being normalized for current projection and stage camera depth."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L4376-L4380",
+          "why": "Shows the normalized result becoming the camera singleton's X/Y translation."
+        }
+      ]
+    },
+    {
+      "id": "fact:11f24522-4c71-41f1-82cc-84950adc62af",
+      "target_id": "target:function:main/melee/cm/camera:Camera_ApplyQuake",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_ApplyQuakeTranslation",
+      "rationale": "The upstream resource is explicitly named a quake model set, and this routine converts its stored sample into final camera translation before consuming it. No preserved symbol establishes the exact spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Plausible original-style name: `Camera_ApplyQuakeTranslation`.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Identifies the upstream input as translation from stage `quake_model_set` animation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L965",
+          "why": "Shows conversion and consumption of the stored quake sample."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L4376-L4380",
+          "why": "Shows the output callee assigning the pair to camera translation."
+        }
+      ]
+    },
+    {
+      "id": "fact:a738661f-0787-4f27-9e18-089d22c25041",
+      "target_id": "target:function:main/melee/cm/camera:Camera_ApplyQuake",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature `void (CameraBounds* bounds, CameraTransformState* state)`. Both parameters are read-only inputs here: `bounds->z_pos` supplies camera depth and `state->fov` supplies vertical field of view; output is written indirectly to the camera singleton's two-component translation state.",
+      "rationale": "The current definition provides the exact signature and only reads the pointed-to records. Its output arguments flow to the resolved translation setter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L965",
+          "why": "Provides the signature and shows reads of camera depth and FOV without writes through either parameter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L4376-L4380",
+          "why": "Shows the output callee storing its two arguments in singleton translation state."
+        }
+      ]
+    },
+    {
+      "id": "fact:51e733e6-9cb9-4003-aaf0-84a27803042f",
+      "target_id": "target:function:main/melee/cm/camera:Camera_ApplyQuake",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Converts the current raw camera-quake X/Y sample into the depth-, field-of-view-, viewport-, stage-, and mode-adjusted translation applied to the active camera, then consumes the raw sample so it does not carry into the next update.",
+      "rationale": "Current stage code supplies animated quake coordinates, the target applies all camera-dependent scaling and clears the pending pair, and the current setter stores the result as camera translation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L965",
+          "why": "Shows scaling by camera projection and stage-depth data, output publication, and source clearing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Shows the raw inputs originating in stage quake animations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L4376-L4380",
+          "why": "Shows the published values stored as camera translation."
+        }
+      ]
+    },
+    {
+      "id": "fact:baae9dcc-60ff-49e8-a2ca-da2747690993",
+      "target_id": "target:function:main/melee/cm/camera:Camera_ApplyQuake",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Treats raw quake coordinates as consumable per-update state: each invocation replaces camera translation with a newly scaled pair and clears both raw components. If the span from stage zoom rate to maximum depth is below `0.001`, it uses depth ratio `0.5`; otherwise it derives the ratio from current depth. Internal 1-P modes additionally apply the dedicated `xE8` scale.",
+      "rationale": "The current depth-span branch establishes the midpoint fallback, the mode predicate guards the extra multiplier, and the unconditional tail publishes the output and clears both source components.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L965",
+          "why": "Shows the span guard, 1-P scaling branch, translation update call, and unconditional clearing of pending input."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L4376-L4380",
+          "why": "Shows that output publication replaces both camera translation components."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_Init": [
+    {
+      "id": "fact:c7cd2af1-454e-4e63-aba5-367c4e39fd54",
+      "target_id": "target:function:main/melee/cm/camera:Camera_Init",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Copies the static perspective descriptor's eye, interest, and FOV into active, target, and backup transforms; writes baseline clipping, mode, background, flags, debug-mode, and GObj state; allocates and clears `n_subjects * sizeof(CmSubject)` bytes; links the records through `prev`; stores the pool base and free head; and clears the active-list endpoints.",
+      "rationale": "The complete current-head body directly traces descriptor and capacity inputs into camera globals and the initialized subject pool.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L162-L384",
+          "why": "Shows all descriptor copies, baseline assignments, allocation, clearing, linking, and list-pointer writes."
+        }
+      ]
+    },
+    {
+      "id": "fact:698ab768-4a38-4e05-9854-022d733ccfd2",
+      "target_id": "target:function:main/melee/cm/camera:Camera_Init",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Establishes the initial standard view and camera-subject capacity used when Melee starts an ordinary playable battle or a scripted video-sequence scene, before stage- and participant-specific camera state is installed.",
+      "rationale": "Normal match startup requests 70 records and video-sequence setup requests six, while the initializer itself selects the standard camera baseline.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gm/gm_16AE.c#L1938-L1993",
+          "why": "Shows ordinary match setup invoking the initializer with capacity 0x46 before camera-object and stage setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/vi/vi0401.c#L52-L85",
+          "why": "Shows a scripted video scene invoking the initializer with capacity six before stage and fighter setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:92fdd1c8-f58d-4bdc-a829-ab1a434cb770",
+      "target_id": "target:function:main/melee/cm/camera:Camera_Init",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_Init",
+      "rationale": "The current body comprehensively initializes the camera singleton, debug state, and subject pool, and callers place it at the beginning of match and video-scene setup; the exact original spelling remains unrecovered.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `Camera_Init`.",
+      "confidence": 0.88,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L162-L384",
+          "why": "Demonstrates comprehensive camera-subsystem initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:268a3c27-8e07-467d-a1ce-1d0933eeb8f4",
+      "target_id": "target:function:main/melee/cm/camera:Camera_Init",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Initialization routine with signature `void Camera_80028B9C(int n_subjects)`, where `n_subjects` is the positive capacity of a dynamically allocated contiguous `CmSubject` pool. Observed match setup requests 70 records and video-sequence setup requests six.",
+      "rationale": "The current definition scales allocation, clearing, and linking by the parameter, and resolved callers demonstrate two capacities.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L162-L384",
+          "why": "Provides the signature and shows the capacity controlling pool allocation and construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gm/gm_16AE.c#L1938-L1993",
+          "why": "Shows a 70-record request for ordinary match startup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/vi/vi0401.c#L52-L85",
+          "why": "Shows a six-record request for a video sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:4cdd2b5a-73cb-49b1-96b9-1d06e74662da",
+      "target_id": "target:function:main/melee/cm/camera:Camera_Init",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes the shared camera subsystem for a new runtime context by resetting the camera singleton to its standard transform, projection, background, flags, and object baseline, then allocating and initializing the requested camera-subject pool.",
+      "rationale": "The current body performs the complete reset and pool construction, and its resolved callers invoke it as scene-level initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L162-L384",
+          "why": "Shows the complete camera reset and subject-pool construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gm/gm_16AE.c#L1938-L1993",
+          "why": "Places the function at the start of ordinary match setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:fb323c07-4423-4cb6-b838-869eb14407f1",
+      "target_id": "target:function:main/melee/cm/camera:Camera_Init",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Unconditionally resets the subsystem to baseline: active and saved modes become `CAMERA_STANDARD`, transforms use descriptor defaults, background and presentation flags are cleared, clipping becomes 0.1 and 16384, the camera GObj becomes null, and all requested subjects begin zeroed on one null-terminated free chain. The final indexed store implies `n_subjects >= 1`.",
+      "rationale": "The current body directly assigns every baseline value and terminates the final pool entry using the loop index, preserving the positive-capacity precondition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:22:21.254Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L162-L384",
+          "why": "Shows all baseline assignments, free-chain construction, and the final indexed null link."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_SetQuakeOffset": [
+    {
+      "id": "fact:3341ce87-cc1a-4d46-a9f2-3c77f11a67c5",
+      "target_id": "target:function:main/melee/cm/camera:Camera_SetQuakeOffset",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the current root-JObj X/Y translation from looping or finite stage quake processing and stores the pair unchanged in `cm_80452C68.xA4/xA8`. Camera processing later scales the pair by camera, viewport, mode, and stage-depth factors, publishes the resulting translation, and clears the pending values.",
+      "rationale": "Current stage code shows animated quake-model translations flowing to this setter, whose current body performs unchanged paired storage. The current quake processor then consumes and clears those fields.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Shows looping and finite quake processes passing animated root-JObj X/Y translation to the target."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L967-L971",
+          "why": "Shows each argument stored unchanged in the corresponding pending camera field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L965",
+          "why": "Shows the stored pair being scaled, published as camera translation, and reset."
+        }
+      ]
+    },
+    {
+      "id": "fact:e466f735-315d-461c-ac9e-fabd730f794a",
+      "target_id": "target:function:main/melee/cm/camera:Camera_SetQuakeOffset",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the handoff from stage-authored quake animation to camera shake, accepting the animation's two-dimensional motion sample for conversion into the frame's visible camera displacement.",
+      "rationale": "The stage library explicitly sources the pair from quake-model animation, this routine stores it, and camera processing transforms it into camera translation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Shows stage-authored quake animations producing the values passed into this function."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L971",
+          "why": "Shows the setter and the camera-side conversion of its stored values into a displacement."
+        }
+      ]
+    },
+    {
+      "id": "fact:2f8a2480-3223-4ad6-9b53-7d727e1ecbc2",
+      "target_id": "target:function:main/melee/cm/camera:Camera_SetQuakeOffset",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_SetQuakeOffset",
+      "rationale": "The routine is a direct paired setter, its callers pass translations from `quake_model_set` animation, and the stored values are consumed as a transient view offset. The exact original wording is not preserved.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `Camera_SetQuakeOffset`.",
+      "confidence": 0.87,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L967-L971",
+          "why": "Identifies the function as a direct two-component setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Shows the setter's inputs coming specifically from stage quake-model animation."
+        }
+      ]
+    },
+    {
+      "id": "fact:f19bd71d-68e3-49c1-abb1-a64089ce7dc6",
+      "target_id": "target:function:main/melee/cm/camera:Camera_SetQuakeOffset",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Exact signature `void Camera_8002A278(f32 x, f32 y)`, where `x` and `y` are the horizontal and vertical components of a camera-quake displacement sample.",
+      "rationale": "The current definition establishes `void(f32, f32)` and paired storage, while the resolved callers establish the parameters' semantic domain as animated quake-model X/Y translation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L967-L971",
+          "why": "Provides the exact return and parameter types and maps each parameter to one pending camera field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Shows quake-model X and Y translations flowing into the corresponding parameters."
+        }
+      ]
+    },
+    {
+      "id": "fact:06e4e446-1a35-4aa5-9264-82afb440be84",
+      "target_id": "target:function:main/melee/cm/camera:Camera_SetQuakeOffset",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the current horizontal and vertical camera-quake sample so camera processing can convert it into a view displacement.",
+      "rationale": "The current function writes its two inputs directly to pending singleton fields; stage quake callbacks supply those values and the camera processor later scales, publishes, and clears them.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L967-L971",
+          "why": "Shows direct unchanged storage of the two floating-point arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Shows stage quake animation supplying the stored sample."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L965",
+          "why": "Shows later conversion and consumption of the stored sample."
+        }
+      ]
+    },
+    {
+      "id": "fact:c17fbced-f56e-4e88-a03e-a86e40ee4f15",
+      "target_id": "target:function:main/melee/cm/camera:Camera_SetQuakeOffset",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each call replaces rather than accumulates the pending X/Y quake sample. Camera processing consumes the sample once and clears both components, so continuing shake animation must submit a fresh translation on subsequent updates; finite quake objects stop submitting when their animation completes, while the looping process continues.",
+      "rationale": "The setter's unconditional assignments prove replacement semantics, the consumer clears both fields, and the two stage processes establish looping versus finite refresh behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:23:14.890Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L967-L971",
+          "why": "Shows unconditional replacement of both pending components."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L909-L965",
+          "why": "Shows the consumer clearing both stored components after publication."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/gr/grlib.c#L198-L288",
+          "why": "Shows looping and finite quake-animation processes refreshing the sample under their respective lifetime rules."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_UpdateQuakes": [
+    {
+      "id": "fact:16178ba4-1692-4b70-a9c9-0f75ea042653",
+      "target_id": "target:function:main/melee/cm/camera:Camera_UpdateQuakes",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For each of two banks and eight slots per bank, copies the complete active `CameraQuake` record from `cm_80452C68._B0` to the corresponding `_1B0` slot, then writes zero to the active record's `type`. It subsequently decrements every nonzero member of `_8C[5]`. If at least one counter was nonzero, `xA0` is non-NULL, and `_8C[1]` is zero after the decrements, it passes `xA0` to the HSD_GObj teardown routine and clears the stored pointer.",
+      "rationale": "This is the exact read/write sequence in the matched body. The callee's matched implementation establishes that passing `xA0` to `HSD_GObjPLink_80390228` destroys and unlinks the GObj rather than merely detaching or hiding it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:37:56.725Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L973-L1001",
+          "why": "Directly shows all singleton reads and writes, loop bounds, counter updates, guard conditions, teardown call, and pointer clear."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+          "why": "Shows that the called routine removes the GObj's owned state and list membership and returns its storage to the allocator."
+        }
+      ]
+    },
+    {
+      "id": "fact:142b486f-0b62-4d7c-97a7-85ed8f634731",
+      "target_id": "target:function:main/melee/cm/camera:Camera_UpdateQuakes",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Maintains frame-to-frame bookkeeping behind transient camera shake and adjacent timed camera effects across recurring camera-update paths.",
+      "rationale": "The refreshed camera layout still types both maintained banks as `CameraQuake` arrays, and the current routine snapshots and invalidates those records while advancing adjacent timed state.",
+      "confidence": 0.91,
+      "updated_at": "2026-09-04T22:37:49.869Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/cm/types.h#L1-L260",
+          "why": "Defines the two maintained banks as `CameraQuake[2][8]` arrays and shows the adjacent counters and auxiliary GObj pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L973-L1001",
+          "why": "Shows per-invocation quake-bank snapshotting, active-slot invalidation, counter updates, and auxiliary-object lifetime maintenance."
+        }
+      ]
+    },
+    {
+      "id": "fact:bdde5996-af83-4a65-80d4-f357da9dd6cf",
+      "target_id": "target:function:main/melee/cm/camera:Camera_UpdateQuakes",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Camera_UpdateTransientEffects",
+      "rationale": "The refreshed type declaration identifies the principal records as `CameraQuake`, but the current body also updates five counters and an auxiliary GObj lifetime, so the broader candidate covers all observed behavior while the exact original wording remains uncertain.\n\nNaming cleanup: Text states a preferred candidate; alternatives are retained.\nPrior naming claim: A plausible original name is `Camera_UpdateTransientEffects`, with `Camera_UpdateQuakes` as a narrower alternative.",
+      "confidence": 0.68,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/cm/types.h#L1-L260",
+          "why": "Identifies the two record banks as arrays of `CameraQuake`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L973-L1001",
+          "why": "Shows quake-record rotation together with counter and auxiliary-object lifetime maintenance."
+        }
+      ]
+    },
+    {
+      "id": "fact:d1f021e1-033b-418c-9b24-c0c7ab3b7caf",
+      "target_id": "target:function:main/melee/cm/camera:Camera_UpdateQuakes",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature `void Camera_8002A28C(CameraBounds* bounds)`. The `CameraBounds*` parameter is unused; all effective inputs and outputs are fields of static singleton `Camera cm_80452C68`. The maintained quake storage consists of two `CameraQuake[2][8]` banks.",
+      "rationale": "The current function definition retains the pointer parameter without reading it and accesses only singleton state, while the refreshed camera layout confirms the exact element type and dimensions of both quake banks.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:37:49.869Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L973-L1001",
+          "why": "Provides the signature and shows that all effective reads and writes occur through `cm_80452C68`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/cm/types.h#L1-L260",
+          "why": "Defines the two `CameraQuake[2][8]` banks and associated singleton fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:9c7094c9-24de-4711-9b5a-d9cfb52dd51b",
+      "target_id": "target:function:main/melee/cm/camera:Camera_UpdateQuakes",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs per-update maintenance for transient camera effects: it copies active quake records into a retained snapshot, invalidates all active quake slots for the next update, decrements five transient counters, and conditionally destroys a tracked auxiliary HSD_GObj.",
+      "rationale": "The current nested loops still implement the snapshot-and-invalidate operation, and the following pass decrements all five counters and performs guarded teardown; the refreshed structure identifies the affected storage.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T22:37:49.869Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/cm/types.h#L1-L260",
+          "why": "Identifies the quake banks, counter array, and auxiliary GObj pointer as camera-singleton fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L973-L1001",
+          "why": "Shows the complete snapshot, invalidation, countdown, guarded teardown, and pointer-clear behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:dae8a2a4-3359-4d53-a8dc-bd1f057a2535",
+      "target_id": "target:function:main/melee/cm/camera:Camera_UpdateQuakes",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Advances transient state once per invocation. All 16 active quake slots become empty after their prior complete records are retained in the snapshot bank. Each nonzero transient counter is reduced by one. Auxiliary-object teardown occurs only when some counter was active on entry to the counter loop, the object exists, and counter slot 1 is zero after that update; teardown is followed by clearing `xA0`, preventing a second request through the stored pointer.",
+      "rationale": "The nested loops establish the quake-bank transition, while `test` records whether any counter participated in the update. The final conjunction supplies the precise teardown guard, and the explicit null assignment supplies the terminal pointer state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:37:56.725Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://fcafa1a223/src/melee/cm/camera.c#L973-L1001",
+          "why": "Shows the complete state transition, including snapshotting, slot invalidation, countdown behavior, the post-update slot-1 guard, and terminal pointer clearing."
+        }
+      ]
+    }
+  ],
+  "main/melee/cm/camera:Camera_80028F5C#r3": [],
+  "main/melee/cm/camera:Camera_80028F5C#r4": [],
+  "main/melee/cm/camera:Camera_80029044#r3": [],
+  "main/melee/cm/camera:Camera_800290D4#r3": [],
+  "main/melee/cm/camera:Camera_80029124#r3": [],
+  "main/melee/cm/camera:Camera_80029124#r4": [],
+  "main/melee/cm/camera:Camera_8002928C#r3": [],
+  "main/melee/cm/camera:Camera_8002958C#r3": [],
+  "main/melee/cm/camera:Camera_8002958C#r4": [],
+  "main/melee/cm/camera:Camera_80029AAC#r3": [],
+  "main/melee/cm/camera:Camera_80029AAC#r4": [],
+  "main/melee/cm/camera:Camera_80029AAC#r5": [],
+  "main/melee/cm/camera:Camera_80029BC4#r3": [],
+  "main/melee/cm/camera:Camera_80029BC4#r4": [],
+  "main/melee/cm/camera:Camera_80029C88#r3": [],
+  "main/melee/cm/camera:Camera_80029C88#r4": [],
+  "main/melee/cm/camera:Camera_80029C88#r5": [],
+  "main/melee/cm/camera:Camera_80029CF8#r3": [],
+  "main/melee/cm/camera:Camera_80029CF8#r4": [],
+  "main/melee/cm/camera:Camera_8002A4AC#r3": [],
+  "main/melee/cm/camera:Camera_ApplyQuake#r3": [],
+  "main/melee/cm/camera:Camera_ApplyQuake#r4": [],
+  "main/melee/cm/camera:Camera_Init#r3": [],
+  "main/melee/cm/camera:Camera_SetQuakeOffset#r3": [],
+  "main/melee/cm/camera:Camera_SetQuakeOffset#r4": [],
+  "main/melee/cm/camera:Camera_UpdateQuakes#r3": []
+}

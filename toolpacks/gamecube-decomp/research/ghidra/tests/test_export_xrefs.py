@@ -138,7 +138,10 @@ print("EXPORT_XREFS_SUMMARY count=%%d output=%%s" %% (len(rows), output_path))
         stub_path.write_text(stub_source, encoding="utf-8")
         stub_path.chmod(0o755)
 
-        result = self.run_runner(stub_path, "--analysis-timeout", "17", "--limit", "2")
+        sms_elf = self.repo_root / "build/GMSJ01/mario.elf"
+        sms_elf.parent.mkdir(parents=True)
+        sms_elf.write_bytes(b"SMS selected executable")
+        result = self.run_runner(stub_path, "--input-elf", "build/GMSJ01/mario.elf", "--analysis-timeout", "17", "--limit", "2")
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         index_path = self.storage_root / "indexes" / "xrefs.jsonl"
@@ -167,6 +170,8 @@ print("EXPORT_XREFS_SUMMARY count=%%d output=%%s" %% (len(rows), output_path))
             (self.storage_root / "cache" / "export_xrefs_status.json").read_text(encoding="utf-8")
         )
         self.assertTrue(manifest["success"])
+        self.assertEqual(manifest["input_elf"], str(sms_elf.resolve()))
+        self.assertIn("build/GMSJ01/mario.elf", manifest["command"])
         self.assertFalse(manifest["skipped"])
         self.assertEqual(manifest["exit_code"], 0)
         self.assertEqual(manifest["record_count"], 2)

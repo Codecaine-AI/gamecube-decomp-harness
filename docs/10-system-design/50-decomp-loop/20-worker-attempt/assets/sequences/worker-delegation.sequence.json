@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "id": "run-worker-delegation",
+  "title": "Claim, Attempt, and Close",
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Host scheduler",
+      "kind": "participant"
+    },
+    {
+      "id": "p2",
+      "name": "Harness State / jobs",
+      "kind": "participant"
+    },
+    {
+      "id": "p3",
+      "name": "Worker runner",
+      "kind": "participant"
+    },
+    {
+      "id": "p4",
+      "name": "Worker model",
+      "kind": "participant"
+    },
+    {
+      "id": "p5",
+      "name": "Daytona sandbox",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "Claim worker job and epoch target atomically"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p2",
+      "to": "p1",
+      "line": "return",
+      "text": "Claim token, target, and captured current base revision"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "p1",
+      "to": "p5",
+      "line": "sync",
+      "text": "Provision and seed checkout at captured revision"
+    },
+    {
+      "kind": "message",
+      "id": "m4",
+      "from": "p1",
+      "to": "p3",
+      "line": "sync",
+      "text": "Launch worker task with TaskSpec and claim authority"
+    },
+    {
+      "kind": "message",
+      "id": "m5",
+      "from": "p3",
+      "to": "p4",
+      "line": "sync",
+      "text": "Provide target context, tools, and budget"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "loop",
+      "operands": [
+        {
+          "guard": "Attempt remains open",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m6",
+              "from": "p4",
+              "to": "p5",
+              "line": "sync",
+              "text": "Research, edit, and test through remote tools"
+            },
+            {
+              "kind": "message",
+              "id": "m7",
+              "from": "p5",
+              "to": "p4",
+              "line": "return",
+              "text": "File contents, compiler output, and measurements"
+            },
+            {
+              "kind": "message",
+              "id": "m8",
+              "from": "p4",
+              "to": "p3",
+              "line": "return",
+              "text": "Submit validation-ready result"
+            },
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p3",
+              "to": "p5",
+              "line": "sync",
+              "text": "Run quality gate against actual changes"
+            },
+            {
+              "kind": "message",
+              "id": "m10",
+              "from": "p5",
+              "to": "p3",
+              "line": "return",
+              "text": "Validation evidence"
+            },
+            {
+              "kind": "message",
+              "id": "m11",
+              "from": "p3",
+              "to": "p2",
+              "line": "sync",
+              "text": "Record checkpoint and update selection"
+            },
+            {
+              "kind": "fragment",
+              "id": "f2",
+              "op": "opt",
+              "operands": [
+                {
+                  "guard": "Continue",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "m12",
+                      "from": "p3",
+                      "to": "p4",
+                      "line": "sync",
+                      "text": "Return repair or improvement feedback"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "message",
+      "id": "m13",
+      "from": "p3",
+      "to": "p5",
+      "line": "sync",
+      "text": "Retrieve required attempt artifacts"
+    },
+    {
+      "kind": "message",
+      "id": "m14",
+      "from": "p5",
+      "to": "p3",
+      "line": "return",
+      "text": "Patch, logs, and validation evidence"
+    },
+    {
+      "kind": "message",
+      "id": "m15",
+      "from": "p3",
+      "to": "p2",
+      "line": "sync",
+      "text": "Close worker state; preserve selected checkpoint"
+    },
+    {
+      "kind": "message",
+      "id": "m16",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "Observe closed state and settle job"
+    },
+    {
+      "kind": "message",
+      "id": "m17",
+      "from": "p1",
+      "to": "p5",
+      "line": "sync",
+      "text": "Delete sandbox after required evidence is archived"
+    },
+    {
+      "kind": "note",
+      "id": "n1",
+      "anchor": "p1",
+      "side": "over",
+      "text": "Integration and enabled knowledge processing consume the archived result."
+    }
+  ],
+  "style": {
+    "accent": "#4C78A8"
+  }
+}

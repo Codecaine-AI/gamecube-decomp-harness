@@ -1,0 +1,202 @@
+{
+  "tu": "main/melee/pl/plstale",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plstale:plStale_InitAttackInstance"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Seeds the stale-history instance allocator to 1. Allocated values enter fighter and item metadata; insertion suppresses an exact move-ID/instance pair only while resident in the ten-entry history. Initialization does not clear histories or provide lifetime-unique identities.",
+        "rationale": "Replaces unrestricted once-only language with independently verified bounded identity behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plstale.c#L11-L97",
+            "why": "Initializer, wrapping allocation and bounded scans."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L317-L328",
+            "why": "Fighter metadata producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1640-L1647",
+            "why": "Item metadata producer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plstale:plStale_IncrementAttackInstance"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns the old u16 counter, increments stored state, and replaces stored zero with 1. After initialization the return sequence cycles through 1..65535. With old state zero it returns zero and leaves 1. Values repeat after wrap.",
+        "rationale": "Explicitly captures the zero-entry boundary without conflating return value and stored next state.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plstale.c#L11-L37",
+            "why": "Complete counter logic and source type."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plstale:plStale_ResetStaleMoveTableForPlayer"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "After obtaining the selected player's table, sets current_index to 0 and clears both identity fields in entries 0..9, with no local conditional reset path. Other StaleMoveTable fields and the global counter are untouched; this is history reset, not whole-structure zeroing.",
+        "rationale": "Narrows baseline zeroed-table language to the complete actual write set.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plstale.c#L18-L27",
+            "why": "Exact reset writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L98-L169",
+            "why": "Additional source-declared fields remain untouched; no compiled layout assertion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plstale:plStale_UpdateStaleMovesFromFighter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Equal pointers, attack ID 1, and an exact resident move-ID/instance pair prevent history mutation. Otherwise the pair overwrites current_index, then index 9 becomes 0 and any other index becomes old index + 1. Safe insertion requires index 0..9. Duplicate observations do not refresh recency. The s32 attack ID is compared before narrowing into u16 storage, so out-of-range inputs need not deduplicate after insertion. Zero ID and zero instance are not individually excluded.",
+        "rationale": "Preserves the transition while making boundary and narrowing preconditions explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plstale.c#L39-L66",
+            "why": "Guards, scan, writes and exact index transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L98-L103",
+            "why": "u16 stored fields."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plstale:plStale_UpdateStaleMovesFromItem"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Records a qualifying item's move-ID/instance pair in its current fighter owner's player history. Rejects NULL or non-fighter-classified ownership, owner equality with the compared object, ID 1, and an exact pair already resident among the ten entries. Suppression is by both identity fields and is not a lifetime once-only guarantee.",
+        "rationale": "Repairs the baseline purpose's ambiguous once-only and instance-only wording rather than retaining it with an implicit qualification.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plstale.c#L68-L97",
+            "why": "Owner attribution and exact pair guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L427-L434",
+            "why": "Canonical NULL/classifier predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plstale:plStale_UpdateStaleMovesFromItem"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Only a fighter-classified non-NULL current owner distinct from the second object qualifies. Identity comes from the item and destination player from its owner. ID 1 and resident exact pairs are excluded. Otherwise overwrites current_index and advances 9 to 0, all other values to old index + 1. Safe insertion requires index 0..9; duplicates do not refresh recency. The s32 attack ID narrows into u16 storage. This does not prove one projectile per animation.",
+        "rationale": "Records verified guard semantics independently of the renderer and bounds the ring/narrowing claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plstale.c#L68-L97",
+            "why": "Complete update body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L427-L434",
+            "why": "Canonical owner classifier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L98-L103",
+            "why": "Source storage types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/pl/plstale.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The source global staleAttackInstance is explicitly seeded to 1; allocation returns old u16 state while advancing and repairing stored zero. Actual fighter/item setters store allocated instances in attack metadata. Qualifying updates read that metadata and select the source fighter's or current item owner's player table, rejecting ID 1 and resident exact pairs before insertion. Nonzero allocation requires initialized state. Second arguments are compared only, not retained. Attack IDs are compared as s32 and stored as u16.",
+        "rationale": "Replaces unconditional nonzero language and verifies the producer connections omitted by neighboring-function inference.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plstale.c#L11-L97",
+            "why": "Complete owned data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L317-L328",
+            "why": "Fighter producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1640-L1647",
+            "why": "Item producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L98-L103",
+            "why": "Stored identity types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/pl/plstale.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Explicit counter initialization sets 1 independently of history reset, which clears only the index and ten identity pairs. Allocation returns old state, including zero if entered with zero, while skipping zero in stored next state. Updates apply object/owner exclusions, ID 1 exclusion and exact resident-pair suppression, then overwrite a valid ring index and wrap only 9. Ten entries participate in deduplication, but the external weighted consumer scans at most nine newest entries, stops on move ID zero, and has a debug-level scaling bypass.",
+        "rationale": "Distinguishes initialization, reset extent, bounded deduplication, index preconditions and active consumer length.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plstale.c#L11-L97",
+            "why": "Owned state machine."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L339-L379",
+            "why": "Nine-entry consumer and debug bypass."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

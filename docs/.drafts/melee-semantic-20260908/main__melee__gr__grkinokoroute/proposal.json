@@ -1,0 +1,146 @@
+{
+  "tu": "main/melee/gr/grkinokoroute",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L363-L370",
+            "why": "Zero initialization followed by overwrite or return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L592-L612",
+            "why": "Table traversal and successful-item configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grmaterial.c#L235-L272",
+            "why": "Hurt-capsule field writes and GroundOrAir assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the operational-fallback implication and distinguishes hurtbox configuration from model visibility or model scale.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkinokoroute:.rodata"
+        },
+        "type": "data_flow",
+        "value": "The source-defined zero vector initializes the controller's fighter_pos local; a present primary fighter overwrites it, and a missing fighter causes immediate return rather than continued processing at zero. The separate 51-entry joint-index table is copied into a local grNKr_Depths and traversed to resolve JObjs and create material-backed item proxies. Each successful item receives zero hurt-capsule endpoint offsets, hurt-capsule scale 7.0, an activation call, and ground_or_air = GA_Ground. These source-level flows do not establish compiled section placement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L37-L57",
+            "why": "Source-defined immutable objects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L363-L370",
+            "why": "Missing-fighter early return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L592-L612",
+            "why": "Joint-index consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes a misleading fallback interpretation while preserving the useful constant roles.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkinokoroute:.rodata"
+        },
+        "type": "purpose",
+        "value": "The source defines immutable helper objects for Kinoko Route: a zero vector used for initial local assignment in the route controller, and an ordered list of 51 joint indices used to initialize interactive material proxies. The zero vector is not a usable missing-fighter fallback because the controller returns when no primary fighter exists. Compiled section membership and ordering remain unverified."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L108-L144",
+            "why": "Pointer producer, random guard and startup calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L3222-L3304",
+            "why": "Optional argument producers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L308-L342",
+            "why": "Mode-1 update, constructor failure and retained descriptor, reserved-entry writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the false route-bounds interpretation and preserves the cached-pointer lifetime and unchecked failure path.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkinokoroute:.sbss"
+        },
+        "type": "data_flow",
+        "value": "grKinokoRoute_80207420 caches Ground_GetYakumonoParam() in the file-local yakumono_param pointer. The later stage-start hook passes its embedded x4 descriptor to grZakoGenerator_801CAE04 and uses x0 as an HSD_Randi bound when nonzero; zero bypasses random sampling. A resulting zero forwards a cached Ground identifier and an archive-selected eligible kind\u2014not route bounds\u2014to grZakoGenerator_801CAEB0, which writes unused reserved generator entries. The hook then unconditionally requests the mode-1 generator update. The constructor retains the descriptor pointer on success; this hook does not check construction failure."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L349-L509",
+            "why": "Complete controller, transitions and camera formula."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L47-L76",
+            "why": "Addition, subtraction and difference direction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L344-L373",
+            "why": "Generator disable and item cleanup do not destroy its manager."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the camera algorithm and preserves exceptional fighter branches, timer ordering, repeated geometry requests and numeric phase distinctions.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkinokoroute:grKinokoRoute_80207C88"
+        },
+        "type": "state_behavior",
+        "value": "A missing primary fighter causes immediate return, including skipping maintenance. Outside phase 2, special fighter-state predicates preserve the current camera offset as target and set cam_timer to 60 or zero; otherwise the target follows the fighter with vertical and marker-dependent horizontal clamps. A valid encounter marker while phase < 2 enters phase 2, sets timer 60 and zone 2, starts the encounter, recreates maps 0 then 2, and disables the generator with selected-item cleanup. Phase 2 targets the stored marker plus 30 Y, relocates joint 4, and requests geometry disabling on every update entering with timer zero. Completion status 1 enters phase 3, restores geometry and saved joint translation, enables the generator, recreates maps 2 then 0, and resets timer 60. Phase 3 resumes the non-phase-2 branch but cannot retrigger the encounter. After phase processing, a nonzero timer advances offset by (target - offset)/timer and decrements it. With timer zero, distance above 10 writes target + normalize(offset - target)*10 in XY; distance at or below 10 performs no camera-offset write. This is a 10-unit residual from the target, not a 10-unit maximum movement step. Finally, maintenance runs and a set flags_0 requests one collision refresh before being cleared."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L322-L509",
+            "why": "Initialization, phase transitions, delayed disabling and refresh consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkinokoroute.c#L565-L590",
+            "why": "Material destruction requests another refresh."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L344-L373",
+            "why": "Manager-preserving disable and selected-item cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication that geometry is hidden throughout phase 2 and documents the generator and refresh-flag lifetimes.",
+        "subject": {
+          "entity_locator": "src/melee/gr/grkinokoroute.c"
+        },
+        "type": "state_behavior",
+        "value": "The controller starts at phase 0, zone 0, marker -1 and camera timer 0. Traversal tracks the primary fighter and advances zones; a valid marker while phase < 2 enters phase 2, sets a 60-update transition, resets shared encounter status, starts the encounter, replaces maps 0/2, and disables ordinary generation while deleting selected existing items. The generator manager remains available for re-enabling. Phase 2 uses an encounter-marker camera target and temporarily relocates joint 4, but does not immediately hide route geometry: the disable helper is requested repeatedly only on updates whose timer is already zero. Completion status 1 enters phase 3, restores geometry and joint 4, recreates maps, re-enables generation, and starts another 60-update transition. Missing primary fighters suspend the controller update. The pending collision-refresh flag is consumed and cleared by maintenance, and can be set again by material destruction."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

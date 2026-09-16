@@ -1,0 +1,79 @@
+1: #ifndef _objalloc_h_
+2: #define _objalloc_h_
+3: 
+4: #include <Runtime/platform.h>
+5: 
+6: #include <sysdolphin/baselib/debug.h>
+7: 
+8: typedef struct _objheap {
+9:     u32 top;
+10:     u32 curr;
+11:     u32 size;
+12:     u32 remain;
+13: } objheap;
+14: 
+15: typedef struct _HSD_ObjAllocLink {
+16:     struct _HSD_ObjAllocLink* next;
+17: } HSD_ObjAllocLink;
+18: 
+19: typedef struct _HSD_ObjAllocData {
+20:     u32 num_limit_flag : 1;
+21:     u32 heap_limit_flag : 1;
+22:     HSD_ObjAllocLink* freehead;
+23:     u32 used;
+24:     u32 free;
+25:     u32 peak;
+26:     u32 num_limit;
+27:     u32 heap_limit_size;
+28:     u32 heap_limit_num;
+29:     u32 size;
+30:     u32 align;
+31:     struct _HSD_ObjAllocData* next;
+32: } HSD_ObjAllocData;
+33: ASSERT_SIZE(struct _HSD_ObjAllocData, 0x2C);
+34: 
+35: static inline u32 HSD_ObjAllocGetUsing(HSD_ObjAllocData* data)
+36: {
+37:     HSD_ASSERT(205, data);
+38:     return data->used;
+39: }
+40: 
+41: static inline u32 HSD_ObjAllocGetFreed(HSD_ObjAllocData* data)
+42: {
+43:     HSD_ASSERT(221, data);
+44:     return data->free;
+45: }
+46: 
+47: static inline u32 HSD_ObjAllocGetPeak(HSD_ObjAllocData* data)
+48: {
+49:     HSD_ASSERT(237, data);
+50:     return data->peak;
+51: }
+52: 
+53: static inline void HSD_ObjAllocSetNumLimit(HSD_ObjAllocData* data,
+54:                                            u32 num_limit)
+55: {
+56:     HSD_ASSERT(251, data);
+57:     data->num_limit = num_limit;
+58: }
+59: 
+60: static inline void HSD_ObjAllocEnableNumLimit(HSD_ObjAllocData* data)
+61: {
+62:     HSD_ASSERT(278, data);
+63:     data->num_limit_flag = 1;
+64: }
+65: 
+66: static inline void HSD_ObjAllocDisableNumLimit(HSD_ObjAllocData* data)
+67: {
+68:     HSD_ASSERT(291, data);
+69:     data->num_limit_flag = 0;
+70: }
+71: 
+72: void HSD_ObjSetHeap(u32 size, void* ptr);
+73: s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num);
+74: void* HSD_ObjAlloc(HSD_ObjAllocData* data);
+75: void HSD_ObjFree(HSD_ObjAllocData* data, void* obj);
+76: void _HSD_ObjAllocForgetMemory(void* low, void* high);
+77: void HSD_ObjAllocInit(HSD_ObjAllocData* data, size_t size, u32 align);
+78: 
+79: #endif

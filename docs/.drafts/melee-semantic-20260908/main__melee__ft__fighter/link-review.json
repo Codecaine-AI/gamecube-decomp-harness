@@ -1,0 +1,1737 @@
+{
+  "reviewer": "/root/review_gate/kernel/reviewer-main__melee__ft__fighter-3",
+  "tu": "main/melee/ft/fighter",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "proposal_sha256": "2ec2ed81b984188cc23ca29c45a04a5d275e73317c2808f0d532aabd62215a33",
+  "baseline_links_sha256": "da9ed982b67eee0959b414936d76f44513bcef3269505e837ebc044d73a25903",
+  "status": "changes_reviewed_inherited_relationship_ledger",
+  "review_scope": "proposed_changes_and_contradictions",
+  "records": [
+    {
+      "baseline_record": {
+        "id": "link:0991d7bd-7832-447a-b45c-a1f8871c81dd",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006DA4C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:match-bonus-tracking",
+        "role": "implements",
+        "why": "The scheduled fighter callback feeds current fighter state and frame-to-frame positions into pl_8003FAA8, whose dispatched routines accumulate the persistent observations used by the match bonus/statistics subsystem.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L3049-L3059",
+        "digest": "sha256:3f5ecfe112e9fe9b"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L3070-L3122",
+          "why": "Establishes the position-history forwarding boundary, not the downstream statistics semantics."
+        }
+      ],
+      "link_id": "link:0991d7bd-7832-447a-b45c-a1f8871c81dd",
+      "reason": "The callback forwards position history to pl_8003FAA8, but the claimed persistent match-bonus accumulation was not independently established from that callee and its dispatch targets."
+    },
+    {
+      "baseline_record": {
+        "id": "link:09def637-e285-4943-b7a5-14087aa01816",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkInitReset_80067C98",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:transform",
+        "role": "related",
+        "why": "The shared Zelda/Sheik transformation handoff resets the inactive counterpart with this routine before transferring the outgoing fighter's live state into it.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/ftcommon.c#L1252-L1305",
+        "digest": "sha256:809588179b1050da"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1252-L1351",
+          "why": "Directly shows reset followed by transfer of position, damage, velocity, input, and other state."
+        }
+      ],
+      "link_id": "link:09def637-e285-4943-b7a5-14087aa01816",
+      "reason": "The read handoff code resets a destination fighter before copying live state, but its Zelda/Sheik transformation identity and the complete reset implementation remain unverified in this review."
+    },
+    {
+      "baseline_record": {
+        "id": "link:1441df83-d684-4c9a-b36c-43f48d92ad0f",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006CDA4",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:item-dropping",
+        "role": "implements",
+        "why": "The function probabilistically passes eligible held items into the shared item release routine, whose implementation invokes each item's dropped callback.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2647-L2684",
+        "digest": "sha256:9c0413c9f3be4cbc"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2670-L2734",
+          "why": "Shows the complete eligibility checks, random tests, and item-helper calls."
+        }
+      ],
+      "link_id": "link:1441df83-d684-4c9a-b36c-43f48d92ad0f",
+      "reason": "Eligibility and probabilistic dispatch to Item_8026ABD8 are verified. The required release semantics and invocation of the item's dropped callback were not independently verified from the item implementation."
+    },
+    {
+      "baseline_record": {
+        "id": "link:2037ac8f-a972-4e58-a579-35be00542498",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A360",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hammer-item-state",
+        "role": "implements",
+        "why": "When the fighter holds an item of `It_Kind_Hammer`, the routine invokes the shared Hammer-state lifetime and transition maintenance helper.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1568-L1687",
+        "digest": "sha256:b6dc70344791d622"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1557-L1716",
+          "why": "Establishes Hammer-specific dispatch without establishing the callee's detailed behavior."
+        }
+      ],
+      "link_id": "link:2037ac8f-a972-4e58-a579-35be00542498",
+      "reason": "The explicit It_Kind_Hammer gate and ftCo_800C511C dispatch are verified, but the claimed lifetime and transition maintenance requires reading the helper implementation."
+    },
+    {
+      "baseline_record": {
+        "id": "link:0badb8c7-3114-484e-b147-b56a42746f3d",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_Spaghetti_8006AD10",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The routine transfers alternate or HSD game-pad state into the Fighter, applies gameplay thresholds and button mappings, derives press and release edges, and maintains the timing state consumed by fighter input logic.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1780-L2117",
+        "digest": "sha256:02444f29a5962b90"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1780-L1939",
+          "why": "Copies CPU or HSD pad values and applies stick, trigger, and button transformations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1940-L2099",
+          "why": "Maintains bounded stick, trigger, and button timing counters."
+        }
+      ],
+      "link_id": "link:0badb8c7-3114-484e-b147-b56a42746f3d",
+      "reason": "The routine directly processes alternate/controller input, applies deadzones and button mappings, and updates input timing state."
+    },
+    {
+      "baseline_record": {
+        "id": "link:1694a73d-0162-482e-85c7-7f70e29d95bd",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_procMap",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:environmental-collision-box-locking",
+        "role": "implements",
+        "why": "Each enabled invocation decrements ecb_lock and calls ftCommon_UnlockECB exactly when the countdown expires.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2452-L2492",
+        "digest": "sha256:4220bd2ba8d3f0db"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2420-L2579",
+          "why": "Fighter_procMap contains the countdown and zero-transition unlock call."
+        }
+      ],
+      "link_id": "link:1694a73d-0162-482e-85c7-7f70e29d95bd",
+      "reason": "The enabled map process decrements a nonzero ECB lock and invokes the unlock helper precisely when it reaches zero."
+    },
+    {
+      "baseline_record": {
+        "id": "link:21868d69-6798-49df-9246-212b6942ed65",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006C80C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:magnifying-glass",
+        "role": "implements",
+        "why": "The process queries the fighter's magnifying-subsystem state after the fighter falls below the camera's bottom bound and, for state 3, records a new minimum camera-adjusted Y position in Fighter state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2528-L2563",
+        "digest": "sha256:07b8077e925b4fe1"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2452-L2611",
+          "why": "The canonical rendered range includes the complete Fighter_8006C80C body and its guarded minimum-height update."
+        }
+      ],
+      "link_id": "link:21868d69-6798-49df-9246-212b6942ed65",
+      "reason": "The process queries the magnifying subsystem for an airborne fighter below the camera bottom and conditionally lowers the stored camera-adjusted Y minimum. No additional meaning is assigned to numeric state 3."
+    },
+    {
+      "baseline_record": {
+        "id": "link:21af5956-f8a9-45d3-a0fe-d69a713db6a8",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A1BC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:poison-mushroom",
+        "role": "implements",
+        "why": "The process drains the fighter's x2010 queue by invoking Fighter_PoisonMushroomApply once for each pending entry.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1397-L1446",
+        "digest": "sha256:66cc954ec7e67285"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1397-L1556",
+          "why": "The queue-draining loop is explicit."
+        }
+      ],
+      "link_id": "link:21af5956-f8a9-45d3-a0fe-d69a713db6a8",
+      "reason": "The enabled process drains x2010 with one PoisonMushroomApply call and decrement per iteration."
+    },
+    {
+      "baseline_record": {
+        "id": "link:24899d8d-3559-471c-a641-7f7912c1c0d5",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_procUpdate",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:invisible-ceiling-glitch",
+        "role": "implements",
+        "why": "The airborne attacker shield-knockback exhaustion branch contains the erroneous chained assignment that clears ordinary vertical knockback instead of attacker shield-knockback Y; the source explicitly identifies this error as the cause of the invisible ceiling glitch.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2127-L2414",
+        "digest": "sha256:56ce9f7160e8c1a4"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2100-L2259",
+          "why": "Shows both velocity pointers, the decay condition, the incorrect assignment, and the explanatory bug comment."
+        }
+      ],
+      "link_id": "link:24899d8d-3559-471c-a641-7f7912c1c0d5",
+      "reason": "The airborne shield-knockback exhaustion branch clears ordinary vertical knockback through the erroneous chained assignment, and the source explicitly identifies the invisible-ceiling glitch."
+    },
+    {
+      "baseline_record": {
+        "id": "link:283ffd4c-c5eb-4c56-8c4f-039e71323a9f",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ft/fighter.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-size-scaling",
+        "role": "implements",
+        "why": "The unit loads each player's model scale into Fighter state and contains the routine that converts effective Fighter scale state into the root model's transform.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L650-L900",
+        "digest": "sha256:e4967c93a30b2697"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L650-L809",
+          "why": "Initializes x34_scale.x from Player_GetModelScale."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2420-L2579",
+          "why": "Combines effective model scale with root rotation and translation to construct the stored adjustment matrix."
+        }
+      ],
+      "link_id": "link:283ffd4c-c5eb-4c56-8c4f-039e71323a9f",
+      "reason": "The translation unit directly participates in fighter size scaling by loading player model scale and constructing a scale-adjusted model matrix."
+    },
+    {
+      "baseline_record": {
+        "id": "link:2b66629f-5550-4ef4-a6d3-d1f9343a89d8",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkInitLoad_80068914",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:alternate-costumes",
+        "role": "implements",
+        "why": "The routine retrieves the selected player's costume ID, validates it against the chosen fighter kind's costume count, falls back to costume 0 when invalid, and stores the result for subsequent costume-resource loading.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L690-L815",
+        "digest": "sha256:c517556fd3daff5a"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L650-L809",
+          "why": "The costume selection and fallback operations appear directly in Fighter_UnkInitLoad_80068914."
+        }
+      ],
+      "link_id": "link:2b66629f-5550-4ef4-a6d3-d1f9343a89d8",
+      "reason": "Initialization obtains the selected costume, checks it against the character costume count, substitutes zero when out of range, and stores it."
+    },
+    {
+      "baseline_record": {
+        "id": "link:32da9c7d-392b-490a-a9d8-04188d16a331",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_Create",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-model-construction",
+        "role": "implements",
+        "why": "As part of constructing the fighter, the function loads the selected costume joint hierarchy, installs it on the GObj, and initializes fighter parts and animation around that hierarchy.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L853-L933",
+        "digest": "sha256:1ce4fd81496b891b"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L810-L969",
+          "why": "Shows the construction call sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L570-L639",
+          "why": "Shows costume-indexed joint selection, hierarchy loading, and GObj attachment."
+        }
+      ],
+      "link_id": "link:32da9c7d-392b-490a-a9d8-04188d16a331",
+      "reason": "Construction calls the costume-joint loader and initializes parts and animation; the loader selects the costume joint, loads its hierarchy, and attaches it to the GObj."
+    },
+    {
+      "baseline_record": {
+        "id": "link:344436ec-5f18-4cb4-ab2a-e32123f71b93",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkProcessDeath_80068354",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-death-cleanup",
+        "role": "implements",
+        "why": "The routine resets shared fighter systems, restores collision and hurt-capsule state, clears queued effects, and dispatches the fighter-kind-specific OnDeath callback.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L521-L570",
+        "digest": "sha256:4fbf5ea4525b292e"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L514-L563",
+          "why": "Current body directly establishes the reset and death-callback coordination."
+        }
+      ],
+      "link_id": "link:344436ec-5f18-4cb4-ab2a-e32123f71b93",
+      "reason": "The routine invokes the shared reset, restores transforms and enabled hurt capsules, dispatches the kind-indexed OnDeath callback, and clears queued asynchronous effects."
+    },
+    {
+      "baseline_record": {
+        "id": "link:39e66037-7a5c-46cd-a737-1e3aa5d9aff2",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006CB94",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:flower-status",
+        "role": "implements",
+        "why": "The process forwards a positive collision-derived flower amount to the helper that creates or extends the fighter-attached flower.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2597-L2616",
+        "digest": "sha256:3128f64f129c9e7b"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2621-L2640",
+          "why": "ftColl_8007BBCC returns the amount forwarded to ftCommon_8007FC7C only when positive."
+        }
+      ],
+      "link_id": "link:39e66037-7a5c-46cd-a737-1e3aa5d9aff2",
+      "reason": "Positive-result forwarding is confirmed, but identifying the result and destination helper specifically as flower creation or extension requires independently verified callee bodies. Rendered proposed names are insufficient."
+    },
+    {
+      "baseline_record": {
+        "id": "link:40a6e93f-e501-4d94-a0fc-eac5e9978343",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006ABA0",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-cpu-control",
+        "role": "implements",
+        "why": "The fighter process conditionally dispatches the common CPU update for eligible fighters, providing the scheduled engine entry point that drives computer-controlled fighter behavior.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1707-L1713",
+        "digest": "sha256:0a2ccdeded31bc82"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1703-L1709",
+          "why": "The wrapper gates ftCo_800B3900 on a fighter flag and ftCo_800A2040."
+        }
+      ],
+      "link_id": "link:40a6e93f-e501-4d94-a0fc-eac5e9978343",
+      "reason": "The conditional dispatch is confirmed, but CPU eligibility, CPU-update semantics, and scheduling were not independently established from the external bodies and registration caller."
+    },
+    {
+      "baseline_record": {
+        "id": "link:46850fab-9c3e-4d57-8336-da0c8eac004f",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ft/fighter.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hitlag",
+        "role": "implements",
+        "why": "The translation unit contains the paired fighter enter- and exit-hitlag transition machinery, including callbacks, state flags, SDI-related guards, and propagation through linked fighter objects.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2700-L2805",
+        "digest": "sha256:0c09431792d3d39d"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2728-L2804",
+          "why": "Contains guarded linked entry and exit machinery."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1393-L1425",
+          "why": "Hitlag countdown expiration invokes Fighter_8006D10C and clears allow_sdi."
+        }
+      ],
+      "link_id": "link:46850fab-9c3e-4d57-8336-da0c8eac004f",
+      "reason": "Paired transitions invoke pre/post-hitlag callbacks, set and clear the shared flag, and propagate through linked fighters with SDI and timer guards. The timer-update caller independently ties the exit routine to hitlag expiration."
+    },
+    {
+      "baseline_record": {
+        "id": "link:4dc4db4c-4e44-489a-a432-68161aa25743",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_procUpdate",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:knockback",
+        "role": "implements",
+        "why": "The routine decays airborne knockback by magnitude, applies grounded friction, projects grounded knockback along the floor tangent, and integrates the resulting vector into fighter position.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2127-L2414",
+        "digest": "sha256:56ce9f7160e8c1a4"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2179-L2231",
+          "why": "Airborne decay and grounded tangent projection are explicit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2331-L2366",
+          "why": "Knockback contributes to accumulated movement or directly to current position."
+        }
+      ],
+      "link_id": "link:4dc4db4c-4e44-489a-a432-68161aa25743",
+      "reason": "The update performs magnitude-based airborne knockback decay, passes effective grounded friction to its helper, projects grounded knockback onto the floor tangent, and incorporates knockback into immediate or accumulated movement."
+    },
+    {
+      "baseline_record": {
+        "id": "link:51258591-8ceb-461a-8968-d5f18e2d0380",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006CB94",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-hitbox-collision",
+        "role": "implements",
+        "why": "The scheduled fighter process coordinates an ordered series of `ftColl` operations, and the subsystem is independently identified as handling hitboxes.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2597-L2616",
+        "digest": "sha256:3128f64f129c9e7b"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2621-L2640",
+          "why": "Confirms ordering and fighter-state guards, but not the internal semantics of the opaque callees."
+        }
+      ],
+      "link_id": "link:51258591-8ceb-461a-8968-d5f18e2d0380",
+      "reason": "The ordered ftColl call sequence is present. Its specific hitbox-collision interpretation and scheduled-process status require external subsystem and registration evidence not independently verified here."
+    },
+    {
+      "baseline_record": {
+        "id": "link:56d9eb61-1e61-4400-8a00-7818a461eb2f",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_TakeDamage_8006CC7C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stamina-mode-hp-accounting",
+        "role": "implements",
+        "why": "After changing fighter damage, the routine sends the resulting percentage through `Player_SetHPByIndex`, which stores the transformation-indexed accumulated-loss value used by Stamina Mode.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2624-L2645",
+        "digest": "sha256:2144b625a4dabbbc"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2648-L2669",
+          "why": "Shows the percentage update and exact arguments to Player_SetHPByIndex without establishing the receiving storage's mode semantics."
+        }
+      ],
+      "link_id": "link:56d9eb61-1e61-4400-8a00-7818a461eb2f",
+      "reason": "Damage accumulation, clamping, and forwarding to Player_SetHPByIndex are confirmed. The stronger claims about transformation-indexed accumulated loss and Stamina Mode require the player storage and mode-consumer bodies."
+    },
+    {
+      "baseline_record": {
+        "id": "link:58fe75c9-6160-4f9f-917d-0a7612d06a40",
+        "from_target_id": "target:data:main/melee/ft/fighter:.rodata",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:item-dropping",
+        "role": "implements",
+        "why": "The section's second zero vector is consumed by the fighter routine that probabilistically releases eligible held and associated items, forming an input to Melee's damage-induced item-drop transition.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2620-L2685",
+        "digest": "sha256:f0d143f788610c0d"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2671-L2708",
+          "why": "vec3_803B7494 supplies the local vector passed to randomized held and associated item operations; section identity and ordering are absent."
+        }
+      ],
+      "link_id": "link:58fe75c9-6160-4f9f-917d-0a7612d06a40",
+      "reason": "Source confirms vector consumption by conditional item operations, but does not establish that this is the compiled .rodata section's second zero vector. Compiled layout attribution remains unsupported."
+    },
+    {
+      "baseline_record": {
+        "id": "link:5adb6044-db62-4623-80d6-cc7e78bbc6ec",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_ChangeMotionState",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:table-driven-fighter-motion-state-entry",
+        "role": "exhibits",
+        "why": "The motion ID selects a descriptor from one of two tables, and that descriptor supplies move metadata, animation identity, and the complete standard callback suite for the entered state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1175-L1395",
+        "digest": "sha256:523e40affc44e009"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1177-L1224",
+          "why": "Explicit table selection and descriptor-derived metadata and animation identity."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1370-L1389",
+          "why": "Copies animation, input, physics, collision, and camera callbacks and clears auxiliary callbacks."
+        }
+      ],
+      "link_id": "link:5adb6044-db62-4623-80d6-cc7e78bbc6ec",
+      "reason": "The motion-state ID selects between two descriptor tables. The selected descriptor supplies move metadata, animation identity, and the five standard state callbacks."
+    },
+    {
+      "baseline_record": {
+        "id": "link:5d857047-de6d-41c8-b620-7cd13afe55c3",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkApplyTransformation_8006C0F0",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-size-scaling",
+        "role": "implements",
+        "why": "The routine derives and stores a root-transform correction specifically when the Fighter's special scale override is active, supporting correct model transformation for scaled fighters.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2416-L2440",
+        "digest": "sha256:a03f2d58ca5799ba"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2440-L2464",
+          "why": "Shows the scale guard, model-scale substitution, inverse root transform, and stored concatenation."
+        }
+      ],
+      "link_id": "link:5d857047-de6d-41c8-b620-7cd13afe55c3",
+      "reason": "When the scale override is non-unit, the routine constructs a model-scale-adjusted root transform and concatenates it with the inverse existing root matrix into the fighter's correction matrix."
+    },
+    {
+      "baseline_record": {
+        "id": "link:5d95ccf6-119d-4bbf-adc2-602486f51a83",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A360",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:metal-transformation",
+        "role": "implements",
+        "why": "While the fighter is Metal, the routine decrements `metal_timer` and exits Metal mode when time or metal health is exhausted.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1448-L1567",
+        "digest": "sha256:032c53a9f96688db"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1525-L1531",
+          "why": "Direct Metal predicate, timer decrement, exhaustion condition, and exit call."
+        }
+      ],
+      "link_id": "link:5d95ccf6-119d-4bbf-adc2-602486f51a83",
+      "reason": "The Metal branch decrements a nonzero timer and invokes the explicitly documented Metal exit operation when the timer reaches zero or metal health is depleted. It does not check depleted health when the timer was already zero."
+    },
+    {
+      "baseline_record": {
+        "id": "link:5ef1905f-e2c9-45f3-8c76-d0cb85561e29",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A360",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:magnifying-glass",
+        "role": "implements",
+        "why": "The routine counts consecutive eligible frames in the magnified offscreen state and applies common-data-configured damage when the threshold is reached.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1568-L1687",
+        "digest": "sha256:b6dc70344791d622"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1595-L1611",
+          "why": "Magnification query, eligibility checks, counter handling, and configured damage call are explicit."
+        }
+      ],
+      "link_id": "link:5ef1905f-e2c9-45f3-8c76-d0cb85561e29",
+      "reason": "The magnification-conditioned branch increments a counter, resets it when its inner eligibility predicates fail, and applies configured damage at the threshold. Consecutiveness is conditional on entering the outer guards: those guards do not reset the counter when false."
+    },
+    {
+      "baseline_record": {
+        "id": "link:60025bfd-c1c1-4bb8-bef5-079a9e8fe277",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A360",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:flower-status",
+        "role": "implements",
+        "why": "The x1980 attachment path counts down the flower lifetime, periodically damages the fighter, and removes the attached flower object when its duration expires.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1448-L1567",
+        "digest": "sha256:032c53a9f96688db"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1543-L1559",
+          "why": "Shows the attachment behavior but not its gameplay identity or the bodies of its expiration helpers."
+        }
+      ],
+      "link_id": "link:60025bfd-c1c1-4bb8-bef5-079a9e8fe277",
+      "reason": "The timed attachment countdown, periodic damage, and expiration calls are confirmed. The canonical excerpt does not independently establish that x1980 is a flower or whether expiration destroys versus detaches the item; rendered helper names are hypotheses."
+    },
+    {
+      "baseline_record": {
+        "id": "link:817fc71c-14ae-4636-b1cf-5924cd4f0277",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A1BC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-sound-effect-playback",
+        "role": "uses",
+        "why": "At hitlag expiration, the process conditionally calls ftCo_80090718, which plays and clears the fighter's queued damage sound requests.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1397-L1446",
+        "digest": "sha256:66cc954ec7e67285"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1413-L1425",
+          "why": "Confirms deferred dispatch and clearing of the dispatch flag, not the callee's sound semantics."
+        }
+      ],
+      "link_id": "link:817fc71c-14ae-4636-b1cf-5924cd4f0277",
+      "reason": "The conditional ftCo_80090718 call at hitlag expiration is confirmed, but its body was not read, so queued sound playback and request clearing are not independently verified."
+    },
+    {
+      "baseline_record": {
+        "id": "link:64234f71-19d8-4dc0-a4f3-915146534529",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ft/fighter.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-instantiation",
+        "role": "implements",
+        "why": "The unit owns the allocation, construction, initial-state selection, scheduling, registration, reset, and motion-transition infrastructure that creates and sustains active fighter objects.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L853-L933",
+        "digest": "sha256:1ce4fd81496b891b"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L846-L930",
+          "why": "Contains allocation, initialization, process installation, reset, initial-state selection, and return."
+        }
+      ],
+      "link_id": "link:64234f71-19d8-4dc0-a4f3-915146534529",
+      "reason": "The unit's constructor allocates the fighter GObj and user data, initializes character and costume resources, installs scheduled processes, resets the fighter, selects an initial state, and returns the object. Retention concerns the instantiation relationship, not a guarantee that every allocated field is initialized."
+    },
+    {
+      "baseline_record": {
+        "id": "link:928c4a00-d127-4ce7-874c-1ccffd5011e8",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_Create",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-instantiation",
+        "role": "implements",
+        "why": "The function converts a player fighter-allocation descriptor into a fully initialized, scheduled, registered, and returned Fighter GObj.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L853-L933",
+        "digest": "sha256:1ce4fd81496b891b"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L846-L930",
+          "why": "Contains allocation, initialization, process installation, reset, initial-state selection, and return."
+        }
+      ],
+      "link_id": "link:928c4a00-d127-4ce7-874c-1ccffd5011e8",
+      "reason": "The unit's constructor allocates the fighter GObj and user data, initializes character and costume resources, installs scheduled processes, resets the fighter, selects an initial state, and returns the object. Retention concerns the instantiation relationship, not a guarantee that every allocated field is initialized."
+    },
+    {
+      "baseline_record": {
+        "id": "link:64889271-9245-4222-ada6-2549b96c65fc",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_TakeDamage_8006CC7C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:metal-transformation",
+        "role": "implements",
+        "why": "When the fighter's Metal timer is active, the routine subtracts received damage from `metal_health`, implementing the transformation's damage-sensitive remaining duration.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2624-L2645",
+        "digest": "sha256:2144b625a4dabbbc"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2648-L2669",
+          "why": "Shows the damage gate and subtraction from metal_health."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1525-L1531",
+          "why": "Connects exhausted metal health or timer to exiting metal mode."
+        }
+      ],
+      "link_id": "link:64889271-9245-4222-ada6-2549b96c65fc",
+      "reason": "Accepted damage reduces metal_health when metal_timer is nonzero. The scheduled metal update ends the mode when its timer expires or health is exhausted; health and timer are separate quantities."
+    },
+    {
+      "baseline_record": {
+        "id": "link:6ceec361-2f04-4a2e-a07b-5431d55c6802",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A1BC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hitlag",
+        "role": "implements",
+        "why": "The process decrements the fighter's hitlag-frame counter and performs ordered hitlag-exit work when it reaches zero, including deferred sound dispatch and clearing SDI permission.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1397-L1446",
+        "digest": "sha256:66cc954ec7e67285"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1393-L1442",
+          "why": "Direct implementation of the hitlag countdown and expiration sequence."
+        }
+      ],
+      "link_id": "link:6ceec361-2f04-4a2e-a07b-5431d55c6802",
+      "reason": "The process decrements hitlag frames, clamps expiration to zero, dispatches deferred work, conditionally invokes exit handling, and clears SDI permission."
+    },
+    {
+      "baseline_record": {
+        "id": "link:6f139ad8-ecbd-48d2-9e77-516519f51c4b",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkUpdateCostumeJoint_800686E4",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:alternate-costumes",
+        "role": "implements",
+        "why": "The function uses the active fighter's costume ID to choose and instantiate the corresponding character-specific model hierarchy.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L572-L586",
+        "digest": "sha256:10be20cbdcdf55c9"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L565-L579",
+          "why": "Direct costume-specific hierarchy selection and instantiation."
+        }
+      ],
+      "link_id": "link:6f139ad8-ecbd-48d2-9e77-516519f51c4b",
+      "reason": "Character kind and active costume ID index the costume joint descriptor, which is loaded and attached to the fighter GObj."
+    },
+    {
+      "baseline_record": {
+        "id": "link:802fe9e7-1cf8-40cb-ae25-4958e1a36bf7",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_ChangeMotionState",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-motion-state-transitions",
+        "role": "implements",
+        "why": "The routine performs the engine-level transition that changes a fighter's current motion and installs the animation, command script, and callbacks defining the new action.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1175-L1395",
+        "digest": "sha256:523e40affc44e009"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L933-L973",
+          "why": "Entry assigns the new motion and begins flag-controlled cleanup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1177-L1255",
+          "why": "Selects the motion table entry and animation parameters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1256-L1391",
+          "why": "Initializes command-script and animation state and replaces callbacks."
+        }
+      ],
+      "link_id": "link:802fe9e7-1cf8-40cb-ae25-4958e1a36bf7",
+      "reason": "The transition changes motion_id, resets state according to flags, selects the motion record, configures animation and command-script state, and installs its callbacks."
+    },
+    {
+      "baseline_record": {
+        "id": "link:84ab7692-1df8-42f5-8e97-3ecbdf2c0425",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_procMap",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-environment-collision",
+        "role": "implements",
+        "why": "The routine invokes the fighter's active collision callback between two model-position synchronizations and then handles grounded-player state, forming the scheduled integration point for fighter contact with stage geometry.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2452-L2492",
+        "digest": "sha256:4220bd2ba8d3f0db"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2476-L2516",
+          "why": "Contains the collision integration sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L897-L903",
+          "why": "Registers Fighter_procMap as a scheduled fighter process."
+        }
+      ],
+      "link_id": "link:84ab7692-1df8-42f5-8e97-3ecbdf2c0425",
+      "reason": "The scheduled map process manages ECB lock expiration and invokes the active collision callback between model-position synchronizations, followed by grounded-player bookkeeping."
+    },
+    {
+      "baseline_record": {
+        "id": "link:86161e3f-6354-416d-9239-2260415d95ca",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkInitLoad_80068914",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-size-scaling",
+        "role": "implements",
+        "why": "The routine retrieves the player slot's configured model scale and installs it in the newly initialized Fighter for later model-scaling logic.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L690-L815",
+        "digest": "sha256:c517556fd3daff5a"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L683-L695",
+          "why": "Assigns player_id from the allocation descriptor and stores Player_GetModelScale in x34_scale.x."
+        }
+      ],
+      "link_id": "link:86161e3f-6354-416d-9239-2260415d95ca",
+      "reason": "Initialization reads the model scale for the descriptor's player slot into the fighter's scale field."
+    },
+    {
+      "baseline_record": {
+        "id": "link:97e99ca6-7cfb-4606-9f40-b0e40ed6a8cf",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkProcessDeath_80068354",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-respawn-sequence",
+        "role": "implements",
+        "why": "The Rebirth entry routine invokes this reset first, then selects the revival destination and enters the revival-platform approach state, making the target the fighter-reset stage of the respawn sequence.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/ft_0D4D.c#L101-L163",
+        "digest": "sha256:169f05b86392bb09"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D4D.c#L101-L160",
+          "why": "Calls the reset before spawn-position selection and respawn-platform setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L514-L563",
+          "why": "Shows the target's reset and reinitialization sequence."
+        }
+      ],
+      "link_id": "link:97e99ca6-7cfb-4606-9f40-b0e40ed6a8cf",
+      "reason": "The respawn path invokes the target reset before choosing the spawn-platform destination and constructing the platform accessory. The target resets fighter state and reinitializes model, collision, and character-dependent state."
+    },
+    {
+      "baseline_record": {
+        "id": "link:9a4801b2-139d-4f35-a6ed-ed6869fe39c4",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkTakeDamage_8006CC30",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:damage-percentage",
+        "role": "implements",
+        "why": "The wrapper invokes the adjacent damage routine that increments the fighter's floating-point damage percentage, clamps it to 999, and publishes the result to player state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2618-L2650",
+        "digest": "sha256:8a8b9057c2193666"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2642-L2669",
+          "why": "Direct wrapper-to-damage call and percentage update."
+        }
+      ],
+      "link_id": "link:9a4801b2-139d-4f35-a6ed-ed6869fe39c4",
+      "reason": "The wrapper calls the damage routine, whose accepted-damage branch increments percentage, caps it at 999, and publishes it to player state."
+    },
+    {
+      "baseline_record": {
+        "id": "link:9bedbd63-c1de-4644-96c5-4eee3c489af0",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkRecursiveFunc_8006D044",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hitlag",
+        "role": "implements",
+        "why": "Fighter hit processing calls the routine after calculating positive hitlag frames, and the routine dispatches the fighter's pre-hitlag callback and marks the fighter as being in hitlag.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2890-L3060",
+        "digest": "sha256:d1a7963d8c528bfd"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2748-L2764",
+          "why": "Canonical hitlag-entry body performs callback, flag assignment, and guarded recursion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2965-L2988",
+          "why": "Positive calculated hitlag leads to the entry call."
+        }
+      ],
+      "link_id": "link:9bedbd63-c1de-4644-96c5-4eee3c489af0",
+      "reason": "The routine invokes the pre-hitlag callback, sets the active flag, and propagates to a linked fighter. Hit processing calls it after establishing positive hitlag duration."
+    },
+    {
+      "baseline_record": {
+        "id": "link:a6e5c7fa-7e8d-4e7d-9855-1e725c5ead7c",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkProcessGrab_8006CA5C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:grab",
+        "role": "implements",
+        "why": "The function converts a successful fighter grab contact into a captor/victim relationship and dispatches both participants' grab callbacks.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2565-L2595",
+        "digest": "sha256:e31aca57aee3448b"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2589-L2619",
+          "why": "Shows gated grab processing, victim handling, both callbacks, and a separate item-target branch."
+        }
+      ],
+      "link_id": "link:a6e5c7fa-7e8d-4e7d-9855-1e725c5ead7c",
+      "reason": "The fighter-victim branch registers the interaction and invokes grab and grabbed callbacks with the two participants."
+    },
+    {
+      "baseline_record": {
+        "id": "link:a7db8e38-1b76-46aa-b108-3dff0a882d2a",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A360",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bunny-hood",
+        "role": "implements",
+        "why": "The x197C attachment path decrements its lifetime and, at expiry, performs character-model teardown and removes the attached item object.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1448-L1567",
+        "digest": "sha256:032c53a9f96688db"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1514-L1523",
+          "why": "Confirms the attachment timer and three expiry calls, without identifying its item kind."
+        }
+      ],
+      "link_id": "link:a7db8e38-1b76-46aa-b108-3dff0a882d2a",
+      "reason": "The attachment lifetime and expiry calls are confirmed, but these reads do not independently establish that x197C is specifically Bunny Hood. Rendered helper names are hypotheses, not sufficient mapping evidence."
+    },
+    {
+      "baseline_record": {
+        "id": "link:abe032e5-0cb9-437e-aa65-bb7e3bd9cac4",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkInitLoad_80068914",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-instantiation",
+        "role": "implements",
+        "why": "The routine converts a player fighter-allocation descriptor and persistent slot configuration into the initialized state of a newly allocated Fighter before the constructor completes the active combatant.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L853-L933",
+        "digest": "sha256:1ce4fd81496b891b"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L683-L808",
+          "why": "Current initialization body populates the newly allocated fighter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L846-L875",
+          "why": "Constructor allocates user data and calls this initializer before model setup."
+        }
+      ],
+      "link_id": "link:abe032e5-0cb9-437e-aa65-bb7e3bd9cac4",
+      "reason": "Initialization copies the allocation descriptor and player configuration, installs fighter data, resets input and state, and is called immediately after fighter allocation."
+    },
+    {
+      "baseline_record": {
+        "id": "link:af6169d9-5efd-49b4-9074-b77904175bb5",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006D9AC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-dynamic-bones",
+        "role": "implements",
+        "why": "The routine conditionally invokes the fighter-dynamics update that iterates and updates the fighter's active dynamic-bone-set descriptors.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/ftdynamics.c#L360-L450",
+        "digest": "sha256:6fef8c0763c4723f"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L3050-L3059",
+          "why": "Shows the gate and ftCo_8009E0A8 call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdynamics.c#L360-L438",
+          "why": "Wrapper reaches loops over dynamic_bone_sets and dynamics_num."
+        }
+      ],
+      "link_id": "link:af6169d9-5efd-49b4-9074-b77904175bb5",
+      "reason": "The gated process calls a wrapper whose implementation updates the active dynamic-bone descriptors."
+    },
+    {
+      "baseline_record": {
+        "id": "link:b0e47883-2413-4b15-ad2d-992671960014",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006CF5C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:item-pickup",
+        "role": "implements",
+        "why": "The function performs the fighter-side recovery and feedback operation selected by the immediate-item pickup dispatchers for healing items.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftpickupitem.c#L157-L207",
+        "digest": "sha256:528c5ac8c3c7ac78"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2709-L2717",
+          "why": "Adds the requested amount to x18F0 under a gate and invokes two feedback helpers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1613-L1634",
+          "why": "The queued amount is consumed while reducing damage percent; this establishes recovery but not the pickup mapping."
+        }
+      ],
+      "link_id": "link:b0e47883-2413-4b15-ad2d-992671960014",
+      "reason": "The function queues gradual damage-percent recovery and feedback, but its immediate-item pickup callers were not verified: the baseline caller path does not exist in this checkout."
+    },
+    {
+      "baseline_record": {
+        "id": "link:b9fd766a-e27a-46cc-abf4-4cffec497d63",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A1BC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:super-mushroom",
+        "role": "implements",
+        "why": "The process drains the fighter's x200C queue by invoking Fighter_SuperMushroomApply once for each pending entry.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1397-L1446",
+        "digest": "sha256:66cc954ec7e67285"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1429-L1437",
+          "why": "Each pending entry invokes Fighter_SuperMushroomApply before decrementing the queue."
+        }
+      ],
+      "link_id": "link:b9fd766a-e27a-46cc-abf4-4cffec497d63",
+      "reason": "The process directly drains x200C through repeated Super Mushroom application calls."
+    },
+    {
+      "baseline_record": {
+        "id": "link:ba5f30ee-7580-4c1a-bc5d-291ad71a1f10",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A360",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:poison-mushroom",
+        "role": "implements",
+        "why": "The routine decrements the shared mushroom-size timer and calls `Fighter_PoisonMushroomEnd` when the shrunken-state flag remains set at expiry.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1448-L1567",
+        "digest": "sha256:032c53a9f96688db"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1500-L1512",
+          "why": "Shows the timer and explicit Fighter_PoisonMushroomEnd call."
+        }
+      ],
+      "link_id": "link:ba5f30ee-7580-4c1a-bc5d-291ad71a1f10",
+      "reason": "The timed-size branch decrements the shared timer and directly dispatches Poison Mushroom termination when its flag is selected at expiry."
+    },
+    {
+      "baseline_record": {
+        "id": "link:c006b86f-d783-4425-a51e-766a2b772319",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_NewSpawn_80068E40",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-instantiation",
+        "role": "implements",
+        "why": "The function supplies the spawn serial stored during fighter initialization, forming the lifecycle-identity bookkeeping used when an active fighter is instantiated or reset for another spawn.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L240-L250",
+        "digest": "sha256:05906cdfd6fa02a9"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L810-L819",
+          "why": "Complete serial-generation body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L235-L258",
+          "why": "Stores the serial alongside spawn-position and facing initialization."
+        }
+      ],
+      "link_id": "link:c006b86f-d783-4425-a51e-766a2b772319",
+      "reason": "The serial supplier increments the global counter while skipping zero after wrap, and initialization stores its returned value in the fighter spawn-number field."
+    },
+    {
+      "baseline_record": {
+        "id": "link:c2c15e36-3f15-4dae-8365-dabc77e4ef71",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006C80C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hierarchical-model-animation-playback",
+        "role": "implements",
+        "why": "When the fighter owns an accessory JObj, the process advances that accessory and its model hierarchy through HSD_JObjAnimAll.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2528-L2563",
+        "digest": "sha256:07b8077e925b4fe1"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2552-L2572",
+          "why": "The accessory-pointer branch calls HSD_JObjAnimAll."
+        }
+      ],
+      "link_id": "link:c2c15e36-3f15-4dae-8365-dabc77e4ef71",
+      "reason": "The process directly advances the accessory JObj using the hierarchy animation API when the accessory exists."
+    },
+    {
+      "baseline_record": {
+        "id": "link:c4ceb7a5-9e7d-46ec-9b47-f311430a02f0",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_80068E64",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stage:flat-zone-ssbm",
+        "role": "implements",
+        "why": "The function detects `Gr_Kind_Flatzone` and installs the fighter depth scale that supports Flat Zone's flattened visual presentation.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L828-L837",
+        "digest": "sha256:56713cbc395b533e"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L821-L830",
+          "why": "Complete stage-specific depth-scale implementation."
+        }
+      ],
+      "link_id": "link:c4ceb7a5-9e7d-46ec-9b47-f311430a02f0",
+      "reason": "The explicit Flat Zone stage branch installs a configured Z scale, otherwise restoring unity. The link does not require inferring a stage from a numeric identifier."
+    },
+    {
+      "baseline_record": {
+        "id": "link:c8f08749-92c1-4efb-a83b-4688df44a0e0",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkIncrementCounters_8006ABEC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:controller-input-processing",
+        "role": "implements",
+        "why": "The routine converts normalized jump and directional-special predicates into saturated frame-age and prior-interval state consumed by fighter action-input checks.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1716-L1750",
+        "digest": "sha256:cedc3ed9f89a8842"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1712-L1746",
+          "why": "Input predicates select resets, prior-age copies, or increments bounded at 0xFF."
+        }
+      ],
+      "link_id": "link:c8f08749-92c1-4efb-a83b-4688df44a0e0",
+      "reason": "The routine maintains saturated age counters from input predicates and saves prior ages for two predicates. This directly supports the controller-input-processing relationship without assigning unverified meanings to every helper."
+    },
+    {
+      "baseline_record": {
+        "id": "link:d5466562-8b0c-4b19-87f0-2106544ad847",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkProcessGrab_8006CA5C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:item-pickup",
+        "role": "implements",
+        "why": "When the grab-contact stage finds no fighter victim but has a target item, it passes the fighter and item to the item subsystem and invokes the fighter's optional item-contact callback.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2565-L2595",
+        "digest": "sha256:e31aca57aee3448b"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2589-L2619",
+          "why": "Fighter victims return early; a target item is passed to it_8027B4A4 followed by an optional callback. No ownership-transfer operation is visible here."
+        }
+      ],
+      "link_id": "link:d5466562-8b0c-4b19-87f0-2106544ad847",
+      "reason": "The no-fighter-victim item-contact dispatch is confirmed, but the read code does not establish that it_8027B4A4 performs pickup rather than another item interaction."
+    },
+    {
+      "baseline_record": {
+        "id": "link:ee03529e-c972-4462-8633-bc188c9bedc5",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006CDA4",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:bunny-hood",
+        "role": "implements",
+        "why": "The function supplies the damage-dependent branch that drops the fighter's x197C Bunny Hood attachment and invokes its fighter-side teardown and cleanup sequence.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2647-L2684",
+        "digest": "sha256:9c0413c9f3be4cbc"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2671-L2708",
+          "why": "Shows the probabilistic x197C branch and its helper/item/helper sequence, but no canonical item-kind identification."
+        }
+      ],
+      "link_id": "link:ee03529e-c972-4462-8633-bc188c9bedc5",
+      "reason": "Damage-dependent handling of x197C is confirmed, but identifying that attachment as Bunny Hood requires canonical producer or helper evidence. Rendered proposed names are insufficient."
+    },
+    {
+      "baseline_record": {
+        "id": "link:d006ef50-f338-455a-a0b8-60a3caae8b61",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_ProcessHit_8006D1EC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:knockback",
+        "role": "implements",
+        "why": "When pending knockback is present, the routine applies damage, calculates knockback, selects the fighter's reaction state, records reaction effects, and handles the specialized no-knockback boss path.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2782-L3024",
+        "digest": "sha256:6387bf6cdc44aa88"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2852-L2906",
+          "why": "The kb_applied branch calls damage and knockback routines, selects reactions, and handles no_kb separately."
+        }
+      ],
+      "link_id": "link:d006ef50-f338-455a-a0b8-60a3caae8b61",
+      "reason": "Pending knockback triggers damage application, knockback calculation, reaction dispatch and a separate no-knockback branch."
+    },
+    {
+      "baseline_record": {
+        "id": "link:d07c19f4-8d3e-4d17-814c-0f093e672c22",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006C5F4",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:inverse-kinematics",
+        "role": "implements",
+        "why": "The process delegates to the grounded pose routine that constructs articulated two-segment leg state, moves each enabled endpoint toward the collision floor, and applies the resulting IK transform.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/ft_0899.c#L70-L189",
+        "digest": "sha256:667d99470540261c"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2518-L2524",
+          "why": "The process invokes ft_80089B08 when enabled."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L18-L168",
+          "why": "Floor-relative endpoint adjustment feeds two-segment IK state and transform calls for independently enabled joint chains."
+        }
+      ],
+      "link_id": "link:d07c19f4-8d3e-4d17-814c-0f093e672c22",
+      "reason": "The fighter process delegates to grounded articulated-chain adjustment using endpoint floor queries and IK state."
+    },
+    {
+      "baseline_record": {
+        "id": "link:d137d1f6-6d4e-42c4-aab9-ac8ba4f3105c",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006CFE0",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hitlag",
+        "role": "implements",
+        "why": "The routine conditionally enters the common post-hitlag path, clears a recursively propagated hitlag marker, and participates in resuming linked fighter behavior when hitlag ends.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2650-L2775",
+        "digest": "sha256:a94ee23b4ab13f22"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2728-L2804",
+          "why": "Shows marker gating, post_hitlag_cb invocation, active-flag clearing and linked-object propagation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1400-L1425",
+          "why": "Timer expiration and propagated-release requests call these functions in the hitlag update path."
+        }
+      ],
+      "link_id": "link:d137d1f6-6d4e-42c4-aab9-ac8ba4f3105c",
+      "reason": "These cooperating functions implement conditional propagated-hitlag release and the post-hitlag callback/flag transition, including linked fighters."
+    },
+    {
+      "baseline_record": {
+        "id": "link:da38a910-409c-459d-aaf4-4ed6fddea008",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006D10C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hitlag",
+        "role": "implements",
+        "why": "The function performs the fighter-side exit from hitlag by invoking post-hitlag behavior, clearing the active flag, and propagating the transition to a linked fighter object.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2700-L2805",
+        "digest": "sha256:0c09431792d3d39d"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2728-L2804",
+          "why": "Shows marker gating, post_hitlag_cb invocation, active-flag clearing and linked-object propagation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1400-L1425",
+          "why": "Timer expiration and propagated-release requests call these functions in the hitlag update path."
+        }
+      ],
+      "link_id": "link:da38a910-409c-459d-aaf4-4ed6fddea008",
+      "reason": "These cooperating functions implement conditional propagated-hitlag release and the post-hitlag callback/flag transition, including linked fighters."
+    },
+    {
+      "baseline_record": {
+        "id": "link:decb6ff8-6989-4891-9c0d-ab822a3484a1",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_80068E64",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-size-scaling",
+        "role": "implements",
+        "why": "The function writes the Fighter's runtime Z-scale component, selecting a configured non-unit scale for Flat Zone and unit scale otherwise.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L828-L837",
+        "digest": "sha256:56713cbc395b533e"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L821-L830",
+          "why": "Explicit stage-kind branch writes x34_scale.z."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L213-L230",
+          "why": "Model-scale application consumes this runtime component."
+        }
+      ],
+      "link_id": "link:decb6ff8-6989-4891-9c0d-ab822a3484a1",
+      "reason": "The function chooses configured Flat Zone scaling or unit scaling. The runtime value is supported; its configured value is not independently asserted to be non-unit."
+    },
+    {
+      "baseline_record": {
+        "id": "link:dfe1197b-1901-40cc-bf1d-c3c2c0d38961",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_procUpdate",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-environment-collision",
+        "role": "implements",
+        "why": "After integrating fighter-controlled velocities, the function runs fighter collision processing and adds displacement from moving floor geometry and wind hazards to the fighter's position.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2247-L2366",
+        "digest": "sha256:ee02806d804e63fb"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2358-L2396",
+          "why": "Integrates velocities, obtains wind offset, and adds floor-speed displacement and wind to position."
+        }
+      ],
+      "link_id": "link:dfe1197b-1901-40cc-bf1d-c3c2c0d38961",
+      "reason": "Retain the environmental-interaction link on direct floor-motion and wind-displacement evidence, without treating every ftColl call as terrain collision resolution."
+    },
+    {
+      "baseline_record": {
+        "id": "link:e755a3f4-79c0-414c-8860-233b852c6691",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkUpdateCostumeJoint_800686E4",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-model-construction",
+        "role": "implements",
+        "why": "The routine constructs the selected costume's runtime JObj hierarchy, specializes its root for fighter-specific behavior, and attaches it to the Fighter GObj before the remaining model-part initialization runs.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L572-L586",
+        "digest": "sha256:10be20cbdcdf55c9"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L565-L579",
+          "why": "Selects costume joint data, loads the hierarchy under the parts default class, and attaches the resulting JObj to the fighter GObj."
+        }
+      ],
+      "link_id": "link:e755a3f4-79c0-414c-8860-233b852c6691",
+      "reason": "The routine constructs and attaches the selected costume hierarchy. The specific internal specialization performed by ftParts_80073758 is not needed to establish this link."
+    },
+    {
+      "baseline_record": {
+        "id": "link:ef778aa7-052b-456c-b2ca-db9a3f74168d",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_ProcessHit_8006D1EC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:hitlag",
+        "role": "implements",
+        "why": "The routine calculates hitlag from the selected contact result, applies minimum and maximum bounds, enables SDI, records delayed-contact timing where required, and invokes the common fighter hitlag-entry transition.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2890-L3060",
+        "digest": "sha256:d1a7963d8c528bfd"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2965-L3007",
+          "why": "Direct calculation, minimum and maximum bounds, allow_sdi assignment and recursive entry calls."
+        }
+      ],
+      "link_id": "link:ef778aa7-052b-456c-b2ca-db9a3f74168d",
+      "reason": "Hit processing computes bounded hitlag, enables SDI, records conditional timing, and invokes common entry."
+    },
+    {
+      "baseline_record": {
+        "id": "link:f08accd0-d43a-492a-a7ad-88af6bd19dab",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_8006A360",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:super-mushroom",
+        "role": "implements",
+        "why": "The routine decrements the shared mushroom-size timer and calls `Fighter_SuperMushroomEnd` when the enlarged-state flag remains set at expiry.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L1448-L1567",
+        "digest": "sha256:032c53a9f96688db"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1500-L1512",
+          "why": "Decrements shared size timer and dispatches Super or Poison Mushroom end behavior."
+        }
+      ],
+      "link_id": "link:f08accd0-d43a-492a-a7ad-88af6bd19dab",
+      "reason": "The timer process explicitly invokes Super Mushroom expiration when the corresponding active branch reaches zero."
+    },
+    {
+      "baseline_record": {
+        "id": "link:f56826b5-6d8a-4b4f-acbf-1e84dd49bd2b",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UnkInitReset_80067C98",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-respawn-sequence",
+        "role": "implements",
+        "why": "The shared post-death fighter routine begins by invoking this reset, which restores spawn coordinates, facing, resources, and inactive combat state before the remaining fighter reconstruction steps execute.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L520-L639",
+        "digest": "sha256:bb22cf89091787ce"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L232-L342",
+          "why": "Reset assigns a new spawn number, restores player position and facing, and resets jump, damage and hitlag state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L514-L562",
+          "why": "The caller invokes reset before model, collision, camera and death-callback reconstruction."
+        }
+      ],
+      "link_id": "link:f56826b5-6d8a-4b4f-acbf-1e84dd49bd2b",
+      "reason": "The post-death reconstruction routine begins with reset, which restores player coordinates and facing and clears combat state and resources."
+    },
+    {
+      "baseline_record": {
+        "id": "link:f5dfe47b-fd26-46c5-a97a-bf302e1b2e92",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_Create",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-entry-state",
+        "role": "implements",
+        "why": "When the created fighter's player slot has flag bit 3 set, the constructor selects the initializer for the common fighter Entry state instead of the normal starting motion.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L900-L1150",
+        "digest": "sha256:2f9904cbeea1a21c"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L914-L930",
+          "why": "Confirms branch precedence, the flag-dependent callee, and the alternative normal-motion initializer."
+        }
+      ],
+      "link_id": "link:f5dfe47b-fd26-46c5-a97a-bf302e1b2e92",
+      "reason": "The constructor calls ftCo_800C61B0 when Player_GetFlagsBit3 is nonzero, after the two special-kind branches and transformation branch. This establishes the conditional call but not independently the callee's Entry-state semantics. The rendered proposed name is insufficient evidence for that mapping."
+    },
+    {
+      "baseline_record": {
+        "id": "link:ff17c625-3105-48a9-ae81-262debb41d2c",
+        "from_target_id": "target:data:main/melee/ft/fighter:.sbss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-instantiation",
+        "role": "implements",
+        "why": "The section owns the counter that supplies the spawn identity assigned during fighter initialization and reset, while its common-data pointers provide shared configuration required by active fighter objects.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L240-L250",
+        "digest": "sha256:05906cdfd6fa02a9"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L110-L138",
+          "why": "Declares the counter and common-data pointers without establishing compiled section membership."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L179-L211",
+          "why": "Loads shared configuration pointers from the common archive."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L232-L239",
+          "why": "Assigns the spawn-number helper result during reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L810-L819",
+          "why": "Returns the previous counter value and skips zero after counter wraparound."
+        }
+      ],
+      "link_id": "link:ff17c625-3105-48a9-ae81-262debb41d2c",
+      "reason": "Source confirms the counter, shared-data pointers, and spawn-number assignment, but does not establish that the target compiled .sbss section owns these objects. Retention of this section-level implements relationship requires pinned compiled-layout evidence."
+    },
+    {
+      "baseline_record": {
+        "id": "link:f8cbe6d7-0441-438f-b483-fc810f1a45e6",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_TakeDamage_8006CC7C",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:damage-percentage",
+        "role": "implements",
+        "why": "The routine adds received damage to the fighter's percentage and enforces the mechanic's 999% upper cap.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2624-L2645",
+        "digest": "sha256:2144b625a4dabbbc"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2648-L2669",
+          "why": "Contains percentage addition, the 999.0f upper clamp, and player-state update calls."
+        }
+      ],
+      "link_id": "link:f8cbe6d7-0441-438f-b483-fc810f1a45e6",
+      "reason": "The damage routine conditionally adds damage to the fighter percentage, clamps values above 999, and publishes the resulting value to player state."
+    },
+    {
+      "baseline_record": {
+        "id": "link:fa14410d-8594-4e15-92aa-8dd583ff3eb9",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_UpdateModelScale",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:fighter-size-scaling",
+        "role": "implements",
+        "why": "The function computes the scale vector from runtime and character model-scale inputs and applies it directly to the fighter's visible root JObj.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L220-L237",
+        "digest": "sha256:e18507860d20dcbe"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L213-L230",
+          "why": "Directly constructs the scale vector and calls HSD_JObjSetScale."
+        }
+      ],
+      "link_id": "link:fa14410d-8594-4e15-92aa-8dd583ff3eb9",
+      "reason": "The function applies a scale vector to the fighter GObj's JObj. Y and Z use the model-scale helper result; X uses the runtime override when it differs from 1."
+    },
+    {
+      "baseline_record": {
+        "id": "link:fda77346-ad80-4058-ae6a-a0379fc071db",
+        "from_target_id": "target:function:main/melee/ft/fighter:Fighter_ProcessHit_8006D1EC",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:shield",
+        "role": "implements",
+        "why": "The routine regenerates shield health while not being hit, subtracts light-shield-adjusted damage on shield contact, detects shield exhaustion, and dispatches either shield-break behavior or the normal shield-hit callback.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/fighter.c#L2782-L3024",
+        "digest": "sha256:6387bf6cdc44aa88"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2806-L2842",
+          "why": "Shows capped shield regeneration, lightshield-dependent subtraction, and the exhaustion flag and health reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2907-L2919",
+          "why": "Shows exhaustion-dependent handler selection versus the normal shield-hit callback, after higher-priority damage branches."
+        }
+      ],
+      "link_id": "link:fda77346-ad80-4058-ae6a-a0379fc071db",
+      "reason": "The shield relationship is directly supported. Regeneration is gated by !x221A_b7, rather than a general absence of all damage. The opposite branch subtracts lightshield-adjusted shield damage, detects health below zero, and records exhaustion; the subsequent shield-response branch selects the exhaustion handler or shield_hit_cb."
+    }
+  ],
+  "kernel_job": {
+    "id": "reviewer-main__melee__ft__fighter-3",
+    "role": "reviewer",
+    "task_id": "main__melee__ft__fighter",
+    "output_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-3",
+    "attempt": 3,
+    "prior_result": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/lead-main__melee__ft__fighter-1/packet.json",
+    "input_proposal_sha256": "2ec2ed81b984188cc23ca29c45a04a5d275e73317c2808f0d532aabd62215a33",
+    "repair_message": "Concrete reviewer repair: facts 1,2,3 cite ftlib.c L383-L388 but constructor evidence is L377-L382. Verify and correct locators; preserve supported semantic constructor correction and all other findings. Prior reviewer /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-2/packet.json. Astra low normal speed. Exact previous rejection/validation error: Reviewer requested repair: []. Previous artifacts are UNVALIDATED context, not evidence of correctness. Preserve supported findings while correcting defects. Original archived bytes: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/docs/.drafts/melee-semantic-20260908/main__melee__ft__fighter/repair-history/compact-review1936-v1. Read previous artifacts as needed with sweep_read artifact using these paths: {\"coverage.json\": {\"artifact_path\": \"repair-history/compact-review1936-v1/coverage.json\", \"sha256\": \"a1b67718e08918f2f9a186814a70cfdf38c81bb900979372622d01d573e30ce5\"}, \"fact-dispositions.json\": {\"artifact_path\": \"repair-history/compact-review1936-v1/fact-dispositions.json\", \"sha256\": \"4882b02599cd3e07ef9b9e11e41628285931704ff0b2ac2702cbcb980535d430\"}, \"functionality.md\": {\"artifact_path\": \"repair-history/compact-review1936-v1/functionality.md\", \"sha256\": \"b4ed21c54cd2f6139de8e641a1812122da1400c9e247b104f25b7948a2b67aca\"}, \"link-dispositions.json\": {\"artifact_path\": \"repair-history/compact-review1936-v1/link-dispositions.json\", \"sha256\": \"a9bfe4a9e35b6e38d673242220c6f11da73fbe6aaac55ec5fa8b62dde1d7b2d8\"}, \"proposal.json\": {\"artifact_path\": \"repair-history/compact-review1936-v1/proposal.json\", \"sha256\": \"1f1a1df83d0504e8e9ff90c1e363d0633ed51f499b4a044b582ae533347fcbb1\"}, \"unresolved.json\": {\"artifact_path\": \"repair-history/compact-review1936-v1/unresolved.json\", \"sha256\": \"f3a78a4e25ee29d8fbdec7e2d2b9577f85cde9864238288943c071e161ef8493\"}}",
+    "packet_contract": "lean-v2",
+    "handoff_path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-3/inputs/handoff.json",
+    "input_handoff_sha256": "c9c3d383295821526b65bd07e6d1b12e24f580507a60771daae111018691752d",
+    "input_artifacts": {
+      "proposal.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-3/inputs/proposal.json",
+        "sha256": "2ec2ed81b984188cc23ca29c45a04a5d275e73317c2808f0d532aabd62215a33"
+      },
+      "functionality.md": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-3/inputs/functionality.md",
+        "sha256": "10181809a8f12e70454cc91b12b074be5647201330117406f8b573ee5c217181"
+      },
+      "fact-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-3/inputs/fact-dispositions.json",
+        "sha256": "4882b02599cd3e07ef9b9e11e41628285931704ff0b2ac2702cbcb980535d430"
+      },
+      "link-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-3/inputs/link-dispositions.json",
+        "sha256": "ec9c50fc7cff7903662ea95626b689f8f1ce71b1e895bfd3dfba761308d749e2"
+      },
+      "coverage.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-3/inputs/coverage.json",
+        "sha256": "a1b67718e08918f2f9a186814a70cfdf38c81bb900979372622d01d573e30ce5"
+      },
+      "unresolved.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-3/inputs/unresolved.json",
+        "sha256": "3b68b650799063e4af6eae1bf0ad0babc76db5c31b6480483f458a20bef5965e"
+      }
+    },
+    "resume_from": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__melee__ft__fighter-2"
+  },
+  "database_changes": false
+}

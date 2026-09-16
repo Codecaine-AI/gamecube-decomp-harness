@@ -1,0 +1,77 @@
+{
+  "tu": "main/sysdolphin/baselib/spline",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/spline:splGetSplinePoint"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For u<0 or u>1 returns without writing output. Otherwise u<1 selects s16 idx from u*(numcv-1) and uses the fractional remainder. Type 0 linearly interpolates cv[idx] and cv[idx+1]; type 1 uses four controls at cv[3*idx]; types 2 and 3 use four at cv[idx], with cardinal tension for type 3. The terminal branch uses cv[numcv-1] for type 0, cv[3*(numcv-1)] for type 1, B-spline controls starting cv[numcv-2] evaluated at 1 for type 2, and cv[numcv] for type 3. Unknown types leave output unchanged. No pointer/count checks.",
+        "rationale": "Replace generic neighborhood wording with exact type-specific strides, terminal controls and output-preserving guards.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/spline.c#L82-L135",
+            "why": "Shows control-vector addressing, type dispatch, basis formulas, or declaration layout."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/spline.c#L30-L80",
+            "why": "Shows control-vector addressing, type dispatch, basis formulas, or declaration layout."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/spline.h#L6-L14",
+            "why": "Shows control-vector addressing, type dispatch, basis formulas, or declaration layout."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/spline:splArcLengthGetParameter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clamps arg1<=0 to 0 and arg1>=1 to 1 before reading spl. Scans cumulative segLength using strict next-boundary<arg1, keeping an exact knot in the preceding segment. Type 0 normalizes within that segment. Types 1\u20133 convert residual normalized distance with totalLength, integrate the square-root polynomial over start..midpoint with eight-subinterval Simpson weights, and narrow start/end while width>=1e-5. The upper branch tests residual<integral+1e-5; the lower branch advances start and subtracts the integral. Returns (last midpoint+idx)/(numcv-1). Unsupported type leaves result uninitialized; no array bounds/count/monotonicity/denominator validation.",
+        "rationale": "Add explicit numerical and input contracts directly derivable from the canonical polynomial and branch structure; no runtime test or universal malformed-input guarantee is claimed.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/spline.c#L178-L233",
+            "why": "Defines exact arithmetic, endpoint checks, search updates, or unguarded paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/spline.c#L137-L176",
+            "why": "Defines exact arithmetic, endpoint checks, search updates, or unguarded paths."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/spline:splGetHelmite"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Performs pure scalar arithmetic without bounds checks or clamping. With fterm nonzero and T=1/fterm, the polynomial has endpoint values p0 at time 0 and p1 at time T and endpoint time derivatives d0/d1. With fterm zero the expression reduces to p0+d0*time. Floating-point rounding applies.",
+        "rationale": "Add explicit numerical and input contracts directly derivable from the canonical polynomial and branch structure; no runtime test or universal malformed-input guarantee is claimed.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/spline.c#L9-L28",
+            "why": "Defines exact arithmetic, endpoint checks, search updates, or unguarded paths."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

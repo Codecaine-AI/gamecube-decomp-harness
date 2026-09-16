@@ -1,0 +1,334 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-50-game-events-10-envelope-and-lineage",
+  "title": "Game Event Envelope and Lineage",
+  "root": "b-index-root-15",
+  "blocks": {
+    "b-index-root-15": {
+      "id": "b-index-root-15",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-index-every-game-event-is-one-2",
+        "b-index-envelope-3",
+        "b-envelope-state-shape",
+        "b-state-envelope-provenance-heading",
+        "b-guardian-successor-sequence-diagram",
+        "b-state-envelope-provenance-shape",
+        "b-state-envelope-provenance-contract",
+        "b-index-correlation-and-caus-4",
+        "b-index-correlation-id-is-requ-5",
+        "b-index-accountable-actors-6",
+        "b-accountable-actors-table",
+        "b-guardian-successor-heading",
+        "b-guardian-successor-sequence",
+        "b-lineage-domain-links"
+      ]
+    },
+    "b-index-every-game-event-is-one-2": {
+      "id": "b-index-every-game-event-is-one-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every game event is one durable, game-scoped fact with workflow identity, immediate causation, accountable authorship, and trace lineage. Consumers reconstruct accepted history from events while durable state remains authoritative for the current snapshot."
+        }
+      ],
+      "children": []
+    },
+    "b-index-envelope-3": {
+      "id": "b-index-envelope-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Envelope"
+        }
+      ],
+      "children": []
+    },
+    "b-envelope-state-shape": {
+      "id": "b-envelope-state-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "The immutable header stored with every accepted game fact.",
+        "example": "{\n  \"event_id\": \"event-dispatch-7\",\n  \"sequence\": 7,\n  \"event_type\": \"game.dispatch_acquired\",\n  \"schema_version\": 1,\n  \"game_id\": \"melee\",\n  \"subject_kind\": \"game\",\n  \"subject_id\": \"melee\",\n  \"correlation_id\": \"run-7\",\n  \"causation_id\": \"command-run-7\",\n  \"trace_id\": \"trace-run-7\",\n  \"span_id\": \"span-11111111-1111-4111-8111-111111111111\",\n  \"parent_span_id\": null,\n  \"actor\": \"runner\",\n  \"occurred_at\": \"2026-09-11T18:00:00Z\",\n  \"payload\": {\n    \"kind\": \"run\",\n    \"workflow_id\": \"run-7\",\n    \"lease_id\": \"lease-run-7\",\n    \"state_revision\": 7\n  }\n}",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "EventId"
+          },
+          {
+            "name": "sequence",
+            "type": "integer",
+            "description": "Monotonic within one game event log."
+          },
+          {
+            "name": "event_type",
+            "type": "registered string"
+          },
+          {
+            "name": "schema_version",
+            "type": "positive integer"
+          },
+          {
+            "name": "game_id",
+            "type": "GameId"
+          },
+          {
+            "name": "subject_kind",
+            "type": "registered string"
+          },
+          {
+            "name": "subject_id",
+            "type": "string"
+          },
+          {
+            "name": "correlation_id",
+            "type": "CorrelationId"
+          },
+          {
+            "name": "causation_id",
+            "type": "CommandId | EventId"
+          },
+          {
+            "name": "trace_id",
+            "type": "TraceId"
+          },
+          {
+            "name": "span_id",
+            "type": "SpanId"
+          },
+          {
+            "name": "parent_span_id",
+            "type": "SpanId | null"
+          },
+          {
+            "name": "actor",
+            "type": "operator | runner | agent | guardian | external_observer"
+          },
+          {
+            "name": "occurred_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "payload",
+            "type": "registered closed object"
+          }
+        ],
+        "name": "GameEventEnvelope"
+      },
+      "children": []
+    },
+    "b-state-envelope-provenance-heading": {
+      "id": "b-state-envelope-provenance-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "State Envelope Provenance"
+        }
+      ],
+      "children": []
+    },
+    "b-guardian-successor-sequence-diagram": {
+      "id": "b-guardian-successor-sequence-diagram",
+      "type": "sequence",
+      "props": {
+        "sequenceId": "b-guardian-successor-sequence-diagram",
+        "src": "./assets/sequences/guardian-successor.sequence.json",
+        "title": "Guardian Settlement and Successor Acquisition"
+      },
+      "children": []
+    },
+    "b-state-envelope-provenance-shape": {
+      "id": "b-state-envelope-provenance-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "The provenance slice shared by accepted durable state records.",
+        "example": "{\n  \"revision\": 7,\n  \"updated_at\": \"2026-09-11T18:00:00Z\",\n  \"caused_by_event_id\": \"event-dispatch-7\"\n}",
+        "fields": [
+          {
+            "name": "revision",
+            "type": "integer",
+            "description": "Advances exactly once for each accepted revision."
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "caused_by_event_id",
+            "type": "EventId",
+            "description": "The single accepted game event that produced this revision."
+          }
+        ],
+        "name": "StateEnvelope"
+      },
+      "children": []
+    },
+    "b-state-envelope-provenance-contract": {
+      "id": "b-state-envelope-provenance-contract",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Creation is an accepted transition, so caused_by_event_id is non-null after creation. The state write, event append, and outgoing spool records commit together under the expected revision; rejection commits none of them. Event payloads contain only the registered transition facts, not another state snapshot."
+        }
+      ],
+      "children": []
+    },
+    "b-index-correlation-and-caus-4": {
+      "id": "b-index-correlation-and-caus-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Correlation, Causation, and Spans"
+        }
+      ],
+      "children": []
+    },
+    "b-index-correlation-id-is-requ-5": {
+      "id": "b-index-correlation-id-is-requ-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "correlation_id identifies one user-visible workflow and remains stable across retries and derived work. causation_id names the command accepted directly or the preceding same-game event. trace_id remains workflow-local, span_id names the accepted operation, and parent_span_id is either the distinct parent span or null for a root."
+        }
+      ],
+      "children": []
+    },
+    "b-index-accountable-actors-6": {
+      "id": "b-index-accountable-actors-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Accountable Actors"
+        }
+      ],
+      "children": []
+    },
+    "b-accountable-actors-table": {
+      "id": "b-accountable-actors-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Actor",
+          "Credited accepted action"
+        ],
+        "density": "compact",
+        "rows": [
+          [
+            "operator",
+            "An authenticated operator command."
+          ],
+          [
+            "runner",
+            "Deterministic controller or scheduler work."
+          ],
+          [
+            "agent",
+            "The identified agent action that produced the fact."
+          ],
+          [
+            "guardian",
+            "Recovery or liveness settlement."
+          ],
+          [
+            "external_observer",
+            "Observation without authoritative mutation."
+          ]
+        ],
+        "title": "Actor credit"
+      },
+      "children": []
+    },
+    "b-guardian-successor-heading": {
+      "id": "b-guardian-successor-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Settlement and Successor Acquisition"
+        }
+      ],
+      "children": []
+    },
+    "b-guardian-successor-sequence": {
+      "id": "b-guardian-successor-sequence",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Guardian settles the outgoing workflow",
+            "steps": [
+              {
+                "text": "Append game.dispatch_released and run.paused under the settlement command and root span."
+              }
+            ]
+          },
+          {
+            "text": "Successor acquires authority",
+            "steps": [
+              {
+                "text": "Append game.dispatch_acquired under the queued operator workflow lineage."
+              },
+              {
+                "text": "Append sync.ingesting with operator credit; guardian is not an allowed ingestion actor."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-lineage-domain-links": {
+      "id": "b-lineage-domain-links",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run-specific recovery records belong to "
+        },
+        {
+          "insert": "Run State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/10-run-state"
+            }
+          }
+        },
+        {
+          "insert": ". "
+        },
+        {
+          "insert": "Harness Process",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness-process"
+            }
+          }
+        },
+        {
+          "insert": " explains how source, execution, and boundary records coordinate. This page defines the event envelope and its causation rules."
+        }
+      ],
+      "children": []
+    }
+  }
+}

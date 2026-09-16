@@ -1,0 +1,120 @@
+531: int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
+532:                        int itd_flag, float pitch1, float pitch2,
+533:                        float mix_main, float mix_auxA, float mix_auxB)
+534: {
+535:     AXVPB* voices[2] = { NULL, NULL };
+536:     UNUSED u8 stack_pad[8];
+537:     AXPBVE ve;
+538:     float vol_norm;
+539:     float vol2_norm;
+540:     int voice_idx;
+541:     u32 node_idx;
+542:     struct foo* sfx_entry;
+543:     struct HSD_SynthSFXNode* sfx_node;
+544:     int saved_interrupts;
+545: 
+546:     PAD_STACK(0x14);
+547: 
+548:     saved_interrupts = OSDisableInterrupts();
+549:     sfx_entry = HSD_Synth_804C29E0[sfx_id & 0x1F];
+550: 
+551:     while (sfx_entry != NULL) {
+552:         if (sfx_entry->unk4 == sfx_id) {
+553:             voice_idx = 0;
+554:             while (voice_idx < sfx_entry->unk8) {
+555:                 voices[voice_idx] =
+556:                     AXAcquireVoice(priority + 1, dropcallback, 0U);
+557:                 if (voices[voice_idx] == NULL) {
+558:                     if (voices[0] != NULL) {
+559:                         AXFreeVoice(voices[0]);
+560:                     }
+561:                     OSRestoreInterrupts(saved_interrupts);
+562:                     return -1;
+563:                 }
+564:                 voice_idx += 1;
+565:             }
+566:             if ((sfx_entry->unk8 == 2) && (voices[0] == voices[1])) {
+567:                 AXFreeVoice(voices[0]);
+568:                 OSRestoreInterrupts(saved_interrupts);
+569:                 return -1;
+570:             }
+571:             if (sfx_entry->unk8 == 2) {
+572:                 hsd_SynthSFXNodes[voices[1]->index].x0 = -1;
+573:                 hsd_SynthSFXNodes[voices[1]->index].voice[0] = voices[0];
+574:             }
+575: 
+576:             node_idx = voices[0]->index;
+577: 
+578:             sfx_node = &hsd_SynthSFXNodes[node_idx];
+579:             sfx_node->x27 = 1;
+580:             sfx_node->sfx_id = sfx_id;
+581:             sfx_node->flags = 0;
+582:             sfx_node->voice_count = sfx_entry->unk8;
+583:             sfx_node->xB = itd_flag;
+584:             sfx_node->voice[0] = voices[0];
+585:             sfx_node->voice[1] = voices[1];
+586:             sfx_node->x14 = 0.00003125F * sfx_entry->unkC;
+587:             sfx_node->x18[0] = pitch1;
+588:             sfx_node->x18[1] = pitch2;
+589:             vol_norm = 1 / 255.0F * vol;
+590:             vol2_norm = 1 / 255.0F * vol2;
+591:             sfx_node->unk28 = vol_norm;
+592:             sfx_node->user_vol[0].volume = vol_norm;
+593:             sfx_node->user_vol[0].x4 = 0;
+594:             sfx_node->user_vol[0].x8_float = vol2_norm;
+595:             sfx_node->user_vol[1].volume = vol2_norm;
+596:             sfx_node->user_vol[1].x4 = 0;
+597:             sfx_node->user_vol[1].x8 = pan;
+598:             sfx_node->x44 = mix_main;
+599:             sfx_node->x48 = mix_auxA;
+600:             sfx_node->x4C = mix_auxB;
+601:             HSD_SynthSFXUpdateVolume(sfx_node);
+602:             HSD_SynthSFXUpdateMix(sfx_node, 0);
+603:             ve.currentVolume =
+604:                 (32767.0F * (sfx_node->user_vol[0].x8_float *
+605:                              (sfx_node->unk28 *
+606:                               (HSD_Synth_804D6030 *
+607:                                HSD_Synth_804C28E0_1784[sfx_node->xB].x1784))));
+608:             ve.currentDelta = 0;
+609:             sfx_node->x24 = ve.currentVolume;
+610: 
+611:             voice_idx = 0;
+612:             while (voice_idx < sfx_entry->unk8) {
+613:                 AXSetVoicePriority(voices[voice_idx], priority);
+614:                 AXSetVoiceVe(voices[voice_idx], &ve);
+615:                 *(u32*) &HSD_Synth_80407FD8.ratioHi =
+616:                     (65536.0F *
+617:                      (sfx_node->x18[1] * (sfx_node->x14 * sfx_node->x18[0])));
+618:                 AXSetVoiceSrc(voices[voice_idx], &HSD_Synth_80407FD8);
+619:                 AXSetVoiceAddr(voices[voice_idx], &SFX_VOICE(voice_idx)->x10);
+620:                 AXSetVoiceAdpcm(voices[voice_idx], &SFX_VOICE(voice_idx)->x20);
+621:                 AXSetVoiceAdpcmLoop(voices[voice_idx],
+622:                                     &SFX_VOICE(voice_idx)->x48);
+623:                 AXSetVoiceState(voices[voice_idx], 1U);
+624:                 voice_idx += 1;
+625:             }
+626:             HSD_Synth_804D7750 += 0x40;
+627:             if (HSD_Synth_804D7750 < 0) {
+628:                 HSD_Synth_804D7750 = 0x40;
+629:             }
+630:             sfx_node->x0 = HSD_Synth_804D7750 + node_idx;
+631:             OSRestoreInterrupts(saved_interrupts);
+632:             return sfx_node->x0;
+633:         }
+634:         sfx_entry = sfx_entry->next;
+635:     }
+636: 
+637:     OSRestoreInterrupts(saved_interrupts);
+638:     return -1;
+639: }
+640: 
+641: static inline struct HSD_SynthSFXNode* getNode(int sfx_id)
+642: {
+643:     struct HSD_SynthSFXNode* node = &hsd_SynthSFXNodes[sfx_id & 0x3F];
+644:     if (sfx_id > 0 && node->x0 == sfx_id) {
+645:         return node;
+646:     } else {
+647:         return NULL;
+648:     }
+649: }
+650: 

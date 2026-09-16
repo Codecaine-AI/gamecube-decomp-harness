@@ -1,0 +1,21 @@
+# Camera Mode Integration
+
+Draft integration review at `c302741689bd67c361cd7faadb221df3193992c3`. Owns only source entity `src/melee/gm/gmcameramode.c`. All 250 C lines were read canonically and in two separate frozen-baseline rendered pages. Both pages are ok with zero parser errors; final page reaches EOF. Input hash and receipt paths are in coverage.json.
+
+## Registration and State Flow
+
+`gmscdata.c` lines 456-463 registers GM_CAMERA_MODE with gm_Mode_Camera_OnInit and gm_Mode_Camera_States. Initialization passes persistent modes.vs_camera to gm_InitVsMode. The local array registers state 0 GS_CAMERA_VS, state 1 CSS, state 2 SSS, state 3 VS, followed by -1. Each uses lbDvdPreload_3. State 0 aliases a static s64 for both scene payloads; CSS and SSS alias shared typed records; match start and exit have distinct payloads. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L28-L80, code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L246-L249, code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmscdata.c#L456-L463.
+
+Prelude exit codes 1/2 and CSS pending_scene_change 2 request GM_MENU. The CSS menu path returns before copying settings or changing audio resources. Accepted CSS selections persist before six player character-kind audio masks are combined. SSS success persists its payload and selects stage audio; SSS cancellation chooses state 1 without copying selections. Match exit also chooses state 1. Default advancement is supplied by the scene engine, not explicitly requested here. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L104-L187, code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L235-L244.
+
+## Match and Resource Integration
+
+The resource helper requests entries 2006/2007/2008, including a rounded 640x480 texture buffer and two sizes supplied by lbSnap. Prelude prepares Camera Mode cache, card work, and snapshot archives. VS preparation copies persistent rules, disables the timer, changes rule flags, installs pause overrides, camera pauser selection and three camera lifecycle hooks, copies players, configures colors/rumble/announcer and initializes card/snapshot resources. Numeric flags remain numeric; this review does not infer missing field types. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L82-L102, code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcameramode.c#L189-L233.
+
+Installed on_frame_start callback gmCamera_801A3098 dispatches the active camera UI update callback. State 0 uses gmCamera_801A2798, which reads controller index 3 B/Z. Z selects state 1; that state's entry starts cmSnap capture and its update retrieves the image and passes it to lbSnap. Installed on_frame_end callback controls UI visibility from current state flags. Pauser selection additionally permits connected controller 3 directly and other controllers mapped to active players, so it is not an exclusive fourth-controller pause rule. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L219-L231, code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L282-L332, code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmcamera.c#L550-L579, code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16AE.c#L682-L719.
+
+Match exit reads gmVsMelee_VsExitInfo.match_end and passes it through bookkeeping helpers and KO-count update, then returns to CSS. The prior unit data-flow claim incorrectly described results flowing into that exit record. Details such as handicap/coin semantics are not inferred from rendered helper aliases here.
+
+## Fact Decisions
+
+Five source-entity facts receive exact ID/version dispositions: two retain and three supersede. All five proposed writes carry current full-revision evidence. The data-flow direction is corrected; game mapping is limited to wired Camera Mode and attested snapshot input behavior; storage type removes unverified section/alignment claims. No duplicate function claims or shared-type proposals. Family followups concern concrete shared field/ABI meanings and camera motion controls beyond these wiring facts.

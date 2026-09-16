@@ -1,0 +1,70 @@
+{
+  "tu": "main/melee/if/ifstock",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstock.c#L993-L1059",
+            "why": "Shows partial primary zeroing, full auxiliary resets, all manager branches, target construction, and the process-free Multi-Man path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/types.h#L243-L280",
+            "why": "Separates x204 animation records from primary model/count state and auxiliary managers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_181A.c#L350-L418",
+            "why": "Shows external Multi-Man updates to the retained numeric display."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication of a complete inactive-state reset by preserving the explicit x204 exclusion and distinguishes initialization from safe repeated reconstruction.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifstock:ifStock_802FAEC4"
+        },
+        "type": "state_behavior",
+        "value": "Clears the primary stock-interface record only through the region preceding x204, explicitly preserving its six per-player animation-state records. It fully clears both auxiliary manager records and the sixteen-entry target-object array, loads Stc_scemdls, and always installs the main-grid manager process. If gm_80169394() is zero, it installs the parallel manager; otherwise, when gm_8016A1F8() is true, it seeds that manager's count cache to -1 and creates a polling numeric display. The helper clears all sixteen target slots and constructs their icons only when gm_8016B1A8() is true. Multi-Man mode additionally constructs a numeric hierarchy without the polling process, leaving numeric updates to mode logic. This initializer overwrites retained ownership state without first destroying existing objects, so it is a startup initializer rather than an idempotent teardown-and-rebuild operation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstock.c#L592-L723",
+            "why": "Shows persistent user-data writes, previous-object destruction, allocation ordering, successful ownership assignment, and conditional icon-counter initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstock.c#L724-L747",
+            "why": "Shows prioritized recoloring, immediate dispatch, and JObj-load failure cleanup without clearing the stored previous pointer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstock.c#L240-L280",
+            "why": "Shows how surviving transfer counters and paths are consumed by the stock updater."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstock.c#L467-L493",
+            "why": "Shows that modes 1 and 2 do not execute the stock-transfer updater."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unconditional transfer-slot initialization wording with the actual mode/count branches and documents observable failure-path and persistent-state behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifstock:ifStock_802F98E8"
+        },
+        "type": "state_behavior",
+        "value": "Does nothing when shared model descriptors are unavailable. Otherwise it writes player, mode and flag into the persistent x204 record, requests destruction of any previous player GObj, and creates a replacement whose user_data points into that record. The user_data assignment occurs before the replacement's null check, so allocation failure is not safely guarded. A failed JObj load destroys the replacement but does not clear the previous stored player GObj pointer. On success it retains the new model and component pointers and maps negative stocks to one. Mode 0 initializes the seven icon counters only when stocks are at most five: the two transfer counters become zero and their icons are hidden. Above five stocks that initialization loop is skipped, so existing transfer counters and paths can survive into the immediate stock update. Modes 1 and 2 initialize the first icon counter to zero and the others to ten, hide the transfer icons, and configure different auxiliary components; their normal update paths do not advance transfers. After evaluating the hierarchy, x4_b1 takes priority over x4_b0 in selecting a muted RGB tint, and the mode dispatcher runs immediately. The function does not blanket-clear the animation record or its stored transfer destinations and paths."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

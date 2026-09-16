@@ -1,0 +1,11 @@
+## Exception-runtime lifecycle integration
+
+This unit declares startup and shutdown callback references for C++ exception support. Under `MWERKS_GEKKO`, `GetR2` returns the current r2 value through r3, and `__init_cpp_exceptions` passes that ABI context together with the address of `_eti_init_info` to `__register_fragment`. It does not traverse the metadata table. Outside that compiler configuration, initialization is inert. See code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/__init_cpp_exceptions.c#L6-L39.
+
+The file-local signed integer `fragmentID` starts at -2, meaning initialization is eligible. The external single-slot registry returns 0 on success or -1 when occupied. Either result prevents another initialization attempt until finalization. `__fini_cpp_exceptions` submits any non--2 value for unregistration and resets local state to -2; the registry ignores -1 and clears its metadata pointer, TOC pointer and active flag only for handle 0. Thus failed registration is distinct from both successful registration and the initialization-eligible state. See code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_ExceptionPPC.c#L9-L41.
+
+The source declares one constructor callback reference and two destructor callback references, the latter naming `__destroy_global_chain` and `__fini_cpp_exceptions` in that declaration order. The external chain routine removes each node before invoking its destructor with the object and -1. Source declaration order does not establish compiled callback order or exception-metadata lifetime relative to actual shutdown execution. See code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/global_destructor_chain.c#L13-L23. The header consistently declares the three public lifecycle functions: code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/__init_cpp_exceptions.h#L1-L8.
+
+Existing names and behavioral explanations remain useful and are explicitly retained in the checkpoint, with one compiled-layout assertion unresolved. Both rendered files preserve the canonical function names without substitutions; the C renderer reports two parse errors, so its output supplies no independent naming or layout proof. No semantic rewrite is warranted.
+
+Status: synthesized; independent review and live promotion pending.

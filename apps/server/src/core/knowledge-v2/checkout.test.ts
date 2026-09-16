@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { createCycle, transitionCycle } from "@server/core/cycle/store.js";
+import { initializeHarnessState } from "@server/core/harness-state/state.js";
 import { openState } from "@server/core/orchestrator-state/index.js";
 import { resolveKnowledgeCheckout } from "./checkout.js";
 
@@ -51,64 +51,35 @@ describe("resolveKnowledgeCheckout", () => {
     });
   });
 
-  test("uses the active cycle worktree from a read-only state database", () => {
+  test("uses the durable harness worktree from a read-only state database", () => {
     const root = tempRoot();
-    const stateDir = join(root, "state");
-    const checkout = gitCheckout(root, "cycle-current");
+    const gameDir = join(root, "games/melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeFileSync(join(gameDir, "game.json"), JSON.stringify({ id: "melee", validation: { reportPath: "build/EXAMPLE/report.json" } }));
+    const stateDir = join(gameDir, "runtime/state");
+    const checkout = gitCheckout(root, "harness-current");
     const store = openState(stateDir);
-    const cycle = createCycle(store.db, {
-      actor: "operator",
-      gameId: "melee",
-      cycleUuid: "checkout-test-cycle",
-      id: "cycle:checkout-test-cycle",
-    });
-    transitionCycle(store.db, cycle.id, {
-      actor: "operator",
-      commandId: "command-checkout-test",
-      correlationId: cycle.cycle_uuid,
-      eventType: "cycle.preparing_subphase_updated",
-      expectedRevision: cycle.revision,
-      patch: {
-        preparing_state_json: {
-          ...cycle.preparing_state_json,
-          sync: { cycleCurrentWorktreePath: checkout.path },
-        },
-      },
-      payload: { subphase: cycle.preparing_state_json.subphase },
-    });
+    initializeHarnessState(store.db, { gameId: "melee", worktree: checkout.path, configurationRevision: "config-1", commandId: "initialize" });
     store.db.close();
-
-    expect(resolveKnowledgeCheckout({ gameId: "melee", stateDir })).toEqual({
+    expect(resolveKnowledgeCheckout({ gameId: "melee", stateDir, orchestratorRoot: root })).toEqual({
       checkoutRoot: checkout.path,
-      reportPath: join(checkout.path, "build/GALE01/report.json"),
+      reportPath: join(checkout.path, "build/EXAMPLE/report.json"),
       headRevision: checkout.head,
-      source: "active_cycle",
+      source: "harness",
     });
   });
 
-  test("warns and uses the legacy checkout when no active cycle exists", () => {
+  test("uses configured checkout before harness initialization without opening a state database", () => {
     const root = tempRoot();
-    const checkout = gitCheckout(root, "checkout");
-    const warnings: string[] = [];
-    const originalWarn = console.warn;
-    console.warn = (message?: unknown) => warnings.push(String(message));
-    try {
-      const result = resolveKnowledgeCheckout({
-        gameId: "melee",
-        stateDir: join(root, "missing-state"),
-      });
-      expect(result).toEqual({
-        checkoutRoot: checkout.path,
-        reportPath: join(checkout.path, "build/GALE01/report.json"),
-        headRevision: checkout.head,
-        source: "legacy_checkout",
-      });
-    } finally {
-      console.warn = originalWarn;
-    }
-    expect(warnings).toEqual([
-      `[kg2] no active cycle worktree for melee; using legacy checkout ${checkout.path}`,
-    ]);
+    const gameDir = join(root, "games/example");
+    const checkout = gitCheckout(gameDir, "workspace/checkout");
+    writeFileSync(join(gameDir, "game.json"), JSON.stringify({ id: "example", validation: { reportPath: "build/EXAMPLE/report.json" } }));
+    expect(resolveKnowledgeCheckout({ gameId: "example", orchestratorRoot: root })).toEqual({
+      checkoutRoot: checkout.path,
+      reportPath: join(checkout.path, "build/EXAMPLE/report.json"),
+      headRevision: checkout.head,
+      source: "configured",
+    });
   });
 
   test("throws when the resolved directory is not a git worktree", () => {

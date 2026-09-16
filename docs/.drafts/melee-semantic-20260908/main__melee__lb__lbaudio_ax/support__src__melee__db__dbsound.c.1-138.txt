@@ -1,0 +1,138 @@
+1: #include "db.h"
+2: #include <dolphin/gx/GXStruct.h>
+3: #include <melee/if/textdraw.h>
+4: #include <melee/if/textlib.h>
+5: #include <melee/lb/lbaudio_ax.h>
+6: 
+7: static char db_SoundInfoText_buf[0x70];
+8: 
+9: int db_804D4AF8 = 1;
+10: 
+11: static int db_SoundToggles;
+12: static int db_ShowSoundInfo;
+13: static int db_SoundRelated_6B68;
+14: static int db_SoundRelated_6B6C;
+15: static int db_SoundRelated_6B70;
+16: static int db_SoundRelated_6B74;
+17: static DevText* db_SoundInfoText;
+18: static HSD_GObj* db_804D6B7C;
+19: 
+20: static int db_SoundToggleOrder[4] = { 3, 2, 0, 1 };
+21: 
+22: void fn_SetupSoundInfo(void)
+23: {
+24:     GXColor bg = { 0x80, 0x80, 0x80, 0x80 };
+25:     GXColor fg = { 0xFF, 0xFF, 0xFF, 0xFF };
+26:     db_804D6B7C = DevText_GetGObj();
+27:     db_SoundToggles = 0;
+28:     db_ShowSoundInfo = 0;
+29:     db_SoundRelated_6B68 = 0;
+30:     db_SoundRelated_6B6C = 0;
+31:     db_SoundRelated_6B70 = 0;
+32:     db_SoundRelated_6B74 = 0;
+33:     if ((db_SoundInfoText =
+34:              DevText_Create(9, 420, 60, 18, 3, db_SoundInfoText_buf)))
+35:     {
+36:         DevText_Show(db_804D6B7C, db_SoundInfoText);
+37:         DevText_HideCursor(db_SoundInfoText);
+38:         DevText_SetBGColor(db_SoundInfoText, bg);
+39:         DevText_SetTextColor(db_SoundInfoText, fg);
+40:         DevText_SetScale(db_SoundInfoText, 12, 16);
+41:         DevText_HideBackground(db_SoundInfoText);
+42:         DevText_HideText(db_SoundInfoText);
+43:     }
+44: }
+45: 
+46: void fn_UpdateSoundInfo(void)
+47: {
+48:     int x;
+49:     lbAudioAx_80025098(3 < db_ShowSoundInfo ? true : false);
+50:     if (db_SoundInfoText) {
+51:         switch (db_ShowSoundInfo) {
+52:         case 0:
+53:         case 1:
+54:         case 2:
+55:         case 3:
+56:             DevText_HideBackground(db_SoundInfoText);
+57:             DevText_HideText(db_SoundInfoText);
+58:             break;
+59:         case 4:
+60:         case 5:
+61:         case 6:
+62:         case 7:
+63:             x = lbAudioAx_80028B2C();
+64:             if (db_SoundRelated_6B68 < x) {
+65:                 db_SoundRelated_6B68 = x;
+66:                 db_SoundRelated_6B6C = 0xF0;
+67:             }
+68:             db_SoundRelated_6B6C--;
+69:             if (db_SoundRelated_6B6C <= 0) {
+70:                 db_SoundRelated_6B68 = x;
+71:                 db_SoundRelated_6B6C = 0;
+72:             }
+73:             x = lbAudioAx_80028B4C();
+74:             if (db_SoundRelated_6B70 < x) {
+75:                 db_SoundRelated_6B70 = x;
+76:                 db_SoundRelated_6B74 = 0xF0;
+77:             }
+78:             db_SoundRelated_6B74--;
+79:             if (db_SoundRelated_6B74 <= 0) {
+80:                 db_SoundRelated_6B70 = x;
+81:                 db_SoundRelated_6B74 = 0;
+82:             }
+83:             DevText_Erase(db_SoundInfoText);
+84:             DevText_SetCursorXY(db_SoundInfoText, 1, 0);
+85:             switch (db_SoundToggleOrder[db_SoundToggles] & 3) {
+86:             case 0:
+87:                 DevText_Printf(db_SoundInfoText, "FGM:OFF  BGM:OFF");
+88:                 break;
+89:             case 1:
+90:                 DevText_Printf(db_SoundInfoText, "FGM:OFF  BGM:ON ");
+91:                 break;
+92:             case 2:
+93:                 DevText_Printf(db_SoundInfoText, "FGM:ON   BGM:OFF");
+94:                 break;
+95:             case 3:
+96:                 DevText_Printf(db_SoundInfoText, "FGM:ON   BGM:ON ");
+97:                 break;
+98:             }
+99:             DevText_SetCursorXY(db_SoundInfoText, 1, 1);
+100:             DevText_Printf(db_SoundInfoText, "PVoice  %3d  %3d\n", x,
+101:                            db_SoundRelated_6B68);
+102:             DevText_SetCursorXY(db_SoundInfoText, 1, 2);
+103:             DevText_Printf(db_SoundInfoText, "VVoice  %3d  %3d", x,
+104:                            db_SoundRelated_6B70);
+105:             DevText_ShowBackground(db_SoundInfoText);
+106:             DevText_ShowText(db_SoundInfoText);
+107:             break;
+108:         }
+109:     } else {
+110:         db_SoundRelated_6B68 = lbAudioAx_80028B2C();
+111:         db_SoundRelated_6B6C = 0;
+112:         db_SoundRelated_6B70 = lbAudioAx_80028B4C();
+113:         db_SoundRelated_6B74 = 0;
+114:     }
+115: }
+116: 
+117: void fn_CheckSoundInfo(int player)
+118: {
+119:     int orig = db_SoundToggles;
+120:     if (player == 0) {
+121:         if (db_ButtonsPressed(player) & HSD_PAD_X) {
+122:             if (db_ButtonsDown(player) & HSD_PAD_DPADLEFT) {
+123:                 db_SoundToggles = (db_SoundToggles + 1) % 4;
+124:                 db_ShowSoundInfo = (db_ShowSoundInfo + 1) % 8;
+125:             }
+126:         } else if ((db_ButtonsPressed(player) & HSD_PAD_DPADLEFT)) {
+127:             if (db_ButtonsDown(player) & HSD_PAD_X) {
+128:                 db_SoundToggles = (db_SoundToggles + 1) % 4;
+129:                 db_ShowSoundInfo = (db_ShowSoundInfo + 1) % 8;
+130:             }
+131:         }
+132:         if (db_SoundToggles != orig) {
+133:             int temp = db_SoundToggleOrder[db_SoundToggles];
+134:             lbAudioAx_80025064(temp & 1, temp & 2);
+135:         }
+136:     }
+137:     fn_UpdateSoundInfo();
+138: }

@@ -1,0 +1,116 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWait",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWait.c#L312-L320",
+            "why": "Complete current helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Updates the historical input field spelling and preserves the exact guards and sole write.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWait:fn_800DC014"
+        },
+        "type": "data_flow",
+        "value": "Reads mv.co.capturewait.x0, p_ftCommonData->x3AC and input.pressed_buttons. If the counter is below the threshold and HSD_PAD_XY is present in pressed_buttons, writes mv.co.capturewait.xC = true. It does not clear the latch or change motion state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWait.c#L322-L329",
+            "why": "Complete read-only predicate."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the explicit current stick sample index.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWait:fn_800DC044"
+        },
+        "type": "data_flow",
+        "value": "Reads input.lstick[0].y and p_ftCommonData->tap_jump_threshold and returns the inclusive threshold comparison. It writes no fighter state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWait.c#L130-L138",
+            "why": "Short-circuit release selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWait.c#L322-L329",
+            "why": "Exact predicate."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes sample selection and short-circuit release behavior explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWait:fn_800DC044"
+        },
+        "type": "state_behavior",
+        "value": "Returns true exactly when input.lstick[0].y >= tap_jump_threshold. There is no fresh-stick-edge or timing-window test. At grab-timer expiration, CaptureWaitHi_Anim calls this predicate only if the buffered release byte is zero; true selects fn_800DC070, while false selects CaptureCut."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWait.c#L118-L160",
+            "why": "Consumer and wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWait.c#L312-L320",
+            "why": "Current input producer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the obsolete input.x668 spelling while preserving the producer-consumer relationship.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWait:ftCo_CaptureWaitHi_IASA"
+        },
+        "type": "data_flow",
+        "value": "Forwards gobj unchanged to fn_800DC014. That helper reads capturewait.x0, common threshold x3AC and input.pressed_buttons, and conditionally sets capturewait.xC on an early X/Y press. The shared animation callback later consumes the buffered release byte at nonpositive grab time to select fn_800DC070 or CaptureCut."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWait.c#L246-L254",
+            "why": "Low wrappers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWait.c#L312-L320",
+            "why": "Input producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWait.c#L130-L138",
+            "why": "Release consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Uses the current field spelling and explicitly connects both low-state wrappers to shared processing.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWait:ftCo_CaptureWaitLw_IASA"
+        },
+        "type": "data_flow",
+        "value": "Forwards gobj unchanged to fn_800DC014. That helper compares capturewait.x0 with common threshold x3AC, reads X/Y bits from input.pressed_buttons and conditionally sets capturewait.xC. Low animation delegates to the high animation callback, which consumes the buffered release byte when the grab timer expires."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

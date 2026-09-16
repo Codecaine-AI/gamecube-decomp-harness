@@ -1,0 +1,1694 @@
+{
+  "tu": "main/sysdolphin/baselib/displayfunc",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "All output flags false returns without GX writes. Enabled depth installs a 4x4 all-FF Z8 replacement texture; disabled depth uses zero texgens and no TEV texture source. Both branches still configure direct TEX0 and emit UVs for all four vertices. Sets unconditional compares, copy logic and independent write masks; uses identity position matrix but leaves projection/viewport/scissor supplied by caller. z supplies geometry depth, not the replacement Z-texture value. Disables Z texture and invalidates all HSD cached state afterward; does not restore prior GX state.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL jobj is a no-op. DObj union branch takes precedence. Particle list is processed only with an installed callback: bit 0x80000000 triggers callback(0,data&0x3F,(data>>6)&0xFFFFFF,jobj), then every traversed data value is masked with 0x7FFFFFFF, clearing that trigger bit. Without callback it neither dispatches nor rewrites the list.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L479-L498",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L16-L19",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L567-L600",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires non-NULL jobj; hidden or no selected transparency flags is a no-op. Sets up joint matrix; NULL vmtx falls back to current camera. Builds position matrix once. Opaque draws immediately; with listing disabled, texture-edge then translucent draw immediately. Conditional collection allocates one shared record for selected edge/XLU chains, copies matrices and borrows jobj without ref counting. Static zsort_listing is initialized zero and has no assignment enabling it in this owned source, so this review does not establish active deferred collection.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires valid jobj and DObj payload; has no NULL or joint-hidden guard. Sets current JObj, initializes specular only when requested and not shadow, then clears PObj matrix marks. Skips hidden or pass-ineligible DObjs and calls each virtual disp with current DObj installed. Clears both current pointers on normal exit without restoring prior context.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires valid JObj and matrix storage and an already prepared jobj->mtx; it does not call SetupMatrix. Zero billboard field writes vmtx*jobj->mtx directly. Four recognized billboard modes rebuild a temporary product; unknown nonzero modes panic. PBILLBOARD affects full/vertical/horizontal modes but not rotation-only mode. Degenerate inputs are not validated.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L218-L243",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Stores the supplied callback pointer, including NULL, without invoking it. Dispatch uses the exact void(s32,s32,s32,HSD_JObj*) interface. efLib initialization installs efLib_Cb_SPtcl, whose body forwards particle requests based on bank.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L500-L503",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L174-L180",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L994-L1003",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Configures direct position/color formats and descriptor state, initializes TEV state through HSD_StateInitTev, applies an augmented HSD render mode, and selects matrix zero for direct colored geometry.",
+        "rationale": "Corrects unconditional mathematical or state assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L430-L435",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls HSD_ClearVtxDesc (GX clear and both HSD descriptor-cache pointers reset), sets XYZ/F32 and RGBA/RGBA8 formats, calls HSD_StateInitTev, then SetupRenderMode(rendermode|0x28000000). Enables direct position/color and selects GX_PNMTX0. No local argument validation or restoration occurs.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L430-L435",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Ignores lo/hi and resets all ownership/class heads, append pointers and counts without traversal or free. Prior records/view copies become unreachable through these globals. Leaves controls, callback and erase color unchanged.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L599-L611",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_ZListClear"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Traverses ownership.next once, freeing non-NULL view copies and each record, even when records participate in both class chains. Resets all heads/tails/counts; never frees or unreferences borrowed JObjs. Leaves collection/sort controls, callback and erase color unchanged. Empty and repeated clears reset bookkeeping without deallocation.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L455-L477",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L485-L495",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L484-L489",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Obtains current camera and its direct viewing matrix before checking whether either list is empty. Dispatches edge then XLU using each borrowed JObj, stored position/mode and stored view or camera fallback. Does not sort or recheck joint hidden flags. Calls Clear after normal traversal. Queued objects must remain live and list mutation/reentrancy is not guarded.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L427-L453",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_ZListSort"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "zsort_sorting false is a no-op. True sorts edge then XLU, updating only their heads; counts, ownership links and append-tail pointers are unchanged. Appending after sorting is not maintained by this wrapper and requires a batching invariant. Static control starts zero and no enabling assignment exists in the owned source. CObjEndCurrent calls Sort then Disp.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L416-L425",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L521-L525",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For non-root m, selected skeleton x chooses inverse(x->envelopemtx) when x==m, inverse(x->mtx)*m->mtx for a root ancestor, or inverse(x->mtx*x->envelopemtx)*m->mtx otherwise. Ancestor inverse products use HSD_MtxInverseConcat, which copies m->mtx for near-zero determinant. Self inverse status is ignored. PObj envelope setup receives the optional result.",
+        "rationale": "Corrects unconditional mathematical or state assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L60-L157",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires non-NULL m. A SKELETON_ROOT input returns NULL without writing mtx. Otherwise finds the first self/ancestor skeleton flag and asserts it exists. Self selection calls MTXInverse on envelopemtx and ignores success. Ancestor paths use HSD_MtxInverseConcat; for near-zero determinant that helper copies m->mtx instead of computing an inverse product. Returns output storage on every non-root normal path, which does not guarantee an invertible result.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L60-L157",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "PBILLBOARD scales eye-space position with a negative source-Z-magnitude/norm factor toward the camera; ordinary mode uses fixed +Z. Rebuilds X/Y and preserves translation and positive source column magnitudes for nondegenerate input. No zero-norm or finite-value checks occur; preservation of shear or reflection is not established.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L162-L201",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Preserves source X and translation and rebuilds Y/Z with their source column magnitudes. PBILLBOARD constructs its reference using the XZ radius of position; otherwise uses fixed +Y. Both the position-radius division and basis normalization lack zero or finite-value guards. No persistent state is mutated.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Preserves source Y and translation and rebuilds X/Z with their source column magnitudes. PBILLBOARD chooses position crossed with Y; otherwise uses Y crossed with fixed +Z. Normalization divides by computed norms without zero, parallel-axis or finite-value guards. No JObj or persistent renderer state is mutated.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:zlist_sort"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Count-driven merge sort for a selected deferred-list link field, ascending stored position-matrix Z. Stable for equal finite keys when count and chain are consistent; NaN ordering is not guaranteed.",
+        "rationale": "Corrects unconditional mathematical or state assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L369-L414",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:zlist_sort"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Counted split/merge rewires only the next pointer selected by byte offset, sorting ascending pmtx[2][3]. Equal finite keys choose the earlier half via <= and remain stable; NaN is outside that ordering claim. nb<=1 truncates the selected next of a non-NULL head, including zero/negative counts. Count, chain length and offset consistency are caller preconditions; no allocation or validation occurs.",
+        "rationale": "Adds exact validation, state, ownership and reachability limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L369-L414",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_ZListInitAllocData"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_ZListInitAllocData(void). No parameters.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L56-L59",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.c#L119-L156",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L263-L275",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_StateInitDirect(int vtxfmt, u32 rendermode). int vtxfmt: GX format-table index. u32 rendermode: ORed with 0x28000000 before SetupRenderMode.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L430-L435",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "int vtxfmt: GX format-table index.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L430-L435",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 rendermode: ORed with 0x28000000 before SetupRenderMode.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L430-L435",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_JObjMakePositionMtx(HSD_JObj* jobj, Mtx vmtx, Mtx pmtx). HSD_JObj* jobj: required flags, prepared mtx and rotation source. Mtx vmtx: viewing transform input. Mtx pmtx: output affine position matrix.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L218-L243",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_JObj* jobj: required flags, prepared mtx and rotation source.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L218-L243",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Mtx vmtx: viewing transform input.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L218-L243",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Mtx pmtx: output affine position matrix.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L218-L243",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr _HSD_mkEnvelopeModelNodeMtx(HSD_JObj* m, MtxPtr mtx). HSD_JObj* m: required model node; root returns NULL. MtxPtr mtx: writable output; untouched for root input.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L60-L157",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_JObj* m: required model node; root returns NULL.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L60-L157",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr mtx: writable output; untouched for root input.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L60-L157",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_JObjDispSub(HSD_JObj* jobj, MtxPtr vmtx, MtxPtr pmtx, HSD_TrspMask trsp_mask, u32 rendermode). HSD_JObj* jobj: required DObj owner and current context. MtxPtr vmtx: view matrix forwarded to DObj callback. MtxPtr pmtx: position matrix used for specular and display. HSD_TrspMask trsp_mask: selects DObj pass after bit shift. u32 rendermode: display mode including shadow bit.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_JObj* jobj: required DObj owner and current context.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr vmtx: view matrix forwarded to DObj callback.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr pmtx: position matrix used for specular and display.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TrspMask trsp_mask: selects DObj pass after bit shift.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub#r7"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 rendermode: display mode including shadow bit.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_JObjDispDObj(HSD_JObj* jobj, MtxPtr vmtx, HSD_TrspMask trsp_mask, u32 rendermode). HSD_JObj* jobj: required visible/pass-tested owner; borrowed by deferred records. MtxPtr vmtx: optional view, NULL gets current camera. HSD_TrspMask trsp_mask: requested transparency classes. u32 rendermode: forwarded or recorded unchanged.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_JObj* jobj: required visible/pass-tested owner; borrowed by deferred records.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr vmtx: optional view, NULL gets current camera.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TrspMask trsp_mask: requested transparency classes.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 rendermode: forwarded or recorded unchanged.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:zlist_sort"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static HSD_ZList* zlist_sort(HSD_ZList* list, s32 nb, s32 offset). HSD_ZList* list: selected chain head. s32 nb: trusted chain count. s32 offset: trusted byte offset of selected next field.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L369-L414",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:zlist_sort#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_ZList* list: selected chain head.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L369-L414",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:zlist_sort#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "s32 nb: trusted chain count.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L369-L414",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:zlist_sort#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "s32 offset: trusted byte offset of selected next field.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L369-L414",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_ZListSort"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void _HSD_ZListSort(void). No parameters.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L416-L425",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L521-L525",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void _HSD_ZListDisp(void). No parameters.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L427-L453",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_ZListClear"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void _HSD_ZListClear(void). No parameters.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L455-L477",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L485-L495",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L484-L489",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_JObjDisp(HSD_JObj* jobj, MtxPtr vmtx, HSD_TrspMask trsp_mask, u32 rendermode). HSD_JObj* jobj: nullable dispatch node. MtxPtr vmtx: view forwarded only by DObj branch. HSD_TrspMask trsp_mask: passes forwarded only by DObj branch. u32 rendermode: mode forwarded only by DObj branch.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L479-L498",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L16-L19",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L567-L600",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_JObj* jobj: nullable dispatch node.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L479-L498",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L16-L19",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L567-L600",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr vmtx: view forwarded only by DObj branch.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L479-L498",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L16-L19",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L567-L600",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_TrspMask trsp_mask: passes forwarded only by DObj branch.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L479-L498",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L16-L19",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L567-L600",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 rendermode: mode forwarded only by DObj branch.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L479-L498",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L16-L19",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L567-L600",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_JObjSetSPtclCallback(void (*func)(s32, s32, s32, HSD_JObj*)). void (*func)(s32,s32,s32,HSD_JObj*): nullable borrowed callback pointer.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L500-L503",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L174-L180",
+            "why": "Canonical caller or delegated implementation independently read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L994-L1003",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_SetEraseColor(u8 r, u8 g, u8 b, u8 a). u8 r: stored red. u8 g: stored green. u8 b: stored blue. u8 a: stored alpha.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L505-L511",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 r: stored red.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L505-L511",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 g: stored green.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L505-L511",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 b: stored blue.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L505-L511",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 a: stored alpha.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L505-L511",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_EraseRect(f32 top, f32 bottom, f32 left, f32 right, f32 z, int enable_color, int enable_alpha, int enable_depth). f32 top: upper quad coordinate. f32 bottom: lower quad coordinate. f32 left: left quad coordinate. f32 right: right quad coordinate. f32 z: all-vertex geometry Z under current projection. int enable_color: nonzero enables color update. int enable_alpha: nonzero enables alpha update. int enable_depth: nonzero enables depth writes and Z replacement texture.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 top: upper quad coordinate.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 bottom: lower quad coordinate.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 left: left quad coordinate.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 right: right quad coordinate.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect#r7"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 z: all-vertex geometry Z under current projection.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect#r8"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "int enable_color: nonzero enables color update.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect#r9"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "int enable_alpha: nonzero enables alpha update.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect#r10"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "int enable_depth: nonzero enables depth writes and Z replacement texture.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L34-L73",
+            "why": "Canonical caller or delegated implementation independently read."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void _HSD_DispForgetMemory(void* lo, void* hi). void* lo: ignored. void* hi: ignored.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L599-L611",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void* lo: ignored.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L599-L611",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void* hi: ignored.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L599-L611",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void mkVBillBoardMtx(HSD_JObj* jobj, MtxPtr src, MtxPtr dst). HSD_JObj* jobj: required billboard flags source. MtxPtr src: view-concatenated matrix input. MtxPtr dst: reconstructed matrix output.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_JObj* jobj: required billboard flags source.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr src: view-concatenated matrix input.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr dst: reconstructed matrix output.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void mkHBillBoardMtx(HSD_JObj* jobj, MtxPtr src, MtxPtr dst). HSD_JObj* jobj: required billboard flags source. MtxPtr src: view-concatenated matrix input. MtxPtr dst: reconstructed matrix output.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_JObj* jobj: required billboard flags source.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr src: view-concatenated matrix input.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr dst: reconstructed matrix output.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void mkBillBoardMtx(HSD_JObj* jobj, MtxPtr src, MtxPtr dst). HSD_JObj* jobj: required billboard flags source. MtxPtr src: view-concatenated matrix input. MtxPtr dst: reconstructed matrix output.",
+        "rationale": "Exact pinned source signature; parameter labels indicate positional entities, not verified ABI registers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L162-L201",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_JObj* jobj: required billboard flags source.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L162-L201",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr src: view-concatenated matrix input.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L162-L201",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "MtxPtr dst: reconstructed matrix output.",
+        "rationale": "Declaration and direct use; positional manifest identifier does not establish ABI register allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L162-L201",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/displayfunc.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Owned source defines HSD_ZList: pmtx, optional allocated vmtx copy, borrowed jobj, rendermode, separate texedge/xlu next fields and ownership next. Header declares public entry points and DOBJ_TRSP_SHIFT=1, JOBJ_TRSP_SHIFT=18, JOBJ_OPA=0x40000, JOBJ_XLU=0x80000, JOBJ_TEXEDGE=0x100000. Source-only functions HSD_ZListAlloc/Free, mkRBillBoardMtx and HSD_JObjFindSkeleton have no manifest targets. No compiled section layout or ABI packing is inferred.",
+        "rationale": "Records owned definitions without creating absent target/type identities.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L20-L74",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.c#L203-L254",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/displayfunc.h#L1-L45",
+            "why": "Pinned source declarations, field accesses and call order establish the bounded claim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

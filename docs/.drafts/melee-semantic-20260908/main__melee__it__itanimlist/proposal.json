@@ -1,0 +1,317 @@
+{
+  "tu": "main/melee/it/itanimlist",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L74-L157",
+            "why": "Initialization, assertion and final guarded call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L866-L894",
+            "why": "Position/history updates and exact state transitions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the debug interpretation and preserves the distinction between Enabled and other non-disabled capsule states.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:it_802790C0"
+        },
+        "type": "state_behavior",
+        "value": "If the selected capsule is disabled or its stored group differs from the command group, the handler assigns the group, sets HitCapsule_Enabled, sets xDC8_word.flags.x16, clears xDAA_flag.b2 and initializes collision state. Other non-disabled same-group capsules retain their existing state during this initialization step while their properties are refreshed. A nonzero attachment bone requires the dynamic bone table and reports an assertion when it is absent. After decoding, the handler clears x43_b2 and calls it_8027129C only when HSD_GObj_804D7838 is non-null and its s_link exceeds 11. That helper updates position/history and transitions Enabled to Unk2 or Unk2 to Unk3; Unk3 updates history, while Disabled and Unk4 return without those updates. This branch is not debug registration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L35-L40",
+            "why": "Unsigned eight-bit selector declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L247-L302",
+            "why": "Promotion, operand decoding and path-dependent width."
+          }
+        ],
+        "op": "write",
+        "rationale": "The packed selector is unsigned despite the signed local variable and redundant nonnegative test.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:it_8027978C"
+        },
+        "type": "inferred_type",
+        "value": "An ItCmd-compatible callback with signature void(Item_GObj*, CommandInfo*). Its initial word contains an unsigned eight-bit behavior selector in itAnimlistCmdUnk.opcode, promoted to s32 for dispatch. Selectors 0\u20132 use the next two words for a 32-bit SFX identifier and two u8 audio controls. Selectors 10\u201311 consume the same three-word width but ignore those operands. Other selectors perform no audio operation and consume two words."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L16-L67",
+            "why": "Ordering helper and actual effect scale literal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L104-L117",
+            "why": "Hitbox scaling and reciprocal model-scale argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L350-L387",
+            "why": "Timer threshold and sentinel handling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves demonstrated numeric flow without claiming exact 1/256 arithmetic or unobserved compiled conversion behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:.sdata2"
+        },
+        "type": "data_flow",
+        "value": "Source-level numeric consumers multiply packed effect coordinates and hitbox size/offset fields by 0.003906f, approximately 1/256. Hitbox creation and scale updates pass 1.0f / item->scl to the scale-adjustment helper. The main interpreter uses 0.0f as its due-time threshold and F32_MAX as a special animation-relative timer sentinel. The MUST_MATCH ordering helper also lists two 2^52-based double literals, but this source does not establish their emitted placement or compiler-generated conversion consumers."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L16-L26",
+            "why": "Complete conditional ordering helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an unsupported 40-byte compiled-layout assertion with the exact source evidence.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:.sdata2"
+        },
+        "type": "inferred_type",
+        "value": "The source's MUST_MATCH-only sdata2_order helper lists, in source order, float literal 0.00390599994f, double literals 4503599627370496.0 and 4503601774854144.0, and float literals 1.0f, 0.0f and 3.40282347e+38f. These source expressions do not establish a compiled section's byte extent, alignment, padding or emitted literal order."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L16-L26",
+            "why": "Source-only ordering helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L178-L188",
+            "why": "Geometry scale and reciprocal model adjustment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L350-L387",
+            "why": "Due-time and sentinel roles."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates supported numeric roles from unsupported emitted literal-pool claims.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:.sdata2"
+        },
+        "type": "purpose",
+        "value": "The associated source numeric constants support packed-geometry scaling, reciprocal item-model scale adjustment, due-time comparison and the F32_MAX command-timer sentinel. A MUST_MATCH helper records additional double literals and an intended literal ordering; compiled pool placement and conversion-bias use remain unverified without compiled evidence."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L42-L67",
+            "why": "Complete reads and five cursor increments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the off-by-one event width.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:it_80278F2C"
+        },
+        "type": "inferred_type",
+        "value": "A void ItCmd callback with signature void(Item_GObj*, CommandInfo*). It consumes five command words total: the initial selector word, one effect-ID/scalar word and three words containing six signed 16-bit vector components. Five cursor increments leave cmd->u at the next event; there are four continuation words, not five."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L394-L417",
+            "why": "Forwarding and secondary dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L42-L67",
+            "why": "Exact delegated decoding and width."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the inherited continuation-word count without changing the transparent-adapter interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:it_80279AF0"
+        },
+        "type": "data_flow",
+        "value": "Receives an Item_GObj and mutable CommandInfo from the secondary dispatcher and forwards both unchanged to it_80278F2C. The delegated decoder consumes five total words\u2014the initial word plus four continuation words\u2014extracting a joint selector, effect ID, scalar, base-offset vector and spread vector before calling it_80278800. The adapter itself performs no additional cursor movement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L42-L67",
+            "why": "Packed operands, arithmetic, mode and cursor progression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/iteffect.c#L40-L186",
+            "why": "Random displacement helper and effect-specific exceptions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves decoding while making approximate arithmetic and exceptional effect branches explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:it_80278F2C"
+        },
+        "type": "data_flow",
+        "value": "Reads a ten-bit selector from the initial word, an effect ID and unsigned scalar from the next word, then six signed 16-bit components from three further words. Components are multiplied by 0.003906f into base-offset and spread vectors. It forwards these values to it_80278800 with mode 0 and leaves the cursor five words ahead. Downstream behavior depends on the effect ID: special branches may ignore spread or spawn synchronously even with mode 0; the default placement path adds centered random per-axis displacement and transforms through the selected item joint before further effect dispatch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L350-L440",
+            "why": "Main guards, dispatch and overlay adapters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_013B.c#L159-L182",
+            "why": "Overlay-backed context forwarded to owner callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional timer-reduction wording and preserves the two distinct mutable command contexts.",
+        "subject": {
+          "entity_locator": "src/melee/it/itanimlist.c"
+        },
+        "type": "data_flow",
+        "value": "Each main-interpreter invocation copies the item's cached animation frame into x524_cmd.frame_count and clears xDBC_itcmd_var4_word. A null command cursor returns before timer subtraction; otherwise only a timer unequal to F32_MAX is reduced by animation speed. The loop rechecks stream and timing guards, offers each due opcode to Command_Execute, and dispatches unconsumed opcodes through it_803F22A8[opcode - 10]. Handlers decode payload words, advance the shared cursor and mutate or forward item subsystem state. The separate overlay path supplies an overlay-backed command context to its own two-entry item adapter table."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L344-L348",
+            "why": "Reset followed by one cursor increment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_013B.c#L204-L237",
+            "why": "Countdown use, fixed reset and separate priority lookup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the conflation of countdown and priority while retaining unconditional one-word reset behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:it_802799A8"
+        },
+        "type": "state_behavior",
+        "value": "Once dispatched, the handler unconditionally resets the item's overlay through it_80279BBC and advances exactly one command word. Reset nulls x8_ptr1 and x28_colanim.ptr, zeroes the completion countdown x4_pri and disables both blend channels. These fixed writes are idempotent. x4_pri is not the profile-table priority, and the reset does not write the profile table."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L419-L422",
+            "why": "Unconditional embedded-overlay reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_013B.c#L204-L237",
+            "why": "Countdown, reset fields and table priority comparison."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the semantic interpretation of x4_pri without changing the supported reset behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:it_80279B64"
+        },
+        "type": "state_behavior",
+        "value": "Every invocation unconditionally resets the embedded overlay by nulling x8_ptr1 and x28_colanim.ptr, zeroing the completion countdown x4_pri and disabling both blend channels. It has no local timer, priority or active-overlay guard. Repeated calls leave those reset fields unchanged; it does not zero or otherwise modify profile-table priority values."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itanimlist.c#L429-L432",
+            "why": "Guard-free reset wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_013B.c#L204-L237",
+            "why": "Countdown and fixed reset writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1292-L1302",
+            "why": "External countdown guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects countdown-versus-priority terminology and keeps caller-owned timing distinct.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:it_80279BBC"
+        },
+        "type": "state_behavior",
+        "value": "Every invocation unconditionally resets the embedded overlay by nulling x8_ptr1 and x28_colanim.ptr, zeroing the completion countdown x4_pri and disabling both blend channels. The wrapper contains no identifier, timer, priority or active-overlay guard; caller-side conditions determine when it runs. Repeated calls are idempotent for the reset fields. Profile-table priority values are not modified."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L197-L265",
+            "why": "Post-model reset site."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L701-L708",
+            "why": "Baseline reset site."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L858-L876",
+            "why": "Later conditional profile-3 request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L947-L974",
+            "why": "Construction call order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_013B.c#L216-L222",
+            "why": "Exact reset fields."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves both construction reset sites while correcting the claimed final construction state and countdown terminology.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itanimlist:it_80279B64"
+        },
+        "type": "purpose",
+        "value": "Establishes an inactive baseline for the item's embedded color-overlay controller by clearing its command source, color-animation reference, completion countdown and blend enables. Shared construction invokes it during baseline Item-record initialization and again during post-model spawn setup. This does not guarantee an inactive overlay at constructor return: later construction logic for hold kinds 0 and 6 can intentionally request profile 3."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

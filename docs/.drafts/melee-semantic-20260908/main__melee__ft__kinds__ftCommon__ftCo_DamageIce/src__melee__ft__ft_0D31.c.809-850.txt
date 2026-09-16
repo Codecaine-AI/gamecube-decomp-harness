@@ -1,0 +1,42 @@
+809:     fp->accessory4_cb = fn_800D4DD4;
+810: }
+811: 
+812: void ftCo_DeadUpFall_Anim(Fighter_GObj* gobj)
+813: {
+814:     Fighter* fp = GET_FIGHTER(gobj);
+815:     s32* data = (s32*) &p_ftCommonData->x520;
+816:     u8 _[8];
+817: 
+818:     switch (fp->mv.co.unk_deadup.x44) {
+819:     case 1:
+820:         fp->mv.co.walk.middle_anim_frame += fp->mv.co.walk.slow_anim_frame;
+821:         if (fp->mv.co.unk_deadup.x68 != 0) {
+822:             f32 rot_speed = *(f32*) (data + 16);
+823:             HSD_JObj* jobj =
+824:                 fp->parts[ftParts_GetBoneIndex(fp, FtPart_XRotN)].joint;
+825:             HSD_JObjAddRotationX(jobj, rot_speed);
+826:         }
+827:         break;
+828:     }
+829:     if (fp->mv.co.unk_deadup.x40 != 0) {
+830:         fp->mv.co.unk_deadup.x40 -= 1;
+831:     }
+832: 
+833:     if (fp->mv.co.unk_deadup.x40 == 0) {
+834:         switch (fp->mv.co.unk_deadup.x44) {
+835:         case 0:
+836:             fp->mv.co.walk.slow_anim_frame = 1.0f / (f32) data[2];
+837:             fp->mv.co.walk.middle_anim_frame = fp->mv.co.walk.slow_anim_frame;
+838:             fp->mv.co.unk_deadup.x40 = data[2];
+839:             fp->mv.co.unk_deadup.x44 = 1;
+840:             return;
+841:         case 1:
+842:             if (fp->mv.co.unk_deadup.x68 != 0) {
+843:                 Fighter* fp2 = GET_FIGHTER(gobj);
+844:                 ftCo_800D481C(gobj, 0xA);
+845:                 ftCo_80090AC0(fp2);
+846:             } else if (GET_FIGHTER(gobj)->x34_scale.z != 1.0f) {
+847:                 ftCo_800D481C(gobj, 8);
+848:             } else {
+849:                 ftCo_800D481C(gobj, 7);
+850:             }

@@ -1,0 +1,94 @@
+{
+  "tu": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam.c#L59-L75",
+            "why": "Complete countdown and restart control flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the two sequential independent guards instead of implying a mutually exclusive race between timer and animation completion.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam:ftCh_FingerBeamLoop_Anim"
+        },
+        "type": "purpose",
+        "value": "Updates FingerBeamLoop's countdown by decrementing x8 and storing the result. Exact zero restores animation rate 1 and invokes the FingerBeamEnd initializer. Independently and afterward, animation exhaustion restarts motion state 0x16A from frame zero and runs animation setup; this test still executes after a countdown-triggered transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam.c#L49-L75",
+            "why": "Entry arguments, initialized fields and independent update guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam.c#L119-L126",
+            "why": "Timer-selected initializer enters 0x16B."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline restriction of animation restart to the period before the timer transition.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam:ftCh_Init_80158B3C"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally enters 0x16A with flags zero, current animation frame, rate 1, blend zero and no alternate animation source; then applies attribute xCC_pos.x as playback rate and initializes x8 from xC4_pos.y. Each loop animation update decrements x8. Exact zero restores rate 1 and enters 0x16B. A separate subsequent animation-exhaustion test restarts 0x16A from frame zero, including when the countdown branch has just entered the ending state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam.c#L189-L216",
+            "why": "Entry arms latch; timer and animation exit are separate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandcapturewaitcrazyhand.c#L23-L29",
+            "why": "Victim release effects."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes an entry-armed latch from a required later animation signal and preserves independent lifetime conditions.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam:ftCh_FingerGun1_Anim"
+        },
+        "type": "purpose",
+        "value": "Runs FingerGun1's delayed captured-victim release and independent animation-completion exit. Entry initializes x24 and arms cmd_vars[0]; each update pre-decrements x24, and a nonpositive result with the latch still armed invokes the victim release helper, clears x20 and disarms the latch. The helper restores visibility, reverses facing and enters CaptureCut. No local victim null guard exists. Animation exhaustion separately invokes the shared return helper, so release is not guaranteed before exit and is one-shot only absent external rearming."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam.c#L49-L252",
+            "why": "Owned entry, animation, release and grab-success logic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingergun2.c#L19-L62",
+            "why": "Distinct numeric entries and exact-one continuation branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves numeric-state distinctions, exact success comparison, sequential loop guards and conditional victim-release lifetime.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCrazyHand/ftcrazyhandfingerbeam.c"
+        },
+        "type": "state_behavior",
+        "value": "FingerBeamLoop decrements its countdown, enters 0x16B on exact zero, then independently tests animation exhaustion for a 0x16A restart. Ending entry registers grab callbacks and clears x20. Ordinary ending animation completion stops XYZ velocity and enters 0x16E; successful grab instead sets x20 true, disables grab detection and enters 0x16D. These distinct states share completion callbacks that select BackAirplane1 only for x20 == 1 and BackPunch otherwise. BackPunch exits at animation exhaustion. FingerGun1's entry-armed latch and nonpositive pre-decremented timer gate a victim release, while animation exhaustion independently starts the return sequence; release before exit is not guaranteed."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

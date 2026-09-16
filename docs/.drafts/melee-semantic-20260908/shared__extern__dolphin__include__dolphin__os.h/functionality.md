@@ -1,0 +1,14 @@
+## Dolphin OS umbrella header
+
+Reviewed all 208 canonical and rendered lines of `extern/dolphin/include/dolphin/os.h`, plus the complete empty subject and link inventories. There are no owned baseline facts or links to retain or correct, and no supported naming change is warranted. The rendered view makes no substitutions; its nine reported parse errors limit renderer confidence but do not obscure the canonical text.
+
+### Interface and source-level behavior
+- Defines `OSTime` as `s64`, `OSTick` as `u32`, interrupt types and an interrupt-handler signature, and exports the OS subsystem headers under C-compatible linkage. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L1-L45.
+- Supplies bitwise alignment helpers, cached/uncached address prefixes, compiler-dependent low-memory declarations, and clock-derived time-conversion macros. The Metrowerks/non-M2CTX branch declares multiple address-bound globals; the alternative branch supplies only bus/core clock dereference macros here. Timer frequency is expressed as bus clock divided by four, not a fixed numeric frequency. Conversion arithmetic retains its written multiplication/division order and operand-dependent precision and overflow behavior. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L47-L88.
+- Declares initialization, memory and arena interfaces, calendar conversion, tick/time access and interrupt control. `OSCalendarTime` and `OSBootInfo` describe calendar fields and boot metadata, including arena and FST pointers. Their offset/size comments are source annotations, not independently verified compiled layout. Declarations alone do not establish allocation failure behavior, pointer ownership or cross-file lifetimes. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L90-L139.
+- Defines console identifiers and mono/stereo constants, declares sound-mode access and diagnostics, and conditionally supplies a compiler noreturn attribute for `OSPanic`. This header does not establish sound-mode validation or panic implementation details. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L141-L178.
+- Declares six physical/cached/uncached address-conversion functions. Only under `!DEBUG` are these names replaced by arithmetic macros using region bases or their difference; the macros contain no validation. The DEBUG branch retains declarations and does not reveal implementation behavior. Also supplies 32-byte rounding macros. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L180-L208.
+
+The existing names fit the interface and visible macro operations. No implementation, compiled section placement or runtime lifetime claims are inferred from rendered bindings.
+
+Status: synthesized; independent review and live promotion pending.

@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 describe("resolveIngestPaths", () => {
-  test("derives source and live game paths from the knowledge root", () => {
+  test("derives source paths and defaults a missing database to runtime state", () => {
     const knowledgeRoot = resolve("/fixture/game/knowledge");
 
     expect(resolveIngestPaths(knowledgeRoot)).toEqual({
@@ -46,8 +46,23 @@ describe("resolveIngestPaths", () => {
       discordChannelsConfigPath: resolve(knowledgeRoot, "sources/rag_search/discord_raw/config/channels.json"),
       wikiDataRoot: resolve(knowledgeRoot, "sources/rag_search/smashwiki/data"),
       prsRoot: resolve(knowledgeRoot, "sources/code_context/past_prs/data/prs"),
-      orchestratorDbPath: resolve("/fixture/game/state/orchestrator.sqlite"),
+      orchestratorDbPath: resolve("/fixture/game/runtime/state/orchestrator.sqlite"),
     });
+  });
+
+  test("prefers runtime state and falls back to legacy state", () => {
+    const gameRoot = temporaryRoot();
+    const knowledgeRoot = join(gameRoot, "knowledge");
+    const runtimePath = join(gameRoot, "runtime/state/orchestrator.sqlite");
+    const legacyPath = join(gameRoot, "state/orchestrator.sqlite");
+    mkdirSync(join(runtimePath, ".."), { recursive: true });
+    mkdirSync(join(legacyPath, ".."), { recursive: true });
+    writeFileSync(runtimePath, "");
+    writeFileSync(legacyPath, "");
+
+    expect(resolveIngestPaths(knowledgeRoot).orchestratorDbPath).toBe(runtimePath);
+    rmSync(runtimePath);
+    expect(resolveIngestPaths(knowledgeRoot).orchestratorDbPath).toBe(legacyPath);
   });
 });
 
@@ -304,5 +319,26 @@ describe("kg2Ingest", () => {
       },
     });
     expect(existsSync(join(knowledgeRoot, "knowledge.sqlite"))).toBe(false);
+    expect(existsSync(join(knowledgeRoot, "store"))).toBe(false);
   });
+});
+
+test("bootstrap explicitly imports wiki and extracts entities after reconcile", async () => {
+  const gameRoot = temporaryRoot(); const knowledgeRoot = join(gameRoot, "knowledge");
+  const paths = resolveIngestPaths(knowledgeRoot);
+  createEmptyWikiMirror(knowledgeRoot);
+  mkdirSync(paths.prsRoot, { recursive: true });
+  mkdirSync(paths.discordRawRoot, { recursive: true });
+  mkdirSync(resolve(paths.discordChannelsConfigPath, ".."), { recursive: true });
+  writeFileSync(paths.discordChannelsConfigPath, JSON.stringify({ channels: [] }));
+  const report = join(gameRoot, "checkout/report.json"); writeFileSync(report, JSON.stringify({ units: [] }));
+  const calls: string[] = [];
+  const reconcile = spyOn(reconcileModule, "reconcileReport").mockImplementation(() => { calls.push("reconcile"); return {} as ReturnType<typeof reconcileModule.reconcileReport>; });
+  const entities = spyOn(entitiesModule, "extractEntities").mockImplementation(() => { calls.push("entities"); return {} as ReturnType<typeof entitiesModule.extractEntities>; });
+  const wiki = spyOn(wikiModule, "importWiki").mockImplementation(() => { calls.push("wiki"); return {} as ReturnType<typeof wikiModule.importWiki>; });
+  const log = spyOn(console, "log").mockImplementation(() => {});
+  try {
+    await kg2Ingest({ gameId: "fixture" } as GlobalArgs, new Map([["--lane", "bootstrap"], ["--knowledge-root", knowledgeRoot], ["--checkout-root", join(gameRoot, "checkout")], ["--report", report]]));
+    expect(calls).toEqual(["reconcile", "entities", "wiki"]);
+  } finally { reconcile.mockRestore(); entities.mockRestore(); wiki.mockRestore(); log.mockRestore(); }
 });

@@ -28,6 +28,11 @@ from _qa_rules import (
     strip_comments_and_strings,
 )
 
+# C-idiom rules: these encode .c-file declaration conventions (source-local
+# prototypes, extern anchors, shadowed C declarations) and misfire on C++
+# class-body member declarations, so they stay scoped to C translation units.
+C_SOURCE_APPLIES_TO = ["src/**/*.c"]
+
 M2C_REGISTER_NAME_RE = re.compile(r"\b(?:temp|var|phi)_[rf]\d+\w*\b")
 SP_LOCAL_DECL_RE = re.compile(
     r"^\s*(?:(?:static|const|volatile|unsigned|signed|long|short|struct\s+[A-Za-z_]\w*)\s+)*"
@@ -751,7 +756,7 @@ RULES: list[dict[str, Any]] = [
         "standard_id": "global_standard:truthful-headers-and-includes",
         "check": check_shadowed_declaration,
         "message": "Source-local declaration shadows a canonical declaration.",
-        "applies_to": DEFAULT_APPLIES_TO,
+        "applies_to": C_SOURCE_APPLIES_TO,
         "excludes": SDK_PATH_EXCLUDES,
     },
     {
@@ -760,7 +765,7 @@ RULES: list[dict[str, Any]] = [
         "standard_id": "global_standard:truthful-headers-and-includes",
         "check": check_bare_local_prototype,
         "message": "Source-local function prototype added to a .c file.",
-        "applies_to": DEFAULT_APPLIES_TO,
+        "applies_to": C_SOURCE_APPLIES_TO,
         "excludes": SDK_PATH_EXCLUDES,
     },
 ]

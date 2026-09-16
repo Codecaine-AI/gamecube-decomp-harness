@@ -1,0 +1,386 @@
+{
+  "tu": "main/melee/ft/ftcmdscript",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L10-L27",
+            "why": "Exact signature, local type, and cpu access."
+          }
+        ],
+        "op": "write",
+        "rationale": "Current canonical signature and embedded-state access replace stale type names.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B3E04"
+        },
+        "type": "inferred_type",
+        "value": "void (Fighter* fp); mutates fp->cpu, a struct CpuFighter, in place and returns no value. fp must be valid."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L26-L317",
+            "why": "Complete state flow and exceptional return paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects canonical names and distinguishes all cursor publication paths.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B3E04"
+        },
+        "type": "data_flow",
+        "value": "Reads opcode bytes through a local s8 cursor initialized from fp->cpu.csP and converted to u8 for dispatch. Operands and fighter position, facing, motion, destination x54, and optional Fighter* x44 drive cpu buttons, sticks, triggers, x18, and duration. Only entry csP is bounds-asserted. Ordinary suspension commits the local cursor; matching motion polling leaves stored csP unchanged; Done clears it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L26-L51",
+            "why": "Entry guards, countdown, and dispatch start."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L232-L317",
+            "why": "Uncommitted poll return and Done versus normal commit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Precisely captures batch replay, countdown, termination, and malformed-stream behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B3E04"
+        },
+        "type": "state_behavior",
+        "value": "Null csP or zero duration is inactive. Otherwise decrement duration once; dispatch only when it reaches zero. Zero duration operands continue dispatch immediately; nonzero duration suspends and commits the advanced cursor. WaitIfMotionId compares an unsigned byte to motion_id and on equality sets duration=1 and returns without committing any local cursor progress, potentially replaying earlier immediate instructions from the batch start. Done clears csP and duration without neutralizing controls. Unknown opcodes are consumed with no default error; later fetches have no bounds check."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L52-L242",
+            "why": "Direct controller mappings and x18 assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Mappings come from active case bodies, with timing and scenario uncertainty scoped.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B3E04"
+        },
+        "type": "game_mapping",
+        "value": "Translates CPU byte commands to virtual controller bits and analog channels, including timed A/B/X/Y operations, invocation-count waits, waiting while a byte-selected motion matches, and steering relative to a destination, optional target fighter, or facing. R digital commands also set the right analog trigger; L digital commands do not set its analog trigger. ReleaseAll clears buttons only. No named gameplay scenario is established for Unk0x93 beyond its x18 assignment."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L320-L324",
+            "why": "Complete definition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Updates obsolete embedded type vocabulary.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B462C"
+        },
+        "type": "inferred_type",
+        "value": "void (Fighter* fp); assigns fp->cpu.write_pos to fp->cpu.buffer using a struct CpuFighter pointer. Requires valid fp and returns no value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L327-L348",
+            "why": "Signature and operand forwarding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Exact current signature and calls demonstrate the unrestricted byte domain.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B463C"
+        },
+        "type": "inferred_type",
+        "value": "void (Fighter* fp, u8 cmd); fp supplies the embedded struct CpuFighter buffer and cmd is one encoded byte, whether opcode, operand, or terminator. The ordinary header typedef cmd_t is u8."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L327-L335",
+            "why": "Complete writer and its only check."
+          }
+        ],
+        "op": "write",
+        "rationale": "Avoids describing a one-sided assertion as comprehensive buffer safety.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B463C"
+        },
+        "type": "purpose",
+        "value": "Appends one encoded byte to fp->cpu's in-progress command buffer and advances write_pos, with an assertion for write_pos at or beyond the end. It performs no lower-bound, null-pointer, opcode, or total-instruction validation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L327-L379",
+            "why": "Byte store, producers, and activation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Canonical replacement for x1A88-based flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B463C"
+        },
+        "type": "data_flow",
+        "value": "Stores cmd through fp->cpu.write_pos and increments that cursor by one. Wrappers pass both opcodes and operands through this primitive; ftCo_800B49F4 appends Done and points cpu.csP at the same embedded buffer for interpretation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L327-L341",
+            "why": "Primitive and complete wrapper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Updates field naming and records partial-write boundary behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B46B8"
+        },
+        "type": "data_flow",
+        "value": "Forwards cmd then arg to ftCo_800B463C, serializing two bytes at fp->cpu.write_pos. Each successful byte advances the cursor; no atomic two-byte reservation or arity validation occurs."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L327-L348",
+            "why": "Per-byte guard and ordered wrapper calls."
+          }
+        ],
+        "op": "write",
+        "rationale": "Canonical destination and accurate non-atomic boundary behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B4778"
+        },
+        "type": "data_flow",
+        "value": "Forwards cmd, arg1, arg2 in order to ftCo_800B463C, serializing three bytes at fp->cpu.write_pos. Writes are checked individually and may partially complete before a later overflow assertion; opcode arity is not validated."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L350-L369",
+            "why": "Entire importer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces overclaim of a correct variable-width parser and immediate execution.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B4880"
+        },
+        "type": "purpose",
+        "value": "Appends bytes from Fighter_804D64FC->cmdscripts[script_idx] through the per-fighter writer until the outer cursor encounters Done, then copies that terminator. It does not rewind, start, or stop execution. Its operand-dependent cursor tests do not guarantee complete-instruction traversal for every two-operand command."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L327-L335",
+            "why": "Destination effect."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L353-L369",
+            "why": "Source pointer, moving comparisons, and absent execution stores."
+          }
+        ],
+        "op": "write",
+        "rationale": "Captures exact pointer flow and distinguishes append from activation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B4880"
+        },
+        "type": "data_flow",
+        "value": "Uses unchecked script_idx to fetch a u8* stream from Fighter_804D64FC->cmdscripts and emits sequential bytes to fp->cpu.write_pos through ftCo_800B463C. The second threshold comparison observes the possibly advanced current byte, not a saved opcode. The source table is not modified; existing interpreter cursor and duration are left untouched."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L353-L369",
+            "why": "Exact comparison order and cursor increments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.h#L34-L74",
+            "why": "Threshold values."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline opcode-only width test and inactive-output claim.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B4880"
+        },
+        "type": "state_behavior",
+        "value": "At each outer iteration copy *cmd. If that byte exceeds 0xBF, advance and copy the first operand. Next compare the current *cmd to 0x7F; if greater, advance and copy another byte. Finally advance once. Thus the second test uses the first operand for opcodes above 0xBF, but the opcode otherwise. Done ends only at an outer-loop cursor position. Index, source length, and null pointers are unchecked; output appends without changing existing csP/duration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L371-L379",
+            "why": "Exact signature and cpu access."
+          }
+        ],
+        "op": "write",
+        "rationale": "Current canonical type vocabulary.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B49F4"
+        },
+        "type": "inferred_type",
+        "value": "void (Fighter* fp); requires a valid mutable Fighter whose embedded struct CpuFighter supplies buffer, write_pos, csP, and command_duration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L371-L379",
+            "why": "All start effects."
+          }
+        ],
+        "op": "write",
+        "rationale": "Canonical handoff description with explicit arming semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B49F4"
+        },
+        "type": "data_flow",
+        "value": "Passes Done to the byte writer at fp->cpu.write_pos, then sets cpu.csP=cpu.buffer and cpu.command_duration=1. The writer advances; controls and prior buffer contents otherwise remain unchanged. No immediate interpreter call occurs."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L381-L394",
+            "why": "Complete function."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace stale Fighter_x1A88_t terminology.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B4A78"
+        },
+        "type": "inferred_type",
+        "value": "void (Fighter* fp); mutates the embedded struct CpuFighter at fp->cpu, requires a valid mutable Fighter pointer, and returns no value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L381-L394",
+            "why": "Enumerated stores and reset helper call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L319-L324",
+            "why": "Helper only rewinds write_pos."
+          }
+        ],
+        "op": "write",
+        "rationale": "Scopes reset precisely rather than claiming all CPU script-related fields are reset.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B4A78"
+        },
+        "type": "purpose",
+        "value": "Neutralizes scripted buttons, both stick pairs, and both analog triggers; stops interpretation by clearing csP and duration; and rewinds the construction cursor. It does not erase buffer bytes or reset x18, target, destination, or all other CpuFighter state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L381-L394",
+            "why": "Explicit outputs and helper call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L320-L324",
+            "why": "Cursor effect."
+          }
+        ],
+        "op": "write",
+        "rationale": "Exact canonical stores replace baseline x0 terminology.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcmdscript:ftCo_800B4A78"
+        },
+        "type": "data_flow",
+        "value": "Writes zero to fp->cpu.buttons, lstick.x/y, cstick.x/y, rtrigger, ltrigger, and command_duration, and NULL to csP. Passing fp to ftCo_800B462C then sets cpu.write_pos to cpu.buffer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L232-L394",
+            "why": "Poll, termination, builders, import, activation, and reset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Whole-TU canonical flow including exceptional cursor semantics.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ftcmdscript.c"
+        },
+        "type": "data_flow",
+        "value": "Builders append bytes into fp->cpu.buffer via write_pos; startup appends Done and arms csP at buffer with duration=1. The interpreter consumes bytes and fighter context to mutate cpu virtual controls, x18, and timing. Ordinary suspension commits cursor progress; motion-match early return preserves batch-start csP; Done clears it. Global table bytes are imported without changing their source storage."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcmdscript.c#L52-L242",
+            "why": "Active opcode behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_0A01.c#L7343-L7372",
+            "why": "Optional subsequent control override."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_0A01.c#L8604-L8615",
+            "why": "Interpreter precedes override routine."
+          }
+        ],
+        "op": "write",
+        "rationale": "Grounded mapping with explicit limits instead of opponent or scenario inference.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ftcmdscript.c"
+        },
+        "type": "game_mapping",
+        "value": "Implements CPU scripted virtual controller input: button and trigger changes, stick assignments, invocation-count timing, motion-match polling, and steering relative to a destination, optional target fighter, or facing. Target pointers are not established to be opponents, numeric x18 values are not mapped to named scenarios, and this TU does not guarantee its control outputs survive subsequent CPU update overrides."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

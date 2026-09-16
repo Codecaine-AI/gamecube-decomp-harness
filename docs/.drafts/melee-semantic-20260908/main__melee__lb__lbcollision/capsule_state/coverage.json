@@ -1,0 +1,1407 @@
+{
+  "campaign": "melee-semantic-20260908",
+  "tu": "main/melee/lb/lbcollision",
+  "cluster": "capsule_state",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "files": [
+    {
+      "path": "src/melee/lb/lbcollision.c",
+      "owner": "main/melee/lb/lbcollision",
+      "sha256": "59705ddc7a8a20fe40598b9e97251bb5cbd3f4ede890e3f6fa3ed5bc34dbd36b",
+      "lines": 2666,
+      "bytes": 95777
+    },
+    {
+      "path": "src/melee/lb/lbcollision.h",
+      "owner": "main/melee/lb/lbcollision",
+      "sha256": "715bd5852ecb3ede041eda50935b654fd44152e68472eb60e882c4cdd8b66c0a",
+      "lines": 123,
+      "bytes": 4782
+    }
+  ],
+  "reads": [
+    {
+      "path": "src/melee/lb/lbcollision.c",
+      "canonical_range": [
+        1550,
+        1769
+      ],
+      "rendered_range": [
+        1550,
+        1769
+      ],
+      "artifact": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__lb__lbcollision/pages/src__melee__lb__lbcollision.c.1550-1769.json",
+      "render_status": "ok",
+      "render_metadata": {
+        "status": "ok",
+        "path": "src/melee/lb/lbcollision.c",
+        "source_sha256": "59705ddc7a8a20fe40598b9e97251bb5cbd3f4ede890e3f6fa3ed5bc34dbd36b",
+        "start_line": 1550,
+        "end_line": 1769,
+        "total_lines": 2666,
+        "next_line": 1770,
+        "content": "bool lbColl_HitCapsuleIntersect(HitCapsule* a, HitCapsule* b, float x, float y)\n{\n    float a_val, b_val;\n\n    if (a->x43_b1) {\n        a_val = a->scale;\n    } else {\n        a_val = a->scale * x;\n    }\n\n    if (b->x43_b1) {\n        b_val = b->scale;\n    } else {\n        b_val = b->scale * y;\n    }\n\n    return lbColl_CapsuleCapsuleIntersect(&b->x58, &b->x4C, &a->x58, &a->x4C,\n                           &b->hurt_coll_pos, &a->hurt_coll_pos, b_val, a_val);\n}\n\nbool lbColl_CheckFighterPickupCollision(Mtx a, struct Fighter_x1614_t* b, float x, float y)\n{\n    /// @todo Eliminate casts.\n    return lbColl_TestCapsuleOverlap2D(&b->x14, &b->x8, (Vec3*) &a[1][1], (Vec3*) &a[0][2],\n                           &b->x20, (Vec3*) &a[1][4], b->x0 * y, a[0][0] * x);\n}\n\nbool lbColl_TestHitCapsuleHitResult(HitCapsule* arg0, HitResult* shield_hit, void* arg2,\n                     s32 arg3, float arg4, float arg5, float arg6)\n{\n    Vec3 sp74;\n    Vec3 sp68;\n    MtxPtr hurt_mtx;\n    float hit_radius;\n    Mtx sp38;\n\n    if (!shield_hit->skip_update_pos) {\n        lbJObjTransformPoint(shield_hit->bone, &shield_hit->offset, &shield_hit->pos);\n        if (arg2 != NULL) {\n            shield_hit->pos.z = arg6;\n        }\n        shield_hit->skip_update_pos = 1;\n    }\n    if (arg3 != 0) {\n        arg0->hurt_coll_pos = shield_hit->pos;\n        arg0->coll_distance = 0.0F;\n        return 1;\n    }\n    if (arg2 != NULL) {\n        PSMTXConcat(arg2, HSD_JObjGetMtxPtr(shield_hit->bone), sp38);\n    }\n    if (arg2 != NULL) {\n        hurt_mtx = sp38;\n    } else {\n        hurt_mtx = HSD_JObjGetMtxPtr(shield_hit->bone);\n    }\n    if (arg0->x43_b1) {\n        hit_radius = arg0->scale;\n    } else {\n        hit_radius = arg0->scale * arg4;\n    }\n\n    return lbColl_CheckCapsuleCollision3D(&arg0->x58,           // hit_start\n                           &arg0->x4C,           // hit_end\n                           &shield_hit->pos,     // hurt_start\n                           &shield_hit->pos,     // hurt_end\n                           &sp74,                // hit_closest\n                           &sp68,                // hurt_closest\n                           hurt_mtx,             // hurt_mtx\n                           &arg0->hurt_coll_pos, // out_contact_pos\n                           &arg0->coll_distance, // out_overlap\n                           hit_radius,           // hit_radius\n                           shield_hit->size,     // hurt_radius\n                           20.0F * arg5          // broadphase_scale\n    );\n}\n\nvoid lbColl_CalcShieldHitDirection(HitCapsule* capsule, HitResult* hit, Mtx hit_transform,\n                     Vec3* /*out*/ arg3, float* angle, float scale)\n{\n    float dist_offset;\n    Vec3 unused_result;\n    Mtx transformed_hit;\n\n    if (hit_transform != NULL) {\n        PSMTXConcat(hit_transform, HSD_JObjGetMtxPtr(hit->bone),\n                    transformed_hit);\n    }\n    if (capsule->x43_b1) {\n        dist_offset = capsule->scale;\n    } else {\n        dist_offset = capsule->scale * scale;\n    }\n    lbColl_CalcCapsuleSphereContact(&hit->pos,\n                    hit_transform != NULL ? transformed_hit\n                                          : HSD_JObjGetMtxPtr(hit->bone),\n                    &capsule->x58, &capsule->x4C, &unused_result, arg3, angle,\n                    hit->size, dist_offset);\n}\n\nbool lbColl_CheckEnabledHitHurtCollision(HitCapsule* arg0, HurtCapsule* arg1, Mtx arg2,\n                     float hit_scl_y, float hurt_scl_y, float hurt_pos_z)\n{\n    Vec3 sp70;\n    Vec3 sp64;\n    Mtx sp34;\n    float hit_radius;\n    MtxPtr hurt_mtx;\n\n    if (arg1->state == HurtCapsule_Enabled) {\n        if (!arg1->skip_update_pos) {\n            lbJObjTransformPoint(arg1->bone, &arg1->a_offset, &arg1->a_pos);\n            lbJObjTransformPoint(arg1->bone, &arg1->b_offset, &arg1->b_pos);\n            if (arg2 != NULL) {\n                arg1->b_pos.z = hurt_pos_z;\n                arg1->a_pos.z = hurt_pos_z;\n            }\n            arg1->skip_update_pos = 1;\n        }\n        if (arg2 != NULL) {\n            PSMTXConcat(arg2, HSD_JObjGetMtxPtr(arg1->bone), sp34);\n        }\n        if (arg2 != NULL) {\n            hurt_mtx = sp34;\n        } else {\n            hurt_mtx = HSD_JObjGetMtxPtr(arg1->bone);\n        }\n        if (arg0->x43_b1) {\n            hit_radius = arg0->scale;\n        } else {\n            hit_radius = arg0->scale * hit_scl_y;\n        }\n        return lbColl_CheckCapsuleCollision3D(&arg0->x58, &arg0->x4C, &arg1->a_pos,\n                               &arg1->b_pos, &sp70, &sp64, hurt_mtx,\n                               &arg0->hurt_coll_pos, &arg0->coll_distance,\n                               hit_radius, arg1->scale, 3.0F * hurt_scl_y);\n    }\n    return 0;\n}\n\nbool lbColl_CheckHitHurtCollision(HitCapsule* arg0, HurtCapsule* arg1, Mtx arg2, s32 arg3,\n                     float arg4, float arg5, float arg6)\n{\n    Vec3 sp74;\n    Vec3 sp68;\n    Mtx sp38;\n    MtxPtr var_r9;\n    float hit_radius;\n\n    if (arg1->state != HurtCapsule_Intangible) {\n        if (!arg1->skip_update_pos) {\n            lbJObjTransformPoint(arg1->bone, &arg1->a_offset, &arg1->a_pos);\n            lbJObjTransformPoint(arg1->bone, &arg1->b_offset, &arg1->b_pos);\n            if (arg2 != NULL) {\n                arg1->b_pos.z = arg6;\n                arg1->a_pos.z = arg6;\n            }\n            arg1->skip_update_pos = 1;\n        }\n        if (arg3 != 0) {\n            arg0->hurt_coll_pos.x = 0.5F * (arg1->a_pos.x + arg1->b_pos.x);\n            arg0->hurt_coll_pos.y = 0.5F * (arg1->a_pos.y + arg1->b_pos.y);\n            arg0->hurt_coll_pos.z = 0.5F * (arg1->a_pos.z + arg1->b_pos.z);\n            arg0->coll_distance = 5.0f;\n            return 1;\n        }\n        if (arg2 != NULL) {\n            PSMTXConcat(arg2, HSD_JObjGetMtxPtr(arg1->bone), sp38);\n        }\n        if (arg2 != NULL) {\n            var_r9 = sp38;\n        } else {\n            var_r9 = HSD_JObjGetMtxPtr(arg1->bone);\n        }\n        if (arg0->x43_b1) {\n            hit_radius = arg0->scale;\n        } else {\n            hit_radius = arg0->scale * arg4;\n        }\n\n        return lbColl_CheckCapsuleCollision3D(&arg0->x58, &arg0->x4C, &arg1->a_pos,\n                               &arg1->b_pos, &sp74, &sp68, var_r9,\n                               &arg0->hurt_coll_pos, &arg0->coll_distance,\n                               hit_radius, arg1->scale, 3.0F * arg5);\n    }\n    return 0;\n}\n\nbool lbColl_CheckHitHurtCollisionIgnoreState(HitCapsule* arg0, HurtCapsule* arg1, Mtx arg2, f32 arg3,\n                     f32 arg4, f32 arg5)\n{\n    f32 var_f1;\n    Vec3 sp70;\n    Vec3 sp64;\n    Mtx sp34;\n    MtxPtr var_r9;\n\n    if (!arg1->skip_update_pos) {\n        lbJObjTransformPoint(arg1->bone, &arg1->a_offset, &arg1->a_pos);\n        lbJObjTransformPoint(arg1->bone, &arg1->b_offset, &arg1->b_pos);\n        if (arg2 != NULL) {\n            arg1->b_pos.z = arg5;\n            arg1->a_pos.z = arg5;\n        }\n        arg1->skip_update_pos = 1;\n    }\n    if (arg2 != NULL) {\n        PSMTXConcat(arg2, HSD_JObjGetMtxPtr(arg1->bone), sp34);\n    }\n    if (arg2 != NULL) {\n        var_r9 = sp34;\n    } else {\n        var_r9 = HSD_JObjGetMtxPtr(arg1->bone);\n    }\n    if (arg0->x43_b1) {\n        var_f1 = arg0->scale;\n    } else {\n        var_f1 = arg0->scale * arg3;\n    }\n    return lbColl_CheckCapsuleCollision3D(&arg0->x58, &arg0->x4C, &arg1->a_pos, &arg1->b_pos,",
+        "substitutions": 21,
+        "symbols_omitted": 0,
+        "parse_errors": 0,
+        "knowledge_status": "frozen_baseline"
+      }
+    },
+    {
+      "path": "src/melee/lb/lbcollision.c",
+      "canonical_range": [
+        1770,
+        1986
+      ],
+      "rendered_range": [
+        1770,
+        1986
+      ],
+      "artifact": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__lb__lbcollision/pages/src__melee__lb__lbcollision.c.1770-1986.json",
+      "render_status": "ok",
+      "render_metadata": {
+        "status": "ok",
+        "path": "src/melee/lb/lbcollision.c",
+        "source_sha256": "59705ddc7a8a20fe40598b9e97251bb5cbd3f4ede890e3f6fa3ed5bc34dbd36b",
+        "start_line": 1770,
+        "end_line": 1986,
+        "total_lines": 2666,
+        "next_line": 1987,
+        "content": "                           &sp70, &sp64, var_r9, &arg0->hurt_coll_pos,\n                           &arg0->coll_distance, var_f1, arg1->scale,\n                           3.0f * arg4);\n}\n\nvoid lbColl_UpdateHurtCapsulePositions(HurtCapsule* arg0)\n{\n    if (arg0->skip_update_pos) {\n        return;\n    }\n\n    lbJObjTransformPoint(arg0->bone, &arg0->a_offset, &arg0->a_pos);\n    lbJObjTransformPoint(arg0->bone, &arg0->b_offset, &arg0->b_pos);\n    arg0->skip_update_pos = true;\n}\n\nvoid lbColl_DisableHitCapsule(HitCapsule* arg0)\n{\n    arg0->state = HitCapsule_Disabled;\n}\n\nvoid lbColl_EnableHitCapsule(HitCapsule* arg0)\n{\n    arg0->state = HitCapsule_Enabled;\n}\n\nvoid lbColl_ClearHitCapsuleVictims(HitCapsule* hit)\n{\n    size_t i;\n    for (i = 0; i < ARRAY_SIZE(hit->victims_1); i++) {\n        hit->victims_1[i].victim = NULL;\n    }\n    hit->x44 = 0;\n    for (i = 0; i < ARRAY_SIZE(hit->victims_2); i++) {\n        hit->victims_2[i].victim = NULL;\n    }\n    hit->x45 = 0;\n}\n\nvoid lbColl_CopyHitCapsule(HitCapsule* src, HitCapsule* dst)\n{\n    HitVictim* sv1 = src->victims_1;\n    HitVictim* dv1 = dst->victims_1;\n    HitVictim* sv2 = src->victims_2;\n    HitVictim* dv2 = dst->victims_2;\n    size_t i;\n    for (i = 0; i < ARRAY_SIZE(src->victims_1); i++) {\n        dv1[i] = sv1[i];\n        dv2[i] = sv2[i];\n    }\n    dst->x44 = src->x44;\n    dst->x45 = src->x45;\n}\n\nbool lbColl_80008688(HitCapsule* capsule, int type, void* victim)\n{\n    int var_r0;\n    int i;\n\n    for (i = 0; i < ARRAY_SIZE(capsule->victims_1); i++) {\n        if (capsule->victims_1[i].victim == victim) {\n            switch (type) {\n            case 2:\n            case 4:\n            case 5:\n            case 7:\n            case 8:\n                capsule->victims_1[i].x4 = capsule->x40_b4;\n            }\n            return false;\n        }\n    }\n\n    for (i = 0; i < ARRAY_SIZE(capsule->victims_1); i++) {\n        if (capsule->victims_1[i].victim == NULL) {\n            break;\n        }\n    }\n\n    if (i == ARRAY_SIZE(capsule->victims_1)) {\n        var_r0 = capsule->x44;\n    } else {\n        var_r0 = i;\n    }\n\n    capsule->victims_1[var_r0].victim = victim;\n\n    switch (type) {\n    case 2:\n    case 4:\n    case 5:\n    case 7:\n    case 8:\n        capsule->victims_1[var_r0].x4 = capsule->x40_b4;\n        break;\n    default:\n        capsule->victims_1[var_r0].x4 = 0;\n        break;\n    }\n\n    if (i == ARRAY_SIZE(capsule->victims_1)) {\n        capsule->x44 += 1;\n        if (capsule->x44 >= 0xC) {\n            capsule->x44 = 0;\n        }\n    }\n    return true;\n}\n\nbool lbColl_RegisterHitCapsuleVictim2(HitCapsule* capsule, int type, void* victim)\n{\n    int var_r0;\n    int i;\n\n    for (i = 0; i < ARRAY_SIZE(capsule->victims_2); i++) {\n        if (capsule->victims_2[i].victim == victim) {\n            switch (type) {\n            case 2:\n            case 5:\n            case 7:\n            case 8:\n                capsule->victims_2[i].x4 = capsule->x40_b4;\n            }\n            return false;\n        }\n    }\n\n    for (i = 0; i < ARRAY_SIZE(capsule->victims_2); i++) {\n        if (capsule->victims_2[i].victim == NULL) {\n            break;\n        }\n    }\n\n    if (i == ARRAY_SIZE(capsule->victims_2)) {\n        var_r0 = capsule->x45;\n    } else {\n        var_r0 = i;\n    }\n\n    capsule->victims_2[var_r0].victim = victim;\n\n    switch (type) {\n    case 2:\n    case 5:\n    case 7:\n    case 8:\n        capsule->victims_2[var_r0].x4 = capsule->x40_b4;\n        break;\n    default:\n        capsule->victims_2[var_r0].x4 = 0;\n        break;\n    }\n\n    if (i == ARRAY_SIZE(capsule->victims_2)) {\n        capsule->x45 += 1;\n        if (capsule->x45 >= ARRAY_SIZE(capsule->victims_2)) {\n            capsule->x45 = 0;\n        }\n    }\n    return true;\n}\n\nvoid lbColl_RemoveHitCapsuleVictim1(HitCapsule* hit, UNK_T arg1)\n{\n    size_t i;\n    for (i = 0; i < ARRAY_SIZE(hit->victims_1); i++) {\n        if (hit->victims_1[i].victim == arg1) {\n            hit->victims_1[i].victim = 0;\n        }\n    }\n}\n\nvoid lbColl_DecHitVictimTimers(HitCapsule* hit)\n{\n    if (hit->state != HitCapsule_Disabled) {\n        size_t i;\n        for (i = 0; i < ARRAY_SIZE(hit->victims_1); i++) {\n            if (hit->victims_1[i].victim != NULL) {\n                u32 temp_r4 = hit->victims_1[i].x4;\n                if (temp_r4 != 0) {\n                    hit->victims_1[i].x4 = temp_r4 - 1;\n                    if (hit->victims_1[i].x4 == 0) {\n                        hit->victims_1[i].victim = NULL;\n                    }\n                }\n            }\n        }\n        for (i = 0; i < ARRAY_SIZE(hit->victims_2); i++) {\n            if (hit->victims_2[i].victim != 0) {\n                u32 temp_r4 = hit->victims_2[i].x4;\n                if (temp_r4 != 0) {\n                    hit->victims_2[i].x4 = temp_r4 - 1;\n                    if (hit->victims_2[i].x4 == 0) {\n                        hit->victims_2[i].victim = NULL;\n                    }\n                }\n            }\n        }\n    }\n}\n\nvoid lbColl_SetHitCapsuleParams(HitCapsule* arg0, lbColl_80008D30_arg1* arg1)\n{\n    arg0->state = arg1->state;\n    arg0->damage = arg1->damage;\n    arg0->kb_angle = arg1->kb_angle;\n    arg0->x24 = arg1->unkC;\n    arg0->x28 = arg1->unk10;\n    arg0->x2C = arg1->unk14;\n    arg0->element = arg1->element;\n    arg0->sfx_severity = arg1->sfx_severity;\n    arg0->sfx_kind = arg1->sfx_kind;\n    arg0->unk_count = arg1->damage;\n}\n\nGXColor const lbColl_804D7A50 = { 0 };\n",
+        "substitutions": 10,
+        "symbols_omitted": 0,
+        "parse_errors": 0,
+        "knowledge_status": "frozen_baseline"
+      }
+    },
+    {
+      "path": "src/melee/lb/lbcollision.h",
+      "canonical_range": [
+        1,
+        123
+      ],
+      "rendered_range": [
+        1,
+        123
+      ],
+      "artifact": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__lb__lbcollision/pages/src__melee__lb__lbcollision.h.1-123.json",
+      "render_status": "ok",
+      "render_metadata": {
+        "status": "ok",
+        "path": "src/melee/lb/lbcollision.h",
+        "source_sha256": "715bd5852ecb3ede041eda50935b654fd44152e68472eb60e882c4cdd8b66c0a",
+        "start_line": 1,
+        "end_line": 123,
+        "total_lines": 123,
+        "content": "#ifndef GALE01_005BB0\n#define GALE01_005BB0\n\n#include <Runtime/platform.h>\n\n#include <melee/ft/forward.h>\n#include <melee/lb/forward.h>\n#include <sysdolphin/baselib/forward.h>\n\n#include <placeholder.h>\n\n#include <dolphin/gx/GXStruct.h>\n#include <dolphin/mtx.h>\n#include <sysdolphin/baselib/jobj.h>\n\nstruct lbColl_8000A10C_arg0_t;\n\nstruct Fighter_x1614_t;\n\n/* 005BB0 */ int lbColl_PlayHitSFX(HitCapsule*, int);\n/* 005C44 */ bool lbColl_CapsuleSphereIntersect(const Vec3*, const Vec3*, const Vec3*, Vec3*,\n                                  float, float);\n/* 005EBC */ float lbColl_PointToSegmentDistanceSquared(const Vec3*, const Vec3*, const Vec3*,\n                                   float*);\n/* 005FC0 */ float lbColl_PointToSegmentDistanceSquared2D(Vec3*, Vec3*, Vec3*, float*);\n/* 006094 */ bool lbColl_CapsuleCapsuleIntersect(Vec3*, Vec3*, Vec3*, Vec3*, Vec3*, Vec3*,\n                                  float, float);\n/* 0067F8 */ bool lbColl_TestCapsuleOverlap2D(Vec3*, Vec3*, Vec3*, Vec3*, Vec3*, Vec3*,\n                                  float, float);\n/* 0077A0 */ void lbColl_CalcCapsuleSphereContact(Vec3*, Mtx, Vec3*, Vec3*, Vec3*, Vec3*,\n                                  float* angle, float, float);\n/* 007AFC */ bool lbColl_HitCapsuleIntersect(HitCapsule*, HitCapsule*, float, float);\n/* 007B78 */ bool lbColl_CheckFighterPickupCollision(Mtx, struct Fighter_x1614_t*, float, float);\n/* 007BCC */ bool lbColl_TestHitCapsuleHitResult(HitCapsule*, HitResult* shield_hit, UNK_T,\n                                  s32, float, float, float);\n/* 007D68 */ void lbColl_JObjSetupMatrix(HSD_JObj*);\n/* 007DD8 */ void lbColl_CalcShieldHitDirection(HitCapsule*, HitResult*, Mtx, Vec3*, float*,\n                                  float);\n/* 007ECC */ bool lbColl_CheckEnabledHitHurtCollision(HitCapsule*, HurtCapsule*, Mtx,\n                                  float hit_scl_y, float hurt_scl_y,\n                                  float hurt_pos_z);\n/* 00805C */ bool lbColl_CheckHitHurtCollision(HitCapsule* arg0, HurtCapsule* arg1,\n                                  Mtx arg2, s32 arg3, float arg4, float arg5,\n                                  float arg6);\n/* 008248 */ bool lbColl_CheckHitHurtCollisionIgnoreState(HitCapsule*, HurtCapsule*, Mtx, float, float,\n                                  float);\n/* 0083C4 */ void lbColl_UpdateHurtCapsulePositions(HurtCapsule*);\n/* 008428 */ void lbColl_DisableHitCapsule(HitCapsule*);\n/* 008434 */ void lbColl_EnableHitCapsule(HitCapsule*);\n/* 008440 */ void lbColl_ClearHitCapsuleVictims(HitCapsule*);\n/* 0084FC */ void lbColl_CopyHitCapsule(HitCapsule* src, HitCapsule* dst);\n/* 008688 */ bool lbColl_80008688(HitCapsule*, int type, void* victim);\n/* 008820 */ bool lbColl_RegisterHitCapsuleVictim2(HitCapsule*, int type, void* victim);\n/* 0089B8 */ void lbColl_RemoveHitCapsuleVictim1(HitCapsule* hit, UNK_T arg1);\n/* 008A5C */ void lbColl_DecHitVictimTimers(HitCapsule* hit);\n/* 008D30 */ void lbColl_SetHitCapsuleParams(HitCapsule*, lbColl_80008D30_arg1*);\n/* 008DA4 */ void lbColl_SetupDrawState(GXColor* arg0, GXColor* arg1);\n/* 008FC8 */ void lbColl_DrawCapsule(Vec3, Vec3, GXColor*, GXColor*, float);\n/* 0096B4 */ void lbColl_DrawCapsuleMtx(MtxPtr, Vec3, Vec3, GXColor*, GXColor*,\n                                  float);\n/* 009DD4 */ void lbColl_DrawRect(Vec3* v0, Vec3* v1, GXColor* clr);\n/* 009F54 */ bool lbColl_DrawHitCapsule(HitCapsule* hit, u32 arg1, float arg8);\n/* 00A044 */ bool lbColl_DrawThrownHitbox(HitCapsule* hit, u32 arg1, float arg8);\n/* 00A10C */ bool lbColl_DrawItemCollisionCapsule(struct lbColl_8000A10C_arg0_t*, u32, f32);\n/* 00A1A8 */ bool lbColl_8000A1A8(struct Fighter_x1614_t*, int, float scale_y);\n/* 00A244 */ bool lbColl_DrawHurtCapsule(HurtCapsule* hurt, u32 arg1, Mtx arg2,\n                                  float arg3);\n/* 00A460 */ bool lbColl_DrawFighterJointMarker(Fighter_x1670_t* hurt, u32 arg1);\n/* 00A584 */ bool lbColl_DrawHurtCapsuleWithStateOverride(HurtCapsule* hurt, u32 arg1, u32 arg2,\n                                  MtxPtr arg3, float arg8);\n/* 00A78C */ bool lbColl_DrawShieldHit(HitResult* hit, u32 arg1, Mtx arg2,\n                                  float pos_z);\n/* 00A95C */ bool lbColl_DrawReflectHit(HitResult* hit, u32 arg1, Mtx arg2,\n                                  float pos_z);\n/* 00AB2C */ bool lbColl_DrawAbsorbHit(HitResult* hit, u32 arg1, Mtx arg2,\n                                  float pos_z);\n/* 00ACFC */ bool lbColl_HasHitCapsuleVictim(void*, HitCapsule*);\n\nstatic inline bool approximatelyZero(float x)\n{\n    bool result;\n\n    if ((x < 0.00001f) && (x > -0.00001f)) {\n        result = true;\n    } else {\n        result = false;\n    }\n\n    return result;\n}\n\nstatic inline bool testPlusX(Vec3* a, Vec3* b, Vec3* c, float offset)\n{\n    float x = a->x + offset;\n    if (x < b->x && x < c->x) {\n        return false;\n    }\n\n    return true;\n}\n\nstatic inline bool testPlus(float a, float b, float c, float offset)\n{\n    float x = a + offset;\n    if (x < b && x < c) {\n        return false;\n    }\n\n    return true;\n}\n\nstatic inline bool testMinusX(Vec3* a, Vec3* b, Vec3* c, float offset)\n{\n    float x = a->x - offset;\n    if (x > b->x && x > c->x) {\n        return false;\n    }\n\n    return true;\n}\n\n#endif\n",
+        "substitutions": 36,
+        "symbols_omitted": 0,
+        "parse_errors": 0,
+        "knowledge_status": "frozen_baseline"
+      }
+    }
+  ],
+  "expected_source_lines": 437,
+  "reviewed_source_lines": 437,
+  "expected_header_lines": 123,
+  "reviewed_header_lines": 123,
+  "targets_expected": 17,
+  "targets_reviewed": 17,
+  "entities_expected": 57,
+  "entities_reviewed": 57,
+  "facts_expected": 99,
+  "facts_reviewed": 99,
+  "dispositions": {
+    "retain": 55,
+    "unresolved": 25,
+    "supersede": 19
+  },
+  "subjects": [
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007AFC",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1550-L1568",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Derives each HitCapsule radius from scale, multiplying by its supplied scale only when x43_b1 is clear. Returns lbColl_80006094 with b endpoints before a endpoints and each hurt_coll_pos supplied as an output.",
+      "canonical_name": "lbColl_80007AFC",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "a",
+        "b",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007B78",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1570-L1575",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Adapts Mtx-backed geometry and Fighter_x1614_t to lbColl_800067F8. Passes b.x14/b.x8 and a[1][1]/a[0][2] as Vec3 addresses, b.x20 and a[1][4] as output addresses, and b.x0*y and a[0][0]*x as sizes. Returns the helper result.",
+      "canonical_name": "lbColl_80007B78",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "a",
+        "b",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007BCC",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1577-L1625",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Updates HitResult.pos through lb_8000B1CC only when skip_update_pos is clear, optionally sets its Z, and marks it cached. Nonzero arg3 writes that position and zero coll_distance to the hit capsule and returns true. Otherwise selects the bone matrix or its concatenation with arg2 and delegates to lbColl_80006E58 with equal hurt endpoints, conditional hit-radius scaling and 20*arg5.",
+      "canonical_name": "lbColl_80007BCC",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "arg0",
+        "shield_hit",
+        "arg2",
+        "arg3",
+        "arg4",
+        "arg5",
+        "arg6"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007DD8",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1627-L1648",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Selects the HitResult bone matrix or its concatenation with hit_transform, derives the attack radius according to x43_b1, and calls lbColl_800077A0 with hit.pos, hit.size and capsule endpoints. Forwards arg3 and angle as outputs and discards a temporary Vec3 result.",
+      "canonical_name": "lbColl_80007DD8",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "capsule",
+        "hit",
+        "hit_transform",
+        "arg3",
+        "angle",
+        "scale"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007ECC",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1650-L1688",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Returns false unless hurt state is exactly HurtCapsule_Enabled. Updates uncached hurt endpoints, optionally replaces both Z values, selects the bone or concatenated matrix, and calls lbColl_80006E58 with conditional hit-radius scaling, hurt.scale, and 3*hurt_scl_y; hit hurt_coll_pos and coll_distance are output destinations.",
+      "canonical_name": "lbColl_80007ECC",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "arg0",
+        "arg1",
+        "arg2",
+        "hit_scl_y",
+        "hurt_scl_y",
+        "hurt_pos_z"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_8000805C",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1690-L1736",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Rejects HurtCapsule_Intangible before updating positions. For other states caches endpoint transforms and optional Z replacement. Nonzero arg3 forces success with the hurt midpoint and coll_distance=5; otherwise delegates to lbColl_80006E58 with conditional hit-radius scaling and 3*arg5.",
+      "canonical_name": "lbColl_8000805C",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "arg0",
+        "arg1",
+        "arg2",
+        "arg3",
+        "arg4",
+        "arg5",
+        "arg6"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008248",
+      "kind": "function_target",
+      "fact_count": 5,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1738-L1773",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Tests hit and hurt geometry through lbColl_80006E58 without reading hurt.state. Refreshes uncached hurt endpoints, optionally replaces Z and concatenates matrices, chooses scaled or intrinsic hit radius, and supplies 3*arg4 as the final argument. No forced-success branch exists.",
+      "canonical_name": "lbColl_80008248",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "arg0",
+        "arg1",
+        "arg2",
+        "arg3",
+        "arg4",
+        "arg5"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800083C4",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1775-L1784",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Returns immediately when skip_update_pos is set. Otherwise calls lb_8000B1CC for both bone-relative endpoint offsets and sets skip_update_pos true.",
+      "canonical_name": "lbColl_800083C4",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "arg0"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008428",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1786-L1789",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Unconditionally writes HitCapsule_Disabled to the supplied capsule state and touches no other capsule field.",
+      "canonical_name": "lbColl_80008428",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "arg0"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008434",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1791-L1794",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Unconditionally writes HitCapsule_Enabled to the supplied capsule state and touches no other capsule field.",
+      "canonical_name": "lbColl_80008434",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "arg0"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008440",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1796-L1807",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Clears victim pointers in both victim tables and resets x44 and x45 to zero. Leaves each entry x4 value untouched and does not test capsule state.",
+      "canonical_name": "lbColl_80008440",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "hit"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008688",
+      "kind": "function_target",
+      "fact_count": 5,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1824-L1877",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Registers an opaque victim identity in victims_1. Duplicates return false and refresh x4 from x40_b4 only for types 2,4,5,7,8. New identities use the first null entry or x44 when full; other types initialize x4 to zero. Only full-table insertion advances x44, wrapping at 12, and insertion returns true.",
+      "canonical_name": "lbColl_80008688",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "capsule",
+        "type",
+        "victim"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008820",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1879-L1930",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Registers an opaque victim identity in victims_2. Duplicates return false and refresh x4 from x40_b4 only for types 2,5,7,8. New identities use the first null entry or x45 when full; other types initialize x4 to zero. Only full-table insertion advances x45 with ARRAY_SIZE wrap, and insertion returns true.",
+      "canonical_name": "lbColl_80008820",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "capsule",
+        "type",
+        "victim"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800089B8",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1932-L1940",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Clears every victims_1 victim pointer equal to arg1. Continues after matches and leaves entry x4, x44, victims_2 and capsule state untouched.",
+      "canonical_name": "lbColl_800089B8",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "hit",
+        "arg1"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008A5C",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1942-L1969",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "For any state other than HitCapsule_Disabled, decrements nonzero x4 in occupied entries of both victim tables and clears a victim pointer when its countdown reaches zero. Empty entries and occupied zero-countdown entries are unchanged.",
+      "canonical_name": "lbColl_80008A5C",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "hit"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008D30",
+      "kind": "function_target",
+      "fact_count": 6,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1971-L1983",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Copies state, damage, kb_angle, element, sfx_severity and sfx_kind from the descriptor; maps unkC/unk10/unk14 to x24/x28/x2C and also assigns descriptor damage to unk_count. Leaves geometry and victim history untouched.",
+      "canonical_name": "lbColl_80008D30",
+      "name_disposition": "retain canonical address name; semantic aliases remain hypotheses",
+      "parameter_order": [
+        "arg0",
+        "arg1"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_CopyHitCapsule",
+      "kind": "function_target",
+      "fact_count": 5,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1809-L1822",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Copies both arrays of HitVictim records from src to dst using the victims_1 array bound, then copies x44 and x45. No other capsule fields are assigned; the canonical name denotes a selective victim-history transfer.",
+      "canonical_name": "lbColl_CopyHitCapsule",
+      "name_disposition": "retain canonical",
+      "parameter_order": [
+        "src",
+        "dst"
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007AFC#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1550-L1568",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Derives each HitCapsule radius from scale, multiplying by its supplied scale only when x43_b1 is clear. Returns lbColl_80006094 with b endpoints before a endpoints and each hurt_coll_pos supplied as an output.",
+      "canonical_parameter_candidate": "a",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007AFC#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1550-L1568",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Derives each HitCapsule radius from scale, multiplying by its supplied scale only when x43_b1 is clear. Returns lbColl_80006094 with b endpoints before a endpoints and each hurt_coll_pos supplied as an output.",
+      "canonical_parameter_candidate": "b",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007AFC#r5",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1550-L1568",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Derives each HitCapsule radius from scale, multiplying by its supplied scale only when x43_b1 is clear. Returns lbColl_80006094 with b endpoints before a endpoints and each hurt_coll_pos supplied as an output.",
+      "canonical_parameter_candidate": "x",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007AFC#r6",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1550-L1568",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Derives each HitCapsule radius from scale, multiplying by its supplied scale only when x43_b1 is clear. Returns lbColl_80006094 with b endpoints before a endpoints and each hurt_coll_pos supplied as an output.",
+      "canonical_parameter_candidate": "y",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007B78#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1570-L1575",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Adapts Mtx-backed geometry and Fighter_x1614_t to lbColl_800067F8. Passes b.x14/b.x8 and a[1][1]/a[0][2] as Vec3 addresses, b.x20 and a[1][4] as output addresses, and b.x0*y and a[0][0]*x as sizes. Returns the helper result.",
+      "canonical_parameter_candidate": "a",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007B78#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1570-L1575",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Adapts Mtx-backed geometry and Fighter_x1614_t to lbColl_800067F8. Passes b.x14/b.x8 and a[1][1]/a[0][2] as Vec3 addresses, b.x20 and a[1][4] as output addresses, and b.x0*y and a[0][0]*x as sizes. Returns the helper result.",
+      "canonical_parameter_candidate": "b",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007B78#r5",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1570-L1575",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Adapts Mtx-backed geometry and Fighter_x1614_t to lbColl_800067F8. Passes b.x14/b.x8 and a[1][1]/a[0][2] as Vec3 addresses, b.x20 and a[1][4] as output addresses, and b.x0*y and a[0][0]*x as sizes. Returns the helper result.",
+      "canonical_parameter_candidate": "x",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007B78#r6",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1570-L1575",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Adapts Mtx-backed geometry and Fighter_x1614_t to lbColl_800067F8. Passes b.x14/b.x8 and a[1][1]/a[0][2] as Vec3 addresses, b.x20 and a[1][4] as output addresses, and b.x0*y and a[0][0]*x as sizes. Returns the helper result.",
+      "canonical_parameter_candidate": "y",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1577-L1625",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Updates HitResult.pos through lb_8000B1CC only when skip_update_pos is clear, optionally sets its Z, and marks it cached. Nonzero arg3 writes that position and zero coll_distance to the hit capsule and returns true. Otherwise selects the bone matrix or its concatenation with arg2 and delegates to lbColl_80006E58 with equal hurt endpoints, conditional hit-radius scaling and 20*arg5.",
+      "canonical_parameter_candidate": "arg0",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1577-L1625",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Updates HitResult.pos through lb_8000B1CC only when skip_update_pos is clear, optionally sets its Z, and marks it cached. Nonzero arg3 writes that position and zero coll_distance to the hit capsule and returns true. Otherwise selects the bone matrix or its concatenation with arg2 and delegates to lbColl_80006E58 with equal hurt endpoints, conditional hit-radius scaling and 20*arg5.",
+      "canonical_parameter_candidate": "shield_hit",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r5",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1577-L1625",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Updates HitResult.pos through lb_8000B1CC only when skip_update_pos is clear, optionally sets its Z, and marks it cached. Nonzero arg3 writes that position and zero coll_distance to the hit capsule and returns true. Otherwise selects the bone matrix or its concatenation with arg2 and delegates to lbColl_80006E58 with equal hurt endpoints, conditional hit-radius scaling and 20*arg5.",
+      "canonical_parameter_candidate": "arg2",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r6",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1577-L1625",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Updates HitResult.pos through lb_8000B1CC only when skip_update_pos is clear, optionally sets its Z, and marks it cached. Nonzero arg3 writes that position and zero coll_distance to the hit capsule and returns true. Otherwise selects the bone matrix or its concatenation with arg2 and delegates to lbColl_80006E58 with equal hurt endpoints, conditional hit-radius scaling and 20*arg5.",
+      "canonical_parameter_candidate": "arg3",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r7",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1577-L1625",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Updates HitResult.pos through lb_8000B1CC only when skip_update_pos is clear, optionally sets its Z, and marks it cached. Nonzero arg3 writes that position and zero coll_distance to the hit capsule and returns true. Otherwise selects the bone matrix or its concatenation with arg2 and delegates to lbColl_80006E58 with equal hurt endpoints, conditional hit-radius scaling and 20*arg5.",
+      "canonical_parameter_candidate": "arg4",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r8",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1577-L1625",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Updates HitResult.pos through lb_8000B1CC only when skip_update_pos is clear, optionally sets its Z, and marks it cached. Nonzero arg3 writes that position and zero coll_distance to the hit capsule and returns true. Otherwise selects the bone matrix or its concatenation with arg2 and delegates to lbColl_80006E58 with equal hurt endpoints, conditional hit-radius scaling and 20*arg5.",
+      "canonical_parameter_candidate": "arg5",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r9",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1577-L1625",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Updates HitResult.pos through lb_8000B1CC only when skip_update_pos is clear, optionally sets its Z, and marks it cached. Nonzero arg3 writes that position and zero coll_distance to the hit capsule and returns true. Otherwise selects the bone matrix or its concatenation with arg2 and delegates to lbColl_80006E58 with equal hurt endpoints, conditional hit-radius scaling and 20*arg5.",
+      "canonical_parameter_candidate": "arg6",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1627-L1648",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Selects the HitResult bone matrix or its concatenation with hit_transform, derives the attack radius according to x43_b1, and calls lbColl_800077A0 with hit.pos, hit.size and capsule endpoints. Forwards arg3 and angle as outputs and discards a temporary Vec3 result.",
+      "canonical_parameter_candidate": "capsule",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1627-L1648",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Selects the HitResult bone matrix or its concatenation with hit_transform, derives the attack radius according to x43_b1, and calls lbColl_800077A0 with hit.pos, hit.size and capsule endpoints. Forwards arg3 and angle as outputs and discards a temporary Vec3 result.",
+      "canonical_parameter_candidate": "hit",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r5",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1627-L1648",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Selects the HitResult bone matrix or its concatenation with hit_transform, derives the attack radius according to x43_b1, and calls lbColl_800077A0 with hit.pos, hit.size and capsule endpoints. Forwards arg3 and angle as outputs and discards a temporary Vec3 result.",
+      "canonical_parameter_candidate": "hit_transform",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r6",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1627-L1648",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Selects the HitResult bone matrix or its concatenation with hit_transform, derives the attack radius according to x43_b1, and calls lbColl_800077A0 with hit.pos, hit.size and capsule endpoints. Forwards arg3 and angle as outputs and discards a temporary Vec3 result.",
+      "canonical_parameter_candidate": "arg3",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r7",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1627-L1648",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Selects the HitResult bone matrix or its concatenation with hit_transform, derives the attack radius according to x43_b1, and calls lbColl_800077A0 with hit.pos, hit.size and capsule endpoints. Forwards arg3 and angle as outputs and discards a temporary Vec3 result.",
+      "canonical_parameter_candidate": "angle",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r8",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1627-L1648",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Selects the HitResult bone matrix or its concatenation with hit_transform, derives the attack radius according to x43_b1, and calls lbColl_800077A0 with hit.pos, hit.size and capsule endpoints. Forwards arg3 and angle as outputs and discards a temporary Vec3 result.",
+      "canonical_parameter_candidate": "scale",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1650-L1688",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Returns false unless hurt state is exactly HurtCapsule_Enabled. Updates uncached hurt endpoints, optionally replaces both Z values, selects the bone or concatenated matrix, and calls lbColl_80006E58 with conditional hit-radius scaling, hurt.scale, and 3*hurt_scl_y; hit hurt_coll_pos and coll_distance are output destinations.",
+      "canonical_parameter_candidate": "arg0",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1650-L1688",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Returns false unless hurt state is exactly HurtCapsule_Enabled. Updates uncached hurt endpoints, optionally replaces both Z values, selects the bone or concatenated matrix, and calls lbColl_80006E58 with conditional hit-radius scaling, hurt.scale, and 3*hurt_scl_y; hit hurt_coll_pos and coll_distance are output destinations.",
+      "canonical_parameter_candidate": "arg1",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r5",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1650-L1688",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Returns false unless hurt state is exactly HurtCapsule_Enabled. Updates uncached hurt endpoints, optionally replaces both Z values, selects the bone or concatenated matrix, and calls lbColl_80006E58 with conditional hit-radius scaling, hurt.scale, and 3*hurt_scl_y; hit hurt_coll_pos and coll_distance are output destinations.",
+      "canonical_parameter_candidate": "arg2",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r6",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1650-L1688",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Returns false unless hurt state is exactly HurtCapsule_Enabled. Updates uncached hurt endpoints, optionally replaces both Z values, selects the bone or concatenated matrix, and calls lbColl_80006E58 with conditional hit-radius scaling, hurt.scale, and 3*hurt_scl_y; hit hurt_coll_pos and coll_distance are output destinations.",
+      "canonical_parameter_candidate": "hit_scl_y",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r7",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1650-L1688",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Returns false unless hurt state is exactly HurtCapsule_Enabled. Updates uncached hurt endpoints, optionally replaces both Z values, selects the bone or concatenated matrix, and calls lbColl_80006E58 with conditional hit-radius scaling, hurt.scale, and 3*hurt_scl_y; hit hurt_coll_pos and coll_distance are output destinations.",
+      "canonical_parameter_candidate": "hurt_scl_y",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r8",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1650-L1688",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Returns false unless hurt state is exactly HurtCapsule_Enabled. Updates uncached hurt endpoints, optionally replaces both Z values, selects the bone or concatenated matrix, and calls lbColl_80006E58 with conditional hit-radius scaling, hurt.scale, and 3*hurt_scl_y; hit hurt_coll_pos and coll_distance are output destinations.",
+      "canonical_parameter_candidate": "hurt_pos_z",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1690-L1736",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Rejects HurtCapsule_Intangible before updating positions. For other states caches endpoint transforms and optional Z replacement. Nonzero arg3 forces success with the hurt midpoint and coll_distance=5; otherwise delegates to lbColl_80006E58 with conditional hit-radius scaling and 3*arg5.",
+      "canonical_parameter_candidate": "arg0",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1690-L1736",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Rejects HurtCapsule_Intangible before updating positions. For other states caches endpoint transforms and optional Z replacement. Nonzero arg3 forces success with the hurt midpoint and coll_distance=5; otherwise delegates to lbColl_80006E58 with conditional hit-radius scaling and 3*arg5.",
+      "canonical_parameter_candidate": "arg1",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r5",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1690-L1736",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Rejects HurtCapsule_Intangible before updating positions. For other states caches endpoint transforms and optional Z replacement. Nonzero arg3 forces success with the hurt midpoint and coll_distance=5; otherwise delegates to lbColl_80006E58 with conditional hit-radius scaling and 3*arg5.",
+      "canonical_parameter_candidate": "arg2",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r6",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1690-L1736",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Rejects HurtCapsule_Intangible before updating positions. For other states caches endpoint transforms and optional Z replacement. Nonzero arg3 forces success with the hurt midpoint and coll_distance=5; otherwise delegates to lbColl_80006E58 with conditional hit-radius scaling and 3*arg5.",
+      "canonical_parameter_candidate": "arg3",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r7",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1690-L1736",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Rejects HurtCapsule_Intangible before updating positions. For other states caches endpoint transforms and optional Z replacement. Nonzero arg3 forces success with the hurt midpoint and coll_distance=5; otherwise delegates to lbColl_80006E58 with conditional hit-radius scaling and 3*arg5.",
+      "canonical_parameter_candidate": "arg4",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r8",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1690-L1736",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Rejects HurtCapsule_Intangible before updating positions. For other states caches endpoint transforms and optional Z replacement. Nonzero arg3 forces success with the hurt midpoint and coll_distance=5; otherwise delegates to lbColl_80006E58 with conditional hit-radius scaling and 3*arg5.",
+      "canonical_parameter_candidate": "arg5",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r9",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1690-L1736",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Rejects HurtCapsule_Intangible before updating positions. For other states caches endpoint transforms and optional Z replacement. Nonzero arg3 forces success with the hurt midpoint and coll_distance=5; otherwise delegates to lbColl_80006E58 with conditional hit-radius scaling and 3*arg5.",
+      "canonical_parameter_candidate": "arg6",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008248#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1738-L1773",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Tests hit and hurt geometry through lbColl_80006E58 without reading hurt.state. Refreshes uncached hurt endpoints, optionally replaces Z and concatenates matrices, chooses scaled or intrinsic hit radius, and supplies 3*arg4 as the final argument. No forced-success branch exists.",
+      "canonical_parameter_candidate": "arg0",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008248#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1738-L1773",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Tests hit and hurt geometry through lbColl_80006E58 without reading hurt.state. Refreshes uncached hurt endpoints, optionally replaces Z and concatenates matrices, chooses scaled or intrinsic hit radius, and supplies 3*arg4 as the final argument. No forced-success branch exists.",
+      "canonical_parameter_candidate": "arg1",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008248#r5",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1738-L1773",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Tests hit and hurt geometry through lbColl_80006E58 without reading hurt.state. Refreshes uncached hurt endpoints, optionally replaces Z and concatenates matrices, chooses scaled or intrinsic hit radius, and supplies 3*arg4 as the final argument. No forced-success branch exists.",
+      "canonical_parameter_candidate": "arg2",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008248#r6",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1738-L1773",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Tests hit and hurt geometry through lbColl_80006E58 without reading hurt.state. Refreshes uncached hurt endpoints, optionally replaces Z and concatenates matrices, chooses scaled or intrinsic hit radius, and supplies 3*arg4 as the final argument. No forced-success branch exists.",
+      "canonical_parameter_candidate": "arg3",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008248#r7",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1738-L1773",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Tests hit and hurt geometry through lbColl_80006E58 without reading hurt.state. Refreshes uncached hurt endpoints, optionally replaces Z and concatenates matrices, chooses scaled or intrinsic hit radius, and supplies 3*arg4 as the final argument. No forced-success branch exists.",
+      "canonical_parameter_candidate": "arg4",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008248#r8",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1738-L1773",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Tests hit and hurt geometry through lbColl_80006E58 without reading hurt.state. Refreshes uncached hurt endpoints, optionally replaces Z and concatenates matrices, chooses scaled or intrinsic hit radius, and supplies 3*arg4 as the final argument. No forced-success branch exists.",
+      "canonical_parameter_candidate": "arg5",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800083C4#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1775-L1784",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Returns immediately when skip_update_pos is set. Otherwise calls lb_8000B1CC for both bone-relative endpoint offsets and sets skip_update_pos true.",
+      "canonical_parameter_candidate": "arg0",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008428#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1786-L1789",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Unconditionally writes HitCapsule_Disabled to the supplied capsule state and touches no other capsule field.",
+      "canonical_parameter_candidate": "arg0",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008434#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1791-L1794",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Unconditionally writes HitCapsule_Enabled to the supplied capsule state and touches no other capsule field.",
+      "canonical_parameter_candidate": "arg0",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008440#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1796-L1807",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Clears victim pointers in both victim tables and resets x44 and x45 to zero. Leaves each entry x4 value untouched and does not test capsule state.",
+      "canonical_parameter_candidate": "hit",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008688#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1824-L1877",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Registers an opaque victim identity in victims_1. Duplicates return false and refresh x4 from x40_b4 only for types 2,4,5,7,8. New identities use the first null entry or x44 when full; other types initialize x4 to zero. Only full-table insertion advances x44, wrapping at 12, and insertion returns true.",
+      "canonical_parameter_candidate": "capsule",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008688#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1824-L1877",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Registers an opaque victim identity in victims_1. Duplicates return false and refresh x4 from x40_b4 only for types 2,4,5,7,8. New identities use the first null entry or x44 when full; other types initialize x4 to zero. Only full-table insertion advances x44, wrapping at 12, and insertion returns true.",
+      "canonical_parameter_candidate": "type",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008688#r5",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1824-L1877",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Registers an opaque victim identity in victims_1. Duplicates return false and refresh x4 from x40_b4 only for types 2,4,5,7,8. New identities use the first null entry or x44 when full; other types initialize x4 to zero. Only full-table insertion advances x44, wrapping at 12, and insertion returns true.",
+      "canonical_parameter_candidate": "victim",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008820#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1879-L1930",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Registers an opaque victim identity in victims_2. Duplicates return false and refresh x4 from x40_b4 only for types 2,5,7,8. New identities use the first null entry or x45 when full; other types initialize x4 to zero. Only full-table insertion advances x45 with ARRAY_SIZE wrap, and insertion returns true.",
+      "canonical_parameter_candidate": "capsule",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008820#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1879-L1930",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Registers an opaque victim identity in victims_2. Duplicates return false and refresh x4 from x40_b4 only for types 2,5,7,8. New identities use the first null entry or x45 when full; other types initialize x4 to zero. Only full-table insertion advances x45 with ARRAY_SIZE wrap, and insertion returns true.",
+      "canonical_parameter_candidate": "type",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008820#r5",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1879-L1930",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Registers an opaque victim identity in victims_2. Duplicates return false and refresh x4 from x40_b4 only for types 2,5,7,8. New identities use the first null entry or x45 when full; other types initialize x4 to zero. Only full-table insertion advances x45 with ARRAY_SIZE wrap, and insertion returns true.",
+      "canonical_parameter_candidate": "victim",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800089B8#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1932-L1940",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Clears every victims_1 victim pointer equal to arg1. Continues after matches and leaves entry x4, x44, victims_2 and capsule state untouched.",
+      "canonical_parameter_candidate": "hit",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800089B8#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1932-L1940",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Clears every victims_1 victim pointer equal to arg1. Continues after matches and leaves entry x4, x44, victims_2 and capsule state untouched.",
+      "canonical_parameter_candidate": "arg1",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008A5C#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1942-L1969",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "For any state other than HitCapsule_Disabled, decrements nonzero x4 in occupied entries of both victim tables and clears a victim pointer when its countdown reaches zero. Empty entries and occupied zero-countdown entries are unchanged.",
+      "canonical_parameter_candidate": "hit",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008D30#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1971-L1983",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Copies state, damage, kb_angle, element, sfx_severity and sfx_kind from the descriptor; maps unkC/unk10/unk14 to x24/x28/x2C and also assigns descriptor damage to unk_count. Leaves geometry and victim history untouched.",
+      "canonical_parameter_candidate": "arg0",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80008D30#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1971-L1983",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Copies state, damage, kb_angle, element, sfx_severity and sfx_kind from the descriptor; maps unkC/unk10/unk14 to x24/x28/x2C and also assigns descriptor damage to unk_count. Leaves geometry and victim history untouched.",
+      "canonical_parameter_candidate": "arg1",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_CopyHitCapsule#r3",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1809-L1822",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Copies both arrays of HitVictim records from src to dst using the victims_1 array bound, then copies x44 and x45. No other capsule fields are assigned; the canonical name denotes a selective victim-history transfer.",
+      "canonical_parameter_candidate": "src",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_CopyHitCapsule#r4",
+      "kind": "parameter_entity",
+      "fact_count": 0,
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1809-L1822",
+          "why": "Complete canonical definition shows these reads, writes, branches and calls."
+        }
+      ],
+      "behavior": "Copies both arrays of HitVictim records from src to dst using the victims_1 array bound, then copies x44 and x45. No other capsule fields are assigned; the canonical name denotes a selective victim-history transfer.",
+      "canonical_parameter_candidate": "dst",
+      "disposition": "unresolved",
+      "reason": "No existing facts. Locator ordinal follows signature order, but literal PPC register assignment is not established, especially for floating parameters. Keep canonical parameter spelling; no parameter rename or ABI claim proposed."
+    }
+  ],
+  "read_exceptions": [
+    "Initial broad context output and first bulk inventory output were truncated; all assigned fact values and rationale/evidence were reread in bounded batches. Canonical and rendered source/header pages were complete."
+  ],
+  "empty_renders": [],
+  "failed_renders": [],
+  "scope_exclusions": [
+    "HSD_JObjSetupMatrix belongs to another cluster despite its address lying inside the numeric interval.",
+    "Header declarations outside assigned function set are reviewed as declarations; their fact dispositions belong to sibling clusters."
+  ],
+  "family_followups": [
+    "Fighter_x1614_t packed Mtx geometry meaning and pickup callers need ft-family validation.",
+    "HitCapsule/HitVictim exact member widths, dimensions and parameter ABI need shared lb/types.h owner validation.",
+    "Shield direction interpretation and normalized/incidence-angle behavior depend on lbColl_800077A0; reconcile with geometry cluster.",
+    "lbColl_JObjSetupMatrix header declaration L36 has no current KB identity; reconcile with TU lead and baselib family."
+  ],
+  "proposal_counts": {
+    "facts": 21,
+    "new_names": 1,
+    "corrected_name_rationales": 1
+  },
+  "validation": {
+    "mode": "dry-run",
+    "status": "valid",
+    "facts_accepted": 21,
+    "rejected": 0,
+    "proposal_sha256": "071d6dcd83429b40f67c84779b2e955c22955046cc2c26ade06929093773b8ab",
+    "artifact_directory": "games/melee/state/knowledge_v2/semantic-sweep-20260908/validation/071d6dcd83429b40f67c84779b2e955c22955046cc2c26ade06929093773b8ab"
+  }
+}

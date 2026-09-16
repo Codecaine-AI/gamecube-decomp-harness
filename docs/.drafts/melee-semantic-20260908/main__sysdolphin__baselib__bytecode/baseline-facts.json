@@ -1,0 +1,441 @@
+[
+  {
+    "id": "fact:3932e7c8-5efc-4661-a82f-579e99521514",
+    "target_id": "target:data:main/sysdolphin/baselib/bytecode:.data",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "HSD_ByteCodeEval reads these strings without modifying them. The filename and expression strings feed HSD assertion and panic machinery; \"specified stack doesn't exist (%d).\\n\" and \"unexpected opcode 0x%x.\\n\" are passed to OSReport before a panic; and the two bytecode-error messages are passed directly to HSD_Panic.",
+    "rationale": "The current evaluator uses the section's strings exclusively as diagnostic inputs: the operand-bound and stack expressions appear in assertions, the stack-depth and unknown-opcode formats go to OSReport, and the unsupported or unexpected-bytecode messages go to HSD_Panic. No cited path writes to the strings.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows the argument and stack assertions, formatted missing-stack report, and direct unsupported or unexpected-bytecode panic calls."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L499-L534",
+        "why": "Shows the formatted unexpected-opcode report followed by HSD_Panic."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/995171493795332106",
+        "why": "Lists the seven strings stored in the .data section, including the filename, assertion expressions, report formats, and panic messages."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:.data"
+  },
+  {
+    "id": "fact:263e1898-e160-484a-9a27-ac25194f202c",
+    "target_id": "target:data:main/sysdolphin/baselib/bytecode:.data",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A 160-byte, 8-byte-start-aligned pool of seven NUL-terminated C strings, with each string padded to a 4-byte boundary: \"bytecode.c\", \"operand < nb_args\", \"specified stack doesn't exist (%d).\\n\", \"not yet implemented.\\n\", \"unexpected byte code.\\n\", \"stack->next\", and \"unexpected opcode 0x%x.\\n\".",
+    "rationale": "The recovered assembly explicitly declares the section alignment, each .asciz value, and the 4-byte alignment after every value. Summing the seven padded string extents yields the target's 160-byte section size.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:54:37.601Z",
+    "evidence": [
+      {
+        "kind": "discord",
+        "locator": "discord://message/995171493795332106",
+        "why": "Quotes the complete assembly declaration for lbl_804074F0, including all seven strings and their .balign directives."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:.data"
+  },
+  {
+    "id": "fact:a11960a0-5ea5-4bbf-8531-c924d185706d",
+    "target_id": "target:data:main/sysdolphin/baselib/bytecode:.data",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the diagnostic string pool used by HSD_ByteCodeEval for assertion expressions, source-file identification, unsupported or invalid bytecode panics, and stack or opcode error reports. It does not contain an opcode table or executable bytecode program.",
+    "rationale": "The recovered section declaration contains only diagnostic C strings, and the current evaluator consumes them through assertion, OSReport, and HSD_Panic paths. Opcode dispatch instead comes from the bytecode stream, so this section is diagnostic storage rather than an instruction table or program.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "discord",
+        "locator": "discord://message/995171493795332106",
+        "why": "Shows that the complete .data object consists of seven diagnostic strings with alignment padding."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows the evaluator consuming the source filename, assertion text, stack-error format, and bytecode panic messages."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L499-L534",
+        "why": "Shows the remaining opcode-error format being consumed by OSReport before a panic."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:.data"
+  },
+  {
+    "id": "fact:279d0870-96ab-41aa-ac5b-932e4b4b7e07",
+    "target_id": "target:data:main/sysdolphin/baselib/bytecode:.sdata",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The section is read only along evaluator failure checks: HSD_ByteCodeEval passes its base empty string to HSD_Panic after a failed indexed-stack lookup and uses the string at 0x804D5F9C as the assertion expression whenever an opcode requires a non-null operand stack. No evaluated value or persistent state flows back into this section.",
+    "rationale": "The reconstructed label references identify the two section addresses as diagnostic arguments, while the current source shows the corresponding empty panic message and repeated `stack` assertions. All observed accesses read the bytes as strings, with no stores to the section.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows the indexed-stack failure passing an empty string to HSD_Panic and multiple operand-stack assertions."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/995172542430072883",
+        "why": "Shows the section-base label lbl_804D5F98 passed to HSD_Panic on indexed-stack lookup failure."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/995520154303725568",
+        "why": "Shows lbl_804D5F9C passed to __assert when the evaluator's stack pointer is null."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:.sdata"
+  },
+  {
+    "id": "fact:f29b0600-3106-4476-964f-1f44e56865e7",
+    "target_id": "target:data:main/sysdolphin/baselib/bytecode:.sdata",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "An aligned, read-only small-data character-literal pool rather than mutable interpreter state. Its identified contents include a NUL-only empty C string at 0x804D5F98 and the NUL-terminated assertion expression \"stack\" at 0x804D5F9C.",
+    "rationale": "The base label is used where the current source passes an empty C string, while the label four bytes later is used where the reconstructed assertion resolves to `stack`. Their use solely as C-string arguments supports character-literal storage rather than mutable VM state.",
+    "confidence": 0.95,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows the corresponding empty panic argument and inline stack assertion expression in the current evaluator."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/995172542430072883",
+        "why": "Identifies lbl_804D5F98 as the string pointer used for the empty panic message."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/995391409009991790",
+        "why": "Shows lbl_804D5F9C as an assertion-expression address and the cleaned reconstruction mapping it to \"stack\"."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:.sdata"
+  },
+  {
+    "id": "fact:8b70f4e0-ef61-4434-91c6-c5374c6f45e8",
+    "target_id": "target:data:main/sysdolphin/baselib/bytecode:.sdata",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides small diagnostic string literals used by HSD_ByteCodeEval: the empty panic message at the section base is supplied when an indexed stack entry does not exist, and the \"stack\" expression text at address 0x804D5F9C is supplied to assertions guarding operand-stack access.",
+    "rationale": "The current failure path uses an empty string after an indexed-stack lookup fails, and current opcode implementations repeatedly assert a non-null stack. Historical label-bearing reconstructions associate those two source literals with the section's base and 0x804D5F9C addresses.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows the empty panic message on indexed-stack failure and assertions guarding operand-stack access."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/995172542430072883",
+        "why": "Shows lbl_804D5F98 passed to HSD_Panic after reporting that an indexed stack entry does not exist."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/995391409009991790",
+        "why": "Associates lbl_804D5F9C with the assertion expression reconstructed as \"stack\"."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:.sdata"
+  },
+  {
+    "id": "fact:f7c8f7bd-ba2f-4891-be36-2e484406a063",
+    "target_id": "target:data:main/sysdolphin/baselib/bytecode:.sdata2",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "HSD_ByteCodeEval loads these constants while evaluating floating-point opcodes: zero participates in null-input return and sign or denominator guards, degree/radian factors scale trigonometric inputs and inverse-trigonometric outputs, and the 90-degree value handles the zero-denominator atan2 case. Calculated values replace entries on the operand stack and can ultimately become the returned f32.",
+    "rationale": "The current implementation directly uses zero, degree/radian conversion factors, and positive or negative 90-degree values in calculations whose results are written to stack nodes. The return opcode reads the top node as f32 and returns it after stack cleanup.",
+    "confidence": 0.95,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows the null-input zero return and the return opcode extracting the top stack value as f32."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L139-L258",
+        "why": "Shows zero-valued guards and degree-to-radian or radian-to-degree constants feeding unary floating-point operations that replace the top stack value."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L259-L378",
+        "why": "Shows zero and positive or negative 90-degree values feeding the atan2 result written back to the operand stack."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:.sdata2"
+  },
+  {
+    "id": "fact:6b26d8d3-3d50-4e7e-9b36-43955ad4fb41",
+    "target_id": "target:data:main/sysdolphin/baselib/bytecode:.sdata2",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A read-only small-data literal pool containing compiler-emitted 32-bit and 64-bit floating-point constants used by HSD_ByteCodeEval. It is heterogeneous scalar storage rather than a homogeneous runtime array and has no independently evidenced indexed-element schema.",
+    "rationale": "The current source uses ordinary f32 constants alongside degree/radian factors in f64-promoted calculations, and accesses each as an individual scalar literal rather than indexing a table. That supports a mixed compiler literal pool without implying an array schema.",
+    "confidence": 0.91,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L139-L258",
+        "why": "Shows f32 stack values promoted to f64 for degree/radian scaling and converted back to f32, alongside ordinary f32 zero literals."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L259-L378",
+        "why": "Shows further scalar zero, 90-degree, and radian-to-degree constants used directly in arithmetic rather than through indexed table access."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:.sdata2"
+  },
+  {
+    "id": "fact:9d7d0e45-38bb-4478-863f-29affcc8d4e4",
+    "target_id": "target:data:main/sysdolphin/baselib/bytecode:.sdata2",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the read-only small-data literal pool used by HSD_ByteCodeEval's floating-point paths, including zero tests and results, degree-to-radian and radian-to-degree scaling for trigonometric opcodes, and the 90-degree fallback used by the two-argument arctangent opcode.",
+    "rationale": "The current evaluator uses these floating constants throughout its trigonometric and atan2 opcode implementations, establishing that the section supplies compiler-emitted numeric support data for expression evaluation rather than an independently indexed gameplay table.",
+    "confidence": 0.94,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L139-L258",
+        "why": "Shows zero tests and degree/radian conversion factors used by unary trigonometric operations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L259-L378",
+        "why": "Shows the atan2 operation using zero comparisons, radian-to-degree scaling, and positive or negative 90-degree fallback results."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:.sdata2"
+  },
+  {
+    "id": "fact:32442171-c770-48fd-9713-d6b8ca4dc42b",
+    "target_id": "target:function:main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes the bytecode stream through a monotonically advanced cursor, except when branch opcodes add encoded skip distances. Immediate operands are assembled from one, two, or four bytes; argument loads and literal loads prepend 32-bit values to an HSD_SList stack. Unary operations replace the top value, binary operations remove one node and combine it with the next, stack-control instructions discard or duplicate entries, and the return opcode reads the top as f32, removes every remaining node, and returns the value. A null bytecode pointer returns 0.0 immediately.",
+    "rationale": "The current source shows byte-wise cursor advancement and big-endian operand accumulation, width selection by opcode, argument and literal pushes, branch displacement, stack duplication and removal, in-place unary or binary result updates, and final stack cleanup before return.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows null-input handling, byte-wise immediate assembly, argument and literal pushes, stack discard and duplication, branch skips, operand widths, and final stack cleanup."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L139-L258",
+        "why": "Shows representative unary top-of-stack replacement and binary pop-and-combine operations."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval"
+  },
+  {
+    "id": "fact:ee7431c7-b8cf-4f0a-9c17-255bd7b8f1db",
+    "target_id": "target:function:main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Maps to the optional bytecode form of HSD RObj expression evaluation, not to Melee's fighter action scripting system. The retained RObj evaluator can dispatch to this function when an expression is marked as bytecode, but community analysis reports that Melee has no known reachable in-game use of that path.",
+    "rationale": "The concrete RObj call site is stronger than an early conversational guess that this was fighter scripting: it selects HSD_ByteCodeEval from an expression representation alongside a native function alternative. A separate community assessment identifies RObj as its only reference and characterizes it as unused in the shipped game, so reachability is stated cautiously rather than as a proven gameplay mechanic.",
+    "confidence": 0.82,
+    "updated_at": "2026-09-01T23:04:12.193Z",
+    "evidence": [
+      {
+        "kind": "discord",
+        "locator": "discord://message/1412500487974031360",
+        "why": "Shows expEvaluate selecting HSD_ByteCodeEval for exp->is_bytecode and otherwise invoking exp->expr.func, grounding the function in RObj expression evaluation."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1155947477455863829",
+        "why": "Records the community assessment that the function is referenced only by RObj and is, as far as known, unused by the game."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval"
+  },
+  {
+    "id": "fact:f5b6fc03-49eb-4830-825e-aeb823ac1b02",
+    "target_id": "target:function:main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: f32 HSD_ByteCodeEval(u8* bytecode, const f32* args, s32 nb_args). The bytecode parameter is a cursor over unsigned-byte instructions and big-endian immediate operands; args is a read-only indexed array of 32-bit values exposed as floats but reinterpreted as either f32 or s32 by the VM; nb_args bounds argument-load indices.",
+    "rationale": "The declaration at the current head establishes the const-qualified source signature. The body advances bytecode one unsigned byte at a time, assembles operands by shifting and ORing, checks argument indices against nb_args, and reinterprets argument words through ByteCodeVal. Debug metadata independently confirms the return type, parameter order, and underlying unsigned-char pointer, float pointer, and integer parameter types.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows the current const-qualified signature, byte-wise instruction cursor, big-endian operand assembly, argument bound assertion, and integer/float reinterpretation."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1155947799536480316",
+        "why": "Quotes debug metadata identifying the function as returning float and taking unsigned char* bytecode, float* args, and int nb_args."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval"
+  },
+  {
+    "id": "fact:2e70a69e-b2ff-4e3d-9238-db4eef924969",
+    "target_id": "target:function:main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Interprets a serialized HSD expression program with a stack-based virtual machine and returns its final value as a float. The instruction set supports constants and external arguments, numeric conversion, arithmetic and transcendental functions, comparisons, logical and bitwise operations, random values, stack manipulation, and conditional or unconditional bytecode skips.",
+    "rationale": "The current body decodes commands and immediate operands, stores values in an HSD_SList operand stack, performs the listed numeric and logical operation families, changes the instruction cursor for branches, and terminates by extracting and returning the top value.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows initialization, immediate decoding, argument and literal pushes, stack operations, branch instructions, and the terminating float-return operation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L139-L258",
+        "why": "Shows random, trigonometric, logarithmic, conversion, unary, and floating-point arithmetic opcodes."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L259-L378",
+        "why": "Shows integer arithmetic, power, min/max, atan2, and floating-point comparison opcodes."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L379-L498",
+        "why": "Shows the remaining floating-point and integer comparisons and logical operations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L499-L534",
+        "why": "Shows bitwise operations, bounded integer random generation, and unknown-opcode handling."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval"
+  },
+  {
+    "id": "fact:453049a8-7be7-4a9e-ba35-adf6c97bfde3",
+    "target_id": "target:function:main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Alternates between opcode-dispatch and immediate-collection states. With operand_count zero it fetches an opcode and either executes it or initializes a one-, two-, or four-byte operand countdown; while the countdown is nonzero it accumulates bytes and dispatches the completed operand according to last_command. Opcode 3 conditionally skips forward when the popped condition is nonzero, opcode 4 always skips, opcode 1 terminates successfully, and malformed stack usage, invalid argument indices, unavailable stack depths, unsupported bytecode, or unknown opcodes assert or panic.",
+    "rationale": "The current outer loop is governed by operand_count and last_command, with separate switches for completing operand-bearing commands and executing immediate-free opcodes. Its explicit branch, termination, assertion, reporting, and panic paths establish the transitions and invalid states.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:28:26.749Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L19-L138",
+        "why": "Shows the opcode-fetch and operand-collection states, all operand widths, conditional and unconditional skips, termination, argument guards, missing-stack handling, and unsupported-bytecode panics."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L499-L534",
+        "why": "Shows the terminal unknown-opcode reporting and panic path."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/bytecode:HSD_ByteCodeEval"
+  },
+  {
+    "id": "fact:fdfaa5f1-8636-442d-a371-b5ece4b744eb",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/bytecode.c",
+    "type": "data_flow",
+    "value": "The evaluator consumes a bytecode pointer, argument buffer, and argument count; decodes big-endian immediate operands; pushes arguments or immediates onto an `HSD_SList`; consumes and replaces stack entries for operators; adjusts the instruction pointer for branches; and returns the top stack word as a float after cleanup.",
+    "rationale": "The current code directly shows argument bounds checking, immediate assembly, stack mutation, branch displacement, cleanup, and return.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T01:48:22.168Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L34-L360",
+        "why": "Shows the complete byte-stream, arguments, operand-stack, branch, cleanup, and result flow."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/bytecode.c"
+  },
+  {
+    "id": "fact:0be31f2b-7782-42da-a4db-9c01639278b8",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/bytecode.c",
+    "type": "game_mapping",
+    "value": "This unit implements the optional bytecode representation of HSD RObj expressions rather than Melee's fighter action-script system. RObj expression evaluation dispatches here when an expression is marked as bytecode and otherwise calls a native expression function; community analysis reports no known reachable in-game use of the retained bytecode path.",
+    "rationale": "The resolved call site directly identifies the bytecode/native-function choice inside RObj expression evaluation. The separate community assessment says RObj is the routine's only reference and cautiously characterizes the path as unused, supporting the reachability qualification without presenting it as proven absence.",
+    "confidence": 0.84,
+    "updated_at": "2026-09-02T04:56:53.733Z",
+    "evidence": [
+      {
+        "kind": "discord",
+        "locator": "discord://message/1412500487974031360",
+        "why": "Shows the RObj expression evaluator selecting HSD_ByteCodeEval for exp->is_bytecode and selecting exp->expr.func otherwise."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1155947477455863829",
+        "why": "Records the community assessment that HSD_ByteCodeEval is referenced only by RObj and is, as far as known, unused by the game."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/bytecode.c"
+  },
+  {
+    "id": "fact:03b45574-2711-43d9-af7e-81fbe6ee0ccb",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/bytecode.c",
+    "type": "purpose",
+    "value": "Implements HSD's bytecode expression evaluator: it decodes an opcode stream, evaluates integer and floating-point operations on a temporary operand stack, follows branches, and returns a floating-point result.",
+    "rationale": "The current evaluator retains operand decoding, HSD_SList stack operations, arithmetic and conversion opcodes, control flow, assertions, and the return path.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T01:48:22.168Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L34-L360",
+        "why": "Shows the decoder, operand-width states, stack operations, branches, conversions, arithmetic dispatch, and result return."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/bytecode.c"
+  },
+  {
+    "id": "fact:aa487a0b-fe85-402b-a20c-14d6a9649013",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/bytecode.c",
+    "type": "state_behavior",
+    "value": "Evaluation alternates between opcode-fetch and pending-operand states. Opcodes select zero-, one-, two-, or four-byte operands; collected operands execute the pending command before fetch resumes. Return opcode 1 terminates with the top stack value, while malformed stack access or invalid commands assert or panic.",
+    "rationale": "The current loop explicitly tracks `operand_count`, `operand`, and `last_command`, assigns operand widths by opcode, and retains return and failure branches.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T01:48:22.168Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/bytecode.c#L34-L360",
+        "why": "Shows the interpreter's fetch/operand-collection states, return opcode, assertions, and panic paths."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/bytecode.c"
+  }
+]

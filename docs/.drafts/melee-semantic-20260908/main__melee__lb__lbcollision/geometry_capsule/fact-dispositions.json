@@ -1,0 +1,512 @@
+{
+  "campaign": "melee-semantic-20260908",
+  "tu": "main/melee/lb/lbcollision",
+  "cluster": "geometry_capsule",
+  "head_revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "facts": [
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800067F8",
+      "fact_id": "fact:3d148302-e74d-4f21-af09-dc494ff7a3fa",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "data_flow",
+      "old_value": "Reads two endpoint pairs and summed radii, performs XY broadphase rejection, derives planar directions and parameters, uses point-to-segment fallback for out-of-range solutions, writes XY closest points with zero Z, and returns the planar radius comparison.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "Inputs a,b and c,d define axes; p+q expands XY rejection bounds. XY dot products determine parameters, with endpoint-distance fallback. The parallel branch includes Z in projection onto c,d. Outputs e,f use XY interpolation and Z=0; the final comparison accepts distance squared <= (p+q)^2.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L809-L824",
+          "why": "Signature and summed radii."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L858-L918",
+          "why": "XY rejection before outputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L928-L1078",
+          "why": "Parameter solving including Z-dependent parallel projection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1080-L1102",
+          "why": "Planar outputs and inclusive threshold."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800067F8",
+      "fact_id": "fact:2af873dd-0555-4a44-8707-f951a93218cf",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "game_mapping",
+      "old_value": "Implements planar capsule-collision detection for gameplay systems that compare finite collision or pickup regions in two dimensions.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "Provides combined-radius geometry to lbColl_80007B78, which passes Fighter_x1614_t fields and cast matrix storage. Pickup-specific meaning is not established by this local call site.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1570-L1575",
+          "why": "Direct caller and opaque field usage."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800067F8",
+      "fact_id": "fact:bde5b99c-101e-4ea9-8f13-bda682113cd7",
+      "version": "2026-09-06T02:34:38.472Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "inferred_name",
+      "old_value": "lbColl_TestCapsuleOverlap2D",
+      "disposition": "retain",
+      "reason": "Retain as a descriptive hypothesis, not an attested original name; refreshed canonical evidence supports the operation. The 2D suffix describes broadphase, outputs and final metric, not total independence from input Z; parallel projection uses XYZ.",
+      "replacement_value": "lbColl_TestCapsuleOverlap2D",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L809-L824",
+          "why": "Signature and summed radii."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L858-L918",
+          "why": "XY rejection before outputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L928-L1078",
+          "why": "Parameter solving including Z-dependent parallel projection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1080-L1102",
+          "why": "Planar outputs and inclusive threshold."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800067F8",
+      "fact_id": "fact:dcdf1994-de73-4cf2-85b4-3c60c386dc90",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "inferred_type",
+      "old_value": "Semantically `bool (const Vec3* a_start, const Vec3* a_end, const Vec3* b_start, const Vec3* b_end, Vec3* out_a, Vec3* out_b, float radius_a, float radius_b)`. The header omits input const qualifiers.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "bool (Vec3* a, Vec3* b, Vec3* c, Vec3* d, Vec3* e, Vec3* f, float p, float q). The first four pointers supply endpoints, e and f receive candidate points, and p and q contribute radii. No source const qualification is inferred.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L809-L824",
+          "why": "Signature and summed radii."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L858-L918",
+          "why": "XY rejection before outputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L928-L1078",
+          "why": "Parameter solving including Z-dependent parallel projection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1080-L1102",
+          "why": "Planar outputs and inclusive threshold."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800067F8",
+      "fact_id": "fact:8b69c36e-b993-438c-947c-be929a8e6536",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "purpose",
+      "old_value": "Tests whether two finite capsule axes overlap in the XY plane, writes the closest point on each segment with zero Z, and returns whether planar separation is within the summed radii.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "Tests two endpoint pairs against their summed radii using XY broadphase and final distance. After broadphase passes, writes two candidate axis points with Z zero. The parallel branch uses XYZ projection, so this is not a strictly Z-independent solver.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L809-L824",
+          "why": "Signature and summed radii."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L858-L918",
+          "why": "XY rejection before outputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L928-L1078",
+          "why": "Parameter solving including Z-dependent parallel projection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1080-L1102",
+          "why": "Planar outputs and inclusive threshold."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800067F8",
+      "fact_id": "fact:b7b69dec-3874-4554-ba8d-69c94ed706a2",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "state_behavior",
+      "old_value": "The stateless query returns false on radius-expanded X or Y separation, then handles degenerate, parallel, and general segment cases, clamps or repairs parameters, writes both points, and returns false only when final planar separation exceeds the combined radii.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "Broadphase XY misses return false without writing e or f. Surviving calls handle degenerate, parallel, and general axes, write e and f, then compare planar separation against summed radii. Final false may therefore leave outputs written. No retained state or callbacks appear.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L809-L824",
+          "why": "Signature and summed radii."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L858-L918",
+          "why": "XY rejection before outputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L928-L1078",
+          "why": "Parameter solving including Z-dependent parallel projection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1080-L1102",
+          "why": "Planar outputs and inclusive threshold."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80006E58",
+      "fact_id": "fact:e6772f22-27fe-46dd-8fea-f5f0e1f9a093",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "data_flow",
+      "old_value": "Endpoint pairs first feed an AABB rejection expanded by `hit_radius + hurt_radius * broadphase_scale`. Surviving pairs become finite-segment parameters and closest points; their separation is transformed through the inverse hurt matrix to scale the hurt radius along the contact direction, after which overlap and contact position are written.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "hit_radius + hurt_radius*broadphase_scale expands the hit axis AABB. Surviving endpoints feed clamped segment parameters and closest-point outputs. For nonzero separation, inverse hurt_mtx yields local distance; hurt_radius*world_distance/local_distance supplies the effective hurt radius. out_overlap is radius sum minus distance; out_contact_pos is the hurt-side surface interpolation.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1104-L1125",
+          "why": "Canonical documented roles and signature."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1165-L1230",
+          "why": "Expanded XYZ bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1271-L1408",
+          "why": "Parameter cases and closest points."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1409-L1444",
+          "why": "Coincident bypass, inverse-matrix scaling and output timing."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80006E58",
+      "fact_id": "fact:62aea6a8-51fd-4b47-8f77-708e5b903eef",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "game_mapping",
+      "old_value": "Implements the shared geometric core for offensive hitbox contact with hurtboxes and spherical shield-like regions, producing the contact point and penetration amount used by higher-level combat handling.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "Shared geometry for HitCapsule versus the point axis of shield_hit in lbColl_80007BCC and versus an enabled HurtCapsule in lbColl_80007ECC. Both wrappers store contact position and overlap in the hit capsule.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1612-L1624",
+          "why": "Shield point axis call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1682-L1685",
+          "why": "Enabled hurt capsule call."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80006E58",
+      "fact_id": "fact:e7a7cc48-08c1-4fb6-b8a1-26c10dedafff",
+      "version": "2026-09-06T02:34:38.472Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "inferred_name",
+      "old_value": "lbColl_CheckCapsuleCollision3D",
+      "disposition": "retain",
+      "reason": "Retain as a descriptive hypothesis, not an attested original name; refreshed canonical evidence supports the operation.",
+      "replacement_value": "lbColl_CheckCapsuleCollision3D",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1104-L1125",
+          "why": "Canonical documented roles and signature."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1165-L1230",
+          "why": "Expanded XYZ bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1271-L1408",
+          "why": "Parameter cases and closest points."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1409-L1444",
+          "why": "Coincident bypass, inverse-matrix scaling and output timing."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80006E58",
+      "fact_id": "fact:d6946521-8c47-4773-b6d9-976944db39c7",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "inferred_type",
+      "old_value": "`bool (Vec3* hit_start, Vec3* hit_end, Vec3* hurt_start, Vec3* hurt_end, Vec3* hit_closest, Vec3* hurt_closest, MtxPtr hurt_mtx, Vec3* out_contact, float* out_overlap, float hit_radius, float hurt_radius, float broadphase_scale)`. Endpoints and matrix are inputs; the following vectors and scalar are outputs.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "bool (Vec3* hit_start, Vec3* hit_end, Vec3* hurt_start, Vec3* hurt_end, Vec3* hit_closest, Vec3* hurt_closest, MtxPtr hurt_mtx, Vec3* out_contact_pos, float* out_overlap, float hit_radius, float hurt_radius, float broadphase_scale). Endpoints, matrix and radii are inputs; closest points, contact and overlap are outputs.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1104-L1125",
+          "why": "Canonical documented roles and signature."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1165-L1230",
+          "why": "Expanded XYZ bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1271-L1408",
+          "why": "Parameter cases and closest points."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1409-L1444",
+          "why": "Coincident bypass, inverse-matrix scaling and output timing."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80006E58",
+      "fact_id": "fact:6acf11b1-04aa-4b56-87ce-5a9c00e6b8c0",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "purpose",
+      "old_value": "Tests hit and hurt-or-shield capsule axes for overlap, finds both closest points, adjusts the hurt-side radius for matrix scaling, and outputs contact position and penetration margin.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "Tests hit and hurt-or-shield capsule axes in XYZ. After broadphase, computes candidate closest points and an overlap margin/contact point. Noncoincident separation uses inverse hurt-matrix distance to scale the hurt radius; approximately coincident points succeed using the unscaled radius sum.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1104-L1125",
+          "why": "Canonical documented roles and signature."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1165-L1230",
+          "why": "Expanded XYZ bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1271-L1408",
+          "why": "Parameter cases and closest points."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1409-L1444",
+          "why": "Coincident bypass, inverse-matrix scaling and output timing."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_80006E58",
+      "fact_id": "fact:ab8ef768-3cba-4889-ab00-3eeefc349d06",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "state_behavior",
+      "old_value": "The solver returns false on an expanded-axis miss; otherwise it handles two degenerate segments, one degenerate segment, parallel axes, interior solutions, and endpoint-clamped fallbacks. Coincident closest points succeed immediately; noncoincident points undergo matrix-aware radius scaling and the final distance test.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "An expanded X/Y/Z miss returns false before outputs. Otherwise degenerate, parallel and unconstrained/fallback cases produce points. Approximately coincident points write contact and unscaled overlap then return true. Other cases write contact and overlap before comparing effective radius against distance, including final misses. Matrix inversion failure and zero transformed distance are not checked locally.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1104-L1125",
+          "why": "Canonical documented roles and signature."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1165-L1230",
+          "why": "Expanded XYZ bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1271-L1408",
+          "why": "Parameter cases and closest points."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1409-L1444",
+          "why": "Coincident bypass, inverse-matrix scaling and output timing."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800077A0",
+      "fact_id": "fact:31d42276-e50d-4140-939f-690d2003dcae",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "data_flow",
+      "old_value": "Transforms the local sphere radius to world scale, adds capsule radius, solves the near axis intersection, then writes the outward normal, its XY angle relative to the axis, and a point on the unexpanded sphere surface.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "The distance between matrix-transformed (x,0,0) and origin supplies radius dist. Adds dist_offset for the quadratic against the line b+t*(c-b) about a, clamps a negative discriminant to zero, normalizes the resulting offset into e, calls lbVector_AngleXY, and writes d=a+dist*e.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1467-L1502",
+          "why": "Signature and transformed local X radius."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1504-L1548",
+          "why": "Quadratic, unclamped parameter, outputs and degenerate case."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800077A0",
+      "fact_id": "fact:1dd4939a-43ea-42b1-be9f-b85e51975430",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "game_mapping",
+      "old_value": "Produces the shield-surface contact normal and incidence angle used when an attack capsule interacts with a fighter's spherical shield region.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "lbColl_80007DD8 passes HitResult position, bone/optional composed transform and size plus HitCapsule endpoints and scaled radius. It retains this helper's direction and angle outputs while discarding the surface point. A fighter-specific shield identity is not established by this wrapper alone.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1627-L1648",
+          "why": "HitResult/HitCapsule wrapper passes geometry and consumes direction/angle."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800077A0",
+      "fact_id": "fact:dbff1ae6-a538-4a49-b722-9b64941cfc6f",
+      "version": "2026-09-06T02:34:38.472Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "inferred_name",
+      "old_value": "lbColl_CalcCapsuleSphereContact",
+      "disposition": "retain",
+      "reason": "Retain as a descriptive hypothesis, not an attested original name; refreshed canonical evidence supports the operation. Contact calculation uses an unrestricted line parameter; the name does not promise a finite-segment overlap test.",
+      "replacement_value": "lbColl_CalcCapsuleSphereContact",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1467-L1502",
+          "why": "Signature and transformed local X radius."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1504-L1548",
+          "why": "Quadratic, unclamped parameter, outputs and degenerate case."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800077A0",
+      "fact_id": "fact:0f96602b-aa65-4afa-b05a-146746b997ba",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "inferred_type",
+      "old_value": "`void (Vec3* center, Mtx sphere_transform, Vec3* axis_start, Vec3* axis_end, Vec3* out_surface_point, Vec3* out_normal, float* out_angle, float local_radius, float capsule_radius)`. The surface point is not written for exactly coincident endpoints.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "void (Vec3* a, MtxPtr arg1, Vec3* b, Vec3* c, Vec3* d, Vec3* e, float* angle, float x, float dist_offset). Inputs are center a, transform arg1, axis endpoints b/c, local X radius x and radius offset. Outputs are surface point d, direction e and angle; d remains untouched for exactly equal endpoints.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1467-L1502",
+          "why": "Signature and transformed local X radius."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1504-L1548",
+          "why": "Quadratic, unclamped parameter, outputs and degenerate case."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800077A0",
+      "fact_id": "fact:5c2c90de-a2ea-4d10-bdb8-23fea141a221",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "purpose",
+      "old_value": "Calculates contact geometry between a capsule axis and a transformed sphere after overlap: near intersection with the expanded sphere, unexpanded surface point, outward normal, and incidence angle.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "Calculates a sphere surface point, outward direction and XY angle from an axis and transformed local radius. Uses the lower quadratic root against the radius plus dist_offset, without restricting its parameter to the finite segment or returning an overlap result.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1467-L1502",
+          "why": "Signature and transformed local X radius."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1504-L1548",
+          "why": "Quadratic, unclamped parameter, outputs and degenerate case."
+        }
+      ]
+    },
+    {
+      "subject": "main/melee/lb/lbcollision:lbColl_800077A0",
+      "fact_id": "fact:296803ea-7228-48ac-b7b1-9f16279a9aff",
+      "version": "2026-09-05T05:24:15.068Z",
+      "version_kind": "updated_at; baseline fact table has no numeric version",
+      "type": "state_behavior",
+      "old_value": "For a nonzero axis it uses the near quadratic root, clamps a negative discriminant to zero, and uses parameter zero for an approximately zero squared length. Exactly coincident endpoints instead produce a zero normal and angle \u03c0 without writing the surface point. It retains no state.",
+      "disposition": "supersede",
+      "reason": "Replace inherited summary with current source-bounded behavior, output timing and precise full-revision citations.",
+      "replacement_value": "For nonzero c-b, uses the lower quadratic root, clamps a negative discriminant to zero and uses parameter zero when squared direction length is approximately zero. No [0,1] parameter clamp occurs. Exactly equal endpoints set e to zero and angle to pi without writing d. No retained state or callbacks appear.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1467-L1502",
+          "why": "Signature and transformed local X radius."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1504-L1548",
+          "why": "Quadratic, unclamped parameter, outputs and degenerate case."
+        }
+      ]
+    }
+  ]
+}

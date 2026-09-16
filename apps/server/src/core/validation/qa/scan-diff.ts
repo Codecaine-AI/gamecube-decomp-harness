@@ -1,3 +1,4 @@
+import { executeBuildTask, remoteBuildsEnabled } from "../build/execution.js";
 /**
  * Shared invoker for the review_lint diff-aware QA scanner.
  *
@@ -19,6 +20,19 @@ import { resolve } from "node:path";
 import type { RunGameMetadata } from "@server/core/shared/types";
 import type { AddressNamedStaticDataAllowlistEntry } from "@server/core/game-registry";
 import { resolveRegisteredTool } from "@server/core/tools/resolver";
+
+/**
+ * Environment variable the Python engine reads to compose the global
+ * (Melee-hosted) standards set with the game-specific set named by
+ * ORCH_GAME_DIR. Only set when the scanned game is not Melee itself.
+ */
+export const REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV = "REVIEW_LINT_GLOBAL_STANDARDS_DIR";
+
+/** Game whose standards tree doubles as the global (shared) standards set. */
+const GLOBAL_STANDARDS_GAME_ID = "melee";
+
+/** Tool error returned when a scan is requested without a game descriptor. */
+export const QA_SCAN_REQUIRES_GAME_ERROR = "qa scan requires a game";
 
 export type QaScanSeverity = "error" | "warning" | "info";
 
@@ -61,12 +75,18 @@ export interface QaScanInvocation {
   command: string[];
 }
 
+export type QaScanProcessRunner = (repoRoot: string, command: string[], env?: Record<string, string>) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
+
 export interface RunQaScanDiffOptions {
-  /** Melee (target game) repo root the diff lives in. */
+  /** Target game repo root the diff lives in. */
   repoRoot: string;
-  /** Orchestrator root. Kept for compatibility with older callers. */
+  /** Orchestrator root; hosts the global standards tree passed to non-Melee scans. */
   orchestratorRoot: string;
-  /** Game metadata used to resolve game tool bindings when available. */
+  /**
+   * Game metadata used to resolve game tool bindings and the standards tree.
+   * Required: a scan without a game would silently run Melee's rules against
+   * another game's diff, so `runQaScanDiff` fails closed when it is missing.
+   */
   game?: RunGameMetadata;
   /** Game state dir used to resolve tool cache/worktree roots when available. */
   stateDir?: string;
@@ -89,6 +109,8 @@ export interface RunQaScanDiffOptions {
    */
   surface?: QaScanSurface;
   addressNamedStaticDataAllowlist?: AddressNamedStaticDataAllowlistEntry[];
+  /** Injectable process runner (tests); defaults to spawning python3. */
+  processRunner?: QaScanProcessRunner;
 }
 
 async function runProcess(repoRoot: string, command: string[], env?: Record<string, string>): Promise<{ exitCode: number; stdout: string; stderr: string }> {
@@ -139,6 +161,23 @@ export function qaScanDiffScriptPath(orchestratorRoot: string): string {
   return resolve(orchestratorRoot, "toolpacks/gamecube-decomp/source_editing/review_lint/api/scan_diff.py");
 }
 
+/** The global (game-agnostic) standards tree, hosted under the Melee game dir. */
+export function qaScanGlobalStandardsDir(orchestratorRoot: string): string {
+  return resolve(orchestratorRoot, "games", GLOBAL_STANDARDS_GAME_ID, "knowledge/sources/injectable/decomp_standards/standards");
+}
+
+/**
+ * Scan environment: the resolved tool env (ORCH_GAME_DIR etc.) plus the global
+ * standards dir when the game is not the one hosting the global set.
+ */
+export function qaScanEnv(params: { orchestratorRoot: string; gameId: string; toolEnv: Record<string, string> }): Record<string, string> {
+  const env = { ...params.toolEnv };
+  if (params.gameId !== GLOBAL_STANDARDS_GAME_ID) {
+    env[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV] = qaScanGlobalStandardsDir(params.orchestratorRoot);
+  }
+  return env;
+}
+
 export function qaGatePassed(invocation: QaScanInvocation): boolean {
   return invocation.toolError === null && invocation.result !== null && invocation.result.counts.errors === 0 && invocation.result.counts.warnings === 0 && invocation.exitCode === 0;
 }
@@ -169,6 +208,19 @@ function cleanResultFromExitZero(options: RunQaScanDiffOptions, stderr: string):
 }
 
 export async function runQaScanDiff(options: RunQaScanDiffOptions): Promise<QaScanInvocation> {
+  if (options.game?.gameId && !options.processRunner && remoteBuildsEnabled()) return executeBuildTask(options.repoRoot, { kind: "qa", input: { ...options } });
+  // Fail closed: resolveRegisteredTool defaults a missing game to Melee, which
+  // would scan another game's diff with the wrong standards tree.
+  if (!options.game?.gameId) {
+    return {
+      exitCode: -1,
+      result: null,
+      stdout: "",
+      stderr: "",
+      toolError: QA_SCAN_REQUIRES_GAME_ERROR,
+      command: [],
+    };
+  }
   const resolved = resolveRegisteredTool(
     {
       game: options.game,
@@ -199,7 +251,8 @@ export async function runQaScanDiff(options: RunQaScanDiffOptions): Promise<QaSc
       command,
     };
   }
-  const result = await runProcess(options.repoRoot, command, resolved.env);
+  const env = qaScanEnv({ orchestratorRoot: options.orchestratorRoot, gameId: resolved.gameId, toolEnv: resolved.env });
+  const result = await (options.processRunner ?? runProcess)(options.repoRoot, command, env);
   const parsed = parseQaScanResult(result.stdout) ?? (result.exitCode === 0 && result.stdout.trim() === "" ? cleanResultFromExitZero(options, result.stderr) : null);
   const toolError =
     parsed === null

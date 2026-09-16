@@ -57,7 +57,10 @@ def _arg_value(*names: str) -> Optional[str]:
 
 
 def _looks_like_project_root(path: Path) -> bool:
-    return (path / "build/GALE01/report.json").is_file() and (path / "src").is_dir()
+    return (
+        (path / "src").is_dir()
+        and ((path / "objdiff.json").is_file() or any((path / "build").glob("*/report.json")))
+    )
 
 
 def _bootstrap_project_root() -> None:
@@ -91,9 +94,11 @@ _bootstrap_project_root()
 import checkdiff  # noqa: E402
 import mwcc_dump  # noqa: E402
 from ninja_compile import REPORT_PATH  # noqa: E402
+from project_layout import get_project_layout  # noqa: E402
 
 
 ROOT = checkdiff.ROOT
+LAYOUT = get_project_layout(ROOT, REPORT_PATH)
 TOOLS = Path(__file__).resolve().parent
 
 MISMATCH_LABELS = {
@@ -1208,7 +1213,7 @@ def parse_source_locals_from_body(body: str, start_line: int) -> list[SourceLoca
 
 
 def source_path_for_obj(obj_path: str) -> Path:
-    return ROOT / "src" / f"{obj_path}.c"
+    return ROOT / LAYOUT.source_path_for_unit(obj_path)
 
 
 def pass_lines(section: str, wanted: str) -> list[str]:

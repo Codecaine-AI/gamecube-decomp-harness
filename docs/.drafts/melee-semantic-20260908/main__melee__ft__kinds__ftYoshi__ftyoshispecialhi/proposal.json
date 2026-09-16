@@ -1,0 +1,136 @@
+{
+  "tu": "main/melee/ft/kinds/ftYoshi/ftyoshispecialhi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c#L234-L237",
+            "why": "Exact wrapper signature and delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L33-L40",
+            "why": "Attributes are read as physics inputs."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's claim that common movement attributes are updated in place.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftYoshi/ftyoshispecialhi:ftYs_SpecialAirHi_Phys"
+        },
+        "type": "inferred_type",
+        "value": "Per-frame fighter physics callback with signature void(Fighter_GObj* gobj). It forwards the object to ft_80084EEC, which reads common movement attributes and updates fighter airborne velocity through common physics helpers; it does not update those attributes."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c#L89-L120",
+            "why": "Producer guards, arguments and writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ityoshieggthrow.c#L39-L79",
+            "why": "Release consumers and nullable constructor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1063-L1095",
+            "why": "Charge-derived scalar feeds spin calculation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Following the item consumer distinguishes position offset and spin scaling from the baseline's velocity and lifetime interpretations.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftYoshi/ftyoshispecialhi:fn_8012E110"
+        },
+        "type": "data_flow",
+        "value": "On a throw event, samples joint 31 and calls it_802B2A10 with the fighter, position, part 0x1F and facing direction; stores the nullable result in x1984_heldItemSpec and u.ys.x2238 and conditionally installs interruption callbacks. Independently, nonzero cmd_vars[0] with a retained egg consumes that command, sets specialhi.x0, computes launch velocity through ftYs_SpecialS_8012DF8C, builds position offset (x104*facing_dir, x108, 0), and passes these with specialhi.x4*x110+x10C and raw charge to it_802B28C8. The item adds the offset to position and uses the scalar for spin scaling; its final raw-charge parameter is unused. The fighter then clears u.ys.x2238, take_dmg_cb and death2_cb."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c#L89-L120",
+            "why": "Independent phases and cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ityoshieggthrow.c#L39-L54",
+            "why": "Position offset and scalar forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1063-L1095",
+            "why": "Spin semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects release-parameter semantics while preserving the callback's demonstrated lifecycle role and exceptional branches.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftYoshi/ftyoshispecialhi:fn_8012E110"
+        },
+        "type": "purpose",
+        "value": "Animation accessory callback for Egg Throw that creates and retains an egg on a throw event and releases a valid retained egg on command variable 0, supplying aimed launch velocity, a facing-relative position offset and charge-scaled spin input. Creation and release are independently guarded and can occur in one invocation. Successful release relinquishes u.ys.x2238 and the damage/death callbacks; the release scalar is not a charge-scaled lifetime."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c#L53-L81",
+            "why": "Exact inputs and vector calculation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c#L102-L120",
+            "why": "Exact release consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported calculation while correcting stale field spelling and the truncated consumer symbol.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftYoshi/ftyoshispecialhi:ftYs_SpecialS_8012DF8C"
+        },
+        "type": "data_flow",
+        "value": "Reads input.lstick[0].x, facing_dir, mv.ys.specialhi.x4 and attributes xEC, xF0, xF4, specialhi_base_angle, xFC and x100. It normalizes absolute horizontal stick displacement, caps it at one, scales and thresholds the angular adjustment, applies stick direction, selects a facing-dependent angle, and writes ((x4*x100+xFC)*cosf(angle), (x4*x100+xFC)*sinf(angle), 0) to the caller's Vec3. The accessory callback forwards that vector to it_802B28C8 when releasing the retained egg."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c#L36-L133",
+            "why": "Trajectory, release, retention and tongue cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ityoshieggthrow.c#L39-L54",
+            "why": "Release argument consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1063-L1095",
+            "why": "Spin input interpretation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported charge-scaled lifetime claim and makes the fighter/item retention boundary explicit.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftYoshi/ftyoshispecialhi.c"
+        },
+        "type": "data_flow",
+        "value": "Egg Throw reads horizontal stick input, accumulated held-B duration, facing direction, throw and animation-command flags, and Yoshi attributes. It computes launch velocity, a facing-relative position offset and a charge-scaled spin input for the EggThrow item release routine, whose raw-charge parameter is unused. The fighter retains the egg and interruption callbacks before release and clears u.ys.x2238 and those callbacks after successful release. A separate SpecialN-aware path destroys a retained tongue article and clears x1A64 and target_item_gobj."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

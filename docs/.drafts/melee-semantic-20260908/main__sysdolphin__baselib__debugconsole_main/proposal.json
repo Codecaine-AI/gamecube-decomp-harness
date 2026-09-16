@@ -1,0 +1,581 @@
+{
+  "tu": "main/sysdolphin/baselib/debugconsole_main",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:fn_80394DF4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Void intrusive-list helper with source signature void(void*) and effective ExcptNode* argument. Successful removal rewrites the head or predecessor's next link, clears the removed node's next link, and sets the console mutation flag; null, empty-list and absent-node inputs are no-ops.",
+        "rationale": "Corrects the exclusive mutation list that omitted predecessor writes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L961-L989",
+            "why": "Complete unlink helper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:fn_80397814"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Waits at retrace-paced polls for exact held masks neutral, 0x70, neutral, 0x808, neutral, 0x104, neutral, 0x201, neutral, 0x402. Each stage waits for its own equality rather than resetting the sequence on a wrong mask. It then retains the supplied context pointer, configures VI, installs the initial node and draws the first frame. Draw callbacks run deepest-child first. Input traversal restarts for a set mutation flag only if no callback has already returned nonzero: a nonzero result jumps directly to framebuffer rotation and redraw, bypassing the restart check. The loop waits for retrace and continues while the head is nonnull; completion calls OSPanic.",
+        "rationale": "Preserves lifecycle while correcting unconditional restart and distinguishing exact-mask waits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2540-L2848",
+            "why": "Complete thread."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:.bss"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The source-declared persistent console state is cleared before display initialization, then holds geometry, framebuffer selection, cursor/scroll state, callback links and a borrowed OSContext pointer. Input-list mutation triggers a traversal restart only when control reaches the dirty check; a nonzero callback result bypasses that check and requests framebuffer rotation, redraw, cache flush and VI submission. This describes source behavior, not independently verified compiled BSS placement.",
+        "rationale": "Corrects the same unconditional-restart overstatement for the state subject without asserting compiled layout.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L558-L609",
+            "why": "Reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2775-L2835",
+            "why": "Restart and redraw."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80394314"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clears the singleton, obtains XFB slots and retained-image source, sets buffer count to two if x28 is nonzero and one otherwise, and sets active index to zero. It installs VI geometry, aligned byte stride, frame size, text-grid dimensions and font atlas. Pixel origin x4 is zero but x8 is explicitly set to framebuffer height; cursor/scroll, callback and input fields otherwise start cleared. It does not validate that a usable destination XFB was obtained.",
+        "rationale": "Corrects the assertion that all text-origin state remains zero.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L558-L609",
+            "why": "Initializer assignments."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80394950"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads FPSAVED and ctx->fpr[0..31], reporting raw word pairs and double values. The PSF-labelled loop instead starts at context byte offset 0x90 and advances eight bytes for 32 rows, interpreting each pair of words as two floats; it does not explicitly select a separate paired-single array. Reporting occurs with interrupts disabled and a cleared temporary current context, followed by restoration of the prior current context and interrupt state.",
+        "rationale": "Distinguishes literal PSF accesses from inferred paired-single storage.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L767-L809",
+            "why": "Accesses and context lifecycle."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80394950"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies the FPR and PSF-labelled output blocks of the internal crash console's saved-context report. The diagnostic role is clear, but the PSF label does not prove that the bytes read are separately saved paired-single registers.",
+        "rationale": "Keeps diagnostic mapping without overstating register sourcing.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L785-L804",
+            "why": "Report loops."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1608-L1616",
+            "why": "Context-dump caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80394950"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void(OSContext* ctx) reporter. The supplied context is read, not modified: accesses include its state and FPR array plus 32 eight-byte groups beginning at byte offset 0x90 for PSF-labelled float reinterpretation. A separate local OSContext is cleared and installed during reporting.",
+        "rationale": "Preserves signature and const-like use while removing unsupported separate-slot claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L767-L809",
+            "why": "Complete definition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80394950"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Reports saved floating-point context when FPSAVED is set: 32 FPR rows show raw words and doubles, followed by 32 PSF-labelled rows showing raw words and pairs of floats read from context byte offset 0x90 onward. The latter is an offset-based reinterpretation, not evidence of a separately selected paired-single save area.",
+        "rationale": "Corrects label-driven interpretation of the second loop.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L776-L804",
+            "why": "Guard and loops."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80394F48"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Draws shared selectable action menus for the internal diagnostic console. The main command menu moves the report-text cursor and offers memory dump, CPU-context report, SPR and quit actions; separate memory-view and address-editor menus reuse the same renderer.",
+        "rationale": "Corrects memory-cursor attribution and records actual shared use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1646-L1656",
+            "why": "Main menu."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1916-L1926",
+            "why": "Memory menu."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2099-L2108",
+            "why": "Address menu."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_803957C0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For an initially nonnegative absolute report column, probes left until a nonzero byte is found or the column becomes negative; exhaustion substitutes a space at column zero. An initially negative column skips the loop and leaves ch uninitialized, so no defined fallback is established for that input state. Drawing uses the absolute found column without subtracting horizontal scroll, the visible row, the selected style and the chosen rasterizer. The active-node identity controls the START instruction prompt, and the previous style is restored.",
+        "rationale": "Preserves normal behavior while recording exceptional uninitialized-byte path and coordinate distinction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1257-L1317",
+            "why": "Search, drawing and restoration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80395970"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Saves the history cursor and positions it at visible cursor plus scroll offsets. Up to eight parse iterations each consume a byte and retry once if it is zero; therefore more than eight reads are possible. Hexadecimal digits accumulate into a value, which is masked with 0x0FFFFFF0 and ORed with 0x80000000 before restoring the history cursor. The report input handler stores the result in the address-editor node lbl_8040BC3C, sets its destination node to the memory viewer, and pushes the editor.",
+        "rationale": "Corrects read count and identifies the intermediate editor rather than direct dump activation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1323-L1358",
+            "why": "Parser."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1453-L1467",
+            "why": "Handoff."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80395A78"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads xBC and updates report coordinates x0C+x18 and x10+x14, using history-byte probes for horizontal movement. Commands initialize and prepend the address editor or command menu, invoke optional setup, set x0_b5 and return true. That nonzero result makes the thread jump directly to redraw rather than restarting the current input walk at its dirty check.",
+        "rationale": "Corrects the claimed immediate restart for command paths returning true.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1391-L1501",
+            "why": "Input outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2775-L2808",
+            "why": "Result handling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80395D88"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes menu status and selected row at offset 0x14. Rows 0..5 synthesize masks 8,4,1,2,0x100,0x400; rows 4/5 also remove the prefix through the menu. Row 6, when xD4 is nonnull, saves capture state, enables capture, emits GPR, FPR/PSF-labelled and miscellaneous blocks, restores capture, then removes the menu prefix regardless of context availability. GQR0..3 labels read context words 0..3; GQR4..7 labels read words at 0x1B4/4+i. The PSF reporter reads byte offset 0x90 onward. Row 7 attempts SPR-node activation; row 8 clears all nodes.",
+        "rationale": "Corrects register sourcing and preserves capture and removal lifetimes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1503-L1634",
+            "why": "Helpers and command flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L793-L804",
+            "why": "PSF offsets."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80395D88"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements the internal crash console's main command-menu dispatcher for report navigation, memory inspection, context reporting, SPR inspection and quit. Its context-report command is useful postmortem output, but GQR and PSF labels do not establish a complete, correctly sourced processor-register dump.",
+        "rationale": "Retains diagnostic role while correcting full-report overstatement.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1556-L1656",
+            "why": "Report offsets, commands and labels."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80395D88"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Dispatches the main diagnostic command menu, translating selected rows into pending report-screen commands, removing or replacing nodes, clearing the list, or emitting labelled register blocks from the retained context. The report includes offset-based GQR and PSF reads and should not be described as a guaranteed complete register dump.",
+        "rationale": "Corrects completeness while preserving command responsibilities.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1556-L1634",
+            "why": "Dispatch and reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80396130"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Seeds the internal MEMORY DUMP viewer from the address editor's retained address by selecting a cached alias of its low-28-bit offset modulo OS-reported RAM size. This normalizes the starting offset but does not independently prove alignment or safety of every subsequent word or byte read.",
+        "rationale": "Replaces unsupported safe-address claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1658-L1696",
+            "why": "Normalization and unchecked row loads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80396130"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes lbl_8040BAF0.x10 from lbl_8040BC3C.x10 using ((address & 0x0FFFFFFF) + memsize) % memsize + 0x80000000. It leaves the editor address unchanged and assumes nonzero memory size; it does not align the address or validate the entire memory-view read range.",
+        "rationale": "Makes normalization precise without implying general read safety.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1658-L1667",
+            "why": "Complete initializer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_803962A8"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads xBC and memory-view address lbl_8040BAF0.x10. Directional commands change its low-28-bit offset by +/-0x10 or +/-0x40 modulo RAM size and restore the cached base. X enables capture and emits four rows of four groups of four bytes: 64 bytes total, using a raw incrementing pointer with no wrap inside the dump. It then forces capture to zero, removes the prefix through the viewer and clears report cursor/scroll fields. A copies the address into the address editor and pushes it; START pushes the memory action menu; B removes the viewer prefix.",
+        "rationale": "Corrects 256-byte arithmetic and node identities, preserving capture cleanup.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1735-L1926",
+            "why": "Input body and menu descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2050-L2053",
+            "why": "Editor descriptor."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_803962A8"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements the internal memory viewer's controller commands: wrapped RAM navigation, a 64-byte hexadecimal console report, address-editor entry, memory action-menu entry and closure. It does not directly open CPU-context or SPR diagnostic nodes.",
+        "rationale": "Corrects unrelated diagnostic-node attribution.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1735-L1926",
+            "why": "Actual commands and targets."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_803962A8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles one recognized memory-view command per call: move the selected cached address, emit a 64-byte OSReport dump, push the address editor or memory action menu, or close the viewer. Recognized commands return 1 to request an update; exhaustion returns 0.",
+        "rationale": "Corrects dump size and screen-transition identities.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1735-L1864",
+            "why": "Complete handler."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80396868"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Prepares the internal memory-address editor by imposing the cached-address prefix and 16-byte alignment. It does not check installed RAM bounds; that check occurs when the editor's accept command is processed.",
+        "rationale": "Removes unsupported safety guarantee from mask-only initialization.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1911-L1914",
+            "why": "Mask only."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2013-L2018",
+            "why": "Later validation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80396884"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Draws the centered INPUT ADDRESS overlay using a fixed leading 8 and seven hexadecimal digits from the retained address's low 28 bits, then highlights buf[19 + selected_index]. With the literal format, this highlighted character is not necessarily the nibble edited by the input handler's shift 24 - 4*selected_index and can fall in trailing non-digit text.",
+        "rationale": "Corrects the inferred highlight/edit correspondence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1928-L2002",
+            "why": "Format, highlight and edit shift."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80396884"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Saves the active style, draws the box and formatted address with the normal table, redraws the character at buf[19+index] with the highlight table through the selected rasterizer, then restores the saved style. The paired input callback normally keeps index in 0..5 and edits nibble shifts 24,20,16,12,8,4 modulo 16; the renderer's character offset does not correctly track those nibble positions in the literal format.",
+        "rationale": "Preserves balanced style lifecycle while recording index mismatch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L1944-L2012",
+            "why": "Rendering and cursor transitions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80396E40"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The selector controls only the DBAT versus IBAT heading. All four pairs are read from 0x219+2*i and 0x218+2*i regardless of heading. Permission text uses the first word &2, so only N/A or R/W is reachable. The second word supplies validity/cache-labelled tests and block-length bits 12..2, but G is uppercase in both branches. BEPI and BRPN-labelled values are masked with 0xFFFC0000 before formatting. Output goes through shared text rendering with style restored.",
+        "rationale": "Replaces generalized decoding claims with literal fixed-bank and mask behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2150-L2236",
+            "why": "Reads, masks and output."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80396E40"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides the BAT-labelled detail panel in the internal Gekko SPR inspector. It is intended for memory-translation diagnostics, but the current source always reads DBAT-numbered pairs even under the IBAT heading and loses information in permission, G and address-mask presentation; do not treat it as a fully accurate decoder.",
+        "rationale": "Preserves facility mapping while qualifying observable defects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2122-L2236",
+            "why": "Complete detail renderer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80396E40"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Draws a four-entry BAT diagnostic table with two rows per entry under a selector-dependent DBAT or IBAT heading. It formats live words from the fixed 0x218..0x21F bank into labelled permission, validity, cache, block-length and address fields, with known fixed-bank and lossy-field behavior rather than guaranteed architecturally accurate decoding.",
+        "rationale": "Corrects purpose explanation without changing supported BAT-page name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2122-L2236",
+            "why": "Complete body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80396E40"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Saves style, installs diagnostic style, selects the heading, emits exactly four register pairs in two rows each, draws the bottom border and restores style. The read bank does not change with heading. Permission uses &2, making R/O unreachable; G is invariant uppercase, while other flag characters follow their explicit bit tests.",
+        "rationale": "Corrects claim that all displayed attribute characters reflect their bits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2144-L2236",
+            "why": "Lifecycle and branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_803975D4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "HSD_DebugConsoleRenewInput",
+        "rationale": "Retains supported input-renewal role while replacing the explicitly documented ParticleScreen misnomer with the canonical console subsystem.",
+        "confidence": 0.8,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L28-L29",
+            "why": "Misnomer note."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2457-L2568",
+            "why": "Input and console-thread caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/debugconsole_main:hsd_80397DFC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally overwrites hsd_804D78CC with (size + 15) >> 4 using u32 arithmetic. Zero stores zero; values through 0xFFFFFFF0 produce the ceiling count of 16-byte units, while 0xFFFFFFF1..0xFFFFFFFF wrap the addition and store zero. There is no guard, accumulation or error report, and no consumer of this global is shown in the owned source.",
+        "rationale": "Corrects universal positive-size ceiling claim and preserves unknown downstream meaning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2865-L2868",
+            "why": "Exact u32 expression."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/debugconsole_main.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Implements the framebuffer presentation and interactive controls of HSD's exception/developer console: saved-context reports, browsing of report history owned by hsd_393C, RAM/address inspection, and live SPR inspection. It retains a borrowed OSContext pointer and uses externally supplied XFBs and a shared font atlas in a dedicated VI-paced thread; it does not own the report-history allocation or the separate camera-backed performance-overlay constructor.",
+        "rationale": "Corrects cross-file retention ownership and preserves scope of the unit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_393C.c#L110-L334",
+            "why": "History and XFB services."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debugconsole_main.c#L2687-L2858",
+            "why": "Borrowed context and rendering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3982.c#L11-L55",
+            "why": "Separate overlay owner."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

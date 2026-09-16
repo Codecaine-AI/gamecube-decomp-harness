@@ -1,0 +1,181 @@
+{
+  "tu": "main/melee/ef/efsync",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efsync:efSync_Spawn"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Dispatches an ID-tagged variadic effect request to generator creation, async/alternate dispatchers or local construction recipes. Returns a nullable primary generator/effect/chain head. Construction may fail or create only part of a composition; unreturned secondary objects can still be created when the primary result is NULL.",
+        "rationale": "Avoid guaranteed immediate complete construction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L65-L85",
+            "why": "Dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L110-L114",
+            "why": "Secondary generator independent of primary success."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L228-L290",
+            "why": "Burst stops at first failure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L563-L580",
+            "why": "Secondary generator can survive NULL model result."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efsync:efSync_Spawn"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Resets AnimCount and LoadKind to0. Remaps0x479 to0x506 only when efAsync_DatEntries[1].data is NULL. Signed gfx_id<0x250 (including negatives) or integer quotient gfx_id/1000==30 routes to generator creation with Vec3*. Remaining0x250..0x477 delegates to efAsync_Dispatch;0x478..0x4B9 delegates to efAlt_Spawn. Other values set sync mode and enter the local switch;0x4BA and unsupported values return NULL after its epilogue. Local epilogue decrements AnimCount and animates pointer-sized queue slots in reverse order, then va_end. Early return routes bypass this local epilogue/va_end, and delegates can change LoadKind themselves. Resetting count does not clear queue bytes. Global loading/count state is not saved/restored.",
+        "rationale": "Correct routing boundaries and delegated mode assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L65-L85",
+            "why": "Literal conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L654-L662",
+            "why": "Local epilogue."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L19-L36",
+            "why": "Alternate dispatcher sets sync."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L403-L408",
+            "why": "Async case can set sync."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efsync:efSync_Spawn"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Local recipes consume ordered JObj*/Vec3*/f32* payloads; some trailing pointers are read only after successful primary allocation. Scale helpers generally use owner Y scale uniformly, while selected recipes copy full scale.0x4CF/0x4D0 build up to12 linked model effects, stopping on first failure and keeping the partial chain; each successful node gets lifetime50, random rotations and a magnitude2 motion vector.0x4BF/0x507 create unreturned secondary generators regardless of primary success;0x4BB/0x4BC/0x4DA/0x50B link a second effect only after primary success.",
+        "rationale": "Expose payload and partial-failure contracts.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L86-L163",
+            "why": "Conditional payload and two-part setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L228-L290",
+            "why": "Bounded burst."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L344-L355",
+            "why": "Conditional linked child."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L563-L610",
+            "why": "Independent secondary and linked recipes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L567-L627",
+            "why": "Uniform Y-scale helpers."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ef/efsync:efSync_Spawn"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical void* efSync_Spawn(s32 gfx_id,HSD_GObj* gobj,...); header calls second parameter arg_gobj. Return is a nullable HSD_Generator*,EF_Effect* or EF_Effect chain head depending on ID, without a runtime tag. Local scalar payloads are f32 pointers, not promoted floating arguments; exact arity/type/order depend on recipe and delegated dispatchers. Some IDs ignore gobj; fighter-specific0x4FF..0x501 dereference fighter data/parts without local type validation.",
+        "rationale": "Record actual variadic ABI and conditional owner requirements.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L43-L76",
+            "why": "Signature and generator route."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L118-L153",
+            "why": "Pointer-valued scalar payloads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L500-L521",
+            "why": "Fighter-specific owner data."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.h#L6-L6",
+            "why": "Header signature."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ef/efsync.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Resets AnimCount and LoadKind to0. Remaps0x479 to0x506 only when efAsync_DatEntries[1].data is NULL. Signed gfx_id<0x250 (including negatives) or integer quotient gfx_id/1000==30 routes to generator creation with Vec3*. Remaining0x250..0x477 delegates to efAsync_Dispatch;0x478..0x4B9 delegates to efAlt_Spawn. Other values set sync mode and enter the local switch;0x4BA and unsupported values return NULL after its epilogue. Delegation does not imply the mode stays asynchronous: efAlt sets synchronous mode and efAsync has synchronous cases. Local animation processing pops reverse pointer slots and leaves mode synchronous; count0 hides prior queue contents without clearing them. No local rollback frees prior successful effects when a compound recipe later fails.",
+        "rationale": "Correct TU-wide state and partial-success guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L65-L85",
+            "why": "Entry/reset/routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L228-L290",
+            "why": "Partial chain retained."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L654-L662",
+            "why": "Reverse drain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L19-L36",
+            "why": "Alternate mode transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L403-L408",
+            "why": "Async mode transition."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

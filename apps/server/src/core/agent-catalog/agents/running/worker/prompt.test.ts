@@ -174,6 +174,11 @@ describe("workerPrompt", () => {
             },
             context_budget: "full",
             ledger: {
+              recovery: {
+                cause: "upstream_change",
+                summary: "Previously reached 100%; displaced by merge resolution. Recover saved code with git show saved-commit:src/test.cpp.",
+                refs: [{ refKind: "commit", refId: "saved-commit" }],
+              },
               runs: [],
               entries: Array.from({ length: 10 }, (_, index) => ({
                 type: "submission",
@@ -206,6 +211,8 @@ describe("workerPrompt", () => {
     expect(renderedContext).toContain("precomputed-card-entry-7");
     expect(renderedContext).not.toContain("precomputed-card-entry-8");
     expect(renderedContext).not.toContain("precomputed-card-entry-9");
+    expect(renderedContext).toContain("displaced by merge resolution");
+    expect(renderedContext).toContain("git show saved-commit:src/test.cpp");
   });
 
   test("loads v2 context without emitting a legacy graph card", async () => {
@@ -587,6 +594,10 @@ describe("workerPrompt", () => {
     expect(systemPrompt).toContain("Edit only paths in your approved write set");
     expect(systemPrompt).toContain("initially contains only the `&lt;target_file");
     expect(systemPrompt).toContain("first try typing the in-slice code to the foreign types already present on master");
+    expect(systemPrompt).toContain("`request_write_set_widening`");
+    expect(systemPrompt).toContain("`paths`");
+    expect(systemPrompt).toContain("`reason`");
+    expect(systemPrompt).toContain("immediate");
     expect(systemPrompt).toContain("`widening_request` object");
     expect(systemPrompt).toContain("`write_set_widening_request_v1`");
     expect(systemPrompt).toContain("`category`: `config-metadata`, `owning-header`, or `foreign-source`");

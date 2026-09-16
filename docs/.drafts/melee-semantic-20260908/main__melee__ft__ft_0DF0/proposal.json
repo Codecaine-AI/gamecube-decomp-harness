@@ -1,0 +1,116 @@
+{
+  "tu": "main/melee/ft/ft_0DF0",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF0.c#L33-L42",
+            "why": "Release guard and unchecked arithmetic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L2987-L3003",
+            "why": "Result feeds hit-capsule damage processing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace unconditional endpoint/increase claims with the actual formula and verified damage consumer.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0DF0:ftCo_800DEEB8"
+        },
+        "type": "game_mapping",
+        "value": "Supplies charge-dependent hit-capsule damage scaling in Release. For ordinary finite operands and a positive finite hold duration, the held fraction interpolates the multiplier between one and the configured damage multiplier. The helper does not enforce an increase, clamp the fraction, or validate exceptional floats; no universal maximum duration or multiplier is encoded here."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF0.c#L44-L97",
+            "why": "Output writes, state gates, and separate index updates."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguish read-only Fighter/table access from the real caller-buffer writes.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0DF0:ftCo_800DEEE8"
+        },
+        "type": "state_behavior",
+        "value": "In Charging or literal state 4, copies the current shake-table entry into the caller's Vec2 and returns that same pointer. In all other states returns NULL without writing the buffer. It does not mutate Fighter charge state or advance the index; the updater advances and wraps that index in both enabling states. The accessor has no pointer or index validation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF0.c#L56-L97",
+            "why": "Complete branch and output ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcolanim.c#L197-L227",
+            "why": "Exceptional identifier and callback/reapplication behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1181-L1186",
+            "why": "Removal gate and ID translation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Capture state-4 exception, exact ordering, and delegated exceptional paths.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0DF0:ftCo_800DEF38"
+        },
+        "type": "data_flow",
+        "value": "In Charging and literal state 4, increments elapsed frames and the shake index, wrapping the index at x212D. Only Charging tests the hold limit: equality releases, overshoot first clamps. It writes Release, requests the saved animation rate, calls ftCo_800C0200 with x2128, and requests removal of logical rumble ID 0x24. After this sequence it still tests the sound threshold; both active branches request ft_PlaySFX(fp,0x7B,0x7F,0x40) once while the latch is clear and set the latch after the call. Effects are delegated requests: the color-reset helper rejects IDs >=0x7B, and rumble removal is player-gated."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF0.c#L99-L134",
+            "why": "Canonical field and all reads/writes/calls."
+          }
+        ],
+        "op": "write",
+        "rationale": "Correct stale input-field spelling and expose optional entry branch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0DF0:ftCo_800DF0D0"
+        },
+        "type": "data_flow",
+        "value": "Reads the held A bit from input.held_buttons[0]. PreCharge with A saves frame_speed_mul, initializes the shake index/count and sound latch, writes Charging, and requests animation rate zero. It requests color animation only when x2128 != 0x7B, then requests logical rumble 0x24. PreCharge without A only writes None. Charging without A writes Release, restores the saved rate through ftAnim_SetAnimRate, calls ftCo_800C0200(x2128), and requests rumble removal. Continued held A and all other states produce no writes here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF0.c#L106-L134",
+            "why": "State switch and entry sentinel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcolanim.c#L197-L203",
+            "why": "Exit helper rejects sentinel range."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve lifecycle while explicitly qualifying optional and exceptional effects.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0DF0:ftCo_800DF0D0"
+        },
+        "type": "state_behavior",
+        "value": "PreCharge enters Charging if current held A is set, otherwise becomes None. Charging becomes Release if current held A is absent; with A it does nothing. Other states, including literal 4, are ignored. Entry snapshots animation rate, initializes presentation bookkeeping, requests rate zero, conditionally starts color animation unless ID is 0x7B, and requests rumble. Exit requests saved rate restoration, color reset, and rumble removal. These are not guaranteed feedback outcomes: the entry sentinel is still passed to the exit reset helper, which rejects IDs >=0x7B."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

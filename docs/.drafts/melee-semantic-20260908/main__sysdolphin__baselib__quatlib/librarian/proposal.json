@@ -1,0 +1,428 @@
+{
+  "tu": "main/sysdolphin/baselib/quatlib",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "s32 HSD_QuatLib_8037EF28(Quaternion* p, Quaternion* q, Quaternion* out, f32 t). p and q are input quaternions, out is writable output, and t is an unchecked blend parameter. Always returns zero; no normalization, valid-angle-domain, or general output-aliasing guarantee is enforced.",
+        "rationale": "Avoids implying every input and t produce a valid interpolated orientation; antipodal writes can alias input storage.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L148-L199",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L514-L552",
+            "why": "JObj caller converts Euler data if necessary, selects quaternion sign from sum/difference norms, and calls interpolation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L623-L655",
+            "why": "Second caller performs equivalent conversion and sign selection before interpolation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Computes the quaternion dot product without clamping or input normalization. If 1+dot > 1e-10, uses spherical weights when 1-dot > 1e-10, otherwise linear weights. In the other branch it first writes (-p.y,p.x,-p.w,p.z) to out, but both subsequent t branches overwrite all four components with weighted p and q. For distinct output storage the initial orthogonal value is unused; aliasing out with either input can change later reads. t is neither bounded nor clamped, and all paths return zero.",
+        "rationale": "The old description omitted that the nominal orthogonal fallback is overwritten and treated one-sided threshold branches as symmetric proximity tests.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L148-L199",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L514-L552",
+            "why": "JObj caller converts Euler data if necessary, selects quaternion sign from sum/difference norms, and calls interpolation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L623-L655",
+            "why": "Second caller performs equivalent conversion and sign selection before interpolation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/quatlib:MatToQuat"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Extracts a quaternion from the matrix's upper-left 3x3 after dividing each column by its Euclidean length. This removes positive independent column magnitudes before the rotation extraction formula. It does not validate zero columns, shear, or reflections, so arbitrary affine matrices need not yield a unit rotation quaternion.",
+        "rationale": "The previous scale-independent rotation claim was too broad for reflected or sheared matrices.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L6-L57",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Always returns zero after writing three Euler components. The len > 1e-05 branch uses all three ordinary atan2 formulas; the other branch sets z to zero. Translation is ignored. It has no pointer, finite-value or column-scale normalization checks.",
+        "rationale": "The exact guards and output writes establish the success/failure boundary and missing validation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L59-L75",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns -1 without writing q when fabsf(sqrtf(axis.x^2+axis.y^2+axis.z^2)) is below 1.1754944E-38F. Otherwise writes a half-angle quaternion and returns zero. It checks neither pointers nor non-finite inputs; axis components themselves are not modified.",
+        "rationale": "The exact guards and output writes establish the success/failure boundary and missing validation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L98-L118",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:MatToQuat#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Mtx m: input matrix; only upper-left 3x3 is read, with each column divided by its computed length. Zero columns are unchecked.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L6-L57",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:MatToQuat#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Quaternion* q: writable output for x,y,z,w; all normal control-flow paths write it and return status zero.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L6-L57",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Mtx m: input matrix supplying the upper-left 3x3 Euler extraction formulas; translation is ignored.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L59-L75",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EB28#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Vec3* euler: writable output of three atan2-based angular components; the near-singular branch forces z to zero.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L59-L75",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Quaternion* p: left Hamilton-product operand; read before output stores.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L77-L96",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Quaternion* q: right Hamilton-product operand; read before output stores.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L77-L96",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EC4C#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Quaternion* out: output p*q, written after all four result temporaries are calculated; may equal p or q.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L77-L96",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Vec3* axis: input axis whose norm is used to normalize its direction; not modified.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L98-L118",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Quaternion* q: half-angle quaternion output; unchanged on the explicit small-length failure path.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L98-L118",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037ECE0#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 angle: rotation angle passed through half-angle sinf/cosf formulas, using radians.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L98-L118",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:EulerToQuat#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Vec3* euler: input x/y/z angles used in half-angle sine/cosine formulas, using radians.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L120-L146",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:EulerToQuat#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Quaternion* q: writable output for the Rz*Ry*Rx composition of the supplied Euler angles.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L120-L146",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Quaternion* p: first quaternion used for dot product and weighted component outputs; do not assume general out-alias safety.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L148-L199",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L514-L552",
+            "why": "JObj caller converts Euler data if necessary, selects quaternion sign from sum/difference norms, and calls interpolation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L623-L655",
+            "why": "Second caller performs equivalent conversion and sign selection before interpolation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Quaternion* q: second quaternion used for dot product and weighted component outputs; shortest-arc sign selection is not done here.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L148-L199",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L514-L552",
+            "why": "JObj caller converts Euler data if necessary, selects quaternion sign from sum/difference norms, and calls interpolation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L623-L655",
+            "why": "Second caller performs equivalent conversion and sign selection before interpolation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Quaternion* out: interpolation output; near-antipodal branch writes scratch components before rereading inputs, so input aliasing may alter results.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L148-L199",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L514-L552",
+            "why": "JObj caller converts Euler data if necessary, selects quaternion sign from sum/difference norms, and calls interpolation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L623-L655",
+            "why": "Second caller performs equivalent conversion and sign selection before interpolation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/quatlib:HSD_QuatLib_8037EF28#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 t: unchecked interpolation parameter used in sine weights or linear weights; neither clamped nor range-validated.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/quatlib.c#L148-L199",
+            "why": "Canonical arithmetic, branches, reads and writes directly support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L514-L552",
+            "why": "JObj caller converts Euler data if necessary, selects quaternion sign from sum/difference norms, and calls interpolation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L623-L655",
+            "why": "Second caller performs equivalent conversion and sign selection before interpolation."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

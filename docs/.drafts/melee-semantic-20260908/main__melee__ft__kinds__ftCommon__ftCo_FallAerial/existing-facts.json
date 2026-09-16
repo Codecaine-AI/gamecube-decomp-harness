@@ -1,0 +1,554 @@
+{
+  "main/melee/ft/kinds/ftCommon/ftCo_FallAerial:.sdata2": [
+    {
+      "id": "fact:b00ae66f-2e17-4099-8c7c-4399855d5ce2",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The 0.0F constant supplies the starting animation frame, motion-state blend/start value, and initial mv.co.fallaerial.x4 value in ftCo_FallAerial_Enter. The 1.0F constant supplies the motion-state playback rate. The initialized x4 value is subsequently passed through the shared directional fall-animation selector and then to the animation-skeleton blending helper.",
+      "rationale": "The relocated source directly shows the literals entering motion-state setup, the zero initialization of x4, and the animation callback's later flow of x4 through both shared animation helpers.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:01:25.968Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L10-L25",
+          "why": "Shows 0.0F and 1.0F used by FallAerial entry, x4 initialized to zero, and x4 subsequently passed to the selector and skeleton-blending helpers."
+        }
+      ]
+    },
+    {
+      "id": "fact:0adbbfbf-e312-48a9-b61b-c6ce56bc05d7",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An 8-byte .sdata2 constant pool laid out as two 32-bit IEEE-754 floating-point values, 0.0F and 1.0F; it is compiler-owned section data rather than an authored named object.",
+      "rationale": "The current relocated translation unit uses the two distinct single-precision literals 0.0F and 1.0F directly, while the section target is eight bytes. Two f32 constants account for the complete section layout without requiring authored named data.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T19:01:25.968Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L1-L38",
+          "why": "The complete current unit shows direct uses of the 0.0F and 1.0F floating-point literals and no authored source-level constant object."
+        }
+      ]
+    },
+    {
+      "id": "fact:ce9b16b2-34ba-48d5-ad37-44f1775db3a0",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the translation unit's compiler-emitted read-only floating-point constants for initializing the FallAerial motion-state transition and its persistent animation blend.",
+      "rationale": "The current source uses its floating-point literals for FallAerial motion-state initialization and for initializing the persistent x4 blend value, supporting the section's role as compiler-emitted constant storage.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T19:01:25.968Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L10-L25",
+          "why": "Shows the floating-point literals supplying the initial frame, playback rate, blend/start value, and initial persistent animation blend."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Anim": [
+    {
+      "id": "fact:b8ddb6f6-db6e-40df-b6f6-9038a9d60e1a",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Anim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the Fighter from gobj->user_data and passes fp->mv.co.fallaerial.x4 by address to ftCo_Fall_Anim_Inner. That helper reads horizontal self-velocity, maximum air drift, facing direction, and common-data tuning values; it updates x4 toward a velocity-derived blend weight and may change the stored fall motion ID. The callback then feeds the updated x4 to ftCo_800CC988, which advances the animation skeleton and blends or selects the translation-root animation component.",
+      "rationale": "The relocated callback establishes x4 as an input/output of the shared selector and then as input to the animation helper. The current shared Fall implementation shows how velocity, attributes, facing, and common tuning values determine the blend and selected motion.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T19:01:25.968Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L19-L25",
+          "why": "Shows the Fighter lookup and the complete local flow of fallaerial.x4 through the two shared helpers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L115-L211",
+          "why": "Shows the shared selector deriving the target blend and motion from velocity, air-drift attributes, facing, and common tuning constants, then applying translation-root animation blending."
+        }
+      ]
+    },
+    {
+      "id": "fact:ce2f89eb-8f77-47ae-8000-9b12308fb5d2",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Anim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the directional airborne-fall presentation: slowly drifting fighters use the neutral fall pose, while sufficiently fast movement relative to facing progressively shifts the presentation into forward- or backward-fall animation.",
+      "rationale": "The target names the three candidate motions FallAerial, FallAerialF, and FallAerialB. The shared helper chooses among them from horizontal air speed and facing and computes a proportional blend, grounding this mapping in visible directional fall animation rather than an unrelated state transition.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T00:37:38.350Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L19-L25",
+          "why": "The callback identifies the neutral, forward, and backward FallAerial motions used for presentation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L115-L211",
+          "why": "The generic fall-animation helper demonstrates that horizontal speed relative to facing selects and blends those directional motions."
+        }
+      ]
+    },
+    {
+      "id": "fact:e6e4eb4e-04f3-4d21-8112-4e1e55a07d92",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Anim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Fighter animation callback with signature void(Fighter_GObj* gobj).",
+      "rationale": "The current definition explicitly accepts one Fighter_GObj pointer and returns void, and its body performs the FallAerial state's per-animation-update work.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:01:25.968Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L19-L25",
+          "why": "Provides the exact function signature and shows the directional FallAerial animation update body."
+        }
+      ]
+    },
+    {
+      "id": "fact:e7589bc3-a570-4f71-9d4b-afb6e82380ab",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Anim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Updates the FallAerial state's displayed fall animation so it reflects the fighter's horizontal air movement, then applies the resulting blend to the fighter's animation skeleton.",
+      "rationale": "The callback supplies the neutral, forward, and backward FallAerial motions plus a persistent blend value to ftCo_Fall_Anim_Inner, then calls ftCo_800CC988 with the updated blend. The helper selects a motion from horizontal velocity and the latter routine advances and blends the skeleton.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:37:38.350Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L19-L25",
+          "why": "The callback invokes the shared selector with the three FallAerial motion IDs and then passes its updated blend value to ftCo_800CC988."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L115-L211",
+          "why": "The shared helper derives direction and blend strength from horizontal velocity, while the surrounding fall code shows that ftCo_800CC988 advances and blends the animation skeleton when the blend is nonzero."
+        }
+      ]
+    },
+    {
+      "id": "fact:fafc7ca9-fd21-46e2-a8e8-fdcb833f7935",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Anim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each animation update normalizes horizontal velocity by maximum air drift and clamps it to [-1, 1]. At or below a configured magnitude threshold it selects the neutral FallAerial motion with zero target blend; above the threshold it selects the forward or backward motion according to velocity relative to facing and scales the target blend from the threshold to full drift. The persistent blend approaches that target at a configured rate. Once nonzero, a changed selected motion is installed at the current animation frame and its translation-root animation is blended according to the updated value.",
+      "rationale": "This is the explicit control flow of ftCo_Fall_Anim_Inner, and the target supplies that helper with FallAerial's neutral, forward, and backward motion IDs and persistent blend field.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:37:38.350Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L19-L25",
+          "why": "The target binds the generic helper's three motion parameters and blend pointer to the FallAerial state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L115-L211",
+          "why": "The helper body directly shows velocity normalization, clamping, threshold and facing tests, blend interpolation, motion replacement, and translation-root blending."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Enter": [
+    {
+      "id": "fact:83e57e96-196a-44ee-a2bd-daf88ebb313d",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Enter",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a Fighter_GObj, derives its Fighter, passes the object to Fighter_ChangeMotionState with ftCo_MS_FallAerial, and writes ftCo_SM_FallAerial and 0.0 to the fighter's fallaerial.smid and fallaerial.x4 fields. The animation callback later passes x4 by address to the common fall-animation selector and then forwards its value to ftCo_800CC988.",
+      "rationale": "The current relocated source shows the input conversion, motion-state call, state-field writes, and the subsequent animation callback that consumes x4.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:25.968Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L10-L25",
+          "why": "Shows the entry-time state transition and field writes together with the later flow of x4 through the animation helpers."
+        }
+      ]
+    },
+    {
+      "id": "fact:1b6ffeeb-c8a9-4b6f-bf37-9c606b03655d",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Enter",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Begins ordinary aerial falling after a preceding airborne action concludes.",
+      "rationale": "The routine explicitly enters the common FallAerial motion state. Peach's FloatFall animation callback invokes it precisely when that character-specific airborne animation has no frames remaining, demonstrating the mechanic-level handoff into ordinary falling.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T00:36:33.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L10-L17",
+          "why": "Shows the routine selecting and initializing the common FallAerial state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftPeach/ftpeachfloatfall.c#L35-L40",
+          "why": "Shows FallAerial entry being used as the transition after an airborne FloatFall animation ends."
+        }
+      ]
+    },
+    {
+      "id": "fact:2186ca18-3019-468e-a1eb-6d3e32f1ecb5",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Enter",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Fighter action-state entry routine with signature void(Fighter_GObj* gobj); its argument owns the Fighter whose motion state and FallAerial move variables are updated.",
+      "rationale": "The matched definition supplies the exact return and parameter types, obtains a Fighter with GET_FIGHTER, changes the object's motion state, and writes that Fighter's move-state storage.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:36:33.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L10-L17",
+          "why": "Provides the exact signature and demonstrates action-state entry behavior on the fighter object."
+        }
+      ]
+    },
+    {
+      "id": "fact:1a064918-fb63-4298-a087-c44fbdb30421",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Enter",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Enters the fighter's common aerial-fall state and initializes the per-state values used by its subsequent fall-animation updates.",
+      "rationale": "The current entry routine changes to ftCo_MS_FallAerial and initializes its move variables, while the immediately following animation callback demonstrates that x4 persists into later directional animation updates.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:25.968Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L10-L25",
+          "why": "Shows the complete entry routine and the subsequent animation callback that consumes the initialized x4 field."
+        }
+      ]
+    },
+    {
+      "id": "fact:b2bd2f98-e926-4dd4-a060-4819b033e597",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Enter",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Unconditionally changes the fighter to ftCo_MS_FallAerial at animation frame 0 with playback rate 1.0, zero blend/start offset, Ft_MF_None, and no callback argument, then initializes the submotion identifier to neutral FallAerial and x4 to zero.",
+      "rationale": "Every transition argument and both initialization writes are literal in the matched source, and there is no guard or alternate branch.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:36:33.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L10-L17",
+          "why": "Directly shows the unconditional transition, all motion-state arguments, and the two state-variable initializations."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_IASA": [
+    {
+      "id": "fact:6dd6bad3-b3c6-4214-98c9-caa9662645af",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_IASA",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the active fighter object and forwards it unchanged to ftCo_Fall_IASA_Inner; the inner routine's boolean result is consumed only by RETURN_IF as an early-exit condition, and this void wrapper produces no value of its own.",
+      "rationale": "The complete body has no local variables, field accesses, or other calls, so all interrupt-selection inputs and state mutations belong to the shared inner routine. RETURN_IF consumes that routine's result locally.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:37:48.681Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L27-L30",
+          "why": "The body shows the unchanged gobj argument passed to ftCo_Fall_IASA_Inner and its result used by RETURN_IF."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e4c6150-4a5d-462d-8f4e-29c5ac1362ef",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_IASA",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes player-driven transition handling for the normal actionable airborne state, including access to character-specific airborne options such as Peach beginning a float when its input and availability conditions pass.",
+      "rationale": "The wrapper invokes the shared normal-fall IASA checker, and the resolved community analysis identifies both its per-frame actionable-airborne role and a concrete transition it checks: Peach's float activation.",
+      "confidence": 0.87,
+      "updated_at": "2026-09-02T00:37:48.681Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L27-L30",
+          "why": "The FallAerial IASA callback directly invokes the shared fall IASA checker."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1543658003121700984",
+          "why": "The message maps the checker to the normal actionable air state and describes its Peach float input check and transition."
+        }
+      ]
+    },
+    {
+      "id": "fact:2ae765b0-a61f-4ee4-b9db-c1e99bf4f7fd",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_IASA",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A fighter IASA callback with signature void (Fighter_GObj*).",
+      "rationale": "The relocated definition explicitly returns void, accepts one Fighter_GObj pointer, and delegates to the shared Fall IASA transition checker.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:25.968Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L27-L30",
+          "why": "Provides the exact callback signature and its complete IASA delegation body."
+        }
+      ]
+    },
+    {
+      "id": "fact:22f65118-cb43-464b-8f11-93496ea8adce",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_IASA",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the FallAerial state's IASA adapter, reusing the shared normal-fall interrupt and input-transition checker instead of duplicating airborne transition logic.",
+      "rationale": "The function contains only a call to ftCo_Fall_IASA_Inner wrapped in RETURN_IF. Community analysis independently identifies that inner routine as the checker run each frame in the normal actionable airborne state.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T00:37:48.681Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L27-L30",
+          "why": "The complete function body delegates directly and exclusively to ftCo_Fall_IASA_Inner."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1543658003121700984",
+          "why": "The message identifies ftCo_Fall_IASA_Inner as the routine called every frame in the normal actionable air state and explains that it checks character-specific transitions such as Peach's float."
+        }
+      ]
+    },
+    {
+      "id": "fact:b842db56-1a9e-431d-8867-2ac8437b9c27",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_IASA",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On each IASA update for FallAerial, invokes the shared fall-state transition checker. A successful check causes an immediate return from this callback; otherwise the callback reaches its end without performing any additional local transition or state mutation.",
+      "rationale": "RETURN_IF directly expresses the success guard around the only call. The every-frame role during the actionable airborne state is corroborated by the resolved community analysis.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-02T00:37:48.681Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L27-L30",
+          "why": "The complete body shows the sole guarded call and that no behavior follows it."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1543658003121700984",
+          "why": "The message states that the shared inner checker is called every frame while the fighter is in the normal actionable air state."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Phys": [
+    {
+      "id": "fact:5bc40969-1f70-4c2d-9396-5596f84c5010",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Phys",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the current fighter's GObj from the action-state callback dispatcher and forwards that pointer unchanged to ft_80084DB0; it performs no callback-local reads, writes, transformations, or return-value handling.",
+      "rationale": "The complete body contains no locals or expressions other than ft_80084DB0(gobj), so the fighter object is the sole input and all resulting physics effects occur through the shared callee.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:36:28.068Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L32-L35",
+          "why": "The source shows the input Fighter_GObj pointer passed directly and unchanged to the function's only callee."
+        }
+      ]
+    },
+    {
+      "id": "fact:3439f1a5-c04f-48e3-86bd-8d24dfcae27c",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Phys",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the per-frame physics entry point for a fighter in the normal aerial-fall action, the state representing downward movement while airborne.",
+      "rationale": "The recovered symbol identifies this as the FallAerial action's physics callback, while SmashWiki defines falling as downward movement in mid-air. The code delegates that state's movement processing to shared fighter physics rather than implementing a distinct local movement model.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T00:36:28.068Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L32-L35",
+          "why": "The recovered function name and body identify the target as the FallAerial action's physics callback."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://falling-speed~__intro__@r2035455",
+          "why": "The article defines falling speed as the rate of downward movement while a character is in mid-air, grounding the gameplay meaning of aerial falling."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5794f0e-2e88-4bac-a7ae-429d8ae8f88e",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Phys",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Action-state physics callback with signature void (Fighter_GObj* gobj).",
+      "rationale": "The resolved definition explicitly returns void and accepts one Fighter_GObj pointer, matching the signature and wrapper shape of another common airborne action's physics callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:36:28.068Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L32-L35",
+          "why": "The function declaration directly establishes the void return type and Fighter_GObj* parameter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackAir.c#L184-L187",
+          "why": "The analogous AttackAir physics callback has the same signature and delegates to the same shared routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:cd472d44-206a-4ef9-8a8c-dc5ddf314810",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Phys",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the FallAerial action state's physics callback and delegates its entire per-frame physics update to the shared fighter routine ft_80084DB0.",
+      "rationale": "The complete function body consists solely of an unconditional call to ft_80084DB0 with the callback's fighter object. The identical wrapper used by the common AttackAir physics callback corroborates that this is an action-specific entry point into shared airborne fighter physics.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:36:28.068Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L32-L35",
+          "why": "The full target body shows ftCo_FallAerial_Phys calling ft_80084DB0 exactly once and performing no other work."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackAir.c#L184-L187",
+          "why": "A neighboring common airborne action uses the same one-call physics-callback wrapper around ft_80084DB0."
+        }
+      ]
+    },
+    {
+      "id": "fact:91ee7972-47ee-46ed-94c7-65502ab125ab",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Phys",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Whenever the FallAerial physics callback is dispatched, it invokes the shared physics update exactly once; it contains no callback-local guard, branch, timer, or action-state transition.",
+      "rationale": "The resolved body is a single unconditional call, ruling out any state selection, timing logic, or transition performed locally by this wrapper.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:36:28.068Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L32-L35",
+          "why": "The complete function has one unconditional call and no conditional control flow or direct state-changing code."
+        }
+      ]
+    }
+  ],
+  "src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c": [
+    {
+      "id": "fact:8f3544f9-3bd5-4ad8-a9b5-9cd87b2500f2",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c",
+      "type": "data_flow",
+      "value": "Entry initializes neutral FallAerial motion and a zero blend; animation passes neutral, forward, and backward motions plus the persistent blend to shared velocity-driven selection and animation helpers.",
+      "rationale": "The current unit shows entry-time writes and all arguments forwarded to the shared Fall helpers.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L1-L35",
+          "why": "Shows entry-time writes and arguments passed to shared helpers."
+        }
+      ]
+    },
+    {
+      "id": "fact:8d2630e5-78a4-464f-a229-2d6160f53f64",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c",
+      "type": "game_mapping",
+      "value": "Realizes ordinary controllable aerial falling with direction-sensitive animation.",
+      "rationale": "The state uses common airborne interrupts and physics while passing directional motions to the shared drift-driven animation helper.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L1-L35",
+          "why": "Shows FallAerial entry, directional animation, IASA, and physics."
+        }
+      ]
+    },
+    {
+      "id": "fact:dbc2a02c-fb15-4dad-997a-ef30974d167f",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c",
+      "type": "inferred_type",
+      "value": "Fighter action-state unit whose four routines share signature void(Fighter_GObj*).",
+      "rationale": "All definitions in the current source have this interface.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L1-L35",
+          "why": "Provides all four function signatures."
+        }
+      ]
+    },
+    {
+      "id": "fact:cf9e25f9-1648-4575-b1b0-ee504e3b5790",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c",
+      "type": "purpose",
+      "value": "Implements FallAerial entry plus directional animation, airborne interrupt, and physics callbacks.",
+      "rationale": "The complete current unit consists of those four routines.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L1-L35",
+          "why": "Shows every FallAerial callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:951e3084-ef4d-413d-b8b7-1f59b53b755d",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c",
+      "type": "state_behavior",
+      "value": "Entry selects FallAerial and initializes neutral motion. Horizontal drift above a common threshold selects forward or backward animation relative to facing, with the blend approaching its target; IASA and physics delegate to common airborne behavior.",
+      "rationale": "FallAerial supplies the state and motion arguments, while the shared Fall helper applies the drift threshold, facing test, and blend interpolation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_FallAerial.c#L1-L35",
+          "why": "Shows state initialization and delegation to shared Fall behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L121-L211",
+          "why": "Shows the drift threshold, facing test, interpolation, and motion replacement."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Anim#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Enter#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_IASA#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_FallAerial:ftCo_FallAerial_Phys#r3": []
+}

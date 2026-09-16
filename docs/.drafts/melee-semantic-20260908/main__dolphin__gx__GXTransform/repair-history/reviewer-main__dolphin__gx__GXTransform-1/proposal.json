@@ -1,0 +1,77 @@
+{
+  "tu": "main/dolphin/gx/GXTransform",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTransform.c#L322-L327",
+            "why": "Six-bit PN matrix field update and helper call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTransform.c#L545-L555",
+            "why": "Selected register emission and exact numeric bookkeeping assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported field/register flow while replacing the ambiguous claim that the bookkeeping assignment marks all GX state synchronized.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXTransform:GXSetCurrentMtx"
+        },
+        "type": "data_flow",
+        "value": "The caller's matrix identifier replaces bits 0\u20135 of gx->matIdxA while preserving neighboring texture-matrix index fields. __GXSetMatrixIndex(GX_VA_PNMTXIDX) publishes the complete matIdxA word through the command-processor register selector 0x30 and XF register 24, then assigns gx->bpSent = 1. This emits matrix-selection commands; it neither uploads matrix coefficients nor waits for GPU completion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTransform.c#L465-L492",
+            "why": "Complete validation, bound packing, raster writes and zero assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the misleading interpretation of bpSent=0 and makes the actual assertion expressions and size edge case explicit.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXTransform:GXSetScissor"
+        },
+        "type": "state_behavior",
+        "value": "Applies the GXBegin guard and asserts left < 1708, top < 1708, left + wd < 1708, and top + ht < 1708 using unsigned arguments. It adds 342 to the origins, computes inclusive bottom/right bounds by adding dimensions and subtracting one, replaces four 11-bit fields in the scissor shadow registers, emits both raster-register words, and assigns gx->bpSent = 0. The zero assignment is bookkeeping after actual register emission, not evidence that the BP commands were unsent. No explicit nonzero-dimension check is present."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L278-L330",
+            "why": "Normal scissor-field conversion and top-half viewport-derived rectangle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L394-L408",
+            "why": "Bottom-half scissor fields and efbHeight-8 origin."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTransform.c#L465-L492",
+            "why": "Rectangle-to-raster-register installation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline rationale's conflation of top-half viewport-derived bounds with CObj scissor fields, while retaining the established camera/raster mapping.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXTransform:GXSetScissor"
+        },
+        "type": "game_mapping",
+        "value": "Implements raster scissor configuration for HSD camera render regions. Normal camera setup scales the CObj scissor bounds into its framebuffer rectangle. Top-half setup instead derives a rectangle from CObj viewport bounds and caps its bottom at efbHeight. Bottom-half setup derives its rectangle from CObj scissor bounds relative to screen_top = efbHeight - 8. Each path passes origin and dimensions to GXSetScissor for raster-register installation."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

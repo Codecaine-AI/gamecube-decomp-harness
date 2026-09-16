@@ -1,0 +1,256 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:fn_800DA4FC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes the supplied fighter's CatchAttack motion state, zeroing gr_vel and installing its accessory1 and take-damage hooks before setting the common x1A6A value to 0x1FF.",
+        "rationale": "Exact entry behavior without claiming all movement stops or independently proving a player-facing pummel identity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L11-L20",
+            "why": "Complete initialization sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L906-L909",
+            "why": "Common helper is a direct x1A6A assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:fn_800DA4FC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally sets gr_vel to 0.0F, requests ftCo_MS_CatchAttack with flags 0, anim_start 0.0F, anim_speed 1.0F, anim_blend 0.0F and a null Fighter_GObj argument, then installs fn_800DA678 in accessory1_cb, fn_800DA668 in take_dmg_cb, and writes x1A6A = 0x1FF through ftCommon_8007E2F4. There is no local validity or previous-state guard.",
+        "rationale": "Corrects the baseline's incorrect description of the final motion-change argument as a callback.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L11-L20",
+            "why": "Exact arguments and write order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L933-L936",
+            "why": "Parameter types and names."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L906-L909",
+            "why": "Resolves common helper effect."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:fn_800DA618"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "CatchAttack collision fallback that snapshots the linked victim, tears down the capture pair using ftCo_800DC920, then invokes ftCo_Fall_Enter first for the supplied fighter and then for the saved victim. Both objects must remain valid; ordinary Fall is not guaranteed for every specialized route.",
+        "rationale": "Preserves proved teardown and ordering while qualifying delegated outcomes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L39-L52",
+            "why": "Callback wiring, victim snapshot, and ordered calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L101-L196",
+            "why": "Bilateral capture cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L31-L71",
+            "why": "Fall entry has alternate paths."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:fn_800DA678"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies CatchAttack's accessory1 callback by forwarding its Fighter_GObj unchanged to the shared fn_800DA054 grab-pair position helper.",
+        "rationale": "Exact adapter purpose without guaranteed spatial coherence or unsupported gameplay identity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L17-L17",
+            "why": "Accessory installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L59-L62",
+            "why": "Complete forwarding body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:fn_800DA678"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards gobj unchanged to fn_800DA054. That helper resolves victim_gobj before testing victim x2226_b2, then, if clear, reads capture and victim joint positions, facing_dir, x2170, common x34C/x350 limits and walk_max_vel. Depending on comparisons it calls ftCo_800DA698(gobj, 1), writes signed corrective gr_vel, or leaves gr_vel unchanged. It performs no pointer or numeric validation.",
+        "rationale": "Names actual delegated inputs and outputs without relying on rendered helper aliases.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L59-L62",
+            "why": "Unchanged input forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchPull.c#L149-L204",
+            "why": "Complete downstream data flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:fn_800DA678"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The adapter itself has no guard. In fn_800DA054, victim x2226_b2 suppresses processing; otherwise dx*facing > x34C or abs(dy) > x350 calls ftCo_800DA698(gobj, 1). Equality does not trigger these tests. If neither triggers and dx*facing < 0, gr_vel becomes signed min(abs(dx), walk_max_vel) for ordinary finite nonnegative speed data. Other branches leave velocity unchanged. NaN, infinities, negative speed limits and invalid facing values are not sanitized, so bounded movement toward the victim is not an unconditional invariant.",
+        "rationale": "Adds exact strict limits and explicit numeric preconditions missing from baseline.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L59-L62",
+            "why": "No adapter-local guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchPull.c#L172-L204",
+            "why": "Exact guard, thresholds, and velocity write."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:ftCo_CatchAttack_Coll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies CatchAttack collision processing by calling ft_800841B8 with fn_800DA618 as the synchronous false-result fallback; the fallback tears down the capture pair and invokes Fall entry for both participants.",
+        "rationale": "States proved behavior without claiming the low-level collision predicate was exhaustively resolved.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L39-L52",
+            "why": "Delegation and fallback body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1052-L1060",
+            "why": "Synchronous conditional dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:ftCo_CatchAttack_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Passes gobj and fn_800DA618 to ft_800841B8. Its ft_800827A0 call copies the fighter position into collision state, invokes mpColl_8004B2DC, copies corrected position back, and returns the collision boolean. False synchronously dispatches fn_800DA618, which snapshots victim_gobj, tears down the pair, and calls Fall entry on gobj and the saved victim.",
+        "rationale": "Resolves the wrapper chain and pointer lifetime with exact canonical calls.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L39-L52",
+            "why": "Local argument flow and victim snapshot."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L406-L424",
+            "why": "Collision-state synchronization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1052-L1060",
+            "why": "Boolean dispatch condition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:ftCo_CatchAttack_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Has no local branch or transition. ft_800841B8 invokes fn_800DA618 only when ft_800827A0 returns false; true suppresses that callback. False leads to capture teardown and ordered calls to ftCo_Fall_Enter for the fighter and saved victim, with specialized outcomes delegated to Fall entry.",
+        "rationale": "Distinguishes exact dispatch from inferred floor-support semantics and ordinary-state assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L39-L52",
+            "why": "Local behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1052-L1060",
+            "why": "Exact true/false branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L31-L71",
+            "why": "Specialized routing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CatchAttack:ftCo_CatchAttack_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Derives Fighter from gobj, computes friction = p_ftCommonData->x64 * co_attrs.ground_friction, and directly calls ftCommon_ApplyFrictionGround then ftCommon_ApplyGroundMovement. The first writes xE4_ground_accel_1 using a strict absolute-magnitude comparison and velocity sign; the second applies the floor multiplier only if it is below one, projects acceleration and gr_vel along (floor.normal.y, -floor.normal.x), and zeroes animation/self velocity z. Opposing deceleration requires ordinary nonnegative finite friction data; there is no nonfinite-input validation.",
+        "rationale": "Preserves direct implementation while correcting unconditional deceleration and omitted multiplier details.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchAttack.c#L31-L37",
+            "why": "Direct formula and ordered calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L51-L59",
+            "why": "Strict clamp and sign logic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L133-L152",
+            "why": "Conditional multiplier and vector writes."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

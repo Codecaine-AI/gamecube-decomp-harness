@@ -1,0 +1,77 @@
+{
+  "tu": "main/melee/gm/gmtiny",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtiny.c#L130-L153",
+            "why": "Exact assignments, unused second argument, and both callback registrations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L171-L262",
+            "why": "Both constructors copy all slots before passing destination/source pairs."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects obsolete x20/x1C/x18 spellings to current canonical field names while preserving copy-before-callback ordering and source/destination lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtiny:fn_801B8E50"
+        },
+        "type": "data_flow",
+        "value": "After the shared ordinary or Sudden Death constructor copies all persistent player records into StartMeleeData, this callback overwrites one destination player's model_scale with 0.35f, defense_ratio with 0.5f, attack_ratio with 1.0f, and xB with 1. The corresponding persistent source record is passed as the second argument but is neither read nor modified by this callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtiny.c#L130-L142",
+            "why": "Persistent source, null whole-match callback, player callback and exact preset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L171-L205",
+            "why": "Rule preparation and complete player-copy loop preceding callback application."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces stale player-field spellings with canonical names and preserves the distinction between persistent configuration and copied gameplay payload.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtiny:gm_801B8E74"
+        },
+        "type": "data_flow",
+        "value": "Passes persistent Tiny VsModeData at gmMainLib_804D3EE0->modes.unk_E50 to gmVsMelee_EnterVs with no whole-match callback and fn_801B8E50 as the player callback. The shared helper prepares and copies rules, copies all player records into StartMeleeData, then applies the Tiny callback to every destination slot, setting model_scale to 0.35f, defense_ratio to 0.5f, attack_ratio to 1.0f, and xB to 1."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtiny.c#L170-L178",
+            "why": "Complete initialization and load bodies establish their distinct delegated operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmscdata.c#L616-L623",
+            "why": "Registers both callbacks for GM_TINY_VS."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful missing knowledge for the fact-empty OnInit subject without claiming unexamined details of gm_InitVsMode.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtiny:gm_Mode_TinyVs_OnInit"
+        },
+        "type": "purpose",
+        "value": "Serves as Tiny Melee's parameterless mode-initialization callback, unconditionally passing its persistent VsModeData at gmMainLib_804D3EE0->modes.unk_E50 to gm_InitVsMode. This is distinct from the mode's on-load callback, which resets shared KO counts."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

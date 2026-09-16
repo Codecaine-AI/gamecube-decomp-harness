@@ -1,0 +1,161 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_KneeBend",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_KneeBend:ftCo_KneeBend_IASA"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Processes KneeBend interrupts in canonical order: ftCo_Attack100_CheckInput, ftCo_Catch_CheckInput, then ftCo_AttackHi4_CheckInputNoD0. The first function actually dispatches ftData_SpecialHi[fp->kind] when non-NULL and fp->x686 == 0, not rapid-jab continuation. Each true result stops processing; only the all-false path performs short-hop release detection. Catch and NoD0 include optional paths, and NoD0 may select an item throw or character-specific attack.",
+        "rationale": "Corrects the rapid-jab interpretation using actual dispatch and preserves exact local priority.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KneeBend.c#L59-L66",
+            "why": "Ordered early returns and final release-helper call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L90-L101",
+            "why": "Actual SpecialHi dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Catch.c#L16-L36",
+            "why": "Preliminary handling and guarded Catch entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackHi4.c#L67-L87",
+            "why": "Item and Ness branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_KneeBend:ftCo_KneeBend_IASA"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards the same Fighter_GObj* through ftCo_Attack100_CheckInput (guarded SpecialHi table dispatch), ftCo_Catch_CheckInput and ftCo_AttackHi4_CheckInputNoD0 until one returns true. Only if all return false does it pass the object to ftCo_KneeBend_Check_ShortHop, which reads controller state, the stored jump source and common release threshold and may assign true to kneebend.is_short_hop. No object pointer is retained locally.",
+        "rationale": "Preserves established object flow while distinguishing a handling result from independently verified transition success.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KneeBend.c#L44-L66",
+            "why": "Complete local data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L90-L101",
+            "why": "True follows a void per-kind dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_KneeBend:ftCo_KneeBend_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The canonical Attack100 predicate, actually guarded SpecialHi dispatch, has first priority, followed by Catch and NoD0 AttackHi4. Each true result immediately returns, suppressing lower-priority checks and release processing for that invocation. Only all-false execution reaches release latching. This TU initializes the latch false in Enter and otherwise only writes true; global move-state lifetime and every dispatched handler's transition are not established by that local invariant.",
+        "rationale": "Corrects first-check meaning and bounds lifetime and success claims to observed control flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KneeBend.c#L19-L66",
+            "why": "Initialization, release assignment and priority."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L90-L101",
+            "why": "Actual first-priority dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_KneeBend:ftCo_KneeBend_Check_ShortHop"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Sets kneebend.is_short_hop true when a source-matched release condition succeeds: XY with neither X nor Y held, LStick with left-stick Y strictly below tap_jump_release_threshold, or CStick with C-stick Y strictly below that threshold. Otherwise preserves the field. Equality and unordered NaN comparisons do not count as stick release, and unsupported source values match no branch. Live-input tests precede their source-equality tests in the expression. The helper never clears the flag or validates the active state. Enter supplies this TU's false initialization; external states also reuse the helper.",
+        "rationale": "Replaces global exclusive-reset wording with exact local writes, boundaries and evaluation convention.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KneeBend.c#L19-L57",
+            "why": "Exact initialization, comparisons and assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerKneeBend.c#L36-L39",
+            "why": "External-state reuse."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoKneebend.c#L42-L46",
+            "why": "Conditional external-state reuse."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_KneeBend.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Enter stores the jump source, clears the short-hop flag and requests KneeBend with animation start/speed/blend 0,1,0. IASA prioritizes canonical ftCo_Attack100_CheckInput (actually guarded SpecialHi dispatch), then Catch, then NoD0 AttackHi4; only all-false execution performs release latching. Anim completes when cur_anim_frame >= jump_startup_time or no animation frames remain, selecting ItemScrew for held It_Kind_ScBall and ordinary Jump otherwise. Phys delegates ground friction/movement. Coll delegates position synchronization and a Fall transition guarded by the exact GA_Ground comparison. The TU only writes true to the latch after entry; compiled cross-state handoff and physical collision-result polarity remain unresolved.",
+        "rationale": "Consolidates corrected interrupt semantics, exact completion and item conditions, and scoped uncertainty.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KneeBend.c#L19-L76",
+            "why": "Complete local behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.h#L44-L48",
+            "why": "Animation parameter meanings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L90-L101",
+            "why": "Actual first interrupt."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D27.c#L207-L214",
+            "why": "Exact held-item predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Physics operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Position synchronization and enum result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1027-L1033",
+            "why": "Exact Fall guard."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

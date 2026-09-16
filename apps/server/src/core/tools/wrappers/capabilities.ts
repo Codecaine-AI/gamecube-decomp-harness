@@ -6,6 +6,7 @@
  * of searching through a generic command list.
  */
 import { isAbsolute, resolve } from "node:path";
+import { createRequestWriteSetWideningToolDefinition } from "@server/infrastructure/agent-runtime/sandbox-agent-tools.js";
 import { runKnowledgeToolApiForContext } from "../runtime/execution.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext } from "../types.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
@@ -19,6 +20,21 @@ const evidenceToolRoles = [
   "reconcile",
   "qa-repair",
 ] as const;
+
+/** Claim-scoped worker request for immediate write-set policy feedback. */
+export const requestWriteSetWideningToolRegistration: AgentToolRegistration = {
+  id: "request_write_set_widening",
+  purpose: "Ask the runner to authorize required paths outside the current claim write set before editing them.",
+  allowedRoles: ["worker"],
+  capabilities: ["write_set", "write_set_widening", "claim_authority"],
+  create(context) {
+    return createRequestWriteSetWideningToolDefinition(
+      context.requestWriteSetWidening ?? (async () => {
+        throw new Error("request_write_set_widening is unavailable without an active claim-authorized handler");
+      }),
+    );
+  },
+};
 
 const lookupParameters = {
   type: "object",
@@ -516,7 +532,7 @@ export function promoteSourcePermuterInvocationFailure(result: Record<string, un
     .join("\n");
   const functionMissing = /function(?:_|[\s-])*not(?:_|[\s-])*found|function[^\n]*not in [^\n]*report\.json|function[^\n]*not found in/i.test(evidence);
   const parseFailed = /(?:parse|parsing|parser)(?:_|[\s-])*(?:failure|failed|error)|(?:failure|failed|error)[^\n]*(?:parse|parsing|parser)/i.test(evidence);
-  const hasSourcePath = typeof nested.source_path === "string" || /source(?:_|[\s-])*path|[/\\]src[/\\]|\.c\b/i.test(evidence);
+  const hasSourcePath = typeof nested.source_path === "string" || /source(?:_|[\s-])*path|[/\\]src[/\\]|\.c(?:pp)?\b/i.test(evidence);
   const sourceParseFailed = parseFailed && hasSourcePath;
   if (!functionMissing && !sourceParseFailed) return result;
 
@@ -564,7 +580,7 @@ export const sourceMutationPreviewToolRegistration = knowledgeApiTool({
   parameters: {
     type: "object",
     properties: {
-      source_path: { type: "string", description: "Game-relative C source path." },
+      source_path: { type: "string", description: "Game-relative source path." },
       function: { type: "string", description: "Function symbol to mutate." },
       pass_name: { type: "string", description: "Optional specific mutation pass." },
       seed: { type: "number", description: "Random seed." },
@@ -612,7 +628,7 @@ export const typeOracleLookupToolRegistration = knowledgeApiTool({
   parameters: {
     type: "object",
     properties: {
-      source_path: { type: "string", description: "Game-relative C source path." },
+      source_path: { type: "string", description: "Game-relative source path." },
       expression: { type: "string", description: "Exact expression text to look up." },
       byte_start: { type: "number", description: "Exact expression byte start." },
       byte_end: { type: "number", description: "Exact expression byte end." },
@@ -786,7 +802,7 @@ export const includeFixerPreviewToolRegistration = knowledgeApiTool({
   parameters: {
     type: "object",
     properties: {
-      source_path: { type: "string", description: "Game-relative C source path." },
+      source_path: { type: "string", description: "Game-relative source path." },
     },
     required: ["source_path"],
     additionalProperties: false,
@@ -998,6 +1014,7 @@ export const mwccAllocAnalyzeToolRegistration = knowledgeApiTool({
 
 /** All callable decomp capability wrappers, reusable across profiles. */
 export const capabilityToolRegistrations = [
+  requestWriteSetWideningToolRegistration,
   mwccDebugLookupToolRegistration,
   checkdiffRunToolRegistration,
   checkdiffSummaryToolRegistration,

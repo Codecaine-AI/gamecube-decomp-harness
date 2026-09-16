@@ -1,0 +1,87 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Squat",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Squat.c#L78-L115",
+            "why": "Ordered checks and exact timer arithmetic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L38-L51",
+            "why": "Exceptional branch and ordinary deferred arming."
+          }
+        ],
+        "op": "write",
+        "rationale": "Includes the inline mutation omitted by the baseline and distinguishes accepted input from immediate transition.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Squat:ftCo_Squat_IASA"
+        },
+        "type": "data_flow",
+        "value": "Forwards the same Fighter_GObj to each ordered check and stops on the first true result. Success can mean deferred Pass arming rather than immediate state entry: ftCo_80099F9C ordinarily writes mv.co.pass.x0=true and x4=p_ftCommonData->x470. If reached, the local inline helper reads mv.co.squat.x0/x4 and subtracts 1.0F from nonzero x4 when x0 is nonzero; only an exactly-zero result on a platform dispatches ftCo_8009A228. Earlier success suppresses this decrement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Squat.c#L78-L115",
+            "why": "Action sequence and delayed final branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "Canonical special dispatch tables."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L38-L99",
+            "why": "Arming versus Pass entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects name-derived rapid-attack interpretation using canonical dispatch code and preserves deferred platform behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Squat:ftCo_Squat_IASA"
+        },
+        "type": "game_mapping",
+        "value": "Resolves action interrupts during crouch startup, including special dispatches, grab, smash and tilt attacks, neutral attack, jump and deferred platform passing, together with additional common checks. The second check, canonically named ftCo_Attack100_CheckInput, dispatches up special through ftData_SpecialHi; it is not a rapid-jab check. Platform input can arm a countdown before actual Pass entry."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Squat.c#L78-L115",
+            "why": "Exact order, short-circuiting and zero test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "Special dispatch identities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L38-L99",
+            "why": "Deferred arming and actual destination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact canonical ordering, correct special identities, mutation on a false outcome, and exceptional timer boundaries.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Squat:ftCo_Squat_IASA"
+        },
+        "type": "state_behavior",
+        "value": "First-success order is ftCo_SpecialS_CheckInput; ftCo_Attack100_CheckInput (SpecialHi dispatch); ftCo_800D6824 (SpecialN); ftCo_800D68C0 (SpecialLw); ftCo_Catch_CheckInput; AttackS4, AttackHi4, AttackLw4, AttackS3, AttackHi3, AttackLw3 and Attack1 checks; ftCo_80091A4C; ftCo_800DE9D8; ftCo_Jump_CheckInput; ftCo_80099F9C; then the local inline helper. The Pass check can return true after arming only, skipping the final helper. That helper decrements x4 only with both x0 and x4 nonzero and enters Pass only when the decremented value is exactly zero and platform status is true. No clamp is present; reaching zero off-platform does not produce a later retry while x4 stays zero, and an all-false scan can still mutate the timer."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

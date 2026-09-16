@@ -1,0 +1,2340 @@
+[
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077464",
+    "facts": [
+      {
+        "id": "fact:e2348b5b-f4a4-4758-8372-89f1cd5a3833",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077464",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an item, the item's colliding hit capsule, and the reflecting fighter, and first passes all three to `it_8026FAC4` with collision-event selector 7. It derives integer damage from `hit->damage` and compares it with `fp->ReflectAttr.x1A30_maxDamage`. On overload, it updates the appropriate item damage accumulator, writes the fighter-side excess-damage field, and derives item and reflector hit directions from relative positions and item X velocity. On success, it writes the fighter GObj as the item's reflector, copies fighter ownership/state metadata and reflection damage and speed multipliers into the item, propagates fighter flags, and computes the same positional and velocity-based directions for downstream reflected-item handling.",
+        "rationale": "Every input, branch condition, copied attribute, and output field is explicit in the matched source. In particular, the success path transfers `x1A34_damageMul` and `x1A38_speedMul` rather than directly changing velocity in this routine, showing that it stages metadata consumed by later item reflection processing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:39:09.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L747-L845",
+            "why": "Shows the complete flow from item, hit-capsule, and fighter inputs through collision bookkeeping and threshold selection into item reflection metadata or fighter overload outputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:d2ecad7d-d948-4c67-9ba1-2379f56384a9",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077464",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements projectile reflection and reflector breaking in Melee: an acceptable item hit is reassigned to the reflecting fighter and receives that reflector's damage and speed modifiers, whereas an item whose damage exceeds the reflector's limit overloads the reflector and supplies the damage and direction state used for its break or stun response.",
+        "rationale": "The success path stores a new reflector GObj and reflection multipliers on the item, directly realizing projectile reflection. The alternate path records damage over the fighter's configured maximum instead of installing reflection ownership. SmashWiki describes reflected projectiles receiving reflector behavior and reflectors shattering at an upper projectile-damage limit, while the Discord record independently identifies Melee's reflector break thresholds.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T13:39:09.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L747-L845",
+            "why": "Shows successful reflected-item ownership and modifier transfer as well as the over-threshold reflector state."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://falco-ssbm-down-special~overview@r2041805",
+            "why": "Documents Falco's projectile reflection, its damage multiplier, and reflector shattering when a projectile exceeds the permitted base-damage limit."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://fox-ssbm-down-special~overview@r1970258",
+            "why": "Documents Fox reflecting projectiles back at opponents and entering stun when the reflector shatters from excessive reflected-projectile damage."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1082913788233273415",
+            "why": "Independently identifies damage thresholds as the condition that breaks Melee reflectors."
+          }
+        ]
+      },
+      {
+        "id": "fact:6038300e-0811-45c1-9d19-4580fc731ec0",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077464",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_ReflectItemHit",
+        "rationale": "The function belongs to the `ftColl` unit and handles a `HitCapsule` from an `Item` colliding with a fighter reflector, producing either successful reflected-item metadata or reflector-overload state. `ReflectItemHit` distinguishes this collision-resolution role from the unit's already named `ftColl_CreateReflectHit`, which constructs the fighter's reflection region. No preserved symbol establishes the original name, so this remains a moderate-confidence inference.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is ftColl_ReflectItemHit.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L747-L845",
+            "why": "Establishes that the routine processes an item hit against fighter reflection attributes and writes the resulting reflected-item or overload state."
+          }
+        ]
+      },
+      {
+        "id": "fact:0f34e3bc-a4a9-4f9c-8b29-878d32a54e9c",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077464",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Void fighter-collision handler with signature `void(Item* item, HitCapsule* hit, Fighter* fp)`. The arguments are respectively the colliding item, its active hit capsule, and the fighter whose reflector received the hit.",
+        "rationale": "The fully matched declaration provides the return and parameter types. Field usage confirms their roles: item position, velocity, damage bookkeeping, and reflection metadata are accessed through `item`; incoming damage and a hit-property flag come from `hit`; fighter position and `ReflectAttr` supply the reflector threshold and modifiers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:39:09.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L747-L845",
+            "why": "Provides the complete signature and demonstrates the collision role of each parameter through its accessed fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:7254db74-ac2d-4522-b194-df7071e58306",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077464",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Resolves an item hit against a fighter's active reflector. It records the collision with the item subsystem, compares the incoming hit's damage with the reflector's maximum-damage threshold, and either stages a successful reflection by transferring reflector ownership and projectile modifiers to the item or records an overload that can break the reflector.",
+        "rationale": "The matched body first forwards the item, hit capsule, and fighter to shared item-collision processing with event selector 7. Its principal branch compares hit damage with `ReflectAttr.x1A30_maxDamage`: the accepted branch assigns the fighter as the item's reflector and copies damage and speed multipliers, while the over-threshold branch records the excess damage on the fighter instead. The wiki independently identifies exceeding a reflector's projectile-damage limit as the condition that shatters the reflector.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:39:09.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L747-L845",
+            "why": "Shows the complete item-reflector collision handler, including shared collision bookkeeping, the maximum-damage comparison, successful ownership and modifier transfer, and overload recording."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://fox-ssbm-down-special~overview@r1970258",
+            "why": "Explains that a reflector shatters and leaves Fox stunned when a repeatedly reflected projectile exceeds the reflector's base-damage limit."
+          }
+        ]
+      },
+      {
+        "id": "fact:cdb3ce0c-8b77-43e0-a2ff-2864ba4dd3c4",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077464",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The handler has two mutually exclusive outcomes. If incoming damage is greater than the reflector's `maxDamage`, reflection is rejected as an overload: the item retains the largest applicable damage value, the fighter records `damageOver`, and no reflecting owner or reflection multipliers are installed. Otherwise reflection succeeds: the item records the fighter as its reflector, receives ownership/state values plus damage and speed multipliers, and inherits two fighter flags. In both outcomes, `item->xC68` points away from the fighter relative to the item's position, while `reflectHitDirection` opposes nonzero item X velocity or falls back to the item-versus-fighter position when X velocity is zero.",
+        "rationale": "The comparison against `x1A30_maxDamage` directly guards the overload and success blocks. The assignments unique to each block establish which state is installed, while the repeated direction ladders establish the shared directional behavior. Community discussion and the wiki corroborate that exceeding a reflector's damage threshold is the reflector-breaking outcome.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:39:09.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L747-L845",
+            "why": "Defines both threshold-controlled outcomes, their distinct state writes, and the direction calculations performed in each path."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1082913788233273415",
+            "why": "States that Melee reflectors break at damage thresholds and gives the ordinary-reflector threshold as 50 damage."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://fox-ssbm-down-special~overview@r1970258",
+            "why": "Describes the visible reflector-shatter and stun outcome when reflected projectile damage exceeds the permitted limit."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077688",
+    "facts": [
+      {
+        "id": "fact:bcce137a-f8a6-436e-92c7-59aa427f85c7",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077688",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an item attack capsule, shielded fighter, and shield-contact geometry; registers the fighter in item victim history, converts damage to a minimum-one integer, and records the strongest item-side shield response, direction, bounce eligibility, axis, angle, and defender. It also accumulates nonnegative shield damage, records owner attribution and strongest fighter-side contact, and spawns shield-hit feedback.",
+        "rationale": "The current function directly shows the full item and fighter state flow; obsolete caller spans are replaced by the resolved head implementation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L847-L966",
+            "why": "Shows victim registration, damage conversion, strongest-contact selection, bounce-state construction, shield damage, and attribution."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L966-L974",
+            "why": "Shows conditional shield-response propagation and the final collision effect."
+          }
+        ]
+      },
+      {
+        "id": "fact:19963df5-7845-46fa-868f-b3aa223789d3",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077688",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements item or projectile attack contact with a fighter shield, applying shield damage and attribution while preparing either the item's ordinary `hit_shield` response or a qualified `shield_bounced` response.",
+        "rationale": "The collision handler prepares bounce state and shield damage, and the current item dispatcher explicitly selects between the two named callbacks.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L847-L966",
+            "why": "Shows fighter shield damage and item bounce-response state being prepared."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/item.c#L1535-L1574",
+            "why": "Shows later selection between `shield_bounced` and `hit_shield` callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:bea9e1c1-b082-4778-8c03-0aee47c104fd",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077688",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_ItemShieldHit",
+        "rationale": "The function is the fighter-collision handler for an item attack capsule striking a shield and prepares the item's explicitly named shield callbacks.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `ftColl_ItemShieldHit`.",
+        "confidence": 0.77,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L847-L966",
+            "why": "Shows a handler dedicated to item-owned shield-contact state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/item.c#L1535-L1574",
+            "why": "Establishes the item subsystem's `hit_shield` and `shield_bounced` terminology."
+          }
+        ]
+      },
+      {
+        "id": "fact:fd2b05ca-c9ac-4e3b-bddc-7661a6a0c374",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077688",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Side-effect-only handler with signature `void (Item* item, HitCapsule* hit, Fighter* defender, Vec3* response_axis, f32 response_angle)`. The vector and scalar provide shield-collision geometry used to prepare an item bounce.",
+        "rationale": "The exact definition establishes all types, and its field writes show how the final two parameters become bounce state.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L847-L966",
+            "why": "Provides the exact signature and shows each parameter's role."
+          }
+        ]
+      },
+      {
+        "id": "fact:000c5675-8c59-4c4d-bd52-4d48c2270d4f",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077688",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Resolves an item-owned attack contacting a fighter's shield by registering the victim, recording strongest item response geometry, applying shield damage and owner attribution, and preparing state for the item's HitShield or ShieldBounced callback.",
+        "rationale": "The current handler constructs both sides of the collision result, and the item dispatcher consumes the prepared state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L847-L966",
+            "why": "Shows item response-state construction and fighter shield-damage processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/item.c#L1535-L1574",
+            "why": "Shows the prepared state selecting the item shield callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:43e1e6d9-14b9-4496-a0e7-94f9e4ae1cd7",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077688",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Detailed item response state is replaced only by a stronger integer-damage contact. Bounce eligibility requires both capsule permission and no defender suppression. Direction follows item velocity above a threshold and relative position below it; qualifying geometry is stored for later callback selection. Fighter shield damage and attribution update on every invocation.",
+        "rationale": "The current greater-than block, guards, direction branches, geometry writes, and unconditional fighter-side tail preserve these transitions.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L847-L966",
+            "why": "Shows the strongest-contact guard, bounce eligibility, direction and geometry states, shield damage, and attribution."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/item.c#L1535-L1574",
+            "why": "Shows the later airborne, flag, and angle guards that select the bounce callback."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077970",
+    "facts": [
+      {
+        "id": "fact:db35b698-8a86-42d6-b767-24e01a2364f2",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077970",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes colliding item and fighter attack capsules, averages their contact positions, truncates both damage values for comparison with the common priority tolerance, and independently dispatches the fighter-side and item-side clash responses at the midpoint.",
+        "rationale": "The current target and adjacent response helpers establish the midpoint, comparison inputs, and state outputs.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L996-L1105",
+            "why": "Shows the item and fighter response helpers, midpoint calculation, symmetric damage tests, and dispatches."
+          }
+        ]
+      },
+      {
+        "id": "fact:22fb7f82-85ba-4e14-a5b8-8c05be00e500",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077970",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements fighter-attack versus item or projectile clanking priority: contacts inside the tolerance trigger both responses, while a sufficiently stronger hitbox continues and only the weaker side receives its clash response.",
+        "rationale": "The two independent damage-tolerance tests directly produce mutual or one-sided resolution.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L996-L1105",
+            "why": "Shows symmetric fighter-side and item-side response selection from the two capsules' damage values."
+          }
+        ]
+      },
+      {
+        "id": "fact:0db9d47b-7745-49a4-9d52-a5f668bd7d94",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077970",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_ResolveItemHitboxClank",
+        "rationale": "The routine resolves an item-attack versus fighter-attack overlap through clank-priority tests and side-specific response handlers; exact wording remains unconfirmed.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftColl_ResolveItemHitboxClank`.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L996-L1105",
+            "why": "Shows complete fighter/item attack-hitbox clash resolution."
+          }
+        ]
+      },
+      {
+        "id": "fact:474943ba-1767-4a64-9398-220a89f92cb6",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077970",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Void collision resolver with signature `void (Item* item, HitCapsule* item_hit, Fighter* fp, HitCapsule* fighter_hit)`, where the two capsules are the overlapping item and fighter attacks.",
+        "rationale": "The head definition retains the exact void return and argument types and uses the first capsule with the item-side response and the second with the fighter-side response.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:41:47.648Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1082-L1105",
+            "why": "Provides the complete signature and shows how the item, fighter, and two overlapping attack capsules are consumed."
+          }
+        ]
+      },
+      {
+        "id": "fact:2396c354-cc60-4532-9cc3-0acc35e507f6",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077970",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Resolves a collision between an item's attack hitbox and a fighter's attack hitbox by comparing their damage against the common priority tolerance, applying each qualifying side's response, and placing feedback at the contact midpoint.",
+        "rationale": "The head function and adjacent helpers directly implement those steps.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L996-L1105",
+            "why": "Shows the response helpers, midpoint construction, tolerance comparisons, and dispatch."
+          }
+        ]
+      },
+      {
+        "id": "fact:d4709ab8-07b8-4d57-b25f-2580e370aaec",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077970",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The two sides are evaluated independently. Both response paths run when the integer damage difference is inside the common tolerance; outside it, only the lower-damage side responds. A qualifying fighter response may additionally initialize grounded rebound state.",
+        "rationale": "The symmetric comparisons and fighter-side helper retain the standing mutual-versus-one-sided state behavior.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L996-L1105",
+            "why": "Shows independent priority checks, the fighter rebound guard, and the item response path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077C60",
+    "facts": [
+      {
+        "id": "fact:f098fb0f-6a1a-4410-a1e1-fd570325ed1e",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077C60",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an item, its contacting capsule, an affected fighter, and a second capsule. Special-contact items update item or fighter effect state. Damaging items derive raw and victim-scaled damage, route it through half-damage phantom logging or ordinary damage, update item attribution and direction, consume any fighter damage reserve, write the appropriate damage log, and dispatch follow-up damage handling or fallback feedback.",
+        "rationale": "The two current source spans expose the special, phantom, and ordinary flows in full.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Shows special-item contact handling, damage scaling, half-damage phantom accounting, and secondary-log writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1226-L1342",
+            "why": "Shows ordinary item attribution, direction, reserve processing, primary logging, downstream damage handling, and fallback feedback."
+          }
+        ]
+      },
+      {
+        "id": "fact:b8d65dbe-eb70-4543-94a4-3ca50d21d19c",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077C60",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements fighter contact with item hitboxes, including ordinary damaging-item hits, reduced-damage phantom contacts, and the contact effects of Starman, Super Mushroom, and Poison Mushroom.",
+        "rationale": "The head code explicitly dispatches the three special item kinds and otherwise separates phantom and ordinary item-damage paths.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Shows the named special-item cases and the reduced half-damage item-hit branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1226-L1342",
+            "why": "Shows ordinary item damage being attributed, applied, and logged against the fighter."
+          }
+        ]
+      },
+      {
+        "id": "fact:125329a0-c383-40d8-b513-5e71efcf3975",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077C60",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_ProcessItemHit",
+        "rationale": "The routine actively resolves special, phantom, and ordinary consequences of an item capsule contacting a fighter; the exact original name remains uncertain.\n\nNaming cleanup: Explicit proposed identifier; prefix or duplicate flags do not change extraction.\nPrior naming claim: Likely `ftColl_ProcessItemHit`.",
+        "confidence": 0.68,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Shows special and phantom item-hit processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1226-L1342",
+            "why": "Shows ordinary item-hit resolution and state updates."
+          }
+        ]
+      },
+      {
+        "id": "fact:30197d22-a0ba-4a67-9a23-39cf0990db47",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077C60",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature `bool (Item* item, HitCapsule* hit, Fighter* fp, HitCapsule* hit2)`. The arguments are the attacking item, its contacting capsule, the affected fighter, and a secondary capsule used in eligibility and logging. True reports accepted phantom or ordinary processing; special-item handling and rejected phantom candidates return false.",
+        "rationale": "The current definition supplies the exact types and explicit return behavior.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Provides the signature and shows special and phantom return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1226-L1342",
+            "why": "Shows the ordinary path consuming all four arguments and returning true."
+          }
+        ]
+      },
+      {
+        "id": "fact:3a52ce53-7df7-4578-a54a-7af36649f011",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077C60",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Resolves an item-owned hit capsule contacting a fighter by dispatching special contact-only items, processing phantom or ordinary damage, updating item and fighter collision bookkeeping, recording damage events, and requesting follow-up response or fallback feedback.",
+        "rationale": "The current matched body directly contains each listed branch and side effect.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Shows special-item dispatch and phantom processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1226-L1342",
+            "why": "Shows ordinary damage, logging, downstream handling, and fallback presentation."
+          }
+        ]
+      },
+      {
+        "id": "fact:7c228e02-fd7e-4712-b554-f83607f63825",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80077C60",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Special-contact type 4 registers contact, conditionally consumes the three handled item kinds, and returns false. Phantom processing requires empty primary-log and timer/history guards, halves nonzero damage with minimum-one clamping, writes the secondary log, and returns true. Ordinary processing retains stronger item damage, applies fighter-state and reserve guards, writes accepted damage to the primary log, otherwise spawns fallback feedback, and returns true.",
+        "rationale": "The head code explicitly defines all guards, state transitions, logging outcomes, and returns.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Shows the special-item and guarded phantom transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1226-L1342",
+            "why": "Shows ordinary maximum, direction, reserve, log, fallback, and return states."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078384",
+    "facts": [
+      {
+        "id": "fact:19bb5404-7bbf-4001-8c6a-843d2ae8427e",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078384",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads fighter suppression fields, hurt-capsule state, and attack-capsule sound kind and severity. Suppressed contacts use severity to select a fallback fighter SFX. Otherwise the capsule and a fighter-derived selector are passed to collision audio, and the returned handle is stored in `x215C` for kind 13 severity 2 or `x2160` otherwise.",
+        "rationale": "The complete current function directly supports the reads, selection, calls, and Fighter handle writes; removed Bury and shifted collision-library spans are no longer required.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows all guards, sound metadata reads, fallback and normal audio calls, and handle destinations."
+          }
+        ]
+      },
+      {
+        "id": "fact:b0371520-fa8c-475e-a676-ae812c62fcd8",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078384",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Produces fighter hurtbox impact audio from accepted attack-collision metadata, normally using the attack capsule's configured sound kind and severity and using a severity-only fallback under selected fighter or hurtbox states.",
+        "rationale": "The target converts collision state and capsule sound metadata directly into one of two audible impact paths.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows fighter and hurtbox state selecting configured-impact or fallback audio."
+          }
+        ]
+      },
+      {
+        "id": "fact:7a7f6eef-b1ed-4163-b366-6af393aa0f96",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078384",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_PlayHitSFX",
+        "rationale": "The routine is dedicated to selecting, starting, and retaining fighter-side hit-impact audio; no preserved symbol confirms the exact suffix.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `ftColl_PlayHitSFX`.",
+        "confidence": 0.74,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows that the function's sole responsibility is fighter hit-impact sound selection and playback."
+          }
+        ]
+      },
+      {
+        "id": "fact:c0f7bd4b-9375-4356-b2d9-c1678783428c",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078384",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Side-effect-only helper with interface `void (Fighter* fp, FighterHurtCapsule* hurt, HitCapsule* hit)`. The Fighter supplies state and receives an audio handle, the hurt capsule supplies enabled state, and the attack capsule supplies sound metadata.",
+        "rationale": "The current definition provides the exact signature and demonstrates each argument's role without requiring the removed caller citation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Provides the exact types and shows which fields are read or written."
+          }
+        ]
+      },
+      {
+        "id": "fact:a42a2494-c5b4-4155-bb78-8e9abb29fc94",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078384",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Produces fighter-side impact audio for a hit against a FighterHurtCapsule, either playing a severity-selected fallback through fighter audio or playing the attack capsule's configured impact sound and retaining its handle.",
+        "rationale": "The current body completely establishes the two audio paths and their outputs.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows fallback selection, configured impact playback, and Fighter handle storage."
+          }
+        ]
+      },
+      {
+        "id": "fact:a6b38063-3a4d-4eda-b86e-40fae272ade8",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078384",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If either fighter counter is nonzero, the suppression flag is set, or the hurt capsule is not enabled, one severity-selected fallback sound plays and normal handle assignment is skipped. Otherwise kind 13 at severity 2 writes `x215C`; every other combination writes `x2160`.",
+        "rationale": "The current compound guard and mutually exclusive normal-path test directly define the behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows the complete fallback guard and the two normal playback-handle destinations."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078488",
+    "facts": [
+      {
+        "id": "fact:d47993c5-8ca9-45af-8c0f-68bfa8be1927",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078488",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Forwards the supplied Fighter to `ft_PlaySFX` with fixed SFX ID 85, volume `0x7F`, and pan `0x40`; fighter audio then maps the ID for state, starts playback, stores the handle in `x2160`, and applies its normal handle adjustment.",
+        "rationale": "The wrapper and current callee directly establish the fixed request and downstream Fighter audio state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows the wrapper forwarding one Fighter with fixed SFX, volume, and pan."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0877.c#L453-L468",
+            "why": "Shows state-aware ID mapping, playback, `x2160` handle storage, and final audio adjustment."
+          }
+        ]
+      },
+      {
+        "id": "fact:87130dc8-f5fc-4598-9297-e28ad6947fde",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078488",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the fixed fighter-associated sound cue used by the collision subsystem's phantom-hit paths.",
+        "rationale": "The current wrapper is a fixed SFX call, and both current phantom resolvers invoke it after accepting their reduced-damage branch.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L655",
+            "why": "Shows the fighter-hit phantom branch invoking this cue after half-damage handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Shows the item-hit phantom branch invoking the same cue."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows the cue implemented as an unconditional fixed fighter SFX request."
+          }
+        ]
+      },
+      {
+        "id": "fact:d1f26ed6-47d6-4990-9ddd-c7a1892f17bc",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078488",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_PlayPhantomHitSFX",
+        "rationale": "The wrapper is used by both current phantom-hit resolvers and performs only fixed fighter-SFX playback; exact original spelling remains unconfirmed.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftColl_PlayPhantomHitSFX`.",
+        "confidence": 0.87,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L655",
+            "why": "Places the helper in the fighter-versus-fighter phantom branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Places the helper in the item-versus-fighter phantom branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows that the helper is solely a fixed SFX wrapper."
+          }
+        ]
+      },
+      {
+        "id": "fact:a69a0872-63b8-4822-a9d1-31a05874e25a",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078488",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fixed-parameter fighter SFX wrapper with signature `void (Fighter* fp)`. Its argument is the struck fighter; it requests audio-domain SFX ID 85 with unsigned 8-bit volume `0x7F` and pan `0x40`, and playback output is returned indirectly by `ft_PlaySFX` overwriting `fp->x2160`.",
+        "rationale": "The matched definition establishes the exact `void` return and `Fighter*` parameter and supplies the three fixed playback arguments. The resolved callee establishes the identifier and control domains and shows that the playback handle is stored on the supplied Fighter rather than returned by this wrapper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:44:01.748Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1369-L1372",
+            "why": "Provides the exact wrapper signature and its fixed SFX identifier, volume, and pan arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0877.c#L453-L468",
+            "why": "Provides `ft_PlaySFX`'s typed parameters and shows the resulting playback handle being stored in `fp->x2160`."
+          }
+        ]
+      },
+      {
+        "id": "fact:b6affee9-eabc-4488-9d37-5e3251a1dee9",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078488",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Plays the standardized fighter-associated sound cue after an accepted phantom hit.",
+        "rationale": "Both current phantom branches invoke this unconditional fixed-parameter wrapper on the affected fighter.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L655",
+            "why": "Shows fighter-hit phantom processing calling the helper before returning success."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Shows item-hit phantom processing calling the same helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows the helper unconditionally playing fixed SFX ID 85."
+          }
+        ]
+      },
+      {
+        "id": "fact:daf079d8-0d9a-4d5c-958a-c6337bc1fb7b",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078488",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has no guard or timer of its own and plays its fixed cue on every call. Eligibility is decided by the calling phantom-hit resolvers before they invoke it.",
+        "rationale": "The wrapper body is unconditional, while the current callers place it after their phantom collision, damage-log, timer, and victim-history guards.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:56:43.876Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L583-L655",
+            "why": "Shows the fighter-hit caller's phantom guards preceding invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1107-L1226",
+            "why": "Shows corresponding item-hit phantom guards preceding invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1349-L1372",
+            "why": "Shows that the leaf helper itself always dispatches the sound."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800784B4",
+    "facts": [
+      {
+        "id": "fact:36b4d2fa-c9f9-4491-b1e4-d0b4c90c9860",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800784B4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter and the two HitCapsules involved in a fighter hitbox collision. If both capsules' `element` values equal `HitElement_Slash`, it obtains an index from `HSD_Randi(3)`, reads that entry from `ftColl_803C0C4C`, and passes the selected SFX ID to `ft_PlaySFX`; otherwise it passes fixed SFX ID `0x6A`. Both paths use volume `0x7F` and pan `0x40`, and the resulting playback handle is retained indirectly by `ft_PlaySFX` in the Fighter.",
+        "rationale": "The target explicitly shows the element reads, table selection, constants, and outgoing call. HSD_Randi's matched implementation establishes that the bound 3 scales the generator result into the table-index range, while ft_PlaySFX's matched body shows the downstream Fighter playback-handle side effect.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:40:31.526Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1374-L1382",
+            "why": "Shows both capsule-element inputs and the complete table-or-fixed-ID flow into ft_PlaySFX with fixed volume and pan."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/random.c#L18-L21",
+            "why": "Shows HSD_Randi scaling the shared generator sample by its caller-supplied maximum, establishing the role of the bound 3."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0877.c#L453-L468",
+            "why": "Shows ft_PlaySFX consuming the selected ID, volume, and pan and storing the resulting playback handle on the Fighter."
+          }
+        ]
+      },
+      {
+        "id": "fact:c9b0b9f4-5243-41b1-8aaf-b978c61791e7",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800784B4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the audio presentation of fighter hitbox clanking in Melee, including the distinctive metallic clash variation used specifically when both clanking hitboxes have the Slash effect.",
+        "rationale": "The collision resolver calls the function after processing two colliding fighter hitboxes and spawning their collision effect. The function's exact Slash/Slash condition matches the wiki's documented condition for Melee's unique metallic clank sound, while its fallback supplies the ordinary clash sound for other element pairings.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:40:31.526Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L412-L463",
+            "why": "Shows the function being called as part of fighter hitbox-versus-hitbox collision resolution."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1374-L1382",
+            "why": "Shows the special sound path requiring both colliding hit capsules to use HitElement_Slash."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://priority~trivia@r2029061",
+            "why": "Documents that Melee plays a unique metallic sound when two Slash-effect hitboxes clang."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://priority~ground-attacks@r2029061",
+            "why": "Describes overlapping attack hitboxes clanking and identifies the audible clash as part of that gameplay interaction."
+          }
+        ]
+      },
+      {
+        "id": "fact:017cac99-3df9-41fb-900d-6688d67999d5",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800784B4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_PlayClankSFX",
+        "rationale": "The function is in the ftColl subsystem, is called during fighter hitbox clash resolution, and performs no operation other than selecting and playing the clank SFX. The `ftColl_` prefix and `PlaySFX` terminology follow the surrounding subsystem and called fighter-audio API, but no preserved symbol establishes the exact suffix.\n\nNaming cleanup: Text states a preferred candidate; alternatives are retained.\nPrior naming claim: Likely original-style name: `ftColl_PlayClankSFX`, with `ftColl_PlayHitboxClankSFX` as a more explicit alternative.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1374-L1382",
+            "why": "Shows that the routine's sole local responsibility is selecting and playing a collision sound from the two hit capsules' elements."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L412-L463",
+            "why": "Shows the routine being invoked from the fighter hitbox-clash resolution path."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://priority~trivia@r2029061",
+            "why": "Supplies the established gameplay term clank for the exact Slash-hitbox interaction handled by the function."
+          }
+        ]
+      },
+      {
+        "id": "fact:2a695d36-0cd1-4c6f-a241-69d4d9fae9d2",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800784B4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function signature: `void (Fighter* fp, HitCapsule* hit0, HitCapsule* hit1)`. The Fighter identifies the object on which the sound is played, while both HitCapsule parameters are read-only collision inputs whose `element` fields belong to the HitElement enum domain.",
+        "rationale": "The matched definition establishes the exact return and parameter types. The body reads only the two capsules' element fields and passes the Fighter to ft_PlaySFX; it does not return a result or mutate either capsule.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:40:31.526Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1374-L1382",
+            "why": "Provides the exact signature and shows how the Fighter and two HitCapsule parameters are used."
+          }
+        ]
+      },
+      {
+        "id": "fact:993ce1ac-8081-4cc7-9837-492bf11d6523",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800784B4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Plays the fighter-associated sound effect for a fighter hitbox clank, using a randomized metallic clash sound when both colliding hit capsules have the Slash element and a fixed generic clank sound otherwise.",
+        "rationale": "The matched function receives the two colliding hit capsules, tests both elements for HitElement_Slash, and sends either a randomly indexed table entry or fixed SFX ID 0x6A to ft_PlaySFX. Its caller invokes it from fighter hitbox-versus-hitbox collision resolution immediately after spawning the collision effect, while the wiki independently identifies the special metallic sound as the presentation used when two Slash-effect hitboxes clang.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:40:31.526Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1374-L1382",
+            "why": "Shows the complete Slash-versus-Slash test, randomized three-entry sound selection, generic fallback sound, and fighter sound-playback call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L412-L463",
+            "why": "Places the function in fighter hitbox-versus-hitbox collision resolution immediately after the clash effect is spawned."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://priority~trivia@r2029061",
+            "why": "States that Melee uses a unique metallic sound effect when two Slash-effect hitboxes clang with each other."
+          }
+        ]
+      },
+      {
+        "id": "fact:130adce8-cf29-4a8a-8add-2c6eecba63f3",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800784B4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine has two presentation outcomes and no timer or retained local state: two Slash-element capsules select one of three clash sounds using a fresh pseudo-random index, while every other element pairing selects fixed sound ID `0x6A`. Exactly one sound is started on every invocation.",
+        "rationale": "The conjunction over the two element fields is the sole local guard, and each branch contains exactly one ft_PlaySFX call. HSD_Randi's implementation establishes that the Slash branch consumes a new shared-generator sample; there are no loops, early returns, timers, or additional state transitions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:40:31.526Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1374-L1382",
+            "why": "Shows the only branch, the mutually exclusive sound choices, and one playback call on each path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/random.c#L18-L21",
+            "why": "Shows that the three-way selection consumes a pseudo-random generator result."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078538",
+    "facts": [
+      {
+        "id": "fact:a7dbf6ac-b76a-47d1-b783-f7ee96509b79",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078538",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a struck fighter, world-space contact position, effect severity, damage magnitude, and computed knockback. Knockback selects the primary effect; damage is passed to the default effect; nonzero severity enables a fighter-attribute and random-number path that may spawn a facing-relative secondary effect.",
+        "rationale": "Current collision resolution supplies the five semantic inputs, and the head body still routes them through the threshold, effect-spawn, fighter-attribute, and random branches.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows all field reads, threshold checks, random calls, and effect outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2596-L2896",
+            "why": "Shows the collision-result origins of contact position, severity, damage, and knockback."
+          }
+        ]
+      },
+      {
+        "id": "fact:7d5ebdc4-2726-40fc-b455-37690430ba60",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078538",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements visible impact feedback for the default fighter-hit effect, placing effects at the collision contact and varying their presentation with hit strength and fighter attributes.",
+        "rationale": "The current collision resolver dispatches this helper for the default hit-effect ID, and the helper converts the resolved contact, damage, severity, and knockback values into visual effects.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows position-specific visual effects selected from hit-result values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2596-L2896",
+            "why": "Places the helper in the default visual-effect branch of fighter damage resolution."
+          }
+        ]
+      },
+      {
+        "id": "fact:60b48379-f2d2-469f-b2fe-64eb9666ca50",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078538",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_SpawnNormalHitEffects",
+        "rationale": "At head, the routine remains the default hit-effect helper and may create both a primary impact effect and an optional secondary spark; the plural descriptive name remains plausible, though unrecovered.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftColl_SpawnNormalHitEffects`.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the routine spawning its primary effect and optionally spawning a second effect."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2596-L2896",
+            "why": "Shows the routine selected by the default `Ef_Id_Unk1000` dispatch branch."
+          }
+        ]
+      },
+      {
+        "id": "fact:75aaab91-d9cb-44fd-b6d1-092ec48de837",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078538",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Effective signature `void (Fighter_GObj* victim_gobj, Vec3* contact_pos, u32 effect_severity, float damage, float knockback)`. The current generic parameter names obscure the established severity, damage, and knockback roles.",
+        "rationale": "The definition fixes the C types, while current callers supply hit-capsule severity, logged damage, and calculated knockback in the third through fifth positions.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the declared parameter types and how each value is consumed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2596-L2896",
+            "why": "Shows severity, damage, and calculated knockback supplied in those argument positions."
+          }
+        ]
+      },
+      {
+        "id": "fact:0a2eb92f-e572-4a4e-b26d-0e93c5a5599d",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078538",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Creates the default visual effects for a damaging collision on a fighter. It selects the primary impact effect from computed knockback and can add a randomized fighter-dependent secondary effect when hit-effect severity is nonzero.",
+        "rationale": "The head definition still selects one of two primary effects using a common-data knockback threshold and conditionally performs randomized secondary-effect processing. Current collision resolution still calls it from the default effect branch with severity, damage, and knockback.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the complete effect-selection and randomized secondary-effect logic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2596-L2896",
+            "why": "Shows current fighter and item collision-result paths calling the routine for `Ef_Id_Unk1000`."
+          }
+        ]
+      },
+      {
+        "id": "fact:4fcb7dbc-703a-4ad5-a24d-4b701688e50a",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078538",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Always spawns one primary impact effect: knockback below `p_ftCommonData->x3F0` selects the damage-parameterized default effect, while greater or equal knockback selects effect `0x3F3`. Secondary processing requires severity at least one; hit-spark variant 0 gives effect `0x3EF` a one-in-`x3F4` chance, while variant 1 only consumes a random value bounded by `x3F8`.",
+        "rationale": "All thresholds, guards, switch cases, random bounds, and effect spawns remain explicit in the head body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the complete primary and secondary effect control flow."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C",
+    "facts": [
+      {
+        "id": "fact:7addbd10-578f-4eb2-ae8e-4c1434dedef1",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007861C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives source object, source category and kind, packed attack data, event data, attack instance, optional hit context, and a preservation flag. It saves the previous source player, writes current source metadata into the victim, derives a grounded flag from context word 2, and forwards both current event metadata and the previous source player to `pl_80038144`.",
+        "rationale": "The current wrappers expose fighter, item, and neutral input forms; the target transforms them into victim fields and player-bookkeeping arguments.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows source-specific wrappers, victim writes, previous-source capture, and the bookkeeping call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows consumption of the forwarded event and occurrence metadata."
+          }
+        ]
+      },
+      {
+        "id": "fact:50bc4e45-f08d-4f95-9d5e-ef851cb734f5",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007861C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements combat-hit attribution and occurrence-aware attack-statistics tracking for fighter, item, and source-less damage events.",
+        "rationale": "Current source-specific wrappers converge on this routine, and its downstream consumer records packed attacks and per-player hit statistics while suppressing repeated nonzero attack instances.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows fighter, item, and neutral events converging on the attribution helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows event deduplication and player hit-statistics processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:ad3bc120-4694-4891-8880-1f79e57b5d43",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007861C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_RecordHitAttribution",
+        "rationale": "The routine remains the common adapter for fighter, item, and source-less hit paths, with its distinctive local responsibility being source attribution before player bookkeeping.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible descriptive name is `ftColl_RecordHitAttribution`.",
+        "confidence": 0.66,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the common recorder and its adjacent source-specific wrappers."
+          }
+        ]
+      },
+      {
+        "id": "fact:5dc97f84-221d-43cf-9ca2-c8e7936e5d47",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007861C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A side-effect-only hit-bookkeeping routine with source-level signature `void (Fighter_GObj* attacker_or_owner, Fighter_GObj* victim, int source_type, int source_kind, int packed_attack, UNK_T event_data, u16 attack_instance, UNK_T hit_context, int preserve_source_player)`. The attacker may be null, the victim is dereferenced unconditionally, and the optional hit context is treated as an integer array whose word 2 supplies the grounded-contact classification.",
+        "rationale": "The head definition now directly establishes the void return, current unresolved pointer surfaces, 16-bit attack-instance argument, nullable attacker branch, required victim access, and sole indexed use of context word 2; this avoids retaining stronger pointer types not expressed by the current declaration.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:41:47.648Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1411-L1446",
+            "why": "Provides the complete current definition, nullable attacker handling, unconditional victim retrieval, argument widths, and context-word access."
+          }
+        ]
+      },
+      {
+        "id": "fact:ea943254-f486-45e8-87ed-780a5063db56",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007861C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finalizes attribution and player bookkeeping for a hit on a fighter. It records source identity and category on the victim, derives a grounded-contact flag from optional context, and dispatches attack metadata to player hit-statistics and damage-event processing.",
+        "rationale": "The head body still writes victim source fields and forwards the complete event to `pl_80038144`, whose current implementation performs occurrence deduplication and player-statistics updates.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows source-field writes, context classification, and dispatch to player bookkeeping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows the dispatched event updating hit records and player action statistics."
+          }
+        ]
+      },
+      {
+        "id": "fact:1ffdc372-4526-449e-acc0-0cb7c9280c3f",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007861C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A non-null attacker assigns its player and spawn identity to the victim, except self-hits store source-object identity zero. A null attacker clears source-object identity and normally assigns neutral player 6, while the final flag can preserve the previous source player. Downstream event updates occur when the attack instance is zero or differs from the victim's previous instance.",
+        "rationale": "The head target retains the attacker, self-hit, neutral-source, and preservation branches; `pl_80038144` retains the occurrence-deduplication guard.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows all source-attribution branches and victim-field transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows the attack-instance guard around hit-record updates."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078710",
+    "facts": [
+      {
+        "id": "fact:56e3f2f3-2473-4868-96bb-17ba378cdd8f",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078710",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the attacking fighter's kind, packed attack-event value, event-data block, and attack-instance identifier, then forwards them with event class 1, attacker, victim, and damage context to `ftColl_8007861C`. The shared path writes victim attribution fields and submits the event to player bookkeeping.",
+        "rationale": "The head wrapper still performs exactly this field extraction and forwarding, while the current consumer uses the occurrence identifier and packed event for hit records.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Traces attacker event fields through the wrapper into the shared attribution helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows downstream consumption of the packed event and attack instance."
+          }
+        ]
+      },
+      {
+        "id": "fact:604357be-2182-4688-8895-6a8af347d183",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078710",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps the targeted hit portion of throws and capture releases into Melee's damage-source and player-statistics bookkeeping. It records the linked attacker and attack event for the thrown or released fighter, while surrounding routines separately apply damage and knockback.",
+        "rationale": "The resolved CaptureCut and Shouldered paths invoke this wrapper while applying a linked fighter's release capsule, between construction of damage metadata and the calls that actually add damage and calculate knockback. SmashWiki distinguishes a throw's target-only throw command from ordinary hitboxes, consistent with this specialized fighter-to-fighter event-recording path.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T13:41:11.920Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L197-L236",
+            "why": "Shows the wrapper recording the linked fighter hit immediately before damage accumulation and knockback calculation in a capture-ending path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L78-L138",
+            "why": "Shows the same bookkeeping call during expiration of the shouldered captive state."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://throw~properties@r2027118",
+            "why": "Explains that throw releases use target-specific throw data rather than ordinary hitboxes that affect bystanders."
+          }
+        ]
+      },
+      {
+        "id": "fact:15c05a73-b417-4098-a112-f4f406ece86e",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078710",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_RecordFighterHit",
+        "rationale": "The head wrapper still packages a fighter source and its stored attack event for the shared recorder without applying physical damage itself.\n\nNaming cleanup: Explicit proposed identifier; prefix or duplicate flags do not change extraction.\nPrior naming claim: Likely `ftColl_RecordFighterHit`.",
+        "confidence": 0.7,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the fighter-specific wrapper and the shared recording routine it invokes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows the forwarded fighter event being stored and counted."
+          }
+        ]
+      },
+      {
+        "id": "fact:c4d323ee-c8d1-4ca1-95a8-9d929bc674b3",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078710",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A `void (Fighter_GObj* attacker_gobj, Fighter_GObj* victim_gobj, void* damage_context)` collision-bookkeeping wrapper. The first object supplies fighter identity and stored attack-event metadata, the second is the damage recipient, and the opaque third argument is forwarded to the shared recorder, which inspects its third 32-bit field when classifying the event.",
+        "rationale": "The matched declaration establishes the void return, two Fighter_GObj pointers, and unresolved pointer-like third parameter. The body dereferences only the first fighter and forwards the other arguments unchanged; ftColl_8007861C treats the second object as the victim and conditionally reads index 2 from the third argument.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T13:41:11.920Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1401-L1476",
+            "why": "Provides the concrete signature, establishes the two fighter-object roles, and shows how the opaque third argument is consumed by the callee."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L197-L236",
+            "why": "Shows a caller passing the linked attacker first, the damaged fighter second, and an address within the damaged fighter's damage context third."
+          }
+        ]
+      },
+      {
+        "id": "fact:2acd9a2f-c032-4130-a8a2-175dff600dc5",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078710",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Records a fighter-sourced throw or capture-release hit against another fighter. It packages the attacking fighter's kind, current attack-event descriptor, and attack-instance identifier for the shared collision-attribution routine, which updates the victim's damage-source metadata and forwards the event to player statistics processing.",
+        "rationale": "The complete wrapper passes the attacker and victim together with the attacker's kind and x2070/x2074 event state to ftColl_8007861C. That helper writes attacker identity and event-classification fields into the victim before calling pl_80038144, while every resolved caller invokes the wrapper while applying a linked fighter's throw or capture-release capsule.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T13:41:11.920Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1401-L1476",
+            "why": "Shows the wrapper's complete argument packaging and the callee's updates to the victim's damage-source metadata before player-statistics processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L197-L236",
+            "why": "Shows a capture-ending damage path invoking the wrapper after constructing the victim's damage state from the linked fighter's second hit capsule."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L78-L138",
+            "why": "Shows the wrapper being used while resolving the shouldered captive's release hit."
+          }
+        ]
+      },
+      {
+        "id": "fact:3f017b84-c105-4fc4-9bf1-15b926a2a60e",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078710",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The wrapper has no local guard: every invocation immediately submits event class 1 and the attacker's current event record. Duplicate suppression occurs downstream when a nonzero attack instance equals the victim's recorded instance.",
+        "rationale": "The head wrapper remains branch-free, and the current player-bookkeeping routine retains the attack-instance comparison.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the unconditional wrapper call and forwarded attack instance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows the downstream repeated-instance suppression guard."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078754",
+    "facts": [
+      {
+        "id": "fact:320c4998-9394-4fe5-ac46-887bf7f34a5a",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078754",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes two Fighter objects, reads kind and stored attack-event metadata from the first, and forwards both objects and that metadata to `ftColl_8007861C`. After player bookkeeping returns, it writes source-player sentinel 6 and secondary-source sentinel -1 to the second fighter.",
+        "rationale": "The head body directly exposes the input fields, forwarding call, and final victim-field writes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the complete metadata flow and final sentinel assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows how the forwarded event is used for hit bookkeeping."
+          }
+        ]
+      },
+      {
+        "id": "fact:59b75109-021f-419e-95b7-9284bb528e14",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078754",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements bookkeeping at the confirmation boundary of a successful grab: the moment an attempted grab has connected with an opponent and is about to transition both fighters into their grabber- and victim-specific reactions.",
+        "rationale": "The caller invokes the routine only after a fighter victim has been selected, then immediately runs the grabber and grabbed callbacks. SmashWiki describes a successful grab as holding the opponent in place for a throw or another follow-up, grounding this code boundary in the visible grab mechanic.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T13:41:54.384Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L2589-L2619",
+            "why": "Shows the function executing on successful fighter grab contact immediately before callbacks for the grabbing and grabbed fighters."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://grab~__intro__@r2047744",
+            "why": "Defines a grab as an attack that holds an opponent in place in preparation for throws or other follow-ups and describes the successful-grab period."
+          }
+        ]
+      },
+      {
+        "id": "fact:03113dda-ffec-4f17-ae19-bb8f2db06517",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078754",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_RegisterGrabHit",
+        "rationale": "The function is a fighter-collision helper used exclusively at the observed successful-grab contact point. It registers the contact through the same event/statistics routine used for fighter hits, but immediately neutralizes the victim's lasting source attribution. `RegisterGrabHit` therefore describes its bookkeeping role more precisely than a name implying that it creates the captor/victim relationship or applies damage.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `ftColl_RegisterGrabHit`.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L2589-L2619",
+            "why": "Places the function on the successful fighter-grab path before participant-specific grab callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1401-L1476",
+            "why": "Shows that the function registers shared collision-event metadata and statistics, then clears persistent source attribution rather than establishing the grab relationship itself."
+          }
+        ]
+      },
+      {
+        "id": "fact:f5e6b7f1-57a5-4400-9012-9a2689fb6b2a",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078754",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Side-effect-only fighter-collision helper with the matched signature `void (Fighter_GObj* grabber_gobj, Fighter_GObj* victim_gobj, bool arg2)`. The first two parameters identify the grabbing and grabbed fighters. The third parameter is forwarded, after a pointer cast, into the shared event-context slot; the only observed caller supplies false/0, so its semantic domain beyond the current declaration remains unresolved.",
+        "rationale": "The matched definition establishes the return and parameter types and dereferences the first two objects as Fighters. Its only caller supplies the active fighter and `victim_gobj`, confirming their roles, while passing literal 0 for the final argument. Because the callee treats the forwarded slot as nullable event data, the evidence supports documenting the current signature and observed null use without assigning a stronger boolean meaning.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:41:54.384Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1456-L1470",
+            "why": "Directly shows the matched void signature, both Fighter object accesses, and the cast used when forwarding the third argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L2589-L2619",
+            "why": "Shows the sole observed call supplying the grabber, the successful fighter victim, and literal 0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1401-L1476",
+            "why": "Shows the shared helper treating the forwarded event-context slot as nullable and inspecting it only when non-null."
+          }
+        ]
+      },
+      {
+        "id": "fact:aecfa073-5eba-46ec-b431-41aa6cad7b20",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078754",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Registers a fighter-sourced contact through the shared collision/player-statistics path, then neutralizes the victim's persistent source-player fields so the contact does not remain attributed as an ordinary damaging hit.",
+        "rationale": "The current straight-line wrapper submits the first fighter's attack event and then overwrites the victim's source-player and secondary-source fields with sentinels 6 and -1.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows event registration through the shared helper followed by the victim source-field reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows the shared path's player hit-record processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:43074ca9-32d9-4bda-a8f7-bc9aefaf91d4",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078754",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine has no local guard or branch: every invocation registers one event through `ftColl_8007861C` and then unconditionally leaves the victim with source-player sentinel 6 and secondary-source sentinel -1. In normal processing it is reached only after grab collision has produced a non-null fighter victim; the caller then dispatches both participants' grab callbacks and returns before considering an item target.",
+        "rationale": "The target is straight-line code, proving its unconditional local postcondition. The caller's nesting supplies the external state guard: invocation occurs only under enabled grab processing, an active grab-contact flag, and a non-null `victim_gobj`, with the fighter-victim branch taking priority over item acquisition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:41:54.384Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1456-L1470",
+            "why": "Shows an unconditional shared-helper call followed by unconditional writes of the two victim source sentinels."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L2589-L2619",
+            "why": "Shows the processing guards, successful-contact flag, non-null fighter-victim condition, subsequent grab callbacks, early return, and lower-priority item path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800787B4",
+    "facts": [
+      {
+        "id": "fact:d3247126-19df-4007-ab99-dff3028c2a64",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800787B4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the item's owner, kind, attack-event fields, attack instance, and identifier together with the victim's player identifiers. Bob-ombs trigger a player-tracking call; otherwise the selected fighter owner or null and the item's metadata flow into `ftColl_8007861C`, with selected ownerless kinds setting the preservation flag.",
+        "rationale": "The current wrapper still contains every listed read, the Bob-omb side path, owner classification, and all three shared-helper call forms.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1396-L1515",
+            "why": "Shows all item and victim inputs and their bookkeeping destinations."
+          }
+        ]
+      },
+      {
+        "id": "fact:dd505efa-26ca-4689-9622-a9b55ec0ec91",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800787B4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports attribution of item-origin damage to a responsible fighter, including preservation of an earlier responsible player for exceptional ownerless item actors and additional Bob-omb hit tracking.",
+        "rationale": "The current wrapper resolves fighter ownership, selects whether an ownerless source clears attribution, and performs the Bob-omb-specific tracking call.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1396-L1515",
+            "why": "Shows the item ownership and exceptional attribution behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:dd20be7f-351c-4c7f-8e0f-4b2bb4214191",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800787B4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_ProcessItemHit",
+        "rationale": "The routine remains the item-specific adapter around the shared hit-attribution function, extracting owner and attack metadata rather than performing geometric collision detection.\n\nNaming cleanup: Explicit proposed identifier; prefix or duplicate flags do not change extraction.\nPrior naming claim: A plausible original-style name is `ftColl_ProcessItemHit`.",
+        "confidence": 0.66,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1396-L1515",
+            "why": "Shows the adjacent shared recorder and the complete item-hit specialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:22afbf35-5d84-46d3-bbe5-ef7d7756d0f9",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800787B4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Void item-to-fighter hit-bookkeeping routine with signature `void (Item_GObj* item_gobj, Fighter_GObj* victim_gobj, int context)`. The third argument is a 32-bit opaque context value forwarded to the common recorder.",
+        "rationale": "The head definition retains the concrete object types and forwards the final value into the shared helper's nullable context slot.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1396-L1515",
+            "why": "Shows the exact signature, Item and Fighter dereferences, and forwarded context."
+          }
+        ]
+      },
+      {
+        "id": "fact:c094364b-e619-484b-9090-740b305a33ac",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800787B4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Processes an item-origin hit against a fighter for damage-source bookkeeping. It performs Bob-omb-specific tracking, resolves a fighter owner when present, and forwards item kind and attack metadata while selecting the ownerless-source preservation behavior.",
+        "rationale": "All of these item-specific steps remain explicit in the current wrapper and converge on the shared attribution helper.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1396-L1515",
+            "why": "Shows Bob-omb tracking, owner validation, item metadata forwarding, and the ownerless preservation branch."
+          }
+        ]
+      },
+      {
+        "id": "fact:afe0a561-6518-4534-9691-990bd34973c2",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800787B4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A fighter-owned item attributes the hit to that owner. A classified ownerless item preserves the victim's previous source player; other ownerless items replace it with neutral sentinel 6. Independently, Bob-omb hits invoke an additional player-tracking update before attribution.",
+        "rationale": "The wrapper's three exhaustive owner branches select the attacker and preservation flag consumed by the shared recorder, and its Bob-omb guard precedes those branches.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1396-L1515",
+            "why": "Shows the owner, preserving-ownerless, ordinary-ownerless, and Bob-omb paths."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800788D4",
+    "facts": [
+      {
+        "id": "fact:4562967c-92f1-43d2-ab75-7a2de0c93830",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800788D4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Forwards the supplied fighter as victim with null attacker, source class 0, source kind -10, zero packed event data, null event and context pointers, attack instance 0, and preservation flag 0. The shared path clears active source identity, records neutral player 6, and sends an empty event to player bookkeeping.",
+        "rationale": "The head wrapper exposes all constants, the shared recorder exposes their victim-field effects, and the downstream consumer accepts attack instance zero as a fresh event.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows every fixed wrapper argument and the resulting neutral attribution writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows attack instance zero entering the hit-record update path without attacker statistics."
+          }
+        ]
+      },
+      {
+        "id": "fact:841695af-d48b-4a73-a005-b00eef155783",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800788D4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements neutral damage attribution for damage events that should not be credited to an active fighter or item source.",
+        "rationale": "The current wrapper always records a null attacker, neutral player sentinel, neutral source class, and empty attack event.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the neutral attribution constants and resulting source-state writes."
+          }
+        ]
+      },
+      {
+        "id": "fact:ed3b846a-496f-4a6c-86d2-c0972fc1e894",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800788D4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_RecordUnattributedHit",
+        "rationale": "Unlike the adjacent fighter and item wrappers, this function always supplies a null attacker and neutral metadata, making unattributed-hit recording its distinguishing role.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible descriptive name is `ftColl_RecordUnattributedHit`.",
+        "confidence": 0.64,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the source-less wrapper beside fighter- and item-specific variants."
+          }
+        ]
+      },
+      {
+        "id": "fact:86263bfc-8a96-4fd4-a272-bcbe45a686fb",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800788D4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Side-effect-only fighter damage-bookkeeping wrapper with exact signature `void (Fighter_GObj* victim_gobj)`.",
+        "rationale": "The current definition takes one fighter object, forwards it solely as the victim of the shared recorder, and returns no value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the exact signature and sole victim argument."
+          }
+        ]
+      },
+      {
+        "id": "fact:fa558a0f-0709-489e-b4d8-a96ba92a6c55",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800788D4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes a fighter's damage-source bookkeeping for a hit with no fighter or item attacker by submitting neutral source class 0, source kind -10, and empty attack metadata to the shared recorder.",
+        "rationale": "The head function remains a fixed-argument wrapper whose null attacker and zero preservation flag force neutral source attribution.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the fixed neutral arguments and the shared helper's resulting source-field behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:981e10e7-e4cf-421c-bef4-0da76355aa22",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_800788D4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The wrapper is unconditional. Every invocation assigns neutral source-player sentinel 6, clears source-object and secondary-source identity, records class 0 and kind -10, and replaces the current packed hit event and attack instance with zero.",
+        "rationale": "The wrapper has no branch, the shared helper always takes its null-attacker clearing path, and `pl_80038144` treats the zero instance as update-eligible.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1376-L1495",
+            "why": "Shows the branch-free neutral-source call and all source-field transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/pltrick.c#L199-L429",
+            "why": "Shows the zero-instance event-record update behavior."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007891C",
+    "facts": [
+      {
+        "id": "fact:c4889927-b888-4cd7-befa-011d51c1c617",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007891C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives attacker, victim, and resolved damage. The attacker and victim flow first to stale-move and combo helpers; their player identifiers, the attacker's classification byte, and damage then flow to persistent player statistics.",
+        "rationale": "The current target directly shows this ordered forwarding and all participant-field extraction.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1456-L1542",
+            "why": "Shows the exact data extraction and destinations for stale, combo, and statistics processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:7eb60910-bf8c-4135-b3ec-901167f3af4b",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007891C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps a connected fighter attack to Melee's stale-move history, combo counter, and per-match damage-attribution statistics.",
+        "rationale": "The head routine invokes the dedicated stale-move updater, combo-state wrapper, and match-statistics recorder for each reported fighter hit.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1456-L1542",
+            "why": "Shows one fighter hit routed to all three gameplay bookkeeping systems."
+          }
+        ]
+      },
+      {
+        "id": "fact:e2cfe41e-9452-4ce4-97cb-728e9dbba4ad",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007891C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_RecordFighterHit",
+        "rationale": "The function remains the fighter-versus-fighter post-hit recorder immediately preceding the parallel item-versus-fighter recorder.\n\nNaming cleanup: Explicit proposed identifier; prefix or duplicate flags do not change extraction.\nPrior naming claim: A plausible original name is `ftColl_RecordFighterHit`.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1456-L1542",
+            "why": "Shows the fighter-hit bookkeeping wrapper and its adjacent item-hit analogue."
+          }
+        ]
+      },
+      {
+        "id": "fact:e599ed29-e74d-45af-a73f-9efd03be3b6b",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007891C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Post-hit recorder with signature `void (Fighter_GObj* attacker, Fighter_GObj* victim, float damage)`. Both object arguments must carry Fighter user data. The first supplies attack identity, attack instance, player slot/index, and attack classification; the second supplies the damaged participant's player slot/index, while the float is the resolved hit damage to attribute.",
+        "rationale": "The matched declaration establishes the concrete signature. Its field reads and callee argument order establish the attacker and victim roles, while throw and capture-hit callers pass the hit capsule's damage and consistently place the offensive fighter first.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:41:34.497Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1505-L1517",
+            "why": "Provides the exact signature and shows participant metadata and the supplied float flowing to the three bookkeeping operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L210-L236",
+            "why": "Shows a capture-hit path passing the linked attacking fighter first, the damaged fighter second, and the hit capsule's damage as the float."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L187-L204",
+            "why": "Independently shows the thrower, thrown victim, and throw damage occupying the same three roles."
+          }
+        ]
+      },
+      {
+        "id": "fact:8613d447-276d-421c-8662-6faba39615ac",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007891C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs post-hit bookkeeping for a fighter damaging another fighter by submitting the hit to stale-move history, combo-count state, and persistent player damage statistics; it does not itself apply damage or knockback.",
+        "rationale": "The head body still consists solely of calls to the stale, combo, and statistics helpers.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1456-L1542",
+            "why": "Shows the complete unconditional stale, combo, and statistics call sequence."
+          }
+        ]
+      },
+      {
+        "id": "fact:fce673ef-fe39-4512-b4ca-148d8669fec7",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_8007891C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The wrapper itself has no branch: for every notification it attempts stale-history insertion, combo-count advancement, and damage-statistics attribution in that order. The delegated stale-history step leaves state unchanged for a self-hit, excluded attack ID 1, or an already-recorded move-ID/attack-instance pair. Combo state is likewise suppressed for a self-hit and otherwise starts, continues, or resets the attacker's victim-and-attack sequence. Statistics attribution is suppressed when the attacker slot is unavailable or equals the victim slot; accepted events accumulate attacker totals and, for a real victim, opponent-specific hit history.",
+        "rationale": "The target's matched body makes all three calls unconditionally and establishes their ordering. The complete callee bodies provide the guards and mutations that determine whether each attempted bookkeeping transition changes state.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T13:41:34.497Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1505-L1517",
+            "why": "Shows the unconditional stale, combo, and statistics call sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/plstale.c#L39-L66",
+            "why": "Shows every stale-history no-change guard and the circular insertion transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L124",
+            "why": "Shows self-hit suppression and the start, continuation, threshold, and reset transitions of fighter combo-count state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/plbonuslib.c#L682-L714",
+            "why": "Shows participant guards and the accepted event's persistent attacker, victim, and hit-history updates."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078998",
+    "facts": [
+      {
+        "id": "fact:f41f280e-4aac-4a26-847d-18d563243f0b",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078998",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the attacking item's GObj, the victim fighter's GObj, and the accepted scaled damage from item collision processing. The item supplies its owner, attack ID and instance through the stale and combo helpers, plus its attack-class byte for statistics. A valid fighter owner supplies the attacker player ID and secondary-fighter discriminator; the victim supplies the corresponding victim identifiers. These values flow into the owner's stale-move table, the owner's combo-count fields, and persistent attacker/victim match-statistics records.",
+        "rationale": "The caller demonstrates the source of all three direct operands. The target forwards both objects to the stale and combo helpers and explicitly extracts owner, victim, and attack-class metadata for pl_8003EB30. The resolved helper bodies identify the exact destination state modified by each path.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:42:09.867Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1261-L1341",
+            "why": "Shows accepted item-hit damage flowing from collision processing into the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1526-L1540",
+            "why": "Shows object and field reads and the complete forwarding path into the three bookkeeping operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L139",
+            "why": "Shows the item owner and item attack ID flowing into the owner's combo-count fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/plstale.c#L68-L97",
+            "why": "Shows item owner, attack ID, and attack-instance metadata flowing into the owning player's stale-move table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/plbonuslib.c#L682-L714",
+            "why": "Shows damage and participant metadata being accumulated in persistent player statistics and hit history."
+          }
+        ]
+      },
+      {
+        "id": "fact:eb323446-3ea1-4151-a85f-b0e816ac5f2b",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078998",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps a successful fighter-owned item hit on another fighter to three gameplay bookkeeping systems: the item attack contributes to the owner's stale-move queue, the hit advances owner-versus-victim combo tracking, and its damage is credited to the owner's match bonus and results statistics. It observes an already accepted hit rather than applying the victim's live damage.",
+        "rationale": "The collision caller invokes the target after adding accepted scaled damage and logging the hit. The target then dispatches only to stale, combo, and statistics helpers. SmashWiki independently establishes that items in Melee are affected by stale moves and that connected attacks enter the stale queue, while the statistics callee demonstrably accumulates damage without modifying a live Fighter percentage.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T13:42:09.867Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1261-L1341",
+            "why": "Shows that live hit damage has already been accepted before the target is invoked as post-hit bookkeeping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1526-L1540",
+            "why": "Shows the target dispatching the successful item hit to stale-move, combo, and match-statistics processing."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://stale-moves~overview@r2039011",
+            "why": "States that connected attacks enter the stale queue and that items in Melee are affected by stale moves."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/plbonuslib.c#L682-L714",
+            "why": "Shows the reported damage being accumulated in persistent match bookkeeping rather than applied to the victim's live damage."
+          }
+        ]
+      },
+      {
+        "id": "fact:cfc277df-44f5-4a95-98c5-468b5a170f48",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078998",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_ItemHitFighter",
+        "rationale": "The current function remains the item-versus-fighter counterpart to the preceding fighter-hit recorder and operates only on an already accepted item hit.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `ftColl_ItemHitFighter`.",
+        "confidence": 0.68,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1456-L1542",
+            "why": "Shows the item-hit bookkeeping routine beside its fighter-hit analogue."
+          }
+        ]
+      },
+      {
+        "id": "fact:1733376d-f025-47bf-a7fe-a421395c540a",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078998",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Post-hit callback with effective signature `void (Item_GObj* attacking_item, Fighter_GObj* victim, f32 damage)`. Although the current definition uses generic `HSD_GObj*` parameters, the caller and all dereferences require the first object to contain an Item and the second to contain a Fighter.",
+        "rationale": "The matched definition provides the concrete void return and float third parameter while interpreting the first object's user data as Item and the second's as Fighter. Its sole caller passes `item->entity`, `fp->gobj`, and the accepted scaled damage from the item-versus-fighter collision path, establishing the more specific effective object types and the float's unit.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:42:09.867Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1261-L1341",
+            "why": "Shows the only caller supplying an Item GObj, the struck Fighter GObj, and scaled hit damage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1526-L1540",
+            "why": "Provides the complete declared signature and shows the first and second objects being interpreted as Item and Fighter data respectively."
+          }
+        ]
+      },
+      {
+        "id": "fact:f5c8316c-a0c3-43ba-bb8c-2d89e08a4104",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078998",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs post-hit bookkeeping when an item damages a fighter: it submits the item attack to the owning fighter's stale-move history, updates that owner's combo-count state against the victim, and credits the damage and attack classification to the owner's per-match statistics.",
+        "rationale": "The matched body invokes the item stale-history helper and item-owner combo helper for every reported collision, then conditionally forwards the damage, owner and victim identities, and item attack classification to the player statistics recorder. The resolved helper bodies establish that these calls update stale-move history, combo-count state, and persistent damage-attribution statistics rather than applying the victim's live damage.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:42:09.867Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1526-L1540",
+            "why": "Shows the complete target invoking stale-move, combo-count, and player damage-attribution bookkeeping for an item-versus-fighter hit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L139",
+            "why": "Shows that ftColl_8007646C resolves an item's fighter owner and attack ID and uses them to update that owner's combo-count state against the victim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/plstale.c#L68-L97",
+            "why": "Shows that the stale-move helper records a qualifying item attack in its fighter owner's rotating stale-move history."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/plbonuslib.c#L682-L714",
+            "why": "Shows that pl_8003EB30 records the supplied damage in persistent attacker, victim, category, and hit-history bookkeeping."
+          }
+        ]
+      },
+      {
+        "id": "fact:9ba108be-0d6c-4494-94b6-b3b50ac6f894",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078998",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On every invocation, the routine attempts stale-history and combo-count updates. Those helpers independently produce no update unless the item has a fighter owner; stale-history insertion additionally rejects owner-equals-victim, attack ID 1, and duplicate attack-ID/instance pairs. Match-statistics attribution occurs exactly once only when the owner is a fighter. The routine itself has no timer or persistent local state.",
+        "rationale": "The target unconditionally calls the first two helpers and guards only the final recorder call. The fighter-class predicate defines owner validity, while the helper bodies provide the additional stale-history guards and the combo helper's owner gate. No target-local state is written.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:42:09.867Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1526-L1540",
+            "why": "Shows the two unconditional helper calls, the fighter-owner guard around statistics recording, and the absence of local persistent state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftlib.c#L427-L434",
+            "why": "Shows that the owner predicate succeeds only for a non-null GObj carrying the fighter classifier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/pl/plstale.c#L68-L97",
+            "why": "Shows the stale-history owner, self-hit, excluded-ID, and duplicate-instance guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L84-L139",
+            "why": "Shows that the combo update is suppressed unless the item's owner is a fighter."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078A2C",
+    "facts": [
+      {
+        "id": "fact:b1fa0282-a9f7-42e6-8168-4d4a7e2b2638",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078A2C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Clears the grabber's previous victim and initializes its best distance to infinity, then reads the global fighter list, candidate state and team fields, four grabber hit capsules, candidate hurt capsules, transforms, and stage-wall state. Accepted contacts feed a minimum-horizontal-distance reduction that writes the selected victim and successful-contact flag.",
+        "rationale": "The current source directly exposes initialization, every major input family, the overlap and obstruction checks, and the nearest-victim output fields.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1543-L1633",
+            "why": "Shows the full flow from fighter and capsule inputs to the selected-victim fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:39052f33-bfb8-492c-abc4-0153e1c2ee14",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078A2C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements fighter-versus-fighter contact detection for grabs: a Catch capsule must overlap a grabbable part of an eligible opponent, target the opponent's grounded or aerial state, and have no stage wall between the fighters; the nearest qualifying opponent is selected.",
+        "rationale": "The head code explicitly checks `HitElement_Catch`, grabbable hurt capsules, ground/air targeting, wall obstruction, and nearest-victim distance.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1543-L1633",
+            "why": "Shows the collision and selection rules that realize successful grab contact."
+          }
+        ]
+      },
+      {
+        "id": "fact:26a1963c-0a68-4e7b-a28b-6d07bc0f2206",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078A2C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftColl_FindGrabVictim",
+        "rationale": "The routine is explicitly documented as checking grabbable targets and returns its effective result by storing the nearest qualifying fighter in `victim_gobj`.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `ftColl_FindGrabVictim`.",
+        "confidence": 0.8,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1543-L1633",
+            "why": "Shows the grab-specific roster search and stored nearest-victim result."
+          }
+        ]
+      },
+      {
+        "id": "fact:872055c7-9a54-4bbf-9efd-fe9a7cad243d",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078A2C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Side-effect-only fighter collision query with signature `void (Fighter_GObj* grabber_gobj)`. Results are returned through the grabber's `victim_gobj`, `x1A5C`, `x221B_b5`, and nearest-distance fields.",
+        "rationale": "The head declaration and body show one Fighter GObj input, no return value, initialization of the result fields, and mutation by the nearest-candidate helper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1543-L1633",
+            "why": "Shows the exact signature and all effective output mutations."
+          }
+        ]
+      },
+      {
+        "id": "fact:574f4b26-8f26-4a4c-90ae-f3eb8527262e",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078A2C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finds the nearest eligible fighter victim touched by the subject fighter's active catch collision. It filters candidates, tests catch capsules against grabbable hurt capsules, rejects wall-separated contacts, records accepted contact, and stores the closest victim.",
+        "rationale": "The complete head routine still scans the fighter list, applies eligibility and geometry guards, and uses `ftGrabDist` to retain only a strictly closer accepted victim.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1543-L1633",
+            "why": "Shows the full grab-target scan, overlap and wall tests, collision recording, and nearest-victim update."
+          }
+        ]
+      },
+      {
+        "id": "fact:51ec44fa-5fa7-4089-93fd-96f7ea412382",
+        "target_id": "target:function:main/melee/ft/ftcoll:ftColl_80078A2C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each invocation starts with no victim and infinite best distance. Same-player and normally same-team candidates are excluded, as are candidates blocked by state and interaction flags. Only enabled Catch capsules compatible with the target's ground or air state and overlapping a grabbable hurt capsule can qualify; stage-wall obstruction rejects the contact. Only a strictly closer accepted fighter replaces the selected victim.",
+        "rationale": "The nested candidate and capsule guards and the strict comparison in `ftGrabDist` remain unchanged at head.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:55:19.817Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1543-L1633",
+            "why": "Shows initialization, eligibility guards, Catch and hurt-capsule requirements, wall rejection, and strict nearest-target selection."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077464#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077464#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077464#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077688#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077688#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077688#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077688#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077688#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077970#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077970#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077970#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077970#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077C60#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077C60#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077C60#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80077C60#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078384#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078384#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078384#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078488#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800784B4#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800784B4#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800784B4#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078538#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078538#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078538#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078538#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078538#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C#r10",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C#r11",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C#r8",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007861C#r9",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078710#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078710#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078710#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078754#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078754#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078754#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800787B4#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800787B4#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800787B4#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_800788D4#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007891C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007891C#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_8007891C#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078998#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078998#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078998#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/ftcoll:ftColl_80078A2C#r3",
+    "facts": []
+  }
+]

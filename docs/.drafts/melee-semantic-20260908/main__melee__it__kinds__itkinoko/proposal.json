@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/it/kinds/itkinoko",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkinoko.c#L11-L147",
+            "why": "Non-const table, state selections and callback mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkinoko.h#L34-L34",
+            "why": "External non-const array declaration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported immutable characterization while preserving the supported dispatch and per-item data-flow explanation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkinoko:.data"
+        },
+        "type": "data_flow",
+        "value": "Motion-state indices 0 and 1 select callback triplets from the two-entry ItemStateTable. The registered callbacks operate on each supplied item's velocity, facing, collision data and Kinoko working fields; no table mutation occurs in this unit. The array is declared without const, so these observations do not establish immutability or compiled read-only placement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkinoko.c#L42-L53",
+            "why": "Exact definition and side-effect-only body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkinoko.h#L20-L22",
+            "why": "Header declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkinoko.c#L137-L147",
+            "why": "Use as landing callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the misleading private characterization; the canonical definition is non-static and the module header exposes its declaration.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkinoko:it_802936E4"
+        },
+        "type": "inferred_type",
+        "value": "Item landing and motion-state entry callback with signature void(Item_GObj* gobj), defined with external linkage and declared in itkinoko.h. It mutates the Item attached to the supplied game object and returns no result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkinoko.c#L18-L147",
+            "why": "Distinct accessor and per-instance movement paths, including cached-speed lifetime."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D27.c#L125-L144",
+            "why": "Returned animation is installed on the fighter helper joint and consumed for scaling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the fighter animation-resource path from item movement rather than implying that animation data feeds facing and collision vectors.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itkinoko.c"
+        },
+        "type": "data_flow",
+        "value": "The unit has separate movement and transformation-resource paths. Spawn X position determines item facing; Kinoko speed and drag attributes plus common falling attributes drive velocity. Per-instance kinoko.x0 caches signed travel speed and kinoko.x4 caches surface geometry across grounded physics, collision, ground loss and landing; airborne drag changes current horizontal velocity without updating the cached speed. Independently, it_80293660 returns KinokoAnim[idx + 2].joint from the global Kinoko article, and fighter code installs that animation on a helper JObj whose animated X scale drives interpolation between fighter scale endpoints."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -284,6 +284,8 @@ describe("DaytonaSandboxProvider", () => {
     await provider.delete("daytona-1", "reap");
     expect(deleted).toBeTrue();
     expect({ keyReads, clientCreates }).toEqual({ keyReads: 1, clientCreates: 1 });
+    await provider.create({ ...createParams, ephemeral: true });
+    expect(createCalls.at(-1)).toMatchObject({ autoStopInterval: 90, autoDeleteInterval: 0, ttlMinutes: 90 });
   });
 
   test("throws a clear missing-key error only when first used", async () => {

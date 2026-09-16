@@ -1,0 +1,231 @@
+{
+  "tu": "main/melee/it/kinds/itclimbersstring",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L184-L206",
+            "why": "Accessory operations and ignored status."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L350-L398",
+            "why": "Exact assignment order, guards and return domain."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claimed minimum/maximum interval guarantee by preserving assignment order and the actual collapse guard.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:fn_802C28DC"
+        },
+        "type": "state_behavior",
+        "value": "Runs as the state-1 accessory callback, forcing the x4 terminal link active, deriving the target from its attachment JObj, invoking it_802C2EC4, and refreshing transforms without consuming the solver's status or changing item state. The solver resets each active successor to the target before measuring its distance from the current link. It clamps distances above attrs->x8; below attrs->xC it tests distance from that just-assigned target against 0.1f and either deactivates the link or executes the lower-distance projection branch. This is not an unconditional minimum-separation guarantee. Inactive successors activate only when the target gap exceeds attrs->x8; otherwise traversal returns 0, while list exhaustion returns 2."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L208-L230",
+            "why": "Accessory caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L407-L458",
+            "why": "Complete solver branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the x/y-only anchor test, index-limited activation, and early-return effects omitted from the existing summary.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:fn_802C29E8"
+        },
+        "type": "state_behavior",
+        "value": "Runs as the state-2 accessory callback, forcing x4 active, invoking it_802C30E8 with an attachment-derived target, and refreshing transforms without an item-state transition. The solver subtracts 0.9f * attrs->x14 from the leading link's vertical velocity and uses Fighter.u.pp.x2240 as its position only when that vector's x or y component is nonzero; otherwise it advances the link. Active successors receive full gravity, advance, and undergo maximum-spacing correction. Inactive successors at indices up to attrs->x4 activate only for a target gap above attrs->x8, otherwise returning 0 immediately. Inactive successors beyond that cutoff move to the target without activation. Only list exhaustion performs the final backward constraint and 0.9f horizontal damping before returning 2; the callback ignores both statuses."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L17-L17",
+            "why": "Forward declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L52-L125",
+            "why": "Definition, payload assignment and exceptional paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L169-L175",
+            "why": "Ignored result and attachment-joint input."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the declared pointer type from the actual returned object payload and removes an unconditional safe-failure implication.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:it_802C248C"
+        },
+        "type": "inferred_type",
+        "value": "Declared static HSD_GObj* (Item* ip, HSD_JObj* jobj), with an Item_GObj* forward declaration. The second argument is the fighter attachment joint shared by all links. On the normal terminal-link path, result is assigned link_gobj->hsd_obj after loading and attaching the terminal HSD_JObj, so the returned payload must not be confused with the terminal GObj itself. The GObj-allocation failure branch attempts cleanup and returns NULL, but its first-iteration path reads uninitialized prev_link. Counts below two leave some endpoint/result locals uninitialized. The spawn caller ignores the return value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L52-L125",
+            "why": "Complete allocation, linking and rollback sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L477-L496",
+            "why": "Terminal activity is reversible."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exceptional construction behavior and the active flag's actual meaning instead of generalizing the normal structural cases.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:it_802C248C"
+        },
+        "type": "state_behavior",
+        "value": "For a successfully constructed chain with at least two links, the first link has next == NULL and becomes x8; each later link points through next to the previously allocated link, whose prev points back to it. The terminal link has prev == NULL, becomes x4, starts active, and receives the distinct endpoint model. Ordinary links start inactive. x2C_b0 is the reversible active flag, not a terminal marker. A failed GObj_Create enters an attempted next-chain rollback before returning NULL, but prev_link is uninitialized on first-iteration failure and the loop reads prev_link->next after destroying that link's GObj. HSD_ObjAlloc is not locally checked. Counts zero or one do not initialize all locals subsequently published or returned. These branches must not be described as guaranteed safe rollback."
+      },
+      {
+        "confidence": 0.91,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L301-L348",
+            "why": "Contrasts active-only geometric constraints with the gravity-bearing pass."
+          }
+        ],
+        "op": "write",
+        "rationale": "Unlike it_802C2CA8, this helper applies gravity and shared motion updates to every previous link before spacing correction. The suffix identifies that meaningful distinction and resolves the rendered name collision without claiming an original symbol.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:it_802C2DB0"
+        },
+        "type": "inferred_name",
+        "value": "itClimbersstring_ConstrainPreviousLinksWithPhysics"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L407-L458",
+            "why": "Complete deployment algorithm and early return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L569-L578",
+            "why": "State-2 accessory registration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication that every update finishes with the backward pass and that every inactive successor is eligible for activation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:it_802C30E8"
+        },
+        "type": "purpose",
+        "value": "Performs state 2's gravity-bearing deployment and spacing update for the Ice Climbers rope. It updates the leading link using gravity and an optional x/y-tested fighter-position override, advances active successors, and corrects overlong adjacent gaps. Inactive successors within the configured index cutoff deploy only when needed; those beyond it are positioned at the target without activation. An unnecessary inactive successor causes an early status-0 return. Only after exhausting the chain does it run the backward constraint pass, damp leading horizontal velocity, and return status 2."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L82-L125",
+            "why": "Endpoint identities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L232-L256",
+            "why": "x8 caller and result consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L460-L475",
+            "why": "Output-pointer wiring and completion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the swapped endpoint identification while retaining the supported retraction-output and completion flow.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:it_802C32D4"
+        },
+        "type": "data_flow",
+        "value": "The retraction accessory supplies the initial/head ItemLink stored in climbersstring.x8, an anchor derived from that link's retained attachment JObj, article attributes, the Item, and the stored climbersstring.x0 distance. This differs from the terminal/tail link stored in x4. The helper passes the link, anchor, distance, and &attrs->x8 to Item_RetractChain, receiving prev, cur, and step. It forwards cur and step to it_802C2DB0 for boundary placement and previous-link physics, then returns whether prev is NULL. The Item parameter is unused. The caller consumes completion to enter state 0 and refreshes transforms on either path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L498-L556",
+            "why": "Complete traversal, boundary selection and matrix writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claimed active-only output traversal and records the initial scan's precondition.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:it_802C3520"
+        },
+        "type": "data_flow",
+        "value": "Starts at climbersstring.x8 and follows prev while the current link is inactive, without a null guard in that initial scan. After finding an active link, it updates every remaining link through prev until NULL, without testing each current link's activity. For each, next_pos comes from an active next link or the supplied target; prev_pos comes from prev or the current position when prev is absent. It writes the current position to the link GObj's render JObj, normalizes prev_pos - next_pos, applies the direction transform, and multiplies all nine basis entries of the resulting matrix by attrs->x8. It does not alter simulated ItemLink positions."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L498-L556",
+            "why": "Actual transform-only processing and scan precondition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the simulation-to-model role while correcting the traversal description and preserving the missing null guard.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:it_802C3520"
+        },
+        "type": "purpose",
+        "value": "Synchronizes the simulated Ice Climbers rope with its visible link models by writing translation, direction-derived orientation, and uniform basis scaling. It skips the initial inactive portion from x8, then processes every remaining prev link rather than filtering each link by activity. The initial scan assumes an active link exists. This routine publishes transforms; it does not advance the rope simulation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L93-L108",
+            "why": "Separate attachment pointer and loaded render object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L169-L175",
+            "why": "Fighter attachment-joint origin."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itclimbersstring.c#L604-L629",
+            "why": "Complete entry implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the attachment-versus-render joint distinction without changing the supported state-entry explanation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itclimbersstring:it_802C3950"
+        },
+        "type": "purpose",
+        "value": "Enters the climbers-string article's state-1 rope phase. It derives the x4 terminal endpoint's world position from link->jobj, the retained fighter attachment joint rather than the separate render JObj owned by link->gobj. It copies that position into the link and both collision samples, marks the endpoint active, selects item state 1 with ITEM_ANIM_UPDATE, calls it_8026BB20, and installs fn_802C28DC for subsequent rope simulation and presentation."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -6,7 +6,7 @@ import {
   planBoundarySync,
   type BoundarySyncPlan,
   type BoundaryTargetState,
-} from "@server/core/cycle-runtime/phases/running/epochs/boundary-sync.js";
+} from "@server/core/harness-runtime/phases/running/epochs/boundary-sync.js";
 import { booleanArg, syncMergePolicyArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 
 interface BoundarySyncDryRunState {
@@ -21,22 +21,16 @@ export function loadBoundarySyncDryRunState(stateDir: string, gameId?: string, r
   if (!existsSync(databasePath)) throw new Error(`Boundary sync state database not found: ${databasePath}`);
   const db = new Database(databasePath, { readonly: true, strict: true });
   try {
-    const cycle = db.query(`
-      SELECT a.upstream_revision AS anchor_sha, c.active_run_id AS run_id, c.cycle_uuid
-      FROM game_upstream_anchors a
-      JOIN cycles c ON c.cycle_uuid = a.cycle_uuid
-      WHERE (?1 IS NULL OR c.game_id = ?1)
-        AND c.status IN ('active', 'blocked', 'closing')
-      ORDER BY c.updated_at DESC
-      LIMIT 1
-    `).get(gameId ?? null) as { anchor_sha: string; run_id: string | null; cycle_uuid: string } | null;
-    if (!cycle) throw new Error(`No active cycle upstream anchor found${gameId ? ` for game ${gameId}` : ""}`);
+    const owners = db.query(`SELECT game_id, state_json FROM harness_state
+      WHERE (?1 IS NULL OR game_id = ?1)`).all(gameId ?? null) as Array<{ game_id: string; state_json: string }>;
+    if (owners.length !== 1) throw new Error(`Boundary target discovery requires one game harness; found ${owners.length}`);
+    const owner = owners[0]!;
+    const state = JSON.parse(owner.state_json) as { source: { upstream_revision: string | null } };
+    if (!state.source.upstream_revision) throw new Error(`No accepted upstream anchor found for game ${owner.game_id}`);
     if (runId) {
-      const run = db.query("SELECT cycle_uuid FROM runs WHERE id = ?").get(runId) as { cycle_uuid: string | null } | null;
+      const run = db.query("SELECT game_id FROM runs WHERE id = ?").get(runId) as { game_id: string | null } | null;
       if (!run) throw new Error(`Boundary target discovery run not found: ${runId}`);
-      if (run.cycle_uuid !== cycle.cycle_uuid) {
-        throw new Error(`Boundary target discovery run ${runId} does not belong to active cycle ${cycle.cycle_uuid}`);
-      }
+      if (run.game_id !== owner.game_id) throw new Error(`Boundary target discovery run ${runId} does not belong to game ${owner.game_id}`);
     }
 
     const rows = db.query(`
@@ -45,11 +39,11 @@ export function loadBoundarySyncDryRunState(stateDir: string, gameId?: string, r
       FROM epoch_targets et
       JOIN worker_state ws ON ws.epoch_target_id = et.id
       JOIN runs r ON r.id = et.run_id
-      WHERE r.cycle_uuid = ?1
+      WHERE r.game_id = ?1
         AND ws.best_checkpoint_id IS NOT NULL
       ORDER BY CASE WHEN et.run_id = ?2 THEN 0 ELSE 1 END,
                ws.ended_at DESC, ws.started_at DESC
-    `).all(cycle.cycle_uuid, runId ?? null) as Array<{
+    `).all(owner.game_id, runId ?? null) as Array<{
       target_key: string;
       source_path: string;
       unit: string;
@@ -69,7 +63,7 @@ export function loadBoundarySyncDryRunState(stateDir: string, gameId?: string, r
         priorScore: row.best_score,
       });
     }
-    return { anchorSha: cycle.anchor_sha, targets: [...byTarget.values()] };
+    return { anchorSha: state.source.upstream_revision, targets: [...byTarget.values()] };
   } finally {
     db.close();
   }

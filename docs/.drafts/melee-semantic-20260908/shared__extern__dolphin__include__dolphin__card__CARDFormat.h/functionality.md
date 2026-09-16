@@ -1,0 +1,3 @@
+The include-guarded header declares `long CARDFormat(long chan);` without an implementation. Canonical and rendered views agree, with no substitutions or parsing errors. There are no baseline names, explanations, facts, or links requiring correction. The declaration does not establish valid channel values, return-code meanings, formatting behavior, exceptional branches, or resource lifetimes; no such claims are proposed. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/card/CARDFormat.h#L1-L7.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

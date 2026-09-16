@@ -1,0 +1,573 @@
+{
+  "reviewer": "/root/review_gate/lb_small_review",
+  "tu": "main/sysdolphin/baselib/psappsrt",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "status": "independent_link_review_complete",
+  "baseline_sha256": "de519f8f70f0cd0ffc9209442aead039840115df541a4b997b5be7338b426c01",
+  "ledger_sha256": "0b948f53f1ebab5a9f6c231f96ae8654ec9f08c463ed8f8f38da68ebf3168fea",
+  "ledger_path": "docs/.drafts/melee-semantic-20260908/main__sysdolphin__baselib__psappsrt/librarian/link-dispositions.json",
+  "expected_links": 18,
+  "reviewed_links": 18,
+  "counts": {
+    "retain": 12,
+    "unresolved": 6
+  },
+  "links": [
+    {
+      "link_id": "link:249f5ea9-febb-4dcd-ba44-8c5eb57b90de",
+      "baseline_record": {
+        "id": "link:249f5ea9-febb-4dcd-ba44-8c5eb57b90de",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psRemoveGeneratorSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:reference-counted-shared-lifetime",
+        "role": "exhibits",
+        "why": "The SRT remains allocated after a nonfinal removal but receives custom cleanup and allocator release exactly when decrementing usedCount reaches zero.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L106-L133",
+        "digest": "sha256:d57f3135cf47ad80"
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:bc9f6708-9976-4de5-acd5-83f080cb1808",
+      "baseline_record": {
+        "id": "link:bc9f6708-9976-4de5-acd5-83f080cb1808",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/sysdolphin/baselib/psappsrt.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The unit's resolved symbol set manages particle and generator AppSRT records, and its matched code stores scale, rotation, and translation components.",
+        "kind": "discord",
+        "locator": "discord://message/1007047274372796547",
+        "digest": null
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L12-L132",
+          "why": "Allocation, attachment and removal lifecycle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:c70ef465-68a5-450c-ae88-51fe8e67429e",
+      "baseline_record": {
+        "id": "link:c70ef465-68a5-450c-ae88-51fe8e67429e",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psAddGeneratorAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The function creates a generator-specific record containing identity scale, rotation, and translation values.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L22-L54",
+        "digest": "sha256:f521a810147bac23"
+      },
+      "disposition": "unresolved",
+      "reason": "Identity-transform wording is unsupported: creation writes rotation XYZ=0 and scale XYZ=1, but rotation is Quaternion and W is not explicitly initialized to an identity value. Clearing only the configured byte count and leaving cached matrices without identity writes does not establish full identity. The allocator is shared by particle and generator wrappers.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L53",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L63",
+          "why": "Configured-size clearing, explicit component writes and both owner wrappers."
+        }
+      ]
+    },
+    {
+      "link_id": "link:61aa4784-168c-447c-a361-9ba1a5dd2ca1",
+      "baseline_record": {
+        "id": "link:61aa4784-168c-447c-a361-9ba1a5dd2ca1",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/sysdolphin/baselib/psappsrt.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The unit creates and manages particle- and generator-associated records containing scale, rotation, and translation vectors.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "Retain the SRT lifecycle/allocator relationship with corrected type precision: translation and scale are Vec3, but rotation is Quaternion, not a three-component rotation vector. This source review does not establish full identity initialization.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L12-L132",
+          "why": "Allocation, attachment and removal lifecycle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:514e83a7-c4cd-4c7d-b2a7-a8846e10e6fb",
+      "baseline_record": {
+        "id": "link:514e83a7-c4cd-4c7d-b2a7-a8846e10e6fb",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/sysdolphin/baselib/psappsrt.c",
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:reference-counted-shared-attachment",
+        "role": "exhibits",
+        "why": "Creation starts usedCount at one, each additional attachment increments it, and removals decrement it and free the record only on the final release.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L12-L132",
+          "why": "Allocation, attachment and removal lifecycle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:b0e9e0d1-680f-4dcd-8207-68c4c7fecb1c",
+      "baseline_record": {
+        "id": "link:b0e9e0d1-680f-4dcd-8207-68c4c7fecb1c",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psRemoveParticleAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The function detaches a particle from the HSD_psAppSRT record that carries its shared scale, rotation, and translation state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L83-L103",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:e262a633-02c9-431e-a32e-791089e46499",
+      "baseline_record": {
+        "id": "link:e262a633-02c9-431e-a32e-791089e46499",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psRemoveParticleAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:reference-counted-shared-attachment",
+        "role": "exhibits",
+        "why": "The function decrements usedCount and destroys the AppSRT only when the resulting count is zero.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L84-L104",
+        "digest": "sha256:00282fc8ed92cbe5"
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L83-L103",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:de5601e8-a3ed-42a8-a186-0b516e99459f",
+      "baseline_record": {
+        "id": "link:de5601e8-a3ed-42a8-a186-0b516e99459f",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psAttachParticleAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:reference-counted-shared-attachment",
+        "role": "exhibits",
+        "why": "The function adds a particle as another user by incrementing usedCount, while the unit's removal paths decrement the count and release the AppSRT only after its final user detaches.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L65-L72",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:b504c195-7ec0-482b-8103-66e88d0d7383",
+      "baseline_record": {
+        "id": "link:b504c195-7ec0-482b-8103-66e88d0d7383",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psAttachParticleAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "It associates a particle with the shared HSD_psAppSRT record whose fields carry scale, rotation, and translation state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L65-L72",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:989d905f-c125-4763-9405-b018811360cf",
+      "baseline_record": {
+        "id": "link:989d905f-c125-4763-9405-b018811360cf",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psAttachGeneratorAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:reference-counted-shared-attachment",
+        "role": "exhibits",
+        "why": "The function installs a shared record into another owner and increments usedCount; the unit's corresponding removal paths decrement that count and release the record only after its final use.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L74-L81",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:403efb61-a9fd-4613-be57-4aac90394d5c",
+      "baseline_record": {
+        "id": "link:403efb61-a9fd-4613-be57-4aac90394d5c",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psAttachGeneratorAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The function attaches to a particle generator a shared AppSRT record whose unit-defined payload contains scale, rotation, and translation state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L74-L81",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:72094060-9317-4cfa-a253-18af4ad1edb4",
+      "baseline_record": {
+        "id": "link:72094060-9317-4cfa-a253-18af4ad1edb4",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psAddGeneratorAppSRT_begin",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The wrapper installs a generator-specific AppSRT record containing identity scale, rotation, and translation state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L22-L64",
+        "digest": "sha256:322e009c9c5a5bfe"
+      },
+      "disposition": "unresolved",
+      "reason": "Identity-transform wording is unsupported: creation writes rotation XYZ=0 and scale XYZ=1, but rotation is Quaternion and W is not explicitly initialized to an identity value. Clearing only the configured byte count and leaving cached matrices without identity writes does not establish full identity. The allocator is shared by particle and generator wrappers.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L60-L63",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L63",
+          "why": "Configured-size clearing, explicit component writes and both owner wrappers."
+        }
+      ]
+    },
+    {
+      "link_id": "link:1bb4e702-8686-4594-acd9-93eae38de1b4",
+      "baseline_record": {
+        "id": "link:1bb4e702-8686-4594-acd9-93eae38de1b4",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psInitAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The function initializes the allocator used by particle- and generator-associated records whose explicit payload consists of scale, rotation, and translation vectors.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "Retain the SRT lifecycle/allocator relationship with corrected type precision: translation and scale are Vec3, but rotation is Quaternion, not a three-component rotation vector. This source review does not establish full identity initialization.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L12-L19",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:32618099-b23f-4089-81f7-734a6ad98d32",
+      "baseline_record": {
+        "id": "link:32618099-b23f-4089-81f7-734a6ad98d32",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psInitAppSRT",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:object-pool-recycling",
+        "role": "uses",
+        "why": "The function initializes the HSD object-pool descriptor from which AppSRT records are subsequently allocated and to which final releases return them.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "retain",
+      "reason": "Retain: the source supports shared AppSRT lifecycle and reference-count ownership under valid caller invariants. usedCount is u16 and increments/decrements are unguarded; overflow and underflow are not excluded.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L12-L19",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        }
+      ]
+    },
+    {
+      "link_id": "link:162f0619-92ae-4d0d-b7aa-3f6a2c36beb7",
+      "baseline_record": {
+        "id": "link:162f0619-92ae-4d0d-b7aa-3f6a2c36beb7",
+        "from_target_id": "target:function:main/sysdolphin/baselib/psappsrt:psAddParticleAppSRT_begin",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The wrapper installs on a particle a newly created AppSRT record whose scale, rotation, and translation components begin at the identity transform.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L22-L59",
+        "digest": "sha256:9ded2ce21e5512aa"
+      },
+      "disposition": "unresolved",
+      "reason": "Identity-transform wording is unsupported: creation writes rotation XYZ=0 and scale XYZ=1, but rotation is Quaternion and W is not explicitly initialized to an identity value. Clearing only the configured byte count and leaving cached matrices without identity writes does not establish full identity. The allocator is shared by particle and generator wrappers.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L55-L58",
+          "why": "Exact function body for allocation, attachment, removal, or allocator setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L21-L63",
+          "why": "Configured-size clearing, explicit component writes and both owner wrappers."
+        }
+      ]
+    },
+    {
+      "link_id": "link:813a28c2-94a5-4e6e-956e-43098ed3da8b",
+      "baseline_record": {
+        "id": "link:813a28c2-94a5-4e6e-956e-43098ed3da8b",
+        "from_target_id": "target:data:main/sysdolphin/baselib/psappsrt:.bss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:object-pool-recycling",
+        "role": "exhibits",
+        "why": "This HSD_ObjAllocData object is initialized once, used to allocate fixed-size AppSRT records, and used again to recycle records after their final release.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "unresolved",
+      "reason": "No pinned object/map evidence maps the raw section to the asserted descriptor or constants. Source-level allocation/component writes are verified, but section identity is unresolved; full identity-transform claims also exceed the explicit quaternion/matrix initialization.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L12-L132",
+          "why": "Allocation, attachment and removal lifecycle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L9-L53",
+          "why": "Descriptor declaration and initialization writes; not compiled section attribution."
+        }
+      ]
+    },
+    {
+      "link_id": "link:70ccfe11-9dc8-482c-a220-ce7dfe2106ad",
+      "baseline_record": {
+        "id": "link:70ccfe11-9dc8-482c-a220-ce7dfe2106ad",
+        "from_target_id": "target:data:main/sysdolphin/baselib/psappsrt:.bss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The descriptor backs allocation and recycling of particle- and generator-associated records whose initialized payload contains scale, rotation, and translation components.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "unresolved",
+      "reason": "No pinned object/map evidence maps the raw section to the asserted descriptor or constants. Source-level allocation/component writes are verified, but section identity is unresolved; full identity-transform claims also exceed the explicit quaternion/matrix initialization.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L12-L132",
+          "why": "Allocation, attachment and removal lifecycle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L9-L53",
+          "why": "Descriptor declaration and initialization writes; not compiled section attribution."
+        }
+      ]
+    },
+    {
+      "link_id": "link:55827eaa-283f-475d-b029-2d8e22c3bb29",
+      "baseline_record": {
+        "id": "link:55827eaa-283f-475d-b029-2d8e22c3bb29",
+        "from_target_id": "target:data:main/sysdolphin/baselib/psappsrt:.sdata2",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:particle-system-srt-transform",
+        "role": "implements",
+        "why": "The section supplies the zero and one constants that initialize particle and generator AppSRT records to the identity scale, rotation, and translation state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/psappsrt.c#L1-L130",
+        "digest": "sha256:17d70cee56b07265"
+      },
+      "disposition": "unresolved",
+      "reason": "No pinned object/map evidence maps the raw section to the asserted descriptor or constants. Source-level allocation/component writes are verified, but section identity is unresolved; full identity-transform claims also exceed the explicit quaternion/matrix initialization.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L12-L132",
+          "why": "Allocation, attachment and removal lifecycle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L91-L126",
+          "why": "Foreign canonical-only AppSRT payload: Quaternion rotation, Vec3 translation/scale, u16 usedCount and typed cleanup callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L9-L53",
+          "why": "Descriptor declaration and initialization writes; not compiled section attribution."
+        }
+      ]
+    }
+  ],
+  "review": "All 18 exact outgoing records independently reviewed. Twelve lifecycle, allocator and shared-transform relations supported by owned implementation and canonical payload declarations. Quaternion rotation is not a three-component Vec3; retained vector shorthand establishes only the SRT relationship. Three full-identity and three section-attribution edges unresolved. u16 count wrapping does not establish ownership correctness outside valid caller invariants.",
+  "unresolved_reconciliation_owner": "/root/semantic_coordinator",
+  "kb_applied": false
+}

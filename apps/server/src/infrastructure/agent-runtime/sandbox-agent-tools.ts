@@ -11,6 +11,10 @@ import {
   type BashOperations,
 } from "@earendil-works/pi-coding-agent";
 import type { SandboxExecResult, SandboxHandle } from "@server/core/job-queue/sandbox.js";
+import type {
+  RequestWriteSetWideningHandler,
+  RequestWriteSetWideningInput,
+} from "@server/core/harness-runtime/run-state/write-set-widening.js";
 
 export const DEFAULT_SANDBOX_BASH_TIMEOUT_MS = 30 * 60 * 1_000;
 export const DEFAULT_SANDBOX_FILE_TOOL_TIMEOUT_MS = 60 * 1_000;
@@ -398,4 +402,72 @@ export function createSandboxFileToolDefinitions(handle: SandboxHandle, workspac
     createSandboxGrepToolDefinition(handle, workspaceRoot),
     createSandboxGlobToolDefinition(handle, workspaceRoot),
   ] as const;
+}
+
+export function createRequestWriteSetWideningToolDefinition(
+  handler: RequestWriteSetWideningHandler,
+) {
+  return {
+    name: "request_write_set_widening",
+    label: "Request Write-Set Widening",
+    description:
+      "Request immediate runner approval before editing required paths outside the current claim write set. Returns approved paths, per-path denials with rung guidance, the resulting write set, and whether the policy applied the decision.",
+    promptSnippet:
+      "request_write_set_widening: ask the runner to authorize required out-of-write-set paths before editing them.",
+    promptGuidelines: [
+      "Call before editing an out-of-write-set path. Continue only with paths returned in approved_paths and present in write_set_after.",
+      "A shadow-mode decision is recorded but not applied.",
+    ],
+    parameters: {
+      type: "object",
+      properties: {
+        paths: {
+          type: "array",
+          items: { type: "string", minLength: 1 },
+          minItems: 1,
+          maxItems: 32,
+          description: "Repo-relative paths required for the canonical fix.",
+        },
+        reason: {
+          type: "string",
+          minLength: 1,
+          description: "Why the current target-source write set cannot contain the canonical fix.",
+        },
+        evidence: {
+          type: "string",
+          minLength: 1,
+          description: "Optional concrete compiler, declaration, objdiff, or rung-ladder evidence.",
+        },
+      },
+      required: ["paths", "reason"],
+      additionalProperties: false,
+    },
+    executionMode: "sequential" as const,
+    async execute(
+      _toolCallId: string,
+      params: Record<string, unknown>,
+      _signal?: AbortSignal,
+      _onUpdate?: unknown,
+      _ctx?: unknown,
+    ) {
+      const input: RequestWriteSetWideningInput = {
+        paths: Array.isArray(params.paths) ? params.paths.map(String) : [],
+        reason: typeof params.reason === "string" ? params.reason : "",
+        ...(typeof params.evidence === "string" ? { evidence: params.evidence } : {}),
+      };
+      const result = await handler(input);
+      const response = result.mode === "shadow"
+        ? {
+            ...result,
+            applied: false,
+            message: result.message ?? "Shadow mode: the decision was recorded but was not applied to the claim write set.",
+          }
+        : result;
+      const text = JSON.stringify(response, null, 2);
+      return {
+        content: [{ type: "text" as const, text }],
+        details: { mode: response.mode, applied: response.applied },
+      };
+    },
+  };
 }

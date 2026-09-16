@@ -1,0 +1,18 @@
+## Scope and interfaces
+The source implements four Master Hand SweepWait callbacks and a separate Slap-entry helper. The header declares all five as `void(HSD_GObj*)`. Master Hand's motion table installs the quartet for SweepWait, with a distinct quartet for Slap; co-location does not make these Slap callbacks. [Definitions](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsweepwait.c#L15-L43), [declarations](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsweepwait.h#L6-L10), [registration](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhand.c#L123-L144).
+
+## Callback behavior
+- `ftMh_SweepWait_Anim` calls `ftMh_MS_389_80151018` only when no animation frames remain. Otherwise it performs no local transition.
+- `ftMh_SweepWait_Phys` forwards the object to `ft_80085134`. Independently inspected canonical code sets `self_vel.x` from translation-offset Z times facing direction and `self_vel.y` from translation-offset Y; it does not write Z velocity. [Physics implementation](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L120-L125).
+- `ftMh_SweepWait_IASA` obtains the Fighter, queries its player slot using `player_id`, and calls `ftBossLib_8015BD20` only for numeric slot type zero. Nonzero values do not dispatch. The wrapper has no direct motion-state write or timer. The rendered CrazyHand-specific handler name is not proof of its semantics.
+- `ftMh_SweepWait_Coll` is empty. This establishes absence of callback-local collision handling, not absence of all engine collision processing.
+
+## Entry and cross-file lifetime
+`ftMh_MS_348_80151BB8` unconditionally calls `Fighter_ChangeMotionState(gobj, ftMh_MS_Slap, 0, 0, 1, 0, 0)` and then `ftAnim_8006EBA4(gobj)`. Its numeric suffix must not override the explicit Slap destination. The table comments identify SweepWait as 348 and Slap as 349, while registering separate callbacks for each.
+
+The animation-completion destination is not a simple direct idle-state assignment. `ftMh_MS_389_80151018` clears `mv.mh.unk0.x20`, constructs a position from special attributes with Z zero, assigns `u.mh.x2258 = ftMh_MS_Wait2_1`, and then tests that field against `ftMh_MS_Wait2_0`. Under the explicit preceding assignment, the else branch invokes `ftMh_MS_389_80150C8C`, which enters Wait1_2 and updates the bookkeeping field. The completion helper then stores `ftMh_MS_341_8014FFDC` in `mv.mh.unk0.x4` and copies the position into `mv.mh.unk0.xC`. These persist beyond this callback: waiting physics uses the stored position, and waiting collision zeroes velocity and invokes the stored callback when `mv.mh.unk0.x18 == 0`, provided the callback is non-null. The alternate source branch and frame-preserving branches in the shared waiting helpers should not be erased by simplifying their names. [Waiting helpers and consumers](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait12.c#L19-L138).
+
+## Evidence limits
+Canonical and rendered owned files were read completely, and all baseline subjects and links were enumerated. Rendered substitutions were treated as hypotheses. Source constants do not establish `.sdata2` size, ordering, bytes, or relocation provenance. Player-facing Floor Sweep/Big Swipe equivalences and debug/glitch testing-history claims remain unverified in this pass. The ledger retains 21 facts and 6 links, marks 8 facts and 7 links unresolved, and rejects the link conflating SweepWait's animation callback with the separately entered Slap action.
+
+Status: synthesized; independent review and live promotion pending.

@@ -1,0 +1,3 @@
+The guarded header includes `<melee/ft/forward.h>` and declares `struct ftSandbag_FighterVars` with a single `char filler0[FIGHTERVARS_SIZE]` member. It provides a filler-only fighter-variable representation, not behavioral routines or semantically identified state fields. The declaration alone does not establish the numeric array bound, compiled layout, or runtime use. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSandbag/types.h#L1-L10. Canonical and rendered views agree; the renderer reports zero substitutions and zero parse errors. No baseline subjects, facts, or links exist, and no supported correction is needed.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

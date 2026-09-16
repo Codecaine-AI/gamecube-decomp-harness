@@ -17,6 +17,7 @@ from typing import Any, Iterable
 TOOL_ROOT = Path(__file__).resolve().parents[1]
 TOOLPACK_ROOT = TOOL_ROOT.parents[1]
 sys.path.append(str(TOOLPACK_ROOT / "_impl" / "gamecube"))
+sys.path.append(str(TOOLPACK_ROOT / "_impl" / "gamecube" / "tools"))
 sys.path.append(str(TOOLPACK_ROOT / "_shared"))
 
 from dsearch.embed import HASHED_DIM, embed_hashed_sparse  # type: ignore
@@ -28,6 +29,7 @@ from dsearch.objparse import (  # type: ignore
     load_report,
     parse_object,
 )
+from project_layout import ProjectLayout, get_project_layout  # type: ignore
 from search_index import env_path, package_root_for_tool  # type: ignore
 
 
@@ -56,8 +58,8 @@ def default_output_root() -> Path:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build a sparse assembly-window search index.")
-    parser.add_argument("--repo-root", type=Path, required=True, help="Built melee checkout root.")
-    parser.add_argument("--version", default="GALE01")
+    parser.add_argument("--repo-root", type=Path, required=True, help="Built game checkout root.")
+    parser.add_argument("--version")
     parser.add_argument("--report", help="Progress report path or URL.")
     parser.add_argument("--objdump", help="powerpc-eabi-objdump executable.")
     parser.add_argument("--out", type=Path, default=default_output_root())
@@ -126,6 +128,7 @@ def function_rows_and_windows(
     repo_root: Path | None,
     window_size: int,
     stride: int,
+    layout: ProjectLayout | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[list[tuple[int, float]]]]:
     function_rows: list[dict[str, Any]] = []
     window_rows: list[dict[str, Any]] = []
@@ -134,7 +137,13 @@ def function_rows_and_windows(
         report_match = report.get(function.name)
         fuzzy_match = report_match[0] if report_match else None
         unit = report_match[1] if report_match and report_match[1] != "?" else function.unit
-        source_path = find_source_file(repo_root, unit) if repo_root else None
+        source_path = None
+        if repo_root:
+            layout = layout or get_project_layout(repo_root)
+            try:
+                source_path = str(layout.source_path_for_unit(unit))
+            except KeyError:
+                source_path = find_source_file(repo_root, unit)
         tokens = function_tokens(function)
         function_rows.append(
             {
@@ -173,6 +182,7 @@ def build_index_from_functions(
     window_size: int = 32,
     stride: int = 16,
     report_source: str | None = None,
+    layout: ProjectLayout | None = None,
 ) -> dict[str, Any]:
     """Build an index from parsed functions. Tests use this before API search."""
     if window_size <= 0:
@@ -185,6 +195,7 @@ def build_index_from_functions(
         repo_root,
         window_size,
         stride,
+        layout,
     )
     indexes = out_root / "indexes"
     manifest = {
@@ -207,10 +218,15 @@ def build_index_from_functions(
     return manifest
 
 
-def resolve_report(args: argparse.Namespace, repo_root: Path) -> tuple[dict[str, tuple[float, str]], str | None]:
+def resolve_report(
+    args: argparse.Namespace,
+    repo_root: Path,
+    layout: ProjectLayout | None = None,
+) -> tuple[dict[str, tuple[float, str]], str | None]:
     source = args.report
     if not source:
-        default = repo_root / "build" / args.version / "report.json"
+        layout = layout or get_project_layout(repo_root)
+        default = layout.report_path
         if default.exists():
             source = str(default)
     return (load_report(source), source) if source else ({}, None)
@@ -219,6 +235,13 @@ def resolve_report(args: argparse.Namespace, repo_root: Path) -> tuple[dict[str,
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     repo_root = args.repo_root.expanduser().resolve()
+    report_override = None
+    if args.version:
+        report_override = Path("build") / args.version / "report.json"
+    elif args.report and not args.report.startswith(("http://", "https://")):
+        report_override = Path(args.report)
+    layout = get_project_layout(repo_root, report_override)
+    args.version = args.version or layout.version
     out_root = args.out.expanduser().resolve()
     if args.window_size <= 0 or args.stride <= 0:
         print("error: --window-size and --stride must be positive", file=sys.stderr)
@@ -230,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     objdump = args.objdump or find_objdump(repo_root)
     try:
-        report, report_source = resolve_report(args, repo_root)
+        report, report_source = resolve_report(args, repo_root, layout)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"error: could not load report: {error}", file=sys.stderr)
         return 2
@@ -258,6 +281,7 @@ def main(argv: list[str] | None = None) -> int:
         window_size=args.window_size,
         stride=args.stride,
         report_source=report_source,
+        layout=layout,
     )
     print(
         f"indexed {manifest['counts']['functions']} functions and "

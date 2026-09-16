@@ -1,0 +1,322 @@
+{
+  "tu": "main/melee/gm/gm_16A2",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:.bss"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source declares two static, implicitly zero-initialized structure objects: `struct lbl_8046B488_t lbl_8046B488` for shared generated-opponent configuration and runtime state, and `struct lbl_8046B668_t lbl_8046B668` for parallel signed-byte character/costume arrays. Their compiled section placement and physical ordering are not established by these declarations.",
+        "rationale": "Preserves supported storage semantics while removing an unsupported compiled-order claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L14-L15",
+            "why": "Static object declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/types.h#L141-L145",
+            "why": "Secondary object's parallel signed arrays."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:fn_801695BC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Queries the target character's costume count before testing character `0x21`; that character skips the subsequent table writes. Otherwise it builds and shuffles the costume-index pool, marks a matching reserved costume `-1`, cyclically assigns indices to matching character entries until the output table's `-2` terminator, skips the exclusion marker once when encountered, and randomly swaps adjacent matching assignments. Costume-count and index validity are caller preconditions, not locally validated guarantees.",
+        "rationale": "Corrects the no-work claim and preserves the exact exclusion and sentinel behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L137-L182",
+            "why": "Complete allocator, including query-before-guard ordering."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:fn_80169F50"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Exact signature: `void fn_80169F50(s8 character_kind, s8 costume_index)`. The first argument is a roster-facing CharacterKind tested against Kirby's numeric value 4, not an internal FighterKind selector. When that argument is Kirby and `xE` is enabled, the second argument is used as the Kirby costume index for copied-fighter resource requests whose internal fighter IDs come from `x124`.",
+        "rationale": "Separates two character-ID domains that happen to share Kirby's numeric value.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L458-L514",
+            "why": "Incoming character guard versus copied-fighter IDs passed to the loader."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L477-L486",
+            "why": "Explicit CharacterKind-to-internal-ID conversion elsewhere in the same resource family."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_801693BC"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "gm_UsesWireframeKOEffect",
+        "rationale": "An effect-oriented predicate name covers both literal Wire Frames and other flagged players in multi-opponent configurations, unlike a literal identity test.",
+        "confidence": 0.86,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L57-L70",
+            "why": "Flag/count shortcut precedes character-kind checks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D31.c#L250-L256",
+            "why": "Predicate selects KO effect 0x42C rather than 0x42B."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_80169520"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "No-argument mutable buffer accessor: canonical definition returns `UNK_T` and the header declares `void*`; semantically the result is an `s8*` alias to the 130-byte `x20` costume/status table. Ordinary entries are costume indices, `-1` invalidates an entry, and `-2` terminates the active prefix.",
+        "rationale": "Signed semantic storage captures both sentinel values while preserving the actual opaque public declaration.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L17-L21",
+            "why": "Signed 0x82-byte costume-table overlay."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L104-L130",
+            "why": "Accessor and signed sentinel writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.h#L17-L21",
+            "why": "Opaque public return type."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_80169540"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "gm_GetKirbyCopyFighterList",
+        "rationale": "Names the shared table's producer/consumer domain rather than one Adventure presentation use.",
+        "confidence": 0.87,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L114-L117",
+            "why": "Returns x124."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L674-L675",
+            "why": "Copy-identity generator populates x124."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L855-L861",
+            "why": "Kirby spawn consumes its entries."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_80169540"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical interface is an opaque no-argument pointer accessor (`UNK_T` in the definition, `void*` in the header). Semantically it returns a mutable signed-byte alias to `x124`, containing primary internal fighter IDs for Kirby copy assignments or `-1` for no assignment. Its active extent is supplied by the parallel `x20` table, not an independently written `-2` terminator. Adventure also reads the same storage through a `u8*` view.",
+        "rationale": "Retains the caller's byte view without mistaking it for the table's complete semantic type.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L114-L117",
+            "why": "Direct accessor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L332-L358",
+            "why": "Signed output IDs/-1 and parallel shape termination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmadventure.c#L1494-L1519",
+            "why": "Adventure's unsigned-byte view and indexed reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_8016A22C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes shared generated-opponent configuration used by Event Match and other scripted single-player encounters. It clears a 0x1C0-byte state prefix, stores configuration, creates one `-2`-terminated costume/shape table, generates a parallel character sequence, applies the selected costume strategy, and prepares optional Kirby copied-fighter identities for later spawning. The character and copied-fighter tables derive their active extent from the costume/shape table rather than receiving separate terminators.",
+        "rationale": "Corrects the implication that all parallel tables are independently sentinel-terminated and preserves cross-mode scope.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L603-L675",
+            "why": "Exact preparation pipeline."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmallstar.c#L550-L566",
+            "why": "Non-Event scripted encounter use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_8016A434"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Enables shared configuration bit `unk_10_b3`, read by `gm_80169394` to select auxiliary stock-display initialization. A clear bit creates the generated-roster display process and its 130 object slots; a set bit instead permits the alternate display when `gm_8016A1F8` is true. This is distinct from `unk_10_b4`, which controls spawned-player flag bit 5 and CPU type 0x1B.",
+        "rationale": "Replaces obsolete uncertainty with a verified cross-file consumer and prevents the known b3/b4 conflation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L46-L49",
+            "why": "Getter reads b3."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L693-L701",
+            "why": "Separate b3 and b4 setters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstock.c#L1047-L1057",
+            "why": "Exact display-selection branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_8016A98C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Exposes the shared character/costume roster used by an auxiliary fighter-icon grid in the stock-interface subsystem. In All-Star rest-scene setup, the roster contains upcoming opponents from the next round onward; these icons therefore need not represent the remaining lives of currently active players.",
+        "rationale": "Corrects the overly general remaining-lives interpretation using the actual producer.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmallstar.c#L602-L679",
+            "why": "Upcoming-opponent population."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstock.c#L939-L972",
+            "why": "Paired roster values create the icon grid."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_8016A98C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Exact signature: `struct lbl_8046B668_t* gm_8016A98C(void)`. It returns a mutable alias to the static singleton, whose source declaration contains `s8 arr1[0x1C]` and `s8 arr2[0x1C]` and asserts size 0x38. Roster mutators search 27 positions and reserve room for a following terminator in arr2. The stock interface nevertheless uses 130-iteration copy/update bounds; that mismatch does not justify enlarging the declared arrays, and update termination is driven by arr2 rather than arr1.",
+        "rationale": "Corrects a concrete capacity error and distinguishes declaration evidence from consumer loop bounds.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L919-L962",
+            "why": "Singleton return and bounded mutators."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/types.h#L141-L145",
+            "why": "Exact declared arrays and size assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstock.c#L903-L963",
+            "why": "Consumer bounds and differing sentinel checks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_8016AC44"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Retires a character/costume entry from the auxiliary roster during runtime player teardown. The observed caller invokes it for an unflagged slot with zero stocks when either of two mode predicates succeeds; the matching costume entry becomes `-1`, which the roster icon updater interprets as hidden. The operation does not select or change an active fighter's costume.",
+        "rationale": "Replaces a setup/alternate-costume-selection interpretation with the demonstrated runtime retirement flow while leaving the mode predicates unnamed.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3324-L3350",
+            "why": "Actual teardown guard and call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L964-L988",
+            "why": "Matching entry invalidation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstock.c#L903-L916",
+            "why": "-1 hides the corresponding icon."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_16A2:gm_80169540"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns a live alias whose contents can change after the accessor returns. Adventure introduction setup obtains both x20 and x124 pointers before invoking its opponent-configuration helper, then reads the newly populated buffers through those previously acquired pointers. The accessor neither snapshots nor owns a separate cutscene table.",
+        "rationale": "Adds useful cross-file lifetime knowledge absent from the existing accessor facts.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16A2.c#L104-L117",
+            "why": "Accessors return shared array aliases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmadventure.c#L1510-L1519",
+            "why": "Pointer acquisition, reconstruction, then reads."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "tu": "main/melee/gm/gminvisible",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gminvisible:gm_Mode_InvisibleVs_OnInit"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Invisible Melee's void(void) initialization hook unconditionally passes the persistent gmMainLib_804D3EE0->modes.vs_invisible record to gm_InitVsMode. It is separate from the load hook that resets shared KO counts and the battle callback that enables player invisibility.",
+        "rationale": "Fills the empty initialization-hook subject using its complete canonical definition without inferring the shared initializer's detailed defaults.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gminvisible.c#L186-L194",
+            "why": "Distinct initialization and load hooks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gminvisible.c#L147-L150",
+            "why": "Separate player invisibility assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gminvisible:onExitSuddenDeath"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards the departing GameModeState to gmVsMelee_ExitSuddenDeath, which obtains its MatchExitInfo and calls gm_80166CCC with &gmVsMelee_VsExitInfo.match_end first and the Sudden Death exit match_end second. The helper conditionally reconciles the Sudden Death outcome and player/team standings into the retained ordinary match result; it also adjusts the second record's standings when ties remain. This is not a whole-record copy in either direction. Results entry later copies the retained ordinary match_end into ResultsMatchInfo.",
+        "rationale": "Corrects the baseline's reversed source/destination interpretation and preserves the helper's bidirectional conditional mutations and cross-scene lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gminvisible.c#L170-L173",
+            "why": "Local handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L264-L275",
+            "why": "Argument order and subsequent Results consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3159-L3239",
+            "why": "Actual conditional mutations of both records."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gminvisible:onExitResults"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Passes the departing state, persistent modes.vs_invisible record and CSS fallback to gmVsMelee_ExitResults. The finalizer consumes gmVsMelee_VsExitInfo.match_end, skips gm_80168638 and gm_80168710 when the match is canceled, and invokes KO-count updating regardless. Human participation and a nonterminating following descriptor gate progression checks. Challenger selection can schedule Approach; if no challenger route was selected, gm_801721EC can schedule Prize. Exceptional routes perform archive setup and return; otherwise archive setup precedes the CSS fallback write.",
+        "rationale": "Includes the complete finalizer rather than truncating its account before the Prize and fallback tail.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gminvisible.c#L180-L184",
+            "why": "Mode-specific inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L277-L344",
+            "why": "Accounting guards, progression branches, archive setup and fallback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gminvisible:onExitResults"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements Invisible Melee's post-results handoff through the shared Versus finalizer: ordinary flow returns to character selection, while guarded progression can redirect to Approach or, when no challenger route was selected and the shared prize predicate succeeds, Prize.",
+        "rationale": "Preserves the omitted Prize route without guessing the detailed unlock conditions of opaque progression helpers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gminvisible.c#L74-L123",
+            "why": "Results and auxiliary descriptors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gminvisible.c#L180-L184",
+            "why": "CSS fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L294-L344",
+            "why": "Both exceptional destinations and normal fallback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gminvisible:onExitResults"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Runs on exit from the Results descriptor and supplies CSS as the default next-state ID. In the shared finalizer, human participation and state[1].id != GM_GAMEMODESTATE_TERMINATE enable progression checks. Three ordered challenger checks can schedule Approach. After further shared processing, !unk_bool && gm_801721EC() schedules Prize. A selected exceptional route calls lbCardGame_SetupArchive and returns without overwriting its destination; otherwise the finalizer calls the same archive setup and writes the caller's CSS fallback.",
+        "rationale": "Makes the route-selection gates, precedence and early-return behavior explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gminvisible.c#L180-L184",
+            "why": "Caller-supplied default."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L294-L344",
+            "why": "Complete guarded next-state behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gminvisible:onExitVs"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements ordinary Invisible Melee's post-battle routing through gmVsMelee_ExitVs. The shared multiple-winners predicate selects Sudden Death only when the outcome is not OUTCOME_NO_CONTEST and the relevant winner count exceeds one: team winners when is_teams == 1, otherwise player winners. A false predicate selects Results. Participation filtering for the subsequent Sudden Death battle belongs to shared setup, not this wrapper.",
+        "rationale": "Replaces the broad tie/participation statement with source-exact routing, including no-contest and team exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gminvisible.c#L158-L162",
+            "why": "Results and Sudden Death destination order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L228-L232",
+            "why": "Predicate-to-destination mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3241-L3262",
+            "why": "Exact outcome and winner-count branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1B03.c#L79-L104",
+            "why": "Separate standings-dependent Sudden Death setup."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

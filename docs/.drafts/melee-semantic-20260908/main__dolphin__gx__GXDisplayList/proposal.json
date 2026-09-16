@@ -1,0 +1,38 @@
+{
+  "tu": "main/dolphin/gx/GXDisplayList",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/gx/GXDisplayList.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Implements GX display-list recording and submission. GXBeginDisplayList initializes a caller-backed recording FIFO, saves the previous CPU FIFO, optionally snapshots GX context, and redirects CPU command output. GXEndDisplayList captures recording FIFO state, checks overflow, restores the previous FIFO, optionally restores context while preserving current cpEnable under interrupt exclusion, and clears recording state; its return paths yield the recorded count or zero for overflow. GXCallDisplayList asserts recording/alignment preconditions, commits pending GX state, conditionally sends a flush primitive, and queues opcode 0x40 followed by the list address and byte count.",
+        "rationale": "The existing purpose describes only submission despite the complete source also implementing the recording lifecycle. This replacement captures useful persistent-state and exceptional-path behavior without implying validation of list contents or guaranteed runtime enforcement of assertions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXDisplayList.c#L8-L39",
+            "why": "Persistent recording objects, optional snapshot, FIFO initialization and redirection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXDisplayList.c#L41-L75",
+            "why": "Overflow handling, previous-FIFO restoration, protected context restoration and return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXDisplayList.c#L77-L99",
+            "why": "Submission assertions, conditional preparation and ordered command packet."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "tu": "main/melee/it/kinds/itchicorita",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itchicorita.c#L274-L277",
+            "why": "Two-object leaf adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L491-L525",
+            "why": "Explicit interaction-reference cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the established gameplay association while replacing the unsupported claim that the delegated event semantics remain unidentified.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itchicorita:itChicoritaLeaf_Logic30_EvtUnk"
+        },
+        "type": "game_mapping",
+        "value": "Provides object-reference invalidation handling for a leaf projectile in Chikorita's Razor Leaf attack. It delegates removal of matching owner and interaction references to the shared item cleanup routine, without a leaf-specific motion transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itchicorita.c#L111-L146",
+            "why": "Shared physics and grounded accumulator reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1193-L1200",
+            "why": "Animation helper writes horizontal and vertical velocity first."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects initial-state ambiguity and the implication that grounded processing necessarily leaves the actor vertically stationary.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itchicorita:itChicorita_UnkMotion0_Phys"
+        },
+        "type": "game_mapping",
+        "value": "Updates the summoned Chikorita body's movement during active Razor Leaf state 0, rather than the initial arrival state or the separate leaf projectiles. It combines animation-derived movement with a custom airborne fall accumulator; grounded processing resets that accumulator without explicitly clearing animation-derived vertical velocity."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itchicorita.c#L111-L146",
+            "why": "Complete sign-dependent physics implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1193-L1200",
+            "why": "Meaning of the first delegated operation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an overly strong terminal-limit explanation with the actual conditional update and its relationship to animation-derived velocity.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itchicorita:itChicorita_UnkMotion0_Phys"
+        },
+        "type": "purpose",
+        "value": "Runs the physics update shared by Chikorita states 0 and 1: first applies animation-derived velocity, then while airborne conditionally subtracts configured fall acceleration from the persistent x64 accumulator and copies it to vertical velocity. Grounded processing resets x64 only. The sign-dependent pre-step magnitude check does not clamp the resulting speed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itchicorita.c#L111-L146",
+            "why": "Exact sign comparisons, magnitude guard, subtraction and reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itchicorita.c#L191-L194",
+            "why": "State 1 shares the implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exceptional sign branches and distinguishes a conditional acceleration gate from a hard terminal-speed cap.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itchicorita:itChicorita_UnkMotion0_Phys"
+        },
+        "type": "state_behavior",
+        "value": "In state 0, invokes the physics helper also used by state 1. While airborne, it subtracts x10_fall_speed from x64 when their signs agree, or when their signs differ and abs(x64) is below x14_fall_speed_max; zero is classified as nonnegative. It then writes x64 to vertical velocity. The pre-step test permits overshoot and does not clamp. Grounded processing resets x64 without a local motion-state transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itchicorita.c#L76-L204",
+            "why": "Cycle-boundary transition, shared physics and separate ending callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1193-L1200",
+            "why": "Animation-derived velocity applied before custom airborne handling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the hard-cap claim and distinguishes the attack's cycle counter from a per-frame timer.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itchicorita:itChicorita_UnkMotion1_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Runs the same physics helper as state 0 during ending state 1, entered after the active animation-cycle counter is exhausted. After applying animation-derived velocity, airborne processing conditionally subtracts fall acceleration from x64 using sign and pre-step magnitude tests and copies x64 to vertical velocity; it does not clamp the result. Grounded processing resets x64 only. This callback makes no motion-state transition; animation completion and stage contact are handled separately."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itchicorita.c#L60-L74",
+            "why": "Accessory installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itchicorita.c#L158-L165",
+            "why": "Exact ordinary void callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "A void result does not make a function non-returning; the canonical body returns normally.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itchicorita:it_802C989C"
+        },
+        "type": "inferred_type",
+        "value": "Void-returning item accessory callback with signature void(HSD_GObj*). Its argument carries an Item in user_data, and the function is installed in Item.on_accessory. It returns normally after optionally consuming a leaf-emission command."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

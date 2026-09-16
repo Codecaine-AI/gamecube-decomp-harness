@@ -12,10 +12,9 @@ import { RunActionsSection } from "./_components/run-actions-section";
 import { SyncSection } from "./_components/sync-section";
 import { SubtabStrip } from "./_components/subtab-strip";
 import { WorkflowTabs } from "./_components/workflow-tabs";
-import { detailsRailCycleFocus } from "./_lib/cycle-focus";
 import type { DetailsRailProps, DetailsTab } from "./_lib/types";
 import { defaultWorkflowSubTab, type SubTab } from "./_lib/workflow-subtabs";
-import { cycleTabForSubPage, type CycleTab } from "@/routing";
+import { workflowTabForSubPage, type WorkflowTab } from "@/routing";
 
 export type { DetailsRailProps, DetailsTab } from "./_lib/types";
 
@@ -48,10 +47,10 @@ export function DetailsRail({
   view,
 }: DetailsRailProps) {
   const requestedSection = initialRequestedSection();
-  const cycleFocus = detailsRailCycleFocus(view);
+
   const gameId = route.kind === "workspace" ? route.gameId : undefined;
-  const routeSub = route.kind === "workspace" ? route.cycleSub : undefined;
-  const workflowTab = cycleTabForSubPage(routeSub ?? view.recommendedSub);
+  const routeSub = route.kind === "workspace" ? route.harnessSub : undefined;
+  const workflowTab = workflowTabForSubPage(routeSub ?? view.recommendedSub);
   const [workflowSubtabs, setWorkflowSubtabs] = useState<Record<"sync" | "run", SubTab>>(() => ({
     run: defaultWorkflowSubTab("run", view.harnessState),
     sync: defaultWorkflowSubTab("sync", view.harnessState),
@@ -73,12 +72,11 @@ export function DetailsRail({
     if (!runRequested || workflowTab === "run") return;
     onNavigate({
       kind: "workspace",
-      section: "cycles",
+      section: "harness",
       gameId,
-      cycle: cycleFocus,
-      cycleSub: "run",
+      harnessSub: "run",
     });
-  }, [cycleFocus, gameId, onNavigate, requestedSection, tabRequest, workflowTab]);
+  }, [gameId, onNavigate, requestedSection, tabRequest, workflowTab]);
 
   useEffect(() => {
     if (workflowTab !== "run" && workflowTab !== "sync") return;
@@ -109,13 +107,12 @@ export function DetailsRail({
     window.addEventListener("pointerup", onUp);
   }
 
-  function selectWorkflowTab(tab: CycleTab): void {
+  function selectWorkflowTab(tab: WorkflowTab): void {
     onNavigate({
       kind: "workspace",
-      section: "cycles",
+      section: "harness",
       gameId,
-      cycle: cycleFocus,
-      cycleSub: tab,
+      harnessSub: tab,
     });
   }
 

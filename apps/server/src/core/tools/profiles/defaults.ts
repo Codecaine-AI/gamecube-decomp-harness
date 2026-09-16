@@ -14,6 +14,7 @@
  * supplies the read-only target history and source-evidence tools.
  */
 export const defaultWorkerToolProfile = [
+  "request_write_set_widening",
   "knowledge_render_file",
   "knowledge_record",
   "pr_search",

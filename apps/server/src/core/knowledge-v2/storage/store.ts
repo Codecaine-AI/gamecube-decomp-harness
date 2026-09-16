@@ -1,8 +1,8 @@
 import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname } from "node:path";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { gameKnowledgeRoot } from "../../knowledge/paths.js";
+import { gameKnowledgeRoot, knowledgeStorePath } from "../../knowledge/paths.js";
 import { configureConnection } from "./ddl.js";
 import { runKnowledgeStorageMigrations } from "./migrations/index.js";
 import { knowledgeV2Schema } from "./schema.js";
@@ -29,8 +29,8 @@ export function openKnowledgeStore(options: OpenKnowledgeStoreOptions): Knowledg
   const root = "knowledgeRoot" in options && options.knowledgeRoot !== undefined
     ? options.knowledgeRoot
     : gameKnowledgeRoot(options.gameId);
-  mkdirSync(root, { recursive: true });
-  const dbPath = resolve(root, "knowledge.sqlite");
+  const dbPath = knowledgeStorePath(root);
+  mkdirSync(dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
   try {
     withBusyRetry(() => configureConnection(db));

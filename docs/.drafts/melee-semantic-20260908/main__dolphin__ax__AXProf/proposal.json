@@ -1,0 +1,45 @@
+{
+  "tu": "main/dolphin/ax/AXProf",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXProf.c#L6-L10",
+            "why": "Shows the comment and four static declarations without explicit initializers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported 16-byte contiguous-layout claim while preserving the exact declarations and initialization semantics.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXProf:.sbss"
+        },
+        "type": "inferred_type",
+        "value": "The source groups four file-local, implicitly zero-initialized objects under a `.sbss` comment: AXPROFILE* __AXProfile, u32 __AXMaxProfiles, u32 __AXCurrentProfile and u32 __AXProfileInitialized. These declarations establish source-level types, not compiled section extent or physical ordering."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXProf.c#L7-L45",
+            "why": "Contains all state declarations and all three functions, including assertions, modulo advancement and interrupt-protected snapshot/reset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves supported availability and configuration invariants, avoids claiming compiled placement, and adds the previously omitted initialization and query/reset transitions without interpreting the wrapped index as a reliable count.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/ax/AXProf.c"
+        },
+        "type": "state_behavior",
+        "value": "Static initialization leaves profiling disabled, so acquisition returns null without changing the index. AXInitProfile asserts a non-null buffer and nonzero capacity, stores both, resets the index to zero and sets the initialization flag to one. Enabled acquisition returns the current slot and advances the unsigned index modulo capacity, requiring a valid backing array and nonzero capacity. AXGetProfile masks interrupts, snapshots the index, subtracts one only when the snapshot is nonzero, resets the shared index to zero and restores the previous interrupt state. It leaves profiling enabled and records untouched. Its return is not an unambiguous count: zero can represent an untouched index, a wrapped index or an index of one. Initialization and acquisition contain no local interrupt masking."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
+import { isGameBuildCommand, remoteBuildsEnabled, runBuildCommand } from "@server/core/validation/build/execution.js";
 
 export interface CliResult {
   exitCode: number | null;
@@ -24,6 +25,12 @@ export function outputTail(textValue: string, maxLength = 2000): string {
 
 export function createUiCommandRunner(deps: UiCommandRunnerDeps): UiCommandRunner {
   async function runCli(command: string[], cwd = deps.packageRoot): Promise<CliResult> {
+    if (remoteBuildsEnabled() && isGameBuildCommand(command)) {
+      const result = await runBuildCommand(cwd, command);
+      if (result.stdout) uiLog("stdout", result.stdout);
+      if (result.stderr) uiLog("stderr", result.stderr);
+      return result;
+    }
     const child = spawn(command[0] ?? "bun", command.slice(1), {
       cwd,
       env: process.env,

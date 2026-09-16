@@ -1,0 +1,104 @@
+{
+  "tu": "main/melee/db/dbinit",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L141-L151",
+            "why": "Complete scan and reporting body, with no upper-bound condition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported read-only scan while removing the unconditional normal-return implication and recording the missing bound.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbinit:db_PrintThreadInfo"
+        },
+        "type": "state_behavior",
+        "value": "Reads stack memory without changing persistent game state. Starting at `_stack_end + 4`, it advances a local byte pointer while the byte equals 0xAA. If a non-fill byte is encountered, it emits a heading, the stack-boundary and pointer-difference measurements, and a trailing newline. There is no upper-bound check or explicit failure branch, so safe termination is not guaranteed by this routine."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L153-L228",
+            "why": "Master reads, nested mutating filter branches, exact transition assignments and camera arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L230-L256",
+            "why": "Remaining per-player feature calls and shared updates."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful exact ordering and multi-direction behavior to the supported diagonal-filter summary without treating the filter as a simultaneous all-direction clear.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbinit:db_RunEveryFrame"
+        },
+        "type": "data_flow",
+        "value": "For each refreshed slot, reads button and repeat from HSD_PadMasterStatus and filters the two masks independently. Each mask enters an UP branch first, clearing UP+LEFT if LEFT is present and then UP+RIGHT if RIGHT is still present; it subsequently performs corresponding DOWN checks on the mutated mask. The inner RIGHT check still runs after an earlier clear removes UP or DOWN. Consequently all four directions reduce to DOWN alone, while opposite directions without perpendicular input remain. The old stored current becomes prev; filtered input becomes current; pressed is current & (prev ^ current), released is prev & (prev ^ current), and filtered repeat is stored directly. Camera checks receive stored current and pressed plus master normalized C-stick coordinates for all four indices; other feature checks receive each player index."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L256",
+            "why": "Debug gate, state updates and dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16AE.c#L1976-L1985",
+            "why": "Match initialization installs db_RunEveryFrame after db_Setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L160-L163",
+            "why": "Setter stores the callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L295-L369",
+            "why": "Callback invocation occurs within the queued-input loop, before rendering outside that loop."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces ambiguous once-per-frame wording with independently verified callback installation and queue-loop scheduling.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbinit:db_RunEveryFrame"
+        },
+        "type": "purpose",
+        "value": "Coordinates enabled developer-debug input updates and feature dispatch: refreshes controller button histories and edge masks, then runs the four-player feature checks and shared CPU-handicap and animation updates. Match initialization installs it as a scene callback. The scene loop invokes that callback once per processed queued-input iteration when non-null, not necessarily exactly once per rendered frame; this routine applies its own DbLevel gate."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L72-L78",
+            "why": "Setup assigns four fields but not prev."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L256",
+            "why": "Early return, hand-dependent refresh count, transitions and fixed four-slot consumers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes reset scope, disabled preservation and the hand-branch producer/consumer mismatch explicit instead of implying complete clearing and uniform refresh.",
+        "subject": {
+          "entity_locator": "src/melee/db/dbinit.c"
+        },
+        "type": "state_behavior",
+        "value": "Setup and debug input processing require DbLevel >= DbLKind_DebugRom. Enabled setup clears current, pressed, released and repeat for all four source records but leaves prev untouched. Below-threshold setup and frame calls preserve existing records. An enabled update refreshes slots 0 and 1 when Master Hand or Crazy Hand is present, otherwise all four; each refreshed slot advances history and derives pressed/released edges. Every feature-check loop still visits all four slots, so hand-excluded slots retain stale masks, and camera checks can combine those masks with current master C-stick coordinates. Shared handicap and animation updates follow their corresponding per-player checks."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

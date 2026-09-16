@@ -1,0 +1,306 @@
+0 | main/melee/db/dbitem:.bss | fact:40975ca0-9f5e-4ada-8408-dc5730353fdf | 2026-09-04T18:30:58.090Z | data_flow
+Controller held, repeat, and pressed-edge masks update the aggregate's current item and Pokémon indices. On a change, those indices select display labels, the player index and a 120-frame timer are stored, and formatted text is written through a `DevText` object created with the section's 80-byte buffer. Separately, the selected numeric item kind flows into `SpawnItem.kind`, while the persistent spawn-enable and range-display fields are read by accessors or changed by enable and disable routines that also propagate corresponding diagnostic bits to active items.
+1 | main/melee/db/dbitem:.bss | fact:5c51cc00-ba58-4822-8a1e-a94a5f2ec630 | 2026-09-04T18:30:58.090Z | game_mapping
+Backs Melee's DEVELOP-mode Items & Pokémon selector and its selected-item drop behavior, including the temporary on-screen selection panel, remembered item and Pokémon choices, and the state used to permit spawning and visualize item-related pickup, coin, and enemy-stomp ranges.
+2 | main/melee/db/dbitem:.bss | fact:32a15df6-a643-47d2-81ed-68d39b47a335 | 2026-09-02T05:19:49.295Z | inferred_type
+A 120-byte BSS layout beginning with `char db_ItemAndPokemonMenuText_buf[0x50]`, followed by a 36-byte anonymous menu-state structure containing eight 32-bit scalar or enum fields and one 32-bit allocation unit holding three one-bit range-display flags; the remaining four bytes are section-alignment padding.
+3 | main/melee/db/dbitem:.bss | fact:5b1bcce2-1540-41cc-a090-3138155b2e5f | 2026-09-04T18:30:58.090Z | purpose
+Provides zero-initialized working storage for the DEVELOP-mode Item and Pokémon menu: an 80-byte developer-text backing buffer and the persistent aggregate that tracks menu visibility and fade timing, the controlling player, current and previous item and Pokémon selections, item-spawn enablement, and diagnostic range-display flags.
+4 | main/melee/db/dbitem:.bss | fact:6253cefd-d708-404c-8eb5-7b385efb479b | 2026-09-04T18:30:58.090Z | state_behavior
+The menu display field uses states 0, 1, and 2 for uncreated, visible, and hidden-but-reusable text. Setup initializes state 0 and default selections; a selection change records the controlling player, resets the fade timer to 120 frames, and creates or reveals the panel. Only that player's per-frame check decrements the timer, changing state 1 to state 2 and hiding the panel at zero. Item spawning and the three range visualizations are independently represented by persistent Boolean or one-bit fields.
+5 | main/melee/db/dbitem:.data | fact:0d4751b6-ad0f-4d07-93da-235483509916 | 2026-09-02T05:15:39.837Z | data_flow
+The current developer-menu item kind selects a label from `db_ItemNames`, `db_BarrelEnemies`, or `db_AdventureEnemies` according to its `ItemKind` range, while the current Pokémon index selects a label from `db_PokemonNames`. Both pointers flow into `DevText_Printf` for the on-screen `Item-> … Pokemon-> …` display; the selected numeric item kind itself, rather than its label, later flows into `SpawnItem.kind`.
+6 | main/melee/db/dbitem:.data | fact:5310c514-c60d-4e0e-9acc-55f399e6687d | 2026-09-02T05:15:39.837Z | game_mapping
+Provides the internal debug-name vocabulary displayed by Melee's DEVELOP-mode Items & Pokémon selector, including Japanese or romanized names such as `Taru`, `Kusudama`, `Kuriboh`, `Tosakinto`, and `Kabigon` rather than localized retail names.
+7 | main/melee/db/dbitem:.data | fact:27a7b8ee-41c1-4b6e-a4d8-929d0630f02c | 2026-09-02T05:15:39.837Z | inferred_type
+A mixed writable-data section containing NUL-terminated character data and four `char*` tables: `db_ItemNames[]` with 35 entries, `db_PokemonNames[]` with 31 entries, `db_BarrelEnemies[]` with 4 entries, and `db_AdventureEnemies[26]` with 13 explicitly initialized labels and zero-initialized remaining entries. It also contains a writable character array holding an item-category diagnostic format string.
+8 | main/melee/db/dbitem:.data | fact:ce590808-6e0c-4afe-beea-ae517cc681b4 | 2026-09-02T05:15:39.837Z | purpose
+Holds the writable label tables used by the developer item-and-Pokémon menu: names for common items, Pokémon, barrel enemies, and Adventure-mode enemies, plus an otherwise-unused item-count diagnostic format string.
+9 | main/melee/db/dbitem:.sbss | fact:c3924dbf-afb0-4f96-a814-0b86c1224368 | 2026-09-04T18:30:58.090Z | data_flow
+`fn_ShowOrCreateItemAndPokemonMenu` stores the result of `DevText_Create` in `db_ItemAndPokemonMenuText`; menu update and fade handling then pass that pointer to developer-text erase, formatting, show, and hide operations. Separately, setup initializes `db_ShowItemCollisionBubbles` to 1, the collision-toggle routine advances it and copies it into every active item's low diagnostic bits, and item initialization and debug spawning copy the current mode into affected items.
+10 | main/melee/db/dbitem:.sbss | fact:6187ab29-e28c-41dd-99d9-26660c0f9c46 | 2026-09-04T18:30:58.090Z | game_mapping
+Backs two visible Melee DEVELOP-mode facilities: the temporary Item and Pokémon selector displayed by L-modified D-pad input, and the item-side state for the R plus D-pad-up three-setting collision-bubble display.
+11 | main/melee/db/dbitem:.sbss | fact:473cc044-ab81-47be-bea1-4be7153169fb | 2026-09-02T05:14:48.469Z | inferred_type
+An 8-byte small-BSS layout containing two 32-bit objects: `DevText* db_ItemAndPokemonMenuText` at offset 0 (address 0x804D6B38) and `int db_ShowItemCollisionBubbles` at offset 4 (address 0x804D6B3C).
+12 | main/melee/db/dbitem:.sbss | fact:751596fe-0a71-4355-b133-93896a016d4a | 2026-09-04T18:30:58.090Z | purpose
+Provides the zero-initialized small-data storage for two pieces of the item-debug subsystem: the developer-text object used by the Item and Pokémon menu and the shared item collision-bubble display mode.
+13 | main/melee/db/dbitem:.sbss | fact:ed1fae94-5d4b-4795-826d-f262c9383d7d | 2026-09-04T18:30:58.090Z | state_behavior
+The text pointer begins as zero-initialized storage, is populated when the Item and Pokémon menu is first created, and remains available when hidden menu text is shown again. The collision-display integer is explicitly initialized to mode 1 and follows the persistent cycle 1 → 2 → 3 → 1; its current value is also inherited by applicable existing and newly spawned items.
+14 | main/melee/db/dbitem:.sdata | fact:9e859c1b-993d-43f9-88a4-21f98c8f8d5e | 2026-09-02T05:20:01.220Z | data_flow
+Pointers to the section-backed debug-name literals are held in the item, enemy, and Pokémon label tables. `fn_UpdateItemAndPokemonMenu` selects a table according to the current item-kind range or uses the current Pokémon index, then passes the resulting item and Pokémon strings to `DevText_Printf` for the on-screen selector.
+15 | main/melee/db/dbitem:.sdata | fact:902e370c-bfa6-40ef-b194-e900f2b30058 | 2026-09-02T05:20:01.220Z | game_mapping
+Supplies internal Japanese or romanized debug labels, such as `Kabigon`, `Kamex`, `Fire`, `Freezer`, `Sonans`, and `Houou`, for Pokémon choices displayed by Melee's DEVELOP-mode Items & Pokémon menu.
+16 | main/melee/db/dbitem:.sdata | fact:32097218-b08a-4554-bd16-140babc11a71 | 2026-09-02T05:20:01.220Z | inferred_type
+A small initialized-data section containing compiler-placed, NUL-terminated character literals and possibly alignment or other small initialized objects; it is section-level backing storage rather than one authored aggregate with a unified field layout.
+17 | main/melee/db/dbitem:.sdata | fact:5f68c572-6901-4d8c-9229-41e7154834e1 | 2026-09-02T05:20:01.220Z | purpose
+Provides compiler-selected small initialized storage for the item-debug translation unit, including short internal Pokémon-name literals used by the DEVELOP-mode Item and Pokémon selector.
+18 | main/melee/db/dbitem:.sdata2 | fact:467bfcec-967e-40d7-a3dc-c579e95a56b8 | 2026-09-02T05:15:40.986Z | data_flow
+Its menu-scale literals flow into `DevText_SetScale` when the item-and-Pokémon panel is first created. Its spawn literals flow into a local `SpawnItem`: the player's y coordinate is increased by 60, z is forced to zero, the adjusted position is copied to the current position, and all three velocity components are zeroed before the descriptor is passed to `Item_80268B18`.
+19 | main/melee/db/dbitem:.sdata2 | fact:2a366889-836a-4b55-a591-082642eff017 | 2026-09-02T05:15:40.986Z | game_mapping
+Supports two presentation details of Melee's DEVELOP-mode Items & Pokémon feature: the scale of its on-screen selection panel and the placement of a selected item 60 coordinate units above the controlling player when it is dropped.
+20 | main/melee/db/dbitem:.sdata2 | fact:3c893ee0-f448-45bd-ae39-7d8d8bb26894 | 2026-09-02T05:15:40.986Z | inferred_type
+A 24-byte small read-only data section containing compiler-pooled floating-point literals, rather than one semantically unified gameplay structure or mutable global.
+21 | main/melee/db/dbitem:.sdata2 | fact:e4bf67d4-9269-4698-9aac-9287045f3fce | 2026-09-02T05:15:40.986Z | purpose
+Provides the translation unit's compiler-emitted read-only floating-point constants for configuring the developer item-and-Pokémon menu and initializing the position and velocity fields of debug-spawned items.
+22 | main/melee/db/dbitem:db_80225D64 | fact:322e1e8e-1876-47b1-a99a-0301e0e9fd8a | 2026-09-04T18:30:58.090Z | data_flow
+Receives a newly initialized item object, reads the global `db_ShowItemCollisionBubbles` mode, and ORs that mode into the item's `xDAA_byte`; the resulting low diagnostic bits are subsequently consumed by the item's developer collision rendering.
+23 | main/melee/db/dbitem:db_80225D64 | fact:2f859112-2c67-4816-91ad-674949565289 | 2026-09-04T18:30:58.090Z | game_mapping
+Participates in DEVELOP mode's three-state collision-bubble display by ensuring newly created ownerless items inherit the currently selected Normal, Collision Bubbles Only, or Collision Overlay mode.
+24 | main/melee/db/dbitem:db_80225D64 | fact:1e2f8fb2-9cc4-4ac8-b436-1521efcf4bb7 | 2026-09-06T02:34:38.472Z | inferred_name
+db_ApplyItemCollisionBubbleMode
+25 | main/melee/db/dbitem:db_80225D64 | fact:abecfe96-f38e-4859-b1b6-3ba5fae927ed | 2026-09-02T05:14:16.862Z | inferred_type
+Item-initialization helper with signature `void (Item_GObj* item, Fighter_GObj* owner)`; `item` must contain `Item` user data, while `owner` is unused by this ownerless-item variant.
+26 | main/melee/db/dbitem:db_80225D64 | fact:209b9ea4-b18d-4c08-b442-b314d71fc8bf | 2026-09-02T05:14:16.862Z | purpose
+Initializes a newly created ownerless item's developer collision-visualization flags from the current global item collision-bubble display mode.
+27 | main/melee/db/dbitem:db_80225D64 | fact:c871c69e-17d3-4508-9c12-dd7bd4f0322e | 2026-09-04T18:30:58.090Z | state_behavior
+On ownerless-item initialization, the function adds the current global collision-display mode to the item's diagnostic byte with bitwise OR, preserving unrelated flag bits. The global mode cycles through 1, 2, and 3; later global toggles clear the item's low two bits before installing the next mode.
+28 | main/melee/db/dbitem:db_80225DD8 | fact:f438188d-c084-4b5a-b130-e0aeeb20a501 | 2026-09-04T18:30:58.090Z | data_flow
+The spawned item object supplies the `Item` whose `xDAA_byte` low two bits are modified. If the parent or owner is null or not classified as a fighter, the global `db_ShowItemCollisionBubbles` mode is ORed into that byte. For a fighter owner, the low two bits are first cleared, `fn_8022697C` reads the owner's packed fighter-debug flags, and its low two bits are copied into the item when nonzero.
+29 | main/melee/db/dbitem:db_80225DD8 | fact:79e9b46a-592f-4c24-a7cf-11a11e9a9225 | 2026-09-04T18:30:58.090Z | game_mapping
+Connects newly spawned articles to Melee DEVELOP mode's collision-bubble displays: globally controlled items use the R plus D-pad-up display mode, while fighter-owned articles can inherit the owning player's R plus D-pad-right collision-display mode.
+30 | main/melee/db/dbitem:db_80225DD8 | fact:f4f3c4f4-1a48-4a7b-a8bd-a699359bbdfe | 2026-09-06T02:34:38.472Z | inferred_name
+db_SetupItemCollisionBubbles
+31 | main/melee/db/dbitem:db_80225DD8 | fact:ca8af591-6515-4ecd-b6d1-00eab909c183 | 2026-09-04T18:30:58.090Z | inferred_type
+Side-effect-only debug setup routine with signature `void (Item_GObj* item, Fighter_GObj* owner)`. `item` must identify the item whose packed `xDAA_byte` display bits are updated. Despite the static `Fighter_GObj*` type, `owner` is dynamically class-checked and may be null or a non-fighter object; those cases use the global item display mode.
+32 | main/melee/db/dbitem:db_80225DD8 | fact:99ee1138-8509-4132-bf60-f02932207186 | 2026-09-04T18:30:58.090Z | purpose
+Initializes a spawned item's collision-bubble display bits for developer-debug rendering. Items whose parent is not a fighter receive the global item collision-display mode, while items owned by a fighter inherit that fighter's personal collision-display mode.
+33 | main/melee/db/dbitem:db_80225DD8 | fact:04110986-719a-4806-9f8b-7e56f4464550 | 2026-09-04T18:30:58.090Z | state_behavior
+Initialization has two owner-dependent states. A null or non-fighter owner leaves existing bits intact and ORs in the current global item collision mode. A fighter owner clears bits 0–1, then installs the owner's personal mode masked to that two-bit domain; if the retrieved mode is zero, the bits remain clear. Later global toggles can overwrite these bits on every active item with modes 1 through 3.
+34 | main/melee/db/dbitem:db_AreItemSpawnsEnabled | fact:fd8b8ab3-48d1-46d0-b039-2269a6d95826 | 2026-09-04T18:30:58.090Z | data_flow
+Reads `db_ItemAndPokemonMenu.ItemSpawnsEnabled` and returns it unchanged. `db_DisableItemSpawns` and `db_EnableItemSpawns` respectively write zero and one to that field; `fn_8026C88C` consumes the returned value before touching its random-spawn countdown or constructing an item.
+35 | main/melee/db/dbitem:db_AreItemSpawnsEnabled | fact:ab129c5c-0243-4040-bfd3-863843c50b36 | 2026-09-04T18:30:58.090Z | game_mapping
+Realizes the enable/disable gate for Melee's automatic random item drops: disabling the debug-owned state pauses the stage item-spawn schedule, while enabling it permits the schedule to advance and create weighted random items.
+36 | main/melee/db/dbitem:db_AreItemSpawnsEnabled | fact:2f7e1e74-779e-4d86-90e8-9e29053ee616 | 2026-09-04T18:30:58.090Z | inferred_type
+`s32 db_AreItemSpawnsEnabled(void)`: a no-argument Boolean-style status accessor whose zero result means disabled and whose nonzero result means enabled.
+37 | main/melee/db/dbitem:db_AreItemSpawnsEnabled | fact:a0c649f3-d2c9-48d0-bdcc-c28d4cdf3c9a | 2026-09-04T18:30:58.090Z | purpose
+Reports whether the normal random-item spawner is enabled, allowing the spawning subsystem to skip all timer and spawn processing while the developer-controlled flag is disabled.
+38 | main/melee/db/dbitem:db_AreItemSpawnsEnabled | fact:e7435799-24df-4f77-93e8-ca8135770fae | 2026-09-04T18:30:58.090Z | state_behavior
+The accessor itself performs no transition. When it reports disabled, the random-item spawner leaves its countdown unchanged and performs no selection, placement, creation, effect, or timer reset. When it reports enabled, the spawner decrements the countdown, attempts a spawn when it reaches zero, and then assigns a new randomized, stage-scaled countdown.
+39 | main/melee/db/dbitem:db_CheckAndSpawnItem | fact:3b1a57ba-6577-4c39-8d38-9f29150a532d | 2026-09-02T01:24:37.517Z | data_flow
+Reads the specified player's held and newly pressed buttons and the menu's CurrentlySelectedItem. On an eligible D-Pad Down press, it loads the player's coordinates into a SpawnItem descriptor, offsets the spawn point 60 units upward, forces z and velocity to zero, derives facing direction from the spawn point, clears parent and damage fields, and passes the descriptor to Item_80268B18. A successful HSD_GObj is converted to its Item, receives db_ShowItemCollisionBubbles in xDAA_flag, and is passed with the spawn position to effect 0x420.
+40 | main/melee/db/dbitem:db_CheckAndSpawnItem | fact:6d2d69b7-0ec3-442d-9151-4804cb8538f9 | 2026-09-02T01:24:37.517Z | game_mapping
+Implements DEVELOP mode's unmodified D-Pad Down control for dropping the item or Pokémon selected through the debug Item Menu above the controlled fighter.
+41 | main/melee/db/dbitem:db_CheckAndSpawnItem | fact:e8cc9744-c83a-4f72-b26f-eef7f2e12b0b | 2026-09-02T01:24:37.517Z | inferred_type
+Debug input handler with signature void(int player), where player is the player-slot index used both to read that controller's debug button state and to obtain the corresponding fighter coordinates.
+42 | main/melee/db/dbitem:db_CheckAndSpawnItem | fact:cd59be8c-360a-4ccc-8672-1dcf4c52f5fe | 2026-09-02T01:24:37.517Z | purpose
+Handles the DEVELOP-mode command that creates the item or Pokémon currently selected in the debug Item Menu above a specified player, while enforcing item-system availability and capacity restrictions.
+43 | main/melee/db/dbitem:db_CheckAndSpawnItem | fact:5cd892c8-258e-4409-9d4d-68550c8a1972 | 2026-09-02T01:24:37.517Z | state_behavior
+Returns unless D-Pad Down was newly pressed with every other tested face, shoulder, Start, and D-Pad direction released. It also refuses ordinary items when the relevant item subsystem is unavailable, refuses common items or enemy-style items when their respective allocation limits are reached, rejects unavailable entries in the Old Kuri through pre-Arwing-Laser range, and suppresses a Maxim Tomato-like M_Ball spawn when its special predicate is active. Otherwise it attempts one spawn; only a successful creation receives the collision-display flag and effect 0x420.
+44 | main/melee/db/dbitem:db_DisableItemSpawns | fact:d7adfa4b-b1d6-42c7-8d2f-4061dce62e66 | 2026-09-02T01:31:28.778Z | data_flow
+Writes the integer value `0` into `db_ItemAndPokemonMenu.ItemSpawnsEnabled`. The sibling enable routine writes `1`, and `db_AreItemSpawnsEnabled` exposes the stored value to consumers.
+45 | main/melee/db/dbitem:db_DisableItemSpawns | fact:b585167b-7bd4-4478-8801-eeaceb40ce67 | 2026-09-02T01:31:28.778Z | game_mapping
+Controls the disabled side of the enable gate for DEVELOP-mode item spawning.
+46 | main/melee/db/dbitem:db_DisableItemSpawns | fact:13a5ea76-1bb0-4181-83a1-36a4595d6c17 | 2026-09-02T01:31:28.778Z | inferred_type
+Parameterless `void` state-setting routine with signature `void (void)`; it operates on the global `db_ItemAndPokemonMenu` state rather than receiving or returning a value.
+47 | main/melee/db/dbitem:db_DisableItemSpawns | fact:7ff73d19-e5c5-4d5f-a00e-381009aeb00d | 2026-09-02T01:31:28.778Z | purpose
+Disables the debug item-spawning facility by clearing its shared enable flag, allowing other code to suppress item creation without altering the currently selected item or Pokémon.
+48 | main/melee/db/dbitem:db_DisableItemSpawns | fact:35464e01-8969-42bd-b112-cfc31d879423 | 2026-09-02T01:31:28.778Z | state_behavior
+Unconditionally transitions the persistent item-spawn enable state to disabled (`0`). Repeated calls are idempotent; the state remains disabled until `db_EnableItemSpawns` writes `1`.
+49 | main/melee/db/dbitem:db_EnableItemSpawns | fact:4ec232fc-422e-4bef-ac7f-b8fcb630417f | 2026-09-04T18:30:58.090Z | data_flow
+Writes the constant 1 into `db_ItemAndPokemonMenu.ItemSpawnsEnabled`. `db_AreItemSpawnsEnabled` returns that shared field, and the random item-spawner callback consumes the result as the outer guard for its timer update and item-creation path.
+50 | main/melee/db/dbitem:db_EnableItemSpawns | fact:7e7630c5-8e27-4273-b3c5-cacfe5218386 | 2026-09-04T18:30:58.090Z | game_mapping
+Participates in Melee's ordinary random item-appearance mechanic by permitting the timed spawner that chooses an allowed item kind, finds a valid stage position, creates the item, and resets its delay according to the configured spawn range and stage factor.
+51 | main/melee/db/dbitem:db_EnableItemSpawns | fact:b86fb895-af3e-43f7-8082-a25794cb8105 | 2026-09-04T18:30:58.090Z | inferred_type
+A parameterless `void` state-setting command; it writes the Boolean-like `ItemSpawnsEnabled` field to enabled and returns no value.
+52 | main/melee/db/dbitem:db_EnableItemSpawns | fact:4b70508a-2275-485b-a29f-b6087f7ba918 | 2026-09-04T18:30:58.090Z | purpose
+Enables the global gate for ordinary timed item spawning, allowing the random item spawner to resume its countdown and create items during play.
+53 | main/melee/db/dbitem:db_EnableItemSpawns | fact:e18ddc8a-c30a-4f7a-bd2a-f3f17300c60c | 2026-09-04T18:30:58.090Z | state_behavior
+Unconditionally transitions the persistent item-spawn gate to enabled. The state remains enabled until `db_DisableItemSpawns` writes 0; while enabled, each random-spawner update may decrement its countdown and spawn when the countdown reaches zero. Game startup selects this enabled state because the startup selector is initialized false and therefore takes the enable branch.
+54 | main/melee/db/dbitem:db_GetCurrentlySelectedPokemon | fact:19a9a13a-cfa1-4e14-81f7-49f7000aecce | 2026-09-04T18:30:58.090Z | data_flow
+`fn_SetupItemAndPokemonMenu` initializes the selected-Pokémon field to zero, and L-modified repeated D-pad input increments or decrements it within 0–30. This accessor reads and returns that field unchanged. The Poké Ball Pokémon-spawn routine consumes the result, selects randomly for the first menu code or maps a nonzero code into the `It_PKind` domain, applies its Ditto availability fallback, and passes the resulting kind through `SpawnItem` to `Item_80268B18`.
+55 | main/melee/db/dbitem:db_GetCurrentlySelectedPokemon | fact:7cb70190-e30f-4661-92d9-1ff9225d374c | 2026-09-04T18:30:58.090Z | game_mapping
+Connects the Pokémon choice displayed and navigated in Melee's DEVELOP-mode Item Menu to the Pokémon produced by the Poké Ball spawn path when no higher-priority game-mode override selects the Pokémon.
+56 | main/melee/db/dbitem:db_GetCurrentlySelectedPokemon | fact:c59e45a1-7a61-4850-a817-45011fa0bfd1 | 2026-09-04T18:30:58.090Z | inferred_type
+`s32 db_GetCurrentlySelectedPokemon(void)`: returns a developer-menu Pokémon selection code in the inclusive range 0 through 30. The value is a menu-domain code rather than a directly usable `It_PKind`: the spawn caller treats the first code as the random-selection case and decrements other codes before adding `It_PKind_Start`.
+57 | main/melee/db/dbitem:db_GetCurrentlySelectedPokemon | fact:761608df-9ad5-408a-951b-c13213683054 | 2026-09-04T18:30:58.090Z | purpose
+Provides a side-effect-free accessor for the Pokémon selection in the developer item-and-Pokémon menu, allowing the Pokémon-spawn item logic to choose which Pokémon a Poké Ball produces.
+58 | main/melee/db/dbitem:db_GetCurrentlySelectedPokemon | fact:b1baf0a5-2dd9-434b-b343-5b84b92c2ade | 2026-09-04T18:30:58.090Z | state_behavior
+Calling the accessor causes no state transition; it immediately snapshots the current selection. The surrounding menu state starts at zero and changes only through bounded controller navigation: repeated L plus D-pad-right advances up to 30, while repeated L plus D-pad-left retreats down to zero.
+59 | main/melee/db/dbitem:db_HandleItemPokemonMenuInput | fact:bcfc652b-2539-4a4c-8bac-b7e19247b852 | 2026-09-02T01:24:45.913Z | data_flow
+Reads the selected player's held-button mask from `db_ButtonsDown` and repeat-trigger mask from `db_ButtonsRepeat`. When L is held, repeated vertical directions transform `CurrentlySelectedItem`, and repeated horizontal directions transform `CurrentlySelectedPokemon`; `fn_UpdateItemAndPokemonMenu` later consumes those fields to detect changes and redraw the menu.
+60 | main/melee/db/dbitem:db_HandleItemPokemonMenuInput | fact:54471db6-5448-4100-82bc-f1259e6c92c0 | 2026-09-02T01:24:45.913Z | game_mapping
+Implements the repeatable L-plus-D-pad selection controls for Melee's DEVELOP-mode item menu: vertical input cycles the item choice and horizontal input cycles the Pokémon choice.
+61 | main/melee/db/dbitem:db_HandleItemPokemonMenuInput | fact:37112bed-7dd3-4429-a24f-be3b3ac229a3 | 2026-09-02T01:24:45.913Z | inferred_type
+Signature: `void db_HandleItemPokemonMenuInput(int player)`. `player` is a controller/player-slot index passed unchanged to the debug input accessors; the function returns no value and communicates its result by mutating the shared item/Pokémon menu selection state.
+62 | main/melee/db/dbitem:db_HandleItemPokemonMenuInput | fact:e7ef1c77-59cc-4a26-b644-419e157a41a5 | 2026-09-02T01:24:45.913Z | purpose
+Handles repeatable directional navigation for the in-match developer item/Pokémon menu, updating the selected item with gaps in the item-kind domain skipped and updating the independently selected Pokémon within its bounded index range.
+63 | main/melee/db/dbitem:db_HandleItemPokemonMenuInput | fact:63e1bfac-9b54-4249-9478-529b77dc0a58 | 2026-09-02T01:24:45.913Z | state_behavior
+Item selection is bounded to three valid inclusive ranges: `0x00–0x22`, `0x2B–0x2E`, and `0xD0–0xE8`. Up increments and jumps from `0x22` to `0x2B` and from `0x2E` to `0xD0`; down decrements with the inverse jumps from `0xD0` to `0x2E` and from `0x2B` to `0x22`. It does not wrap past `0` or `0xE8`. Pokémon selection is clamped to `0x00–0x1E`, incrementing on right and decrementing on left without wraparound. Every transition requires L to be held and the direction to be present in the repeat mask.
+64 | main/melee/db/dbitem:db_ShowCoinPickupRange | fact:1c04677f-c7e4-417c-9471-10e4825a087b | 2026-09-04T18:30:58.090Z | data_flow
+Reads `db_ItemAndPokemonMenu.ShowCoinPickupRange` and returns its current value unchanged. The paired enable and disable paths update that shared field after traversing active items of `It_Kind_Unk4` and setting or clearing their `xDAA_flag.b0` diagnostic bit.
+65 | main/melee/db/dbitem:db_ShowCoinPickupRange | fact:009ae92e-051a-4b8a-89ca-be9659f125c4 | 2026-09-04T18:30:58.090Z | game_mapping
+Supports Melee DEVELOP mode's coin-collision diagnostic, which displays each player's coin-detection sphere and a hitbox sphere on each coin.
+66 | main/melee/db/dbitem:db_ShowCoinPickupRange | fact:e8a0143d-e38c-441c-a5fe-7fe0ba1c6e9d | 2026-09-04T18:30:58.090Z | inferred_type
+A no-argument Boolean-state getter represented as `u32 db_ShowCoinPickupRange(void)`; zero means the coin pickup-range display is disabled and nonzero means it is enabled.
+67 | main/melee/db/dbitem:db_ShowCoinPickupRange | fact:e38bfc7f-5c8b-4293-b0bb-bbb9adb57821 | 2026-09-04T18:30:58.090Z | purpose
+Provides item logic with a read-only query for whether the developer diagnostic that visualizes coin pickup detection is enabled.
+68 | main/melee/db/dbitem:db_ShowCoinPickupRange | fact:84a66b99-98ce-48b0-b212-3dc2130c2b8a | 2026-09-04T18:30:58.090Z | state_behavior
+Is a side-effect-free query of a persistent two-state diagnostic switch. It neither advances nor toggles the state; separate enable and disable routines set the switch to 1 or 0 and synchronize the corresponding flag on active coin-related item objects.
+69 | main/melee/db/dbitem:db_ShowEnemyStompRange | fact:ab7123cf-316f-418e-b376-36fa2c29790a | 2026-09-04T18:30:58.090Z | data_flow
+Reads `db_ItemAndPokemonMenu.ShowEnemyStompRange` and returns its current value unchanged. That field is initialized to 0, written to 1 when the enemy-stomp-range display is enabled, and restored to 0 when the display is disabled; the enable and disable operations also synchronize item-object diagnostic bit `xDAA_flag.b3` with the global setting.
+70 | main/melee/db/dbitem:db_ShowEnemyStompRange | fact:c68f8e01-8d79-423f-a9d7-b007f3c4d631 | 2026-09-02T01:31:34.834Z | game_mapping
+Maps to Melee's retained developer-debug visualization for inspecting the stomp interaction range of eligible enemy item objects.
+71 | main/melee/db/dbitem:db_ShowEnemyStompRange | fact:3b4d9aae-7c1b-46c9-9a30-d246b2bebb41 | 2026-09-04T18:30:58.090Z | inferred_type
+A no-argument `u32` Boolean-style state query. Its meaningful return domain is 0 for disabled and 1 for enabled.
+72 | main/melee/db/dbitem:db_ShowEnemyStompRange | fact:2da4954d-5deb-414e-8614-1f59caa2ac7d | 2026-09-02T01:31:34.834Z | purpose
+Provides the item subsystem with a read-only query for whether the developer diagnostic that displays stomp ranges on eligible enemy items is enabled.
+73 | main/melee/db/dbitem:db_ShowEnemyStompRange | fact:9ca97dd7-c1cc-4107-bf63-671c01d90921 | 2026-09-04T18:30:58.090Z | state_behavior
+Reports a persistent two-state diagnostic setting without changing it: setup and the disable path establish state 0, while the enable path establishes state 1. Enabling marks bit 3 on items whose `xDD0_flag.b0` eligibility flag is set; disabling clears bit 3 on every active item.
+74 | main/melee/db/dbitem:db_ShowItemPickupRange | fact:882377f6-c1fd-441e-ace5-b2de8d427984 | 2026-09-04T18:30:58.090Z | data_flow
+`fn_EnableShowItemPickupRange` and `fn_DisableShowItemPickupRange` write `db_ItemAndPokemonMenu.ShowItemPickupRange` while also propagating the same enabled or disabled state to bit 4 of every active item's diagnostic flags. `db_ShowItemPickupRange` reads the global field and returns it unchanged, with no other side effects.
+75 | main/melee/db/dbitem:db_ShowItemPickupRange | fact:651913b8-e7f0-4d88-a594-3d70981d35eb | 2026-09-04T18:30:58.090Z | game_mapping
+Represents the item-side enable state for DEVELOP mode's item pickup-range visualization, which displays pink item catch boxes used together with fighter item-grab and item-lift boxes to inspect when an item can be picked up.
+76 | main/melee/db/dbitem:db_ShowItemPickupRange | fact:9f2c1354-bccd-4099-993c-0bc7ebaecd4c | 2026-09-04T18:30:58.090Z | inferred_type
+A nullary `u32` Boolean-state accessor: it returns 0 when item pickup-range visualization is disabled and 1 when enabled.
+77 | main/melee/db/dbitem:db_ShowItemPickupRange | fact:3c2a71bb-1437-47d1-8483-8ee7f65037e9 | 2026-09-04T18:30:58.090Z | purpose
+Provides a side-effect-free query for whether the developer item-pickup-range visualization is enabled.
+78 | main/melee/db/dbitem:db_ShowItemPickupRange | fact:2148f634-fb3d-40fd-b7dd-5f722836e748 | 2026-09-04T18:30:58.090Z | state_behavior
+The queried state is initialized disabled, becomes 1 when the pickup-range display is enabled, and returns to 0 when disabled. The accessor itself does not transition the state.
+79 | main/melee/db/dbitem:fn_80225A54 | fact:f68ecbff-6ae2-4eb7-9717-09528876f9b6 | 2026-09-04T22:36:22.764Z | data_flow
+The function reads global `DbLevel`, then reads the selected player's current held-button mask and newly pressed-button mask. If the guards succeed, values at source members `x0`, `x8`, `x10`, `x1C`, `x24`, `x2C`, `x34`, `x40`, `x48`, `x50`, `x58`, and `x60` of `Item_804A0C64` flow respectively into destination members `x4`, `xC`, `x14`, `x20`, `x28`, `x30`, `x38`, `x44`, `x4C`, `x54`, `x5C`, and `x64`.
+80 | main/melee/db/dbitem:fn_80225A54 | fact:2285bc14-e349-4104-a15e-90543936d22a | 2026-09-04T22:36:22.764Z | game_mapping
+Implements an item-system maintenance shortcut available only during Melee's DEVELOP-level debug handling: B plus a new D-pad-right press synchronizes opaque item object-allocation shadow values. This shortcut is separate from the documented DEVELOP-mode item/Pokémon selection and item-drop controls.
+81 | main/melee/db/dbitem:fn_80225A54 | fact:52a04b5b-fcf0-445f-a780-15f66dcd6ba3 | 2026-09-04T22:36:22.764Z | inferred_type
+Signature: `void (int player)`. `player` selects the controller/player debug-input slot queried for held and newly pressed button masks. The function returns no value and produces its output solely by mutating the item-owned `HSD_ObjAllocUnk Item_804A0C64` global.
+82 | main/melee/db/dbitem:fn_80225A54 | fact:b8bfb1b7-6b51-4230-9e5c-228963c8ac16 | 2026-09-04T22:36:22.764Z | purpose
+Handles a DEVELOP-level item-debug maintenance shortcut: when one player holds B and newly presses D-pad right, it synchronizes twelve paired members of the item subsystem's opaque HSD object-allocation state.
+83 | main/melee/db/dbitem:fn_80225A54 | fact:9c8b1539-2546-4c03-a741-dd168a158f34 | 2026-09-04T18:30:58.090Z | state_behavior
+The synchronization occurs only when `DbLevel == DbLKind_Develop`, B is currently held for the selected player, and D-pad right appears in that player's newly pressed mask. It therefore executes once on the D-pad-right press edge rather than continuously while D-pad right remains held. If any guard fails, the function leaves the allocation-state global unchanged.
+84 | main/melee/db/dbitem:fn_80225E6C | fact:e7907499-d882-4088-b51a-6f4a54f12ca0 | 2026-09-04T18:30:58.090Z | data_flow
+The R-plus-D-pad-right handler resolves the selected player's fighter GObj and `Fighter`, advances the low two collision-display bits in `Fighter.x21FC_flag`, and passes both pointers here. This function reads `HSD_GObj_Entities->items`, follows each GObj's `next` pointer, reads each `Item.owner`, and forwards matching item GObjs and the fighter owner to `db_80225DD8`. For a recognized fighter owner, that helper clears the item's low two diagnostic bits and installs the nonzero low two bits returned from the owner's fighter collision flags; its fallback uses the global item collision-display mode.
+85 | main/melee/db/dbitem:fn_80225E6C | fact:ce770c7d-daeb-41a9-b9c2-29a2ea34beef | 2026-09-02T05:18:18.279Z | game_mapping
+Implements the owned-item propagation portion of DEVELOP mode's R plus D-pad-right per-player collision-bubble toggle, keeping projectiles and other active item objects attributed to the selected fighter consistent with that fighter's Normal, Collision Bubbles Only, or Collision Overlay setting.
+86 | main/melee/db/dbitem:fn_80225E6C | fact:5b1c75bb-7507-4f08-a9dc-1353ee88fe16 | 2026-09-06T02:34:38.472Z | inferred_name
+db_UpdateOwnedItemCollisionBubbles
+87 | main/melee/db/dbitem:fn_80225E6C | fact:84bea374-4c84-45cb-b59a-67f469fd4372 | 2026-09-02T05:18:18.279Z | inferred_type
+Signature: `void (Fighter_GObj* owner, Fighter* fp)`. `owner` is the fighter GObj used as the item-ownership key and passed to the per-item update helper; `fp` is unused by the matched body. The function returns no value and acts only through item diagnostic-state side effects.
+88 | main/melee/db/dbitem:fn_80225E6C | fact:651d7716-a108-4f58-b55e-1c5ea5ad8b64 | 2026-09-02T05:18:18.279Z | purpose
+Synchronizes the developer collision-visualization mode of every active item owned by a specified fighter, principally after that fighter's per-player collision-bubble setting changes.
+89 | main/melee/db/dbitem:fn_80225E6C | fact:71beb5f8-36b7-453d-b351-4a12292977b7 | 2026-09-04T18:30:58.090Z | state_behavior
+The function has no persistent state or timer of its own. On each call it synchronously scans all currently active items, leaves non-owned items untouched, and refreshes every item whose owner pointer exactly matches the supplied fighter. In its per-player call path, the owner has just entered the next collision-display mode in the cycle 1 → 2 → 3 → 1, so all matching owned items are brought to that mode during the same call.
+90 | main/melee/db/dbitem:fn_CheckItemAndPokemonMenu | fact:87f55905-d66b-4b83-851b-a5566a3a8dfb | 2026-09-04T18:27:38.530Z | data_flow
+The routine reads the shared menu's display status, owner, and fade timer and may write a hidden display state and decrement the timer. It passes `player` into the menu updater and spawn checker, reads held and newly pressed button masks for the R plus D-pad-up chord, and propagates that chord into the global item collision-display mode and active-item flags through `fn_ToggleItemCollisionBubbles`.
+91 | main/melee/db/dbitem:fn_CheckItemAndPokemonMenu | fact:a22d6357-e9dc-46eb-ac12-28917b5d9ea7 | 2026-09-02T01:25:58.041Z | game_mapping
+Acts as the per-player executor for Melee DEVELOP mode's item/Pokémon menu and item diagnostics: it supports cycling the displayed selections, dropping the selected item with D-pad-down, automatically hiding the menu after inactivity, and applying the item portion of the R plus D-pad-up collision-bubble toggle.
+92 | main/melee/db/dbitem:fn_CheckItemAndPokemonMenu | fact:5ded4168-5be2-4127-a9a6-1120b5c7a60b | 2026-09-02T01:25:58.041Z | inferred_type
+Signature: `void (int player)`. The argument is a controller/player slot index used to select debug input state, associate menu ownership, obtain spawn coordinates, and dispatch the subordinate per-player item-debug routines; the function returns no value and operates through global menu, text, and item state.
+93 | main/melee/db/dbitem:fn_CheckItemAndPokemonMenu | fact:fc9555a0-374a-4261-bfb9-f307929f530b | 2026-09-02T01:25:58.041Z | purpose
+Runs one player's per-frame item/Pokémon developer-debug handling: it advances the menu fade lifecycle, processes selection changes, conditionally permits selected-item spawning, handles the item collision-display shortcut, and performs an additional debug-level-specific item update.
+94 | main/melee/db/dbitem:fn_CheckItemAndPokemonMenu | fact:a975b49e-64d6-4e83-bb2a-acb8173b3195 | 2026-09-04T18:27:38.530Z | state_behavior
+Only the player that most recently changed the visible menu decrements its fade timer. While display state is 1, a nonzero timer is reduced once per call; when the timer is already zero, the state changes to 2 and both text and background are hidden. Menu input is then processed unconditionally. Selected-item spawning is checked only when both queried game-state predicates return zero, and the collision-display mode advances only on an R-held plus D-pad-up press edge.
+95 | main/melee/db/dbitem:fn_DisableShowCoinPickupRange | fact:08b90160-0ee8-4bcf-bb64-bc605819c8e8 | 2026-09-02T01:31:07.310Z | data_flow
+Reads the global active-item list from `HSD_GObj_Entities->items`, converts each object to an `Item`, and tests its `kind`. For every `It_Kind_Unk4` item it writes zero to `xDAA_flag.b0`; after traversal it writes zero to `db_ItemAndPokemonMenu.ShowCoinPickupRange`.
+96 | main/melee/db/dbitem:fn_DisableShowCoinPickupRange | fact:7006651d-c6ee-4455-98ce-0a9bb63b8f8f | 2026-09-04T18:27:38.530Z | game_mapping
+Realizes the off transition for Melee's developer-only coin pickup-range visualization.
+97 | main/melee/db/dbitem:fn_DisableShowCoinPickupRange | fact:2062f10b-c867-43bf-bcdf-6f1cd5330b5c | 2026-09-06T02:34:38.472Z | inferred_name
+db_DisableShowCoinPickupRange
+98 | main/melee/db/dbitem:fn_DisableShowCoinPickupRange | fact:50fac33a-8706-4bfc-961a-188c8e878ce0 | 2026-09-02T01:31:07.310Z | inferred_type
+A no-argument, no-return state-mutator with signature `void (void)`; internally it traverses the linked list of item `HSD_GObj` objects and accesses each matching `Item`.
+99 | main/melee/db/dbitem:fn_DisableShowCoinPickupRange | fact:35e77ca0-4fc5-4079-99ca-ce8a27806b6b | 2026-09-04T18:27:38.530Z | purpose
+Disables the developer diagnostic that displays coin pickup ranges, removing the display from existing applicable items and disabling it for the debug item-menu subsystem.
+100 | main/melee/db/dbitem:fn_DisableShowCoinPickupRange | fact:1290ea9a-1d5c-43c1-b3a0-f8c204b64e14 | 2026-09-02T01:31:07.310Z | state_behavior
+Transitions coin pickup-range display state to disabled in both places that carry it: all currently active `It_Kind_Unk4` items have their display bit cleared, and the persistent menu-level enable field is cleared. The operation is idempotent and leaves all other item kinds unchanged.
+101 | main/melee/db/dbitem:fn_DisableShowEnemyStompRange | fact:36e61223-4da7-46f4-90ad-14a988b14a00 | 2026-09-04T18:27:38.530Z | data_flow
+Reads `HSD_GObj_Entities->items` as the head of the active-item list, follows each GObj's `next` link, obtains its `Item` from `user_data`, and writes zero to `Item.xDAA_flag.b3`. After the traversal it writes zero to `db_ItemAndPokemonMenu.ShowEnemyStompRange`. No item-kind or eligibility test is performed on the disable path.
+102 | main/melee/db/dbitem:fn_DisableShowEnemyStompRange | fact:7c23cde0-be12-4b37-baae-7c021895de33 | 2026-09-02T01:33:06.623Z | game_mapping
+Implements the off transition for the item-side enemy-stomp-range visualization within DEVELOP mode's R plus D-pad-left miscellaneous character-visuals cycle.
+103 | main/melee/db/dbitem:fn_DisableShowEnemyStompRange | fact:2f362da1-efbf-4f5c-9748-2cc03b7498bb | 2026-09-06T02:34:38.472Z | inferred_name
+db_DisableShowEnemyStompRange
+104 | main/melee/db/dbitem:fn_DisableShowEnemyStompRange | fact:90dff700-4745-46a5-9f0e-d75657327152 | 2026-09-02T01:33:06.623Z | inferred_type
+A parameterless procedure with signature `void (void)`.
+105 | main/melee/db/dbitem:fn_DisableShowEnemyStompRange | fact:fd2cdc3f-4d81-4112-b9df-94219f55cdd9 | 2026-09-02T01:33:06.623Z | purpose
+Disables the developer-debug enemy-stomp-range display for items by clearing its per-item visualization flag on every active item and clearing the subsystem-wide enable latch.
+106 | main/melee/db/dbitem:fn_DisableShowEnemyStompRange | fact:a46e0015-92fb-42ae-bd22-5a9bf7ecd6ad | 2026-09-02T01:33:06.623Z | state_behavior
+Performs an idempotent transition to the disabled state: all currently active items have enemy-stomp-range display bit `xDAA_flag.b3` cleared and the persistent `ShowEnemyStompRange` latch becomes 0. In the one-hot miscellaneous-fighter-visuals cycle, the paired enable routine is selected only while status bit `0x02` is active; this routine is selected for every other status.
+107 | main/melee/db/dbitem:fn_DisableShowItemPickupRange | fact:b51b7903-2c7c-47c3-a83c-0bb76e4570db | 2026-09-02T01:31:00.704Z | data_flow
+The current miscellaneous-fighter-visuals mode is tested by fn_ToggleMiscFighterVisuals; when mode bit 0x08 is clear, control flows here. The function reads HSD_GObj_Entities->items, follows each GObj's next link, obtains its Item from user_data, clears Item.xDAA_flag.b4, and finally writes zero to db_ItemAndPokemonMenu.ShowItemPickupRange.
+108 | main/melee/db/dbitem:fn_DisableShowItemPickupRange | fact:2bff3940-d32c-4473-b0f1-283074be8c24 | 2026-09-02T01:31:00.704Z | game_mapping
+Realizes the off state of Melee DEVELOP mode's item pickup-range visualization—the pink item catch boxes drawn around items as part of the R plus D-pad-left miscellaneous character-visual modes.
+109 | main/melee/db/dbitem:fn_DisableShowItemPickupRange | fact:604007b5-6a1e-4b51-b6ce-2564c9bc7ecb | 2026-09-02T01:31:00.704Z | inferred_type
+void (void)
+110 | main/melee/db/dbitem:fn_DisableShowItemPickupRange | fact:6b985eef-8c52-48f4-a50e-3a66835b8204 | 2026-09-02T01:31:00.704Z | purpose
+Disables the developer diagnostic that draws item-side pickup or catch ranges, clearing the display bit on every active item and the subsystem's persistent ShowItemPickupRange state.
+111 | main/melee/db/dbitem:fn_DisableShowItemPickupRange | fact:af0d8d5e-bbdf-49b6-950b-6edc4cfd3eaa | 2026-09-02T01:31:00.704Z | state_behavior
+This routine forces the item pickup-range display into its disabled state immediately and globally: all currently active items have display bit b4 cleared, and ShowItemPickupRange is set to 0. It is the false branch of the miscellaneous-visuals mode's 0x08 state bit, paired with an enable routine that performs the inverse writes.
+112 | main/melee/db/dbitem:fn_EnableShowCoinPickupRange | fact:334d5d0e-133b-4ea0-8318-e6d705f0552d | 2026-09-04T18:27:38.530Z | data_flow
+Reads the head of `HSD_GObj_Entities->items`, follows each object's `next` link, converts each object to an `Item`, and tests its kind. For every `It_Kind_Unk4` item it writes one to `xDAA_flag.b0`; after the traversal it writes one to `db_ItemAndPokemonMenu.ShowCoinPickupRange`, which is exposed by `db_ShowCoinPickupRange` as the persistent global display state.
+113 | main/melee/db/dbitem:fn_EnableShowCoinPickupRange | fact:1d7476f1-b2f3-4897-b10e-c2b8f9e935fe | 2026-09-02T01:30:58.785Z | game_mapping
+Implements the coin-item side of DEVELOP mode's character-visual diagnostic that displays each player's coin-detection sphere together with a hitbox sphere on each coin.
+114 | main/melee/db/dbitem:fn_EnableShowCoinPickupRange | fact:047f6b36-61be-4113-9908-3840d1588c2f | 2026-09-06T02:34:38.472Z | inferred_name
+db_EnableShowCoinPickupRange
+115 | main/melee/db/dbitem:fn_EnableShowCoinPickupRange | fact:db4ec10c-6226-44a9-9763-3b244ffff7d8 | 2026-09-02T01:30:58.785Z | inferred_type
+A parameterless state-setting routine with signature `void (void)`.
+116 | main/melee/db/dbitem:fn_EnableShowCoinPickupRange | fact:40969306-a357-4449-b510-dada1bdd4504 | 2026-09-04T18:27:38.530Z | purpose
+Enables the item-side portion of the developer display for coin pickup detection ranges, updating every existing coin-like item and recording the display as enabled in the item-and-Pokémon debug state.
+117 | main/melee/db/dbitem:fn_EnableShowCoinPickupRange | fact:dc89d854-bcb1-4702-975a-e9d37df32e57 | 2026-09-04T18:27:38.530Z | state_behavior
+Unconditionally transitions coin pickup-range display state to enabled. The operation is idempotent: qualifying existing items have their display bit forced to one, and the persistent Boolean field is forced to one regardless of its previous value. The paired disable routine forces both values back to zero.
+118 | main/melee/db/dbitem:fn_EnableShowEnemyStompRange | fact:fd069f28-e47a-4da7-9845-9bae8776dc0e | 2026-09-02T01:31:03.327Z | data_flow
+The routine reads the head of `HSD_GObj_Entities->items`, follows each GObj's `next` link, obtains its `Item`, and uses `Item.xDD0_flag.b0` as an eligibility guard. Eligible items receive `Item.xDAA_flag.b3 = 1`, after which `db_ItemAndPokemonMenu.ShowEnemyStompRange` is set to 1. The caller selects this path whenever bit `0x02` of `MiscFighterVisualsStatus` is active.
+119 | main/melee/db/dbitem:fn_EnableShowEnemyStompRange | fact:dc48434f-a553-4d5e-b0fe-15e2393c4cbb | 2026-09-02T01:31:03.327Z | game_mapping
+Implements the enemy-stomp-range item component of DEVELOP mode's cycling character-related diagnostic visualizations, exposed through the R plus D-pad-left visual-mode control.
+120 | main/melee/db/dbitem:fn_EnableShowEnemyStompRange | fact:ef0d62f8-cfd2-4d94-859a-94d15a99c000 | 2026-09-02T01:31:03.327Z | inferred_type
+Parameterless state-changing routine with signature `void (void)`.
+121 | main/melee/db/dbitem:fn_EnableShowEnemyStompRange | fact:ffda23fc-29ba-4cc9-8aef-68a0897d23ed | 2026-09-02T01:31:03.327Z | purpose
+Activates the enemy-stomp-range debug visualization by marking every currently active eligible item for that diagnostic rendering and recording the feature as globally enabled.
+122 | main/melee/db/dbitem:fn_EnableShowEnemyStompRange | fact:2f9819b0-a7fd-4531-9c45-47b0d808444c | 2026-09-02T01:31:03.327Z | state_behavior
+This is the enable transition for a persistent Boolean diagnostic mode. Enabling sets `xDAA_flag.b3` only on active items whose `xDD0_flag.b0` eligibility bit is already set, then changes `ShowEnemyStompRange` to 1. The opposite transition clears `xDAA_flag.b3` from every active item without an eligibility guard and changes the global field to 0. The transition is selected by bit `0x02` in the cycling miscellaneous-fighter-visual status.
+123 | main/melee/db/dbitem:fn_EnableShowItemPickupRange | fact:5f5253b7-cb6b-4c91-9414-af0ad2bf6747 | 2026-09-02T01:32:44.807Z | data_flow
+Reads the head of `HSD_GObj_Entities->items`, follows each object's `next` link, obtains its `Item` through `user_data`, and writes one to `Item.xDAA_flag.b4`; after the traversal it writes one to `db_ItemAndPokemonMenu.ShowItemPickupRange`. The call originates from the miscellaneous fighter-visual mode when `MiscFighterVisualsStatus` contains bit `0x08`.
+124 | main/melee/db/dbitem:fn_EnableShowItemPickupRange | fact:fca1b16b-a470-4eb2-8c1d-f26b76d78836 | 2026-09-02T01:32:44.807Z | game_mapping
+Realizes the item-side portion of DEVELOP mode's miscellaneous character-visual setting that displays item-grab geometry: the pink item catch boxes around items that can intersect fighters' white or blue pickup boxes.
+125 | main/melee/db/dbitem:fn_EnableShowItemPickupRange | fact:d4f53800-b955-4315-b583-e1eb0e03b6eb | 2026-09-06T02:34:38.472Z | inferred_name
+db_EnableShowItemPickupRange
+126 | main/melee/db/dbitem:fn_EnableShowItemPickupRange | fact:91fff670-7b00-48d9-889f-eac49b754318 | 2026-09-02T01:32:44.807Z | inferred_type
+Parameterless, no-return bulk state setter: `void (void)`.
+127 | main/melee/db/dbitem:fn_EnableShowItemPickupRange | fact:959132b5-bf56-4b16-899d-0c40f434a420 | 2026-09-02T01:32:44.807Z | purpose
+Enables the item-side pickup-range diagnostic for every active item and records the feature as globally enabled in the item/Pokémon debug state.
+128 | main/melee/db/dbitem:fn_EnableShowItemPickupRange | fact:b2235323-72d8-49c8-8c17-a00caec8d1d7 | 2026-09-04T18:27:38.530Z | state_behavior
+Idempotently forces the pickup-range display state on: all currently active items receive diagnostic bit `b4 = 1`, and the persistent module flag becomes one. The state remains enabled until the paired disable routine clears that bit on all active items and resets the module flag; the cycling miscellaneous-visual controller selects the enabled state only while status bit `0x08` is set.
+129 | main/melee/db/dbitem:fn_SetupItemAndPokemonMenu | fact:da362863-3fbc-4470-a21a-4d16640ada29 | 2026-09-02T01:30:55.034Z | data_flow
+Writes initial values into the shared `db_ItemAndPokemonMenu` state: `DisplayStatus` becomes 0, the current and last item selections both become kind `0x22`, and the current and last Pokémon selections both become 0. It also writes 1 to `db_ShowItemCollisionBubbles` and clears the menu state's enemy-stomp-range and item-pickup-range flags. Later menu input, rendering, spawning, fading, and diagnostic-display routines consume and mutate these values.
+130 | main/melee/db/dbitem:fn_SetupItemAndPokemonMenu | fact:6a02e3d0-d599-436e-bff4-58a3a2e8aa67 | 2026-09-02T01:30:55.034Z | game_mapping
+Provides the initialization stage for Melee DEVELOP mode's in-match Items & Pokémon menu and its associated item diagnostic visualizations.
+131 | main/melee/db/dbitem:fn_SetupItemAndPokemonMenu | fact:5b8de2e9-b6e5-4f84-a8eb-4f31f1ac95dc | 2026-09-02T01:30:55.034Z | inferred_type
+Parameterless initialization routine with signature `void (void)`.
+132 | main/melee/db/dbitem:fn_SetupItemAndPokemonMenu | fact:be8c4600-2ff3-40b7-81a5-c41f8c088f71 | 2026-09-04T18:27:38.530Z | purpose
+Initializes the persistent state for the developer-mode item and Pokémon selector before its per-player update routines run, establishing default selections, an uncreated menu display, the initial item-collision visualization mode, and disabled enemy-stomp and item-pickup range displays.
+133 | main/melee/db/dbitem:fn_SetupItemAndPokemonMenu | fact:1e21468e-c591-4644-ae49-1aa1154e2aa7 | 2026-09-04T18:27:38.530Z | state_behavior
+When debug-facility setup runs at `DbLevel >= DbLKind_DebugRom`, this routine establishes menu state 0 (not yet created), synchronizes each last-selection field with its current selection so no initial change is pending, selects item kind `0x22` and Pokémon index 0, starts item collision visualization in mode 1, and disables enemy-stomp and item-pickup range visualization. It has no guards, timers, or alternate paths of its own.
+134 | main/melee/db/dbitem:fn_ShowOrCreateItemAndPokemonMenu | fact:5b9db07e-67e1-4d3b-8167-3550075dc0f4 | 2026-09-02T01:25:22.684Z | data_flow
+Reads the shared DevText rendering GObj and the menu's DisplayStatus. For a reusable hidden panel it sends the persistent DevText pointer to the background and text visibility APIs; otherwise it passes the module-owned buffer to `DevText_Create`, stores the returned pointer globally, and on success supplies that pointer and the shared GObj to registration and styling APIs. It finally writes DisplayStatus 1.
+135 | main/melee/db/dbitem:fn_ShowOrCreateItemAndPokemonMenu | fact:c463f260-7240-4546-963a-b320d455d4ec | 2026-09-02T01:25:22.684Z | game_mapping
+Provides the display-resource stage of DEVELOP mode's Items & Pokémon menu, whose controls reveal the current selections and cycle independently through the item and Pokémon lists before the selected item is dropped.
+136 | main/melee/db/dbitem:fn_ShowOrCreateItemAndPokemonMenu | fact:e6799495-6f0a-4ff1-a7dc-8074bfe266bf | 2026-09-02T01:25:22.684Z | inferred_type
+A void routine with signature `void (int player)`; the player argument is accepted for consistency with the surrounding per-player menu update path but is not read by this implementation.
+137 | main/melee/db/dbitem:fn_ShowOrCreateItemAndPokemonMenu | fact:a1a4303a-ec88-4736-8557-8bbb42ce9a67 | 2026-09-02T01:25:22.684Z | purpose
+Makes the item-and-Pokémon selection panel visible, either by revealing an existing hidden DevText panel or by allocating, registering, and styling the panel when no reusable hidden display is available.
+138 | main/melee/db/dbitem:fn_ShowOrCreateItemAndPokemonMenu | fact:67c822b4-8d03-435c-a186-0c3fce32ebb3 | 2026-09-02T01:25:22.684Z | state_behavior
+When DisplayStatus is 2, treats the panel as an existing hidden display and reveals its background and text without reallocating it. For any other incoming status, attempts to create a new panel and configures it only if creation succeeds. Regardless of the branch or allocation result, it sets DisplayStatus to 1, the state the update routine treats as currently displayed.
+139 | main/melee/db/dbitem:fn_ToggleItemCollisionBubbles | fact:9b98fe1f-a992-47d1-9cd3-42cd84d47324 | 2026-09-02T01:33:48.870Z | data_flow
+An R-held plus D-pad-up press edge in `fn_CheckItemAndPokemonMenu` triggers the routine. It increments `db_ShowItemCollisionBubbles`, wraps values above 3 to 1, reads `HSD_GObj_Entities->items`, follows each GObj's `next` link, obtains its `Item` from `user_data`, and replaces bits 0–1 of `Item.xDAA_byte` while preserving bits 2–7.
+140 | main/melee/db/dbitem:fn_ToggleItemCollisionBubbles | fact:6d03a1c6-b899-4d56-abde-21cc254f8174 | 2026-09-02T01:33:48.870Z | game_mapping
+Implements the item-side state update for Melee DEVELOP mode's R plus D-pad-up collision-bubble display, whose three documented settings are Normal, Collision Bubbles Only, and Collision Overlay.
+141 | main/melee/db/dbitem:fn_ToggleItemCollisionBubbles | fact:57b34b50-15dd-43fc-9ff7-972cb7ba418f | 2026-09-02T01:33:48.870Z | inferred_type
+Signature: `void (void)`. The routine takes no arguments and returns no value; it operates through the global collision-display mode, the global item GObj list, and each item's diagnostic flag byte.
+142 | main/melee/db/dbitem:fn_ToggleItemCollisionBubbles | fact:46a44916-c5be-4570-ae22-eb5d4b0cdb7e | 2026-09-02T01:33:48.870Z | purpose
+Advances the developer-debug collision-bubble display mode and immediately applies the new mode to every active item.
+143 | main/melee/db/dbitem:fn_ToggleItemCollisionBubbles | fact:647322b1-e9f3-420a-9aae-84b9e1ae5730 | 2026-09-02T01:33:48.870Z | state_behavior
+Each accepted controller chord advances a persistent three-mode cycle, 1 → 2 → 3 → 1. The new mode is synchronously copied into the low two bits of every item that is active at the time of the call; no item is created, destroyed, or otherwise filtered during the pass.
+144 | main/melee/db/dbitem:fn_UpdateItemAndPokemonMenu | fact:1d238b8e-d8af-4be0-bfce-74fb46957198 | 2026-09-02T01:24:51.726Z | data_flow
+Copies `CurrentlySelectedItem` and `CurrentlySelectedPokemon` into their respective previous-selection fields, then lets `db_HandleItemPokemonMenuInput(player)` mutate the current selections. If either value changed, the selected item index is mapped through `db_ItemNames`, `db_BarrelEnemies`, or `db_AdventureEnemies` according to its item-kind range, while the Pokémon index selects `db_PokemonNames`; both resulting strings are consumed by `DevText_Printf` after the existing text is erased and its cursor reset.
+145 | main/melee/db/dbitem:fn_UpdateItemAndPokemonMenu | fact:5b9ebebe-52c7-4c3f-bf9b-1852b596ef80 | 2026-09-02T01:24:51.726Z | game_mapping
+Implements the visible selection feedback for Melee's DEVELOP-mode Item Menu, where debug controls cycle independently through items and Poké Ball Pokémon before the selected item is dropped into the match.
+146 | main/melee/db/dbitem:fn_UpdateItemAndPokemonMenu | fact:97716580-6cfb-4732-8d01-22fd6da539a5 | 2026-09-02T01:24:51.726Z | inferred_type
+Has signature `void (int player)`. The integer identifies the player whose debug input is processed and is forwarded to the menu-display routine and retained as the menu's owning or acting player when a selection changes.
+147 | main/melee/db/dbitem:fn_UpdateItemAndPokemonMenu | fact:4ec47bbd-7769-453e-8b75-a61a1e2adc14 | 2026-09-02T01:24:51.726Z | purpose
+Processes one update of the debug item-and-Pokémon selector and refreshes its developer-text display when input changes either selection. On a change it associates the display with the acting player, restarts its visibility timer, ensures the menu is shown, resolves the selected item kind to a display name, and prints the item and Pokémon names.
+148 | main/melee/db/dbitem:fn_UpdateItemAndPokemonMenu | fact:b3bdb657-0c88-472f-b9f1-f9a40cce310a | 2026-09-02T01:24:51.726Z | state_behavior
+The function is change-driven: if input leaves both selections unchanged, it performs no display-state or text update. If either selection changes, it sets the menu's player, resets `DisplayFadeTimer` to 120, invokes the show/create routine unless `DisplayStatus` is already 1, and redraws the text. Item indices are accepted only across the ordinary-item, barrel-enemy, and Adventure-enemy ranges represented by the three lookup tables; reaching a value at or beyond `It_Kind_Arwing_Laser` enters a non-returning loop.
+149 | src/melee/db/dbitem.c | fact:96e38059-c435-41c1-a091-c5b3dc37e36e | 2026-09-06T03:12:01.317Z | data_flow
+Controller held, pressed-edge, and repeat masks update selected item and Pokémon indices, render selections through DevText, pass the selected item kind into item creation above the player, and propagate diagnostic modes into item flags. A DEVELOP shortcut copies twelve source members of `Item_804A0C64` into paired destination members.
+150 | src/melee/db/dbitem.c | fact:db7fd441-610b-49a1-bc56-00e6b453ba76 | 2026-09-06T03:12:01.317Z | game_mapping
+Realizes Melee DEVELOP mode's item and Pokémon selection menu, selected-item drop control, item collision-bubble display, and item-related range diagnostics.
+151 | src/melee/db/dbitem.c | fact:7b4a39be-04a4-47d0-95dd-59aa03c4b323 | 2026-09-06T03:12:01.317Z | purpose
+Implements developer-debug item and Pokémon controls: it maintains the selection menu, permits item spawning, controls item-spawn enablement, applies collision and pickup-range diagnostics, and synchronizes paired opaque item-allocation values.
+152 | src/melee/db/dbitem.c | fact:1c782663-c4a1-4864-8030-e09b7b9106db | 2026-09-06T03:12:01.317Z | state_behavior
+The menu uses states 0, 1, and 2 for uncreated, visible, and hidden-but-reusable text. Selection changes associate a player, reload a 120-frame timer, and show or create the panel; countdown expiry hides it. Item collision visualization cycles through modes 1-3, while range displays and item spawning use persistent Boolean enable fields.

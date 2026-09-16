@@ -1,0 +1,141 @@
+{
+  "tu": "main/melee/pl/plbonuslib",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plbonuslib:pl_8003D60C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "This stateless integer predicate returns true for 0xA0, 0xE1 and 0xEA\u20130xED. Direct and accumulated item-hit collision paths pass Item.kind; within those paths, after no fighter owner is identified, true selects the ftColl_8007861C preservation flag that leaves the victim's dmg.x18c4_source_ply unchanged rather than replacing it with 6. The death processor also uses the predicate on its recorded item-kind value to select victim decision 0x88 and opposing-source decision 0x80.",
+        "rationale": "Scopes the ownerless restriction to collision callers and includes the independently read death-processor consumers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L49-L208",
+            "why": "Fixed true set and victim-side consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L209-L368",
+            "why": "Opposing-source consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1396-L1515",
+            "why": "Direct collision preservation implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L2856-L2968",
+            "why": "Accumulated collision preservation use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plbonuslib:pl_8003D644"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Player/fighter resolution and final-hit metadata reads occur before the entity-index guard. Index 1 skips the subsequent bookkeeping and bonus-update block. Other indices copy final-hit metadata, update victim telemetry and evaluate indexed decisions. Sentinel-6, self or same-team attribution resets the victim's xD60 to 0 and xD64 to 6; opposing attribution may consume a matching source-player pending relationship, then sets the victim's xD60 to 0 and xD64 to the source slot. Source-player decisions are confined to the opposing-source branch and depend on motion, hit metadata, flags, thresholds and match queries.",
+        "rationale": "Corrects the overly absolute index-1 claim while preserving the observed guarded transitions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L49-L208",
+            "why": "Pre-guard reads, relationship predicate and guarded victim updates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L209-L368",
+            "why": "Exact attribution transitions and source-only decision block."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plbonuslib:pl_8003E17C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Records eligible item acquisition or activation observations in the selected player's normalized item-category log. It increments x674 when that player's existing holder-history bit is clear and increments x710 when all six queried player-history bits are clear. It does not set history bits or independently guarantee once-per-instance counting.",
+        "rationale": "The complete body conditions its two increments on existing history queries. Attachment updates holder history elsewhere, so deduplication depends on caller sequencing and external state changes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L397-L486",
+            "why": "Shows normalization, eligibility, both history-conditioned increments, and absence of history writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftpickupitem.c#L236-L327",
+            "why": "Shows ordinary acquisition logging before attachment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L911-L1030",
+            "why": "Shows external holder-bit mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmetalb.c#L113-L130",
+            "why": "Shows a second observation context outside ordinary pickup notification."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plbonuslib:pl_80040688"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads gm_GetFrameCount() and sets player arg0's decision 0x5F to 1 when the count is at most pl_804D6470->xEC. Independently, when arg2 is nonzero and arg1 is not 6, it selects arg1's extended record and obtains the associated player from x0_staleMoveTable.xCB8. If unk_cond(arg1, associated_player) is false, xCBC.x3 in the inclusive range 0x33..0x3D sets that associated player's decision 0x2A to 1; independently, xCC0.x10_b0 sets decision 7 to 1 and decrements decision 6 only if its current value is nonzero.",
+        "rationale": "Refreshes the stale callee spelling while preserving the independently verified inputs, guards, recipients, and mutation semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L1441-L1508",
+            "why": "Shows the complete current function and canonical gm_GetFrameCount call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L1-L125",
+            "why": "Defines point replacement and zero-guarded decrement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plbonuslib:pl_80040A9C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Function signature: int pl_80040A9C(int player_slot). It sums nine u32 counter elements into an int accumulator and returns that int. The body does not enforce a nonnegative result or guard against out-of-range accumulation.",
+        "rationale": "Preserves the verified interface and counter types while removing an unsupported return-range guarantee.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L1561-L1578",
+            "why": "Explicit signature, u32 pointer, int accumulator, and unguarded additions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1728-L1766",
+            "why": "Establishes the parameter's player-slot domain."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

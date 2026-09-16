@@ -1,0 +1,87 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CargoKneebend",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoKneebend:ftCo_CargoKneebend_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Reads fp->mv.ca.specialhi.vel.y and calls ftCo_8009BB64(gobj) if its pre-decrement value is <= 0, then unconditionally subtracts one through the cached Fighter pointer after the call returns. With no intervening slot changes, ordinary small positive integer N calls the successor on invocation N+1; positive fractional values ordinarily require ceil(value) decrement-only invocations. Zero and negative values call immediately. Under ordinary IEEE arithmetic, NaN and positive infinity do not expire, negative infinity satisfies the comparison, and sufficiently large finite values can round subtraction away. Compiled identity with entry cargokneebend.x8 and the post-transition write's effect on successor storage remain unresolved.",
+        "rationale": "Supersedes fact:6acb1869-9f27-4fa9-90e9-5248969d1484 with exact source control flow, qualified float boundaries, and the cross-state write caveat verified independently of rendered aliases.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoKneebend.c#L33-L40",
+            "why": "Comparison, transition call, and unconditional subtraction are explicit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoJump.c#L28-L38",
+            "why": "Successor changes motion and initializes jump variables before returning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L101-L129",
+            "why": "Shows successor writes and short/full jump selection, without proving their compiled overlap."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CargoKneebend:ftCo_8009B9C8#r4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Declared int arg1 is copied unchanged into fp->mv.co.cargokneebend.x4. The visible caller ftCo_8009BB1C forwards only a nonzero ftCo_JumpInput from ftCo_Jump_GetInput. That getter prioritizes left-stick tap input over newly pressed X/Y and otherwise returns no input. Entry itself does not reject zero or arbitrary integers. The parameter locator does not independently prove a compiled register ABI.",
+        "rationale": "Adopts the independently verified librarian parameter proposal while preserving canonical declaration and the distinction between caller domain and validation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoKneebend.c#L19-L26",
+            "why": "Shows declared int and unchecked copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoJump.c#L18-L26",
+            "why": "Shows typed input and nonzero caller guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L30-L44",
+            "why": "Establishes actual input sources and precedence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoKneebend:ftCo_8009B9C8"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains Fighter from gobj->user_data, stores arg1 in cargokneebend.x4, clears cargokneebend.x0, and copies cargo_hold.x24_JUMP_STARTUP_LAG into cargokneebend.x8. Requests motion x4_motion_state + 5 with Ft_MF_None and arguments 0, 1, 0, NULL, sets carrier animation rate to zero, and requests ftCo_MS_ShoulderedWait for victim_gobj. The victim updater leaves an already-ShoulderedWait victim unchanged; otherwise it changes motion with an optional freeze flag, runs common helpers, and installs an accessory callback. Carrier, attributes, and victim pointers are unchecked preconditions. No allocation or ownership transfer is present. Compiled identity with the animation expression and common kneebend fields is unresolved.",
+        "rationale": "Provides a source-exact alternative to preserved unresolved overlay claims, including the independently verified conditional victim update.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoKneebend.c#L19-L31",
+            "why": "Complete entry body establishes exact operations and unchecked pointer use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Shows no-op branch, optional freeze flag, common calls, and stored callback."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

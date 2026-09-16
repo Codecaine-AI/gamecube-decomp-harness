@@ -1,0 +1,28 @@
+{
+  "tu": "main/melee/if/iftime",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/if/iftime:ifTime_SetTime"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "With timer_shows_hours enabled, the minute-tens frame is ((((seconds / 60) % 60) % 100) / 10), and hours is (seconds / 60) / 60. Otherwise the minute-tens frame is (((seconds / 60) % 100) / 10), and hours is zero. The minute-ones frame is always ((seconds / 60) % 60) % 10. Zero hours unconditionally hides both hour digits and their separator. For nonzero hours, visibility operations use (~root_flags & JOBJ_HIDDEN): a hidden root yields a zero mask and therefore leaves those visibility bits unchanged. With a visible root, the separator and hour ones are revealed, and hour tens is revealed only when ((hours % 100) / 10) > 0; otherwise it is hidden. This is not equivalent to hours >= 10, for example at 100 hours. The hour-ones frame is refreshed whenever hours is nonzero; the hour-tens frame is refreshed only when its computed digit is positive. Second and centisecond digit frames are always refreshed. Digit requests mask their selected frame to eight bits and set playback rate to zero.",
+        "rationale": "Corrects the existing hour-tens threshold generalization and explicitly preserves the root-hidden zero-mask behavior. Uses complete canonical minute formulas without the inherited proposal's unsupported inference of behavioral asymmetry.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/iftime.c#L46-L117",
+            "why": "Defines the digit helper, decimal macros, minute frame calculations, and hour visibility and refresh branches."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

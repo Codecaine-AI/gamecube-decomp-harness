@@ -1,0 +1,114 @@
+{
+  "tu": "main/melee/ft/ft_0CD3",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD3.c#L20-L23",
+            "why": "Sword IASA delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L14-L43",
+            "why": "Latch initialization and sampled-input request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L48-L99",
+            "why": "Variant-3 special motion selection precedes family dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the baseline's continuous-holding and guaranteed-start wording with the exact input and downstream exceptional branches.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CD3:ftCo_SwordSwing_IASA"
+        },
+        "type": "state_behavior",
+        "value": "SwordSwing IASA delegates to ftCo_800CD204. Shared entry initializes swing.x0 to 1; an IASA update that samples A as not held clears it. If ftCheckThrowB3 succeeds and the latch remains nonzero, the helper requests numeric variant 3. Downstream motion selection supports variant 3 for FTKIND_CAPTAIN by returning swing_type + 341 and reports/asserts for other kinds, so a request is not a universal guarantee of re-entry. The input test establishes sampled holding, not uninterrupted physical holding between updates."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD3.c#L156-L159",
+            "why": "Harisen delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD1.c#L34-L43",
+            "why": "Input latch and request guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftswing.c#L48-L99",
+            "why": "Exceptional motion selection and subsequent dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the correct request while making the cross-file assertion branch explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CD3:ftCo_HarisenSwing_IASA"
+        },
+        "type": "state_behavior",
+        "value": "HarisenSwing IASA delegates to the shared swing checker. Sampling A as released clears swing.x0. When ftCheckThrowB3 succeeds while that latch is nonzero, the checker requests numeric variant 3 through ftCo_Attack_800CCF58. The dispatcher selects a variant-3 motion only for FTKIND_CAPTAIN and reports/asserts for other kinds before family-specific entry; this is not an unconditional Fan repeat-attack transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD3.c#L118-L154",
+            "why": "Exact guards, arithmetic, switch and unconditional final helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itharisen.c#L41-L46",
+            "why": "Ordinary scale restoration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itharisen.c#L97-L123",
+            "why": "Item state numbers and animation speeds."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the false saturating-countdown claim and preserves missing-item, unknown-selector and unrecognized-command branches.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CD3:ftCo_HarisenSwing_Anim"
+        },
+        "type": "state_behavior",
+        "value": "With item_gobj non-null, a positive swing.x8 is reduced by 1.0; ordinary item scale is restored if the resulting timer is nonpositive or the fighter animation has no remaining frames. The timer is neither clamped nor explicitly cleared by restoration, so fractional positive values can become negative. Command 1 selects item state 3 for selector 0, state 4 for selectors 1/4, and state 5 for selectors 2/3 using frame_speed_mul, then clears itself even for an unrecognized selector. Command 2 selects state 6 at speed 1.0 and clears itself. Other commands are unchanged. Without an item, timer and command work are skipped. The common fighter swing animation helper always runs afterward."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD3.c#L89-L128",
+            "why": "Entry initialization, callback assignment, guarded reload and guarded consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itharisen.c#L31-L46",
+            "why": "Data-dependent special scale and ordinary restoration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the producer-consumer lifetime conditional and avoids assuming positive configuration, saturating arithmetic or unconditional animation-end restoration.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CD3:ft_800CD65C"
+        },
+        "type": "state_behavior",
+        "value": "Harisen entry clears swing.x8 and installs ft_800CD65C as deal_dmg_cb. Each invocation with a non-null held item applies the special item scale and reloads swing.x8 from p_ftCommonData->x5A0; with no item it does neither. Later Harisen animation updates decrement the timer only when an item remains and the timer is positive. Within that branch, a nonpositive post-decrement result or animation completion restores ordinary scale without clamping or explicitly clearing the timer. Neither the configured timer's value nor a guarantee of enlargement follows from these source operations."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

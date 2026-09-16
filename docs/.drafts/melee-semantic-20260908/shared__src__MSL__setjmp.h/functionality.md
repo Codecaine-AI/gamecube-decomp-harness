@@ -1,0 +1,3 @@
+`src/MSL/setjmp.h` is a guarded forwarding header: `MSL_SETJMP_H` prevents repeated inclusion, and the only included header is `<Runtime/Gecko_setjmp.h>`, marked `IWYU pragma: export`. It declares no local types or functions and defines no runtime behavior. Canonical and rendered views match (zero substitutions or parse errors). Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/setjmp.h#L1-L7. No baseline subjects, facts, or links exist to correct or retain; no semantic changes are warranted. The contents and implementation of the forwarded runtime header are not established by this file.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

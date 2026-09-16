@@ -1,0 +1,170 @@
+{
+  "finding": {
+    "id": "F19",
+    "title": "Spell Addition as Subtraction of a Negation",
+    "file": "src/MarioUtil/MtxUtil.cpp",
+    "start_line": 15,
+    "end_line": 18,
+    "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/MtxUtil.cpp#L15-L18",
+    "category": "exact function",
+    "certainty": "High confidence algebraic code-generation cue",
+    "snippet": "{\n\tf32 q[4];\n\tf32 s = (m[0][0] + m[1][1]) - -m[2][2] + 1.0f;\n\tif (s >= 1.0f) {",
+    "checkpoints": [
+      {
+        "commit": "84db8d32166946d0b831a27c8fbcc09b90d8587d",
+        "files": [
+          "src/MarioUtil/MtxUtil.cpp"
+        ],
+        "target": {
+          "unit": "mario/MarioUtil/MtxUtil",
+          "symbol": "MtxToQuat__FPA4_fP10Quaternion",
+          "before": 99.92857,
+          "after": 100,
+          "improved": true,
+          "exact": true
+        },
+        "reasons": [],
+        "qaLint": "clean",
+        "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/runner_validation/attempt-1.runner_validation.summary.json",
+        "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/runner_validation/attempt-1.write_set.diff",
+        "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f",
+        "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/runner_validation/attempt-1.unit_diff.json",
+        "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/runner_validation/pre_worker_unit_snapshot.json",
+        "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-e2da959c-056a-4b51-b729-0e0daf713999/summary.json"
+      }
+    ],
+    "why": "The trace expression changes a+b+c into (a+b)- -c. The worker explicitly says it preserves the chosen left/right floating-point operand order while optimizing back to fadds. No algorithmic need explains this spelling; it exists to influence compiler operand ordering. Floating-point transformations require care, so this finding is the unsupported source spelling, not a blanket claim that all algebraic forms are interchangeable.",
+    "score_attribution": "99.92857% to 100%. Saved worker evidence identifies the previous residual as fadds f0,f4,f0 versus target fadds f0,f0,f4, and says no other source region changed.",
+    "lint_candidate": "Review newly introduced subtraction-of-negation and other cancelling arithmetic used only to influence register or operand order.",
+    "related": [],
+    "occurrences": {
+      "count": 1,
+      "unit": "subtraction-of-negation expression",
+      "file_count": 1,
+      "detail": "One arithmetic expression in MtxToQuat.",
+      "locations": [
+        {
+          "file": "src/MarioUtil/MtxUtil.cpp",
+          "line": 17,
+          "description": "(m[0][0] + m[1][1]) - -m[2][2]",
+          "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/MtxUtil.cpp#L17"
+        }
+      ]
+    }
+  },
+  "worker_notes": [
+    {
+      "commit": "84db8d32166946d0b831a27c8fbcc09b90d8587d",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/worker_01a0a37d-6f60-7ab6-90b2-a28266662ad9.txt",
+      "note": {
+        "summary": "No source edit retained. The target remains at the 99.92857% baseline. I isolated the residual to one commutative FPR operand-order difference in the trace calculation. Expression reordering and declaration-shape variants either reproduced the exact same residual or caused broad scheduling/frame changes, so they were ablated. The TU builds successfully, but checkdiff tooling cannot locate the unit because it incorrectly resolves the source as src/mario/MarioUtil/MtxUtil.cpp.",
+        "residual": {
+          "class": "register-only FPR",
+          "rows": [
+            "target: fadds f0, f0, f4",
+            "current: fadds f0, f4, f0"
+          ],
+          "mechanism": "MWCC commutative operand selection for the addition of m[2][2] to the partial diagonal sum. Raw function-byte comparison localizes the only baseline difference to instruction offset 0x18: target ec00202a versus current ec04002a.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "expression ordering and parenthesization",
+            "variants": [
+              "1.0f + (m[0][0] + m[1][1] + m[2][2])",
+              "m[2][2] + (m[0][0] + m[1][1]) + 1.0f",
+              "separate declaration followed by assignment"
+            ],
+            "effect": "All reproduced the same single fadds operand-order residual."
+          },
+          {
+            "family": "split accumulation lifetime",
+            "variants": [
+              "initialize s to 1.0f and compound-add the diagonal sum",
+              "initialize s from two diagonal terms and compound-add the remaining terms"
+            ],
+            "effect": "Changed instruction scheduling and produced numerous additional mismatches."
+          },
+          {
+            "family": "additional local or storage cue",
+            "variants": [
+              "temporary local for m[2][2]",
+              "register-qualified s"
+            ],
+            "effect": "The temporary introduced stack/frame and downstream offset differences; register was an ablated no-op."
+          }
+        ],
+        "untried_leads": [
+          "Investigate an authored helper or macro boundary around the trace calculation using an instrumented MWCC build; the debug compiler was not provisioned for this run.",
+          "Repair the SMS checkdiff/permuter unit mapping from src/mario/MarioUtil/MtxUtil.cpp to src/MarioUtil/MtxUtil.cpp, then run a bounded permutation probe.",
+          "Search matching SDK or game-side matrix-to-quaternion implementations for the exact authored trace-accumulation idiom."
+        ],
+        "best_checkpoint": {
+          "score": 99.92857,
+          "description": "Original clean source; one commutative fadds operand-order mismatch and no retained regressions."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/MarioUtil/MtxUtil.cpp#L11-L43"
+        ],
+        "validation": {
+          "translation_unit": "ninja build/GMSJ01/src/MarioUtil/MtxUtil.o succeeded",
+          "target_comparison": "A local ELF symbol-byte comparison confirmed equal 560-byte function sizes and isolated the baseline difference to two bytes in one instruction.",
+          "tooling_limitations": [
+            "checkdiff_run and checkdiff_summary failed before comparison because they requested build/GMSJ01/src/mario/MarioUtil/MtxUtil.o.",
+            "source_permuter_run failed because it requested /work/sms/src/mario/MarioUtil/MtxUtil.c.",
+            "mwcc_debug_diagnose_regflow reported that the instrumented compiler was not provisioned."
+          ]
+        }
+      }
+    },
+    {
+      "commit": "84db8d32166946d0b831a27c8fbcc09b90d8587d",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/0cc8f30c-972f-4d3a-97c9-50def1976d3f/worker_01a0a381-faf5-7097-b998-1e70a5a90e95.txt",
+      "note": {
+        "summary": "Adjusted the trace expression so MWCC preserves the authored left/right FPR operand order. The rebuilt target is an exact 560-byte instruction and relocation-aware match. No other source region was changed.",
+        "residual": {
+          "class": "register-only FPR",
+          "rows": [
+            "target: fadds f0, f0, f4",
+            "previous: fadds f0, f4, f0"
+          ],
+          "mechanism": "MWCC canonicalized the commutative source addition with the loaded m[2][2] value as the left operand. Expressing that term as subtraction of its negation preserves the partial diagonal sum as the left PCode operand while optimizing back to the required fadds.",
+          "resolved": true
+        },
+        "tried_shapes": [
+          {
+            "family": "expression ordering and parenthesization",
+            "variants": [
+              "direct left-associative addition",
+              "reordered and separately assigned additions from the prior attempt"
+            ],
+            "effect": "These retained the single reversed fadds operand or disturbed broader scheduling."
+          },
+          {
+            "family": "equivalent subtraction form",
+            "variants": [
+              "(m[0][0] + m[1][1]) - -m[2][2] + 1.0f"
+            ],
+            "effect": "Produced the required fadds f0, f0, f4 and raised the target from 99.92857% to 100.0%."
+          }
+        ],
+        "untried_leads": [],
+        "best_checkpoint": {
+          "score": 100.0,
+          "description": "Exact target match after changing only the trace expression."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/MarioUtil/MtxUtil.cpp#L11-L43"
+        ],
+        "validation": {
+          "translation_unit": "ninja build/GMSJ01/src/MarioUtil/MtxUtil.o passed",
+          "target_comparison": "build/tools/objdiff-cli diff -p . -u mario/MarioUtil/MtxUtil reported match_percent 100.0 for both target and current MtxToQuat symbol records; the full 560-byte instruction window matches.",
+          "strict_score": "Relocation-aware objdiff reports 100.0.",
+          "source_checks": "git diff --check passed; only the target trace expression changed.",
+          "tooling_note": "checkdiff_run remains unavailable because its configured unit path incorrectly requests src/mario/MarioUtil/MtxUtil.o."
+        }
+      }
+    }
+  ],
+  "other_worker_responses": []
+}

@@ -1,0 +1,191 @@
+{
+  "head_revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "files": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_0D67.c",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_0D67",
+      "sha256": "30fc5f74f8f8f04eb988f47fdb897359b5cd6dc08d1de5d09bc2162807562614",
+      "lines": 15,
+      "bytes": 341
+    }
+  ],
+  "subjects": [
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_0D67:.sdata2"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_0D67:ftCo_800D67C4"
+      },
+      "facts": [
+        {
+          "id": "fact:f56ae884-b1e0-4304-b702-a597cbc6a589",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D67:ftCo_800D67C4",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads the B-button bit from `fp->input.x668`, the processed horizontal and vertical left-stick values from `fp->input.lstick`, and the neutral-direction thresholds `p_ftCommonData->x218` and `x21C`, then returns a Boolean recognition result. `Fighter_UnkIncrementCounters_8006ABEC` consumes true by resetting `fp->x689` to zero and consumes false by incrementing it toward `0xFF`; `ftCo_800D6824` subsequently consumes `x689 == 0` to invoke the fighter-kind-specific `ftData_SpecialN` callback.",
+          "rationale": "The target still reads the B-button, both processed stick axes, and the common neutral thresholds to produce a Boolean. Its input-processing caller still maps that result to reset-versus-saturating-increment behavior for `x689`, and the relocated current dispatcher still consumes a fresh `x689` value before calling the fighter-kind-specific neutral-special callback.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:41:26.157Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_0D67.c#L1-L14",
+              "why": "Shows the B-button, both processed stick-axis, and common-threshold reads that produce the Boolean result."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1702-L1744",
+              "why": "Shows true resetting `x689` and false incrementing it while it remains below `0xFF`."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L1-L100",
+              "why": "Shows `ftCo_800D6824` consuming `x689 == 0` before dispatch through `ftData_SpecialN[fp->kind]` at the current head."
+            }
+          ]
+        },
+        {
+          "id": "fact:c7c21b25-262e-412c-aeef-8889a0e93f33",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D67:ftCo_800D67C4",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Recognizes the neutral-special command: pressing the special button while the left stick remains inside the configured horizontal and vertical neutral zones.",
+          "rationale": "The target requires B while both absolute processed stick-axis values remain below their configured directional thresholds. Input processing records that recognition in `x689`, and the current dispatcher connects a fresh `x689` value to the fighter-kind-specific neutral-special callback.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:41:26.157Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_0D67.c#L1-L14",
+              "why": "Shows the B-plus-neutral-stick input combination recognized by the target."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1702-L1744",
+              "why": "Maps the predicate result to the `x689` command-age counter alongside the directional-special recognizers."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L1-L100",
+              "why": "Connects a fresh `x689` value to dispatch through the fighter-kind-specific `ftData_SpecialN` callback at the current head."
+            }
+          ]
+        },
+        {
+          "id": "fact:0a96be31-03f7-416c-8267-ba7062499aea",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D67:ftCo_800D67C4",
+          "entity_id": null,
+          "type": "inferred_name",
+          "value": "ftCo_SpecialN_HasInput",
+          "rationale": "The target is a pure neutral-special input predicate whose result updates the command-age field consumed by the neutral-special dispatcher. The established side-special sibling is named `ftCo_SpecialS_HasInput` and has the same predicate-versus-entry separation, strongly supporting the parallel spelling while leaving it an inference.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_SpecialN_HasInput`.",
+          "confidence": 0.95,
+          "updated_at": "2026-09-06T02:34:38.472Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_0D67.c#L1-L14",
+              "why": "Shows that the target is a side-effect-free predicate for B with both stick axes in their neutral zones."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L1-L40",
+              "why": "Provides the established parallel name `ftCo_SpecialS_HasInput` for a special-move input predicate that does not enter the state."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1702-L1744",
+              "why": "Shows the target and `ftCo_SpecialS_HasInput` used in parallel command-counter update branches."
+            }
+          ]
+        },
+        {
+          "id": "fact:234cc252-6b3f-4c74-9ef3-546efda0dc54",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D67:ftCo_800D67C4",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Side-effect-free fighter-input predicate with signature `bool (Fighter* fp)`.",
+          "rationale": "The complete current definition supplies the Boolean return and `Fighter*` parameter. Its body consists only of input and threshold reads followed by Boolean returns, with no assignments or mutating calls.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:58:09.483Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_0D67.c#L1-L14",
+              "why": "Establishes the exact signature and demonstrates that the predicate performs no mutation."
+            }
+          ]
+        },
+        {
+          "id": "fact:3c92b43e-dafe-488f-93d4-059565364a01",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D67:ftCo_800D67C4",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Determines whether a fighter currently satisfies the neutral-special input condition, without changing fighter state or entering the move.",
+          "rationale": "The target only reads the B-button and processed stick axes, compares the axes against common neutral thresholds, and returns a Boolean. Fighter input processing consumes that Boolean to maintain `x689`, while the current `ftCo_800D6824` body confirms that character-specific neutral-special dispatch remains a separate operation.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:41:26.157Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_0D67.c#L1-L14",
+              "why": "Shows the complete side-effect-free B-button and neutral-stick predicate."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1702-L1744",
+              "why": "Shows fighter input processing consuming the result solely to reset or age `x689`."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L1-L100",
+              "why": "Shows at the current head that a separate routine checks `x689` and invokes the fighter-kind-specific `ftData_SpecialN` callback."
+            }
+          ]
+        },
+        {
+          "id": "fact:1cfaa9fb-ccbe-4fb9-a32c-83b501a45446",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_0D67:ftCo_800D67C4",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Returns true exactly when `HSD_PAD_B` is present in `fp->input.x668`, `ABS(fp->input.lstick.x) < p_ftCommonData->x218`, and `ABS(fp->input.lstick.y) < p_ftCommonData->x21C`; equality with either threshold does not qualify. It otherwise returns false and never changes action state. During fighter input processing, true starts a fresh neutral-special input age at zero, while false permits that age to advance until its `0xFF` saturation point.",
+          "rationale": "The predicate still uses strict comparisons for both stick axes and performs no mutation. Its caller still implements reset-versus-saturating-increment behavior for `x689`, while the current callback dispatcher confirms that neutral-special action entry occurs outside this function.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:41:26.157Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_0D67.c#L1-L14",
+              "why": "Proves the exact strict threshold boundaries, Boolean outcomes, and absence of fighter-state mutation."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/fighter.c#L1702-L1744",
+              "why": "Shows recognition resetting `x689` to zero and non-recognition incrementing it only while below `0xFF`."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L1-L100",
+              "why": "Shows at the current head that the routine which dispatches the neutral-special action is separate from this predicate."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_0D67.c"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_0D67:ftCo_800D67C4#r3"
+      },
+      "facts": []
+    }
+  ]
+}

@@ -1,0 +1,150 @@
+{
+  "tu": "main/melee/gm/gm_1BFA",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1BFA.c#L150-L173",
+            "why": "Declaration and region initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the demonstrated array and regions without deriving compiled section layout from source.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1BFA:.bss"
+        },
+        "type": "inferred_type",
+        "value": "The source declares `static u8 gm_8049E558[0x170]`. Prize entry treats bytes [0x00,0x42) as 66 numbered-message flags and TY_TROPHY_COUNT bytes beginning at offset 0x44 as trophy acquisition-count snapshots. This establishes the source object's shape, not the size or exclusive contents of a compiled BSS section."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1BFA.c#L171-L237",
+            "why": "Snapshot writes and exact later predicates."
+          }
+        ],
+        "op": "write",
+        "rationale": "The explicit zero-count alternative must survive the summary.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1BFA:.bss"
+        },
+        "type": "purpose",
+        "value": "Provides per-entry scratch snapshots for Prize notification collection across progression reevaluation. Initial numbered-message flags suppress those IDs during the second scan. Trophy snapshots admit pending trophies whose current acquisition count exceeds the snapshot or is zero, so they do not guarantee that every later notice is newly introduced or changed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1BFA.c#L26-L64",
+            "why": "Complete initializer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/types.h#L63-L76",
+            "why": "Preload byte and callback fields are distinct."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the callback/category confusion using the descriptor definition.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1BFA:.data"
+        },
+        "type": "inferred_type",
+        "value": "A four-element GameModeState array named gm_Mode_ChallengerApproach_States: Approach, Versus and Prize descriptors followed by { GM_GAMEMODESTATE_TERMINATE }. Each active descriptor contains a local state ID, preload kind, flags, entry and optional exit callbacks, and nested scene kind plus enter/exit payload pointers. All three use lbDvdPreload_2; preload is not a callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1BFA.c#L152-L245",
+            "why": "Complete collection and finalization flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Fixes final-call ordering and preserves the zero-count and empty-selection cases.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1BFA:gm_ModeState_Prize_OnEnter"
+        },
+        "type": "data_flow",
+        "value": "Receives GameModeState*, clears message and trophy snapshots, scans 66 numbered-message IDs and TY_TROPHY_COUNT trophy IDs, and threads IDs, secondary trophy IDs, timestamps, ordinals and a tail-link cursor through gm_801BFC60. After progression reevaluation, the second scans select previously absent messages and pending trophies with increased or zero acquisition counts. It then calls gm_80172174 and gm_80174180, conditionally null-terminates the tail, and calls lbCardGame_SetupArchive. No selected record leaves the static root untouched by this callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1BFA.c#L126-L245",
+            "why": "Allocation failure, caller bookkeeping, selection and final order."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unsupported completeness and unconditional deduplication guarantees with the implemented behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1BFA:gm_ModeState_Prize_OnEnter"
+        },
+        "type": "purpose",
+        "value": "Builds the notification sequence supplied to the Prize Interface from pending numbered messages and trophy notices, including a second collection phase after progression reevaluation. Snapshot predicates reduce repeated entries but include an explicit zero-count trophy alternative. Later-node allocation failure can omit a notice while collection bookkeeping still advances. Notification cleanup and availability processing precede conditional tail termination and archive preparation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1BFA.c#L126-L245",
+            "why": "All producer branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/toy.c#L1078-L1168",
+            "why": "Active-table acquisition increment and saturation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the original two-phase explanation while correcting ordering and distinguishing trophy count addition from a boolean assignment.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1BFA:gm_ModeState_Prize_OnEnter"
+        },
+        "type": "state_behavior",
+        "value": "The first phase selects currently qualifying messages and pending trophies while snapshotting message flags and trophy counts. When gmMainLib_8015DA90 is false for a pending trophy, the callback timestamps it, calls gmMainLib_8015DA40 and adds one acquisition through Toy_SetUnlockState(id, 1). After progression reevaluation, the second phase admits messages absent from the initial snapshot and pending trophies whose count increased or is zero. Cleanup and availability calls run before a non-null tail cursor is terminated. Allocation failure preserves the cursor but does not prevent ordinal or snapshot bookkeeping from advancing."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1BFA.c#L100-L120",
+            "why": "Result guard and conditional return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1313-L1357",
+            "why": "Notification-existence predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L1779-L1817",
+            "why": "Supported-challenger difficulty arithmetic."
+          }
+        ],
+        "op": "write",
+        "rationale": "The canonical gate is a notification-existence predicate, not evidence of an already selected destination.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1BFA:onExitVs"
+        },
+        "type": "state_behavior",
+        "value": "An outcome other than OUTCOME_NO_CONTEST or OUTCOME_RETRY with player zero holding nonzero stocks unlocks the challenged fighter; otherwise another failed attempt is recorded. For supported challengers, failure history lowers later CPU levels from 5 to 3, then 1, then 0. After reward evaluation, false gm_801721EC explicitly stages and publishes ChallengerData.curr_mode. True means a qualifying numbered message or pending trophy exists, and this callback makes no return-mode request; the gate itself does not select a follow-up."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

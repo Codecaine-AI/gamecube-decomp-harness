@@ -2,6 +2,11 @@ import type { AgentToolPromptMetadata } from "../types.js";
 
 /** Prompt metadata for callable decomp capabilities backed by the enabled toolpack. */
 export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
+  request_write_set_widening: {
+    provider: "runner",
+    type: "write_set_authorization",
+    useWhen: "Request immediate authorization before editing a required path outside the current claim write set.",
+  },
   mwcc_debug_lookup: {
     provider: "mwcc_debug",
     type: "compiler_analysis",

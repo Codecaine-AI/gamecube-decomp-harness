@@ -1,0 +1,55 @@
+{
+  "tu": "main/melee/it/kinds/itkirbycutterbeam",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkirbycutterbeam.c#L15-L20",
+            "why": "Exact array declaration and literal initializer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkirbycutterbeam.c#L63-L64",
+            "why": "Separate lifetime setup and state-0 request with flag 2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkirbycutterbeam.h#L19-L21",
+            "why": "Exact callback signatures."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's stale claim that the leading value is initialized as NULL and distinguishes the table initializer from the separate motion-state request without making compiled-layout claims.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkirbycutterbeam:.data"
+        },
+        "type": "inferred_type",
+        "value": "A one-element `ItemStateTable` array, declared as `it_803F6798`. Its flat initializer contains literal 0 followed by a `bool (Item_GObj*)` animation callback, a `void (Item_GObj*)` physics callback, and a `bool (Item_GObj*)` collision callback. Projectile initialization separately requests motion state 0 with numeric state-change flag 2."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkirbycutterbeam.c#L87-L107",
+            "why": "Shows velocity computation preceding subtraction and clamp, the grounded negative-Y adjustment, and the exact visibility branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported guards and visibility policy while correcting the implied same-update minimum velocity and unconditional monotonic speed reduction.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkirbycutterbeam:itKirbycutterbeam_UnkMotion0_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Each physics update first snapshots the current position and computes planar velocity using the previously stored speed and angle. If grounded and the computed Y velocity is negative, it adds five percent of that negative value to itself. It then subtracts `xC_decel` from stored speed and replaces values below 0.01 with 0.01 for subsequent updates; this clamp does not retroactively change the velocity already computed, and monotonic speed reduction depends on the configured deceleration. Independently, it hides the child model hierarchy when `lifeTimer <= 5` and clears the hidden flag otherwise."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

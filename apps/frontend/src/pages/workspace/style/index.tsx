@@ -1,7 +1,7 @@
 import { RotateCcw } from "@/icons";
 import { DEFAULT_GRAIN_SETTINGS, GRAIN_BLEND_OPTIONS, SOFTENING_CHANNEL_OPTIONS, type GrainBlendMode, type GrainSettings, type GrainSettingsPatch } from "@/lib/styleSettings";
 import { Button, CheckboxField, InfoRows, PageHeader, PanelSection, PanelTitle } from "@/components/primitives";
-import type { CycleView } from "@/pages/workspace/_lib/types";
+import type { HarnessView } from "@/pages/workspace/_lib/types";
 import { StyleSlider } from "./_components/StyleSlider";
 
 function percentLabel(value: number): string {
@@ -23,7 +23,7 @@ export function StylePage({
 }: {
   grainSettings: GrainSettings;
   onGrainSettingsChange: (updates: GrainSettingsPatch) => void;
-  view: CycleView;
+  view: HarnessView;
 }) {
   return (
     <>

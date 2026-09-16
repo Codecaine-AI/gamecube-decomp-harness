@@ -1,0 +1,85 @@
+{
+  "tu": "main/melee/vi/vi1201v2",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi1201v2:fn_80320A1C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Scene entry requests fog animation frame 0, evaluates it, and registers this callback at process priority 0x17. Subsequent invocations delegate to the fog's AObj interpreter. A null AObj or AOBJ_NO_ANIM returns immediately; first play evaluates without advancing, otherwise curr_frame advances by framerate. Looping playback wraps when rewind_frame is below end_frame and otherwise clamps to end_frame. AOBJ_NO_UPDATE passes a null update callback to ordinary FObj interpretation, but loop-boundary and terminal HSD_FObjStopAnimAll calls still receive the original update callback. Completed non-looping playback sets AOBJ_NO_ANIM.",
+        "rationale": "Preserves the useful playback explanation while restricting NO_UPDATE suppression to the call actually guarded by that flag, rather than asserting unconditional suppression of all property updates.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi1201v2.c#L333-L340",
+            "why": "Frame-zero initialization and process registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L186-L190",
+            "why": "Delegation to generic AObj interpretation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+            "why": "Playback branches and exact scope of callback suppression."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/vi/vi1201v2.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The sequence has separate model and camera animation timelines. After updating the lead model, exact frame 251 independently destroys and clears each non-null temporary Koopa/stand GObj and then invokes the Giga Bowser reveal initializer regardless of those pointer values; there is no local once-only latch. The initializer creates model 1 at frame 251, configures CKIND_GKOOPS in player slot 1 and initializes audio. Independently, after camera animation updates, exact frames 130 and 190 request rumble effect 0xD with duration argument 0, and exact frame 251 requests effect 1 with duration argument 0xDB. A separate exact end-frame guard performs rumble cleanup and requests scene exit, so a cue and completion can execute on the same tick. The scene-frame callback separately delegates Start-triggered skipping to the common visual-scene handler.",
+        "rationale": "Corrects the misleading description of the camera cue as the transformation event and preserves independent guards, update-before-test ordering, repeat-trigger possibility and the separate input path.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi1201v2.c#L102-L148",
+            "why": "Reveal initializer and independent guarded temporary-object teardown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi1201v2.c#L190-L204",
+            "why": "Camera cues and independent completion guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L27-L33",
+            "why": "Cue forwarding through selected-controller guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3480-L3490",
+            "why": "Rumble-setting guard and scheduling route."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_013B.c#L244-L262",
+            "why": "Rumble effect/duration semantics and all-controller cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi1201v2.c#L352-L355",
+            "why": "Separate scene-frame delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L49-L59",
+            "why": "Start-triggered departure path."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

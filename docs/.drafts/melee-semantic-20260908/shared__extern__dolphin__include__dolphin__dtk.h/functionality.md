@@ -1,0 +1,7 @@
+Declares the DTK interface and includes dolphin/dvd.h. DTKCallback accepts a u32 eventMask; DTKFlushCallback accepts no arguments. DTKTrack contains prev/next track pointers, a file-name pointer, event mask, callback, and embedded DVDFileInfo (code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/dtk.h#L4-L17). Source offset comments are not compiled-layout evidence.
+
+Defines STOP=0, RUN=1, PAUSE=2, BUSY=3, PREPARE=4 and NOREPEAT=0, ALLREPEAT=1, REPEAT1=2 (code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/dtk.h#L19-L27). Declares initialization/shutdown, queue/remove/flush, sample-rate and interrupt-frequency controls, repeat/state controls, next/previous navigation, position/current-track queries, and volume access. Queue/remove return u32; volume setting takes two u8 channels and retrieval returns u16 (code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/dtk.h#L29-L47). Declarations alone do not establish return-code meanings, state transitions, position units, volume packing, callback timing, exceptional branches, or track/file-name ownership and lifetime.
+
+Canonical and rendered text agree across all 50 lines, with no substitutions or parse errors. Existing API names fit the declarations; no supported correction is needed. The frozen subject, fact, and link inventories are empty.
+
+Status: synthesized; independent review and live promotion pending.

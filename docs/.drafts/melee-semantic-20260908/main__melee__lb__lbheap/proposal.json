@@ -1,0 +1,236 @@
+{
+  "tu": "main/melee/lb/lbheap",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbheap:lbHeap_800158E8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Returns the indexed transient integer unchanged, without bounds checking or state mutation.",
+        "rationale": "Restrict purpose to directly verified accessor behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L86-L89",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbheap:lbHeap_80015900"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Rebuilds registry backend state around subordinate slots 2 through 5. Destroys created slots whose transient value equals one; reserves ranges whose transient value equals zero; creates main/HSD slot 0 and ARAM slot 1 over the recomputed ranges; creates destroyed non-transient subordinate slots. Created status is written after backend calls without locally checking their success.",
+        "rationale": "Do not equate stored created status with a verified successful backend allocation.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L91-L179",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L47-L79",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbheap:lbHeap_80015BB8"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "lbHeap_GetStatus",
+        "rationale": "The canonical return type and unchanged enum field establish a status accessor, not a Boolean test.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L181-L184",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.h#L6-L10",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbheap:lbHeap_80015BB8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Returns the indexed LbHeapStatus enum unchanged. Create is zero and Destroy is one; no Boolean conversion, validation or synchronization occurs.",
+        "rationale": "Remove unreviewed caller-specific preload use from the local purpose.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L181-L184",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.h#L6-L10",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbheap:lbHeap_80015BD0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Allocates size bytes from a created indexed heap with interrupts disabled. Type zero temporarily selects/restores HSD heap; other types call lbMemory_80014FC8. Type three returns result->x4_lo, other custom types return the handle. Non-created status returns NULL. The type-three path dereferences the returned handle without a local NULL check; no uniform allocation-failure guarantee is established.",
+        "rationale": "Document the unchecked type-three conversion and normal-path interrupt restoration.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L186-L209",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbmemory.c#L117-L170",
+            "why": "Foreign-family read-only context; no ownership or writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbheap:lbHeap_80015D6C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For heap0>1, passes heap_array[heap0].handle, cb and heap1 unchanged to lbMemory_8001529C. That body stores callback/context globally and scans handles, returning one after invoking lbMemory_80015320 at the first address gap or zero if no gap is found. The wrapper restores interrupt state and returns that result.",
+        "rationale": "The entry body verifies the gap scan and immediate return; completion scheduling is not established here.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L228-L241",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbmemory.c#L216-L237",
+            "why": "Foreign-family read-only context; no ownership or writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbheap:lbHeap_80015D6C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "int lbHeap_80015D6C(u32 heap0, void (*cb)(u32), u32 heap1). heap0 indexes the registry; cb and heap1 are forwarded as callback and context. Indices zero/one return zero; others return the backend result.",
+        "rationale": "Use the canonical signature and verified parameter forwarding, without promising asynchronous lifetime.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L228-L241",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbmemory.c#L216-L237",
+            "why": "Foreign-family read-only context; no ownership or writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbheap:lbHeap_80015D6C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Disables interrupts and returns zero for indices zero and one. Larger indices forward the record handle, callback and argument to lbMemory_8001529C and return its result after restoring interrupts. No local created-status check occurs.",
+        "rationale": "Describe verified wrapper contract; full asynchronous callback completion behavior belongs to lbMemory family review.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L228-L241",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbmemory.c#L216-L237",
+            "why": "Foreign-family read-only context; no ownership or writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbheap:lbHeap_80015D6C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The wrapper disables interrupts, skips backend work for heap0<=1, otherwise calls lbMemory_8001529C without checking lifecycle status, and restores the prior interrupt state on normal return. The backend stores callback/context before scanning; no-gap return still changes that context. Completion behavior after a gap is a separate family question.",
+        "rationale": "Separate immediate wrapper effects and context writes from unreviewed completion claims.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L228-L241",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbmemory.c#L216-L237",
+            "why": "Foreign-family read-only context; no ownership or writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/lb/lbheap.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Maintains six logical heap records for main RAM and ARAM, initializes their metadata, reconstructs base heaps around non-transient subordinate ranges, destroys transient subordinate backends, dispatches allocation/free operations and reports state.",
+        "rationale": "Correct inherited wording that the reconstruction creates transient heaps: it creates non-transient subordinate heaps.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L1-L338",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.static.h#L7-L29",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L21-L24",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbheap.c#L243-L245",
+            "why": "Canonical statements support the stated reads, writes, branches and return behavior."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

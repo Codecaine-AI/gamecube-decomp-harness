@@ -1,0 +1,2004 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:.bss"
+    },
+    "facts": [
+      {
+        "id": "fact:a71a52d2-f7bd-450b-a9e5-b671c9c9bb8d",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.bss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Initialization passes the descriptor to HSD_ObjAllocInit with an HSD_SObj entry size and alignment 4. SObj construction passes it to HSD_ObjAlloc, consuming a free-list entry and updating allocation counts; SObj removal passes it to HSD_ObjFree, returning the record to the free list.",
+        "rationale": "The current SObj source shows the same descriptor being initialized, allocated from, and freed to. The allocator implementation shows how initialization derives persistent stride and alignment state and how allocation and release update the free list and accounting.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the descriptor initialized with sizeof(HSD_SObj) and alignment 4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows HSD_SObj records being freed to and allocated from the descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L60-L161",
+            "why": "Shows allocator initialization, free-list consumption and restoration, and used, free, and peak count updates."
+          }
+        ]
+      },
+      {
+        "id": "fact:614e8fa1-c3f5-47a0-8b3f-507cc0731151",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.bss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides pooled lifetime storage for the HSD textured-quad sprite layer: image-backed SObjs are obtained through this descriptor and returned to it when removed.",
+        "rationale": "The current constructor obtains an HSD_SObj through this descriptor before installing its texture and display state, while the removal path returns the same object storage through the descriptor.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows image-backed SObj construction using HSD_ObjAlloc and SObj removal using HSD_ObjFree with this descriptor."
+          }
+        ]
+      },
+      {
+        "id": "fact:61f6ba5d-6bec-443c-a482-ddf6b1880781",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.bss",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "sobj_alloc_data",
+        "rationale": "The BSS object is the persistent HSD_ObjAllocData descriptor for HSD_SObj records. Nearby HSD subsystems use lower-case object-family names ending in `_alloc_data`, including `shadow_alloc_data` and `aobj_alloc_data`, making `sobj_alloc_data` a plausible original name.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Declares the BSS object as HSD_ObjAllocData and initializes it for HSD_SObj records."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L20-L80",
+            "why": "Shows the analogous Shadow descriptor named `shadow_alloc_data`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L28-L70",
+            "why": "Shows the analogous AObj initializer using `aobj_alloc_data`."
+          }
+        ]
+      },
+      {
+        "id": "fact:8b1a583c-f790-4965-a59d-630f6473e7c1",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.bss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "The section's logical payload is one zero-initialized HSD_ObjAllocData descriptor configured for HSD_SObj records with four-byte alignment.",
+        "rationale": "The current source explicitly defines one HSD_ObjAllocData object and initializes it with sizeof(HSD_SObj) and alignment 4; the constructor then receives HSD_SObj storage from that descriptor.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Defines the HSD_ObjAllocData object and initializes it with sizeof(HSD_SObj) and alignment 4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows allocation through the descriptor producing the HSD_SObj initialized by the constructor."
+          }
+        ]
+      },
+      {
+        "id": "fact:8e922833-b652-41a9-ab4c-09b9f2719db4",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.bss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the persistent fixed-size allocation descriptor used to allocate and recycle HSD_SObj instances for the SObj subsystem.",
+        "rationale": "The section-owned HSD_ObjAllocData is initialized for HSD_SObj-sized entries, consumed during construction, and used again when individual SObjs are removed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows declaration and initialization of the persistent HSD_SObj allocation descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows construction and removal consuming the descriptor through HSD_ObjAlloc and HSD_ObjFree."
+          }
+        ]
+      },
+      {
+        "id": "fact:1be839d5-8c51-4e20-995a-9fdb9e162ac8",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.bss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Initialization transitions the descriptor into a cleared, registered empty-pool state with unlimited default limits, an alignment mask of 3, and an HSD_SObj-sized aligned stride. Allocations move records from the free list to the used count and raise the peak when necessary; releases prepend records to the free list and decrement the used count.",
+        "rationale": "HSD_ObjAllocInit removes prior registrations, clears and configures the descriptor, and reinserts it in the allocator registry. HSD_ObjAlloc and HSD_ObjFree define the subsequent free-list and counter transitions used by SObj construction and removal.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L60-L161",
+            "why": "Shows descriptor initialization and all allocation and release state transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Connects initialization to the persistent HSD_SObj descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Connects allocation and release transitions to HSD_SObj lifecycle operations."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:d7bcdcaf-dd2c-4297-b388-da1437f7eeea",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The GObjFuncs descriptor exposes a callback pointer to HSD_SObjLib_803A4740, which consumes an attached SObj-list head and repeatedly removes its members. Separately, the camera display callback submits the two HSD_Chan descriptors through HSD_SetupChannel before enabling one channel and dispatching the selected GObj rendering groups.",
+        "rationale": "The current initializers establish the cleanup callback table, and the adjacent cleanup body shows that callback traversing and removing every SObj. The camera callback reads both channel records immediately before display dispatch.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the one-entry GObj callback array and its GObjFuncs descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows HSD_SObjLib_803A4740 iterating over and removing an entire SObj chain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows both HSD_Chan descriptors and their consumption by the camera display callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:d19cd962-3ea6-48c8-9310-6856a9ed3fe2",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides static lifecycle and GX channel configuration for HSD's textured-quad sprite layer, allowing an SObj list to be destroyed through the GObj object system and displayed with separate color and alpha channel state.",
+        "rationale": "The data section connects the GObj cleanup interface to whole-list SObj destruction and supplies the color and alpha channel descriptors used by the SObj camera display path.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows the configured cleanup callback destroying an SObj list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows the color and alpha channel descriptors configuring the SObj camera display path."
+          }
+        ]
+      },
+      {
+        "id": "fact:755e8152-e690-49df-a89e-b17e8e0e690f",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A heterogeneous writable data section whose principal typed objects are a one-element GObjFunc array, one GObjFuncs descriptor referencing that array, and two static HSD_Chan descriptors for GX_COLOR0 and GX_ALPHA0.",
+        "rationale": "The matched source gives explicit C types and initializers for each of these objects. The callback array has exactly one initialized entry, the GObjFuncs object records a count of one and points to it, and the two channel structures select the color-zero and alpha-zero channel IDs with register-sourced, unlit, clamped configuration.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:01:23.302Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L15-L32",
+            "why": "Explicitly types and initializes the GObjFunc array and GObjFuncs descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L521-L566",
+            "why": "Explicitly types and initializes the two static HSD_Chan objects as GX_COLOR0 and GX_ALPHA0 channel descriptors."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-2485--fn--main-sysdolphin-baselib-sobjlib-data--78bce46eb13f",
+            "why": "Confirms that this specific .data target reached an exact match in the SObj setup-and-render pull request."
+          }
+        ]
+      },
+      {
+        "id": "fact:e9106368-07f5-4b51-af11-4a084f7a0867",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the SObj subsystem's static GObj cleanup metadata and camera-display channel configuration: a cleanup callback table dispatches destruction of an attached SObj list, while two HSD_Chan descriptors configure the color and alpha channels used by the SObj camera callback.",
+        "rationale": "The current source defines the callback array and GObjFuncs descriptor near the start of the unit and defines the GX_COLOR0 and GX_ALPHA0 channel objects immediately before the camera callback that consumes them.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Defines the GObj cleanup callback table and descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows the callback walking and removing every SObj in the supplied list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Defines the two channel descriptors and shows their display-time consumption."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:.rodata"
+    },
+    "facts": [
+      {
+        "id": "fact:19e5c09d-a11c-4602-b4b1-359c4ba60e87",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.rodata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "When an SObj has flag 0x10 set, the renderer uploads the signed constant `{-90, 0, -114, 135}` to GX_TEVREG0 and three unsigned constants to GX_KCOLOR0, GX_KCOLOR1, and GX_KCOLOR2. TEV stages 0 and 1 use K0 and K1 while sampling texture maps 1 and 2, stage 2 incorporates texture map 0, and stage 3 uses K2 to produce the final color.",
+        "rationale": "The current special rendering branch configures the four chained TEV stages and directly passes the aggregate constants to the corresponding GX register setters.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows the flag guard, stage counts, texture-map inputs, and K0 and K1 selections."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L360-L479",
+            "why": "Shows stages 2 and 3, the K2 selection, and all four aggregate constants being uploaded."
+          }
+        ]
+      },
+      {
+        "id": "fact:c57c9775-5199-4e9f-b2de-1d693f6be43a",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.rodata",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides fixed coefficients for a specialized GameCube TEV color-combination mode in HSD's textured-quad sprite renderer, allowing one SObj quad to combine components sampled from three texture maps rather than displaying one texture directly.",
+        "rationale": "The constants feed a four-stage, three-texture TEV pipeline, and that pipeline's output is submitted through the same four-vertex SObj quadrilateral path.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows the specialized multi-stage TEV pipeline and its first two texture inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L360-L479",
+            "why": "Shows the fixed coefficients and later stages combining the pipeline results."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows the resulting SObj geometry being submitted as a four-vertex textured quadrilateral."
+          }
+        ]
+      },
+      {
+        "id": "fact:556232ef-6754-40db-b621-dfa652170b90",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.rodata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A read-only aggregate color-literal pool comprising one GXColorS10 value and three GXColor values: `{-90, 0, -114, 135}`, `{0, 0, 0xE2, 0x58}`, `{0xB3, 0, 0, 0xB6}`, and `{0xFF, 0, 0xFF, 0x80}`.",
+        "rationale": "The current renderer materializes exactly one signed GXColorS10 aggregate and three unsigned GXColor aggregates in the specialized TEV branch and passes them by value to GX register setters.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L360-L479",
+            "why": "Provides the aggregate types, component values, and GX calls that consume all four literals."
+          }
+        ]
+      },
+      {
+        "id": "fact:20d4fb57-7203-4307-9331-837c89451298",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.rodata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the read-only aggregate color constants used by the SObj renderer's special four-stage, multi-texture TEV path. The renderer uploads them to one signed TEV color register and three konst-color registers before combining three texture maps into the quadrilateral's output.",
+        "rationale": "The flag-0x10 branch selects four TEV stages and then installs the section's aggregate constants in TEVREG0 and KCOLOR0 through KCOLOR2 before drawing.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows flag 0x10 selecting the specialized four-stage configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L360-L479",
+            "why": "Shows the constants uploaded to TEVREG0 and KCOLOR0 through KCOLOR2."
+          }
+        ]
+      },
+      {
+        "id": "fact:c46b9789-f98a-4c2f-b311-bb0187444317",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.rodata",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "These constants affect GX state only in the SObj flag-0x10 rendering mode. That mode programs two texture generators and four TEV stages, installs the fixed register values, disables blending, and then draws the quad; ordinary SObjs instead use the one-stage or depth-texture paths and do not consume this pool.",
+        "rationale": "The current renderer gates the specialized stage counts and constant uploads on flag 0x10. The same branch chooses GX_BM_NONE, while alternate paths configure different texture, TEV, and blend state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows the flag-0x10 guard and specialized texture-generator and TEV-stage counts."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L360-L479",
+            "why": "Shows the fixed register uploads, no-blend state, and distinct alternate paths."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:.sbss"
+    },
+    "facts": [
+      {
+        "id": "fact:15493c5c-d290-443d-b969-0cd6b584dd0e",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The byte flows into HSD_GObjObject_80390A70 whenever the unit installs or replaces a GObj's SObj-list head. The SObj display callback later reads it and compares it with gobj->obj_kind before invoking per-SObj callbacks and rendering the list.",
+        "rationale": "Current list insertion and head-removal code supplies this byte when registering an SObj-list head, while the display traversal consumes it as the corresponding object-kind guard.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the byte passed as the object kind when installing or replacing SObj-list heads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows further head-removal handling and the display traversal beginning from the registered SObj list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows the object-kind mismatch aborting display before callback and renderer dispatch."
+          }
+        ]
+      },
+      {
+        "id": "fact:efa8608c-ce3f-45c1-a15f-9e2a515de41b",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.sbss",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SObjKind",
+        "rationale": "The value is consistently used as the HSD_GObj object-kind token for objects carrying an HSD_SObj list, making `HSD_SObjKind` a plausible subsystem-scoped name.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the byte used as the kind supplied when SObj lists are attached to GObjs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows the same value compared against the displayed GObj's obj_kind."
+          }
+        ]
+      },
+      {
+        "id": "fact:3539317c-fd86-4dd8-8fe3-f0d9be0bde2e",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Its evidenced logical payload is a zero-initialized u8 HSD_GObj object-kind identifier.",
+        "rationale": "The source declares the value as u8, passes it to the GObj object-assignment API as the kind argument, and compares it directly with HSD_GObj.obj_kind.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Provides the u8 declaration and object-registration uses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows comparison with the GObj's object-kind field."
+          }
+        ]
+      },
+      {
+        "id": "fact:b6ecbd56-d1ec-4ad5-8259-70807892792c",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Holds the SObj subsystem's HSD_GObj object-kind discriminator, used to identify GObjs whose attached HSD object is an SObj list.",
+        "rationale": "The value is installed whenever an SObj-list head is attached and is checked by the display path before that list is processed.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the discriminator supplied during SObj-list registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows the discriminator checked against gobj->obj_kind by the display traversal."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:.sdata"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:954bb5a4-484a-474b-95bd-5a4af17deb9d",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Floating constants from this section flow into new HSD_SObjs as zeroed position, rotation, and UV minima and unit XY scales; into the renderer as factors used to center and rotate image-sized geometry; and into camera construction as fixed eye, interest, roll, near, and far values. The resulting fields feed GX texture-coordinate and vertex submissions or configure the HSD_CObj used for SObj display.",
+        "rationale": "The current constructor stores zero and one defaults, the renderer uses half factors and the stored transforms to derive its four corners, and camera setup consumes fixed scalar values including the section-owned 2.0F constant.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows scalar defaults stored into SObj transform and UV fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows half-scale geometry arithmetic, GX vertex submission, the 2.0F definition, and most camera scalar setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L543-L605",
+            "why": "Shows the fixed camera values flowing through HSD_CObj setters and orthographic configuration."
+          }
+        ]
+      },
+      {
+        "id": "fact:6a1703ce-cbe9-4745-a99f-76211c3283dd",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports HSD's two-dimensional textured-sprite coordinate model: SObjs begin with identity scale and image-derived UV bounds, are centered and rotated using half-width and half-height geometry, and are displayed through an orthographic camera whose bounds correspond to the requested rendering surface.",
+        "rationale": "Constructor defaults establish unit-scale image regions, renderer arithmetic produces centered and rotated quad corners, and camera setup maps the requested dimensions into viewport, scissor, and orthographic bounds.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows identity transform defaults and UV bounds derived from image dimensions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows centered, rotated, scaled geometry emitted as a textured quad."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L543-L605",
+            "why": "Shows the width-by-height orthographic camera and clipping bounds."
+          }
+        ]
+      },
+      {
+        "id": "fact:8c9f9a88-4393-4479-8091-ea3742a9a66c",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A read-only scalar floating-point constant pool used directly in SObj setup, geometry arithmetic, and camera configuration. The explicitly materialized member HSD_SObjLib_804DEA98 is a const f32 with value 2.0F.",
+        "rationale": "The current source declares and defines HSD_SObjLib_804DEA98 as a constant f32 and consumes it as a camera bound, while neighboring SObj code uses scalar floating-point literals for defaults and geometry.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Declares HSD_SObjLib_804DEA98 as an external const f32."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Defines HSD_SObjLib_804DEA98 as 2.0F and shows scalar constants used in geometry and camera setup."
+          }
+        ]
+      },
+      {
+        "id": "fact:79034652-6f83-49d6-b3e9-c65a30910938",
+        "target_id": "target:data:main/sysdolphin/baselib/sobjlib:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Holds read-only floating-point constants used by SObj construction, textured-quad geometry, and orthographic-camera setup, supplying default transform and UV values, half-dimension factors for quad centering and rotation, and fixed camera-plane values.",
+        "rationale": "The current constructor, renderer, and camera setup paths all consume scalar floating-point constants for these roles, including the section-owned 2.0F far-plane value.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows floating constants initializing SObj transform and UV fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows half factors in quad geometry and defines the section-owned 2.0F value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L543-L605",
+            "why": "Shows fixed scalar values configuring the orthographic camera."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44A4"
+    },
+    "facts": [
+      {
+        "id": "fact:75accf18-8a5b-44c3-b281-fbf4541d0fd0",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44A4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The routine has no caller-supplied inputs or return value. It forwards the persistent SObj allocator descriptor, sizeof(HSD_SObj), and alignment 4 to HSD_ObjAllocInit. That call removes prior registry links, clears and configures the descriptor, and prepends it to the allocator registry; SObj construction and destruction subsequently consume it through HSD_ObjAlloc and HSD_ObjFree.",
+        "rationale": "The current target supplies all initializer arguments, the allocator implementation shows their transformation into descriptor state, and later SObj lifecycle code identifies the initialized descriptor's consumers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the target forwarding the descriptor, sizeof(HSD_SObj), and alignment 4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L60-L161",
+            "why": "Shows HSD_ObjAllocInit unlinking, clearing, configuring, and registering the supplied descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows downstream allocation and release through the initialized descriptor."
+          }
+        ]
+      },
+      {
+        "id": "fact:d9cc8742-8e66-4d44-94f3-5ca2d5bdffd6",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44A4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SObjInitAllocData",
+        "rationale": "The routine has the same subsystem-descriptor initialization form as established HSD_ShadowInitAllocData, HSD_AObjInitAllocData, and HSD_FObjInitAllocData, supporting the corresponding SObj name.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `HSD_SObjInitAllocData`.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the unnamed SObj routine initializing its subsystem allocator descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L20-L80",
+            "why": "Shows the established analogous name HSD_ShadowInitAllocData."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L28-L70",
+            "why": "Shows the established analogous name HSD_AObjInitAllocData."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L15-L36",
+            "why": "Shows the established analogous name HSD_FObjInitAllocData."
+          }
+        ]
+      },
+      {
+        "id": "fact:ee3d66c5-465e-42ff-a674-38147cffaff6",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44A4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void HSD_SObjLib_803A44A4(void)`. It takes no parameters and returns no value; its side effect is to configure the persistent HSD_SObj allocation descriptor for HSD_SObj-sized entries aligned to four bytes.",
+        "rationale": "The current definition establishes the exact signature and initializer arguments, while HSD_ObjAllocInit establishes their allocation-descriptor semantics.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Provides the exact void(void) definition and descriptor initialization call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L60-L161",
+            "why": "Shows the size and alignment arguments becoming the descriptor's aligned stride and alignment mask."
+          }
+        ]
+      },
+      {
+        "id": "fact:93abb695-5092-439f-821e-9f9cef5b81cd",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44A4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes and registers the fixed-size HSD object-pool descriptor used to allocate and free HSD_SObj records, configuring it for HSD_SObj-sized entries with four-byte alignment during common game-scene runtime initialization.",
+        "rationale": "The target initializes the persistent descriptor, later constructor and removal paths use it for SObj storage, and its caller invokes it directly after registering the SObj GObj object kind during common runtime setup.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Directly shows the target initializing the persistent SObj descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows SObj allocation and release through the same descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+            "why": "Shows the routine called in common runtime setup immediately after SObj object-kind registration."
+          }
+        ]
+      },
+      {
+        "id": "fact:008544c9-b351-4ac2-99a2-4a003c260940",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44A4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Calling the routine transitions the persistent SObj allocator descriptor to a freshly initialized, registered empty-pool state. HSD_ObjAllocInit removes existing registry links to it, clears its pool state, restores unlimited defaults, applies four-byte alignment and an HSD_SObj-sized stride, and reinserts it at the head of the allocator registry.",
+        "rationale": "The target unconditionally applies HSD_ObjAllocInit to the same persistent descriptor, and the callee's current implementation defines the complete reinitialization transition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows each call reinitializing the persistent SObj descriptor with fixed size and alignment inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L60-L161",
+            "why": "Shows prior-link removal, clearing, default assignment, alignment and stride calculation, and registry insertion."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44D4"
+    },
+    "facts": [
+      {
+        "id": "fact:39b5acfa-7be9-4df8-8a2b-44ffa98b747a",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44D4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The caller-provided priority is compared against each existing SObj's x44 value to select an insertion point. Existing prev and next links are consumed to detach the SObj and repair its former neighbors; gobj->hsd_obj then seeds ordered reinsertion. If the first element changes, the new head flows through the GObj object-registration API, and the priority is stored in sobj->x44.",
+        "rationale": "The complete current body explicitly transforms the old links, destination head, and priority input into repaired list links, a registered head, and a stored priority.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the complete unlink, ordered-search, reinsertion, head-registration, and priority-assignment flow."
+          }
+        ]
+      },
+      {
+        "id": "fact:a86a5daf-3da5-47fa-a5aa-34fb889b4d9e",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44D4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Establishes the processing and GX submission order of sprite-like SObjs within one GObj: lower numeric priorities are traversed first, while equal-priority objects retain their existing relative order.",
+        "rationale": "The function builds a stable ascending-priority list, and the current display path later traverses that list from its head through next while processing and rendering each object.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows stable ascending-priority insertion into the GObj's SObj list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows the list-level display routine beginning traversal from gobj->hsd_obj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows each list node's callback and renderer being dispatched before advancing through next."
+          }
+        ]
+      },
+      {
+        "id": "fact:81fa327a-e508-4fe1-82f5-fcf21d273c48",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44D4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function with signature `void (HSD_GObj* gobj, HSD_SObj* sobj, u8 priority)`; it mutates gobj->hsd_obj, the SObj's prev, next, and x44 fields, and neighboring SObjs' intrusive-list links.",
+        "rationale": "The current definition supplies the exact parameter and return types and directly writes every identified GObj and SObj field.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Provides the exact signature and all GObj and SObj field mutations."
+          }
+        ]
+      },
+      {
+        "id": "fact:318871d3-47f0-4b06-a595-11517bfbb014",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44D4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Attaches or repositions an HSD_SObj on an HSD_GObj's intrusive SObj list so that the list remains ordered by ascending 8-bit priority, updating the GObj's registered head object when insertion or removal changes the head.",
+        "rationale": "The function first detaches an existing membership, scans the destination list by x44, performs head, middle, or tail insertion, and invokes the GObj object APIs whenever the head changes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows complete unlinking, priority-ordered reinsertion, head updates, and final priority assignment."
+          }
+        ]
+      },
+      {
+        "id": "fact:e7b70f37-3d00-4dfd-95cb-d5224e054e15",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44D4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "An already-linked SObj is detached before reinsertion, and a sole SObj registered as the GObj head is unregistered before rebuilding the list. An empty destination makes the SObj the registered head. Otherwise, lower priorities insert before higher ones, values at least as large as every existing priority append, and intermediate values insert before the first greater-priority node. Equal-priority insertion is stable because traversal continues across existing equal values.",
+        "rationale": "The initial branches distinguish linked, isolated-head, and detached states, while the scan condition `next->x44 <= priority` and the subsequent insertion branches establish stable head, middle, and tail placement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Directly shows all detach and reinsertion states and stable ordering after equal-priority nodes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A466C"
+    },
+    "facts": [
+      {
+        "id": "fact:f7696dfa-d429-4975-99b4-446f8921ca48",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A466C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes an HSD_SObj and reads its prev, next, and gobj links. For an interior or endpoint node, it writes the successor into the predecessor's next field and the predecessor into the successor's prev field as applicable. Removing the head routes sobj->next through the GObj object-registration functions as the replacement gobj->hsd_obj; removing the sole registered SObj clears that GObj object association. The removed node's prev and next fields are cleared before its pointer is passed with HSD_SObjLib_804D10E0 to HSD_ObjFree, which inserts the storage into the allocator's reusable free list.",
+        "rationale": "The target explicitly performs each neighbor and owner update before forwarding the object and allocator record to HSD_ObjFree. The resolved allocator implementation establishes that this final call returns the supplied storage to an intrusive reusable pool rather than releasing it to a general heap.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:13:45.020Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L98-L131",
+            "why": "Shows all values flowing from the SObj's ownership and list fields into neighbor updates, GObj head replacement or removal, link clearing, and the allocator call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+            "why": "Shows HSD_ObjFree embedding the released object at the allocator free-list head and updating its free and used counts."
+          }
+        ]
+      },
+      {
+        "id": "fact:d4ca4157-b465-4ebe-8c84-400624fdfbde",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A466C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements teardown of one textured-quad sprite in HSD's SObj rendering layer: removing the SObj from gobj->hsd_obj prevents the list display path from invoking its callback or submitting it to the individual SObj renderer on subsequent traversals.",
+        "rationale": "The target removes an SObj from the GObj-owned linked list and frees it. The unit's display path begins at the same gobj->hsd_obj head, invokes each remaining SObj's optional callback, renders it, and advances through next, directly connecting list removal to disappearance from future sprite rendering.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T08:13:45.020Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L98-L131",
+            "why": "Shows the target removing one SObj from its owning GObj's object list and releasing it."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L231-L254",
+            "why": "Shows the SObj display path consuming gobj->hsd_obj and traversing next while invoking each object's callback and renderer."
+          }
+        ]
+      },
+      {
+        "id": "fact:9eab1206-2df8-47b4-860f-032d52ba1050",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A466C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SObjRemove",
+        "rationale": "The function null-safely removes and frees exactly one HSD_SObj, while the adjacent routine invokes it for every node in a list. The established HSD_FObjRemove and HSD_FObjRemoveAll pair supports the corresponding singular SObj name.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the single-SObj null guard and most unlink paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows the final free and the adjacent whole-list routine repeatedly calling this target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L15-L36",
+            "why": "Shows the analogous established names HSD_FObjRemove and HSD_FObjRemoveAll."
+          }
+        ]
+      },
+      {
+        "id": "fact:360200b6-613d-4fb4-9fd6-3c64ee375bd2",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A466C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_SObjRemove(HSD_SObj* sobj). The sole parameter is a nullable pointer to the individual SObj whose list membership and allocator lifetime are to be ended.",
+        "rationale": "The matched definition directly establishes a void return and one HSD_SObj pointer parameter. Its initial NULL guard permits a null argument, while its unlinking and single allocator release show that a non-NULL argument denotes one object rather than merely a list head.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:13:45.020Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L98-L131",
+            "why": "Provides the exact current signature and demonstrates the parameter's nullable, single-object lifecycle semantics."
+          }
+        ]
+      },
+      {
+        "id": "fact:fe27a62d-fe11-4310-af40-50fb0339444e",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A466C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs null-safe removal and destruction of one HSD_SObj: it unlinks the object from its owning HSD_GObj's doubly linked SObj list, updates the registered object head when necessary, clears the removed object's list links, and returns its storage to the SObj allocator. It is the single-object operation used by the adjacent whole-list cleanup routine.",
+        "rationale": "The current body handles null, head, interior, tail, and isolated cases and then frees every non-null input. The adjacent cleanup routine preserves each successor and invokes this target repeatedly.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the null guard and head, interior, and tail unlink handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows link clearing, allocator release, and whole-list use of the function."
+          }
+        ]
+      },
+      {
+        "id": "fact:0c1cf9c4-884c-4972-9a58-3898cbf7eb2b",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A466C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "NULL is a no-op terminal case. A linked SObj transitions from head, interior, or tail membership to detached storage while preserving the remaining list: head removal installs the successor as the GObj object head, interior removal joins predecessor and successor, and tail removal terminates the predecessor. A sole SObj that is the GObj's current object head causes that association to be removed. Every non-NULL input is then returned to the SObj allocator, even if it has no neighbors and is not the GObj's current head.",
+        "rationale": "The branch structure distinguishes NULL, nodes with at least one neighbor, and isolated nodes. The nested checks define the head/interior/tail mutations, while the isolated branch conditionally removes only a matching GObj head. The allocator call lies after every non-NULL branch, proving unconditional deallocation for all non-NULL inputs.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:13:45.020Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L98-L131",
+            "why": "The complete body directly shows the no-op guard, each list-position transition, conditional singleton-head removal, and unconditional final free for non-NULL inputs."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4740"
+    },
+    "facts": [
+      {
+        "id": "fact:25d38c57-6d2d-4438-8d96-5472ec1d8a94",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4740",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes an HSD_SObj chain one node at a time. Before removing the current node, it copies that node's `next` pointer into a local; the current pointer then flows into the single-object removal routine, which mutates list and HSD_GObj ownership links and returns the node to the SObj allocator. The saved successor becomes the next iteration's input. The function returns no replacement head, so callers must treat the supplied chain as consumed.",
+        "rationale": "Saving `next` before the call is necessary because the callee clears the removed node's links and frees its storage. The target subsequently advances only through the saved pointer and has no return value or owner-pointer output.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:27:02.760Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L98-L142",
+            "why": "Shows the callee clearing and freeing each current SObj, and the target preserving each successor before that destructive call."
+          }
+        ]
+      },
+      {
+        "id": "fact:93d01d31-403d-4c37-ba40-878f5f4c1575",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4740",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements bulk teardown for HSD's textured-quad sprite layer: consuming an SObj chain removes those objects from the GObj-owned list used for sprite display, so their callbacks and individual render submissions no longer occur on subsequent traversals.",
+        "rationale": "The target destroys the supplied chain through the single-SObj unlink/free operation. The unit's display routine obtains SObjs from `gobj->hsd_obj`, follows the same `next` linkage, invokes each optional callback, and submits each remaining SObj to the renderer, directly connecting chain destruction with removal from future sprite display.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:27:02.760Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L98-L142",
+            "why": "Shows the target consuming an SObj chain through the operation that unlinks each node from its owning HSD_GObj and frees it."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L231-L254",
+            "why": "Shows the sprite display path traversing `gobj->hsd_obj` through `next`, invoking each SObj callback, and forwarding each object to the individual renderer."
+          }
+        ]
+      },
+      {
+        "id": "fact:76d48fad-45d3-4362-a9bf-b6eeee7c1643",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4740",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SObjRemoveAll",
+        "rationale": "The function repeatedly applies the adjacent single-SObj operation, whose behavior supports the inferred name `HSD_SObjRemove`, to every node in a chain. The established HSD_FObj API uses the exact parallel pair `HSD_FObjRemove` and `HSD_FObjRemoveAll`, making `HSD_SObjRemoveAll` the strongest reconstruction under local HSD naming conventions.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T12:27:02.760Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L98-L142",
+            "why": "Shows the adjacent single-SObj removal operation and this function repeatedly applying it until the chain is exhausted."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L20-L36",
+            "why": "Shows the directly analogous established HSD naming pair `HSD_FObjRemove` and `HSD_FObjRemoveAll`."
+          }
+        ]
+      },
+      {
+        "id": "fact:f8e4a171-4bd4-4048-a981-31e85c3a209d",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4740",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function with signature `void HSD_SObjRemoveAll(HSD_SObj* sobj)`. The argument is a nullable pointer to the first node of the forward-linked HSD_SObj chain to consume.",
+        "rationale": "The matched definition establishes a void return and one `HSD_SObj*` parameter. Its loop guard accepts NULL, while repeated reads of `sobj->next` and per-node removal establish that the pointer denotes the start of a consumable forward chain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:27:02.760Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L133-L142",
+            "why": "Provides the exact current signature and demonstrates the parameter's nullable forward-chain semantics."
+          }
+        ]
+      },
+      {
+        "id": "fact:17c8cb36-7fb1-444a-92c3-b40a239218da",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4740",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Destroys every HSD_SObj in a supplied forward-linked chain. It preserves each node's successor before invoking the adjacent single-SObj removal routine, allowing that routine to unlink the current object from its HSD_GObj and return its storage to the SObj allocator without interrupting traversal.",
+        "rationale": "The complete matched body loops until the supplied pointer is NULL, saves `sobj->next`, calls the single-object removal routine, and continues from the saved successor. The resolved callee unlinks and frees exactly one SObj, establishing this function as the whole-chain lifecycle operation layered over single-object removal.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:27:02.760Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L98-L142",
+            "why": "Shows the single-object unlink/free implementation followed immediately by this routine's saved-successor traversal over the supplied SObj chain."
+          }
+        ]
+      },
+      {
+        "id": "fact:d1dc68eb-503e-414d-9192-1d8f58998f44",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4740",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A NULL input is a no-op. For a nonempty chain, each iteration transitions its current node from linked SObj storage to allocator-reusable storage and advances monotonically to the successor saved before removal. Processing stops only when that saved successor is NULL; there are no guards, reference counts, callbacks, or retained nodes within this routine.",
+        "rationale": "The loop condition directly defines the empty and terminal states. Every non-NULL iteration unconditionally saves one successor, invokes the destructive single-node operation, and advances to that successor, proving complete linear consumption of the supplied chain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:27:02.760Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L98-L142",
+            "why": "Shows the NULL termination condition, unconditional per-node removal, saved-successor transition, and allocator release performed by the callee."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C"
+    },
+    "facts": [
+      {
+        "id": "fact:7f122372-4aea-4d69-b10c-d2455f2a3073",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The descriptor's primary image, optional TLUT, and conditionally present secondary image flow into GXTexObj and GXTlutObj state owned by a newly allocated HSD_SObj. Primary image dimensions become object dimensions and normalized UV bounds. The supplied GObj becomes the owner, priority controls list insertion, and the initialized HSD_SObj is returned for further positioning or flag changes.",
+        "rationale": "The current constructor maps every descriptor input into texture state, dimensions, UVs, ownership, and list registration. The THP caller retains the returned object and immediately enables its specialized display mode.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows descriptor images and palette data becoming texture objects, dimensions and UVs, GObj ownership, ordered attachment, and the returned SObj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L30-L72",
+            "why": "Shows a caller retaining the returned SObj and setting an additional rendering flag."
+          }
+        ]
+      },
+      {
+        "id": "fact:0f86b4d2-d081-4de8-a685-4f29a6fa65e8",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Constructs image-backed objects for HSD's textured-quad sprite layer, supporting ordinary or color-indexed images and an optional second texture so presentation graphics can be composed in priority order. One concrete use is a decoded THP movie display surface.",
+        "rationale": "The function creates an image-sized, texture-backed SObj with optional palette and secondary texture state and registers it by priority. The resolved THP caller constructs such an SObj and uses it for frame presentation.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows construction and ordered registration of an image-backed SObj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L30-L72",
+            "why": "Shows the constructor used to create the SObj employed by the THP frame display path."
+          }
+        ]
+      },
+      {
+        "id": "fact:932726f7-ba9e-44eb-9fc0-152010acb622",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SObjLoadDesc",
+        "rationale": "The function's dominant operation is converting an HSD_SObjDesc into an allocated and initialized runtime HSD_SObj. Nearby established HSD APIs call analogous descriptor-to-runtime-object constructors HSD_CObjLoadDesc and HSD_LObjLoadDesc. This SObj routine additionally registers the result with a GObj, so the exact suffix remains uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: HSD_SObjLoadDesc.",
+        "confidence": 0.62,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L151-L228",
+            "why": "Shows an HSD_SObjDesc being consumed to allocate, populate, register, and return an HSD_SObj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1322-L1340",
+            "why": "Shows the established HSD_CObjLoadDesc naming convention for constructing a runtime HSD_CObj from its descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/lobj.c#L1001-L1022",
+            "why": "Shows the parallel HSD_LObjLoadDesc name for constructing runtime light objects from descriptors."
+          }
+        ]
+      },
+      {
+        "id": "fact:4e556a20-984a-4e74-8ba3-a6073979e95f",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: HSD_SObj* function(HSD_GObj* gobj, HSD_SObjDesc* desc, GXTexWrapMode wrap_s, GXTexWrapMode wrap_t, u8 priority, u8 use_secondary). When use_secondary is nonzero, desc must point to the extended HSD_SObjDesc2 layout whose additional image2 field supplies a second non-paletted GX texture.",
+        "rationale": "The matched declaration gives the exact return and parameter types. The secondary branch casts the descriptor to HSD_SObjDesc2, reads image2, initializes a second GXTexObj, and marks the resulting SObj with flag bit 0x4, establishing the extended input layout and discriminator semantics.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:13:02.897Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L151-L228",
+            "why": "Provides the exact signature and shows use_secondary selecting the extended descriptor layout and secondary GX texture initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:4f25db46-bda3-4390-93c9-e77be3533fdd",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Allocates an HSD_SObj from the subsystem allocator, initializes its primary texture and optional palette or secondary texture from an SObj descriptor, establishes default transform, color, UV, flag, and callback state, attaches it to the supplied HSD_GObj at the requested priority, and returns the new object.",
+        "rationale": "The matched body performs the complete descriptor-to-runtime-object construction path: allocation, GX texture and optional TLUT setup, field initialization, normalized UV calculation, priority-list insertion, and return. The decompilation pull request independently scopes this recovered function to the SObj setup path.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:13:02.897Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L151-L228",
+            "why": "Shows allocation of the HSD_SObj, descriptor-driven GX texture initialization, default field setup, optional-secondary flagging, UV calculation, priority-list insertion, and return."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-2485--main-sysdolphin-baselib-sobjlib",
+            "why": "Identifies the recovered sobjlib work as implementing SObj setup and render paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:b2a3b645-d86a-472d-9d5a-b39e9e9e1632",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Allocation is required to succeed and is asserted otherwise. A non-null TLUT selects color-indexed primary-texture initialization plus a GXTlutObj; a null TLUT selects ordinary texture initialization. A nonzero use_secondary selects HSD_SObjDesc2, initializes the second texture, and sets SObj flag bit 0x4. All constructed objects otherwise begin detached, with zero translation and rotation, unit scale, both four-byte color groups set to opaque white, no callback, zero flags and auxiliary state, and UV bounds covering the primary image before priority-ordered attachment.",
+        "rationale": "These are persistent construction states and guarded variants visible in the matched body: the palette and secondary-image branches select distinct texture configurations, while the common path writes all default object fields before insertion.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:13:02.897Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L151-L228",
+            "why": "Directly shows the allocation assertion, TLUT and secondary-texture branches, secondary flag update, complete default-state initialization, UV setup, and final attachment."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A49E0"
+    },
+    "facts": [
+      {
+        "id": "fact:146d6f72-6da8-40bf-9d7a-d2f325c6084c",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A49E0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input GObj supplies both the object-kind discriminator and the head of its `HSD_SObj` linked list. For each node, the SObj pointer first flows to its optional `x4C_callback`, then to `HSD_SObjLib_803A4A68` for drawing; afterward the routine reads that node's `next` pointer and repeats. The integer callback argument produces no output.",
+        "rationale": "This ordering is explicit in the matched loop: list acquisition precedes iteration, kind validation precedes all object processing, callback dispatch precedes rendering, and traversal advances through the current object's `next` field. The THP caller demonstrates that texture state may be prepared externally before control reaches this generic list display path.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:13:09.233Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L230-L248",
+            "why": "Shows the exact flow from GObj fields through each SObj callback, renderer call, and next-list link."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L48-L72",
+            "why": "Shows a caller loading three externally prepared textures before passing the GObj into this generic SObj display traversal."
+          }
+        ]
+      },
+      {
+        "id": "fact:ead7d0e0-62a8-4e54-a37d-fbd2e8690e19",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A49E0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the list-level composition stage of HSD textured-quad sprite rendering: it processes the ordered screen-object list and dispatches each sprite's update hook and draw operation. One concrete use is THP movie-frame presentation, where three decoded image planes are bound as GX textures immediately before this SObj display callback runs.",
+        "rationale": "The target traverses and draws every attached SObj, while the single-object callee's established record identifies those objects as transformed textured quadrilaterals. The resolved THP caller binds one full-resolution and two half-resolution decoded-frame textures and then invokes this target, grounding the generic SObj display path in an actual game presentation use.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T08:13:09.233Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L230-L248",
+            "why": "Shows the list-level callback and draw dispatch over all SObjs attached to the GObj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L48-L72",
+            "why": "Shows THP frame presentation binding three decoded image planes and then invoking this SObj display routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:21a7d755-1fc1-4de9-a347-ccf97d24f1b8",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A49E0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SObjDispAll",
+        "rationale": "The diagnostic explicitly calls this path the `SOBJ-displayfunc`, while the loop processes the entire attached SObj list. The neighboring HSD object subsystem uses `HSD_JObjDispAll` for the corresponding operation that recursively displays a complete JObj hierarchy, making `HSD_SObjDispAll` consistent with local HSD naming conventions. No preserved symbol proves the exact spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `HSD_SObjDispAll`: the function is the SObj display entry point and traverses all SObjs attached to its GObj. This is a naming inference, not a rename instruction.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L230-L248",
+            "why": "Identifies the routine as the SOBJ display function and shows that it walks the entire linked list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L567-L600",
+            "why": "Shows the established HSD name `HSD_JObjDispAll` for the analogous hierarchy-wide display operation in the neighboring JObj subsystem."
+          }
+        ]
+      },
+      {
+        "id": "fact:abc8e633-0191-496a-9198-85c180adb104",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A49E0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Exact signature `void HSD_SObjLib_803A49E0(HSD_GObj* gobj, int unused)`. It is a GObj display callback whose first argument supplies an HSD_SObj list through gobj->hsd_obj; the integer callback argument is not consumed. Each non-null per-object callback is invoked with the current HSD_SObj pointer.",
+        "rationale": "The current definition establishes the two-argument void signature, reads the GObj's list and kind, never reads the integer parameter, and invokes each stored callback with the current SObj. A concrete display caller forwards the standard GObj and integer callback arguments.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows the exact signature, acquisition of gobj->hsd_obj, and object-kind validation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows each non-null callback receiving the current HSD_SObj and confirms the integer parameter is unused."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lb_01F8.c#L30-L72",
+            "why": "Shows a concrete display callback forwarding its HSD_GObj and integer arguments to this routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:5b222209-f847-4dd2-afcb-5c29e33c45b4",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A49E0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Displays every HSD_SObj attached to an HSD_GObj. It validates that the GObj has the SObj object kind, invokes each SObj's optional pre-draw callback, and then delegates that object to the single-SObj renderer.",
+        "rationale": "The matched body starts at `gobj->hsd_obj`, walks the complete `next` chain, guards the traversal with the SObj-kind check, invokes `x4C_callback` when present, and calls `HSD_SObjLib_803A4A68` once per object. The resolved record for that callee identifies it as the routine that renders one SObj, establishing this target as the list-level display operation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:13:09.233Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L230-L248",
+            "why": "Shows the complete SObj-list traversal, object-kind validation, optional per-object callback, and delegation to the single-object renderer."
+          }
+        ]
+      },
+      {
+        "id": "fact:14dcb506-5c6c-476a-91d0-7e1fc86597d1",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A49E0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "An empty SObj list is a no-op. For a nonempty list, every iteration verifies the GObj's object kind; a mismatch reports `BadOBJ for SOBJ-displayfunc` and immediately aborts the remaining traversal. For a valid node, its callback runs only when non-null and always before that node is rendered.",
+        "rationale": "The while guard defines the empty-list behavior. The object-kind branch contains the report followed by an immediate return, while the callback has an independent null guard and appears directly before the unconditional per-object render call.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:13:09.233Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L230-L248",
+            "why": "Shows the loop guard, wrong-object diagnostic and early return, callback null guard, and callback-before-render ordering."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4A68"
+    },
+    "facts": [
+      {
+        "id": "fact:c1209719-1c62-4163-b4da-1339bf6ad989",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4A68",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the SObj's visibility and mode flags, image dimensions, position, angle, XY scales, UV bounds, two colors, primary texture and palette objects, and optional secondary texture. These values determine origin placement, texture and TLUT loads, TEV inputs, blending and depth state, and four generated XY/UV vertex pairs. Its outputs are GX and HSD state commands and one quadrilateral; it does not modify the HSD_SObj and finishes by restoring shared render state.",
+        "rationale": "The current body maps SObj fields into origin and geometry calculations, texture and TEV configuration, blending and depth selection, and GX vertex submission. Its assignments target local variables and graphics state rather than SObj fields, and the epilogue restores shared state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows reads of flags, dimensions, transforms, and texture state feeding initial GX configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L360-L479",
+            "why": "Shows colors and texture format selecting TEV and blend behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows transformed XY and UV values submitted to GX and the final state restoration."
+          }
+        ]
+      },
+      {
+        "id": "fact:85296503-f46f-442d-8bda-64485c049188",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4A68",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes HSD textured-quad sprite drawing: an image or image region is positioned, scaled, and rotated in two dimensions and composited through texture-format-aware TEV and alpha blending, with optional palette lookup, secondary depth texture, and specialized multi-stage color processing.",
+        "rationale": "The current renderer combines SObj transforms and UVs into four vertices and surrounds that submission with palette, depth, texture-format, TEV, and blending configuration.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows palette, depth, texture, and specialized TEV setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L360-L479",
+            "why": "Shows format-aware TEV and blending configurations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows transformed geometry emitted as a textured quadrilateral."
+          }
+        ]
+      },
+      {
+        "id": "fact:f02c5105-a604-4249-a235-1a257b10f03b",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4A68",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SObjDisp",
+        "rationale": "The immediate caller is explicitly identified by its diagnostic as the `SOBJ-displayfunc`, traverses an SObj list, and invokes this target once per object. The target performs the complete single-object draw while the caller handles list traversal, making a singular `HSD_SObjDisp` role more plausible than an allocation, setup, or list-level name. No preserved symbol or discussion establishes the exact spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `HSD_SObjDisp`, following HSD's abbreviated display naming and reflecting that the function draws one SObj; this is a moderate-confidence naming inference, not a rename instruction.",
+        "confidence": 0.67,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L231-L254",
+            "why": "Identifies the caller as the SOBJ display function and shows it delegating each individual SObj to the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L495-L528",
+            "why": "Shows that the target itself submits and completes one SObj's quadrilateral draw."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-2485--fn--main-sysdolphin-baselib-sobjlib-hsd-sobjlib-803a4a68--de2067e25735",
+            "why": "Associates this specific function with the pull request recovering the SObj render path."
+          }
+        ]
+      },
+      {
+        "id": "fact:e5516b22-0b4c-486d-9c72-62288bd5a85a",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4A68",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Exact signature `void HSD_SObjLib_803A4A68(HSD_SObj* sobj)`. It is a single-object SObj renderer whose input supplies transform, UV, color, texture, palette, callback-adjacent, and rendering-mode state for one textured quadrilateral.",
+        "rationale": "The current definition establishes the exact signature, the list-level display routine passes one HSD_SObj per invocation, and the body consumes the object's rendering fields to configure and emit one draw.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows the list-level display routine obtaining the HSD_SObj list."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Provides the exact function signature and shows the first set of HSD_SObj rendering-field accesses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows the input object's transform and UV fields becoming one four-vertex draw."
+          }
+        ]
+      },
+      {
+        "id": "fact:1f515e52-53a0-4645-a709-350adf7fc184",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4A68",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Renders one HSD_SObj as a rotated, scaled, textured quadrilateral. It selects texture, palette, TEV, blending, and depth behavior from the object's flags and texture format, emits four transformed XY/UV vertices, and restores HSD/GX render state afterward.",
+        "rationale": "The target performs all per-object setup, mode selection, transformed vertex emission, and cleanup, while its caller invokes it once for each SObj in the display list.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows the early-out, origin calculation, texture and depth setup, and start of TEV configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L360-L479",
+            "why": "Shows specialized and ordinary TEV, color, alpha, and blend handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows quadrilateral emission and post-draw state restoration."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d1a07d6-2a8e-412d-97b4-bffdaccdbc75",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4A68",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Flag bit 0 suppresses drawing. Bit 1 selects direct position versus position offset by half the scaled image dimensions. Bit 2 enables the secondary depth-texture path and less-than depth testing; within that path bit 3 disables depth writes. Bit 4 selects a specialized four-stage, two-texgen TEV pipeline. Palette-indexed C4 and C8 formats load the object's TLUT, while ordinary rendering selects color and alpha equations by texture format. Every completed draw restores depth-texture, TEV, vertex-descriptor, and depth-mode state.",
+        "rationale": "The current flag tests define each guarded rendering path, the texture-format checks select palette and ordinary TEV behavior, and the epilogue restores the temporary graphics state after GXEnd.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L240-L359",
+            "why": "Shows bits 0 through 4 selecting skip, origin, depth, depth-write, and specialized TEV behavior and shows TLUT loading."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L360-L479",
+            "why": "Shows specialized and texture-format-dependent TEV and blend branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows draw completion and restoration of depth-texture, HSD, TEV, vertex, and depth state."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A54EC"
+    },
+    "facts": [
+      {
+        "id": "fact:3c72a3bd-cc29-4fca-adfd-2a5b220ba844",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A54EC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The callback retrieves the HSD_CObj attached to its input GObj and makes it current. On successful activation, the current camera's viewing matrix is loaded as GX position matrix 0; texture coordinates 0 and 1 receive identity mappings; two static HSD channel descriptors are submitted; and masked GObj rendering runs with mask 1 before the camera pass ends. Both success and failure paths invalidate cached HSD state and request depth testing and writing with comparison function 3.",
+        "rationale": "The current callback body exposes the complete camera-to-GX flow, while the adjacent setup routine shows the HSD_CObj attachment and callback registration that produce its input relationship.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L480-L599",
+            "why": "Shows the camera activation, matrix, texture-coordinate, channel, dispatch, finalization, and cleanup flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L543-L605",
+            "why": "Shows the complete callback and the adjacent producer attaching an HSD_CObj and registering this function."
+          }
+        ]
+      },
+      {
+        "id": "fact:ee39646f-4c6a-4199-8642-6e18a6dd9b3b",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A54EC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the camera-level display pass for HSD's textured-quad sprite layer, providing the orthographic viewing transform, identity texture-coordinate generation, color-channel setup, ordered GObj rendering, and depth-state boundary under which SObjs are drawn.",
+        "rationale": "The adjacent routine creates and attaches a width-by-height orthographic camera and registers this callback, which then installs the transform and channel state and dispatches selected rendering groups.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L543-L605",
+            "why": "Shows both the camera-level display work and the orthographic camera setup and callback registration."
+          }
+        ]
+      },
+      {
+        "id": "fact:2bdcccee-2f02-4cbb-bf0b-2e2b5f8c2f71",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A54EC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SObjLib_CameraDisp",
+        "rationale": "The function is registered as the GX callback for the orthographic camera GObj, and its failure diagnostic explicitly names the operation `CameraDisp`, supporting this original-style name.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely HSD_SObjLib_CameraDisp.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L543-L605",
+            "why": "Shows the `Out CameraDisp Range` diagnostic and the adjacent registration of this target as the camera's GX callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:0af9701e-bbe9-4c59-9783-4f9bece215a1",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A54EC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "GX-link display callback with signature `void (HSD_GObj* gobj, int unused)`. The GObj carries an attached HSD_CObj accessible through GET_COBJ; the second callback argument is accepted but unused.",
+        "rationale": "The current definition provides the exact signature and consumes only the GObj parameter. The neighboring setup attaches an HSD_CObj to the same GObj and registers this function through GObj_SetupGXLinkMax.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L543-L605",
+            "why": "Shows the exact callback signature, GET_COBJ use, unused integer parameter, camera attachment, and GX-link registration."
+          }
+        ]
+      },
+      {
+        "id": "fact:65138523-01d2-4ea8-84cd-55961d5b1422",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A54EC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the GX display callback for an SObj camera GObj. It activates the attached camera, installs its viewing transform and the texture-coordinate and color-channel state needed by SObj rendering, dispatches the selected GObj rendering groups, finalizes the camera pass, and restores a known depth mode afterward.",
+        "rationale": "The adjacent setup routine attaches the orthographic camera and registers this target. The target then performs activation, graphics setup, masked dispatch, camera finalization, state invalidation, and depth-mode restoration.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:39:18.037Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L543-L605",
+            "why": "Shows the callback's complete display behavior and the adjacent camera attachment and callback-registration site."
+          }
+        ]
+      },
+      {
+        "id": "fact:45b98c37-ebaa-4a70-97c4-485c524184f2",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A54EC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Camera activation is the callback's sole guard. If activation succeeds, it performs the complete setup, render-dispatch, and camera-end sequence. If activation fails, it skips all drawing setup and reports `Out CameraDisp Range`. Both paths then invalidate the full HSD render-state cache and request depth comparison enabled, comparison function 3, and depth writes enabled.",
+        "rationale": "The matched conditional encloses all matrix, texture-coordinate, channel, dispatch, and camera-finalization work, with the diagnostic as its failure branch. The invalidation and depth-mode calls occur after the branch, proving that they are unconditional cleanup rather than success-only operations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T08:11:46.205Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L543-L565",
+            "why": "Shows the activation success and failure paths and the unconditional post-branch state invalidation and depth-mode request."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC"
+    },
+    "facts": [
+      {
+        "id": "fact:2ab67a68-8e7c-4bab-ae34-4c44a333950f",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The width and height inputs form matching viewport and scissor rectangles from (0,0) to (width,height), while the orthographic camera spans left 0, right width, top 0, and bottom \u2212height. A newly allocated HSD_CObj receives those bounds together with eye (0,0,1), interest (0,0,0), zero roll and near plane, and far plane 2. The configured camera is attached to gobj, and the priority input is forwarded with HSD_SObjLib_803A54EC to GObj_SetupGXLinkMax, which stores the callback and priority and inserts the GObj into its priority-ordered render list.",
+        "rationale": "The current target body still traces the dimensions and fixed local values into the viewport, scissor, and orthographic-camera setters before attaching the camera. The current callback span establishes the far-plane constant and the behavior of the registered callback, while GObj_SetupGXLinkMax shows the downstream storage of the callback and priority and the resulting ordered-list insertion. The source drift therefore does not change the standing data-flow claim.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:35:08.866Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L565-L605",
+            "why": "Shows width and height flowing into the viewport, scissor, and orthographic bounds; fixed eye, interest, roll, and near values flowing into the new HSD_CObj; and the camera being attached before callback registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L529-L566",
+            "why": "Defines the far-plane value as 2.0 and shows the registered HSD_SObjLib_803A54EC callback executing the camera render pass."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/gobjgxlink.c#L55-L70",
+            "why": "Shows the forwarded callback and priority being stored on the GObj and used to place it in priority order in the GX-link list."
+          }
+        ]
+      },
+      {
+        "id": "fact:ffe3b9b8-80cb-47cb-b17c-3783183ff594",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the camera layer for HSD's textured-quad sprite rendering: callers choose the rendering surface dimensions, and the function creates a clipped orthographic coordinate system whose horizontal extent is the requested width and whose downward extent is the requested height, then schedules the associated SObj rendering pass by priority.",
+        "rationale": "At the current head, width and height still define both clipping rectangles and the orthographic surface bounds, and the installed SObj callback still activates the camera and dispatches the render group. The source drift does not alter the function's mapping to the camera layer of the SObj rendering path.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:35:08.866Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L565-L605",
+            "why": "Shows construction of a width-by-height clipped orthographic camera and priority-based registration of the SObj camera callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L529-L566",
+            "why": "Shows the scheduled callback activating the attached camera, preparing view, texture-coordinate, and channel state, and dispatching the rendering group."
+          }
+        ]
+      },
+      {
+        "id": "fact:86efd634-4c2c-4ff1-ae68-3f4cd80ce314",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_SObjLib_SetupCObj",
+        "rationale": "The current body continues to allocate, configure, attach, and schedule an HSD_CObj for the SObj subsystem. DevText_SetupCObj remains a close codebase naming precedent for an orthographic-camera setup routine, although this target additionally registers a render callback, so the inferred name remains moderately uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `HSD_SObjLib_SetupCObj`, describing its construction and GObj registration of the camera object used by the SObj display path.",
+        "confidence": 0.67,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L565-L605",
+            "why": "Shows the target allocating and configuring an orthographic HSD_CObj, attaching it to a GObj, and registering the SObj display callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/if/textdraw.c#L165-L202",
+            "why": "Provides the recovered DevText_SetupCObj naming precedent for a closely analogous routine that allocates and configures an orthographic HSD_CObj."
+          }
+        ]
+      },
+      {
+        "id": "fact:700e488e-6022-43c0-b717-47e5593ade55",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function signature: `void HSD_SObjLib_803A55DC(HSD_GObj* gobj, u16 width, u16 height, int priority)`. `gobj` receives the newly allocated HSD_CObj and camera render callback; `width` and `height` are pixel-oriented surface dimensions used for the viewport, scissor, and orthographic bounds; and `priority` is forwarded as the GObj render-priority value.",
+        "rationale": "The current matched definition retains the exact four-parameter signature and shows how every parameter is consumed. The dimensions populate clipping and projection bounds, the supplied GObj receives the camera, and the priority reaches GObj_SetupGXLinkMax, whose body stores it as render_priority and uses it for list placement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:35:08.866Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L565-L605",
+            "why": "Provides the exact function signature and shows the supplied GObj, width, height, and priority being consumed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/gobjgxlink.c#L55-L70",
+            "why": "Shows that the forwarded priority becomes the GObj render-priority value and controls its position in the GX-link list."
+          }
+        ]
+      },
+      {
+        "id": "fact:fb1c7036-f4e2-4e90-8ef2-0192f632acb6",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Creates and registers the camera GObj used for an SObj rendering pass. It allocates an orthographic HSD_CObj sized to the requested rendering surface, attaches that camera to the supplied HSD_GObj, and installs the SObj camera-display callback at the requested render priority.",
+        "rationale": "The current target still allocates and fully configures an orthographic HSD_CObj, attaches it to the supplied GObj as a camera object, and registers HSD_SObjLib_803A54EC at the requested priority. The callback still activates that camera and dispatches the rendering group, so the source drift does not change the standing purpose.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:35:08.866Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L565-L605",
+            "why": "Shows camera allocation and configuration, attachment to the supplied GObj, and registration of the SObj camera-display callback with the requested priority."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L529-L566",
+            "why": "Shows the installed callback activating the attached camera, preparing rendering state, dispatching the selected GX-link group, and ending the camera pass."
+          }
+        ]
+      },
+      {
+        "id": "fact:6be5d654-36b1-4d9e-b762-0d69016c810c",
+        "target_id": "target:function:main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The setup routine is unconditional: every invocation allocates a fresh camera, replaces the supplied GObj's attached object with that HSD_CObj, and registers the camera-display callback. When scheduled, that callback attempts to make the attached camera current; success enters the SObj render pass, loads its view and channel state, dispatches GX-link mask 1, and ends the current camera, while failure reports an out-of-range camera. Both callback paths invalidate cached HSD state and restore enabled less-or-equal depth testing with depth writes.",
+        "rationale": "The current setup body retains no allocation guard or alternate branch, so each invocation performs the complete camera attachment and callback-registration sequence. The callback retains its camera-activation success and failure branches, their converged state invalidation, and the final depth-mode restoration. The drift therefore does not change the standing state behavior.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:35:08.866Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L565-L605",
+            "why": "Shows the unguarded allocation, camera attachment, and render-callback registration performed on every invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L529-L566",
+            "why": "Shows the callback's camera-activation success and failure paths, render dispatch, camera termination, state invalidation, and final enabled less-or-equal depth mode with writes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/sobjlib.c"
+    },
+    "facts": [
+      {
+        "id": "fact:57db5c61-3d0c-4e7d-a7e3-4202a22978dd",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/sobjlib.c",
+        "type": "data_flow",
+        "value": "Image and palette descriptors flow into allocated HSD_SObjs as primary and optional secondary GX texture objects, dimensions, normalized texture-coordinate bounds, default transform and color values, and rendering flags. SObjs are attached to an HSD_GObj in priority order; the display traversal invokes each object's optional callback and then its renderer. Removal unlinks and frees objects through the unit's allocator, while the camera setup path installs an orthographic HSD_CObj and GX display callback for the requested width and height.",
+        "rationale": "Current code still converts descriptors into initialized SObj texture and display fields, attaches them to GObjs in priority order, traverses callbacks and renderers, frees unlinked objects through the allocator, and installs an orthographic camera display path.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T16:47:45.996Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows allocator initialization and priority-ordered SObj attachment and relinking on an HSD_GObj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows allocator-backed removal and image, palette, texture, transform, color, flag, dimension, and normalized UV initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L229-L252",
+            "why": "Shows traversal invoking each optional callback and then the individual SObj renderer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L587-L605",
+            "why": "Shows orthographic camera configuration and installation of the GX display callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:92d0b366-fd5e-4bb0-a559-065e46dfe67d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/sobjlib.c",
+        "type": "game_mapping",
+        "value": "Provides HSD's textured-quad sprite rendering layer for screen- or camera-plane graphics, including ordered object composition, image and palette textures, per-object transforms and UV regions, optional depth-texture behavior, and an orthographic pixel-oriented camera.",
+        "rationale": "At the current head, SObjs continue to be constructed from image descriptors with texture, transform, color, and UV state; the renderer emits four transformed textured vertices; and the setup routine creates a width-by-height orthographic camera. Those operations retain the standing mapping to a 2D textured-quad rendering layer.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T02:15:55.433Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows image-backed SObjs receiving texture objects, dimensions, normalized UV bounds, colors, transforms, flags, and an optional secondary texture."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L493-L526",
+            "why": "Shows a GX_QUADS submission of four transformed XY positions with the SObj's four texture-coordinate bounds and optional depth-texture cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L587-L605",
+            "why": "Shows a viewport-sized orthographic camera whose bounds map directly to the SObj rendering surface."
+          }
+        ]
+      },
+      {
+        "id": "fact:7aebf6f4-6ec1-4c53-be06-781caa1b721f",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/sobjlib.c",
+        "type": "purpose",
+        "value": "Implements the HSD SObj subsystem: it allocates and frees sprite-like textured objects, maintains priority-ordered SObj lists on HSD_GObjs, constructs their GX texture and palette state from image descriptors, traverses those lists for display, renders each object as a transformed textured quadrilateral, and creates the orthographic camera path used to display them.",
+        "rationale": "The current implementation retains allocator-backed ownership, ordered GObj lists, descriptor-based GX texture construction, callback-aware display traversal, transformed quadrilateral rendering, and orthographic camera setup.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T16:47:45.996Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L1-L120",
+            "why": "Shows the dedicated allocator and priority-ordered HSD_GObj list-management routines."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L120-L239",
+            "why": "Shows SObj cleanup and allocation and initialization from image and palette descriptors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L229-L252",
+            "why": "Shows callback-aware list-level display traversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L493-L526",
+            "why": "Shows transformed four-vertex textured-quadrilateral emission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/sobjlib.c#L587-L605",
+            "why": "Shows construction and installation of the orthographic camera path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44D4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44D4#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A44D4#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A466C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4740#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C#r7"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A477C#r8"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A49E0#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A49E0#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A4A68#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A54EC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A54EC#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/sobjlib:HSD_SObjLib_803A55DC#r6"
+    },
+    "facts": []
+  }
+]

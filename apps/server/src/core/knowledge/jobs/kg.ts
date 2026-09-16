@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   agentSharedStateEnrichmentPath,
+  gameSharedToolDataRoot,
   knowledgeCuratorEnrichmentPath,
   packageRoot,
   resourceGraphDbPath,
@@ -247,6 +248,7 @@ export async function kgRebuildGraph(globals: GlobalArgs, args: Map<string, stri
   const repoRoot = knowledgeRepoRoot(globals);
   const payload = rebuildKnowledgeGraph({
     repoRoot,
+    ...gameGraphInputs(globals),
     dbPath,
     sources,
     agentStateEnrichmentPath: enrichmentPath,
@@ -268,6 +270,7 @@ export async function runKnowledgeGraphRebuild(
   if (options.rebuildInProcess || booleanArg(args, "--rebuild-in-process")) {
     return (options.rebuildGraph ?? rebuildKnowledgeGraph)({
       repoRoot,
+      ...gameGraphInputs(globals),
       dbPath,
       sources,
       agentStateEnrichmentPath,
@@ -295,7 +298,10 @@ export async function runKnowledgeGraphRebuild(
   if (gameId) command.splice(3, 0, "--game", gameId);
   const proc = (options.rebuildSpawn ?? Bun.spawn)(command, {
     cwd: packageRoot(),
-    env: { ...Bun.env, [STATE_MIGRATION_MODE_ENV]: "verify" } as Record<string, string>,
+    env: {
+      ...Object.fromEntries(Object.entries(Bun.env).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
+      [STATE_MIGRATION_MODE_ENV]: "verify",
+    },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -696,4 +702,15 @@ async function toolStatus(tool: { id: string; commands?: Record<string, string> 
   } catch {
     return { id: tool.id, available: false, status: "unparseable", stdout };
   }
+}
+
+function gameGraphInputs(globals: GlobalArgs) {
+  if (!globals.game) return {};
+  const root = gameSharedToolDataRoot(globals.game.gameId);
+  return {
+    knowledgeRoot: resolve(globals.game.gameDir, "knowledge"),
+    reportPath: globals.game.validation.reportPath,
+    ghidraIndexesRoot: resolve(root, 'ghidra/indexes'),
+    opseqIndexesRoot: resolve(root, 'opseq/indexes'),
+  };
 }

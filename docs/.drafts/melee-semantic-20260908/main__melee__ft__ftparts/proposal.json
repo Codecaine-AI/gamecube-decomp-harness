@@ -1,0 +1,153 @@
+{
+  "tu": "main/melee/ft/ftparts",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftPartSetRotZ"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the indexed part's primary joint and quaternion-use flag. An Euler-backed primary receives rotate_z directly; otherwise the alternate x4_jobj2 receives it after a double-quaternion assertion check. HSD_JObjSetRotationZ writes the selected joint's rotate.z and requests deferred matrix dirtying only when JOBJ_MTX_INDEP_SRT is clear; an already-dirty matrix need not be dirtied again.",
+        "rationale": "Preserves the established destination flow while correcting the unconditional matrix-invalidation claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L1021-L1036",
+            "why": "Shows primary versus alternate selection and the supplied Z-angle write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L258-L264",
+            "why": "Dirty helper skips null or already-dirty joints."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L335-L343",
+            "why": "Z setter explicitly gates dirtying on local-SRT matrix dependence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_80074CA0"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Clears hidden flag 1 from every DObj enumerated by an indexed visibility channel when its lookup exists and its cleared latch is false, then sets that latch true. A true latch suppresses this operation, but does not prove that every DObj is already visible: selective visibility application sets the same latch while hiding unselected alternatives.",
+        "rationale": "Corrects the interpretation of the shared processing latch without changing the supported reveal-all operation or existing inferred name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L600-L627",
+            "why": "Selective application hides alternatives and sets the same latch true."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L629-L649",
+            "why": "Shows reveal-all guard, flag clearing and final latch assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_80074D7C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Sets hidden flag 1 on every DObj enumerated by an indexed visibility channel when its lookup exists and its cleared latch is true, then clears that latch. This hides a channel after either selective application or reveal-all; it does not require a previously all-visible state and is also used during initial visibility setup.",
+        "rationale": "Removes the unsupported restriction to restoring a temporarily all-visible set while preserving the actual hide-all behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L529-L539",
+            "why": "Initialization primes all latches and invokes the hide helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L600-L671",
+            "why": "Selective application and reveal-all share the true latch consumed by hide-all."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_800753D4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Selects a source HSD_Joint from resource_root using config.x3 traversal steps, except that 0xFF leaves the cursor at the root. It copies the descriptor, clears its next and child links, and loads two runtime joints through ftParts_8007482C. It inserts them relative to the primary and alternate joints of config.x1 using mode config.x2, initializes destination part config.x0 through ftParts_80074194 with a local DObj index starting at zero, stores the alternate pointer, and sets flags_b2. The selected interpolation-class loader suppresses DObj descriptors during loading; calling the generic registration helper therefore does not establish that this path appends visible geometry or updates the fighter-wide DObj count.",
+        "rationale": "Closes the cross-helper data flow and distinguishes joint registration from an unsupported claim that interpolation-loaded attachments necessarily contain DObjs.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L62-L78",
+            "why": "Interpolation class installs a loader that temporarily nulls the DObj descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L500-L507",
+            "why": "Both loads select the interpolation class and subsequently clear the default override."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L877-L916",
+            "why": "Shows source selection, isolated descriptor, paired insertion and zero-based registration counter."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_800753D4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Creates and attaches a configured pair of auxiliary runtime joints to a fighter's primary and alternate hierarchies, then initializes the destination FighterBone's joint metadata and alternate-joint presence flag. Its normal interpolation-class loading path suppresses display-object descriptors, so the operation should not be described as necessarily loading or registering visible geometry.",
+        "rationale": "Retains the supported attachment purpose and existing descriptive name while removing the misleading display-object guarantee.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L62-L78",
+            "why": "Shows the selected class's DObj-suppression behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L877-L916",
+            "why": "Shows paired joint construction, hierarchy insertion and destination metadata writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_PObjSetupMtx"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives a PObj, view matrix vmtx, prepared position matrix pmtx, and render-mode word. It reads ft_jobj_scale.has_z_scale, the PObj representation, and the skin representation's joint pointer, then forwards all four arguments unchanged to the base setup callback or the selected fighter-local rigid, shared-vertex or envelope helper. The rigid path loads pmtx directly into GX position-matrix state; it is not a projection matrix. With active scale correction, an unrecognized PObj type invokes no helper.",
+        "rationale": "Corrects the matrix's semantic role using its concrete GX consumer and preserves the exceptional no-default branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L123-L152",
+            "why": "Rigid setup passes pmtx to GXLoadPosMtxImm."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L299-L320",
+            "why": "Shows all dispatch inputs, unchanged forwarding and absence of a default branch."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

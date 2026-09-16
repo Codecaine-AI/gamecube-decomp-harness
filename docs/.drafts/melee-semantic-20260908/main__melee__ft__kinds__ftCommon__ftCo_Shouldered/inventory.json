@@ -1,0 +1,981 @@
+[
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:.sdata2",
+    "facts": [
+      {
+        "id": "fact:263f38f8-f0b0-474a-91de-3064457771e4",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The section is read-only. Its pooled constants are loaded by the Shouldered state-entry helper to initialize motion at frame 0 with rate 1 and zero blend, and by `ftCo_Shouldered_Anim` to return the captive's animation rate to 1 when a struggle interval ends. It receives no runtime writes and produces only scalar arguments for motion and animation APIs.",
+        "rationale": "At the relocated source path, the state-entry helper still consumes zero and one literals as motion-state arguments, while the animation callback passes one to `ftAnim_SetAnimRate` when the struggle countdown expires. These are direct scalar reads with no runtime mutation of the constant pool.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T19:04:54.332Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L53",
+            "why": "Shows zero and one flowing into `Fighter_ChangeMotionState` as the starting frame, playback rate, and blend for a Shouldered motion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L119-L130",
+            "why": "Shows the scalar value one flowing into `ftAnim_SetAnimRate` when the Shouldered struggle interval ends."
+          }
+        ]
+      },
+      {
+        "id": "fact:9d7cba9b-e07e-409b-a2bb-109a03bc60cd",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 16-byte read-only small-data section containing compiler-emitted floating-point literal storage for this translation unit; it is a constant pool rather than an authored structure or lookup table.",
+        "rationale": "The target remains a 16-byte `.sdata2` section, and the relocated matched source exposes its relevant values as direct floating-point scalar arguments. The absence of indexed access, semantic fields, or mutation supports a compiler literal pool rather than authored structured data.",
+        "confidence": 0.91,
+        "updated_at": "2026-09-04T19:04:54.332Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L53",
+            "why": "Shows zero and one used directly as scalar floating-point motion-state parameters rather than as fields of a structure or entries in a lookup table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L119-L130",
+            "why": "Shows another direct scalar animation-rate literal use without mutation or indexed access."
+          }
+        ]
+      },
+      {
+        "id": "fact:d8f7b533-b260-4ccc-a75d-6af191431a10",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the read-only floating-point literal pool used by the Shouldered action-state routines, including the neutral frame, blend, and playback-rate values used when entering a Shouldered motion and restoring normal animation speed after a struggle pulse.",
+        "rationale": "The relocated source still uses inline floating-point zero and one for Shouldered motion entry and uses one again to restore normal captive animation speed. Those consumers establish the section's role as the translation unit's read-only literal pool.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-04T19:04:54.332Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L53",
+            "why": "Shows the Shouldered transition helper supplying zero and one as the new motion's starting frame, playback rate, and blend."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L119-L130",
+            "why": "Shows the Shouldered animation callback using one to restore normal animation speed after a struggle pulse."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+    "facts": [
+      {
+        "id": "fact:d01b687d-9a39-418f-8937-f86c72ef46df",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the carried fighter object and a Shouldered motion ID from cargo-state logic. It reads the fighter's current `motion_id` to decide whether setup is needed, reads `x2222_b6` to choose `Ft_MF_FreezeState` or `Ft_MF_None`, and forwards the fighter's linked `victim_gobj` as the animation source. When the guard passes, it writes the new motion state through `Fighter_ChangeMotionState`, forwards the fighter to common setup routines with mask `0x1FF`, and writes `ftCo_800DB464` to `accessory1_cb`.",
+        "rationale": "CargoWalk and CargoTurn establish the origin of both arguments: the carrier's victim object and a motion matching the carrier's action. The target body explicitly shows every subsequent read, forwarded argument, setup call, and callback-field write.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:25:19.334Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Directly shows the current-motion and freeze-flag reads, linked animation source, state transition, common setup calls, and callback write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c#L25-L33",
+            "why": "Shows the carrier's `victim_gobj` and ShoulderedTurn motion flowing into the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L25-L35",
+            "why": "Shows the carrier's `victim_gobj` and speed-tier-derived ShoulderedWait motion flowing into the target."
+          }
+        ]
+      },
+      {
+        "id": "fact:c36f8f53-acc2-470e-a48b-ba925f1ff96b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the victim-motion synchronization portion of Donkey Kong's cargo carry. As the carrier walks at different speed tiers or turns around, it places the opponent on his back into the corresponding ShoulderedWait or ShoulderedTurn motion while preserving the linked carrier as the victim animation's source.",
+        "rationale": "CargoWalk selects a ShoulderedWait variant from the carrier's walk tier, while CargoTurn selects ShoulderedTurn; both invoke this function on the carrier's linked victim. The target then enters that victim motion using its own linked fighter as the animation source, directly implementing synchronized carried-opponent presentation across cargo actions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:25:19.334Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Shows the carried fighter entering the requested Shouldered motion with its linked fighter supplying animation data."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L25-L35",
+            "why": "Shows synchronization between the carrier's walking-speed tier and the victim's matching ShoulderedWait variant."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c#L25-L33",
+            "why": "Shows synchronization between the carrier's CargoTurn action and the victim's ShoulderedTurn state."
+          }
+        ]
+      },
+      {
+        "id": "fact:53d1f131-e022-4707-a498-57bcfb7eab60",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_Shouldered_Enter",
+        "rationale": "At the relocated source path, this remains the shared helper that enters caller-selected Shouldered motion variants, and the neighboring initializer delegates its motion entry to it. Cargo walk and turn entry routines likewise invoke it for the carried fighter's matching Shouldered state. `_Enter` is therefore a plausible local convention, though no recovered symbol confirms it.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_Shouldered_Enter`.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L1-L100",
+            "why": "Places the unnamed helper before the Shouldered callback suite and shows the neighboring initializer delegating its requested motion entry to it."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L25-L35",
+            "why": "Shows a cargo action entry routine using the helper to enter a selected ShoulderedWait motion variant."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c#L25-L33",
+            "why": "Shows a cargo action entry routine using the helper to enter the carried fighter's ShoulderedTurn state."
+          }
+        ]
+      },
+      {
+        "id": "fact:4ac06332-d00b-4d44-8a16-45e550237741",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Shared Shouldered motion-state entry helper with exact signature `void (Fighter_GObj* gobj, FtMotionId msid)`. `gobj` owns the carried fighter to update, while `msid` selects the Shouldered motion variant associated with the carrier's current cargo action; all outputs are mutations and setup operations on that fighter.",
+        "rationale": "The definition establishes the exact signature and obtains the Fighter from `gobj`. Cargo callers pass their `victim_gobj` as that object and supply concrete Shouldered motion IDs, proving both the object's role and the motion parameter's domain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:25:19.334Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Provides the exact two-parameter void definition and shows all mutations applied to the Fighter owned by `gobj`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c#L25-L33",
+            "why": "Identifies `gobj` as the carrier's victim and supplies `ftCo_MS_ShoulderedTurn` through `msid`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L25-L35",
+            "why": "Shows the same object role while supplying one of the tiered ShoulderedWait motion IDs."
+          }
+        ]
+      },
+      {
+        "id": "fact:cc5b2f6c-4b56-4f90-8436-d6e288d2e617",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enters or updates the carried fighter's caller-selected Shouldered motion so the victim remains synchronized with the carrier's current cargo action. On a required transition, it starts the requested motion using the linked carrier as the animation source, applies common held-fighter setup, and installs the state's accessory callback.",
+        "rationale": "The function changes the supplied fighter to the requested motion, passes that fighter's linked `victim_gobj` as the animation source, performs two common setup calls, and assigns `ftCo_800DB464` to `accessory1_cb`. CargoWalk and CargoTurn call it on the carrier's `victim_gobj` with matching Shouldered motions, establishing that it prepares the carried opponent rather than the carrier.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T06:25:19.334Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Shows the conditional Shouldered motion transition, linked animation-source argument, common setup calls, and accessory callback installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c#L25-L33",
+            "why": "Shows CargoTurn invoking the function on the carrier's victim with `ftCo_MS_ShoulderedTurn`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L25-L35",
+            "why": "Shows CargoWalk invoking the function on the carrier's victim with the ShoulderedWait motion corresponding to the carrier's walk tier."
+          }
+        ]
+      },
+      {
+        "id": "fact:186f98c6-5e65-476b-ac20-975436aa3dc9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine skips state entry only when the fighter is already in the requested state and that state is `ftCo_MS_ShoulderedWait`. Every other request\u2014including a different ShoulderedWait walk tier or repeated entry into a non-Wait Shouldered state\u2014starts the requested motion at frame 0, rate 1, and blend 0. Fighter flag `x2222_b6` selects frozen-state entry; otherwise no motion-preservation flags are used. Successful entry is followed by common held-state setup and accessory callback installation.",
+        "rationale": "The compound condition precisely defines the no-op case and makes all non-Wait requests re-enter even when their motion ID is unchanged. The `Fighter_ChangeMotionState` arguments establish the starting frame, playback rate, blend, and flag selection, while the following statements establish the post-transition setup.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:25:19.334Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Shows the exact transition guard, conditional freeze flag, animation parameters, and setup performed after entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L25-L35",
+            "why": "Shows why the Wait-state exception matters: the requested ShoulderedWait motion can vary with the carrier's slow, middle, or fast walking tier."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+    "facts": [
+      {
+        "id": "fact:93fbf291-9ab6-4a5b-af3e-3c89dbd7a0f1",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The routine reads the fighter from gobj, combines the fighter's current damage percentage with common-data scale and offset fields, truncates that result to an integer, and supplies it as the initial grab timer with extended bookkeeping disabled. It then writes zero to both Shouldered-local fields and forwards gobj and msid to ftCo_8009C5A4, which conditionally changes motion state and installs the remaining held-state setup.",
+        "rationale": "The relocated target still explicitly performs the damage-based calculation, integer conversion, local-field resets, and helper call. The current `ftCommon_InitGrab` definition is now at lines 674\u2013684 and confirms that the calculated argument is stored in `grab_timer`, that baseline grab fields are reset, and that the false mode argument disables the additional bookkeeping branch.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:04:54.332Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L53",
+            "why": "Shows the complete target flow and the adjacent helper's consumption of gobj and msid for Shouldered motion-state setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L669-L679",
+            "why": "Shows `ftCommon_InitGrab` storing the supplied timer, resetting baseline grab fields, and using the boolean argument to guard additional bookkeeping initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:8c761971-f841-4336-b753-68dbb332ad5c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes entry into the victim side of cargo carry's Shouldered hold, including Melee's percent-dependent, mash-sensitive escape duration: higher victim damage contributes proportionally to the initial hold timer, which later common grab processing can reduce through controller mashing.",
+        "rationale": "The target initializes the captive-side Shouldered state and derives the common grab timer from the fighter's current damage. The relocated `ftCommon_InitGrab` definition confirms that the duration becomes `grab_timer`, while the wiki documents that Melee grab duration increases with victim percent and decreases through button mashing.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T19:04:54.332Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L43-L53",
+            "why": "Shows Shouldered entry initializing common grab state with an integer-quantized duration derived from the held fighter's damage percentage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L669-L679",
+            "why": "Confirms that the calculated duration is stored in the fighter's `grab_timer` and initializes common grab bookkeeping."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://grab~grab-time@r2047744",
+            "why": "Documents that Melee grab duration increases proportionally with the victim's percent and is reduced by button-mashing inputs."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://button-mashing~__intro__@r2045586",
+            "why": "Defines button mashing and identifies escaping grabbed conditions sooner as one of its gameplay uses."
+          }
+        ]
+      },
+      {
+        "id": "fact:17f8b172-2a3f-422e-9acf-09b038dfbb9e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void action-state entry routine with signature void (Fighter_GObj* gobj, FtMotionId msid). The motion ID selects the requested Shouldered motion state, while the computed third argument to ftCommon_InitGrab is an integer-quantized duration stored in the fighter's floating-point grab_timer.",
+        "rationale": "The target definition supplies the exact return and parameter types, forwards `msid` to the Shouldered transition helper, and explicitly converts the damage-based duration to an integer before passing it to `ftCommon_InitGrab`. The initializer's relocated definition confirms that this argument is accepted as a float and stored in `grab_timer`.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:04:54.332Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L43-L53",
+            "why": "Provides the exact target signature, forwards the `FtMotionId`, and shows explicit integer conversion of the calculated duration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L669-L679",
+            "why": "Shows `ftCommon_InitGrab` accepting a floating-point timer argument and storing it in the fighter's `grab_timer` field."
+          }
+        ]
+      },
+      {
+        "id": "fact:844ba98f-3f86-4258-b866-1fa77496c461",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes a fighter entering the captive-side Shouldered state: it establishes a damage-scaled grab-escape countdown, clears the state-local struggle bookkeeping, and delegates the requested motion-state setup to the shared Shouldered transition helper.",
+        "rationale": "The relocated target derives a timer from fighter damage and common-data coefficients, clears both Shouldered move-state fields, and delegates to `ftCo_8009C5A4`. The current initializer definition confirms that the supplied duration becomes `grab_timer` and that common grab bookkeeping is initialized.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T19:04:54.332Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L43-L53",
+            "why": "Shows the damage-scaled timer calculation, both Shouldered-local resets, and delegation to the shared transition helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L669-L679",
+            "why": "Shows `ftCommon_InitGrab` storing the duration in `grab_timer` and resetting common grab-state bookkeeping."
+          }
+        ]
+      },
+      {
+        "id": "fact:7adaa74f-cbc8-4778-8305-3f3c51874644",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On entry, it always replaces the fighter's grab timer and resets both Shouldered-local counters before requesting the supplied motion state. The delegated helper changes motion state and installs held-state setup unless the fighter is already in that same requested state and the request is specifically ShoulderedWait; thus timer and counter reinitialization still occurs even when that helper suppresses a redundant ShoulderedWait transition.",
+        "rationale": "The target unconditionally calls `ftCommon_InitGrab` and clears both local fields before invoking the helper. The current initializer definition confirms that every call replaces `grab_timer`, and the adjacent helper's compound guard shows that only an already-active matching ShoulderedWait request suppresses the subsequent motion transition.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T19:04:54.332Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L53",
+            "why": "Directly shows unconditional timer and counter initialization followed by the helper whose guard suppresses only a redundant matching ShoulderedWait transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L669-L679",
+            "why": "Confirms that each initializer call replaces `grab_timer` and resets the baseline common grab fields."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+    "facts": [
+      {
+        "id": "fact:8ee1289b-fb36-4ba1-a109-4118e20affa9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input game object supplies the shouldered captive and its victim_gobj supplies the carrier. The function reads the carrier's second hit capsule and facing direction, derives an impact position from the captive's XRotN joint, and computes knockback from the captive, carrier, capsule, and capsule hit count. It writes applied knockback, angle, the opposite of the carrier's facing direction, hurtbox index 1, collision position, and element into the captive's damage state; collision handling, damage accumulation, knockback calculation, and common damage-state handling then consume those values.",
+        "rationale": "Every source and destination is explicit in the matched body: relationship traversal obtains the carrier, the bone transform produces the collision position, capsule properties populate the damage fields, and the final calls consume the assembled state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:27:20.364Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L55-L76",
+            "why": "Directly shows all linked-object reads, derived values, damage-state writes, and downstream consumer calls."
+          }
+        ]
+      },
+      {
+        "id": "fact:81856e56-7307-4801-972f-f8a7c25f1bb6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the captive-side completion of Donkey Kong's cargo-carry grab release: when the hold duration expires, the carrier and captive are separated and the captive receives the carrier-side release hit before leaving the held state.",
+        "rationale": "SmashWiki identifies DK's forward throw as a unique back-carry held state that ends in a grab release if maintained too long. The matched caller selects this helper when the Shouldered grab timer expires, and the helper disconnects the linked fighters and sends the captive through damage handling using the carrier's hit capsule.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T06:27:20.364Z",
+        "evidence": [
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "Describes DK's back carry as a held state in which the captive can mash and is grab-released when carried for too long."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "Shows the Shouldered grab-timer expiration path invoking this helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L55-L76",
+            "why": "Shows the captive-side capture cleanup, carrier-hit application, and transition out of the hold."
+          }
+        ]
+      },
+      {
+        "id": "fact:3c69641d-c1d7-4bee-afe3-9ec46b6cdf5f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_Shouldered_ApplyDamage",
+        "rationale": "Within the Shouldered unit, the function is a self-contained captive-side damage application helper. Its core field transfers closely parallel ftCo_800DE854 in the Thrown subsystem, whose observable role is likewise applying a linked fighter's second hit capsule to the input fighter. The unit prefix plus `ApplyDamage` describes the demonstrated operation without speculating about a particular throw direction.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_Shouldered_ApplyDamage`.",
+        "confidence": 0.81,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L55-L76",
+            "why": "Shows that the routine's principal operation is applying linked-fighter hit data, damage, and knockback to the shouldered fighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L187-L204",
+            "why": "Shows the closely analogous Thrown helper shape that applies a linked thrower's second hit capsule to its input fighter."
+          }
+        ]
+      },
+      {
+        "id": "fact:ee1e63ac-a340-4936-ac5b-55c805ce7e29",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A `void (Fighter_GObj* captive_gobj)` fighter-state helper. Its argument is the shouldered captive; the linked carrier is recovered from that fighter's `victim_gobj`.",
+        "rationale": "The matched declaration returns void and accepts one Fighter_GObj pointer. The body treats the argument's Fighter as the recipient of damage and follows its victim_gobj to obtain the carrier and source hit capsule.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T06:27:20.364Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L55-L76",
+            "why": "Provides the concrete signature and demonstrates that the input object receives damage while its victim_gobj supplies the linked carrier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "Shows the Shouldered animation callback passing its own captive game object to this helper during expiration handling."
+          }
+        ]
+      },
+      {
+        "id": "fact:5406e3a9-8b53-43b7-bc27-b5b84dca3288",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Finishes release of a shouldered captive by severing the carrier-captive capture relationship, applying the linked carrier's second hit capsule to the captive, calculating the resulting damage and knockback, and entering the captive's common damage state.",
+        "rationale": "The function obtains the carrier through the input fighter's victim_gobj, selects the carrier's xDF4[1] capsule, calls the shared capture-cut helper, transfers the capsule's hit properties into the captive's damage state, applies its damage, calculates knockback, and dispatches the common damage helper.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T06:27:20.364Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L55-L76",
+            "why": "The complete matched body shows capture cleanup and every stage of applying the carrier's hit capsule to the shouldered fighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "The sole caller invokes this function after the Shouldered grab timer expires and after processing the carrier's side of the release."
+          }
+        ]
+      },
+      {
+        "id": "fact:c531a448-ed34-488d-8b40-6ba3a381a329",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "This is an unconditional terminal helper for the Shouldered hold rather than a per-frame state check: once called by the nonpositive-grab-timer branch, it cuts the capture relationship, constructs the captive's damage state from the carrier's release hit, calculates knockback, and transitions the captive into common damage handling.",
+        "rationale": "The caller supplies the guard and calls this routine only on the expiration path. The routine itself contains no branches; capture cleanup and damage-state dispatch always occur in sequence.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T06:27:20.364Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "Shows that the helper is invoked from the grab_timer <= 0 branch immediately before that branch returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L55-L76",
+            "why": "Shows the helper's branch-free capture-cut, damage construction, knockback calculation, and damage-state sequence."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+    "facts": [
+      {
+        "id": "fact:a4a8395e-5ee0-4f48-afd3-5543354c4347",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the shouldered fighter, its victim_gobj link to the carrier, grab_timer, motion_id, and common Shouldered tuning data. It writes the mash result to mv.co.shouldered.x4 and maintains mv.co.shouldered.x0 as a struggle-animation cooldown. On grab expiration it follows the reciprocal victim link, uses the captive's second hit capsule and the carrier's TransN2 position to populate the carrier's damage fields, then sends those values through collision, damage, knockback, and state-exit routines.",
+        "rationale": "The assignments and call arguments show both normal-frame flow\u2014GrabMash into x4 and x0 into animation-rate control\u2014and expiration flow from the linked fighters and hit capsule into the carrier's damage structure and downstream damage handlers.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T04:08:00.384Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "The source explicitly shows every listed read, write, reciprocal fighter lookup, damage-field assignment, and consumer call."
+          }
+        ]
+      },
+      {
+        "id": "fact:dcd5b299-5127-45bc-a470-2bc66eff8ce7",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the captive side of Donkey Kong's cargo carry: the opponent is held on DK's back, can struggle by mashing, and is released when the grab duration expires.",
+        "rationale": "The code is explicitly the Shouldered animation callback and combines a linked carrier, ShoulderedWait, ftCommon_GrabMash, and grab_timer expiration. SmashWiki independently describes DK's forward throw as placing the opponent into a carried held state on his back where the opponent's only option is to mash and excessive carry duration causes a grab release.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T04:08:00.384Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "The code shows the victim-side Shouldered state, its carrier link, mash processing, and timeout handling."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "The mechanic description identifies DK's back carry as a held state in which the captive can only mash and is grab-released after being carried too long."
+          }
+        ]
+      },
+      {
+        "id": "fact:85f603ed-9f83-490c-ac55-fe8a275eb875",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state animation callback with signature void(Fighter_GObj*); the argument is the shouldered fighter's game object.",
+        "rationale": "The matched definition has a void return and one Fighter_GObj pointer parameter, immediately obtains that object's Fighter data, and operates on the Shouldered motion variables.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:08:00.384Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "The function definition and body directly establish the callback signature and identify the argument as the fighter whose Shouldered state is being updated."
+          }
+        ]
+      },
+      {
+        "id": "fact:0ef80e96-c50d-4d38-878e-c9ba2aa8060d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Updates the held fighter during the Shouldered state: it detects escape mashing, produces timed struggle-animation bursts, and resolves an expired grab by applying the captive's break hit to the carrier and leaving the shouldered state.",
+        "rationale": "Every update stores the result of ftCommon_GrabMash, uses that result and a state-local countdown to alter animation rate, and takes a separate grab_timer-expiration path that prepares and applies damage to the carrier before calling the Shouldered exit handler.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T04:08:00.384Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "The complete callback directly exposes its mash update, animation-rate state machine, damage construction, and expiration path."
+          }
+        ]
+      },
+      {
+        "id": "fact:92cd24ad-615c-438c-8302-d1d8fc9a7546",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If grab_timer is nonpositive, the callback executes the carrier-damage and Shouldered-exit path immediately. Otherwise, a positive x0 countdown is decremented; when it reaches zero without active mash input, animation rate returns to 1. While x0 is nonpositive, mash is active, and motion_id is ShoulderedWait, x0 is reloaded from p_ftCommonData->x3B0 and animation rate is set to shouldered_anim_rate, creating discrete struggle-animation pulses rather than continuously retriggering them.",
+        "rationale": "The branch order, early return, countdown decrement, guards, timer reload, and two ftAnim_SetAnimRate calls directly define this state machine.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:08:00.384Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "The callback's control flow directly shows the expiration guard and the complete x0/x4/ShoulderedWait animation-rate transition logic."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+    "facts": [
+      {
+        "id": "fact:be8dd81f-2ad2-4803-a0e8-35a704be9d83",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the shouldered fighter's `Fighter_GObj*` but does not dereference or forward it, performs no calls or writes, and produces no output beyond returning to the action-state dispatcher.",
+        "rationale": "The complete function body contains no statements, so its input cannot enter any further computation or state mutation and its void return carries no output.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:11:04.157Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L138-L138",
+            "why": "Shows that the callback accepts a fighter object but has no body that could consume it or produce side effects."
+          }
+        ]
+      },
+      {
+        "id": "fact:25410de1-d70c-4018-8189-08cdd4159348",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Makes the carried victim's collision-update phase inert while in the Shouldered state; cargo-carry struggle and release behavior is handled by other Shouldered callbacks rather than by terrain-collision processing here.",
+        "rationale": "The collision callback's complete body is empty, while the unit's animation callback contains the mash, timer, damage, and release logic. Together they localize cargo-carry maintenance outside this collision phase.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T04:11:04.157Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L138-L138",
+            "why": "Shows that the Shouldered collision phase itself has no gameplay effect."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L132",
+            "why": "Shows that the state's cargo-carry mash feedback, expiration, damage setup, and departure logic instead reside in the animation callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:6b3d78fc-684e-40ac-a5c8-4be59de83b5c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter action-state collision callback with signature `void (Fighter_GObj*)`; it receives the fighter object, returns no value, and intentionally leaves its parameter unused.",
+        "rationale": "The complete matched definition directly supplies the void return type and Fighter_GObj pointer parameter, while the empty body proves that the argument is unused.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:11:04.157Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L138-L138",
+            "why": "Directly provides the function's complete signature and empty implementation."
+          }
+        ]
+      },
+      {
+        "id": "fact:ccf2e27e-f653-4249-b02a-e68b1bf6317b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the Shouldered action state's intentionally empty collision callback, preserving the standard per-state callback entry point while requiring no collision-specific work for the carried victim.",
+        "rationale": "The matched function is explicitly the Shouldered collision callback and its complete body is empty. Thus its role is to occupy that callback phase without performing collision correction, delegation, or state changes.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T04:11:04.157Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L138-L138",
+            "why": "Shows the complete `ftCo_Shouldered_Coll` definition as an empty function receiving the fighter object."
+          }
+        ]
+      },
+      {
+        "id": "fact:2197018a-73b4-4ef6-b050-a2b772723bd0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has invariant no-op behavior: it contains no guards, collision tests, transitions, timers, or mutations and immediately returns for every fighter object.",
+        "rationale": "Because the complete matched body is empty, there is no input-dependent branch or state effect within this callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:11:04.157Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L138-L138",
+            "why": "The complete empty implementation proves that the callback performs no collision-state behavior."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+    "facts": [
+      {
+        "id": "fact:b72fcc4d-a192-47a5-b93c-eb92dfd5bfd3",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj pointer but does not dereference or forward it, reads and writes no fighter or global state, calls no functions, and produces no output before returning.",
+        "rationale": "The complete function body contains no statements. Therefore its argument terminates at the callback boundary and no data, state mutation, or return value flows out of the function.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:10:49.275Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L134",
+            "why": "Shows the full empty IASA implementation, proving that its parameter is unused and that it has no side effects or output."
+          }
+        ]
+      },
+      {
+        "id": "fact:de4e1c43-73e5-4d8c-84db-a7bb578ade09",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Represents the absence of ordinary interrupt actions for an opponent held in Donkey Kong's cargo carry. The captive cannot select a normal action through IASA while shouldered; its available active response is escape mashing, which the state's animation callback processes separately.",
+        "rationale": "The empty IASA callback demonstrates that no ordinary input-driven action transition is offered in this state, while ftCo_Shouldered_Anim calls ftCommon_GrabMash. SmashWiki independently states that a cargo-carried opponent's only option is to mash.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T04:10:49.275Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L134",
+            "why": "Shows that Shouldered escape input is handled through ftCommon_GrabMash in the animation callback while the IASA callback performs no input or transition logic."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "States that an opponent carried on DK's back is in a held state and has no option other than mashing."
+          }
+        ]
+      },
+      {
+        "id": "fact:eb02968c-2805-4754-948d-be9a251baa81",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state IASA callback with signature `void(Fighter_GObj* gobj)`; the parameter is the shouldered fighter's game object, although this implementation does not inspect it.",
+        "rationale": "The matched definition directly supplies the void return type and single Fighter_GObj pointer parameter. Its Shouldered_IASA name and placement beside the state's Anim, Phys, and Coll callbacks establish its action-state callback role, while the empty body proves that the parameter is unused.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:10:49.275Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L134",
+            "why": "Directly shows the function's complete signature, empty body, and placement after the Shouldered animation callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:d90b975f-443f-42d2-b46b-34c4642e4ee2",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the intentionally inert interrupt-processing callback for the carried victim's Shouldered action state. It preserves the standard IASA callback slot without performing input checks or initiating an action-state transition; Shouldered mash and release processing instead occurs in the animation callback.",
+        "rationale": "The complete IASA definition has an empty body, while the immediately preceding Shouldered animation callback performs the state's mash-input, timer, animation-rate, damage, and exit work. This division establishes the empty function as a real no-op state callback rather than missing logic.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:10:49.275Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L134",
+            "why": "Shows all Shouldered mash and timeout processing in ftCo_Shouldered_Anim followed by the complete empty ftCo_Shouldered_IASA definition."
+          }
+        ]
+      },
+      {
+        "id": "fact:53ea9c75-bd30-4ffd-9ca2-536b683aafd6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On every invocation it returns unconditionally without guards, timers, mutations, or transitions. Consequently, the Shouldered state cannot be interrupted or changed through this IASA callback; its mash-sensitive struggle and grab-expiration transitions are handled by ftCo_Shouldered_Anim.",
+        "rationale": "The IASA body is unconditionally empty, whereas the adjacent animation callback contains the grab_timer expiration branch and the mash-driven struggle timer. The code therefore assigns no state transition behavior to the IASA phase.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:10:49.275Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L86-L134",
+            "why": "Contrasts the animation callback's explicit mash and timeout state logic with the complete no-op IASA callback."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+    "facts": [
+      {
+        "id": "fact:6080fb13-7eec-42d3-a23e-03f1beb2b960",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a `Fighter_GObj*` from the action-state callback interface but does not dereference or otherwise consume it, performs no calls or writes, and produces no output beyond returning to the state dispatcher.",
+        "rationale": "The parameter appears in the complete definition, but the empty body contains no operation capable of reading the fighter object, mutating state, invoking another routine, or producing a return value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:10:03.576Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L136-L136",
+            "why": "Shows the input parameter and the complete absence of reads, writes, calls, or returned data."
+          }
+        ]
+      },
+      {
+        "id": "fact:90141579-26bf-4fa0-ac1d-025e61a35210",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the cargo-carry Shouldered phase as a held-victim state with no victim-side per-frame physics operation.",
+        "rationale": "The callback belongs to the Shouldered state implementation, and its complete empty body proves that this phase deliberately applies no physics operation through the carried victim's physics callback.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-02T04:10:03.576Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L136-L136",
+            "why": "Identifies the function as the Shouldered physics callback and shows that it performs no physics work."
+          }
+        ]
+      },
+      {
+        "id": "fact:5340a0fd-6db7-40a7-9ac0-b3711650bf70",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter action-state physics callback with signature `void (Fighter_GObj*)`; it receives the fighter object for the current state and returns no value.",
+        "rationale": "The complete definition directly establishes the `void` return type and single `Fighter_GObj*` parameter, while the `_Phys` suffix within the Shouldered action-state callback family identifies its callback role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:10:03.576Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L136-L136",
+            "why": "Directly provides the function's complete return and parameter types."
+          }
+        ]
+      },
+      {
+        "id": "fact:fc8ece9d-fa3e-4766-87ed-08266ef2932e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the no-op physics callback for the carried victim's Shouldered action state, satisfying the state callback interface without applying an independent physics update.",
+        "rationale": "The function is the unit's explicitly named Shouldered physics callback, while its complete matched body contains no statements. Exact opseq analogs are likewise empty functions, confirming that the four-byte implementation represents an intentional no-op rather than omitted behavior.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T04:10:03.576Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L136-L136",
+            "why": "Directly shows the complete `ftCo_Shouldered_Phys` definition and its empty body."
+          }
+        ]
+      },
+      {
+        "id": "fact:683ab68a-4fb0-4471-ba80-ad0851845b78",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has invariant no-op behavior while the fighter is in the Shouldered state: there are no guards, timers, movement calculations, state transitions, or mutations, and every invocation returns immediately.",
+        "rationale": "The complete matched implementation is empty, so its behavior cannot vary with fighter state or input and cannot itself perform any transition or physics operation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T04:10:03.576Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L136-L136",
+            "why": "The complete one-line definition demonstrates unconditional, side-effect-free behavior."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c",
+    "facts": [
+      {
+        "id": "fact:01931ae9-3cbf-4ad2-8d2c-c50744b5c8c5",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c",
+        "type": "data_flow",
+        "value": "Carrier links, grab timer, mash result, and Shouldered constants drive struggle animation and release; on expiration, each fighter's secondary hit capsule is transferred into the other's damage state.",
+        "rationale": "The current source retains mash and timer processing plus both directions of hit-capsule-to-damage flow.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L1-L138",
+            "why": "Shows mash inputs, timers, reciprocal fighter links, hit capsules, knockback, and damage dispatch."
+          }
+        ]
+      },
+      {
+        "id": "fact:a22bacf6-d3f1-4038-967b-09a3f421b9f0",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c",
+        "type": "game_mapping",
+        "value": "Realizes the carried opponent's state during Donkey Kong's cargo carry, including mash struggle and timed release.",
+        "rationale": "The current unit operates on a linked carrier and captive in ShoulderedWait while processing grab mash and duration.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L1-L138",
+            "why": "Shows the captive-carrier relationship, ShoulderedWait, mash processing, and expiration."
+          }
+        ]
+      },
+      {
+        "id": "fact:cbc1a0c0-cac2-482f-b629-1539ddeb9eaa",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c",
+        "type": "purpose",
+        "value": "Implements the captive side of Shouldered cargo carry, including mash feedback, hold expiration, reciprocal release-hit processing, capture cleanup, and damage transitions.",
+        "rationale": "The current source retains setup, mash processing, expiration handling, reciprocal damage transfer, and inert update callbacks.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L1-L138",
+            "why": "Shows Shouldered setup, mash and timer logic, reciprocal hit processing, cleanup, and callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:3776cffb-fa8e-4f40-9a2a-9cab7d795df3",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c",
+        "type": "state_behavior",
+        "value": "Mash pulses temporarily accelerate the captive's struggle animation. Grab-timer expiration takes priority, damages the carrier first, then cuts capture and applies the carrier's reciprocal release hit to the captive.",
+        "rationale": "The current branch order and helper sequence directly preserve this priority.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L1-L138",
+            "why": "Shows struggle-rate timing, expiration guard, carrier-first damage handling, and captive release damage."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C5A4#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C640#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_8009C744#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Anim#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Coll#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_IASA#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Shouldered:ftCo_Shouldered_Phys#r3",
+    "facts": []
+  }
+]

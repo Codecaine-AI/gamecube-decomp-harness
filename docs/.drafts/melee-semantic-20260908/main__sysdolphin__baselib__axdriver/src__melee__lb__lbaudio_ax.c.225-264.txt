@@ -1,0 +1,40 @@
+225: static int fn_80023750(int id, int vol, int pan, int track, int channel)
+226: {
+227:     vol *= 2;
+228:     if (vol < 0) {
+229:         vol = 0;
+230:     }
+231:     if (vol > 0xFF) {
+232:         vol = 0xFF;
+233:     }
+234:     pan *= 2;
+235:     if (pan < 0) {
+236:         pan = 0;
+237:     }
+238:     if (pan > 0xFF) {
+239:         pan = 0xFF;
+240:     }
+241:     return AXDriver_8038CFF4(id, vol, pan, track, channel);
+242: }
+243: 
+244: int lbAudioAx_800237A8(int id, int vol, int pan)
+245: {
+246:     if (id >= 0x83D61) {
+247:         return fn_80023750(0x83D60, 0, PAN_MID, 0, 7);
+248:     } else {
+249:         return fn_80023750(id, vol, pan, 0, 7);
+250:     }
+251: }
+252: 
+253: int lbAudioAx_80023870(int id, int vol, int pan, int track)
+254: {
+255:     if (track == 0) {
+256:         return lbAudioAx_800237A8(id, vol, pan);
+257:     }
+258:     if (id == 0x83D61) {
+259:         HSD_AudioSFXKeyOffTrack(track);
+260:         return -1;
+261:     }
+262:     return fn_80023750(id, vol, pan, track, 7);
+263: }
+264: 

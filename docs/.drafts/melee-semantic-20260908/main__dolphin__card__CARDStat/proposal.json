@@ -1,0 +1,50 @@
+{
+  "tu": "main/dolphin/card/CARDStat",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDStat.c#L20-L75",
+            "why": "Sentinel handling writes stat, whereas both format switches read ent."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication that sentinel normalization suppresses presentation-layout computation; the cleared output fields are not the switch inputs.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDStat:UpdateIconOffsets"
+        },
+        "type": "state_behavior",
+        "value": "If ent->iconAddr is 0xffffffff, the helper clears stat->bannerFormat, stat->iconFormat, and stat->iconSpeed and resets the layout cursor to zero, without changing ent. Banner and icon switches still decode ent, so recognized stored formats can produce asset offsets and a nonzero offsetData even with the absent-address sentinel. Absent or unsupported formats receive 0xffffffff offsets without consuming storage. A banner TLUT exists only for C8 banners; one shared trailing icon TLUT exists if any icon is C8."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDStat.c#L130-L162",
+            "why": "Input guards, access rejection, mutation order, and immediate-failure release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDDir.c#L14-L94",
+            "why": "Directory persistence, successful copy switching, error paths, conditional release, and callback clearing/invocation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact validation and cross-file ownership branches, including conditional callback cleanup and mutation-before-scheduling failure behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDStat:CARDSetStatusAsync"
+        },
+        "type": "state_behavior",
+        "value": "Rejects out-of-range file numbers, non-sentinel icon addresses at or beyond CARD_READ_SIZE, and non-sentinel comment addresses whose system-block remainder exceeds CARD_SYSTEM_BLOCK_SIZE - CARD_COMMENT_SIZE with CARD_RESULT_FATAL_ERROR. Acquisition failures propagate immediately; access failures release the acquired control block without a public-file fallback. Presentation metadata and the directory timestamp are mutated before __CARDUpdateDir; immediate scheduling failure releases the block but this function performs no mutation rollback. Successful scheduling delegates completion to directory erase/write callbacks. Successful write completion switches and mirrors the current directory copy. Those callbacks release the control block only when card->apiCallback is null, then clear and invoke a non-null saved eraseCallback with channel and result; erase/write errors also reach this conditional cleanup and notification path."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

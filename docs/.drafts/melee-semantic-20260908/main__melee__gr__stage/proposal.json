@@ -1,0 +1,170 @@
+{
+  "tu": "main/melee/gr/stage",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L50-L53",
+            "why": "Stage-owned angle converted to radians."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L849-L870",
+            "why": "Base angle enters vertical frustum and interest calculations."
+          }
+        ],
+        "op": "write",
+        "rationale": "The canonical consumer places this angle in vertical framing, correcting the existing horizontal-pan characterization without relying on its name.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/stage:Stage_GetCamPanAngleRadians"
+        },
+        "type": "game_mapping",
+        "value": "Supplies the stage's base vertical camera angle in standard match framing. Camera_80029CF8 adds it to the bounds-derived pitch adjustment before calculating upper/lower frustum angles and vertical interest and eye offsets."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L60-L63",
+            "why": "Exact accessor signature and source field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L749-L766",
+            "why": "Minimum-distance clamp."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L895-L907",
+            "why": "Same floor in standard target-position calculation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Both canonical consumers compare computed distances against the value and replace smaller distances with it.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/stage:Stage_GetCamZoomRate"
+        },
+        "type": "inferred_type",
+        "value": "Parameterless f32 accessor returning a stage-camera distance floor. Camera_80029BC4 and Camera_80029CF8 use the value as the minimum calculated camera depth/distance, not as a temporal zoom rate."
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L759-L765",
+            "why": "Paired minimum and maximum depth clamps."
+          }
+        ],
+        "op": "write",
+        "rationale": "Meaningfully distinguishes the demonstrated distance floor from a rate and parallels Stage_GetCamMaxDepth, which supplies the upper clamp. This is a semantic reconstruction, not a recovered original symbol.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/stage:Stage_GetCamZoomRate"
+        },
+        "type": "inferred_name",
+        "value": "Stage_GetCamMinDepth"
+      },
+      {
+        "confidence": 0.91,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L496-L521",
+            "why": "Only the first phase establishes selected_stage; the next phase reuses it."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L453-L466",
+            "why": "Initial Ground data loading and parameter/callback setup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes selection and initial data setup from the subsequent runtime initialization wrapper, resolving the rendered Stage_Init collision while preserving the later wrapper's supported name.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/stage:Stage_802251E8"
+        },
+        "type": "inferred_name",
+        "value": "Stage_SelectAndLoadData"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L12-L17",
+            "why": "StageIdMapEntry definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L339-L340",
+            "why": "Array declaration and index domain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L491-L494",
+            "why": "Exact signature and unchecked forwarding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the previous rationale's mistaken identification of the indexed record as StageIdPair and avoids ambiguous external/internal terminology.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/stage:Stage_802251B4"
+        },
+        "type": "inferred_type",
+        "value": "Signature void Stage_802251B4(StKind stkind). The argument directly indexes the StageIdMapEntry array stage_id_map; its grkind field is forwarded to Ground_801C06B8. The wrapper performs no local index validation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L174-L196",
+            "why": "Initial overwrite, unguarded division and final Z assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Records a useful exceptional numerical precondition missing from the existing projection explanation.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/stage:Stage_80224CAC"
+        },
+        "type": "state_behavior",
+        "value": "Overwrites the supplied vector without reading its prior contents. Projection divides by the negated rotated direction's Z component with no zero or near-zero check, then forces output Z to zero; a finite intersection therefore depends on suitable configured camera orientation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L18-L24",
+            "why": "Initial null cached entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/stage.c#L496-L557",
+            "why": "Selection establishment and later local-pair construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L688-L734",
+            "why": "Synchronous dispatch and deferred callback allocation/drain lifetime."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the cross-file lifecycle precondition, mixed identifier provenance and callback lifetime that are important when reading these otherwise similar wrappers.",
+        "subject": {
+          "entity_locator": "src/melee/gr/stage.c"
+        },
+        "type": "state_behavior",
+        "value": "selected_stage starts as Izumi with a null entry. Stage_802251E8 establishes the cached map-entry pointer; subsequent runtime-init, load, start and demo wrappers dereference it without a guard. Start/demo use that cached GrKind together with the caller's StKind rather than remapping the supplied StKind. Each StageIdPair is local to the call; inspected Ground load/start/demo dispatchers consume it synchronously. Ground startup invokes on_start, drains and frees deferred callback nodes, clears the queue, and creates common stage processing."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

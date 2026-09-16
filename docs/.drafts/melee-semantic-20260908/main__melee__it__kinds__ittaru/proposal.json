@@ -1,0 +1,285 @@
+{
+  "tu": "main/melee/it/kinds/ittaru",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:itTaru_Logic2_PickedUp"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Performs Barrel pickup setup by setting xDB0_itcmd_var1 to 1 and entering held motion state 2 with ITEM_ANIM_UPDATE. The separate model-orientation helper later consumes var1 to realign the child joint.",
+        "rationale": "Identifies the exact variable instead of ambiguously calling var1 the first command variable, and preserves its demonstrated lifetime across callbacks.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L280-L285",
+            "why": "Pickup writes var1 and selects state 2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L149-L187",
+            "why": "Model alignment consumes and clears var1."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:itTaru_UnkMotion3_Anim"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "itTaru_Thrown_Anim",
+        "rationale": "Distinguishes state 3 from initial-fall state 1 and matches the existing Thrown_Phys and Thrown_Coll hypotheses. State 3 also handles dropped Barrels; this is a semantic name, not recovered historical spelling.",
+        "confidence": 0.91,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L24-L40",
+            "why": "State 1 and state 3 are separate callback families."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L294-L337",
+            "why": "Thrown and dropped paths select state 3."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:itTaru_UnkMotion3_Coll"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Item-state collision callback with signature bool(Item_GObj*). It returns false on ordinary paths and forwards it_3F14_Logic2_DmgDealt on break-triggering impacts; that callee also always returns false. Break initiation changes the item into a terminal state rather than reporting immediate removal through this return value.",
+        "rationale": "Preserves the signature and forwarding contract while correcting the implication that impact branches return a terminating result.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L339-L371",
+            "why": "Collision return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L618-L628",
+            "why": "Forwarded callee always returns false."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:itTaru_UnkMotion4_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Passes the Barrel through rolling integration and model-orientation updates, then reads the resulting absolute taru.xDE4 against special-attribute x1C and independently against 0.01. Above x1C, it copies xDE4 into horizontal velocity, zeros vertical velocity, clears xDC8_word.flags.x15 through it_8026B3A8, enters motion state 5 with ITEM_ANIM_UPDATE, and sets xDCD bits 5, 6, and 7. Below 0.01, it independently sets those same bits. The promotion sequence contains no explicit ground_or_air write.",
+        "rationale": "Replaces the unsupported grounding interpretation with the verified flag operation and preserves both independent tests.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L472-L504",
+            "why": "Exact promotion and near-stop flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L174-L181",
+            "why": "Preparation helper clears x15 only."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L38-L46",
+            "why": "Interaction flag writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:itTaru_UnkMotion4_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each state-4 physics update integrates rolling motion and refreshes model orientation. If abs(taru.xDE4) exceeds attr->x1C, the callback installs that horizontal speed, zeros vertical speed, clears item flag x15, enters state 5 with ITEM_ANIM_UPDATE, and sets xDCD bits 5, 6, and 7. A separate subsequent test sets those bits when abs(taru.xDE4) is below 0.01. Neither test should be described as an explicit grounding operation.",
+        "rationale": "Corrects grounding while retaining strict comparisons, transition ordering, and the independent near-stop branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L472-L504",
+            "why": "Two independent speed guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L174-L181",
+            "why": "Flag clear is not grounding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L38-L46",
+            "why": "Exact flag effects."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:itTaru_UnkMotion5_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "First calls it_8026D62C with it_80287F20 as its transition callback. If the item is not airborne afterward, mask 0x18000 causes the stored surface vector to be refreshed; otherwise only its X component is cleared. Contact under mask 0x3F or 0xFC0 tests abs(taru.xDE4): above attr->x2C it immediately forwards to the guarded break response; otherwise it flips facing, replaces rolling speed with -(speed * attr->x30), derives horizontal velocity using the stored vector's Y component, and calls it_80275444. Except for the early forwarded return, it refreshes model orientation and returns false. The forwarded break response also returns false.",
+        "rationale": "Preserves numeric collision-mask uncertainty instead of asserting ceiling semantics, records X-only clearing and callback-based transition, and distinguishes terminal initiation from immediate deletion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L422-L456",
+            "why": "Complete collision sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L618-L628",
+            "why": "Break callback result."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:itTaru_UnkMotion6_Phys"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies the no-independent-physics portion of the Barrel's motion-state-6 terminal break branch. Its entry zeros horizontal and vertical velocity, and this empty callback adds no movement while the separate animation callback advances the common lifetime. Motion state 6 uses table animation selector 2, not animation 6.",
+        "rationale": "Corrects the state-index/animation-selector conflation and identifies timer-driven progression.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L24-L40",
+            "why": "State 6 has selector 2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L511-L547",
+            "why": "Planar velocity reset and callback family."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1429-L1450",
+            "why": "Common lifetime progression."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:itTaru_UnkMotion6_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides the intentionally empty physics callback for Barrel motion state 6. The entry routine has already zeroed planar velocity and set the one-shot terminal guard. This callback performs no further physics work; completion is delegated to the animation callback's common-lifetime countdown rather than to movement or an animation-number-6 completion test.",
+        "rationale": "Retains the useful no-op explanation while removing the erroneous animation-number premise and avoiding an all-components velocity claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L511-L547",
+            "why": "Entry writes and empty physics body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1440-L1450",
+            "why": "Actual completion predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:it_3F14_Logic2_Clanked"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "While taru.xDD4 is zero, a clank emits the shared effect and selects motion state 6 or 7 using HSD_Randi(attr->x0 + attr->x4) < attr->x0. Both entry routines zero planar velocity, set xDD4 to 1, and write xDD8 = 40. Only state 7 consumes that local counter; state 6 instead counts down common xD44_lifeTimer initialized from it_804D6D28->xF8. Once the guard is nonzero, subsequent clanks do nothing. Every callback path returns false.",
+        "rationale": "Corrects the claim that both terminal outcomes necessarily have a 40-frame lifetime while retaining their common guard and writes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L511-L640",
+            "why": "Terminal setup, local countdown, random selector, and clank guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1429-L1450",
+            "why": "State-6 lifetime producer and consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:it_3F14_Logic2_DmgDealt"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Acts only while taru.xDD4 is zero, invoking the shared effect and weighted selection of terminal motion state 6 or 7. Both entries set the guard, zero horizontal and vertical velocity, and write taru.xDD8 = 40. State 7 hides the model and decrements that local counter; state 6 completes through common xD44_lifeTimer initialized from it_804D6D28->xF8, not through xDD8. The callback always returns false, so break initiation does not request immediate removal through its return value.",
+        "rationale": "Separates terminal state indices, timer fields, and delayed completion instead of assigning both branches the local counter's duration.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L511-L628",
+            "why": "Both terminal branches and damage-dealt callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1429-L1450",
+            "why": "Distinct common lifetime."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:it_3F14_Logic2_Spawned"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Initializes an unbroken Barrel with zero stored rolling speed and accumulated roll angle, a world-up surface vector, and randomized child-model tilt, then unconditionally enters motion state 1 with ITEM_ANIM_UPDATE. State 1 applies common falling physics; qualifying contact settles into state 0 below attr->x34 or bounces at or above that threshold. Rolling may subsequently begin through state 0's slope handling, but the state-1 collision callback does not directly enter rolling.",
+        "rationale": "Corrects the implied direct state-1-to-rolling transition while preserving the supported spawn and landing behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L42-L62",
+            "why": "Spawn initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L200-L278",
+            "why": "Support, slope, initial-fall entry, and landing transitions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittaru:it_80287690"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Computes step = (pi/2)/attr->x18. With xDB0_itcmd_var1 nonzero, child Z moves by one step toward pi/2 unless already within the approximately one-degree-plus-step snap band; snapping Z clears var1. Child X is then independently stepped or snapped toward taru.xDDC using the same tolerance-plus-step pattern, even if Z just cleared the flag. With var1 initially clear, both child rotations snap directly to their targets. Finally, root Z is written to zero and then to taru.xDE0. Only Z convergence controls the alignment flag; there is no local motion-state or lifetime transition.",
+        "rationale": "Corrects the snap-band width and preserves the important asymmetry between Z-controlled flag clearing and independent X processing.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittaru.c#L149-L187",
+            "why": "Exact step, comparisons, flag clear, and root writes."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

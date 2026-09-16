@@ -1,0 +1,55 @@
+{
+  "tu": "main/dolphin/mtx/vec",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/vec.c#L146-L164",
+            "why": "Shows the guarded arithmetic, refinement, fsel operands and final multiplication."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the selection operand and fallback explicit, preserving exceptional-value behavior and the source's compilation guard.",
+        "subject": {
+          "target_stable_key": "main/dolphin/mtx/vec:PSVECMag"
+        },
+        "type": "data_flow",
+        "value": "In the __MWERKS__ body, component loads and paired arithmetic form squared magnitude s. An frsqrte estimate r is refined once to q = 0.5r(3 - sr\u00b2). The instruction fsel f0,f0,f0,f1 selects q when q compares greater than or equal to zero, and selects s otherwise, including an unordered q. The final return-register value is s times that selected factor, not unconditionally s*q. There are no calls or memory stores. The instruction body is excluded outside __MWERKS__."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/vec.c#L8-L90",
+            "why": "Representative checked scalar and paired-single primitives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/vec.c#L181-L192",
+            "why": "Dot product uses overlapping component pairs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/vec.c#L231-L305",
+            "why": "Composite helpers and unchecked scalar square distance, followed by its overlapping-pair PS implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects generalizations about validation and paired-load organization exposed by the full file.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/mtx/vec.c"
+        },
+        "type": "inferred_type",
+        "value": "A Dolphin SDK vector-math implementation unit operating on three floating-point Vec components. It provides scalar C_VEC* and PowerPC paired-single PSVEC* primitives plus composite VEC helpers. Many scalar routines contain assertions, but C_VECSquareDistance does not. Many PS routines process x/y together and z separately; dot product and squared distance instead reduce overlapping y/z and x/y pairs."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "tu": "main/melee/mn/mnnamenew",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnnamenew:InitNameEntryUIState"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Prepares the fresh Name Entry editor for creating a player-name profile at a supplied index, including localization-specific keyboard mode and automatic-name browsing history. The observed entry paths clear the working name, and successful confirmation creates the profile before writing its name and rumble preference.",
+        "rationale": "Narrows the unsupported create-or-modify description to the creation flow demonstrated by entry and acceptance code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1792-L1828",
+            "why": "Initializes supplied profile index, locale mode and history."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1894-L1911",
+            "why": "Fresh Names entry clears working slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1114-L1123",
+            "why": "Acceptance creates then populates the profile."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnnamenew:mnNameNew_8023E32C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Constructs the separate Name Entry screen used to compose a new Melee player name, including its 50-key on-screen keyboard, locale-sensitive initial mode, and current-selection presentation. The supplied index identifies the profile slot populated after successful confirmation; this constructor is not the saved Names list's management interface.",
+        "rationale": "Distinguishes fresh-name construction from the broader create-or-manage claim.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1792-L1911",
+            "why": "State initialization, keyboard construction and fresh entry reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L597-L606",
+            "why": "Names-menu new-profile option invokes the entry path."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnnamenew:mnNameNew_8023BAA8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For valid keyboard selections, directional priority is bit 1 (up), bit 2 (down), bit 4 (left), then bit 8 (right). Positions 0\u201349 form ten columns of five rows: up/down subtract/add one within a column and leave either vertical edge for 0x39; left/right add/subtract five and leave either horizontal edge for the current mode's control 0x33, 0x34 or 0x35. Up/down cycle special selections 0x32\u20130x38. From 0x39, up returns to the remembered column's bottom row and down to its top row. Left/right from 0x32\u20130x37 restore the remembered row at the grid's right/left edge respectively; these movements do not move 0x38 or 0x39. Unsupported movements return the current selection unchanged. The helper does not mutate editor state.",
+        "rationale": "Corrects transposed input directions and grid axes using canonical input definitions and actual text placement while preserving boundary cases and priority.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/inlines.h#L12-L24",
+            "why": "Defines direction bits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L473-L489",
+            "why": "Defines ten-column/five-row placement with reversed horizontal index."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L491-L563",
+            "why": "Complete navigation branch structure."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnnamenew:mnNameNew_GlyphVariantInput"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Side-effect-only modal input handler with signature `void mnNameNew_GlyphVariantInput(HSD_GObj* gobj)`. The parameter is accepted but unused. The handler obtains NameNewEntry from `mnNameNew_804D6C08->user_data`, polls `mnNameNew_PortInUse`, and communicates results through shared selection state, name-buffer writes and UI operations. Main input forwards its callback GObj when the chooser is active.",
+        "rationale": "Corrects the stale parameterless signature without confusing an unused argument with an absent argument.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L784-L878",
+            "why": "Complete definition accepts but does not use gobj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L938-L946",
+            "why": "Main handler forwards callback argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.h#L19-L20",
+            "why": "Matching public declarations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnnamenew:mnNameNew_GlyphVariantInput"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles controller input while the Name Entry glyph-variant popup is active: it navigates the available two-row variant grid, accepts a selected variant into the current name slot, or cancels and closes the popup without insertion.",
+        "rationale": "Corrects the two-column description to the two-row geometry shared by text and model construction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L784-L878",
+            "why": "Navigation, confirmation and cancellation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1420-L1424",
+            "why": "Text uses column i/2 and row i%2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1536-L1547",
+            "why": "Models use matching two-row placement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnnamenew:mnNameNew_GlyphVariantInput"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A-button confirmation has highest priority: it destroys and nulls the popup, inserts the selected glyph, advances cursor_pos through slot 3 or changes hover to 0x39 when already at the final slot, and refreshes the name display. For base keys other than 0x30 and 0x31, an odd selected variant toggles mode between 0 and 1 and rebuilds keyboard presentation. Back/cancel has second priority and destroys and nulls the popup without insertion. Otherwise up and down (bits 1 and 2) each toggle selection parity between the two rows; left and right (bits 4 and 8) subtract or add two, wrapping across columns while preserving the row. The choice bound is twice the number of populated lower-table entries before the empty-string sentinel. Movement audio plays only when selection changes.",
+        "rationale": "Preserves modal lifecycle, priority and special-key exceptions while correcting the transposed navigation axes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/inlines.h#L12-L24",
+            "why": "Input bit identities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L784-L878",
+            "why": "Complete modal transitions and wrapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L1420-L1424",
+            "why": "Two-row interpretation of parity."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/mn/mnnamenew.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Menu/UI translation unit centered on NameNewEntry and GlyphVariantEntry, with three 50-position keyboard display tables, two script-specific `50 x 4` glyph-pointer tables, and a 16-byte working-name buffer edited as four three-byte slots. Four pointers per glyph row are storage capacity, not four available alternatives: the initializers contain one to three populated glyph strings before an empty-string sentinel. Modal choice count doubles the populated lower-row count to pair the two scripts, yielding two, four or six choices; ordinary space-key input bypasses the chooser.",
+        "rationale": "Separates declared capacity from sentinel-limited usable alternatives and preserves the actual paired-script model.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L31-L220",
+            "why": "Types, buffer and sentinel-bearing initializers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L910-L989",
+            "why": "Sentinel count, doubled choice count and space bypass."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnnamenew:.sdata"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Glyph-string pointers populate the three 50-key display tables and the two script-specific glyph tables. Each glyph row has four pointer slots but is terminated by a pointer to the empty-string sentinel; the populated entries determine the available forms. Keyboard setup selects the mode's display table. Insertion resolves key, variant and mode, copying a selected glyph and then the null marker for modes 0 and 1, or copying exactly three bytes from the fixed character table for mode 2. Callers supply the active three-byte working-name slot. These are source-level literal and consumer relationships, not a claim about compiled literal-pool placement.",
+        "rationale": "Corrects four-way availability and unconditional terminator-append wording while avoiding unsupported compiled pooling claims.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L83-L220",
+            "why": "Display tables and sentinel-terminated glyph rows."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L380-L397",
+            "why": "Mode-specific table selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnnamenew.c#L735-L807",
+            "why": "Distinct copy paths and active-slot caller."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

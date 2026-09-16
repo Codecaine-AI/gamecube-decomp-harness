@@ -10,7 +10,7 @@ import shutil
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from toolpack_runtime import print_json, resolve_repo_root, tool_impl_root, tool_impl_status
+from toolpack_runtime import print_json, project_layout, repo_path_label, resolve_repo_root, tool_impl_root, tool_impl_status
 
 
 def main() -> None:
@@ -20,13 +20,24 @@ def main() -> None:
     args = parser.parse_args()
 
     repo_root = resolve_repo_root(args.repo_root)
+    layout = project_layout(repo_root)
+    context_script = repo_path_label(repo_root, layout.context_script)
+    message = (
+        "m2c is ready when tool-local m2c files, generated objects/asm, and m2ctx.py are present."
+        if context_script == "tools/m2ctx/m2ctx.py"
+        else "m2c is ready when tool-local m2c files, generated objects/asm, and the project's context script are present."
+    )
     payload = tool_impl_status(
         tool="m2c_decomp",
         scripts=("decomp.py",),
         repo_root=repo_root,
-        required_paths=("build/GALE01/obj", "build/GALE01/asm", "tools/m2ctx/m2ctx.py"),
+        required_paths=(
+            repo_path_label(repo_root, layout.obj_root),
+            repo_path_label(repo_root, layout.asm_root),
+            context_script,
+        ),
         optional_paths=("build/ctx.c",),
-        message="m2c is ready when tool-local m2c files, generated objects/asm, and m2ctx.py are present.",
+        message=message,
     )
     payload["m2c_root"] = str(tool_impl_root() / "m2c")
     payload["m2c_license"] = "GPL-3.0"

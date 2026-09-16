@@ -1,0 +1,124 @@
+395:     PAD_STACK(28);
+396:     if (mn_804D6BC8.cooldown != 0) {
+397:         Menu_DecrementAnimTimer();
+398:         return;
+399:     }
+400:     events = Menu_GetAllInputs();
+401:     if (events & MenuInput_Back) {
+402:         lbAudioAx_80023694();
+403:         user_data->unk0 = 1U;
+404:         mnSoundTest_8024AA70(mnSoundTest_804D6C40, user_data->unk0);
+405:         HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+406:         temp_r3_2 = HSD_GObj_SetupProc(arg0, fn_8024B2B0, 0U);
+407:         temp_r3_2->flags_3 = HSD_GObj_804D783C;
+408:         return;
+409:     }
+410:     menu_data = mnSoundTest_804D6C40->user_data;
+411:     (void) menu_data;
+412:     fade_timer = menu_data->unk8;
+413:     if (fade_timer < 1.0f) {
+414:         menu_data->unk8 = (f32) (fade_timer - 0.02f);
+415:         if (menu_data->unk8 <= 0.0f) {
+416:             menu_data->unk8 = 1.0f;
+417:             reset_data = fn_8024AED0_GetUserData();
+418:             lbAudioAx_800236DC();
+419:             reset_data->unk2 = 0x50;
+420:         }
+421:     }
+422:     preview_timer = menu_data->unkC;
+423:     if (preview_timer < 1.0f) {
+424:         menu_data->unkC = (f32) (preview_timer - 0.02f);
+425:         if (menu_data->unkC <= 0.0f) {
+426:             menu_data->unkC = 1.0f;
+427:             lbAudioAx_80023694();
+428:         }
+429:     }
+430:     if (mnSoundTest_804D6C44 == 0) {
+431:         temp_r3_3 = lbAudioAx_80023968(data_3[user_data->unk3]);
+432:         temp_r5 = 0 & 0;
+433:         if (events & MenuInput_AButton) {
+434:             sound_idx = user_data->unk4;
+435:             selection = data_3[user_data->unk3];
+436:             input_data = fn_8024AED0_GetUserData();
+437:             jobj = mnSoundTest_804D6C40->hsd_obj;
+438:             input_data->unkC = 1.0f;
+439:             sound_kind = gm_80160244(gmMainLib_8015ED74());
+440:             lbAudioAx_800245F4(sound_kind);
+441:             mnSoundTest_804D6C4C = sound_kind;
+442:             audio_id = lbAudioAx_80023A44(selection, sound_idx);
+443:             lbAudioAx_80023694();
+444:             lbAudioAx_80023B24(audio_id);
+445:             lb_80011E24(jobj, &sp7C, 0xD, -1);
+446:             HSD_JObjReqAnimAll(sp7C, vec_5.start_frame);
+447:             mn_8022F3D8(sp7C, 0xFFU, MOBJ_MASK);
+448:             HSD_JObjAnimAll(sp7C);
+449:         } else if (events & MenuInput_StartButton) {
+450:             if (user_data->unkC == 1.0f) {
+451:                 user_data->unkC = 0.98f;
+452:             }
+453:         } else if (events & MenuInput_Left) {
+454:             temp_r4 = user_data->unk4;
+455:             if (temp_r4 != 0) {
+456:                 user_data->unk4 = (u16) (temp_r4 - 1);
+457:             } else {
+458:                 user_data->unk4 = (u16) (temp_r3_3 - 1);
+459:             }
+460:             fn_8024AED0_inline(arg0, string1);
+461:         } else if (events & MenuInput_Right) {
+462:             user_data->unk4 += 1;
+463:             if (user_data->unk4 >= temp_r3_3) {
+464:                 user_data->unk4 = 0;
+465:             }
+466:             fn_8024AED0_inline(arg0, string2);
+467:         }
+468:         mnSoundTest_8024A790(mnSoundTest_804D6C40);
+469:     }
+470: }
+471: 
+472: static inline u64 mnSoundTest_GetInputs(void)
+473: {
+474:     return mn_80229624(4U);
+475: }
+476: 
+477: static inline s32 mnSoundTest_GetAudioVolume(void)
+478: {
+479:     return gm_801601C4(gmMainLib_8015ED74());
+480: }
+481: 
+482: static inline void mnSoundTest_ToggleView(soundtest_user_data* ud)
+483: {
+484:     s32 state;
+485:     mnSoundTest_GObj* gobj;
+486: 
+487:     state = (ud->unk0 == 0) ? 1 : 0;
+488:     ud->unk0 = state;
+489:     ud = (soundtest_user_data*) (u32) ud->unk0;
+490:     gobj = mnSoundTest_804D6C40;
+491:     mnSoundTest_8024ABF8(gobj, (u32) ud == 0);
+492:     mnSoundTest_8024AD58(gobj, (u8) (u32) ud);
+493: }
+494: 
+495: static inline void mnSoundTest_PlaySampleAnim(HSD_JObj* jobj, HSD_JObj** pj,
+496:                                               const u8* p)
+497: {
+498:     s32 sound_kind;
+499:     lb_80011E24(jobj, pj, 4, -1);
+500:     HSD_JObjReqAnimAll(*pj, mn_8022F298(*pj));
+501:     mn_8022F3D8(*pj, 0xFFU, MOBJ_MASK);
+502:     HSD_JObjAnimAll(*pj);
+503:     sound_kind = data_2[*p].idx;
+504:     if (lbAudioAx_80023090(sound_kind) != 0) {
+505:         gmMainLib_8015ED68(sound_kind);
+506:     }
+507: }
+508: 
+509: static inline void mnSoundTest_UpdateCategoryAnim(soundtest_user_data* ud,
+510:                                                   HSD_JObj** pj)
+511: {
+512:     u8 selection;
+513:     ud->unk4 = 0;
+514:     selection = data_3[ud->unk3];
+515:     lb_80011E24(GET_JOBJ(mnSoundTest_804D6C40), pj, 0x15, -1);
+516:     HSD_JObjReqAnimAll(*pj, (f32) data_4[selection]);
+517:     mn_8022F3D8(*pj, 0xFFU, 0xA0);
+518:     HSD_JObjAnimAll(*pj);

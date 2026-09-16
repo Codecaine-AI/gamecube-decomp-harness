@@ -23,6 +23,15 @@ maintainer-rejected patterns. Input modes:
   instead of HEAD; `--path <pathspec>` (repeatable) restricts the diff.
 - `--repo <melee-root> --diff-file <patch>`: scan a pre-computed unified diff
   (the worker-side L1 lint and per-slice pre-ship review use this).
+- `--post-tree <dir>` (optional): directory holding the post-change files.
+  Rules that need the whole file (`post_file_text`, e.g. unused-local
+  analysis) read it from here. Without it, ref mode uses `git show HEAD:` (or
+  the worktree with `--include-worktree`) and `--diff-file` mode reads the
+  file from `--repo` when it exists there. Impact measurement points this at
+  a retained `attempt-N.qa_current/` tree.
+- `--pre-tree <dir>` (optional): directory holding the pre-change files,
+  exposed to rules as `pre_file_text`. In ref mode (`--base`) the merge-base
+  blob is used when `--pre-tree` is absent.
 - `--surface worker|pr_gate` (optional, also accepted by `scan.py`): resolve
   per-surface severities for rules whose slice manifest declares a
   `"surfaces"` map. Omitted = base severities on every surface (fully
@@ -34,12 +43,56 @@ Stdout is always the JSON document
 human-readable summary goes to stderr. The rule engine lives in
 `api/_qa_rules.py` (shared with `scan.py`); the rule implementations live in
 per-family vertical slices under
-`projects/melee/knowledge/sources/injectable/decomp_standards/standards/<family>/rules.py`
+`games/<game>/knowledge/sources/injectable/decomp_standards/standards/<family>/rules.py`
 (env override `REVIEW_LINT_STANDARDS_DIR`), each validated against its
 `slice.json` manifest and assembled into the registry in a canonical rule
 order. Slices may also export `POST_SCAN_HOOKS` (post-scan escalations such
 as the extern ownership analysis); the splits.txt ownership helper is in
 `api/check_extern_ownership.py`.
+
+### Standards Composition (game + global)
+
+Standards roots are loaded in order and composed:
+
+1. The game's standards dir: `ORCH_GAME_DIR`/`ORCH_GAME_KNOWLEDGE_ROOT`
+   resolve it to `games/<game>/knowledge/sources/injectable/decomp_standards/standards`
+   (`REVIEW_LINT_STANDARDS_DIR` overrides it).
+2. The global standards dir: `REVIEW_LINT_GLOBAL_STANDARDS_DIR` when set,
+   else the Melee-hosted tree
+   `games/melee/knowledge/sources/injectable/decomp_standards/standards`
+   when it is a different directory from the game's. (When
+   `REVIEW_LINT_STANDARDS_DIR` is set without the global env, only that
+   directory is loaded, so fixture-backed tests get exactly the tree they
+   name.)
+
+Within each root, `order.json`'s `families` list ranks the slices (falling
+back to the engine's canonical family order). Families are deduplicated by
+name and the game's slice wins on collision, so a game can override a global
+family wholesale by shipping a slice with the same family name. Each
+`RULE_SLICES` record carries `scope` (`"game"` or `"global"`) and `root`.
+`_qa_rules.standards_dirs()` returns the ordered `(scope, path)` list.
+
+Banned-pattern data composes the same way: the game's
+`banned_patterns/data` (`REVIEW_LINT_BANNED_DIR`) first, then the global dir
+(`REVIEW_LINT_GLOBAL_BANNED_DIR`, defaulting to Melee's), deduplicated by
+record `id` with the game winning.
+
+Scanning SMS (`ORCH_GAME_DIR=games/sms`) therefore reports the global
+`codegen_pragma`, `novel_pragma`, `volatile_local_tactic`, `define_alias`,
+`m2c_goto_label`, ... rules alongside the `sms_*` rules.
+
+### Path Scope (`applies_to`)
+
+`DEFAULT_APPLIES_TO` is `["src/**/*.c", "src/**/*.cpp"]`: global rules apply
+to authored C and C++ translation units. Matching uses `fnmatch`, so `*`
+already crosses `/`; the `**` spelling is kept for readability. Rules with a
+narrower scope (`src/melee/**/*.c`, `src/melee/gr/gr*.c`) keep it.
+
+Four rules encode `.c`-file declaration idioms and stay `src/**/*.c` only
+(`C_SOURCE_APPLIES_TO` in their slice): `bare_local_prototype` and
+`shadowed_declaration` (a C++ class body is nothing but "bare prototypes"),
+`extern_in_c` and `extern_own_tu_data` (their ownership repair path reads
+Melee `splits.txt`/`symbols.txt`; C++ mangled externs are `mangled_symbol_in_source`'s job).
 
 ### Rules
 
@@ -68,10 +121,10 @@ their finding detail so downstream consumers route them to LLM review.
 | `pointer_offset_arithmetic` | error | Added raw byte-pointer offset arithmetic such as `((u8*) obj) + 0x14`, which should become a typed field, correct union arm, helper, or temporary struct. |
 | `define_alias` | error | Added identifier/expression `#define` aliases and local `_ABS`/`_MIN`/`_MAX`/`_CLAMP` macro clones. |
 | `novel_pragma` | error | Added `#pragma` directives outside the upstream-established set (`push`, `pop`, `dont_inline`, `auto_inline`, `force_active`, `fp_contract`, `global_optimizer`, `pool_data`, `clang diagnostic`). |
-| `codegen_pragma` | error | Added established-but-suspicious codegen pragmas (`dont_inline`, `auto_inline`, `global_optimizer`, `pool_data`) in normal source. |
-| `volatile_local_tactic` | error | Added indented local `volatile` declarations in normal source (SDK dirs excluded). |
-| `type_erasing_cast` | warning (LLM review) | Added `(void*)`, `(u8*)`, or `(char*)` casts. Advisory: stays a warning and carries the `llm_review` detail flag. |
-| `banned_pattern:<id>` | error | Regex detectors loaded from `projects/melee/knowledge/sources/injectable/banned_patterns/data/banned.jsonl` (env override `REVIEW_LINT_BANNED_DIR`). |
+| `codegen_pragma` | error | Added established-but-suspicious codegen pragmas (`dont_inline`, `auto_inline`, `global_optimizer`, `pool_data`, `force_active`) in normal source. `inline_depth` is not established and lands in `novel_pragma`. |
+| `volatile_local_tactic` | error | Added indented local `volatile` declarations, or `volatile` cast forms (`(volatile T*)`, `(volatile T&)`, `*(volatile T*)&x`) on ordinary storage, in normal source (SDK/vendor dirs excluded). Finding detail carries `form: "declaration"|"cast"`. |
+| `type_erasing_cast` | warning (LLM review) | Added `(void*)`, `(u8*)`, or `(char*)` casts. Advisory: stays a warning and carries the `llm_review` detail flag. Lines inside hand-written `__vt__*[] = { ... }` arrays are skipped (`manual_vtable` owns those). |
+| `banned_pattern:<id>` | error | Regex detectors loaded from `games/<game>/knowledge/sources/injectable/banned_patterns/data/banned.jsonl` (env override `REVIEW_LINT_BANNED_DIR`) composed with the global Melee-hosted file (`REVIEW_LINT_GLOBAL_BANNED_DIR`). |
 | `resubmission_tombstone` | error | An added hunk whose normalized token-shingle Jaccard similarity to a previously rejected hunk meets the tombstone's threshold (default 0.7; hunks under 12 tokens are never checked). The finding cites the original rejection comment URL. |
 
 Every finding carries a `standard_id` so agent-facing errors cite the
@@ -88,9 +141,13 @@ in the slice `rules.py` entry). A hunk whose file matches any exclude glob is
 skipped for that rule even when `applies_to` matches. This is the single
 mechanism for carving vendor-convention code out of a rule's scope; do not
 narrow `applies_to` for the same purpose. `extern_in_c`,
+`extern_own_tu_data`, `bare_local_prototype`, `shadowed_declaration`,
 `volatile_local_tactic`, `inline_asm`, and `register_keyword` exclude the
-SDK-like directories where upstream vendor conventions differ:
-`src/dolphin/**`, `src/MSL/**`, `src/MetroTRK/**`, `src/Runtime/**`.
+SDK-like and vendor directories where upstream conventions differ
+(`SDK_PATH_EXCLUDES`): Melee's `src/dolphin/**`, `src/MSL/**`,
+`src/MetroTRK/**`, `src/Runtime/**`, plus the SMS vendor trees
+`src/JSystem/**`, `src/PowerPC_EABI_Support/**`, `src/TRK_MINNOW_DOLPHIN/**`,
+`src/THPPlayer/**`, `include/JSystem/**`, `include/dolphin/**`.
 
 ### Per-Surface Severity and LLM Review Routing
 

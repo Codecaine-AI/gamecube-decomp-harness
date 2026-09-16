@@ -1,0 +1,402 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3982:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:3872b33a-7e03-4d1b-9850-d6deacc6f24b",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3982:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Initialized performance-overlay camera data beginning at 0x8040BF48: two HSD_WObjDesc records followed by an orthographic HSD camera descriptor that points to them.",
+        "rationale": "The PR identifies the aligned HSD_WObjDesc at 0x8040BF48 as the start of this translation unit, and the current declarations show the complete typed descriptor layout and internal pointers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "pr",
+            "locator": "pr://3294/comment/0",
+            "why": "Identifies the aligned HSD_WObjDesc at 0x8040BF48 as the camera-descriptor data owned by `hsd_3982.c`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L11-L39",
+            "why": "Defines the two HSD_WObjDesc objects and the camera descriptor that references them."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3982:fn_803982E4"
+    },
+    "facts": [
+      {
+        "id": "fact:b9903ce8-d0a7-4d05-9d1f-c662337f3218",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:fn_803982E4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The callback receives the camera-bearing GObj created by `hsd_80398310` and passes its `hsd_obj` HSD_CObj to `HSD_CObjSetCurrent`, which configures current-camera render state. It then transfers the latest HSD performance sample into current and peak timing globals before the diagnostic compositor invokes registered producers and draws their linked text, gradient, and bar records.",
+        "rationale": "The callback fixes the forwarding order, while the current camera setter, relocated performance updater, and relocated compositor establish the transformations performed by each phase.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:26:26.177Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L11-L16",
+            "why": "Shows the ordered flow from the GObj payload through camera selection, performance-state update, and diagnostic rendering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L489-L523",
+            "why": "Shows the supplied HSD_CObj becoming current and configuring the active render-pass camera and viewing matrix."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L46-L80",
+            "why": "Shows the latest CPU, draw, and total performance samples flowing into current, recent-peak, and lifetime-peak state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3924.c#L129-L240",
+            "why": "Shows registered producer output being traversed and rendered according to text, gradient, and bar item types."
+          }
+        ]
+      },
+      {
+        "id": "fact:88095186-653a-4562-8b46-e05ec77587fe",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:fn_803982E4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the draw-time update and presentation stage of Melee's developer performance overlay, displaying current and peak CPU, draw, and total-frame costs through colored text, gradients, and proportional bars.",
+        "rationale": "The callback invokes the performance sampler and diagnostic compositor; their current definitions show CPU, draw, and total timing records being formatted and presented as overlay elements.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:26:26.177Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L11-L16",
+            "why": "Shows the dedicated draw callback invoking both the performance-state updater and diagnostic compositor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L46-L80",
+            "why": "Shows CPU, draw, and total-frame timing values being sampled and tracked."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L114-L201",
+            "why": "Shows those current and peak timing values being converted into colored text, gradient, and bar display records."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3924.c#L129-L240",
+            "why": "Shows the registered diagnostic records being rendered as text, gradients, and proportional bars."
+          }
+        ]
+      },
+      {
+        "id": "fact:8b509f70-a2e4-4fbb-9fb8-50de2fecda93",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:fn_803982E4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "GX-link render callback with signature `void (HSD_GObj* gobj, int unused)`. The GObj must carry an HSD_CObj in `hsd_obj`; the integer dispatch argument is ignored.",
+        "rationale": "The moved definition supplies the exact callback signature and never reads its second argument. Its first operation forwards the GObj payload to the HSD camera setter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L11-L16",
+            "why": "Provides the exact signature, unused integer argument, and HSD_CObj payload access."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L489-L523",
+            "why": "Shows that the forwarded payload is consumed as the current HSD_CObj for the active render pass."
+          }
+        ]
+      },
+      {
+        "id": "fact:aef484a2-5f26-4408-b040-3fba59fca3df",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:fn_803982E4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Acts as the GX render callback for the developer performance-display camera: it activates the callback GObj's camera, updates CPU, draw, and total-frame timing statistics from the latest HSD performance sample, and renders registered diagnostic display items.",
+        "rationale": "The callback performs the camera, statistics, and compositor calls in sequence, and the relocated callee definitions confirm that the latter calls update performance timing state and render producer-supplied diagnostics.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:26:26.177Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L11-L16",
+            "why": "Shows the complete callback sequence: camera activation, performance update, and diagnostic rendering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L46-L80",
+            "why": "Shows the updater reading the latest HSD performance sample and maintaining current and peak timing values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3924.c#L129-L240",
+            "why": "Shows the compositor invoking registered producers and consuming their text, gradient, and bar items."
+          }
+        ]
+      },
+      {
+        "id": "fact:e2ec69cb-e6d6-4327-9e04-c7f048c9e025",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:fn_803982E4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each GX invocation unconditionally performs three ordered phases: select and configure the attached camera, advance current and peak performance-timing state, and redraw every item returned by registered diagnostic producers. It has no local guard and ignores the camera setter's boolean result, so the latter phases continue even if camera activation reports failure.",
+        "rationale": "The callback is a branchless three-call sequence. The camera setter has explicit failure returns, but its result is discarded before the timing updater and renderer are invoked; their relocated definitions confirm the persistent-state update and producer traversal.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:26:26.177Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L11-L16",
+            "why": "Shows the unconditional three-phase sequence and that the camera setter's result is not tested."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L489-L523",
+            "why": "Shows that camera activation can return false for null, invalid-render-pass, or camera-setup failure paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L46-L80",
+            "why": "Shows the persistent current and peak timing-state changes performed by the second phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3924.c#L129-L240",
+            "why": "Shows the third phase traversing registered producers and each linked item they return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3982:hsd_80398310"
+    },
+    "facts": [
+      {
+        "id": "fact:ab7f0402-bcdc-4db9-8ec9-1f14f83b3176",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:hsd_80398310",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The classifier, process-link index, and process priority flow into `GObj_Create`. On success, the unit's initialized camera descriptor is loaded into an HSD_CObj and attached to the GObj with the camera kind; the render priority and `fn_803982E4` are installed in the maximum GX-link bucket, after which the performance producer and fixed display settings are registered.",
+        "rationale": "The moved constructor and resolved callees show each argument, descriptor, callback, and created pointer flowing into its final GObj or persistent performance-display destination.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L11-L55",
+            "why": "Shows the descriptor and constructor arguments flowing through camera creation, GObj attachment, callback setup, registration, and configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1320-L1338",
+            "why": "Shows descriptor loading allocating a default HSD_CObj when no class name is supplied."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/gobjobject.c#L19-L24",
+            "why": "Shows the camera-kind tag and HSD_CObj pointer being stored in the GObj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/gobjgxlink.c#L51-L66",
+            "why": "Shows storage of the render callback, maximum-plus-one GX-link bucket, and supplied render priority."
+          }
+        ]
+      },
+      {
+        "id": "fact:a86d1645-2189-4143-b00c-56de377fcb2b",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:hsd_80398310",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes creation and default setup of Melee's developer performance overlay, including the camera and render object used to present CPU, draw, and total-frame timing diagnostics.",
+        "rationale": "The constructor creates the camera-bearing render GObj, installs the performance callback and producer, and supplies defaults to the display configuration routine; the relocated updater and producer confirm that the displayed diagnostics are CPU, draw, and total-frame timing values.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:26:26.177Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L40-L55",
+            "why": "Shows construction of the camera-backed object and registration of the performance renderer, producer, and default configuration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L46-L80",
+            "why": "Shows collection of the CPU, draw, and total timing values used by the display."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L114-L201",
+            "why": "Shows the collected values being converted into linked bar, gradient, and colored-text display records."
+          }
+        ]
+      },
+      {
+        "id": "fact:68fc7a93-8dbb-4345-8db0-eb6fa10f9c60",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:hsd_80398310",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_PerfCreateGObj",
+        "rationale": "This remains a name guess rather than a rename instruction. The function creates and returns an HSD_GObj configured with the HSD performance producer and display settings, while the relocated producer directly consumes HSD performance statistics; that makes the subsystem-and-constructor spelling plausible without establishing the exact original name.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: Likely descriptive name: `HSD_PerfCreateGObj`.",
+        "confidence": 0.66,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L40-L55",
+            "why": "Shows creation and return of a GObj configured with the performance callback, producer, and display settings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L46-L80",
+            "why": "Shows that the registered subsystem operates on HSD CPU, draw, and total performance statistics."
+          }
+        ]
+      },
+      {
+        "id": "fact:83b1602f-5194-4f60-a0ac-97bf32dd35eb",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:hsd_80398310",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `HSD_GObj* (u16 classifier, u8 p_link, u8 process_priority, u32 render_priority)`. It returns the configured camera-bearing GObj or NULL if GObj allocation fails; the third argument feeds GObj process priority and the fourth feeds GX render priority.",
+        "rationale": "The moved definition supplies the widths, return, and NULL path. The forwarded callees identify the semantic domains of the scalar arguments.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L40-L55",
+            "why": "Provides the exact source signature, argument forwarding, pointer return, and allocation-failure branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L98-L101",
+            "why": "Identifies GObj_Create's forwarded arguments as classifier, process-link index, and process priority."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/gobjgxlink.c#L51-L66",
+            "why": "Shows the final u32 argument being stored as render priority."
+          }
+        ]
+      },
+      {
+        "id": "fact:e189a986-06a3-4322-a6e1-964aadc1d5f2",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:hsd_80398310",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Creates and initializes the camera-backed HSD_GObj used by the developer performance overlay: it loads the overlay camera, installs `fn_803982E4` as its GX render callback, registers the built-in performance-item producer, and applies the default display configuration.",
+        "rationale": "The constructor's successful path performs the camera loading and attachment, callback installation, producer registration, and fixed configuration calls, while the relocated producer confirms that the registered callback constructs performance-display items.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:26:26.177Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L40-L55",
+            "why": "Shows the complete constructor, including camera loading, attachment, GX callback setup, producer registration, configuration, and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L114-L201",
+            "why": "Shows the registered producer constructing linked performance-display records from timing state."
+          }
+        ]
+      },
+      {
+        "id": "fact:83fae528-57d9-4258-b7d9-786aecf15e79",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3982:hsd_80398310",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If `GObj_Create` fails, the function immediately returns NULL without camera or overlay registration. Otherwise initialization is linear: it attaches the default camera, installs the GX callback and priority, registers the built-in producer, selects a four-frame display mode with scale one and lifetime peaks disabled, and returns the active GObj.",
+        "rationale": "The constructor has one allocation-failure guard and an otherwise unconditional successful path. The current configuration routine shows that arguments 4, 1, and 0 become the persistent frame-count mode, scale flag, and lifetime-peak enable state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:26:26.177Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3982.c#L40-L55",
+            "why": "Shows the sole NULL guard and the ordered successful initialization sequence, ending with configuration arguments 4, 1, and 0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_392A.c#L87-L98",
+            "why": "Shows the three configuration arguments becoming persistent mode, scale, and lifetime-peak enable state, with enabling transitions resetting lifetime peaks."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/hsd_3982.c"
+    },
+    "facts": [
+      {
+        "id": "fact:1aed7b66-8e26-4236-93a2-e2e438cf040d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3982.c",
+        "type": "inferred_type",
+        "value": "A distinct translation unit beginning at 0x803982E4 that owns `fn_803982E4`, `hsd_80398310`, and the initialized world-object and camera descriptors beginning at 0x8040BF48.",
+        "rationale": "The PR identifies the aligned 20-byte HSD_WObjDesc at 0x8040BF48 as a translation-unit boundary and explicitly assigns the two functions and camera descriptor to the resulting `hsd_3982.c` object.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "pr",
+            "locator": "pr://3294/comment/0",
+            "why": "Identifies the aligned HSD_WObjDesc at 0x8040BF48 as the start of `hsd_3982.c` and names its two functions and camera descriptor."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3982:fn_803982E4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3982:fn_803982E4#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3982:hsd_80398310#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3982:hsd_80398310#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3982:hsd_80398310#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3982:hsd_80398310#r6"
+    },
+    "facts": []
+  }
+]

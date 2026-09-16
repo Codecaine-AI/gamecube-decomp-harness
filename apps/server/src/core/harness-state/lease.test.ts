@@ -9,9 +9,9 @@ import {
   StaleLeaseError,
   cancelDispatchRequest,
   checkLease,
-  getHarnessState,
+  getDispatchState,
   heartbeatDispatch,
-  initializeHarnessState,
+  initializeDispatchState,
   recoverDispatch,
   releaseDispatch,
   releaseDispatchDetailed,
@@ -58,23 +58,22 @@ function seedWorkflow(
   if (kind === "sync") {
     store.db.query(`
       INSERT INTO sync_state (
-        sync_id, game_id, cycle_uuid, revision, status, trace_id,
+        sync_id, game_id, revision, status, trace_id,
         caused_by_event_id, created_at, updated_at
-      ) VALUES (?, ?, ?, 0, 'requested', ?, ?, ?, ?)
+      ) VALUES (?, ?, 0, 'requested', ?, ?, ?, ?)
       ON CONFLICT(sync_id) DO NOTHING
-    `).run(workflowId, gameId, `session-${workflowId}`, traceId, `event-${workflowId}-requested`, at, at);
+    `).run(workflowId, gameId, traceId, `event-${workflowId}-requested`, at, at);
     return;
   }
   store.db.query(`
     INSERT INTO pr_campaigns (
-      campaign_id, game_id, cycle_uuid, revision, status, trace_id,
+      campaign_id, game_id, revision, status, trace_id,
       caused_by_event_id, created_at, source_anchor_json
-    ) VALUES (?, ?, ?, 0, 'preparing', ?, ?, ?, ?)
+    ) VALUES (?, ?, 0, 'preparing', ?, ?, ?, ?)
     ON CONFLICT(campaign_id) DO NOTHING
   `).run(
     workflowId,
     gameId,
-    `session-${workflowId}`,
     traceId,
     `event-${workflowId}-opened`,
     at,
@@ -95,7 +94,7 @@ function testStore(): StateStore {
   tempDirs.push(dir);
   const store = openState(dir);
   stores.push(store);
-  initializeHarnessState(store, {
+  initializeDispatchState(store, {
     gameId: GAME_ID,
     traceId: TRACE_ID,
     now: "2026-08-12T10:00:00.000Z",
@@ -113,7 +112,7 @@ afterEach(() => {
 describe("game dispatch lease", () => {
   test("initializes game state and acquires a free lease through requested and acquired revisions", () => {
     const store = testStore();
-    const initial = getHarnessState(store, GAME_ID);
+    const initial = getDispatchState(store, GAME_ID);
     expect(initial).toMatchObject({
       game_id: GAME_ID,
       revision: 0,
@@ -258,7 +257,7 @@ describe("game dispatch lease", () => {
     expect(duplicate.state.active_workflow?.lease_id).toBe(run.leaseId);
 
     const queuedRow = store.db
-      .query("SELECT queued_requests_json FROM harness_state WHERE game_id = ?")
+      .query("SELECT queued_requests_json FROM dispatch_state WHERE game_id = ?")
       .get(GAME_ID) as { queued_requests_json: string };
     expect(JSON.parse(queuedRow.queued_requests_json)).toEqual(duplicate.state.queued_dispatch_requests);
 
@@ -323,7 +322,7 @@ describe("game dispatch lease", () => {
       commandId: "command-pr-1",
     });
 
-    const stopping = getHarnessState(store, GAME_ID)!;
+    const stopping = getDispatchState(store, GAME_ID)!;
     expect(stopping.revision).toBe(4);
     expect(stopping.active_workflow).toMatchObject({
       status: "active",
@@ -480,7 +479,7 @@ describe("game dispatch lease", () => {
       });
       if (run.queued) throw new Error("expected acquired run lease");
       const fixedLease = { ...run.state.active_workflow!, lease_id: "lease-stable" };
-      store.db.query("UPDATE harness_state SET active_workflow_json = ? WHERE game_id = ?")
+      store.db.query("UPDATE dispatch_state SET active_workflow_json = ? WHERE game_id = ?")
         .run(JSON.stringify(fixedLease), GAME_ID);
       requestWorkflowDispatch(store, {
         ...workflowContext("sync-stable"),
@@ -525,7 +524,7 @@ describe("game dispatch lease", () => {
       reason: "mismatched request",
       commandId: "command-mismatched-request",
     })).toThrow("Dispatch correlation_id must equal workflow id run-1");
-    expect(getHarnessState(store)?.revision).toBe(0);
+    expect(getDispatchState(store)?.revision).toBe(0);
     expect(listGameEvents(store.db)).toEqual([]);
 
     const run = requestWorkflowDispatch(store, {
@@ -541,13 +540,13 @@ describe("game dispatch lease", () => {
       leaseId: run.leaseId,
       commandId: "command-mismatched-release",
     })).toThrow("Dispatch correlation_id must equal workflow id run-1");
-    expect(getHarnessState(store)?.revision).toBe(2);
+    expect(getDispatchState(store)?.revision).toBe(2);
     expect(listGameEvents(store.db)).toHaveLength(2);
   });
 
   test("rejects missing, cross-game, and traceless durable workflows without accepting state or events", () => {
     const store = testStore();
-    const initial = getHarnessState(store, GAME_ID);
+    const initial = getDispatchState(store, GAME_ID);
 
     expect(() => requestDispatch(store, {
       ...workflowContext("run-missing"),
@@ -575,7 +574,7 @@ describe("game dispatch lease", () => {
       commandId: "command-run-traceless",
     })).toThrow("Durable run workflow run-traceless is missing its dispatch trace_id");
 
-    expect(getHarnessState(store, GAME_ID)).toEqual(initial);
+    expect(getDispatchState(store, GAME_ID)).toEqual(initial);
     expect(listGameEvents(store.db)).toEqual([]);
   });
 
@@ -596,11 +595,11 @@ describe("game dispatch lease", () => {
       reason: "queue legacy successor",
       commandId: "command-sync-legacy-queue",
     });
-    const queued = { ...getHarnessState(store, GAME_ID)!.queued_dispatch_requests[0]! } as Record<string, unknown>;
+    const queued = { ...getDispatchState(store, GAME_ID)!.queued_dispatch_requests[0]! } as Record<string, unknown>;
     delete queued.request_event_id;
-    store.db.query("UPDATE harness_state SET queued_requests_json = ? WHERE game_id = ?")
+    store.db.query("UPDATE dispatch_state SET queued_requests_json = ? WHERE game_id = ?")
       .run(JSON.stringify([queued]), GAME_ID);
-    const legacyState = getHarnessState(store, GAME_ID);
+    const legacyState = getDispatchState(store, GAME_ID);
     const eventCount = listGameEvents(store.db).length;
 
     expect(() => requestWorkflowDispatch(store, {
@@ -611,7 +610,7 @@ describe("game dispatch lease", () => {
       commandId: "command-sync-legacy-queue-retry",
       handoffOnQueue: true,
     })).toThrow("missing accepted request provenance field request_event_id");
-    expect(getHarnessState(store, GAME_ID)).toEqual(legacyState);
+    expect(getDispatchState(store, GAME_ID)).toEqual(legacyState);
     expect(listGameEvents(store.db)).toHaveLength(eventCount);
   });
 
@@ -640,9 +639,9 @@ describe("game dispatch lease", () => {
         request_command_id: "command-tampered-handoff",
       },
     };
-    store.db.query("UPDATE harness_state SET active_workflow_json = ? WHERE game_id = ?")
+    store.db.query("UPDATE dispatch_state SET active_workflow_json = ? WHERE game_id = ?")
       .run(JSON.stringify(mismatchedLease), GAME_ID);
-    const mismatchedState = getHarnessState(store, GAME_ID);
+    const mismatchedState = getDispatchState(store, GAME_ID);
     const eventCount = listGameEvents(store.db).length;
 
     expect(() => releaseDispatchDetailed(store, {
@@ -651,7 +650,7 @@ describe("game dispatch lease", () => {
       leaseId: run.leaseId,
       commandId: "command-settle-mismatched-handoff",
     })).toThrow("does not match its queued request: request_command_id");
-    expect(getHarnessState(store, GAME_ID)).toEqual(mismatchedState);
+    expect(getDispatchState(store, GAME_ID)).toEqual(mismatchedState);
     expect(listGameEvents(store.db)).toHaveLength(eventCount);
     expect(store.db.query("SELECT COUNT(*) AS count FROM dispatch_handoff_snapshots").get()).toEqual({ count: 0 });
   });
@@ -682,7 +681,7 @@ describe("game dispatch lease", () => {
       leaseId: run.leaseId,
       commandId: "command-release-missing-successor",
     })).toThrow("Durable sync workflow sync-missing-successor was not found for dispatch");
-    expect(getHarnessState(store, GAME_ID)).toEqual(stopping.state);
+    expect(getDispatchState(store, GAME_ID)).toEqual(stopping.state);
     expect(listGameEvents(store.db)).toHaveLength(eventCount);
     expect(store.db.query("SELECT COUNT(*) AS count FROM dispatch_handoff_snapshots").get()).toEqual({ count: 0 });
   });
@@ -719,7 +718,7 @@ describe("game dispatch lease", () => {
       leaseId: run.leaseId,
       commandId: "command-release-rollback",
     })).toThrow("snapshot rejected");
-    expect(getHarnessState(store)).toEqual(stopping.state);
+    expect(getDispatchState(store)).toEqual(stopping.state);
     expect(listGameEvents(store.db)).toHaveLength(eventCount);
     expect(store.db.query("SELECT COUNT(*) AS count FROM dispatch_handoff_snapshots").get()).toEqual({ count: 0 });
   });
@@ -786,7 +785,7 @@ describe("game dispatch lease", () => {
       commandId: "command-sync-1",
       handoffOnQueue: true,
     });
-    const before = getHarnessState(store)!;
+    const before = getDispatchState(store)!;
     const eventCount = listGameEvents(store.db).length;
 
     expect(() =>
@@ -799,7 +798,7 @@ describe("game dispatch lease", () => {
         handoffOnQueue: true,
       }),
     ).toThrow("Dispatch handoff already targets sync:sync-1");
-    expect(getHarnessState(store)).toEqual(before);
+    expect(getDispatchState(store)).toEqual(before);
     expect(listGameEvents(store.db)).toHaveLength(eventCount);
   });
 
@@ -825,7 +824,7 @@ describe("game dispatch lease", () => {
         commandId: "command-recover-guardian",
       }),
     ).toThrow("operator-only");
-    expect(getHarnessState(store)?.revision).toBe(2);
+    expect(getDispatchState(store)?.revision).toBe(2);
     expect(listGameEvents(store.db)).toHaveLength(2);
 
     const result = recoverDispatch(store, {
@@ -873,7 +872,7 @@ describe("game dispatch lease", () => {
     });
 
     expect(heartbeat.heartbeat_at).toBe("2026-08-12T10:05:00.000Z");
-    expect(getHarnessState(store, GAME_ID)).toMatchObject({
+    expect(getDispatchState(store, GAME_ID)).toMatchObject({
       revision: 2,
       caused_by_event_id: run.state.caused_by_event_id,
       active_workflow: { heartbeat_at: "2026-08-12T10:05:00.000Z" },
@@ -892,7 +891,7 @@ describe("game dispatch lease", () => {
     });
     if (run.queued) throw new Error("expected acquired run lease");
     store.db
-      .query("UPDATE harness_state SET active_workflow_json = ? WHERE game_id = ?")
+      .query("UPDATE dispatch_state SET active_workflow_json = ? WHERE game_id = ?")
       .run(
         JSON.stringify({
           ...run.state.active_workflow,
@@ -940,8 +939,8 @@ describe("game dispatch lease", () => {
   test("rolls an event back when its revision compare cannot update the state row", () => {
     const store = testStore();
     store.db.exec(`
-      CREATE TRIGGER reject_harness_state_update
-      BEFORE UPDATE ON harness_state
+      CREATE TRIGGER reject_dispatch_state_update
+      BEFORE UPDATE ON dispatch_state
       BEGIN
         SELECT RAISE(ABORT, 'revision rejected');
       END;
@@ -956,7 +955,7 @@ describe("game dispatch lease", () => {
         commandId: "command-run-1",
       }),
     ).toThrow("revision rejected");
-    expect(getHarnessState(store)?.revision).toBe(0);
+    expect(getDispatchState(store)?.revision).toBe(0);
     expect(listGameEvents(store.db)).toEqual([]);
   });
 });

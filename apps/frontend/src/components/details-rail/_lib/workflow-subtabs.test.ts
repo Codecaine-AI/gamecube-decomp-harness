@@ -1,10 +1,10 @@
 /// <reference types="bun-types" />
 
 import { describe, expect, test } from "bun:test";
-import type { HarnessStateActionProjection, HarnessStateReadModel } from "@/pages/workspace/_lib/types";
+import type { DispatchStateActionProjection, HarnessStateViewModel } from "@/pages/workspace/_lib/types";
 import { defaultWorkflowSubTab } from "./workflow-subtabs";
 
-function state(overrides: Partial<HarnessStateReadModel>): HarnessStateReadModel {
+function state(overrides: Partial<HarnessStateViewModel>): HarnessStateViewModel {
   return {
     available_actions: [],
     compatibility_actions: [],
@@ -12,10 +12,10 @@ function state(overrides: Partial<HarnessStateReadModel>): HarnessStateReadModel
     run: null,
     sync: null,
     ...overrides,
-  } as HarnessStateReadModel;
+  } as HarnessStateViewModel;
 }
 
-function action(overrides: Partial<HarnessStateActionProjection> = {}): HarnessStateActionProjection {
+function action(overrides: Partial<DispatchStateActionProjection> = {}): DispatchStateActionProjection {
   return {
     action_id: "run.cancel",
     subject_kind: "run",
@@ -35,14 +35,14 @@ describe("defaultWorkflowSubTab", () => {
   });
 
   test("opens sync actions for blocked syncs, conflicts, or a pending repo sync", () => {
-    expect(defaultWorkflowSubTab("sync", state({ sync: { status: "blocked" } as HarnessStateReadModel["sync"] }))).toBe("actions");
-    expect(defaultWorkflowSubTab("sync", state({ sync: { status: "ingesting", staging: { conflicts_awaiting_operator: 2 } } as HarnessStateReadModel["sync"] }))).toBe("actions");
-    expect(defaultWorkflowSubTab("sync", state({ repo_sync: { needs_sync: true } as HarnessStateReadModel["repo_sync"] }))).toBe("actions");
+    expect(defaultWorkflowSubTab("sync", state({ sync: { status: "blocked" } as HarnessStateViewModel["sync"] }))).toBe("actions");
+    expect(defaultWorkflowSubTab("sync", state({ sync: { status: "ingesting", staging: { conflicts_awaiting_operator: 2 } } as HarnessStateViewModel["sync"] }))).toBe("actions");
+    expect(defaultWorkflowSubTab("sync", state({ repo_sync: { needs_sync: true } as HarnessStateViewModel["repo_sync"] }))).toBe("actions");
   });
 
   test("opens run actions for failed or blocked runs", () => {
-    expect(defaultWorkflowSubTab("run", state({ run: { status: "failed" } as HarnessStateReadModel["run"] }))).toBe("actions");
-    expect(defaultWorkflowSubTab("run", state({ run: { status: "blocked" } as unknown as HarnessStateReadModel["run"] }))).toBe("actions");
+    expect(defaultWorkflowSubTab("run", state({ run: { status: "failed" } as HarnessStateViewModel["run"] }))).toBe("actions");
+    expect(defaultWorkflowSubTab("run", state({ run: { status: "blocked" } as unknown as HarnessStateViewModel["run"] }))).toBe("actions");
   });
 
   test("opens run actions only for enabled actions that require confirmation", () => {

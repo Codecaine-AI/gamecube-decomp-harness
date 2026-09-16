@@ -4,8 +4,8 @@ import { asObject, numberValue, type Dashboard, type FormState, type JsonObject,
 import { useDashboardStream } from "@/hooks/useDashboardStream";
 import { DetailsRail, type DetailsTab } from "@/components/details-rail";
 import { GameWorkspace, type DashboardAction } from "@/pages/workspace";
-import { deriveCycleView, harnessStateAction, harnessStateCompatibilityAction, harnessStateReadModel } from "@/pages/workspace/_lib/model";
-import { type ImprovedMode, type WorkMode } from "@/pages/workspace/cycles/active/subphases/run/components/work-tables";
+import { deriveHarnessView, harnessStateAction, harnessStateReadModel } from "@/pages/workspace/_lib/model";
+import { type ImprovedMode, type WorkMode } from "@/pages/workspace/harness/subphases/run/components/work-tables";
 import { type AppRoute, routeFromUrl, saveRoute } from "@/routing";
 import { loadGrainSettings, normalizeGrainSettings, saveGrainSettings, type GrainSettings, type GrainSettingsPatch } from "@/lib/styleSettings";
 import { DashboardPage } from "@/pages/dashboard";
@@ -21,9 +21,7 @@ import {
   syncControlRequestPatch,
   syncConfirmationMessage,
 } from "@/components/app/_lib/projectedSyncControls";
-import { PR_COMPATIBILITY_ACTION_IDS, PR_COMPATIBILITY_ENDPOINTS } from "@/components/app/_lib/projectedCompatibilityControls";
 import { KNOWLEDGE_CONTROL_ACTION_IDS, KNOWLEDGE_CONTROL_ENDPOINTS } from "@/components/app/_lib/projectedKnowledgeControls";
-import { CYCLE_CONTROL_ACTION_IDS, cycleConfirmationMessage } from "@/components/app/_lib/projectedCycleControls";
 
 type Action = DashboardAction;
 const PROCESS_CONFIG_VERSION = 3;
@@ -32,92 +30,7 @@ const DEFAULT_THINKING_LEVEL = "medium";
 // Multi-step server operations tracked by process.operation. Triggering one
 // auto-opens the details rail on the Logs tab so the activity card and live
 // output are in view the moment the work starts.
-const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "prAdoptLegacy", "knowledgeProcess", "syncGit", "indexPrs", "completeRun", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
-
-function newCycleBody(body: JsonObject): JsonObject {
-  const next = { ...body };
-  delete next.runId;
-  delete next.activeRunId;
-  return next;
-}
-
-function cycleRouteSub(cycle: JsonObject): "run" | "pr" | "done" {
-  const phase = String(cycle.phase || "");
-  // The Prepare stage is retired: a preparing cycle opens on the Run page,
-  // which hosts the remaining setup inputs (baseline, worker config).
-  if (phase === "preparing") return "run";
-  if (phase === "running") return "run";
-  if (phase === "pr") return "pr";
-  return "done";
-}
-
-function cyclePhaseSummary(cycle: JsonObject): string {
-  const phase = String(cycle.phase || "active");
-  const subphase = String(cycle.activeSubphase || "");
-  return [phase, subphase].filter(Boolean).join(" / ");
-}
-
-function cycleScopedBody(body: JsonObject, cycle: JsonObject): JsonObject {
-  const cycleUuid = String(cycle.cycleUuid || cycle.cycle_uuid || cycle.id || "");
-  return cycleUuid ? { ...body, cycleUuid,  } : body;
-}
-
-function workerConfigBody(body: JsonObject): JsonObject {
-  return {
-    configVersion: PROCESS_CONFIG_VERSION,
-    maxWorkers: body.maxWorkers,
-    workerCount: body.maxWorkers,
-    agentTimeoutSeconds: body.agentTimeoutSeconds,
-    provider: body.provider,
-    model: body.model,
-    sandboxProfile: body.sandboxProfile,
-    thinkingLevel: body.thinkingLevel,
-  };
-}
-
-function positiveInteger(value: unknown): number | null {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : null;
-}
-
-function stringConfigValue(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  const stringValue = String(value);
-  return stringValue ? stringValue : null;
-}
-
-function cycleRunConfigPatch(cycle: JsonObject): Partial<FormState> | null {
-  const phases = asObject(cycle.phases);
-  const preparing = asObject(phases.preparing);
-  const running = asObject(phases.running);
-  const runningWorkers = asObject(running.workers);
-  const completion = asObject(preparing.completion);
-  const workerConfig = Object.keys(asObject(runningWorkers.workerConfig)).length > 0 ? asObject(runningWorkers.workerConfig) : asObject(completion.workerConfig);
-  if (Object.keys(workerConfig).length === 0) return null;
-
-  const patch: Partial<FormState> = {};
-  const maxWorkers = positiveInteger(workerConfig.maxWorkers) ?? positiveInteger(workerConfig.workerCount);
-  if (maxWorkers !== null) Object.assign(patch, schedulingForWorkers(maxWorkers));
-
-  const agentTimeoutSeconds = positiveInteger(workerConfig.agentTimeoutSeconds);
-  if (agentTimeoutSeconds !== null) patch.agentTimeoutSeconds = agentTimeoutSeconds;
-
-  const provider = stringConfigValue(workerConfig.provider);
-  if (provider !== null) patch.provider = provider;
-
-  const model = stringConfigValue(workerConfig.model);
-  if (model !== null) patch.model = model;
-
-  const sandboxProfile = stringConfigValue(workerConfig.sandboxProfile);
-  if (sandboxProfile !== null) patch.sandboxProfile = sandboxProfile;
-
-  const thinkingLevel = stringConfigValue(workerConfig.thinkingLevel);
-  if (thinkingLevel !== null) {
-    patch.thinkingLevel = thinkingLevel === "medium" && Number(workerConfig.configVersion) !== PROCESS_CONFIG_VERSION ? DEFAULT_THINKING_LEVEL : thinkingLevel;
-  }
-
-  return patch;
-}
+const operationActions: ReadonlySet<Action> = new Set(["syncStart", "syncResolveConflict", "syncPublish", "syncCancel", "syncRecover", "syncRecoverDiscard", "syncRevalidate", "knowledgeProcess", "syncGit", "indexPrs", "checkpoint", "qa", "qaRepair", "reconcile", "splitPlan", "preparePr", "prepareLocalPr", "prepareLocalBatch", "openPr", "openDraftBatch", "openAllPrs"]);
 
 function styleSofteningVars(settings: GrainSettings): CSSProperties {
   const { background, borders, font, icons } = settings.softening;
@@ -140,35 +53,6 @@ function styleSofteningVars(settings: GrainSettings): CSSProperties {
 
 function styleEffectClass(settings: GrainSettings): string {
   return settings.cssBevel.enabled && settings.cssBevel.strength > 0 ? "style-bevel-enabled" : "";
-}
-
-function cycleUrl(path: string, form: FormState): string {
-  const params = dashboardParams(form).toString();
-  return params ? `${path}?${params}` : path;
-}
-
-class ActiveCycleError extends Error {
-  readonly cycle: JsonObject;
-
-  constructor(cycle: JsonObject) {
-    const cycleUuid = String(cycle.cycleUuid || cycle.id || "active");
-    super(
-      `New cycle blocked: active cycle ${cycleUuid} is ${cyclePhaseSummary(cycle)}. Open or complete the active cycle before starting another one.`,
-    );
-    this.name = "ActiveCycleError";
-    this.cycle = cycle;
-  }
-}
-
-async function createCycle(body: JsonObject, form: FormState): Promise<JsonObject> {
-  try {
-    return asObject(await postJson<JsonObject>(cycleUrl("/api/cycle/new", form), body));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!/active cycle already exists/i.test(message)) throw error;
-    const activeState = asObject(await fetchJson<JsonObject>(`/api/cycle?${dashboardParams(form)}`));
-    throw new ActiveCycleError(asObject(activeState.cycle));
-  }
 }
 
 export function App() {
@@ -256,9 +140,15 @@ export function App() {
     saveGrainSettings(grainSettings);
   }, [grainSettings]);
 
+  const routeGameId = route.kind === "workspace" ? route.gameId : undefined;
   useEffect(() => {
-    void loadConfig()
+    let currentRequest = true;
+    setConfig(null);
+    setRunDetails(null);
+    setErrorMessage("");
+    void loadConfig(routeGameId)
       .then((loaded) => {
+        if (!currentRequest) return;
         const gameDefaults = asObject(loaded.gameDefaults);
         const dashboardDefaults = asObject(gameDefaults.dashboard);
         const sandboxDefaults = asObject(gameDefaults.sandbox);
@@ -277,8 +167,9 @@ export function App() {
           sandboxProfile: String(sandboxDefaults.default_profile || current.sandboxProfile),
         }));
       })
-      .catch(showError);
-  }, [showError]);
+      .catch((error) => { if (currentRequest) showError(error); });
+    return () => { currentRequest = false; };
+  }, [routeGameId, showError]);
 
   function setDetailsCollapsed(collapsed: boolean) {
     setDetailsCollapsedState(collapsed);
@@ -316,9 +207,10 @@ export function App() {
     });
   }, []);
 
-  const currentDashboard = dashboard as Dashboard | null;
+  const currentDashboard = config && dashboard?.game?.id === form.gameId
+    && (!routeGameId || routeGameId === form.gameId) ? dashboard as Dashboard : null;
   const busy = action !== null;
-  const view = deriveCycleView(currentDashboard, config, form);
+  const view = deriveHarnessView(currentDashboard, config, form);
   const currentRun = currentDashboard?.status.run;
   const runConfigPatch = runConfigurationFormPatch(currentRun);
   const runConfigSignature = runConfigPatch
@@ -331,28 +223,6 @@ export function App() {
     setFormState((current) => ({ ...current, ...runConfigPatch }));
     appliedSessionConfigSignatureRef.current = runConfigSignature;
   }, [runConfigPatch, runConfigSignature]);
-
-  useEffect(() => {
-    if (runConfigPatch) return;
-    const cycle = asObject(currentDashboard?.cycle);
-    const patch = cycleRunConfigPatch(cycle);
-    if (!patch) return;
-    const cycleUuid = String(cycle.cycleUuid || cycle.id || "");
-    const signature = `${cycleUuid}:${JSON.stringify(patch)}`;
-    if (appliedSessionConfigSignatureRef.current === signature) return;
-    setFormState((current) => {
-      let changed = false;
-      const next = { ...current };
-      for (const [key, value] of Object.entries(patch)) {
-        const typedKey = key as keyof FormState;
-        if (next[typedKey] === value) continue;
-        (next as Record<string, unknown>)[key] = value;
-        changed = true;
-      }
-      return changed ? next : current;
-    });
-    appliedSessionConfigSignatureRef.current = signature;
-  }, [currentDashboard?.cycle, runConfigPatch]);
 
   const loadRunDetails = useCallback(async () => {
     const run = asObject(currentDashboard?.status?.run);
@@ -382,12 +252,6 @@ export function App() {
       const projectedRunAction = projectedRunActionId
         ? harnessStateAction(harnessState, projectedRunActionId)
         : null;
-      const compatibilityActionId = PR_COMPATIBILITY_ACTION_IDS[nextAction];
-      const compatibilityAction = compatibilityActionId
-        ? harnessStateCompatibilityAction(harnessState, compatibilityActionId)
-        : null;
-      const cycleActionId = CYCLE_CONTROL_ACTION_IDS[nextAction];
-      const cycleAction = cycleActionId ? harnessStateAction(harnessState, cycleActionId) : null;
       const knowledgeActionId = KNOWLEDGE_CONTROL_ACTION_IDS[nextAction];
       const knowledgeAction = knowledgeActionId ? harnessStateAction(harnessState, knowledgeActionId) : null;
       const syncControlAction = nextAction === "syncGit" || nextAction === "indexPrs"
@@ -413,17 +277,7 @@ export function App() {
               : undefined);
         if (!confirmed) return;
       }
-      if (compatibilityAction?.confirmation_required && !(await requestConfirm(`${compatibilityActionId}?\n\n${compatibilityAction.expected_transition}`))) return;
-      if (cycleAction?.confirmation_required) {
-        if (!(await requestConfirm(cycleConfirmationMessage(nextAction) ?? `${cycleActionId}?\n\n${cycleAction.expected_transition}`))) return;
-      }
       if (knowledgeAction?.confirmation_required && !(await requestConfirm(`${knowledgeActionId}?\n\n${knowledgeAction.expected_transition}`))) return;
-      if (
-        nextAction === "completeRun" &&
-        !(await requestConfirm("Close this legacy cycle?\n\nThis records a save point and marks the run complete. Use this when PR work is already shipped, closed, or intentionally carried forward. Stale ship/QA blockers will be overridden."))
-      ) {
-        return;
-      }
       if (nextAction === "openPr") {
         const seriesName = String(payload?.prBranch || "this series");
         if (!(await requestConfirm(`Publish a draft PR upstream for series "${seriesName}"?\n\nThis will create the draft PR on GitHub.`, { confirmLabel: "Open draft PR", tone: "primary" }))) return;
@@ -435,35 +289,20 @@ export function App() {
         const body = { ...formBody(form, currentDashboard), ...payload };
         if (projectedRunAction?.subject_id) body.runId = projectedRunAction.subject_id;
         if (projectedRunAction?.confirmation_required) body.confirmed = true;
-        if (compatibilityAction?.subject_id) body.campaignId = compatibilityAction.subject_id;
         if (
           projectedSyncAction?.subject_id &&
           harnessState?.sync?.workflow_id === projectedSyncAction.subject_id
         ) body.syncId = projectedSyncAction.subject_id;
         if (projectedSyncAction?.confirmation_required) body.confirmed = true;
-        if (compatibilityAction?.confirmation_required || cycleAction?.confirmation_required || knowledgeAction?.confirmation_required) body.confirmed = true;
         Object.assign(body, syncControlRequestPatch(syncControlAction));
-        const cycle = asObject(currentDashboard?.cycle);
-        const harnessStateCycle = asObject(asObject(currentDashboard?.harnessState).cycle);
-        const cyclePhase = String(cycle.phase || "");
-        const markWorkersActive = async () => {
-          if (cyclePhase !== "running") return;
-          await postJson(cycleUrl("/api/cycle/running/subphase", form), {
-            ...cycleScopedBody(body, cycle),
-            subphase: "workers",
-            data: {
-              workers: {
-                workerConfig: workerConfigBody(body),
-              },
-            },
-          });
-        };
         if (nextAction === "refresh") {
           await manualRefresh();
-        } else if (compatibilityActionId) {
-          const endpoint = PR_COMPATIBILITY_ENDPOINTS[nextAction];
-          if (!endpoint) throw new Error(`No endpoint is configured for ${nextAction}`);
-          await postJson(endpoint, body);
+        } else if (["start", "runStart", "runResume", "startWork", "harnessPause"].includes(nextAction)) {
+          const canonicalState = harnessState?.state;
+          if (!canonicalState) throw new Error("Run Initial Sync before requesting work.");
+          await postJson(nextAction === "harnessPause" ? "/api/harness/pause" : "/api/harness/run", {
+            ...body, gameId: canonicalState.identity.game_id, expectedRevision: canonicalState.identity.revision, commandId: crypto.randomUUID(),
+          });
           await manualRefresh();
         } else if (knowledgeActionId) {
           const endpoint = KNOWLEDGE_CONTROL_ENDPOINTS[nextAction];
@@ -475,17 +314,6 @@ export function App() {
           if (!endpoint) throw new Error(`No endpoint is configured for ${nextAction}`);
           await postJson(endpoint, body);
           await manualRefresh();
-        } else if (nextAction === "start") {
-          await postJson("/api/process/start", body);
-          await markWorkersActive();
-          await manualRefresh();
-        } else if (nextAction === "runStart") {
-          await postJson("/api/process/start", body);
-          await markWorkersActive();
-          await manualRefresh();
-        } else if (nextAction === "runResume") {
-          await postJson("/api/run/resume", body);
-          await manualRefresh();
         } else if (nextAction === "runHardStop") {
           await postJson(RUN_CONTROL_ENDPOINTS.runHardStop, body);
           await manualRefresh();
@@ -495,80 +323,6 @@ export function App() {
           await manualRefresh();
         } else if (nextAction === "runRecover") {
           await postJson("/api/run/recover", body);
-          await manualRefresh();
-        } else if (nextAction === "startWork") {
-          const cycleBody = cycleScopedBody(body, cycle);
-          const run = asObject(currentDashboard?.status?.run);
-          const runStatus = String(run.status || "");
-          let processStarted = false;
-          if (runStatus === "paused") {
-            await postJson("/api/run/resume", body);
-            processStarted = true;
-          } else if (runStatus !== "active") {
-            const initialized = asObject(await postJson<JsonObject>("/api/run/init", cycleBody));
-            const activeRunId = String(initialized.activeRunId || initialized.runId || asObject(initialized.parsed).runId || "");
-            if (cyclePhase === "preparing") {
-              await postJson(cycleUrl("/api/cycle/preparing/complete", form), {
-                ...cycleBody,
-                activeRunId,
-                completion: {
-                  initRun: initialized,
-                  workerConfig: workerConfigBody(body),
-                },
-              });
-              await postJson(cycleUrl("/api/cycle/start-running", form), {
-                ...cycleBody,
-                activeRunId,
-              });
-            }
-            if (activeRunId) body.runId = activeRunId;
-          }
-          if (!processStarted) await postJson("/api/process/start", body);
-          await markWorkersActive();
-          if (cyclePhase === "preparing") {
-            const cycleUuid = String(cycle.cycleUuid || cycle.id || "");
-            navigate({ kind: "workspace", section: "cycles", cycle: cycleUuid || "active", cycleSub: "run", gameId: form.gameId || String(cycle.gameId || "") || undefined });
-          }
-          await manualRefresh();
-        } else if (nextAction === "init") {
-          await postJson("/api/run/init", body);
-          await manualRefresh();
-        } else if (nextAction === "fresh") {
-          const cycleBody = newCycleBody(body);
-          let created: JsonObject;
-          try {
-            created = await createCycle(cycleBody, form);
-          } catch (error) {
-            if (error instanceof ActiveCycleError) {
-              const activeCycle = error.cycle;
-              const cycleUuid = String(activeCycle.cycleUuid || activeCycle.id || "");
-              navigate({
-                kind: "workspace",
-                section: "cycles",
-                cycle: cycleUuid || "active",
-                cycleSub: cycleRouteSub(activeCycle),
-                gameId: form.gameId || String(activeCycle.gameId || "") || undefined,
-              });
-              await manualRefresh();
-              return;
-            }
-            throw error;
-          }
-          const createdCycle = asObject(created.cycle);
-          const cycleUuid = String(createdCycle.cycleUuid || createdCycle.id || "");
-          navigate({ kind: "workspace", section: "cycles", cycle: cycleUuid || "active", cycleSub: "run", gameId: form.gameId || String(createdCycle.gameId || "") || undefined });
-          await manualRefresh();
-          setRunDetails(null);
-        } else if (nextAction === "completeRun") {
-          await postJson("/api/run/complete", { ...body, force: true });
-          setRunDetails(null);
-          await manualRefresh();
-        } else if (nextAction === "cycleSavePoint") {
-          await postJson(cycleUrl("/api/cycle/save-point", form), cycleScopedBody(body, harnessStateCycle));
-          await manualRefresh();
-        } else if (nextAction === "cycleClose") {
-          await postJson(cycleUrl("/api/cycle/close", form), cycleScopedBody(body, harnessStateCycle));
-          setRunDetails(null);
           await manualRefresh();
         } else if (nextAction === "checkpoint") {
           await postJson("/api/run/checkpoint", body);
@@ -630,6 +384,10 @@ export function App() {
     },
     [currentDashboard, form, manualRefresh, showError],
   );
+
+  if (route.kind === "workspace" && (!config || form.gameId !== routeGameId || !currentDashboard)) {
+    return <main className="p-4"><p role="status">{errorMessage || "Loading selected game…"}</p></main>;
+  }
 
   // The dashboard route is full-bleed game selection (no workspace nav, no
   // details rail). The workspace route restores the 3-column shell.

@@ -1,0 +1,126 @@
+{
+  "tu": "main/melee/it/kinds/itmetalb",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmetalb.c#L113-L130",
+            "why": "Local branches and unconditional true result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1360-L1383",
+            "why": "Lookup mutates ownership and team even on null return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1701-L1722",
+            "why": "Damage callback true triggers destruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the mutation-free null-path claim and preserves the distinction between conditional effect activation and unconditional destruction.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmetalb:itMetalB_Logic32_DmgReceived"
+        },
+        "type": "state_behavior",
+        "value": "First calls it_8027236C, which updates owner/team information and invokes shared processing even when no associated object is returned. A null result skips the callback's subsequent local effect and reference-clear branches. A fighter result with xDCF_flag.b6 set invokes the fighter-side Metal Box effect and bookkeeping; any other non-null result clears xCEC_fighterGObj. Every path returns true, requesting destruction through the common damage dispatcher."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmetalb.c#L113-L130",
+            "why": "Signature and all return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1701-L1722",
+            "why": "Concrete return-value consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "The exact signature remains unchanged; caller evidence corrects the meaning of its boolean result.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmetalb:itMetalB_Logic32_DmgReceived"
+        },
+        "type": "inferred_type",
+        "value": "Item damage callback with signature bool (Item_GObj*). It always returns true; the common damage dispatcher interprets this as a destruction request, setting destroy_type to 2 and calling Item_8026A8EC. The result does not indicate whether the fighter effect activated."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmetalb.c#L69-L74",
+            "why": "Attribute forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L176-L204",
+            "why": "Pre-update sign/magnitude test and subtraction without clamping."
+          }
+        ],
+        "op": "write",
+        "rationale": "Clarifies the actual threshold behavior rather than implying a strict terminal-speed clamp.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmetalb:itMetalb_UnkMotion1_Phys"
+        },
+        "type": "purpose",
+        "value": "Updates the Metal Box's state-1 vertical velocity through it_80272860 using x10_fall_speed and x14_fall_speed_max. The shared helper conditionally subtracts the fall acceleration based on the current velocity's sign and magnitude; the maximum-fall-speed value is checked before subtraction, not enforced by a post-update clamp, so a step can overshoot it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmetalb.c#L13-L23",
+            "why": "Zero-indexed five-row table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmetalb.c#L132-L152",
+            "why": "EnteredAir selection and collision continuations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the incorrect fourth-state ordinal while retaining the supported physical-item mapping.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmetalb:itMetalb_UnkMotion4_Coll"
+        },
+        "type": "game_mapping",
+        "value": "Implements collision processing for the physical Metal Box's state index 4, the fifth table entry selected by EnteredAir. It delegates to shared collision processing with resting and falling entry continuations and does not directly apply the fighter's metal transformation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmetalb.c#L13-L152",
+            "why": "Complete table, selectors, and damage callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1701-L1722",
+            "why": "Damage return-value lifetime consequence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves numeric-state uncertainty and removes unsupported thrown-or-damaged attribution.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itmetalb.c"
+        },
+        "type": "state_behavior",
+        "value": "Five state indices cover resting (0), ordinary falling (1), picked-up/held (2), an additional falling-physics state with collision-result propagation (3), and entered-air processing (4). State 3 shares its animation callback with state 1, but no local selector establishes its entry event. Spawn and drop select state 1, pickup selects 2, and EnteredAir selects 4; collision continuations select 0 or 1. Damage handling does not select state 3 and instead always returns true to the common destruction path."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

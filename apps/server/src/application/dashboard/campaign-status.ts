@@ -1,14 +1,15 @@
+import { getHarnessState } from "@server/core/harness-state/state.js";
 import { spawnSync } from "node:child_process";
-import { latestSavePoint } from "@server/core/cycle-runtime/phases/pr/state";
-import { openState } from "@server/core/cycle-runtime/run-state";
-import { parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/runtime";
+import { listSavePoints } from "@server/core/harness-runtime/phases/pr/state";
+import { openState } from "@server/core/harness-runtime/run-state";
+import { parseBaseRef } from "@server/core/harness-runtime/phases/sync/upstream";
 import type { CliResult } from "@server/infrastructure/shell/ui-command-runner";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 
 type JsonObject = Record<string, unknown>;
 
 export interface CampaignStatusService {
-  campaignStatus: (repoRoot: string, stateDir: string, baseRefFallback: string) => JsonObject;
+  campaignStatus: (repoRoot: string, stateDir: string, baseRefFallback: string, gameId: string) => JsonObject;
   invalidateCampaignCache: () => void;
 }
 
@@ -66,13 +67,14 @@ export function createCampaignStatusService(deps: CampaignStatusServiceDeps): Ca
     return lastAt || null;
   }
 
-  function campaignStatus(repoRoot: string, stateDir: string, baseRefFallback: string): JsonObject {
-    const key = `${repoRoot}\0${stateDir}`;
+  function campaignStatus(repoRoot: string, stateDir: string, baseRefFallback: string, gameId: string): JsonObject {
+    const key = `${repoRoot}\0${stateDir}\0${gameId}`;
     if (campaignCache && campaignCache.key === key && Date.now() - campaignCache.at < 10_000) return campaignCache.value;
     const store = openState(stateDir);
-    let savePoint: ReturnType<typeof latestSavePoint> = null;
+    let savePoint: ReturnType<typeof listSavePoints>[number] | null = null;
     try {
-      savePoint = latestSavePoint(store);
+      const savePointId = gameId ? getHarnessState(store.db, gameId)?.history.save_point_id : null;
+      savePoint = savePointId ? listSavePoints(store, Number.MAX_SAFE_INTEGER).find(point => point.id === savePointId) ?? null : null;
     } finally {
       store.db.close();
     }

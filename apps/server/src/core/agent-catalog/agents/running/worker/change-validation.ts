@@ -1,7 +1,9 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
-import type { WriteSetEntry } from "@server/core/cycle-runtime/run-state/write-set-categories";
+import { gameBuildLayout, type GameBuildValidation } from "@server/core/game-registry/build-layout.js";
+import type { RunGameMetadata } from "@server/core/shared/types";
+import type { WriteSetEntry } from "@server/core/harness-runtime/run-state/write-set-categories";
 import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type RunQaScanDiffOptions } from "@server/core/validation/qa";
 import {
   runCommand,
@@ -183,6 +185,7 @@ export interface ScopedUnitCheckRunnerOptions {
   sourcePath: string;
   mode: ScopedCheckMode;
   triggerPaths: string[];
+  validation?: GameBuildValidation | null;
   workspaceExec: WorkspaceExec;
 }
 
@@ -229,11 +232,14 @@ function scoreFromRow(row: Record<string, unknown>): number {
   return objdiffRowScore(row);
 }
 
-function objectTargetFromSourcePath(sourcePath: string): string | null {
+function objectTargetFromSourcePath(
+  sourcePath: string,
+  validation?: GameBuildValidation | null,
+): string | null {
   if (!sourcePath) return null;
   const withoutExtension = sourcePath.replace(/\.[^./\\]+$/, "");
   if (withoutExtension === sourcePath) return null;
-  return `build/GALE01/${withoutExtension}.o`;
+  return gameBuildLayout(validation).objectPathForSource(sourcePath);
 }
 
 function scoredSideRows(side: unknown): ObjdiffSideRows {
@@ -582,13 +588,14 @@ export async function captureWorkerChangeBaseline(params: {
   /** Additional repo-relative paths to snapshot for the L1 QA lint diff. */
   extraPaths?: string[];
   captureUndefinedSymbols?: boolean;
+  validation?: GameBuildValidation | null;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeBaseline> {
   await mkdir(params.outputDir, { recursive: true });
   const unit = stringValue(params.target.unit);
   const symbol = stringValue(params.target.symbol);
   const sourcePath = stringValue(params.target.source_path);
-  const objectTarget = objectTargetFromSourcePath(sourcePath);
+  const objectTarget = objectTargetFromSourcePath(sourcePath, params.validation);
   const reasons: string[] = [];
 
   if (params.dryRun) {
@@ -853,7 +860,7 @@ export function compareWorkerUnitSnapshots(params: {
   //
   // If the pre-worker worktree is already exact, treat an exact post-worker
   // target as accepted too. This happens when the admission board is stale but
-  // the cycle worktree already contains the exact source.
+  // the harness worktree already contains the exact source.
   const targetAccepted = targetImproved || targetReachedExact || targetIsExact;
 
   compareRows({
@@ -1059,7 +1066,7 @@ function normalizeRepoPath(path: string): string {
 function sourcePathForSplitUnit(unit: string): string | null {
   let normalized = normalizeRepoPath(unit.trim());
   if (normalized.endsWith(".o")) normalized = `${normalized.slice(0, -2)}.c`;
-  if (!normalized.endsWith(".c")) return null;
+  if (!/\.(?:c|cc|cpp|cxx)$/i.test(normalized)) return null;
   return normalized.startsWith("src/") ? normalized : `src/${normalized}`;
 }
 
@@ -1097,6 +1104,7 @@ async function resolveConfigUnitsFromHunks(options: {
   repoRoot: string;
   baseRev: string;
   metadataPath: string;
+  validation?: GameBuildValidation | null;
   workspaceExec: WorkspaceExec;
 }): Promise<string[]> {
   const runWorkspaceCommand = (command: string[]) => options.workspaceExec.exec(command);
@@ -1105,7 +1113,7 @@ async function resolveConfigUnitsFromHunks(options: {
   const addresses = configHunkAddresses(diff.stdout);
   if (addresses.length === 0) return [];
 
-  const splitsPath = "config/GALE01/splits.txt";
+  const splitsPath = gameBuildLayout(options.validation).splitsTxtPath;
   let currentSplits = "";
   try {
     currentSplits = await readWorkspaceText(options.repoRoot, splitsPath, options.workspaceExec);
@@ -1156,7 +1164,7 @@ function scopedArtifactSlug(sourcePath: string): string {
 async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<ScopedUnitCheck> {
   const slug = scopedArtifactSlug(options.sourcePath);
   const prefix = `attempt-${options.attemptIndex}.scoped-${slug}`;
-  const objectTarget = objectTargetFromSourcePath(options.sourcePath);
+  const objectTarget = objectTargetFromSourcePath(options.sourcePath, options.validation);
   if (!objectTarget) {
     return {
       sourcePath: options.sourcePath,
@@ -1296,6 +1304,7 @@ export async function validateWidenedChange(params: {
   runStateDir: string;
   maxConsumers?: number;
   headerOwnerByPath?: Record<string, string>;
+  gameValidation?: GameBuildValidation | null;
   runners?: WidenedValidationRunners;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeValidation> {
@@ -1383,6 +1392,7 @@ export async function validateWidenedChange(params: {
               repoRoot: params.repoRoot,
               baseRev: params.baseRev,
               metadataPath: entry.path,
+              validation: params.gameValidation,
               workspaceExec: params.workspaceExec,
             });
       } catch (error) {
@@ -1408,6 +1418,7 @@ export async function validateWidenedChange(params: {
         sourcePath,
         mode: scope.mode,
         triggerPaths,
+        validation: params.gameValidation,
         workspaceExec: params.workspaceExec,
       });
     } catch (error) {
@@ -1444,6 +1455,9 @@ async function runWorkerQaLintScan(params: {
   attemptIndex: number;
   baseline: WorkerChangeBaseline;
   orchestratorRoot: string;
+  /** Game descriptor; the scan runner resolves the standards tree from it and fails closed without one. */
+  game?: RunGameMetadata;
+  stateDir?: string;
   qaScanRunner: QaScanRunner;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerQaLint> {
@@ -1503,6 +1517,8 @@ async function runWorkerQaLintScan(params: {
   const invocation = await params.qaScanRunner({
     repoRoot: params.hostRepoRoot,
     orchestratorRoot: params.orchestratorRoot,
+    game: params.game,
+    stateDir: params.stateDir,
     diffFile: scanPath,
     surface: "worker",
   });
@@ -1521,12 +1537,17 @@ export async function validateWorkerChange(params: {
   claimedExact: boolean;
   /** Orchestrator root containing the GameCube toolpack; defaults to the orchestrator repo root. */
   orchestratorRoot?: string;
+  /** Game descriptor for the QA scan's standards tree; the default runner fails closed without it. */
+  game?: RunGameMetadata;
+  /** Game state dir for tool cache/worktree roots. */
+  stateDir?: string;
   /** Injectable scan_diff runner; defaults to runQaScanDiff. */
   qaScanRunner?: QaScanRunner;
   /** Per-gate enable flags from the game descriptor; defaults to all-on. */
   microGateFlags?: WorkerMicroGateFlags;
   /** The attempt's write-set diff text for the banned-idiom micro-gate lint. */
   postAttemptDiffText?: string;
+  validation?: GameBuildValidation | null;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
@@ -1546,10 +1567,13 @@ export async function validateWorkerChange(params: {
     attemptIndex: params.attemptIndex,
     baseline: params.baseline,
     orchestratorRoot: params.orchestratorRoot ?? packageRoot(),
+    game: params.game,
+    stateDir: params.stateDir,
     qaScanRunner: params.qaScanRunner ?? runQaScanDiff,
     workspaceExec: params.workspaceExec,
   });
   const flags = params.microGateFlags ?? DEFAULT_WORKER_MICRO_GATE_FLAGS;
+  const layout = gameBuildLayout(params.validation);
   const { validation: scoreValidation, afterSnapshot } = await validateWorkerScoreChange(params, summaryPath);
   const withQaLint = applyQaLintToValidation(scoreValidation, qaLint);
   const sectionParity = evaluateSectionParityGate({
@@ -1562,13 +1586,20 @@ export async function validateWorkerChange(params: {
   const undefinedSymbolGate = await evaluateUndefinedSymbolGate({
     enabled: flags.undefinedSymbols,
     objectTarget: objectBuilt
-      ? (params.baseline.objectTarget ?? objectTargetFromSourcePath(stringValue(params.target.source_path)))
+      ? (params.baseline.objectTarget ?? objectTargetFromSourcePath(stringValue(params.target.source_path), params.validation))
       : null,
     baselineUndefined: params.baseline.undefinedSymbols ?? null,
     workspaceExec: params.workspaceExec,
+    symbolsTxtPath: layout.symbolsTxtPath,
   });
   const bannedIdiomContext = flags.bannedIdioms
-    ? await loadBannedIdiomContext(params.postAttemptDiffText ?? "", params.baseline, params.workspaceExec, stringValue(params.target.symbol))
+    ? await loadBannedIdiomContext(
+        params.postAttemptDiffText ?? "",
+        params.baseline,
+        params.workspaceExec,
+        layout.symbolsTxtPath,
+        stringValue(params.target.symbol),
+      )
     : {};
   const bannedIdioms: WorkerMicroGateResult = flags.bannedIdioms
     ? lintBannedIdioms(params.postAttemptDiffText ?? "", bannedIdiomContext)
@@ -1583,6 +1614,7 @@ async function loadBannedIdiomContext(
   diffText: string,
   baseline: WorkerChangeBaseline,
   workspaceExec: WorkspaceExec,
+  symbolsTxtPath: string,
   targetFunction?: string,
 ): Promise<{ symbolsTxt?: string; baselineSources: Map<string, string>; postChangeSources: Map<string, string>; targetFunction?: string }> {
   const baselineSources = new Map<string, string>();
@@ -1616,7 +1648,7 @@ async function loadBannedIdiomContext(
     }
   }));
   try {
-    const result = await workspaceExec.exec(["cat", "config/GALE01/symbols.txt"]);
+    const result = await workspaceExec.exec(["cat", symbolsTxtPath]);
     return { symbolsTxt: result.exitCode === 0 ? result.stdout : undefined, baselineSources, postChangeSources, targetFunction };
   } catch {
     return { baselineSources, postChangeSources, targetFunction };
@@ -1631,6 +1663,7 @@ async function validateWorkerScoreChange(
     baseline: WorkerChangeBaseline;
     target: Record<string, unknown>;
     claimedExact: boolean;
+    validation?: GameBuildValidation | null;
     workspaceExec: WorkspaceExec;
   },
   summaryPath: string,
@@ -1651,7 +1684,7 @@ async function validateWorkerScoreChange(
   const unit = stringValue(params.target.unit);
   const symbol = stringValue(params.target.symbol);
   const sourcePath = stringValue(params.target.source_path);
-  const objectTarget = params.baseline.objectTarget ?? objectTargetFromSourcePath(sourcePath);
+  const objectTarget = params.baseline.objectTarget ?? objectTargetFromSourcePath(sourcePath, params.validation);
   if (!unit || !symbol || !sourcePath || !objectTarget) {
     return {
       validation: {

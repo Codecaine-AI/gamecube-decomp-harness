@@ -1,0 +1,136 @@
+{
+  "tu": "main/melee/it/kinds/itzeldadinfire",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzeldadinfire.c#L168-L239",
+            "why": "Shows scale interpolation, release entry, and the later ownership-guarded explosion call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzeldadinfireexplode.c#L24-L54",
+            "why": "The handoff constructs a distinct It_Kind_Zelda_DinFire_Explode object."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the traveling item's release state from the distinct explosion constructor and avoids treating unknown attribute values as proof of increasing scale.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzeldadinfire:itZeldadinfire_UnkMotion0_Anim"
+        },
+        "type": "game_mapping",
+        "value": "Implements progression-dependent visual scaling of Zelda's traveling Din's Fire projectile and entry into its stationary pre-explosion release phase. State 1 starts effect 1273 and a release lifetime; the separate explosion item is attempted later by the state-1 animation callback. The scale interpolation uses article attributes, so its actual growth range depends on those configured values."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzeldadinfire.c#L168-L239",
+            "why": "Distinguishes the travel callback and release initializer from state-1 explosion handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L458-L468",
+            "why": "The lifetime predicate decrements lifeTimer before testing expiry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the description of state 1 as an immediate explosion motion while retaining the established travel-update responsibilities.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzeldadinfire:itZeldadinfire_UnkMotion0_Anim"
+        },
+        "type": "purpose",
+        "value": "Updates Din's Fire's traveling state by advancing and capping progression while xDDC is zero, applying progression-derived uniform model scale, and entering the stationary release state when a matching originating fighter supplies its consumable command or the item's decremented lifetime expires. Release entry replaces the active effect with effect 1273 and loads the release lifetime; this callback does not itself create the separate explosion item and always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzeldadinfire.c#L168-L211",
+            "why": "Shows the complete entry helper and independent owner-command and lifetime branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L458-L468",
+            "why": "Establishes unconditional timer mutation and the expiry comparison."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftZelda/ftzeldaspeciallw.c#L344-L361",
+            "why": "Establishes the numeric motion guards and one-shot command consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves numeric fighter-state evidence and exposes the nonexclusive transition ordering, which matters for short release lifetimes and repeated effect replacement.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzeldadinfire:itZeldadinfire_UnkMotion0_Anim"
+        },
+        "type": "state_behavior",
+        "value": "In state 0, xDD8 advances by one and is capped at attribute x4 only while xDDC is zero. Within that guard, a non-null xDE0 matching Item.owner can trigger release through ftZd_SpecialLw_8013B574, which consumes cmd_vars[1] in fighter motion IDs 345 or 348. Release entry conditionally destroys the prior effect, selects item state 1, spawns effect 1273, sets xDF4, and loads lifeTimer from attribute x2C. After the owner-command branch, the callback always applies scale and calls it_80273130, which decrements lifeTimer and tests for a nonpositive result. Thus an owner-triggered release has its newly loaded timer decremented in the same invocation; if it expires immediately, the release initializer runs a second time. The callback always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzeldadinfire.c#L213-L239",
+            "why": "Shows scale, terminal guards, ignored constructor result, notification, and return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L458-L468",
+            "why": "Proves the timer is decremented even when the predicate returns false."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzeldadinfireexplode.c#L24-L54",
+            "why": "Proves the explosion constructor can return NULL."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the false claim that the nonterminal path is scale-only and records the consequential allocation-failure behavior across the explosion handoff.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzeldadinfire:itZeldadinfire_UnkMotion1_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Every invocation refreshes progression-derived uniform scale and decrements lifeTimer through it_80273130. If the decremented timer is not nonpositive, the callback returns false without terminal cleanup. On expiry, it destroys attached effects only when xDF4 is nonzero and clears that latch. It attempts the separate explosion and notifies the fighter only when xDE0 is non-null and equals Item.owner. The explosion constructor's nullable result is ignored, so fighter notification still occurs if allocation fails. The callback returns true on expiry regardless of owner validity or explosion allocation success."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzeldadinfire.c#L23-L28",
+            "why": "Registers the state-1 callback bundle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzeldadinfire.c#L213-L239",
+            "why": "Shows the normal animation-side completion path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzeldadinfire.c#L284-L331",
+            "why": "Shows stationary physics, no-op stage collision, and separate interaction callbacks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Narrows the existing exclusive-termination claim to what the callback and its state-table siblings establish, preserving independent item interaction behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzeldadinfire:itZeldadinfire_UnkMotion1_Coll"
+        },
+        "type": "state_behavior",
+        "value": "The state-1 stage-collision callback ignores its argument and unconditionally returns false, with no guards, timer updates, calls, or local transitions. Its paired physics callback resets velocity, and its paired animation callback provides the normal timed completion and ownership-guarded explosion handoff. This no-op stage-collision body does not establish immunity to other item events or prove that animation expiry is the item's only possible termination path."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

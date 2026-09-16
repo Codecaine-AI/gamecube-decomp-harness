@@ -1,0 +1,762 @@
+{
+  "main/sysdolphin/baselib/hsd_3B2E:.data": [
+    {
+      "id": "fact:65acdedf-1cfc-4dc5-b675-e728333b5ae1",
+      "target_id": "target:data:main/sysdolphin/baselib/hsd_3B2E:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The preceding encoded byte supplies the table index as `prev % 13`. During encryption, the selected constant is XORed with `prev ^ cur` before a permutation selected by `prev % 7`; during decryption, the inverse permutation is applied first and the same selected constant and preceding encoded byte are then XORed with the result to recover the plaintext byte. The table is read-only after static initialization.",
+      "rationale": "At the current head, the forward helper reads the table before applying its selected permutation, while the inverse helper performs its selected permutation before XORing the same modulo-13 table entry and previous byte. The table has a static initializer and neither helper writes to it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L1-L12",
+          "why": "Shows the table's static initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L14-L61",
+          "why": "Shows the forward path selecting the table entry with `prev % 13`, XORing it with `prev ^ cur`, and selecting a permutation with `prev % 7`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows the inverse path permuting `cur` first and then XORing the selected table value and `prev` into the result."
+        }
+      ]
+    },
+    {
+      "id": "fact:58849ad0-d175-4000-ab3f-d04b3ea419c4",
+      "target_id": "target:data:main/sysdolphin/baselib/hsd_3B2E:.data",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supplies the fixed key material for Melee's reversible memory-card save-data encryption and decryption byte chain.",
+      "rationale": "The current source shows the same fixed table feeding the forward and inverse chained byte transforms. Archived discussion identifies their public callers as EncryptMain and MemoryCard_DecryptMain, grounding the table's role in memory-card data encryption and decryption.",
+      "confidence": 0.92,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L14-L61",
+          "why": "Shows the table supplying a modulo-13 key to the forward per-byte transform."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows the same table supplying the key used by the inverse per-byte transform."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260393106050777098",
+          "why": "Identifies the forward public routine at 0x803B2FA0 as likely EncryptMain."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Identifies the inverse public routine at 0x803B31CC as MemoryCard_DecryptMain."
+        }
+      ]
+    },
+    {
+      "id": "fact:f34dc22e-0531-4e05-84b9-e85b6fb941c9",
+      "target_id": "target:data:main/sysdolphin/baselib/hsd_3B2E:.data",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "MemoryCard_CryptKeyTable",
+      "rationale": "The current source shows that the private table supplies the separately loaded key used by both directions of the byte transform. Archived discussion places the surrounding public entry points under EncryptMain and MemoryCard_DecryptMain, supporting the inferred MemoryCard crypt-key naming while leaving the exact original spelling uncertain.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L14-L61",
+          "why": "Shows the table value loaded into a local named `key` and XORed into the forward transform."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows the same table supplying key material to the inverse transform."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260393106050777098",
+          "why": "Associates the forward public routine with the inferred name EncryptMain."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Identifies the inverse public routine as MemoryCard_DecryptMain, supporting the subsystem prefix."
+        }
+      ]
+    },
+    {
+      "id": "fact:2106c17f-4143-4ac2-ae71-99509dd53f16",
+      "target_id": "target:data:main/sysdolphin/baselib/hsd_3B2E:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "The source-authored semantic object at the start of this data section is `static s32[13]`, initialized to `{ 0x26, 0xFF, 0xE8, 0xEF, 0x42, 0xD6, 0x01, 0x54, 0x14, 0xA3, 0x80, 0xFD, 0x6E }`. Although stored as signed 32-bit elements, every entry is byte-valued and is consumed as XOR key material.",
+      "rationale": "The declaration at the current head preserves the array's static linkage, signed 32-bit element type, length, and all thirteen initializer values. The inverse consumer indexes it modulo 13 and XORs the selected element into a byte transform, confirming that the storage serves as byte-valued key material.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L1-L12",
+          "why": "Shows the current static `s32[13]` declaration and all thirteen initializer values."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows an entry selected with the preceding byte modulo 13 and XORed into the inverse byte-transform result."
+        }
+      ]
+    },
+    {
+      "id": "fact:d4a2ff8a-cd79-4bf4-a87d-5509100ca3c1",
+      "target_id": "target:data:main/sysdolphin/baselib/hsd_3B2E:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Holds the fixed table of thirteen byte-valued constants used by both private transform helpers to add or remove key material during the module's reversible chained buffer transformation.",
+      "rationale": "The current declaration defines exactly thirteen constants. The forward helper XORs a selected entry into the byte before permutation, and the inverse helper XORs the corresponding entry after the inverse permutation; this symmetric XOR use lets the helpers add and remove the same key material.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L1-L12",
+          "why": "Shows the fixed thirteen-element table."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L14-L61",
+          "why": "Shows the forward helper selecting and XORing a table entry before its bit permutation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows the inverse helper selecting the corresponding table entry and XORing it after its bit permutation."
+        }
+      ]
+    }
+  ],
+  "main/sysdolphin/baselib/hsd_3B2E:fn_803B2E04": [
+    {
+      "id": "fact:0727b3d4-ad54-40f7-a5b1-360e0655790f",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B2E04",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives `prev` from the preceding encrypted buffer byte and `cur` from the current plaintext byte. It reads `lbl_80430BD0[prev % 13]`, XORs that key into `prev ^ cur`, chooses a bit permutation using `prev % 7`, and returns the transformed byte for storage back into the current buffer position; that stored result becomes `prev` for the next iteration.",
+      "rationale": "The current helper body establishes the table lookup, XOR order, selector calculations, permutation, and return value. The caller passes `ptr[-1]` and `*ptr`, writes the result to `*ptr`, and advances through the buffer, making each transformed result the preceding byte used by the next call.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L14-L61",
+          "why": "Shows the modulo-13 table read, XOR sequence, modulo-7 selection, bit permutation, and returned value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L62-L88",
+          "why": "Shows the caller passing the preceding buffer byte and current byte, storing the result in place, and advancing to the next position."
+        }
+      ]
+    },
+    {
+      "id": "fact:4312ebb9-515a-489c-8eff-5798baa3e0c1",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B2E04",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the per-byte forward transform in the memory-card data encryption chain.",
+      "rationale": "The current caller applies this helper sequentially to bytes after a 16-byte prefix, using the preceding transformed byte as chaining input. Archived discussion identifies that caller as EncryptMain and the paired inverse entry point as MemoryCard_DecryptMain, grounding the helper as the forward primitive of memory-card data encryption.",
+      "confidence": 0.91,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L62-L88",
+          "why": "Shows the helper applied sequentially and in place to the payload bytes after the 16-byte prefix."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260393106050777098",
+          "why": "Identifies the helper's caller at 0x803B2FA0 as likely EncryptMain."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Identifies the paired inverse routine as MemoryCard_DecryptMain."
+        }
+      ]
+    },
+    {
+      "id": "fact:abbad8b6-f49c-46e9-9669-243a57bfccc2",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B2E04",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "MemoryCard_EncryptByte",
+      "rationale": "The current source shows a private helper invoked once for every payload byte by the forward chained-transform entry point. Archived discussion identifies that entry point as EncryptMain and its inverse counterpart as MemoryCard_DecryptMain, supporting a paired MemoryCard_EncryptByte semantic name while not establishing the exact original spelling.",
+      "confidence": 0.74,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L14-L61",
+          "why": "Shows that the private function transforms one byte using the previous byte, a key, and a selected permutation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L62-L88",
+          "why": "Shows the helper called once for each payload byte by the forward routine."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260393106050777098",
+          "why": "Names the forward caller as likely EncryptMain."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Names the paired inverse entry point MemoryCard_DecryptMain, supporting the MemoryCard prefix and encrypt/decrypt pairing."
+        }
+      ]
+    },
+    {
+      "id": "fact:991b4e18-ada1-42cd-96c2-c331b0bab9ee",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B2E04",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Private callback-like byte transform with C signature `static int (u8 prev, s32 cur)`; its meaningful result is the transformed low byte, although the matched implementation returns it through `int` and performs intermediate mixing in u32 temporaries.",
+      "rationale": "The matched source provides the signature and explicit u8 result casts. The successful scored submission specifically established that an int return and wide unsigned value/key temporaries are required by the matched source shape and do not alter the caller, which consumes the low byte.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T07:59:10.650Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L14-L61",
+          "why": "Shows the exact static function signature, u32 working variables, and u8 casts on each permutation result."
+        },
+        {
+          "kind": "attempt",
+          "locator": "attempt://run/run:53c04a0c-9f2a-4414-a118-e492b6088c42/submission/4",
+          "why": "Establishes through deterministic matching that the helper uses an int return and unsigned wide value/key locals, with caller behavior unchanged because the caller stores the low byte."
+        }
+      ]
+    },
+    {
+      "id": "fact:01ec196b-9383-48f4-99cd-98adb0b640e7",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B2E04",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Transforms one payload byte during forward encryption by mixing it with the preceding encrypted byte and a table-selected key, then applying one of seven fixed permutations to its eight low bits.",
+      "rationale": "The current helper computes `prev ^ cur ^ key`, with the key selected by `prev % 13`, and dispatches among seven low-byte permutations using `prev % 7`. Its caller applies it in place to every byte after the 16-byte prefix, passing the preceding already-transformed byte, and archived discussion identifies that caller as EncryptMain.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L14-L61",
+          "why": "Shows the key selection, XOR mixing, modulo-7 dispatch, and seven fixed low-byte permutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L62-L88",
+          "why": "Shows the caller applying the helper to each payload byte with the preceding transformed byte and current plaintext byte."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260393106050777098",
+          "why": "Identifies the caller at 0x803B2FA0 as likely EncryptMain."
+        }
+      ]
+    }
+  ],
+  "main/sysdolphin/baselib/hsd_3B2E:fn_803B302C": [
+    {
+      "id": "fact:7a0c47ee-bfd2-41e5-be1f-244b03b1e69e",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B302C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives `prev` as the preceding ciphertext byte and `cur` as the current ciphertext byte. The low byte of `prev` selects one of seven permutations and one of thirteen table entries; the function permutes the low eight bits of `cur`, XORs the result with the selected table value and `prev`, and returns the recovered plaintext byte. The caller stores that result over the current buffer position while preserving the original current ciphertext as `prev` for the next iteration.",
+      "rationale": "The current helper body establishes both selectors and the order of permutation followed by XOR recovery. The caller saves the original current byte before overwriting it with the result and then assigns that saved ciphertext to `prev`, preserving ciphertext-based chaining across iterations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows `prev` selecting the permutation and table key, the permutation of `cur`, and the final XOR operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L141-L170",
+          "why": "Shows the caller preserving the current ciphertext, writing the recovered byte in place, and advancing the preserved ciphertext as the next `prev` value."
+        }
+      ]
+    },
+    {
+      "id": "fact:d6849124-0782-44bd-9233-253a460b0289",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B302C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the per-byte inverse transform used to decrypt chained memory-card save-data payloads before their 16-byte integrity value is checked.",
+      "rationale": "The current caller applies this helper in place to each encoded payload byte while preserving ciphertext chaining, then recomputes a 16-byte value from the recovered payload and begins comparing it with the stored prefix. Archived discussion identifies that caller as MemoryCard_DecryptMain.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows the inverse per-byte permutation and XOR recovery performed by the helper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L141-L170",
+          "why": "Shows the helper decoding the payload in place before the caller recomputes and starts checking the 16-byte prefix."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Explicitly identifies the public caller at 0x803B31CC as MemoryCard_DecryptMain."
+        }
+      ]
+    },
+    {
+      "id": "fact:78c09469-ef1e-467e-849d-d9a4b96a2435",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B302C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "MemoryCard_DecryptByte",
+      "rationale": "The current source shows that this private helper transforms each encoded payload byte inside the inverse routine. Archived discussion identifies that exact caller address as MemoryCard_DecryptMain and describes the forward counterpart as EncryptMain, supporting the paired MemoryCard_DecryptByte semantic name while leaving its exact original spelling uncertain.",
+      "confidence": 0.76,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows the private inverse per-byte transform."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L141-L170",
+          "why": "Shows the helper invoked once for each encoded payload byte by hsd_803B31CC."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Identifies hsd_803B31CC as MemoryCard_DecryptMain and includes its called functions in that work."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260393106050777098",
+          "why": "Identifies the paired forward entry point as likely EncryptMain."
+        }
+      ]
+    },
+    {
+      "id": "fact:a18d6b80-3f7b-4fb0-8a0e-4612929bfc40",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B302C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Private byte-transform helper with C signature `static int (u32 prev, u32 cur)`. Both arguments semantically carry byte values supplied by the caller, and the meaningful return value is the decoded low byte, although modulo selection and intermediate operations use widened unsigned integers.",
+      "rationale": "The current declaration establishes the concrete static signature and widened unsigned arguments. The helper explicitly casts during byte permutations, while its caller loads both arguments from buffer bytes and stores the returned result through a byte pointer, establishing the narrower semantic domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows the exact `static int (u32 prev, u32 cur)` signature, widened arithmetic, explicit byte casts, and returned result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L141-L170",
+          "why": "Shows both arguments coming from byte-valued buffer data and the return value being stored through a `u8*`."
+        }
+      ]
+    },
+    {
+      "id": "fact:f5f38c31-cc14-438e-bf45-072e920c4bcf",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:fn_803B302C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Transforms one encrypted payload byte during decryption by applying one of seven low-byte bit permutations selected from the preceding encrypted byte, then removing the table-selected key and previous-byte mixing with XOR.",
+      "rationale": "The current helper selects one of seven permutations using the low byte of `prev` modulo 7, applies it to `cur`, and then XORs the result with the table entry selected modulo 13 and with `prev`. Its caller applies the helper once per encoded payload byte while retaining the original ciphertext for the next chaining step.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:13.893Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L89-L140",
+          "why": "Shows the modulo-7 dispatch, seven fixed byte permutations, modulo-13 table lookup, XOR operations, and return value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L141-L170",
+          "why": "Shows the helper called once per encoded payload byte and the original current ciphertext retained for the next iteration."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Identifies the helper's caller at 0x803B31CC as MemoryCard_DecryptMain."
+        }
+      ]
+    }
+  ],
+  "main/sysdolphin/baselib/hsd_3B2E:hsd_803B2FA0": [
+    {
+      "id": "fact:5b000431-c10d-48c0-8609-3ac5a63bf0eb",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B2FA0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a mutable buffer and total byte length. It supplies the payload range `[data + 16, data + len)` to hsd_803B2B20 and writes that routine's 16-byte result to `data[0..15]`. It then walks forward from index 16: each current plaintext byte and the preceding already-transformed byte are passed to fn_803B2E04, whose low-byte result replaces the current byte and becomes the chaining input for the next iteration.",
+      "rationale": "The target's argument expressions and assignments directly establish the input and output ranges and the forward dependency between iterations. The resolved checksum body establishes that hsd_803B2B20 writes exactly 16 bytes to its destination.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:24:23.748Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L66-L83",
+          "why": "Shows the payload and prefix pointers passed to the checksum routine and the loop that replaces each payload byte using `ptr[-1]` and its original current value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2B.c#L4-L37",
+          "why": "Shows hsd_803B2B20 consuming the requested source length and copying a fixed 16-byte computed value to its destination."
+        }
+      ]
+    },
+    {
+      "id": "fact:6b03e552-f760-4b45-95cf-6a106843d58f",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B2FA0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the forward half of Melee's memory-card save-data protection: it embeds a checksum of the plaintext payload for later integrity verification and applies the chained byte encryption reversed by `MemoryCard_DecryptMain`.",
+      "rationale": "The source demonstrably stores a checksum over the payload and then applies a forward in-place chain. Community discussion identifies this entry point as `EncryptMain`, the checksum callee as `MemoryCard_CalcChecksum`, and the paired inverse entry point as `MemoryCard_DecryptMain`, tying the code to memory-card save-data encryption and integrity checking.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-02T12:24:23.748Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L66-L83",
+          "why": "Shows the combined checksum-prefix generation and forward chained payload transformation."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260393106050777098",
+          "why": "Identifies this exact function as the likely `EncryptMain` entry point."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Identifies the inverse routine as `MemoryCard_DecryptMain`."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260711676618080266",
+          "why": "Directly identifies hsd_803B2B20, called by the target to create the prefix, as `MemoryCard_CalcChecksum`."
+        }
+      ]
+    },
+    {
+      "id": "fact:225566a8-c425-4f02-94de-833ae0826cc4",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B2FA0",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "MemoryCard_EncryptMain",
+      "rationale": "Community discussion directly calls this address `EncryptMain`, while the corresponding inverse entry point is explicitly called `MemoryCard_DecryptMain`. Combining that recovered subsystem prefix with the directly suggested operation yields the most plausible conventionally paired name, though the exact original spelling remains uncertain.",
+      "confidence": 0.84,
+      "updated_at": "2026-09-02T12:24:23.748Z",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260393106050777098",
+          "why": "Directly proposes `EncryptMain` for address 0x803B2FA0."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Provides the paired name `MemoryCard_DecryptMain`, supporting the inferred `MemoryCard_` prefix and EncryptMain/DecryptMain symmetry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L66-L83",
+          "why": "Confirms that the function performs the forward in-place transform expected of the proposed encryption entry-point name."
+        }
+      ]
+    },
+    {
+      "id": "fact:3d2e1f9c-eb4e-4120-b543-5a0d39f3ed76",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B2FA0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "In-place buffer encryption entry point with signature `int MemoryCard_EncryptMain(u8* data, int len)`. `data` addresses a buffer containing a 16-byte checksum prefix followed by `len - 16` payload bytes; the routine returns `-1` when `data` is null and otherwise returns `0`. It does not independently reject lengths below 16.",
+      "rationale": "The complete matched definition supplies the parameter and return types, null guard, fixed offset of the payload, loop bound, mutation behavior, and return convention. Because the only guard checks `data`, no minimum-length validation is performed in this function.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:24:23.748Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L66-L83",
+          "why": "Provides the exact current signature and demonstrates the null-only error path, 16-byte prefix layout, in-place writes, and successful zero return."
+        }
+      ]
+    },
+    {
+      "id": "fact:cdee318a-6038-44da-a67c-cf7ab57477e0",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B2FA0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Prepares and encrypts a memory-card data buffer in place. It writes a 16-byte checksum of the payload into the buffer prefix, then encrypts each payload byte using the preceding already-encrypted byte as the chaining input.",
+      "rationale": "The matched body passes `data + 16` and `len - 16` to the recovered checksum routine with `data` as its 16-byte destination, then transforms bytes from offset 16 through the end using `ptr[-1]`. Archived discussion independently identifies this exact address as the likely `EncryptMain` routine and identifies its paired inverse as `MemoryCard_DecryptMain`.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:24:23.748Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L66-L83",
+          "why": "Shows checksum generation into the buffer prefix followed by the in-place chained transformation of every payload byte."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2B.c#L4-L37",
+          "why": "Shows that hsd_803B2B20 reduces its input range to exactly 16 output bytes, establishing what the target writes into the prefix."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260393106050777098",
+          "why": "Associates address 0x803B2FA0 with the name and role `EncryptMain`."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Identifies the paired inverse routine in the same unit as `MemoryCard_DecryptMain`, grounding the target's subsystem."
+        }
+      ]
+    }
+  ],
+  "main/sysdolphin/baselib/hsd_3B2E:hsd_803B31CC": [
+    {
+      "id": "fact:43bc7301-9f6e-4272-9093-2843f89a5c0a",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B31CC",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "data[15] initializes the previous-encoded-byte state. For each byte from data[16] through data[len-1], the function saves the current encoded byte, passes the prior encoded byte and current byte to fn_803B302C, writes the decoded result back to the same position, and advances the saved encoded byte as the next dependency. It then passes the decoded payload to hsd_803B2B20, receives 16 recomputed integrity bytes in a stack buffer, and compares them with data[0..15] to produce the return status.",
+      "rationale": "The loop's save-before-overwrite ordering proves that chaining follows encoded input rather than newly decoded output. The subsequent helper call and indexed comparison establish the complete path from decoded payload to temporary integrity value and final status.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T07:58:49.850Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L145-L176",
+          "why": "Directly shows the previous-byte state, in-place inverse transform, integrity-helper arguments, and prefix comparison."
+        },
+        {
+          "kind": "attempt",
+          "locator": "attempt://run/run:01b2a853-7a5d-49ef-b176-9e3d2254cdd9/submission/1",
+          "why": "Confirms that the matched post-checksum comparison is a natural loop over all 16 bytes and that this exact indexed formulation reproduces the target."
+        }
+      ]
+    },
+    {
+      "id": "fact:7923d846-8a32-4d93-8035-1dd341411b1f",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B31CC",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes memory-card payload deobfuscation and save-data integrity checking: encoded bytes after a 16-byte header are restored for use, and corruption or an incorrect transformation is detected by recomputing and comparing the stored integrity value.",
+      "rationale": "Community discussion identifies this exact function as the main memory-card decryption operation and states that deobfuscation depends on it. The matched body grounds that interpretation in an in-place inverse transform followed by a fixed-width integrity comparison.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T07:58:49.850Z",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Identifies the exact function as MemoryCard_DecryptMain."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260379174074449940",
+          "why": "The resolved discussion calls it the main decryption function and states that deobfuscation should work once it and its dependencies are available."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L145-L176",
+          "why": "Demonstrates the deobfuscation and integrity-check mechanics attributed to the memory-card routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:f1682b60-2878-4886-8f60-bb3770ec9488",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B31CC",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "MemoryCard_DecryptMain",
+      "rationale": "A community decompilation discussion refers to this exact address by MemoryCard_DecryptMain, and the matched implementation performs the expected main-pass in-place decryption followed by integrity verification. The name remains an inference because the current source symbol is address-based rather than an independently recovered original symbol.",
+      "confidence": 0.89,
+      "updated_at": "2026-09-02T07:58:49.850Z",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Associates the exact address 0x803B31CC with the name MemoryCard_DecryptMain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L145-L176",
+          "why": "Confirms that the function's behavior is a complete decryption-and-validation entry point rather than only a low-level permutation helper."
+        }
+      ]
+    },
+    {
+      "id": "fact:3ace92b7-dbed-4640-92fe-6777a1b3f527",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B31CC",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Synchronous in-place buffer validator with signature int MemoryCard_DecryptMain(u8* data, int len): data points to a mutable buffer containing a 16-byte integrity prefix followed by an encoded payload, len is the total buffer length and is implicitly required to be at least 16, and the result is 0 on successful decryption and validation or -1 for a null pointer or integrity mismatch.",
+      "rationale": "The declaration supplies the concrete C types. Access to data[15], processing beginning at offset 16, and passing len - 16 to the integrity helper establish the buffer layout and implicit minimum length; explicit return paths establish the status domain.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T07:58:49.850Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L145-L176",
+          "why": "Shows the exact signature, mutable accesses, fixed prefix boundary, implicit length assumption, and 0/-1 result values."
+        }
+      ]
+    },
+    {
+      "id": "fact:b3a0ea63-2b1d-4a88-b05c-4e476bdf89cd",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B31CC",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Decrypts a buffer's payload in place and validates it against the 16-byte integrity value stored at the start of the buffer, returning success only when every integrity byte matches.",
+      "rationale": "The function reverses the byte transform over offsets 16 through len-1, recomputes a 16-byte check from the resulting payload, and rejects the buffer on the first prefix mismatch. Community analysis independently identifies it as the main memory-card decryption routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T07:58:49.850Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L145-L176",
+          "why": "The complete matched body directly shows in-place payload restoration, integrity recomputation, byte-for-byte validation, and status returns."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1260391855728885910",
+          "why": "Explicitly identifies 0x803B31CC as MemoryCard_DecryptMain."
+        }
+      ]
+    },
+    {
+      "id": "fact:82699696-231b-4e29-a800-6211b4884039",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B2E:hsd_803B31CC",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null data pointer is rejected immediately with -1. For a non-null buffer, the function first decrypts the entire payload in place and only afterward validates its integrity prefix. The first mismatching integrity byte returns -1; all 16 matches return 0. Because validation follows mutation, a failed integrity check leaves the payload in its decoded state rather than restoring the original encoded bytes.",
+      "rationale": "The null guard precedes all accesses, while the transform loop precedes both integrity recomputation and comparison. Every comparison failure exits directly without an undo pass, and the sole successful terminal path returns zero.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T07:58:49.850Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L145-L176",
+          "why": "Shows the ordered null guard, unconditional in-place transform for non-null input, first-mismatch exit, success path, and absence of rollback."
+        }
+      ]
+    }
+  ],
+  "src/sysdolphin/baselib/hsd_3B2E.c": [
+    {
+      "id": "fact:f681cc06-b360-489a-90e2-21f662fe7d66",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B2E.c",
+      "type": "data_flow",
+      "value": "On encryption, hsd_803B2B20 derives the first 16 bytes from `data + 16` and `len - 16`; each subsequent plaintext byte is then replaced using the preceding already-transformed byte. On decryption, the original encrypted byte is retained as the next chaining value while the inverse helper rewrites the current byte; the recovered payload is passed to hsd_803B2B20 and its 16-byte result is compared with `data[0..15]`.",
+      "rationale": "The current pointer ranges, loop bounds, assignments, and preservation of the pre-transform current byte directly establish both chaining directions and verification flow.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T01:57:15.870Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L1-L170",
+          "why": "Shows payload-derived prefix creation and the forward chain using the preceding transformed byte."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L90-L170",
+          "why": "Shows preservation of each ciphertext byte as the next chaining value and verification of the recovered payload."
+        }
+      ]
+    },
+    {
+      "id": "fact:41ebd7a1-3645-414c-abb0-f092417f3673",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B2E.c",
+      "type": "game_mapping",
+      "value": "Realizes the reversible encryption and post-decryption integrity verification used for memory-card data buffers.",
+      "rationale": "The current unit demonstrably supplies reversible chained byte transforms and rejects decrypted buffers whose recomputed 16-byte prefix does not match the stored value.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-04T01:57:15.870Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L1-L170",
+          "why": "Shows paired in-place forward and inverse transforms with a stored 16-byte verification prefix."
+        }
+      ]
+    },
+    {
+      "id": "fact:2a189069-1418-46c0-92a1-c0434651133b",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B2E.c",
+      "type": "inferred_type",
+      "value": "A memory-card buffer transform module containing a private 13-element s32 key table, mutually inverse private byte-transform helpers, and public in-place encrypt/decrypt entry points taking `(u8* data, int len)` and returning zero on success or -1 on invalid input or failed verification.",
+      "rationale": "The current declarations and bodies establish the key-table layout, inverse helper pair, public signatures, in-place mutation, and return convention.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T01:57:15.870Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L1-L170",
+          "why": "Shows the 13-entry key table, private transforms, `(u8*, int)` public routines, null rejection, and in-place operation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L90-L170",
+          "why": "Shows the inverse helper and decryption routine's failed-verification path."
+        }
+      ]
+    },
+    {
+      "id": "fact:5f33d66c-0b30-40b3-97cc-35a819e15cb3",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B2E.c",
+      "type": "purpose",
+      "value": "Provides paired in-place encryption and decryption for a buffer whose first 16 bytes hold a verification value: encryption generates that 16-byte prefix from the payload and forward-transforms bytes 16 through the end, while decryption reverses the byte transform and rejects the buffer if a recomputed 16-byte value does not match the prefix.",
+      "rationale": "The current public routines retain prefix generation, chained forward transformation, inverse transformation with preserved ciphertext chaining, and post-decryption verification.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T01:57:15.870Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L1-L170",
+          "why": "Shows the key table, forward transform, prefix generation, inverse transform, and verification flow."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B2E.c#L90-L170",
+          "why": "Shows decryption preserving each encrypted byte for chaining and comparing a recomputed 16-byte check against the stored prefix."
+        }
+      ]
+    }
+  ],
+  "main/sysdolphin/baselib/hsd_3B2E:fn_803B2E04#r3": [],
+  "main/sysdolphin/baselib/hsd_3B2E:fn_803B2E04#r4": [],
+  "main/sysdolphin/baselib/hsd_3B2E:fn_803B302C#r3": [],
+  "main/sysdolphin/baselib/hsd_3B2E:fn_803B302C#r4": [],
+  "main/sysdolphin/baselib/hsd_3B2E:hsd_803B2FA0#r3": [],
+  "main/sysdolphin/baselib/hsd_3B2E:hsd_803B2FA0#r4": [],
+  "main/sysdolphin/baselib/hsd_3B2E:hsd_803B31CC#r3": [],
+  "main/sysdolphin/baselib/hsd_3B2E:hsd_803B31CC#r4": []
+}

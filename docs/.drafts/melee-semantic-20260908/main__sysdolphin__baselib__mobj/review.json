@@ -1,0 +1,3994 @@
+{
+  "contract": "lean-v2",
+  "adopt_handoff_sha256": "83b909e6d40a0d778672a320e3b16a909844a76514caa39f86f8a73c41bf8ae0",
+  "proposal_sha256": "88a53c3b96c6d0e710aefef186711e2153ce4e25f41e75a4b13590073147bd5b",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "verdict": "accepted",
+  "fact_overrides": [],
+  "link_overrides": [],
+  "rejected": [],
+  "review_notes": [],
+  "independent_checks": {
+    "handoff_sha256": "83b909e6d40a0d778672a320e3b16a909844a76514caa39f86f8a73c41bf8ae0",
+    "document_proposal_reconciled": true,
+    "reviewed_contradiction_ids": [
+      "fact:ff49cf89-9003-45c7-8e54-bf7a5cb60e11",
+      "fact:011b9517-1bce-402c-a022-2a8cdb1aa8c5",
+      "fact:2c8683e6-d669-4779-9520-be1a901d4e3c",
+      "fact:345a2709-4f56-4759-b886-a5be0494c120",
+      "fact:bc40e0cc-d1ae-4484-9a67-9be6c4c0d61a",
+      "fact:f0384cc2-de43-4db0-8afa-4700f0bd01b6",
+      "fact:99e304a7-dcb5-41b2-b9cb-c798b80e9356",
+      "fact:6fe30e1a-f055-46c3-8d64-5097d3aa7f6d",
+      "fact:4a33e8c2-cde8-40d9-98d7-77ba210692ed",
+      "fact:8f768c65-4f96-40a5-9421-2bdd008f32d3",
+      "fact:1310bf80-b05b-4ba5-9fe6-7edcad722ee2",
+      "fact:b415ae87-e09f-4cdd-9f6d-a20392f17c95",
+      "link:cf465b67-ae13-47ce-bf9f-fae294ad6ecc",
+      "link:712bc3ce-65bf-4ef5-b497-f37b91a187e1",
+      "link:f935e4b8-428e-4e5e-8e67-9e8d020c834d",
+      "link:14a61045-be96-40de-a9a0-d01a7a9c0376",
+      "link:6916b4cd-6e53-4aec-94b1-db1af7b23e38",
+      "link:d4ea7374-64c9-4693-882f-6b6759c2be89"
+    ],
+    "proposed_facts": [
+      {
+        "index": 0,
+        "supported": true,
+        "reason": "Canonical descriptor loading branches to HSD_MObjAlloc on missing or unresolved class name, otherwise hsdNew(info), then invokes virtual loading without inspecting its result and compiles TEV. The allocator explicitly selects default_class or the base class. Null-descriptor behavior is preserved."
+      },
+      {
+        "index": 1,
+        "supported": true,
+        "reason": "The purpose correction accurately replaces base-only fallback with conditional default-or-base allocation. It agrees with the functionality document without asserting that a default override is actually installed."
+      },
+      {
+        "index": 2,
+        "supported": true,
+        "reason": "The canonical callback slot names the third parameter rendermode; HSD_MObjSetup supplies mobj->rendermode and MObjSetupTev forwards it unchanged to HSD_TObjSetupVolatileTev. Existing signature and function name remain supported."
+      },
+      {
+        "index": 3,
+        "supported": true,
+        "reason": "HSD_MObjUnset only calls HSD_TObjSetup(NULL). Independently inspected callee assigns tobj_head and returns before resource assignment or GX operations. Both unset arguments are unused."
+      }
+    ],
+    "contradictions": [
+      {
+        "reason": "Accept the two LoadDesc supersessions: fallback is not necessarily base-class allocation. The conditional default_class behavior is supported; whether an override is installed remains explicitly deferred.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L494"
+          }
+        ]
+      },
+      {
+        "reason": "Accept the SetupTev supersession: arg2 is render mode rather than an unresolved opaque argument.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L421"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.h#L142-L151"
+          }
+        ]
+      },
+      {
+        "reason": "Accept the Unset supersession: software texture-context clearing is established, hardware unbinding is not performed. Historical extra-argument speculation remains deferred; the pinned callback has two arguments.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L427-L430"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L1137-L1154"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.h#L150-L151"
+          }
+        ]
+      },
+      {
+        "reason": "Accept deferral of the two .data facts and toon-template section link. Conditional force-active declarations and initialized template use support source roles, not emitted section membership or retention.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L377-L458"
+          }
+        ]
+      },
+      {
+        "reason": "Accept deferral of the two .sbss facts and shadow, toon, and current-context section links. Source globals and their roles are supported, but section size, order, and optimizer retention are not. The DObj caller confirms set/clear context rather than a saved/restored stack, including the numeric bypass branch.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L375"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318"
+          }
+        ]
+      },
+      {
+        "reason": "Accept deferral of both .sdata facts while explicitly preserving the known byte-count contradiction: the diagnostic has 29 characters and 30 bytes including NUL; hsd_mobj occupies 9 bytes including NUL. Their sum does not establish compiled pool extent or padding.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L450-L458"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L578-L582"
+          }
+        ]
+      },
+      {
+        "reason": "Accept deferral of both .sdata2 facts and both animation/opacity section links. Arithmetic and initialization roles remain supported; source literals cannot establish compiled pool membership, ordering, size, or padding.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L496-L503"
+          }
+        ]
+      }
+    ]
+  },
+  "unresolved": [
+    "Eight section facts and six section-origin links remain deferred pending compiled evidence. Supported source roles are retained; section membership, extent, ordering, padding, and optimizer retention are not established.",
+    "The diagnostic-string byte-count contradiction is confirmed, but no replacement compiled-pool layout is justified.",
+    "Installation of a non-null default_class is not established; only its conditional allocation branch is verified.",
+    "Historical additional callback-argument speculation remains unresolved; the pinned unset interface has two arguments.",
+    "Shared texture references can outlive temporary chain splices; this review does not establish recompilation after every external registry change."
+  ],
+  "fact_dispositions": [
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L377-L458",
+          "why": "Conditional declarations, not section map."
+        }
+      ],
+      "fact_id": "fact:ff49cf89-9003-45c7-8e54-bf7a5cb60e11",
+      "reason": "Source types supported; compiled .data membership and forced-array retention require compiled evidence.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L377-L458",
+          "why": "Source declarations only."
+        }
+      ],
+      "fact_id": "fact:011b9517-1bce-402c-a022-2a8cdb1aa8c5",
+      "reason": "Source roles supported but compiled section ownership unverified.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "Declarations only."
+        }
+      ],
+      "fact_id": "fact:2c8683e6-d669-4779-9520-be1a901d4e3c",
+      "reason": "Four pointers do not prove a 16-byte section or declaration-order placement; current_mobj may be optimized.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "No emitted section information."
+        }
+      ],
+      "fact_id": "fact:345a2709-4f56-4759-b886-a5be0494c120",
+      "reason": "Global roles supported; attribution of all globals to .sbss lacks compiled evidence.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L450-L458",
+          "why": "Exact diagnostic spelling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L578-L582",
+          "why": "Class string."
+        }
+      ],
+      "fact_id": "fact:bc40e0cc-d1ae-4484-9a67-9be6c4c0d61a",
+      "reason": "Diagnostic is 29 characters, 30 bytes with NUL, not 31. Together with hsd_mobj's 9 bytes the sum is 39; exact section contents and padding remain unverified, so no replacement layout is proposed.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L450-L458",
+          "why": "Use site only."
+        }
+      ],
+      "fact_id": "fact:f0384cc2-de43-4db0-8afa-4700f0bd01b6",
+      "reason": "String purposes supported but small-data placement unverified.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Source literals."
+        }
+      ],
+      "fact_id": "fact:99e304a7-dcb5-41b2-b9cb-c798b80e9356",
+      "reason": "Literal types do not prove pool order, size, or four-byte padding; matched-source history is not compiled evidence.",
+      "updated_at": "2026-09-02T04:56:21.742Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Use does not prove placement."
+        }
+      ],
+      "fact_id": "fact:6fe30e1a-f055-46c3-8d64-5097d3aa7f6d",
+      "reason": "Arithmetic roles supported; compiled read-only section attribution unverified.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Fallback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L494",
+          "why": "Class selection."
+        }
+      ],
+      "fact_id": "fact:4a33e8c2-cde8-40d9-98d7-77ba210692ed",
+      "reason": "Fallback allocator selects default_class when non-null, not necessarily base class.",
+      "updated_at": "2026-09-01T23:11:09.076Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L494",
+          "why": "Conditional default class."
+        }
+      ],
+      "fact_id": "fact:8f768c65-4f96-40a5-9421-2bdd008f32d3",
+      "reason": "Correct base-only fallback to default-or-base allocation.",
+      "updated_at": "2026-09-01T23:11:09.076Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.h#L142-L151",
+          "why": "Named callback argument."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L421",
+          "why": "Forwarding and caller."
+        }
+      ],
+      "fact_id": "fact:1310bf80-b05b-4ba5-9fe6-7edcad722ee2",
+      "reason": "Third argument is identified as rendermode by caller and class slot, not merely opaque.",
+      "updated_at": "2026-09-01T23:33:17.043Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L427-L430",
+          "why": "Delegation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L1137-L1154",
+          "why": "Head assignment and early return."
+        }
+      ],
+      "fact_id": "fact:b415ae87-e09f-4cdd-9f6d-a20392f17c95",
+      "reason": "NULL setup clears software texture head then returns; no GX unbinding/reset.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L38",
+          "why": "Exact signatures and guarded mutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Rendering consumers."
+        }
+      ],
+      "fact_id": "fact:f6c4c697-2f7d-4164-a6f0-994721cc70e1",
+      "reason": "Retain null-safe bitwise mutators and downstream flag roles; no encoded-field replacement or automatic recompilation implied.",
+      "updated_at": "2026-09-01T23:31:07.668Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L38",
+          "why": "Exact signatures and guarded mutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Rendering consumers."
+        }
+      ],
+      "fact_id": "fact:2d9760c8-73f2-4bf8-9c44-8071e8655fb8",
+      "reason": "Retain null-safe bitwise mutators and downstream flag roles; no encoded-field replacement or automatic recompilation implied.",
+      "updated_at": "2026-09-01T23:31:07.668Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L38",
+          "why": "Exact signatures and guarded mutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Rendering consumers."
+        }
+      ],
+      "fact_id": "fact:966d95bf-522a-48f2-87f0-48280b273a25",
+      "reason": "Retain null-safe bitwise mutators and downstream flag roles; no encoded-field replacement or automatic recompilation implied.",
+      "updated_at": "2026-09-01T23:31:07.668Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L38",
+          "why": "Exact signatures and guarded mutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Rendering consumers."
+        }
+      ],
+      "fact_id": "fact:6424a9b6-83ad-4c94-bc89-cd14d307e2df",
+      "reason": "Retain null-safe bitwise mutators and downstream flag roles; no encoded-field replacement or automatic recompilation implied.",
+      "updated_at": "2026-09-01T23:31:07.668Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L38",
+          "why": "Exact signatures and guarded mutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Rendering consumers."
+        }
+      ],
+      "fact_id": "fact:892b7174-a723-43c4-bf51-27fb2e4f9d64",
+      "reason": "Retain null-safe bitwise mutators and downstream flag roles; no encoded-field replacement or automatic recompilation implied.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L38",
+          "why": "Exact signatures and guarded mutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Rendering consumers."
+        }
+      ],
+      "fact_id": "fact:f8efd3fc-7c32-4d9a-bc57-859c363a331c",
+      "reason": "Retain null-safe bitwise mutators and downstream flag roles; no encoded-field replacement or automatic recompilation implied.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L38",
+          "why": "Exact signatures and guarded mutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Rendering consumers."
+        }
+      ],
+      "fact_id": "fact:b5421c3c-016f-467f-9ec5-a58438ed43d5",
+      "reason": "Retain null-safe bitwise mutators and downstream flag roles; no encoded-field replacement or automatic recompilation implied.",
+      "updated_at": "2026-09-01T23:34:10.256Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L38",
+          "why": "Exact signatures and guarded mutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Rendering consumers."
+        }
+      ],
+      "fact_id": "fact:38777a96-6502-48fd-b3f2-2cd2de13745f",
+      "reason": "Retain null-safe bitwise mutators and downstream flag roles; no encoded-field replacement or automatic recompilation implied.",
+      "updated_at": "2026-09-01T23:34:10.256Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L38",
+          "why": "Exact signatures and guarded mutations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Rendering consumers."
+        }
+      ],
+      "fact_id": "fact:e93714f8-2579-41a5-a1bc-8b0d2fde7a08",
+      "reason": "Retain null-safe bitwise mutators and downstream flag roles; no encoded-field replacement or automatic recompilation implied.",
+      "updated_at": "2026-09-01T23:34:10.256Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:068cf1fe-2c74-4232-8c4d-bdfa6c0eecc6",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:22.165Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:ad5ce4ff-b074-4cd2-891e-d4aefd046a94",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:22.165Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:44bdd008-8d64-4c63-97c4-a7dd3ea5cc41",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:22.165Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:308a8b47-80de-469a-a16a-d4f1da43082d",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:22.165Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:b5d70135-297e-4fa6-9abe-d730a75ddbdf",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:06.955Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:b274bebc-4d20-4d44-9032-1dffec120230",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:06.955Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:bb1bf34e-e3e3-4f1f-9558-84739bf97380",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:06.955Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:c803b760-1f13-4e41-81e1-cdedcbccceb2",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:37.533Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:27c5857b-ed39-42cc-803f-9ccb46e4ef70",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:37.533Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:0852226b-f3ca-410e-ae37-62b135423107",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:37.533Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L460-L478",
+          "why": "Complete bodies."
+        }
+      ],
+      "fact_id": "fact:428d1cb7-1787-4958-af04-ad63df5baa37",
+      "reason": "Retain direct setters and nullable accessor; no clamping, RGB alpha mutation, or ownership transfer.",
+      "updated_at": "2026-09-01T23:31:37.533Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L503",
+          "why": "Allocation bodies."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Fallback caller."
+        }
+      ],
+      "fact_id": "fact:b0c1651f-bd87-4861-bd96-d71616fa954e",
+      "reason": "Retain class-aware allocation and zeroed material with alpha 1; default-class capability does not establish an installation mechanism.",
+      "updated_at": "2026-09-01T23:31:07.393Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L503",
+          "why": "Allocation bodies."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Fallback caller."
+        }
+      ],
+      "fact_id": "fact:b2e5ecc2-7079-40f0-9cfa-0d773e916e7b",
+      "reason": "Retain class-aware allocation and zeroed material with alpha 1; default-class capability does not establish an installation mechanism.",
+      "updated_at": "2026-09-01T23:31:07.393Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L503",
+          "why": "Allocation bodies."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Fallback caller."
+        }
+      ],
+      "fact_id": "fact:fa7ecdac-ba5d-461d-bfce-72174a7db6e6",
+      "reason": "Retain class-aware allocation and zeroed material with alpha 1; default-class capability does not establish an installation mechanism.",
+      "updated_at": "2026-09-01T23:31:07.393Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L503",
+          "why": "Allocation bodies."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Fallback caller."
+        }
+      ],
+      "fact_id": "fact:627c6146-a7ec-46bc-a1b4-954040982d4f",
+      "reason": "Retain class-aware allocation and zeroed material with alpha 1; default-class capability does not establish an installation mechanism.",
+      "updated_at": "2026-09-01T23:31:07.393Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L503",
+          "why": "Allocation bodies."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Fallback caller."
+        }
+      ],
+      "fact_id": "fact:bda1db41-5329-45eb-8b52-3c5aefd056af",
+      "reason": "Retain class-aware allocation and zeroed material with alpha 1; default-class capability does not establish an installation mechanism.",
+      "updated_at": "2026-09-01T23:32:29.350Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L503",
+          "why": "Allocation bodies."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Fallback caller."
+        }
+      ],
+      "fact_id": "fact:2197f998-8c07-4aba-ae9f-d8d6c1d8b23c",
+      "reason": "Retain class-aware allocation and zeroed material with alpha 1; default-class capability does not establish an installation mechanism.",
+      "updated_at": "2026-09-01T23:32:29.350Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L503",
+          "why": "Allocation bodies."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Fallback caller."
+        }
+      ],
+      "fact_id": "fact:cac5f7f9-bb25-43cc-9d6a-ec29ccc36dab",
+      "reason": "Retain class-aware allocation and zeroed material with alpha 1; default-class capability does not establish an installation mechanism.",
+      "updated_at": "2026-09-01T23:32:29.350Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L503",
+          "why": "Allocation bodies."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Fallback caller."
+        }
+      ],
+      "fact_id": "fact:a1228592-95e5-46da-93d5-44814aad24a6",
+      "reason": "Retain class-aware allocation and zeroed material with alpha 1; default-class capability does not establish an installation mechanism.",
+      "updated_at": "2026-09-01T23:32:29.350Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L152-L189",
+          "why": "Loader and constructor."
+        }
+      ],
+      "fact_id": "fact:934f8290-4c23-4a72-9072-b6ef8edd3d27",
+      "reason": "Retain typed descriptor loading, copied material/optional PE, forced toon and zero result; absent PE descriptor causes no PE assignment.",
+      "updated_at": "2026-09-01T23:11:09.076Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L152-L189",
+          "why": "Loader and constructor."
+        }
+      ],
+      "fact_id": "fact:0f472a34-62cd-4135-ade0-b5caef548d56",
+      "reason": "Retain typed descriptor loading, copied material/optional PE, forced toon and zero result; absent PE descriptor causes no PE assignment.",
+      "updated_at": "2026-09-01T23:32:32.006Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L152-L189",
+          "why": "Loader and constructor."
+        }
+      ],
+      "fact_id": "fact:268d2c7a-3204-4b06-a840-2599126bd869",
+      "reason": "Retain typed descriptor loading, copied material/optional PE, forced toon and zero result; absent PE descriptor causes no PE assignment.",
+      "updated_at": "2026-09-01T23:32:32.006Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L152-L189",
+          "why": "Loader and constructor."
+        }
+      ],
+      "fact_id": "fact:ffce1be5-db85-431d-8768-2fea534a3773",
+      "reason": "Retain typed descriptor loading, copied material/optional PE, forced toon and zero result; absent PE descriptor causes no PE assignment.",
+      "updated_at": "2026-09-01T23:32:32.006Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L152-L189",
+          "why": "Loader and constructor."
+        }
+      ],
+      "fact_id": "fact:7edaabe3-db3a-430f-969d-af2f4c0c2ffa",
+      "reason": "Retain typed descriptor loading, copied material/optional PE, forced toon and zero result; absent PE descriptor causes no PE assignment.",
+      "updated_at": "2026-09-01T23:32:32.006Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:a58a8ac7-811a-4901-adf8-e4e3ca4b5443",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:53.075Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:08f870a7-af5e-48ca-9ea3-049c9df479a7",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:53.075Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:224b52a2-afd9-49bd-9bb0-2c0de89d42d2",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:53.075Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:b11ede73-782a-4215-8a7d-48f36e654008",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:53.075Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:e7fb7398-78d4-49d3-8782-b6a5a0fab326",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:53.075Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:f77e76ba-7fce-4caf-b93d-fd8b898ce864",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:19.416Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:25124efc-994c-4194-a1e4-9190613a10a7",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:19.416Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:f1aedf4d-b2b6-4648-9a5a-6d5a57c033f6",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:19.416Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:b7c7b05b-70d1-4438-bf13-7b0c903d9610",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:19.416Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L84",
+          "why": "Attachment and teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Controller lifetime."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L27-L227",
+          "why": "Texture matching and animation properties."
+        }
+      ],
+      "fact_id": "fact:3dd2b0bf-d2d0-4beb-a2b5-cc6e9b2cb135",
+      "reason": "Retain attachment and independent teardown. Nullable controller loading/removal and per-texture ID matching confirm replacement, unchanged unmatched nodes and palette reset. Attachment does not request playback.",
+      "updated_at": "2026-09-01T23:31:19.416Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L84",
+          "why": "Request wrappers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L105-L132",
+          "why": "Texture selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Frame and playback flags."
+        }
+      ],
+      "fact_id": "fact:41c7d7c9-3fcc-448f-bc64-4fc228b63626",
+      "reason": "Retain common-frame requests and independent channel selection; full mask reaches texture traversal and TOBJ_ANIM gates its controllers.",
+      "updated_at": "2026-09-01T23:31:24.798Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L84",
+          "why": "Request wrappers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L105-L132",
+          "why": "Texture selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Frame and playback flags."
+        }
+      ],
+      "fact_id": "fact:cfff942b-e46f-4302-a116-dda3cbb79dfb",
+      "reason": "Retain common-frame requests and independent channel selection; full mask reaches texture traversal and TOBJ_ANIM gates its controllers.",
+      "updated_at": "2026-09-01T23:31:24.798Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L84",
+          "why": "Request wrappers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L105-L132",
+          "why": "Texture selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Frame and playback flags."
+        }
+      ],
+      "fact_id": "fact:a654d9e3-09bf-43a4-a245-fef7bec27b25",
+      "reason": "Retain common-frame requests and independent channel selection; full mask reaches texture traversal and TOBJ_ANIM gates its controllers.",
+      "updated_at": "2026-09-01T23:31:24.798Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L84",
+          "why": "Request wrappers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L105-L132",
+          "why": "Texture selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Frame and playback flags."
+        }
+      ],
+      "fact_id": "fact:23d96b59-303e-4cc1-94e8-348ab89be762",
+      "reason": "Retain common-frame requests and independent channel selection; full mask reaches texture traversal and TOBJ_ANIM gates its controllers.",
+      "updated_at": "2026-09-01T23:31:24.798Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L84",
+          "why": "Request wrappers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L105-L132",
+          "why": "Texture selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Frame and playback flags."
+        }
+      ],
+      "fact_id": "fact:567953df-8073-4a88-a98b-a82a49b282db",
+      "reason": "Retain common-frame requests and independent channel selection; full mask reaches texture traversal and TOBJ_ANIM gates its controllers.",
+      "updated_at": "2026-09-01T23:31:24.798Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L84",
+          "why": "Request wrappers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L105-L132",
+          "why": "Texture selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Frame and playback flags."
+        }
+      ],
+      "fact_id": "fact:268d1799-6874-4d58-9224-c1772cd2b136",
+      "reason": "Retain common-frame requests and independent channel selection; full mask reaches texture traversal and TOBJ_ANIM gates its controllers.",
+      "updated_at": "2026-09-01T23:03:18.927Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L84",
+          "why": "Request wrappers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L105-L132",
+          "why": "Texture selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Frame and playback flags."
+        }
+      ],
+      "fact_id": "fact:42c104fd-2f71-4498-a462-789104a24153",
+      "reason": "Retain common-frame requests and independent channel selection; full mask reaches texture traversal and TOBJ_ANIM gates its controllers.",
+      "updated_at": "2026-09-01T23:03:18.927Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L84",
+          "why": "Request wrappers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L105-L132",
+          "why": "Texture selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Frame and playback flags."
+        }
+      ],
+      "fact_id": "fact:315ed31e-aade-426c-8e21-d345fa486178",
+      "reason": "Retain common-frame requests and independent channel selection; full mask reaches texture traversal and TOBJ_ANIM gates its controllers.",
+      "updated_at": "2026-09-01T23:03:18.927Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L84",
+          "why": "Request wrappers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L105-L132",
+          "why": "Texture selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Frame and playback flags."
+        }
+      ],
+      "fact_id": "fact:a0fec361-f5eb-4be1-ac54-5763da5ccf45",
+      "reason": "Retain common-frame requests and independent channel selection; full mask reaches texture traversal and TOBJ_ANIM gates its controllers.",
+      "updated_at": "2026-09-01T23:03:18.927Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:012f4f25-8702-4f95-8348-2b8ef9930936",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:7f893a74-1554-43f8-93cc-3d15c2e87ca2",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-01T23:31:21.598Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:cc602a42-5f14-4597-8e8d-39c572e630fa",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-01T23:31:21.598Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:53c9a40e-211e-4ad5-886f-74338d784471",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-01T23:31:21.598Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:05a4b0da-df56-4f63-97f1-b15f3e545fb6",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:e2ebc15a-c7f1-46eb-9f13-182459517450",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-01T23:11:16.133Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:efcae77c-57d6-4d4c-b851-3f87571273b4",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-01T23:11:16.133Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:7fd14216-0269-4aee-9277-4b78d190ddd1",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-01T23:11:16.133Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:c334cdd9-4b1a-42ff-bddc-8ddbb69956c9",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-01T23:11:16.133Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Conversions and evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+          "why": "Controller no-op branches."
+        }
+      ],
+      "fact_id": "fact:c48d088a-1b43-443f-9d1b-ac610fbd3632",
+      "reason": "Retain ordered material/texture evaluation and callback routing. Normalized values are intended domain, not enforced bounds; alpha is complemented, byte conversions unclamped, unknown channels and missing PE ignored.",
+      "updated_at": "2026-09-01T23:11:16.133Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L153",
+          "why": "Traversal routing."
+        }
+      ],
+      "fact_id": "fact:ac92e6b8-090d-4053-8676-4b287324f0d0",
+      "reason": "Retain display traversal provenance via per-object helper rather than requiring a direct All-wrapper call.",
+      "updated_at": "2026-09-01T23:03:18.927Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "Global setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Caller bracketing."
+        }
+      ],
+      "fact_id": "fact:f3d9b696-2c9d-4771-a4e3-4ba0aaf7d146",
+      "reason": "Retain single-slot render context, not ownership or a stack. DObj also brackets the 0x04000000 setup/unset bypass.",
+      "updated_at": "2026-09-01T23:32:22.452Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "Global setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Caller bracketing."
+        }
+      ],
+      "fact_id": "fact:ae5d8a02-7f50-436f-bc5b-a7cbb53a015c",
+      "reason": "Retain single-slot render context, not ownership or a stack. DObj also brackets the 0x04000000 setup/unset bypass.",
+      "updated_at": "2026-09-01T23:32:22.452Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "Global setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Caller bracketing."
+        }
+      ],
+      "fact_id": "fact:cda2c448-b378-47d7-aeb8-f64625e3bf06",
+      "reason": "Retain single-slot render context, not ownership or a stack. DObj also brackets the 0x04000000 setup/unset bypass.",
+      "updated_at": "2026-09-01T23:32:22.452Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "Global setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Caller bracketing."
+        }
+      ],
+      "fact_id": "fact:af12d341-75c7-495b-8e2a-d6c18b92cfaa",
+      "reason": "Retain single-slot render context, not ownership or a stack. DObj also brackets the 0x04000000 setup/unset bypass.",
+      "updated_at": "2026-09-01T23:32:22.452Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:9f6da448-a6be-4850-9169-88ebad31a267",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:108bf65e-5280-4aa6-9a08-a94164d98bf5",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:9d50702f-c64f-436e-9e29-260f989d21d8",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-01T23:32:26.127Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:4c40f5f1-456a-48b9-8654-63aa0cbf6203",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:475dcd37-9854-4e3e-99a9-b43ac1848c85",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-01T23:32:26.127Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:faa2a9cc-5577-45ed-9d95-ddcadfb5c292",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-01T23:32:43.175Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:0cf9c7a3-9f1b-4f08-8831-623e2a7a8eed",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:9a55886a-73e2-4b51-a608-262296111844",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-01T23:32:43.175Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:fe418e1c-f6da-4cb2-8a8d-13dc28a9d5ae",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-01T23:32:43.175Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Destruction ordering."
+        }
+      ],
+      "fact_id": "fact:b1ed9980-e1fc-441c-8a0d-7251321aab54",
+      "reason": "Retain identity-unique intrusive shadow registry, detach-only deletion, NULL clear-all and absent-node no-op. Shadow owner unregisters before freeing; registry does not acquire ownership.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Template and setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L576",
+          "why": "Reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Image guard on consumption."
+        }
+      ],
+      "fact_id": "fact:c222e0f6-56db-4941-97b6-889bdee923a6",
+      "reason": "Retain lazy shared toon setter. First use is per null-to-created epoch, not forever; amnesia can reset it. Image assignment may be NULL and is borrowed.",
+      "updated_at": "2026-09-01T23:32:53.855Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Template and setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L576",
+          "why": "Reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Image guard on consumption."
+        }
+      ],
+      "fact_id": "fact:90e9bcce-40fe-4709-acd4-b7b7b832092b",
+      "reason": "Retain lazy shared toon setter. First use is per null-to-created epoch, not forever; amnesia can reset it. Image assignment may be NULL and is borrowed.",
+      "updated_at": "2026-09-01T23:32:53.855Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Template and setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L576",
+          "why": "Reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Image guard on consumption."
+        }
+      ],
+      "fact_id": "fact:61d45581-63be-4f42-acf3-4cdb2368aa50",
+      "reason": "Retain lazy shared toon setter. First use is per null-to-created epoch, not forever; amnesia can reset it. Image assignment may be NULL and is borrowed.",
+      "updated_at": "2026-09-01T23:32:53.855Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Template and setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L576",
+          "why": "Reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Image guard on consumption."
+        }
+      ],
+      "fact_id": "fact:95920cb8-3c6b-4c6e-ae10-781333eb5e9b",
+      "reason": "Retain lazy shared toon setter. First use is per null-to-created epoch, not forever; amnesia can reset it. Image assignment may be NULL and is borrowed.",
+      "updated_at": "2026-09-01T23:32:53.855Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Template and setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L576",
+          "why": "Reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Image guard on consumption."
+        }
+      ],
+      "fact_id": "fact:5f2d2560-6e32-478b-a15d-94caa0bbf533",
+      "reason": "Retain lazy shared toon setter. First use is per null-to-created epoch, not forever; amnesia can reset it. Image assignment may be NULL and is borrowed.",
+      "updated_at": "2026-09-01T23:32:53.855Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:c5c22d04-1f89-45b3-bff7-3a4bef74a1a9",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-01T23:32:13.051Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:4ae06cbb-b082-46ee-b338-c7e050b747d2",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-01T23:32:13.051Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:064d8243-0356-40ba-b2b8-0876f49507fd",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-01T23:32:13.051Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:604e1b3f-00d0-428e-8c23-c95d797fbe75",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-01T23:32:13.051Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:cdf33392-af41-4818-b743-1312ef643679",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-01T23:32:13.051Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:5e4bb52b-2ffe-48b7-afd6-f54264b097f8",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:bfea6d1d-ad64-4493-bc63-284230602d58",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:1a89211e-d9e1-4089-b2a0-95e68747397c",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:da9a1c39-08fe-40d4-bafa-fe8cf1e16a44",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L375",
+          "why": "Graph and rebuild."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L921-L1046",
+          "why": "Repeat role handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1224",
+          "why": "Compiler outputs."
+        }
+      ],
+      "fact_id": "fact:ede7b6a0-f1b0-4a16-ba6f-8f360575d5c5",
+      "reason": "Retain graph and rebuild descriptions. GX_TEXMAP_NULL is a sentinel, not zero. Role done-mask controls repeat alpha processing. Constants are pointer-backed; compilation retains live constants. Shadow-tail restoration does not clear toon->next or descriptor references.",
+      "updated_at": "2026-09-01T23:06:35.483Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L425",
+          "why": "Setup sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Synchronous stage setup."
+        }
+      ],
+      "fact_id": "fact:2e5c4c7c-8454-47c6-bb5b-7c8c88d21004",
+      "reason": "Retain ordered material, texture, compiled/volatile TEV and PE setup. Incoming mode is overwritten; PE receives mode/descriptor rather than chain. Complete material setup does not imply all GX state reset.",
+      "updated_at": "2026-09-01T23:33:00.380Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L425",
+          "why": "Setup sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Synchronous stage setup."
+        }
+      ],
+      "fact_id": "fact:eea7d54f-5b20-4e69-a2b3-b5756bbf15b7",
+      "reason": "Retain ordered material, texture, compiled/volatile TEV and PE setup. Incoming mode is overwritten; PE receives mode/descriptor rather than chain. Complete material setup does not imply all GX state reset.",
+      "updated_at": "2026-09-01T23:33:00.380Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L425",
+          "why": "Setup sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Synchronous stage setup."
+        }
+      ],
+      "fact_id": "fact:62bd3736-9112-443f-814f-4fe0ffbcee59",
+      "reason": "Retain ordered material, texture, compiled/volatile TEV and PE setup. Incoming mode is overwritten; PE receives mode/descriptor rather than chain. Complete material setup does not imply all GX state reset.",
+      "updated_at": "2026-09-01T23:33:00.380Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L425",
+          "why": "Setup sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Synchronous stage setup."
+        }
+      ],
+      "fact_id": "fact:8b154558-d0a5-4b0e-bdcb-b10550144455",
+      "reason": "Retain ordered material, texture, compiled/volatile TEV and PE setup. Incoming mode is overwritten; PE receives mode/descriptor rather than chain. Complete material setup does not imply all GX state reset.",
+      "updated_at": "2026-09-01T23:33:00.380Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L425",
+          "why": "Setup sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Synchronous stage setup."
+        }
+      ],
+      "fact_id": "fact:19fedc43-c861-405a-b2f1-05b6316a7604",
+      "reason": "Retain ordered material, texture, compiled/volatile TEV and PE setup. Incoming mode is overwritten; PE receives mode/descriptor rather than chain. Complete material setup does not imply all GX state reset.",
+      "updated_at": "2026-09-01T23:33:00.380Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L425",
+          "why": "Setup sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Synchronous stage setup."
+        }
+      ],
+      "fact_id": "fact:70b628bc-d7c9-4c10-b95c-91a4e2b1ec26",
+      "reason": "Retain ordered material, texture, compiled/volatile TEV and PE setup. Incoming mode is overwritten; PE receives mode/descriptor rather than chain. Complete material setup does not imply all GX state reset.",
+      "updated_at": "2026-09-01T23:33:17.043Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L425",
+          "why": "Setup sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Synchronous stage setup."
+        }
+      ],
+      "fact_id": "fact:ccb4e3be-e0b9-420f-bf81-3899b3d6495c",
+      "reason": "Retain ordered material, texture, compiled/volatile TEV and PE setup. Incoming mode is overwritten; PE receives mode/descriptor rather than chain. Complete material setup does not imply all GX state reset.",
+      "updated_at": "2026-09-01T23:33:17.043Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L425",
+          "why": "Setup sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Synchronous stage setup."
+        }
+      ],
+      "fact_id": "fact:0c7dd769-8d27-4556-b95c-11f785a52e94",
+      "reason": "Retain ordered material, texture, compiled/volatile TEV and PE setup. Incoming mode is overwritten; PE receives mode/descriptor rather than chain. Complete material setup does not imply all GX state reset.",
+      "updated_at": "2026-09-01T23:33:17.043Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L383-L425",
+          "why": "Setup sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Synchronous stage setup."
+        }
+      ],
+      "fact_id": "fact:520ea4e2-0c9e-486c-afcc-30e3e8eae390",
+      "reason": "Retain ordered material, texture, compiled/volatile TEV and PE setup. Incoming mode is overwritten; PE receives mode/descriptor rather than chain. Complete material setup does not imply all GX state reset.",
+      "updated_at": "2026-09-01T23:33:17.043Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L427-L430",
+          "why": "NULL forwarding."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.h#L142-L151",
+          "why": "Callback slot."
+        }
+      ],
+      "fact_id": "fact:45a8721e-5490-4e5f-b275-54d602d3b796",
+      "reason": "Retain unused interface inputs and current two-argument unset callback; historical third-argument uncertainty is not a present ABI claim.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L427-L430",
+          "why": "NULL forwarding."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.h#L142-L151",
+          "why": "Callback slot."
+        }
+      ],
+      "fact_id": "fact:d0952c36-92ed-4b50-8405-89c1524a8eb9",
+      "reason": "Retain unused interface inputs and current two-argument unset callback; historical third-argument uncertainty is not a present ABI claim.",
+      "updated_at": "2026-09-01T23:33:13.612Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Public removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Cleanup and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L178",
+          "why": "Forced all-type free."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Owner release."
+        }
+      ],
+      "fact_id": "fact:988b687a-4fc5-4a3c-bddd-4c3828c9747c",
+      "reason": "Retain virtual release-before-destroy and resource cleanup. Allocator in flow means matching memory-piece deallocator, not new allocation. Release is not idempotent and does not clear owner fields.",
+      "updated_at": "2026-09-01T23:32:08.998Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Public removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Cleanup and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L178",
+          "why": "Forced all-type free."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Owner release."
+        }
+      ],
+      "fact_id": "fact:1fc8452a-0897-4115-84aa-9501c9c9301c",
+      "reason": "Retain virtual release-before-destroy and resource cleanup. Allocator in flow means matching memory-piece deallocator, not new allocation. Release is not idempotent and does not clear owner fields.",
+      "updated_at": "2026-09-01T23:32:08.998Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Public removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Cleanup and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L178",
+          "why": "Forced all-type free."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Owner release."
+        }
+      ],
+      "fact_id": "fact:4e764cc7-bb88-42e8-9410-04f6cd50f360",
+      "reason": "Retain virtual release-before-destroy and resource cleanup. Allocator in flow means matching memory-piece deallocator, not new allocation. Release is not idempotent and does not clear owner fields.",
+      "updated_at": "2026-09-01T23:32:08.998Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Public removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Cleanup and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L178",
+          "why": "Forced all-type free."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Owner release."
+        }
+      ],
+      "fact_id": "fact:52c5ad9d-34d0-4a87-a0df-03042f379f71",
+      "reason": "Retain virtual release-before-destroy and resource cleanup. Allocator in flow means matching memory-piece deallocator, not new allocation. Release is not idempotent and does not clear owner fields.",
+      "updated_at": "2026-09-01T23:32:08.998Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Public removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Cleanup and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L178",
+          "why": "Forced all-type free."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Owner release."
+        }
+      ],
+      "fact_id": "fact:c5264b74-0248-4c60-a841-3397f3ad7694",
+      "reason": "Retain virtual release-before-destroy and resource cleanup. Allocator in flow means matching memory-piece deallocator, not new allocation. Release is not idempotent and does not clear owner fields.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Public removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Cleanup and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L178",
+          "why": "Forced all-type free."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Owner release."
+        }
+      ],
+      "fact_id": "fact:624bb0ae-b0c0-4a50-873d-dfa683645f66",
+      "reason": "Retain virtual release-before-destroy and resource cleanup. Allocator in flow means matching memory-piece deallocator, not new allocation. Release is not idempotent and does not clear owner fields.",
+      "updated_at": "2026-09-01T23:32:36.507Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Public removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Cleanup and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L178",
+          "why": "Forced all-type free."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Owner release."
+        }
+      ],
+      "fact_id": "fact:0bb0084f-dc03-464a-a735-6c83a9daec3b",
+      "reason": "Retain virtual release-before-destroy and resource cleanup. Allocator in flow means matching memory-piece deallocator, not new allocation. Release is not idempotent and does not clear owner fields.",
+      "updated_at": "2026-09-01T23:32:36.507Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Public removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Cleanup and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L106-L178",
+          "why": "Forced all-type free."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Owner release."
+        }
+      ],
+      "fact_id": "fact:71828fc5-96f7-4ded-90b4-eb92abc57400",
+      "reason": "Retain virtual release-before-destroy and resource cleanup. Allocator in flow means matching memory-piece deallocator, not new allocation. Release is not idempotent and does not clear owner fields.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L19",
+          "why": "Bootstrap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Identity guards and callback registration."
+        }
+      ],
+      "fact_id": "fact:7d65b742-2349-40be-a38e-92df253e4344",
+      "reason": "Retain bootstrap registration and selective amnesia. Local source independently supports roles without historical/JObj analogy. Amnesia nulls shared heads without freeing or clearing current_mobj.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L19",
+          "why": "Bootstrap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Identity guards and callback registration."
+        }
+      ],
+      "fact_id": "fact:afc8252a-0514-4725-ae31-9fd072b20ccb",
+      "reason": "Retain bootstrap registration and selective amnesia. Local source independently supports roles without historical/JObj analogy. Amnesia nulls shared heads without freeing or clearing current_mobj.",
+      "updated_at": "2026-09-01T23:32:39.570Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L19",
+          "why": "Bootstrap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Identity guards and callback registration."
+        }
+      ],
+      "fact_id": "fact:48f83f0a-0436-42a1-a83e-3d3ba060327b",
+      "reason": "Retain bootstrap registration and selective amnesia. Local source independently supports roles without historical/JObj analogy. Amnesia nulls shared heads without freeing or clearing current_mobj.",
+      "updated_at": "2026-09-01T23:32:39.570Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L19",
+          "why": "Bootstrap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Identity guards and callback registration."
+        }
+      ],
+      "fact_id": "fact:51421bac-0374-4098-87df-1f7759df8c61",
+      "reason": "Retain bootstrap registration and selective amnesia. Local source independently supports roles without historical/JObj analogy. Amnesia nulls shared heads without freeing or clearing current_mobj.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L19",
+          "why": "Bootstrap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Identity guards and callback registration."
+        }
+      ],
+      "fact_id": "fact:1d5b9793-5a3c-4e6e-8974-acf1548fbcba",
+      "reason": "Retain bootstrap registration and selective amnesia. Local source independently supports roles without historical/JObj analogy. Amnesia nulls shared heads without freeing or clearing current_mobj.",
+      "updated_at": "2026-09-01T23:11:11.907Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L19",
+          "why": "Bootstrap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Identity guards and callback registration."
+        }
+      ],
+      "fact_id": "fact:7053618f-1786-41b0-bc35-8ea81b3fb346",
+      "reason": "Retain bootstrap registration and selective amnesia. Local source independently supports roles without historical/JObj analogy. Amnesia nulls shared heads without freeing or clearing current_mobj.",
+      "updated_at": "2026-09-01T23:11:11.907Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L19",
+          "why": "Bootstrap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Identity guards and callback registration."
+        }
+      ],
+      "fact_id": "fact:e1b5fa2d-3f5b-45ac-a248-92d7424187b9",
+      "reason": "Retain bootstrap registration and selective amnesia. Local source independently supports roles without historical/JObj analogy. Amnesia nulls shared heads without freeing or clearing current_mobj.",
+      "updated_at": "2026-09-01T23:11:11.907Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L19",
+          "why": "Bootstrap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Identity guards and callback registration."
+        }
+      ],
+      "fact_id": "fact:453ad61f-505d-433f-801b-75196343fda4",
+      "reason": "Retain bootstrap registration and selective amnesia. Local source independently supports roles without historical/JObj analogy. Amnesia nulls shared heads without freeing or clearing current_mobj.",
+      "updated_at": "2026-09-01T23:11:11.907Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L425",
+          "why": "Pipeline."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L591",
+          "why": "Resources and lifecycle."
+        }
+      ],
+      "fact_id": "fact:148d5eaf-cf2d-4b9b-b19e-bbc77487a743",
+      "reason": "Retain subsystem loading, animation, compilation, setup and lifetime summary. Temporary augmentation does not mean removal of every shared alias.",
+      "updated_at": "2026-09-04T01:57:15.870Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L425",
+          "why": "Pipeline."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L591",
+          "why": "Resources and lifecycle."
+        }
+      ],
+      "fact_id": "fact:4c79e45d-f968-445b-b79d-0b345487c551",
+      "reason": "Retain subsystem loading, animation, compilation, setup and lifetime summary. Temporary augmentation does not mean removal of every shared alias.",
+      "updated_at": "2026-09-04T01:57:15.870Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L425",
+          "why": "Pipeline."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L591",
+          "why": "Resources and lifecycle."
+        }
+      ],
+      "fact_id": "fact:5cd302d7-d588-42f7-b743-9b794aecfbc6",
+      "reason": "Retain subsystem loading, animation, compilation, setup and lifetime summary. Temporary augmentation does not mean removal of every shared alias.",
+      "updated_at": "2026-09-04T01:57:15.870Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Toon template."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Class lifecycle."
+        }
+      ],
+      "fact_id": "fact:f48a05cd-eaef-4e3e-90d5-2a7fbf777ee6",
+      "reason": "Retain source-level bootstrap and shared toon state/data flow, without proving compiled section membership.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Toon template."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L591",
+          "why": "Class lifecycle."
+        }
+      ],
+      "fact_id": "fact:616dfa90-728f-44ae-adea-6cdc5da9cc52",
+      "reason": "Retain source-level bootstrap and shared toon state/data flow, without proving compiled section membership.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "Globals."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L458",
+          "why": "Consumers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L576",
+          "why": "Registry and invalidation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Scoped context."
+        }
+      ],
+      "fact_id": "fact:efc0931e-6639-4dcd-9614-870c8ad82259",
+      "reason": "Retain named globals' source behavior independently of unproven section attribution; null initialization, conditional shared inputs, context replacement and pointer invalidation are supported.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "Globals."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L458",
+          "why": "Consumers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L576",
+          "why": "Registry and invalidation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Scoped context."
+        }
+      ],
+      "fact_id": "fact:bf87debf-8152-40bf-8214-a90dbb0ca11e",
+      "reason": "Retain named globals' source behavior independently of unproven section attribution; null initialization, conditional shared inputs, context replacement and pointer invalidation are supported.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "Globals."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L458",
+          "why": "Consumers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L488-L576",
+          "why": "Registry and invalidation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Scoped context."
+        }
+      ],
+      "fact_id": "fact:57ff4689-d9f9-4bf9-8fb0-4dfdfeac29a3",
+      "reason": "Retain named globals' source behavior independently of unproven section attribution; null initialization, conditional shared inputs, context replacement and pointer invalidation are supported.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L450-L458",
+          "why": "Diagnostic."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L578-L591",
+          "why": "Class identifier."
+        }
+      ],
+      "fact_id": "fact:55167428-8b8b-4f0c-8620-46ea8ca62394",
+      "reason": "Retain strings' source consumers, not pool placement or extent.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Arithmetic."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L496-L503",
+          "why": "Alpha default."
+        }
+      ],
+      "fact_id": "fact:0cbb4f36-b8fe-4d0d-b73f-2468cd50d3cd",
+      "reason": "Retain arithmetic and rendering roles of 255.0 and 1.0F, not emitted loads or pool layout. Normalized input is a convention, not clamping.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Arithmetic."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L496-L503",
+          "why": "Alpha default."
+        }
+      ],
+      "fact_id": "fact:9135d7a3-6899-46e0-bd47-181ebd88cea0",
+      "reason": "Retain arithmetic and rendering roles of 255.0 and 1.0F, not emitted loads or pool layout. Normalized input is a convention, not clamping.",
+      "updated_at": "2026-09-04T21:35:28.757Z"
+    }
+  ],
+  "link_dispositions": [
+    {
+      "baseline_record": {
+        "id": "link:cf465b67-ae13-47ce-bf9f-fae294ad6ecc",
+        "from_target_id": "target:data:main/sysdolphin/baselib/mobj:.sdata2",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-animation",
+        "role": "implements",
+        "why": "The pool's 255.0 and 1.0F constants are consumed while applying evaluated animation tracks to material color, opacity, and pixel-engine properties.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L87-L142",
+        "digest": "sha256:bcd225519c2520e6"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Source constants only."
+        }
+      ],
+      "link_id": "link:cf465b67-ae13-47ce-bf9f-fae294ad6ecc",
+      "reason": "Arithmetic animation role supported but attribution to compiled .sdata2 pool unverified."
+    },
+    {
+      "baseline_record": {
+        "id": "link:712bc3ce-65bf-4ef5-b497-f37b91a187e1",
+        "from_target_id": "target:data:main/sysdolphin/baselib/mobj:.sdata2",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-opacity",
+        "role": "implements",
+        "why": "The pool supplies 1.0F both for animated material-alpha complementation and for initializing a material's alpha to its full default value.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L473-L593",
+        "digest": "sha256:ff28744fcf32eee2"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L496-L503",
+          "why": "Source alpha default."
+        }
+      ],
+      "link_id": "link:712bc3ce-65bf-4ef5-b497-f37b91a187e1",
+      "reason": "Opacity role supported; compiled pool membership unverified."
+    },
+    {
+      "baseline_record": {
+        "id": "link:f935e4b8-428e-4e5e-8e67-9e8d020c834d",
+        "from_target_id": "target:data:main/sysdolphin/baselib/mobj:.sbss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:shadow-rendering",
+        "role": "implements",
+        "why": "The section's tobj_shadows list supplies the active shadow textures temporarily appended to shadow-enabled material texture chains during compilation and setup.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L340-L470",
+        "digest": "sha256:6d1b5feb46bf3cb3"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L375",
+          "why": "Global consumer without section evidence."
+        }
+      ],
+      "link_id": "link:f935e4b8-428e-4e5e-8e67-9e8d020c834d",
+      "reason": "Shadow global role supported, .sbss attribution unverified."
+    },
+    {
+      "baseline_record": {
+        "id": "link:14a61045-be96-40de-a9a0-d01a7a9c0376",
+        "from_target_id": "target:data:main/sysdolphin/baselib/mobj:.sbss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:toon-shading",
+        "role": "implements",
+        "why": "The section's shared tobj_toon pointer retains the toon texture object prepended to toon-enabled materials for TEV compilation and rendering.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L340-L470",
+        "digest": "sha256:6d1b5feb46bf3cb3"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Source setter."
+        }
+      ],
+      "link_id": "link:14a61045-be96-40de-a9a0-d01a7a9c0376",
+      "reason": "Toon global role supported, .sbss attribution unverified."
+    },
+    {
+      "baseline_record": {
+        "id": "link:6916b4cd-6e53-4aec-94b1-db1af7b23e38",
+        "from_target_id": "target:data:main/sysdolphin/baselib/mobj:.sbss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:scoped-current-object-context",
+        "role": "exhibits",
+        "why": "The current_mobj slot is set to a DObj's material for the duration of material setup, polygon rendering, and teardown, then explicitly cleared.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/dobj.c#L301-L350",
+        "digest": "sha256:a530cbc7328aa1bd"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L13-L24",
+          "why": "Source slot only."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Context lifetime."
+        }
+      ],
+      "link_id": "link:6916b4cd-6e53-4aec-94b1-db1af7b23e38",
+      "reason": "Scoped context supported but emitted current_mobj storage and .sbss membership unverified."
+    },
+    {
+      "baseline_record": {
+        "id": "link:d4ea7374-64c9-4693-882f-6b6759c2be89",
+        "from_target_id": "target:data:main/sysdolphin/baselib/mobj:.data",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:toon-shading",
+        "role": "implements",
+        "why": "The section owns the initialized toon-texture descriptor that is populated with an image, loaded as the shared toon texture object, and conditionally added to material texture processing under RENDER_TOON.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L370-L460",
+        "digest": "sha256:39df11243b69ec2e"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Source declaration and use."
+        }
+      ],
+      "link_id": "link:d4ea7374-64c9-4693-882f-6b6759c2be89",
+      "reason": "Toon template role supported but .data ownership unverified without compiled evidence."
+    },
+    {
+      "baseline_record": {
+        "id": "link:3260ae3b-1fac-49ce-8eac-0423a1fccfca",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-animation",
+        "role": "implements",
+        "why": "The function starts selected material and texture animation channels from a common frame, directly implementing coordinated material animation.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L71-L80",
+        "digest": "sha256:96ef7918742cb71e"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L150",
+          "why": "Animation operations."
+        }
+      ],
+      "link_id": "link:3260ae3b-1fac-49ce-8eac-0423a1fccfca",
+      "reason": "Retain material-animation mapping: attachment, selective teardown/request and property/texture evaluation directly realize the concept."
+    },
+    {
+      "baseline_record": {
+        "id": "link:2cc9e9a1-169a-4b9d-89e5-1056c62a3ba4",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/sysdolphin/baselib/mobj.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-animation",
+        "role": "implements",
+        "why": "The unit contains material-object animation control that starts the MObj AObj and attached TObj animation channels from a common frame.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L71-L80",
+        "digest": "sha256:96ef7918742cb71e"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L150",
+          "why": "Animation operations."
+        }
+      ],
+      "link_id": "link:2cc9e9a1-169a-4b9d-89e5-1056c62a3ba4",
+      "reason": "Retain material-animation mapping: attachment, selective teardown/request and property/texture evaluation directly realize the concept."
+    },
+    {
+      "baseline_record": {
+        "id": "link:8b304eed-4815-4fed-bb8b-aca58cc52ecd",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-animation",
+        "role": "implements",
+        "why": "The callback applies evaluated animation values to material color, opacity, and pixel-engine properties, directly implementing material-property animation.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L87-L142",
+        "digest": "sha256:bcd225519c2520e6"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L150",
+          "why": "Animation operations."
+        }
+      ],
+      "link_id": "link:8b304eed-4815-4fed-bb8b-aca58cc52ecd",
+      "reason": "Retain material-animation mapping: attachment, selective teardown/request and property/texture evaluation directly realize the concept."
+    },
+    {
+      "baseline_record": {
+        "id": "link:f5a6d5a6-cbd5-40b8-9429-869ad4a5a9c9",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-animation",
+        "role": "implements",
+        "why": "The function selectively tears down the material-level and attached texture-level controllers that comprise the MObj subsystem's material animation.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L41-L54",
+        "digest": "sha256:58d8b9ddc852c422"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L150",
+          "why": "Animation operations."
+        }
+      ],
+      "link_id": "link:f5a6d5a6-cbd5-40b8-9429-869ad4a5a9c9",
+      "reason": "Retain material-animation mapping: attachment, selective teardown/request and property/texture evaluation directly realize the concept."
+    },
+    {
+      "baseline_record": {
+        "id": "link:fa795780-d395-413e-93bc-15f952f4aa7a",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-animation",
+        "role": "implements",
+        "why": "The function evaluates the material object's property controller with MObjUpdateFunc and then advances its attached texture animations, implementing a complete material-animation playback step.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L144-L151",
+        "digest": "sha256:f80a94aaa67df838"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L150",
+          "why": "Animation operations."
+        }
+      ],
+      "link_id": "link:fa795780-d395-413e-93bc-15f952f4aa7a",
+      "reason": "Retain material-animation mapping: attachment, selective teardown/request and property/texture evaluation directly realize the concept."
+    },
+    {
+      "baseline_record": {
+        "id": "link:13ffb17c-9074-4a47-8cc3-d80e07c01f12",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-animation",
+        "role": "implements",
+        "why": "The function requests every material and attached texture animation channel at one common starting frame.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L82-L85",
+        "digest": "sha256:cac25001543a2605"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L150",
+          "why": "Animation operations."
+        }
+      ],
+      "link_id": "link:13ffb17c-9074-4a47-8cc3-d80e07c01f12",
+      "reason": "Retain material-animation mapping: attachment, selective teardown/request and property/texture evaluation directly realize the concept."
+    },
+    {
+      "baseline_record": {
+        "id": "link:0f2f234d-66c9-4d9a-8f73-eab39ed2a5e6",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-animation",
+        "role": "implements",
+        "why": "The routine installs a material-level animation controller and the coordinated texture-animation descriptors that are later interpreted to alter the material and its texture layers.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L56-L69",
+        "digest": "sha256:5626fda9736d5d75"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L150",
+          "why": "Animation operations."
+        }
+      ],
+      "link_id": "link:0f2f234d-66c9-4d9a-8f73-eab39ed2a5e6",
+      "reason": "Retain material-animation mapping: attachment, selective teardown/request and property/texture evaluation directly realize the concept."
+    },
+    {
+      "baseline_record": {
+        "id": "link:94c2003f-51b0-4d7a-94fb-fc6dd36d33e8",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:MObjMakeTExp",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gamecube-tev-color-combiner",
+        "role": "implements",
+        "why": "The routine constructs the ordered TEV color and alpha expression stages that combine raster, texture, and material inputs for an HSD material.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L192-L336",
+        "digest": "sha256:cfcab6944a7a3d07"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L388",
+          "why": "TEV pipeline."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1224",
+          "why": "Hardware stage setup and compilation."
+        }
+      ],
+      "link_id": "link:94c2003f-51b0-4d7a-94fb-fc6dd36d33e8",
+      "reason": "Retain TEV-combiner mapping for graph construction, compilation and draw setup."
+    },
+    {
+      "baseline_record": {
+        "id": "link:83c5680e-edbb-4b5a-8a2b-1e625d9f25fd",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/sysdolphin/baselib/mobj.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gamecube-tev-color-combiner",
+        "role": "implements",
+        "why": "The unit's material compiler constructs texture expressions from material, shadow, and toon texture inputs and compiles them into TEV descriptors.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L338-L376",
+        "digest": "sha256:ca5a2b6c4a2a0b38"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L388",
+          "why": "TEV pipeline."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1224",
+          "why": "Hardware stage setup and compilation."
+        }
+      ],
+      "link_id": "link:83c5680e-edbb-4b5a-8a2b-1e625d9f25fd",
+      "reason": "Retain TEV-combiner mapping for graph construction, compilation and draw setup."
+    },
+    {
+      "baseline_record": {
+        "id": "link:2b5df332-bdd8-404e-8ac8-d791a89e287d",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gamecube-tev-color-combiner",
+        "role": "implements",
+        "why": "The function builds the material's effective texture-expression input and invokes the compiler that emits hardware TEV-stage descriptors.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L338-L376",
+        "digest": "sha256:ca5a2b6c4a2a0b38"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L388",
+          "why": "TEV pipeline."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1224",
+          "why": "Hardware stage setup and compilation."
+        }
+      ],
+      "link_id": "link:2b5df332-bdd8-404e-8ac8-d791a89e287d",
+      "reason": "Retain TEV-combiner mapping for graph construction, compilation and draw setup."
+    },
+    {
+      "baseline_record": {
+        "id": "link:29068909-b035-4842-acae-b837d548b55d",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:MObjSetupTev",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gamecube-tev-color-combiner",
+        "role": "implements",
+        "why": "The function applies the material's compiled TEV expression and then configures its texture objects' volatile TEV stages, thereby assembling material state for the GameCube TEV color-combiner pipeline.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L385-L390",
+        "digest": "sha256:818b0545e2bba123"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L191-L388",
+          "why": "TEV pipeline."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1168-L1224",
+          "why": "Hardware stage setup and compilation."
+        }
+      ],
+      "link_id": "link:29068909-b035-4842-acae-b837d548b55d",
+      "reason": "Retain TEV-combiner mapping for graph construction, compilation and draw setup."
+    },
+    {
+      "baseline_record": {
+        "id": "link:011c4e94-820c-41e8-8548-fd8ed63c29bc",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-opacity",
+        "role": "implements",
+        "why": "The function implements material-opacity control by assigning a new value to the attached material's alpha field.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L469-L472",
+        "digest": "sha256:e52ef48551eba0ea"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L467-L470",
+          "why": "Alpha assignment."
+        }
+      ],
+      "link_id": "link:011c4e94-820c-41e8-8548-fd8ed63c29bc",
+      "reason": "Retain opacity setter mapping."
+    },
+    {
+      "baseline_record": {
+        "id": "link:3e1ed28e-8ed7-4200-aa11-6667747ab628",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:scoped-current-object-context",
+        "role": "exhibits",
+        "why": "The setter installs a DObj's material into a global current-object slot for the duration of rendering operations, after which the caller explicitly clears that slot.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/dobj.c#L301-L350",
+        "digest": "sha256:a530cbc7328aa1bd"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Display bracketing."
+        }
+      ],
+      "link_id": "link:3e1ed28e-8ed7-4200-aa11-6667747ab628",
+      "reason": "Retain scoped current-object pattern; slot is cleared, not restored, even on material-setup bypass."
+    },
+    {
+      "baseline_record": {
+        "id": "link:ac808648-a66f-4a45-b95e-08dc49a52c2f",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/sysdolphin/baselib/mobj.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:shadow-rendering",
+        "role": "implements",
+        "why": "The unit maintains the active shadow-texture registry and attaches it to material texture chains during RENDER_SHADOW TEV compilation and setup.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L300-L420",
+        "digest": "sha256:f6648fb539eb8f0b"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Shadow consumers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation transitions."
+        }
+      ],
+      "link_id": "link:ac808648-a66f-4a45-b95e-08dc49a52c2f",
+      "reason": "Retain shadow-rendering mapping for registry and activation/deactivation; unregistering does not destroy textures."
+    },
+    {
+      "baseline_record": {
+        "id": "link:10ff890c-59fd-4f22-b86e-bc205325170f",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:shadow-rendering",
+        "role": "implements",
+        "why": "Shadow activation calls this function with the shadow's texture, making that texture available to the material shadow-rendering path.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/shadow.c#L269-L300",
+        "digest": "sha256:9f907de42033dc66"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Shadow consumers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation transitions."
+        }
+      ],
+      "link_id": "link:10ff890c-59fd-4f22-b86e-bc205325170f",
+      "reason": "Retain shadow-rendering mapping for registry and activation/deactivation; unregistering does not destroy textures."
+    },
+    {
+      "baseline_record": {
+        "id": "link:8ce01bc8-0685-448c-a849-0537e06bc2b7",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:shadow-rendering",
+        "role": "implements",
+        "why": "The function is the unregister half of the active-shadow texture lifecycle: disabling a projected shadow calls it to remove that shadow's generated texture from the MObj registry.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/shadow.c#L270-L330",
+        "digest": "sha256:6998456fccd1edd2"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L425",
+          "why": "Shadow consumers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L505-L544",
+          "why": "Registry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Activation transitions."
+        }
+      ],
+      "link_id": "link:8ce01bc8-0685-448c-a849-0537e06bc2b7",
+      "reason": "Retain shadow-rendering mapping for registry and activation/deactivation; unregistering does not destroy textures."
+    },
+    {
+      "baseline_record": {
+        "id": "link:d7e6c190-3e10-4348-b00f-d6e9a7afa1c3",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:MObjAmnesia",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:hsd-class-amnesia-cleanup",
+        "role": "exhibits",
+        "why": "MObjAmnesia follows the recurring HSD class-amnesia cleanup shape: compare the notified class by identity, clear class-owned static references under matching guards, and then propagate the notification through the parent class.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L568-L578",
+        "digest": "sha256:d840d054110d3200"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L566-L576",
+          "why": "Identity guards and parent propagation."
+        }
+      ],
+      "link_id": "link:d7e6c190-3e10-4348-b00f-d6e9a7afa1c3",
+      "reason": "Retain selective class-amnesia cleanup pattern, not instance release."
+    },
+    {
+      "baseline_record": {
+        "id": "link:339fd3af-dbbc-4212-af92-7bbe35bbb311",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:toon-shading",
+        "role": "implements",
+        "why": "The function selects the image descriptor for the shared texture object explicitly identified as the material subsystem's toon texture.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L452-L460",
+        "digest": "sha256:604259684b338565"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Toon configuration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L362-L370",
+          "why": "Consumer."
+        }
+      ],
+      "link_id": "link:339fd3af-dbbc-4212-af92-7bbe35bbb311",
+      "reason": "Retain toon-shading mapping from shared image setter to guarded texture inclusion."
+    },
+    {
+      "baseline_record": {
+        "id": "link:73f02dc5-5054-4ea8-81ea-007e8d5867ab",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/sysdolphin/baselib/mobj.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:toon-shading",
+        "role": "implements",
+        "why": "This material-object translation unit contains the routine that constructs and configures the shared toon texture object.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L452-L460",
+        "digest": "sha256:604259684b338565"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L432-L458",
+          "why": "Toon configuration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L362-L370",
+          "why": "Consumer."
+        }
+      ],
+      "link_id": "link:73f02dc5-5054-4ea8-81ea-007e8d5867ab",
+      "reason": "Retain toon-shading mapping from shared image setter to guarded texture inclusion."
+    },
+    {
+      "baseline_record": {
+        "id": "link:a9ab0109-b7b1-4090-b0a9-3968a89d0f05",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:texture-coordinate-mapping",
+        "role": "implements",
+        "why": "The routine passes its effective material texture chain to HSD_TObjSetupTextureCoordGen, making texture-coordinate generation part of the material state it installs.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L392-L427",
+        "digest": "sha256:d544581edf246e43"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L402-L421",
+          "why": "Effective chain passed to coordinate generation."
+        }
+      ],
+      "link_id": "link:a9ab0109-b7b1-4090-b0a9-3968a89d0f05",
+      "reason": "Retain delegated texture-coordinate mapping."
+    },
+    {
+      "baseline_record": {
+        "id": "link:55830c27-0f88-4724-92f6-9265e51d21b5",
+        "from_target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:material-rendering",
+        "role": "implements",
+        "why": "The function enables options in an HSD material object's rendermode field, whose bits select concrete material-rendering paths.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/sysdolphin/baselib/mobj.c#L27-L32",
+        "digest": "sha256:79cb2a4a19180110"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L26-L31",
+          "why": "Bit setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L270-L375",
+          "why": "Flag consumers."
+        }
+      ],
+      "link_id": "link:55830c27-0f88-4724-92f6-9265e51d21b5",
+      "reason": "Retain rendering-option mutator mapping; no implicit recompilation."
+    }
+  ],
+  "coverage": {
+    "fact_count": 142,
+    "files": [
+      {
+        "canonical_complete": true,
+        "path": "src/sysdolphin/baselib/mobj.c",
+        "rendered_complete": true,
+        "renderer_issues": [
+          "One parse uncertainty at HSD_MObjClearFlags.",
+          "Zero name substitutions; rendered coverage is limited to function names."
+        ],
+        "total_lines": 592
+      },
+      {
+        "canonical_complete": true,
+        "path": "src/sysdolphin/baselib/mobj.h",
+        "rendered_complete": true,
+        "renderer_issues": [
+          "Shadowed bindings for HSD_MObjLoadDesc, HSD_MObjGetTObj, HSD_MObjAlloc, HSD_MaterialAlloc and MObjMakeTExp.",
+          "Zero parse errors and zero name substitutions."
+        ],
+        "total_lines": 187
+      }
+    ],
+    "link_count": 27,
+    "subjects": [
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:.data"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:.sbss"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:.sdata"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:.sdata2"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjAlloc"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjAnim"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjGetTObj"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjRemove"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjSetup"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MObjUnset"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:HSD_MaterialAlloc"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:MObjAmnesia"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:MObjInfoInit"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:MObjLoad"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:MObjMakeTExp"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:MObjRelease"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:MObjSetupTev"
+      },
+      {
+        "target_stable_key": "main/sysdolphin/baselib/mobj:MObjUpdateFunc"
+      },
+      {
+        "entity_locator": "src/sysdolphin/baselib/mobj.c"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjAnim#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjGetTObj#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjRemove#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags#r5"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor#r5"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor#r6"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetup#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjSetup#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjUnset#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:HSD_MObjUnset#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjAmnesia#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjLoad#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjLoad#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjMakeTExp#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjMakeTExp#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjMakeTExp#r5"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjRelease#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjSetupTev#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjSetupTev#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjSetupTev#r5"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjUpdateFunc#r3"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjUpdateFunc#r4"
+      },
+      {
+        "entity_locator": "main/sysdolphin/baselib/mobj:MObjUpdateFunc#r5"
+      }
+    ]
+  },
+  "review_scope": "proposed_changes_and_explicit_contradictions",
+  "coverage_basis": {
+    "kind": "inherited_full_librarian_or_legacy_research",
+    "upstream_job_id": "librarian-main__sysdolphin__baselib__mobj-5",
+    "handoff_sha256": "83b909e6d40a0d778672a320e3b16a909844a76514caa39f86f8a73c41bf8ae0"
+  },
+  "reviewer": "/root/review_gate/kernel/reviewer-main__sysdolphin__baselib__mobj-3",
+  "tu": "main/sysdolphin/baselib/mobj",
+  "status": "accepted_for_staged_apply",
+  "kernel_job": {
+    "id": "reviewer-main__sysdolphin__baselib__mobj-3",
+    "role": "reviewer",
+    "task_id": "main__sysdolphin__baselib__mobj",
+    "output_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__sysdolphin__baselib__mobj-3",
+    "attempt": 3,
+    "prior_result": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/librarian-main__sysdolphin__baselib__mobj-5/packet.json",
+    "input_proposal_sha256": "88a53c3b96c6d0e710aefef186711e2153ce4e25f41e75a4b13590073147bd5b",
+    "direct_librarian_review": true,
+    "repair_message": "Resume from saved actual evidence caches after provider outage. Use context and coverage preflight to identify remaining work. Complete full canonical/rendered source plus all frozen baseline subjects and links. Preserve uncertainty. Use Astra low. Do not repeatedly request already delivered evidence; cached evidence must actually be delivered to claim it. Exact previous rejection/validation error: {\"at\":\"2026-09-09T05:45:38.344Z\",\"error\":\"Error: Request timed out.\"}\n. Previous artifacts are UNVALIDATED context, not evidence of correctness. Preserve supported findings while correcting defects. Original archived bytes: /Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/docs/.drafts/melee-semantic-20260908/main__sysdolphin__baselib__mobj/repair-history/connection-recovery-20260909T1358. Read previous artifacts as needed with sweep_read artifact using these paths: {\"coverage.json\": {\"artifact_path\": \"repair-history/connection-recovery-20260909T1358/coverage.json\", \"sha256\": \"9fb1054ff150653753ca217b48d4585c642331057a584a7767676bca5a948fe0\"}, \"functionality.md\": {\"artifact_path\": \"repair-history/connection-recovery-20260909T1358/functionality.md\", \"sha256\": \"c0d912347de87592d53fb161cde5549a8558a46490c8c91af6946444c0edd365\"}, \"link-dispositions.json\": {\"artifact_path\": \"repair-history/connection-recovery-20260909T1358/link-dispositions.json\", \"sha256\": \"9654f75c7a867c7d682a3e21d483b7b52decc467506c33e9c6dff8752eab29e7\"}, \"proposal.json\": {\"artifact_path\": \"repair-history/connection-recovery-20260909T1358/proposal.json\", \"sha256\": \"d13c93c6fc0116baec9f38bb70ee5910fc7eeaecff3df3b9655a11112996fe7e\"}, \"unresolved.json\": {\"artifact_path\": \"repair-history/connection-recovery-20260909T1358/unresolved.json\", \"sha256\": \"194cd0c09d9c995bd66cce6204f22cf9030ac378b8fd75b397b90ff837ba2e8a\"}}",
+    "packet_contract": "lean-v2",
+    "handoff_path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__sysdolphin__baselib__mobj-3/inputs/handoff.json",
+    "input_handoff_sha256": "83b909e6d40a0d778672a320e3b16a909844a76514caa39f86f8a73c41bf8ae0",
+    "input_artifacts": {
+      "proposal.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__sysdolphin__baselib__mobj-3/inputs/proposal.json",
+        "sha256": "88a53c3b96c6d0e710aefef186711e2153ce4e25f41e75a4b13590073147bd5b"
+      },
+      "functionality.md": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__sysdolphin__baselib__mobj-3/inputs/functionality.md",
+        "sha256": "70450399e22126e35359d6965cdfe15a228efe32127565cb835aa3af04daeb6b"
+      },
+      "fact-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__sysdolphin__baselib__mobj-3/inputs/fact-dispositions.json",
+        "sha256": "4a39bbeb81ae381b90d42a8dbad2f2835901e2f753bb907ea5b1858e3bd2b120"
+      },
+      "link-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__sysdolphin__baselib__mobj-3/inputs/link-dispositions.json",
+        "sha256": "6a762a037d91d8a73c41dc78c911e6432618f38fdb1c274b4202a5cdf9cceb14"
+      },
+      "coverage.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__sysdolphin__baselib__mobj-3/inputs/coverage.json",
+        "sha256": "969cf37ce547419ac81e155ae8c5e6d3dbb777106fba553d136b1be4d6dbb338"
+      },
+      "unresolved.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__sysdolphin__baselib__mobj-3/inputs/unresolved.json",
+        "sha256": "98e1aa75f66eea470e398e28ecc9f650bf281e2c8360830dfbca2892c8f2c7de"
+      }
+    }
+  },
+  "completed_at": "2026-09-09T14:47:30.649815+00:00"
+}

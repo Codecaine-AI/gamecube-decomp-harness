@@ -1,0 +1,60 @@
+{
+  "tu": "main/melee/ef/efsync",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L65-L85",
+            "why": "Numeric reset, direct returns and named synchronous assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L254-L288",
+            "why": "Callback, lifetime, motion and chain initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L654-L663",
+            "why": "Descending-index animation drain and return without mode restoration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported interpretation of numeric zero as asynchronous mode and distinguishes count reset from storage clearing while preserving supported persistent-state and animation behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ef/efsync:efSync_Spawn"
+        },
+        "type": "state_behavior",
+        "value": "Resets the result pointer, efLib_AnimCount and efLib_LoadKind to zero on entry; this resets the logical animation count, not the queue storage. Direct-generator and delegated routes return without this function's common epilogue. Local dispatch assigns EF_LOADKIND_SYNC, may initialize callbacks, lifetimes, attachments and linked effects, then decrements the animation count before animating each queued entry in descending index order. It calls va_end and returns the primary result without restoring the previous loading state. The entry value zero is not assigned a semantic mode name here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L65-L85",
+            "why": "Entry assignments and delegated returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L654-L663",
+            "why": "Logical queue drain without storage clearing or loading-state restoration."
+          }
+        ],
+        "op": "write",
+        "rationale": "The original description overstates both the meaning of zero and the state retained across delegated calls.",
+        "subject": {
+          "entity_locator": "src/melee/ef/efsync.c"
+        },
+        "type": "state_behavior",
+        "value": "Each request resets efLib_LoadKind and efLib_AnimCount to numeric zero. Direct-generator and delegated routes return directly, so their resulting global state depends on the called implementation rather than a restoration in this file. The local path assigns EF_LOADKIND_SYNC and drains animation entries by decrementing the count before each animation call; queue storage is not cleared and the previous loading state is not restored."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

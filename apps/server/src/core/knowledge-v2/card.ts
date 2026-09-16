@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { gameKnowledgeRoot } from "../knowledge/paths.js";
+import { gameKnowledgeRoot, knowledgeStorePath } from "../knowledge/paths.js";
 import type { KnowledgeStoreHandle } from "./records/index.js";
 import {
   knowledgeRecord,
@@ -94,6 +94,8 @@ interface V2LinkSummary {
 }
 
 interface V2CardLedger {
+  /** Latest merge context is mandatory even when ordinary history is trimmed. */
+  recovery?: { cause: "merge_conflict" | "upstream_change"; summary: string; refs: Array<{ refKind: string; refId: string }> };
   regression_count?: number;
   runs: V2LedgerRun[];
   entries: V2LedgerEntry[];
@@ -228,7 +230,7 @@ export function loadV2TargetCard(options: {
 }): V2TargetCard | null {
   if (!options.unit) return null;
   const stableKey = options.symbol ? `${options.unit}:${options.symbol}` : options.unit;
-  const dbPath = resolve(gameKnowledgeRoot(options.gameId ?? "melee"), "knowledge.sqlite");
+  const dbPath = knowledgeStorePath(gameKnowledgeRoot(options.gameId ?? "melee"));
   if (!existsSync(dbPath)) return null;
 
   let db: Database | null = null;
@@ -250,6 +252,11 @@ function buildLedger(entries: TargetLedgerEntry[], budget: V2CardBudget): V2Card
     runs: summarizeRuns(entries),
     entries: cappedEntries,
   };
+  const recovery = entries.find((entry) => entry.type === "event" && entry.id.startsWith("boundary-recovery-"))
+    ?? entries.find((entry) => entry.type === "event" && entry.cause !== null);
+  if (recovery?.type === "event" && recovery.cause) {
+    ledger.recovery = { cause: recovery.cause, summary: recovery.summary, refs: recovery.refs };
+  }
   return ledger;
 }
 

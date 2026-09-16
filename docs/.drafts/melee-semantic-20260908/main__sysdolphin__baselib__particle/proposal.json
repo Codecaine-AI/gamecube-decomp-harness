@@ -1,0 +1,141 @@
+{
+  "tu": "main/sysdolphin/baselib/particle",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_80398F0C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Emitter code passes resource selectors, lifetime, generator ownership and shape-dependent motion inputs to this wrapper. Ordinary emission paths supply transformed position and velocity vectors, but tornado emission supplies zero initial position, angular/radial state in the velocity arguments, and orientation angles in the gravity/friction argument positions. The wrapper forwards its inputs unchanged to psGenerateParticle0 with a null destination head and interpretation enabled, then discards the returned pointer. The factory publishes the particle, attaches optional generator AppSRT state, increments child accounting, invokes hookCreate, clears the particle callback and immediately interprets; that interpretation may retire the allocation before the wrapper returns.",
+        "rationale": "Corrects the universal world-space-vector claim while preserving the supported emitter-to-factory flow and its lifetime caveat.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L723-L760",
+            "why": "Contrasts ordinary vector emission with tornado angular/radial arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L375-L513",
+            "why": "Factory storage, publication, ownership, hooks and fixed wrapper options."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2828-L2906",
+            "why": "Immediate retirement and tornado interpretation of motion state."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_80398F8C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For ordinary finite inputs with a representable positive squared velocity norm, the routine intends to preserve speed while applying the supplied radian offset at one random azimuth around the prior velocity direction, subject to floating-point approximation. Two near-axis branches substitute signed quarter-turn angles when the relevant denominator magnitude is below 1.1754944e-38F. Squared magnitude is computed directly without rescaling, and reciprocal-square-root refinement runs only when it is positive. Finite nonzero velocity alone does not prevent squared-norm overflow or underflow. Zero velocity remains zero for finite trigonometric inputs, but nonfinite angles or other exceptional floating-point inputs are not guarded.",
+        "rationale": "Replaces an unrestricted finite-velocity guarantee with the actual numerical guards and limitations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L518-L597",
+            "why": "Near-axis branches, unscaled squared norm, positive guard and trigonometric reconstruction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_803991D8"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "After preparing the target JObj matrix, the helper computes displacement as target translation minus the effective particle position and sums its squared components. A null target or negative range returns zero; an inclusive distance-squared versus range-squared test returns one without changing velocity. Outside that radius, after the explicit zero-distance guard, effective particle velocity receives displacement multiplied by force divided by squared distance. Positive force therefore attracts, and for ordinary nonzero finite distance the increment magnitude is abs(force)/distance. Opcode 0xB8 supplies a cached JObj selected by command index plus pJObjOfs, decodes force and range from serialized floats, and passes the particle through the current HSD_Generator pointer cast.",
+        "rationale": "Corrects reversed subtraction and distinguishes the inverse-square coefficient from the resulting inverse-distance vector magnitude; source field offsets corroborate the logical particle overlay.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L599-L629",
+            "why": "Exact subtraction, guards, scaling and component increments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L1635-L1657",
+            "why": "Opcode operands and particle cast."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L128-L188",
+            "why": "Particle position and velocity offsets."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L243-L277",
+            "why": "Corresponding generator-typed field offsets."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:hsd_8039930C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Kind bit 0x800 bypasses simulation and returns the successor. Otherwise size and rotation interpolate incrementally, while active color, material, ambient and alpha-compare transitions decrement remaining counts and install targets when those counts reach zero; command handlers can materialize intermediate transition values when retargeting. A nonzero command wait decrements, and command execution begins only when that decrement reaches zero. Commands run until a nonzero wait operand or an explicit exit, preserving loop/mark state and saving a u16 cursor offset and wait. Life then decrements once in its u16 field; reaching zero enters deletion, whereas an initial zero wraps rather than expiring immediately. Deletion invokes the optional hook, unlinks the particle, decrements generator children, removes AppSRT and cached-JObj state, frees storage and decrements live accounting. Final AppSRT removal can require rereading the global head. Survivors execute tornado or ordinary motion, optionally move a cached JObj and invoke their callback. Callback result -1 jumps directly to deletion without repeating life processing.",
+        "rationale": "Corrects callback control flow and distinguishes incremental interpolation from countdown/target storage, preserving integer-state and shared-lifetime behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L695-L774",
+            "why": "Bypass, interpolation, countdown and wait gates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2066-L2125",
+            "why": "Command-time materialization and retargeting."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L2783-L2961",
+            "why": "Persistent control flow, life decrement, deletion label, physics and callback jump."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L128-L188",
+            "why": "Widths of lifetime, command offsets and transition counters."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/particle:psInitDataBank"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When bank >= 65, the wrapper does nothing; negative bank values are not rejected. Otherwise it calls relocation before registration. Only command versions 0 and 0x40\u20130x43 initialize the locator's command traversal base and bounds. Other versions reach that traversal with uninitialized locals, so the wrapper cannot be described as reliably reaching the loader's unknown-version panic. If registration is reached, a nonnull form bank must match the texture group count before registry writes; a null form bank clears the form entry. Common reference, texture and form entries are written before command-version dispatch, whose recognized versions select distinct layouts and whose default branch panics. Form relocation has already occurred before the loader performs its form-count validation.",
+        "rationale": "Corrects a guaranteed-panic description contradicted by the preceding relocation stage and preserves validation/publication ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L117-L219",
+            "why": "Loader statement order and unsupported locator path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L305-L334",
+            "why": "Form relocation followed by upper-bound-only locate-then-load wrapper."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

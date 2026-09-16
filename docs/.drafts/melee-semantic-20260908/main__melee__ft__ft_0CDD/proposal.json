@@ -1,0 +1,173 @@
+{
+  "tu": "main/melee/ft/ft_0CDD",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDD.c#L66-L69",
+            "why": "Unconditional adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Strict comparison, multiplication, and ordered downstream operations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace an unsupported magnitude guarantee with the exact configured operation and boundary.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CDD:ftCo_800CDE54"
+        },
+        "type": "purpose",
+        "value": "Provides a shared grounded shooting-item physics adapter. It forwards the fighter object to ft_80084F3C, which starts with character ground_friction, multiplies it by friction_when_above_walk_speed only when ABS(gr_vel) > walk_max_vel, then applies ground friction and ground movement. Equality skips scaling; the source does not establish that the configured multiplier necessarily strengthens friction."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Configured scaling rather than guaranteed strengthening."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDF.c#L162-L165",
+            "why": "L-Gun ground caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CE3.c#L255-L258",
+            "why": "Fire Flower ground caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L217-L220",
+            "why": "Scope ground caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve demonstrated gameplay reuse while removing an unproved greater-than-one assumption.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CDD:ftCo_800CDE54"
+        },
+        "type": "game_mapping",
+        "value": "Supplies common grounded friction and movement processing during held shooting-item states, including canonical L-Gun, Fire Flower, and Scope Start physics callbacks. Friction is character-specific and conditionally multiplied by common data above the walking-speed threshold; stronger deceleration is not guaranteed without the multiplier's value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDD.c#L79-L97",
+            "why": "Complete joint, vector, and scalar flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtxvec.c#L6-L51",
+            "why": "Affine transform includes translation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace the unconditional uniform-scale/cancellation claim with the exact implemented transform.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CDD:ftCo_800CDE94"
+        },
+        "type": "purpose",
+        "value": "Transforms a caller-provided point through the fighter joint selected by parts[ft_data->x8->x10].joint. It copies the point, multiplies all components by 1.0f/x34_scale.y when that scalar is not exactly 1.0f, and writes the affine matrix result to the output. Shooting-item callers use this as an emission/effect-position conversion. Only reciprocal-Y compensation is proved; cancellation of arbitrary nonuniform model scale is not."
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDD.c#L79-L97",
+            "why": "Implemented compensation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDF.c#L125-L139",
+            "why": "L-Gun offset and emission/effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CE3.c#L135-L168",
+            "why": "Fire Flower offset and emission/effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeFire.c#L125-L160",
+            "why": "Scope offset and emission/effects."
+          }
+        ],
+        "op": "write",
+        "rationale": "Include the additional Scope consumer and qualify scale cancellation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CDD:ftCo_800CDE94"
+        },
+        "type": "game_mapping",
+        "value": "Computes fighter-joint-relative firing and effect positions for L-Gun, Fire Flower, and Scope callers from item-provided offsets. Reciprocal-Y scaling precedes the joint matrix and can compensate a corresponding uniform scale factor, but the helper does not prove or enforce that matrix-scale invariant."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDD.c#L79-L97",
+            "why": "Copy-before-write and unchecked reciprocal path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L698-L702",
+            "why": "Assertion and matrix setup before returning the matrix."
+          }
+        ],
+        "op": "write",
+        "rationale": "Document boundaries, aliasing, borrowed inputs, and the distinction between Fighter reads and joint setup side effects.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CDD:ftCo_800CDE94"
+        },
+        "type": "state_behavior",
+        "value": "Uses an exact scale != 1.0f test and has no local zero, finite-value, pointer-chain, or joint-index validation. All three copied components use the Y-scale reciprocal. Input and output may be the same valid Vec3 because the input is copied before output writes. The helper retains no vector pointers and transfers no ownership; joint matrix setup may update joint state. Exceptional scales have no fallback, and exact target floating-point exception behavior remains unverified."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDD.c#L59-L64",
+            "why": "Sole local guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L596-L604",
+            "why": "Ground/air completion destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CE3.c#L232-L249",
+            "why": "Fire Flower optional caller path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CDF.c#L148-L156",
+            "why": "Direct L-Gun callers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Make invocation semantics and the optional consumer guard explicit without promising universal per-frame completion.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0CDD:ftCo_800CDE18"
+        },
+        "type": "state_behavior",
+        "value": "On each invocation, queries ftAnim_IsFramesRemaining and calls ftCommon_8007D92C only if it returns false; the callee selects Fall for GA_Air and ft_8008A2BC otherwise. There is no local timer, item guard, or one-shot latch. Fire Flower's caller invokes this helper only while item_gobj is non-null, whereas both L-Gun Anim callbacks invoke it directly."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

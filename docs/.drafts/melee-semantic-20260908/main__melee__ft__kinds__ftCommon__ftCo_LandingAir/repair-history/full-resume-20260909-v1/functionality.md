@@ -1,0 +1,13 @@
+# Aerial landing lag
+
+Revision `c302741689bd67c361cd7faadb221df3193992c3`. Complete canonical/rendered C1-84/H1-15 reviewed, two receipts/no parser errors. Terminal empty lines account for renderer totals; canonical citations stop at C83/H14.
+
+AttackAir collision supplies EnterWithLag as landing callback. Only nonzero cmd_vars[0] permits mapping standard AirN/F/B/Hi/Lw to LandingAirN/F/B/Hi/Lw and their respective character lag attributes. Inactive command or unmatched current motion uses basic landing. A successful match with x67F below common xE4 divides lag by xE8, truncates toward zero and substitutes one only for integer zero. Failed timing preserves the original lag; it does not take basic landing. Fighter input processing resets x67F on pressed LR and increments toward 255 otherwise, grounding the L-cancel timing interpretation without assuming numeric common-data values.
+
+Explicit-state entry calls grounded setup, changes the supplied motion at frame zero, speed one and zero blend, then sets rate to (animation end frame + 0.1)/lag. It performs no lag validation. Grounded setup resets jumps/wall jumps, unlocks ECB, carries horizontal velocity into ground velocity and checks supporting geometry. The animation getter chooses the main or blend skeleton by remaining blend frames. The rate setter normally updates both animation hierarchies and frame_speed_mul; its freeze path is not selected by this entry because the motion change resets the flag and uses no FreezeState flag.
+
+Anim checks completion through ordinary Landing_Anim; it does not itself advance animation. IASA is empty, so ordinary Landing_IASA input handling is not reused. Phys delegates ordinary landing friction and ground movement. Coll delegates ordinary landing collision: its shared helper chooses a ground query based on opposing nudge, accepts a secondary transition on loss, or enters Fall. Basic-landing fallback itself can choose HammerLanding, otherwise ordinary Landing with interruptions allowed. Five LandingAir states 70..74 register this callback suite.
+
+The split section has f64 conversion bias 0x4330000080000000 at offset zero, f32 zero/one/0.1 at 8/12/16 and a trailing gap, totaling 24 bytes. Existing source section totals 28 bytes with an extra eight zero bytes before those f32 values. Source WRITE|ALLOC and split ALLOC differ. Full assembly confirms fctiwz and bias conversion followed by the initial-state and rate literal uses. Frozen report hash matches; no build ran.
+
+All 36 fact versions and 12 exact outgoing records are reviewed individually; baseline endpoints, roles, rationales and locators remain intact. All 16 subjects are covered, including eight empty parameter entities.

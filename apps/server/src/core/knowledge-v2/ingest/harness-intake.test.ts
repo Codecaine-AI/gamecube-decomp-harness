@@ -181,9 +181,12 @@ describe("runKnowledgeIntake", () => {
     const checkoutRoot = join(root, "checkout");
     const reportPath = join(checkoutRoot, "build/GALE01/report.json");
     const sourceRoot = join(root, "past_prs");
+    const orchestratorDbPath = join(root, "runtime/state/orchestrator.sqlite");
     mkdirSync(join(knowledgeRoot, "sources/code_context/past_prs/data/prs/pr-7"), { recursive: true });
     mkdirSync(join(reportPath, ".."), { recursive: true });
+    mkdirSync(join(orchestratorDbPath, ".."), { recursive: true });
     writeFileSync(reportPath, JSON.stringify({ units: [] }));
+    writeFileSync(orchestratorDbPath, "");
 
     const calls: string[] = [];
     const logs: string[] = [];
@@ -227,7 +230,7 @@ describe("runKnowledgeIntake", () => {
       attempts: (_store, options) => {
         calls.push("attempts");
         expect(options).toEqual({
-          orchestratorDbPath: join(root, "state/orchestrator.sqlite"),
+          orchestratorDbPath,
           dryRun: false,
         });
         return attemptsResult;
@@ -280,6 +283,118 @@ describe("runKnowledgeIntake", () => {
         attempts: attemptsResult,
       },
     });
+  });
+
+  test("uses an explicit orchestrator database path", async () => {
+    const root = temporaryRoot();
+    const knowledgeRoot = join(root, "knowledge");
+    const checkoutRoot = join(root, "checkout");
+    const reportPath = join(checkoutRoot, "build/GMSJ01/report.json");
+    const orchestratorDbPath = join(root, "custom/orchestrator.sqlite");
+    mkdirSync(join(reportPath, ".."), { recursive: true });
+    mkdirSync(join(orchestratorDbPath, ".."), { recursive: true });
+    writeFileSync(reportPath, JSON.stringify({ units: [] }));
+    writeFileSync(orchestratorDbPath, "");
+    const store = { close: () => undefined } as unknown as KnowledgeStore;
+    let usedPath: string | undefined;
+
+    await runKnowledgeIntake({
+      knowledgeRoot,
+      checkoutRoot,
+      reportPath,
+      orchestratorDbPath,
+      expectedHead: "abc1234",
+      prNumbers: [],
+      sourceRoot: join(root, "past_prs"),
+      fetch: { enabled: false },
+      lanes: ["attempts"],
+      dryRun: false,
+      log: () => undefined,
+    }, {
+      checkoutHead: async () => "abc1234",
+      openStore: () => store,
+      attempts: (_store, options) => {
+        usedPath = options.orchestratorDbPath;
+        return attemptsResult;
+      },
+    });
+
+    expect(usedPath).toBe(orchestratorDbPath);
+  });
+
+  test("prefers the runtime state database over the legacy database", async () => {
+    const root = temporaryRoot();
+    const knowledgeRoot = join(root, "knowledge");
+    const checkoutRoot = join(root, "checkout");
+    const reportPath = join(checkoutRoot, "build/GMSJ01/report.json");
+    const runtimePath = join(root, "runtime/state/orchestrator.sqlite");
+    const legacyPath = join(root, "state/orchestrator.sqlite");
+    for (const path of [reportPath, runtimePath, legacyPath]) {
+      mkdirSync(join(path, ".."), { recursive: true });
+      writeFileSync(path, path === reportPath ? JSON.stringify({ units: [] }) : "");
+    }
+    const store = { close: () => undefined } as unknown as KnowledgeStore;
+    let usedPath: string | undefined;
+
+    await runKnowledgeIntake({
+      knowledgeRoot,
+      checkoutRoot,
+      reportPath,
+      expectedHead: "abc1234",
+      prNumbers: [],
+      sourceRoot: join(root, "past_prs"),
+      fetch: { enabled: false },
+      lanes: ["attempts"],
+      dryRun: false,
+      log: () => undefined,
+    }, {
+      checkoutHead: async () => "abc1234",
+      openStore: () => store,
+      attempts: (_store, options) => {
+        usedPath = options.orchestratorDbPath;
+        return attemptsResult;
+      },
+    });
+
+    expect(usedPath).toBe(runtimePath);
+  });
+
+  test("skips attempts when no orchestrator database exists", async () => {
+    const root = temporaryRoot();
+    const knowledgeRoot = join(root, "knowledge");
+    const checkoutRoot = join(root, "checkout");
+    const reportPath = join(checkoutRoot, "build/GMSJ01/report.json");
+    mkdirSync(join(reportPath, ".."), { recursive: true });
+    writeFileSync(reportPath, JSON.stringify({ units: [] }));
+    const calls: string[] = [];
+    const logs: string[] = [];
+    const store = { close: () => calls.push("close") } as unknown as KnowledgeStore;
+
+    const result = await runKnowledgeIntake({
+      knowledgeRoot,
+      checkoutRoot,
+      reportPath,
+      expectedHead: "abc1234",
+      prNumbers: [],
+      sourceRoot: join(root, "past_prs"),
+      fetch: { enabled: false },
+      lanes: ["attempts"],
+      dryRun: false,
+      log: (message) => logs.push(message),
+    }, {
+      checkoutHead: async () => "abc1234",
+      openStore: () => store,
+      attempts: () => {
+        calls.push("attempts");
+        return attemptsResult;
+      },
+    });
+
+    expect(calls).toEqual(["close"]);
+    expect(result.ingest.attempts).toBeUndefined();
+    expect(logs).toEqual([
+      `[knowledge-intake] skipping attempts: input not found: ${join(root, "runtime/state/orchestrator.sqlite")}`,
+    ]);
   });
 
   test("rejects a missing report before fetching or opening the store", async () => {

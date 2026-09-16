@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-50-workflows-20-run",
+  "title": "Run Workflow",
+  "root": "b-20-run-root-13",
+  "blocks": {
+    "b-20-run-root-13": {
+      "id": "b-20-run-root-13",
+      "type": "paragraph",
+      "props": {},
+      "text": [],
+      "children": [
+        "b-20-run-overview-1",
+        "b-20-run-run-process-canvas-14",
+        "b-20-run-epoch-heading-2",
+        "b-20-run-wake-snapshot-3",
+        "b-20-run-integrate-boundary-5",
+        "b-20-run-details-heading-7",
+        "b-20-run-details-state-8",
+        "nav-6d62c204e00c",
+        "nav-d6b6da839c76",
+        "nav-eafcaf011c81",
+        "nav-e8f3ca7a6a4b",
+        "nav-4df30c634b7c"
+      ]
+    },
+    "b-20-run-overview-1": {
+      "id": "b-20-run-overview-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The run workflow is the autonomous execution stage for one game cycle. It occupies the "
+        },
+        {
+          "insert": "Harness State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness/20-harness-state"
+            }
+          }
+        },
+        {
+          "insert": " workflow slot and dispatch lease while durable "
+        },
+        {
+          "insert": "Run State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/10-run-state"
+            }
+          }
+        },
+        {
+          "insert": " binds scheduling, worker evidence, and integration to one run identity. The workflow turns ranked targets into isolated attempts, serial integration, and boundary-confirmed progress."
+        }
+      ],
+      "children": []
+    },
+    "b-20-run-run-process-canvas-14": {
+      "id": "b-20-run-run-process-canvas-14",
+      "type": "canvas",
+      "props": {
+        "src": "./assets/canvases/run-process.canvas.json",
+        "title": "Run process"
+      },
+      "children": []
+    },
+    "b-20-run-epoch-heading-2": {
+      "id": "b-20-run-epoch-heading-2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "How an Epoch Turns"
+        }
+      ],
+      "children": []
+    },
+    "b-20-run-wake-snapshot-3": {
+      "id": "b-20-run-wake-snapshot-3",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Run workflow",
+            "steps": [
+              {
+                "text": "Wake the Run Loop from the highest-priority relevant durable signal or maintenance cadence"
+              },
+              {
+                "text": "Read run state, active claims, epoch records, checkpoints, and the current ranked board"
+              },
+              {
+                "text": "Rank the full board and admit every eligible target once"
+              },
+              {
+                "text": "Enqueue one deduplicated `worker` job for each admitted epoch target"
+              },
+              {
+                "text": "Claim the job and epoch target atomically, then provision an isolated worktree and ClaimToken"
+              },
+              {
+                "text": "Execute and validate bounded worker attempts; settle every outcome from durable worker evidence"
+              },
+              {
+                "text": "Queue knowledge processing for every closed worker outcome, whether it succeeded or failed"
+              },
+              {
+                "text": "Apply and commit each accepted checkpoint to the cycle repo through the single-flight integration lane"
+              },
+              {
+                "text": "At the epoch boundary, rebuild report truth, confirm or revert tentative work, and record a save point"
+              },
+              {
+                "text": "Repeat from the refreshed board, or stop, complete, fail, or cancel"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-20-run-integrate-boundary-5": {
+      "id": "b-20-run-integrate-boundary-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker completion hands the closed run to "
+        },
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-knowledge/40-librarian-pathways"
+            }
+          }
+        },
+        {
+          "insert": "; the run records only that handoff and continues from the refreshed board. "
+        },
+        {
+          "insert": "Process Lifecycle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/50-process-lifecycle"
+            }
+          }
+        },
+        {
+          "insert": " binds direct process execution, observation, and exit settlement to the run's dispatch authority."
+        }
+      ],
+      "children": []
+    },
+    "b-20-run-details-heading-7": {
+      "id": "b-20-run-details-heading-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Where the Details Live"
+        }
+      ],
+      "children": []
+    },
+    "b-20-run-details-state-8": {
+      "id": "b-20-run-details-state-8",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Area",
+          "Owned contract",
+          "Destination"
+        ],
+        "rows": [
+          [
+            "Run state",
+            "Identity, control, record families, and crash reconciliation",
+            "Run State"
+          ],
+          [
+            "Run loop",
+            "Durable wakes, epoch orchestration, delegation, and settlement",
+            "Run Loop"
+          ],
+          [
+            "Board",
+            "Candidate evidence and ranking signals",
+            "Board Prioritization"
+          ],
+          [
+            "Workers",
+            "Bounded claims, isolated execution, validation, and write safety",
+            "Run Workers"
+          ],
+          [
+            "Process lifecycle",
+            "Direct execution, stream logs, graceful settlement, and manual crash recovery",
+            "Process Lifecycle"
+          ]
+        ],
+        "title": "Run workflow map"
+      },
+      "children": []
+    },
+    "nav-6d62c204e00c": {
+      "id": "nav-6d62c204e00c",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/10-run-state"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "nav-d6b6da839c76": {
+      "id": "nav-d6b6da839c76",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run Loop",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/20-run-loop"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "nav-eafcaf011c81": {
+      "id": "nav-eafcaf011c81",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Board Prioritization",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/30-board-prioritization"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "nav-e8f3ca7a6a4b": {
+      "id": "nav-e8f3ca7a6a4b",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run Workers",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/40-workers"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "nav-4df30c634b7c": {
+      "id": "nav-4df30c634b7c",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Process Lifecycle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/50-process-lifecycle"
+            }
+          }
+        }
+      ],
+      "children": []
+    }
+  }
+}

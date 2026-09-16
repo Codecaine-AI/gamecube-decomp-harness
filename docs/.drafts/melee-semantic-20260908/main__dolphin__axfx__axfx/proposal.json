@@ -1,0 +1,55 @@
+{
+  "tu": "main/dolphin/axfx/axfx",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/axfx:.sdata"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source declares two initialized function-pointer objects, in source declaration order: `__AXFXAlloc` has type `void* (*)(unsigned long)` and defaults to `AXFXAllocFunction`; `__AXFXFree` has type `void (*)(void*)` and defaults to `AXFXFreeFunction`. Their arguments represent a requested payload byte count and a storage pointer to release, respectively. These declarations establish source-level types and initialization, not compiled section placement or binary ordering.",
+        "rationale": "Preserves the supported callback typing while removing an unsupported inference that C declarations prove initialized small-data placement.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/axfx.c#L4-L15",
+            "why": "Exact global types, initializers, declaration order, and default argument forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/axfx/axfx.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Hook replacement does not preserve allocator provenance for outstanding allocations. `AXFXSetHooks` only overwrites the global callbacks; chorus initialization saves a workspace pointer obtained through `__AXFXAlloc`, but shutdown releases it through whatever `__AXFXFree` is active then. Callers must therefore maintain compatible allocation/release policies across that lifetime. With the default callbacks, each operation independently reads `__OSCurrHeap`, so release requires the allocation's owning heap to be current rather than automatically recovering the allocation-time heap.",
+        "rationale": "Adds a useful cross-file lifetime constraint not explicitly captured by the existing initialization, forwarding, and replacement facts.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/axfx.c#L7-L22",
+            "why": "Wrappers independently read the current heap; setter only replaces callback slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/chorus.c#L392-L442",
+            "why": "Initialization retains an allocated pointer and shutdown uses the current global release hook."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlloc.c#L322-L352",
+            "why": "Freeing operates on the supplied heap, asserts allocation ownership, and current-heap selection is mutable."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,892 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/objalloc:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:833bb32d-7f90-4db6-970b-cd3ff7d30883",
+        "target_id": "target:data:main/sysdolphin/baselib/objalloc:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "At startup `obj_heap.top` and `obj_heap.curr` are zero while `obj_heap.remain` and `obj_heap.size` contain all-bits-one sentinel values. HSD_ObjSetHeap overwrites the address fields with its pointer and the capacity fields with its size. HSD_ObjAllocAddFree reads the configured addresses and capacity to align and bound a batch, advances `curr`, and recomputes `remain`; when no private region is configured, it obtains storage from HSD_MemAlloc and subtracts the batch size from `remain`. HSD_ObjAlloc also reads `remain` when enforcing heap-pressure limits.",
+        "rationale": "The current declaration and allocator routines preserve the standing flow through the initialized `obj_heap` aggregate: initialization supplies sentinel values, the setter replaces all four fields, replenishment consumes and updates them, and allocation uses remaining capacity in its heap-limit logic.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows the `obj_heap` initializer, the setter's four assignments, and both replenishment modes' reads and updates of heap state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+            "why": "Shows HSD_ObjAlloc consulting `obj_heap.remain` while applying descriptor heap-pressure limits."
+          }
+        ]
+      },
+      {
+        "id": "fact:537dd5ec-6915-4e7c-a6ed-878bb978892e",
+        "target_id": "target:data:main/sysdolphin/baselib/objalloc:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Initialized data whose semantically meaningful object is a 16-byte static `objheap` aggregate with four 32-bit fields: backing-region top address, current cursor, remaining byte count, and total byte capacity. Its source initializer is `{ 0, 0, -1, -1 }`; the section target may additionally encompass compiler-emitted assertion-literal storage or alignment rather than another allocator state object.",
+        "rationale": "The current source declares the four-field initialized aggregate and its uses establish two address fields and two byte-count fields. Assertion use elsewhere in the unit also permits compiler-emitted initialized metadata, so the larger section target should not be interpreted as a second allocator-state aggregate.",
+        "confidence": 0.91,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Declares `static objheap obj_heap = { 0, 0, -1, -1 }` and demonstrates the semantics of all four fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows another HSD assertion in the translation unit, supporting possible compiler-emitted assertion metadata in initialized data."
+          }
+        ]
+      },
+      {
+        "id": "fact:fbb064f2-4663-455d-a27f-e8b14464afd2",
+        "target_id": "target:data:main/sysdolphin/baselib/objalloc:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides initialized static storage for the object allocator's persistent heap state. Its meaningful aggregate establishes the allocator's startup backing-region addresses and capacity counters before HSD_ObjSetHeap replaces them, after which replenishment routines use the state to select and manage private-region or general-heap allocation.",
+        "rationale": "The current source still declares the explicitly initialized `obj_heap`, replaces all of its fields through HSD_ObjSetHeap, and consumes them while acquiring batches for object pools, confirming the standing section purpose.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows initialized `obj_heap` storage, complete heap-state configuration, and its subsequent role in object-pool batch acquisition."
+          }
+        ]
+      },
+      {
+        "id": "fact:afe27604-64d1-48af-ab6c-e4bdbaf8a0fd",
+        "target_id": "target:data:main/sysdolphin/baselib/objalloc:.data",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The heap state begins unconfigured, with zero base and cursor addresses and sentinel capacities of `-1`. HSD_ObjSetHeap transitions it to a configured state where the cursor equals the supplied base and remaining capacity equals the supplied size. Thereafter `top != 0` selects bounded linear allocation from the configured region, advancing the cursor toward `top + size`; `top == 0` selects general-heap allocation while retaining decrementing remaining-byte accounting.",
+        "rationale": "The current initializer, setter, and replenishment branches retain the same startup state, configuration transition, mode guard, cursor movement, and capacity accounting.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows initial field values, unconditional configuration, the `top` mode test, bounded cursor advancement, and general-heap remaining-byte decrement."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/objalloc:.sbss"
+    },
+    "facts": [
+      {
+        "id": "fact:1c8f407a-4014-48cc-9b4a-304a9b0d392a",
+        "target_id": "target:data:main/sysdolphin/baselib/objalloc:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_ObjAllocInit reads alloc_datas while removing prior occurrences of a descriptor, stores the previous head into the initialized descriptor's `next` field, and writes that descriptor back as the new head. `_HSD_ObjAllocForgetMemory` ignores its memory-bound arguments and writes NULL to alloc_datas, so the next initialized descriptor starts a fresh registry chain.",
+        "rationale": "The current removal helper, descriptor-prepend sequence, and forget routine directly preserve every read and write described by the standing registry-head flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows alloc_datas serving as the removal root and prior head, being updated to the initialized descriptor, and later being cleared to NULL."
+          }
+        ]
+      },
+      {
+        "id": "fact:e0c32ccc-b895-45e1-8140-5346c1d60e1a",
+        "target_id": "target:data:main/sysdolphin/baselib/objalloc:.sbss",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "alloc_datas",
+        "rationale": "The current fully matched source names the unit's zero-initialized static descriptor-registry pointer `alloc_datas`, and all of its accesses confirm that this identifier denotes the registry head represented by the section target.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Directly declares the uninitialized static `HSD_ObjAllocData* alloc_datas`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows that alloc_datas is specifically the head of the initialized-descriptor registry."
+          }
+        ]
+      },
+      {
+        "id": "fact:cda8cab2-c323-4797-addd-72259cff700b",
+        "target_id": "target:data:main/sysdolphin/baselib/objalloc:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A zero-initialized static `HSD_ObjAllocData*` registry-head object, with any remaining bytes in the 8-byte section attributable to section alignment or padding rather than another source-declared state object.",
+        "rationale": "The current source declares one uninitialized static pointer, giving it zero-initialized storage and the exact descriptor-pointer type, while the only other module-global state object has an explicit initializer.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows the uninitialized `static HSD_ObjAllocData* alloc_datas` declaration separately from explicitly initialized `obj_heap`."
+          }
+        ]
+      },
+      {
+        "id": "fact:827bae3e-57e4-4b99-b163-cdbd2a5599f8",
+        "target_id": "target:data:main/sysdolphin/baselib/objalloc:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the process-global head of the object allocator's registry of initialized HSD_ObjAllocData descriptors. This retained head lets initialization remove an existing descriptor before prepending its replacement and lets the forget-memory routine invalidate the entire registry with one write.",
+        "rationale": "The current code continues to use alloc_datas as the root for duplicate removal, descriptor insertion, and whole-registry invalidation, confirming the standing purpose.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows alloc_datas acting as the descriptor-registry root during removal, registration, and unconditional invalidation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Identifies alloc_datas as the unit's uninitialized static HSD_ObjAllocData pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:f5282a6d-b913-458e-bb11-56f0d5bcd19b",
+        "target_id": "target:data:main/sysdolphin/baselib/objalloc:.sbss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The registry head begins in the empty NULL state. Initializing a descriptor transitions it to the head of the registry after removing any prior occurrence of that descriptor; repeated initialization therefore does not retain duplicate links for the same descriptor. Forgetting allocator memory unconditionally transitions the registry back to empty without changing obj_heap or any descriptor's counters, limits, or free-list state.",
+        "rationale": "Zero-initialized static storage establishes the empty state, while the current removal, insertion, and forget code preserves the duplicate-free registration and registry-only reset transitions.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows alloc_datas as separate uninitialized static storage and obj_heap as distinct persistent heap state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows duplicate removal before head insertion and the unconditional reset of only alloc_datas."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/objalloc:.sdata"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/objalloc:HSD_ObjAlloc"
+    },
+    "facts": [
+      {
+        "id": "fact:4d6f124a-1206-4d9d-9bcd-36634d96d7ae",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAlloc",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads allocation-limit configuration and used/free counts from HSD_ObjAllocData. For heap-limited allocators it obtains available bytes from obj_heap.remain when the private object heap is active, otherwise from OSCheckHeap(HSD_GetHeap()), and may rewrite heap_limit_num. If no free entry exists it requests one through HSD_ObjAllocAddFree; on success it advances freehead to cur->next, increments used, decrements free, raises peak when necessary, and returns cur.",
+        "rationale": "This follows the matched routine's complete input, call, mutation, and return path without relying on semantic guesses from its symbol.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:16.890Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+            "why": "Directly shows the heap-source selection, heap-limit mutation, free-list replenishment and pop, counter updates, peak tracking, and returned object."
+          }
+        ]
+      },
+      {
+        "id": "fact:decf63a5-7ec7-4d6a-9961-ee7a6c9d9f56",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAlloc",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function signature: void* HSD_ObjAlloc(HSD_ObjAllocData* data). The argument is a mutable allocator descriptor containing limit flags and thresholds, usage statistics, a free-object count, and an HSD_ObjAllocLink free-list head; the return is an untyped object pointer or NULL.",
+        "rationale": "The matched declaration gives the exact function signature, and the body demonstrates both mutation of the descriptor and traversal of its HSD_ObjAllocLink free list.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:16.890Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+            "why": "Provides the exact return and parameter types and shows the descriptor fields and link type used by the routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:ed0f6a41-71fe-4f99-b40b-993d2b5015c6",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAlloc",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Obtains one object from an HSD object allocator's free list, growing that list on demand when permitted, and returns NULL rather than asserting when allocator limits or memory availability prevent allocation.",
+        "rationale": "The matched body returns NULL at every limit or replenishment failure, otherwise pops and returns the free-list head. A resolved caller wraps HSD_ObjAlloc and explicitly asserts when its return is NULL, corroborating that failure handling belongs to the caller.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:16.890Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+            "why": "Shows all failure returns, the call to HSD_ObjAllocAddFree when no free objects remain, and the successful removal and return of freehead."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1046124893063884840",
+            "why": "Shows an HSD_GObjProc allocation wrapper calling HSD_ObjAlloc, testing for NULL, and asserting at the caller to handle out-of-memory failure."
+          }
+        ]
+      },
+      {
+        "id": "fact:58e537d4-eea0-438d-8ba2-529480c98fcc",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAlloc",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Allocation is rejected when an enabled numeric limit has used >= num_limit. Under heap limiting, an uncapped state is represented by heap_limit_num == UINT_MAX: when available heap falls to or below heap_limit_size, the routine freezes the cap at used + free. While capped, recovery above heap_limit_size resets the cap to UINT_MAX. Allocation is then rejected at used >= heap_limit_num. An empty free list triggers one-object replenishment and fails if it remains empty; success transitions one entry from free to used and updates the historical peak.",
+        "rationale": "The matched branches explicitly encode the uncapped and capped heap-limit states, their threshold-driven transitions, all rejection guards, and the accounting transition after a successful free-list pop.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:16.890Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+            "why": "Shows the numeric-limit guard, UINT_MAX sentinel, heap-threshold transitions, free-list-empty handling, and successful used/free/peak state changes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/objalloc:HSD_ObjAllocAddFree"
+    },
+    "facts": [
+      {
+        "id": "fact:6a801ca8-e043-4c83-91fd-6fea4fc2279f",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAllocAddFree",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The requested byte count begins as `data->size * num`. With a configured private object heap, the function aligns `obj_heap.curr` upward using `data->align`, bounds the batch by `obj_heap.top + obj_heap.size`, rounds any truncated byte count down to a whole multiple of `data->size`, derives the actual object count, and advances `obj_heap.curr` while recomputing `obj_heap.remain`. Without that heap, it passes the full byte count to HSD_MemAlloc and subtracts it from `obj_heap.remain`. It then stores each object's successor in the object's leading word at `data->size` strides, points the final object at the previous `data->freehead`, installs the batch start as the new head, adds the actual count to `data->free`, and returns that count.",
+        "rationale": "Every input, arithmetic transformation, allocation source, memory write, global-state update, descriptor mutation, and output is explicit in the matched body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:18:32.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L21-L69",
+            "why": "Directly traces the requested count and descriptor configuration through byte sizing, aligned acquisition, optional truncation, free-list construction, allocator accounting, and the returned actual count."
+          }
+        ]
+      },
+      {
+        "id": "fact:066a10df-31af-49f9-b067-aa768a927aad",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAllocAddFree",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function signature: `s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)`. `data` is a mutable fixed-size allocator descriptor whose `size` is an object stride, whose `align` is an alignment mask, and whose `freehead` and `free` fields hold the intrusive free-list head and available-object count. `num` is the requested object count, while the return value is the actual count added or zero on failure.",
+        "rationale": "The declaration supplies the exact signature. The alignment expression establishes that `align` is used as a mask, fixed-stride pointer calculations establish the byte-size role of `size`, and the final descriptor updates and returns establish the meanings of `freehead`, `free`, and the result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:18:32.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L21-L69",
+            "why": "Provides the signature and directly demonstrates the parameter domains, descriptor field roles, intrusive link representation, and return semantics."
+          }
+        ]
+      },
+      {
+        "id": "fact:0e14dcb8-9ed8-4c53-8113-79ee98c58ab6",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAllocAddFree",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Replenishes an HSD fixed-size object allocator by acquiring a batch of storage, subdividing it into same-sized objects, and prepending those objects to the allocator descriptor's reusable free list. When a private object heap is active, it may add fewer objects than requested so the batch fits the remaining region; otherwise it requests the complete batch from HSD_MemAlloc.",
+        "rationale": "The matched function computes a batch from the descriptor's object size and requested count, obtains storage from either the private object heap or HSD_MemAlloc, threads fixed-size entries through their leading words, attaches the batch to the existing free-list head, and increases the free count by the number actually added.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:18:32.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L21-L69",
+            "why": "Shows storage acquisition, private-heap truncation, fixed-stride object subdivision, intrusive link construction, insertion at freehead, and the returned number of objects added."
+          }
+        ]
+      },
+      {
+        "id": "fact:517e108f-914f-4d48-a74d-5c03c190ddc3",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAllocAddFree",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The function first asserts that the allocator descriptor is non-NULL. In private-heap mode it returns zero if the aligned start lies beyond the heap end or if no complete object fits; if only part of the requested batch fits, it reduces the batch to the largest whole-object count. In general-heap mode it returns zero if storage acquisition fails. Only after usable storage is obtained does it prepend the new chain and increase the descriptor's free count; successful private-heap acquisition also advances the persistent heap cursor and remaining-byte state.",
+        "rationale": "The control flow explicitly separates descriptor validation, private-heap capacity guards, general-allocation failure, and successful state transitions. Descriptor free-list state is not changed on any local zero-return path.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:18:32.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L21-L69",
+            "why": "Shows the assertion, mode branch, capacity and allocation guards, partial-batch behavior, zero-return paths, and all successful heap and descriptor state updates."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/objalloc:HSD_ObjAllocInit"
+    },
+    "facts": [
+      {
+        "id": "fact:5db4f093-7c4d-4c89-af55-e30a036d52d5",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAllocInit",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a descriptor address, requested object size, and alignment. It first removes every existing registry link to that descriptor, zeroes the entire HSD_ObjAllocData record, sets num_limit and heap_limit_num to the unlimited -1 sentinel and heap_limit_size to zero, converts alignment to a bit mask, rounds size to the resulting object stride, then prepends the descriptor to the module-global alloc_datas list.",
+        "rationale": "The current helper and function body preserve every input transformation and output mutation in the standing flow, including duplicate removal, complete clearing, default limits, normalization, and registry insertion.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows removeAll traversing and unlinking matching registry entries followed by all descriptor initialization and final insertion steps."
+          }
+        ]
+      },
+      {
+        "id": "fact:bb62b9ee-4f8c-45ac-b8e1-8f4f2a8c3c29",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAllocInit",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_ObjAllocInit(HSD_ObjAllocData* data, size_t size, u32 align). data is a mutable output descriptor, size is the unrounded object stride in bytes, and align is the requested byte alignment; the implementation expects an alignment suitable for power-of-two mask arithmetic, stores align - 1 as the mask, and stores size rounded upward to that alignment.",
+        "rationale": "The declaration provides the exact C signature. The body overwrites the descriptor and computes the mask and rounded stride as align - 1 and (size + mask) & ~mask. Call sites pass sizeof(object type) and an alignment value, confirming the units and roles of the latter two parameters.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:05:00.598Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L140-L156",
+            "why": "Provides the exact signature and directly shows full descriptor initialization, alignment-mask storage, and object-size rounding."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/729068507479933042",
+            "why": "Shows a caller supplying sizeof(HSD_AObj) as size and 4 as alignment."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1056364678332297216",
+            "why": "Records the conclusion that HSD_ObjAllocInit sets the complete descriptor and that the relevant caller arguments are output records."
+          }
+        ]
+      },
+      {
+        "id": "fact:1f474401-acc9-4ad6-bd81-255e9c1f89ea",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAllocInit",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes or reinitializes an HSD fixed-size object-pool descriptor for objects of a requested size and alignment, restoring default unlimited allocation settings and registering the descriptor with the allocator subsystem.",
+        "rationale": "The current implementation still removes an existing registry occurrence, clears the descriptor, installs unlimited defaults, derives an aligned object stride, and registers the initialized descriptor, confirming the standing purpose.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows the complete reinitialization sequence from duplicate unlinking through normalized fixed-size configuration and registry insertion."
+          }
+        ]
+      },
+      {
+        "id": "fact:828baada-05b7-48d9-bc72-0de4862aaec8",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjAllocInit",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Reinitialization transitions a previously registered descriptor back to an empty pool state without leaving a duplicate or stale registry node: existing occurrences are unlinked before the record is cleared and reinserted. The resulting state has no free or used objects, zero peak and flags, unlimited numeric and heap-derived caps, zero heap threshold, and normalized alignment and object stride. A non-null descriptor is required by the assertion and by the subsequent memset.",
+        "rationale": "The current code preserves unlink-before-clear behavior, complete zeroing, explicit limit sentinels, normalized size and alignment, and reinsertion. The assertion and unconditional descriptor dereferences continue to make NULL invalid despite the syntactic else branch.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows duplicate unlinking, the non-null assertion, memset-established empty state, explicit defaults, normalization, and registry reinsertion."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/objalloc:HSD_ObjFree"
+    },
+    "facts": [
+      {
+        "id": "fact:77a68871-7836-4cf5-ad36-1e164a5e60d4",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjFree",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Takes the allocator record and released object, stores the previous data->freehead in the object's embedded next field, replaces data->freehead with that object, then increments data->free and decrements data->used.",
+        "rationale": "Each step is explicitly present in the matched body and together forms a head insertion followed by synchronized allocator accounting updates.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:23.654Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+            "why": "The implementation directly shows the old-head-to-next assignment, freehead replacement, free-count increment, and used-count decrement."
+          }
+        ]
+      },
+      {
+        "id": "fact:2f13a48f-c018-49e8-b860-8a9a8b994c66",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjFree",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_ObjFree(HSD_ObjAllocData* data, void* obj). The released object's leading storage must be usable as an HSD_ObjAllocLink containing a next pointer, because the function overwrites that storage to embed the object in the free list.",
+        "rationale": "The matched declaration establishes the function signature, and the body casts obj to HSD_ObjAllocLink* before writing link->next without allocating a separate list node.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:23.654Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+            "why": "The source gives the exact parameter and return types and shows obj being reinterpreted as HSD_ObjAllocLink for an in-place next-pointer write."
+          }
+        ]
+      },
+      {
+        "id": "fact:321e9c80-97cc-4a3f-b9f1-559376f92563",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjFree",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Returns an object to an HSD object allocator's reusable pool rather than releasing storage to a general-purpose heap.",
+        "rationale": "The function directly inserts the supplied object at the allocator's free-list head and updates pool accounting, while known FObj and fighter cleanup call sites pass objects together with their corresponding persistent HSD_ObjAllocData pools.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:23.654Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+            "why": "The matched body links the object into data->freehead, increments data->free, and decrements data->used."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1005169452872110111",
+            "why": "The reconstructed HSD_FObjFree wrapper returns an HSD_FObj to fobj_alloc_data through HSD_ObjFree."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1056361193792614461",
+            "why": "The reconstructed fighter cleanup uses HSD_ObjFree with separate persistent allocator records for several fighter-owned object categories."
+          }
+        ]
+      },
+      {
+        "id": "fact:9b254e7c-39e9-4412-a7ee-38811d5c9309",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjFree",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs an unconditional used-to-free pool transition for one object: the object becomes the new free-list head, the free population increases by one, and the used population decreases by one. The function contains no null, ownership, or underflow guard.",
+        "rationale": "The straight-line matched implementation has no branches and updates the list and both counters exactly once, establishing both the transition and the absence of local validation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:23.654Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+            "why": "The complete function body is branch-free and performs one free-list insertion, one increment of free, and one decrement of used."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/objalloc:HSD_ObjSetHeap"
+    },
+    "facts": [
+      {
+        "id": "fact:06a1b478-878d-45ef-a1eb-3fccf4f4a1a4",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjSetHeap",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_OSInit and HSD_CreateMainHeap pass the current main-heap extent as `size` and NULL as `ptr`. HSD_ObjSetHeap copies `ptr` to `obj_heap.top` and `obj_heap.curr` and copies `size` to `obj_heap.size` and `obj_heap.remain`. HSD_ObjAllocAddFree subsequently reads this state to choose between bounded linear allocation and HSD_MemAlloc, advances `curr` and recomputes `remain` for a private region, or subtracts allocated bytes from `remain` in general-heap mode. HSD_ObjAlloc also reads `remain` when enforcing heap-pressure allocation limits.",
+        "rationale": "Current callers still derive the size from the active main-heap extent and pass a NULL base. The setter transfers those inputs into all four fields, and current allocator routines preserve the described downstream consumption and updates.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L158-L190",
+            "why": "Shows HSD_OSInit creating the current main heap and passing its byte extent with a NULL base to HSD_ObjSetHeap."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L228-L240",
+            "why": "Shows HSD_CreateMainHeap passing the replacement heap's extent and NULL to HSD_ObjSetHeap."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows the setter's field assignments and replenishment consuming and updating the resulting heap state in both storage modes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+            "why": "Shows HSD_ObjAlloc consulting remaining capacity when enforcing heap-derived allocation limits."
+          }
+        ]
+      },
+      {
+        "id": "fact:cd316d88-e653-4717-9c74-55f158aa374d",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjSetHeap",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A `void(u32 size_bytes, void* base)` allocator-state initializer. `size` is a byte capacity, and `ptr` is either the starting address of a contiguous backing region or NULL to select general-heap allocation.",
+        "rationale": "The current signature supplies the exact parameter types. Downstream pointer arithmetic treats size as bytes and ptr as a contiguous-region base, while the zero-base branch selects HSD_MemAlloc.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L13-L19",
+            "why": "Shows the exact void return and `(u32 size, void* ptr)` parameters and stores them as capacity and address state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows size used in byte-range arithmetic and a zero top pointer selecting HSD_MemAlloc."
+          }
+        ]
+      },
+      {
+        "id": "fact:0b6d77eb-15c8-4096-b732-f335edbd8b1a",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjSetHeap",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Reinitializes the object allocator's process-global heap bounds and capacity accounting. A non-null base selects a dedicated linear backing region for future object-pool batches, while a null base leaves batch storage to HSD_MemAlloc but still initializes the allocator's remaining-byte accounting.",
+        "rationale": "The current setter continues to initialize base, cursor, total size, and remaining size, while replenishment uses the resulting base value to choose between bounded linear storage and general-heap allocation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L13-L19",
+            "why": "Shows complete replacement of the allocator's two address fields and two capacity fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows a nonzero top used as a bounded linear arena and a zero top selecting HSD_MemAlloc with remaining-byte accounting."
+          }
+        ]
+      },
+      {
+        "id": "fact:2a489431-206e-4ba5-b20b-c6ae065c44f6",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:HSD_ObjSetHeap",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally resets the allocator heap state to an unused region of `size` bytes: the current cursor returns to the supplied base and remaining capacity returns to the full configured size. A zero base places subsequent replenishment in general-heap mode; a nonzero base places it in bounded linear-region mode.",
+        "rationale": "The current setter has no guard and makes curr equal top and remain equal size. Current replenishment still branches on whether top is zero and updates the reset state according to the selected mode.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L13-L19",
+            "why": "Shows the unconditional state reset in which cursor equals base and remaining capacity equals total size."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows zero versus nonzero top selecting general-heap versus bounded linear-region replenishment."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/objalloc:_HSD_ObjAllocForgetMemory"
+    },
+    "facts": [
+      {
+        "id": "fact:6d53b4f7-d25e-48d2-85f8-670c6f0d13eb",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:_HSD_ObjAllocForgetMemory",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The low and high inputs do not affect the operation. The sole output is a NULL write to the private alloc_datas head. HSD_ObjAllocInit otherwise reads that head when removing duplicate registrations and uses it as the next link when prepending an initialized descriptor; after the reset, the next initialized descriptor begins a fresh registry chain.",
+        "rationale": "The current target still ignores both arguments and clears only alloc_datas, while the neighboring initialization code preserves the downstream consequence for subsequent descriptor registration.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L158-L161",
+            "why": "Shows that neither input is read and alloc_datas is the sole written state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows alloc_datas serving as the duplicate-removal root and registration head before the target clears it."
+          }
+        ]
+      },
+      {
+        "id": "fact:28aca893-8033-49f6-b3f5-d2121133d1b1",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:_HSD_ObjAllocForgetMemory",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void routine with signature void(void* low, void* high). It accepts two memory-bound pointers but consumes neither argument.",
+        "rationale": "The matched definition directly establishes the return and parameter types, and the complete body contains no reference to low or high.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:18:45.428Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L158-L161",
+            "why": "Directly shows the void return type, the two void-pointer parameters, and that both parameters are unused."
+          }
+        ]
+      },
+      {
+        "id": "fact:3c005436-0685-4d18-891e-08e9b4f98d33",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:_HSD_ObjAllocForgetMemory",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Forgets the object allocator's registry of initialized HSD_ObjAllocData descriptors when allocator-backed memory is being discarded. It invalidates the module's retained descriptor chain without freeing object pools, resetting the private backing heap, or modifying the descriptors themselves.",
+        "rationale": "HSD_CreateMainHeap invokes the target among memory-forgetting callbacks before replacing the heap, and the complete target body clears only alloc_datas. The neighboring registration code identifies that global as the descriptor-chain head, confirming both the lifecycle role and its deliberately limited effect.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L198-L232",
+            "why": "Shows the target registered and invoked as a forget-memory callback before the current main heap is destroyed and recreated."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Shows descriptors linked through alloc_datas and the target clearing only that registry head."
+          }
+        ]
+      },
+      {
+        "id": "fact:4ec160b8-148b-4dae-b536-6e85668c64f1",
+        "target_id": "target:function:main/sysdolphin/baselib/objalloc:_HSD_ObjAllocForgetMemory",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Calling the function unconditionally transitions the global allocator-descriptor registry from any prior chain to the empty state, regardless of the supplied memory bounds. It does not transition object usage counters, descriptor free lists, allocation limits, or private-heap cursor state.",
+        "rationale": "The current target performs one unconditional registry-head assignment and accesses no descriptor fields or obj_heap fields. The surrounding current source keeps those other states in separate locations, so registry invalidation remains the only transition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:34:52.663Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L158-L161",
+            "why": "Shows the unconditional transition of alloc_datas to NULL with no guards and no other writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+            "why": "Distinguishes the registry head from the per-descriptor state initialized by HSD_ObjAllocInit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.c#L1-L70",
+            "why": "Shows private-heap cursor and capacity state stored separately in obj_heap, which the target does not access."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/objalloc.c"
+    },
+    "facts": [
+      {
+        "id": "fact:50a7b132-5336-479d-890c-699fe5da7820",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/objalloc.c",
+        "type": "data_flow",
+        "value": "HSD_ObjSetHeap supplies the optional backing region. HSD_ObjAllocAddFree takes a descriptor and requested count, obtains bytes from that region or HSD_MemAlloc, rounds the start to the descriptor's alignment, subdivides the bytes at descriptor-size strides, and prepends the resulting chain to freehead. HSD_ObjAlloc consumes that chain while updating used, free, and peak; HSD_ObjFree prepends released storage back to it. HSD_ObjAllocInit normalizes size and alignment settings and registers the descriptor in alloc_datas, while _HSD_ObjAllocForgetMemory discards that registry.",
+        "rationale": "The current module preserves the complete flow from backing-memory selection and aligned subdivision through free-list allocation and return, descriptor registration, accounting, and registry invalidation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T17:02:00.587Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L1-L120",
+            "why": "Shows backing-region input, aligned byte acquisition, fixed-stride subdivision, free-list construction and consumption, and used, free, and peak updates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L121-L161",
+            "why": "Shows released storage returning to freehead and normalized descriptors entering or leaving the global registry."
+          }
+        ]
+      },
+      {
+        "id": "fact:d9854a0b-ded9-49d3-ab4e-e40205ec2e90",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/objalloc.c",
+        "type": "inferred_type",
+        "value": "Allocator module with two process-global state structures: an objheap containing a backing region's top, current cursor, remaining bytes, and total size, and a singly linked registry of HSD_ObjAllocData descriptors. Each descriptor represents one fixed object size and owns an intrusive HSD_ObjAllocLink free-list head, alignment mask, allocation limits, and used/free/peak counters.",
+        "rationale": "The current declarations and accesses still expose the private heap fields, descriptor registry, fixed-size intrusive free lists, alignment and limit settings, and allocator counters.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T17:02:00.587Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L1-L120",
+            "why": "Declares the private objheap and descriptor registry and shows heap cursor fields plus descriptor size, alignment, free-list, limits, and usage counters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L121-L161",
+            "why": "Shows intrusive free-list links within released objects and HSD_ObjAllocData descriptors linked through next into the module-global registry."
+          }
+        ]
+      },
+      {
+        "id": "fact:055b1e68-17df-4f9f-a24e-18cdd9b1bfba",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/objalloc.c",
+        "type": "purpose",
+        "value": "Implements HSD's reusable fixed-size object-pool allocator: it configures an optional private backing heap, obtains aligned batches of same-sized objects, links unused objects into per-type free lists, enforces optional allocation limits, returns objects to those lists, and initializes or forgets allocator descriptors.",
+        "rationale": "The current source retains private-heap configuration, aligned batch subdivision, free-list allocation and return, limit checks, descriptor initialization, and registry forgetting. The drift was caused by mechanical source edits and does not alter the allocator's purpose.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T17:02:00.587Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L1-L120",
+            "why": "Shows backing-heap configuration, aligned batch construction, intrusive free-list population, allocation-limit guards, replenishment, and free-list consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L121-L161",
+            "why": "Shows object return, descriptor normalization and registration, and registry forgetting."
+          }
+        ]
+      },
+      {
+        "id": "fact:8b418ba2-8c4c-49a9-a5e1-4b82b4727497",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/objalloc.c",
+        "type": "state_behavior",
+        "value": "Each initialized allocator descriptor starts with zeroed usage and free-list state, unlimited object and heap-count limits, a normalized alignment mask and object size, and membership at the head of the global descriptor registry. Allocation may transition to failure when an explicit count limit is reached, when the monitored heap threshold fixes a limiting count that has been reached, or when replenishment cannot obtain an object. A successful allocation moves one object from free to used and may raise peak usage; freeing performs the inverse transition. Forgetting memory transitions only the global descriptor registry to empty, without resetting the private heap cursor or the individual descriptors.",
+        "rationale": "Current initialization, allocation, freeing, and forgetting code preserves the same baseline descriptor state, failure guards, accounting transitions, and registry-only reset.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T17:02:00.587Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L1-L120",
+            "why": "Shows count and heap-limit guards, replenishment failure, the free-to-used transition, and peak-usage updates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L121-L161",
+            "why": "Shows the used-to-free transition, zeroed descriptor initialization, unlimited default limits, normalized alignment and size, registry insertion, and registry-only forgetting."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjAlloc#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjAllocAddFree#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjAllocAddFree#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjAllocInit#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjAllocInit#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjAllocInit#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjFree#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjFree#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjSetHeap#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:HSD_ObjSetHeap#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:_HSD_ObjAllocForgetMemory#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/objalloc:_HSD_ObjAllocForgetMemory#r4"
+    },
+    "facts": []
+  }
+]

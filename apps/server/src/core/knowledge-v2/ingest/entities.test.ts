@@ -105,3 +105,13 @@ describe("extractEntities", () => {
     }
   });
 });
+
+test("extracts headers for games without a Melee source directory", () => {
+  const root = mkdtempSync(join(tmpdir(), "knowledge-other-game-")); tempDirs.push(root);
+  const checkoutRoot = join(root, "checkout"); mkdirSync(join(checkoutRoot, "src/other"), { recursive: true });
+  writeFileSync(join(checkoutRoot, "src/other/types.h"), "struct OtherGame { int value; };\n");
+  const reportPath = join(root, "report.json"); writeFileSync(reportPath, JSON.stringify({ units: [] }));
+  const store = openKnowledgeStore({ knowledgeRoot: join(root, "knowledge") });
+  try { expect(extractEntities(store, { checkoutRoot, reportPath }).structs).toBe(1); }
+  finally { store.close(); }
+});

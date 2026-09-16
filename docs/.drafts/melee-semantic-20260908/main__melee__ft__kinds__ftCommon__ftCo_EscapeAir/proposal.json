@@ -1,0 +1,116 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_EscapeAir",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_EscapeAir:ftCo_80099A58"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves Fighter through gobj->user_data and tests input.pressed_buttons against HSD_PAD_R | HSD_PAD_L. Either bit forwards the same object and common x334 to ftCo_80099A9C and returns true; otherwise returns false without a local mutation.",
+        "rationale": "Replace historical input.x668 with pinned canonical spelling and preserve exact forwarding.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_EscapeAir.c#L26-L34",
+            "why": "Complete input predicate and both returns."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_EscapeAir:ftCo_80099A58"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Pressed L or R in input.pressed_buttons dispatches EscapeAir entry and returns true; neither bit returns false. There is no local airborne or actionability guard. The verified ftCo_Fall_IASA_Inner caller returns on success before its subsequent checks.",
+        "rationale": "Correct canonical input field and separate local behavior from caller priority.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_EscapeAir.c#L26-L34",
+            "why": "Local guard and result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L114-L151",
+            "why": "Verified short-circuit consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_EscapeAir:ftCo_80099A9C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes and requests ftCo_MS_EscapeAir. Calls conditional item-pickup-counter helper ftCo_800D705C, snapshots full current self_vel, selects zero or stick-angle-derived current XY using strict per-axis deadzones, clears command index zero, stores the supplied int timer without validation, requests motion with Ft_MF_None and arguments 0,1,0,NULL, then calls ftAnim_8006EBA4 and ftCommon_8007EBAC(fp,23,0). The initial helper is not generic cleanup, and neutral replacement is not a claim about every momentum source.",
+        "rationale": "Repair cleanup interpretation and component scope while preserving entry ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_EscapeAir.c#L36-L66",
+            "why": "Complete initialization sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L297-L341",
+            "why": "Conditional counter seeding and pickup consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_EscapeAir:ftCo_EscapeAir_IASA"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads Fighter through user_data. When timer!=0, copies saved Vec3 before passing a local bool output slot to ftCo_80095328. Every success initializes that bool; true restores the copied vector, and either success returns immediately. Only failure within this timer phase calls ftCo_800D705C and decrements timer. Paths reaching ftCo_800C3B10 multiply then-current X by 0.1f on success. The bool pointer is not retained.",
+        "rationale": "Correct missing timer qualification and success-versus-transition conflation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_EscapeAir.c#L77-L96",
+            "why": "Exact local data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c#L190-L305",
+            "why": "Output initialization and non-retention."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_EscapeAir:ftCo_EscapeAir_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Nonzero timer gates item handling. Success from ftCo_80095328 optionally restores the full saved velocity according to b, then returns regardless of b, skipping decrement and AirCatch. Successful non-parasol release can write b=false without a local motion-state change. First-phase failure calls ftCo_800D705C and decrements timer. Zero timer skips that phase. The later ftCo_800C3B10 check is timer-independent but bypassed by earlier success; its success scales current X by 0.1f.",
+        "rationale": "Use actual helper success rather than transition as the controlling condition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_EscapeAir.c#L77-L96",
+            "why": "Guards and early return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c#L217-L305",
+            "why": "Successful release without a local state setter."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "tu": "main/melee/gr/grtkirby",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtkirby:grTKirby_80221368"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The course initialization passes grTKirby_80221408 to Ground_InitTargetStage. That inline invokes the factory for IDs 0, 1 and 2 and ignores each return. For each ID, the local factory selects grTKb_StageCallbacks[id], calls Ground_GetStageGObj to construct a new stage GObj, applies the selected callbacks only on success, reports a NULL constructor result, and returns that result. Ground_GetStageGObj allocates and initializes selected Ground fields, installs model/process state and registers the object; it is not an existing-object lookup.",
+        "rationale": "Correct existing-object lookup language to construction, preserving the wrapper contract and independent limitations.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L817-L937",
+            "why": "Creates a new stage GObj and Ground payload; installs model and processes before returning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtkirby.c#L97-L111",
+            "why": "Local unchecked row selection, constructor call, conditional callback setup and NULL diagnostic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L62",
+            "why": "Setup consumes init/proc/callback3; target initialization invokes factory IDs 0,1,2 and ignores returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtkirby.c#L37-L83",
+            "why": "Local callback table and stage initialization registration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtkirby:grTKirby_80221408"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_GObj* (int): signed course-local map ID and unchecked index into grTKb_StageCallbacks. Four source rows exist, three populated. Ground_GetStageGObj constructs a new object; the wrapper returns that configured object or NULL on constructor failure. No local bounds check or all-null-row rejection.",
+        "rationale": "Correct existing-object lookup language to construction, preserving the wrapper contract and independent limitations.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L817-L937",
+            "why": "Creates a new stage GObj and Ground payload; installs model and processes before returning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtkirby.c#L97-L111",
+            "why": "Local unchecked row selection, constructor call, conditional callback setup and NULL diagnostic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L62",
+            "why": "Setup consumes init/proc/callback3; target initialization invokes factory IDs 0,1,2 and ignores returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtkirby.c#L37-L83",
+            "why": "Local callback table and stage initialization registration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtkirby:grTKirby_80221408"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "grTKirby_80221408 forms &grTKb_StageCallbacks[id] without bounds validation, calls Ground_GetStageGObj(id) to construct a new stage GObj, and calls Ground_SetupStageCallbacks with the selected row only when construction returns nonnull. A NULL result emits OSReport for the requested ID and is returned. The helper constructs and registers the object before this wrapper applies callbacks; it does not retrieve an existing registered object. Four rows are present, including an all-null fourth row that this wrapper does not reject.",
+        "rationale": "Correct existing-object lookup language to construction, preserving the wrapper contract and independent limitations.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L817-L937",
+            "why": "Creates a new stage GObj and Ground payload; installs model and processes before returning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtkirby.c#L97-L111",
+            "why": "Local unchecked row selection, constructor call, conditional callback setup and NULL diagnostic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L62",
+            "why": "Setup consumes init/proc/callback3; target initialization invokes factory IDs 0,1,2 and ignores returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtkirby.c#L37-L83",
+            "why": "Local callback table and stage initialization registration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtkirby:grTKirby_80221634"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "grTKb_StageCallbacks[1].callback3 is grTKirby_80221634. grTKirby_80221408 constructs a new stage object for ID 1 through Ground_GetStageGObj, then passes it and row 1 to Ground_SetupStageCallbacks on success. The installed callback ignores its Ground_GObj* and has an empty body.",
+        "rationale": "Correct existing-object lookup language to construction, preserving the wrapper contract and independent limitations.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L817-L937",
+            "why": "Creates a new stage GObj and Ground payload; installs model and processes before returning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtkirby.c#L97-L111",
+            "why": "Local unchecked row selection, constructor call, conditional callback setup and NULL diagnostic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L62",
+            "why": "Setup consumes init/proc/callback3; target initialization invokes factory IDs 0,1,2 and ignores returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtkirby.c#L37-L83",
+            "why": "Local callback table and stage initialization registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtkirby.c#L161-L161",
+            "why": "Empty callback body."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

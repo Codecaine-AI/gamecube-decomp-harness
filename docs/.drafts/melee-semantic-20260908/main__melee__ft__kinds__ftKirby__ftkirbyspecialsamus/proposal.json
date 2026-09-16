@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyspecialsamus",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialsamus:ftKb_SsSpecialNHold_IASA"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Passes Kirby's fighter object first to ftCo_8009917C. A nonzero result invokes charge-preserving held-shot/effect cleanup. Otherwise it reads input.pressed_buttons: mask 0x200 selects motion 0x19A and refreshes callbacks, then returns; only if that branch is absent can mask 0x80000000 select motion 0x199, clean transient shot/effect state and refresh callbacks. The cleanup does not reset u.kb.xA8.",
+        "rationale": "Replaces stale input.x668 and held-input wording with the pinned source field while preserving exact masks, numeric destinations and priority.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialsamus.c#L411-L429",
+            "why": "Current input source and ordered branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialsamus.c#L129-L174",
+            "why": "Charge-preserving cleanup contrasted with explicit full reset."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialsamus:ftKb_SsSpecialNHold_IASA"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Fighter IASA callback with signature void(Fighter_GObj* gobj). The argument supplies Kirby's Fighter, whose input.pressed_buttons is tested and whose copied-Charge-Shot state is transitioned or cleaned up.",
+        "rationale": "Retains the exact signature while removing the unsupported continuously held-input description.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialsamus.c#L411-L429",
+            "why": "Signature, Fighter lookup and pressed-button reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialsamus:ftKb_SsSpecialNHold_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The common escape check has first priority. If it succeeds, transient Charge Shot cleanup runs. Otherwise pressed_buttons mask 0x200 enters grounded firing state 0x19A and returns after callback setup. Only when that branch is absent can pressed_buttons mask 0x80000000 enter cancel state 0x199, clean the held item/effects and reinstall callbacks. If no condition succeeds, this callback requests no transition. Stored charge is not reset by these cleanup paths.",
+        "rationale": "Corrects held-button semantics while retaining exact branch priority and charge lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialsamus.c#L411-L429",
+            "why": "Priority and early return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L793-L814",
+            "why": "Cancel and firing state registration with numeric annotations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialsamus:ftKb_SsSpecialNCancel_Coll"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Handles becoming airborne during Kirby's grounded copied-Charge-Shot cancel phase by selecting ftKb_MS_SsSpecialAirN and restoring copied-special callbacks. This is a transition to the aerial firing state, not a guarantee of projectile firing: cancel cleanup removes the held shot, this collision callback does not create one or arm command 1, and the release helper requires both the command and a retained item.",
+        "rationale": "Separates action-state selection from actual projectile release and preserves the cancel-to-air exceptional lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialsamus.c#L492-L500",
+            "why": "State transition without spawning or arming release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialsamus.c#L344-L351",
+            "why": "Cancel animation invokes transient cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialsamus.c#L201-L232",
+            "why": "Actual launch requires command 1 and a retained shot."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

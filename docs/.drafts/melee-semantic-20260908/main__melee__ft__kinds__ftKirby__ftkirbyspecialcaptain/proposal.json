@@ -1,0 +1,209 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Defines shared Kirby Ca/Gn copied-neutral-special fresh entries and eight motion callbacks: animation-completion dispatch, empty grounded IASA, command-consumed angled aerial x/y velocity replacement, event-driven effect creation/latching or destruction/reset, command-selected aerial physics, and collision-driven Ca/Gn state-change calls forwarding the current animation frame. Active Ca and Gn motion-table entries share all eight callbacks. Player-facing move names, compiled section/ABI layout, complete collision predicates and full state-change flag semantics remain unresolved.",
+        "rationale": "Independent complete canonical/rendered review and active callback consumers verify shared functionality without numeric-enum gameplay inference.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c#L21-L245",
+            "why": "All entry and callback implementations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L1057-L1078",
+            "why": "Active Ca consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L2102-L2123",
+            "why": "Active Gn consumers share all eight callbacks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain:ftKb_CaSpecialAirN_IASA"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "For the shared Ca/Gn aerial states, consumes a nonzero cmd_vars[0] and replaces x/y self velocity with attribute-configured sine/cosine projections derived from vertical stick input and facing. This is one operation per raised command, not an additive impulse or necessarily once per entire move. Valid ordinary attributes produce a dead-zone and saturated signed launch angle; invalid or exceptional values are not validated.",
+        "rationale": "Repairs ambiguous impulse and one-shot wording and includes independently verified Gn use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c#L74-L113",
+            "why": "Command consumption and replacement assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L2113-L2123",
+            "why": "Gn aerial IASA consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain:ftKb_CaSpecialAirN_IASA"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "If cmd_vars[0] is nonzero, clear it before arithmetic. Read vertical left-stick input; conditionally negate it for magnitude, cap at specialn_ca_y_axis_range, subtract specialn_ca_x_axis_range, floor negative range to zero and restore negative input sign. Convert range*specialn_ca_angle_difference/(outer-inner) from degrees to radians. Overwrite self_vel.y with forward_momentum*sinf(angle) and self_vel.x with forward_momentum*(facing_dir*cosf(angle)); z and facing are unchanged. Zero command makes no velocity writes. There is no validation of range ordering, zero denominator, nonfinite values, overflow or facing normalization.",
+        "rationale": "Supersedes whole-vector replacement and incorrect ordering; preserves actual arithmetic grouping and exceptional-input limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c#L74-L113",
+            "why": "Complete input, arithmetic, command and velocity flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain:ftKb_CaSpecialN_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Services throw_flags_b1 events in the shared Ca/Gn grounded physics callback, creating/latching a hat-selected effect when the latch is clear or invoking effect destruction and latch reset when set, then unconditionally delegates to ft_80084FA8. An unsupported hat latches without spawning. The event producer and exact delegated movement internals remain unresolved.",
+        "rationale": "Repairs baseline update wording and avoids claiming independently unverified producer origin.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c#L115-L146",
+            "why": "Event handling and unconditional delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L650-L655",
+            "why": "Actual existing-latch helper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain:ftKb_CaSpecialN_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes throw_flags_b1. On that event with x2219_b0 clear, Captain/Ganon spawn synchronized effects 1195/1203 using the GObj and parts[0]/parts[44] joints; other hats spawn nothing. All hat branches then set x2219_b0 true without checking a spawn result. With the latch set, pass the GObj to ftCommon_8007DB24, which clears the latch and calls efLib_DestroyAll. Finally forward the GObj to ft_80084FA8 unconditionally; no effect handle or ownership transfer is stored locally.",
+        "rationale": "Completes default branch, effect arguments and actual destructive helper data flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c#L115-L146",
+            "why": "Complete event and final-call body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L650-L655",
+            "why": "Latch reset and destruction call."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain:ftKb_CaSpecialN_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Without a pending throw_flags_b1 event, skip local effect handling. Consume each pending event: a clear x2219_b0 takes hat-dependent spawn selection then becomes true even for unsupported hats; an already-true latch is cleared by ftCommon_8007DB24, which calls efLib_DestroyAll. Successive events can alternate creation/latching and destruction/reset, subject to external state changes. Always call ft_80084FA8 afterward. The latch is not proof of successful effect creation.",
+        "rationale": "Supersedes incomplete first/later-event behavior and active-effect assumption.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c#L115-L146",
+            "why": "Complete event state machine."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L650-L655",
+            "why": "Reset permits later creation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain:ftKb_CaSpecialAirN_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Services throw_flags_b1 events in shared Ca/Gn aerial physics: clear latch selects hat-dependent effect creation then latching, while set latch invokes destruction/reset. It then dispatches cmd_vars[1] to two delegated movement helpers or repeated x/y scaling. Unsupported hats can latch without spawning, and unsupported command values make no movement-switch operation. Exact event producer and delegated movement internals remain unresolved.",
+        "rationale": "Replaces effect-update rationale with verified destruction/reset and complete optional branches.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c#L148-L191",
+            "why": "Complete effect and movement dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L650-L655",
+            "why": "Actual existing-latch helper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain:ftKb_CaSpecialAirN_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes throw_flags_b1 and reads x2219_b0 and hat kind. A clear latch selects Captain/Ganon effect 1195/1203 using parts 0 and 44 joints; other hats spawn nothing, but all branches set the latch. A set latch invokes ftCommon_8007DB24, clearing the latch and calling efLib_DestroyAll. Then cmd_vars[1] 0 calls ft_80084EEC, 1 multiplies self_vel.y and self_vel.x by specialn_ca_additional_vertical_momentum, and 2 calls ft_80084DB0. Other values make no movement-switch operation. cmd_vars[1] is not consumed; no local z assignment exists.",
+        "rationale": "Corrects vector scope, effect-state assumptions and omitted defaults.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c#L148-L191",
+            "why": "All field reads/writes and command cases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L650-L655",
+            "why": "Actual helper mutation and destruction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain:ftKb_CaSpecialAirN_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each pending throw_flags_b1 event is consumed. A clear effect latch becomes true after hat-dependent spawn selection, including the no-spawn default; an already-set latch is cleared and effect destruction invoked through ftCommon_8007DB24. Movement then uses cmd_vars[1]: 0 delegates to ft_80084EEC, 1 repeatedly scales x/y self velocity, 2 delegates to ft_80084DB0, otherwise no movement-switch operation. Case 1 is not inherently damping: zero, negative, >1, infinite and NaN multipliers are not rejected. The command remains set until another writer changes it.",
+        "rationale": "Completes event/default behavior, repeated scaling and exceptional multiplier boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialcaptain.c#L148-L191",
+            "why": "All event and movement cases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L650-L655",
+            "why": "Latch-clearing destruction helper."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

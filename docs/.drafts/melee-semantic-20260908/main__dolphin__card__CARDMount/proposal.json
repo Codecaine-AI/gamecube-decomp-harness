@@ -1,0 +1,72 @@
+{
+  "tu": "main/dolphin/card/CARDMount",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDMount.c#L14-L22",
+            "why": "Exact array declarations and initializers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported claim that source declaration order proves a consecutive 64-byte compiled data section.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDMount:.data"
+        },
+        "type": "inferred_type",
+        "value": "The canonical source declares two private arrays of type static u32[8]: SectorSizeTable = {8192, 16384, 32768, 65536, 131072, 262144, 0, 0}, followed in declaration order by LatencyTable = {4, 8, 16, 32, 64, 128, 256, 512}. These declarations establish source types and values, not compiled section placement, adjacency or total section size."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDMount.c#L76-L85",
+            "why": "Probe returns the table entry without geometry rejection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDMount.c#L120-L131",
+            "why": "Division precedes the zero-sector and minimum-block guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the useful lookup flow while correcting the omitted evaluation order and distinguishing probe classification from mount geometry checking.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDMount:.data"
+        },
+        "type": "data_flow",
+        "value": "Device-ID bits 11\u201313 index SectorSizeTable: CARDProbeEx reports the selected byte count, while DoMount stores it in sectorSize and uses it to calculate cBlock. Bits 8\u201310 index LatencyTable for card->latency. DoMount computes cBlock by dividing by sectorSize before testing sectorSize == 0 or cBlock < 8 and assigning -2 on that branch. Consequently, the later guard must not be described as safely rejecting zero-sized entries before division; CARDProbeEx itself can report a zero table entry with READY."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDMount.c#L28-L33",
+            "why": "Signature, explicit suppression return and missing normal-path return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbsnap.c#L76-L86",
+            "why": "Canonical caller consumes probe results for change detection."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates exact signature and caller intent from an unsupported guarantee about the normal-path return value; compiled behavior remains unverified.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDMount:CARDProbe"
+        },
+        "type": "inferred_type",
+        "value": "Declared as int CARDProbe(long chan), with chan passed to the EXI/card probe. The GameChoice & 0x80 branch explicitly returns zero. The normal path calls EXIProbe(chan) and reaches the end without an explicit return, so this C body alone does not establish a defined returned probe value on that path. Snapshot polling nevertheless stores and compares CARDProbe results, demonstrating the intended presence-query interface."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

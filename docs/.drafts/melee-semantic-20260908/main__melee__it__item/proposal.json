@@ -1,0 +1,121 @@
+{
+  "tu": "main/melee/it/item",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1907-L1929",
+            "why": "Shows optional destroyed-hook invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1931-L1980",
+            "why": "Shows the teardown guards and order."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes unconditional dispatch from optional callback execution and preserves the explicit local guards without asserting unverified registry semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/it/item:Item_8026A8EC"
+        },
+        "type": "state_behavior",
+        "value": "After its validity assertion, Item_8026A8EC performs common cleanup and effect destruction, conditionally dispatches destruction presentation, and reaches the destroyed-hook dispatcher on every continuing path; the destroyed callback is invoked only if non-null. Fighter-owner detachment is guarded by x13, a non-null owner, and ftLib_80086960. The owner is then cleared. Camera cleanup requires its flag and pointer, each configured dynamics descriptor is passed to lb_8000FD18, and final cleanup, queued-effect clearing, and GObj unlinking follow."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1907-L1912",
+            "why": "Shows callback optionality."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1983-L1992",
+            "why": "Shows the exact four-operation sequence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the proven ordering while correcting the implication that the callback executes unconditionally.",
+        "subject": {
+          "target_stable_key": "main/melee/it/item:Item_8026AB54"
+        },
+        "type": "state_behavior",
+        "value": "Executes an ordered synchronous sequence: it_80273168 receives the item first; it_802742F4 receives the item, owner, and part second; RunGObjCallback invokes picked_up only when that slot is non-null; Item_8026B074 receives the Item record last. The outer function has no conditional branches, but the callback invocation is null-guarded."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1994-L2009",
+            "why": "Complete wrapper data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L755-L861",
+            "why": "Velocity copying/scaling and separately derived position."
+          }
+        ],
+        "op": "write",
+        "rationale": "Direct helper inspection corrects the baseline's position-vector interpretation without changing the observed wrapper sequence.",
+        "subject": {
+          "target_stable_key": "main/melee/it/item:Item_8026ABD8"
+        },
+        "type": "data_flow",
+        "value": "Receives an Item GObj, a release-velocity vector, and an f32 scalar. Stores the scalar verbatim in Item.xC44, calls it_802731A4, and forwards the vector to it_80273B50, which copies it into x40_vel and applies the item's throw-speed multiplier while deriving release position from the owner attachment. The wrapper dispatches dropped, calls it_80274198(gobj, true) and it_802754D4, then conditionally calls it_80275390 when it_8026B6C8 accepts the item."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1994-L2009",
+            "why": "Signature, field write, and pointer assumptions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L755-L797",
+            "why": "The forwarded vector is copied into velocity and scaled."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact C-level types while distinguishing canonical parameter spelling from the vector role proven by its consumer.",
+        "subject": {
+          "target_stable_key": "main/melee/it/item:Item_8026ABD8"
+        },
+        "type": "inferred_type",
+        "value": "Side-effect-only drop transition with semantic signature void(Item_GObj* gobj, Vec3* release_velocity, f32 drop_param). The canonical definition names the vector parameter pos, but its callee consumes it as velocity. Requires valid Item user data and a valid logic-table pointer; stores the scalar in Item.xC44 and returns no result. The wrapper does not guard the object or logic-table pointer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L282-L530",
+            "why": "Direct classification, increment/decrement, and capacity-check implementations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1942-L2024",
+            "why": "Establishes cleanup ordering and shared transition-before-callback ordering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported shared lifecycle description while explicitly correcting the counter asymmetry and side-effecting category-9 limit check.",
+        "subject": {
+          "entity_locator": "src/melee/it/item.c"
+        },
+        "type": "state_behavior",
+        "value": "ItemKind classification assigns hold_kind values 0 through 12. Creation bookkeeping increments the selected category counter except for hold_kind 9; category 0 additionally increments x1C when kind is It_Kind_M_Ball. Destruction decrements the counter selected by hold_kind, including x1C for category 9. Capacity checks cover selected categories, generally using >=; category 9 instead tests x1C > x20 and decrements x1C when returning true. Common destruction performs category bookkeeping before retained-resource cleanup. Pickup and drop paths call shared transition helpers before dispatching picked_up or dropped callbacks."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

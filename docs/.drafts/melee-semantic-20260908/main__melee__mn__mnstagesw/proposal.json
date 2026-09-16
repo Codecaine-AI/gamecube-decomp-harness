@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/mn/mnstagesw",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesw.c#L291-L387",
+            "why": "Complete input dispatch and cache-only persistence loop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesw.c#L625-L648",
+            "why": "Visual update precedes copying shared confirmation into the cached byte."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcardgame.c#L176-L224",
+            "why": "Save request is deferred through a pending flag."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves input priority and exceptional branches while correcting the implication that confirmation immediately persists the newly toggled value.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnstagesw:fn_80235F80"
+        },
+        "type": "state_behavior",
+        "value": "Back (0x20) has highest priority and bypasses the startup gate: it commits cached stage settings, requests deferred saving, sets cooldown 5, initializes Additional Rules, and removes the controller GObj. Other controls require mnStageSw_804D6BF4 == 0. Confirmation (0x200) changes shared confirmed_selection, rejecting an attempt to disable an enabled entry when the cached enabled count is at most one. For a valid highlighted index, both accepted and rejected confirmation paths then write all available stages' existing cached bytes through gm_801641E4 and return. This loop does not incorporate the newly changed shared byte itself: fn_80236998 later copies confirmed_selection into the cache after updating its display. Start (0x100) commits the cache and requests saving, then routes GM_MENU to GM_VS and other modes through mn_8022F4CC. Directional input is handled last; confirmation with an invalid highlighted index falls through to directional checking rather than Start."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesw.c#L154-L227",
+            "why": "Column scan and asymmetric candidate bounds."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesw.c#L273-L288",
+            "why": "Horizontal caller can pass 29."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the algorithm and tie rule while qualifying the previously unrestricted termination claim with the actual caller domain and missing upper-bound check.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnstagesw:mnStageSw_80235C58"
+        },
+        "type": "state_behavior",
+        "value": "Inputs below 15 select column 0\u201314; other inputs select column 15\u201328. A preliminary availability scan returns -1 if the selected column is empty. Otherwise an in-range available requested entry is returned directly, followed by an outward search checking the lower candidate before the upper candidate at each distance. For intended requests 0\u201329, this gives nearest-entry selection with lower-index tie priority and termination guaranteed by the preliminary scan. Request 29 occurs when moving right from left-column index 14 and searches downward from index 28. This is not a general safe search for every u8 input: the lower-candidate branch checks only the column's lower bound, so requests above 29 can index beyond the 29-element mapping before reaching the valid column."
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesw.c#L391-L414",
+            "why": "Reveals and translates the shared cursor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesw.c#L509-L530",
+            "why": "Called with cached hover index at entry completion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Names the demonstrated role more precisely than the source comment's stage-icon wording: the helper reveals and positions data->x28 using a display index, without constructing or selecting an entry model. This is a semantic name, not recovered original spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnstagesw:mnStageSw_80236178"
+        },
+        "type": "inferred_name",
+        "value": "mnStageSw_PositionSelectionCursor"
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

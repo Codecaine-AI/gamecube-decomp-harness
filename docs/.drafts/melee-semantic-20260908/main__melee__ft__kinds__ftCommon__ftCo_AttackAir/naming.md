@@ -1,0 +1,3 @@
+# Naming
+
+Preserve all thirteen canonical function names, including private decideFighter, and the .sdata2 identity. There are no inherited inferred-name facts and no proposed renames or merges. FromCStick canonical names remain unchanged despite main-stick fallback; semantic facts explain the behavior. Source-local checkItemThrowInput has no owned KB target and remains an accounted helper. Thirteen #r3 entities are Fighter_GObj inputs except the selector, which receives read-only Fighter*. The additional EnterFromMsid #r4 entity is the requested FtMotionId. All fourteen parameter baselines are empty.

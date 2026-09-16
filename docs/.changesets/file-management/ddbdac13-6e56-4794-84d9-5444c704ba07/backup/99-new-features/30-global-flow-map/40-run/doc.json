@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-30-global-flow-map-40-run",
+  "title": "Run",
+  "root": "b-gf-run-root-1",
+  "blocks": {
+    "b-gf-run-root-1": {
+      "id": "b-gf-run-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "sweep-eac4f788c5794b8e",
+        "sweep-d99817a7c7ef42f3",
+        "sweep-3255e73e8c6b403a"
+      ]
+    },
+    "sweep-eac4f788c5794b8e": {
+      "id": "sweep-eac4f788c5794b8e",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This flow follows the "
+        },
+        {
+          "insert": "Run Loop",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-run-loop"
+            }
+          }
+        },
+        {
+          "insert": " contract. "
+        },
+        {
+          "insert": "Workers",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt"
+            }
+          }
+        },
+        {
+          "insert": " owns sandbox execution and output authority. "
+        },
+        {
+          "insert": "Epoch Boundary",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "99-new-features/30-global-flow-map/45-epoch-boundary"
+            }
+          }
+        },
+        {
+          "insert": " details report rebuilding, retry, and publication gates."
+        }
+      ],
+      "children": []
+    },
+    "sweep-d99817a7c7ef42f3": {
+      "id": "sweep-d99817a7c7ef42f3",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Start and Admit",
+            "steps": [
+              {
+                "text": "Require a schedulable run and --lease-id; reconcile sandbox records at startup."
+              },
+              {
+                "text": "Clamp active worker capacity to the run desiredWorkers and any lower --max-workers value."
+              },
+              {
+                "text": "Check report provenance and admit ranked candidates under the optional epoch target cap. Queue one deduplicated worker job per admitted target."
+              }
+            ]
+          },
+          {
+            "text": "Execute Workers",
+            "steps": [
+              {
+                "text": "Claim each worker job and epoch target atomically. Capture base_rev once."
+              },
+              {
+                "text": "Provision a Daytona sandbox at that revision. Agent file access, compilation, and validation use the sandbox."
+              },
+              {
+                "text": "Persist checkpoints and closed worker-state evidence. The worker contract determines which checkpoint is eligible for integration."
+              },
+              {
+                "text": "Settle the job and clean up its sandbox. Summary and librarian consumers run only when independently enabled."
+              }
+            ]
+          },
+          {
+            "text": "Integrate and Close the Epoch",
+            "steps": [
+              {
+                "text": "Apply eligible worker output through the serialized host integration lane. Commit accepted paths and advance the base for future claims."
+              },
+              {
+                "text": "Keep conflicts and failed outcomes as durable blocking evidence. The loop does not launch a conflict-resolver agent pool."
+              },
+              {
+                "text": "Wait for worker and integration settlement, then run the epoch boundary. Defer findings for later work instead of admitting boundary repair epochs."
+              },
+              {
+                "text": "Honor pause and retry outcomes. Admit the next epoch only after successful closure; update the worker base with compare-and-set."
+              }
+            ]
+          },
+          {
+            "text": "Stop and Settle",
+            "steps": [
+              {
+                "text": "Stop new claims and give in-flight worker jobs up to 30 seconds to settle before cancellation."
+              },
+              {
+                "text": "Recover interrupted active targets and await pending settlement and sandbox cleanup."
+              },
+              {
+                "text": "Finish an active integration drain and flush pending integration once. Await active epoch, scheduler, and knowledge-maintenance work."
+              },
+              {
+                "text": "Stop enabled background consumers and settle run authority through the process lifecycle. An acquired sync successor can advance after release."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "sweep-3255e73e8c6b403a": {
+      "id": "sweep-3255e73e8c6b403a",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Process Lifecycle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/50-process-lifecycle"
+            }
+          }
+        },
+        {
+          "insert": " owns signal handling, process identity, exit settlement, and manual crash recovery."
+        }
+      ],
+      "children": []
+    }
+  }
+}

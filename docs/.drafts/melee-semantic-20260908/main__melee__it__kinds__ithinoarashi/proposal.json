@@ -1,0 +1,234 @@
+{
+  "tu": "main/melee/it/kinds/ithinoarashi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L23-L174",
+            "why": "Actor table, commands, timer and damage transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmaril.c#L55-L85",
+            "why": "Flame lifetime, velocity-copy and collision callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1499-L1504",
+            "why": "Timer callee selects randomized audio."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects ambiguous effect timing and conflation of normalized velocity storage or angle correction with actual trajectory mutation, while preserving both state machines.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithinoarashi:.data"
+        },
+        "type": "state_behavior",
+        "value": "The actor table has states 0, 1 and 2. State 0 delegates appearance updates and enters state 1 on floor contact. State 1 installs command-driven attached-effect and child-flame spawning, services a repeating randomized sound timer, and uses separate animation-derived movement and terrain callbacks. Damage reaching the configured threshold selects state 2, whose animation returns false, whose physics delegates falling acceleration, and whose collision slot is null. The separate flame table has state 0: its cross-file callbacks check lifetime, add vertical acceleration, normalize a copy of velocity, and update a stored angle after terrain contact. These callbacks do not establish that the corrected angle is subsequently applied to velocity."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L118-L136",
+            "why": "Input fields, timer and bone call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1499-L1504",
+            "why": "Random offset added to base sound ID."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L2098-L2111",
+            "why": "Sound channel consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "The existing fixed-effect description loses the random sound selection and its actual consumer.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithinoarashi:itHinoarashi_UnkMotion1_Anim"
+        },
+        "type": "data_flow",
+        "value": "Resolves the Item and Hinoarashi special attributes. After the animation guard succeeds, x60.b0 && !x60.b1 enables timer processing. An exactly-zero x64 reloads from attribute x8 and calls it_802752D8(gobj, 3, 0x2735), selecting sound ID 0x2735 + HSD_Randi(3) through Item_8026AFA0 and its sfx_unk2 channel. Each enabled update then decrements x64. The normal path passes dynamic bone 1 and the Item to it_8027A160 to record animation-derived movement; the early-return path skips both timing and bone work."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L61-L136",
+            "why": "Separate accessory and animation responsibilities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1499-L1504",
+            "why": "Three-way sound selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L2098-L2111",
+            "why": "Audio playback, not visual-effect spawning."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the recurring sound operation from the visual effect and child-object emission paths.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithinoarashi:itHinoarashi_UnkMotion1_Anim"
+        },
+        "type": "game_mapping",
+        "value": "Supports the audio and animation-derived body movement of Cyndaquil's active Flamethrower state. Between the accessory's start and stop latches, its attribute-backed timer periodically chooses one of sound IDs 0x2735 through 0x2737. Attached fire effects and individual flame emission are handled separately by the accessory callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L118-L136",
+            "why": "Complete callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1499-L1504",
+            "why": "Random sound dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1145-L1191",
+            "why": "Bone sampling produces movement delta."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces ambiguous active-effect wording with the verified audio operation without changing the supported completion and movement responsibilities.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithinoarashi:itHinoarashi_UnkMotion1_Anim"
+        },
+        "type": "purpose",
+        "value": "Runs Hinoarashi's state-1 animation callback: it returns true immediately when the shared animation test fails; otherwise it services a randomized sound timer while the start latch is set and the stop latch is clear, samples dynamic bone 1 through the shared movement-delta helper, and returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L118-L136",
+            "why": "Exact-zero guard, decrement and return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1499-L1504",
+            "why": "Randomized sound ID."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the fixed-effect claim and preserves the exact numeric condition rather than assuming every attribute value produces a regular interval.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithinoarashi:itHinoarashi_UnkMotion1_Anim"
+        },
+        "type": "state_behavior",
+        "value": "If it_80272C6C returns false, return true immediately. Otherwise, only x60.b0 && !x60.b1 enables the floating-point timer. Exact zero reloads x64 from attribute x8 and selects one of sound IDs 0x2735\u20130x2737; the enabled path then decrements x64. There is no nonpositive-timer test or local validation that the configured interval will reach exact zero again. The normal path samples dynamic bone 1 through it_8027A160 and returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L154-L159",
+            "why": "Attribute forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L176-L204",
+            "why": "Pre-subtraction gate without final clamp."
+          }
+        ],
+        "op": "write",
+        "rationale": "The original maximum-speed wording could imply a hard bound that the canonical helper does not enforce.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithinoarashi:itHinoarashi_UnkMotion2_Phys"
+        },
+        "type": "purpose",
+        "value": "Runs Hinoarashi state-2 falling physics by forwarding the common fall-acceleration and maximum-fall-speed attributes to it_80272860. The helper gates acceleration using the current vertical velocity's sign and magnitude; it does not clamp the resulting velocity, so a permitted subtraction can overshoot the configured speed threshold."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L154-L174",
+            "why": "Physics wrapper and damage entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L176-L204",
+            "why": "Exact sign and magnitude branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the wrapper's unconditional behavior while replacing the inaccurate bounded-update implication with the helper's actual branches.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithinoarashi:itHinoarashi_UnkMotion2_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Each state-2 physics invocation unconditionally delegates to it_80272860 and makes no local transition, timer update or collision decision. The helper subtracts acceleration when velocity and acceleration have the same sign, or when their signs differ and the current velocity magnitude is below the configured maximum; otherwise it leaves vertical velocity unchanged. It does not clamp after subtraction. The actor enters this state when received damage reaches its special-attribute threshold."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L161-L174",
+            "why": "Threshold and exact ordered call sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L629-L661",
+            "why": "Descriptor/frame operation and command clearing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the helper count and distinguishes motion-state selection from descriptor/frame sampling.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithinoarashi:it_2725_Logic27_DmgReceived"
+        },
+        "type": "data_flow",
+        "value": "Reads Item.xC9C and Hinoarashi special attribute x4. Below the threshold it performs no branch side effects. At or above it, the callback calls it_80279D38(gobj), it_802762BC(gobj->user_data), and it_802756D0(gobj), then destroys effects associated with the actor GObj. It selects motion state 2 with ITEM_ANIM_UPDATE and calls it_80273670(gobj, 0, 0.0f), which samples descriptor 0 at frame 0, removes model animation and clears the command pointer. Both paths return false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L61-L80",
+            "why": "Independent command branches and latch behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L105-L136",
+            "why": "Accessory installation and separate timer guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithinoarashi.c#L279-L314",
+            "why": "Child initialization is conditional on successful creation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves same-frame branch ordering while correcting guaranteed creation and conflation of the audio-timing interval with an emission guard.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithinoarashi:it_802D5D7C"
+        },
+        "type": "state_behavior",
+        "value": "Installed on entry to actor state 1. Each nonzero command-0 event attempts one flame spawn and clears the command even if child creation fails. Only the first such event also starts attached effect 0x473 because x60.b0 latches true. Independently, a nonzero command-1 event destroys actor-owned effects, latches x60.b1 and clears that command. Both branches can run in one invocation, emission first. Neither b1 nor the b0 && !b1 interval guards command-0 spawning: that interval gates the state-1 animation callback's sound timer. Later command-0 events can therefore attempt more flames after the stop latch, without recreating the attached effect while b0 remains set."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

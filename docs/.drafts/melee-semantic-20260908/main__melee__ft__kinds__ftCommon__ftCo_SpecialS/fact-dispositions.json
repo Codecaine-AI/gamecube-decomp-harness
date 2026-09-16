@@ -1,0 +1,710 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS",
+  "head_revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "counts": {
+    "retain": 17,
+    "supersede": 5
+  },
+  "facts": [
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:.sdata2"
+      },
+      "fact_id": "fact:d0fd6ebc-3318-49dd-8c3e-39429be122b6",
+      "version": "2026-09-04T19:04:36.122Z",
+      "version_field": "updated_at",
+      "type": "data_flow",
+      "old_value": "The 1.0 value enters doEnter's arithmetic as the unity term in (1.0 - fp->co_attrs.specials_ground_speed_retention). That complement is multiplied by the fighter's current ground velocity and ground-friction multiplier, and the resulting amount is subtracted from fp->gr_vel before the Fighter_GObj is forwarded to ftData_SpecialS[fp->kind].",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L15-L23",
+          "why": "Absolute horizontal input comparison."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L41-L49",
+          "why": "Unity in retention complement and zero-initialized local bytes."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:.sdata2"
+      },
+      "fact_id": "fact:6aef7f04-2f33-4b3e-b567-67018b7785b7",
+      "version": "2026-09-04T19:04:36.122Z",
+      "version_field": "updated_at",
+      "type": "inferred_type",
+      "old_value": "An 8-byte read-only small-data section whose semantically used payload is a single-precision 1.0 constant; the balance is section alignment or padding rather than mutable gameplay state.",
+      "disposition": "supersede",
+      "reason": "Correct obsolete field spelling, storage inventory/flags, or unconditional attenuation wording with exact canonical behavior and object-specific evidence.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L15-L23",
+          "why": "Absolute horizontal input comparison."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L41-L49",
+          "why": "Unity in retention complement and zero-initialized local bytes."
+        }
+      ],
+      "replacement_value": "The original split object has an eight-byte ALLOC-only section (flags2): float zero at @249 offset0 and float one at @260 offset4. The existing source object differs: 16 bytes, WRITE|ALLOC flags3, float zero @93 at0, an eight-byte zero-valued object @102 at4, and float one @104 at12. The frozen report attributes eight bytes. The original zero payload is not mere padding."
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:.sdata2"
+      },
+      "fact_id": "fact:6d6764e0-4ec1-4c94-b0c5-a68dbd8cdf45",
+      "version": "2026-09-04T19:04:36.122Z",
+      "version_field": "updated_at",
+      "type": "purpose",
+      "old_value": "Provides the read-only floating-point unity constant used by the common grounded side-special entry helper to calculate how much existing ground velocity remains before control passes to the character-specific side-special routine.",
+      "disposition": "supersede",
+      "reason": "Correct obsolete field spelling, storage inventory/flags, or unconditional attenuation wording with exact canonical behavior and object-specific evidence.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L15-L23",
+          "why": "Absolute horizontal input comparison."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L41-L49",
+          "why": "Unity in retention complement and zero-initialized local bytes."
+        }
+      ],
+      "replacement_value": "Supplies scalar literals used by the side-special input and entry routines, including zero for absolute-axis comparison and unity for the retained-ground-speed formula. Existing source/split pools differ in size and flags; do not treat the complete section as an eight-byte read-only unity-plus-padding pool."
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:doEnter"
+      },
+      "fact_id": "fact:34a6eae4-6f56-4826-bee2-da11e54fc9ab",
+      "version": "2026-09-04T19:04:36.122Z",
+      "version_field": "updated_at",
+      "type": "data_flow",
+      "old_value": "Receives gobj from the common side-special transition path, derives fp from gobj->user_data, and reads fp->gr_vel, fp->co_attrs.specials_ground_speed_retention, and the result of ft_GetGroundFrictionMultiplier(fp). It writes fp->gr_vel as old_gr_vel \u00d7 [1 \u2212 (1 \u2212 specials_ground_speed_retention) \u00d7 friction_multiplier], then reads fp->kind to select ftData_SpecialS[fp->kind] and forwards gobj to that callback.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L41-L49",
+          "why": "Momentum formula before exactly one callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1235-L1241",
+          "why": "Popo/Nana unity friction; others delegate to terrain multiplier."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:doEnter"
+      },
+      "fact_id": "fact:a7e8e4d5-3e96-4ab6-a3b3-ec6b4dd44354",
+      "version": "2026-09-04T19:04:36.122Z",
+      "version_field": "updated_at",
+      "type": "game_mapping",
+      "old_value": "Implements the shared grounded side-special entry step used across the fighter roster: existing ground momentum is reduced according to fighter ground-speed retention and surface-dependent friction before the selected character's side-special move begins.",
+      "disposition": "supersede",
+      "reason": "Correct obsolete field spelling, storage inventory/flags, or unconditional attenuation wording with exact canonical behavior and object-specific evidence.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L41-L49",
+          "why": "Momentum formula before exactly one callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1235-L1241",
+          "why": "Popo/Nana unity friction; others delegate to terrain multiplier."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": "Implements common side-special startup momentum processing in the grounded input path, followed by fighter-specific SpecialS dispatch. Exact attenuation depends on the external retention and friction values; the source formula does not itself clamp those values."
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:doEnter"
+      },
+      "fact_id": "fact:a987cfe5-2748-4582-ad98-792f534e9e5a",
+      "version": "2026-09-06T02:34:38.472Z",
+      "version_field": "updated_at",
+      "type": "inferred_name",
+      "old_value": "ftCo_SpecialS_Enter",
+      "disposition": "retain",
+      "reason": "Retain ftCo_SpecialS_Enter as descriptive hypothesis for canonical static doEnter. No source rename or visibility change.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L41-L49",
+          "why": "Momentum formula before exactly one callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1235-L1241",
+          "why": "Popo/Nana unity friction; others delegate to terrain multiplier."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:doEnter"
+      },
+      "fact_id": "fact:ec91b527-3f7d-414d-a6c0-eeaa7b04bb33",
+      "version": "2026-09-04T19:04:36.122Z",
+      "version_field": "updated_at",
+      "type": "inferred_type",
+      "old_value": "A void fighter action-entry helper with signature void(Fighter_GObj* gobj); the argument is the fighter game object forwarded unchanged to a per-fighter void entry callback.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L41-L49",
+          "why": "Momentum formula before exactly one callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1235-L1241",
+          "why": "Popo/Nana unity friction; others delegate to terrain multiplier."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:doEnter"
+      },
+      "fact_id": "fact:1591d9ff-5f81-4a69-bf82-08ae3da9c7a1",
+      "version": "2026-09-04T19:04:36.122Z",
+      "version_field": "updated_at",
+      "type": "purpose",
+      "old_value": "Performs the common pre-entry work for a grounded side special: it attenuates the fighter's existing ground velocity according to the fighter's special ground-speed-retention attribute and the current ground-friction multiplier, then delegates actual move entry to that fighter kind's ftData_SpecialS callback.",
+      "disposition": "supersede",
+      "reason": "Correct obsolete field spelling, storage inventory/flags, or unconditional attenuation wording with exact canonical behavior and object-specific evidence.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L41-L49",
+          "why": "Momentum formula before exactly one callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1235-L1241",
+          "why": "Popo/Nana unity friction; others delegate to terrain multiplier."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": "Performs common ground-velocity preparation for side-special entry, then calls ftData_SpecialS[fp->kind]. The update is gr_vel += -(gr_vel*(1-specials_ground_speed_retention))*ft_GetGroundFrictionMultiplier(fp). The body has no local ground-state or callback-null guard; its checked caller establishes callback availability."
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:doEnter"
+      },
+      "fact_id": "fact:8365ea47-1f04-4f5b-a3d4-1dc69ff034fd",
+      "version": "2026-09-04T19:04:36.122Z",
+      "version_field": "updated_at",
+      "type": "state_behavior",
+      "old_value": "The helper has no local guard or alternate branch: every invocation first updates grounded horizontal velocity and then calls exactly one fighter-kind-specific side-special entry routine. It does not itself choose a motion state; that character-specific state transition is delegated through ftData_SpecialS.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L41-L49",
+          "why": "Momentum formula before exactly one callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1235-L1241",
+          "why": "Popo/Nana unity friction; others delegate to terrain multiplier."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_CheckInput"
+      },
+      "fact_id": "fact:88cac1b4-1bbf-4d4d-a1e8-138c36df5969",
+      "version": "2026-09-02T00:24:05.126Z",
+      "version_field": "updated_at",
+      "type": "data_flow",
+      "old_value": "Obtains the Fighter from gobj->user_data, uses fp->kind to test ftData_SpecialS availability, reads fp->x688 as the entry gate, and compares left-stick X multiplied by facing direction against the negated common threshold x220. A qualifying backward-stick comparison sends the Fighter to ftCommon_UpdateFacing; accepted control then passes the original Fighter_GObj to doEnter and produces true.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L25-L39",
+          "why": "Callback-null and x688 guards; facing threshold and dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L621-L630",
+          "why": "Facing set from current stick sign."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_CheckInput"
+      },
+      "fact_id": "fact:76b61ab9-29ab-472c-9320-026202dc148b",
+      "version": "2026-09-04T19:04:36.122Z",
+      "version_field": "updated_at",
+      "type": "game_mapping",
+      "old_value": "Realizes acceptance of a grounded side-special command for characters that possess one, including turning the fighter toward sufficiently strong horizontal input opposite their current facing direction before the move begins.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L25-L39",
+          "why": "Callback-null and x688 guards; facing threshold and dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L621-L630",
+          "why": "Facing set from current stick sign."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_CheckInput"
+      },
+      "fact_id": "fact:94aef7b6-90d5-4727-973f-c520916e08bf",
+      "version": "2026-09-02T00:24:05.126Z",
+      "version_field": "updated_at",
+      "type": "inferred_type",
+      "old_value": "A state-changing input predicate with signature bool (Fighter_GObj*): true means grounded side-special entry was dispatched, while false means no transition occurred because the fighter lacks a side-special callback or the x688 gate blocked entry.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L25-L39",
+          "why": "Callback-null and x688 guards; facing threshold and dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L621-L630",
+          "why": "Facing set from current stick sign."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_CheckInput"
+      },
+      "fact_id": "fact:c973cd59-f289-44bd-920a-5b3aa91aefd2",
+      "version": "2026-09-02T00:24:05.126Z",
+      "version_field": "updated_at",
+      "type": "purpose",
+      "old_value": "Attempts the common grounded side-special transition for a fighter: it verifies that the fighter kind implements the move and that the x688 gate permits entry, optionally reverses the fighter for strong backward stick input, then enters the character-specific side special and reports that the transition was consumed.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L25-L39",
+          "why": "Callback-null and x688 guards; facing threshold and dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L621-L630",
+          "why": "Facing set from current stick sign."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_CheckInput"
+      },
+      "fact_id": "fact:8b450df1-f191-4e59-bf9e-58ef4a52deec",
+      "version": "2026-09-02T00:24:05.126Z",
+      "version_field": "updated_at",
+      "type": "state_behavior",
+      "old_value": "The transition is rejected immediately when ftData_SpecialS[fp->kind] is null. It is also rejected while fp->x688 is nonzero. When both guards pass, horizontal input more negative than -x220 relative to the current facing direction causes a facing update; the function then always invokes doEnter and returns true. Rejected paths invoke neither facing update nor state entry and return false.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L25-L39",
+          "why": "Callback-null and x688 guards; facing threshold and dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L621-L630",
+          "why": "Facing set from current stick sign."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_HasInput"
+      },
+      "fact_id": "fact:90127619-f82d-47e0-b22f-763e31ec1ae6",
+      "version": "2026-09-02T00:22:56.219Z",
+      "version_field": "updated_at",
+      "type": "data_flow",
+      "old_value": "Reads the B-button bit from `fp->input.x668` and the fighter's horizontal left-stick value from `fp->input.lstick.x`, compares the stick's absolute magnitude against `p_ftCommonData->x218`, and returns true only when both tests pass; it writes no data.",
+      "disposition": "supersede",
+      "reason": "Correct obsolete field spelling, storage inventory/flags, or unconditional attenuation wording with exact canonical behavior and object-specific evidence.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L14-L23",
+          "why": "Pressed B and inclusive horizontal magnitude threshold, no writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": "Reads HSD_PAD_B from fp->input.pressed_buttons and compares ABS(fp->input.lstick[0].x) >= p_ftCommonData->x218. Equality qualifies; no vertical-axis test occurs. Returns the Boolean without writes. The fighter input update resets x688 to zero for true and otherwise increments it only below0xFF."
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_HasInput"
+      },
+      "fact_id": "fact:0e31c3c0-291d-46ad-a973-1fafbe87d23b",
+      "version": "2026-09-02T00:22:56.219Z",
+      "version_field": "updated_at",
+      "type": "game_mapping",
+      "old_value": "Recognizes the side-special command: B input accompanied by a sufficiently strong horizontal stick displacement in either direction.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L14-L23",
+          "why": "Pressed B and inclusive horizontal magnitude threshold, no writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_HasInput"
+      },
+      "fact_id": "fact:c93b14ce-a7ae-43bd-bf19-e27e6809a5b3",
+      "version": "2026-09-02T00:22:56.219Z",
+      "version_field": "updated_at",
+      "type": "inferred_type",
+      "old_value": "Boolean predicate with signature `bool (Fighter* fp)`.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L14-L23",
+          "why": "Pressed B and inclusive horizontal magnitude threshold, no writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialS:ftCo_SpecialS_HasInput"
+      },
+      "fact_id": "fact:7bad87eb-26f9-4926-9db0-c49a31fd4e91",
+      "version": "2026-09-02T00:22:56.219Z",
+      "version_field": "updated_at",
+      "type": "purpose",
+      "old_value": "Determines whether a fighter currently satisfies the side-special input condition, without changing fighter state or entering the move.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L14-L23",
+          "why": "Pressed B and inclusive horizontal magnitude threshold, no writes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c"
+      },
+      "fact_id": "fact:b7eb3335-5686-463d-8a4d-276ada5aabdd",
+      "version": "2026-09-06T03:31:26.053Z",
+      "version_field": "updated_at",
+      "type": "data_flow",
+      "old_value": "B and horizontal stick input, facing, fighter kind, x688, ground velocity, retention attributes, and friction feed the side-special callback selected from ftData_SpecialS.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L14-L49",
+          "why": "Complete side-special recognition/acceptance/dispatch chain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c"
+      },
+      "fact_id": "fact:07320248-b2f4-451e-a5b7-abe6904a4346",
+      "version": "2026-09-06T03:31:26.053Z",
+      "version_field": "updated_at",
+      "type": "game_mapping",
+      "old_value": "Realizes common grounded side-special startup.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L14-L49",
+          "why": "Complete side-special recognition/acceptance/dispatch chain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c"
+      },
+      "fact_id": "fact:0fee803d-35ce-4e70-81a8-fed3b296063e",
+      "version": "2026-09-06T03:31:26.053Z",
+      "version_field": "updated_at",
+      "type": "purpose",
+      "old_value": "Implements grounded side-special input recognition, guarded acceptance, optional facing reversal, velocity retention, and per-character entry dispatch.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L14-L49",
+          "why": "Complete side-special recognition/acceptance/dispatch chain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c"
+      },
+      "fact_id": "fact:05fe7361-41a9-48f2-a807-30c630d28a98",
+      "version": "2026-09-06T03:31:26.053Z",
+      "version_field": "updated_at",
+      "type": "state_behavior",
+      "old_value": "HasInput reports horizontal B input without transition. CheckInput rejects missing callbacks or nonzero x688; otherwise it may reverse facing, adjusts retained ground speed, invokes the character callback, and reports success.",
+      "disposition": "retain",
+      "reason": "Independently confirmed by current code and bounded callers; retained without redundant rewrite.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialS.c#L14-L49",
+          "why": "Complete side-special recognition/acceptance/dispatch chain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L49",
+          "why": "Grounded Wait IASA consumes accepted SpecialS dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1735-L1739",
+          "why": "Input predicate resets x688; otherwise age saturates at255."
+        }
+      ],
+      "replacement_value": null
+    }
+  ]
+}

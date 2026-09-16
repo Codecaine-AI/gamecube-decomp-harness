@@ -219,7 +219,7 @@ export async function provisionSandboxWorkspace(params: {
         bundleRefCreated = true;
         const bundle = await runner(
           params.sourceRepoRoot,
-          ["git", "bundle", "create", bundlePath, `${params.snapshotBakedRev}..${params.baseRev}`, bundleRef],
+          ["git", "bundle", "create", bundlePath, bundleRef],
           { timeoutMs: SETUP_TIMEOUT_MS },
         );
         if (bundle.exitCode !== 0) {

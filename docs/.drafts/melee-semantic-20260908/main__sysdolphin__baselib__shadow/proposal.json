@@ -1,0 +1,315 @@
+{
+  "tu": "main/sysdolphin/baselib/shadow",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates the shadow camera projection from four supplied bounds after asserting positive eye-to-interest distance. Ortho forwards bounds; frustum scales by near/distance. Perspective stores horizontal_extent/vertical_extent as aspect and atan2f(horizontal_extent,distance) directly as FOV. This does not establish that the resulting projection encloses the requested bounds.",
+        "rationale": "Replace guaranteed fitting with the literal implemented formulas.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L386-L430",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L22-L43",
+            "why": "atan2f yields radians."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L864-L885",
+            "why": "Setters store input directly."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L1019-L1046",
+            "why": "Light perspective converts stored FOV degrees to radians."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides shadow-camera projection parameter updates. The perspective path passes a radian atan2f result directly to a degree-valued FOV field, without conversion or doubling, and uses the maximum absolute horizontal extent for that angle. The reviewed fighter caller initializes non-perspective rectangle accumulation and has an orthographic fallback.",
+        "rationale": "Document the perspective-unit mismatch without claiming a corrected algorithm.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L386-L430",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L22-L43",
+            "why": "atan2f yields radians."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L864-L885",
+            "why": "Setters store input directly."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L1019-L1046",
+            "why": "Light perspective converts stored FOV degrees to radians."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbshadow.c#L513-L540",
+            "why": "Fighter bounds setup and fallback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:HSD_ViewingRectInit"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes a viewing-bounds accumulator by copying origin, computing eye displacement and its normalized direction, normalizing input up, and taking two cross products for right/up. Those cross products are not normalized afterward; right/up lengths depend on the supplied up-to-eye angle. Extents start at finite +/-F32_MAX sentinels.",
+        "rationale": "Avoid implying an orthonormal basis for arbitrary inputs.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L432-L449",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:HSD_ViewingRectInit"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Writes origin, direction vectors, distance, perspective selector and inverted finite-extreme bounds. Only rect is asserted; position, interest and upvector must be valid. No zero-length or parallel-vector guard precedes normalization/cross products. Right/up need not be unit length. Validity check tests only strict bound ordering after later additions.",
+        "rationale": "Record basis validity preconditions and finite sentinels.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L432-L449",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L451-L455",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:makeMatrix"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical static void makeMatrix(HSD_Shadow* shadow). Uses a Mtx (3-by-4) temporary for homogeneous texture projection and writes shadow->texture->mtx. Perspective/frustum rows encode projective texture coordinates, so this is not generally an ordinary affine world transform.",
+        "rationale": "Separate storage shape from projective semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L345-L381",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L1019-L1046",
+            "why": "Perspective texture matrix third row is -Z."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:makeMatrix"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Selects light perspective, frustum or ortho construction; invalid mode asserts. Concatenates the resulting texture projection with the camera stored view matrix and writes texture->mtx. The Direct accessor does not refresh a dirty camera view, so callers must establish it before matrix generation. No local inverse or view rebuild occurs.",
+        "rationale": "Record reliance on precomputed camera view.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L345-L381",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.h#L221-L224",
+            "why": "Direct accessor only returns view_mtx."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:HSD_ShadowStartRender"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Asserts the shadow graph, then skips all rendering when objects is NULL. Otherwise calls CObjSetCurrent but ignores its success result. Installs TEV/channel/PE setup and commits the existing texture-generator count, which is not explicitly zeroed here. Draws a white background, then intensity-colored casters using scissor(2,2,width-4,height-4), with no local minimum-size guard. Ends the camera pass. Does not test active or restore prior camera/state.",
+        "rationale": "Avoid guaranteed camera activation, zero texgen count, or safe inset for all positive dimensions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L173-L259",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L188-L197",
+            "why": "Texgen count is committed/reset, while InitTev only resets TEV allocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L485-L519",
+            "why": "Camera activation can return false."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:HSD_ShadowAlloc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Allocates pooled storage and immediately zeroes it without checking that first allocation locally. Allocates a camera and shadow TObj/image descriptor, sets mapping scales/translations and zero intensity, image format0 and dimensions256x256, then camera viewport/scissor. The image descriptor allocator zeroes image_ptr, so no backing texture buffer is allocated by this function.",
+        "rationale": "Separate initialized descriptor from allocated render-target storage.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L50-L73",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L1552-L1557",
+            "why": "Image descriptor is cleared."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L38-L48",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:HSD_ShadowSetSize"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Asserts shadow and positive u16 dimensions. Existing storage with equal dimensions returns without reapplying viewport/scissor. Otherwise frees old image first, computes I4 buffer size, asserts size>0, allocates replacement and stores dimensions and camera rectangles. It does not check the allocation result locally, change descriptor format, or refresh GX texture-copy configuration; HSD_ShadowInit supplies that separate step.",
+        "rationale": "Document allocation and copy-state boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L111-L136",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L101-L109",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:HSD_ShadowRemove"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For a present camera, ref_DEC true triggers hsdDelete. ref_DEC returns true immediately for HSD_OBJ_NOREF, otherwise post-decrements and tests oldcount==0. Then clears caster list, unregisters texture if active, frees optional image payload, frees descriptor, calls HSD_TObjFree (virtual destroy only), and returns shadow storage to its allocator.",
+        "rationale": "Record exact reference and TObj cleanup conventions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L75-L99",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/object.h#L74-L81",
+            "why": "Reference helper convention."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L1505-L1509",
+            "why": "Free directly dispatches destroy."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/shadow.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "StartRender draws only for nonempty caster lists, irrespective of active. EndRender has no caster-list or prior-render-success guard: it ensures backing storage, issues GXCopyTex with clear enabled, emits synchronization/invalidation calls and rebuilds the texture matrix. Activation controls material-registry membership independently. Caster insertion rejects null/duplicate pointers; deletion unreferences and removes one or all registrations.",
+        "rationale": "Distinguish draw, capture and activation conditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L24-L35",
+            "why": "Source allocator declaration and use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L173-L259",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L261-L278",
+            "why": "Canonical implementation and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L280-L301",
+            "why": "Canonical implementation and guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/shadow:.bss"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "rationale": "A compiled section cannot be renamed to one source allocator descriptor without compiled attribution.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L24-L35",
+            "why": "Source allocator declaration and use."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

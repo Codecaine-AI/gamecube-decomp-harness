@@ -1,0 +1,155 @@
+{
+  "tu": "main/melee/it/itcoll",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L120-L155",
+            "why": "The wrapper expands registration across items sharing a nonzero identifier, otherwise delegates only for the supplied item."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the shared-item-group wrapper from the local matching-capsule helper it_8026FA2C and removes their rendered name collision. Descriptive inference, not recovered historical spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itcoll:it_8026FAC4"
+        },
+        "type": "inferred_name",
+        "value": "itColl_RegisterItemGroupHitboxVictim"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L64-L64",
+            "why": "Exact constant declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1069-L1099",
+            "why": "Explicit Vec3 read and four axis-rotation calls."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that no consumer is established.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itcoll:.rodata"
+        },
+        "type": "data_flow",
+        "value": "The source declares const Quaternion it_803B8560 = {0.0f, 0.0f, 1.0f, 0.0f}. it_80271830 reads its first three components through a Vec3 cast and supplies that positive-Z unit axis to four lbVector_RotateAboutUnitAxis calls when rebuilding the item's active ECB extents. This establishes a concrete source-level consumer without establishing compiled section composition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1069-L1116",
+            "why": "The constant provides the axis for cardinal-point rotation and extrema reconstruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported fixed-orientation/no-consumer explanation with the demonstrated role.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itcoll:.rodata"
+        },
+        "type": "purpose",
+        "value": "The identified source constant it_803B8560 supplies the positive-Z rotation axis used to rotate the four cardinal points of an item's active ECB. Although declared as a const Quaternion, this consumer uses it as a Vec3 axis rather than as a quaternion orientation. Exact compiled placement and section exclusivity are not established here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1069-L1140",
+            "why": "Exact signature, repeated normalization, in-place geometry writes, and model-rotation caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the valid interface and angular interpretation while correcting the universal finite-input guarantee.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itcoll:it_80271830"
+        },
+        "type": "inferred_type",
+        "value": "Exact signature: void it_80271830(Item* item, f32 angle). The mutable Item supplies four in/out cardinal ECB offsets at xBEC; angle is a model rotation in radians. The function repeatedly adds or subtracts one revolution to normalize the angle before rotation, retaining zero and the upper boundary. This is not a guarantee of accepting every finite magnitude: sufficiently large finite f32 values can fail to change under those operations, and infinities do not terminate."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L968-L980",
+            "why": "Guarded indexed geometry copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L947-L956",
+            "why": "The caller assigns local Y to six and multiplies scale by two."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects assignment-versus-increment semantics in the concrete caller example.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itcoll:it_80271534"
+        },
+        "type": "data_flow",
+        "value": "Reads the Item from the supplied GObj and tests its article's x8_hurtbones pointer. When present, index selects a runtime HurtCapsule whose a_offset, b_offset, and scale are overwritten from the supplied source. The Koopa-shell caller copies its saved geometry into a temporary and, when requested, assigns a_offset.y = 6.0f and doubles scale before installing it in slot zero; it does not add six to the saved endpoint."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L968-L980",
+            "why": "Only geometric fields are replaced."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L947-L956",
+            "why": "Exact shell-specific geometry modification."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the gameplay mapping while removing the incorrect additive-rise interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itcoll:it_80271534"
+        },
+        "type": "game_mapping",
+        "value": "Supports runtime reshaping of an item's vulnerable collision geometry without changing the capsule's state or attachment. Its Koopa-shell use optionally sets one local endpoint's Y coordinate to 6.0f and doubles the saved capsule scale before installing the resulting shape."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1048-L1067",
+            "why": "Article-derived record initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L1350-L1358",
+            "why": "Loop condition and transform arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1827-L1839",
+            "why": "Update-before-simulation ordering and record/count forwarding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported count-snapshot claim while preserving the established producer/transform/consumer flow.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itcoll:it_80272304"
+        },
+        "type": "data_flow",
+        "value": "Obtains the Item from the supplied GObj and iterates while i < item->xB68. Each xB6C_vars record supplies its attached JObj xB7C and article-derived local offset xB6C to lb_8000B1CC, which writes the transformed position to xB84. The source does not explicitly snapshot xB68. The scheduled caller subsequently passes the record-array base and item->xB68 to lb_8001044C for each configured dynamic-bone chain."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,283 @@
+{
+  "tu": "main/melee/it/kinds/itzgshell",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:itZrshell_UnkMotion9_Anim"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "itZGShell_State9_Anim",
+        "rationale": "Distinguishes the state-9 no-op from the timer/effect callback shared by states 5 and 6, resolving the rendered Roll_Anim collision without asserting an uncertain semantic state label.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L49-L73",
+            "why": "Distinct dispatch rows."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L622-L625",
+            "why": "State-9 animation is inert."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:it_802DFFA0"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "itZGShell_ResetPreviousPosition",
+        "rationale": "The cleared vector stores previous world position in state 9 and previous bone translation during restoration; it is not a velocity output.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L641-L659",
+            "why": "World-position history."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L958-L969",
+            "why": "Reset and forwarding of the same vector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/inlines.h#L225-L240",
+            "why": "Previous bone translation input/output."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:it_802DFFA0"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Clears all three components of the shell's previous-position scratch vector, zgshell.vel, without changing x40_vel or selecting a motion state. The storage is reused for state-9 world-position stall detection and restoration bone-translation deltas.",
+        "rationale": "Corrects the existing bone-velocity description and records the vector's two distinct consumers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L641-L659",
+            "why": "Stall-history consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L958-L969",
+            "why": "Exact reset and bone-helper forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/inlines.h#L225-L240",
+            "why": "Translation-history semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:it_802DFFB8"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards the supplied joint, Item, and &zgshell.vel to itUpdateVelocityFromBone. For a non-NULL joint, the shared helper reads joint translation, writes x40_vel.x = facing_dir * (pos.z - previous.z), x40_vel.y = pos.y - previous.y, and x40_vel.z = pos.x - previous.x; it then stores the current translation in zgshell.vel and clears the joint translation. A NULL joint leaves both velocity and history unchanged. The restoration caller supplies dynamic bone 1.",
+        "rationale": "Corrects the previous claim that zgshell.vel is the destination for velocity, preserving the NULL branch and actual output fields.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L755-L773",
+            "why": "Restoration caller and subsequent velocity use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L966-L969",
+            "why": "Exact arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/inlines.h#L225-L240",
+            "why": "Complete shared helper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:fn_802DDC8C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Refreshes the active ECB from xC0C, then tests ABS(x40_vel.x) < attrs->x8. At or above the threshold it invokes grounded active initialization. Below the threshold it clears all velocity components, runs it_80277040, and selects stopped setup when that predicate is false or invokes the guarded state-9 event handler when true. The predicate processes contact-normal/slope motion, not floor support; the state-9 handler does not assign GA_Air. This resolver is supplied by thrown, dropped, and state-7/8 collision callbacks.",
+        "rationale": "Corrects contradictory support interpretations and preserves threshold equality and all local callers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L111-L126",
+            "why": "Exact dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L387-L422",
+            "why": "Thrown/dropped callers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L604-L620",
+            "why": "State-7/8 caller and state-9 handler."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L698-L824",
+            "why": "Actual predicate semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:it_2725_Logic11_EnteredAir"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles the shared shell event named EnteredAir by preserving states 10 and 11 and otherwise clearing previous-position scratch and xE1C_b0, setting x1F, and selecting state 9. Despite its event label, this routine does not assign ground_or_air; grounded slope-motion callers also use it.",
+        "rationale": "Separates the established event name from the unsupported claim that state 9 is an airborne-mode assignment.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L610-L620",
+            "why": "Complete event."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L987-L1017",
+            "why": "Grounded constructor branch selects state 9."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:itZrshell_UnkMotion6_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Checks low-speed conditions for the callback shared by grounded states 5 and 6. The x8 threshold conditionally triggers common item/hitbox processing; an independent x30 threshold clears velocity and selects stopped state 0 when slope-motion processing returns false, or invokes the guarded state-9 handler otherwise. The source does not establish the relative ordering of x8 and x30 or perform gradual deceleration here.",
+        "rationale": "Removes unsupported threshold ordering and airborne interpretation while preserving the two independent tests.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L492-L522",
+            "why": "Complete physics callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L698-L824",
+            "why": "Slope-motion predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:itZrshell_UnkMotion10_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Processes grounded animation completion after restoration interruption. When the animation predicate is false and the item is grounded, a false it_80277040 result resets the shell into state 0. The alternate branch selects state 9 only if the current msid is neither 10 nor 11. Since it_80277040 does not change msid, an ordinary invocation while still in state 10 does not take that state-9 transition. The callback always returns false.",
+        "rationale": "Makes the exceptional exclusion explicit rather than presenting state 9 as a normal alternative recovery destination.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L822-L850",
+            "why": "Exact nested guards and results."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L698-L824",
+            "why": "No msid mutation in predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:itZrshell_UnkMotion11_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Keeps restoration motion consistent with upward movement: when x40_vel.y is positive, it invokes it_802762BC to assign GA_Air and clear x1F. Zero or negative vertical velocity performs no work. Neither this callback nor that helper changes the velocity vector.",
+        "rationale": "Corrects the existing classification of the callee as a velocity helper.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L790-L796",
+            "why": "Positive-velocity guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L301-L305",
+            "why": "Mode and flag writes only."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:itZGShell_Logic11_Destroyed"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally forwards the shell to grZakoGenerator_801CACB8. After common cleanup, the non-Coin path reads the item's generator index; if it is not -1, it clears that entry's object pointer, sets its respawn timer to 0x708 when configured to respawn or -1 otherwise, and invalidates the item's index. The separate Coin path scans entries for pointer matches and must not be substituted for shell cleanup semantics.",
+        "rationale": "Corrects the previous pointer-ownership predicate and preserves generator respawn bookkeeping.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L942-L945",
+            "why": "Destruction wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L273-L301",
+            "why": "Complete kind-dependent cleanup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itzgshell:it_802E0100"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Allocates It_Kind_ZGShell with zero initial velocity and returns NULL unchanged on allocation failure. On success it sets facing and xE10. A successful initial placement predicate first assigns GA_Ground: a false slope-motion predicate then enters state 0 with ordinary velocity cleared, while a true result selects state 9 only outside states 10/11, explicitly clearing zgshell.vel and setting x1F without assigning GA_Air. Failure of the initial placement predicate assigns GA_Air and enters state 1. The state-0 branch contains no explicit zgshell.vel reset.",
+        "rationale": "Corrects the state-0 scratch-reset claim and the conflation of x1F/state 9 with airborne status.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itzgshell.c#L973-L1020",
+            "why": "All constructor branches and allocation guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L296-L305",
+            "why": "Ground/air setter semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L698-L824",
+            "why": "Second predicate is slope-motion processing."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

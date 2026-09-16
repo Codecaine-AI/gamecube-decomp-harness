@@ -1,0 +1,1 @@
+../../../../helpers/knowledge_sources/discord/sync_via_discord_cli.py

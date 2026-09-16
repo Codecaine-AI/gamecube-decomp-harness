@@ -1,0 +1,501 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-knowledge-30-knowledge-stores-30-standards",
+  "title": "Standards",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-st-intro",
+        "b-st-rec-h",
+        "b-st-shape",
+        "b-st-ex-shape",
+        "b-st-status-h",
+        "b-st-status",
+        "b-st-files-h",
+        "b-st-files-p",
+        "b-st-tree",
+        "b-st-families",
+        "b-st-load-po",
+        "b-st-rules-h",
+        "b-st-rule",
+        "b-st-rel-h",
+        "standard-record-next"
+      ]
+    },
+    "b-st-intro": {
+      "id": "b-st-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A standard is an authored rule for source changes. Its record states the requirement, preferred and rejected forms, status, and any lint rules that enforce it. Examples show concrete repairs. This page describes the current file contract; shared and game-specific scope is a separate proposed extension."
+        }
+      ],
+      "children": []
+    },
+    "b-st-rec-h": {
+      "id": "b-st-rec-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Record"
+        }
+      ],
+      "children": []
+    },
+    "b-st-shape": {
+      "id": "b-st-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "One line of a family's standards.jsonl.",
+        "example": "{\n  \"schema_version\": \"global_standard_v1\",\n  \"id\": \"global_standard:preserve-public-signatures\",\n  \"kind\": \"global_standard\",\n  \"status\": \"proposed\",\n  \"title\": \"Preserve Public Signatures\",\n  \"summary\": \"Keep public declarations consistent with the owning header.\",\n  \"do\": [\n    \"Use the owning header declaration.\"\n  ],\n  \"do_not\": [\n    \"Add a conflicting local declaration.\"\n  ],\n  \"evidence_refs\": [\n    \"code://example-revision/src/melee/ft/ftcommon.h#L10-L14\"\n  ],\n  \"family\": \"declarations\",\n  \"worker_facing\": true\n}",
+        "fields": [
+          {
+            "name": "schema_version",
+            "type": "string",
+            "required": true,
+            "description": "global_standard_v1"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "required": true,
+            "description": "global_standard:<slug>, lowercase letters, digits, hyphens"
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "required": true,
+            "description": "global_standard"
+          },
+          {
+            "name": "status",
+            "type": "enum",
+            "required": true,
+            "description": "accepted, proposed, superseded, merged, workflow_only"
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "summary",
+            "type": "string | string[]",
+            "required": true
+          },
+          {
+            "name": "do",
+            "type": "string[]",
+            "required": true,
+            "description": "Preferred shapes; rendered to the worker as preferred prompt signals"
+          },
+          {
+            "name": "do_not",
+            "type": "string[]",
+            "required": true,
+            "description": "Rejected shapes; rendered as rejected prompt signals"
+          },
+          {
+            "name": "evidence_refs",
+            "type": "string[]",
+            "required": true
+          },
+          {
+            "name": "family",
+            "type": "string",
+            "required": false,
+            "description": "The slice directory the record lives in"
+          },
+          {
+            "name": "severity",
+            "type": "string",
+            "required": false,
+            "description": "For example required"
+          },
+          {
+            "name": "qa_enforcement",
+            "type": "string",
+            "required": false,
+            "description": "How the gate enforces it, for example partial_hard_lint_plus_repair_hints"
+          },
+          {
+            "name": "qa_rule_ids",
+            "type": "string[]",
+            "required": false,
+            "description": "The review_lint rule ids that cite this standard"
+          },
+          {
+            "name": "worker_facing",
+            "type": "boolean",
+            "required": false,
+            "description": "false hides the standard from the worker prompt"
+          },
+          {
+            "name": "disposition, retired_into, example_policy, preferred_repairs, superseded_by, curator_update_policy",
+            "type": "optional",
+            "required": false
+          }
+        ],
+        "name": "Standard",
+        "source": {
+          "path": "apps/server/src/core/knowledge/standards.ts",
+          "symbol": "StandardsFileRecord"
+        }
+      },
+      "children": []
+    },
+    "b-st-ex-shape": {
+      "id": "b-st-ex-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "One line of a family's examples.jsonl. The first example for a standard is canonical.",
+        "example": "{\n  \"schema_version\": \"global_standard_example_v1\",\n  \"id\": \"example:preserve-public-signatures-1\",\n  \"standard_id\": \"global_standard:preserve-public-signatures\",\n  \"severity\": \"required\",\n  \"bad_pattern\": \"extern int helper(void); /* conflicts with the header */\",\n  \"preferred_shape\": \"#include \\\"owning_header.h\\\"\",\n  \"description\": [\n    \"Use the declaration from the owning header.\"\n  ],\n  \"evidence_ref\": \"code://example-revision/src/melee/ft/ftcommon.h#L10-L14\"\n}",
+        "fields": [
+          {
+            "name": "schema_version",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "standard_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "qa_rule_id",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "severity",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "bad_pattern",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "preferred_shape",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "description",
+            "type": "string[]",
+            "required": false,
+            "description": "The legacy why field folds into this"
+          },
+          {
+            "name": "evidence_ref",
+            "type": "string",
+            "required": false
+          }
+        ],
+        "name": "StandardExample",
+        "source": {
+          "path": "apps/server/src/core/knowledge/standards.ts",
+          "symbol": "StandardExampleFileRecord"
+        }
+      },
+      "children": []
+    },
+    "b-st-status-h": {
+      "id": "b-st-status-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Enum status"
+        }
+      ],
+      "children": []
+    },
+    "b-st-status": {
+      "id": "b-st-status",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Value",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            "accepted",
+            "In force; worker-facing rules are eligible for prompt inclusion. Automated enforcement requires associated lint rules."
+          ],
+          [
+            "proposed",
+            "Awaiting QA review; not injected"
+          ],
+          [
+            "superseded",
+            "Replaced by another standard named in superseded_by"
+          ],
+          [
+            "merged",
+            "Folded into another standard"
+          ],
+          [
+            "workflow_only",
+            "Governs the pipeline, not authored source; never worker-facing"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-st-files-h": {
+      "id": "b-st-files-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Files"
+        }
+      ],
+      "children": []
+    },
+    "b-st-files-p": {
+      "id": "b-st-files-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Standards are grouped by family under the configured "
+        },
+        {
+          "insert": "decomp_standards",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " source. "
+        },
+        {
+          "insert": "order.json",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " fixes record order across families. The tree below shows the existing Melee source as an example; another game's location comes from its source registry."
+        }
+      ],
+      "children": []
+    },
+    "b-st-tree": {
+      "id": "b-st-tree",
+      "type": "file-tree",
+      "props": {
+        "entries": [
+          {
+            "path": "games/melee/knowledge/sources/injectable/decomp_standards/standards/",
+            "note": "Slices root, resolved through sources/registry.json"
+          },
+          {
+            "path": "games/melee/knowledge/sources/injectable/decomp_standards/standards/order.json",
+            "note": "families, standards, examples order"
+          },
+          {
+            "path": "games/melee/knowledge/sources/injectable/decomp_standards/standards/<family>/standards.jsonl",
+            "note": "One standard per line"
+          },
+          {
+            "path": "games/melee/knowledge/sources/injectable/decomp_standards/standards/<family>/examples.jsonl",
+            "note": "One example per line"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-st-families": {
+      "id": "b-st-families",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The existing Melee families are "
+        },
+        {
+          "insert": "literals_data_and_externs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "asserts_reports_and_header_inlines",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "typed_access_and_pointer_math",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "codegen_tactics",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "names_defines_headers_and_prototypes",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "authored_source_shape",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "pipeline_owned_verification",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-st-load-po": {
+      "id": "b-st-load-po",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Rank family directories by order.json families; unlisted families sort last, alphabetically"
+          },
+          {
+            "text": "Concatenate every slice's standards.jsonl (or examples.jsonl), then re-emit records in order.json sequence and append anything unlisted in family-then-file order"
+          },
+          {
+            "text": "First record wins on a duplicate id"
+          },
+          {
+            "text": "An edit through POST /api/standards rewrites the family slice and refreshes order.json"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-st-rules-h": {
+      "id": "b-st-rules-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Rules"
+        }
+      ],
+      "children": []
+    },
+    "b-st-rule": {
+      "id": "b-st-rule",
+      "type": "callout",
+      "props": {
+        "kind": "decision",
+        "title": "Authored Rules",
+        "tone": "decision"
+      },
+      "text": [
+        {
+          "insert": "A standard is outside the inferred facts and evidence. Librarians can recognize a mandated code shape, but semantic proposals do not create or edit standards. A person reviews and edits the standard files."
+        }
+      ],
+      "children": []
+    },
+    "b-st-rel-h": {
+      "id": "b-st-rel-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "standard-record-next": {
+      "id": "standard-record-next",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Global and Game Scope",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/50-standards/20-global-and-game-scope",
+              "label": "Global and Game Scope"
+            }
+          }
+        },
+        {
+          "insert": " describes the proposed scope contract. "
+        },
+        {
+          "insert": "Worker Enforcement",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/50-standards/30-worker-enforcement",
+              "label": "Worker Enforcement"
+            }
+          }
+        },
+        {
+          "insert": " explains prompt inclusion and checks."
+        }
+      ],
+      "children": []
+    }
+  }
+}

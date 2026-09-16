@@ -1,0 +1,778 @@
+{
+  "schemaVersion": 1,
+  "id": "40-knowledge-record-linkage-map",
+  "title": "Record linkage map",
+  "description": "Every table in knowledge.sqlite as of migration 003, every foreign key, and the locator kinds that resolve into rows. Generated from storage/ddl.ts on 2026-09-01.",
+  "mode": "diagram",
+  "size": {
+    "width": 3400,
+    "height": 2200
+  },
+  "objects": [
+    {
+      "id": "frame",
+      "type": "section",
+      "text": "Record linkage map: every table in knowledge.sqlite and every foreign key between them",
+      "color": "white",
+      "parentId": null,
+      "geometry": {
+        "x": 40,
+        "y": 40,
+        "width": 3320,
+        "height": 2120
+      },
+      "locked": "background"
+    },
+    {
+      "id": "sec-core",
+      "type": "section",
+      "text": "Core objects",
+      "color": "blue",
+      "parentId": "frame",
+      "geometry": {
+        "x": 80,
+        "y": 120,
+        "width": 1080,
+        "height": 620
+      },
+      "layout": {
+        "mode": "free"
+      }
+    },
+    {
+      "id": "t-target",
+      "type": "rectangle",
+      "text": "target\nid PK\nkind: function | data\nunit\nunit_entity_id -> entity\nsymbol\nstable_key (unique while current)\naddress\nidentity_status: current | moved | unresolved | retired\nreport_revision",
+      "color": "blue",
+      "parentId": "sec-core",
+      "geometry": {
+        "x": 110,
+        "y": 170,
+        "width": 360,
+        "height": 254
+      }
+    },
+    {
+      "id": "t-target-status",
+      "type": "rectangle",
+      "text": "target_status\ntarget_id PK -> target\nmatch_pct 0..100\nlinked\nsize\ncontent_hash\nreport_revision\nupdated_at",
+      "color": "blue",
+      "parentId": "sec-core",
+      "geometry": {
+        "x": 110,
+        "y": 470,
+        "width": 360,
+        "height": 210
+      }
+    },
+    {
+      "id": "t-entity",
+      "type": "rectangle",
+      "text": "entity\nid PK\nkind: translation_unit | struct | struct_field | parameter | game_concept | pattern\nlocator (unique per kind)\nparent_entity_id -> entity\nidentity_status: active | merged | retired\nmerged_into_id -> entity",
+      "color": "blue",
+      "parentId": "sec-core",
+      "geometry": {
+        "x": 520,
+        "y": 170,
+        "width": 380,
+        "height": 188
+      }
+    },
+    {
+      "id": "t-link",
+      "type": "rectangle",
+      "text": "link\nid PK\nfrom_target_id XOR from_entity_id\nto_target_id XOR to_entity_id\nrole\nwhy\nkind: pr | discord | attempt | wiki | code\nlocator\ndigest (code only)",
+      "color": "blue",
+      "parentId": "sec-core",
+      "geometry": {
+        "x": 520,
+        "y": 440,
+        "width": 380,
+        "height": 232
+      }
+    },
+    {
+      "id": "s-core",
+      "type": "sticky",
+      "text": "Targets come from the build report by reconciliation. Mechanical entities come from the extractor. Curated entities (game_concept, pattern) and every link are written by the librarian through the apply layer.",
+      "color": "yellow",
+      "parentId": "sec-core",
+      "geometry": {
+        "x": 930,
+        "y": 170,
+        "width": 210,
+        "height": 260
+      }
+    },
+    {
+      "id": "sec-know",
+      "type": "section",
+      "text": "Knowledge system",
+      "color": "green",
+      "parentId": "frame",
+      "geometry": {
+        "x": 1200,
+        "y": 120,
+        "width": 760,
+        "height": 620
+      },
+      "layout": {
+        "mode": "free"
+      }
+    },
+    {
+      "id": "t-fact",
+      "type": "rectangle",
+      "text": "fact\nid PK\ntarget_id XOR entity_id\ntype: purpose | inferred_name | inferred_type | data_flow | state_behavior | game_mapping\nvalue\nrationale\nconfidence 0..1 (apply caps at 0.99)\nupdated_at\nunique (subject, type)",
+      "color": "green",
+      "parentId": "sec-know",
+      "geometry": {
+        "x": 1230,
+        "y": 170,
+        "width": 340,
+        "height": 232
+      }
+    },
+    {
+      "id": "t-evidence",
+      "type": "rectangle",
+      "text": "evidence\nid PK\nfact_id -> fact (cascade delete)\nkind: pr | discord | attempt | wiki | code\nlocator\ndigest (code only)\nwhy\ncaptured_at",
+      "color": "green",
+      "parentId": "sec-know",
+      "geometry": {
+        "x": 1600,
+        "y": 170,
+        "width": 340,
+        "height": 210
+      }
+    },
+    {
+      "id": "s-know",
+      "type": "sticky",
+      "text": "One live fact per subject and type; a write overwrites in place and replaces the fact's evidence set. The knowledge record is a query over fact, evidence, link, and the target ledger; it is not a table.",
+      "color": "green",
+      "parentId": "sec-know",
+      "geometry": {
+        "x": 1230,
+        "y": 470,
+        "width": 710,
+        "height": 110
+      }
+    },
+    {
+      "id": "sec-ledger",
+      "type": "section",
+      "text": "Target ledger",
+      "color": "orange",
+      "parentId": "frame",
+      "geometry": {
+        "x": 80,
+        "y": 790,
+        "width": 1880,
+        "height": 640
+      },
+      "layout": {
+        "mode": "free"
+      }
+    },
+    {
+      "id": "t-worker-run",
+      "type": "rectangle",
+      "text": "worker_run\nid PK\ntarget_id -> target\ngoal\nbaseline (json)\nrun_id\nworker_state_id\nfinal_outcome: match | improvement | no_change | error\nerror_type (error only)\nintegration: integrated | conflicted\nstarted_at, ended_at, closed_at",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 110,
+        "y": 840,
+        "width": 380,
+        "height": 276
+      }
+    },
+    {
+      "id": "t-submission",
+      "type": "rectangle",
+      "text": "submission\nid PK\nworker_run_id -> worker_run\nseq (unique per run)\ndescription\nhypothesis\nscore\nsubmitted_at\nruntime_ref",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 530,
+        "y": 840,
+        "width": 320,
+        "height": 232
+      }
+    },
+    {
+      "id": "t-narrative",
+      "type": "rectangle",
+      "text": "run_narrative\nworker_run_id PK -> worker_run\nsummary\nnotable_observations (json)\nnarrative (json)\nproduced_by: live | backfill\ncreated_at",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 530,
+        "y": 1090,
+        "width": 320,
+        "height": 188
+      }
+    },
+    {
+      "id": "t-pr",
+      "type": "rectangle",
+      "text": "pull_request\nid PK\ntarget_id XOR entity_id\npr_ref\nsummary\noutcome: match | improvement | no_change | error\nmerged_at",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 890,
+        "y": 840,
+        "width": 340,
+        "height": 188
+      }
+    },
+    {
+      "id": "t-event",
+      "type": "rectangle",
+      "text": "event\nid PK\ntarget_id -> target\nkind: regression | note\ncause: merge_conflict | upstream_change (regression only)\nsummary\ncreated_at",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 1270,
+        "y": 840,
+        "width": 340,
+        "height": 188
+      }
+    },
+    {
+      "id": "t-event-ref",
+      "type": "rectangle",
+      "text": "event_ref\nevent_id -> event\nref_kind: worker_run | epoch | pr | commit\nref_id\nPK (event_id, ref_kind, ref_id)",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 1650,
+        "y": 840,
+        "width": 280,
+        "height": 144
+      }
+    },
+    {
+      "id": "s-ledger",
+      "type": "sticky",
+      "text": "Operational, not knowledge. The summarizer writes worker_run, submission, and run_narrative; the PR importer writes pull_request; the run-loop writes event. Facts cite attempt:// and pr:// into these rows; events are never citable.",
+      "color": "orange",
+      "parentId": "sec-ledger",
+      "geometry": {
+        "x": 890,
+        "y": 1090,
+        "width": 1040,
+        "height": 100
+      }
+    },
+    {
+      "id": "sec-sources",
+      "type": "section",
+      "text": "Archival sources",
+      "color": "violet",
+      "parentId": "frame",
+      "geometry": {
+        "x": 2000,
+        "y": 120,
+        "width": 1300,
+        "height": 400
+      },
+      "layout": {
+        "mode": "free"
+      }
+    },
+    {
+      "id": "t-discord",
+      "type": "rectangle",
+      "text": "discord_message\nid PK\nchannel\nauthor\nposted_at\ncontent\nthread_id\ningested_at",
+      "color": "violet",
+      "parentId": "sec-sources",
+      "geometry": {
+        "x": 2030,
+        "y": 170,
+        "width": 300,
+        "height": 210
+      }
+    },
+    {
+      "id": "t-wiki",
+      "type": "rectangle",
+      "text": "wiki_section\nid PK\npage\nsection\nmirror_revision\ncontent\ningested_at\nunique (page, section, mirror_revision)",
+      "color": "violet",
+      "parentId": "sec-sources",
+      "geometry": {
+        "x": 2360,
+        "y": 170,
+        "width": 320,
+        "height": 210
+      }
+    },
+    {
+      "id": "s-sources",
+      "type": "sticky",
+      "text": "Frozen once ingested; new rows append past the watermark. discord:// and wiki:// locators resolve here. pr:// resolves to pull_request; attempt:// to worker_run and submission; code:// to the checkout at a revision, with a digest.",
+      "color": "violet",
+      "parentId": "sec-sources",
+      "geometry": {
+        "x": 2710,
+        "y": 170,
+        "width": 560,
+        "height": 140
+      }
+    },
+    {
+      "id": "sec-state",
+      "type": "section",
+      "text": "Indexing state",
+      "color": "gray",
+      "parentId": "frame",
+      "geometry": {
+        "x": 2000,
+        "y": 560,
+        "width": 1300,
+        "height": 400
+      },
+      "layout": {
+        "mode": "free"
+      }
+    },
+    {
+      "id": "t-watermark",
+      "type": "rectangle",
+      "text": "source_watermark\nsource PK: pr | discord | wiki | attempt\nposition (opaque to all but the writer)\nupdated_at",
+      "color": "gray",
+      "parentId": "sec-state",
+      "geometry": {
+        "x": 2030,
+        "y": 610,
+        "width": 340,
+        "height": 122
+      }
+    },
+    {
+      "id": "t-task",
+      "type": "rectangle",
+      "text": "index_task\nid PK\npathway: run_closed | pr_imported | regression | archival_ingest | drift_recheck\npayload\nenqueued_at\nstarted_at\ndone_at",
+      "color": "gray",
+      "parentId": "sec-state",
+      "geometry": {
+        "x": 2400,
+        "y": 610,
+        "width": 380,
+        "height": 188
+      }
+    },
+    {
+      "id": "t-sis",
+      "type": "rectangle",
+      "text": "subject_index_state\ntarget_id XOR entity_id\nindexed_at\nunique per target, unique per entity",
+      "color": "gray",
+      "parentId": "sec-state",
+      "geometry": {
+        "x": 2810,
+        "y": 610,
+        "width": 340,
+        "height": 122
+      }
+    },
+    {
+      "id": "s-state",
+      "type": "sticky",
+      "text": "Producers (importers, summarizer, run-loop, reconciliation) enqueue; the librarian claims by pathway priority and stamps subject_index_state at pass completion. Status is read off the timestamps.",
+      "color": "gray",
+      "parentId": "sec-state",
+      "geometry": {
+        "x": 2030,
+        "y": 800,
+        "width": 1240,
+        "height": 90
+      }
+    },
+    {
+      "id": "sec-index",
+      "type": "section",
+      "text": "knowledge-index.sqlite (derived)",
+      "color": "teal",
+      "parentId": "frame",
+      "geometry": {
+        "x": 2000,
+        "y": 1000,
+        "width": 1300,
+        "height": 430
+      },
+      "layout": {
+        "mode": "free"
+      }
+    },
+    {
+      "id": "t-fts",
+      "type": "rectangle",
+      "text": "discord_fts, wiki_fts, pr_fts, attempt_fts\nid = a locator\ncontent columns per source\nrebuilt wholesale by kg2-index",
+      "color": "teal",
+      "parentId": "sec-index",
+      "geometry": {
+        "x": 2030,
+        "y": 1050,
+        "width": 460,
+        "height": 122
+      }
+    },
+    {
+      "id": "t-emb",
+      "type": "rectangle",
+      "text": "embedding_chunk\nkind: discord | wiki | pr\nlocator, chunk_seq\ntext, text_hash\nmodel, dim, vector\nPK (kind, locator, chunk_seq, model)",
+      "color": "teal",
+      "parentId": "sec-index",
+      "geometry": {
+        "x": 2520,
+        "y": 1050,
+        "width": 380,
+        "height": 166
+      }
+    },
+    {
+      "id": "s-index",
+      "type": "sticky",
+      "text": "Never canonical. Deleted and regenerated from the store and the past-PRs archive.",
+      "color": "teal",
+      "parentId": "sec-index",
+      "geometry": {
+        "x": 2930,
+        "y": 1050,
+        "width": 340,
+        "height": 100
+      }
+    },
+    {
+      "id": "s-legend",
+      "type": "sticky",
+      "text": "Legend: a box is one table with its columns; an arrow is a foreign key, labeled with the column; a dashed arrow is a locator that resolves to a row rather than a foreign key. XOR means exactly one of the two columns is set.",
+      "color": "white",
+      "parentId": "frame",
+      "geometry": {
+        "x": 80,
+        "y": 1480,
+        "width": 1880,
+        "height": 90
+      }
+    }
+  ],
+  "connections": [
+    {
+      "id": "c-target-unit",
+      "from": {
+        "objectId": "t-target",
+        "anchor": "right"
+      },
+      "to": {
+        "objectId": "t-entity",
+        "anchor": "left"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "unit_entity_id"
+    },
+    {
+      "id": "c-status-target",
+      "from": {
+        "objectId": "t-target-status",
+        "anchor": "top"
+      },
+      "to": {
+        "objectId": "t-target",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "target_id"
+    },
+    {
+      "id": "c-entity-parent",
+      "from": {
+        "objectId": "t-entity",
+        "anchor": "top"
+      },
+      "to": {
+        "objectId": "t-entity",
+        "anchor": "top"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "parent_entity_id, merged_into_id"
+    },
+    {
+      "id": "c-link-target",
+      "from": {
+        "objectId": "t-link",
+        "anchor": "left"
+      },
+      "to": {
+        "objectId": "t-target",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "from/to target"
+    },
+    {
+      "id": "c-link-entity",
+      "from": {
+        "objectId": "t-link",
+        "anchor": "top"
+      },
+      "to": {
+        "objectId": "t-entity",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "from/to entity"
+    },
+    {
+      "id": "c-fact-target",
+      "from": {
+        "objectId": "t-fact",
+        "anchor": "left"
+      },
+      "to": {
+        "objectId": "t-target",
+        "anchor": "right"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "target_id"
+    },
+    {
+      "id": "c-fact-entity",
+      "from": {
+        "objectId": "t-fact",
+        "anchor": "left"
+      },
+      "to": {
+        "objectId": "t-entity",
+        "anchor": "right"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "entity_id"
+    },
+    {
+      "id": "c-evidence-fact",
+      "from": {
+        "objectId": "t-evidence",
+        "anchor": "right"
+      },
+      "to": {
+        "objectId": "t-fact",
+        "anchor": "left"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "fact_id"
+    },
+    {
+      "id": "c-run-target",
+      "from": {
+        "objectId": "t-worker-run",
+        "anchor": "top"
+      },
+      "to": {
+        "objectId": "t-target",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "target_id"
+    },
+    {
+      "id": "c-sub-run",
+      "from": {
+        "objectId": "t-submission",
+        "anchor": "right"
+      },
+      "to": {
+        "objectId": "t-worker-run",
+        "anchor": "left"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "worker_run_id"
+    },
+    {
+      "id": "c-narr-run",
+      "from": {
+        "objectId": "t-narrative",
+        "anchor": "left"
+      },
+      "to": {
+        "objectId": "t-worker-run",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "worker_run_id"
+    },
+    {
+      "id": "c-pr-target",
+      "from": {
+        "objectId": "t-pr",
+        "anchor": "top"
+      },
+      "to": {
+        "objectId": "t-target",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "target_id"
+    },
+    {
+      "id": "c-pr-entity",
+      "from": {
+        "objectId": "t-pr",
+        "anchor": "top"
+      },
+      "to": {
+        "objectId": "t-entity",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "entity_id"
+    },
+    {
+      "id": "c-event-target",
+      "from": {
+        "objectId": "t-event",
+        "anchor": "top"
+      },
+      "to": {
+        "objectId": "t-target",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "target_id"
+    },
+    {
+      "id": "c-eref-event",
+      "from": {
+        "objectId": "t-event-ref",
+        "anchor": "right"
+      },
+      "to": {
+        "objectId": "t-event",
+        "anchor": "left"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "event_id"
+    },
+    {
+      "id": "c-sis-target",
+      "from": {
+        "objectId": "t-sis",
+        "anchor": "bottom"
+      },
+      "to": {
+        "objectId": "t-target",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "target_id"
+    },
+    {
+      "id": "c-sis-entity",
+      "from": {
+        "objectId": "t-sis",
+        "anchor": "bottom"
+      },
+      "to": {
+        "objectId": "t-entity",
+        "anchor": "bottom"
+      },
+      "style": "solid",
+      "arrow": "forward",
+      "color": "blue",
+      "label": "entity_id"
+    },
+    {
+      "id": "c-ev-discord",
+      "from": {
+        "objectId": "t-evidence",
+        "anchor": "right"
+      },
+      "to": {
+        "objectId": "t-discord",
+        "anchor": "left"
+      },
+      "style": "dashed",
+      "arrow": "forward",
+      "color": "violet",
+      "label": "discord://"
+    },
+    {
+      "id": "c-ev-wiki",
+      "from": {
+        "objectId": "t-evidence",
+        "anchor": "right"
+      },
+      "to": {
+        "objectId": "t-wiki",
+        "anchor": "bottom"
+      },
+      "style": "dashed",
+      "arrow": "forward",
+      "color": "violet",
+      "label": "wiki://"
+    },
+    {
+      "id": "c-ev-pr",
+      "from": {
+        "objectId": "t-evidence",
+        "anchor": "bottom"
+      },
+      "to": {
+        "objectId": "t-pr",
+        "anchor": "top"
+      },
+      "style": "dashed",
+      "arrow": "forward",
+      "color": "orange",
+      "label": "pr://"
+    },
+    {
+      "id": "c-ev-attempt",
+      "from": {
+        "objectId": "t-evidence",
+        "anchor": "bottom"
+      },
+      "to": {
+        "objectId": "t-submission",
+        "anchor": "top"
+      },
+      "style": "dashed",
+      "arrow": "forward",
+      "color": "orange",
+      "label": "attempt://"
+    }
+  ]
+}

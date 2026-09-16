@@ -1,0 +1,131 @@
+{
+  "tu": "main/melee/ft/ftdemo",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdemo:ftDemo_CreateFighter"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Constructs a demo-context Fighter GObj with pooled Fighter and attribute-backup storage, unload/render callbacks, character and costume setup, selected inclusive motion-data intervals, subsystem initialization, and five scheduled fighter processes. After optional creation-callback dispatch, ftLib_800867E8 resets input and sets Fighter.x221D_b4=true, then the constructor returns the GObj. The final helper is not fighter-library registration.",
+        "rationale": "Corrects the baseline registration interpretation using the canonical final callee.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L58-L128",
+            "why": "Complete constructor lifecycle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L377-L382",
+            "why": "Final helper resets input and sets the flag."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdemo:ftDemo_CreateFighter"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The allocation descriptor supplies internal_id, slot, and has_transformation to a local plAllocInfo adapter, with has_transformation mapped to the adapter's b0. The separate plAllocInfo2.b0 selects a costume-resource path. Initialized Fighter kind selects motion, effect, and callback tables; unk8 selects inclusive motion-data bounds and the final creation callback. Fighter state is attached as GObj user data with an unload callback. Following subsystem/process setup, ftLib_800867E8 resets input and sets x221D_b4. Player callers store the returned GObj in entity slots.",
+        "rationale": "Separates the two b0 roles and removes incorrect final registration semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L49-L128",
+            "why": "Descriptor adaptation, allocations, selection, and ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L377-L382",
+            "why": "Final helper effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L2080-L2132",
+            "why": "Stack descriptors and returned-object storage."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdemo:ftDemo_SetArchiveData"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Stages an archive public-address pointer only while ftData_UnkIntPairs[pairs_idx].data is null. A populated entry suppresses name generation and lookup even if archive or arr_idx changes; a null result permits retry. This is not a permanently write-once cache: ftData_80085B98 consumes the staged base into selected motion-entry addresses and clears the shared pointer, permitting later staging. This helper does not copy or free the backing payload.",
+        "rationale": "The active cross-file consumer establishes the missing lifecycle.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L136-L150",
+            "why": "Null guard and direct pointer assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1703-L1727",
+            "why": "Derived addresses and staged-base reset."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdemo:ftDemo_SetFacingDirection"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Writes the requested float to Fighter.facing_dir and requests Y rotation M_PI_2 times that value for part 0 through ftPartSetRotY. The helper uses the primary joint or, for a quaternion primary, alternate x4_jobj2, asserting if both use quaternion rotation. No normalization, finite-value guard, or rollback of the preceding facing-field write is performed.",
+        "rationale": "Replaces unverified root naming with proved part identity and downstream behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L161-L166",
+            "why": "Field write, coefficient expression, and part index."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L1007-L1019",
+            "why": "Joint selection and assertion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftdemo.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Player allocation descriptors select fighter identity, slot/transformation initialization, costume branch, inclusive motion-data interval, and creation callback for a newly allocated Fighter GObj. Archive selectors stage public-symbol payload addresses in per-kind ftData entries; ftData_80085B98 derives selected motion-entry addresses and clears the staged base. Facing input updates Fighter.facing_dir and requests Y rotation for part 0. Construction ends with input reset and x221D_b4=true through ftLib_800867E8, not library registration.",
+        "rationale": "Corrects staging lifecycle, root-model specificity, and final-call interpretation while preserving TU-wide flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L49-L166",
+            "why": "Complete owned data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1696-L1727",
+            "why": "Inclusive consumer and staging reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L377-L382",
+            "why": "Final helper behavior."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,215 @@
+{
+  "tu": "main/melee/ft/ftparts",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_PObjSetupMtx"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads shared has_z_scale and dispatches all four unchanged arguments to the base callback or rigid/shared/envelope helper. vmtx is a view transform; pmtx is the prepared current-joint position matrix consumed by GX position loads, not a camera projection matrix. Skin dispatch tests the secondary union JObj pointer; unknown types under active correction perform no setup.",
+        "rationale": "Correct projection-versus-position matrix meaning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L299-L320",
+            "why": "Flagfalse delegates base. Flagtrue dispatches skin NULLsecondary to rigid, nonNULL to shared, shape to rigid, envelope to palette. Unknown type does nothing. pmtx is prepared position matrix, not camera projection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_80074B0C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "If val equals current idx, does nothing. Otherwise writes idx, sets x221D_b2=true, then invokes the guarded hide helper only for channel0. This is a sequence of ordinary writes and a call, with no atomicity guarantee; other channel latches are not invalidated.",
+        "rationale": "Remove unsupported atomic transition claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L590-L598",
+            "why": "On changed idx only, stores value, dirtytrue and calls hide channel0; other channels stay untouched. No atomicity/concurrency guarantee."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_80074B6C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires nonNULLlookup and false latch. In model/group/index order clears flag1 for matching group index, sets for others. Out-of-range/-1 selectsnone. Duplicate DObj references can overwrite earlier decisions; latchtrue inside model loop, zero models leavesfalse.",
+        "rationale": "Bound selection guarantees by descriptor contents and exact latch placement.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L600-L627",
+            "why": "Requires nonNULLlookup and false latch. In model/group/index order clears flag1 for matching group index, sets for others. Out-of-range/-1 selectsnone. Duplicate DObj references can overwrite earlier decisions; latchtrue inside model loop, zero models leavesfalse."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_80074CA0"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "When lookup exists and cleared[idx] is false, clears flag1 on every referenced DObj and sets the latch true. A true latch skips traversal even if it came from selected-only application and alternative groups remain hidden; the latch does not prove all-visible state.",
+        "rationale": "The shared latch records processed state, not an all-visible invariant.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L629-L649",
+            "why": "Requires nonNULLlookup and false latch, clears flag1 from every referenced DObj and sets latchtrue even zero models. True latch may mean selected-only application, so show-all can skip while alternatives remain hidden."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_80074CA0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires nonNULLlookup and false latch, clears flag1 from every referenced DObj and sets latchtrue even zero models. True latch may mean selected-only application, so show-all can skip while alternatives remain hidden.",
+        "rationale": "Record shared-latch interaction and zero-model completion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L629-L649",
+            "why": "Requires nonNULLlookup and false latch, clears flag1 from every referenced DObj and sets latchtrue even zero models. True latch may mean selected-only application, so show-all can skip while alternatives remain hidden."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_80074D7C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "When lookup exists and cleared[idx] is true, hides every referenced DObj by setting flag1 and clears the latch. The starting true state may represent show-all or selected-only application. NULLlookup or false latch is a no-op.",
+        "rationale": "Do not equate true latch with temporarily all-visible state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L651-L671",
+            "why": "Requires nonNULLlookup and true latch, sets flag1 for every referenced DObj then latchfalse even zero models. False latch skips hiding. Latch is shared with selected-only and show-all operations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_80075304"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Mode0 adopts old child and reparents only its first node; mode1 prepends sibling child; mode2 adopts old next as child but does not repair adopted parent links; mode3 insertsnext. Active modes require nonNULLroot/new despite guarded old-link reads. No dirty/reference bookkeeping or detached-node validation.",
+        "rationale": "Record incomplete parent repairs, unchecked roots and exact pointer mutations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L800-L875",
+            "why": "Mode0 adopts old child and reparents only its first node; mode1 prepends sibling child; mode2 adopts old next as child but does not repair adopted parent links; mode3 insertsnext. Active modes require nonNULLroot/new despite guarded old-link reads. No dirty/reference bookkeeping or detached-node validation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_800753D4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Selects one descriptor (root if x3==0xFF, otherwise after x3 traversal steps), copies it with child/next=NULL and loads it twice using ftParts_8007482C. That class suppresses attached DObj loading through its local load override. Inserts the nodes at configured primary/secondary anchors, then registers the primary using a fresh dobj_index=0, assigns the secondary and flags_b2. No allocation check or rollback is present; this call does not append using the fighter-wide count.",
+        "rationale": "Separate interpolation-node attachment from generic model/DObj append.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L877-L916",
+            "why": "Selects root for x3FF or advances x3 descriptor steps; copies descriptor and strips next/child; loads two independent interpolation nodes; inserts into primary/secondary anchors, registers destination with local DObj index0, depth+1 only modes0/1, marks b2. No rollback/allocation guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_8007482C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Installs ftIntpJObj as default, calls HSD_JObjLoadJoint, then clears the default toNULL and returns the result. It does not save or restore an earlier custom default. Explicit descriptor-class resolution and loader failure behavior are delegated to HSD.",
+        "rationale": "Clarify global override replacement and delegation limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L500-L507",
+            "why": "Sets default ftIntpJObj, loads descriptor hierarchy, clears default toNULL and returns root. Does not restore preceding override. Explicit descriptor-class resolution behavior remains delegated."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftParts_80075650"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Collects DObjs in traversal order from the supplied JObj, beginning at destination index0, and converts nonNULLmaterials to ftMObj. Asserts before index32 writes; leaves dst->count unchanged and ignores fighter_obj. Traversal follows siblings and ascends existing parents, so a supplied node with a parent is not an enforced subtree boundary.",
+        "rationale": "Bound collection/count and root assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L929-L985",
+            "why": "Depth-first traversal excludes instance children, collects DObjs from index0 with32limit and changes materials. Can ascend beyond supplied node if it has a parent. Does not write list count; arg0unused."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:ftPartSetRotY"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void ftPartSetRotY(Fighter* fp, int part_idx, f32 rotate_y). part_idx directly indexes Fighter.parts and is a per-kind joint slot, not automatically a logical Fighter_Part identifier. rotate_y is forwarded unchanged to the selected Yrotation setter.",
+        "rationale": "Avoid conflating logical parts with remapped array slots.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L1007-L1019",
+            "why": "Primary unless quaternion flag then alternate; assert if alternate quaternion; passes Yangle to selected setter; logical bone remap not performed."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftparts:.bss"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "rationale": "Section target is not a source object identity; source declaration alone does not establish exact compiled section coverage.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.static.h#L6-L11",
+            "why": "Anonymous source object and section comment."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

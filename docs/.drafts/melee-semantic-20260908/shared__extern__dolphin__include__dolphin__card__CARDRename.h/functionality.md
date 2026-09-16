@@ -1,0 +1,3 @@
+The guarded header declares `s32 CARDRename(s32 chan, char *oldName, char *newName);`. It exposes a channel argument and old/new name pointers but contains no implementation, type definition for `s32`, or documented return-code, validation, synchronization, or pointer-lifetime contract. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/card/CARDRename.h#L1-L7. The complete rendered view matches canonical source, with zero substitutions and zero parse errors; `CARDRename` has no KB identity. No existing facts or links require disposition, and no supported semantic correction is indicated.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

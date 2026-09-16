@@ -1,0 +1,247 @@
+{
+  "tu": "main/melee/it/kinds/itwstar",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L45-L56",
+            "why": "All six table rows and motion indices."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L82-L169",
+            "why": "Spawn, terrain destinations, pickup and activation selections."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L173-L246",
+            "why": "Impact and EnteredAir selections."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's terrain-dependent spawn implication and explicitly distinguishes state indices from table motion indices.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwstar:.data"
+        },
+        "type": "data_flow",
+        "value": "Warp Star state numbers passed to Item_80268E5C select the six table rows, whose motion indices are 0, -1, -1, 2, -1, and 1. Spawn unconditionally selects state 1. Terrain processing can select grounded state 0 or falling state 1; pickup selects 2, rider-descent activation selects 3, EnteredAir selects 4, and impact initialization selects 5. States 2 and 3 share the constant-false animation callback and omit physics and collision callbacks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L112-L121",
+            "why": "Wrapper result and state-1 destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Complete helper including secondary branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported floor-loss interpretation while restoring the exceptional supported-floor branch omitted by the baseline's unconditional persistence claim.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwstar:itWstar_UnkMotion0_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Delegates state-0 terrain processing to it_8026D62C with it_80294624 as the support-loss callback, then always returns false. The helper refreshes collision data and position, records the floor index when supported, and invokes the supplied callback to select state 1 when support is absent. On the supported-floor path it additionally calls Item_8026ADC0 if it_80277544 returns nonzero and xDCD_flag.b3 is clear; otherwise this path performs no explicit local state selection. The wrapper's false result does not rule out side effects of that additional helper call."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L20-L43",
+            "why": "Complete unchecked candidate construction, random indexing and history writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful missing boundary conditions without claiming malformed attributes occur in shipped data.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwstar:it_80294364"
+        },
+        "type": "state_behavior",
+        "value": "Maintains a global immediately-previous presentation index across calls and stores each chosen index in the current item's wstar.xDDC. Each invocation enumerates all attribute-entry indices except the previous global index into a seven-element local array, selects one with HSD_Randi(count), and replaces the global history. The anti-repeat property requires a nonempty candidate set, and memory-safe candidate construction requires at most seven candidates. Neither condition is checked locally; there is no fallback for an empty set or overflow guard. An out-of-range previous index excludes no entry."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L46-L51",
+            "why": "Identifies both float inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L58-L80",
+            "why": "Formula, stores, joint scale and collision output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L327-L352",
+            "why": "Configured attachment-joint lookup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L141-L221",
+            "why": "Later factor consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L121-L134",
+            "why": "Enabled-hitbox multiplicative scaling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects root-joint attribution and preserves the formula, canonical caller inputs and cross-state factor lifetimes.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwstar:it_80294430"
+        },
+        "type": "data_flow",
+        "value": "Receives the attached Warp Star item, the rider's x2C4.y extent, and the fighter attribute warp_star_hitbox_scale. Computes attr->x8 * (rider_extent / attr->x4) * ip->xCC_item_attr->x60_scale, stores it in wstar.xDD4, and uniformly scales the configured attachment joint returned by it_80272C90. That joint is not necessarily the root. Stores the second float unchanged in wstar.xDD8. xDD4 later scales the six collision-box coordinates and the descent attachment joint; xDD8 multiplies enabled hitbox scales during descent, impact entry and script-triggered impact updates. No local guard checks attr->x4 for zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L91-L139",
+            "why": "Initializer, support-loss pairing and state-1 caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L242-L246",
+            "why": "Additional state-4 caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L750-L778",
+            "why": "Supported-terrain callback guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the overly restrictive source-state claim using the second canonical caller.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwstar:it_8029455C"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally resets the Warp Star's velocity, calls it_8026B390, and selects grounded state 0 with ITEM_ANIM_UPDATE. It has no local source-state guard, branch or timer. It is supplied both to state 1's landing-collision helper and to state 4's supported-terrain recovery helper, so entry is not restricted to a transition from state 1. State 0's separate collision callback supplies the state-1 entry routine for loss of support."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L141-L151",
+            "why": "Complete entry sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L327-L352",
+            "why": "Attachment-joint resolution."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L121-L134",
+            "why": "Hitbox multiplier consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1617-L1647",
+            "why": "Attack metadata and conditional instance updates."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects root-joint attribution and gives the fixed identifiers their demonstrated attack-bookkeeping role without assuming unconditional attack-instance allocation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwstar:it_802946B0"
+        },
+        "type": "data_flow",
+        "value": "Consumes the Warp Star Item_GObj, selects item state 3 with flags 2, resolves the configured attachment joint through it_80272C90, and applies the stored wstar.xDD4 scale to that joint. The joint is not necessarily the root. Passes wstar.xDD8 to the enabled-hitbox multiplicative scaling helper. Then passes 0x0044005F to it_8027B288, which updates attack bookkeeping and conditionally refreshes xDA8_short, and passes 0x5E to it_8027B330, which updates attack ID and attack-instance bookkeeping when its guard permits."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L173-L211",
+            "why": "Exact saves, restores, object mutations and helper arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1553-L1564",
+            "why": "Saved fields originate in fighter attack bookkeeping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L863-L973",
+            "why": "Release setup can overwrite attack metadata and mutate ownership-related state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L213-L229",
+            "why": "Caller supplies rider impact position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L121-L134",
+            "why": "Final hitbox multiplier semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects saved-field semantics and avoids inferring the meaning of the positional helper's numeric argument from its call site.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwstar:it_802947CC"
+        },
+        "type": "data_flow",
+        "value": "Receives the active Warp Star item and the rider's impact position. Resets velocity and xDAC_itcmd_var0, selects state 5, and saves xD90, xD94, xD9C, xDA4_word and xDA8_short across it_8027429C before restoring those same fields. These fields carry attack-attribution/bookkeeping copied from fighter attack state, not terrain-collision bookkeeping. Other release-side changes are not restored by this block. Copies the input position into Item.pos and the root model translation, hides the model, performs common setup and timer initialization, and destroys existing effects. Calls lb_800119DC with a local position copy and arguments 0x78, 1.0f, 0.02f and 1.0471976f, then invokes it_80272C08 and multiplies enabled hitbox scales by wstar.xDD8."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwstar.c#L173-L228",
+            "why": "Unconditional entry, preserved fields and complete state-5 callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L957-L973",
+            "why": "Conditional ownership transfer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1553-L1564",
+            "why": "Attack-bookkeeping identity of saved fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1429-L1450",
+            "why": "Timer source and exact expiry behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L121-L134",
+            "why": "Multiplicative scaling restricted to enabled capsules."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects collision-versus-attack bookkeeping and records the cross-file ownership lifetime without overstating what the local preservation block restores.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itwstar:it_802947CC"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally enters state 5 with ITEM_ANIM_UPDATE after resetting velocity and the item-script flag. Preserves selected attack-attribution fields across common release/setup, then relocates and hides the item, removes existing effects and initializes post-impact processing. Release can conditionally replace owner with x51C and clear x51C when xDC8_word.flags.x0 is set; the local save/restore does not undo that ownership transfer or all other release mutations. The timer is initialized from it_804D6D28->xF8. Each state-5 animation invocation consumes a nonzero script flag by multiplying enabled hitbox scales by xDD8 and clearing the flag, then decrements the timer and returns true when it is zero or below. State-5 physics is empty and collision returns false."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

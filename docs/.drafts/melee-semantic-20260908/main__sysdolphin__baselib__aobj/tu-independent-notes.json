@@ -1,0 +1,78 @@
+{
+  "tu": "main/sysdolphin/baselib/aobj",
+  "reader": "tu_cobj_wave4",
+  "reviewed_at": "2026-09-08T15:08:01.389094+00:00",
+  "owned_full_canonical_and_rendered": true,
+  "notes": [
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L28-L115",
+      "finding": "Allocator descriptor accessor/init; flags API masks LOOP|NO_UPDATE. SetFObj tears down old chain before replacement, with no alias guard. Callback counters reset independently of callback list. Request restarts; Stop delegates then sets NO_ANIM."
+    },
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+      "finding": "First call does not advance; valid loop flushes and requests modulo frame, invalid interval clamps and does not request. NO_UPDATE supplies null only for main FObj interpretation; stop callbacks remain live. Counters count eligible calls, not unique objects."
+    },
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L260",
+      "finding": "Descriptor loader preserves stopped allocation state and filters descriptor flags. Nonzero obj_id retains table object or loads JObj. Removal drops FObj list and JObj reference before own free."
+    },
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L262-L508",
+      "finding": "Twelve callback formats; float variadic payload reads f64 then narrows. Parent category mask does not prune descendants. PObj helper processes a single shape set. JObj processes descendants but not root next; INSTANCE suppresses child traversal only."
+    },
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L510-L551",
+      "finding": "Scalar setters null guard, no finite/range validation. SetCurrentFrame ignores stopped objects; ForgetMemory unconditionally clears callback head, ignores range, preserves counters."
+    },
+    {
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.h#L1-L104",
+      "finding": "Exact public structs, enum callback order, bit26..30 flags and two assertion-based inline frame getters. C renderer11 parse errors, H0; no substitutions."
+    }
+  ],
+  "foreign_canonical_support": [
+    {
+      "path": "src/sysdolphin/baselib/objalloc.c",
+      "ranges": [
+        [
+          71,
+          161
+        ]
+      ],
+      "finding": "Allocator nullable paths, free list/counter writes, init unlink/reset/default size alignment verified."
+    },
+    {
+      "path": "src/sysdolphin/baselib/initialize.c",
+      "ranges": [
+        [
+          263,
+          307
+        ]
+      ],
+      "finding": "Object init includes AObj/FObj; stats table uses both accessors."
+    },
+    {
+      "path": "src/sysdolphin/baselib/jobj.c",
+      "ranges": [
+        [
+          509,
+          565
+        ],
+        [
+          667,
+          672
+        ]
+      ],
+      "finding": "JObj hierarchy animation resets/invokes completion counters; joint loader delegates creation/ref resolution."
+    },
+    {
+      "path": "src/MSL/math.h",
+      "ranges": [
+        [
+          75,
+          100
+        ]
+      ],
+      "finding": "fmodf inline divides and converts quotient to signed long long, then subtracts product; finite/range limitations apply."
+    }
+  ]
+}

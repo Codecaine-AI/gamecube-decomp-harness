@@ -1,0 +1,151 @@
+{
+  "tu": "main/melee/it/kinds/itegg",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L42-L54",
+            "why": "Registers this animation callback in both states 1 and 3."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L146-L202",
+            "why": "Defines the no-op body, state-1 falling behavior, and dropped/thrown state-3 entry and callbacks."
+          }
+        ],
+        "op": "write",
+        "rationale": "The complete state table resolves the previously uncertain gameplay roles and shows that the numeric suffix does not imply exclusive use by state 3.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itegg:itEgg_UnkMotion3_Anim"
+        },
+        "type": "game_mapping",
+        "value": "Provides the shared, side-effect-free animation callback for the regular Egg's initial falling state 1 and its dropped/thrown state 3. It always returns false; movement and impact handling occur in the separate physics and collision callbacks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L123-L131",
+            "why": "Complete ordinary void function with state-0 selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L163-L167",
+            "why": "Passed as the landing transition callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "The existing term non-returning incorrectly conflates a void return type with a function that does not return control.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itegg:it_80288E6C"
+        },
+        "type": "inferred_type",
+        "value": "Void-returning item motion-state entry callback with signature `void (Item_GObj* gobj)`. It performs state-0 setup and returns to its caller without a value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L204-L278",
+            "why": "Terminal setup, completion callbacks, guard and invariant false result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1429-L1450",
+            "why": "Shared lifetime initialization and decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L103-L121",
+            "why": "Fallback return value is ignored and ordinary result remains false."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdrop.c#L60-L91",
+            "why": "Random generation may stop or fail allocation without producing an item."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported one-shot guard and terminal branches while separating the actual state-5 lifetime from the unused-by-that-callback local 20 and retaining generation-failure behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itegg:itEgg_Logic3_DmgDealt"
+        },
+        "type": "state_behavior",
+        "value": "Returns false without further resolution when `egg.x0` is already set. Otherwise, a zero random result selects terminal state 5: setup stops planar movement, sets the resolution guard, initializes the shared `xD44_lifeTimer`, and separately stores 20 in `egg.rand_max`. State 5 completes through the shared timer, not that local value. The ordinary branch performs content-generation handling, emits effect 1232 and sound arguments `(244, 127, 64)`, and enters hidden state 6 with the guard set and an Egg-local 40-update countdown. Ordinary opening proceeds even if fallback generation produces no item. Every path in this callback returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L98-L121",
+            "why": "Complete argument flow and outcome returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdrop.c#L36-L91",
+            "why": "Third argument controls the random-generation loop, including restrictions and allocation failures."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdrop.c#L192-L211",
+            "why": "First helper actively spawns after mode/random checks and overwrites velocity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L263-L278",
+            "why": "Caller consumes the boolean as terminal-outcome selection."
+          }
+        ],
+        "op": "write",
+        "rationale": "Canonical callees disprove the existing-drop-query and preconfigured-item interpretation and reveal the count argument, mutable vector and failure semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itegg:it_80288DC4"
+        },
+        "type": "data_flow",
+        "value": "Reads Egg special attributes and passes `attrs->rand_max` to `HSD_Randi`. A zero sample returns true immediately. A nonzero sample passes the Egg, its position, a local zero vector, and false to `it_8026F8B4`; that helper actively performs a mode/random-gated spawn and may overwrite the vector with velocity. If it returns true, fallback generation is skipped. Otherwise the Egg calls `it_8026F3D4(gobj, NULL, attrs->x0, 0)`, where `attrs->x0` is the number of random-item generation attempts, not an item-kind identifier. The fallback result is ignored. Both nonzero-sample paths return false, selecting ordinary opening regardless of whether an item was successfully generated."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L98-L121",
+            "why": "Random selector and ordered release calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdrop.c#L36-L91",
+            "why": "Count-controlled random-item attempts."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdrop.c#L192-L211",
+            "why": "Active conditional spawn rather than existing-drop query."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itegg.c#L263-L278",
+            "why": "Boolean selects alternate state 5 or ordinary state 6."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the incorrect interpretation of checking for an existing drop and creating a specified contained item with the supported active-spawn and random-generation behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itegg:it_80288DC4"
+        },
+        "type": "purpose",
+        "value": "Chooses the Egg's break outcome and performs ordinary-branch release attempts. A zero sample from the configured random range requests the alternate explosive state. Other samples first try the shared mode/random-gated spawn helper and, if that path is not taken, request count-controlled random-item generation using `attrs->x0`. The helper then selects ordinary opening; its false result is not a guarantee that contents were generated."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

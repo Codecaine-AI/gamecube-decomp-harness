@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/ft/ft_0C31",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C31.c#L34-L38",
+            "why": "Produces entry.x8 from root scale."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C31.c#L95-L135",
+            "why": "Shows all setup writes, branch scope, and outgoing presentation arguments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's effect-position characterization while preserving exact conditional and unconditional data flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0C31:ftCo_800C6408"
+        },
+        "type": "data_flow",
+        "value": "Loads entry.timer from p_ftCommonData->x6BC and enters EntryStart. With x221F_b4 clear, creates the accessory, stores x24=x34_scale.y*co_attrs.trophy_scale, stores x20 and x28 as 1.497345*x24, and applies scale, facing-dependent rotation, and position. In both branches installs fn_800C69F4, passes gobj, &fp->x60C, 3, 0x43E, gobj->hsd_obj, and &entry.x8 to efAsync_Spawn, calls audio 0x8B, and calls ftCo_800BFFD0(fp,0x75,0). entry.x8 contains the saved root scale, not a proved effect-position vector; async interpretation/retention of that pointer remains unresolved."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C31.c#L148-L183",
+            "why": "Exact interpolation and entity branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C31.c#L50-L57",
+            "why": "Handoff decrements replacement timer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C31.c#L137-L144",
+            "why": "State transition occurs on post-decrement equality."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unconditional endpoint progression with exact source arithmetic, alternate-branch scope, and boundary qualifications.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0C31:ftCo_EntryStart_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Computes p=(float)(x6BC-entry.timer)/x6BC without clamping or a zero-denominator guard, then applies root Y scale p*(entry.x8.y-x6C4)+x6C4 for both branches. With x221F_b4 clear it scales accessory Y by p, stores x28=x20*p, and sets Y=x4+x28; otherwise it copies logical entity 0's Y without a null check. Finite mathematical endpoint interpretations require nonzero duration and valid finite inputs and do not prove that execution samples p=0 or p=1. Entry_Anim decrements the newly installed timer on handoff, while EntryStart_Anim transitions at a post-decrement zero. The callback neither decrements the timer nor handles NaN/infinity locally."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C31.c#L246-L277",
+            "why": "Timer producer and separate terminal callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C31.c#L281-L304",
+            "why": "Exact denominator, mutations, and alternate branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the crucial x6BC versus x6C0 distinction and avoids asserting a guaranteed normalized reverse interpolation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0C31:ftCo_EntryEnd_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Reads but does not decrement entry.timer. With x221F_b4 clear, computes q=(float)entry.timer/(float)p_ftCommonData->x6BC, writes accessory scale (x24,x24*q,x24), stores x28=x20*q, and sets Y=x4+x28. EntryEnd initialization loads the timer from x6C0, so the denominator is not this phase's configured duration and a unit starting ratio requires additional assumptions. There is no ratio clamp, zero-denominator check, or exceptional-float repair. The alternate branch copies logical player entity 0's Y without a null check and does not scale a local accessory. EntryEnd_Anim separately decrements and exits at exact zero; reaching an exact zero-height physics sample is not guaranteed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C31.c#L185-L201",
+            "why": "Local displacement and ground/air dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L995-L1025",
+            "why": "Air collision, suppression guard, and synchronous event call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1156-L1179",
+            "why": "Grounded failure callback and lack of event retention."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the omitted air-helper suppression branch and exact dispatch boundary.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0C31:ftCo_EntryStart_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Sets entry.x2C.bottom to -entry.x28, or to logical entity 0's negated x28 when x221F_b4 is set. GA_Air selects ft_80083E64 with fn_800C63BC; every other ground_or_air value selects ft_800846B0 with fn_800C63E0. The air helper invokes the callback only if its supplied-box collision succeeds and ft_80081A00 does not suppress it. The grounded helper invokes its callback when its supplied-box collision test fails. These event pointers are invoked synchronously, not retained by the inspected helpers."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

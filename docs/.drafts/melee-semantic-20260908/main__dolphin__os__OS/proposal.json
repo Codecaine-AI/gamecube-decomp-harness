@@ -1,0 +1,99 @@
+{
+  "tu": "main/dolphin/os/OS",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L106-L111",
+            "why": "Short-circuit pointer test precedes the field read and fallback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing implication that both fallback cases avoid dereferencing BootInfo; only the null-pointer case does.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OS:OSGetConsoleType"
+        },
+        "type": "data_flow",
+        "value": "Reads the global BootInfo pointer. If it is null, returns OS_CONSOLE_ARTHUR without dereferencing it. Otherwise reads BootInfo->consoleType and returns OS_CONSOLE_ARTHUR when that field is zero, or passes the nonzero field through unchanged. The function writes no state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L475-L485",
+            "why": "Default adapter ends in an unconditional branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L53-L114",
+            "why": "Dispatcher contains registered-callback recovery, decrementer restoration, and diagnostic/halt paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported tail-transfer and recovery description while adding the exceptional decrementer path omitted by the existing otherwise-unhandled-implies-halt statement.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OS:OSDefaultExceptionHandler"
+        },
+        "type": "state_behavior",
+        "value": "Has no local recovery branch or ordinary return path: after completing context capture and reading fault metadata, it unconditionally tail-transfers to __OSUnhandledException. That dispatcher checks the interrupted context's MSR_RI bit. For recoverable exceptions it can invoke a registered error callback under scheduler control and restore the context; a recoverable decrementer exception also has an explicit context-restoration path even without a registered callback. Non-recoverable exceptions and the remaining unhandled cases proceed through diagnostics to PPCHalt."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L386-L389",
+            "why": "Assertion is followed directly by indexed return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/macros.h#L4-L27",
+            "why": "Defines assertion behavior under #ifdef DEBUG and its no-op alternative."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unconditional rejection wording with the actual build-dependent assertion behavior and direct table-access precondition.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OS:__OSGetExceptionHandler"
+        },
+        "type": "state_behavior",
+        "value": "For an initialized exception table and a valid exception index, performs a read-only lookup with no state transition. The source asserts exception < __OS_EXCEPTION_MAX: when DEBUG is defined, failure invokes OSPanic; when DEBUG is undefined, ASSERTMSGLINE expands to a no-op. The getter has no independent bounds check, table-initialization check, or fallback for invalid use."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os/OSException.h#L11-L35",
+            "why": "Defines numeric exception constants, MAX, u8 exception typedef, callback type, and setter declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L376-L384",
+            "why": "Setter reads, replaces, and returns one callback entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/macros.h#L4-L27",
+            "why": "Assertion enforcement depends on DEBUG being defined."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the actual byte-sized source type from the bounded exception-table domain and avoids implying that the type itself or every build enforces that domain.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OS:__OSSetExceptionHandler"
+        },
+        "type": "inferred_type",
+        "value": "Has signature __OSExceptionHandler __OSSetExceptionHandler(__OSException exception, __OSExceptionHandler handler). __OSException is a u8 typedef, not an enum; valid table indices are [0, __OS_EXCEPTION_MAX), with __OS_EXCEPTION_MAX equal to 15. Both the replacement argument and returned previous value have callback type void (*)(__OSException, OSContext*). The valid-index contract is expressed by an assertion that is compiled out when DEBUG is undefined."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

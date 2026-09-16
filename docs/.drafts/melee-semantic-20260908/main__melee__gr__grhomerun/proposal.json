@@ -1,0 +1,271 @@
+{
+  "tu": "main/melee/gr/grhomerun",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:grHomeRun_8021E1F0"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A void-returning Ground-object process callback with signature void (Ground_GObj*), installed in entry 6's gobj_proc slot. It ignores its argument and returns normally without performing work.",
+        "rationale": "Corrects no-return terminology without changing the supported callback role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L64-L65",
+            "why": "Slot."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L595-L595",
+            "why": "Empty void definition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:grHomeRun_8021EAF8"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A parameterless, void-returning shared-stage-state setter with signature void (void). It sets bit 7 of stage_info.flags and returns normally.",
+        "rationale": "Non-returning incorrectly describes control flow; header UNK_RET/UNK_PARAMS does not override the concrete definition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L847-L850",
+            "why": "Complete definition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:fn_8021E994"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles Home-Run map-joint collision notifications by latching a qualifying Sandbag collision in map GObj 10's Ground state. The controller update, when a primary fighter exists, combines this latch with Sandbag Y below 4.0 to set shared stage flag bit 7, then clears the latch. An update with no primary fighter returns before consuming or clearing it.",
+        "rationale": "Preserves collision-detection purpose while correcting unconditional next-frame clearing.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L796-L818",
+            "why": "Producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L325-L355",
+            "why": "Consumer and early return."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:fn_8021E994"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Produces a pending Sandbag-collision latch. With map GObj 10 and its Ground payload present, collision category coll->x34_flags.b1234 == 1, coll->x0_gobj equal to gm_80180AF4(), and ground_kind == 1, it sets xE8_flags.b0. Other paths do not set the latch; the null-Ground path includes a self-assignment of collision flags. The controller clears the latch after checking an available Sandbag for Y < 4.0, even when Sandbag is absent, but only if its initial primary-fighter lookup succeeds. Without P1 it returns before reset, so a strict one-frame lifetime is not guaranteed.",
+        "rationale": "Retains numeric tests and exceptional branches and corrects the one-frame claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L796-L818",
+            "why": "All producer guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L325-L355",
+            "why": "Reset lifetime."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:grHomeRun_8021C754"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Caches Ground_GetYakumonoParam() in module-local yakumono_param, clears stage_info.unk8C.b4 and sets b5, invokes locale/stage-scale calibration, and supplies IDs 0 and 10 to the stage-object factory. It then calls grHomeRun_8021ED74, which submits a Bat request with selector 11 using joint 0x7F's world origin. After common camera and blast-zone initialization, it subtracts the camera X offset from each effective right edge, triples the displacement, and writes the resulting right boundaries. The startup function discards object-factory results and receives no Bat result.",
+        "rationale": "Replaces incorrect Bob-omb-rain flow with independently resolved Bat dispatch while retaining startup ordering and boundary arithmetic.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L94-L110",
+            "why": "Startup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L920-L931",
+            "why": "Item request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L965-L970",
+            "why": "Bat dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:grHomeRun_8021C754"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes Home-Run Stadium by caching yakumono parameters, establishing stage flags, computing locale-sensitive distance calibration, creating callback-driven map objects 0 and 10, requesting the authored Home-Run Bat, initializing common camera/blast-zone ranges, and tripling their rightward displacement from the camera origin. The stack descriptor used by the Bat helper is named BobOmbRain in source, but its selector 11 requests Bat rather than a Bob-omb-rain effect.",
+        "rationale": "Corrects legacy-type-name confusion; supported startup purpose otherwise remains unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L94-L110",
+            "why": "Startup sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L920-L931",
+            "why": "Descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbat.c#L26-L41",
+            "why": "Concrete Bat kind."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L965-L970",
+            "why": "Selector resolution."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:grHomeRun_8021C754"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Runs a fixed startup sequence: cache parameters; clear b4 and set b5; compute JP calibration (0.1, 50) or non-JP calibration (0.3280969, 100), with parts-per-marker clamped to at least one; initialize map GObjs 0 and 10; request Bat from joint 0x7F; initialize shared camera and blast-zone ranges; then triple both right-edge displacements relative to camera offset. The factory reports a missing GObj and returns NULL, but startup ignores that result and continues. The Bat dispatcher can return NULL before creation when gm_8016B238() is true, or after failed construction; this helper's result is discarded and startup continues. Allocation/assertion failures inside other callees are not made recoverable by this straight-line wrapper.",
+        "rationale": "Preserves ordering and nonfatal lookup behavior, corrects Bat interpretation, and includes the dispatcher veto without generalizing all failures as nonfatal.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L94-L151",
+            "why": "Startup and factory."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L920-L961",
+            "why": "Bat helper and calibration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L869-L873",
+            "why": "Early veto."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L965-L997",
+            "why": "Nullable construction and flags."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:grHomeRun_8021EC58"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A text-construction helper with signature HSD_Text* (int value). It creates and returns configured decimal text. Marker callers pass their signed course graduation and cache the result in xC8; their paired cleanup callbacks remove it. The controller also passes literal zero and caches the result in its different xCC field. Its callback3 is empty, so controller-label destruction is not established by the marker cleanup pattern.",
+        "rationale": "Corrects overgeneralized ownership/lifetime while retaining concrete signature and marker usage.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L893-L918",
+            "why": "Constructor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L356-L372",
+            "why": "Controller caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L454-L518",
+            "why": "Empty controller cleanup versus marker lifecycle."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:grHomeRun_8021EC58"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation calls SisLib text creation, configures the returned object's display fields, inserts the supplied integer with %d, and returns it. The wrapper has no cache or allocation-null guard and does not assign final X/Y placement; callers set position after return. Marker and controller callers guard creation on anchor availability and an empty cache. Marker callbacks explicitly remove their cached labels, but the controller's zero label has no removal in its empty callback3; its ultimate lifetime requires broader SIS/stage teardown evidence.",
+        "rationale": "Retains linear construction but limits initialization and teardown claims to what all callers actually establish.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L893-L918",
+            "why": "Assignments and lack of guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L356-L372",
+            "why": "Controller placement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L454-L518",
+            "why": "Different cleanup paths."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grhomerun:grHomeRun_8021ED74"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Called unconditionally during Home-Run startup, it submits one selector-11 Bat request per invocation using joint 0x7F's origin, with no local joint-null guard, retry, retained item pointer or once-only flag. The dispatcher returns NULL before construction if gm_8016B238() is true because selector 11 is not the exempt selector 6. Otherwise it calls the Bat constructor; common setup and the descriptor-enabled flag writes occur only for a non-null result. The helper discards that result, and startup continues after it returns.",
+        "rationale": "Adds the exceptional pre-construction veto and distinguishes startup usage from enforced once-only behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L94-L110",
+            "why": "Startup call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grhomerun.c#L920-L931",
+            "why": "Complete helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L869-L873",
+            "why": "Veto."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L965-L997",
+            "why": "Creation and post-spawn guards."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

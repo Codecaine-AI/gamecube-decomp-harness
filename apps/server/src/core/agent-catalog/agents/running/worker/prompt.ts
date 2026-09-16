@@ -202,7 +202,7 @@ export const prompt = definePrompt({
                 "Change the abstraction, not the syntax: extract or recover a semantic helper, move an inline boundary, replace long-lived pointer locals with indexed access, or reconstruct the authored owner/subobject model from a matched analog. Accept a temporary score drop; judge the new shape by whether it can reach exact.",
                 "Run a bounded permuter probe on the named region, following the recipe in `advanced_techniques`.",
                 "If instruction rows match and only the strict score fails, switch to relocation and section evidence and stop allocator edits.",
-                "If the proven fix is outside your write set, submit with a `widening_request` or with the diagnosis in your note. Do not spend effort on source-only substitutes.",
+                "If the proven fix is outside your write set, call `request_write_set_widening` before editing the required paths, or submit with a `widening_request` or the diagnosis in your note. Do not spend effort on source-only substitutes.",
               ]),
             ]),
             "Submit a verified improvement so it is validated and checkpointed, then continue toward exact. Stop only when the target is exact, the proven fix is outside your write set, or the residual is diagnosed with no in-scope lever.",
@@ -356,6 +356,7 @@ export const prompt = definePrompt({
     section("submission", [
       "Submit when you have a verified improvement or an exact match: end your turn with a JSON note. The runner validates the submission against the target and its neighbors, checkpoints it, and returns control to you to continue toward 100%.",
       "Also submit when you are stopped: the proven fix is outside your write set, or the residual is diagnosed with no in-scope lever. Put the diagnosis in the note.",
+      "When you discover a required path outside your approved write set, call `request_write_set_widening` with `paths`, `reason`, and optional `evidence` before editing it. The tool immediately returns `approved_paths`, denials with guidance, `write_set_after`, and the mode. Continue only with approved paths present in `write_set_after`; a shadow-mode decision is not applied.",
       "The note is not a report; it is the validation input. Use plain fields such as `summary`: Here is what I tried.",
       bulletList([
         item("Also include these fields; they are joined into the target's history and shown to whoever works on this target next:", [
@@ -391,7 +392,7 @@ export const prompt = definePrompt({
         "Work only on the current claimed target; the target translation unit is your motivation and review scope.",
         'Edit only paths in your approved write set, which initially contains only the `<target_file path="...">` path.',
         "Before requesting any widening, first try typing the in-slice code to the foreign types already present on master.",
-        "If that measurably fails and a canonical fix elsewhere is required, use the submission note's `widening_request` with the mismatched declaration, objdiff evidence, expected owner, and evidence explaining why each lower rung failed.",
+        "If that measurably fails and a canonical fix elsewhere is required, call `request_write_set_widening` before editing that path. The submission note's `widening_request` remains available and takes the mismatched declaration, objdiff evidence, expected owner, and evidence explaining why each lower rung failed.",
         "Never add local shims—aliases, local prototypes, or include-macro rewrites—as a substitute for the canonical fix.",
         "Preserve pre-existing dirty work. Undo only your own failed attempt hunks.",
         item("Do not use destructive commands:", [

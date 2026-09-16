@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "id": "run-worker-delegation",
+  "title": "Worker delegation",
+  "participants": [
+    {
+      "id": "p1",
+      "name": "run_loop",
+      "kind": "actor",
+      "label": "Run loop"
+    },
+    {
+      "id": "p2",
+      "name": "queue",
+      "kind": "participant",
+      "label": "Jobs and run records"
+    },
+    {
+      "id": "p3",
+      "name": "Hosted job consumer",
+      "kind": "participant",
+      "label": "Hosted job consumer"
+    },
+    {
+      "id": "p4",
+      "name": "Worker task executor",
+      "kind": "participant",
+      "label": "Worker task executor"
+    },
+    {
+      "id": "p5",
+      "name": "Agent using Daytona sandbox",
+      "kind": "actor",
+      "label": "Agent using Daytona sandbox"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "enqueue one deduplicated worker job per epoch target"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p3",
+      "to": "p2",
+      "line": "sync",
+      "text": "claim job and epoch target atomically; create claim, state, lease, and token"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "p3",
+      "to": "p3",
+      "line": "sync",
+      "text": "provision Daytona sandbox at claim-time baseRev; write task spec"
+    },
+    {
+      "kind": "message",
+      "id": "m4",
+      "from": "p3",
+      "to": "p4",
+      "line": "sync",
+      "text": "launch worker-task with sandbox identity, task spec, and claim token"
+    },
+    {
+      "kind": "message",
+      "id": "m5",
+      "from": "p4",
+      "to": "p5",
+      "line": "sync",
+      "text": "run bounded agent with sandbox file, compile, and validation tools"
+    },
+    {
+      "kind": "message",
+      "id": "m6",
+      "from": "p5",
+      "to": "p2",
+      "line": "sync",
+      "text": "persist checkpoints and close worker state under claim token"
+    },
+    {
+      "kind": "message",
+      "id": "m7",
+      "from": "p2",
+      "to": "p1",
+      "line": "return",
+      "text": "settled worker-state evidence"
+    },
+    {
+      "kind": "message",
+      "id": "m8",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "settle job, schedule sandbox cleanup, and wake integration drain"
+    }
+  ],
+  "style": {
+    "accent": "#4C78A8"
+  }
+}

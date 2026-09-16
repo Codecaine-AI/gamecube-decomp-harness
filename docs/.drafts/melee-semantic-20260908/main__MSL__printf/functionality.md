@@ -1,0 +1,12 @@
+## MSL formatted output
+The translation unit implements a callback-driven printf engine, integer and floating-point conversion helpers, and stdout/string wrappers. The header declares vsnprintf. Existing function names fit their canonical roles; the rendered views introduce no substitutions and therefore provide no independent naming proof.
+
+parse_format builds a mutable descriptor from flags, width, precision, modifiers and conversion characters. Dynamic fields consume variadic integers; invalid specifications use 0xFF. Integer helpers construct terminated fragments backward, applying radix, precision, prefixes and signs. float2str consumes a decimal intermediate, rounds it and chooses fixed/scientific notation; Inf and NaN return before ordinary sign-option processing. The 509 checks are implementation guards, not a universal buffer-safety proof.
+
+__pformatter sends literals, converted fragments and padding through a synchronous sink and tracks logical output separately from bytes retained by the string controller. Sink failure returns -1; invalid or failed conversions instead emit the remaining format literally and return. %hhn consumes a pointer without storing, and %lc follows the single-byte character path despite parser acceptance. Decimal rounding has a distinct negative-length zero branch and a zero-retained-length exact-half boundary that cannot be described as ordinary retained-digit ties-to-even.
+
+__FileWrite requires a complete fwrite result. printf/vprintf accept only negative fwide results; inherited contextual research establishes the closed/wide rejection and unoriented-to-narrow transition. OSReport and OSPanic own their va_lists across direct vprintf calls. Local formatting buffers and the string controller remain live throughout synchronous callback use. vsnprintf initializes controller fields individually, allows copying up to n bytes, then unconditionally writes a terminator using its mixed-type index expression; zero capacity is not guarded. sprintf and vsprintf forward ULONG_MAX.
+
+Full owned-file, rendered-view, subject and link coverage is inherited from the hash-bound research handoff. The lead independently checked every proposed fact's citation ranges and all upstream contradiction evidence. Supported existing names, unchanged facts and both retained links remain retained. Physical section contents, pooling, padding and jump-table layout remain unverified without compiled evidence.
+
+Status: synthesized; independent review and live promotion pending.

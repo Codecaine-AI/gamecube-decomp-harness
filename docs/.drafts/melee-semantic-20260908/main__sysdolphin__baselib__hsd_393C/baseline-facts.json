@@ -1,0 +1,1377 @@
+[
+  {
+    "id": "fact:db6da26e-7edc-4872-99df-67070bcb5448",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_393C:.bss",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "hsd_80393DA0 initializes the object from a caller-provided byte buffer and size and registers fn_80393C14 with HSD_SetReportCallback. That callback appends report characters and line-length markers modulo the buffer size. Positioning and movement routines derive cursor state by walking backward from the write position, and hsd_80394068/hsd_80394128 return characters that debugconsole_main renders or parses.",
+    "rationale": "The current initializer, callback, navigation, and debug-console consumers preserve the same pipeline from caller-owned storage through circular report capture to display and parsing.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_393C.c#L1-L120",
+        "why": "Shows the singleton layout, initialization, report callback registration, and circular ingestion of report bytes."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1260-L1379",
+        "why": "Shows coordinate and sequential character access feeding debug-console rendering and hexadecimal parsing."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:.bss"
+  },
+  {
+    "id": "fact:142c97d5-60a1-4633-8006-5b0c9c2af605",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_393C:.bss",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes the persistent captured-report history underlying Melee's developer debug console, allowing runtime diagnostic text to be navigated, rendered, and parsed after it is emitted.",
+    "rationale": "Current debug-console code still retrieves characters from this report-history state for on-screen display and parsing, so the mapping remains valid.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1260-L1379",
+        "why": "Shows developer-console rendering and parsing code consuming the report-history accessors backed by this object."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L223-L283",
+        "why": "Shows sequential and coordinate-based character retrieval from the singleton's retained report history."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:.bss"
+  },
+  {
+    "id": "fact:5366c0ce-4c86-41b3-b400-cd0e13b1b664",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_393C:.bss",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "report console state",
+    "rationale": "The current declaration still explicitly disclaims the particle-derived name, while the object's fields and initialization continue to support report capture and console-history traversal.\n\nNaming cleanup: Selected the concise supported candidate; alternate wording remains uncertain.\nPrior naming claim: A plausible original semantic name for the BSS object is `report_state` or `report_console_state`; the current particle-derived naming is explicitly known to be a misnomer.",
+    "confidence": 0.72,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_393C.c#L1-L26",
+        "why": "Defines the state layout and explicitly notes that its particle-derived name is a non-particle-related misnomer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L72-L112",
+        "why": "Shows the object controlling HSD report callback capture and its backing storage."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:.bss"
+  },
+  {
+    "id": "fact:47778c2d-a60b-48f3-8080-addf69c4a303",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_393C:.bss",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A 0x28-byte report-console state structure: two activation bitflags at 0x00; an external `u8*` history buffer at 0x04; `u32` buffer size at 0x08; circular write position at 0x0C; four byte-sized fields at 0x10\u20130x13, with 0x11 serving as the current input-line length; integer cursor column and row at 0x14 and 0x18; backward history distance and selected-line length at 0x1C and 0x20; and an unresolved four-byte trailing field at 0x24.",
+    "rationale": "The current declaration retains the 0x28-byte physical layout, and the callback and cursor routines continue to demonstrate the stated roles for the buffer, write position, line length, coordinates, and backward offset.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_393C.c#L1-L26",
+        "why": "Provides the current field offsets, scalar shapes, trailing opaque field, and 0x28-byte size assertion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L30-L71",
+        "why": "Demonstrates the buffer pointer, capacity, write position, current-line length, and counters during report ingestion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L110-L147",
+        "why": "Demonstrates the column, row, backward-offset, and selected-line-length fields during cursor positioning."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:.bss"
+  },
+  {
+    "id": "fact:32d0db1f-58fb-45c9-a204-54dcbc2dc09a",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_393C:.bss",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the persistent report-capture and text-history cursor state used by the developer debug console, including the external history buffer configuration, circular write position, current input-line length, and the current history-reading position.",
+    "rationale": "The current singleton declaration and its ingestion and navigation users continue to establish it as the shared state joining HSD report capture to debug-console browsing.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_393C.c#L1-L26",
+        "why": "Defines the sole 0x28-byte state object and its buffer, size, flag, write-position, and cursor fields."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L30-L147",
+        "why": "Shows the object being mutated by report ingestion and used to maintain the logical history cursor."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:.bss"
+  },
+  {
+    "id": "fact:d2d87428-afaa-40a2-890b-f5e9ec2b4236",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_393C:.bss",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Initialization marks the state available and report capture enabled. Capture can subsequently be toggled by installing or removing the HSD report callback while preserving and returning the prior enable state. Cursor operations are inactive until initialization, clamp columns to the selected line length, bound backward traversal by the buffer size and available row count, and automatically move to the preceding stored line when a sequential read reaches the current line end.",
+    "rationale": "The enable routine controls callback installation through one flag, initialization sets both flags, navigation guards on the initialized flag and clamps or bounds its coordinates, and sequential reading resets the column and moves one row backward at line termination.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T12:52:24.533Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L72-L112",
+        "why": "Shows initialization and the enabled/disabled report-callback transitions."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L113-L223",
+        "why": "Shows initialization guards, bounded row traversal, and cursor clamping."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L224-L334",
+        "why": "Shows guarded character reads and the transition to the preceding line when the line end is reached."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:.bss"
+  },
+  {
+    "id": "fact:74d7aa64-8906-4da4-9876-a8d865d2820a",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:fn_80393C14",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The function snapshots the shared buffer size, write position, output pointer, and partial-line length; scans the input span; writes ordinary bytes and one-byte line-length markers at modulo-wrapped positions; increments the stored-byte counter for every write and the line counter for every marker; then commits the updated write position and partial-line length back to ParticleConsoleState.",
+    "rationale": "Each ordinary byte is copied from buf[i] to out_buf[write_pos], marker writes and all position advances are explicit, and the final assignments persist the two locally cached pieces of state. The x1C and x18 increments distinguish total buffered distance from completed-line count.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T12:49:21.687Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L30-L71",
+        "why": "Directly shows the input scan, modulo-indexed output writes, counter updates, and final state commit."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:fn_80393C14"
+  },
+  {
+    "id": "fact:ba10e846-3b99-4687-933a-3aba88a4715b",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:fn_80393C14",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_ConsoleReportCallback",
+    "rationale": "The current source directly registers this routine through HSD_SetReportCallback, and its body stores incoming report text in console-history state; the exact original spelling remains uncertain.",
+    "confidence": 0.67,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L30-L98",
+        "why": "Shows the routine ingesting report bytes and being installed as the HSD report callback."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:fn_80393C14"
+  },
+  {
+    "id": "fact:23bfba36-e1d1-4121-bd3c-1511aa5de2f1",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:fn_80393C14",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "HSD report-output callback with signature void (const u8* buf, size_t size), where buf is an immutable byte span and size is its byte count.",
+    "rationale": "The current definition provides the signature, consumes exactly the supplied byte count without writing through buf, and is registered as an HSD report callback.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L30-L98",
+        "why": "Shows the exact callback signature, byte-span iteration, and registration through HSD_SetReportCallback."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:fn_80393C14"
+  },
+  {
+    "id": "fact:6fc5f15f-f56a-4a70-a13b-c2577ce6e20c",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:fn_80393C14",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Acts as the diagnostic report callback that appends incoming report text to the console's bounded history, encoding line boundaries so later console-navigation and character-reading routines can traverse the newest lines.",
+    "rationale": "The current body writes accepted characters and line-length trailers into the shared circular buffer, and the same unit's cursor routines interpret those trailers.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L30-L71",
+        "why": "Shows report-byte ingestion, line-length marker encoding, modulo wrapping, and state updates."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L110-L220",
+        "why": "Shows later cursor routines traversing the encoded line-length trailers."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:fn_80393C14"
+  },
+  {
+    "id": "fact:886546d5-98a4-441d-95ec-211ded153fbc",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:fn_80393C14",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Carriage returns are discarded. A newline completes the current line only when the line is nonempty or the byte immediately preceding the write position is nonzero; completion writes the current line length as a marker and resets that length. Ordinary bytes extend the current line, and reaching 0x36 (54) bytes forces the same marker-and-reset transition. Every write position wraps modulo the configured buffer size.",
+    "rationale": "These transitions correspond directly to the switch cases and the 0x36 length guard. The preceding-byte test suppresses a redundant empty-line marker when the prior circular-buffer byte is zero, while all position calculations use modulo out_size.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T12:49:21.687Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L30-L71",
+        "why": "Shows the carriage-return, newline, ordinary-byte, forced-wrap, marker-writing, and modulo-wrapping behavior in full."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:fn_80393C14"
+  },
+  {
+    "id": "fact:c0d34f8c-3616-42da-a2bd-c36b0c3e90fc",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393D2C",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads ParticleConsoleState.x0_b1 into old, converts enable into a normalized 0-or-1 write to that flag, and sends either fn_80393C14 or NULL to HSD_SetReportCallback. When installed, fn_80393C14 is subsequently supplied report-buffer data through HSD's stdout interception path; the function returns old to its caller.",
+    "rationale": "The toggle body still exposes the complete flag, callback, and return flow, while the current report wrapper confirms that installed callbacks receive intercepted output buffers and byte counts.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L73-L86",
+        "why": "Shows enable flowing to the normalized state flag and callback setter and the prior flag flowing to the return value."
+      },
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.c#L1-L60",
+        "why": "Shows the registered report callback receiving intercepted output data before normal stdout forwarding."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393D2C"
+  },
+  {
+    "id": "fact:6cad6c3a-6fbb-4d1e-b6e3-736cab72a633",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393D2C",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Controls whether the particle console participates in runtime diagnostic logging by observing HSD report text, without disabling the underlying stdout output path.",
+    "rationale": "The current toggle installs or removes only the observer, and the report wrapper still forwards output through the saved stdout writer regardless of observer presence.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L73-L86",
+        "why": "Shows the console report-capture flag and observer being enabled or disabled together."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+        "why": "Shows optional observer dispatch followed by unconditional forwarding to the saved stdout writer."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393D2C"
+  },
+  {
+    "id": "fact:5a108de2-251d-4fdd-8ebe-323c7a128122",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393D2C",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signed 32-bit Boolean-style setter with exact signature s32 hsd_80393D2C(s32 enable). Any nonzero enable value means enabled, and the s32 return value is the previous 0-or-1 state of ParticleConsoleState.x0_b1.",
+    "rationale": "The declaration establishes the signed 32-bit parameter and return type. The branch tests enable against zero, both assignments normalize the stored flag to 0 or 1, and the return value is captured from that flag before mutation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T12:49:24.026Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L73-L86",
+        "why": "Provides the exact signature and demonstrates Boolean interpretation, normalization, and previous-state return semantics."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393D2C"
+  },
+  {
+    "id": "fact:920ab5cd-22e5-4ce6-9825-ceda298d7956",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393D2C",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Enables or disables particle-console observation of HSD report output, updates the corresponding ParticleConsoleState flag, and returns whether that observation was enabled before the call.",
+    "rationale": "The current implementation saves the flag before mutation, installs or removes the observer according to enable, and returns the saved value.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L73-L86",
+        "why": "Shows the complete toggle, state update, callback registration or removal, and previous-state return."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+        "why": "Confirms that HSD_SetReportCallback controls an observer of intercepted report output."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393D2C"
+  },
+  {
+    "id": "fact:24e26735-e55d-4528-9b77-1dbcf15e7ad4",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393D2C",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Maintains two normalized particle-console reporting states. For enable != 0 it enters the enabled state by setting x0_b1 to 1 and replacing the global report observer with fn_80393C14; for enable == 0 it enters the disabled state by clearing x0_b1 and replacing the observer with NULL. Repeated calls still perform the assignment and registration and return the state that preceded the call.",
+    "rationale": "Both current branches unconditionally normalize the flag and replace the callback, and the report wrapper's NULL guard confirms the disabled observer state.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L73-L86",
+        "why": "Shows both normalized transitions, unconditional callback replacement, and capture of the previous state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+        "why": "Shows that report observer dispatch occurs only when the callback is non-NULL."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393D2C"
+  },
+  {
+    "id": "fact:f155d227-8e4d-4e96-a000-105c8d588dbd",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393DA0",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Receives a writable memory block and capacity from its caller; clears the first 0x24 bytes of the 0x28-byte global console state while preserving its trailing x24 field, stores the block and capacity, zeroes the entire block, enables the initialized and capture flags, and supplies fn_80393C14 to HSD_SetReportCallback. Future intercepted stdout writes then flow into that callback and are retained in the configured block.",
+    "rationale": "The current layout and initializer preserve the partial state reset, argument assignments, buffer clearing, flag changes, and callback registration, while the report wrapper confirms subsequent callback dispatch.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_393C.c#L1-L98",
+        "why": "Shows the 0x28-byte layout, reset excluding x24, caller-buffer installation, zero-fill, flags, and callback registration."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+        "why": "Shows future intercepted stdout buffers being delivered to the registered callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+        "why": "Shows the crash-handler caller supplying allocated writable storage and its capacity."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393DA0"
+  },
+  {
+    "id": "fact:5b2fb649-14ea-4f59-be53-f4a9051c81ab",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393DA0",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes the report-buffer initialization step of Melee's internal fallback crash diagnostics: when no external debugger is present, crash-handler setup allocates an 0x2000-byte workspace and invokes this routine so HSD diagnostic output can be retained in memory.",
+    "rationale": "The current crash-handler setup still invokes this initializer with an allocated workspace in its no-debugger path, and the routine registers the observer that captures HSD report traffic.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/db/dberror.c#L25-L81",
+        "why": "Shows the no-debugger branch allocating and initializing the report workspace alongside crash diagnostic callbacks."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L88-L98",
+        "why": "Shows the target preparing the supplied workspace and registering the report-capture callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+        "why": "Shows the registered callback observing HSD stdout report traffic."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393DA0"
+  },
+  {
+    "id": "fact:04e54192-a5a1-4c32-b1de-e5abbe15decd",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393DA0",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_ReportConsoleInit",
+    "rationale": "The current routine resets and initializes the console state, installs caller-owned report storage, and registers an HSD report observer; the source continues to mark the particle-derived terminology as a misnomer.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original-style semantic name is HSD_ReportConsoleInit.",
+    "confidence": 0.78,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_393C.c#L1-L98",
+        "why": "Shows the naming disclaimer and the complete initialization of a console receiving HSD report output."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+        "why": "Establishes the HSD report-callback terminology and behavior used by this subsystem."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393DA0"
+  },
+  {
+    "id": "fact:c28a91ab-f708-4fd5-8b9f-af7b1a06bdde",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393DA0",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Initialization routine with signature void (u8* buf, size_t size). buf is writable caller-owned backing storage for the report console, and size is its byte capacity; the routine returns no value and produces process-global state and callback-registration side effects.",
+    "rationale": "The matched declaration supplies the exact return and parameter types. The body stores both arguments in global state and clears exactly size bytes at buf, proving that the pointer is writable backing storage and that size is a byte capacity. Its only outputs are global memory changes and HSD report-callback registration.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T12:48:56.787Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L88-L98",
+        "why": "Provides the exact signature and shows both parameters being stored and used to clear the backing memory."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/db/dberror.c#L62-L81",
+        "why": "Shows a concrete caller passing a writable low-arena allocation and its 0x2000-byte capacity."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393DA0"
+  },
+  {
+    "id": "fact:5f53c598-a814-4a07-b29c-60f160c263fc",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393DA0",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Initializes and enables HSD's in-memory diagnostic report console using caller-supplied storage, preparing the state and registering the callback that captures subsequent report output.",
+    "rationale": "The current initializer resets the active state, records and clears the supplied storage, enables both flags, and registers the report-ingestion callback.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L30-L98",
+        "why": "Shows the report callback's storage behavior and every operation performed by the initializer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+        "why": "Shows that the installed callback observes subsequently intercepted stdout writes."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393DA0"
+  },
+  {
+    "id": "fact:c5b341e0-e4af-4958-b9f7-b850258565f7",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393DA0",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Transitions the report-console subsystem to an initialized, empty, capture-enabled state: cursor and line counters are reset, the backing buffer is zero-filled, both x0_b0 and x0_b1 become true, and fn_80393C14 becomes the active global report observer. The trailing opaque x24 state member is deliberately not cleared.",
+    "rationale": "The current partial memset stops before x24, the backing-storage memset creates empty history, and explicit flag and callback assignments establish the initialized and capture-enabled state.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_393C.c#L1-L98",
+        "why": "Shows the layout, partial state reset, buffer zero-fill, flag transitions, and observer registration."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L18-L28",
+        "why": "Shows that a non-NULL report callback constitutes the active observation state."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393DA0"
+  },
+  {
+    "id": "fact:9c53cb30-1a21-4413-a148-f35ec3b9636d",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E34",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads the current column from `hsd_804CF7E8.x14` and the current row-back offset from `hsd_804CF7E8.x18`, copying either or both into caller-owned storage. These coordinates can flow back into `hsd_80393E68` to reconstruct the same logical position in the line-indexed report-history buffer.",
+    "rationale": "The accessor directly exposes x14 and x18. The positioning routine writes those same fields from its column and row arguments after locating and clamping the requested history row, while the debug-console parser demonstrates the complete get-move-restore flow.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T15:24:46.434Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L100-L108",
+        "why": "Shows the two cursor-state fields flowing directly into caller-provided outputs."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L110-L147",
+        "why": "Shows the paired positioning routine interpreting its arguments as column and row, locating the requested history row, and updating x14 and x18."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1323-L1358",
+        "why": "Shows saved coordinates flowing back into the positioning routine after temporary report-text navigation."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E34"
+  },
+  {
+    "id": "fact:194f895f-fa18-43a2-9f6e-cf8fbdd5da19",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E34",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Supports developer-debug-console history navigation by exposing the current retained-text cursor so operations such as parsing an address at the visible cursor can temporarily reposition the history reader without losing the user's prior location.",
+    "rationale": "The debug-console address parser snapshots these coordinates, navigates to display-derived coordinates, reads report-history characters, and restores the snapshot. This grounds the accessor in the internal developer console rather than gameplay behavior.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T15:24:46.434Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1323-L1358",
+        "why": "Shows the developer debug console using the accessor to preserve its report-history cursor around temporary address parsing."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L110-L147",
+        "why": "Shows that the paired setter interprets the saved values as a column and a number of rows back in retained report history."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E34"
+  },
+  {
+    "id": "fact:5f72cb2a-3e7d-42e0-a60c-feba08cc9593",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E34",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: `void (s32* col_out, s32* row_out)`. Both parameters are optional output pointers; when supplied, each receives one signed 32-bit report-history cursor coordinate.",
+    "rationale": "The matched definition provides the exact signature and guards each pointer separately before storing a signed state field. The caller supplies addresses of two signed local variables and later passes their values back to the cursor-positioning routine.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T15:24:46.434Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L100-L108",
+        "why": "Directly establishes the void return type, two s32 pointer parameters, independent NULL handling, and output assignments."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1323-L1358",
+        "why": "Shows both parameters used as output destinations whose resulting coordinates are subsequently consumed."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E34"
+  },
+  {
+    "id": "fact:77ce6e0c-57a8-4efb-a5ef-61d4e8a35a9f",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E34",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Returns the report-console history cursor's current column and row through independently optional output pointers, allowing callers to snapshot its position before temporarily navigating the retained report text.",
+    "rationale": "The function copies the console state's cursor column and row into non-NULL destinations. Its debug-console caller uses both outputs to save the current history position, moves the cursor to parse text elsewhere, and then restores the saved coordinates.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T15:24:46.434Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L100-L108",
+        "why": "Shows the complete accessor copying state fields x14 and x18 into independently nullable column and row outputs."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1323-L1358",
+        "why": "Shows a caller using the function to snapshot the report-console cursor before temporary text parsing and restoring it afterward."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E34"
+  },
+  {
+    "id": "fact:22bba485-ed6d-405a-a60d-cf84262cd925",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E34",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The accessor is unconditional with respect to console initialization and does not modify cursor state. Each output is handled independently: a NULL column pointer suppresses only the column write, and a NULL row pointer suppresses only the row write; if both are NULL, the call has no effect.",
+    "rationale": "The complete body contains only two independent NULL-guarded assignments and has no initialization check, transition, callback, or state mutation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T15:24:46.434Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L100-L108",
+        "why": "Shows the accessor's entire control flow, including independent NULL guards and read-only access to the cursor state."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E34"
+  },
+  {
+    "id": "fact:68c2c13c-b7f9-4890-b5df-6ca21048b105",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E68",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads the console singleton's initialization flag, current line length, ring-buffer size, backing-buffer pointer, and write position. It follows line-length trailers backward using modulo buffer indices, then writes the resolved row to x18, backward byte distance to x1C, selected line length to x20, and clamped column to x14.",
+    "rationale": "Every listed input and output is directly visible in the function. The expression out_buf[(write_pos + buffer_size - pos) % buffer_size] reads predecessor line lengths while preserving circular addressing.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T12:51:24.803Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L110-L147",
+        "why": "Directly shows all singleton fields read, the modulo-indexed line-length lookup, and all four cursor-state fields written."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E68"
+  },
+  {
+    "id": "fact:f5c56e84-b01a-496f-acc3-e48217cefb9d",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E68",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_ConsoleSetPos",
+    "rationale": "The current function accepts absolute column and row coordinates and replaces all logical cursor metadata, while the unit remains explicitly console-related rather than particle-related.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is HSD_ConsoleSetPos.",
+    "confidence": 0.62,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L110-L147",
+        "why": "Shows the routine setting the console cursor's column, row, backward buffer position, and selected-line length."
+      },
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_393C.c#L1-L26",
+        "why": "Shows that the particle-derived state name is explicitly a non-particle-related misnomer."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E68"
+  },
+  {
+    "id": "fact:7ed98793-756a-4eb0-a988-dcfde03c7d22",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E68",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: void (u32 column, u32 rows_back). Both parameters are nonnegative cursor coordinates; rows_back counts lines from the current unfinished line, while column is bounded to the selected line's byte length.",
+    "rationale": "The declared signature uses two u32 parameters. The row argument bounds a line-traversal counter, and the column argument is compared with the discovered one-byte line length before being stored.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T12:51:24.803Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L110-L147",
+        "why": "Provides the concrete signature and shows the units and bounds applied to each parameter."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E68"
+  },
+  {
+    "id": "fact:1aad9e7d-0f53-4787-8128-a7f3c2b19a20",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E68",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Positions the debug-report console's read cursor at a requested column and number of lines backward from the current line, stopping at the oldest line still representable by the circular buffer.",
+    "rationale": "The function begins with the current unfinished-line length, walks backward through stored line-length trailer bytes until it reaches the requested row or the buffer-size bound, then stores the resulting row, backward position, line length, and clamped column as the active cursor state.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T12:51:24.803Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L110-L147",
+        "why": "Shows the backward line traversal and assignment of the resulting row, position, line length, and bounded column to the console singleton."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E68"
+  },
+  {
+    "id": "fact:a082af35-e0c2-4656-8b3e-6e483b790a17",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393E68",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "If the console is uninitialized, the function leaves state unchanged. Otherwise it starts at row zero on the current line, advances backward one encoded line at a time while both the requested row and buffer-capacity guards permit, records the number of rows actually reached, and clamps the requested column to the selected line length.",
+    "rationale": "The early initialization guard, dual-condition traversal loop, actual counter assignment, and final min-like column selection explicitly define these state transitions and bounds.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T12:51:24.803Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L110-L147",
+        "why": "Shows the no-op guard, bounded traversal, actual-row recording, and column clamping."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393E68"
+  },
+  {
+    "id": "fact:f88b3c7b-f770-4ccf-ba5e-a41cd387c0d2",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393EF4",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads the console's active flag, buffer size, write position, output buffer, current column and row, current history byte offset, and current line length. For positive row movement it walks backward through length-prefixed lines using (write_position + buffer_size - offset) modulo buffer_size, then writes the new row, byte offset, line length, and adjusted column. For negative movement or an exhausted offset it passes clamped absolute coordinates to hsd_80393E68.",
+    "rationale": "Every stated input and output corresponds to a direct field read or write in the matched body. The modulo expression identifies circular-buffer addressing, the loaded byte controls the next record stride, and the helper's body confirms that the delegated values are absolute coordinates.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T12:51:07.111Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L149-L220",
+        "why": "Shows the complete relative-movement field flow, length-byte traversal, modulo indexing, state writes, and helper calls."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L103-L148",
+        "why": "Shows how hsd_80393E68 consumes absolute coordinates and writes the same row, offset, line-length, and column state."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393EF4"
+  },
+  {
+    "id": "fact:436cc383-4c8a-4cd3-9a61-edaa15a0a2cf",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393EF4",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes relative navigation through retained HSD debug-report console history, allowing console readers to move among buffered lines and select a valid character position.",
+    "rationale": "The current routine changes the row, circular-buffer offset, line length, and column consumed by the adjacent report-character readers.",
+    "confidence": 0.95,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L149-L220",
+        "why": "Shows relative movement through line-length metadata and updates to the logical history cursor."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L221-L303",
+        "why": "Shows subsequent character readers consuming the cursor position maintained by this function."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393EF4"
+  },
+  {
+    "id": "fact:464510a6-d60a-4325-a322-afa6f99b5dc4",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393EF4",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_ConsoleMovePosition",
+    "rationale": "Within the current report-console API neighborhood, this routine specifically applies signed relative row and column movement to the saved cursor; no retained symbol confirms the exact original spelling.",
+    "confidence": 0.57,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L149-L220",
+        "why": "Shows the routine applying relative column and row deltas to the console's saved read position."
+      },
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_393C.c#L1-L120",
+        "why": "Establishes the surrounding HSD report-console subsystem and its initialization and absolute-position APIs."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393EF4"
+  },
+  {
+    "id": "fact:6088e438-6dff-4723-9260-03ee0ccd9b61",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393EF4",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "void function taking two signed 32-bit relative offsets: a column delta measured in characters and a row delta measured in buffered text lines.",
+    "rationale": "The matched signature is void hsd_80393EF4(int col_delta, int row_delta). Arithmetic against the saved column establishes the first parameter's character-position role, while loop bounds and updates against the saved row establish the second parameter's line-count role.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T12:51:07.111Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L149-L220",
+        "why": "Provides the exact signature and shows how each signed parameter is consumed."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393EF4"
+  },
+  {
+    "id": "fact:3a54bf55-2be7-497f-bf01-7b408f7de1a5",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393EF4",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Moves the report-console read position by signed row and column deltas, locating the destination line in the circular history buffer and keeping the column within that line.",
+    "rationale": "The function accepts signed deltas, traverses stored line-length records for positive row movement, updates the shared row and byte-offset state, and either adjusts or clamps the column. Negative movement is converted to an absolute position and delegated to the absolute seek helper.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T12:51:07.111Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L149-L220",
+        "why": "Shows relative row traversal, row and byte-offset updates, column adjustment and clamping, and fallback to absolute seeking."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L103-L148",
+        "why": "Shows that the delegated helper interprets its arguments as an absolute column and row and derives the corresponding line offset and length."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393EF4"
+  },
+  {
+    "id": "fact:8f2f45ca-8fdb-406a-bb59-e7f915a881a1",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80393EF4",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Returns without effect when the console is inactive. If the saved history offset is already at or beyond buffer capacity, it delegates the requested destination to the absolute seek helper. A positive row delta advances only while both the requested line count and buffer bound permit, then clamps horizontal movement to [0, destination_line_length]. A negative row delta saturates the computed column and row at zero before absolute seeking; a zero row delta performs no movement.",
+    "rationale": "These guards and transitions follow the body's branch structure: inactive and exhausted-position checks precede traversal, the positive loop has both delta and capacity bounds, separate positive and negative column branches enforce upper and lower limits, and the negative-row branch explicitly prevents underflow before calling the absolute helper.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T12:51:07.111Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L149-L220",
+        "why": "Directly shows all activation guards, traversal bounds, saturation rules, state transitions, and the absence of a zero-row branch."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80393EF4"
+  },
+  {
+    "id": "fact:2d5c805f-af12-4cfe-8a98-72c98da0594b",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394068",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads the module-private console state's enabled flag, buffer size, buffered-span counter, current column, selected-line length, write position, and output-buffer pointer. For a valid column it loads `out_buf[(column + write_position + buffer_size - selected_span) % buffer_size]`, increments the current column, and returns the byte. Rendering code consumes that byte as a masked font-glyph index, while the debug address parser consumes successive bytes as hexadecimal digits.",
+    "rationale": "The current getter preserves the exact circular-buffer lookup and cursor side effect, and current callers continue to use its bytes for glyph selection and hexadecimal conversion.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L222-L245",
+        "why": "Shows the state inputs, modulo byte lookup, returned byte, and successful column increment."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L640-L760",
+        "why": "Shows the returned byte being masked and used to select a debug-font glyph."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1260-L1379",
+        "why": "Shows successive returned bytes being classified and accumulated as hexadecimal digits."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394068"
+  },
+  {
+    "id": "fact:a004705f-66a0-42fa-8ab9-0c7280038a42",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394068",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_ConsoleGetChar",
+    "rationale": "The current no-argument routine returns one character from the active console cursor and advances that cursor, while debug-console rendering uses it as a sequential getter.",
+    "confidence": 0.62,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L222-L245",
+        "why": "Shows a sequential one-character retrieval operation over the console state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L640-L760",
+        "why": "Shows the getter being used by HSD debug-console text rendering."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394068"
+  },
+  {
+    "id": "fact:cb2f66ed-62b5-4f7e-82ce-3e38a83da965",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394068",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A no-argument character getter with signature `u8 (void)`; its `u8` result is either a buffered character or zero as a sentinel.",
+    "rationale": "Although the former header citation no longer resolves, the current function definition itself establishes the complete signature and all return paths.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L222-L245",
+        "why": "Defines the exact no-argument u8-returning signature and shows buffered-byte and zero-sentinel returns."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394068"
+  },
+  {
+    "id": "fact:1d0ef9f0-7562-48c7-97e6-94d9fec63d19",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394068",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Returns the next character at the debug-report console's current text cursor, using zero as the unavailable or end-of-line sentinel and advancing the cursor after a successful read.",
+    "rationale": "The current body preserves the guarded byte lookup and cursor advance, while the renderer still repeatedly calls it until zero terminates the row.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L222-L245",
+        "why": "Shows the guards, circular-buffer load, column increment, zero sentinel, and line-boundary handling."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L640-L760",
+        "why": "Shows the renderer repeatedly calling the function and stopping a row when zero is returned."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394068"
+  },
+  {
+    "id": "fact:83bdf119-d91a-41e1-9a77-70f4049a0200",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394068",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Returns zero without mutation when the console is disabled or the selected buffered span exceeds the buffer capacity. While the current column is below the selected line length, it returns that column's byte and advances the column by one. At the line boundary it returns zero, requests relative cursor movement by `(0, -1)`, and resets the column to zero.",
+    "rationale": "These are the function's complete guarded branches and mutations. The relative-movement callee implements negative-row movement by recomputing an earlier row selection, so the boundary branch is a cursor transition in addition to producing the zero sentinel.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T12:50:00.489Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L222-L245",
+        "why": "Directly shows both early-return guards, successful-read transition, and end-of-line transition."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L103-L221",
+        "why": "Shows that hsd_80393EF4 interprets negative row movement by adjusting the current row and recomputing the absolute cursor."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394068"
+  },
+  {
+    "id": "fact:3bd8bd23-1108-4503-880b-ed5e999d3e1c",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394128",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The requested column and row are passed to hsd_80393E68, which updates the singleton's selected column, row, backward offset, and line length. hsd_80394128 then reads out_buf[(selected_col + write_pos + capacity - selected_offset) % capacity], increments the selected column after a successful read, and returns the byte to debug-console drawing and navigation code.",
+    "rationale": "The current positioner and accessor preserve the complete coordinate-to-ring-byte flow, and the debug-console navigation handler still branches on the returned byte.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L113-L222",
+        "why": "Shows absolute positioning deriving the selected row, backward offset, line length, and clamped column."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L247-L271",
+        "why": "Shows the modulo-capacity byte lookup, successful column increment, and returned byte."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1420-L1500",
+        "why": "Shows the returned byte controlling whether a proposed debug-console cursor position is accepted."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394128"
+  },
+  {
+    "id": "fact:4acee42b-7007-48cd-b6d9-12359d81043f",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394128",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes coordinate probing for Melee's developer-facing debug console and crash/debugger display, where captured report text is browsed on screen and its availability is used by cursor, timeout, and memory-dump workflows.",
+    "rationale": "Current debug-console code continues to use the accessor for coordinate validation, glyph selection, report-row probing, and the memory-dump command's report-buffer check.",
+    "confidence": 0.94,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1260-L1379",
+        "why": "Shows coordinate probing and rendering of the selected report character."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1420-L1500",
+        "why": "Shows directional cursor navigation using the accessor to test whether text exists at a proposed coordinate."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1759-L1844",
+        "why": "Shows the memory-dump command enabling report capture and probing coordinate (0, 0) before emitting dump lines."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394128"
+  },
+  {
+    "id": "fact:21e5ef08-828d-44c3-b612-ad82f791c9f0",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394128",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_ConsoleGetCharAt",
+    "rationale": "Although the former header citation is gone, the current source still places this coordinate-based byte accessor directly after the sequential character getter, supporting the semantic distinction expressed by GetCharAt.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: Likely HSD_ConsoleGetCharAt.",
+    "confidence": 0.62,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L223-L283",
+        "why": "Shows the parameterless sequential getter immediately followed by this two-coordinate byte accessor over the same console state."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394128"
+  },
+  {
+    "id": "fact:136d97a6-608e-4ad8-b021-ed123a42fe13",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394128",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Coordinate-based byte accessor with signature u8 (s32 col, s32 row); the return domain is a stored report byte, with 0 serving as the unavailable/end sentinel.",
+    "rationale": "The current definition replaces the unresolved header as direct evidence for both signed coordinate parameters, the u8 return type, stored-byte results, and zero-sentinel paths.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L247-L271",
+        "why": "Defines the exact u8-returning two-s32-parameter signature and shows stored-byte and zero-sentinel returns."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1260-L1379",
+        "why": "Shows callers interpreting nonzero results as characters and substituting a space for an unavailable result."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394128"
+  },
+  {
+    "id": "fact:947b1c9e-041b-4b24-850d-292532239115",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394128",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Returns the report-history character at a requested logical console column and row, using zero to report an unavailable, invalid, or end-of-line position.",
+    "rationale": "The current implementation positions the shared cursor, validates state and retained range, and returns either the selected circular-buffer byte or zero; callers still use that result for display and cursor validation.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L247-L271",
+        "why": "Shows coordinate positioning, state validation, byte lookup, and all zero-return paths."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1260-L1379",
+        "why": "Shows the result being used to probe report rows and draw an on-screen character."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L1420-L1500",
+        "why": "Shows cursor-navigation code accepting or rejecting a coordinate according to the accessor's nonzero result."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394128"
+  },
+  {
+    "id": "fact:2369958e-1673-48eb-a425-e532acd6a92c",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_80394128",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Each call resets the shared read cursor to the requested coordinates. It returns zero without reading when the console is disabled or the selected history offset exceeds capacity. A valid in-line position returns one byte and advances the column; a position at or beyond the selected line length returns zero, applies a (0, -1) cursor movement, and resets the column to zero.",
+    "rationale": "All guards and transitions occur directly in the matched body, including the initial absolute positioning and the distinct successful-read and line-end state updates.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T12:49:18.314Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L247-L271",
+        "why": "Shows the absolute positioning call, enabled and capacity guards, successful column advance, and line-end movement/reset."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L113-L222",
+        "why": "Shows how the called movement routine interprets a negative row delta and recomputes the shared cursor."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_80394128"
+  },
+  {
+    "id": "fact:49c8cf5c-fc48-44f5-a27f-2f715038279f",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_803941E8",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "After HSD_VIWaitXFBFlushNoYield returns, HSD_VIGetXFBLastDrawDone supplies an XFB-array index or -1. A nonnegative index selects HSD_VIData.xfb[last_draw].buffer for the current-framebuffer output. The function then walks the configured HSD_VIData XFB records in index order, skips last_draw, and places the first two encountered nonzero buffer addresses into xfb_out[0] and xfb_out[1]. If xfb_out[0] remains zero and a current-output pointer was supplied, that saved current address is transferred into xfb_out[0] and the current slot is cleared. The debug-console initializer consumes the primary outputs as its render buffers.",
+    "rationale": "The current video helpers and selection body preserve the source and transformation of all XFB values, while the current caller stores the selected addresses in persistent debug-console display state.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/video.c#L322-L379",
+        "why": "Shows the flush draining pending XFB states and the last-drawn query producing the selected XFB index."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L273-L334",
+        "why": "Shows the last-drawn and configured XFB buffers flowing into the current and two primary output slots, including fallback transfer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L555-L596",
+        "why": "Shows the selected addresses entering persistent debug-console screen state and determining framebuffer mode."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_803941E8"
+  },
+  {
+    "id": "fact:caed417f-79bc-445a-93ab-95fad9212caa",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_803941E8",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Supports Melee's internal runtime crash diagnostics by handing the debug console safe framebuffer addresses that it can clear, render into, flush, and submit to VI while presenting panic or OS-exception information.",
+    "rationale": "The current crash handlers still launch the saved-context debug-console path, whose initializer obtains XFBs from this target and whose thread later renders and presents those buffers.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L555-L596",
+        "why": "Shows the debug-console display initializer obtaining its framebuffer slots from this target."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/db/dberror.c#L27-L60",
+        "why": "Shows panic and OS-error handlers reporting crash information and launching the context-bearing debug-console path."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L2810-L2863",
+        "why": "Shows the debug thread rendering into the selected slots, flushing them, and submitting them to VI."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_803941E8"
+  },
+  {
+    "id": "fact:7f7d9f9f-090b-4912-bb40-63532dbfba7d",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_803941E8",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_DebugConsoleSelectXFBs",
+    "rationale": "The current routine synchronizes the XFB pipeline and selects external framebuffers specifically for the debug-console display initializer; no preserved symbol confirms the exact wording.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original-style name is HSD_DebugConsoleSelectXFBs.",
+    "confidence": 0.67,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L273-L334",
+        "why": "Shows synchronization and ordered selection of XFB addresses."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L555-L596",
+        "why": "Shows those selected addresses initializing the HSD debug console's persistent display state."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_803941E8"
+  },
+  {
+    "id": "fact:8c10989d-4ea2-4397-a13e-3ab6156d275a",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_803941E8",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Declared signature: s32 hsd_803941E8(void* xfb_out_ptr, void* xfb_cur_ptr). Semantically, xfb_out_ptr addresses at least two writable 32-bit XFB-address slots, while xfb_cur_ptr addresses one writable 32-bit slot for the last-drawn framebuffer. The result is nominally the number of selected primary XFB slots: 0, 1, or 2.",
+    "rationale": "The current definition supplies the exact declaration, casts and writes both output forms, and returns 0, 1, or 2; the current caller passes adjacent framebuffer fields from a zeroed state object.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L273-L334",
+        "why": "Provides the exact signature, argument casts, output writes, and complete return-value domain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L555-L596",
+        "why": "Shows the concrete caller passing two primary framebuffer fields and one current-framebuffer field from zeroed state."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_803941E8"
+  },
+  {
+    "id": "fact:674e7fb9-9627-4eb8-be90-69d1a0a8dc72",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_803941E8",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Drains pending external-framebuffer presentation work, identifies the last-drawn XFB, and selects up to two other configured XFB addresses for the debug console. If no separate first buffer is available, it can move the last-drawn address into the first output slot as a fallback.",
+    "rationale": "The current body still performs the no-yield flush, last-drawn lookup, ordered scans excluding that slot, and fallback transfer, and its caller uses the outputs for debug-console display setup.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L273-L334",
+        "why": "Shows the pipeline drain, last-drawn lookup, two ordered XFB scans, fallback transfer, and return selection."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L555-L596",
+        "why": "Shows the debug-console initializer supplying its framebuffer slots and deriving display mode from the selected outputs."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_803941E8"
+  },
+  {
+    "id": "fact:d8ad6890-8332-4078-a30b-f304e2dc586c",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_393C:hsd_803941E8",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Selection begins only after the multi-XFB pipeline has been synchronously drained. The last-drawn slot is excluded from both primary-buffer scans. The second scan starts after the index at which the first scan stopped, preserving slot order and preventing reuse. If the first primary slot is zero, a non-NULL current-slot pointer enables fallback by moving its value into the first slot; a NULL current-slot pointer instead yields 0. Otherwise the function returns 2 exactly when the second primary slot is nonzero and returns 1 in all remaining cases. In its known caller, all output storage is zero-initialized before selection.",
+    "rationale": "The current scan indices, exclusion checks, fallback branch, and final return test preserve the stated zero-, one-, and two-buffer transitions, while the current caller still clears the destination state first.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:33:10.726Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L273-L334",
+        "why": "Shows synchronization, exclusion of the last-drawn slot, ordered scans, fallback behavior, and exact return branches."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L555-L596",
+        "why": "Shows the known caller zero-initializing all destination storage before selection and deriving one- versus two-buffer mode afterward."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_393C:hsd_803941E8"
+  },
+  {
+    "id": "fact:cbc7882c-1409-4b15-b030-f05595ccacd7",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_393C.c",
+    "type": "data_flow",
+    "value": "Initialization receives caller-owned byte storage and its size, clears both the report state and destination, and installs fn_80393C14 as HSD's report callback. Incoming report bytes are appended modulo the configured size with line-length markers; cursor routines walk those markers backward from the current write position, and debugconsole_main consumes the resulting characters and cursor coordinates for display and parsing.",
+    "rationale": "Current initialization and ingestion code preserves the caller-storage and report-callback input path, while current navigation and readback code continues to consume line trailers to produce cursor positions and report characters.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L1-L120",
+        "why": "Shows caller storage initialization, callback registration, and modulo-capacity text ingestion with line-length trailers."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L121-L240",
+        "why": "Shows backward traversal through line-length metadata and sequential character output."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L241-L331",
+        "why": "Shows indexed character retrieval from the retained report history."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_393C.c"
+  },
+  {
+    "id": "fact:8c95ac95-e955-4a1b-87ef-0d5fd4ef07d5",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_393C.c",
+    "type": "game_mapping",
+    "value": "Implements the captured text-history and navigation backend of Melee's developer debug console rather than particle gameplay or particle rendering.",
+    "rationale": "The current source explicitly labels the retained particle-derived state name a misnomer and implements report capture, navigation, and readback rather than particle simulation or rendering.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L1-L120",
+        "why": "States that `ParticleConsoleState` is a misnomer and shows developer report-history capture."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L121-L240",
+        "why": "Shows the report-history navigation and character-reading backend."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_393C.c"
+  },
+  {
+    "id": "fact:63eea8eb-10a3-48f3-9307-8ccb127dfbe9",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_393C.c",
+    "type": "inferred_type",
+    "value": "The console portion owns a 0x28-byte singleton control state and operates on a caller-owned u8 circular buffer. Text is stored as character bytes with a one-byte line-length trailer for each completed line; the current unfinished line length remains in the control state.",
+    "rationale": "The current declaration retains the 0x28-byte size assertion, and the report callback and initializer preserve the caller-owned circular buffer, character-byte storage, line-length trailers, and unfinished-line counter.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L1-L120",
+        "why": "Defines the 0x28-byte singleton and shows characters and line-length trailers entering caller-provided circular storage."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_393C.c"
+  },
+  {
+    "id": "fact:6e209ece-ab57-4c55-8513-61940f856402",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_393C.c",
+    "type": "purpose",
+    "value": "Provides the report-history backend for the developer debug console: it captures HSD report text into bounded storage, tracks a row-and-column cursor, supports positioning and sequential character reads through stored lines, and includes a helper that waits for video flush completion and selects available external frame buffers.",
+    "rationale": "The current unit still registers its report callback, captures line-oriented history, exposes cursor and character operations, and ends with the VI flush and frame-buffer selection helper.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L1-L120",
+        "why": "Shows report callback registration, bounded storage initialization, and report-byte ingestion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L121-L240",
+        "why": "Shows line navigation and sequential character retrieval."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L241-L331",
+        "why": "Shows random-access retrieval and the VI flush and external-framebuffer helper."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_393C.c"
+  },
+  {
+    "id": "fact:095e2572-c15a-49b3-b644-11f8a3aa1ac2",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_393C.c",
+    "type": "state_behavior",
+    "value": "The module has an initialized/enabled guard, a separately toggled report-capture callback, a circular write cursor with current-line length, and a logical read cursor consisting of column, row, backward byte offset, and selected-line length. Reads and navigation return or do nothing while uninitialized, reject history whose offset has exceeded capacity, clamp columns to the selected line, and use zero as the end/invalid-character sentinel.",
+    "rationale": "Current initialization, callback toggling, cursor navigation, sequential reads, and indexed reads retain these guards, cursor fields, capacity checks, clamping rules, and zero sentinel behavior.",
+    "confidence": 0.94,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L1-L120",
+        "why": "Shows initialized and callback-enabled flags, write position, current-line length, and callback toggling."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L121-L240",
+        "why": "Shows cursor movement, capacity validation, column clamping, and zero sentinel returns."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_393C.c#L241-L331",
+        "why": "Shows the same initialization, capacity, and sentinel guards in indexed character retrieval."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_393C.c"
+  }
+]

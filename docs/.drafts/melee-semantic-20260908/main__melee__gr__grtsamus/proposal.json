@@ -1,0 +1,244 @@
+{
+  "tu": "main/melee/gr/grtsamus",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtsamus:grTSamus_80223738"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Stored in callback1 of grTSs_StageCallbacks row 0. If invoked, it ignores its Ground_GObj* argument and returns false without calls or writes. The local Ground_SetupStageCallbacks path does not read or install callback1, so this table reference alone does not establish runtime predicate dispatch.",
+        "rationale": "Corrects the unsupported claim that indexed callback setup installs and dispatches this predicate.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L36-L43",
+            "why": "Row 0 predicate reference."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L116-L119",
+            "why": "Complete ignored-input, false-return body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Actual setup does not consume callback1."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtsamus:grTSamus_80223798"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Stored in callback1 of grTSs_StageCallbacks row 2. If invoked, it ignores its Ground_GObj* argument and returns false without calls or writes. The local Ground_SetupStageCallbacks path does not read or install callback1; indexed row selection therefore does not prove this predicate is dispatched.",
+        "rationale": "Separates proven table membership and body behavior from unproven installation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L51-L57",
+            "why": "Row 2 predicate reference."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L130-L133",
+            "why": "Complete predicate body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "No callback1 installation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtsamus:grTSamus_80223828"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Stored in callback1 of grTSs_StageCallbacks row 1. If invoked, it ignores its Ground_GObj* argument and returns false without calls or writes. Although the factory selects row 1 for object ID 1, Ground_SetupStageCallbacks does not consume callback1, so this setup path does not establish predicate dispatch.",
+        "rationale": "Corrects the inference that the entire selected callback record is installed.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L44-L50",
+            "why": "Row 1 predicate reference."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L148-L151",
+            "why": "Complete predicate body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Actual consumed callback fields."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtsamus:grTSamus_802237A0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Calls parameterless lb_800115F4 before forwarding its Ground_GObj* unchanged to Ground_801C2FE0, whose Boolean result is discarded. The first helper traverses the global active dynamics list, sums pre-update scale for x0 == 1 records, subtracts x24 with a lower clamp, decrements positive lifetime counters, increments angle counters, recycles zero-lifetime records into the free list, and updates shared status. The collision helper uses Ground.map_id, and when its map-state entry is zero, refreshes matching StageData joints and marks their generation; it then refreshes archive joints whose generation differs, if an archive exists. The descriptor loop itself does not deduplicate repeated joint indices.",
+        "rationale": "Preserves ordered cross-file flow while correcting unconditional decay and universal uniqueness claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L135-L139",
+            "why": "Call order and ignored result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00F9.c#L940-L992",
+            "why": "Exact list arithmetic, recycling and status update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1676-L1732",
+            "why": "Map guard, two distinct loops and nullable archive."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtsamus:grTSamus_802237A0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The wrapper unconditionally calls dynamics maintenance and then collision refresh. Dynamics scale becomes max(scale - x24, 0); this code does not enforce a nonnegative x24. A lifetime counter decrements only when positive, and a record is recycled exactly when the resulting counter is zero; negative counters persist through this test. Activity uses the pre-update scale sum of x0 == 1 records: if the sum exceeds 0.1, status becomes 2 when the previous status was positive and 1 otherwise; if not, status becomes -1 when the previous status was positive and 0 otherwise. Collision processing is skipped for a nonzero map-state entry. Enabled passes increment the shared generation, process matching descriptor entries, and generation-check archive entries to suppress repeats there; a missing archive skips only the archive loop.",
+        "rationale": "Makes exceptional lifetime and scale cases, numeric status transitions, and the scope of collision deduplication explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L135-L139",
+            "why": "Unconditional ordered wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00F9.c#L940-L992",
+            "why": "All numeric update branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1676-L1732",
+            "why": "Guard, generation and archive branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtsamus:grTSamus_OnStart"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Takes no arguments, passes NULL as the grZakoGenerator_SpawnDesc* argument to grZakoGenerator_801CAE04, and discards that function's nullable HSD_GObj* result. The callee obtains generator data and attempts GObj creation. On failure it reports, frees that data, and returns NULL; on success it schedules fn_801CADBC at priority 0, stores the supplied descriptor pointer and data pointer in lbl_8049F030, and returns the new object. The Samus wrapper retains no local handle and performs no failure recovery.",
+        "rationale": "Corrects both the argument type and the false claim that the callee returns void, while recording the actual cross-file publication and cleanup.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L84-L87",
+            "why": "NULL call and discarded result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Signature, creation, failure cleanup and global publication."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtsamus:grTSamus_OnStart"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Performs Samus Target Test's stage-start handoff to the common Zako generator by requesting creation with no supplied spawn-descriptor table. It discards the nullable generator GObj returned by the creation routine.",
+        "rationale": "NULL denotes the SpawnDesc input, not an absent associated GObj; the callee creates the GObj.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L61-L87",
+            "why": "Stage-start registration and call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "SpawnDesc pointer input and GObj return."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtsamus:grTSamus_OnInit"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Delegates to Ground_InitTargetStage, which clears stage_info.unk8C.b4, sets b5, invokes the supplied factory for object IDs 0, 1, and 2 in that order, then calls Ground_801C39C0, Ground_801C3BB4, Ground_801C4210, and Ground_801C42AC. This helper ignores all three nullable factory results and does not short-circuit or roll back after a failed object retrieval.",
+        "rationale": "Adds useful missing initialization ordering and failure propagation without assigning unsupported meanings to the stage bits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L77-L80",
+            "why": "Local factory passed to shared initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L51-L62",
+            "why": "Exact state writes, call ordering and ignored results."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L94-L108",
+            "why": "Factory can return NULL after reporting failure."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gr/grtsamus.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "grTSs_StageData associates Gr_Kind_TSamus, /GrTSs.dat, lifecycle hooks, and three populated Ground-object callback rows. Initialization supplies the indexed factory to Ground_InitTargetStage. On successful object retrieval, Ground_SetupStageCallbacks clears Ground.x8_callback and xC_callback, establishes the Ground display GX link with arguments 3 and 0, stores non-NULL callback3 in x1C_callback, invokes non-NULL on_init immediately, and schedules non-NULL gobj_proc at priority 4. This setup helper does not consume callback1 or the row flags. Stage start separately calls the shared generator with a NULL spawn-descriptor pointer and discards its nullable object result.",
+        "rationale": "Adds the missing distinction between callback-table contents and actual installed/scheduled callbacks, preserving immediate versus persistent callback lifetimes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtsamus.c#L36-L108",
+            "why": "Descriptor, table, factory and startup handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Actual callback-field writes, immediate initialization and scheduled process."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Generator argument and return types."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

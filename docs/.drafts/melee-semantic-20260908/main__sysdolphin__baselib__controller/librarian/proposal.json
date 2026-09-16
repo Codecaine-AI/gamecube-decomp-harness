@@ -1,0 +1,331 @@
+{
+  "tu": "main/sysdolphin/baselib/controller",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadClampCheck3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Computes stick radius; below signed min clears pair. Above signed max, scales components by max/r into s8, then recomputes radius from rounded components. If shift==1 and radius>1e-10, subtracts each component*min/r and narrows again. Integer conversion means exact boundary magnitude and direction are not guaranteed; negative bounds are not rejected.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L176-L197",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L199-L221",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L279-L307",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadCrossDir"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Filters physical D-pad low bits only. Mode0/unknown preserve input;1 favors vertical;2 favors horizontal;3 records sole-axis input as1/2 and when both axes active favors vertical only for remembered1, otherwise horizontal. Neither-axis case preserves memory. Mutates in place, returns void; synthetic stick bits are untouched.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L309-L349",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L199-L221",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L279-L307",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadFlushQueue"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_PadFlushQueue(HSD_FlushType ftype). Enum values MERGE, THROWAWAY and LEAVE1 select implemented policies; declared TERMINATE and other values reach the default no-op branch inside the saved interrupt mask.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L127-L159",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L42-L53",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L264-L295",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.h#L38-L43",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 HSD_PadGetRawQueueCount(void). Returns the current qcount byte under interrupt masking. Valid initialized ring invariants make this an occupancy count bounded by qnum; the accessor performs no validation or clamping.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L21-L33",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L55-L159",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L120-L128",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Reads reset_switch without consuming it. Raw renewal latches a sampled press followed by release; HSD_PadReset clears the latch, and HSD_PadInit also resets it through the default configuration. Reset does not clear press-history reset_switch_status.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L35-L40",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L117-L124",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L579-L595",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L30-L45",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadReset"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Under saved interrupt mask removes queued rumble, writes direct-status0 on ports0..3 through OffN, throws away raw queue, requests PADRecalibrate(0xF0000000), clears reset_switch and restores interrupts. Does not clear reset_switch_status or published status arrays; does not directly issue PADControlMotor. Hardware recalibration completion is not guaranteed by this call. PADRecalibrate merges pending bits, excludes waiting/checking channels, disables affected polling and conditionally marks recalibration unless GameChoice bit0x40 is set; it starts reset work only from the idle sentinel.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L21-L65",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L217-L254",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadReset"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Requests an HSD four-port reset boundary: scheduled rumble is removed and direct rumble state cleared, queued samples are discarded, the request latch is cleared, and the all-channel mask is submitted to PADRecalibrate. Immediate motor shutdown and completed recalibration of every channel are not established by this wrapper.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L21-L65",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L217-L254",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadReset"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Under saved interrupt mask removes queued rumble, writes direct-status0 on ports0..3 through OffN, throws away raw queue, requests PADRecalibrate(0xF0000000), clears reset_switch and restores interrupts. Does not clear reset_switch_status or published status arrays; does not directly issue PADControlMotor. Hardware recalibration completion is not guaranteed by this call.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L21-L65",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L217-L254",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/controller:HSD_PadReset"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Under saved interrupt mask removes queued rumble, writes direct-status0 on ports0..3 through OffN, throws away raw queue, requests PADRecalibrate(0xF0000000), clears reset_switch and restores interrupts. Does not clear reset_switch_status or published status arrays; does not directly issue PADControlMotor. Hardware recalibration completion is not guaranteed by this call. The lower-level recalibration routine excludes waiting/checking channels and can suppress recalibration marks via GameChoice bit0x40.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L21-L65",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/rumble.c#L217-L254",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L484-L510",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/controller.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Master renewal processes one group only when queued. err0 converts input; err-3 clears the error while retaining old input; other errors clear input. Button changes generate edges/reload repeat_start; unchanged masks decrement an unsaturated s32 counter and repeat only on exact zero. Raw renewal latches reset press/release. HSD_PadReset clears only the request latch; HSD_PadInit clears both history and request via defaults.",
+        "rationale": "Correct exact source behavior: distinguish declared domains and software requests from unverified guarantees, and preserve numerical/counter/reset exceptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L55-L159",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L547",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L595",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_0195.c#L30-L45",
+            "why": "Pinned owned branch/type evidence; other paths are canonical-only supporting reads."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

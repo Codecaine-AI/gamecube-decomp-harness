@@ -219,6 +219,48 @@ describe("validateWidenedChange", () => {
     expect(validation.status).toBe("same_unit_regression");
     expect(validation.scopedChecks).toMatchObject({ status: "skipped", verdict: "not_run" });
   });
+
+  test("uses the game layout for split ownership and scoped object builds", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "widened-validation-game-layout-"));
+    const commands: string[][] = [];
+    const validation = await validateWidenedChange({
+      validation: passedValidation(),
+      repoRoot: "/workspace/sms",
+      outputDir,
+      attemptIndex: 6,
+      targetSourcePath: "src/MarioUtil/Target.cpp",
+      writeSetEntries: [{
+        path: "config/GMSJ01/symbols.txt",
+        category: "config-metadata",
+        rung: 2,
+        addedBy: "widening",
+        wideningId: "w-sms-config",
+      }],
+      baseRev: "base-sha",
+      runStateDir: "/state/runs/run-sms",
+      gameValidation: { reportPath: "build/GMSJ01/report.json" },
+      workspaceExec: fakeWorkspaceExec(async (command) => {
+        commands.push(command);
+        if (command[0] === "git" && command[1] === "diff") {
+          return { exitCode: 0, stdout: "@@ -1 +1 @@\n-Symbol = .text:0x80001010;\n+Symbol = .text:0x80001020;", stderr: "" };
+        }
+        if (command[0] === "cat" && command[1] === "config/GMSJ01/splits.txt") {
+          return {
+            exitCode: 0,
+            stdout: "src/MarioUtil/DrawUtil.cpp:\n  .text start:0x80001000 end:0x80001100\n",
+            stderr: "",
+          };
+        }
+        if (command[0] === "ninja") return { exitCode: 1, stdout: "", stderr: "stop after recording the target" };
+        return { exitCode: 1, stdout: "", stderr: "not available" };
+      }),
+    });
+
+    expect(validation.status).toBe("failed");
+    expect(commands).toContainEqual(["cat", "config/GMSJ01/splits.txt"]);
+    expect(commands).toContainEqual(["git", "show", "base-sha:config/GMSJ01/splits.txt"]);
+    expect(commands).toContainEqual(["ninja", "build/GMSJ01/src/MarioUtil/DrawUtil.o"]);
+  });
 });
 
 describe("config metadata scope helpers", () => {
@@ -239,6 +281,9 @@ describe("config metadata scope helpers", () => {
       { sourcePath: "src/melee/ft/a.c", start: 0x80001000, end: 0x80001100 },
       { sourcePath: "src/melee/ft/a.c", start: 0x80400000, end: 0x80400100 },
       { sourcePath: "src/melee/ft/b.c", start: 0x80400100, end: 0x80400200 },
+    ]);
+    expect(parseSplitUnitRanges("MarioUtil/DrawUtil.cpp:\n  .text start:0x80001000 end:0x80001100")).toEqual([
+      { sourcePath: "src/MarioUtil/DrawUtil.cpp", start: 0x80001000, end: 0x80001100 },
     ]);
   });
 });

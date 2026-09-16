@@ -1,0 +1,248 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa:ftCo_800BCC20"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally calls Fighter_ChangeMotionState for ftCo_MS_CaptureWaitKoopa with Ft_MF_None, anim_start=0, anim_speed=1, anim_blend=0 and NULL animation source. It then installs ftCo_800DB464 in accessory1_cb and writes x1A6A=0x1FF through ftCommon_8007E2F4. The active common table selects ftCo_SM_None (-1), so the transition initializes cur_anim_frame to -1 and takes the no-animation cleanup path rather than starting a wait clip at frame zero. The transition clears accessory1_cb before this entry reinstalls it. Ground CaptureDamageKoopa Anim selects this entry on animation completion and returns before timer processing in that invocation. The entry itself neither initializes grab_timer nor checks ground_or_air.",
+        "rationale": "Replaces an animation-playback interpretation with exact entry, table and caller semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa.c#L13-L20",
+            "why": "Complete entry sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3214-L3224",
+            "why": "Active table selects no animation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/forward.h#L633-L634",
+            "why": "None is -1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1220-L1389",
+            "why": "Frame initialization, cleanup and callback reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L906-L909",
+            "why": "Exact setup field assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureDamageKoopa.c#L27-L49",
+            "why": "Ground completion caller and early return."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa:ftCo_800BCD00"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally calls Fighter_ChangeMotionState for ftCo_MS_CaptureWaitKoopaAir with Ft_MF_None, anim_start=0, anim_speed=1, anim_blend=0 and NULL animation source, then installs ftCo_800DB464 in accessory1_cb and writes x1A6A=0x1FF through ftCommon_8007E2F4. The active common table selects ftCo_SM_None (-1), not a playing wait clip; motion transition initializes cur_anim_frame to -1, takes no-animation cleanup and clears accessory1_cb before reinstallation. Air CaptureDamageKoopa Anim selects this entry upon animation completion, returning before timer processing. This entry does not locally initialize grab_timer or test/change ground_or_air.",
+        "rationale": "Separates exact transition arguments from actual selected animation behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa.c#L42-L49",
+            "why": "Complete air entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3269-L3279",
+            "why": "Air table selects no animation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/forward.h#L633-L634",
+            "why": "None is -1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1220-L1389",
+            "why": "Actual frame, cleanup and callback semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L906-L909",
+            "why": "Exact setup field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureDamageKoopa.c#L27-L72",
+            "why": "Air completion path."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa:ftCo_CaptureWaitKoopa_Anim"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains Fighter from the captured object's Fighter_GObj pointer and passes that object to ftCo_800BC458, which updates grab_timer and the mash result using associated-captor values. It then reads the updated grab_timer. If grab_timer <= 0, it passes fp->victim_gobj (the captor in this relationship) and 0 to ftCo_800DA698, negates the captive's facing_dir and passes the original object to ftCo_CaptureCut_Enter. Otherwise, including when the comparison is unordered for NaN, it passes the original object to ftCo_800BC4A8. It performs no local allocation, deallocation or null validation.",
+        "rationale": "Corrects pointer-role ambiguity and incomplete positive-only continuation description.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa.c#L22-L34",
+            "why": "Exact local flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L25-L31",
+            "why": "Timer and mash update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L64-L89",
+            "why": "Captured object's linked pointer assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2597-L2604",
+            "why": "Captured/captor argument order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa:ftCo_CaptureWaitKoopa_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation first performs decrement/mash processing through ftCo_800BC458, then tests the resulting grab_timer <= 0. True enters CatchCut on the captor with optional captive CaptureCut disabled, reverses the captive's facing and enters CaptureCut on that captive. False calls ftCo_800BC4A8 for continued capture adjustment. At the source comparison, signed zeros, negative finite values and negative infinity release; positive finite values, positive infinity and NaN continue. There is no local clamp, finite check, animation-completion guard or null check. Air Anim delegates unchanged to this implementation.",
+        "rationale": "Records exact post-update boundary, exceptional-value behavior and paired release ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa.c#L22-L54",
+            "why": "Control flow and air delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L22",
+            "why": "Optional release suppressed by false argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L24-L36",
+            "why": "Captive release transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2597-L2604",
+            "why": "Establishes relationship roles."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L64-L89",
+            "why": "Stores the captor pointer in the captive."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The two entries select ground/air capture-wait states, install the same position accessory callback after motion transition and set x1A6A=0x1FF. Shared Anim passes the captured object through decrement/mash processing and tests the updated grab_timer <= 0. On true, victim_gobj identifies the captor passed to ftCo_800DA698; the captive's facing is negated before its CaptureCut entry unlinks the pair. Otherwise the object reaches ftCo_800BC4A8, including for NaN. Air Anim forwards unchanged; the six IASA/Phys/Coll bodies do not consume their parameters.",
+        "rationale": "Complete TU flow with explicit pointer roles and comparison ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa.c#L13-L60",
+            "why": "All owned data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2597-L2604",
+            "why": "Capture argument roles."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L25-L31",
+            "why": "Timer/mash processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L64-L80",
+            "why": "Associated captor pointer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L906-L909",
+            "why": "Setup field assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L84-L196",
+            "why": "Pair unlinking clears both relationship pointers."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Ground and air wait states share one Anim implementation: update decrement/mash state, then release the associated captor through CatchCut and the facing-reversed captive through CaptureCut when the resulting timer compares <= 0; otherwise continue capture adjustment. NaN takes continuation. Air adds no local logic and all six IASA/Phys/Coll callbacks are empty. Empty IASA does not disable mash input through Anim, and empty Phys does not disable positional maintenance through accessory1_cb. Both active wait table entries select ftCo_SM_None rather than a dedicated wait clip. These are local callback-suite properties, not exclusive control over every captor-side release or engine update.",
+        "rationale": "Preserves the shared-state design while removing overly broad no-input/no-motion and playing-animation interpretations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKoopa.c#L13-L60",
+            "why": "Shared branch, setup and empty phases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureKoopa.c#L25-L62",
+            "why": "Mash and continuation work."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CapturePulled.c#L357-L367",
+            "why": "Separate position maintenance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3214-L3279",
+            "why": "Active table bindings and absent wait clips."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L22",
+            "why": "Captor release helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKoopa/ftkoopaspecials.c#L177-L215",
+            "why": "Captor-side consumers can independently unlink and enter Fall."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

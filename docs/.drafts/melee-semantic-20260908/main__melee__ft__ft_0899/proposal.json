@@ -1,0 +1,170 @@
+{
+  "tu": "main/melee/ft/ft_0899",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0899:fn_8008998C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Computes a collision-floor-versus-model-root vertical offset, bounds its slope relative to target/root horizontal separation for ordinary finite arithmetic, adds it to the temporary IK target's Y component and returns the caller's solver gate. It does not unconditionally place the target at floor height or guarantee reduction of target-to-floor distance.",
+        "rationale": "The helper adds a root-relative offset rather than assigning floor height; this replaces stronger toward-floor wording.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L39-L70",
+            "why": "Exact correction formula, bounds and additive write."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0899:fn_8008998C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supports floor-aware fighter leg posing by supplying a terrain-derived additive IK-target offset and an application gate. Its ordinary finite-input slope comparisons bound the correction, but neither exact floor contact nor motion toward the floor for every candidate target is guaranteed.",
+        "rationale": "Preserves the supported terrain-pose role without inventing a geometric invariant.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L39-L70",
+            "why": "Root-relative additive correction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L99-L168",
+            "why": "Both enabled chain consumers."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0899:ft_80089B08"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads Fighter state, character x58 joint/length configuration, vertical scale and floor geometry to construct two ordered optional IK chains, followed by optional floor-derived part-zero X alignment. One stack IKState is reused: lengths are initialized once, and the first solver call can overwrite len1 consumed during second-chain endpoint construction. Each chain saves three rotate fields, conditionally solves after target adjustment, always calls terminal-normal correction and directly restores rotate fields. The current solver does not read assigned angle_max/angle_limit, and the correction callee does not use its final -1/+1 argument. Rotation restoration does not imply restoration of cached matrices.",
+        "rationale": "Independently verified librarian correction to conditional and inter-branch data flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L93-L232",
+            "why": "Initialization, ordered branches and final root output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_020A.c#L127-L429",
+            "why": "Active correction behavior, length overwrites and absent angle-field reads."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0899:ft_80089B08"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Void-returning fighter pose-update function with exact source signature void ft_80089B08(Fighter_GObj* gobj). It communicates through model-joint processing and optional part-zero X rotation. Fighter_8006C5F4 is the directly registered recurring callback that conditionally forwards to it.",
+        "rationale": "Separates the exact function interface from external callback registration.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.h#L6-L7",
+            "why": "Exact declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L897-L905",
+            "why": "Actual registered callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2518-L2524",
+            "why": "Conditional forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0899:ft_8008A1B8"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains the associated Fighter from Fighter_GObj* and replaces its unsigned three-bit x221C_u16_y field from u32 flags, retaining the low three bits under the source declaration. The updater consumes masks 2 and 1 for its ordered chains and 4 for part-zero X alignment. Input mask 4 absent immediately calls ftPartSetRotX(fp, 0, 0); present leaves rotation unchanged. No mask merge or ownership transfer occurs.",
+        "rationale": "Makes source-level narrowing explicit without asserting binary bitfield placement.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L1628-L1628",
+            "why": "Three-bit declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L238-L245",
+            "why": "Assignment and reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L99-L170",
+            "why": "Active mask consumers."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0899:ft_8008A1B8"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Configures the two floor-aware articulated-chain components and optional part-zero slope X alignment. Disabling alignment immediately zeros the selected part's Euler-compatible X rotation, including while airborne or while recurring pose work is suppressed. This does not guarantee a globally upright model.",
+        "rationale": "Narrows reset semantics to the actual callee behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L238-L245",
+            "why": "Unconditional setter and reset guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L993-L1005",
+            "why": "Selected X component and quaternion fallback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ft_0899.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The updater requires x2219_b5 clear and GA_Ground; its scheduled wrapper additionally requires x221F_b3 clear. Masks 2 and 1 select ordered chain branches inside the db_804D4AF8 guard, whereas mask 4 independently enables part-zero X alignment. These guards do not apply to the setter's three-bit mask replacement or immediate X reset when mask 4 is absent. The TU implements no timer, action-state transition, allocation or callback registration; absence of downstream gameplay effects from skeletal changes is not established.",
+        "rationale": "Separates guarded recurring work from unconditional configuration/reset and avoids an unsupported global presentation-only guarantee.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0899.c#L92-L245",
+            "why": "Complete update/setter control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2518-L2524",
+            "why": "Wrapper guard."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -7,7 +7,6 @@ export interface DashboardArtifactRecord {
   id: string;
   runId: string | null;
   gameId: string | null;
-  cycleUuid: string | null;
   artifactType: string;
   artifactKey: string;
   sourcePath: string | null;
@@ -19,7 +18,6 @@ export interface DashboardArtifactRecord {
 export interface DashboardArtifactInput {
   runId?: string | null;
   gameId?: string | null;
-  cycleUuid?: string | null;
   artifactType: string;
   artifactKey: string;
   sourcePath?: string | null;
@@ -31,7 +29,6 @@ export interface DashboardArtifactInput {
 export interface DashboardArtifactSelector {
   runId?: string | null;
   gameId?: string | null;
-  cycleUuid?: string | null;
   artifactType: string;
   artifactKey?: string | null;
 }
@@ -55,7 +52,6 @@ function rowToRecord(row: Record<string, unknown>): DashboardArtifactRecord {
     id: String(row.id ?? ""),
     runId: typeof row.run_id === "string" && row.run_id ? row.run_id : null,
     gameId: typeof row.game_id === "string" && row.game_id ? row.game_id : null,
-    cycleUuid: typeof row.cycle_uuid === "string" && row.cycle_uuid ? row.cycle_uuid : null,
     artifactType: String(row.artifact_type ?? ""),
     artifactKey: String(row.artifact_key ?? ""),
     sourcePath: typeof row.source_path === "string" && row.source_path ? row.source_path : null,
@@ -80,10 +76,6 @@ function selectorWhere(selector: DashboardArtifactSelector): { clauses: string[]
     clauses.push(selector.gameId ? "game_id = ?" : "game_id IS NULL");
     if (selector.gameId) values.push(selector.gameId);
   }
-  if (selector.cycleUuid !== undefined) {
-    clauses.push(selector.cycleUuid ? "cycle_uuid = ?" : "cycle_uuid IS NULL");
-    if (selector.cycleUuid) values.push(selector.cycleUuid);
-  }
   return { clauses, values };
 }
 
@@ -92,7 +84,6 @@ export function recordDashboardArtifact(store: StateStore, input: DashboardArtif
     id: randomUUID(),
     runId: input.runId ?? null,
     gameId: input.gameId ?? null,
-    cycleUuid: input.cycleUuid ?? null,
     artifactType: input.artifactType,
     artifactKey: input.artifactKey,
     sourcePath: input.sourcePath ?? null,
@@ -105,17 +96,16 @@ export function recordDashboardArtifact(store: StateStore, input: DashboardArtif
       .query(
         `
           INSERT INTO dashboard_artifacts (
-            id, run_id, game_id, cycle_uuid, artifact_type, artifact_key,
+            id, run_id, game_id, artifact_type, artifact_key,
             source_path, source_label, payload_json, created_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
       )
       .run(
         record.id,
         record.runId,
         record.gameId,
-        record.cycleUuid,
         record.artifactType,
         record.artifactKey,
         record.sourcePath,

@@ -1,0 +1,202 @@
+{
+  "tu": "main/melee/mn/mnsnap",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnsnap:.bss"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source declares a static mnSnap_State singleton, with field annotations spanning offsets 0x000 through 0x17C, and a separate four-element array of struct mnSnap_804A0B90_t pointers. The singleton retains GObj, JObj, asset and text pointers plus menu, card, page, dialog, timer and thumbnail-loading fields. These declarations describe runtime objects; their compiled adjacency and complete section layout are not established here.",
+        "rationale": "Corrects the obsolete void-pointer declaration and separates source annotations from compiled layout claims.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L27-L112",
+            "why": "Current singleton and typed pointer-array declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.h#L25-L25",
+            "why": "Exported array declaration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnsnap:fn_802545C4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Stores menu input obtained with selector 4\u2014the selector used by Menu_GetAllInputs\u2014in shared menu-input state, then consumes the singleton's card statuses/counts, active slot, state, cursors, timers, dialog results and presentation pointers. Card operations and input update thumbnail pages, selection/move transforms, full-view image descriptors, visibility, animations, dialog text and progress position. The normal tail repeatedly services pending thumbnail loads until none remain; the early active-card recovery path clears the queue and returns before that tail.",
+        "rationale": "Preserves the controller's data flow while removing a physical port-4 implication and qualifying the terminal-drain claim.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/inlines.h#L38-L46",
+            "why": "Aggregate and per-port wrapper distinction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L1038-L1107",
+            "why": "Input and early recovery flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L1390-L2380",
+            "why": "Presentation, operations and terminal loader loop."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnsnap:fn_80257D7C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads global menu cooldown first; a nonzero cooldown decrements the animation timer and returns without reading input or incrementing frame_count. Otherwise it reads aggregate menu input and album state. Back in state 2 or 4 clears entering_menu, requests transition (5, 0, 3), removes the four retained presentation GObjs when present, and removes four thumbnail labels, two count texts, page_text, total_text and dlg_text when present. It returns after teardown; every other post-cooldown path increments frame_count once. The external thumbnail image buffers are not freed here.",
+        "rationale": "Corrects the missing cooldown exception while preserving the exact teardown inventory and buffer-lifetime distinction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L2383-L2448",
+            "why": "Complete exit handler."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmenumode.c#L78-L89",
+            "why": "Separate buffer allocation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnsnap:mnSnap_80253BE0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For a valid cursor and positive count, actions are mutually exclusive in Up, Down, Left, Right, L-trigger, R-trigger priority. Up subtracts one from an odd index; Down adds one to an even index if the next item exists. Left subtracts two when the index is at least two; Right adds two when the next pair exists, correcting an exact count overrun by subtracting one. Left/Right can cross four-item page boundaries. L/R move by four with first/last-page wrapping, preserving page-relative position when valid and otherwise selecting the destination page's first entry. The final cursor is always written back; unchanged movement emits no sound and returns 0, while changed movement emits sound and returns 1 for the same page or 2 for a different page.",
+        "rationale": "Canonical input definitions reverse the baseline's axis interpretation. Arithmetic also permits directional cross-page movement rather than restricting it to triggers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L470-L524",
+            "why": "Complete prioritized algorithm."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/inlines.h#L12-L25",
+            "why": "Direction and trigger bit identities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L2701-L2732",
+            "why": "Column-major thumbnail-label positions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnsnap:mnSnap_80253F60"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "mnSnap_UpdateCardSlotHighlights",
+        "rationale": "Describes the two-indicator refresh while avoiding the existing canonical mnSnap_AnimateCardSlots inline. This is a semantic name, not a recovered original symbol.",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L579-L608",
+            "why": "Target highlight behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L904-L934",
+            "why": "Existing canonical name collision."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnsnap:mnSnap_80253F60"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Refreshes both memory-card slot highlight hierarchies from retained status and selection: status zero requests frame 2; any nonzero status, including negative error statuses, requests frame 1 for the active slot or frame 0 for the inactive slot. Each hierarchy is immediately evaluated. This is selector presentation, not a test that the card is usable for browsing.",
+        "rationale": "Makes the exact predicate explicit and prevents available/selected presentation from being mistaken for card health.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L560-L608",
+            "why": "Negative status mapping and nonzero highlight branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnsnap:mnSnap_80257F24"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves named resources from the loaded menu archive into singleton fields and constructs retained main, slot-selector, cursor-owned and warning hierarchies. Four thumbnail JObjs are extracted from the main hierarchy. The helper named mnSnap_CreateThumbnails instead constructs five option_jobjs from MenMainSubCsrSn resources, placing option i at start + i * (end - start). The MenMainPhotoSn resource stored in page_joint becomes fullview_jobj under the cursor-owned hierarchy. The constructor retains the blank image pointer, creates four thumbnail labels, two card counts and current/total page texts, extracts dialog widgets, and publishes the presentation to the registered primary and exit processes.",
+        "rationale": "Corrects the five-thumbnail and page-indicator interpretations by following actual output fields and consumers rather than misleading helper names/comments.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L2450-L2519",
+            "why": "Fullview assignment and five-option construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L2607-L2792",
+            "why": "Resource routing, extraction, text creation and process registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L1582-L1597",
+            "why": "Photo object's full-view consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnsnap:mnSnap_80257F24"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Enters menu kind 0x19 with global cooldown 5, clears the album singleton, and initializes state 0, timer 6, zero counts/statuses for both card slots and no active dialog. The page arrow starts hidden because the initial count is zero; the move marker and full-view photograph object also start hidden. The constructor registers the primary state-machine process and a secondary exit process. The latter suppresses both input and frame-count advancement during cooldown, accepts Back only in states 2 or 4, and increments frame_count only on post-cooldown paths that do not exit.",
+        "rationale": "Replaces the erroneous page-indicator identity and preserves the secondary handler's cooldown exception.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L2560-L2792",
+            "why": "Initialization, visibility and registrations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L2450-L2457",
+            "why": "Hidden object's fullview identity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnsnap.c#L2383-L2448",
+            "why": "Secondary process guards."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

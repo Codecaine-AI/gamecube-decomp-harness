@@ -1,0 +1,93 @@
+[
+  {
+    "path": "src/melee/ft/ft_0DF1.c",
+    "start_line": 1,
+    "end_line": 74,
+    "sha256": "e13eff4bf5970f45db95b30b6f67e8a9d25149dad45046f8b91a9114ba37056a",
+    "canonical": "1: #include \"ft_0DF1.h\"\n2: \n3: #include <Runtime/platform.h>\n4: \n5: #include <stdbool.h>\n6: \n7: #include \"fighter.h\"\n8: #include \"forward.h\"\n9: #include \"ftcommon.h\"\n10: #include \"inlines.h\"\n11: #include \"types.h\"\n12: #include <melee/gm/gm_unsplit.h>\n13: \n14: bool ftCo_800DF1C8(Fighter* fp)\n15: {\n16:     if (ABS(fp->input.cstick[1].x) <\n17:             p_ftCommonData->dash_smash_stick_threshold &&\n18:         ABS(fp->input.cstick[0].x) >=\n19:             p_ftCommonData->dash_smash_stick_threshold)\n20:     {\n21:         return true;\n22:     }\n23:     return false;\n24: }\n25: \n26: bool ftCo_800DF21C(Fighter* fp)\n27: {\n28:     if (canUseCstick(fp) && ftCo_800DF1C8(fp)) {\n29:         return true;\n30:     }\n31:     return false;\n32: }\n33: \n34: bool ftCo_800DF2D8(Fighter* fp)\n35: {\n36:     if (fp->input.cstick[1].y < p_ftCommonData->xCC &&\n37:         fp->input.cstick[0].y >= p_ftCommonData->xCC)\n38:     {\n39:         return true;\n40:     }\n41:     return false;\n42: }\n43: \n44: bool ftCo_800DF30C(Fighter* fp)\n45: {\n46:     if (canUseCstick(fp) && ftCo_800DF2D8(fp)) {\n47:         return true;\n48:     }\n49:     return false;\n50: }\n51: \n52: bool ftCo_800DF3A8(Fighter* fp)\n53: {\n54:     if (fp->input.cstick[1].y > p_ftCommonData->xD4 &&\n55:         fp->input.cstick[0].y <= p_ftCommonData->xD4)\n56:     {\n57:         return true;\n58:     }\n59:     return false;\n60: }\n61: \n62: bool ftCo_800DF3DC(Fighter* fp)\n63: {\n64:     bool var_r0_2;\n65: \n66:     if (canUseCstick(fp) && ftCo_800DF3A8(fp)) {\n67:         return true;\n68:     }\n69:     return false;\n70: }\n71: \n72: bool ftCo_800DF478(Fighter* arg0)\n73: {\n74:     if ((ABS(arg0->input.cstick[1].x) < p_ftCommonData->xDC &&"
+  },
+  {
+    "path": "src/melee/ft/kinds/ftNess/ftnessattacklw4.c",
+    "start_line": 1,
+    "end_line": 75,
+    "sha256": "75de1eff0dc34d43b28221a1ef7dd810b3070f83a8d897e5e8503fdd13a41c83",
+    "canonical": "1: #include \"ftnessattacklw4.h\"\n2: \n3: #include <Runtime/platform.h>\n4: \n5: #include <melee/ft/forward.h>\n6: \n7: #include \"ftnessattackhi4.h\"\n8: #include \"types.h\"\n9: #include <melee/ft/fighter.h>\n10: #include <melee/ft/ft_081B.h>\n11: #include <melee/ft/ft_084E.h>\n12: #include <melee/ft/ft_0892.h>\n13: #include <melee/ft/ftanim.h>\n14: #include <melee/ft/kinds/ftCommon/ftCo_Wait.h>\n15: #include <melee/ft/types.h>\n16: \n17: /// 0x8011659C\n18: /// https://decomp.me/scratch/xVTx7\n19: void ftNs_AttackLw4_Enter(\n20:     HSD_GObj* gobj) // Ness's Down Smash Motion State handler\n21: {\n22:     Fighter* fp = GET_FIGHTER(gobj);\n23: \n24:     fp->allow_interrupt = 0;\n25:     fp->mv.ns.attacklw4.isChargeDisable = false;\n26:     ftNs_AttackHi4_YoyoSetVarAll(gobj);\n27:     Fighter_ChangeMotionState(gobj, ftNs_MS_AttackLw4, 0, 0.0f, 1.0f, 0.0f,\n28:                               NULL);\n29:     ftAnim_8006EBA4(gobj);\n30:     fp->x2222_b2 = 1;\n31:     fp->deal_dmg_cb = ftNs_AttackHi4_YoyoStartTimedRehit;\n32:     fp->accessory4_cb = ftNs_AttackHi4_YoyoUpdateHitPos;\n33: }\n34: \n35: /// 0x80116638\n36: /// https://decomp.me/scratch/NO0Pa\n37: void ftNs_AttackLw4_Anim(\n38:     HSD_GObj* gobj) // Ness's Down Smash Animation callback\n39: {\n40:     Fighter* fp = GET_FIGHTER(gobj);\n41: \n42:     fp->mv.ns.attacklw4.yoyoCurrentFrame++;\n43:     if (ftNs_AttackHi4_YoyoThink_IsRemove(gobj) == false) {\n44:         ftNs_AttackHi4_YoyoCheckTimedRehit(gobj);\n45:         if ((fp->mv.ns.attacklw4.yoyoCurrentFrame == 13) &&\n46:             ((s32) fp->mv.ns.attacklw4.isChargeDisable == false) &&\n47:             (ftNs_AttackHi4_YoyoCheckNoObstruct(gobj) != false))\n48:         {\n49:             ftNs_AttackLw4Charge_Enter(gobj);\n50:         }\n51:         if (!ftAnim_IsFramesRemaining(gobj)) {\n52:             ft_8008A2BC(gobj);\n53:         }\n54:     }\n55: }\n56: \n57: /// 0x801166D4\n58: /// https://decomp.me/scratch/Kq53f\n59: void ftNs_AttackLw4_IASA(HSD_GObj* gobj) // Ness's Down Smash IASA callback\n60: {\n61:     Fighter* fp = GET_FIGHTER(gobj);\n62: \n63:     if ((fp->input.held_buttons[0] & HSD_PAD_A) == false) {\n64:         fp->mv.ns.attacklw4.isChargeDisable = true;\n65:     }\n66:     if (fp->allow_interrupt != 0) {\n67:         ftCo_Wait_IASA(gobj);\n68:     }\n69: }\n70: \n71: /// 0x80116718\n72: /// https://decomp.me/scratch/rrVAL\n73: void ftNs_AttackLw4_Phys(HSD_GObj* gobj) // Ness's Down Smash Physics callback\n74: {\n75:     ft_80084F3C(gobj);"
+  },
+  {
+    "path": "src/melee/ft/ftmotionstates.c",
+    "start_line": 838,
+    "end_line": 849,
+    "sha256": "8785cfcb7091ce29268a8c2172aecd97a60bc6352c545a472aa77e4cbd66141a",
+    "canonical": "838:     {\n839:         // ftCo_MS_AttackLw4 = 64\n840:         ftCo_SM_AttackLw4,\n841:         ftCo_MF_AttackLw4,\n842:         (FtMoveId_AttackLw4 << 24) | (1 << 23),\n843:         ftCo_AttackLw4_Anim,\n844:         ftCo_AttackLw4_IASA,\n845:         ftCo_AttackLw4_Phys,\n846:         ftCo_AttackLw4_Coll,\n847:         ftCamera_UpdateCameraBox,\n848:     },\n849:     {"
+  },
+  {
+    "path": "src/melee/ft/ft_084E.c",
+    "start_line": 42,
+    "end_line": 57,
+    "sha256": "fd8a8a71f19e25673c9e7bdd06de8188a51e0caf8dbd2a0a70383b0841e3d4c2",
+    "canonical": "42: void ft_80084F3C(Fighter_GObj* gobj)\n43: {\n44:     Fighter* fp = GET_FIGHTER(gobj);\n45:     ftCo_DatAttrs* co = &fp->co_attrs;\n46:     f32 friction = co->ground_friction;\n47:     PAD_STACK(8);\n48:     if (ABS(fp->gr_vel) > co->walk_max_vel) {\n49:         friction *= p_ftCommonData->friction_when_above_walk_speed;\n50:     }\n51:     ftCommon_ApplyFrictionGround(fp, friction);\n52:     ftCommon_ApplyGroundMovement(gobj);\n53: }\n54: \n55: void ft_80084FA8(Fighter_GObj* gobj)\n56: {\n57:     Fighter* fp = GET_FIGHTER(gobj);"
+  },
+  {
+    "path": "src/melee/ft/ft_081B.c",
+    "start_line": 1036,
+    "end_line": 1060,
+    "sha256": "095dc9c8b68e1c7f9c36e7ca81fef756480478a05132484478941ac784e817d7",
+    "canonical": "1036: {\n1037:     PAD_STACK(16);\n1038:     if (!ft_80082708(gobj)) {\n1039:         cb(gobj);\n1040:     }\n1041: }\n1042: \n1043: void ft_80084104(Fighter_GObj* gobj)\n1044: {\n1045:     bool skip = ft_800827A0(gobj);\n1046: \n1047:     if (!skip) {\n1048:         ftCo_Fall_Enter(gobj);\n1049:     }\n1050: }\n1051: \n1052: void ft_800841B8(Fighter_GObj* gobj, HSD_GObjEvent cb)\n1053: {\n1054:     bool skip = ft_800827A0(gobj);\n1055:     PAD_STACK(8);\n1056: \n1057:     if (!skip) {\n1058:         cb(gobj);\n1059:     }\n1060: }"
+  },
+  {
+    "path": "src/melee/ft/ftaction.c",
+    "start_line": 502,
+    "end_line": 513,
+    "sha256": "f866206af4b9b1cd956e3206c5c95f0a5780947a4cfc71ed15ceef3ef98e79ba",
+    "canonical": "502: }\n503: \n504: /// Allow interrupt\n505: void ftAction_80071950(Fighter_GObj* gobj, CommandInfo* cmd)\n506: {\n507:     Fighter* fp = GET_FIGHTER(gobj);\n508:     fp->allow_interrupt = true;\n509:     NEXT_CMD(cmd);\n510: }\n511: \n512: void ftAction_80071974(Fighter_GObj* gobj, CommandInfo* cmd)\n513: {"
+  },
+  {
+    "path": "src/melee/ft/kinds/ftCommon/ftCo_Wait.c",
+    "start_line": 41,
+    "end_line": 78,
+    "sha256": "55d8e57c2a88b8f5557afaffa76fb6266e82ae69f55f171d926f2384eae3b464",
+    "canonical": "41:     }\n42: }\n43: \n44: void ftCo_Wait_IASA(Fighter_GObj* gobj)\n45: {\n46:     RETURN_IF(ftCo_SpecialS_CheckInput(gobj));\n47:     RETURN_IF(ftCo_Attack100_CheckInput(gobj));\n48:     RETURN_IF(ftCo_800D6824(gobj));\n49:     RETURN_IF(ftCo_800D68C0(gobj));\n50:     RETURN_IF(ftCo_Catch_CheckInput(gobj));\n51:     RETURN_IF(ftCo_AttackS4_CheckInput(gobj));\n52:     RETURN_IF(ftCo_AttackHi4_CheckInput(gobj));\n53:     RETURN_IF(ftCo_AttackLw4_CheckInput(gobj));\n54:     RETURN_IF(ftCo_AttackS3_CheckInput(gobj));\n55:     RETURN_IF(ftCo_AttackHi3_CheckInput(gobj));\n56:     RETURN_IF(ftCo_AttackLw3_CheckInput(gobj));\n57:     RETURN_IF(ftCo_Attack1_CheckInput(gobj));\n58:     RETURN_IF(ftCo_80099794(gobj));\n59:     RETURN_IF(ftCo_80091A4C(gobj));\n60:     RETURN_IF(ftFx_AppealS_CheckInput(gobj));\n61:     RETURN_IF(ftCo_800DE9D8(gobj));\n62:     RETURN_IF(ftCo_Jump_CheckInput(gobj));\n63:     RETURN_IF(ftCo_Dash_CheckInput(gobj));\n64:     RETURN_IF(ftCo_800D5FB0(gobj));\n65:     RETURN_IF(ftCo_Turn_CheckInput(gobj));\n66:     RETURN_IF(ftCo_Walk_CheckInput(gobj));\n67: }\n68: \n69: void ftCo_Wait_Phys(HSD_GObj* gobj)\n70: {\n71:     ft_80084F3C(gobj);\n72:     ftColl_8007AEE0(gobj);\n73: }\n74: \n75: void ftCo_Wait_Coll(HSD_GObj* gobj)\n76: {\n77:     ft_80084280(gobj);\n78: }"
+  },
+  {
+    "path": "src/melee/ft/ftcommon.c",
+    "start_line": 30,
+    "end_line": 60,
+    "sha256": "43dff29e65d9c38c0b480d59510258d3a3b6f4aebf0b67d3b385e40ef560114d",
+    "canonical": "30: #include <melee/ef/eflib.h>\n31: #include <melee/gm/gm_unsplit.h>\n32: #include <melee/it/it_26B1.h>\n33: #include <melee/it/item.h>\n34: #include <melee/it/kinds/it_2E5A.h>\n35: #include <melee/it/kinds/itfflowerflame.h>\n36: #include <melee/it/kinds/itpeachparasol.h>\n37: #include <melee/it/kinds/itrabbitc.h>\n38: #include <melee/it/kinds/itsword.h>\n39: #include <melee/lb/lb_013B.h>\n40: #include <melee/mp/mplib.h>\n41: #include <melee/pl/player.h>\n42: #include <melee/pl/plbonuslib.h>\n43: #include <melee/sfx/crowdsfx.h>\n44: #include <sysdolphin/baselib/debug.h>\n45: #include <sysdolphin/baselib/gobj.h>\n46: #include <sysdolphin/baselib/jobj.h>\n47: #include <sysdolphin/baselib/rumble.h>\n48: \n49: const Vec3 ftCo_803B74A0 = { 0 };\n50: \n51: void ftCommon_ApplyFrictionGround(Fighter* fp, float friction)\n52: {\n53:     if (ABS(friction) > ABS(fp->gr_vel)) {\n54:         friction = -fp->gr_vel;\n55:     } else if (fp->gr_vel > 0) {\n56:         friction = -friction;\n57:     }\n58:     fp->xE4_ground_accel_1 = friction;\n59: }\n60: "
+  },
+  {
+    "path": "src/melee/ft/ftcommon.c",
+    "start_line": 133,
+    "end_line": 152,
+    "sha256": "43dff29e65d9c38c0b480d59510258d3a3b6f4aebf0b67d3b385e40ef560114d",
+    "canonical": "133: void ftCommon_ApplyGroundMovement(HSD_GObj* gobj)\n134: {\n135:     float temp_f1;\n136:     Vec3* ground_normal;\n137:     Fighter* fp = gobj->user_data;\n138: \n139:     u8 _[8];\n140: \n141:     ground_normal = &fp->coll_data.floor.normal;\n142:     temp_f1 = ft_GetGroundFrictionMultiplier(fp);\n143:     if (temp_f1 < 1) {\n144:         fp->xE4_ground_accel_1 *= temp_f1;\n145:     }\n146:     fp->x74_anim_vel.x = +ground_normal->y * fp->xE4_ground_accel_1;\n147:     fp->x74_anim_vel.y = -ground_normal->x * fp->xE4_ground_accel_1;\n148:     fp->x74_anim_vel.z = 0;\n149:     fp->self_vel.x = +ground_normal->y * fp->gr_vel;\n150:     fp->self_vel.y = -ground_normal->x * fp->gr_vel;\n151:     fp->self_vel.z = 0;\n152: }"
+  },
+  {
+    "path": "src/melee/ft/ft_08A1.c",
+    "start_line": 54,
+    "end_line": 108,
+    "sha256": "9928c78d1fbd179f41aa8c82f6865e752257f3bce906734818d4fbe14ed0607c",
+    "canonical": "54: void ft_8008A2BC(HSD_GObj* gobj)\n55: {\n56:     if (ftLib_GetKind(gobj) == FTKIND_MASTERH) {\n57:         ftMh_MS_389_80151018(gobj);\n58:     } else if (ftLib_GetKind(gobj) == FTKIND_CREZYH) {\n59:         ftCh_GrabUnk1_8015BC88(gobj);\n60:     } else {\n61:         ft_8008A348(gobj, 0);\n62:     }\n63: }\n64: \n65: void ft_8008A324(HSD_GObj* gobj)\n66: {\n67:     ft_8008A348(gobj, -1.0f);\n68: }\n69: \n70: /// Transition state to ftCo_MS_Wait or otherwise neutral state\n71: void ft_8008A348(Fighter_GObj* gobj, float anim_blend)\n72: {\n73:     Fighter* fp = GET_FIGHTER(gobj);\n74:     if (fp->x2224_b2) {\n75:         ftCo_DownSpot_Enter(gobj);\n76:         return;\n77:     }\n78:     if (ftCo_800C5240(gobj)) {\n79:         ftCo_800C4ED8(gobj);\n80:         return;\n81:     }\n82:     if (fp->ground_or_air == GA_Air) {\n83:         ftCommon_8007D7FC(fp);\n84:     }\n85:     if (fp->kind == FTKIND_PEACH) {\n86:         if (fp->item_gobj != NULL &&\n87:             itGetKind(fp->item_gobj) == It_Kind_Peach_Parasol)\n88:         {\n89:             it_802BDB94(fp->item_gobj);\n90:         }\n91:     }\n92:     Fighter_ChangeMotionState(gobj, ftCo_MS_Wait, Ft_MF_None, 0.0f, 1.0f,\n93:                               anim_blend, NULL);\n94:     if (ftCo_8008A698(fp) && ftData_80085FD4(fp, ftCo_MS_DeadUpFall)->x8 != 0)\n95:     {\n96:         ftCo_8008A6D8(gobj, ftCo_MS_DeadUpFall);\n97:     }\n98:     ftCommon_8007EFC0(fp, p_ftCommonData->x5F0);\n99:     switch (fp->kind) {\n100:     case FTKIND_LINK:\n101:         ftLk_AttackAir_800EB3BC(gobj);\n102:         return;\n103:     case FTKIND_CLINK:\n104:         ftCl_Init_8014919C(gobj);\n105:         return;\n106:     default:\n107:         return;\n108:     }"
+  },
+  {
+    "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+    "start_line": 46,
+    "end_line": 54,
+    "sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+    "canonical": "46: bool ftCo_80094E54(Fighter* fp)\n47: {\n48:     if (fp->input.pressed_buttons & HSD_PAD_A &&\n49:         (fp->input.held_buttons[0] & HSD_PAD_LR ||\n50:          !it_8026B30C(fp->item_gobj)))\n51:     {\n52:         return true;\n53:     }\n54:     return false;"
+  },
+  {
+    "path": "src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c",
+    "start_line": 319,
+    "end_line": 335,
+    "sha256": "2ef5b49eccdec27d1d182e2656297644a18848701d03616992e51e183a55e21b",
+    "canonical": "319: void ftCo_800957F4(Fighter_GObj* gobj, int msid)\n320: {\n321:     float anim_spd;\n322:     Fighter* fp = GET_FIGHTER(gobj);\n323: \n324:     fp->cmd_vars[0] = 0;\n325:     fp->cmd_vars[1] = 0;\n326:     fp->throw_flags = 0;\n327: \n328:     fp->mv.co.itemthrow4.anim_spd = anim_spd = getAnimSpeed(gobj, msid);\n329:     ftCo_80095700(gobj, msid);\n330:     Fighter_ChangeMotionState(gobj, msid, Ft_MF_None, 0, anim_spd, 0, NULL);\n331: \n332:     ftAnim_8006EBA4(gobj);\n333:     fp->accessory4_cb = ftCo_80095EFC;\n334:     ftCo_80095EFC((HSD_GObj*) gobj);\n335: }"
+  },
+  {
+    "path": "src/melee/ft/inlines.h",
+    "start_line": 304,
+    "end_line": 315,
+    "sha256": "945d05ff74ee083491b57d0f3e87669fd4a06d6c47e17c3fc647e54aa5ab2f5e",
+    "canonical": "304: static inline bool canUseCstick(Fighter* fp)\n305: {\n306:     /// Returns true if single-button mode is off,\n307:     /// and the held item allows using the C-stick.\n308:     if (!gm_8016B0FC() || it_8026B30C(fp->item_gobj) == 0) {\n309:         return true;\n310:     } else {\n311:         return false;\n312:     }\n313: }\n314: \n315: #endif"
+  }
+]

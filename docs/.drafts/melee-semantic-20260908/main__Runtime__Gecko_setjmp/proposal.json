@@ -1,0 +1,50 @@
+{
+  "tu": "main/Runtime/Gecko_setjmp",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L40-L77",
+            "why": "Complete guarded restore sequence, CR restoration followed by cmpwi, and normalized return through saved LR."
+          }
+        ],
+        "op": "write",
+        "rationale": "Direct loads and register-restoration instructions establish the environment flow. The final comparison and branches establish the zero-to-one exception and qualify any implication of bit-for-bit final CR preservation.",
+        "subject": {
+          "target_stable_key": "main/Runtime/Gecko_setjmp:longjmp"
+        },
+        "type": "data_flow",
+        "value": "In the MWERKS_GEKKO implementation, reads a previously populated __jmp_buf and restores LR, CR, SP, RTOC, r13-r31, f14-f31, and FPSCR. It resumes through the saved LR with val in r3 when val is nonzero, or one when val is zero. The result comparison updates CR0 after the saved CR is loaded."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.h#L32-L33",
+            "why": "Exact declared interface."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/Gecko_setjmp.c#L40-L77",
+            "why": "Definition, implementation guard, saved return-address restoration, and zero-to-one branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "The source and header specify __jmp_buf* rather than a jmp_buf parameter. The implementation directly proves nonlocal transfer and result normalization without relying on the standard function name alone.",
+        "subject": {
+          "target_stable_key": "main/Runtime/Gecko_setjmp:longjmp"
+        },
+        "type": "inferred_type",
+        "value": "Declared as void longjmp(register __jmp_buf* env, register int val). In its MWERKS_GEKKO implementation, env supplies a saved execution context and val supplies the resumed __setjmp result, with zero converted to one. It transfers to the saved return address rather than returning to its current caller; the declaration has no explicit noreturn annotation."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "tu": "main/melee/it/kinds/itentei",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L37-L40",
+            "why": "Complete no-op definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L116-L125",
+            "why": "Both terrain branches supply this event."
+          }
+        ],
+        "op": "write",
+        "rationale": "The complete file identifies a concrete callback use that the existing explanation says is unrecoverable.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itentei:it_802CF44C"
+        },
+        "type": "purpose",
+        "value": "Provides a side-effect-free item-object event used by both terrain-processing branches of Entei's state-0 collision callback. The event itself immediately returns; it adds no Entei-specific response to either shared collision path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L47-L68",
+            "why": "Exact event sequence and downstream initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L557-L562",
+            "why": "Common helper calls itResetVelocity."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects camera-mode terminology and identifies the common helper's actual velocity-reset operation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itentei:it_802CF470"
+        },
+        "type": "data_flow",
+        "value": "Receives Entei's Item_GObj as a terrain-contact event, obtains its Item, requests Camera_RequestQuake(QuakeKind_Large, NULL), and passes sound ID 0x9 with arguments 0x7F and 0x40 to Item_8026AE84. It then resets velocity through it_80273454 and forwards the object to it_802CF4D4, which enters state 0, installs effect-hitlag and accessory callbacks, and copies the configured Pok\u00e9mon timer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L127-L141",
+            "why": "Local scalar, pointer arguments, writes and calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L85-L102",
+            "why": "Downstream active-flag consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact pointer and flag flow without converting an effect-specific argument into an unverified scale or lifetime claim.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itentei:it_802CF6C8"
+        },
+        "type": "data_flow",
+        "value": "Reads the Item from gobj->user_data and tests xDAC_itcmd_var0. When nonzero, it obtains gobj->hsd_obj as an HSD_JObj*, initializes a local f32 to 1.0f, clears xDAC_itcmd_var0, and sets xDB4_itcmd_var2 before calling efSync_Spawn(0x468, gobj, jp, &v) and requesting sound 0x2741. The active animation callback uses xDB4_itcmd_var2 to gate recurring sound timing. The scalar's effect-specific interpretation and whether the effect system copies or retains its address are not established by this caller."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L127-L141",
+            "why": "Trigger consumption precedes active-flag write, effect and sound calls; no timer reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L77-L84",
+            "why": "Separate cleanup and lifetime processing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing flag-write ordering and preserves retrigger and cross-callback limitations.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itentei:it_802CF6C8"
+        },
+        "type": "state_behavior",
+        "value": "Does nothing while xDAC_itcmd_var0 is zero. Otherwise it clears that trigger and sets xDB4_itcmd_var2 before spawning effect 0x468 and requesting sound 0x2741. Clearing the trigger prevents another activation until the command is asserted again, but the callback neither checks for an existing effect nor reloads the recurring sound timer. The separate animation callback clears xDB4_itcmd_var2 and destroys effects when xDB0_itcmd_var1 is set; relative scheduling of the two callbacks is not established here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L143-L163",
+            "why": "State entry and appearance callback routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L47-L68",
+            "why": "Contact event and active-state setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L557-L562",
+            "why": "Velocity reset, not general cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported 'clears prior item behavior' description with the canonical velocity-reset operation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itentei:it_802CF744"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally selects state-table index 1 through Item_EnterAirStateWithHitlag at the end of Entei spawn initialization. State 1 delegates animation and physics to shared Pok\u00e9mon appearance helpers and supplies it_802CF470 to terrain processing. On qualifying contact, that event requests a large quake, plays sound 0x9, resets velocity through it_80273454, and enters active state 0 through it_802CF4D4; the common helper is not general behavior cleanup."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

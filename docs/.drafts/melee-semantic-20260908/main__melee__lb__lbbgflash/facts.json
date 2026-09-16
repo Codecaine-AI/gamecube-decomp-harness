@@ -1,0 +1,2814 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:.bss"
+    },
+    "facts": [
+      {
+        "id": "fact:2eed7c79-f7a3-4245-95e0-c0cae16a0813",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.bss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Flash triggers write source, target, and current colors and derive per-frame channel deltas from duration. The process advances those accumulators or wipe coordinates and publishes the current render color or completion state. The renderer consumes that state to emit screen-covering GX geometry, while setup stores the camera and renderer/process GObjs.",
+        "rationale": "At head, the transition initializer populates the singleton, the process callback mutates its interpolation and wipe fields, the renderer reads those fields for GX output, and setup stores both GObj references. This preserves the standing data-flow claim under fresh citations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:bdd94b62-8fc8-4aad-8816-8ccbdb6be62a",
+            "fact_id": "fact:2eed7c79-f7a3-4245-95e0-c0cae16a0813",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the renderer reading the singleton's current color, mode, and wipe state to emit full-screen or progressive GX geometry.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:5ded3598-c557-43b0-bbfe-0cf5527bf8ca",
+            "fact_id": "fact:2eed7c79-f7a3-4245-95e0-c0cae16a0813",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows the process callback advancing color accumulators or wipe coordinates and latching wipe completion.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:4309d777-4e52-4d63-963b-97edd29541dd",
+            "fact_id": "fact:2eed7c79-f7a3-4245-95e0-c0cae16a0813",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows triggers and the common initializer writing transition state, followed by setup storing the camera and renderer/process GObjs.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:fa0e14b8-5d6a-4dca-bff3-1208201537af",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.bss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Carries runtime state for Melee's full-screen dramatic color flashes and opacity fades, as well as progressive black screen-covering transitions.",
+        "rationale": "The current singleton supplies RGBA state to a full-screen quad renderer and traversal state to an opaque-black strip renderer. The prior reference to elemental color changes was more specific than the current code supports, so the claim is narrowed to the demonstrated color, opacity, and wipe effects.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:ef201a2c-b34b-4b96-8db7-088778c6b92c",
+            "fact_id": "fact:fa0e14b8-5d6a-4dca-bff3-1208201537af",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows current RGBA state rendered across a 640-by-480 quad and opaque-black geometry selected for wipe modes.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:25577a58-a5f2-4f77-bb76-068b760cc104",
+            "fact_id": "fact:fa0e14b8-5d6a-4dca-bff3-1208201537af",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows progressive black-strip geometry and per-frame color or wipe-state advancement.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:4cf577e0-d3aa-4047-bc59-ea1159301dfb",
+            "fact_id": "fact:fa0e14b8-5d6a-4dca-bff3-1208201537af",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows transparent, black, and white transition endpoints being installed into the shared runtime state.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:d54cf909-fa15-450a-bd42-9ff57dd5cf83",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.bss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A zero-initialized 0x48-byte `BgFlashData` singleton at `0x80433658`, containing a packed active/mode byte, three `GXColor` values, four current floating-point RGBA accumulators, four per-frame channel deltas, wipe-control bytes and counters, and two `HSD_GObj*` fields.",
+        "rationale": "The current declaration places `lbl_80433658` in uninitialized storage with fields extending through the pointer at offset 0x44, establishing a 0x48-byte singleton and confirming the standing layout claim.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:ac78fdd2-572b-45bf-abb4-90feaf516e29",
+            "fact_id": "fact:d54cf909-fa15-450a-bd42-9ff57dd5cf83",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Defines the complete `BgFlashData` field sequence and declares `lbl_80433658` as the module-global instance.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:a8f69d0d-1f4e-4804-b6e3-d013976c10f9",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.bss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the background-flash subsystem's persistent mutable runtime state: color-transition values, progressive black-strip wipe traversal, render-suppression and mode bits, and references to the camera and rendering GObjs.",
+        "rationale": "The head declarations define all of these state categories, and the current renderer, process callback, transition initializer, and setup function respectively read, mutate, initialize, and populate them.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:6459105d-7756-4950-93b6-ab816fe1931a",
+            "fact_id": "fact:a8f69d0d-1f4e-4804-b6e3-d013976c10f9",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Defines the singleton's packed state, color values, interpolation arrays, wipe fields, and GObj pointers.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:76b0e951-6c94-405f-9f01-62e635116b63",
+            "fact_id": "fact:a8f69d0d-1f4e-4804-b6e3-d013976c10f9",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the render-suppression guard and mode-dependent consumption of current color and wipe state.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:abe6ba2a-84ec-4fd3-a6b7-0cb587a0c1d8",
+            "fact_id": "fact:a8f69d0d-1f4e-4804-b6e3-d013976c10f9",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows per-frame mutation of interpolation and wipe-traversal fields.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:8eb92d7e-443a-46c7-94be-d12f421ceff5",
+            "fact_id": "fact:a8f69d0d-1f4e-4804-b6e3-d013976c10f9",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows transition-state initialization and storage of the camera and renderer/process GObjs.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:0bce05f3-64e9-4107-bdb6-568f275392c2",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.bss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Modes 0–2 advance and render an interpolated RGBA overlay; modes 3–4 advance strip traversal across the 640-by-480 screen and render progressive opaque-black geometry; mode 5 renders a fixed color. The active bit suppresses rendering when set, and wipe completion is latched after both screen bounds are exhausted.",
+        "rationale": "The current render and process functions preserve the same mode groups, suppression guard, interpolation behavior, screen-bounded wipe traversal, fixed-color path, and completion latch described by the standing fact.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:3015417c-c4a6-4003-abde-0b6e94bbeaea",
+            "fact_id": "fact:0bce05f3-64e9-4107-bdb6-568f275392c2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the active-bit return, full-screen current-color rendering for color and fixed modes, and opaque-black rendering for wipe modes.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:139ca3b1-5eec-4fbc-af8c-a15d8e95591f",
+            "fact_id": "fact:0bce05f3-64e9-4107-bdb6-568f275392c2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows 640-by-480 strip geometry, modes 0–2 invoking color interpolation, modes 3–4 advancing wipe coordinates, and completion being latched.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:c10951d2-17bc-4512-be00-9ec343504826",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "`lbBgFlash_800208EC` passes the section's perspective-camera description to `HSD_CObjLoadDesc`. That description contributes its viewport, scissor, projection parameters, and references to the section's eye and interest world objects; the resulting runtime camera is attached to `BgFlashData.x44`, while the paired render/process GObj is stored in `BgFlashData.x40`. The static section data is read but not mutated.",
+        "rationale": "The typed definitions establish what flows into camera construction, and the initializer shows the resulting HSD_CObj and GObjs being installed in the mutable background-flash singleton.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T03:17:13.459Z",
+        "evidence": [
+          {
+            "id": "evidence:a1942723-5c8d-44f0-9b8a-bc8373b1cdb0",
+            "fact_id": "fact:c10951d2-17bc-4512-be00-9ec343504826",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L54-L89",
+            "digest": "sha256:6aeaf06331458357",
+            "why": "Shows the camera parameters and pointers to the two world-object descriptions.",
+            "captured_at": "2026-09-04T03:17:13.459Z"
+          },
+          {
+            "id": "evidence:bd079102-a9c5-4be6-96e1-34bdc6907dba",
+            "fact_id": "fact:c10951d2-17bc-4512-be00-9ec343504826",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L429-L468",
+            "digest": "sha256:df11da586da018f3",
+            "why": "Shows the descriptor-to-HSD_CObj conversion, camera attachment, render-priority setup, and creation of the paired flash-rendering GObj.",
+            "captured_at": "2026-09-04T03:17:13.459Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:5bd4bc4d-992f-4743-9c54-0bbc61e969a4",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports Melee's full-screen background flashes and black transition wipes by configuring the fixed camera through which their screen-covering geometry is presented.",
+        "rationale": "The section's camera description is loaded specifically by the background-flash setup path, while the registered renderer draws a colored quad over the 640-by-480 view or progressive opaque-black wipe geometry.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T03:17:13.459Z",
+        "evidence": [
+          {
+            "id": "evidence:b2529403-2269-4e39-80cc-07df9bc78795",
+            "fact_id": "fact:5bd4bc4d-992f-4743-9c54-0bbc61e969a4",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L119-L238",
+            "digest": "sha256:187eca3120a21782",
+            "why": "Shows the background-flash renderer emitting full-screen colored or black geometry.",
+            "captured_at": "2026-09-04T03:17:13.459Z"
+          },
+          {
+            "id": "evidence:cdbe8ded-d6db-4c5d-a4fb-4e4060bc6860",
+            "fact_id": "fact:5bd4bc4d-992f-4743-9c54-0bbc61e969a4",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L429-L468",
+            "digest": "sha256:df11da586da018f3",
+            "why": "Shows the section-owned camera description being loaded while the subsystem's camera and renderer objects are installed.",
+            "captured_at": "2026-09-04T03:17:13.459Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:5493435e-b06c-4239-8700-340bd639bc0a",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 0x60-byte initialized-data layout consisting of two adjacent `HSD_WObjDesc` objects followed by one `HSD_CameraDescPerspective`; the camera description points to the two preceding world-object descriptions as its eye and interest objects.",
+        "rationale": "The current source exposes every section-owned object and its type rather than only the camera symbol. Their address order and references establish a single camera-description aggregate spanning the complete initialized-data target.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T03:17:13.459Z",
+        "evidence": [
+          {
+            "id": "evidence:85470f54-8018-44e0-af5a-4634de066986",
+            "fact_id": "fact:5493435e-b06c-4239-8700-340bd639bc0a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L54-L89",
+            "digest": "sha256:6aeaf06331458357",
+            "why": "Shows the complete typed sequence of two HSD_WObjDesc definitions and one HSD_CameraDescPerspective with pointers to those descriptors.",
+            "captured_at": "2026-09-04T03:17:13.459Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:0c1e9855-8b3d-4cd6-9707-a1d52f2cedc6",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the two static world-object descriptions and perspective-camera description used to construct the background-flash subsystem's dedicated screen-space camera.",
+        "rationale": "The section now has fully recovered typed definitions: the camera description references the two world-object descriptions, and the subsystem initializer loads that camera description and attaches the resulting camera to its dedicated GObj.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T03:17:13.459Z",
+        "evidence": [
+          {
+            "id": "evidence:3ef2f94c-0a3e-49bd-81dd-27eba74e1554",
+            "fact_id": "fact:0c1e9855-8b3d-4cd6-9707-a1d52f2cedc6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L54-L89",
+            "digest": "sha256:6aeaf06331458357",
+            "why": "Defines the two HSD_WObjDesc objects and the HSD_CameraDescPerspective that references them.",
+            "captured_at": "2026-09-04T03:17:13.459Z"
+          },
+          {
+            "id": "evidence:79592d5c-3220-4b71-9b5c-b27e4d68996e",
+            "fact_id": "fact:0c1e9855-8b3d-4cd6-9707-a1d52f2cedc6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L429-L468",
+            "digest": "sha256:df11da586da018f3",
+            "why": "Shows the background-flash initializer loading the section-owned camera description and attaching the resulting HSD_CObj to a camera GObj.",
+            "captured_at": "2026-09-04T03:17:13.459Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:ceed35ff-07de-4fa9-a2b8-a89e07360d08",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The three preset wrappers pass section-owned GXColor addresses to lbBgFlash_800206D4. That initializer copies the selected source and destination colors into the shared singleton, converts the source channels to floating point, and derives per-update RGBA deltas from the duration.",
+        "rationale": "The wrappers directly select the four presets, and the common initializer exposes every transformation from those inputs into persistent interpolation state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:cc1eeef0-6b54-4f6e-b762-dc2169a93193",
+            "fact_id": "fact:ceed35ff-07de-4fa9-a2b8-a89e07360d08",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows all three preset selections and the common initializer's color copies and per-channel delta calculations.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:3f2679a2-7eed-4a05-82bc-a042a10d0051",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.sdata",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies the canonical black, transparent, and white endpoints used for Melee's full-screen background flashes and fades.",
+        "rationale": "The current declarations still define opaque black, transparent black, opaque white, and a duplicate transparent preset, and the three trigger wrappers continue selecting them as endpoints for full-screen transitions.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:a4ea2820-e33c-425e-9c41-7d3d87506687",
+            "fact_id": "fact:3f2679a2-7eed-4a05-82bc-a042a10d0051",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Defines the four black, transparent, and white `GXColor` presets and identifies the unit as the full-screen background-flash implementation.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:68457393-bbd9-46a9-8fff-13816423ae06",
+            "fact_id": "fact:3f2679a2-7eed-4a05-82bc-a042a10d0051",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the presets being selected as source and destination colors by the timed background-flash wrappers.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:3156b78c-10c0-4306-94d2-02d45e719739",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An initialized 16-byte small-data section containing four consecutive `GXColor` records: {0,0,0,255}, {0,0,0,0}, {255,255,255,255}, and {0,0,0,0}.",
+        "rationale": "The current source declares four consecutive static four-byte `GXColor` values with exactly these channel initializers, accounting for the section's established 16-byte layout.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:f9bbda24-a3d1-4480-84a8-6757cb51b3ef",
+            "fact_id": "fact:3156b78c-10c0-4306-94d2-02d45e719739",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Defines the four consecutive `GXColor` objects and their exact RGBA values.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:bec46ec1-e39e-4b5b-b688-5ebcab3ff741",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.sdata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides opaque-black, transparent-black, and opaque-white color presets used as source and destination endpoints for common background-flash transitions.",
+        "rationale": "The head declarations establish the preset colors, and the adjacent wrappers pass different pairs of those presets into the shared timed-transition initializer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:2ee8b68d-3f5b-411e-b22e-72910733482f",
+            "fact_id": "fact:bec46ec1-e39e-4b5b-b688-5ebcab3ff741",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Defines opaque-black, transparent-black, opaque-white, and duplicate transparent `GXColor` presets.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:d4a540f8-f323-4422-bb9a-d8880aa45c28",
+            "fact_id": "fact:bec46ec1-e39e-4b5b-b688-5ebcab3ff741",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows all three common transition wrappers selecting source and destination addresses from those presets.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:2e29db88-f7ea-455d-b959-0ffacb78f5c6",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Functions in lbbgflash load these literals as immutable arithmetic and comparison operands. They govern color-step tests, camera parameters, full-screen vertex coordinates, and 640-by-480 wipe bounds; computed results flow into `BgFlashData` or GX submissions, and no path writes into `.sdata2`.",
+        "rationale": "The current file uses floating-point literals in camera descriptors, interpolation comparisons, full-screen rendering, and wipe calculations while directing all mutable results into the singleton or GX commands. The standing read-only data-flow claim therefore remains valid.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:b51cee3e-b257-4b18-8e5f-1e55a8454a6e",
+            "fact_id": "fact:2e29db88-f7ea-455d-b959-0ffacb78f5c6",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Shows camera literals and zero-valued interpolation comparisons used without mutation.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:84d8f8bf-267b-436c-8361-6f416720351b",
+            "fact_id": "fact:2e29db88-f7ea-455d-b959-0ffacb78f5c6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the retained conversion-order literal and immutable 640-by-480 operands supplied to GX rendering.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:b8d3674f-2564-4d89-8fe9-e812fa0e1f49",
+            "fact_id": "fact:2e29db88-f7ea-455d-b959-0ffacb78f5c6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows constants used in wipe-coordinate conversion and bounds while results are written to GX or mutable singleton fields.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:294645f6-a1f6-4bf0-952f-c1515a820b3d",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A read-only small-data literal pool for the current lbbgflash translation unit, containing floating-point constants such as zero and unit values, 640-by-480 screen dimensions, camera parameters, and a retained signed-int-to-float conversion constant. It is immutable compiler support data rather than a homogeneous runtime array or structure.",
+        "rationale": "The current source demonstrates these scalar literals across camera, interpolation, and rendering code and explicitly retains the signed-conversion constant for `.sdata2` ordering. Because the source does not itself expose every emitted byte, the refreshed claim omits the prior unsupported exact byte count.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:421ca9a7-719d-406a-be88-efdec1a9720b",
+            "fact_id": "fact:294645f6-a1f6-4bf0-952f-c1515a820b3d",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Shows camera parameters, screen dimensions, zero values, and unit-valued interpolation operands belonging to this translation unit.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:846041a5-73ff-4610-8cbc-68e7b47cb604",
+            "fact_id": "fact:294645f6-a1f6-4bf0-952f-c1515a820b3d",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Explicitly identifies the retained `.sdata2` signed-int-to-float conversion constant and shows immutable screen-coordinate literals.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:2c54273e-286b-40b5-8088-c396e98bb094",
+            "fact_id": "fact:294645f6-a1f6-4bf0-952f-c1515a820b3d",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows additional scalar conversion and wipe-bound operands used as literals rather than structured mutable data.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:0e39ccfb-04f4-4762-867e-53b6d12ca0b3",
+        "target_id": "target:data:main/melee/lb/lbbgflash:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the current translation unit's read-only floating-point literal pool for background-flash interpolation, camera setup, and 640-by-480 overlay and wipe geometry.",
+        "rationale": "At head, all demonstrated uses of these literals belong to the background-flash unit's camera, interpolation, full-screen quad, or wipe traversal paths, and the explicit ordering helper confirms `.sdata2` ownership.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:ee2ba158-409d-4f4b-9fb8-ce79f8ba72cf",
+            "fact_id": "fact:0e39ccfb-04f4-4762-867e-53b6d12ca0b3",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Shows camera descriptors and interpolation arithmetic using the unit's floating-point literals.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:0d612e89-977f-48a9-ba8d-80875cae0538",
+            "fact_id": "fact:0e39ccfb-04f4-4762-867e-53b6d12ca0b3",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the explicit `.sdata2` ordering helper and 640-by-480 full-screen rendering operands.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:08cf2934-d856-4277-9843-74adfb4b5da2",
+            "fact_id": "fact:0e39ccfb-04f4-4762-867e-53b6d12ca0b3",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows floating-point coordinate conversion and screen-bounded wipe traversal supported by the literal pool.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:fn_8001FC08"
+    },
+    "facts": [
+      {
+        "id": "fact:3040f037-8b05-4120-be2b-295fba12de3f",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FC08",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "For each RGBA channel, the function reads the current floating-point accumulator from `lbl_80433658.x10`, adds the corresponding signed delta from `x20`, compares that candidate against the matching byte channel in target color `x8`, and writes either the candidate or the target converted to `f32` back into `x10`. The caller then converts/copies `x10[0..3]` into current render color `xC`.",
+        "rationale": "The target body directly exposes the per-channel reads, arithmetic, directional comparisons, and writes. The caller establishes that the updated accumulator is an intermediate representation whose immediate consumer is the byte-sized color used by the flash renderer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T15:06:31.896Z",
+        "evidence": [
+          {
+            "id": "evidence:530212c2-6205-43ac-84ca-c74e12092ea1",
+            "fact_id": "fact:3040f037-8b05-4120-be2b-295fba12de3f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L81-L162",
+            "digest": "sha256:b8134348b7133eba",
+            "why": "Shows every input and output access in the four unrolled channel-update paths.",
+            "captured_at": "2026-09-02T15:06:31.896Z"
+          },
+          {
+            "id": "evidence:4e6cfcf7-dff2-4ec9-ba94-1b826ca35f47",
+            "fact_id": "fact:3040f037-8b05-4120-be2b-295fba12de3f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L323-L368",
+            "digest": "sha256:211c16d64089c800",
+            "why": "Shows the updated floating-point channels flowing immediately into the current byte-sized render color.",
+            "captured_at": "2026-09-02T15:06:31.896Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:a153dcbd-fb7b-44d5-a8e8-a28cd34806b5",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FC08",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements one color-transition step for Melee's full-screen background-flash overlay, including independent interpolation of opacity through the alpha channel.",
+        "rationale": "The current helper independently advances red, green, blue, and alpha toward the target, and the renderer uses the resulting current RGBA color for its full-screen overlay. The standing game mapping remains valid with fresh head evidence.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:2ef53c27-27ee-4cf6-8761-c4e92edb987f",
+            "fact_id": "fact:a153dcbd-fb7b-44d5-a8e8-a28cd34806b5",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Identifies the unit as a full-screen background-flash implementation and shows the red and green channel transition steps.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:cdcf1f70-1f40-4e24-8ef2-afbf5450cb35",
+            "fact_id": "fact:a153dcbd-fb7b-44d5-a8e8-a28cd34806b5",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the blue and alpha transition steps and the full-screen renderer consuming the current RGBA color.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:47f53492-791a-49b5-9a82-4b7eea3c7109",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FC08",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_UpdateColor",
+        "rationale": "The function belongs to the `lbBgFlash` unit, mutates only its current floating-point color channels, and is called by the per-frame flash process immediately before those channels become the render color. No original symbol recovers the precise suffix, so the name remains a convention-based inference.\n\nNaming cleanup: source explicitly prefers this candidate over the listed alternatives\nPrior naming claim: Likely `lbBgFlash_UpdateColor` or `lbBgFlash_InterpolateColor`; `lbBgFlash_UpdateColor` best reflects that it performs one signed, clamped update of the subsystem's current RGBA state.",
+        "confidence": 0.7,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:88192c18-6ee6-4993-9238-7e2fe3689a6c",
+            "fact_id": "fact:47f53492-791a-49b5-9a82-4b7eea3c7109",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L81-L162",
+            "digest": "sha256:b8134348b7133eba",
+            "why": "Shows that the routine's entire operation is updating the four current color channels toward a target.",
+            "captured_at": "2026-09-02T15:06:31.896Z"
+          },
+          {
+            "id": "evidence:4cffe7e9-cfb7-4322-9a13-e7f29d1d4623",
+            "fact_id": "fact:47f53492-791a-49b5-9a82-4b7eea3c7109",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L323-L368",
+            "digest": "sha256:211c16d64089c800",
+            "why": "Establishes its role as the color-update helper called by the background-flash process.",
+            "captured_at": "2026-09-02T15:06:31.896Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:4d5c3522-11c5-4810-849c-c03348281bf7",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FC08",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless, no-return singleton-state helper with signature `void fn_8001FC08(void)`. It reads and writes the global `BgFlashData`: `x8` is the target `GXColor`, `x10[4]` is the in/out floating-point RGBA accumulator, and `x20[4]` contains signed per-update channel deltas.",
+        "rationale": "The definition at head provides the exact signature and repeats the same target, accumulator, and delta accesses for all four channels, confirming the standing type characterization.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:d452083b-a84a-4ae8-9796-65c33250b53f",
+            "fact_id": "fact:4d5c3522-11c5-4810-849c-c03348281bf7",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Defines `BgFlashData`, the parameterless void function, and the red and green accesses to `x8`, `x10`, and `x20`.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:295ea992-2eab-4493-b1c0-5253f3bbc774",
+            "fact_id": "fact:4d5c3522-11c5-4810-849c-c03348281bf7",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Completes the green, blue, and alpha channel paths using the same singleton fields.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:4fb1b3f1-2a96-41ec-9017-786d84e92d8b",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FC08",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Advances all four floating-point RGBA channels of the background-flash state one interpolation step toward their target color, clamping each channel to the target so that its per-frame delta cannot overshoot.",
+        "rationale": "The function adds each channel's signed delta to its current floating-point value and chooses either the result or the corresponding target byte according to the delta's direction. Its sole caller invokes it in background-flash modes 0–2 before publishing the resulting channels as the renderer's current color.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T15:06:31.896Z",
+        "evidence": [
+          {
+            "id": "evidence:e3fc6c6b-8111-4853-9ef7-88755a85babe",
+            "fact_id": "fact:4fb1b3f1-2a96-41ec-9017-786d84e92d8b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L81-L162",
+            "digest": "sha256:b8134348b7133eba",
+            "why": "Shows the complete signed-step and target-clamping operation for the red, green, blue, and alpha channels.",
+            "captured_at": "2026-09-02T15:06:31.896Z"
+          },
+          {
+            "id": "evidence:63f5ca19-dcf5-485d-abf5-f2cd50ffcd37",
+            "fact_id": "fact:4fb1b3f1-2a96-41ec-9017-786d84e92d8b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L323-L368",
+            "digest": "sha256:211c16d64089c800",
+            "why": "Shows the background-flash process invoking this helper in modes 0–2 and then publishing its four floating-point outputs as the current render color.",
+            "captured_at": "2026-09-02T15:06:31.896Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:b4c3bbcb-94c3-4699-8ffc-803558bc3f10",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FC08",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each RGBA channel is updated independently. When its delta is positive, the candidate value is retained only while it remains below the target; otherwise the channel snaps to the target. When its delta is zero or negative, the candidate is retained only while it remains above the target; otherwise it snaps to the target. Thus every channel moves monotonically toward its target and remains there after reaching or crossing it.",
+        "rationale": "The positive and nonpositive branches use complementary less-than and greater-than guards around the same current-plus-delta calculation. Both fallback paths write the exact target, proving directional saturation and preventing oscillation or overshoot.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T15:06:31.896Z",
+        "evidence": [
+          {
+            "id": "evidence:1558af4f-6998-4b1b-a34e-2f68aefa0798",
+            "fact_id": "fact:b4c3bbcb-94c3-4699-8ffc-803558bc3f10",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L81-L162",
+            "digest": "sha256:b8134348b7133eba",
+            "why": "Directly shows the positive-step and nonpositive-step guards and target-saturating fallback for all four channels.",
+            "captured_at": "2026-09-02T15:06:31.896Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:fn_8001FEC4"
+    },
+    "facts": [
+      {
+        "id": "fact:be45469e-bd41-46d7-8a0c-f330d7dd4925",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FEC4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the suppression bit, mode, current color, wipe kind, strip height, completion flag, and horizontal and vertical progress from BgFlashData. It converts those values into screen-space coordinates and RGBA vertex attributes and submits them through GX; it does not modify the flash singleton.",
+        "rationale": "All singleton accesses in the renderer are reads, while its externally visible effects are calls that configure drawing and submit positions and colors.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:3df0d90c-7e07-43e6-a113-03bcbe259fa9",
+            "fact_id": "fact:be45469e-bd41-46d7-8a0c-f330d7dd4925",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows singleton state reads and the full-screen and initial strip GX submissions.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:d8063158-a17e-401d-b091-a714e3edeb72",
+            "fact_id": "fact:be45469e-bd41-46d7-8a0c-f330d7dd4925",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows all remaining wipe-state reads and GX submissions without singleton writes.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:62517589-47e3-4f5b-b906-b67da80986af",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FEC4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the visible rendering stage of Melee's background-flash effect: full-screen colored flashes and fades plus progressive black wipe transitions.",
+        "rationale": "The unit identifies itself as background-flash effects, and this callback renders the singleton as screen-covering colored or black geometry.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:c7fb9280-1735-40e1-8437-8d27d207876b",
+            "fact_id": "fact:62517589-47e3-4f5b-b906-b67da80986af",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the full-screen colored and black overlay paths.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:6a91f892-d87a-49ff-9250-57eb83443bde",
+            "fact_id": "fact:62517589-47e3-4f5b-b906-b67da80986af",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows the progressive black wipe geometry.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:779e4f87-803e-4d0b-a9e9-94dbfadcefc5",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FEC4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_Draw",
+        "rationale": "The function's entire behavior is converting background-flash singleton state into GX quads, making Draw the most direct convention-compatible role name.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely lbBgFlash_Draw.",
+        "confidence": 0.79,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:488fb736-2ff1-4540-88a1-c485d1c6a893",
+            "fact_id": "fact:779e4f87-803e-4d0b-a9e9-94dbfadcefc5",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the routine preparing drawing state and emitting full-screen or strip geometry.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:5eb56111-3932-4dd4-b875-4e99677ecbb4",
+            "fact_id": "fact:779e4f87-803e-4d0b-a9e9-94dbfadcefc5",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the routine registered as the background-flash GObj's render callback.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:273fcd7c-55df-45ab-905b-dcca0a41b129",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FEC4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An HSD GObj render callback with signature void (HSD_GObj* gobj, s32 code). Both arguments are unused; all effect inputs come from the global BgFlashData, and outputs are GX drawing-state and vertex-submission side effects.",
+        "rationale": "The current definition supplies the callback signature, does not read either argument, and obtains every rendered value from the singleton.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:ee074ac9-0e50-4ceb-9486-f6d4a17a0025",
+            "fact_id": "fact:273fcd7c-55df-45ab-905b-dcca0a41b129",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Provides the exact definition and shows the render guard, singleton reads, and GX submissions.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:7f2ff4a3-a297-43f0-8fb1-e14c60d510bc",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FEC4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Renders the current background-flash state as immediate-mode GX quads: either a full-screen stored color, a full opaque-black screen, or progressive opaque-black horizontal strips with a partial frontier strip.",
+        "rationale": "The function only initializes drawing state and emits GX_QUADS, with branches selecting the stored RGBA color or black geometry derived from wipe progress.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:4cb0587d-30c7-49de-ad4a-b0e7e338446f",
+            "fact_id": "fact:7f2ff4a3-a297-43f0-8fb1-e14c60d510bc",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the render guard, full-screen color path, completed black-screen path, and start of progressive strip rendering.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:55d6909e-faba-40ed-b539-6d3ff4e5919f",
+            "fact_id": "fact:7f2ff4a3-a297-43f0-8fb1-e14c60d510bc",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows the remaining progressive strip loops and all emitted GX geometry.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:c3576ae0-fe41-4b17-a675-408e87e1d1bd",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_8001FEC4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Returns while the suppression bit is set. Otherwise, modes below 3 or at least 5 draw the stored color over 640×480. For modes 3–4, completion leaves mode 3 as a full black screen and mode 4 with no geometry; before completion, wipe kind 0 draws top-down or bottom-up black strips according to the mode, and other wipe kinds emit nothing.",
+        "rationale": "These guards, mode groups, completion cases, and opposite-direction strip loops are explicit in the current renderer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:1fb9a6e7-4d43-416e-8e60-21e31c9b76e2",
+            "fact_id": "fact:c3576ae0-fe41-4b17-a675-408e87e1d1bd",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the suppression guard, full-color mode group, completion behavior, and start of the top-down wipe.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:af565112-2cd1-4152-a518-fbd809515233",
+            "fact_id": "fact:c3576ae0-fe41-4b17-a675-408e87e1d1bd",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows completion of both directional strip-rendering loops and the absence of other wipe-kind cases.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:fn_800204C8"
+    },
+    "facts": [
+      {
+        "id": "fact:91ccb0ce-323e-48a1-927e-165cd7c56fdb",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800204C8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads BgFlashData.state.mode. For modes 0–2 it invokes fn_8001FC08 and converts x10[0..3] into current byte color xC. For modes 3–4 with x30 equal to zero, it consumes x3C, x31, x32, x34, and x38 to advance traversal or set x33; the paired renderer reads xC and the traversal fields to draw the overlay.",
+        "rationale": "The process body directly exposes every input and output, and the preceding renderer consumes the published color and wipe coordinates.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:18f8cc8a-cce3-4b84-9443-922c80f27c93",
+            "fact_id": "fact:91ccb0ce-323e-48a1-927e-165cd7c56fdb",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows the renderer consuming wipe fields and the process producing color and traversal state.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:67d6c3ff-5317-482f-94e9-70661a99874c",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800204C8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the per-frame state advancement for Melee's full-screen background flashes, color fades, and progressive black screen-covering wipes.",
+        "rationale": "The function updates the precise color and traversal fields used by the current full-screen overlay renderer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:55d957ba-8749-49f6-bff1-371c87a77df6",
+            "fact_id": "fact:67d6c3ff-5317-482f-94e9-70661a99874c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows both the progressive overlay renderer and the routine's color and wipe state updates.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:bc9b8766-0923-4670-8443-1de187e46e6c",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800204C8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_Proc",
+        "rationale": "The routine performs one state-advancement step without rendering and is installed through the process-registration API, supporting the Proc suffix while leaving the exact historical spelling uncertain.\n\nNaming cleanup: source explicitly prefers this candidate over the listed alternatives\nPrior naming claim: Likely lbBgFlash_Proc, or less specifically lbBgFlash_Update; lbBgFlash_Proc best reflects its registration as the subsystem's recurring GObj process.",
+        "confidence": 0.77,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:bd130ad3-92c3-4eed-8c85-f9b5faeda9fb",
+            "fact_id": "fact:bc9b8766-0923-4670-8443-1de187e46e6c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows the routine updating color and wipe state without direct rendering.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:a2dd2e09-8f85-41a8-a336-1e420006b218",
+            "fact_id": "fact:bc9b8766-0923-4670-8443-1de187e46e6c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the routine installed as the background-flash GObj process.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:6982b648-faea-49e1-ae4c-fe6e5d05625f",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800204C8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless, no-return flash-process routine with source signature void fn_800204C8(void). It is registered as an HSD GObj process callback and carries all inputs and outputs through the module-global BgFlashData singleton.",
+        "rationale": "The current definition has no parameters and only accesses the singleton, while subsystem initialization installs it through HSD_GObj_SetupProc.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:e7186e72-abf8-4d0e-a659-03de6e2ff90b",
+            "fact_id": "fact:6982b648-faea-49e1-ae4c-fe6e5d05625f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Provides the exact signature and shows all state access through BgFlashData.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:7201821d-fdf9-422f-a3fd-51ca2319a416",
+            "fact_id": "fact:6982b648-faea-49e1-ae4c-fe6e5d05625f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the routine registered as the effect GObj's process callback.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:6ad081bd-1b9c-4b76-9075-906d645f8af9",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800204C8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Advances the background-flash effect once per process invocation. Modes 0–2 update and publish interpolated RGBA channels, while modes 3–4 advance the 640-by-480 strip traversal and mark it complete at the screen boundary.",
+        "rationale": "The current switch directly separates color interpolation from wipe traversal, and the initializer registers this routine as the recurring process paired with the renderer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:b8a8a855-8693-4c37-b055-9212e498dea8",
+            "fact_id": "fact:6ad081bd-1b9c-4b76-9075-906d645f8af9",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows the mode dispatch, color publication, coordinate advancement, and completion write.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:6412b821-c5ec-4e38-8f16-0411cd00005b",
+            "fact_id": "fact:6ad081bd-1b9c-4b76-9075-906d645f8af9",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the function installed as the background-flash process callback.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:c123135d-5257-434a-98d5-32bbb6cd6246",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800204C8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Modes 0, 1, and 2 perform one RGBA interpolation step and publish it. Modes 3 and 4 advance x34 by x31 while below 640, then advance x38 by x32 and reset x34 while below 480, for x3C iterations when x30 is zero; after both bounds are reached, x33 becomes one. Mode 5, out-of-range modes, and unhandled progressive submodes do nothing.",
+        "rationale": "The current nested switches and loop explicitly define these guards, bounds, transitions, and no-op paths.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:d09fe0d6-ca68-4d00-9140-392f254b0dd9",
+            "fact_id": "fact:c123135d-5257-434a-98d5-32bbb6cd6246",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows the complete active update paths and their exact mode, submode, iteration, and screen-bound guards.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:114b31b5-595f-4981-bf1d-b27ea82ca34e",
+            "fact_id": "fact:c123135d-5257-434a-98d5-32bbb6cd6246",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the explicit mode-5 and default returns completing the state machine.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:fn_800208B0"
+    },
+    "facts": [
+      {
+        "id": "fact:abcd37a5-086e-4b5f-95e9-af11ffcdff80",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800208B0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes an 8-bit opacity and writes state.active = 0, state.mode = 5, and xC = {0,0,0,alpha} into BgFlashData. The render callback subsequently reads that mode and color and submits the same channels for every vertex of its full-screen quad.",
+        "rationale": "The target provides every producer write, and the fixed-color render path provides the downstream consumer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:bd5ceace-57d7-4d93-8b29-3b92002747f4",
+            "fact_id": "fact:abcd37a5-086e-4b5f-95e9-af11ffcdff80",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows all target writes from the alpha input into shared flash state.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:44b9a4dc-65b8-416e-a03d-00fdc6ee0c20",
+            "fact_id": "fact:abcd37a5-086e-4b5f-95e9-af11ffcdff80",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the stored RGBA color being submitted at all four full-screen vertices.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:d8add6be-95f9-407d-90c4-14f1f02e7e82",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800208B0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the solid-black fixed-color form of Melee's full-screen background-flash overlay, allowing scene darkening at nonzero alpha or an invisible overlay at alpha zero.",
+        "rationale": "The function constructs a black color with configurable opacity, and the background-flash renderer draws that color over the complete screen.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:83f49884-a016-488c-9e93-58ae931909ee",
+            "fact_id": "fact:d8add6be-95f9-407d-90c4-14f1f02e7e82",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows construction of the fixed black overlay state.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:8882bd70-1380-4cb7-86a7-f1fadcc22a03",
+            "fact_id": "fact:d8add6be-95f9-407d-90c4-14f1f02e7e82",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the state rendered as a full-screen color quad.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:09015d47-b8f7-481b-9388-7cd7ad59eb36",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800208B0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_InitBlack",
+        "rationale": "The adjacent lbBgFlash_InitState selects the same fixed-color mode from an arbitrary GXColor, while this convenience routine specializes it to black with caller-selected alpha.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is lbBgFlash_InitBlack.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:5edc208e-79dd-4046-8400-e98e1a00b9bc",
+            "fact_id": "fact:09015d47-b8f7-481b-9388-7cd7ad59eb36",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the generic InitState routine immediately followed by this black-color specialization.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:0622faa1-e3f1-4cb6-83b0-aac9f5d5030b",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800208B0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A side-effect routine with signature void fn_800208B0(u8 alpha). Its argument is an 8-bit GX alpha-channel value, and it returns no result while mutating the shared BgFlashData state.",
+        "rationale": "The current definition provides the exact signature and assigns the argument solely to the current GXColor alpha field.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:d567123d-093c-475f-8c98-69569c2663c8",
+            "fact_id": "fact:0622faa1-e3f1-4cb6-83b0-aac9f5d5030b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the exact u8 parameter and its assignment to xC.a.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:917e6b2f-eca9-4d83-aab5-c37d1f2ad04c",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800208B0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Configures the background-flash renderer for a solid black full-screen overlay with caller-selected opacity; alpha zero produces a fully transparent overlay.",
+        "rationale": "The function selects fixed-color mode 5 and stores black RGB with the supplied alpha, while the renderer draws mode 5's current color across the full screen.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:e7a0a8a5-0fe7-47c0-9f81-ab3df250d1ee",
+            "fact_id": "fact:917e6b2f-eca9-4d83-aab5-c37d1f2ad04c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows mode 5 and RGBA (0,0,0,alpha) being written to the singleton.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:e14acf06-894b-4812-8a8a-09317553af02",
+            "fact_id": "fact:917e6b2f-eca9-4d83-aab5-c37d1f2ad04c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows mode 5 rendering the stored color as a 640-by-480 quad.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:92056240-09a2-48fc-9ee0-0c6321baba24",
+        "target_id": "target:function:main/melee/lb/lbbgflash:fn_800208B0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally clears the renderer's suppression gate, selects fixed-color mode 5, and replaces the current color with black at the requested alpha. Repeating the same alpha is idempotent, and the routine performs no interpolation or timer update.",
+        "rationale": "The current body is straight-line state assignment, and the renderer's entry and mode checks establish the behavioral meaning of the written gate and mode.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:ecaddc8b-ecca-4d1b-bb05-2f03c57467c6",
+            "fact_id": "fact:92056240-09a2-48fc-9ee0-0c6321baba24",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows unconditional gate, mode, RGB, and alpha assignments with no incremental logic.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:587ed86f-6b55-4895-9077-d5c98ab407d8",
+            "fact_id": "fact:92056240-09a2-48fc-9ee0-0c6321baba24",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows that the active bit suppresses rendering and mode 5 directly renders xC.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:lbBgFlash_800205F0"
+    },
+    "facts": [
+      {
+        "id": "fact:7d890d94-c794-4863-91e5-bc1da3fad6f4",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800205F0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a frame duration, clamps it to at least one, and forwards it with opaque-white and opaque-black presets to lbBgFlash_800206D4. The initializer writes current, target, floating accumulator, and per-channel delta state; the wrapper then selects mode 0.",
+        "rationale": "The complete wrapper and initializer are contiguous at head and directly expose the duration and color flow into the singleton.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:0af41e73-9bca-429d-a286-6d74b09e8aea",
+            "fact_id": "fact:7d890d94-c794-4863-91e5-bc1da3fad6f4",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the wrapper's input transformation and every singleton write performed by the common initializer.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:486fa61c-9f1e-43b8-bcc9-9ddcec0b4b25",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800205F0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements an opaque white-to-black full-screen background flash used as a dramatic game-event overlay.",
+        "rationale": "The former gmregclear citation no longer contains this call, so the unsupported Hand-boss-specific mapping is removed. At head, the unit identifies these overlays as dramatic game-event effects, defines the opaque white and opaque black presets, and shows this wrapper selecting those endpoints.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-05T15:23:16.543Z",
+        "evidence": [
+          {
+            "id": "evidence:836635c0-3457-4bec-8655-9adfd21d469d",
+            "fact_id": "fact:486fa61c-9f1e-43b8-bcc9-9ddcec0b4b25",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Identifies the subsystem as full-screen background flashes for dramatic game events and defines the opaque black and opaque white color presets.",
+            "captured_at": "2026-09-05T15:23:16.543Z"
+          },
+          {
+            "id": "evidence:74421b9b-ddcf-4e8a-b541-7f79937a4367",
+            "fact_id": "fact:486fa61c-9f1e-43b8-bcc9-9ddcec0b4b25",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows lbBgFlash_800205F0 initializing a timed transition from the opaque-white preset to the opaque-black preset.",
+            "captured_at": "2026-09-05T15:23:16.543Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:12c18563-0d8a-4760-99c8-aa1915e7808a",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800205F0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_FadeWhiteToBlack",
+        "rationale": "Within the lbBgFlash naming convention, the function is a specialized wrapper whose distinguishing behavior is supplying opaque white as the initial color and opaque black as the target to the common fade initializer. The exact original spelling is unknown, so this is a semantic reconstruction rather than a rename instruction.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-02T13:46:58.558Z",
+        "evidence": [
+          {
+            "id": "evidence:cf7cc8e9-aaa1-47ef-b3f0-c9c717e229c2",
+            "fact_id": "fact:12c18563-0d8a-4760-99c8-aa1915e7808a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L372-L435",
+            "digest": "sha256:c859bf55635e2146",
+            "why": "Shows this function beside two structurally identical lbBgFlash wrappers and identifies its unique white-to-black color pair.",
+            "captured_at": "2026-09-02T13:46:58.558Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:18173fc6-1942-47ca-886a-372f47655002",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800205F0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "void function taking one signed 32-bit duration measured in frames; non-positive values are normalized to one frame.",
+        "rationale": "The matched body declares a void return and s32 duration parameter, explicitly clamps values below one, and passes the result as the divisor/count used to calculate per-frame RGBA changes. The neighboring wrapper documentation identifies the analogous count as a frame duration.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:46:58.558Z",
+        "evidence": [
+          {
+            "id": "evidence:cf385730-53e9-4986-9691-bb179f8a2499",
+            "fact_id": "fact:18173fc6-1942-47ca-886a-372f47655002",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L372-L435",
+            "digest": "sha256:c859bf55635e2146",
+            "why": "Shows the exact signature, minimum-one clamp, neighboring frame-duration annotation, and use of the count to derive per-frame channel deltas.",
+            "captured_at": "2026-09-02T13:46:58.558Z"
+          },
+          {
+            "id": "evidence:7eda29fb-adb2-431f-bc2e-b47f02b0f209",
+            "fact_id": "fact:18173fc6-1942-47ca-886a-372f47655002",
+            "kind": "pr",
+            "locator": "pr://pr-2025--fn--main-melee-lb-lbbgflash-lbbgflash-800205f0--8c8ee5521136",
+            "digest": null,
+            "why": "Records that the reconstructed 76-byte function reached an exact match in the lbBgFlash matching pull request.",
+            "captured_at": "2026-09-02T13:46:58.558Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:9066c02b-d7bd-493c-b776-f1650748af3f",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800205F0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Starts an opaque full-screen color transition from white to black over a caller-supplied number of frames.",
+        "rationale": "The wrapper clamps the duration and passes opaque white and opaque black to the common initializer before selecting the ordinary interpolation mode.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:f5490912-9282-4cf6-9090-4b235add33f1",
+            "fact_id": "fact:9066c02b-d7bd-493c-b776-f1650748af3f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the duration clamp, white-to-black preset pair, transition setup, and mode-0 selection.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:e699b24d-548c-4c54-a276-e2dbad92a627",
+            "fact_id": "fact:9066c02b-d7bd-493c-b776-f1650748af3f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows modes below 3 rendering the current transition color over 640×480.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:438e8f71-ca30-4b3f-9167-dcce7d38cf3b",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800205F0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Every call guarantees at least a one-frame transition, replaces any prior color transition with opaque white toward opaque black, clears the suppression flag through the initializer, and leaves the subsystem in mode 0 for subsequent clamped RGBA updates.",
+        "rationale": "The wrapper still clamps its duration, supplies white and black presets, invokes the initializer that clears active and replaces all transition state, and then selects mode 0. The channel helper at head retains target-clamped updates.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:11d1312a-b1df-4264-9b34-864d4d13732a",
+            "fact_id": "fact:438e8f71-ca30-4b3f-9167-dcce7d38cf3b",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Shows directional channel advancement and saturation at the destination for the beginning of the RGBA helper.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:c8d1f90e-5c93-4c3d-9073-6be57cfdd3ee",
+            "fact_id": "fact:438e8f71-ca30-4b3f-9167-dcce7d38cf3b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the remaining channels using the same target-clamping behavior.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:74b03bbc-1368-4ce3-b2e4-c838f907fb03",
+            "fact_id": "fact:438e8f71-ca30-4b3f-9167-dcce7d38cf3b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows minimum-duration normalization, white-to-black endpoint selection, transition replacement, suppression clearing, and final mode-0 selection.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:lbBgFlash_8002063C"
+    },
+    "facts": [
+      {
+        "id": "fact:bfe986a0-283e-4af2-b31e-c508d53bd27c",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_8002063C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a requested frame duration, clamps it to at least one, and forwards it with transparent-black and opaque-black presets to lbBgFlash_800206D4. The initializer replaces source, current, destination, floating-channel, and per-update delta state; the wrapper then selects mode 0.",
+        "rationale": "The wrapper's selected inputs and the initializer's complete singleton writes are both explicit in the current source.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:d048d86e-debf-4ec9-ab94-b22fdf251fe2",
+            "fact_id": "fact:bfe986a0-283e-4af2-b31e-c508d53bd27c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the duration and presets flowing into every relevant interpolation field.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:62f151fb-8c31-4157-9b7c-dcfe9d9ef887",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_8002063C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements a reusable full-screen fade-to-black background-flash cue for dramatic game events.",
+        "rationale": "The former gmregclear span no longer demonstrates the claimed result-transition use, so the mapping is narrowed to what the current implementation establishes: a dramatic-event overlay transitioning from transparent black to opaque black.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-05T15:23:16.543Z",
+        "evidence": [
+          {
+            "id": "evidence:bfd6be4f-c338-4778-bf1d-14b22eaa306c",
+            "fact_id": "fact:62f151fb-8c31-4157-9b7c-dcfe9d9ef887",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Describes the subsystem as full-screen flashes for dramatic game events and defines transparent-black and opaque-black presets.",
+            "captured_at": "2026-09-05T15:23:16.543Z"
+          },
+          {
+            "id": "evidence:fa5bc27c-2124-481d-92a8-3de065203eda",
+            "fact_id": "fact:62f151fb-8c31-4157-9b7c-dcfe9d9ef887",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows lbBgFlash_8002063C selecting the transparent-black and opaque-black presets for a timed mode-0 transition.",
+            "captured_at": "2026-09-05T15:23:16.543Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:c1bbc3e0-c57b-4c7a-b2e8-fe6472d255ea",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_8002063C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_FadeInBlack",
+        "rationale": "Within the unit's naming convention, this wrapper is distinguished by transitioning from transparent black to opaque black, so FadeInBlack concisely describes its specialization.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely lbBgFlash_FadeInBlack.",
+        "confidence": 0.77,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:21fee6c2-89fa-492a-a1e3-ba1e1d88fc6c",
+            "fact_id": "fact:c1bbc3e0-c57b-4c7a-b2e8-fe6472d255ea",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows this wrapper selecting the transparent-black and opaque-black presets.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:a3811223-4534-4e3f-b807-dab024b63e20",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_8002063C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void function taking one signed integer duration measured in frames; values below one are normalized to one before transition setup.",
+        "rationale": "The current definition has a void return and int parameter, clamps it to one, and supplies it as the divisor used for per-channel transition deltas.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:a78d72ab-b538-424b-b96b-c8cc9eabf3ed",
+            "fact_id": "fact:a3811223-4534-4e3f-b807-dab024b63e20",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Provides the exact signature, clamp, and duration-dependent transition initialization.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:583727ed-103d-4142-a2f8-87bd6c3349fc",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_8002063C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Starts a full-screen fade from transparent black to opaque black over a caller-supplied number of frames, enforcing a minimum duration of one frame.",
+        "rationale": "The wrapper selects black endpoints differing only in alpha, and the ordinary render path draws the resulting current color over the full screen.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:536091e1-dfa4-4e67-bb49-43c2245f4dd5",
+            "fact_id": "fact:583727ed-103d-4142-a2f8-87bd6c3349fc",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the clamp and transparent-black-to-opaque-black transition setup.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:4755c0a3-3d30-4738-8d71-ccae01339dc4",
+            "fact_id": "fact:583727ed-103d-4142-a2f8-87bd6c3349fc",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the current RGBA value rendered across a full-screen quad.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:e657517b-4bda-4a53-bece-eb74be2caac4",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_8002063C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Every call replaces any prior color transition, clears the suppression flag, and leaves the subsystem in mode 0 after guaranteeing at least one frame. Subsequent updates increase alpha from zero toward 255 while RGB remains black, clamping at the opaque-black target.",
+        "rationale": "The current wrapper selects transparent black and opaque black, the common initializer resets all transition fields and clears active, and the wrapper then selects mode 0. The channel helper preserves monotonic target clamping.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:630d5a18-a443-4ca9-afde-359f0cbb9ff5",
+            "fact_id": "fact:e657517b-4bda-4a53-bece-eb74be2caac4",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Shows signed channel advancement with saturation at the target for the red and green paths.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:13c85ff1-b8d4-41eb-bf1d-5f7a1a98fc24",
+            "fact_id": "fact:e657517b-4bda-4a53-bece-eb74be2caac4",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the same clamped update for blue and alpha.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:8c6ac3b2-d9b4-4a5a-b82d-f4e528be8b66",
+            "fact_id": "fact:e657517b-4bda-4a53-bece-eb74be2caac4",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the duration clamp, transparent-black-to-opaque-black endpoints, transition replacement, suppression clear, and final mode 0.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:lbBgFlash_80020688"
+    },
+    "facts": [
+      {
+        "id": "fact:15ec0c42-8b65-45f3-8430-d54ee64b50e7",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_80020688",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a caller-supplied duration, clamps it to at least one, and passes it with transparent-black and opaque-white presets to lbBgFlash_800206D4. The initializer writes source, target, current floating channels, and per-update deltas; the wrapper then selects mode 0.",
+        "rationale": "The old gmregclear span no longer establishes the input's specific origin, so the claim is narrowed to the directly visible caller-supplied parameter. The current definitions and wrapper still establish the complete flow from duration and presets into shared interpolation state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:23:16.543Z",
+        "evidence": [
+          {
+            "id": "evidence:e78350f5-c5b7-4233-9b64-c54cddb98e41",
+            "fact_id": "fact:15ec0c42-8b65-45f3-8430-d54ee64b50e7",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Defines lbl_804D384C as transparent black and lbl_804D3848 as opaque white.",
+            "captured_at": "2026-09-05T15:23:16.543Z"
+          },
+          {
+            "id": "evidence:45f2c6d7-5919-4658-afce-37dc5ab4f6ec",
+            "fact_id": "fact:15ec0c42-8b65-45f3-8430-d54ee64b50e7",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the duration clamp, preset arguments, common initializer writes to source, target, floating-channel and delta state, and the final mode-0 assignment.",
+            "captured_at": "2026-09-05T15:23:16.543Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:95174a14-19be-4b39-ab17-786833e0d62c",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_80020688",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements a transparent-to-white full-screen background flash for dramatic game-event presentation.",
+        "rationale": "The former gmregclear citation no longer supports the Hand-boss-specific association, so that specialization is removed. The current unit description, color presets, and wrapper still directly establish a dramatic-event background flash that builds from transparent black to opaque white.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-05T15:23:16.543Z",
+        "evidence": [
+          {
+            "id": "evidence:2d6f6298-4ef5-4878-b341-efb937262f12",
+            "fact_id": "fact:95174a14-19be-4b39-ab17-786833e0d62c",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Identifies the subsystem as full-screen background flashes for dramatic game events and defines the transparent-black and opaque-white presets.",
+            "captured_at": "2026-09-05T15:23:16.543Z"
+          },
+          {
+            "id": "evidence:77056b4d-924e-4710-baf2-9159308deb26",
+            "fact_id": "fact:95174a14-19be-4b39-ab17-786833e0d62c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows lbBgFlash_80020688 initializing the timed transparent-black-to-opaque-white transition.",
+            "captured_at": "2026-09-05T15:23:16.543Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:b5a397aa-4e23-4993-9d6a-d23ab227f996",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_80020688",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_FadeInWhite",
+        "rationale": "The wrapper's distinguishing behavior is a transition from fully transparent black to fully opaque white, making FadeInWhite a convention-compatible semantic reconstruction.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely lbBgFlash_FadeInWhite.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:f8d9674c-dac7-428d-944f-c49ecf40795f",
+            "fact_id": "fact:b5a397aa-4e23-4993-9d6a-d23ab227f996",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the wrapper selecting transparent black and opaque white as its endpoints.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:9c46e90b-2262-4ace-891c-16f78a3aee9e",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_80020688",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void function taking one signed integer duration measured in frames; values below one are normalized to one.",
+        "rationale": "The current function has a void return and int parameter, clamps the parameter, and uses it to scale all four transition-channel deltas.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:33c2bf76-6af0-4ed8-a6cc-500607f24f8d",
+            "fact_id": "fact:9c46e90b-2262-4ace-891c-16f78a3aee9e",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the exact signature, minimum-one clamp, and duration-controlled transition call.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:770713b9-dfad-419e-818a-5ebaea74a74e",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_80020688",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Starts a transparent-to-opaque white full-screen background flash over a caller-selected duration, enforcing a minimum transition length of one frame.",
+        "rationale": "The wrapper clamps its count and initializes the common transition with transparent black and opaque white, whose current value the renderer draws over 640×480.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:a15c0787-cf2e-43a5-9175-e2968c578765",
+            "fact_id": "fact:770713b9-dfad-419e-818a-5ebaea74a74e",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the duration clamp and transparent-black-to-opaque-white transition setup.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:63d518d6-fdeb-4c3c-b507-e1c4dd7fe284",
+            "fact_id": "fact:770713b9-dfad-419e-818a-5ebaea74a74e",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the current color rendered as a full-screen overlay.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:7b5440ee-6d5e-4552-aca1-285c155c6170",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_80020688",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Every call replaces prior transition state, clears the suppression flag, and selects mode 0 after enforcing at least one frame. Subsequent updates advance all RGBA channels from transparent black toward opaque white and clamp them at the target.",
+        "rationale": "The head wrapper selects transparent black and opaque white and normalizes its duration. Its initializer replaces the singleton transition and clears active, while the per-channel helper advances each component with destination saturation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:16e7ac13-867b-4f1c-8c6e-846fdbd8a6a8",
+            "fact_id": "fact:7b5440ee-6d5e-4552-aca1-285c155c6170",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Shows positive per-channel advancement and target saturation for the beginning of the RGBA helper.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:7a623d10-5939-4e74-b55c-2c61a6f9aeec",
+            "fact_id": "fact:7b5440ee-6d5e-4552-aca1-285c155c6170",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows equivalent clamped advancement for the remaining RGBA channels.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:60184ac5-2976-481a-999c-590b5d6555f3",
+            "fact_id": "fact:7b5440ee-6d5e-4552-aca1-285c155c6170",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows minimum-one normalization, transparent-black-to-opaque-white setup, transition replacement, suppression clearing, and mode-0 selection.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:lbBgFlash_800206D4"
+    },
+    "facts": [
+      {
+        "id": "fact:6a36c14f-42ce-4755-a9e1-d22c873f4aea",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800206D4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads caller-supplied source and destination `GXColor` values and a frame count, clamps the count to one, then writes `BgFlashData`: `x4` and `xC` receive the source color, `x8` receives the destination, `x10` receives floating-point source channels, and `x20` receives four per-update deltas. `fn_8001FC08` and `fn_800204C8` later consume those values and publish the updated color through `xC`.",
+        "rationale": "The current initializer directly maps all three inputs into singleton state, while the head color helper and process callback demonstrate downstream consumption of the destination, accumulator, and delta fields and publication into the render color.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:408c3871-d267-40a5-959d-2bc2fdfb23dc",
+            "fact_id": "fact:6a36c14f-42ce-4755-a9e1-d22c873f4aea",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Shows `fn_8001FC08` consuming destination `x8`, floating accumulators `x10`, and deltas `x20`.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:d1dcf9c4-aaa0-46e4-8c18-07a351d2c942",
+            "fact_id": "fact:6a36c14f-42ce-4755-a9e1-d22c873f4aea",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the remaining channel-consumption paths.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:52e1ba92-4e2f-49bc-b62c-6c7ad01c219d",
+            "fact_id": "fact:6a36c14f-42ce-4755-a9e1-d22c873f4aea",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows `fn_800204C8` invoking the helper and copying the resulting floating-point channels into current render color `xC`.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:74bf7608-e40d-4760-8300-3f6fef3e360f",
+            "fact_id": "fact:6a36c14f-42ce-4755-a9e1-d22c873f4aea",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the complete source, destination, duration, accumulator, and per-update-delta mapping performed by the initializer.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:8a0e17a9-d509-49a6-9da3-1e01db9cca2f",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800206D4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the setup phase of a timed full-screen background-flash or color-fade effect, including opacity transitions.",
+        "rationale": "The function initializes timed interpolation for all four RGBA components consumed by the unit's screen-covering overlay renderer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:89b20750-ba15-4811-833a-71c6abc332bd",
+            "fact_id": "fact:8a0e17a9-d509-49a6-9da3-1e01db9cca2f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows timed transition setup for red, green, blue, and alpha.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:7af1e208-ae4c-4126-9078-e3ecb50491a0",
+            "fact_id": "fact:8a0e17a9-d509-49a6-9da3-1e01db9cca2f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the resulting current RGBA value rendered as a full-screen overlay.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:9e4e6ca8-e913-47c3-985a-0b1fb32051b2",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800206D4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_SetColorTransition",
+        "rationale": "The routine does not render or advance the effect itself; it exclusively initializes shared state for a transition between two caller-supplied GXColors. The `lbBgFlash_` prefix follows the translation unit's established subsystem convention, while `SetColorTransition` describes the evidenced setup role without tying it to a particular caller.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `lbBgFlash_SetColorTransition`.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:3df12cbb-dc42-4b38-9b97-9a8ba9811c6d",
+            "fact_id": "fact:9e4e6ca8-e913-47c3-985a-0b1fb32051b2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L401-L423",
+            "digest": "sha256:e2386da1214cee48",
+            "why": "Shows that the function is a setup operation for a two-color, duration-controlled transition.",
+            "captured_at": "2026-09-02T13:45:50.136Z"
+          },
+          {
+            "id": "evidence:16741843-3fe0-42c7-bb62-62589f7ce02b",
+            "fact_id": "fact:9e4e6ca8-e913-47c3-985a-0b1fb32051b2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L264-L400",
+            "digest": "sha256:1eeabaecd781c67c",
+            "why": "Separately identifies fn_800204C8 as the routine that performs the later per-update advancement, distinguishing this function as the transition setter.",
+            "captured_at": "2026-09-02T13:45:50.136Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:ceb2be4e-6cfc-4639-9575-4b9c673b67f2",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800206D4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Background-flash transition initializer with signature `void (GXColor* start, GXColor* destination, int duration_frames)`; both color pointers are read-only in practice, and the duration is clamped to a minimum of one.",
+        "rationale": "The definition provides the exact ABI-level signature. The body only dereferences the color pointers for copying and channel arithmetic, while its integer argument is copied to a local and replaced with one if below one before being used as the divisor.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:45:50.136Z",
+        "evidence": [
+          {
+            "id": "evidence:5affaabf-42ca-475b-9ee6-609fa5ae7316",
+            "fact_id": "fact:ceb2be4e-6cfc-4639-9575-4b9c673b67f2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L401-L423",
+            "digest": "sha256:e2386da1214cee48",
+            "why": "Provides the exact parameter and return types, demonstrates read-only use of both GXColor inputs, and shows the minimum-one duration guard.",
+            "captured_at": "2026-09-02T13:45:50.136Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:ea2b1b98-b7d4-4341-a5d5-be23c0b0515a",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800206D4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Configures a background-flash color transition from one RGBA color to another by initializing shared effect state and calculating a duration-normalized increment for every channel.",
+        "rationale": "The body copies both colors, initializes floating-point current values from the source, and stores destination-minus-source divided by duration for red, green, blue, and alpha.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:167bbbe7-2b21-456a-988b-2e085824615e",
+            "fact_id": "fact:ea2b1b98-b7d4-4341-a5d5-be23c0b0515a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows complete source, destination, current-channel, and per-channel increment initialization.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:f6af6ff4-4ffd-4a5f-a326-e3a849a8dc1a",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800206D4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally replaces any previous transition, clears the suppression flag, and selects mode 2. A duration below one is treated as one; while mode 2 is processed, every RGBA channel advances by its stored delta and clamps at the destination without overshooting.",
+        "rationale": "The current initializer resets active, selects mode 2, normalizes duration, and replaces all source, destination, accumulator, and delta values. The dispatcher routes mode 2 through the channel helper, whose directional comparisons saturate every channel at its target.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T23:39:28.752Z",
+        "evidence": [
+          {
+            "id": "evidence:2b753888-d859-4b0f-ae99-52cd05ee2f6d",
+            "fact_id": "fact:f6af6ff4-4ffd-4a5f-a326-e3a849a8dc1a",
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:19397dba24e7f29f",
+            "why": "Shows signed per-channel advancement and destination saturation for the red and green channels.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:b80ec248-9bdb-446d-b2eb-82c3242acfd2",
+            "fact_id": "fact:f6af6ff4-4ffd-4a5f-a326-e3a849a8dc1a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the same no-overshoot destination clamping for blue and alpha.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:e92cd4c8-732c-4b04-b673-c524c35cdf15",
+            "fact_id": "fact:f6af6ff4-4ffd-4a5f-a326-e3a849a8dc1a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows mode 2 entering the color-update path and publishing the resulting channels.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          },
+          {
+            "id": "evidence:de205ee5-414b-486f-8e0b-efeb33d50bf4",
+            "fact_id": "fact:f6af6ff4-4ffd-4a5f-a326-e3a849a8dc1a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the duration guard, complete transition replacement, suppression clear, and mode-2 selection.",
+            "captured_at": "2026-09-04T23:39:28.752Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:lbBgFlash_800208EC"
+    },
+    "facts": [
+      {
+        "id": "fact:a4089a23-e411-4830-a72d-413aa0ece874",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800208EC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Loads lbl_803BB028 into an HSD_CObj, attaches it to a classifier-0x14 GObj stored in BgFlashData.x44, and registers that camera at the argument's low-byte priority. It creates a classifier-0x15 GObj in x40, registers fn_8001FEC4 on GX link 0x10 at the same priority, installs fn_800204C8 as its process, and initializes the persistent state.",
+        "rationale": "Every descriptor input, object destination, priority conversion, callback pointer, and final singleton write is explicit in the current function.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:90d43fe4-dd79-4291-8271-9538b38cb56d",
+            "fact_id": "fact:a4089a23-e411-4830-a72d-413aa0ece874",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the complete descriptor-to-camera and callback-to-effect-object flow.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:88c2c9be-f734-49a5-98ba-662eb04b8a67",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800208EC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the persistent camera and scheduled render/update objects through which Melee's full-screen background flashes, fades, and black wipes are displayed, without itself triggering a visible effect.",
+        "rationale": "The initializer installs the renderer and updater but leaves rendering suppressed, so it supplies infrastructure for the mechanic rather than one particular flash.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:5b509792-0b7f-4d90-8855-da1261a3d32c",
+            "fact_id": "fact:88c2c9be-f734-49a5-98ba-662eb04b8a67",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows construction of the camera, renderer, updater, and suppressed initial state.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:5b8db754-d0cf-4a09-9a31-2f455330632d",
+            "fact_id": "fact:88c2c9be-f734-49a5-98ba-662eb04b8a67",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the installed renderer's full-screen color and black-overlay behavior.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:1b9ba66d-ea32-4b42-8afd-30612815d6c7",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800208EC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_InitWithPriority",
+        "rationale": "The function constructs the complete persistent subsystem while accepting the render priority, distinguishing it from the following no-argument fixed-priority initializer. This is more specific than the previous ambiguous lbBgFlash_Init guess.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely lbBgFlash_InitWithPriority.",
+        "confidence": 0.8,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:eda45b87-b3c4-4449-b9cb-2d8267a322be",
+            "fact_id": "fact:1b9ba66d-ea32-4b42-8afd-30612815d6c7",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows subsystem construction using an argument-derived priority and the beginning of the no-argument sibling.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:48677a6e-e8a9-438b-9520-9d1c718d73a4",
+            "fact_id": "fact:1b9ba66d-ea32-4b42-8afd-30612815d6c7",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L479-L504",
+            "digest": "sha256:fdb3e2eeae31a865",
+            "why": "Shows the sibling performing equivalent construction with fixed priority 10.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:850eb45f-bf74-4693-8b80-d893d95b1f5a",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800208EC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void initialization routine with signature void lbBgFlash_800208EC(int render_priority). Only the argument's low byte is used as the render priority for the camera and effect GObj registrations.",
+        "rationale": "The current definition establishes the signature and narrows the argument to u8 in both GX-link setup calls.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:7fd4db81-27a4-48a8-aa7f-61c9e53d8efc",
+            "fact_id": "fact:850eb45f-bf74-4693-8b80-d893d95b1f5a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Provides the exact definition and both argument-to-priority conversions.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:ac9c4747-78ce-4cac-8c12-3e9f3296003c",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800208EC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the background-flash runtime at a caller-selected render priority by creating a dedicated camera GObj and an effect GObj, registering the renderer and per-frame process, storing both objects in BgFlashData, and leaving the effect suppressed until triggered.",
+        "rationale": "The current body creates and configures both persistent objects and finishes with active set to one; the renderer returns while that bit is set.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:7b28671b-bbfa-49f6-bb96-e25275ed3289",
+            "fact_id": "fact:ac9c4747-78ce-4cac-8c12-3e9f3296003c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows camera loading, both GObj creations, callback registration, persistent-slot writes, and initial state.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:121abd65-3f02-494c-82dd-0dc7df1edc55",
+            "fact_id": "fact:ac9c4747-78ce-4cac-8c12-3e9f3296003c",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the installed renderer returning while the initialized active bit is set.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:a63143d6-3c74-4481-8ca3-451a84d822af",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800208EC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "After installing the two GObjs, sets mode to 0 and the suppression bit to one. The renderer therefore remains idle until a trigger routine clears the bit and populates effect state.",
+        "rationale": "The initializer's final assignments establish the initial state, the renderer gives the bit its suppression meaning, and nearby transition routines clear it when arming an effect.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:f088a2e9-6754-4033-8a1d-bdb7f00cb838",
+            "fact_id": "fact:a63143d6-3c74-4481-8ca3-451a84d822af",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the final state assignments and trigger routines clearing the same bit.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:6faa6c59-e906-4c4c-a267-1b480c563eae",
+            "fact_id": "fact:a63143d6-3c74-4481-8ca3-451a84d822af",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the renderer returning when the bit is nonzero.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:lbBgFlash_800209F4"
+    },
+    "facts": [
+      {
+        "id": "fact:5df719b9-a825-4a29-b3ee-cb7802cc161b",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800209F4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Loads lbl_803BB028 into an HSD_CObj and attaches it to a classifier-0x14 GObj stored in BgFlashData.x44, registers that object on the maximum GX link at priority 10 with gxlink_prios 0x10000, creates a classifier-0x15 GObj in x40, registers fn_8001FEC4 on GX link 0x10 at priority 10, installs fn_800204C8 as its process, and initializes state.",
+        "rationale": "The current body directly exposes every descriptor, object slot, classifier, priority, callback, and final singleton write.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:5590fb67-7553-46bc-9404-9b72b86a3e99",
+            "fact_id": "fact:5df719b9-a825-4a29-b3ee-cb7802cc161b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L479-L504",
+            "digest": "sha256:fdb3e2eeae31a865",
+            "why": "Shows the complete fixed-priority object and callback data flow.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:2fe39f47-5ea5-4f4a-8210-092e5a85305a",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800209F4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the default persistent camera, render callback, and update process required for Melee's full-screen background flashes, color fades, and black wipe overlays.",
+        "rationale": "The target installs the callbacks that render and advance the current background-flash state, making it the default runtime setup for the mechanic.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:0031ccff-8653-4206-8735-a8af9dc9375e",
+            "fact_id": "fact:2fe39f47-5ea5-4f4a-8210-092e5a85305a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L479-L504",
+            "digest": "sha256:fdb3e2eeae31a865",
+            "why": "Shows installation of the background-flash camera, renderer, and process.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:8b0d9332-153b-4566-9d84-de5ae77494cb",
+            "fact_id": "fact:2fe39f47-5ea5-4f4a-8210-092e5a85305a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the installed renderer producing full-screen color and black-overlay geometry.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:c53f60e5-e7cc-4bae-906f-b9236f35a327",
+            "fact_id": "fact:2fe39f47-5ea5-4f4a-8210-092e5a85305a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L240-L359",
+            "digest": "sha256:d0d5fa760ce5a7d2",
+            "why": "Shows the installed process advancing color and wipe state.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:58048cc4-0480-445b-98c6-2dab83958544",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800209F4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbBgFlash_Init",
+        "rationale": "This routine constructs the complete persistent subsystem at the fixed default priority, while the preceding function is the argument-taking priority variant, making the plain Init name plausible for this entry point.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely lbBgFlash_Init.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:a9491105-a8b2-4422-a1f0-280daad6eb3a",
+            "fact_id": "fact:58048cc4-0480-445b-98c6-2dab83958544",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows the equivalent priority-parameterized initializer immediately before this function.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:fc4971dc-069b-41c0-bfb7-b298aeb3983d",
+            "fact_id": "fact:58048cc4-0480-445b-98c6-2dab83958544",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L479-L504",
+            "digest": "sha256:fdb3e2eeae31a865",
+            "why": "Shows the target constructing all persistent runtime objects with fixed priority 10.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:4a011df6-f0d7-41ec-98fa-9c3167fa621f",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800209F4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A no-argument initialization routine with signature void lbBgFlash_800209F4(void). It returns no value and communicates by storing two HSD_GObj pointers in BgFlashData, registering callbacks, and initializing state.",
+        "rationale": "The current definition has no arguments or return value, and all persistent outputs are singleton writes or HSD callback registrations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:e7a66d80-8d4e-4f40-b966-76d98a968963",
+            "fact_id": "fact:4a011df6-f0d7-41ec-98fa-9c3167fa621f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L479-L504",
+            "digest": "sha256:fdb3e2eeae31a865",
+            "why": "Shows the no-argument body and all of its persistent outputs.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:4411e1cc-0b47-482c-802d-6d9e205efcb3",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800209F4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the background-flash runtime at fixed render priority 10 by creating its camera GObj and renderer/process GObj, registering the relevant callbacks, storing both objects, and placing the subsystem in its initial suppressed state.",
+        "rationale": "The target performs the complete object and callback setup with literal priority 10 and finishes by setting the suppression bit and mode 0.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:b0f9fa84-3b54-4b79-90d1-c2f27b5d4b9f",
+            "fact_id": "fact:4411e1cc-0b47-482c-802d-6d9e205efcb3",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L479-L504",
+            "digest": "sha256:fdb3e2eeae31a865",
+            "why": "Shows the fixed-priority camera, renderer, process, and state initialization sequence.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:057492a7-9cf8-4b9d-ac46-e4941093a8bb",
+            "fact_id": "fact:4411e1cc-0b47-482c-802d-6d9e205efcb3",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows that the initialized bit suppresses the installed renderer.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:9a06872e-d621-4025-a4c7-c7bdd9e3332f",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_800209F4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "After object construction, sets BgFlashData.state.active to one and mode to zero. In this subsystem the active bit suppresses rendering, so the initialized runtime remains idle until a later trigger clears it and selects or populates an effect.",
+        "rationale": "The target's final writes establish the state, the renderer returns when active is set, and transition initializers clear the same bit.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:10:31.705Z",
+        "evidence": [
+          {
+            "id": "evidence:dab594e8-5851-4538-afcb-bd40908e06be",
+            "fact_id": "fact:9a06872e-d621-4025-a4c7-c7bdd9e3332f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L479-L504",
+            "digest": "sha256:fdb3e2eeae31a865",
+            "why": "Shows active set to one and mode reset to zero after callback registration.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:836cc827-e7c8-4d96-bc38-60e50eadf99c",
+            "fact_id": "fact:9a06872e-d621-4025-a4c7-c7bdd9e3332f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L120-L239",
+            "digest": "sha256:33764fc4ceb3f478",
+            "why": "Shows the renderer immediately returning while active is nonzero.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          },
+          {
+            "id": "evidence:1c08b822-f937-4ce0-afec-b43f685d3c01",
+            "fact_id": "fact:9a06872e-d621-4025-a4c7-c7bdd9e3332f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L360-L478",
+            "digest": "sha256:f3857c78afc1f3fe",
+            "why": "Shows effect setup routines clearing active when arming transitions.",
+            "captured_at": "2026-09-04T21:10:31.705Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbbgflash:lbBgFlash_InitState"
+    },
+    "facts": [
+      {
+        "id": "fact:6c4ed169-c24f-4ffd-ac32-60fd2dbb702b",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_InitState",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an RGBA color from its caller and writes `state.active = 0`, `state.mode = 5`, and the copied color to `lbl_80433658.xC`. In the scripted path, the producer is the per-frame ColorOverlay process, which scales animated RGB values and alpha before calling this routine; the downstream GX callback reads `xC` and submits the same channels at all four corners of the full-screen quad.",
+        "rationale": "The target establishes all shared-state writes. The relocated ColorOverlay process identifies a concrete upstream producer, while the current GX renderer identifies the downstream consumer and screen-covering geometry.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:06:22.570Z",
+        "evidence": [
+          {
+            "id": "evidence:8eb1bb42-881c-4fa2-8501-36aba7886789",
+            "fact_id": "fact:6c4ed169-c24f-4ffd-ac32-60fd2dbb702b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L425-L430",
+            "digest": "sha256:d6406d6ca2204606",
+            "why": "Shows every shared-state write performed by the target, including the complete RGBA copy.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          },
+          {
+            "id": "evidence:c92c1ae9-418e-4f96-a825-6e91f9bdbd9f",
+            "fact_id": "fact:6c4ed169-c24f-4ffd-ac32-60fd2dbb702b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+            "digest": "sha256:99b305d415c00fbf",
+            "why": "Shows the current upstream process scaling ColorOverlay RGB and alpha channels into a GXColor and supplying it to the target.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          },
+          {
+            "id": "evidence:d97f2ac1-1d8a-49d2-9b96-f43ab0c2fa18",
+            "fact_id": "fact:6c4ed169-c24f-4ffd-ac32-60fd2dbb702b",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L178-L204",
+            "digest": "sha256:685b6380075e2a2d",
+            "why": "Shows the stored color flowing into all four GX vertices of the screen-covering overlay.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:39d7313b-c40d-4992-9958-3fc9b0c74fdc",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_InitState",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the direct-color update step for Melee's full-screen background-flash and scripted color-overlay presentation: an arbitrary RGBA value can immediately tint or flash the complete gameplay screen, including colors generated by the ColorOverlay animation system.",
+        "rationale": "The routine installs an arbitrary GXColor in direct mode 5, the GX callback renders that state over a 640-by-480 quad, and the relocated ColorOverlay process invokes the routine with its current animated color.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:06:22.570Z",
+        "evidence": [
+          {
+            "id": "evidence:dfd76487-05f7-451b-bf20-6a9a31541549",
+            "fact_id": "fact:39d7313b-c40d-4992-9958-3fc9b0c74fdc",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L425-L430",
+            "digest": "sha256:d6406d6ca2204606",
+            "why": "Shows arbitrary caller-provided RGBA state being installed in the background-flash controller's direct mode.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          },
+          {
+            "id": "evidence:5ed74184-e06b-4fe9-ae7e-5ecb5d98c4cc",
+            "fact_id": "fact:39d7313b-c40d-4992-9958-3fc9b0c74fdc",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L178-L204",
+            "digest": "sha256:685b6380075e2a2d",
+            "why": "Shows that direct state rendered as RGBA geometry spanning the 640-by-480 gameplay screen.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          },
+          {
+            "id": "evidence:b1389715-4e01-4815-8529-ea2f0d8a723e",
+            "fact_id": "fact:39d7313b-c40d-4992-9958-3fc9b0c74fdc",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+            "digest": "sha256:99b305d415c00fbf",
+            "why": "Shows the ColorOverlay animation process using this function to publish its current animated flash color.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:488a6a34-d1a0-4c39-9ec0-c3012775c528",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_InitState",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Side-effect routine with signature `void (GXColor* color)`. It reads one four-channel, eight-bit RGBA value through the pointer, copies that value into the module-global `BgFlashData` state, and returns no result.",
+        "rationale": "The current definition directly establishes the GXColor pointer parameter, void return, and whole-value copy into persistent module state, replacing the removed header citation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:06:22.570Z",
+        "evidence": [
+          {
+            "id": "evidence:2ff8293e-df5e-4eff-a485-fe313b3c1fe6",
+            "fact_id": "fact:488a6a34-d1a0-4c39-9ec0-c3012775c528",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L425-L430",
+            "digest": "sha256:d6406d6ca2204606",
+            "why": "Shows the complete `void lbBgFlash_InitState(GXColor*)` definition and the dereferenced whole-GXColor assignment.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:00abaf0e-935e-4e5c-91a1-e3e2ee106dea",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_InitState",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Publishes a caller-supplied RGBA color as the background-flash subsystem's immediate full-screen overlay, bypassing timed interpolation and wipe progression. The ColorOverlay process calls it to present its current animated color.",
+        "rationale": "The target selects fixed-color mode 5 and copies the supplied GXColor into shared flash state. The current renderer applies that color to a 640-by-480 quad, the update switch leaves mode 5 unchanged, and the relocated ColorOverlay process supplies its animated color through this function.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:06:22.570Z",
+        "evidence": [
+          {
+            "id": "evidence:4b2cd4fc-ed66-4b04-8746-dbb521f8d971",
+            "fact_id": "fact:00abaf0e-935e-4e5c-91a1-e3e2ee106dea",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L425-L430",
+            "digest": "sha256:d6406d6ca2204606",
+            "why": "Shows the target enabling the controller, selecting mode 5, and copying the caller's GXColor into shared flash state.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          },
+          {
+            "id": "evidence:736bfbdb-0888-43db-aa51-bdbe46bcd17f",
+            "fact_id": "fact:00abaf0e-935e-4e5c-91a1-e3e2ee106dea",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L178-L204",
+            "digest": "sha256:685b6380075e2a2d",
+            "why": "Shows the renderer reading the stored RGBA color and applying it to every vertex of a 640-by-480 quad.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          },
+          {
+            "id": "evidence:9e4c8b53-d429-4145-a4f3-ea6573271ab8",
+            "fact_id": "fact:00abaf0e-935e-4e5c-91a1-e3e2ee106dea",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L255-L374",
+            "digest": "sha256:8a2c80a548a020e6",
+            "why": "Shows the per-frame state processor returning without interpolation or wipe progression for mode 5.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          },
+          {
+            "id": "evidence:006f3816-f361-489f-84ce-10e3689409de",
+            "fact_id": "fact:00abaf0e-935e-4e5c-91a1-e3e2ee106dea",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+            "digest": "sha256:99b305d415c00fbf",
+            "why": "Shows the relocated ColorOverlay process constructing an animated GXColor and passing it to lbBgFlash_InitState.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:db593068-5541-453c-9556-1b603398e963",
+        "target_id": "target:function:main/melee/lb/lbbgflash:lbBgFlash_InitState",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally transitions the shared flash controller into direct-color mode 5, clears the renderer's suppression gate by setting `state.active` to zero, and replaces the displayed color. Mode 5 receives no per-frame interpolation or wipe update, so the supplied color remains fixed until another caller changes the shared state; repeating the call with the same color is idempotent.",
+        "rationale": "The target is a straight-line assignment of the active gate, mode, and current color. The renderer suppresses output while the active field is nonzero and renders the stored color for mode 5, while the update switch performs no state progression in mode 5.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:06:22.570Z",
+        "evidence": [
+          {
+            "id": "evidence:acf90c0c-de85-48cf-97d9-0de8ff8ccb02",
+            "fact_id": "fact:db593068-5541-453c-9556-1b603398e963",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L425-L430",
+            "digest": "sha256:d6406d6ca2204606",
+            "why": "Shows the unconditional transition to active value zero and mode 5 and replacement of the current color.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          },
+          {
+            "id": "evidence:6e7f199a-2348-4207-9b0d-ca80358319ec",
+            "fact_id": "fact:db593068-5541-453c-9556-1b603398e963",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L178-L204",
+            "digest": "sha256:685b6380075e2a2d",
+            "why": "Shows that a nonzero active field suppresses rendering and that mode 5 renders the stored color directly.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          },
+          {
+            "id": "evidence:33d41043-c7cf-451a-a94a-1ef4406717e8",
+            "fact_id": "fact:db593068-5541-453c-9556-1b603398e963",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L255-L374",
+            "digest": "sha256:8a2c80a548a020e6",
+            "why": "Shows the per-frame state processor returning without interpolation or wipe progression in mode 5.",
+            "captured_at": "2026-09-04T21:06:22.570Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/lb/lbbgflash.c"
+    },
+    "facts": [
+      {
+        "id": "fact:002cd0fa-2c70-4646-b991-d0d3e9e5ea2f",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbbgflash.c",
+        "type": "data_flow",
+        "value": "Trigger routines select source and target GX colors and a duration. The common initializer converts them into floating-point channel accumulators and per-frame deltas; the process callback advances interpolation or wipe traversal; and the render callback emits the current RGBA value over the 640-by-480 screen or draws the progressive black-strip effect.",
+        "rationale": "The current unit preserves this direct trigger-to-singleton-to-update-to-GX pipeline, while the formerly cited skeletal and scripted-overlay pipelines have moved elsewhere.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T01:49:07.147Z",
+        "evidence": [
+          {
+            "id": "evidence:8c18e22f-300e-464c-9967-bce6db4dbedd",
+            "fact_id": "fact:002cd0fa-2c70-4646-b991-d0d3e9e5ea2f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L119-L478",
+            "digest": "sha256:eafceb6e192798c4",
+            "why": "Shows current color interpolation, wipe rendering, preset triggers, state initialization, and renderer setup.",
+            "captured_at": "2026-09-04T01:49:07.147Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:1f3a99c7-d55f-4feb-91dd-97abdbe81651",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbbgflash.c",
+        "type": "game_mapping",
+        "value": "Realizes Melee's full-screen dramatic color flashes, fades, and black wipe overlays.",
+        "rationale": "The current unit renders screen-covering RGBA quads and progressive black geometry and exposes timed and fixed activation paths; inverse-kinematics and scripted-overlay behavior has been removed from this unit's mapping.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T01:49:07.147Z",
+        "evidence": [
+          {
+            "id": "evidence:e529e0eb-f51c-4055-a1bc-dca5641d9950",
+            "fact_id": "fact:1f3a99c7-d55f-4feb-91dd-97abdbe81651",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L119-L478",
+            "digest": "sha256:eafceb6e192798c4",
+            "why": "Shows full-screen color and black-wipe rendering and the routines that trigger and animate those effects.",
+            "captured_at": "2026-09-04T01:49:07.147Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:95714101-4f38-44f7-a443-c32978ce1bcf",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbbgflash.c",
+        "type": "inferred_type",
+        "value": "A background-flash implementation unit organized around a module-global BgFlashData singleton containing an active/mode bitfield, source/current/target RGBA values, per-channel floating-point interpolation state, strip-traversal state, and camera and renderer GObj pointers.",
+        "rationale": "The current declarations directly define BgFlashState, the complete BgFlashData layout, the module-global instance, and its camera resources.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:55:40.132Z",
+        "evidence": [
+          {
+            "id": "evidence:4cb58cfc-d098-4155-944a-1ca693156f1e",
+            "fact_id": "fact:95714101-4f38-44f7-a443-c32978ce1bcf",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:ffb4399c9312c882",
+            "why": "Defines the packed state, RGBA values, interpolation and wipe fields, GObj pointers, and singleton allocation.",
+            "captured_at": "2026-09-06T03:55:40.132Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:6d867596-40ff-4bf3-a733-fa649ef77a94",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbbgflash.c",
+        "type": "purpose",
+        "value": "Implements the singleton full-screen background-flash and wipe renderer: it initializes timed or fixed RGBA state, advances color interpolation or strip traversal, creates the supporting camera and render GObjs, and draws screen-covering color or black geometry.",
+        "rationale": "The current opening identifies the unit as the background-flash implementation, defines its persistent singleton and camera resources, and begins the per-channel interpolation logic used by the unaffected rendering and setup paths.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:55:40.132Z",
+        "evidence": [
+          {
+            "id": "evidence:b0e7b2e8-72a1-4e85-99ae-84743c740e5e",
+            "fact_id": "fact:6d867596-40ff-4bf3-a733-fa649ef77a94",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L1-L120",
+            "digest": "sha256:ffb4399c9312c882",
+            "why": "Defines the background-flash singleton, camera descriptors, fixed colors, and the beginning of RGBA interpolation.",
+            "captured_at": "2026-09-06T03:55:40.132Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:b54f5e74-dbc0-4b32-aa52-8820b044c1e3",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbbgflash.c",
+        "type": "state_behavior",
+        "value": "The singleton uses a packed active flag and seven-bit mode. Modes 0 through 2 run color interpolation and render the current overlay color; modes 3 and 4 advance and render a black strip-based cover; mode 5 leaves interpolation stopped and renders a fixed color.",
+        "rationale": "The current update and rendering switches retain these mode groups and their distinct interpolation, strip, and fixed-color behavior.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T01:49:07.147Z",
+        "evidence": [
+          {
+            "id": "evidence:73b3736a-7aca-4588-b3d2-bb56e8787bc1",
+            "fact_id": "fact:b54f5e74-dbc0-4b32-aa52-8820b044c1e3",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L119-L478",
+            "digest": "sha256:eafceb6e192798c4",
+            "why": "Shows the current packed state and mode-dependent update and rendering branches.",
+            "captured_at": "2026-09-04T01:49:07.147Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_8001FEC4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_8001FEC4#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_800208B0#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_80020AEC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_80020AEC#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_8002113C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_8002113C#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_8002113C#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_800219E4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_80021B04#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_80021C18#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_80021C18#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_80021C18#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:fn_80021C80#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_800205F0#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_8002063C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80020688#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_800206D4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_800206D4#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_800206D4#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_800208EC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80020E38#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80020E38#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80020E38#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80020E38#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80020E38#r7"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80021410#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80021A10#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80021A18#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80021C48#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_80021C48#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbbgflash:lbBgFlash_InitState#r3"
+    },
+    "facts": []
+  }
+]

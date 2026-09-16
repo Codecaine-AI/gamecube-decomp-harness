@@ -1,0 +1,99 @@
+{
+  "tu": "main/dolphin/dvd/dvdlow",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdlow.c#L77-L164",
+            "why": "Exact interrupt guards, cause transitions, queue continuation and callback ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdlow.c#L433-L437",
+            "why": "Break request sets both flags without issuing a hardware command."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that only an enabled cover interrupt clears the wait state and preserves reset priority, queue early returns and callback-order differences.",
+        "subject": {
+          "target_stable_key": "main/dolphin/dvd/dvdlow:.sbss"
+        },
+        "type": "state_behavior",
+        "value": "The source-level control state has coupled asynchronous lifetimes. Read issue sets LastCommandWasRead; the next DVD interrupt records read timing/history and clears that flag and StopAtNextInt before decoding hardware status. Cause bit 1 advances queued workaround commands and can return early; without it the queue and index are reset. DVDLowBreak sets StopAtNextInt and Breaking, but break cause 8 is suppressed unless Breaking is set, and Breaking is cleared only on the final nonzero-cause path. A recent-reset cover branch takes priority over ordinary cover waiting. When the WaitingCoverClose branch runs, it clears the wait flag regardless of whether an enabled cover event contributes cause 4. Ordinary callbacks are detached before invocation; ResetCoverCallback is cleared after its separate invocation. These are source-state relationships, not proof of compiled section layout."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdlow.c#L215-L225",
+            "why": "Literal unsigned HitCache computation and OR predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdlow.c#L271-L308",
+            "why": "Complete mode selection, strict timing guard, metadata writes and unconditional return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves supported routing while adding the omitted unsupported-mode branch and the unusual unsigned OR predicate that governs the supposed cache-hit path.",
+        "subject": {
+          "target_stable_key": "main/dolphin/dvd/dvdlow:DVDLowRead"
+        },
+        "type": "state_behavior",
+        "value": "After writing DI register 6 and the current request snapshot, mode 0 dispatches directly. In mode 1, FirstRead selects the two-seek prelude; otherwise a false HitCache result selects a direct read. A true result permits direct reading from the previous ending 32 KiB block or its successor only when elapsed time since LastReadFinished is strictly greater than 5 ms; otherwise the read is deferred by 5 ms minus elapsed time plus 500 us. Other blocks use the two-seek prelude. HitCache literally computes unsigned end/start block values and tests `(start > end - 2) || (start < end + span + 3)`, with span 5 for a streaming disc and 15 otherwise; this is not a conventional bounded-interval test. Modes other than 0 and 1 issue or queue no new command, yet the function still returns TRUE."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdlow.c#L407-L420",
+            "why": "Complete reset sequence and both bit-0-setting expressions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Both PI writes OR with 1, so bit 0 is forced on rather than preserved from the saved register value. The timed reset and bookkeeping purpose remains unchanged.",
+        "subject": {
+          "target_stable_key": "main/dolphin/dvd/dvdlow:DVDLowReset"
+        },
+        "type": "purpose",
+        "value": "Performs the low-level DVD hardware reset sequence: writes 2 to DI register 1, snapshots PI register 9, clears its bit 2 while forcing bit 0 to one, waits at least 12 microseconds, then writes the snapshot with bits 2 and 0 set. Finally it records ResetOccurred and LastResetEnd for subsequent reset-related handling."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdlow.c#L321-L327",
+            "why": "Wait setup and immediate return without timeout."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdlow.c#L118-L164",
+            "why": "Reset priority, unconditional wait-branch clearing and guarded callback delivery."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvd.c#L499-L568",
+            "why": "Motor-stopped callback, recovery delay, ID request and exceptional command branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional callback implications and records reset priority, wait-flag clearing without a cover cause, and the existing higher-level recovery exception.",
+        "subject": {
+          "target_stable_key": "main/dolphin/dvd/dvdlow:DVDLowWaitCoverClose"
+        },
+        "type": "state_behavior",
+        "value": "Installs Callback, sets WaitingCoverClose, clears StopAtNextInt and writes 2 to DI register 1, then returns 1 without polling or arming a timeout. In interrupt processing, the recent-reset branch can take priority and leave the ordinary wait flag untouched. Otherwise the wait branch samples enabled cover status, adds cause 4 if present, acknowledges status and clears WaitingCoverClose even when no enabled cover event was found. Ordinary callback delivery still requires a nonzero accumulated cause and no queued-command continuation. The higher-level motor-stopped callback enters COVER_CLOSED recovery; eligible operations undergo reset, a 1150 ms delay and disc-ID revalidation, while BSREAD, READID, AUDIO_BUFFER_CONFIG and BS_CHANGE_DISK take the exceptional queue-clearing/-4 callback path."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

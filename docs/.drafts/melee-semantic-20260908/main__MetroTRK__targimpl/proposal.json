@@ -1,0 +1,275 @@
+{
+  "tu": "main/MetroTRK/targimpl",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKPPCAccessSpecialReg"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives a caller-built five-word PowerPC instruction array, writes BLR into word 4, flushes 20 bytes, and synchronously invokes it through RegAccessFunc with srcDestPtr and TRKvalue128_temp. Callers encode transfer direction in the instructions; this helper ignores read and returns kNoError. The declared second argument is u128 by value, not an explicit scratch pointer. FPSCR sequences address temporary storage through r4, but establishing how that address is supplied requires target ABI or compiled call-site evidence.",
+        "rationale": "Preserves the demonstrated execution pipeline while removing an unsupported scratch-address ABI claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L57-L61",
+            "why": "Scratch declaration and function-pointer argument type."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L1085-L1138",
+            "why": "FPSCR instruction words and executable-array call."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKPostInterruptEvent"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes inputActivated by clearing it and returning without an event. Otherwise the low 16 bits of the saved exception ID select classification: program-error and trace cases read the instruction at saved PC and compare it with 0x0FE00000 to choose support versus breakpoint; other IDs choose exception. The instruction-read result is ignored, so a failed read can leave inst uninitialized or incomplete. The local event is initialized with ID 0 and message-buffer ID -1 and submitted to TRKPostEvent. That routine copies and assigns a queue ID only when its two-entry queue is not full; this caller ignores posting failure.",
+        "rationale": "Corrects guaranteed-enqueue wording and records consequential unchecked-error branches.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L663-L692",
+            "why": "Classification and ignored results."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L53-L84",
+            "why": "Conditional queue copy and initialization."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKSwapAndGo"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "After saving the monitor context, tests the byte addressed by inputPendingPtr. Zero clears inTRK, restores extended and default target state, and resumes through rfi. Nonzero sets inputActivated and branches to TRKInterruptHandlerEnableInterrupts to restore the monitor context. Its continuation, TRKPostInterruptEvent, clears inputActivated and returns without constructing or posting an event; subsequent monitor-loop input handling services communication. Restoring the saved monitor LR permits continuation after TRKSwapAndGo in TRKTargetContinue, where EXI is reserved again.",
+        "rationale": "Distinguishes communication-driven monitor return from event processing and preserves the cross-file continuation lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L663-L804",
+            "why": "Suppression and both handoff branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targcont.c#L6-L13",
+            "why": "EXI release/reservation around handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mainloop.c#L26-L61",
+            "why": "Subsequent monitor input processing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKTargetAccessExtended1"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Maps an ordered inclusive register range onto saved Extended1 words and reports four bytes per requested word. Read mode appends those words; write mode first sets TBR and/or DEC restore flags for intersecting entries, then reads replacements from the message buffer. Flags can therefore be set even when the buffer read fails. During later TRKRestoreExtended1Block execution both flags are read and cleared; TBR conditionally causes time-base writes, but an unconditional branch skips the DEC restoration block in this implementation. Setting DEC does not guarantee a hardware decrementer update.",
+        "rationale": "Corrects the claimed hardware-restoration guarantee and documents the actual deferred flag lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L327-L374",
+            "why": "Transfer and flag ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mpc_7xx_603e.c#L143-L231",
+            "why": "Flag consumption and skipped DEC block."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKTargetAccessExtended1"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Rejects lastRegister > 0x60 before modifying exception state or output length. Otherwise snapshots and clears exception status and sets output length to zero. An ordered range performs the transfer and reports its requested byte size; write-side restore flags are set before the buffer read and are not rolled back on failure. A direct reversed-range call skips the transfer and leaves local error uninitialized unless a detected exception overrides it. Detected exceptions set length to zero and error to kCWDSException. The saved exception status is restored before the final return. Protocol register handlers reject reversed ranges before calling this helper.",
+        "rationale": "Adds useful direct-call and failure-path behavior absent from the existing explanation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L327-L374",
+            "why": "All local paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msghndlr.c#L371-L546",
+            "why": "Protocol range checks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKTargetAccessExtended2"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Rejects lastRegister > 31 before changing state. Otherwise snapshots and clears exception status, reads HID2, ORs in 0xA0000000 and writes it back, and writes zero to GQR0, ignoring setup helper results. These live register changes are not restored locally, even for an empty direct-call range. Each iteration executes both transfer stages without checking the first result: append overwrites register-read status, or register-write overwrites buffer-read status. Length grows by eight bytes per attempted iteration, and only the final assigned error controls the next iteration. A detected exception overrides the result with kCWDSException and length zero; prior exception status is restored. No transferred data or setup state is rolled back.",
+        "rationale": "Clarifies nontransactional state changes and error overwrites rather than implying every operation is success-guarded.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L384-L438",
+            "why": "Complete setup, loop and cleanup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKTargetAccessFP"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Rejects lastRegister > 33 before changing exception state or output length. Otherwise snapshots and clears exception status, sets live MSR bit 0x2000, and initializes length and error to zero/success. Each inclusive-range iteration executes both stages without testing the first result: append overwrites register-read status, or register-write overwrites buffer-read status. Eight bytes are counted per attempted iteration. A reversed direct-call range performs no transfer but still performs MSR preparation. A detected exception overrides error with kCWDSException and length with zero. Prior exception status is restored, but the live MSR and transferred register or buffer data are not restored locally.",
+        "rationale": "Records error-overwrite behavior, direct-call edge cases and the actual scope of state restoration.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L280-L325",
+            "why": "Complete preparation and loop."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKTargetAddExceptionInfo"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements MetroTRK debugger-exception detail reporting rather than a player-facing mechanic. It serializes the PC and exception identifier from gTRKExceptionStatus.exceptionInfo, the separate record populated by debugger-internal exception recovery, and reads the instruction from memory at that recorded PC for serialization. Ordinary stopped-target reporting instead uses TRKTargetAddStopInfo and gTRKCPUState.",
+        "rationale": "Corrects conflation of debugger-internal exception state with the stopped target snapshot while distinguishing recorded PC and ID from the instruction read at report time.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L554-L658",
+            "why": "Nested exception producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L831-L874",
+            "why": "Distinct reporting snapshots and instruction reads from their recorded PCs."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKTargetInterrupt"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles MetroTRK breakpoint and exception events by checking whether execution stepping remains active. When stepping is absent or has just completed, marks the target stopped and sends a stopped notification; while stepping continues, suppresses that stop transition and notification.",
+        "rationale": "Corrects inverted step-completion semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L806-L823",
+            "why": "False result triggers stop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L932-L945",
+            "why": "Check returns remaining active state."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKTargetInterrupt"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Breakpoint and exception events share a guard on TRKTargetCheckStep's post-check active flag. True means stepping remains active and suppresses this handler's stop and notification. False includes inactive stepping and a step that just completed; it sets stopped true and returns TRKDoNotifyStopped(kDSNotifyStopped)'s result. Other event types are ignored. Paths without notification return kNoError.",
+        "rationale": "Completed stepping must not be described as suppressing the stop notification.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L806-L823",
+            "why": "Complete handler."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L932-L945",
+            "why": "Completion clears active."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKTargetSupportRequest"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Narrows saved GPR3 to an 8-bit command and accepts only read-file or write-file. Other commands construct and attempt to post an exception event, ignore posting failure, and return kNoError without changing saved PC. Recognized commands call TRKSuppAccessFile with direct target pointers and an 8-bit handle. If its initialized I/O result is success but DSError is failure, that result is changed to kDSIOError. However, the local io_result is uninitialized, and the service returns early for null data or zero count before initializing it; those paths do not have a defined normalized target-visible result. After a recognized service call returns, the source writes io_result to saved GPR3, flushes the buffer for reads using the resulting count, advances PC by four and returns DSError, without guarding those actions on success.",
+        "rationale": "Preserves normal service semantics while documenting queue failure and the cross-file uninitialized-output branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L986-L1020",
+            "why": "Command guard, local result and final actions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/support.c#L7-L29",
+            "why": "Early rejection before output initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L53-L76",
+            "why": "Posting can fail."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/MetroTRK/targimpl:TRKValidMemory32"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Computes inclusive end as addr + length - 1 and rejects end < start, then examines only the first overlapping map entry. Permission rejection compares the selector after truncation to u8 with readable=0 or writeable=1; other selector values do not trigger either permission test. A permitted overlap recursively checks a prefix, then a suffix only if the prefix succeeded. The suffix starts at map.end with length end-map.end, not at map.end+1, so it rechecks the boundary and does not establish correct complete coverage for arbitrary multi-entry maps. The actual map is one readable/writeable entry spanning 0 through 0xFFFFFFFF, so accepted nonwrapping requests do not need subdivision. There is no explicit zero-length guard; length-1 arithmetic must not be described as uniformly rejecting zero length. This is map validation, not proof of physical memory safety.",
+        "rationale": "Replaces an overly strong recursive-coverage guarantee with the exact algorithm and current-map constraints.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L111-L158",
+            "why": "Arithmetic, selector truncation and recursive boundaries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/memmap.h#L6-L14",
+            "why": "Actual map and permission fields."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

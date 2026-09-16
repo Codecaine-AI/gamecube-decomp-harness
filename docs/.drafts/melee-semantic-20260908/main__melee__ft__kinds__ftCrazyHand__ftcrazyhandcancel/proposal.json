@@ -1,0 +1,60 @@
+{
+  "tu": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandcancel",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCrazyHand/ftcrazyhandcancel.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Entry obtains Crazy Hand attributes, copies X from the position returned by ftBossLib_8015C208, assigns Y from xE0, and clears all self velocity. Animation exhaustion clears X velocity and forwards the same GObj to ftCh_Init_8015A184. IASA queries the player slot and calls an empty boss hook only for Human slots. Physics forwards xDC to ftBossLib_8015BF74. After obtaining a target position, that helper computes x_diff = target X minus current X; if ABS(x_diff) > xDC it adds (x_diff > 0 ? xDC : -xDC) to existing horizontal self velocity, otherwise it adds x_diff. No positivity validation for xDC is shown. Collision performs no work.",
+        "rationale": "Preserves the explicit lifecycle data flow while replacing unsupported input-processing language with the verified no-op hook. States the additive physics branch exactly rather than implying a speed assignment or guaranteed target-directed increment for unchecked xDC.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandcancel.c#L16-L54",
+            "why": "Complete object, attribute, callback and continuation flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L31-L34",
+            "why": "Human-path hook has no behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L82-L98",
+            "why": "Exact strict-comparison branch and additive horizontal-velocity operations; no parameter-sign validation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCrazyHand/ftcrazyhandcancel.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Implements Crazy Hand's internal Cancel lifecycle: enters literal motion state 0x177, initializes position and velocity, hands off on animation exhaustion, delegates horizontal tracking physics through xDC, and provides an inert collision callback. Its human-slot IASA path invokes a currently empty hook rather than implementing input handling.",
+        "rationale": "The named callback family and initializer establish the lifecycle role; direct inspection of the boss hook corrects the prior claim of human-input handling.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandcancel.c#L16-L54",
+            "why": "Initializer and all four callback bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L31-L34",
+            "why": "Conditional IASA destination immediately returns."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

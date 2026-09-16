@@ -1,0 +1,160 @@
+{
+  "tu": "main/melee/it/kinds/itpikachutjoltground",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L21-L34",
+            "why": "Two numeric dispatch entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L161-L313",
+            "why": "Complete movement, pairing, transition and collision branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects angular-velocity terminology and the unsupported requirement for valid terrain contact every frame, while preserving exceptional transition and counter behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachutjoltground:.data"
+        },
+        "type": "state_behavior",
+        "value": "Dispatches numeric states 0 and 1. State 0 snapshots position and projects attribute-defined linear speed along a stored heading. Surface contact enters state 1 before attempting kind+1 companion creation; failed creation returns true. State 1 resets ground-item velocity, validates reciprocal linkage, delegates ordinary animation/lifetime processing, and synchronizes position from the companion. Its collision callback permits negative-counter skips and frames without a reported intersection. On an intersection, a nonzero xC enables rejection when the change in surface normal exceeds abs(xC); a missing companion also returns true. Successful synchronization resets xDE4 and then increments it to one."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L208-L262",
+            "why": "Separate velocity-reset callback and full collision transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L81-L93",
+            "why": "Final helper resets hitboxes and associated flags, without velocity writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "The existing explanation conflates hitbox reset with stopping movement. The canonical callee manipulates hitboxes and flags, while a distinct physics callback resets velocity.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachutjoltground:itPikachutjoltground_UnkMotion0_Coll"
+        },
+        "type": "purpose",
+        "value": "Handles the initial moving ground item's segment intersection with stage geometry. On contact it removes ground-owned effects, enters state 1, selects a surface-relative facing, and attempts to create a linked kind+1 aerial Thunder Jolt component. Successful creation initializes that component from the ground item's position, collision data and surface normal, resets the transition counter, and resets the ground item's hitboxes. Velocity suppression is performed by state 1's physics callback, not by the final hitbox-reset call."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L208-L262",
+            "why": "Exact transition order and failure branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L81-L93",
+            "why": "Hitbox-reset semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves allocation failure after state entry and replaces the incorrect movement-stop interpretation of it_802725D4.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachutjoltground:itPikachutjoltground_UnkMotion0_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Without a reported stage intersection, returns false without changing motion state. On intersection, destroys ground-owned effects, clears xDE0 and enters state 1 with ITEM_ANIM_UPDATE before attempting companion allocation. The companion facing is selected from the velocity-to-normal angle difference normalized into [0, tau]. A NULL allocation result returns true after state entry, before companion setup, counter reset or hitbox reset. Success initializes the companion, sets xDE4 to zero, invokes the hitbox-reset helper and returns false; state-1 physics separately resets velocity."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L168-L262",
+            "why": "Position synchronization, distinct physics callbacks and contact-driven phase change."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the initial moving implementation phase from subsequent bone-driven terrain traversal instead of attributing both to this physics callback.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachutjoltground:itPikachutjoltground_UnkMotion0_Phys"
+        },
+        "type": "game_mapping",
+        "value": "Supplies the initial terrain-seeking movement of the ground-kind Thunder Jolt item by converting its configured speed and stored launch heading into planar velocity. Ongoing linked surface traversal belongs to state 1, where the ground item's position is synchronized from the aerial component and its own velocity is reset."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L21-L34",
+            "why": "State-1 registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L208-L262",
+            "why": "Velocity reset and state-entry-before-allocation ordering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that state entry follows successful companion creation and preserves the failure path.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachutjoltground:itPikachutjoltground_UnkMotion1_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Registered only in state 1's physics slot, this callback unconditionally resets the ground item's velocity on each invocation. State-0 collision enters state 1 immediately after a reported intersection and before attempting linked-companion creation; allocation failure returns true, while successful creation completes paired setup. The physics callback itself neither allocates a companion nor changes state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L346-L357",
+            "why": "Ground-side clank cleanup and true return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltair.c#L111-L174",
+            "why": "Clear-only helper and separate animation termination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the claim that both objects terminate together with the canonical cross-file lifetime sequence.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachutjoltground:it_2725_Logic106_Clanked"
+        },
+        "type": "game_mapping",
+        "value": "Implements grounded Thunder Jolt's terminal clank response: it requests removal of the ground item, removes its owned electrical effects, and invalidates its reciprocal relationship with the aerial component. The aerial component is not synchronously destroyed by this callback; its own animation survival guard subsequently rejects the cleared ground backlink and requests termination."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L346-L357",
+            "why": "Guard and unconditional cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltair.c#L111-L174",
+            "why": "Backlink clear and subsequent survival check."
+          }
+        ],
+        "op": "write",
+        "rationale": "Resolves the existing destroys-or-detaches ambiguity to the demonstrated backlink clear without discarding the separate companion lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachutjoltground:it_2725_Logic106_Clanked"
+        },
+        "type": "state_behavior",
+        "value": "If xDDC is non-NULL, clears the aerial component's xDD8 backlink through it_802B43B0 and then nulls the ground item's xDDC. Regardless of link presence, destroys ground-owned effects, sets xDE0 to zero and returns true. It does not directly destroy the companion, enter another motion state or start a timer; companion termination is handled by its later animation update."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

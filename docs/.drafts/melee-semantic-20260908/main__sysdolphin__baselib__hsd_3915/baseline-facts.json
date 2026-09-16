@@ -1,0 +1,1355 @@
+[
+  {
+    "id": "fact:65574731-ba07-4964-9479-05880f3048b4",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.data",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "DrawASCII maps digits to atlas records 0\u20139, either case of letters to records 10\u201335, and supported punctuation to records 36\u201346. It computes `lbl_80408630 + index * 13`, reads packed endpoint pairs until `0xFF`, scales and translates their nibble coordinates by the requested glyph origin and retained dimensions, and submits colored line segments to GX.",
+    "rationale": "The atlas and its current DrawASCII consumer remain at head with the same character mapping, record stride, packed-coordinate decoding, terminator, coordinate transformation, and GX output.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows character classification, 13-byte atlas lookup, nibble decoding, the 0xFF terminator, scaling, and GX line emission."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.data"
+  },
+  {
+    "id": "fact:17de0546-d281-417a-8bd3-fad2b3259c74",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.data",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "The section's leading stroke-font atlas supplies the character shapes used by the developer text overlay's colored ASCII grid.",
+    "rationale": "DrawASCII still decodes the section-leading atlas into glyph geometry, while DevText_Draw still passes each visible colored grid character to DrawASCII.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows DrawASCII converting records from the section-leading atlas into character strokes."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/if/textdraw.c#L204-L261",
+        "why": "Shows DevText_Draw passing visible buffer characters and selected colors to DrawASCII."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.data"
+  },
+  {
+    "id": "fact:3442d504-058c-4c59-8948-aed5fb92fd5e",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.data",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "An initialized writable-data section whose leading object is `u8[0x268]`. That object contains at least 47 fixed-stride, 13-byte stroke-glyph records: each coordinate byte packs x in its high nibble and y in its low nibble, successive byte pairs are line endpoints, and `0xFF` terminates a record. The atlas has natural placement in the section, not explicit 32-byte alignment.",
+    "rationale": "The current source declares the initialized 0x268-byte array without an alignment attribute, and DrawASCII proves the record count, stride, packed coordinate format, endpoint pairing, and terminator.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Declares the initialized 0x268-byte atlas without explicit alignment."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows indices through 46, the 13-byte stride, paired endpoint reads, nibble-coordinate decoding, and the 0xFF terminator."
+      },
+      {
+        "kind": "attempt",
+        "locator": "attempt://run/run:f6b687ab-2918-4646-afe4-78f102c79b00/submission/1",
+        "why": "Reports that removing explicit 32-byte alignment while preserving the atlas contents produced the exact data-section layout."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.data"
+  },
+  {
+    "id": "fact:aec0d14f-5a6e-4946-a909-f9cce7ff40af",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.data",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides initialized data for the unit's developer-display rendering, most clearly the leading compact stroke-glyph atlas consumed by DrawASCII.",
+    "rationale": "The section still contains the initialized compact atlas, and DrawASCII directly indexes and converts it into colored GX character geometry.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Shows the initialized compact stroke-glyph byte array."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows DrawASCII selecting and decoding records from that array."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.data"
+  },
+  {
+    "id": "fact:6c56c76d-bc5c-469b-bed6-36b523699bb5",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.sdata",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "hsd_80391A04 replaces the retained horizontal glyph scale, vertical glyph scale, and stroke width. DrawASCII reads the two scales for point and line coordinates and returns the horizontal scale as the character advance; the setup routine also sends the width to GX line sizing and twice the width to point sizing.",
+    "rationale": "The head source now supports the glyph-rendering configuration flow but not the former claims about performance-display controls and palette values.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L244",
+        "why": "Shows DrawASCII reading the retained scales and hsd_80391A04 replacing both scales and the stroke width before configuring line and point sizes."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.sdata"
+  },
+  {
+    "id": "fact:f9cefe47-047c-4f64-bbf4-29606af4c208",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.sdata",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Provides the mutable glyph sizing and stroke-width defaults used to render the developer text overlay.",
+    "rationale": "The small-data values control DrawASCII geometry and setup state, and DevText_Draw replaces them from each developer-text panel immediately before drawing.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L244",
+        "why": "Shows the retained scale and width values controlling compact stroke-glyph rendering."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/if/textdraw.c#L204-L261",
+        "why": "Shows developer-text scale and line-width fields being supplied to the setup routine before overlay rendering."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.sdata"
+  },
+  {
+    "id": "fact:d85193d7-9010-40be-badf-445cb7a29a27",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.sdata",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "An initialized small-data block whose demonstrated members are two `f32` glyph dimensions followed by a `u8` stroke-width setting.",
+    "rationale": "Current declarations and typed uses establish two floating-point scale values and one byte-sized width value; the former heterogeneous performance-control and palette description is no longer present in this source at head.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Declares the two initialized floating-point glyph scales."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L244",
+        "why": "Declares the byte-sized width setting and shows all three values being read or replaced."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.sdata"
+  },
+  {
+    "id": "fact:4ec6c235-ef83-4d4e-b3fb-a2e4526435c0",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.sdata",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores initialized compact-ASCII rendering configuration: horizontal and vertical glyph scales and the stroke width used for line and point geometry.",
+    "rationale": "The current source directly declares and consumes these three initialized settings, while the previously attributed performance-display state is absent from the head file.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L244",
+        "why": "Shows the initialized glyph settings being consumed by DrawASCII and replaced by the drawing-state setup routine."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.sdata"
+  },
+  {
+    "id": "fact:86952835-f4b5-4259-9bc8-41d35dfc4a37",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.sdata",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Glyph rendering begins with 12-by-12 scaling and stroke width 12. Every call to hsd_80391A04 unconditionally replaces all three values, after which subsequent DrawASCII calls use the new scales and GX line and point sizing use the new width.",
+    "rationale": "The initializers and straight-line assignments at head establish the defaults and unconditional replacement behavior; obsolete performance-mode branches are no longer part of this section's supported record.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L244",
+        "why": "Shows the initialized values, their unconditional replacement, and their downstream geometry and GX-state uses."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.sdata"
+  },
+  {
+    "id": "fact:285036be-fedd-49a3-a30b-3287bbe02a8c",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.sdata2",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Source-level floating-point literals and split-owned duplicate scalar objects are emitted into this read-only pool. The unit's drawing helpers load them for glyph-coordinate scaling, parametric line calculations, length normalization, tick sizing, loop and sentinel comparisons, and integer-to-floating conversion; the pool itself is never mutated.",
+    "rationale": "The current file demonstrates immutable numerical constants throughout the retained drawing helpers, while the accepted section-layout attempt establishes that duplicate scalar entries are intentionally kept distinct.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows immutable fractional constants used for glyph-coordinate scaling."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L245-L390",
+        "why": "Shows immutable zero, scale, normalization, and tick-size constants used by line-drawing helpers."
+      },
+      {
+        "kind": "attempt",
+        "locator": "attempt://run/run:965984f2-64f0-41b4-9e6d-f16d5f730ba9/submission/4",
+        "why": "Establishes the accepted constant-pool layout with split-owned duplicate scalar arrays."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.sdata2"
+  },
+  {
+    "id": "fact:34ccd926-3077-48de-ab68-e558d74ab628",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.sdata2",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Supplies immutable numeric presentation constants used by low-level developer-display drawing, including compact stroke-glyph coordinate fractions and line-marker dimensions.",
+    "rationale": "At head, the demonstrated consumers are the developer-display glyph and line primitives; the former frame-performance-specific description depended on code no longer present in this source file.",
+    "confidence": 0.91,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows fractional constants shaping compact ASCII glyph geometry."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L340-L390",
+        "why": "Shows four-unit and six-unit constants shaping line tick markers."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.sdata2"
+  },
+  {
+    "id": "fact:49067b98-7df0-4712-957b-d3f6ddca5aeb",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.sdata2",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A heterogeneous read-only small-data constant pool containing compiler-emitted floating-point scalars and a typed GXColor object. Five split-owned one-element arrays preserve required duplicate half-valued, zero-valued, and integer-to-floating-conversion constants instead of allowing the compiler to intern them into shared entries.",
+    "rationale": "The byte-identical layout was first obtained with five one-element arrays at evidenced pool boundaries, and the accepted revision retained those arrays while replacing address-shaped color storage with a GXColor. Together these attempts establish both the section's heterogeneous layout and the reason apparently redundant scalar entries remain distinct.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T14:39:13.417Z",
+    "evidence": [
+      {
+        "kind": "attempt",
+        "locator": "attempt://run/run:965984f2-64f0-41b4-9e6d-f16d5f730ba9/submission/3",
+        "why": "Identifies five one-element constant arrays for duplicate half, zero, and integer-conversion entries and records that their placement at pool boundaries reproduced the target layout."
+      },
+      {
+        "kind": "attempt",
+        "locator": "attempt://run/run:965984f2-64f0-41b4-9e6d-f16d5f730ba9/submission/4",
+        "why": "Shows that the final accepted layout retained the split-owned duplicate arrays and represented the default-color entry with its semantic GXColor type."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.sdata2"
+  },
+  {
+    "id": "fact:23c41217-4dcd-4a73-a74b-f192ceaebf4d",
+    "target_id": "target:data:main/sysdolphin/baselib/hsd_3915:.sdata2",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Holds the translation unit's immutable small-data constants for glyph and primitive coordinate calculations, including intentionally distinct copies of otherwise equal floating-point values.",
+    "rationale": "The accepted reconstruction establishes the distinct duplicate entries, and the current source continues to consume immutable numerical constants throughout its drawing routines.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "attempt",
+        "locator": "attempt://run/run:965984f2-64f0-41b4-9e6d-f16d5f730ba9/submission/4",
+        "why": "Establishes the accepted section layout with split-owned duplicate constants."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows immutable constants used for glyph coordinate calculations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L245-L390",
+        "why": "Shows immutable constants used for line interpolation, normalization, and tick geometry."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:.sdata2"
+  },
+  {
+    "id": "fact:24a16a91-38e1-4972-82ac-b16a637802af",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawASCII",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Digits select glyphs 0\u20139, either letter case selects 10\u201335, and supported punctuation selects 36\u201346 except period and colon. Table bytes pack x/y nibbles; byte pairs become colored line endpoints after scaling by retained glyph dimensions and translating by `(x,y)`. Output is GX geometry and the retained horizontal scale.",
+    "rationale": "The complete head implementation preserves every described mapping, transformation, GX submission, and return path.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows character mapping, packed-glyph decoding, coordinate scaling, vertex output, and return."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawASCII"
+  },
+  {
+    "id": "fact:af84ca2b-6f6f-4a79-9fa5-163c19a6e015",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawASCII",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements per-character rendering for the developer text overlay's colored ASCII grid.",
+    "rationale": "DevText_Draw reads each nonzero character from a panel's row-major buffer, selects a color from its four-entry text palette, and calls DrawASCII at the corresponding cell origin. This directly grounds DrawASCII in the overlay rather than merely identifying it as a generic GX drawing helper.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T13:05:23.206Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/if/textdraw.c#L204-L261",
+        "why": "Shows every visible DevText buffer character and selected palette color being passed to DrawASCII at its grid-cell coordinates."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawASCII"
+  },
+  {
+    "id": "fact:33089f07-33f4-4a57-80e8-5eded6566655",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawASCII",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: `f32 DrawASCII(int chr, f32 x, f32 y, GXColor* color)`. `chr` is an ASCII code, `(x,y)` is the glyph origin, `color` supplies per-vertex RGBA, and the return is the retained horizontal glyph scale used as advance.",
+    "rationale": "The definition provides the exact types, and its comparisons, coordinate expressions, color submissions, and return expressions establish the semantic roles.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Provides the signature and complete parameter and return-value uses."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawASCII"
+  },
+  {
+    "id": "fact:f77b8997-896c-4413-816f-250014f2f120",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawASCII",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Draws one supported ASCII character at a supplied 2D origin and RGBA color, using a compact stroke-glyph table for most characters and point geometry for period and colon, then returns the current retained horizontal glyph advance.",
+    "rationale": "The current body maps characters, emits point or line geometry, and returns the horizontal scale on every path.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows character dispatch, geometry emission, origin and color use, and the returned horizontal scale."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawASCII"
+  },
+  {
+    "id": "fact:f92dd005-2f26-4d18-8828-c86c999d6610",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawASCII",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Period emits one point and colon emits two. Digits, letters, and `- _ ~ > / ( ) , < + $` use table-driven lines until a `0xFF` terminator. Unsupported characters emit nothing. Every branch returns the current retained horizontal glyph scale.",
+    "rationale": "The switch cases, table loop, terminator check, default return, and common result remain explicit at head.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L95-L181",
+        "why": "Shows the point cases, supported table glyphs, unsupported behavior, terminator, and returns."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawASCII"
+  },
+  {
+    "id": "fact:9e6bc14d-249f-4732-8aa3-a8ec5de1c9d0",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawRectangle",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes origin `(x_min,y_min)`, extents `(w,h)`, and a GXColor pointer; computes the opposite corner and writes four coordinate pairs plus repeated RGBA values to GX. Callers derive inputs from developer-text panels and cursors or from Tournament Mode bracket geometry.",
+    "rationale": "The current helper still performs the rectangle transformation and GX submission, while current callers preserve the developer-text and Tournament Mode input paths. The obsolete diagnostic-compositor citation has been removed.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Shows origin and extent arithmetic followed by four positions and repeated RGBA submission."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/if/textdraw.c#L204-L261",
+        "why": "Shows developer-text panel dimensions and cursor state becoming DrawRectangle arguments."
+      },
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/melee/gm/gmtoulib.c#L906-L1025",
+        "why": "Shows Tournament Mode bracket geometry driving repeated DrawRectangle calls."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawRectangle"
+  },
+  {
+    "id": "fact:136ea97a-1753-4ad5-89c3-e02ba01d1943",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawRectangle",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Serves as a reusable flat-color 2D primitive across developer and game interfaces: developer text uses it for panel backing and its blinking cursor, while Tournament Mode combines thin rectangles into bracket connector lines.",
+    "rationale": "Current developer-text and tournament-bracket renderers still use the helper for these visible roles; the former diagnostic-background claim is no longer needed to support the mapping.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/if/textdraw.c#L204-L261",
+        "why": "Shows panel-background and blinking-cursor rendering through DrawRectangle."
+      },
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/melee/gm/gmtoulib.c#L906-L1025",
+        "why": "Shows rectangles assembled into Tournament Mode bracket lines."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawRectangle"
+  },
+  {
+    "id": "fact:f30b49b5-eb0a-4cc9-a38c-2669bc2e0314",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawRectangle",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Immediate-mode rendering helper with signature `void DrawRectangle(f32 x_min, f32 y_min, f32 w, f32 h, GXColor* color)`. The first four parameters are 2D position and signed extent values in the caller's current coordinate space; `color` points to four byte-sized RGBA channels.",
+    "rationale": "The current declaration gives the exact signature, while direct extent arithmetic and typed GXColor channel reads establish the parameter meanings.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Provides the exact signature and shows floating-point extent arithmetic and GXColor channel reads."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawRectangle"
+  },
+  {
+    "id": "fact:561b7d4b-b777-4d40-acbf-82b9c59cf809",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawRectangle",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Draws a uniformly colored axis-aligned rectangle as one four-vertex GX primitive. It derives the opposite corner from the supplied origin, width, and height, then submits the four corners clockwise with the same RGBA color at every vertex.",
+    "rationale": "The complete head body computes the opposite corner and emits top-left, top-right, bottom-right, and bottom-left with identical color values.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Shows rectangle construction, clockwise corner order, repeated RGBA submission, and the GX primitive boundary."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawRectangle"
+  },
+  {
+    "id": "fact:c1a634a0-c71f-42e9-bf42-60f04c5679ec",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:DrawRectangle",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The function has no geometry, null-pointer, clipping, or degeneracy guards: every call unconditionally begins a four-vertex primitive and submits the supplied rectangle, including negative or zero extents. It does not configure projection, vertex descriptors, blending, or other broader GX rendering state, so callers must establish compatible state first.",
+    "rationale": "The complete body is branch-free, dereferences color unconditionally, and performs only primitive submission rather than broader rendering-state setup.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Shows unconditional extent calculation, color dereference, and four-vertex submission with no guards or state setup."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:DrawRectangle"
+  },
+  {
+    "id": "fact:7db1b3c3-8eb3-4baa-8647-135e18a193b6",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391A04",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Stores caller-provided horizontal scale, vertical scale, and stroke width; loads the current camera view into position matrix 0; derives point size as twice the width; and installs direct position and color inputs. DrawASCII consumes the scales, and subsequent rectangle and glyph calls consume the configured GX state.",
+    "rationale": "The head setup body establishes every retained write and GX side effect, while the adjacent DrawASCII body establishes scale consumption.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L244",
+        "why": "Shows retained scale and width writes, camera-matrix loading, primitive sizing, direct vertex setup, and DrawASCII scale reads."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391A04"
+  },
+  {
+    "id": "fact:b79eac65-5b48-482a-9d54-c04ce1a05dea",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391A04",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Provides the per-display graphics-state setup used by Melee's developer text overlay, allowing its backgrounds, colored stroke glyphs, and blinking cursor to be rendered through simple immediate-mode geometry under the active camera.",
+    "rationale": "DevText_Draw passes each display's scale and line-width settings to this function and then renders the overlay's backing rectangles, character grid, and cursor through the associated primitive routines. The target's matrix, direct-vertex, primitive-size, render-mode, and culling operations are therefore the graphics-state preparation for that visible developer overlay.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T13:27:35.470Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/if/textdraw.c#L204-L261",
+        "why": "Shows the developer-text renderer calling this setup before drawing its backgrounds, colored character cells, and blinking cursor."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L185-L204",
+        "why": "Shows the camera, primitive-size, render-mode, direct-vertex, and culling state installed for the overlay's subsequent geometry."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391A04"
+  },
+  {
+    "id": "fact:1451e54a-b5a0-491b-972c-421b17140a07",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391A04",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "SetupDraw",
+    "rationale": "The routine performs only common drawing-state initialization, and the neighboring recovered names DrawRectangle and DrawASCII use an unprefixed Draw naming family. Elsewhere in the codebase, mpLib_SetupDraw names a comparable routine that installs graphics state before primitive submission. The exact original wording remains uncertain because no surviving symbol names this function.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: Likely SetupDraw.",
+    "confidence": 0.58,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L185-L204",
+        "why": "Shows that the unnamed function is a side-effect-only setup routine for subsequent drawing."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/mp/mplib.c#L6119-L6137",
+        "why": "Provides the recovered SetupDraw naming convention for another routine whose role is to install graphics state before callers emit primitives."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391A04"
+  },
+  {
+    "id": "fact:d7c18578-635a-44b4-bcb3-8d42de5b553d",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391A04",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Drawing-state setup routine with signature `void (float scale_x, float scale_y, int line_width)`. The floats are glyph-cell scales; the integer controls GX line width and, after doubling, point size.",
+    "rationale": "The current definition supplies the types and exact line and point-size uses, while DrawASCII consumes the retained scales.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L244",
+        "why": "Shows the signature, retained scale writes, and line and point-size configuration."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391A04"
+  },
+  {
+    "id": "fact:2f1b306a-a078-4572-b157-3ffab9cfc8f9",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391A04",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Prepares the current GX/HSD state for this unit's immediate-mode 2D drawing primitives. It retains the requested horizontal and vertical glyph scales and stroke width, loads the current camera's viewing matrix, configures line and point sizes, selects the render mode and direct position/color vertex attributes, and disables culling before geometry is emitted.",
+    "rationale": "The function directly stores all three drawing parameters and performs the complete matrix, primitive-size, render-mode, vertex-format, vertex-descriptor, and culling setup. DevText_Draw invokes it immediately before using DrawRectangle and DrawASCII, establishing that these side effects prepare the shared primitive renderer rather than draw geometry themselves.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T13:27:35.470Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L185-L204",
+        "why": "Shows the complete parameter retention and GX/HSD render-state setup performed by the function."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/if/textdraw.c#L204-L261",
+        "why": "Shows a concrete caller invoking the function before emitting panel, glyph, and cursor geometry through DrawRectangle and DrawASCII."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391A04"
+  },
+  {
+    "id": "fact:2b71bebc-5397-4ec9-a5ef-a4c5c3e5031f",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391A04",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The routine is an unconditional one-shot state transition with no guards or drawing loop. Every call replaces all three retained drawing parameters, clears the existing HSD vertex descriptors, selects and loads position matrix 0 from the current camera, updates line and point sizing, installs render mode `0x68000002`, enables direct position and color attributes for vertex format 0, and sets culling mode to zero.",
+    "rationale": "The complete matched body is straight-line code: no condition can preserve prior parameter or graphics state, and every listed operation executes once per call.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T13:27:35.470Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L185-L204",
+        "why": "Shows the branch-free ordered replacement of retained renderer values and GX/HSD state."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391A04"
+  },
+  {
+    "id": "fact:2417f1d9-71d8-4976-a4f8-d145341a896e",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391AC8",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Ordinary bytes are passed with current `(x,y)` and color to DrawASCII, whose returned horizontal scale advances x. A `\\c` or `\\C` control converts six following bytes into RGB, writes them through the caller's GXColor, forces alpha to 255, and affects all subsequent characters.",
+    "rationale": "The current parser directly shows forwarding to DrawASCII, x accumulation, six-byte hexadecimal conversion, and caller-visible color mutation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L315",
+        "why": "Shows ordinary-character forwarding, returned-advance accumulation, color-control parsing, and mutation of the supplied color."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391AC8"
+  },
+  {
+    "id": "fact:e8f7059a-816a-4c3f-9ee4-3cc28e73fd4e",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391AC8",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "DrawString",
+    "rationale": "The routine draws a complete formatted string through the neighboring DrawASCII primitive, fitting the unit's concise DrawRectangle and DrawASCII naming family; no preserved symbol confirms the spelling.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `DrawString`.",
+    "confidence": 0.68,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L315",
+        "why": "Shows the routine scanning and drawing a complete string through DrawASCII."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391AC8"
+  },
+  {
+    "id": "fact:62bad98d-defc-401b-be35-48584f73b01d",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391AC8",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function with signature `s32 (char* str, GXColor* color, f32 x, f32 y)`. `str` is a null-terminated byte string containing ASCII characters and optional inline color controls; `color` is an in/out current RGBA color that the routine mutates when a color control is encountered; `x` and `y` are the initial glyph origin; and the result is the accumulated floating-point x position converted to `s32`.",
+    "rationale": "The declaration supplies the concrete machine-level types. The terminator scan and character comparisons establish the string domain, assignments to all four color channels establish that color is mutable state, DrawASCII establishes the coordinate meanings, and both return paths explicitly cast x to s32.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T13:27:58.218Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L267",
+        "why": "Provides the exact signature and demonstrates the string, mutable color, coordinate, and return-value roles."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391AC8"
+  },
+  {
+    "id": "fact:aa2ee445-1c41-4950-82c1-bdb901bb789e",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391AC8",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Draws a null-terminated ASCII string from a supplied origin, interpreting embedded color-change controls, rendering visible characters through DrawASCII, and returning the final horizontal position as an integer.",
+    "rationale": "The complete current body shows the scan, escape parsing, DrawASCII calls, horizontal accumulation, and integer return.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L315",
+        "why": "Shows the string parser, color controls, character drawing, and final integer position."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391AC8"
+  },
+  {
+    "id": "fact:b3898d41-69e4-431f-8c8a-11dba31b832c",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391AC8",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null string produces no drawing and returns the integer conversion of the initial x position. During scanning, ordinary characters are rendered in the current color; any backslash suppresses itself and consumes the following selector, with selectors `c` and `C` additionally consuming six color bytes and replacing the current color. Unrecognized selectors perform no drawing or color change. Scanning ends at a null byte, after which the accumulated x position is returned.",
+    "rationale": "The initial null guard establishes the no-op state. The loop condition, ordinary-character branch, unconditional selector consumption after a backslash, `c`/`C` switch cases, absence of a default action, and final return establish the parser's states and transitions.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T13:27:58.218Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L267",
+        "why": "Directly shows the null-input guard, ordinary-character state, escape-selector state, recognized color-control transition, unrecognized-selector behavior, terminator guard, and final return."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391AC8"
+  },
+  {
+    "id": "fact:4e53a235-70a4-4ff5-92b7-ca887956a55d",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391E18",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Receives sentinel-terminated parametric positions and packed RGBA colors plus two endpoints. Each nonnegative position becomes an absolute point using the endpoint delta; the prior point becomes the segment start, and both colored vertices are written to the GX FIFO.",
+    "rationale": "The head implementation directly establishes record reads, affine endpoint interpolation, previous-point carry, packed-color extraction, and GX output. The former timing-producer provenance is no longer available in the head file.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L315",
+        "why": "Shows eight-byte record traversal, affine transformation, previous-point carry, packed RGBA extraction, and two-vertex line emission."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391E18"
+  },
+  {
+    "id": "fact:e178b06a-d160-4aa1-8035-1b48cd20af45",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391E18",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "DrawGradientLine",
+    "rationale": "The current operation draws sequential differently colored intervals along one line and fits the unit's Draw-prefixed primitive family, although no surviving symbol verifies the wording.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: Likely original-style name: `DrawGradientLine`.",
+    "confidence": 0.7,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L315",
+        "why": "Shows color-banded intervals being drawn along a line between two endpoints."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391E18"
+  },
+  {
+    "id": "fact:5f3397c8-7414-4a3c-92c3-6f48e466b0fa",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391E18",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Effective signature: `void(const GradientStop* stops, f32 x1, f32 y1, f32 x2, f32 y2)`, where each eight-byte stop is `{ f32 pos; GXColor color; }`, the array ends when `pos < 0.0f`, and a null pointer performs no work.",
+    "rationale": "The current body reads a float and packed four-byte color at offsets zero and four, advances by eight bytes, and applies both null and negative-position guards.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L315",
+        "why": "Shows the parameter list, null guard, record stride, position and color fields, and negative sentinel."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391E18"
+  },
+  {
+    "id": "fact:874495bd-3d3d-4a30-8ee7-258258c3b547",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391E18",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Draws a color-banded line between two endpoints. Each record advances to a parametric point and emits the interval from the previous point as a two-vertex GX line segment in the record's color.",
+    "rationale": "The current body computes endpoint deltas, affine positions, and one same-colored segment per accepted record.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L315",
+        "why": "Shows parametric point calculation and per-record line-segment emission."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391E18"
+  },
+  {
+    "id": "fact:61d5a575-baf1-474a-87b0-2fe8b44c7b7e",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391E18",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Returns immediately for a null list. Otherwise it advances through eight-byte records until a negative position; each accepted record opens one two-vertex line primitive and updates only the local previous point. Persistent GX state is not configured here and must be prepared by the caller.",
+    "rationale": "The current body contains the null and sentinel exits, per-record primitive emission, and no broader GX-state setup.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L237-L315",
+        "why": "Shows the null and sentinel exits, record traversal, one GXBegin per record, and absence of persistent state setup."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391E18"
+  },
+  {
+    "id": "fact:de005d99-309b-4de4-a233-70e9f0d98a60",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391F28",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Receives a color, two line endpoints, and a subdivision count. It subtracts the endpoints to obtain the segment delta, normalizes a perpendicular vector from the segment length, scales it to four- and six-unit tick vectors, advances along the baseline by `delta / count`, and submits the baseline and every tick to GX with the supplied RGBA color.",
+    "rationale": "The current function directly establishes the complete transformation from endpoint and count inputs to baseline and tick geometry; former compositor provenance is no longer available at head.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L340-L390",
+        "why": "Shows endpoint subtraction, perpendicular normalization, tick-vector calculation, coordinate advancement, and GX emission."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391F28"
+  },
+  {
+    "id": "fact:e0305061-978f-4854-8b5a-4837bc619699",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391F28",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "DrawTickedLine",
+    "rationale": "The current body draws a baseline with regularly spaced major and minor ticks, fitting the unit's concise Draw-prefixed helper convention; no preserved symbol establishes the exact spelling.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: Likely original-style name: `DrawTickedLine`.",
+    "confidence": 0.69,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L340-L390",
+        "why": "Shows the complete baseline-and-tick drawing operation."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391F28"
+  },
+  {
+    "id": "fact:49a6ea17-505f-4a23-9ebe-a91d69ee6674",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391F28",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Immediate-mode rendering helper with signature `void(GXColor* color, f32 x1, f32 y1, f32 x2, f32 y2, f32 count)`. The coordinate arguments are two-dimensional line endpoints, while `count` is a subdivision count represented as `f32` and used both as a divisor and as the inclusive bound for an integer-indexed loop.",
+    "rationale": "The current declaration supplies the concrete types, and the body establishes the color, endpoint, and count roles.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L340-L390",
+        "why": "Provides the signature and shows how every color, coordinate, and count argument is used."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391F28"
+  },
+  {
+    "id": "fact:accffefc-2de2-499d-87a0-6d6126479bd8",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391F28",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Draws a colored line segment with evenly spaced perpendicular tick marks. It renders the supplied endpoints as the baseline, divides that baseline into `count` equal intervals, and draws a tick at every division point, using a longer tick for every fifth division.",
+    "rationale": "The current body emits the baseline, computes equal coordinate steps, traverses indices zero through count, and selects six-unit offsets for multiples of five and four-unit offsets otherwise.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L340-L390",
+        "why": "Shows baseline emission, equal subdivision, inclusive traversal, and modulo-five tick sizing."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391F28"
+  },
+  {
+    "id": "fact:2ec48e90-6980-4a8e-8582-2964c2337fd3",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80391F28",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The routine first emits one two-vertex GX line for the baseline. It then iterates from index zero while the floating-point form of the index is no greater than `count`, opening a separate two-vertex line for each tick. Indices divisible by five receive the six-unit tick vector; all others receive the four-unit vector. It performs no projection, vertex-format, line-width, or blending setup.",
+    "rationale": "The current target contains the baseline primitive and inclusive modulo-five tick loop but no persistent GX-state setup.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L340-L390",
+        "why": "Shows the baseline primitive, per-tick primitives, inclusive loop, modulo-five branch, and absence of broader state configuration."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80391F28"
+  },
+  {
+    "id": "fact:7280707d-51c9-4563-9381-09ce452ab293",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80392194",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "A glyph rasterizer decodes each source sample to a value from zero through three, uses that value to select a GlyphEntry, and calls this function with the current two-byte XFB destination, screen coordinates, decoded value, and selected entry. The function copies the entry's first byte to `dst[0]`, copies its second byte to `dst[1]` for even x or its third byte for odd x, and returns no value.",
+    "rationale": "The callback body establishes the two stores and parity choice, while the adjacent rasterizer establishes two-bit table selection and callback arguments.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L483",
+        "why": "Shows the callback stores, four-entry table, two-bit sample decoding, table selection, and callback dispatch."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80392194"
+  },
+  {
+    "id": "fact:a84e3f2a-6429-42be-a990-d550637b86b4",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80392194",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements the terminal packed-XFB pixel-write operation used to render the internal developer debug and runtime crash console. Four-level glyph samples select grayscale table entries, and this callback writes the selected luminance and parity-correct chroma bytes.",
+    "rationale": "The head console tables pair four grayscale levels with this callback, and the framebuffer console paths use the associated glyph rasterizers for diagnostic text and fallback cells.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L107-L157",
+        "why": "Shows normal, reversed, and uniform grayscale console tables wired to hsd_80392194."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L483",
+        "why": "Shows the parity-dependent packed-pixel callback and rasterizer dispatch through four-level entries."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80392194"
+  },
+  {
+    "id": "fact:9bc34cbc-ee00-4f2a-b1a4-75c90ac1582d",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80392194",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A GlyphEntry pixel callback with effective signature `void(u8* dst, s32 x, s32 y, s32 glyph_value, const GlyphEntry* entry)`. `dst` addresses one two-byte packed XFB pixel; `x` selects which alternating chroma byte is stored; `y` and `glyph_value` are callback-interface arguments unused by this implementation; and the entry consists of a packed four-byte color word followed by the callback pointer.",
+    "rationale": "The current callback typedef and invocation establish the five-argument interface, while the body consumes only destination, x parity, and the first three bytes of the selected entry.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L483",
+        "why": "Shows the callback typedef, GlyphEntry layout, invocation arguments, and exact entry bytes consumed."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80392194"
+  },
+  {
+    "id": "fact:7784834e-6d75-445f-aa13-81c79e8fda77",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80392194",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Writes one table-selected glyph pixel into a packed external framebuffer. It stores the selected entry's luminance byte and chooses one of its two chroma bytes according to the destination pixel's horizontal parity.",
+    "rationale": "The current complete body always stores source byte zero and selects source byte one or two using the low bit of the horizontal-coordinate argument.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L483",
+        "why": "Shows the unconditional first-byte store, x-parity branch, second-byte store, and packed glyph table."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80392194"
+  },
+  {
+    "id": "fact:8ef95adb-7427-4413-a21e-9f6fb88513fc",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_80392194",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The callback is stateless and always performs exactly two byte stores. Even x coordinates select the entry's first chroma byte, while odd x coordinates select its second chroma byte; there are no clipping guards, null checks, retained state changes, or alternate outcomes. Clipping and destination-address calculation are responsibilities of the calling rasterizer.",
+    "rationale": "The callback contains only two stores and one parity branch, while the adjacent rasterizer performs fallback, clipping, bounds checks, and address calculation before dispatch.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L483",
+        "why": "Shows the callback's complete behavior and the clipping and address calculations performed by its caller."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_80392194"
+  },
+  {
+    "id": "fact:7328aefd-04e6-4ba5-b4d0-72bba08244ad",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803921B8",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The debug console supplies a packed font glyph, pixel origin, destination XFB, framebuffer bounds and row stride, and an optional four-entry GlyphEntry table. The routine converts negative origins into source-row or source-column offsets, computes each visible two-byte destination address, decodes successive two-bit samples, and passes the destination address, screen coordinates, decoded value, and selected GlyphEntry to that entry's callback.",
+    "rationale": "The current target directly connects packed bitmap and framebuffer inputs through clipping, address calculation, decoding, table selection, and callback dispatch; current console callers establish input provenance.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L483",
+        "why": "Shows the complete transformation from packed glyph input to visible destination addresses and selected pixel callbacks."
+      },
+      {
+        "kind": "code",
+        "locator": "code://fcafa1a223/src/sysdolphin/baselib/debugconsole_main.c#L600-L674",
+        "why": "Shows console text and retained characters supplying glyphs, coordinates, XFB state, dimensions, stride, and table data."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803921B8"
+  },
+  {
+    "id": "fact:8c51d568-bd4f-44ce-9709-c495d7311691",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803921B8",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements non-interlaced glyph rendering for Melee's internal developer and runtime crash console, writing diagnostic strings, retained console-history characters, and uniform fallback cells directly into the selected XFB.",
+    "rationale": "Current debug-console callers select this full-row rasterizer when the interlaced mode is disabled, including ordinary text and fallback-grid paths.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://fcafa1a223/src/sysdolphin/baselib/debugconsole_main.c#L600-L674",
+        "why": "Shows non-interlaced diagnostic strings and retained console characters being rasterized through this function."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L688-L762",
+        "why": "Shows the non-interlaced fallback console grid being rendered through this function."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803921B8"
+  },
+  {
+    "id": "fact:c215d690-aa2a-4d51-9bf9-b5be79ffe3b4",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803921B8",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "DrawGlyph",
+    "rationale": "The routine draws one fixed-size packed glyph and is the ordinary full-row counterpart to the adjacent parity-aware rasterizer; the concise name fits the unit's drawing-helper convention but is not preserved.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `DrawGlyph`.",
+    "confidence": 0.74,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L551",
+        "why": "Places the full-row and interlaced routines together and shows their shared single-glyph operation with different row traversal."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803921B8"
+  },
+  {
+    "id": "fact:8d7959aa-e0d1-42a5-94d6-7179edb55bf6",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803921B8",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A side-effect-only glyph rasterizer with effective signature `void(const u8* bitmap, s32 x, s32 y, uintptr_t dst, s32 width, s32 height, s32 stride, GlyphEntry* table)`. `bitmap` contains an 11-by-14 glyph encoded as two bits per sample and four bytes per row; `dst` is a byte-addressable framebuffer base represented by `s32` in the current declaration; `stride` is bytes per framebuffer row; and a null table requests the unit's default four-entry table.",
+    "rationale": "The current body reads packed row words, extracts two-bit values, advances by two destination bytes per sample and four source bytes per row, and substitutes the default table when null.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L483",
+        "why": "Shows the concrete parameter list, nullable table behavior, 11-by-14 bounds, packed-sample decoding, destination units, and row stride."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803921B8"
+  },
+  {
+    "id": "fact:ab330b04-f4c6-4445-b9c6-89d60b8677a2",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803921B8",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Rasterizes one clipped 11-by-14, two-bit glyph into a non-interlaced external framebuffer. It decodes each glyph sample, selects the corresponding GlyphEntry, and delegates the actual two-byte pixel write or blend operation to that entry's callback.",
+    "rationale": "The current routine clips output to glyph and framebuffer bounds, decodes values zero through three, and dispatches the selected entry callback for every visible pixel.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L483",
+        "why": "Shows clipping, two-bit decoding, table lookup, callback dispatch, and full-row traversal."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803921B8"
+  },
+  {
+    "id": "fact:228b5ee4-0e6d-402b-9a0c-4753d115b926",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803921B8",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The routine is stateless across calls but performs guarded rasterization. It substitutes the default GlyphEntry table when the supplied table is null; clips negative y by skipping source rows; clips negative x by skipping source columns; clamps the right edge to `min(x + 11, width)`; and emits rows only while the source-row offset is below 14 and y is within framebuffer height. Each completed row advances the source by four bytes and y by one.",
+    "rationale": "All table fallback, clipping, bounds, and one-row progression rules remain explicit in the current body.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L483",
+        "why": "Shows default-table selection, negative-origin clipping, right-edge clamping, vertical guards, and one-row progression."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803921B8"
+  },
+  {
+    "id": "fact:cef4e104-17d7-4ab6-8df9-b7acced59159",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803922FC",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The caller supplies a packed font glyph, cell origin, active interlace parity, destination XFB, framebuffer bounds and stride, and an optional four-entry GlyphEntry table. The routine clips negative origins by advancing into the source glyph, aligns the first source and destination row to the requested parity, decodes successive two-bit samples, and passes each destination address, screen coordinate, decoded value, and selected GlyphEntry to that entry's callback.",
+    "rationale": "The current body directly transforms all inputs through clipping, parity alignment, packed-sample decoding, and callback dispatch, while console callers establish their provenance.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L485-L551",
+        "why": "Shows the full flow from packed glyph and parity inputs to destination addresses and selected GlyphEntry callbacks."
+      },
+      {
+        "kind": "code",
+        "locator": "code://fcafa1a223/src/sysdolphin/baselib/debugconsole_main.c#L600-L674",
+        "why": "Shows the console supplying glyphs, coordinates, field selector, XFB, bounds, stride, and table."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803922FC"
+  },
+  {
+    "id": "fact:d7741641-f439-492f-af8b-b507a770ca45",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803922FC",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements interlaced glyph rendering for Melee's developer debug and runtime crash console, allowing diagnostic text and uniform glyph-cell backgrounds to be written directly into an XFB in interlaced video mode.",
+    "rationale": "Current console paths select this function when interlaced mode is active, and the target performs parity-specific alternate-row rasterization.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://fcafa1a223/src/sysdolphin/baselib/debugconsole_main.c#L600-L674",
+        "why": "Shows diagnostic strings and retained console characters using this function in interlaced mode."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L688-L762",
+        "why": "Shows the fallback console grid using the function with an interlace selector."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803922FC"
+  },
+  {
+    "id": "fact:729d5cc1-da03-473a-9ef4-a1f9dc64a7e9",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803922FC",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "DrawGlyphInterlaced",
+    "rationale": "The function is the adjacent rasterizer's parity-aware counterpart, adding field alignment and alternate-row traversal to the same fixed-glyph operation; the exact original spelling is not preserved.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `DrawGlyphInterlaced`.",
+    "confidence": 0.76,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L392-L551",
+        "why": "Places the full-row and parity-aware glyph rasterizers together and shows their substantive traversal difference."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803922FC"
+  },
+  {
+    "id": "fact:3dde961f-69c8-4a52-886d-5c389a9a9e7c",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803922FC",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A side-effect-only glyph rasterizer with effective signature `void(const u8* bitmap, s32 x, s32 y, s32 field_parity, uintptr_t dst, s32 width, s32 height, s32 stride, GlyphEntry* table)`. `bitmap` contains an 11-by-14 glyph encoded as two bits per sample; `field_parity` is a 0/1 field selector; `dst` is represented by `s32` in the current declaration; `stride` is bytes per stored field row; and a null table requests the default four-entry table.",
+    "rationale": "The current parameter list and body establish packed two-bit glyph data, parity selection, byte-addressed destination calculation, one-stride field-row progression, and nullable table behavior.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L485-L551",
+        "why": "Provides the concrete parameters and demonstrates parity, destination, stride, table, and packed-sample semantics."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803922FC"
+  },
+  {
+    "id": "fact:3dfae65d-cc68-43f0-b909-5962d29dff52",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803922FC",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Rasterizes one clipped 11-by-14, two-bit glyph into one parity field of an interlaced framebuffer. It decodes each glyph sample, selects the corresponding GlyphEntry, and delegates the actual two-byte framebuffer write or blend operation to that entry's callback.",
+    "rationale": "The current function aligns output to the requested parity, traverses alternate source rows, decodes each visible sample, and invokes the selected entry callback.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L485-L551",
+        "why": "Shows parity alignment, clipping, two-bit decoding, alternate-row traversal, table lookup, and callback dispatch."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803922FC"
+  },
+  {
+    "id": "fact:0f05b261-fa0b-4937-a5fb-8b104f5823e9",
+    "target_id": "target:function:main/sysdolphin/baselib/hsd_3915:hsd_803922FC",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The routine is stateless across calls but has guarded rasterization phases. It substitutes the default GlyphEntry table when the supplied table is null; clips negative y by skipping source rows; advances one additional source row when necessary to match the requested field parity; clips negative x by skipping source columns; clamps the right edge to `min(x + 11, width)`; and emits rows while the source offset is below 14 and y remains within the framebuffer. Each iteration advances source and screen y by two while advancing the stored field-row index by one.",
+    "rationale": "The current body explicitly retains every fallback, clipping, parity-correction, bounds, and alternate-row progression rule.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-05T05:28:00.984Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L485-L551",
+        "why": "Shows default-table selection, x and y clipping, parity correction, bounds guards, and two-source-row to one-field-row progression."
+      }
+    ],
+    "subject": "main/sysdolphin/baselib/hsd_3915:hsd_803922FC"
+  },
+  {
+    "id": "fact:3482c338-d91e-4713-9acf-e523d62ef2fa",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3915.c",
+    "type": "data_flow",
+    "value": "Developer overlay callers supply geometry, character codes, scale, line width, and colors that become immediate GX vertices. The framebuffer paths clip an 11-by-14 packed glyph, decode each two-bit sample into one of four `GlyphEntry` records, and invoke that entry's callback to write a two-byte output pixel.",
+    "rationale": "The current source still demonstrates the GX vertex path and packed-glyph pixel conversion, but the callback-produced display-item chains from the prior claim are no longer part of this translation unit.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:24:36.836Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L240",
+        "why": "Shows character selection and packed stroke coordinates becoming colored GX line vertices, followed by application of caller-supplied scale and line width."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L361-L480",
+        "why": "Declares the four pixel callback records and shows two-bit glyph samples selecting those records during clipped progressive framebuffer output."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L431-L550",
+        "why": "Shows both rasterizers calculating framebuffer addresses and invoking the selected entry callback for each decoded glyph pixel."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_3915.c"
+  },
+  {
+    "id": "fact:c7e1ea3e-a4c7-4ff6-988e-f410e81a3e04",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3915.c",
+    "type": "game_mapping",
+    "value": "Provides rendering infrastructure for developer-facing diagnostics in both normal GX overlays and the internal runtime debug or crash console.",
+    "rationale": "The game mapping remains valid after the unit split: the developer-text overlay directly uses this unit's GX setup, rectangle, and ASCII functions, while the internal console uses its progressive and interlaced packed-glyph rasterizers to write console text into an XFB.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-05T05:24:36.836Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/if/textdraw.c#L199-L279",
+        "why": "Shows `DevText_Draw` using this unit's setup, rectangle, and ASCII routines to render a developer text panel, text cells, and cursor."
+      },
+      {
+        "kind": "code",
+        "locator": "code://fcafa1a223/src/sysdolphin/baselib/debugconsole_main.c#L601-L720",
+        "why": "Shows the internal console selecting this unit's progressive or interlaced glyph rasterizer to draw text into its framebuffer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/debugconsole_main.c#L720-L839",
+        "why": "Shows another internal console path filling its diagnostic character grid through the same two framebuffer glyph rasterizers."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_3915.c"
+  },
+  {
+    "id": "fact:9ba8436e-c37c-4363-b2a0-ddb35485d839",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3915.c",
+    "type": "inferred_type",
+    "value": "A low-level developer-display translation unit that owns two font representations: a compact fixed-stride stroke atlas used by `DrawASCII`, and a framebuffer debug-font layout consisting of four `GlyphEntry` callback records followed by `HSD_DebugFontAtlas` bitmap glyph data.",
+    "rationale": "The current source still declares the compact byte atlas consumed in 13-byte records by `DrawASCII`, plus the separate four-entry pixel callback table and bitmap debug-font atlas consumed by the framebuffer rasterizers.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Declares the compact stroke atlas and shows its `DrawASCII` consumer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L240",
+        "why": "Shows `DrawASCII` indexing fixed 13-byte atlas records and decoding coordinate pairs into GX line segments."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L361-L480",
+        "why": "Defines the four `GlyphEntry` callback records, separate bitmap atlas, and framebuffer consumer."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_3915.c"
+  },
+  {
+    "id": "fact:31afc5bc-bbf0-42cc-9c1a-9a8ecd05522a",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3915.c",
+    "type": "purpose",
+    "value": "Hosts low-level developer-display rendering primitives: immediate GX rectangles, compact stroke-based ASCII and line graphics, plus packed-glyph rasterizers that write the internal debug font into progressive or interlaced framebuffers.",
+    "rationale": "Current code still contains the GX rectangle and stroke-atlas text path, drawing-scale setup, line graphics, packed debug-font table, and both progressive and interlaced framebuffer rasterizers.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Shows the rectangle primitive, compact stroke atlas, drawing scales, and the beginning of the immediate GX ASCII renderer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L361-L480",
+        "why": "Shows line graphics, pixel-conversion callbacks, the debug-font atlas, and the progressive glyph rasterizer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L431-L550",
+        "why": "Shows the complete progressive path and the parity-aware interlaced framebuffer rasterizer."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_3915.c"
+  },
+  {
+    "id": "fact:87da5f42-8bb9-4619-8531-920af485b130",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3915.c",
+    "type": "state_behavior",
+    "value": "Maintains global horizontal and vertical glyph scale plus line-width state, initialized to 12 and replaced by the GX setup routine. The progressive rasterizer clips glyph rows and columns to the framebuffer, while the interlaced rasterizer additionally aligns the starting row to the requested parity and advances through every other source and output row.",
+    "rationale": "The current declarations and setup routine retain the scale and line-width state, and the two rasterizers preserve clipping and the distinct progressive and parity-aligned interlaced traversal.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L1-L120",
+        "why": "Declares horizontal and vertical scale values initialized to 12 and shows their use in ASCII drawing."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L121-L240",
+        "why": "Shows the GX setup routine replacing both scales and the line width."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3915.c#L431-L550",
+        "why": "Shows clipping in the progressive path and parity alignment with two-row stepping in the interlaced path."
+      }
+    ],
+    "subject": "src/sysdolphin/baselib/hsd_3915.c"
+  }
+]

@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/ef/efdata",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "reviewer": "tu_cobj_wave4",
+  "owned_review": "Full independent canonical plus separate rendered C1-9/H1-15; both clean with zero substitutions, EOF reached.",
+  "exact_baseline_verification": {
+    "facts": 8,
+    "links": 0,
+    "all_record_fields_match": true
+  },
+  "foreign_context_reads": [
+    {
+      "path": "src/melee/ef/efsync.c",
+      "ranges": [
+        [
+          55,
+          94
+        ],
+        [
+          648,
+          663
+        ]
+      ],
+      "mode": "canonical-only"
+    },
+    {
+      "path": "src/melee/ef/efasync.c",
+      "ranges": [
+        [
+          17,
+          23
+        ],
+        [
+          1116,
+          1136
+        ]
+      ],
+      "mode": "canonical-only"
+    },
+    {
+      "path": "src/sysdolphin/baselib/objalloc.h",
+      "ranges": [
+        [
+          1,
+          33
+        ]
+      ],
+      "mode": "canonical-only"
+    },
+    {
+      "path": "src/melee/ef/types.h",
+      "ranges": [
+        [
+          40,
+          74
+        ]
+      ],
+      "mode": "canonical-only"
+    },
+    {
+      "path": "src/melee/ef/eflib.c",
+      "ranges": [
+        [
+          154,
+          187
+        ],
+        [
+          337,
+          351
+        ],
+        [
+          439,
+          493
+        ],
+        [
+          510,
+          529
+        ]
+      ],
+      "mode": "canonical-only"
+    }
+  ],
+  "notes": [
+    {
+      "finding": "The owned C defines one HSD_ObjAllocData and three scalars: signed animation count, unsigned effect count and unsigned load mode. Static storage begins zero by C semantics. Address and section comments do not establish compiled layout.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efdata.c#L1-L8"
+    },
+    {
+      "finding": "Public header declares the four owned globals plus foreign efAsync_AllocData; its definition is in efasync.c21. No functions or parameter identities exist in this TU.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efdata.h#L1-L14"
+    },
+    {
+      "finding": "Foreign allocator type asserts0x2C and contains allocation metadata; EF_Effect also occupies0x2C but is a separate type with different fields. Init sizes the allocator for EF_Effect and resets EffectCount, not the other two globals explicitly.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.h#L19-L33"
+    },
+    {
+      "finding": "Load mode0 increments EffectCount before allocation; failure does not roll back. GObj failure cleanup tests the just-stored NULL gobj and reaches duplicate-free assertion. Destructor decrements only non-NULL-gobj mode0 effects. This is accounting, not a proven live population cap.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L439-L493"
+    },
+    {
+      "finding": "Animated creation increments signed AnimCount and writes the old-index queue slot before the>=32 guard. Dispatch epilogues predecrement and animate until count==0; negative counts/reentrant mutations lack a local guard.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L510-L529"
+    },
+    {
+      "finding": "Top-level spawn resets AnimCount and LoadKind to zero, early dispatch branches preserve zero and local recipes switch to mode1. Definitions name zero ASYNC and one SYNC despite the counterintuitive is_async member value.",
+      "evidence": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L65-L84"
+    }
+  ]
+}

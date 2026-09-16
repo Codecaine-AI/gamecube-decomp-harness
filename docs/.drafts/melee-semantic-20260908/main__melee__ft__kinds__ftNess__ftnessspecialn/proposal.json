@@ -1,0 +1,271 @@
+{
+  "tu": "main/melee/ft/kinds/ftNess/ftnessspecialn",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L32-L47",
+            "why": "All accepted conditions and false fallback are explicit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace live-item/valid-Ness overstatement with the complete predicate.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecialn:ftNs_SpecialN_CheckSpecialNHold"
+        },
+        "type": "purpose",
+        "value": "Returns whether a non-null GObj with non-null Fighter data has a non-null stored PK Flash reference and is in ftNs_MS_SpecialNHold or ftNs_MS_SpecialAirNHold. It does not validate fighter kind, item lifetime or ownership, or button input."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L74-L94",
+            "why": "Shows guarded call and fighter cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkflash.c#L146-L158",
+            "why": "Shows detachment without destruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "The item helper only clears owner fields and a flag.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecialn:ftNs_SpecialN_ItemPKFlushSetNULL"
+        },
+        "type": "purpose",
+        "value": "Detaches the tracked PK Flash item's current and recorded owner fields through it_802AAA50, clears the fighter's stored item reference, and clears death2_cb and take_dmg_cb. It does not destroy the item."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L74-L94",
+            "why": "Complete control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkflash.c#L146-L158",
+            "why": "Only item fields are cleared."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve exact guards and ordering while correcting destruction semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecialn:ftNs_SpecialN_ItemPKFlushSetNULL"
+        },
+        "type": "state_behavior",
+        "value": "Null GObj or Fighter inputs return immediately. For a valid Fighter, a non-null pkflash_gobj is passed to it_802AAA50 before the reference is cleared. Both fighter interruption callbacks are cleared regardless of reference presence. The item allocation is not destroyed by this path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L164-L177",
+            "why": "Initial delay source."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L471-L516",
+            "why": "Canonical input and output fields."
+          }
+        ],
+        "op": "write",
+        "rationale": "Use canonical input field and locally verified upstream initialization.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecialn:ftNs_SpecialAirNRelease_IASA"
+        },
+        "type": "data_flow",
+        "value": "Decrements signed charge_release_delay, clamps a nonpositive result to zero, and tests input.held_buttons[0] for HSD_PAD_B only after eligibility. If B is not held, clears u.ns.pkflash_gobj, death2_cb, and take_dmg_cb. Entry initializes the delay from xC_PKFLASH_MINCHARGEFRAMES. No item-owner field or motion state is directly changed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L418-L462",
+            "why": "Decrement precedes eligibility and late null checks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/types.h#L41-L53",
+            "why": "Counter is signed int."
+          }
+        ],
+        "op": "write",
+        "rationale": "Correct the boundary timing and document actual validity requirements.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecialn:ftNs_SpecialNRelease_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Decrements charge_release_delay before testing it. A positive result returns; a nonpositive result is clamped to zero, after which held B returns and released B clears the fighter reference and both interruption callbacks. Initial delay 1 can release in the same call. No motion transition or item detachment call occurs. Late null guards do not protect the initial Fighter/counter access; signed-minimum subtraction is not portable defined C behavior."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L614-L624",
+            "why": "Exact branch and destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Current result polarity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+            "why": "Enum values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L71-L79",
+            "why": "Current-frame forwarding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Document literal behavior without silently repairing the caller/callee discrepancy.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecialn:ftNs_SpecialNStart_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Calls ft_80082708 and returns on a nonzero result. On zero it invokes ftCommon_GroundToAirStateChange with ftNs_MS_SpecialAirNStart and FTNESS_SPECIALN_COLL_FLAG, preserving the current animation frame through the shared helper. The pinned callee returns fall_off_ledge ? GA_Air : GA_Ground, with Ground=0 and Air=1, so the baseline support-loss interpretation is inconsistent with current source and remains unresolved."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L627-L637",
+            "why": "Branch and AirHold target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftness.c#L111-L132",
+            "why": "Both source states use this callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Callee polarity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+            "why": "Enum values."
+          }
+        ],
+        "op": "write",
+        "rationale": "Capture active reuse, exact destination, and polarity discrepancy.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecialn:ftNs_SpecialNRelease_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Shared by grounded Hold and Release. Returns on nonzero ft_80082708; on zero converts through ftCommon_GroundToAirStateChange to ftNs_MS_SpecialAirNHold with FTNESS_SPECIALN_COLL_FLAG. Thus Release invocation selects Hold, not AirRelease. The current helper's Ground=0/Air=1 result contradicts the baseline support-loss explanation; intended binary behavior remains unresolved."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L640-L650",
+            "why": "Exact branch and AirEnd target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Callee result polarity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+            "why": "Enum values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L71-L79",
+            "why": "Frame-preserving helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace inferred grounded-valid predicate with actual branch behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessspecialn:ftNs_SpecialNEnd_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Returns on nonzero ft_80082708. On zero invokes ftCommon_GroundToAirStateChange with ftNs_MS_SpecialAirNEnd and FTNESS_SPECIALN_COLL_FLAG. The shared helper preserves current animation frame. Current ft_80082708 returns fall_off_ledge ? GA_Air : GA_Ground, with Ground=0/Air=1, so support-loss-triggered conversion is not proved and conflicts with the pinned source."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L74-L267",
+            "why": "Initialization, construction, queries, and stronger helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L418-L516",
+            "why": "Release clears fighter fields only."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnesspkflash.c#L121-L158",
+            "why": "Destruction notification and non-destructive detachment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separate fighter association, item ownership, detachment, and destruction.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftNess/ftnessspecialn.c"
+        },
+        "type": "data_flow",
+        "value": "Copies four signed PK Flash timing attributes into move counters, conditionally constructs and stores an item reference at startup completion, and queries current item owner plus item-state-2 status in shared Hold/Release animation callbacks. B-release IASA clears only fighter reference/callback fields. Interruption detachment additionally clears item owner fields through it_802AAA50 without destruction. Item destruction separately notifies ftNs_SpecialN_SetNULL under original/current-owner equality."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L183-L412",
+            "why": "Transitions, direct End option, owner mismatch, and recurring End reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessspecialn.c#L418-L516",
+            "why": "Input gate only clears fighter fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftness.c#L100-L187",
+            "why": "Active shared dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Ground collision polarity discrepancy."
+          }
+        ],
+        "op": "write",
+        "rationale": "Correct linear-lifecycle, ownership, recovery, and timer-reset oversimplifications.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftNess/ftnessspecialn.c"
+        },
+        "type": "state_behavior",
+        "value": "Start animation completion enters Hold and conditionally attempts item creation. Hold and Release share callback families. Their animation callback enters End directly when the fighter reference is absent and both post-update counters are nonpositive; otherwise it may select Release with the current frame. Owner mismatch only clears the reference and returns. Eligible B release clears fighter-side association/callbacks without directly changing motion or item ownership. End animation reloads counters and clears association every call; completed aerial End selects ordinary Fall for exact zero lag and the FallSpecial helper otherwise. Ground collision trigger interpretation is unresolved because current caller and enum-return callee polarities conflict."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

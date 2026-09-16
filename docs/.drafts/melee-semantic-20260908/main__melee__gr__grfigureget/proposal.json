@@ -1,0 +1,75 @@
+{
+  "tu": "main/melee/gr/grfigureget",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grfigureget:grFigureGet_80219898"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "While the spawned count is below the configured limit, an exactly-zero countdown increments the count, creates the next indexed trophy item, stores its pointer, configures joint 0, and reloads the base delay plus an optional random delay. Every nonzero countdown takes the decrement branch, including negative values. The constructor result is not checked before the collision-joint setter dereferences it. Once spawning is complete, x8 + xC >= 3 enables registration of each captured trophy ID and ORs result flags: 0x20|0x100 for three captures, 0x100 for other nonzero counts, or 0x200 for zero. No local completion latch prevents repeated registration on subsequent qualifying updates. Each invocation also resets fighter joint_id_skip fields and calls lb_800115F4.",
+        "rationale": "Corrects the positive-only countdown description and adds consequential failure and repeat-processing behavior visible in canonical source, without assuming capture and destruction counters represent disjoint objects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfigureget.c#L231-L289",
+            "why": "Complete update branches, unchecked spawn result, flag ORs, and absence of a local completion latch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfigureget.c#L338-L349",
+            "why": "Exact counter-sum completion predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L351-L354",
+            "why": "Collision-joint setter directly dereferences its item argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L396-L438",
+            "why": "Constructor preserves a possible NULL allocation result."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grfigureget:grFigureGet_80219C34"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Receives a destruction notification for a stage-associated Coin/trophy item through its stored Figure Get Ground GObj. A NULL argument is ignored; otherwise the function increments Ground.u.figureget.xC, which the completion query adds to captured count x8 before testing against three. This function does not inspect the item, check whether it was previously captured, deduplicate notifications, or impose a counter cap; interpreting xC strictly as uncaptured losses depends on external item-lifetime invariants.",
+        "rationale": "The existing explanation claims removal without capture, but neither the notifier nor its Coin destruction caller checks capture membership. The collection response also leaves the mode and owner reference intact.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfigureget.c#L328-L349",
+            "why": "Only a null guard and increment precede the separate counter-sum query."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L102-L113",
+            "why": "Destruction caller checks nonzero mode/index and passes the retained stage pointer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L363-L373",
+            "why": "Collection response does not clear the stage association or record capture membership."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L396-L403",
+            "why": "Spawn initialization stores the mode/index and originating stage GObj."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -4,6 +4,7 @@ import {
   createSandboxFileToolDefinitions,
   createSandboxGlobToolDefinition,
   createSandboxGrepToolDefinition,
+  createRequestWriteSetWideningToolDefinition,
   DEFAULT_SANDBOX_BASH_TIMEOUT_MS,
   DEFAULT_SANDBOX_FILE_TOOL_TIMEOUT_MS,
   sandboxBashOperations,
@@ -33,6 +34,86 @@ function ripgrepMatch(filePath: string, lineNumber: number, lineText: string): s
     data: { path: { text: filePath }, line_number: lineNumber, lines: { text: `${lineText}\n` } },
   });
 }
+
+describe("request_write_set_widening tool definition", () => {
+  test("validates the in-session request shape and returns the runner decision immediately", async () => {
+    const calls: unknown[] = [];
+    const tool = createRequestWriteSetWideningToolDefinition(async (input) => {
+      calls.push(input);
+      return {
+        approved_paths: ["include/Map/PollutionEvent.hpp"],
+        denied: [],
+        write_set_after: ["src/Map/PollutionEvent.cpp", "include/Map/PollutionEvent.hpp"],
+        mode: "header",
+        applied: true,
+      };
+    });
+
+    expect(tool.name).toBe("request_write_set_widening");
+    expect(tool.executionMode).toBe("sequential");
+    expect(tool.parameters).toMatchObject({
+      type: "object",
+      required: ["paths", "reason"],
+      properties: {
+        paths: { type: "array", items: { type: "string" } },
+        reason: { type: "string" },
+        evidence: { type: "string" },
+      },
+    });
+
+    const result = await tool.execute(
+      "widen-1",
+      {
+        paths: ["include/Map/PollutionEvent.hpp"],
+        reason: "The declaration owner must change for the exact match.",
+        evidence: "The target source alone stays at 99.8%.",
+      },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    expect(calls).toEqual([{
+      paths: ["include/Map/PollutionEvent.hpp"],
+      reason: "The declaration owner must change for the exact match.",
+      evidence: "The target source alone stays at 99.8%.",
+    }]);
+    expect(JSON.parse(textContent(result))).toEqual({
+      approved_paths: ["include/Map/PollutionEvent.hpp"],
+      denied: [],
+      write_set_after: ["src/Map/PollutionEvent.cpp", "include/Map/PollutionEvent.hpp"],
+      mode: "header",
+      applied: true,
+    });
+  });
+
+  test("states that shadow-mode approval was not applied", async () => {
+    const tool = createRequestWriteSetWideningToolDefinition(async () => ({
+      approved_paths: ["include/Map/PollutionEvent.hpp"],
+      denied: [],
+      write_set_after: ["src/Map/PollutionEvent.cpp"],
+      mode: "shadow",
+      applied: false,
+    }));
+
+    const result = await tool.execute(
+      "widen-shadow",
+      { paths: ["include/Map/PollutionEvent.hpp"], reason: "Required declaration owner." },
+      undefined,
+      undefined,
+      {} as never,
+    );
+    const payload = JSON.parse(textContent(result));
+
+    expect(payload).toMatchObject({
+      approved_paths: ["include/Map/PollutionEvent.hpp"],
+      write_set_after: ["src/Map/PollutionEvent.cpp"],
+      mode: "shadow",
+      applied: false,
+    });
+    expect(payload.message).toContain("not applied");
+  });
+});
 
 describe("sandboxBashOperations", () => {
   test("maps cwd and defined env while always passing an explicit timeout", async () => {

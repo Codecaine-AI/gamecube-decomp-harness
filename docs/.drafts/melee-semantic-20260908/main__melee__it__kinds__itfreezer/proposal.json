@@ -1,0 +1,79 @@
+{
+  "tu": "main/melee/it/kinds/itfreezer",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreezer.c#L57-L73",
+            "why": "Complete callback shows the gate, argument lists, reset, reload and decrement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim that the command variable is forwarded to the effect helper while preserving both independent branches and their exact arguments.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfreezer:itFreezer_802CD090"
+        },
+        "type": "data_flow",
+        "value": "Obtains the Item from gobj and tests xDB0_itcmd_var1. When nonzero, it calls it_8027ADEC with effect ID 0x462, gobj, dynamic bone 5 and scale 1.4f, then clears the command variable; the command value itself is not forwarded. Independently, a nonpositive freezer.x60 causes a root-JObj lookup, reload from special attribute xC, and an effect-0x461 request with gobj, the root joint and scale 1.4f, followed by return. A positive timer is decremented by one."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreezer.c#L75-L120",
+            "why": "Entry and restart clear var1; physics independently consumes var0 and tests var1; animation checks the top boundary."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the omitted restart lifetime exception and repeated-trigger behavior rather than describing acceleration as unconditional after the first launch.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfreezer:itFreezer_UnkMotion2_Phys"
+        },
+        "type": "state_behavior",
+        "value": "State-2 entry and animation restart clear xDB0_itcmd_var1. Each physics invocation with nonzero xDAC_itcmd_var0 sets vertical velocity to attribute x4, clears that trigger and sets xDB0_itcmd_var1. A separate following branch adds attribute x8 whenever xDB0_itcmd_var1 is nonzero, including the trigger invocation. With both flags zero, this callback leaves vertical velocity unchanged. Repeated triggers reseed velocity; continued acceleration lasts only while its gate remains set, and state-2 animation restart clears that gate. The companion animation callback independently requests termination when pos.y strictly exceeds the stage's top blast-zone offset."
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreezer.c#L152-L160",
+            "why": "State 1 is selected and this function is installed as its accessory callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "The state-1 initializer explicitly installs this function in on_accessory. The name follows the existing numeric motion family without guessing the historical attack-phase name or exact effect identity.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfreezer:itFreezer_802CD090"
+        },
+        "type": "inferred_name",
+        "value": "itFreezer_UnkMotion1_Accessory"
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreezer.c#L75-L91",
+            "why": "Both state-2 setup sequences install the callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Both state-2 entry and restart install this function in on_accessory. The name identifies its demonstrated role without conflating it with the separate animation, physics or collision slots.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfreezer:itFreezer_802CD290"
+        },
+        "type": "inferred_name",
+        "value": "itFreezer_UnkMotion2_Accessory"
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

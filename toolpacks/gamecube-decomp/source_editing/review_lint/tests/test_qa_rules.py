@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -514,6 +515,33 @@ def test_volatile_local_tactic_warns_on_indented_local_decl():
     findings = _qa_rules.check_volatile_local_tactic(hunk)
     assert len(findings) == 1
     assert findings[0]["detail"]["name"] == "local_flag"
+    assert findings[0]["detail"]["form"] == "declaration"
+
+
+def test_volatile_local_tactic_flags_cast_forms():
+    hunk = _hardened_hunk(
+        "    if (!((*(volatile u16*)&unk4C) & 0x100)) { }\n"
+        "    f32 v = (volatile f32&)field;\n"
+        "    p = (volatile struct Foo *) q;\n"
+        "    r = (volatile JGeometry::TVec3<f32>&)vec;\n"
+        "    ok = (f32)plain;\n"
+        "    volatile u32* hw = (volatile u32*)0xCC00_5000;\n"
+    )
+    findings = _qa_rules.check_volatile_local_tactic(hunk)
+    assert [f["line"] for f in findings] == [1, 2, 3, 4, 6]
+    assert [f["detail"]["form"] for f in findings] == ["cast"] * 4 + ["declaration"]
+    assert findings[0]["detail"]["cast"] == "(volatile u16*)"
+    assert findings[1]["detail"]["cast"] == "(volatile f32&)"
+    assert "volatile cast" in findings[0]["message"]
+    assert "ordinary storage" in findings[0]["message"]
+
+
+def test_force_active_is_codegen_pragma_and_inline_depth_is_novel():
+    hunk = _hardened_hunk("#pragma force_active on\n#pragma inline_depth(2)\n")
+    codegen = _qa_rules.check_codegen_pragma(hunk)
+    assert [f["detail"]["directive"] for f in codegen] == ["force_active"]
+    novel = _qa_rules.check_novel_pragma(hunk)
+    assert [f["detail"]["directive"] for f in novel] == ["inline_depth"]
 
 
 # ---------------------------------------------------------------------------
@@ -841,6 +869,30 @@ def test_run_rules_on_hunk_resolves_surface_severity():
     )
 
 
+def test_type_erasing_cast_skips_manual_vtable_arrays():
+    lines = [
+        "void* __vt__7TKiller[] = {",
+        "    (void*)__RTTI__7TKiller,",
+        "    (void*)0,",
+        "    (void*)__dt__7TKillerFv,",
+        "};",
+        "void* __vt__14TKillerManager[] = { (void*)a__Fv, (void*)b__Fv };",
+        "    void* self = (void*)this;",
+    ]
+    hunk = {
+        "file": "src/Enemy/killer.cpp",
+        "added": [(i, text) for i, text in enumerate(lines, start=1)],
+        "removed": [],
+        "post_lines": [(i, text, True) for i, text in enumerate(lines, start=1)],
+    }
+    findings = _qa_rules.check_type_erasing_cast(hunk)
+    assert [f["line"] for f in findings] == [7]
+    assert findings[0]["detail"]["cast"] == "(void*)"
+    # Without post_lines the added lines alone still carry the array context.
+    del hunk["post_lines"]
+    assert [f["line"] for f in _qa_rules.check_type_erasing_cast(hunk)] == [7]
+
+
 def test_type_erasing_cast_stays_warning_and_carries_llm_review():
     rule = next(r for r in _qa_rules.RULES if r["rule_id"] == "type_erasing_cast")
     assert rule["severity"] == "warning"
@@ -887,6 +939,157 @@ def test_path_excluded_never_excludes_pathless_hunks():
     assert not _qa_rules.path_excluded(None, _qa_rules.SDK_PATH_EXCLUDES)
     assert _qa_rules.path_excluded("src/MSL/mem.c", _qa_rules.SDK_PATH_EXCLUDES)
     assert not _qa_rules.path_excluded("src/melee/gm/x.c", _qa_rules.SDK_PATH_EXCLUDES)
+
+
+def test_default_applies_to_matches_c_and_cpp_and_excludes_sms_vendor_trees():
+    assert _qa_rules.DEFAULT_APPLIES_TO == ["src/**/*.c", "src/**/*.cpp"]
+    assert _qa_rules.path_matches("src/Enemy/probe.cpp", _qa_rules.DEFAULT_APPLIES_TO)
+    assert _qa_rules.path_matches("src/melee/gm/x.c", _qa_rules.DEFAULT_APPLIES_TO)
+    assert not _qa_rules.path_matches("include/Enemy/probe.hpp", _qa_rules.DEFAULT_APPLIES_TO)
+    for vendor in (
+        "src/JSystem/JKernel/JKRHeap.cpp",
+        "src/dolphin/os/OSAlarm.c",
+        "src/PowerPC_EABI_Support/Runtime/x.c",
+        "src/MSL/mem.c",
+        "src/MetroTRK/mem_TRK.c",
+        "src/TRK_MINNOW_DOLPHIN/x.c",
+        "src/THPPlayer/THPPlayer.c",
+        "include/JSystem/JKernel/JKRHeap.hpp",
+        "include/dolphin/os.h",
+    ):
+        assert _qa_rules.path_excluded(vendor, _qa_rules.SDK_PATH_EXCLUDES), vendor
+    assert not _qa_rules.path_excluded("src/Enemy/probe.cpp", _qa_rules.SDK_PATH_EXCLUDES)
+    rule = next(r for r in _qa_rules.RULES if r["rule_id"] == "codegen_pragma")
+    added = [(1, "#pragma dont_inline on")]
+    for path in ("src/Enemy/probe.cpp", "src/melee/gm/x.c"):
+        hunk = {"file": path, "added": added, "removed": []}
+        assert len(_qa_rules.run_rules_on_hunk([rule], hunk)) == 1, path
+    volatile_rule = next(r for r in _qa_rules.RULES if r["rule_id"] == "volatile_local_tactic")
+    hunk = {"file": "src/JSystem/JKernel/x.cpp", "added": [(1, "    volatile u32 v;")], "removed": []}
+    assert _qa_rules.run_rules_on_hunk([volatile_rule], hunk) == []
+
+
+def test_c_idiom_rules_stay_scoped_to_c_translation_units():
+    """C++ class-body declarations must not trip the .c declaration rules."""
+
+    c_only = {"bare_local_prototype", "shadowed_declaration", "extern_in_c", "extern_own_tu_data"}
+    for rule_id in c_only:
+        rule = next(r for r in _qa_rules.RULES if r["rule_id"] == rule_id)
+        assert rule["applies_to"] == ["src/**/*.c"], rule_id
+    proto = next(r for r in _qa_rules.RULES if r["rule_id"] == "bare_local_prototype")
+    added = [
+        (1, "    virtual void loadAfter();"),
+        (2, "    void registerEvent(JDrama::TViewObj*);"),
+        (3, "    u8 SMS_getShineStage(u8);"),
+    ]
+    cpp = {"file": "src/Enemy/probe.cpp", "added": added, "removed": []}
+    assert _qa_rules.run_rules_on_hunk([proto], cpp) == []
+    c = {"file": "src/melee/gm/x.c", "added": [(1, "u8 SMS_getShineStage(u8);")], "removed": []}
+    assert len(_qa_rules.run_rules_on_hunk([proto], c)) == 1
+    both = {"packed_string_blob", "address_named_static_data", "pointer_offset_arithmetic",
+            "m2c_residue_names", "type_erasing_cast", "m2c_goto_label"}
+    for rule_id in both:
+        rule = next(r for r in _qa_rules.RULES if r["rule_id"] == rule_id)
+        assert rule["applies_to"] == ["src/**/*.c", "src/**/*.cpp"], rule_id
+
+
+# ---------------------------------------------------------------------------
+# Standards composition (game + global).
+# ---------------------------------------------------------------------------
+
+
+def _write_slice(root: Path, family: str, rule_id: str, token: str, message: str) -> None:
+    slice_dir = root / family
+    slice_dir.mkdir(parents=True)
+    (slice_dir / "slice.json").write_text(
+        json.dumps(
+            {
+                "family": family,
+                "rules": [
+                    {
+                        "rule_id": rule_id,
+                        "severity": "error",
+                        "standard_id": None,
+                        "applies_to": ["src/**/*.c", "src/**/*.cpp"],
+                    }
+                ],
+            }
+        )
+    )
+    (slice_dir / "rules.py").write_text(
+        "import re\n"
+        f"PATTERN = re.compile(r'\\b{token}\\b')\n"
+        "def check(hunk):\n"
+        "    return [{'line': line, 'excerpt': text} for line, text in hunk['added'] if PATTERN.search(text)]\n"
+        "RULES = [{\n"
+        f"    'rule_id': '{rule_id}', 'severity': 'error', 'standard_id': None,\n"
+        f"    'applies_to': ['src/**/*.c', 'src/**/*.cpp'], 'check': check, 'message': '{message}',\n"
+        "}]\n"
+    )
+
+
+def _fresh_qa_rules(env: dict[str, str]):
+    """Import _qa_rules in a subprocess with the given env and return its slice/rule view."""
+
+    script = (
+        "import json, sys\n"
+        f"sys.path.insert(0, {json.dumps(str(conftest.API_DIR))})\n"
+        "import _qa_rules\n"
+        "print(json.dumps({\n"
+        "  'slices': [[r['family'], r['scope']] for r in _qa_rules.RULE_SLICES],\n"
+        "  'rules': [[r['rule_id'], r['message']] for r in _qa_rules.RULES],\n"
+        "  'dirs': [[scope, str(path)] for scope, path in _qa_rules.standards_dirs()],\n"
+        "}))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, **env},
+    )
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+def test_standards_compose_game_then_global_with_game_override(tmp_path: Path):
+    game = tmp_path / "game"
+    global_root = tmp_path / "global"
+    _write_slice(game, "game_only", "game_only_rule", "GAME_TOKEN", "game only")
+    _write_slice(game, "shared_family", "shared_rule", "SHARED_TOKEN", "game wins")
+    _write_slice(global_root, "shared_family", "shared_rule", "SHARED_TOKEN", "global loses")
+    _write_slice(global_root, "global_only", "global_only_rule", "GLOBAL_TOKEN", "global only")
+    (global_root / "order.json").write_text(json.dumps({"families": ["global_only", "shared_family"]}))
+
+    view = _fresh_qa_rules(
+        {
+            "REVIEW_LINT_STANDARDS_DIR": str(game),
+            "REVIEW_LINT_GLOBAL_STANDARDS_DIR": str(global_root),
+        }
+    )
+    assert view["dirs"] == [["game", str(game)], ["global", str(global_root)]]
+    assert view["slices"] == [
+        ["game_only", "game"],
+        ["shared_family", "game"],
+        ["global_only", "global"],
+    ]
+    rules = dict(view["rules"])
+    assert rules["shared_rule"] == "game wins"
+    assert rules["game_only_rule"] == "game only"
+    assert rules["global_only_rule"] == "global only"
+
+
+def test_explicit_standards_dir_override_alone_does_not_pull_global(tmp_path: Path):
+    game = tmp_path / "game"
+    _write_slice(game, "game_only", "game_only_rule", "GAME_TOKEN", "game only")
+    view = _fresh_qa_rules({"REVIEW_LINT_STANDARDS_DIR": str(game)})
+    assert view["dirs"] == [["game", str(game)]]
+    assert view["slices"] == [["game_only", "game"]]
+
+
+def test_global_dir_is_dropped_when_it_is_the_game_dir():
+    view = _fresh_qa_rules({})
+    assert [scope for scope, _ in view["dirs"]] == ["game"]
+    assert all(scope == "game" for _, scope in view["slices"])
 
 
 # ---------------------------------------------------------------------------

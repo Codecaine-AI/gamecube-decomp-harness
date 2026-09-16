@@ -1,0 +1,289 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Run",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L66-L99",
+            "why": "Entry ordering and unclamped countdown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L147",
+            "why": "Gate placement and x4 refresh."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects exact-zero expiry language and preserves initialization ordering and the cache's later lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally calls Fighter_ChangeMotionState for ftCo_MS_Run with Ft_MF_None, caller-selected animation start and speed, 0.0F and NULL as the remaining arguments. After that call it stores the first float in mv.co.run.x0 and snapshots gr_vel into x4. Run animation subtracts 1.0F only from positive x0 without clamping; fractional values may cross below zero. Late TurnRun and RunBrake checks require x0<=0, while preceding action checks are not gated by x0. Physics subsequently replaces x4 with target_vel*x440."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L99",
+            "why": "Velocity selection, comparisons and subtraction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L496-L513",
+            "why": "Immediate and deferred rate paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes a rate request from immediate playback effects and preserves the exact floating-point countdown behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Uses x4 when the ground-friction multiplier is below 1.0F, otherwise gr_vel. It requests zero animation rate when velocity*facing_dir<=0, otherwise ABS(velocity)/run_animation_scaling. The setter stores the request in x8A0_unk instead of immediately applying it when x2223_b0 is set. Positive x0 undergoes floating-point subtraction by 1.0F without clamping; fractional positive values can become negative and sufficiently large values can round unchanged. Values failing x0>0 are not decremented. The callback issues no local motion-state transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L149-L152",
+            "why": "Unconditional delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Position synchronization and enum production."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1129-L1137",
+            "why": "Numeric branch polarity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+            "why": "Enum values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L16-L57",
+            "why": "Identifies the delegated StopWall path."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents demonstrated dispatch without silently repairing the shared enum/Boolean mismatch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll"
+        },
+        "type": "purpose",
+        "value": "Delegates Run collision processing unconditionally to ft_800844EC. Its query synchronizes Fighter and CollData positions around map collision; the consumer invokes the StopWall predicate for a nonzero query result and Fall entry for zero. The query currently returns GroundOrAir with GA_Ground=0 and GA_Air=1, so the intended grounded-versus-airborne interpretation remains unresolved rather than matching the prior ground-to-StopWall/air-to-Fall explanation."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Run action ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "SpecialN/Lw/Hi dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Catch.c#L38-L58",
+            "why": "Dash-catch path and prior acceptance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L58",
+            "why": "Item-sensitive and character-specific alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c#L19-L30",
+            "why": "Horizontal-stick brake predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AppealS.c#L35-L50",
+            "why": "Appeal input dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L62-L84",
+            "why": "Jump input handling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the misleading rapid-attack mapping using canonical dispatch tables and distinguishes braking input from later crouch handling.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA"
+        },
+        "type": "game_mapping",
+        "value": "Arbitrates running options including side, up, neutral and down specials; dash-catch and item-sensitive dash-attack handling; shielding; appeal; jumping; running turnaround; and braking. The canonically named ftCo_Attack100_CheckInput dispatches SpecialHi, not rapid jab. The final RunBrake predicate checks reduced absolute horizontal stick input, not crouch input itself. Higher-priority options precede the countdown-gated turnaround and brake checks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Complete sequence and exact comparisons."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "Canonical special dispatch identities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L82",
+            "why": "Alternative acceptance paths and move-variable setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Guard.c#L70-L128",
+            "why": "Guard activation and setup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects concrete action identities, retains post-success setup across exceptional branches, and states the exact gate rather than substituting x0>0.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Checks side-special handling, SpecialHi dispatch, SpecialN dispatch, SpecialLw dispatch and ftCo_800D8A38 in that order, returning on acceptance. Next, a successful ftCo_AttackDash_CheckInput is always followed by ftCo_AttackDash_SetMv0 and return, including its item or character-specific alternatives. Successful guard handling is followed by setup from x410 and the second guard setup call, then return. Appeal and jump-related checks follow. Only x0<=0 permits fn_800C9D40; success returns. If !(x0<=0), processing returns before the final RunBrake check. Thus positive or unordered x0 blocks both late checks but not preceding options."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L132-L140",
+            "why": "Exact input-derived formulas."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L147",
+            "why": "Taper, cache and forwarded arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L51-L97",
+            "why": "Ground acceleration output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L133-L152",
+            "why": "Ground-tangent component formulas."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L83-L95",
+            "why": "Cached-velocity animation consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the useful producer/output chain and corrects movement integration and vector-direction ambiguity.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys"
+        },
+        "type": "data_flow",
+        "value": "For stick X s, getAccelAndTarget produces s*dash_accel_mul plus dash_accel_base when s>0 or minus that base otherwise, and target=s*dash_max_velocity. Run conditionally multiplies acceleration using gr_vel/target, writes target*x440 to mv.co.run.x4, and supplies acceleration, target and ground_friction*run_dash_turn_friction_multiplier to ftCommon_8007C98C. That helper writes xE4_ground_accel_1 rather than integrating gr_vel. ftCommon_ApplyGroundMovement optionally scales that acceleration under reduced friction, then writes x74_anim_vel=acceleration*(normal.y,-normal.x,0) and self_vel=gr_vel*(normal.y,-normal.x,0). Run animation consumes x4 under reduced friction; these bodies do not update fighter position."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L147",
+            "why": "Running calculations and cache."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L51-L97",
+            "why": "Friction-aware acceleration preparation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L133-L152",
+            "why": "Tangent-vector output rather than position integration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the running mechanic while correcting direct-displacement and unconditional-easing overstatements.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys"
+        },
+        "type": "game_mapping",
+        "value": "Prepares sustained-running movement from stick-derived target velocity and acceleration, with a same-direction approach-ratio multiplier and character/common friction handling. It refreshes the reduced-friction animation velocity cache and constructs ground-tangent acceleration and velocity vectors from the floor normal. Position integration is outside the demonstrated callback path; the shared taper gain is not proven to reduce acceleration for every possible parameter value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L147",
+            "why": "Complete Run physics callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L51-L97",
+            "why": "Writes acceleration rather than gr_vel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L133-L152",
+            "why": "Exact ground-tangent vector construction and absence of position integration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Repairs the rejected normal-aligned description with exact tangent formulas and corrects the scope of the shared movement helpers.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys"
+        },
+        "type": "purpose",
+        "value": "Per-frame Run movement-preparation callback. It computes stick-derived acceleration and target velocity, conditionally applies the approach-ratio multiplier, caches target_vel*x440 for animation, and prepares friction-aware ground acceleration. Its final helper constructs ground-tangent vectors from the floor normal: x74_anim_vel is acceleration times (normal.y,-normal.x,0), and self_vel is gr_vel times that same vector. This path does not directly integrate gr_vel or fighter position."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L147",
+            "why": "Local ratio guard and reconverging outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L51-L97",
+            "why": "Zero-target, opposing-motion and conditional correction branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L133-L152",
+            "why": "Reduced-friction scaling and vector writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact branches and downstream exceptions without assuming a universally attenuating gain or an unconditional speed clamp.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys"
+        },
+        "type": "state_behavior",
+        "value": "A nonzero target enables the ratio calculation; acceleration is multiplied by (1-gr_vel/target_vel)*run_accel_taper_gain only when that ratio is strictly between zero and one. Other local paths leave the generated acceleration unchanged before delegation. All paths refresh x4 and call the shared helpers. The target/friction helper uses friction for zero target; otherwise opposing velocity/acceleration bypasses its overshoot adjustment, while applicable overshoot branches use friction and conditional target/max-speed corrections. It writes ground acceleration, after which reduced-friction scaling and ground-tangent vector construction occur. No local timer, motion-state transition, gr_vel integration or position integration is performed."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

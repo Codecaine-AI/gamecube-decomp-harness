@@ -1,0 +1,58 @@
+1: #include "cmsnap.h"
+2: 
+3: #include "forward.h"
+4: #include <melee/lb/lbspdisplay.h>
+5: #include <sysdolphin/baselib/debug.h>
+6: #include <sysdolphin/baselib/gobj.h>
+7: #include <sysdolphin/baselib/gobjgxlink.h>
+8: #include <sysdolphin/baselib/tobj.h>
+9: 
+10: typedef struct {
+11:     CmSnapStatus status;
+12:     HSD_ImageDesc unk1;
+13:     int unk2;
+14: } _cmsnap_data;
+15: static _cmsnap_data cmsnap_data;
+16: #define _p(x) (cmsnap_data.x)
+17: 
+18: void cmSnap_800315C8(void)
+19: {
+20:     HSD_ASSERT(0x55, _p(status) == CmSnapStatus_Sleep);
+21:     _p(status) = CmSnapStatus_Unk1;
+22: }
+23: 
+24: void* cmSnap_80031618(void)
+25: {
+26:     if (_p(status) != CmSnapStatus_Unk5) {
+27:         return 0;
+28:     }
+29:     _p(status) = CmSnapStatus_Sleep;
+30:     return _p(unk1).image_ptr;
+31: }
+32: 
+33: void cmSnap_80031640(HSD_GObj* arg0, int code)
+34: {
+35:     switch (_p(status)) {
+36:     case CmSnapStatus_Sleep:
+37:         break;
+38:     case CmSnapStatus_Unk1:
+39:         lb_800122C8(&_p(unk1), 0, 0, 0);
+40:         _p(status) = CmSnapStatus_Unk2;
+41:         break;
+42:     case CmSnapStatus_Unk2:
+43:     case CmSnapStatus_Unk3:
+44:     case CmSnapStatus_Unk4:
+45:         _p(status) += 1;
+46:         break;
+47:     default:
+48:         break;
+49:     }
+50: }
+51: 
+52: void cmSnap_800316B4(void)
+53: {
+54:     _p(status) = CmSnapStatus_Sleep;
+55:     _p(unk1).image_ptr = NULL;
+56:     GObj_SetupGXLinkMax(GObj_Create(0x12, 0x12, 0), cmSnap_80031640, 4);
+57:     lb_800121FC(&_p(unk1), 0x280, 0x1E0, 4, 0x7D6);
+58: }

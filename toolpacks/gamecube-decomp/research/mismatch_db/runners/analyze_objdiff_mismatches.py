@@ -13,12 +13,15 @@ from typing import Any
 
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(TOOL_ROOT.parents[1] / "_impl" / "gamecube" / "tools"))
 sys.path.append(str(TOOL_ROOT.parents[1] / "_shared"))
+from project_layout import ProjectLayout, get_project_layout  # type: ignore
 from search_index import package_root_for_tool, tool_storage_root  # type: ignore
+from toolpack_runtime import resolve_repo_root
 
 PACKAGE_ROOT = package_root_for_tool(TOOL_ROOT)
 TOOL_STORAGE_ROOT = tool_storage_root(TOOL_ROOT)
-DEFAULT_REPO_ROOT = PACKAGE_ROOT.parent / "melee"
+DEFAULT_REPO_ROOT = resolve_repo_root()
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,10 +39,16 @@ def read_json(path: Path, default: Any) -> Any:
         return json.load(handle)
 
 
-def choose_target(repo_root: Path, unit: str, symbol: str) -> dict[str, Any]:
+def choose_target(
+    repo_root: Path,
+    unit: str,
+    symbol: str,
+    layout: ProjectLayout | None = None,
+) -> dict[str, Any]:
     if unit and symbol:
         return {"unit": unit, "symbol": symbol, "source_path": "", "fuzzy_match_percent": None}
-    report = read_json(repo_root / "build" / "GALE01" / "report.json", {})
+    layout = layout or get_project_layout(repo_root)
+    report = read_json(layout.report_path, {})
     for unit_row in report.get("units") or []:
         if not isinstance(unit_row, dict):
             continue
@@ -59,7 +68,8 @@ def choose_target(repo_root: Path, unit: str, symbol: str) -> dict[str, Any]:
                     "source_path": str(unit_meta.get("source_path") or ""),
                     "fuzzy_match_percent": fuzzy,
                 }
-    raise RuntimeError("No imperfect function found in build/GALE01/report.json; pass --unit and --symbol explicitly.")
+    report_path = layout.path_label(layout.report_path)
+    raise RuntimeError(f"No imperfect function found in {report_path}; pass --unit and --symbol explicitly.")
 
 
 def run_objdiff(repo_root: Path, target: dict[str, Any], output_path: Path) -> subprocess.CompletedProcess[str]:
@@ -133,7 +143,8 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
-    target = choose_target(repo_root, args.unit, args.symbol)
+    layout = get_project_layout(repo_root)
+    target = choose_target(repo_root, args.unit, args.symbol, layout)
     safe_symbol = str(target["symbol"]).replace("/", "_")
     diff_path = TOOL_STORAGE_ROOT / "cache" / f"objdiff_{safe_symbol}.json"
     proc = run_objdiff(repo_root, target, diff_path)
@@ -195,7 +206,11 @@ def main() -> int:
         "record_count": len(rows),
         "generated_artifacts": [str(diff_path)] if diff_path.exists() else [],
         "generated_indexes": [str(index_path)] if index_path.exists() else [],
-        "dependencies": ["build/tools/objdiff-cli", "objdiff.json", "build/GALE01/report.json"],
+        "dependencies": [
+            "build/tools/objdiff-cli",
+            "objdiff.json",
+            str(layout.path_label(layout.report_path)),
+        ],
     }
     status_path = TOOL_STORAGE_ROOT / "cache" / "runner_status.json"
     status_path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,7 @@
 SHELL := /bin/sh
 
 REPO_ROOT ?= $(abspath ..)
-STATE_DIR ?= $(CURDIR)/.decomp-orchestrator-state
+STATE_DIR ?=
 RUN_ID ?=
 PR ?=
 PR_QA_FLAGS ?=
@@ -36,7 +36,8 @@ RUN_ID_FLAG := $(if $(RUN_ID),--run-id "$(RUN_ID)",)
 PR_QA_AGENT_FLAG := $(if $(filter 1 true yes,$(PR_QA_RUN_AGENTS)),--run-agents,)
 PR_QA_COMMENT_FLAG := $(if $(filter 1 true yes,$(PR_QA_COMMENT)),--comment-unresolved,)
 PR_QA_CI_FLAG := $(if $(filter 1 true yes,$(PR_QA_WAIT_CI)),--wait-ci,)
-ORCH_GLOBAL_FLAGS := --repo-root "$(REPO_ROOT)" --state-dir "$(STATE_DIR)" $(DRY_FLAG) --provider "$(PROVIDER)" --model "$(MODEL)" --thinking-level "$(THINKING)" --agent-timeout-seconds "$(AGENT_TIMEOUT_SECONDS)"
+STATE_DIR_FLAG := $(if $(STATE_DIR),--state-dir "$(STATE_DIR)",)
+ORCH_GLOBAL_FLAGS := --repo-root "$(REPO_ROOT)" $(STATE_DIR_FLAG) $(DRY_FLAG) --provider "$(PROVIDER)" --model "$(MODEL)" --thinking-level "$(THINKING)" --agent-timeout-seconds "$(AGENT_TIMEOUT_SECONDS)"
 
 .PHONY: help install check smoke ui docs status init-run start dry-start recover-leases regression-check kg-status kg-maintain
 

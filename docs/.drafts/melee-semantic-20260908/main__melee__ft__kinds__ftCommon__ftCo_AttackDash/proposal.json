@@ -1,0 +1,232 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L61-L69",
+            "why": "Common AttackDash entry supplies animation arguments 0, 1, 0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1288-L1295",
+            "why": "The animation setup branch selects the default byte for zero and zero frames for -1."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported no-blending interpretation. Fighter_ChangeMotionState distinguishes a zero default selector from the -1 sentinel that explicitly selects zero blend.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2"
+        },
+        "type": "game_mapping",
+        "value": "The common dash-attack entry requests animation start frame 0 and standard playback speed 1.0. Its zero-valued blend argument requests the animation's default blend setting, rather than explicitly disabling blending; the effective blend duration cannot be determined from these literals alone."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L61-L69",
+            "why": "Shows the literal sequence used for common motion entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1288-L1295",
+            "why": "Establishes the meaning of a zero-valued blend argument."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the established literal-use role while correcting the ambiguous zero-blend explanation. This describes source-level parameter semantics, not compiled section layout.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2"
+        },
+        "type": "purpose",
+        "value": "Provides the anonymous zero and one floating-point literals associated with common AttackDash motion entry: zero for the requested starting frame and default-blend selector, and one for normal playback speed. The zero blend argument is not an assertion of a zero-frame effective blend."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L61-L69",
+            "why": "Supplies the three animation arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1288-L1295",
+            "why": "Shows the exact three-way blend selection."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the false equivalence between the supplied zero argument and an effective zero-frame blend while preserving the actual entry arguments and callee branch qualification.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2"
+        },
+        "type": "state_behavior",
+        "value": "Generic dash-attack entry supplies anim_start = 0, anim_speed = 1, and anim_blend = 0. In Fighter_ChangeMotionState's applicable animation-setup branch, anim_blend == 0 selects the animation's default blend byte, a nonzero value other than -1 is used directly, and -1 explicitly selects zero. Consequently this entry does not independently establish a zero-frame blend."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L61-L69",
+            "why": "Exact entry writes and call ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L84-L90",
+            "why": "The prioritized helper runs before allow_interrupt is tested."
+          }
+        ],
+        "op": "write",
+        "rationale": "The prior wording could imply that all IASA transitions were disabled. The entry assignment gates general Wait input handling, not the preceding throw/grab check.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:doEnter"
+        },
+        "type": "state_behavior",
+        "value": "First clears the general allow_interrupt flag, then changes to ftCo_MS_AttackDash with no preservation flags, requested animation frame 0, speed 1 and blend argument 0; it invokes shared post-transition animation initialization and finally clears attackdash.x0. Clearing allow_interrupt does not disable the separate prioritized IASA helper, which is evaluated before that flag."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L84-L90",
+            "why": "Defines helper priority and the exact fallback condition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Catch.c#L60-L81",
+            "why": "Shows eligibility returns, CatchDash entry and conditional decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c#L179-L186",
+            "why": "The first helper can enter LightThrowDash and return true."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported continuation claim and records the concrete priority alternatives and conditional counter lifetime without assuming that every callback update decrements the window.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Always evaluates ftCo_800D8AE0 before consulting allow_interrupt. That helper first offers a held-item LightThrowDash transition; after its eligibility checks, held L/R with a nonzero shared x0 window can enter CatchDash. A true helper result suppresses the general fallback because a transition has already been handled, not because AttackDash necessarily continues. Only a false helper result together with allow_interrupt calls ftCo_Wait_IASA. The helper decrements a nonzero window only when execution reaches its trailing decrement; earlier returns bypass it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L92-L97",
+            "why": "Shows the friction product and facing-direction arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L79-L89",
+            "why": "Distinguishes animation-derived acceleration from friction application."
+          }
+        ],
+        "op": "write",
+        "rationale": "The baseline traction explanation omitted the animation-displacement branch in which the supplied friction is not applied.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Phys"
+        },
+        "type": "game_mapping",
+        "value": "Provides common grounded dash-attack movement with conditional traction handling. The callback supplies common x50 multiplied by the fighter's ground_friction. The shared helper applies that friction only when x594_b0 is clear; when the flag is set it instead derives ground acceleration from facing-relative animation displacement minus current ground velocity. Both branches perform shared ground movement."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L82",
+            "why": "Shows item alternatives, common entry reset and the unconditional setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L111-L114",
+            "why": "Any successful input result is followed by SetMv0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/types.h#L32-L125",
+            "why": "common.x0 and attackdash.x0 are first-int members of the same union."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Catch.c#L60-L81",
+            "why": "The aliased integer gates CatchDash and is conditionally decremented."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c#L22-L49",
+            "why": "Kirby clears the same slot and delegates grounded IASA to the common callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the assumption that every invocation follows a cleared common AttackDash entry and adds the independently traced catch-window role of the aliased slot.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0"
+        },
+        "type": "purpose",
+        "value": "Seeds the shared move-variable integer with common configuration x68 after movement-state callers accept dash-context attack input. On common or Kirby dash-attack paths this initializes the nonzero window used by the prioritized CatchDash check, replacing the entry-time zero. The setter itself neither checks the current motion state nor restricts the write to dash attacks: successful held-item substitutions also reach it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L90",
+            "why": "Input alternatives, common clear, setter and IASA consumer call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L103-L109",
+            "why": "Dash post-dispatch setter call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L111-L114",
+            "why": "Run post-dispatch setter call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L32-L35",
+            "why": "RunDirect post-dispatch setter call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c#L22-L30",
+            "why": "Kirby entry clears the same slot."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/types.h#L32-L125",
+            "why": "Source-level union alias between attackdash.x0 and common.x0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Catch.c#L60-L81",
+            "why": "Exact nonzero tests, early returns and decrement condition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an incomplete origin-tag explanation with the verified producer/caller/consumer lifetime while preserving item substitutions, Kirby reuse and counter ambiguities.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0"
+        },
+        "type": "state_behavior",
+        "value": "Writes p_ftCommonData->x68 to attackdash.x0 without a local guard. Dash, Run and RunDirect call it immediately after ftCo_AttackDash_CheckInput returns true, including item-substitution outcomes. Common and Kirby dash-attack entry first clear this slot, so those paths have a zero-then-x68 sequence. Through the common.x0 union alias, the prioritized catch helper tests the value for nonzero and decrements it only after its earlier throw, eligibility and successful-grab returns have been bypassed. No fixed duration, positive-only test, or unconditional per-frame decrement is established here."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

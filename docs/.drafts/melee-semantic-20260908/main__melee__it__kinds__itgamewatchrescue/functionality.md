@@ -1,0 +1,23 @@
+## Game & Watch Rescue article
+
+This unit implements the auxiliary Rescue article used by Mr. Game & Watch's Fire up special, not the fighter's launch or landing behavior. The complete canonical and rendered C/header views were reviewed, along with all 28 subjects, 61 facts and 27 links.
+
+### Construction and state selection
+`it_802C8038` returns NULL for a NULL parent or failed item creation. On success it clears four item-command variables and `xDCC.b3`, stores the fighter reference, reads special attributes from the newly created item's article data, invokes article attachment/setup, and enters the requested state. The caller supplies a TopN-derived position, facing direction and a grounded/aerial state offset; the part and scale arguments are unused by this body. See [constructor](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchrescue.c#L27-L55) and [fighter setup](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialhi.c#L32-L54).
+
+The two selectable item states share animation ID 0 and identical callbacks. Adjacent fighter enums establish grounded/aerial offsets 0 and 1; these are item-state indices, not distinct animation IDs. `it_802C8208` forwards its selector without local bounds checking, enables animation updating, and immediately advances animation/script processing. See [table and entry helper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchrescue.c#L14-L88), [enum adjacency](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/forward.h#L105-L106), and [common state processing](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1119-L1278).
+
+### Lifetime and exceptional paths
+The animation callback returns false only while its stored fighter remains in grounded or aerial SpecialHi. A missing stored fighter or affirmative removal predicate triggers item-side detachment and removal, then returns true. Fighter-side Rescue bookkeeping is cleared only when the stored fighter is non-NULL and still equals the item's owner. Both terminal paths contain further item-reference clearing after `Item_8026A8EC`; this ordering is preserved rather than simplified into an assumed immediate-deallocation model. The absent-parent branch also contains a redundant non-NULL check of the already-NULL parent. Physics does nothing and collision always returns false. See [callbacks](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchrescue.c#L90-L154) and [fighter predicate and cleanup](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialhi.c#L59-L91).
+
+The explicit removal entry point is not NULL-object-safe: it evaluates `GET_ITEM` before its apparent object guard, and that accessor dereferences the object. A valid object with NULL user data does skip teardown. The animation callback likewise requires valid initial item data before its later checks. Three removal facts are corrected to distinguish these cases.
+
+### Hitlag and reference cleanup
+The paired hitlag wrappers forward unchanged pointers; their fighter-side callers provide the tracked-article guards. Entry sets `xDC8.flags.x3`; exit conditionally sets `x5` when `x7` is set and clears `x3`. The event wrapper delegates generic relationship cleanup and discards its Boolean result. That helper clears matching generic references but does not clear the Rescue-specific `xDD8` reference; generic cleanup is therefore not equivalent to full Rescue teardown. See [wrappers](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchrescue.c#L74-L82), [hitlag operations](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L387-L406), and [generic reference cleanup](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L491-L525).
+
+### Semantic and rendering assessment
+The existing Spawn, Remove, EnterHitlag, ExitHitlag and ChangeMotionState names fit canonical behavior and are retained as descriptive hypotheses, not recovered original symbols. Existing shared callback names are retained without inventing state-specific distinctions. The header renderer leaves the Spawn declaration unchanged with `shadowed_binding`; the C definition is substituted. Both views otherwise report zero parse errors. Compiled section contents and exact byte layout remain unverified.
+
+Disposition totals: 55 facts retained, four superseded, two unresolved; 25 links retained and two unresolved.
+
+Status: synthesized; independent review and live promotion pending.

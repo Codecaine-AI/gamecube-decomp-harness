@@ -1,0 +1,146 @@
+{
+  "tu": "main/melee/it/kinds/itlipstick",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlipstick:.data"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The six-entry Lip's Stick ItemStateTable supplies an animation ID and animation, physics, and collision callbacks for each motion-state index. Item_80268E5C indexes the table by msid, copies the selected row's anim_id, uses that animation ID to select the article's animation descriptor, and installs the row's callbacks. Motion-state indices and animation IDs are distinct.",
+        "rationale": "Corrects the existing characterization of the leading member as a state/animation flag using the canonical dispatcher.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstick.c#L15-L27",
+            "why": "Six table rows and leading values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1180-L1231",
+            "why": "Separate motion-state indexing, animation-ID lookup and callback installation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlipstick:.data"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "At source level, it_803F6310 is an array of six ItemStateTable records. Each initializer supplies an animation ID followed by animation, physics, and collision callback pointers; row 2 has a null collision callback. Compiled section placement, byte size and record stride are not established by the source evidence reviewed here.",
+        "rationale": "Preserves the supported array shape, corrects the leading field, and removes unsupported compiled allocation claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstick.c#L15-L27",
+            "why": "Complete source array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1180-L1231",
+            "why": "Member semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlipstick:.data"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Rows 0 through 5 provide resting/grounded, ordinary falling, held, thrown, dropped, and EnteredAir-selected behavior respectively. Row 2 has no collision callback. Rows 3 and 4 share physics but use distinct collision handlers. Their animation ID is 1; rows 0, 1, 2 and 5 use animation ID 0. These animation IDs are not motion-state indices or state-change flags.",
+        "rationale": "Retains the established state mapping while correcting the semantic meaning of the leading 0/1 values.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstick.c#L15-L27",
+            "why": "Callback composition and animation values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstick.c#L96-L189",
+            "why": "Named lifecycle transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1180-L1195",
+            "why": "Animation ID selects descriptor separately from msid."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlipstick:itLipstick_UnkMotion3_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads xD4C and, when it is nonzero, obtains a contact mask from it_8026DAA8. If any low-nibble bit is set, an additionally nonzero xDAC_itcmd_var0 causes it_8029A218(owner, &pos, facing_dir, 0) to be requested and the flag to be cleared; this does not decrement xD4C and does not wait for allocation success. The contact mask then flows to it_80276FC4. If mask bit 1 is set and it_8026DBC8 accepts the contact, the function reacquires Item, sets xDC8_word.flags.x15 through it_8026B390, zeroes velocity, and selects motion state 0 with ITEM_ANIM_UPDATE. The nonzero-ammunition path returns false; exactly zero ammunition bypasses it and returns it_8026DF34(gobj).",
+        "rationale": "Corrects the claimed collision-state clearing and restores the pending-flag guard, resource behavior and exceptional constructor-failure semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstick.c#L135-L162",
+            "why": "Complete branch order and mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L165-L172",
+            "why": "Helper sets x15 rather than clearing collision state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/inlines.h#L21-L24",
+            "why": "Velocity reset semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstickspore.c#L66-L92",
+            "why": "Void constructor and allocation-failure branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlipstick:itLipstick_UnkMotion5_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "State 5 is selected by itLipstick_Logic23_EnteredAir. Its collision callback delegates to it_8026E8C4 and always returns false. When the resolver finds no floor support, it performs leave-ground setup and invokes it_8029583C to select state 1. With support present, it performs further contact processing and invokes it_802957AC only when xDC8_word.flags.x1F is clear or xD5C is zero. That callback sets xDC8_word.flags.x15, zeroes velocity and selects state 0; it does not itself clear collision state. If the grounded-exit guard fails, this resolver does not select a new motion state.",
+        "rationale": "Corrects the setup helper's effect and makes the guarded persistence of state 5 explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstick.c#L173-L189",
+            "why": "State-5 entry, delegation and false return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L750-L778",
+            "why": "No-floor exit and guarded grounded exit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlipstick.c#L52-L76",
+            "why": "State-0 and state-1 callback effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L165-L172",
+            "why": "Actual x15-setting helper."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

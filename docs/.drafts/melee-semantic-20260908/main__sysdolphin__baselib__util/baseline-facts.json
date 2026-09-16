@@ -1,0 +1,440 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/util:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:c6d4384f-2296-4e44-9e30-5281b9f31c1c",
+        "target_id": "target:data:main/sysdolphin/baselib/util:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_identityMtx is initialized once with unit diagonal values and zero translation, then remains available as a shared affine identity transform. The section's other component is read as control-flow data when HSD_Index2PosNrmMtx dispatches valid indices 0 through 9 to returns of 0, 3, 6, and so on through 27; out-of-range values bypass those entries and take the assertion path.",
+        "rationale": "The current initializer preserves the identity matrix's unit diagonal and zero off-diagonal and translation components. The current switch preserves all ten valid mappings and routes every other input through the default assertion arm, confirming that the section's previously recorded data flow has not changed.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T21:36:40.949Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/util.c#L1-L59",
+            "why": "Shows the identity-matrix contents and the complete valid-index mappings and invalid-index behavior represented by the switch dispatch data."
+          }
+        ]
+      },
+      {
+        "id": "fact:7ab39678-3bdb-4567-a319-84aa2de6070b",
+        "target_id": "target:data:main/sysdolphin/baselib/util:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An 88-byte data-section layout consisting of a 48-byte `Mtx HSD_identityMtx`\u2014a 3x4 matrix of twelve 32-bit floats\u2014followed by a 40-byte table of ten 32-bit branch destinations generated for HSD_Index2PosNrmMtx's switch.",
+        "rationale": "The current source still declares HSD_identityMtx as a three-row Mtx initialized with twelve components and implements HSD_Index2PosNrmMtx as a dense switch with ten consecutive cases. Those forms continue to account for the section as a 48-byte matrix followed by ten 32-bit jump-table entries. The community report independently corroborates that the concrete Mtx definition controls HSD_identityMtx's emitted layout.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:36:40.949Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/util.c#L1-L59",
+            "why": "Shows the current Mtx declaration and twelve-component initializer together with the ten-case switch responsible for the adjacent dispatch table."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1286330835037061181",
+            "why": "Reports that changing the Mtx definition breaks HSD_identityMtx's match, corroborating that its concrete matrix type determines the emitted object layout."
+          }
+        ]
+      },
+      {
+        "id": "fact:b01f7233-4bb5-413a-a604-5efd9cbcbbe9",
+        "target_id": "target:data:main/sysdolphin/baselib/util:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "This writable-data section supplies the baselib-wide identity transform and the compiler-generated dispatch table used by HSD_Index2PosNrmMtx's ten-way matrix-slot conversion.",
+        "rationale": "At the current revision, the unit still defines an initialized 3x4 identity matrix and a dense ten-case conversion from sequential indices to matrix identifiers. These source constructs continue to explain the section's reusable transform and switch-dispatch components, so the existing purpose remains valid after drift.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T21:36:40.949Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/util.c#L1-L59",
+            "why": "Shows the initialized HSD_identityMtx and the complete dense HSD_Index2PosNrmMtx switch at the current checkout head."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/util:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:37f34cbd-e192-4e8d-b40e-957e85df21f9",
+        "target_id": "target:data:main/sysdolphin/baselib/util:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "No normal execution path reads this section. When HSD_Index2PosNrmMtx receives an index outside 0 through 9, its default arm invokes HSD_ASSERT(132, 0); the expanded assertion path references this section's filename and failed-expression literals and forwards them, together with line 132, to the baselib assertion handler.",
+        "rationale": "Every valid switch case still returns before the assertion, while all out-of-range values reach the default HSD_ASSERT invocation carrying line 132 and condition 0. The macro-conversion history confirms that this invocation represents the pre-existing expanded assertion flow, so the section remains consumed only by the exceptional path.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-04T21:36:40.949Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/util.c#L1-L59",
+            "why": "Shows direct returns for all ten valid indices and HSD_ASSERT(132, 0) only in the out-of-range default arm."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-2676--main-sysdolphin-baselib-util",
+            "why": "Shows that the HSD assertion macro replaced an equivalent hand-expanded assertion in util.c without changing its behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:f88040ca-7cd7-4c31-9699-0de1945b4480",
+        "target_id": "target:data:main/sysdolphin/baselib/util:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 16-byte small-data literal pool, inferred to contain the NUL-terminated assertion strings `\"util.c\"` and `\"0\"` plus section-alignment padding; it is not mutable gameplay state or a typed aggregate.",
+        "rationale": "The current unit still has a single constant-false assertion in HSD_Index2PosNrmMtx and keeps its separately authored identity matrix in an explicit Mtx object. The assertion's source-file and stringized-condition metadata therefore continue to account for the anonymous small-data pool, while the assertion-macro conversion history confirms that equivalent metadata existed in the prior hand-expanded form.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-04T21:36:40.949Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/util.c#L1-L59",
+            "why": "Shows the separately authored identity matrix and the unit's sole HSD_ASSERT site, whose filename and stringized condition account for the anonymous small-data literals."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-2676--main-sysdolphin-baselib-util",
+            "why": "Records the mechanical conversion of util.c's hand-expanded assertion to the HSD assertion macro, corroborating that the macro represents pre-existing assertion metadata."
+          }
+        ]
+      },
+      {
+        "id": "fact:670f67d2-ed9f-48b9-a999-ce7fbf5cfa55",
+        "target_id": "target:data:main/sysdolphin/baselib/util:.sdata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "This small-data section supplies the assertion metadata emitted for HSD_Index2PosNrmMtx's invalid-index path, allowing the baselib assertion handler to identify the source file and failed constant-false condition when an index outside 0 through 9 is received.",
+        "rationale": "The current switch returns directly for each index from 0 through 9 and invokes HSD_ASSERT with condition 0 only in its default arm. The historical macro conversion confirms that this is the source-level representation of existing assertion machinery, so the section's role as invalid-index assertion metadata remains unchanged.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T21:36:40.949Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/util.c#L1-L59",
+            "why": "Shows that HSD_Index2PosNrmMtx's out-of-range default arm is the unit's sole constant-false assertion site."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-2676--main-sysdolphin-baselib-util",
+            "why": "Records that the assertion macro mechanically replaced a hand-expanded assertion in util.c rather than introducing new behavior."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/util:HSD_GetNbBits"
+    },
+    "facts": [
+      {
+        "id": "fact:9e3b0f12-16bf-4f8d-afd0-ab2f95a96564",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_GetNbBits",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The function receives a 32-bit mask, tests it against `1 << i` for each bit position from 0 through 31, accumulates one for every nonzero test, and returns the total. In `expEvaluate`, each HSD_Rvalue supplies such a mask through its `flags` field; the returned counts are summed and cached in `exp->nb_args`, which sizes and bounds-checks the expression argument stream consumed by the native or bytecode evaluator.",
+        "rationale": "The current utility body preserves the complete mask-to-count transformation. The caller still obtains each input from HSD_Rvalue.flags, caches the sum in exp->nb_args, compares that value against the argument-buffer capacity, and passes the resulting argument stream to either the bytecode or native expression evaluator.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:40.949Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L18-L29",
+            "why": "Shows the complete per-bit test and accumulation from the input mask to the returned population count."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L691-L810",
+            "why": "Shows HSD_Rvalue.flags feeding the helper, the counts being accumulated into exp->nb_args, and that value governing buffer-capacity validation and subsequent expression evaluation."
+          }
+        ]
+      },
+      {
+        "id": "fact:a4e6cff4-4feb-4513-9aae-8f402bc54a94",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_GetNbBits",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Pure integer helper with signature `u32 HSD_GetNbBits(u32 mask)`. The input is a 32-bit bitmask, and the returned population count is in the inclusive range 0 through 32.",
+        "rationale": "The current declaration retains an unsigned 32-bit parameter and return type, and the body depends only on that parameter. It examines exactly 32 positions and increments once per set position, establishing both purity and the result range.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:40.949Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L18-L29",
+            "why": "The current declaration and complete body establish the u32-to-u32 signature, absence of external state, 32 iterations, and one increment per set bit."
+          }
+        ]
+      },
+      {
+        "id": "fact:58e8121e-5cb9-4a73-bf2c-1fddfbf658da",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_GetNbBits",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Counts how many bits are set in a 32-bit mask, providing baselib callers with the number of enabled or selected entries represented by that mask.",
+        "rationale": "The current utility implementation still tests all 32 bit positions and increments its result for each set bit. Its resolved caller still applies that count to HSD_Rvalue flags and sums the results to determine an expression's argument count, confirming the existing purpose.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:36:40.949Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L18-L29",
+            "why": "Shows the current implementation looping over all 32 positions and incrementing the result whenever the corresponding bit is set."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L691-L810",
+            "why": "Shows the expression evaluator calling HSD_GetNbBits on each HSD_Rvalue flags mask and summing the returned counts into exp->nb_args."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/util:HSD_Index2PosNrmMtx"
+    },
+    "facts": [
+      {
+        "id": "fact:6d28514d-9e38-4754-929a-c2029c44ebc7",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_Index2PosNrmMtx",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the sequential envelope-list index produced while SetupEnvelopeModelMtx traverses up to ten matrix-palette entries. It converts that ordinal to a GX matrix identifier, which the caller passes to GXLoadPosMtxImm for the entry's view-composed position transform and, when normal setup and lighting are enabled, to GXLoadNrmMtxImm for its inverse-transpose normal transform.",
+        "rationale": "The caller's bounded loop establishes the origin of the input index. Its immediate uses of the returned identifier establish both output consumers and show that the same converted slot addresses corresponding position and normal matrices.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:20:33.993Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Shows MtxIdx originating from the envelope-list traversal, flowing through HSD_Index2PosNrmMtx, and selecting the destination of GX position and normal matrix loads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L31-L58",
+            "why": "Shows how the input ordinal is transformed into the returned matrix identifier."
+          }
+        ]
+      },
+      {
+        "id": "fact:63922cd2-d7e0-4b86-9936-4622da94eb25",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_Index2PosNrmMtx",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports skeletal skinning's matrix-palette setup by assigning each rigid or blended envelope transform to its corresponding indexed GX position and normal matrix slot.",
+        "rationale": "SetupEnvelopeModelMtx constructs one transform per envelope entry from either one joint or a weighted blend of joints. It uses this helper's result to install that transform and its optional inverse transpose into corresponding GX matrix slots, grounding the conversion in the rendering stage of skeletal skinning.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T00:20:33.993Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Shows single-joint and weighted multi-joint envelope transforms being assigned indexed GX position and normal matrix destinations selected through this helper."
+          }
+        ]
+      },
+      {
+        "id": "fact:35c8adc2-c54d-45b5-94a1-b086d1d908f9",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_Index2PosNrmMtx",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Declared signature: `s32 HSD_Index2PosNrmMtx(u32 index)`. Semantically, `index` is a matrix-palette ordinal in the inclusive range 0..9, and the result is the corresponding GX position/normal matrix identifier in the set {0, 3, 6, 9, 12, 15, 18, 21, 24, 27}.",
+        "rationale": "The matched definition supplies the exact C signature and exhaustively enumerates the valid input and output domains. The envelope setup caller passes the result to both GXLoadPosMtxImm and GXLoadNrmMtxImm, confirming that the returned s32 belongs to the GX position/normal matrix-index domain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:20:33.993Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L31-L58",
+            "why": "Provides the exact signature and every valid input-output pair."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Demonstrates that the returned value is consumed as the matrix identifier argument of GX position and normal matrix-load operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:941c097f-73b9-42ff-aec1-4843f4ec7dfe",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_Index2PosNrmMtx",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs a checked conversion from a zero-based matrix-palette slot to the corresponding GX position/normal matrix identifier, allowing envelope-rendering code to address the ten hardware matrix slots with a sequential loop index.",
+        "rationale": "The function maps indices 0 through 9 to identifiers 0 through 27 in steps of three. SetupEnvelopeModelMtx supplies its sequential envelope-list index and uses the result for both GXLoadPosMtxImm and GXLoadNrmMtxImm, establishing the conversion's role at the boundary between HSD palette allocation and GX matrix addressing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:20:33.993Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L31-L58",
+            "why": "Shows the complete checked mapping from sequential indices 0 through 9 to matrix identifiers 0, 3, 6, and so on through 27."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+            "why": "Shows a sequential envelope matrix index being converted and the result used to select GX position and normal matrix slots."
+          }
+        ]
+      },
+      {
+        "id": "fact:0c4dd7ed-53c0-4548-bccd-cc2980aa8ac9",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_Index2PosNrmMtx",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Indices 0 through 9 return immediately as matrix identifiers spaced three apart. Every other input enters an unconditional assertion-failure path; the trailing return of 0 is only the post-assert fallback.",
+        "rationale": "The switch contains one direct-return arm for every accepted ordinal and routes all other values through HSD_ASSERT with a false condition before the fallback return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:20:33.993Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L31-L58",
+            "why": "Shows all ten accepted cases, the default assertion guard, and the post-assert fallback."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/util:HSD_MulColor"
+    },
+    "facts": [
+      {
+        "id": "fact:10b4499a-9d91-4091-afb1-e5c98a5d3bd0",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_MulColor",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "For each of r, g, b, and a independently, the function reads the corresponding channels from both source colors, multiplies them as an integer product, divides by 255 with integer truncation, and stores the result into the same channel of the destination color. It returns no separate value.",
+        "rationale": "Each assignment in the matched body has the identical source-channel-product, unsigned-255 division, and destination-channel-store shape. The void return type confirms that the destination object is the sole explicit output.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:06:31.567Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L10-L16",
+            "why": "The complete matched body shows all four reads, normalized integer calculations, destination writes, and the void return type."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/995044443554062506",
+            "why": "The contemporary decompilation message reproduces the same four component-wise assignments using GXColor pointers and division by 255U."
+          }
+        ]
+      },
+      {
+        "id": "fact:6bd98a2c-373e-4219-967d-421a6ebce179",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_MulColor",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function signature: void HSD_MulColor(GXColor* src0, GXColor* src1, GXColor* dst). All three parameters point to GXColor values; the first two are read as inputs and the third is written as output.",
+        "rationale": "The resolved source gives a void function with three GXColor pointer parameters. Its body only reads fields through the first two pointers and assigns fields through the third, establishing their input/input/output roles.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:06:31.567Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L10-L16",
+            "why": "The declaration and body directly establish the three-GXColor-pointer signature and each parameter's access mode."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/995237616234545182",
+            "why": "The archived reconstruction names the parameters src0, src1, and dst, corroborating their two-source and one-destination roles."
+          }
+        ]
+      },
+      {
+        "id": "fact:fdeed43b-3906-4d85-971c-80088ea1d889",
+        "target_id": "target:function:main/sysdolphin/baselib/util:HSD_MulColor",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Combines two RGBA colors by normalized component-wise multiplication, allowing one color to modulate the red, green, blue, and alpha channels of another.",
+        "rationale": "The matched source multiplies every corresponding GXColor channel and divides each product by 255. This is normalized per-channel color multiplication: a source channel of 255 leaves the other channel unchanged, while lower values attenuate it.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:06:31.567Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L10-L16",
+            "why": "The function explicitly computes destination r, g, b, and a as the products of corresponding input channels divided by 255."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/995237616234545182",
+            "why": "The archived reconstruction independently presents HSD_MulColor with source and destination GXColor parameters and the same division-by-0xFF calculation for all four channels."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/util.c"
+    },
+    "facts": [
+      {
+        "id": "fact:50cce671-14f2-4cd6-9a85-d9f4253e47bb",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/util.c",
+        "type": "purpose",
+        "value": "Provides small stateless HSD baselib utilities and shared low-level data: a reusable identity transform, normalized component-wise GXColor multiplication, a 32-bit population-count helper, and checked conversion of sequential matrix-palette slots into GX position/normal matrix identifiers.",
+        "rationale": "The complete current unit still consists of the identity matrix and these three independent helpers; the drift is solely mechanical source change.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T01:49:07.147Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/util.c#L6-L58",
+            "why": "Shows the current identity matrix and complete color multiplication, population-count, and matrix-index conversion implementations."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/util:HSD_GetNbBits#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/util:HSD_Index2PosNrmMtx#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/util:HSD_MulColor#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/util:HSD_MulColor#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/util:HSD_MulColor#r5"
+    },
+    "facts": []
+  }
+]

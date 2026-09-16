@@ -1,0 +1,255 @@
+{
+  "tu": "main/melee/mn/mndiagram2",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L1191-L1275",
+            "why": "Typed output, selector switch, and indexed full-entry writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the stale claim that the first parameter is declared u8* and records the actual unchecked domains.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_GetAggregatedFighterRank"
+        },
+        "type": "inferred_type",
+        "value": "Signature: void mnDiagram2_GetAggregatedFighterRank(mnDiagram2_SortEntry* out, u8 type, u8 idx). The output receives a complete fighter/count entry. Supported types are 0x15, 0x16, and 0x17, selecting per-name most-, second-, or least-played fighter aggregation. idx directly indexes the sorted aggregate array without a bounds check. An unsupported type has no switch default and can leave res uninitialized when names are processed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L430-L581",
+            "why": "Current signature and dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L755-L788",
+            "why": "Logical selection is resolved before row/stat lookup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the mode parameter from int to u8 while preserving the supported result and entity domains.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_GetStatValue"
+        },
+        "type": "inferred_type",
+        "value": "Signature: int mnDiagram2_GetStatValue(u8 is_name_mode, u8 stat_type, u8 entity_idx). Zero mode selects fighter records and nonzero selects name records for ordinary statistics. stat_type selects a VSSTAT_* category and entity_idx is a resolved fighter selection kind or persistent name identifier, not the logical selection position used by PopulateStatRows. Results are heterogeneous stored/computed integers or fighter identifiers for the three play-frequency categories."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L430-L581",
+            "why": "Complete switch, including final branches and missing return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces a nonexistent default return and preserves the exceptional mode-independent branches.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_GetStatValue"
+        },
+        "type": "state_behavior",
+        "value": "Recognized selectors immediately return a persistent or computed statistic, or a fighter identifier for play-frequency categories. The function does not write persistent records. An unrecognized selector takes default: break and reaches the end of the non-void function without returning a value; it does not return is_name_mode. The three play-frequency branches invoke name-based helpers without checking is_name_mode."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L796-L808",
+            "why": "Current payload type and joint access."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L888-L916",
+            "why": "Installation on the existing screen GObj."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the stale auxiliary mnDiagram2_AnimCompleteData type.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_OnAnimComplete"
+        },
+        "type": "inferred_type",
+        "value": "HSD_GObj process callback with signature void mnDiagram2_OnAnimComplete(HSD_GObj* gobj). Its user data is read as Diagram2*, and data->xC supplies the monitored HSD_JObj. It is installed on the existing Diagram2 display object by the departing-screen path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L796-L808",
+            "why": "Exact input and endpoint flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+            "why": "Deferred and immediate teardown branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the obsolete payload/member description without losing endpoint or lifetime semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_OnAnimComplete"
+        },
+        "type": "data_flow",
+        "value": "Reads Diagram2 user data from the supplied GObj, takes its xC joint, and passes that joint with the first entry of mnDiagram2_803EEB60 to mn_8022ED6C. If the returned value is at least that entry's end_frame, it passes the original GObj to HSD_GObjPLink_80390228. That destruction request can be deferred by the generic GObj layer's protected-current-object guard."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L1065-L1123",
+            "why": "Unlock-aware query and exceptional selection condition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram3.c#L106-L143",
+            "why": "Five-row fighter consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the useful ranking role while correcting an unconditional ordering guarantee contradicted by the source.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_GetRankedFighter"
+        },
+        "type": "purpose",
+        "value": "Supplies the fighter identifier at a requested position in an unlock-aware Records ranking for Diagram3's five-row display. It attempts descending statistic ordering, but a sentinel-position branch selects the last subsequent valid entry rather than necessarily the maximum; therefore globally descending results are not guaranteed for every roster/unlock arrangement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L1065-L1123",
+            "why": "Signature, array indexing, sentinel and ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram3.c#L106-L143",
+            "why": "Visible rank arguments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the exact interface and caller bounds but avoids defining rank through an ordering guarantee the implementation does not always satisfy.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_GetRankedFighter"
+        },
+        "type": "inferred_type",
+        "value": "Signature: u8 mnDiagram2_GetRankedFighter(u8 stat_type, u8 rank). stat_type is forwarded to the fighter-mode statistic query. rank is an unchecked zero-based position in the locally reordered SELKIND_COUNT-entry array; Diagram3 supplies positions 0 through 4. The result is the selected fighter identifier or SELKIND_COUNT for an unavailable entry. Descending-rank interpretation is qualified by the fixed-current-entry sentinel branch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L1079-L1123",
+            "why": "Entry initialization, exact scan, insertion and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram3.c#L139-L143",
+            "why": "Returned identifier consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the idealized descending-sort description with the actual fixed-i sentinel data flow.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_GetRankedFighter"
+        },
+        "type": "data_flow",
+        "value": "Enumerates fighter identifiers through mnDiagram_GetFighterByIndex. Unlocked entries receive the fighter-mode statistic in xC and zero in x8; locked entries receive -1 in both halves. It scans later non-sentinel entries, selecting larger values unless entries[i] is sentinel, in which case every later valid entry replaces maxIdx. The selected entry is inserted at i by shifting intervening entries. entries[rank] then yields its identifier or SELKIND_COUNT, and Diagram3 consumes the identifier for its fighter row."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L1079-L1123",
+            "why": "Sentinel setup, fixed-i disjunct, shifting and unchecked return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Explicitly corrects the false unconditional tie-stability and descending-order claims.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_GetRankedFighter"
+        },
+        "type": "state_behavior",
+        "value": "The query mutates only its local ranking array. Locked fighters are marked with the all-ones value and ignored as scan candidates. With a valid current entry, strict greater-than maximum selection and insertion shifts preserve equal-value order. With an unavailable current entry, however, the disjunct tests entries[i] throughout the scan, so the last subsequent valid entry is selected regardless of value; stable descending ordering is not generally guaranteed. A sentinel-valued requested entry returns SELKIND_COUNT. rank is not bounds checked."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L888-L916",
+            "why": "Exact branch structure and fallthrough."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+            "why": "Conditional reclamation deferral."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the meaningful destruction-to-arrow fallthrough and avoids an unsupported unconditional immediate-teardown interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_Think"
+        },
+        "type": "state_behavior",
+        "value": "When shared menu byte 0 is 0x1E and byte 0x10 is 1, the callback updates navigation arrows. When menu byte 0 remains 0x1E but byte 0x10 is not 1, it requests destruction of the GObj and then falls through to the same arrow update; there is no return after that request. When the menu byte differs from 0x1E, it removes the globally tracked process, installs OnAnimComplete, copies the scheduler flag, hides the joint at user-data pointer slot 4, removes and nulls header_text, and returns without updating arrows. Generic GObj destruction can defer reclamation for its protected current object; this routine itself does not prove that every invocation is protected."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L790-L884",
+            "why": "Synthetic type, cast, animation calls and visibility outputs."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces a nonexistent direct anim member with the actual cast-based access and preserves the compiled-evidence boundary.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram2:mnDiagram2_UpdateScrollArrows"
+        },
+        "type": "data_flow",
+        "value": "Reads mode, scroll offset, selected indices and four arrow joints from Diagram2 user data. It casts &mnDiagram2_803EEAD0 to MnDiagram2DataLayout*, a synthetic type with a 0x90-byte prefix and anim[2], and passes &base->anim[1] to mn_8022ED6C for each arrow. It then sets or clears JOBJ_HIDDEN using mode-specific scroll bounds, nonzero up/left tests, and the corresponding next-index result for the right boundary. This source access does not establish actual compiled adjacency between the separately declared row-layout and animation objects."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L258-L423",
+            "why": "Persistence, action priority and transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L888-L916",
+            "why": "Lifecycle paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates back from neighboring-page behavior and retains the exceptional nonanimated destruction/fallthrough path.",
+        "subject": {
+          "entity_locator": "src/melee/mn/mndiagram2.c"
+        },
+        "type": "state_behavior",
+        "value": "Maintains fighter and name modes with separate selected indices, a scroll offset and ten visible rows. Directional input uses mode-specific limits; mode toggling rejects zero names and resets an excessive fighter-mode scroll to zero. Back saves selections/mode, requests menu transition (0x1C,0,3), and clears rows. Adjacent-page input saves state, clears rows, destroys the separate input GObj, and initializes Diagram1 or Diagram3. The display callback updates arrows while menu byte 0 is 0x1E and byte 0x10 is 1; a same-menu non-1 state requests destruction and still falls through to arrow updates, while a different menu installs animated teardown and returns."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

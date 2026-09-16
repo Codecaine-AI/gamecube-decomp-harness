@@ -2,11 +2,14 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, resolve } from "node:path";
 import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
+import {
+  contextGenerationCommand,
+  resolveSandboxProjectLayout,
+  unitForObjectPath,
+  unitForTranslationUnit,
+} from "./sandbox-project-layout.js";
 
-const OBJECT_ROOT = "build/GALE01/obj";
-const ASM_ROOT = "build/GALE01/asm";
 const CONTEXT_PATH = "build/ctx.c";
-const CONTEXT_SCRIPT = "tools/m2ctx/m2ctx.py";
 const CONTEXT_CHECK_TIMEOUT_MS = 10_000;
 
 const SAFE_BOOLEAN_EXTRA_ARGS = new Set([
@@ -70,8 +73,8 @@ import struct
 import sys
 from pathlib import Path
 
-root = Path("build/GALE01/obj")
-target = sys.argv[1]
+root = Path(sys.argv[1])
+target = sys.argv[2]
 
 def unpack_sections(data):
     if data[:4] != b"\\x7fELF":
@@ -283,13 +286,13 @@ function assemblyForInput(input: string): string {
   return `${extension ? input.slice(0, -extension.length) : input}.s`;
 }
 
-function normalizedObjectPath(stdout: string): string | Record<string, unknown> | null {
+function normalizedObjectPath(stdout: string, objectRoot: string): string | Record<string, unknown> | null {
   const matches = stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (matches.length === 0) return null;
   if (matches.length !== 1) {
     return toolError("symbol_discovery_failed", "sandbox_symbol_discovery_failed", "m2c_decompile symbol discovery returned more than one object");
   }
-  const relative = matches[0].startsWith(`${OBJECT_ROOT}/`) ? matches[0].slice(OBJECT_ROOT.length + 1) : matches[0];
+  const relative = matches[0].startsWith(`${objectRoot}/`) ? matches[0].slice(objectRoot.length + 1) : matches[0];
   if (posix.isAbsolute(relative) || posix.normalize(relative) !== relative || relative.split("/").includes("..") || !relative.endsWith(".o")) {
     return toolError(
       "symbol_discovery_failed",
@@ -300,10 +303,14 @@ function normalizedObjectPath(stdout: string): string | Record<string, unknown> 
   return relative;
 }
 
-function preparedHostArgs(args: string[], mirrorRoot: string): string[] {
+function preparedHostArgs(args: string[], mirrorRoot: string, inputOverride?: string): string[] {
   const prepared = [...args];
   const rootIndex = prepared.indexOf("--repo-root");
   prepared[rootIndex + 1] = mirrorRoot;
+  if (inputOverride !== undefined) {
+    const inputIndex = prepared.indexOf("--input");
+    prepared[inputIndex + 1] = inputOverride;
+  }
   const jsonIndex = prepared.lastIndexOf("--json");
   prepared.splice(jsonIndex >= 0 ? jsonIndex : prepared.length, 0, "--prepared-context");
   return prepared;
@@ -331,8 +338,9 @@ export async function runSandboxM2cFetchFirst(input: SandboxM2cFetchFirstInput):
 
   let mirrorRoot: string | undefined;
   try {
+    const layout = await resolveSandboxProjectLayout(input.sandboxHandle, input.workspaceRoot);
     const discovery = await input.sandboxHandle.exec(
-      ["python3", "-c", SYMBOL_DISCOVERY_SCRIPT, parsed.input],
+      ["python3", "-c", SYMBOL_DISCOVERY_SCRIPT, layout.objectRoot, parsed.input],
       { cwd: input.workspaceRoot, timeoutMs: parsed.timeoutMs },
     );
     if (discovery.exitCode !== 0) {
@@ -342,11 +350,16 @@ export async function runSandboxM2cFetchFirst(input: SandboxM2cFetchFirstInput):
         discovery.stderr.trim() || `sandbox symbol discovery exited ${discovery.exitCode}`,
       );
     }
-    const objectPath = normalizedObjectPath(discovery.stdout);
+    const objectPath = normalizedObjectPath(discovery.stdout, layout.objectRoot);
     if (objectPath && typeof objectPath !== "string") return objectPath;
-    const assemblyPath = objectPath
-      ? `${ASM_ROOT}/${objectPath.slice(0, -2)}.s`
-      : `${ASM_ROOT}/${assemblyForInput(parsed.input)}`;
+    const unit = objectPath ? unitForObjectPath(layout, objectPath) : unitForTranslationUnit(layout, parsed.input);
+    const unitObjectPath = unit?.targetPath?.startsWith(`${layout.objectRoot}/`)
+      ? unit.targetPath.slice(layout.objectRoot.length + 1)
+      : null;
+    const assemblyObjectPath = objectPath ?? unitObjectPath;
+    const assemblyPath = `${layout.asmRoot}/${assemblyObjectPath
+      ? `${assemblyObjectPath.slice(0, -2)}.s`
+      : assemblyForInput(parsed.input)}`;
 
     const contextCheck = await input.sandboxHandle.exec(
       ["test", "-f", CONTEXT_PATH],
@@ -360,25 +373,41 @@ export async function runSandboxM2cFetchFirst(input: SandboxM2cFetchFirstInput):
       );
     }
     if (contextCheck.exitCode === 1) {
+      let contextCommand: string[];
+      try {
+        contextCommand = contextGenerationCommand(layout, unit?.sourcePath ?? null);
+      } catch (error) {
+        return toolError(
+          "context_generation_failed",
+          "sandbox_context_generation_failed",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
       const generated = await input.sandboxHandle.exec(
-        ["python3", CONTEXT_SCRIPT, "--quiet", "--preprocessor"],
+        contextCommand,
         { cwd: input.workspaceRoot, timeoutMs: parsed.timeoutMs },
       );
       if (generated.exitCode !== 0) {
         return toolError(
           "context_generation_failed",
           "sandbox_context_generation_failed",
-          generated.stderr.trim() || `sandbox m2ctx exited ${generated.exitCode}`,
+          generated.stderr.trim() || `sandbox context generator exited ${generated.exitCode}`,
         );
       }
     }
 
     mirrorRoot = await mkdtemp(join(input.tempParent ?? tmpdir(), "orch-m2c-"));
-    await mkdir(resolve(mirrorRoot, OBJECT_ROOT), { recursive: true });
-    if (objectPath) await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, `${OBJECT_ROOT}/${objectPath}`);
+    await mkdir(resolve(mirrorRoot, layout.objectRoot), { recursive: true });
+    if (objectPath) await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, `${layout.objectRoot}/${objectPath}`);
     await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, assemblyPath);
     await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, CONTEXT_PATH);
-    return await input.runHost(preparedHostArgs(input.args, mirrorRoot), mirrorRoot);
+    const hostInput = objectPath || !assemblyObjectPath
+      ? undefined
+      : assemblyObjectPath.slice(0, -2);
+    return await input.runHost(
+      preparedHostArgs(input.args, mirrorRoot, hostInput),
+      mirrorRoot,
+    );
   } catch (error) {
     return toolError(
       "sandbox_fetch_failed",

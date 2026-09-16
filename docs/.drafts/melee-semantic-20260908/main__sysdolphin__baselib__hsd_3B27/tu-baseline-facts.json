@@ -1,0 +1,1021 @@
+{
+  "tu": "main/sysdolphin/baselib/hsd_3B27",
+  "facts": [
+    {
+      "id": "fact:f5edbe3b-aad1-40a8-8328-e5ffebb03959",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The card-task layer prepares a source buffer, byte offset, and byte length in shared state and forwards them with its HSD card context and completion callback. This function stores those values in fields `f1` through `f5` of the current type-6 command entry and advances the shared write index modulo 32.",
+      "rationale": "The refreshed request-builder and target spans preserve the complete input path and queue serialization described by the standing fact.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L951-L990",
+          "why": "Shows the source buffer, offset, and length being installed in shared task state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L601-L615",
+          "why": "Shows the shared context, write range, and callback being passed to the target."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L18-L45",
+          "why": "Shows those inputs flowing into the type-6 command and the producer index advancing modulo 32."
+        }
+      ]
+    },
+    {
+      "id": "fact:d0c51a03-b80f-41ac-80dc-0f8546373952",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the low-level asynchronous submission step of Melee's named memory-card file-writing path, carrying a caller-selected source-buffer range into the HSD card command processor.",
+      "rationale": "The current high-level request still packages a named-file write range, and the target still publishes that range as an asynchronous type-6 HSD command.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L951-L990",
+          "why": "Shows a named-file write request preparing the source buffer and byte range."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L18-L45",
+          "why": "Shows the target publishing the request as HSD command type 6."
+        }
+      ]
+    },
+    {
+      "id": "fact:b10c8966-3aa7-4b02-b94f-ea481c629061",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "HSD_CardWriteAsync",
+      "rationale": "The current code remains an HSD-layer callback-bearing queue wrapper for a prepared memory-card write range, supporting the standing semantic name without establishing its exact original spelling.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: `HSD_CardWriteAsync` is a plausible original name.",
+      "confidence": 0.69,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L18-L45",
+          "why": "Shows an asynchronous HSD command wrapper retaining a context, write-shaped payload, and completion callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L951-L990",
+          "why": "Identifies the operation payload as a write buffer, write offset, and write length."
+        }
+      ]
+    },
+    {
+      "id": "fact:69fda26f-fa1c-4df2-872e-1fe0d6819366",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Asynchronous write-submission function with effective signature `int (HSD card context*, const void* source, int offset, int length, void (*callback)(int file_index, int result))`. It returns 0 when the request is queued and -265 when no queue slot is available.",
+      "rationale": "The current definition preserves the five-argument ABI, callback storage, full-ring failure result, and successful zero result; the current write request identifies the operation arguments as a source buffer and byte range.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L18-L45",
+          "why": "Establishes the concrete parameters, callback shape, and immediate 0/-265 return domain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L951-L990",
+          "why": "Identifies the three operation values as a source buffer, byte offset, and byte length."
+        }
+      ]
+    },
+    {
+      "id": "fact:effaf6cb-2090-4845-970a-0e122fb63f6d",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Submits an asynchronous ranged memory-card file-write request by placing its card context, source buffer, byte offset, byte length, and completion callback into a type-6 HSD command-queue entry.",
+      "rationale": "The current function body still serializes all five arguments into a type-6 queue entry, while the current request builder identifies the payload as a write buffer and byte range.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L18-L45",
+          "why": "Shows the target constructing a type-6 command from its context, operation arguments, and callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L951-L990",
+          "why": "Shows the higher-level write request preparing the source buffer, byte offset, and byte length consumed by the target's caller."
+        }
+      ]
+    },
+    {
+      "id": "fact:3767a52d-6513-4766-be92-16e216461155",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If the producer and consumer indices coincide while that slot's command type is nonzero, submission returns -265 without changing the queue. Otherwise the function publishes command type 6 and its payload, advances the producer index modulo 32, and returns 0; the caller then counts the operation as pending asynchronous work.",
+      "rationale": "The refreshed target body preserves the full-ring guard and accepted transition, and the caller still increments its outstanding-operation count only after successful immediate submission.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B27F4",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L18-L45",
+          "why": "Shows the occupied-slot guard, -265 rejection, type-6 publication, modulo-32 transition, and zero result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L601-L615",
+          "why": "Shows successful submission incrementing the caller's outstanding-operation count and producing pending status."
+        }
+      ]
+    },
+    {
+      "id": "fact:c9241851-80c0-47a5-8f06-bcc3d505e9d3",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Takes the card context, filename, source buffer, byte offset, byte length, and completion callback from lbcardnew. It copies 64 bytes from the source buffer to context offset 0x370, then stores the context, filename, offset, length, and callback in fields `f1` through `f5` of a type-3 command.",
+      "rationale": "The refreshed caller and target spans preserve the origin, staging, and queue-field destination of every input.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L500-L515",
+          "why": "Shows where all six inputs originate in the higher-level card-task manager."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L47-L74",
+          "why": "Shows the 64-byte copy and exact mapping into the type-3 command fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:5411da69-37ce-403e-8971-a6b39d68345e",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the low-level asynchronous submission phase of Melee's named memory-card file writing, used to submit a caller-selected file range without blocking the card-task dispatcher.",
+      "rationale": "The target remains a callback-bearing type-3 queue producer, and its caller continues to treat accepted named-file write work as pending.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L500-L515",
+          "why": "Shows the named-file write state being submitted and tracked as outstanding asynchronous work."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L47-L74",
+          "why": "Shows the operation being published through the HSD queue as command type 3."
+        }
+      ]
+    },
+    {
+      "id": "fact:629930a2-c479-42a0-953c-75b98755c1e4",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "HSD_MemoryCardWriteAsync",
+      "rationale": "The refreshed code continues to show an HSD-layer named-file write submission that stores a callback and returns before completion, supporting the standing tentative name.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `HSD_MemoryCardWriteAsync`.",
+      "confidence": 0.7,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L47-L74",
+          "why": "Shows that the function queues a callback-bearing type-3 request rather than completing synchronously."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L500-L515",
+          "why": "Shows its use as the asynchronous submission API for a filename and write range."
+        }
+      ]
+    },
+    {
+      "id": "fact:c1f74ca9-71a9-4dfa-87d1-a1e3402148bc",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Named-file asynchronous write-submission function with effective signature `int (HSD memory-card context*, const char* filename, const void* write_data, int write_offset, int write_length, void (*callback)(int file_index, int result))`. It returns 0 when accepted and -265 when the command ring is full.",
+      "rationale": "The current definition establishes six parameters, a 64-byte-readable data pointer, callback storage, and the 0/-265 result domain; its caller identifies the second argument as a filename and the remaining payload as shared write state.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L47-L74",
+          "why": "Establishes the current six-parameter shape, staging copy, callback field, and immediate return values."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L500-L515",
+          "why": "Identifies the filename, context, shared operation values, and completion callback supplied by the caller."
+        }
+      ]
+    },
+    {
+      "id": "fact:7aae027c-8736-4374-a2bd-07ee09ce2ef7",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Submits an asynchronous write of a selected byte range to a named memory-card file by staging the request's initial data in the card context and appending a type-3 command to the shared HSD queue.",
+      "rationale": "The current body still copies 64 bytes into the card context and queues the filename, range, and callback as type 3; its caller still supplies the named-file write state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L47-L74",
+          "why": "Shows the 64-byte staging copy and construction of the type-3 queue entry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L500-L515",
+          "why": "Shows the caller passing the filename, shared write data and range, card context, and completion callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:194ac674-c31d-4330-83d2-2b9a9897b70e",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Stages the 64-byte source prefix before checking queue availability. If the read and write indices coincide and that slot has a nonzero type, it returns -265 without advancing the producer index. Otherwise it fills a type-3 command, advances the write index modulo 32, and returns 0; successful submission makes the caller report pending status.",
+      "rationale": "The current body preserves the ordering of staging, capacity checking, and queue publication, while the caller still increments its pending count only after successful submission.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B286C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L47-L74",
+          "why": "Shows the staging copy, full-ring rejection, type-3 publication, modulo-32 advancement, and zero return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L500-L515",
+          "why": "Shows accepted submission incrementing the outstanding-operation count and yielding pending status 0xB."
+        }
+      ]
+    },
+    {
+      "id": "fact:daf05b5c-23b1-4e19-a7e6-497e136bd311",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The named-file request builder stores its read buffer, byte offset, and byte length in lbcardnew shared state, and the read task forwards those values with the HSD card context and completion callback. This function copies 64 bytes from the buffer into context offset 0x370, stores the context, range, and callback in a type-4 command entry, and advances the producer index.",
+      "rationale": "The refreshed request-builder, caller, and target spans preserve the full input path and queue-field destinations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L913-L941",
+          "why": "Shows the origin of the read buffer, byte offset, and byte length."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L585-L599",
+          "why": "Shows those shared values and the callback being forwarded to the target."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L75-L115",
+          "why": "Shows the staging copy and payload publication in the type-4 command."
+        }
+      ]
+    },
+    {
+      "id": "fact:02a7b379-26a8-401a-951a-7431f495900a",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the HSD submission stage for asynchronously reading a selected byte range from a named GameCube memory-card file.",
+      "rationale": "The current high-level API still builds a named-file read request, and this target still publishes its buffer range and callback as an asynchronous type-4 command.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L913-L941",
+          "why": "Shows the named-file read request and its destination buffer and range."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L75-L115",
+          "why": "Shows the request being published asynchronously as HSD command type 4."
+        }
+      ]
+    },
+    {
+      "id": "fact:2121f366-2427-4f4f-9f3f-2d31bd2fa5f1",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "HSD_CardReadAsync",
+      "rationale": "The refreshed code remains an HSD-layer callback-bearing submission API for a named-file range read, although no surviving symbol establishes the exact spelling.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `HSD_CardReadAsync`.",
+      "confidence": 0.61,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L913-L941",
+          "why": "Identifies the operation as a read of a selected byte range from a named file."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L75-L115",
+          "why": "Shows that the target publishes a callback-bearing type-4 request asynchronously."
+        }
+      ]
+    },
+    {
+      "id": "fact:226a89ca-48db-4355-b9cf-020d1eec520b",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Asynchronous request-submission function with effective signature `int (CardState* context, const void* read_buffer, int read_offset, int read_length, void (*callback)(int file_index, int hsd_result))`. Its immediate result is 0 when queued or -265 when the 32-entry command ring has no free slot.",
+      "rationale": "The refreshed definition establishes the five-argument ABI, callback shape, and immediate result domain, while the request builder identifies the middle arguments as a read buffer and byte range.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L75-L115",
+          "why": "Provides the current function shape, callback field, and 0/-265 immediate return behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L913-L941",
+          "why": "Identifies the supplied operation values as a destination read buffer, byte offset, and byte length."
+        }
+      ]
+    },
+    {
+      "id": "fact:f7472b05-763b-43d2-b0fb-1c06f208ed4b",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Submits an asynchronous ranged file-read request to the HSD memory-card service. It stages the first 64 bytes from the supplied read buffer in the card context, appends a type-4 request containing the context, byte offset, byte length, and completion callback, and reports immediate queue acceptance or exhaustion.",
+      "rationale": "The current body preserves the staging copy and type-4 queue operation, and the current request builder still identifies the supplied shared values as a named-file read buffer and range.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L75-L115",
+          "why": "Shows the 64-byte staging copy, type-4 command construction, full-ring failure, and accepted queue transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L913-L941",
+          "why": "Shows the higher-level named-file request preparing the read buffer, byte offset, and byte length."
+        }
+      ]
+    },
+    {
+      "id": "fact:ef3bbf43-cc83-4a6e-8514-d053c694390d",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The shared command ring uses equal read and write indices for either empty or full; a nonzero type in the current slot distinguishes the full case. When full, submission returns -265 without modifying the producer index. Otherwise the function fills a type-4 entry, advances the write index modulo 32, and returns 0, after which the caller marks the operation pending.",
+      "rationale": "The current target preserves the full-ring guard and accepted transition, and its caller still increments the outstanding-operation count after immediate success.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2928",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L75-L115",
+          "why": "Shows the equal-index occupied-slot test, -265 rejection, type-4 publication, and modulo-32 producer update."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L585-L599",
+          "why": "Shows accepted submission incrementing the outstanding-operation counter and producing pending status."
+        }
+      ]
+    },
+    {
+      "id": "fact:4a545b04-3f8c-4b72-8c4d-74e8782cbc45",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The card-task layer scans nine file-entry descriptors and, for each enabled index, passes the shared HSD card context, the index, that descriptor's `data` pointer, and `fn_8001A0B0` to this function. The function stores those values in fields `f1`, `f2`, `f3`, and `f5` of the current type-1 command entry and advances the producer index modulo 32. The caller records the immediate result and increments its outstanding-operation count on success.",
+      "rationale": "The refreshed caller and target show that the operation payload flows from `entries[i].data`, correcting the prior claim that `f3` received a data size.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L517-L549",
+          "why": "Shows enabled-entry selection, the data-pointer argument, immediate result storage, and pending-count update."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L104-L129",
+          "why": "Shows the context, channel, data pointer, and callback flowing into the type-1 command fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:f2a93c22-f1e1-4e4f-82f4-7f192506b01a",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the per-file-entry asynchronous submission stage used by Melee's named memory-card file-writing pipeline. For each enabled entry it submits the entry's data pointer as a type-1 HSD operation; the exact lower-level action remains distinct from the separate ranged-write command.",
+      "rationale": "The write request schedules a per-entry phase, whose current handler passes each enabled entry's data pointer to this target. The target publishes that operation as command type 1.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L946-L1025",
+          "why": "Shows the named-file write API scheduling task opcode 8 with its file-entry array."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L517-L549",
+          "why": "Shows the task phase submitting each enabled entry's data pointer through this target."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L104-L129",
+          "why": "Shows publication of each selected entry operation as HSD command type 1."
+        }
+      ]
+    },
+    {
+      "id": "fact:0505fd9a-97ca-4651-adba-5678405c249a",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "HSD_CardWriteEntryAsync",
+      "rationale": "The target is still used once per enabled entry during the write pipeline and queues a callback-bearing type-1 operation. The corrected payload is the entry's data pointer rather than its size, which does not establish a more exact original name.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: `HSD_CardWriteEntryAsync` remains a plausible original name, although the exact low-level action represented by command type 1 remains unresolved.",
+      "confidence": 0.52,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L946-L1025",
+          "why": "Shows a named-file write request scheduling the per-entry task phase."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L517-L549",
+          "why": "Shows this wrapper being called for each enabled entry with that entry's data pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L104-L129",
+          "why": "Shows an asynchronous type-1 HSD wrapper parameterized by a channel, data pointer, and callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:1337e33d-2885-4504-903e-5fcd1d4ba359",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Asynchronous per-entry card-operation submission function with effective signature `int (HSD card context*, int channel, const u8* data, void (*callback)(int entry_index, int hsd_result))`. Its immediate return domain includes 0 when queued and -265 when the 32-entry command ring cannot accept another request.",
+      "rationale": "The current definition and caller establish that the third argument is a byte-data pointer rather than the previously inferred `data_size`; the body preserves the callback field and 0/-265 immediate results.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L104-L129",
+          "why": "Establishes the context, channel, `const u8*` data argument, callback storage, and immediate results."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L517-L549",
+          "why": "Confirms that the caller supplies `entries[i].data` as the third argument."
+        }
+      ]
+    },
+    {
+      "id": "fact:f17c1d44-a18b-4959-8022-d60d0d3da12c",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Submits one asynchronous type-1 HSD memory-card operation for a selected file-entry channel. It places the shared card context, channel index, that entry's data pointer, and a completion callback into the command ring and reports immediate queue acceptance or exhaustion.",
+      "rationale": "The refreshed source corrects the prior interpretation of the third argument: it is a data pointer, not a data size. The caller passes `entries[i].data`, and the target stores that pointer in `f3` of a type-1 command.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L517-L549",
+          "why": "Shows the caller passing each enabled entry's index and `entries[i].data` pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L104-L129",
+          "why": "Shows construction of a type-1 command containing the context, channel, data pointer, and callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:58b6a18d-2ef3-4ee6-930e-fc245b0da858",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "When the producer and consumer indices coincide, a nonzero type in that slot marks the ring as unable to accept another command, and the function returns -265 without changing the producer index. Otherwise it publishes command type 1, advances the producer index modulo 32, and returns 0. The caller treats a successful submission as pending asynchronous work.",
+      "rationale": "The current target preserves the full-ring guard and accepted queue transition, while the current caller still increments its outstanding-operation count after successful submission.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B29D8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L104-L129",
+          "why": "Shows the occupied-slot guard, -265 rejection, type-1 publication, modulo-32 transition, and success result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L517-L549",
+          "why": "Shows accepted submissions incrementing the outstanding-operation count and causing pending status 0xB."
+        }
+      ]
+    },
+    {
+      "id": "fact:5905048f-9356-4e25-ae91-4972088c1aac",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The card-task layer passes each selected descriptor's `data` pointer with the shared HSD context, descriptor index, and `fn_8001A0B0`. The function stores those values in fields `f1`, `f2`, `f3`, and `f5` of the current type-2 command entry and advances the shared producer index. The caller records immediate translated and raw results and increments its outstanding-operation count on success.",
+      "rationale": "The refreshed caller and target show that `f3` receives `entries[i].data`, correcting the prior data-size interpretation while preserving the rest of the queue and immediate-result flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L551-L583",
+          "why": "Shows active-entry selection, the data-pointer argument, result storage, and pending-count update."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L131-L163",
+          "why": "Shows the context, index, data pointer, and callback flowing into the type-2 command fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:da4e7013-3d63-4459-a74e-019b35a8cfc8",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the low-level per-entry submission stage of Melee's asynchronous GameCube memory-card file-reading pipeline, supplying each active entry's destination data pointer to the HSD command processor.",
+      "rationale": "The named-file request builds a read operation, its per-entry handler passes each active entry's data pointer to this target, and the target publishes it as a type-2 asynchronous command.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L913-L941",
+          "why": "Shows the enclosing named memory-card file-read request."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L551-L583",
+          "why": "Shows the per-entry read phase invoking this target with each active entry's data pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L131-L163",
+          "why": "Shows the operation being published as asynchronous HSD command type 2."
+        }
+      ]
+    },
+    {
+      "id": "fact:15d83775-a760-4312-a3b4-855a70b06ab3",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "HSD_CardReadEntryAsync",
+      "rationale": "The function remains an HSD-layer callback-bearing operation invoked once for each active entry during a named-file read phase. The corrected third argument is the entry's destination data pointer, strengthening the read-entry interpretation without proving exact spelling.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: `HSD_CardReadEntryAsync` remains a plausible original name.",
+      "confidence": 0.6,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L913-L941",
+          "why": "Grounds the enclosing operation in a named memory-card file-read request."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L551-L583",
+          "why": "Shows the function being called once per active entry with that entry's data pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L131-L163",
+          "why": "Shows a callback-bearing type-2 HSD operation parameterized by an entry index and data pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:53a2063a-4a58-4e1a-8273-d05bcceda8e7",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Asynchronous per-entry read-submission function with effective signature `int (HSD card context*, int entry_index, const u8* data, void (*callback)(int entry_index, int hsd_result))`. Its immediate result domain includes 0 for successful queueing, -257 when the selected context entry is unavailable, and -265 when the 32-entry command ring has no free slot.",
+      "rationale": "The current definition establishes a `const u8*` third argument and all three immediate results, while the caller confirms that this argument is `entries[i].data`, not the previously inferred data size.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L131-L163",
+          "why": "Establishes the current ABI, context-indexed precondition, callback field, and 0/-257/-265 return behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L551-L583",
+          "why": "Confirms that the caller supplies the selected entry's data pointer as the third argument."
+        }
+      ]
+    },
+    {
+      "id": "fact:aa757751-35b5-4213-b1ff-2db2c471d18a",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Submits an asynchronous read operation for one active memory-card file entry. It validates the selected channel in the HSD card context, appends a type-2 command containing the context, channel index, destination data pointer, and completion callback, and returns an immediate validation or queue-submission result.",
+      "rationale": "The refreshed source corrects the third argument from a supposed data size to a data pointer. The caller supplies `entries[i].data`, and the target validates the selected context entry before storing that pointer in a type-2 command.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L551-L583",
+          "why": "Shows the read-phase caller passing each active entry's index and `entries[i].data` pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L131-L163",
+          "why": "Shows the channel precondition and type-2 command containing the context, index, data pointer, and callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:b8262658-6174-4192-8912-8ba970a5c616",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Submission first requires the context word for the selected entry to be positive; otherwise it returns -257 without touching the queue. If coincident read and write indices point to a slot with a nonzero type, it returns -265 without advancing. On acceptance it publishes command type 2, advances the write index modulo 32, and returns 0; the caller then counts the operation as pending.",
+      "rationale": "The current target preserves both rejection guards and the accepted transition, and the current caller still increments the outstanding-operation count only after immediate success.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2A4C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L131-L163",
+          "why": "Shows the selected-entry precondition, full-ring guard, -257/-265 failures, and type-2 publication."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L551-L583",
+          "why": "Shows successful submissions incrementing the outstanding-operation count and failed submissions updating error state."
+        }
+      ]
+    },
+    {
+      "id": "fact:c4a3cb8e-ad89-4366-b256-fa26acdcb4e8",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies an initialized HSD card-layout context and a presentation descriptor. The function copies 18 bytes from the descriptor into the context at byte offset 0x3B0, passes that internal copy to `hsd_803AC340`, and stores the returned presentation-region byte count at context offset 0x24. The caller then registers logical file components in the same context and finalizes its required capacity.",
+      "rationale": "The refreshed target directly establishes both destination fields and the calculator call, while the refreshed caller establishes the surrounding layout-building sequence.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L1088-L1117",
+          "why": "Shows the context initialization, descriptor setter call, subsequent entry registration, and final capacity calculation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L167-L174",
+          "why": "Shows the descriptor flowing to context offset 0x3B0 and the calculated size flowing to context offset 0x24."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A94.c#L1511-L1553",
+          "why": "Shows how the internal descriptor is transformed into a presentation-region byte count."
+        }
+      ]
+    },
+    {
+      "id": "fact:a088e74f-49d8-4a69-87a4-2a57c4531834",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports GameCube memory-card save-file presentation and capacity planning by accounting for the header, optional banner, animated icon frames, and indexed-color palettes associated with a file. Melee's snapshot subsystem reaches this helper while calculating the card space required by a captured snapshot.",
+      "rationale": "The refreshed target and calculator preserve the presentation-size role, Dolphin CARD code corroborates the banner/icon storage formats, and the refreshed snapshot caller still reaches the layout-capacity builder.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L167-L174",
+          "why": "Shows the target installing the presentation descriptor and caching its calculated serialized size."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A94.c#L1511-L1553",
+          "why": "Shows the descriptor determining header, banner, icon-frame, and palette storage."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/card/CARDStat.c#L15-L76",
+          "why": "Confirms the GameCube memory-card banner, icon, and palette representations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://995e215437/src/melee/lb/lbsnap.c#L327-L345",
+          "why": "Shows the snapshot subsystem invoking the layout-capacity builder that consumes this presentation descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:3a091261-b021-4293-be9d-daf5c9cfbbe4",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "HSD_CardSetIconInfo",
+      "rationale": "The current routine remains a setter on HSD card-layout state, and its calculator still interprets the copied descriptor as banner and icon format information; exact original spelling remains unrecovered.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: `HSD_CardSetIconInfo` is a plausible original-style name for this routine.",
+      "confidence": 0.67,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L167-L174",
+          "why": "Shows a setter-like routine installing a compact descriptor and its derived size in a card context."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A94.c#L1511-L1553",
+          "why": "Shows that the descriptor governs banner and icon presentation storage."
+        }
+      ]
+    },
+    {
+      "id": "fact:2139e42a-1e8a-461d-82b4-d7e66e6f6ae9",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Context-mutating setter with concrete source signature `int (s32* ctx, const void* info)`. Semantically, `ctx` is an HSD memory-card layout context and `info` points to an 18-byte presentation descriptor laid out as a banner-format byte, one intervening byte, eight icon-format bytes, and eight icon speed or activation bytes. The function returns zero unconditionally.",
+      "rationale": "The refreshed target establishes the context pointer, fixed copy length, and constant return. The current calculator reads byte 0, bytes 2 through 9, and bytes 0xA through 0x11, while Dolphin CARD code identifies the corresponding format domains.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L167-L174",
+          "why": "Provides the concrete source shape, fixed 18-byte copy, context mutation, and unconditional zero return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A94.c#L1511-L1553",
+          "why": "Shows the exact descriptor offsets interpreted by the size calculator."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/card/CARDStat.c#L15-L76",
+          "why": "Identifies the relevant values as GameCube CARD banner formats, icon formats, and palette-bearing presentation data."
+        }
+      ]
+    },
+    {
+      "id": "fact:a2617351-1347-453c-be08-79bf11a91d83",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Installs a memory-card file's banner-and-icon presentation descriptor into an HSD card-layout context and caches the descriptor's serialized byte requirement so subsequent file-entry registration and layout finalization can calculate the file's required card capacity.",
+      "rationale": "The refreshed complete target body still performs the fixed descriptor copy and cached-size calculation, and its caller still places it between context initialization and entry registration/finalization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L167-L174",
+          "why": "Shows the 18-byte descriptor copy, size-calculator call, cached-size assignment, and zero return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcardnew.c#L1088-L1117",
+          "why": "Shows the target called after context initialization and before file-entry registration and layout finalization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3A94.c#L1511-L1553",
+          "why": "Shows the copied descriptor being converted into header, banner, icon, and palette storage size."
+        }
+      ]
+    },
+    {
+      "id": "fact:f76e3c23-0ed7-4195-bd1b-3b6fc238faa0",
+      "target_id": "target:function:main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Performs an unconditional overwrite transition on the supplied context: the previous 18-byte presentation descriptor and its cached byte count are replaced by values derived from the new input. It has no validation, asynchronous state, or failure branch and always returns 0 after the two context updates.",
+      "rationale": "The complete refreshed body consists only of the copy, calculator call, cached-size assignment, and constant return.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:34:36.523Z",
+      "subject": "main/sysdolphin/baselib/hsd_3B27:hsd_803B2ADC",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L167-L174",
+          "why": "Shows the complete branch-free overwrite behavior and unconditional successful return."
+        }
+      ]
+    },
+    {
+      "id": "fact:3fcc26f6-876f-44b4-baa5-3ceec9f1de1e",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B27.c",
+      "type": "data_flow",
+      "value": "Asynchronous requests enter with an HSD card context and operation-specific filenames, indices, buffers, ranges, and callbacks. The queue wrappers write these into the command slot selected by hsd_804D7994, while hsd_804D7990 identifies the consumer position; accepted requests advance the producer index modulo 32. Separately, an 18-byte banner and icon descriptor is copied into the HSD card context and passed to hsd_803AC340, whose returned byte count is cached in that context.",
+      "rationale": "Caller arguments still flow into shared command slots followed by modulo-32 publication, while the presentation descriptor still flows into CardState and the HSD size calculator.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/hsd_3B27.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L1-L170",
+          "why": "Shows operation-specific arguments entering command slots selected by the producer index."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L121-L174",
+          "why": "Shows modulo-32 publication and the descriptor-to-CardState size-calculation flow."
+        }
+      ]
+    },
+    {
+      "id": "fact:3d204f35-2ea7-4a28-bfbf-5439c7bb8f3f",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B27.c",
+      "type": "game_mapping",
+      "value": "Implements low-level HSD support for Melee's GameCube memory-card operations: asynchronous file requests and file-layout preparation that accounts for save-file banner and icon presentation data.",
+      "rationale": "The current source still packages asynchronous card commands and prepares the presentation descriptor consumed by HSD's card-file size calculation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/hsd_3B27.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L1-L170",
+          "why": "Shows asynchronous request producers operating on shared HSD memory-card service state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L121-L174",
+          "why": "Shows save-file presentation metadata being installed and sized."
+        }
+      ]
+    },
+    {
+      "id": "fact:4c26f3c7-0ed8-4400-9fb4-42523d590f6c",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B27.c",
+      "type": "inferred_name",
+      "value": "card",
+      "rationale": "The current unit remains a cohesive set of HSD card-command producers plus a card-layout helper, supporting card as the preferred tentative module label. The evidence does not distinguish it conclusively from a longer historical filename such as memorycard.",
+      "confidence": 0.58,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/hsd_3B27.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L1-L170",
+          "why": "Shows that the unit is cohesively devoted to HSD memory-card command submission."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L121-L174",
+          "why": "Shows that its remaining helper also operates on memory-card file-layout state."
+        }
+      ]
+    },
+    {
+      "id": "fact:c0bf9197-10ae-4873-9fb8-6b19fa04b22b",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B27.c",
+      "type": "inferred_type",
+      "value": "The unit combines a producer-side asynchronous command module with one synchronous card-layout configurator. Its local command ring has 32 entries, each containing one 32-bit command type and five operation-dependent 32-bit payload words, beginning at offset 0x1210 in shared HSD card-service storage. The configurator operates on a CardState and consumes an 18-byte banner and icon descriptor.",
+      "rationale": "The refreshed local structure and queue macro establish the six-word entry and shared-storage offset, each producer advances modulo 32, and the final helper consumes exactly 18 descriptor bytes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/hsd_3B27.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L1-L170",
+          "why": "Defines the six-word command entry, queue base at offset 0x1210, and modulo-32 producer behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L121-L174",
+          "why": "Shows the distinct CardState configurator consuming an 18-byte descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:30c0db0b-032c-40bd-a819-57a690aa6329",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B27.c",
+      "type": "purpose",
+      "value": "Provides producer-side operations for the HSD memory-card service. Five members validate and serialize asynchronous card requests into a shared command ring, while the remaining helper installs an 18-byte banner and icon presentation descriptor into an HSD card context and caches its computed serialized size.",
+      "rationale": "The head source retains five request producers using the same command ring and a distinct descriptor helper that copies 18 bytes and caches the calculated presentation size.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/hsd_3B27.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L1-L170",
+          "why": "Shows the shared command representation and asynchronous memory-card request producers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L121-L174",
+          "why": "Shows the final producer and the helper copying an 18-byte descriptor and caching its computed size."
+        }
+      ]
+    },
+    {
+      "id": "fact:46ee021d-ed17-4303-8d41-cbb11e309ae2",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B27.c",
+      "type": "state_behavior",
+      "value": "Uses a 32-slot producer/consumer ring in which equal read and write indices are disambiguated by the current slot's type: a nonzero type means the ring cannot accept another request and submission returns -265. Successful submission writes the command and advances the write index modulo 32. One guarded operation additionally returns -257 when its context-specific prerequisite count is nonpositive.",
+      "rationale": "Every refreshed producer preserves the equal-index full-ring test and modulo-32 advancement, and hsd_803B2A4C retains the additional nonpositive-count guard.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/hsd_3B27.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L1-L170",
+          "why": "Shows repeated full-ring checks, -265 returns, command publication, and modulo-32 producer advancement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B27.c#L121-L174",
+          "why": "Shows the -257 prerequisite guard and the same ring publication transition."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "tu": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackairplane3",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackairplane3.c#L28-L46",
+            "why": "Command clear, helper-before-guard ordering, cleanup placement, and independent completion test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandthrowncrazyhand.c#L14-L25",
+            "why": "Unguarded reciprocal capture accesses and hardcoded state 0x153."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the baseline's unconditional null-victim cleanup claim with the actual caller ordering and cross-file preconditions while preserving one-shot command consumption and the independent completion branch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandbackairplane3:ftCh_BackAirplane3_Anim"
+        },
+        "type": "state_behavior",
+        "value": "A nonzero cmd_vars[0] is cleared before invoking ftCh_GrabUnk1_8015B850(victim_gobj, 0x153). The subsequent non-null victim guard protects only the common capture/throw/thrown calls, not that earlier helper. The earlier helper dereferences the supplied fighter and its reciprocal victim without guards and hardcodes state 0x153 despite accepting a motion-ID parameter. Thus null-victim execution and later x20 cleanup are not guaranteed safe. If preceding calls return normally, x20 is cleared outside the later victim guard. Independently, animation exhaustion invokes ftCh_GrabUnk1_8015BC88 whether or not the command event occurred."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

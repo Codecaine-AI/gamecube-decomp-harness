@@ -1,0 +1,55 @@
+{
+  "tu": "main/melee/vi/vi1201v1",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi1201v1.c#L78-L97",
+            "why": "Straight-line setup, numeric arguments, pointer assignment and audio calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi1201v1.c#L132-L146",
+            "why": "Exact frame guard without a consumed-event latch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's unsupported one-shot guarantee while preserving initialization order and numeric-state ambiguity.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi1201v1:un_8031F9D8"
+        },
+        "type": "state_behavior",
+        "value": "Every call performs unguarded participant initialization: it resets demo-fighter allocation and all player slots, configures slot 0 with the supplied character and costume, player ID 0, numeric slot type 2, facing 0.0, origin position and demo-creation argument 1, replaces the retained pointer with Player_GetEntity(0), and executes four fixed audio calls. The local camera caller invokes it when the updated camera frame equals exactly 100.0; neither helper nor caller has a consumed-event latch, so one-shot execution is not guaranteed by this code."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi1201v1.c#L132-L155",
+            "why": "Camera tests and fog threshold-before-increment branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi1201v1.c#L311-L317",
+            "why": "Fog registration and zero initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Clarifies the fog off-by-one boundary and preserves the independent camera guards rather than implying a generic 100-update removal.",
+        "subject": {
+          "entity_locator": "src/melee/vi/vi1201v1.c"
+        },
+        "type": "state_behavior",
+        "value": "The camera process advances animation before independent exact-equality tests, in order: frame 120 dispatches event 0xD with argument 0, frame 100 initializes the selected fighter, and equality with the camera end frame invokes finalization then requests scene exit. A milestone and completion can execute in the same invocation; no local latch guarantees one-shot milestones. Independently, the fog counter starts at zero: invocations 1 through 100 increment it, and invocation 101 requests fog-GObj teardown because the starting counter is already at least 100."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,10 +1,15 @@
+import { beforeAll as beforeBuildTests, afterAll as afterBuildTests } from "bun:test";
+// These fixtures exercise local tool behavior. Production defaults to Daytona.
+let previousBuildMode: string | undefined;
+beforeBuildTests(() => { previousBuildMode = process.env.ORCH_BUILD_EXECUTION; process.env.ORCH_BUILD_EXECUTION = "local"; });
+afterBuildTests(() => { if (previousBuildMode === undefined) delete process.env.ORCH_BUILD_EXECUTION; else process.env.ORCH_BUILD_EXECUTION = previousBuildMode; });
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { boardMeasuresFromReportSummary } from "./dashboard-artifacts.js";
-import { computeReportReuseKey, forceReportRun } from "./run.js";
+import { computeReportReuseKey, forceReportRun, reportRunOptionsForGame } from "./run.js";
 
 let tempDirs: string[] = [];
 
@@ -30,6 +35,79 @@ afterEach(() => {
 });
 
 describe("forceReportRun", () => {
+  test("configures an SMS report without Melee's require-protos flag", async () => {
+    const root = tempDir();
+    const repoRoot = resolve(root, "repo");
+    const binDir = resolve(root, "bin");
+    mkdirSync(repoRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(resolve(repoRoot, "configure.py"), "from pathlib import Path\nPath('build.ninja').write_text('# sms fixture\\n')\n");
+    writeExecutable(resolve(binDir, "ninja"), `#!/bin/sh
+mkdir -p build/GMSJ01
+printf '%s\\n' '{"measures":{}}' > build/GMSJ01/report.json
+`);
+
+    const originalPath = Bun.env.PATH;
+    Bun.env.PATH = `${binDir}:/bin:/usr/bin`;
+    try {
+      const options = {
+        ...reportRunOptionsForGame({ kind: "doldecomp-sms", validation: { reportPath: "build/GMSJ01/report.json" } }),
+        generateChanges: false,
+      };
+      const result = await forceReportRun(repoRoot, options);
+
+      expect(options.kind).toBe("doldecomp-sms");
+      expect(result.steps[0]?.command).toEqual(["python3", "configure.py"]);
+      expect(result.steps[0]?.command).not.toContain("--require-protos");
+    } finally {
+      if (originalPath === undefined) delete Bun.env.PATH;
+      else Bun.env.PATH = originalPath;
+    }
+  });
+
+  test("uses another game's report, config, baseline and ninja target with reuse enabled", async () => {
+    const root = tempDir();
+    const repoRoot = resolve(root, "repo");
+    const binDir = resolve(root, "bin");
+    mkdirSync(resolve(repoRoot, "config/GTEST01"), { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(resolve(repoRoot, "build.ninja"), "# alternate game fixture\n");
+    writeFileSync(resolve(repoRoot, "config/GTEST01/config.yml"), "name: alternate\n");
+    runGit(repoRoot, ["init"]);
+    runGit(repoRoot, ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.com", "commit", "--allow-empty", "-m", "fixture"]);
+    writeExecutable(resolve(binDir, "ninja"), `#!/bin/sh
+case "$*" in
+  '-k 0 out/GTEST01/progress.json')
+    mkdir -p out/GTEST01
+    printf '%s\\n' '{"measures":{"matched_code_percent":42}}' > out/GTEST01/progress.json ;;
+  'test_changes') printf '%s\\n' '{}' > out/GTEST01/deltas.json ;;
+  *) exit 9 ;;
+esac
+`);
+    const originalPath = Bun.env.PATH;
+    const originalReuse = Bun.env.ORCH_REPORT_REUSE;
+    Bun.env.PATH = `${binDir}:/bin:/usr/bin`;
+    Bun.env.ORCH_REPORT_REUSE = "1";
+    try {
+      const options = { ...reportRunOptionsForGame({ validation: {
+        reportPath: "out/GTEST01/progress.json", reportChangesPath: "out/GTEST01/deltas.json", qaTarget: "test_changes",
+      } }), resetBaseline: true };
+      const first = await forceReportRun(repoRoot, options);
+      const second = await forceReportRun(repoRoot, options);
+      expect(first.reportPath).toBe(resolve(repoRoot, "out/GTEST01/progress.json"));
+      expect(first.baselinePath).toBe(resolve(repoRoot, "out/GTEST01/baseline.json"));
+      expect(first.reportChangesPath).toBe(resolve(repoRoot, "out/GTEST01/deltas.json"));
+      expect(first.summary?.matchedCodePercent).toBe(42);
+      expect(first.steps.map((step) => step.command)).toEqual([["ninja", "-k", "0", "out/GTEST01/progress.json"], ["ninja", "test_changes"]]);
+      expect(JSON.stringify(first)).not.toContain("GALE01");
+      expect(second.reusedReport).toBe(true);
+      expect(existsSync(resolve(repoRoot, "build/GALE01"))).toBe(false);
+    } finally {
+      if (originalPath === undefined) delete Bun.env.PATH; else Bun.env.PATH = originalPath;
+      if (originalReuse === undefined) delete Bun.env.ORCH_REPORT_REUSE; else Bun.env.ORCH_REPORT_REUSE = originalReuse;
+    }
+  });
+
   test("persists each invocation's step output in a distinct directory", async () => {
     const root = tempDir();
     const repoRoot = resolve(root, "repo");
@@ -358,10 +436,10 @@ exit 1
     const binDir = resolve(root, "bin");
     const logPath = resolve(root, "commands.log");
     mkdirSync(repoRoot, { recursive: true });
-    mkdirSync(resolve(stateDir, "tools"), { recursive: true });
+    mkdirSync(resolve(root, "tools"), { recursive: true });
     mkdirSync(binDir, { recursive: true });
-    writeFileSync(resolve(stateDir, "tools", "wibo"), "wibo\n");
-    chmodSync(resolve(stateDir, "tools", "wibo"), 0o755);
+    writeFileSync(resolve(root, "tools", "wibo"), "wibo\n");
+    chmodSync(resolve(root, "tools", "wibo"), 0o755);
     writeFileSync(resolve(repoRoot, "configure.py"), "# fixture\n");
     writeExecutable(
       resolve(binDir, "python3"),
@@ -408,11 +486,11 @@ printf '{"ok":true}\\n' > build/GALE01/report_changes.json
     const binDir = resolve(root, "bin");
     const logPath = resolve(root, "commands.log");
     mkdirSync(resolve(repoRoot, "build/tools"), { recursive: true });
-    mkdirSync(resolve(stateDir, "tools"), { recursive: true });
+    mkdirSync(resolve(root, "tools"), { recursive: true });
     mkdirSync(binDir, { recursive: true });
     writeFileSync(resolve(repoRoot, "build/tools/wibo"), "host-local wrapper\n");
-    writeFileSync(resolve(stateDir, "tools/wibo"), "legacy host wrapper\n");
-    writeFileSync(resolve(stateDir, "tools/wibo-linux-x86_64"), "linux wrapper\n");
+    writeFileSync(resolve(root, "tools/wibo"), "legacy host wrapper\n");
+    writeFileSync(resolve(root, "tools/wibo-linux-x86_64"), "linux wrapper\n");
     writeFileSync(resolve(repoRoot, "configure.py"), "# fixture\n");
     writeExecutable(
       resolve(binDir, "python3"),

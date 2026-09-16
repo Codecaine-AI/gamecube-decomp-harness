@@ -1,0 +1,234 @@
+{
+  "tu": "main/melee/gm/gmclassic",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L489-L512",
+            "why": "Index initialization and swaps."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L691-L747",
+            "why": "Order setup and status reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L783-L931",
+            "why": "Separate intro, cache, and audio destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L963-L999",
+            "why": "Status consumption and production."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the destination of stage and audio data while preserving the documented runtime flow and distinguishing source overlay access from compiled layout.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmclassic:.bss"
+        },
+        "type": "data_flow",
+        "value": "Mode loading initializes sequential byte indices from four sentinel-terminated matchup pools and randomly swaps those indices for later assignment traversal. It clears twelve status bytes through the runtime overlay; VS entry reads numeric status and VS exit writes 1 or 2. Intro setup writes presentation category, player metadata, participant identities, colors, counts, and encounter markers into gmClassicIntroDataBuffer. Stage preload entries and audio-resource masks are prepared separately in external cache/audio systems, not stored in the intro payload. The source models combined intro/status/order access through an overlay; compiled adjacency is not established here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L523-L593",
+            "why": "Per-slot guards, early fallback, and return paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "The existing mapping overstates eligibility enforcement across fallback candidates.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmclassic:gmClassic_801B2BA4"
+        },
+        "type": "game_mapping",
+        "value": "Selects Classic encounter descriptors in shuffled traversal order, testing stage availability, fighter availability, exclusion of the selected fighter, and prior fighter use for each visited non-NONE slot, while preferring an unused ground-stage implementation. These are not unconditional guarantees for returned descriptors: a repeated-stage fallback is saved before later fighter slots are checked, and an all-NONE candidate bypasses stage availability and stage-reuse checks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L514-L593",
+            "why": "Sentinel-derived count and full selector implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact exceptional control flow rather than implying complete validation before fallback retention.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmclassic:gmClassic_801B2BA4"
+        },
+        "type": "state_behavior",
+        "value": "Visits pool[order[outer]] for a number of candidates determined by the pool's stage-0x148 sentinel. For each non-NONE fighter slot, failed stage/fighter availability, selected-fighter exclusion, or prior-fighter checks advance to the next candidate. A matching assigned ground-stage identity saves the candidate as the current fallback and immediately advances to the next candidate, leaving later fighter slots unchecked. A candidate completing the loop returns immediately; an all-NONE candidate therefore returns without stage checks. At exhaustion, the most recently saved fallback is returned, or NULL if none was saved."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L523-L689",
+            "why": "Selector behavior and assignment passes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L1081-L1091",
+            "why": "Accepted-selection caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "Assignment inherits the selector's exceptional behavior; the original blanket exclusion claim was too strong.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmclassic:gmClassic_801B2D54"
+        },
+        "type": "game_mapping",
+        "value": "Performs Classic's pre-campaign encounter assignment after accepted character selection, filling categorized phases from shuffled opponent-group pools, installing three fixed special descriptors, and assigning the dedicated matchup to the first 0x20 phase. Randomized choices use the selector's availability and variety checks, but its early same-stage fallback can bypass checks on later fighter slots, so exclusion of the selected fighter and previously used fighters is not guaranteed for every returned roster. Required randomized-selection failure does not recover: it enters a nonterminating loop."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L760-L931",
+            "why": "Stage helper, intro construction, transformation substitution, cache writes, and audio requests."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the materially important divergence between presentation/preload inputs and audio inputs.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmclassic:gmClassic_801B3500"
+        },
+        "type": "data_flow",
+        "value": "Combines the state-ID-selected Classic phase with campaign player settings and ally callbacks to populate intro categories, phase number, slot, nametag, participant arrays, colors, counts, and encounter markers, and saves the active intro state ID in campaign data. DVD cache preparation uses the presented player identity, non-empty enemies, and non-empty x24 allies. Its stage is character-specific for exact flags 0x80/subtype 1, 0xAF for exact flags 4, or the assigned stage otherwise. Audio accumulation instead starts from the original campaign player ckind, adds non-empty allies and enemies plus an extra mask for enemy kind 4, and uses gmClassic_GetStKind: character-specific for exact 0x80/subtype 1, otherwise the descriptor stage. Thus transformed Zelda presentation and flags-4 stage preloading do not imply identical audio identity/stage selection."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L1053-L1057",
+            "why": "Classic wrapper inputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_17C0.c#L377-L417",
+            "why": "Shared processor mutations and branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A3F.c#L208-L212",
+            "why": "Scheduler stores input+1."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects saved-state scheduling and preserves the additional terminal branch without deriving value semantics from helper names.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmclassic:gmClassic_801B3D84"
+        },
+        "type": "data_flow",
+        "value": "Retrieves DebugGameOverData from the state's exit slot and passes it, Classic's embedded one-player campaign record, persistent player settings, and selector 1 to gm_8017CA38. The shared processor copies payload x18 into campaign xC.x14 and submits that value to gm_801623FC. On nonzero payload xC it updates campaign xC.x18 through lbTime_8000AEC8(payload.x4, 1), restores stocks from settings, updates xC.xD through lbTime_8000AF74, and schedules campaign mode+1 through the incrementing state helper. On zero payload xC it performs terminal record/cleanup calls, routes to a challenger when selected, or calls gm_80173754 and requests the menu only if that helper returns zero."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L97-L121",
+            "why": "Intro/VS paired IDs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L783-L789",
+            "why": "Intro saves its state ID."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_17C0.c#L377-L417",
+            "why": "Game Over outcomes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A3F.c#L208-L212",
+            "why": "Incremented next-state selection."
+          }
+        ],
+        "op": "write",
+        "rationale": "The canonical scheduler increments its argument, and the terminal path is not an unconditional menu-versus-challenger dichotomy.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmclassic:gmClassic_801B3D84"
+        },
+        "type": "game_mapping",
+        "value": "Processes Classic's Game Over decision through the shared one-player processor. Continuing restores stocks and schedules the state following the saved intro-state ID, thereby returning to its paired VS encounter rather than replaying the saved intro state. Ending the run performs terminal bookkeeping and can route to a challenger; without a challenger, menu routing is conditional on gm_80173754 returning zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L374-L385",
+            "why": "State-105 registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L1053-L1057",
+            "why": "Unconditional delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_17C0.c#L377-L417",
+            "why": "Exact branch conditions and updates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A3F.c#L208-L212",
+            "why": "Input+1 scheduling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves numeric-state semantics, the helper-controlled exceptional branch, and uncertainty about indirect arithmetic.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmclassic:gmClassic_801B3D84"
+        },
+        "type": "state_behavior",
+        "value": "The Classic state-105 exit wrapper unconditionally delegates to gm_8017CA38. After its common x18 transfer, zero DebugGameOverData.xC takes the terminal path: mode-specific record updates and cleanup run, a selected challenger causes GM_CHALLENGER_APPROACH, and otherwise GM_MENU is requested only when gm_80173754(1, slot) returns zero. Nonzero xC takes the continue path: campaign xC.x18 and xC.xD are updated through their helpers, stocks are restored from saved settings, and gm_SetNextGameModeStateId(saved mode) schedules saved mode+1. The precise arithmetic meanings of the two value-update helpers are not established by this wrapper."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L602-L747",
+            "why": "Assignment implementation versus load reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L769-L1045",
+            "why": "Presentation, match consumption, and result processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmclassic.c#L1069-L1091",
+            "why": "Assignment occurs after accepted CSS."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the assignment lifecycle and makes the persistent pointer handoff and separate resource destinations explicit.",
+        "subject": {
+          "entity_locator": "src/melee/gm/gmclassic.c"
+        },
+        "type": "data_flow",
+        "value": "Defines Classic state descriptors, phase and matchup tables, traversal-order storage, and intro data. Mode loading clears previous phase xC assignments and shuffles four pool-index orders; it does not select the new matchups. Accepted CSS exit commits player settings and invokes assignment, which stores borrowed pool or fixed-descriptor pointers in sentinel-terminated phase records. Later intro and VS entry consume those pointers for roster and stage configuration. Intro presentation writes, DVD preload-cache writes, and audio-mask requests use distinct destinations. VS exit writes numeric status and persistent target records, while shared helpers handle campaign progression."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

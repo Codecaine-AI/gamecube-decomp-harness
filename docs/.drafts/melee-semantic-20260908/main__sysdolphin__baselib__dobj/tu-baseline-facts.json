@@ -1,0 +1,2306 @@
+{
+  "tu": "main/sysdolphin/baselib/dobj",
+  "facts": [
+    {
+      "id": "fact:a242e69e-d795-4718-984b-c327a63987fc",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Pointers into the string pool flow to OSReport and HSD_Panic when DObj loading encounters an unexpected material blending mode, to __assert for class, allocation, polygon-link, and material-link checks, and to hsdInitClassInfo as the DObj library and class identifiers. The retained-link strings are referenced through forceStringAllocation solely to make the compiler emit them and have no normal runtime production or mutation path.",
+      "rationale": "The source directly exposes each consumer and explicitly documents the emission-only role of forceStringAllocation. No shown code writes through these pointers, so the section supplies static textual inputs to diagnostics and class metadata rather than carrying changing DObj state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:57:15.473Z",
+      "subject": "main/sysdolphin/baselib/dobj:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L120-L239",
+          "why": "Shows diagnostic text flowing into OSReport, HSD_Panic, and allocation/class assertions during DObj construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows assertion strings consumed by the emission-forcing routine and class-name strings consumed by hsdInitClassInfo."
+        }
+      ]
+    },
+    {
+      "id": "fact:60b54477-a1e0-43de-bf0b-f5e80ae68a62",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A compiler-laid-out pool of NUL-terminated character strings, with any required inter-string padding or alignment, rather than a homogeneous numeric table or runtime object structure.",
+      "rationale": "Every source-level consumer associated with this data uses a string pointer: diagnostic and assertion APIs receive message text, class initialization receives textual identifiers, and the source explicitly says its dummy routine causes strings to end up in data. The data therefore has string-pool layout rather than an array-of-records interpretation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T04:57:15.473Z",
+      "subject": "main/sysdolphin/baselib/dobj:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L120-L239",
+          "why": "Shows string literals supplied to OSReport, HSD_Panic, and __assert."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Explicitly characterizes the forced entries as strings placed in data and shows additional textual class identifiers."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-218--main-sysdolphin-baselib-dobj",
+          "why": "Confirms that the reconstructed declarations belong to this unit's .data split."
+        }
+      ]
+    },
+    {
+      "id": "fact:32c8c18e-883a-46f4-904a-26f1d28d54ed",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the DObj translation unit's static text pool for material-rendering diagnostics, assertion failures, and HSD class registration. It also retains otherwise unreachable polygon/material reference assertion strings so they remain present in the compiled data section.",
+      "rationale": "The source passes embedded text to OSReport, HSD_Panic, and __assert, and passes the class-library and class-name strings to hsdInitClassInfo. The explicitly documented forceStringAllocation routine exists solely to force several otherwise unused assertion strings into data. PR #218 independently identifies this unit as participating in the split of the remaining .data into C declarations.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:57:15.473Z",
+      "subject": "main/sysdolphin/baselib/dobj:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L120-L239",
+          "why": "Shows the material blending diagnostic and panic/assertion strings consumed by DObj loading and allocation paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows forceStringAllocation deliberately retaining otherwise unused assertion strings and shows the library and class names supplied during DObj class registration."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-218--main-sysdolphin-baselib-dobj",
+          "why": "Identifies dobj.c as part of the change that split the remaining .data and moved its declarations into C."
+        }
+      ]
+    },
+    {
+      "id": "fact:6a690525-7136-4eda-a9de-a82449325544",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.sbss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`default_class` receives the class selected by `HSD_DObjSetDefaultClass`, is read by `HSD_DObjAlloc` to choose between that class and the built-in `hsdDObj` class, and is cleared when class-amnesia processing forgets the selected class. `current_dobj` receives each visible DObj whose transparency flags match the active rendering pass immediately before its display-method invocation, then receives NULL when DObj traversal completes.",
+      "rationale": "The default-class setter, allocator, and amnesia callback establish the complete producer-consumer-reset flow of the first slot. The direct current-DObj setter and its rendering caller establish that the second slot carries the selected DObj into display dispatch and is explicitly cleared after the list.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T04:57:57.065Z",
+      "subject": "main/sysdolphin/baselib/dobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows writes to and allocation-time consumption of `default_class`, followed by class-amnesia invalidation when the same class is forgotten."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L19-L22",
+          "why": "Shows an input DObj pointer flowing unchanged into `current_dobj`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L273-L353",
+          "why": "Shows the origin and filtering of each selected DObj, the setter call immediately before display dispatch, and the final NULL assignment."
+        }
+      ]
+    },
+    {
+      "id": "fact:5c58a0d7-f10e-4afa-826d-37cbb1850867",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.sbss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An 8-byte zero-initialized layout of two 32-bit pointers in declaration order: `HSD_ClassInfo* default_class` followed by `HSD_DObj* current_dobj`.",
+      "rationale": "The matched source places two explicitly null-initialized static pointers together before the next initialized object. On the 32-bit GameCube target, the two pointer objects account exactly for the section's eight-byte extent, and their declarations establish the pointee types and source order.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:57:57.065Z",
+      "subject": "main/sysdolphin/baselib/dobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L30",
+          "why": "Directly declares `default_class` and `current_dobj`, their pointer types, null initial values, and declaration order."
+        }
+      ]
+    },
+    {
+      "id": "fact:aa9775d6-4919-4eac-81bb-b5b9dd268fe9",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.sbss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Holds the display-object subsystem's zero-initialized process-global pointer state: the optional default DObj class used for allocation and the DObj currently selected during rendering.",
+      "rationale": "The matched unit declares exactly two null-initialized static pointer globals, `default_class` and `current_dobj`. Allocation selects the configured default class when present, while display traversal installs each eligible DObj as current before dispatch and clears that context afterward, establishing these as persistent class-selection and render-context slots.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:57:57.065Z",
+      "subject": "main/sysdolphin/baselib/dobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L30",
+          "why": "Declares the two null-initialized pointer globals and shows the direct setter for `current_dobj`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows `default_class` controlling the class used by DObj allocation and being invalidated by class-amnesia handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L273-L353",
+          "why": "Shows `current_dobj` being set around polymorphic display dispatch for each visible, transparency-eligible DObj and cleared after traversal."
+        }
+      ]
+    },
+    {
+      "id": "fact:59c4b992-cc90-45c1-ab8d-7f0adf9db3de",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.sbss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Both slots begin as NULL. The default-class slot remains optional, can be replaced or cleared by the class setter, falls back to the built-in DObj class when absent, and transitions back to NULL when its referenced class is forgotten. The current-DObj slot is unconditionally overwritten for each eligible object during rendering and explicitly cleared on traversal exit without saving or restoring a prior value.",
+      "rationale": "The declarations establish the initial null state. The setter and allocator establish optional default-class replacement and fallback, while DObjAmnesia provides its guarded invalidation transition. The render traversal and direct current-object setter establish repeated overwrite and terminal-clear behavior for the second slot.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T04:57:57.065Z",
+      "subject": "main/sysdolphin/baselib/dobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L30",
+          "why": "Shows both pointer slots initialized to NULL and the unconditional assignment semantics of `current_dobj`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows replacement and fallback behavior for `default_class` and its guarded transition to NULL during class amnesia."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L273-L353",
+          "why": "Shows repeated current-DObj selection before dispatch and an explicit transition to NULL after traversal, with no prior value preserved."
+        }
+      ]
+    },
+    {
+      "id": "fact:9a127250-4d8d-4488-b7cb-cc485f52d054",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Pointers to the stored \"dobj.c\" filename flow into HSD_Panic and __assert as diagnostic source metadata. The stored \"dobj\" string flows into allocation assertions as the failed expression text, while the explicit-NUL literal supplies the panic message for an invalid material render-mode branch. No matched code writes these character arrays at runtime.",
+      "rationale": "The declarations initialize the strings once, and their matched call sites use their addresses only as diagnostic arguments. The absence of assignments to either array in the complete DObj unit supports treating the section as compile-initialized diagnostic data despite its placement in writable small data.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T05:00:43.811Z",
+      "subject": "main/sysdolphin/baselib/dobj:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L120-L239",
+          "why": "Shows the filename and explicit-NUL message flowing into HSD_Panic, and the filename plus \"dobj\" expression flowing into __assert."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows further read-only diagnostic use of the filename string by assertions and no runtime mutation of the small-data strings."
+        }
+      ]
+    },
+    {
+      "id": "fact:9f83c025-a2ec-4ee9-b65d-863ad5d4fe8e",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A small-data collection of NUL-terminated character storage used by DObj diagnostics, including a 7-byte \"dobj.c\\0\" filename array, a 5-byte \"dobj\\0\" assertion-expression array, and storage for the explicit-NUL panic-message literal, with compiler-required alignment or padding between entries.",
+      "rationale": "The declarations establish the two named character-array layouts, while the panic call establishes the additional explicit-NUL literal. The historical small-data split confirms that these declarations belong to dobj.c's recovered small-data ownership; padding details are inferred from their placement as one section target rather than treated as semantic values.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T05:00:43.811Z",
+      "subject": "main/sysdolphin/baselib/dobj:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L180",
+          "why": "Directly declares HSD_DObj_804D5C78 as a seven-character array initialized with \"dobj.c\\0\"."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L120-L239",
+          "why": "Directly declares HSD_DObj_804D5C84 as a five-character array initialized with \"dobj\\0\" and shows the explicit-NUL literal used as a panic message."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-200--main-sysdolphin-baselib-dobj",
+          "why": "Records that dobj.c was included in the project change that split and assigned ownership of this range of small-data sections."
+        }
+      ]
+    },
+    {
+      "id": "fact:46564884-d8d3-437a-999f-f21a74bb2776",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the DObj module's compact diagnostic string storage: the source-file identifier used by assertions and panics, the short DObj assertion expression, and the empty panic message used when an unexpected material blending mode is encountered.",
+      "rationale": "The matched source defines the module-local strings \"dobj.c\\0\" and \"dobj\\0\" and passes them to HSD_Panic and __assert. The panic call also uses an explicit-NUL string literal. These consumers establish that this small-data section exists for DObj diagnostic metadata rather than rendering or object state.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T05:00:43.811Z",
+      "subject": "main/sysdolphin/baselib/dobj:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L180",
+          "why": "Defines the \"dobj.c\" character array and shows the DObj module's flag, animation, and loading code surrounding its diagnostic use."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L120-L239",
+          "why": "Shows the filename string and explicit-NUL message being passed to HSD_Panic for an unexpected blending mode, defines the \"dobj\" expression string, and passes both named strings to __assert after failed subclass construction."
+        }
+      ]
+    },
+    {
+      "id": "fact:fdd8c940-bad0-4e05-acca-bbf9f38f229d",
+      "target_id": "target:data:main/sysdolphin/baselib/dobj:.sdata",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The section remains passive during normal DObj operation. Its strings become observable only on diagnostic paths: an unsupported material blending-mode encoding reports the mode and panics with the module filename and empty message, while failed DObj subclass allocation or related invariant failures assert with the filename and expression text.",
+      "rationale": "The matched loader reaches HSD_Panic only through the default arm of its render-mode switch, and HSD_DObjLoadDesc reaches __assert only when registered-subclass construction returns NULL. Other invariant assertions in the unit reuse the same filename, establishing guard-triggered rather than ordinary runtime consumption.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T05:00:43.811Z",
+      "subject": "main/sysdolphin/baselib/dobj:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L120-L239",
+          "why": "Shows the render-mode switch's default diagnostic path and the null-subclass-allocation assertion that consume the section's strings."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows additional invariant assertions using the same DObj filename diagnostic string."
+        }
+      ]
+    },
+    {
+      "id": "fact:23c84204-a13f-463f-a684-d0e393424838",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjAmnesia",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The incoming `HSD_ClassInfo*` is compared by identity with the class information cached in the file-local `default_class`. A match writes NULL to that cache, after which the original input pointer is passed unchanged to the parent HSD class's amnesia callback.",
+      "rationale": "The unit declares `default_class` as a file-local HSD_ClassInfo pointer. The callback's only local mutation is clearing that pointer under the identity guard, and its final operation forwards the same `info` argument to the parent callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:42.110Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L30",
+          "why": "Declares `default_class` as a file-local HSD_ClassInfo pointer initialized to NULL."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L331-L337",
+          "why": "Shows the input's identity comparison, the resulting NULL assignment, and forwarding of the unchanged input to the parent callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:be23491a-bcb5-459c-b92d-df0b8bfa2da0",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjAmnesia",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "HSD class-amnesia callback with signature `void (HSD_ClassInfo* info)`; installed as `HSD_CLASS_INFO(&hsdDObj)->amnesia`, with `info` identifying the class information being forgotten.",
+      "rationale": "The complete definition accepts one HSD_ClassInfo pointer and returns void, while DObjInfoInit assigns the function directly to the HSD_DObj class information's amnesia method slot.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:42.110Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L299-L349",
+          "why": "Provides the callback's complete signature and shows its assignment to the HSD_DObj class information's amnesia slot."
+        }
+      ]
+    },
+    {
+      "id": "fact:e72159f0-fae7-4f6b-98eb-1e1e4232b693",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjAmnesia",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Handles HSD class-amnesia notifications for the display-object subsystem by invalidating the cached default DObj class when that class is forgotten, then propagating the notification to the parent HSD class.",
+      "rationale": "DObjInfoInit installs DObjAmnesia in the HSD_DObj class information's amnesia slot. The callback conditionally clears the module's default-class cache and unconditionally invokes the parent class's amnesia callback, establishing class-lifecycle cleanup rather than ordinary DObj instance release.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:42.110Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L299-L349",
+          "why": "Shows DObjAmnesia invalidating the cached default class, delegating to the parent amnesia method, and being registered as the HSD_DObj class's amnesia callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:4543742b-e68a-4b7f-bf81-5e76678f1f9c",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjAmnesia",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "When the forgotten class matches the configured DObj default class, `default_class` transitions to NULL. If it does not match, local DObj module state is unchanged. Parent-class amnesia processing runs afterward on every invocation regardless of the guard's result.",
+      "rationale": "The callback contains one guarded pointer invalidation, no early return or alternate state mutation, and an unconditional parent-method call after the guard.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:42.110Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L331-L337",
+          "why": "Directly establishes the guarded transition of `default_class` to NULL and unconditional parent-class delegation."
+        }
+      ]
+    },
+    {
+      "id": "fact:308c6b27-9742-4c44-af2b-622b2a2d1cea",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjInfoInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the global hsdClass descriptor as the parent definition and writes the global hsdDObj descriptor: it supplies the library and class identifiers plus HSD_DObjInfo and HSD_DObj sizes to hsdInitClassInfo, then stores DObjRelease and DObjAmnesia in the inherited lifecycle slots and HSD_DObjDisp and DObjLoad in the DObj-specific operation slots.",
+      "rationale": "Every mutation performed directly by DObjInfoInit targets hsdDObj. The initialization call combines that destination with hsdClass and the DObj metadata, while the following assignments populate the completed descriptor with the four DObj implementation callbacks.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:22.774Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L339-L349",
+          "why": "Shows hsdClass and DObj type metadata flowing into initialization of hsdDObj and all four subsequent callback writes targeting that descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:e26db413-e6be-4635-97dc-d2e38e4beb71",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjInfoInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A file-local, no-argument, no-return HSD class-information initializer with signature `static void DObjInfoInit(void)`; it configures an HSD_DObjInfo class descriptor for HSD_DObj instances, inheriting from the base hsdClass descriptor.",
+      "rationale": "The declaration and definition establish the static void(void) signature. The hsdInitClassInfo arguments identify hsdDObj as the destination descriptor, hsdClass as its parent, HSD_DObjInfo as the class-metadata layout, and HSD_DObj as the instance layout.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:22.774Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L80",
+          "why": "Shows the static declaration and the global HSD_DObjInfo record whose deferred initialization slot contains DObjInfoInit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L339-L349",
+          "why": "Provides the complete function definition and identifies the destination, parent, metadata type, and instance type supplied to the class initializer."
+        }
+      ]
+    },
+    {
+      "id": "fact:5bce9f4c-9838-44f4-a00e-26db0de0795e",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjInfoInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Bootstraps the HSD DObj runtime class as a subclass of the base HSD class and installs the display-object lifecycle, rendering, and descriptor-loading methods used through HSD class dispatch.",
+      "rationale": "DObjInfoInit initializes the global hsdDObj descriptor from hsdClass using the HSD_DObjInfo and HSD_DObj sizes, then installs DObjRelease, DObjAmnesia, HSD_DObjDisp, and DObjLoad in its dispatch slots. The common class initializer establishes the descriptor's identity and size metadata, inherits the parent's dispatch region, and registers the resulting descriptor beneath its parent.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:49.088Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L32-L58",
+          "why": "Shows hsdInitClassInfo initializing class identity and size metadata, lazily initializing the parent, copying its inheritable dispatch region, and inserting the new descriptor into the parent's child list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L339-L349",
+          "why": "Shows DObjInfoInit deriving hsdDObj from hsdClass and installing the DObj release, amnesia, display, and descriptor-loading callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:6cd01a11-2d73-45f3-b1ca-d9519d89552d",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjInfoInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The hsdDObj record begins with DObjInfoInit as its deferred initializer. When invoked, the routine transitions it into configured DObj class metadata: the common initializer marks it initialized, lazily initializes hsdClass if necessary, copies the parent's inheritable dispatch region, and registers hsdDObj as a child; DObjInfoInit then overrides the inherited lifecycle slots and installs the DObj display and load methods.",
+      "rationale": "The global descriptor initially contains DObjInfoInit in its initialization slot. At invocation, hsdInitClassInfo performs the initialized-state, parent-initialization, inheritance, and hierarchy-registration transitions before DObjInfoInit specializes the resulting dispatch table with four DObj callbacks.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:49.088Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L80",
+          "why": "Shows hsdDObj's initial bootstrap state with DObjInfoInit stored in its deferred initialization slot."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L32-L58",
+          "why": "Shows the initialized flag, lazy parent initialization, inherited dispatch copy, and insertion into the parent's child list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L339-L349",
+          "why": "Shows common class initialization preceding the DObj-specific lifecycle, display, and loading callback assignments."
+        }
+      ]
+    },
+    {
+      "id": "fact:ac0543a0-a622-4a2e-ba0e-a1c5b9da0fd2",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjLoad",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The descriptor's `next`, `mobjdesc`, and `pobjdesc` pointers flow into HSD_DObjLoadDesc, HSD_MObjLoadDesc, and HSD_PObjLoadDesc respectively, and their runtime outputs are stored in `dobj->next`, `dobj->mobj`, and `dobj->pobj`. If a material was produced, `mobj->rendermode & 0x60000000` selects the value written into DObj flag bits covered by mask 0xE: 0 maps to 2, 0x40000000 maps to 8, and 0x60000000 maps to 4.",
+      "rationale": "Every descriptor input, loader call, destination field, render-mode test, and flag value is explicit in the matched body. HSD_DObjModifyFlags replaces only the bits selected by 0xE, so the switch output is a precise masked flag-group update rather than an unrestricted flag assignment.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:14.735Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjLoad",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L178-L202",
+          "why": "Directly shows the descriptor-to-loader-to-runtime-field flow and the complete render-mode-to-DObj-flag mapping."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L180",
+          "why": "Shows that HSD_DObjModifyFlags preserves bits outside its mask and replaces the masked bits with the supplied flag value."
+        }
+      ]
+    },
+    {
+      "id": "fact:495aff6f-1dd3-4e6e-8046-f0812e862202",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjLoad",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Static DObj class-load callback with signature `int (HSD_DObj* dobj, HSD_DObjDesc* desc)`. It mutates the supplied allocated runtime object from a non-null descriptor and returns 0 after successful initialization.",
+      "rationale": "The definition provides the exact static signature, writes exclusively through the supplied HSD_DObj, reads the HSD_DObjDesc, and returns zero. HSD_DObjLoadDesc invokes the selected DObj class's `load` method with the same runtime-object and descriptor argument shape, demonstrating the callback role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:14.735Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjLoad",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L178-L202",
+          "why": "Provides the exact function signature, object mutations, descriptor reads, and zero return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L259",
+          "why": "Shows HSD_DObjLoadDesc invoking a DObj class load method with an allocated HSD_DObj and its descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:f4a58908-132c-472e-b777-6bdc83e505e5",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjLoad",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Populates an already allocated HSD_DObj from its descriptor by recursively constructing the remaining DObj chain, loading its material and polygon objects, and selecting the DObj's render-classification flag from the loaded material's blending mode.",
+      "rationale": "The function stores the results of the recursive DObj, MObj, and PObj descriptor loaders directly into the supplied runtime object. It then inspects the material's high render-mode bits and replaces the DObj flag group selected by mask 0xE, establishing that descriptor loading also initializes how the DObj is classified for rendering.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:14.735Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjLoad",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L178-L202",
+          "why": "Shows the complete initialization helper, including recursive component loading and material-derived DObj flag selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L259",
+          "why": "Shows DObjLoad in the surrounding descriptor-loading path, where HSD_DObjLoadDesc allocates a DObj and invokes its load method."
+        }
+      ]
+    },
+    {
+      "id": "fact:d543d461-1c77-4f9d-be2b-6610c8b2b7cd",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjLoad",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Loading always installs the recursively loaded next, material, and polygon pointers. With no material, it leaves the DObj's masked render-classification bits unchanged. With a material, blend-mode class 0, 0x40000000, or 0x60000000 transitions flag bits 0xE to 2, 8, or 4 respectively; the remaining masked value, 0x20000000, is treated as invalid, reported with the full render mode, and sent to HSD_Panic instead of completing normally.",
+      "rationale": "The material null guard controls whether flags are touched. Masking by 0x60000000 yields four possible values, three of which have explicit flag transitions; therefore the default is the 0x20000000 case. That default reports the material's full render mode and invokes the panic routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:14.735Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjLoad",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L178-L202",
+          "why": "Shows the null-material guard, all accepted render-mode states and flag transitions, and the report-and-panic behavior for the unsupported state."
+        }
+      ]
+    },
+    {
+      "id": "fact:aa59301c-7576-43b7-9bb2-dffcc2ed5dd9",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjRelease",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an HSD_Class pointer, views it as an HSD_DObj, and reads the DObj's mobj, pobj, and aobj fields. Those pointers flow respectively to HSD_MObjRemove, HSD_PObjRemoveAll, and HSD_AObjRemove, while the unchanged original base pointer flows to the parent class's release callback.",
+      "rationale": "Every DObj field read by the routine is forwarded directly to the cleanup API for that attachment category, and the original callback argument is retained for superclass cleanup. The resolved MObj and AObj removers confirm that their inputs are consumed as nullable lifecycle objects rather than merely inspected.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:41.113Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Directly shows the flow from the three DObj attachment fields into their removal routines and from the original HSD_Class pointer into parent release."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Shows HSD_MObjRemove consuming a non-null MObj through its virtual release and destroy operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows HSD_AObjRemove consuming the supplied AObj by releasing its attachments and then freeing it."
+        }
+      ]
+    },
+    {
+      "id": "fact:74e2ed2f-89bf-42e2-8aa7-dbacbe6fe8fc",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjRelease",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Static HSD class release callback with signature void(HSD_Class*); the argument must designate an HSD_DObj instance viewed through its HSD_Class base.",
+      "rationale": "The definition directly supplies the void(HSD_Class*) signature, immediately converts the base pointer to HSD_DObj*, and is assigned to hsdDObj's class release slot by DObjInfoInit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:41.113Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L320-L349",
+          "why": "Declares the callback signature, casts its argument to HSD_DObj*, and registers the function in the DObj class's release method slot."
+        }
+      ]
+    },
+    {
+      "id": "fact:a2a1c8fc-22ac-413d-a119-58d5f9587de2",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjRelease",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the DObj-specific release phase: it tears down the display object's attached material object, complete polygon-object list, and animation object before delegating release of the remaining base-class state to the parent HSD class.",
+      "rationale": "The matched body invokes the dedicated removal routine for each of the DObj's three attachment fields and then calls the parent class's release method. DObjInfoInit installs this function in the DObj class release slot, establishing that this cleanup sequence is the DObj specialization of the HSD class lifecycle.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:41.113Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L320-L349",
+          "why": "Shows DObjRelease removing the mobj, pobj list, and aobj attachments, calling the parent release method last, and being registered as the DObj class's release callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Shows that HSD_MObjRemove performs the material object's virtual release followed by destruction when the supplied attachment is non-null."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows that HSD_AObjRemove dismantles the animation object's subordinate attachments and frees the AObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:65424bc0-4013-4b38-9448-fccfc5cf94b0",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:DObjRelease",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The release transition is strictly ordered: the material object is removed first, the polygon-object list second, and the animation object third; only after all DObj-specific attachments have been handed to their teardown routines does parent-class release run. The callback itself has no null guard for its DObj argument, while the invoked MObj and AObj removal APIs independently accept null attachments.",
+      "rationale": "The source fixes the attachment-cleanup and superclass-call ordering and immediately dereferences the cast DObj. The resolved MObj and AObj removal bodies each guard their own nullable input, demonstrating that those two absent-attachment cases are handled by the callees rather than by DObjRelease.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:04:41.113Z",
+      "subject": "main/sysdolphin/baselib/dobj:DObjRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L320-L329",
+          "why": "Shows the exact cleanup order, final parent release call, and absence of a callback-level null guard before reading DObj fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "Shows that a null material-object attachment is a no-op in HSD_MObjRemove."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows that a null animation-object attachment is a no-op in HSD_AObjRemove."
+        }
+      ]
+    },
+    {
+      "id": "fact:f7ed5da3-ae21-42dd-9a2f-fb0f7ce3aa9e",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Each DObj is paired by list position with the current HSD_MatAnim and HSD_ShapeAnimDObj nodes. HSD_DObjAddAnim extracts `shapeanimdobj->shapeanim` when available and passes it to the DObj's PObj chain, while the current HSD_MatAnim flows to the DObj's MObj. The PObj path replaces shape-animation AObjs on corresponding shape PObjs, and the MObj path replaces the material-level AObj and distributes texture-animation descriptors to attached TObjs.",
+      "rationale": "The target source establishes positional pairing and forwarding to HSD_DObjAddAnim. The resolved single-DObj helper exposes the split into PObj and MObj channels, while the resolved PObj and MObj attachment routines show the controller replacement and subordinate descriptor distribution caused by those inputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:09.707Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L79-L117",
+          "why": "Shows each current descriptor pair flowing through HSD_DObjAddAnim into the current DObj's PObj and MObj attachments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L74-L111",
+          "why": "Shows shape-animation descriptors being paired with shape PObjs and loaded as replacement AObjs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L55-L68",
+          "why": "Shows a material-animation descriptor replacing the MObj's AObj and supplying texture-animation data to its TObj chain."
+        }
+      ]
+    },
+    {
+      "id": "fact:e03bafdf-98c8-484a-bda2-9c9f8c49aad6",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the display-object render-channel attachment stage of hierarchical model animation setup: for one JObj, it binds the animation hierarchy's material and shape channels to the JObj's DObj list alongside the joint-transform and relation-object channels installed by HSD_JObjAddAnim.",
+      "rationale": "HSD_JObjAddAnim invokes the target with a JObj's DObj chain and the current MatAnimJoint and ShapeAnimJoint payloads while separately installing that node's transform and RObj animation. The target then distributes those render descriptors to material, texture, polygon, and shape controllers, grounding it as one component of hierarchical model-animation preparation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:05:09.707Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L287-L347",
+          "why": "Shows HSD_JObjAddAnim calling the target with the current model node's DObj list and material and shape animation payloads alongside transform and RObj setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L79-L117",
+          "why": "Shows the target distributing those payloads across DObjs and into their polygon and material attachments."
+        }
+      ]
+    },
+    {
+      "id": "fact:74fd6bda-a927-4a31-bbac-50f24f78c3a3",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void HSD_DObjAddAnimAll(HSD_DObj* dobj, HSD_MatAnim* matanim, HSD_ShapeAnimDObj* shapeanimdobj)`. The arguments are nullable heads of three next-linked chains: runtime display objects, corresponding material-animation descriptors, and corresponding per-DObj shape-animation descriptors.",
+      "rationale": "The matched definition supplies the exact return and parameter types. It initializes traversal cursors from all three parameters, follows each cursor's next link, and explicitly accepts a null DObj head; null-safe `next_p` advancement permits either descriptor chain to be absent or end before the DObj chain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:09.707Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L101-L117",
+          "why": "Provides the exact signature, the null-DObj guard, and the parallel traversal of the DObj, material-animation, and shape-animation chains."
+        }
+      ]
+    },
+    {
+      "id": "fact:863b1660-8b45-40d5-b38d-d744936be1d7",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Attaches corresponding material- and shape-animation descriptors across a next-linked HSD_DObj list, delegating each aligned descriptor set to the single-DObj attachment routine.",
+      "rationale": "The target traverses the DObj, HSD_MatAnim, and HSD_ShapeAnimDObj chains together and invokes HSD_DObjAddAnim for each DObj. That helper extracts the shape-animation list for the DObj's PObjs and forwards the material descriptor to its MObj, establishing this as the list-wide attachment operation for both render-animation channels.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:09.707Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L79-L117",
+          "why": "Shows the complete list-wide traversal and the single-DObj helper that distributes each shape descriptor to the PObj chain and each material descriptor to the MObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:bddad030-6c55-4394-ae7f-f0611c55fc69",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null DObj head is a no-op. Otherwise every DObj is visited even when either descriptor chain is null or becomes exhausted: a missing shape descriptor leaves that DObj's shape-animation attachments unchanged, and a missing material descriptor leaves its material-animation attachment unchanged. With descriptors present, the corresponding existing shape and material AObjs are replaced by controllers loaded from the new descriptions.",
+      "rationale": "The target guards only the DObj head and advances optional descriptor cursors with null-safe `next_p`, so DObj traversal continues independently of descriptor availability. HSD_DObjAddAnim converts a missing shape wrapper to a null shape list, and the resolved PObj and MObj routines return without mutation for missing animation data while replacing prior AObjs when valid descriptors are supplied.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:05:09.707Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L79-L117",
+          "why": "Shows the null-DObj no-op, DObj-controlled loop termination, null-safe descriptor advancement, and independent forwarding of material and shape channels."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L74-L111",
+          "why": "Shows that absent shape-animation data causes no attachment and that valid data replaces the shape set's existing AObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L55-L68",
+          "why": "Shows that absent material-animation data causes no mutation and that valid data replaces the MObj's existing AObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:f523532c-25fd-4f5c-b6df-407a97e46af4",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAlloc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the module's `default_class` pointer. If it is non-NULL, that class is passed to `hsdNew`; otherwise the function passes `&hsdDObj.parent`. The resulting object pointer is checked for NULL and then returned to the caller.",
+      "rationale": "The conditional expression in the matched source completely exposes the class input selection, while the following statements show the constructed pointer's failure check and final consumer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:50.477Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L258-L266",
+          "why": "Shows the flow from default_class or hsdDObj.parent into hsdNew and from hsdNew's result through the NULL check to the return value."
+        }
+      ]
+    },
+    {
+      "id": "fact:6b7bed66-bdef-408e-ad58-b21feebde9ba",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAlloc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `HSD_DObj* HSD_DObjAlloc(void)`; it accepts no arguments and returns a newly constructed HSD_DObj pointer.",
+      "rationale": "The matched function declaration supplies the exact parameter and return types, and the body returns the pointer produced by hsdNew after casting it to HSD_DObj*.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:50.477Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L258-L266",
+          "why": "Provides the exact C signature and shows the hsdNew result stored and returned as an HSD_DObj pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:7d987a8a-3c98-431d-9302-8c0ee1dbe888",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAlloc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Creates a new HSD display object using the currently configured DObj class, falling back to the standard DObj class when no override is installed, and treats allocation failure as an assertion error.",
+      "rationale": "The matched body passes either default_class or the standard hsdDObj parent class to hsdNew, checks the returned object for NULL, asserts on failure, and otherwise returns it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:50.477Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L258-L266",
+          "why": "Directly shows class selection, object construction through hsdNew, the NULL-result assertion, and return of the allocated HSD_DObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:b6720c8e-a3cb-4a48-90a6-4e7f73a1260b",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAlloc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Uses one of two allocation classes according to whether `default_class` is installed. A successful construction returns normally; a NULL construction result enters the assertion path before the function reaches its return.",
+      "rationale": "The matched body has a class-selection conditional followed by a single failure guard around __assert, directly establishing both behavioral branches.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:50.477Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L258-L266",
+          "why": "Directly shows the default-class selection and the success-versus-NULL assertion behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:560b0c7a-ff81-4043-bd30-8edbd4a64b90",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a DObj-list head, follows each node's next pointer, and passes every node to HSD_DObjAnim. That helper reads the node's pobj and mobj attachments: the PObj path evaluates shape-controller values into shape-set blend state, while the MObj path evaluates material channels into material colors, opacity, and pixel-engine alpha fields before advancing the material's attached texture animations.",
+      "rationale": "The DObj source establishes list traversal and distribution into the two attached-object subsystems. The PObj callback shows shape-animation values flowing into shape-set blend storage, and the MObj callback identifies the rendered material and pixel-engine fields receiving evaluated animation values.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:04:45.921Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L176",
+          "why": "Shows each DObj's pobj and mobj fields being forwarded to their animation routines during list traversal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L116-L176",
+          "why": "Shows evaluated shape-animation values being written into the shape set's additive weights or blend value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Shows evaluated material channels updating colors, opacity, alpha-test references, and destination alpha before texture animation is advanced."
+        }
+      ]
+    },
+    {
+      "id": "fact:3bdd9395-5b13-44bf-bdb1-d633bd8888ef",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the display-object stage of hierarchical model-animation playback: for one model joint's DObj chain, it advances animated geometry deformation together with material and texture appearance.",
+      "rationale": "HSD_JObjAnim invokes the target on a JObj's DObj union arm after evaluating that joint and its relation objects, placing it within per-joint hierarchical model playback. The DObj, PObj, and MObj sources show that this stage evaluates shape deformation and rendered material/texture properties across all display objects attached to the joint.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:04:45.921Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L509-L541",
+          "why": "Shows HSD_JObjAnim invoking HSD_DObjAnimAll on the current model joint's DObj arm as part of per-joint animation evaluation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L176",
+          "why": "Shows the display-object stage distributing animation evaluation to polygon and material attachments across the DObj chain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L116-L176",
+          "why": "Grounds the polygon-object portion in animated shape blending and deformation state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Grounds the material-object portion in animated surface, alpha, and attached texture properties."
+        }
+      ]
+    },
+    {
+      "id": "fact:bfca87a6-db87-48bb-8ef0-ff40e37e886d",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void HSD_DObjAnimAll(HSD_DObj* dobj). Its argument is a nullable mutable pointer to the head of a next-linked HSD_DObj list.",
+      "rationale": "The matched definition directly establishes the return and parameter types. Its explicit null guard permits a null list head, and its loop follows HSD_DObj::next until the end of the chain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:45.921Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L165-L176",
+          "why": "Provides the exact signature, null-head behavior, and next-linked HSD_DObj traversal."
+        }
+      ]
+    },
+    {
+      "id": "fact:6ffe4eea-bd94-45b8-999c-88c7775a91cb",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Advances animation for every display object in a next-linked HSD_DObj list. For each DObj, it first evaluates animation for all attached polygon objects and then evaluates the attached material object, including that material's texture animations.",
+      "rationale": "The target traverses the complete DObj chain and invokes HSD_DObjAnim once per node. HSD_DObjAnim delegates in order to HSD_PObjAnimAll and HSD_MObjAnim; the resolved polygon- and material-object implementations establish that these calls evaluate shape animation and material-plus-texture animation respectively.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:45.921Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L176",
+          "why": "Shows the target walking the DObj next chain and the per-DObj helper invoking polygon animation followed by material animation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L116-L176",
+          "why": "Shows HSD_PObjAnimAll traversing attached polygon objects and interpreting shape-animation controllers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Shows HSD_MObjAnim interpreting material-property animation and then advancing its attached texture-object chain."
+        }
+      ]
+    },
+    {
+      "id": "fact:0d4b2631-42ff-4947-bd1e-607e2a9f7c8d",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null DObj-list head is an immediate no-op. Otherwise every DObj is visited once in next-pointer order. Within each node, polygon-object animation always precedes material-object animation; null attachment pointers are accepted by the delegated routines and do not prevent traversal from continuing to later DObjs.",
+      "rationale": "The target's guard and loop directly establish null handling and complete sequential traversal. HSD_DObjAnim has a fixed polygon-then-material call order, while the resolved PObj and MObj routines each guard nullable inputs locally, so an absent attachment cannot terminate the outer DObj loop.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:45.921Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L176",
+          "why": "Shows the null guard, next-pointer traversal, and fixed PObj-before-MObj ordering for each DObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L116-L176",
+          "why": "Shows HSD_PObjAnimAll accepting a null polygon-object head without performing work."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Shows HSD_MObjAnim accepting a null material-object pointer as a local no-op."
+        }
+      ]
+    },
+    {
+      "id": "fact:da36ac80-b161-4c39-b283-094182ed38f8",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjClearFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-supplied u32 mask is complemented and ANDed into dobj->flags, preserving every bit outside the mask and forcing every selected bit to zero. The function returns no value and neither reads nor writes through dobj when the pointer is null.",
+      "rationale": "The sole mutation, dobj->flags &= ~flags, completely specifies the flow from the input mask to the persistent DObj flag word. The preceding pointer guard establishes the null no-op path.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:23.193Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L39-L44",
+          "why": "Directly shows the mask complement, destination-field mutation, void result, and null no-op behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:6e0a27e0-6136-4eee-b6f1-21e9ceb35438",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjClearFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_DObjClearFlags(HSD_DObj* dobj, u32 flags). The second parameter is a 32-bit removal mask applied to the HSD_DObj flags bitfield, and a null DObj pointer is accepted as a no-op.",
+      "rationale": "The matched definition establishes the exact return and parameter types. Complementing flags before ANDing it into dobj->flags demonstrates that the u32 argument selects bits to clear rather than supplying a replacement flag value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:23.193Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L39-L44",
+          "why": "Establishes the complete signature, null handling, destination bitfield, and removal-mask operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:9e2c573c-085f-4aef-b5d5-db0c129d5d0d",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjClearFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Disables caller-selected state bits on a display object through a null-safe flag mutator, without disturbing any unselected DObj flags.",
+      "rationale": "The matched body accepts a DObj and a caller-supplied mask, checks that the object exists, and ANDs its flag word with the complemented mask. This selectively disables the requested options while preserving all other flag state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:23.193Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L39-L44",
+          "why": "Directly shows the null guard and selective removal of caller-specified bits from dobj->flags."
+        }
+      ]
+    },
+    {
+      "id": "fact:b628191e-b14f-4361-8ad7-077a25317ddb",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjClearFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For a non-null display object, every flag bit selected by the mask transitions from either set or clear to clear, while all unselected bits remain unchanged. Repeating the same clear operation is idempotent; passing a null DObj leaves state unchanged.",
+      "rationale": "ANDing the current flag word with the complemented mask permits only selected one-to-zero transitions and cannot alter unselected bits. Applying the operation again yields the same flag value, while the null guard prevents any transition when the object is absent.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:23.193Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L39-L44",
+          "why": "Shows the guarded bit-clearing operation from which selected-bit transitions, preservation of other state, idempotence, and null no-op behavior follow."
+        }
+      ]
+    },
+    {
+      "id": "fact:46b88dc6-b23b-4c60-8565-4d61fe233171",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjDisp",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input DObj's mobj pointer flows first into HSD_MObjSetCurrent and then into the material setup and unset virtual methods. The DObj's pobj pointer seeds a next-linked traversal; each PObj receives vmtx, pmtx, and rendermode unchanged through its display virtual method. On exit, NULL is passed to HSD_MObjSetCurrent, so no material pointer is returned or retained as the current context by this routine.",
+      "rationale": "Every input-to-consumer edge is explicit in the matched body: material selection and callbacks use dobj->mobj, polygon iteration starts at dobj->pobj, the three render inputs are forwarded unchanged, and the final setter call writes NULL.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:16.348Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Directly shows the material, polygon-list, matrix, and render-mode data paths and the final clearing write."
+        }
+      ]
+    },
+    {
+      "id": "fact:b5398ec5-6984-430b-b282-a8bab77c9ccc",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjDisp",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Display callback with signature void HSD_DObjDisp(HSD_DObj* dobj, Mtx vmtx, Mtx pmtx, u32 rendermode). The DObj supplies the material and polygon list; both matrices and the render-mode bitmask are forwarded to each PObj display callback.",
+      "rationale": "The matched definition provides the exact return and parameter types. Its body establishes the effective roles of the DObj and render inputs by reading dobj->mobj and dobj->pobj and forwarding vmtx, pmtx, and rendermode to every polygon display method.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:16.348Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Shows the complete function signature and all uses of its parameters."
+        }
+      ]
+    },
+    {
+      "id": "fact:a5f5a587-9ac1-4786-b507-47956b5632fd",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjDisp",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Renders one display object by establishing its material as the current rendering context, optionally setting up that material, dispatching display to every polygon object attached to the DObj, optionally tearing the material state down, and finally clearing the current-material context.",
+      "rationale": "The matched function performs exactly this ordered sequence: set the DObj's MObj current, call its setup method unless a render-mode bit suppresses it, traverse the complete PObj list and invoke each display method, conditionally call material unset, and clear the current MObj.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:16.348Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Contains the complete matched rendering sequence for one DObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:196bcb34-2b22-44bc-9593-1888b0d0c3de",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjDisp",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine creates a scoped current-material state for the display operation: dobj->mobj is installed on entry and the slot is unconditionally cleared to NULL on exit. If rendermode bit 0x04000000 is clear, material setup occurs before polygon display and material unset occurs afterward; if the bit is set, both material callbacks are skipped, but the entire PObj list is still displayed.",
+      "rationale": "The two identical render-mode tests bracket the PObj loop and guard only setup and unset. Current-material installation precedes those tests, while the explicit NULL write follows them and the loop, proving both the state lifetime and the bit-controlled transition behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:16.348Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Shows the entry and exit material-context states, the two render-mode guards, and unconditional polygon-list traversal."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e87c912-e263-4b8f-8298-e7f89bacff4d",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjGetFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies an HSD_DObj pointer. If it is non-null, `dobj->flags` flows unchanged to the `u32` return value; if it is null, literal zero is returned. The function performs no writes, calls, masking, or other transformation.",
+      "rationale": "The complete body consists only of a null guard and direct return paths. Therefore the stored flag word is neither modified nor filtered, and the DObj itself is not mutated.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:32.212Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjGetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L24-L30",
+          "why": "The source directly shows the nullable pointer input flowing either through the flags field or the zero fallback to the return value, with no side effects."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5fb3a5a-40aa-4ca3-b8d2-21de20dd6f15",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjGetFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature `u32 HSD_DObjGetFlags(HSD_DObj* dobj)`: it accepts a nullable pointer to an HSD_DObj and returns that object's 32-bit flags bitfield, using zero as the null-object sentinel.",
+      "rationale": "The matched definition directly establishes the HSD_DObj pointer parameter and unsigned 32-bit return type. Its two return paths show that the result domain is the complete flags field or zero, rather than a boolean or one enumerated flag.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:32.212Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjGetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L24-L30",
+          "why": "The definition supplies the exact signature and shows both the full flags-field result and the zero null fallback."
+        }
+      ]
+    },
+    {
+      "id": "fact:01f59ccf-fef9-4a15-b65a-45b3fdd2a724",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjGetFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides null-safe read access to a display object's complete flag word, allowing callers to inspect the DObj's stored flags without directly dereferencing a possibly null pointer.",
+      "rationale": "The function returns the complete dobj->flags field for a valid object and substitutes zero for a null pointer. The equivalent AObj and JObj routines retain the same guarded whole-word accessor shape, confirming this as the standard HSD object flag accessor rather than a test for one particular flag.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:49.088Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjGetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L24-L30",
+          "why": "Shows guarded access to the complete DObj flags field and the zero-valued null fallback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L38-L41",
+          "why": "Shows the analogous HSD_AObj accessor returning its complete flags field with the same zero-valued null fallback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L985-L991",
+          "why": "Shows the analogous HSD_JObj accessor using the same guarded full-flag-word behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:80dc4373-21fc-4029-b659-c85c88cf2984",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjGetFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "This query is side-effect free and has one guard: a valid DObj yields its current flag word, while a null DObj is treated as having no flags and yields zero.",
+      "rationale": "The null test completely determines the function's two behaviors, and neither branch writes object or global state. Repeated calls therefore observe the current stored flags or the fixed null fallback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:32.212Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjGetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L24-L30",
+          "why": "The full implementation shows the non-null and null branches and confirms that neither branch changes state."
+        }
+      ]
+    },
+    {
+      "id": "fact:effe4e22-6db9-4fdb-9293-fed7b4a35500",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "A non-null HSD_DObjDesc supplies class_name to hsdSearchClassInfo. A missing name or failed lookup selects HSD_DObjAlloc, while a successful lookup supplies HSD_ClassInfo to hsdNew. The descriptor and resulting object then flow through the object's virtual load method before the populated HSD_DObj is returned. Under the base loader, descriptor links and attachments recursively produce the next DObj, MObj, and PObj, and the loaded material's render mode determines the DObj rendering-flag selection.",
+      "rationale": "The target directly traces descriptor class metadata through lookup and allocation into virtual loading and return. The adjacent base loader identifies the concrete nested descriptors consumed and shows material render mode being translated into mutually selected DObj flag bits.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:04:42.808Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L206-L228",
+          "why": "Shows class_name controlling class lookup and allocation, followed by descriptor flow through virtual load dispatch and return of the loaded object."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L169-L228",
+          "why": "Shows the base loader passing next, material, and polygon descriptors to their loaders and using the resulting material render mode to modify DObj flags."
+        }
+      ]
+    },
+    {
+      "id": "fact:46251dfa-070e-4050-bbd5-2d2e97950ad5",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "HSD_DObj* HSD_DObjLoadDesc(HSD_DObjDesc* desc): accepts a nullable pointer to a display-object descriptor and returns the resulting runtime HSD_DObj pointer, or NULL when the descriptor pointer is NULL.",
+      "rationale": "The matched definition directly supplies the HSD_DObjDesc pointer parameter and HSD_DObj pointer return type, while its initial guard establishes the nullable-input and NULL-return behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:42.808Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L206-L228",
+          "why": "The function signature gives the exact descriptor and result types, and the null-descriptor branch returns NULL."
+        }
+      ]
+    },
+    {
+      "id": "fact:f08e7945-b683-4ada-978e-9b06f59d5423",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Constructs a runtime HSD_DObj from an HSD_DObjDesc, using a registered display-object subclass when the descriptor names one or the standard DObj allocation path otherwise, then delegates population of the new object to its virtual load method.",
+      "rationale": "The matched function validates the descriptor, looks up its optional class name, chooses either hsdNew with the registered class or HSD_DObjAlloc, invokes the selected object's load method, and returns the populated object. The adjacent base load method demonstrates that this loading step recursively constructs the next DObj and loads its material and polygon attachments.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:04:42.808Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L206-L228",
+          "why": "The complete target body shows descriptor validation, registered-class lookup, subclass or fallback allocation, virtual descriptor loading, and return of the resulting HSD_DObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L169-L228",
+          "why": "The adjacent base DObj load method shows that descriptor loading recursively creates the next DObj and loads its MObj and PObj attachments before deriving DObj rendering flags."
+        }
+      ]
+    },
+    {
+      "id": "fact:50892782-6f07-4f00-939c-b3303522d2d4",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null descriptor returns NULL without allocating. For a non-null descriptor, a null or unregistered class_name selects HSD_DObjAlloc; a registered class selects hsdNew and requires successful construction. Both allocation paths converge on virtual descriptor loading and return of the resulting display object. When the base loader is selected, it recursively constructs the next-linked DObj and selects one of three DObj rendering-flag states from the attached material's high render-mode bits; an unexpected combination reports an error and panics.",
+      "rationale": "The target's guards and allocation branches establish the construction states and their convergence on virtual loading. The adjacent base load implementation establishes recursive list construction, the three recognized material-render-mode cases, and the failure path for an unsupported mode.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:04:42.808Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L206-L228",
+          "why": "Directly shows the null-input return, fallback and registered-subclass branches, subclass-construction assertion, virtual loading, and final return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L169-L228",
+          "why": "Shows recursive next-node construction, the three recognized material render-mode branches, their corresponding DObj flag updates, and the report-and-panic default branch."
+        }
+      ]
+    },
+    {
+      "id": "fact:73dab106-9793-48aa-b4bd-e8b4a1f26334",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For a non-null DObj, the old field contributes only bits outside mask, flags contributes only bits inside mask, and their union becomes the new dobj->flags value. Fighter metal-rendering code uses this interface with mask 0xE: restoration derives values 2, 4, or 8 from each attached MObj's blending mode, while metal activation writes value 2 across the fighter part's DObj list.",
+      "rationale": "The target proves the exact masked value flow into the field. The resolved fighter caller demonstrates a concrete producer chain in which MObj rendermode selects one of three replacement values and another path applies a fixed replacement when metal mode is enabled.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:06:39.511Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L46-L53",
+          "why": "Shows how the prior DObj flags, replacement value, and selection mask combine into the output field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftmetal.c#L14-L79",
+          "why": "Shows restoration code mapping material blending modes to DObj values 2, 8, or 4 under mask 0xE."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftmetal.c#L81-L118",
+          "why": "Shows metal activation traversing each participating fighter part's DObj list and replacing masked bits with value 2."
+        }
+      ]
+    },
+    {
+      "id": "fact:9d4f10a7-8ea1-457e-898a-c12943c1d4b9",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports display-object rendering configuration, including the visual side of Melee's metal-fighter transformation: metal activation forces the selected DObj rendering bits to value 2, and removal of the temporary effect restores one of three encodings according to each object's material blending mode.",
+      "rationale": "The fighter metal activation path applies HSD_DObjModifyFlags with value 2 and mask 0xE to every participating DObj. The restoration routine maps each attached MObj's blending mode back to value 2, 4, or 8 under the same mask, and the non-permanent metal shutdown path invokes that restoration after clearing the fighter's metal state.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:29:49.088Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftmetal.c#L14-L79",
+          "why": "Shows restoration selecting DObj flag values 2, 8, or 4 from each attached material object's blending mode and applying them under mask 0xE."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftmetal.c#L81-L118",
+          "why": "Shows metal activation traversing participating fighter-part DObjs and forcing the masked rendering bits to value 2."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftmetal.c#L121-L155",
+          "why": "Shows the non-permanent metal shutdown transition clearing the metal state and invoking ft_800C8170 to restore ordinary DObj rendering configuration."
+        }
+      ]
+    },
+    {
+      "id": "fact:145ca9e9-ffb0-4e34-b2e6-d0d87668766a",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_DObjModifyFlags(HSD_DObj* dobj, u32 flags, u32 mask). The DObj pointer is nullable; flags is a replacement bit value in the domain of HSD_DObj.flags, and mask selects which bits of that field may be replaced.",
+      "rationale": "The matched definition supplies the exact return and parameter types. Its explicit null check establishes pointer nullability, while the expression combines flags and mask as bit fields rather than scalar quantities.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:06:39.511Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L46-L53",
+          "why": "Provides the exact signature, null-tolerant behavior, and bit-mask semantics of both u32 parameters."
+        }
+      ]
+    },
+    {
+      "id": "fact:ed6e6626-a53c-404f-9181-845dd221c056",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Null-safely replaces only a caller-selected subset of an HSD display object's flag bits, allowing several related rendering-state bits to be changed atomically while preserving every bit outside the supplied mask.",
+      "rationale": "The matched body returns without effect for a null DObj. Otherwise, it clears the masked portion of dobj->flags and inserts the corresponding masked portion of the supplied flags value, which is a selective replacement rather than a general set or clear operation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:06:39.511Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L46-L53",
+          "why": "Directly shows the null guard and the masked read-modify-write applied to dobj->flags."
+        }
+      ]
+    },
+    {
+      "id": "fact:39d3809d-ea60-47c2-9352-808841adb359",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null DObj causes no transition. For a non-null DObj, each bit selected by mask transitions to the corresponding bit in flags, regardless of its previous state, while every unselected bit remains unchanged. A zero mask is therefore a no-op, and a selected bit can be either set or cleared in one call.",
+      "rationale": "The early return establishes the null no-op. Expanding (old & ~mask) | (flags & mask) bit by bit proves replacement inside the mask and preservation outside it, distinguishing this routine from the neighboring monotonic set and clear operations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:06:39.511Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L46-L53",
+          "why": "Directly establishes the guard and every masked state-transition property."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.c#L1-L180",
+          "why": "Shows the neighboring dedicated set and clear routines, confirming that ModifyFlags is the selective replacement member of the DObj flag API."
+        }
+      ]
+    },
+    {
+      "id": "fact:6f3795ec-aafb-4ff3-a6c1-b77ec3f653b8",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an HSD_DObj list head. For each current node, it copies that node's next pointer before passing the current node to HSD_DObjRemove, then advances using the saved successor. The per-node removal flows into hsdDelete and the DObj class release path; the function itself returns no value.",
+      "rationale": "The function explicitly saves dobj->next before invoking removal, so traversal never reads the current node after deletion. The adjacent single-object routine identifies hsdDelete as the removal consumer, while the void return type confirms that lifecycle side effects are the only output.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:11.109Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L235-L243",
+          "why": "Shows saved-successor traversal, the per-node HSD_DObjRemove call, and the absence of a return value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L243",
+          "why": "Shows that HSD_DObjRemove forwards each node to hsdDelete."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L249-L349",
+          "why": "Shows the DObj release callback reached during deletion and the attached MObj, PObj, and AObj resources it removes."
+        }
+      ]
+    },
+    {
+      "id": "fact:61fecb53-fc74-4802-a06a-eb9d7ba50f58",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "List-wide display-object removal routine with signature void HSD_DObjRemoveAll(HSD_DObj* dobj); its argument is a nullable pointer to the head of a null-terminated, next-linked HSD_DObj list.",
+      "rationale": "The matched definition provides the exact void(HSD_DObj*) signature. Its loop accepts a null initial pointer and advances through dobj->next until null, proving that the parameter represents a nullable list head rather than one required object.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:11.109Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L235-L243",
+          "why": "Declares the exact signature and treats the argument as the head of a null-terminated HSD_DObj next chain."
+        }
+      ]
+    },
+    {
+      "id": "fact:2c19ac30-efd9-446b-a0db-1979b97cc64c",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Removes every display object in a next-linked HSD_DObj list by invoking the single-object deletion path on each node. It serves as the list-wide ownership cleanup operation used when a JObj releases its attached DObj list.",
+      "rationale": "The function traverses the complete DObj chain and calls HSD_DObjRemove once per node. HSD_DObjRemove delegates to hsdDelete, whose DObj release callback removes the node's MObj, PObj list, and AObj attachments. JObjReleaseChild calls HSD_DObjRemoveAll for its DObj-valued union attachment and clears that attachment afterward, establishing the ownership-cleanup role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:11.109Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L235-L243",
+          "why": "Shows the complete next-linked traversal and one HSD_DObjRemove call for every DObj node."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L243",
+          "why": "Shows that the per-node HSD_DObjRemove operation delegates object deletion to hsdDelete."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L249-L349",
+          "why": "Shows the registered DObj release method removing the material, polygon list, and animation object owned by each deleted DObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1480-L1509",
+          "why": "Shows JObjReleaseChild using HSD_DObjRemoveAll to tear down its attached DObj list and then clearing the owning pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:82df7677-5e0a-40f8-9dd1-45a4cba09182",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null list head is a no-op. Otherwise removal proceeds from head to tail until the saved next pointer becomes null, with every node's successor captured before that node enters deletion and attachment release.",
+      "rationale": "The for-loop guard directly defines null-input behavior and termination at the end of the chain. Saving next before HSD_DObjRemove establishes the removal order and preserves traversal even though the current node's deletion invokes its resource-release lifecycle.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:11.109Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L235-L243",
+          "why": "Shows the null guard, head-to-tail loop, saved successor, per-node removal, and termination when the DObj chain ends."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L249-L349",
+          "why": "Shows that deleting a DObj invokes a release callback that removes its attached resources, explaining why the successor must be captured first."
+        }
+      ]
+    },
+    {
+      "id": "fact:16d5d1a7-9c81-48d9-8765-decd0ca2dab6",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a DObj-list head and selection mask, follows each node's next pointer, and passes each node with the unchanged mask to HSD_DObjRemoveAnimByFlags. For each node, mask bit 2 sends dobj->aobj to HSD_AObjRemove before clearing that field; dobj->pobj and dobj->mobj are forwarded with the mask to shape- and material-animation removal. The material path can in turn forward mobj->tobj to list-wide texture-animation removal. Destroyed AObjs release their FObj channels and retained scene-object reference before being freed.",
+      "rationale": "The DObj source directly exposes traversal and all three attachment flows. The PObj and MObj implementations establish how the forwarded mask selects subordinate animation controllers, the TObj routine establishes texture-list traversal, and HSD_AObjRemove establishes the final consumer and lifecycle effect for each removed controller.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:58.065Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L57-L80",
+          "why": "Shows the list head and mask flowing through every DObj and into its AObj, PObj, and MObj animation-removal paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L46-L74",
+          "why": "Shows PObj-list traversal and the selected shape-set AObj flowing into HSD_AObjRemove before its field is cleared."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Shows the MObj mask selecting its own AObj and forwarding its TObj list into texture-animation removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/tobj.c#L37-L46",
+          "why": "Shows the forwarded texture-object list being traversed completely for per-texture animation removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows each forwarded AObj being consumed by teardown of its FObj chain and retained scene-object reference before the AObj is freed."
+        }
+      ]
+    },
+    {
+      "id": "fact:fdd746ac-dca9-4d7a-b4da-8c2d2414ec34",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements selective scene-model animation teardown for a display-object list: it detaches the chosen display-object, polygon-shape, material-property, and texture animation controllers while preserving the rendered model objects themselves. JObj animation-removal routines use it as the display-object branch of joint and hierarchy animation teardown.",
+      "rationale": "The DObj, PObj, and MObj sources show selective destruction of the animation controllers attached to rendered model components rather than destruction of those components. The JObj source directly invokes the target on a joint's DObj list during both single-joint and hierarchy-wide animation removal, grounding this behavior within HSD scene-animation playback teardown.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:05:58.065Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L57-L80",
+          "why": "Shows selected animation attachments being removed across a display-object list while the DObj chain is preserved."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L46-L74",
+          "why": "Shows the polygon-shape animation component of the model teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Shows the material-property and texture-animation components of the model teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L192-L229",
+          "why": "Shows joint-level and hierarchy-level animation removal invoking this routine for the JObj's attached DObj list."
+        }
+      ]
+    },
+    {
+      "id": "fact:1afd7155-6e21-45ec-9d50-09d176c75ba0",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void HSD_DObjRemoveAnimAllByFlags(HSD_DObj* dobj, u32 flags): dobj is a nullable pointer to the head of a next-linked HSD_DObj list, and flags is an unsigned animation-channel selection mask forwarded unchanged to every DObj and its attached PObj and MObj components.",
+      "rationale": "The matched definition provides the exact return and parameter types. Its NULL guard and traversal through dp->next establish the list-head role, while the per-DObj helper forwards the unchanged u32 mask to component-specific routines that test their animation-channel bits.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:58.065Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L57-L80",
+          "why": "Provides the exact signature, NULL handling, next-linked traversal, and unchanged forwarding of flags to the per-DObj helper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L46-L74",
+          "why": "Shows the forwarded flags value being interpreted as a PObj shape-animation selection mask."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Shows the forwarded flags value being interpreted through the MOBJ_ANIM and TOBJ_ANIM channel bits."
+        }
+      ]
+    },
+    {
+      "id": "fact:d6e22524-0aec-4746-9b71-fd7bb0e61ac2",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Removes the animation channels selected by a flag mask from every display object in a next-linked HSD_DObj list. For each DObj, it can destroy the DObj's own animation controller and delegates selected shape, material-property, and texture-animation teardown to the attached PObj and MObj components without removing the display objects or their component lists.",
+      "rationale": "The target traverses every DObj and invokes the per-object selective remover. That helper conditionally removes and clears the DObj AObj, then forwards the same mask to the attached polygon and material objects. The resolved PObj and MObj routines show that these delegated paths remove shape, material, and texture animation controllers while preserving the owning object structures.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:58.065Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L57-L80",
+          "why": "Shows complete DObj-list traversal and per-node removal of the DObj AObj plus delegation to attached PObj and MObj animation-removal paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L46-L74",
+          "why": "Shows the polygon-object path traversing the PObj list and removing selected shape-animation AObjs without removing PObj nodes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Shows independently selected teardown of the material object's own animation controller and its attached texture-object animations."
+        }
+      ]
+    },
+    {
+      "id": "fact:2110fd23-389f-46ea-815c-4c9d1e075d91",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A NULL DObj-list head is a no-op. Otherwise, every DObj is visited once in next-pointer order. The wrapper does not interpret the mask itself; each per-DObj operation independently transitions selected animation attachments to the absent state by destroying their AObjs and clearing the owning pointers, while unselected channels and the DObj, PObj, MObj, and TObj object structures remain intact. Because AObj removal and the delegated list routines accept absent attachments, repeating the operation is safe with respect to animation-controller state.",
+      "rationale": "The target's guard and loop establish list-level behavior. Its per-node helper and the lower-level PObj and MObj routines establish independent flag selection and explicit NULL postconditions, while HSD_AObjRemove establishes that an already-NULL controller is a no-op.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:05:58.065Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L57-L80",
+          "why": "Shows the NULL terminal case, complete next-linked traversal, delegated mask interpretation, and clearing of the selected DObj AObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L46-L74",
+          "why": "Shows conditional shape-animation removal and transition of the selected shape-set AObj field to NULL."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Shows independent material and texture channel guards and clearing of the selected material AObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows that removing a NULL AObj is a no-op and that a live controller is fully torn down."
+        }
+      ]
+    },
+    {
+      "id": "fact:b824146a-986b-4dfc-b986-03daeee7dd43",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a DObj-list head and starting frame, supplies the fixed 0x7FF animation-selection mask, reads each node's next pointer, and forwards the current DObj, unchanged frame, and mask to HSD_DObjReqAnimByFlags. That helper reads the node's PObj and MObj attachments and sends the request into eligible shape-animation controllers, the material controller, and attached texture animations.",
+      "rationale": "The target itself augments its inputs with the fixed mask and performs list traversal. The adjacent helper extracts PObj and MObj attachments, and the resolved lower-level routines show the frame and mask continuing into polygon shape animation and material/texture animation control.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:27.326Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L153",
+          "why": "Shows fixed-mask augmentation, next-pointer traversal, unchanged per-node forwarding, and extraction of each DObj's PObj and MObj attachments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L101-L131",
+          "why": "Shows the polygon-object path forwarding the common frame to eligible shape-animation AObjs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "Shows the material-object path forwarding the common frame to its AObj and the frame plus full mask to attached texture objects."
+        }
+      ]
+    },
+    {
+      "id": "fact:2751d1a5-87b9-480e-a155-b36d7c7147fe",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes synchronized scene-model animation playback across a display-object list: eligible polygon shape animations, material properties, and texture animations are restarted at one common requested frame.",
+      "rationale": "The target distributes one frame with the inclusive mask across every DObj. Each request reaches both polygon and material components; the PObj path selects shape animation, while the MObj path selects material animation and forwards the request to texture objects, coordinating the animated visual components of the display-object list.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:05:27.326Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L153",
+          "why": "Shows one common frame and inclusive selection mask being applied across the complete display-object list and routed to polygon and material components."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L101-L131",
+          "why": "Maps the polygon branch to shape-animation playback at the common frame."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "Maps the material branch to coordinated material-property and texture-animation playback."
+        }
+      ]
+    },
+    {
+      "id": "fact:2bfdfaf4-39fa-4ef9-ae30-3b9762fbeec2",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void (HSD_DObj* dobj, f32 startframe); dobj is a nullable linked-list head, and startframe is an animation-frame position forwarded unchanged to every selected shape, material, and texture animation controller reached from the list.",
+      "rationale": "The matched definition establishes the exact signature. Its null guard and traversal through dp->next establish the first parameter's list-head role, while the PObj, MObj, and AObj routines demonstrate that startframe is ultimately installed as the current animation frame.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:27.326Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L142-L153",
+          "why": "Provides the exact target signature, nullable-list behavior, next-pointer traversal, and unchanged forwarding of startframe."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Shows that the forwarded floating-point frame becomes each reached AObj's current animation frame."
+        }
+      ]
+    },
+    {
+      "id": "fact:23144366-ad38-43c2-bc28-f9fc070137d4",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Requests that all supported animation components of every display object in a linked HSD_DObj list begin or resume from a supplied frame.",
+      "rationale": "The function traverses the complete DObj next chain and calls HSD_DObjReqAnimByFlags once per node with the inclusive 0x7FF mask. The per-DObj helper routes that request to the node's polygon and material components, which in turn cover eligible shape, material, and texture animation controllers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:27.326Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L153",
+          "why": "Shows the complete DObj-list traversal, fixed 0x7FF mask, and per-node routing to PObj and MObj animation requests."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L101-L131",
+          "why": "Shows the polygon path requesting eligible shape-animation controllers at the supplied frame."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "Shows the material path requesting the material controller and forwarding the same frame and mask to attached texture objects."
+        }
+      ]
+    },
+    {
+      "id": "fact:392191c3-75e3-4561-ac54-19bf89fa5fac",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null DObj-list head is a no-op. Otherwise, every DObj is visited exactly once in next-pointer order with the full 0x7FF selection mask. Missing or ineligible components remain unchanged; each reached non-null AObj is moved to the requested current frame, has AOBJ_NO_ANIM cleared, and has AOBJ_FIRST_PLAY set so playback restarts from that frame.",
+      "rationale": "The target's explicit null guard and loop determine list behavior, while its fixed mask enables all supported downstream selection bits. PObj and MObj routines provide component eligibility and null handling, and HSD_AObjReqAnim defines the resulting controller-state transition.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:05:27.326Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L142-L153",
+          "why": "Shows null-list behavior, traversal order, one request per DObj, and use of the fixed 0x7FF selection mask."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L101-L131",
+          "why": "Shows that only POBJ_ANIM-selected shape-animation PObjs request their attached AObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "Shows null-material behavior and routing to selected material and texture animation components."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Shows null AObjs being ignored and non-null controllers receiving the frame, clearing AOBJ_NO_ANIM, setting AOBJ_FIRST_PLAY, and propagating the frame to FObj channels."
+        }
+      ]
+    },
+    {
+      "id": "fact:f88c7227-24a9-4397-83c0-fd37f40699de",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a DObj-list head, starting frame, and selection mask; reads each node's next pointer and passes the current DObj with the unchanged frame and mask to HSD_DObjReqAnimByFlags. That helper reads the node's pobj and mobj attachments, forwarding the request into shape-animation and material/texture-animation control.",
+      "rationale": "The target itself performs only list traversal and delegation. The adjacent per-DObj helper supplies the attached PObj and MObj pointers, while the resolved lower-level routines show the arguments continuing into eligible shape AObjs, the material AObj, and attached texture objects.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:13.462Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L140",
+          "why": "The source shows next-pointer traversal, unchanged per-node forwarding, and extraction of each DObj's PObj and MObj attachments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L101-L131",
+          "why": "The PObj path forwards the common frame to shape-animation AObjs selected by POBJ_ANIM."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "The MObj path forwards the frame to the selected material AObj and forwards the frame and full mask to attached texture objects."
+        }
+      ]
+    },
+    {
+      "id": "fact:96428db3-db06-450e-946e-ce47b6832070",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes synchronized selective scene-model animation playback across a display-object list: eligible polygon shape animations, material properties, and texture animations receive one common requested frame, while the shared flag mask chooses which animation channels participate.",
+      "rationale": "The target distributes an identical frame and mask across every DObj. Each per-DObj request reaches both polygon and material components; the PObj path selects shape animation, while the MObj path selects material animation and passes the request onward to textures. Together these operations coordinate the animated visual components of the display-object list.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:12:13.462Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L140",
+          "why": "The target applies one frame and selection mask across the complete display-object list and routes each request to polygon and material components."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L101-L131",
+          "why": "The polygon path maps the request to flag-selected shape-animation playback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "The material path maps the request to material-property and texture animation playback at the common frame."
+        }
+      ]
+    },
+    {
+      "id": "fact:a044456c-fc38-4e65-a1ee-1770051e0953",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void (HSD_DObj* dobj, f32 startframe, u32 flags); dobj is a nullable linked-list head, startframe is an animation-frame position, and flags is a selection bitmask forwarded unchanged into polygon, material, and texture animation selection.",
+      "rationale": "The matched definition establishes the exact C signature. Its null guard and next-pointer traversal establish the first parameter's list-head role, while the downstream PObj and MObj routines use flags as animation-selection bits and consume startframe as the requested animation frame.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:13.462Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L140",
+          "why": "The declaration, null check, list traversal, and unchanged argument forwarding establish the signature and top-level parameter roles."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L101-L131",
+          "why": "The polygon-object request interprets flags through POBJ_ANIM and uses startframe as the requested shape-animation frame."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "The material-object request tests MOBJ_ANIM and forwards the same frame and complete mask into texture animation."
+        }
+      ]
+    },
+    {
+      "id": "fact:58219998-fe0d-484f-a5da-debdf46524d8",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Requests that the flag-selected animation channels of every display object in a linked HSD_DObj list begin or resume from a supplied frame.",
+      "rationale": "The function walks the complete DObj next chain and invokes HSD_DObjReqAnimByFlags once per node with the unchanged starting frame and selection mask. The per-DObj helper routes that request to the node's polygon and material animation components.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:13.462Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L140",
+          "why": "The source shows the complete DObj-list traversal and the per-node animation request using the supplied frame and flags."
+        }
+      ]
+    },
+    {
+      "id": "fact:55db51b6-2722-46cc-b7fa-bdce2871c150",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null DObj-list head is a no-op. Otherwise, the routine visits every DObj exactly once in next-pointer order and issues one by-flags request per node; it does not inspect the mask or mutate animation controllers directly, leaving component eligibility and playback-state transitions to the delegated PObj and MObj animation routines.",
+      "rationale": "The explicit null guard and for-loop determine the wrapper's complete control behavior. Its sole loop action is a helper call, and the downstream routines\u2014not this wrapper\u2014test POBJ_ANIM and MOBJ_ANIM and select the animation controllers that receive the requested frame.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:13.462Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L117-L140",
+          "why": "The source directly shows null behavior, traversal order, one helper call per node, and no direct animation-state mutation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L101-L131",
+          "why": "The downstream PObj routine supplies the POBJ_ANIM and shape-animation eligibility checks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "The downstream MObj routine supplies the MOBJ_ANIM guard and texture-animation delegation."
+        }
+      ]
+    },
+    {
+      "id": "fact:2b0943f2-6074-4083-8016-8d305ce746f3",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a loaded HSD_DObj list together with the HSD_DObjDesc list that produced it. For every paired node, the target passes the runtime DObj and descriptor to HSD_DObjResolveRefs; that helper forwards dobj->pobj and desc->pobjdesc to HSD_PObjResolveRefsAll. Any resolved references are therefore written into the existing polygon-object graph in place, and the function returns no value.",
+      "rationale": "The target walks runtime and descriptor DObj nodes in lockstep and forwards each pair to the per-node resolver, whose only downstream transfer pairs their runtime and descriptor PObj list heads. The surrounding JObj resolver demonstrates that these corresponding inputs originate from loaded JObj and Joint attachments.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:49.088Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L671-L718",
+          "why": "Shows corresponding loaded JObj and Joint nodes supplying their runtime DObj and source DObj-descriptor attachments to HSD_DObjResolveRefsAll."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows lockstep traversal of the DObj and descriptor lists and forwarding of each pair's pobj and pobjdesc fields to the PObj reference resolver."
+        }
+      ]
+    },
+    {
+      "id": "fact:9a5160c7-0840-46fd-a3ca-2fff05e6bd32",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void in-place bulk resolver with signature `void HSD_DObjResolveRefsAll(HSD_DObj* dobj, HSD_DObjDesc* desc)`. Its arguments are corresponding heads of next-linked runtime DObj and source DObj-descriptor lists.",
+      "rationale": "The matched definition supplies the exact return and parameter types. Its loop advances dobj through dobj->next and desc through desc->next together, demonstrating that the arguments are parallel list heads rather than unrelated single objects.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:06:07.444Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows the exact void signature and lockstep traversal through the runtime and descriptor next links."
+        }
+      ]
+    },
+    {
+      "id": "fact:3b2461b9-67f6-4b79-8ab8-afb2f2dc0c4a",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the list-wide post-load reference-fixup pass for display objects, pairing each loaded HSD_DObj with its source HSD_DObjDesc and resolving references in the corresponding attached polygon-object lists.",
+      "rationale": "HSD_DObjResolveRefsAll pairs runtime and descriptor nodes and delegates each pair to the PObj reference resolver. The JObj hierarchy resolver invokes it for corresponding DObj attachments during hierarchy-wide reference resolution, establishing its role as the display-object layer of the post-load fixup pass.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:49.088Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L671-L718",
+          "why": "Shows the hierarchy reference resolver invoking HSD_DObjResolveRefsAll for a JObj's runtime DObj attachment and the corresponding Joint descriptor attachment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows the target pairing DObj and descriptor list nodes and resolving each pair's corresponding polygon-object attachments."
+        }
+      ]
+    },
+    {
+      "id": "fact:3c09005a-758c-4e9a-ab77-4a25740c098c",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null runtime-list head or null descriptor-list head is a no-op. Resolution continues only while both current nodes are non-null, so corresponding prefixes are processed once and any unmatched suffix on either list is left untouched. The routine performs no allocation or replacement itself; it delegates each paired node's polygon-reference mutation to the per-node DObj and list-wide PObj resolvers.",
+      "rationale": "The compound loop guard defines null-entry and early-termination behavior, and the two next-link updates establish one visit per pair. The loop body contains only the per-node resolver call, whose body contains only the PObj resolver delegation, so all actual fixup mutation is downstream.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:06:07.444Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows the dual-null loop guard, lockstep advancement, and exclusive delegation of each pair to the per-node and PObj resolvers."
+        }
+      ]
+    },
+    {
+      "id": "fact:73b777fa-4954-4cce-bca1-d34c969860db",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input originates from HSD_JObjDispSub's traversal of jobj->u.dobj. After hidden DObjs and DObjs outside the requested transparency pass are filtered out, the selected DObj pointer is copied unchanged into current_dobj immediately before its display-method invocation; NULL is copied into the same slot after traversal completes.",
+      "rationale": "The caller supplies its loop variable only on the path that passes the hidden and transparency tests, and invokes the DObj display method directly after the setter. The setter performs no transformation, while the caller's final NULL call establishes the terminal value of the context slot.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:10.319Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L273-L353",
+          "why": "Shows the DObj-list origin, visibility and transparency filtering, ordering relative to display dispatch, and final NULL call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L19-L22",
+          "why": "Shows the argument flowing without transformation into current_dobj."
+        }
+      ]
+    },
+    {
+      "id": "fact:ddfd63e9-ba25-4a95-bada-e7674da5a6bb",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Global-context setter with signature void HSD_DObjSetCurrent(HSD_DObj* dobj); the pointer may identify an active display object or be NULL to represent no current DObj.",
+      "rationale": "The matched definition establishes the void return type and HSD_DObj pointer parameter. Its caller supplies both a DObj from the current JObj's list and NULL after rendering, demonstrating the parameter's effective nullable domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:10.319Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L19-L22",
+          "why": "Contains the complete matched function signature and direct pointer assignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L273-L353",
+          "why": "Shows calls with an HSD_DObj pointer during traversal and with NULL after traversal."
+        }
+      ]
+    },
+    {
+      "id": "fact:8219dfc7-603f-4c3c-9107-85728c1cf9a5",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Selects the process-global current display object, establishing which visible, transparency-eligible DObj is active while its polymorphic display method renders its material and polygon attachments.",
+      "rationale": "The function directly stores its DObj argument in the current_dobj slot. HSD_JObjDispSub calls it for each non-hidden DObj whose transparency flags match the requested pass, immediately before invoking that DObj's display method, and clears the slot after traversal. This sequencing identifies the stored pointer as render-dispatch context rather than an arbitrary retained DObj.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:05:10.319Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L19-L22",
+          "why": "Shows the supplied HSD_DObj pointer being written directly to current_dobj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L273-L353",
+          "why": "Shows HSD_JObjDispSub selecting each visible DObj that participates in the requested transparency pass, setting it as current immediately before its display-method call, and clearing the current DObj after the loop."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L300-L349",
+          "why": "Shows that the invoked DObj display method configures its material, renders its attached PObj list, and tears the material state down."
+        }
+      ]
+    },
+    {
+      "id": "fact:9f986356-1d94-4c65-ae62-a2677bd5605f",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each call unconditionally replaces the single current_dobj slot. Passing NULL enters the no-current-DObj state; HSD_JObjDispSub uses this to delimit its DObj rendering traversal, setting each selected DObj before dispatch and clearing the slot on exit without saving or restoring a prior value.",
+      "rationale": "The setter has no guard, comparison, or preservation of the old pointer. The caller repeatedly replaces the slot while rendering eligible DObjs and then explicitly writes NULL, proving both overwrite semantics and the clear state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:05:10.319Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L19-L22",
+          "why": "Shows an unconditional overwrite of current_dobj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L273-L353",
+          "why": "Shows repeated selection before DObj display calls followed by an explicit transition to NULL, with no prior current value saved or restored."
+        }
+      ]
+    },
+    {
+      "id": "fact:292b28f8-39e1-45a8-b7eb-2b494e0b51da",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-provided u32 mask is merged unchanged into dobj->flags while every existing set bit is preserved. Rendering later reads this field to skip DObjs carrying DOBJ_HIDDEN and to select DObjs belonging to the requested transparency pass. Fighter-part visibility code concretely supplies mask 0x1 to hide nonselected or disabled model-part DObjs and clears that mask on selected parts.",
+      "rationale": "The target establishes the mask-to-field flow through OR assignment. HSD_JObjDispSub demonstrates downstream consumption of the hidden and transparency portions of the field, while the fighter-parts callers show a concrete producer path that sets bit 0 on DObjs excluded by the current visibility selection and clears it on selected DObjs.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:07:33.398Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L32-L37",
+          "why": "Shows the supplied mask flowing unchanged into the existing DObj flags field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L223-L342",
+          "why": "Shows HSD_JObjDispSub reading DOBJ_HIDDEN to omit a DObj and reading transparency bits from the same flags field before dispatching its display method."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L580-L659",
+          "why": "Shows fighter-part visibility selection clearing flag 0x1 on selected DObjs and setting it through the target on the alternative DObjs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L650-L700",
+          "why": "Shows the fighter visibility reset path applying flag 0x1 through the target to every DObj listed by a visibility group."
+        }
+      ]
+    },
+    {
+      "id": "fact:b7d37d3b-d988-44ef-bc6f-391cd7039462",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports model-part visibility control by allowing callers to mark individual display objects hidden; the renderer then omits those DObjs while retaining visible alternatives, as used to select among fighter model-part variants.",
+      "rationale": "The header at the current revision still identifies bit 0 as DOBJ_HIDDEN. Fighter-part visibility selection sets that bit on nonselected DObjs and clears it on the selected group, while the DObj render traversal skips every object carrying the bit. The drift therefore requires a fresh header citation but does not alter the established model-part visibility mapping.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T23:43:13.662Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.h#L1-L60",
+          "why": "At the current head, identifies DObj flag 0x1 as DOBJ_HIDDEN and shows that HSD_DObj stores a u32 flags field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L580-L659",
+          "why": "Shows fighter visibility selection clearing flag 0x1 on selected model-part DObjs and setting it through HSD_DObjSetFlags on alternative DObjs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L223-L342",
+          "why": "Shows HSD_JObjDispSub skipping every DObj whose DOBJ_HIDDEN bit is set."
+        }
+      ]
+    },
+    {
+      "id": "fact:b01cd965-fc1d-468f-83c1-4e0b87919e6e",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_DObjSetFlags(HSD_DObj* dobj, u32 flags). The HSD_DObj pointer is nullable, and flags is a bit mask in the domain of HSD_DObj.flags; known bits include DOBJ_HIDDEN (0x1).",
+      "rationale": "The header at the current revision still declares the exact signature, defines the flags field as u32, and names bit 0 DOBJ_HIDDEN. The implementation's null guard establishes pointer nullability, while its bitwise OR assignment establishes that the u32 argument is a mask of bits to enable. The drift therefore changes only the header citation, not the claim.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:43:13.662Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/dobj.h#L1-L60",
+          "why": "At the current head, defines DOBJ_HIDDEN as 0x1, declares HSD_DObj.flags as u32, and declares HSD_DObjSetFlags with an HSD_DObj pointer and u32 flags parameter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L22-L54",
+          "why": "Shows the exact implementation signature, the nullable-object guard, and the OR-based bit-mask write into dobj->flags."
+        }
+      ]
+    },
+    {
+      "id": "fact:b1930172-3630-4507-b557-d214e4dba21e",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Null-safely enables one or more state bits on an HSD display object without clearing any flags already present.",
+      "rationale": "The matched body ignores a null DObj and otherwise ORs the complete caller-supplied mask into dobj->flags. The neighboring getter, clearer, and masked modifier confirm that this field is the DObj's shared flag state and that removal or replacement of bits is handled by separate operations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:07:33.398Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L22-L54",
+          "why": "Shows the DObj flag getter, the target's null guard and OR assignment, and the separate clear and masked-modification operations."
+        }
+      ]
+    },
+    {
+      "id": "fact:eb7fcf6b-37c8-4552-9c84-7612c12e104f",
+      "target_id": "target:function:main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null display object causes no state transition. For a non-null DObj, every selected clear bit becomes set, selected bits already set remain set, and all unselected bits remain unchanged. The operation never clears state; HSD_DObjClearFlags and HSD_DObjModifyFlags provide the complementary clearing and masked-replacement transitions.",
+      "rationale": "The explicit null guard proves the no-op case. Bitwise OR assignment proves the monotonic transition and preservation of unrelated bits, while the adjacent clear and modify routines demonstrate that subtractive or replacement transitions are intentionally separate.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:07:33.398Z",
+      "subject": "main/sysdolphin/baselib/dobj:HSD_DObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L22-L54",
+          "why": "Directly establishes the null no-op, additive OR transition, preservation of unrelated bits, and the separate complementary transitions."
+        }
+      ]
+    },
+    {
+      "id": "fact:907c9ad0-cf05-4bfd-bd78-6c81829be07d",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/dobj.c",
+      "type": "data_flow",
+      "value": "Descriptor data flows into recursively allocated DObj nodes whose next, MObj, and PObj fields are populated from the corresponding descriptor links; material render-mode bits are converted into DObj display flags. Animation descriptors, start frames, and masks are then forwarded through each DObj to its polygon and material attachments. During post-load fixup, runtime DObj and HSD_DObjDesc lists are paired through their next links and each PObj list is resolved against the corresponding pobjdesc list. During display, the DObj's MObj becomes the current material, establishes render state, and encloses traversal of the attached PObj display methods before that state is cleared.",
+      "rationale": "The head source preserves the complete descriptor-to-runtime, animation-propagation, reference-fixup, and material-scoped rendering paths.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/dobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L1-L180",
+          "why": "Shows animation descriptors, frame requests, and masks flowing from DObjs into their PObj and MObj attachments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L181-L239",
+          "why": "Shows descriptor links populating runtime attachments and material render modes producing DObj flags."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows lockstep reference resolution and material state flowing around PObj display traversal."
+        }
+      ]
+    },
+    {
+      "id": "fact:61bd3e9a-3b50-4ef4-b77f-37dcde5f0039",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/dobj.c",
+      "type": "purpose",
+      "value": "Implements the HSD display-object runtime layer: it constructs DObj lists and their material and polygon attachments from descriptors, derives display flags from material blending modes, manages animation attachment and playback across those lists, performs post-load polygon-reference fixup, renders polygon objects under their material state, and releases the attached resources with the owning DObj.",
+      "rationale": "The refreshed source still delegates animation operations to attached PObjs and MObjs, constructs descriptor-driven DObj attachments, maps material blending modes to display flags, resolves polygon references, brackets polygon rendering with material state, and releases owned attachments.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/dobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L1-L180",
+          "why": "Shows DObj flag handling and propagation of animation attachment, requests, evaluation, and removal through attached polygon and material objects."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L181-L239",
+          "why": "Shows descriptor-driven material and polygon construction, render-mode validation, class selection, and list removal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows polygon-reference fixup, material-scoped polygon display, attachment release, and DObj class registration."
+        }
+      ]
+    },
+    {
+      "id": "fact:1896b038-6749-4919-b39e-5f0d96526649",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/dobj.c",
+      "type": "state_behavior",
+      "value": "Most per-object and list-wide operations are null-tolerant. List operations advance through DObj next links, while reference resolution advances runtime and descriptor lists together and stops as soon as either side ends. Loading selects a registered descendant class when available, otherwise the default DObj class, and rejects unexpected material blending modes. Display conditionally brackets all PObj draws with MObj setup and unset according to the render-mode mask, and destruction removes the owned MObj, PObj list, and AObj before invoking the parent release method.",
+      "rationale": "Null guards, linked-list loops, class selection, blending-mode validation, dual-list termination, conditional render-state setup, and destruction ordering remain unchanged at the checkout head.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T17:02:33.689Z",
+      "subject": "src/sysdolphin/baselib/dobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L1-L180",
+          "why": "Shows null-tolerant object operations and next-linked list traversal for animation handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L181-L239",
+          "why": "Shows class selection and rejection of unexpected material blending modes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L240-L349",
+          "why": "Shows lockstep list termination, conditional material setup and unset, and owned-attachment destruction."
+        }
+      ]
+    }
+  ]
+}

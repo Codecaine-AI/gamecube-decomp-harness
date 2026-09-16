@@ -1,0 +1,350 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_MissFoot",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_MissFoot:.sdata2"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides float zero and one for clearing vertical knockback and initializing MissFoot frame, speed and blend. Both existing objects contain the same eight-byte payload; source ELF section flags are 3, while split-object flags are 2, so read-only storage is not asserted across both artifacts.",
+        "rationale": "Correct blanket storage flags or an action-lockout implication contradicted by the collision callback; preserve exact local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L17-L19",
+            "why": "Zero vertical knockback/frame/blend and unit speed."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_MissFoot:ftCo_8009F39C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Begins the MissFoot edge-slip state when observed collision callers detect a ledge-slip side opposite the fighter facing direction. The IASA callback is empty, but collision processing can still transition the fighter before the animation finishes.",
+        "rationale": "Correct blanket storage flags or an action-lockout implication contradicted by the collision callback; preserve exact local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L14-L24",
+            "why": "Clear vertical knockback, enter MissFoot, clamp drift, conditionally set airborne."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1139-L1154",
+            "why": "Opposite-facing slip branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1207-L1222",
+            "why": "Second opposite-facing slip caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L447-L460",
+            "why": "Clamp horizontal self velocity to air-drift bound."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Exact airborne state, jump and ECB-lock writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_MissFoot:ftCo_MissFoot_Anim"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Handles animation completion of the backward edge-slip state by dispatching to the ordinary or parasol-specific damage-fall entry. This animation callback does not guarantee that MissFoot lasts until completion; its collision callback can select another state earlier.",
+        "rationale": "Correct blanket storage flags or an action-lockout implication contradicted by the collision callback; preserve exact local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L26-L31",
+            "why": "Animation exhaustion invokes damage-fall helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Ground conversion and parasol versus numeric0x26 branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Parasol-specific state entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_MissFoot:ftCo_MissFoot_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The callback performs no reads, writes, calls or transitions. Animation completion separately invokes damage-fall handling, while the collision callback can select landing, neutral, wall-jump or ledge responses independently.",
+        "rationale": "Correct blanket storage flags or an action-lockout implication contradicted by the collision callback; preserve exact local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L33-L33",
+            "why": "Empty IASA callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L40-L43",
+            "why": "Unconditional collision forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L624-L639",
+            "why": "Landing/neutral, wall-jump and ledge checks can transition before animation exhaustion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements reverse-facing ledge-slip handling through MissFoot. The entry sets up airborne movement, the IASA callback does nothing, animation completion dispatches to damage fall, and common collision processing may select another state before completion.",
+        "rationale": "Correct blanket storage flags or an action-lockout implication contradicted by the collision callback; preserve exact local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L14-L24",
+            "why": "Clear vertical knockback, enter MissFoot, clamp drift, conditionally set airborne."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1139-L1154",
+            "why": "Opposite-facing slip branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1207-L1222",
+            "why": "Second opposite-facing slip caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L447-L460",
+            "why": "Clamp horizontal self velocity to air-drift bound."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Exact airborne state, jump and ECB-lock writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L26-L31",
+            "why": "Animation exhaustion invokes damage-fall helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Ground conversion and parasol versus numeric0x26 branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Parasol-specific state entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L40-L43",
+            "why": "Unconditional collision forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L624-L639",
+            "why": "Landing/neutral, wall-jump and ledge checks can transition before animation exhaustion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L35-L38",
+            "why": "Unconditional shared aerial-physics forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1363-L1375",
+            "why": "Fast-fall/gravity and aerial drift helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L203-L206",
+            "why": "Ordinary Fall uses identical physics helper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Implements the common MissFoot edge-slip entry and lifecycle callbacks. It clears vertical knockback, clamps horizontal drift, establishes airborne state when needed, delegates aerial physics and collision, and dispatches to damage fall when animation ends if the state is still active.",
+        "rationale": "Correct blanket storage flags or an action-lockout implication contradicted by the collision callback; preserve exact local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L14-L24",
+            "why": "Clear vertical knockback, enter MissFoot, clamp drift, conditionally set airborne."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1139-L1154",
+            "why": "Opposite-facing slip branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1207-L1222",
+            "why": "Second opposite-facing slip caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L447-L460",
+            "why": "Clamp horizontal self velocity to air-drift bound."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Exact airborne state, jump and ECB-lock writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L26-L31",
+            "why": "Animation exhaustion invokes damage-fall helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Ground conversion and parasol versus numeric0x26 branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Parasol-specific state entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L40-L43",
+            "why": "Unconditional collision forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L624-L639",
+            "why": "Landing/neutral, wall-jump and ledge checks can transition before animation exhaustion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L35-L38",
+            "why": "Unconditional shared aerial-physics forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1363-L1375",
+            "why": "Fast-fall/gravity and aerial drift helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L203-L206",
+            "why": "Ordinary Fall uses identical physics helper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Entry selects MissFoot at frame0, speed1, no preservation flags, clears vertical knockback, clamps air drift and converts a still-grounded Fighter to airborne state. IASA performs no operations. Physics and collision delegate to common routines; collision may transition before animation exhaustion. If the Anim callback observes exhaustion, it calls ftCo_80090780 for parasol-specific or ordinary DamageFall handling.",
+        "rationale": "Correct blanket storage flags or an action-lockout implication contradicted by the collision callback; preserve exact local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L14-L24",
+            "why": "Clear vertical knockback, enter MissFoot, clamp drift, conditionally set airborne."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1139-L1154",
+            "why": "Opposite-facing slip branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1207-L1222",
+            "why": "Second opposite-facing slip caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L447-L460",
+            "why": "Clamp horizontal self velocity to air-drift bound."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Exact airborne state, jump and ECB-lock writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L26-L31",
+            "why": "Animation exhaustion invokes damage-fall helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Ground conversion and parasol versus numeric0x26 branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Parasol-specific state entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L40-L43",
+            "why": "Unconditional collision forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L624-L639",
+            "why": "Landing/neutral, wall-jump and ledge checks can transition before animation exhaustion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_MissFoot.c#L35-L38",
+            "why": "Unconditional shared aerial-physics forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1363-L1375",
+            "why": "Fast-fall/gravity and aerial drift helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L203-L206",
+            "why": "Ordinary Fall uses identical physics helper."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

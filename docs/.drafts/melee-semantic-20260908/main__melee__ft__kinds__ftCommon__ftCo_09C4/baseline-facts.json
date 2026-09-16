@@ -1,0 +1,515 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_09C4:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:f82fdfa9-35fd-4a71-ba50-6ae50acb56a3",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_09C4:.sdata2",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Its `0.0F` literal configures the successful cargo platform-drop transition to start the selected airborne cargo motion at frame zero and immediately hold that motion at zero playback rate.",
+        "rationale": "The relocated source passes zero as the animation-start argument to the parameterized Pass transition and then as the animation rate. The Pass helper forwards the first value to `Fighter_ChangeMotionState`, while `ftAnim_SetAnimRate` applies or caches the second as playback rate.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:32.627Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Shows the two zero-valued arguments in transition-entry order in the relocated unit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L76-L87",
+            "why": "Shows that the transition's zero argument is the animation start frame forwarded to `Fighter_ChangeMotionState`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftanim.c#L489-L513",
+            "why": "Shows that zero passed to `ftAnim_SetAnimRate` becomes the fighter's animation playback rate."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C4F8"
+    },
+    "facts": [
+      {
+        "id": "fact:88f976b8-54cf-4287-9373-005ea2ab3f08",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C4F8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Forwards the incoming carrier `Fighter_GObj` unchanged to `ftCo_80099F1C`, which reads downward stick input, vertical-stick tilt age, common thresholds, and platform collision status. A true result forwards the same object to `ftCo_8009C540`, whose side effects initialize the carrier's platform-pass motion and update `victim_gobj`; the wrapper's explicit output is the Boolean consumed by CargoWait or CargoWalk IASA.",
+        "rationale": "The relocated wrapper forwards the same object to the predicate and transition helper. The predicate exposes the controller, timer, common-data, and collision inputs, the adjacent helper exposes the carrier and victim outputs, and the IASA callers consume the returned Boolean as a short-circuit result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:32.627Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Shows unchanged object forwarding through the predicate and transition helper, both Boolean returns, and the resulting carrier and victim operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L26-L36",
+            "why": "Identifies the downward-stick, tilt-timer, common-threshold, and platform-collision inputs read by the predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L52-L59",
+            "why": "Shows CargoWait IASA consuming the wrapper's Boolean through `RETURN_IF`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L42-L49",
+            "why": "Shows CargoWalk IASA consuming the same Boolean and suppressing subsequent checks on success."
+          }
+        ]
+      },
+      {
+        "id": "fact:bfdbc396-4ad5-446d-b051-5fc951623b3f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C4F8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the command gate for dropping through a soft platform while Donkey Kong is carrying an opponent in Kong Karry, preserving the shouldered opponent as the carrier descends.",
+        "rationale": "The relocated code combines the common downward-input platform-pass predicate with cargo-specific carrier motion and victim synchronization. The wiki identifies holding down as the soft-platform drop command and identifies the opponent-on-back carry as Donkey Kong's unique carry mechanic.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:32.627Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Shows the platform-pass predicate leading to cargo motion setup while the linked victim is retained in ShoulderedWait."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "Describes Donkey Kong's unique mechanic of carrying an opponent on his back while retaining movement options."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://super-smash-bros-melee~gameplay@r2048149",
+            "why": "States that holding down on the Control Stick permits dropping through soft platforms in Melee."
+          }
+        ]
+      },
+      {
+        "id": "fact:08de5f0f-4dbe-48ca-9b23-978c1f4f3332",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C4F8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_CargoPass_CheckInput",
+        "rationale": "The relocated function is a cargo-specific Boolean predicate-and-entry wrapper for platform passing. `ftCo_Turn_CheckInput` demonstrates the common-fighter `CheckInput` convention for the same wrapper shape, while Fox's analogous wrapper explicitly uses Pass naming; no recovered symbol confirms the exact reconstruction.\n\nNaming cleanup: Recognized leading_name form; no lexical audit flags.\nPrior naming claim: `ftCo_CargoPass_CheckInput` is a plausible original name.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Shows that the target is specifically a cargo platform-pass predicate-and-entry wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L27-L53",
+            "why": "Shows the established `ftCo_Turn_CheckInput` name on a Boolean predicate-plus-entry wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftFox/ftfoxspeciallw.c#L303-L353",
+            "why": "Shows explicit `CheckPass` and `Pass` names on an analogous wrapper and transition around the same common platform-pass predicate."
+          }
+        ]
+      },
+      {
+        "id": "fact:37c1f78d-5712-4719-a794-9b78b5ef98e2",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C4F8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Boolean common-fighter action-transition handler with signature `bool (Fighter_GObj* gobj)`; `true` means the cargo platform-pass transition was performed, while `false` means its input and platform guards failed and IASA processing may continue.",
+        "rationale": "The matched definition supplies the exact signature and ties true exclusively to invocation of the transition helper. Both callers consume the result with `RETURN_IF`, proving that the Boolean follows the common consumed-transition contract.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:43:59.241Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L13-L20",
+            "why": "Directly provides the signature and shows the success and failure return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L52-L59",
+            "why": "Shows the returned Boolean being consumed as an indication that a CargoWait transition has already occurred."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L42-L49",
+            "why": "Shows the same consumed-transition contract in CargoWalk IASA."
+          }
+        ]
+      },
+      {
+        "id": "fact:b5aa64c8-b708-4180-b259-649ba05a3572",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C4F8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Checks whether a grounded cargo carrier has requested a soft-platform drop, performs the cargo-specific platform-pass transition when eligible, and reports whether the current IASA dispatch was consumed.",
+        "rationale": "At the relocated path, the function invokes the common Pass eligibility predicate, calls the adjacent cargo transition only on success, and returns true exactly on that path. CargoWait and CargoWalk both consume its result through `RETURN_IF`.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:32.627Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Shows the complete conditional wrapper and the cargo-specific transition invoked on success."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L52-L59",
+            "why": "Shows CargoWait IASA using the function as a short-circuiting action-transition check."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L42-L49",
+            "why": "Shows CargoWalk IASA using the same function as a short-circuiting action-transition check."
+          }
+        ]
+      },
+      {
+        "id": "fact:d7244c3c-3f58-48be-8b7d-b02a7529b7ea",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C4F8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "During grounded cargo IASA processing, it returns false without changing state unless the left stick is at or below `-p_ftCommonData->x464`, the vertical-stick tilt timer is less than `p_ftCommonData->x468`, and the carrier is supported by a passable platform. When all guards succeed, it starts the carrier's cargo-specific Pass motion, applies downward Pass movement and floor skipping, stops the carrier animation, places the victim in ShoulderedWait, and returns true so the caller skips all lower-priority checks that frame.",
+        "rationale": "The shared predicate establishes the exact three guards. The relocated wrapper and transition helper establish the accepted path's carrier and victim state changes, the common Pass helper establishes movement and floor-skip effects, and both IASA callers show that success terminates their ordered dispatch.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:32.627Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Shows that only successful eligibility invokes the cargo transition, freezes carrier animation, updates the victim, and returns true."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L26-L36",
+            "why": "Shows the inclusive downward-stick threshold, exclusive tilt-timer threshold, and passable-platform guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L76-L87",
+            "why": "Shows airborne setup, downward velocity, motion entry, supporting-floor exclusion, and tilt-timer reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L52-L59",
+            "why": "Shows that a true result suppresses lower-priority CargoWait transition checks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L42-L49",
+            "why": "Shows that a true result suppresses subsequent CargoWalk transition processing."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C540"
+    },
+    "facts": [
+      {
+        "id": "fact:66f15ee3-3d10-4799-a1c9-c7bbe1d9a262",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C540",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the carrier's `Fighter_GObj`, reads its `Fighter` from `user_data`, derives the destination CargoFall motion as `fp->x2CC->x4_motion_state + 6`, and forwards that motion with `Ft_MF_None` and frame zero to `ftCo_8009A184`. That helper converts the carrier to airborne handling, clamps air drift, assigns common Pass downward velocity, changes motion, skips the supporting floor, and writes `0xFE` to the vertical-stick tilt timer. The target then forwards zero to `ftAnim_SetAnimRate` and passes `fp->victim_gobj` with `ftCo_MS_ShoulderedWait` to the shouldered-state updater.",
+        "rationale": "The target directly exposes every source value and argument. The fully resolved callees show how the forwarded values are consumed and which carrier and victim state they modify.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:41:43.190Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L22-L29",
+            "why": "Shows the carrier lookup, motion derivation, victim reference, and all arguments forwarded by the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L76-L87",
+            "why": "Shows every movement, motion, collision, and input-timer output produced by the parameterized Pass call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftanim.c#L489-L513",
+            "why": "Shows how the zero animation-rate argument is applied immediately or cached under the animation guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Shows how the victim object and ShoulderedWait motion ID are consumed to update the carried fighter."
+          }
+        ]
+      },
+      {
+        "id": "fact:0a8ee0d6-ec49-4b6a-b25e-a16a01b2a2c4",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C540",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the state change used when Donkey Kong drops through a soft platform during Kong Karry, preserving the carried opponent on his back as the carrier begins the CargoFall phase.",
+        "rationale": "The relocated target selects cargo motion base plus six, invokes common platform-pass transition machinery, and updates the linked victim to ShoulderedWait. The cargo-state source identifies that motion as CargoFall, while the wiki identifies the opponent-on-back relationship as Donkey Kong's unique carry mechanic.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:56:32.627Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Shows the target selecting the cargo motion and retaining the linked victim in ShoulderedWait."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L76-L87",
+            "why": "Shows the downward velocity and supporting-floor exclusion that execute the platform drop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "Identifies character motion base plus six and the associated victim setup as CargoFall."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "Describes Donkey Kong's unique opponent-on-back carry state and retained movement."
+          }
+        ]
+      },
+      {
+        "id": "fact:9a884bcf-31a3-4a35-90de-da668ceb26fc",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C540",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_CargoPass_Enter",
+        "rationale": "The relocated unit places this private routine behind the cargo Pass eligibility wrapper and shows that it performs all entry work without testing input. The neighboring CargoFall source corroborates its state-entry role, though no recovered symbol confirms the exact spelling.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_CargoPass_Enter`.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Places the private routine behind a Pass eligibility wrapper and shows its unconditional transition-entry operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "Provides the neighboring CargoFall entry organization and confirms the selected cargo state."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d557a89-bfa2-48df-820f-d0c85f4f1bbb",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C540",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Cargo-specific platform-pass state-entry helper with exact signature `void (Fighter_GObj* gobj)`. `gobj` owns the carrier Fighter; all outputs are in-place changes to that carrier, its collision and input state through the common Pass helper, and its linked carried fighter.",
+        "rationale": "The matched declaration establishes the exact signature. The body obtains the carrier Fighter from `gobj`, uses its character-motion table and victim reference, and returns no value, while the resolved callees establish the resulting in-place mutations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:41:43.190Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L22-L29",
+            "why": "Provides the exact `void (Fighter_GObj*)` definition and shows the carrier Fighter and linked victim accessed through the argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L76-L87",
+            "why": "Shows the carrier, collision, and input-state mutations performed through the forwarded game object."
+          }
+        ]
+      },
+      {
+        "id": "fact:c7682add-6080-4685-bdfb-dcc5353232c3",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C540",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Executes the cargo-specific platform-drop entry after eligibility has already been established: it sends the carrier into CargoFall using common Pass movement and floor-skip setup, requests that the carrier's animation stop advancing, and keeps the carried victim synchronized in ShoulderedWait.",
+        "rationale": "The relocated wrapper calls this helper only after the common Pass predicate succeeds. The helper selects character motion base plus six, invokes the parameterized Pass transition at frame zero, requests animation rate zero, and updates `victim_gobj`; the neighboring CargoFall initializer confirms the destination motion and victim state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:32.627Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Shows the caller-owned guard and the target's complete carrier and victim setup sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L76-L87",
+            "why": "Shows the airborne conversion, downward velocity, motion change, floor skip, and input-timer effects of the target's Pass call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "Confirms that motion base plus six is CargoFall and associates it with stopped carrier animation and ShoulderedWait victim setup."
+          }
+        ]
+      },
+      {
+        "id": "fact:7e69fce8-53f3-460a-8498-fc787cf02694",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C540",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "This routine is an unconditional transition executor rather than an input predicate. Once called, it immediately enters character motion base plus six\u2014CargoFall\u2014at frame zero with no preservation flags through the common Pass path, applies downward platform-drop movement and supporting-floor exclusion, requests animation rate zero, and updates the carried victim to ShoulderedWait. Its sole caller supplies the guard by invoking it only after the downward-input and passable-platform test succeeds.",
+        "rationale": "The relocated target contains no branch and always performs its three transition operations. Its wrapper and the common predicate establish the external eligibility guard, while the Pass helper and CargoFall implementation establish the transition effects and destination-state identity.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:56:32.627Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L30",
+            "why": "Shows the caller-owned eligibility branch and the target's unconditional motion, animation-rate, and victim-state operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L26-L36",
+            "why": "Shows the downward-stick, tilt-timing, and platform guards checked before the target is called."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L76-L87",
+            "why": "Shows immediate airborne conversion, downward velocity, motion entry at the supplied frame, floor exclusion, and tilt-timer reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "Identifies motion base plus six as CargoFall and confirms the stopped-animation and ShoulderedWait setup associated with that state."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_09C4.c"
+    },
+    "facts": [
+      {
+        "id": "fact:50a5ed5e-ed01-4897-92d1-d2573d7cdb70",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_09C4.c",
+        "type": "data_flow",
+        "value": "The carrier object passes through the common Pass predicate; success reads its cargo motion-state base and victim_gobj, enters motion base plus six, freezes carrier animation, and sends the victim to ShoulderedWait.",
+        "rationale": "The complete current unit preserves this carrier, motion-state, animation-rate, and victim flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:12.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L29",
+            "why": "Shows the carrier, cargo motion expression, animation freeze, and victim passed to ShoulderedWait."
+          }
+        ]
+      },
+      {
+        "id": "fact:98340608-3aa5-4f8a-8c0c-3a4d7ae352ee",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_09C4.c",
+        "type": "game_mapping",
+        "value": "Realizes dropping through a soft platform during Donkey Kong's cargo carry while preserving the opponent-on-back relationship.",
+        "rationale": "The code still combines common platform passing with a cargo motion and continued ShoulderedWait state for the carried victim.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:12:12.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L29",
+            "why": "Directly combines Pass eligibility, a cargo-specific motion, and the carried victim's ShoulderedWait state."
+          }
+        ]
+      },
+      {
+        "id": "fact:415ad5cc-83e0-4d17-b039-7384dfbe23f2",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_09C4.c",
+        "type": "inferred_name",
+        "value": "ftCo_CargoPass.c",
+        "rationale": "Both functions in the complete current unit exclusively form a cargo-specific platform-pass predicate and transition pair; no surviving symbol proves the historical filename.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-06T03:12:12.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L29",
+            "why": "Shows that the complete unit is dedicated to passing through a platform while preserving the cargo victim."
+          }
+        ]
+      },
+      {
+        "id": "fact:95a56f68-e340-4ef1-af93-8e0a90afb408",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_09C4.c",
+        "type": "inferred_type",
+        "value": "Common-fighter cargo transition module containing a public bool(Fighter_GObj*) eligibility routine and a private void(Fighter_GObj*) state-entry routine.",
+        "rationale": "The current declarations retain the two signatures and their public/private split.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:12.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L29",
+            "why": "Provides both signatures, the static declaration, Boolean contract, and carrier/victim use."
+          }
+        ]
+      },
+      {
+        "id": "fact:9536bb54-7e01-49f6-8db9-0450e316195b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_09C4.c",
+        "type": "purpose",
+        "value": "Implements the cargo-carry-specific platform-pass transition, moving the carrier through a soft platform while keeping the carried victim in ShoulderedWait.",
+        "rationale": "The current unit still combines the common Pass predicate with synchronized carrier and victim state changes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:12.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L29",
+            "why": "Shows Pass eligibility, cargo motion selection, animation freezing, and victim transition."
+          }
+        ]
+      },
+      {
+        "id": "fact:3ae51bee-f2cb-4b66-ac76-f554bf90c9c7",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_09C4.c",
+        "type": "state_behavior",
+        "value": "A failed common Pass check leaves state unchanged; success enters the cargo-specific falling motion, freezes its animation, and keeps the linked victim in ShoulderedWait.",
+        "rationale": "The current Boolean wrapper retains the unchanged false path and invokes the synchronized carrier and victim transition only on success.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:12.440Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_09C4.c#L1-L29",
+            "why": "Shows the false path and every state change performed after a successful Pass check."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C4F8#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_09C4:ftCo_8009C540#r3"
+    },
+    "facts": []
+  }
+]

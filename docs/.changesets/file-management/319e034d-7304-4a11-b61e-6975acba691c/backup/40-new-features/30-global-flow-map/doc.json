@@ -1,0 +1,445 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-30-global-flow-map",
+  "title": "Global Flow (Working Map)",
+  "root": "b-global-flow-root-1",
+  "blocks": {
+    "b-global-flow-root-1": {
+      "id": "b-global-flow-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-global-flow-intro-2",
+        "b-global-flow-whole-system-3",
+        "b-global-flow-master-outline-4",
+        "b-global-flow-bands-table-5",
+        "sweep-flow-band-references"
+      ]
+    },
+    "b-global-flow-intro-2": {
+      "id": "b-global-flow-intro-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A working visualization of the entire harness as one system. The master outline below shows everything end to end; each band has its own doc in this folder where the walkthrough happens and confirmed detail accumulates. Known bugs found along the way live in their own doc here too."
+        }
+      ],
+      "children": []
+    },
+    "b-global-flow-whole-system-3": {
+      "id": "b-global-flow-whole-system-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The Whole System"
+        }
+      ],
+      "children": []
+    },
+    "b-global-flow-master-outline-4": {
+      "id": "b-global-flow-master-outline-4",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Melee harness global flow",
+            "steps": [
+              {
+                "text": "Run standing infrastructure beside every cycle",
+                "steps": [
+                  {
+                    "text": "Boot the server, reconcile orphaned `Sync`, serve HTTP/UI"
+                  },
+                  {
+                    "text": "Hand FIFO build tokens to every build from `Compile jobserver`"
+                  },
+                  {
+                    "text": "Drive the Run Loop child from `Process controller`"
+                  },
+                  {
+                    "text": "Claim, dispatch, heartbeat, and settle jobs in `Job-queue consumer`"
+                  },
+                  {
+                    "text": "Flush mapped kernel events behind a cursor via `Trace tailer`"
+                  }
+                ]
+              },
+              {
+                "text": "Register a game",
+                "steps": [
+                  {
+                    "text": "Resolve the descriptor from `games/<id>/game.json` and list it available"
+                  },
+                  {
+                    "text": "Registration resolves a descriptor and returns filesystem warnings. Cycle preparation and Sync own worktree validation and source publication.",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Open a cycle as a `Cycle` container",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Require every prior cycle closed, then provision the canonical worktree"
+                  },
+                  {
+                    "text": "Capture the immutable baseline with its matching `head_revision`"
+                  }
+                ]
+              },
+              {
+                "text": "Prepare the cycle",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Provision worktrees for the cycle"
+                  },
+                  {
+                    "text": "Survey PR-index debt"
+                  },
+                  {
+                    "text": "Refresh knowledge"
+                  },
+                  {
+                    "text": "Calculate the baseline in the prepared worktree",
+                    "trace": true
+                  },
+                  {
+                    "text": "Legacy git-intake and PR-intake prep subphases hard-throw and point the operator at `sync.start`, and the prepare-phase PR-index executor throws the same way, so only the debt survey runs here (bug catalog)",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Run a `Sync` when the operator starts one",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Observe upstream and stage the requested inputs"
+                  },
+                  {
+                    "text": "Reconcile staging against the observed tip, then validate it"
+                  },
+                  {
+                    "text": "Publish the validated staging tree into the canonical checkout"
+                  },
+                  {
+                    "text": "Run V2 knowledge intake after canonical repoint, before the publication boundary and dispatch release"
+                  },
+                  {
+                    "text": "Release dispatch authority after publication; queued knowledge tasks await an enabled librarian consumer"
+                  },
+                  {
+                    "text": "Sync holds the game dispatch lease, so a Run holding it is stopped first. A failed step blocks for recovery rather than rolling back, and publication is not cancellable.",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Run autonomous work through the `Run Loop`",
+                "trace": true,
+                "steps": [
+                  {
+                    "text": "Start under a dispatch lease and clear stale state"
+                  },
+                  {
+                    "text": "Repeat from the refreshed board until the run stops, idles out, or spends its budget",
+                    "steps": [
+                      {
+                        "text": "Open an epoch and admit ranked eligible targets under the configured admission cap",
+                        "trace": true
+                      },
+                      {
+                        "text": "Admission checks report provenance by default. An optional target cap limits board candidates; existing epoch membership stays fixed.",
+                        "kind": "note"
+                      },
+                      {
+                        "text": "Claim a queued job and run the attempt sandboxed",
+                        "trace": true
+                      },
+                      {
+                        "text": "Drain accepted checkpoint evidence into integration, single flight",
+                        "trace": true
+                      },
+                      {
+                        "text": "Persist conflict paths and blocking integration outcomes for recovery. No resolver agent pool starts."
+                      },
+                      {
+                        "text": "Close the boundary once the Epoch's queue empties"
+                      },
+                      {
+                        "text": "Rebuild report truth, then record a save point"
+                      },
+                      {
+                        "text": "The boundary confirmation pass is opt-in: where enabled, a clean global comparison confirms the tentative window and a dirty one reverts the widened candidates.",
+                        "kind": "note"
+                      }
+                    ]
+                  },
+                  {
+                    "text": "Drain `Worker`s for a 30-second grace, then integrate once more"
+                  }
+                ]
+              },
+              {
+                "text": "Break confirmed work into PR slices",
+                "steps": [
+                  {
+                    "text": "PR band parked: campaign machinery is removed pending completion of the core loop",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Reconcile merged results",
+                "steps": [
+                  {
+                    "text": "Shared harness intake archives merged PRs without generating postmortems"
+                  },
+                  {
+                    "text": "Reconcile identities, re-anchor unchanged code citations, then ingest PRs, Discord, and attempts"
+                  },
+                  {
+                    "text": "Append source and ledger records and enqueue V2 index tasks; semantic changes wait for librarian proposals and apply"
+                  }
+                ]
+              },
+              {
+                "text": "Close the cycle explicitly",
+                "steps": [
+                  {
+                    "text": "Settle obligations, record the final evidence boundary, clear the slot"
+                  },
+                  {
+                    "text": "Block the cycle instead when the gate finds unshipped work"
+                  }
+                ]
+              },
+              {
+                "text": "Maintain the shared knowledge base beside worker execution",
+                "steps": [
+                  {
+                    "text": "With --worker-summary, run leased worker_summary jobs over closed transcripts and scored checkpoint digests"
+                  },
+                  {
+                    "text": "Write attempt and narrative records and enqueue run_closed index tasks"
+                  },
+                  {
+                    "text": "With --librarian-consumer, claim index tasks, research their subjects, and validate proposals through the apply layer"
+                  },
+                  {
+                    "text": "Write accepted semantic records for later worker cards and knowledge queries"
+                  },
+                  {
+                    "text": "Both lanes are independently opt-in and default off. External PR and Discord imports enqueue their own librarian tasks; models never write the store directly.",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Answer validation requests on demand",
+                "steps": [
+                  {
+                    "text": "Build trusted `objdiff` report truth behind a reuse key"
+                  },
+                  {
+                    "text": "Guard every boundary and handoff with regression checks and QA"
+                  }
+                ]
+              },
+              {
+                "text": "Host every `Worker` attempt in a sandbox",
+                "steps": [
+                  {
+                    "text": "Provision from the game image plus a base-revision seed"
+                  },
+                  {
+                    "text": "Sleep while the model thinks, wake on activity"
+                  },
+                  {
+                    "text": "Reap settled and orphaned sandboxes on reconciliation"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-global-flow-bands-table-5": {
+      "id": "b-global-flow-bands-table-5",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Band",
+          "Doc"
+        ],
+        "rows": [
+          [
+            "Standing Infrastructure",
+            "Standing Infrastructure"
+          ],
+          [
+            "Registration and Cycle Lifecycle",
+            "Registration and Cycle Lifecycle"
+          ],
+          [
+            "Sync",
+            "Sync"
+          ],
+          [
+            "Run",
+            "Run"
+          ],
+          [
+            "Epoch Boundary",
+            "Epoch Boundary"
+          ],
+          [
+            "PR",
+            "PR"
+          ],
+          [
+            "Knowledge Lane",
+            "Knowledge Lane"
+          ],
+          [
+            "Validation, Sandbox, and Tracing",
+            "Validation, Sandbox, and Tracing"
+          ],
+          [
+            "Known Bugs",
+            "Known Bugs"
+          ]
+        ],
+        "title": "Band docs"
+      },
+      "children": []
+    },
+    "sweep-flow-band-references": {
+      "id": "sweep-flow-band-references",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Open the flow bands: "
+        },
+        {
+          "insert": "Standing Infrastructure",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/30-global-flow-map/10-standing-infrastructure"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "Registration and Cycle Lifecycle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/30-global-flow-map/20-registration-and-cycle"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "Sync",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/30-global-flow-map/30-sync"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "Run",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/30-global-flow-map/40-run"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "Epoch Boundary",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/30-global-flow-map/45-epoch-boundary"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "PR",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/30-global-flow-map/50-pr"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "Knowledge Lane",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/30-global-flow-map/60-knowledge"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "Validation, Sandbox, and Tracing",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/30-global-flow-map/70-validation-sandbox-tracing"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "Known Bugs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "40-new-features/30-global-flow-map/90-known-bugs"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
+}

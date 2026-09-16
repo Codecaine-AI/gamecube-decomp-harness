@@ -12,7 +12,7 @@ import {
 import { harnessStateAction } from "@/pages/workspace/_lib/model";
 import type {
   DashboardAction,
-  HarnessStateReadModel,
+  HarnessStateViewModel,
 } from "@/pages/workspace/_lib/types";
 
 export function SyncStateCard({
@@ -22,7 +22,7 @@ export function SyncStateCard({
 }: {
   busy: boolean;
   onAction: (action: DashboardAction) => void;
-  harnessState: HarnessStateReadModel | null;
+  harnessState: HarnessStateViewModel | null;
 }) {
   const sync = harnessState?.sync ?? null;
   const repoSync = harnessState?.repo_sync ?? null;

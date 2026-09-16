@@ -1,0 +1,97 @@
+{
+  "tu": "main/dolphin/gx/GXTransform",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXTransform:GXSetCurrentMtx"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For an ID fitting six bits, GXSetCurrentMtx replaces bits 0\u20135 of gx->matIdxA while preserving neighboring texture-matrix index fields. SET_REG_FIELD asserts that the ID fits, but its assignment clears only those six destination bits and ORs the entire unmasked ID; with assertions disabled, an out-of-range ID can set neighboring bits rather than being truncated to six bits. __GXSetMatrixIndex(GX_VA_PNMTXIDX) publishes the complete matIdxA word through command-processor register selector 0x30 and XF register 24, then assigns gx->bpSent = 1. This emits matrix-selection commands; it neither uploads matrix coefficients nor waits for GPU completion.",
+        "rationale": "Preserves the supported field/register flow and correction of global-synchronization wording while repairing the reviewer's substantive objection about unmasked out-of-range IDs.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTransform.c#L322-L327",
+            "why": "Six-bit PN field update and helper call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L141-L147",
+            "why": "Range assertion followed by destination-field clearing and an unmasked value OR."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTransform.c#L545-L555",
+            "why": "Complete shadow-word publication and numeric bookkeeping assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L129-L136",
+            "why": "Command macro emits the opcode, register selector, and word without a completion wait."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXTransform:GXSetScissor"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Applies the GXBegin guard and asserts left < 1708, top < 1708, left + wd < 1708, and top + ht < 1708 using unsigned arguments. It adds 342 to the origins and computes inclusive bottom/right bounds by adding dimensions and subtracting one. Four SET_REG_FIELD calls update the 11-bit scissor fields; each asserts that its value fits, but ORs an unmasked value after clearing the destination field, so field-contained replacement assumes fitting values. It emits both raster-register words and assigns gx->bpSent = 0. The zero assignment is bookkeeping after actual register emission, not evidence that the BP commands were unsent. No explicit nonzero-dimension check is present.",
+        "rationale": "Preserves the supported correction of bpSent=0 and the exact assertion and size-edge behavior. Macro inspection additionally avoids implying that arbitrary out-of-range values are masked to eleven bits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTransform.c#L465-L492",
+            "why": "Validation, bound arithmetic, four field updates, raster writes, and zero assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L141-L147",
+            "why": "Field-update macro asserts range without masking its input operand."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L100-L105",
+            "why": "Raster macro emits a command byte and register word."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXTransform:GXSetScissor"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements raster scissor configuration for HSD camera render regions. Normal camera setup scales the CObj scissor bounds into its framebuffer rectangle. Top-half setup instead derives a rectangle from CObj viewport bounds and caps its bottom at efbHeight. Bottom-half setup derives its rectangle from CObj scissor bounds relative to screen_top = efbHeight - 8. Each path passes origin and dimensions to GXSetScissor for raster-register installation.",
+        "rationale": "Corrects the baseline rationale's conflation of top-half viewport-derived bounds with CObj scissor fields, while retaining the established camera/raster mapping.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L278-L330",
+            "why": "Normal scissor-field conversion and top-half viewport-derived rectangle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L394-L408",
+            "why": "Bottom-half scissor fields and efbHeight-8 origin."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTransform.c#L465-L492",
+            "why": "Rectangle-to-raster-register installation."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

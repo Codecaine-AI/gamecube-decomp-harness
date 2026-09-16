@@ -1,0 +1,89 @@
+{
+  "tu": "main/MSL/math",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/math.c#L9-L30",
+            "why": "Exact types, values and conditional placement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the useful representation knowledge while removing unsupported unconditional layout and mutability implications.",
+        "subject": {
+          "target_stable_key": "main/MSL/math:.sdata2"
+        },
+        "type": "inferred_type",
+        "value": "The source declares, in order, two non-const u32 coefficient words (0xBF000030 and 0x3EAAAA36) and two const FloatU32 exceptional-value objects (NaN 0x7FFFFFFF and positive infinity 0x7F800000). Each carries SECTION_SDATA2, which requests .sdata2 placement only under __MWERKS__ without M2CTX and otherwise expands to nothing. These declarations do not independently establish compiled layout or read-only protection."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/math.c#L21-L64",
+            "why": "Annotations, declarations, provenance comment and exported signature."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes observed declarations from compiled section and cross-file definition claims.",
+        "subject": {
+          "entity_locator": "src/MSL/math.c"
+        },
+        "type": "inferred_type",
+        "value": "An MSL math-runtime C translation unit exporting float logf(float x), defining two u32 coefficient words and two const FloatU32 exceptional-value objects with conditional SECTION_SDATA2 annotations, and importing const float lookup arrays. Its source comment identifies math_data.c as the table provider; compiled placement and table definitions are not established by these declarations alone."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/math.c#L13-L30",
+            "why": "Extraction macros and coefficient representations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/math.c#L64-L101",
+            "why": "Unsigned input, table-index rounding and grouped arithmetic."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects sign-contaminated exponent extraction while retaining table reduction, rounding and evaluation grouping.",
+        "subject": {
+          "target_stable_key": "main/MSL/math:logf"
+        },
+        "type": "data_flow",
+        "value": "For exponent fields other than zero or all ones, logf computes E from unsigned raw_x as ((raw_x & 0xFF800000) >> 23) - 127 and m from the top seven mantissa bits. E is the unbiased exponent for positive normals but is 256 larger for negative normals. If any low 16 mantissa bits remain, it constructs full and quantized normalized mantissas, increments the quantized value and m when bit 15 is set (allowing m=128), and computes H as their difference times __one_over_F[m]. It returns (LN2*(float)E + __ln_F[m]) + (H + H*H*(H*C1 + C0)), where C0/C1 reinterpret 0xBF000030/0x3EAAAA36 as floats. With no low mantissa bits it returns LN2*(float)E + __ln_F[m] without the residual."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/math.c#L13-L14",
+            "why": "Sign bit participates in E."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/math.c#L64-L113",
+            "why": "All normal and exceptional return paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's false same-magnitude conclusion without imposing standard-library behavior on this implementation.",
+        "subject": {
+          "target_stable_key": "main/MSL/math:logf"
+        },
+        "type": "state_behavior",
+        "value": "Dispatches on the exponent field alone. Exponent-all-ones inputs return x when the mantissa is nonzero; otherwise positive infinity returns __float_huge.f and negative infinity returns __float_nan.f. All exponent-zero inputs, including either sign of zero and subnormal, return -__float_huge.f. Other inputs enter the approximation without a negative-domain check. For negative finite normals, the sign bit contributes 256 to E because F32_UNBIASED_EXPONENT masks with 0xFF800000; their mantissa calculation matches the positive counterpart but their exponent contribution does not. This is neither a negative-domain NaN return nor simply logf of the magnitude."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

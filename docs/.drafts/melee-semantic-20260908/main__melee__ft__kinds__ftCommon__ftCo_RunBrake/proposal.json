@@ -1,0 +1,77 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_RunBrake",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c#L19-L31",
+            "why": "Complete predicate shows indexed input, sign handling, strict comparison and both returns."
+          }
+        ],
+        "op": "write",
+        "rationale": "Correct the canonical indexed member and distinguish a level predicate from historical input detection.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_RunBrake:ftCo_RunBrake_CheckInput"
+        },
+        "type": "data_flow",
+        "value": "Reads Fighter.input.lstick[0].x through the supplied Fighter_GObj, negates the local float only when it is below zero, and compares it strictly against p_ftCommonData->x58_someLStickXThreshold. A successful comparison forwards the original object to ftCo_RunBrake_Enter before returning true; otherwise returns false without entry. This reads only current input and does not locally test running/ground state or an input-release edge."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c#L49-L78",
+            "why": "Both gate branches, unchanged phase on resume, float maintenance and negated conjunction are explicit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserve exact gate and timer semantics without claiming a universal saturating countdown.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_RunBrake:ftCo_RunBrake_Anim"
+        },
+        "type": "state_behavior",
+        "value": "When cmd_vars[1] is nonzero, false runbrake.x0 permits rate-zero freezing at ABS(gr_vel) >= x42C and sets x0 true. The true branch permits rate-one resumption at ABS(gr_vel) <= x42C, clearing cmd_vars[1] but leaving x0 true. Equality can freeze on one callback and resume on a later callback, not both in one invocation. Independently, a truthy float timer has 1.0F subtracted and a negative result clamped to zero. The exit helper ft_8008A2BC runs unless both animation frames and timer truth remain. Ordinary small finite nonnegative timers count down to zero; NaN and positive infinity do not, and large finite values may fail to decrement due to rounding. Ordered velocity comparisons do not trigger on NaN."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c#L80-L87",
+            "why": "Proves order and command gate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L62-L84",
+            "why": "Proves alternate dispatch and normal jump tests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L19-L29",
+            "why": "Proves facing-relative comparison and frame forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Squat.c#L35-L69",
+            "why": "Proves strict downward threshold and state entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Include the optional early jump-helper branch and exact downstream input boundaries.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_RunBrake:ftCo_RunBrake_IASA"
+        },
+        "type": "data_flow",
+        "value": "Forwards the same Fighter_GObj through fn_800CAF78, then only if cmd_vars[0] is nonzero through fn_800C9CEC, then through ftCo_800D5FB0, returning immediately on a truthy result. The first helper checks ftCo_800C5240 and may delegate to ftCo_800C5A50 before normal jump inputs; otherwise vertical stick >= relaxed_tap_jump_threshold with tilt timer < tap_jump_window, or pressed X/Y, enters KneeBend. The TurnRun helper compares lstick[0].x * facing_dir <= x38_someLStickXThreshold and forwards cur_anim_frame to TurnRun entry. The final helper enters Squat when lstick[0].y < -x90. Alternate first-helper semantics and tuning values are not inferred from names."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

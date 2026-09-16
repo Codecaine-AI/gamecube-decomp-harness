@@ -1,0 +1,614 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "medium",
+  "role": "librarian/full-TU reviewer",
+  "started_at": "2026-09-08T15:52:56.288Z",
+  "files": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun",
+      "sha256": "162624ab052be87b8d8046070059164de0b7c822be5c51ff54878f00a67d81f1",
+      "lines": 140,
+      "bytes": 3854,
+      "canonical_ranges": [
+        [
+          1,
+          140
+        ]
+      ],
+      "rendered_ranges": [
+        [
+          1,
+          140
+        ]
+      ],
+      "pages": [
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_TurnRun/pages/src__melee__ft__kinds__ftCommon__ftCo_TurnRun.c.1-120.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+            "source_sha256": "162624ab052be87b8d8046070059164de0b7c822be5c51ff54878f00a67d81f1",
+            "start_line": 1,
+            "end_line": 120,
+            "total_lines": 140,
+            "next_line": 121,
+            "content": "#include \"ftCo_TurnRun.h\"\n\n#include <melee/ft/forward.h>\n\n#include <placeholder.h>\n\n#include \"forward.h\"\n#include \"ftCo_Fall.h\"\n#include \"ftCo_Jump.h\"\n#include \"ftCo_Run.h\"\n#include <melee/ft/fighter.h>\n#include <melee/ft/ft_081B.h>\n#include <melee/ft/ft_0877.h>\n#include <melee/ft/ft_0892.h>\n#include <melee/ft/ftcommon.h>\n#include <melee/ft/inlines.h>\n#include <melee/ft/types.h>\n\nbool ftCo_TurnRun_CheckInputFromRunBrake(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    if (fp->input.lstick[0].x * fp->facing_dir <=\n        p_ftCommonData->x38_someLStickXThreshold)\n    {\n        ftCo_TurnRun_Enter(gobj, fp->cur_anim_frame);\n        return true;\n    }\n    return false;\n}\n\nbool ftCo_TurnRun_CheckInput(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n\n    if (fp->input.lstick[0].x * fp->facing_dir <=\n        p_ftCommonData->x38_someLStickXThreshold)\n    {\n        ftCo_TurnRun_Enter(gobj, 0.0F);\n        return true;\n    }\n    return false;\n}\n\nvoid ftCo_TurnRun_Enter(Fighter_GObj* gobj, float anim_start)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    fp->cmd_vars[1] = 0;\n    fp->mv.co.turnrun.accel_mul = fp->facing_dir;\n    Fighter_ChangeMotionState(gobj, ftCo_MS_TurnRun, Ft_MF_SkipAnimVel,\n                              anim_start, 1.0F, 0.0F, NULL);\n    fp->mv.co.turnrun.x14 = 0;\n    if (fp->x197C != NULL) {\n        ft_PlaySFX(fp, 0x119, 0x7F, 0x40);\n    }\n}\n\nvoid ftCo_TurnRun_Anim(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    PAD_STACK(8);\n\n    if (fp->cmd_vars[1] != 0) {\n        if (fp->mv.co.turnrun.x14 == 0) {\n            ftAnim_SetAnimRate(gobj, 0.0F);\n            fp->mv.co.turnrun.x14 = 1;\n        } else {\n            if ((fp->mv.co.walk.middle_anim_frame * fp->gr_vel) <= 0.01F) {\n                ftAnim_SetAnimRate(gobj, 1.0F);\n                fp->cmd_vars[1] = 0;\n                fp->facing_dir = -fp->facing_dir;\n            }\n        }\n    }\n    if (!ftAnim_IsFramesRemaining(gobj) && !ftCo_Run_CheckInputFromTurnRun(gobj)) {\n        ft_8008A2BC(gobj);\n    }\n}\n\nvoid ftCo_TurnRun_IASA(Fighter_GObj* gobj)\n{\n    RETURN_IF(fn_800CAF78(gobj));\n}\n\nvoid ftCo_TurnRun_Phys(Fighter_GObj* gobj)\n{\n    Fighter* fp = GET_FIGHTER(gobj);\n    ftCo_DatAttrs* co_attrs = &fp->co_attrs;\n    float accel, target_vel;\n    getAccelAndTarget(fp, &accel, &target_vel);\n\n    if (!target_vel) {\n        ftCommon_ApplyFrictionGround(\n            fp, co_attrs->ground_friction *\n                    p_ftCommonData->run_dash_turn_friction_multiplier);\n    } else if (fp->mv.co.turnrun.accel_mul * accel < 0) {\n        if (accel > 0) {\n            if (fp->gr_vel + accel > target_vel) {\n                accel -= co_attrs->ground_friction *\n                         p_ftCommonData->run_dash_turn_friction_multiplier;\n                if (fp->gr_vel + accel < target_vel) {\n                    accel = target_vel - fp->gr_vel;\n                }\n            }\n        } else {\n            if (fp->gr_vel + accel < target_vel) {\n                accel += co_attrs->ground_friction *\n                         p_ftCommonData->run_dash_turn_friction_multiplier;\n                if (fp->gr_vel + accel > target_vel) {\n                    accel = target_vel - fp->gr_vel;\n                }\n            }\n        }\n        fp->xE4_ground_accel_1 = accel;\n    } else {\n        ftCommon_ApplyFrictionGround(\n            fp, co_attrs->ground_friction *\n                    p_ftCommonData->run_dash_turn_friction_multiplier);\n    }\n    ftCommon_ApplyGroundMovement(gobj);\n}",
+            "substitutions": 3,
+            "symbols": [
+              {
+                "canonical": "fn_800C9CEC",
+                "proposed": "ftCo_TurnRun_CheckInputFromRunBrake",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+                "fact_id": "fact:d70e9f1e-2b13-4470-a0f1-662dee629428",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "fn_800C9D40",
+                "proposed": "ftCo_TurnRun_CheckInput",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+                "fact_id": "fact:cb968276-8b31-4113-8ae0-a5b8541c6c99",
+                "fact_updated_at": "2026-09-04T19:07:11.058Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "fn_800CA644",
+                "proposed": "ftCo_Run_CheckInputFromTurnRun",
+                "confidence": 0.78,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+                "fact_id": "fact:f4188b04-2547-4fdb-a5dd-042d9a3f0bdc",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_TurnRun_Enter",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "Fighter_ChangeMotionState",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/fighter:Fighter_ChangeMotionState",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ft_PlaySFX",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ft_0877:ft_PlaySFX",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_TurnRun_Anim",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "PAD_STACK",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftAnim_SetAnimRate",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftanim:ftAnim_SetAnimRate",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftAnim_IsFramesRemaining",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftanim:ftAnim_IsFramesRemaining",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ft_8008A2BC",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ft_08A1:ft_8008A2BC",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_TurnRun_IASA",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "fn_800CAF78",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Jump:fn_800CAF78",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "RETURN_IF",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCo_TurnRun_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "getAccelAndTarget",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              },
+              {
+                "canonical": "ftCommon_ApplyFrictionGround",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCommon_ApplyFrictionGround",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCommon_ApplyGroundMovement",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ftcommon:ftCommon_ApplyGroundMovement",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        },
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_TurnRun/pages/src__melee__ft__kinds__ftCommon__ftCo_TurnRun.c.121-140.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+            "source_sha256": "162624ab052be87b8d8046070059164de0b7c822be5c51ff54878f00a67d81f1",
+            "start_line": 121,
+            "end_line": 140,
+            "total_lines": 140,
+            "next_line": null,
+            "content": "\nvoid ftCo_TurnRun_Coll(Fighter_GObj* gobj)\n{\n    s32 env_flags;\n    bool var_r4;\n\n    if (!ft_800827A0(gobj)) {\n        ftCo_Fall_Enter(gobj);\n        return;\n    }\n    var_r4 = true;\n    env_flags = GET_FIGHTER(gobj)->coll_data.env_flags;\n    if (!(env_flags & Collide_LeftEdge) && !(env_flags & Collide_RightEdge)) {\n        var_r4 = false;\n    }\n    if (var_r4) {\n        ftCommon_ResetVelocities(gobj);\n    }\n}\n",
+            "substitutions": 1,
+            "symbols": [
+              {
+                "canonical": "ftCommon_8007E2FC",
+                "proposed": "ftCommon_ResetVelocities",
+                "confidence": 0.7,
+                "subject": "main/melee/ft/ftcommon:ftCommon_8007E2FC",
+                "fact_id": "fact:27480660-31bb-4ba1-bd26-83c46ad4f7a3",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_TurnRun_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ft_800827A0",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/ft_081B:ft_800827A0",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_Fall_Enter",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_Fall:ftCo_Fall_Enter",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "GET_FIGHTER",
+                "proposed": null,
+                "confidence": null,
+                "subject": null,
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_kb_identity"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        }
+      ]
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_TurnRun.h",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun",
+      "sha256": "93cae4801aea4118d180b6a157f58d40c50f8b86c54cfb89ecf79ae65c912128",
+      "lines": 15,
+      "bytes": 490,
+      "canonical_ranges": [
+        [
+          1,
+          15
+        ]
+      ],
+      "rendered_ranges": [
+        [
+          1,
+          15
+        ]
+      ],
+      "pages": [
+        {
+          "page": "games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__melee__ft__kinds__ftCommon__ftCo_TurnRun/pages/src__melee__ft__kinds__ftCommon__ftCo_TurnRun.h.1-15.json",
+          "render_metadata": {
+            "status": "ok",
+            "path": "src/melee/ft/kinds/ftCommon/ftCo_TurnRun.h",
+            "source_sha256": "93cae4801aea4118d180b6a157f58d40c50f8b86c54cfb89ecf79ae65c912128",
+            "start_line": 1,
+            "end_line": 15,
+            "total_lines": 15,
+            "next_line": null,
+            "content": "#ifndef GALE01_0C9CEC\n#define GALE01_0C9CEC\n\n#include <melee/ft/forward.h>\n\n/* 0C9CEC */ bool ftCo_TurnRun_CheckInputFromRunBrake(Fighter_GObj* gobj);\n/* 0C9D40 */ bool ftCo_TurnRun_CheckInput(Fighter_GObj* gobj);\n/* 0C9D94 */ void ftCo_TurnRun_Enter(Fighter_GObj* gobj, float anim_start);\n/* 0C9E10 */ void ftCo_TurnRun_Anim(Fighter_GObj* gobj);\n/* 0C9ED8 */ void ftCo_TurnRun_IASA(Fighter_GObj* gobj);\n/* 0C9EFC */ void ftCo_TurnRun_Phys(Fighter_GObj* gobj);\n/* 0CA024 */ void ftCo_TurnRun_Coll(Fighter_GObj* gobj);\n\n#endif\n",
+            "substitutions": 2,
+            "symbols": [
+              {
+                "canonical": "fn_800C9CEC",
+                "proposed": "ftCo_TurnRun_CheckInputFromRunBrake",
+                "confidence": 0.76,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+                "fact_id": "fact:d70e9f1e-2b13-4470-a0f1-662dee629428",
+                "fact_updated_at": "2026-09-06T02:34:38.472Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "fn_800C9D40",
+                "proposed": "ftCo_TurnRun_CheckInput",
+                "confidence": 0.74,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+                "fact_id": "fact:cb968276-8b31-4113-8ae0-a5b8541c6c99",
+                "fact_updated_at": "2026-09-04T19:07:11.058Z",
+                "status": "substituted"
+              },
+              {
+                "canonical": "ftCo_TurnRun_Enter",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_TurnRun_Anim",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_TurnRun_IASA",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_TurnRun_Phys",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              },
+              {
+                "canonical": "ftCo_TurnRun_Coll",
+                "proposed": null,
+                "confidence": null,
+                "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+                "fact_id": null,
+                "fact_updated_at": null,
+                "status": "no_guess"
+              }
+            ],
+            "symbols_omitted": 0,
+            "parse_errors": 0,
+            "knowledge_status": "frozen_baseline"
+          }
+        }
+      ]
+    }
+  ],
+  "subjects": [
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:.sdata2",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+    "src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter#r4",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA#r3",
+    "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys#r3"
+  ],
+  "targets": [
+    {
+      "id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:.sdata2",
+      "kind": "data",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:.sdata2",
+      "symbol": ".sdata2",
+      "address": "0x804D8E88"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+      "symbol": "fn_800C9CEC",
+      "address": "0x800C9CEC"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+      "symbol": "fn_800C9D40",
+      "address": "0x800C9D40"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+      "symbol": "ftCo_TurnRun_Anim",
+      "address": "0x800C9E10"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+      "symbol": "ftCo_TurnRun_Coll",
+      "address": "0x800CA024"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+      "symbol": "ftCo_TurnRun_Enter",
+      "address": "0x800C9D94"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+      "symbol": "ftCo_TurnRun_IASA",
+      "address": "0x800C9ED8"
+    },
+    {
+      "id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+      "kind": "function",
+      "stable_key": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+      "symbol": "ftCo_TurnRun_Phys",
+      "address": "0x800C9EFC"
+    }
+  ],
+  "counts": {
+    "files_expected": 2,
+    "files_reviewed": 2,
+    "canonical_lines": 155,
+    "rendered_lines": 155,
+    "targets": 8,
+    "entities": 9,
+    "subjects": 17,
+    "existing_facts": 46,
+    "proposed_writes": 12,
+    "baseline_links": 31
+  },
+  "supplemental_canonical_ranges": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/types.h",
+      "start_line": 34,
+      "end_line": 82,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c",
+      "start_line": 79,
+      "end_line": 90,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/fighter.c",
+      "start_line": 1304,
+      "end_line": 1354,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_08A1.c",
+      "start_line": 54,
+      "end_line": 112,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ft_081B.c",
+      "start_line": 406,
+      "end_line": 430,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 906,
+      "end_line": 939,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftanim.c",
+      "start_line": 505,
+      "end_line": 539,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/ftmotionstates.c",
+      "start_line": 341,
+      "end_line": 355,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Jump.c",
+      "start_line": 62,
+      "end_line": 84,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c",
+      "start_line": 139,
+      "end_line": 147,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_HammerJump.c",
+      "start_line": 15,
+      "end_line": 40,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Squat.c",
+      "start_line": 50,
+      "end_line": 64,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/mp/mpcoll.c",
+      "start_line": 2685,
+      "end_line": 2767,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/mp/mpcoll.c",
+      "start_line": 4012,
+      "end_line": 4060,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/mp/mpcoll.c",
+      "start_line": 926,
+      "end_line": 1034,
+      "ownership": "foreign_read_only"
+    },
+    {
+      "path": "src/melee/mp/mpcoll.c",
+      "start_line": 3850,
+      "end_line": 4000,
+      "ownership": "foreign_read_only"
+    }
+  ],
+  "reused_same_session_canonical_ranges": [
+    {
+      "path": "src/melee/ft/inlines.h",
+      "start_line": 132,
+      "end_line": 140,
+      "prior_assignment": "Run full-TU same revision"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 51,
+      "end_line": 59,
+      "prior_assignment": "Run full-TU same revision"
+    },
+    {
+      "path": "src/melee/ft/ftcommon.c",
+      "start_line": 133,
+      "end_line": 152,
+      "prior_assignment": "Run full-TU same revision"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+      "start_line": 35,
+      "end_line": 74,
+      "ownership": "foreign_read_only",
+      "prior_assignment": "Run full-TU same revision"
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+      "start_line": 122,
+      "end_line": 128,
+      "ownership": "foreign_read_only",
+      "prior_assignment": "Run full-TU same revision"
+    }
+  ],
+  "exceptions": [],
+  "completed_at": "2026-09-08T15:58:04.983448+00:00",
+  "duration_seconds": 308.695448,
+  "proposal_sha256": "5e4b2580934b17a2160b22a65ae1cb0f8efc6d35c92280044cc1174eb92f154e",
+  "link_dispositions_sha256": "c3b36000a139264c19db7cce32c7bb71d00c44af6a511e58a503be7ea8e9a348"
+}

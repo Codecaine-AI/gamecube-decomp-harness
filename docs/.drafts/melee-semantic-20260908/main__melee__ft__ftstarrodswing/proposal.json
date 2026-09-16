@@ -1,0 +1,112 @@
+{
+  "tu": "main/melee/ft/ftstarrodswing",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftstarrodswing.c#L41-L74",
+            "why": "Complete callback ordering and branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L245-L253",
+            "why": "Throw bit test clears the event."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L301-L320",
+            "why": "Star Rod depletion comparison is <=0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itstarrod.c#L48-L55",
+            "why": "Positive count decremented before projectile helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itstarrodstar.c#L36-L58",
+            "why": "Projectile allocation may return null."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the overbroad null-item no-op description and records event consumption, exact boundary and request-versus-success semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftstarrodswing:ft_800CD914"
+        },
+        "type": "state_behavior",
+        "value": "Reads Fighter data and the joint index before checking item_gobj. With no item, it performs no sound/effect/projectile work and does not consume throw bit 0. With an item it asserts Star Rod kind. A sound command other than exactly 540000 requests cmd_vars[0] or empty-rod sound 234, then resets the sentinel. A true ftCheckThrowB0 consumes the event. For Star Rod xD4C>0 it requests effect 1070 and a star; xD4C<=0 requests only effect 1032 with +0.0f. The item helper spends one positive ammunition count before attempting projectile allocation, with no rollback shown."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftstarrodswing.c#L11-L19",
+            "why": "Entry order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftstarrodswing.c#L59-L71",
+            "why": "Separate vector/scalar/selector destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L27-L29",
+            "why": "Spawn kind 5 identity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1433-L1438",
+            "why": "Value copying, not pointer retention."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the actual consumers and verifies pointer lifetime against the effect spawn-kind implementation.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ftstarrodswing.c"
+        },
+        "type": "data_flow",
+        "value": "Entry initializes command variables and installs callbacks after common motion initialization. Accessory processing copies the Star Rod attribute offset, passes it through the indexed Fighter joint transform, and supplies the resulting vector to effect requests. The available-ammunition effect receives facing_dir; the empty effect receives +0.0f. Only the projectile helper receives cmd_vars[1], together with the vector and facing_dir. The effect API copies the vector and scalar into queue storage, so the caller's stack vector and local float do not escape as retained pointers."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftstarrodswing.c#L11-L74",
+            "why": "Entire TU entry, delegation and event behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L245-L253",
+            "why": "Event consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L301-L320",
+            "why": "Exact ammunition predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itstarrodstar.c#L51-L58",
+            "why": "Conditional successful projectile initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects 'runs only with a held Star Rod' and records the actual invariant and event/request semantics.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ftstarrodswing.c"
+        },
+        "type": "state_behavior",
+        "value": "The TU initializes Star Rod command state and delegates animation, input, movement and terrain callbacks to the shared swing subsystem. Its accessory callback is installed regardless of item presence; it reads Fighter data first and gates event work on a non-null item, asserting Star Rod kind. Sound and throw events are independent: changed sound commands reset to sentinel 540000, while a consumed throw-bit-0 event requests either effect 1070 plus an ammunition-spending star request or effect 1032 alone when ammunition is <=0. The callback does not unregister itself and does not guarantee downstream allocation success."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "tu": "main/dolphin/axfx/chorus",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/chorus.c#L148-L183",
+            "why": "do_src1 loads three old samples and one current circular-history sample."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/chorus.c#L238-L249",
+            "why": "The helper persists three old samples and both cursor components."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/chorus.c#L461-L523",
+            "why": "Complete input capture, pitch computation, channel setup, restricted dispatch and state persistence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing description of four-sample interpolation history supplied through src.old, distinguishing the three retained samples from the fourth sample fetched from circular history. Also records the explicit no-default dispatch behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/chorus:AXFXChorusCallback"
+        },
+        "type": "data_flow",
+        "value": "Copies 160 input samples from each of the left, right, and surround buffers into the next of three history banks. It splits pitchOffset into source pitch fields before updating the modulation countdown. For each channel it supplies the corresponding 480-sample history base, output buffer, and old-sample array, resetting the source cursor to the shared saved position. The helpers consume three samples from that old array plus the current sample from smpBase[posHi], and persist three old samples afterward. pitchHi zero selects do_src1 and pitchHi one selects do_src2; other values invoke neither helper and leave the audio buffers unchanged by resampling. Finally, the callback saves src.posHi modulo 480, src.posLo, and the new bank index."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

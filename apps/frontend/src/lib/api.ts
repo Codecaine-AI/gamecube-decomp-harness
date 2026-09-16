@@ -75,19 +75,14 @@ export function formBody(form: FormState, dashboard: Dashboard | null): JsonObje
   return body;
 }
 
-export function loadConfig(): Promise<UiConfig> {
-  return fetchJson<UiConfig>("/api/config");
+export function loadConfig(gameId?: string): Promise<UiConfig> {
+  return fetchJson<UiConfig>(gameId ? `/api/config?gameId=${encodeURIComponent(gameId)}` : "/api/config");
 }
 
 export function fetchDashboard(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">): Promise<Dashboard> {
   return fetchJson<Dashboard>(`/api/dashboard?${dashboardParams(form)}`);
 }
 
-export function fetchCycleState(
-  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
-): Promise<{ cycle: JsonObject | null; history: JsonObject[] }> {
-  return fetchJson<{ cycle: JsonObject | null; history: JsonObject[] }>(`/api/cycle?${dashboardParams(form)}`);
-}
 
 export const GAME_EVENT_PAGE_SIZE = 50;
 export const GAME_EVENT_RECONSTRUCTION_PAGE_SIZE = 50;

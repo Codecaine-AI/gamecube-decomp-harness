@@ -1,0 +1,114 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CargoTurn",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoTurn:ftCo_CargoTurn_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation first tests mv.co.walk.fast_anim_frame > 0. If true it subtracts one without clamping and cannot reverse in that invocation. Otherwise an unset mv.co.cargoturn.x0 is set, the carrier's current facing_dir is negated, and the result is copied to the current victim. The guard prevents repeated reversal only while it remains set. Zero, negative and unordered timer values reach the guard; positive infinity and sufficiently large finite values may not progress under subtraction. Independently, !ftAnim_IsFramesRemaining dispatches ftCo_8009B518 after the update, even when the timer was positive, so exit can occur without reversal.",
+        "rationale": "Independently verified librarian correction: exact branch ordering and boundaries replace unconditional lifecycle implications without asserting compiled layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c#L35-L51",
+            "why": "Complete timer, guard, paired facing write and independent completion test."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoTurn:ftCo_CargoTurn_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Attempts ftCo_8009BF3C first and reaches ftCo_8009BB1C only if the first reports false. The first handler tests HSD_PAD_AB and directional stick thresholds to select a motion different from the current one before entering a cargo throw. The second consumes nonzero ftCo_Jump_GetInput and calls ftCo_8009B9C8 to begin CargoKneebend. This void wrapper has no local timer guard or fallback transition.",
+        "rationale": "Preserves verified priority and canonical mask rather than unverified attack/grab terminology.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c#L53-L57",
+            "why": "Ordered short-circuit calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoThrow.c#L54-L118",
+            "why": "Canonical mask, directional selection and changed-motion guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoJump.c#L18-L26",
+            "why": "Jump-input dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoKneebend.c#L19-L31",
+            "why": "CargoKneebend entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkey.c#L261-L304",
+            "why": "Active directional cargo-throw callback bindings."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoTurn:ftCo_CargoTurn_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards the same Fighter_GObj* to ft_80084F3C without local field access. The helper reads co_attrs.ground_friction, gr_vel and co_attrs.walk_max_vel; only when ABS(gr_vel) > walk_max_vel does it multiply friction by p_ftCommonData->friction_when_above_walk_speed. It then applies ground friction and ground movement. Equality does not scale friction; the source does not prove that the multiplier always increases it.",
+        "rationale": "Corrects unsupported monotonic-increase claim while preserving independently verified flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c#L59-L62",
+            "why": "Unchanged forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Strict comparison, multiplication, and ordered friction/movement calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "ftCo_8009B818 conditionally invokes entry after the shared Turn predicate succeeds, but ftCo_8009B860 itself unconditionally initializes shared Turn with motion base +4 and the cargo turn-delay argument, then requests ShoulderedTurn for the victim. Animation separately decrements a positive fast_anim_frame or performs a guarded carrier/victim facing reversal, and independently invokes CargoWait entry on animation exhaustion. IASA attempts cargo throw before cargo jump. Reversal before exit is not guaranteed. Turn entry and CargoTurn animation use differently named move-state members; their compiled timer/guard overlap remains unresolved.",
+        "rationale": "Distinguishes conditional gate from unconditional entry and preserves unresolved compiled-layout claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoTurn.c#L16-L57",
+            "why": "Gate, entry, update boundaries, and interrupt priority."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L49-L62",
+            "why": "Initializer writes turn members rather than animation's walk/cargoturn members."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L29-L42",
+            "why": "Completion helper changes carrier to motion base and updates victim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

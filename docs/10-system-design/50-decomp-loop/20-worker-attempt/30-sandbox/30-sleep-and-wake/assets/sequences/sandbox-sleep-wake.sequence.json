@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "id": "sandbox-sleep-wake",
+  "title": "Sleep Between Remote Operations",
+  "style": {},
+  "participants": [
+    {
+      "id": "agent",
+      "name": "Host Worker",
+      "kind": "participant"
+    },
+    {
+      "id": "gate",
+      "name": "Sleep Controller",
+      "kind": "participant"
+    },
+    {
+      "id": "sandbox",
+      "name": "Sandbox",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "s1",
+      "from": "agent",
+      "to": "gate",
+      "line": "sync",
+      "text": "Run remote operation"
+    },
+    {
+      "kind": "message",
+      "id": "s2",
+      "from": "gate",
+      "to": "sandbox",
+      "line": "sync",
+      "text": "Execute with active-operation count held"
+    },
+    {
+      "kind": "message",
+      "id": "s3",
+      "from": "sandbox",
+      "to": "gate",
+      "line": "return",
+      "text": "Operation result"
+    },
+    {
+      "kind": "message",
+      "id": "s4",
+      "from": "gate",
+      "to": "agent",
+      "line": "return",
+      "text": "Return result"
+    },
+    {
+      "kind": "note",
+      "id": "s5",
+      "anchor": "gate",
+      "side": "over",
+      "text": "Last operation finishes; arm 250 ms default idle debounce"
+    },
+    {
+      "kind": "fragment",
+      "id": "s6",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "New operation before debounce expires",
+          "items": [
+            {
+              "kind": "note",
+              "id": "s7",
+              "anchor": "gate",
+              "side": "over",
+              "text": "Cancel pending stop; continue on running workspace"
+            }
+          ]
+        },
+        {
+          "guard": "Still idle",
+          "items": [
+            {
+              "kind": "message",
+              "id": "s8",
+              "from": "gate",
+              "to": "sandbox",
+              "line": "sync",
+              "text": "Stop sandbox"
+            },
+            {
+              "kind": "note",
+              "id": "s9",
+              "anchor": "agent",
+              "side": "over",
+              "text": "Model turn continues on host; sandbox files remain"
+            },
+            {
+              "kind": "message",
+              "id": "s10",
+              "from": "agent",
+              "to": "gate",
+              "line": "sync",
+              "text": "Next remote operation"
+            },
+            {
+              "kind": "message",
+              "id": "s11",
+              "from": "gate",
+              "to": "sandbox",
+              "line": "sync",
+              "text": "Start same sandbox"
+            },
+            {
+              "kind": "message",
+              "id": "s12",
+              "from": "sandbox",
+              "to": "gate",
+              "line": "return",
+              "text": "Ready"
+            },
+            {
+              "kind": "message",
+              "id": "s13",
+              "from": "gate",
+              "to": "sandbox",
+              "line": "sync",
+              "text": "Execute requested operation"
+            },
+            {
+              "kind": "message",
+              "id": "s14",
+              "from": "sandbox",
+              "to": "agent",
+              "line": "return",
+              "text": "Result through controller"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

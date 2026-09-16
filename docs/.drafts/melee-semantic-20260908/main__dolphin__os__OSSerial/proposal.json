@@ -1,0 +1,165 @@
+{
+  "tu": "main/dolphin/os/OSSerial",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L64-L111",
+            "why": "Completion body and inactive return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L143-L157",
+            "why": "Interrupt caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L351-L362",
+            "why": "Synchronous caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the interrupt-only description and sole-caller assertion while preserving the inactive branch.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSSerial:CompleteTransfer"
+        },
+        "type": "purpose",
+        "value": "Finalizes explicit Serial Interface transfers for both the transfer-complete interrupt path and SISync. It acknowledges completion unconditionally; when a channel is active, it records completion time, copies the requested response bytes, normalizes channel errors, updates cached type state or its timestamp, and returns the engine to idle. If no channel is active, it returns the initially read SI status without processing a transfer buffer."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L394-L439",
+            "why": "Submission write and complete polling-enable body."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the misleading status-reset interpretation and distinguishes preservation from unconditional enablement.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSSerial:SIEnablePolling"
+        },
+        "type": "state_behavior",
+        "value": "A zero mask returns the cached polling image without mutation. For nonzero input, the function validates the high-nibble channel mask, disables interrupts, clears the selected channels' corresponding low-nibble bits, adds their polling-enable bits while preserving unrelated fields, writes 0x80000000 to SI register offset 0x38, and commits the aggregate image to offset 0x30 before restoring interrupts. The offset-0x38 write matches the command-submission operation used by SITransferCommands; it should not be described as resetting channel error status. Unselected channels preserve their previous enable state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L657-L680",
+            "why": "Registration order and unchanged return value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L539-L550",
+            "why": "Clear-before-invoke dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects full-table deduplication language to the actual interleaved comparison/insertion scan.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSSerial:SIGetTypeAsync"
+        },
+        "type": "data_flow",
+        "value": "The channel selects SIGetType and its callback-table row; the initial SIGetType result is returned unchanged. If the stored Type[chan] is busy, the routine scans four slots in order, stopping at either an equal callback or the first empty slot, where it stores the supplied pointer. Thus it suppresses a duplicate only if encountered before a vacancy; it does not deduplicate against later slots. If all slots contain different non-null callbacks, no registration occurs. A non-busy result is delivered synchronously as callback(chan, type). Deferred dispatch clears each occupied slot before invoking its callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L539-L619",
+            "why": "Live-table dispatch and unchecked wireless retries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L621-L680",
+            "why": "Stored versus returned type and ready/busy registration branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exceptional registration, null and reentrant branches instead of promising unconditional duplicate suppression or eventual notification.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSSerial:SIGetTypeAsync"
+        },
+        "type": "state_behavior",
+        "value": "Interrupt exclusion covers the type query, callback registration and immediate callback path. Readiness is tested from stored Type[chan], not merely the local value returned by SIGetType. Busy registration stops at the first matching pointer or vacancy; a full row silently drops a new callback, and a vacancy before a later matching pointer permits duplicate entries. Deferred dispatch clears slots before invocation and scans the live table, so reentrant callbacks can change later dispatch behavior. A null callback is not validated: in the busy path it installs no effective notification, while the ready path calls it directly. Wireless continuation can defer final dispatch, and its SITransfer return values are unchecked."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L137-L205",
+            "why": "Exact signature and distinct callback argument lists."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects conflation of the two callback interfaces.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSSerial:SIInterruptHandler"
+        },
+        "type": "inferred_type",
+        "value": "Static OS interrupt callback with signature void SIInterruptHandler(__OSInterrupt interrupt, OSContext* context). Registered polling handlers receive the original interrupt identifier and context. Explicit-transfer callbacks instead receive the completed SI channel, completion status and the original context; the interrupt identifier is not passed to those transfer callbacks."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L54-L62",
+            "why": "Completion acknowledgement helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L291-L362",
+            "why": "Start fields, mask selection and synchronous completion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes acknowledgement, interrupt masking and synchronous completion.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSSerial:__SITransfer"
+        },
+        "type": "state_behavior",
+        "value": "The claim-and-start sequence runs with interrupts disabled. An active Si.chan causes a zero return after interrupt restoration. Otherwise the routine clears selected channel status, installs the active channel and completion metadata, stages outgoing words, writes tcint=1 for completion acknowledgement, sets tcintmsk according to callback presence, programs channel and lengths, and sets tstart. Writing tcint is not itself a request to deliver an interrupt. Completion releases Si.chan through CompleteTransfer, reached from either the enabled interrupt path or SISync."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L64-L276",
+            "why": "Completion, scheduler, polling barrier and registry lifecycle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L351-L362",
+            "why": "Synchronous completion and scheduling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSerial.c#L552-L680",
+            "why": "Type-cache and wireless continuation state."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects callback/scheduler ordering and preserves the synchronous completion path and distinct polling/type state.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/os/OSSerial.c"
+        },
+        "type": "state_behavior",
+        "value": "Explicit transfers use a singleton active channel with -1 as idle and one pending packet per channel. Completion releases the active channel; the interrupt handler saves and clears the completed callback, gives the round-robin scheduler an opportunity to start eligible work, and only then invokes the prior callback. SISync also completes transfers and advances pending work. Polling uses independent response-validity latches and video-line freshness state. New polling-handler insertion enables the polling interrupt and resets timestamps; removing the last live subscriber disables its mask. Type queries can return a cached local value while stored Type is busy, and wireless follow-ups defer final type notifications."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

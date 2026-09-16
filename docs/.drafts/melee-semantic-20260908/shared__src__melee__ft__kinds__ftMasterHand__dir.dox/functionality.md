@@ -1,0 +1,3 @@
+This documentation-only file declares the directory documentation and the Doxygen group `ftmasterhand`, displayed as `ftMasterHand`. Its TODO says the splits work with floats but are unexpected for the text section; this is an unresolved source-author observation, not verified compiled-layout evidence. There is no executable behavior, state handling, or cross-file lifetime logic in this file. Canonical and rendered views match (zero substitutions and parse errors). No baseline subjects, facts, or links exist to revise or retain. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/dir.dox#L1-L6.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

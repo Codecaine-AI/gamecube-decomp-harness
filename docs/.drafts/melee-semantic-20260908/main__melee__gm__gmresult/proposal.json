@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/gm/gmresult",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmresult:.bss"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The Results workspace has static storage duration and is reset on scene entry. Entry borrows the incoming completed-match record, configures two pages for No Contest or Retry and three otherwise, and starts all players on page 2 only for uncanceled match kind 3. During interaction, page and scroll state determine navigation availability, and rebuilding replaces the player's prior three-by-ten statistics-text set. The separate per-player descriptor array is initialized independently rather than included in the workspace reset.",
+        "rationale": "Corrects the storage-lifetime claim and the missing cancellation qualification while preserving supported reset and interaction behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresult.c#L19-L20",
+            "why": "File-scope workspace definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresult.c#L303-L310",
+            "why": "Separate descriptor array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresult.c#L1758-L1789",
+            "why": "Reset, borrowed binding, nested page branch, and descriptor initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresult.c#L488-L632",
+            "why": "Statistics-text replacement and navigation flags."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmresult:fn_80176F60"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requests hierarchy animation frame zero, selects the character- or canceled-outcome variant, and temporarily sets its material animation to frame `1 + color_index` at rate zero before evaluating the material. It restores material frame zero and rate one, then stops FObj animation types 4, 5, and 6 through `mn_8022F3D8` using `MOBJ_MASK`; those three numbers are type selectors, not masks. Finally it registers `fn_80176BCC` at process priority 0 and constructs placement models from four extracted child translations. The selected variant is dereferenced without a NULL check.",
+        "rationale": "Corrects the interpretation of the three animation-helper arguments and preserves the exact initialization sequence and unchecked selected-child lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresult.c#L1638-L1670",
+            "why": "Frame/rate sequence, helper arguments, callback registration, and placement handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mn_22EC.c#L268-L282",
+            "why": "Helper matches FObj obj_type and stops matching animations under the supplied mask."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmresult:gm_Scene_Results_OnEnter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Configures two pages for No Contest or Retry and three otherwise; only the uncanceled match-kind-3 path starts every player on page 2. When `fn_801701B8()` returns zero, entry processes each slot's bonuses and assigns `count * 2 + 2` to that slot's byte-sized mode-2 descriptor count; otherwise it sets those counts to zero without scanning bonuses. These are counts, not scroll offsets, and the assignment narrows to u8. The human representative, cancellation state, and x3_6 flag gate the result effect; cancellation separately gates victory music. Fighter and camera creation skips unavailable standings.",
+        "rationale": "Replaces the incorrect statistic-offset interpretation and makes the scan bypass and byte-sized count explicit without assuming a safe award-count bound.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresult.c#L303-L310",
+            "why": "Descriptor count field is u8."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresult.c#L1765-L1838",
+            "why": "Page configuration, conditional bonus processing, effect/music guards, and occupied-slot construction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gm/gmresult.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The unit configures two Results pages for No Contest or Retry and three for other outcomes. All players start on page 2 only when the outcome is uncanceled and match kind is 3; canceled kind-3 results retain the reset page value. Per-player secondary text setup dispatches on match kind: 2 directly renders a bounded numeric statistic, 1 selects the KO-time renderer, 3 selects the extended signed-score renderer, and all other values select the ordinary signed-score renderer.",
+        "rationale": "Corrects the unconditional kind-3 initial-page claim while retaining the supported four-way numeric dispatch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresult.c#L1758-L1776",
+            "why": "Reset followed by cancellation-qualified initial-page assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresult.c#L1014-L1043",
+            "why": "Complete secondary-stat dispatch."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

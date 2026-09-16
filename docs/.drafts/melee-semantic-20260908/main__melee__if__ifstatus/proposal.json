@@ -1,0 +1,119 @@
+{
+  "tu": "main/melee/if/ifstatus",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/if/ifstatus:ifStatus_802F6948"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "If explode_animation is already one, this command performs no writes. Otherwise it sets explode_animation and randomize_velocity, and initializes unk9 to one only when rules->x2_7 is set. The death-animation consumer assigns four velocity pairs, clears randomize_velocity, and returns without moving joints on that initialization call. Later calls update X only when abs(translate.x) < 100 and independently update Y only when translate.y > -100; the Y branch also subtracts 0.2028 from vertical velocity. These pre-update tests permit overshoot and impose no upper Y bound. The separate refresh process increments a nonzero byte removal counter and requests HUD teardown when its incremented value exceeds 200.",
+        "rationale": "Corrects the symmetric \u00b1100-bound description while preserving the one-shot request, independent coordinate updates, initialization-only frame and optional cleanup lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L981-L997",
+            "why": "Guarded flag and optional counter initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L138-L178",
+            "why": "Initialization return and independent asymmetric motion tests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L556-L575",
+            "why": "Byte-counter advancement, threshold and teardown before the missing-entity guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/if/ifstatus:.sdata2"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Source-level numerical constants scale random inputs into four glyph launch velocities, supply vertical acceleration, and control independent pre-update motion tests: abs(X) < 100 and Y > -100. They also convert the byte-sized stored damage or HP delta into bounded shake magnitude and control decimal texture frames, mode-dependent color interpolation, narrow-digit spacing, marker placement, animation rates and final model scale. The motion tests are not coordinate clamps and can be overshot. These arithmetic uses do not independently establish the compiled literal pool's size, ordering or section placement.",
+        "rationale": "Corrects the misleading symmetric motion-bound claim and separates supported arithmetic roles from unproved compiled-layout assertions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L138-L232",
+            "why": "Velocity formulas, asymmetric motion tests and shake arithmetic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L242-L543",
+            "why": "Texture frames, color factors, spacing and compact scale."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L825-L840",
+            "why": "Marker animation and placement constants."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/if/ifstatus:.sdata"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "When old_damage differs from damage_percent, the display helper reads the white {255,255,255,255} and dark-red {80,0,0,255} endpoint arrays. Ordinary damage uses clamp(value,0,300)/300; stamina remaining HP uses 1-clamp(value,0,100)/100. The resulting RGB channels are written to all four materials: Hundreds, Tens, Ones and Percent. Separately, null-joint assertions pass the source strings \"jobj.h\" and \"jobj\" to __assert. Source declarations and uses establish these roles, but not compiled string pooling or section placement.",
+        "rationale": "Adds the omitted Percent material destination and avoids presenting source references as proof of compiled section composition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L53-L57",
+            "why": "Exact endpoint bytes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L98-L103",
+            "why": "Assertion-string forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L290-L349",
+            "why": "Both interpolation branches and all four RGB destinations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/if/ifstatus:ifStatus_802F4B84"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Produces hit feedback by shaking the four glyph joints after ordinary displayed damage increases or stamina remaining HP decreases. Shake strength is based on the absolute displayed-value change after it has been stored as u8, not on an unrestricted hit magnitude: the helper clamps 0.1014 times that byte to 0.1014\u20131.5207 before generating random offsets and adding a 0.2028 bias away from zero. Consequently, changes above 255 can wrap in storage and need not produce stronger shake than smaller changes.",
+        "rationale": "Corrects the unconditional claim that larger single-hit changes produce stronger shake; the canonical field type and assignments establish narrowing before magnitude calculation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/types.h#L28-L43",
+            "why": "damage_from_last_attack is u8."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L576-L628",
+            "why": "Mode-dependent harmful-change tests and absolute-delta assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifstatus.c#L184-L232",
+            "why": "Byte consumption, magnitude clamp and random displacement bias."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

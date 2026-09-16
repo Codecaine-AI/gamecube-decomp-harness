@@ -1,0 +1,107 @@
+{
+  "tu": "main/melee/ft/ft_0C88",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1273-L1278",
+            "why": "Operand source and order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C88.c#L85-L109",
+            "why": "Destination writes and cleanup guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmaterial.c#L68-L74",
+            "why": "Paired material-side consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbrefract.c#L605-L610",
+            "why": "Direct refraction texture-list indexing."
+          }
+        ],
+        "op": "write",
+        "rationale": "The canonical downstream consumer establishes a concrete texture-selection flow that the existing explanation leaves vague; the field's spelling alone does not establish elapsed-time semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0C88:ftCo_800C8B60"
+        },
+        "type": "data_flow",
+        "value": "Receives a Fighter pointer and two u8 operands forwarded by ftAction_800730B8 from CommandInfo.u->unk21. It writes the first to x2226_b5 and the second to smash_attrs.x2134_vibrateFrame. During material setup, ftMaterial_800BF2B8 tests x2226_b5 and, when set, passes x2134_vibrateFrame to lbRefract_80022998, which uses it directly to index its refraction tobj_list. The same flag also gates post-draw refraction cleanup. The setter performs no local validation or graphics calls."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcolanim.c#L86-L105",
+            "why": "Color-animation routing to the command handler."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1273-L1283",
+            "why": "Mutating handler invokes the setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C88.c#L105-L109",
+            "why": "Only two local presentation writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmaterial.c#L68-L74",
+            "why": "Flag selects refractive material setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbrefract.c#L605-L610",
+            "why": "Paired value selects a texture entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported color-animation and cloak mapping while correcting the unsupported timing interpretation of the second operand.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0C88:ftCo_800C8B60"
+        },
+        "type": "game_mapping",
+        "value": "Applies the terminal Fighter-state update for a visual command used by fighter color animations. In the Spy Cloak presentation, the first stored operand controls whether material setup takes the refractive rendering path, and the paired byte selects an entry in that path's refraction texture list. This changes presentation state, not the cloak duration or shared refraction user count; the field name x2134_vibrateFrame does not by itself establish vibration timing."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C88.c#L85-L109",
+            "why": "Setter and downstream cleanup guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmaterial.c#L68-L74",
+            "why": "Refractive material branch consumes both values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbrefract.c#L605-L610",
+            "why": "Second value is a texture-list index."
+          }
+        ],
+        "op": "write",
+        "rationale": "Explains the actual paired rendering outputs instead of implying model-vibration timing from the existing field name.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0C88:ftCo_800C8B60"
+        },
+        "type": "purpose",
+        "value": "Applies a fighter visual-state command by replacing x2226_b5, which selects refractive material rendering and gates its post-draw cleanup, and storing the paired refraction texture-selection byte in smash_attrs.x2134_vibrateFrame. It only stores state; subsequent rendering consumes the values."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

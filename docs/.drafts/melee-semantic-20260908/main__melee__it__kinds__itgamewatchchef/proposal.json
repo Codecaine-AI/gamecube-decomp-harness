@@ -1,0 +1,72 @@
+{
+  "tu": "main/melee/it/kinds/itgamewatchchef",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchchef.c#L103-L130",
+            "why": "Guard, independent branches and terminal effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L224-L243",
+            "why": "Position and floor-index writes in the collision query."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the misleading exclusive alternative and records the shared query's observable mutation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgamewatchchef:itGamewatchchef_UnkMotion0_Coll"
+        },
+        "type": "data_flow",
+        "value": "Reads the Chef item's horizontal velocity and special attributes. Only when X velocity is nonzero does it call it_8026DAA8, whose terrain processing updates item position and may update the stored floor index. For result mask 0xC, it multiplies X velocity by -attrs->x4. Independently, for result mask 3, it calls it_802C875C, clearing X/Y velocity, initializing the terminal lifetime and selecting state 1. Both mask responses can execute in order during one call. The callback always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchchef.c#L103-L130",
+            "why": "Exact multiplier, branch ordering and destination setup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exceptional combined-mask path and avoids assuming an unobserved coefficient range.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgamewatchchef:itGamewatchchef_UnkMotion0_Coll"
+        },
+        "type": "state_behavior",
+        "value": "With zero X velocity, performs no collision query or transition and returns false. Otherwise, result mask 0xC scales X velocity by -attrs->x4 without itself selecting a state; attenuation depends on the attribute value. A separate subsequent test of mask 3 enters state 1, clearing X/Y velocity and initializing its terminal lifetime. If both masks are present, the state-1 transition follows and overrides the horizontal rebound. The callback always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchchef.c#L120-L130",
+            "why": "Definition and side effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchchef.h#L17-L17",
+            "why": "Header declaration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported private classification while preserving the supported signature and side-effect role.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgamewatchchef:it_802C875C"
+        },
+        "type": "inferred_type",
+        "value": "Item-state transition helper with signature void (Item_GObj* gobj). It has a non-static definition and a declaration in itgamewatchchef.h, mutates the supplied item's state, and returns no result."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

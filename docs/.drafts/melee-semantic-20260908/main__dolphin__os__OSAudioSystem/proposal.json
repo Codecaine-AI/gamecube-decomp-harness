@@ -1,0 +1,28 @@
+{
+  "tu": "main/dolphin/os/OSAudioSystem",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAudioSystem.c#L32-L96",
+            "why": "Provides every numeric entry guard, ordered register transition, transfer setup, tick threshold, assertion branch, and final restoration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the ambiguous working-state guard explicit, distinguishes the transfer register count from the staged image size, and accurately describes assertion-based validation and unbounded waits without promising unconditional error rejection or restoration.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSAudioSystem:__OSInitAudioSystem"
+        },
+        "type": "state_behavior",
+        "value": "Uses assertions requiring register 5 masks 0x200 and 0x400 to be clear and mask 0x004 to be set; the latter assertion's failure diagnostic is 'DSP already working'. Writes 0x8AC, sets bit 0 and waits for it to clear, clears register 0, and waits for the combined registers 2/3 high bit to clear. Twice writes the 32-bit transfer-register values 0x01000000, 0, and 0x20 at indices 16, 18, and 20, waiting for register 5 mask 0x20 and writing the sampled status back each time, with an elapsed-tick threshold of 0x892 between setups. Clears mask 0x800, waits for 0x400 to clear, clears bit 0x004, and waits for register 2 bit 0x8000. A combined mailbox word other than 0x80544348 invokes ASSERTMSGLINE rather than returning an error. The normal path sets bit 0x004, writes 0x8AC, requests and waits for another bit-0 reset, then restores the saved work-buffer bytes. Hardware waits have no timeout, and there is no separate failure cleanup or recovery path."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,1295 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:c29318ce-6538-4550-b9bf-a41681d8ac7e",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "At the start of an image decode, serialized values from the first and second JPEG DQT segments are reordered through the section's 64-entry zigzag map and written into its luminance and chrominance quantization regions. During entropy decoding, component and coefficient class select the corresponding Huffman code, length, and symbol regions; decoded AC coefficients are placed in natural 8-by-8 order through the same permutation map before later dequantization and inverse transformation.",
+        "rationale": "The head source still loads both DQT payloads into the two quantization arrays through lbl_80431638, selects fixed table regions from lbl_80431090 for Huffman decoding, and uses the permutation when storing AC coefficients.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the initialized table data, zigzag and DC table declarations, and selector-driven Huffman table accesses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows further table-region selection and scan-order placement of decoded AC coefficients."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L618-L737",
+            "why": "Shows the first DQT payload reordered into the luma table and the beginning of the chroma-table load."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows completion of the chroma DQT load and consumption of the quantization tables during dequantization."
+          }
+        ]
+      },
+      {
+        "id": "fact:7b9bfa23-5541-4435-978b-72e99c017296",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:.data",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies the JPEG table data used when Melee reconstructs a stored Camera Mode snapshot into displayable pixels.",
+        "rationale": "The snapshot subsystem invokes this unit's JPEG decoder on stored photograph data, and the decoder loads and consumes the section's quantization, Huffman, and scan-order tables while creating the output image.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbsnap.c#L240-L359",
+            "why": "Shows the snapshot subsystem passing stored compressed image data to hsd_803B6BE4 and flushing its decoded output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L618-L737",
+            "why": "Shows the snapshot decoder loading a JPEG quantization segment into the section's luma table through the zigzag map."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows the second quantization-table load and subsequent use of the table data during image reconstruction."
+          }
+        ]
+      },
+      {
+        "id": "fact:289808c2-d541-432a-847e-a469509ea1bd",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 0x630-byte initialized JPEG decoder data section laid out as a 0x5A8-byte aggregate table followed by a 0x40-byte zigzag permutation, two 12-entry u16 DC Huffman-code tables, and two 12-entry u8 DC code-length tables. Within the aggregate, offsets 0x000\u20130x07F are two writable 64-byte quantization tables, while later regions hold the precomputed AC Huffman code, length, and symbol tables and the shared DC symbol values.",
+        "rationale": "The aggregate and adjacent declarations still have sizes totaling 0x630 bytes. Their users identify the aggregate's first 128 bytes as two quantization arrays and its later fixed offsets as selectable Huffman code, length, and value regions.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3B5C.c#L1-L120",
+            "why": "Declares the 0x5A8-byte initialized aggregate and shows its initial quantization and Huffman data."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the aggregate's end, the adjacent explicitly sized scan and DC tables, and accesses to fixed Huffman regions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L618-L737",
+            "why": "Treats the aggregate's first 64 bytes as the writable luma quantization table and begins loading the adjacent chroma table."
+          }
+        ]
+      },
+      {
+        "id": "fact:62a581ff-f4a1-4819-9919-29eb45fa11e3",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the writable quantization storage and fixed lookup tables used by HSD's baseline-JPEG entropy decoder: two 64-entry quantization tables, luminance and chrominance DC/AC Huffman code, length, and symbol tables, and the zigzag-to-natural coefficient permutation.",
+        "rationale": "Current code writes two DQT payloads into the first two 64-byte regions through the zigzag map, while the Huffman and coefficient decoders consume the section's fixed table regions and permutation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the fixed table declarations and selection of DC/AC and luminance/chrominance Huffman regions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows the remaining Huffman region selections and scan-order coefficient placement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L618-L737",
+            "why": "Shows JPEG DQT bytes being reordered into the writable quantization storage."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:54253d35-1958-402e-8099-9c68e82a4e66",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The decoder loads these immutable constants as arithmetic operands. In the inverse-DCT stage they weight dequantized frequency coefficients during row and column transforms; in the output stage they scale reconstructed Cb and Cr samples, combine them with luma, and bound the resulting channels before those channels are packed into 16-bit RGB pixels. No code writes back to the section.",
+        "rationale": "The current transform and color-output routines continue to consume inline floating-point literals for cosine weighting, color conversion, and channel bounds without mutating their storage.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L360-L479",
+            "why": "Shows floating-point transform constants weighting rows and columns before in-place sample normalization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3B5C.c#L481-L600",
+            "why": "Shows color-conversion and clamping literals producing packed RGB565 pixels."
+          }
+        ]
+      },
+      {
+        "id": "fact:e1b0e847-738e-4afb-9487-bd7953b4d0ff",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies reconstruction constants used when Melee decodes the compressed photographs stored for Camera Mode snapshots into displayable 16-bit pixel images.",
+        "rationale": "The decoder's inverse-transform and color-conversion arithmetic consumes this literal pool, and the head snapshot caller still submits stored snapshot data to that decoder and flushes its packed two-byte-per-pixel output. The meaning is unchanged; this write refreshes the drifted caller evidence.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T20:58:43.352Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://af75652439/src/sysdolphin/baselib/hsd_3B5C.c#L361-L600",
+            "why": "Shows the inverse-DCT and YCbCr-to-RGB stages consuming floating-point reconstruction constants and producing packed 16-bit pixels."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d73fd3abcf/src/melee/lb/lbsnap.c#L237-L356",
+            "why": "Shows the snapshot subsystem invoking the decoder on stored compressed photograph data and flushing a destination sized at two bytes per pixel."
+          }
+        ]
+      },
+      {
+        "id": "fact:5920423c-17f2-48ba-a6d9-ef52aeae93a9",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 112-byte compiler-emitted small read-only numeric literal pool containing floating-point encodings used by the translation unit, rather than a single authored table or mutable runtime object. Its contents include both transform and color-conversion constants, with at least 1.402 and 0.0012 represented from double-precision literals.",
+        "rationale": "Separate routines use inline floating-point literals for transform and output arithmetic, and the resolved matching submission established that changing the source precision of 1.402 and 0.0012 produced the reference bytes for this section.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L360-L479",
+            "why": "Shows one group of inline floating-point literals consumed by the JPEG inverse transform."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3B5C.c#L481-L600",
+            "why": "Shows a separate group of inline floating-point literals used for color conversion and clamping, including unsuffixed 1.402 and 0.0012."
+          },
+          {
+            "kind": "attempt",
+            "locator": "attempt://run/run:34916e8b-3cb6-4a0b-875c-654dd1c8638b/submission/1",
+            "why": "Establishes through focused object comparison that changing 1.402f and 0.0012f to double-precision literals produced the reference bytes for the target section."
+          }
+        ]
+      },
+      {
+        "id": "fact:7b4e95c1-214a-4131-bd93-5f0eea85569b",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the read-only floating-point literal pool used by the JPEG decoder's inverse-DCT and YCbCr-to-RGB reconstruction arithmetic, including cosine-transform coefficients, RGB conversion multipliers, and channel-clamping bounds.",
+        "rationale": "The head source still uses the section-generating literals in the two reconstruction stages, and the exact section-matching submission ties the unsuffixed conversion literals to this pool.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L360-L479",
+            "why": "Shows cosine coefficients used by both passes of the inverse transform."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3B5C.c#L481-L600",
+            "why": "Shows YCbCr-to-RGB multipliers and 0-to-255 clamping bounds."
+          },
+          {
+            "kind": "attempt",
+            "locator": "attempt://run/run:34916e8b-3cb6-4a0b-875c-654dd1c8638b/submission/1",
+            "why": "Confirms by exact target-section comparison that the 1.402 and 0.0012 literals contribute to this read-only pool."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:extab"
+    },
+    "facts": [
+      {
+        "id": "fact:4ff5fd6f-b883-42ed-903e-38e336011d52",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:extab",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "CodeWarrior exception-enabled compilation emits this metadata with the hsd_3B5C object; the PowerPC EABI link process collects it into the executable's global extab region alongside a separately linked extabindex region, making it available to the exception runtime during stack unwinding.",
+        "rationale": "One resolved discussion connects exception-enabled object compilation with extab C++ exception tables, another states that CodeWarrior's ppceabi links extab and extabindex, and the linker-script discussion shows the two output regions. Together they establish the compiler-to-linker-to-runtime flow, although the individual record fields remain unidentified.",
+        "confidence": 0.84,
+        "updated_at": "2026-09-02T14:35:32.386Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1530962022408392876",
+            "why": "The resolved thread connects the Cpp_exceptions compiler setting on baselib objects to extab sections and identifies those sections as C++ exception tables."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728071986902728766",
+            "why": "The resolved message attributes linking of extab and extabindex to CodeWarrior's ppceabi support."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/739301175794466877",
+            "why": "The resolved linker-script excerpt demonstrates that extab and extabindex are collected into separate executable regions."
+          }
+        ]
+      },
+      {
+        "id": "fact:0ead2cab-6058-4bc4-a9b8-f45c939b6037",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:extab",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An opaque, compiler-generated PowerPC EABI C++ exception-table contribution in the extab linker section, paired at section level with a separate extabindex contribution.",
+        "rationale": "The linker discussion explicitly distinguishes extab from extabindex and places each in its own bound section, while the later compiler-option discussion identifies extab contents as C++ exception tables. The available evidence does not support assigning a source-level JPEG structure or a more specific record layout.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T14:35:32.386Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/739301175794466877",
+            "why": "The resolved linker-script discussion shows extab and extabindex as distinct bound sections."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1530962022408392876",
+            "why": "The resolved discussion identifies the extab data produced by exception-enabled baselib compilation as C++ exception tables."
+          }
+        ]
+      },
+      {
+        "id": "fact:0ea997cf-112b-482b-8057-7e4c549f30b2",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:extab",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Supplies compiler-generated exception-unwinding metadata for routines emitted from hsd_3B5C. It is PowerPC EABI runtime-support data rather than JPEG payload, coefficient storage, or a Huffman lookup table.",
+        "rationale": "Community analysis identifies extab records as C++ exception tables and separately attributes the extab and extabindex sections to CodeWarrior's PowerPC EABI support. Because this target is the hsd_3B5C contribution to extab, its role is exception unwinding for the unit's generated code, despite the unit itself implementing JPEG decoding.",
+        "confidence": 0.88,
+        "updated_at": "2026-09-02T14:35:32.386Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1530962022408392876",
+            "why": "The resolved discussion identifies extab sections emitted for exception-enabled baselib objects as C++ exception tables."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728071986902728766",
+            "why": "The resolved message states that extab and extabindex were linked into Melee by CodeWarrior's ppceabi support."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:extabindex"
+    },
+    "facts": [
+      {
+        "id": "fact:987c1572-8b8a-4369-b21d-ac2b770e9972",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:extabindex",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "CodeWarrior emits extabindex entries alongside the functions and extab records they describe; the linker resolves their direct relocations and collects them into the executable's extabindex region, after which the PowerPC exception machinery consumes the index. Because an entry includes generated function-size metadata, source changes that alter emitted code size can change extabindex bytes even when no source-defined data object is edited.",
+        "rationale": "The same-object and direct-relocation requirements establish the compiler-to-linker path, and the linker discussion shows extabindex being collected separately from extab. A resolved successful attempt on another baselib extabindex target demonstrates the downstream dependency on generated code layout by correcting an extabindex size word through a source rewrite that changed the associated function's emitted size.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-02T14:48:51.325Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197328458422951976",
+            "why": "Explains that extabindex entries accompany referenced functions and require direct linker relocations."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/739301175794466877",
+            "why": "Shows extab and extabindex being collected into distinct bound linker regions."
+          },
+          {
+            "kind": "attempt",
+            "locator": "attempt://run/run:91264074-9e53-4179-b9f4-849a08d23ef8/submission/3",
+            "why": "Demonstrates on a baselib extabindex target that changing an associated function's emitted size corrected the generated extabindex size word."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728105692283666473",
+            "why": "Identifies the resulting extabindex metadata as input to PowerPC C++ exception handling."
+          }
+        ]
+      },
+      {
+        "id": "fact:2576d7ac-2fc2-4d88-836f-94cb709bee9e",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:extabindex",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A compiler-generated PowerPC EABI extabindex section contribution composed of labeled, fixed-size exception-index entries with direct relocations to functions in the same object; it is linker/runtime metadata rather than mutable application state.",
+        "rationale": "The resolved object-splitting guidance directly describes extabindex entries as labeled, sized records that require direct relocations and same-object ownership with referenced functions. A resolved map excerpt independently calls a label an entry of an extabindex object, and the runtime discussion identifies the section as C++ exception metadata.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T14:48:51.325Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197328458422951976",
+            "why": "Specifies the structural requirements for extabindex entries: labels, correct sizes, direct relocations, and placement with their referenced functions."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/929134260978344087",
+            "why": "Shows a map-file label explicitly described as an entry of an extabindex object."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728071986902728766",
+            "why": "Establishes that CodeWarrior's PPCEABI support supplies and links extabindex data."
+          }
+        ]
+      },
+      {
+        "id": "fact:9ec6dd26-8a80-4a92-95fa-17dd491c670d",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B5C:extabindex",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides hsd_3B5C's compiler-generated C++ exception index, allowing the PowerPC exception runtime to associate covered functions with their companion extab metadata during exception handling and stack unwinding. It is runtime-support metadata rather than authored JPEG decoder data.",
+        "rationale": "The resolved community discussion explicitly identifies extabindex as C++ exception metadata from the PowerPC runtime, while the object-splitting guidance states that extab and extabindex entries accompany the functions they reference. The unit's extabindex contribution therefore serves exception lookup for generated functions, not the unit's JPEG data flow.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-02T14:48:51.325Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/728105692283666473",
+            "why": "Explicitly identifies extabindex as metadata for C++ exceptions and attributes it, in the resolved thread, to the PowerPC runtime."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197328458422951976",
+            "why": "States that extab and extabindex entries must remain in the same object as the functions they reference, establishing their per-function runtime-metadata role."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728071986902728766",
+            "why": "Identifies extab and extabindex as paired contributions linked by CodeWarrior's PPCEABI support."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:fn_803B61B4"
+    },
+    "facts": [
+      {
+        "id": "fact:b4e5ed86-b6de-47ea-8793-77a708a37717",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:fn_803B61B4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The function receives one 64-entry block after entropy decoding and dequantization. Its row pass overwrites each contiguous group of eight coefficients with one-dimensional spatial intermediates; its column pass overwrites each strided column with the second transform dimension; the final scaling pass normalizes all entries. The resulting luma, Cb, or Cr samples remain in the shared JPEG workspace and are consumed by fn_803B6820 during color conversion and pixel packing.",
+        "rationale": "The current body performs the row, column, and normalization passes in place, while the top-level decoder invokes it on dequantized luma and chroma arrays before calling the shared-state RGB565 output routine.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L360-L479",
+            "why": "Shows contiguous row transformation, strided column transformation, and normalization of all 64 entries in place."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows dequantized luma and Cb blocks entering fn_803B61B4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows the Cr block entering fn_803B61B4 and the reconstructed planes subsequently entering fn_803B6820."
+          }
+        ]
+      },
+      {
+        "id": "fact:4003c5c3-40d9-42c7-936e-d7ffe0522328",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:fn_803B61B4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes JPEG inverse-DCT spatial reconstruction: it converts each dequantized 8-by-8 frequency-domain block for the four luma blocks and the Cb and Cr blocks of a 16-by-16 decoded region into spatial component samples used to form the displayed image.",
+        "rationale": "The function is a separable cosine-weighted inverse transform, and the top-level JPEG loop applies it to four luma blocks and both chroma blocks before final color conversion.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L360-L479",
+            "why": "Shows the separable cosine-weighted row and column inverse transform."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows application to each of four dequantized luma blocks and the Cb block."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows application to the Cr block before final pixel output."
+          }
+        ]
+      },
+      {
+        "id": "fact:0b405c73-7c9e-45ee-a789-102fd5c39add",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:fn_803B61B4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Concrete signature: `void fn_803B61B4(s32* block)`. The argument points to exactly 64 signed 32-bit coefficient/sample values forming one in-place 8-by-8 JPEG component block.",
+        "rationale": "The current declaration directly uses s32*, the function traverses eight rows and eight columns, and the final loop processes exactly 0x40 signed entries.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows the concrete s32-pointer declaration at the beginning of the function."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L360-L479",
+            "why": "Shows in-place traversal of eight rows, eight columns, and the final 64-entry normalization loop."
+          }
+        ]
+      },
+      {
+        "id": "fact:684541bb-4163-4c49-9659-c3467b24fc92",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:fn_803B61B4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Reconstructs one JPEG component block by performing an in-place separable 8-by-8 inverse discrete cosine transform on 64 dequantized coefficients, then normalizes every transformed sample by an arithmetic right shift of two bits.",
+        "rationale": "The current implementation performs cosine-weighted row and column passes and then right-shifts each of the 64 signed outputs; the top-level decoder invokes it immediately after dequantization.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L360-L479",
+            "why": "Shows both inverse-transform passes and arithmetic right-shift normalization of all 64 entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows dequantization of component coefficients immediately before calls to fn_803B61B4."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:fn_803B6820"
+    },
+    "facts": [
+      {
+        "id": "fact:2269e7c9-1e97-4ba5-b3b1-2fe8b1719ba0",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:fn_803B6820",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an image destination and the current 16-pixel x/y position from the top-level JPEG decoder while reading reconstructed component samples from shared JPEG workspace state. It level-shifts four luma blocks by 128, traverses their 16-by-16 spatial arrangement, selects one Cb and one Cr sample for each 2-by-2 luma group, computes and clamps red, green, and blue, packs them as RGB565, and stores them at the corresponding tiled destination coordinates.",
+        "rationale": "The current function level-shifts the shared luma plane, maps luma and subsampled chroma values to tiled destination offsets, and passes those samples to the RGB565 packer; the caller supplies destination and decoded-region coordinates.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3B5C.c#L481-L600",
+            "why": "Shows luma level shifting, 4:2:0 chroma addressing, color conversion, clamping, RGB565 packing, and tiled destination writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows the top-level decoder passing destination, x/y region coordinates, width, and height after component reconstruction."
+          }
+        ]
+      },
+      {
+        "id": "fact:76540e04-dda1-43cb-9414-ee3729ff6d61",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:fn_803B6820",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Performs the final per-region color reconstruction and RGB565 pixel emission used when Melee decodes stored Camera Mode snapshot photographs for display.",
+        "rationale": "The snapshot subsystem at the checkout head still invokes the containing JPEG decoder on stored photograph data and flushes its two-byte-per-pixel output, so the existing game mapping remains valid and its drifted caller evidence can be refreshed.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T21:00:55.908Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d73fd3abcf/src/melee/lb/lbsnap.c#L237-L356",
+            "why": "Shows the snapshot subsystem invoking the HSD JPEG decoder on stored snapshot data and flushing the decoded two-byte-per-pixel image."
+          }
+        ]
+      },
+      {
+        "id": "fact:a8aee678-2604-420f-8fb3-16a6ae385ea7",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:fn_803B6820",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void (u8* dst, s32 x, s32 y, s32 image_width, s32 unused_image_height)`. `dst` is a writable tiled 16-bit RGB565 image buffer; `x` and `y` select the 16-by-16 destination region; `image_width` determines the tiled row stride; the fifth argument is passed by the decoder but is not read. Component input is implicit shared state containing signed 32-bit luma, Cb, and Cr samples.",
+        "rationale": "The current definition has exactly these five parameters, leaves the fifth unused, computes tiled halfword addresses from destination, coordinates, and width, and reads signed component arrays from shared state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3B5C.c#L481-L600",
+            "why": "Provides the five-argument definition and shows the use of destination, coordinates, width, and shared signed component samples while the fifth argument remains unused."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows the caller passing destination, x, y, decoded width, and decoded height."
+          }
+        ]
+      },
+      {
+        "id": "fact:1dda0f46-9bf9-4350-9c83-3f83730e3e1f",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:fn_803B6820",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Converts one reconstructed 16-by-16 JPEG minimum coded unit from 4:2:0 YCbCr component planes into clamped RGB channels and writes the resulting pixels as tiled packed RGB565 data in the caller's destination image.",
+        "rationale": "The current implementation combines four luma blocks with quarter-resolution Cb and Cr sampling, applies YCbCr-to-RGB equations, clamps each channel, and packs the result into tiled RGB565 halfwords.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3B5C.c#L481-L600",
+            "why": "Shows 256-sample luma level shifting, subsampled chroma selection, color conversion, channel clamping, and packed RGB565 output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows preparation of four luma blocks and the Cb component for each 16-by-16 region."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows preparation of Cr followed by invocation of the output routine."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B5C4C"
+    },
+    "facts": [
+      {
+        "id": "fact:1c70761f-f95a-4d31-bd38-87bc97b9d429",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5C4C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Takes only a bit count explicitly; all stream input comes from shared decoder state. It advances the shared byte pointer on refill, reloads the current byte, resets and then decrements the shared remaining-bit count, skips a stuffed zero after 0xFF, and returns the accumulated bits to Huffman and coefficient decoders.",
+        "rationale": "The current inlined reader mutates the shared cursor, cached byte, and remaining-bit count, while hsd_803B5D70 and hsd_803B5EA0 consume its one-bit and multi-bit results.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows stream refill, cursor advancement, cached-byte and bit-count mutation, stuffed-zero handling, the public wrapper, and a one-bit Huffman caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows the coefficient decoder requesting multi-bit fields according to decoded DC and AC sizes."
+          }
+        ]
+      },
+      {
+        "id": "fact:ab1f8eb5-3151-4fdb-8e2c-11e0ad54966c",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5C4C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes JPEG entropy-bit consumption used by canonical Huffman decoding: its one-bit outputs are appended until a selected JPEG DC or AC code table yields a symbol.",
+        "rationale": "The adjacent Huffman routine repeatedly requests one bit from this target, appends it to the current code, and compares the result with the selected JPEG code tables.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the JPEG-aware bit reader and the Huffman decoder selecting a table and requesting one-bit values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows one-bit accumulation and comparison against selected Huffman entries until a symbol is returned."
+          }
+        ]
+      },
+      {
+        "id": "fact:1ccdbaeb-97de-400c-b5bc-7c4ba248af6e",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5C4C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_JPEGReadBits",
+        "rationale": "The public function wraps a shared-state JPEG entropy reader with a zero accumulator and returns exactly the requested MSB-first bit field, making an HSD JPEG bit-reader name plausible while the original capitalization remains uncertain.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the JPEG byte-stuffing-aware reader, its public zero-accumulator wrapper, and use by the Huffman decoder."
+          }
+        ]
+      },
+      {
+        "id": "fact:107b9204-d922-4f3f-9933-04671b20c942",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5C4C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `s32 read_bits(s32 bit_count)`. The parameter is a positive bit count, and the return value is the requested MSB-first bit field accumulated into a 32-bit signed integer.",
+        "rationale": "The current wrapper retains the s32-to-s32 signature, and its do-while helper doubles the accumulator before appending each next bit, so a positive count is required and the resulting field is assembled most-significant bit first.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the exact public signature, count-controlled do-while loop, MSB-first accumulation, and a caller supplying one bit."
+          }
+        ]
+      },
+      {
+        "id": "fact:b4b2b5b0-849c-4fbe-bdc1-cb527fac7759",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5C4C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Reads a caller-selected number of bits from the shared JPEG entropy stream and returns them as one MSB-first integer, rejecting truncated input and invalid JPEG byte stuffing through the decoder's nonlocal error path.",
+        "rationale": "The current helper shifts in one bit per iteration, refills from bounded shared input, requires a zero byte after entropy-data 0xFF, and calls longjmp on exhaustion or invalid stuffing.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows bounded refill, JPEG byte-stuffing validation, longjmp failures, MSB-first accumulation, and the public wrapper."
+          }
+        ]
+      },
+      {
+        "id": "fact:aee0d33c-607f-4c6a-8b7e-2c85f018acc9",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5C4C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "For each requested bit, the routine refills only when no cached bits remain. A refill checks the input bound, loads one byte, and sets the remaining count to eight. If the byte is 0xFF, the next byte must be a stuffed 0x00 and is consumed; exhausted input or a nonzero follower transfers control through longjmp. The routine then emits the cached byte's next most-significant bit and decrements the remaining count.",
+        "rationale": "The current helper directly preserves the empty-cache guard, refill transition, bounds checks, stuffing validation, nonlocal failure branches, MSB mask, and cached-bit decrement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows every refill, validation, error, emission, and decrement transition described by the fact."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B5D70"
+    },
+    "facts": [
+      {
+        "id": "fact:3ea630d9-1aa7-41d1-89b9-e02722c82d32",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5D70",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The two selectors choose code, code-length, and symbol-value table bases. The routine then repeatedly obtains one bit from hsd_803B5C4C(1), left-shifts the accumulated code and appends that bit, scans entries whose stored length equals the current bit length, and returns value_table[value_idx] when an entry's code matches.",
+        "rationale": "The current implementation directly shows selector-driven table selection, bit accumulation, parallel traversal of code and length entries, and return of the matching symbol byte.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the DC/AC and component-dependent selection of Huffman code, length, and value table bases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows one-bit accumulation, length-gated code comparison, table cursor advancement, and symbol return."
+          }
+        ]
+      },
+      {
+        "id": "fact:ade2c8c4-49da-4ef3-b974-07d70af737fc",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5D70",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes JPEG Huffman entropy decoding for DCT coefficient symbols, selecting the DC/AC and luminance/chrominance codebook needed by the surrounding coefficient decoder.",
+        "rationale": "The function selects among four JPEG table configurations and maps a variable-length input code to a symbol consumed by the DC/AC coefficient reconstruction routine.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows selection among DC/AC and component-specific JPEG Huffman table regions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows variable-length code resolution and use of the returned symbols by the coefficient-block decoder."
+          }
+        ]
+      },
+      {
+        "id": "fact:2b3346dc-ad82-4a55-9324-17cfce77afff",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5D70",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_JpegDecodeHuffmanSymbol",
+        "rationale": "Every successful path resolves the current entropy bits through a selected JPEG Huffman table and returns exactly one symbol byte, supporting this semantic HSD-style name while the original spelling remains unrecovered.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the function's JPEG Huffman table selection and symbol-value table setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows one complete variable-length symbol decode and return."
+          }
+        ]
+      },
+      {
+        "id": "fact:01eeae79-18ad-48d2-bcb7-66b982d273c2",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5D70",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A symbol-decoder routine with ABI shape `s32(s32 table_class, s32 component_class)`. Both inputs are boolean-like selectors: table_class chooses DC when zero and AC when nonzero, while component_class chooses the first/luminance table when zero and the second/chrominance table when nonzero. The meaningful successful result is an unsigned 8-bit Huffman symbol widened to s32.",
+        "rationale": "The current declaration establishes the ABI, each argument is used through zero/nonzero tests to choose table families, and successful returns originate from u8 symbol tables.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the exact two-s32-input declaration and boolean-like table-family selections."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows successful results being loaded from a u8 value table and returned as s32."
+          }
+        ]
+      },
+      {
+        "id": "fact:a045393b-59da-4272-84e8-2b8ad21456ea",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5D70",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Decodes one JPEG Huffman symbol from the active input bitstream using the selected DC or AC and luminance or chrominance Huffman table.",
+        "rationale": "The current function selects one of four codebook configurations, accumulates bits until a code of the current length matches, and returns the associated symbol.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows the selected DC/AC and luminance/chrominance table setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows bit-by-bit code accumulation, matching, and symbol return."
+          }
+        ]
+      },
+      {
+        "id": "fact:269097c6-a67e-4056-82ce-0185f5ec3552",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5D70",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Decoding begins with code 0 at bit length 1. After each appended bit, the function tests all table entries assigned to that length; if none match, it advances to the next length and reads another bit. It accepts codes up to 16 bits and returns 0 if no table entry matches by then.",
+        "rationale": "The current control flow preserves the zero-code initialization, length-one start, length-gated entry scan, next-length transition, explicit 16-bit limit, and terminal zero return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows initialization of the accumulated code and the table cursors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows the per-length scan, match return, increment through lengths up to 16, and fallback zero."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B5EA0"
+    },
+    "facts": [
+      {
+        "id": "fact:9f1efca6-6492-479f-b8ab-7399acddfee7",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5EA0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The component index selects Huffman tables and one of three previous-DC accumulators; decoded symbols and entropy bits update that predictor and populate the shared 64-entry coefficient block through the zigzag-to-natural scan-order table.",
+        "rationale": "The current body passes the component selector to both Huffman decodes, indexes the three-entry predictor array with it, and uses lbl_80431638 for AC zero and value stores.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows component-selected Huffman calls, predictor mutation, entropy-bit reads, scan lookup, and coefficient stores."
+          }
+        ]
+      },
+      {
+        "id": "fact:f5de8593-1b0f-4556-82ec-8951b624b518",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5EA0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes JPEG coefficient-block entropy decoding, including differential DC reconstruction and AC run-length expansion.",
+        "rationale": "The routine obtains JPEG DC and AC Huffman symbols, reconstructs the differential DC value, expands AC zero runs and end-of-block, sign-extends magnitude fields, and fills one scan-ordered coefficient block.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows the complete JPEG DC differential and AC run/size coefficient reconstruction algorithm."
+          }
+        ]
+      },
+      {
+        "id": "fact:28772ce7-0c9e-498a-a391-0190f31aa3c6",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5EA0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "HSD_JpegDecodeDCTBlock",
+        "rationale": "The function reconstructs exactly one complete 64-entry JPEG DCT coefficient block from entropy-coded DC and AC symbols, making this HSD-style semantic name plausible.",
+        "confidence": 0.79,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows one complete DC-and-AC coefficient block being decoded into the shared 64-entry array."
+          }
+        ]
+      },
+      {
+        "id": "fact:15adaeb3-4898-4e13-9d9c-fe386d74959e",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5EA0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature `void(s32 component_index)` over the three JPEG predictor slots: zero selects luminance tables, while nonzero component indices use the chrominance table family.",
+        "rationale": "The current declaration accepts one s32 component selector, uses it to index prev_dc[3], and passes it to the DC and AC Huffman table selector, whose zero/nonzero component branch distinguishes luminance from chrominance tables.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Provides the signature and shows component-indexed predictor and Huffman-table selection."
+          }
+        ]
+      },
+      {
+        "id": "fact:a5ec31ca-62d7-4435-a14d-1ac52ab22f72",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5EA0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Entropy-decodes one JPEG component's 64-coefficient block into shared workspace, reconstructing differential DC and scan-ordered AC coefficients and zero runs.",
+        "rationale": "The head body still performs DC predictor reconstruction, end-of-block clearing, AC zero-run expansion, magnitude sign extension, and scan-ordered coefficient writes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows the complete component coefficient-block decode into shared workspace."
+          }
+        ]
+      },
+      {
+        "id": "fact:bf60cfb4-a5c1-4e89-9358-103f0dd967fd",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B5EA0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "After decoding DC, AC processing starts at index one. A zero Huffman symbol clears all remaining scan positions and returns; otherwise the encoded run is zero-filled, one signed coefficient is stored, and processing continues until index 64.",
+        "rationale": "The current branches and loops explicitly preserve the index-one initialization, end-of-block path, zero-run path, signed value reconstruction, and 64-entry termination condition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows DC initialization followed by end-of-block clearing, AC zero-run expansion, signed storage, and terminal bounds."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4"
+    },
+    "facts": [
+      {
+        "id": "fact:aef65be7-8f30-4967-ad8a-a43d8b0d5c0d",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Copies `src` and `size` into shared bounded-stream state, resets three component DC predictors and the bit cache, and loads two 64-entry quantization tables through a zigzag map. SOF0 supplies image dimensions and SOS locates entropy data. For each 16-by-16 region, four luma blocks use quantizer 0 and one Cb plus one Cr block use quantizer 1; every block is entropy-decoded, dequantized, inverse-transformed, and then consumed by the RGB565 output stage. The function returns the number of destination bytes produced.",
+        "rationale": "The current inline decoder preserves the complete flow from source-state initialization and marker parsing through six reconstructed component blocks per region, final packed output, and width-times-height-times-two return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L618-L737",
+            "why": "Shows source and length initialization, predictor and bit-cache reset, recovery setup, and the first and second quantization-table searches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows completion of quantization loading, SOF0/SOS parsing, and luma and Cb entropy decoding, dequantization, and inverse transformation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows Cr reconstruction, RGB565 output, and the successful destination-byte-count return."
+          }
+        ]
+      },
+      {
+        "id": "fact:9ed05678-5728-46a1-bc95-a0a994dd8b18",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Reconstructs the compressed photograph data stored for Melee's Camera Mode snapshots so the resulting RGB565 image can be displayed by snapshot album and preview interfaces.",
+        "rationale": "The decoder at head still reconstructs packed RGB565 output from bounded compressed data, and the snapshot subsystem still invokes it for stored photographs and flushes the resulting image buffer. The mapping remains valid and its drifted caller citation is refreshed.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T20:58:43.352Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L618-L895",
+            "why": "Shows bounded JPEG decoding through marker parsing, coefficient reconstruction, inverse transformation, and packed RGB565 output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d73fd3abcf/src/melee/lb/lbsnap.c#L237-L356",
+            "why": "Shows the snapshot subsystem passing stored compressed photograph data to this decoder and flushing the decoded image for use."
+          }
+        ]
+      },
+      {
+        "id": "fact:1d5452e2-d72f-4950-b8c3-f77ad4e1352b",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Concrete signature: `s32 (char* src, s32 size, void* dst)`. `src` and `size` describe a bounded compressed JPEG stream; `dst` receives a tiled packed RGB565 image requiring `decoded_width * decoded_height * 2` bytes. The return value is that byte count on success and 0 after parsing or entropy-decoding failure.",
+        "rationale": "The current wrapper and inline implementation retain the three arguments, initialize bounded stream state from source and size, return zero through setjmp recovery, decode into the destination, and return width times height times two on success.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L618-L737",
+            "why": "Shows the inline three-argument decoder, bounded source-state initialization, destination state, and zero-return recovery branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows the destination passed to pixel output, the width-times-height-times-two return, and the public wrapper signature."
+          }
+        ]
+      },
+      {
+        "id": "fact:e90e2fca-6bd7-491b-aaa6-ef868f811e71",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Decodes a bounded baseline JPEG image into a caller-supplied packed RGB565 destination buffer, coordinating marker parsing, quantization-table loading, entropy decoding, dequantization, inverse transformation, and block-to-pixel output.",
+        "rationale": "The current implementation initializes bounded decoder state, parses DQT, SOF0, and SOS markers, reconstructs four luma and two chroma blocks per region, and invokes the RGB565 output helper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L618-L737",
+            "why": "Shows bounded decoder initialization, failure recovery, and quantization-table parsing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows frame and scan parsing plus luma and Cb coefficient decoding, dequantization, and inverse transformation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows Cr reconstruction and final block-to-RGB565 output."
+          }
+        ]
+      },
+      {
+        "id": "fact:8cfc1b61-2fd4-4a2f-b525-de74a4cba28d",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Begins with zeroed DC predictors and an empty entropy-bit cache, then scans in order for two DQT markers, a baseline SOF0 frame marker, and an SOS marker. Each scan is bounded by `src + size`; reaching the bound or triggering an entropy-reader longjmp resumes at the entry setjmp and returns 0. After SOS, normal processing advances through the image in 16-by-16 regions and returns `width * height * 2`.",
+        "rationale": "The current code retains the initialization and setjmp recovery point, ordered bounded marker searches with longjmp failures, 16-pixel nested image traversal, and successful output-size return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows entropy-stream exhaustion and invalid JPEG stuffing transferring control through longjmp."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L618-L737",
+            "why": "Shows predictor and cache reset, setjmp recovery, and bounded searches for the two DQT markers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows bounded SOF0 and SOS searches followed by 16-by-16 region traversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows completion of each region and successful width-times-height-times-two return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/hsd_3B5C.c"
+    },
+    "facts": [
+      {
+        "id": "fact:21c5f5e3-1a55-460b-be03-32b1d3b788fb",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B5C.c",
+        "type": "data_flow",
+        "value": "Compressed bytes become Huffman coefficient symbols, reordered and dequantized blocks, spatial Y/Cb/Cr samples, clamped RGB channels, and packed 16-bit output pixels.",
+        "rationale": "The current file still contains the complete pipeline: bit and Huffman decoding produce coefficient blocks, the top-level decoder dequantizes and inverse-transforms them, and the output routine converts the reconstructed component planes into packed RGB565 pixels.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T15:31:10.031Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L239",
+            "why": "Shows entropy-bit reading and the first half of selectable JPEG Huffman decoding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L240-L359",
+            "why": "Shows Huffman-symbol completion and reconstruction of differential DC and run-length-coded AC coefficients."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L857",
+            "why": "Shows marker parsing, dequantization, and inverse transformation of luma and Cb blocks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows Cr reconstruction, final RGB565 output invocation, and the decoded-byte-count return."
+          }
+        ]
+      },
+      {
+        "id": "fact:25dd7cce-b8dc-4896-aa9e-5c5f3e6e824d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B5C.c",
+        "type": "game_mapping",
+        "value": "Provides JPEG image reconstruction used by Melee's stored snapshot pipeline to turn compressed photographs into displayable pixels.",
+        "rationale": "The current snapshot subsystem still passes stored compressed data to the HSD decoder and flushes the resulting two-byte-per-pixel image.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://995e215437/src/melee/lb/lbsnap.c#L237-L356",
+            "why": "Shows the snapshot subsystem invoking the HSD JPEG decoder on stored snapshot data and flushing the decoded image."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L858-L895",
+            "why": "Shows the decoder producing packed output pixels and returning a two-byte-per-pixel decoded size."
+          }
+        ]
+      },
+      {
+        "id": "fact:68a8e1c7-1515-4771-802f-b1fc11c319e5",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B5C.c",
+        "type": "inferred_type",
+        "value": "A stateful baseline-JPEG decoder using a shared workspace with 256 luma samples, 64 Cb samples, 64 Cr samples, one 64-coefficient block, and three DC predictors.",
+        "rationale": "The refreshed JpegWorkData declaration directly defines those arrays and predictors, and the decoder uses them while reconstructing image regions.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L1-L120",
+            "why": "Defines JpegWorkData with a 0x100-entry luma plane, two 0x40-entry chroma planes, a 0x40-entry coefficient block, and three predictors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L895",
+            "why": "Shows the top-level decoder filling and consuming the shared component and coefficient workspace."
+          }
+        ]
+      },
+      {
+        "id": "fact:0e1bcc2a-141d-42b5-8c91-5753296da804",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B5C.c",
+        "type": "purpose",
+        "value": "Implements HSD's baseline JPEG decoder: entropy and Huffman decoding, coefficient reconstruction, dequantization, inverse DCT, YCbCr conversion, and packed 16-bit image output.",
+        "rationale": "The current source retains bounded entropy input, Huffman decoding, coefficient and spatial reconstruction, YCbCr-to-RGB conversion, and RGB565 output.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L120-L359",
+            "why": "Shows bounded entropy-bit reading and selectable Huffman decoding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L360-L479",
+            "why": "Shows the separable inverse transform and sample normalization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/sysdolphin/baselib/hsd_3B5C.c#L481-L600",
+            "why": "Shows YCbCr-to-RGB conversion, clamping, RGB565 packing, and tiled output placement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B5C.c#L738-L895",
+            "why": "Shows marker parsing, dequantization, inverse transformation, final RGB output, and decoded-size return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:fn_803B61B4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:fn_803B6820#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:fn_803B6820#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:fn_803B6820#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:fn_803B6820#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:fn_803B6820#r7"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B5C4C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B5D70#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B5D70#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B5EA0#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B5C:hsd_803B6BE4#r5"
+    },
+    "facts": []
+  }
+]

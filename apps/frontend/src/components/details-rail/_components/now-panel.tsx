@@ -5,12 +5,12 @@ import { Button, EmptyState, InfoRows, Pill } from "@/components/primitives";
 import { asArray, asObject, clock, numberValue, shortId, text, type Dashboard, type JsonObject } from "@/lib/format";
 import { processView } from "@/lib/processView";
 import { RUN_CONTROL_ACTIONS } from "@/components/app/_lib/projectedRunControls";
-import type { CycleView, DashboardAction } from "@/pages/workspace/_lib/types";
+import type { HarnessView, DashboardAction } from "@/pages/workspace/_lib/types";
 
 import { formatElapsed } from "../_lib/time";
 import { StateSection } from "./state-section";
 
-// Keyed by cycle.activeSubphase. The prepare-era subphases are retired with
+// Keyed by the current scheduler condition. Setup-only subphases stay outside
 // the babysit/prepare flow; the generic phase/subphase fallback below covers
 // anything unlisted. Sync workflow statuses do not flow through this field,
 // so they get no entries here.
@@ -54,7 +54,7 @@ function processName(dashboard: Dashboard | null): string {
  * operation runs at a time (a sync, a run's workers, or a PR operation), so
  * this is the rail's source of truth for "what is happening".
  */
-function nowSentence(dashboard: Dashboard | null, view: CycleView, running: boolean): string {
+function nowSentence(dashboard: Dashboard | null, view: HarnessView, running: boolean): string {
   const sync = view.harnessState?.sync;
   const syncStatus = text(sync?.status);
   if (sync && syncStatus && !["published", "cancelled"].includes(syncStatus)) {
@@ -63,9 +63,8 @@ function nowSentence(dashboard: Dashboard | null, view: CycleView, running: bool
   const proc = asObject(dashboard?.process);
   const operation = asObject(proc.operation);
   if (text(operation.status) === "running") return `${text(operation.label, "Operation")} is running right now.`;
-  const cycle = asObject(dashboard?.cycle);
-  const phase = text(cycle.phase);
-  const subphase = text(cycle.activeSubphase);
+  const phase = view.harnessState?.state?.execution.workflow || "";
+  const subphase = view.harnessState?.run?.scheduler_condition || "";
   if (running && subphaseSentences[subphase]) return subphaseSentences[subphase];
   if (running && phase) {
     const phaseLabel = prettyLabel(phase, "process");
@@ -125,7 +124,7 @@ export function NowPanel({
   busy: boolean;
   dashboard: Dashboard | null;
   onAction: (action: DashboardAction) => void;
-  view: CycleView;
+  view: HarnessView;
 }) {
   const [, setTick] = useState(0);
   const selectedName = processName(dashboard);
@@ -137,7 +136,6 @@ export function NowPanel({
   const elapsed = startedAt ? formatElapsed(startedAt, running ? undefined : endedAt) : "";
   const command = commandLine(proc) || commandLine(procView.proc);
   const status = asObject(dashboard?.status);
-  const cycle = asObject(dashboard?.cycle);
   const checkpoint = asObject(dashboard?.checkpointProgress);
   const activeClaims = numberValue(status.activeClaims, 0);
   const saved = procView.saved.slice(0, 5);
@@ -186,7 +184,7 @@ export function NowPanel({
               ["PID", pid ? String(pid) : "-"],
               ["State", prettyLabel(procView.pillState)],
               ["Elapsed", elapsed || "-"],
-              ["Cycle", text(cycle.cycleUuid, text(cycle.id)) ? `Cycle ${shortId(text(cycle.cycleUuid, text(cycle.id)))}` : "-"],
+              ["Harness", view.harnessState?.state?.identity.harness_id || "Not initialized"],
               ["Claims", String(activeClaims)],
               ["Checkpoint", checkpoint.building === true ? "building" : text(checkpoint.status, text(checkpoint.nextCheckpoint, "-"))],
             ]}

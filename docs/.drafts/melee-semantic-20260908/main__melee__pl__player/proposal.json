@@ -1,0 +1,214 @@
+{
+  "tu": "main/melee/pl/player",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/player:Player_80036D24"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Passes slot unchanged first to Player_InitOrResetPlayer, which assigns baseline fields in player_slots[slot], then to pl_80038F10. The latter clears the selected extended record's xD50, xD54 and xD60, sets xD64 to 6, and scans slots 0 through 5. Matching xD64 references are replaced with 6 and their associated xD60 cleared; matching x0_staleMoveTable.xCAC and xD6C references are also replaced with 6. The wrapper returns no value.",
+        "rationale": "The complete cleanup body contains an additional xD6C comparison beyond the baseline's cited excerpt.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1901-L2023",
+            "why": "Baseline reset assignments and unchanged slot propagation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L247-L278",
+            "why": "Local and cross-record writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L279-L281",
+            "why": "Previously omitted xD6C cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L282-L289",
+            "why": "Confirms the cleanup loop and function end."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/player:Player_GetUnk50"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Player_GetUnk50 validates its int slot argument, reads player_slots[slot].unk50 and returns it as f32. fn_8017C0C8 assigns Player_GetUnk50(2) to PlayerInitData.defense_ratio in a record configured with Gm_PKind_Cpu and CKIND_CREZYH, then passes that record to gm_8016EDDC.",
+        "rationale": "Updates the obsolete destination spelling to the current canonical member while retaining only the directly observed initialization flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L872-L880",
+            "why": "Validated floating-point field read."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_17C0.c#L68-L89",
+            "why": "Explicit defense_ratio assignment and record handoff."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/player:Player_SetHandicap"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Player_SetHandicap checks the caller's slot index, selects player_slots[slot], and directly assigns its s8 handicap argument to the record's u8 handicap field. It performs no explicit arithmetic or clamping; assignment converts negative arguments to the unsigned byte representation.",
+        "rationale": "The function signature and destination declaration together distinguish direct assignment from preservation of the signed numeric value.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L864-L870",
+            "why": "Shows input type and complete assignment path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.h#L49-L53",
+            "why": "Shows unsigned destination type."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/player:Player_SetUnk45"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives an s32 player-slot index and int value, calls Player_CheckSlot, selects player_slots[slot], and assigns the value to the u8 unk45 field. The stored value undergoes conversion to u8; the function returns void.",
+        "rationale": "The body establishes flow and the header establishes the narrower destination type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1798-L1804",
+            "why": "Complete setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.h#L45-L48",
+            "why": "u8 destination."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/player:Player_SetUnk45"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void Player_SetUnk45(s32 slot, int unk45). The slot selects a checked StaticPlayer record; the int argument is assigned to a field declared u8, not full-width integer storage.",
+        "rationale": "Separates the parameter type from the declared storage type.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1798-L1804",
+            "why": "Exact signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.h#L45-L48",
+            "why": "Declared field type."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/player:Player_SetUnk4C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives an s32 slot and u8 argument, calls Player_CheckSlot, selects player_slots[slot], and assigns the argument to the s8 unk4C field. This unsigned-to-signed assignment should not be described as preserving every unsigned numeric value unchanged.",
+        "rationale": "The destination declaration contradicts the baseline's no-conversion characterization.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1696-L1702",
+            "why": "Argument and assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.h#L55-L58",
+            "why": "Signed destination declaration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/player:Player_SetUnk4C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void Player_SetUnk4C(s32 slot, u8 unk4C). The argument is unsigned 8-bit, whereas StaticPlayer.unk4C is declared s8; the setter assigns between these source-level types after checking the slot.",
+        "rationale": "Distinguishes exact function signature from field signedness without making compiled-layout claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1696-L1702",
+            "why": "Exact signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.h#L55-L58",
+            "why": "Exact field declaration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/player:Player_UpdateMatchFrameCount"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives an int player-slot index and bool condition, calls Player_CheckSlot, selects player_slots[slot], and conditionally replaces that record's match_frame_count with gm_GetFrameCount(). It returns no value.",
+        "rationale": "Updates the baseline data-flow description to the current canonical callee.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1400-L1411",
+            "why": "Complete signature, selection, guards, and assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/player:Player_UpdateMatchFrameCount"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "After slot validation, writes gm_GetFrameCount() to match_frame_count only when condition is false and match_frame_count + 0x10000 equals 0xffff. For the declared unsigned 32-bit count, this selects UINT32_MAX. Other values are preserved; repeat eligibility depends on whether the stored value is the sentinel.",
+        "rationale": "Preserves the sentinel behavior while refreshing the callee and avoiding an unsupported assumption about its possible return values.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1390-L1411",
+            "why": "Shows the current guard and assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.h#L81-L83",
+            "why": "Declares the unsigned count and documents the sentinel."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

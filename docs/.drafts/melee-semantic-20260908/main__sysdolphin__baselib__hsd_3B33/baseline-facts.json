@@ -1,0 +1,500 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B33:extab"
+    },
+    "facts": [
+      {
+        "id": "fact:2aec559d-4688-462d-884b-056c2f074ca5",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B33:extab",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "CodeWarrior emits this extab contribution for the object, ppceabi links it alongside the corresponding extabindex contribution, and the resulting paired tables provide metadata to the runtime exception-unwinding machinery.",
+        "rationale": "One resolved message directly identifies ppceabi as the component that links extab and extabindex, while the later discussion identifies both as C++ exception tables. Together they establish the producer/linker path and the exception-runtime role of the linked output.",
+        "confidence": 0.85,
+        "updated_at": "2026-09-02T12:38:44.308Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/728071986902728766",
+            "why": "The message states that CodeWarrior's ppceabi links extab and extabindex into the executable."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1530962022408392876",
+            "why": "The discussion establishes that the linked sections are C++ exception tables associated with exception-enabled compilation."
+          }
+        ]
+      },
+      {
+        "id": "fact:7f4c7b94-bccc-4d84-9d55-b13ebea754f4",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B33:extab",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An opaque 16-byte contribution to the executable's writable `.extab` exception-table section, interpreted by the exception runtime rather than as a normal C data structure.",
+        "rationale": "The target record supplies the 16-byte extent, while the resolved section discussion shows that extab is a distinct writable section and that it is separated from extabindex. The available evidence does not expose a trustworthy field-level layout, so the most precise supported type is an opaque section contribution.",
+        "confidence": 0.87,
+        "updated_at": "2026-09-02T12:38:44.308Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/728074638219018350",
+            "why": "The thread shows extab represented as a distinct writable `.extab` section and discusses splitting it from extabindex."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1530962022408392876",
+            "why": "The discussion identifies the section's contents as C++ exception-table metadata."
+          }
+        ]
+      },
+      {
+        "id": "fact:8991706c-39f0-4997-881b-c5119d1b6ab7",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B33:extab",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "This data is the translation unit's extab-side exception metadata, paired with extabindex to support runtime exception unwinding; it is compiler/linker support data rather than gameplay-authored data.",
+        "rationale": "The resolved records explicitly characterize extab as a C++ exception-table section and describe extab and extabindex as a pair linked by CodeWarrior's ppceabi. Because this target is the unit's extab contribution, those records support its role as exception-unwind metadata.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T12:38:44.308Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1530962022408392876",
+            "why": "The discussion explicitly calls extab and extabindex C++ exception tables."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728071986902728766",
+            "why": "The message establishes that CodeWarrior's ppceabi links extab together with extabindex."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B33:extabindex"
+    },
+    "facts": [
+      {
+        "id": "fact:a3db2afd-9265-466c-878d-daa5bf2331c5",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B33:extabindex",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The compiler emits these index entries alongside their referenced functions and extab records in the same object; the linker resolves their direct relocations, after which the PowerPC C++ exception machinery uses the resulting index to find the object's exception metadata.",
+        "rationale": "The same-object, label, size, and direct-relocation requirements directly establish how the entries originate and are linked. Separate community evidence identifies extabindex as PowerPC-runtime data for C++ exceptions, supporting its downstream consumption by exception handling machinery.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T12:40:41.571Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197328458422951976",
+            "why": "Explains that extabindex entries accompany referenced functions and require direct linker relocations."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728105720016535602",
+            "why": "Identifies extabindex, in the surrounding discussion, as metadata from the PowerPC runtime."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728105692283666473",
+            "why": "Explicitly identifies extabindex as data used for C++ exceptions."
+          }
+        ]
+      },
+      {
+        "id": "fact:85588fb6-4c48-4c99-8e83-45854ee468ae",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B33:extabindex",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A compiler-generated extabindex section contribution consisting of labeled, fixed-size entries with direct relocations to functions in the same object; it is linker/runtime metadata rather than mutable application state.",
+        "rationale": "The object-splitting guidance directly describes extabindex as a collection of entries that require labels, correct sizes, direct relocations, and co-location with referenced functions. The map excerpt independently identifies a label as an entry of an extabindex object, and the runtime discussion identifies the section as compiler-linked exception metadata.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T12:40:41.571Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197328458422951976",
+            "why": "Specifies the structural requirements of extabindex entries: same-object ownership, labels, correct sizes, and direct relocations."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/929134260978344087",
+            "why": "Shows a map-file label described as an entry of an extabindex object."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728071986902728766",
+            "why": "Establishes that extabindex is linked in by CodeWarrior's PPCEABI runtime."
+          }
+        ]
+      },
+      {
+        "id": "fact:4b594171-ccb2-4f50-ac77-91a9c7ef7b62",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_3B33:extabindex",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides this object's index into its C++ exception metadata, allowing the PowerPC exception runtime to associate covered functions with the companion extab information used during exception handling and unwinding.",
+        "rationale": "The community explicitly identifies extabindex as being for C++ exceptions and originating in the PowerPC runtime. The documented requirement that each extabindex entry remain with the function it references establishes its per-function indexing role, while the repeated pairing with extab supports its role as the lookup side of the exception metadata.",
+        "confidence": 0.91,
+        "updated_at": "2026-09-02T12:40:41.571Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/728105692283666473",
+            "why": "Explicitly states that extabindex is for C++ exceptions and, in context, that it comes from the PowerPC runtime."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197328458422951976",
+            "why": "States that extabindex entries reference functions and must accompany those functions in the same object."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728071986902728766",
+            "why": "Identifies extab and extabindex as a paired contribution linked from CodeWarrior's PPCEABI runtime."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B33:hsd_803B3344"
+    },
+    "facts": [
+      {
+        "id": "fact:f279d29e-8613-4779-9ee2-3676c9eeab00",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B33:hsd_803B3344",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the current output cursor from hsd_804D79A0 and checks it against hsd_804D79A4 + hsd_804D79A8. On success it stores the input byte at the old cursor and advances hsd_804D79A0 by one; on failure it passes hsd_804D2648 and a nonzero result to longjmp.",
+        "rationale": "The helper body still directly shows the cursor, bound, byte store, cursor increment, and longjmp path. At the current head, the enclosing JPEG encoder initializes the cursor and base from its output argument and the capacity from its output-capacity argument, so the standing flow remains valid with refreshed evidence.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:31:25.860Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L8-L20",
+            "why": "Shows the cursor read, base-plus-capacity guard, one-byte store, cursor advancement, and longjmp arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1019-L1138",
+            "why": "Shows the JPEG encoder initializing hsd_804D79A0 and hsd_804D79A4 from its output buffer and hsd_804D79A8 from its output-capacity argument before invoking the byte writer."
+          }
+        ]
+      },
+      {
+        "id": "fact:4936fa60-7694-49a8-ba46-07be6f07a8ee",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B33:hsd_803B3344",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void single-byte output routine with signature void (u8 byte); it has no explicit destination parameter because it operates on module-level encoder output state.",
+        "rationale": "The owning header and matched definition agree on a void return and one u8 parameter. The body obtains the destination exclusively from shared globals, so the parameter represents only the byte being emitted.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:40:32.394Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/sysdolphin/baselib/hsd_3B33.h#L1-L9",
+            "why": "Declares hsd_803B3344 with a void return and one u8 byte parameter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L8-L20",
+            "why": "Defines the same signature and shows that the destination and capacity are taken from shared state rather than explicit parameters."
+          }
+        ]
+      },
+      {
+        "id": "fact:54c8bec7-5278-4d8c-9d62-52013530d796",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B33:hsd_803B3344",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Appends one byte to the active JPEG encoder output buffer, using a non-local jump to abort the current encode when no destination byte remains.",
+        "rationale": "The target remains a bounded one-byte writer that invokes longjmp when its guard fails. The current caller uses it repeatedly to serialize JPEG comment and Huffman-table marker and length bytes, preserving the standing JPEG encoder purpose despite the caller's shifted source lines.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:31:25.860Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L8-L20",
+            "why": "Shows a guarded one-byte append to the shared output cursor and a longjmp when the output bound has been reached."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1019-L1138",
+            "why": "Shows the JPEG encoder repeatedly calling hsd_803B3344 to emit comment and luminance/chrominance Huffman-table marker and segment-field bytes."
+          }
+        ]
+      },
+      {
+        "id": "fact:a7cf93a8-06f4-4acd-884f-480fa667094d",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B33:hsd_803B3344",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has two outcomes: when cursor < base + capacity, it commits exactly one byte and advances the cursor; otherwise it performs a non-local transfer to the encoder's setjmp recovery point, causing the enclosing encoder to return failure rather than continuing with an out-of-bounds write.",
+        "rationale": "The helper's current body preserves the mutually exclusive successful append and longjmp outcomes. The enclosing encoder still installs a setjmp environment backed by the same shared buffer and returns zero when resumed nonlocally, confirming how the failure transition is consumed.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:31:25.860Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L8-L20",
+            "why": "Shows the exact cursor-below-end guard, one-byte state update on success, and longjmp on failure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1019-L1138",
+            "why": "Shows the enclosing encoder establishing the shared setjmp recovery context and returning zero when setjmp resumes with a nonzero result."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_3B33:hsd_803B3398"
+    },
+    "facts": [
+      {
+        "id": "fact:d3468e2d-99e2-424c-99d8-208383ef29fc",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B33:hsd_803B3398",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the current destination from hsd_804D79A0 and derives its limit from output base hsd_804D79A4 plus capacity hsd_804D79A8. When the guard succeeds, memcpy transfers size bytes from src to the current destination and hsd_804D79A0 increases by size. The encoder initializes those globals from its destination and capacity arguments before supplying comment and Huffman-table buffers to this function.",
+        "rationale": "The target still directly establishes the shared-state-to-copy-to-cursor flow. At the current head, the encoder's initialization and call sites have shifted to an earlier span but continue to show the origins of the globals and the concrete comment and Huffman-table source buffers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:31:25.860Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L22-L33",
+            "why": "Shows the destination cursor and bound inputs, memcpy from src for size bytes, cursor advancement by size, and longjmp failure path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1019-L1138",
+            "why": "Shows the encoder initializing the shared destination state and passing its comment and four Huffman-table payload buffers to hsd_803B3398."
+          }
+        ]
+      },
+      {
+        "id": "fact:85fd7b22-4dd9-45e6-ad32-ae937cab3d54",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B33:hsd_803B3398",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Serializes multi-byte JPEG segments into the encoder's destination stream, including its comment payload and the DC and AC Huffman tables for luminance and chrominance.",
+        "rationale": "The current encoder source still invokes this helper for the JPEG comment and for all four luminance/chrominance DC and AC Huffman-table payloads immediately after emitting their associated marker and segment fields.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:31:25.860Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1019-L1138",
+            "why": "Shows hsd_803B3398 receiving the JPEG comment payload and the luminance and chrominance DC and AC Huffman-table buffers with their byte lengths."
+          }
+        ]
+      },
+      {
+        "id": "fact:96b5b78e-a73f-4bf5-af0e-84251632a809",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B33:hsd_803B3398",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Block-output helper with signature void hsd_803B3398(void* src, size_t size). The first parameter designates the source byte sequence and is read-only in practice, while size is its byte count; completion is reported through normal return versus nonlocal failure rather than through a return value.",
+        "rationale": "The matched definition provides the exact C signature. Its only access to src is as memcpy's source, while size controls both the capacity expression, copy length, and cursor increment; the alternative outcome is a longjmp.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T12:39:20.514Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L22-L33",
+            "why": "Provides the exact signature and demonstrates the operational role of each parameter and the absence of a returned status."
+          }
+        ]
+      },
+      {
+        "id": "fact:a31c5664-4f47-4c7d-8dac-756faaeb9e4a",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B33:hsd_803B3398",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Appends a caller-supplied block of bytes to the JPEG encoder's bounded output buffer and advances its shared write cursor; if its space guard fails, it aborts the current encoding operation through longjmp.",
+        "rationale": "The target still performs a guarded memcpy at the shared cursor, advances that cursor by the requested size, and invokes longjmp on failure. The relocated caller span confirms that the blocks are JPEG comment and Huffman-table payloads.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:31:25.860Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L22-L33",
+            "why": "Directly shows the guarded block copy, shared cursor advancement, and longjmp failure path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1019-L1138",
+            "why": "Shows the JPEG encoder calling the block writer for its comment and luminance/chrominance Huffman-table payloads."
+          }
+        ]
+      },
+      {
+        "id": "fact:bd43c5d1-0715-48b8-883a-d170bd6053e2",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_3B33:hsd_803B3398",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The success transition is guarded by the exact unsigned comparison current_cursor < output_base + output_capacity - size. On success the block is copied and the cursor advances once by size. When the comparison is false, the function performs no copy or cursor update and calls longjmp(&hsd_804D2648, true), resuming the encoder's saved setjmp context and causing its failure branch to return zero.",
+        "rationale": "The helper retains the strict unsigned capacity comparison and mutually exclusive copy-or-longjmp branches. The current encoder source still installs the corresponding setjmp context over the shared buffer and maps a nonzero resumption to a zero return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:31:25.860Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L22-L33",
+            "why": "Shows the exact strict comparison, successful memcpy and cursor update, and the alternative longjmp without a preceding copy or update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1019-L1138",
+            "why": "Shows the encoder establishing the shared setjmp environment and returning zero when nonlocal control resumes with a nonzero result."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/hsd_3B33.c"
+    },
+    "facts": [
+      {
+        "id": "fact:0d9f4c28-1424-407d-af27-4f8d28c88cbd",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B33.c",
+        "type": "data_flow",
+        "value": "Both writers consume shared output state in which hsd_804D79A4 is the destination base, hsd_804D79A8 is its byte capacity, and hsd_804D79A0 is the current write cursor. Successful writes copy data at the cursor and advance it by the emitted byte count; an insufficient-capacity check transfers control through hsd_804D2648 instead of returning normally.",
+        "rationale": "The refreshed helpers retain the shared bounded-output state, cursor advancement, and longjmp failure path, while the encoder initializes and consumes that state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L1-L33",
+            "why": "Shows both bounded writers reading shared destination state, writing output, advancing the cursor, and invoking longjmp on failure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1010-L1129",
+            "why": "Shows the JPEG encoder initializing the destination, capacity, cursor, and recovery context before using the helpers."
+          }
+        ]
+      },
+      {
+        "id": "fact:1be08a31-ed90-4967-beb7-1bd9a623ecec",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B33.c",
+        "type": "game_mapping",
+        "value": "Realizes bounded serialization of a JPEG byte stream, including marker bytes, comment payloads, and luminance/chrominance Huffman-table payloads.",
+        "rationale": "The current encoder still uses the unit's byte and block writers to emit JPEG comment and luminance/chrominance DC and AC Huffman segments.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1066-L1185",
+            "why": "Shows the hsd_3B33 writers emitting JPEG marker bytes, comment data, and luminance/chrominance Huffman-table payloads."
+          }
+        ]
+      },
+      {
+        "id": "fact:e3362655-2753-45c2-8928-374c779c8845",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B33.c",
+        "type": "inferred_type",
+        "value": "An exception-enabled C translation unit whose object contributes executable code plus paired extab and extabindex linker sections.",
+        "rationale": "The archived discussion explicitly shows sysdolphin C objects with text, extab, and extabindex contributions and identifies the latter pair as C++ exception tables. The requirement that those entries accompany their referenced functions establishes that these are object-owned section contributions rather than unrelated global data.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T12:40:41.571Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1530962022408392876",
+            "why": "Provides an example of a sysdolphin C object with extab, extabindex, and text sections and identifies the metadata as C++ exception tables."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197328458422951976",
+            "why": "Explains that extab and extabindex records are section entries owned by the same object as their referenced functions."
+          }
+        ]
+      },
+      {
+        "id": "fact:acfaf114-84b1-48cb-9cae-c02d1940f763",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B33.c",
+        "type": "purpose",
+        "value": "Defines a sysdolphin baselib object together with the compiler-generated exception metadata required to unwind through its functions under the CodeWarrior PowerPC C++ exception runtime.",
+        "rationale": "The unit contains extab and extabindex contributions. The community identifies those sections as C++ exception tables supplied by the PowerPC runtime, while the object-splitting guidance establishes that their entries must remain in the same object as the functions they reference.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-02T12:40:41.571Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1530962022408392876",
+            "why": "Shows that exception-enabled sysdolphin C objects carry extab and extabindex sections and identifies them as C++ exception tables."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/728106185021980674",
+            "why": "Identifies the extabindex exception data as originating specifically from the Runtime.PPCEABI.H.a PowerPC runtime library."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197328458422951976",
+            "why": "States that extab and extabindex entries must reside in the same object as the functions they reference."
+          }
+        ]
+      },
+      {
+        "id": "fact:02d32701-fc28-4f85-9b19-38ae3398a377",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_3B33.c",
+        "type": "state_behavior",
+        "value": "Successful calls monotonically advance the shared output cursor. The byte writer accepts a write while the cursor is below base plus capacity; the block writer uses the stricter guard cursor < base + capacity - block_size. If either guard fails, no local success return occurs: longjmp resumes the encoder's saved setjmp context, whose nonzero branch returns encoding failure.",
+        "rationale": "The current helper bodies preserve their distinct capacity guards and nonlocal failure transfer, and the encoder still establishes the corresponding recovery point and returns zero after nonzero resumption.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T17:02:33.689Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B33.c#L1-L33",
+            "why": "Shows both capacity guards, successful cursor updates, and longjmp failure paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_3B34.c#L1010-L1129",
+            "why": "Shows the encoder's setjmp recovery branch returning zero after a nonlocal failure."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B33:hsd_803B3344#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B33:hsd_803B3398#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_3B33:hsd_803B3398#r4"
+    },
+    "facts": []
+  }
+]

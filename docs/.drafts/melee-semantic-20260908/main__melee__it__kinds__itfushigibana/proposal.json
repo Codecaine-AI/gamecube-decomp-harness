@@ -1,0 +1,288 @@
+{
+  "tu": "main/melee/it/kinds/itfushigibana",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L16-L146",
+            "why": "Table identifiers, callback bodies, timer ownership and transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1492-L1497",
+            "why": "Recurring call selects randomized audio."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1180-L1235",
+            "why": "State index selects the table row; its animation ID controls animation setup and callbacks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the fixed graphical-effect interpretation and distinguishes state indices, animation identifiers, and cross-state timer ownership.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:.data"
+        },
+        "type": "state_behavior",
+        "value": "Dispatches state indices 0, 1 and 2, whose table animation identifiers are 0, 1 and -1 respectively. State 0 runs shared appearance updates and landing handling. State 1 restarts its state initialization when the shared animation test returns zero, schedules randomized sound through it_80275288(gobj, 4, 0x2730) on an exactly zero interval, and decrements the lifetime before testing expiration. Support loss enters state 2, whose local animation callback is inert and whose physics and qualified landing path return the item to state 1. The interval and lifetime are not reset by these local falling/landing transitions, and state 2 does not locally tick them."
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L45-L56",
+            "why": "Startup audio call and interval initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1492-L1497",
+            "why": "Interval consumer dispatches randomized audio."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L2071-L2081",
+            "why": "Audio backend used by the sound helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing actor/lifecycle mapping while correcting the claimed output of the recurring timer.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:itFushigibana_Logic29_Spawned"
+        },
+        "type": "game_mapping",
+        "value": "Provides spawn-time setup for the Fushigibana summon, identified by the existing mapping as Venusaur in its Earthquake lifecycle. It plays startup sound 0x272f and initializes the interval later used for randomized active-state audio. The interval's consumer does not itself establish ground shaking or graphical debris generation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L45-L146",
+            "why": "Initial writes, state-1 consumers and state-2 transition body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1492-L1497",
+            "why": "Sound-selection semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects fixed-effect wording and records the useful cross-state lifetime of the initialized fields.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:itFushigibana_Logic29_Spawned"
+        },
+        "type": "state_behavior",
+        "value": "Clears fushigibana.x60.b0, initializes fushigibana.x64 from special attribute x8, and enters state 0. Landing can enter state 1, which sets x60.b0 and uses x64 to schedule it_80275288(gobj, 4, 0x2730), a randomized sound call. State-2 entry does not clear this flag or reset the interval, so x60.b0 is not an exact current-state-1 predicate and the interval survives the local falling/landing cycle."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L25-L43",
+            "why": "State initialization and decrement-then-test lifetime helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L97-L111",
+            "why": "Attribute flow and ordered independent conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1492-L1497",
+            "why": "Random sound expression and forwarded arguments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Resolves both local helpers and the audio callee rather than leaving their outputs opaque or describing a single effect ID.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:itFushigibana_UnkMotion1_Anim"
+        },
+        "type": "data_flow",
+        "value": "Resolves the Item and its special attributes. A zero result from it_80272C6C invokes the local state-1 initializer, selecting state 1, installing efLib_PauseAll/efLib_ResumeAll and setting x60.b0. Independently, an exactly zero x64 reloads attrs->x8 and invokes it_80275288 with choice count 4 and base sound ID 0x2730; that helper passes 0x2730 + HSD_Randi(4) to Item_8026AE84 with arguments 127 and 64. The callback then subtracts 1.0f from x64 and xD44_lifeTimer, returning whether the resulting lifetime is nonpositive."
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L97-L111",
+            "why": "Active callback and recurring interval."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1492-L1497",
+            "why": "Randomized sound dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L2071-L2081",
+            "why": "Audio backend, not graphical effect creation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the contextual mechanic association without treating a sound-dispatch helper as proof of graphical or damaging effects.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:itFushigibana_UnkMotion1_Anim"
+        },
+        "type": "game_mapping",
+        "value": "Supports the active presentation of the Fushigibana summon, mapped by existing knowledge to Venusaur's Earthquake, by scheduling randomized audio at an attribute-defined interval while maintaining the active lifetime. Its recurring call is an audio operation; graphical debris, ground shaking and damage generation require separate script or effect evidence."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L25-L43",
+            "why": "Resolved initializer and expiration helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L97-L111",
+            "why": "Per-frame control sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1492-L1497",
+            "why": "Audio scheduling semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1280-L1290",
+            "why": "True animation callback result requests destruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Provides a materially more useful explanation than unresolved inline-helper names and corrects the recurring output to audio.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:itFushigibana_UnkMotion1_Anim"
+        },
+        "type": "purpose",
+        "value": "Runs state 1's per-frame animation-side controller: conditionally repeats state-1 initialization when it_80272C6C returns zero, schedules randomized sound on the interval's exact-zero guard, and decrements the summon lifetime before returning its expiration result. A true result requests item destruction through the shared animation dispatcher."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L25-L43",
+            "why": "Initializer does not reload timers; lifetime comparison order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L97-L111",
+            "why": "Independent guards, exact-zero interval and unconditional decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1492-L1497",
+            "why": "Recurring operation is randomized audio."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves numeric edge cases and distinguishes exact-zero sound scheduling from decrement-then-nonpositive lifetime expiration.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:itFushigibana_UnkMotion1_Anim"
+        },
+        "type": "state_behavior",
+        "value": "The state-reinitialization test and sound-interval test are independent. Only an exactly zero x64 reloads attrs->x8 and dispatches randomized audio; x64 is then decremented unconditionally. This is not a nonpositive expiration test: negative or fractional values that never reach exactly zero do not trigger a reload, and a zero reload value becomes -1 after the call. Lifetime handling separately subtracts 1.0f and returns true only when the result is <= 0. State reinitialization does not reload either timer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L25-L146",
+            "why": "Attribute flow, field writes, timer ownership and transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1492-L1497",
+            "why": "Actual randomized sound output."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the recurring-output interpretation and documents field/timer persistence across the local state machine.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itfushigibana.c"
+        },
+        "type": "data_flow",
+        "value": "Spawn forwards special attributes x0 and x4 to shared setup helpers, clears fushigibana.x60.b0 and seeds x64 from x8. State-1 updates reload x64 only at exactly zero and schedule sound ID 0x2730 + HSD_Randi(4), then decrement x64 and the lifetime. The local state-2 callbacks do not tick these timers, and falling/landing entry does not reset them. Entry to state 1 sets x60.b0, while state-2 entry leaves it set."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L58-L95",
+            "why": "Complete callback, initial landing caller and state-1 initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L142-L146",
+            "why": "Falling-state landing also supplies this callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the second proven caller and preserves timer continuity instead of describing the routine only as a first-appearance transition.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:it_802D705C"
+        },
+        "type": "purpose",
+        "value": "Provides the shared local landing transition into Fushigibana state 1 for both the initial appearance state and the later falling state. It clears xDCE_flag.b7, calls it_80273454, and invokes it_802D718C to select state 1, install effect hitlag callbacks and set x60.b0. It does not locally reload the interval or lifetime."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L135-L140",
+            "why": "Fall attributes and sole helper call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L176-L204",
+            "why": "Sign-dependent guard, magnitude threshold and unclamped subtraction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the potentially misleading enforced-maximum interpretation with the canonical pre-update threshold behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:itFushigibana_UnkMotion2_Phys"
+        },
+        "type": "purpose",
+        "value": "Delegates state-2 vertical falling physics to it_80272860 using generic fall acceleration and maximum-speed attributes. For ordinary positive acceleration, the helper subtracts acceleration when velocity is nonnegative or its downward magnitude is below the configured threshold. It does not clamp the resulting velocity, so an update can overshoot that threshold."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfushigibana.c#L135-L146",
+            "why": "Physics wrapper and independent landing callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L176-L204",
+            "why": "Exact conditional velocity update."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes unconditional delegation from conditional mutation and retains the helper's nonstandard sign/threshold branches.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfushigibana:itFushigibana_UnkMotion2_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Every invocation calls the shared vertical-physics helper, but not every invocation changes velocity. The helper subtracts acceleration when the signs of velocity and acceleration agree; when their signs differ, it subtracts only if the current velocity magnitude is below the supplied threshold. The callback has no local timer or transition, and the separate collision callback determines whether a qualified landing returns through it_802D705C."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

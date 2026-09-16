@@ -1,0 +1,193 @@
+{
+  "tu": "main/sysdolphin/baselib/fobj",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fobj:FObjUpdateAnim"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void FObjUpdateAnim(HSD_FObj* fobj, void* obj, HSD_ObjUpdateFunc obj_update). obj is opaque callback context and obj_update may be NULL. Recognized interpolation operations populate local HSD_ObjData.fv before passing its address; an unrecognized op_intrp still invokes the callback but leaves that payload uninitialized.",
+        "rationale": "Capture exact narrowing, conditional output, flag preservation, and distinction between local and stored interpreter state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L336-L388",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L298-L388",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L38-L72",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L205-L217",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fobj:FObjUpdateAnim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Null callback returns before accessing fobj. KEY emits p0 only with ready0x80 and clears it; CON selects endpoint by time>=fterm. LIN lazily calculates slope under 0x20, with zero-duration snap, then evaluates d0*time+p0. SPL0/SPL/SLP call Hermite with inverse duration or use p1 for zero duration. Unsupported op falls through and calls callback with uninitialized local HSD_ObjData. Supported paths pass obj, obj_type and address of stack payload.",
+        "rationale": "Capture exact narrowing, conditional output, flag preservation, and distinction between local and stored interpreter state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L336-L388",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L298-L388",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L38-L72",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L205-L217",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fobj:HSD_FObjInterpretAnim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Null/inactive node does nothing. Active node adds rate; negative resulting time stops processing. States1/2 load data,3 emits ready output then loads wait,4 subtracts elapsed duration and continues or evaluates and stores5,5 stores4 and resumes. Local6 restores last subtracted duration, launches key, evaluates and returns without persisting6. Local0 returns. Unsupported state7\u201315 has no switch arm and loops indefinitely once processing starts.",
+        "rationale": "Capture exact narrowing, conditional output, flag preservation, and distinction between local and stored interpreter state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L390-L456",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L298-L388",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L38-L72",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L205-L217",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fobj:HSD_FObjLoadDesc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Recursively creates zeroed runtime nodes in descriptor order. Narrows descriptor f32 startframe to runtime s16; copies type, formats, length and borrowed ad pointer into ad_head. Leaves flags0 and current ad NULL until request rewinds it. Null descriptor returns NULL.",
+        "rationale": "Capture exact narrowing, conditional output, flag preservation, and distinction between local and stored interpreter state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L468-L483",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.h#L32-L62",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fobj:parsePackInfo"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes header; count starts at bits4\u20136 plus one. Continued bytes add seven-bit chunks at shifts3,10,... until high bit clears. Returns u32, later narrowed to u16 nb_pack. No stream bounds or continuation limit.",
+        "rationale": "Capture exact narrowing, conditional output, flag preservation, and distinction between local and stored interpreter state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L160-L178",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.h#L32-L62",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L298-L309",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/fobj.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Flags low nibble stores interpreter state and high nibble contains independent flags. Request rewinds ad, sets time from stored s16 startframe plus requested frame, resets op/value/slope/count/duration, clears 0x40 and stores1 while preserving other high bits. States1/2 load data,3 loads wait,4 evaluates or advances an interval,5 resumes4. Stream exhaustion returns local6 for final processing without storing6. Stop conditionally interprets an active KEY opcode, then stores0; callback delivery is conditional.",
+        "rationale": "Capture exact narrowing, conditional output, flag preservation, and distinction between local and stored interpreter state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L8-L496",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L298-L388",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L38-L72",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L205-L217",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.h#L32-L62",
+            "why": "Owned statements show exact data widths, state writes, branches, and callback behavior."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

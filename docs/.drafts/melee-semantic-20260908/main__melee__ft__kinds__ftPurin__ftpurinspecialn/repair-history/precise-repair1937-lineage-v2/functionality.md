@@ -1,0 +1,16 @@
+# Purin SpecialN semantic reconciliation
+
+Inherited research covers both owned files and all subjects and links. Independent canonical checks confirm directional startup, capped x2C accumulation, held-mask release, charge-derived horizontal speed, timed/angular ending, slope-sensitive movement, turning, hit response, and paired collision-state continuations. The header supplies declarations, not gameplay or compiled-layout proof.
+
+Release input is a level test for absence of held_buttons[0] mask 0x200, not an explicit edge detector. The aerial full-charge transition mask is 0x41092. Ground release slope influence uses signed base_vel; attributes and floor normals are read, not assigned. Both speed caps execute sequentially.
+
+Release animation performs capsule processing before its timer guard. The ending helper accepts a Boolean ground/air selector and MotionFlags; 0x40012 is a flags argument, not a state identifier. Aerial turn animation passes false at expiry, unlike aerial release's true: preserve this exceptional branch. Ending animation clears deferred facing before cleanup, so cleanup does not restore that saved facing on this path. Saved scale resides in fighter-specific state and is reused by scale animation, damage/death cleanup and cliff cleanup.
+
+Collision callbacks preserve the passed animation frame and reinstall local callbacks. Literal predicate comparisons are retained without assuming their return values are ground/air enums. Ground wall-response and air-transition branches are independent. Aerial release scales motion by xD4, then handles coll-true vertical response; every coll-true path returns before cliff fallback. Floor-derived angles feed effects, while model rotation uses separate helpers. Scaling alone does not establish attenuation or reversal for arbitrary attribute values. Air-turn collision reads self_vel.x after intervening helpers and state change, not necessarily its pre-callback value.
+
+The damage-dealt callback handles four release/turn states, enters SpecialNHit, initializes attribute-based velocity, and removes itself; cleanup callbacks remain. SpecialNHit collision requests special landing when xD8 is nonzero, but the common callee can divert to HammerLanding. The two-call SpecialS-prefixed bookkeeping wrapper is registered during SpecialN turn completion and refreshes generic current-attack bookkeeping; its spelling does not prove Pound identity. The x21F8 callback negates selected directional values without changing Fighter.facing_dir; its invoking event and any atomicity guarantee remain unverified. Empty IASA bodies prove only callback-local inactivity.
+
+Supported baseline operational knowledge is retained through the inherited rows. The sole proposal corrects a stale input-field spelling and preserves exact observed data flow. Rendered local helper names broadly fit these narrow mechanical roles, but external aliases remain hypotheses; the collision-box alias collision must not merge distinct helpers. External Rollout/Pound identification, input-bit gameplay mapping, compiled sections/register identities, collision helper contracts and global interruption rules remain deferred.
+
+
+Status: synthesized; independent review and live promotion pending.

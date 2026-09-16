@@ -1,0 +1,141 @@
+{
+  "tu": "main/melee/it/kinds/itseakneedlethrown",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L156-L176",
+            "why": "Contrasts randomized bounce horizontal speed with zero drop horizontal speed."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L206-L213",
+            "why": "Position snapshot, additive spin, and delegated lifetime."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L241-L249",
+            "why": "Configured velocity update and terminal-speed clamp."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L354-L368",
+            "why": "Qualifying ground contact enters state 4."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim of randomized horizontal drift in the drop state. Randomized horizontal speed is installed by bounce setup, whereas SetupDrop assigns zero.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itseakneedlethrown:itSeakneedlethrown_UnkMotion1_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Runs in motion state 1, the dropped-needle state. Each animation update snapshots position, accumulates child-model spin, and returns the shared lifetime countdown result. Drop setup fixes horizontal speed to zero and randomizes spin, downward acceleration, and terminal fall speed; the paired physics callback enforces those movement parameters. A qualifying ground hit changes the needle to state 4's randomized bounce behavior."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L169-L197",
+            "why": "State selection at line 190 precedes velocity reset and parameter setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L241-L249",
+            "why": "Exact transition-free physics update."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the reversed initialization order while preserving the supported bounded-velocity behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itseakneedlethrown:itSeakneedlethrown_UnkMotion1_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Runs as the physics callback for motion state 1. The drop initializer selects state 1 before resetting velocity and installing drop parameters. Each physics update assigns horizontal velocity from xDD8, adds xDE0 to vertical velocity, and clamps vertical velocity to no less than xDDC. Normal drop setup makes xDD8 zero and selects negative acceleration and terminal-speed values. This callback performs no state transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L318-L368",
+            "why": "Fired and dropped terrain responses enter state 4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L420-L455",
+            "why": "State-4 landing enters state 2, and damage-dealt can enter state 4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L117-L154",
+            "why": "Initial owner-dependent fired trajectory belongs to state 0."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the misleading emphasis on initial aerial projectile impact with the demonstrated post-impact state-4 role.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itseakneedlethrown:itSeakneedlethrown_UnkMotion4_Coll"
+        },
+        "type": "game_mapping",
+        "value": "Implements terrain landing for a Needle Storm needle already in its tumbling bounce state. A qualifying hit changes the bouncing needle to state 2's stopped or surface-attached behavior. State 4 can be reached from fired-needle terrain contact, dropped-needle terrain contact, or randomized combat-event responses; it is not the initial diagonally aimed aerial firing state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L497-L530",
+            "why": "Complete reflected geometry, velocity, model, and timer updates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L458-L468",
+            "why": "The active timer decreases independently before a later reset."
+          }
+        ],
+        "op": "write",
+        "rationale": "The unconditional half-life assignment is a reset, not necessarily a shortening of the remaining timer.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itseakneedlethrown:it_2725_Logic109_Reflected"
+        },
+        "type": "purpose",
+        "value": "Handles reflection of a thrown Sheik needle by reversing facing, mirroring its stored trajectory reference through the current position, realigning the model, and rebuilding XY velocity at the configured projectile speed. It resets the active life timer to the stored half-life duration, which may increase or decrease remaining lifetime, then returns false without a local motion-state transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L169-L197",
+            "why": "Drop parameters and exact initializer sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L206-L249",
+            "why": "State-1 animation and physics consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itseakneedlethrown.c#L354-L368",
+            "why": "Terrain-driven bounce transition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that velocity is cleared before state selection; the canonical call order selects state 1 first.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itseakneedlethrown:it_802B00F4"
+        },
+        "type": "state_behavior",
+        "value": "Assigns the owner and performs common item setup, selects motion state 1 with ITEM_ANIM_UPDATE, performs the following common and lifetime setup, then resets velocity and installs the drop parameters. The resulting state spins the child model by a randomized signed increment, fixes horizontal speed at zero, and applies randomized downward acceleration bounded by a randomized terminal speed. Its animation callback delegates lifetime expiry, and qualifying terrain contact changes it to bounce state 4."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

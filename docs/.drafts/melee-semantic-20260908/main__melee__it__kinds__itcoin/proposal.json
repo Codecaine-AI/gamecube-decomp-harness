@@ -1,0 +1,138 @@
+{
+  "tu": "main/melee/it/kinds/itcoin",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcoin:itCoin_Logic116_DmgReceived"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Adds the helper-reported damage increment to xC9C and obtains a response vector. If both planar components are zero, it sets X to 0.1F times the negated incoming-damage direction and Y to 0.1F, then normalizes the vector. Strict position/direction tests conditionally negate X. Horizontal scaling selects x2C or x30 using position and incoming direction; positive position has a lower cap of -x3C, while nonpositive position has an upper cap of x3C. Y is scaled by x38*(x28+xC9C) and capped above at x40. It clears velocity Z and xC9C, adds x14, x20, or x8 from the special attributes to coin.x8 for variant 2, variant 3, or default respectively, then selects state 3.",
+        "rationale": "Corrects fallback/normalization order and replaces an unconditional center-directed, symmetrically bounded interpretation with the exact arithmetic and guards.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L212-L264",
+            "why": "Complete vector transformation, caps, accumulator reset and variant update."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcoin:itCoin_Logic116_DmgReceived"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles a hit on the interactive trophy-bearing Coin object by deriving an attribute-scaled launch response from damage, position and incoming direction, applying one-sided component limits, updating its instance falling parameter, clearing accumulated damage, and entering damage-flight state 3.",
+        "rationale": "Preserves the supported damage-response role without guaranteeing center-directed motion, symmetric bounds, or a positive acceleration increase for arbitrary attribute values.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L202-L264",
+            "why": "Complete damage handler."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcoin:itCoin_Logic116_DmgReceived"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation selects state 3 and returns false after updating launch velocity and coin.x8. The fallback guard tests only velocity X and Y. At world X equal to zero neither strict-position reflection applies, but the nonpositive-position horizontal scaling and upper-cap branch still runs. State 3 multiplies horizontal velocity by attribute x34 and applies coin.x8/coin.xC falling parameters; its collision helper invokes grounded setup only after qualifying contact guards. The ordinary constructor path does not initialize these specialized falling fields, so their validity on an ordinary-variant damage path is not established by this unit alone.",
+        "rationale": "Adds useful boundary and initialization qualifications omitted by the previous description and preserves guarded collision settlement.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L215-L284",
+            "why": "Zero-position behavior, state selection and state-3 physics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L400-L427",
+            "why": "Specialized falling fields initialized only for nonzero variants."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L459-L479",
+            "why": "Qualifying contact guards before grounded callback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcoin:itCoin_UnkMotion3_Anim"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Item-state animation callback with signature bool(Item_GObj* gobj). It does not use its argument and always returns false; the local definition does not itself establish the dispatcher's interpretation of that Boolean.",
+        "rationale": "Removes the unsupported identification of the Boolean as a state-completion signal while retaining the exact signature and behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L48-L60",
+            "why": "Animation slot registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L266-L269",
+            "why": "Complete constant-false definition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcoin:it_802F2020"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The accessor only returns coin.x0 and performs no mutation. Figure Get invokes it after collision classification, nonnull item, item-classifier, Coin-kind and capacity checks, but before checking whether the object was already recorded or lies within the collector's inclusive X bounds. Only after those later checks succeed does the caller settle the object, store its pointer and previously retrieved ID, and increment the collected count.",
+        "rationale": "Corrects the prior claim that duplicate and position checks precede the accessor call.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L356-L361",
+            "why": "Stateless accessor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfigureget.c#L301-L321",
+            "why": "Exact call and guard ordering."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itcoin:itCoin_UnkMotion1_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards the item GObj and state-0 setup callback it_802F1588 to it_8026D62C, then returns false. The helper refreshes collision data, copies the resolved position and records the floor index when supported. On support loss it calls it_802762BC and invokes the supplied state-0 callback, then returns. On the supported path it can additionally call Item_8026ADC0 when it_80277544 is nonzero and xDCD_flag.b3 is clear; therefore the wrapper's false return does not imply that delegated processing has no exceptional side effects.",
+        "rationale": "Adds the meaningful supported-floor branch omitted from the previous data-flow explanation without guessing its higher-level meaning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itcoin.c#L175-L179",
+            "why": "Wrapper arguments and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Both support-loss and supported-floor branches."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

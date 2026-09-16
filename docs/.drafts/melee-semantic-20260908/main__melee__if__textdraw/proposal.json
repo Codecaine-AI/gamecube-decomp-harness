@@ -1,0 +1,50 @@
+{
+  "tu": "main/melee/if/textdraw",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textdraw.c#L204-L260",
+            "why": "Shows independent background/text guards and the increment, reset-above-16, and draw-above-eight branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the previous rationale's 16-step characterization while preserving its supported flag guards and visibility thresholds.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textdraw:DevText_Draw"
+        },
+        "type": "state_behavior",
+        "value": "DEVTEXT_FLAG_HIDEBACKGROUND suppresses both backing rectangles. DEVTEXT_FLAG_HIDETEXT suppresses the character grid and all cursor processing. With text visible and DEVTEXT_FLAG_SHOWCURSOR set, the counter increments once per draw, resets to zero after exceeding 16, and draws the cursor only at post-increment values 9 through 16. The established cycle therefore contains 17 updates, including the reset-to-zero update, with eight visible states."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textdraw.c#L282-L324",
+            "why": "Shows independent creation paths, nested camera failure handling, pool reset, callback guard, and unconditional result assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textdraw.c#L165-L202",
+            "why": "Shows where the reset devtext_cobj pointer is subsequently allocated and configured."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates the descriptor-backed camera construction from later lazy orthographic initialization and accurately describes assignment of the nullable drawing-host result rather than saying it remains NULL.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textdraw:DevText_Setup"
+        },
+        "type": "state_behavior",
+        "value": "Setup records scheduling inputs and resets devtext_cobj to NULL, but does not populate that lazy orthographic-camera pointer. It separately attempts descriptor-backed camera-GObj creation, resets the pool and active list, and attempts drawing-GObj creation. Successful drawing-GObj creation installs DevText_DrawAll; either way its result is assigned to devtext_gobj and returned, including NULL on failure. Camera-GObj failure does not prevent the remaining setup steps. No cleanup of previous camera or drawing-GObj instances is shown here."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

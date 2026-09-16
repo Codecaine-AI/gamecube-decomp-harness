@@ -1,0 +1,249 @@
+{
+  "tu": "main/melee/it/kinds/itgshell",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L597-L603",
+            "why": "Reflection-time copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L420-L439",
+            "why": "Grounded expiration result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L509-L528",
+            "why": "Airborne exception."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1280-L1315",
+            "why": "Animation-result and common-lifetime removal paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the universal completion implication and preserves the distinct local and common lifetime consumers.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgshell:itGShell_Logic14_Reflected"
+        },
+        "type": "data_flow",
+        "value": "Passes the reflected Green Shell to it_80273030, then copies Item.xD48_halfLifeTimer into ItemVars.gshell.xDD4. The grounded active animation callback tests this countdown before decrementing and returns true when it is non-positive; the airborne active callback only decrements positive values and always returns false. Generic item animation dispatch removes the item on a true animation result, while common lifetime processing is a separate removal path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L41-L45",
+            "why": "Distinct state-table rows."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L203-L232",
+            "why": "Spawn and stationary entry differ."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L244-L263",
+            "why": "Collision body and supplied state-1 initializer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects conflation of stationary state 0 with spawn state 1 and of a different-state entry with re-entry.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgshell:itGshell_UnkMotion0_Coll"
+        },
+        "type": "purpose",
+        "value": "Performs collision maintenance for stationary Green Shell state 0: it supplies the state-1 entry helper it_8028C018 to common ground-collision processing, updates rolling-shell model rotation if the resulting item is grounded, and returns false. It is not the collision callback of the initial spawned state, which is state 1."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L244-L263",
+            "why": "Complete collision callback and state-1 entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves execution order and grounded guard while correcting the destination state and avoiding the inference that false forbids delegated transitions.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgshell:itGshell_UnkMotion0_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Runs in stationary state 0. It first invokes it_8026D62C with it_8028C018, a callback that selects state 1 rather than restoring state 0. After that processing, it updates rolling-shell rotation only if ground_or_air is GA_Ground, then returns false regardless of any delegated state change."
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L102-L117",
+            "why": "Low-speed entry condition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L547-L581",
+            "why": "State-9 entry and collision callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L698-L823",
+            "why": "Surface-normal, auxiliary-motion and counter logic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L750-L778",
+            "why": "No-floor and guarded grounded transitions."
+          }
+        ],
+        "op": "write",
+        "rationale": "The canonical event name alone cannot prove an off-platform interpretation; the actual caller and collision helper establish more specific behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgshell:itGShell_Logic14_EnteredAir"
+        },
+        "type": "game_mapping",
+        "value": "Enters the Green Shell's special state 9, which participates in terrain-dependent motion rather than simply representing ordinary off-platform falling. The low-speed landing dispatcher selects it when it_80277040's surface-tangential-motion processing returns true. State 9's collision processing can retain terrain interaction, settle into state 0 under its guards, or enter falling state 1 when no floor is detected."
+      },
+      {
+        "confidence": 0.88,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L41-L61",
+            "why": "Distinct falling and active-air callback families."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L471-L503",
+            "why": "Active-air initializer selects 7 or 8."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L534-L545",
+            "why": "Shared gravity and landing processing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the shared active-air states 7/8 from initial/rebound falling state 1. The rendered baseline names otherwise differ only in capitalization. This is a semantic name proposal, not recovered original spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgshell:itGshell_UnkMotion8_Coll"
+        },
+        "type": "inferred_name",
+        "value": "itGShell_ActiveAir_Coll"
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L102-L117",
+            "why": "Speed threshold and destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L698-L823",
+            "why": "Actual shared decision logic."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported support-test interpretation while retaining the visible settling and active-motion roles.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgshell:it_8028BA2C"
+        },
+        "type": "game_mapping",
+        "value": "Implements the Green Shell's speed-dependent landing response. A shell at or above the horizontal-speed threshold enters active grounded initialization. A slower shell has its ordinary velocity cleared, then either settles into stationary state 0 or enters special terrain-motion state 9 according to shared surface-tangential-motion processing. The 0/9 decision is not simply whether the shell has left the terrain."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L102-L117",
+            "why": "Complete dispatcher."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L133-L153",
+            "why": "Collision-bounds copy and scaling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L698-L823",
+            "why": "Surface-tangential-motion processing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the central landing dispatcher explanation fit the independently inspected callee rather than the rendered EnteredAir name.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgshell:it_8028BA2C"
+        },
+        "type": "purpose",
+        "value": "Refreshes the Green Shell's environmental collision bounds and selects its post-contact movement setup. At or above attribute x8 horizontal speed it invokes grounded active initialization; below x8 it clears all ordinary velocity and calls it_80277040, entering stationary state 0 on false or special state 9 on true. That shared helper processes surface-normal-derived tangential motion, not a simple floor-support test."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L102-L117",
+            "why": "Exact dispatcher control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L385-L418",
+            "why": "Post-clamp grounded state selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L698-L823",
+            "why": "Shared-helper guards and mutations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact strict threshold and numeric destinations while documenting the important exceptional shared-helper branches.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgshell:it_8028BA2C"
+        },
+        "type": "state_behavior",
+        "value": "After refreshing the ECB, tests ABS(x40_vel.x) < attrs->x8. If false, invokes it_8028C3A8, which clamps speed and selects state 5 or 6. If true, clears x/y/z velocity and invokes it_80277040: false selects stationary state 0 through it_8028BE54, while true selects state 9 through EnteredAir. The helper's false paths include negligible ItemAttr.x50, insufficient surface angle, and an exhausted direction-change counter; its result must not be interpreted as floor absence."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgshell.c#L471-L503",
+            "why": "Initializer order and state selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1144-L1147",
+            "why": "State recording and effect-queue flush."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1180-L1236",
+            "why": "Frame reset, animation handling and callback clearing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the animation-preservation claim and records the cross-file callback/effect lifetime that explains why installation follows the state change.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgshell:it_8028C898"
+        },
+        "type": "state_behavior",
+        "value": "Initializes active airborne Green Shell behavior by resetting shared state and timers, clamping horizontal speed, and selecting state 8 when the resulting speed is below attrs->x8 or state 7 otherwise; the state-8 path also calls it_8026B390. Both calls request ITEM_ANIM_UPDATE, not animation-progress preservation. Generic state changing resets the current animation frame, updates or removes animation according to the selected row, flushes queued effects, installs callbacks, and clears jumped_on; this initializer subsequently restores the shell's jumped_on callback."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "tu": "main/sysdolphin/baselib/texpdag",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L128-L157",
+            "why": "Pointer lookup and greater-depth recursion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L212-L233",
+            "why": "Exact paired adjacent-swap loop."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported depth flow while correcting the caller's overstated sorting guarantee.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:CalcDistance"
+        },
+        "type": "data_flow",
+        "value": "HSD_TExpMakeDag collects distinct TEV expression pointers and initializes parallel distances to -1. CalcDistance starts at the root with depth 0, locates each pointer, raises its distance only for a longer path, and follows TEV color and alpha dependencies with depth + 1. The caller subsequently applies paired adjacent swaps to expressions and distances before building DAG records; that loop does not guarantee a general ascending sort."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L161-L287",
+            "why": "Complete collection, ordering and edge construction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the ordering description and makes the dependency lookup range explicit.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:HSD_TExpMakeDag"
+        },
+        "type": "data_flow",
+        "value": "The root seeds a distinct-expression array expanded through TEV color and alpha inputs. CalcDistance fills a parallel depth array; paired adjacent swaps reorder both arrays without establishing a general sort. Reverse traversal initializes DAG records and searches from each current position onward for producers, adding deduplicated dependency pointers and incrementing producer DAG reference counts."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L161-L287",
+            "why": "All construction phases."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the construction purpose without claiming that the implemented reordering guarantees a sort.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:HSD_TExpMakeDag"
+        },
+        "type": "purpose",
+        "value": "Builds scheduling records for a rooted HSD TEV expression by collecting distinct reachable nodes, calculating root depths, applying depth-based adjacent reordering, and populating deduplicated dependency edges and DAG reference counts."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L175-L287",
+            "why": "Assertions, appends, swaps and complete record writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.h#L12-L19",
+            "why": "Declared dist member."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implied bound enforcement and sorting guarantees and records an otherwise easy-to-miss output-field limitation.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:HSD_TExpMakeDag"
+        },
+        "type": "state_behavior",
+        "value": "Asserts a TEV root and collects distinct TEV dependencies in fixed 32-entry scratch storage. The traversal assertion checks j < 32, but newly discovered nodes are appended with n++ without checking each write. Distances start at -1 and are propagated from root depth 0. The paired adjacent-swap loops do not guarantee a general sort. Reverse construction resolves dependencies only at or after the current array position, suppresses duplicate edges, and asserts successful lookup. This function does not initialize the DAG record's dist member."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L9-L94",
+            "why": "Trial destination mutation and order-only saving."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L333-L385",
+            "why": "Threshold, fallback, exact selector indexing and numeric resource writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the scheduler's actual selection and remapping limitations explicit instead of guaranteeing a valid executable result.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:HSD_TExpSchedule"
+        },
+        "type": "purpose",
+        "value": "Searches a TEV DAG for a low-register-cost consumer-to-dependency order, fills result from saved order indices, marks destination resources, and converts TEV-produced inputs to GX selectors. The best score starts at 5 and only strictly lower scores save an order; otherwise the zero-filled best-order array remains. Trial allocation mutates destination fields, but the selected allocation is neither saved nor replayed. Color-visible RGB and alpha tables both use producer c_dst, while alpha-combiner inputs use producer a_dst. Destination 0xFF skips that channel; other destinations mark color state 3 or alpha state 1 at register index destination + 4."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L1242-L1259",
+            "why": "Exact type guard and return aggregation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L483-L487",
+            "why": "Discarded recursive alpha result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L586-L595",
+            "why": "Unflagged metadata clearing."
+          }
+        ],
+        "op": "write",
+        "rationale": "The signature is unchanged; the return contract needs qualification because helper flags omit some mutations.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:HSD_TExpSimplify"
+        },
+        "type": "inferred_type",
+        "value": "Signature: int HSD_TExpSimplify(HSD_TExp* texp). The expression is classified first; non-TEV values return zero. For a TEV node, the integer result is boolean-like and reports whether any of SimplifySrc, SimplifyThis or SimplifyByMerge returned nonzero, not whether every possible graph or metadata mutation was detected."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L1242-L1259",
+            "why": "Single ordered execution of all helpers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L483-L487",
+            "why": "Alpha recursive result discarded."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L586-L595",
+            "why": "Metadata clearing without change flag."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L1109-L1239",
+            "why": "Shared merged reset and continuation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the independent call sequence while correcting change-detection and fixed-point overstatements.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:HSD_TExpSimplify"
+        },
+        "type": "state_behavior",
+        "value": "Returns zero immediately for non-TEV expressions. Otherwise always runs SimplifySrc, SimplifyThis and SimplifyByMerge in sequence, even after an earlier nonzero result, and latches whether any helper reports a change. This is not exhaustive mutation detection: alpha-only recursive changes may be unreported, local resource cleanup is unflagged, and the merge pass can lose an earlier color merge flag when a later alpha bias check resets its shared flag. The wrapper itself does not iterate to a fixed point."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L813-L854",
+            "why": "Signature, initial state and unflagged swap."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L1109-L1125",
+            "why": "Alpha branch may clear shared merged."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L1234-L1239",
+            "why": "Result latch and loop condition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the scalar return contract without altering the supported signature or mutation role.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:SimplifyByMerge"
+        },
+        "type": "inferred_type",
+        "value": "Signature: int SimplifyByMerge(HSD_TExp* exp). Requires a mutable TEV expression node. Returns a boolean-like result latched when an iteration ends with merged nonzero. Zero does not prove the node was unchanged: preparatory operand swaps do not set merged, and a later alpha bias rejection can reset merged after a successful color fold."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L813-L1240",
+            "why": "Complete branch-specific folding and reference transfers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces stronger preservation and convergence claims with the concrete supported stage-folding behavior.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:SimplifyByMerge"
+        },
+        "type": "purpose",
+        "value": "Flattens selected nested TEV color and alpha forms into a parent by copying and referencing child operands, composing operation and bias fields, inheriting selected unspecified resources, and unreferencing the displaced child edge. Eligibility and metadata transfer are branch-specific: texture/channel conflicts are checked, swap conflicts are not generally checked, color branches inherit unset swaps and alpha branches do not. Repetition follows the final shared merged flag, so the implementation does not guarantee a complete fixed point or universal preservation of every clamp/swap requirement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L830-L948",
+            "why": "Outer gate and first-child color path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L953-L1036",
+            "why": "Different fourth-child guards and bias handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L1045-L1239",
+            "why": "Alpha variants, shared flag overwrite and termination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents exceptional branches rather than treating the first-child path as a universal rule.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:SimplifyByMerge"
+        },
+        "type": "state_behavior",
+        "value": "Each iteration clears merged and enters the main body only for alpha opcode 0xFF, 0xE, 0xF or <= 1. Eligible add/subtract parents require zero B/C selectors and non-CNST A/D expression types. A TEV child in A must use add/subtract, zero D and scale 0; these branches reject computed bias outside -1, 0 and +1 and may toggle the parent operation. With zero A and a TEV child in D, the child-operation restriction is absent: scale must be 0 and parent bias must be zero or differ from child bias; computed bias defaults to zero outside the explicit +/-1 cases. Color child selection requires RGB. Texture/channel conflicts reject folds. Color branches inherit unset swaps; alpha branches do not. Preparatory A/D swaps are unflagged. A later alpha bias failure can reset an earlier color merged flag; result and repetition depend on merged at iteration end."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L394-L534",
+            "why": "Complete source handling, guards and resource accesses."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes asymmetric and unusual canonical behavior explicit instead of normalizing it into generic compatibility rules.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:SimplifySrc"
+        },
+        "type": "purpose",
+        "value": "Recursively simplifies TEV sources of a parent and replaces disabled source results with the shared cleared argument. It bypasses selected unbiased, scale-0 add sources with zero first two operands by copying their fourth operand and transferring references. RGB color TEV replacements have a clamp guard; alpha-input TEV replacements do not. Texture/raster compatibility is branch-specific. In the raster color branch, one comparison uses parent ras_swap against child tex_swap, and inheritance conditionally writes parent tex_swap from child tex_swap. Color inputs selecting a non-RGB source only remove disabled alpha results; their add case performs no bypass."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L549-L595",
+            "why": "Signature and unflagged resource cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L805-L811",
+            "why": "Result latch and return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the meaning of a zero result while preserving the supported signature.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:SimplifyThis"
+        },
+        "type": "inferred_type",
+        "value": "Signature: int SimplifyThis(HSD_TExp* texp). Requires a mutable TEV expression node. Returns a boolean-like result latched when an iteration sets changed. Zero does not prove that no fields changed: unused texture/raster metadata is cleared before changed is reset and does not itself set that flag."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L586-L702",
+            "why": "Resource cleanup, alpha-op gate and color rules."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texpdag.c#L704-L810",
+            "why": "Alpha rules and flag-controlled repetition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects universal channel symmetry and exhaustive-change claims while preserving the local folding role.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texpdag:SimplifyThis"
+        },
+        "type": "state_behavior",
+        "value": "Repeatedly scans color/alpha inputs for texture and raster use, clears unused metadata without flagging it, resets changed, and applies enabled local rewrites. Color removal and folding run only when alpha opcode is 0xFF, 0xE, 0xF or <= 1; alpha dead-output removal is outside that gate. Zero-reference removal disables an active channel and unreferences/clears its four inputs. Add/subtract and comparison cases have distinct zero/one rules: color zero-form disabling requires bias 0 and unreferences/clears C, whereas alpha zero A/B/D disables without testing bias or clearing/unreferencing C. The color C-zero add move to D sets c_clamp to 1; its alpha counterpart does not. Result is latched and another iteration runs only when changed is nonzero."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

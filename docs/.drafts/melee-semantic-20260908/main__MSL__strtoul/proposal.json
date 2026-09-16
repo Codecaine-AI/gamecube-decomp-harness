@@ -1,0 +1,55 @@
+{
+  "tu": "main/MSL/strtoul",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/strtoul.c#L155-L213",
+            "why": "Defines all three public wrappers and their delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/strtoul.h#L8-L12",
+            "why": "Declares the shared scanner and signed/unsigned interfaces."
+          }
+        ],
+        "op": "write",
+        "rationale": "Extends the TU purpose to cover the signed and decimal convenience wrappers actually implemented in the owned source.",
+        "subject": {
+          "entity_locator": "src/MSL/strtoul.c"
+        },
+        "type": "purpose",
+        "value": "Implements a callback-driven unsigned-magnitude scanner (__strtoul) and the public strtoul, strtol, and atoi string conversions. strtoul and strtol adapt stack-local string-reader controls to the shared scanner and apply unsigned or signed result/range semantics; atoi delegates to strtol with base 10 and no end-pointer output."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/strtoul.c#L9-L90",
+            "why": "State constants, success mask, counting macros, initialization hazard and prefix transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/strtoul.c#L92-L153",
+            "why": "Digit validation, overflow, fetch-ahead, final accounting and unconditional pushback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the scanner explanation while making its exceptional prefix/count behavior and invalid-argument hazard explicit, including short-circuiting for negative width.",
+        "subject": {
+          "entity_locator": "src/MSL/strtoul.c"
+        },
+        "type": "state_behavior",
+        "value": "__strtoul skips whitespace, records an optional sign, selects or honors the radix, and accumulates digits while separately flagging overflow. Literal case 4 is leading_zero (0x04): a standalone zero is successful, while consuming x/X after it enters need_digit and requires a hexadecimal digit. Automatic base becomes octal after a non-hex leading zero and decimal otherwise. Invalid digits finish an established digit loop but fail a required-digit state; EOF and width also stop scanning. Success preserves value and subtracts one lookahead from count; failure resets value and count, not the entire reader position. The current character is always passed to unget. Width counts all fetches, including whitespace and sign, and permits fetching lookahead beyond the accepted width. Invalid base or nonpositive width assigns failure without initializing c. The loop guard reads c when count <= max_width passes; negative width short-circuits that read, but unconditional unget still evaluates c. This source therefore does not establish a defined safe failure return for rejected arguments."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

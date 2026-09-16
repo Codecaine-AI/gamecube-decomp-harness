@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-35-process-overview",
+  "title": "Pause, Resume, and Recovery",
+  "root": "b-35-process-overview-root-1",
+  "blocks": {
+    "b-35-process-overview-root-1": {
+      "id": "b-35-process-overview-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "pr-opening",
+        "pr-pause-h",
+        "pr-pause",
+        "pr-sync",
+        "harness-setup-pause-sequence",
+        "pr-resume-h",
+        "pr-resume",
+        "pr-recovery-h",
+        "pr-recovery",
+        "0719757e-714c-41a4-9175-3a718597bf93",
+        "pr-failure",
+        "pr-sync-detail",
+        "pr-run-detail"
+      ]
+    },
+    "pr-opening": {
+      "id": "pr-opening",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Pausing changes the game's requested execution state without discarding its accepted source or history. The harness stops admitting work and settles what is already active. Resume checks that durable state and the actual checkout agree before new work starts."
+        }
+      ],
+      "children": []
+    },
+    "pr-pause-h": {
+      "id": "pr-pause-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Pause and Settle"
+        }
+      ],
+      "children": []
+    },
+    "pr-pause": {
+      "id": "pr-pause",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Pause the harness safely",
+            "steps": [
+              {
+                "text": "Persist desired paused in Harness State."
+              },
+              {
+                "text": "Stop admitting new targets and drain active work."
+              },
+              {
+                "text": "Settle accepted integration and preserve the resulting source and evidence."
+              },
+              {
+                "text": "Record the paused or blocked result; release authority only after safe settlement."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "pr-sync": {
+      "id": "pr-sync",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A paused game can run manual Sync to refresh its baseline. Successful Sync preserves the requested pause; it does not by itself authorize worker resumption. Initial Sync follows the same explicit Run-intent boundary."
+        }
+      ],
+      "children": []
+    },
+    "harness-setup-pause-sequence": {
+      "id": "harness-setup-pause-sequence",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/harness-handoffs.sequence.json",
+        "title": "Initial Sync, Pause, and Resume"
+      },
+      "children": []
+    },
+    "pr-resume-h": {
+      "id": "pr-resume-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Resume From Accepted State"
+        }
+      ],
+      "children": []
+    },
+    "pr-resume": {
+      "id": "pr-resume",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "An explicit Run request records desired run. Admission then requires an accepted head, ready build/source/sandbox/evidence gates, and no blockers. Dispatch must also establish current authority. If any requirement fails, report the blocker rather than starting workers against stale state."
+        }
+      ],
+      "children": []
+    },
+    "pr-recovery-h": {
+      "id": "pr-recovery-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Recover Interrupted Work"
+        }
+      ],
+      "children": []
+    },
+    "pr-recovery": {
+      "id": "pr-recovery",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Recover an interrupted harness",
+            "steps": [
+              {
+                "text": "Read persisted intent, workflow records, claims, lease, and the last completed boundary."
+              },
+              {
+                "text": "Compare the canonical checkout and accepted state. Determine whether source application or only evidence capture remains incomplete."
+              },
+              {
+                "text": "Reconcile stale workers, pending integration, and ownership before resuming mutation."
+              },
+              {
+                "text": "Complete or retry the interrupted stage using its stable operation identity."
+              },
+              {
+                "text": "Recheck readiness and preserve desired pause until Run is explicitly requested."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "0719757e-714c-41a4-9175-3a718597bf93": {
+      "id": "0719757e-714c-41a4-9175-3a718597bf93",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A failed epoch boundary leaves Harness State blocked with a recoverable blocker. The live scheduler clears it by retrying the boundary. If the scheduler has exited, "
+        },
+        {
+          "insert": "run.recover",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " settles orphaned claims, releases the lease, returns the run to paused, and clears blockers that are all recoverable and scoped to the epoch or run, recording a "
+        },
+        {
+          "insert": "recovered",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " timeline entry. Readiness gates are never changed by recovery; a blocked evidence gate still requires Sync. Run can then be requested again and the scheduler retries the boundary from the retained epoch record."
+        }
+      ],
+      "children": []
+    },
+    "pr-failure": {
+      "id": "pr-failure",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A save-point failure blocks admission but does not roll back already accepted source. A source conflict keeps the unresolved stage available for recovery. Git and database operations must be reconciled explicitly after a crash."
+        }
+      ],
+      "children": []
+    },
+    "pr-sync-detail": {
+      "id": "pr-sync-detail",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-sync"
+            }
+          }
+        },
+        {
+          "insert": " owns staging conflicts, publication, cancellation, and Sync recovery."
+        }
+      ],
+      "children": []
+    },
+    "pr-run-detail": {
+      "id": "pr-run-detail",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decomp Loop",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop"
+            }
+          }
+        },
+        {
+          "insert": " owns worker draining, claim settlement, and interrupted epoch handling."
+        }
+      ],
+      "children": []
+    }
+  }
+}

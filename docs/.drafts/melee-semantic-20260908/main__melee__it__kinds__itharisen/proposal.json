@@ -1,0 +1,60 @@
+{
+  "tu": "main/melee/it/kinds/itharisen",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itharisen.c#L68-L77",
+            "why": "Shows collision delegation, unconditional false return and the continuation selecting state 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Shows both floor-test outcomes and the exceptional supported-floor call."
+          }
+        ],
+        "op": "write",
+        "rationale": "The previous explanation covered floor maintenance and floor loss but omitted the common helper's exceptional supported-floor branch. This correction preserves that branch without assigning an unverified meaning to its predicate or callee.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itharisen:itHarisen_UnkMotion0_Coll"
+        },
+        "type": "state_behavior",
+        "value": "While Harisen state 0 is active, this callback delegates to it_8026D62C with it_8029290C and then returns false. The helper refreshes collision-derived position and records the supporting-floor index when its floor test succeeds. If the floor test fails, it performs leave-ground setup and invokes it_8029290C, selecting falling state 1. On the supported-floor path, it can instead call Item_8026ADC0 when it_80277544(gobj) is nonzero and Item.xDCD_flag.b3 is clear; floor support therefore does not unconditionally guarantee that the item remains in state 0."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itharisen.c#L118-L123",
+            "why": "Shows the complete speed reset and state-6 transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD3.c#L99-L106",
+            "why": "Shows scale restoration followed by state-6 entry when the fighter takes damage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0CD3.c#L148-L151",
+            "why": "Shows the separate command-2 invocation and command clearing."
+          }
+        ],
+        "op": "write",
+        "rationale": "The previous explanation incorrectly restricted fighter-side uses to command 2. The canonical take-damage callback also invokes this helper under a non-null held-item guard, establishing an interruption path in addition to the scripted swing transition.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itharisen:it_80292A28"
+        },
+        "type": "purpose",
+        "value": "Restores the Harisen item's animation speed to 1.0 and enters motion state 6 with ITEM_ANIM_UPDATE. Fighter-side Harisen processing uses this transition both when consuming swing command 2 and when the wielding fighter takes damage; the damage path first restores the held item's common scale."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

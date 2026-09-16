@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { handleSyncApiRoute, type SyncApiRouteDeps } from "./sync.js";
-import type { SyncActionId, SyncActionProjection } from "@server/core/cycle-runtime/phases/sync/runtime.js";
+import type { SyncActionId, SyncActionProjection } from "@server/core/harness-runtime/phases/sync/runtime.js";
 
 function projection(actionId: SyncActionId, enabled = true): SyncActionProjection {
   return {
@@ -35,7 +35,6 @@ function deps(overrides: Partial<SyncApiRouteDeps> = {}): SyncApiRouteDeps {
 
 describe("sync API command routes", () => {
   test.each([
-    ["/api/game/sync", "sync.start", false],
     ["/api/sync/start", "sync.start", false],
     ["/api/sync/resolve-conflict", "sync.resolve_conflict", false],
     ["/api/sync/publish", "sync.publish", true],

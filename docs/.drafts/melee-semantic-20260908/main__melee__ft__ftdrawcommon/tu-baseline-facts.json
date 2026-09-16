@@ -1,0 +1,1532 @@
+{
+  "tu": "main/melee/ft/ftdrawcommon",
+  "facts": [
+    {
+      "id": "fact:17f8cc95-7188-4553-9e33-82e67302f7ac",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "When the fighter's item-pickup visualization flag is enabled, `ftDrawCommon_800805C8` selects data from `fighter->x294_itPickup` according to grounded versus aerial state. It pairs `gr_light_offset` with the white record and `gr_heavy_offset` with the gray record while grounded, or pairs `air_light_offset` with the blue-tinted record while aerial, then passes the selected extent, fighter position, color, draw-pass value, and facing direction to `lbGx_8001E2F8`. If that helper emits a rectangle, its true result contributes to the callback's later full GX-state invalidation.",
+      "rationale": "The head caller preserves the ground-versus-air selection, color associations, helper arguments, and result aggregation. The head helper still consumes those arguments, emits the supplied four-byte color on every rectangle vertex during pass 2, and reports whether it drew.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+          "why": "Shows the pickup-visualization guard, extent and color selection, helper arguments, and aggregation of successful drawing into GX-state invalidation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbgx.c#L9-L85",
+          "why": "Shows the helper consuming the extent, origin, color, draw pass, and facing direction, emitting the color on the rectangle vertices, and returning whether it drew."
+        }
+      ]
+    },
+    {
+      "id": "fact:43fe214e-41eb-46fc-b63b-43866cd034b4",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.data",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Maps to auxiliary visualization of the distinct rectangular ranges from which a grounded fighter can pick up light or heavy items and an aerial fighter can pick up light items, with color distinguishing those three pickup-region categories.",
+      "rationale": "The head fighter draw code still names and selects grounded-light, grounded-heavy, and aerial-light pickup extents and pairs each category with a distinct stored color. The receiving helper still renders the selected extent as a colored rectangle during its dedicated draw pass.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+          "why": "Identifies the three visualized regions as grounded-light, grounded-heavy, and aerial-light item-pickup extents and assigns a distinct stored color to each."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbgx.c#L9-L85",
+          "why": "Shows that the supplied extent and four-byte color are rendered as a colored rectangle during draw pass 2."
+        }
+      ]
+    },
+    {
+      "id": "fact:516ff506-795e-43a7-ba71-2107114e167c",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.data",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Item pickup colors",
+      "rationale": "The head declarations still use three address-style names, while their call sites continue to associate them uniquely with grounded-light, aerial-light, and grounded-heavy pickup regions. Those roles support the proposed `ftDrawCommon_` names, although no preserved symbol establishes the developers' exact wording.\n\nNaming cleanup: Concise aggregate label grounded in the identified constituent objects and their shared role.\nPrior naming claim: Likely original-style member names: `ftDrawCommon_ItemPickupGroundLightColor`, `ftDrawCommon_ItemPickupAirLightColor`, and `ftDrawCommon_ItemPickupGroundHeavyColor`.",
+      "confidence": 0.64,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/melee/ft/ftdrawcommon:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ftdrawcommon.c#L20-L30",
+          "why": "Shows three distinct `U8Vec4` data objects that retain address-style `ftDrawCommon_` symbols at the head revision."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+          "why": "Shows each address-style object uniquely associated with the grounded-light, aerial-light, or grounded-heavy item-pickup extent."
+        }
+      ]
+    },
+    {
+      "id": "fact:3859d80e-2948-4de7-ab5d-95da1585de30",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Initialized-data block whose meaningful payload is three consecutive four-byte `U8Vec4` color records: `{255,255,255,128}`, `{128,128,255,128}`, and `{128,128,128,128}`. The bytes function as direct RGBA-style vertex colors.",
+      "rationale": "The declarations at the head revision preserve the three consecutive `U8Vec4` records and their exact byte initializers. The rectangle helper receives these records through a `U8Vec4*` and submits all four components through the enabled direct vertex-color attribute, confirming their RGBA-style role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:40:17.319Z",
+      "subject": "main/melee/ft/ftdrawcommon:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ftdrawcommon.c#L20-L30",
+          "why": "Declares the three consecutive `U8Vec4` records and their exact four-byte initializers at the head revision."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbgx.c#L9-L85",
+          "why": "Shows the receiving parameter typed as `U8Vec4*` and all four bytes submitted for every vertex under an enabled direct color attribute."
+        }
+      ]
+    },
+    {
+      "id": "fact:3e8d45cc-8ff7-46f1-9d86-1f907df56fb2",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the three translucent colors used when the fighter renderer visualizes item-pickup rectangles: white for the grounded light-item region, blue-tinted for the aerial light-item region, and gray for the grounded heavy-item region.",
+      "rationale": "The head declarations retain white, blue-tinted, and gray four-byte values with a shared half-alpha component. The fighter draw callback still passes them respectively with the grounded-light, aerial-light, and grounded-heavy pickup extents, so the standing purpose remains sound after drift.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:40:17.319Z",
+      "subject": "main/melee/ft/ftdrawcommon:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ftdrawcommon.c#L20-L30",
+          "why": "Shows the white, blue-tinted, and gray `U8Vec4` values, each initialized with an alpha component of `0x80`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+          "why": "Associates the three values respectively with grounded-light, aerial-light, and grounded-heavy fighter item-pickup rectangles."
+        }
+      ]
+    },
+    {
+      "id": "fact:5516cfa2-7d97-4b0e-a7bf-18aa2f1dd5b8",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "When the fighter's item-pickup overlay flag is enabled, grounded fighters send `gr_light_offset` with the white record and `gr_heavy_offset` with the gray record to `lbGx_8001E2F8`; airborne fighters send `air_light_offset` with the light-blue record. The same call also receives the fighter's current position, facing direction, and render-pass argument, and a successful draw contributes to the callback's later GX-state invalidation.",
+      "rationale": "The source directly traces the three constants into mutually selected grounded and aerial calls alongside fighter-owned pickup geometry and transform state. Each successful call sets the accumulated `do_invalidate` flag, showing how the color data participates in rendering and affects subsequent graphics-state handling.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:25:34.326Z",
+      "subject": "main/melee/ft/ftdrawcommon:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L188-L212",
+          "why": "Shows the ground-or-air selection, the exact pairing of pickup offsets and color records, the other renderer inputs, and successful calls setting do_invalidate."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L26-L32",
+          "why": "Provides the concrete byte-vector values referenced by those renderer calls."
+        }
+      ]
+    },
+    {
+      "id": "fact:22711057-1fed-41fa-a118-954c11f3f52f",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.sdata",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Maps to the auxiliary visualization of fighter item-pickup reach, visually separating the regions used for grounded light items, grounded heavy items, and aerial light items.",
+      "rationale": "The call sites use fields explicitly identifying the three item-pickup categories and pair each category with a different color constant. Thus the data represents the presentation of those gameplay pickup regions, not the logic that determines whether an item is actually collected.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T12:25:34.326Z",
+      "subject": "main/melee/ft/ftdrawcommon:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L188-L212",
+          "why": "Shows the constants coloring geometry derived from the fighter's grounded-light, grounded-heavy, and aerial-light item-pickup offsets."
+        }
+      ]
+    },
+    {
+      "id": "fact:bf329650-23a2-4a1f-8c10-612cb587f839",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.sdata",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "Fighter item pickup colors",
+      "rationale": "Each address-style symbol has exactly one demonstrated role: it accompanies the correspondingly named `itPickup` offset in the common fighter draw callback. The proposed names preserve the translation unit's `ftDrawCommon_` prefix while describing those evidenced roles; the precise original spellings remain uncertain.\n\nNaming cleanup: Selected the most direct name supported by the documented behavior; exact historical spelling is unverified.\nPrior naming claim: Plausible semantic names for the three constituent symbols are `ftDrawCommon_GroundLightItemPickupColor`, `ftDrawCommon_AirLightItemPickupColor`, and `ftDrawCommon_GroundHeavyItemPickupColor`, in address order.",
+      "confidence": 0.8,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/melee/ft/ftdrawcommon:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L26-L32",
+          "why": "Shows the current address-based names and their ordering in storage."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L188-L212",
+          "why": "Associates the three symbols respectively with gr_light_offset, air_light_offset, and gr_heavy_offset."
+        }
+      ]
+    },
+    {
+      "id": "fact:9c8856be-ce66-4406-9a9d-2ddeb06229e1",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Its identified semantic payload is three consecutive writable `U8Vec4` color records, four bytes each: `{0xFF, 0xFF, 0xFF, 0x80}`, `{0x80, 0x80, 0xFF, 0x80}`, and `{0x80, 0x80, 0x80, 0x80}`. They are passed by address as color arguments to the pickup-region geometry renderer.",
+      "rationale": "The declarations directly establish the storage type, ordering, and byte values. Their address-taking call sites establish that they are individual four-component color records rather than one packed scalar or an indexed runtime table.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:25:34.326Z",
+      "subject": "main/melee/ft/ftdrawcommon:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L26-L32",
+          "why": "Directly declares the three consecutive static objects as U8Vec4 and gives every component value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L188-L212",
+          "why": "Passes the address of each individual record to the same auxiliary geometry routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:775acb37-6c0a-49f1-9690-ebf7d4d31c15",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the color constants used to distinguish the common fighter renderer's three item-pickup-region overlays: grounded light-item pickup is drawn in translucent white, aerial light-item pickup in translucent light blue, and grounded heavy-item pickup in translucent gray.",
+      "rationale": "The matched source defines three adjacent byte-vector constants with distinct RGB values and a shared alpha of 0x80. The fighter draw callback passes them respectively with the grounded-light, aerial-light, and grounded-heavy pickup offsets to the auxiliary geometry renderer, establishing that this small-data payload exists to color-code those visualized pickup regions.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:25:34.326Z",
+      "subject": "main/melee/ft/ftdrawcommon:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L26-L32",
+          "why": "Defines the three adjacent U8Vec4 values as white, light blue, and gray vectors, each with a final component of 0x80."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L188-L212",
+          "why": "Shows each value being supplied to lbGx_8001E2F8 for a specific grounded-light, grounded-heavy, or aerial-light item-pickup offset."
+        }
+      ]
+    },
+    {
+      "id": "fact:27ed30f9-a03c-47d3-abde-8e7aaca5db8d",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The zero literal initializes two temporary Vec3 offsets before an optional fighter position is combined with the current camera view matrix. Separately, the two GXColor values are copied into stack-local colors for every dynamic-bone set and passed with its dynamics descriptor, bone ID, and active draw pass to `lb_800117F4`; a successful draw contributes to the callback's later GX-state invalidation.",
+      "rationale": "The matrix helper directly initializes its vectors to 0.0F and then uses them to build a camera-relative matrix. In the main callback, the named colors are copied immediately before `lb_800117F4`, whose boolean result sets `do_invalidate`; the accumulated flag subsequently drives `HSD_StateInvalidate(-1)`.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T12:03:35.569Z",
+      "subject": "main/melee/ft/ftdrawcommon:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L35-L79",
+          "why": "Shows zero initialization of the position-offset vectors and their use in identity-matrix translation and camera-view concatenation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L160-L262",
+          "why": "Shows the colors flowing through local copies into the dynamic-bone renderer and its result flowing into the aggregate GX-state invalidation decision."
+        }
+      ]
+    },
+    {
+      "id": "fact:4904a476-fdc4-4bcc-a326-3c3338399d5b",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.sdata2",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports fighter presentation by supplying neutral offsets for camera-relative model-matrix construction and white line or surface colors for auxiliary visualization of fighter dynamic-bone sets.",
+      "rationale": "The zero value participates in the matrix used when displaying fighter models, while the two white colors are passed to a renderer alongside each fighter dynamic-bone descriptor and bone ID. These consumers ground the section in fighter model positioning and dynamic-bone visualization rather than gameplay state or simulation data.",
+      "confidence": 0.91,
+      "updated_at": "2026-09-02T12:03:35.569Z",
+      "subject": "main/melee/ft/ftdrawcommon:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L35-L79",
+          "why": "Shows neutral vector offsets feeding camera-relative matrix construction for fighter drawing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L160-L262",
+          "why": "Shows the two white colors used while processing and drawing every dynamic-bone set owned by the fighter."
+        }
+      ]
+    },
+    {
+      "id": "fact:28334054-8330-4582-b0c2-1e92160007c9",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 16-byte read-only literal pool with layout `{ f32 zero; GXColor white_alpha_fe; GXColor white_alpha_ff; u32 trailing_zero; }`: at 0x804D8368 is 0x00000000, at 0x804D836C is `{ 0xFF, 0xFF, 0xFF, 0xFE }`, at 0x804D8370 is `{ 0xFF, 0xFF, 0xFF, 0xFF }`, and at 0x804D8374 is another zero word, likely section padding.",
+      "rationale": "The archived assembly listing gives the four words and their addresses exactly. The matched C source identifies the middle two words as GXColor values and supplies repeated 0.0F uses consistent with the first word's IEEE-754 representation. No source declaration consumes the final word, supporting its interpretation as padding while retaining uncertainty about authored intent.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T12:03:35.569Z",
+      "subject": "main/melee/ft/ftdrawcommon:.sdata2",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/985448557844758578",
+          "why": "Provides the complete word-for-word .sdata2 contents and labels at 0x804D8368, 0x804D836C, and 0x804D8370."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L35-L79",
+          "why": "Types the two middle words as GXColor constants and shows the zero floating-point literal used by the preceding matrix helper."
+        }
+      ]
+    },
+    {
+      "id": "fact:0ca1624c-3ff4-4000-853f-c2e157a935bf",
+      "target_id": "target:data:main/melee/ft/ftdrawcommon:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the read-only scalar and color constants used by common fighter drawing: a zero-valued floating-point literal for camera-relative matrix setup and two nearly identical opaque-white colors for rendering fighter dynamic-bone geometry. The section also carries one terminal zero word not represented by a named source object.",
+      "rationale": "The archived section listing establishes the exact four-word contents at 0x804D8368. The matched source initializes matrix-offset vectors with 0.0F, defines the next two words as GXColor objects, and passes those colors to the renderer for each fighter dynamic-bone set. Because the final zero word has no corresponding named object in the matched source, it is best characterized conservatively as terminal section padding or an otherwise unused zero word.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-02T12:03:35.569Z",
+      "subject": "main/melee/ft/ftdrawcommon:.sdata2",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/985448557844758578",
+          "why": "Records the original .sdata2 layout at 0x804D8368 as the four words 0x00000000, 0xFFFFFFFE, 0xFFFFFFFF, and 0x00000000."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L35-L79",
+          "why": "Shows repeated 0.0F vector initialization followed by the two named GXColor constants whose byte values are white with alpha 0xFE and white with alpha 0xFF."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L160-L262",
+          "why": "Shows both color constants copied to locals and passed to the drawing helper for each fighter dynamic-bone set."
+        }
+      ]
+    },
+    {
+      "id": "fact:a1ea3ca9-c167-4bfb-82e3-616565486e0c",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads a conditional XY displacement from the Fighter through `ftLib_80087074` and the active camera's `view_mtx` through `HSD_CObjGetCurrent`. On success it initializes a local identity matrix, writes the displacement into its translation column, computes `view_mtx \u00d7 translation` into the caller-supplied matrix, and returns that matrix. On failure it returns NULL without writing the caller's matrix.",
+      "rationale": "The accessor's body proves the source and activation guard for the XY vector. The target then obtains the current camera, initializes and translates a local affine matrix, concatenates it with the camera view matrix into `arg2`, and has a separate no-concatenation NULL path.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T07:59:40.923Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftlib.c#L725-L735",
+          "why": "Shows the displacement flowing from Fighter damage fields into the output vector only on a true result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L54-L76",
+          "why": "Shows that vector and the current camera view matrix flowing into the identity, translation, concatenation, and return operations."
+        }
+      ]
+    },
+    {
+      "id": "fact:d0dbce7d-7ce8-401b-9a6d-ebe79610e4a2",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the rendering side of a temporary damage-associated fighter-model displacement: when the Fighter damage state exposes a nonzero planar offset, the visible fighter model and character-specific draw additions are shifted together relative to the active camera.",
+      "rationale": "The displacement originates in Fighter's damage substructure. Shared fighter draw paths pass the resulting matrix both to the fighter's JObj renderer and to its fighter-kind-specific draw callback, grounding the behavior as a synchronized visual displacement rather than movement of gameplay position or collision state.",
+      "confidence": 0.88,
+      "updated_at": "2026-09-02T07:59:40.923Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftlib.c#L725-L735",
+          "why": "Shows the planar displacement originating from Fighter damage-state fields rather than the fighter's world position."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L54-L76",
+          "why": "Shows the displacement becoming a camera-relative render matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L221-L340",
+          "why": "Shows the matrix being shared by fighter-model rendering and fighter-kind-specific visual drawing."
+        }
+      ]
+    },
+    {
+      "id": "fact:48d3341e-b7b9-4cdb-9c0b-cfc6aae4fa5f",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "ftDrawCommon_GetDamageRenderMtx",
+      "rationale": "The function belongs to the shared fighter-drawing unit, conditionally obtains fields from Fighter's damage substructure, and returns a completed render matrix or NULL. `GetDamageRenderMtx` captures that demonstrated getter-like contract, although the original terminology for the unnamed damage fields is not recovered.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `ftDrawCommon_GetDamageRenderMtx`.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L54-L76",
+          "why": "Shows a conditional matrix-producing helper in the ftDrawCommon subsystem."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftlib.c#L725-L735",
+          "why": "Establishes that the displacement source belongs to Fighter's damage substructure."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L221-L340",
+          "why": "Establishes that the returned matrix is consumed by fighter model rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:5e635ef5-a47c-4f41-b719-8b2a5c1fdb22",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Conditional matrix builder with signature `MtxPtr(HSD_GObj* fighter_gobj, MtxPtr out)`: the first argument must resolve to a Fighter, and `out` receives a 3-by-4 model-view matrix only when the fighter has an active planar render displacement. The return value is `out` on success and NULL otherwise.",
+      "rationale": "The matched declaration fixes the argument and return types. The callee converts the HSD_GObj to Fighter, while this function's guarded branch writes the complete output through PSMTXConcat and returns the supplied pointer; the false branch neither writes that output nor returns it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T07:59:40.923Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L54-L76",
+          "why": "Directly shows the function signature, conditional output write, successful pointer return, and NULL false result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftlib.c#L725-L735",
+          "why": "Shows that the first argument is treated as a fighter object and that the queried displacement is planar."
+        }
+      ]
+    },
+    {
+      "id": "fact:b59555ab-a0ce-4138-ba69-d57f49218487",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds an optional model-view matrix that applies a fighter's active damage-related render displacement during fighter model drawing.",
+      "rationale": "The routine asks the Fighter accessor for a conditional XY displacement, inserts that displacement into an identity affine matrix, composes it after the current camera view matrix, and returns the resulting matrix for use by fighter JObj rendering. If no displacement is active, it returns NULL so the normal render path proceeds without an override matrix.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T07:59:40.923Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L54-L76",
+          "why": "Shows the complete matrix-construction routine, including its conditional offset query, camera-view composition, output, and NULL fallback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftlib.c#L725-L735",
+          "why": "Shows that the queried vector comes from two fields in Fighter's damage substructure and is active only when at least one component is nonzero."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L221-L340",
+          "why": "Shows fighter draw paths passing the returned matrix to HSD_JObjDispAll and the fighter-kind-specific drawing callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:379ab8a9-84fc-45a9-a868-3e82c78d2906",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The function does not change Fighter state. Its sole behavioral guard is whether either damage-offset component is nonzero: an active offset produces and returns the translated model-view matrix, while two zero components produce NULL and leave the caller's output matrix untouched. The successful path assumes that a current camera object exists.",
+      "rationale": "The accessor performs only Fighter reads and returns false when both fields are zero. The target performs matrix writes only inside the true branch, does not check the camera pointer before dereferencing `view_mtx`, and otherwise immediately returns NULL.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T07:59:40.923Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_8008051C",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftlib.c#L725-L735",
+          "why": "Proves the nonzero-component guard and absence of Fighter mutation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L54-L76",
+          "why": "Shows output writes confined to the successful branch, the NULL fallback, and the unchecked current-camera dereference."
+        }
+      ]
+    },
+    {
+      "id": "fact:27d0081a-c928-4856-b792-bb0ccf263d4b",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Obtains the Fighter from `gobj`, reads its draw-enable bitfield and current collision, dynamics, pickup, visibility, metal/special-appearance, transform, kind, and accessory state, and forwards `draw_pass` to the enabled render helpers. Boolean results from auxiliary renderers are OR-accumulated into `do_invalidate`, which causes `HSD_StateInvalidate(-1)`. For body rendering it selects model-part visibility events, computes an optional display matrix, converts `draw_pass` to a transparency mask, displays the root JObj, and forwards the GObj, pass, and matrix to the fighter-kind-specific callback; the accessory receives the same converted pass with a null matrix.",
+      "rationale": "The complete function at head preserves the flow from the fighter-owned flags and geometry into pass-aware auxiliary renderers and one aggregate state invalidation. It also preserves visibility-profile selection, matrix construction, root hierarchy display, fighter-kind dispatch, and accessory rendering.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+          "why": "Shows Fighter acquisition, flag and geometry reads, draw-pass forwarding, accumulation of renderer results, and the subsequent body and accessory rendering flow."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L160-L262",
+          "why": "Shows aggregate GX-state invalidation, visibility-profile selection, display-matrix construction, pass-mask conversion, root JObj display, fighter-kind callback dispatch, and accessory display."
+        }
+      ]
+    },
+    {
+      "id": "fact:0bf988e4-48e1-44ea-8bf6-0e21d17649e8",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the normal pass-aware fighter rendering path, including visible body and accessory presentation, metal or other special model-part representations, and optional visualization of combat and diagnostic geometry such as hitboxes, hurtboxes, shields, reflectors, absorbers, dynamic bones, and item-pickup regions.",
+      "rationale": "The head body still dispatches the fighter's hit, hurt, reflector, absorber, shield, dynamics, CPU-debug, damage, pickup, thrown-hitbox, and related auxiliary geometry before selecting ordinary versus metal/special model profiles and rendering the body and accessory.",
+      "confidence": 0.91,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+          "why": "Shows pass-aware processing of fighter collision, hurt, shield, reflector, absorber, dynamics, CPU-debug, pickup, thrown-hitbox, and related auxiliary geometry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L160-L262",
+          "why": "Shows normal versus metal or special model-part profile selection followed by fighter-body, fighter-specific, accessory, and common attachment rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:addfc9d6-b9ec-4483-a3d2-e4d8fd5c0199",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void fighter GObj draw callback with semantic signature `void (HSD_GObj* gobj, s32 draw_pass, bool draw_body)`. `gobj` owns the Fighter and root JObj, `draw_pass` is the general pass selector forwarded to auxiliary renderers and converted to an `HSD_TrspMask`, and `draw_body` gates the main fighter-body rendering path.",
+      "rationale": "The head definition retains the exact mechanical signature, obtains both the Fighter and root JObj from `gobj`, forwards the second argument through the auxiliary drawing path and mask conversion, and uses the third argument in the main-body guard.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+          "why": "Provides the exact signature and shows the GObj-derived Fighter, pass forwarding, mask conversion, and boolean body-rendering gate."
+        }
+      ]
+    },
+    {
+      "id": "fact:0e9ed477-01f7-495d-9bc5-a579be5a8b4b",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs a fighter's common draw callback for one rendering pass. It conditionally draws enabled collision, dynamics, pickup, and related auxiliary geometry; invalidates cached GX state if those helpers emitted graphics; then, when permitted by fighter and call-site flags, configures and renders the fighter body, character-specific model additions, accessories, and final common attachments.",
+      "rationale": "The full head implementation still conditionally invokes each auxiliary geometry renderer, combines their results into one GX-state invalidation, then selects model-part profiles and renders the fighter hierarchy, fighter-kind additions, accessory, and common attachments for the requested pass.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+          "why": "Shows the complete auxiliary-geometry dispatch, aggregate invalidation decision, model configuration, fighter hierarchy display, fighter-kind callback, accessory display, and final common draw processing."
+        }
+      ]
+    },
+    {
+      "id": "fact:6239fcd9-f841-488b-b9d1-83612b51532c",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Bits 0 through 6 of `x21FC_flag` independently enable categories of auxiliary fighter geometry, with additional guards for reflector, absorber, shield, damage, thrown-hitbox, and related states. Any enabled helper that reports drawing causes one GX-state invalidation after all categories are processed. Bit 7 gates all later fighter-object rendering. Within that gated path, the main body is skipped when the fighter is invisible, another suppression flag is set, or `draw_body` is false; otherwise normal versus metal/special model-part profiles are selected before display. The accessory and final common attachment path still run when bit 7 is set even if the main body was skipped.",
+      "rationale": "The head conditionals preserve the independent auxiliary-category flags, their secondary state guards, one accumulated invalidation, the bit-7 early return, the body-only guard and model-profile branch, and the accessory and common attachment calls outside that body-only branch.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_800805C8",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+          "why": "Shows bits 0 through 6 gating auxiliary geometry, accumulated invalidation, bit 7 gating fighter-object rendering, body suppression conditions, profile selection, and accessory/common rendering outside the body-only branch."
+        }
+      ]
+    },
+    {
+      "id": "fact:7d9d8103-a9a2-4fb6-ba4d-252203ac8ac7",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a fighter GObj and rendering-pass selector. It reads the fighter's draw-enable, invisibility, suppression, model-visibility, kind, root-model, and accessory state; switches model events 0, 2, and 4 off and event 1 on when visibility data exists; resets several draw-control bits; and obtains a display matrix from the common matrix helper. The root JObj and fighter-kind-specific callback receive that matrix and the active pass, while the accessory is rendered with a null matrix and the same converted pass mask.",
+      "rationale": "The head body preserves every state read, model-event request, flag mutation, matrix construction, and render output. The head magnifying-glass caller still supplies the fighter GObj and pass values 0, 1, and 2.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L264-L309",
+          "why": "Shows the complete flow from Fighter state through model-event changes, draw-control mutations, matrix construction, body display, fighter-kind dispatch, and accessory display."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/if/ifmagnify.c#L370-L520",
+          "why": "Shows the magnifying-glass capture path supplying the fighter GObj and rendering-pass values 0, 1, and 2."
+        }
+      ]
+    },
+    {
+      "id": "fact:f9750b6b-dda3-4580-815d-2c581be1b393",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the fighter-model portion of Melee's magnifying-glass display for off-screen fighters. It renders the fighter in each opaque, texture-edge, and translucent pass using the magnifying-glass model visibility profile, including eligible character-specific geometry and accessories.",
+      "rationale": "At head, the magnifying-glass subsystem still selects eligible fighters, establishes a fighter-relative orthographic camera, and invokes this routine for passes 0, 1, and 2. The target still selects model event 1 and renders the fighter body, fighter-kind additions, and accessory.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/if/ifmagnify.c#L250-L450",
+          "why": "Shows per-player eligibility checks and fighter-relative orthographic-camera preparation for magnifying-glass capture."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/if/ifmagnify.c#L370-L520",
+          "why": "Shows this function being invoked for passes 0, 1, and 2 while capturing an eligible fighter's magnified image."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L264-L309",
+          "why": "Shows event-1 model visibility selection and rendering of the fighter hierarchy, character-specific additions, and accessory."
+        }
+      ]
+    },
+    {
+      "id": "fact:0b2b6101-daab-4c49-9743-dd97c1c77b5b",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "ftDrawCommon_Magnify",
+      "rationale": "The head caller remains the magnifying-glass capture routine and invokes the target three times to render a fighter's image. The target itself is a specialized fighter draw path, supporting the standing `ftDrawCommon_`-prefixed semantic guess while leaving the exact original spelling uncertain.\n\nNaming cleanup: Recognized identifier form; no lexical audit flags.\nPrior naming claim: `ftDrawCommon_Magnify`",
+      "confidence": 0.82,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/if/ifmagnify.c#L370-L520",
+          "why": "Shows the magnifying-glass renderer directly invoking the function for its three fighter capture passes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L264-L309",
+          "why": "Shows that the target is a specialized fighter rendering routine rather than a camera or magnifying-glass state routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:65ebbabb-da60-4cb2-bba2-eebd3df7b9a0",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void fighter rendering routine with semantic signature `void (HSD_GObj* fighter_gobj, s32 draw_pass)`. The first argument owns the `Fighter` and root JObj; the second is a GObj rendering-pass selector converted to an `HSD_TrspMask`, with the magnifying-glass caller supplying passes 0, 1, and 2.",
+      "rationale": "The head definition provides the two-argument void signature, obtains the Fighter and root JObj from the GObj, and converts the integer for JObj rendering. Its head caller supplies exactly the three rendering-pass values.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L264-L309",
+          "why": "Provides the exact signature and shows the GObj yielding the Fighter and root JObj while the integer argument is converted for rendering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/if/ifmagnify.c#L370-L520",
+          "why": "Shows the caller invoking the routine with rendering-pass values 0, 1, and 2."
+        }
+      ]
+    },
+    {
+      "id": "fact:7066b971-3789-4f20-95c4-0460f03d1d43",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Renders one fighter for a magnifying-glass capture pass. It selects the magnifying-glass model representation, constructs the fighter display matrix, draws the fighter hierarchy and character-specific additions for the requested transparency pass, performs common post-draw work, and separately draws the fighter's accessory.",
+      "rationale": "The head magnifying-glass renderer still calls the target for three passes while capturing a fighter-specific image. The target still selects event 1, constructs a display matrix, renders the hierarchy and fighter-kind callback, performs common post-draw calls, and renders the accessory separately.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/if/ifmagnify.c#L370-L520",
+          "why": "Shows the magnifying-glass renderer calling the function for all three rendering passes before finalizing the captured image."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L264-L309",
+          "why": "Shows specialized model-event selection, matrix construction, fighter hierarchy rendering, fighter-kind dispatch, common post-draw work, and separate accessory rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:33834327-87be-4b5e-971d-0135c2b0fa71",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Fighter draw-enable bit 7 gates the entire routine. When it is set, the main body path runs only if the fighter is not invisible and neither of two additional suppression bits is set. That path changes the active model visibility profile to event 1, clears `x2223_b2`, `x2223_b3`, and `x2227_b7`, sets `x2228_b0`, and renders the body. Accessory rendering remains outside the body guard, so an existing accessory is still displayed when bit 7 is set even if the body is suppressed.",
+      "rationale": "The nested conditionals directly establish the outer enable gate, the three body-suppression conditions, the exact visibility-event and flag transitions, and the accessory's placement outside the body-only branch.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T08:05:05.000Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080C28",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L264-L309",
+          "why": "Shows all guards and mutations, including model event 1 activation and accessory rendering outside the body guard."
+        }
+      ]
+    },
+    {
+      "id": "fact:dd0a9175-0d80-4a0c-a323-6ae814e9d1ba",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the `Fighter` from `gobj->user_data`, fighter draw and visibility flags, model-visibility entry `x5AC.xC[4]`, camera mode, and render eligibility. In alternate camera mode it may transform a fighter-stored vector by the active camera's inverse viewing matrix into `cur_pos` and the root JObj translation; it then selects model event 4, builds draw matrices, converts the draw-pass argument to a hierarchy-render mask, and emits up to three fighter draw operations. In ordinary mode it clears `x2223_b3` and forwards control to `ftDrawCommon_800805C8` with a boolean derived from whether event-4 data exists.",
+      "rationale": "The callback and its inline helpers explicitly show every input read, the inverse-view matrix multiplication and position writes, event-4 visibility calls, draw-control flag mutations, matrix construction, pass conversion, and calls to the common draw routine and `HSD_JObjDispAll`.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T08:00:36.925Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L280-L386",
+          "why": "Shows event-4 profile selection, draw-flag writes, matrix and render-mask construction, hierarchy rendering, and the inverse-camera transform written to fighter and JObj position."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L379-L401",
+          "why": "Shows the top-level inputs, mode dispatch, sequence of helper calls, and ordinary-mode boolean derived from `x5AC.xC[4]`."
+        }
+      ]
+    },
+    {
+      "id": "fact:7add40c3-3f4b-45d7-af6c-62b33dbb75b3",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes camera-dependent fighter presentation: it selects whether and how the fighter's event-4 model-part representation is drawn, optionally relocates that representation from camera-space data, and coordinates the specialized representation with the ordinary fighter rendering pass.",
+      "rationale": "The code selects behavior from camera mode, uses the inverse camera-view matrix to establish model position, activates model event 4, and displays the fighter JObj hierarchy before and after the common fighter draw. This directly grounds the routine in visible camera-dependent fighter rendering and model-part presentation.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T08:00:36.925Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L280-L386",
+          "why": "Shows camera-relative position computation, event-4 model visibility selection, and the specialized fighter hierarchy draws."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L379-L401",
+          "why": "Shows camera-mode selection and coordination of the specialized and common fighter draw paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:902153cf-c9be-41fb-99a9-014f13a5158a",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "ftDrawCommon_CameraModeRender",
+      "rationale": "The function is demonstrably a fighter render callback whose defining behavior is dispatch on the active camera mode. The proposed name follows the translation unit's `ftDrawCommon_` convention while remaining a semantic guess because no recovered symbol identifies the original suffix.\n\nNaming cleanup: Recognized identifier form; no lexical audit flags.\nPrior naming claim: `ftDrawCommon_CameraModeRender`",
+      "confidence": 0.67,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L320-L456",
+          "why": "Shows installation as a fighter render callback and a body organized around `Camera_80031060()`."
+        }
+      ]
+    },
+    {
+      "id": "fact:1674c56b-7361-41b3-8377-c14dd7f9d032",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A fighter GObj render callback with signature `void (HSD_GObj* gobj, int draw_pass)`. The first parameter supplies the fighter and root JObj; the second is forwarded through `HSD_GObj_80390EB8` by the draw helpers to obtain the transparency mask used by `HSD_JObjDispAll`.",
+      "rationale": "The matched declaration provides the exact mechanical signature, and assignment to `gobj->render_cb` establishes its callback type. The inline draw helpers pass the integer through `HSD_GObj_80390EB8` and use the result as the hierarchy renderer's pass-mask argument, supporting the semantic interpretation of the second parameter.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T08:00:36.925Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L320-L456",
+          "why": "Provides the exact declaration, render-callback assignment, and helper calls that convert the integer argument before JObj hierarchy rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:55cf4a32-1cce-44d6-9077-62e549600889",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Acts as a camera-mode-dependent fighter render callback. After fighter-level eligibility guards pass, it dispatches the ordinary camera mode to the common fighter draw routine and dispatches the alternate mode to an optional camera-relative position update plus a specialized sequence that draws the event-4 model representation around the common draw path.",
+      "rationale": "The function is installed directly as each fighter GObj's `render_cb`. Its body gates all work on fighter state and `ftLib_80086A8C`, switches on `Camera_80031060`, calls the common draw routine in both supported modes, and in mode 1 surrounds that routine with two event-4 hierarchy draws while optionally updating the root translation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T08:00:36.925Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L320-L456",
+          "why": "Shows the complete callback and its helpers, as well as `ftDrawCommon_80081118` assigning this function to every fighter GObj's `render_cb`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L379-L401",
+          "why": "Shows the eligibility guards, camera-mode switch, optional translation helper, specialized mode-1 sequence, and ordinary mode-0 dispatch."
+        }
+      ]
+    },
+    {
+      "id": "fact:28765a0e-74e1-4af2-a5df-7304595a42fc",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The callback is a no-op when `x221F_b3` is set or `ftLib_80086A8C` rejects the fighter. In camera mode 1, `x2220_b7` triggers a camera-relative translation update; rendering proceeds only when event-4 visibility data exists, with `x2223_b3` set to 0 for the first specialized draw, the common draw invoked with `true`, and `x2223_b3` set to 1 for the final specialized draw. In camera mode 0, `x2223_b3` is cleared and the common draw's boolean is true exactly when event-4 visibility data is absent. Other camera-mode values perform no rendering here.",
+      "rationale": "These guards and transitions are the complete visible control flow of the callback. The two inline draw helpers differ in their assignment to `x2223_b3`, while the switch has only cases 0 and 1 and no default behavior.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T08:00:36.925Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80080E18",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L280-L386",
+          "why": "Shows the two specialized draw helpers assigning complementary values to `x2223_b3` and the optional camera-relative translation transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L379-L401",
+          "why": "Shows the outer guards, the two camera-mode cases, event-4-data guard, call ordering, and ordinary-mode boolean selection."
+        }
+      ]
+    },
+    {
+      "id": "fact:154b2014-e345-42e2-94ab-28e4ef0c0be7",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the fighter-list head from `HSD_GObj_Entities->fighters`, follows each GObj's `next` pointer until null, and writes the function pointer `ftDrawCommon_80080E18` into each node's `render_cb`. The GObj rendering scheduler subsequently consumes those callback pointers when drawing fighters.",
+      "rationale": "The body directly exposes the list-head input, linked traversal, and chain-wide function-pointer output. The assigned callback accepts a fighter GObj and render-pass argument and performs camera-dependent fighter-model drawing, establishing how the written pointers are consumed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:03:18.908Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L403-L410",
+          "why": "Shows the exact flow from the global fighter-list head through every `next` link into each `render_cb` field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L320-L456",
+          "why": "Shows the assigned callback consuming a fighter GObj and render-pass argument to select camera-dependent model-rendering behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:12717cc4-3c10-4f50-ad79-2c94e76eb6cf",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Participates in global fighter-render-mode switching used by Fountain of Dreams' water reflection. After the stage renders fighters through a temporary reflection-pass callback and captures the reflected image, this routine restores the camera-dependent common fighter renderer for subsequent presentation.",
+      "rationale": "The Fountain of Dreams reflection callback installs the paired fighter-render callback before drawing its mirrored offscreen pass and invokes this routine only after framebuffer capture and projected texture-matrix construction. The target then restores `ftDrawCommon_80080E18` across all fighters. SmashWiki independently identifies the stage's Melee reflection as using alternate lower-resolution fighter models, grounding the callback switch in the visible reflection mechanic.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T12:03:18.908Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grizumi.c#L741-L797",
+          "why": "Shows the reflection renderer bracketing its mirrored offscreen pass with the paired callback switch and this restoration routine."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L320-L456",
+          "why": "Shows the temporary and restored callbacks' distinct fighter-model rendering behavior and the chain-wide callback setters."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://fountain-of-dreams~trivia@r2037032",
+          "why": "Documents that Fountain of Dreams' Melee water reflection uses alternate lower-resolution fighter models."
+        }
+      ]
+    },
+    {
+      "id": "fact:ae63cf75-a458-48bc-b961-8a00d2ec7bda",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void (void)`. It is a global fighter-render-mode setter: it takes no arguments, returns no value, and mutates the `HSD_GObj.render_cb` field of every GObj in `HSD_GObj_Entities->fighters`.",
+      "rationale": "The matched definition establishes the exact parameterless, void-returning signature. Its only externally visible writes are function-pointer assignments to each fighter GObj's render callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:03:18.908Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L403-L410",
+          "why": "Provides the complete signature, global-list traversal, and render-callback assignment."
+        }
+      ]
+    },
+    {
+      "id": "fact:b6cc6d2f-2ce7-425b-8d79-aad8cac50f43",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Restores the camera-mode-aware common fighter renderer on every active fighter GObj after a subsystem temporarily replaces the fighters' render callbacks.",
+      "rationale": "The function traverses the complete global fighter list and assigns `ftDrawCommon_80080E18` to every `render_cb`. That callback selects rendering behavior according to the active camera mode and draws the appropriate fighter model hierarchies. Fountain of Dreams' reflection renderer calls the paired override routine before its offscreen pass and calls this function afterward, demonstrating that this routine restores the ordinary common callback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:03:18.908Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L403-L410",
+          "why": "Shows the complete routine replacing every fighter GObj's render callback with `ftDrawCommon_80080E18`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L320-L456",
+          "why": "Shows that `ftDrawCommon_80080E18` is a camera-mode-dependent fighter renderer and that the paired routine installs a different callback across the same fighter list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grizumi.c#L741-L797",
+          "why": "Shows the Fountain of Dreams reflection callback installing the paired rendering mode before its offscreen pass and invoking this function after image capture and texture-matrix generation."
+        }
+      ]
+    },
+    {
+      "id": "fact:3712381f-b9dc-4ae9-a3fc-fa8499216311",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "An empty fighter list is a no-op. Otherwise, the function unconditionally transitions every currently linked fighter GObj to the same render-callback state, regardless of its previous callback. Repeated calls are idempotent until another routine replaces those callbacks; newly linked fighters are unaffected until a later invocation.",
+      "rationale": "The null-terminated loop contains no per-fighter guard or comparison before assignment, so all nodes present during the call end with the same callback and an empty list produces no writes. The adjacent paired routine performs an analogous chain-wide transition to `ftDrawCommon_80080C28`, proving that these callbacks form replaceable global drawing modes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:03:18.908Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081118",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L403-L410",
+          "why": "Shows the unconditional assignment, null-list behavior, and traversal limited to fighters linked at invocation time."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L412-L425",
+          "why": "Shows the paired routine replacing the same list's callbacks with a different fighter renderer."
+        }
+      ]
+    },
+    {
+      "id": "fact:7909b14d-16b9-4f77-b7cb-8fb49fa143df",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `HSD_GObj_Entities->fighters` as the head of the active fighter-object list, follows each GObj's `next` pointer until null, and overwrites every visited object's `render_cb` with `ftDrawCommon_80080C28`. Subsequent fighter rendering dispatches through that callback until another routine replaces it; in the Fountain of Dreams reflection path, `ftDrawCommon_80081118` later replaces every callback with `ftDrawCommon_80080E18`.",
+      "rationale": "The complete body directly establishes the list input, traversal edge, and callback output. The reflection-camera caller demonstrates the downstream lifetime of the write by bracketing its mirrored render pass between this setter and the paired restoration setter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:03:56.046Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L393-L428",
+          "why": "Shows the entire pointer flow from the global fighter-list head through each `next` link to the `render_cb` writes, as well as the paired setter's replacement callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grizumi.c#L741-L797",
+          "why": "Shows the callback switch being consumed by the intervening reflection render and then reversed by `ftDrawCommon_80081118`."
+        }
+      ]
+    },
+    {
+      "id": "fact:d273a8ab-c18f-404e-a38a-a93d33fea037",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports Fountain of Dreams' water reflection by switching all fighters to the lower-resolution model renderer used for the mirrored capture. That renderer is shared with Melee's magnifying-glass display.",
+      "rationale": "The Fountain of Dreams reflection-camera callback invokes the target before rendering selected scene groups from a vertically inverted camera and restores the normal callback afterward. The installed renderer selects model visibility event 1, and SmashWiki independently states that the stage's reflection uses the same lower-resolution fighter models as the magnifying glass.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:03:56.046Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grizumi.c#L741-L797",
+          "why": "Shows this function preparing fighters immediately before Fountain of Dreams' mirrored render and framebuffer capture, followed by callback restoration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L205-L320",
+          "why": "Shows the installed callback selecting model visibility event 1 and rendering the specialized fighter representation."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://fountain-of-dreams~trivia@r2037032",
+          "why": "States that Melee's Fountain of Dreams water reflection uses the lower-resolution fighter models also used in the magnifying glass."
+        }
+      ]
+    },
+    {
+      "id": "fact:27f063bd-6495-41d3-b5f6-2d88f1310608",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "ftDrawCommon_SetMagnifyRenderCallbacks",
+      "rationale": "The function performs one operation across all active fighters: it installs `ftDrawCommon_80080C28`, whose resolved role is the magnifying-glass lower-resolution fighter renderer. The proposed name follows the owning unit's `ftDrawCommon_` prefix and uses the plural because every fighter GObj is updated. Confidence is limited because no surviving symbol or review discussion confirms the original suffix.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftDrawCommon_SetMagnifyRenderCallbacks`.",
+      "confidence": 0.74,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L393-L428",
+          "why": "Shows the global callback-setting operation and identifies the installed callback as `ftDrawCommon_80080C28`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L205-L320",
+          "why": "Shows the installed callback selecting the lower-resolution model visibility profile and rendering a fighter."
+        }
+      ]
+    },
+    {
+      "id": "fact:19fd914b-5aae-4929-a8a3-bed5b3925f94",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void (void)`. It is a global fighter-render-mode setter: it accepts no arguments, returns no value, and writes a render callback of type `void (HSD_GObj*, int)` into each active fighter GObj.",
+      "rationale": "The matched definition provides the exact zero-argument, void-returning signature. Its assignment to each GObj's `render_cb` and the installed function's definition establish the callback's two-parameter rendering signature.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:03:56.046Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L393-L428",
+          "why": "Provides the function's exact `void (void)` definition and shows writes to each fighter GObj's `render_cb` field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L205-L320",
+          "why": "Provides the installed callback's definition as `void ftDrawCommon_80080C28(HSD_GObj* gobj, int arg1)`."
+        }
+      ]
+    },
+    {
+      "id": "fact:feed53a9-3859-4e27-b659-f5e0b076d9bd",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Switches every currently registered fighter GObj to the lower-resolution magnifying-glass fighter renderer so the fighters can be drawn into Fountain of Dreams' reflection pass.",
+      "rationale": "The function traverses the complete global fighter list and replaces each object's render callback with `ftDrawCommon_80080C28`. That callback selects model visibility event 1 and renders the fighter hierarchy, while the Fountain of Dreams reflection-camera callback invokes this switch immediately before its mirrored off-screen render and invokes the paired restoration routine afterward. This establishes that the helper prepares all fighters for the reflection capture rather than drawing them itself.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:03:56.046Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L393-L428",
+          "why": "Shows the function traversing `HSD_GObj_Entities->fighters` and assigning `ftDrawCommon_80080C28` as every fighter GObj's render callback, alongside the paired routine that assigns `ftDrawCommon_80080E18`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L205-L320",
+          "why": "Shows that `ftDrawCommon_80080C28` is a specialized fighter renderer that selects model visibility event 1 and draws the fighter body, character-specific additions, and accessory."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grizumi.c#L741-L797",
+          "why": "Shows the Fountain of Dreams reflection-camera callback calling this helper before its mirrored render pass and restoring fighter callbacks with `ftDrawCommon_80081118` afterward."
+        }
+      ]
+    },
+    {
+      "id": "fact:334a8956-fde1-4c65-96e7-fc73564ce489",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "An empty fighter list makes the routine a no-op. Otherwise it unconditionally replaces the render callback of every fighter currently linked in the list, regardless of fighter kind or state. The change persists after return and affects later render dispatch until another callback-setting routine runs; Fountain of Dreams brackets its reflection pass with this setter and `ftDrawCommon_80081118` to enter and leave the lower-resolution fighter-rendering mode.",
+      "rationale": "There are no per-fighter guards or restoration logic in the target: traversal ends only at null and every visited node is written. The sole resolved caller explicitly performs the complementary callback reset after completing its reflection capture, proving that the target establishes persistent global rendering state rather than a scoped local condition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:03:56.046Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081140",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L393-L428",
+          "why": "Shows unconditional writes for every list member, natural null-list behavior, and the separate complementary setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grizumi.c#L741-L797",
+          "why": "Shows the reflection pass explicitly entering this callback mode before rendering and restoring the alternate callback afterward."
+        }
+      ]
+    },
+    {
+      "id": "fact:0755e925-7c8f-4235-922a-711f17e05096",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the head of `HSD_GObj_Entities->fighters`, follows each GObj's `next` link, obtains its `Fighter`, and checks `fighter->x5AC.xC[1]` for model-visibility data. For each eligible fighter it sends `(event, enabled)` values `(1, false)`, `(2, false)`, `(4, false)`, and `(0, true)` to `ftParts_800750C8`, which applies the corresponding DObj visibility profiles and notifies fighter-kind-specific model-event callbacks.",
+      "rationale": "The target body establishes the global traversal, guard, and exact call sequence. The resolved callee body shows that these arguments drive visibility-helper dispatch and per-fighter-kind `model_events` callbacks, including event 2's compound handling of groups 2 and 3.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:05:14.125Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L434",
+          "why": "Shows the source of each fighter input, the eligibility guard, and the four ordered event requests."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L730-L759",
+          "why": "Shows how each event request changes model visibility and is forwarded to the fighter-kind-specific callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:d2ff58ba-3948-4258-90a6-843795bc2b0a",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Maps to projected fighter-shadow rendering and fighter model-part visibility: after shadow textures have been rendered from the shadow-specific model profile, the function returns every eligible fighter to the ordinary visible model profile used by normal presentation.",
+      "rationale": "The caller context directly places the routine after `HSD_ShadowStartRender`/`HSD_ShadowEndRender` processing, while the target and `ftParts_800750C8` bodies demonstrate that its concrete effect is a global model-part visibility-profile transition.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T12:05:14.125Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Grounds the function in the projected fighter-shadow pipeline by showing its call after offscreen shadow rendering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L434",
+          "why": "Shows restoration of the ordinary event-0 profile across eligible fighters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L730-L759",
+          "why": "Shows that the requested events concretely dispatch model-part visibility changes."
+        }
+      ]
+    },
+    {
+      "id": "fact:a63815be-83dc-49bf-9244-7fc2d1440c8f",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "ftDrawCommon_RestoreModelEventsAfterShadow",
+      "rationale": "The routine restores event 0 after the shadow subsystem's offscreen render loop, reversing the paired pre-pass routine's event-1 selection. The proposed name follows the unit's `ftDrawCommon_` prefix and describes the demonstrated lifecycle role, but remains an inference rather than a recovered symbol.\n\nNaming cleanup: Recognized identifier form; no lexical audit flags.\nPrior naming claim: `ftDrawCommon_RestoreModelEventsAfterShadow`",
+      "confidence": 0.73,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L449",
+          "why": "Shows that this function and its adjacent sibling perform complementary global model-event transitions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Establishes that the target's transition occurs specifically after projected-shadow rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:f5a9bc3c-ab43-4d7e-afd8-bb2094eff436",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless process-wide state-restoration routine with signature `void (void)`. It operates on the global `Fighter_GObj` list rather than on a caller-supplied fighter and produces no return value.",
+      "rationale": "The matched declaration provides the exact signature, and the body obtains its complete input set by traversing `HSD_GObj_Entities->fighters`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:05:14.125Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L434",
+          "why": "Provides the exact `void (void)` declaration and shows that all affected fighters come from the global fighter list."
+        }
+      ]
+    },
+    {
+      "id": "fact:fec4a645-8381-4d57-aaef-5563d83be039",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Restores the ordinary fighter model-event profile after projected-shadow rendering. It visits every fighter that has model-part visibility data, disables events 1, 2, and 4, and re-enables event 0.",
+      "rationale": "The function's matched body performs exactly these four event operations across the global fighter list. Its sole resolved caller invokes it after completing the offscreen fighter-shadow render loop, while the complementary pre-pass function selects event 1 before that work.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:05:14.125Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L434",
+          "why": "Shows the fighter-list traversal, visibility-table guard, and exact model-event restoration sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows the function being called after all offscreen fighter-shadow rendering has completed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L436-L449",
+          "why": "Shows the complementary pre-shadow selection of event 1 that this function reverses."
+        }
+      ]
+    },
+    {
+      "id": "fact:011de5bb-b4af-451b-8679-39e33f998663",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Acts as the restore half of a shadow-rendering state pair. Before shadow work, `ftDrawCommon_80081200` selects event 1 by disabling events 0, 2, and 4; after all fighter shadow renders, this function disables events 1, 2, and 4 and selects event 0. Fighters lacking `x5AC.xC[1]` are left unchanged.",
+      "rationale": "The head sibling bodies remain complementary and share the same visibility-data guard. The shadow renderer still calls the preparation routine before fighter-shadow setup and calls this restoration routine after the offscreen shadow-render loop.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081168",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L449",
+          "why": "Shows the complementary event-1 preparation and event-0 restoration sequences and their shared visibility-data guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L540",
+          "why": "Shows `ftDrawCommon_80081200` being called before fighter shadow-object and camera preparation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows `ftDrawCommon_80081168` being called after the offscreen fighter-shadow rendering work."
+        }
+      ]
+    },
+    {
+      "id": "fact:dc14bcad-69b2-4f03-b78a-9503e60835c7",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `HSD_GObj_Entities->fighters`, follows each GObj's `next` link, obtains its `Fighter`, and tests `fighter->x5AC.xC[1]` for model-visibility data. For each eligible fighter it sends `(event, enabled)` requests `(0, false)`, `(2, false)`, `(4, false)`, and `(1, true)` to `ftParts_800750C8`; that dispatcher applies the corresponding DObj visibility profiles and forwards the requests to fighter-kind-specific `model_events` callbacks.",
+      "rationale": "The target source establishes the global input traversal, guard, and ordered request values. The resolved callee shows that those values control model-part visibility operations and character-specific model-event callbacks, including event 2's expansion into visibility groups 2 and 3.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T12:24:12.483Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L436-L449",
+          "why": "Shows where each fighter comes from, the visibility-data eligibility test, and the four ordered event requests."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftparts.c#L730-L759",
+          "why": "Shows the event dispatcher selecting visibility operations, expanding event 2 into groups 2 and 3, and notifying fighter-kind-specific model-event callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:a9d7f77e-bd64-4c44-a399-3eb650ee4525",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Maps to projected fighter-shadow rendering and fighter model-part visibility: it globally selects the shadow-specific model-event profile before fighters are submitted to the offscreen shadow pass, after which the paired restore routine returns them to the ordinary event-0 profile.",
+      "rationale": "The head shadow subsystem still invokes this function before preparing fighter shadow objects and later invokes the inverse routine after rendering. The target's concrete effect remains a global transition from ordinary event 0 to temporary event 1 model visibility.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L449",
+          "why": "Shows this routine selecting event 1 and its paired routine restoring event 0 across eligible fighters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L540",
+          "why": "Places event-1 selection before fighter shadow-object and camera preparation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows the offscreen shadow work followed by restoration of the ordinary model-event profile."
+        }
+      ]
+    },
+    {
+      "id": "fact:c970a1c9-7a33-42a6-bb23-cac1c93af5f4",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "ftDrawCommon_PrepareModelEventsForShadow",
+      "rationale": "The head caller continues to place this target immediately before projected-shadow setup, and the adjacent inverse routine restores the ordinary model-event profile afterward. The proposed `ftDrawCommon_`-style name still describes the demonstrated lifecycle role, though the exact original wording remains unrecovered.\n\nNaming cleanup: Recognized identifier form; no lexical audit flags.\nPrior naming claim: `ftDrawCommon_PrepareModelEventsForShadow`",
+      "confidence": 0.74,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L449",
+          "why": "Shows adjacent routines performing complementary global model-event transitions, with this target selecting event 1 and its sibling restoring event 0."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L540",
+          "why": "Places this target's transition immediately before projected-shadow setup and rendering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows the inverse sibling being called after shadow rendering, supporting the prepare-versus-restore naming distinction."
+        }
+      ]
+    },
+    {
+      "id": "fact:dbcc94f5-0249-466d-a6a7-87dbfadfea67",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A parameterless process-wide state-preparation routine with signature `void (void)`. It obtains all affected `Fighter_GObj` instances from the global fighter list and returns no value.",
+      "rationale": "The matched declaration gives the exact `void (void)` signature, while the body takes no caller-supplied object and instead traverses `HSD_GObj_Entities->fighters` to obtain each fighter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T12:24:12.483Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L436-L449",
+          "why": "Provides the exact signature and shows that the routine's complete fighter input set comes from the global entity list."
+        }
+      ]
+    },
+    {
+      "id": "fact:1445f5ee-e719-4f6d-abeb-948135d28deb",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Prepares every eligible fighter's model-part visibility for projected-shadow rendering. It traverses the global fighter list, disables model events 0, 2, and 4, and enables event 1 for fighters that have model-visibility data.",
+      "rationale": "The head target still performs the exact guarded event sequence across the global fighter list. Its shadow-system caller still invokes it immediately before configuring fighter shadow objects and their cameras, preserving the standing preparation role.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L436-L449",
+          "why": "Shows the global fighter traversal, visibility-data guard, and sequence disabling events 0, 2, and 4 before enabling event 1."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L540",
+          "why": "Shows the function being called before fighter shadow objects, shadow cameras, and viewing rectangles are prepared."
+        }
+      ]
+    },
+    {
+      "id": "fact:32d92080-a3fb-425e-bb10-3fc7d482676d",
+      "target_id": "target:function:main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Acts as the preparation half of a shadow-rendering state pair. Before shadow processing it disables events 0, 2, and 4 and enables event 1 on every fighter with model-visibility data. After all offscreen fighter-shadow renders, `ftDrawCommon_80081168` disables events 1, 2, and 4 and restores event 0. Fighters lacking `x5AC.xC[1]` are unchanged by either transition.",
+      "rationale": "The two head functions retain complementary guarded model-event transitions, while the shadow caller places this target before shadow setup and the inverse target after all offscreen rendering. The prepare-and-restore lifecycle therefore remains unchanged.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T17:43:09.114Z",
+      "subject": "main/melee/ft/ftdrawcommon:ftDrawCommon_80081200",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L449",
+          "why": "Shows both complementary model-event transitions and their shared model-visibility-data guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L540",
+          "why": "Shows this target's event-1 transition occurring before fighter-shadow setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows the inverse event-0 restoration occurring after offscreen fighter-shadow rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:860aad32-e882-4971-a324-dc4afbbc81d3",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/ftdrawcommon.c",
+      "type": "data_flow",
+      "value": "Each draw callback receives a fighter GObj and render-pass arguments, then reads the associated `Fighter` flags, collision arrays, dynamic-bone descriptors, model-part tables, accessory JObj, fighter-kind callbacks, and current camera state. Enabled collision structures are passed to library visualization routines; if any alter graphics state, the unit calls `HSD_StateInvalidate`. For model rendering it updates visibility-event flags, constructs or selects a camera-relative matrix, converts the render-pass argument to a display mask, and sends the fighter and accessory hierarchies to `HSD_JObjDispAll`. An alternate-camera path transforms a stored vector through the inverse viewing matrix and writes the resulting position to both fighter state and the root JObj translation.",
+      "rationale": "The implementation at the head revision preserves the complete standing flow: it constructs matrices from fighter and camera state, sends fighter-owned collision and dynamic-bone records to auxiliary renderers, accumulates their results for GX-state invalidation, selects model visibility and display parameters before rendering fighter and accessory hierarchies, invokes fighter-kind callbacks, and transforms alternate-camera coordinates into fighter and root-JObj position. The drift reflects source movement rather than a semantic change.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T22:40:17.319Z",
+      "subject": "src/melee/ft/ftdrawcommon.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L30-L80",
+          "why": "Shows fighter-derived translation data being combined with the current camera view matrix to construct the camera-relative model matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L80-L179",
+          "why": "Shows fighter flags, hit and hurt structures, reflector, absorber, shield, and dynamic-bone descriptors flowing into auxiliary visualization routines while successful draws accumulate in the invalidation flag."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+          "why": "Shows additional fighter-owned visualization records flowing into render helpers and the accumulated result causing full GX-state invalidation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L231-L320",
+          "why": "Shows visibility-event selection, camera-relative matrix construction, render-pass-to-display-mask conversion, fighter-kind callbacks, and display of the fighter and accessory JObj hierarchies."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L320-L439",
+          "why": "Shows alternate model profiles, camera-mode dispatch, inverse-view transformation into fighter and root-JObj position, and installation of alternate fighter render callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:78a73658-7786-474d-a323-d63fd2f3a5e7",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/ftdrawcommon.c",
+      "type": "game_mapping",
+      "value": "Realizes common fighter presentation in two complementary forms: normal and camera-dependent fighter-model rendering with runtime model-part visibility changes, and a dedicated auxiliary visualization pass for gameplay volumes such as hit, hurt, shield, reflector, absorber, dynamic-bone, thrown-hitbox, and grounded or aerial item-pickup regions.",
+      "rationale": "At the head revision, the common draw callback still visualizes the fighter-owned gameplay volumes selected by display flags, while its model paths still change model-part visibility and render fighter hierarchies under normal and alternate camera modes.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T02:33:36.979Z",
+      "subject": "src/melee/ft/ftdrawcommon.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L80-L179",
+          "why": "Shows flag-controlled visualization of fighter hit, hurt, reflector, absorber, shield, and dynamic-bone volumes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L180-L320",
+          "why": "Shows grounded and aerial item-pickup regions, thrown-hitbox geometry, model-part visibility selection, and fighter and accessory rendering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L320-L456",
+          "why": "Shows alternate model profiles and camera-mode-dependent fighter rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:8379a726-eadb-4d0c-a220-2748268f232c",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/ftdrawcommon.c",
+      "type": "purpose",
+      "value": "Provides common fighter rendering callbacks and supporting helpers for both model presentation and pass-specific auxiliary geometry. It draws fighter collision, hurt, reflector, absorber, shield, thrown-hitbox, item-pickup, and dynamic-bone extents when their display flags are enabled; invalidates GX state after direct auxiliary drawing; selects model-part visibility profiles; builds camera-relative matrices; displays fighter and accessory JObj hierarchies; handles alternate camera modes; and installs alternate render callbacks across the fighter list.",
+      "rationale": "The head implementation continues to combine conditional gameplay-volume rendering and GX-state invalidation with fighter-model visibility selection, matrix construction, hierarchy display, alternate-camera handling, and global render-callback installation, so the standing purpose remains sound after drift.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:33:36.979Z",
+      "subject": "src/melee/ft/ftdrawcommon.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L80-L179",
+          "why": "Shows conditional rendering of fighter collision, hurt, reflector, absorber, shield, and dynamic-bone auxiliary geometry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L180-L320",
+          "why": "Shows item-pickup and thrown-hitbox visualization, GX-state invalidation, model-part selection, matrix construction, and fighter and accessory hierarchy display."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c80075a5cb/src/melee/ft/ftdrawcommon.c#L320-L456",
+          "why": "Shows alternate camera-mode rendering, transformed fighter positioning, and installation of alternate render callbacks across the fighter list."
+        }
+      ]
+    },
+    {
+      "id": "fact:2dd2d2a7-ddd5-4d55-8976-43e6c6f6b579",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/ftdrawcommon.c",
+      "type": "state_behavior",
+      "value": "The unit brackets fighter-shadow processing with complementary global model-event transitions. `ftDrawCommon_80081200` disables events 0, 2, and 4 and enables event 1 for every fighter with a visibility table before the offscreen shadow work; `ftDrawCommon_80081168` disables events 1, 2, and 4 and restores event 0 after all shadow renders finish.",
+      "rationale": "The head source retains the complementary event selections in the two fighter-list routines. The shadow renderer calls `ftDrawCommon_80081200` before preparing and rendering fighter shadows and calls `ftDrawCommon_80081168` after the offscreen render loop, confirming the same prepare-and-restore transition after drift.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:33:36.979Z",
+      "subject": "src/melee/ft/ftdrawcommon.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L421-L449",
+          "why": "Shows the complementary global transitions: one restores event 0, while the other selects event 1, with events 2 and 4 disabled in both."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L540",
+          "why": "Shows `ftDrawCommon_80081200` being called before fighter shadow objects, cameras, and viewing rectangles are prepared."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L540-L567",
+          "why": "Shows the offscreen fighter-shadow rendering loop followed by `ftDrawCommon_80081168`."
+        }
+      ]
+    }
+  ]
+}

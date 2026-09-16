@@ -1,0 +1,77 @@
+{
+  "tu": "main/melee/ft/kinds/ftSeak/ftseakspecialn",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecialn.c#L171-L181",
+            "why": "Animation-owned transition to aerial Loop."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecialn.c#L250-L280",
+            "why": "Empty startup IASA and ordered Loop input handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecialn.c#L393-L408",
+            "why": "Collision-owned transfer to grounded startup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the empty callback behavior while removing the incorrect implication that animation is the only possible startup exit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftSeak/ftseakspecialn:ftSk_SpecialAirNStart_IASA"
+        },
+        "type": "state_behavior",
+        "value": "This aerial startup IASA callback is an invariant no-op: it reads no input and performs no mutation or transition. The paired animation callback advances to SpecialAirNLoop after startup animation exhaustion; the paired collision callback can instead transfer startup to grounded SpecialNStart. Release-to-End and shoulder-to-Cancel choices are implemented by Loop IASA, with B release taking priority."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecialn.c#L435-L476",
+            "why": "Complete guard, positioning, nullable allocation and unconditional post-attempt effects."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes one spawn attempt from guaranteed projectile creation and preserves the failure branch's stock and audiovisual effects.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftSeak/ftseakspecialn:shootNeedles"
+        },
+        "type": "state_behavior",
+        "value": "A call acts only when mv.sk.specialn.x4 is set, and immediately clears that pending request even if stock is empty. With positive u.sk.x0, it computes a ground- or air-specific randomized spawn position, forces z to zero and attempts one thrown-needle allocation. Only a nonnull item receives setup mode 0. Stock decreases once and effect 1283 plus SFX 270140 are emitted regardless of allocation success. The aerial vertical random offset is twice the grounded table offset."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecialn.c#L108-L284",
+            "why": "Startup, charging, animation exits and ordered input transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftSeak/ftseakspecialn.c#L326-L433",
+            "why": "Complete collision graph and phase-specific cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an overgeneralized phase-preserving collision graph with the actual continuation and terminal branches, including their distinct stock lifetimes.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftSeak/ftseakspecialn.c"
+        },
+        "type": "state_behavior",
+        "value": "Needle Storm has parallel grounded and aerial Start, Loop, Cancel and End callback families. Startup attempts held-item creation and enters Loop after animation exhaustion. Loop increments stock at animation frame zero, clamps attempted overflow to six and remains active. B release selects End and installs the firing accessory callback; shoulder input selects Cancel only while B remains held. Only Start and Loop collision paths transfer to their corresponding ground/air phases and reinstall interruption callbacks. Cancel and End collision paths instead exit through common fall or basic landing routines and clear interruption callbacks; Cancel preserves stock, whereas End clears stock and the pending-shot flag. Aerial animation exits and grounded Cancel/End collision exits preserve the x10==0 ordinary-Fall versus nonzero ftCo_80096900 selection."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

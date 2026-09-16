@@ -1,0 +1,13 @@
+## High-quality AXFX reverb
+
+This unit implements initialization, reconfiguration, processing and teardown of a persistent left/right/surround reverb network. Creation builds three comb and three all-pass delay lines per channel, computes decay-dependent feedback at 32 kHz, transforms damping, and optionally allocates three pre-delay buffers. Allocations are used without null checks. Existing function names and the source-level `lens` name fit their roles; no naming changes are proposed.
+
+The callback does nothing when `tempDisableFX` is nonzero. Otherwise, optional stereo crossfeed precedes processing of channels 0, 1 and 2. Crossfeed processes 160 samples per side, with an additional 0.6 scale on the right result. Each reverb invocation processes 159 loop samples plus one final sample. Three parallel comb outputs feed two all-pass stages, then the recurrence `0.3 * stage_output + damping * previous_history`, then a third all-pass stage. Output combines wet and original samples with weights `0.6 * level` and `0.6 * (1-level)`, using truncating integer conversion. Comb/all-pass cursors and filter histories persist across blocks.
+
+The canonical pre-delay branch has suspicious pointer persistence: it loads the channel's line base into r30 but stores the advanced pointer through `preDelayPtr(r30)`, rather than the work-bank base r28. Its wrap comparison uses `base + 4*(preDelayTime-1)`. These details must not be silently replaced with a conventional circular-buffer description. The comment questioning a missing third all-pass length load is not proof of a missing load: that length is loaded later at lines 440 and 554.
+
+Initialization, settings and shutdown run under interrupt exclusion. Settings ignores modification failure and always returns 1; modification accepts pre-delay up to 100.0 before freeing storage, whereas recreation accepts only 0.1. Modification also frees pre-delay through OSFreeToHeap rather than the AXFX free hook used by ordinary teardown. Shutdown does not clear descriptors or disable future callbacks. The inspected auxiliary-driver caller unregisters the old callback before shutdown and registers replacement processing only after successful initialization.
+
+All 699 canonical and rendered lines, all 29 subjects, all 48 facts and all 17 links were reviewed. The renderer reported 662 parse errors and zero substitutions; rendered names were not used as independent evidence. Thirty-six facts and fifteen links are retained, three kernel explanations are corrected, and nine section-associated facts plus two section links remain unresolved because no compiled section evidence was supplied.
+
+Status: synthesized; independent review and live promotion pending.

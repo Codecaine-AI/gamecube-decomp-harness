@@ -1,0 +1,303 @@
+{
+  "tu": "main/melee/gr/grpura",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grpura:grPura_80211DDC"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Parameterless, void-returning stage-start callback with signature void grPura_80211DDC(void). It calls grZakoGenerator_801CAE04(NULL), discards the returned manager pointer, and returns normally; it is not a noreturn function.",
+        "rationale": "Corrects the existing conflation of returning no value with never returning.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L321-L324",
+            "why": "Complete void wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Callee returns on both success and GObj-creation failure."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grpura:grPura_80212FC0"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Stage-initialization helper with signature void (HSD_GObj*); its argument is unused. It scans the first 42 slots of the 44-record static GrPuVtxMapEntry array. Each record contains a GrJoint encoding collision-vertex, map-object and model-joint indices, an additional s16 field, and a nullable cached HSD_JObj pointer.",
+        "rationale": "Distinguishes the actual declaration length from the fixed processing bound without making compiled layout claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L34-L38",
+            "why": "Record fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L504-L549",
+            "why": "44 declared records."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L842-L855",
+            "why": "Unused parameter and 42-slot scan."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grpura:grPura_80213030"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Stage-local recurring update helper with signature void (Ground_GObj*). The object argument is unused. The body scans the first 42 slots of the static 44-record vertex-mapping array, uses non-null cached JObjs to update mapped collision vertices, and then refreshes four collision-group bounds.",
+        "rationale": "Corrects the table-length claim while retaining the supported callback shape and static-table data source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L504-L549",
+            "why": "Array declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L857-L873",
+            "why": "Signature, bound, pointer guard and unconditional bounds updates."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grpura:grPura_80212FC0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "During object-4 initialization, scans slots 0 through 41 of the 44-record mapping array. A collision-vertex index of -1 skips that slot rather than terminating traversal. Otherwise, an existing map GObj permits replacement of the cached JObj with the joint lookup result. A missing map GObj leaves the existing cache unchanged; there is no preliminary cache reset. The separate recurring updater consumes non-null caches. The final two zero-initialized records are outside both loops.",
+        "rationale": "Preserves fixed-bound traversal and the exceptional stale-cache branch rather than treating every unresolved lookup as a newly cleared null.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L504-L549",
+            "why": "Sentinel-like record followed by two zero records."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L842-L873",
+            "why": "Guarded cache replacement and separate fixed-bound consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grpura:stageGObj1_Callback3"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides an inactive fourth callback hook for Pok\u00e9 Floats object 1. Its neighboring initialization and process callbacks coordinate stage fog color and camera background color; this empty hook itself changes neither presentation nor gameplay state.",
+        "rationale": "Canonical Ground_801C205C writes HSD_Fog.color, not a ground-light color.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L431-L485",
+            "why": "Color controller and empty hook."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1150-L1158",
+            "why": "Guarded fog-color assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grpura:stageGObj27_Callback3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies the deliberately empty fourth callback-table hook for Pok\u00e9 Floats ground object 27. setupStageCallbacks installs it as Ground.x1C_callback, and the common Ground destruction path invokes that hook; this implementation performs no object-specific cleanup.",
+        "rationale": "Corrects third-versus-fourth slot numbering and identifies the verified cross-file invocation without inferring resource cleanup from an empty body.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L268-L274",
+            "why": "Fourth callback position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L354-L355",
+            "why": "Installation into x1C_callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L398-L398",
+            "why": "Empty implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2790-L2827",
+            "why": "Ground destruction invokes the installed hook."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grpura:stageGObj27_OnInit"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes Pok\u00e9 Floats map object 27's animation by forwarding its Ground_GObj and stored map_id to grAnime_801C8138 with animation selector zero. Although the helper spells its third parameter bool, it uses that value as an animation-array index; zero does not disable animation.",
+        "rationale": "Corrects the unsupported disabled-Boolean interpretation using the canonical callee's indexed arrays and animation calls.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L385-L389",
+            "why": "Own map ID and zero argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L988-L1048",
+            "why": "Bool-spelled parameter has numeric selector behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grpura:stageGObj4_Callback3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies the deliberately empty fourth callback-table hook for Pok\u00e9 Floats ground object 4. The setup helper installs this hook into Ground.x1C_callback for invocation by the common Ground destruction path; the hook itself performs no cleanup of camera-subject pairs or collision caches.",
+        "rationale": "Corrects the slot number and preserves the distinction between callback invocation and unproven resource-lifetime management.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L107-L113",
+            "why": "Fourth callback position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L354-L355",
+            "why": "Hook installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L422-L422",
+            "why": "Empty implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2790-L2827",
+            "why": "Common destruction invocation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grpura:stageGObj4_OnInit"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards object 4's Ground_GObj through Ground_JObjInline1, camera-subject initialization, subsidiary model initialization, and collision-reference resolution, in that order. Camera initialization clears and rebuilds up to 25 JObj/CmSubject pairs in the object's Ground state. The model helper scans 27 descriptors and configures destination objects and cached source-joint bindings. Finally, the collision resolver scans the first 42 slots of the 44-record global mapping array and conditionally stores resolved JObjs.",
+        "rationale": "Corrects the existing ordering and array-length claims while preserving the supported coordinator data flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L400-L406",
+            "why": "Exact call order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L504-L549",
+            "why": "44-record declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L719-L855",
+            "why": "Three helper data flows and bounds."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gr/grpura.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "grPu_StageData registers PURA with /GrPu.dat and the indexed map-object callback table. Startup caches the common yakumono pointer and sets up objects 0, 1 and 4. Object 4 initializes camera-subject pairs before descriptor-selected model objects and collision-joint caches; recurring callbacks propagate animated joint positions into camera subjects and collision vertices and copy driver transforms and visibility into displayed models. Object 1 sends palette colors to the guarded stage-fog setter and camera background setter. Model setup and rendering temporarily select the stage-owned toon image, then clear the shared image selection to null.",
+        "rationale": "Replaces incorrect lighting terminology with verified fog behavior and preserves initialization order and shared-state clearing.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L277-L368",
+            "why": "Registration and setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L400-L483",
+            "why": "Coordinator order and palette outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L672-L891",
+            "why": "Model, camera, collision and toon flows."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1150-L1158",
+            "why": "Fog setter's guarded destination."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gr/grpura.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Object 1 starts with distinct random source and destination indices in a four-color palette and counter zero. For counter values 0 through 3599, it computes RGB using the pre-increment fraction counter/3600, increments the counter, and submits the color to stage fog and camera background. The next invocation promotes the destination, chooses a different target and resets the counter without submitting a color; the following invocation outputs the new source at fraction zero. Independently, recurring callbacks update complete camera-subject pairs, copy model transforms, reconcile mismatched root hidden flags across destination hierarchies, and update collision vertices from non-null caches in a fixed 42-slot prefix. Four collision bounds are refreshed regardless of how many vertices were updated.",
+        "rationale": "Corrects lighting to fog and makes the separate rollover invocation, pre-increment fraction and guarded recurring updates explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L431-L483",
+            "why": "Initialization, interpolation and no-output rollover."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L690-L715",
+            "why": "Transform copying and mismatch-only visibility changes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grpura.c#L822-L873",
+            "why": "Pair/cache guards and unconditional bounds refresh."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1150-L1158",
+            "why": "Fog output may be skipped when required pointers are absent."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

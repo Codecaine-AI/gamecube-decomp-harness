@@ -1,0 +1,10 @@
+### OSStopwatch.c
+Implements named stopwatch accumulation using OSGetTime. Initialization stores the supplied name pointer without copying and clears total/hits/max, setting min to exactly 0x00000000FFFFFFFF; it does not initialize running or last. Reset calls initialization with the existing name, so it likewise leaves running/last unchanged. Consequently reset during an active interval does not restart its time origin. [code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSStopwatch.c#L4-L15] [code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSStopwatch.c#L44-L46]
+
+Start unconditionally sets running to 1 and records a new last timestamp: repeated starts replace the prior origin rather than accumulating it. Stop acts only when running is nonzero, adding the elapsed interval, clearing running, incrementing hits, and updating extrema. The initial minimum is a finite sentinel, not an unlimited minimum initializer; intervals above it alone will not update min. Check returns accumulated total plus any currently running interval without modifying stopwatch state. [code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSStopwatch.c#L12-L42]
+
+Dump reports the name, stored total, hits, extrema and mean, converting tick quantities to microseconds. It does not include an ongoing interval through OSCheckStopwatch. Mean divides stored total by hits before conversion, with no zero-hit guard. The name pointer must remain suitable for later reporting; this file provides no ownership management. Caller initialization discipline and zero-hit dump avoidance are not established here. [code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSStopwatch.c#L48-L55]
+
+Canonical and rendered views agree: no substitutions or parse errors. Existing descriptive API names fit their implementations, subject to the initialization/reset caveats above. The frozen baseline contains no subjects, facts, or links, and there are no writable subjects; no KB changes are proposed.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

@@ -1,0 +1,361 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-harness-state-30-operator-actions",
+  "title": "Operator Actions",
+  "root": "b-30-operator-actions-root-54",
+  "blocks": {
+    "b-30-operator-actions-root-54": {
+      "id": "b-30-operator-actions-root-54",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "sweep-0ab4c355089e4958",
+        "sweep-f23d638ff73e47b0",
+        "sweep-a8ac5e9de17a40d9",
+        "sweep-c8e7110139fc4a90",
+        "sweep-b15b3b8d9ba84510",
+        "sweep-c84a19faabe24d75",
+        "sweep-52413e21772244d8",
+        "sweep-238ba6c8dce941d3",
+        "sweep-83f6cc5008964989",
+        "sweep-91c7edf51a5a448a",
+        "sweep-db70dcf75b5e46b9",
+        "sweep-c2c8e6c7ba49462d"
+      ]
+    },
+    "sweep-0ab4c355089e4958": {
+      "id": "sweep-0ab4c355089e4958",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "HarnessStateView is the server-owned projection of current coordination and operator authority. It contains 13 canonical actions, including disabled actions with their blockers. Clients display these guards and confirmation requirements; command routes recheck them before accepting a request."
+        }
+      ],
+      "children": []
+    },
+    "sweep-f23d638ff73e47b0": {
+      "id": "sweep-f23d638ff73e47b0",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Projection State"
+        }
+      ],
+      "children": []
+    },
+    "sweep-a8ac5e9de17a40d9": {
+      "id": "sweep-a8ac5e9de17a40d9",
+      "type": "code",
+      "props": {
+        "language": "typescript"
+      },
+      "text": [
+        {
+          "insert": "interface HarnessStateView {\n  game_id: string;\n  harness_revision: number;\n  cycle: CycleSummary | null;\n  active_workflow: ActiveWorkflowSummary | null;\n  queued_dispatch_requests: QueuedDispatchRequest[];\n  run: RunSummary | null;\n  pr_work: [];\n  sync: SyncSummary | null;\n  repo_sync: RepoSyncProjection;\n  knowledge: KnowledgeFreshnessSummary;\n  active_operations: [];\n  recent_events: EventSummary[];\n  available_actions: ActionProjection[]; // Exactly 13 entries.\n  compatibility_actions: [];\n}"
+        }
+      ],
+      "children": []
+    },
+    "sweep-c8e7110139fc4a90": {
+      "id": "sweep-c8e7110139fc4a90",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This is a field summary of the current projection. cycle includes cycle_uuid, head_revision, status, save-point evidence, blockers, and timeline. knowledge includes queued, processing, waiting, failed, oldest_pending_at, active_lease, retry, and recent_failures. The projection supplies empty pr_work, active_operations, and compatibility_actions arrays."
+        }
+      ],
+      "children": []
+    },
+    "sweep-b15b3b8d9ba84510": {
+      "id": "sweep-b15b3b8d9ba84510",
+      "type": "code",
+      "props": {
+        "language": "typescript"
+      },
+      "text": [
+        {
+          "insert": "interface ActionProjection {\n  action_id: string;\n  subject_kind: string;\n  subject_id: string;\n  enabled: boolean;\n  blocked_by: Blocker[];\n  expected_transition: string;\n  confirmation_required: boolean;\n}"
+        }
+      ],
+      "children": []
+    },
+    "sweep-c84a19faabe24d75": {
+      "id": "sweep-c84a19faabe24d75",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Canonical Actions"
+        }
+      ],
+      "children": []
+    },
+    "sweep-52413e21772244d8": {
+      "id": "sweep-52413e21772244d8",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Action",
+          "Subject",
+          "Expected Transition",
+          "Confirmation",
+          "Owner"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "run.start",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Run",
+            "ready → active",
+            "single click",
+            "Run workflow"
+          ],
+          [
+            [
+              {
+                "insert": "run.resume",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Run",
+            "paused → active",
+            "single click",
+            "Run workflow"
+          ],
+          [
+            [
+              {
+                "insert": "run.hard_stop",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Run",
+            "active/paused → paused with cancellations",
+            "required",
+            "Run workflow"
+          ],
+          [
+            [
+              {
+                "insert": "run.cancel",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Run",
+            "nonterminal → cancelled",
+            "required",
+            "Run workflow"
+          ],
+          [
+            [
+              {
+                "insert": "run.recover",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Run",
+            "failed → paused after reconciliation",
+            "required",
+            "Run workflow"
+          ],
+          [
+            [
+              {
+                "insert": "sync.start",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Sync",
+            "requested → ingesting",
+            "single click",
+            "Sync workflow"
+          ],
+          [
+            [
+              {
+                "insert": "sync.resolve_conflict",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Sync",
+            "blocked → reconciling/validating",
+            "single click",
+            "Sync workflow"
+          ],
+          [
+            [
+              {
+                "insert": "sync.publish",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Sync",
+            "validated → publishing → published",
+            "required",
+            "Sync workflow"
+          ],
+          [
+            [
+              {
+                "insert": "sync.cancel",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Sync",
+            "pre-publication → cancelled",
+            "required",
+            "Sync workflow"
+          ],
+          [
+            [
+              {
+                "insert": "sync.recover",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Sync",
+            "blocked/publishing → safe forward state",
+            "required",
+            "Sync workflow"
+          ],
+          [
+            [
+              {
+                "insert": "cycle.save_point",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Cycle",
+            "append evidence; lifecycle unchanged",
+            "single click",
+            "Save points"
+          ],
+          [
+            [
+              {
+                "insert": "cycle.close",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Cycle",
+            "active → closing → closed",
+            "required",
+            "Cycles"
+          ],
+          [
+            "knowledge.process",
+            "Game",
+            "queued → processing → succeeded",
+            "single click",
+            "Background knowledge processor"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "sweep-238ba6c8dce941d3": {
+      "id": "sweep-238ba6c8dce941d3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Game descriptor resolution and cycle opening are entry operations outside this inventory. PR campaign actions are absent from the current projection. Epoch draft-PR publication remains an active scheduler path and does not require a campaign action."
+        }
+      ],
+      "children": []
+    },
+    "sweep-83f6cc5008964989": {
+      "id": "sweep-83f6cc5008964989",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Confirmation and Freshness"
+        }
+      ],
+      "children": []
+    },
+    "sweep-91c7edf51a5a448a": {
+      "id": "sweep-91c7edf51a5a448a",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The projected confirmation flag is required for run.hard_stop, run.cancel, run.recover, sync.publish, sync.cancel, sync.recover, and cycle.close. All other canonical actions use a single click."
+        }
+      ],
+      "children": []
+    },
+    "sweep-db70dcf75b5e46b9": {
+      "id": "sweep-db70dcf75b5e46b9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sync stays validated until publication confirmation. Upstream movement blocks publication until staged state is revalidated. knowledge.process can be blocked by an active materializer lease, retry backoff, or an empty queue."
+        }
+      ],
+      "children": []
+    },
+    "sweep-c2c8e6c7ba49462d": {
+      "id": "sweep-c2c8e6c7ba49462d",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The inventory and DTO are built in "
+        },
+        {
+          "insert": "apps/server/src/application/dashboard/read-model.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/application/dashboard/read-model.ts"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
+}

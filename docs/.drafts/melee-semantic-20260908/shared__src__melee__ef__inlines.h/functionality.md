@@ -1,0 +1,3 @@
+`src/melee/ef/inlines.h` is an include-guarded macro header. `GET_EFFECT(gobj)` calls `HSD_GObjGetUserData` and casts its result to `EF_Effect*`. When `M2C` is defined, it additionally casts the argument to `HSD_GObj*`; otherwise it passes the argument directly. The macro provides no explicit null/type validation or allocation, release, or ownership transfer. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/inlines.h#L1-L10. Canonical and rendered text agree; no name substitutions or renderer errors were reported. No baseline subjects, facts, or links exist to revise or retain.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

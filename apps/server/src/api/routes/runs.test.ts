@@ -2,6 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { handleRunsApiRoute, type RunsApiRouteDeps } from "./runs.js";
 
 describe("handleRunsApiRoute", () => {
+  test.each(["complete", "fresh", "init"])("does not handle retired run %s commands", async (command) => {
+    const url = new URL(`http://localhost/api/run/${command}`);
+    const response = await handleRunsApiRoute(new Request(url, { method: "POST" }), url, {} as RunsApiRouteDeps);
+    expect(response).toBeNull();
+  });
+
   test("routes an explicitly confirmed game lease force-release", async () => {
     const received: Record<string, unknown>[] = [];
     const deps = {

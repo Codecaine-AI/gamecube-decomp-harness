@@ -1,0 +1,27 @@
+1: #include <dolphin/base/PPCArch.h>
+2: #include <dolphin/db.h>
+3: #include <dolphin/os.h>
+4: 
+5: u8 DBStack[4096];
+6: u8* DBStackEnd = DBStack + 4088;
+7: BOOL DBVerbose;
+8: struct DBInterface* __DBInterface;
+9: 
+10: void DBInit(void)
+11: {
+12:     __DBInterface = OSPhysicalToCached(0x40);
+13:     __DBInterface->ExceptionDestination =
+14:         (void*) OSCachedToPhysical(__DBExceptionDestination);
+15:     DBVerbose = TRUE;
+16: }
+17: 
+18: BOOL DBIsDebuggerPresent(void)
+19: {
+20:     if (__DBInterface == NULL) {
+21:         return FALSE;
+22:     }
+23:     return __DBInterface->bPresent;
+24: }
+25: 
+26: void __DBExceptionDestinationAux(void)
+27: {

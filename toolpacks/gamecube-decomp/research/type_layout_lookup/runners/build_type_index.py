@@ -62,7 +62,7 @@ def resolve_inputs(args: argparse.Namespace) -> tuple[Path | None, Path | None, 
         return ctx, None, error_payload(
             "ctx_not_found",
             f"Context file not found: {ctx}",
-            "Generate it from the project checkout with: python3 tools/m2ctx/m2ctx.py -p",
+            "Generate build/ctx.c with the context script provided by the selected project.",
             ctx=str(ctx),
         )
     src_root = args.src_root.expanduser().resolve() if args.src_root else (repo_root / "src" if repo_root else None)
@@ -166,4 +166,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

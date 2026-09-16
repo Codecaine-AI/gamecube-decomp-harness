@@ -1,0 +1,201 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Turn",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L28-L47",
+            "why": "Complete predicate and conditional Basic entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates exact predicate from unverified configuration semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Turn:ftCo_800C97A8"
+        },
+        "type": "purpose",
+        "value": "Evaluates the facing-relative horizontal-stick threshold used by ftCo_Turn_CheckInput to select Basic Turn, without changing fighter state. The exact condition is input.lstick[0].x * facing_dir <= p_ftCommonData->x34; interpreting it as strictly backward input depends on configured x34 and the facing convention."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L28-L47",
+            "why": "All local branches and wrapper use."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves comparison polarity and states boundary/precondition limits.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Turn:ftCo_800C97A8"
+        },
+        "type": "state_behavior",
+        "value": "Returns true exactly when input.lstick[0].x * facing_dir <= p_ftCommonData->x34; equality qualifies and unordered floating-point comparison fails. It performs no state writes. Its wrapper enters Basic Turn only on true. There is no local groundedness or facing normalization check."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L72-L95",
+            "why": "Helper early return and separate completion query."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects global persistence implication and countdown boundary.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Turn:ftCo_Turn_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Calls ftCo_Turn_Anim_Inner first on every invocation, then calls ft_8008A2BC only if ftAnim_IsFramesRemaining is false. A positive countdown is decremented with an immediate helper return, so reaching zero by subtraction does not reverse facing until a later helper invocation. Completion dispatch is independent of whether reversal has happened; this callback alone does not guarantee persistence against IASA or collision transitions."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L72-L148",
+            "why": "Producer and common consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyheavyturn.c#L16-L32",
+            "why": "Shared helper with distinct IASA."
+          }
+        ],
+        "op": "write",
+        "rationale": "Clarifies conditional decrement and consumer-specific event lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Turn:ftCo_Turn_Anim_Inner"
+        },
+        "type": "data_flow",
+        "value": "Reads frames_to_turn and subtracts 1.0F only while it is strictly positive. Otherwise, if has_turned is false, sets has_turned and just_turned true and negates current facing_dir. Common Turn IASA reads these flags for button replay, conditional facing presentation and Dash eligibility, but clears just_turned only if it reaches its tail. HeavyTurn also calls this helper and does not use common Turn IASA in its shown callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L72-L148",
+            "why": "Exact floating comparison, subtraction and conditional cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents exceptional floats, off-by-one boundary and non-universal event lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Turn:ftCo_Turn_Anim_Inner"
+        },
+        "type": "state_behavior",
+        "value": "A strictly positive frames_to_turn is decremented by 1.0F and the invocation returns without reversing, including when subtraction reaches zero. When the positive comparison is false, an unset has_turned permits a one-time current-facing negation and sets both flags. Zero, negative values and NaN bypass the positive branch under ordinary C floating-point comparisons; positive infinity or sufficiently large finite values may never decrease to the turn point. just_turned remains set until some consumer clears or replaces that state; common Turn IASA clears it only on tail-reaching paths."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L155-L158",
+            "why": "Adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L392-L404",
+            "why": "Position update and query-result mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1027-L1033",
+            "why": "Exact Fall-entry condition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Uses actual guard rather than inferred meaning of enum names.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Turn:ftCo_Turn_Coll"
+        },
+        "type": "purpose",
+        "value": "Adapts Turn collision processing to ft_80083F88. That helper updates collision position through ft_80082708 and invokes ftCo_Fall_Enter precisely when the result equals GA_Ground. The physical contact meaning of mpColl_8004B108 and all special cases inside Fall entry are not established by this adapter."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L64-L70",
+            "why": "Complete routine."
+          }
+        ],
+        "op": "write",
+        "rationale": "Avoids inferring ownership from access.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Turn:ftCo_Turn_Enter_Basic"
+        },
+        "type": "inferred_type",
+        "value": "Fighter entry routine with source signature void(Fighter_GObj* gobj). It obtains the associated Fighter, reads co_attrs.standing_turn_frames, and forwards gobj and that delay to ftCo_Turn_Enter. It does not allocate, retain or release the object; broader ownership is an external contract."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L97-L171",
+            "why": "Complete replay, transition, latch and tail data flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects stale input alias and unconditional-cleanup implication.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Turn:ftCo_Turn_IASA"
+        },
+        "type": "data_flow",
+        "value": "On just_turned, ORs x1C into canonical input.pressed_buttons. Before has_turned it negates facing_dir for the first transition group; early acceptance bypasses the later conditional restoration. If all predicates fail, fn_800C9C2C may write x8 from facing_after, and just_turned plus scalar truth of x8 plus current facing-relative threshold input may call ftCo_Dash_Enter(gobj, 0). There is no return after this call. Tail-reaching paths OR A/B presses into x1C and conditionally clear just_turned, even after Dash entry; early-return paths skip that tail."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L97-L171",
+            "why": "Canonical priority, branch order and post-Dash continuation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L67-L101",
+            "why": "Actual optional SpecialLw/SpecialHi dispatch proof."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects rapid-attack misidentification and makes callback control-flow/lifetime boundaries explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Turn:ftCo_Turn_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Replays x1C into pressed_buttons on just_turned, then before reversal negates facing for ordered checks: ftCo_SpecialS_CheckInput, ftCo_800D68C0, ftCo_Attack100_CheckInput, ftCo_Catch_CheckInput, AttackS4/Hi4/Lw4, AttackS3/Hi3/Lw3 and Attack1. The canonical ftCo_800D68C0 and ftCo_Attack100_CheckInput actually dispatch optional SpecialLw and SpecialHi table callbacks respectively; the latter is not rapid attack here. Each accepted check returns immediately. Only continuing execution conditionally negates facing back, then checks ftCo_80091A4C, ftCo_800DE9D8 and Jump in order. If all fail, it updates the x8 latch and may enter Dash with argument 0 when just_turned, x8 truth and current strength pass. The final Dash guard has no fresh timing requirement. Processing continues after Dash entry to A/B accumulation and conditional just_turned clearing; all earlier returns skip this cleanup."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L28-L189",
+            "why": "Complete TU control flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Provides source-exact TU summary with branch and timing qualifications.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_Turn.c"
+        },
+        "type": "state_behavior",
+        "value": "Basic Turn is selected by the configurable facing-relative <= x34 predicate and initializes standing_turn_frames; Smash initializes zero delay and original facing in x8. A positive countdown is decremented and returned from; only a later eligible helper invocation negates current facing once. IASA replays accumulated A/B presses on just_turned, arbitrates ordered early-return transitions, and may enter Dash if just_turned, x8 scalar truth and current facing_after-relative strength pass. The intent helper has a strict timing window but its failure does not clear x8, and the final Dash guard has no fresh timing test. Tail cleanup is path-dependent and still executes after Dash entry. Physics and collision delegate to shared helpers; neither initializer explicitly reverses facing in its own body."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

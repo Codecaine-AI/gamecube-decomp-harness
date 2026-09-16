@@ -1,0 +1,112 @@
+{
+  "tu": "main/melee/ef/efdata",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efdata.c#L1-L8",
+            "why": "Complete owned definitions and address annotations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efdata.h#L7-L12",
+            "why": "Exported declarations include an additional allocator."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported typed-storage description without treating source address comments as compiled-layout evidence.",
+        "subject": {
+          "entity_locator": "src/melee/ef/efdata.c"
+        },
+        "type": "inferred_type",
+        "value": "Data-only translation unit defining HSD_ObjAllocData efLib_AllocData, u32 efLib_LoadKind, u32 efLib_EffectCount, and s32 efLib_AnimCount. The scalar address comments annotate 0x804D64E8, 0x804D64EC, and 0x804D64F0 respectively; compiled section placement and extent are not independently established. The header additionally declares efAsync_AllocData, which is not defined in this unit."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efdata.c#L1-L8",
+            "why": "Shared storage definitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L40-L43",
+            "why": "Explicit numeric mode mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L442-L468",
+            "why": "Accounting increment precedes allocation and failure return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the established purpose while correcting the unconditional live-count characterization.",
+        "subject": {
+          "entity_locator": "src/melee/ef/efdata.c"
+        },
+        "type": "purpose",
+        "value": "Provides shared mutable effect allocator metadata and global creation-mode, creation-accounting-counter, and pending-animation-count storage. efLib_EffectCount accounts for mode-0 creation, named EF_LOADKIND_ASYNC, but is not an infallible live-object count because creation increments it before allocation and does not roll back effect-allocation failure."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L154-L187",
+            "why": "Exact sizeof expression, alignment argument, and initialization writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L59-L74",
+            "why": "EF_Effect size is annotated in a comment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.h#L19-L33",
+            "why": "Size assertion applies to allocator metadata, a different type."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L337-L384",
+            "why": "Conditional decrement/free and exceptional eviction outcome."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L442-L529",
+            "why": "Allocation failures, mode copy, and post-insertion animation-count check."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efsync.c#L654-L659",
+            "why": "Synchronous countdown drain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1122-L1127",
+            "why": "Asynchronous-dispatch countdown drain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efalt.c#L534-L542",
+            "why": "Alternate-dispatch countdown drain."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful allocator and failure-path knowledge while repairing the unsupported literal allocator-size claim and preserving cross-file lifetime and queue semantics.",
+        "subject": {
+          "entity_locator": "src/melee/ef/efdata.c"
+        },
+        "type": "data_flow",
+        "value": "efLib_Init configures efLib_AllocData using sizeof(EF_Effect) with alignment argument 4U and resets efLib_EffectCount, without explicitly resetting efLib_LoadKind or efLib_AnimCount. EF_Effect has a source size annotation of 0x2C; its compiled layout remains unresolved, and the HSD_ObjAllocData size assertion does not prove EF_Effect's size. Mode-0 creation attempts eviction at count >= 64 and increments before allocation. Effect-allocation failure leaves that increment unrolled back; GObj-allocation failure reaches the duplicate-free assertion branch. Cleanup decrements only for non-NULL effect->gobj and is_async == 0, then frees through efLib_AllocData. Animated models increment AnimCount and store at its prior index before checking >= 32; dispatch epilogues predecrement and animate indexed entries until the signed count equals zero."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,39 @@
+485: enum_t ftCo_8009E318(Fighter_GObj* gobj, enum Fighter_Part arg1, f32 arg2)
+486: {
+487:     Fighter* fp = GET_FIGHTER(gobj);
+488:     HSD_JObj* part_jobj = fp->parts[arg1].joint;
+489:     ssize_t i;
+490:     for (i = 0; i < fp->dynamics_num; i++) {
+491:         ssize_t j;
+492:         struct DynamicsData* cur;
+493:         for (cur = fp->dynamic_bone_sets[i].dyn_desc.data, j = 0; cur != NULL;
+494:              cur = cur->next, j++)
+495:         {
+496:             if (cur->desc.lb_unk0.jobj == part_jobj) {
+497:                 if (fp->parts[arg1].flags_b0) {
+498:                     fp->parts[arg1].flags_b0 = false;
+499:                     fp->dynamic_bone_sets[i].bone_id = j + 1;
+500:                     goto exit_true;
+501:                 } else {
+502:                     fp->parts[arg1].flags_b0 = true;
+503:                     fp->dynamic_bone_sets[i].bone_id = j;
+504:                     goto exit_false;
+505:                 }
+506:             }
+507:         }
+508:     }
+509:     return -1;
+510: exit_true: {
+511:     if (fp->x590 != 0) {
+512:         ftAnim_8006EED4(fp, arg1, fp->x590, arg2, fp->frame_speed_mul);
+513:     }
+514:     return 0;
+515: }
+516: exit_false: {
+517:     HSD_JObj* walk_jobj =
+518:         ftCo_8009E1D4(GET_JOBJ(gobj), fp->x8AC_animSkeleton, part_jobj);
+519:     ftAnim_80070758(part_jobj);
+520:     ftAnim_80070758(walk_jobj);
+521:     return 0;
+522: }
+523: }

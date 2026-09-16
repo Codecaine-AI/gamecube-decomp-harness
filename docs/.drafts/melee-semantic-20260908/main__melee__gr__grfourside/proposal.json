@@ -1,0 +1,185 @@
+{
+  "tu": "main/melee/gr/grfourside",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L116-L155",
+            "why": "Registration and ordinary void wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L157-L171",
+            "why": "Names the stage-start slot."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the ambiguous and technically incorrect description of a void callback as non-returning.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grfourside:grFourside_801F2DA4"
+        },
+        "type": "inferred_type",
+        "value": "Parameterless stage-start callback with signature `void grFourside_801F2DA4(void)`, installed in Fourside's `StageData.on_start` slot. It calls the shared generator-manager constructor, discards its result, and returns without a value; it is not a non-returning function."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L247-L263",
+            "why": "Unconditional lookup and extraction precede the guarded increment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L518-L550",
+            "why": "Signal selects an appearance-test range."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L610-L612",
+            "why": "Signal is cleared after the common update."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the producer/consumer lifetime while correcting the claim that object lookup occurs only after a matching category test.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grfourside:grFourside_801F30A0"
+        },
+        "type": "data_flow",
+        "value": "Unconditionally looks up map object 5, reads the collision byte represented at offset 0x34, obtains that object's Ground payload, and extracts `(value >> 3) & 0xF`. Only when the extracted value equals 1 does it increment `u.fourside2.x8`, the transient signal subsequently consumed as `u.foursideUfo.x8`. The UFO update tests this signal during an expired state-0 wait and clears it after every update. The callback has no local null guard for map object 5 and does not consume its other arguments."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L284-L303",
+            "why": "Initializer arguments and stored controller values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L889-L968",
+            "why": "Separates type mask, animation index, frame and rate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L473-L486",
+            "why": "Position and collision consumers."
+          }
+        ],
+        "op": "write",
+        "rationale": "The existing explanation mistakes the animation-type mask for animation index 7 and implies animation playback where the supplied rate is zero.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grfourside:grFourside_801F3154"
+        },
+        "type": "data_flow",
+        "value": "Consumes the Ground object's root JObj and map ID, crane joint 4, and Fourside yakumono parameters. It associates model and collision, then calls `grAnime_801C7FF8(gobj, 0, 7, 0, 0.0f, 0.0f)`: joint index 0, animation-type mask 7, animation-set index 0, requested frame 0 and rate 0. It seeds the countdown with `crane_wait` plus an optional random addition below `crane_wait_add`, samples joint 4's Y minus 10 as the baseline, and copies that baseline into current and target Y. The recurring crane callback later writes current Y to joint 4 and refreshes map collision."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L319-L461",
+            "why": "Complete numeric state machine and exceptional branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L473-L486",
+            "why": "Unconditional output application."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful exact timing, strict threshold and asymmetric crossing behavior without assigning unsupported spatial meanings to animation segments.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grfourside:grFourside_801F3274"
+        },
+        "type": "state_behavior",
+        "value": "Runs crane states 0\u20137. State 0 decrements a positive wait; otherwise it requests frame 0 or 400 according to x1.b0, sets rate 1, resets the counter and enters state 1 or 2. States 1/2 increment while the counter is below 300; on a later update observing >=300 they stop animation, assign the opposite direction bit and enter state 3. State 3 seeds the vertical wait and enters 4. State 4 decrements a positive wait; otherwise it selects a target below or above baseline according to whether current Y is above baseline, using an integer random range from the absolute configured range difference and the absolute minimum displacement. States 5/6 subtract/add configured speed until crossing the target. State 5 clamps current Y immediately; state 6 does not. Both initialize x14 and x18 to speed, x1C to stopping acceleration, and enter 7. State 7 snaps to target, seeds the main wait and returns to 0 when abs(x1C)>x14; otherwise it integrates x18 and current Y and multiplies x1C by -2 on each applicable directional target-crossing test. The wrapper always applies current Y to joint 4 and refreshes collision."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L514-L623",
+            "why": "Full switch, snapshots and unconditional tail."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1081-L1099",
+            "why": "Entry-completion and departure-gate helpers test distinct animation flags."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the simplified departure gate and preserves blocked-success retries, signed parameter conversions, camera ordering and the carried timer rather than claiming an unconditional exact 60-frame phase.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grfourside:grFourside_801F3894"
+        },
+        "type": "state_behavior",
+        "value": "Dispatches a snapshot of UFO state and previous placement through states 0, 1, 2 and 4. State 0 decrements a positive wait. At expiry, a nonzero transient x8 selects signed-16-bit x46 as the random range; reaching the signed-16-bit ufo_challenge threshold overrides it with signed-16-bit x48. A zero range or failed random test resets ufo_wait and increments x2. A successful test resets x2 and chooses one of three placements different from the previous placement. Placement 2 bypasses helicopter blocking; blocked alternatives leave state and expired timer unchanged. An accepted placement selects animation placement*4, enables visibility/collision, obtains a temporary camera subject and enters 1. In state 1, entry-animation completion first sets a randomized stay timer, selects placement*4+1, releases and clears the camera pointer and enters 2; the camera helper and one-shot sound check still execute afterward. State 2 decrements a positive timer; at expiry it additionally requires `grAnime_801C84A4(gobj,0,7)` before selecting placement*4+2 and entering 4. State 4 carries the existing timer, increments it while below 60, and on an update observing >=60 hides the model, removes collision participation, restores ufo_wait and returns to 0. Every update refreshes map collision and clears x8, including unhandled numeric states. No state-3 branch is present."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L86-L106",
+            "why": "Distinct helicopter and UFO callback rows."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L490-L546",
+            "why": "Map-5 UFO controller and placement assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L672-L749",
+            "why": "Helicopter behavior and map-5 coordination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing paired-helicopter identification using map 5's canonical UFO initialization and placement producer.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grfourside:grFourside_801F3CC8"
+        },
+        "type": "purpose",
+        "value": "Updates Fourside map object 3's background-helicopter controller. It schedules appearance, reveals and animates the helicopter, emits approach and departure cues, and checks the UFO controller at map object 5 before beginning entry or departure. After departure completion it hides the helicopter and schedules another randomized wait. The cooperating object is the UFO, not a second helicopter."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L529-L538",
+            "why": "UFO x1 is placement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grfourside.c#L652-L749",
+            "why": "Initialization and all helicopter transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1056-L1089",
+            "why": "Animation-type mask and completion predicate."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects partner-state interpretation and animation argument semantics while preserving the otherwise easy-to-miss timer behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grfourside:grFourside_801F3CC8"
+        },
+        "type": "state_behavior",
+        "value": "Runs helicopter states 0\u20133. State 0 decrements a positive x4; at expiry it starts entry only when map 5's UFO is in state 0 or has placement x1==2, then reveals the model, selects animation 0, clears the arrival marker and enters 1. State 1 samples joint 2 while the marker is zero and emits 0x704E1 once its world Y is <= camera-top offset +50; an animation-completion test then advances to 2 without loading a stay timer. State 2 decrements positive x4 and otherwise applies the same UFO state/placement guard before selecting animation 2, emitting 0x704E2, setting x4=0 and entering 3. State 3 tests animation completion; on completion it hides the model, enters 0 and seeds x4 with heli_wait plus an optional random addition. It then increments x4 unconditionally, including on that completion update. UFO placement 2 is not a terminal phase, the animation helper's argument 7 is a type mask rather than track index 7, and this controller does not read heli_stay_time."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

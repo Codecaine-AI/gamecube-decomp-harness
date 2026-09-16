@@ -1,0 +1,1308 @@
+{
+  "contract": "lean-v2",
+  "verdict": "accepted",
+  "adopt_handoff_sha256": "550e637a7de25e89fb2b7d1cd3de0297c2e87d84f741787a951727dfca0e225d",
+  "proposal_sha256": "6a55b098f7dfec29d6d6dec72d3be0a0f75759bdbda7e6cef91cbd325f967327",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "fact_overrides": [],
+  "link_overrides": [],
+  "rejected": [],
+  "review_notes": [],
+  "independent_checks": {
+    "handoff_sha256": "550e637a7de25e89fb2b7d1cd3de0297c2e87d84f741787a951727dfca0e225d",
+    "document_proposal_reconciled": true,
+    "reviewed_contradiction_ids": [
+      "fact:552168f2-a943-47aa-8cb9-02c05d2ef229",
+      "fact:6e366643-e97f-4172-93da-fd50b37009fa",
+      "fact:ada0bc66-b20e-4460-af43-7b1dd981bd91",
+      "fact:b5edfaba-8a59-42c0-991b-057917a4182e",
+      "fact:9ddfe283-5038-4c91-b149-488211214316",
+      "fact:e9eef88c-6aa1-4f13-8fc9-92067a516522",
+      "fact:9031eafd-3087-4281-9a8d-533e9a36ee56",
+      "fact:08b3accd-346f-4c00-b1d1-aa71b06d8989",
+      "fact:145194da-b50c-403b-af08-6bec56aa7955",
+      "fact:69aa648f-7d0a-4be5-8e86-94a4f1064ebb",
+      "link:2f9a93ed-b163-4a11-99ed-a2a6fbafa663",
+      "link:692815b6-d08c-468c-be30-47bde8d94eee",
+      "link:e58aa0dd-c9e8-461b-aaef-1563be718abb",
+      "link:afebf52d-fc27-443e-8e30-8751cc0f0a73",
+      "link:e32fb6d1-bf47-4ef2-9e8f-6abaac98dcc5"
+    ],
+    "proposed_facts": [
+      {
+        "index": 0,
+        "supported": true,
+        "reason": "Canonical declarations establish static-storage register pointers; GXInit unconditionally assigns all four mappings before FIFO, pixel-engine and write-gather setup and later writes through __cpReg. No once-only guard or clearing assignment appears in this translation unit. The explicit compiled-layout disclaimer is appropriate."
+      },
+      {
+        "index": 1,
+        "supported": true,
+        "reason": "The complete canonical GXInit body supports FIFO setup from caller memory, register mapping, shadow and hardware initialization, texture/TLUT-region construction, __GXInitGX invocation and return of persistent FifoObj. Removing the once-only guarantee is a factual correction, not an equivalent rewrite."
+      },
+      {
+        "index": 2,
+        "supported": true,
+        "reason": "The unsigned callback returns NULL for indices at least 20 and otherwise returns a persistent region pointer without mutation. Registration is explicit. GXLoadTlut asserts the result, then issues commands and dereferences it without an ordinary error-return branch, supporting the assertion-dependent qualification."
+      }
+    ],
+    "contradictions": [
+      {
+        "reason": "The two once-only claims are resolved by proposals 0 and 1: mapping and initialization execute without an invocation guard. This does not establish that reinitializing an active subsystem is safe.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218"
+          }
+        ]
+      },
+      {
+        "reason": "The consumer-validation claim is resolved by proposal 2. NULL is an explicit callback outcome, but the consumer checks it with an assertion rather than a recoverable runtime branch.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L57-L63"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L627-L645"
+          }
+        ]
+      },
+      {
+        "reason": "Accepted deferral of the .bss, .sbss and .sdata layout facts and their four associated links. Persistent context, FIFO, region-selection and register-mapping roles are supported and retained, but declarations do not prove compiled membership, ordering or extent. The DWARF comment is not independently inspected DWARF evidence.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L74"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L120"
+          }
+        ]
+      },
+      {
+        "reason": "Accepted deferral of all four .sdata2 facts and its associated link. Local colors, floating constants and their initialization consumers support source-level semantics, not emitted literal-pool composition, read-only section ownership or section loads. Revision-matched compiled evidence is required.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L220-L371"
+          }
+        ]
+      }
+    ]
+  },
+  "unresolved": [
+    "Compiled section membership, ordering, extent and literal-pool composition remain unverified; the accepted deferrals require revision-matched compiled evidence.",
+    "Rendered pages report two parse errors and zero substitutions. Canonical evidence, not rendered naming hypotheses, supports this acceptance.",
+    "Assertion-dependent exceptional paths do not guarantee recovery, and repeated GXInit safety remains unestablished.",
+    "Acceptance covers all three proposed changes and the examined upstream contradictions. Unchanged retained research is inherited, not represented as a new independent audit."
+  ],
+  "fact_dispositions": [
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L74",
+          "why": "Declarations alone cannot prove linker layout."
+        }
+      ],
+      "fact_id": "fact:552168f2-a943-47aa-8cb9-02c05d2ef229",
+      "reason": "Source proves two static-storage objects and their types, not their compiled BSS membership or claimed ordering. No compiled artifacts are supplied.",
+      "updated_at": "2026-09-02T05:05:49.509Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L13-L20",
+          "why": "Typed declarations and conditional global, no section directives."
+        }
+      ],
+      "fact_id": "fact:6e366643-e97f-4172-93da-fd50b37009fa",
+      "reason": "16-byte extent, section membership and pointer order require compiled evidence; source comment reports DWARF but is not DWARF evidence. DEBUG also introduces another global.",
+      "updated_at": "2026-09-02T05:05:18.337Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L12",
+          "why": "No compiled section placement shown."
+        }
+      ],
+      "fact_id": "fact:ada0bc66-b20e-4460-af43-7b1dd981bd91",
+      "reason": "Pointer type and initializer are supported, but initialized data does not itself prove small-data placement.",
+      "updated_at": "2026-09-02T05:06:40.407Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L220-L371",
+          "why": "Local colors and numeric literals, no section load evidence."
+        }
+      ],
+      "fact_id": "fact:b5edfaba-8a59-42c0-991b-057917a4182e",
+      "reason": "Literal-to-setter flow is supported; loading those literals from this compiled section is not established by source or historical hypotheses.",
+      "updated_at": "2026-09-02T05:04:44.155Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L220-L371",
+          "why": "Source establishes consumers, not section mapping."
+        }
+      ],
+      "fact_id": "fact:9ddfe283-5038-4c91-b149-488211214316",
+      "reason": "Startup role of literals is clear but their attribution to .sdata2 needs compiled evidence.",
+      "updated_at": "2026-09-02T05:04:44.155Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L220-L277",
+          "why": "Shows source values but no emitted bytes or relocations."
+        }
+      ],
+      "fact_id": "fact:e9eef88c-6aa1-4f13-8fc9-92067a516522",
+      "reason": "Heterogeneous packed-color/floating literal-pool contents cannot be proven from local initializers alone.",
+      "updated_at": "2026-09-02T05:04:44.155Z"
+    },
+    {
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L220-L371",
+          "why": "Supports the initialization constants' semantics only."
+        }
+      ],
+      "fact_id": "fact:9031eafd-3087-4281-9a8d-533e9a36ee56",
+      "reason": "Read-only pool ownership and contents remain a plausible historical interpretation, not established compiled evidence.",
+      "updated_at": "2026-09-02T05:04:44.155Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L97",
+          "why": "No one-time guard."
+        }
+      ],
+      "fact_id": "fact:08b3accd-346f-4c00-b1d1-aa71b06d8989",
+      "reason": "Once-only transition is not enforced; GXInit unconditionally assigns mappings each invocation.",
+      "updated_at": "2026-09-02T05:05:18.337Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Setup runs unconditionally on entry."
+        }
+      ],
+      "fact_id": "fact:145194da-b50c-403b-af08-6bec56aa7955",
+      "reason": "Bootstrap purpose is correct but one-time wording suggests a guarantee absent from the implementation.",
+      "updated_at": "2026-09-01T23:05:03.344Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L57-L63",
+          "why": "Callback returns NULL out of range."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L627-L645",
+          "why": "Assertion followed by unconditional hardware writes and region dereferences."
+        }
+      ],
+      "fact_id": "fact:69aa648f-7d0a-4be5-8e86-94a4f1064ebb",
+      "reason": "Clarify that consumer validation is an assertion, not a runtime null-return/error branch; without assertions it dereferences the null selection.",
+      "updated_at": "2026-09-02T00:33:37.786Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L217",
+          "why": "Static context, global FIFO, initialization, and region selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L292-L296",
+          "why": "Persistent cursors reset before callback registration."
+        }
+      ],
+      "fact_id": "fact:9dcc8000-7026-47ad-bc5c-255ca593aa9f",
+      "reason": "Retain source-level persistent context/FIFO roles and lifecycle; these do not independently establish compiled section membership or order.",
+      "updated_at": "2026-09-02T05:05:49.509Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L217",
+          "why": "Static context, global FIFO, initialization, and region selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L292-L296",
+          "why": "Persistent cursors reset before callback registration."
+        }
+      ],
+      "fact_id": "fact:0b13bab3-1d7c-4b33-940a-1bb6a07a6c54",
+      "reason": "Retain source-level persistent context/FIFO roles and lifecycle; these do not independently establish compiled section membership or order.",
+      "updated_at": "2026-09-02T05:05:49.509Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L217",
+          "why": "Static context, global FIFO, initialization, and region selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L292-L296",
+          "why": "Persistent cursors reset before callback registration."
+        }
+      ],
+      "fact_id": "fact:e30d355b-61e0-4899-bc0d-32b88f054248",
+      "reason": "Retain source-level persistent context/FIFO roles and lifecycle; these do not independently establish compiled section membership or order.",
+      "updated_at": "2026-09-02T05:05:49.509Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L217",
+          "why": "Static context, global FIFO, initialization, and region selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L292-L296",
+          "why": "Persistent cursors reset before callback registration."
+        }
+      ],
+      "fact_id": "fact:5cb7aa37-61d6-4055-acd6-0c3543cbde01",
+      "reason": "Retain source-level persistent context/FIFO roles and lifecycle; these do not independently establish compiled section membership or order.",
+      "updated_at": "2026-09-02T05:05:49.509Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L13-L20",
+          "why": "Four typed register pointers; DEBUG additionally declares __GXinBegin."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L88-L97",
+          "why": "All four mappings precede FIFO/PE/write-gather setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L200-L204",
+          "why": "CP mapping is subsequently consumed."
+        }
+      ],
+      "fact_id": "fact:a0d3030f-77ed-47a2-958c-e6334b585845",
+      "reason": "Register-pointer purpose, data flow and descriptive collective name fit canonical declarations and assignments. Retain semantic interpretation, not the rationale's unsupported 16-byte compiled extent.",
+      "updated_at": "2026-09-02T05:05:18.337Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L13-L20",
+          "why": "Four typed register pointers; DEBUG additionally declares __GXinBegin."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L88-L97",
+          "why": "All four mappings precede FIFO/PE/write-gather setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L200-L204",
+          "why": "CP mapping is subsequently consumed."
+        }
+      ],
+      "fact_id": "fact:1dfe5d58-c16d-4ef1-8160-40eac012ae50",
+      "reason": "Register-pointer purpose, data flow and descriptive collective name fit canonical declarations and assignments. Retain semantic interpretation, not the rationale's unsupported 16-byte compiled extent.",
+      "updated_at": "2026-09-02T05:05:18.337Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L13-L20",
+          "why": "Four typed register pointers; DEBUG additionally declares __GXinBegin."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L88-L97",
+          "why": "All four mappings precede FIFO/PE/write-gather setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L200-L204",
+          "why": "CP mapping is subsequently consumed."
+        }
+      ],
+      "fact_id": "fact:423f71d0-12e8-4b97-8ab1-dbcff45cb2dd",
+      "reason": "Register-pointer purpose, data flow and descriptive collective name fit canonical declarations and assignments. Retain semantic interpretation, not the rationale's unsupported 16-byte compiled extent.",
+      "updated_at": "2026-09-06T02:34:38.472Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L13-L20",
+          "why": "Four typed register pointers; DEBUG additionally declares __GXinBegin."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L88-L97",
+          "why": "All four mappings precede FIFO/PE/write-gather setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L200-L204",
+          "why": "CP mapping is subsequently consumed."
+        }
+      ],
+      "fact_id": "fact:cf23148b-ec49-4ffe-b2d9-242f667683f3",
+      "reason": "Register-pointer purpose, data flow and descriptive collective name fit canonical declarations and assignments. Retain semantic interpretation, not the rationale's unsupported 16-byte compiled extent.",
+      "updated_at": "2026-09-02T05:05:18.337Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L63",
+          "why": "Initializer and persistent callback access."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Context mutation throughout GXInit."
+        }
+      ],
+      "fact_id": "fact:af1839dd-dbcd-41a9-8ecc-ef59ee38e6bc",
+      "reason": "gx is the exact source identifier and statically initialized context pointer; mutations target its referent, not the pointer in this file. Retain the source-level name and behavior as the existing section interpretation, without certifying compiled placement.",
+      "updated_at": "2026-09-02T05:06:40.407Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L63",
+          "why": "Initializer and persistent callback access."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Context mutation throughout GXInit."
+        }
+      ],
+      "fact_id": "fact:211c78e2-98d3-467e-86ed-5e8752a25557",
+      "reason": "gx is the exact source identifier and statically initialized context pointer; mutations target its referent, not the pointer in this file. Retain the source-level name and behavior as the existing section interpretation, without certifying compiled placement.",
+      "updated_at": "2026-09-02T05:06:40.407Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L63",
+          "why": "Initializer and persistent callback access."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Context mutation throughout GXInit."
+        }
+      ],
+      "fact_id": "fact:c5f2fc2f-efe2-47d6-9cf9-d00e4b428d55",
+      "reason": "gx is the exact source identifier and statically initialized context pointer; mutations target its referent, not the pointer in this file. Retain the source-level name and behavior as the existing section interpretation, without certifying compiled placement.",
+      "updated_at": "2026-09-06T02:34:38.472Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L63",
+          "why": "Initializer and persistent callback access."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Context mutation throughout GXInit."
+        }
+      ],
+      "fact_id": "fact:3bda7b5f-09b2-4526-8ba3-15f26bcafd4e",
+      "reason": "gx is the exact source identifier and statically initialized context pointer; mutations target its referent, not the pointer in this file. Retain the source-level name and behavior as the existing section interpretation, without certifying compiled placement.",
+      "updated_at": "2026-09-02T05:06:40.407Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L63",
+          "why": "Initializer and persistent callback access."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Context mutation throughout GXInit."
+        }
+      ],
+      "fact_id": "fact:46af4090-63f2-4af4-95bb-632fedd380d8",
+      "reason": "gx is the exact source identifier and statically initialized context pointer; mutations target its referent, not the pointer in this file. Retain the source-level name and behavior as the existing section interpretation, without certifying compiled placement.",
+      "updated_at": "2026-09-02T05:06:40.407Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Complete low-level initializer."
+        }
+      ],
+      "fact_id": "fact:98cdbe21-cfff-4f16-97b2-0a81c9a665b6",
+      "reason": "Signature, caller-memory-to-library-descriptor flow, startup role and ordered shadow/hardware initialization are directly supported. Dirty indicators are cleared at the stated initialization step, not guaranteed to remain clear after all subsequent setters.",
+      "updated_at": "2026-09-01T23:05:03.344Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Complete low-level initializer."
+        }
+      ],
+      "fact_id": "fact:f1533294-be4e-4e32-a79d-ac6bfddb9d7c",
+      "reason": "Signature, caller-memory-to-library-descriptor flow, startup role and ordered shadow/hardware initialization are directly supported. Dirty indicators are cleared at the stated initialization step, not guaranteed to remain clear after all subsequent setters.",
+      "updated_at": "2026-09-01T23:05:03.344Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Complete low-level initializer."
+        }
+      ],
+      "fact_id": "fact:1968c855-88d5-4869-90d0-b1653d5f3cd9",
+      "reason": "Signature, caller-memory-to-library-descriptor flow, startup role and ordered shadow/hardware initialization are directly supported. Dirty indicators are cleared at the stated initialization step, not guaranteed to remain clear after all subsequent setters.",
+      "updated_at": "2026-09-01T23:05:03.344Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+          "why": "Complete low-level initializer."
+        }
+      ],
+      "fact_id": "fact:f0173b31-0491-43ba-b564-63193b2efc72",
+      "reason": "Signature, caller-memory-to-library-descriptor flow, startup role and ordered shadow/hardware initialization are directly supported. Dirty indicators are cleared at the stated initialization step, not guaranteed to remain clear after all subsequent setters.",
+      "updated_at": "2026-09-01T23:05:03.344Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L46-L55",
+          "why": "Complete selection logic."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L190-L197",
+          "why": "Pool construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L292-L296",
+          "why": "Reset and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L398-L404",
+          "why": "Stored-format accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L566-L575",
+          "why": "Texture-loading consumer invokes callback."
+        }
+      ],
+      "fact_id": "fact:4154f87d-6afb-46a5-82b0-e68dfe25ef4c",
+      "reason": "Exact format split, independent post-incremented cursors, masked indices, unused map parameter and registered allocation policy fit source. Modulo describes selected indices, not a cursor assignment back to 0.",
+      "updated_at": "2026-09-02T00:33:35.519Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L46-L55",
+          "why": "Complete selection logic."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L190-L197",
+          "why": "Pool construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L292-L296",
+          "why": "Reset and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L398-L404",
+          "why": "Stored-format accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L566-L575",
+          "why": "Texture-loading consumer invokes callback."
+        }
+      ],
+      "fact_id": "fact:e4928831-ee0a-4826-8e54-ab22acfde3b7",
+      "reason": "Exact format split, independent post-incremented cursors, masked indices, unused map parameter and registered allocation policy fit source. Modulo describes selected indices, not a cursor assignment back to 0.",
+      "updated_at": "2026-09-02T00:33:35.519Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L46-L55",
+          "why": "Complete selection logic."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L190-L197",
+          "why": "Pool construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L292-L296",
+          "why": "Reset and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L398-L404",
+          "why": "Stored-format accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L566-L575",
+          "why": "Texture-loading consumer invokes callback."
+        }
+      ],
+      "fact_id": "fact:ce8c740f-96cd-41bf-9071-13965d6fb8b9",
+      "reason": "Exact format split, independent post-incremented cursors, masked indices, unused map parameter and registered allocation policy fit source. Modulo describes selected indices, not a cursor assignment back to 0.",
+      "updated_at": "2026-09-02T00:33:35.519Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L46-L55",
+          "why": "Complete selection logic."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L190-L197",
+          "why": "Pool construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L292-L296",
+          "why": "Reset and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L398-L404",
+          "why": "Stored-format accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L566-L575",
+          "why": "Texture-loading consumer invokes callback."
+        }
+      ],
+      "fact_id": "fact:5f601d03-5283-496f-8ed3-e92a398d126f",
+      "reason": "Exact format split, independent post-incremented cursors, masked indices, unused map parameter and registered allocation policy fit source. Modulo describes selected indices, not a cursor assignment back to 0.",
+      "updated_at": "2026-09-02T00:33:35.519Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L46-L55",
+          "why": "Complete selection logic."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L190-L197",
+          "why": "Pool construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L292-L296",
+          "why": "Reset and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L398-L404",
+          "why": "Stored-format accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L566-L575",
+          "why": "Texture-loading consumer invokes callback."
+        }
+      ],
+      "fact_id": "fact:1756abc5-7fe7-49ec-b85a-c416c511554f",
+      "reason": "Exact format split, independent post-incremented cursors, masked indices, unused map parameter and registered allocation policy fit source. Modulo describes selected indices, not a cursor assignment back to 0.",
+      "updated_at": "2026-09-02T00:33:35.519Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L57-L63",
+          "why": "Bound and return type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L194-L197",
+          "why": "Two groups totaling twenty regions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L295-L296",
+          "why": "Registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L627-L645",
+          "why": "Load commands, offset update and persistent descriptor copy."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L771-L783",
+          "why": "Size argument is encoded into loadTlut1."
+        }
+      ],
+      "fact_id": "fact:dbbe5fb0-ffb1-4a5b-8e34-2dfea9d0827c",
+      "reason": "TLUT signature, bounded direct lookup, registration and downstream load flow are supported. Sizes 16 and 64 are raw GXTlutSize arguments/encodings, not asserted byte or palette-entry counts.",
+      "updated_at": "2026-09-02T00:33:37.786Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L57-L63",
+          "why": "Bound and return type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L194-L197",
+          "why": "Two groups totaling twenty regions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L295-L296",
+          "why": "Registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L627-L645",
+          "why": "Load commands, offset update and persistent descriptor copy."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L771-L783",
+          "why": "Size argument is encoded into loadTlut1."
+        }
+      ],
+      "fact_id": "fact:729a2b91-58b6-4bbc-9902-f2cad60217f8",
+      "reason": "TLUT signature, bounded direct lookup, registration and downstream load flow are supported. Sizes 16 and 64 are raw GXTlutSize arguments/encodings, not asserted byte or palette-entry counts.",
+      "updated_at": "2026-09-02T00:33:37.786Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L57-L63",
+          "why": "Bound and return type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L194-L197",
+          "why": "Two groups totaling twenty regions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L295-L296",
+          "why": "Registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L627-L645",
+          "why": "Load commands, offset update and persistent descriptor copy."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L771-L783",
+          "why": "Size argument is encoded into loadTlut1."
+        }
+      ],
+      "fact_id": "fact:55b9a95a-04d6-4635-87e0-5043ff793414",
+      "reason": "TLUT signature, bounded direct lookup, registration and downstream load flow are supported. Sizes 16 and 64 are raw GXTlutSize arguments/encodings, not asserted byte or palette-entry counts.",
+      "updated_at": "2026-09-02T00:33:37.786Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L57-L63",
+          "why": "Bound and return type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L194-L197",
+          "why": "Two groups totaling twenty regions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L295-L296",
+          "why": "Registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L627-L645",
+          "why": "Load commands, offset update and persistent descriptor copy."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L771-L783",
+          "why": "Size argument is encoded into loadTlut1."
+        }
+      ],
+      "fact_id": "fact:60558a9a-83c6-44f0-8d8a-58a4783c2b9a",
+      "reason": "TLUT signature, bounded direct lookup, registration and downstream load flow are supported. Sizes 16 and 64 are raw GXTlutSize arguments/encodings, not asserted byte or palette-entry counts.",
+      "updated_at": "2026-09-02T00:33:37.786Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L214-L371",
+          "why": "Invocation and complete high-level initializer."
+        }
+      ],
+      "fact_id": "fact:cce3c318-63e9-4d0a-9d4f-7f4c21cbbec4",
+      "reason": "High-level defaults, signature and render-mode data flow fit canonical body. Assert-then-NTSC describes source ordering: fallback executes only if assertion handling permits continuation or is compiled out.",
+      "updated_at": "2026-09-01T23:11:06.387Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L214-L371",
+          "why": "Invocation and complete high-level initializer."
+        }
+      ],
+      "fact_id": "fact:67634aad-55a0-45c6-9070-49212f4b15dc",
+      "reason": "High-level defaults, signature and render-mode data flow fit canonical body. Assert-then-NTSC describes source ordering: fallback executes only if assertion handling permits continuation or is compiled out.",
+      "updated_at": "2026-09-01T23:11:06.387Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L214-L371",
+          "why": "Invocation and complete high-level initializer."
+        }
+      ],
+      "fact_id": "fact:896d1455-48e4-481d-8edc-0f6b8e5f0f5e",
+      "reason": "High-level defaults, signature and render-mode data flow fit canonical body. Assert-then-NTSC describes source ordering: fallback executes only if assertion handling permits continuation or is compiled out.",
+      "updated_at": "2026-09-01T23:11:06.387Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L214-L371",
+          "why": "Invocation and complete high-level initializer."
+        }
+      ],
+      "fact_id": "fact:f7759d07-c051-482e-a86d-43c2b2c2ddd6",
+      "reason": "High-level defaults, signature and render-mode data flow fit canonical body. Assert-then-NTSC describes source ordering: fallback executes only if assertion handling permits continuation or is compiled out.",
+      "updated_at": "2026-09-01T23:11:06.387Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L214-L371",
+          "why": "Invocation and complete high-level initializer."
+        }
+      ],
+      "fact_id": "fact:3b89addf-1ced-44d6-9d60-7648ce861f6f",
+      "reason": "High-level defaults, signature and render-mode data flow fit canonical body. Assert-then-NTSC describes source ordering: fallback executes only if assertion handling permits continuation or is compiled out.",
+      "updated_at": "2026-09-01T23:11:06.387Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L371",
+          "why": "Complete two-phase initialization and TV exception branch."
+        }
+      ],
+      "fact_id": "fact:d6c4d143-4130-48c0-bb0b-d2bcb4d47273",
+      "reason": "TU startup purpose and ordered low/high-level configuration are supported, without asserting guarded single execution, per-frame use or unconditional recovery after a failing assertion.",
+      "updated_at": "2026-09-01T23:11:06.387Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L371",
+          "why": "Complete two-phase initialization and TV exception branch."
+        }
+      ],
+      "fact_id": "fact:4e2ae2a7-5147-4184-b5c5-bdfb2a49653a",
+      "reason": "TU startup purpose and ordered low/high-level configuration are supported, without asserting guarded single execution, per-frame use or unconditional recovery after a failing assertion.",
+      "updated_at": "2026-09-01T23:11:06.387Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L371",
+          "why": "Complete two-phase initialization and TV exception branch."
+        }
+      ],
+      "fact_id": "fact:fb7fc8e3-97a7-47ee-92c6-9a52fcf19bca",
+      "reason": "TU startup purpose and ordered low/high-level configuration are supported, without asserting guarded single execution, per-frame use or unconditional recovery after a failing assertion.",
+      "updated_at": "2026-09-01T23:05:03.344Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L371",
+          "why": "Complete two-phase initialization and TV exception branch."
+        }
+      ],
+      "fact_id": "fact:77ec83ea-7453-4a6f-a8b1-92988a6199d4",
+      "reason": "TU startup purpose and ordered low/high-level configuration are supported, without asserting guarded single execution, per-frame use or unconditional recovery after a failing assertion.",
+      "updated_at": "2026-09-01T23:11:06.387Z"
+    }
+  ],
+  "link_dispositions": [
+    {
+      "baseline_record": {
+        "id": "link:2f9a93ed-b163-4a11-99ed-a2a6fbafa663",
+        "from_target_id": "target:data:main/dolphin/gx/GXInit:.sdata2",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-subsystem-initialization",
+        "role": "implements",
+        "why": "Its literals supply the colors and numeric defaults consumed while establishing the initial GX pipeline, viewport, fog, and framebuffer state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L220-L371",
+        "digest": "sha256:440c3865078ca45c"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L220-L371",
+          "why": "Only source literals/consumers are shown."
+        }
+      ],
+      "link_id": "link:2f9a93ed-b163-4a11-99ed-a2a6fbafa663",
+      "reason": "Literal startup semantics are supported, but attribution to this section requires compiled constant-pool evidence."
+    },
+    {
+      "baseline_record": {
+        "id": "link:692815b6-d08c-468c-be30-47bde8d94eee",
+        "from_target_id": "target:data:main/dolphin/gx/GXInit:.sbss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-subsystem-initialization",
+        "role": "implements",
+        "why": "GXInit populates this pointer block with uncached GX hardware-register mappings before initializing the command FIFO, pixel engine, write-gather path, and remaining graphics state, making the block part of GX subsystem startup.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L120",
+        "digest": "sha256:833357efaf8c70a7"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L88-L97",
+          "why": "Source assignments, not section evidence."
+        }
+      ],
+      "link_id": "link:692815b6-d08c-468c-be30-47bde8d94eee",
+      "reason": "Register-pointer startup role is supported; compiled .sbss membership remains unverified."
+    },
+    {
+      "baseline_record": {
+        "id": "link:e58aa0dd-c9e8-461b-aaef-1563be718abb",
+        "from_target_id": "target:data:main/dolphin/gx/GXInit:.bss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-subsystem-initialization",
+        "role": "implements",
+        "why": "The section supplies the persistent GX context and FIFO descriptor that GXInit initializes to establish the graphics command path, register shadow, and texture-memory defaults.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L120",
+        "digest": "sha256:833357efaf8c70a7"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L97",
+          "why": "Objects used in startup without section mapping."
+        }
+      ],
+      "link_id": "link:e58aa0dd-c9e8-461b-aaef-1563be718abb",
+      "reason": "Context/FIFO startup role is supported; section-to-object attribution lacks compiled evidence."
+    },
+    {
+      "baseline_record": {
+        "id": "link:afebf52d-fc27-443e-8e30-8751cc0f0a73",
+        "from_target_id": "target:data:main/dolphin/gx/GXInit:.bss",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-texture-region-allocation",
+        "role": "implements",
+        "why": "The GX context stored in this section contains the ordinary and color-indexed texture-region pools and the mutable cursors used by the default texture-region allocator.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L46-L55",
+        "digest": "sha256:4e1aaac45b00f736"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L46-L55",
+          "why": "Region-selection semantics only."
+        }
+      ],
+      "link_id": "link:afebf52d-fc27-443e-8e30-8751cc0f0a73",
+      "reason": "gx referent supplies region state, but its association with the compiled .bss target is not independently proven."
+    },
+    {
+      "baseline_record": {
+        "id": "link:e32fb6d1-bf47-4ef2-9e8f-6abaac98dcc5",
+        "from_target_id": "target:data:main/dolphin/gx/GXInit:.sdata",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-subsystem-initialization",
+        "role": "implements",
+        "why": "The section's initialized `gx` pointer exposes the singleton GX context that GXInit populates with graphics-pipeline shadows and texture-memory region state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L120",
+        "digest": "sha256:833357efaf8c70a7"
+      },
+      "disposition": "unresolved",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L11-L12",
+          "why": "Source initializer, no section mapping."
+        }
+      ],
+      "link_id": "link:e32fb6d1-bf47-4ef2-9e8f-6abaac98dcc5",
+      "reason": "Initialized gx pointer supports startup; exact .sdata ownership requires compiled evidence."
+    },
+    {
+      "baseline_record": {
+        "id": "link:3cff5d52-d233-400e-93c0-c563a99fa2a1",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:extern/dolphin/src/dolphin/gx/GXInit.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-subsystem-initialization",
+        "role": "implements",
+        "why": "The translation unit contains the GX startup implementation that establishes command transport, graphics-pipeline state, and texture-memory configuration.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L120",
+        "digest": "sha256:833357efaf8c70a7"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L371",
+          "why": "FIFO/hardware setup followed by high-level defaults."
+        }
+      ],
+      "link_id": "link:3cff5d52-d233-400e-93c0-c563a99fa2a1",
+      "reason": "TU and both initialization phases directly implement GX startup."
+    },
+    {
+      "baseline_record": {
+        "id": "link:ee08536d-ddc3-464c-aa90-8ca812c1b1f0",
+        "from_target_id": "target:function:main/dolphin/gx/GXInit:GXInit",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-subsystem-initialization",
+        "role": "implements",
+        "why": "GXInit performs the subsystem's bootstrap sequence by creating the command FIFO, resetting GX state, programming baseline GPU registers, and installing texture-memory defaults.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L171-L218",
+        "digest": "sha256:167890dc6f79b1ec"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L371",
+          "why": "FIFO/hardware setup followed by high-level defaults."
+        }
+      ],
+      "link_id": "link:ee08536d-ddc3-464c-aa90-8ca812c1b1f0",
+      "reason": "TU and both initialization phases directly implement GX startup."
+    },
+    {
+      "baseline_record": {
+        "id": "link:e8b7cd3f-e33b-4c96-bcbf-15ec2dbdaa80",
+        "from_target_id": "target:function:main/dolphin/gx/GXInit:__GXInitGX",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-subsystem-initialization",
+        "role": "implements",
+        "why": "__GXInitGX is called by GXInit as its final phase and establishes the display-dependent fixed-function pipeline, framebuffer-copy, direct-poke, and metric defaults that complete GX subsystem startup.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L171-L218",
+        "digest": "sha256:167890dc6f79b1ec"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L371",
+          "why": "FIFO/hardware setup followed by high-level defaults."
+        }
+      ],
+      "link_id": "link:e8b7cd3f-e33b-4c96-bcbf-15ec2dbdaa80",
+      "reason": "TU and both initialization phases directly implement GX startup."
+    },
+    {
+      "baseline_record": {
+        "id": "link:95e40d11-f17f-4105-8490-0bfaad8e9b02",
+        "from_target_id": "target:function:main/dolphin/gx/GXInit:__GXDefaultTexRegionCallback",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-texture-region-allocation",
+        "role": "implements",
+        "why": "The callback allocates preinitialized GX texture-cache regions by texture-format class and rotates through the applicable region pool.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L46-L55",
+        "digest": "sha256:4e1aaac45b00f736"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L46-L55",
+          "why": "Two pools and independent masked cursors."
+        }
+      ],
+      "link_id": "link:95e40d11-f17f-4105-8490-0bfaad8e9b02",
+      "reason": "Callback implements format-classified rotating region selection."
+    },
+    {
+      "baseline_record": {
+        "id": "link:15c343e9-64d4-4ead-b87d-f8c4d266d7dc",
+        "from_target_id": "target:function:main/dolphin/gx/GXInit:__GXDefaultTlutRegionCallback",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-tlut-region-selection",
+        "role": "implements",
+        "why": "GX startup registers this callback as the default policy that maps each logical TLUT name to one of the initialized GX texture-memory region descriptors.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L276-L339",
+        "digest": "sha256:74f365d309a2c7bd"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L57-L63",
+          "why": "Direct index or NULL."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L295-L296",
+          "why": "Installed as default policy."
+        }
+      ],
+      "link_id": "link:15c343e9-64d4-4ead-b87d-f8c4d266d7dc",
+      "reason": "Callback implements bounded logical TLUT-region selection."
+    }
+  ],
+  "coverage": {
+    "fact_count": 45,
+    "files": [
+      {
+        "canonical_complete": true,
+        "path": "extern/dolphin/src/dolphin/gx/GXInit.c",
+        "rendered_complete": true,
+        "renderer_issues": [
+          "Both rendered pages reported two parse errors and zero substitutions.",
+          "IsWriteGatherBufferEmpty was marked parse_uncertain.",
+          "Renderer covers function names only; parameters, fields and section labels remain unchanged."
+        ],
+        "total_lines": 372
+      }
+    ],
+    "link_count": 10,
+    "subjects": [
+      {
+        "target_stable_key": "main/dolphin/gx/GXInit:.bss"
+      },
+      {
+        "target_stable_key": "main/dolphin/gx/GXInit:.sbss"
+      },
+      {
+        "target_stable_key": "main/dolphin/gx/GXInit:.sdata"
+      },
+      {
+        "target_stable_key": "main/dolphin/gx/GXInit:.sdata2"
+      },
+      {
+        "target_stable_key": "main/dolphin/gx/GXInit:GXInit"
+      },
+      {
+        "target_stable_key": "main/dolphin/gx/GXInit:__GXDefaultTexRegionCallback"
+      },
+      {
+        "target_stable_key": "main/dolphin/gx/GXInit:__GXDefaultTlutRegionCallback"
+      },
+      {
+        "target_stable_key": "main/dolphin/gx/GXInit:__GXInitGX"
+      },
+      {
+        "entity_locator": "extern/dolphin/src/dolphin/gx/GXInit.c"
+      },
+      {
+        "entity_locator": "main/dolphin/gx/GXInit:GXInit#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/gx/GXInit:GXInit#r4"
+      },
+      {
+        "entity_locator": "main/dolphin/gx/GXInit:__GXDefaultTexRegionCallback#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/gx/GXInit:__GXDefaultTexRegionCallback#r4"
+      },
+      {
+        "entity_locator": "main/dolphin/gx/GXInit:__GXDefaultTlutRegionCallback#r3"
+      }
+    ]
+  },
+  "review_scope": "proposed_changes_and_explicit_contradictions",
+  "coverage_basis": {
+    "kind": "inherited_full_librarian_or_legacy_research",
+    "upstream_job_id": "lead-main__dolphin__gx__GXInit-1",
+    "handoff_sha256": "550e637a7de25e89fb2b7d1cd3de0297c2e87d84f741787a951727dfca0e225d"
+  },
+  "reviewer": "/root/review_gate/kernel/reviewer-main__dolphin__gx__GXInit-1",
+  "tu": "main/dolphin/gx/GXInit",
+  "status": "accepted_for_staged_apply",
+  "kernel_job": {
+    "id": "reviewer-main__dolphin__gx__GXInit-1",
+    "role": "reviewer",
+    "task_id": "main__dolphin__gx__GXInit",
+    "output_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__gx__GXInit-1",
+    "attempt": 1,
+    "prior_result": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/lead-main__dolphin__gx__GXInit-1/packet.json",
+    "input_proposal_sha256": "6a55b098f7dfec29d6d6dec72d3be0a0f75759bdbda7e6cef91cbd325f967327",
+    "packet_contract": "lean-v2",
+    "handoff_path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__gx__GXInit-1/inputs/handoff.json",
+    "input_handoff_sha256": "550e637a7de25e89fb2b7d1cd3de0297c2e87d84f741787a951727dfca0e225d",
+    "input_artifacts": {
+      "proposal.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__gx__GXInit-1/inputs/proposal.json",
+        "sha256": "6a55b098f7dfec29d6d6dec72d3be0a0f75759bdbda7e6cef91cbd325f967327"
+      },
+      "functionality.md": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__gx__GXInit-1/inputs/functionality.md",
+        "sha256": "6a38a9bd3879bd694ddd7a08aade56b93e3e642393ca64834271283b6d7f789c"
+      },
+      "fact-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__gx__GXInit-1/inputs/fact-dispositions.json",
+        "sha256": "8263e366624d8ac2c8d3464591ded6687d2842ff51ddb1856a36e1ace41426cf"
+      },
+      "link-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__gx__GXInit-1/inputs/link-dispositions.json",
+        "sha256": "3d50c7d04706424f6bb8e2c502f13590061af75de0d6360fc3dbf0ff701d068e"
+      },
+      "coverage.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__gx__GXInit-1/inputs/coverage.json",
+        "sha256": "cec69efc804ef13eeb27ba333861fd335cfe38dcb24d75fe4b5230b9872f2c08"
+      },
+      "unresolved.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__gx__GXInit-1/inputs/unresolved.json",
+        "sha256": "68d84154e4fd13d466198db2b9a9a9a0be2602c73d3c6232e495e4aceb0d9923"
+      }
+    }
+  },
+  "completed_at": "2026-09-08T22:34:50.513403+00:00"
+}

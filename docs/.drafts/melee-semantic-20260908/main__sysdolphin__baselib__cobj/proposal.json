@@ -1,0 +1,691 @@
+{
+  "tu": "main/sysdolphin/baselib/cobj",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjAddAnim"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For non-null camera and animation descriptor, removes any existing camera AObj, stores HSD_AObjLoadDesc(canim->aobjdesc), and forwards canim->eye_anim and canim->interest_anim to HSD_WObjAddAnim for the corresponding camera WObjs in that order.",
+        "rationale": "Make the fact precise about locally observed behavior; avoid treating unreviewed helper internals or the stored scissor as demonstrated by this body.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L100-L116",
+            "why": "The complete body supplies the guards, argument forwarding, and field accesses stated here."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjAddAnim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A null camera or camera-animation descriptor is a no-op. Otherwise any existing camera AObj is removed before its replacement is assigned, followed by eye and interest WObj animation attachment calls. Subordinate allocation, null handling, and teardown behavior belong to the called helpers.",
+        "rationale": "Make the fact precise about locally observed behavior; avoid treating unreviewed helper internals or the stored scissor as demonstrated by this body.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L100-L116",
+            "why": "The complete body supplies the guards, argument forwarding, and field accesses stated here."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjAnim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A null camera is a no-op. Otherwise calls HSD_AObjInterpretAnim with the camera AObj, camera context, and CObjUpdateFunc, followed by HSD_WObjInterpretAnim for eyepos and interest. The caller has no additional guards between these three calls.",
+        "rationale": "Make the fact precise about locally observed behavior; avoid treating unreviewed helper internals or the stored scissor as demonstrated by this body.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L173-L182",
+            "why": "The complete body supplies the guards, argument forwarding, and field accesses stated here."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjReqAnim"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For a non-null camera, forwards the same startframe unchanged to HSD_AObjReqAnim(cobj->aobj), HSD_WObjReqAnim(cobj->eyepos), and HSD_WObjReqAnim(cobj->interest), in that order.",
+        "rationale": "Make the fact precise about locally observed behavior; avoid treating unreviewed helper internals or the stored scissor as demonstrated by this body.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L184-L197",
+            "why": "The complete body supplies the guards, argument forwarding, and field accesses stated here."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjReqAnim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Contains two consecutive equivalent null-camera guards. For a non-null camera, issues all three animation requests in camera-AObj, eye-WObj, interest-WObj order without further local selection guards. Downstream controller flag changes are outside this function.",
+        "rationale": "Make the fact precise about locally observed behavior; avoid treating unreviewed helper internals or the stored scissor as demonstrated by this body.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L184-L197",
+            "why": "The complete body supplies the guards, argument forwarding, and field accesses stated here."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:setupTopHalfCamera"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Configures the top-half render pass from the camera viewport: clips its maximum Y at efbHeight, uses those viewport-derived bounds for both GX scissor and viewport, and adjusts the projection vertical bounds by retained-height fraction. It does not read cobj->scissor.",
+        "rationale": "Make the fact precise about locally observed behavior; avoid treating unreviewed helper internals or the stored scissor as demonstrated by this body.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L292-L379",
+            "why": "The complete body supplies the guards, argument forwarding, and field accesses stated here."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjGetUpVector"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Copies stored up unchanged when flag bit 0 is set; otherwise derives up from roll. Returns 0 for those success paths. On failure writes positive-Y if output exists and returns -1. Stored-up mode performs no validity check.",
+        "rationale": "Replace broad wording with exact branch conditions and failure behavior visible in the pinned code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L692-L709",
+            "why": "Shows the exact branch, state writes, and unchecked calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjSetMtxDirty"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Sets camera flag bits 30 and 31 to invalidate viewing and inverse-viewing caches. Later forward regeneration is still suppressed by camera mask 2; the direct inverse accessor inverts the existing view_mtx without refreshing it.",
+        "rationale": "Replace broad wording with exact branch conditions and failure behavior visible in the pinned code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L758-L761",
+            "why": "Shows the exact branch, state writes, and unchecked calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L763-L768",
+            "why": "Local helper body establishes the cited failure path, suppression condition, or cache dependency."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L785-L815",
+            "why": "Local helper body establishes the cited failure path, suppression condition, or cache dependency."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjSetRoll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Null camera does nothing. Explicit-up mode ignores roll2upvec status and forwards local up to SetUpVector; failed eye retrieval leaves that local uninitialized. Roll mode stores the requested radians and sets bits 30/31 only on value change.",
+        "rationale": "Replace broad wording with exact branch conditions and failure behavior visible in the pinned code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L837-L854",
+            "why": "Shows the exact branch, state writes, and unchecked calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L656-L685",
+            "why": "Local helper body establishes the cited failure path, suppression condition, or cache dependency."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L711-L733",
+            "why": "Local helper body establishes the cited failure path, suppression condition, or cache dependency."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjSetRoll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Null camera does nothing. Explicit-up mode ignores roll2upvec status and forwards local up to SetUpVector; failed eye retrieval leaves that local uninitialized. Roll mode stores the requested radians and sets bits 30/31 only on value change.",
+        "rationale": "Replace broad wording with exact branch conditions and failure behavior visible in the pinned code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L837-L854",
+            "why": "Shows the exact branch, state writes, and unchecked calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L656-L685",
+            "why": "Local helper body establishes the cited failure path, suppression condition, or cache dependency."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L711-L733",
+            "why": "Local helper body establishes the cited failure path, suppression condition, or cache dependency."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjSetUpVector"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Sets camera orientation without changing its representation flag. Explicit-up mode stores a normalized input or positive-Y fallback. Roll mode converts the supplied vector through upvec2roll, whose degeneracy checks may return zero, and stores that angle through SetRoll.",
+        "rationale": "Replace broad wording with exact branch conditions and failure behavior visible in the pinned code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L711-L733",
+            "why": "Shows the exact branch, state writes, and unchecked calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L617-L642",
+            "why": "Local helper body establishes the cited failure path, suppression condition, or cache dependency."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjSetupViewingMtx"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Rebuilds view_mtx with eye, up and interest only when mask 2 is clear and the dirty predicate holds. Clears WObj mask 2 and camera bit 30; sets inverse-dirty bit 31.",
+        "rationale": "Replace broad wording with exact branch conditions and failure behavior visible in the pinned code.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L467-L483",
+            "why": "Shows the exact branch, state writes, and unchecked calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L763-L768",
+            "why": "Local helper body establishes the cited failure path, suppression condition, or cache dependency."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:HSD_CObjGetPerspective#r4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "fov_out",
+        "rationale": "Canonical top and bottom parameter names obscure the actual optional output assignments; this parameter receives perspective.fov.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1189-L1200",
+            "why": "Canonical top and bottom parameter names obscure the actual optional output assignments; this parameter receives perspective.fov."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:HSD_CObjGetPerspective#r4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Optional float output pointer receiving the stored perspective fov when cobj is non-null and has PROJ_PERSPECTIVE type; otherwise its destination remains untouched.",
+        "rationale": "The field assignment and independent null guard establish output semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1189-L1200",
+            "why": "The field assignment and independent null guard establish output semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:HSD_CObjGetPerspective#r5"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "aspect_out",
+        "rationale": "Canonical top and bottom parameter names obscure the actual optional output assignments; this parameter receives perspective.aspect.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1189-L1200",
+            "why": "Canonical top and bottom parameter names obscure the actual optional output assignments; this parameter receives perspective.aspect."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:HSD_CObjGetPerspective#r5"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Optional float output pointer receiving the stored perspective aspect when cobj is non-null and has PROJ_PERSPECTIVE type; otherwise its destination remains untouched.",
+        "rationale": "The field assignment and independent null guard establish output semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1189-L1200",
+            "why": "The field assignment and independent null guard establish output semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjSetProjectionType"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For a non-null camera, the u32 proj_type argument is converted to the u8 projection_type field. This retains its low eight bits. The setter does not change projection parameters or construct a matrix.",
+        "rationale": "The direct unchecked assignment must be read together with the destination field width.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1145-L1151",
+            "why": "The direct unchecked assignment must be read together with the destination field width."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.h#L70-L70",
+            "why": "The stored projection_type field is u8, so the u32 argument narrows."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjSetProjectionType"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_CObjSetProjectionType(HSD_CObj* cobj, u32 proj_type). The nullable camera receives an unchecked selector converted to u8; the API accepts values outside the three recognized projection modes.",
+        "rationale": "The direct unchecked assignment must be read together with the destination field width.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1145-L1151",
+            "why": "The direct unchecked assignment must be read together with the destination field width."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.h#L70-L70",
+            "why": "The stored projection_type field is u8, so the u32 argument narrows."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjSetProjectionType"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Null cobj is a no-op. Otherwise the setter overwrites the u8 projection_type with the converted argument and leaves the projection union and other fields untouched. No validation or GX update occurs here.",
+        "rationale": "The direct unchecked assignment must be read together with the destination field width.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1145-L1151",
+            "why": "The direct unchecked assignment must be read together with the destination field width."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.h#L70-L70",
+            "why": "The stored projection_type field is u8, so the u32 argument narrows."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjSetScissor"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_CObjSetScissor(HSD_CObj* cobj, Scissor* scissor). A non-null camera receives a whole Scissor value from a required input pointer. These stored edge coordinates are scaled by framebuffer-to-VI ratios in normal setup; offscreen setup uses them directly.",
+        "rationale": "Stored scissor coordinates are not universally GX pixel coordinates.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1075-L1081",
+            "why": "Stored scissor coordinates are not universally GX pixel coordinates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L260-L284",
+            "why": "Normal setup scales scissor bounds before GXSetScissor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L232-L237",
+            "why": "Offscreen setup uses stored scissor bounds without scaling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:CObjLoad"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Loads descriptor-defined orientation, clipping planes, viewport, scissor, and projection settings into an HSD camera object.",
+        "rationale": "The canonical loader establishes HSD camera configuration; specific gameplay camera use needs caller evidence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1274-L1312",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:CObjLoad"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "File-local loader with signature static int CObjLoad(HSD_CObj* cobj, HSD_CObjDesc* desc). cobj is mutable destination storage with existing eye and interest WObjs; desc supplies configuration. Both pointers must be valid. Normal completion returns zero.",
+        "rationale": "The old input-pointer wording obscures writes through cobj.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1274-L1312",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:HSD_CObjLoadDesc"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Constructs an HSD_CObj from a non-null descriptor, using hsdNew on a class found by class_name or HSD_CObjAlloc when the name is absent or lookup fails, then invokes the resulting object's load method. A null descriptor returns NULL.",
+        "rationale": "The lookup branch assumes a compatible camera class but performs no local ancestry check; the former registered-camera-subclass claim was too strong.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1322-L1340",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:CObjAmnesia#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Class-info pointer whose identity controls default_class/current invalidation before parent amnesia dispatch.",
+        "rationale": "Parameter position and use are explicit in the canonical definition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1385-L1394",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:CObjInit#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Class instance storage passed to parent initialization and then cast to HSD_CObj for dirty-state and eye/interest allocation writes.",
+        "rationale": "Parameter position and use are explicit in the canonical definition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1342-L1356",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:CObjLoad#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Existing mutable HSD_CObj destination, including allocated eye and interest WObjs initialized from desc.",
+        "rationale": "Parameter position and use are explicit in the canonical definition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1274-L1312",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:CObjLoad#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "HSD_CObjDesc configuration source for flags, rectangles, eye/interest descriptors, clipping, orientation, and projection.",
+        "rationale": "Parameter position and use are explicit in the canonical definition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1274-L1312",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:CObjRelease#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "HSD_Class pointer to the HSD_CObj whose resources are released before forwarding the same pointer to parent release.",
+        "rationale": "Parameter position and use are explicit in the canonical definition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1358-L1383",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:HSD_CObjInit#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Nullable existing HSD_CObj destination; null causes a no-op.",
+        "rationale": "Parameter position and use are explicit in the canonical definition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1314-L1320",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:HSD_CObjInit#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Nullable HSD_CObjDesc source; null causes a no-op.",
+        "rationale": "Parameter position and use are explicit in the canonical definition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1314-L1320",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/cobj:HSD_CObjLoadDesc#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Nullable HSD_CObjDesc supplying class_name and load configuration; null returns NULL without allocation.",
+        "rationale": "Parameter position and use are explicit in the canonical definition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1322-L1340",
+            "why": "The function signature, branches, reads, writes, and calls support the stated behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/cobj.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Camera eye, interest and up state feed look-at view construction. Projection parameters and rectangle bounds feed GX projection, viewport and scissor setup. Activation clears the deferred Z list, records current and selects a render-pass setup; EndCurrent calls Z-list sort then display. The optional proj_mtx allocation caches the inverse of view_mtx.",
+        "rationale": "Full TU synthesis narrows the prior aggregate fact to canonical behavior and explicit cache conditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L199-L525",
+            "why": "Shows local camera state flow and cache/activation branch conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L785-L835",
+            "why": "Shows local camera state flow and cache/activation branch conditions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/cobj.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Activation rejects null, records current before render setup, and refreshes view only after successful setup. View regeneration requires camera mask 2 clear and view/WObj dirty state. Rebuilding clears view dirty indicators and sets inverse dirty bit 31. The Direct inverse accessor does not refresh view; it allocates/inverts only under bit 31 and clears that bit without checking inversion success.",
+        "rationale": "Full TU synthesis narrows the prior aggregate fact to canonical behavior and explicit cache conditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L467-L519",
+            "why": "Shows local camera state flow and cache/activation branch conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L758-L835",
+            "why": "Shows local camera state flow and cache/activation branch conditions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:CObjRelease"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Releases camera-owned resources: removes animation, relinquishes eye and interest WObj references, frees the optional inverse-view cache stored in proj_mtx, and delegates base-object cleanup to parent release.",
+        "rationale": "TU synthesis resolves misleading projection-matrix wording through the inverse cache writer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1358-L1383",
+            "why": "Release frees proj_mtx; its writer stores the inverse of view_mtx."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L785-L795",
+            "why": "Release frees proj_mtx; its writer stores the inverse of view_mtx."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:CObjRelease"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Cleanup calls animation removal, then handles eye and interest WObjs, then frees optional proj_mtx inverse-view cache storage, then calls parent release. Each non-null WObj is released and destroyed only when ref_DEC indicates release; parent release is unconditional after local cleanup.",
+        "rationale": "TU synthesis resolves misleading projection-matrix wording through the inverse cache writer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1358-L1383",
+            "why": "Release frees proj_mtx; its writer stores the inverse of view_mtx."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L785-L795",
+            "why": "Release frees proj_mtx; its writer stores the inverse of view_mtx."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

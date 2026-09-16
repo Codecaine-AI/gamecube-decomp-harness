@@ -1,0 +1,165 @@
+{
+  "tu": "main/melee/if/ifprize",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L119-L173",
+            "why": "Counter thresholds, phases and cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L312-L344",
+            "why": "Entry initializes the singleton."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the elapsed-duration claim while retaining the supported singleton lifecycle.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifprize:.data"
+        },
+        "type": "state_behavior",
+        "value": "The singleton retains queued record pointers, presentation objects, two activity gates, sound selection, animation category, phase, and counter. Entry enables both gates, selects one of three sounds, assigns counter -1 and phase 0. The process advances through entrance, interactive phase 1, exit phase 2, cleanup phase 3, and terminal phase 4. Interactive updates set the counter to 10; exit initiation does not reset it. Phase 2 increments while below 15, then selects phase 3 on a subsequent update. Normal exit therefore uses five increments from 10 to 15, not fifteen elapsed exit frames. Cleanup removes camera, light and UI objects, releases the archive, clears both gates and selects phase 4."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L119-L173",
+            "why": "Complete process implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes threshold from elapsed duration and preserves the cleanup early return.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifprize:fn_802FE470"
+        },
+        "type": "state_behavior",
+        "value": "Phase 4 returns without work. Phase 0 increments the counter while below 5, otherwise presents the head record and selects phase 1. Phase 1 assigns counter 10 and accepts A/Start, presenting and advancing the next record or calling exit initiation when no successor remains. Phase 2 increments the retained counter while below 15; an update beginning at 15 selects phase 3. On the normal path this is five increments from 10, followed by a phase-transition callback and then a cleanup callback. Phase 3 removes camera, light and UI objects, releases the archive, selects phase 4, clears both gates, requests scene exit and returns before animation work. Other paths through the outer guard request interface/content animation frames and evaluate the UI hierarchy."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L218-L229",
+            "why": "Only gate checks, phase write and SIS call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L135-L165",
+            "why": "Normal caller and later counter/cleanup behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the actual guard, unchanged counter and subsequent scheduling explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifprize:un_802FE8CC"
+        },
+        "type": "state_behavior",
+        "value": "If either presentation gate is clear, returns without side effects. If both are nonzero, assigns phase 2 and invokes SIS cleanup for slot 2. It neither checks the current phase nor resets the animation counter. Its normal caller is interactive phase 1, which has just assigned counter 10. Subsequent phase-2 updates increment toward 15, then select phase 3 on the next update; final object and scene-archive cleanup occurs in phase 3. The gates remain set until that cleanup, so this helper is not itself a one-shot phase-guarded transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L218-L229",
+            "why": "Explicit return and end of void function."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces ambiguous no-return terminology with the actual returning-void contract.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifprize:un_802FE8CC"
+        },
+        "type": "inferred_type",
+        "value": "Signature: void un_802FE8CC(void). This parameterless function returns normally without a result value; it is not a noreturn function. Its enabled path changes shared phase state and invokes indexed SIS resource cleanup."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L620-L624",
+            "why": "Canonical save-bit clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L261-L310",
+            "why": "Argument flow and animation fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L89-L106",
+            "why": "Unrecognized codes do not write message outputs."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the game-state side effect and documents the distinct unknown-code fallbacks.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifprize:un_802FE918"
+        },
+        "type": "data_flow",
+        "value": "The first argument is passed to gmMainLib_8015D8B0, which clears its indexed bit in save-data x1B40 rather than recording an acquisition. The code is then searched in the remapping table: its mapped offset indexes the animation-category table and, through un_802FE3F8 with base 2, selects SIS messages. An unknown code selects animation category zero but leaves the message output unchanged; the prior save-bit operation is not guarded by this search. Code 0x3E obtains two consecutive message indices and inserts Toy-derived text selected by the second argument into message 0x4A. Other codes use the primary message directly. The third argument is decoded to datetime, formatted in US month-day-year or non-US year-month-day order, and rendered through the retained text object at (320, 316)."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L261-L310",
+            "why": "Signature and parameter consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L620-L624",
+            "why": "First argument's external side effect."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the three integer domains while correcting registration to bit clearing and limiting the second argument's use.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifprize:un_802FE918"
+        },
+        "type": "inferred_type",
+        "value": "Signature: void un_802FE918(int prize_code, int auxiliary_trophy_id, int acquisition_time). The first argument selects an indexed save-bit clear, message/animation mapping and the special 0x3E branch. The second is used only in that branch to select Toy-subsystem text. The third is converted into a datetime for display. Results are shared-state, audio and text side effects, not a return value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L119-L173",
+            "why": "Queue consumption, thresholds and final cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L218-L229",
+            "why": "Separate SIS cleanup transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifprize.c#L312-L346",
+            "why": "Retained payload, initialization and empty exit callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the fifteen-frame claim and preserves the distinct SIS, scene-resource and external-record lifetimes.",
+        "subject": {
+          "entity_locator": "src/melee/if/ifprize.c"
+        },
+        "type": "state_behavior",
+        "value": "Entry retains the head and successor record pointers, enables both presentation gates, assigns phase 0 and counter -1, selects an initial sound variant, loads resources and constructs the display. The process advances through delayed first presentation and interactive paging. Final confirmation invokes a two-gate transition that selects phase 2 and releases SIS slot 2 without resetting the counter. Interactive phase 1 has assigned counter 10, so normal exit increments five times to threshold 15, selects phase 3 on the next update, and performs object and scene-archive cleanup on the following update. Cleanup clears gates and selects terminal phase 4. The scene-exit callback is empty, and this file does not free the externally supplied linked records or null its retained pointer fields."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

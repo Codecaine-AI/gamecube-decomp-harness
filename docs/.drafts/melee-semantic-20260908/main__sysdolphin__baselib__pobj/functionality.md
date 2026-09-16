@@ -1,0 +1,93 @@
+# Disjoint Librarian Research
+
+### shard-main__sysdolphin__baselib__pobj-000
+Reviewed canonical and rendered `src/sysdolphin/baselib/pobj.c` lines 1–480 only.
+
+- Provides null-safe flag retrieval and shape-animation attachment, removal, frame requests, and interpretation, with linked-list wrappers. Animation results update either an indexed additive weight or a scalar blend value.
+- Builds envelope chains from descriptor weights, then resolves their joint references separately through the ID table. Cleanup releases joint references and envelope/list allocations.
+- Loads shape-set metadata and descriptor pointers into a zeroed allocation; additive sets receive a separately allocated, zero-initialized weight array. Shape-set removal frees that array when applicable and removes its animation object.
+- Loads polygon-object chains through class-dispatched loading, copies vertex/display descriptor data, and initializes type-specific shape or envelope state. Supports configurable default classes, allocation, individual/list deletion, and direct destroy dispatch.
+- Resolves envelope and skin joint references with unreference/lookup/assert/reference sequencing; paired-list resolution stops when either list ends.
+- Caches GX array and vertex-descriptor setup by descriptor pointer identity. Explicit clearing resets both caches. Vertex-format setup excludes matrix-index attributes.
+
+The range ends at the opening of `setupShapeAnimArrayDesc`; its behavior is not assessed.
+
+### shard-main__sysdolphin__baselib__pobj-001
+Reviewed canonical and rendered pobj.c lines 481–960 only. This range implements shape-animation geometry decoding, blending, and display-list replay. Descriptor setup makes positions, normals, and NBT direct floating-point attributes while preserving other descriptor formats and invalidating cached descriptor state. Shape readers resolve byte or big-endian 16-bit indices into strided arrays, copying float components or scaling integer components by 2^frac; NBT reads nine components. drawShapeAnim lazily allocates shared geometry buffers, checks capacities, and either interpolates adjacent shapes using a clamped scalar blend or adds nonnegative-weighted shapes to shape zero. Normal/NBT components follow the same arithmetic without explicit normalization. The resulting buffers feed an interpreter that replays primitive commands, substitutes blended geometry, and forwards matrix indices, texture indices, and supported color encodings. The range ends inside HSD_PObjClearMtxMark, so its complete behavior is not assessed.
+
+### shard-main__sysdolphin__baselib__pobj-002
+Reviewed canonical and rendered pobj.c lines 961–1308 only. This range implements matrix-mark access, matrix preparation for rigid/shared-vertex/envelope objects, display dispatch, and class lifecycle hooks. Setup requirements depend on a render-mode mask, joint lighting, and active reflection/highlight texture-coordinate requests. Rigid setup loads one position matrix with conditional inverse-transpose normal/texture matrices; shared-vertex setup loads matrices for the current and referenced joints. Envelope setup processes at most ten list entries, using a near-unit-weight shortcut or weighted accumulation of joint/envelope matrix products before view transformation and GX loads. Display dispatch selects culling, skips drawing when both cull flags are set, invokes the matrix-setup method, then chooses shape-animation drawing or a display list of n_display << 5 bytes. Release dispatches cleanup by object type; amnesia clears selected global references and sizes; initialization registers class methods. The matrix-mark setter and shared-vertex cache tests have unusual literal behavior that must not be summarized as a conventional working cache.
+
+### shard-main__sysdolphin__baselib__pobj-003
+### Assigned header: `pobj.h`, lines 1–153
+The header defines the PObj data model and public interface. Runtime PObjs contain a class parent, next pointer, vertex descriptors, flags, display data, and a union of joint, shape-set, envelope-list, or unknown-object pointers. Descriptor records provide corresponding source-data references. Vertex descriptors specify GX attribute formats and vertex storage; envelopes pair joints with floating-point weights. Shape sets describe vertex and normal index collections, with runtime blend storage and an animation-object pointer. Shape-animation records support linked and hierarchical references.
+
+`HSD_PObjInfo` extends class information with display, matrix-setup, and descriptor-load callbacks. Public declarations cover class selection, allocation/freeing, flags, descriptor loading, reference resolution, animation operations, matrix marks, removal, and display. These are interface declarations, not verified implementation behavior. Coverage is limited to the assigned header, not the full translation unit.
+
+### shard-main__sysdolphin__baselib__pobj-004
+Reviewed the six assigned subjects, not the complete translation unit. PObj maintains two object/matrix-mark records, a bootstrap class descriptor, a default-class override, reusable shape-deformation buffers, and GX descriptor-identity caches. HSD_ClearVtxDesc unconditionally clears GX descriptors and both software caches. Shape drawing reuses allocated buffers for interpolation or additive deformation. Class initialization installs lifecycle and rendering callbacks; amnesia resets module caches. The matrix-mark setter remains a no-op for valid indices and has an undefined negative-index store path. Source-level behavior is supported, but exact compiled section contents, sizes, padding, and literal placement remain unverified.
+
+### shard-main__sysdolphin__baselib__pobj-005
+Reviewed the six assigned subjects: positional shape-animation attachment, list-wide shape-controller evaluation, class-based polygon-object allocation, two-slot matrix-mark reset, per-object rendering dispatch, and null-safe flags access. The implementation connects JObj/DObj animation to polygon blend state and selects animated geometry or GX display-list submission after culling and matrix setup. This is bounded subject coverage, not complete TU coverage.
+
+### shard-main__sysdolphin__baselib__pobj-006
+Reviewed the six assigned PObj subjects and all 26 baseline facts. These routines expose two matrix-cache markers, construct descriptor-backed polygon objects through virtual loading, remove polygon lists safely using saved successors, distribute selective shape-animation removal and frame requests, and resolve paired runtime/descriptor joint references in place. DObj and AObj consumers confirm the attachment and animation lifecycle roles. This is bounded subject coverage, not complete TU coverage.
+
+### shard-main__sysdolphin__baselib__pobj-007
+Reviewed the six assigned subjects and their 25 baseline facts. PObj class initialization installs lifecycle, loading, display, and matrix callbacks. Descriptor loading constructs type-specific payloads; release tears them down before superclass cleanup. Class amnesia selectively invalidates allocation-class and drawing-cache globals. The default-class setter supports fighter PObj substitution. The matrix-mark setter has an empty valid-index branch: normal calls do not update either cache slot, while negative indices reach undefined out-of-bounds writes. This is bounded subject coverage, not complete TU coverage.
+
+### shard-main__sysdolphin__baselib__pobj-008
+Reviewed the six assigned subjects and all 28 baseline facts. The PObj display callback dispatches rigid, paired-joint, or envelope matrix setup before geometry submission. Shape-animation callbacks store scalar or additive blend controls, which the CPU drawing path resolves into position and normal/NBT buffers for display-list replay. Current source contradicts the claimed rigid-cache update and the claimed suppression of normal processing solely by a missing descriptor. This review does not establish complete TU coverage.
+
+### shard-main__sysdolphin__baselib__pobj-009
+Reviewed the six assigned subjects. Shape-set loading preserves geometry references and initializes blend/controller state. Position, XYZ-normal, and nine-component NBT decoders feed CPU interpolation or weighted accumulation, followed by immediate GX display-list replay. Envelope loading constructs ordered weight chains, with joint resolution deferred until reference resolution and matrix construction performed during rendering. The replay loop checks command starts, not every payload access.
+
+### shard-main__sysdolphin__baselib__pobj-010
+The assigned subjects cover envelope joint-reference fixup and ordinary versus shape-animated GX vertex setup. Ordinary setup caches descriptor-list identities; shape setup overrides geometric attributes to direct floating-point input and invalidates those caches. Supporting source confirms descriptor loading, animation-controller delegation, CPU shape blending, and joint-weighted matrix submission. The matrix-mark setter retains its anomalous empty branch for valid indices. This assessment is limited to the assigned baseline records, not complete TU coverage.
+
+### shard-main__sysdolphin__baselib__pobj-011
+The assigned subjects concern polygon-object animation traversal, matrix-cache initialization, and display dispatch. HSD_PObjAddAnimAll walks polygon objects alongside shape-animation descriptors, delegating animation replacement to HSD_PObjAddAnim. HSD_PObjAnimAll traverses the polygon list and interprets animation for shape-animation objects. HSD_PObjClearMtxMark copies the supplied object pointer and mark into both cache entries; it does not necessarily zero them. HSD_PObjDisp selects culling from object flags, skips drawing when both culling bits are set, otherwise invokes matrix setup and dispatches shape-animation or ordinary display-list drawing. All six assigned subjects have empty baseline fact lists, so there are no baseline fact IDs to disposition. This review does not claim full translation-unit coverage.
+
+### shard-main__sysdolphin__baselib__pobj-012
+The assigned subjects have no baseline facts. In the inspected canonical bodies, HSD_PObjDisp forwards its two matrix arguments and render-mode argument to the object's matrix-setup method, then selects shape-animation or simple-primitive rendering; enabling both culling flags returns before either operation. HSD_PObjGetFlags returns the object's flags, or zero for NULL. HSD_PObjGetMtxMark takes an index and output pointers, asserts that both output pointers are present, and returns the selected cached object/mark pair for indices 0–1 or NULL/zero otherwise. This review covers only the bounded subjects, not the entire translation unit.
+
+### shard-main__sysdolphin__baselib__pobj-013
+The assigned subjects concern descriptor loading, linked-list removal and animation operations, and matrix-mark retrieval. Descriptor loading accepts NULL or allocates an object using descriptor-selected/default class information and invokes its load method. Removal saves each next pointer before deleting the current object. Animation wrappers traverse the object chain, forwarding flags and, for requests, the starting frame; the per-object operations act only when POBJ_ANIM is selected and the object has shape animation. Matrix-mark retrieval requires output pointers and writes the cached mark for indices 0–1, or zero for invalid indices. All six assigned subjects have empty baseline fact arrays; there are no baseline fact IDs to disposition.
+
+### shard-main__sysdolphin__baselib__pobj-014
+The assigned subjects contain no baseline facts. The reviewed source forwards animation start-frame and flags across a polygon-object chain; resolves object and descriptor chains in parallel until either ends; and installs a nullable default class after checking non-null class ancestry. The matrix-mark setter takes an integer index, but its current body performs no writes for indices 0 and 1, returns for indices >= 2, and reaches out-of-bounds writes for negative indices. These observations cover only the assigned subject functions and relevant local context, not the entire translation unit.
+
+### shard-main__sysdolphin__baselib__pobj-015
+The assigned subjects have no baseline facts to disposition. Current source shows that PObjLoad initializes a polygon object from its descriptor, recursively loading its successor and loading type-dependent auxiliary data. PObjRelease dispatches auxiliary cleanup by polygon-object type before parent release. PObjAmnesia clears matching default-class and shared-buffer/cache state before parent amnesia. HSD_PObjSetMtxMark accepts an object pointer and mark, but its current conditional leaves valid indices unchanged and reaches indexed writes only for negative indices; normal setter behavior must not be assumed. Review is limited to these subjects, not complete TU coverage.
+
+### shard-main__sysdolphin__baselib__pobj-016
+The assigned subjects have no baseline facts. Canonical PObjSetupMtx accepts a polygon object, two matrices and render-mode flags, forwarding them to rigid, shared-vertex or envelope matrix setup according to polygon type and the associated joint pointer. The display method invokes this through setup_mtx. PObjUpdateFunc accepts an object and animation channel, ignores null or non-shape-animation objects, and forwards the channel and animation value to the shape-set blend update. This review covers these assigned parameter subjects, not the entire translation unit.
+
+### shard-main__sysdolphin__baselib__pobj-017
+The six assigned parameter subjects contain no baseline facts. The reviewed source forwards PObjUpdateFunc's animation value to shape blending. SetupEnvelopeModelMtx traverses up to ten envelope lists, selects a joint matrix or accumulates weighted joint/envelope matrix products, concatenates vmtx, and loads position and conditionally normal/texture matrices; its pmtx parameter is unused. SetupRigidModelMtx does not use its pobj parameter and instead uses the current joint, pmtx, and render-mode-derived setup flags. PObjSetupMtx forwards the common argument list to these implementations.
+
+### shard-main__sysdolphin__baselib__pobj-018
+The reviewed routines prepare GX matrices. SetupRigidModelMtx loads pmtx into the first position-matrix slot and conditionally derives inverse-transpose normal and texture matrices; its vmtx parameter is unused. SetupSharedVtxModelMtx loads pmtx for the first slot and concatenates vmtx with pobj->u.jobj->mtx for the second, with conditional inverse-transpose matrix loads. Both consult matrix marks before proceeding. PObjSetupMtx forwards its arguments unchanged and selects these routines according to polygon type and the presence of an associated joint. All six assigned subjects have empty baseline fact lists.
+
+### shard-main__sysdolphin__baselib__pobj-019
+This bounded subject shard contains six parameter identities and no baseline facts. There are consequently no fact records to retain, supersede, reject, or mark unresolved. No new parameter semantics or register-to-source mappings are asserted.
+
+### shard-main__sysdolphin__baselib__pobj-020
+The assigned subjects concern parameters of get_shape_vertex_xyz and get_shape_normal_xyz. Both functions select a shape-specific index array, decode a one-byte or big-endian two-byte index, and use the descriptor stride to locate an XYZ record. They copy three floating-point components directly or convert integer components using the descriptor's fractional scale. All six assigned subjects have empty baseline fact lists, so there are no baseline facts to disposition.
+
+### shard-main__sysdolphin__baselib__pobj-021
+The assigned subjects concern shape-vertex decoding, shape-animation display-list interpretation, descriptor loading, and envelope reference resolution. Vertex decoding uses an index-array position to select a vertex and writes three floating-point components to the destination. Display-list interpretation reads the polygon object's display bytes and vertex descriptors, substituting supplied position and normal buffers when emitting GX attributes. Envelope loading builds weighted lists; shape-set loading copies descriptor fields and initializes blending state; envelope resolution replaces joint references through ID lookup. All six assigned subjects have empty baseline fact arrays, so there are no baseline facts to disposition.
+
+### shard-main__sysdolphin__baselib__pobj-022
+The fully read bundle assigns five parameter subjects, each with an empty baseline facts array. There are no assigned fact IDs to retain, supersede, reject, or mark unresolved. No parameter semantics or register-to-source mappings are asserted, and no new facts are proposed. This result does not claim full translation-unit coverage.
+
+### shard-main__sysdolphin__baselib__pobj-023
+The reviewed paths support shape-animation channel updates, indexed shape-sample decoding, interpolation/additive deformation and GX submission; configure animated vertex descriptors and formats; load rigid, shared-joint and weighted-envelope matrices with conditional inverse-transpose normal transforms; and resolve descriptor joint references into retained runtime pointers. Matrix setup also consults a two-slot object/mark cache, whose setter currently does not store for valid indices. This assessment covers only the assigned links, not the entire translation unit.
+
+### shard-main__sysdolphin__baselib__pobj-024
+Reviewed the 12 assigned links against current canonical code. The linked functionality covers shape-controller attachment, evaluation and removal; CPU shape blending and direct GX geometry submission; cached vertex descriptors; joint-reference fixup; envelope-weighted matrix loading; and class-amnesia invalidation. Matrix-cache lookup and skip branches exist, but the current setter does not update valid slots, preventing an unqualified claim that ordinary draws maintain a working matrix cache. This is bounded link review, not complete TU coverage.
+
+### shard-main__sysdolphin__baselib__pobj-025
+The reviewed code forwards a common animation-request frame across flag-selected shape-animation objects, caches vertex descriptors by pointer identity, blends shape vertices and normals into persistent scratch buffers, and consults object/mark pairs before matrix loads. The indexed matrix-mark setter does not update valid slots. Source-level behavior is supported; allocation of these globals to compiled .sbss and .bss sections is not established by the inspected source.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

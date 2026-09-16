@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from toolpack_runtime import compiler_runner_status, print_json, resolve_repo_root, tool_impl_status
+from toolpack_runtime import compiler_runner_status, print_json, project_layout, repo_path_label, resolve_repo_root, tool_impl_status
 
 
 def main() -> None:
@@ -18,15 +18,16 @@ def main() -> None:
     args = parser.parse_args()
 
     repo_root = resolve_repo_root(args.repo_root)
+    layout = project_layout(repo_root)
     runner = compiler_runner_status(repo_root)
     payload = tool_impl_status(
         tool="source_permuter",
         scripts=("permute.py", "src_mutate.py", "type_oracle.py", "ninja_compile.py", "objdiff_path.py"),
         repo_root=repo_root,
         required_paths=(
-            "build/GALE01/report.json",
+            repo_path_label(repo_root, layout.report_path),
             "build.ninja",
-            "build/GALE01/obj",
+            repo_path_label(repo_root, layout.obj_root),
             "build/tools/objdiff-cli",
             "build/tools/sjiswrap.exe",
             "build/tools/dtk",

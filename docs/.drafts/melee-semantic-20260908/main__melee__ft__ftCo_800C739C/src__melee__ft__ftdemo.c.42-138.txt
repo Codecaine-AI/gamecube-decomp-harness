@@ -1,0 +1,97 @@
+42: static HSD_GObjEvent on_create_fighter[16] = {
+43:     ftCo_800BECB0, ftCo_800BED88, ftCo_800BEF04, NULL,
+44:     ftCo_800BEFD4, ftCo_800BF034, ftCo_800BF108, ftCo_800C6150,
+45:     ftCo_800C7070, ftCo_800C70D0, ftCo_800C7178, ftCo_800C7220,
+46:     ftCo_800C7294, ftCo_800C7308, ftCo_800C739C, ftCo_800C7434
+47: };
+48: 
+49: static void initFighter(HSD_GObj* gobj, plAllocInfo2* alloc_info)
+50: {
+51:     struct plAllocInfo temp1;
+52:     temp1.internal_id = alloc_info->internal_id;
+53:     temp1.slot = alloc_info->slot;
+54:     temp1.b0 = alloc_info->has_transformation;
+55:     Fighter_UnkInitLoad_80068914(gobj, &temp1);
+56: }
+57: 
+58: Fighter_GObj* ftDemo_CreateFighter(plAllocInfo2* alloc_info)
+59: {
+60:     Fighter_GObj* gobj = GObj_Create(HSD_GOBJ_CLASS_FIGHTER, 8, 0);
+61:     GObj_SetupGXLink(gobj, ftDrawCommon_80080E18, 5, 0);
+62:     {
+63:         Fighter* fp = HSD_ObjAlloc(&fighter_alloc_data);
+64:         fp->dat_attrs_backup = HSD_ObjAlloc(&fighter_dat_attrs_alloc_data);
+65:         GObj_InitUserData(gobj, 4, Fighter_Unload_8006DABC, fp);
+66:         ftData_8008572C(alloc_info->internal_id);
+67:         initFighter(gobj, alloc_info);
+68:         fp->x18 = 14;
+69:         fp->x1C_actionStateList = ftData_803C52A0;
+70:         fp->x20_actionStateList = ftData_UnkMotionStates0[fp->kind];
+71:         fp->x24 = fp->ft_data->x14;
+72:         fp->x28 = fp->ft_data->x18;
+73:         efAsync_LoadSync(ftData_UnkBytePerCharacter[fp->kind]);
+74:         if (!alloc_info->b0) {
+75:             ftData_80085820(fp->kind, fp->x619_costume_id);
+76:         } else {
+77:             ftData_800858E4(fp->kind, fp->x619_costume_id);
+78:         }
+79:         Fighter_UnkUpdateCostumeJoint_800686E4(gobj);
+80:         {
+81:             enum_t a, b;
+82:             if (alloc_info->unk8 >= 9) {
+83:                 ftData_UnkDemoCallbacks0[fp->kind](alloc_info->unk8, &a, &b);
+84:             } else if (alloc_info->unk8 >= 8) {
+85:                 b = 13;
+86:                 a = 13;
+87:             } else if (alloc_info->unk8 >= 7) {
+88:                 b = 12;
+89:                 a = 12;
+90:             } else if (alloc_info->unk8 >= 5) {
+91:                 a = 10;
+92:                 b = 11;
+93:             } else {
+94:                 a = 0;
+95:                 b = 9;
+96:             }
+97:             ftData_80085B98(fp, a, b);
+98:         }
+99:         ftParts_80074E58(fp);
+100:         ftParts_SetupParts(gobj);
+101:         ftAnim_80070308(gobj);
+102:         ftCo_800C884C(gobj);
+103:         Fighter_80068E64(gobj);
+104:         ftParts_800749CC(gobj);
+105:         ftAnim_8007077C(gobj);
+106:         ftCo_8009CF84(fp);
+107:         ftAnim_8006FE48(gobj);
+108:         Fighter_UnkUpdateVecFromBones_8006876C(fp);
+109:         ftCo_8009F578(fp);
+110:         if (ftData_OnLoad[fp->kind] != NULL) {
+111:             ftData_OnLoad[fp->kind](gobj);
+112:         }
+113:         ftColl_8007B320(gobj);
+114:         fp->x890_cameraBox = Camera_80029020();
+115:         lbShadow_8000ED54(&fp->x20A4, gobj->hsd_obj);
+116:     }
+117:     HSD_GObj_SetupProc(gobj, Fighter_8006A360, 1);
+118:     HSD_GObj_SetupProc(gobj, Fighter_procUpdate, 4);
+119:     HSD_GObj_SetupProc(gobj, Fighter_procMap, 5);
+120:     HSD_GObj_SetupProc(gobj, Fighter_8006C80C, 9);
+121:     HSD_GObj_SetupProc(gobj, Fighter_8006D9AC, 16);
+122:     Fighter_UnkProcessDeath_80068354(gobj);
+123:     if (on_create_fighter[alloc_info->unk8] != NULL) {
+124:         on_create_fighter[alloc_info->unk8](gobj);
+125:     }
+126:     ftLib_800867E8(gobj);
+127:     return gobj;
+128: }
+129: 
+130: void ftDemo_ObjAllocInit(void)
+131: {
+132:     Fighter_800679B0();
+133:     HSD_ObjAllocInit(&fighter_x59C_alloc_data, 0xB000, 0x20);
+134: }
+135: 
+136: void ftDemo_SetArchiveData(int pairs_idx, HSD_Archive* archive, int arr_idx)
+137: {
+138:     static int ints[5] = { 9, 10, 11, 14, 15 };

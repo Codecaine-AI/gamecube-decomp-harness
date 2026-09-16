@@ -1,0 +1,70 @@
+{
+  "tu": "main/melee/it/kinds/itoctarockstone",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarockstone.c#L122-L163",
+            "why": "Absolute horizontal difference, exact arithmetic sequence, two divisions, sequential bounds and no-target fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarockstone.c#L172-L192",
+            "why": "Successful creation supplies the new stone and launch parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L113-L159",
+            "why": "Canonical eligible-fighter search minimizes squared XY distance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L325-L331",
+            "why": "Target position derives from the configured camera target bone and offset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing algebraically reduced explanation, which conceals the explicit division by the travel-time-like intermediate. Also preserves clamp order and the no-target branch instead of asserting unconditional bounded output.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarockstone:it_802E89D0"
+        },
+        "type": "data_flow",
+        "value": "Receives the newly created stone and caller-supplied horizontal speed and vertical bounds. It writes x velocity as horizontal speed times facing and clears z velocity. It queries the nearest eligible fighter with ftLib_8008627C(&ip->pos, NULL) and obtains that fighter's camera-target-bone position. In the target branch it computes t = abs(stone_x - target_x) / horizontal_speed, forms fall_speed * (t * t), multiplies that intermediate by 0.5f, and divides it by t before adding HSD_Randf() * ((target_y - stone_y) / 10.0f). It then compares against the upper bound and subsequently the lower bound. Neither division has a local zero guard: nonzero horizontal speed does not prevent t from being zero when horizontal separation is zero. The operation sequence must not be replaced by an algebraically cancelled formula when describing exceptional floating-point behavior. If no target exists, y velocity is set to zero without applying either bound. The initialized velocity is subsequently used by the projectile's motion callbacks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L255-L275",
+            "why": "Timed release supplies bone-14 position, parent, facing and three special attributes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarockstone.c#L172-L192",
+            "why": "Complete local SpawnItem assignments contain no velocity assignment and guard the initializer with a non-null result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarockstone.c#L131-L163",
+            "why": "Post-creation initializer writes the stone's three velocity components."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported zero-initial-velocity assertion while preserving the distinct position fields, parent handoff, launch-argument origins and nullable creation guard.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarockstone:it_802E8ADC"
+        },
+        "type": "data_flow",
+        "value": "The Octorok attack callback supplies the parent object, world coordinates from dynamic bone 14, integer-converted facing direction, and special attributes x10, x14 and x18. This constructor declares a local SpawnItem without an aggregate initializer, selects It_Kind_Octarock_Stone, copies the supplied coordinates into prev_pos and clears prev_pos.z, and obtains spawn.pos through it_8026BB88 on the parent. It assigns floating-point facing, zero damage, a null primary parent, the Octorok as secondary parent, flag b0 = true, and x40 = 0. It does not explicitly assign the SpawnItem velocity before calling Item_80268B18; the x40 assignment must not be described as zeroing that velocity. Only if creation returns a non-null stone does it call it_802E89D0 to initialize all three velocity components from facing, launch parameters and the target/no-target branch. Creation failure performs no stone-specific post-creation initialization."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

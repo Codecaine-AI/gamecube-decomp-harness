@@ -1,0 +1,183 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_DownDamage",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownDamage:ftCo_8009F0F0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Accepts exactly DownBoundU, DownWaitU, DownDamageU, DownBoundD, DownWaitD, or DownDamageD when x2224_b2 is set or dmg.x1838_percentTemp < p_ftCommonData->x428. Acceptance calls ftCo_8009F184 and returns true; rejection returns false. The flag bypasses the comparison, whose equality and unordered cases fail. No grounded guard appears. True reports admission/setup, not guaranteed final DownDamage motion.",
+        "rationale": "Preserve exact guards while correcting the downstream final-state overclaim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownDamage.c#L22-L46",
+            "why": "Complete predicate and entry request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L419-L446",
+            "why": "Shared callee can override requested motion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownDamage:ftCo_8009F184"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requests DownDamageU only for incoming DownWaitU and DownDamageD otherwise. Calls ftCo_8008DCE0(gobj, requested_motion, fp->facing_dir), then ftCommon_8007E2F4(fp, 1), without a local rejection path. The request is not an unconditional final motion: shared setup can replace it with literal 0x5A when kb_level_base >= 2 and the damage element is Ice.",
+        "rationale": "Separate local selection from actual shared-callee final motion without assigning gameplay meaning to a numeric literal.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownDamage.c#L39-L46",
+            "why": "Exact ternary and ordered calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L419-L446",
+            "why": "Override after argument assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownDamage:ftCo_DownDamage_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When x2224_b2 is clear, subtracts one from float mv.co.downdamage.x0 before returning if animation frames remain. On completion, exact GA_Air calls ftCo_80090780 when the flag is set or ftCo_Fall_Enter otherwise. Non-air values test x0 <= 0: true calls ftCo_80098160 with DownStandU only for DownDamageU and DownStandD otherwise; false calls ftCo_80097F38, which requests the corresponding DownWait motion. No clamp occurs. NaN takes the false comparison branch, which is therefore not equivalent to a positive countdown.",
+        "rationale": "Correct float boundary semantics and report exact routing.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownDamage.c#L48-L70",
+            "why": "Complete update and transition order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/types.h#L258-L260",
+            "why": "Source float declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L286-L299",
+            "why": "Actual DownWait continuation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownDamage:ftCo_DownDamage_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains Fighter from gobj->user_data. Exact GA_Ground calls ft_80082708; its GA_Ground result forwards gobj to ftCo_8008FC94, which forwards Fighter to ftCommon_8007D5D4 and sets GA_Air. Another result calls ftCo_800C7CA0. For non-ground entry, true ft_80081DD4 forwards Fighter to ftCommon_8007D7FC; otherwise either wall-hug bit enables gobj forwarding to ftCo_800C1D38 and, only on false, ftCo_800C17CC.",
+        "rationale": "Replace incorrect grounded-handling interpretation with canonical call and field flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownDamage.c#L79-L101",
+            "why": "Complete local ladder."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L1111-L1114",
+            "why": "Adapter destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Explicit air-state assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DownDamage:ftCo_DownDamage_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For exact GA_Ground entry, GA_Ground from ft_80082708 triggers air setup through ftCo_8008FC94; another result attempts guarded DownReflect. For non-ground entry, true ft_80081DD4 invokes shared grounding; otherwise either wall-hug bit permits guarded PassiveWall/PassiveWallJump admission before ftCo_800C17CC. Successful first admission skips reflection. Ceiling-only contact does not reach this ladder, but its reflection helper can process ceiling reflection after wall reflection fails. Reflection guards include strict knockback thresholds and prior-surface checks.",
+        "rationale": "Preserve the surprising source branch and distinguish outer wall gating from the fallback's full behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownDamage.c#L79-L101",
+            "why": "Branch and priority."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L1111-L1114",
+            "why": "Air adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L594",
+            "why": "Air and ground assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveWall.c#L35-L85",
+            "why": "Guarded recovery transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FlyReflect.c#L23-L160",
+            "why": "Wall-first reflection and ceiling fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7CA0.c#L22-L56",
+            "why": "DownReflect guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_DownDamage.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Six DownBound/DownWait/DownDamage motions pass a flag-or-strict-damage guard before shared setup. Only incoming DownWaitU requests DownDamageU; others request DownDamageD, with a possible shared Ice override. Animation conditionally decrements a float before its completion guard, then routes by exact GA_Air, x2224_b2, and x0 <= 0 to canonical successor helpers. IASA is empty; physics delegates unconditionally. Collision routes a GA_Ground query result to air setup, the other grounded-path result to a DownReflect attempt, and non-ground processing to grounding or wall-recovery-before-reflection.",
+        "rationale": "Repair summary-level final-state and collision assumptions while preserving complete local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownDamage.c#L22-L101",
+            "why": "Complete owned implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L419-L446",
+            "why": "Final-motion exception."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L1111-L1114",
+            "why": "Air adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Actual air assignment."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "tu": "main/melee/it/kinds/ithammerhead",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammerhead.c#L92-L105",
+            "why": "Pickup calls the helper before selecting index 1; held callbacks are passive."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1414-L1421",
+            "why": "Exact lifetime and half-life assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the misleading absence-of-timer claim by following the shared helper's writes across the call boundary.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammerhead:itHammerHead_Logic40_PickedUp"
+        },
+        "type": "state_behavior",
+        "value": "On pickup, unconditionally initializes xD44_lifeTimer from Hammer Head special attribute x4 and xD48_halfLifeTimer from that value multiplied by global x4C_float through it_80275158, then enters table index 1 with ITEM_ANIM_UPDATE. The held animation and physics callbacks do not advance the free-item lifetime countdown."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammerhead.c#L17-L42",
+            "why": "Both table indices register this animation callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammerhead.c#L122-L135",
+            "why": "Complete countdown and ordered branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Explicitly captures shared initial/released use rather than describing only state 2, while preserving the priority of expiration over threshold processing.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammerhead:itHammerhead_UnkMotion2_Anim"
+        },
+        "type": "purpose",
+        "value": "Updates the Hammer Head's remaining lifetime in both initial table index 0 and dropped/thrown index 2. Each invocation decrements xD44_lifeTimer, immediately returns true if the result is nonpositive, and otherwise calls it_802728C8 when the updated timer is at or below global x34 before returning false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammerhead.c#L17-L42",
+            "why": "Shared collision registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammerhead.c#L145-L169",
+            "why": "Complete forwarding and state-entry data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/forward.h#L60-L70",
+            "why": "Flag 1 and animation-update flag 2 are distinct."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the numeric flag interpretation and includes both registered incoming states without inventing additional velocity or timer writes.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammerhead:it_80299FB4"
+        },
+        "type": "data_flow",
+        "value": "Receives the Hammer Head Item_GObj through it_80299F94 from collision processing shared by table indices 0 and 2. It obtains the Item, sets x40_vel.y and x40_vel.x to zero, calls it_8026B390 with the original object, and calls Item_80268E5C with table index 3 and literal flag 1 (ITEM_UNK_0x1, not ITEM_ANIM_UPDATE). It does not directly write Z velocity or lifetime."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammerhead.c#L161-L192",
+            "why": "Literal transition flag and complete resting callback trio."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/forward.h#L60-L70",
+            "why": "Canonical flag meanings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Support-loss callback and shared exceptional branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported resting-state behavior while removing the incorrect claim that the transition requests animation updating.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammerhead:it_80299FB4"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally clears horizontal and vertical velocity, performs shared item setup, and enters Hammer Head table index 3 with flag 1 (ITEM_UNK_0x1); it does not request the ITEM_ANIM_UPDATE bit. The entry routine contains no local guard or timer write. Index 3 continues lifetime processing, has empty local physics, and delegates support monitoring with the thrown-state handler as its support-loss callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammerhead.c#L17-L73",
+            "why": "Table and constructor definition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammerhead.h#L12-L34",
+            "why": "Public constructor and table declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L88-L109",
+            "why": "Caller supplies its owner rather than the Hammer object itself."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the overly narrow parent-item characterization and preserves the actual source/header spellings and caller relationship.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/ithammerhead.c"
+        },
+        "type": "inferred_type",
+        "value": "Dedicated item translation unit with a four-entry ItemStateTable. Its void constructor receives a parent/owner game object, position and launch-direction Vec3 pointers, and f32 facing direction. The definition spells the first parameter Item_GObj*, while the public header spells it HSD_GObj*; the Hammer caller supplies its owner, so the parent must not be assumed to carry an Item payload."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

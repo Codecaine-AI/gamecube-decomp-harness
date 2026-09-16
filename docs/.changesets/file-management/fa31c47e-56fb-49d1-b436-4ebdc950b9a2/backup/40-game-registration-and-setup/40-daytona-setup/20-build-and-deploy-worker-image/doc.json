@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-542589a86b5a9594a4e3224d1037431a",
+  "title": "Build and Deploy the Worker Image",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "worker-intro",
+        "worker-sandbox-design-link",
+        "worker-package-heading",
+        "worker-prerequisites",
+        "worker-command-parameters",
+        "worker-command",
+        "worker-profiles",
+        "deploy-heading",
+        "deploy-process",
+        "setup-sandbox-profiles",
+        "setup-sandbox-profile-shape"
+      ]
+    },
+    "worker-intro": {
+      "id": "worker-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Prepare a worker image for the selected game's build and register its Daytona snapshot in the game configuration. Record the baked revision, workspace path, and resource profile, then validate the snapshot before admitting worker claims."
+        }
+      ],
+      "children": []
+    },
+    "worker-sandbox-design-link": {
+      "id": "worker-sandbox-design-link",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sandbox Contents",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/40-workers/40-sandbox-execution/20-sandbox-contents"
+            }
+          }
+        },
+        {
+          "insert": " explains the prepared image, shared toolpack, and per-claim revision transfer. Follow that design when choosing the inputs to package here."
+        }
+      ],
+      "children": []
+    },
+    "worker-package-heading": {
+      "id": "worker-package-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Prepare the Image Bundle"
+        }
+      ],
+      "children": []
+    },
+    "worker-prerequisites": {
+      "id": "worker-prerequisites",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Prepare a configured, built checkout before bundling. The bundle builder expects "
+        },
+        {
+          "insert": "configure.py",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "build.ninja",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", the selected report, compiler and binutils directories, and object files. It also needs the configured Linux tools, including patched "
+        },
+        {
+          "insert": "wibo",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "objdiff",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "worker-command-parameters": {
+      "id": "worker-command-parameters",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Replace "
+        },
+        {
+          "insert": "<game-id>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "<profile-name>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and the output path with this game's configured values. The current builder expects the GameCube build layout described above. A project with a different build layout needs an adapter before it can use this packaging command."
+        }
+      ],
+      "children": []
+    },
+    "worker-command": {
+      "id": "worker-command",
+      "type": "code",
+      "props": {
+        "language": "sh"
+      },
+      "text": [
+        {
+          "insert": "bash toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image/build_image_bundle.sh \\\n  --harness-root \"$PWD\" --game <game-id> --profile <profile-name> \\\n  --out /path/to/game-worker.tar.zst"
+        }
+      ],
+      "children": []
+    },
+    "worker-profiles": {
+      "id": "worker-profiles",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The bundle command prepares an archive; it does not by itself establish a usable Daytona snapshot. Build the image and configure its snapshot name and baked revision for the selected profile. CPU profiles can share the same game content, but the current configuration selects a named snapshot for each profile. Validate each profile you intend to use before admitting work."
+        }
+      ],
+      "children": []
+    },
+    "deploy-heading": {
+      "id": "deploy-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Deploy and Register the Snapshot"
+        }
+      ],
+      "children": []
+    },
+    "deploy-process": {
+      "id": "deploy-process",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Prepare the Linux image build context",
+            "steps": [
+              {
+                "text": "Extract the generated archive. Ensure native binaries, generated build paths, and build artifacts are Linux-compatible; packaging a macOS checkout alone does not satisfy this."
+              }
+            ]
+          },
+          {
+            "text": "Build and publish the container image",
+            "steps": [
+              {
+                "text": "Use the bundled Dockerfile with GAME_ID, WORKSPACE_ROOT, and REPORT_PATH from the image plan. Publish the image to a registry accessible to Daytona."
+              }
+            ]
+          },
+          {
+            "text": "Register a Daytona snapshot",
+            "steps": [
+              {
+                "text": "Create the snapshot from the published image with the selected CPU, memory, and disk resources. Record its name and the actual packaged checkout revision."
+              }
+            ]
+          },
+          {
+            "text": "Configure and validate the game profile",
+            "steps": [
+              {
+                "text": "Set snapshot_name, snapshot_baked_rev, workspace_root, and resource_class. Validate each profile intended for Run against the accepted host build."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "setup-sandbox-profiles": {
+      "id": "setup-sandbox-profiles",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Define named sandbox profiles with inherited common fields. Choose the default profile and resources for this game's build workload. The example below shows "
+        },
+        {
+          "insert": "2-core",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "4-core",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " profiles. Unknown profile names and invalid resource values fail resolution. Claim metadata records the resolved profile, image, baked revision, workspace, and resources."
+        }
+      ],
+      "children": []
+    },
+    "setup-sandbox-profile-shape": {
+      "id": "setup-sandbox-profile-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"default_profile\": \"2-core\",\n  \"profiles\": {\n    \"2-core\": {\n      \"snapshot_name\": \"example-game-2c\",\n      \"snapshot_baked_rev\": \"commit-A\",\n      \"workspace_root\": \"/work/game\",\n      \"resource_class\": {\n        \"cpu\": 2,\n        \"memory_gib\": 4,\n        \"disk_gib\": 5\n      }\n    },\n    \"4-core\": {\n      \"snapshot_name\": \"example-game-4c\",\n      \"snapshot_baked_rev\": \"commit-A\",\n      \"workspace_root\": \"/work/game\",\n      \"resource_class\": {\n        \"cpu\": 4,\n        \"memory_gib\": 8,\n        \"disk_gib\": 5\n      }\n    }\n  }\n}",
+        "fields": [
+          {
+            "name": "default_profile",
+            "type": "string",
+            "description": "Must name a configured profile; default is 2-core."
+          },
+          {
+            "name": "profiles",
+            "type": "map<string, SandboxProfile>",
+            "description": "Named execution options.",
+            "fields": [
+              {
+                "name": "snapshot_name",
+                "type": "string",
+                "description": "Accepted Daytona snapshot."
+              },
+              {
+                "name": "snapshot_baked_rev",
+                "type": "revision",
+                "description": "Checkout revision in this image."
+              },
+              {
+                "name": "workspace_root",
+                "type": "string",
+                "description": "Game workspace inside Daytona."
+              },
+              {
+                "name": "resource_class",
+                "type": "object",
+                "description": "CPU, memory in GiB, and disk in GiB."
+              }
+            ]
+          }
+        ],
+        "name": "SandboxProfiles",
+        "source": {
+          "path": "apps/server/src/core/game-registry/resolver.ts",
+          "symbol": "GameSandboxConfig"
+        }
+      },
+      "children": []
+    }
+  }
+}

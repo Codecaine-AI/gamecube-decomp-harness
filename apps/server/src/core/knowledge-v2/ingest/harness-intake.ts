@@ -1,3 +1,4 @@
+import { knowledgeStorePath } from "../../knowledge/paths.js";
 import {
   existsSync,
   mkdirSync,
@@ -29,6 +30,7 @@ export const KNOWLEDGE_INTAKE_SYNC_LANES = ["reconcile", "prs", "discord", "atte
 export type KnowledgeIntakeLane = (typeof KNOWLEDGE_INTAKE_SYNC_LANES)[number];
 
 export interface RunKnowledgeIntakeInput {
+  orchestratorDbPath?: string;
   knowledgeRoot: string;
   checkoutRoot: string;
   reportPath: string;
@@ -71,6 +73,15 @@ export interface KnowledgeIntakeDependencies {
   prs(store: KnowledgeStore, options: PrImportOptions): ImportPrsResult;
   discord(store: KnowledgeStore, options: DiscordImportOptions): DiscordImportResult;
   attempts(store: KnowledgeStore, options: AttemptsImportOptions): AttemptsImportResult;
+}
+
+function defaultOrchestratorDbPath(knowledgeRoot: string): string {
+  const gameRoot = dirname(knowledgeRoot);
+  const runtimePath = resolve(gameRoot, "runtime/state/orchestrator.sqlite");
+  const legacyPath = resolve(gameRoot, "state/orchestrator.sqlite");
+  if (existsSync(runtimePath)) return runtimePath;
+  if (existsSync(legacyPath)) return legacyPath;
+  return runtimePath;
 }
 
 interface ProcessResult {
@@ -330,7 +341,7 @@ export async function runKnowledgeIntake(
   }
 
   let temporaryStoreRoot: string | undefined;
-  const storeRoot = input.dryRun && !existsSync(resolve(knowledgeRoot, "knowledge.sqlite"))
+  const storeRoot = input.dryRun && !existsSync(knowledgeStorePath(knowledgeRoot))
     ? (temporaryStoreRoot = mkdtempSync(resolve(tmpdir(), "knowledge-intake-")))
     : knowledgeRoot;
   const store = dependencies.openStore({ knowledgeRoot: storeRoot });
@@ -377,8 +388,15 @@ export async function runKnowledgeIntake(
         ingest.discord = result;
         input.log(laneLog(lane, result));
       } else {
+        const orchestratorDbPath = input.orchestratorDbPath
+          ? resolve(input.orchestratorDbPath)
+          : defaultOrchestratorDbPath(knowledgeRoot);
+        if (!existsSync(orchestratorDbPath)) {
+          input.log(`[knowledge-intake] skipping attempts: input not found: ${orchestratorDbPath}`);
+          continue;
+        }
         const result = dependencies.attempts(store, {
-          orchestratorDbPath: resolve(dirname(knowledgeRoot), "state/orchestrator.sqlite"),
+          orchestratorDbPath,
           dryRun: input.dryRun,
         });
         ingest.attempts = result;

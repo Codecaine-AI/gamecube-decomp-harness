@@ -1,0 +1,65 @@
+{
+  "tu": "main/MetroTRK/dolphin_trk_glue",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/dolphin_trk_glue.h#L15-L28",
+            "why": "DBCommFunc is int(void), including close_func."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/dolphin_trk_glue.c#L66-L91",
+            "why": "Both backend close assignments use DBCommFunc casts."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/dolphin_trk_glue.c#L128-L131",
+            "why": "Void wrapper ignores the callback result."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the conflation of the wrapper's void result with the table callback's integer result; does not infer concrete backend signatures from casts.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/dolphin_trk_glue:UnreserveEXI2Port"
+        },
+        "type": "inferred_type",
+        "value": "Parameterless void transport wrapper with signature `void UnreserveEXI2Port(void)`. It invokes `gDBCommTable.close_func`, whose declared DBCommFunc type is `int (*)(void)`, and discards the callback result. Backend selection assigns DBClose for HARDWARE_NDEV and EXI2_Unreserve otherwise through DBCommFunc casts."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/dolphin_trk_glue.c#L16-L64",
+            "why": "Guarded transfer body and unconditional callback sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSThread.c#L214-L223",
+            "why": "One unconditional suppression decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/targimpl.c#L518-L583",
+            "why": "Pending-input test, exact-1 fast return, activation write and separate nonzero exception branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exceptional numeric-state distinction and compiler guard instead of treating every nonzero inTRK value as the fast-return case.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/dolphin_trk_glue:TRKEXICallBack"
+        },
+        "type": "state_behavior",
+        "value": "The callback unconditionally calls OSEnableScheduler and TRKLoadContext(ctx, 0x500). OSEnableScheduler decrements scheduler suppression once. In the MWERKS_GEKKO loader implementation, control transfers to TRKInterruptHandler. Its 0x500 path returns with rfi when the pending-input byte is zero or inTRK equals exactly 1. Otherwise it sets inputActivated to 1 and reaches a separate test: inTRK != 0 branches to TRKExceptionHandler, while inTRK == 0 proceeds into debugger state capture. Thus other nonzero inTRK values are not equivalent to 1; this code alone does not establish their reachability."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

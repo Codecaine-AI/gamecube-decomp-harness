@@ -1,0 +1,106 @@
+{
+  "tu": "main/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn.c#L90-L123",
+            "why": "Shared initialization and complete aerial entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact entry behavior without assigning an unsupported callback meaning to the final NULL argument.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn:ftGw_SpecialAirN_Enter"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally zeros self_vel.y, calls Fighter_ChangeMotionState with ftGw_MS_SpecialAirN, flags 0 and remaining arguments 0.0f, 1.0f, 0.0f, NULL, then calls ftAnim_8006EBA4 and the shared Chef variable initializer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn.c#L205-L218",
+            "why": "Independent release and repeat branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn.c#L328-L331",
+            "why": "Repeat clears disable latch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Uses current canonical input names and preserves the distinction between automatic-loop disabling and input-driven repetition.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn:ftGw_SpecialAirN_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Absence of held B sets isChefLoopDisable. Independently, nonzero cmd_vars[1], B in pressed_buttons, and maxSausage below x1C_GAMEWATCH_CHEF_MAX invoke the aerial repeat with x18_GAMEWATCH_CHEF_LOOPFRAME. This input path does not test the disable latch; the repeat helper clears it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn.c#L187-L200",
+            "why": "Complete input reads, conditional write and outgoing call."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects stale field spelling, the claimed latch read, and the misleading otherwise relationship between branches.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn:ftGw_SpecialN_IASA"
+        },
+        "type": "data_flow",
+        "value": "Reads held_buttons[0], pressed_buttons, cmd_vars[1], the Chef count and maximum/loop-frame attributes. Absence of held B writes isChefLoopDisable=true. A separate command/pressed-B/count guard forwards gobj and the loop-frame attribute to ftGw_SpecialN_Loop; this handler does not read the disable latch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn.c#L187-L200",
+            "why": "Input repeat does not test latch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn.c#L285-L307",
+            "why": "Frame adjustment and resets."
+          }
+        ],
+        "op": "write",
+        "rationale": "The repeat body explicitly reverses the disable write.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn:ftGw_SpecialN_IASA"
+        },
+        "type": "state_behavior",
+        "value": "B release latches automatic Chef repetition disabled, but not irreversibly for the whole move. During a nonzero cmd_vars[1] window, pressed B below the configured count maximum invokes grounded repetition regardless of that latch. The repeat starts from the configured frame minus one and clears the latch and command gates."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn.c#L39-L84",
+            "why": "Exact guards, mutation order, constructor call and callback clearing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves request and callback lifetimes while distinguishing attempted emission from successful allocation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchspecialn:ftGw_SpecialN_CreateSausage"
+        },
+        "type": "state_behavior",
+        "value": "A zero cmd_vars[0] leaves the callback inert and installed. A nonzero request is cleared immediately; below the configured maximum, the count increments and a candidate from 0\u20134 excluding both stored history values is selected. History shifts before it_802C837C is called, and the return is ignored. Every consumed request clears accessory4_cb, including cap-blocked requests. Count/history updates are not contingent on verified item-creation success."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

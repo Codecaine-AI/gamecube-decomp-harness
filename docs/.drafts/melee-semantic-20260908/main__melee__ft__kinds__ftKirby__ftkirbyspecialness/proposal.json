@@ -1,0 +1,231 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness:ftKb_NsSpecialAirNEnd_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Every invocation reloads four copied-PK-Flash counters, clears the fighter association and resets part 0 X rotation. After animation completion, exact-zero specialn_ns_freefall_toggle calls ftCo_Fall_Enter; otherwise ftCo_80096900 receives that value as landing_lag. The latter helper has an x2224_b2 alternative before normal FallSpecial setup. No local sign or finiteness validation occurs.",
+        "rationale": "Replace guaranteed outcome with exact dispatch and verified consumer semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L69-L82",
+            "why": "Reset helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L230-L245",
+            "why": "Repeated reset and dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L28-L59",
+            "why": "Landing-lag argument and alternative branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness:ftKb_NsSpecialAirNEnd_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards gobj to ftKb_NsSpecialAirNStart_Phys: nonzero falling_acceleration_delay decrements and skips ftCommon_Fall; zero on entry passes specialn_ns_gravity and co_attrs.terminal_velocity to that helper. co_attrs.aerial_friction is always passed to ftCommon_ApplyFrictionAir. End_Anim separately reloads the delay each invocation, so eventual ending-phase exhaustion is not established.",
+        "rationale": "Canonical field spelling and interacting producer are essential.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L344-L370",
+            "why": "Shared implementation and forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L230-L245",
+            "why": "Repeated reset producer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness:ftKb_NsSpecialAirNHold_IASA"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Decrements charge_release_delay, clamps nonpositive results to zero, returns while positive, then returns when input.held_buttons[0] contains HSD_PAD_B. An eligible unheld-B invocation clears a non-NULL ns_flash_gobj without directly changing motion or destroying the item. gobj/fp NULL checks occur after initial dereferences. Signed-minimum decrement is unguarded; delay 1 permits release on that invocation.",
+        "rationale": "Correct obsolete input name and record boundaries and late checks.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L288-L321",
+            "why": "Complete release gate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness:ftKb_NsSpecialAirNHold_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards gobj to ftKb_NsSpecialAirNStart_Phys. The callee decrements nonzero falling_acceleration_delay; only an invocation beginning at zero calls ftCommon_Fall with specialn_ns_gravity and co_attrs.terminal_velocity. It always calls ftCommon_ApplyFrictionAir with co_attrs.aerial_friction. Delay 1 skips falling on its decrement-to-zero invocation; negative values are not clamped.",
+        "rationale": "Correct terminal_velocity and precisely describe per-invocation behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L344-L364",
+            "why": "Shared implementation and wrapper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness:ftKb_NsSpecialAirNStart_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads mv.kb.specialn_ns.falling_acceleration_delay. If nonzero, decrements without clamping and skips ftCommon_Fall; if zero on entry, passes dat_attrs.specialn_ns_gravity and co_attrs.terminal_velocity to ftCommon_Fall. Both branches pass co_attrs.aerial_friction to ftCommon_ApplyFrictionAir. Air Hold and End physics reuse this implementation.",
+        "rationale": "Canonical names and exact branch boundary avoid unsupported tuning assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L344-L370",
+            "why": "Reads, calls and local consumers."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness:ftKb_NsSpecialAirNStart_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "After aerial startup animation completion, enters ftKb_MS_NsSpecialAirNHold0, invokes conditional item construction and sets x1968_jumpsUsed to co_attrs.max_jumps. Construction is attempted only for a NULL stored handle. A NULL constructor result is allowed; only success installs death2_cb and take_dmg_cb. Transition and jump write occur even when construction fails.",
+        "rationale": "Replace guaranteed object wording with optional allocation behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L25-L42",
+            "why": "Construction guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L175-L186",
+            "why": "Completion transition and jump write."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness:ftKb_NsSpecialNStart_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "After grounded startup animation completion, changes to motion state 436, registered as NsSpecialNHold0, invokes conditional item construction and sets x1968_jumpsUsed to co_attrs.max_jumps. The helper attempts construction only for a NULL stored handle and installs death2_cb/take_dmg_cb only on success. Existing handles are not validated. Construction failure does not prevent transition or jump write.",
+        "rationale": "Correct guaranteed ownership and corroborate literal 436 using active table.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L25-L42",
+            "why": "Optional construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L110-L120",
+            "why": "Exact completion behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L1090-L1100",
+            "why": "Active Hold0 registration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness:ftKb_NsSpecialNHold_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Coordinates ground Hold animation with fighter-side item association. Decrements the ground-named counter whenever nonzero and the air-named counter only while the handle is NULL. No handle plus both updated counters nonpositive enters End; otherwise enforces Hold1 preserving cur_anim_frame. With a handle, owner mismatch clears it and returns; matching ownership plus item predicate exactly 1 enforces Hold1. NULL association does not prove destruction.",
+        "rationale": "Replace item-gone wording with exact association protocol.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L122-L162",
+            "why": "Complete branch logic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L249-L282",
+            "why": "Association can clear without destruction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialness:ftKb_NsSpecialNHold_Phys"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards gobj unchanged to ft_80084F3C. That helper reads gr_vel, co_attrs.ground_friction and co_attrs.walk_max_vel; only ABS(gr_vel) > walk_max_vel multiplies friction by p_ftCommonData->friction_when_above_walk_speed. It then calls ftCommon_ApplyFrictionGround and ftCommon_ApplyGroundMovement. Equality does not select the multiplier.",
+        "rationale": "Correct obsolete x6C spelling and preserve strict threshold.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L334-L337",
+            "why": "Forwarding wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Canonical helper reads and calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Implements paired ground/air Start, Hold0, Hold1 and End fighter states; Hold variants share callbacks. Entries reset four counters and the flash association; air entry also zeroes vertical velocity. Startup completion enters Hold0, conditionally attempts construction and always marks all jumps used. Hold animation uses differently guarded counters and owner/status queries; absent association plus both counters nonpositive enters End. Hold IASA clears association after delay eligibility and unheld B without direct destruction. End animation reloads counters and clears association every invocation, resets rotation and dispatches recovery after completion. Physics delegates to common ground processing or shared delayed aerial falling plus friction. Collision converts corresponding phases while preserving current animation frame, specifically selecting Hold0 for Hold conversions.",
+        "rationale": "Complete source-level phase model with allocation, ownership and repeated-reset caveats.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialness.c#L25-L424",
+            "why": "Complete owned implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L1079-L1166",
+            "why": "Active registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L71-L89",
+            "why": "Frame-preserving transition helpers."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

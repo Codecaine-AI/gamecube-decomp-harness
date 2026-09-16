@@ -16,13 +16,13 @@ root:
 Generate or refresh both indexes:
 
 ```sh
-python3 toolpacks/gamecube-decomp/research/callgraph/runners/extract_call_graph.py --repo-root projects/melee/checkout
+python3 toolpacks/gamecube-decomp/research/callgraph/runners/extract_call_graph.py --repo-root games/melee/workspace/checkout
 ```
 
 Check readiness and manifest counts:
 
 ```sh
-python3 toolpacks/gamecube-decomp/research/callgraph/api/status.py --repo-root projects/melee/checkout --json
+python3 toolpacks/gamecube-decomp/research/callgraph/api/status.py --repo-root games/melee/workspace/checkout --json
 ```
 
 Workers query the ingested relationships with `graph_related_functions` and

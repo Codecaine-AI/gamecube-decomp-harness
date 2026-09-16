@@ -1,0 +1,158 @@
+{
+  "tu": "main/melee/gm/gmmain_lib",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L140-L275",
+            "why": "Direct total and balance aliases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L1275-L1310",
+            "why": "Complete current-balance getter and replacement writer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L1294-L1413",
+            "why": "Complete award writer exposes the unsigned arithmetic and subsequent guarded raising."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tyfigupon.c#L600-L735",
+            "why": "Figure-pon subtracts ten through the balance-replacement API."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the verified alias and accounting separation while correcting the ineffective saturation interpretation in the current C body.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmmain_lib:gmMainLib_8015CCFC"
+        },
+        "type": "data_flow",
+        "value": "Returns a mutable alias to gmMainLib_GetSaveData()->x1A4C. gm_801623FC only raises this total when replacing the separately capped x1A48 balance. gm_8016247C adds its signed argument through u32 arithmetic, stores that result, and then may raise it to the capped current balance. Its comparison of the unsigned sum against (u32)-1 does not implement overflow saturation. Figure-pon spends ten raw units per coin through the separate balance-replacement path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L140-L275",
+            "why": "Address-only accessor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L1294-L1413",
+            "why": "Guarded replacement and non-saturating unsigned award expression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tyfigupon.c#L600-L735",
+            "why": "Spending uses the separate current-balance API."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the mutation-free accessor and guarded replacement behavior from the award writer's actual unsigned arithmetic; no compiled-code behavior beyond the inspected C is asserted.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmmain_lib:gmMainLib_8015CCFC"
+        },
+        "type": "state_behavior",
+        "value": "The accessor itself performs no validation or mutation. Balance replacement only raises the accumulated field, and Figure-pon spending changes the separate current balance. However, the observed award writer does not guarantee saturation or monotonicity: its u32 addition can wrap before comparison with UINT32_MAX, after which the total is only conditionally raised to the capped current balance."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L263-L275",
+            "why": "Complete signature, branches and indexing expressions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact interface and storage mapping while correcting the overstated range validation.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmmain_lib:gmMainLib_8015CE44"
+        },
+        "type": "inferred_type",
+        "value": "Signature: s8* gmMainLib_8015CE44(s32 controller, s32 nametag_index). With GM_NAMETAG_NONE, it returns the fallback element when controller < PAD_MAX_CONTROLLERS and null otherwise; there is no lower-bound check. Otherwise it ignores controller and selects NameTagData.x1A2 through unchecked quotient/remainder indexing in banks of 19."
+      },
+      {
+        "confidence": 0.93,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L291-L299",
+            "why": "Writes the same table read by the getter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnevent.c#L335-L364",
+            "why": "Records can be displayed as time or score."
+          }
+        ],
+        "op": "write",
+        "rationale": "A semantic inferred name covering both time and score records; original spelling remains unknown.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmmain_lib:gmMainLib_8015CF70"
+        },
+        "type": "inferred_name",
+        "value": "gmMainLib_SetEventMatchRecord"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L1405-L1564",
+            "why": "Exact update expression lacks widened arithmetic or an overflow check."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/types.h#L240-L399",
+            "why": "Counter declared u32."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16F1.c#L2050-L2112",
+            "why": "Exact threshold and three latch predicates."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replace the unsupported saturation claim while preserving the directly observed threshold and sticky-latch semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmmain_lib:gmMainLib_8015EDC8"
+        },
+        "type": "state_behavior",
+        "value": "The returned record's u32 x0 is updated by gm_80162A98 using an unsigned addition and a comparison against -1U. In the current C this does not implement saturation: the unsigned sum cannot exceed UINT_MAX and may wrap. fn_80173644 tests x0 >= 0x1388 (5,000). The x4, x5, and x6 predicates set their respective fields on success and do not clear them."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmmain_lib.c#L942-L975",
+            "why": "Exact signature and mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/types.h#L240-L399",
+            "why": "Explicit u8 declaration for x186C."
+          }
+        ],
+        "op": "write",
+        "rationale": "The destination declaration establishes byte storage; the 32-bit-looking mask literal does not establish a 32-bit destination.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmmain_lib:gmMainLib_8015EDF8"
+        },
+        "type": "inferred_type",
+        "value": "A parameterless void persistent-flag mutator. It clears mask 0x4 in the save record's u8 x186C member with an in-place compound AND, preserves the other stored bits, and returns no result."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution",
+  "title": "Sandbox",
+  "root": "b-day-root",
+  "blocks": {
+    "b-day-root": {
+      "id": "b-day-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "daytona",
+          "sandbox",
+          "worker-workspace",
+          "dispatch-lease",
+          "target-claim",
+          "evidence",
+          "tracing",
+          "image",
+          "stop-while-thinking"
+        ]
+      },
+      "children": [
+        "sb-intro",
+        "sb-version",
+        "sb-process",
+        "sb-boundary",
+        "sb-read",
+        "sb-provision",
+        "sb-tools",
+        "sb-sleep",
+        "sb-clean",
+        "sb-capacity",
+        "sb-capacity-p",
+        "sb-capacity-p2",
+        "sb-builds",
+        "sb-builds-policy",
+        "sb-builds-evidence"
+      ]
+    },
+    "sb-intro": {
+      "id": "sb-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each worker claim gets its own Daytona sandbox. The host runs the model session, owns the claim and retained evidence, and integrates the selected result. The sandbox holds that claim's source files, compiler, and incremental build state."
+        }
+      ],
+      "children": []
+    },
+    "sb-version": {
+      "id": "sb-version",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Provisioning starts from the game's prepared image and checks out the exact commit captured for the claim. Later accepted worker results advance the harness worktree for new claims. An already-running worker keeps its own base and unfinished edits."
+        }
+      ],
+      "children": []
+    },
+    "sb-process": {
+      "id": "sb-process",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Execute an attempt in a sandbox",
+            "steps": [
+              {
+                "text": "Claim the target and capture its base revision"
+              },
+              {
+                "text": "Provision the sandbox and prepare the worker task"
+              },
+              {
+                "text": "Run workspace tools through the sandbox handle"
+              },
+              {
+                "text": "Sleep when remote operations are idle; wake before the next operation"
+              },
+              {
+                "text": "Retain required evidence, close the worker, and delete its sandbox"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "sb-boundary": {
+      "id": "sb-boundary",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A sandbox provides a private workspace, not authority to update shared code. Write safety and checkpoint validation still govern which edits can become a worker result. Cleanup happens after evidence capture; subsequent knowledge processing uses the retained host artifacts."
+        }
+      ],
+      "children": []
+    },
+    "sb-read": {
+      "id": "sb-read",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Follow the Sandbox Lifecycle"
+        }
+      ],
+      "children": []
+    },
+    "sb-provision": {
+      "id": "sb-provision",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Provisioning",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/30-sandbox/10-provisioning"
+            }
+          }
+        },
+        {
+          "insert": " explains the image, exact revision transfer, and claim bindings."
+        }
+      ],
+      "children": []
+    },
+    "sb-tools": {
+      "id": "sb-tools",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Tooling",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/30-sandbox/20-tooling"
+            }
+          }
+        },
+        {
+          "insert": " explains which operations run remotely and which use host knowledge."
+        }
+      ],
+      "children": []
+    },
+    "sb-sleep": {
+      "id": "sb-sleep",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sleep and Wake",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/30-sandbox/30-sleep-and-wake"
+            }
+          }
+        },
+        {
+          "insert": " explains the idle gate and retained workspace."
+        }
+      ],
+      "children": []
+    },
+    "sb-clean": {
+      "id": "sb-clean",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Deletion and Cleanup",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/30-sandbox/40-deletion-and-cleanup"
+            }
+          }
+        },
+        {
+          "insert": " explains evidence capture, host deletion, and recovery."
+        }
+      ],
+      "children": []
+    },
+    "sb-capacity": {
+      "id": "sb-capacity",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Capacity"
+        }
+      ],
+      "children": []
+    },
+    "sb-capacity-p": {
+      "id": "sb-capacity-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each active claim consumes provider capacity and host agent capacity. Size concurrency against the configured resource class, provider quotas, and host model and knowledge workloads. Worker compilation uses the claim sandbox. Epoch, Sync, and PR build validation use separate disposable Daytona sandboxes and consume additional provider capacity."
+        }
+      ],
+      "children": []
+    },
+    "sb-capacity-p2": {
+      "id": "sb-capacity-p2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sleep reduces active compute during idle model time. Deletion releases the claim workspace. Neither removes the host's cost of sessions, telemetry, downloaded evidence, or knowledge processing."
+        }
+      ],
+      "children": []
+    },
+    "sb-builds": {
+      "id": "sb-builds",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Build Tasks Without Claims"
+        }
+      ],
+      "children": []
+    },
+    "sb-builds-policy": {
+      "id": "sb-builds-policy",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The harness host owns Git integration, scheduling, state, and retained evidence. Game configuration, compilation, linking, objdiff generation, and build validation run remotely by default. Build tasks use the selected game's snapshot without creating worker claims or admitting targets."
+        }
+      ],
+      "children": []
+    },
+    "sb-builds-evidence": {
+      "id": "sb-builds-evidence",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A build receives the exact source revision and pending edits. Before publishing results, the host verifies that its source has not changed. Failures retain diagnostics and preserve accepted reports. The host deletes each sandbox after collecting evidence; provider expiry bounds orphan lifetime. A sandbox failure never silently starts a host build."
+        }
+      ],
+      "children": []
+    }
+  }
+}

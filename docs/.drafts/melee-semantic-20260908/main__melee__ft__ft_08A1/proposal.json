@@ -1,0 +1,274 @@
+{
+  "tu": "main/melee/ft/ft_08A1",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_08A1:ft_8008A1FC"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the associated Fighter's input.lstick[0].x and facing_dir and the shared walk_stick_threshold, returning a Boolean without local mutation. CargoWait's ftCo_8009B4D0 and HammerWait's ftCo_800C4E4C forward the same object to separate entry helpers only on true. Cargo's destination is selected from fighter data rather than hardcoded here.",
+        "rationale": "Correct canonical array access and retain verified forwarding without assuming active Cargo destination mapping.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L17-L27",
+            "why": "Exact reads and Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L20-L42",
+            "why": "Guarded forwarding and data-selected entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L32-L60",
+            "why": "Guarded HammerWait entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_08A1:ft_8008A1FC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns true iff input.lstick[0].x * facing_dir < 0.0F OR ABS(input.lstick[0].x) < walk_stick_threshold. Both comparisons are strict; magnitude equality rejects only if the negative-product test also fails. Signed zero fails the negative-product test. Under ordinary unordered floating comparisons NaN input fails both tests. There is no local grounding guard, finite-value validation, state transition, or field write.",
+        "rationale": "Repair field spelling and record precise boundary behavior without claiming target floating-mode validation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L17-L27",
+            "why": "Complete predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L198-L198",
+            "why": "ABS comparison/negation semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_08A1:ft_8008A244"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Tests loss of forward horizontal-stick commitment and, on acceptance, invokes the kind-aware dispatcher ft_8008A2BC before returning true. Walk and RunDirect use it late in IASA processing. It does not locally test grounded status or animation completion.",
+        "rationale": "Separate actual guard and invocation from caller context and downstream success.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L29-L63",
+            "why": "Predicate and guarded dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Walk.c#L82-L104",
+            "why": "Late Walk consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Final RunDirect consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_08A1:ft_8008A244"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The inline predicate caches input.lstick[0].x and reads facing_dir and p_ftCommonData->walk_stick_threshold. An accepted strict facing-relative or magnitude test forwards the original Fighter_GObj to ft_8008A2BC and then returns true; rejection returns false without forwarding. Walk and RunDirect consume the result through RETURN_IF.",
+        "rationale": "Update canonical field access and independently verified consumers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L29-L51",
+            "why": "Complete local data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Walk.c#L102-L104",
+            "why": "Boolean consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L43-L47",
+            "why": "Boolean consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_08A1:ft_8008A244"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Accepts input.lstick[0].x * facing_dir < 0.0F OR ABS(input.lstick[0].x) < walk_stick_threshold, calls ft_8008A2BC, then returns true. Otherwise returns false without a transition call. Magnitude-boundary equality rejects only when the negative-product condition also fails. No local grounding or finite-value validation occurs.",
+        "rationale": "Correct obsolete access and ambiguous equality wording.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L29-L63",
+            "why": "Exact guard, return paths, and dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_08A1:ft_8008A2BC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Immediately dispatches by fighter kind: Master Hand calls ftMh_MS_389_80151018, Crazy Hand calls ftCh_GrabUnk1_8015BC88, and every other kind calls ft_8008A348 with blend 0. The Hand destinations set attribute-derived position targets and stored callbacks; their complete eventual return-to-wait gameplay is not established by this dispatcher.",
+        "rationale": "Replace broad boss-return interpretation with exact verified routing and setup.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L54-L63",
+            "why": "Exhaustive routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait12.c#L115-L138",
+            "why": "Copied position and callback setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagcancel.c#L109-L133",
+            "why": "Copied position and callback setup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_08A1:ft_8008A348"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes a borrowed Fighter_GObj and caller blend. Reads x2224_b2, held-item eligibility, ground_or_air, kind, item pointer/kind, optional animation metadata, and common x5F0. Early DownSpot and HammerWait routes ignore the blend. The ordinary route forwards it unchanged to the Wait motion call, delegates Peach Parasol removal, may replace animation/script state using the constant ftCo_MS_DeadUpFall as an animation index, assigns x209A through ftCommon_8007EFC0, and invokes conditional Link-family shield setup.",
+        "rationale": "Resolve actual metadata consumer and common assignment without death mapping or unconditional final-state guarantees.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L71-L109",
+            "why": "Complete routing and forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L11-L37",
+            "why": "Optional item guard and animation consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1235-L1238",
+            "why": "Concrete common-field assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpeachparasol.c#L58-L65",
+            "why": "Removal delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkattackair.c#L21-L32",
+            "why": "Conditional shield setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCLink/ftclink.c#L419-L431",
+            "why": "Conditional CLink setup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_08A1:ft_8008A348"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Priority is x2224_b2 -> DownSpot and return; held Hammer -> HammerWait and return; otherwise ground an exactly GA_Air fighter, handle Peach's held Peach Parasol, then call Fighter_ChangeMotionState for Wait with Ft_MF_None, frame 0, speed 1, caller blend, and NULL. Afterward, a held item with hold kind != 2 plus nonzero metadata x8 gates ftCo_8008A6D8 with ftCo_MS_DeadUpFall used as an animation index, not a second death-state transition. Common x5F0 is passed to the x209A assignment helper. Link/CLink invoke corresponding shield helpers whose setup requires x5F4_arr[2].prev == 0.",
+        "rationale": "Preserve every ordered branch while repairing misleading metadata interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L71-L109",
+            "why": "Exact ordering and arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L139-L146",
+            "why": "Held-Hammer predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L48-L60",
+            "why": "HammerWait entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L11-L37",
+            "why": "Actual optional animation behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1235-L1238",
+            "why": "x209A assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkattackair.c#L21-L32",
+            "why": "Link setup condition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCLink/ftclink.c#L419-L431",
+            "why": "CLink setup condition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ft_08A1.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "ft_8008A1FC only classifies reversed or below-threshold horizontal input; ft_8008A244 duplicates that condition through an inline and dispatches on acceptance. ft_8008A2BC selects Hand-specific setup or ordinary entry with blend 0. ft_8008A324 bypasses boss dispatch and invokes ordinary entry with blend -1. Ordinary entry prioritizes persistent x2224_b2 DownSpot routing over held-Hammer routing, then grounding, Peach Parasol handling, Wait motion entry, optional item-dependent animation setup, common-field assignment, and conditional Link-family setup.",
+        "rationale": "Replace generic downed wording and distinguish all five external functions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L17-L109",
+            "why": "Entire owned implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0C8C.c#L25-L115",
+            "why": "Persistent HP-exhaustion flag provenance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L11-L37",
+            "why": "Optional animation-index consumption."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Barrel",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Barrel.c#L73-L84",
+            "why": "The zero/input test follows the decrement and is not an else branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline claim that every initially nonzero countdown suppresses firing and preserves pressed-button rather than held-button semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Barrel:ftCo_Barrel_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation decrements barrel.x4 if nonzero, then tests the resulting value. If it is zero and input.pressed_buttons contains HSD_PAD_AB, the callback invokes it_80295F38 on barrel.x8. Initial x4=1 permits firing on that same invocation; initial x4=0 permits immediate testing. There is no local firing latch or range validation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Barrel.c#L61-L71",
+            "why": "Defines the callback and countdown operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittarucann.c#L113-L118",
+            "why": "Accessor returns the special attribute as int without validation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3874-L3884",
+            "why": "Installs this function in the active Barrel animation slot."
+          }
+        ],
+        "op": "write",
+        "rationale": "Keeps the exact callback interface and state roles while removing an unsupported input-domain invariant.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Barrel:ftCo_Barrel_Anim"
+        },
+        "type": "inferred_type",
+        "value": "A void(Fighter_GObj*) Barrel motion-state animation callback. It consumes barrel.x0 as an item-supplied countdown and barrel.x8 as the associated Item_GObj pointer. Nonnegativity and a wall-clock frame duration are not established by this routine; the accessor returns an int without local range validation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Barrel.c#L90-L95",
+            "why": "Identifies the source item and destination vector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L1102-L1111",
+            "why": "Shows all three exact floating-point writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Records exact operations rather than silently simplifying additions by positive zero.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Barrel:ftCo_Barrel_Accessory1_Cb"
+        },
+        "type": "data_flow",
+        "value": "Passes barrel.x8 and &cur_pos to it_8026C334. The helper writes cur_pos.x=item.pos.x+0.0f, cur_pos.y=item.pos.y+item ECB bottom.y, and cur_pos.z=item.pos.z+0.0f. This is an unconditional output-vector update, with no item-null check in either body; X/Z additions are not asserted to be bit-preserving copies for exceptional floats."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Barrel.c#L106-L129",
+            "why": "Shows launch operations, callback installation, and arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L419-L447",
+            "why": "Shows state override, subsequent Ice branch, facing override, and actual motion-change frame arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1211-L1214",
+            "why": "Invokes and clears the one-shot callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1370-L1389",
+            "why": "Replaces state callbacks and clears occupancy hooks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds verified cross-file optional behavior and correct callback lifetime without assigning gameplay from numeric state names.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Barrel:ftCo_800C92E4"
+        },
+        "type": "state_behavior",
+        "value": "Initializes fighter launch placement, collision, and knockback; installs fn_800C9290 in x21EC; then synchronously calls ftCo_8008DCE0(gobj,0x5B,0.0F). The float argument is a zero facing override, not a starting-frame argument. The damage helper requests motion state 0x5B but can subsequently select 0x5A for its strong-Ice branch, and itself changes motion state at frame zero and speed one. Motion-state change invokes and clears x21EC once, then resets the occupancy accessory, damage, and death callbacks."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

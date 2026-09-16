@@ -1,0 +1,6 @@
+### Player inline predicates
+- `pl_CheckIfSameTeam(slotA, slotB)` returns false unless `gm_8016B168()` is nonzero. Only then does it query both players' teams and return whether they compare equal. It does not validate slots or distinguish a slot from itself. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/inlines.h#L7-L20.
+- `pl_Verify_gm_8016AEDC()` tests `gm_GetFrameCount()` against unsigned `0U` and `-2U`. The second call is short-circuited when the first returns zero; otherwise it calls the getter again and returns true only if that second result differs from `-2U`. No meaning for these exceptional numeric states is established here. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/inlines.h#L22-L29.
+- Both helpers are static inline definitions in a guarded header. The rendered view preserves the behavior and substitutes external names `gm_AreTeamsEnabled` and `gm_GetMatchFrameCount`; these are compatible with usage here but this caller does not independently establish the external routines' full semantics. No owned baseline subjects, facts, or links exist; no supported correction is proposed.
+
+Status: synthesized; independent review and live promotion pending.

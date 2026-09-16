@@ -1,0 +1,121 @@
+{
+  "tu": "main/melee/it/kinds/itlugia",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlugia.c#L489-L493",
+            "why": "Effect arguments and call order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1513-L1520",
+            "why": "Actual effect-scale calculation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlugia.c#L512-L521",
+            "why": "Shared initializer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing fixed-effect-scale claim while preserving the supported argument flow and initialization order.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlugia:itLugia_Logic39_Spawned"
+        },
+        "type": "data_flow",
+        "value": "Receives the spawned Item_GObj, obtains its HSD object for effect attachment, and passes effect ID 0x465, the game object, the attachment object and scale denominator 0.8 to it_8027ADEC. That helper computes item_attr.x60_scale * (1.0F / 0.8F) for efSync_Spawn. The callback then forwards the same game object to it_802D23F4, which loads special attribute x0 into xD44_lifeTimer, enters state 0 with ITEM_ANIM_UPDATE, installs effect hitlag callbacks and performs common item setup."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlugia.c#L489-L493",
+            "why": "Variant effect followed by initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1513-L1520",
+            "why": "Scale correction."
+          }
+        ],
+        "op": "write",
+        "rationale": "The supplied 0.8 is a scale correction denominator, not a fixed resulting effect scale.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlugia:itLugia_Logic39_Spawned"
+        },
+        "type": "purpose",
+        "value": "Initializes Lugia logic variant 39 by requesting synchronized effect 0x465 on the item's render object using the item model scale multiplied by reciprocal 0.8, then invoking the common Aeroblast lifetime and animation initializer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1106-L1120",
+            "why": "Movement, timer and scale effects before the result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlugia.c#L374-L385",
+            "why": "Successful branch ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlugia.c#L92-L130",
+            "why": "Following animation-controlled transition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the false-path no-op assertion and preserves the actual pointer and transition ordering.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlugia:it_802D1DD8"
+        },
+        "type": "state_behavior",
+        "value": "Every invocation calls it_8027A09C, which performs common movement processing and checks the appearance timer. If the timer is not <= 0.0, the helper subtracts 1.0 and returns false; Lugia remains in motion state 0, but this is not a no-mutation path. If the timer is <= 0.0, the helper restores the configured model scale and returns true. The callback then saves the current Item pointer, calls it_80273454, reacquires the Item, enters state 1 with ITEM_ANIM_UPDATE, installs effect-hitlag callbacks and sets xDD1_flag.b1 through the earlier pointer. State-1 animation subsequently controls entry into state 2."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlugia.c#L392-L438",
+            "why": "Call order and unguarded division."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful exceptional-input and cross-call behavior absent from the existing normal-path descriptions.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlugia:it_802D1F64"
+        },
+        "type": "state_behavior",
+        "value": "Updates the persistent waypoint before calculating launch velocity, then divides target-minus-origin by distance/param. The usual requested-speed interpretation assumes nonzero distance and a positive finite parameter. There is no local guard or fallback for coincident origin and target, zero parameter or nonfinite arithmetic; a negative finite parameter reverses the direction in the ordinary nonzero-distance case. No projectile creation occurs until the waypoint helper returns."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlugia.c#L441-L487",
+            "why": "Complete candidate loop, rejection mutation and final commit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported existing algorithm while adding its consequential retry, commit and validation limitations.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itlugia:it_802D208C"
+        },
+        "type": "state_behavior",
+        "value": "Repeatedly proposes a waypoint from the current stored waypoint by adding an x/y polar step; the candidate's z remains unchanged. The random angular offset uses (attrs->x34 - attrs->x38) / 2, and the two branches offset it around the persistent xA4 heading. A candidate whose computed three-dimensional distance from x64 is greater than attrs->x40 is rejected, xA4 is increased by 180, and selection retries without committing the candidate. Otherwise selection exits and commits the candidate to x8C. There is no retry limit, angular normalization, local validation of the random bound or fallback if no candidate can be accepted; this is a bounded-region random walk, not direct opponent selection."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

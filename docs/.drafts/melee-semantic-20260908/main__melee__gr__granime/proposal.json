@@ -1,0 +1,170 @@
+{
+  "tu": "main/melee/gr/granime",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/granime:grAnime_801C6F50"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Void callback adapter with canonical signature `void (HSD_AObj* aobj, void* owner, u32 owner_type, void* callback, u32 argument_format, void* payload)`. The format selects the casts written in this local implementation, not twelve proven baselib-equivalent signatures. Cases 0/4/8 invoke through Event without explicit arguments; 1/5/9 use the four-argument floating callback; 2/3 use AObj plus int; 6/7 use AObj, owner, and int; 10/11 additionally pass the owner-type value.",
+        "rationale": "The canonical casts and call expressions differ materially from baselib's typed callbackForeachFunc. Describing the actual local interface avoids using the analog to prove signatures absent from this source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L502-L549",
+            "why": "Defines all local callback typedefs and invocation groups."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L262-L307",
+            "why": "Shows the materially different baselib argument lists."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/granime:grAnime_801C6F50"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each recognized format 0 through 11 attempts one callback invocation; an unsupported format performs none. Cases 0/4/8 do not dereference payload and pass no explicit arguments. Cases 1/5/9 read `*(float*) payload` and pass AObj, owner, owner-type value, and float. Cases 2/3 read `*(int*) payload` and pass AObj plus that integer; 6/7 also pass owner; 10/11 also pass owner type. The routine supplies no local null guards. Actual compiled delivery to callbacks with different declared signatures remains an ABI question and must not be inferred from the baselib analog.",
+        "rationale": "Preserves the supported call-count and unknown-format behavior while correcting the payload and argument-delivery explanation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L508-L549",
+            "why": "Complete switch establishes every invocation and no-default behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/granime:grAnime_801C7228"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grAnime_JObjForeachAnimWithArgs",
+        "rationale": "Distinguishes the prepared-payload recursive helper from the public variadic grAnime_JObjForeachAnim entry and resolves their rendered name collision without claiming historical spelling.",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L621-L633",
+            "why": "Helper accepts an already prepared payload pointer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L660-L714",
+            "why": "Public entry decodes varargs before forwarding the payload."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/granime:grAnime_801C8318"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grAnime_GetFirstAObj",
+        "rationale": "Expresses first-selected hierarchy search rather than direct access and avoids the existing inline grAnime_GetAObj binding.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L289-L292",
+            "why": "Existing inline accessor already uses GetAObj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1050-L1079",
+            "why": "Callback captures the first selected AObj and aborts traversal."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/granime:grAnime_801C84A4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grAnime_IsAnimRewound",
+        "rationale": "The tested bit is explicitly AOBJ_REWINDED. This distinguishes the query from the neighboring NO_ANIM predicate and removes the misleading duplicate IsAnimFinished name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1091-L1099",
+            "why": "Tests 0x04000000."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.h#L13-L17",
+            "why": "Defines REWINDED separately from NO_ANIM."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L138-L154",
+            "why": "Loop wrap/clamp sets the bit; the alternate branch clears it."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/granime:grAnime_801C8578"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A zero counter immediately returns the supplied joint. Otherwise the routine decrements the shared counter before child recursion, assigns that recursion's result back to `joint`, and returns if the counter became zero. Its subsequent `next` test therefore applies to the returned joint, not necessarily the original parent. It similarly decrements before next recursion and propagates its result. Exhaustion returns the last reached pointer with a nonzero counter, not a failure sentinel. This cursor-overwriting walk must not be assumed to enumerate arbitrary descriptor trees in the same preorder as Ground's live-JObj lookup; the reset caller relies on suitable archive structure and indices.",
+        "rationale": "Makes the exceptional traversal behavior explicit instead of allowing child-before-next wording to imply ordinary full-tree preorder.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1101-L1121",
+            "why": "Child result overwrites joint before the next-link test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1129-L1147",
+            "why": "Caller uses the same numerical index for descriptor and live-object selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2390-L2423",
+            "why": "Live lookup has explicit parent-climbing behavior absent from this descriptor walk."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/granime:grAnime_801C8780"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grAnime_ValidateLightAnimArchiveStub",
+        "rationale": "Preserves the supported light-path context while accurately indicating that the complete retained body only probes the shared object and validates archive availability. It does not set animation.",
+        "confidence": 0.92,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1149-L1156",
+            "why": "Complete body contains only lookup and archive assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2662-L2762",
+            "why": "Establishes shared light-object setup and the accessor used by the stub."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -219,6 +219,13 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
     resolved_conflicts: required("string[]"),
     score_delta: required("number", true),
   }),
+  "run.configuration_updated": v1(["run"], "progress", ["operator"], { policy_revision: required("string") }),
+  "run.configured": v1(["run"], "progress", ["operator"], {
+    previous_policy_revision: required("string"),
+    policy_revision: required("string"),
+    old_values: required("object"),
+    new_values: required("object"),
+  }),
   "run.desired_workers_changed": v1(
     ["run"],
     "progress",
@@ -291,7 +298,7 @@ export const GAME_EVENT_REGISTRY = Object.freeze({
   "sync.cancelled": v1(["sync_workflow"], "status_transition", operator, {
     ...transitionFields,
     discarded_staging_workspace_id: required("string", true),
-    untouched_cycle_head: required("string"),
+    untouched_harness_head: required("string"),
     untouched_submodule_heads: required("object[]"),
   }),
   "sync.boundary_published": v1(["sync_workflow"], "coordination", ["operator", "runner"], {

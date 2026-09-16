@@ -1,0 +1,3063 @@
+{
+  "tu": "main/sysdolphin/baselib/aobj",
+  "facts": [
+    {
+      "id": "fact:4c7af002-8cba-4e3a-9b33-f7bc9587b488",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "At HSD object-system startup, HSD_AObjInitAllocData passes this descriptor, sizeof(HSD_AObj), and alignment 4 to HSD_ObjAllocInit. Initialization clears and registers the descriptor and derives its aligned object size. HSD_AObjAlloc then consumes the descriptor to obtain an AObj and update its free-list and usage state, HSD_AObjFree returns an AObj through it, and HSD_ObjDumpStat reads its used, free, and peak counters under the label \"aobj\".",
+      "rationale": "The current startup code still initializes the AObj descriptor and registers its getter for statistics, while the current allocator implementation still derives its layout and maintains its persistent allocation state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L90",
+          "why": "Shows aobj_alloc_data being initialized for HSD_AObj objects and exposed through HSD_AObjGetAllocData."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L120-L161",
+          "why": "Shows HSD_ObjAllocInit clearing, configuring, aligning, and globally registering the supplied descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows startup calling HSD_AObjInitAllocData and HSD_ObjDumpStat consuming HSD_AObjGetAllocData under the aobj label."
+        }
+      ]
+    },
+    {
+      "id": "fact:c05a4ded-87d2-46da-ba45-36d4a0f3d60c",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.bss",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "aobj_alloc_data",
+      "rationale": "The recovered source declares the unit's uninitialized allocation descriptor under the name aobj_alloc_data, while archived decompilation discussion independently identifies address 0x804C0880 as the descriptor passed to HSD_AObjInitAllocData. Because the target begins at that address, the name applies to its section payload rather than to the generic section label itself.\n\nNaming cleanup: single source identifier\nPrior naming claim: The meaningful object stored at the start of this section is plausibly named aobj_alloc_data.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/aobj:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L20-L31",
+          "why": "Names the uninitialized HSD_ObjAllocData object aobj_alloc_data and passes its address to the AObj allocator initializer."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/729068507479933042",
+          "why": "Records recovered C identifying the object at address 0x804C0880 as the descriptor supplied to HSD_ObjAllocInit for HSD_AObj allocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:7bad0149-c432-407d-b13e-962ca9abc91f",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Its meaningful payload is one HSD_ObjAllocData object. That 0x2C-byte descriptor contains allocation-limit flags, a free-list head, used/free/peak counters, numeric and heap limits, aligned object size, alignment mask, and a link to the next registered allocator descriptor.",
+      "rationale": "The current AObj source declares the section-backed object as HSD_ObjAllocData, while the header at the checkout head still defines the listed fields and asserts a 0x2C-byte structure size. The drift changed the header citation's contents without changing the supported type claim, so the fact is re-cited at head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:42:16.019Z",
+      "subject": "main/sysdolphin/baselib/aobj:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L90",
+          "why": "Declares the uninitialized aobj_alloc_data payload with concrete type HSD_ObjAllocData and initializes it for HSD_AObj allocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.h#L1-L79",
+          "why": "Defines HSD_ObjAllocData with allocation-limit flags, free-list and usage fields, size and alignment fields, and a next-descriptor link, and asserts that it occupies 0x2C bytes."
+        }
+      ]
+    },
+    {
+      "id": "fact:17c9e96a-a3e4-4170-94b2-c57fd0e01ad1",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the persistent allocator descriptor for HSD_AObj instances, allowing the common HSD object allocator to manage the AObj free list, allocation limits, object size and alignment, and usage statistics.",
+      "rationale": "The section-backed object is declared as aobj_alloc_data and initialized with the HSD_AObj size and four-byte alignment. HSD_AObjAlloc and HSD_AObjFree pass that same descriptor to the common allocator, whose implementation maintains the free list and allocation counters in the descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T04:56:13.313Z",
+      "subject": "main/sysdolphin/baselib/aobj:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L20-L31",
+          "why": "Declares aobj_alloc_data as HSD_ObjAllocData and initializes it specifically for sizeof(HSD_AObj) objects with four-byte alignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L207-L282",
+          "why": "Shows HSD_AObjAlloc and HSD_AObjFree obtaining this descriptor and supplying it to the common HSD allocation and free routines."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L30-L127",
+          "why": "Shows the common allocator using an HSD_ObjAllocData descriptor to enforce limits, maintain a free list, and track used, free, and peak counts."
+        }
+      ]
+    },
+    {
+      "id": "fact:979b967e-0d18-48fb-a731-6b70b28f1780",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The descriptor begins as zero-initialized BSS storage. Initialization resets it, installs unlimited default allocation limits, sets an alignment mask of 3 and an aligned HSD_AObj size, and registers it globally. Each successful allocation removes an entry from its free list, increments used, decrements free, and raises peak when necessary; freeing performs the inverse used/free transition and prepends the object to the free list.",
+      "rationale": "The current declaration remains uninitialized global storage, and the current allocator code preserves the initialization and free-list counter transitions described by the standing fact.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L90",
+          "why": "Shows the uninitialized global descriptor and its HSD_AObj-specific initialization call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L120-L161",
+          "why": "Shows initialization clearing the descriptor, setting unlimited defaults, deriving alignment and object size, and registering it; the preceding free path shows inverse used/free transitions."
+        }
+      ]
+    },
+    {
+      "id": "fact:51059bed-79b7-439c-bf75-706dcfa4163e",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A composite initialized-data section containing compiler-generated branch-target table entries and null-terminated diagnostic strings; it is not one homogeneous C array or structure. The recoverable dispatch-table portion corresponds to callbackForeachFunc's AObj_Arg_Type switch over twelve callback formats.",
+      "rationale": "The pull-request record explicitly calls out a jump table in .data for callbackForeachFunc, while the matched function supplies all twelve case destinations. The surrounding matched traversal code also contains assertion and panic strings, demonstrating that the section combines address-bearing dispatch entries with character data rather than having a single semantic element type.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-02T04:56:10.213Z",
+      "subject": "main/sysdolphin/baselib/aobj:.data",
+      "evidence": [
+        {
+          "kind": "pr",
+          "locator": "pr://pr-222--main-sysdolphin-baselib-aobj",
+          "why": "Directly establishes that callbackForeachFunc had an associated jump table in this translation unit's .data."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L262-L307",
+          "why": "Enumerates the twelve AObj_Arg_Type cases represented by the callback dispatch data."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L417-L481",
+          "why": "Shows static diagnostic text referenced by the same translation unit, supporting a mixed table-and-string section layout."
+        }
+      ]
+    },
+    {
+      "id": "fact:3bf48640-6882-45ef-9448-db5029658875",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the translation unit's initialized support data for animation traversal dispatch and diagnostics rather than representing a standalone HSD runtime object. In particular, it owns the compiler-emitted dispatch data associated with callbackForeachFunc's AObj_Arg_Type switch together with literal data referenced by assertions and invalid-format panic handling.",
+      "rationale": "The historical pull request explicitly identifies a callbackForeachFunc jump table in this .data section and says matching the function eliminated its separately maintained representation. The matched source shows the twelve-way callback switch and the assertion and panic literals whose addresses must be emitted as static data.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T04:56:10.213Z",
+      "subject": "main/sysdolphin/baselib/aobj:.data",
+      "evidence": [
+        {
+          "kind": "pr",
+          "locator": "pr://pr-222--main-sysdolphin-baselib-aobj",
+          "why": "Identifies the .data jump table as belonging to callbackForeachFunc and records that it was subsumed when that function was matched."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L262-L307",
+          "why": "Shows callbackForeachFunc's dense twelve-case AObj_Arg_Type dispatch, the source construct associated with the section's callback jump-table data."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L417-L481",
+          "why": "Shows an assertion and the invalid-argument-format panic literal used by traversal code, establishing the diagnostic-literal portion of the unit's emitted data."
+        }
+      ]
+    },
+    {
+      "id": "fact:23da2bfc-a189-4be4-ae0c-b274d13edcc3",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sbss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_AObjInitEndCallBack writes zero to both counters before a completion-accounting pass. Each eligible HSD_AObjInterpretAnim call then increments the stopped counter when its AObj ends in AOBJ_NO_ANIM state or the active counter otherwise. HSD_AObjInvokeCallBacks reads both counters and, when stopped is nonzero and active is zero, reads the callback-list head and follows each HSD_SList node's data and next fields, invoking every stored void (*)(void) callback.",
+      "rationale": "The current code preserves the complete reset, per-AObj classification, and guarded callback-list consumption flow through the small-BSS globals.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the three globals, counter reset, stopped-nonzero/active-zero guard, and callback-list traversal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows HSD_AObjInterpretAnim incrementing the stopped or active counter according to the resulting AOBJ_NO_ANIM state."
+        }
+      ]
+    },
+    {
+      "id": "fact:e1d7b9c8-97ba-45cd-aeff-799450b3e547",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sbss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports hierarchy-wide completion notification for HSD scene-animation playback by retaining the callback registry and aggregate stopped-versus-running state used after a model animation traversal.",
+      "rationale": "The AObj globals still aggregate stopped and active controller states and guard the callback registry, while HSD_JObjAnimAll still brackets recursive hierarchy animation with reset and callback invocation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the persistent callback registry and aggregate completion guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L509-L565",
+          "why": "Shows reset and callback dispatch surrounding recursive animation of a JObj hierarchy."
+        }
+      ]
+    },
+    {
+      "id": "fact:15599104-0537-4a08-9415-4944cfa64ada",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sbss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A zero-initialized small-data section whose evidenced payload consists of three 32-bit declarations in source order: an HSD_SList* callback-list head followed by an s32 stopped-AObj count and an s32 active-AObj count.",
+      "rationale": "The current source directly declares the pointer and two signed counters consecutively and demonstrates their callback-list and completion-accounting roles. The previous trailing-padding inference is omitted because the source does not declare a fourth payload word.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Declares endcallback_list followed by the two s32 completion counters and shows how all three are used."
+        }
+      ]
+    },
+    {
+      "id": "fact:107f0c6d-d4e0-429f-88db-c1b1950e3fc4",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sbss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the AObj subsystem's shared animation-completion state: the head of its end-callback list and the two counters used to determine whether a hierarchy-wide animation pass has finished.",
+      "rationale": "The current source retains the callback-list head and two counters, and the reset, interpreter, invoker, and JObj hierarchy wrapper preserve their completion-accounting role.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the callback-list head, both counters, their reset, and their use as the callback-dispatch guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows animation interpretation classifying processed AObjs into the stopped and active counters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L509-L565",
+          "why": "Shows the state being reset and consumed around a recursive hierarchy animation pass."
+        }
+      ]
+    },
+    {
+      "id": "fact:3d970774-f158-4b3b-913d-3399d7ae3a1b",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sbss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The two counters represent one animation-completion pass and must be reset before that pass. Callback dispatch is disabled when no processed AObj has stopped or when any processed AObj remains active; otherwise every node in the persistent callback list is invoked. Dispatch itself neither clears the counters nor removes list nodes, so beginning another independent pass requires another reset.",
+      "rationale": "The current reset remains separate from dispatch, interpretation repopulates one counter for each eligible AObj, and the invoker only reads the counters and callback list.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the explicit reset, dispatch guard, complete callback traversal, and absence of counter or list mutation during dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows each eligible interpretation repopulating exactly one completion counter."
+        }
+      ]
+    },
+    {
+      "id": "fact:ceb76bdf-8e92-4f13-92bb-930f2502e5cb",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An initialized PowerPC EABI .sdata section contribution containing r2-relative small global data; the available evidence does not identify a more specific aggregate type or semantic names for its individual entries.",
+      "rationale": "The split history classifies the data as .sdata owned by this translation unit, and the corrected hardcoded r2 reference confirms the section's EABI small-data addressing model. No resolved source establishes a narrower semantic layout, so the claim is intentionally limited to the demonstrated section type.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T04:55:34.210Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sdata",
+      "evidence": [
+        {
+          "kind": "pr",
+          "locator": "pr://pr-200--main-sysdolphin-baselib-aobj",
+          "why": "Identifies the affected contribution specifically as sdata and assigns it across the aobj/fobj split."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-127--main-sysdolphin-baselib-aobj",
+          "why": "Shows that an aobj reference to this class of data was expressed through an r2-relative offset."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/914628413636116510",
+          "why": "Confirms in contemporaneous discussion that the hardcoded r2 value was the sdata base."
+        }
+      ]
+    },
+    {
+      "id": "fact:8fa4c2d1-9ee4-45b5-ba0b-7c6e934a5a34",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the aobj translation unit's initialized PowerPC small-data contribution so its small global values can be placed near the EABI small-data base and addressed through r2-relative references.",
+      "rationale": "The historical split explicitly assigned this portion of .sdata to aobj, while the earlier correction and its accompanying discussion identify the affected access as an aobj reference based on r2 and the small-data base. Together they establish section ownership and its role in small-data addressing, although they do not recover semantic names for the individual contents.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-02T04:55:34.210Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sdata",
+      "evidence": [
+        {
+          "kind": "pr",
+          "locator": "pr://pr-200--main-sysdolphin-baselib-aobj",
+          "why": "Records the source-history change that split the relevant .sdata range through the aobj/fobj boundary, establishing aobj's ownership of a small-data contribution."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-127--main-sysdolphin-baselib-aobj",
+          "why": "Records a correction to an aobj access that had pointed at a hardcoded r2 offset, demonstrating that this unit uses PowerPC small-data-base addressing."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/914628413636116510",
+          "why": "The contemporaneous thread explicitly characterizes the corrected hardcoded r2 reference as a hardcoded sdata base."
+        }
+      ]
+    },
+    {
+      "id": "fact:2f9720ba-78c0-4a4c-b7dd-4e984530a7e5",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The 0.0F literal flows into HSD_AObjInterpretAnim as the effective rate on the first playback tick and after a loop rewind, and into HSD_AObjLoadDesc as the initial rewind frame. The 1.0F literal flows into HSD_AObjAlloc as the default HSD_AObj framerate; later playback steps read that field to advance curr_frame and drive FObj interpretation.",
+      "rationale": "The current interpreter, descriptor loader, and allocator retain all of the zero-rate, rewind-frame, and default-framerate uses in the standing flow.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows 0.0F used for first-play and rewind interpretation rates and for the loaded rewind frame, plus later framerate consumption."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Shows newly allocated AObjs receiving the default framerate 1.0F."
+        }
+      ]
+    },
+    {
+      "id": "fact:18794209-b0aa-4778-ae31-22f6c3f7d273",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A read-only small-data floating-point literal pool containing the canonical single-precision values 0.0F and 1.0F used by this translation unit.",
+      "rationale": "The current AObj code still uses the two single-precision literals in its interpretation, descriptor-loading, and allocation paths. The claim is limited to the evidenced literal payload rather than asserting an ordering not represented in C source.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows repeated 0.0F uses in animation interpretation and descriptor loading."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Shows the unit's 1.0F default-framerate literal."
+        }
+      ]
+    },
+    {
+      "id": "fact:5b006b2d-bd36-4c9f-969c-c526937a0472",
+      "target_id": "target:data:main/sysdolphin/baselib/aobj:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the translation unit's read-only floating-point literal pool for the canonical zero animation rate/frame and the default unit playback rate used by HSD_AObj routines.",
+      "rationale": "The current source still uses zero to suppress advancement and initialize rewind state and one as the default AObj playback rate.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows 0.0F serving as the first-play and post-rewind rate and as the initial rewind frame."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Shows 1.0F serving as the default playback framerate."
+        }
+      ]
+    },
+    {
+      "id": "fact:aa5a0bc4-0f36-465b-a63f-a05796c73ce9",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:DObjForeachAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a DObj list head and a caller-supplied mask/event argument bundle. For each node, it forwards the node's AObj together with the owning DObj and `DOBJ_TYPE` to `callbackForeachFunc` when DObj processing is enabled, then forwards the unchanged mask and event bundle to `MObjForeachAnim` and `PObjForeachAnim`; it produces effects through those dispatched calls rather than returning a value.",
+      "rationale": "Every input use and forwarding edge is explicit in the matched body: only the DObj/AObj owner arguments are specialized locally, while the operation selector and payload flow unchanged into all three subordinate paths.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T22:47:37.905Z",
+      "subject": "main/sysdolphin/baselib/aobj:DObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L404-L415",
+          "why": "Shows the exact inputs forwarded to callbackForeachFunc, MObjForeachAnim, and PObjForeachAnim and confirms the function has no return value."
+        }
+      ]
+    },
+    {
+      "id": "fact:98b9a4fa-fddb-448b-9e8e-df37c25ebbdd",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:DObjForeachAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Internal void traversal helper with signature `void (HSD_DObj* dobj, HSD_TypeMask mask, Event func, AObj_Arg_Type arg_type, callbackArg* arg)`: the first parameter is a nullable DObj-list head, `mask` selects object categories, and the remaining parameters describe an animation event plus its argument representation and payload.",
+      "rationale": "The complete matched definition supplies these concrete parameter and return types. Its null-terminated list loop establishes that the DObj pointer may be null, while use of DOBJ_MASK and forwarding of the event and argument parameters establish their traversal roles.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T22:47:37.905Z",
+      "subject": "main/sysdolphin/baselib/aobj:DObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L404-L415",
+          "why": "Provides the complete function signature and shows how each parameter is consumed."
+        }
+      ]
+    },
+    {
+      "id": "fact:c3c39e4f-20c8-45fa-a8a8-8524bb0f44d8",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:DObjForeachAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Traverses a linked list of display objects and applies a requested animation operation to each selected DObj animation object, while also propagating the same traversal request through every DObj's material and polygon animation attachments.",
+      "rationale": "The matched body advances through dobj->next, conditionally dispatches the supplied operation for a non-null DObj AObj when DOBJ_MASK is selected, and always invokes the MObj and PObj traversal helpers for each list element.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T22:47:37.905Z",
+      "subject": "main/sysdolphin/baselib/aobj:DObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L404-L415",
+          "why": "Directly shows the DObj-list loop, conditional callback dispatch, and recursive MObj/PObj traversal."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-552--main-sysdolphin-baselib-aobj",
+          "why": "Records the historical addition of the matching DObjForeachAnim implementation, confirming the recovered body and symbol as the accepted function."
+        }
+      ]
+    },
+    {
+      "id": "fact:147ef874-427e-4844-a7ad-61f70a0c47e9",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:DObjForeachAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Stops when the DObj chain reaches null. At each node, direct DObj callback dispatch is guarded by both the `DOBJ_MASK` selection bit and a non-null `dobj->aobj`; material and polygon traversal are not guarded by that DObj-selection test and occur for every visited DObj.",
+      "rationale": "The loop condition and nested conditional precisely establish the traversal termination and callback guards, while the placement of MObjForeachAnim and PObjForeachAnim outside the conditional proves that descendant attachment traversal proceeds independently of whether the DObj itself has a selected AObj.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T22:47:37.905Z",
+      "subject": "main/sysdolphin/baselib/aobj:DObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L404-L415",
+          "why": "Directly shows the null termination condition, the two-part DObj callback guard, and the unconditional MObj/PObj traversal calls."
+        }
+      ]
+    },
+    {
+      "id": "fact:4015d25d-7e4c-4234-b6f4-288101bc2f47",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjAlloc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function passes the AObj subsystem's HSD_ObjAllocData descriptor to HSD_ObjAlloc, casts the returned pool entry to HSD_AObj*, asserts it is non-null, clears all sizeof(HSD_AObj) bytes, writes AOBJ_NO_ANIM to flags and 1.0F to framerate, and returns the initialized object.",
+      "rationale": "The matched allocator wrapper directly exposes the complete sequence from allocator descriptor to returned AObj. The generic allocator's body establishes that its result is a free-list entry whose allocation accounting has already moved from free to used.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:05:55.677Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Shows the descriptor lookup, generic allocation, assertion, memory clearing, default-field writes, and returned pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+          "why": "Shows that a successful HSD_ObjAlloc call removes the free-list head, updates used/free/peak accounting, and returns that entry."
+        }
+      ]
+    },
+    {
+      "id": "fact:b8b1b706-92b4-4633-9505-e941655e2d45",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjAlloc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: HSD_AObj* HSD_AObjAlloc(void). It returns a mutable, fully initialized HSD_AObj pointer and accepts no arguments; allocation failure is handled internally by an assertion rather than represented as a nullable result for callers.",
+      "rationale": "The matched definition supplies the exact signature. Although the underlying generic allocator may return NULL, this wrapper immediately asserts that the returned pointer is non-null before initialization and return.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:05:55.677Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Provides the exact return and parameter types and shows that the generic allocation result is asserted before use."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L71-L117",
+          "why": "Shows that HSD_ObjAlloc itself returns NULL when allocator limits or replenishment failure prevent allocation, explaining the wrapper's assertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:8733145c-50e3-45c4-952d-ed0ab8866756",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjAlloc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Allocates an HSD animation object from the subsystem's object pool and initializes it as a clean, stopped animation controller with normal playback speed.",
+      "rationale": "The function obtains storage through the AObj allocator descriptor, requires allocation to succeed, clears the complete HSD_AObj, and then establishes the two nonzero defaults: AOBJ_NO_ANIM and a framerate of 1.0.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:05:55.677Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Shows allocation through HSD_AObjGetAllocData, the success assertion, complete zero-initialization, and the stopped-state and normal-rate defaults."
+        }
+      ]
+    },
+    {
+      "id": "fact:72e922e6-4bc3-4f66-b50d-cbfda46d9386",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjAlloc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A newly allocated AObj begins with every field zero except flags = AOBJ_NO_ANIM and framerate = 1.0F. It is therefore initially stopped, not looping or in first-play/rewound state, has no attached FObj or owner reference, and is configured to advance at the normal rate once animation is requested.",
+      "rationale": "The whole-structure memset establishes all zero-valued fields and clears every other flag before the two explicit assignments establish the initial stopped state and unit playback rate.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:05:55.677Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Shows complete zero-initialization followed only by assignments of AOBJ_NO_ANIM and a 1.0F framerate."
+        }
+      ]
+    },
+    {
+      "id": "fact:247a05f8-72e3-41ea-97f7-2e7c277a6c45",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller's u32 mask is intersected with AOBJ_LOOP | AOBJ_NO_UPDATE, complemented, and ANDed into aobj->flags. The function returns no value and performs no read or write through a null aobj; unsupported requested bits cannot affect the stored flag word.",
+      "rationale": "The body explicitly stages the mask restriction before applying its complement to the AObj flag field. This both identifies the complete input-to-field flow and demonstrates that unrelated playback-state bits are preserved.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:26.891Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L51-L57",
+          "why": "Directly shows the mask transformation, destination field mutation, void return, and null no-op path."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728938948277174302",
+          "why": "Shows the matching source recovery and accompanying instruction to update the flags parameter first, corroborating the staged input-mask flow."
+        }
+      ]
+    },
+    {
+      "id": "fact:de59349e-3951-4f47-affa-110a8be1d79e",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Configures scene-animation playback by turning off repetition and/or re-enabling application of evaluated animation channels to their owning scene object.",
+      "rationale": "The current clear routine still disables only AOBJ_LOOP and AOBJ_NO_UPDATE, and the current interpreter still maps those options to rewind repetition and update-callback suppression.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows HSD_AObjClearFlags restricting its operation to AOBJ_LOOP and AOBJ_NO_UPDATE."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows AOBJ_LOOP controlling rewind behavior and AOBJ_NO_UPDATE substituting NULL for the property-update callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:20a2ba22-7deb-4de3-b212-ed8991eb923d",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Null-safe mutator with signature void (HSD_AObj* aobj, u32 flags); flags is a bitmask whose effective input domain is the subset AOBJ_LOOP | AOBJ_NO_UPDATE.",
+      "rationale": "The matched definition supplies the return and parameter types, accepts a null AObj as a no-op, and intersects the u32 argument with exactly the two accepted flag constants before mutation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:26.891Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L51-L57",
+          "why": "Directly establishes the function signature, null handling, and effective two-bit mask domain."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728938948277174302",
+          "why": "Preserves the historically recovered matching definition with the same HSD_AObj pointer, u32 mask, null guard, accepted flag subset, and field operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:f5d9132c-7faa-4bda-b2f7-86d9e12cb36d",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Disables caller-selected public playback options on an animation object, while preventing this generic flag API from clearing any AObj state other than looping and update-callback suppression.",
+      "rationale": "The current body still masks the caller's request to AOBJ_LOOP and AOBJ_NO_UPDATE before clearing bits, while the interpreter preserves the corresponding playback semantics.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L28-L70",
+          "why": "Shows the null guard, accepted two-bit subset, and clearing of only those requested bits."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows the loop and update-suppression behaviors governed by the two clearable bits."
+        }
+      ]
+    },
+    {
+      "id": "fact:6539b291-4471-463a-a540-5ec27eb464be",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Clearing AOBJ_LOOP changes subsequent end-frame handling from rewind-and-repeat to the non-looping path, which stops the animation and marks it AOBJ_NO_ANIM after reaching its end frame. Clearing AOBJ_NO_UPDATE restores forwarding of the interpreter's update_func to attached FObjs instead of substituting NULL. Passing a null AObj or requesting only unsupported flag bits leaves state unchanged.",
+      "rationale": "The current clear routine and interpreter retain the same no-op guards, accepted flag transitions, loop boundary behavior, terminal stopping, and callback forwarding rules.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L28-L70",
+          "why": "Shows that null inputs and unsupported bits cannot change state and that only LOOP and NO_UPDATE can be cleared."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows the downstream loop, terminal-stop, and update-callback branches controlled by those flags."
+        }
+      ]
+    },
+    {
+      "id": "fact:8b55898c-ba44-4848-8712-fe967f57ec05",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjFree",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an HSD_AObj pointer and produces no return value. NULL is discarded without further work; otherwise, HSD_AObjGetAllocData supplies the dedicated allocator record and the unchanged AObj address is forwarded to HSD_ObjFree as an HSD_ObjAllocLink. HSD_ObjFree links that storage at the allocator's free-list head, increments the free-object count, and decrements the used-object count.",
+      "rationale": "The target directly shows the guard, allocator lookup, cast, and argument forwarding. The resolved allocator callee shows how those two inputs are consumed to recycle the object's storage and update pool accounting.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:03.001Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L253-L260",
+          "why": "Shows the AObj pointer either being discarded for NULL or forwarded with HSD_AObjGetAllocData() to HSD_ObjFree."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows the forwarded object and allocator record driving free-list insertion and the free/used counter updates."
+        }
+      ]
+    },
+    {
+      "id": "fact:09d330ae-4b4c-4db7-a246-affe49d3147f",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjFree",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_AObjFree(HSD_AObj* aobj). Its sole parameter is a nullable pointer to one HSD_AObj. For deallocation, the object's leading storage is treated as an HSD_ObjAllocLink so it can become a node in the allocator's intrusive free list.",
+      "rationale": "The matched definition directly establishes the return and parameter types and explicitly accepts NULL. It casts a non-NULL AObj to HSD_ObjAllocLink* before calling HSD_ObjFree, whose body overwrites the released object's leading link field when inserting it at the free-list head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:03.001Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L253-L260",
+          "why": "Provides the exact void/HSD_AObj* signature, the NULL guard, and the cast to HSD_ObjAllocLink* at deallocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows that HSD_ObjFree treats the released object's storage as an HSD_ObjAllocLink and writes its next pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:c3b4baec-662e-41ad-bb58-8bdd8a6494e5",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjFree",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns one non-NULL HSD_AObj to the dedicated AObj allocator's reusable pool. It is the low-level storage-release operation used after HSD_AObjRemove has cleaned the animation object's attached FObj chain and retained scene-object reference; it does not perform that attachment teardown itself.",
+      "rationale": "The target contains only a NULL guard and a call to HSD_ObjFree using the AObj allocator record. Its sole caller in the unit, HSD_AObjRemove, releases and clears both attachments before invoking HSD_AObjFree, while HSD_ObjFree demonstrably inserts the object into an allocator free list rather than releasing it to a general heap.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:03.001Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L253-L260",
+          "why": "Shows HSD_AObjFree accepting NULL as a no-op and otherwise delegating the AObj directly to HSD_ObjFree with the dedicated AObj allocator record."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L260",
+          "why": "Shows HSD_AObjRemove cleaning and clearing the AObj's FObj and scene-object attachments before calling HSD_AObjFree."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows HSD_ObjFree returning an object to an intrusive allocator free list and updating the allocator's free and used counts."
+        }
+      ]
+    },
+    {
+      "id": "fact:68100534-886f-4e81-b2ec-cd46a5254019",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjFree",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has two lifecycle outcomes: NULL is a no-op terminal case, while a non-NULL AObj is unconditionally transitioned from the allocator's used population into its free population. The function does not inspect or release the AObj's FObj or scene-object attachments, clear owner pointers, or validate allocator ownership; callers must complete required teardown before invoking it.",
+      "rationale": "The complete target body branches only on NULL and otherwise immediately delegates to the branch-free HSD_ObjFree pool transition. HSD_AObjRemove demonstrates the required higher-level ordering by releasing and clearing both attachments before making the free call.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:03.001Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjFree",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L253-L260",
+          "why": "Shows the NULL no-op case and that every non-NULL input proceeds directly to allocator deallocation without attachment handling or ownership checks."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L260",
+          "why": "Shows the higher-level removal routine releasing and clearing attachments before invoking HSD_AObjFree."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows the unconditional non-NULL used-to-free transition performed by the allocator callee."
+        }
+      ]
+    },
+    {
+      "id": "fact:b81fbc6d-1d49-4367-887f-21e8cdcdecdf",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjGetAllocData",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "With no input parameters, the function returns &aobj_alloc_data without changing it. That descriptor is initialized during HSD object-system startup for sizeof(HSD_AObj) entries with four-byte alignment, then flows through this accessor to HSD_AObjAlloc and to the common object-allocation statistics reporter.",
+      "rationale": "The current getter still returns the shared descriptor unchanged, and current allocation, startup, and statistics code preserve its downstream uses.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L90",
+          "why": "Shows initialization of aobj_alloc_data and the no-argument getter returning its address."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Shows HSD_AObjAlloc passing the getter's result to HSD_ObjAlloc."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows startup initialization and statistics reporting through HSD_AObjGetAllocData."
+        }
+      ]
+    },
+    {
+      "id": "fact:841afd28-a653-4fa2-a76c-99e99885ead0",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjGetAllocData",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: HSD_ObjAllocData* HSD_AObjGetAllocData(void). It accepts no arguments and returns a mutable pointer to the single static-lifetime allocation descriptor for HSD_AObj objects.",
+      "rationale": "The current declaration and body directly retain the exact signature and return the address of the translation unit's global HSD_ObjAllocData object.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L90",
+          "why": "Shows the global HSD_ObjAllocData declaration and the exact no-argument pointer-returning function definition."
+        }
+      ]
+    },
+    {
+      "id": "fact:cb91abab-fa86-47e3-a91c-2942182797e5",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjGetAllocData",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Exposes the AObj subsystem's shared HSD object-allocation descriptor so generic allocator operations and allocator-statistics reporting can operate on the pool used for HSD_AObj instances.",
+      "rationale": "The current getter still exposes aobj_alloc_data, HSD_AObjAlloc still consumes it through the generic allocator, and HSD_ObjDumpStat still uses the getter for AObj statistics.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L90",
+          "why": "Shows the getter exposing the shared AObj allocation descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Shows the generic allocator consuming the exposed descriptor for HSD_AObj allocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows allocator-statistics reporting obtaining the AObj descriptor through this getter."
+        }
+      ]
+    },
+    {
+      "id": "fact:e0e6555a-0df9-4e57-b0a1-576bbb6fce44",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjGetFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input HSD_AObj pointer is tested for null; for a non-null object, its flags field flows unchanged to the u32 return value, while a null input produces zero. The function performs no writes.",
+      "rationale": "The current function remains a single conditional read with a zero fallback and no mutations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjGetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L38-L41",
+          "why": "Shows the complete data path from nullable pointer through aobj->flags or zero to the return value."
+        }
+      ]
+    },
+    {
+      "id": "fact:d4fe4eb9-9aad-4446-81e0-36a6eefa39b1",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjGetFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Null-tolerant accessor with signature u32 HSD_AObjGetFlags(HSD_AObj* aobj); its result is the HSD_AObj flags bitfield, with 0 used as the null-object sentinel.",
+      "rationale": "The current declaration and conditional return directly establish the pointer parameter, u32 result, field domain, and null sentinel.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjGetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L38-L41",
+          "why": "Shows the exact function signature and conditional return of aobj->flags or zero."
+        }
+      ]
+    },
+    {
+      "id": "fact:776c7967-6db9-4265-b182-038e08498131",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjGetFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides a null-safe accessor for an animation object's complete flag word, allowing callers to inspect its playback and update-control state without directly dereferencing the HSD_AObj.",
+      "rationale": "The current accessor returns the complete flags field or zero, while neighboring current routines continue to use that field for looping, update suppression, first-play, rewind, and stopped-state control.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjGetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the null-safe accessor and neighboring mutations of the same flag word for AObj playback control."
+        }
+      ]
+    },
+    {
+      "id": "fact:760d69c0-d152-4cdf-9fa3-1138eabbe6bd",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInitAllocData",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine has no parameters or return value. It supplies the address of the global aobj_alloc_data descriptor, sizeof(HSD_AObj), and alignment 4 to HSD_ObjAllocInit. That call clears the descriptor, sets default unlimited allocation limits, stores an alignment mask of 3, rounds the object size to that alignment, and links the descriptor into the global alloc_datas list; subsequent AObj allocation, freeing, and allocator-statistics operations consume this descriptor.",
+      "rationale": "The current target preserves its three arguments to HSD_ObjAllocInit, whose current implementation retains the described transformations and registration; startup and statistics code still consume the resulting descriptor.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L28-L70",
+          "why": "Shows the target forwarding aobj_alloc_data, sizeof(HSD_AObj), and alignment 4 and the getter exposing the same descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L120-L161",
+          "why": "Shows HSD_ObjAllocInit clearing, configuring, aligning, and registering the descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows the AObj initializer in startup and the descriptor getter in allocator-statistics reporting."
+        }
+      ]
+    },
+    {
+      "id": "fact:1bea60bf-4758-49eb-a147-2a2685dd4881",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInitAllocData",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes and registers the allocation descriptor used by the HSD object allocator for HSD_AObj instances, configuring it for sizeof(HSD_AObj) objects with four-byte alignment as part of the engine-wide object-allocation startup sequence.",
+      "rationale": "The current function still initializes the AObj descriptor with the object size and alignment, the allocator still registers it, and HSD_ObjInit still invokes the routine among the engine's allocator initializers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L28-L70",
+          "why": "Shows HSD_AObjInitAllocData configuring aobj_alloc_data for sizeof(HSD_AObj) with alignment 4."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L120-L161",
+          "why": "Shows the generic initialization and allocator-descriptor registration performed by the callee."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows HSD_ObjInit invoking this initializer as part of object-system startup."
+        }
+      ]
+    },
+    {
+      "id": "fact:fa46ef34-aa20-4071-9234-70cc8cfdd347",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Writes zero into two private AObj completion counters. Later HSD_AObjInterpretAnim increments the first counter for each newly processed AObj that is in AOBJ_NO_ANIM state and the second for each processed AObj that remains active. HSD_AObjInvokeCallBacks consumes the accumulated values, traversing the end-callback list only when the stopped count is nonzero and the active count is zero.",
+      "rationale": "The current reset, interpretation, and invocation routines preserve the complete producer-consumer flow through both counters.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the target zeroing both counters and the invoker consuming them as its callback-list guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows the interpreter incrementing the stopped or active counter after each eligible AObj step."
+        }
+      ]
+    },
+    {
+      "id": "fact:c74eee43-6bf6-4282-8d3b-6ce041f167f4",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the initialization phase of batch completion detection for hierarchical scene-animation playback: a whole model hierarchy is evaluated as one pass, and registered animation-end callbacks are eligible only when that pass leaves no interpreted animation object still running.",
+      "rationale": "HSD_JObjAnimAll still calls this reset before recursively animating its hierarchy and invokes callbacks afterward, while AObj interpretation still records stopped-versus-active outcomes for the dispatch decision.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L509-L565",
+          "why": "Shows the reset, recursive hierarchy animation, and callback invocation phases in order."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows AObj interpretation producing the stopped and active classifications used by completion detection."
+        }
+      ]
+    },
+    {
+      "id": "fact:556b81dc-5c1e-4f7b-9758-e37635a4673a",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void HSD_AObjInitEndCallBack(void): a parameterless, non-returning subsystem-state reset routine.",
+      "rationale": "The current function definition retains the exact void/no-argument signature and only writes the two subsystem counters.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the exact signature and the two counter-reset assignments."
+        }
+      ]
+    },
+    {
+      "id": "fact:cab1056f-11ec-4f0c-af59-fbf38f3f6818",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Begins a fresh animation-end callback accounting pass by clearing the subsystem-wide counts of animation objects that finish and remain active, allowing a subsequent traversal to decide completion solely from the AObjs interpreted during that pass.",
+      "rationale": "The current function still clears both counters, current interpretation repopulates them, current invocation consumes them, and the JObj wrapper still places the reset immediately before hierarchy traversal.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows both counters being cleared and later consumed by the callback guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows interpretation repopulating the counters according to stopped-versus-active state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L509-L565",
+          "why": "Shows the reset beginning a recursive JObj animation and callback-accounting pass."
+        }
+      ]
+    },
+    {
+      "id": "fact:7962f4f1-8286-45a1-a21c-25a3ee2da1f2",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The reset is unconditional and does not invoke callbacks or alter the callback list. In a non-null HSD_JObjAnimAll operation it runs before hierarchy traversal; interpreted AObjs then repopulate the counters, and the post-traversal callback phase fires only if at least one processed AObj ended and no processed AObj remains active. Because invocation itself does not clear the counters, another independent completion pass must begin with this reset.",
+      "rationale": "The current reset body only writes zero, the JObj wrapper preserves reset-traverse-invoke ordering, and the AObj routines retain the counter transitions and guarded non-mutating dispatch behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the unconditional reset and that invocation neither resets counters nor mutates the callback list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows eligible AObjs repopulating exactly one counter during interpretation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L509-L565",
+          "why": "Shows reset, recursive hierarchy traversal, and callback invocation in that order."
+        }
+      ]
+    },
+    {
+      "id": "fact:4353750f-fd9a-4ec7-a664-ff70fd0ae796",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads playback flags, framerate, current frame, end frame, rewind frame, and the attached FObj-list head from the HSD_AObj. It advances or rewrites curr_frame, passes the FObj list, owning object, callback, and effective rate into FObj stop/request/interpret operations, updates AOBJ_FIRST_PLAY, AOBJ_REWINDED, and AOBJ_NO_ANIM, and finally increments one of two global counters according to whether the AObj ended the step stopped or active.",
+      "rationale": "The current complete function body preserves each field read, mutation, delegated FObj argument, and final completion-counter update.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows the complete AObj-to-FObj data flow, controller mutations, and stopped-versus-active counter output."
+        }
+      ]
+    },
+    {
+      "id": "fact:39f5f937-a8d4-4f21-a8ac-07443494d366",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes one tick of the reusable HSD scene-animation playback controller, including initial-frame evaluation, rate-based progression, looping through a configured rewind interval, optional suppression of property updates, and terminal stopping.",
+      "rationale": "The current interpreter still performs all generic AObj frame progression, looping, update suppression, FObj evaluation, and non-looping completion behavior.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows one complete generic HSD_AObj playback step with first-play, rate, loop, update, and stop handling."
+        }
+      ]
+    },
+    {
+      "id": "fact:74627e6b-d0d0-46fb-87fe-dee0504a1b0d",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void HSD_AObjInterpretAnim(HSD_AObj* aobj, void* obj, HSD_ObjUpdateFunc update_func). The AObj pointer is nullable; obj is the owning object passed through to FObj operations; update_func is an optional animation-property update callback that may be suppressed by AOBJ_NO_UPDATE.",
+      "rationale": "The current definition retains the signature, null guard, pass-through object argument, and conditional substitution of NULL for the update callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows the exact signature, nullable AObj behavior, object propagation, and optional update-callback suppression."
+        }
+      ]
+    },
+    {
+      "id": "fact:0a9e9e8d-1afd-4aba-a285-1a7833689064",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Processes one playback step for an HSD_AObj: it advances the current frame, handles first-play and looping boundaries, interprets the attached FObj animation channels, and stops a completed non-looping animation.",
+      "rationale": "The current complete body retains frame advancement, first-play handling, looping and rewind behavior, delegated channel evaluation, and terminal non-looping stopping.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Directly shows every phase of the AObj playback step described by the fact."
+        }
+      ]
+    },
+    {
+      "id": "fact:9263088a-8c9e-460e-bba0-99b5f895cc76",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A NULL AObj or one with AOBJ_NO_ANIM is an immediate no-op. AOBJ_FIRST_PLAY is consumed without advancing the frame and supplies a zero interpretation rate; subsequent steps add framerate to curr_frame. When a looping animation reaches end_frame, a valid rewind interval wraps curr_frame modulo end_frame minus rewind_frame after stopping and re-requesting its FObjs; an invalid interval clamps at end_frame. Either loop case sets AOBJ_REWINDED and interprets with zero rate, while an ordinary step clears AOBJ_REWINDED. AOBJ_NO_UPDATE suppresses the update callback without suppressing FObj interpretation. A non-looping animation that reaches end_frame is stopped after interpretation and transitions to AOBJ_NO_ANIM.",
+      "rationale": "The current function preserves every guard, flag transition, frame-boundary branch, effective-rate selection, and stopping condition in the standing state model.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Directly expresses the complete null/stopped guard, first-play transition, normal advance, loop rewind or clamp, callback suppression, rewind flag, and terminal stop behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:19863bbf-5487-4c1a-bcd8-14af6d9dd1fd",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInvokeCallBacks",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes two global counts accumulated by HSD_AObjInterpretAnim: HSD_AObj_804D762C counts AObjs that are stopped after interpretation, while HSD_AObj_804D7630 counts AObjs still running. When the former is nonzero and the latter is zero, it reads endcallback_list from its head, casts each node's data payload to void (*)(void), invokes it, and advances through next until the list ends.",
+      "rationale": "The current interpreter preserves the producer meaning of both counters, and the current invoker preserves the guard and sequential callback-list consumption.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInvokeCallBacks",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the guarded traversal through each callback node's data and next fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows the two counters being produced from stopped-versus-active AObj state."
+        }
+      ]
+    },
+    {
+      "id": "fact:44eaba7c-1d06-4c91-988c-311d2ccabeb3",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInvokeCallBacks",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Has signature void HSD_AObjInvokeCallBacks(void). Each HSD_SList node's data payload is interpreted as a parameterless callback of type void (*)(void).",
+      "rationale": "The matched definition takes no parameters and returns no value, and its loop explicitly assigns each node's data field to a void (*)(void) local before invoking it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:04:50.071Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInvokeCallBacks",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L77-L89",
+          "why": "Directly shows the function signature and the callback payload cast and invocation signature."
+        }
+      ]
+    },
+    {
+      "id": "fact:e2c14dc5-ae1b-44c5-84b8-caf467020cda",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInvokeCallBacks",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Dispatches the animation subsystem's end-callback list after an interpretation pass has found at least one completed animation object and no animation objects still running.",
+      "rationale": "The current interpreter still classifies stopped and active AObjs, and the current invoker still dispatches the list only for a nonzero stopped count and zero active count.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInvokeCallBacks",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows endcallback_list being dispatched only under the stopped-nonzero/active-zero condition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L210",
+          "why": "Shows the interpretation pass accumulating the stopped and active counts used by that condition."
+        }
+      ]
+    },
+    {
+      "id": "fact:ae451307-24f0-453a-885c-e76039df0b23",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjInvokeCallBacks",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Does nothing when no interpreted AObj has stopped or when any interpreted AObj is still running. Otherwise it invokes every node currently in endcallback_list. It does not reset the counters or remove list nodes, so the same callbacks remain eligible on a subsequent call until HSD_AObjInitEndCallBack resets the completion-pass counters or later interpretation changes their values.",
+      "rationale": "The current invoker retains both no-op guard cases and a read-only full traversal, while the neighboring initializer remains the separate operation that resets the counters.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjInvokeCallBacks",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the two guard failures, complete eligible traversal, absence of list or counter mutation, and the separate counter-reset routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:a88c67e1-02e5-4c23-bf34-af39d48312e1",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjLoadDesc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input descriptor's supported LOOP and NO_UPDATE bits are ORed into a newly allocated AObj, rewind_frame is set to 0.0, and end_frame is copied from the descriptor. Its FObj descriptor chain flows through HSD_FObjLoadDesc and becomes the AObj's owned runtime FObj list. For a nonzero obj_id, the function queries HSD ID-table class 0; an existing object is retained by incrementing its reference count, while a failed lookup causes the same descriptor value to be passed to HSD_JObjLoadJoint. The resulting existing or newly loaded HSD_Obj is stored in `aobj->hsd_obj`, and the populated AObj is returned.",
+      "rationale": "The current setter still restricts descriptor flags, the current loader preserves all descriptor-to-runtime field and object-reference flows, and HSD_FObjLoadDesc still recursively materializes the runtime channel list.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L105",
+          "why": "Shows HSD_AObjSetFlags accepting only LOOP and NO_UPDATE and HSD_AObjSetFObj replacing the owned FObj list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L218",
+          "why": "Shows descriptor fields flowing into AObj state, FObj loading, ID lookup, reference retention or JObj loading, owner assignment, and return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L468-L483",
+          "why": "Shows the FObj descriptor chain recursively becoming allocated runtime FObj objects with copied stream metadata."
+        }
+      ]
+    },
+    {
+      "id": "fact:ea4e2798-4723-4452-a09e-ce011463d803",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjLoadDesc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Nullable descriptor loader with signature `HSD_AObj* HSD_AObjLoadDesc(HSD_AObjDesc* aobjdesc)`. A null descriptor returns null; a non-null descriptor yields an allocated runtime HSD_AObj. The consumed descriptor fields are playback-option flags, an end frame, the head of an HSD_FObjDesc chain, and an optional `obj_id` reference token that may resolve through the HSD ID table or serve as a joint descriptor reference.",
+      "rationale": "The matched declaration and null guard directly establish the signature and nullable behavior. The body enumerates the descriptor fields consumed and demonstrates the two interpretations of a nonzero obj_id: ID-table lookup first and HSD_JObjLoadJoint fallback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:25:12.357Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L218",
+          "why": "Provides the exact parameter and return types, the null base case, every descriptor field read, and the ID-table-versus-joint-loader handling of obj_id."
+        }
+      ]
+    },
+    {
+      "id": "fact:ce825c50-92fa-47b0-9162-30ed88de51b4",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjLoadDesc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Materializes a serialized HSD_AObjDesc as a runtime HSD_AObj animation controller: it initializes the controller's playback options and frame bounds, constructs its property-animation channel list, and resolves or loads the optional HSD object referenced by the descriptor.",
+      "rationale": "The function allocates an AObj, applies the descriptor's supported flags and end frame, fixes the rewind frame at zero, loads the descriptor's FObj chain, and attaches it. For a nonzero object reference it first searches the HSD ID table and retains the existing object when found; otherwise it loads a JObj hierarchy from the descriptor value. The FObj and JObj loader implementations confirm that these calls materialize runtime animation channels and a resolved runtime joint hierarchy, respectively.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:25:12.357Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L218",
+          "why": "Shows the complete descriptor-to-AObj construction sequence, including controller initialization, FObj loading, and optional object-reference resolution or joint loading."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L468-L483",
+          "why": "Shows HSD_FObjLoadDesc recursively converting the descriptor chain into allocated runtime animation-channel objects."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L667-L672",
+          "why": "Shows HSD_JObjLoadJoint constructing a runtime JObj hierarchy and resolving its references before returning it."
+        }
+      ]
+    },
+    {
+      "id": "fact:9e64bb9f-9a9d-40ef-9f36-00a9ae51c4f2",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjLoadDesc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A loaded AObj remains stopped rather than beginning playback: allocation initializes AOBJ_NO_ANIM and a 1.0 playback rate, descriptor flag application can only add LOOP and NO_UPDATE, and every loaded FObj begins with flags zero. The controller starts with rewind_frame 0.0 and the descriptor's end_frame. A zero obj_id leaves it without an associated HSD object; a nonzero obj_id leaves it owning either a retained ID-table object or a newly loaded JObj hierarchy. A later animation request is required to clear AOBJ_NO_ANIM and enter first-play state.",
+      "rationale": "The current allocator retains stopped and unit-rate defaults, the descriptor loader still cannot clear AOBJ_NO_ANIM, loaded FObjs still begin with zero flags, and the separate request routine remains responsible for entering first-play state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L105",
+          "why": "Shows descriptor flag application restricted to LOOP and NO_UPDATE and the separate request transition out of AOBJ_NO_ANIM."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L218",
+          "why": "Shows loaded frame bounds and the zero, retained-object, and newly loaded-JObj outcomes for obj_id."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L242-L251",
+          "why": "Shows every newly allocated AObj starting in AOBJ_NO_ANIM state with framerate 1.0F."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L468-L483",
+          "why": "Shows every FObj constructed from a descriptor starting with flags zero."
+        }
+      ]
+    },
+    {
+      "id": "fact:4009f547-71a6-4ee1-a7af-e4b0fefb34ea",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjRemove",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an HSD_AObj pointer and reads its fobj and hsd_obj attachments. A non-NULL fobj head is forwarded to HSD_FObjRemoveAll, and a non-NULL hsd_obj is cast to HSD_JObj* and forwarded to HSD_JObjUnref. Both attachment fields are then set to NULL, after which the original AObj pointer is passed to HSD_AObjFree; the routine returns no value.",
+      "rationale": "The source directly shows each field read, the cleanup callee receiving that field's former value, the subsequent NULL assignments, and the final flow of the original argument into HSD_AObjFree. The FObj callee establishes that the fobj input is treated as a list head and consumed recursively.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:15.324Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows values flowing from the AObj's two attachment fields into their respective release routines, followed by field clearing and release of the AObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L29-L36",
+          "why": "Shows HSD_FObjRemoveAll consuming the supplied head by traversing its next links and removing every node."
+        }
+      ]
+    },
+    {
+      "id": "fact:8615c3d6-0e25-4f1f-bcb9-187b4ec33377",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjRemove",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void HSD_AObjRemove(HSD_AObj* aobj): a lifecycle routine taking a nullable pointer to the HSD_AObj to be destroyed.",
+      "rationale": "The matched definition establishes the void return and HSD_AObj pointer parameter. Its initial NULL check and complete teardown of a non-NULL argument establish that the parameter is nullable and identifies the object whose lifetime is ending.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:15.324Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Provides the exact function signature, accepts NULL as a no-op case, and frees a non-NULL argument after cleaning its attachments."
+        }
+      ]
+    },
+    {
+      "id": "fact:bb616451-de7c-4914-932e-3328fa2c007d",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjRemove",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs null-safe teardown of an HSD animation object: it destroys the complete attached FObj chain, releases the animation object's reference to its attached HSD scene object, clears both attachments, and returns the AObj itself to its allocator.",
+      "rationale": "The matched body returns immediately for NULL and otherwise invokes the dedicated cleanup operations for both attachments before calling HSD_AObjFree. HSD_FObjRemoveAll's matched body confirms that the first operation removes the entire linked FObj chain rather than only its head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:15.324Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows the NULL guard, removal and clearing of the attached FObjs, unreferencing and clearing of hsd_obj, and final release through HSD_AObjFree."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L29-L36",
+          "why": "Shows that HSD_FObjRemoveAll recursively removes every node in the attached FObj list."
+        }
+      ]
+    },
+    {
+      "id": "fact:cdbfdd9e-4c7e-4e4e-936f-655c989aca49",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjRemove",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "NULL is a no-op terminal case. For a live AObj, each optional attachment is released only when present, but its field is cleared regardless; teardown is ordered so the FObj chain and retained scene-object reference are released before the AObj's own storage is freed.",
+      "rationale": "The initial guard defines NULL behavior. The nested attachment guards make each cleanup conditional, while the unconditional NULL assignments normalize the fields before the final free. Because HSD_AObjFree is called only after both attachment blocks, owner storage cannot be released before its subordinate animation data and scene-object reference are handled.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:15.324Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows the NULL terminal case, conditional attachment cleanup, unconditional field clearing, and the exact ordering of subordinate cleanup before AObj release."
+        }
+      ]
+    },
+    {
+      "id": "fact:6bcfb3a0-6cfa-4c52-835e-7b585009dbe3",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies an AObj and starting frame. For a non-null AObj, the frame is written to curr_frame; flags are read, AOBJ_NO_ANIM is removed, and AOBJ_FIRST_PLAY is added; then the AObj's fobj pointer and the same frame are passed to HSD_FObjReqAnimAll. The function produces no return value.",
+      "rationale": "Every input, mutation, and downstream output is explicit in the matched body: the frame controls both controller state and FObj requests, while the existing flags are transformed to restart playback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:54.194Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Shows the complete input-to-state-to-callee flow."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/730816705093173419",
+          "why": "Shows the same field writes, bit transformation, FObj-list load, and call in matched C alongside the original instructions."
+        }
+      ]
+    },
+    {
+      "id": "fact:af34aae7-46e4-41db-ad59-5904e1e2f0b3",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes scene-animation playback from an explicitly selected starting frame, including restarting previously stopped controllers and ensuring the selected frame is presented before normal frame-rate advancement begins.",
+      "rationale": "The current request routine still selects the frame and enters first-play state, and the current interpreter still consumes first-play with zero advancement before ordinary framerate stepping.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L105",
+          "why": "Shows explicit frame selection, clearing of stopped state, and entry into AOBJ_FIRST_PLAY."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows first-play interpretation at zero rate followed by normal framerate-based advancement."
+        }
+      ]
+    },
+    {
+      "id": "fact:21a6f56f-70a8-4e86-9957-0d8d0eb55769",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void (HSD_AObj* aobj, f32 frame); aobj is nullable, and frame is an animation-frame position passed unchanged to the AObj's FObj list.",
+      "rationale": "The matched definition supplies the concrete signature, returns immediately for a null AObj, stores frame in curr_frame, and forwards it unchanged to HSD_FObjReqAnimAll.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:54.194Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Shows the complete function signature, null guard, frame assignment, and unchanged frame argument to HSD_FObjReqAnimAll."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/730816705093173419",
+          "why": "Provides the independently matched C body and corresponding assembly for the same nullable HSD_AObj pointer and floating-point frame signature."
+        }
+      ]
+    },
+    {
+      "id": "fact:17ced4fb-5f80-48c9-b7d0-49632a4a658a",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Requests that an HSD animation object begin or resume playback from a specified frame, synchronizing both the AObj controller and every attached FObj channel to that frame.",
+      "rationale": "The function records the requested frame, clears the stopped flag, marks the controller for first-play processing, and calls HSD_FObjReqAnimAll on the attached FObj list with the same frame. A resolved material-animation caller also uses it as the AObj-level request when that animation class is enabled.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:54.194Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Directly shows the requested frame and playback state being installed before the same frame is sent to all attached FObjs."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/938528422504857601",
+          "why": "Shows HSD_MObjReqAnimByFlags using HSD_AObjReqAnim to request the material's AObj animation at startframe when MOBJ_ANIM is selected."
+        }
+      ]
+    },
+    {
+      "id": "fact:2c843bae-64c9-4525-a4cf-ce92c0515e56",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null AObj leaves all state unchanged. Otherwise, the function transitions the controller out of AOBJ_NO_ANIM into AOBJ_FIRST_PLAY at the requested current frame. On the next HSD_AObjInterpretAnim call, AOBJ_FIRST_PLAY is cleared and the controller interprets that frame with zero advancement; subsequent calls advance curr_frame by framerate until loop or end-state logic applies.",
+      "rationale": "The current request routine retains the null guard and exact frame/flag transition, and the current interpreter retains the first-play and later-step consequences.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:29:45.899Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L105",
+          "why": "Shows the null no-op and transition from AOBJ_NO_ANIM to AOBJ_FIRST_PLAY at the requested frame."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows AOBJ_FIRST_PLAY being consumed at zero rate and subsequent updates advancing by framerate."
+        }
+      ]
+    },
+    {
+      "id": "fact:d6e6fd5d-041e-4927-ae09-6623c4fa70c2",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies an HSD_AObj and frame. For a non-null, actively animating AObj, the frame is written to aobj->curr_frame; the flags are rewritten to clear bit 0x40000000 and set AOBJ_FIRST_PLAY; then aobj->fobj and the unchanged frame are passed to HSD_FObjReqAnimAll. The function returns no value and produces no changes when the pointer is null or AOBJ_NO_ANIM is set.",
+      "rationale": "Every input, mutation, guard, and downstream output is explicit in the matched body. The same frame therefore synchronizes controller-level position with all attached FObj channels, while the guards prevent any output for absent or stopped animation objects.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:43.903Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L534-L545",
+          "why": "Directly shows the guarded input-to-field-to-FObj flow and the exact flag-mask transformation."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/738622084695064607",
+          "why": "Shows the same matched sequence of curr_frame storage, flag rewriting, FObj-list load, and frame forwarding."
+        }
+      ]
+    },
+    {
+      "id": "fact:34b940cd-f054-4ef9-91e7-8120bc113a88",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements seeking or repositioning within active HSD scene-animation playback: the selected animation frame is installed across the controller and its channels and is presented once without ordinary frame-rate advancement before playback continues.",
+      "rationale": "The current setter synchronizes the requested frame across the AObj and attached FObjs and sets AOBJ_FIRST_PLAY. The current interpreter consumes that marker with a zero effective rate before later updates resume ordinary framerate-based progression.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows HSD_AObjSetCurrentFrame storing the selected frame, setting first-play state, and requesting that frame from every attached FObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows first-play interpretation occurring without frame advancement and later updates advancing by the configured framerate."
+        }
+      ]
+    },
+    {
+      "id": "fact:37bc351b-540b-4b41-8f62-1e9688de515e",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void (HSD_AObj* aobj, f32 frame); aobj is nullable, and frame is a floating-point animation-frame position stored in the controller and forwarded unchanged to its FObj list.",
+      "rationale": "The matched definition gives the concrete return and parameter types, explicitly accepts a null AObj as a no-op, stores frame in curr_frame, and passes the same value to HSD_FObjReqAnimAll.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:43.903Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L534-L545",
+          "why": "Provides the complete signature, null handling, frame assignment, and unchanged frame argument sent downstream."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/738622084695064607",
+          "why": "Corroborates the HSD_AObj pointer and f32 frame signature in an independently matched reconstruction."
+        }
+      ]
+    },
+    {
+      "id": "fact:3f9d1561-f421-4e25-8413-32201ac07a14",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Repositions an active HSD animation object to a specified frame and synchronizes all of its attached FObj animation channels to that frame without restarting an AObj that is already in the AOBJ_NO_ANIM state.",
+      "rationale": "The matched body rejects null AObjs and requires AOBJ_NO_ANIM to be clear before writing curr_frame, marking first-play processing, and requesting the same frame from the attached FObj list. This makes the routine an active-animation repositioning operation rather than the broader restart operation performed by HSD_AObjReqAnim.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:43.903Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L534-L545",
+          "why": "Shows the active-state guard, current-frame assignment, first-play flag update, and list-wide FObj request at the supplied frame."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/738622084695064607",
+          "why": "Independently records the matched HSD_AObjSetCurrentFrame body with the same guards, field updates, and HSD_FObjReqAnimAll call."
+        }
+      ]
+    },
+    {
+      "id": "fact:143dd578-bcc3-4403-ab07-c63078bce9d1",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null AObj or an AObj marked AOBJ_NO_ANIM is left unchanged. An active AObj transitions to the requested curr_frame with AOBJ_FIRST_PLAY set. On its next HSD_AObjInterpretAnim update, that marker is cleared and the requested frame is interpreted with zero frame-rate advancement; later updates resume normal advancement by aobj->framerate and remain subject to the usual loop and end-frame logic.",
+      "rationale": "The current setter retains both no-op guards and establishes the requested frame and first-play state. The current interpreter confirms that first-play is consumed at zero rate, while subsequent steps advance by framerate and process the configured loop boundary.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetCurrentFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the null and stopped-animation guards and the transition to the requested frame with AOBJ_FIRST_PLAY set."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows AOBJ_FIRST_PLAY being cleared and interpreted at zero rate, followed by normal framerate advancement and loop handling."
+        }
+      ]
+    },
+    {
+      "id": "fact:94387c6e-df94-4e9f-a2ff-8053908c6361",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-supplied frame flows directly into HSD_AObj.end_frame. Animation descriptors initialize the field through this setter from HSD_AObjDesc.end_frame, and HSD_AObjInterpretAnim later consumes it in comparisons and loop-interval arithmetic that control FObj stopping, animation re-requesting, frame wrapping, and final AObj completion.",
+      "rationale": "The current setter establishes the direct field write, the loader supplies a concrete descriptor source, and the interpreter shows the boundary's downstream use in channel operations and playback transitions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the direct flow from the frame argument into aobj->end_frame."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L172-L220",
+          "why": "Shows HSD_AObjLoadDesc passing HSD_AObjDesc.end_frame to HSD_AObjSetEndFrame."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Shows end_frame controlling loop arithmetic, FObj stop and request operations, frame clamping, and non-looping completion."
+        }
+      ]
+    },
+    {
+      "id": "fact:829d6451-9661-4d77-8f8c-5c4a7c8222b1",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes configurable endpoint and loop-boundary control for HSD scene-animation playback by selecting the frame at which an animation either wraps through its rewind interval or completes and stops.",
+      "rationale": "The setter configures end_frame, and the current interpreter uses that field as the threshold for loop wrapping or clamping and for terminal completion of non-looping playback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the function configuring the AObj's end-frame boundary."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Shows the configured boundary controlling looping, clamping, and non-looping completion."
+        }
+      ]
+    },
+    {
+      "id": "fact:551848ff-8e0e-4d93-a6c0-daa162ddccb4",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Null-tolerant setter with signature void (HSD_AObj* aobj, f32 frame). The frame argument is a floating-point animation-frame coordinate in the same domain as HSD_AObj.curr_frame and rewind_frame.",
+      "rationale": "The current definition supplies the signature and null guard. The current interpreter compares end_frame with curr_frame and combines it arithmetically with rewind_frame, confirming their shared animation-frame domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the void return type, HSD_AObj pointer, f32 frame parameter, null guard, and end_frame assignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows end_frame compared with curr_frame and used with rewind_frame in floating-point loop-interval arithmetic."
+        }
+      ]
+    },
+    {
+      "id": "fact:d2672306-21e8-4d50-bfb5-374d37a7a80b",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Configures the terminal frame boundary of an HSD animation object, which subsequent playback interpretation uses to decide when to loop, clamp, or stop the animation.",
+      "rationale": "The current setter writes only end_frame, while the current interpreter compares curr_frame against that field to select looping, clamping, or terminal stopping behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the supplied frame being stored in a non-null AObj's end_frame field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Shows playback interpretation using end_frame as the loop and completion threshold."
+        }
+      ]
+    },
+    {
+      "id": "fact:f2fc0a41-3cb6-47ae-9838-92b71a310349",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Calling the setter does not itself advance, rewind, stop, or request an animation: a null AObj is ignored, and a non-null AObj only receives a new end_frame. On later interpretation, reaching that boundary while AOBJ_LOOP is set either wraps curr_frame into the interval beginning at rewind_frame or clamps it to end_frame when the rewind interval is invalid, then marks the AObj rewound. Reaching the boundary without AOBJ_LOOP causes the animation to be stopped and marked AOBJ_NO_ANIM after the boundary frame is interpreted.",
+      "rationale": "The current setter contains only a null guard and assignment. The current interpreter retains the later loop wrapping or clamping, rewound-state update, and non-looping transition to AOBJ_NO_ANIM.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetEndFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows that setting end_frame has no immediate side effect beyond the assignment and is a no-op for null."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Shows the subsequent loop wrapping or clamping, AOBJ_REWINDED transition, and terminal AOBJ_NO_ANIM transition."
+        }
+      ]
+    },
+    {
+      "id": "fact:0286fa32-2b5d-43bc-8e7c-73455f998d01",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetFObj",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an HSD_AObj pointer and a replacement HSD_FObj chain head. For a valid AObj, its current fobj field flows into HSD_FObjRemoveAll when non-NULL; after that teardown completes, the supplied fobj pointer is written into the same field. The function returns no value.",
+      "rationale": "The target body directly shows the old field value being consumed by the teardown routine and the input fobj becoming the new field value. The callee body establishes that the consumed old value is treated as the head of a linked chain and removed in full.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:07.643Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetFObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L59-L69",
+          "why": "Shows the input parameters, the read of aobj->fobj, the call that consumes the old value, and the final write of fobj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L29-L36",
+          "why": "Shows the old field value being interpreted as a linked-list head whose successor chain and nodes are all removed."
+        }
+      ]
+    },
+    {
+      "id": "fact:52f53b2e-d24e-4c09-bc6c-b669ab7760ba",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetFObj",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void HSD_AObjSetFObj(HSD_AObj* aobj, HSD_FObj* fobj): a null-tolerant setter whose first parameter is the owning animation object and whose second parameter is a nullable replacement HSD_FObj chain head.",
+      "rationale": "The matched definition establishes the void return and pointer parameter types. The first parameter is explicitly checked for NULL, while the second is stored without dereferencing or validation and may therefore be NULL to leave the AObj with no FObj chain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:07.643Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetFObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L59-L69",
+          "why": "Provides the exact signature, the NULL guard for aobj, and the unconditional assignment of the nullable fobj argument."
+        }
+      ]
+    },
+    {
+      "id": "fact:73397fbb-d073-4c57-858f-8d10dd99475f",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetFObj",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Replaces the complete HSD_FObj chain attached to an HSD_AObj, first destroying any previously attached chain so the animation object retains only the supplied replacement.",
+      "rationale": "The matched function removes the existing aobj->fobj chain when present and then assigns the supplied fobj pointer. The resolved callee confirms that HSD_FObjRemoveAll destroys every node in the old chain, establishing that this is replacement with cleanup rather than a simple pointer assignment.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:07.643Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetFObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L59-L69",
+          "why": "Shows the existing AObj fobj pointer being passed to HSD_FObjRemoveAll before the supplied replacement is stored."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L29-L36",
+          "why": "Shows that HSD_FObjRemoveAll recursively traverses and removes the entire supplied HSD_FObj chain."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/728830329430868040",
+          "why": "Preserves the historical reconstruction of the same null-guarded remove-old-chain-and-assign-new-chain behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:33e33c62-7983-49e9-aca0-cfb5e9dc7e15",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetFObj",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A NULL AObj is a no-op guard state. For a valid AObj with no current FObj chain, the replacement is assigned directly. For one with an existing chain, that chain is completely torn down before the field transitions to the supplied replacement; supplying NULL therefore clears the attachment after cleanup.",
+      "rationale": "The early return defines behavior for a missing owner, the conditional call distinguishes empty and populated old-chain states, and the unconditional final assignment performs the transition in either valid-owner case. Because the replacement is not required to be non-NULL, the same path supports explicit clearing.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:07.643Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetFObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L59-L69",
+          "why": "Shows the NULL-owner return, conditional teardown based on the old field, and unconditional assignment of the replacement for a valid owner."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L29-L36",
+          "why": "Shows that the teardown invoked in the populated state removes the complete old chain before control returns to the setter."
+        }
+      ]
+    },
+    {
+      "id": "fact:8b9f764b-c4e4-4dae-a66c-55e962ba3532",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-supplied flag mask is reduced to AOBJ_LOOP and AOBJ_NO_UPDATE and merged into aobj->flags without disturbing any existing bits. HSD_AObjInterpretAnim later reads AOBJ_LOOP to control end-frame wrapping and reads AOBJ_NO_UPDATE to replace the supplied object-update callback with NULL when interpreting the attached FObj list.",
+      "rationale": "The current setter directly establishes the filtered write, and the current interpreter shows the two retained bits flowing into distinct playback and callback-selection branches.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the input mask being restricted and ORed into the existing AObj flags."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Shows AOBJ_LOOP controlling end-frame wrapping and AOBJ_NO_UPDATE selecting NULL for FObj interpretation."
+        }
+      ]
+    },
+    {
+      "id": "fact:ce11d7d2-faca-40d5-ad53-f4a9d2241f4f",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Configures generic scene-animation playback to repeat at its end boundary and/or to advance its animation channels without applying them through the owning scene object's update callback.",
+      "rationale": "The current setter accepts exactly the loop and no-update options, and the current interpreter maps those options to end-boundary repetition and suppression of the owning object's update callback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Identifies AOBJ_LOOP and AOBJ_NO_UPDATE as the only playback options enabled by the function."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Demonstrates the resulting animation-looping and update-callback-suppression mechanics."
+        }
+      ]
+    },
+    {
+      "id": "fact:3d191d58-113d-4945-8b90-2df7844b59ae",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A null-tolerant mutator with signature void (HSD_AObj* aobj, u32 flags). Although the flags parameter is represented as u32, its accepted domain is the bitwise subset AOBJ_LOOP | AOBJ_NO_UPDATE.",
+      "rationale": "The matched definition supplies the exact return and parameter types, while its mask establishes the narrower semantic domain of the integer argument.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:04.025Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L43-L49",
+          "why": "Provides the exact function signature and proves that only two AObj flag bits are accepted."
+        }
+      ]
+    },
+    {
+      "id": "fact:ac0c917e-b30b-4f8f-9db2-d7ed7531a3ab",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Enables the caller-configurable playback options on an animation object while preventing callers from setting its internal lifecycle flags: only looping and update-callback suppression are accepted, and a null animation object is ignored.",
+      "rationale": "The current definition filters callers to AOBJ_LOOP and AOBJ_NO_UPDATE before additively setting flags, while the interpreter confirms that these bits select looping and callback suppression rather than internal lifecycle transitions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the null guard, restriction to two playback-option bits, and additive update to aobj->flags."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Shows how playback interpretation consumes the two accepted options."
+        }
+      ]
+    },
+    {
+      "id": "fact:58da4359-ed82-4f13-90b0-b8ca82b60f75",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For a non-null AObj, the operation can only transition AOBJ_LOOP and AOBJ_NO_UPDATE from clear to set; it cannot clear either bit or alter other playback-state bits. Once AOBJ_LOOP is set, reaching end_frame wraps or clamps the current frame and marks the animation rewound instead of ending it. Once AOBJ_NO_UPDATE is set, FObj interpretation continues but receives no owning-object update callback.",
+      "rationale": "The current OR assignment is monotonic and filters the input to two public option bits. The current interpreter confirms the resulting loop-boundary transition and callback-suppression behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows that only AOBJ_LOOP and AOBJ_NO_UPDATE can be set and that the operation clears no flags."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Shows looping and AOBJ_REWINDED behavior and continued FObj interpretation with a NULL callback under AOBJ_NO_UPDATE."
+        }
+      ]
+    },
+    {
+      "id": "fact:c0a1d999-626a-4fc7-8bc2-a5925538c060",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-supplied rate is stored in HSD_AObj.framerate. Later stop and interpretation operations consume that field: normal interpretation copies it into the FObj interpretation rate and adds it to curr_frame, while stopping forwards it to the attached FObj list. HSD_ForeachAnim can also apply this setter with one floating-point argument across selected animation objects.",
+      "rationale": "The current setter establishes the field write. Current stop and interpretation code consume framerate for channel operations and frame progression, and the traversal dispatcher supports invoking the setter with a floating-point payload.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the rate argument flowing into HSD_AObj.framerate."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows framerate used for current-frame advancement and forwarded to FObj stop and interpretation operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L517",
+          "why": "Shows HSD_ForeachAnim decoding a floating-point callback payload and treating HSD_AObjSetRate as a compatible setter."
+        }
+      ]
+    },
+    {
+      "id": "fact:67f4a03d-91fc-485d-8986-5ccd2f6f1994",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes scene-animation playback-speed control by changing the per-step frame increment of one AObj or, when used through HSD_ForeachAnim, a selected set of animation objects in an HSD scene hierarchy.",
+      "rationale": "The current setter stores the per-step rate and the interpreter uses it for frame progression. The current traversal dispatcher remains capable of applying this floating-point AObj setter across selected scene-object families.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows framerate determining ordinary frame progression during scene-animation interpretation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L517",
+          "why": "Shows HSD_ForeachAnim dispatching floating-point callback arguments and the compatible HSD_AObjSetRate setter."
+        }
+      ]
+    },
+    {
+      "id": "fact:9e500fae-512d-430a-977b-69db108366d0",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Null-tolerant setter with signature void (HSD_AObj* aobj, f32 rate); rate is a floating-point frame increment applied per animation interpretation step.",
+      "rationale": "The current definition proves the signature and null handling, while the current interpreter establishes the argument's unit by adding framerate directly to curr_frame on each ordinary step.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the exact void, HSD_AObj-pointer, and f32 signature and null-as-no-op behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows framerate being added directly to the current animation frame during an ordinary interpretation step."
+        }
+      ]
+    },
+    {
+      "id": "fact:eb7fe7b1-efa8-4bfd-a978-85dc607cd812",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Configures an HSD animation object's playback rate, determining how far its current animation frame advances on each subsequent interpretation step.",
+      "rationale": "The current setter stores the supplied value in framerate, and the current interpreter later adds that field to curr_frame during ordinary playback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows HSD_AObjSetRate storing the supplied rate in a non-null AObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows ordinary playback advancing curr_frame by aobj->framerate."
+        }
+      ]
+    },
+    {
+      "id": "fact:008530a8-8f72-46d4-882c-ad1c39ed8873",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The setter itself performs no playback-state transition: a null AObj is ignored, while a non-null AObj retains its flags and current frame and only receives a new framerate. The new value affects later interpretation steps; a rate of 0 leaves curr_frame unchanged during ordinary advancement.",
+      "rationale": "The current setter changes only framerate. The current interpreter later adds framerate to curr_frame, confirming delayed effect and the zero-rate behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRate",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the null guard and that the setter modifies only aobj->framerate."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows later ordinary interpretation adding framerate to curr_frame."
+        }
+      ]
+    },
+    {
+      "id": "fact:79b56cc0-08d8-4732-bebd-475ef72c529f",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-supplied frame is stored in HSD_AObj.rewind_frame. HSD_AObjLoadDesc initializes this field to 0.0 for newly loaded animation objects. On a later looping end-frame crossing, HSD_AObjInterpretAnim reads rewind_frame to compute the loop span end_frame - rewind_frame, wraps curr_frame into that span with fmodf, and forwards the resulting current frame to every attached FObj through HSD_FObjReqAnimAll.",
+      "rationale": "The current setter establishes the field write, the loader supplies its initial zero value, and the interpreter shows the field flowing through loop arithmetic into the wrapped frame requested from the FObj list.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the frame argument flowing directly into aobj->rewind_frame."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L172-L220",
+          "why": "Shows HSD_AObjLoadDesc initializing rewind_frame to 0.0."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows rewind_frame used to derive the loop span and offset, with the wrapped result stored in curr_frame and sent to all FObjs."
+        }
+      ]
+    },
+    {
+      "id": "fact:91cbc246-a2d1-47f1-be78-8227e55f8994",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes scene-animation loop-start configuration: it selects the point to which a looping HSD animation returns, allowing an animation to retain a non-looping introductory segment before repeatedly playing a later frame interval.",
+      "rationale": "The current interpreter wraps subsequent repetitions only through the interval from rewind_frame to end_frame. Frames before the configured rewind boundary are therefore excluded from later repetitions.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the function configuring the AObj's rewind-frame field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows looping playback wrapping into the interval beginning at rewind_frame rather than returning to earlier frames."
+        }
+      ]
+    },
+    {
+      "id": "fact:4977d999-e641-494e-a40f-670390ef3045",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Null-tolerant setter with signature void (HSD_AObj* aobj, f32 frame); frame is an animation-timeline position in the same frame units as HSD_AObj.curr_frame and end_frame.",
+      "rationale": "The current definition supplies the signature and null behavior. The interpreter subtracts rewind_frame from curr_frame and end_frame and adds it back after the remainder calculation, confirming a shared frame-coordinate domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the exact signature and that a null AObj is accepted as a no-op."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows rewind_frame participating in arithmetic with curr_frame and end_frame."
+        }
+      ]
+    },
+    {
+      "id": "fact:21e91c17-0a2a-4d84-a87a-a87b84e8ee44",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Configures the rewind boundary used when an HSD animation object loops, determining the frame range into which playback wraps after reaching the animation's end frame.",
+      "rationale": "The current setter stores rewind_frame, and the current interpreter uses that field as the lower boundary of the modulo loop interval before requesting the wrapped frame from attached FObjs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the supplied frame being stored in a non-null AObj's rewind_frame field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows rewind_frame used as the lower loop boundary when wrapping curr_frame and re-requesting FObj playback."
+        }
+      ]
+    },
+    {
+      "id": "fact:6566b675-6d89-43a5-86e4-c4345d8b4328",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The setter itself performs no playback transition: it ignores a null AObj and otherwise changes only rewind_frame. During later interpretation, the value matters only when AOBJ_LOOP is set and curr_frame has reached or passed end_frame. If rewind_frame is below end_frame, playback wraps into [rewind_frame, end_frame), re-requests the wrapped frame from the FObjs, and sets AOBJ_REWINDED; if rewind_frame is at or beyond end_frame, curr_frame is clamped to end_frame and AOBJ_REWINDED is still set.",
+      "rationale": "The current setter contains only a null guard and field assignment. The current loop branch retains the valid-interval remainder wrapping, invalid-interval clamp, FObj request, and AOBJ_REWINDED transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjSetRewindFrame",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows that the setter changes only rewind_frame and does nothing for a null object."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows the loop and end-frame guards, modulo wrapping, invalid-interval clamp, FObj re-request, and AOBJ_REWINDED update."
+        }
+      ]
+    },
+    {
+      "id": "fact:f3be2b2e-7518-42c1-8afe-75c55369c35c",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For a valid AObj, its attached fobj list head and framerate are read and passed to HSD_FObjStopAnimAll together with the caller-supplied destination object and update callback. Those values are forwarded to each FObj stop operation, after which AOBJ_NO_ANIM is ORed into the AObj's flags.",
+      "rationale": "The current target shows the origins of all four arguments and the final flags mutation. The current callee preserves the object, callback, and rate while traversing and stopping the FObj list.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows aobj->fobj and aobj->framerate combined with obj and func at the stop call, followed by the AObj flags update."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L37-L112",
+          "why": "Shows unchanged forwarding of destination context, callback, and rate to each FObj stop operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:693a3f4c-2a65-4b15-a29b-94abdef995eb",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements explicit shutdown of reusable HSD scene-animation playback, deactivating both the animation controller and its attached property-animation channels.",
+      "rationale": "The current AObj routine delegates shutdown across its FObj list and marks the controller inactive, while the current FObj implementation confirms that every attached channel is stopped.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows generic HSD animation-controller shutdown and the AOBJ_NO_ANIM transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L37-L112",
+          "why": "Shows list-wide shutdown of the attached property-animation channels."
+        }
+      ]
+    },
+    {
+      "id": "fact:ea196e9a-0949-4174-befd-4ae082a30308",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void HSD_AObjStopAnim(HSD_AObj* aobj, void* obj, HSD_ObjUpdateFunc func). The AObj parameter is nullable; obj is opaque destination context for channel updates, and func is the property-update callback forwarded to attached FObjs.",
+      "rationale": "The current definition provides the exact signature and null handling. Its call to the current FObj stop interface establishes the roles of obj and func as forwarded channel-update context.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows the exact parameters, nullable-AObj guard, and forwarding of obj and func."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L37-L112",
+          "why": "Shows the FObj stop routines consuming the opaque object and update callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:bc397eca-55ec-496e-872e-f04b9faef8fe",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stops playback on an HSD_AObj by stopping every attached FObj animation channel and then marking the animation object inactive.",
+      "rationale": "The current function invokes HSD_FObjStopAnimAll before setting AOBJ_NO_ANIM, and the current callee traverses the entire FObj list and stops each node.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows the null guard, list-wide FObj stop call, and subsequent AOBJ_NO_ANIM assignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L37-L112",
+          "why": "Shows HSD_FObjStopAnimAll traversing and stopping every FObj in the list."
+        }
+      ]
+    },
+    {
+      "id": "fact:cf7b9906-c59f-4879-91a3-57839021022e",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A NULL AObj is a no-op. For a valid AObj, every attached FObj is stopped before AOBJ_NO_ANIM is set. Each FObj with a pending HSD_A_OP_KEY operation receives a final interpretation attempt using the AObj's framerate and supplied callback; every visited FObj then unconditionally enters low-nibble state 0. An empty FObj list therefore still leaves the AObj marked inactive.",
+      "rationale": "The current AObj body establishes the null guard, operation order, and unconditional inactive transition for a valid controller. The current FObj body retains conditional key-data flushing and unconditional state-zero assignment for each visited channel.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_AObjStopAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+          "why": "Shows null handling, FObj shutdown before the controller transition, and unconditional AOBJ_NO_ANIM assignment for a valid AObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/fobj.c#L37-L112",
+          "why": "Shows HSD_A_OP_KEY-only flushing, traversal behavior, and each visited FObj entering state 0."
+        }
+      ]
+    },
+    {
+      "id": "fact:ccb249d2-a7ca-4d74-bd4c-3c677fb8387c",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies an untyped scene-object root, its HSD_Type, an object-category mask, a type-erased callback, an argument-format tag, and at most one variadic payload. HSD_ForeachAnim decodes that payload into a callbackArg union and forwards the mask, callback, format, and union to the root-type-specific traversal. Each traversal locates eligible AObjs and adds the owning object and its concrete HSD_Type; callbackForeachFunc then invokes the callback with exactly the argument list selected by the format tag.",
+      "rationale": "The dispatcher explicitly converts the variadic value and preserves the resulting callback context through its type switch. The traversal and callback-adapter bodies show the remaining flow: mask-selected AObjs are paired with their owners and type tags, then delivered through the appropriate concrete callback signature.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:06:00.665Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L508",
+          "why": "Shows payload decoding and forwarding of the common callback context to the selected root traversal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L247-L309",
+          "why": "Shows callbackForeachFunc combining each discovered AObj with optional owner, type, and payload arguments before invoking the supplied function."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L362-L434",
+          "why": "Shows the mask and callback bundle propagated unchanged through attached-object and recursive joint traversal."
+        }
+      ]
+    },
+    {
+      "id": "fact:f99bcbca-2ef1-4e23-b81e-9a57e4f0c86b",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes bulk scene-animation control: gameplay and menu code can apply one playback or configuration operation, such as changing playback rate, to all animation objects in selected categories of a model or scene hierarchy without manually walking each HSD object family.",
+      "rationale": "The dispatcher and traversal helpers establish the generic bulk-operation mechanism. A resolved call-site discussion gives a concrete use: a JObj hierarchy is passed with a category mask, HSD_AObjSetRate, the floating-point callback format, and 1.0 as the rate payload.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-01T23:06:00.665Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L508",
+          "why": "Shows a single callback operation dispatched across the selected animation-bearing branches of an HSD object hierarchy."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1486862757579067544",
+          "why": "Shows a concrete call applying HSD_AObjSetRate with an AOBJ_ARG_AF payload of 1.0 across mask-selected AObjs beneath a JObj root."
+        }
+      ]
+    },
+    {
+      "id": "fact:efd32126-5702-4d6a-b6ca-830cd2256f88",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Variadic public dispatcher with signature `void (void* obj, HSD_Type type, HSD_TypeMask mask, void* func, AObj_Arg_Type arg_type, ...)`. The root pointer's concrete type is identified by `type`; `mask` selects animation-bearing object categories; and `arg_type` describes one of twelve callback signatures built from an HSD_AObj pointer, optional owning-object and HSD_Type arguments, and an optional f32, pointer, or u32 payload.",
+      "rationale": "The matched declaration supplies the public function signature. Its argument-format switch consumes the optional variadic payload, while callbackForeachFunc casts and invokes the type-erased callback according to all twelve AObj_Arg_Type variants. Floating-point payloads are read from the variadic list as f64 due to default argument promotion and subsequently passed to callbacks as f32.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:06:00.665Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L508",
+          "why": "Contains the complete variadic signature and shows decoding of f64, pointer, and u32 payloads according to AObj_Arg_Type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L247-L309",
+          "why": "Enumerates the twelve callback signatures represented by AObj_Arg_Type, including optional owner, type, and typed payload arguments."
+        }
+      ]
+    },
+    {
+      "id": "fact:2b694c1e-7fac-4520-a583-47446e2fa4cb",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the public, object-family-independent entry point for applying an animation-object operation across selected parts of an HSD scene graph. It chooses the traversal appropriate to the root object's HSD type, and the traversal helpers invoke the supplied operation for animation objects belonging to mask-selected joints, displays, materials, polygons, textures, lights, cameras, constraints, world objects, or fog.",
+      "rationale": "The matched function dispatches every supported root HSD_Type to its corresponding ForeachAnim helper while forwarding a common mask and callback description. The resolved helper bodies show that those routines traverse object attachments and invoke the callback adapter only for selected categories with an existing AObj.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:06:00.665Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L508",
+          "why": "Shows the public dispatcher selecting JObj, DObj, MObj, PObj, TObj, LObj, CObj, RObj, WObj, or fog traversal from the supplied root type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L362-L434",
+          "why": "Shows representative helpers filtering AObjs by HSD_TypeMask and traversing attached lights, world objects, polygons, materials, displays, constraints, and joint children."
+        }
+      ]
+    },
+    {
+      "id": "fact:6f8ced83-7686-4f3d-88c9-4b360ebd1818",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null root is a no-op. Argument formats without a payload begin traversal without consuming a variadic value; floating-point, pointer, and unsigned formats consume one value of the corresponding promoted type. An unsupported argument format or unsupported root HSD_Type is treated as a programmer error and triggers HSD_Panic rather than silently selecting a fallback traversal.",
+      "rationale": "These are the dispatcher's explicit guards and control branches: the null check returns before variadic setup, the argument-format switch determines whether and how one payload is consumed, and both switches panic on values outside their supported domains.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:06:00.665Z",
+      "subject": "main/sysdolphin/baselib/aobj:HSD_ForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L508",
+          "why": "Directly shows the null-root early return, payload/no-payload argument-format groups, and panic paths for unexpected formats and object types."
+        }
+      ]
+    },
+    {
+      "id": "fact:4c3f4573-4956-4dad-b13f-e800a6532f93",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:JObjForeachAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a non-null JObj root plus a selection mask and callback context. For each visited joint, it forwards the joint's AObj and the joint owner/type to callbackForeachFunc when JOBJ_MASK is selected, passes the same context into DObjForeachAnim and RObjForeachAnim for attached objects, and then forwards it recursively to each child/sibling joint. It produces effects exclusively through the supplied callback and delegated traversal helpers.",
+      "rationale": "Every callback and helper invocation receives the original mask, Event, argument-format tag, and callbackArg pointer. The only object-specific values introduced by this helper are the current joint, its AObj, and JOBJ_TYPE; the routine has no return value or independent output.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T22:48:16.030Z",
+      "subject": "main/sysdolphin/baselib/aobj:JObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L417-L434",
+          "why": "Shows the complete flow of the callback context from the current joint through callbackForeachFunc, attached-object helpers, and recursive child traversal."
+        }
+      ]
+    },
+    {
+      "id": "fact:f0a9a5f9-6e28-4da8-9e41-aae4e8b138eb",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:JObjForeachAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "File-local recursive traversal helper with signature void (HSD_JObj* obj, HSD_TypeMask mask, Event func, AObj_Arg_Type arg_type, callbackArg* arg).",
+      "rationale": "The resolved matched definition declares the function static with exactly these parameter and return types, and its recursive call forwards all five arguments unchanged.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T22:48:16.030Z",
+      "subject": "main/sysdolphin/baselib/aobj:JObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L417-L434",
+          "why": "Contains the complete static function declaration and its recursive invocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:dc3dabcd-3741-495c-9ab7-bcdb6499cf91",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:JObjForeachAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Traverses the animation-bearing portion of an HSD_JObj hierarchy and applies a supplied animation callback to each selected AObj associated with joints and their attached display and constraint objects.",
+      "rationale": "The function applies callbackForeachFunc to the current joint's AObj when selected, delegates into its DObj and RObj attachments, and recursively visits child and sibling joints. HSD_ForeachAnim selects this helper specifically for a JOBJ_TYPE root, establishing its role as the joint-hierarchy branch of generic animation traversal.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T22:48:16.030Z",
+      "subject": "main/sysdolphin/baselib/aobj:JObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L417-L434",
+          "why": "Directly shows callback application to a joint AObj, delegation to DObj and RObj traversal, and recursive child/sibling traversal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L517",
+          "why": "Shows HSD_ForeachAnim dispatching JOBJ_TYPE roots to JObjForeachAnim."
+        }
+      ]
+    },
+    {
+      "id": "fact:94c34d24-db64-4445-ae29-39fc03d55ad3",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:JObjForeachAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Requires a non-null starting JObj. Processing of the current joint's own AObj is guarded by JOBJ_MASK and a non-null AObj; DObj traversal occurs only when the joint union contains a DObj; RObj traversal is always delegated and handles a nullable list; and child recursion is suppressed for joints marked JOBJ_INSTANCE.",
+      "rationale": "These are the function's explicit traversal guards. In particular, the JOBJ_INSTANCE flag changes hierarchy behavior by preventing descent into the instance's child link, while attached object processing remains separate from that child-recursion guard.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T22:48:16.030Z",
+      "subject": "main/sysdolphin/baselib/aobj:JObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L417-L434",
+          "why": "Shows the entry assertion, mask/AObj guard, union_type_dobj guard, unconditional RObj helper call, and JOBJ_INSTANCE child-recursion guard."
+        }
+      ]
+    },
+    {
+      "id": "fact:31702390-6ec5-4c05-944b-edd61b74f454",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:RObjForeachAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an RObj-list head and a caller-supplied mask and callback bundle. For each eligible node, it forwards `robj->aobj`, the owning RObj, `ROBJ_TYPE`, and the unchanged callback, argument-format tag, and payload to `callbackForeachFunc`; its output consists solely of the invoked callback's side effects.",
+      "rationale": "The traversal body specializes only the current AObj, owner, and object-type tag while preserving the callback context. The callback adapter then invokes the supplied void callback using the argument list selected by `AObj_Arg_Type`, so no value is returned by either layer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:10.157Z",
+      "subject": "main/sysdolphin/baselib/aobj:RObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L262-L337",
+          "why": "Shows the RObj helper's exact forwarding edge and the callback adapter's consumption of the forwarded AObj, owner, type, callback, and tagged payload."
+        }
+      ]
+    },
+    {
+      "id": "fact:dfd4689f-54ed-4050-8eff-4b3b92f31fa1",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:RObjForeachAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "File-local void traversal helper with signature `void (HSD_RObj* robj, HSD_TypeMask mask, Event func, AObj_Arg_Type arg_type, callbackArg* arg)`. The first parameter is a nullable linked-list head; the remaining parameters select object categories and describe the callback operation and its optional typed payload.",
+      "rationale": "The matched definition supplies the complete static signature. The null-terminated loop establishes the list-head role, while the mask test and forwarding into the tagged callback adapter establish the roles of the remaining parameters.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:10.157Z",
+      "subject": "main/sysdolphin/baselib/aobj:RObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L328-L337",
+          "why": "Provides the complete signature and shows how each parameter is consumed."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L262-L337",
+          "why": "Shows that `arg_type` and `callbackArg` select and supply the concrete callback signature and optional payload."
+        }
+      ]
+    },
+    {
+      "id": "fact:5df77cb9-8754-402f-944f-bf67932de8a9",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:RObjForeachAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Traverses a linked list of RObjs and applies the requested animation-object operation to each RObj whose category is selected and whose AObj exists.",
+      "rationale": "The matched body advances through `robj->next`, tests `ROBJ_MASK` and `robj->aobj`, and dispatches the supplied operation through `callbackForeachFunc` for every qualifying node.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:10.157Z",
+      "subject": "main/sysdolphin/baselib/aobj:RObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L328-L337",
+          "why": "Shows the complete RObj-list traversal, category-mask test, non-null AObj guard, and callback dispatch."
+        }
+      ]
+    },
+    {
+      "id": "fact:da4cafbf-4fb9-49ae-9821-7d2e9b881af6",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:RObjForeachAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Traversal ends when the RObj chain reaches null. Each node triggers exactly one callback only when `ROBJ_MASK` is selected and `robj->aobj` is non-null; otherwise that node is skipped and traversal continues. The helper itself does not modify the list or its AObj pointers.",
+      "rationale": "The loop condition and update define null termination and forward traversal. The single guarded callback call establishes the per-node behavior, and the body contains no assignments to RObj or AObj state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:10.157Z",
+      "subject": "main/sysdolphin/baselib/aobj:RObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L328-L337",
+          "why": "Directly shows list termination, node advancement, the two-part callback guard, one dispatch per eligible node, and absence of local state mutation."
+        }
+      ]
+    },
+    {
+      "id": "fact:768ebe87-8aca-4e48-8211-ffa0dc664947",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a TObj-list head and a caller-supplied mask, callback, argument-format tag, and callbackArg payload. For each eligible node, it forwards that node's AObj together with the owning TObj and `TOBJ_TYPE` to `callbackForeachFunc`, while preserving the callback and argument bundle unchanged; its output consists solely of the dispatched callback's side effects.",
+      "rationale": "The list node supplies the AObj and owner, and the helper adds the fixed texture-object type tag. All caller-provided callback context is passed unchanged to callbackForeachFunc, and the void function has no independent result.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:09.728Z",
+      "subject": "main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L317-L326",
+          "why": "Shows the TObj and AObj values introduced at each node, the fixed TOBJ_TYPE tag, and the unchanged callback context forwarded to callbackForeachFunc."
+        }
+      ]
+    },
+    {
+      "id": "fact:94c3cf52-ec62-46cd-be14-e708c28f3211",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the texture-object portion of bulk scene-animation control, allowing one playback or configuration operation to be applied across all selected texture animation objects in a texture chain or wider HSD scene hierarchy.",
+      "rationale": "The public dispatcher routes TOBJ_TYPE roots to this helper, while the helper broadcasts the supplied operation to every mask-selected TObj AObj in the chain. Together these bodies ground its role within the generic scene-animation playback mechanism.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:23:09.728Z",
+      "subject": "main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L317-L326",
+          "why": "Shows one supplied operation being applied across all eligible texture-object AObjs in a linked TObj chain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L508",
+          "why": "Places TObjForeachAnim within the generic HSD dispatcher that applies animation operations across heterogeneous scene-object families."
+        }
+      ]
+    },
+    {
+      "id": "fact:9668b1c5-e7c3-4630-9326-cd082f90177a",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "File-local void traversal helper with signature `void (HSD_TObj* tobj, HSD_TypeMask mask, Event func, AObj_Arg_Type arg_type, callbackArg* arg)`. The first parameter is a nullable linked-list head, `mask` selects object categories, and the remaining parameters describe the operation and its tagged argument payload.",
+      "rationale": "The complete matched definition provides the storage class, return type, and parameter types. Its null-terminated loop demonstrates that the list head may be null, while the TOBJ_MASK test and callback-adapter invocation establish the roles of the remaining parameters.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:09.728Z",
+      "subject": "main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L317-L326",
+          "why": "Provides the complete static function signature and shows how every parameter is consumed."
+        }
+      ]
+    },
+    {
+      "id": "fact:30db9f8f-af36-48fc-8638-ebce76aa7562",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Traverses a linked list of HSD texture objects and applies a caller-supplied animation operation to each texture object's AObj when texture-object animation processing is selected.",
+      "rationale": "The matched body walks the list through `tobj->next` and routes each eligible `tobj->aobj` through the unit's generic callback adapter. The public dispatcher selects this helper for a `TOBJ_TYPE` root, establishing it as the texture-object branch of generic HSD animation traversal.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:09.728Z",
+      "subject": "main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L317-L326",
+          "why": "Directly shows the TObj-list traversal and conditional dispatch of the supplied animation callback for each eligible TObj AObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L508",
+          "why": "Shows HSD_ForeachAnim selecting TObjForeachAnim when the traversal root has TOBJ_TYPE."
+        }
+      ]
+    },
+    {
+      "id": "fact:d9e7a296-5648-49d0-a249-118ba76b78a5",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Traversal terminates when the TObj chain reaches null. A node invokes the callback only when `TOBJ_MASK` is present and `tobj->aobj` is non-null; nodes failing either guard are skipped without stopping traversal, and the helper itself does not alter list or animation state.",
+      "rationale": "The loop condition and `tobj = tobj->next` update establish termination and continued traversal. The nested condition supplies the two callback guards, while the body contains no assignment to the TObj or AObj and delegates all effects to the callback adapter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:09.728Z",
+      "subject": "main/sysdolphin/baselib/aobj:TObjForeachAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L317-L326",
+          "why": "Directly shows null termination, progression through every list node, the TOBJ_MASK and non-null-AObj guards, and the absence of local state mutation."
+        }
+      ]
+    },
+    {
+      "id": "fact:0427b861-f0a2-4445-80c8-3e8d0a2d1e6c",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:_HSD_AObjForgetMemory",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The low and high inputs do not affect the operation. The function writes NULL to the private endcallback_list head; HSD_AObjInvokeCallBacks later reads that head, so after this write it has no callback-list nodes to visit or callback functions to invoke.",
+      "rationale": "The current callback body ignores both inputs and clears the global head. The current callback invoker initializes its traversal from that same head and only iterates while it is non-null.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:_HSD_AObjForgetMemory",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the unused low and high inputs and the sole mutation setting endcallback_list to NULL."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows HSD_AObjInvokeCallBacks loading endcallback_list and traversing it only while the list cursor is non-null."
+        }
+      ]
+    },
+    {
+      "id": "fact:0d33634b-a9fe-4e05-98b4-4d2a3b138154",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:_HSD_AObjForgetMemory",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void memory-forget callback with signature void(void* low, void* high). Both range-bound arguments are accepted for callback compatibility but are unused by this implementation.",
+      "rationale": "The matched definition directly establishes the two-pointer, void-returning signature, and its body references neither parameter before clearing subsystem-global state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:23:30.327Z",
+      "subject": "main/sysdolphin/baselib/aobj:_HSD_AObjForgetMemory",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L547-L550",
+          "why": "Directly shows the void return type, low and high pointer parameters, and that neither parameter is consumed."
+        }
+      ]
+    },
+    {
+      "id": "fact:e70b04a3-7d4f-431f-a887-e3fd784a475d",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:_HSD_AObjForgetMemory",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Invalidates the AObj subsystem's global end-of-animation callback list when HSD memory is forgotten, ensuring later completion processing cannot traverse callback-list nodes retained from the discarded memory state.",
+      "rationale": "The current function clears endcallback_list, and the current completion routine traverses that global list to invoke stored callbacks. Nulling the head therefore prevents later traversal of previously retained nodes.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:_HSD_AObjForgetMemory",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows _HSD_AObjForgetMemory unconditionally assigning NULL to endcallback_list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows endcallback_list as a private HSD_SList pointer traversed by HSD_AObjInvokeCallBacks to invoke stored functions."
+        }
+      ]
+    },
+    {
+      "id": "fact:a30604dc-47e1-4ade-bb9f-1648c4719966",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:_HSD_AObjForgetMemory",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Calling the function transitions the retained end-callback-list state to empty regardless of its prior contents or the supplied memory bounds. It does not reset the stopped/running animation counters; therefore it suppresses callback traversal by clearing the list head rather than by changing the completion guard.",
+      "rationale": "The current function modifies only endcallback_list. The current initialization and callback routines show that completion counters are separate state used as a guard before list traversal.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:_HSD_AObjForgetMemory",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L510-L550",
+          "why": "Shows the unconditional list-head reset and no writes to other AObj subsystem state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/aobj.c#L1-L120",
+          "why": "Shows the counters being reset separately and HSD_AObjInvokeCallBacks using both the counter guard and callback-list head."
+        }
+      ]
+    },
+    {
+      "id": "fact:22732903-2607-4fd9-a5aa-e0a5329d41c4",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:callbackForeachFunc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Selected traversal helpers provide the current AObj together with its owning HSD object and object-type tag. HSD_ForeachAnim decodes any variadic argument into callbackArg as a floating-point value, pointer, or u32. callbackForeachFunc then reads only the payload arm selected by AObj_Arg_Type, combines it with the required prefix of AObj, owner, and type arguments, and transfers control to the caller-supplied callback; its only output is the callback's side effects.",
+      "rationale": "The public dispatcher establishes the payload's origin and representation, the object-family helpers establish the AObj/owner/type inputs, and the target's switch shows their final consumption. Every callback returns void and the dispatcher itself returns no value, so effects flow exclusively through the invoked callback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:07:23.640Z",
+      "subject": "main/sysdolphin/baselib/aobj:callbackForeachFunc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L262-L307",
+          "why": "Shows exactly which inputs and callbackArg union arm are forwarded for each argument-format tag and confirms that all callback forms return void."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L362-L434",
+          "why": "Shows traversals supplying the current AObj, owner pointer, and HSD_Type while forwarding the callback function, argument tag, and payload unchanged."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L517",
+          "why": "Shows the optional variadic value decoded as f64-to-f32, pointer, or u32 and stored in callbackArg before object-family traversal."
+        }
+      ]
+    },
+    {
+      "id": "fact:8a87e4cf-bb70-4ac7-a6d5-accf165a2b18",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:callbackForeachFunc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "File-local void dispatcher with signature `void (HSD_AObj* aobj, void* obj, HSD_Type type, void* func, AObj_Arg_Type arg_type, callbackArg* arg)`. The `func` parameter intentionally represents a heterogeneous family of twelve void callback signatures selected by `arg_type`; every signature begins with `HSD_AObj*`, may then include the owner and HSD_Type, and may end with an `f32`, pointer, or `u32` payload.",
+      "rationale": "The matched definition provides the dispatcher's static signature, and each switch arm explicitly casts func to one member of the callback family before invoking it. Because the selected signatures have different arities and parameter types, func cannot be represented by one ordinary function-pointer type without preserving the tag-based dispatch.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:07:23.640Z",
+      "subject": "main/sysdolphin/baselib/aobj:callbackForeachFunc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L262-L307",
+          "why": "Provides the complete static function signature and all twelve concrete callback casts selected by AObj_Arg_Type."
+        }
+      ]
+    },
+    {
+      "id": "fact:fe72d700-cc15-4506-9958-0b149c4ff43b",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:callbackForeachFunc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Acts as the invocation adapter for HSD's generic animation traversal: it converts the traversal's untyped callback and tagged argument bundle into the selected concrete callback signature, allowing one traversal API to apply operations to AObjs with optional access to their owning scene object, object type, and caller payload.",
+      "rationale": "The helper's switch maps every AObj_Arg_Type variant to a concrete callback cast and invocation. The surrounding traversal helpers supply the selected AObj, its owning object, and its HSD_Type, while HSD_ForeachAnim prepares the optional payload and dispatches traversal for heterogeneous HSD object families.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:07:23.640Z",
+      "subject": "main/sysdolphin/baselib/aobj:callbackForeachFunc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L262-L307",
+          "why": "Shows the helper selecting among twelve callback signatures and invoking the supplied function with the corresponding combination of AObj, owner, type, and payload."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L308-L361",
+          "why": "Shows fog, texture, constraint, world, and camera traversal helpers supplying callbackForeachFunc with an AObj, its owning scene object, and the owner's HSD_Type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L362-L434",
+          "why": "Shows the same invocation adapter used while traversing light, polygon, material, display, and joint animation attachments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L436-L517",
+          "why": "Shows HSD_ForeachAnim decoding the optional variadic payload and dispatching the shared callback context across heterogeneous HSD object families."
+        }
+      ]
+    },
+    {
+      "id": "fact:a7f74be2-cac4-4093-b525-325eb97f1ce1",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:callbackForeachFunc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For each recognized AObj_Arg_Type, the dispatcher invokes the supplied callback exactly once and returns immediately. Formats A, AO, and AOT do not read callbackArg; the remaining formats read only the tagged f32, pointer, or u32 arm. An unrecognized tag matches no case and causes the helper to return without invoking the callback.",
+      "rationale": "Every recognized switch arm contains one callback call followed by return, and the switch has no default behavior. The individual arms also show that payload-free formats never dereference arg and that each payload-bearing format accesses only its corresponding union member.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:07:23.640Z",
+      "subject": "main/sysdolphin/baselib/aobj:callbackForeachFunc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L262-L307",
+          "why": "Shows the one-call-and-return behavior of every recognized case, the per-format union access, and the absence of a default callback for unsupported tags."
+        }
+      ]
+    },
+    {
+      "id": "fact:b453ed80-99a6-4e8d-b04f-b2395036d2f1",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:fmodf",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "If the divisor's magnitude exceeds the dividend's magnitude, fmodf returns the dividend unchanged. Otherwise it converts dividend / divisor to a signed 64-bit integer quotient and returns dividend - divisor * quotient. In the animation-loop caller, the dividend is curr_frame - rewind_frame, the divisor is end_frame - rewind_frame, and the returned remainder becomes the new current-frame offset before rewind_frame is added back.",
+      "rationale": "The helper's current inline definition in math.h retains both arithmetic paths. The current AObj interpreter supplies frame offsets as its arguments and stores the rebased result in curr_frame.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:fmodf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/MSL/math.h#L86-L99",
+          "why": "Shows fmodf's magnitude guard, signed 64-bit quotient conversion, and remainder expression."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows HSD_AObjInterpretAnim deriving both arguments from AObj frame fields and rebasing the returned remainder by rewind_frame."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5e16e77-9ea6-484d-88da-39a9a1dd2ac1",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:fmodf",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Single-precision remainder helper with signature float fmodf(float dividend, float divisor). Internally it forms a signed 64-bit integer quotient from dividend / divisor, thereby truncating the quotient toward zero before computing dividend - divisor * quotient.",
+      "rationale": "The current math.h definition names the helper fmodf, declares two float parameters and a float result, and stores the floating quotient in a long long before using it in the remainder expression. This also updates the standing signature from the former fmod symbol to the current fmodf name.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:fmodf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/MSL/math.h#L86-L99",
+          "why": "Directly shows the current fmodf name, float signature, long long quotient local, division, and remainder calculation."
+        }
+      ]
+    },
+    {
+      "id": "fact:efcc451f-1e0f-419f-840d-6500baf68218",
+      "target_id": "target:function:main/sysdolphin/baselib/aobj:fmodf",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Computes the floating-point remainder used by HSD_AObjInterpretAnim to preserve a looping animation's overshoot when its current frame passes the end frame, wrapping that frame back into the rewind-to-end interval.",
+      "rationale": "The current inline helper computes the remainder, while the current AObj interpreter applies it to the current-frame offset and loop-interval length before restoring the rewind-frame origin.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:30:03.628Z",
+      "subject": "main/sysdolphin/baselib/aobj:fmodf",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/MSL/math.h#L86-L99",
+          "why": "Shows fmodf computing a single-precision remainder."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L155",
+          "why": "Shows HSD_AObjInterpretAnim using fmodf on the overshoot and loop-span values before adding rewind_frame back."
+        }
+      ]
+    },
+    {
+      "id": "fact:dd70f80c-1aa3-4d44-99a7-2fd678c27641",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/aobj.c",
+      "type": "data_flow",
+      "value": "Playback requests and per-frame interpretation flow from an AObj's frame, flags, rate, loop bounds, and FObj list into the FObj subsystem. Separately, `HSD_ForeachAnim` decodes one variadic callback argument, dispatches from an untyped root and HSD type to the corresponding traversal, and propagates the mask, callback, format, and decoded value through the scene graph.",
+      "rationale": "The current request and interpreter routines continue to pass AObj playback state into attached FObjs. The dispatcher still decodes its variadic argument according to the requested format and routes the callback through type-specific scene-graph traversal helpers.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T16:59:05.391Z",
+      "subject": "src/sysdolphin/baselib/aobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L1-L520",
+          "why": "Shows AObj playback state feeding FObj operations and variadic callback context feeding type-directed scene-object traversals."
+        }
+      ]
+    },
+    {
+      "id": "fact:944c5cbf-0530-4d24-b27b-d73ddbf22d08",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/aobj.c",
+      "type": "game_mapping",
+      "value": "Realizes HSD's reusable scene-animation playback layer: it evaluates frame-object channels, supports rate-based progression and loop intervals, and dispatches generic animation operations across joints, displays, materials, textures, lights, cameras, constraints, world objects, fog, and related scene objects.",
+      "rationale": "The current interpreter still controls frame progression and looping through attached FObjs, while the traversal dispatcher continues to cover the supported HSD scene-object families.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T16:59:05.391Z",
+      "subject": "src/sysdolphin/baselib/aobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L1-L520",
+          "why": "Shows generic animation progression and callback traversal across joint, display, material, texture, light, camera, relation, world-object, and fog object families."
+        }
+      ]
+    },
+    {
+      "id": "fact:5eaac64f-c849-4771-b2e3-13d1f39801a1",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/aobj.c",
+      "type": "purpose",
+      "value": "Implements the HSD animation-object subsystem's lifecycle, playback control, and scene-graph traversal layer: it allocates, loads, removes, starts, stops, advances, loops, and configures HSD AObjs, delegates keyframe-channel work to attached FObjs, and walks animation attachments across supported scene-object families.",
+      "rationale": "The current allocator, request, interpreter, descriptor, cleanup, configuration, callback, and type-directed traversal routines preserve the unit's complete animation-object subsystem role.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T16:59:05.391Z",
+      "subject": "src/sysdolphin/baselib/aobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L1-L520",
+          "why": "Shows AObj allocation and lifecycle, playback requests and interpretation, FObj delegation, completion callbacks, configuration setters, and traversal across HSD scene-object families."
+        }
+      ]
+    },
+    {
+      "id": "fact:c72342bf-c56c-4aac-ab68-4b64b47e577a",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/aobj.c",
+      "type": "state_behavior",
+      "value": "Interpretation ignores null or stopped AObjs, suppresses advancement on the first play tick, and otherwise advances by the playback rate. Looping animations wrap to the rewind interval and re-request their FObjs; non-looping animations stop at the end. Completion counters are reset explicitly, updated by interpretation, and cause the end-callback list to run only when at least one AObj stopped and none remain active.",
+      "rationale": "The current initialization, request, stop, callback, and interpretation routines retain the same null and stopped guards, first-play transition, frame progression, looping behavior, terminal stopping, counters, and callback condition.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T16:59:05.391Z",
+      "subject": "src/sysdolphin/baselib/aobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L1-L520",
+          "why": "Shows first-play handling, rate-based advancement, loop rewinding, non-looping completion, completion-counter updates, and guarded end-callback invocation."
+        }
+      ]
+    }
+  ]
+}

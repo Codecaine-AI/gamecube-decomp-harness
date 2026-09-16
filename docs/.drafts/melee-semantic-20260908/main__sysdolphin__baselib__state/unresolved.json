@@ -1,0 +1,828 @@
+{
+  "tu": "main/sysdolphin/baselib/state",
+  "facts": [
+    {
+      "subject": "main/sysdolphin/baselib/state:.bss",
+      "fact_id": "fact:765c09c2-8b53-4331-8ef3-c6ba9ab7c760",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:30.077Z",
+      "type": "data_flow",
+      "value": "`HSD_MObjSetup` supplies the active material's ambient, diffuse, specular, alpha, and conditionally shininess properties to the state setters. `HSD_SetMaterialColor` copies the three colors and converts floating alpha to an 8-bit value by multiplying by 255, while `HSD_SetMaterialShininess` stores the floating shininess value. Later channel setup reads the retained ambient color when constructing diffuse lighting and reads shininess when preparing active lights for specular rendering; no later consumption of the retained diffuse, specular, or alpha members is demonstrated in this translation unit.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.bss",
+      "fact_id": "fact:6f21472c-b9f7-427a-a188-f472c84344cc",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:30.077Z",
+      "type": "game_mapping",
+      "value": "Represents the retained draw-time properties of an HSD model material, including its ambient, diffuse, and specular colors, opacity byte, and specular shininess. In the demonstrated rendering path, its ambient color contributes to diffuse-channel lighting and its shininess controls active-light setup for specular highlights.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.bss",
+      "fact_id": "fact:79e8c1a9-6418-413c-812d-5de1becbdb33",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:30.077Z",
+      "type": "inferred_type",
+      "value": "Zero-initialized storage for an anonymous 0x14-byte material-state structure: `GXColor ambient` at 0x00, `GXColor diffuse` at 0x04, `GXColor specular` at 0x08, `u8 alpha` at 0x0C, three bytes of alignment padding at 0x0D\u20130x0F, and `f32 shininess` at 0x10. The containing `.bss` contribution is rounded to the section target's 0x18-byte allocation.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.bss",
+      "fact_id": "fact:93e61274-22ec-4b8c-9e9f-a2cbeefbdd01",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:30.077Z",
+      "type": "purpose",
+      "value": "Provides zero-initialized storage for the translation unit's retained HSD material state, allowing material color and shininess setters to stage draw-time properties for later lighting-channel setup.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.bss",
+      "fact_id": "fact:8c8f2054-6c6a-4854-955c-2e0de3562332",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:30.077Z",
+      "type": "state_behavior",
+      "value": "The material state begins zero-initialized and is retained across calls. Each material-color call unconditionally replaces ambient, diffuse, specular, and alpha, and each shininess call unconditionally replaces shininess; there are no equality checks, dirty flags, or GX calls associated with these writes. In the normal material path shininess is refreshed only for a specular render mode, and that same mode gates its later consumption during active-light setup.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.data",
+      "fact_id": "fact:7217a93d-bf79-4f50-ae0c-fb3204173ae5",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:23.233Z",
+      "type": "data_flow",
+      "value": "HSD_SetupChannelMode selects channel templates from render-mode bits, patches selected fields from current material and active-light state\u2014including specular, diffuse, and alpha light masks and ambient color\u2014and passes the resulting descriptors to HSD_SetupChannel, which translates their colors and lighting controls into GX channel state. Separately, HSD_StateInvalidate scans the mask/callback records and invokes every callback whose category overlaps the caller's mask.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.data",
+      "fact_id": "fact:53ed21fd-ffad-4730-8300-8bee2eaab8b7",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:23.233Z",
+      "type": "game_mapping",
+      "value": "The channel-descriptor portion supports the GameCube GX fixed-function lighting used by HSD material rendering, providing predefined ambient, diffuse, alpha, and optional specular channel arrangements before TEV processing. The callback-table portion supports reliable rendering across specialized draw paths by invalidating HSD's retained GX-state model after external state changes.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.data",
+      "fact_id": "fact:f19cb9ed-9a18-4180-8120-880190cf907a",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:23.233Z",
+      "type": "inferred_type",
+      "value": "An initialized-data region represented in source by six consecutive standalone HSD_Chan objects followed by an array of records shaped as `{ int mask; void (*func)(void); }`. The callback array has seven HSD_STATE_* entries and an HSD_STATE_NONE sentinel entry.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.data",
+      "fact_id": "fact:f80eef29-39a1-4dec-974f-04ec391d9325",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:23.233Z",
+      "type": "purpose",
+      "value": "Holds the initialized descriptors and dispatch metadata used by HSD graphics-state setup: six HSD_Chan templates define the available GX lighting-channel arrangements, while a sentinel-terminated mask/callback table maps HSD_STATE_* categories to their invalidation routines.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.data",
+      "fact_id": "fact:e3ea470e-65db-4573-bb89-3341b69f1593",
+      "version": null,
+      "updated_at": "2026-09-02T05:02:23.233Z",
+      "type": "state_behavior",
+      "value": "The channel templates begin with fixed default colors and lighting controls, but selected templates act as reusable working descriptors: channel-mode setup updates their light masks, ambient RGB, or ambient alpha from the current light configuration before submission. The invalidation records remain a fixed sentinel-terminated dispatch map; each matching category can independently poison cached render values or clear subordinate HSD state, forcing later setup to restore that category.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sbss",
+      "fact_id": "fact:33651960-bf0e-46fa-b4a8-1d76c38f6eb8",
+      "version": null,
+      "updated_at": "2026-09-02T04:55:22.238Z",
+      "type": "data_flow",
+      "value": "Requested graphics settings enter through HSD_StateSet* arguments. Each setter normalizes boolean inputs where applicable, compares the requested tuple with the corresponding retained slots in this section, and on a mismatch sends the tuple to GX before copying it into those slots. Primitive and render-mode invalidation routines write reset or impossible sentinel values into the same storage, ensuring a later request misses the cache and reprograms GX.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sbss",
+      "fact_id": "fact:914b4a8f-f94a-4e7b-a3cf-f37d2d40c22c",
+      "version": null,
+      "updated_at": "2026-09-02T04:55:22.238Z",
+      "type": "game_mapping",
+      "value": "Supports HSD material and primitive rendering by retaining the GX rasterization and pixel-engine state used for draw setup, including primitive sizing, face culling, blending, depth testing and writes, alpha testing, framebuffer color and alpha writes, destination alpha, and dithering.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sbss",
+      "fact_id": "fact:96fd706e-1e8b-42d6-b5b8-cc9060e2b664",
+      "version": null,
+      "updated_at": "2026-09-02T04:55:22.238Z",
+      "type": "inferred_type",
+      "value": "A small-BSS aggregate of independently declared translation-unit-local cache scalars rather than one authored structure: u8 slots hold line and point sizes, normalized GX booleans, alpha references, and destination alpha, while int slots hold texture-offset selectors and GX enum-like values for culling, blending, depth comparison, and alpha comparison. Alignment padding separates byte and int declarations where required.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sbss",
+      "fact_id": "fact:f59d4fff-d585-41a5-951b-dc6d2815be2d",
+      "version": null,
+      "updated_at": "2026-09-02T04:55:22.238Z",
+      "type": "purpose",
+      "value": "Provides the translation unit's zero-initialized retained GX-state storage. Its scalar slots cache primitive and pixel-engine settings such as line width, point size, culling, blending, depth mode, alpha comparison, color and alpha updates, destination alpha, depth-comparison location, and dithering so HSD can avoid redundant GX commands.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sbss",
+      "fact_id": "fact:c9de05d7-1d8c-468b-9b37-065bb55af295",
+      "version": null,
+      "updated_at": "2026-09-02T04:55:22.238Z",
+      "type": "state_behavior",
+      "value": "Each cached GX category can be current or invalidated. A cache hit leaves both GX and the retained slot unchanged; a miss programs GX and makes the slot current for the requested value. Primitive invalidation resets line width, point size, and culling, while render-mode invalidation replaces blending, depth, alpha-comparison, update-control, destination-alpha, depth-location, and dithering slots with reset or invalid sentinel values so their next setters cannot incorrectly accept stale state.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sdata",
+      "fact_id": "fact:9a34e4f1-df89-45d6-b190-a5ed7b731c2a",
+      "version": null,
+      "updated_at": "2026-09-02T05:04:05.607Z",
+      "type": "data_flow",
+      "value": "The value is initialized statically as opaque black and has no demonstrated writer. During channel setup for low render-mode value 4, HSD_SetupChannelMode looks up active light ID 0x100: if that light exists and has flag 0x4, the routine derives the diffuse descriptor's ambient color by multiplying the material ambient color with the light color; otherwise it copies this fallback value into that descriptor before passing the descriptor to HSD_SetupChannel.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sdata",
+      "fact_id": "fact:a52f5db1-dfe2-4ceb-86c6-649a83f0054a",
+      "version": null,
+      "updated_at": "2026-09-02T05:04:05.607Z",
+      "type": "game_mapping",
+      "value": "Supports GameCube GX fixed-function material lighting by supplying a black ambient-channel value when no qualifying ambient light contributes to the diffuse lighting configuration. Its alpha remains fully opaque while its RGB components suppress ambient color contribution.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sdata",
+      "fact_id": "fact:a1090284-b33e-499f-abcf-a9d6d35bd70b",
+      "version": null,
+      "updated_at": "2026-09-02T05:04:05.607Z",
+      "type": "inferred_type",
+      "value": "An initialized small-data allocation containing one four-byte `GXColor` with RGBA bytes `{ 0x00, 0x00, 0x00, 0xFF }`; the section target's eight-byte extent includes the allocation's section-level alignment or trailing padding rather than a second demonstrated semantic object.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sdata",
+      "fact_id": "fact:4215fb60-1364-46c4-a26d-d203be6d8c3e",
+      "version": null,
+      "updated_at": "2026-09-02T05:04:05.607Z",
+      "type": "purpose",
+      "value": "Provides the translation unit's initialized opaque-black fallback color. HSD_SetupChannelMode uses it as the ambient color of the diffuse-lighting channel when render mode 4 has no active ambient light object with the required contribution flag.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sdata",
+      "fact_id": "fact:73a96fbb-e8e0-4934-bdf8-366c946cf006",
+      "version": null,
+      "updated_at": "2026-09-02T05:04:05.607Z",
+      "type": "state_behavior",
+      "value": "The fallback color remains constant. It is selected only in the low-three-bit render mode 4 path when active light ID 0x100 is null or does not have flag 0x4; when that guard succeeds, a light-tinted material ambient color replaces the fallback instead.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sdata2",
+      "fact_id": "fact:282deb80-a24d-43de-93be-93280f89aedd",
+      "version": null,
+      "updated_at": "2026-09-02T05:01:53.630Z",
+      "type": "data_flow",
+      "value": "`HSD_MObjSetup` supplies the active material object's floating-point alpha to `HSD_SetMaterialColor`. That setter multiplies the input by this section's `255.0` constant and converts the result into the `u8 matstate.alpha` slot, alongside staging the material's ambient, diffuse, and specular colors.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sdata2",
+      "fact_id": "fact:b9fc6b84-6606-4890-8c4d-5dc4a3345785",
+      "version": null,
+      "updated_at": "2026-09-02T05:01:53.630Z",
+      "type": "game_mapping",
+      "value": "Supports HSD material opacity by mapping a material's floating alpha scale into the 0\u2013255 channel-value domain used by the staged rendering state.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sdata2",
+      "fact_id": "fact:048c39bb-80f5-4d91-a0bb-2aec2a4823c9",
+      "version": null,
+      "updated_at": "2026-09-02T05:01:53.630Z",
+      "type": "inferred_type",
+      "value": "An 8-byte read-only floating-point literal pool containing the double-precision value `255.0`.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:.sdata2",
+      "fact_id": "fact:ceba6dc2-88de-456b-9c3c-22f83a024ec7",
+      "version": null,
+      "updated_at": "2026-09-02T05:01:53.630Z",
+      "type": "purpose",
+      "value": "Provides the numeric scale factor used by HSD material setup to convert a material's floating-point alpha value into the 8-bit alpha stored in the translation unit's staged material state.",
+      "disposition": "unresolved",
+      "reason": "Source variables reviewed; compiled section attribution, layout, size and padding are not established.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_SetupPEMode",
+      "fact_id": "fact:88fc5551-d78c-4016-a8d6-e8a20f713f11",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:08.098Z",
+      "type": "game_mapping",
+      "value": "Realizes the per-draw pixel-processing policy used by Melee's HSD renderer: it determines whether and how rendered fragments update framebuffer color and alpha, combine with existing framebuffer color, pass alpha comparison, participate in depth testing and depth-buffer writing, and receive dithering. Custom passes such as shadow-image generation can replace the ordinary render-mode-derived policy with an explicit descriptor.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L205-L242",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L173-L259",
+          "why": "Shows shadow rendering using HSD_SetupPEMode with an explicit descriptor to install pass-specific pixel-engine behavior."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_SetupPEMode",
+      "fact_id": "fact:05bcff10-52ed-4fa7-a494-9b587ff06a36",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:08.098Z",
+      "type": "inferred_type",
+      "value": "`void HSD_SetupPEMode(u32 flags, HSD_PEDesc* pe)`: `flags` is an HSD render-mode bitfield used only when `pe` is null; `pe` is an optional complete pixel-engine descriptor whose flag bits enable color update, alpha update, destination alpha, early depth comparison, depth testing, depth writing, and dithering, while its remaining fields select blend, depth-comparison, and alpha-comparison parameters.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L205-L242",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L173-L259",
+          "why": "Shows a concrete HSD_PEDesc initializer and passes it to HSD_SetupPEMode as a complete custom pixel-engine configuration."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_StateInvalidate",
+      "fact_id": "fact:a35606f3-677d-4fdb-8adf-a44e14542b4a",
+      "version": null,
+      "updated_at": "2026-09-01T23:13:11.603Z",
+      "type": "purpose",
+      "value": "Invalidates selected categories of HSD's cached graphics state so later HSD state setup will re-establish any GX configuration that may have been changed outside the cache-aware setter layer.",
+      "disposition": "unresolved",
+      "reason": "TU recheck: unconditional subsequent GX reapplication guarantee exceeds source behavior. Zero-sized primitive requests with preserved offsets can hit; enum selectors matching -1 are not rejected locally. Requires valid-domain qualification.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L436-L444",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_StateSetAlphaUpdate",
+      "fact_id": "fact:af771578-41f2-4347-88ca-3f6911ed547c",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:06.430Z",
+      "type": "data_flow",
+      "value": "Alpha-write requests arrive either from bit 1 of a custom HSD_PEDesc, from HSD's default pixel-engine setup as disabled, or from HSD_VIStatus.update_alpha during EFB-to-XFB copy setup. The function converts the request to GX_FALSE or GX_TRUE and compares it with state_alpha_update. On a difference, the normalized value flows to GXSetAlphaUpdate, which writes the GX pixel-mode alpha-update bit, after which the same value is stored in state_alpha_update for later suppression of duplicate commands.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L365-L372",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/video.c#L212-L265",
+          "why": "Shows display-copy setup forwarding HSD_VIStatus.update_alpha to HSD_StateSetAlphaUpdate."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_StateSetAlphaUpdate",
+      "fact_id": "fact:561e5101-fec8-4972-a4bd-2a87f5d65495",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:06.430Z",
+      "type": "game_mapping",
+      "value": "Realizes HSD's cached control of the GX alpha write mask: disabling it preserves the render target's existing alpha component during subsequent drawing or copying, while enabling it permits incoming fragment alpha to update that component independently of color and depth writes.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L365-L372",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+          "why": "Shows a drawing operation selecting color, alpha, and depth writes independently and passing enable_alpha specifically to GXSetAlphaUpdate."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/video.c#L212-L265",
+          "why": "Shows EFB-to-XFB copy setup independently applying update_clr, update_alpha, and update_z controls."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_StateSetColorUpdate",
+      "fact_id": "fact:6b6bda47-25f5-4fbf-bf7c-cd2d39f40d49",
+      "version": null,
+      "updated_at": "2026-09-02T00:22:54.562Z",
+      "type": "game_mapping",
+      "value": "Realizes HSD's cached control of the GX color-buffer write mask. Effect particle rendering explicitly enables color writes before display, while EFB-to-XFB presentation configures the same control from the video status's update_clr setting, allowing rendering and copy passes to choose whether RGB color output updates the framebuffer.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L356-L363",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L644-L668",
+          "why": "Shows an effect render callback enabling HSD color updates immediately before drawing particle groups."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/video.c#L212-L265",
+          "why": "Shows EFB-to-XFB display copying selecting color updates from vi->update_clr independently of alpha and depth updates."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_StateSetCullMode",
+      "fact_id": "fact:1977b670-e59e-4d4c-98d8-41a3f3bbaa97",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:19.298Z",
+      "type": "data_flow",
+      "value": "A desired GX culling mode arrives from rendering code, is compared with the translation-unit-local state_cull_mode cache, and, on a mismatch, flows unchanged to GXSetCullMode before replacing the cached value. Polygon-object rendering derives the input from PObj front/back-culling flags, while other drawing paths can request a fixed mode such as GX_CULL_BACK.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L296-L302",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1182-L1259",
+          "why": "Shows PObj culling flags being translated into the setter's GX culling-mode input."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L138-L171",
+          "why": "Shows a direct fixed GX_CULL_BACK input from the shadow-background rendering path."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_StateSetCullMode",
+      "fact_id": "fact:95f69a11-aa19-4cf0-a121-850f8836cb05",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:19.298Z",
+      "type": "game_mapping",
+      "value": "Realizes polygon face culling for HSD-rendered geometry: renderers may draw both orientations, reject front-facing polygons, or reject back-facing polygons according to the object's or pass's requested GX culling policy.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L296-L302",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1182-L1259",
+          "why": "Shows object culling policy selecting none, front, or back culling before geometry submission."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L138-L171",
+          "why": "Shows back-face culling selected for a directly submitted quadrilateral."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_StateSetCullMode",
+      "fact_id": "fact:b8cac068-ba83-40a4-87c3-5e564abc4e9a",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:19.298Z",
+      "type": "inferred_type",
+      "value": "Graphics-state setter with signature `void HSD_StateSetCullMode(int mode)`. Although represented as an `int`, `mode` belongs to the GX culling-mode domain, including the observed `GX_CULL_NONE`, `GX_CULL_FRONT`, and `GX_CULL_BACK` values.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L296-L302",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1182-L1259",
+          "why": "Demonstrates that callers populate mode with GX_CULL_NONE, GX_CULL_FRONT, and GX_CULL_BACK."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_StateSetCullMode",
+      "fact_id": "fact:6698a901-5ebd-4dd3-80f7-cd9ab5cb9049",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:19.298Z",
+      "type": "purpose",
+      "value": "Installs the requested GX polygon-face culling mode while suppressing redundant GXSetCullMode commands when that mode is already represented by HSD's retained graphics-state cache.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L296-L302",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1182-L1259",
+          "why": "Shows the setter selecting none, front-face, or back-face culling before polygon-object matrix setup and drawing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L138-L171",
+          "why": "Shows another rendering caller selecting back-face culling before submitting a background quad."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:HSD_StateSetZCompLoc",
+      "fact_id": "fact:7b6df706-b0de-437e-8a2e-3a300da7c1a7",
+      "version": null,
+      "updated_at": "2026-09-02T00:22:48.207Z",
+      "type": "game_mapping",
+      "value": "Realizes GX depth-comparison ordering within HSD render-mode setup. It controls where depth comparison occurs relative to texture processing; it does not enable depth testing, choose the depth comparison function, or control depth-buffer writes, which HSD configures separately through HSD_StateSetZMode.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L384-L391",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXPixel.c#L121-L272",
+          "why": "Shows GXSetZMode managing depth enable, comparison function, and depth writes separately from GXSetZCompLoc's before_tex pixel-engine field."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:_HSD_StateInvalidateRenderMode",
+      "fact_id": "fact:9f9bc077-4b39-43b7-986e-56b1e7bbbe3c",
+      "version": null,
+      "updated_at": "2026-09-02T00:22:27.171Z",
+      "type": "purpose",
+      "value": "Invalidates HSD's cached GX render-mode and pixel-engine settings without issuing any GX commands. This forces later cached setters to reapply blending, depth testing and updates, alpha comparison and updates, destination alpha, depth-comparison placement, and dithering when the underlying GX state can no longer be trusted.",
+      "disposition": "unresolved",
+      "reason": "TU recheck: unconditional subsequent GX reapplication guarantee exceeds source behavior. Zero-sized primitive requests with preserved offsets can hit; enum selectors matching -1 are not rejected locally. Requires valid-domain qualification.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L414-L434",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": []
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:_HSD_StateInvalidateVtxAttr",
+      "fact_id": "fact:60a63174-3e28-4a8e-9f0c-ab0c5c43b8db",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:15.589Z",
+      "type": "data_flow",
+      "value": "Receives no explicit input. HSD_StateInvalidate reaches it indirectly when the caller's mask includes HSD_STATE_VTX_ATTR; it then calls HSD_ClearVtxDesc, which clears GX vertex descriptors and writes null to prev_vtxdesclist_array and prev_vtxdesc. Later PObj setup consumes those null cache values when deciding whether to issue GXSetArray, GXSetVtxDesc, and GXSetVtxAttrFmt calls.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L409-L412",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L416-L516",
+          "why": "Shows the cache writes performed by HSD_ClearVtxDesc and the GX setup operations guarded by those cached descriptor identities."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:_HSD_StateInvalidateVtxAttr",
+      "fact_id": "fact:c76657fe-68a9-41b4-9278-e66c9227dceb",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:15.589Z",
+      "type": "purpose",
+      "value": "Invalidates HSD's vertex-attribute state by clearing the active GX vertex descriptors and HSD's cached vertex-array and polygon-object descriptor identities, ensuring later PObj rendering setup re-establishes the required vertex configuration instead of reusing stale cached state.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L409-L412",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L416-L516",
+          "why": "Shows HSD_ClearVtxDesc clearing GX descriptors and both HSD descriptor caches, followed by setup routines that consult and repopulate those caches."
+        }
+      ]
+    },
+    {
+      "subject": "main/sysdolphin/baselib/state:_HSD_StateInvalidateVtxAttr",
+      "fact_id": "fact:4659e6f2-7d13-46a6-83d9-1776f4be3c55",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:15.589Z",
+      "type": "state_behavior",
+      "value": "Performs an unconditional, branch-free transition to invalid vertex-attribute state: GX's current vertex descriptors are cleared and both HSD descriptor-identity caches become null. It has no guards, timers, or object-local state; when invoked through HSD_StateInvalidate, this transition occurs once during the table scan if HSD_STATE_VTX_ATTR is present in the supplied mask.",
+      "disposition": "unresolved",
+      "reason": "Local behavior reviewed; complete inherited claim depends on foreign ranges not independently covered in this packet.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L409-L412",
+          "why": "Canonical control flow and cache writes."
+        }
+      ],
+      "unverified_prior_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L416-L516",
+          "why": "Shows the unconditional GX descriptor clear and the two cache transitions to null."
+        }
+      ]
+    },
+    {
+      "subject": "src/sysdolphin/baselib/state.c",
+      "fact_id": "fact:2887f718-e844-441f-8d60-31b229db944e",
+      "version": null,
+      "updated_at": "2026-09-02T00:23:51.369Z",
+      "type": "data_flow",
+      "value": "Desired render settings enter through HSD setup and HSD_StateSet* routines. The setters compare them with translation-unit-local cached values and forward only changed settings to GX before updating the cache. HSD_StateInvalidate routes selected HSD_STATE_* mask bits through a callback table; those callbacks clear subordinate HSD state or replace cached values with invalid sentinels, causing subsequent setters to emit the corresponding GX configuration again.",
+      "disposition": "unresolved",
+      "reason": "TU recheck: unconditional subsequent GX reapplication guarantee exceeds source behavior. Zero-sized primitive requests with preserved offsets can hit; enum selectors matching -1 are not rejected locally. Requires valid-domain qualification.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L1-L445",
+          "why": "Complete source reviewed."
+        }
+      ],
+      "unverified_prior_evidence": []
+    }
+  ]
+}

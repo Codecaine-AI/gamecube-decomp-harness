@@ -8,6 +8,7 @@
  */
 import type { RunGameMetadata, RuntimeAgentRole } from "@server/core/shared/types";
 import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
+import type { RequestWriteSetWideningHandler } from "@server/core/harness-runtime/run-state/write-set-widening.js";
 import type { ToolPlatform } from "./platform.js";
 
 export interface AgentToolRuntimeContext {
@@ -31,6 +32,8 @@ export interface AgentToolRuntimeContext {
   sandboxHandle?: SandboxHandle;
   /** Worker-startup sandbox probe result for the instrumented MWCC compiler. */
   mwccDebugProvisioned?: boolean;
+  /** Claim-authorized in-session write-set widening callback. */
+  requestWriteSetWidening?: RequestWriteSetWideningHandler;
 }
 
 export interface PiToolTextContent {

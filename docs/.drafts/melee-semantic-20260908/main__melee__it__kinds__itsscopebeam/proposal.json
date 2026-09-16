@@ -1,0 +1,67 @@
+{
+  "tu": "main/melee/it/kinds/itsscopebeam",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsscopebeam.c#L151-L185",
+            "why": "Shows result masks, flat-contact restoration, multiplier-based rotation and saved-speed fallback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unconditional reduced-speed description and preserves the nearly-flat and nonpositive-Y exceptions without assuming attribute values.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsscopebeam:itSscopebeam_UnkMotion9_Coll"
+        },
+        "type": "game_mapping",
+        "value": "Implements conditional shallow-floor continuation and deflection for Super Scope projectiles. Nearly flat eligible contacts restore the pre-update position and collision data. Other eligible contacts within the configured angle limit attempt a randomized deflection using a horizontal velocity multiplier; if the result has nonpositive vertical velocity, the saved horizontal velocity is restored and vertical velocity is zeroed. Over-limit eligible contacts and collision-result bits in 0xE report termination. Speed reduction is not guaranteed by this source."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsscopebeam.c#L137-L186",
+            "why": "Complete snapshot, collision, angle, rotation, fallback and return logic."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes eligibility and exceptional fallback explicit while replacing the unsupported speed-loss implication with the exact operation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsscopebeam:itSscopebeam_UnkMotion9_Coll"
+        },
+        "type": "state_behavior",
+        "value": "After it_8026DAA8, any result bit in 0xE returns true immediately. Floor-angle handling requires (result & 1) and (env_flags & 0x18000). For absolute angle at most one degree, position and CollData are restored from snapshots and it_8026D9A0 is called. Otherwise, an angle at most x78 constructs a horizontal vector from current X velocity multiplied by x7C and rotates it about positive Z by 2*angle + facing_dir*x78*HSD_Randf(). The resulting X/Y are stored; if Y is nonpositive, saved pre-update X velocity is restored and Y becomes zero. An eligible angle above x78 returns true. Remaining paths return false. There is no local timer or persistent counter, and x7C is not constrained here to imply speed loss."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsscopebeam.c#L14-L35",
+            "why": "All ten table entries use the same callback triple."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsscopebeam.c#L61-L109",
+            "why": "Unchecked indexed attribute selection precedes the switch; parameter reads follow it."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported ten-state mapping while documenting the unchecked-index precondition and missing default rather than implying every input safely selects exactly one state.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsscopebeam:it_80298ED0"
+        },
+        "type": "state_behavior",
+        "value": "For supported variant indices 0 through 9, selects the correspondingly numbered item state with ITEM_ANIM_UPDATE. All ten states use the same animation, physics and collision callbacks, so selection changes the variant's presentation and parameter row rather than choosing a distinct callback family. The variant indexes ScopeBeamAttrs.floats before the switch, with no local bounds check. The switch has no default: an unsupported index causes no explicit state-selection call, but does not safely reject initialization, which still uses the indexed velocity, scale and lifetime."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

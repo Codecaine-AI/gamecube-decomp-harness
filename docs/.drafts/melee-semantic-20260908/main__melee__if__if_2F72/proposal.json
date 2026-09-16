@@ -1,0 +1,146 @@
+{
+  "tu": "main/melee/if/if_2F72",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L335-L357",
+            "why": "Paired variant creation using Player_80036428."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1783-L1796",
+            "why": "Accessor obtains the current fighter and calls ftLib_80087300."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L810-L814",
+            "why": "Returns recorded damage-source player."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported stock-transfer interpretation of the second player accessor.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2F72:.bss"
+        },
+        "type": "game_mapping",
+        "value": "Backs animated ScInfStc feedback at player HUD positions during stock-loss and KO-attribution handling. The paired-player path creates variant 1 for the defeated player and variant 2 for that fighter's recorded damage-source player; it does not establish a stock-transfer animation."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L24-L24",
+            "why": "Thirteen-pointer declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L241-L246",
+            "why": "Explicit resource indirection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L454-L469",
+            "why": "Six paired slots and explicit clear size."
+          }
+        ],
+        "op": "write",
+        "rationale": "The prior logical struct omitted one pointer level from the resource member.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2F72:.bss"
+        },
+        "type": "inferred_type",
+        "value": "Source representation: static void* lbl_804A1340[13]. Its logical shape is a DynamicModelDesc** model-resource table address followed by six pairs of HSD_GObj* primary and secondary ownership slots. Creation dereferences the resource address to obtain the first descriptor; teardown explicitly clears 0x34 bytes. This describes source access patterns, not independently verified compiled section layout."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L316-L333",
+            "why": "Repeated guard and ordering of secondary creation before primary completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L152-L173",
+            "why": "Secondary completion clears the occupancy guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported guarantee that secondary creation occurs only once.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2F72:fn_802F7994"
+        },
+        "type": "state_behavior",
+        "value": "An unrecognized primary GObj receives no update. For a recognized primary, each invocation samples its frame and, when frame > 12.0f and the secondary slot is NULL, attempts to create variant 1 and installs fn_802F7670 on success. This is an occupancy guard rather than a permanent one-shot latch: failed creation can retry, and secondary completion clears the slot so another creation is possible if the primary remains. The secondary attempt precedes the primary activity test. An active primary advances once; an inactive primary clears its slot and is destroyed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L422-L446",
+            "why": "Exact branch and process selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L224-L258",
+            "why": "Resource guard and replacement failure ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L316-L333",
+            "why": "Secondary occupancy guard and primary completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L152-L173",
+            "why": "Secondary completion reopens the slot."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves all numeric branches while correcting the one-shot claim and the exceptional old-object lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2F72:if_802F7D08"
+        },
+        "type": "state_behavior",
+        "value": "The source selects variant 0 with fn_802F7994 for accessor result -2, variant 1 with fn_802F7994 for -1, and variant 1 with fn_802F75D4 otherwise. Each branch stores the factory result in the selected primary slot and registers a process at 0x11 only for a non-NULL result. A missing resource returns NULL before destroying the old object, although the caller overwrites its retained pointer; later allocation/model failures occur after prior-object destruction. Chained processing attempts secondary variant 1 whenever the sampled frame exceeds 12 and the secondary slot is empty, without a permanent once-only latch. Primary and secondary completion clear their respective slots independently."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L448-L469",
+            "why": "Initializer signature, state reset and paired slots."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/if_2F72.c#L241-L246",
+            "why": "Descriptor-pointer table consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbarchive.c#L41-L56",
+            "why": "Missing symbols leave a NULL destination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the resource output's pointer depth and avoids implying guaranteed lookup success.",
+        "subject": {
+          "target_stable_key": "main/melee/if/if_2F72:if_802F7E24"
+        },
+        "type": "inferred_type",
+        "value": "Parameterless lifecycle routine with signature void(void). It clears the thirteen-pointer state and resolves an archive resource address into entry zero. The factory consumes that address as DynamicModelDesc**, dereferencing it to obtain the first model descriptor. The remaining twelve entries are initially NULL HSD_GObj ownership slots arranged as six primary/secondary pairs. Failed symbol lookup leaves the resource entry NULL."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

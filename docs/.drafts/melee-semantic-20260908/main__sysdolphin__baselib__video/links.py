@@ -1,0 +1,8 @@
+import json,pathlib,hashlib,datetime
+out=pathlib.Path(__file__).parent;camp=pathlib.Path('games/melee/state/knowledge_v2/semantic-sweep-20260908');base=camp/'baseline-links/main__sysdolphin__baselib__video.json';ls=json.load(open(base));cov=json.load(open(out/'coverage.json'));rev=cov['revision'];subs=cov['subjects'];indices=[21,23,14,23,6,5,10,16,2,3,0,4];links=[]
+for i,l in enumerate(ls):
+ d='reject' if i==9 else 'retain';why='Canonical local behavior and independently read support establish this relationship.'
+ if i==9:why='Wrong storage identity: existing objects place the counters in .sbss; .sdata contains only the video.c diagnostic filename. Reject this counter relationship without deleting it.'
+ if i==11:why='Existing .sdata2 bytes contain 1.0f and the double integer-conversion bias; canonical full/split copy geometry consumes unit scale and integer-to-float height conversion. Object observations support storage mapping without claiming a fresh build.'
+ e=subs[indices[i]]['evidence'];links.append({'id':l['id'],'baseline_record':l,'version':{'updated_at':None,'record_sha256':hashlib.sha256(json.dumps(l,sort_keys=True).encode()).hexdigest()},'disposition':d,'reason':why,'evidence':e})
+ledger={'tu':cov['tu'],'revision':rev,'baseline_path':str(base),'baseline_sha256':hashlib.sha256(base.read_bytes()).hexdigest(),'reviewed_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'counts':{'total':12,'retain':11,'reject':1,'unresolved':0},'object_evidence':str(out/'object-evidence.json'),'links':links};(out/'link-dispositions.json').write_text(json.dumps(ledger,indent=2)+'\n');s=json.load(open(out/'summary.json'));s['link_counts']=ledger['counts'];(out/'summary.json').write_text(json.dumps(s,indent=2)+'\n');print(ledger['counts'])

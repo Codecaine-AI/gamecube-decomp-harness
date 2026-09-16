@@ -1,0 +1,160 @@
+{
+  "tu": "main/melee/ft/kinds/ftFox/ftfoxappeals",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftFox/ftfoxappeals:ftFx_AppealS_CheckInput"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Accepts only Fox or Falco when grCorneria_801E2CE8() is true, HSD_PAD_DPADDOWN is absent from input.held_buttons[0], x682 equals 1, and statistic 0x72 is zero for all player slots 0..5. The scan stops at its first nonzero entry. Acceptance calls ftFx_AppealS_Enter(gobj), then pl_80040120(fp->player_id, fp->x221F_b4), and returns true; rejected paths return false without a local motion transition. This does not establish exact input-history duration or statistic lifetime.",
+        "rationale": "Repair obsolete field spelling and describe exact bounded, short-circuit behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxappeals.c#L33-L66",
+            "why": "Complete scan and predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftFox/ftfoxappeals:ftFx_AppealS_Coll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies the AppealS collision callback by forwarding gobj unchanged to ft_80084280, also used by ftCo_Wait_Coll. The wrapper has no local guard, timer or state write. The delegated helper can enter ftCo_Fall_Enter when its preceding tests do not return early; Landing sharing is not established here.",
+        "rationale": "Replace unverified rendered Wait/Landing identity with checked canonical behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxappeals.c#L158-L161",
+            "why": "Complete wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L75-L78",
+            "why": "Shared consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1081-L1099",
+            "why": "Conditional Fall path."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftFox/ftfoxappeals:ftFx_AppealS_Enter"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes the move-local AppealS phase and directional row, clears throw_flags, and enters phase zero of ASID_AppealS. Eligibility checks are in ftFx_AppealS_CheckInput, not this public entry routine.",
+        "rationale": "Keep verified source purpose distinct from dialogue hypotheses and direct-entry preconditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxappeals.c#L49-L104",
+            "why": "Gate, table and entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftFox/ftfoxappeals:ftFx_AppealS_Enter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Sets animCount to 0 and facingDir to 0 only when facing_dir equals exactly 1.0f, otherwise to 1. Row zero starts ftFx_MS_AppealSStartR and row one ftFx_MS_AppealSStartL. Unequal values, including signed zeros, infinities and NaN under ordinary floating-point comparison semantics, select row one. Clears throw_flags and calls Fighter_ChangeMotionState(gobj, selected_id, 0, 0.0f, 1.0f, 0.0f, NULL). No local kind, stage, null check or facing normalization is performed.",
+        "rationale": "Correct opposite-facing simplification and avoid calling the final NULL an auxiliary callback without callee evidence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxappeals.c#L76-L104",
+            "why": "Exact comparison and call arguments."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftFox/ftfoxappeals:ftFx_AppealS_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Immediately returns without using gobj, checking input, writing state or calling another routine. It never initiates a transition itself. Normal phase progression is in Anim, but separate collision handling can enter Fall and death1_cb can dispatch interruption cleanup; the empty IASA does not make the action globally uninterruptible.",
+        "rationale": "Repair overly broad only-animation-completion claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxappeals.c#L134-L169",
+            "why": "Separate callback responsibilities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1081-L1099",
+            "why": "Delegated Fall transition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftFox/ftfoxappeals:ftFx_AppealS_OnTakeDamage"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Anim assigns this static callback to death1_cb when a consumed throw-b3 event for Fox or Falco gets a true result from its character-specific stage helper. Those helpers also return true on other stages without the Corneria creation path, although ordinary input gating excludes those stages. Assignment overwrites the old slot without preserving it; false results leave it unchanged. Invocation calls grCorneria_801E2AF4 and then clears death1_cb even if the stage helper did nothing. Clearing is per arming and occurs after the call, not a lifetime-wide once-only or reentrancy guarantee. Normal animation completion does not explicitly clear the slot in this TU.",
+        "rationale": "Reconcile librarian findings with exact registration, optional-stage and lifetime boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxappeals.c#L109-L169",
+            "why": "Assignment, exit and post-call clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2665-L2731",
+            "why": "Conditional cleanup and true fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L255-L263",
+            "why": "Event consumption."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftFox/ftfoxappeals.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The initialized AppealS sequence uses ASID_AppealS columns 0, 1 and 2 of a row selected by exact equality of facing_dir with 1.0f. Entry clears throw_flags. Anim consumes throw-b3 before animation-completion processing, conditionally registers stage interruption cleanup for Fox/Falco, and increments animCount when frames end. A resulting count >=3 calls ft_8008A324 rather than indexing the table; otherwise the stored row and new column choose the next motion. IASA is empty, Phys and Coll delegate, and cleanup calls the stage helper before clearing death1_cb. Safe indexing requires valid initialized and preserved move-local state: there are no lower-bound, row or overflow guards.",
+        "rationale": "Replace ambiguous phase-three completion and unqualified one-shot wording with the exact source state machine.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxappeals.c#L76-L169",
+            "why": "Complete directional state machine and callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L255-L263",
+            "why": "Bit test also clears the event."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

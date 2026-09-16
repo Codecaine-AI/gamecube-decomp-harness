@@ -1,0 +1,87 @@
+{
+  "tu": "main/melee/ft/ft_0877",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0877.c#L22-L26",
+            "why": "The query reads masked pressed_buttons without mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1758-L1775",
+            "why": "Press events are derived from held-state differences and either replaced or OR-latched."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing once-per-press implication while preserving the supported edge-event interpretation and explicitly accounting for latching.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0877:ft_80087818"
+        },
+        "type": "game_mapping",
+        "value": "Exposes pending fighter button-press events through a caller-selected mask, distinguishing press-event state from continuously held buttons. The upstream input updater derives newly pressed bits and may OR-latch them; this query neither consumes nor clears those bits, so it does not itself guarantee one reaction per physical press."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0877.c#L304-L422",
+            "why": "Complete bank dispatch, explicit lists, inclusive ranges, fallthrough and metadata guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1667-L1676",
+            "why": "The classifier tests Popo/Nana kind and costume ID at least 2."
+          }
+        ],
+        "op": "write",
+        "rationale": "Restores the omitted bank-13 fallthrough and its application beyond the Popo/Nana-specific range translation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0877:ft_80087D0C"
+        },
+        "type": "state_behavior",
+        "value": "A stateless conditional SFX-ID resolver. After audio-library remapping and bank classification, bank 0 adjusts only its explicit ID lists: one permits size offsets followed by an additional metal offset of 3, and the other permits size offsets only. In bank 13, Popo/Nana IDs in inclusive range 0x1FBFD\u20130x1FC62 gain 0x66 when ftCommon_80080144 is true; IDs in 0x1FC63\u20130x1FCC8 lose 0x66 when it is not true. Bank 13 then falls through, for every fighter kind, to the shared size-adjustment tail also used by banks 6\u201312, 14\u201331 and 33. That tail calls ft_80087C70 only when metadata lookup returns zero and the current ID is at least the bank offset plus lbAudioAx_80023220(bank). Other cases retain the remapped ID. No persistent state is written."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0877.c#L424-L427",
+            "why": "The wrapper only maps and submits the identifier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L911-L929",
+            "why": "Bounded duplicate refresh, sentinel-slot insertion and full-table fallthrough."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L1976-L1994",
+            "why": "Conditional counter aging and expiration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbaudio_ax.c#L2068-L2083",
+            "why": "Conditional replay and clearing, otherwise aging."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful cross-file lifetime and exceptional-capacity behavior missing from the existing auxiliary-trigger explanation, without interpreting submission as guaranteed immediate playback.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_0877:ft_8008805C"
+        },
+        "type": "state_behavior",
+        "value": "Submits the fighter-adapted SFX ID to audio-library bookkeeping rather than starting playback immediately. lbAudioAx_80024DC4 searches 16 slots: an existing matching ID has its counter refreshed to 10; otherwise the first slot containing sentinel 0x83D60 receives the ID and counter 10. If neither exists, the request is silently omitted. A later audio update replays non-sentinel entries at maximum volume and centered pan when lbl_804D641C equals 1, clearing each entry afterward. Otherwise, while lbl_804D640C is clear, update ticks decrement the counters and discard expired entries. This wrapper stores no Fighter playback handle."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

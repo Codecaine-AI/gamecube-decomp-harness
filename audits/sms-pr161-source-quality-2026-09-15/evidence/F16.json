@@ -1,0 +1,461 @@
+{
+  "finding": {
+    "id": "F16",
+    "title": "Invent a Negation Helper for Only One Operand",
+    "file": "src/MarioUtil/MathUtil.cpp",
+    "start_line": 134,
+    "end_line": 134,
+    "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/MathUtil.cpp#L134-L134",
+    "category": "partial function",
+    "certainty": "High confidence synthetic inline boundary",
+    "snippet": "static inline f32 matanNegate(f32 param_1) { return -param_1; }",
+    "checkpoints": [
+      {
+        "commit": "8cace3de44fce505e5aaccf5b236bbabe9c90aa9",
+        "files": [
+          "src/MarioUtil/MathUtil.cpp"
+        ],
+        "target": {
+          "unit": "mario/MarioUtil/MathUtil",
+          "symbol": "matan__Fff",
+          "before": 99.20119,
+          "after": 99.61539,
+          "improved": true,
+          "exact": false
+        },
+        "reasons": [
+          "target matan__Fff improved from 99.20119 to 99.61539 but did not reach exact as claimed; runner records improved progress"
+        ],
+        "qaLint": "clean",
+        "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/runner_validation/attempt-4.runner_validation.summary.json",
+        "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/runner_validation/attempt-4.write_set.diff",
+        "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937",
+        "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/runner_validation/attempt-4.unit_diff.json",
+        "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/runner_validation/pre_worker_unit_snapshot.json",
+        "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-c3dcf08e-5a58-445b-8755-995998092d6e/summary.json"
+      }
+    ],
+    "why": "matanNegate does only return -param_1. matan invokes it for negative param_2 while leaving analogous param_1 negation direct. The worker records that a permuter identified this boundary, applying it to both operands regressed, and the retained asymmetric form changes floating-point register allocation. No semantic or reusable abstraction explains the helper.",
+    "score_attribution": "99.20119% to 99.61539%, still partial. This is evidence of a retained allocation cue, not proof that unary-negation helpers can never be authentic.",
+    "lint_candidate": "Review new single-use trivial wrappers, especially asymmetric use across equivalent operations and gains confined to register assignment. Use a review warning rather than a universal hard error.",
+    "related": [
+      [
+        "src/MarioUtil/MathUtil.cpp",
+        156
+      ]
+    ],
+    "occurrences": {
+      "count": 1,
+      "unit": "synthetic helper definition",
+      "file_count": 1,
+      "detail": "One helper definition, called once at line 156. The call is not counted as a second helper.",
+      "locations": [
+        {
+          "file": "src/MarioUtil/MathUtil.cpp",
+          "line": 134,
+          "description": "matanNegate",
+          "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/MarioUtil/MathUtil.cpp#L134"
+        }
+      ]
+    }
+  },
+  "worker_notes": [
+    {
+      "commit": "8cace3de44fce505e5aaccf5b236bbabe9c90aa9",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/worker_01a0a5cc-36a0-7fdb-993d-e7c2f3af730f.txt",
+      "note": {
+        "summary": "No source changes retained. Reconfirmed the 99.20119% baseline and isolated the remaining mismatch to repeated zero-constant relocation identity differences plus an FPR allocation/liveness cluster in the negative-quadrant paths. Branch-local and function-scope magnitude temporaries produced identical code and were removed by ablation.",
+        "residual": {
+          "class": "register-only FPR with relocation or symbol identity",
+          "rows": [
+            "lfs zero constants use target @1884@sda21 versus current @567@sda21",
+            "target fneg f4,f1 / current fneg f3,f1 in the param_1-negative path",
+            "target fneg f3,f2 then fneg f4,f1 / current fneg f4,f2 then fneg f3,f1 in the both-negative path",
+            "corresponding fcmpo, fcmpu, fres, and fmuls operands remain exchanged among f3/f4"
+          ],
+          "mechanism": "The negative-component values have different FPR live-range coloring from the target; zero comparisons additionally reference a different sdata constant identity.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "negative-component temporary lifetime",
+            "variants": [
+              "branch-local temporary for each negated component",
+              "function-scope tmp1/tmp2 assigned in the negative branches"
+            ],
+            "effect": "Both variants reproduced the exact same 99.20119% residual rows; all edits were removed."
+          },
+          {
+            "family": "compiler diagnostics",
+            "variants": [
+              "mwcc_debug_diagnose_regflow",
+              "mwcc_alloc_snapshot trace/stages"
+            ],
+            "effect": "The debug compiler was not provisioned and allocator capture aborted without usable allocation evidence."
+          },
+          {
+            "family": "bounded source permuter probe",
+            "variants": [
+              "400 iterations restricted to matan__Fff"
+            ],
+            "effect": "The permuter could not locate the demangled source function and made no changes."
+          }
+        ],
+        "untried_leads": [
+          "Resolve the target and candidate zero-constant relocations from retained objects to determine what authored literal or shared constant yields @1884@sda21.",
+          "Obtain a working FPR trace or inspect target/current disassembly beyond the capped rows to map complete f3/f4 live ranges.",
+          "Test a genuine control-flow or helper-boundary reconstruction rather than additional temporary declaration variants."
+        ],
+        "best_checkpoint": {
+          "score": 99.20119,
+          "description": "Original integrated baseline; no local edits retained."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/MarioUtil/MathUtil.cpp#L125-L170"
+        ]
+      }
+    },
+    {
+      "commit": "8cace3de44fce505e5aaccf5b236bbabe9c90aa9",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/worker_01a0a5d0-2769-7a09-8fbf-d749c8640210.txt",
+      "note": {
+        "summary": "No source changes retained. Reconfirmed the 99.20119% baseline. Target assembly proves @1884 is the 1024.0f lookup scale, not zero. Tested explicit inline qualification, parameter-copy locals, and moving the helper definition after matan; all reproduced the identical residual and were removed.",
+        "residual": {
+          "class": "register-only FPR with relocation or symbol identity",
+          "rows": [
+            "Repeated target lfs operands reference @1884@sda21 (1024.0f) while the candidate references @567@sda21",
+            "Positive-Y/negative-X path uses target f4 for -param_1 but candidate f3",
+            "Negative-Y paths exchange the target f3/f4 assignments for negated param_2 and param_1",
+            "Dependent fcmpo, fcmpu, fres, and fmuls operands inherit the exchanged FPR colors"
+          ],
+          "mechanism": "The inlined GetAtanTable expansion has the correct instruction shape, but its 1024.0f literal has a different local symbol identity and the quadrant magnitude values receive different FPR live-range colors. Explicit inline status, helper source order, and optimized parameter aliases do not control either residual.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "inline boundary spelling",
+            "variants": [
+              "static helper",
+              "static inline helper"
+            ],
+            "effect": "Identical 99.20119% residual."
+          },
+          {
+            "family": "parameter-copy aliases",
+            "variants": [
+              "function-scope x/y copies used throughout matan"
+            ],
+            "effect": "Copies optimized away and produced the identical residual."
+          },
+          {
+            "family": "helper source ordering",
+            "variants": [
+              "helper body before matan",
+              "forward declaration before matan with helper body after matan"
+            ],
+            "effect": "Deferred helper placement produced the identical instruction and relocation residual."
+          }
+        ],
+        "untried_leads": [
+          "Inspect the compiler's FPR graph or PCode with a provisioned debug compiler to identify why the two negated component virtual registers are colored oppositely.",
+          "Determine which TU-level authored construct emits the shared 1024.0f constant as target symbol @1884; helper order and inline qualification are ruled out.",
+          "Test a genuine alternate quadrant abstraction or semantic sign-normalization helper rather than further temporary or declaration-order variants."
+        ],
+        "best_checkpoint": {
+          "score": 99.20119,
+          "description": "Original integrated source with no local diff."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/MarioUtil/MathUtil.cpp#L125-L170"
+        ]
+      }
+    },
+    {
+      "commit": "8cace3de44fce505e5aaccf5b236bbabe9c90aa9",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/worker_01a0a5d4-fcbf-763b-a777-7cc98e1f61ab.txt",
+      "note": {
+        "summary": "No source changes retained. Reconfirmed the 99.20119% baseline and exhausted two additional semantic source-shape probes. Branch-local magnitude variables and reversing the inline helper's logical parameter order both compiled to the identical residual, so both were ablated. Debug-compiler and allocator-trace diagnostics were unavailable in this checkout; the bounded permuter probe could not locate the demangled source function.",
+        "residual": {
+          "class": "register-only FPR plus relocation or symbol identity",
+          "rows": [
+            "Target lookup-scale loads reference @1884@sda21 while candidate loads reference @567@sda21",
+            "At target 2740-2836, negated param_1 and dependent compare/multiply/reciprocal operations use f4 while candidate uses f3",
+            "At target 2900-3024, negated param_2 and param_1 receive f3/f4 respectively while candidate assigns them oppositely",
+            "Later fcmpo, fcmpu, fres, and fmuls operands inherit the differing FPR colors"
+          ],
+          "mechanism": "The inlined lookup has matching instruction shape, but MWCC assigns different FPR colors to quadrant-normalized component values. Independently, the 1024.0f scale resolves to a different TU-local constant identity. Branch-local magnitude lifetimes and inline-helper argument creation order do not influence either result.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "branch-local magnitude lifetimes",
+            "variants": [
+              "lower-half y local followed by nested x local",
+              "in-place parameter negation baseline"
+            ],
+            "effect": "Identical 99.20119% residual; local-variable variant was removed."
+          },
+          {
+            "family": "inline helper argument ordering",
+            "variants": [
+              "denominator-first helper parameters",
+              "numerator-first helper parameters with every call reversed"
+            ],
+            "effect": "MWCC optimized both forms to the identical instruction and relocation residual; reversed form was removed."
+          },
+          {
+            "family": "diagnostic escalation",
+            "variants": [
+              "instrumented regflow diagnosis",
+              "allocator trace capture",
+              "bounded source permuter"
+            ],
+            "effect": "Instrumented compiler was not provisioned, allocator capture aborted without graph data, and the permuter failed to recognize matan__Fff in the C++ source."
+          }
+        ],
+        "untried_leads": [
+          "Provision the instrumented MWCC compiler or repair allocator trace capture, then inspect the FPR interference graph for the two negated component values.",
+          "Probe a genuine alternate quadrant abstraction or helper boundary that changes value creation across the whole lower-half control-flow region.",
+          "After instruction parity is obtained, inspect the candidate and target object relocations and sdata2 ordering to identify why 1024.0f resolves as @567 instead of @1884."
+        ],
+        "best_checkpoint": {
+          "score": 99.20119,
+          "description": "Original integrated source with an empty write-set diff; IConverge__Fiiii and FConverge__Fffff remain exact."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/MarioUtil/MathUtil.cpp#L125-L170"
+        ]
+      }
+    },
+    {
+      "commit": "8cace3de44fce505e5aaccf5b236bbabe9c90aa9",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/worker_01a0a5d8-0625-75a0-84e9-884e7add2494.txt",
+      "note": {
+        "summary": "No source changes retained. Reconfirmed the 99.20119% baseline and tested three additional source-shape families. Compound sign normalization substantially regressed instruction shape; function-wide component copies and relocating the inline lookup definition produced the identical residual and were ablated. A targeted .sdata2 helper for @1884 introduced an extra constant and failed section-order validation, so it was also removed.",
+        "residual": {
+          "class": "register-only FPR plus relocation or symbol identity",
+          "rows": [
+            "Target lookup-scale loads reference @1884@sda21 while candidate loads reference @567@sda21",
+            "Target upper negative-X path assigns the normalized X component to f4 while candidate assigns it to f3",
+            "Target lower-half path assigns normalized Y/X components to f3/f4 while candidate assigns them oppositely",
+            "Dependent fcmpo, fcmpu, fres, and fmuls operands inherit those FPR-color differences"
+          ],
+          "mechanism": "The repeated lookup expansion has matching opcode and control-flow shape, but MWCC gives the normalized component values different FPR live ranges/colors. Simple aliases, explicit inline placement, and branch-local lifetime changes do not alter those colors. The 1024.0f relocation is independently affected by full-TU .sdata2 ordering; forcing only @1884 duplicates the constant rather than correcting its identity.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "sign normalization expression",
+            "variants": [
+              "param = -param baseline",
+              "param *= -1.0f for all normalized components"
+            ],
+            "effect": "Compound multiplication introduced extra constant loads/comparisons and regressed the score to 96.65681%; removed."
+          },
+          {
+            "family": "component lifetime aliases",
+            "variants": [
+              "direct parameter mutation baseline",
+              "function-wide x/y copies followed by local mutation"
+            ],
+            "effect": "Both compile to the identical 99.20119% residual; aliases were removed."
+          },
+          {
+            "family": "inline helper placement",
+            "variants": [
+              "lookup helper defined before matan",
+              "inline forward declaration before matan with definition after it"
+            ],
+            "effect": "Both compile to the identical residual; relocated definition was removed."
+          },
+          {
+            "family": "sdata2 ordering helper",
+            "variants": [
+              "targeted helper containing only @1884 / 1024.0f"
+            ],
+            "effect": "Produced 15 candidate constants versus 14 target constants and failed at target constant 13; removed."
+          }
+        ],
+        "untried_leads": [
+          "Recover the original whole-octant or quadrant helper abstraction rather than applying more local aliases; the persistent coupled FPR cluster points to a different authored inline boundary.",
+          "Obtain usable FPR allocator trace support and map the normalized X/Y virtual-register creation order to the target f3/f4 assignment.",
+          "Once instruction parity is reached, reconstruct the complete target .sdata2 ordering rather than forcing only @1884."
+        ],
+        "best_checkpoint": {
+          "score": 99.20119,
+          "description": "Original integrated source with an empty write-set diff and no local regressions."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/MarioUtil/MathUtil.cpp#L125-L170"
+        ]
+      }
+    },
+    {
+      "commit": "8cace3de44fce505e5aaccf5b236bbabe9c90aa9",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/worker_01a0a5dd-2671-79b4-8370-2f814b86b743.txt",
+      "note": {
+        "summary": "Improved matan__Fff from 99.20119% to 99.61539%. A bounded permuter probe identified the lower-half sign normalization as controlling the coupled FPR-color residual. Routing only the negative param_2 operation through a small inline helper makes the complete lower-half instruction window match; applying the same helper to param_1, or using separate helpers for both components, returns to the baseline residual and was ablated. The remaining mismatches are the upper negative-param_1 FPR allocation and the 1024.0f relocation identity.",
+        "residual": {
+          "class": "register-only FPR plus relocation or symbol identity",
+          "rows": [
+            "Upper negative-param_1 path: target fneg/fcmpo/fmuls/fcmpu/fres use f4, candidate uses f3",
+            "All 1024.0f lookup-scale loads target @1884@sda21 while candidate uses @569@sda21"
+          ],
+          "mechanism": "The inline boundary around lower-half param_2 negation changes MWCC FPR live-range creation/coalescing and resolves every lower-half FPR mismatch. The unresolved upper path requires a distinct authored lifetime or inline boundary for normalized param_1. The remaining lookup-scale mismatch is independently caused by .sdata2 constant identity/order.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "branch-local normalized component temporaries",
+            "variants": [
+              "tmp for upper negative param_1",
+              "tmp1/tmp2 for lower negative components"
+            ],
+            "effect": "Compiled to the identical 99.20119% baseline residual; removed."
+          },
+          {
+            "family": "explicit inline qualifier",
+            "variants": [
+              "static GetAtanTable baseline",
+              "static inline GetAtanTable"
+            ],
+            "effect": "No instruction or score change; qualifier removed."
+          },
+          {
+            "family": "negation inline boundary",
+            "variants": [
+              "helper used only for lower-half param_2",
+              "same helper used for both param_1 and param_2",
+              "separate helpers used for param_1 and param_2"
+            ],
+            "effect": "The param_2-only form improved to 99.61539% and eliminated all lower-half FPR mismatches. Both forms that also wrapped param_1 reverted to 99.20119%, so those extra cues were removed."
+          },
+          {
+            "family": "bounded source permuter probe",
+            "variants": [
+              "400 iterations over matan and GetAtanTable"
+            ],
+            "effect": "Found a 99.85% scalar candidate involving a param_2 negation helper plus an unrelated comparison helper. Manual isolation proved the negation boundary is the meaningful component; the unrelated helper was not retained."
+          }
+        ],
+        "untried_leads": [
+          "Recover a plausible distinct authored abstraction that gives only upper negative-param_1 the target f4 lifetime without disturbing the now-matched lower half.",
+          "After FPR instruction parity, reconstruct complete .sdata2 ordering so 1024.0f resolves to target @1884 rather than candidate @569.",
+          "FPR allocator tracing remains unavailable: instrumented compiler was not provisioned and trace capture failed."
+        ],
+        "best_checkpoint": {
+          "score": 99.61539,
+          "description": "Lower-half FPR allocation matches after isolating param_2 sign normalization behind one inline boundary. FConverge, IConverge, and SMS_GoRotate remain exact; MsGetRotFromZaxis remains at its pre-existing nonmatching state."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/MarioUtil/MathUtil.cpp#L125-L170"
+        ]
+      }
+    },
+    {
+      "commit": "8cace3de44fce505e5aaccf5b236bbabe9c90aa9",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/worker_01a0a5e2-251d-78d0-b5cd-4585bf48a328.txt",
+      "note": {
+        "summary": "Retained the validated 99.61539% checkpoint. Tested two new upper-path lifetime shapes and a generated .sdata2 ordering helper; all regressed or failed validation and were fully removed. Final checkdiff confirms the checkpoint residual is unchanged. IConverge, FConverge, and SMS_GoRotate remain exact.",
+        "residual": {
+          "class": "register-only FPR plus relocation or symbol identity",
+          "rows": [
+            "Upper negative-param_1 path: target uses f4 for fneg/fcmpo/fmuls/fcmpu/fres while candidate uses f3",
+            "Lookup-scale loads target 1024.0f symbol @1884@sda21 while candidate uses @569@sda21"
+          ],
+          "mechanism": "The upper-path normalized param_1 still has a different FPR live-range/color from retail. Independently, 1024.0f is emitted with the wrong .sdata2 identity/order.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "upper-path reference helper boundary",
+            "variants": [
+              "static inline void helper(f32&) used only for upper param_1 negation"
+            ],
+            "effect": "Forced address materialization and a larger stack frame, regressing to 99.50887%; removed."
+          },
+          {
+            "family": "upper-path conditional normalization",
+            "variants": [
+              "param_1 = param_1 < 0.0f ? -param_1 : param_1"
+            ],
+            "effect": "Emitted additional control flow and regressed to 96.56805%; removed."
+          },
+          {
+            "family": "bounded source permuter probe",
+            "variants": [
+              "500 iterations over matan with seed 91"
+            ],
+            "effect": "No candidate improved on the retained source."
+          },
+          {
+            "family": "generated .sdata2 ordering helper",
+            "variants": [
+              "named-macro form",
+              "raw-literal form"
+            ],
+            "effect": "Named-macro form did not compile because S32_TO_F32 is unavailable. Raw-literal form compiled but produced 15 entries/80 bytes instead of 14 entries/76 bytes, with the first mismatch at target 1024.0f versus current 3.0f. Both were removed."
+          }
+        ],
+        "untried_leads": [
+          "Recover the actual authored value/helper boundary responsible for the upper normalized-param_1 f4 lifetime; avoid reference parameters and redundant conditional normalization.",
+          "Reconstruct .sdata2 ownership from real expressions in the TU rather than retaining a generated ordering helper; current helper generation exposes an extra float 3.0f conflict.",
+          "Instrumented MWCC regflow remains unavailable in this checkout."
+        ],
+        "best_checkpoint": {
+          "score": 99.61539,
+          "description": "Lower-half FPR allocation remains matched through the param_2-only matanNegate inline boundary. Final full diff contains only the upper f3/f4 cluster and 1024.0f relocation identity. Neighbor summary: IConverge PASS, FConverge PASS, SMS_GoRotate PASS."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/MarioUtil/MathUtil.cpp#L125-L170"
+        ]
+      }
+    },
+    {
+      "commit": "8cace3de44fce505e5aaccf5b236bbabe9c90aa9",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/f2a92ae4-c75d-46ef-856b-fbfdc732c937/worker_01a0a5e6-743f-7518-9d15-6d43b8bd1c91.txt",
+      "note": {
+        "summary": "Retained the validated 99.61539% checkpoint. Tested upper-path negation through the existing by-value inline helper, a branch-local f32 temporary, and compound multiplication by -1.0f. The helper and temporary produced the identical residual; multiplication changed instruction shape and regressed to 97.92899%. All experimental edits were removed. Final full diff returned to 99.61539%, and IConverge, FConverge, and SMS_GoRotate remain exact.",
+        "residual": {
+          "class": "register-only FPR plus relocation or symbol identity",
+          "rows": [
+            "Upper negative-param_1 path: target uses f4 for fneg/fcmpo/fmuls/fcmpu/fres while current uses f3",
+            "All lookup-scale loads reference target @1884@sda21 while current references @569@sda21"
+          ],
+          "mechanism": "The upper normalized param_1 value has a different FPR live range/color from retail. Independently, the 1024.0f lookup scale has the wrong .sdata2 symbol identity/order.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "upper-path negation lifetime",
+            "variants": [
+              "param_1 = matanNegate(param_1)",
+              "branch-local f32 tmp = -param_1 used by comparison and both lookups"
+            ],
+            "effect": "Both compiled to the same 99.61539% residual with the upper value still allocated to f3 instead of target f4; removed."
+          },
+          {
+            "family": "upper-path negation expression form",
+            "variants": [
+              "param_1 *= -1.0f"
+            ],
+            "effect": "Changed instruction/control-flow shape and regressed to 97.92899%; removed."
+          }
+        ],
+        "untried_leads": [
+          "Escalate from negation syntax to reconstructing the original semantic helper or branch abstraction controlling the upper normalized-param_1 lifetime.",
+          "Inspect detailed compiler PCode/FPR trace if a supported instrumented compiler becomes available.",
+          "Resolve the independent 1024.0f relocation by reconstructing actual TU .sdata2 expression ownership and ordering rather than adding synthetic constants."
+        ],
+        "best_checkpoint": {
+          "score": 99.61539,
+          "description": "Lower-half FPR allocation remains matched via the retained param_2-only matanNegate inline boundary. Final full diff contains only the upper f3/f4 cluster and the 1024.0f relocation identity mismatch. Neighbor checks: IConverge PASS, FConverge PASS, SMS_GoRotate PASS."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/MarioUtil/MathUtil.cpp#L125-L170"
+        ]
+      }
+    }
+  ],
+  "other_worker_responses": []
+}

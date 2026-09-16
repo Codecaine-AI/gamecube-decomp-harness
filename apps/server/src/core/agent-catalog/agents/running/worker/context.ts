@@ -586,9 +586,9 @@ function workerTargetKnowledgeXml(
   ].join("\n");
 }
 
-function decompStandardsBudgetXml(contextBudget: WorkerPromptContextBudget): string {
+function decompStandardsBudgetXml(contextBudget: WorkerPromptContextBudget, game?: RunGameMetadata): string {
   const mode = WORKER_CONTEXT_BUDGETS[contextBudget].standards;
-  if (mode === "full") return globalStandardsPromptXml();
+  if (mode === "full" || (game?.gameId && game.gameId !== "melee")) return globalStandardsPromptXml({ gameId: game?.gameId });
   const rules =
     mode === "summary"
       ? [
@@ -668,7 +668,7 @@ export function buildWorkerKernelContext(
     contextBudget,
   );
   const values = {
-    DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget),
+    DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget, options.game),
     FIRST_DIFF_XML: inputXml.firstDiffXml,
     REPAIR_REQUEST_XML: repairRequestXml(options.packet),
     TARGET_XML: inputXml.targetXml,

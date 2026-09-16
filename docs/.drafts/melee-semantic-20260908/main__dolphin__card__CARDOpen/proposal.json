@@ -1,0 +1,96 @@
+{
+  "tu": "main/dolphin/card/CARDOpen",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDOpen.c#L25-L136",
+            "why": "Access policy, filename lookup and handle creation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the file-lifecycle mapping while including the explicit identity-bypass branch.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDOpen:CARDOpen"
+        },
+        "type": "game_mapping",
+        "value": "Implements filename-based opening of a GameCube memory-card file, converting accessible directory metadata into a CARDFileInfo handle. Lookup normally requires matching game/company identifiers, but accepts occupied entries regardless of those identifiers when card->diskID == &__CARDDiskNone; it does not use the public-permission fallback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDOpen.c#L25-L136",
+            "why": "Complete lookup policy and open implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unconditional ownership validation with the actual accessibility policy.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDOpen:CARDOpen"
+        },
+        "type": "purpose",
+        "value": "Opens a memory-card file by filename, resolving the first occupied entry admitted by __CARDAccess and validating its starting block before initializing CARDFileInfo. Access requires matching game/company identifiers unless card->diskID == &__CARDDiskNone; unlike CARDFastOpen, named lookup does not retry ownership denial through public permission."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDOpen.c#L25-L136",
+            "why": "Bypass and all named-open branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains failure and initialization ordering without excluding bypass-authorized files.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDOpen:CARDOpen"
+        },
+        "type": "state_behavior",
+        "value": "Sets fileInfo->chan to -1 before acquiring the control block. Acquisition failure returns immediately; lookup failure leaves the handle invalid; an invalid start block yields CARD_RESULT_BROKEN. A successful accessible-name lookup, including the &__CARDDiskNone identity-bypass case, plus a valid start block initializes chan, fileNo, offset = 0 and iBlock. Every successfully acquired control block is released with the final result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDOpen.c#L25-L67",
+            "why": "Access classification and search filtering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claimed unconditional ownership boundary.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDOpen:__CARDGetFileNo"
+        },
+        "type": "game_mapping",
+        "value": "Implements filename-to-directory-slot resolution for GameCube memory-card files under __CARDAccess policy: occupied entries normally require matching game and company identifiers, while card->diskID == &__CARDDiskNone bypasses those comparisons. Public permission alone does not admit an entry to this search."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDOpen.c#L25-L155",
+            "why": "All access and handle-state branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exceptional argument ordering and identity bypass while accurately summarizing handle state.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/card/CARDOpen.c"
+        },
+        "type": "state_behavior",
+        "value": "Empty directory slots are rejected before access checks. Occupied entries are accessible on matching game/company identifiers or when diskID == &__CARDDiskNone; CARDFastOpen additionally retries ownership denial through public permission. CARDFastOpen returns FATAL_ERROR for an out-of-range file number before touching fileInfo. Otherwise both open paths invalidate chan before control acquisition and initialize chan/fileNo/offset/iBlock only after successful selection and starting-block validation. Close leaves the handle unchanged on acquisition failure and otherwise invalidates only chan. __CARDIsOpened always returns FALSE and tracks no handle state."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

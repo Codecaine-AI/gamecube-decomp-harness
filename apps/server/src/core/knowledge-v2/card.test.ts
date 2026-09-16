@@ -301,13 +301,13 @@ describe("knowledge-v2 target cards", () => {
     tempDirs.push(emptyRoot);
     try {
       process.env.ORCH_GAME_KNOWLEDGE_ROOT = emptyRoot;
-      const missingPath = resolve(emptyRoot, "knowledge.sqlite");
+      const missingPath = resolve(emptyRoot, "store/knowledge.sqlite");
       expect(loadV2TargetCard({ unit: "GALE01:test", symbol: "test_symbol", budget: "full" })).toBeNull();
       expect(existsSync(missingPath)).toBe(false);
 
       const store = fixture();
       addFact(store);
-      process.env.ORCH_GAME_KNOWLEDGE_ROOT = resolve(store.path, "..");
+      process.env.ORCH_GAME_KNOWLEDGE_ROOT = resolve(store.path, "../..");
       expect(loadV2TargetCard({ unit: "GALE01:test", symbol: "test_symbol", budget: "full" })?.stable_key).toBe("GALE01:test:test_symbol");
 
       const corruptRoot = mkdtempSync(join(tmpdir(), "knowledge-v2-card-corrupt-"));

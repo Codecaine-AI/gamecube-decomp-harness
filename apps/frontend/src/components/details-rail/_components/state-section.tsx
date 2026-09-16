@@ -1,8 +1,8 @@
 import { MiniRows } from "@/components/primitives";
 import { asObject, num, pct, shortId, text, type Dashboard } from "@/lib/format";
-import type { CycleView } from "@/pages/workspace/_lib/types";
+import type { HarnessView } from "@/pages/workspace/_lib/types";
 
-function syncSnapshot(view: CycleView): { tone?: string; value: string } {
+function syncSnapshot(view: HarnessView): { tone?: string; value: string } {
   const harnessState = view.harnessState;
   if (harnessState?.sync) return { value: text(harnessState.sync.status, "-") };
   const repoSync = harnessState?.repo_sync;
@@ -14,17 +14,15 @@ function syncSnapshot(view: CycleView): { tone?: string; value: string } {
   };
 }
 
-export function stateSectionHint(view: CycleView): string {
-  return text(view.harnessState?.cycle?.status, "-");
+export function stateSectionHint(view: HarnessView): string {
+  return text(view.harnessState?.state?.execution.status, "Not initialized");
 }
 
-export function StateSection({ dashboard, view }: { dashboard: Dashboard | null; view: CycleView }) {
+export function StateSection({ dashboard, view }: { dashboard: Dashboard | null; view: HarnessView }) {
   const harnessState = view.harnessState;
-  const cycle = harnessState?.cycle;
+  const harness = harnessState?.state;
   const run = harnessState?.run;
   const knowledge = harnessState?.knowledge;
-  const dashboardCycle = asObject(dashboard?.cycle);
-  const phase = [text(dashboardCycle.phase), text(dashboardCycle.activeSubphase)].filter(Boolean).join(" · ");
   const sync = syncSnapshot(view);
 
   return (
@@ -32,11 +30,12 @@ export function StateSection({ dashboard, view }: { dashboard: Dashboard | null;
       <MiniRows
         rows={[
           {
-            label: "Cycle",
-            title: cycle?.cycle_uuid,
-            value: cycle ? `${shortId(cycle.cycle_uuid)} · ${text(cycle.status, "-")}` : "-",
+            label: "Worktree",
+            title: harness?.source.worktree,
+            value: harness?.source.worktree || view.game?.repoRoot || "-",
           },
-          { label: "Phase", value: phase || "-" },
+          { label: "Desired", value: harness?.execution.desired || "-" },
+          { label: "Head", title: harness?.source.head ?? undefined, value: harness?.source.head ? shortId(harness.source.head) : "Not recorded" },
           {
             label: "Run",
             value: run ? `${text(run.status, "-")} · ${text(run.scheduler_condition, "-")}` : "-",

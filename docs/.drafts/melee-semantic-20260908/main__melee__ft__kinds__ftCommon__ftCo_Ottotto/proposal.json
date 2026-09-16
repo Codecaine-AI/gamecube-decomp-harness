@@ -1,0 +1,222 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Ottotto",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Ottotto:ftCo_Ottotto_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Tries ftCo_SpecialS_CheckInput, ftCo_Attack100_CheckInput, ftCo_800D6824, ftCo_800D68C0, ftCo_Catch_CheckInput, ftCo_AttackS4_CheckInput, ftCo_AttackHi4_CheckInput, ftCo_AttackLw4_CheckInput, ftCo_AttackS3_CheckInput, ftCo_AttackHi3_CheckInput, ftCo_AttackLw3_CheckInput, ftCo_Attack1_CheckInput, ftCo_80091A4C, ftCo_800DE9D8, ftCo_Jump_CheckInput, ftCo_Dash_CheckInput, ftCo_800D5FB0, ftCo_Turn_CheckInput, then ftCo_Walk_CheckInput_Ottotto. Each receives unchanged gobj; the first nonzero result returns immediately. The second predicate dispatches ftData_SpecialHi, not rapid jab; the next two dispatch SpecialN and SpecialLw. Those three require a non-NULL table entry and zero x686, x689, or x687 respectively.",
+        "rationale": "Corrects the rapid-jab interpretation using active canonical dispatch while preserving exact priority.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L63-L85",
+            "why": "Exact ordered chain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "Active special dispatch and optional branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L164-L169",
+            "why": "First-nonzero return semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Ottotto:ftCo_OttottoWait_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Delegates unchanged gobj to ftCo_Ottotto_IASA, sharing its complete first-nonzero interrupt priority without local guards or additional work. In that chain ftCo_Attack100_CheckInput dispatches ftData_SpecialHi rather than rapid jab; ftCo_800D6824 and ftCo_800D68C0 dispatch SpecialN and SpecialLw.",
+        "rationale": "Preserves shared processing while correcting the rapid-attack label.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L129-L132",
+            "why": "Unconditional wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "Canonical dispatch meanings."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Ottotto:ftCo_8009A6B8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Enters ftCo_MS_OttottoWait when called by the initial Ottotto animation callback after its remaining-animation query returns false. It resets two fighter audio slots through ft_80088770 and ft_800887CC, then requests ft_80088328 with fp->ft_data->x4C_sfx->x18, volume 127, and pan 64. Actual audio submission depends on suppression/fighter-kind and sound-ID sentinel branches.",
+        "rationale": "Replaces generic setup and unconditional playback with verified audio behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L56-L61",
+            "why": "Animation caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L117-L125",
+            "why": "Entry and sound arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L49-L88",
+            "why": "Conditional submission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L164-L176",
+            "why": "Audio-slot resets."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Ottotto:ftCo_Ottotto_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls ftAnim_IsFramesRemaining with gobj. True causes no local transition; false calls ftCo_8009A6B8 with the same object to enter OttottoWait, reset two audio slots, and make a conditional sound request. There is no local timer or one-shot latch. The query also returns false when no eligible part reports remaining animation.",
+        "rationale": "Removes unsupported visual-effect initialization and clarifies the query boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L56-L61",
+            "why": "Complete callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L117-L125",
+            "why": "Destination entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L515-L538",
+            "why": "Eligible-part query and false fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L49-L88",
+            "why": "Conditional audio request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L164-L176",
+            "why": "Audio resets."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Ottotto:ftCo_8009A410"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Begins the initial Ottotto edge-balance/teeter phase when selected by the edge predicate. It selects ftCo_MS_Ottotto and clears self_vel.x/y/z and gr_vel. This establishes a self/ground-velocity reset, not the absence of every external or collision-driven motion source.",
+        "rationale": "Keeps the supported mapping without claiming total immobility.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L37-L54",
+            "why": "Edge-triggered entry and exact velocity writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Ottotto:ftCo_8009A410"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Enters ftCo_MS_Ottotto with Ft_MF_None and transition arguments 0, 1, 0, NULL, then clears self_vel.x/y/z and gr_vel. Its local caller selects it when Collide_Edge intersects the environment flags and x2228_b2 is clear. The reset does not prove that the fighter's position remains stationary under other systems.",
+        "rationale": "Tightens the prior librarian's retained movement-arrest purpose to the operations actually proved.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L37-L54",
+            "why": "Caller guard and complete entry body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L406-L424",
+            "why": "Separate collision processing writes current position."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Ottotto:ftCo_Ottotto_Phys"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Occupies the initial Ottotto edge-balance/teeter physics slot with an empty callback. It adds no state-specific physics operation. Entry resets self and ground velocity, but global stationarity is not established; separate collision processing can update fighter position.",
+        "rationale": "Distinguishes local no-op physics from a global no-motion invariant.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L47-L54",
+            "why": "Entry velocity reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L87-L115",
+            "why": "Empty physics and separate collision phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2829-L2839",
+            "why": "Active callback membership."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L406-L424",
+            "why": "Collision helper writes position."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Ottotto:ftCo_OttottoWait_Coll"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Maintains the sustained OttottoWait edge-balance/teeter phase against both floor support and facing-side endpoint distance. A false ft_800827A0 result calls ftCo_Fall_Enter. On success, distance strictly greater than x478+x47C calls ft_8008A2BC for conditional neutral-state recovery; otherwise this callback makes no additional state-changing call. Support alone is not sufficient to remain in OttottoWait.",
+        "rationale": "Repairs the prior retained mapping's omission of the supported-but-out-of-range exit.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Ottotto.c#L137-L161",
+            "why": "Support and distance branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L54-L109",
+            "why": "Conditional recovery destinations."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,214 @@
+{
+  "tu": "main/melee/ef/efdata",
+  "facts": [
+    {
+      "id": "fact:5582b903-0d13-4a8c-a754-02f8d9a2823e",
+      "target_id": "target:data:main/melee/ef/efdata:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "At least one external consumer forms a pointer to the payload's base at 0x80458EB0 in register r3 and sets condition state while materializing that address. The available evidence does not show which subobjects are subsequently read or written.",
+      "rationale": "The resolved assembly contains a high-adjusted load followed by addic. using lbl_80458EB0, directly demonstrating that code outside the data-only unit takes the section base as an input pointer. Because the archived excerpt ends immediately afterward, no more specific read/write behavior is supportable.",
+      "confidence": 0.91,
+      "updated_at": "2026-09-02T08:05:41.611Z",
+      "subject": "main/melee/ef/efdata:.bss",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/911814549726986290",
+          "why": "Directly shows code materializing lbl_80458EB0 into r3 with lis and addic., while the record's limited span does not reveal later accesses."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efdata-bss--ce24d47d9282",
+          "why": "Identifies the referenced address as belonging to the matched 44-byte efdata .bss target."
+        }
+      ]
+    },
+    {
+      "id": "fact:43420da1-16e5-4438-a3d6-5fa4ad8622a9",
+      "target_id": "target:data:main/melee/ef/efdata:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 44-byte zero-initialized BSS payload beginning at address 0x80458EB0. The evidence establishes the section extent and that its base is addressable, but does not establish how the payload is divided into globals or typed fields.",
+      "rationale": "Two independent CI records identify this exact target as a complete 44-byte .bss match. Archived assembly explicitly forms the address of lbl_80458EB0, confirming that 0x80458EB0 is the addressable base of the payload; neither source reveals a finer-grained layout.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T08:05:41.611Z",
+      "subject": "main/melee/ef/efdata:.bss",
+      "evidence": [
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2339--fn--main-melee-ef-efdata-bss--ce24d47d9282",
+          "why": "Records the exact target as a complete 44-byte .bss payload."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2340--fn--main-melee-ef-efdata-bss--ce24d47d9282",
+          "why": "Independently repeats the target's complete 44-byte extent in the following merged revision."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/911814549726986290",
+          "why": "Shows instructions at 0x802292D8\u20130x802292DC constructing the address of lbl_80458EB0, the target's base address."
+        }
+      ]
+    },
+    {
+      "id": "fact:d6e2369f-c247-4988-8e29-90f8c74a7eb7",
+      "target_id": "target:data:main/melee/ef/efdata:.sbss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`efSync_Spawn` initializes `efLib_LoadKind` to asynchronous and `efLib_AnimCount` to zero, then changes the load kind to synchronous for locally handled effect recipes. `efLib_Create` reads the load kind to decide whether to enforce the 64-effect limit and increment `efLib_EffectCount`, and copies the load kind into the new effect's `is_async` field. `efLib_Init` resets the effect count, while the alternate dispatch epilogue decrements `efLib_AnimCount` and uses each resulting index to animate an entry from `efLib_AnimQueue`.",
+      "rationale": "The current-head producer and consumer sites continue to trace all three section members: initialization clears the effect count, spawn dispatch initializes the mode and queue count before selecting synchronous handling, effect creation consumes the mode and updates the counted population, and the animation-drain loop consumes the queued count. The wording is sharpened to state precisely that creation copies the load-kind value into `is_async`.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:28:42.214Z",
+      "subject": "main/melee/ef/efdata:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L99-L169",
+          "why": "Shows library initialization resetting `efLib_EffectCount` to zero."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efsync.c#L65-L89",
+          "why": "Shows the spawn dispatcher initializing the load-kind and animation-count globals and later assigning synchronous mode."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L429-L489",
+          "why": "Shows effect creation reading `efLib_LoadKind`, checking and incrementing `efLib_EffectCount`, and assigning the load-kind value to the new effect's `is_async` field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L528-L545",
+          "why": "Shows `efLib_AnimCount` being decremented and each resulting index selecting a queued JObj for animation."
+        }
+      ]
+    },
+    {
+      "id": "fact:57729e13-2c68-4633-b02b-d47e689f341f",
+      "target_id": "target:data:main/melee/ef/efdata:.sbss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 12-byte small-BSS layout of three contiguous 32-bit words: `u32 efLib_LoadKind` at `0x804D64E8`, `u32 efLib_EffectCount` at `0x804D64EC`, and `s32 efLib_AnimCount` at `0x804D64F0`.",
+      "rationale": "The current source directly declares the three globals with their signedness and widths and annotates addresses four bytes apart. Those definitions span the target's complete 12-byte extent, preserving the existing layout claim while replacing the unresolvable header evidence.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:36:03.613Z",
+      "subject": "main/melee/ef/efdata:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efdata.c#L1-L8",
+          "why": "Shows the exact names, C types, addresses, and order of the three contiguous globals belonging to the small-BSS target."
+        }
+      ]
+    },
+    {
+      "id": "fact:8923113a-7108-482c-82a4-572ad36c2f4b",
+      "target_id": "target:data:main/melee/ef/efdata:.sbss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the effect library's compact global bookkeeping state: the current synchronous/asynchronous creation mode, the number of counted asynchronous effects, and the number of queued effect models awaiting initial animation processing.",
+      "rationale": "The section still consists of the load-kind, effect-count, and animation-count words. Current-head consumers show dispatch initializing and changing the load mode, effect creation using that mode to govern the 64-effect accounting policy, and the alternate dispatcher consuming the animation count while animating queued JObjs. The prior purpose remains valid and is re-cited at head.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:28:42.214Z",
+      "subject": "main/melee/ef/efdata:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efdata.c#L1-L8",
+          "why": "Identifies the section's three globals as `efLib_LoadKind`, `efLib_EffectCount`, and `efLib_AnimCount`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efsync.c#L65-L89",
+          "why": "Shows spawn dispatch initializing the load kind and animation count and later selecting synchronous load mode."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L429-L489",
+          "why": "Shows effect creation consulting the load kind, enforcing and updating the asynchronous-effect count, and copying the mode into the allocated effect."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L528-L545",
+          "why": "Shows the animation count controlling a countdown loop that animates entries from `efLib_AnimQueue`."
+        }
+      ]
+    },
+    {
+      "id": "fact:519a2f48-708b-49a5-9099-3f45a8ed8751",
+      "target_id": "target:data:main/melee/ef/efdata:.sbss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each top-level effect spawn begins in asynchronous creation mode with an empty pending-animation count; dispatch may transition to synchronous mode for selected recipes. While asynchronous mode is active, effect creation caps the counted population at 64 by removing an existing effect when necessary, increments the count for the new allocation, and records the load mode on the effect. Pending animations are then processed as a countdown stack until `efLib_AnimCount` reaches zero.",
+      "rationale": "At the current head, the spawn prologue and later assignment preserve the load-mode transition, the creation guard preserves the 64-effect accounting policy, and the alternate dispatch loop still consumes queued animation entries from the last occupied index until the count reaches zero. The drifted spans therefore do not change the represented state machine.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T18:28:42.214Z",
+      "subject": "main/melee/ef/efdata:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efsync.c#L65-L89",
+          "why": "Shows per-spawn initialization of the load mode and animation count followed by a transition to synchronous mode for the local dispatch branch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L429-L489",
+          "why": "Shows the asynchronous-mode guard, the 64-effect capacity check and removal call, the count increment, and propagation of the load mode into effect state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efalt.c#L528-L545",
+          "why": "Shows pending animations being consumed from the last occupied queue index until `efLib_AnimCount` becomes zero."
+        }
+      ]
+    },
+    {
+      "id": "fact:5b1899a8-f457-4fda-b9b5-9dec7b55bfdd",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ef/efdata.c",
+      "type": "inferred_type",
+      "value": "A data-only translation unit containing one `HSD_ObjAllocData` object and a 12-byte small-BSS block of three 32-bit scalars: `u32 efLib_LoadKind`, `u32 efLib_EffectCount`, and `s32 efLib_AnimCount`.",
+      "rationale": "The complete source at the current head defines one `HSD_ObjAllocData` object and three explicitly typed 32-bit globals. The globals' adjacent addresses establish the 12-byte small-BSS layout, so the prior claim remains valid without the removed header citation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:36:03.613Z",
+      "subject": "src/melee/ef/efdata.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efdata.c#L1-L8",
+          "why": "Shows every definition in the data-only translation unit, including the allocator object and the names, C types, addresses, and order of all three small-BSS scalars."
+        }
+      ]
+    },
+    {
+      "id": "fact:0b5a3ffd-b0e4-4c8f-946f-650de784c76f",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ef/efdata.c",
+      "type": "purpose",
+      "value": "Provides the effect library's shared mutable storage: allocator metadata for `EF_Effect` objects plus the global load-mode, live asynchronous-effect-count, and pending-animation-count values used by the effect creation and dispatch code.",
+      "rationale": "The unit defines only the effect allocator metadata and three bookkeeping globals. At the current head, `efLib_Init` still initializes the allocator and clears the effect count, while `efSync_Spawn` still initializes the load kind and pending-animation count before dispatching a request. The drift therefore reflects source movement rather than a change in the unit's purpose.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:28:42.214Z",
+      "subject": "src/melee/ef/efdata.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efdata.c#L1-L8",
+          "why": "Shows that this data-only unit defines `efLib_AllocData` and the three effect-library bookkeeping globals."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L99-L169",
+          "why": "Shows `efLib_Init` initializing `efLib_AllocData` for `EF_Effect` records and resetting `efLib_EffectCount`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/efsync.c#L65-L89",
+          "why": "Shows effect dispatch initializing `efLib_LoadKind` and `efLib_AnimCount`, then changing the load kind for the synchronous dispatch branch."
+        }
+      ]
+    }
+  ]
+}

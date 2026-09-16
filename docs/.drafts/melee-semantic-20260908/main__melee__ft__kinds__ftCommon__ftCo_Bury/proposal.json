@@ -1,0 +1,60 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Bury",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Bury.c#L329-L373",
+            "why": "Shows the collision guard and unconditional BuryWait delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L3157-L3163",
+            "why": "Establishes nullable on-touch-line callback semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported static-floor restriction with the actual delegated conditions. Ground_801C5700 dispatches a nullable stage callback rather than testing whether terrain moves.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Bury:ftCo_BuryWait_Coll"
+        },
+        "type": "game_mapping",
+        "value": "Implements terrain validation during the waiting phase of buried status by delegating to Bury collision. The fighter may continue waiting while the custom collision box retains support, the current floor matches the saved entry floor, and the stage's on-touch-line query returns no dynamics descriptor. Failure invokes the shared release handler; terrain motion alone is not an explicit rejection condition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Bury.c#L329-L340",
+            "why": "Shows all three release conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Bury.c#L375-L390",
+            "why": "Shows alternate and ordinary release paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L3157-L3163",
+            "why": "Shows descriptor callback dispatch, not a static-terrain test."
+          }
+        ],
+        "op": "write",
+        "rationale": "The previous static-floor wording conflated attack-parameterized stage descriptors with terrain motion. The canonical guard and stage callback establish the narrower conditions.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Bury:ftCo_Bury_Coll"
+        },
+        "type": "game_mapping",
+        "value": "Implements terrain validity for buried status using the Bury-specific collision box, saved supporting-floor identity and the stage's on-touch-line descriptor query. Lost support, a changed floor or a non-NULL descriptor invokes the shared release handler, normally entering BuryJump with a separate HammerJump exception. The callback does not categorically exclude moving terrain."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

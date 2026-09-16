@@ -1,0 +1,846 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:efa29e2f-b50f-4fca-934d-f27414f07cee",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "ftCo_8009BC58 reads 0.0f from this pool for the CargoFall motion's initial frame and blend duration and reads 1.0f for its initial playback rate; it then reuses 0.0f as the argument to ftAnim_SetAnimRate. The values are consumed only as call arguments and are never modified.",
+        "rationale": "The state-entry source directly exposes every use: the motion-change call receives zero, one, and zero in its floating-point configuration slots, followed by an animation-rate call receiving zero. Because the data resides in .sdata2 and no write appears, its flow is read-only from the literal pool into those APIs.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:27:40.123Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The entry routine passes the zero and one literals into Fighter_ChangeMotionState and passes zero into ftAnim_SetAnimRate, with no operation that writes either value."
+          }
+        ]
+      },
+      {
+        "id": "fact:09b5704f-ae63-4bc4-93ff-16c939187399",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An 8-byte read-only small-data literal pool laid out as two consecutive f32 values: 0.0f at offset 0 and 1.0f at offset 4.",
+        "rationale": "The section is two words long, while the matched routine requires exactly the two distinct floating-point literals zero and one for its motion-state and animation-rate calls. Their conventional first-use order in the routine supports the 0.0f-then-1.0f layout.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T05:27:40.123Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The matched source shows that the unit's entry routine uses the distinct floating-point literals 0.0 and 1.0, with zero encountered before one."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-898--main-melee-ft-chara-ftcommon-ftco-cargofall",
+            "why": "The matching PR establishes that the recovered source reproduces the CargoFall unit and its associated literal data."
+          }
+        ]
+      },
+      {
+        "id": "fact:76054d7e-6e79-4da9-87f7-14324f816ccb",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the read-only floating-point literals used when entering CargoFall to start its motion without blending and then freeze the displayed fall animation.",
+        "rationale": "The matched entry routine supplies zero, one, and zero as the motion state's starting frame, playback rate, and blend duration, then sets the animation rate to zero. The section's two floating-point words therefore serve as the routine's shared 0.0f and 1.0f literal pool rather than authored gameplay parameters.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T05:27:40.123Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "ftCo_8009BC58 enters the cargo-fall motion with floating-point zero and one arguments and immediately calls ftAnim_SetAnimRate with zero."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-898--main-melee-ft-chara-ftcommon-ftco-cargofall",
+            "why": "The merged PR records that the CargoFall translation unit containing these literal uses was matched."
+          }
+        ]
+      },
+      {
+        "id": "fact:af6fccc6-b0d7-4818-8042-ea0c681f0e40",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:.sdata2",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On CargoFall entry, these constants configure the selected cargo motion to begin at frame 0 with normal rate 1 and no blend, after which the rate is set to 0 so the fall pose remains frozen while the state's IASA, physics, and collision callbacks continue running.",
+        "rationale": "The source orders the motion-state change before the explicit zero animation-rate assignment. The remainder of the unit supplies independent input, airborne-physics, and landing-collision callbacks, showing that freezing animation does not suspend CargoFall's state processing.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:27:40.123Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The source starts the motion with zero/one/zero parameters, sets its animation rate to zero, and defines separate IASA, physics, and collision callbacks that remain responsible for state updates."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_8009BC58"
+    },
+    "facts": [
+      {
+        "id": "fact:cf03d9ff-3465-48b9-bbae-386c06d6ff17",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_8009BC58",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the carrier's Fighter_GObj and obtains its Fighter from user_data. It reads x2CC->x4_motion_state to derive CargoFall as base + 6, reads ground_or_air to decide whether a ground-to-air update is required, and reads victim_gobj to pass the carried fighter into ftCo_8009C5A4. Its outputs are the carrier's new motion state with fast-fall state preserved, animation rate zero, an airborne movement classification when entered from the ground, and the victim's ShoulderedWait state.",
+        "rationale": "Every input and output follows directly from the matched body: the motion-state call consumes gobj and the character-specific base, the animation call mutates the carrier animation rate, the ground guard controls the movement-state conversion, and victim_gobj is forwarded with the ShoulderedWait state identifier.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:12.145Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The function body directly exposes the carrier fields read, the calls receiving those values, and the carrier and victim states produced."
+          }
+        ]
+      },
+      {
+        "id": "fact:bba75d18-0dd8-4a20-bdda-bd980335f537",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_8009BC58",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Initializes the airborne phase of Donkey Kong's Kong Karry, keeping the opponent carried on Donkey Kong's back while the carrier is falling and preparing the CargoFall callbacks that permit aerial movement, cargo throws, and cargo-specific landing.",
+        "rationale": "SmashWiki identifies Kong Karry as Donkey Kong's unique state of carrying an opponent on his back while retaining the ability to jump and perform cargo throws. The function enters the CargoFall motion and keeps the victim in ShoulderedWait, while its surrounding callback suite supplies aerial physics, cargo-throw input, and landing handling.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T05:21:12.145Z",
+        "evidence": [
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "The reference describes Donkey Kong carrying the opponent on his back and being able to jump or perform cargo throws during that held state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The code enters CargoFall, synchronizes the victim to ShoulderedWait, and defines the associated aerial physics, cargo-throw IASA, and landing collision callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:a855c42c-a8e2-402a-bd36-ba797277570a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_8009BC58",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_CargoFall_Enter",
+        "rationale": "The function is the state initializer immediately preceding the named CargoFall Anim/IASA/Phys/Coll callback suite, and its body performs the characteristic entry work of selecting the motion state and initializing carrier and victim state. The inferred name follows the surrounding ftCo_<State>_Enter convention, but no recovered symbol directly confirms it.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-02T05:21:12.145Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The source places this initializer directly before the CargoFall callback suite and shows that it enters and initializes that state."
+          }
+        ]
+      },
+      {
+        "id": "fact:bdefc1b0-9783-4884-b91e-1a8540cc6495",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_8009BC58",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "CargoFall action-state entry helper with signature void (Fighter_GObj* gobj); gobj owns the carrier Fighter, whose character-specific cargo attributes, ground/air classification, and victim_gobj are accessed.",
+        "rationale": "The matched definition returns void and accepts one Fighter_GObj pointer. It obtains the Fighter from gobj->user_data and uses that Fighter to initialize both the carrier's action state and the carried victim's state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:12.145Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The definition directly establishes the void (Fighter_GObj*) signature and all Fighter fields accessed through gobj."
+          }
+        ]
+      },
+      {
+        "id": "fact:d9858696-f385-4eae-bec8-8fb7fdfe9890",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_8009BC58",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enters the airborne CargoFall state for a fighter who is still carrying an opponent, initializing the carrier's cargo-fall motion and synchronizing the victim to the corresponding shouldered waiting state.",
+        "rationale": "The function changes the carrier to the character-specific cargo motion at base plus six, stops that animation, performs the ground-to-air update when necessary, and explicitly updates victim_gobj to ShoulderedWait. Its sole caller selects it when cargo damage recovery completes while the carrier is airborne.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:12.145Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The function body directly shows CargoFall motion initialization, animation freezing, conditional ground-to-air handling, and victim synchronization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoThrow.c#L24-L35",
+            "why": "The sole caller invokes this helper when cargo-state recovery completes and the carrier is in GA_Air."
+          }
+        ]
+      },
+      {
+        "id": "fact:deab667c-4a7d-4736-85dc-dc85e7c8326a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_8009BC58",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Immediately enters character motion base + 6 at frame zero with animation rate 1 and Ft_MF_KeepFastFall, then freezes the animation by setting its rate to zero. If invoked while the Fighter is still classified as grounded, it performs the common ground-to-air transition; otherwise it leaves the existing airborne classification intact. In both cases it finishes by placing the carried victim in ShoulderedWait.",
+        "rationale": "The motion-state arguments establish the selected action and preserved fast-fall state, the following call overrides the animation rate to zero, and the only branch is the GA_Ground guard around the movement-state conversion. Victim synchronization occurs after the branch on every path.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:12.145Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The matched control flow shows the unconditional motion change and animation freeze, conditional ground-to-air update, and unconditional victim-state update."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Anim"
+    },
+    "facts": [
+      {
+        "id": "fact:4cc98929-5150-4ea8-90cf-82284fe95345",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the CargoFall fighter's `Fighter_GObj*`, does not dereference or otherwise consume it, performs no calls or writes, produces no output, and immediately returns to the action-state dispatcher.",
+        "rationale": "The complete body contains no statements, so the incoming game-object pointer cannot enter any further data flow and the routine cannot mutate fighter state, invoke another subsystem, or return a value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:37.274Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L29-L29",
+            "why": "Shows the sole input parameter and proves that the entire function body performs no operation on it."
+          }
+        ]
+      },
+      {
+        "id": "fact:6874d6c4-fbec-4bad-a156-98d1dc70c5cc",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Contributes no additional animation-driven rule to the airborne cargo-carry fall: the mechanic does not use this callback to end the state, react to an animation frame, or modify the carrier.",
+        "rationale": "The surrounding cargo logic establishes CargoFall as the airborne cargo-specific state, while the complete animation callback is empty. Therefore this callback's grounded mechanical meaning is the absence of animation-timed behavior during that state, not a hidden transition or fighter update.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T01:46:37.274Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoThrow.c#L24-L35",
+            "why": "Establishes that CargoFall is selected as the cargo-specific airborne state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L29-L29",
+            "why": "Proves that its animation callback adds no animation-timed gameplay behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:8c5cfd64-6564-4dc0-b82e-53fae325f50d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter action-state animation callback with signature `void (Fighter_GObj*)`; it receives the fighter's game object, returns no value, and intentionally does not use its parameter.",
+        "rationale": "The complete definition directly supplies the `void` return type and `Fighter_GObj*` parameter. Its `_Anim` placement in the CargoFall action-state callback family identifies the callback domain, and the empty body proves the parameter is unused.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:37.274Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L29-L29",
+            "why": "Directly provides the complete function signature, action-state callback name, and empty body."
+          }
+        ]
+      },
+      {
+        "id": "fact:3c3c5920-b424-4395-99e5-37cb4344781b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as CargoFall's intentionally inert animation callback, satisfying the fighter action-state animation callback slot without adding animation-completion handling or per-frame work.",
+        "rationale": "The complete matched definition is the CargoFall `_Anim` routine and has an empty body. Exact empty-function analogs corroborate the machine-code shape as an immediate-return no-op, while the local symbol identifies this instance's role as the animation callback for CargoFall.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:46:37.274Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L29-L29",
+            "why": "Directly shows the complete empty implementation and its CargoFall animation-callback name."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/extern/dolphin/src/dolphin/card/CARDBios.c#L22-L29",
+            "why": "Provides a resolved exact-opseq analog whose empty callback body likewise compiles as an immediate-return no-op."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXStubs.c#L5-L7",
+            "why": "Provides another resolved exact-opseq analog demonstrating the same statement-free function shape."
+          }
+        ]
+      },
+      {
+        "id": "fact:a2e80a75-429a-4edb-824f-945ae049688b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has invariant no-op behavior on every invocation: it contains no guards, animation-frame tests, timers, transitions, callback chaining, or state mutation and returns immediately.",
+        "rationale": "Because the resolved source span is the complete empty function, all possible invocations follow the same immediate-return path. CargoFall entry is selected elsewhere by an airborne guard, confirming that this callback does not itself decide entry or exit.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:37.274Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L29-L29",
+            "why": "Shows the entire callback is empty and therefore has no internal state-machine behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoThrow.c#L24-L35",
+            "why": "Shows that the relevant airborne entry decision occurs in another callback before control reaches CargoFall."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Coll"
+    },
+    "facts": [
+      {
+        "id": "fact:537d24d8-f239-4834-9147-44f8ff64e383",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current Fighter_GObj and forwards it unchanged to ft_80082C74 with ftCo_8009BD4C. The shared routine updates collision state through ft_80081D0C and conditionally passes the same object to the callback; the callback then reads the carrier's character-specific cargo landing lag and motion-state base, changes the carrier to motion base + 8, freezes its animation, and updates the carried victim through victim_gobj.",
+        "rationale": "The target performs no local transformation. The shared helper updates collision position and conditionally forwards the same object, while the callback at its current path reads cargo attributes and changes both carrier and victim state.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:57:18.016Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The target forwards gobj unchanged to ft_80082C74 together with ftCo_8009BD4C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L484-L694",
+            "why": "ft_80082C74 conditionally forwards the same fighter game object to its supplied event callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L94-L244",
+            "why": "ft_80081D0C transfers the fighter position into collision data, performs the environment collision query, restores the resulting position, and returns the collision outcome."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L46",
+            "why": "The current landing callback reads cargo landing lag and the motion-state base, enters motion base plus eight, freezes animation, and updates victim_gobj."
+          }
+        ]
+      },
+      {
+        "id": "fact:43eb645a-3eee-49b7-a3ad-1f3bce0f7e95",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the landing transition for Donkey Kong's airborne Kong Karry state, preserving the carried-opponent interaction across a jump or fall and imposing the character's cargo-specific landing delay before normal carrying resumes.",
+        "rationale": "The drifted CargoJump citation was rechecked at the current head and still shows that CargoJump delegates collision handling to this target. The target routes a successful landing collision to the cargo-specific landing callback, which updates the carried victim and applies the character's cargo landing-lag countdown. The mechanics reference identifies this mobile carried-opponent state as Donkey Kong's unique carry.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T22:42:27.124Z",
+        "evidence": [
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "Documents Donkey Kong's unique carried-opponent state and confirms that he can walk, jump, and perform cargo throws while carrying the opponent."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoJump.c#L1-L58",
+            "why": "At the current head, CargoJump_Coll still delegates directly to ftCo_CargoFall_Coll, confirming that the target handles landing collision processing after a carrying jump."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The target supplies ftCo_8009BD4C to the shared collision routine as the transition invoked when the airborne cargo state lands."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L46",
+            "why": "The landing callback initializes cargo-specific landing lag, enters the cargo landing motion, and updates the carried victim; its animation callback counts down before invoking the cargo-wait transition."
+          }
+        ]
+      },
+      {
+        "id": "fact:2e6088e6-efb6-4c0d-8d60-a205ceefd553",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state collision callback with exact signature void ftCo_CargoFall_Coll(Fighter_GObj* gobj). It returns no value and forwards the fighter game object to a shared collision routine together with an HSD_GObjEvent-compatible void (Fighter_GObj*) landing callback.",
+        "rationale": "The target definition establishes its exact return and parameter types. The shared helper accepts an HSD_GObjEvent and invokes it with the same game object, while the current ftCo_8009BD4C definition has the compatible void (Fighter_GObj*) signature.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:57:18.016Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The source gives the target's exact void(Fighter_GObj*) signature and shows both arguments forwarded to ft_80082C74."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L484-L694",
+            "why": "The shared helper is defined with a Fighter_GObj pointer and an HSD_GObjEvent callback that it invokes with that pointer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L46",
+            "why": "The current definition of ftCo_8009BD4C is a void function accepting one Fighter_GObj pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:8647d147-3a53-4058-b959-7d5438707f68",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Runs collision processing for the CargoFall action and supplies ftCo_8009BD4C as the landing transition, connecting ground contact during the airborne carry state to the cargo-specific landing state.",
+        "rationale": "The target unconditionally calls the shared airborne collision routine with ftCo_8009BD4C. The shared routine invokes that event when its collision query succeeds, and the callback at its current path initializes the cargo landing motion and landing-lag countdown.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:57:18.016Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The complete target delegates collision handling to ft_80082C74 and supplies ftCo_8009BD4C as its callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L484-L694",
+            "why": "The shared collision wrapper invokes its supplied HSD_GObjEvent when ft_80081D0C reports the triggering collision result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L46",
+            "why": "The supplied callback enters the cargo-specific landing motion and initializes its landing-lag countdown."
+          }
+        ]
+      },
+      {
+        "id": "fact:418fddd7-425e-44d4-882a-765b687361f1",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Contains no local guard or timer: every invocation delegates to ft_80082C74. If the shared collision check does not trigger, CargoFall remains active; when it triggers the supplied callback, the carrier enters the cargo landing motion at character motion base + 8, receives a countdown from cargo_hold.x28_LANDING_LAG, has its animation rate set to zero, and later returns to cargo wait when that countdown expires.",
+        "rationale": "The target is an unconditional one-call wrapper. The shared helper provides the collision guard, while the current landing callback and animation routine establish the resulting motion transition, frozen animation, countdown, and return to cargo wait.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:57:18.016Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The target has no local branch or timer and always delegates with the same landing callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L484-L694",
+            "why": "The shared helper guards invocation of the supplied callback on the result of ft_80081D0C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L46",
+            "why": "The callback enters motion base plus eight, initializes cargo landing lag, freezes animation, and updates the victim; CargoLanding_Anim decrements the countdown and returns to cargo wait at expiration."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_IASA"
+    },
+    "facts": [
+      {
+        "id": "fact:1262c38a-fe8a-4ce3-a03d-f49ec774bdce",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the active carrier's Fighter_GObj and forwards it unchanged to ftCo_8009BF3C. That selector reads the fighter's attack-button state, left-stick axes, facing direction, current motion ID, character motion-state base, and common directional thresholds; when a new directional throw is selected, it changes the carrier's motion and assigns the corresponding thrown state to victim_gobj. Its boolean result is consumed locally by RETURN_IF.",
+        "rationale": "The wrapper itself only forwards gobj and consumes the result. The callee source exposes the complete input set and shows that a successful selection updates both the carrier and carried victim before returning true.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:47:15.580Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L31-L34",
+            "why": "The wrapper passes gobj unchanged to the selector and uses its result only as an early-return condition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_CargoThrow.c#L54-L118",
+            "why": "The selector definition shows its controller, orientation, threshold, and motion-state inputs and its carrier/victim transition outputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:fce879e0-f749-4c3d-b280-283a633c59d4",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements directional cargo-throw input while Donkey Kong is airborne in the cargo-carry fall state.",
+        "rationale": "The callback invokes the four-direction cargo-throw selector from the explicitly named CargoFall state. The wiki describes Donkey Kong's carried-opponent mechanic as permitting him to jump and then throw the opponent with a traditional throw input.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T01:47:15.580Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L31-L34",
+            "why": "The callback's state name and sole call connect the cargo-fall state directly to the cargo-throw selector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_CargoThrow.c#L54-L118",
+            "why": "The selector implements forward, back, up, and down cargo-throw choices and applies airborne motion-state adjustment."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "The overview states that Donkey Kong can jump and perform cargo throws while carrying an opponent."
+          }
+        ]
+      },
+      {
+        "id": "fact:06138ee5-bb57-40cb-8276-f13dbddb7e8a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter IASA callback with signature void (Fighter_GObj*).",
+        "rationale": "The matched definition explicitly returns void and takes one Fighter_GObj pointer; its CargoFall_IASA placement identifies its action-state callback category.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:47:15.580Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L31-L34",
+            "why": "The source provides the exact return type and parameter type for ftCo_CargoFall_IASA."
+          }
+        ]
+      },
+      {
+        "id": "fact:4fcd94da-fe0c-4039-8971-09226115da29",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as CargoFall's IASA callback by polling the shared cargo-throw input selector, allowing a falling carrier to interrupt into a directional cargo throw without duplicating the selector logic.",
+        "rationale": "The complete callback consists exclusively of a guarded call to ftCo_8009BF3C. The resolved definition of that callee reads attack and stick input, selects a directional cargo-throw motion, and performs the transition when the selected motion differs from the current one.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:47:15.580Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L31-L34",
+            "why": "The complete body shows that CargoFall IASA delegates solely to ftCo_8009BF3C under RETURN_IF."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_CargoThrow.c#L54-L118",
+            "why": "The callee's definition shows that it is the attack-button and directional-stick cargo-throw selector and that it starts the selected throw state."
+          }
+        ]
+      },
+      {
+        "id": "fact:e00fef29-b2e7-4664-a00c-5eabed40c02b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On each CargoFall IASA update, tests for an attack-button cargo-throw command. A sufficiently horizontal stick selects forward or back according to facing direction, while vertical thresholds select up or down. If the resulting motion differs from the current motion, the selector starts the corresponding ground- or air-adjusted cargo-throw state, updates the victim's thrown state, returns true, and this callback exits immediately; otherwise it returns without any local state change.",
+        "rationale": "RETURN_IF establishes the wrapper's success guard. The selector computes the four directional candidates, compares the candidate against the current motion, applies an air-state offset when necessary, changes carrier and victim states, and reports whether it transitioned.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:47:15.580Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L31-L34",
+            "why": "The complete callback shows immediate return on a successful selector result and no behavior after the guarded call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_CargoThrow.c#L54-L118",
+            "why": "The callee source shows the attack-input guard, directional thresholds, facing-relative forward/back choice, transition guard, ground/air motion adjustment, and victim-state update."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Phys"
+    },
+    "facts": [
+      {
+        "id": "fact:3765abab-c609-42db-867e-029461c02aba",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the cargo carrier's Fighter_GObj from the action-state callback dispatcher and forwards that same pointer unchanged to ft_80084DB0; it performs no callback-local reads, writes, transformations, or return-value handling.",
+        "rationale": "The full body contains no locals or expressions other than ft_80084DB0(gobj), so all fighter-state effects occur in the shared callee through the unchanged object pointer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:45:59.957Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L36-L39",
+            "why": "The source shows the input pointer passed directly and unchanged to the callback's only callee."
+          }
+        ]
+      },
+      {
+        "id": "fact:2057fd52-a676-4ae9-9167-bea72de8409d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the per-frame airborne movement and falling-physics step while Donkey Kong is descending with an opponent in the cargo-carry held state.",
+        "rationale": "The callback belongs to the explicitly named CargoFall action and shares its sole physics routine with ordinary Fall. The surrounding module keeps a victim shouldered, while SmashWiki describes the cargo carry as Donkey Kong carrying an opponent on his back and retaining movement options.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T01:45:59.957Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L46",
+            "why": "The complete module identifies this callback as CargoFall physics and shows that the state retains a carried victim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L203-L206",
+            "why": "The ordinary Fall callback uses the same shared physics routine, grounding the falling-physics interpretation."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "The article describes Donkey Kong's carried-opponent held state and confirms that he can move and jump while retaining the opponent."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://falling-speed~__intro__@r2035455",
+            "why": "The article defines falling as downward movement in midair and falling speed as a per-frame airborne movement quantity."
+          }
+        ]
+      },
+      {
+        "id": "fact:fcba3132-10af-4833-8f03-9011681c8f4b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state physics callback with signature void (Fighter_GObj* gobj).",
+        "rationale": "The resolved declaration explicitly returns void and accepts exactly one Fighter_GObj pointer, while the recovered Phys suffix and placement among the action's callbacks establish its callback role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:45:59.957Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L36-L39",
+            "why": "The declaration directly establishes the return type and sole parameter type."
+          }
+        ]
+      },
+      {
+        "id": "fact:32ebf31b-410e-47dd-9baa-bf6b571e1f2f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the CargoFall action's physics callback and delegates its entire per-frame movement update to the shared airborne fighter-physics routine ft_80084DB0.",
+        "rationale": "The complete callback is one unconditional call to ft_80084DB0. The ordinary Fall physics callback has the identical body, supporting the interpretation that this is an action-specific entry point to shared airborne physics rather than cargo-specific calculations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:45:59.957Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L36-L39",
+            "why": "The complete function forwards the fighter object to ft_80084DB0 and performs no other operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L203-L206",
+            "why": "The ordinary Fall state's physics callback delegates to the same helper with the same one-call body, identifying the helper as shared falling physics."
+          }
+        ]
+      },
+      {
+        "id": "fact:49218a32-bb46-4e23-8be2-703881902544",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Phys",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Contains no local guard, branch, timer, or action-state transition; whenever dispatched for CargoFall, it unconditionally invokes the shared airborne physics update exactly once.",
+        "rationale": "The complete function consists of a single unconditional call, ruling out any callback-local state selection or transition behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:45:59.957Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L36-L39",
+            "why": "The full callback has one call and no conditional control flow, timer access, or direct transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c"
+    },
+    "facts": [
+      {
+        "id": "fact:5df5d9f7-0618-4eea-9883-80d0c5381159",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c",
+        "type": "data_flow",
+        "value": "Reads the carrier's motion-state base, ground/air state, and victim_gobj; selects motion base plus six, freezes animation, converts grounded entry to air, updates the victim, forwards throw input, and supplies CargoLanding as the collision callback.",
+        "rationale": "The refreshed CargoFall code directly preserves every stated read, state mutation, victim update, interruption path, and collision callback.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:13:07.214Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L44",
+            "why": "Shows motion selection, animation freezing, airborne conversion, victim synchronization, throw input, and CargoLanding callback registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L44",
+            "why": "Shows how the registered landing callback consumes the carrier's cargo attributes and victim link."
+          }
+        ]
+      },
+      {
+        "id": "fact:e3df0e04-a997-4799-a4eb-8e5a65e99420",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c",
+        "type": "game_mapping",
+        "value": "Realizes the airborne and landing portions of Donkey Kong's Kong Karry: the carrier can remain airborne with the opponent, choose a cargo throw, and incur cargo-specific landing delay.",
+        "rationale": "The code implements airborne carrying, cargo-throw interruption, and landing recovery, while the mechanics reference documents jumping and throwing while carrying an opponent.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-06T03:13:07.214Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L44",
+            "why": "Shows airborne carried-opponent synchronization, cargo-throw input, and landing routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L44",
+            "why": "Shows cargo-specific landing lag while the victim remains shouldered."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://donkey-kong-ssbm-forward-throw~overview@r1937552",
+            "why": "Documents Donkey Kong walking, jumping, and selecting unique cargo throws while carrying an opponent."
+          }
+        ]
+      },
+      {
+        "id": "fact:2d5f4aa1-e1f0-4f21-aec4-7dad9df17ac5",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c",
+        "type": "inferred_type",
+        "value": "A fighter-common action unit containing one void(Fighter_GObj*) entry routine and standard CargoFall Anim, IASA, Phys, and Coll callbacks.",
+        "rationale": "The current source directly establishes the entry-plus-four-callback action-state layout; the previous unevidenced assertion about section-pool ownership is omitted.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:13:07.214Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L44",
+            "why": "Shows one Fighter_GObj entry routine followed by CargoFall Anim, IASA, Phys, and Coll callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:3e75b8b0-ff30-4ee8-b13b-88f28c7e86a0",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c",
+        "type": "purpose",
+        "value": "Implements CargoFall for Donkey Kong's carried-opponent mode: it enters and maintains airborne carry, accepts cargo-throw input, applies aerial physics, synchronizes the victim, and routes landing into CargoLanding.",
+        "rationale": "The current CargoFall entry and callbacks preserve airborne carry, victim synchronization, cargo-throw interruption, aerial physics, and the CargoLanding handoff.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:13:07.214Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L44",
+            "why": "Shows CargoFall entry, shouldered-victim synchronization, cargo-throw IASA, aerial physics, and landing callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L44",
+            "why": "Shows the landing callback entering cargo landing recovery and retaining the victim."
+          }
+        ]
+      },
+      {
+        "id": "fact:dacb25c3-6503-493f-84d1-8a238ecba198",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c",
+        "type": "state_behavior",
+        "value": "CargoFall starts in motion base plus six with frozen animation and the victim in ShoulderedWait. IASA can enter a cargo throw, physics applies aerial movement, and landing enters motion base plus eight with a cargo-specific countdown before returning to cargo wait.",
+        "rationale": "CargoFall preserves the airborne state and landing handoff, while CargoLanding preserves the cargo-specific countdown and return to CargoWait.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:13:07.214Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoFall.c#L1-L44",
+            "why": "Shows frozen CargoFall entry, ShoulderedWait synchronization, throw interruption, aerial physics, and landing handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CargoLanding.c#L1-L44",
+            "why": "Shows cargo landing motion, countdown processing, and return to CargoWait."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_8009BC58#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Anim#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Coll#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_IASA#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_CargoFall:ftCo_CargoFall_Phys#r3"
+    },
+    "facts": []
+  }
+]

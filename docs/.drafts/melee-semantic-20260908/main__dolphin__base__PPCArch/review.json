@@ -1,0 +1,1493 @@
+{
+  "review_notes": [],
+  "unresolved": [
+    "Accepted deferral: rendered assembly has 133 parse errors and zero substitutions; unchanged rendered names are not independent validation. Existing names and 48 retained facts plus six retained links are inherited without overrides.",
+    "Accepted deferral: WPAR reset is limited to observed bit-0 polling; no broader hardware-status meaning or timeout guarantee is inferred."
+  ],
+  "summary": "Independently verified all canonical citations for four proposed replacements and all four upstream supersede claims. Functionality document agrees with proposal; no correction required. Acceptance concerns changes and examined contradictions, not a fresh audit of inherited retained rows.",
+  "contract": "lean-v2",
+  "use_checkpoint": true,
+  "verdict": "accepted",
+  "adopt_handoff_sha256": "f673b1979fa23d8dc9146fb402c322d83e09817a6176a737d1a8fc8dec4e37e4",
+  "proposal_sha256": "1e527d038392f81df09f3d9316591767b84f87cea9e7676b61f9f235b36c41b1",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "fact_overrides": [],
+  "link_overrides": [],
+  "rejected": [],
+  "independent_checks": {
+    "handoff_sha256": "f673b1979fa23d8dc9146fb402c322d83e09817a6176a737d1a8fc8dec4e37e4",
+    "document_proposal_reconciled": true,
+    "reviewed_contradiction_ids": [
+      "fact:c582fcb2-1f85-4419-b5b7-d4afcb4bb343",
+      "fact:df4eb082-61a0-447c-8ada-6bab302f527c",
+      "fact:58773a2c-75b6-42c1-88b9-d8f7fc879128",
+      "fact:295b7320-4adc-48e0-a4ef-4c2053827c2e"
+    ],
+    "proposed_facts": [
+      {
+        "index": 0,
+        "supported": true,
+        "reason": "Canonical PPCHalt performs one sync and the stated endless loop without modifying MSR. OSPanic explicitly disables interrupts before calling it. The replacement correctly separates local terminal control flow from caller-owned interrupt policy."
+      },
+      {
+        "index": 1,
+        "supported": true,
+        "reason": "PPCMthid2 directly writes its argument and returns. OS initialization supplies masks and subsequent synchronization; DMAErrorHandler explicitly writes its HID2 snapshot back to clear error bits after its exceptional halt branch. Exact-image persistence is therefore not a valid guarantee."
+      },
+      {
+        "index": 2,
+        "supported": true,
+        "reason": "The direct WPAR writer, GX initialization ordering, and additional reset caller are verified. Reset polls WPAR bit 0 before reinstalling the physical FIFO destination. Deferring broader hardware-status interpretation and timeout guarantees is appropriate."
+      },
+      {
+        "index": 3,
+        "supported": true,
+        "reason": "PPCSync executes sc followed by blr. The installed system-call vector performs the stated HID0 save, mask update, isync/sync, restoration and rfi. GXFlush and LCFlushQueue independently confirm both caller roles. The conditional installed-vector explanation does not imply GPU completion."
+      }
+    ],
+    "contradictions": [
+      {
+        "reason": "Resolved the overly broad no-interrupts claim: PPCHalt does not disable interrupts, whereas OSPanic does so explicitly.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40"
+          }
+        ]
+      },
+      {
+        "reason": "Resolved HID2 exact-image persistence wording: a direct write also serves error acknowledgement, explicitly documented by the handler's snapshot writeback.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L202-L206"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L613-L646"
+          }
+        ]
+      },
+      {
+        "reason": "Resolved the incomplete WPAR caller explanation: startup and reset both program the destination. Accepted the explicit limitation to observed bit-0 polling.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L36"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L53-L58"
+          }
+        ]
+      },
+      {
+        "reason": "Resolved the GX-only synchronization explanation: LCFlushQueue also invokes PPCSync, and the installed vector establishes its synchronization mechanism.",
+        "evidence": [
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L79-L83"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSync.c#L9-L30"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L545-L562"
+          },
+          {
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L39-L51"
+          }
+        ]
+      }
+    ]
+  },
+  "fact_dispositions": [
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110",
+          "why": "No MSR update or interrupt-disable call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40",
+          "why": "Caller explicitly disables interrupts."
+        }
+      ],
+      "fact_id": "fact:c582fcb2-1f85-4419-b5b7-d4afcb4bb343",
+      "reason": "The local loop is terminal but 'no interrupts' is too broad: PPCHalt does not disable them; OSPanic does so before calling.",
+      "updated_at": "2026-09-02T00:30:39.309Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L202-L206",
+          "why": "Writer applies supplied operand without transformation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L613-L646",
+          "why": "Error handler explicitly writes HID2 back to clear error bits."
+        }
+      ],
+      "fact_id": "fact:df4eb082-61a0-447c-8ada-6bab302f527c",
+      "reason": "Raw write does not guarantee that HID2 retains the latest supplied image: DMAErrorHandler writes its snapshot back to clear error status.",
+      "updated_at": "2026-09-02T00:31:41.504Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L36",
+          "why": "Startup call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L53-L58",
+          "why": "Reset polls WPAR bit 0 before reprogramming destination."
+        }
+      ],
+      "fact_id": "fact:58773a2c-75b6-42c1-88b9-d8f7fc879128",
+      "reason": "Startup purpose is supported, but sole-caller rationale misses GXResetWriteGatherPipe and useful reset sequencing.",
+      "updated_at": "2026-09-02T00:31:59.427Z"
+    },
+    {
+      "disposition": "supersede",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L79-L83",
+          "why": "sc followed by blr."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSync.c#L9-L30",
+          "why": "Installed handler saves HID0, sets 0x8, executes isync/sync, restores HID0 and rfi."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L545-L562",
+          "why": "Locked-cache queue flush invokes PPCSync."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L39-L51",
+          "why": "GXFlush use remains supported."
+        }
+      ],
+      "fact_id": "fact:295b7320-4adc-48e0-a4ef-4c2053827c2e",
+      "reason": "Trap-based synchronization is correct, but is not GXFlush-specific: LCFlushQueue also calls it. Installed vector supplies missing mechanism evidence.",
+      "updated_at": "2026-09-02T00:31:46.697Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110",
+          "why": "sync precedes the unconditional loop; no return."
+        }
+      ],
+      "fact_id": "fact:063ae752-0751-43f4-aa02-8247246a9912",
+      "reason": "The complete halt body confirms the void, parameterless, nonreturning spin and repeated r3 clobber.",
+      "updated_at": "2026-09-02T00:30:39.309Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110",
+          "why": "sync precedes the unconditional loop; no return."
+        }
+      ],
+      "fact_id": "fact:7d93085d-2640-4e2c-aa5d-9eb2616607a3",
+      "reason": "The complete halt body confirms the void, parameterless, nonreturning spin and repeated r3 clobber.",
+      "updated_at": "2026-09-02T00:30:39.309Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40",
+          "why": "Panic disables interrupts, reports, and halts."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L26-L36",
+          "why": "Exception diagnostics end in halt."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110",
+          "why": "Terminal spin implementation."
+        }
+      ],
+      "fact_id": "fact:8fe1de75-5a4e-4874-82c4-36e9210696ce",
+      "reason": "Fatal diagnostic callers terminate in PPCHalt, supporting the runtime rather than gameplay mapping.",
+      "updated_at": "2026-09-02T00:30:39.309Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40",
+          "why": "Panic disables interrupts, reports, and halts."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/db/db.c#L26-L36",
+          "why": "Exception diagnostics end in halt."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110",
+          "why": "Terminal spin implementation."
+        }
+      ],
+      "fact_id": "fact:1cffa5af-56a8-4ddf-a3bf-c89fd00470eb",
+      "reason": "Fatal diagnostic callers terminate in PPCHalt, supporting the runtime rather than gameplay mapping.",
+      "updated_at": "2026-09-02T00:30:39.309Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L37-L41",
+          "why": "No-frame HID0 read into r3."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L648-L666",
+          "why": "Independent cache-enable guards consume snapshots."
+        }
+      ],
+      "fact_id": "fact:b9a86db4-47da-4d37-bc92-398dc0c62c72",
+      "reason": "HID0 reader signature and read-only transfer agree with separate ICE/DCE tests and guarded L1 enablement in cache initialization.",
+      "updated_at": "2026-09-02T00:31:43.875Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L37-L41",
+          "why": "No-frame HID0 read into r3."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L648-L666",
+          "why": "Independent cache-enable guards consume snapshots."
+        }
+      ],
+      "fact_id": "fact:b50635f3-4426-46ec-95ea-4e8e4cf31e05",
+      "reason": "HID0 reader signature and read-only transfer agree with separate ICE/DCE tests and guarded L1 enablement in cache initialization.",
+      "updated_at": "2026-09-02T00:31:43.875Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L37-L41",
+          "why": "No-frame HID0 read into r3."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L648-L666",
+          "why": "Independent cache-enable guards consume snapshots."
+        }
+      ],
+      "fact_id": "fact:f7401857-81f2-4d31-b3c3-1013ef0d44d1",
+      "reason": "HID0 reader signature and read-only transfer agree with separate ICE/DCE tests and guarded L1 enablement in cache initialization.",
+      "updated_at": "2026-09-02T00:31:43.875Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L37-L41",
+          "why": "No-frame HID0 read into r3."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L648-L666",
+          "why": "Independent cache-enable guards consume snapshots."
+        }
+      ],
+      "fact_id": "fact:1a5fa4ff-c5a6-436b-857f-cdce953e7f14",
+      "reason": "HID0 reader signature and read-only transfer agree with separate ICE/DCE tests and guarded L1 enablement in cache initialization.",
+      "updated_at": "2026-09-02T00:31:43.875Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L37-L41",
+          "why": "No-frame HID0 read into r3."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L648-L666",
+          "why": "Independent cache-enable guards consume snapshots."
+        }
+      ],
+      "fact_id": "fact:96d6e695-a9b0-4930-a816-96ac4e3c3198",
+      "reason": "HID0 reader signature and read-only transfer agree with separate ICE/DCE tests and guarded L1 enablement in cache initialization.",
+      "updated_at": "2026-09-02T00:31:43.875Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L196-L200",
+          "why": "Direct u32 snapshot."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L188-L188",
+          "why": "Clears 0x40000000 in supplied image."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L487-L499",
+          "why": "ORs 0x80000000 and 0x20000000."
+        }
+      ],
+      "fact_id": "fact:fb453e31-9404-45e7-a3c9-8d4bf5ae8cc8",
+      "reason": "HID2 read accessor and documented OS mask examples remain correct; they do not claim to enumerate all uses.",
+      "updated_at": "2026-09-02T00:30:22.150Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L196-L200",
+          "why": "Direct u32 snapshot."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L188-L188",
+          "why": "Clears 0x40000000 in supplied image."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L487-L499",
+          "why": "ORs 0x80000000 and 0x20000000."
+        }
+      ],
+      "fact_id": "fact:b7de218a-3949-4ea7-8e3f-a6639d8fcc48",
+      "reason": "HID2 read accessor and documented OS mask examples remain correct; they do not claim to enumerate all uses.",
+      "updated_at": "2026-09-02T00:30:22.150Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L196-L200",
+          "why": "Direct u32 snapshot."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L188-L188",
+          "why": "Clears 0x40000000 in supplied image."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L487-L499",
+          "why": "ORs 0x80000000 and 0x20000000."
+        }
+      ],
+      "fact_id": "fact:b0991367-7702-4ca4-a844-20e21dfceb17",
+      "reason": "HID2 read accessor and documented OS mask examples remain correct; they do not claim to enumerate all uses.",
+      "updated_at": "2026-09-02T00:30:22.150Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:ed688929-1cd2-468e-80d5-05ef108df7e9",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:29.752Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:dfab1fa5-fb9b-4de2-9b87-6142af6dfd15",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:29.752Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:57b60273-3b3f-44a4-aa1b-eae1b725bdff",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:29.752Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:0f7d485b-e19f-4340-9ab7-e1011497cab2",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:29.752Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:11d1b335-2334-49a8-8db4-f82736b9440e",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:29.752Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:2e35af88-0201-4bfb-bcee-becbec4a1a98",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:43.347Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:40a7a2e2-21b4-4ad3-9a62-3a1a5a92abfb",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:43.347Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:f7f0ef09-0c35-41ae-9e34-fd4b61913e3e",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:43.347Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:d6c901fe-fc5c-46fa-8657-f0a767ca9c3f",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:43.347Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L55-L65",
+          "why": "Direct read/write signatures and instructions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Enable, disable, invalidation and mode sequencing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L658-L666",
+          "why": "Startup L2 enable test."
+        }
+      ],
+      "fact_id": "fact:bc985f83-aaf4-4219-b7c7-fe8c829558cc",
+      "reason": "Paired raw L2CR accessors fit cache-control use. Caller owns masks, barriers, invalidation polling and startup guards; the second busy loop reports an exceptional condition rather than returning an error.",
+      "updated_at": "2026-09-02T00:31:43.347Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L4-L8",
+          "why": "mfmsr r3; blr with nofralloc."
+        }
+      ],
+      "fact_id": "fact:acb3c5c7-b12e-4fbc-9b27-cf183fd36abd",
+      "reason": "No explicit arguments or memory accesses; current MSR is the implicit input and r3 the return. Canonical definition independently supports the type without relying on archived discussion.",
+      "updated_at": "2026-09-01T23:04:38.344Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L4-L8",
+          "why": "mfmsr r3; blr with nofralloc."
+        }
+      ],
+      "fact_id": "fact:773597bd-c5ea-49f4-9d09-4d79938dbbfd",
+      "reason": "No explicit arguments or memory accesses; current MSR is the implicit input and r3 the return. Canonical definition independently supports the type without relying on archived discussion.",
+      "updated_at": "2026-09-01T23:04:38.344Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L4-L8",
+          "why": "mfmsr r3; blr with nofralloc."
+        }
+      ],
+      "fact_id": "fact:47330494-c467-4a9b-ab31-4705fe0f3348",
+      "reason": "No explicit arguments or memory accesses; current MSR is the implicit input and r3 the return. Canonical definition independently supports the type without relying on archived discussion.",
+      "updated_at": "2026-09-01T23:04:38.344Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L67-L71",
+          "why": "Unmodified u32 write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L48-L127",
+          "why": "Negative delta maps to zero, below 0x80000000 to delta, otherwise 0x7fffffff; new head arms timer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L171-L250",
+          "why": "Cancellation, early exception, periodic reinsertion and handler dispatch."
+        }
+      ],
+      "fact_id": "fact:68030e1f-a3bd-48c0-8fc1-37c4d7be38b6",
+      "reason": "Raw decrementer write and alarm scheduling explanations preserve all three deadline ranges and caller-owned queue/timer lifetime.",
+      "updated_at": "2026-09-02T00:31:45.368Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L67-L71",
+          "why": "Unmodified u32 write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L48-L127",
+          "why": "Negative delta maps to zero, below 0x80000000 to delta, otherwise 0x7fffffff; new head arms timer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L171-L250",
+          "why": "Cancellation, early exception, periodic reinsertion and handler dispatch."
+        }
+      ],
+      "fact_id": "fact:44a8da1f-688b-4283-8146-81e360904991",
+      "reason": "Raw decrementer write and alarm scheduling explanations preserve all three deadline ranges and caller-owned queue/timer lifetime.",
+      "updated_at": "2026-09-02T00:31:45.368Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L67-L71",
+          "why": "Unmodified u32 write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L48-L127",
+          "why": "Negative delta maps to zero, below 0x80000000 to delta, otherwise 0x7fffffff; new head arms timer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L171-L250",
+          "why": "Cancellation, early exception, periodic reinsertion and handler dispatch."
+        }
+      ],
+      "fact_id": "fact:2a9f5ed4-2546-41de-8ef4-9df832ceaae3",
+      "reason": "Raw decrementer write and alarm scheduling explanations preserve all three deadline ranges and caller-owned queue/timer lifetime.",
+      "updated_at": "2026-09-02T00:31:45.368Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L67-L71",
+          "why": "Unmodified u32 write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L48-L127",
+          "why": "Negative delta maps to zero, below 0x80000000 to delta, otherwise 0x7fffffff; new head arms timer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L171-L250",
+          "why": "Cancellation, early exception, periodic reinsertion and handler dispatch."
+        }
+      ],
+      "fact_id": "fact:9d2df9e9-db7c-45fc-b8cb-8c31ed45a12a",
+      "reason": "Raw decrementer write and alarm scheduling explanations preserve all three deadline ranges and caller-owned queue/timer lifetime.",
+      "updated_at": "2026-09-02T00:31:45.368Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L67-L71",
+          "why": "Unmodified u32 write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L48-L127",
+          "why": "Negative delta maps to zero, below 0x80000000 to delta, otherwise 0x7fffffff; new head arms timer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L171-L250",
+          "why": "Cancellation, early exception, periodic reinsertion and handler dispatch."
+        }
+      ],
+      "fact_id": "fact:1bf09584-4676-47da-9d9c-39c5fcbe0cad",
+      "reason": "Raw decrementer write and alarm scheduling explanations preserve all three deadline ranges and caller-owned queue/timer lifetime.",
+      "updated_at": "2026-09-02T00:31:45.368Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L202-L206",
+          "why": "Direct argument-to-HID2 write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L487-L499",
+          "why": "Composed initialization value and follow-up ordering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L188-L188",
+          "why": "OS clears control bit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L44",
+          "why": "Graphics initialization also uses writer."
+        }
+      ],
+      "fact_id": "fact:c2516b6e-5c81-45c8-ba23-24d5364f4ef6",
+      "reason": "The raw HID2 write, ABI and initialization role remain supported. Preservation refers to caller-supplied control bits, not a guarantee that hardware error bits retain the written image.",
+      "updated_at": "2026-09-02T00:31:41.504Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L202-L206",
+          "why": "Direct argument-to-HID2 write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L487-L499",
+          "why": "Composed initialization value and follow-up ordering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L188-L188",
+          "why": "OS clears control bit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L44",
+          "why": "Graphics initialization also uses writer."
+        }
+      ],
+      "fact_id": "fact:8fe63117-8d2d-4b57-8dbf-e6fa0c59c8e2",
+      "reason": "The raw HID2 write, ABI and initialization role remain supported. Preservation refers to caller-supplied control bits, not a guarantee that hardware error bits retain the written image.",
+      "updated_at": "2026-09-02T00:31:41.504Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L202-L206",
+          "why": "Direct argument-to-HID2 write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L487-L499",
+          "why": "Composed initialization value and follow-up ordering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OS.c#L188-L188",
+          "why": "OS clears control bit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L44",
+          "why": "Graphics initialization also uses writer."
+        }
+      ],
+      "fact_id": "fact:efb6f6c4-7431-486d-ba7c-87b377b5e56b",
+      "reason": "The raw HID2 write, ABI and initialization role remain supported. Preservation refers to caller-supplied control bits, not a guarantee that hardware error bits retain the written image.",
+      "updated_at": "2026-09-02T00:31:41.504Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L10-L14",
+          "why": "Raw mtmsr with no explicit barrier or preservation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L573",
+          "why": "Save, temporary MSR, L2 operations, restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "OR 0x900 then FPU save/mask/load without local MSR restoration."
+        }
+      ],
+      "fact_id": "fact:31d2a153-bf5c-4193-b5b6-9abb9b65ee88",
+      "reason": "MSR write primitive and caller-owned lifetime are accurate: L2Init restores its saved MSR, whereas FPU cleanup has no corresponding local restore.",
+      "updated_at": "2026-09-02T00:31:52.768Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L10-L14",
+          "why": "Raw mtmsr with no explicit barrier or preservation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L573",
+          "why": "Save, temporary MSR, L2 operations, restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "OR 0x900 then FPU save/mask/load without local MSR restoration."
+        }
+      ],
+      "fact_id": "fact:cce1832d-0ed3-4b66-a226-219a72a9557c",
+      "reason": "MSR write primitive and caller-owned lifetime are accurate: L2Init restores its saved MSR, whereas FPU cleanup has no corresponding local restore.",
+      "updated_at": "2026-09-02T00:31:52.768Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L10-L14",
+          "why": "Raw mtmsr with no explicit barrier or preservation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L573",
+          "why": "Save, temporary MSR, L2 operations, restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "OR 0x900 then FPU save/mask/load without local MSR restoration."
+        }
+      ],
+      "fact_id": "fact:773d811c-ad89-4e8e-a388-3da90f13ecdc",
+      "reason": "MSR write primitive and caller-owned lifetime are accurate: L2Init restores its saved MSR, whereas FPU cleanup has no corresponding local restore.",
+      "updated_at": "2026-09-02T00:31:52.768Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L10-L14",
+          "why": "Raw mtmsr with no explicit barrier or preservation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L573",
+          "why": "Save, temporary MSR, L2 operations, restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "OR 0x900 then FPU save/mask/load without local MSR restoration."
+        }
+      ],
+      "fact_id": "fact:b80a57fb-d60d-4116-8565-362ad247f177",
+      "reason": "MSR write primitive and caller-owned lifetime are accurate: L2Init restores its saved MSR, whereas FPU cleanup has no corresponding local restore.",
+      "updated_at": "2026-09-02T00:31:52.768Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L10-L14",
+          "why": "Raw mtmsr with no explicit barrier or preservation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L573",
+          "why": "Save, temporary MSR, L2 operations, restore."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dberror.c#L16-L25",
+          "why": "OR 0x900 then FPU save/mask/load without local MSR restoration."
+        }
+      ],
+      "fact_id": "fact:a275a93a-da2e-4e6a-88a3-e663afc63d2c",
+      "reason": "MSR write primitive and caller-owned lifetime are accurate: L2Init restores its saved MSR, whereas FPU cleanup has no corresponding local restore.",
+      "updated_at": "2026-09-02T00:31:52.768Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L215-L219",
+          "why": "Frame-free WPAR write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L36",
+          "why": "Physical FIFO address precedes HID2 enable."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L97",
+          "why": "FIFO binding precedes write-gather setup."
+        }
+      ],
+      "fact_id": "fact:1da56362-22bb-4094-9dea-954627c9e8e6",
+      "reason": "WPAR ABI, unchanged argument flow and GX startup sequencing remain valid; these facts do not exclude reset usage.",
+      "updated_at": "2026-09-02T00:31:59.427Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L215-L219",
+          "why": "Frame-free WPAR write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L36",
+          "why": "Physical FIFO address precedes HID2 enable."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L97",
+          "why": "FIFO binding precedes write-gather setup."
+        }
+      ],
+      "fact_id": "fact:078e0441-f237-4979-af1d-404a54f42b41",
+      "reason": "WPAR ABI, unchanged argument flow and GX startup sequencing remain valid; these facts do not exclude reset usage.",
+      "updated_at": "2026-09-02T00:31:59.427Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L215-L219",
+          "why": "Frame-free WPAR write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L36",
+          "why": "Physical FIFO address precedes HID2 enable."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L97",
+          "why": "FIFO binding precedes write-gather setup."
+        }
+      ],
+      "fact_id": "fact:2e0c20e2-8265-4a59-9867-db953c4c2f33",
+      "reason": "WPAR ABI, unchanged argument flow and GX startup sequencing remain valid; these facts do not exclude reset usage.",
+      "updated_at": "2026-09-02T00:31:59.427Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L215-L219",
+          "why": "Frame-free WPAR write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L36",
+          "why": "Physical FIFO address precedes HID2 enable."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L97",
+          "why": "FIFO binding precedes write-gather setup."
+        }
+      ],
+      "fact_id": "fact:38de1a96-198f-4dab-8be9-a5292bc8762c",
+      "reason": "WPAR ABI, unchanged argument flow and GX startup sequencing remain valid; these facts do not exclude reset usage.",
+      "updated_at": "2026-09-02T00:31:59.427Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L79-L83",
+          "why": "Actual body is sc, not sync."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSync.c#L9-L30",
+          "why": "Installed system-call vector synchronizes and returns through rfi."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L39-L51",
+          "why": "Dirty state and padding precede PPCSync."
+        }
+      ],
+      "fact_id": "fact:4334f529-0b0e-4b03-b8ae-f863bdedf83c",
+      "reason": "PPCSync has no C arguments/result and executes sc then blr; normal resumption is supported by the installed vector's rfi. GXFlush emits eight words before the call.",
+      "updated_at": "2026-09-02T00:31:46.697Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L79-L83",
+          "why": "Actual body is sc, not sync."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSSync.c#L9-L30",
+          "why": "Installed system-call vector synchronizes and returns through rfi."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXMisc.c#L39-L51",
+          "why": "Dirty state and padding precede PPCSync."
+        }
+      ],
+      "fact_id": "fact:302c859d-0694-448d-81af-582da563e112",
+      "reason": "PPCSync has no C arguments/result and executes sc then blr; normal resumption is supported by the installed vector's rfi. GXFlush emits eight words before the call.",
+      "updated_at": "2026-09-02T00:31:46.697Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L1-L110",
+          "why": "MSR helpers, cache/decrementer access, sc hook, save/restore ordering and halt."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L112-L250",
+          "why": "Performance, HID2, WPAR, DMA and PVR accessors complete the unit."
+        }
+      ],
+      "fact_id": "fact:dc2b1c7b-db37-4a2d-aa5a-30f84909e59e",
+      "reason": "Unit-level architecture boundary, ABI patterns and exceptional ordering/halt sequences accurately summarize the complete source. MSR bitwise helpers transform returned snapshots, not live MSR; WPAR is not literally the final source helper despite the old evidence annotation.",
+      "updated_at": "2026-09-02T00:31:59.427Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L1-L110",
+          "why": "MSR helpers, cache/decrementer access, sc hook, save/restore ordering and halt."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L112-L250",
+          "why": "Performance, HID2, WPAR, DMA and PVR accessors complete the unit."
+        }
+      ],
+      "fact_id": "fact:13c20c25-3e51-48a5-8253-e917910a2e14",
+      "reason": "Unit-level architecture boundary, ABI patterns and exceptional ordering/halt sequences accurately summarize the complete source. MSR bitwise helpers transform returned snapshots, not live MSR; WPAR is not literally the final source helper despite the old evidence annotation.",
+      "updated_at": "2026-09-02T00:31:59.427Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L1-L110",
+          "why": "MSR helpers, cache/decrementer access, sc hook, save/restore ordering and halt."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L112-L250",
+          "why": "Performance, HID2, WPAR, DMA and PVR accessors complete the unit."
+        }
+      ],
+      "fact_id": "fact:fc0320de-6bc2-4131-9d36-41dc19afed46",
+      "reason": "Unit-level architecture boundary, ABI patterns and exceptional ordering/halt sequences accurately summarize the complete source. MSR bitwise helpers transform returned snapshots, not live MSR; WPAR is not literally the final source helper despite the old evidence annotation.",
+      "updated_at": "2026-09-02T00:31:59.427Z"
+    },
+    {
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L1-L110",
+          "why": "MSR helpers, cache/decrementer access, sc hook, save/restore ordering and halt."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L112-L250",
+          "why": "Performance, HID2, WPAR, DMA and PVR accessors complete the unit."
+        }
+      ],
+      "fact_id": "fact:5e2964ed-57c6-4297-9391-e6eb8dd68ba5",
+      "reason": "Unit-level architecture boundary, ABI patterns and exceptional ordering/halt sequences accurately summarize the complete source. MSR bitwise helpers transform returned snapshots, not live MSR; WPAR is not literally the final source helper despite the old evidence annotation.",
+      "updated_at": "2026-09-02T00:31:52.768Z"
+    }
+  ],
+  "link_dispositions": [
+    {
+      "baseline_record": {
+        "id": "link:59db42dc-9d3d-4c67-8f09-b90525eeb637",
+        "from_target_id": "target:function:main/dolphin/base/PPCArch:PPCHalt",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:terminal-execution-halt",
+        "role": "implements",
+        "why": "PPCHalt synchronizes prior operations and then traps execution in an unconditional infinite loop, providing the terminal sink used by fatal runtime paths.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110",
+        "digest": "sha256:c777888151e2644d"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/base/PPCArch.c#L102-L110",
+          "why": "No exit from halt loop."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSError.c#L20-L40",
+          "why": "Fatal runtime caller."
+        }
+      ],
+      "link_id": "link:59db42dc-9d3d-4c67-8f09-b90525eeb637",
+      "reason": "Terminal execution sink is directly implemented by the unconditional spin and used after fatal diagnostics."
+    },
+    {
+      "baseline_record": {
+        "id": "link:3a8a3d06-f157-4faf-97b0-0c8d76f5308d",
+        "from_target_id": "target:function:main/dolphin/base/PPCArch:PPCMfl2cr",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-l2-cache-control",
+        "role": "implements",
+        "why": "The accessor exposes live L2CR state used by the runtime to initialize, enable, invalidate, and configure the processor's L2 cache.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSCache.c#L530-L649",
+        "digest": "sha256:db44e669f9b45959"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Initialization, enable/disable, invalidate and mode operations use the pair."
+        }
+      ],
+      "link_id": "link:3a8a3d06-f157-4faf-97b0-0c8d76f5308d",
+      "reason": "L2CR read/write boundary implements the runtime's cache-control mechanism."
+    },
+    {
+      "baseline_record": {
+        "id": "link:4b9009f5-7d23-45ba-b5ac-4e71a4469df8",
+        "from_target_id": "target:function:main/dolphin/base/PPCArch:PPCMtl2cr",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:processor-l2-cache-control",
+        "role": "implements",
+        "why": "PPCMtl2cr is the direct L2CR write primitive used by the OS cache layer for L2 enablement, disablement, invalidation, and mode configuration.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSCache.c#L530-L649",
+        "digest": "sha256:db44e669f9b45959"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L564-L611",
+          "why": "Initialization, enable/disable, invalidate and mode operations use the pair."
+        }
+      ],
+      "link_id": "link:4b9009f5-7d23-45ba-b5ac-4e71a4469df8",
+      "reason": "L2CR read/write boundary implements the runtime's cache-control mechanism."
+    },
+    {
+      "baseline_record": {
+        "id": "link:b680ab36-e9d0-4a10-8553-fe0ebb6d1698",
+        "from_target_id": "target:function:main/dolphin/base/PPCArch:PPCMtdec",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:dolphin-os-alarm-scheduling",
+        "role": "implements",
+        "why": "OSAlarm programs the decrementer through PPCMtdec from the earliest alarm deadline and handles the resulting decrementer exception to dispatch and reschedule alarms.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/os/OSAlarm.c#L166-L249",
+        "digest": "sha256:dcaddd7c8dd050be"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L48-L59",
+          "why": "Deadline to PPCMtdec mapping."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlarm.c#L202-L250",
+          "why": "Exception dispatch and periodic/next-head rearming."
+        }
+      ],
+      "link_id": "link:b680ab36-e9d0-4a10-8553-fe0ebb6d1698",
+      "reason": "Alarm deadlines drive the decrementer and exception dispatch re-arms queued alarms."
+    },
+    {
+      "baseline_record": {
+        "id": "link:174176c9-2ff6-4eb5-843a-beda714b1ba4",
+        "from_target_id": "target:function:main/dolphin/base/PPCArch:PPCMtwpar",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-command-fifo",
+        "role": "implements",
+        "why": "GX startup uses PPCMtwpar to direct the processor's write-gather path to the physical GX FIFO address, providing the CPU-side command-delivery destination.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L1-L73",
+        "digest": "sha256:c687beab500ba5c8"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L36",
+          "why": "WPAR programming and HID2 enable."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L97",
+          "why": "Position in initialization sequence."
+        }
+      ],
+      "link_id": "link:174176c9-2ff6-4eb5-843a-beda714b1ba4",
+      "reason": "GX startup programs physical FIFO destination through WPAR after binding FIFO objects."
+    },
+    {
+      "baseline_record": {
+        "id": "link:e9603498-3e04-4388-80b1-fdc57ba35bdc",
+        "from_target_id": "target:function:main/dolphin/base/PPCArch:PPCMtwpar",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:gx-subsystem-initialization",
+        "role": "implements",
+        "why": "GXInit invokes the write-gather setup containing PPCMtwpar after constructing and binding its FIFO, making WPAR programming a concrete step in graphics-subsystem initialization.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L120",
+        "digest": "sha256:833357efaf8c70a7"
+      },
+      "disposition": "retain",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L29-L36",
+          "why": "WPAR programming and HID2 enable."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L97",
+          "why": "Position in initialization sequence."
+        }
+      ],
+      "link_id": "link:e9603498-3e04-4388-80b1-fdc57ba35bdc",
+      "reason": "GX startup programs physical FIFO destination through WPAR after binding FIFO objects."
+    }
+  ],
+  "coverage": {
+    "fact_count": 52,
+    "files": [
+      {
+        "canonical_complete": true,
+        "path": "extern/dolphin/src/dolphin/base/PPCArch.c",
+        "rendered_complete": true,
+        "renderer_issues": [
+          "Renderer reports 133 parse errors and zero substitutions.",
+          "Most assembly function identities are marked parse_uncertain.",
+          "Rendered coverage is function names only; parameters and other source tokens are not renamed."
+        ],
+        "total_lines": 250
+      }
+    ],
+    "link_count": 6,
+    "subjects": [
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCHalt"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCMfhid0"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCMfhid2"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCMfl2cr"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCMfmsr"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCMtdec"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCMthid2"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCMtl2cr"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCMtmsr"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCMtwpar"
+      },
+      {
+        "target_stable_key": "main/dolphin/base/PPCArch:PPCSync"
+      },
+      {
+        "entity_locator": "extern/dolphin/src/dolphin/base/PPCArch.c"
+      },
+      {
+        "entity_locator": "main/dolphin/base/PPCArch:PPCMtdec#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/base/PPCArch:PPCMthid2#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/base/PPCArch:PPCMtl2cr#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/base/PPCArch:PPCMtmsr#r3"
+      },
+      {
+        "entity_locator": "main/dolphin/base/PPCArch:PPCMtwpar#r3"
+      }
+    ]
+  },
+  "review_scope": "proposed_changes_and_explicit_contradictions",
+  "coverage_basis": {
+    "kind": "inherited_full_librarian_or_legacy_research",
+    "upstream_job_id": "lead-main__dolphin__base__PPCArch-1",
+    "handoff_sha256": "f673b1979fa23d8dc9146fb402c322d83e09817a6176a737d1a8fc8dec4e37e4"
+  },
+  "reviewer": "/root/review_gate/kernel/reviewer-main__dolphin__base__PPCArch-1",
+  "tu": "main/dolphin/base/PPCArch",
+  "status": "accepted_for_staged_apply",
+  "kernel_job": {
+    "id": "reviewer-main__dolphin__base__PPCArch-1",
+    "role": "reviewer",
+    "task_id": "main__dolphin__base__PPCArch",
+    "output_dir": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__base__PPCArch-1",
+    "attempt": 1,
+    "prior_result": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/lead-main__dolphin__base__PPCArch-1/packet.json",
+    "input_proposal_sha256": "1e527d038392f81df09f3d9316591767b84f87cea9e7676b61f9f235b36c41b1",
+    "packet_contract": "lean-v2",
+    "handoff_path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__base__PPCArch-1/inputs/handoff.json",
+    "input_handoff_sha256": "f673b1979fa23d8dc9146fb402c322d83e09817a6176a737d1a8fc8dec4e37e4",
+    "input_artifacts": {
+      "proposal.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__base__PPCArch-1/inputs/proposal.json",
+        "sha256": "1e527d038392f81df09f3d9316591767b84f87cea9e7676b61f9f235b36c41b1"
+      },
+      "functionality.md": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__base__PPCArch-1/inputs/functionality.md",
+        "sha256": "9cebff56bad11199e925e9dd62b03bce277cdd3f261172d15816ee379f3f8d32"
+      },
+      "fact-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__base__PPCArch-1/inputs/fact-dispositions.json",
+        "sha256": "fc0a25213df26ec17501cbf096f785052e6a28401ac5a9c663d5b08b04a9a1b7"
+      },
+      "link-dispositions.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__base__PPCArch-1/inputs/link-dispositions.json",
+        "sha256": "e7aa4d2e18218c177fe842186175329257cf6cc5a4198c8e1310792eddb51e0a"
+      },
+      "coverage.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__base__PPCArch-1/inputs/coverage.json",
+        "sha256": "496acd7d3f6aa0fda8b0e4aff4db0df62686a326ca3ff6b35b583d2141c598d0"
+      },
+      "unresolved.json": {
+        "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/kernel-pool/jobs/reviewer-main__dolphin__base__PPCArch-1/inputs/unresolved.json",
+        "sha256": "2387bfcfcaeac07b1e54157db44c9150475dfce4114b15d60aede43bd19f0c33"
+      }
+    }
+  },
+  "completed_at": "2026-09-08T22:30:51.646228+00:00"
+}

@@ -1,0 +1,143 @@
+{
+  "tu": "main/sysdolphin/baselib/texp",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpCnst"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Traverses the caller's mixed expression list, selecting HSD_TE_CNST nodes with the same external value address and component selector. A hit asserts matching ctype and returns that node. On a miss, exactly HSD_TE_0 (numeric 7, not numeric zero) returns NULL; every other selector reaches allocation. A new constant is prepended with the external val pointer, comp and ctype stored, ref zero, and reg/idx 0xFF. Later register assignment consumes constant inputs and records their hardware placement.",
+        "rationale": "Corrects the misleading nonzero-selector description and constant-only traversal implication while retaining supported construction and downstream flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L202-L238",
+            "why": "Search, exact guard and initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L16-L35",
+            "why": "Numeric selector encodings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L820-L917",
+            "why": "Downstream constant assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpCompile"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Compiles an HSD texture-expression graph into a linked program of numbered TEV-stage descriptors and returns the emitted stage count. It forcibly removes all TEV nodes from the caller's owning expression list, then removes only unreferenced constants; referenced constant nodes and their external value pointers survive for subsequent register uploads.",
+        "rationale": "Distinguishes consumed graph nodes from the surviving runtime constant list.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1181-L1225",
+            "why": "Emission and distinct cleanup modes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L150-L179",
+            "why": "Referenced constants survive selective cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L337-L387",
+            "why": "Material retains the pruned list and passes it to setup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpFreeList"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "With all nonzero, every matching TEV or constant node is freed regardless of references. With all zero, matching TEV nodes are removed only when both result counts are zero, and constants only when cnst.ref is zero. Before selective removal, TEV-inclusive requests test c_ref == 0 twice literally, then call HSD_TExpUnref(ptr, 1) followed by HSD_TExpUnref(ptr, 5). Selector 1 chooses color and selector 5 chooses alpha. Thus the prepass can decrement a remaining alpha reference even though it tested only c_ref. Each Unref call recursively releases all eight dependencies whenever both counts are zero, including an already-zero node; repeated dependency release is not prevented.",
+        "rationale": "Corrects the false both-nonzero-means-color statement and preserves the consequential prepass and reentry behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L74-L179",
+            "why": "Exact selector comparison, recursive guard, prepass and removal rules."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpSetReg"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For each constant with reg < 8, marks the slot and fills selected channels of an uninitialized local GXColor reg[8]. RGB U8 copies a GXColor but replaces its alpha with the local slot's existing alpha; other RGB paths write only RGB. RGB U32 clamps unsigned components at 255, whereas scalar U32 first assigns to signed int x and then applies signed saturation, so out-of-range unsigned-to-signed conversion must not be described as equivalent unsigned saturation. F32 and fallback F64 paths multiply by 255, convert to int, then clamp; this does not establish behavior for non-finite or out-of-int-range inputs. Scalars fill indexed RGBA channels for slots 0\u20133, alpha for later slots with idx 3, or replicated RGB otherwise. Unwritten channels are not initialized or read back from hardware. Marked slots 0\u20133 upload through GXSetTevKColor and 4\u20136 through GXSetTevColor; slot 7 can be marked but has no upload iteration.",
+        "rationale": "Preserves channel routing and uploads while correcting numeric and initialization overgeneralizations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1037-L1166",
+            "why": "Complete conversion, local storage and upload control flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:HSD_TExpUnref"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Constants decrement their shared u8 reference count only when nonzero. TEV nodes select signed s32 c_ref only for sel == 1 and a_ref otherwise, decrementing the selected count only when nonzero. These guards avoid decrementing zero but do not validate arbitrary negative or corrupted counts. Afterward, whenever both TEV counts are zero, all four color and four alpha dependencies are recursively released, even if both counts were already zero on entry. No released marker or child-pointer clearing prevents repeated recursion. Other expression kinds return unchanged, and node storage is not freed here.",
+        "rationale": "Corrects counter signedness and distinguishes a zero-state test from a one-time transition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L74-L104",
+            "why": "Decrement guards and unconditional zero-state recursion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.h#L123-L166",
+            "why": "Constant and TEV counter types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/texp:TExp2TevDesc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Color uses a default combiner when c_op is undefined, or when c_ref is zero and a_op is not one of numeric values 8\u201313. Those alpha operations therefore retain a defined color computation despite zero color references. Alpha defaults when a_op is undefined or a_ref is zero. Each default half emits unclamped, zero-bias, unit-scale ADD with zero A/B/C, output register value 0, and D set to zero for its first required previous-register initialization or CPREV/APREV afterward. Active halves replace undefined inputs with zero, require a defined destination index, map that index through dst, and clear the corresponding initialization flag when the mapped output equals 0. Destination assertions do not establish full index bounds. The helper initially sets next to NULL and flags to 1, retains the texture pointer, normalizes routing selectors, and sets GX_TC_LINEAR mode; it does not assign the stage number.",
+        "rationale": "Adds the omitted cross-half dependency and states literal descriptor initialization without an unsupported generic active-state interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L919-L1031",
+            "why": "Exact guards, defaults, destination mapping and descriptor fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/texp.c#L1213-L1219",
+            "why": "Caller assigns the stage number before lowering."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "tu": "main/dolphin/dvd/dvd",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvd.c#L1765-L1779",
+            "why": "Shows unconditional queue clearing and conditional ordinary-callback suppression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSReboot.c#L43-L120",
+            "why": "Shows the Prepared callback and its use before apploader reads."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing unconditional callback-suppression claim: suppression occurs only in the branch where Canceling is false.",
+        "subject": {
+          "target_stable_key": "main/dolphin/dvd/dvd:__DVDPrepareResetAsync"
+        },
+        "type": "purpose",
+        "value": "Prepares DVD activity for the reboot sequence under interrupt exclusion. It always clears the waiting queue. If cancellation is already pending, it replaces only the pending cancellation-completion callback. Otherwise it suppresses the executing block's ordinary callback, if a block exists, and invokes cancel-all with the supplied completion callback. The reboot caller uses that callback to release its wait before issuing apploader reads."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvd.c#L1547-L1555",
+            "why": "Queued cancellation invokes the ordinary command callback separately."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvd.c#L1657-L1679",
+            "why": "Cancel-all supplies NULL only for queued cancellation-request callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvd.c#L1765-L1779",
+            "why": "Preparation clears the queue and selects callback routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSReboot.c#L43-L78",
+            "why": "Prepared is written by the callback and consumed by the reader."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the command callback from the cancellation-request callback and avoids conflating preparation's initial queue clearing with generic cancel-all's queue-draining behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/dvd/dvd:__DVDPrepareResetAsync"
+        },
+        "type": "data_flow",
+        "value": "Routes the supplied completion callback into CancelCallback when cancellation is already pending; otherwise it clears the executing block's ordinary callback and forwards the supplied callback to DVDCancelAllAsync. Preparation clears the waiting queue before either branch. Generic cancel-all passes NULL as the cancellation callback for queued blocks, which does not itself suppress those blocks' ordinary command callbacks. In the reboot caller, the supplied callback sets Prepared, allowing the subsequent apploader read to begin."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvd.c#L187-L190",
+            "why": "Complete ordinary void-returning wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvdlow.c#L352-L359",
+            "why": "The low-level issuer returns after registering its callback and starting the request."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces misleading 'no-return' terminology while preserving the exact source declaration form.",
+        "subject": {
+          "target_stable_key": "main/dolphin/dvd/dvd:stateGettingError"
+        },
+        "type": "inferred_type",
+        "value": "File-local void-returning state routine defined as `static void stateGettingError()` with an empty old-style parameter list. It consumes no explicit argument values, submits DVDLowRequestError with cbForStateGettingError, and returns after submission; it is not a non-returning function."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvd.c#L111-L144",
+            "why": "FST request and completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/dvd.c#L399-L474",
+            "why": "Accepted replacement-disc path supplies metadata and enters this state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dvd/fstload.c#L19-L59",
+            "why": "Separate boot loader uses public disc-ID and BS-read APIs."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the boot-time characterization by distinguishing this internal replacement-disc state from the separate boot filesystem loader.",
+        "subject": {
+          "target_stable_key": "main/dolphin/dvd/dvd:stateReadingFST"
+        },
+        "type": "purpose",
+        "value": "Starts the asynchronous FST read used after a replacement disc's metadata has been read during change-disc recovery. It saves itself in LastState for recovery resumption, asserts destination alignment, and reads into bootInfo->FSTLocation using the offset and rounded length held in tmpBuffer. Completion is handled by cbForStateReadingFST. Boot-time __fstLoad uses a separate sequence of public BS-read requests."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

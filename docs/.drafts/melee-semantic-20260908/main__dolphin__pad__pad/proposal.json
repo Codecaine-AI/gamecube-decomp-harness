@@ -1,0 +1,190 @@
+{
+  "tu": "main/dolphin/pad/pad",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/pad/pad:.data"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "PADInit registers ResetFunctionInfo once during normal initialization. Its callback and priority are initialized to OnReset and 127, but the record is not wholly immutable: OSRegisterResetFunction inserts it into an intrusive queue and updates next/prev links. The timing tables are lookup-only in this unit: NTSC and MPAL use XYNTSC, PAL uses XYPAL, intervals above 11 encounter an assertion and an independent cap, and unsupported TV formats invoke OSPanic.",
+        "rationale": "Corrects the claim that all reset-registration data remains fixed while preserving the supported timing-table behavior and cross-file record lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L79-L84",
+            "why": "Reset record initializer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L514-L547",
+            "why": "One-time registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSReset.c#L8-L68",
+            "why": "Registration mutates intrusive queue links."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L623-L676",
+            "why": "Timing-table reads, interval guards and panic branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/pad/pad:.sbss"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source-level compact zero-initialized control objects include int Initialized; six unsigned long lifecycle masks named EnabledBits, ResettingBits, RecalibrateBits, WaitingBits, CheckingBits and PendingBits; int SamplingRate; nullable PADCallback SamplingCallback; and OnReset's static BOOL recalibrated. Channel masks use high-bit-first channel bits. These declarations establish types and roles, not compiled section membership, contiguity or extent.",
+        "rationale": "Corrects seven masks to six and removes unsupported compiled-layout deductions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L25-L31",
+            "why": "Six lifecycle-mask declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L75-L77",
+            "why": "Sampling state declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L559-L574",
+            "why": "Channel-bit convention."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L1006-L1030",
+            "why": "Persistent reset latch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/pad/pad:.sdata"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "ResettingChan uses 32 as the idle sentinel and otherwise identifies the serialized reset channel. PADSetSpec asserts that initialization has not occurred, clears __PADSpec, selects a decoder for specifications 0 through 5, and records Spec; it has no interrupt-protected atomic update, and an unsupported specification leaves MakeStatus unchanged while still replacing Spec. PADSetAnalogMode replaces AnalogMode, clears enabled/waiting/checking bits for enabled non-pending channels, and disables their polling. XPatchBits initially enables the guarded origin correction for all four channels.",
+        "rationale": "Removes the unsupported atomicity claim and preserves the invalid-specification branch alongside existing mode-transition knowledge.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L20-L23",
+            "why": "Initial settings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L97-L106",
+            "why": "Reset sentinel and selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L199-L207",
+            "why": "Origin-patch guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L789-L808",
+            "why": "Non-atomic specification update and absent default."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L987-L1004",
+            "why": "Analog-mode teardown."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/pad/pad:PADInit"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Initialized makes normal initialization idempotent: later calls immediately return TRUE. The first call applies any specification override, optionally derives wireless fix mode and marks all channels for recalibration, constructs wireless command words, and sets Initialized before configuring sampling, registering the reset hook and calling PADReset for all four channels. PADReset unconditionally returns 1 on normal return; successful PADInit therefore reports setup/reset queueing, not completion of asynchronous controller initialization.",
+        "rationale": "Replaces the hypothetical initial PADReset failure with the actual unconditional return and distinguishes queue acceptance from hardware readiness.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L514-L547",
+            "why": "Initialization guard and ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L455-L482",
+            "why": "Reset queueing and unconditional result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L97-L106",
+            "why": "Asynchronous reset continuation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/pad/pad:PADRead"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature: u32 PADRead(struct PADStatus* status), with status pointing to four consecutive output records. The return is a high-bit-first channel mask. A channel bit is added only after pending, resetting, disabled and SI-busy cases have been excluded and SIGetStatus lacks bit 8, when SIGetType lacks 0x20000000. This addition precedes response acquisition and decoding, so the bit may remain set even when the corresponding output later receives err=-3. It is not a successful-read mask.",
+        "rationale": "Makes the return contract precise without assigning an unverified symbolic meaning to numeric device flags.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L549-L621",
+            "why": "Signature, four-record loop, ordered guards and result accumulation before validation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/pad/pad:PADSetSpec"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The intended pre-initialization contract is expressed by ASSERTLINE(!Initialized), not an explicit runtime rejection branch. The function clears __PADSpec, maps specifications 0 and 1 to their legacy decoders and 2 through 5 to SPEC2_MakeStatus, then assigns Spec. There is no default case: an unsupported value preserves the previous MakeStatus pointer while still clearing __PADSpec and recording that value in Spec. The function does not disable interrupts around these writes.",
+        "rationale": "Adds the useful unsupported-value branch and avoids treating an assertion as unconditional runtime enforcement.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L789-L808",
+            "why": "Complete setter shows assertion, switch without default and final assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/pad/pad:PADTypeAndStatusCallback"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The callback consumes the active channel's recalibration bit before checking the query result. Query errors and incompatible types advance through DoReset; accepted types under Spec<2 are enabled and advance immediately. For newer specifications, wired or wireless-IR devices request calibration or origin data, while wireless devices passing the 0x100000-set, 0x80000-clear and 0x40000-clear tests request origin data or a probe according to received status. An attempted transfer returning false sets PendingBits and advances. An accepted non-IR wireless type failing that latter eligibility test instead falls through with rc still TRUE: it starts no transfer, sets no pending bit and does not call DoReset. Hardware reachability of that branch is not established here.",
+        "rationale": "Preserves the complete source-level state machine, including the previously omitted no-transfer/no-progression branch, without inventing a hardware interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/pad/pad.c#L255-L306",
+            "why": "rc initialization, early exits, wireless eligibility and final recovery guard."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

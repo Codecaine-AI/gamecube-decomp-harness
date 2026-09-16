@@ -1,0 +1,123 @@
+{
+  "tu": "main/melee/mn/mnmain",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmain.c#L1534-L1657",
+            "why": "Shows the constructor, update arithmetic, and guarded fog-color clear/render sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L157-L216",
+            "why": "Establishes distinct render-pass-mask and GX-link-mask iteration."
+          }
+        ],
+        "op": "write",
+        "rationale": "The renderer's argument 7 is a pass mask, not a GX-link index; the callee obtains link selection separately from gxlink_prios. The update formula supports the normalized-input scale but contains no saturation.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnmain:mn_8022BE34"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally constructs the primary camera with gxlink_prios = 0x7F. Its update resets from MenMain_cam and applies sub-stick dead-zone remapping with a 30-degree scale at normalized input magnitude 1, without an explicit clamp. After successfully making the camera current, its renderer clears using the menu fog color and invokes render passes 0\u20132 across enabled GX links 0\u20136."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmain.c#L2840-L2999",
+            "why": "The complete mn_8022E978 body shows both item_mask updates."
+          }
+        ],
+        "op": "write",
+        "rationale": "Both branches directly use the first argument as the bit shift count; no item-kind mapping or valid index range is inferred.",
+        "subject": {
+          "entity_locator": "main/melee/mn/mnmain:mn_8022E978#r3"
+        },
+        "type": "purpose",
+        "value": "Item-mask bit index: the u8 item_idx argument supplies the shift count in 1 << item_idx for setting or clearing item_mask."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmain.c#L2840-L2999",
+            "why": "mn_8022E978 tests enable and performs the corresponding mask operation."
+          }
+        ],
+        "op": "write",
+        "rationale": "The second argument directly controls the OR versus AND-with-complement branches.",
+        "subject": {
+          "entity_locator": "main/melee/mn/mnmain:mn_8022E978#r4"
+        },
+        "type": "purpose",
+        "value": "Enable control: a nonzero u8 enable argument sets the selected item-mask bit; zero clears it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmain.c#L2840-L2999",
+            "why": "The complete mn_8022EA08 body contains the buffer writes and termination."
+          }
+        ],
+        "op": "write",
+        "rationale": "The body writes through buf using the computed digit count and then writes the terminator at that count.",
+        "subject": {
+          "entity_locator": "main/melee/mn/mnmain:mn_8022EA08#r3"
+        },
+        "type": "purpose",
+        "value": "Writable char buffer receiving decimal digit characters and a terminating null byte; the function receives no capacity argument and performs no capacity check."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmain.c#L2840-L2999",
+            "why": "mn_8022EA08 passes num into both digit helpers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmain.c#L3000-L3045",
+            "why": "The helper definitions use s32 arguments and signed division."
+          }
+        ],
+        "op": "write",
+        "rationale": "The formatter's declaration is unsigned, but its actual digit extraction and counting use signed helper parameters.",
+        "subject": {
+          "entity_locator": "main/melee/mn/mnmain:mn_8022EA08#r4"
+        },
+        "type": "data_flow",
+        "value": "Declared u32 num supplies the value passed to mn_GetDigitCount and mn_GetDigitAt to determine output width and digit characters. Those helpers accept s32, so full-range unsigned decimal formatting is not established."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnmain.c#L2840-L2999",
+            "why": "mn_8022EA78 shows the loop bounds, destination indices, and unconditional terminator."
+          }
+        ],
+        "op": "write",
+        "rationale": "The complete body directly indexes the destination using the supplied width and unconditionally writes its terminator.",
+        "subject": {
+          "entity_locator": "main/melee/mn/mnmain:mn_8022EA78#r3"
+        },
+        "type": "purpose",
+        "value": "Writable char buffer receiving buf_end digit characters right-to-left when buf_end is positive, followed by a null byte at buf[buf_end]; no buffer capacity or width validation is performed."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

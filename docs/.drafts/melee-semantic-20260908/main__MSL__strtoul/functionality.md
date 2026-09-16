@@ -1,0 +1,10 @@
+## Conversion subsystem
+`__strtoul` is a bounded, callback-driven unsigned-magnitude scanner. Fetch increments a tentative count; unget returns the current lookahead through the same callback/context. It consumes whitespace and an optional sign, handles automatic octal/decimal and hexadecimal prefixes, maps digits case-insensitively, and flags multiplication/addition overflow without stopping accumulation. Successful scans exclude lookahead from the reported count; unsuccessful scans report zero value and count, without rewinding all input.
+
+The literal `case 4` is demonstrably `leading_zero` (enum value 0x04), not an unresolved state. A standalone zero can succeed in that state; a consumed hexadecimal prefix without a following digit cannot. Width counts whitespace and sign as well as digits, and fetching can obtain one extra lookahead. Rejected base/width arguments assign failure but leave `c` uninitialized. The loop condition reads it when the width comparison passes, and unconditional unget evaluates it even when negative width short-circuits that comparison, so safe invalid-argument behavior is not established by this source.
+
+`strtoul` supplies a stack-local `__InStrCtrl` to `__StringRead`, updates an optional end pointer, then gives overflow precedence over unsigned negation. `strtol` uses the same scanner and applies signed-range checks; its negative saturation expression is literally `-LONG_MIN`, whose target arithmetic interpretation must not be silently normalized. `atoi` delegates to decimal `strtol`. The callback context is used synchronously here; no retention or escape is shown, and external reader internals were not inferred.
+
+The header declares `strtol`, `strtoul`, and `__strtoul` with C++ linkage guards. Both complete rendered views match canonical function names, with zero substitutions or parse errors; header bindings are reported as shadowed. No renaming is warranted, and no compiled `.data` content or layout is claimed.
+
+Status: synthesized; independent review and live promotion pending.

@@ -1,12 +1,15 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gameLayoutPath, readGameDescriptorConfig } from "./config.js";
 
 export interface GameValidationDefaults {
   qaTarget?: string;
   reportPath?: string;
   reportChangesPath?: string;
   objdiffPath?: string;
+  /** Game-owned vendor paths excluded from worker target admission. */
+  targetExcludePrefixes?: string[];
   addressNamedStaticDataAllowlist?: AddressNamedStaticDataAllowlistEntry[];
   /** Per-attempt worker micro-gate: fail attempts whose rebuilt TU loses an exact non-code section. */
   workerSectionParityGate?: boolean;
@@ -137,7 +140,7 @@ export interface ResolvedGame {
   processName: string;
   baseRef: string;
   localEnvPath: string;
-  validation: Required<GameValidationDefaults>;
+  validation: Required<Omit<GameValidationDefaults, "targetExcludePrefixes">> & Pick<GameValidationDefaults, "targetExcludePrefixes">;
   dashboard: Required<GameDashboardDefaults>;
   pr: Required<GamePrDefaults>;
   knowledge: Required<GameKnowledgeConfig>;
@@ -173,6 +176,7 @@ const defaultValidation: Required<GameValidationDefaults> = {
   reportPath: "build/GALE01/report.json",
   reportChangesPath: "build/GALE01/report_changes.json",
   objdiffPath: "objdiff.json",
+  targetExcludePrefixes: [],
   addressNamedStaticDataAllowlist: [],
   workerSectionParityGate: true,
   workerUndefinedSymbolGate: true,
@@ -217,7 +221,7 @@ const defaultSandbox: SandboxRuntimeOptions = {
   },
   snapshot_name: "",
   snapshot_baked_rev: "",
-  workspace_root: "/opt/melee",
+  workspace_root: "/work/game",
 };
 
 function repoRootFromModule(): string {
@@ -286,6 +290,7 @@ function validationFromObject(value: unknown): GameValidationDefaults | undefine
     reportPath: stringField(value.reportPath),
     reportChangesPath: stringField(value.reportChangesPath),
     objdiffPath: stringField(value.objdiffPath),
+    targetExcludePrefixes: stringArrayField(value.targetExcludePrefixes),
     addressNamedStaticDataAllowlist: addressNamedStaticDataAllowlistField(value.addressNamedStaticDataAllowlist),
     ...(typeof value.workerSectionParityGate === "boolean" ? { workerSectionParityGate: value.workerSectionParityGate } : {}),
     ...(typeof value.workerUndefinedSymbolGate === "boolean" ? { workerUndefinedSymbolGate: value.workerUndefinedSymbolGate } : {}),
@@ -337,6 +342,12 @@ function sandboxProfileFromObject(value: unknown): GameSandboxProfileConfig | un
   if (!isObject(value)) return undefined;
   const config: GameSandboxProfileConfig = {};
   if (isObject(value.resource_class)) {
+    for (const key of ["cpu", "memory_gib", "disk_gib"] as const) {
+      const amount = value.resource_class[key];
+      if (amount !== undefined && (typeof amount !== "number" || !Number.isInteger(amount) || amount <= 0)) {
+        throw new Error(`Sandbox profile has invalid ${key}: ${String(amount)}`);
+      }
+    }
     const resourceClass: GameSandboxResourceClass = {};
     const cpu = numberField(value.resource_class.cpu);
     const memoryGiB = numberField(value.resource_class.memory_gib);
@@ -415,7 +426,7 @@ function overrideFromObject(value: Record<string, unknown>, path: string, expect
 
 function mergeNested<T extends object>(base: T | undefined, override: T | undefined): T | undefined {
   if (!base && !override) return undefined;
-  return { ...(base ?? {}), ...(override ?? {}) } as T;
+  return { ...(base ?? {}), ...Object.fromEntries(Object.entries(override ?? {}).filter(([, value]) => value !== undefined)) } as T;
 }
 
 function mergeSandboxProfile(
@@ -550,9 +561,15 @@ function requiredSandbox(value: GameSandboxConfig | undefined): ResolvedSandboxC
       requiredSandboxProfile(base, profile),
     ]),
   );
-  const defaultProfile = value?.default_profile ?? "";
+  const defaultProfile = value?.default_profile ?? (Object.keys(profiles).length ? "2-core" : "");
   if (defaultProfile && !profiles[defaultProfile]) {
     throw new Error(`Sandbox default profile ${defaultProfile} is not defined`);
+  }
+  for (const [name, profile] of Object.entries({ base, ...profiles })) {
+    for (const [resource, amount] of Object.entries(profile.resource_class)) {
+      if (!Number.isInteger(amount) || amount <= 0) throw new Error(`Sandbox profile ${name} has invalid ${resource}: ${amount}`);
+    }
+    if (!profile.workspace_root.startsWith("/")) throw new Error(`Sandbox profile ${name} workspace_root must be absolute`);
   }
   return { ...base, default_profile: defaultProfile, profiles };
 }
@@ -594,10 +611,10 @@ export function resolveGame(options: GameResolveOptions = {}): ResolvedGame {
   if (!descriptorPath) throw new Error(`Game descriptor not found for ${gameId}`);
   const gameDir = dirname(descriptorPath);
 
-  const descriptor = descriptorFromObject(readJsonObject(descriptorPath), descriptorPath);
+  const descriptor = descriptorFromObject(readGameDescriptorConfig(descriptorPath), descriptorPath);
   if (descriptor.id !== gameId) throw new Error(`Game descriptor ${descriptorPath} has id ${descriptor.id}, expected ${gameId}`);
 
-  const localOverridePath = resolve(gameDir, "local.game.json");
+  const localOverridePath = gameLayoutPath(gameDir, "config/local.json");
   const localOverrideRaw = readOptionalJsonObject(localOverridePath);
   const localOverride = localOverrideRaw ? overrideFromObject(localOverrideRaw, localOverridePath, gameId) : {};
   const explicitBase = resolve(options.explicitOverrideBaseDir ?? process.cwd());
@@ -610,10 +627,10 @@ export function resolveGame(options: GameResolveOptions = {}): ResolvedGame {
     localEnv: resolveExplicitPath(explicit.localEnv, explicitBase),
   };
   const merged = mergeDescriptor(mergeDescriptor(descriptor, localOverride), explicitResolved);
-  const repoRoot = resolvePathCandidate(merged.repoRoot, gameDir, "./checkout");
-  const stateDir = resolvePathCandidate(merged.stateDir, gameDir, "./state");
-  const graphDbPath = resolvePathCandidate(merged.graphDb, gameDir, "./graph/graph.sqlite");
-  const localEnvPath = resolvePathCandidate(merged.localEnv, gameDir, "./local.env");
+  const repoRoot = resolvePathCandidate(merged.repoRoot, gameDir, merged.repoRoot ? "" : gameLayoutPath(gameDir, "workspace/checkout"));
+  const stateDir = resolvePathCandidate(merged.stateDir, gameDir, merged.stateDir ? "" : gameLayoutPath(gameDir, "runtime/state"));
+  const graphDbPath = resolvePathCandidate(merged.graphDb, gameDir, merged.graphDb ? "" : gameLayoutPath(gameDir, "knowledge/graph/graph.sqlite"));
+  const localEnvPath = resolvePathCandidate(merged.localEnv, gameDir, merged.localEnv ? "" : gameLayoutPath(gameDir, "config/local.env"));
   const resolved: ResolvedGame = {
     gameId,
     displayName: merged.displayName ?? gameId,
@@ -624,7 +641,15 @@ export function resolveGame(options: GameResolveOptions = {}): ResolvedGame {
     processName: merged.processName ?? `${gameId}-live`,
     baseRef: merged.baseRef ?? "origin/master",
     localEnvPath,
-    validation: requiredNested(defaultValidation, merged.validation),
+    validation: {
+      ...requiredNested(defaultValidation, merged.validation),
+      // Unconfigured games retain their existing effective configuration fingerprint.
+      targetExcludePrefixes: merged.validation?.targetExcludePrefixes,
+      reportChangesPath: merged.validation?.reportChangesPath
+        ?? (merged.validation?.reportPath
+          ? `${dirname(merged.validation.reportPath)}/report_changes.json`
+          : defaultValidation.reportChangesPath),
+    },
     dashboard: requiredNested(defaultDashboard, merged.dashboard),
     pr: requiredNested(defaultPr, merged.pr),
     knowledge: requiredNested(defaultKnowledge, merged.knowledge),

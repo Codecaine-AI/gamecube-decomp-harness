@@ -1,0 +1,82 @@
+{
+  "tu": "main/dolphin/os/OSArena",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L7-L14",
+            "why": "Preexisting-state assertions in the invoked getter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L48-L59",
+            "why": "Exact high-end arithmetic and unconditional writeback after the getter returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L49-L50",
+            "why": "Mask-based 32-bit alignment does not validate its input."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional downward-movement language while preserving the exact transformation, padding behavior and absence of local exhaustion handling.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSArena:OSAllocFromArenaHi"
+        },
+        "type": "state_behavior",
+        "value": "After OSGetArenaHi returns, the allocator truncates the old high boundary to align, subtracts size bytes, truncates again, and stores and returns that address. For suitable nonzero power-of-two alignment and non-wrapping arithmetic, the high boundary moves downward or remains unchanged; padding can consume bytes beyond size, including on a zero-size request. The routine does not validate alignment, guard arithmetic underflow, compare the resulting boundary with arena low, or provide an exhaustion failure return or rollback. The getter contains source-level initialization and ordering assertions on the preexisting state, not a capacity check on the requested allocation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L16-L46",
+            "why": "Getter predicates, two rounding operations, byte addition and unguarded setter call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os.h#L49-L50",
+            "why": "32-bit arithmetic and alignment masks explain why arbitrary inputs lack a monotonicity guarantee."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported unconditional monotonicity guarantee with explicit arithmetic assumptions and distinguishes authored assertions from allocation capacity validation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSArena:OSAllocFromArenaLo"
+        },
+        "type": "state_behavior",
+        "value": "After OSGetArenaLo returns, the allocator rounds the old low boundary upward, adds size bytes, rounds the resulting end again, stores that end and returns the first rounded address. For suitable nonzero power-of-two alignment and non-wrapping arithmetic, the low boundary moves upward or remains unchanged. There is no alignment validation, overflow guard, post-update overlap check, failure status or rollback; a zero-size request can still consume alignment padding. OSGetArenaLo contains source-level assertions about initialization and the preexisting bound ordering, but those assertions do not check whether this reservation fits."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L16-L23",
+            "why": "Exact asserted success predicates and unchanged return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSArena.c#L25-L33",
+            "why": "Direct setters can establish stored values without checking OSInit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes ambiguity about whether the stated failure conditions permit a return and accurately scopes the initialization check and assertion evidence.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSArena:OSGetArenaLo"
+        },
+        "type": "state_behavior",
+        "value": "Observes arena state without modifying it. The authored source asserts that `(u32)__OSArenaLo != -1` and `(u32)__OSArenaLo <= (u32)__OSArenaHi`, then returns __OSArenaLo unchanged. These are the success predicates: a remaining sentinel or crossed bounds violates an assertion. They test stored values rather than independently verifying that OSInit ran, and the presence of assertion macros in source alone does not establish runtime enforcement in a compiled build."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

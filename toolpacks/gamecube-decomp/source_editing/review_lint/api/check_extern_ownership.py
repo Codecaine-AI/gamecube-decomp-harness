@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Evaluate whether a TU owns the data behind an address-style extern.
 
-Parses ``config/GALE01/splits.txt`` from the melee repo into per-TU section
+Parses the active version's ``config/<version>/splits.txt`` into per-TU section
 address ranges and answers "does TU X own address Y?". A newly added extern
-whose encoded address falls inside the declaring TU's own data section
-ranges is the extern-to-dodge-data-ordering cheat by definition; an address
-owned by another TU is a legitimate cross-TU reference.
+whose encoded address falls inside the declaring TU's own data section ranges
+is the extern-to-dodge-data-ordering cheat by definition; an address owned by
+another TU is a legitimate cross-TU reference.
 
 The parsed splits table is cached as JSON under ``review_lint/cache/`` keyed
 by the splits.txt mtime+size.
@@ -21,12 +21,11 @@ from pathlib import Path
 from typing import Any
 
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from toolpack_runtime import print_json
+from toolpack_runtime import import_tool_module, print_json
 from search_index import tool_storage_root  # type: ignore
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
 CACHE_DIR = tool_storage_root(TOOL_ROOT) / "cache"
-SPLITS_REL_PATH = Path("config") / "GALE01" / "splits.txt"
 
 # Sections that hold a TU's own data (the targets of literal-anchoring externs).
 DATA_SECTIONS = {".data", ".sdata", ".sdata2", ".rodata", ".bss", ".sbss"}
@@ -38,7 +37,10 @@ SECTION_LINE_RE = re.compile(
 
 
 def _splits_path(repo_root: Path) -> Path:
-    return repo_root / SPLITS_REL_PATH
+    layout = import_tool_module("project_layout", repo_root).get_project_layout(
+        repo_root
+    )
+    return repo_root / "config" / layout.version / "splits.txt"
 
 
 def _cache_path() -> Path:
@@ -72,7 +74,7 @@ def parse_splits(splits_path: Path) -> dict[str, dict[str, list[list[int]]]]:
 
 
 def load_splits_ranges(repo_root: Path) -> dict[str, dict[str, list[list[int]]]]:
-    """Load (and cache) per-TU section ranges for the given melee repo."""
+    """Load and cache per-TU section ranges for the given project repo."""
 
     splits_path = _splits_path(repo_root)
     if not splits_path.is_file():
@@ -169,7 +171,7 @@ def tu_address_relation(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo", required=True, help="Melee repo root.")
+    parser.add_argument("--repo", required=True, help="Project repo root.")
     parser.add_argument(
         "--file", required=True, help="Repo-relative TU path (src/... or melee/...)."
     )

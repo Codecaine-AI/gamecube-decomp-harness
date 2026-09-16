@@ -1,0 +1,219 @@
+{
+  "tu": "main/melee/it/kinds/ithammer",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L38-L49",
+            "why": "Six callback tuples."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L114-L219",
+            "why": "All local state-entry selections."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the erroneous spawn-to-state-0 claim and avoids assigning an unproven entry event to state 4.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammer:.data"
+        },
+        "type": "data_flow",
+        "value": "Hammer routines pass motion-state indices to Item_80268E5C to select the table's callback tuple. Spawn initializes xD4C to 1 and selects state 1; resting setup selects 0; pickup selects 2; the shared held animation callback requests 3 when xD4C equals zero; Dropped selects 1 with mask 6; EnteredAir selects 5. State 4 has a table entry, but no local entry routine selects it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L38-L49",
+            "why": "Complete array declaration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the demonstrated source type and shape while removing unsupported compiled-size claims.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammer:.data"
+        },
+        "type": "inferred_type",
+        "value": "Source-declared non-const ItemStateTable array with six entries. Each initializer supplies a motion/animation identifier followed by animation, physics and collision callbacks. States 2 and 3 have null physics and collision slots. Compiled byte extent and section placement are not established by this source declaration alone."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L215-L232",
+            "why": "State-5 entry and terrain callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L750-L778",
+            "why": "Supported-floor and no-floor routing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported carrier-lifecycle interpretation while retaining the demonstrated item behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammer:itHammer_Logic28_EnteredAir"
+        },
+        "type": "game_mapping",
+        "value": "Handles the Hammer item's EnteredAir event by selecting item state 5 and preserving headless model presentation when xD4C is nonpositive. State 5 delegates terrain handling to callbacks for resting state 0 and ordinary falling state 1. The local implementation does not establish that this event represents the fighter carrier jumping or entering an airborne action."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L51-L57",
+            "why": "Visibility-only helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L170-L177",
+            "why": "Exact pickup sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L268-L271",
+            "why": "Recursive hidden-flag operation."
+          }
+        ],
+        "op": "write",
+        "rationale": "The local helper performs head visibility maintenance, not countdown processing.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammer:itHammer_Logic28_PickedUp"
+        },
+        "type": "data_flow",
+        "value": "Receives the Hammer HSD_GObj, extracts its Item payload, requests state 2 with ITEM_ANIM_UPDATE, and installs it_80293D94 in Item.entered_hitlag. It then passes the object to the local visibility helper, which tests xD4C and hides joint 3 when nonpositive without decrementing any countdown, and finally calls it_802725D4 with the same object."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L153-L158",
+            "why": "Attribute forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L176-L204",
+            "why": "Exact pre-update guard and subtraction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the explicit claim that the helper cannot accelerate beyond the configured magnitude.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammer:itHammer_UnkMotion1_Phys"
+        },
+        "type": "data_flow",
+        "value": "Extracts the Hammer Item, reads ItemAttr.x10_fall_speed and x14_fall_speed_max, and passes them with the object to it_80272860. The helper compares the signs of current vertical velocity and acceleration; when they differ, subtraction occurs only if the current velocity magnitude is below the supplied threshold, while matching signs permit subtraction directly. It subtracts acceleration from x40_vel.y without clamping the result, so an update may overshoot the threshold and existing excessive falling speed is not clamped."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L67-L77",
+            "why": "Chance test and unchecked range computation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L104-L179",
+            "why": "Storage and guarded countdown consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the cross-file timer purpose without claiming unchecked attributes guarantee a positive return.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammer:it_80293DCC"
+        },
+        "type": "purpose",
+        "value": "Generates the fighter-side Hammer head-loss countdown: it returns zero when the attribute-percentage chance test fails, otherwise returns HSD_Randi(x4 - x0) + x0 from the Hammer special attributes. With valid positive ordered timer bounds, the successful result is an active detachment delay; the routine itself does not validate those bounds or guarantee a positive result. The fighter stores the result in x2330.y and invokes head detachment when its guarded nonzero countdown reaches zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L51-L118",
+            "why": "Visibility guard, decrement, constructor call and initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammerhead.c#L44-L73",
+            "why": "Nullable constructor allocation and void return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L104-L118",
+            "why": "Normal countdown trigger."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the supported allocation-failure branch and preserves numeric behavior beyond the normal one-shot initialization.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammer:it_80293E34"
+        },
+        "type": "state_behavior",
+        "value": "When xD4C is positive, decrements it once and attempts separate Hammer Head creation using joint-derived launch inputs. Normal spawn initializes xD4C to 1, so the first qualifying invocation consumes that marker and later invocations skip creation. The constructor may fail allocation; its void return provides no success result and the Hammer does not restore xD4C. After either branch, joint 3 is hidden whenever xD4C is nonpositive. For an atypical value greater than 1, one invocation decrements and attempts creation without yet hiding the original head. The normal caller is fighter-side head-loss countdown expiration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L120-L168",
+            "why": "Entry sequence and state-1 caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L228-L232",
+            "why": "State-5 callback registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L750-L778",
+            "why": "Supported-floor callback guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the false restriction to state-1 intact-head callers.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ithammer:it_80293F84"
+        },
+        "type": "state_behavior",
+        "value": "Once invoked, clears velocity, calls shared setup, selects state 0 with ITEM_ANIM_UPDATE, and applies the nonpositive-xD4C head-hiding helper. There is no local entry guard. State-1 collision supplies this callback only when xD4C is nonzero, but state-5 collision also supplies it without an xD4C guard; its supported-floor helper decides when to invoke it. State 0 has inert animation and physics callbacks and a separate collision path back to state 1 on support loss."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ithammer.c#L38-L219",
+            "why": "Table, head-count guards and local entry selectors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L104-L179",
+            "why": "Separate fighter countdown lifetime."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects dropped-state numbering and distinguishes item head presence from the cross-file countdown.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/ithammer.c"
+        },
+        "type": "state_behavior",
+        "value": "The Hammer table has resting state 0, ordinary falling state 1, held states 2 and 3, a state-4 gravity/contact callback tuple with no local entry selector, and EnteredAir state 5. Spawn and Dropped both select state 1, not states 0 and 4 respectively. Item.xD4C starts at 1, is decremented by head-detachment attempts, controls visibility with a nonpositive test, and triggers held-state-3 requests only at exactly zero. The random head-loss countdown is separately stored and advanced in fighter code."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

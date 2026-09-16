@@ -7,3 +7,6 @@ export * from "./attempts.js";
 export * from "./reconcile.js";
 export * from "./entities.js";
 export * from "./cli.js";
+export * from "./source-pipeline.js";
+export * from "./source-config.js";
+export * from "./game-sources.js";

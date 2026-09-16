@@ -1,0 +1,1882 @@
+[
+  {
+    "id": "fact:a5609089-ce98-44b9-8afd-09871f119101",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.data",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "`hsdFog` flows into `HSD_FogAlloc`, and `hsdFogAdj` flows into `HSD_FogAdjAlloc`, where `hsdNew` consumes the respective class record to allocate an object of that runtime class. Their initialization callbacks populate the records from the common `hsdObj` superclass plus fixed library and class names and concrete class and instance sizes; the fog record additionally receives `FogRelease` as its release method.",
+    "rationale": "The allocation bodies identify the direct consumers of each data object. The class initialization bodies identify the values written into the metadata and show the fog-specific lifecycle callback installed after common registration.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T05:08:45.401Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L83-L168",
+        "why": "Shows `hsdFog` and `hsdFogAdj` being supplied to `hsdNew` by their respective allocation routines."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L234-L253",
+        "why": "Shows the superclass, names, sizes, and fog release callback flowing into the two class-information records."
+      }
+    ]
+  },
+  {
+    "id": "fact:2313b4cb-0b39-4d31-a32a-110dc073f932",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.data",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A writable class-metadata block containing two statically initialized objects in declaration order: `HSD_FogInfo hsdFog = { FogInfoInit }` and `HSD_ClassInfo hsdFogAdj = { FogAdjInfoInit }`. Their remaining class-information fields are populated by `hsdInitClassInfo` during class initialization.",
+    "rationale": "The declarations at the current head retain the concrete types, order, symbols, and callback initializers, while the initialization functions continue to pass both records to the common HSD class initializer.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/fog.c#L1-L20",
+        "why": "Declares `hsdFog` and `hsdFogAdj` in order with their respective static initialization callbacks."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows both records being populated through `hsdInitClassInfo` with class identity and size metadata."
+      }
+    ]
+  },
+  {
+    "id": "fact:c0cd1a69-a1e6-4063-a810-27c6f234df28",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.data",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the writable HSD class metadata for runtime fog and fog-range-adjustment objects. These metadata objects let the HSD object system construct each object type and establish its class identity, instance sizing, inheritance, and lifecycle behavior.",
+    "rationale": "The current declarations identify the writable class records, the allocation path passes the fog record to `hsdNew`, and the class callbacks register both records beneath `hsdObj` while specializing the fog release operation.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/fog.c#L1-L120",
+        "why": "Shows the writable class records and the fog allocator consuming `hsdFog` through `hsdNew`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows both class records registered beneath `hsdObj` with class names and sizes and the fog record receiving `FogRelease`."
+      }
+    ]
+  },
+  {
+    "id": "fact:a5990403-5dbc-4fed-8f29-f52d7cab5bc4",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.data",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The two class records begin in statically seeded states containing their respective initialization callbacks. Class initialization then registers `hsd_fog` and `hsd_fogadj` as subclasses of `hsdObj`; the fog class transitions to a specialized lifecycle state by replacing its inherited release method with `FogRelease`, whereas the adjustment class retains the lifecycle behavior established by common class initialization.",
+    "rationale": "The current global initializers preserve the records' callback-bearing initial state. The initialization functions retain their common superclass registration, followed only in the fog case by a release-method override.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/fog.c#L1-L20",
+        "why": "Shows the initialization callbacks statically installed in the two class records."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows both superclass registrations and the release override applied only to `hsdFog`."
+      }
+    ]
+  },
+  {
+    "id": "fact:c1768e54-81a9-4d0c-b849-2a477fbb096e",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.rodata",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The diagnostic literal is read by HSD_FogSet and forwarded to HSD_Panic when rendering is attempted without a current HSD_CObj; the library and class-name literals are read by FogInfoInit and FogAdjInfoInit and forwarded to hsdInitClassInfo to identify the two runtime classes.",
+    "rationale": "At the current head, the missing-camera branch still passes its fixed message to `HSD_Panic`, and both class initialization callbacks still forward fixed library and class identifiers to `hsdInitClassInfo`.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.rodata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/fog.c#L1-L120",
+        "why": "Shows the fixed missing-current-camera diagnostic flowing into `HSD_Panic`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows the fixed library and class-name strings flowing into `hsdInitClassInfo` for both runtime classes."
+      }
+    ]
+  },
+  {
+    "id": "fact:666daeed-5970-4de0-aa10-fb1bce49b2d5",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.rodata",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A 64-byte read-only character-literal pool containing NUL-terminated diagnostic and class-registration strings, together with any compiler-required alignment padding.",
+    "rationale": "The current source continues to use immutable C character strings for the camera-ordering diagnostic and both HSD class registrations, supporting the section's interpretation as a NUL-terminated string pool rather than numeric or mutable data.",
+    "confidence": 0.88,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.rodata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/fog.c#L1-L120",
+        "why": "Shows the immutable diagnostic character string passed to `HSD_Panic`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows the immutable library and class-name strings used for class registration."
+      }
+    ]
+  },
+  {
+    "id": "fact:496c4f27-4681-449d-97f3-1c4b9490204f",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.rodata",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the fog module's immutable diagnostic and runtime-class identification strings, including the missing-current-camera panic message and names supplied when registering the HSD_Fog and HSD_FogAdj classes.",
+    "rationale": "The current fog setup still consumes the diagnostic when no current camera exists, while the two class callbacks continue to consume the fixed library and type names during runtime-class registration.",
+    "confidence": 0.92,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.rodata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/fog.c#L1-L120",
+        "why": "Shows `HSD_FogSet` consuming the missing-current-camera diagnostic."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows both class initializers consuming fixed library and class-identification strings."
+      }
+    ]
+  },
+  {
+    "id": "fact:66f53811-172b-4c4e-b08f-6c2cd4030856",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.sdata",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "FogInfoInit and FogAdjInfoInit read the section's class-name strings and pass them to hsdInitClassInfo alongside the shared library name, parent HSD object class, class-info size, and instance size; the resulting registrations identify runtime objects as the fog and fog-adjustment classes.",
+    "rationale": "Both initialization routines directly supply one of the short identifiers to hsdInitClassInfo while initializing hsdFog or hsdFogAdj, establishing the section data's consumer and its role in runtime class metadata.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T05:08:41.434Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L219-L253",
+        "why": "Shows each class-name literal flowing into hsdInitClassInfo during initialization of hsdFog and hsdFogAdj."
+      }
+    ]
+  },
+  {
+    "id": "fact:ac2eb1d8-c353-410e-9309-d9a1bc733487",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.sdata",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A 24-byte aligned small-data string block containing the NUL-terminated HSD class identifiers \"hsd_fog\" and \"hsd_fogadj\", with trailing alignment padding.",
+    "rationale": "The matched source contains these two short class identifiers at the class-initialization sites. Their encoded lengths are 8 and 11 bytes including terminators; ordinary per-object and section alignment explains the enclosing section's 24-byte extent.",
+    "confidence": 0.91,
+    "updated_at": "2026-09-02T05:08:41.434Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L219-L253",
+        "why": "Provides the two NUL-terminated short string literals consumed by the fog and fog-adjustment class initializers."
+      }
+    ]
+  },
+  {
+    "id": "fact:612a36b4-b2ab-43e8-a9ef-6147f2062c01",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.sdata",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the fog subsystem's compact class-name strings used when registering the HSD_Fog and HSD_FogAdj runtime classes.",
+    "rationale": "The matched source passes the short literals \"hsd_fog\" and \"hsd_fogadj\" to hsdInitClassInfo for the two classes. Their combined NUL-terminated and aligned storage accounts for this translation unit's 24-byte small-data section, identifying the section as class-registration string storage rather than mutable fog state.",
+    "confidence": 0.94,
+    "updated_at": "2026-09-02T05:08:41.434Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L219-L253",
+        "why": "Shows FogInfoInit and FogAdjInfoInit passing the compact class names \"hsd_fog\" and \"hsd_fogadj\" to hsdInitClassInfo."
+      }
+    ]
+  },
+  {
+    "id": "fact:c4e947c7-47ef-45fe-8c3a-edabae89f0b5",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.sdata2",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The all-zero GXColor flows directly into GXSetFog when HSD_FogSet receives null. Other constants from the pool participate in converting an adjustment center to viewport coordinates, completing reconstructed projection matrices, initializing the default adjustment matrix, and scaling evaluated animation values by 255 before writing fog RGBA bytes.",
+    "rationale": "The matched code exposes each consumer and transformation: the zero color is an explicit GXSetFog argument, range positioning divides by 640.0, reconstructed matrices receive negative or positive one, default matrix entries receive zero or one, and each animated color component receives 255.0 times the evaluated value.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T05:09:19.269Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L84",
+        "why": "Shows the zero-color flow into GXSetFog and the constants used by viewport-range and projection-matrix calculations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L141-L159",
+        "why": "Shows zero and one values flowing into the default fog-adjustment matrix."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L223",
+        "why": "Shows evaluated animation values multiplied by 255.0 before assignment to individual fog color components."
+      }
+    ]
+  },
+  {
+    "id": "fact:27e4a883-5c9e-491c-847a-d4bdac9a9d10",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.sdata2",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Supports scene-fog rendering by supplying constants for the disabled-fog configuration, viewport- and projection-dependent fog range adjustment, and animation of the visible fog color.",
+    "rationale": "The constants are consumed by the code paths that disable GX fog for a null object, derive and install a GX fog-adjustment table, and convert animated color channels into GXColor components. Those consumers ground the section in the scene-fog rendering mechanics rather than generic arithmetic.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T05:09:19.269Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L84",
+        "why": "Shows constants supporting the disabled GX fog call and the viewport- and projection-dependent range-adjustment path."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L223",
+        "why": "Shows a constant supporting animation of the rendered fog's RGBA color."
+      }
+    ]
+  },
+  {
+    "id": "fact:361f2239-0c34-494c-8d61-afd9ee7d45bd",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.sdata2",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Read-only small-data constant pool for fog.c. Its source-visible named object is `const GXColor HSD_Fog_804DE6F0 = { 0 }`, a four-byte zero RGBA value; the rest of the section holds compiler-emitted floating-point constants associated with the module's fog calculations and assignments.",
+    "rationale": "The declaration proves that the section contains an immutable GXColor object, while the matched routines contain the floating-point literals consumed throughout this translation unit. Because the target is the unit's aggregate `.sdata2` section rather than one source-level object, describing it as a mixed read-only constant pool is more accurate than assigning the whole section the type GXColor.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T05:09:19.269Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L12-L19",
+        "why": "Directly declares the section's source-visible immutable GXColor object with all components initialized to zero."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L84",
+        "why": "Shows the module's fixed floating-point values for the null-fog call, viewport normalization, and perspective or orthographic matrix completion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L223",
+        "why": "Shows an additional floating-point constant used by the fog animation callback for RGBA conversion."
+      }
+    ]
+  },
+  {
+    "id": "fact:2824724e-aca7-4849-b616-62c926877afd",
+    "target_id": "target:data:main/sysdolphin/baselib/fog:.sdata2",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the fog module's immutable small-data constants: an all-zero GXColor used by the null-fog path and floating-point constants used for fog-range positioning, projection and adjustment-matrix construction, and conversion of normalized animated color channels to byte-range values.",
+    "rationale": "The current source retains the zero GXColor declaration and its use by the null-fog GX call, the fixed values used by range and projection calculations, the identity-matrix constants, and the 255.0 animation-channel conversion scale.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/fog.c#L1-L120",
+        "why": "Shows the zero GXColor declaration and use plus fixed values supporting fog-range positioning and projection-matrix construction."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L141-L160",
+        "why": "Shows zero and one constants used to complete the default fog-adjustment matrix."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L223",
+        "why": "Shows normalized animation values multiplied by 255.0 before assignment to fog RGBA bytes."
+      }
+    ]
+  },
+  {
+    "id": "fact:a52267f7-9224-423a-b28f-cd8c79189617",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogAdjInfoInit",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Uses no caller-supplied inputs. It forwards the global hsdFogAdj descriptor, global hsdObj parent descriptor, fixed `sysdolphin_base_library` and `hsd_fogadj` identity strings, and compile-time HSD_FogAdjInfo and HSD_FogAdj sizes to hsdInitClassInfo; that routine writes identity, size, parent, counters, inherited dispatch state, and hierarchy links into the class descriptors.",
+    "rationale": "The target's current body supplies only globals, literals, and compile-time sizes. The current common initializer stores those values, resets runtime counters and links, copies the parent's inheritable region, and links the child descriptor beneath the parent.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogAdjInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows every value forwarded by `FogAdjInfoInit` to `hsdInitClassInfo`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+        "why": "Shows how the common initializer stores metadata, resets state, copies inherited dispatch data, and updates the parent-child hierarchy."
+      }
+    ]
+  },
+  {
+    "id": "fact:3c57cc89-ed76-4f23-9b74-1d51ba0de0cf",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogAdjInfoInit",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Parameterless class-info initialization callback with signature `static void FogAdjInfoInit(void)`; it initializes an HSD class descriptor with metadata extent `sizeof(HSD_FogAdjInfo)` and object-instance extent `sizeof(HSD_FogAdj)`.",
+    "rationale": "The matched definition supplies the complete void(void) signature. Its final two hsdInitClassInfo arguments identify the descriptor-info and runtime-object types whose sizes are recorded in the class descriptor.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:13.924Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogAdjInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L248-L253",
+        "why": "Provides the complete callback definition and the HSD_FogAdjInfo and HSD_FogAdj size arguments."
+      }
+    ]
+  },
+  {
+    "id": "fact:ef7c160c-681c-4b6b-a8b3-ee17d56a35e8",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogAdjInfoInit",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Initializes the runtime class descriptor for HSD_FogAdj, establishing fog-adjustment objects as a derived HSD object class and recording the class identity and allocation extents required by the HSD class system.",
+    "rationale": "The target still selects `hsdFogAdj` as the destination and `hsdObj` as its parent while supplying the fog-adjustment class identity and descriptor and instance sizes. The common initializer turns those inputs into registered derived-class metadata.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogAdjInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows the fog-adjustment descriptor, parent, identity labels, and allocation extents supplied by the target."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+        "why": "Shows `hsdInitClassInfo` constructing inherited class metadata and registering it beneath the parent."
+      }
+    ]
+  },
+  {
+    "id": "fact:5bb05d23-f209-4c17-8d44-f96888f5216a",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogAdjInfoInit",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Transitions hsdFogAdj into initialized class state: its initialized flag is set, child and sibling links and live/peak instance counters are cleared, hsdObj is initialized through its own InfoInit callback if necessary, object and descriptor sizes are checked against the parent, the parent's inheritable allocation and dispatch region is copied, and hsdFogAdj becomes hsdObj's newest child class.",
+    "rationale": "The target identifies `hsdFogAdj` and `hsdObj` as the child and parent descriptors. The current common initializer directly performs the flag transition, resets, lazy parent initialization, size guards, inherited-region copy, and head insertion into the parent's child list.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogAdjInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Identifies `hsdFogAdj` as the descriptor being initialized beneath `hsdObj`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+        "why": "Shows the initialized flag, reset state, lazy-parent callback, size assertions, inheritance copy, and newest-child insertion."
+      }
+    ]
+  },
+  {
+    "id": "fact:a23e7680-20e3-446b-a8e5-22c828a72a1f",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogInfoInit",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads the global `hsdObj` descriptor as the parent class and writes the global `hsdFog` class descriptor with library name `sysdolphin_base_library`, class name `hsd_fog`, `HSD_FogInfo` descriptor size, and `HSD_Fog` instance size; after inherited dispatch data is copied by hsdInitClassInfo, it replaces the descriptor's release slot with FogRelease.",
+    "rationale": "The current target body supplies all identity, size, parent, and destination values before writing `FogRelease`. The current common initializer confirms that the supplied metadata is stored and the parent's inheritable region is copied before control returns for the override.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows all metadata inputs targeting `hsdFog` and the subsequent release-slot assignment."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+        "why": "Shows the common initializer storing identity and size metadata and copying the parent's inheritable allocation and dispatch region."
+      }
+    ]
+  },
+  {
+    "id": "fact:1648b712-14cf-463b-8787-64f49a52937c",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogInfoInit",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A file-local, no-argument, no-return class-information initializer with signature `static void FogInfoInit(void)`; it configures an `HSD_FogInfo` descriptor for `HSD_Fog` instances derived from the global `hsdObj` class descriptor.",
+    "rationale": "The definition establishes the exact static void(void) signature. Its hsdInitClassInfo arguments identify hsdFog as the destination, hsdObj as the parent, HSD_FogInfo as the class-descriptor layout, and HSD_Fog as the instance layout.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:10.053Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L240-L246",
+        "why": "Provides the complete function signature and all destination, parent, identity, descriptor-size, and object-size arguments."
+      }
+    ]
+  },
+  {
+    "id": "fact:a3d8bbdd-ff7d-4b29-a8dd-94f0500e20ca",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogInfoInit",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Bootstraps the HSD_Fog runtime class as a subclass of HSD_Obj and overrides its inherited release operation with FogRelease so fog-specific animation and range-adjustment resources are cleaned up before parent release.",
+    "rationale": "The current class initializer registers `hsdFog` beneath `hsdObj` and installs `FogRelease`. The current release body disposes of the referenced adjustment object and animation object before delegating to the inherited parent release method.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows fog class registration, installation of `FogRelease`, and the tail of the fog-specific cleanup before parent release."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L186-L238",
+        "why": "Shows `FogRelease` releasing the attached fog-adjustment reference, removing the animation object, and invoking the parent release method."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+        "why": "Shows that the common initializer establishes inheritance from and registration beneath the supplied parent descriptor."
+      }
+    ]
+  },
+  {
+    "id": "fact:68fe15bc-4d26-4823-8f59-48058e321013",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogInfoInit",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Transitions `hsdFog` from its deferred-initializer state into initialized derived-class metadata: the common initializer marks it initialized, resets hierarchy links and instance counters, lazily initializes `hsdObj` if necessary, verifies compatible object and descriptor sizes, inherits the parent's dispatch region, and inserts `hsdFog` as the parent's newest child. FogInfoInit then specializes the inherited state by overriding the release callback.",
+    "rationale": "The current target preserves the ordered common-initialization call followed by the fog-specific callback assignment. The current common initializer directly implements all stated flag, reset, guard, inheritance, and hierarchy transitions.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L228-L253",
+        "why": "Shows common initialization of `hsdFog` followed by the fog-specific release override."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L58",
+        "why": "Shows the initialized flag, resets, lazy parent initialization, size checks, dispatch inheritance, and newest-child insertion."
+      }
+    ]
+  },
+  {
+    "id": "fact:5f6d4742-c945-404c-a703-28836eefd2a1",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogRelease",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads fog->fog_adj and, when present, decrements that adjustment object's reference count; a final-reference result sends the adjustment object through its virtual release and destroy methods. It then passes fog->aobj to HSD_AObjRemove and forwards the fog itself to the parent HSD_Fog class release method.",
+    "rationale": "The callback directly establishes the source and destination of each cleanup value. The resolved HSD_AObjRemove implementation further shows that the supplied AObj is null-safe and, when present, has its FObj chain and retained scene-object reference released before its own allocation is freed.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:03:03.193Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogRelease"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L225-L238",
+        "why": "Shows fog fields flowing into reference-count handling, virtual lifecycle methods, animation-object removal, and parent release."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+        "why": "Shows how HSD_AObjRemove consumes the AObj supplied by FogRelease by cleaning its attachments and freeing the AObj."
+      }
+    ]
+  },
+  {
+    "id": "fact:66377ec8-8a5d-4b09-8757-64425bcce330",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogRelease",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "static void FogRelease(HSD_Fog* fog), used as the HSD_Fog class release callback through an explicit cast when assigned to the generic class release slot.",
+    "rationale": "The definition supplies the exact static void/HSD_Fog-pointer signature, while FogInfoInit assigns it to hsdFog's generic release callback slot with a cast.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:03:03.193Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogRelease"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L225-L238",
+        "why": "Provides the exact function signature and demonstrates that the argument is treated as an HSD_Fog."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L239-L253",
+        "why": "Shows the function cast and assigned to the HSD_Fog class release slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:73a4ef26-dab1-4706-924e-145bd2f69987",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogRelease",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Implements the HSD_Fog class's release-stage cleanup: it relinquishes the fog's optional shared HSD_FogAdj, removes the attached animation object, and then delegates remaining base-object cleanup to the parent HSD object class.",
+    "rationale": "FogInfoInit installs FogRelease in the HSD_Fog class release slot. Its body handles the two fog-specific attachments before invoking the parent class's release callback, establishing that it is subclass resource cleanup rather than the final storage destructor.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:03:03.193Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogRelease"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L225-L238",
+        "why": "Shows reference release of fog_adj, removal of the fog's AObj, and final delegation to the parent release callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L239-L253",
+        "why": "Shows FogRelease being installed as the HSD_Fog class's release method."
+      }
+    ]
+  },
+  {
+    "id": "fact:42a1ffa0-7538-4fe4-afbf-82ee769e9297",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogRelease",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Cleanup follows a fixed order: optional fog adjustment first, animation object second, and parent-class release last. A missing fog adjustment is skipped; a present adjustment survives when other references remain and is virtually released and destroyed only when ref_DEC reports the final-reference condition. Animation removal and parent release are unconditional after adjustment handling.",
+    "rationale": "The nested NULL and ref_DEC guards define the retained-versus-destroyed states of the shared adjustment object. Statement order places that decision before the null-safe AObj removal and the final unguarded parent callback.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:03:03.193Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogRelease"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L225-L238",
+        "why": "Shows the optional-resource guards, final-reference destruction condition, teardown ordering, and unconditional parent release."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+        "why": "Confirms that the unconditional HSD_AObjRemove call is safe when fog->aobj is NULL and fully tears down a live AObj."
+      }
+    ]
+  },
+  {
+    "id": "fact:4298cf87-a8ce-45a6-b54d-93f10d6ca4a9",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogUpdateFunc",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes one evaluated floating-point animation value and routes it by attribute type. Types 1 and 2 store it directly as the fog start and end values; types 5\u20138 multiply a normalized value by 255 and write the selected RGBA color component; type 20 stores it as the optional fog-adjustment center.",
+    "rationale": "Each handled switch arm visibly transforms or directly stores `val->fv`, with the discriminator selecting its destination. The color cases alone perform normalized-float-to-8-bit-range scaling, while range and adjustment values remain floating point.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:59:48.188Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L223",
+        "why": "Shows the complete flow from `val->fv` into fog start, end, RGBA color components, or the adjustment center."
+      }
+    ]
+  },
+  {
+    "id": "fact:611b6c70-39fa-4fbc-8f36-c11136f8d8e5",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogUpdateFunc",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes fog-property animation for rendered scenes, allowing animation tracks to vary the fog range, RGBA fog color, and range-adjustment center over time.",
+    "rationale": "The handled destinations are precisely the HSD_Fog properties controlling the fog interval, visible fog color, and optional adjustment center. Applying evaluated track values to them is the code-level mechanism for animating those rendering properties.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T00:59:48.188Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L223",
+        "why": "Enumerates and updates the range, color, and adjustment properties that comprise HSD fog-property animation."
+      }
+    ]
+  },
+  {
+    "id": "fact:6987aef6-48cc-496e-8e73-14390b545208",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogUpdateFunc",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Animation-update callback with signature `void (void* obj, enum_t type, HSD_ObjData* val)`; `obj` is interpreted as `HSD_Fog*`, handled discriminator values are 1, 2, 5\u20138, and 20, and every handled attribute consumes the floating-point `val->fv` member.",
+    "rationale": "The declaration establishes the callback ABI, the initial assignment establishes the concrete object type, and the switch cases establish both the handled discriminator domain and the HSD_ObjData member consumed.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:59:48.188Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L223",
+        "why": "Directly shows the signature, HSD_Fog object interpretation, handled discriminator values, and all reads from `val->fv`."
+      }
+    ]
+  },
+  {
+    "id": "fact:5080b243-7f20-462a-b43f-9eea77fecb88",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogUpdateFunc",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Acts as the per-track animation update callback for an HSD fog object, dispatching each handled fog-animation attribute to the corresponding range, color, or range-adjustment property.",
+    "rationale": "The function receives the object/discriminator/value triplet characteristic of the analogous HSD property-animation callbacks, interprets the object as HSD_Fog, and switches on the discriminator to update one selected fog property.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T00:59:48.188Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L223",
+        "why": "Provides the complete callback body, including the HSD_Fog interpretation and attribute-directed writes to individual fog properties."
+      }
+    ]
+  },
+  {
+    "id": "fact:42f7f308-90aa-4fe4-9d9d-9b1d16655e6d",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:FogUpdateFunc",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null fog object makes the callback a no-op. Start, end, and color attributes directly replace their selected fields. The adjustment-center attribute updates only when the fog has an attached `fog_adj` object; otherwise it is ignored. Unhandled discriminator values also leave the object unchanged.",
+    "rationale": "All mutation is enclosed by the non-null fog guard. The type-20 arm adds a second guard around the adjustment-center write, while the switch has no default mutation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:59:48.188Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:FogUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L223",
+        "why": "Directly shows the null-object guard, direct range and color assignments, conditional adjustment update, and no-op behavior for unhandled types."
+      }
+    ]
+  },
+  {
+    "id": "fact:c9d80b41-a6fe-483e-9c95-9517beecb5c6",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogAdjInit",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "With a descriptor, width and center are copied into the destination and PSMTXCopy transfers the descriptor matrix's 3-by-4 affine portion into the destination Mtx44. Without a descriptor, GXGetViewportv supplies the active viewport width from element 2; that width becomes adj->width, half of it becomes adj->center, and the destination matrix is filled as a 4-by-4 identity by PSMTXIdentity plus explicit initialization of its fourth row.",
+    "rationale": "The implementation directly shows both initialization paths and every destination write. The current header confirms that the source and destination matrix fields are Mtx44 and identifies the scalar field types; its valid span now ends at line 66 rather than the unresolvable line 67.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T23:43:21.745Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L141-L160",
+        "why": "Shows descriptor values flowing into the destination and the fallback path deriving width and center from the viewport before constructing the identity matrix."
+      },
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/fog.h#L1-L66",
+        "why": "Defines the center, width, and Mtx44 fields of HSD_FogAdj and HSD_FogAdjDesc at the current head."
+      }
+    ]
+  },
+  {
+    "id": "fact:809b9470-7349-444f-aee3-341750b2c7ff",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogAdjInit",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Prepares the per-fog projection and viewport parameters used by GX fog range adjustment, the horizontal screen-position correction layered on camera-relative depth fog. Its default path aligns the adjustment width and center to the currently installed camera viewport and supplies a neutral identity projection matrix.",
+    "rationale": "The current initializer still derives default width and center from the active viewport and installs an identity matrix. The current render path consumes the resulting center, width, and matrix to build and enable GX fog range-adjustment state.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L141-L160",
+        "why": "Shows descriptor-backed initialization and viewport-derived defaults for width, center, and projection matrix."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L124",
+        "why": "Shows `HSD_FogSet` consuming adjustment center, width, and matrix to construct and enable GX fog range adjustment."
+      }
+    ]
+  },
+  {
+    "id": "fact:4c90da81-fb8e-46fb-bf1e-62e6228d3ce2",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogAdjInit",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature `void HSD_FogAdjInit(HSD_FogAdj* adj, HSD_FogAdjDesc* desc)`: `adj` is an optional mutable destination containing signed 16-bit center, unsigned 16-bit width, and an Mtx44 matrix; `desc` is an optional descriptor containing unsigned 16-bit center and width plus an Mtx44 matrix. The routine returns no value.",
+    "rationale": "The current header gives the exact prototype and field layouts, while the body demonstrates that either pointer may be null, mutation occurs only through adj, and the function returns no value. Replacing the former line-67 citation with the actual 66-line header resolves the stale evidence without changing the claim.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T23:43:21.745Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/fog.h#L1-L66",
+        "why": "Defines HSD_FogAdj and HSD_FogAdjDesc, including their scalar and Mtx44 fields, and declares the exact HSD_FogAdjInit prototype."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L141-L160",
+        "why": "Shows the nullability behavior, mutation of the destination object, and void implementation."
+      }
+    ]
+  },
+  {
+    "id": "fact:5038f1f5-06b3-4b0b-acd1-f07731662db4",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogAdjInit",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Initializes an existing HSD_FogAdj object with the width, horizontal center, and projection matrix data later used to construct GX fog-range correction coefficients, either from a supplied descriptor or from viewport-aligned defaults.",
+    "rationale": "The function writes precisely the HSD_FogAdj fields consumed by HSD_FogSet when it builds and installs a GXFogAdjTable. Its descriptor branch imports authored values, while its fallback branch derives width and center from the current viewport and supplies an identity 4-by-4 matrix.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T01:02:32.034Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L58-L178",
+        "why": "Shows HSD_FogAdjInit populating adjustment state and the surrounding fog setup consuming fog-adjustment state before calling GXSetFogRangeAdj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L141-L160",
+        "why": "Shows the complete initializer, including descriptor-backed and viewport-default initialization."
+      }
+    ]
+  },
+  {
+    "id": "fact:ca727288-9eae-410d-a9e0-8d9139fde32e",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogAdjInit",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "If `adj` is null, the function is a complete no-op. For a non-null destination, a non-null descriptor selects descriptor-backed initialization; a null descriptor selects default initialization from current GX viewport state. The function initializes object fields only and does not itself allocate the object, attach it to a fog object, or issue GX rendering commands.",
+    "rationale": "The outer null guard encloses the entire body, and the inner descriptor test selects the only two mutation paths. Allocation occurs in the caller HSD_FogAdjLoadDesc, while GX fog-range commands occur in HSD_FogSet rather than this initializer.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:02:32.034Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L58-L178",
+        "why": "Shows HSD_FogAdjLoadDesc allocating before calling the initializer, the initializer's two guarded branches, and GX fog-range state being issued elsewhere."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L141-L160",
+        "why": "Shows the complete outer destination guard and inner descriptor/default branch."
+      }
+    ]
+  },
+  {
+    "id": "fact:0bb0e957-ac40-4853-98e2-a65cd73c8e1e",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Obtains a new HSD_FogAdj through HSD_FogAdjAlloc and passes it with the supplied descriptor to HSD_FogAdjInit. For a non-null descriptor, width, center, and matrix are copied into the runtime object; for a null descriptor, the current viewport width supplies width, half that width supplies center, and an identity matrix is installed. The initialized pointer is returned and can be stored in HSD_Fog::fog_adj.",
+    "rationale": "The loader establishes the allocation-to-initializer-to-return flow. The initializer establishes the exact source of every adjustment field in both descriptor and default cases, and HSD_FogLoadDesc demonstrates how the returned object is consumed.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:04.343Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L119-L163",
+        "why": "Shows the new object and descriptor flowing into HSD_FogAdjInit and establishes the descriptor-copy and viewport-derived initialization paths."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L88-L108",
+        "why": "Shows the returned HSD_FogAdj pointer being assigned to the enclosing runtime fog object's fog_adj field."
+      }
+    ]
+  },
+  {
+    "id": "fact:ddfde031-b8a8-41d2-978a-4439ef0edfa2",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: HSD_FogAdj* HSD_FogAdjLoadDesc(HSD_FogAdjDesc* desc). The descriptor pointer is nullable; the return value is a non-null mutable runtime HSD_FogAdj under normal execution, with allocation failure handled by assertions.",
+    "rationale": "The matched definition supplies the exact C signature and immediately asserts the allocation result before initialization. HSD_FogAdjInit explicitly branches on whether the descriptor is null, proving that null is a supported input selecting default initialization.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:04.343Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L119-L163",
+        "why": "Provides the exact signature, allocation assertion, and initializer branches for non-null and null descriptor inputs."
+      }
+    ]
+  },
+  {
+    "id": "fact:45b4dfcd-ede0-475e-8fff-a6233fd6486b",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Constructs a runtime HSD_FogAdj object for horizontal fog range adjustment and initializes it from an optional HSD_FogAdjDesc, returning the ready-to-attach adjustment object to a fog descriptor loader.",
+    "rationale": "The function allocates an HSD_FogAdj, asserts allocation success, initializes it through HSD_FogAdjInit, and returns it. The direct caller attaches the result to an HSD_Fog, while HSD_FogSet later consumes the object's width, center, and matrix to build and enable a GX fog-adjustment table.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:04.343Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L119-L163",
+        "why": "Directly shows allocation, assertion, descriptor-based initialization, and return of the HSD_FogAdj object."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L88-L108",
+        "why": "Shows HSD_FogLoadDesc calling this function for a nested fog-adjustment descriptor and attaching the returned object to the runtime HSD_Fog."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L18-L97",
+        "why": "Shows the resulting HSD_FogAdj object's width, center, and matrix being used to initialize and enable GX fog range adjustment."
+      }
+    ]
+  },
+  {
+    "id": "fact:875afd22-2985-4c1f-8631-f60c2747516b",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "On successful return, the adjustment object is fully initialized in one of two modes: descriptor-backed state containing the descriptor's width, center, and matrix, or default state based on the current viewport width with a centered range and identity matrix. Allocation failure follows the assertion path rather than returning a null or partially initialized object.",
+    "rationale": "The loader asserts its allocation result before calling the initializer. The initializer's descriptor guard defines the two complete initialization modes and writes all adjustment fields used later by HSD_FogSet.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:04.343Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L119-L163",
+        "why": "Shows the allocation assertions and the mutually exclusive descriptor-backed and viewport-derived initialization states."
+      }
+    ]
+  },
+  {
+    "id": "fact:f417ee9c-fa52-4ebd-8893-bcaf319897f1",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInit",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "When `desc` is non-null, its `type`, `start`, `end`, and `color` fields are copied unchanged into the corresponding `fog` fields. Otherwise, `GXGetViewportv` supplies six cached viewport values; elements 4 and 5, the near-Z and far-Z endpoints, become `fog->start` and `fog->end`, while the type and color are synthesized as linear fog and opaque white.",
+    "rationale": "The initializer's two branches expose the complete provenance of every field it writes. The GX getter definition confirms the semantic ordering of the six-element viewport array and specifically identifies indices 4 and 5 as near-Z and far-Z.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:04.961Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L104-L124",
+        "why": "Shows the descriptor-field copies and the fallback assignments made from viewport elements 4 and 5."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXTransform.c#L453-L463",
+        "why": "Shows that `GXGetViewportv` writes near-Z to element 4 and far-Z to element 5."
+      }
+    ]
+  },
+  {
+    "id": "fact:60fe2f52-a673-4afb-859f-cfb7b141072d",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInit",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Establishes the parameters for depth-based scene fog. Descriptor-driven initialization preserves authored fog settings, while fallback initialization creates opaque-white linear fog spanning the active camera viewport's near and far depth bounds.",
+    "rationale": "The current initializer preserves both the descriptor-copy and viewport-derived fallback modes, and the current fog setup passes the initialized mode, distance interval, and color to GX depth-fog configuration.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L124",
+        "why": "Shows the initialized fog fields being consumed by `GXSetFog` and the two initialization modes that populate those fields."
+      }
+    ]
+  },
+  {
+    "id": "fact:0b83016f-af23-4430-bcd3-ce9c59dfb664",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInit",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature `void HSD_FogInit(HSD_Fog* fog, HSD_FogDesc* desc)`. `fog` is a nullable writable destination object and `desc` is a nullable initialization descriptor; the routine returns no value.",
+    "rationale": "The matched definition establishes the pointer types and void return. Both pointers are explicitly tested before dereference, proving that null is accepted for either parameter, while all mutations are directed through `fog`.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:04.961Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L104-L124",
+        "why": "Directly establishes the signature, null handling, and destination-object writes."
+      }
+    ]
+  },
+  {
+    "id": "fact:de71f5f4-6372-4f25-a6c8-22c2887aa107",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInit",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Initializes an existing `HSD_Fog` object's core fog parameters, either by copying a supplied descriptor or by creating a usable linear-fog default aligned to the active GX viewport's depth interval.",
+    "rationale": "The function writes only the fog type, start, end, and color fields. With a descriptor it copies those fields directly; without one it queries the viewport and installs explicit linear-fog defaults using its near/far depth endpoints.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:04.961Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L104-L124",
+        "why": "Shows the complete initializer, including descriptor copying and viewport-derived default initialization."
+      }
+    ]
+  },
+  {
+    "id": "fact:08d01f34-8495-45b8-a75b-d579dfbba3c5",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInit",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The routine is null-safe for its destination: if `fog` is null it performs no work. For a valid destination, a non-null descriptor selects exact descriptor initialization; a null descriptor selects fallback initialization as `GX_FOG_LIN` over the current viewport's near-to-far depth interval with color `(255,255,255,255)`.",
+    "rationale": "The outer destination guard prevents all accesses when `fog` is null. The inner descriptor branch is the sole mode selection, and each branch completely specifies the four core fog properties.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:04.961Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L104-L124",
+        "why": "Shows both null guards and the complete assignments performed in each initialization mode."
+      }
+    ]
+  },
+  {
+    "id": "fact:f42f98ed-9ddf-40b4-a8f7-f2177e05c924",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInterpretAnim",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads fog->aobj and passes that playback controller, the HSD_Fog as callback context, and FogUpdateFunc to HSD_AObjInterpretAnim. The generic interpreter evaluates the AObj's attached FObj channels and forwards their values to FogUpdateFunc, which writes fog->start, fog->end, the RGBA color components scaled from normalized floats to byte intensity, and fog->fog_adj->center when an adjustment object exists.",
+    "rationale": "The current wrapper supplies the AObj, fog owner, and update callback to the generic interpreter. The current generic interpreter forwards the owner and callback into FObj interpretation, while the fog callback retains the complete channel-to-field mapping and color conversion.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L186-L238",
+        "why": "Shows the wrapper inputs and the fog callback's writes to depth bounds, RGBA channels, and optional adjustment center."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+        "why": "Shows the generic AObj interpreter passing the owner and update callback into FObj-channel interpretation."
+      }
+    ]
+  },
+  {
+    "id": "fact:764c49b5-1e03-4960-a458-6ed5840a5c4d",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInterpretAnim",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes one tick of fog-parameter animation, allowing scene-animation channels to vary the fog's depth interval, color and opacity, and optional horizontal range-adjustment center over time.",
+    "rationale": "The current wrapper performs generic AObj playback for a fog object, and its callback maps evaluated channels directly onto the render-facing fog distance, RGBA, and range-adjustment properties.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+        "why": "Shows that `HSD_AObjInterpretAnim` advances or evaluates one playback step and interprets the attached FObj channels."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L186-L238",
+        "why": "Shows fog animation delegation and the resulting updates to depth, color, opacity, and optional adjustment center."
+      }
+    ]
+  },
+  {
+    "id": "fact:905acf11-33df-4019-932b-a230567b6fad",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInterpretAnim",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function signature: void HSD_FogInterpretAnim(HSD_Fog* fog). The HSD_Fog pointer is nullable; passing NULL performs no work.",
+    "rationale": "The matched definition establishes the exact return and parameter types, and the only invocation is guarded by fog != NULL.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:03:13.367Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L186-L191",
+        "why": "Shows the exact function signature and that a NULL fog bypasses animation interpretation."
+      }
+    ]
+  },
+  {
+    "id": "fact:cce60d22-2e46-4314-a463-bcdde52fd491",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInterpretAnim",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Processes one animation-playback step for an HSD_Fog by interpreting its attached HSD_AObj with the fog-property update callback.",
+    "rationale": "The complete function is a null-safe specialization of HSD_AObjInterpretAnim: it supplies fog->aobj as playback state, the fog as the owning object, and FogUpdateFunc as the callback. The callback demonstrates that the resulting channels update concrete fog properties.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:03:13.367Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L186-L191",
+        "why": "Shows the entire wrapper, including its NULL guard and delegation of the fog's AObj, the fog owner, and FogUpdateFunc to HSD_AObjInterpretAnim."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L193-L238",
+        "why": "Shows that FogUpdateFunc applies interpreted channels to fog depth bounds, color components, and the optional range-adjustment center."
+      }
+    ]
+  },
+  {
+    "id": "fact:2c97dbfc-66d5-46d6-8877-64b5d8fea8d8",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogInterpretAnim",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A NULL HSD_Fog is an immediate no-op. Otherwise its attached AObj controls playback: an absent or stopped AObj is ignored; first play evaluates without frame advancement; ordinary steps advance by framerate; looping playback wraps through the configured rewind interval or clamps at the end frame; AOBJ_NO_UPDATE suppresses fog-property writes; and completed non-looping playback transitions to AOBJ_NO_ANIM.",
+    "rationale": "The current fog wrapper retains its outer null guard and delegates playback state to the current AObj interpreter, which still implements the absent or stopped guard, first-play handling, rate advancement, loop wrapping or clamping, update suppression, and terminal non-looping transition.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:30:48.794Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L186-L238",
+        "why": "Shows the outer null guard and delegation of the attached AObj to the generic interpreter."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+        "why": "Shows the playback guards, first-play and frame transitions, loop handling, callback suppression, and non-looping completion behavior."
+      }
+    ]
+  },
+  {
+    "id": "fact:d76bf091-955c-4f7c-b4f3-91dab11c6530",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogLoadDesc",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The input descriptor's type, start distance, end distance, and color flow through HSD_FogInit into the newly allocated HSD_Fog. If desc->fogadjdesc is present, its width, center, and matrix flow through HSD_FogAdjLoadDesc and HSD_FogAdjInit into a newly allocated HSD_FogAdj whose pointer is stored in fog->fog_adj; the resulting HSD_Fog pointer is returned to the caller.",
+    "rationale": "The target establishes the allocation, initialization, conditional child-loading, attachment, and return sequence. The resolved initializers expose the exact descriptor fields copied into each runtime object.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:10.922Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L93-L102",
+        "why": "Shows the descriptor and nested descriptor flowing into the base and adjustment loaders and the resulting adjustment pointer being stored in the fog."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L106-L148",
+        "why": "Shows copying of fog type, start, end, and color and copying of adjustment width, center, and matrix."
+      }
+    ]
+  },
+  {
+    "id": "fact:da50b509-a795-49b1-ba47-ed17d444ae86",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogLoadDesc",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Loads the resource representation used to configure scene distance fog, including its fog mode, depth interval, blend color, and optional viewport-aware range adjustment.",
+    "rationale": "The loader copies those descriptor values into the runtime structures, and HSD_FogSet later consumes the same runtime fields to call GXSetFog and optionally enable GXSetFogRangeAdj.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T01:00:10.922Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L83-L133",
+        "why": "Shows descriptor-backed construction of the runtime fog and its type, depth interval, color, and optional adjustment object."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L18-L84",
+        "why": "Shows those runtime values being applied as GX scene fog and optional fog range adjustment."
+      }
+    ]
+  },
+  {
+    "id": "fact:2c8401b3-e070-4c97-98c6-a88c861e4018",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogLoadDesc",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function signature: HSD_Fog* HSD_FogLoadDesc(HSD_FogDesc* desc). The descriptor is required to be non-null because the function unconditionally reads desc->fogadjdesc after base initialization; the returned mutable HSD_Fog is newly allocated, and allocation failure is handled by assertions rather than returned as NULL during normal execution.",
+    "rationale": "The matched definition supplies the exact signature. Its unconditional nested-descriptor test establishes the effective non-null input precondition, while HSD_FogAlloc and the target's own assertion establish asserted allocation behavior.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:10.922Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L83-L133",
+        "why": "Provides the exact signature, shows HSD_FogAlloc asserting its hsdNew result, and shows HSD_FogLoadDesc unconditionally dereferencing desc after initialization."
+      }
+    ]
+  },
+  {
+    "id": "fact:9d4cb677-7711-416b-a3ff-18b5cc816599",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogLoadDesc",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Constructs a runtime HSD_Fog object from an HSD_FogDesc resource, including a separately allocated HSD_FogAdj child when the descriptor supplies optional range-adjustment data.",
+    "rationale": "The function allocates an HSD_Fog, initializes its base fog parameters from the descriptor, conditionally loads the nested fog-adjustment descriptor, attaches that result to the fog, and returns the completed runtime object.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:00:10.922Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L93-L102",
+        "why": "Directly shows allocation, base descriptor initialization, conditional nested fog-adjustment loading, attachment, and return."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L106-L148",
+        "why": "Shows the concrete fields initialized by HSD_FogInit and the analogous allocation-and-initialization behavior of HSD_FogAdjLoadDesc."
+      }
+    ]
+  },
+  {
+    "id": "fact:cfd15755-f53d-43cc-96dc-a3cf89d13eb4",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogLoadDesc",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The routine follows a two-level construction path: it always allocates and initializes the parent fog, then allocates and attaches a fog-adjustment child only when fogadjdesc is non-null. Allocation failures take assertion paths, while successful construction returns the initialized parent object.",
+    "rationale": "The control flow contains one mandatory parent-construction sequence and one guarded child-construction sequence. Both the parent allocator and loader assert the parent pointer, and the child loader likewise asserts its allocated adjustment object.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T01:00:10.922Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L83-L133",
+        "why": "Shows the asserted parent allocation, mandatory parent initialization, and guard controlling nested adjustment construction."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L106-L148",
+        "why": "Shows that the nested loader allocates, asserts, and initializes a separate HSD_FogAdj object."
+      }
+    ]
+  },
+  {
+    "id": "fact:a6614093-d625-4065-8487-b1bd3c705c75",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnim",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Forwards the caller's `fog` pointer and `frame` unchanged to `HSD_FogReqAnimByFlags`, inserting only the constant mask `0x7FF`; it performs no local reads, writes, conversion, or result handling.",
+    "rationale": "The complete body contains only the delegation call. Direct argument correspondence establishes unchanged forwarding, and the absence of any other statements establishes that this wrapper performs no additional local processing.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:59:59.396Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L173-L176",
+        "why": "Shows the complete one-call body, including unchanged forwarding of `fog` and `frame` and insertion of the constant flag mask."
+      }
+    ]
+  },
+  {
+    "id": "fact:5b32e080-ee91-42dc-820d-6a0b35e803dc",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnim",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes the full-channel request operation for fog-parameter animation: a scene can request the fog object's complete represented set of animated properties at one animation frame rather than selecting individual channels.",
+    "rationale": "The function's fog object and frame parameters establish the animated subject and time selection, while its 0x7FF mask sets every low bit accepted by the flag-selective request API.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T00:59:59.396Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L173-L176",
+        "why": "Shows a fog animation request at the supplied frame using an all-low-eleven-bits mask."
+      }
+    ]
+  },
+  {
+    "id": "fact:281fd365-2c70-405c-8658-94a4a8274631",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnim",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: `void HSD_FogReqAnim(HSD_Fog* fog, f32 frame)`. `fog` identifies the fog object whose animation is requested, and `frame` is forwarded as the requested animation frame.",
+    "rationale": "The matched definition supplies the exact return and parameter types. Its body forwards both arguments directly to HSD_FogReqAnimByFlags and returns no value.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:59:59.396Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L173-L176",
+        "why": "Provides the exact function declaration and shows both parameters being forwarded to the flag-selective requester."
+      }
+    ]
+  },
+  {
+    "id": "fact:d69d6558-d717-4566-b7ad-70d9e1441bc5",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnim",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the unfiltered fog-animation request operation by delegating to HSD_FogReqAnimByFlags with the complete low-11-bit flag mask, so callers can request every represented fog animation channel without constructing a mask.",
+    "rationale": "The complete function body consists of one call to the flag-selective requester with the constant 0x7FF. Because 0x7FF has all eleven low bits set, this wrapper is the all-represented-flags convenience form of that API.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:59:59.396Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L173-L176",
+        "why": "Shows HSD_FogReqAnim calling HSD_FogReqAnimByFlags with the fixed mask 0x7FF and the caller's fog object and frame."
+      }
+    ]
+  },
+  {
+    "id": "fact:943dfbf1-afd4-4a19-bbd4-53ca10efbe03",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnim",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Unconditionally issues one flag-selective animation request with all eleven low mask bits set. The wrapper has no null guard, frame-range guard, alternate state, timer, loop, or state mutation of its own; any resulting fog-animation state changes are delegated to `HSD_FogReqAnimByFlags`.",
+    "rationale": "The complete function has no control flow or assignments around its single call, while the constant 0x7FF selects every bit in the represented eleven-bit mask.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:59:59.396Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L173-L176",
+        "why": "Shows an unconditional single delegation with mask 0x7FF and no guards or local state operations."
+      }
+    ]
+  },
+  {
+    "id": "fact:34d01d8d-f9f0-4588-b18a-004ca26dad8c",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes a fog pointer, caller-provided selection mask, and requested frame. After validating the fog and testing mask bit 0x200, it reads fog->aobj and forwards that pointer with the unchanged frame to HSD_AObjReqAnim. The callee writes the AObj's current frame and playback flags and propagates the frame to all attached FObj channels; the wrapper returns no value.",
+    "rationale": "The wrapper's complete data path is visible in its matched body, and the resolved callee establishes the downstream mutations caused by the forwarded inputs.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:02:07.000Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L178-L184",
+        "why": "Shows the inputs, mask filter, fog->aobj read, unchanged frame forwarding, and void return behavior."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+        "why": "Shows the downstream current-frame and flag writes and propagation to HSD_FObjReqAnimAll."
+      }
+    ]
+  },
+  {
+    "id": "fact:97bf0d0c-c06d-475e-883b-b48e499164c4",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes selective, explicit-frame playback of animated fog parameters, allowing a broader scene-animation request mask to start or resume the fog timeline only when fog animation is selected.",
+    "rationale": "The function filters a general animation-selection mask down to the fog-specific 0x200 channel and then restarts the fog's scene-animation controller at the supplied frame. The surrounding fog interpreter maps that controller's channels to fog depth, color, and adjustment parameters.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T01:02:07.000Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L178-L184",
+        "why": "Shows selective fog-channel gating and explicit-frame delegation to the attached animation controller."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L158-L218",
+        "why": "Shows that the fog AObj is interpreted into animated fog start, end, color, and range-adjustment values."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+        "why": "Shows the selected frame becoming current and the animation controller being restarted for playback."
+      }
+    ]
+  },
+  {
+    "id": "fact:27f6ce3a-10c3-4487-a3aa-cce6d1f8a9ba",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "void (HSD_Fog* fog, u32 flags, f32 frame); fog is nullable, flags is an animation-selection bitmask whose 0x200 bit selects fog animation, and frame is an animation-frame position forwarded unchanged to the attached HSD_AObj.",
+    "rationale": "The matched signature supplies the concrete parameter types. Its guards establish nullable fog semantics and the relevant flag bit, while the call passes frame unchanged to the AObj request routine, which stores it as curr_frame.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:02:07.000Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L178-L184",
+        "why": "Shows the complete signature, nullability guard, 0x200 mask test, and unchanged forwarding of frame."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+        "why": "Confirms that the forwarded floating-point value is an animation frame written to the AObj's curr_frame field."
+      }
+    ]
+  },
+  {
+    "id": "fact:d7918b8e-21b4-4f78-8ce0-e79d1f5dc0f2",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Conditionally requests that a fog object's attached animation controller begin or resume playback from a specified frame when the supplied selection mask includes the fog-animation channel.",
+    "rationale": "The function rejects a null fog and masks lacking bit 0x200; when both guards pass, it delegates the fog's AObj and requested frame to HSD_AObjReqAnim, whose matched body installs that frame and restarts playback.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:02:07.000Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L178-L184",
+        "why": "Shows the fog and selection-mask guards and the request delegated to the fog object's AObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+        "why": "Shows that HSD_AObjReqAnim records the requested frame, restarts the controller, and synchronizes its attached FObj channels."
+      }
+    ]
+  },
+  {
+    "id": "fact:ee1b2fbc-6402-4497-adb4-bf7a822b3000",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null fog or a flags mask without bit 0x200 leaves animation state unchanged. If the fog passes those guards but has no attached AObj, the delegated request is also a no-op. Otherwise, the attached AObj moves to the requested current frame, clears AOBJ_NO_ANIM, sets AOBJ_FIRST_PLAY, and requests the same frame from every attached FObj channel.",
+    "rationale": "The fog-level guards define when delegation occurs, while HSD_AObjReqAnim supplies the null-AObj guard and the exact playback-state transition.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:02:07.000Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnimByFlags"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L178-L184",
+        "why": "Shows that null fogs and masks without the fog-animation bit return without requesting animation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+        "why": "Shows the null-AObj no-op and the transition to the requested frame with stopped state cleared and first-play state set."
+      }
+    ]
+  },
+  {
+    "id": "fact:18b6fb30-16fd-47f0-b790-66c584ee22d3",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogSet",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "For a non-null fog, `type`, `start`, `end`, and `color` flow to GXSetFog together with near and far clipping depths read from the current HSD_CObj. If fog adjustment exists, the active viewport supplies its X origin and width; those values and the adjustment center produce a hardware center clamped to 0\u2013640. A nonzero adjustment width and stored matrix feed GXInitFogAdjTable directly; a zero width instead causes the current compact GX projection to be reconstructed as a perspective or orthographic Mtx44 and combined with the viewport width. The resulting table and center flow to GXSetFogRangeAdj.",
+    "rationale": "Every stated input, transformation, branch, and consumer appears explicitly in the matched body, including camera accessors, viewport reads, center scaling and clamping, the stored-matrix path, projection reconstruction, and final GX calls.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:01:38.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogSet"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L84",
+        "why": "Shows the complete flow from HSD_Fog, HSD_FogAdj, current camera, viewport, and projection state into GX depth-fog and range-adjustment setters."
+      }
+    ]
+  },
+  {
+    "id": "fact:2098c279-824d-4afe-9fcc-d9aaba975c3d",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogSet",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes scene fog setup for rendering by installing depth-dependent blending toward a fog color and, when requested, projection-aware horizontal fog-range correction across the active viewport.",
+    "rationale": "The function sends fog mode, depth bounds, camera clipping planes, and color to GXSetFog, then optionally generates and installs a correction table from viewport and projection geometry. Those operations directly map it to GX depth fog and GX fog range adjustment.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T01:01:38.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogSet"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L84",
+        "why": "Shows the routine configuring ordinary GX depth fog and optional viewport- and projection-dependent range correction."
+      }
+    ]
+  },
+  {
+    "id": "fact:e7156980-f8fd-4d7b-836f-0c942ce53b33",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogSet",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "`void HSD_FogSet(HSD_Fog* fog)`: a synchronous GX state setter taking a nullable HSD_Fog pointer and returning no value. A non-null object supplies a GXFogType-compatible mode, floating-point start and end depths, GXColor, and an optional HSD_FogAdj containing a center, width, and projection matrix.",
+    "rationale": "The matched definition supplies the exact function signature. The null branch proves the pointer is intentionally accepted as nullable, while the non-null branches expose the domains and uses of the HSD_Fog and HSD_FogAdj fields.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:01:38.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogSet"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L84",
+        "why": "Provides the exact declaration and shows every consumed field, including the optional adjustment pointer and its center, width, and matrix."
+      }
+    ]
+  },
+  {
+    "id": "fact:9d7211bc-4c37-433d-994c-ed21c3f6484f",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogSet",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Applies an HSD fog object to the active GX render state: it programs depth fog using the object's mode, depth bounds, and color together with the current camera's clipping planes, and it enables, constructs, and centers fog-range adjustment when the object has adjustment data, otherwise disabling that adjustment.",
+    "rationale": "The matched body passes the fog object's fields and active camera near/far values to GXSetFog. Its remaining control flow either derives a GXFogAdjTable and calls GXSetFogRangeAdj enabled or calls the same setter disabled, establishing both parts of the routine's rendering-state role.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:01:38.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogSet"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L84",
+        "why": "Directly shows depth-fog programming, adjustment-table construction, adjustment-center calculation, and enabled or disabled fog-range state."
+      }
+    ]
+  },
+  {
+    "id": "fact:e0492d68-3b5a-423f-97eb-58f4b8ef1a71",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_FogSet",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null fog installs a zeroed no-fog GXSetFog configuration and returns immediately, without changing fog-range-adjustment state. A non-null fog requires a current camera and panics if none has been selected. After programming depth fog, the presence of `fog_adj` selects the enabled state: its center is converted into viewport coordinates and clamped, and its table is built from either stored adjustment projection data or the current GX projection. Absence of `fog_adj` explicitly disables fog-range adjustment with center zero and a null table.",
+    "rationale": "The first early-return branch establishes the null-object behavior and notably precedes either GXSetFogRangeAdj call. The camera guard, adjustment-pointer branch, center clamps, matrix-source branch, enabled call, and disabled call directly establish the remaining states and transitions.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T01:01:38.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogSet"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L19-L84",
+        "why": "Shows all guards and branches, including the null-fog early return, missing-camera panic, center clamps, alternative table sources, and range-adjustment enable/disable calls."
+      }
+    ]
+  },
+  {
+    "id": "fact:e59f7b38-7f99-47ff-bbc7-a4ab90bd781e",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "For a valid fog, its current `aobj` field flows into HSD_AObjRemove when non-null. The supplied HSD_AObjDesc then flows through HSD_AObjLoadDesc, and the resulting runtime HSD_AObj pointer\u2014or NULL for a null descriptor\u2014is written back to `fog->aobj`. That stored controller is later consumed by the fog animation request and interpretation routines.",
+    "rationale": "The target directly exposes the old-controller teardown and descriptor-to-field replacement flow. The AObj implementation establishes the loader's nullable descriptor semantics and the resources released from the old controller, while the neighboring fog routines establish the consumers of the new field value.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T05:11:30.620Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L163-L224",
+        "why": "Shows the old fog AObj being removed, the descriptor-loaded result entering fog->aobj, and that field later being requested and interpreted."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+        "why": "Shows descriptor materialization, null-descriptor behavior, and teardown of an AObj's FObj chain and associated HSD object."
+      }
+    ]
+  },
+  {
+    "id": "fact:ea5df069-4802-4a00-b02d-43bfcb3b2c5c",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Provides the controller-attachment stage for animated scene fog. Once requested and interpreted, the installed animation can change the fog interval, RGBA color, and optional fog-range-adjustment center used by scene rendering.",
+    "rationale": "The target installs the fog's AObj rather than directly changing visible parameters. The neighboring playback path consumes that controller and maps its channels onto fog start and end distances, color components, and the adjustment center, grounding the attachment routine in animated scene-fog behavior.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T05:11:30.620Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L163-L224",
+        "why": "Shows controller attachment followed by the request and interpretation path whose update callback changes fog depth bounds, RGBA channels, and adjustment center."
+      }
+    ]
+  },
+  {
+    "id": "fact:f198bd42-4422-4934-96e2-915bb4eaee6a",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_FogAddAnim",
+    "rationale": "The source itself records `HSD_FogAddAnim` as the tentative recovered name immediately above this function. That name also follows the established HSD subsystem convention used by analogous attachment routines such as HSD_MObjAddAnim, HSD_WObjAddAnim, and HSD_CObjAddAnim, while accurately distinguishing attachment from the adjacent request and interpretation operations.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T05:11:30.620Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L118-L193",
+        "why": "Contains the explicit `HSD_FogAddAnim ?` recovery note above the function and shows its placement before HSD_FogReqAnim and HSD_FogInterpretAnim."
+      }
+    ]
+  },
+  {
+    "id": "fact:c35198d1-8760-429f-8607-429cf6a92219",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function with signature `void HSD_FogAddAnim(HSD_Fog* fog, HSD_AObjDesc* desc)`. It is a null-tolerant mutator whose first argument owns the resulting runtime HSD_AObj and whose second argument is a nullable serialized animation-controller descriptor.",
+    "rationale": "The matched definition establishes the void return and pointer parameter types. It guards the fog pointer but passes the descriptor directly to HSD_AObjLoadDesc; the loader returns NULL for a null descriptor and otherwise materializes an HSD_AObj.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T05:11:30.620Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L163-L171",
+        "why": "Provides the exact current signature, the fog null guard, and the descriptor's use as the input to HSD_AObjLoadDesc."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+        "why": "Shows that HSD_AObjLoadDesc consumes an HSD_AObjDesc pointer, returns a runtime HSD_AObj, and returns NULL for a null descriptor."
+      }
+    ]
+  },
+  {
+    "id": "fact:d4434bd7-8617-4d61-8ebf-ebd48b0af514",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Attaches an animation description to an HSD_Fog, destroying any previously attached runtime animation controller before loading and storing its replacement.",
+    "rationale": "The function is the fog subsystem's animation-attachment stage: for a valid fog it removes the existing fog->aobj and replaces it with the HSD_AObj materialized from the supplied descriptor. The neighboring request and interpretation routines subsequently operate on that stored controller.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T05:11:30.620Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L163-L224",
+        "why": "Shows replacement of the fog's attached AObj and the neighboring routines that request and interpret the newly attached controller."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+        "why": "Shows HSD_AObjLoadDesc constructing a runtime animation controller and HSD_AObjRemove releasing a controller and its owned resources."
+      }
+    ]
+  },
+  {
+    "id": "fact:46beb60c-ae81-44f9-95b8-e65d7efe2f02",
+    "target_id": "target:function:main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null fog is a no-op. For a valid fog, an existing animation controller is fully removed before replacement; if the supplied descriptor is null, the transition therefore clears `fog->aobj`. Attaching a descriptor does not select a frame or evaluate channels: HSD_FogReqAnim performs the later frame request, and HSD_FogInterpretAnim performs interpretation.",
+    "rationale": "The target's owner guard, conditional removal, and unconditional loader assignment define the replacement and clearing transitions. HSD_AObjLoadDesc explicitly returns NULL for a null descriptor. The adjacent request and interpretation functions demonstrate that activation and evaluation remain separate operations.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T05:11:30.620Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L163-L224",
+        "why": "Shows the null-owner state, destruction-before-assignment ordering, and separate request and interpretation operations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+        "why": "Shows that a null descriptor loads as NULL and that removal releases the prior controller and its attachments."
+      }
+    ]
+  },
+  {
+    "id": "fact:e1b59074-cad1-47e8-aed4-3e63e4259987",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/fog.c",
+    "type": "data_flow",
+    "value": "Fog descriptors populate HSD_Fog runtime fields, which HSD_FogSet combines with the current HSD_CObj's near and far planes plus the current GX viewport or projection to issue GXSetFog, GXInitFogAdjTable, and GXSetFogRangeAdj calls. Separately, interpreted AObj channels flow through FogUpdateFunc into the fog's start and end distances, RGBA color components, and optional fog-adjustment center.",
+    "rationale": "Descriptor values, camera and viewport state, and animation channels continue to feed the same render-facing fog fields and GX calls.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T17:02:33.689Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/fog.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L1-L120",
+        "why": "Shows descriptor and camera, viewport, and projection state feeding GX fog configuration."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L120-L239",
+        "why": "Shows interpreted animation channels updating fog depth, color, alpha, and adjustment-center fields."
+      }
+    ]
+  },
+  {
+    "id": "fact:f370eebd-5704-406c-922a-e340dbfbe0cf",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/fog.c",
+    "type": "game_mapping",
+    "value": "Realizes scene fog rendering by controlling the distance interval, color, and optional screen-space range adjustment through which geometry is blended into fog, with those properties able to change under animation control.",
+    "rationale": "The current code still programs GX distance fog and optional viewport-relative range adjustment and exposes the visible parameters to animation.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T17:02:33.689Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/fog.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L1-L120",
+        "why": "Shows distance-fog color and depth parameters plus optional range adjustment being installed in GX."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L120-L239",
+        "why": "Shows animation-driven changes to the visible fog parameters."
+      }
+    ]
+  },
+  {
+    "id": "fact:f5a5c849-4697-4e11-bce1-963a69fa6a27",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/fog.c",
+    "type": "purpose",
+    "value": "Implements the HSD runtime fog subsystem: it constructs and initializes fog and fog-range-adjustment objects, applies their parameters to the GX renderer using the active camera and viewport, supports animation of fog properties, and releases the associated animation and adjustment objects.",
+    "rationale": "The refreshed source retains fog and adjustment allocation, descriptor loading, camera-relative GX setup, animation interpretation, and lifecycle cleanup.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T17:02:33.689Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/fog.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L1-L120",
+        "why": "Shows fog allocation, descriptor initialization, active-camera use, and GX fog and range-adjustment setup."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L120-L239",
+        "why": "Shows fog-adjustment initialization, animation handling, property updates, and release behavior."
+      }
+    ]
+  },
+  {
+    "id": "fact:f23ba5ce-1b5a-437a-8cb5-783e4ba5e09b",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/fog.c",
+    "type": "state_behavior",
+    "value": "A null fog passed to HSD_FogSet installs a no-fog configuration. A non-null fog requires a current camera, always installs its depth fog, and enables fog range adjustment only when a fog-adjustment object is attached; otherwise range adjustment is disabled. Fog animations can replace the attached animation object, seek it when flag 0x200 is selected, and update the fog's start, end, RGBA channels, or adjustment center during interpretation.",
+    "rationale": "The head render branches and animation routines preserve every stated guard, transition, and field update.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-06T17:02:33.689Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/fog.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L1-L120",
+        "why": "Shows null-fog handling, the current-camera requirement, and conditional fog-range adjustment."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/fog.c#L120-L239",
+        "why": "Shows animation replacement, flag-gated seeking, interpretation, and property updates."
+      }
+    ]
+  }
+]

@@ -1,0 +1,173 @@
+{
+  "tu": "main/melee/it/kinds/itfreeze",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L461-L484",
+            "why": "Inert animation and ordered collision/countdown processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Shared support check invokes the supplied transition on loss of support."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L231-L234",
+            "why": "Supplied transition selects state 1."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that state 5 necessarily persists until countdown expiry while preserving the supported inert animation behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfreeze:itFreeze_UnkMotion5_Anim"
+        },
+        "type": "state_behavior",
+        "value": "While installed for motion state 5, this animation callback always returns false without changing velocity, timers or motion state. State progression belongs to the collision callback: its shared support check can select airborne state 1, and its subsequent counter branch decrements a positive counter or restores sliding state 0 when the counter is already nonpositive."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L451-L484",
+            "why": "Counter initialization and complete collision callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Support loss invokes the callback before returning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L231-L234",
+            "why": "Callback selects state 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L165-L172",
+            "why": "Common setup call sets x15."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exceptional shared-helper transition and exact pre-decrement expiry ordering omitted by the existing explanation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfreeze:itFreeze_UnkMotion5_Coll"
+        },
+        "type": "state_behavior",
+        "value": "First runs it_8026D62C with the state-1 selector. It then tests freeze.x18 without rechecking the selected motion state: a positive value is decremented, while an already nonpositive value restores freeze.x0 as horizontal velocity, zeros vertical/depth velocity, enables the common x15 flag and selects state 0 with ITEM_ANIM_UPDATE. Starting from 90, uninterrupted countdown processing performs 90 positive decrements and exits on the following check. Loss of support may select state 1 before this branch; the expired branch can overwrite that selection with state 0. Every path returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L341-L484",
+            "why": "Initialization, linked physics/collision and recovery counter ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Shared collision can invoke the airborne selector."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the exact-duration claim without rewriting the supported linked-state behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfreeze:it_8028F434"
+        },
+        "type": "state_behavior",
+        "value": "Resets velocity, stores the supplied braking magnitude after negating negative inputs, retains ref_gobj, performs common item/map setup and selects motion state 4. State-4 physics consumes a nonzero pending x10 override and then brakes horizontal velocity toward zero. Its collision callback clears the association after becoming airborne, enters state 5 and clears the association on obstruction, or returns to state 0 when grounded without a link. State-5 entry initializes a counter to 90; its collision callback checks expiry before decrement and can also enter falling through the shared support check, so recovery is not an unconditional exact 90-frame pause."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L17-L54",
+            "why": "Motion-state callback composition and animation IDs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L451-L484",
+            "why": "Recovery initialization and exact counter processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Support-loss transition inside shared collision processing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an exact 90-update residence claim with the actual counter and exceptional transition semantics.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itfreeze.c"
+        },
+        "type": "state_behavior",
+        "value": "Motion state 0 slides, 1 falls, 2 is held, 3 is thrown, 4 decelerates an externally linked spawn, and 5 is stopped recovery. State 5 initializes its counter to 90, decrements positive values and restores sliding on a later check when the counter is already nonpositive. Its shared collision processing can select falling state 1 before the counter branch; the expired branch can subsequently select state 0. Motion indices are distinct from animation IDs, and states 1 and 3 share an inert animation callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L89-L94",
+            "why": "Unconditional assignment and lifetime call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L361-L399",
+            "why": "Nonzero-only consumption followed by braking."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1413-L1421",
+            "why": "Both timers are overwritten."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the zero-input case and distinguishes unconditional setter behavior from the consumer's nonzero guard.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfreeze:it_8028EC98"
+        },
+        "type": "state_behavior",
+        "value": "Always stores the supplied float in freeze.x10 and refreshes both lifetime timers without directly changing motion state or x40_vel. On a state-4 physics update, a nonzero x10 replaces horizontal velocity and is cleared before braking. Supplying zero instead clears any pending override; it does not directly stop existing horizontal velocity, although ordinary state-4 braking still applies. Repeated calls overwrite the pending value and refresh lifetime again."
+      },
+      {
+        "confidence": 0.88,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itfreeze.c#L510-L513",
+            "why": "Generic Item teardown wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itheiho.c#L64-L76",
+            "why": "Heiho's retained object is food."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itheiho.c#L380-L408",
+            "why": "Boundary handler destroys the retained carried item through this wrapper."
+          }
+        ],
+        "op": "write",
+        "rationale": "A descriptive inference, not a recovered original symbol. Unlike the rendered Logic17-specific name, this identifies the demonstrated carried-food teardown role without implying a Freezie-only lifecycle callback. The wrapper remains distinct from the actual Freezie Destroyed callback.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itfreeze:it_8028F9B8"
+        },
+        "type": "inferred_name",
+        "value": "itDestroyCarriedItem"
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

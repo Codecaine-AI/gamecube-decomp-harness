@@ -1,0 +1,804 @@
+{
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:.sdata2": [
+    {
+      "id": "fact:b75dc4f3-63a7-415f-bfdb-d0e43cbf9971",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Dash:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The Dash callbacks only read these constants: zero is used for stick and facing-product sign tests and as the initial animation frame and blend value, while one is supplied as the Dash animation playback rate. No callback writes to the pool.",
+      "rationale": "The source at the renamed head path still uses zero in the Dash input comparisons and passes the zero/one/zero tuple to Fighter_ChangeMotionState. The literals are only consumed by executable logic, preserving the standing read-only flow.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L72",
+          "why": "Shows the zero-valued input and facing comparisons and the 0.0F, 1.0F, 0.0F Dash motion-state arguments."
+        }
+      ]
+    },
+    {
+      "id": "fact:e72d46ac-6aa3-4ab9-99fd-6ba8c750b8de",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Dash:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An eight-byte read-only constant pool containing two 32-bit floating-point values: 0.0F and 1.0F.",
+      "rationale": "The eight-byte section target has room for two f32 values, and the current source at the renamed path shows zero and one as the locally materialized floating-point literals used by the unit.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L72",
+          "why": "Shows 0.0F and 1.0F used as floating-point values by the Dash input and entry routines."
+        }
+      ]
+    },
+    {
+      "id": "fact:da8012d7-b09a-4643-8464-bc741b4e9e22",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Dash:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the translation unit's read-only floating-point literal pool for zero and one, supporting Dash input sign tests and Dash action-state initialization.",
+      "rationale": "At the renamed head path, the unit continues to use 0.0F for horizontal-input and facing-direction comparisons and 0.0F and 1.0F for Dash motion initialization, confirming the section's literal-pool role.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L72",
+          "why": "Shows zero supporting Dash sign tests and zero and one supporting Dash action-state initialization."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Anim": [
+    {
+      "id": "fact:5af4bbf1-88f2-48d0-aaa2-f8c434c6e452",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Anim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes the fighter object only to query whether its current animation has frames remaining. While frames remain it produces no state change; after expiration it forwards the unchanged object to the common action-ending dispatcher, which selects a character-appropriate neutral transition.",
+      "rationale": "The Dash callback still performs one frame-remaining query and forwards the same object to ft_8008A2BC only after expiration. The dispatcher at head still selects special Master Hand or Crazy Hand handling and otherwise delegates to the common neutral-state helper.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L74-L79",
+          "why": "Shows the complete local flow from the animation query to forwarding the unchanged fighter object."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_08A1.c#L48-L98",
+          "why": "Shows the current common action-ending dispatcher and its boss-specific or ordinary neutral-state destinations."
+        }
+      ]
+    },
+    {
+      "id": "fact:39a65933-ce8d-4e11-b537-63d61c6caef6",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Anim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the animation-expiry boundary of Melee's initial dash: if the fighter remains in Dash until its animation finishes rather than taking an earlier interrupt or run transition, the callback ends the action through the common neutral-state path.",
+      "rationale": "The callback remains the Dash animation-expiry branch, and its current callee routes ordinary fighters toward Wait. SmashWiki identifies initial dash as the pre-run burst and describes Melee's comparatively late transition from its initial-dash animation into running.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L74-L79",
+          "why": "Shows animation expiration invoking the common action-ending helper from the Dash callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_08A1.c#L48-L98",
+          "why": "Shows that the invoked helper routes ordinary fighters through the common neutral-state routine and normally into Wait."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://dash~initial-dash@r2044125",
+          "why": "Defines initial dash as the opening burst of a dash before the transition into running."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://dash~initial-dash-2@r2044125",
+          "why": "Describes Melee's comparatively late transition from the initial-dash animation into the running animation."
+        }
+      ]
+    },
+    {
+      "id": "fact:6bc80890-1140-4f55-bd25-f6a9b1076b3b",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Anim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Fighter animation-state callback with signature void (Fighter_GObj* gobj).",
+      "rationale": "The matched definition takes one Fighter_GObj pointer, returns void, and performs the animation-completion processing associated with the Dash action state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:20:11.165Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L74-L79",
+          "why": "Provides the exact function signature and demonstrates its animation-state callback role."
+        }
+      ]
+    },
+    {
+      "id": "fact:7d08918d-3ed4-4b26-aadb-180a3a045689",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Anim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Handles animation completion for the common Dash action state, leaving the state through the common action-ending transition when the dash animation has no frames remaining.",
+      "rationale": "The complete callback does nothing while frames remain and calls ft_8008A2BC after expiration. The current implementation of that callee confirms its role as an action-ending dispatcher.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L74-L79",
+          "why": "Shows the complete Dash animation callback and its sole animation-expiry transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_08A1.c#L48-L98",
+          "why": "Shows ft_8008A2BC dispatching completed actions to boss-specific behavior or the ordinary neutral-state path."
+        }
+      ]
+    },
+    {
+      "id": "fact:cb385860-c5f6-41c1-8353-c69fdbda2dbb",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Anim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Preserves the Dash state while animation frames remain. On the first update after the animation expires, it exits through ft_8008A2BC; for an ordinary fighter this reaches the common neutral-state path, normally changing the motion state to Wait after its exceptional-state checks.",
+      "rationale": "The negated frame-remaining test remains the callback's only guard and ft_8008A2BC remains its only outgoing transition. At head, the ordinary path still calls ft_8008A348, whose exceptional checks precede the normal Wait transition.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L74-L79",
+          "why": "Shows that Dash is retained while animation frames remain and that expiration triggers the sole outgoing transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_08A1.c#L48-L98",
+          "why": "Shows the dispatcher's ordinary-fighter route, exceptional neutral-state checks, and normal transition to ftCo_MS_Wait."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_CheckInput": [
+    {
+      "id": "fact:bf521f4e-692d-4ad2-9909-a061132adf2c",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_CheckInput",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Obtains the Fighter from gobj->user_data; reads the current horizontal left-stick value, facing direction, and horizontal-stick tilt timer; compares stick magnitude and timer against dash_smash_stick_threshold and dash_smash_window; then forwards the original Fighter_GObj to either ftCo_Turn_Enter_Smash or ftCo_Dash_Enter and returns true, or returns false without dispatch.",
+      "rationale": "The function at the renamed head path explicitly combines fighter-local input and timing fields with the named common Dash thresholds, uses facing to select the destination routine, and reports whether dispatch occurred.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L47",
+          "why": "Shows every fighter and common-data field read, both state-entry calls receiving gobj, and both boolean return paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:9a0546e7-7634-4865-b851-e52ca242ea43",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_CheckInput",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements recognition of Melee's initial-dash stick flick, including the rapid opposite-direction turnaround used when reversing direction from eligible grounded states.",
+      "rationale": "The code recognizes a strong, recent horizontal-stick movement and chooses Dash or a smash turn according to its direction relative to facing. SmashWiki identifies the initial dash as Melee's pre-run burst and describes opposite-direction stick input as its rapid turnaround input.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L47",
+          "why": "Shows that a recent strong horizontal input enters Dash when aligned with facing and smash turn when opposite facing."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://dash~initial-dash@r2044125",
+          "why": "Defines initial dash as the quick pre-run burst and notes that its turnaround permits rapid reversal."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://dash~initial-dash-2@r2044125",
+          "why": "States that turning around during Melee's initial dash is performed with opposite-direction control-stick input."
+        }
+      ]
+    },
+    {
+      "id": "fact:22869dc7-ae2f-4210-97f3-f2f2cc77dcbe",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_CheckInput",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A state-changing fighter input predicate with signature bool (Fighter_GObj*): it accepts one fighter game object and returns whether a qualifying horizontal flick caused a transition.",
+      "rationale": "The current definition supplies the exact signature. Every true path invokes a state-entry routine first, whereas the false path performs no transition, establishing the predicate's side-effect semantics.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L47",
+          "why": "Provides the bool (Fighter_GObj*) signature and shows that the result indicates whether a transition routine was called."
+        }
+      ]
+    },
+    {
+      "id": "fact:e1f08127-2d54-400e-a728-17cb46c36b5c",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_CheckInput",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Recognizes a newly flicked horizontal-stick dash input for grounded fighter states, dispatches it either to forward Dash or to a smash turn according to the fighter's facing direction, and reports whether it consumed the input by initiating a state transition.",
+      "rationale": "The current body requires both sufficient stick magnitude and a recent horizontal tilt, dispatches according to the signed stick-facing product, and returns true only after a state-entry call.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L47",
+          "why": "Shows the magnitude and tilt-timer guards, facing-relative Dash or smash-turn dispatch, and consumed/not-consumed result."
+        }
+      ]
+    },
+    {
+      "id": "fact:2a0a553c-82ef-4d51-bdeb-08f41a6d3ed1",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_CheckInput",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The transition is enabled only when the absolute horizontal-stick position reaches dash_smash_stick_threshold while the horizontal tilt timer is below dash_smash_window. Within that window, input opposite the fighter's facing enters the smash-turn state; other qualifying input enters Dash with argument 1. A successful transition returns true, while failure of either input guard leaves the current state unchanged and returns false.",
+      "rationale": "The nested conditions explicitly define the magnitude and timing guard, the facing-dependent destinations, the Dash entry argument, and the success and failure outcomes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L47",
+          "why": "Shows the named threshold and timer guards, facing-relative branch, Dash argument, and boolean behavior."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll": [
+    {
+      "id": "fact:71db588a-691b-4847-85db-1f53ac850d68",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the Dash fighter object and forwards it unchanged to ft_800844EC. The delegated path copies the fighter's collision position into CollData, runs map collision, copies the resolved position back to the fighter, and uses the resulting ground-or-air status to select further processing. On ground, wall flags, facing direction, ground velocity, and walk_max_vel feed the StopWall test; off ground, the fighter object is passed to ftCo_Fall_Enter.",
+      "rationale": "The wrapper contains only the call to ft_800844EC. Its ground-query helper visibly synchronizes Fighter and CollData positions around map collision and returns GA_Air or GA_Ground; ft_800844EC branches on that result, while the wall helper reads facing, environment flags, ground velocity, and common attributes before changing state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:21:28.823Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L164-L167",
+          "why": "Shows the fighter object being forwarded unchanged to the common collision routine."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L389-L424",
+          "why": "Shows collision-position synchronization, map-collision processing, the resolved position write-back, and conversion of the result into GA_Air or GA_Ground."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1129-L1138",
+          "why": "Shows the ground-or-air result being consumed to choose the wall-stop check or Fall entry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L15-L56",
+          "why": "Shows the wall-stop path consuming collision flags, facing direction, ground velocity, and walk_max_vel and then writing the StopWall motion state and corrected position."
+        }
+      ]
+    },
+    {
+      "id": "fact:4c631b67-f9a4-4391-a798-660ed7bc0f75",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the environmental-collision portion of initial dash: the fighter follows resolved ground contact while dashing, begins falling after dashing off the ground, and can be stopped by sufficiently fast movement directly into a wall.",
+      "rationale": "The target is the collision callback belonging to the Dash action state. Its delegated code resolves ground contact and explicitly maps loss of ground to Fall, while its grounded wall branch maps fast, facing-side wall contact to StopWall.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T00:21:28.823Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L164-L167",
+          "why": "Identifies this behavior as the Dash state's collision callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L389-L424",
+          "why": "Shows stage collision resolving the fighter's position and determining whether grounded movement has become airborne."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1129-L1138",
+          "why": "Shows loss of ground producing Fall and retained ground contact enabling wall-stop processing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L15-L56",
+          "why": "Shows the fast head-on wall-contact behavior realized by the grounded branch."
+        }
+      ]
+    },
+    {
+      "id": "fact:910f694e-427b-4df0-b42e-4e534ba78388",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Action-state collision callback with signature void (Fighter_GObj* gobj), compatible with the fighter event-callback shape used by motion states.",
+      "rationale": "The complete matched definition takes one Fighter_GObj pointer, returns no value, and is named and positioned as the Dash state's Coll callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:21:28.823Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L164-L167",
+          "why": "Directly provides the complete function signature and callback body."
+        }
+      ]
+    },
+    {
+      "id": "fact:8a033b54-901f-456e-aebd-7509046ec467",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the Dash action state's collision callback, delegating stage-contact processing to the common grounded-movement collision routine so Dash can remain grounded, transition to Fall after leaving the ground, or enter StopWall after sufficiently fast head-on wall contact.",
+      "rationale": "The target is explicitly the Dash collision callback and forwards its fighter object to ft_800844EC. That common routine performs the grounded-versus-air result check, calls the wall-stop test while grounded, and enters Fall otherwise; the wall-stop helper confirms that its successful branch changes the fighter to ftCo_MS_StopWall.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:21:28.823Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L164-L167",
+          "why": "Shows that ftCo_Dash_Coll is a void Fighter_GObj callback whose entire operation is delegation to ft_800844EC."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1129-L1138",
+          "why": "Shows the delegated routine checking the ground-collision result, attempting the StopWall transition while grounded, and entering Fall when no longer grounded."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L15-L56",
+          "why": "Shows that the grounded wall branch requires a wall on the fighter's facing side and ground speed above walk_max_vel before changing to ftCo_MS_StopWall."
+        }
+      ]
+    },
+    {
+      "id": "fact:039fd53b-b4f6-4fc7-b4f0-d74d63cc9aec",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "During each Dash collision update, a grounded result preserves grounded movement but permits a transition to ftCo_MS_StopWall when the fighter faces a contacted wall and ABS(gr_vel) exceeds walk_max_vel. An airborne result immediately enters the common Fall state.",
+      "rationale": "The common routine called by the target branches directly on the ground-collision result. Its true branch invokes the wall-stop guard, whose conditions and ftCo_MS_StopWall transition are explicit; its false branch invokes ftCo_Fall_Enter.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:21:28.823Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1129-L1138",
+          "why": "Directly shows the grounded branch attempting StopWall and the non-grounded branch entering Fall."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L15-L56",
+          "why": "Defines the facing-wall and speed guards and shows the successful transition to ftCo_MS_StopWall."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Enter": [
+    {
+      "id": "fact:7cc04b39-460c-4728-b28b-590d6966e1ed",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Enter",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a Fighter_GObj and an integer mode flag, resolves the Fighter, and reads facing_dir, co_attrs.dash_initial_velocity, gr_vel, and x197C. It writes cmd_vars[0], x670_timer_lstick_tilt_x, mv.co.dash.x0, and mv.co.dash.x4; changes the fighter to ftCo_MS_Dash; passes the computed velocity correction to ftCommon_800804A0; and, when x197C is non-null, sends fixed sound parameters 0x118, 0x7F, and 0x40 to ft_PlaySFX.",
+      "rationale": "The entry body explicitly exposes each read, write, and outgoing call. The current IASA and physics callbacks show that x4 controls an early interrupt branch and x0 is consumed as a one-shot physics marker.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L49-L72",
+          "why": "Shows the entry routine's fighter fields, writes, motion-state transition, velocity-helper argument, and conditional sound parameters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L144",
+          "why": "Shows Dash IASA reading mv.co.dash.x4 to select its earliest interrupt branch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L145-L162",
+          "why": "Shows Dash physics consuming and clearing mv.co.dash.x0 before normal steering."
+        }
+      ]
+    },
+    {
+      "id": "fact:9bb9d0a8-1734-412c-918e-0e7eba8293ae",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Enter",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Initializes Melee's initial dash\u2014the quick grounded burst before running\u2014using the fighter's character-specific initial Dash velocity and preparing the Dash state whose later callbacks permit rapid turnaround, speed alteration, and other frame-dependent initial-dash options.",
+      "rationale": "The code enters the dedicated Dash motion state and bases its initial correction on dash_initial_velocity. SmashWiki independently identifies initial dash as the pre-run burst with its own speed behavior and quick turnaround, while the surrounding matched callbacks implement the documented speed adjustment and frame-window-dependent options.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:15:57.558Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L49-L72",
+          "why": "Shows entry into ftCo_MS_Dash and initialization from the fighter's facing-scaled dash_initial_velocity attribute."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://dash~initial-dash@r2044125",
+          "why": "Defines initial dash as the quick burst before running, with faster acceleration, an independent speed limit, and rapid turnaround behavior."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://dash~initial-dash-2@r2044125",
+          "why": "Documents Melee-specific initial-dash behavior, including stick-based speed alteration, opposite-direction turnaround, and frame-dependent action options."
+        }
+      ]
+    },
+    {
+      "id": "fact:de6ac149-8611-44a7-bd9a-809609cec0aa",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Enter",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A fighter action-state entry routine with signature void (Fighter_GObj*, int). The second argument is an integer used as a boolean-like Dash mode flag: it is copied to fp->mv.co.dash.x4, and the Dash IASA callback distinguishes zero from nonzero when selecting its early interrupt phase.",
+      "rationale": "The declaration establishes the exact parameter and return types. The entry body stores the integer unchanged, and current IASA code only tests whether the stored value is zero, supporting a boolean-like control role without assigning a more speculative meaning.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L49-L72",
+          "why": "Provides the exact signature and shows arg1 copied unchanged into mv.co.dash.x4."
+        },
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L144",
+          "why": "Shows the Dash IASA callback testing mv.co.dash.x4 as a zero-versus-nonzero condition."
+        }
+      ]
+    },
+    {
+      "id": "fact:bcaf52a2-caae-49a1-b342-2c84af19a417",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Enter",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Enters and initializes the common Dash action state: it clears the Dash command variable, starts the Dash motion, resets the horizontal-stick tilt timer, computes and applies a facing-relative initial-velocity correction, stores the caller-supplied Dash mode flag, and conditionally plays the Dash sound effect.",
+      "rationale": "The current matched body performs each initialization step directly, while the surrounding callbacks consume the stored Dash motion variables during later interrupt and physics processing.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L49-L72",
+          "why": "Shows transition to ftCo_MS_Dash, command and timer resets, velocity setup, mode-flag storage, and conditional sound playback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L162",
+          "why": "Shows the later Dash callbacks consuming the entry routine's x4 and x0 motion-variable outputs."
+        }
+      ]
+    },
+    {
+      "id": "fact:1beef1b5-d2af-43e5-a5db-8b947cdcde8f",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Enter",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On invocation, the routine immediately selects ftCo_MS_Dash at animation frame 0 with playback rate 1 and no preserved motion-state flags, performs common animation setup, and sets the horizontal-stick tilt timer to 0xFE. It computes the character's facing-scaled dash_initial_velocity; when existing ground velocity points opposite facing, it uses that initial velocity as the correction, otherwise it subtracts existing ground velocity from it. The correction is stored in dash.x0 and passed to a common helper, while the caller's integer is stored in dash.x4 for later phase-dependent interrupt handling. A non-null x197C additionally triggers the fixed Dash sound.",
+      "rationale": "The transition arguments, timer value, velocity guard, correction formulas, motion-variable writes, and sound guard remain explicit at head. Current IASA and physics code confirm that x4 controls an early interrupt phase and x0 is a one-shot physics marker.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L49-L72",
+          "why": "Shows the Dash transition parameters, timer reset, both velocity formulas, motion-variable writes, and sound guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L144",
+          "why": "Shows the stored x4 value gating the earliest Dash IASA phase."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L145-L162",
+          "why": "Shows Dash physics clearing the stored x0 value before ordinary acceleration processing."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_IASA": [
+    {
+      "id": "fact:9629b404-c6fe-4961-ba41-405145512063",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_IASA",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the fighter's Dash motion flag, current animation frame, held-item pointer, left-stick X value, facing direction, command variable 0, and ground velocity, together with common frame thresholds x44, x48, and x4C and velocity factor x54. These values select and parameterize action-transition checks; if execution falls through, the routine obtains the fighter's ground-friction multiplier and writes gr_vel as gr_vel minus gr_vel times x54 times that multiplier.",
+      "rationale": "Every listed fighter or common-data value is directly read by the matched function. The frame and input values control its branches and the remaining-frame argument passed to ftCo_80091AD8, while the final arithmetic explicitly feeds current gr_vel and friction back into gr_vel.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:22.080Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+          "why": "The source directly exposes the callback's fighter inputs, common-data thresholds, transition arguments, friction query, and ground-velocity write."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e6f9580-8405-4969-b9cc-cc841a5d5c83",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_IASA",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the frame-dependent action options available during Melee's initial dash, including forward special, early forward-smash or item-throw handling, dash grab, dash attack, rapid reverse Dash input, shield-related handling, jumping, and progression toward running, while also modifying the fighter's dash speed.",
+      "rationale": "The callback dispatches the corresponding common-fighter transition checks under explicit animation-frame windows and adjusts ground velocity. SmashWiki independently lists speed alteration, turnaround, first-three-frame forward smash, later dash attack, shielding, dash grab, jumping, forward special, and entry toward running as initial-dash options in Melee.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-01T23:10:22.080Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+          "why": "The Dash IASA source shows frame-gated calls into special, smash, catch, dash-attack, Dash, guard, jump, and run subsystems and a direct dash-velocity adjustment."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://dash~initial-dash-2@r2044125",
+          "why": "The Initial dash section enumerates the same Melee options: speed alteration, turnaround, early forward smash, later dash attack, shield, dash grab, jump, forward special, and movement toward run."
+        }
+      ]
+    },
+    {
+      "id": "fact:f7362a5a-cc86-46f9-8ddc-2aaefa5e80d8",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_IASA",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A per-frame fighter action-state interrupt callback with signature void (Fighter_GObj*); it reports no value and instead may change the fighter's action state and ground velocity.",
+      "rationale": "The definition accepts one Fighter_GObj pointer and returns void. Successful checks invoke transition routines or return early, while the callback can directly update the referenced fighter's gr_vel.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:10:22.080Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+          "why": "The function declaration proves the callback signature, and the body shows action-transition calls and direct mutation of fighter ground velocity."
+        }
+      ]
+    },
+    {
+      "id": "fact:a8b5e29b-5722-4ce3-9834-6e256e806f21",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_IASA",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Processes the Dash action state's interruptible-as-soon-as callbacks: it selects among phase-dependent grounded transitions in priority order and, whenever control reaches the end of the callback, reduces the fighter's ground velocity using a common dash-damping factor and the current ground-friction multiplier.",
+      "rationale": "The matched body is divided by Dash motion state and animation-frame thresholds, with ordered checks for special, item, attack, catch, redash, guard, jump, and run-related transitions. Its final block reads ground friction and subtracts a friction-scaled fraction of current ground velocity, establishing both its transition-dispatch and velocity-damping responsibilities.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:10:22.080Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+          "why": "The complete matched callback shows its frame-dependent transition checks and the final friction-scaled ground-velocity update."
+        }
+      ]
+    },
+    {
+      "id": "fact:b9fc346f-fff0-47d3-ac0d-004674bfab8f",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_IASA",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Interrupt priority changes across three Dash phases. While dash.x4 is set and the animation is at or before x44, the callback checks side special first, then a qualifying held-item forward-smash throw, catch, forward smash, and an additional transition limited through x48. Through x4C it checks side special, catch, dash attack, an opposite-facing Dash input for a rapid redash/turnaround, and a guard transition parameterized by the frames remaining to x4C. After x4C it checks catch, Dash input, and guard handling before a shared fallback containing additional grounded, jump, command-variable-gated, and run checks. Successful checks may return immediately; paths reaching the end apply friction-scaled Dash damping to ground velocity.",
+      "rationale": "This ordering and its phase guards follow the matched control flow exactly. The code explicitly identifies the side-special, dash-attack, Dash-entry, jump, run, catch, guard, and forward-smash subsystems involved, while preserving unnamed helper calls where their narrower meanings are not independently established.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:10:22.080Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+          "why": "The complete callback shows the x44/x48/x4C phase boundaries, exact transition-check order, early-return behavior, shared fallback, and terminal velocity damping."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Phys": [
+    {
+      "id": "fact:71a8faf8-87ae-43b9-9cc1-35c4e24bc312",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Phys",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the Fighter from the supplied object and inspects mv.co.dash.x0. If that value is nonzero, it is cleared; otherwise getAccelAndTarget derives acceleration and target velocity, and the callback combines those values with co_attrs.ground_friction scaled by run_dash_turn_friction_multiplier before calling ftCommon_8007C98C. The resulting fighter state is then consumed by ftCommon_ApplyGroundMovement.",
+      "rationale": "The current body explicitly shows Fighter extraction, the motion-variable read and write, the acceleration and target outputs, the renamed friction fields, the common velocity-update call, and final ground-movement application.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L145-L162",
+          "why": "Shows all local inputs, intermediate outputs, the x0 mutation, scaled-friction expression, and downstream physics calls."
+        }
+      ]
+    },
+    {
+      "id": "fact:7c290b0e-4806-4989-9d8c-bcbc00e91261",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Phys",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes Melee's initial-dash acceleration and speed adjustment. Because its stick-derived acceleration is not constrained to the fighter's facing direction, backward stick input during Dash can add velocity in the reverse direction, providing the physics basis for moonwalking when the input avoids triggering a dash back.",
+      "rationale": "The current Dash physics callback obtains acceleration and target velocity without an explicit facing-direction clamp before applying grounded movement. Community analysis identifies this exact address and unconstrained acceleration as the cause of moonwalking, while SmashWiki describes backward speed alteration during initial dash as producing a Moonwalk.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L145-L162",
+          "why": "Shows the Dash callback obtaining and applying acceleration and target velocity without an explicit facing-direction clamp in its body."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1004509423525433434",
+          "why": "Identifies function 0x800CA53C as the reason moonwalking exists and explains that its left-stick acceleration can add reverse velocity without a facing-direction constraint."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1004535146621456484",
+          "why": "The resolved discussion explains that the reverse stick movement must be slow enough not to trigger a dash back."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://dash~initial-dash-2@r2044125",
+          "why": "States that Melee permits control-stick speed alteration during initial dash, most notably backward to Moonwalk."
+        }
+      ]
+    },
+    {
+      "id": "fact:530bb17e-8b46-4bb4-829f-837979a508f9",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Phys",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void fighter action-state physics callback with signature void (Fighter_GObj* gobj).",
+      "rationale": "The current definition returns void, accepts one Fighter_GObj pointer, and performs the per-frame movement processing associated with the Dash action state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L145-L162",
+          "why": "Shows the exact function signature and complete physics callback body."
+        }
+      ]
+    },
+    {
+      "id": "fact:9dbb8820-b3aa-4754-9be9-488d992462c6",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Phys",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Per-frame physics callback for the grounded Dash state. After consuming any pending entry-time velocity adjustment, it steers the fighter toward a computed horizontal target using Dash acceleration and scaled ground friction, then applies the resulting ground movement.",
+      "rationale": "The function clears a nonzero Dash motion variable without running the normal acceleration helper on that invocation. Otherwise it computes acceleration and target velocity, applies scaled character friction through the common velocity routine, and always finishes with ground movement.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L145-L162",
+          "why": "Shows the one-shot Dash guard, acceleration and target computation, scaled-friction update, and final ground-movement call."
+        }
+      ]
+    },
+    {
+      "id": "fact:b8d3b9ff-aad2-4691-98c0-2e8f09e60c99",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Phys",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "While mv.co.dash.x0 is nonzero, the callback clears that entry-time Dash value and skips the normal steering update for the invocation. On later invocations it performs acceleration, target-velocity, and friction processing. Ground movement is applied in both branches.",
+      "rationale": "Dash entry stores and immediately applies the initial-velocity correction in x0. The current physics callback uses the same field as a one-shot guard, clears it instead of running normal steering, and places ground-movement application after both branches.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:01:59.753Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L49-L72",
+          "why": "Shows Dash entry computing, storing, and applying mv.co.dash.x0 from initial Dash velocity and current ground velocity."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L145-L162",
+          "why": "Shows physics clearing nonzero x0, otherwise running normal steering, and applying ground movement after either path."
+        }
+      ]
+    }
+  ],
+  "src/melee/ft/kinds/ftCommon/ftCo_Dash.c": [
+    {
+      "id": "fact:93051e21-c6f5-4f85-91ee-e7c693cc9f24",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Dash.c",
+      "type": "data_flow",
+      "value": "Reads horizontal-stick input and tilt timing, facing direction, animation frame, held-item state, ground velocity, character Dash attributes, motion variables, command variables, and common thresholds. These select Dash or turnaround and frame-gated interrupts, initialize Dash velocity and state variables, and feed common movement and collision helpers.",
+      "rationale": "The source traces controller, fighter, attribute, and timing inputs into state selection and velocity updates.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L1-L167",
+          "why": "Shows Dash inputs and attributes flowing into motion, velocity, interrupts, physics, and collision."
+        }
+      ]
+    },
+    {
+      "id": "fact:49e99233-9864-44e5-baaf-b8c8113a51bd",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Dash.c",
+      "type": "game_mapping",
+      "value": "Implements Melee's initial-dash state, the burst of grounded movement before ordinary running in which stick input may alter movement or initiate a rapid turnaround.",
+      "rationale": "The unit enters a dedicated Dash state with character-specific initial velocity and permits rapid opposite-direction turning.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L1-L167",
+          "why": "Shows initial Dash velocity, turnaround input, interrupt windows, and grounded movement."
+        }
+      ]
+    },
+    {
+      "id": "fact:303f1f04-86da-4f41-996a-716365eea11e",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Dash.c",
+      "type": "purpose",
+      "value": "Owns common Dash action-state implementation: it recognizes dash or dash-turn input, enters and initializes Dash, handles animation completion and interrupt options, updates grounded dash velocity, and delegates ground collision handling.",
+      "rationale": "The current source preserves input recognition, state entry, initialization, and the complete Dash callback family.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L1-L167",
+          "why": "Shows Dash input, entry, animation, IASA, physics, and collision."
+        }
+      ]
+    },
+    {
+      "id": "fact:b9485d44-3b20-4653-a977-e06e7913210c",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Dash.c",
+      "type": "state_behavior",
+      "value": "A sufficiently fast horizontal-stick tilt enters Dash when directed with the fighter's facing and enters a smash turn when directed against it. Dash entry installs facing-scaled initial velocity and motion variables; callbacks then expose frame-window-dependent interrupts, exit when animation ends, update grounded movement, and process ground collision.",
+      "rationale": "The input test combines stick magnitude, tilt timing, and facing, while entry and callbacks establish the remaining lifecycle.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L1-L167",
+          "why": "Shows the dash-versus-turn guard, initialization, interrupt windows, physics, and collision."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Anim#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_CheckInput#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Enter#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Enter#r4": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_IASA#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Phys#r3": []
+}

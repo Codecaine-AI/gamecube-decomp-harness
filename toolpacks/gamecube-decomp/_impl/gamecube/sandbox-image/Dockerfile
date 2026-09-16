@@ -3,6 +3,7 @@ FROM debian:bookworm
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         coreutils \
+        ca-certificates \
         file \
         gdb-multiarch \
         git \
@@ -18,14 +19,24 @@ RUN apt-get update \
         tree-sitter-c==0.24.1 \
         libclang==18.1.1
 
-COPY melee /opt/melee
+ARG GAME_ID
+ARG WORKSPACE_ROOT
+ARG REPORT_PATH
+RUN test -n "$GAME_ID" && test -n "$WORKSPACE_ROOT" && test -n "$REPORT_PATH"
+COPY checkout ${WORKSPACE_ROOT}
 COPY image-tools /opt/image-tools
 COPY toolpacks /opt/toolpacks
 
 RUN mkdir -p /work \
-    && ln -s /opt/melee /work/melee
+    && if [ "$WORKSPACE_ROOT" != "/work/$GAME_ID" ]; then ln -s "$WORKSPACE_ROOT" "/work/$GAME_ID"; fi
 
-ENV ORCH_TOOL_PLATFORM=linux-i686 \
-    MWCC_CACHE_DIR=/opt/melee/build/mwcc-objcache
+ENV ORCH_GAME_ID=${GAME_ID} \
+    ORCH_GAME_REPO_ROOT=${WORKSPACE_ROOT} \
+    ORCH_GAME_REPORT_PATH=${REPORT_PATH} \
+    ORCH_TOOL_PLATFORM=linux-i686 \
+    MWCC_CACHE_DIR=${WORKSPACE_ROOT}/build/mwcc-objcache
 
-WORKDIR /opt/melee
+WORKDIR ${WORKSPACE_ROOT}
+
+RUN python3 /opt/image-tools/install_mwcc_cache.py "$WORKSPACE_ROOT"
+RUN python3 /opt/image-tools/prepare_linux_image.py "$WORKSPACE_ROOT" /opt/image-tools/worker-image.json

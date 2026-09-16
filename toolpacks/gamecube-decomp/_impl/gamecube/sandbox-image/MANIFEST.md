@@ -124,19 +124,44 @@ overlays for transfer into an image build context. It does not make macOS native
 binaries Linux-compatible; the Linux image build must install the pinned Linux
 dtk/binutils and complete the objdiff TODO before passing these checks.
 
+### Per-game image inputs
+
+`--game` is required. The bundle resolves the same game descriptor and named
+sandbox profile as the runtime, including config file references and local
+overrides. `--profile` defaults to the game's default profile (normally `2-core`);
+unknown profiles fail. An optional `4-core` profile may use its own snapshot.
+`--checkout` overrides the resolved checkout when preparing a Linux-specific tree.
+The game's configured report path selects its build version; no Melee report is
+required for another game.
+
+The archive contains `daytona-<game-id>-image/checkout`, the shared toolpack,
+Dockerfile, and `provenance/image-plan.json`. The plan records the game, selected
+profile, resource class, intended snapshot and workspace root; `baked-head.txt`
+records the actual packaged checkout HEAD. Pass its game ID and workspace root
+and report path as Docker build arguments. The Docker image does not set Daytona CPU limits:
+register its snapshot with the recorded resource class. Tools resolve from
+`games/<id>/runtime/tools`, with existing legacy state tools accepted during
+migration. Root `local.env`, `.env` files and local Pi session directories are excluded
+from checkout packaging.
+
+This is a GameCube/MWCC image recipe: the prepared checkout still needs
+`configure.py`, `build.ninja`, compilers, binutils, `sjiswrap.exe`, and built
+objects. Other build systems need their own image recipe. Platform-specific
+build products must be prepared and verified on Linux before publishing.
+
 ### Rebake runbook
 
 ```sh
 SANDBOX_IMAGE=toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image
-bash "$SANDBOX_IMAGE/build_image_bundle.sh" --harness-root "$PWD" --checkout games/melee/checkout --out /tmp/daytona-melee-image.tar.zst
+bash "$SANDBOX_IMAGE/build_image_bundle.sh" --harness-root "$PWD" --game melee --profile 2-core --out /tmp/daytona-melee-image.tar.zst
 mkdir -p /tmp/daytona-melee-image
 tar --use-compress-program=unzstd -xf /tmp/daytona-melee-image.tar.zst -C /tmp/daytona-melee-image
-cp "$SANDBOX_IMAGE/Dockerfile" "$SANDBOX_IMAGE/.dockerignore" /tmp/daytona-melee-image/daytona-melee-image/
-docker build -t <registry>/daytona-melee:<revision> /tmp/daytona-melee-image/daytona-melee-image
+docker build --build-arg GAME_ID=melee --build-arg WORKSPACE_ROOT=/opt/melee --build-arg REPORT_PATH=build/GALE01/report.json -t <registry>/daytona-melee:<revision> /tmp/daytona-melee-image/daytona-melee-image
 docker push <registry>/daytona-melee:<revision>
 # Register a new Daytona snapshot from that image with the required resource class.
-# Set games/melee/local.game.json snapshot_name to the registered snapshot name.
-# Set games/melee/local.game.json snapshot_baked_rev to the checkout revision baked above.
+# Update the selected profile in games/melee/config/sandbox.json with the registered
+# snapshot_name and snapshot_baked_rev from provenance/baked-head.txt.
+# Local overrides belong in games/melee/config/local.json.
 ```
 
 ### Modern MWCC Capture and Analysis
@@ -170,3 +195,13 @@ New sandbox seeds synchronize the current host toolpack to
 suite immediately; legacy captures can use the baked scripts. Image acceptance
 must verify both synced execution and the new bundle layout. Analysis returns
 a bounded summary and a complete workspace artifact, not an inline PCode dump.
+
+### Shared scoring path bindings
+
+The tool resolver sets `ORCH_GAME_REPORT_PATH` from the selected game's build
+configuration. Checkdiff, its readiness check, and direct compilation use this
+path. Reference objects default to `obj/` next to the report; a tool binding can
+set `ORCH_GAME_REFERENCE_OBJECT_ROOT` for a different reference layout. Paths
+may be checkout-relative so the same binding works on the host and Daytona.
+A selected game without a report binding fails instead of scoring Melee objects.
+The image records the report binding in its environment for direct tool use.

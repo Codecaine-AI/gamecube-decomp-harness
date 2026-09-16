@@ -1,0 +1,166 @@
+{
+  "tu": "main/melee/gr/grmaterial",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grmaterial:grMaterial_801C8CFC"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Nullable joint-backed item-proxy constructor with signature `Item_GObj* (int proxy_variant, int item_state, Ground* owner, HSD_JObj* source_jobj, void (*on_damage_dealt)(Item_GObj*, Ground*), void (*on_damage_received)(Item_GObj*, Ground*, Vec3*, HSD_GObj*, f32), void (*on_touch)(Item_GObj*, Ground*, HSD_GObj*))`. The JObj supplies placement and is retained on success. A NULL source JObj returns NULL before allocation because this wrapper supplies no explicit position; allocation failure also returns NULL.",
+        "rationale": "Preserves the existing signature and callback interpretation while completing the missing-placement failure contract demonstrated by the delegated constructor.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grmaterial.c#L211-L218",
+            "why": "Exact interface and fixed NULL explicit-position argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ityaku.c#L90-L146",
+            "why": "Missing-source early return, nullable allocation and retained JObj."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grmaterial:grMaterial_801C8CFC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The wrapper always forwards joint placement with spawn flag zero. A NULL JObj returns NULL before allocation; allocation failure propagates NULL. On success the constructor retains the JObj, Ground owner and optional interaction callbacks, selects placement mode 1 and numeric collision state 2, enters the requested item state, and then installs the yaku touch dispatcher. Physics follows the retained joint's position, scale and rotation, so that joint must remain valid while followed. Event handlers require both a non-NULL retained Ground owner and callback. Later common item-state entry clears `Item.touched`; retaining the yaku callback fields alone does not preserve touch-event delivery unless the dispatcher is reinstalled.",
+        "rationale": "Adds the omitted early failure and cross-file lifetime/state-entry consequences without conflating placement mode, collision mode and motion-state ID.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grmaterial.c#L211-L218",
+            "why": "Wrapper placement policy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ityaku.c#L90-L214",
+            "why": "Failure paths, retained pointers, initialization order, transform following and callback guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L149-L152",
+            "why": "Initial helper selects numeric collision state 2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1229-L1242",
+            "why": "Common state entry clears touched and invalidates hurtbox positions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grmaterial:grMaterial_801C8D98"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation unconditionally resets all four item attack-hitbox slots and associated bookkeeping, then enters the caller-selected motion state with fixed policy 2. The common state-entry routine installs the destination animation/physics/collision callbacks, clears auxiliary callbacks including `Item.touched`, and invalidates hurtbox position caches. This wrapper does not reinstall the yaku touch dispatcher that construction installs after its initial state entry; a stage proxy therefore loses that dispatcher on this path unless another operation restores it. Caller-side guards, effects and deferred-removal decisions remain outside the helper.",
+        "rationale": "The existing ordered-transition explanation is correct but omits a useful callback-lifetime consequence spanning grmaterial, item and ityaku.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grmaterial.c#L229-L233",
+            "why": "Complete wrapper and fixed policy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L81-L93",
+            "why": "Four-slot reset and bookkeeping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1229-L1242",
+            "why": "Destination callbacks, touched clearing and invalidation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ityaku.c#L132-L144",
+            "why": "Construction explicitly restores touch dispatch after state entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grmaterial:grMaterial_801C8E28"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides a shared damage-suppression step for item-backed stage objects. Corneria applies it to both Great Fox cannon proxies when accumulated damage reaches their destruction threshold. Yoshi's Island applies it to members of a nine-element scenery assembly during temporary deactivation, later using the state-zero helper when their interaction is restored. The directly verified collision effect is suppression of non-inert item attacks against the receiving item's hurtboxes, not removal of every contact path.",
+        "rationale": "Retains the demonstrated stage uses while replacing the unsupported cloud-platform identification with the canonical nine-element assembly and preserving the inert-contact exception.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grcorneria.c#L2069-L2079",
+            "why": "Both cannon proxies suppressed at damage threshold."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gryorster.c#L202-L228",
+            "why": "Nine joint-backed scenery elements."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gryorster.c#L296-L439",
+            "why": "Deactivation and later state-zero restoration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L634-L661",
+            "why": "Non-inert damage guard and separate inert path."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grmaterial:grMaterial_801C8E28"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally writes `Item.xD0C = 2` through the shared item helper, without a local guard, timer, callback or hurtbox-position invalidation. In the reviewed item-versus-item scanner, this skips the non-inert attack-versus-hurtbox branch while leaving the earlier inert-contact branch eligible. The paired `grMaterial_801C8E08` selects state zero and invalidates all configured hurtbox position caches. Neither wrapper directly changes individual `HurtCapsule.state` values. The gryorster scenery controller uses the pair during temporary deactivation and restoration.",
+        "rationale": "Preserves the numeric transition and paired restoration while clarifying the exceptional collision branch and avoiding an unverified concrete scenery identity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grmaterial.c#L249-L257",
+            "why": "Unconditional paired wrappers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L149-L158",
+            "why": "Exact numeric writes and asymmetric invalidation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L634-L661",
+            "why": "State-2 guard does not cover inert contact."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itcoll.c#L937-L965",
+            "why": "Position invalidation is distinct from per-capsule state assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gryorster.c#L296-L439",
+            "why": "Scenery lifecycle uses both operations."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

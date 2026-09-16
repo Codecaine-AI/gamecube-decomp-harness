@@ -366,6 +366,7 @@ describe("runBackfill sharding", () => {
     for (const shardIndex of [0, 1] as const) {
       summaries.push(await runBackfill(f.store, {
         runId: `shard-${shardIndex}-run`,
+        checkoutRoot: join(f.root, "checkout"),
         globals: f.globals,
         concurrency: 2,
         dryRun: true,
@@ -682,6 +683,64 @@ describe("runBackfill failure handling", () => {
     });
     expect(rowCount(f.store, "subject_index_state")).toBe(0);
     expect(logEntries(f, "failure-abort-run")).toHaveLength(6);
+  });
+
+  test("bounds artifact filenames for long mangled symbols without prefix collisions", async () => {
+    const f = fixture("long-symbols", 2);
+    const artifacts: string[] = [];
+    for (const index of [1, 2]) {
+      const key = `unit:${"TemplateArgument_".repeat(30)}${index}`;
+      f.store.db.query("UPDATE target SET stable_key = ? WHERE id = ?").run(key, `target-${index}`);
+      const result = await runPass(f.store, targetRow(f.store, `target-${index}`), {
+        runId: "long-symbols-run", globals: f.globals,
+        checkoutRoot: join(f.root, "checkout"), sharedWriteGate: createSharedGate(),
+        runPiAgent: () => modelResult({ facts: [], links: [], entities: [], merges: [] }),
+      });
+      expect(existsSync(result.artifactPath)).toBeTrue();
+      expect(result.artifactPath.split("/").at(-1)!.length).toBeLessThan(255);
+      artifacts.push(result.artifactPath);
+    }
+    expect(artifacts[0]).not.toBe(artifacts[1]);
+  });
+
+  test("corrects malformed JSON once and validates the replacement normally", async () => {
+    const f = fixture("json-correction", 1);
+    const calls: Parameters<FakeRunPiAgent>[0][] = [];
+    const broken = '{"facts": []}}';
+    const result = await runPass(f.store, targetRow(f.store, "target-1"), {
+      runId: "json-correction-run", globals: f.globals,
+      sharedWriteGate: createSharedGate(), checkoutRoot: join(f.root, "checkout"),
+      runPiAgent: (options) => {
+        calls.push(options);
+        if (calls.length === 1) return modelResult(broken);
+        expect(rowCount(f.store, "fact")).toBe(0);
+        expect(rowCount(f.store, "subject_index_state")).toBe(0);
+        return modelResult(proposal(1, { facts: [fact(1), fact(1, "outside:scope")] }));
+      },
+    });
+    expect(calls).toHaveLength(2);
+    expect(calls[1].outputDir).toBe(join(calls[0].outputDir, "json-correction"));
+    expect(calls[1].timeoutMs).toBeLessThanOrEqual(calls[0].timeoutMs!);
+    const prompt = JSON.stringify(calls[1].prompt);
+    expect(prompt).toContain("output_correction");
+    expect(prompt).toContain("parse_error");
+    expect(prompt).toContain("previous_output");
+    expect(prompt).toContain("do not restart research");
+    expect(result.applyReport.counts.applied).toBe(1);
+    expect(result.applyReport.counts.rejected).toBe(1);
+  });
+
+  test("stops after one unsuccessful JSON correction without writing knowledge", async () => {
+    const f = fixture("json-correction-exhausted", 1);
+    let calls = 0;
+    await expect(runPass(f.store, targetRow(f.store, "target-1"), {
+      runId: "json-correction-exhausted-run", globals: f.globals,
+      sharedWriteGate: createSharedGate(), checkoutRoot: join(f.root, "checkout"),
+      runPiAgent: () => { calls++; return modelResult('{"facts": []}}'); },
+    })).rejects.toThrow("parseable JSON");
+    expect(calls).toBe(2);
+    expect(rowCount(f.store, "fact")).toBe(0);
+    expect(rowCount(f.store, "subject_index_state")).toBe(0);
   });
 
   test("rejects a malformed envelope without applying or stamping", async () => {

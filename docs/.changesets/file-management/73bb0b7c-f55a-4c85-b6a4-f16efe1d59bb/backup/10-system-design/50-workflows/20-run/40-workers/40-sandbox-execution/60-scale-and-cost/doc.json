@@ -1,0 +1,233 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution-60-scale-and-cost",
+  "title": "Scale and Cost",
+  "root": "b-day-scale-root",
+  "blocks": {
+    "b-day-scale-root": {
+      "id": "b-day-scale-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "capacity",
+          "concurrency",
+          "compile-slots",
+          "jobserver",
+          "tiers",
+          "idle-economics",
+          "host-footprint"
+        ]
+      },
+      "children": [
+        "b-day-scale-1",
+        "b-day-scale-3",
+        "b-day-scale-4",
+        "b-day-scale-7",
+        "b-day-scale-5",
+        "b-day-scale-6",
+        "b-audit-cd228bc2f7bc",
+        "b-audit-50230d4c3497",
+        "b-day-scale-10",
+        "b-day-scale-8",
+        "b-audit-883de24f62f5",
+        "b-day-scale-12"
+      ]
+    },
+    "b-day-scale-1": {
+      "id": "b-day-scale-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker concurrency consumes sandbox capacity and host agent capacity. Each sandbox owns its compiler resources and workspace. The host still runs model sessions, knowledge tools, telemetry, evidence storage, and integration."
+        }
+      ],
+      "children": []
+    },
+    "b-day-scale-3": {
+      "id": "b-day-scale-3",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Structure"
+        }
+      ],
+      "children": []
+    },
+    "b-day-scale-4": {
+      "id": "b-day-scale-4",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Resource",
+          "Control"
+        ],
+        "rows": [
+          [
+            "Worker claims",
+            "Run admission, worker pool size, ready targets, and provider quota."
+          ],
+          [
+            "Worker compilation",
+            "Each sandbox owns its vCPU and local build state. Workers do not share host Ninja slots."
+          ],
+          [
+            "Model calls",
+            "Host model-service capacity through codex-lb."
+          ],
+          [
+            "Host report builds",
+            "Host build admission and jobserver limits."
+          ],
+          [
+            "Disk",
+            "Claim workspaces consume provider disk until deletion. Host artifacts and durable shared stores consume local disk."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-day-scale-7": {
+      "id": "b-day-scale-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The Rule"
+        }
+      ],
+      "children": []
+    },
+    "b-day-scale-5": {
+      "id": "b-day-scale-5",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Size concurrency from the configured sandbox resource class and current provider quotas. Account for disk retained by stopped claims and simultaneous wake-up demand."
+        }
+      ],
+      "children": []
+    },
+    "b-day-scale-6": {
+      "id": "b-day-scale-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Do not use host-era worker slot directories or a fleet compile jobserver as sandbox admission controls. They cannot govern isolated remote filesystems."
+        }
+      ],
+      "children": []
+    },
+    "b-audit-cd228bc2f7bc": {
+      "id": "b-audit-cd228bc2f7bc",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Sleep governs idle intervals within a claim. Close-time deletion releases the claim workspace. These are separate lifecycle decisions."
+        }
+      ],
+      "children": []
+    },
+    "b-audit-50230d4c3497": {
+      "id": "b-audit-50230d4c3497",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Budget host memory, CPU, and disk for agent sessions, tool routing, logs, downloaded evidence, and knowledge processing as worker count grows."
+        }
+      ],
+      "children": []
+    },
+    "b-day-scale-10": {
+      "id": "b-day-scale-10",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Why"
+        }
+      ],
+      "children": []
+    },
+    "b-day-scale-8": {
+      "id": "b-day-scale-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Remote workspaces remove the largest per-worker build trees from the host. They do not remove host work per agent. Capacity planning must measure both sides of the boundary."
+        }
+      ],
+      "children": []
+    },
+    "b-audit-883de24f62f5": {
+      "id": "b-audit-883de24f62f5",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Historical Sizing Evidence"
+        }
+      ],
+      "children": []
+    },
+    "b-day-scale-12": {
+      "id": "b-day-scale-12",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The August 2026 experiments used 2-vCPU workers and reached 32 concurrent claims. The earlier 64-worker quota table and quarter-duty-cycle estimate are not current provider guarantees. "
+        },
+        {
+          "insert": "Proof of Concept",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/40-workers/40-sandbox-execution/70-proof-of-concept",
+              "label": "Proof of Concept"
+            }
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "Stop While Thinking",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/20-run/40-workers/40-sandbox-execution/35-sleep-wake",
+              "label": "Stop While Thinking"
+            }
+          }
+        },
+        {
+          "insert": " retain dated measurements."
+        }
+      ],
+      "children": []
+    }
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "tu": "main/melee/ft/kinds/ftNess/ftnessattackhi4",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L823-L830",
+            "why": "Shows the exact held_buttons[0] expression and conditional release call."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the stale input.held_inputs field reference while preserving the supported guard and object flow.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattackhi4:ftNs_AttackHi4Charge_IASA"
+        },
+        "type": "data_flow",
+        "value": "Reads the HSD_PAD_A bit from the owning Fighter's input.held_buttons[0] mask. When the bit is clear, forwards the same fighter GObj to ftNs_AttackHi4Release_Enter; otherwise it makes no state-changing call."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L498-L509",
+            "why": "Normal despawn falls through to false; only failed creation returns true."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L882-L909",
+            "why": "Shows unconditional increment and the guarded timer and animation-end processing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes creation failure from normal removal and preserves the caller's exact nesting.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattackhi4:ftNs_AttackHi4Release_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Every invocation increments yoyoCurrentFrame and runs ftNs_AttackHi4_YoyoThink_IsRemove. Further processing is skipped only when that controller returns true, which occurs after scheduled yo-yo creation fails. Ordinary timed despawn returns false. On the false path, cmd_vars[0] == 0 permits a positive rehit timer to decrement; expiration invokes lbColl_80008440 followed by lbColl_80008434 on x914. Exhausted animation frames then invoke ft_8008A2BC."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L968-L987",
+            "why": "Shows collision-first ordering, primary removal, pointer reload and recheck."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnessyoyo.c#L145-L170",
+            "why": "Shows owner notification before ownership and linked-object cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L563-L569",
+            "why": "Owner notification invokes restoration before clearing the fighter reference."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnessyoyo.c#L37-L40",
+            "why": "The secondary item wrapper delegates to it_8026B73C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L395-L406",
+            "why": "The delegated operation conditionally sets x5 and clears x3, without deleting the item."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the generic-teardown interpretation and makes the cross-file pointer lifetime explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattackhi4:ftNs_AttackHi4Release_Coll"
+        },
+        "type": "data_flow",
+        "value": "Runs ft_80084104 on Ness's fighter GObj, then tests the resulting airborne state and stored yo-yo pointer. With an airborne fighter and non-null article it calls it_802BE958. That item removal path can call ftNs_AttackHi4_YoyoItemSetFlag on the owner, restoring post-hitlag flags and clearing the fighter association before deleting linked objects. The collision callback reloads Fighter, calls it_802BE5B8 only if yoyo_gobj remains non-null, and finally clears yoyo_gobj. The secondary call restores item flags; it is not a second item deletion."
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L559-L600",
+            "why": "Shows paired callback registration, cleanup reuse and guarded forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnessyoyo.c#L32-L40",
+            "why": "Shows paired item wrappers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L387-L406",
+            "why": "Entry sets x3; exit clears it and conditionally sets the follow-up flag."
+          }
+        ],
+        "op": "write",
+        "rationale": "The function is explicitly installed as post_hitlag_cb, pairs with the supported EnterHitlag wrapper, and forwards to the item flag-restoration operation. Cleanup reuse does not change this role.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattackhi4:ftNs_AttackHi4_YoyoItemSetUnk2"
+        },
+        "type": "inferred_name",
+        "value": "ftNs_AttackHi4_YoyoItemExitHitlag"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L559-L600",
+            "why": "Shows post-hitlag registration, cleanup reuse and the nullable article guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnessyoyo.c#L37-L40",
+            "why": "Connects the fighter wrapper to the generic item operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L395-L406",
+            "why": "Provides exact conditional flag mutations and no deletion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces a vague lifecycle-notification explanation with the independently verified callback role and exact flag effects.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattackhi4:ftNs_AttackHi4_YoyoItemSetUnk2"
+        },
+        "type": "purpose",
+        "value": "Forwards Ness's post-hitlag notification to the currently associated yo-yo article, doing nothing when yoyo_gobj is null. Through it_802BE5B8 and it_8026B73C it clears item flag xDC8_word.flags.x3 and sets x5 when x7 is set. The same guarded restoration is reused during fighter-side yo-yo cleanup before clearing the association; this wrapper does not delete the item."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

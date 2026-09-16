@@ -1,0 +1,307 @@
+{
+  "tu": "main/melee/it/kinds/itoctarock",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:itOctarock_UnkMotion3_Anim"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "itOctarock_Damage_Anim",
+        "rationale": "State 3 is entered by nonterminal damage and supports both ground and air reactions; Jump misleadingly narrows its role.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L101-L122",
+            "why": "Damage routing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L196-L223",
+            "why": "Ground/air reaction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:itOctarock_UnkMotion1_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "State 1 starts with x32 = 22. Each animation update applies bone-derived velocity and reverses facing, including collision facing, if x32 is observed at zero. If animation is inactive, it calls it_8026D5CC, temporarily clears x32, enters wait state 0 through it_802E4C08, and returns without decrementing the newly loaded x1C timer. Otherwise it decrements x32, including after a zero-triggered facing reversal, and returns false.",
+        "rationale": "Corrects unconditional-decrement wording and preserves the completion-path early return and final timer value.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L333-L359",
+            "why": "Turn entry and exact branch order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L124-L131",
+            "why": "Wait timer reload."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:itOctarock_UnkMotion4_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Updates bone-derived velocity, then emits an Octorok stone and sound 0x137 when x32 is observed at zero. Independently, inactive animation triggers it_8026DA08, a temporary x32 clear, and wait-state entry through it_802E4C08. The final x32 decrement always executes: continuing attack decrements its attack timer, whereas completion decrements the newly loaded wait timer from x1C. Consequently a zero-triggered emission need not leave a negative timer if animation also completes. Returns false.",
+        "rationale": "Preserves emission-before-completion ordering and corrects the claim that zero always becomes negative.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L255-L275",
+            "why": "Attack order and unconditional decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L124-L131",
+            "why": "Wait reload."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:itOctarock_UnkMotion8_Anim"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides the inert animation phase of an Octorok terminal launch outcome. State 8 applies gravity through its physics callback; neither its animation callback nor its constant-false collision delegate performs a transition or terrain response.",
+        "rationale": "Corrects the earlier claim of active collision handling while preserving terminal-outcome mapping.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L460-L483",
+            "why": "State-8 callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L452-L455",
+            "why": "Collision delegate is inert."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:itOctarock_UnkMotion8_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Always returns false without inspecting animation or changing state. State 8 is entered by it_802E58A0; its physics subtracts x10_fall_speed from vertical velocity every update. Its collision callback delegates to it_8027C794, which also returns false without reading or writing the item. These callbacks provide no animation- or terrain-driven exit; this does not preclude removal by other engine logic.",
+        "rationale": "Distinguishes a registered collision slot from actual collision processing and limits lifetime claims to these callbacks.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L460-L483",
+            "why": "Entry and callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L452-L455",
+            "why": "No-op delegate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:it_802E4B00"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the Item and Octorok special attributes, saves facing_dir to init_facing_dir, and adds it_8027CBFC(gobj) to xC9C. If the updated total is greater than *attr->x0 or msid equals 6, it calls it_8027C9D8, it_802756D0, it_80275474 and it_8027CE44, requests Camera_RequestQuake(QuakeKind_Small, &ip->pos), and chooses it_802E58A0 when HSD_Randf() < it_804D6D40->x8, otherwise it_802E57D4. The nonterminal branch calls it_802E4E6C. Returns false.",
+        "rationale": "Uses the current canonical camera identity and retains exact threshold, state override, ordering and random comparison.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L101-L122",
+            "why": "Complete current handler."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:it_802E4E6C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Passes gobj and &ip->x40_vel to it_8027B798, which derives velocity from knockback, angle, damage direction and ground/air status, using floor projection only on its grounded non-launch branch. A true result clamps y to at least 0.2 and marks the item airborne; a false result marks it grounded. Notably, already-airborne input writes unprojected velocity but returns false, so this caller marks it grounded without the clamp. Finally restores init_facing_dir, synchronizes collision facing and selects state 3 with ITEM_ANIM_UPDATE.",
+        "rationale": "The helper's boolean indicates the grounded away-from-floor branch, not all airborne velocity results.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L148-L191",
+            "why": "Velocity and boolean branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L196-L210",
+            "why": "Boolean consumption and facing restore."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:it_802E4E6C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Entered by nonterminal damage handling. A grounded launch directed away from the floor causes it_8027B798 to return true; this routine clamps vertical velocity to at least 0.2 and marks airborne. Other results mark grounded, including the exceptional already-airborne input path, which computes unprojected velocity but returns false. Restores saved facing and enters state 3. State-3 physics applies gravity only airborne; on animation inactivity, airborne state 3 restarts while grounded state 3 returns to wait. Collision independently handles landing to state 0 and support loss to state 2.",
+        "rationale": "Preserves the surprising already-airborne branch instead of normalizing it into expected gameplay behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L148-L191",
+            "why": "Exceptional false return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L196-L242",
+            "why": "Entry and subsequent state behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:it_802E53C8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The wait-state classifier selects this entry for an in-range fighter requiring a facing reversal. Entry resets velocity, initializes x32 to 22, clears x2C and bone-position history, and selects state 1. Its animation callback applies bone-derived velocity and reverses facing at timer zero. If animation continues, it decrements the timer even after reversal. On animation inactivity it performs the floor query, temporarily clears x32, enters wait (reloading x1C), and returns before decrementing the new timer.",
+        "rationale": "Corrects the claimed either-reverse-or-decrement behavior and preserves the wait-timer lifetime across transition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L303-L359",
+            "why": "Classification, entry and animation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L124-L131",
+            "why": "Timer reload."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:it_802E57D4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "itOctarock_DeadContact_Enter",
+        "rationale": "Replaces misleading DeadGround with a conservative name for the airborne terminal launch whose collision callback counts and responds to contacts. Contact avoids asserting a specific bounce implementation or historical spelling.",
+        "confidence": 0.91,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L436-L458",
+            "why": "Entry and collision delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L457-L473",
+            "why": "Contact counter and response."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:it_802E57D4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes Octorok terminal state 7: marks the item airborne, initializes shared damage-response velocity through it_8027B964(gobj, 0), clears octarock.x18, and selects state 7 with ITEM_ANIM_UPDATE. The state loops its animation, has an empty item-specific physics callback, and delegates collision to shared contact-response and counter-threshold handling. Empty physics does not mean stationary motion.",
+        "rationale": "Preserves setup and terminal role while correcting the stationary interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L436-L458",
+            "why": "Entry and callback group."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L193-L219",
+            "why": "Velocity initialization and normalization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L457-L473",
+            "why": "Contact handling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:it_802E57D4"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements the contact-responsive alternative among Octorok's randomized terminal damage outcomes. It launches the enemy into state 7 with looping animation and shared contact counting, rather than the camera-directed, gravity-driven state-8 alternative. State 7's empty physics callback does not make the enemy stationary.",
+        "rationale": "Corrects the false stationary defeat mapping using shared launch setup and collision behavior.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L101-L122",
+            "why": "Random terminal alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L436-L483",
+            "why": "State groups."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L193-L237",
+            "why": "Both launch setups."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itoctarock:it_802E58A0"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements the camera-directed launch alternative among Octorok's randomized terminal damage outcomes. Shared setup aims a magnitude-10 velocity toward a randomized point near the camera; state 8 then applies downward acceleration with inert animation and collision callbacks. The alternate state 7 also initializes launch velocity but uses contact-response counting instead of this gravity callback.",
+        "rationale": "Replaces the false contrast with a stationary state 7 and records the evidenced launch direction and inert collision.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itoctarock.c#L436-L483",
+            "why": "Terminal alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L193-L237",
+            "why": "Launch vectors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itzako.c#L452-L473",
+            "why": "Inert versus contact-counted collision."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

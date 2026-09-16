@@ -1,0 +1,1167 @@
+{
+  "tu": "main/sysdolphin/baselib/dobj",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:DObjRelease"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Removes mobj, the complete pobj list and aobj in that order, then calls the parent release. It does not traverse dobj->next, clear attachment fields, or clear current_dobj; list deletion belongs to HSD_DObjRemoveAll. Valid DObj input is required.",
+        "rationale": "Separates DObj-owned AObj handling, sibling traversal and global pointer lifetime from delegated attachment operations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L480-L486",
+            "why": "Independently read canonical caller or delegated implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L220-L240",
+            "why": "Independently read canonical caller or delegated implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Walks all DObjs, advancing nullable material and shape descriptor chains with next_p. Missing descriptors are passed as NULL; extra descriptors beyond the DObj list are ignored. It changes PObj/MObj animation through delegates, not dobj->aobj. No cycle detection or list ownership checks are performed.",
+        "rationale": "Separates DObj-owned AObj handling, sibling traversal and global pointer lifetime from delegated attachment operations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L82-L117",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L74-L111",
+            "why": "Independently read canonical caller or delegated implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L55-L68",
+            "why": "Independently read canonical caller or delegated implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjAnimAll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Visits every DObj and animates its PObj list before its MObj. The helper does not interpret dobj->aobj. NULL DObj head and NULL attached PObj/MObj are accepted; linked cycles are unchecked.",
+        "rationale": "Separates DObj-owned AObj handling, sibling traversal and global pointer lifetime from delegated attachment operations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L155-L176",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L116-L176",
+            "why": "Independently read canonical caller or delegated implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L86-L150",
+            "why": "Independently read canonical caller or delegated implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjDisp"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires valid dobj and installs dobj->mobj as current material. When rendermode bit 0x04000000 is clear, dereferences the material method table for setup before polygon traversal and unset afterward. With the bit set those callbacks are skipped. It always dispatches every linked PObj regardless of DOBJ_HIDDEN or transparency flags, then clears current material to NULL on normal return instead of restoring the previous pointer. It does not update current_dobj.",
+        "rationale": "Corrects an overbroad guarantee or records a directly observed omitted branch/dispatch boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Constructs a DObj through the default allocation path when class_name is absent or lookup fails. Otherwise it allocates the returned class and casts the instance to HSD_DObj without a descendant check here. It invokes the virtual load callback, ignores its int result, and returns the object.",
+        "rationale": "Corrects an overbroad guarantee or records a directly observed omitted branch/dispatch boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L206-L228",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL desc returns NULL. Missing or unknown class names select HSD_DObjAlloc, which may use a configured default class. Found names select hsdNew with no local DObj-ancestry check. Construction failure asserts. The virtual load return value is ignored, with no local rollback path. Base loading recursively loads next/material/polygon descriptors and maps material blend bits to flags.",
+        "rationale": "Corrects an overbroad guarantee or records a directly observed omitted branch/dispatch boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L206-L228",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Null-safely replaces only flag bits selected by mask using (old & ~mask) | (flags & mask). This is a normal read/modify/write expression with no synchronization or atomicity guarantee.",
+        "rationale": "Corrects an overbroad guarantee or records a directly observed omitted branch/dispatch boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L46-L53",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL head is a no-op. Each node removes and clears its own aobj only when mask bit 0x2 is set, then forwards the mask to PObj and MObj removal. Selected shape/material/texture controllers are removed by delegates. DObj next links and object attachments remain installed. As with the other list walkers, no cycle detection or protection against callbacks changing list ownership is present.",
+        "rationale": "Corrects an overbroad guarantee or records a directly observed omitted branch/dispatch boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L55-L80",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L46-L74",
+            "why": "Independently read canonical caller or delegated implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L40-L53",
+            "why": "Independently read canonical caller or delegated implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L220-L240",
+            "why": "Independently read canonical caller or delegated implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests the supplied frame through PObj and MObj animation paths for each DObj, using mask 0x7FF. The per-DObj helper does not request dobj->aobj directly.",
+        "rationale": "Corrects an overbroad guarantee or records a directly observed omitted branch/dispatch boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L153",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L101-L131",
+            "why": "Independently read canonical caller or delegated implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mobj.c#L70-L79",
+            "why": "Independently read canonical caller or delegated implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "For every DObj, forwards the supplied frame and unchanged flags to the attached PObj and MObj animation request paths. The helper does not request dobj->aobj directly.",
+        "rationale": "Corrects an overbroad guarantee or records a directly observed omitted branch/dispatch boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L140",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/dobj.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Flag and animation wrappers accept NULL. Load callbacks and direct display require valid objects. Runtime/descriptor resolution stops at the shorter chain. Named class lookup does not check DObj ancestry here; absent or missing names use the configured default allocation path. Base loading panics for masked material mode 0x20000000. Display clears current material on normal completion, and release tears down attachments before parent release.",
+        "rationale": "Corrects an overbroad guarantee or records a directly observed omitted branch/dispatch boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L55-L176",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L178-L282",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L349",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.h#L12-L43",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjSetCurrent(HSD_DObj* dobj). HSD_DObj* dobj: borrowed current-object pointer, including NULL; copied to current_dobj.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L19-L22",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjSetCurrent#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: borrowed current-object pointer, including NULL; copied to current_dobj.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L19-L22",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjGetFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 HSD_DObjGetFlags(HSD_DObj* dobj). HSD_DObj* dobj: nullable object queried without mutation; NULL yields zero.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L24-L30",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjGetFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable object queried without mutation; NULL yields zero.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L24-L30",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjSetFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjSetFlags(HSD_DObj* dobj, u32 flags). HSD_DObj* dobj: nullable target object. u32 flags: bits ORed into the existing flags word.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L32-L37",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjSetFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable target object.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L32-L37",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjSetFlags#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 flags: bits ORed into the existing flags word.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L32-L37",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjClearFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjClearFlags(HSD_DObj* dobj, u32 flags). HSD_DObj* dobj: nullable target object. u32 flags: bits cleared from the existing flags word.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L39-L44",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjClearFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable target object.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L39-L44",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjClearFlags#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 flags: bits cleared from the existing flags word.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L39-L44",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjModifyFlags(HSD_DObj* dobj, u32 flags, u32 mask). HSD_DObj* dobj: nullable target object. u32 flags: replacement bits, used only where mask is set. u32 mask: selects bits to replace, preserving all other bits.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L46-L53",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable target object.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L46-L53",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 flags: replacement bits, used only where mask is set.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L46-L53",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjModifyFlags#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 mask: selects bits to replace, preserving all other bits.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L46-L53",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjRemoveAnimAllByFlags(HSD_DObj* dobj, u32 flags). HSD_DObj* dobj: nullable runtime list head. u32 flags: unchanged animation selection mask; bit 0x2 removes the DObj own AObj.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L55-L80",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable runtime list head.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L55-L80",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAnimAllByFlags#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 flags: unchanged animation selection mask; bit 0x2 removes the DObj own AObj.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L55-L80",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjAddAnimAll(HSD_DObj* dobj, HSD_MatAnim* matanim, HSD_ShapeAnimDObj* shapeanimdobj). HSD_DObj* dobj: nullable runtime list head driving traversal length. HSD_MatAnim* matanim: nullable positional material descriptor list; advances with next_p. HSD_ShapeAnimDObj* shapeanimdobj: nullable positional shape descriptor list; each shapeanim field is forwarded.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L82-L117",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable runtime list head driving traversal length.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L82-L117",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_MatAnim* matanim: nullable positional material descriptor list; advances with next_p.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L82-L117",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjAddAnimAll#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_ShapeAnimDObj* shapeanimdobj: nullable positional shape descriptor list; each shapeanim field is forwarded.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L82-L117",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjReqAnimAllByFlags(HSD_DObj* dobj, f32 startframe, u32 flags). HSD_DObj* dobj: nullable runtime list head. f32 startframe: frame forwarded unchanged to PObj/MObj requests. u32 flags: unchanged PObj/MObj request-selection mask.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L140",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable runtime list head.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L140",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 startframe: frame forwarded unchanged to PObj/MObj requests.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L140",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAllByFlags#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 flags: unchanged PObj/MObj request-selection mask.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L140",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjReqAnimAll(HSD_DObj* dobj, f32 startframe). HSD_DObj* dobj: nullable runtime list head. f32 startframe: frame forwarded unchanged with mask 0x7FF.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L153",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable runtime list head.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L153",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjReqAnimAll#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32 startframe: frame forwarded unchanged with mask 0x7FF.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L119-L153",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjAnimAll"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjAnimAll(HSD_DObj* dobj). HSD_DObj* dobj: nullable runtime list head; PObj and MObj animation is visited for each node.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L155-L176",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjAnimAll#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable runtime list head; PObj and MObj animation is visited for each node.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L155-L176",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:DObjLoad"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static int DObjLoad(HSD_DObj* dobj, HSD_DObjDesc* desc). HSD_DObj* dobj: allocated writable object receiving next/mobj/pobj and masked render flags. HSD_DObjDesc* desc: required descriptor supplying next/mobjdesc/pobjdesc; no local NULL guard.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L178-L202",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:DObjLoad#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: allocated writable object receiving next/mobj/pobj and masked render flags.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L178-L202",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:DObjLoad#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObjDesc* desc: required descriptor supplying next/mobjdesc/pobjdesc; no local NULL guard.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L178-L202",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* HSD_DObjLoadDesc(HSD_DObjDesc* desc). HSD_DObjDesc* desc: nullable descriptor; NULL yields NULL, otherwise class_name chooses allocation path and desc is passed to virtual load.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L206-L228",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjLoadDesc#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObjDesc* desc: nullable descriptor; NULL yields NULL, otherwise class_name chooses allocation path and desc is passed to virtual load.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L206-L228",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjRemoveAll(HSD_DObj* dobj). HSD_DObj* dobj: nullable owned runtime list head; successor cached before deleting each node.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L230-L243",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjRemoveAll#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable owned runtime list head; successor cached before deleting each node.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L230-L243",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjAlloc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* HSD_DObjAlloc(void). Takes no parameters.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L258-L266",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjResolveRefsAll(HSD_DObj* dobj, HSD_DObjDesc* desc). HSD_DObj* dobj: nullable runtime list paired with desc until either ends. HSD_DObjDesc* desc: nullable source descriptor list paired with runtime nodes; pobjdesc is forwarded.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L268-L282",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: nullable runtime list paired with desc until either ends.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L268-L282",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjResolveRefsAll#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObjDesc* desc: nullable source descriptor list paired with runtime nodes; pobjdesc is forwarded.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L268-L282",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:HSD_DObjDisp"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_DObjDisp(HSD_DObj* dobj, Mtx vmtx, Mtx pmtx, u32 rendermode). HSD_DObj* dobj: required display object; material and PObj list supply rendering context. Mtx vmtx: matrix forwarded unchanged to each PObj virtual display. Mtx pmtx: second matrix forwarded unchanged to each PObj virtual display. u32 rendermode: forwarded render mask; bit 0x04000000 skips material setup/unset.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjDisp#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_DObj* dobj: required display object; material and PObj list supply rendering context.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjDisp#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Mtx vmtx: matrix forwarded unchanged to each PObj virtual display.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjDisp#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Mtx pmtx: second matrix forwarded unchanged to each PObj virtual display.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:HSD_DObjDisp#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 rendermode: forwarded render mask; bit 0x04000000 skips material setup/unset.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L318",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:DObjRelease"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void DObjRelease(HSD_Class* o). HSD_Class* o: required DObj instance through base pointer; same pointer forwarded to parent release.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:DObjRelease#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Class* o: required DObj instance through base pointer; same pointer forwarded to parent release.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L320-L329",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:DObjAmnesia"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void DObjAmnesia(HSD_ClassInfo* info). HSD_ClassInfo* info: class identity compared with default_class and forwarded unchanged to parent amnesia.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L331-L337",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/dobj:DObjAmnesia#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_ClassInfo* info: class identity compared with default_class and forwarded unchanged to parent amnesia.",
+        "rationale": "Canonical signature and direct parameter use establish the type and role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L331-L337",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/dobj:DObjInfoInit"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void DObjInfoInit(void). Takes no parameters.",
+        "rationale": "Exact pinned source definition and parameter roles; canonical symbol unchanged.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L339-L349",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/dobj.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "DObj runtime module. Owned header defines HSD_DObj with HSD_Class parent, next, mobj, pobj, aobj and u32 flags; HSD_DObjDesc with class_name and next/material/polygon descriptors; HSD_DObjInfo with HSD_ClassInfo parent and disp/load callbacks; HSD_ShapeAnimDObj with next and shapeanim. DOBJ_HIDDEN is 0x1. No compiled packing or section-layout claim is made.",
+        "rationale": "Records owned header types without inventing absent shared-type manifest entities.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L55-L176",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L178-L282",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.c#L303-L349",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/dobj.h#L12-L43",
+            "why": "Canonical declaration, branch or direct field/call flow supports this claim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

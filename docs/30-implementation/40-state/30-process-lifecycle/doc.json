@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-50-workflows-20-run-50-process-lifecycle",
+  "title": "Process Lifecycle",
+  "root": "b-50-process-lifecycle-root",
+  "blocks": {
+    "b-50-process-lifecycle-root": {
+      "id": "b-50-process-lifecycle-root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-50-process-lifecycle-direct-spawn",
+        "process-stable-name",
+        "b-50-process-lifecycle-observation-heading",
+        "b-50-process-lifecycle-observation",
+        "b-50-process-lifecycle-settlement-heading",
+        "b-50-process-lifecycle-settlement",
+        "b-50-process-lifecycle-operator-heading",
+        "b-50-process-lifecycle-operator",
+        "saved-process-control",
+        "saved-process-details",
+        "stop-escalation",
+        "process-control-source"
+      ]
+    },
+    "b-50-process-lifecycle-direct-spawn": {
+      "id": "b-50-process-lifecycle-direct-spawn",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The managed-process controller starts "
+        },
+        {
+          "insert": "run-loop",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " directly for a run that holds the dispatch lease. The command carries the required "
+        },
+        {
+          "insert": "--lease-id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", so process execution remains bound to the authority acquired for that run without an intermediate supervisor."
+        }
+      ],
+      "children": []
+    },
+    "process-stable-name": {
+      "id": "process-stable-name",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The dashboard-managed Melee process is named "
+        },
+        {
+          "insert": "melee-live",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Its saved process record and log paths keep that name across dashboard restarts. The detached run process can continue after the UI server exits, so process status and stop controls use the saved identity."
+        }
+      ],
+      "children": []
+    },
+    "b-50-process-lifecycle-observation-heading": {
+      "id": "b-50-process-lifecycle-observation-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Observation and Signals"
+        }
+      ],
+      "children": []
+    },
+    "b-50-process-lifecycle-observation": {
+      "id": "b-50-process-lifecycle-observation",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The controller tees the process streams into append-only files at "
+        },
+        {
+          "insert": "<stateDir>/ui-processes/<name>.stdout.log",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "<stateDir>/ui-processes/<name>.stderr.log",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Process status exposes both paths. On "
+        },
+        {
+          "insert": "SIGINT",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " or "
+        },
+        {
+          "insert": "SIGTERM",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", the run loop requests a graceful stop and reaches its normal exit path."
+        }
+      ],
+      "children": []
+    },
+    "b-50-process-lifecycle-settlement-heading": {
+      "id": "b-50-process-lifecycle-settlement-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Exit Settlement"
+        }
+      ],
+      "children": []
+    },
+    "b-50-process-lifecycle-settlement": {
+      "id": "b-50-process-lifecycle-settlement",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The run loop's top-level "
+        },
+        {
+          "insert": "finally",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " calls "
+        },
+        {
+          "insert": "settleRunOnExit",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Normal settlement parks the run through "
+        },
+        {
+          "insert": "settleStoppedRun",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and releases dispatch authority. If a sync successor acquires active authority, the exit handler advances its runtime. Unexpected database-closed or error exits use "
+        },
+        {
+          "insert": "hardStopRun",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for emergency settlement. Normal settlement events retain "
+        },
+        {
+          "insert": "guardian",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " as a compatibility actor name."
+        }
+      ],
+      "children": []
+    },
+    "b-50-process-lifecycle-operator-heading": {
+      "id": "b-50-process-lifecycle-operator-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Operator Recovery"
+        }
+      ],
+      "children": []
+    },
+    "b-50-process-lifecycle-operator": {
+      "id": "b-50-process-lifecycle-operator",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The operator watches process status and the exposed stream logs. The controller does not restart a failed process or create incident files. A crash or "
+        },
+        {
+          "insert": "SIGKILL",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " can bypass normal exit settlement. Run the manual "
+        },
+        {
+          "insert": "recover-claims",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " job before resuming after such an exit."
+        }
+      ],
+      "children": []
+    },
+    "saved-process-control": {
+      "id": "saved-process-control",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Saved Process Control"
+        }
+      ],
+      "children": []
+    },
+    "saved-process-details": {
+      "id": "saved-process-details",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The controller records the detached process identity and probes saved process groups when serving status. This allows stop and status operations after the server has restarted. A missing live process returns "
+        },
+        {
+          "insert": "not_running",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rather than pretending that a stop occurred."
+        }
+      ],
+      "children": []
+    },
+    "stop-escalation": {
+      "id": "stop-escalation",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A managed stop sends "
+        },
+        {
+          "insert": "SIGTERM",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " to the process group and escalates to "
+        },
+        {
+          "insert": "SIGKILL",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " after 35 seconds if it remains alive. This controller timeout is separate from the Run loop's 30-second worker drain. After stopping, the controller invokes the supplied recovery command unless recovery was disabled."
+        }
+      ],
+      "children": []
+    },
+    "process-control-source": {
+      "id": "process-control-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/infrastructure/process-control/managed-process-controller.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/infrastructure/process-control/managed-process-controller.ts"
+            }
+          }
+        },
+        {
+          "insert": " owns saved identity, process-group signals, and the optional recovery command."
+        }
+      ],
+      "children": []
+    }
+  }
+}

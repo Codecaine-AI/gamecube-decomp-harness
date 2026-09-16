@@ -1,0 +1,91 @@
+1027: void HSD_SynthSFXUpdateMix(struct HSD_SynthSFXNode* node, int interpolate)
+1028: {
+1029:     int i;
+1030:     int shiftL;
+1031:     int shiftR;
+1032: 
+1033:     f32 l;
+1034:     f32 r;
+1035: 
+1036:     if (HSD_Synth_804D7754 != 0) {
+1037:         l = 32767.0F *
+1038:             sqrtf_accurate(0.003921569F * (0xFF - node->user_vol[1].x8));
+1039:         r = 32767.0F * sqrtf_accurate(0.003921569F * node->user_vol[1].x8);
+1040:     } else {
+1041:         l = 23169.768F;
+1042:         r = 23169.768F;
+1043:     }
+1044:     if (node->voice_count == 1) {
+1045:         lbl_80407FB4.vL = l * node->x44;
+1046:         lbl_80407FB4.vR = r * node->x44;
+1047:         lbl_80407FB4.vAuxAL = l * node->x48;
+1048:         lbl_80407FB4.vAuxAR = r * node->x48;
+1049:         lbl_80407FB4.vAuxBL = l * node->x4C;
+1050:         lbl_80407FB4.vAuxBR = r * node->x4C;
+1051:         AXSetVoiceMix(node->voice[0], &lbl_80407FB4);
+1052:     } else if (HSD_Synth_804D7754 != 0) {
+1053:         lbl_80407FB4.vL = l * node->x44;
+1054:         lbl_80407FB4.vAuxAL = l * node->x48;
+1055:         lbl_80407FB4.vAuxBL = l * node->x4C;
+1056:         AXSetVoiceMix(node->voice[0], &lbl_80407FB4);
+1057:         lbl_80407FB4.vAuxBL = 0;
+1058:         lbl_80407FB4.vAuxAL = 0;
+1059:         lbl_80407FB4.vL = 0;
+1060:         lbl_80407FB4.vR = r * node->x44;
+1061:         lbl_80407FB4.vAuxAR = r * node->x48;
+1062:         lbl_80407FB4.vAuxBR = r * node->x4C;
+1063:         AXSetVoiceMix(node->voice[1], &lbl_80407FB4);
+1064:     } else {
+1065:         l /= 2;
+1066:         lbl_80407FB4.vL = l * node->x44;
+1067:         lbl_80407FB4.vR = l * node->x44;
+1068:         lbl_80407FB4.vAuxAL = l * node->x48;
+1069:         lbl_80407FB4.vAuxAR = l * node->x48;
+1070:         lbl_80407FB4.vAuxBL = l * node->x4C;
+1071:         lbl_80407FB4.vAuxBR = l * node->x4C;
+1072:         AXSetVoiceMix(node->voice[0], &lbl_80407FB4);
+1073:         AXSetVoiceMix(node->voice[1], &lbl_80407FB4);
+1074:     }
+1075: 
+1076:     my_memzero(&lbl_80407FB4, sizeof(lbl_80407FB4));
+1077: 
+1078:     shiftL = 0;
+1079:     shiftR = 0;
+1080:     if (HSD_Synth_804D7754 != 0) {
+1081:         if (node->user_vol[1].x8 < 0x80) {
+1082:             shiftL = lbl_8040806C[0x7F - node->user_vol[1].x8];
+1083:         } else {
+1084:             shiftR = lbl_8040806C[node->user_vol[1].x8 - 0x80];
+1085:         }
+1086:     }
+1087:     for (i = 0; i < node->voice_count; i++) {
+1088:         if (shiftL != 0 || shiftR != 0 || node->voice[0]->pb.itd.flag == 1) {
+1089:             if (node->voice[i]->pb.itd.flag == 0 ||
+1090:                 (node->voice[i]->sync & 0x20))
+1091:             {
+1092:                 AXSetVoiceItdOn(node->voice[i]);
+1093:                 if (interpolate == 0) {
+1094:                     node->voice[i]->pb.itd.shiftR = shiftR;
+1095:                     node->voice[i]->pb.itd.shiftL = shiftL;
+1096:                 }
+1097:                 node->voice[i]->pb.itd.targetShiftR = shiftR;
+1098:                 node->voice[i]->pb.itd.targetShiftL = shiftL;
+1099:             } else {
+1100:                 AXSetVoiceItdTarget(node->voice[i], shiftL, shiftR);
+1101:             }
+1102:         }
+1103:     }
+1104: }
+1105: 
+1106: static inline void updateAllVolume(u32 mask)
+1107: {
+1108:     int i;
+1109:     HSD_Synth_804D7758 |= mask;
+1110:     for (i = 0; i < 0x40; i++) {
+1111:         struct HSD_SynthSFXNode* node = &hsd_SynthSFXNodes[i];
+1112:         if (node->x0 > 0 && ((1 << node->xB) & mask)) {
+1113:             HSD_SynthSFXUpdateVolume(node);
+1114:         }
+1115:     }
+1116: }
+1117: 

@@ -1,0 +1,1062 @@
+{
+  "tu": "main/melee/cm/camera",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002CB0C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the pauser controller slot from `game_camera.x2C5`, obtains normalized sticks and pressed/triggered button masks through `Camera_8002B694`, and converts them into three command streams: a signed subject-cycle direction, a signed zoom amount, and deadzone-filtered rotation axes. Subject cycling updates `game_camera.x2C4`, repeatedly rejecting special slot 10, unavailable positions, missing player entities, and fighters carrying the exclusion status exposed by `ftLib_8008701C`. A successful change resets the focal offset, eye offset, up vector, and eye distance from the stage's initial pause-camera depth before recalculating zoom; subsequent zoom and rotation commands mutate the shared pause-camera transform state.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2353-L2453",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002CB0C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Processes pause-camera input from game_camera.x2C5 unless that slot is 5. Triggered R/L cycle eligible player subjects; held X/Y pass signed zoom requests; stick axes pass rotation requests only beyond absolute 0.125. A subject change resets focal offset, eye offset, up vector and stage-derived eye distance before zoom and rotation calls. The CameraBounds pointer is unused.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2353-L2453",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002CDDC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates the pause camera by refreshing bounds, selecting a subject and applying pause input. An active eligible subject in bounds with abs(bone_pos.z) < 30 and slot other than 10/11 takes track_subject and FOV smoothing. All other cases update both transforms through the general bounds and zoom pipeline.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2455-L2497",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002D318"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the selected player slot from `game_camera.x2C4`, resolves its fighter GObj and `CmSubject`, and validates fighter state, subject eligibility, camera-bounds containment, and depth. On success, the subject's position and vertical extent plus stored yaw produce target interest; camera tuning smooths interest and field of view; subject extent and target FOV determine orbit distance; and pitch and yaw produce and smooth target position. Failed validation sends aggregate bounds through the ordinary transform, zoom-distance, bounds-smoothing, and average-width pipeline.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2528-L2630",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002D318"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates the training-menu camera around the selected fighter. The specialized path requires a present fighter passing ftLib_8008701C == false, a subject passing Camera_8002928C, in-bounds position and abs(z) < 10. It offsets target interest by half ext.v.z along yaw, smooths interest/FOV/eye and uses a subject-scaled orbit distance. Failed guards run the general dual-transform framing pipeline.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2528-L2630",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002D85C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the selected player slot from `game_camera.x2C4`, resolves its fighter GObj and `CmSubject`, and tests the subject position against the camera region and a 30-unit absolute-Z limit. On success, the subject position becomes target interest; tuning coefficients smooth interest and FOV; subject extent and target FOV determine orbit distance; stage pitch and yaw limits clamp the stored offsets; and trigonometric orbit calculations produce and smooth target position. Failed validation sends aggregate bounds through the ordinary dual-transform, zoom-distance, bounds-smoothing, and average-width pipeline.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2632-L2738",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002D85C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates the clear camera around the selected player subject when its position is in bounds and abs(z) < 30. It targets bone_pos, smooths interest and FOV, clamps pitch/yaw to stage limits, and smooths the orbit eye position. It does not repeat the training path fighter-state or Camera_8002928C tests. Failed guards run general dual-transform framing.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2632-L2738",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3607-L3643",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002DDC4"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads Stage_80224CAC, Stage_SetVecToFixedCamPos and Stage_GetCamFixedFov into targets of game_camera.transform and transform_copy. Interest, position and FOV approach those targets with x74, x78 and x7C. Target-vector distance becomes bounds.z_pos; Camera_UpdateQuakes updates effects and Camera_ApplyQuake applies them to the primary transform.",
+        "rationale": "Correct stale identifiers, omitted writes, temporal ordering or unsupported caller/type assumptions using canonical evidence.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2767-L2845",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002DDC4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Smooths both retained transforms toward stage-supplied fixed-camera interest, position and FOV using x74, x78 and x7C. It derives bounds.z_pos from the target interest-to-eye distance, calls Camera_UpdateQuakes, and applies quake effects to the primary transform with Camera_ApplyQuake.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2767-L2845",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002DFE4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Writes a Vec3 endpoint or interpolation into transform->interest using shared immediate, integer-count or floating-progress scheduling and returns completion. Camera_8002E234 also reuses this helper for position by passing a CameraTransformState pointer cast from transform.position, whose first field overlays the destination Vec3.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2847-L2886",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2935-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L32-L39",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E158"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Writes a scalar endpoint or start + progress * (end - start) through the output pointer and returns completion. Shared mode 0 completes immediately; mode 1 completes when integer counters are equal and otherwise uses their ratio; mode 2 completes at floating progress >= 1. This helper does not advance progress.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2888-L2923",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E234"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Updates current eye position under the shared transition schedule. Position sources 0/1/3 use Cartesian interpolation from x368 to target_position. Source 2 conditionally interpolates enabled elevation, yaw and signed-16-bit radius values, rotates a forward vector, scales it and adds current interest to construct target and current position. The canonical body unconditionally consumes all three interpolation locals after conditional initialization, so partial component masks do not establish safe current-position output.",
+        "rationale": "Record conditional initialization and unconditional consumption instead of implying safe partial spherical inputs.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2925-L2984",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2935-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L32-L39",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E234"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature bool Camera_8002E234(void). Mutates current and target eye position and returns combined completion of the selected interpolation path. In spherical mode the stored radius is s16; safe output for partial enable masks is not established by this source.",
+        "rationale": "Correct stale identifiers, omitted writes, temporal ordering or unsupported caller/type assumptions using canonical evidence.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2925-L2984",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2935-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L32-L39",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E234"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates current eye position under the shared transition schedule. Position sources 0/1/3 use Cartesian interpolation from x368 to target_position. Source 2 conditionally interpolates enabled elevation, yaw and signed-16-bit radius values, rotates a forward vector, scales it and adds current interest to construct target and current position. The canonical body unconditionally consumes all three interpolation locals after conditional initialization, so partial component masks do not establish safe current-position output.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2925-L2984",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2935-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L32-L39",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E234"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Position sources 0, 1 and 3 use Cartesian interpolation. Source 2 conditionally initializes sp10, spC and sp8 under b1, b2 and b0, respectively, but then uses all three unconditionally. The source therefore requires further validation of partial component masks. The helper combines enabled-channel completion and does not advance progress.",
+        "rationale": "Correct stale identifiers, omitted writes, temporal ordering or unsupported caller/type assumptions using canonical evidence.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2925-L2984",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2935-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L32-L39",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E490"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads tagged source selectors and payload unions from `game_camera`. Interest may be refreshed from a player's `CmSubject.bone_pos`, a stored vector, or a provider; eye position may use a stored vector or provider. It feeds saved origins and refreshed targets to the transition helpers, updates FOV, advances progress, and writes `x341_b7`.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2986-L3067",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E490"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates the boss-intro transition. Interest sources select retained target, player bone_pos, stored vector or a successful callback; eye sources select retained target, vector, spherical reconstruction or successful callback. It interpolates interest, eye and FOV, combines their completion, then advances integer or floating progress and stores the pre-advance completion in x341_b7.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2986-L3067",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E490"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Refreshes configured targets and computes interest, position and FOV completion using the progress at function entry. It then increments integer progress if below total or advances floating progress by (1-progress)*rate, snapping above 0.999 to 1. Finally x341_b7 receives the previously computed completion, so reaching the endpoint during this invocation is reported on a subsequent update.",
+        "rationale": "Correct stale identifiers, omitted writes, temporal ordering or unsupported caller/type assumptions using canonical evidence.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2986-L3067",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L57-L67",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/forward.h#L4-L19",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E6FC"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Stores source kind 1 and the supplied player slot in `game_camera`, resolves the slot to an `HSD_GObj` and then a fighter-owned `CmSubject`, and copies `CmSubject.bone_pos` into `transform.target_interest` when both lookups succeed. Failed lookup preserves the existing target.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3069-L3104",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E6FC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ensures boss-intro mode, selects player-backed interest source 1 and stores the player slot. A present player entity with a CmSubject supplies bone_pos to target_interest immediately; failed lookup leaves the seeded or prior target unchanged.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3069-L3104",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E818"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Copies the caller-owned vector into `game_camera.x344.vec`, marks it active with interest-source selector 2, and copies the stored vector into `transform.target_interest`.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3106-L3141",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E818"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ensures boss-intro mode and selects fixed-vector interest source 2. It copies the caller vector into x344.vec and immediately into target_interest; it does not retain the input pointer.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3106-L3141",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E948"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Stores the supplied provider in `game_camera.x344.cb` under interest-source selector 3, invokes it with a temporary vector, and copies that vector to `transform.target_interest` only when the callback is non-null and returns true.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3143-L3178",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002E948"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ensures boss-intro mode, selects callback interest source 3 and stores the supplied provider. It immediately calls a non-null provider with a temporary Vec3 output and copies that vector into target_interest only on a true result. A null provider or false result preserves the seeded or prior target.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3143-L3178",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EA64"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the caller vector, selects eye source 1, copies it into game_camera.x35C.vec, and assigns transform.target_position. Boss-intro initialization occurs only when entering from another mode. Caller-specific Hand attributes and transition duration are outside this local review.",
+        "rationale": "Correct stale identifiers, omitted writes, temporal ordering or unsupported caller/type assumptions using canonical evidence.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3180-L3202",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EA64"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ensures boss-intro mode and selects fixed-vector eye-position source 1. It copies the supplied vector into x35C.vec and immediately into target_position, without retaining or modifying the caller vector.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3180-L3202",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EA64"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When outside CAMERA_BOSS_INTRO, Camera_8002FE38 selects that mode, clears source/schedule/completion fields and seeds transform targets from current values. The setter then replaces the position selector, source payload and target_position. Calls already in boss-intro preserve the other source and transition settings.",
+        "rationale": "Correct stale identifiers, omitted writes, temporal ordering or unsupported caller/type assumptions using canonical evidence.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3180-L3202",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EB5C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ensures boss-intro mode and selects spherical eye source 2. On changing source it clears radius and yaw enable bits, then stores the elevation parameter in x35C.vec.y and enables b1. Existing spherical mode preserves sibling components. Eye vectors are reconstructed later.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3204-L3235",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EC7C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Stores the caller-supplied yaw in `game_camera.x35C.vec.z` and sets `x35C.bits.b2`. The position updater later interpolates that component and uses it with elevation and distance to rotate, scale, and offset the camera eye around the active interest point.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3237-L3268",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EC7C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ensures boss-intro mode and selects spherical eye source 2. On changing source it clears radius and elevation enable bits, then stores the yaw parameter in x35C.vec.z and enables b2. Existing spherical mode preserves sibling components. Eye vectors are reconstructed later.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3237-L3268",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002ED9C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Stores the requested distance in `game_camera.x35C.bits.x2` and marks it active with `x35C.bits.b0`. The position updater interpolates it from the saved starting radius, scales the angle-derived eye direction, and writes interest-relative current and target eye positions.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3270-L3301",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002ED9C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature void Camera_8002ED9C(float radius). The float is converted into the s16 x35C.bits.x2 field before later interpolation and normalized-direction scaling. Fractional radius precision is not retained by this field.",
+        "rationale": "Correct stale identifiers, omitted writes, temporal ordering or unsupported caller/type assumptions using canonical evidence.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3270-L3301",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002ED9C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ensures boss-intro mode and selects spherical eye source 2. On changing source it clears both angular enable bits, then converts the float radius parameter into signed-16-bit x35C.bits.x2 and enables b0. Existing spherical mode preserves angular components. Eye vectors are reconstructed later.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3270-L3301",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L2943-L2980",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L218-L246",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/types.h#L137-L148",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EEC8"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives an FOV target from cinematic code, conditionally initializes boss-intro state from the current camera, and writes the new value to `game_camera.transform.target_fov`. Calls made while already in the mode preserve existing interest and position state.",
+        "rationale": "Replace obsolete address labels with canonical names attested at the pinned revision; retain the independently supported local behavior.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3303-L3309",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EEC8"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature void Camera_8002EEC8(f32 fov). The argument is copied to transform.target_fov. The setter alone does not establish external caller values or projection units.",
+        "rationale": "Correct stale identifiers, omitted writes, temporal ordering or unsupported caller/type assumptions using canonical evidence.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3303-L3309",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EEC8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ensures boss-intro mode and writes the supplied fov to transform.target_fov. It does not directly assign current fov or configure a transition duration. Entering from another mode seeds current interest, position and FOV through Camera_8002FE38; an already-active boss-intro mode skips that initialization.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3303-L3309",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EF14"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Ensures boss-intro mode, selects immediate schedule 0, refreshes configured interest and eye sources, runs the interest and position helpers, and copies target_fov to current fov. Missing player/subject or failed/null callback leaves the corresponding stored target unchanged. This function does not set the completion flag x341_b7.",
+        "rationale": "Use current canonical identifiers and state the local behavior with its guards and limits.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3311-L3376",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/cm/camera:Camera_8002EF14"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Ensures boss-intro mode and sets interpolation mode 0 before source refresh and transform application. Failed providers preserve stored targets. The FOV snaps to its target. No assignment to x341_b7 occurs here after the optional initializer, so this commit is not itself a completion-flag update.",
+        "rationale": "Correct stale identifiers, omitted writes, temporal ordering or unsupported caller/type assumptions using canonical evidence.",
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3311-L3376",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/cm/camera.c#L3819-L3833",
+            "why": "The canonical body directly shows the stated input, branch, writes, and helper calls."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,37 @@
+824: void Exception_ReportStackTrace(OSContext* ctx, int max_depth)
+825: {
+826:     u32 i;
+827:     u32* sp;
+828: 
+829:     OSReport("- STACK ---------------------------------------------\n");
+830:     OSReport(" Address:  Back Chain  LR Save\n");
+831: 
+832:     sp = (u32*) ctx->gpr[1];
+833:     i = 0;
+834: 
+835:     while (sp != NULL && (u32) (sp + 0x4000) != 0xFFFF && i < (u32) max_depth)
+836:     {
+837:         if ((u32) sp < 0x80000000u) {
+838:             break;
+839:         }
+840:         if ((s64) (u32) sp >= (s64) OSGetPhysicalMemSize() + 0x800000000) {
+841:             break;
+842:         }
+843:         OSReport("%08X:   %08X   %08X\n", sp, sp[0], sp[1]);
+844:         sp = (u32*) sp[0];
+845:         i++;
+846:     }
+847: }
+848: 
+849: void Exception_ReportCodeline(u16 error, int dsisr, int dar, OSContext* ctx)
+850: {
+851:     char* exception_type;
+852:     char* around_or_at;
+853:     int srr1;
+854: 
+855:     OSReport("- UNHANDLED EXCEPTION -------------------------------\n");
+856:     OSReport("DSISR=%08X DAR=%08X\n", dsisr, dar);
+857: #ifdef MUST_MATCH
+858:     error = error;
+859: #endif
+860:     OSReport("ERROR %d: ", error);

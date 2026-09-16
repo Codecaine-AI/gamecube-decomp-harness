@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution-10-execution-boundary",
+  "title": "Tooling",
+  "root": "b-day-exec-root",
+  "blocks": {
+    "b-day-exec-root": {
+      "id": "b-day-exec-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "sandbox",
+          "execution-envelope",
+          "bash-operations",
+          "file-tools",
+          "worker-workspace"
+        ]
+      },
+      "children": [
+        "tool-intro",
+        "b-day-exec-10",
+        "tool-routing",
+        "tool-routing-p",
+        "tool-special",
+        "tool-safe",
+        "tool-safety",
+        "tool-source"
+      ]
+    },
+    "tool-intro": {
+      "id": "tool-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The host runs the worker agent and calls the model. Workspace-dependent tools use the claim's SandboxHandle; knowledge queries use host stores. This division keeps the private build tree remote while the worker can still retrieve shared knowledge."
+        }
+      ],
+      "children": []
+    },
+    "b-day-exec-10": {
+      "id": "b-day-exec-10",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Operation",
+          "Placement"
+        ],
+        "rows": [
+          [
+            "Agent/model loop, queue claims, durable evidence, telemetry, and integration",
+            "Host."
+          ],
+          [
+            [
+              {
+                "insert": "bash",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "read",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "edit",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", "
+              },
+              {
+                "insert": "grep",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": ", and "
+              },
+              {
+                "insert": "glob",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "Sandbox-backed tools scoped to the claim workspace. The worker has no "
+              },
+              {
+                "insert": "write",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " builtin."
+              }
+            ]
+          ],
+          [
+            "checkdiff, objdiff_score, source_permuter, type_oracle, MWCC dump/diagnosis, allocator capture/compare/analysis, and sdata2 helper",
+            "Sandbox when invoked by a worker with its SandboxHandle."
+          ],
+          [
+            "Knowledge V2 queries, assembly-window search, indexed type-layout queries, and MWCC reference lookup",
+            "Host stores and indexes."
+          ],
+          [
+            "m2c",
+            "Fetch the required sandbox object, assembly, and build context into a temporary host mirror, then run the host tool."
+          ],
+          [
+            "Type layout without a usable index",
+            "Fetch sandbox build/ctx.c and build a private host cache. This fallback omits cast scanning."
+          ]
+        ],
+        "title": "Operation Placement"
+      },
+      "children": []
+    },
+    "tool-routing": {
+      "id": "tool-routing",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Routing a Tool Call"
+        }
+      ],
+      "children": []
+    },
+    "tool-routing-p": {
+      "id": "tool-routing-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "worker-cycle.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " passes the sandbox handle to file tools, command execution, validation, and tool resolution. Sandbox-backed replacements provide "
+        },
+        {
+          "insert": "bash",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "read",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "edit",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "grep",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "glob",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "; the worker has no unrestricted "
+        },
+        {
+          "insert": "write",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " builtin."
+        }
+      ],
+      "children": []
+    },
+    "tool-special": {
+      "id": "tool-special",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The resolver chooses placement from the operation's inputs. For example, m2c first retrieves the required object, assembly, and build context into a temporary host mirror. Type-layout lookup can use a host index; without a usable index it retrieves "
+        },
+        {
+          "insert": "build/ctx.c",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and creates a private cache without cast scanning."
+        }
+      ],
+      "children": []
+    },
+    "tool-safe": {
+      "id": "tool-safe",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Remote file tools enforce workspace paths. The worker's approved source write set separately limits which edits can enter a checkpoint. A sandbox makes files private to the claim; it does not authorize changes outside that set."
+        }
+      ],
+      "children": []
+    },
+    "tool-safety": {
+      "id": "tool-safety",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Write Safety",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/20-write-safety"
+            }
+          }
+        },
+        {
+          "insert": " explains allowed files and checkpoint boundaries."
+        }
+      ],
+      "children": []
+    },
+    "tool-source": {
+      "id": "tool-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Implementation lives in "
+        },
+        {
+          "insert": "apps/server/src/infrastructure/agent-runtime/sandbox-agent-tools.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "apps/server/src/core/tools/resolver.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
+}

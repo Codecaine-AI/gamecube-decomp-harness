@@ -184,6 +184,26 @@ describe("evaluateUndefinedSymbolGate", () => {
     const result = await evaluateUndefinedSymbolGate({ enabled: true, objectTarget, baselineUndefined: null, workspaceExec: exec });
     expect(result).toMatchObject({ status: "tool_unavailable", reasons: [], toolError: "missing symbols" });
   });
+
+  test("reads symbols from the caller-provided game layout", async () => {
+    const commands: string[][] = [];
+    const exec = fakeWorkspaceExec(async (command) => {
+      commands.push(command);
+      return command[0] === "python3"
+        ? { exitCode: 0, stdout: "SMSKnownSymbol\n", stderr: "" }
+        : { exitCode: 0, stdout: "SMSKnownSymbol = .text:0x80000000;", stderr: "" };
+    });
+    const result = await evaluateUndefinedSymbolGate({
+      enabled: true,
+      objectTarget: "build/GMSJ01/src/MarioUtil/DrawUtil.o",
+      baselineUndefined: null,
+      symbolsTxtPath: "config/GMSJ01/symbols.txt",
+      workspaceExec: exec,
+    });
+
+    expect(result.status).toBe("passed");
+    expect(commands).toContainEqual(["cat", "config/GMSJ01/symbols.txt"]);
+  });
 });
 
 function cDiff(...lines: string[]): string {
@@ -424,6 +444,43 @@ describe("lintBannedIdioms", () => {
   test("ignores non-C files", () => {
     const diff = "diff --git a/config/GALE01/symbols.txt b/config/GALE01/symbols.txt\n+long = whatever";
     expect(lintBannedIdioms(diff).status).toBe("passed");
+  });
+
+  test("lints .cpp/.hpp/.cc/.hh paths like .c/.h", () => {
+    for (const ext of ["cpp", "hpp", "cc", "hh", "h", "c"]) {
+      const diff = [`diff --git a/src/Enemy/Ricco.${ext} b/src/Enemy/Ricco.${ext}`, "+static void EnsureSdata2Order(void) {}"].join("\n");
+      expect(lintBannedIdioms(diff).status).toBe("failed");
+    }
+  });
+
+  test("fails a .cpp section-target diff that adds dummy() and forceSdata2Order() emitters", () => {
+    const diff = [
+      "diff --git a/src/MoveBG/Ricco.cpp b/src/MoveBG/Ricco.cpp",
+      "+static void dummy(Vec* v) {",
+      "+    v->x = 0.0f;",
+      "+}",
+      "+static void forceSdata2Order(void) {}",
+    ].join("\n");
+    for (const targetFunction of [".sdata2", undefined]) {
+      const result = lintBannedIdioms(diff, { targetFunction });
+      expect(result.status).toBe("failed");
+      expect(result.reasons).toContainEqual(expect.stringContaining("unused-static-function: \"static void dummy(Vec* v) {\""));
+      expect(result.reasons).toContainEqual(expect.stringContaining("unused-static-function: \"static void forceSdata2Order(void) {}\""));
+      expect(result.reasons).toContainEqual(expect.stringContaining("section-order-hack: \"static void forceSdata2Order(void) {}\""));
+    }
+  });
+
+  test("flags a referenced section-emitter static for a section target but not for a function target", () => {
+    const diff = cDiff("static void pad(void) {}", "void caller(void) { pad(); }");
+    expect(lintBannedIdioms(diff, { targetFunction: ".data" }).reasons).toContainEqual(expect.stringContaining("unused-static-function"));
+    expect(lintBannedIdioms(diff, { targetFunction: "caller" }).status).toBe("passed");
+  });
+
+  test("covers force/sdata order spellings in section-order-hack", () => {
+    for (const name of ["forceOrder", "orderSdata2", "sdata2Order", "__ForceSdataOrder"]) {
+      expect(lintBannedIdioms(cDiff(`static void ${name}(void) {}`), { targetFunction: ".sdata" }).reasons)
+        .toContainEqual(expect.stringContaining("section-order-hack"));
+    }
   });
 });
 

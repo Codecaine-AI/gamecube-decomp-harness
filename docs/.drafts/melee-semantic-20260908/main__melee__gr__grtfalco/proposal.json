@@ -1,0 +1,182 @@
+{
+  "tu": "main/melee/gr/grtfalco",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtfalco:.data"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source-level stage configuration consists of `StageCallbacks grTFc_803E8918[4]`, with three populated ground-object records followed by a zero record, and a separate `StageData grTFc_StageData` descriptor referencing that array. These declarations alone do not establish compiled section placement or exhaustive section contents.",
+        "rationale": "Preserves the explicitly declared types and record count while removing unsupported compiled writable-section claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L38-L77",
+            "why": "Complete callback array and descriptor declarations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtfalco:.sbss"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source declares a module-static `struct grTFalco_YakumonoParam* yakumono_param` without an explicit initializer. Its pointed-to structure has four `UNK_T` fields consumed as `DynamicsDesc*` values for floor, ceiling, right-wall and left-wall lines. Compiled small-data placement is not established by these declarations.",
+        "rationale": "Retains the pointer and semantic field types without asserting unverified compiled placement.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L79-L86",
+            "why": "Structure and static pointer declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L182-L211",
+            "why": "Four fields returned through a DynamicsDesc* function."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtfalco:grTfalco_UnkStage0_OnLoad"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Occupies the load-hook phase of Falco's Target Test lifecycle but implements no active course mechanic. Stage setup occurs in the initialization callback, while the separate start callback requests creation of the common Zako generator; that request is not itself demonstrated Target Test target creation.",
+        "rationale": "Corrects the neighboring callback's characterization as target-generator startup while preserving the inert load role.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L63-L109",
+            "why": "TFalco registration and distinct initialization, load and start bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Common generator creation and configuration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtfalco:grTfalco_UnkStage0_OnStart"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Takes no inputs and passes NULL as the `grZakoGenerator_SpawnDesc*` argument to `grZakoGenerator_801CAE04`, ignoring its returned `HSD_GObj*`. On successful creation the callee schedules processing and publishes the supplied description pointer and allocated data in shared generator state. If GObj creation fails, it reports the failure, frees the allocated data and returns NULL.",
+        "rationale": "Corrects the null object-pointer description and records the delegated publication and failure branch rather than implying guaranteed creation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L106-L109",
+            "why": "NULL argument and ignored result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Exact parameter type, failure cleanup, process registration and global publication."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtfalco:grTfalco_UnkStage0_OnStart"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Performs Falco's stage-start delegation by unconditionally requesting creation of the common Zako generator with a null spawn-description configuration. It does not supply an owner object, implement Falco-specific spawning locally, or check whether creation succeeded.",
+        "rationale": "Replaces the incorrect owner-object interpretation with the canonical callee parameter and nullable creation behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L106-L109",
+            "why": "Complete local delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Spawn-description parameter and possible NULL result."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtfalco:stageGObj1_Callback3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides the deliberately empty fourth function callback, zero-based slot 3, for Falco Target Test ground object 1's `StageCallbacks` record. It accepts the ground object but performs no callback-specific work.",
+        "rationale": "Corrects third-hook wording to the actual fourth function position.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L46-L52",
+            "why": "Fourth function in the object-1 record."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L180-L180",
+            "why": "Complete empty definition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtfalco:grTFalco_80220ACC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Line -1, nonzero or invalid joints, and unsupported line kinds return NULL without reading the parameter table. A recognized surface on joint 0 dereferences the cached `yakumono_param` without checking it for NULL, so that path requires an initialized, still-valid parameter block. This module does not allocate, free or validate the block's lifetime, and returned slots may themselves be NULL or alias one another.",
+        "rationale": "Adds the useful unchecked-cache precondition and distinguishes explicit rejection branches from externally supplied pointer validity.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L79-L109",
+            "why": "Cache declaration, initialization assignment and inert load hook."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L182-L211",
+            "why": "Rejection branches and unchecked field dereferences."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtfalco:setupStageCallbacks"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The supplied ID selects `grTFc_803E8918[gobj_id]` and is passed to `Ground_GetStageGObj`; local callers use IDs 0, 1 and 2, with no bounds check inside this helper. For a non-NULL object, `Ground_SetupStageCallbacks` clears `x8_callback` and `xC_callback`, installs a GX link, stores non-NULL callback3, invokes non-NULL on_init and schedules non-NULL gobj_proc at priority 4. That inline does not consume callback1 or the record flags. A missing object produces an OSReport diagnostic, and the retrieved pointer is returned after either branch.",
+        "rationale": "Meaningfully expands callback installation to its canonical inline behavior, avoiding an implication that all fields are installed or dispatched.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtfalco.c#L90-L130",
+            "why": "Local IDs, table indexing, lookup, branch and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Complete installation inline and fields actually consumed."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

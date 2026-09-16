@@ -1,0 +1,83 @@
+448: void HSD_SynthSFXStopNode(struct HSD_SynthSFXNode* node)
+449: {
+450:     int i;
+451:     PAD_STACK(0x10);
+452: 
+453:     if (!(node->flags & 1) && node->x27 == 1 &&
+454:         driverInactivatedCallback != NULL)
+455:     {
+456:         driverInactivatedCallback(node->x0);
+457:     }
+458:     for (i = 0; i < node->voice_count; i++) {
+459:         AXFreeVoice(node->voice[i]);
+460:         hsd_SynthSFXNodes[node->voice[i]->index].x0 = 0;
+461:     }
+462: }
+463: 
+464: void dropcallback(void* dropped)
+465: {
+466:     AXVPB* voice = dropped;
+467:     struct HSD_SynthSFXNode* node;
+468:     bool enabled;
+469:     int i;
+470: 
+471:     PAD_STACK(0x10);
+472: 
+473:     enabled = OSDisableInterrupts();
+474: 
+475:     node = &hsd_SynthSFXNodes[voice->index];
+476: 
+477:     /// Search HSD_Synth_804C28E0 queue for this voice and remove it
+478:     for (i = 0; i < HSD_Synth_804D7720; i++) {
+479:         if (HSD_Synth_804C28E0[i] == voice) {
+480:             HSD_Synth_804C28E0[i] = NULL;
+481:             break;
+482:         }
+483:     }
+484: 
+485:     if (node->x0 == 0) {
+486:         OSRestoreInterrupts(enabled);
+487:         return;
+488:     }
+489: 
+490:     if (node->x0 == -1) {
+491:         /// Secondary voice - follow to primary node
+492:         node = &hsd_SynthSFXNodes[node->voice[0]->index];
+493:     }
+494: 
+495:     if (!(node->flags & 1) && node->x27 == 1 &&
+496:         driverInactivatedCallback != NULL)
+497:     {
+498:         driverInactivatedCallback(node->x0);
+499:     }
+500: 
+501:     for (i = 0; i < node->voice_count; i++) {
+502:         AXVPB* v = node->voice[i];
+503:         if (v != voice) {
+504:             HSD_Synth_804C28E0[HSD_Synth_804D7720++] = v;
+505:         }
+506:         hsd_SynthSFXNodes[node->voice[i]->index].x0 = 0;
+507:     }
+508: 
+509:     OSRestoreInterrupts(enabled);
+510: }
+511: 
+512: struct foo {
+513:     void* next;
+514:     int unk4; // sound ID
+515:     int unk8; // voice count
+516:     int unkC; // audio parameter
+517:     AXPBADDR x10;
+518:     AXPBADPCM x20;
+519:     AXPBADPCMLOOP x48;
+520: };
+521: 
+522: /** @remarks The per-voice blocks of an SFX entry are 0x40 apart, which is
+523:  *  less than the AX structures they carry.
+524:  */
+525: #define SFX_VOICE(i) ((struct foo*) ((u8*) sfx_entry + (i) * 0x40))
+526: 
+527: static AXPBMIX lbl_80407FB4 = { 0 };
+528: 
+529: static AXPBSRC HSD_Synth_80407FD8 = { 1, 0, 0, { 0, 0, 0, 0 } };
+530: 

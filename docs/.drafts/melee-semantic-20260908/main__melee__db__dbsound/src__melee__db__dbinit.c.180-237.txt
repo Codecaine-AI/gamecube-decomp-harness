@@ -1,0 +1,58 @@
+180:             if (button & HSD_PAD_DPADLEFT) {
+181:                 button &= ~(HSD_PAD_DPADUP | HSD_PAD_DPADLEFT);
+182:             }
+183:             if (button & HSD_PAD_DPADRIGHT) {
+184:                 button &= ~(HSD_PAD_DPADUP | HSD_PAD_DPADRIGHT);
+185:             }
+186:         }
+187:         if (button & HSD_PAD_DPADDOWN) {
+188:             if (button & HSD_PAD_DPADLEFT) {
+189:                 button &= ~(HSD_PAD_DPADDOWN | HSD_PAD_DPADLEFT);
+190:             }
+191:             if (button & HSD_PAD_DPADRIGHT) {
+192:                 button &= ~(HSD_PAD_DPADDOWN | HSD_PAD_DPADRIGHT);
+193:             }
+194:         }
+195:         if (repeat & HSD_PAD_DPADUP) {
+196:             if (repeat & HSD_PAD_DPADLEFT) {
+197:                 repeat &= ~(HSD_PAD_DPADUP | HSD_PAD_DPADLEFT);
+198:             }
+199:             if (repeat & HSD_PAD_DPADRIGHT) {
+200:                 repeat &= ~(HSD_PAD_DPADUP | HSD_PAD_DPADRIGHT);
+201:             }
+202:         }
+203:         if (repeat & HSD_PAD_DPADDOWN) {
+204:             if (repeat & HSD_PAD_DPADLEFT) {
+205:                 repeat &= ~(HSD_PAD_DPADDOWN | HSD_PAD_DPADLEFT);
+206:             }
+207:             if (repeat & HSD_PAD_DPADRIGHT) {
+208:                 repeat &= ~(HSD_PAD_DPADDOWN | HSD_PAD_DPADRIGHT);
+209:             }
+210:         }
+211:         db_ButtonStates[i].prev = db_ButtonStates[i].current;
+212:         db_ButtonStates[i].current = button;
+213:         db_ButtonStates[i].pressed =
+214:             db_ButtonStates[i].current &
+215:             (db_ButtonStates[i].prev ^ db_ButtonStates[i].current);
+216:         db_ButtonStates[i].released =
+217:             db_ButtonStates[i].prev &
+218:             (db_ButtonStates[i].prev ^ db_ButtonStates[i].current);
+219:         db_ButtonStates[i].repeat = repeat;
+220:     }
+221:     for (i = 0; i < 4; i++) {
+222:         fn_CheckMiscVisualEffects(i);
+223:     }
+224:     for (i = 0; i < 4; i++) {
+225:         fn_CheckCameraInfo(i, db_ButtonStates[i].current,
+226:                            db_ButtonStates[i].pressed,
+227:                            HSD_PadMasterStatus[i & 0xFF].nml_subStickX,
+228:                            HSD_PadMasterStatus[i & 0xFF].nml_subStickY);
+229:     }
+230:     for (i = 0; i < 4; i++) {
+231:         fn_CheckSoundInfo(i);
+232:     }
+233:     for (i = 0; i < 4; i++) {
+234:         fn_UpdateObjAllocLimiter(i);
+235:     }
+236:     for (i = 0; i < 4; i++) {
+237:         fn_CheckItemAndPokemonMenu(i);

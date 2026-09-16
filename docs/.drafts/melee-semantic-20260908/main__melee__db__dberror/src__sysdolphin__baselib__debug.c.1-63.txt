@@ -1,0 +1,63 @@
+1: #include "debug.h"
+2: 
+3: #include <stdio.h>
+4: 
+5: #include <dolphin/os.h>
+6: 
+7: struct DebugContext {
+8:     OSContext context;
+9:     u8 unk[0x10];
+10: } HSD_Debug_804C2608;
+11: 
+12: static ReportCallback reportCallback;
+13: static PanicCallback panicCallback;
+14: static __io_proc logFunc;
+15: 
+16: #ifdef MUST_MATCH
+17: #pragma peephole off
+18: #endif
+19: 
+20: static int report_func(__file_handle arg0, unsigned char* arg1, size_t* arg2,
+21:                        __idle_proc arg3)
+22: {
+23:     if (reportCallback != NULL) {
+24:         reportCallback(arg1, *arg2);
+25:     }
+26:     logFunc(arg0, arg1, arg2, arg3);
+27:     return 0;
+28: }
+29: 
+30: void HSD_LogInit(void)
+31: {
+32:     if (logFunc == NULL) {
+33:         logFunc = stdout->write_proc;
+34:     }
+35:     stdout->write_proc = report_func;
+36:     stdout->state.error = 0;
+37: }
+38: 
+39: void __assert(char* str, u32 arg1, char* arg2)
+40: {
+41:     OSReport("assertion \"%s\" failed", arg2);
+42:     HSD_Panic(str, arg1, "");
+43: }
+44: 
+45: void HSD_Panic(char* arg0, u32 line, char* arg2)
+46: {
+47:     if (panicCallback != NULL) {
+48:         OSSaveContext(&HSD_Debug_804C2608.context);
+49:         OSReport("%s in %s on line %d.\n", arg2, arg0, line);
+50:         panicCallback(&HSD_Debug_804C2608.context);
+51:     }
+52:     OSPanic(arg0, line, arg2);
+53: }
+54: 
+55: void HSD_SetReportCallback(ReportCallback cb)
+56: {
+57:     reportCallback = cb;
+58: }
+59: 
+60: void HSD_SetPanicCallback(PanicCallback cb)
+61: {
+62:     panicCallback = cb;
+63: }

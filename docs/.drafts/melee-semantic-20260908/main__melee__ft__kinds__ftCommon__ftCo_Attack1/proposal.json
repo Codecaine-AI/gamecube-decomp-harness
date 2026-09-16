@@ -1,0 +1,143 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Attack1",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L113-L129",
+            "why": "Initial countdown and latch setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L171-L226",
+            "why": "Set-only pressed-A latch, destination split and normal next-window initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the legacy claim that the function copies current button state into the latch and preserves the character-specific destination.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Attack1:checkAttack12"
+        },
+        "type": "data_flow",
+        "value": "Consumes the continuation countdown initialized from jab_2_input_window by common Attack11 entry. If its precheck value is positive, subtracts one and sets mv.co.attack1.x0 true when pressed_buttons contains A; absent A does not clear or overwrite the latch. Independently tests the persistent latch with x2218_b1 and forwards the original fighter object to doAttack12 when both are set. Normal Attack12 entry clears the latch and initializes the next countdown from jab_3_input_window; Pikachu/Pichu instead select the pickup-guarded Attack11 restart path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L171-L226",
+            "why": "Exact precheck, subtraction, input mask, independent latch gate and alternative entry paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces held-A semantics with pressed-A capture and distinguishes successful dispatch from a guaranteed motion state.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Attack1:checkAttack12"
+        },
+        "type": "state_behavior",
+        "value": "When the continuation countdown is positive before the check, subtracts one and latches newly pressed A. Capture is still allowed on the final positive tick, including a fractional value that becomes negative; there is no local zero clamp. The latch persists when no new press is captured and is tested with x2218_b1 outside the countdown block. Both conditions cause doAttack12 dispatch and a true return; otherwise the function returns false. True does not guarantee Attack12: Pikachu/Pichu select an Attack11 restart, and pickup can preempt the selected jab entry."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L258-L290",
+            "why": "Signature, unconditional true after dispatch and exceptional helper branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L171-L182",
+            "why": "Restart helper resolves MARS to common Attack11 entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "The void entry helper has exceptional outcomes that invalidate the legacy guaranteed-Attack13 interpretation of true.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Attack1:checkAttack13"
+        },
+        "type": "inferred_type",
+        "value": "A state-changing continuation predicate with signature bool(Fighter_GObj*). True reports that the buffered-input and continuation-enable conditions selected doAttack13; it does not guarantee entry into Attack13. FTKIND_MARS selects an Attack11 restart, and pickup can preempt jab entry. False reports that this predicate did not dispatch the continuation on this call."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L258-L290",
+            "why": "Complete guard, timer ordering and exceptional entry behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported buffer ordering while correcting the unconditional destination claim.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Attack1:checkAttack13"
+        },
+        "type": "state_behavior",
+        "value": "If the continuation countdown is positive before the check, subtracts one and sets the persistent Attack1 latch on newly pressed A. The final-positive tick remains eligible for capture, even if subtraction reaches zero or a negative fractional result. The latch is tested with x2218_b1 regardless of the current countdown. Both conditions dispatch doAttack13 and return true; otherwise the predicate returns false. The dispatch may enter ordinary Attack13, select the FTKIND_MARS Attack11 restart, or be preempted by pickup, so true is not a guaranteed Attack13 transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L161-L164",
+            "why": "Attack11 delegates to shared physics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L55-L89",
+            "why": "Strict speed boundary and animation/friction alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L133-L152",
+            "why": "Distinct strict surface multiplier branch and projection."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported stronger-friction claim and includes the active surface-scaling branch shared by both acceleration sources.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Attack1:ftCo_Attack11_Phys"
+        },
+        "type": "game_mapping",
+        "value": "Supplies grounded first-jab movement through shared physics. Ground friction is scaled by a common factor only above maximum walking speed; animation-translation motion instead derives ground acceleration from translation and facing direction. Both paths then reach ground movement, which applies a separate ground-surface multiplier to acceleration only when that multiplier is less than one, before projecting acceleration and ground velocity along the floor. The source establishes neither stronger above-walk friction nor universal braking or concrete multiplier magnitudes."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L41-L81",
+            "why": "Complete selection, repeated classification, fallthrough and return structure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L171-L209",
+            "why": "Second-stage character and pickup alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack1.c#L258-L274",
+            "why": "Third-stage character and pickup alternatives."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact priority and numeric-state behavior while correcting guaranteed destination language and making the unmatched active-guard branch explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Attack1:ftCo_Attack1_CheckInput"
+        },
+        "type": "state_behavior",
+        "value": "On newly pressed A, held-item class 0 selects LightThrowF first. Otherwise held L/R selects LightThrowDrop; absent that selection, a second classification of 2 calls ftCo_Attack_800CCF58(gobj, false), and 3 calls ftCo_Attack_800CDD14. After unconsumed item handling, positive hitlag_mul together with x2218_b1 selects a switch in which numeric state 44 dispatches doAttack12 and 45 dispatches doAttack13. An unmatched state under that active guard falls through without starting Attack11. An inactive guard instead dispatches decideAttack11. Selected paths return true without verifying a particular jab destination; pickup and character-specific restart paths remain possible. When no path is selected, a positive countdown is decremented once and the function returns false."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

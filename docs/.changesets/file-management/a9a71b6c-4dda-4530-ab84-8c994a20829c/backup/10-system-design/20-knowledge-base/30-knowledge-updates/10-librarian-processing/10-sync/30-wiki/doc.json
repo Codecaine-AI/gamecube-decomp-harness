@@ -1,0 +1,635 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-1831e74435564e03afcf218674b09052",
+  "title": "Wiki Sync",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ks2-path-wiki-intro",
+        "b-ks2-path-wiki-intro-detail-1",
+        "b-ks2-path-wiki-agents-heading",
+        "b-ks2-path-wiki-agents-table",
+        "b-ks2-path-wiki-librarian-heading",
+        "b-ks2-path-wiki-librarian-reads",
+        "b-ks2-path-wiki-librarian-reads-detail-1",
+        "b-ks2-path-wiki-librarian-writes",
+        "b-ks2-path-wiki-coverage-heading",
+        "b-ks2-path-wiki-coverage-p",
+        "b-ks2-path-wiki-related-heading",
+        "b-ks2-path-wiki-related-overview",
+        "b-ks2-path-wiki-related-sync",
+        "b-ks2-path-wiki-related-discord-sync",
+        "b-ks2-path-wiki-related-source",
+        "b-ks2-path-wiki-related-entities",
+        "b-ks2-path-wiki-related-fact",
+        "b-ks2-path-wiki-related-evidence"
+      ]
+    },
+    "b-ks2-path-wiki-intro": {
+      "id": "b-ks2-path-wiki-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Wiki sync uses "
+        },
+        {
+          "insert": "index_task.pathway",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "archival_ingest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Discord sync shares this enum value, and the task payload names the source. It fires only on an explicit kg2-ingest --lane wiki, which --reset-source wiki also requires. The mirror rarely changes and its import is slow, so the wiki lane is in neither the default sync set (reconcile, prs, discord, attempts) nor all."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-intro-detail-1": {
+      "id": "b-ks2-path-wiki-intro-detail-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The importer inserts "
+        },
+        {
+          "insert": "wiki_section",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows at a new mirror revision during a mirror re-sync. Bulk and lower priority: no single target's ledger is waiting on it. The librarian searches the new sections and attaches facts to the subjects they mention, citing "
+        },
+        {
+          "insert": "wiki://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-agents-heading": {
+      "id": "b-ks2-path-wiki-agents-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Agents Called"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-agents-table": {
+      "id": "b-ks2-path-wiki-agents-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Order",
+          "Agent",
+          "Does"
+        ],
+        "rows": [
+          [
+            "1",
+            "Wiki importer",
+            [
+              {
+                "insert": "On --lane wiki only: inserts "
+              },
+              {
+                "insert": "wiki_section",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows at a new "
+              },
+              {
+                "insert": "mirror_revision",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " without changing existing rows; advances the "
+              },
+              {
+                "insert": "wiki",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " source watermark; enqueues the index task. A deterministic pipeline; source rows only, never facts"
+              }
+            ]
+          ],
+          [
+            "2",
+            "Librarian",
+            [
+              {
+                "insert": "Consumes the task: searches the new sections, attaches "
+              },
+              {
+                "insert": "fact",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows to the subjects they mention, admits a curated "
+              },
+              {
+                "insert": "game_concept",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " where the material warrants one"
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ks2-path-wiki-librarian-heading": {
+      "id": "b-ks2-path-wiki-librarian-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Librarian Operation"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-librarian-reads": {
+      "id": "b-ks2-path-wiki-librarian-reads",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The librarian searches new sections with BM25 over section content and vector retrieval over section embeddings. Structured filters narrow results by page and "
+        },
+        {
+          "insert": "mirror_revision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", defaulting to the latest revision. Section embeddings are the wiki's primary search method for conceptual queries. The librarian then reads the page around each hit."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-librarian-reads-detail-1": {
+      "id": "b-ks2-path-wiki-librarian-reads-detail-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Subjects are whatever the sections mention: targets by symbol, and the mechanical entity kinds "
+        },
+        {
+          "insert": "translation_unit",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "struct",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "struct_field",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "parameter",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", whose rows the entity extractor has already inserted from the checkout. A subject with no row is not silently invented: where the material warrants it, the librarian may admit a "
+        },
+        {
+          "insert": "game_concept",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " entity, curated and librarian-written like "
+        },
+        {
+          "insert": "pattern",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Wiki material is where game concepts are most often seeded. Locals and returns are not entities and get no rows."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-librarian-writes": {
+      "id": "b-ks2-path-wiki-librarian-writes",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every write goes through the resolver. Fact rows are added or overwritten under the mentioned subjects, "
+        },
+        {
+          "insert": "evidence",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows replaced wholesale with "
+        },
+        {
+          "insert": "wiki://<wiki_section.id>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " locators into the new rows, each id naming one (page, section, mirror revision) triple, corroborated against the code graph where the checkout can confirm what the wiki said. Material that connects subjects can add curated "
+        },
+        {
+          "insert": "link",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows. Section rows are frozen once mirrored. A re-sync inserts new rows at a new revision, so these citations can never drift and carry no digest."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-coverage-heading": {
+      "id": "b-ks2-path-wiki-coverage-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Coverage"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-coverage-p": {
+      "id": "b-ks2-path-wiki-coverage-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The wiki importer runs by hand, outside the sync and all lanes. It advances the "
+        },
+        {
+          "insert": "wiki",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " row of "
+        },
+        {
+          "insert": "source_watermark",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Its "
+        },
+        {
+          "insert": "position",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the mirror revision, which no other agent parses. The importer enqueues "
+        },
+        {
+          "insert": "index_task",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows with "
+        },
+        {
+          "insert": "pathway",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " "
+        },
+        {
+          "insert": "archival_ingest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " whose payloads name the newly mirrored sections. The payload distinguishes this pathway from the Discord sync because both use the same enum value. These tasks queue behind the per-target pathways. Completion is by the task timestamps, and the pass stamps "
+        },
+        {
+          "insert": "subject_index_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " for each subject it covered. A subject whose "
+        },
+        {
+          "insert": "indexed_at",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " predates the new material still needs a pass even when no queue row names it."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-related-heading": {
+      "id": "b-ks2-path-wiki-related-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-related-overview": {
+      "id": "b-ks2-path-wiki-related-overview",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "See "
+        },
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing",
+              "label": "Librarian Pathways"
+            }
+          }
+        },
+        {
+          "insert": " for the pathway table, the agent roster, and the "
+        },
+        {
+          "insert": "indexing_state",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " shapes this pathway writes through."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-related-sync": {
+      "id": "b-ks2-path-wiki-related-sync",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "See "
+        },
+        {
+          "insert": "Sync",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing/10-sync",
+              "label": "Sync"
+            }
+          }
+        },
+        {
+          "insert": " for the between-runs phase this pathway belongs to."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-related-discord-sync": {
+      "id": "b-ks2-path-wiki-related-discord-sync",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "See "
+        },
+        {
+          "insert": "Discord Sync",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing/10-sync/20-discord",
+              "label": "Discord Sync"
+            }
+          }
+        },
+        {
+          "insert": " for the other pathway enqueuing "
+        },
+        {
+          "insert": "archival_ingest",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " tasks."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-related-source": {
+      "id": "b-ks2-path-wiki-related-source",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "See "
+        },
+        {
+          "insert": "Wiki",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/10-sources/10-external/30-wiki",
+              "label": "Wiki"
+            }
+          }
+        },
+        {
+          "insert": " for the "
+        },
+        {
+          "insert": "wiki_section",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " mirror: draft shape, the re-sync contract, search surface."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-related-entities": {
+      "id": "b-ks2-path-wiki-related-entities",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "See "
+        },
+        {
+          "insert": "Entities",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/20-records/20-entities",
+              "label": "Entities"
+            }
+          }
+        },
+        {
+          "insert": " for the mechanical and curated entity kinds facts attach to here."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-related-fact": {
+      "id": "b-ks2-path-wiki-related-fact",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "See "
+        },
+        {
+          "insert": "Fact",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/20-records/30-facts",
+              "label": "Fact"
+            }
+          }
+        },
+        {
+          "insert": " for the claim shape the librarian writes under the mentioned subjects."
+        }
+      ],
+      "children": []
+    },
+    "b-ks2-path-wiki-related-evidence": {
+      "id": "b-ks2-path-wiki-related-evidence",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "See "
+        },
+        {
+          "insert": "Evidence",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/20-records/40-evidence",
+              "label": "Evidence"
+            }
+          }
+        },
+        {
+          "insert": " for the fact-owned citation rows and the archival locator grammar."
+        }
+      ],
+      "children": []
+    }
+  }
+}

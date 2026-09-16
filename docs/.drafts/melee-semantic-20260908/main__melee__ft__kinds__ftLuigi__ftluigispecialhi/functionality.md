@@ -1,0 +1,20 @@
+## Luigi Super Jump Punch
+
+The C file implements eleven callbacks for grounded and aerial up-special entry, animation completion, input, physics, collision and shared landing. The header declares all eleven with `void(HSD_GObj*)` signatures. Canonical and rendered views were reviewed completely; rendered substitutions were treated as hypotheses rather than independent evidence.
+
+### Entry and completion
+Both entry callbacks clear `cmd_vars[0]` and `throw_flags`, enter their respective symbolic motion states with arguments `0, 0.0f, 1.0f, 0.0f, NULL`, then call `ftAnim_8006EBA4`. Aerial entry additionally zeroes vertical self-velocity and multiplies horizontal self-velocity by attribute x64; grounded entry does not perform those velocity writes. Both animation callbacks call `ftCo_80096900(gobj, 0, 1, 0, x50, x54)` only when animation frames are exhausted. These attributes carry freefall mobility and landing lag into the common subsystem. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispecialhi.c#L22-L79)
+
+### Directional input
+The paired IASA callbacks calculate stick direction from `input.lstick[0].x`. While command variable zero is clear, input exceeding x5C produces an angle from x60 times normalized threshold excess, converted to radians. Positive horizontal input selects a negative candidate angle; otherwise the candidate is positive. The stored `lstick_angle` changes only when the candidate has strictly greater absolute magnitude. Equal or weaker opposite input cannot replace it. Separately, `ftCheckThrowB3` and absolute input strictly exceeding x58 permit facing update and part-zero Y rotation to `M_PI_2 * facing_dir`. This second branch is independent of the command-variable guard. No local motion-state transition occurs. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispecialhi.c#L84-L195)
+
+### Physics
+Grounded-state physics dispatches on the current environment, not merely the callback name: GA_Air calls `ft_80085154`; every other value calls `ft_80084FA8`. Aerial-state physics instead tests zero versus any nonzero command value. Nonzero calls `ft_80085154`, multiplies all three self-velocity components by x6C, and returns. Despite that attribute's VEL_Y name, its effect here is full-vector scaling. Zero calls `ftCommon_Fall` with x68 and `co_attrs.terminal_velocity`, then `ftCommon_8007CF58`. These callbacks do not directly advance the command phase. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispecialhi.c#L197-L228)
+
+### Collision and landing
+The collision callbacks are behaviorally identical. Non-air values call `ft_80084104`. Airborne fighters call `ft_80083B68` when the command variable is zero or vertical velocity compares greater than or equal to zero. Otherwise they call `ft_800831CC` with `ftCo_80096CC8` and `ftLg_SpecialHi_CheckLanding`. For ordinary finite velocities this latter branch means nonzero command phase plus descent; literally, an unordered velocity comparison also fails the nonnegative test. The shared landing callback performs no local collision check: it unconditionally forwards `false` and attribute x54 to `ftCo_LandingFallSpecial_Enter`. Collision acceptance and callback invocation belong to the common helper. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLuigi/ftluigispecialhi.c#L230-L274)
+
+### Evidence limits
+The owned code shows command initialization and consumers, but not the later nonzero writer or exact turnaround-trigger timing. It supplies no attribute values proving a fixed trajectory or 40-frame lag. Those retained baseline gameplay descriptions are not new numerical findings. It also does not establish emitted `.sdata2` size, contents, padding or literal placement. All four section facts remain unresolved pending compiled evidence. Two data-flow facts are superseded solely to correct current member spellings. The remaining 58 facts and all 25 links are explicitly retained in the checkpoint ledger.
+
+Status: synthesized; independent review and live promotion pending.

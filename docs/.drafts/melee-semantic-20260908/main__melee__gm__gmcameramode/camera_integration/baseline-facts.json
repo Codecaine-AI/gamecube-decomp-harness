@@ -1,0 +1,87 @@
+[
+  {
+    "id": "fact:185ec055-923b-4c00-ad54-9b2e9f0bc889",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "data_flow",
+    "value": "Persistent Camera Mode settings live in gmMainLib_804D3EE0->modes.vs_camera. Entry callbacks copy them into CSS, SSS, and StartMeleeData payloads; exit callbacks copy edited CSS/SSS selections back, while the VS exit callback folds match results into gmVsMelee_VsExitInfo and updates KO counts.",
+    "rationale": "The current VS preparation copies persistent rules and players into StartMeleeData, and its exit callback consumes shared match results for standings and KO bookkeeping before selecting the next state.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-07T01:40:02.321Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L182-L249",
+        "why": "Shows persistent vs_camera rules and players flowing into StartMeleeData and shared match results flowing into result and KO-count updates."
+      }
+    ]
+  },
+  {
+    "id": "fact:7e770447-dc10-44a0-9880-b12724b2a614",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "game_mapping",
+    "value": "Implements Melee's Camera Mode, the Special Melee variant in which the fourth controller operates the camera and can take pictures.",
+    "rationale": "The current VS preparation installs Camera Mode-specific pauser, per-frame camera-interface, and snapshot-resource behavior, preserving the mode's distinct camera and photograph mechanics.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-07T01:40:02.321Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L182-L249",
+        "why": "Shows Camera Mode-specific pauser and camera callbacks and initialization of the snapshot resources used during gameplay."
+      }
+    ]
+  },
+  {
+    "id": "fact:90d11393-82cf-4e7b-99dd-889c43970aa9",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "inferred_type",
+    "value": "A scene-sequencing translation unit centered on a sentinel-terminated GameModeState table; it also owns an aligned 64-bit small-BSS object used as both the enter and exit payload for the GS_CAMERA_VS state.",
+    "rationale": "The declarations show a static s64 immediately before the mode table, and state 0 supplies that same object's address for both payload pointers. The remaining entries use the typed shared CSS, SSS, and VS data objects.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:22.195Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L28-L74",
+        "why": "The source defines static s64 gm_804D68C8 and places its address in both payload slots of the GS_CAMERA_VS GameModeState entry."
+      }
+    ]
+  },
+  {
+    "id": "fact:7069656a-b08e-471e-905f-48f2d07f4c24",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "purpose",
+    "value": "Owns the game-mode controller for Camera Mode, coordinating resource preloading, character and stage selection, Camera Mode-specific VS setup, post-match bookkeeping, and return transitions.",
+    "rationale": "The current match preparation installs Camera Mode-specific callbacks and resources, while match exit performs result bookkeeping and returns to character-select state 1.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-07T01:40:02.321Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L182-L249",
+        "why": "Shows Camera Mode-specific match preparation, callback installation, snapshot-resource initialization, post-match bookkeeping, and return routing."
+      }
+    ]
+  },
+  {
+    "id": "fact:71deeeab-fe98-42cd-9802-413adb2f3a51",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "state_behavior",
+    "value": "Camera Mode is represented by states 0 through 3 for its Camera VS prelude, character select, stage select, and VS match scenes. Prelude exit values 1 or 2 and CSS pending-scene value 2 leave for the menu; canceling stage selection or completing a match explicitly returns to state 1.",
+    "rationale": "The current exit paths retain the explicit return to state 1 after stage-selection cancellation or match completion; the standing four-state route and menu guards remain otherwise unchanged.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-07T01:40:02.321Z",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L182-L249",
+        "why": "Shows Stage Selection cancellation and post-match completion explicitly returning to Camera Mode state 1."
+      }
+    ]
+  }
+]

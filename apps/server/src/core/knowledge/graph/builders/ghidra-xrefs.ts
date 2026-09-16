@@ -21,6 +21,7 @@ export const GHIDRA_XREFS_SOURCE_ID = "ghidra_xrefs";
 const MAX_PROFILE_REFS = 16;
 
 export interface BuildGhidraXrefGraphRecordsOptions {
+  reportPath?: string;
   indexesRoot?: string;
   maxRefsPerFunction?: number;
 }
@@ -76,7 +77,7 @@ export function buildGhidraXrefGraphRecords(
   const xrefsPath = resolve(indexesRoot, "xrefs.jsonl");
   if (!existsSync(xrefsPath)) return null;
 
-  const functions = currentFunctionIndex(repoRootWithFunctionReport(repoRoot));
+  const functions = currentFunctionIndex(options.reportPath ? repoRoot : repoRootWithFunctionReport(repoRoot), options.reportPath);
   if (functions.ranges.length === 0) return null;
 
   const observations = xrefObservations(xrefsPath, functions);
@@ -161,9 +162,9 @@ function repoRootWithFunctionReport(repoRoot: string): string {
   return requested;
 }
 
-function currentFunctionIndex(repoRoot: string): FunctionIndex {
+function currentFunctionIndex(repoRoot: string, explicitReportPath?: string): FunctionIndex {
   const index: FunctionIndex = { bySymbol: new Map(), byAddress: new Map(), ranges: [] };
-  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+  const reportPath = resolve(repoRoot, explicitReportPath ?? "build/GALE01/report.json");
   if (!existsSync(reportPath)) return index;
 
   const report = readJson(reportPath);

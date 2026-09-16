@@ -40,7 +40,7 @@ describe("knowledge index database", () => {
     const root = createTempRoot("open");
     const indexDb = openIndex(root);
 
-    expect(indexDb.path).toBe(join(root, KNOWLEDGE_INDEX_DB_FILENAME));
+    expect(indexDb.path).toBe(join(root, "indexes", KNOWLEDGE_INDEX_DB_FILENAME));
     expect(existsSync(indexDb.path)).toBe(true);
     expect(indexDb.db.query("PRAGMA journal_mode").get()).toEqual({ journal_mode: "wal" });
   });

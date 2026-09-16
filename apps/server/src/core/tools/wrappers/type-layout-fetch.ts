@@ -3,9 +3,9 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, resolve } from "node:path";
 import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
+import { contextGenerationCommand, resolveSandboxProjectLayout } from "./sandbox-project-layout.js";
 
 const CONTEXT_PATH = "build/ctx.c";
-const CONTEXT_SCRIPT = "tools/m2ctx/m2ctx.py";
 const CONTEXT_CHECK_TIMEOUT_MS = 10_000;
 const BUILD_TIMEOUT_MS = 120_000;
 const MODES = new Set(["dups", "near", "unions", "casts", "summary"]);
@@ -122,6 +122,7 @@ export async function runSandboxTypeLayoutIndexFallback(
 
   let mirrorRoot: string | undefined;
   try {
+    const layout = await resolveSandboxProjectLayout(input.sandboxHandle, input.workspaceRoot);
     const contextCheck = await input.sandboxHandle.exec(
       ["test", "-f", CONTEXT_PATH],
       { cwd: input.workspaceRoot, timeoutMs: CONTEXT_CHECK_TIMEOUT_MS },
@@ -133,14 +134,23 @@ export async function runSandboxTypeLayoutIndexFallback(
       );
     }
     if (contextCheck.exitCode === 1) {
+      let contextCommand: string[];
+      try {
+        contextCommand = contextGenerationCommand(layout, null);
+      } catch (error) {
+        return buildFailure(
+          "context_generation",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
       const generated = await input.sandboxHandle.exec(
-        ["python3", CONTEXT_SCRIPT, "--quiet", "--preprocessor"],
+        contextCommand,
         { cwd: input.workspaceRoot, timeoutMs: BUILD_TIMEOUT_MS },
       );
       if (generated.exitCode !== 0) {
         return buildFailure(
           "context_generation",
-          generated.stderr.trim() || `sandbox m2ctx exited ${generated.exitCode}`,
+          generated.stderr.trim() || `sandbox context generator exited ${generated.exitCode}`,
         );
       }
     }

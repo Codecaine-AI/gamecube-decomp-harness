@@ -16,7 +16,6 @@ describe("ManagedProcessController", () => {
     tempDirs.push(stateDir);
     const controller = createManagedProcessController({
       gameToSummary: (game) => ({ ...game }),
-      mirrorProcessState: () => {},
       packageRoot: stateDir,
     });
     const managed = controller.spawn({
@@ -40,7 +39,6 @@ describe("ManagedProcessController", () => {
     tempDirs.push(stateDir);
     const controller = createManagedProcessController({
       gameToSummary: (game) => ({ ...game }),
-      mirrorProcessState: () => {},
       packageRoot: stateDir,
     });
 
@@ -56,7 +54,7 @@ describe("ManagedProcessController", () => {
     expect(existsSync(process.stderrPath)).toBeTrue();
     expect(readFileSync(process.stdoutPath, "utf8")).toContain("durable stdout");
     expect(readFileSync(process.stderrPath, "utf8")).toContain("durable stderr");
-    expect(controller.status({ freshRunActive: false, operation: null, game: null, gameSyncActive: false, stateDir })).toMatchObject({
+    expect(controller.status({ operation: null, game: null, stateDir })).toMatchObject({
       stdoutPath: process.stdoutPath,
       stderrPath: process.stderrPath,
     });

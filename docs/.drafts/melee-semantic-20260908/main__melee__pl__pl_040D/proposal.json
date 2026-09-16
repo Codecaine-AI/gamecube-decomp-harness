@@ -1,0 +1,261 @@
+{
+  "tu": "main/melee/pl/pl_040D",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L29-L53",
+            "why": "Separate damage and eligible-count updates, including the zero-pair-count test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L114-L132",
+            "why": "Victim pair counts are cleared without resetting attacker aggregates."
+          }
+        ],
+        "op": "write",
+        "rationale": "The previous distinct-opponent description ignored the independently reset victim-owned pair counter.",
+        "subject": {
+          "target_stable_key": "main/melee/pl/pl_040D:pl_80040ED4"
+        },
+        "type": "purpose",
+        "value": "Records attributed attacker-versus-victim hit observations. Unless the victim discriminator equals 1, it stores the attacker's latest victim and damage and accumulates victim-owned per-attacker damage. For attack codes outside the five excluded classes, it also increments the attacker's eligible-hit count and the pair hit count; the attacker's xC increments when that pair count was zero. xC therefore counts first-counted-hit events across victim-history reset intervals, not globally distinct opponent slots."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L29-L53",
+            "why": "All local state transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L114-L132",
+            "why": "Pair reset permits repeated first-hit qualification for the same victim."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact filters while correcting the cross-record lifetime interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/pl/pl_040D:pl_80040ED4"
+        },
+        "type": "state_behavior",
+        "value": "Victim discriminator 1 suppresses every update. Otherwise latest victim, latest damage, and accumulated pair damage are always updated. Codes 0x4C, 0x5A, 0x5B, 0x5C, and 0x60 suppress only ordinary hit-count updates. Other codes increment attacker x8, increment attacker xC if victim.x10[attacker].x4 was zero, and then increment that pair count. A later pl_800411C4 reset can make the same victim contribute another xC increment; xC is not a lifetime uniqueness count."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L42-L51",
+            "why": "Numerator and denominator producers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L114-L132",
+            "why": "Independent pair reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L187-L194",
+            "why": "Actual ratio and fallback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported interpretation as an average over globally distinct opponents.",
+        "subject": {
+          "target_stable_key": "main/melee/pl/pl_040D:pl_800414C0"
+        },
+        "type": "purpose",
+        "value": "Returns the selected player's accumulated eligible-hit count x8 divided by its accumulated first-counted-hit-event count xC, with a zero result when xC is zero. A first-counted-hit event occurs when an eligible hit finds the victim-owned pair count at zero; independent victim-history resets allow the same opponent to contribute more than once."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L105-L118",
+            "why": "Unsigned aggregate counter declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L42-L47",
+            "why": "Counter domains."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L114-L194",
+            "why": "Separate reset and exact getter signature."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the signature while correcting both counter-domain precision and the denominator's lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/pl/pl_040D:pl_800414C0"
+        },
+        "type": "inferred_type",
+        "value": "Read-only getter with signature float(int player_slot). It reads the u32 aggregate counters pl_x5EC_t.x8 and xC and returns their floating-point ratio. x8 counts eligible hits; xC counts eligible hits that encountered a zero victim-owned pair count, including renewed first hits after that victim's history resets."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L114-L132",
+            "why": "Transient reset does not clear aggregates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L187-L194",
+            "why": "Complete read-only getter."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the exact two result paths without the erroneous distinct-opponent label.",
+        "subject": {
+          "target_stable_key": "main/melee/pl/pl_040D:pl_800414C0"
+        },
+        "type": "state_behavior",
+        "value": "Does not mutate either counter. If xC is nonzero it returns (f32)x8 / xC; otherwise it returns 0.0F. These aggregate counters survive the transient victim-entry reset in pl_800411C4, so the denominator is not a count of currently populated entries or globally unique opponents."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L42-L47",
+            "why": "First-counted-hit denominator."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L114-L132",
+            "why": "Reset-dependent lifetime."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L679-L681",
+            "why": "Configured comparison and bonus flag 1."
+          }
+        ],
+        "op": "write",
+        "rationale": "The consumer remains supported; the statistic is not an average over globally distinct opponent slots.",
+        "subject": {
+          "target_stable_key": "main/melee/pl/pl_040D:pl_800414C0"
+        },
+        "type": "game_mapping",
+        "value": "Supplies a combat-history ratio used by the general bonus evaluator: accumulated eligible hits divided by accumulated first-counted-hit events across victim-history intervals. When the returned ratio reaches pl_804D6470->x0, the consumer sets indexed bonus flag 1. The displayed bonus name is not established here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L211-L253",
+            "why": "True assignment on hit, raw assignment on miss, and literal wrapper modes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L124-L131",
+            "why": "Unsigned byte count and unsigned one-bit flag."
+          }
+        ],
+        "op": "write",
+        "rationale": "The previous account missed the hit-versus-insertion assignment difference and finite byte-count behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/pl/pl_040D:fn_800415B0"
+        },
+        "type": "state_behavior",
+        "value": "Key zero causes no history mutation. A matching key leaves the cursor unchanged: nonzero mode sets its flag to true, while zero mode increments its u8 count modulo 256. A missing key first evaluates the cursor-selected old count and flag, then replaces the entry. Zero mode inserts count 1 and flag 0. Nonzero mode inserts count 0 and assigns the raw mode to the unsigned one-bit flag, retaining its low bit rather than normalizing every nonzero value to true. The cursor wraps from 4 to 0. The two local wrappers pass only literal modes 0 and 1."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L105-L140",
+            "why": "All three source declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L296-L328",
+            "why": "u16 API inputs compared with and stored into x8D8 entries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonus.c#L29-L85",
+            "why": "Output operations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the prior claim that x8D8 physically stores 16-bit identifiers and records useful actual widths without asserting compiled layout.",
+        "subject": {
+          "entity_locator": "src/melee/pl/pl_040D.c"
+        },
+        "type": "inferred_type",
+        "value": "C module operating on three embedded player-owned records: pl_x5EC_t has aggregate fields and six pair entries, including floating-point damage, signed 16-bit hit/sequence counters, an int code, and a one-bit flag; pl_x8C0_t has an int cursor and five entries with u16 keys, u8 counts, and one-bit flags; pl_x8D8_t has an int cursor and five entries with u32 stored identifiers and two one-bit flags. The x8D8 registration and marking APIs accept u16 identifiers, so input narrowing is distinct from storage width. Qualifying records feed indexed point-bonus assignment or increment operations."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0892.c#L211-L214",
+            "why": "Getter exposes instancehitby."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L133-L140",
+            "why": "Event handler obtains the identifier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plbonuslib.c#L210-L219",
+            "why": "Identifier forwarded to count or flag wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L211-L253",
+            "why": "Wrappers forward the key unchanged and updater rejects zero."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful missing key-domain knowledge and prevents interpreting the final-hit history as aggregation by move class.",
+        "subject": {
+          "entity_locator": "main/melee/pl/pl_040D:fn_800415B0#r5"
+        },
+        "type": "inferred_type",
+        "value": "u16 final-hit attack-instance identifier, with zero ignored by the history updater. In the demonstrated event path it originates from ft_8008989C, which returns Fighter.dmg.x18ec_instancehitby; it is not the attack-class byte used by the repeated-attack tracker."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1472-L1482",
+            "why": "BombHei collision path and victim/instance arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pl_040D.c#L317-L335",
+            "why": "Unrestricted matching marker and later disqualification predicate."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the independently demonstrated gameplay origin of the otherwise generic all-matching marker, without inventing the displayed bonus name.",
+        "subject": {
+          "target_stable_key": "main/melee/pl/pl_040D:pl_80041B08"
+        },
+        "type": "game_mapping",
+        "value": "Marks the selected victim player's retained Bob-omb history when canonical item collision processing reports a BombHei instance. The caller supplies the victim player ID and the item's instance identifier narrowed to u16. Marked valid entries subsequently fail the valid-and-unmarked condition for decision 0xC8; this routine does not itself award a bonus, clear entries, or require that a matching entry be valid."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

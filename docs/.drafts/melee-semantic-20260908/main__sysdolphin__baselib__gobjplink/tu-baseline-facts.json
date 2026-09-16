@@ -1,0 +1,757 @@
+[
+  {
+    "id": "fact:399fab2b-49c3-413b-b5ba-58b91b579d33",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjplink:.data",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The assertion sites read this section only on the diagnostic path when a requested p_link is outside the initialized process-link range; the filename and predicate text are supplied to the assertion machinery, and the section is not modified by the process-link routines.",
+    "rationale": "At head, both object construction and process-link reassignment still assert the requested p_link against HSD_GObjLibInitData.p_link_max before accessing a bucket. Neither routine writes the diagnostic labels, so the data remains an immutable input to assertion reporting.",
+    "confidence": 0.95,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows CreateGObj performing the process-link bounds assertion before allocation and insertion, with no writes to the diagnostic labels."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows the reassignment routine performing the same bounds assertion before relinking and contains no mutation of the diagnostic strings."
+      }
+    ]
+  },
+  {
+    "id": "fact:214535ef-dc23-4c5b-8d15-5a69e0f506a7",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjplink:.data",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A 56-byte diagnostic-string block consisting of the null-terminated filename \"gobjplink.c\" at 0x804084B8, the null-terminated stringified assertion predicate \"p_link <= HSD_GObjLibInitData.p_link_max\" at 0x804084C4, and trailing alignment padding.",
+    "rationale": "The current source retains the two address-bearing labels twelve bytes apart and uses HSD_ASSERT with the exact process-link predicate. The filename occupies twelve bytes including its terminator, while the predicate occupies 41 bytes including its terminator, accounting for 53 bytes plus three bytes of alignment in the 56-byte target.",
+    "confidence": 0.94,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows the labels at 0x804084B8 and 0x804084C4, the translation-unit filename context, and the exact HSD_ASSERT predicate associated with the diagnostic data."
+      }
+    ]
+  },
+  {
+    "id": "fact:673004db-ee12-4559-a6f2-846b4e774847",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjplink:.data",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the diagnostic text used by this translation unit's process-link bounds assertions: the source filename and the predicate requiring p_link not to exceed HSD_GObjLibInitData.p_link_max.",
+    "rationale": "The current constructor and reassignment routine both use the same HSD_ASSERT predicate before operating on process-link buckets. The adjacent address-bearing labels account for the source filename and stringified predicate used by those diagnostics.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows the diagnostic labels and CreateGObj's assertion that p_link does not exceed the configured maximum."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows the existing-object reassignment path using the same process-link bounds assertion."
+      }
+    ]
+  },
+  {
+    "id": "fact:ce6d2533-3264-4b65-a9e0-4d31b8dc3e92",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjplink:.sdata",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "HSD_GObjPLink_80390228 supplies this literal to the HSD assertion machinery while checking its gobj parameter; it is consumed as diagnostic expression text if the non-null assertion fails and is not modified by the process-link routines.",
+    "rationale": "The function still asserts gobj before dereferencing it and then proceeds through teardown and list updates without writing assertion text. The small-data contribution therefore remains an immutable diagnostic input.",
+    "confidence": 0.93,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows the opening gobj assertion and the subsequent cleanup and list mutations, none of which modify the assertion literal."
+      }
+    ]
+  },
+  {
+    "id": "fact:a070a72b-393a-4cfb-89ed-9d68369322f9",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjplink:.sdata",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "An eight-byte aligned small-data contribution containing the null-terminated ASCII string \"gobj\" followed by alignment padding; semantically it is compiler-emitted assertion text rather than a writable scalar or pointer.",
+    "rationale": "The current destruction routine begins with HSD_ASSERT on the expression gobj. Stringification produces the five-byte sequence \"gobj\\0\", and the target's eight-byte extent is consistent with that literal rounded up for alignment; the surrounding code contains no mutable object corresponding to this section.",
+    "confidence": 0.92,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows HSD_GObjPLink_80390228 asserting the expression gobj before any field access, establishing the associated stringified assertion text."
+      }
+    ]
+  },
+  {
+    "id": "fact:1892ff85-73fa-4b81-a1d3-e1a5dd002ca8",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjplink:.sdata",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the short assertion-expression string \"gobj\" used by HSD_GObjPLink_80390228 when diagnosing a null HSD_GObj argument.",
+    "rationale": "At head, HSD_GObjPLink_80390228 retains an opening HSD_ASSERT whose expression is gobj. Its stringified, null-terminated form plus alignment accounts for the eight-byte small-data target and identifies its diagnostic purpose.",
+    "confidence": 0.94,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows HSD_GObjPLink_80390228 using HSD_ASSERT on gobj before performing destruction."
+      }
+    ]
+  },
+  {
+    "id": "fact:a43cbe52-efa6-4158-a463-15654db31902",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:CreateGObj",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Validates p_link against HSD_GObjLibInitData.p_link_max, obtains storage from the allocator described by gobj_alloc_data, copies classifier, p_link, and priority into the new HSD_GObj, clears its process, rendering, object, and user-data attachments, and passes it through a priority-search helper or directly to GObj_PReorder. The result is the initialized and linked object pointer, or NULL when allocation fails.",
+    "rationale": "The current constructor directly connects the configured link bound and GObj allocator to the new object's initialized fields and selected insertion path. Its explicit allocation-failure branch remains the only path returning NULL.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:CreateGObj"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows the allocator wrapper, validation, allocation, all field initialization, priority helpers, placement dispatch, and both return paths."
+      }
+    ]
+  },
+  {
+    "id": "fact:b7b95894-e43c-4c8c-8255-c328e258d0d8",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:CreateGObj",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function signature: HSD_GObj* CreateGObj(s32 where, u16 classifier, u8 p_link, u8 priority, HSD_GObj* position). The where argument has the observed domain 0\u20133 and selects the insertion policy; classifier is copied into the object's classifier field, p_link is a process-list index, priority is the byte-sized process priority, and position supplies the reference object for relative placement modes.",
+    "rationale": "The matched definition establishes the exact C signature. Its assignments establish the classifier, process-link, and priority domains, while the switch establishes the four-value placement domain and the role of position.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T03:55:33.207Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:CreateGObj"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L57-L96",
+        "why": "Directly provides the parameter and return types, copies the scalar parameters into corresponding HSD_GObj fields, and uses where and position to select placement."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1008800927630757898",
+        "why": "Reports the historical GObj_Create signature using the semantic domains GObjClass, GObjPLink, and byte process priority, corroborating the meanings of the shared constructor parameters."
+      }
+    ]
+  },
+  {
+    "id": "fact:c53e5acc-9d46-437a-b656-a3fe88dd59a4",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:CreateGObj",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the generalized HSD_GObj constructor used by the standard GObj_Create wrapper: it allocates a game object, establishes a neutral unattached initial state, and inserts it into a selected process-link list using a caller-selected priority or position-relative placement mode.",
+    "rationale": "The complete current body allocates and initializes an HSD_GObj and dispatches among four placement modes. The adjacent GObj_Create wrapper invokes it with mode 0 and no reference object, confirming its role as the generalized constructor beneath the standard interface.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:CreateGObj"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L57-L101",
+        "why": "Shows CreateGObj's complete allocation, neutral initialization, four placement cases, and the adjacent standard wrapper calling it with mode 0."
+      }
+    ]
+  },
+  {
+    "id": "fact:e52557e9-105f-48c2-8950-a0935888be27",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:CreateGObj",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Asserts that p_link is in range and returns NULL if allocation fails. On success, the object begins with no GX link, attached object, process chain, render callback, HSD object, or user data. Mode 0 inserts after existing objects of equal priority, mode 1 inserts before existing objects of equal priority, mode 2 inserts after position, and mode 3 inserts before position.",
+    "rationale": "The current body explicitly establishes the assertion, failure branch, and neutral initial fields. The two priority helpers use strict comparisons, causing mode 0 to retain equal-priority objects before the new object and mode 1 to insert before the first equal-priority object; modes 2 and 3 pass position or position->prev to the insert-after primitive.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:CreateGObj"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows the strict priority searches, range assertion, allocation-failure path, neutral field state, and all four placement selections."
+      }
+    ]
+  },
+  {
+    "id": "fact:4efbeadd-736b-4676-98a6-a627cdc113a9",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:GObj_Create",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Forwards classifier, p_link, and priority to CreateGObj with placement mode 0 and no explicit position object. The callee validates p_link, allocates an HSD_GObj, copies the three inputs into classifier, p_link, and p_priority, initializes all other ownership and callback fields to neutral values, inserts the object into the selected process list, and returns its pointer or NULL if allocation fails.",
+    "rationale": "The wrapper passes all three inputs unchanged and supplies only the fixed placement arguments. The adjacent callee shows how those inputs become object fields and how allocation, initialization, insertion, and failure are handled.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:GObj_Create"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L57-L101",
+        "why": "Shows GObj_Create forwarding its inputs to the complete CreateGObj implementation with mode 0 and a NULL reference object."
+      }
+    ]
+  },
+  {
+    "id": "fact:8b551f26-3d05-44e7-8819-2190d3855e9c",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:GObj_Create",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "HSD_GObj* GObj_Create(u16 classifier, u8 p_link, u8 priority); the arguments are respectively a game-object classifier, a process-link list index, and a byte-sized process priority.",
+    "rationale": "The matched definition directly establishes the concrete C widths and return type. The historical symbol-database report preserved in Discord gives the corresponding semantic domains as GObjClass, GObjPLink, and byte p_prio, supporting interpretation of the three scalar parameters beyond their raw widths.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T03:48:29.598Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:GObj_Create"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L98-L101",
+        "why": "Directly gives the matched function signature and forwards all three parameters unchanged to CreateGObj."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1008800927630757898",
+        "why": "Reports the historical signature as HSD_GObj* GObj_Create(GObjClass class, GObjPLink p_link, byte p_prio), identifying the semantic domains of the parameters."
+      }
+    ]
+  },
+  {
+    "id": "fact:6301226c-4e54-4682-8bbf-501468f08a47",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:GObj_Create",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the standard three-argument constructor for an HSD_GObj, creating an initialized object and inserting it into the selected process-link list according to process priority.",
+    "rationale": "The current wrapper delegates directly to CreateGObj with ordinary mode-0 placement. That callee allocates and initializes the object, then searches the chosen process-link list by priority before insertion.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:GObj_Create"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L57-L101",
+        "why": "Contains both the standard wrapper and its complete callee, including allocation, initialization, and priority-ordered placement."
+      }
+    ]
+  },
+  {
+    "id": "fact:2517d139-19ab-4583-9356-a574841660b7",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:GObj_Create",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Asserts that p_link is within HSD_GObjLibInitData.p_link_max and returns NULL on allocation failure. On success, it creates an object with no GX link, attached object, processes, render callback, HSD object, or user data, then inserts it into nondecreasing p_priority order after already-present objects of equal priority.",
+    "rationale": "GObj_Create selects mode 0. The callee's mode-0 search starts from the bucket tail and moves backward only while an existing priority is strictly greater, so the resulting insertion follows entries whose priorities are lower than or equal to the new priority, including existing ties.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:GObj_Create"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L57-L101",
+        "why": "Shows the wrapper's mode-0 selection together with the assertion, failure path, neutral initialization, and priority insertion behavior."
+      }
+    ]
+  },
+  {
+    "id": "fact:f8403180-24ac-4a8e-ad65-ccd6b3467352",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:GObj_PReorder",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads gobj->p_link to select a process-link bucket and consumes hiprio_gobj as the insertion predecessor. It writes gobj->prev and gobj->next, updates either hiprio_gobj->next or the bucket head in HSD_GObj_Entities, then updates either the successor's prev pointer or the bucket tail in plinklow_gobjs.",
+    "rationale": "Every input and write is explicit in the function body. The two conditional pairs cover the four boundary combinations required to splice an object into a doubly linked list without traversal.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T03:55:12.616Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:GObj_PReorder"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L11-L27",
+        "why": "Shows the bucket-index read and all object, neighbor, head, and tail pointer writes performed by the insertion."
+      }
+    ]
+  },
+  {
+    "id": "fact:8b986250-95d5-423a-bb04-2af0f3113a35",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:GObj_PReorder",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "void (HSD_GObj* gobj, HSD_GObj* hiprio_gobj), where gobj is the object being inserted and hiprio_gobj is a nullable predecessor in the same process-link bucket; NULL denotes insertion at the bucket head.",
+    "rationale": "The matched definition supplies the exact return and parameter types. Its branches establish the second parameter's semantic domain: a non-NULL value is dereferenced as the predecessor, while NULL selects the head stored in HSD_GObj_Entities.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T03:55:12.616Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:GObj_PReorder"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L11-L27",
+        "why": "Provides the exact signature and demonstrates the nullable predecessor semantics of hiprio_gobj."
+      }
+    ]
+  },
+  {
+    "id": "fact:09185502-ac64-4125-8e37-511fa4518350",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:GObj_PReorder",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Inserts an HSD_GObj into its process-link bucket immediately after a supplied predecessor, serving as the common doubly linked-list insertion primitive used when creating a game object or assigning it a new process-link position.",
+    "rationale": "The current primitive selects the bucket from gobj->p_link and splices the object after the supplied predecessor, or at the head when that predecessor is NULL. Both construction and existing-object reassignment still route their priority-selected or position-relative placement through it.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:GObj_PReorder"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows the complete insertion primitive and its use by the constructor's priority and position-relative placement paths."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows the existing-object reassignment routine invoking GObj_PReorder after unlinking and updating the object's process-link placement fields."
+      }
+    ]
+  },
+  {
+    "id": "fact:00abdcd8-b6a1-4558-8c1d-a5769b111ff1",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:GObj_PReorder",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Handles list boundaries by treating a NULL predecessor as insertion at the bucket head and a NULL resulting successor as insertion at the bucket tail. For an interior insertion, it links the new object between hiprio_gobj and hiprio_gobj->next. It does not search by priority or unlink gobj itself; callers select the predecessor and, when moving an existing object, detach it first.",
+    "rationale": "The current function's branches directly implement head, tail, and interior splices without traversal or removal. The surrounding constructor helpers perform priority searches, while the reassignment routine repairs the object's old links before calling this primitive.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:GObj_PReorder"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows the head, tail, and interior insertion cases and the separate caller-side priority searches."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows an existing object being detached from its old neighbors before the insertion primitive is used for its new placement."
+      }
+    ]
+  },
+  {
+    "id": "fact:30c9edd3-8e0f-4718-ab5d-eb26e5510c62",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes one HSD_GObj and its user-data, attached-object, process, GX-link, process-link, and neighbor state. It delegates cleanup of the owned attachments, rewrites either the preceding neighbor or HSD_GObj_Entities head and either the following neighbor or plinklow_gobjs tail, then passes the unlinked object with gobj_alloc_data to HSD_ObjFree.",
+    "rationale": "The cleanup calls consume the object's registered subordinate state. The two conditional pointer-update pairs are the complete doubly linked-list removal operation, selecting global head or tail entries only at list boundaries, and the final allocator call consumes the now-unlinked object.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:22:23.252Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+        "why": "Directly shows the attachment cleanup calls, all neighbor, head, and tail writes, and the final gobj_alloc_data allocator call."
+      }
+    ]
+  },
+  {
+    "id": "fact:1591a081-db60-46ab-917d-1eb4e1a07586",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes generic engine-entity teardown rather than one fighter- or mode-specific mechanic: because HSD_GObjs back fighters, items, stages, cameras, menu objects, graphics, text, fog, and lights, this routine is the shared destruction endpoint for those otherwise different runtime objects.",
+    "rationale": "The code operates only on generic HSD_GObj ownership and list fields and contains no category-specific behavior. Community documentation identifies the broad set of gameplay and presentation entities represented by GObjs, establishing how this generic teardown maps into Melee's runtime.",
+    "confidence": 0.92,
+    "updated_at": "2026-09-02T06:22:23.252Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+        "why": "Shows category-independent teardown expressed entirely through generic HSD_GObj fields and subsystem cleanup calls."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/946792619583885352",
+        "why": "Identifies the gameplay and presentation object categories represented by HSD_GObjs, including fighters, items, stages, cameras, and menu objects."
+      }
+    ]
+  },
+  {
+    "id": "fact:868b9a96-bcf6-4456-97d6-ea67f2d5c1c1",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: void HSD_GObjPLink_80390228(HSD_GObj* gobj). The parameter is required to be non-NULL and denotes the GObj whose complete ownership and list state will be torn down.",
+    "rationale": "The matched definition supplies the exact return and parameter types, and its opening HSD_ASSERT enforces a non-NULL argument before any field access or cleanup operation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T06:22:23.252Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+        "why": "Provides the exact function signature and the non-NULL assertion on the HSD_GObj pointer."
+      }
+    ]
+  },
+  {
+    "id": "fact:7680973d-cbb6-4990-b84e-1e71da446473",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Destroys an HSD_GObj: it releases the object's registered user data, attached HSD object, processes, and optional render-list membership, unlinks it from its process-link list, and returns its storage to the GObj allocator pool. Destruction is deferred when requested for the specially tracked active GObj under the guarded traversal state.",
+    "rationale": "The matched body invokes every attachment-specific removal routine before repairing the process-list links and passing the object to HSD_ObjFree. The allocator implementation confirms that HSD_ObjFree returns storage to a reusable pool. The early flag-setting return establishes a deferred alternative to immediate teardown.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T06:22:23.252Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+        "why": "Shows the deferred branch, all attachment cleanup calls, process-list unlinking, and final call that releases the GObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+        "why": "Shows that HSD_ObjFree inserts the released object into the allocator's reusable free list and updates its free and used counts."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjuserdata.c#L15-L25",
+        "why": "Shows that the first cleanup call invokes the GObj's registered user-data destructor and marks the user-data slot empty."
+      }
+    ]
+  },
+  {
+    "id": "fact:17ee6e6f-4285-4156-8208-f6baf2ea751b",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "After asserting that gobj is non-NULL, the function has two paths. If the global immediate-operation flag is clear and gobj equals the globally tracked GObj, it sets the pending-destruction flag and returns without tearing anything down. Otherwise it performs cleanup in the fixed order user data, attached HSD object, processes, optional GX link, process-link unlink, and allocator return; GX unlinking is skipped when gx_link is HSD_GOBJ_GXLINK_NONE.",
+    "rationale": "The current opening guard still records pending destruction and exits for the tracked active GObj. The remaining straight-line body preserves the ordered cleanup sequence, with a single gx_link sentinel guard before render-list removal.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_80390228"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+        "why": "Shows the non-NULL assertion, deferred-destruction branch, ordered attachment cleanup, conditional GX unlink, process-list removal, and allocator return."
+      }
+    ]
+  },
+  {
+    "id": "fact:603e7453-2d9a-408f-9d3f-c2d623c3c5b8",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes a placement mode, an existing HSD_GObj, a new process-link index and priority, and an optional reference object. Unless deferred, it removes each attached HSD_GObjProc from the global scheduler and reverses their child links into a temporary chain, clears gobj->proc, repairs the old bucket's neighboring, head, and tail pointers, writes gobj->p_link and gobj->p_priority, inserts the object into the selected bucket, and reinserts every saved process. During active-callback deferral, the same inputs are instead copied into HSD_GObj_804CE3E4 for later execution.",
+    "rationale": "The target explicitly records deferred inputs or performs each object-list and process-chain mutation. The current process helper definitions confirm that HSD_GObjProc_8038FC18 detaches global scheduler links and HSD_GObjProc_8038FAA8 reinserts the process according to its owning GObj's process link while restoring the owner's process-chain head.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+        "why": "Shows deferred-parameter storage, process-chain reversal, old-bucket unlinking, new placement fields, insertion dispatch, and process reinsertion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L1-L120",
+        "why": "Shows process insertion deriving scheduler placement from the owning GObj's p_link and restoring the GObj's process-chain head."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L100-L160",
+        "why": "Shows process detachment repairing global scheduler boundaries and neighboring process links without freeing the process."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobj.c#L80-L145",
+        "why": "Shows the process runner consuming the saved placement mode, p_link, priority, and reference object after the active callback returns."
+      }
+    ]
+  },
+  {
+    "id": "fact:21d1d697-ade6-4227-a7ca-77ca2f0fea88",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "GObj_SetPLink",
+    "rationale": "The current routine assigns a new p_link and p_priority to an existing HSD_GObj and restores its process scheduling after relinking. The local unit uses the GObj_ prefix for public game-object operations and names the insertion primitive GObj_PReorder, making GObj_SetPLink convention-compatible, though no surviving symbol establishes the exact spelling.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: Likely original name: GObj_SetPLink.",
+    "confidence": 0.67,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows the unit's established GObj_Create and GObj_PReorder naming convention and the process-link placement helpers."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+        "why": "Shows the target assigning a new p_link and p_priority to an existing GObj and relinking it."
+      }
+    ]
+  },
+  {
+    "id": "fact:2b1d2de6-b29a-4949-a606-f53552e3e87c",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function signature: void (u32 where, HSD_GObj* gobj, u8 p_link, u8 priority, HSD_GObj* position). The observed domain of where is 0\u20133: 0 and 1 select the two priority-search tie policies, while 2 and 3 place gobj after or before position. p_link is bounded by HSD_GObjLibInitData.p_link_max, and position is required by the relative-placement modes.",
+    "rationale": "The current definition directly supplies the parameter widths and return type. Its bounds assertion establishes p_link's domain, and its four-way placement switch establishes the semantics of where and position.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+        "why": "Provides the exact signature, process-link assertion, placement-field assignments, and all four placement cases."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Defines the two priority-search policies and common insert-after primitive selected by the target."
+      }
+    ]
+  },
+  {
+    "id": "fact:70d9059e-7943-424f-83b1-fae704eaef92",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Moves an existing HSD_GObj to a new process-link bucket, priority, or position-relative location while preserving its attached processes: it temporarily removes those processes from the global scheduler, relocates the object within the process-link lists, and reinserts the processes according to the object's new placement.",
+    "rationale": "The current target detaches each owned process, unlinks and repositions the GObj, and then passes every saved process back to the insertion helper. The current helper definitions establish that these operations remove and restore global scheduler membership as well as the object's local process chain.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+        "why": "Shows the complete process-detach, object-unlink, process-link reassignment, placement dispatch, and process-reinsertion sequence."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L1-L120",
+        "why": "Shows HSD_GObjProc_8038FAA8 inserting a process into the global scheduling list and its owning GObj's process chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L100-L160",
+        "why": "Shows HSD_GObjProc_8038FC18 removing a process from global scheduling links without reclaiming it."
+      }
+    ]
+  },
+  {
+    "id": "fact:6453b452-706c-4000-b751-da678712a258",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "If the requested object is the GObj whose process callback is currently executing and deferred operations are not already being drained, relocation is postponed until that callback returns. Otherwise, mode 0 places the object after existing equal-priority objects, mode 1 places it before existing equal-priority objects, mode 2 inserts it after position, and mode 3 inserts it before position. After process reinsertion, the routine also normalizes affected processes' three-state invocation-generation markers from the older computed generation to the immediately preceding generation.",
+    "rationale": "The target's guard stores a pending request instead of mutating the active object, and the process runner drains that request after on_invoke returns. The current priority helpers retain strict comparisons that determine tie placement, while the target's modulo-three calculations and conditional flags_3 write establish the generation-marker transition.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:31:17.077Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjplink:HSD_GObjPLink_8039032C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+        "why": "Shows the active-object deferral guard, all four placement modes, modulo-three generation calculations, and the conditional flags_3 transition."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows the strict priority comparisons and insertion calls that determine equal-priority tie behavior."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobj.c#L80-L145",
+        "why": "Shows the scheduler marking the active GObj, invoking its process callback, and draining the saved relocation request afterward."
+      }
+    ]
+  },
+  {
+    "id": "fact:664aadf6-0667-4d2f-aaf6-2bb591990833",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjplink.c",
+    "type": "data_flow",
+    "value": "Consumes allocation state from gobj_alloc_data and process-link placement inputs, writes initialized HSD_GObj fields, and maintains bucketed doubly linked process lists whose heads are stored in HSD_GObj_Entities and whose tails are stored in plinklow_gobjs. Removal and relinking rewrite neighboring objects and the corresponding head or tail entry.",
+    "rationale": "At head, creation still passes gobj_alloc_data to HSD_ObjAlloc and initializes the returned object. Every insertion, removal, and reassignment path still updates prev, next, the selected HSD_GObj_Entities head, and the corresponding plinklow_gobjs tail for the object's process-link bucket.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:29:57.086Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjplink.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows allocator input, object-field initialization, priority searches, and head, tail, and neighbor writes during insertion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows complementary head, tail, and neighboring-object writes during deletion and process-link reassignment."
+      }
+    ]
+  },
+  {
+    "id": "fact:5727ca8d-943d-4a92-8aef-5378868563df",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjplink.c",
+    "type": "game_mapping",
+    "value": "Provides scheduling and lifecycle infrastructure for HSD_GObj instances, the engine-level objects used to represent and update fighters, items, stages, cameras, menu objects, graphics, text, fog, and lights. Process-link and priority placement determine their update ordering, while the teardown path removes all registered attachments and recycles the object.",
+    "rationale": "The current translation unit constructs GObjs with process-link and priority fields, inserts them into ordered lists, and removes their attached state during teardown. Archived community analysis identifies GObjs as the on-frame engine objects used by menu, stage, camera, item, hazard, and fighter systems and records additional classifier categories.",
+    "confidence": 0.94,
+    "updated_at": "2026-09-04T02:29:57.086Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjplink.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows GObj allocation, process-link and priority assignment, and insertion into priority-ordered process-link lists."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows complete GObj teardown and the complementary operation for repositioning a GObj in process-link lists."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/946792619583885352",
+        "why": "Records classifier categories for menu cameras, lights, JObjs, fog, stages, fighters, items, graphics, and text, with thread context explaining that GObjs represent objects with on-frame updates."
+      }
+    ]
+  },
+  {
+    "id": "fact:58b2e7e5-7819-4e0d-92a5-41392153ab04",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjplink.c",
+    "type": "purpose",
+    "value": "Implements HSD game-object process-link lifecycle management: it allocates and initializes HSD_GObj instances, inserts or reorders them within priority-ordered process-link lists, and removes objects from those lists while cleaning up their attached user data, object, process, and render-link state.",
+    "rationale": "The current constructor still allocates, initializes, and places an HSD_GObj through one of four list-placement modes. The current removal and reassignment paths still clean attached subsystems, detach the object from its list, and either free or reinsert it.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:29:57.086Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjplink.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Shows process-link insertion helpers and the constructor that allocates, initializes, and places an HSD_GObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows attached-subsystem cleanup, process-list removal, object deallocation, and process-link reassignment."
+      }
+    ]
+  },
+  {
+    "id": "fact:955ec3fc-37ce-4a30-b6dc-7b1ad1ddecf3",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjplink.c",
+    "type": "state_behavior",
+    "value": "Supports four placement modes: priority insertion searched from the list's lower-priority side, priority insertion searched from its higher-priority side, insertion after a specified object, and insertion before it. Destruction or relinking of the currently executing GObj is deferred by recording pending-operation flags and, for relinking, the requested placement mode, process link, priority, and relative position.",
+    "rationale": "The current constructor and reassignment routine retain placement cases 0 through 3 and use the same priority-search or relative-insertion helpers. Destruction and reassignment still guard the currently executing GObj and save pending work instead of mutating the active traversal.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T02:29:57.086Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjplink.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L1-L101",
+        "why": "Defines the two priority-search directions and the two position-relative insertion modes."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L102-L188",
+        "why": "Shows guards that defer removal or relinking of the active GObj and save the requested relinking parameters."
+      }
+    ]
+  }
+]

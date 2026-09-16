@@ -1,0 +1,106 @@
+{
+  "tu": "main/melee/gm/gmtoulib",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoulib.c#L1576-L1735",
+            "why": "Contains the complete callback and exact argument expressions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported flow while replacing the unsupported floor characterization with the exact conversion and noting the source-level self-assignment.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtoulib:fn_8018E46C"
+        },
+        "type": "data_flow",
+        "value": "Reads a BracketEntry from gobj->user_data and performs an x3 self-assignment. It computes connector_y as -(x10 + x18) when x2 is nonzero, otherwise -x10. For x3 values 0 through 3, it passes the entry and geometry (xC - (s32)(0.5f * x1C), -x10, x14, -x18, connector_y) to the corresponding bracket-line helper. The s32 conversion truncates toward zero for representable values; it is not an explicit floor operation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoulib.c#L1576-L1735",
+            "why": "Shows coordinate calculation before setup and the complete switch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L20-L85",
+            "why": "Establishes the null-fog path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/hsd_3915.c#L183-L204",
+            "why": "Establishes scale and raw line-width state changes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects execution order and avoids assigning pixel units that the inspected setup helper does not establish.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtoulib:fn_8018E46C"
+        },
+        "type": "state_behavior",
+        "value": "After retrieving the entry and computing the x2-dependent connector coordinate, the callback calls HSD_FogSet(NULL) and hsd_80391A04(1.0f, 1.0f, 1). The latter sets unit primitive scales and forwards raw line-width value 1 to HSD_StateSetLineWidth. It then dispatches x3 values 0, 1, 2, and 3 to distinct bracket-line helpers. Other values perform no geometry dispatch after common graphics setup."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoulib.c#L1836-L1840",
+            "why": "Complete signature and body."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes returning no value from never returning.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtoulib:fn_8018EC7C"
+        },
+        "type": "inferred_type",
+        "value": "Parameterless void-returning cleanup wrapper: void fn_8018EC7C(void). It calls mn_8022F0F0 with 0x1B and then 0x14 and returns normally; its outputs are delegated side effects."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoulib.c#L1845-L1911",
+            "why": "Signature and complete branch precedence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the six-parameter ABI while making the overriding selector and narrowing explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtoulib:fn_8018ECA8"
+        },
+        "type": "inferred_type",
+        "value": "Signature: void(s32 display_id, s32 destination_selector, s32 primary_text_index, f32 x, f32 y, s32 secondary_text_index). Selector 255 forces GetNameText((u8)display_id) to the primary destination regardless of ID range. Otherwise IDs below 800 use saved-name lookup for selectors 0 or 1, 800-899 format the primary label, 900-998 format the secondary label, and IDs >=999 produce no submission."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoulib.c#L1913-L1972",
+            "why": "Aliases, guards, arithmetic, terminators, and copies."
+          }
+        ],
+        "op": "write",
+        "rationale": "The executable !=999 condition and pointer aliases take precedence over range comments.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmtoulib:fn_8018F00C"
+        },
+        "type": "state_behavior",
+        "value": "Selects template pointers using the saved-language predicate; the second family's two language entries alias the same storage. IDs below 800 copy GetNameText((u8)slot_id); 800-899 format slot_id-800; all IDs >=900 except 999 enter the second-family arithmetic using slot_id-900. ID 999 leaves dest unchanged. Suffixes write at offset 7 and terminate at offset 8 or 9. There is no upper-bound rejection, so inputs above the intended two-digit range are not general decimal formatting."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

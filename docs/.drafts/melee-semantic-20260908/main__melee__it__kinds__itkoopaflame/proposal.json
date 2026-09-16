@@ -1,0 +1,60 @@
+{
+  "tu": "main/melee/it/kinds/itkoopaflame",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkoopaflame.c#L199-L239",
+            "why": "Scaling, hitbox-age threshold, effect latch and forwarded return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L458-L468",
+            "why": "Decrements xD44_lifeTimer and returns true exactly when the result is nonpositive."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L81-L93",
+            "why": "Hitbox cleanup helper processes all four hitboxes and clears related flags."
+          }
+        ],
+        "op": "write",
+        "rationale": "The helper's canonical implementation distinguishes general lifetime expiry from both animation completion and the callback's separate hitbox-age threshold.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkoopaflame:itKoopaFlame_UnkMotion0_Anim"
+        },
+        "type": "purpose",
+        "value": "Per-frame Koopa-flame animation callback that scales enabled hitbox 0 and the model, increments the hitbox-age counter and invokes hitbox cleanup after its configured lifetime is exceeded, and latches one-shot variant-specific effect creation. Finally it decrements the item's general life timer through it_80273130 and returns whether that timer is nonpositive; this is a lifetime-expiry result, not animation completion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkoopaflame.c#L315-L324",
+            "why": "Exact mirror, planarization and atan2 argument order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkoopaflame.c#L241-L254",
+            "why": "Physics reconstructs velocity using sine for x and cosine for y."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the literal shield-bounce behavior while correcting the unsupported claim that the stored travel angle is synchronized with the resulting velocity.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkoopaflame:itKoopaFlame_Logic111_ShieldBounced"
+        },
+        "type": "purpose",
+        "value": "Handles shield bounce by mirroring the item's velocity using xC58, clearing velocity.z, assigning the stored flame angle from atan2f(velocity.y, velocity.x), clamping it and returning false. This angle assignment uses a different convention from the physics callback's x = speed*sin(angle), y = speed*cos(angle), so it should not be interpreted as guaranteeing that subsequent reconstructed velocity matches the immediate mirrored velocity."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

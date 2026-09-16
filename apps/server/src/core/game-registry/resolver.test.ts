@@ -9,7 +9,49 @@ function writeJson(path: string, value: unknown): void {
 }
 
 describe("game registry layout resolution", () => {
-  test("resolves games/<id>/game.json and local.game.json", () => {
+  test("new games use grouped paths and referenced configuration with game-root local overrides", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-grouped-"));
+    const gameDir = join(root, "games", "example");
+    mkdirSync(join(gameDir, "config"), { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "example", config: { build: "./config/build.json", sandbox: "./config/sandbox.json" },
+    });
+    writeJson(join(gameDir, "config/build.json"), { reportPath: "build/EXAMPLE/report.json" });
+    writeJson(join(gameDir, "config/sandbox.json"), {
+      profiles: { "2-core": { snapshot_name: "example", workspace_root: "/work/example" } },
+    });
+    writeJson(join(gameDir, "config/local.json"), { graphDb: "./knowledge/graph/custom.sqlite" });
+    const game = resolveGame({ orchestratorRoot: root, gameId: "example" });
+    expect(game.repoRoot).toBe(join(gameDir, "workspace/checkout"));
+    expect(game.stateDir).toBe(join(gameDir, "runtime/state"));
+    expect(game.graphDbPath).toBe(join(gameDir, "knowledge/graph/custom.sqlite"));
+    expect(game.localEnvPath).toBe(join(gameDir, "config/local.env"));
+    expect(game.validation.reportPath).toBe("build/EXAMPLE/report.json");
+    expect(game.validation.reportChangesPath).toBe("build/EXAMPLE/report_changes.json");
+    expect(sandboxRuntimeOptions(game).snapshot_name).toBe("example");
+    expect(() => sandboxRuntimeOptions(game, "4-core")).toThrow("not defined");
+  });
+
+  test("uses canonical state and local override paths regardless of old files", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-canonical-store-"));
+    const gameDir = join(root, "games", "example");
+    mkdirSync(join(gameDir, "state"), { recursive: true });
+    writeJson(join(gameDir, "game.json"), { id: "example" });
+    writeJson(join(gameDir, "local.game.json"), { displayName: "ignored old config" });
+    const game = resolveGame({ orchestratorRoot: root, gameId: "example" });
+    expect(game.stateDir).toBe(join(gameDir, "runtime/state"));
+    expect(game.displayName).toBe("example");
+  });
+
+  test("rejects invalid sandbox resources", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-invalid-resources-"));
+    const gameDir = join(root, "games", "example");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), { id: "example", sandbox: { resource_class: { cpu: 0 } } });
+    expect(() => resolveGame({ orchestratorRoot: root, gameId: "example" })).toThrow("invalid cpu");
+  });
+
+  test("resolves games/<id>/game.json and config/local.json", () => {
     const root = mkdtempSync(join(tmpdir(), "game-registry-primary-"));
     const gameDir = join(root, "games", "melee");
     mkdirSync(gameDir, { recursive: true });
@@ -19,14 +61,15 @@ describe("game registry layout resolution", () => {
       repoRoot: "./checkout",
       knowledge: { gameSources: ["code_graph"] },
     });
-    writeJson(join(gameDir, "local.game.json"), { id: "melee", displayName: "Local game" });
+    mkdirSync(join(gameDir, "config"));
+    writeJson(join(gameDir, "config/local.json"), { id: "melee", displayName: "Local game" });
 
     const game = resolveGame({ orchestratorRoot: root, gameId: "melee" });
 
     expect(game.displayName).toBe("Local game");
     expect(game.gameDir).toBe(gameDir);
     expect(game.descriptorPath).toBe(join(gameDir, "game.json"));
-    expect(game.localOverridePath).toBe(join(gameDir, "local.game.json"));
+    expect(game.localOverridePath).toBe(join(gameDir, "config/local.json"));
     expect(game.knowledge.gameSources).toEqual(["code_graph"]);
   });
 
@@ -147,7 +190,7 @@ describe("game registry layout resolution", () => {
       resource_class: { cpu: 2, memory_gib: 4, disk_gib: 5 },
       snapshot_name: "",
       snapshot_baked_rev: "",
-      workspace_root: "/opt/melee",
+      workspace_root: "/work/game",
     });
   });
 
@@ -164,7 +207,8 @@ describe("game registry layout resolution", () => {
         workspace_root: "/workspace/melee",
       },
     });
-    writeJson(join(gameDir, "local.game.json"), {
+    mkdirSync(join(gameDir, "config"));
+    writeJson(join(gameDir, "config/local.json"), {
       sandbox: {
         resource_class: { disk_gib: 20 },
         snapshot_name: "melee-local",

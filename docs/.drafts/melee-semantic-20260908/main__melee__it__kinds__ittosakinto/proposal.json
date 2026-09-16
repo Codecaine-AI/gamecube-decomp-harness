@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/it/kinds/ittosakinto",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittosakinto.c#L71-L107",
+            "why": "Shows signed increment initialization and helper-before-addition ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1193-L1200",
+            "why": "The shared helper overwrites X and Y velocity from animation displacement each update."
+          }
+        ],
+        "op": "write",
+        "rationale": "The shared helper's assignments materially clarify the meaning of the local += operation and prevent an incorrect cumulative-acceleration interpretation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittosakinto:itTosakinto_UnkMotion2_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Shared by active states 0, 1 and 2. Each physics update first calls it_8027A344, which assigns horizontal velocity from pokemon_spawn.x4.z times facing_dir and vertical velocity from pokemon_spawn.x4.y. It then adds tosakinto.x64_vel_x to the freshly assigned horizontal velocity. The stored signed value is therefore a bias to animation-derived velocity, not acceleration accumulated across successive ticks. Active entry chooses its sign; this callback has no local timer, collision test or state transition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittosakinto.c#L71-L91",
+            "why": "Explicit >=3-to-zero normalization and random sign selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittosakinto.c#L153-L170",
+            "why": "State-3 entry, falling physics and fixed-false collision callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L459-L479",
+            "why": "Continuation requires contact and validation guards."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's absolute claim that landing returns without resetting the cycling index, while preserving conditional collision routing and reachable state-cycle behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittosakinto:itTosakinto_UnkMotion3_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Runs in motion state 3, whose table entry has animation ID -1 and no animation callback and whose physics delegates configured falling motion. It supplies it_802C90E8 to common collision processing. Only a contact passing the helper's validation invokes that continuation. Active entry reuses stored x60_msid values below 3 and resets values >=3 to zero, then selects the resulting state and randomizes the horizontal increment's sign. It does not unconditionally reset the cycle, but a stored value of 3 does wrap to zero on landing. No negative-index guard is present. Without qualifying contact this callback requests no transition; it always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ittosakinto.c#L137-L141",
+            "why": "The wrapper calls the helper and returns a fixed false result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1077-L1099",
+            "why": "Void signature, persistent scale/phase mutations and exact phase branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the erroneous claim that the wrapper discards the helper's side effects. Unlike the appearance physics helper, this helper returns void.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/ittosakinto:itTosakinto_UnkMotion4_Anim"
+        },
+        "type": "data_flow",
+        "value": "Forwards the Tosakinto Item_GObj to the void helper it_80279FF8 and then independently returns false. The helper reads pokemon_spawn.x5C; in phase 0 it uses pokemon_spawn.x48, current root-model scale and ItemAttr.x60_scale to grow or clamp the model scale and advance the phase to 1. Phase 2 performs no further work; other nonzero phases delegate to it_80279E24. These model and phase side effects persist; the wrapper neither discards nor reverses them."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

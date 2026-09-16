@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk.c#L57-L67",
+            "why": "Complete ordered callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the order and independence of the two guards without asserting a finishes-first condition or an unproved numeric-state identity.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk:ftCh_WalkWait_Anim"
+        },
+        "type": "purpose",
+        "value": "Updates the WalkWait countdown, entering WalkShoot when predecrement produces zero, then independently checks animation exhaustion and enters literal motion state 0x160 if no frames remain."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk.c#L57-L67",
+            "why": "Independent guards and fixed numeric-state arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk.c#L89-L95",
+            "why": "Shoot entry side effects."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects exclusive-branch wording and preserves the post-transition timing of the second query.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk:ftCh_WalkWait_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation predecrements mv.ch.unk0.x8. A zero result invokes ftCh_Init_80157B58, which clears horizontal self-velocity and enters ftMh_MS_WalkShoot. Execution then continues to a separate remaining-frames query on the current object; if exhausted, it enters literal state 0x160 with zero flags, start 0, speed 1, blend 0 and NULL alternate source, then calls ftAnim_8006EBA4. There is no else or early return, and an initially zero countdown is decremented before testing."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk.c#L57-L85",
+            "why": "Separate animation and physics responsibilities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L120-L125",
+            "why": "XY velocity assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L100-L156",
+            "why": "Horizontal replacement, current-position bounds and target chain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L113-L160",
+            "why": "Eligible-target selection can return NULL."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftlib.c#L299-L303",
+            "why": "Position accessor has no explicit null guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes local sequencing from delegated branches, current-position correction from predictive bounds enforcement, and physics from animation progression.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk:ftCh_WalkWait_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally calls ft_80085134, ftBossLib_8015C010 with attribute x68, and ftBossLib_8015C190 in that order. These establish translation-derived XY velocity, replace horizontal velocity toward the selected eligible fighter, and correct current X position outside floor 0's endpoints while clearing horizontal velocity. The callback itself neither updates the countdown nor changes motion state. Animation processing separately predecrements the countdown and then independently tests remaining frames. The target-selection chain has no explicit no-target guard before reading the selected object's position."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk.c#L25-L117",
+            "why": "All local guards, state writes and callback bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagcancel.c#L98-L133",
+            "why": "Stored destination and deferred callback, with its later invocation condition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the alternate-transition characterization and records the cross-file continuation rather than reducing the exit to a rendered name.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCrazyHand/ftcrazyhandwalk.c"
+        },
+        "type": "state_behavior",
+        "value": "WalkLoop animation exhaustion enters WalkWait and afterward initializes x8 from attribute x64. WalkWait predecrements x8 and enters WalkShoot at zero, then independently queries remaining frames and may enter literal state 0x160. Shoot entry clears horizontal velocity; Shoot animation exhaustion hands off to ftCh_GrabUnk1_8015BC88. That external helper establishes a destination and stores ftCh_Init_80156198 as a deferred callback in move state. Each local phase has Human-slot-gated IASA, delegated physics and an empty collision callback."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

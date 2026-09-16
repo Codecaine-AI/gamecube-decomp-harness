@@ -1,0 +1,143 @@
+{
+  "tu": "main/sysdolphin/baselib/mtx",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mtx:HSD_MtxGetRotation"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Measures all three linear-column lengths and returns zero angles if any length is below FLOAT_MIN. Otherwise pitch comes from -m[2][0]/length0 with endpoint saturation or asin. The ordinary branch computes X from calcVal(m[2][2]/length2,m[2][1]/length1) and Z from calcVal(m[0][0],m[1][0]); the other branch computes X from calcVal(m[1][1],m[0][1]) and sets Z=0. calcVal(x,y) returns signed pi/2 based on y >= 0 when abs(x) <= FLOAT_MIN, including +pi/2 at (0,0), and otherwise calls atan2f(y,x). RObj expression callers convert returned radians to degrees.",
+        "rationale": "Correct unchecked aliasing or exceptional-input behavior and distinguish canonical declared types from semantic use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L205-L266",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/robj.c#L691-L810",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mtx:HSD_MtxGetRotation"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Extracts an XYZ Euler-angle representation in radians from the upper 3x3 matrix using column magnitudes, asin, and a thresholded atan2 helper; translation is ignored. This normalizes selected column magnitudes but does not remove shear or guarantee invariance under arbitrary signed per-axis scale.",
+        "rationale": "Correct unchecked aliasing or exceptional-input behavior and distinguish canonical declared types from semantic use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L205-L266",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/robj.c#L691-L810",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mtx:HSD_MtxInverse"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Computes the source upper-3x3 determinant; abs(det) < 1e-10f writes identity. Otherwise writes reciprocal-determinant-scaled cofactors, then translation rows. For src == dest, only the cofactor reads use the temporary copy. Translation expressions still read src directly; writing dest[0][3] precedes reads of src[0][3] for later rows, so in-place calls can consume already overwritten translation components.",
+        "rationale": "Correct unchecked aliasing or exceptional-input behavior and distinguish canonical declared types from semantic use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L21-L57",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mtx:HSD_MtxInverse"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Implemented signature void HSD_MtxInverse(Mtx src, Mtx dest), with Mtx an f32[3][4] affine matrix. No null checks. The explicit equal-pointer branch preserves source linear coefficients in a temporary, but does not make the translation calculation generally safe for equal source and destination.",
+        "rationale": "Correct unchecked aliasing or exceptional-input behavior and distinguish canonical declared types from semantic use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L21-L57",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mtx:HSD_MtxInverse"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Computes an affine inverse from determinant-scaled cofactors and inverse translation when source and destination are distinct. Determinant magnitude below 1e-10f yields identity. The equal-pointer path protects cofactor inputs but reads translation from the progressively overwritten source, so full in-place inversion is not generally correct.",
+        "rationale": "Correct unchecked aliasing or exceptional-input behavior and distinguish canonical declared types from semantic use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L21-L57",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/mtx:HSD_VecAlloc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Implemented signature void* HSD_VecAlloc(void). Returns storage from a pool configured with sizeof(Vec), after a nonnull assertion. Vec and Vec3 are aliases of the same three-f32 structure, and JObj callers consume this storage as Vec3*, but the canonical function return type remains void*.",
+        "rationale": "Correct unchecked aliasing or exceptional-input behavior and distinguish canonical declared types from semantic use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/mtx.c#L459-L466",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.c#L71-L156",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/initialize.c#L263-L308",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L138-L196",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/mtx.h#L14-L113",
+            "why": "The implementation establishes exact accesses, guards, or declared types."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

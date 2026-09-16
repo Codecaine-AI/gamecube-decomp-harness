@@ -1,0 +1,69 @@
+# Naming Table
+
+| Canonical Target | Inherited Alias | Decision |
+|---|---|---|
+| .data | None | Preserve canonical identity; no rename |
+| .rodata | None | Preserve canonical identity; no rename |
+| .sbss | None | Preserve canonical identity; no rename |
+| .sdata | None | Preserve canonical identity; no rename |
+| .sdata2 | None | Preserve canonical identity; no rename |
+| HSD_JObjAddAnim | None | Preserve canonical identity; no rename |
+| HSD_JObjAddAnimAll | None | Preserve canonical identity; no rename |
+| HSD_JObjAddChild | None | Preserve canonical identity; no rename |
+| HSD_JObjAddDObj | None | Preserve canonical identity; no rename |
+| HSD_JObjAddNext | None | Preserve canonical identity; no rename |
+| HSD_JObjAlloc | None | Preserve canonical identity; no rename |
+| HSD_JObjAnim | None | Preserve canonical identity; no rename |
+| HSD_JObjAnimAll | None | Preserve canonical identity; no rename |
+| HSD_JObjCheckDepend | None | Preserve canonical identity; no rename |
+| HSD_JObjClearFlags | None | Preserve canonical identity; no rename |
+| HSD_JObjClearFlagsAll | None | Preserve canonical identity; no rename |
+| HSD_JObjDeleteRObj | None | Preserve canonical identity; no rename |
+| HSD_JObjDispAll | None | Preserve canonical identity; no rename |
+| HSD_JObjGetCurrent | None | Preserve canonical identity; no rename |
+| HSD_JObjGetDObj | None | Preserve canonical identity; no rename |
+| HSD_JObjGetFlags | None | Preserve canonical identity; no rename |
+| HSD_JObjGetPrev | None | Preserve canonical identity; no rename |
+| HSD_JObjLoadJoint | None | Preserve canonical identity; no rename |
+| HSD_JObjMakeMatrix | None | Preserve canonical identity; no rename |
+| HSD_JObjPrependRObj | None | Preserve canonical identity; no rename |
+| HSD_JObjRemove | None | Preserve canonical identity; no rename |
+| HSD_JObjRemoveAll | None | Preserve canonical identity; no rename |
+| HSD_JObjRemoveAnim | None | Preserve canonical identity; no rename |
+| HSD_JObjRemoveAnimAll | None | Preserve canonical identity; no rename |
+| HSD_JObjRemoveAnimAllByFlags | None | Preserve canonical identity; no rename |
+| HSD_JObjRemoveAnimByFlags | None | Preserve canonical identity; no rename |
+| HSD_JObjReparent | None | Preserve canonical identity; no rename |
+| HSD_JObjReqAnim | None | Preserve canonical identity; no rename |
+| HSD_JObjReqAnimAll | None | Preserve canonical identity; no rename |
+| HSD_JObjReqAnimAllByFlags | None | Preserve canonical identity; no rename |
+| HSD_JObjReqAnimByFlags | None | Preserve canonical identity; no rename |
+| HSD_JObjResetRST | None | Preserve canonical identity; no rename |
+| HSD_JObjResolveRefs | None | Preserve canonical identity; no rename |
+| HSD_JObjResolveRefsAll | None | Preserve canonical identity; no rename |
+| HSD_JObjSetCurrent | None | Preserve canonical identity; no rename |
+| HSD_JObjSetDPtclCallback | None | Preserve canonical identity; no rename |
+| HSD_JObjSetDefaultClass | None | Preserve canonical identity; no rename |
+| HSD_JObjSetFlags | None | Preserve canonical identity; no rename |
+| HSD_JObjSetFlagsAll | None | Preserve canonical identity; no rename |
+| HSD_JObjSetMtxDirtySub | None | Preserve canonical identity; no rename |
+| HSD_JObjSetupMatrixSub | None | Preserve canonical identity; no rename |
+| HSD_JObjUnref | None | Preserve canonical identity; no rename |
+| HSD_JObjUnrefThis | None | Preserve canonical identity; no rename |
+| HSD_JObjWalkTree | None | Preserve canonical identity; no rename |
+| HSD_JObjWalkTree0 | None | Preserve canonical identity; no rename |
+| JObjAmnesia | None | Preserve canonical identity; no rename |
+| JObjAnimAll | None | Preserve canonical identity; no rename |
+| JObjInfoInit | None | Preserve canonical identity; no rename |
+| JObjInit | None | Preserve canonical identity; no rename |
+| JObjLoad | None | Preserve canonical identity; no rename |
+| JObjRelease | None | Preserve canonical identity; no rename |
+| JObjReleaseChild | None | Preserve canonical identity; no rename |
+| JObjResetRST | None | Preserve canonical identity; no rename |
+| JObjSortAnim | None | Preserve canonical identity; no rename |
+| JObjUpdateFunc | None | Preserve canonical identity; no rename |
+| RecalcParentTrspBits | None | Preserve canonical identity; no rename |
+| resolveIKJoint1 | None | Preserve canonical identity; no rename |
+| resolveIKJoint2 | None | Preserve canonical identity; no rename |
+
+All 94 parameter entities have no inherited facts. They are individually accounted for with canonical formal lists and local evidence in coverage.json. No physical register binding is asserted.

@@ -1,0 +1,157 @@
+{
+  "tu": "main/sysdolphin/baselib/aobj",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/aobj:DObjForeachAnim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Walks the DObj next list. For each node, optionally dispatches its direct AObj, then processes its material and the single PObj supplied by dobj->pobj. The polygon helper checks shape animation state but does not follow pobj->next.",
+        "rationale": "Correct the exact return behavior, traversal boundary, callback scope, or mutation/accounting guarantee established by the pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L404-L415",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L379-L415",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/aobj:HSD_AObjInitEndCallBack"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_AObjInitEndCallBack(void): a parameterless reset routine that returns normally after zeroing the two completion counters.",
+        "rationale": "Correct the exact return behavior, traversal boundary, callback scope, or mutation/accounting guarantee established by the pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L71-L75",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/aobj:HSD_AObjInterpretAnim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Null or already stopped AObjs return without accounting. First play clears AOBJ_FIRST_PLAY and uses zero rate; other calls advance curr_frame by framerate. At a looping end crossing, rewind_frame < end_frame stops FObjs, wraps with fmodf, and requests the wrapped frame; otherwise curr_frame clamps to end_frame. Both loop branches use zero interpretation rate and set REWINDED; ordinary steps clear it. NO_UPDATE substitutes NULL only for HSD_FObjInterpretAnimAll: loop-boundary and final-stop calls still receive update_func. Nonlooping end crossings stop FObjs and set NO_ANIM. Each eligible call increments one stopped or active counter according to its final flag state; these are call counts, not a census of distinct controllers.",
+        "rationale": "Correct the exact return behavior, traversal boundary, callback scope, or mutation/accounting guarantee established by the pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/aobj:HSD_AObjInvokeCallBacks"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns unless the stopped counter is nonzero and active counter is zero. Otherwise starts at endcallback_list and invokes each current node data as void (*)(void), reading node->next after the callback returns. The routine itself does not reset counters or unlink nodes, and provides no snapshot or protection against callbacks mutating or freeing the traversal nodes.",
+        "rationale": "Correct the exact return behavior, traversal boundary, callback scope, or mutation/accounting guarantee established by the pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L77-L89",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/aobj:HSD_AObjSetFObj"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Null owner is a no-op. Otherwise removes the old FObj chain when present, then stores the supplied pointer, including NULL. There is no same-pointer or overlap guard: supplying the currently attached chain removes that chain before storing the same pointer.",
+        "rationale": "Correct the exact return behavior, traversal boundary, callback scope, or mutation/accounting guarantee established by the pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L59-L69",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/aobj:HSD_AObjSetFlags"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Enables looping and/or suppresses the owning-object callback during ordinary FObj interpretation. NO_UPDATE does not suppress the callback forwarded by loop-boundary or final-stop operations.",
+        "rationale": "Correct the exact return behavior, traversal boundary, callback scope, or mutation/accounting guarantee established by the pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L43-L49",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L121-L174",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/aobj:JObjForeachAnim"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes a non-null JObj root and shared mask/callback context. Processes the current joint, its DObj union when applicable, and RObj list; unless INSTANCE is set, recurses through each child in the child next list. It does not follow the starting root next pointer. The mask selects callbacks without pruning attachment or child traversal.",
+        "rationale": "Correct the exact return behavior, traversal boundary, callback scope, or mutation/accounting guarantee established by the pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L417-L434",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/aobj.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Interpretation ignores null or already stopped AObjs without counting them. First play uses zero rate; ordinary calls advance by framerate. Loop crossings wrap and re-request only for rewind_frame < end_frame; invalid intervals clamp at end_frame. Nonlooping end crossings stop. NO_UPDATE suppresses only the FObj interpretation callback, not stop callbacks. Explicitly reset counters classify each eligible interpreter call by its final state; callbacks are eligible when stopped is nonzero and active is zero.",
+        "rationale": "Correct the exact return behavior, traversal boundary, callback scope, or mutation/accounting guarantee established by the pinned source.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L21-L550",
+            "why": "Shows the exact guard, callback forwarding, traversal boundary, and mutation order."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

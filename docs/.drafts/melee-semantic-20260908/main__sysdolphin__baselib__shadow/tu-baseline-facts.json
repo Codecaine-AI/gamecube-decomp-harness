@@ -1,0 +1,2329 @@
+{
+  "tu": "main/sysdolphin/baselib/shadow",
+  "facts": [
+    {
+      "id": "fact:6900c459-b7ce-4d34-8909-8db185daaa30",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "During HSD object-system startup, HSD_ShadowInitAllocData passes this descriptor, sizeof(HSD_Shadow), and alignment 4 to HSD_ObjAllocInit. Initialization clears and registers the descriptor and derives its aligned entry size. HSD_ShadowAlloc subsequently consumes it to obtain shadow records, HSD_ShadowRemove returns records through it, and HSD_ObjDumpStat reads its used, free, and peak counters under the label \"shadow\".",
+      "rationale": "Current-head initialization code still invokes the shadow allocator initializer and reports the descriptor's accounting fields, while the shadow and object-allocator implementations preserve the descriptor initialization, allocation, and release flow. The fact therefore remains valid and is re-cited at head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows HSD_ObjInit invoking HSD_ShadowInitAllocData and HSD_ObjDumpStat retrieving the descriptor under the label \"shadow\" to report used, free, and peak values."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L20-L80",
+          "why": "Shows the persistent descriptor, its initialization with sizeof(HSD_Shadow) and alignment 4, and its use by HSD_ShadowAlloc."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L1-L100",
+          "why": "Shows HSD_ShadowAlloc and HSD_ShadowRemove allocating and freeing records through the descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows HSD_ObjAllocInit clearing the descriptor, deriving its aligned stride, and inserting it into the allocator registry."
+        }
+      ]
+    },
+    {
+      "id": "fact:2ae38d91-0b7c-4167-a027-2acc3c166d52",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.bss",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "shadow_alloc_data",
+      "rationale": "The recovered source declares the unit's uninitialized allocation descriptor under the name shadow_alloc_data. Independently archived map output places shadow_alloc_data at the target's exact address, 0x804C25D8, in shadow.s.o, so the name identifies the section payload rather than the generic .bss section label.\n\nNaming cleanup: single source identifier\nPrior naming claim: The meaningful object stored at the start of this section is plausibly named shadow_alloc_data.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/shadow:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L23-L60",
+          "why": "Names the uninitialized HSD_ObjAllocData object shadow_alloc_data and shows its shadow-specific initialization and use."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1015728308874395678",
+          "why": "Contains map output placing shadow_alloc_data from shadow.s.o at address 0x804C25D8 with a 0x30-byte section contribution."
+        }
+      ]
+    },
+    {
+      "id": "fact:d0278c95-8d4a-407a-809a-b6e290605fd7",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Its meaningful payload is one HSD_ObjAllocData object. The descriptor itself is 0x2C bytes and contains allocation-limit flags, a free-list head, used/free/peak counters, numeric and heap limits, aligned object size, alignment mask, and a link to the next registered allocator descriptor; the 0x30-byte section contribution leaves four bytes of trailing section padding.",
+      "rationale": "The current shadow source declares the section payload as HSD_ObjAllocData, and the current object-allocation header preserves the listed fields and the 0x2C-byte size assertion. Archived map output places this object in a 0x30-byte contribution ending where the next contribution begins, establishing the four bytes of trailing section padding.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:44:20.358Z",
+      "subject": "main/sysdolphin/baselib/shadow:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.h#L1-L79",
+          "why": "Defines every listed HSD_ObjAllocData field and asserts that the structure occupies 0x2C bytes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L20-L80",
+          "why": "Declares shadow_alloc_data as an HSD_ObjAllocData object and shows its shadow-specific initialization and use."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1015739491366998098",
+          "why": "Contains map output showing shadow_alloc_data at 0x804C25D8 in a 0x30-byte shadow.s.o contribution, with the next contribution beginning at 0x804C2608."
+        }
+      ]
+    },
+    {
+      "id": "fact:d453e2d3-46d2-41a4-b79c-d02d6ccf59ef",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the persistent allocator descriptor for HSD_Shadow instances, allowing the common HSD object allocator to manage the shadow-object free list, allocation limits, object size and alignment, and usage statistics.",
+      "rationale": "At the current head, shadow_alloc_data is initialized for HSD_Shadow-sized records and consumed by the shadow allocation path. Its current HSD_ObjAllocData definition contains the free-list, limit, size, alignment, and accounting state described by the fact, so the purpose remains valid.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:20.358Z",
+      "subject": "main/sysdolphin/baselib/shadow:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/objalloc.h#L1-L79",
+          "why": "Defines HSD_ObjAllocData with allocation-limit flags, a free-list head, usage counters, limit values, object size, alignment, and allocator-registry linkage."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L20-L80",
+          "why": "Shows the persistent descriptor being initialized with sizeof(HSD_Shadow) and alignment 4 and then used to allocate HSD_Shadow records."
+        }
+      ]
+    },
+    {
+      "id": "fact:93c24fb7-65a1-4821-a39b-6175e828d3f1",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The descriptor begins as zero-initialized BSS storage. Initialization removes any prior registry references to it, clears it, installs unlimited default numeric and heap-derived limits, sets an alignment mask of 3 and a four-byte-aligned HSD_Shadow stride, and registers it at the head of the allocator list. Each successful allocation removes an entry from its free list, increments used, decrements free, and raises peak when necessary; freeing prepends the record to the free list and performs the inverse used/free transition.",
+      "rationale": "The current uninitialized global declaration preserves the initial BSS state. Current HSD_ObjAllocInit still unlinks, clears, configures, and registers the descriptor, while current allocation and free paths retain the stated free-list and counter transitions.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L20-L80",
+          "why": "Shows the descriptor as an uninitialized global and initializes it with HSD_Shadow size and four-byte alignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows removal of prior registry links, clearing, default-limit assignments, alignment and stride calculation, and registry insertion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L30-L161",
+          "why": "Shows successful allocation removing the free-list head and updating used, free, and peak, and freeing prepending an entry while reversing used/free counts."
+        }
+      ]
+    },
+    {
+      "id": "fact:f5608f88-0d26-4746-b83c-fa3ba952171b",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_ShadowStartRender passes the TEV and pixel-engine descriptors to HSD_SetupTevStageAll and HSD_SetupPEMode. It rewrites the shared channel descriptor first to white for the background rectangle and then to the current shadow object's intensity for caster drawing before passing it to HSD_SetupChannelAll. Separately, HSD_ShadowSetViewingRect passes distAssert to __assert when the camera's eye-to-interest distance is not positive.",
+      "rationale": "The render routine directly exposes the consumers of all three descriptor records and the two values successively written into the channel material color. The viewing-rectangle routine exposes the diagnostic string's consumer and the condition it describes.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:57:49.694Z",
+      "subject": "main/sysdolphin/baselib/shadow:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L172-L239",
+          "why": "Shows the TEV and pixel-engine records flowing into their setup APIs and the channel record being set to white and installed before background drawing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L240-L380",
+          "why": "Shows the channel material color being overwritten from shadow->intensity and reinstalled for caster rendering, and shows the distAssert definition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L350-L505",
+          "why": "Shows distAssert flowing to the assertion that checks for a positive camera eye distance."
+        }
+      ]
+    },
+    {
+      "id": "fact:a705ef94-5920-4618-ad29-10242a0db8ff",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.data",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports the silhouette-generation stage of Melee's projected shadows by defining the fixed grayscale raster pipeline and mutable intensity channel used to render registered scene geometry into the image later captured as a shadow texture.",
+      "rationale": "The descriptors configure a textureless raster-channel pass, and the channel is changed from white background to the shadow object's intensity immediately before registered JObjs are drawn with RENDER_SHADOW. HSD_ShadowEndRender then copies that rendered image into the shadow texture, grounding the data in projected-shadow generation.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T04:57:49.694Z",
+      "subject": "main/sysdolphin/baselib/shadow:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L172-L239",
+          "why": "Shows the data configuring the grayscale, textureless render state used at the start of a nonempty shadow pass."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L200-L349",
+          "why": "Shows the intensity channel being applied, registered JObjs being drawn with RENDER_SHADOW, and the resulting framebuffer image being copied into the shadow texture."
+        }
+      ]
+    },
+    {
+      "id": "fact:6ea2f337-af0c-4d99-bf8e-02b85f7d06db",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A writable initialized-data aggregation rather than one semantic object. Its source-owned objects include a static HSD_Chan, a static HSD_TevDesc, a static HSD_PEDesc, and `char distAssert[16]` initialized to `\"distance > 0.0F\"`.",
+      "rationale": "The matched source provides the concrete declarations and types of the initialized static objects associated with this unit. The channel must remain writable because its material-color bytes are changed during each render, while the TEV and pixel-engine descriptors are used as fixed configuration records.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T04:57:49.694Z",
+      "subject": "main/sysdolphin/baselib/shadow:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L172-L239",
+          "why": "Directly declares the static HSD_Chan, HSD_TevDesc, and HSD_PEDesc records with their initializers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L240-L380",
+          "why": "Directly declares `distAssert[16]` and demonstrates that the static channel record is mutable."
+        }
+      ]
+    },
+    {
+      "id": "fact:7f0c067a-f8f8-4420-a18c-4724a7e1d978",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the shadow pass's persistent initialized render-state data: channel, TEV, and pixel-engine descriptors used to configure textureless grayscale caster rendering, together with writable assertion text used when validating shadow-camera distance.",
+      "rationale": "HSD_ShadowStartRender declares initialized static HSD_Chan, HSD_TevDesc, and HSD_PEDesc objects and passes them to the channel, TEV, and pixel-engine setup routines. The same translation unit declares the initialized writable distAssert character array and later supplies it to the distance assertion, establishing that this data supports both shadow-pass configuration and its diagnostic guard.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T04:57:49.694Z",
+      "subject": "main/sysdolphin/baselib/shadow:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L172-L239",
+          "why": "Shows the initialized static HSD_Chan, HSD_TevDesc, and HSD_PEDesc objects and their use in configuring the shadow rendering pass."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L240-L380",
+          "why": "Shows the channel descriptor being updated for background and caster intensity and declares the initialized writable distAssert string."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L350-L505",
+          "why": "Shows distAssert being consumed by the positive-eye-distance assertion in HSD_ShadowSetViewingRect."
+        }
+      ]
+    },
+    {
+      "id": "fact:47a17c82-5b05-43f0-bca9-a668ee80390c",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.data",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The TEV and pixel-engine descriptors remain fixed across shadow passes, while the persistent channel descriptor is stateful: each nonempty pass resets its RGB material color to white for clearing, then overwrites RGB with shadow->intensity before drawing casters. Its alpha initialization remains 255, and the configured pipeline disables texturing and blending while sourcing the grayscale result from the rasterized channel.",
+      "rationale": "The static initializers establish the fixed TEV, pixel-engine, channel-alpha, and source-selection state. The ordered assignments and setup calls establish the channel descriptor's two-phase mutation during every pass that has registered casters.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T04:57:49.694Z",
+      "subject": "main/sysdolphin/baselib/shadow:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L172-L239",
+          "why": "Shows the fixed descriptor initializers, including null texture inputs, no blending, raster-channel TEV inputs, and channel alpha 255."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L240-L380",
+          "why": "Shows the persistent channel descriptor transitioning from the white background color to the per-shadow intensity color before caster rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:9cd5bb78-2fbe-487e-aae5-e6767191942b",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The initialized text `\"distance > 0.0F\"` is referenced by `HSD_ShadowSetViewingRect` after it reads the shadow camera's eye distance. A positive distance leaves the data unused; a nonpositive distance passes the text, the source-file identity, and line 725 to `__assert`.",
+      "rationale": "The source places the named text beside the projection routines and shows its complete consumption path through `HSD_ASSERT2`. The condition is derived from `HSD_CObjGetEyeDistance`, so the section contributes diagnostic input only on the failed precondition path and receives no runtime writes in the demonstrated code.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T04:57:14.893Z",
+      "subject": "main/sysdolphin/baselib/shadow:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L281-L410",
+          "why": "Shows eye distance being obtained from the shadow camera and the initialized text flowing to `__assert` only when `distance > 0.0F` is false."
+        }
+      ]
+    },
+    {
+      "id": "fact:31c43318-7837-4d19-8df3-5b447e514fc1",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Initialized small-data storage whose explicitly recovered source object is `static char distAssert[16] = \"distance > 0.0F\"`; the object is a fixed-size, null-terminated diagnostic character array rather than mutable shadow gameplay state.",
+      "rationale": "The matched declaration provides the exact element type, array extent, initializer, and internal linkage. Its only demonstrated consumer treats it as assertion text, supporting classification as diagnostic string storage while avoiding an unsupported claim about any compiler padding or otherwise anonymous bytes in the section.",
+      "confidence": 0.93,
+      "updated_at": "2026-09-02T04:57:14.893Z",
+      "subject": "main/sysdolphin/baselib/shadow:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L281-L410",
+          "why": "Provides the exact `static char[16]` declaration and demonstrates that the array is consumed as assertion text."
+        }
+      ]
+    },
+    {
+      "id": "fact:d81fc051-bde8-4180-9f7f-651e9098e87b",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides initialized diagnostic storage used by the shadow-camera projection code, including the assertion text emitted when a shadow camera's eye-to-interest distance is not positive.",
+      "rationale": "The matched source defines the initialized `distAssert` object and passes it directly to `__assert` through `HSD_ASSERT2` when `HSD_ShadowSetViewingRect` finds a nonpositive eye distance. Because the target is this unit's initialized small-data section, this establishes a concrete purpose for its source-visible payload rather than a gameplay state role.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-02T04:57:14.893Z",
+      "subject": "main/sysdolphin/baselib/shadow:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L281-L410",
+          "why": "Shows the initialized `distAssert` storage and its use as the assertion message for the positive shadow-camera distance precondition."
+        }
+      ]
+    },
+    {
+      "id": "fact:03319be8-01f0-4bba-ad6d-c28de70ca7cd",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The pool is written only at link time and read by shadow routines. HSD_ShadowAlloc loads mapping and raster constants into a new HSD_Shadow and its camera; HSD_ShadowSetSize converts buffer dimensions for the viewport; drawBackgroundRect multiplies camera bounds by fixed margin and depth factors; HSD_ShadowSetViewingRect and HSD_ViewingRectAddRect compare distances against zero; and HSD_ViewingRectInit copies extreme values into the initial top, bottom, left, and right bounds.",
+      "rationale": "Each cited function exposes a distinct consumer and destination for the constants. No matched source writes back to the section, so values flow one way from the read-only pool into object fields, camera configuration, temporary geometry, guards, and bounds state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:59:18.707Z",
+      "subject": "main/sysdolphin/baselib/shadow:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L50-L73",
+          "why": "Shows constants flowing into HSD_Shadow fields and camera viewport arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L112-L137",
+          "why": "Shows shadow-buffer dimensions flowing into floating viewport coordinates and integer scissor coordinates."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L139-L169",
+          "why": "Shows fixed constants applied to camera bounds before the background quad is submitted to GX."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L386-L480",
+          "why": "Shows zero and extreme constants consumed by camera-projection checks and viewing-rectangle initialization and accumulation."
+        }
+      ]
+    },
+    {
+      "id": "fact:05d17539-dc11-49dd-ad2d-1d4622b9c82c",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.sdata2",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports Melee's projected-shadow rendering by defining the fixed mapping from projected camera coordinates into shadow-texture space, the default shadow-map resolution, the oversized clearing geometry used for the offscreen pass, and the sentinel values used while fitting the shadow camera around its subject.",
+      "rationale": "The 0.5/-0.5 scale and 0.5 translation establish normalized texture mapping with vertical inversion, while the 256.0 viewport constant matches the default shadow image dimensions. The background multipliers shape the offscreen clearing pass, and the viewing-bound constants support projection fitting before the shadow texture is rendered.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T04:59:18.707Z",
+      "subject": "main/sysdolphin/baselib/shadow:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L50-L73",
+          "why": "Shows the projected-coordinate-to-texture transform and matching 256-by-256 image, viewport, and scissor defaults."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L139-L169",
+          "why": "Shows camera-derived geometry expanded and depth-offset to form the background of the shadow render pass."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L386-L480",
+          "why": "Shows the constants participating in projection fitting and initialization of the camera-aligned bounds accumulator."
+        }
+      ]
+    },
+    {
+      "id": "fact:9f2a87ca-7eaf-4e5a-92c2-72c00746fb62",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 40-byte read-only small-data literal pool rather than a source-level struct or table. It holds the translation unit's floating-point constants, including the single-precision values 0.5, -0.5, 0.0, 256.0, 1.20000004768, -1.10000002384, -F32_MAX, and F32_MAX, together with compiler-generated double-width support for converting the u16 shadow-buffer dimensions to floating viewport coordinates.",
+      "rationale": "The matched source uses the listed literals across shadow allocation, background-rectangle drawing, projection guards, and viewing-rectangle initialization. HSD_ShadowSetSize passes u16 dimensions to the floating-point viewport setter, accounting for compiler conversion support in the pool. The historical removal of artificial extern float declarations further indicates that this section represents compiler-owned literals, not independently named data objects.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T04:59:18.707Z",
+      "subject": "main/sysdolphin/baselib/shadow:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L50-L73",
+          "why": "Shows the 0.5, -0.5, 0.0, and 256.0 floating literals used to initialize texture projection and the default viewport."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L112-L137",
+          "why": "Shows u16 width and height values being passed to the floating-point viewport setter, requiring integer-to-floating conversion in generated code."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L139-L169",
+          "why": "Shows the exact 1.20000004768 and -1.10000002384 single-precision constants used by the shadow-pass background rectangle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L386-L480",
+          "why": "Shows repeated 0.0 comparisons and the \u00b1F32_MAX sentinel values used by shadow-camera projection and viewing-bound accumulation."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-1183--main-sysdolphin-baselib-shadow",
+          "why": "Records that artificial extern float declarations were removed to match HSD_ShadowAlloc, supporting interpretation of the data as compiler-emitted literals rather than named globals."
+        }
+      ]
+    },
+    {
+      "id": "fact:ac841394-213c-44ca-9c02-97b54f6d0074",
+      "target_id": "target:data:main/sysdolphin/baselib/shadow:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Supplies the fixed floating-point constants used to initialize shadow texture coordinates and raster dimensions, enlarge and depth-offset the shadow pass's clearing rectangle, validate camera-space distances, and initialize an empty viewing-bounds accumulator.",
+      "rationale": "The consumers give the pool a coherent translation-unit role: HSD_ShadowAlloc uses its mapping and viewport constants, drawBackgroundRect uses its margin and depth multipliers, and the viewing-rectangle routines use zero and extreme-float constants for guards and initial bounds.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:59:18.707Z",
+      "subject": "main/sysdolphin/baselib/shadow:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L50-L73",
+          "why": "Shows constants establishing the shadow texture-coordinate transform and its default 256-by-256 camera raster."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L139-L169",
+          "why": "Shows constants expanding the clearing quad beyond the camera bounds and placing it behind the shadow geometry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L386-L480",
+          "why": "Shows zero used for projection validity guards and \u00b1F32_MAX used to seed an initially empty viewing rectangle."
+        }
+      ]
+    },
+    {
+      "id": "fact:3427191b-4550-41a4-b76a-5190a81af255",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the current head from `shadow->objects` and traverses each node's `data` and `next` fields. If the supplied joint is absent, it passes the old head and joint pointer to HSD_SListAllocAndPrepend, writes the returned new head back to `shadow->objects`, and increments the joint's reference ownership with HSD_JObjRef.",
+      "rationale": "The matched body exposes the complete flow from the shadow's old list head through duplicate comparison and list allocation to the updated head and retained joint. The list helper confirms that the supplied joint pointer becomes the new node's payload and the old head follows it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:34.872Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L305-L320",
+          "why": "Shows all reads from the existing list, the pointer comparison, the head replacement, and the subsequent HSD_JObjRef call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/list.c#L49-L57",
+          "why": "Shows the helper allocating a node, storing the payload, prepending it to the supplied old head, and returning the resulting head."
+        }
+      ]
+    },
+    {
+      "id": "fact:28af6eb2-b447-4f22-ba61-938f6e9143d3",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Performs the registration step that associates a scene-graph object with an HSD shadow for shadow rendering.",
+      "rationale": "The function is part of the HSD shadow subsystem and places an HSD_JObj scene-graph pointer in the shadow's `objects` collection. This directly maps the routine to shadow-rendering object registration, while leaving the later rendering treatment to other subsystem routines.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-01T23:52:34.872Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L305-L320",
+          "why": "Shows an HSD_JObj being registered in an HSD_Shadow object's collection."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-1343--main-sysdolphin-baselib-shadow",
+          "why": "Identifies the owning translation unit as HSD's shadow implementation."
+        }
+      ]
+    },
+    {
+      "id": "fact:eb3716cb-b879-4de4-903a-2a6343fbe82b",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_ShadowAddObject(HSD_Shadow* shadow, HSD_JObj* jobj)`. Both pointers are nullable inputs; the function returns no value and stores the joint as the opaque payload of an HSD_SList node owned through `shadow->objects`.",
+      "rationale": "The declaration supplies the exact return and parameter types. The initial guard proves either pointer may be null, and the insertion call demonstrates that the HSD_JObj pointer is stored as an HSD_SList payload.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:34.872Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L305-L320",
+          "why": "Provides the exact signature, null guards, list traversal type, and insertion of the HSD_JObj payload."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/list.c#L49-L57",
+          "why": "Shows that HSD_SListAllocAndPrepend stores its `void* data` argument unchanged in the newly allocated list node."
+        }
+      ]
+    },
+    {
+      "id": "fact:1cc1670f-b07d-462e-a5ab-a0bfa43576a3",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Registers an HSD_JObj with an HSD_Shadow exactly once and acquires the joint reference needed for the shadow to retain that association.",
+      "rationale": "The function searches the entire existing object list and returns if it finds the same pointer. Only an absent joint is prepended and then passed to HSD_JObjRef, establishing both duplicate prevention and retained ownership as its purpose.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:34.872Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L305-L320",
+          "why": "Directly shows duplicate detection, list insertion, and HSD_JObj reference acquisition."
+        }
+      ]
+    },
+    {
+      "id": "fact:7ae4e765-b493-4eca-9515-e8131132caa8",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If either argument is null, the function makes no change. If the joint is already present by pointer identity, it also makes no change and acquires no additional reference. Otherwise, it transitions the shadow to a state whose object list begins with a newly allocated node for that joint and whose ownership includes one additional HSD_JObj reference.",
+      "rationale": "The first guard defines the null-input no-op state, and the loop's equality branch defines the duplicate no-op state. The sole mutating path prepends the new node before acquiring the corresponding joint reference.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:34.872Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAddObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L305-L320",
+          "why": "Shows both no-op guards and the only state-changing path through list insertion and reference acquisition."
+        }
+      ]
+    },
+    {
+      "id": "fact:6c0ce6c4-75b0-433b-825a-95d80e5c260d",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Obtains storage from the shadow subsystem's `HSD_ObjAllocData`, clears the full HSD_Shadow, stores newly allocated HSD_CObj and shadow HSD_TObj resources into it, writes texture-transform and image-descriptor defaults, passes the camera to viewport and scissor configuration calls, and returns the fully initialized shadow pointer to its caller.",
+      "rationale": "The function's straight-line body explicitly exposes the complete flow from allocator metadata through object and child-resource construction, field initialization, camera configuration, and return.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:49.724Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L50-L73",
+          "why": "Shows the allocator input, all writes to the shadow and its image descriptor, both camera configuration calls, and the returned pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:edead760-78cf-4500-8c5e-020749ef52b3",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Prepares the render target and coordinate mapping used to generate an HSD shadow texture: the camera viewport and scissor match the 256-by-256 texture, and the initialized scale/translation converts signed projected coordinates into texture space with a vertically inverted T axis.",
+      "rationale": "The matching dimensions tie the camera's render region to the texture image. The 0.5, -0.5, 0.5, 0.5 transform maps the conventional signed projected range into normalized texture coordinates while flipping the vertical axis; later shadow code copies the rendered image into this texture and registers it for material shadow rendering.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:52:49.724Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L50-L73",
+          "why": "Shows the texture-coordinate transform and identical 256-by-256 image, viewport, and scissor configuration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L269-L300",
+          "why": "Confirms that the configured texture is populated from rendered pixels and subsequently registered with the material shadow system."
+        }
+      ]
+    },
+    {
+      "id": "fact:4dbc5da2-167a-4c4e-b3c5-d35d0f9fe5b6",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `HSD_Shadow* HSD_ShadowAlloc(void)`: it accepts no caller-supplied arguments and returns a mutable, allocator-owned HSD_Shadow pointer containing camera, texture, transform, intensity, and lifecycle state.",
+      "rationale": "The matched definition supplies the exact return type and void parameter list. Its field writes demonstrate that the returned object owns camera and texture pointers and mutable shadow configuration.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:49.724Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L50-L73",
+          "why": "Provides the exact signature and shows the fields initialized on the returned HSD_Shadow."
+        }
+      ]
+    },
+    {
+      "id": "fact:95cba391-7e7d-41e6-9a9e-2b56dd5916f5",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Allocates and initializes one HSD shadow-rendering instance, including its dedicated camera and texture, default texture-coordinate transform, zero intensity, and a 256-by-256 texture/render region.",
+      "rationale": "The complete matched body allocates an HSD_Shadow, clears it, creates its camera and texture, initializes the transform and intensity fields, and configures both texture dimensions and camera raster bounds to 256 by 256.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:49.724Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L50-L73",
+          "why": "Shows every allocation and initialization performed before the new HSD_Shadow is returned."
+        }
+      ]
+    },
+    {
+      "id": "fact:99d71820-d81f-45da-93f7-ae30a2347448",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Creates the shadow in a cleared baseline state before installing its resources. All zero-represented lifecycle fields, including active state, begin disabled; intensity begins at zero, while the texture-coordinate transform is initialized to S = 0.5x + 0.5 and T = -0.5y + 0.5.",
+      "rationale": "The full-structure `memset` establishes the zero baseline, after which the function selectively writes the camera, texture, transform, intensity, and image dimensions. The explicit scale and translation values define the stated coordinate transform.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:52:49.724Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L50-L73",
+          "why": "Shows the full-object zeroing followed by the exact transform, intensity, resource, and image-dimension assignments."
+        }
+      ]
+    },
+    {
+      "id": "fact:5b50c651-4831-460b-b489-2c2cfef530db",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For a specified JObj, the function advances a pointer-to-pointer through shadow->objects so the matching link can be replaced directly with HSD_SListRemove's returned successor. Before unlinking, it passes the JObj to HSD_JObjUnref. In remove-all mode, each head node's data is similarly unreferenced before the returned successor is assigned back to shadow->objects.",
+      "rationale": "The pointer-to-pointer traversal exposes either the list head or a predecessor's next field as the writable incoming link to the current node. Assigning HSD_SListRemove's result through that link preserves the remainder of the list, while the explicit ordering ensures the stored JObj is unreferenced before its containing node is freed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:06.278Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L322-L343",
+          "why": "Directly shows the pointer-to-pointer traversal, identity comparison, unreference-before-removal ordering, successor reassignment, and analogous head-pop loop."
+        }
+      ]
+    },
+    {
+      "id": "fact:0c6ba5bd-2f6c-4371-b500-11920cc5284e",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Controls shadow-caster membership for the HSD shadow pass: removing a JObj prevents that scene-graph object from being included when the shadow system next renders shadow->objects with RENDER_SHADOW, while the null-JObj mode removes every caster from that shadow.",
+      "rationale": "The target removes entries from shadow->objects, and the unit's render path iterates that same list and displays each stored JObj under RENDER_SHADOW. Therefore the list mutation directly controls which scene objects contribute to the generated shadow texture.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:53:06.278Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L181-L321",
+          "why": "Shows shadow->objects being consumed as the complete set of JObjs displayed during the RENDER_SHADOW pass."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L300-L343",
+          "why": "Shows the target removing one or all entries from the exact shadow->objects list consumed by that pass."
+        }
+      ]
+    },
+    {
+      "id": "fact:bfa8d7a2-55b7-45e4-8de3-be0eda68265f",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void HSD_ShadowDeleteObject(HSD_Shadow* shadow, HSD_JObj* jobj): both pointer arguments are nullable; a null shadow is a no-op, while a null JObj is the command to clear the shadow's entire object list.",
+      "rationale": "The matched definition supplies the exact return and parameter types. Its leading shadow guard establishes nullable no-op behavior for the first parameter, and the jobj branch establishes that NULL has explicit remove-all semantics for the second.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:06.278Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L322-L343",
+          "why": "Provides the exact function signature and the complete control flow defining the two parameters' null behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:32145066-f420-4aa6-b8e4-4137431dc5c6",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Unregisters a specified JObj from an HSD_Shadow, or unregisters every JObj when passed NULL, releasing each shadow-held JObj reference and freeing the corresponding singly linked list node.",
+      "rationale": "For a non-null JObj, the function searches shadow->objects by pointer identity, unreferences the matching JObj, and removes exactly that node. For a null JObj, it repeatedly unreferences and removes the list head until no registered objects remain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:06.278Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L300-L343",
+          "why": "Shows both the single-object search-and-remove path and the null-argument remove-all path, including JObj unreference and list-node removal."
+        }
+      ]
+    },
+    {
+      "id": "fact:077e0442-404a-4607-ab5a-d76d12128c80",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null shadow leaves all state unchanged. With a non-null JObj, the function removes only the first pointer-identical registration and returns immediately; if no match exists, the list is unchanged. With a null JObj, it transitions the shadow to an empty object-list state by removing every registration.",
+      "rationale": "The initial guard defines the null-shadow no-op. The single-object branch returns immediately after its first equality match and has no mutation outside that match, whereas the alternate branch loops until shadow->objects becomes NULL.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:06.278Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowDeleteObject",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L322-L343",
+          "why": "Shows the null-shadow guard, first-match early return, no-match fallthrough, and exhaustive remove-all loop."
+        }
+      ]
+    },
+    {
+      "id": "fact:2eb8701b-9226-40c6-ae7a-438f13ea56d9",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads shadow->texture->imagedesc. If imagedesc->image_ptr is null, it forwards the descriptor's width and height to HSD_ShadowSetSize, after which the image pointer is used as the GX texture-copy destination. The rendered framebuffer data flows through GXCopyTex into that image storage; the routine then invalidates GX texture caches and passes the shadow object to makeMatrix so later shadow-texture use has updated mapping state.",
+      "rationale": "The source explicitly traces the image descriptor from the shadow texture, the conditional width/height inputs, the image pointer's use as GXCopyTex's destination, and the final shadow input to makeMatrix. GXCopyTex's body confirms that its dest argument is encoded as the texture-memory destination of the configured framebuffer copy.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:51:38.998Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L261-L278",
+          "why": "Shows the complete local flow from the shadow's image descriptor through storage setup and texture capture to matrix reconstruction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXFrameBuf.c#L746-L807",
+          "why": "Shows that GXCopyTex consumes its destination pointer as texture-memory storage for the configured framebuffer copy."
+        }
+      ]
+    },
+    {
+      "id": "fact:35334616-cc95-48c1-912d-91e8b9d40632",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the capture stage of Melee's shadow rendering: imagery rendered for a shadow pass is converted into a texture that can subsequently be projected or applied by the material shadow path.",
+      "rationale": "The function belongs to HSD's shadow subsystem and captures the configured framebuffer contents into shadow->texture's image storage before rebuilding the shadow matrix. The resolved GX implementation confirms that the capture is an embedded-framebuffer-to-texture transfer rather than an ordinary texture upload.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-01T23:51:38.998Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L261-L278",
+          "why": "Shows a shadow object receiving framebuffer imagery in its texture followed by reconstruction of its mapping matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXFrameBuf.c#L746-L807",
+          "why": "Confirms the hardware operation used by the shadow routine is framebuffer-to-texture capture."
+        }
+      ]
+    },
+    {
+      "id": "fact:13f02265-a3f2-49eb-978f-f734c44e1627",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_ShadowEndRender(HSD_Shadow* shadow). The parameter is a required mutable shadow object whose attached texture image descriptor and derived mapping matrix may be updated; the function returns no value.",
+      "rationale": "The matched definition supplies the exact signature. The body asserts that shadow is non-null, follows shadow->texture->imagedesc, may initialize image storage through HSD_ShadowSetSize, and passes the shadow to makeMatrix.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:51:38.998Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L261-L278",
+          "why": "Provides the exact function signature and demonstrates the required, mutable uses of the HSD_Shadow pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:527276e9-ebf8-4419-be6f-c098089a4119",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Finalizes an HSD shadow rendering pass by ensuring the shadow texture has backing storage, capturing the configured embedded-framebuffer region into that texture, synchronizing and invalidating GX texture state, and rebuilding the matrix used to project or sample the resulting shadow texture.",
+      "rationale": "The complete matched body performs these operations in sequence: it conditionally calls HSD_ShadowSetSize when the image pointer is null, passes that pointer to GXCopyTex, performs pixel-mode synchronization and texture invalidation, and finally calls makeMatrix. GXCopyTex's resolved implementation confirms that this call issues an embedded-framebuffer-to-texture transfer.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:51:38.998Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L261-L278",
+          "why": "Directly shows every operation performed while ending the shadow render pass and their ordering."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXFrameBuf.c#L746-L807",
+          "why": "Establishes that GXCopyTex sends the configured framebuffer-copy state to GX and writes the captured result to caller-supplied texture memory."
+        }
+      ]
+    },
+    {
+      "id": "fact:3da4f642-9319-49f4-acc6-e8a3715ea0bf",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null shadow violates the routine's precondition and triggers HSD_ASSERT. For a valid shadow, missing image storage selects a one-time setup path through HSD_ShadowSetSize; otherwise setup is skipped. Both paths then unconditionally copy with GX_TRUE, insert a pixel-mode synchronization command, invalidate all GX texture caches, and rebuild the shadow matrix.",
+      "rationale": "The complete function contains one precondition assertion and one branch guarded by image_ptr being null. All GX operations and makeMatrix occur after the branch. The GXCopyTex implementation shows that GX_TRUE activates its clear path in addition to issuing the texture copy.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:51:38.998Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowEndRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L261-L278",
+          "why": "Directly establishes the assertion, the missing-storage guard, and the unconditional post-branch operation sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/gx/GXFrameBuf.c#L746-L807",
+          "why": "Shows the clear-dependent GX state behavior selected by the target's GX_TRUE argument."
+        }
+      ]
+    },
+    {
+      "id": "fact:ef22b683-1672-4763-b4eb-9d10d259b38b",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowGetAllocData",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function has no runtime input and returns &shadow_alloc_data; that pointer is consumed by HSD_ObjAllocInit with sizeof(HSD_Shadow) and alignment 4, by HSD_ObjAlloc when creating a shadow, and by HSD_ObjFree when removing one.",
+      "rationale": "Following the returned address through its neighboring consumers identifies the complete local flow: one shared descriptor is initialized for HSD_Shadow-sized entries and then reused for both ends of each object's allocation lifecycle.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:34.170Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L24-L39",
+          "why": "This span shows the pointer's origin and its use to initialize an allocator for sizeof(HSD_Shadow) with parameter 4."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L40-L105",
+          "why": "This span shows the same returned pointer consumed by HSD_ObjAlloc and HSD_ObjFree."
+        }
+      ]
+    },
+    {
+      "id": "fact:190f480b-0369-4cff-9e89-d2a800d044cc",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowGetAllocData",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: HSD_ObjAllocData* (void). It returns a mutable pointer to the translation unit's global shadow_alloc_data descriptor.",
+      "rationale": "The matched function declaration and return expression directly establish both the no-argument signature and the HSD_ObjAllocData pointer result; the referenced object is defined immediately above as a non-const global.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:34.170Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L24-L39",
+          "why": "This span directly shows the HSD_ObjAllocData global, the target's return type and void parameter list, and its return of that global's address."
+        }
+      ]
+    },
+    {
+      "id": "fact:073e558b-d97d-4628-a315-000f76aa6a50",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowGetAllocData",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Exposes the shared HSD_Shadow object-allocation descriptor so shadow allocator initialization, allocation, and release all operate on the same allocator state.",
+      "rationale": "The function returns the address of shadow_alloc_data. The neighboring initialization routine passes that result to HSD_ObjAllocInit, while shadow construction and destruction pass it to HSD_ObjAlloc and HSD_ObjFree respectively.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:34.170Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowGetAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L24-L39",
+          "why": "This span defines shadow_alloc_data, shows the target returning its address, and shows allocator initialization consuming the returned pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L40-L105",
+          "why": "This span shows HSD_ShadowAlloc and HSD_ShadowRemove using the target's result for allocation and release."
+        }
+      ]
+    },
+    {
+      "id": "fact:e629d064-f6cb-4bc4-a648-3731796cb0cf",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function reads width and height from shadow->texture->imagedesc. Those dimensions define a copy-source rectangle beginning at framebuffer coordinate (0, 0) and an equally sized copy destination using format value 0x20 with mipmapping disabled. HSD_ShadowEndRender later copies the rendered framebuffer into the descriptor's image_ptr.",
+      "rationale": "The complete function body directly establishes the descriptor-to-GX configuration flow. The adjacent size-management code identifies the backing texture allocation as GX_TF_I4, while the completion path shows image_ptr as the eventual destination of GXCopyTex.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:50.552Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L101-L137",
+          "why": "Shows descriptor dimensions flowing to the GX copy configuration and the corresponding texture buffer being allocated as GX_TF_I4 storage."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L245-L300",
+          "why": "Shows the configured render result later being copied by GXCopyTex into the descriptor's image_ptr."
+        }
+      ]
+    },
+    {
+      "id": "fact:0b613bbe-0619-4dd2-bcaf-e610f58988c7",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports dynamic fighter-shadow rendering by preparing the texture copy that captures each fighter's offscreen shadow pass for later projection through the material system.",
+      "rationale": "The current fighter-shadow path still selects fighter and accessory casters, configures the light-relative camera and intensity, invokes HSD_ShadowInit, and immediately performs the offscreen start/render/end sequence. The mapping remains valid and is re-cited at head.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L430-L560",
+          "why": "Shows fighter-specific caster selection, shadow intensity and camera setup, followed by HSD_ShadowInit and the offscreen shadow-render sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L1-L120",
+          "why": "Shows HSD_ShadowInit configuring framebuffer-to-texture copy dimensions from the shadow texture image descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:afa20d82-de40-4b14-bf93-2736060e69df",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void HSD_ShadowInit(HSD_Shadow* shadow). The argument is a required mutable HSD_Shadow pointer whose attached texture and image descriptor must already exist.",
+      "rationale": "The matched definition provides the exact signature. The null assertion and immediate dereference through shadow->texture->imagedesc establish the required object relationship.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:50.552Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L101-L109",
+          "why": "Provides the exact function declaration, asserts the shadow pointer, and dereferences its texture image descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:c01edb4a-a1fe-4750-ae58-0c9a27d31e51",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Configures GX's framebuffer-to-texture copy operation for a shadow's current texture dimensions before the shadow is rendered offscreen and copied into its image buffer.",
+      "rationale": "The function obtains width and height from the shadow texture's image descriptor and supplies them to both GXSetTexCopySrc and GXSetTexCopyDst. Its gameplay caller invokes it immediately before beginning the offscreen shadow render sequence, establishing why this copy state is initialized.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:50.552Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L101-L109",
+          "why": "Shows the image descriptor dimensions configuring both the GX copy source and destination."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L542-L569",
+          "why": "Shows HSD_ShadowInit being called immediately before the offscreen shadow rendering sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:e6774a8a-1f81-4dab-8daf-beb1a537a0aa",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null shadow violates the function's precondition and triggers HSD_ASSERT. For a valid shadow, the function does not change HSD_Shadow fields or allocate storage; it only updates GX texture-copy state from the existing image descriptor.",
+      "rationale": "The complete matched body consists of the shadow assertion, one descriptor read, and two GX configuration calls. Allocation and dimension changes are handled separately by HSD_ShadowSetSize.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:50.552Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L101-L137",
+          "why": "Shows the assertion and GX-only operations in HSD_ShadowInit, followed by the separate function responsible for allocating and resizing texture storage."
+        }
+      ]
+    },
+    {
+      "id": "fact:1e5f771e-a789-4ba5-8780-78a22162ab11",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowInitAllocData",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine has no caller-supplied inputs or return value. It obtains the address of the persistent shadow_alloc_data descriptor through HSD_ShadowGetAllocData and forwards it with sizeof(HSD_Shadow) and alignment 4 to HSD_ObjAllocInit. That call clears the descriptor, installs default unlimited allocation limits, records an alignment mask of 3, rounds the entry stride to four-byte alignment, and prepends the descriptor to the global allocator registry. HSD_ShadowAlloc, HSD_ShadowRemove, and allocator-statistics reporting later consume the initialized descriptor.",
+      "rationale": "Current-head shadow code preserves the exact input-free forwarding operation and downstream allocation/release consumers. Current allocator and initialization code preserves descriptor transformation, registration, startup invocation, and statistics consumption.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L1-L100",
+          "why": "Shows the getter, the target forwarding the descriptor with sizeof(HSD_Shadow) and 4, and allocation and release through that descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows the forwarded size and alignment being converted into descriptor state and the descriptor being registered."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows startup invoking the routine and allocator-statistics reporting later consuming the shadow descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:ceac6502-9da3-4d6f-a862-a9a04615dd0e",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowInitAllocData",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_ShadowInitAllocData(void). It takes no parameters and returns no value; its effect is to configure a persistent HSD_ObjAllocData descriptor for sizeof(HSD_Shadow)-byte entries aligned to four bytes.",
+      "rationale": "The current definition still has a void(void) signature and passes an HSD_ObjAllocData pointer, sizeof(HSD_Shadow), and 4 to the typed HSD_ObjAllocInit routine, whose implementation treats the latter arguments as object size and alignment.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L20-L80",
+          "why": "Provides the exact void(void) definition and the descriptor, type-size, and alignment arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Provides HSD_ObjAllocInit's typed parameters and shows size and alignment determining the descriptor's aligned stride."
+        }
+      ]
+    },
+    {
+      "id": "fact:c0ef9f0f-58f6-4f33-a268-50d97cc607a6",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowInitAllocData",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes and registers the fixed-size allocation descriptor used for HSD_Shadow instances, configuring entries as sizeof(HSD_Shadow) with four-byte alignment during the common HSD object-allocation startup sequence.",
+      "rationale": "The current routine still initializes the persistent descriptor with shadow size and four-byte alignment. HSD_ObjAllocInit still clears and registers that descriptor, HSD_ObjInit still calls the routine during common startup, and shadow lifecycle code still consumes it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L1-L100",
+          "why": "Shows the routine configuring the descriptor and HSD_ShadowAlloc and HSD_ShadowRemove consuming it."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows HSD_ObjAllocInit clearing, configuring, and registering the supplied allocator descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows HSD_ObjInit invoking HSD_ShadowInitAllocData in the common HSD object initialization sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:4c6db38a-a90c-471c-9d1e-1c3d905e5713",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowInitAllocData",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Calling the routine transitions the persistent shadow allocator descriptor to a freshly initialized, registered empty-pool state. If the descriptor was already registered, HSD_ObjAllocInit first removes every existing registry link to it, then clears the descriptor, restores unlimited numeric and heap-derived allocation limits, sets four-byte alignment and the aligned HSD_Shadow stride, and reinserts it at the head of the allocator registry.",
+      "rationale": "The target still unconditionally invokes HSD_ObjAllocInit with fixed shadow size and alignment. The current callee retains the unlink-before-clear behavior, default assignments, alignment calculation, stride rounding, and final head insertion.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L20-L80",
+          "why": "Shows every invocation applying allocator initialization to the persistent shadow descriptor with fixed size and alignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows prior registration removal, descriptor clearing, default limits, alignment and stride setup, and reinsertion into the registry."
+        }
+      ]
+    },
+    {
+      "id": "fact:8fcd01b8-4d3b-4f5b-81ab-5b0a407a8e02",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the shadow's camera, object list, active flag, texture, image descriptor, and image pointer. The camera flows through reference decrement and conditional class destruction; the object list flows through the clear-all deletion path; an active texture flows to MObj registry removal; a present image pointer flows to HSD_Free; the image descriptor and TObj flow to their respective free operations; and the original shadow pointer flows with shadow_alloc_data to HSD_ObjFree.",
+      "rationale": "Every input and consumer is directly visible in the body. The clear-all implementation additionally establishes how the shadow's object list is consumed, while the final allocator call shows that the owner is returned to the shadow-specific pool rather than the general heap.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:32.928Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Shows each shadow field being read and forwarded to its corresponding reference, registry, heap, class-lifecycle, descriptor, or object-pool operation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L320-L390",
+          "why": "Shows the NULL-JObj deletion mode consuming the entire retained object list and unreferencing each JObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:f546b3a6-e782-43d4-ada3-4cd912058cd1",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the destruction side of projected-shadow rendering by removing a shadow's generated texture from active material use and releasing the camera, source-object references, render-target image, projection texture object, and owner needed to produce that projected shadow.",
+      "rationale": "The broader unit shows that these resources render JObjs into a projected shadow texture and register it with the material system. This function reverses that lifecycle, including registry removal before the active texture is destroyed.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:52:32.928Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Shows the active shadow texture being unregistered and all shadow-rendering resources being released."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L175-L330",
+          "why": "Shows those resources being used to render JObjs into a texture, generate its projection matrix, and register it for active shadow use."
+        }
+      ]
+    },
+    {
+      "id": "fact:83eec359-882d-42d4-ad52-53768bfd0b8e",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void HSD_ShadowRemove(HSD_Shadow* shadow)`. Its sole argument is a nullable pointer to one HSD_Shadow; NULL is explicitly accepted as a no-op.",
+      "rationale": "The matched declaration supplies the exact return and parameter types, and the leading NULL check returns before any field access, proving the parameter's nullable semantics.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:32.928Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Provides the exact function signature and explicit NULL no-op branch."
+        }
+      ]
+    },
+    {
+      "id": "fact:6d438125-569e-4251-beae-c57ae54d3136",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Destroys one HSD_Shadow and all resources owned or retained by it: it relinquishes the camera reference, removes and unreferences every attached JObj, unregisters an active shadow texture, releases the texture image payload and metadata, destroys the TObj, and returns the HSD_Shadow allocation to its object pool.",
+      "rationale": "The complete matched body invokes each subsystem's appropriate lifetime operation in sequence. HSD_ShadowDeleteObject with a NULL JObj is the unit's clear-all path, while the texture-registry, image, TObj, and object-pool calls establish that this is the shadow object's comprehensive destruction entry point.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:32.928Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "The complete function directly shows camera reference release, attached-object deletion, active-texture unregistration, image and texture teardown, and final pool return."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L320-L390",
+          "why": "Shows that HSD_ShadowDeleteObject(shadow, NULL) unreferences and removes every JObj retained by the shadow."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-496--main-sysdolphin-baselib-shadow",
+          "why": "Records the merged work specifically matching HSD_ShadowRemove and HSD_ShadowInit in this translation unit."
+        }
+      ]
+    },
+    {
+      "id": "fact:f03f2d87-e2fa-4657-80e9-c21e68893774",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "NULL input terminates without effect. For a non-NULL shadow, teardown is ordered: release the camera reference and destroy the camera only if its reference decrement permits it; remove all retained JObjs; unregister the texture only when the shadow is active; free the backing image only when present; then unconditionally free the image descriptor, destroy the TObj, and return the shadow to its allocator pool. The function does not leave the shadow in a reusable inactive state; it ends the object's lifetime.",
+      "rationale": "The guards and statement order directly define the NULL, shared-camera, inactive-texture, absent-image, and full-destruction cases. The final unconditional descriptor, TObj, and pool operations demonstrate a terminal lifecycle transition rather than a reset.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:32.928Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L75-L99",
+          "why": "Shows the exact teardown order and all conditional versus unconditional lifetime branches."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L320-L390",
+          "why": "Shows that the attached-object step is a complete clear-all transition when passed NULL."
+        }
+      ]
+    },
+    {
+      "id": "fact:5d6f7a3d-5d04-436b-a67c-9ede72280378",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads shadow->active to compare the current effective state with the requested state. On activation it follows shadow->texture->imagedesc, reads image_ptr, width, and height, passes the dimensions to HSD_ShadowSetSize when image_ptr is null, and then passes shadow->texture to HSD_MObjAddShadowTexture. On deactivation it passes the same texture to HSD_MObjDeleteShadowTexture. The registered texture is subsequently consumed by materials whose render mode includes RENDER_SHADOW.",
+      "rationale": "The current target body preserves all field reads and outgoing texture and dimension arguments. Current MObj compilation and setup still append the global shadow-texture chain only when the material render mode includes RENDER_SHADOW.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Shows the active-state comparison, image descriptor reads, lazy size call, and texture arguments sent to the MObj add and delete operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L420",
+          "why": "Shows RENDER_SHADOW materials appending and consuming the registered shadow-texture chain during TEV compilation and material setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:d6966883-ef24-4e79-a4e1-4b76bf28fe1e",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements runtime enabling and disabling of a rendered shadow: activation makes the shadow's generated texture available to materials configured with RENDER_SHADOW, while deactivation removes it from that material-rendering path.",
+      "rationale": "Current code still registers or unregisters the generated texture according to the requested active state, and the MObj material path still attaches registered shadow textures only for RENDER_SHADOW materials. The visible rendering mapping therefore remains unchanged.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Shows the shadow texture being added to the active registry on enable and deleted on disable."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L420",
+          "why": "Shows registered shadow textures being attached to the texture chain of materials whose render mode includes RENDER_SHADOW."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+          "why": "Documents a Melee debug visual option that removes shadows, corroborating that shadow visibility is a controllable rendering feature."
+        }
+      ]
+    },
+    {
+      "id": "fact:ace1e326-8df3-489a-8c8a-79a615aa286d",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_ShadowSetActive(HSD_Shadow* shadow, int active). shadow is required and asserted non-null. active is an integer interpreted by truth value as an enable/disable request and, when a transition occurs, is stored verbatim in HSD_Shadow::active.",
+      "rationale": "The matched definition supplies the exact signature and null assertion. Boolean tests determine whether a transition is needed, but the subsequent assignment writes the original integer argument rather than normalizing it to 0 or 1.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:16.094Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Provides the exact return and parameter types, asserts shadow, tests active by truth value, and assigns the integer directly to shadow->active."
+        }
+      ]
+    },
+    {
+      "id": "fact:538f474d-fb83-4703-b232-44e215a54090",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Changes an HSD_Shadow's enabled state and synchronizes its generated texture with the MObj active-shadow registry. Enabling also lazily allocates the texture's backing image if necessary; requesting the already-effective state is a no-op.",
+      "rationale": "The function compares the current and requested states and returns when their truth values agree. On a real transition it updates shadow->active, ensures image storage exists before activation, and invokes the complementary MObj add or delete operation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:16.094Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "The complete matched body shows the unchanged-state guard, active-field update, lazy image allocation, and registry add/delete calls."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L505-L516",
+          "why": "Shows that the activation-side callee registers the supplied texture in the global shadow-texture chain while avoiding duplicate registration."
+        }
+      ]
+    },
+    {
+      "id": "fact:1ea69f98-9662-405d-8837-8cfbbfcde43a",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine asserts on a null shadow and otherwise implements two effective states, inactive and active. A request whose truth value matches the current state's truth value returns without mutation. An inactive-to-active transition stores the request, ensures texture storage exists, and registers the texture; an active-to-inactive transition stores the request and unregisters the texture.",
+      "rationale": "The guard explicitly groups current/request pairs by truth value, making repeated enables and repeated disables idempotent even for noncanonical nonzero integers. The two branches perform the corresponding registry transitions after updating the state field.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:16.094Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetActive",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L280-L301",
+          "why": "Shows the null assertion, truth-value idempotence guard, active-field write, lazy allocation guard, and complementary activation/deactivation branches."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L505-L516",
+          "why": "Shows that the activation branch's add operation itself is duplicate-safe and transitions an unregistered texture into the global chain."
+        }
+      ]
+    },
+    {
+      "id": "fact:ff53441b-0dab-48ea-8eb4-bc4ae03702cb",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The requested dimensions are compared with `shadow->texture->imagedesc`. On a required resize, they determine the byte count returned by `GXGetTexBufferSize(width, height, GX_TF_I4, GX_FALSE, 0)`; that count feeds `HSD_MemAlloc`, the new pointer and dimensions are stored in the image descriptor, and the same dimensions flow into the shadow camera's viewport and scissor rectangles.",
+      "rationale": "Every stage of the resize path is explicit in the function: descriptor comparison, GX size calculation, heap allocation, descriptor mutation, and camera-bound updates. The CObj setter definitions confirm that the passed zero-to-width and zero-to-height values become the stored viewport and scissor boundaries.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:51.563Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L111-L136",
+          "why": "Shows the complete flow from input dimensions through buffer-size calculation and allocation to image-descriptor and camera-setter outputs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1125-L1135",
+          "why": "Shows the viewport setter storing the supplied zero-to-width and zero-to-height boundaries in the camera object."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1083-L1093",
+          "why": "Shows the scissor setter storing the supplied zero-to-width and zero-to-height boundaries in the camera object."
+        }
+      ]
+    },
+    {
+      "id": "fact:d33f88ea-39a8-46c3-8d48-dde17008b390",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Controls the pixel resolution of the texture used by Melee's projected-shadow render pass and keeps that pass's camera viewport and clipping rectangle synchronized with the texture.",
+      "rationale": "The function sizes the backing image of `shadow->texture` and aligns the shadow camera's viewport and scissor to it. The surrounding render path draws objects with `RENDER_SHADOW` and subsequently copies the rendered image into that same image buffer, demonstrating that these dimensions are the resolution of the generated projected-shadow texture.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:51.563Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L111-L136",
+          "why": "Shows the shadow texture's backing image and camera raster bounds being sized together."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L137-L268",
+          "why": "Shows the camera and image descriptor participating in a render pass that draws registered objects with `RENDER_SHADOW`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L269-L400",
+          "why": "Shows the completed render being copied into the resized image buffer and used as the shadow texture."
+        }
+      ]
+    },
+    {
+      "id": "fact:63c6425f-e9fd-4468-91cf-3bae3317e441",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Setter with signature `void HSD_ShadowSetSize(HSD_Shadow* shadow, u16 width, u16 height)`. `width` and `height` are positive texture dimensions in texels and also define the shadow camera's viewport and scissor bounds; the backing image is an unmipmapped `GX_TF_I4` texture.",
+      "rationale": "The matched definition proves the signature and positive-dimension assertions. The dimensions are passed to `GXGetTexBufferSize` with `GX_TF_I4` and mipmapping disabled, stored in the image descriptor, and used as the right and bottom bounds of viewport and scissor rectangles starting at zero.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:51.563Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L111-L136",
+          "why": "Provides the exact parameter types, dimension assertions, texture-format arguments, image descriptor assignments, and camera-bound usage."
+        }
+      ]
+    },
+    {
+      "id": "fact:2dd89083-cd95-47b0-bb33-7f32cece30cc",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Ensures a shadow object's off-screen texture buffer and its camera raster rectangle have the requested nonzero width and height, reallocating and reconfiguring them only when the buffer is absent or its dimensions differ.",
+      "rationale": "The function validates the shadow and dimensions, compares the requested size with the image descriptor, and enters its update path only for a missing buffer or changed width or height. That path replaces the buffer, updates the descriptor, and makes both the camera viewport and scissor cover the new dimensions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:51.563Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L111-L136",
+          "why": "The complete function directly shows its validation, resize guard, buffer replacement, descriptor updates, and camera-rectangle reconfiguration."
+        }
+      ]
+    },
+    {
+      "id": "fact:af6deca0-1fea-48fb-83a2-cc911d3a853a",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine asserts that the shadow is non-null and both dimensions are greater than zero. If a backing image already exists with exactly the requested dimensions, it performs no mutation. Otherwise it frees any existing image, allocates a correctly sized replacement, records the new dimensions, and replaces the camera viewport and scissor with `[0,width] \u00d7 [0,height]`.",
+      "rationale": "The assertions and guarded update path directly define the routine's legal inputs and two behavioral states. The conditional free distinguishes first allocation from replacement, while all descriptor and camera mutations occur only inside the resize branch.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:51.563Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetSize",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L111-L136",
+          "why": "Directly shows the input assertions, unchanged-size no-op path, conditional free, replacement allocation, and dimension-dependent state updates."
+        }
+      ]
+    },
+    {
+      "id": "fact:80d753eb-15a4-4b01-8ee8-0c1b149aba3a",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function reads shadow->camera, obtains its eye-to-interest distance and projection type, and routes the supplied bounds by mode. Perspective mode takes the maximum absolute vertical and horizontal extents, stores their ratio as aspect, and derives FOV with atan2 of the horizontal extent and eye distance. Orthographic mode forwards all four bounds unchanged. Frustum mode multiplies every bound by camera near distance divided by eye distance before storing them.",
+      "rationale": "Each branch visibly transforms the same inputs into the exact arguments consumed by HSD_CObjSetAspect, HSD_CObjSetFov, HSD_CObjSetOrtho, or HSD_CObjSetFrustum.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:08.450Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L386-L430",
+          "why": "Directly shows the complete input path from shadow camera and rectangle bounds through each projection-specific calculation and setter."
+        }
+      ]
+    },
+    {
+      "id": "fact:20353b6a-5666-4014-8831-e3470006cd86",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes camera-projection fitting for projected shadows: it configures the shadow camera so the requested viewing region is covered whether that camera uses perspective, orthographic, or explicit-frustum projection.",
+      "rationale": "The function acts specifically on an HSD_Shadow's camera and converts one requested region into parameters for each supported projection model. The surrounding source then consumes those parameters to construct the corresponding light texture-projection matrix, grounding the operation in projected-shadow rendering rather than general gameplay camera movement.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:52:08.450Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L350-L450",
+          "why": "Shows the fitted shadow-camera parameters being associated with perspective, frustum, and orthographic light texture-projection construction."
+        }
+      ]
+    },
+    {
+      "id": "fact:a60b7eaa-94e6-4c5b-a847-147ae4f54587",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void HSD_ShadowSetViewingRect(HSD_Shadow* shadow, float top, float bottom, float left, float right). The four floats are signed viewing-rectangle bounds in the same linear coordinate space used by the shadow camera's eye distance before projection-specific conversion.",
+      "rationale": "The definition supplies the exact return and parameter types. Orthographic mode stores the floats directly as camera bounds, frustum mode scales them by near distance divided by eye distance, and perspective mode compares their absolute magnitudes against eye distance, establishing their role as signed linear bounds rather than normalized screen coordinates.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:08.450Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L386-L430",
+          "why": "Provides the exact signature and shows how every bound is interpreted by each supported camera projection."
+        }
+      ]
+    },
+    {
+      "id": "fact:9fbb60ea-bea5-47b9-83fb-b5d916ec6208",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Fits an HSD shadow object's camera projection to supplied top, bottom, left, and right viewing bounds at the camera's eye-to-interest distance, using the representation appropriate to the camera's current projection mode.",
+      "rationale": "The function retrieves the shadow camera and its positive eye distance, selects the current projection type, and updates either perspective aspect/FOV, orthographic bounds, or near-plane frustum bounds from the supplied rectangle.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:08.450Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L386-L430",
+          "why": "The complete matched body shows the viewing bounds being converted into projection-specific camera configuration."
+        }
+      ]
+    },
+    {
+      "id": "fact:c2fab05c-e496-4ad2-b40c-01046ff2c6b1",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null shadow is rejected by assertion, and the camera's eye distance must be positive. The current camera projection selects exactly one update path: perspective changes retained aspect and FOV, orthographic installs the supplied bounds and selects orthographic state, and frustum requires a positive near-to-eye scale before installing scaled bounds. Any unsupported projection type asserts.",
+      "rationale": "The entry assertions establish the required object and distance invariants, the switch defines the three valid state paths, the frustum branch checks its scale, and the default branch explicitly rejects all other projection states.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:52:08.450Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowSetViewingRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L386-L430",
+          "why": "Shows all guards, projection branches, camera-state updates, and the unsupported-mode assertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:a4ca732e-31ee-4bcb-9002-feece59dcbb2",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input shadow supplies its camera, texture-image width and height, intensity byte, and linked list of caster JObjs. The image dimensions first define a full-image scissor used while drawBackgroundRect fills the target with white, then define a two-pixel-inset scissor for caster drawing. The intensity is copied into the RGB material channel, and each list entry flows to HSD_JObjDispAll with a NULL matrix, the combined HSD_TRSP_OPA|HSD_TRSP_TEXEDGE mask, and RENDER_SHADOW. The resulting EFB image is subsequently consumed by HSD_ShadowEndRender, which copies it into the shadow texture.",
+      "rationale": "The target explicitly reads each of these HSD_Shadow values and passes them to the camera, channel, scissor, background, and JObj rendering APIs. The immediately following end routine and gameplay call sequence establish where the produced EFB image goes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:19.294Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L173-L259",
+          "why": "Shows all target inputs, the full and inset scissor rectangles, white background draw, intensity channel update, and arguments forwarded for each caster."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L260-L380",
+          "why": "Shows HSD_ShadowEndRender copying the rendered EFB contents into the shadow image and deriving its texture matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L541-L569",
+          "why": "Shows gameplay invoking StartRender and then EndRender within the same offscreen shadow pass."
+        }
+      ]
+    },
+    {
+      "id": "fact:54198593-548b-47dd-a8b8-650fe4d24398",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Performs the silhouette-generation stage of Melee's projected fighter shadows: after gameplay aims a shadow camera from the stage light toward a fighter and registers that fighter's visible model and accessory as casters, this routine rasterizes their opaque and cutout geometry as an intensity-controlled grayscale image for capture into the fighter's shadow texture.",
+      "rationale": "Current fighter-side code still selects visible fighter and accessory models, derives the shadow camera from light-relative geometry, assigns intensity, and runs the offscreen shadow pass. The current target still draws opaque and texture-edge caster geometry under RENDER_SHADOW, so the mapping remains valid.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L430-L560",
+          "why": "Shows fighter and accessory caster selection, light-relative camera setup, intensity assignment, and invocation of the offscreen shadow-render sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L173-L259",
+          "why": "Shows intensity-controlled grayscale state and rasterization of opaque and texture-edge caster geometry with RENDER_SHADOW."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L540-L569",
+          "why": "Shows HSD_ShadowStartRender followed by HSD_ShadowEndRender within the fighter's offscreen shadow pass."
+        }
+      ]
+    },
+    {
+      "id": "fact:673576ce-2476-49e9-91e1-a618cf6ebb00",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "`void HSD_ShadowStartRender(HSD_Shadow* shadow)`: a one-argument rendering routine requiring a non-null shadow whose camera, texture, and texture image descriptor are all initialized.",
+      "rationale": "The matched declaration establishes the void return and HSD_Shadow pointer parameter. Its four leading assertions establish the required object graph before any rendering state is touched.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:19.294Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L173-L259",
+          "why": "Directly provides the signature and asserts the shadow, camera, texture, and image descriptor preconditions."
+        }
+      ]
+    },
+    {
+      "id": "fact:05ba517d-63a7-4999-8728-298a7e6f33b5",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Begins and completes the drawing phase of one shadow-map render: it activates the shadow camera, initializes a textureless grayscale render state, clears the shadow image background, and draws every registered caster's opaque and texture-edge geometry with RENDER_SHADOW before finalizing the camera pass.",
+      "rationale": "The matched body installs the shadow's camera, configures TEV, channel, pixel-engine, and scissor state, draws the background rectangle, then traverses the entire caster list through HSD_JObjDispAll with the opaque and texture-edge mask and RENDER_SHADOW. HSD_CObjEndCurrent closes that camera draw phase.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:19.294Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L173-L259",
+          "why": "The complete matched function directly shows camera activation, render-state setup, background drawing, caster traversal, RENDER_SHADOW selection, and camera-pass finalization."
+        }
+      ]
+    },
+    {
+      "id": "fact:85676025-1eef-438c-90bb-7bb450dc109c",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "After validating the shadow object graph, the function performs no render-state changes when the caster list is empty. With at least one caster, it activates the shadow camera, installs fixed TEV and pixel-engine state with no texture generators or blending, clears the complete image under a full-size scissor, switches the material channel to the configured intensity, restricts caster drawing to a two-pixel inset, renders every caster, and unconditionally ends the current camera pass.",
+      "rationale": "The sole operational guard is `list != NULL`; all camera and GX setup, background clearing, list traversal, and finalization are nested beneath it. The fixed descriptors and ordered channel/scissor updates establish the render-state transition sequence.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:19.294Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ShadowStartRender",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L173-L259",
+          "why": "Directly shows the empty-list no-op guard and the complete ordered state transition for a nonempty caster list."
+        }
+      ]
+    },
+    {
+      "id": "fact:b32f1e00-d1d0-4a97-8796-81ff41acaabe",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input position is converted to an origin-relative vector and projected along the viewing direction. In perspective mode, positive-depth positions and their four offsets are scaled by `distance / depth` before projection onto the right/up basis; in non-perspective mode the depth component is removed directly. The resulting edge coordinates update `rect->top`, `bottom`, `left`, and `right`, which the caller passes to HSD_ShadowSetViewingRect to configure the shadow camera.",
+      "rationale": "The function body proves the complete transformation and accumulation path, and the sole gameplay caller immediately consumes the accumulated fields as the shadow camera's projection boundaries.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:53:15.059Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L457-L502",
+          "why": "Shows the origin subtraction, depth calculation, projection-specific scaling, basis projection, and writes to the four accumulated boundaries."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L522-L569",
+          "why": "Shows the accumulated rect fields being consumed by HSD_ShadowSetViewingRect before the offscreen shadow render."
+        }
+      ]
+    },
+    {
+      "id": "fact:cb634cd8-ed4f-4eb3-b505-441310efdbbb",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Fits a fighter's shadow-camera projection to the fighter camera box: lbshadow supplies the camera-box center and scale-derived rectangular extent, consumes the accumulated bounds as the shadow camera's viewing rectangle, and then renders the fighter's shadow texture offscreen.",
+      "rationale": "The current fighter-shadow caller continues to initialize a light-oriented frame, add the fighter camera-box rectangle, apply valid accumulated bounds to the HSD_Shadow camera, and execute the offscreen pass. The game mapping is therefore unchanged.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L539",
+          "why": "Shows light-derived frame initialization and HSD_ViewingRectAddRect receiving the fighter camera-box center and scale-derived extent."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L470-L567",
+          "why": "Shows valid accumulated bounds configuring the fighter shadow camera before the offscreen shadow render."
+        }
+      ]
+    },
+    {
+      "id": "fact:46bec57f-b45d-46da-9baa-ff09837390b4",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void mutating accumulator routine with signature `void (HSD_ViewingRect* rect, Vec3* position, float top, float bottom, float left, float right)`. `position` is world-space, while the four float arguments are signed local rectangular offsets that are accumulated into view-plane bounds.",
+      "rationale": "The current definition preserves the exact signature and coordinate transformation. Its current fighter-side caller still supplies a fighter camera-box world position and symmetric signed extents derived from camera-box scale, confirming the argument semantics.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L457-L502",
+          "why": "Provides the exact signature and shows the position transformed from world space and each float added as a view-plane edge offset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L539",
+          "why": "Shows the caller passing the fighter camera-box position and symmetric signed extents derived from its scale."
+        }
+      ]
+    },
+    {
+      "id": "fact:62a47347-b0d2-46dd-a919-4e04e1893d54",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Expands an HSD_ViewingRect accumulator so that it encloses a rectangular extent centered at a supplied world-space position after that extent is transformed into the accumulator's camera-aligned viewing plane.",
+      "rationale": "The function transforms the position relative to the viewing origin, derives view-plane x and y coordinates with the stored right and up basis vectors, then conditionally replaces each accumulated boundary with the rectangle's more extreme edge.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:53:15.059Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L457-L502",
+          "why": "Shows the position transformation, camera-basis dot products, projection adjustment, and min/max expansion of all four viewing-rectangle boundaries."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L343-L456",
+          "why": "Shows HSD_ViewingRect initialization as a camera-aligned bounds accumulator and its validity check based on ordered top/bottom and right/left bounds."
+        }
+      ]
+    },
+    {
+      "id": "fact:466c0f5b-0fc3-4ae7-8ede-55b0c4435013",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Requires non-null accumulator and position pointers. In perspective mode it ignores rectangles at or behind the eye plane (`depth <= 0`); otherwise it perspective-scales the center and extent before accumulation. In non-perspective mode it removes depth without scaling. In either accepted path, each stored boundary changes only when the new rectangle extends beyond the current bound.",
+      "rationale": "The assertions, perspective guard, projection branch, and four conditional assignments directly define the routine's guards and monotonic bounds-accumulation behavior.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:53:15.059Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectAddRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L457-L502",
+          "why": "Shows both pointer assertions, the behind-eye early return, the perspective and non-perspective paths, and guarded updates of each boundary."
+        }
+      ]
+    },
+    {
+      "id": "fact:5e7131d3-0eaa-41b2-9fe6-668d8f57e421",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `top`, `bottom`, `right`, and `left` from the supplied HSD_ViewingRect without modifying it. It compares each maximum against its corresponding minimum and returns the conjunction to the caller, which either accepts the extents for HSD_ShadowSetViewingRect or continues toward a fallback projection.",
+      "rationale": "The current checker still performs only the four field reads and strict comparisons. Its current fighter-shadow caller still uses the Boolean result to choose whether to apply calculated bounds or continue to the fixed fallback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L451-L455",
+          "why": "Shows all four extent reads, the conjunction of strict comparisons, and no writes to the rectangle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L470-L567",
+          "why": "Shows the return value controlling whether accumulated extents are applied through HSD_ShadowSetViewingRect or the loop reaches fixed orthographic fallback bounds."
+        }
+      ]
+    },
+    {
+      "id": "fact:787816a2-dd78-4e20-823a-c220031214d8",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "In fighter shadow rendering, this check decides whether camera-relative bounds accumulated around the fighter are usable for framing the generated shadow texture. A valid rectangle is installed as the shadow camera's viewing region; if no valid rectangle is obtained within the bounded attempt loop, the renderer uses fixed orthographic bounds of approximately +128 to -128 instead.",
+      "rationale": "The current fighter-shadow routine still initializes and accumulates a viewing rectangle, tests it for up to 0x14 iterations, applies valid extents, and otherwise selects constants 128 and -128 for an orthographic fallback.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L470-L567",
+          "why": "Shows accumulation and checking of fighter-relative shadow bounds, application of valid extents, and the fixed orthographic fallback after the bounded loop."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L540-L569",
+          "why": "Defines the fallback constants as 128.0 and -128.0 and shows the subsequent offscreen fighter-shadow pass."
+        }
+      ]
+    },
+    {
+      "id": "fact:5194fff2-2358-423a-8e4e-6ab87317d6b6",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `int HSD_ViewingRectCheck(HSD_ViewingRect* rect)`; the parameter is required to be non-null and the integer return is used as a boolean validity result.",
+      "rationale": "The current header still declares the exact function signature and defines HSD_ViewingRect with the tested floating-point extents. The current implementation asserts that the pointer is non-null and returns a logical conjunction, confirming that the integer result is used as a Boolean validity value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:20.358Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.h#L1-L64",
+          "why": "Defines HSD_ViewingRect, including its top, bottom, left, and right floating-point extents, and declares HSD_ViewingRectCheck with an integer return and HSD_ViewingRect pointer parameter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L451-L455",
+          "why": "Provides the exact definition, asserts the rectangle pointer, and returns the conjunction of two strict extent comparisons."
+        }
+      ]
+    },
+    {
+      "id": "fact:ff6d46c2-f822-42a7-b5ce-e613ea6087b5",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Determines whether an accumulated HSD_ViewingRect contains a nonempty two-dimensional extent suitable for configuring a shadow camera.",
+      "rationale": "The current function still requires strictly ordered vertical and horizontal bounds, and its current caller still uses a true result as the condition for installing those bounds on the shadow camera.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L451-L455",
+          "why": "Shows the exact positive vertical-span and horizontal-span validity predicate."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L470-L567",
+          "why": "Shows the fighter-shadow renderer checking the accumulated rectangle before using its fields to configure the shadow camera."
+        }
+      ]
+    },
+    {
+      "id": "fact:e2ee9a9e-1f4e-43b9-9986-e2d350c25a15",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Returns true only when the rectangle has both a strictly positive vertical span (`top > bottom`) and a strictly positive horizontal span (`right > left`). It returns false for an uninitialized sentinel rectangle, a rectangle that received no accepted contribution, an inverted extent, or a zero-width or zero-height extent; it retains no state.",
+      "rationale": "HSD_ViewingRectInit deliberately sets each maximum below its corresponding minimum, and HSD_ViewingRectAddRect expands those extrema. The strict comparisons therefore define the transition from the initialized invalid state to a valid nondegenerate rectangle, while equality remains invalid.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:14.091Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectCheck",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L420-L505",
+          "why": "Shows inverted sentinel initialization, the exact validity predicate, optional rejection of behind-camera perspective contributions, and expansion of all four extrema."
+        }
+      ]
+    },
+    {
+      "id": "fact:c7bcd305-44ff-414f-904f-8618878ce6bc",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Copies `position` to rect->origin; computes `eye_v = interest - position`; normalizes that into `eye_vn`; normalizes the supplied up vector into a temporary; computes `right_v = eye_vn \u00d7 normalized_up` and `up_v = right_v \u00d7 eye_vn`; stores `|eye_v|` as distance; initializes top and right to `-F32_MAX` and bottom and left to `F32_MAX`; and copies the perspective selector. HSD_ViewingRectAddRect later projects subject bounds into this basis and expands those extrema, after which the bounds are passed to HSD_ShadowSetViewingRect.",
+      "rationale": "The current initializer preserves every input-to-field transformation, the current accumulator still projects and expands using those fields, and the fighter-shadow caller still consumes the resulting extents as shadow-camera bounds.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L432-L449",
+          "why": "Shows the complete input-to-origin, basis, distance, sentinel-extents, and projection-mode transformation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L457-L502",
+          "why": "Shows HSD_ViewingRectAddRect consuming the initialized basis, distance, projection selector, and extrema."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L539",
+          "why": "Shows the initialized and accumulated rectangle fields being used to configure a fighter's shadow camera."
+        }
+      ]
+    },
+    {
+      "id": "fact:d62fa6c3-8643-4862-b726-e56ecaf61666",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Establishes the light-oriented coordinate frame used to fit a fighter's projected shadow texture: the selected light supplies the shadow-camera eye, interest, and up directions, while the fighter camera box supplies bounds that are accumulated in this frame and applied to the shadow camera projection.",
+      "rationale": "Current fighter-shadow code still derives eye, interest, and up geometry from the light and fighter camera box, passes those vectors to the initializer, accumulates the fighter's extent, and applies the result to the projected-shadow camera.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L539",
+          "why": "Shows light-derived eye, interest, and up vectors, fighter camera-box accumulation, and subsequent shadow-camera projection setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L432-L449",
+          "why": "Shows construction of the eye, right, and corrected-up axes forming the viewing-rectangle coordinate frame."
+        }
+      ]
+    },
+    {
+      "id": "fact:193457e8-aaaa-41f9-8fbc-adb9c5b13509",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_ViewingRectInit(HSD_ViewingRect* rect, Vec3* position, Vec3* interest, Vec3* upvector, int perspective)`. `rect` is a mutable accumulator containing an origin, unnormalized and normalized eye vectors, right and up basis vectors, eye distance, four floating-point extents, and a projection-mode flag. The three Vec3 pointers provide eye position, look-at target, and nominal up direction; `perspective` is stored and subsequently interpreted as a Boolean choice between perspective-scaled and orthographic accumulation.",
+      "rationale": "The matched declaration supplies the exact parameter and return types. Field assignments reveal the accumulator layout and vector roles, while HSD_ViewingRectAddRect branches directly on rect->perspective to choose perspective or non-perspective geometry.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:28.469Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L432-L449",
+          "why": "Provides the exact signature and shows which HSD_ViewingRect fields are populated from each parameter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L350-L505",
+          "why": "Shows the adjacent accumulator consumer branching on the stored perspective field and using the initialized basis, origin, distance, and extrema."
+        }
+      ]
+    },
+    {
+      "id": "fact:af7a2f66-edbb-46d6-9304-0c105fdbd2ed",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes a viewing-rectangle accumulator for fitting a shadow camera around later-added world-space bounds. It derives an orthogonal view basis and eye distance from an eye position, interest point, and up direction, then starts the four accumulated extents in an empty state.",
+      "rationale": "The current function still constructs the look-at-style basis and inverted sentinel extents. Its current fighter-shadow caller immediately adds the fighter camera-box rectangle and uses the resulting bounds for camera fitting.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L432-L449",
+          "why": "Directly shows view-basis and eye-distance construction and initialization of the four extrema to an empty state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L539",
+          "why": "Shows the initialized accumulator receiving fighter camera-box bounds and supplying valid extents to the shadow camera."
+        }
+      ]
+    },
+    {
+      "id": "fact:f671909d-e9ba-43ad-b8ec-0f04bfeb50df",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Places the accumulator in an intentionally empty/invalid extent state: `top` and `right` begin at negative infinity-like limits, while `bottom` and `left` begin at positive limits. HSD_ViewingRectCheck remains false until an accepted rectangle expands the extrema so that `top > bottom` and `right > left`; perspective additions behind the eye are rejected without changing the accumulator.",
+      "rationale": "Current code retains the opposing F32_MAX sentinel assignments, the strict validity predicate, and the perspective early return for nonpositive depth. The current fighter-side loop still relies on this invalid-to-valid transition before selecting fallback projection bounds.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:HSD_ViewingRectInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L432-L449",
+          "why": "Shows top and right initialized to -F32_MAX and bottom and left initialized to F32_MAX."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L451-L455",
+          "why": "Shows validity requiring top greater than bottom and right greater than left."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L457-L502",
+          "why": "Shows perspective additions with nonpositive depth returning before any extrema are updated."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L470-L567",
+          "why": "Shows the caller repeatedly adding and checking a rectangle before choosing valid accumulated bounds or a fallback projection."
+        }
+      ]
+    },
+    {
+      "id": "fact:5849e584-a0ae-41e2-bd29-b81a0b7c746b",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the shadow camera's top, bottom, left, right, and near projection bounds; multiplies each lateral bound by approximately 1.2 and near by approximately -1.1; and serializes twelve floating-point coordinates as four direct XYZ vertices forming the rectangle (left, top, near), (right, top, near), (right, bottom, near), and (left, bottom, near).",
+      "rationale": "The camera getter calls and scaling operations explicitly establish the inputs and transformations. GX is configured for direct XYZ F32 positions, so the six two-float FIFO writes following GXBegin comprise twelve successive components, i.e. four three-component vertices in rectangle order.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:53:22.346Z",
+      "subject": "main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L138-L171",
+          "why": "Shows every camera-bound input, exact scale factor, vertex format, primitive count, and ordered floating-point position write."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5bfb9ba-8854-43a7-a13c-840c076e2d3a",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the background-fill stage of projected shadow-texture generation, establishing the light, non-shadow portion of the texture before caster silhouettes are drawn at the configured shadow intensity.",
+      "rationale": "The caller's color transition gives the helper its gameplay-visible meaning: white is selected for this quad, then the shadow intensity is selected for the registered casters. The resulting image is copied into the texture used by the shadow subsystem.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:53:22.346Z",
+      "subject": "main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L138-L171",
+          "why": "Shows the camera-covering background quad emitted by the helper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L172-L280",
+          "why": "Shows the quad being drawn in white before intensity-colored shadow casters and the completed framebuffer being copied into the shadow texture."
+        }
+      ]
+    },
+    {
+      "id": "fact:fa55aa45-81e2-432b-9bfc-9b00b38cdd9f",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "File-local rendering helper with signature static void drawBackgroundRect(HSD_Shadow* shadow); it consumes a valid shadow object whose camera supplies projection-volume bounds and emits geometry directly to GX without returning a value.",
+      "rationale": "The matched definition establishes the exact linkage, return type, and parameter type. The body immediately reads shadow->camera and sends direct-position data through GX, with no output except graphics commands and graphics-state side effects.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:22.346Z",
+      "subject": "main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L138-L171",
+          "why": "Provides the complete function declaration and body, including its HSD_Shadow input and direct GX output."
+        }
+      ]
+    },
+    {
+      "id": "fact:a0ec0469-0f9a-4b73-8cc0-698d62f596d3",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Draws the light background of the offscreen shadow image before any shadow-casting objects are rendered. It covers an area slightly larger than the shadow camera's viewing bounds at a depth just beyond the camera near plane, ensuring the render target has a non-shadow background around the caster silhouettes.",
+      "rationale": "The helper derives all four projection bounds and the near distance from the shadow camera, expands the horizontal and vertical bounds by 1.2, offsets the depth by a factor of -1.1, and emits a quad. Its sole caller configures the channel color to white immediately before calling it, then switches the color to shadow->intensity and renders the caster list, establishing the quad's role as the background pass.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:53:22.346Z",
+      "subject": "main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L138-L171",
+          "why": "Shows the helper expanding the camera bounds, offsetting the near depth, and submitting the resulting quad."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L172-L280",
+          "why": "Shows HSD_ShadowStartRender selecting white before this call and selecting shadow intensity afterward for the caster geometry."
+        }
+      ]
+    },
+    {
+      "id": "fact:6cf76a2d-0c88-4cfc-88a5-9da57299e6ab",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Unconditionally installs the identity position matrix as GX_PNMTX0, records the matrix-load performance event, makes that matrix current, clears prior vertex descriptors, enables only direct position submission in XYZ/F32 format, selects back-face culling, and emits one four-vertex GX_QUADS primitive. It contains no conditional branches or persistent shadow-object state mutation.",
+      "rationale": "The complete matched body is a straight-line graphics setup and draw sequence. All graphics-state changes precede the single GXBegin/GXEnd region, while the shadow object is only read through its camera.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:22.346Z",
+      "subject": "main/sysdolphin/baselib/shadow:drawBackgroundRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L138-L171",
+          "why": "Directly shows the matrix, vertex descriptor, attribute format, culling, and primitive-submission sequence and the absence of branches or writes to the shadow object."
+        }
+      ]
+    },
+    {
+      "id": "fact:374ae318-f9f9-48e8-93b2-9e38e286c131",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:makeMatrix",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The camera projection selector chooses one union arm of camera projection parameters. Those parameters, together with shadow->scaleS, scaleT, transS, and transT, produce a temporary light projection matrix; MTXConcat then multiplies that matrix by the camera viewing matrix and writes the product to shadow->texture->mtx for later shadow-texture coordinate generation.",
+      "rationale": "The current makeMatrix body still selects the appropriate perspective, frustum, or orthographic parameter arm, passes the shadow's S/T scale and translation into the corresponding light-matrix constructor, and concatenates that result with the camera viewing matrix into the texture matrix.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:makeMatrix",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L345-L381",
+          "why": "Shows the complete projection-selector, camera-parameter, texture-bias, constructor, and final texture-matrix data flow."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L202-L229",
+          "why": "Corroborates the camera subsystem's perspective, frustum, and orthographic projection-selector convention."
+        }
+      ]
+    },
+    {
+      "id": "fact:6d297c9c-7ef2-46d6-8d1c-1ecf662fae07",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:makeMatrix",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the coordinate transform used to project the captured shadow map onto rendered surfaces: the shadow camera's world-to-view transform is followed by a projection-and-texture-bias transform, yielding the matrix stored with the shadow texture.",
+      "rationale": "Current code still composes a projection-dependent light texture matrix with the shadow camera's viewing transform and stores it on the shadow texture. Current initialization preserves the S/T scale and translation coefficients, and end-render still invokes matrix generation after texture capture.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:36:58.612Z",
+      "subject": "main/sysdolphin/baselib/shadow:makeMatrix",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L345-L381",
+          "why": "Shows the shadow camera view transform and projection-dependent texture transform being composed into the shadow texture's matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L1-L120",
+          "why": "Shows the shadow object's default S/T scale and translation coefficients and establishes that the destination matrix belongs to its texture."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L240-L279",
+          "why": "Shows makeMatrix being invoked after the rendered shadow image is copied into the texture."
+        }
+      ]
+    },
+    {
+      "id": "fact:e63f5fe5-d8ed-4622-922e-be04c007b2f1",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:makeMatrix",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: static void makeMatrix(HSD_Shadow* shadow). It consumes the shadow's camera and texture-mapping fields and writes a 3-by-4 affine matrix through shadow->texture->mtx without returning a value.",
+      "rationale": "The matched definition provides the exact static void signature. Its body reads only through the HSD_Shadow argument and sends shadow->texture->mtx to MTXConcat as the writable output matrix.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:24.136Z",
+      "subject": "main/sysdolphin/baselib/shadow:makeMatrix",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L345-L381",
+          "why": "Establishes the exact function signature, the HSD_Shadow fields consumed, and the matrix output destination."
+        }
+      ]
+    },
+    {
+      "id": "fact:5cdead6e-7d3f-4b04-9ac1-fc3c7a7ec48e",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:makeMatrix",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds the projective texture matrix for a shadow map by combining a projection-mode-specific light texture matrix with the shadow camera's viewing matrix and storing the result in the shadow texture object.",
+      "rationale": "The function selects MTXLightPerspective, MTXLightFrustum, or MTXLightOrtho from the camera's projection type, then concatenates that result with the camera viewing matrix directly into shadow->texture->mtx. Its sole caller invokes it immediately after copying the completed shadow image into that texture.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:24.136Z",
+      "subject": "main/sysdolphin/baselib/shadow:makeMatrix",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L345-L381",
+          "why": "Directly shows construction of the light projection matrix and concatenation with the camera viewing matrix into the texture matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L240-L279",
+          "why": "Shows HSD_ShadowEndRender calling makeMatrix after copying and synchronizing the rendered shadow image."
+        }
+      ]
+    },
+    {
+      "id": "fact:8659d796-ed01-4923-92c5-68d5d9d48c8c",
+      "target_id": "target:function:main/sysdolphin/baselib/shadow:makeMatrix",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For PROJ_PERSPECTIVE it builds an MTXLightPerspective matrix from field of view and aspect; for PROJ_FRUSTUM it builds an MTXLightFrustum matrix from explicit bounds and the near plane; for PROJ_ORTHO it builds an MTXLightOrtho matrix from explicit bounds. Any other projection selector triggers an assertion instead of producing a fallback matrix; every valid branch then updates the texture matrix.",
+      "rationale": "The matched switch explicitly defines all three valid projection states and their constructors, while the default arm is an unconditional HSD_ASSERT. The shared post-switch concatenation performs the update for each valid state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:53:24.136Z",
+      "subject": "main/sysdolphin/baselib/shadow:makeMatrix",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L345-L381",
+          "why": "Directly shows the three projection branches, the invalid-state assertion, and the common texture-matrix write."
+        }
+      ]
+    },
+    {
+      "id": "fact:9f005e6f-eaef-400c-8e13-cdb936459d54",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/shadow.c",
+      "type": "data_flow",
+      "value": "An HSD_Shadow owns an HSD_CObj camera, an HSD_TObj-backed image buffer, and a list of HSD_JObj casters. StartRender draws the caster list with RENDER_SHADOW into the camera's target; EndRender copies that result into the texture and updates its projection matrix; activation registers or unregisters the texture with the material subsystem. Separately, eye, interest, up, and subject-bound inputs are converted into HSD_ViewingRect bounds, which HSD_ShadowSetViewingRect applies to the shadow camera's perspective, frustum, or orthographic projection.",
+      "rationale": "Current allocation and rendering code preserves camera, texture, and caster ownership and render-to-texture flow. The viewing-rectangle routines preserve spatial input flow into perspective, frustum, or orthographic camera projection.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T17:02:00.587Z",
+      "subject": "src/sysdolphin/baselib/shadow.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L1-L120",
+          "why": "Shows creation and ownership of the HSD_CObj camera and HSD_TObj-backed image description."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L120-L359",
+          "why": "Shows caster-list rendering, texture capture, projection-matrix refresh, material registration, and caster-list management."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L360-L505",
+          "why": "Shows eye, interest, up-vector, and bounds data being accumulated and applied to perspective, frustum, or orthographic shadow-camera projection."
+        }
+      ]
+    },
+    {
+      "id": "fact:dbcf6be4-3a3d-4996-b2be-770caca3d491",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/shadow.c",
+      "type": "game_mapping",
+      "value": "Realizes Melee's render-to-texture projected shadows: selected character geometry is rendered from a light-oriented shadow camera, captured as an intensity texture, and projected back through material texture state using a projection fitted around the fighter's camera-box bounds.",
+      "rationale": "The current HSD unit retains caster rendering, texture capture, and light-projection matrix generation, while the current fighter-side caller selects visible fighter geometry and fits each shadow camera to light-relative camera-box bounds.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T02:10:55.659Z",
+      "subject": "src/sysdolphin/baselib/shadow.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L120-L349",
+          "why": "Shows geometry rendered in shadow mode, captured into an intensity texture, and registered through material shadow-texture state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L350-L505",
+          "why": "Shows construction of the camera-derived texture projection matrix and fitting of the shadow-camera projection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbshadow.c#L420-L540",
+          "why": "Shows fighter and accessory geometry selected as casters and the shadow camera oriented and fitted from light and fighter camera-box geometry."
+        }
+      ]
+    },
+    {
+      "id": "fact:31889732-90f0-42e2-bd8d-807286b1008e",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/shadow.c",
+      "type": "purpose",
+      "value": "Implements the HSD projected-shadow subsystem: it allocates shadow objects and their render textures, manages the scene objects included in each shadow pass, renders those objects from a shadow camera into a texture, constructs the texture-projection matrix, activates the texture on materials, and fits the shadow camera's viewing rectangle to the represented subject.",
+      "rationale": "Current-head code retains shadow allocation, camera and texture setup, caster-list rendering, texture capture and material activation, projection-matrix construction, and viewing-rectangle fitting.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T17:02:00.587Z",
+      "subject": "src/sysdolphin/baselib/shadow.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L1-L120",
+          "why": "Shows allocation of HSD_Shadow objects with their camera, texture, image description, viewport, and scissor state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L120-L359",
+          "why": "Shows texture-buffer management, caster rendering, texture capture, material activation, caster-list operations, and projection-matrix construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L360-L505",
+          "why": "Shows texture-projection completion and shadow-camera viewing-rectangle configuration and accumulation."
+        }
+      ]
+    },
+    {
+      "id": "fact:01a35cf7-649a-4bb0-a09a-5a483d365e90",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/shadow.c",
+      "type": "state_behavior",
+      "value": "The subsystem renders only when at least one caster is registered. Caster insertion rejects nulls and duplicates and acquires a JObj reference; deletion releases that reference and can remove one caster or the whole list. Activation is idempotent, allocates the texture backing image on demand, and adds or removes the texture from the material system. Ending a render likewise ensures backing storage exists before copying the framebuffer and refreshing the projection matrix.",
+      "rationale": "These guards and transitions are explicit across HSD_ShadowStartRender, HSD_ShadowEndRender, HSD_ShadowSetActive, HSD_ShadowAddObject, and HSD_ShadowDeleteObject. They describe the live states of the shadow resource and its caster list, including ownership and lazy texture allocation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:53:22.346Z",
+      "subject": "src/sysdolphin/baselib/shadow.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L172-L280",
+          "why": "Shows the nonempty-list render guard and lazy backing-image allocation before framebuffer copying."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L281-L500",
+          "why": "Shows idempotent activation, material registration transitions, duplicate-resistant caster insertion, and reference-balanced caster deletion."
+        }
+      ]
+    }
+  ]
+}

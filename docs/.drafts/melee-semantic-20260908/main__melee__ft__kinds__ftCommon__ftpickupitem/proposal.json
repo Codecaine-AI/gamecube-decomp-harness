@@ -1,0 +1,67 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftpickupitem",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftpickupitem.c#L298-L421",
+            "why": "Animation progression, empty IASA, and independent interruption paths coexist."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing assertion that pickup progression and transitions belong entirely to animation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftpickupitem:ftpickupitem_IASA"
+        },
+        "type": "purpose",
+        "value": "Supplies the empty IASA-phase callback for item pickup. It performs no input-driven cancellation or transition work; animation handles timed acquisition and normal completion, while separate collision and damage callbacks handle interruption."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftpickupitem.c#L331-L421",
+            "why": "No-op IASA and explicit interruption callbacks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported invariant no-op behavior while removing the unsupported claim that all exits are animation-controlled.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftpickupitem:ftpickupitem_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Always returns without reading its fighter argument or performing guards, writes, calls, acquisition, or transitions. This IASA callback cannot itself cancel pickup; it does not prevent collision-driven Fall or damage-time item processing through other callbacks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftpickupitem.c#L207-L236",
+            "why": "Parameter-controlled command advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L255-L263",
+            "why": "Successful B3 test clears the flag."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful missing parameter knowledge: the loop condition is a consuming flag test, not a passive wait or an animation-repeat setting.",
+        "subject": {
+          "entity_locator": "main/melee/ft/kinds/ftCommon/ftpickupitem:ftpickupitem_80094694#r5"
+        },
+        "type": "state_behavior",
+        "value": "The Boolean loop argument selects one animation-command advancement when false, or repeated advancement until ftCheckThrowB3 succeeds when true. That successful test clears B3, so initialization consumes the observed event rather than leaving it pending for the animation callback. The loop has no local iteration bound."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

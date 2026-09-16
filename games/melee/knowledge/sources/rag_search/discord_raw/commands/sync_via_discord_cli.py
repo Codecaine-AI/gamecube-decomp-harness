@@ -176,11 +176,20 @@ def _parser():
             "or ~/.local/share/discord-cli/messages.db)"
         ),
     )
+    ap.add_argument("--source-root", type=Path)
+    ap.add_argument("--config", type=Path)
+    ap.add_argument("--raw-root", type=Path)
     return ap
 
 
 def main(argv=None):
+    global SOURCE_DIR, CONFIG
     args = _parser().parse_args(argv)
+    if args.source_root is not None:
+        SOURCE_DIR = args.source_root.resolve()
+        CONFIG = SOURCE_DIR / "config" / "channels.json"
+    if args.config is not None:
+        CONFIG = args.config.resolve()
 
     try:
         configured = _load_channels()
@@ -240,7 +249,7 @@ def main(argv=None):
 
     for channel in channels:
         channel_id = str(channel["id"])
-        out_dir = SOURCE_DIR / "data" / "raw" / channel_id
+        out_dir = (args.raw_root.resolve() if args.raw_root else SOURCE_DIR / "data" / "raw") / channel_id
         written = convert_db_to_jsonl(db_path, channel_id, out_dir)
         print(f"converted channel {channel_id}: wrote {written} messages",
               file=sys.stderr)

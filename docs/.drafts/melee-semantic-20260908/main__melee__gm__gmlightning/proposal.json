@@ -1,0 +1,114 @@
+{
+  "tu": "main/melee/gm/gmlightning",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmlightning.c#L155-L158",
+            "why": "Lightning exit wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L264-L268",
+            "why": "Source and destination records passed to merger."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3159-L3239",
+            "why": "Selective outcome and standings updates, including writes to both records."
+          }
+        ],
+        "op": "write",
+        "rationale": "The shared exit routine identifies both records, and the merger body exposes conditional writes to both arguments.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmlightning:gm_801BA848"
+        },
+        "type": "data_flow",
+        "value": "Forwards the departing GameModeState to gmVsMelee_ExitSuddenDeath, which passes gmVsMelee_VsExitInfo.match_end and the separate exit payload's match_end to gm_80166CCC. That routine selectively merges outcome and standings information rather than replacing the complete record; its guarded processing can also modify the Sudden Death input standings."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmlightning.c#L48-L71",
+            "why": "Sudden Death and Results callback registrations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L264-L275",
+            "why": "Merge delegation followed by Results consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3159-L3239",
+            "why": "Selective merge rather than complete record copy."
+          }
+        ],
+        "op": "write",
+        "rationale": "This distinguishes the tiebreaker merge from the later full match_end assignment into the Results payload.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmlightning:gm_801BA848"
+        },
+        "type": "purpose",
+        "value": "Handles Lightning Melee's Sudden Death exit by delegating the selective integration of tiebreaker outcome and standings into the shared ordinary Versus match-end record used by subsequent Results entry."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmlightning.c#L48-L59",
+            "why": "State and callback pairing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmlightning.c#L155-L158",
+            "why": "Unconditional delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3159-L3239",
+            "why": "Exact downstream guards and writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates branch-free wrapper behavior from guarded cross-file processing.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gmlightning:gm_801BA848"
+        },
+        "type": "state_behavior",
+        "value": "Runs on exit from Lightning state 3, GS_SUDDEN_DEATH. The wrapper unconditionally delegates and chooses no next state itself. Downstream merging conditionally propagates OUTCOME_NO_CONTEST or OUTCOME_RETRY and updates player/team standings under winner-count and participation guards; it is not an unconditional replacement of all match-end state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmlightning.c#L111-L153",
+            "why": "Shared persistent record and speed-hook registrations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L171-L262",
+            "why": "Builder order and prior-match dependency."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects ambiguous ordering and preserves the distinction between persistent configuration and the constructed battle payload.",
+        "subject": {
+          "entity_locator": "src/melee/gm/gmlightning.c"
+        },
+        "type": "data_flow",
+        "value": "Selection and gameplay wrappers share gmMainLib_804D3EE0->modes.vs_lightning. Ordinary gameplay setup first updates that persistent configuration through gm_80167BC8. Both ordinary and Sudden Death builders copy persistent rules into the scene's StartMeleeData, invoke fn_801BA7AC to overwrite destination rules.game_speed with 1.25F, and then copy player records. Both Lightning wrappers supply NULL per-player callbacks. Sudden Death additionally consumes the prior ordinary match-end record."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

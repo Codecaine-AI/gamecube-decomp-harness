@@ -1,0 +1,1477 @@
+{
+  "tu": "main/sysdolphin/baselib/generator",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "reviewer": "generator_independent_lifecycle",
+  "decision": "accept",
+  "original_proposal_path": "docs/.drafts/melee-semantic-20260908/main__sysdolphin__baselib__generator/librarian/proposal.json",
+  "original_proposal_sha256": "0273cd987ca06eef429187c6750e4a4497edf855dc053ec7c156d04772491ac3",
+  "operations": [
+    {
+      "operation_index": 0,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:.bss"
+      },
+      "type": "inferred_name",
+      "op": "clear",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:.bss"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "rationale": "A compiled section is not a single source allocator object; clear section alias without inventing layout attribution.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L73-L128",
+            "why": "Initialization and retirement."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Clear unsupported section-to-object naming alias without assigning new section contents.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L16-L36",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L73-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1042-L1244",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 1,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D354"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D354"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Reinitializes the generator allocator and clears active-list head, live/peak counts, deferred queue, particle camera, traversal cursor and extension callbacks. It does not traverse or free prior generators/queue entries or release prior attachments; this is startup/reset bookkeeping, not a cleanup routine. The shared u16 ID counter is not reset.",
+        "rationale": "Distinguish reset from resource cleanup and ID restart.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L73-L85",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Initializes generator pool using sizeof(HSD_Generator), alignment4; clears head, generator counts, camera, cursor, pending bake queue and callback globals. Does not traverse existing generators or release their resources. ID counter remains untouched.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L73-L85",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L158-L168",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 2,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D3AC"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D3AC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "If type0x80 is set, first requests owned-particle deletion. Nonzero numChild defers retirement by setting random=0 and genLife=1. The same deferral applies only with type0x100, nonnull jobj, any0x1800 bit, nonnull appsrt owned by gen and usedCount != 1 (including zero). Otherwise repairs head/predecessor links, removes AppSRT association, unreferences JObj, frees generator and decrements live count. Returns gen on deferral, prev on removal.",
+        "rationale": "Use the literal !=1 condition instead of shared-by-more-than-one wording.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3052-L3094",
+            "why": "Owned particle deletion tests identity and decrements child count."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Optional type0x80 first invokes particle deletion. Defers on numChild!=0, or the exact attached owned-AppSRT gate with usedCount!=1. Deferral writes random0/genLife1 and returns gen. Otherwise unlinks through prev/head, removes AppSRT, unrefs JObj, frees generator and decrements count; returns prev. Requires valid list predecessor and noninterfering callbacks.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 3,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D580"
+      },
+      "type": "purpose",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D580"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests retirement of all active generators attached by pointer identity to the supplied nonnull joint. Each request can free immediately or leave the generator linked with random=0 and genLife=1 while dependencies remain.",
+        "rationale": "Replace guaranteed removal with the actual retirement contract.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L157-L172",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "NULL JObj is a no-op. Saves successor and requests retirement for each direct identity match. Does not traverse joint children; matching generators can remain linked and attached.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L157-L172",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 4,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D580"
+      },
+      "type": "data_flow",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D580"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Saves each matching generator successor and passes the node to hsd_8039D4DC. That helper delegates to predecessor-aware retirement and restores the global cursor to the resulting tail. Cleanup can be deferred; no forced particle-removal flag is added here. Does not traverse JObj descendants.",
+        "rationale": "Do not describe delegation as unconditional unlink/free.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L157-L172",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "NULL JObj is a no-op. Saves successor and requests retirement for each direct identity match. Does not traverse joint children; matching generators can remain linked and attached.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L157-L172",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 5,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D580"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D580"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL joint is a no-op. Visits all generators directly attached to each selected joint, saving next before each retirement request. A deferred node remains active, retaining its attachment. Nonmatching generators and descendants are not targeted.",
+        "rationale": "Record that dependency guards can retain matched nodes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L157-L172",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "NULL JObj is a no-op. Saves successor and requests retirement for each direct identity match. Does not traverse joint children; matching generators can remain linked and attached.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L157-L172",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 6,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+      },
+      "type": "purpose",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests retirement of all active generators attached by pointer identity to the supplied nonnull joint and each eligible descendant. Each request can free immediately or leave the generator linked with random=0 and genLife=1 while dependencies remain.",
+        "rationale": "Replace guaranteed removal with the actual retirement contract.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L174-L198",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Same retirement request per visited joint; NULL is a no-op. Processes current joint before stopping child recursion at flag0x1000, JOBJ_INSTANCE. Descendants only, no traversal of the supplied root sibling chain.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L174-L198",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 7,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+      },
+      "type": "data_flow",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Saves each matching generator successor and passes the node to hsd_8039D4DC. That helper delegates to predecessor-aware retirement and restores the global cursor to the resulting tail. Cleanup can be deferred; no forced particle-removal flag is added here. Recurses through child/sibling links unless current joint flags include0x1000.",
+        "rationale": "Do not describe delegation as unconditional unlink/free.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L174-L198",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Same retirement request per visited joint; NULL is a no-op. Processes current joint before stopping child recursion at flag0x1000, JOBJ_INSTANCE. Descendants only, no traversal of the supplied root sibling chain.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L174-L198",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 8,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL joint is a no-op. Visits all generators directly attached to each selected joint, saving next before each retirement request. A deferred node remains active, retaining its attachment. Current-joint cleanup is attempted before the0x1000 child-traversal boundary; eligible children are then visited recursively.",
+        "rationale": "Record that dependency guards can retain matched nodes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L174-L198",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Same retirement request per visited joint; NULL is a no-op. Processes current joint before stopping child recursion at flag0x1000, JOBJ_INSTANCE. Descendants only, no traversal of the supplied root sibling chain.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L174-L198",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 9,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+      },
+      "type": "game_mapping",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides model-subtree particle-generator retirement requests, stopping child traversal at joint flag0x1000. It does not guarantee that all emitters are immediately detached or reclaimed; live children or qualifying AppSRT dependencies can defer removal.",
+        "rationale": "Avoid claiming no associated active emitters remain.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L174-L198",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Same retirement request per visited joint; NULL is a no-op. Processes current joint before stopping child recursion at flag0x1000, JOBJ_INSTANCE. Descendants only, no traversal of the supplied root sibling chain.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L174-L198",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 10,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D688"
+      },
+      "type": "data_flow",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D688"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Scans the active list, saving next. For matching jobj identity, adds type0x80 only when appsrt is nonnull and type0x100 is set, then retires with the current predecessor. Return gen means deferred node remains predecessor; return prev means removal. Nonmatches become predecessor. NULL jobj is accepted and can match unattached generators; unused1/unused2 are ignored.",
+        "rationale": "Clarify return cursor and nullable identity behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L200-L223",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Scans by nullable JObj identity; NULL can match unattached generators. Adds0x80 only for matches with AppSRT and type0x100, then retires and uses returned node as predecessor. Remaining two arguments unused.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L200-L223",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L3037-L3095",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L105-L132",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 11,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D71C"
+      },
+      "type": "data_flow",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D71C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "After JObj matrix setup and optional position/owned-AppSRT translation/scale updates, individually normalizes all three matrix columns and multiplies gen->vel by those columns. This removes individual column lengths but does not orthogonalize shear or guard zero columns. Shape1 line offset uses the raw3x3 matrix, retaining scale. Manager later unreferences and clears jobj.",
+        "rationale": "Do not imply a pure rotation or universally preserved velocity magnitude.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L225-L308",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Type0x100 and non-NULL JObj gate work. Transfers optional translation/owned AppSRT components; normalizes matrix columns independently then multiplies velocity. This is not shear removal or guaranteed speed preservation. Line shape1 offset uses raw3x3. Does not itself unref or clear JObj; manager does afterward.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L225-L308",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 12,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D9C8"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D9C8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Failure returns NULL before manager count/list/ID updates. Success zeroes storage, increments live/peak counts, then inserts: empty list becomes head; absent cursor or cursor without successor inserts immediately after existing head; otherwise inserts immediately after cursor->next. It advances shared u16 ID with floor0x100 and returns a published generator before resource initialization.",
+        "rationale": "Record exact insertion position, not insertion at cursor.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L310-L351",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Allocation failure leaves manager list/count/ID untouched. Success clears storage and updates counts; empty list becomes head, absent/terminal cursor inserts after head, otherwise inserts after cursor->next. Published object gets next ID before resource initialization.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L310-L351",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/objalloc.c#L71-L117",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 13,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039DAD4"
+      },
+      "type": "purpose",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039DAD4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Consumes whole emission-count units by dispatching shape-specific particle-creation attempts or an optional custom emitter. Builds JObj/camera/velocity orientation and shape-dependent parameters, subtracting one per dispatch regardless of allocation success; returns residual count. Unsupported shapes with no callback still consume units.",
+        "rationale": "Separate attempted creation from guaranteed particle count.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L358-L537",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L538-L717",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L718-L897",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L898-L963",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L505-L513",
+            "why": "Void wrapper discards particle allocator result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L385-L391",
+            "why": "Particle allocation can fail."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Below1 returns immediately. Shape dispatch consumes one floating count unit per iteration, including failed particle allocation or absent custom callback. Parent basis excludes kind0x30000, not comment0x3C000. Independent column normalization and billboard unnormalized crosses are not orthonormalization. Shapes0/3/4/6/7 radial;1 line;2 encoded tornado;5 rectangular;8 spherical. Negative-angle phase stepping is ignored by sphere. Sphere consumes union speed and latRange but ignores stored centers/lonRange. Invalid floating values, out-of-range casts, zero denominators and callback mutation have no local guards; large floats can fail to decrease.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L358-L963",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L385-L391",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L505-L513",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L198-L276",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 14,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039DAD4"
+      },
+      "type": "inferred_type",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039DAD4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical f32 hsd_8039DAD4(HSD_Generator* gen). Required mutable generator; return is current residual count, not number of particles created. Finite ordinary nonnegative counts reduce below1, but negative or NaN inputs can be returned unchanged; no finite/range guard exists, and very large float counts can fail to decrease when1 is subtracted.",
+        "rationale": "State return domain and termination preconditions without a universal [0,1) guarantee.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L358-L537",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L538-L717",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L718-L897",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L898-L963",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Below1 returns immediately. Shape dispatch consumes one floating count unit per iteration, including failed particle allocation or absent custom callback. Parent basis excludes kind0x30000, not comment0x3C000. Independent column normalization and billboard unnormalized crosses are not orthonormalization. Shapes0/3/4/6/7 radial;1 line;2 encoded tornado;5 rectangular;8 spherical. Negative-angle phase stepping is ignored by sphere. Sphere consumes union speed and latRange but ignores stored centers/lonRange. Invalid floating values, out-of-range casts, zero denominators and callback mutation have no local guards; large floats can fail to decrease.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L358-L963",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L385-L391",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L505-L513",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L198-L276",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 15,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039DAD4"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039DAD4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns immediately for count<1; otherwise dispatches while count>=1 and decrements one per iteration. Shape0/3/4/6/7 use radial formulas,1 line,2 tornado parameters,5 rectangle,8 sphere; default calls an optional callback. Negative angle uses stepped azimuth where shape logic consumes it; shape8 independently samples azimuth. Joint columns normalize individually without shear removal; billboard cross-product axes are not normalized after construction. Zero rect-axis/weight denominators and radius0 with negative sphere speed are locally unguarded.",
+        "rationale": "Record shape-specific and numerical limits instead of uniform stepping/pure-rotation guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L358-L537",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L538-L717",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L718-L897",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L898-L963",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Below1 returns immediately. Shape dispatch consumes one floating count unit per iteration, including failed particle allocation or absent custom callback. Parent basis excludes kind0x30000, not comment0x3C000. Independent column normalization and billboard unnormalized crosses are not orthonormalization. Shapes0/3/4/6/7 radial;1 line;2 encoded tornado;5 rectangular;8 spherical. Negative-angle phase stepping is ignored by sphere. Sphere consumes union speed and latRange but ignores stored centers/lonRange. Invalid floating values, out-of-range casts, zero denominators and callback mutation have no local guards; large floats can fail to decrease.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L358-L963",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L385-L391",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L505-L513",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L198-L276",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 16,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039EE24"
+      },
+      "type": "purpose",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039EE24"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Processes one generator pass: first drains the deferred JObj-transform bake/detach queue, then updates eligible active generators, consumes emission attempts and requests retirement when nonzero lifetime reaches zero. Deferred queue entries are not generator-deletion requests.",
+        "rationale": "Identify queue operation from its callee and subsequent JObj release.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L225-L308",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Drains pending bake nodes before any mask test; bakes then frees node and unrefs/clears JObj. Active skip is mask bit(linkNo+16) or kind0x800. Eligible nodes follow transform, accumulate deterministic -random or random*Randf, attempt emission, then decrement nonzero genLife and request retirement at zero. genLife0 is unlimited. Deferred retirement resets life1 for a later eligible pass.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L978",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L28-L70",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L80-L90",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 17,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039EE24"
+      },
+      "type": "data_flow",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039EE24"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Before applying link masks, consumes every queued generator pointer, bakes its JObj transform, frees its queue node and unreferences/clears jobj. Then traverses active list with predecessor cursor. Skips mask bit(linkNo+16) or kind0x800; otherwise updates transform, adds -random for negative rates or random*Randf for nonnegative rates, dispatches whole count and decrements nonzero genLife. Expiry delegates to immediate-or-deferred retirement.",
+        "rationale": "Replace deferred-cleanup interpretation with transform baking and distinguish attempts from successful allocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L225-L308",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Drains pending bake nodes before any mask test; bakes then frees node and unrefs/clears JObj. Active skip is mask bit(linkNo+16) or kind0x800. Eligible nodes follow transform, accumulate deterministic -random or random*Randf, attempt emission, then decrement nonzero genLife and request retirement at zero. genLife0 is unlimited. Deferred retirement resets life1 for a later eligible pass.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L978",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L28-L70",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L80-L90",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 18,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039EE24"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039EE24"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The deferred bake/detach queue drains on every invocation before mask/kind filters. Those filters freeze active-pass transform, count and lifetime updates, but do not suppress earlier queued detachment. genLife0 is unlimited; positive lifetime decrements after emission and zero requests retirement. Dependencies can retain an expired generator with random0/genLife1; later eligible passes retry.",
+        "rationale": "Correct absolute unchanged/removed assertions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Drains pending bake nodes before any mask test; bakes then frees node and unrefs/clears JObj. Active skip is mask bit(linkNo+16) or kind0x800. Eligible nodes follow transform, accumulate deterministic -random or random*Randf, attempt emission, then decrement nonzero genLife and request retirement at zero. genLife0 is unlimited. Deferred retirement resets life1 for a later eligible pass.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L978",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L28-L70",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L80-L90",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 19,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F05C"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F05C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Rejects bank>=65, linkNo>=8, idx>=psCmdListArray[bank], null selected command or allocation failure. Negative signed bank/link/index values are not rejected locally; bank/reference/texture table pointers and texture-group bounds rely on callers/resources. Publishes pooled generator before copying resource fields and configuring shape/count/palette state. kind0x20000 sets type0x800 and attempts AppSRT allocation; failure leaves appsrt NULL without failing constructor. Extension hooks run before return.",
+        "rationale": "Record one-sided validation, initialization visibility and optional allocation failure.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1042-L1221",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1222-L1224",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Upper-only signed checks bank<65, link<8, idx<psCmdListArray[bank]; negative bank/index and uninitialized resource tables remain unsafe. Allocates/publishes before copying template fields, initial count, palette and aux variants. Kind0x20000 requests AppSRT but failure still returns generator. Shape custom hook and final hook can mutate already-published object. Header and source have exact same function types.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1042-L1224",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L139-L151",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L60-L63",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L198-L276",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 20,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F05C"
+      },
+      "type": "data_flow",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F05C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Copies selected command fields into a zeroed active-list generator; chooses initial count from kind0x100 and random; reads palette flag and configures aux by low type nibble. Shape8 stores sphere speed/latMid/latRange/lonMid/lonRange, with negative param1 flipping speed. Emission accesses overlapping aux fields as cone.height (latRange) and rect.x (speed); the stored angular-center/lonRange fields are not read by the owned sphere-emission branch. Optional AppSRT and final callbacks follow.",
+        "rationale": "Distinguish stored sphere parameters from parameters actually consumed.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1042-L1221",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1222-L1224",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L198-L276",
+            "why": "Union alternatives establish shared field offsets."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L881-L949",
+            "why": "Sphere emitter reads latRange/speed through alternate members."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Upper-only signed checks bank<65, link<8, idx<psCmdListArray[bank]; negative bank/index and uninitialized resource tables remain unsafe. Allocates/publishes before copying template fields, initial count, palette and aux variants. Kind0x20000 requests AppSRT but failure still returns generator. Shape custom hook and final hook can mutate already-published object. Header and source have exact same function types.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1042-L1224",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L139-L151",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psappsrt.c#L60-L63",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L198-L276",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 21,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F6CC"
+      },
+      "type": "purpose",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F6CC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Creates a resource-defined generator with a retained optional JObj attachment and attachment mode flags, then queues it for one-time JObj-transform baking and detachment at the next generator-manager invocation. It also remains in the independent active-generator list until retirement.",
+        "rationale": "Replace persistent managed-static-list claim with the observed one-shot queue lifecycle.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1226-L1244",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L28-L70",
+            "why": "Queue allocation and insertion semantics."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Base construction and JObj retention/type flags match EFAC, then a separate SList node requests next-pass bake/detach. Helper inserts after current anchor and asserts allocation. Queue does not retain generator independently and retirement does not remove pending bake references. Caller lifetime discipline must keep queued generators alive until drain.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1226-L1244",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L978",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L28-L70",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L80-L90",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L987-L1014",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 22,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F6CC"
+      },
+      "type": "game_mapping",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F6CC"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements the static-particle callback path by snapshotting joint-derived emitter state on the next manager pass, allowing emission to continue after that joint reference is released. Its auxiliary queue is drained, not persistent across frames.",
+        "rationale": "Replace persistent managed-static-list claim with the observed one-shot queue lifecycle.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1226-L1244",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L28-L70",
+            "why": "Queue allocation and insertion semantics."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Base construction and JObj retention/type flags match EFAC, then a separate SList node requests next-pass bake/detach. Helper inserts after current anchor and asserts allocation. Queue does not retain generator independently and retirement does not remove pending bake references. Caller lifetime discipline must keep queued generators alive until drain.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1226-L1244",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L978",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L28-L70",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L80-L90",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L987-L1014",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 23,
+      "subject": {
+        "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F6CC"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F6CC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Base creation failure returns NULL. Success stores and retains optional jobj, adds0x500 for kind0x20000 or0x700 otherwise, and inserts a node into the deferred bake queue. Queue helper inserts after an existing anchor, not necessarily at the tail, and asserts allocation success; no rollback exists here. Manager drains queue before masking active generators, bakes transform and releases jobj.",
+        "rationale": "Replace persistent managed-static-list claim with the observed one-shot queue lifecycle.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1226-L1244",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L28-L70",
+            "why": "Queue allocation and insertion semantics."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Base construction and JObj retention/type flags match EFAC, then a separate SList node requests next-pass bake/detach. Helper inserts after current anchor and asserts allocation. Queue does not retain generator independently and retirement does not remove pending bake references. Caller lifetime discipline must keep queued generators alive until drain.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1226-L1244",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L978",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L28-L70",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/list.c#L80-L90",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L987-L1014",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "operation_index": 24,
+      "subject": {
+        "entity_locator": "src/sysdolphin/baselib/generator.c"
+      },
+      "type": "state_behavior",
+      "op": "write",
+      "operation": {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/generator.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Allocations publish active-list nodes and advance shared wrapping IDs. The separate deferred queue is drained before active-pass filters to bake JObj transforms and release attachments. Eligible active generators accumulate and consume emission attempts, then decrement finite lifetimes; dependency-aware retirement can retain expired or explicitly targeted nodes with random0/genLife1. Startup reset discards list/queue references without cleaning existing objects.",
+        "rationale": "Unify actual queue, attempt and deferred-retirement lifecycles.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L73-L128",
+            "why": "Initialization and retirement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Canonical function body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Canonical function body."
+          }
+        ]
+      },
+      "decision": "accept",
+      "reason": "Clear unsupported section-to-object naming alias without assigning new section contents.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L16-L36",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L73-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1042-L1244",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    }
+  ],
+  "required_corrections": [],
+  "optional_clarifications": [
+    {
+      "subjects": [
+        "hsd_8039DAD4",
+        "hsd_8039EE24"
+      ],
+      "text": "Termination and complete queue/list traversal presume valid live nodes, callbacks that return without invalidating traversal, and counts for which decrement makes progress. This is already stated in librarian findings; it may also be carried into a future consolidated contract.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L952-L962",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L970-L1019",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    },
+    {
+      "subject": "hsd_8039F6CC",
+      "text": "Pending SList nodes hold borrowed generator pointers. The retirement helper does not remove them, so callers must keep pending generators alive through the next bake drain. No actual stale-pointer execution was demonstrated.",
+      "canonical_evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L970-L978",
+          "why": "Independently read pinned canonical source."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1240-L1243",
+          "why": "Independently read pinned canonical source."
+        }
+      ]
+    }
+  ],
+  "dry_run": {
+    "mode": "dry-run",
+    "status": "valid",
+    "counts": {
+      "applied": 25,
+      "rejected": 0,
+      "skipped": 0
+    },
+    "validation_directory": "games/melee/state/knowledge_v2/semantic-sweep-20260908/validation/0273cd987ca06eef429187c6750e4a4497edf855dc053ec7c156d04772491ac3"
+  },
+  "counts": {
+    "owned_lines": 1286,
+    "subjects": 50,
+    "function_targets": 16,
+    "section_targets": 7,
+    "parameters": 26,
+    "baseline_facts": 119,
+    "facts_by_disposition": {
+      "retain": 66,
+      "supersede": 24,
+      "reject": 1,
+      "unresolved": 28
+    },
+    "baseline_links": 23,
+    "links_by_disposition": {
+      "retain": 15,
+      "reject": 3,
+      "unresolved": 5
+    },
+    "reviewed_proposal_operations": 25,
+    "accepted_operations": 25,
+    "required_corrections": 0
+  },
+  "completed_at": "2026-09-08T16:48:34.358876+00:00"
+}

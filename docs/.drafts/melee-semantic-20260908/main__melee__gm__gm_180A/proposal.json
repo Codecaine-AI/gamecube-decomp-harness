@@ -1,0 +1,92 @@
+{
+  "tu": "main/melee/gm/gm_180A",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L103-L174",
+            "why": "Exact phase guards, stability thresholds, mode writes and presentation branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L176-L244",
+            "why": "Unconditional subsequent digit animation, history storage and high-water transition."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact strict thresholds, branch ordering, distinct terminal-mode conditions and the restricted Ground-signal check rather than collapsing them into a generic completion state.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_180A:fn_80180C60"
+        },
+        "type": "state_behavior",
+        "value": "Stores the nonnegative scaled current distance, then branches on the entry value of b76 and current b54. When both are nonzero, it hides timers and counts consecutive unchanged distances; a counter strictly greater than 60 sets b32, and sets b10 to 1 only when distance is zero and b10 was zero. Otherwise, an already nonzero b76 uses a strictly greater than 120 stability threshold to set b32 and, if zero, b10 to 1 regardless of distance. If b76 was zero, gm_8016AEEC()==0 and gm_8016AEFC()==0x3B can set b76, hide timers and call Player_80031790(0). Only in this outer else branch is Ground_801C1DC0 examined: a nonzero result conditionally sets b76 and b54, invokes the associated timer/player operations, and resets the stability counter. When b32 is zero the root requests frame 0; otherwise nonzero b10 hides it, while zero b10 permits surpassed-record feedback, guarded by a one-shot latch. The localized digit display is updated and animated afterward regardless of those presentation branches. Previous distance is stored, and a current distance strictly greater than high-water plus ten updates high-water and emits progress audio."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L260-L301",
+            "why": "Ordered dismissal paths, mode reread, exact timer tests and conditional record update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L112-L138",
+            "why": "Distance callback's mode-1 writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L314-L325",
+            "why": "Mode and timer initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the prior description of independent dismissal paths and explicitly preserves the exceptional mode-3 early-return behavior and strict input delay.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_180A:fn_80181598"
+        },
+        "type": "state_behavior",
+        "value": "Returns without result processing when gm_801A4624() is nonzero. Otherwise, any nonzero b10 enters the first dismissal path: mode 1 plays two sounds and becomes 2, then lbl_804D65D8 increments. At >=240, or at >60 with the owning controller's A trigger, it requests match termination and returns immediately without a record update. If that return was not taken, a second test requires b32 nonzero and the reread b10 equal to 0 or 3. This advances xC; at >60 with either xC>=240 or A triggered, it replaces the character-indexed runtime record only if current distance is greater, then requests termination. Mode 3 can advance both timers, but the first path's dismissal preempts the second path. Local code initializes mode 0 and writes modes 1 and 2; it does not establish a producer for mode 3."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmhomerun.c#L133-L139",
+            "why": "Caller supplies configured character kind and nametag."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L369-L373",
+            "why": "Complete two-field setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L162-L169",
+            "why": "Character-record comparison and independently fetched live nametag."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_180A.c#L289-L298",
+            "why": "Stored character kind selects the conditional record replacement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the caller-established argument domains while removing an unsupported implication that the saved nametag drives later feedback.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_180A:gm_80181A00"
+        },
+        "type": "purpose",
+        "value": "Stores the configured Home-Run contestant's character kind and nametag unchanged in shared attempt state. The retained character kind selects the runtime record used for comparison and conditional replacement. The stored nametag field has no observed consumer in this translation unit; record feedback instead obtains Player_GetNametagSlotID(0) live."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

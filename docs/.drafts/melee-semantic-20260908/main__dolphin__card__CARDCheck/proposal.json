@@ -1,0 +1,33 @@
+{
+  "tu": "main/dolphin/card/CARDCheck",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDCheck.c#L68-L190",
+            "why": "Shows exact destination selection, peer-to-selected copy direction, FAT signed operands, and aggregate rejection rules."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDCheck.c#L209-L333",
+            "why": "Shows single-copy recovery, destructive scratch-map use, structural error exits, orphan repair, restoration, and prioritized completion branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the ambiguous newer-copy claim, distinguishes aggregate verification from extended single-copy recovery, and preserves the exceptional scratch-buffer and directory-priority branches rather than implying every in-memory FAT repair necessarily dispatches a FAT write.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/card/CARDCheck.c"
+        },
+        "type": "state_behavior",
+        "value": "ID verification failure terminates checking. With both redundant copies valid and no current pointer, directory/FAT verification selects destination slot 0 when its check-code difference is negative, otherwise slot 1, installs that pointer, and copies the opposite block over it; FAT explicitly interprets each check-code operand as s16. An existing current pointer is preserved. __CARDVerify rejects every nonzero aggregate metadata error count, whereas CARDCheckExAsync reconstructs one failed copy and rejects more than one error. The extended check rejects invalid, repeated, truncated, or overlong file chains, reclaims unreferenced allocations, and repairs free-count/checksum fields in memory. Its reference map temporarily overwrites the opposite FAT buffer, which is restored only after successful traversal; error exits do not roll back work-area changes. Directory repair takes writeback priority and returns through __CARDUpdateDir even if orphan reclamation also changed the FAT. Otherwise FAT repair or orphan reclamation returns through __CARDUpdateFatBlock. With neither update required, the control block is released as ready and the optional callback runs inline with interrupts disabled."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "tu": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu:ftKb_PkSpecialN_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles grounded Kirby copied Pikachu/Pichu Thunder Jolt animation: consumes an exact command-slot-0 release cue, makes at most one configured spawn attempt while command slot 1 stays latched, plays copy-specific firing sound regardless of the spawn return value, and calls ft_8008A2BC on animation exhaustion.",
+        "rationale": "Repairs exactly-once successful-creation wording using the callback and nullable spawner.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu.c#L56-L99",
+            "why": "Complete release, sound, and completion paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L79-L103",
+            "why": "Nullable result is ignored by caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu:ftKb_PkSpecialN_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Only slot 0 exactly equal to true is consumed and cleared. If slot 1 is zero, it is set before the hat switch. Pikachu/Pichu attempt one spawn and play their sound; unsupported hats do neither. Non-one trigger values are untouched, and any nonzero latch suppresses another attempt. Spawn failure neither resets the latch nor suppresses sound. This guarantee lasts only while other writers leave slot 1 set. Independently, animation exhaustion calls ft_8008A2BC.",
+        "rationale": "Specifies exact boundaries, unsupported branches, failure, and local latch lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu.c#L63-L98",
+            "why": "Exact guard and write ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L79-L103",
+            "why": "Failure is possible."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu:ftKb_PkSpecialAirN_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles aerial Kirby copied Pikachu/Pichu Thunder Jolt animation through a cue-gated, latched spawn attempt with aerial offsets and copy-specific item/audio data. On supported-hat animation exhaustion, zero landing lag calls ftCo_Fall_Enter; nonzero lag is forwarded to ftCo_80096900, which can divert through x2224_b2 instead of entering FallSpecial. Successful item creation is not guaranteed.",
+        "rationale": "Qualifies nullable release and verifies the recovery callee's optional branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu.c#L101-L165",
+            "why": "Complete aerial callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L28-L59",
+            "why": "Optional diversion before FallSpecial entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachutjoltground.c#L79-L103",
+            "why": "Nullable creation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu:ftKb_PkSpecialAirN_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Slot 0 exactly equal to true is cleared; a zero slot 1 is set before the hat switch. Supported hats attempt spawning and play sound even on allocation failure; unsupported hats consume/latch the cue without release. Further attempts are blocked while slot 1 stays nonzero. At animation exhaustion, either signed-zero selected lag calls ftCo_Fall_Enter; values unequal to zero, including negative values, infinities and NaN under ordinary floating comparisons, pass unchanged to ftCo_80096900. That helper calls ftCo_80090780 and returns if x2224_b2 is set, otherwise initializes FallSpecial. Unsupported hats leave landing_lag uninitialized, so completion has undefined behavior rather than a defined fallback.",
+        "rationale": "Repairs action-wide latch and two-terminal-path overclaims; records exact exceptional cases.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu.c#L109-L164",
+            "why": "Trigger/latch ordering and uninitialized lag path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L28-L59",
+            "why": "Optional diversion and lag storage."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu:ftKb_PkSpecialN_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies grounded fighter physics for Kirby's copied Pikachu/Pichu neutral special by forwarding gobj unchanged to ft_80084F3C. The helper conditionally scales common ground friction when absolute ground velocity is strictly above walk_max_vel, then applies friction and ground movement. Source does not establish that scaling strengthens friction.",
+        "rationale": "Replaces unproved multiplier-magnitude interpretation with verified operations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu.c#L171-L174",
+            "why": "Transparent wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Strict guard and ordered friction/movement calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu:ftKb_PkSpecialN_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation unconditionally calls ft_80084F3C. That helper starts with co_attrs.ground_friction, multiplies by p_ftCommonData->friction_when_above_walk_speed only if ABS(gr_vel) > walk_max_vel, calls ftCommon_ApplyFrictionGround, then ftCommon_ApplyGroundMovement. Equality does not scale; unordered NaN comparison is false under ordinary floating semantics. Multiplier magnitude is unverified. The wrapper has no local timer, projectile, animation, collision, or motion-transition logic.",
+        "rationale": "Preserves exact data flow while removing increased-friction wording and documenting boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialpikachu.c#L171-L174",
+            "why": "Complete wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Complete delegated coefficient selection."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

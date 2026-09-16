@@ -1,0 +1,82 @@
+{
+  "tu": "main/dolphin/card/CARDRead",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDRead.c#L73-L132",
+            "why": "Shows branch ordering, sector-boundary subtraction, conditional offset/FAT advancement, next-read arguments and terminal cleanup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDRdwr.c#L10-L51",
+            "why": "Initializes card->buffer from dst and advances it by 0x200 for each successful segment before invoking the higher-level callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional-looking state advancement and exact-byte-accounting implications while documenting the verified cross-file destination-pointer lifetime.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDRead:ReadCallback"
+        },
+        "type": "data_flow",
+        "value": "ReadCallback selects __CARDBlock[chan]. Incoming errors terminate before file-state accounting; otherwise card->fileInfo supplies the operation state, and a preexisting negative length signals cancellation. It subtracts the distance from the current offset to the next sector boundary from fileInfo->length. If the remainder is nonpositive, it completes without advancing offset or iBlock; this subtraction can leave a negative remainder after a successful final partial-sector read. Only when data remains does it advance offset, follow fat[iBlock], validate the successor, and issue __CARDRead at sectorSize * iBlock for min(remaining length, sectorSize) bytes into card->buffer. That destination pointer was initialized and advanced by the low-level read implementation in CARDRdwr.c. Terminal handling captures and clears apiCallback, releases the control block with the final result, and invokes the captured callback with chan and result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDRead.c#L11-L179",
+            "why": "Complete seek, starter and continuation data flow, including early terminal branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDRdwr.c#L10-L51",
+            "why": "Destination state is maintained by the lower transfer layer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the incorrect claim that every completion updates length, offset and block before either continuation or release, preserving the overall pipeline explanation.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/card/CARDRead.c"
+        },
+        "type": "data_flow",
+        "value": "CARDFileInfo supplies the channel, directory-entry index, cached logical offset and allocation block. __CARDSeek acquires control, checks the requested extent, stores the file pointer and requested length, and positions through directory/FAT metadata. CARDReadAsync checks access, invalidates the full destination range, stores the API callback, and converts the positioned block plus in-sector offset into the first bounded physical read. CARDRdwr.c maintains the advancing destination pointer reused by subsequent reads. On a non-error, non-canceled callback, ReadCallback subtracts the distance to the next sector boundary; only a positive remainder causes logical-offset and FAT-block advancement and another read. Exhaustion leaves the last transfer's starting offset/block unchanged and may leave a negative length for a partial-sector finish. Callback termination clears and invokes the saved API callback after releasing control; startup failures instead return directly."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDRead.c#L11-L71",
+            "why": "Seek assertions, explicit guards, acquired-control cleanup and success retention."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDRead.c#L73-L179",
+            "why": "Distinguishes callback termination from startup errors and shows cancellation/accounting order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDRead.c#L193-L216",
+            "why": "Interrupt-protected cancellation predicate, sentinel assignment and return statuses."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates immediate-return failures from callback terminal cleanup and preserves the distinct meanings of negative length before and after accounting, including the cancellation producer.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/card/CARDRead.c"
+        },
+        "type": "state_behavior",
+        "value": "The read pipeline reserves channel control while positioning and performing asynchronous transfers. Explicit cached-position, extent, FAT, alignment and access guards return CARD errors; some input validity requirements are assertions only. Seek/access failures release acquired control as shown, while successful initiation leaves completion to ReadCallback. An immediate __CARDRead startup error releases control and returns without clearing or invoking apiCallback in CARDReadAsync. Within ReadCallback, an incoming negative result wins over cancellation; otherwise a negative stored length becomes CANCELED. Sector-boundary subtraction then causes either normal exhaustion or FAT advancement and another transfer. A negative residual produced by that subtraction can represent successful partial-sector exhaustion, not cancellation. All terminal paths inside ReadCallback capture and clear apiCallback, release control, and invoke the captured callback once. CARDCancel disables interrupts around its test: an unattached card returns NOCARD; a busy channel with the identical stored file pointer gets length = -1 and returns CANCELED; other cases return READY. It restores interrupts and leaves an active transfer to report cancellation through its later callback."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

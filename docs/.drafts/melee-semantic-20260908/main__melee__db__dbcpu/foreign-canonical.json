@@ -1,0 +1,68 @@
+[
+  {
+    "path": "src/melee/if/textlib.c",
+    "start_line": 35,
+    "end_line": 84,
+    "canonical": "35: DevText* DevText_Create(char id, int x, int y, int w, int h, char* buf)\n36: {\n37:     static GXColor const cyan = { 0x60, 0xD0, 0xB0, 0x70 };\n38:     DevText* text;\n39:     UNUSED u32 pad;\n40:     GXColor bg = cyan;\n41:     PAD_STACK(0x14);\n42: \n43:     if ((text = find_by_id(id))) {\n44:         return NULL;\n45:     }\n46:     text = devtext_poolhead;\n47:     if (text != NULL) {\n48:         devtext_poolhead = text->next;\n49:     } else {\n50:         text = NULL;\n51:     }\n52:     if (text == NULL) {\n53:         HSD_ASSERTREPORT(309, 0, \"TW : Screen alloc Fail\\n\");\n54:     }\n55:     if (text != NULL) {\n56:         static GXColor const white = { 0xFF, 0xFF, 0xFF, 0xFF };\n57:         static GXColor const red = { 0xFF, 0x80, 0x80, 0xFF };\n58:         static GXColor const green = { 0x80, 0xFF, 0x80, 0xFF };\n59:         static GXColor const blue = { 0x80, 0x80, 0xFF, 0xFF };\n60:         text->x = x;\n61:         text->y = y;\n62:         text->w = w;\n63:         text->h = h;\n64:         text->cursor_x = 0;\n65:         text->cursor_y = 0;\n66:         text->scale_x = 10.0f;\n67:         text->scale_y = 16.0f;\n68:         text->bg_color = bg;\n69:         text->text_colors[0] = white;\n70:         text->text_colors[1] = red;\n71:         text->text_colors[2] = green;\n72:         text->text_colors[3] = blue;\n73:         text->id = (int) id;\n74:         text->line_width = 10;\n75:         text->flags = DEVTEXT_FLAG_SHOWCURSOR;\n76:         text->unk = 0;\n77:         text->current_color = 0;\n78:         text->prev = NULL;\n79:         text->next = NULL;\n80:         text->buf = buf;\n81:         memzero(buf, h * (w * 2));\n82:     }\n83:     return text;\n84: }"
+  },
+  {
+    "path": "src/melee/if/textlib.c",
+    "start_line": 159,
+    "end_line": 197,
+    "canonical": "159: void DevText_ShowBackground(DevText* text)\n160: {\n161:     text->flags &= ~(1 << 6);\n162: }\n163: #ifdef MUST_MATCH\n164: #pragma pop\n165: #endif\n166: \n167: #ifdef MUST_MATCH\n168: #pragma push\n169: #pragma dont_inline on\n170: #endif\n171: void DevText_HideBackground(DevText* text)\n172: {\n173:     text->flags |= (1 << 6);\n174: }\n175: #ifdef MUST_MATCH\n176: #pragma pop\n177: #endif\n178: \n179: #ifdef MUST_MATCH\n180: #pragma push\n181: #pragma dont_inline on\n182: #endif\n183: void DevText_ShowText(DevText* text)\n184: {\n185:     text->flags &= ~(1 << 7);\n186: }\n187: #ifdef MUST_MATCH\n188: #pragma pop\n189: #endif\n190: \n191: #ifdef MUST_MATCH\n192: #pragma push\n193: #pragma dont_inline on\n194: #endif\n195: void DevText_HideText(DevText* text)\n196: {\n197:     text->flags |= (1 << 7);"
+  },
+  {
+    "path": "src/melee/if/textlib.c",
+    "start_line": 275,
+    "end_line": 287,
+    "canonical": "275: void DevText_Erase(DevText* text)\n276: {\n277:     memzero(text->buf, 2 * text->w * text->h);\n278: }\n279: #ifdef MUST_MATCH\n280: #pragma pop\n281: #endif\n282: \n283: static inline void DevText_AdvanceLine(DevText* text)\n284: {\n285:     text->cursor_x = 0;\n286:     if (text->cursor_y < text->h - 1) {\n287:         text->cursor_y++;"
+  },
+  {
+    "path": "src/melee/if/textdraw.c",
+    "start_line": 356,
+    "end_line": 359,
+    "canonical": "356: void DevText_Show(HSD_GObj* gobj, DevText* text)\n357: {\n358:     DevText_AddToList(&devtext_drawlist, text);\n359: }"
+  },
+  {
+    "path": "src/melee/db/dbinit.c",
+    "start_line": 63,
+    "end_line": 106,
+    "canonical": "63: void db_Setup(void)\n64: {\n65:     int i;\n66:     struct {\n67:         char** bonus_names;\n68:         char** motionstate_names;\n69:         char** submotion_names;\n70:     }* commonData;\n71: \n72:     if (DbLevel >= DbLKind_DebugRom) {\n73:         for (i = 0; i < 4; i++) {\n74:             db_ButtonStates[i].repeat = 0;\n75:             db_ButtonStates[i].released = 0;\n76:             db_ButtonStates[i].pressed = 0;\n77:             db_ButtonStates[i].current = 0;\n78:         }\n79: \n80:         lbArchive_LoadSymbols(\"DbCo.dat\", (void**) &commonData,\n81:                               \"dbLoadCommonData\", 0);\n82: \n83:         db_bonus_names = commonData->bonus_names;\n84:         db_motionstate_names = commonData->motionstate_names;\n85:         db_submotion_names = commonData->submotion_names;\n86: \n87:         fn_SetupCpuHandicapInfo();\n88:         fn_SetupAnimationInfo();\n89:         fn_SetupItemAndPokemonMenu();\n90:         fn_SetupSoundInfo();\n91:         fn_SetupMiscStageVisuals();\n92:         fn_SetupCameraInfo();\n93:         fn_SetupBonusInfo();\n94:         fn_SetupObjAllocLimiter();\n95:         fn_Setup5xSpeed();\n96:     }\n97: }\n98: \n99: HSD_Pad db_ButtonsDown(int player)\n100: {\n101:     return db_ButtonStates[player].current;\n102: }\n103: \n104: HSD_Pad db_ButtonsPressed(int player)\n105: {\n106:     return db_ButtonStates[player].pressed;"
+  },
+  {
+    "path": "src/melee/db/dbinit.c",
+    "start_line": 225,
+    "end_line": 246,
+    "canonical": "225:         fn_CheckCameraInfo(i, db_ButtonStates[i].current,\n226:                            db_ButtonStates[i].pressed,\n227:                            HSD_PadMasterStatus[i & 0xFF].nml_subStickX,\n228:                            HSD_PadMasterStatus[i & 0xFF].nml_subStickY);\n229:     }\n230:     for (i = 0; i < 4; i++) {\n231:         fn_CheckSoundInfo(i);\n232:     }\n233:     for (i = 0; i < 4; i++) {\n234:         fn_UpdateObjAllocLimiter(i);\n235:     }\n236:     for (i = 0; i < 4; i++) {\n237:         fn_CheckItemAndPokemonMenu(i);\n238:     }\n239:     for (i = 0; i < 4; i++) {\n240:         fn_CheckCpuHandicapInfo(i);\n241:     }\n242:     fn_UpdateCpuHandicapInfo();\n243:     for (i = 0; i < 4; i++) {\n244:         fn_CheckAnimationInfo(i);\n245:     }\n246:     fn_UpdateAnimationInfo();"
+  },
+  {
+    "path": "src/melee/pl/player.c",
+    "start_line": 92,
+    "end_line": 104,
+    "canonical": "92: static inline void Player_CheckSlot(int slot)\n93: {\n94:     if (slot < 0 || !(slot < Gm_Player_NumMax)) {\n95:         HSD_ASSERTREPORT(102, 0, \"cant get player struct! %d\\n\", slot);\n96:     }\n97: }\n98: \n99: /// Matches when everything is moved over\n100: StaticPlayer* Player_GetPtrForSlot(int slot)\n101: {\n102:     Player_CheckSlot(slot);\n103:     return &player_slots[slot];\n104: }"
+  },
+  {
+    "path": "src/melee/db/db.h",
+    "start_line": 51,
+    "end_line": 53,
+    "canonical": "51: /* 22659C */ void fn_SetupCpuHandicapInfo(void);\n52: /* 22666C */ void fn_UpdateCpuHandicapInfo(void);\n53: /* 226730 */ void fn_CheckCpuHandicapInfo(int arg0);"
+  },
+  {
+    "path": "src/melee/gm/types.h",
+    "start_line": 22,
+    "end_line": 34,
+    "canonical": "22: typedef union UnkFlagStruct {\n23:     u8 u8;\n24:     struct {\n25:         u8 b0 : 1;\n26:         u8 b1 : 1;\n27:         u8 b2 : 1;\n28:         u8 b3 : 1;\n29:         u8 b4 : 1;\n30:         u8 b5 : 1;\n31:         u8 b6 : 1;\n32:         u8 b7 : 1;\n33:     };\n34: } UnkFlagStruct;"
+  },
+  {
+    "path": "src/melee/pl/player.h",
+    "start_line": 17,
+    "end_line": 67,
+    "canonical": "17:     /// @todo 0x02 In-Game (includes dead). 0x00 Otherwise.\n18:     enum_t player_state;\n19: \n20:     /// @at{4} @sz{4}\n21:     /// @todo External ID.\n22:     CharacterKind player_character;\n23: \n24:     /// @at{8} @sz{4}\n25:     Gm_PKind slot_type;\n26: \n27:     /*0x0C*/ u8 transformed[2]; // 0x0001 for normal, 0x0100 for transformed\n28:                                 // (Probably Zelda/Sheik only)\n29:     /*0x0E*/ s16 unk0E;\n30: \n31:     union {\n32:         struct {\n33:             /*0x10-0x1B*/ Vec3\n34:                 nametag_pos; /// Horizontal, Vertical, Depth (floats)\n35:             /*0x1C-0x27*/ Vec3 transformed_player_pos;\n36:             /*0x28-0x33*/ Vec3 spawn_platform_final_pos;\n37:             /*0x34-0x3f*/ Vec3 some_other_player_pos;\n38:         } byVecName;\n39: \n40:         Vec3 byIndex[4];\n41:     } player_poses;\n42: \n43:     /*0x40*/ f32 facing_direction;\n44: \n45:     /*0x44*/ u8 costume_id; // 00 = normal, 01 = red, 02 = blue, 03 = green\n46:                             // (reflected in icon immediately)\n47:     /*0x45*/ u8 unk45;\n48:     /*0x46*/ s8 controller_index;\n49:     /*0x47*/ u8 team; /// 00 = red, 01 = blue, 02 = green\n50:     /*0x48*/ u8 player_id;\n51:     /*0x49*/ u8 cpu_level;\n52:     /*0x4A*/ u8 cpu_type;\n53:     /*0x4B*/ u8 handicap;\n54: \n55:     /*0x4C*/ s8 unk4C;\n56:     /*0x4D*/ s8 unk4D;\n57:     /*0x4E*/ s8 unk4E;\n58:     /*0x4F*/ s8 unk4F;\n59: \n60:     /*0x50*/ f32 unk50;\n61: \n62:     /*0x54*/ f32 attack_ratio;\n63:     /*0x58*/ f32 defense_ratio;\n64: \n65:     /*0x5C*/ f32 model_scale;\n66: \n67:     union {"
+  },
+  {
+    "path": "src/melee/db/dbinit.c",
+    "start_line": 165,
+    "end_line": 190,
+    "canonical": "165:     int stack[4];\n166:     int i;\n167:     int num_players;\n168:     if (DbLevel < DbLKind_DebugRom) {\n169:         return;\n170:     }\n171:     if (ftLib_IsMasterHandPresent() || ftLib_IsCrazyHandPresent()) {\n172:         num_players = 2;\n173:     } else {\n174:         num_players = 4;\n175:     }\n176:     for (i = 0; i < num_players; i++) {\n177:         int button = db_get_pad_button(i);\n178:         int repeat = db_get_pad_repeat(i);\n179:         if (button & HSD_PAD_DPADUP) {\n180:             if (button & HSD_PAD_DPADLEFT) {\n181:                 button &= ~(HSD_PAD_DPADUP | HSD_PAD_DPADLEFT);\n182:             }\n183:             if (button & HSD_PAD_DPADRIGHT) {\n184:                 button &= ~(HSD_PAD_DPADUP | HSD_PAD_DPADRIGHT);\n185:             }\n186:         }\n187:         if (button & HSD_PAD_DPADDOWN) {\n188:             if (button & HSD_PAD_DPADLEFT) {\n189:                 button &= ~(HSD_PAD_DPADDOWN | HSD_PAD_DPADLEFT);\n190:             }"
+  }
+]

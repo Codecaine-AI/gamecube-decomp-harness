@@ -1,4 +1,4 @@
-import { getHarnessState, requireActiveLease } from "@server/core/harness-state";
+import { getDispatchState, requireActiveLease } from "@server/core/harness-state";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { emitSandboxDeletedEvent } from "./sandbox-events.js";
 import { getJob } from "./kernel.js";
@@ -212,7 +212,7 @@ function isLiveSandbox(
   if (job.gameId !== gameId || job.runId !== runId) return null;
   if (job.payload.sandbox_id !== sandbox.sandboxId) return null;
 
-  const activeLeaseId = getHarnessState(store, gameId)?.active_workflow?.lease_id;
+  const activeLeaseId = getDispatchState(store, gameId)?.active_workflow?.lease_id;
   if (!activeLeaseId) return null;
   let dispatch: ReturnType<typeof requireActiveLease>;
   try {
@@ -243,7 +243,7 @@ export async function reconcileSandboxes(
   result.scanned = sandboxes.length;
   if (sandboxes.length === 0) return result;
 
-  const harness = getHarnessState(store, input.gameId);
+  const harness = getDispatchState(store, input.gameId);
   for (const sandbox of sandboxes) {
     const live = isLiveSandbox(store, sandbox, input.gameId);
     if (live) {

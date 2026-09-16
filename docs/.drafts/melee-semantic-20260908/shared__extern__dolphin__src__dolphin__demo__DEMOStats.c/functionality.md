@@ -1,0 +1,22 @@
+## DEMOStats.c semantic review
+
+This file configures, samples and displays demo performance statistics. Canonical and rendered source agree; the rendered view has no proposed-name substitutions. Existing function names fit their behavior, although `DEMOWriteStats` includes hardware reads, configuration and clearing rather than merely storing values. There are no frozen subjects, facts or links, and no writable subjects; no knowledge changes are proposed.
+
+### Configuration and lifetime
+`DEMOSetStats` retains the supplied descriptor-array pointer, resets the current index, records the count and display mode, and computes the first label's length. It does not copy the descriptors or reset metric caches. Null input or zero count only clears `DemoStatEnable`, leaving the previous configuration intact. Neither update nor print checks that flag internally; callers must ensure valid configuration and descriptor lifetime. The stored label length is not subsequently used in this file. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/demo/DEMOStats.c#L7-L49)
+
+### Sampling
+`DEMOWriteStats` dispatches on the current descriptor. GP0/GP1 read a counter, configure metrics and clear them, conditionally saving the result into that descriptor's count. Memory, pixel and vertex-cache cases conditionally save shared metric snapshots, while still reading and clearing hardware when `update` is false. FR, TBW and TBP conditionally save pixel snapshots but unconditionally replace `DemoStatClocks`; TBW/TBP also unconditionally replace `tcReq`. Consequently, a false update is not side-effect-free and can mix newly read clocks or requests with older pixel values. MYC/MYR perform no sampling; unknown types panic. Numeric GX selectors remain literal source values rather than inferred enum identities. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/demo/DEMOStats.c#L51-L158)
+
+`DEMOUpdateStats` samples the current entry first, then advances and wraps the index only when `inc` is nonzero. Shared snapshots are reused across descriptors rather than stored independently for every displayed entry. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/demo/DEMOStats.c#L160-L168)
+
+### Output and exceptional behavior
+`DEMOPrintStats` prints every configured descriptor through `OSReport` in IO mode or initializes captions and uses `DEMOPrintf` otherwise. TL/BL use full framebuffer dimensions with vertical steps of +10/-10; TLD/BLD use half dimensions and +9/-9. Unsupported non-IO display modes have no default initialization of the position and dimension locals. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/demo/DEMOStats.c#L170-L305)
+
+FR computes `40 * (topPixIn + botPixIn) / (DemoStatClocks - copyClks)`. TBW computes `40 * (tcReq << 5) / (DemoStatClocks - copyClks)`. TBP is deliberately described separately for the two branches: IO divides by `topPixIn + botPixIn` and prints two decimal places, whereas captions divide by `topPixIn - botPixIn` and print three. MYR divides descriptor `stat` by `count`, also using two decimal places for IO and three for captions. No denominator guards are present; unsigned additions, subtraction and shifts occur before the relevant floating conversion. These source differences must not be silently normalized. [IO formulas](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/demo/DEMOStats.c#L205-L233), [caption formulas](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/demo/DEMOStats.c#L330-L340), [caption MYR](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/demo/DEMOStats.c#L389-L403).
+
+Unsupported pixel, memory or vertex-cache subselectors produce no value. Unknown top-level types fall back to printing descriptor count in IO mode, but report an undefined-type diagnostic in caption mode; caption row position still advances. This differs from the sampler's panic behavior. [IO dispatch](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/demo/DEMOStats.c#L180-L272), [caption dispatch](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/demo/DEMOStats.c#L306-L403).
+
+No compiled section, layout or runtime caller-order claims are made.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

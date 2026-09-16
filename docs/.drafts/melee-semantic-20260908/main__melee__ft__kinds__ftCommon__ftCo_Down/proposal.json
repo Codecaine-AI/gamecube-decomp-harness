@@ -1,0 +1,114 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Down",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_80098324"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Enters the directional floor-recovery motion ID selected by ftCo_Down_CheckInput without changing that ID. The caller selects a U variant only from DownWaitU, not from every U-oriented downed state.",
+        "rationale": "Replaces unconditional orientation-preservation interpretation with exact caller behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L42-L61",
+            "why": "Exact U discriminator and unchanged entry argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+            "why": "Additional active DownBound caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_CheckInput"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Accepts a qualifying C-stick horizontal threshold crossing preferentially, otherwise a qualifying left-stick horizontal magnitude, and enters a facing-relative DownFoward or DownBack recovery motion. Both routes use a signed upper-angle bound. U variants are selected only when current motion is DownWaitU; all other motions select D. Returns whether entry occurred.",
+        "rationale": "Avoids unsupported generalized orientation preservation and symmetric horizontal-angle interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L18-L52",
+            "why": "Input priority and exact motion selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L606-L614",
+            "why": "Angles are signed atan2f results."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_CheckInput"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "C-stick acceptance requires previous abs(X) < x248, current abs(X) >= x248 and atan2f(current Y, abs(current X)) < x20_radians; otherwise left stick requires current abs(X) >= x248 and the same signed angle bound. There is no absolute-angle test. Accepted stick X times facing >= 0 selects DownFoward, otherwise DownBack; only DownWaitU selects U. Zero products choose forward; under ordinary unordered comparison semantics a NaN product chooses backward. Neither predicate passing returns false before entry. DownBound_Anim also calls this routine, so DownBoundU takes a D variant under the exact test.",
+        "rationale": "Documents equality, signed-angle asymmetry, exceptional product fallback and cross-file caller boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L18-L52",
+            "why": "All local gates and branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF1.c#L119-L128",
+            "why": "C-stick crossing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L606-L614",
+            "why": "Signed angle formula."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+            "why": "Direct DownBound caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_Down.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Directional dispatch prioritizes C-stick crossing over left-stick magnitude and uses signed angle < x20_radians. Facing-adjusted X >= 0 selects DownFoward, otherwise DownBack; only DownWaitU selects U. The separate buffered attack check accepts A/B age counters strictly below x24C or an upward C-stick threshold crossing, selecting DownAttackU only from DownBoundU. Directional Anim delegates completion, IASA is empty, Phys delegates ground movement, and Coll can enter Fall on failed support. DownBound callers therefore do not imply universal orientation preservation.",
+        "rationale": "Replaces overbroad orientation-matched summary and restores canonical spelling and collision exit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L18-L101",
+            "why": "Complete local dispatch and callback behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2070-L2081",
+            "why": "A/B counter producers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1043-L1050",
+            "why": "Conditional Fall exit."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,320 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbgx:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:95ea194c-3b07-4412-8f7a-39e4b68d28e4",
+        "target_id": "target:data:main/melee/lb/lbgx:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The compiler-emitted 0.0f value is read by lbGx_8001E2F8 for the Z component of each of its five immediate-mode GX vertices; GX consumes those vertices as a colored rectangle in camera-view space.",
+        "rationale": "At the current revision, the function loads the active camera viewing matrix and passes 0.0f as the third argument of every GXPosition3f32 submission, confirming that the constant supplies the Z coordinate of all five rectangle vertices.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T23:38:34.612Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L1-L85",
+            "why": "Shows the active camera viewing matrix being loaded and 0.0f supplied as the Z argument of all five immediate-mode vertex submissions."
+          }
+        ]
+      },
+      {
+        "id": "fact:b69982d5-4df8-4320-9ef1-74f896fb132e",
+        "target_id": "target:data:main/melee/lb/lbgx:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A read-only `.sdata2` constant-pool section whose semantically used value is one single-precision IEEE-754 0.0f constant; any remaining section bytes are alignment padding rather than another evidenced semantic value.",
+        "rationale": "The complete current unit contains 0.0f as its sole floating-point literal and repeatedly uses it as an f32 GX position component. Nothing in the unit evidences another semantic constant belonging to this section.",
+        "confidence": 0.85,
+        "updated_at": "2026-09-04T23:38:34.612Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L1-L85",
+            "why": "Shows that the unit's only floating-point literal is 0.0f and that it is repeatedly consumed as an f32 vertex-position component."
+          }
+        ]
+      },
+      {
+        "id": "fact:62dd5794-3b5f-4c6f-ba6b-0e96d8088e5b",
+        "target_id": "target:data:main/melee/lb/lbgx:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Holds the translation unit's read-only floating-point zero constant used to place every emitted auxiliary rectangle vertex on the Z=0 plane.",
+        "rationale": "The current unit still uses 0.0f as the third coordinate of all five GXPosition3f32 submissions in its sole function. The changed source digest therefore does not alter the section's established purpose.",
+        "confidence": 0.88,
+        "updated_at": "2026-09-04T23:38:34.612Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L1-L85",
+            "why": "Shows all five rectangle vertices using the same inline 0.0f Z coordinate."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbgx:lbGx_8001E2F8"
+    },
+    "facts": [
+      {
+        "id": "fact:0dd1651c-7994-47f8-af25-02350040291e",
+        "target_id": "target:function:main/melee/lb/lbgx:lbGx_8001E2F8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an object-relative rectangle, world origin, four-byte color, draw-pass selector, and horizontal direction. It mirrors the rectangle's x offset by the direction, adds the result and the y offset to the origin, expands those coordinates by the supplied half-width and half-height, loads the current camera viewing matrix as GX position matrix 0, and submits the resulting rectangle at z=0 with the same color on every vertex. A successful submission returns true to the caller, which folds that result into its GX-state invalidation flag.",
+        "rationale": "The current definition still exposes the complete arithmetic and rendering flow from all five parameters through direct GX position and color submission. The callers establish that the geometric inputs come from fighter pickup or item-owned records and that a true return is aggregated as an indication that direct GX drawing occurred.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:08:21.538Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L9-L85",
+            "why": "Shows all five parameters flowing through coordinate construction, current-camera matrix loading, repeated color-byte emission, and the Boolean return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L118-L218",
+            "why": "Shows item-owned geometry, position, color, pass, and facing inputs flowing into the helper and its result being aggregated into the item renderer's return value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+            "why": "Shows fighter pickup extents and world position flowing into the helper and a true result flowing into `do_invalidate`."
+          }
+        ]
+      },
+      {
+        "id": "fact:e61cd071-6405-48a8-9967-1c58e287c5fb",
+        "target_id": "target:function:main/melee/lb/lbgx:lbGx_8001E2F8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements pass-specific visualization of rectangular auxiliary gameplay extents. In fighter rendering it displays the grounded light-item, grounded heavy-item, or aerial light-item pickup region selected by the fighter's movement state; in item rendering it displays an item-owned rectangular extent alongside the item's hitbox, hurtbox, and other diagnostic geometry.",
+        "rationale": "The fighter caller still selects explicitly named grounded-light, grounded-heavy, and aerial-light pickup records according to ground or air state. The item caller invokes the same rectangle helper in its auxiliary collision-related routine, while the function's current pass-2 guard confirms that this is dedicated visualization rather than ordinary model rendering.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T21:08:21.538Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L9-L85",
+            "why": "Shows that the extent is rendered as an untextured colored rectangle only when the draw-pass selector equals 2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+            "why": "Shows selection of `gr_light_offset`, `gr_heavy_offset`, or `air_light_offset` according to the fighter's grounded or aerial state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L118-L218",
+            "why": "Shows an item-owned rectangular extent being drawn in an auxiliary routine that also processes item hurtbox and other diagnostic geometry."
+          }
+        ]
+      },
+      {
+        "id": "fact:75f8e8c4-8462-41c8-a6fb-70d0910224fe",
+        "target_id": "target:function:main/melee/lb/lbgx:lbGx_8001E2F8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbGx_DrawDebugRect",
+        "rationale": "The current function remains a low-level lbGx utility whose successful path directly renders a colored rectangle in an auxiliary pass. Its use by both fighter and item rendering supports a generic debug-rectangle name rather than a subsystem-specific pickup name, although no preserved symbol establishes the exact original wording.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbGx_DrawDebugRect`.",
+        "confidence": 0.62,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L9-L85",
+            "why": "Shows that the function's complete successful path configures GX and directly draws a colored rectangle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+            "why": "Places the helper among fighter auxiliary-geometry renderers and applies it to multiple pickup extents."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L118-L218",
+            "why": "Shows that item auxiliary rendering also uses the helper, supporting a generic rather than fighter-specific name."
+          }
+        ]
+      },
+      {
+        "id": "fact:68669b72-ffc9-4515-b725-8b744b0c7775",
+        "target_id": "target:function:main/melee/lb/lbgx:lbGx_8001E2F8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Boolean drawing helper with semantic signature `bool (Vec4* rect, Vec3* origin, U8Vec4* color, u32 draw_pass, float x_direction)`. Within `rect`, `x` and `y` are center offsets, while `z` and `w` are horizontal and vertical half-extents. `color` supplies four direct vertex-color bytes, `draw_pass` selects whether the helper runs, and callers supply object facing direction as `x_direction`.",
+        "rationale": "The current declaration supplies the mechanical parameter types, while the body establishes each component's semantic role: x is mirrored by the final float, x and y are added to the origin, z and w are added and subtracted as half-extents, and the four bytes are emitted for every configured color attribute. Both callers still pass their object's facing direction as the final argument.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:08:21.538Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L9-L85",
+            "why": "Provides the exact declaration and demonstrates the semantic use of every rectangle component, color byte, draw-pass value, and direction parameter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L118-L218",
+            "why": "Shows an item extent, item position, four-byte color object, pass, and `ip->facing_dir` supplied to the corresponding parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+            "why": "Shows `itPickup` extent records, fighter position, color records, draw pass, and `fighter->facing_dir` supplied to the helper."
+          }
+        ]
+      },
+      {
+        "id": "fact:4ba254d5-7566-488c-8a7a-c327d054cb62",
+        "target_id": "target:function:main/melee/lb/lbgx:lbGx_8001E2F8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Draws a caller-specified colored rectangle for auxiliary fighter or item visualization, but only during draw pass 2. It derives the rectangle from an object-relative center offset and half-extents, submits it with the active camera's viewing matrix, and reports whether graphics were emitted so the caller can invalidate cached GX state.",
+        "rationale": "The current body retains the pass-2 guard, rectangle-bound calculations, camera-matrix load, direct GX submission, and Boolean result. The current fighter and item callers still provide auxiliary extents and propagate success, including fighter-side GX-state invalidation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T21:08:21.538Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L9-L85",
+            "why": "Directly shows the pass-2 guard, GX setup, rectangle construction, active camera viewing-matrix use, vertex submission, and true or false result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L118-L218",
+            "why": "Shows item auxiliary rendering passing an item-owned extent, position, color, draw pass, and facing direction and aggregating the helper's Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+            "why": "Shows fighter auxiliary rendering passing pickup extents and treating a true result as requiring later GX-state invalidation."
+          }
+        ]
+      },
+      {
+        "id": "fact:13113ae3-a29b-4af0-abe9-867da58a60aa",
+        "target_id": "target:function:main/melee/lb/lbgx:lbGx_8001E2F8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "For any draw-pass value other than 2, returns false without changing GX state. On pass 2, it enables color writes but disables alpha writes, installs alpha blending and comparison, enables depth testing without depth writes, disables texturing and culling, configures one unlit color channel plus direct position and color attributes, loads the active camera's viewing matrix, draws one five-vertex triangle strip, and returns true. It does not restore or invalidate GX state itself; callers use the true result to perform aggregate invalidation after their auxiliary drawing finishes.",
+        "rationale": "The current opening branch still separates an immediate false return from the complete pass-2 GX transition and five-vertex draw. No restoration occurs in the function, while the fighter caller still accumulates successful helper results and performs one later HSD_StateInvalidate call.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T21:08:21.538Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L9-L85",
+            "why": "Shows the pass guard, ordered GX-state configuration, active camera-matrix load, five-vertex triangle-strip submission, and Boolean outcomes at the current revision."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+            "why": "Shows the fighter caller aggregating successful direct-renderer results before performing one later full HSD state invalidation."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1428092388399644882",
+            "why": "Identifies the shared integer parameter as a general draw-pass flag and specifically observes that lbGx_8001E2F8 checks it for value 2."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/lb/lbgx.c"
+    },
+    "facts": [
+      {
+        "id": "fact:cabf2d85-5493-4832-b7be-f072019cb9d7",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbgx.c",
+        "type": "data_flow",
+        "value": "Callers supply a local-space extent, an object world position, a direct RGBA color, the current draw-pass selector, and a horizontal facing multiplier. The function mirrors the horizontal offset by facing, combines the extent with world position to calculate rectangle bounds, submits those bounds and the color directly to GX, and returns whether it drew so callers can invalidate cached GX state.",
+        "rationale": "The current implementation still derives rectangle bounds from the extent, world position, and facing inputs, emits direct position and color data only during pass 2, and returns whether it drew. Current fighter and item callers supply those inputs and propagate a successful result into their drawing-state handling.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T23:38:34.612Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L1-L85",
+            "why": "Shows the pass guard, facing-dependent bound calculations, direct GX position and color submissions, and Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+            "why": "Shows fighter pickup extents, current position, color, draw pass, and facing flowing into the utility, with a true result causing cached GX state invalidation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L118-L218",
+            "why": "Shows the item drawing path passing an item extent, position, color, draw pass, and facing, then propagating the utility's Boolean result."
+          }
+        ]
+      },
+      {
+        "id": "fact:d889a5ca-f122-4f8d-8c0a-728a0dc70cef",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/lb/lbgx.c",
+        "type": "purpose",
+        "value": "Provides a low-level GX drawing utility for auxiliary fighter and item visualization. Its sole function configures direct, colored, untextured GX rendering and emits a rectangular primitive only during draw pass 2.",
+        "rationale": "The current unit still consists of one pass-gated function that configures untextured direct-color GX state and emits a five-vertex triangle strip forming a rectangle. Current fighter and item auxiliary-drawing paths continue to call it for pickup or analogous item extents.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T23:38:34.612Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbgx.c#L1-L85",
+            "why": "Shows the unit's sole function returning early outside draw pass 2, configuring direct-color untextured GX state, and emitting a five-vertex rectangle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L180-L230",
+            "why": "Shows the utility used in fighter auxiliary rendering for grounded-light, grounded-heavy, and aerial-light pickup extents."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L118-L218",
+            "why": "Shows the utility used by the item auxiliary drawing path for an item-associated extent."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbgx:lbGx_8001E2F8#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbgx:lbGx_8001E2F8#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbgx:lbGx_8001E2F8#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbgx:lbGx_8001E2F8#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbgx:lbGx_8001E2F8#r7"
+    },
+    "facts": []
+  }
+]

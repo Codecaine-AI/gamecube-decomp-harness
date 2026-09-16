@@ -1,0 +1,754 @@
+{
+  "schemaVersion": 1,
+  "id": "doc-7d4e91b2a6c85f30d1e7b09c4a52f8e6",
+  "title": "Pull Request Outcomes",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-sks-rc-prs-intro",
+        "b-sks-rc-prs-shape-heading",
+        "b-sks-rc-prs-shape",
+        "b-sks-rc-prs-shape-example-note-1",
+        "b-sks-rc-prs-shape-example-note-2",
+        "b-sks-rc-prs-reconstruction",
+        "b-sks-rc-prs-outcome-note",
+        "b-sks-rc-prs-writers-heading",
+        "b-sks-rc-prs-writers-table",
+        "b-sks-rc-prs-links-heading",
+        "b-sks-rc-prs-links-table",
+        "b-sks-rc-prs-links-in-heading",
+        "b-sks-rc-prs-links-in",
+        "b-sks-rc-prs-related-heading",
+        "b-sks-rc-prs-related-overview",
+        "b-sks-rc-prs-related-worker-runs",
+        "b-sks-rc-prs-related-events",
+        "b-sks-rc-prs-related-evidence"
+      ]
+    },
+    "b-sks-rc-prs-intro": {
+      "id": "b-sks-rc-prs-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "PULL REQUEST. One pull_request row per external PR per subject it touched: a maintainer or contributor change, imported after the fact. The row is reconstructed without a worker trace, and its subject follows the attribution the archive supports: a "
+        },
+        {
+          "insert": "function",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " or "
+        },
+        {
+          "insert": "data",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " target when the CI report comment names the exact items with before/after scores, or the "
+        },
+        {
+          "insert": "translation_unit",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " entity when only the diff's file paths are known (every PR before the CI bot existed). There are no submission rows: scored tries belong to worker_run entries, and inventing them for a PR would fabricate a trace. Written once by the PR importer; immutable after capture."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-shape-heading": {
+      "id": "b-sks-rc-prs-shape-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Table "
+        },
+        {
+          "insert": "pull_request",
+          "attributes": {
+            "code": true
+          }
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-shape": {
+      "id": "b-sks-rc-prs-shape",
+      "type": "state-shape",
+      "props": {
+        "description": "One reconstructed ledger entry per external PR per subject. Immutable; no submission rows, no runtime provenance. Exactly one of target_id and entity_id is set.",
+        "example": "{\n  \"id\": \"pr-ftCo_800BFFD0-0003\",\n  \"target_id\": \"tgt-ftCo_800BFFD0\",\n  \"pr_ref\": \"melee#1482\",\n  \"summary\": \"Rewrote the guard branches around the damage-vector compare using __fabsf; the diff matches the pattern the discussion calls the float-compare idiom and took the function from 74.0 to 91.2 fuzzy\",\n  \"outcome\": \"improvement\",\n  \"merged_at\": \"2026-07-03T19:41:22Z\"\n}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "pull_request id",
+            "description": "Primary key"
+          },
+          {
+            "name": "target_id",
+            "type": "target id",
+            "required": false,
+            "description": "The function or data target the PR is attributed to, when per-item attribution exists (CI report tables); exactly one of `target_id` and `entity_id` is set"
+          },
+          {
+            "name": "entity_id",
+            "type": "entity id",
+            "required": false,
+            "description": "The `translation_unit` entity, when only diff-path attribution exists, as in the pre-CI-bot era; the subject XOR mirrors `fact`"
+          },
+          {
+            "name": "pr_ref",
+            "type": "string",
+            "description": "The PR's number or URL in the PR archive; outside the knowledge store"
+          },
+          {
+            "name": "summary",
+            "type": "string",
+            "description": "What the PR did to this target, deduced by the importer from the diff and discussion; a reconstruction, not a trace"
+          },
+          {
+            "name": "outcome",
+            "type": "match | improvement | no_change | error",
+            "description": "Same enum as `worker_run.final_outcome`, judged from the PR's effect on the target"
+          },
+          {
+            "name": "merged_at",
+            "type": "timestamp",
+            "description": "When the PR merged; orders the entry in the ledger view"
+          }
+        ],
+        "name": "pull_request"
+      },
+      "children": []
+    },
+    "b-sks-rc-prs-shape-example-note-1": {
+      "id": "b-sks-rc-prs-shape-example-note-1",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Reconstruction, labeled: "
+        },
+        {
+          "insert": "summary",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is the importer's deduction from the PR diff and discussion. The row never pretends a worker trace exists."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-shape-example-note-2": {
+      "id": "b-sks-rc-prs-shape-example-note-2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "No "
+        },
+        {
+          "insert": "submission",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows and no "
+        },
+        {
+          "insert": "runtime_ref",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "run_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", or "
+        },
+        {
+          "insert": "worker_state_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ": there are no run-state artifacts to point at."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-reconstruction": {
+      "id": "b-sks-rc-prs-reconstruction",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The reconstruction story: the PR importer reads the PR's diff and discussion through the summary prompt and deduces what was tried, including which functions changed, what idiom the change applied, what the scored report said before and after. One deduced "
+        },
+        {
+          "insert": "summary",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " per target the PR touched; a PR touching several targets yields several "
+        },
+        {
+          "insert": "pull_request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " rows. Discord is not imported this way: Discord material enters the system only as facts and evidence on entities, never as a ledger entry."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-outcome-note": {
+      "id": "b-sks-rc-prs-outcome-note",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Enum "
+        },
+        {
+          "insert": "pull_request.outcome",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is "
+        },
+        {
+          "insert": "worker_run.final_outcome",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "'s enum, documented in Worker Runs: "
+        },
+        {
+          "insert": "match",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | "
+        },
+        {
+          "insert": "improvement",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | "
+        },
+        {
+          "insert": "no_change",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " | "
+        },
+        {
+          "insert": "error",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". It is judged from the scored report's before-and-after for the target, not from submissions."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-writers-heading": {
+      "id": "b-sks-rc-prs-writers-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Who Writes"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-writers-table": {
+      "id": "b-sks-rc-prs-writers-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Party",
+          "Reads",
+          "Writes",
+          "Never"
+        ],
+        "rows": [
+          [
+            "PR importer",
+            "The PR diff and discussion, and the scored report's before-and-after",
+            [
+              {
+                "insert": "pull_request",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows, through the same summary prompt the worker summary agent uses"
+              }
+            ],
+            [
+              {
+                "insert": "Fabricates a trace: no "
+              },
+              {
+                "insert": "submission",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows, no runtime provenance; edits a captured row"
+              }
+            ]
+          ],
+          [
+            "Librarian",
+            [
+              {
+                "insert": "pull_request",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows and the "
+              },
+              {
+                "insert": "pr://",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " material they summarize"
+              }
+            ],
+            [
+              {
+                "insert": "Live "
+              },
+              {
+                "insert": "fact",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows whose "
+              },
+              {
+                "insert": "evidence",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " rows carry "
+              },
+              {
+                "insert": "pr://",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " locators, when a PR taught something reusable"
+              }
+            ],
+            [
+              {
+                "insert": "Writes or edits a "
+              },
+              {
+                "insert": "pull_request",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row"
+              }
+            ]
+          ],
+          [
+            "Human",
+            "The ledger view",
+            [
+              {
+                "insert": "Nothing here; an annotation about a PR is a "
+              },
+              {
+                "insert": "note",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " event with a "
+              },
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " ref"
+              }
+            ],
+            "Edits a captured row"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-rc-prs-links-heading": {
+      "id": "b-sks-rc-prs-links-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Foreign Keys Out"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-links-table": {
+      "id": "b-sks-rc-prs-links-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "From",
+          "To",
+          "Cardinality",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            "pull_request.target_id / pull_request.entity_id",
+            "target / entity (kind translation_unit)",
+            "Exactly one of the two; one row per subject the PR touched",
+            "The subject the entry is attributed to; the ledger view selects target rows by target_id and folds in the unit entity's rows for context"
+          ],
+          [
+            "pull_request.pr_ref",
+            "The PR in the PR archive (outside the store)",
+            "Exactly one",
+            "What to open to see the diff and discussion; read-only"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-rc-prs-links-in-heading": {
+      "id": "b-sks-rc-prs-links-in-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Foreign Keys In"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-links-in": {
+      "id": "b-sks-rc-prs-links-in",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "From",
+          "To",
+          "Meaning"
+        ],
+        "rows": [
+          [
+            "No table",
+            [
+              {
+                "insert": "pull_request",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            [
+              {
+                "insert": "Nothing points at a "
+              },
+              {
+                "insert": "pull_request",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row by id. The ledger view selects it by "
+              },
+              {
+                "insert": "target_id",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": "; an "
+              },
+              {
+                "insert": "event_ref",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " with "
+              },
+              {
+                "insert": "ref_kind",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " "
+              },
+              {
+                "insert": "pr",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " names the PR outside the table, and a fact's "
+              },
+              {
+                "insert": "evidence",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " row points at this row through the "
+              },
+              {
+                "insert": "pr://<pull_request.id>[/comment/<n>]",
+                "attributes": {
+                  "code": true
+                }
+              },
+              {
+                "insert": " locator grammar, not a foreign key"
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-sks-rc-prs-related-heading": {
+      "id": "b-sks-rc-prs-related-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-related-overview": {
+      "id": "b-sks-rc-prs-related-overview",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Target Ledger",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/20-records/70-attempt-history",
+              "label": "Target Ledger"
+            }
+          }
+        },
+        {
+          "insert": ". The three entry types and the derived ledger view this table feeds."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-related-worker-runs": {
+      "id": "b-sks-rc-prs-related-worker-runs",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker Runs",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/20-records/70-attempt-history/10-worker-runs-and-submissions",
+              "label": "Worker Runs"
+            }
+          }
+        },
+        {
+          "insert": ". The traced counterpart, and the "
+        },
+        {
+          "insert": "final_outcome",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " enum "
+        },
+        {
+          "insert": "outcome",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " shares."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-related-events": {
+      "id": "b-sks-rc-prs-related-events",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Events",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/20-records/70-attempt-history/30-notes",
+              "label": "Events"
+            }
+          }
+        },
+        {
+          "insert": ". Where a human annotation about a PR lands, as a "
+        },
+        {
+          "insert": "note",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with a "
+        },
+        {
+          "insert": "pr",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " ref."
+        }
+      ],
+      "children": []
+    },
+    "b-sks-rc-prs-related-evidence": {
+      "id": "b-sks-rc-prs-related-evidence",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Evidence",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/20-records/40-evidence",
+              "label": "Evidence"
+            }
+          }
+        },
+        {
+          "insert": ". The "
+        },
+        {
+          "insert": "pr://",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " locator grammar a fact's evidence rows use when a PR is the observation."
+        }
+      ],
+      "children": []
+    }
+  }
+}

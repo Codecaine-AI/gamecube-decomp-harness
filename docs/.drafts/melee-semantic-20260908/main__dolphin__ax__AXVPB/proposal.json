@@ -1,0 +1,141 @@
+{
+  "tu": "main/dolphin/ax/AXVPB",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L32-L211",
+            "why": "Indexed selection, zero-sync readback, 48-word COPYALL transfer, and reverse update-data copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L214-L574",
+            "why": "Selective parameter transfers and their exact fallback conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ax.h#L122-L147",
+            "why": "updateData is an embedded u16 array, not a stored descriptor pointer; both update buffers have 128 halfwords."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the copied extent by counting executable assignments rather than trusting the comment, preserves the two update-transfer directions, and replaces the false generalization that unselected current volume is always refreshed.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXVPB:__AXServiceVPB"
+        },
+        "type": "data_flow",
+        "value": "pvpb->index selects __AXPB[index], pvpb->pb supplies the host parameter image, and pvpb->sync selects reconciliation. With sync == 0, DSP state, current volume, and current address are read into the host image. COPYALL performs 48 consecutive u32 host-to-DSP assignments (0xC0 bytes, despite the source comment saying 0xF4), then copies updateCounter u32 words from __AXUpdates[index] into host updateData when the counter is nonzero. Selective flags publish selection, mixer control, state/type, mix, ITD, update counts/data, depop, envelope, FIR, address, ADPCM, SRC, and ADPCM-loop groups. Selective COPYUPDATE copies updateCounter u32 words from the host updateData array into __AXUpdates[index], opposite to COPYALL's update-data direction. In selective mode, state is read back when COPYSTATE is absent; current address is read back only when neither partial-address nor COPYADDR flags apply. Current volume is read back only under SWAPVOL, which also sends the host delta to the DSP; neither volume flag means no volume transfer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L32-L51",
+            "why": "Counter update and zero-sync mode."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L223-L227",
+            "why": "State-specific fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L428-L488",
+            "why": "Distinct volume and address readback guards."
+          }
+        ],
+        "op": "write",
+        "rationale": "The existing purpose conflates the zero-sync fast path with selective-mode behavior. The replacement preserves the function's role while stating the materially different readback guards.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXVPB:__AXServiceVPB"
+        },
+        "type": "purpose",
+        "value": "Reconciles one host AXVPB with its indexed DSP-facing AXPB during voice synchronization and increments the serviced-voice count. It selects a zero-sync playback-progress readback, a COPYALL transfer, or selective parameter publication according to the pending synchronization mask. Live DSP readback is conditional rather than a general fallback: selective state readback requires no COPYSTATE, current-address readback requires no address-update category, and current-volume readback requires SWAPVOL. An unrelated nonzero synchronization mask does not refresh host current volume."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L785-L890",
+            "why": "Critical section, exact mode-dependent tests, and dirty-mask updates."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported claim that mode 4 omits all surround-channel tests; vDeltaAuxAS is an explicit exception.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXVPB:AXSetVoiceMix"
+        },
+        "type": "state_behavior",
+        "value": "Copies the mix and derives mixerCtrl inside a save-disable-restore interrupt critical section. In command-list mode 4, nonzero auxiliary-A L/R volumes enable bit 0, auxiliary-B L/R volumes enable bit 4, and bit 3 is enabled by any of vDeltaL, vDeltaR, vDeltaAuxAL, vDeltaAuxAR, vDeltaAuxAS, vDeltaAuxBL, or vDeltaAuxBR. This mode does not derive a surround-routing bit and omits vDeltaS and vDeltaAuxBS, but it does test the auxiliary-A surround delta vDeltaAuxAS. Other modes use bits 0 and 1 for auxiliary-A/B L/R contributions, bit 2 for any vS/vAuxAS/vAuxBS contribution, and bit 3 for any of the nine delta fields. Both mix and mixer-control synchronization flags are accumulated before restoring the previous interrupt state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L986-L1005",
+            "why": "Envelope setters accumulate their flags without clearing the competing mode."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L428-L434",
+            "why": "SWAPVOL precedes COPYVOL."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L958-L965",
+            "why": "Settled-volume caller clears the competing bit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ax.h#L225-L227",
+            "why": "Identifies SWAPVOL as bit 10, cleared by the caller's mask."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the unconditional host update but corrects the unconditional downstream replacement claim and documents the cross-file sequencing that avoids the competing flag.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXVPB:AXSetVoiceVe"
+        },
+        "type": "state_behavior",
+        "value": "Every call replaces both host envelope fields and ORs COPYVOL into the existing synchronization mask under a save-disable-restore interrupt critical section. It does not clear SWAPVOL. Consequently, in selective service, a pending SWAPVOL takes precedence over COPYVOL: the DSP's current volume is read back and only the staged delta is applied, rather than replacing DSP volume with the value supplied to AXSetVoiceVe. COPYVOL replaces both DSP envelope fields only when the earlier SWAPVOL branch does not apply. The synth's settled-volume path explicitly clears SWAPVOL before calling AXSetVoiceVe."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L27-L40",
+            "why": "Accessor and increment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXVPB.c#L590-L620",
+            "why": "Per-pass reset and service/dump distinction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L25-L79",
+            "why": "Intervening frame work, counter consumption, and optional profile copy."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects 'immediately after synchronization' to the actual frame ordering while preserving the counter's producer, unit, and profiling consumer.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXVPB:__AXGetNumVoices"
+        },
+        "type": "data_flow",
+        "value": "__AXSyncPBs resets __AXNumVoices to zero, and each __AXServiceVPB call increments it once, including serviced voices that are not running and have no queued updates. Dumped voices do not contribute. __AXGetNumVoices returns the counter unchanged. __AXOutNewFrame reads it into __AXLocalProfile.axNumVoices later in the same frame, after DSP command-mail submission, callback-stack servicing, auxiliary processing, the optional user callback, next-frame command generation, and DMA setup; it then copies the local profile when a profile destination exists."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

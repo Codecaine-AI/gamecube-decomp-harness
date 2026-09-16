@@ -1,0 +1,775 @@
+{
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:.sdata2": [
+    {
+      "id": "fact:d70b6e2f-ac8e-48c5-b154-0f256f1d69fd",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "doEnter reads the pooled zero and one values when calling Fighter_ChangeMotionState: AttackLw4 begins at frame 0 with animation speed 1 and zero transition blend. No input-recognition, item-dispatch, animation, IASA, physics, or collision routine reads move-specific data from this section.",
+      "rationale": "The source at head still uses the section's floating-point literals only in doEnter's motion-state transition. The other routines consume fighter input and state or delegate to shared helpers, so the existing data-flow claim remains valid after drift.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T22:43:06.234Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "The complete translation unit shows the zero, one, zero motion-state arguments in doEnter and no move-specific local-data consumption by the input or lifecycle routines."
+        }
+      ]
+    },
+    {
+      "id": "fact:4f60b168-ea89-4479-88be-55ef2e1d4d34",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:.sdata2",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports initialization of the ordinary grounded down-smash animation at its beginning and at normal playback speed; it does not encode down-smash damage, timing, input thresholds, or character-specific move parameters.",
+      "rationale": "The literals are consumed when entering ftCo_MS_AttackLw4 with frame 0 and speed 1. Input thresholds come from p_ftCommonData, while Ness is dispatched to a separate entry routine, demonstrating that this local section is limited to generic transition constants rather than gameplay tuning.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-02T04:59:49.255Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L21-L62",
+          "why": "The source distinguishes common-data input thresholds and Ness-specific dispatch from the generic AttackLw4 entry call that consumes the zero and one literals."
+        }
+      ]
+    },
+    {
+      "id": "fact:2da61cba-0d86-433f-ab71-728228daa471",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A read-only small-data literal-pool contribution whose meaningful payload is the single-precision values 0.0 and 1.0 used by Fighter_ChangeMotionState; any additional bytes in the 16-byte section contribution are alignment or padding rather than additional semantic fields.",
+      "rationale": "The section is classified as .sdata2, while the matched C source uses only zero and one for the floating motion-transition arguments. Repeated zero arguments can share one pooled value, so the semantic layout is a pair of scalar float constants rather than a four-field structure.",
+      "confidence": 0.92,
+      "updated_at": "2026-09-02T04:59:49.255Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L54-L62",
+          "why": "The source shows the zero, one, zero literal sequence consumed by the motion-state transition and no accesses suggesting a structured data table."
+        }
+      ]
+    },
+    {
+      "id": "fact:cc137bb5-582c-48d7-934c-6e46031d7546",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the translation unit's read-only floating-point literals for entering the generic AttackLw4 motion state. It is compiler-emitted constant storage rather than a down-smash parameter table or independently authored gameplay object.",
+      "rationale": "The matched source contains no authored constant object or move-parameter table; its only constant-dependent operation is doEnter's motion-state change with zero initial frame and blend values and unit animation speed. The merged matching pull request establishes that this source is the recovered ftCo_AttackLw4 translation unit containing the section contribution.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T04:59:49.255Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L54-L62",
+          "why": "The generic entry routine passes the literal sequence 0, 1, 0 to Fighter_ChangeMotionState and defines no authored data object."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-853--main-melee-ft-chara-ftcommon-ftco-attacklw4",
+          "why": "The merged pull request identifies the recovered and matched source as the ftCo_AttackLw4 translation unit."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:doEnter": [
+    {
+      "id": "fact:c8c2e6ff-a814-46ef-87a0-6ae351d16169",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:doEnter",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a Fighter_GObj, resolves its Fighter, writes false to allow_interrupt, and forwards the same object to Fighter_ChangeMotionState and ftAnim_8006EBA4; it returns no value.",
+      "rationale": "These are the function's complete observable input flow, fighter-field write, downstream calls, and return behavior in the matched source.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:53.255Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L54-L85",
+          "why": "Shows the GObj-to-Fighter lookup, allow_interrupt write, both GObj-consuming calls, and void return type."
+        }
+      ]
+    },
+    {
+      "id": "fact:8c590460-4266-42b8-89f5-899c75c69a69",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:doEnter",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Begins the generic grounded down-smash action for fighters that do not use a character-specific AttackLw4 entry.",
+      "rationale": "At head, the dispatcher still sends Ness to its specialized entry function and every other fighter to doEnter, which transitions to the common AttackLw4 motion state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:43:06.234Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Shows the Ness-specific branch, the default dispatch to doEnter, and doEnter's transition to ftCo_MS_AttackLw4."
+        }
+      ]
+    },
+    {
+      "id": "fact:d652c74c-f0ae-40f9-bd46-e2c36a23e898",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:doEnter",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Internal action-state entry routine with signature void(Fighter_GObj* gobj), where gobj owns the Fighter whose interruption flag and motion state are initialized.",
+      "rationale": "The declaration supplies the exact parameter and return types. The body resolves the Fighter from gobj, mutates that Fighter, and passes the same object to the motion-state and animation helpers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:53.255Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L54-L85",
+          "why": "Provides the exact void(Fighter_GObj*) signature and demonstrates the fighter-object parameter's role."
+        }
+      ]
+    },
+    {
+      "id": "fact:8fcc9d7e-eb51-4f9c-b8db-73d1bb53d52f",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:doEnter",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the entry-time initialization for the common grounded down-smash action: it disables interruption, enters the generic AttackLw4 motion state from its first frame, and invokes the shared post-transition animation helper.",
+      "rationale": "The current dispatcher retains doEnter as the ordinary-fighter path, and its body still resets allow_interrupt, enters AttackLw4 at frame 0 with rate 1, and calls ftAnim_8006EBA4.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:43:06.234Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Shows both the default dispatch to doEnter and every entry-time operation performed by the routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:63e6a1e6-2792-4578-b733-9162f5de7e59",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:doEnter",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Unconditionally clears allow_interrupt and changes the fighter to ftCo_MS_AttackLw4 with no motion-state preservation flags, starting at animation frame 0 with rate 1 and blend value 0; it then calls ftAnim_8006EBA4.",
+      "rationale": "The function has no branches or guards. Its field assignment and complete Fighter_ChangeMotionState argument list directly establish the entry state and transition parameters.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:53.255Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L54-L85",
+          "why": "Directly shows the interruption reset, unconditional AttackLw4 transition, transition arguments, and subsequent animation-helper call."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Anim": [
+    {
+      "id": "fact:036d0c52-b433-49c7-a241-3f65fe60e310",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Anim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes the fighter object solely to test whether its current animation has frames remaining. When that test becomes false, it forwards the unchanged object to ft_8008A2BC, which inspects fighter kind and common fighter state to select the appropriate action-ending transition.",
+      "rationale": "The callback at head still performs only the frame query and conditional forwarding. The refreshed completion helper confirms that the forwarded object drives Hand-specific dispatch or the common neutral-state transition path.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:43:06.234Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Shows the animation callback passing the unchanged fighter object to ft_8008A2BC only after its frame test fails."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+          "why": "Shows ft_8008A2BC consuming that object to select Master Hand, Crazy Hand, or common neutral-state completion handling."
+        }
+      ]
+    },
+    {
+      "id": "fact:5df17a1c-3a18-4ba8-98fd-6a3cab079e85",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Anim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the animation-expiry boundary of the generic grounded down smash: after the move's animation finishes, the fighter leaves AttackLw4 through the shared action-ending machinery.",
+      "rationale": "The current unit enters ordinary fighters into the common AttackLw4 state and invokes the shared completion helper from this callback only after no animation frames remain.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:43:06.234Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Establishes the common AttackLw4 entry path and shows that its animation callback exits only after frame exhaustion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+          "why": "Shows that the completion helper routes ordinary fighters through shared neutral-state handling."
+        }
+      ]
+    },
+    {
+      "id": "fact:cd934b91-9816-467b-a862-2d19144fd526",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Anim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Fighter animation-state callback with signature void (Fighter_GObj* gobj).",
+      "rationale": "The matched definition takes one Fighter_GObj pointer, returns no value, queries the current animation's remaining frames, and performs a state transition on completion.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:52.683Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L63-L68",
+          "why": "Provides the exact function signature and demonstrates animation-state callback behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:7a823f7c-1ece-457c-be32-bd492a6e86e7",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Anim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Handles completion of the common AttackLw4 animation, preserving the down-smash state while frames remain and invoking the shared action-ending transition after the animation expires.",
+      "rationale": "The callback's sole guard and outgoing call remain unchanged at head, while the refreshed callee shows that the invoked routine is shared action-ending dispatch rather than move-specific processing.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:43:06.234Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Shows the complete callback, including its animation-frame guard and sole outgoing transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+          "why": "Shows that ft_8008A2BC dispatches to boss-specific endings or the common neutral-state transition path."
+        }
+      ]
+    },
+    {
+      "id": "fact:e26444f5-a324-41f6-9b07-ff76d2b55ec3",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Anim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "While AttackLw4 animation frames remain, the callback leaves the current state unchanged. Once no frames remain, it exits through ft_8008A2BC: Master Hand and Crazy Hand receive character-specific transitions, while ordinary fighters take the common neutral-state path, normally entering Wait unless an exceptional common-state condition applies.",
+      "rationale": "The current callback retains frame exhaustion as its only transition guard. The refreshed completion helper still separates the Hand bosses and otherwise delegates to a common path that checks exceptional conditions before its normal Wait transition.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:43:06.234Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Shows that AttackLw4 remains unchanged while frames remain and that ft_8008A2BC is called only after expiration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+          "why": "Shows the completion helper's Master Hand and Crazy Hand branches and the ordinary path's exceptional checks and normal transition to ftCo_MS_Wait."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_CheckInput": [
+    {
+      "id": "fact:e8315712-bc6f-41ba-bd48-5b420be309f7",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_CheckInput",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the Fighter obtained from gobj, including newly pressed A, current left-stick Y, the left-stick vertical tilt timer, current and previous C-stick Y, held inputs, the held-item object and its item-eligibility result, and fighter kind. It passes gobj and the selected motion-state identifier to the item-throw or attack-entry routine and returns whether dispatch occurred.",
+      "rationale": "The helper at the current head still reads newly pressed A, held shoulder inputs, and the held item's eligibility predicate. The C-stick helpers and target body retain the remaining controller, timer, item, and fighter-kind inputs, while the target forwards gobj and the selected action to the appropriate entry routine and reports whether dispatch occurred.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-05T05:08:02.881Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c#L1-L90",
+          "why": "The refreshed ftCo_80094E54 body reads newly pressed A, held shoulder inputs, and the held item's predicate result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0DF1.c#L1-L140",
+          "why": "Shows current and previous C-stick Y flowing into the downward threshold-crossing predicate and the canUseCstick-qualified variant."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Shows the left-stick and timer reads, held-item and fighter-kind checks, dispatch destinations, selected LightThrowLw4 motion-state argument, and boolean results."
+        }
+      ]
+    },
+    {
+      "id": "fact:e1650f2a-b176-4896-9e9c-3a68457657d5",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_CheckInput",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the grounded down-smash command from either a timed A-plus-down left-stick input or a downward C-stick flick, including command multiplexing in which an eligible held item turns the same directional input into a downward light throw. Ness is routed to a specialized down-smash entry rather than the generic fighter action.",
+      "rationale": "The source at head retains the timed left-stick route and downward C-stick crossing, then selects LightThrowLw4 for the held-item branch, Ness's specialized entry for Ness, or the common AttackLw4 entry otherwise.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:43:06.234Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Connects the left-stick and C-stick predicates to LightThrowLw4, Ness's specialized AttackLw4 entry, and the common entry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0DF1.c#L1-L140",
+          "why": "Shows that ftCo_800DF3A8 detects a new downward C-stick threshold crossing."
+        }
+      ]
+    },
+    {
+      "id": "fact:b5d68dbb-9c7d-46f5-86d7-675b8f8c55a3",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_CheckInput",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A state-changing transition predicate with signature bool (Fighter_GObj*): true means it accepted the command and entered an action state, while false means neither down-smash input predicate passed.",
+      "rationale": "The definition proves the parameter and return types. Every true path invokes an action-entry routine first, and the only false return follows failure of the outer input guard; the archived caller uses the result to stop further IASA transition checks.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:14:32.716Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L33-L52",
+          "why": "The function definition and all return paths prove the bool/Fighter_GObj* signature and transition-consumed semantics."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1107058670912684132",
+          "why": "The caller example uses the predicate as an early-return guard in an IASA transition-priority sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:d429a88c-82d9-4278-b5b3-1880ef43742a",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_CheckInput",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Recognizes and consumes a grounded down-smash command, redirecting it to a downward light item throw when the fighter holds an eligible item, otherwise entering Ness's specialized down smash or the common down-smash action.",
+      "rationale": "The complete current function still accepts either down-smash input predicate and performs exactly the held-item, Ness-specific, or default dispatch described, returning true after dispatch and false when no command is accepted.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:43:06.234Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Shows the accepted down inputs, item redirection, character specialization, default entry, and all success and failure returns."
+        }
+      ]
+    },
+    {
+      "id": "fact:a2e30612-c30c-4e58-b659-d0a06103cdae",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_CheckInput",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Acceptance occurs when either A was newly pressed while left-stick Y is at or below the common down threshold and the vertical tilt timer is below its common limit, or the C-stick newly crosses downward through that threshold. If an item is held, the routine enters ftCo_MS_LightThrowLw4 when the A and item predicate permits it or when the usable C-stick downward-crossing predicate succeeds. Otherwise Ness enters ftNs_AttackLw4_Enter and every other fighter enters the common AttackLw4 state. Each dispatch returns true; failure of both outer input predicates returns false.",
+      "rationale": "The target and refreshed helper implementations preserve the complete nested guard structure. The item-transition routine confirms that the supplied LightThrowLw4 identifier becomes the fighter's motion state after item-throw state initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-05T05:08:02.881Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/ft_0DF1.c#L1-L140",
+          "why": "Defines the new downward C-stick threshold crossing and the canUseCstick-qualified version used by the held-item branch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c#L1-L90",
+          "why": "The refreshed ftCo_80094E54 body defines the newly pressed A plus held-shoulder-or-item-predicate condition used in the held-item branch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c#L239-L349",
+          "why": "Shows ftCo_800957F4 initializing item-throw state and changing the fighter to the motion-state identifier supplied by its caller."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L89",
+          "why": "Shows the timed left-stick guard, outer C-stick alternative, held-item branch, Ness-specific dispatch, default entry, and every return value."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Coll": [
+    {
+      "id": "fact:5f645639-a2d8-4f7b-9b8e-e1af4338bda0",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Coll",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the active fighter's Fighter_GObj pointer from the action-state callback dispatcher and passes that same pointer unchanged to ft_80084104; it produces no direct return value or local state.",
+      "rationale": "The function has one Fighter_GObj pointer parameter, contains no local transformations, and uses that parameter as the sole argument to the shared collision routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:54.616Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L82-L85",
+          "why": "The complete function body shows the incoming gobj being forwarded unchanged to ft_80084104 with no other computation."
+        }
+      ]
+    },
+    {
+      "id": "fact:fcb5aa28-868a-49a7-90ea-05b63e8027b5",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Coll",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Performs the collision-processing stage of the common grounded down-smash action.",
+      "rationale": "The callback belongs to the common AttackLw4 state entered as ftCo_MS_AttackLw4, and its Coll suffix and lifecycle position identify it as that grounded down-smash action's collision handler.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:16:54.616Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L54-L85",
+          "why": "The code enters ftCo_MS_AttackLw4 and defines this function as the corresponding collision callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:65f2805b-acd9-4030-80a0-6cce3d1cfd04",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Coll",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Action-state collision callback with signature void(Fighter_GObj* gobj).",
+      "rationale": "The matched definition directly establishes a void return type and one Fighter_GObj pointer parameter, while its Coll position alongside the Anim, IASA, and Phys functions establishes the callback role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:54.616Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L54-L85",
+          "why": "This span directly shows the function signature and its placement as the collision member of the AttackLw4 callback set."
+        }
+      ]
+    },
+    {
+      "id": "fact:b9ac9ca2-fde6-4646-bcb4-fca9e7eecbfc",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Coll",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Supplies the common AttackLw4 action's collision callback by delegating its collision processing to the shared fighter routine ft_80084104.",
+      "rationale": "The matched function is the collision member of the AttackLw4 lifecycle and its entire body forwards the fighter object to ft_80084104. The surrounding matched callbacks distinguish this role from the action's animation, interrupt, and physics processing.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:54.616Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L54-L85",
+          "why": "The complete AttackLw4 lifecycle shows that ftCo_AttackLw4_Coll is the collision callback and delegates directly to ft_80084104."
+        }
+      ]
+    },
+    {
+      "id": "fact:c0097d81-1f71-4168-85ed-5ab1cdc7f220",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Coll",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On each AttackLw4 collision-callback invocation, unconditionally calls ft_80084104 once. It has no local guard, timer, branch, or explicit motion-state transition.",
+      "rationale": "The matched body is a single unconditional helper call. In the surrounding action lifecycle, state entry, animation completion, interrupt handling, and physics are implemented by separate callbacks, so this function contributes only the collision-processing step.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:54.616Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L54-L85",
+          "why": "The lifecycle span separates the action's state transitions and interrupt guard from the collision callback, whose body is one unconditional call."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_IASA": [
+    {
+      "id": "fact:1ae4857e-9ff9-466c-8483-89d9173cad84",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_IASA",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the down-smash state's Fighter_GObj, obtains its Fighter through GET_FIGHTER, and reads allow_interrupt. When interruption is enabled, it forwards the unchanged Fighter_GObj to ftCo_Wait_IASA, where the current controller state is consumed by the common grounded-transition predicates; otherwise it produces no further effect.",
+      "rationale": "The target's only locally consumed fighter datum is allow_interrupt, and its only outgoing value is the original object pointer passed to ftCo_Wait_IASA. The callee forwards that object through its ordered action checks.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:46.003Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L70-L75",
+          "why": "Shows the Fighter lookup, allow_interrupt read, and unchanged gobj forwarding."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+          "why": "Shows the grounded input predicates that consume the forwarded fighter object."
+        }
+      ]
+    },
+    {
+      "id": "fact:fc592b56-cfee-4870-92cc-0ffa5120085f",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_IASA",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the actionable ending window of the common grounded down smash: after the move's animation script enables interruption, the player may cancel its remaining animation into an accepted attack, grab, jump, movement option, appeal, or other action recognized by the common standing dispatcher.",
+      "rationale": "The source identifies this as the common AttackLw4 IASA callback and gates the standing transition dispatcher on allow_interrupt. The mechanics reference defines IASA and the first actionable frame as the point when a new action can cancel the remainder of an attack animation, and notes that Melee enables interruptibility from animation scripts.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:16:46.003Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L70-L75",
+          "why": "Identifies the callback with the common down-smash action and directly shows its interruption gate."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+          "why": "Identifies the ordinary grounded actions available through the delegated dispatcher."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://interruptibility~overview@r1927829",
+          "why": "Defines IASA and the first actionable frame as the window in which a new action cancels the remaining attack animation, and explains that Melee enables this from animation scripts."
+        }
+      ]
+    },
+    {
+      "id": "fact:fedb8331-2666-4e08-9e57-ec4ffe741bde",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_IASA",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A fighter action-state IASA callback with signature void (Fighter_GObj*); it returns no transition result and delegates transition selection rather than changing motion state directly.",
+      "rationale": "The matched definition directly establishes the void return type and single Fighter_GObj pointer parameter. Its body only reads Fighter.allow_interrupt and conditionally forwards the same object to another IASA routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:46.003Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L70-L75",
+          "why": "Provides the complete callback signature and body."
+        }
+      ]
+    },
+    {
+      "id": "fact:ec676e86-2b10-4f03-804f-598b7900e49d",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_IASA",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Handles input-as-soon-as-allowed processing during the common down-smash action: it blocks input-driven transitions until the action becomes interruptible, then delegates to the standing-state input dispatcher so an accepted ordinary grounded action can cancel the remaining animation.",
+      "rationale": "The complete target body conditionally calls ftCo_Wait_IASA only when Fighter.allow_interrupt is nonzero. The resolved callee is a priority-ordered dispatcher for common grounded attacks, grabs, jumping, movement, appeals, and other transitions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:46.003Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L70-L75",
+          "why": "Identifies the function as the AttackLw4 IASA callback and shows that its sole operation is an allow_interrupt-gated call to ftCo_Wait_IASA."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+          "why": "Shows that the delegated routine tries common grounded input transitions in priority order."
+        }
+      ]
+    },
+    {
+      "id": "fact:cafa6810-2896-476a-8c6b-aa5f49fe7502",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_IASA",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "While allow_interrupt is zero, the callback leaves the down-smash state unchanged. Once allow_interrupt becomes nonzero, each invocation runs the common Wait-state transition checks in their established priority order; the first predicate that accepts the current input performs its transition and suppresses all later checks. If none accepts, the down-smash state continues for that invocation.",
+      "rationale": "The target's guard proves that no delegated transition checks occur before interruption is enabled. The delegated routine is an ordered chain of immediate-return predicates, establishing first-success priority after the gate opens.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:46.003Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L70-L75",
+          "why": "Shows that the down-smash callback does nothing until allow_interrupt is enabled."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+          "why": "Shows the priority-ordered, early-returning transition predicates used after the interruption gate opens."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Phys": [
+    {
+      "id": "fact:4c8de68e-bf92-46f8-a5a0-e97335fb186c",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Phys",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Passes the AttackLw4 fighter object to ft_80084F3C. That helper reads the fighter's ground velocity, ground-friction attribute, and maximum walking speed; when absolute ground velocity exceeds the walking-speed limit it scales friction by p_ftCommonData->friction_when_above_walk_speed, then sends the selected friction to ftCommon_ApplyFrictionGround and the object to ftCommon_ApplyGroundMovement.",
+      "rationale": "The wrapper forwards its sole argument unchanged. The current helper body exposes each physics input, the high-speed friction adjustment under its semantic field name, and both consumers of the resulting update.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:58:01.509Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L77-L80",
+          "why": "Shows the callback forwarding its Fighter_GObj argument unchanged to ft_80084F3C."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_084E.c#L42-L54",
+          "why": "Shows the helper reading ground velocity and movement attributes, conditionally scaling friction, and applying friction and ground movement."
+        }
+      ]
+    },
+    {
+      "id": "fact:37593376-aa97-41ca-ba28-7623c1a2028b",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Phys",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the grounded deceleration and movement step used while a fighter is performing the common down-smash action.",
+      "rationale": "This is the Phys callback in the current common AttackLw4 module, and its delegated helper applies ground friction followed by ground movement.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T18:58:01.509Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L77-L80",
+          "why": "Identifies the function as the common AttackLw4 physics callback and shows its delegated update."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_084E.c#L42-L54",
+          "why": "Shows that the delegated implementation specifically applies ground friction and ground movement."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5d28e59-ef0d-46c3-a9a7-52bf6c112731",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Phys",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Action-state physics callback with signature void(Fighter_GObj*).",
+      "rationale": "The matched definition accepts one Fighter_GObj pointer, returns no value, and occupies the module's Phys callback position.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:17:12.048Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L77-L80",
+          "why": "The function declaration directly establishes the void return type and Fighter_GObj* parameter."
+        }
+      ]
+    },
+    {
+      "id": "fact:6f4efb2e-5f1e-495e-b975-8bb67178cdf0",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Phys",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Runs the common grounded physics update for the AttackLw4 action, decelerating the fighter with ground friction and then applying ground movement.",
+      "rationale": "The callback consists solely of delegation to ft_80084F3C. The current helper selects and applies ground friction and then finalizes the update through the common ground-movement routine.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:58:01.509Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L77-L80",
+          "why": "Shows that AttackLw4 physics delegates directly to ft_80084F3C."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_084E.c#L42-L54",
+          "why": "Shows the delegated helper applying selected ground friction and then calling ftCommon_ApplyGroundMovement."
+        }
+      ]
+    },
+    {
+      "id": "fact:2656d7b3-2c3c-4ab9-a571-9fa99073f80d",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Phys",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Per physics tick, the callback uses normal ground friction while absolute ground velocity is at or below the fighter's maximum walking speed. Above that threshold it multiplies friction by p_ftCommonData->friction_when_above_walk_speed before applying friction and ground movement; it performs no action-state transition itself.",
+      "rationale": "The current shared helper contains exactly one velocity-threshold branch followed by unconditional friction and ground-movement calls, while the AttackLw4 wrapper contains no guard or transition of its own.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:58:01.509Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L77-L80",
+          "why": "Shows that the wrapper has no local branch or transition and only invokes the shared physics helper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_084E.c#L42-L54",
+          "why": "Shows the walking-speed threshold, semantic high-speed friction factor, and unconditional grounded update."
+        }
+      ]
+    }
+  ],
+  "src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c": [
+    {
+      "id": "fact:55399124-03f4-4f20-9bc7-b89220fc2d57",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c",
+      "type": "data_flow",
+      "value": "Reads attack and downward-stick input, tilt timing, common thresholds, held-item state, fighter kind, animation state, and allow_interrupt; outputs LightThrowLw4, Ness's specialized entry, or generic AttackLw4.",
+      "rationale": "The complete head source carries every listed input into dispatch and callback processing.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T03:13:54.089Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L85",
+          "why": "Shows controller, timing, item, and fighter-kind inputs flowing into the selected action."
+        }
+      ]
+    },
+    {
+      "id": "fact:ab9d4bbb-cd81-4026-9177-9dc6fd520bb8",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c",
+      "type": "game_mapping",
+      "value": "Realizes grounded down smash, preserving its downward item-throw behavior and Ness's specialized down-smash implementation.",
+      "rationale": "The complete head dispatcher still selects LightThrowLw4, Ness's specialized entry, or common AttackLw4.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T03:13:54.089Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L85",
+          "why": "Shows all three player-visible outcomes of the down-smash command."
+        }
+      ]
+    },
+    {
+      "id": "fact:420ef409-a5e2-4b7c-aafb-c8e4fc46083b",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c",
+      "type": "purpose",
+      "value": "Implements common down-smash recognition, downward item-throw substitution, Ness-specific or generic entry, and generic animation, interrupt, physics, and collision handling.",
+      "rationale": "The complete head unit retains input, dispatch, entry, and callback implementation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:13:54.089Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L85",
+          "why": "Shows down-smash input, item and Ness dispatch, generic entry, and lifecycle callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:94859d61-05f0-46c4-bf60-10d51497e0b2",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c",
+      "type": "state_behavior",
+      "value": "Generic entry disables interruption and starts AttackLw4; animation completion exits normally, IASA delegates to Wait after allow_interrupt, and shared grounded handlers provide physics and collision.",
+      "rationale": "The complete head initializer and callbacks preserve these transitions and guards.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:13:54.089Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackLw4.c#L1-L85",
+          "why": "Shows state initialization, animation termination, interrupt gating, physics, and collision."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:doEnter#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Anim#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_CheckInput#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Coll#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_IASA#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_AttackLw4:ftCo_AttackLw4_Phys#r3": []
+}

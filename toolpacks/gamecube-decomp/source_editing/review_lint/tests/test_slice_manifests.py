@@ -38,9 +38,29 @@ def _declared_rule_ids() -> set[str]:
     return declared
 
 
+def _game_scoped_records() -> list[dict]:
+    """Slices composed from a game-specific root ahead of the global set.
+
+    When the game hosts the global set itself (Melee) every slice is scope
+    "game" but there is only one root, so nothing is game-specific.
+    """
+
+    if len(_qa_rules.standards_dirs()) < 2:
+        return []
+    return [record for record in _qa_rules.RULE_SLICES if record["scope"] == "game"]
+
+
 def test_slices_discovered():
+    game_families = {record["family"] for record in _game_scoped_records()}
     families = [record["family"] for record in _qa_rules.RULE_SLICES]
-    assert families == _qa_rules.CANONICAL_FAMILY_ORDER
+    canonical = [family for family in families if family not in game_families]
+    assert canonical == _qa_rules.CANONICAL_FAMILY_ORDER
+    # Game-scoped families (e.g. sms_baseline, sms_fidelity) come first and
+    # are not part of the canonical global order.
+    assert families[: len(game_families)] == sorted(
+        families[: len(game_families)], key=families.index
+    )
+    assert set(families[: len(game_families)]) == game_families
 
 
 def test_manifest_rules_match_rules_py_both_directions():
@@ -107,14 +127,27 @@ def test_rule_ids_globally_unique():
 
 
 def test_assembled_rules_match_canonical_order():
+    game_rule_ids = {
+        rule["rule_id"]
+        for record in _game_scoped_records()
+        if record["module"] is not None
+        for rule in getattr(record["module"], "RULES", [])
+    }
     assembled = [rule["rule_id"] for rule in _qa_rules.RULES]
-    assert assembled == _qa_rules.CANONICAL_RULE_ORDER
+    canonical = [rule_id for rule_id in assembled if rule_id not in game_rule_ids]
+    assert canonical == _qa_rules.CANONICAL_RULE_ORDER
+    # Game-scoped rules are unranked and sort after the canonical list by id.
+    trailing = assembled[len(canonical):]
+    assert set(trailing) == game_rule_ids
+    assert trailing == sorted(trailing)
 
 
 def test_order_manifest_covers_all_records():
-    order = json.loads(
-        (_qa_rules.standards_dir() / "order.json").read_text(encoding="utf-8")
-    )
+    order: dict[str, list[str]] = {"standards": [], "examples": [], "families": []}
+    for _scope, root in _qa_rules.standards_dirs():
+        payload = json.loads((root / "order.json").read_text(encoding="utf-8"))
+        for key in order:
+            order[key].extend(payload.get(key, []))
     standard_ids: list[str] = []
     example_ids: list[str] = []
     for record in _qa_rules.RULE_SLICES:

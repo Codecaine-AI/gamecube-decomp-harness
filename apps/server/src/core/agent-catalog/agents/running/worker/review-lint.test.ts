@@ -1,17 +1,38 @@
 import { describe, expect, test } from "bun:test";
-import { lintWorkerReviewDiff } from "./review-lint.js";
+import { isCSourcePath, lintWorkerReviewDiff } from "./review-lint.js";
 
-function unifiedDiff(lines: string[]): string {
+function unifiedDiff(lines: string[], path = "src/melee/gm/gmresult.c"): string {
   return [
-    "diff --git a/src/melee/gm/gmresult.c b/src/melee/gm/gmresult.c",
+    `diff --git a/${path} b/${path}`,
     "index 1111111..2222222 100644",
-    "--- a/src/melee/gm/gmresult.c",
-    "+++ b/src/melee/gm/gmresult.c",
+    `--- a/${path}`,
+    `+++ b/${path}`,
     "@@ -1,2 +1,3 @@",
     ...lines,
     "",
   ].join("\n");
 }
+
+describe("lintWorkerReviewDiff source path filter", () => {
+  test("treats C and C++ sources and headers as lintable", () => {
+    for (const path of ["a.c", "a.h", "a.cpp", "a.hpp", "a.cc", "a.hh", "src/Enemy/Ricco.CPP"]) expect(isCSourcePath(path)).toBe(true);
+    for (const path of ["symbols.txt", "a.py", "a.json"]) expect(isCSourcePath(path)).toBe(false);
+  });
+
+  test("catches a string-literal symbol regression in a .cpp file", () => {
+    const result = lintWorkerReviewDiff(
+      unifiedDiff(['-    OSReport("ricco hook");', "+    OSReport(lbl_803E0000);"], "src/Enemy/Ricco.cpp"),
+    );
+
+    expect(result.status).toBe("failed");
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      ruleId: "no-string-literal-symbol-regression",
+      path: "src/Enemy/Ricco.cpp",
+      message: 'Keep string literal "ricco hook" inline instead of replacing it with lbl_803E0000.',
+    });
+  });
+});
 
 describe("lintWorkerReviewDiff define aliases", () => {
   test("still flags object-like aliases", () => {

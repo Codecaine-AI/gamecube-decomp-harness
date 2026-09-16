@@ -1,0 +1,180 @@
+{
+  "tu": "main/melee/ft/ftafterimage",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftafterimage:ftCo_800C2600"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Renders sword-afterimage geometry when arg1 == 2 and x2100 > 1. It consumes historical origins/direction columns, current shared extents and source-specific scale/color/alpha parameters, constructs inner/outer vertex pairs with angle-derived intermediate pairs, and submits a direct GX triangle strip. Opacity progression depends on parameters; its distance calculation is a delta recurrence rather than ordinary three-point arc length.",
+        "rationale": "Preserve the verified rendering purpose while repairing guaranteed-fading and ordinary-distance claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L80-L374",
+            "why": "Guards, distance recurrence, paired geometry and direct strip submission."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftafterimage:ftCo_800C2600"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads source-specific parameters, current x20F8/x20FC extents and history newest-to-oldest. For outer points P0,P1,P2 the distance deltas are P0, P1-P0, P2-(P1-P0), because prevPos receives delta. Magnitudes after the first iteration accumulate into cumDist; a total strictly below 0.00001f becomes 1. Factors from these values drive scales and alpha. Inner RGB uses xA/xB/xC, outer RGB xE/xF/x10. GX receives buffer vertices in order 0,2,1,2,...,numVerts-1 with declared count numVerts+1.",
+        "rationale": "Replace the inaccurate cumulative adjacent-path description and document exact buffer consumption.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L139-L176",
+            "why": "Exact distance recurrence and strict fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L209-L369",
+            "why": "Vertex interpolation, colors and submission order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftafterimage:ftCo_800C2600"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns before GX changes unless arg1 == 2 and x2100 > 1. Active drawing sets untextured vertex-color blending and depth-test/no-depth-write state, then invalidates HSD state at completion rather than restoring each prior setting. The strict totalDist < 0.00001f fallback does not sanitize NaN or infinity. For ordinary finite nonnegative angles, s32(angle/AFTERIMAGE_ANGLE_STEP) gives the intermediate-pair count. The active normalized-cross-product helper always returns its supplied result pointer, so the caller's NULL test is not a collinearity filter; antiparallel vectors can reach rotation with a zero axis. No local history/count/vertex-buffer bounds checks exist.",
+        "rationale": "Replace universal normalization and implicit degeneracy assumptions with the verified guards and helper contract.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L80-L176",
+            "why": "Entry guards, GX state and fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L253-L374",
+            "why": "Subdivision and terminal invalidation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L78-L102",
+            "why": "Actual non-NULL cross-product return and angle calculation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbvector.c#L153-L216",
+            "why": "Unit-axis precondition and rotation implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftafterimage:ftCo_800C2FD8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns for exactly x2100 == -1. In item mode, NULL item_gobj sets x2100 to -1 and returns; unsupported item kinds assert. Successful sampling writes the indexed origin and matrix column, changes index 2 to 0 or otherwise adds one, and increments x2100 only if below 3. This preserves intended three-slot progression for initialized valid inputs but does not clamp malformed counts or indices. Unsupported fighter kinds leave attrs uninitialized. ftAction_80072B3C can write count and source mode without resetting the ring index in that handler.",
+        "rationale": "State exact mutations rather than implying arbitrary-input modulo-three repair and saturation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L386-L461",
+            "why": "Sampler transitions, branches and missing validation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftaction.c#L1088-L1094",
+            "why": "External count/source writer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftafterimage.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Implements sword-afterimage pose sampling and GX trail rendering for the canonical It_Kind_Sword item path and FTKIND_LINK/FTKIND_CLINK or FTKIND_MARS/FTKIND_EMBLEM attribute paths. It stores recent origins/direction columns on Fighter, refreshes shared current extents, and renders parameterized colored paired-edge geometry. It allocates no persistent effect object and does not acquire ownership of source items or joints.",
+        "rationale": "Use proved canonical source identities and distinguish shared extents from historical samples.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L28-L78",
+            "why": "Canonical source parameter selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L336-L461",
+            "why": "Submission, pose capture and storage ownership."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftafterimage.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The sampler obtains current shared extents and a joint from item helpers or fighter attributes, records an origin and selected matrix column into Fighter history, and advances the intended three-slot ring. The renderer combines historical poses with current extents and source scale/RGB/alpha parameters, applies its prevPos=delta distance recurrence and angle-based intermediate rotations, and submits immediate GX position/color values. No pointer to its stack vertex buffer or sampled source joint is retained by this TU.",
+        "rationale": "Repair ordinary arc-length and per-sample-extent implications while retaining verified cross-routine data flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L139-L176",
+            "why": "Actual distance recurrence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L209-L461",
+            "why": "Interpolation, immediate output and Fighter history writes."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftafterimage.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Sampling recognizes exactly -1 as disabled, disables on held-item loss, wraps only index 2 to 0 and increments counts below 3. Rendering requires pass 2 and count greater than 1, replaces a recurrence-derived total strictly below 0.00001f with 1, and inserts angle-derived intermediate pairs. A stationary three-sample history need not have zero computed total. Initialized poses, valid indices/counts, supported live sources and suitable arithmetic are preconditions, not locally enforced guarantees. This TU installs no callbacks; external common draw and conditional Fighter update paths call its routines.",
+        "rationale": "Specify lifecycle and numerical limits without implying universal bounds or unconditional once-per-frame sampling.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L80-L176",
+            "why": "Render guards and recurrence-derived fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftafterimage.c#L376-L461",
+            "why": "Sampler transitions and source preconditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdrawcommon.c#L250-L261",
+            "why": "Direct rendering consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L3043-L3047",
+            "why": "Conditional sampling consumer."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

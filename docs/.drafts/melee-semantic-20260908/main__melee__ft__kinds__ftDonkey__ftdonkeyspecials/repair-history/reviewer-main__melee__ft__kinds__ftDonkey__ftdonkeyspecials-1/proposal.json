@@ -1,0 +1,92 @@
+{
+  "tu": "main/melee/ft/kinds/ftDonkey/ftdonkeyspecials",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftDonkey/ftdonkeyspecials:ftDk_SpecialAirS_Enter"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes aerial SpecialS by dividing self_vel.x by SpecialS.x3C_MIN_STICK_X_MOMENTUM without validation, overwriting self_vel.y with zero, selecting ftDk_MS_SpecialAirS with flags 0/start 0/rate 1/blend 0/NULL, calling ftAnim_8006EBA4, clearing cmd_vars[0], and assigning ftDk_SpecialLw_8010E148 to accessory4_cb. The division does not test stick input and is not necessarily attenuation.",
+        "rationale": "Independently verified repair of the librarian's proposed replacement for the baseline purpose; avoids external naming and unsupported numeric invariants.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyspecials.c#L36-L46",
+            "why": "Complete entry exposes quotient, overwrite, state arguments, helper call, reset, and callback assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L207-L211",
+            "why": "Command helper writes zero."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftDonkey/ftdonkeyspecials:ftDk_SpecialAirS_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Runs aerial SpecialS physics: every nonzero cmd_vars[0] enables subtraction of SpecialS.x44_AERIAL_GRAVITY from self_vel.y and clamping only when the result is strictly below negative common terminal velocity. Every invocation calls ftCommon_ApplyFrictionAir with SpecialS.x40_MOMENTUM_TRANSITION_MODIFIER; that helper writes x74_anim_vel.x, not self_vel.x. Its magnitude-equality branch selects -self_vel.x, otherwise it negates the supplied friction only for positive self_vel.x. The callback does not write cmd_vars[0] or change motion state; its trailing repeated test has an empty body. Unvalidated tuning does not imply universal damping or finite bounds.",
+        "rationale": "Replaces unqualified damping and external move naming with independently verified callee arithmetic and boundary conditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyspecials.c#L71-L85",
+            "why": "Conditional fall, unconditional friction, and empty final branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L253-L261",
+            "why": "Exact friction branches and output field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L462-L468",
+            "why": "Gravity subtraction and strict lower-bound comparison."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftDonkey/ftdonkeyspecials.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Maintains paired SpecialS callbacks. False ftAnim_IsFramesRemaining dispatches grounded completion through ft_8008A2BC and aerial completion through ftCo_Fall_Enter; grounded completion normally selects Wait but has common exceptional paths. Both IASA bodies are empty. Grounded collision selects ft_800827A0 for nonzero cmd_vars[0] and ft_80082708 for zero, invoking the SpecialAirS conversion on false. Aerial collision invokes the SpecialS conversion on nonzero ft_80081D0C. No local conversion is requested on the opposite result, without asserting absence of callee side effects. Both conversions change situation and pass cur_anim_frame at rate 1 using coll_mf, then restore effect hitlag callbacks only when x2219_b0 is true. They do not call the local entry routines.",
+        "rationale": "Independently verifies and tightens the librarian replacement: avoids unconditional ground completion, interpreted contact predicates, and a total-state preservation guarantee across collision callees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyspecials.c#L48-L126",
+            "why": "Complete callback and transition control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L71-L89",
+            "why": "Situation conversion precedes current-frame state change."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109",
+            "why": "Common completion has exceptional branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123",
+            "why": "Collision helper has position effects and an additional exceptional helper call."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

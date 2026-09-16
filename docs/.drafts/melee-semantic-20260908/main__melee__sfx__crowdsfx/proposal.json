@@ -1,0 +1,390 @@
+{
+  "tu": "main/melee/sfx/crowdsfx",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/sfx_unk.c#L5-L26",
+            "why": "Explicit binding and initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L16-L119",
+            "why": "Recurring state consumers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported runtime flow while resolving the previously unknown cross-file binding.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:.sbss"
+        },
+        "type": "data_flow",
+        "value": "The global CrowdSFX_UnkStruct pointer is bound to &un_804A2F08 by un_80321900 in sfx_unk.c, then passed to un_80321950 for initialization. Recurring and event routines use its pointee for recent-event history, cheer-sequence index and cooldown, pending interruption flags, tracked fighter identity, proximity count, and two retained audio handles."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/sfx_unk.c#L5-L26",
+            "why": "Complete initialization sequence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds verified initialization order and initial state without inferring scheduler behavior or compiled layout.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:.sbss"
+        },
+        "type": "state_behavior",
+        "value": "Provides persistent access to the shared CrowdSFX runtime object. In source order, un_80321900 creates a GObj, registers fn_803219AC, binds this pointer to un_804A2F08, and initializes the pointee. Initialization sets x4 to 0x10000, x10 to cheer_limit, x18 to max_gasp_count, x14 to 0x83D60, both handles to -1, and the remaining history, identity, flags and proximity count to zero. The source does not establish the scheduler's first execution time relative to registration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L65-L104",
+            "why": "Complete scan and dispatch guards."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the bounded-band implication while preserving edge triggering and association selection.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80321AF4"
+        },
+        "type": "purpose",
+        "value": "Recomputes the number of eligible fighters strictly below box[1].bottom + blastzone_y_offset and requests a category-3 crowd reaction only when that count crosses upward through fighters_near_blastzone. It uses the fighter-associated dispatcher when the tracked spawn number belongs to an eligible fighter not below the threshold; otherwise it uses the generic dispatcher. There is no lower cutoff restricting the counted region to a band above the bottom boundary."
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L139-L151",
+            "why": "Guarded pending-flag producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L26-L63",
+            "why": "Deferred interruption consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "The flag's consumer interrupts a fighter-cheer sequence; the routine neither plays nor independently queues a specific gasp sound.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80321C70"
+        },
+        "type": "inferred_name",
+        "value": "CrowdSFX_RequestCheerInterruption"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L139-L151",
+            "why": "Exact interval and sole write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L39-L62",
+            "why": "Deferred consumption after playback completion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the misleading gasp-count arm description with the demonstrated control role.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80321C70"
+        },
+        "type": "purpose",
+        "value": "Requests deferred interruption of the fighter-cheer sequence by setting x1C when gCrowdConfig->x24 <= x18 < max_gasp_count. It does not stop audio immediately, modify the sequence index, or set the optional closing-reaction flag x20."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L139-L151",
+            "why": "Request data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L26-L63",
+            "why": "Index progression and flag consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Identifies x18 from its producer and consumer rather than treating the configuration field name as proof of a gasp counter.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80321C70"
+        },
+        "type": "data_flow",
+        "value": "Reads the shared cheer-sequence index x18 and configuration bounds x24 and max_gasp_count. Inside that half-open interval it writes 1 to x1C; otherwise it makes no change. un_80321A00 later tests x1C after the retained sound finishes and the incremented index remains below the maximum, then clears x1C, resets cooldown, saturates the sequence index and stops/invalidates x2C. Optional sound 0x144 depends separately on x20."
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L26-L63",
+            "why": "Cheer sequence and interruption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L448-L462",
+            "why": "Event-driven request."
+          }
+        ],
+        "op": "write",
+        "rationale": "The actual flag consumer establishes sequence interruption; max_gasp_count spelling alone does not establish a gasp-count mechanic.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80321C70"
+        },
+        "type": "game_mapping",
+        "value": "Coordinates crowd reactions by allowing eligible match events to interrupt an ongoing fighter-specific cheer sequence at a later sound boundary. It is a crowd-control operation, not an independent gasp playback operation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L218-L275",
+            "why": "Complete initializer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L444-L467",
+            "why": "Effective classification override."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the timer/index confusion and preserves partial rejection effects, pending-flag lifetime and numeric classification behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80321EBC"
+        },
+        "type": "state_behavior",
+        "value": "Returns false for a missing fighter, effective player classification equal to 1, insufficient damage or cooldown, or an already tracked spawn number. It then overwrites x14 with the fighter SFX and returns false if that value is 0x83D60, so this rejection is not mutation-free. Success stops/invalidates x2C, starts 0x140 for category 3 or 0x141 otherwise, records the spawn number in xC, resets sequence index x18 to zero, invokes player bookkeeping and returns true. It does not reset x4, x10, x1C or x20. The player classification helper can override a secondary fighter's effective classification."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L277-L318",
+            "why": "Dispatch and association."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L121-L133",
+            "why": "Inline request semantics."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces immediate-reset wording with the inline helper's actual deferred request.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_8032201C"
+        },
+        "type": "purpose",
+        "value": "Dispatches a fighter-associated crowd reaction for expected categories 1 through 3, replacing the retained x28 sound with 0x13F, 0x13E or 0x13D respectively. A nonzero fighter identifier additionally permits a guarded deferred cheer-interruption request when it matches xC and is resolved for player-side notification. Category zero returns false immediately."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L277-L318",
+            "why": "All switch and tail paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L121-L133",
+            "why": "Guarded deferred flag write."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves unsupported-category behavior and lookup preconditions while correcting the claimed reset.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_8032201C"
+        },
+        "type": "state_behavior",
+        "value": "Category 0 returns false before audio or fighter handling. Categories 1, 2 and 3 conditionally stop the old x28 sound, invalidate the handle and install their replacement. Other categories select no sound but still fall through. For any nonzero identifier reaching the tail, a match with xC conditionally sets x1C through the sequence-window guard, then the fighter lookup is used for player notification without a null check. The tail returns true, including for unsupported nonzero categories; true is therefore not universally proof that a sound was selected."
+      },
+      {
+        "confidence": 0.92,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L398-L407",
+            "why": "Two-flag request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L26-L63",
+            "why": "Interruption and optional reaction consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Names the two pending controls without asserting that sample 0x144 is specifically a gasp or that playback is guaranteed.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80322314"
+        },
+        "type": "inferred_name",
+        "value": "CrowdSFX_RequestCheerInterruptionWithReaction"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L398-L407",
+            "why": "Producer guard and writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L39-L62",
+            "why": "Mutually exclusive consumer branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects guaranteed strongest-gasp wording and exposes the consumer-dependent result.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80322314"
+        },
+        "type": "purpose",
+        "value": "While the fighter-cheer sequence index is below max_gasp_count, sets x1C and x20 to request deferred sequence interruption with reaction SFX 0x144. It makes no audio call itself. The requested sound occurs only if the recurring update reaches its pending-interruption branch rather than normal terminal completion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L398-L407",
+            "why": "Pending-state producer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L26-L63",
+            "why": "Full downstream flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exceptional terminal branch omitted by the existing flow description.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80322314"
+        },
+        "type": "data_flow",
+        "value": "Reads x18 and max_gasp_count, then writes 1 to x1C and x20 if x18 is below the maximum. After x2C playback becomes inactive, un_80321A00 increments x18. If the incremented index is still below the maximum, the pending branch clears x1C and cooldown, saturates x18, stops/invalidates x2C, plays 0x144 when x20 is nonzero and clears x20. If the increment reaches the maximum instead, normal completion plays 0x140 and does not clear either pending flag."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L398-L407",
+            "why": "Request eligibility."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L26-L63",
+            "why": "Completion can bypass pending flags."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L247-L274",
+            "why": "Startup does not clear pending flags."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents the cross-transition lifetime of pending flags instead of assuming unconditional one-shot clearing.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80322314"
+        },
+        "type": "state_behavior",
+        "value": "Is a no-op when x18 is already at or above max_gasp_count; otherwise it sets both pending flags without applying the lower sequence-window bound used by un_80321C70. Consumption waits for sound completion and requires the incremented index still to be below the maximum. Normal terminal completion leaves the flags pending, and a later successful cheer startup resets x18 without clearing them. Consequently this request is not guaranteed to be consumed by the next completion or confined to the current sequence."
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1240-L1264",
+            "why": "Transformed-state handoff."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1361-L1369",
+            "why": "Crowd request ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L26-L63",
+            "why": "Conditional deferred result."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the verified Transform connection while correcting the interpretation of the sequence limit and deferred audio.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_80322314"
+        },
+        "type": "game_mapping",
+        "value": "Connects the shared Transform handoff to crowd-cheer control: after transferring fighter and item state, the handoff requests interruption of an active cheer with an optional 0x144 reaction before outgoing-fighter cleanup and the incoming finish callback. This is not an independently guaranteed gasp or a lifetime count limit on crowd gasps."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L469-L512",
+            "why": "Classification, dispatch and asymmetric returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L565-L594",
+            "why": "Arguments and conditional retained-magnitude clear."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates verified caller consumption from the unsupported assumption that dispatcher acceptance is returned.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_803224DC"
+        },
+        "type": "data_flow",
+        "value": "Receives fighter spawn identity, current X position and retained knockback magnitude from common airborne bookkeeping. Configuration thresholds produce category 0..3, and margin-adjusted stage-boundary comparisons determine horizontal eligibility. Outside positions pass identity and category to un_8032201C; inside positions return zero. The outside path has no explicit return. Callers test this function's result before clearing retained knockback, but the source does not establish reliable success propagation from the dispatcher."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L469-L512",
+            "why": "Complete spatial dispatcher."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sfx/crowdsfx.c#L277-L318",
+            "why": "Downstream effects and independent return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L565-L594",
+            "why": "Caller condition depends on the ambiguous result."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact branching and the return ambiguity rather than inferring a successful caller-visible transition.",
+        "subject": {
+          "target_stable_key": "main/melee/sfx/crowdsfx:un_803224DC"
+        },
+        "type": "state_behavior",
+        "value": "Tests knockback against high, middle and low thresholds in that order, selecting 3, 2, 1 or 0. Horizontal eligibility is pos_x < left_value + horiz_margin or pos_x > right_value - horiz_margin, evaluated in source order. An inside result returns zero without dispatch; an outside result calls un_8032201C, including for category zero, and then falls off the non-void function without an explicit return. The dispatcher may produce audio and player-side effects, but its Boolean result is not explicitly forwarded. Caller-side knockback clearing therefore cannot be asserted solely from dispatcher acceptance."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,541 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-knowledge-50-worker-surfaces",
+  "title": "Worker Knowledge Surfaces",
+  "root": "root",
+  "blocks": {
+    "root": {
+      "id": "root",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-ws-intro",
+        "b-ws-boot-h",
+        "b-ws-boot-p",
+        "b-ws-blocks",
+        "b-ws-budgets",
+        "b-ws-boot-refs",
+        "b-ws-boot-librarian-fields",
+        "b-ws-reading-h",
+        "b-ws-reading-purpose",
+        "b-ws-reading-librarian",
+        "b-ws-reading-contract",
+        "b-ws-reading-tool",
+        "b-ws-tools-h",
+        "b-ws-tools-p",
+        "b-ws-tools",
+        "b-ws-gate-h",
+        "b-ws-gate-p",
+        "b-ws-seq",
+        "b-ws-fb-h",
+        "b-ws-fb-p",
+        "b-ws-fb-po",
+        "b-ws-rel-h",
+        "b-ws-rel-w",
+        "b-ws-rel-s",
+        "b-ws-rel-r"
+      ]
+    },
+    "b-ws-intro": {
+      "id": "b-ws-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A worker receives a bounded projection of the knowledge system at boot, queries deeper evidence through its tool profile only when the task needs it, and never writes knowledge. Its feedback reaches the store after the run closes, through the summarizer job and the librarian. Code: "
+        },
+        {
+          "insert": "worker/context.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/agent-catalog/agents/running/worker/context.ts",
+              "label": "worker/context.ts"
+            }
+          }
+        },
+        {
+          "insert": " assembles the boot context; "
+        },
+        {
+          "insert": "profiles/defaults.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/tools/profiles/defaults.ts",
+              "label": "profiles/defaults.ts"
+            }
+          }
+        },
+        {
+          "insert": " names the tools."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-boot-h": {
+      "id": "b-ws-boot-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Boot Context"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-boot-p": {
+      "id": "b-ws-boot-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker boot context contains the canonical target identity and source reading excerpt, first-diff evidence, the V2 target card, and decompilation standards. Related functions and file editability arrive inside the target block. Tool definitions are supplied separately by the runtime."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-blocks": {
+      "id": "b-ws-blocks",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Block",
+          "Contents",
+          "Source"
+        ],
+        "rows": [
+          [
+            "Target",
+            "Canonical identity, approved source path, related functions, file editability, and a bounded source excerpt",
+            "Claimed target packet and current sandbox source"
+          ],
+          [
+            "First diff",
+            "Bounded baseline instruction differences or an unavailable reason",
+            "Claim-time compiler comparison"
+          ],
+          [
+            "Target knowledge",
+            "Prior runs and submissions, facts, and linked records",
+            "V2 target card"
+          ],
+          [
+            "Decomp standards",
+            "Accepted worker-facing standards at the selected budget",
+            "Harness standards"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ws-budgets": {
+      "id": "b-ws-budgets",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Budget",
+          "Inline source limit",
+          "Standards",
+          "Target card"
+        ],
+        "rows": [
+          [
+            "full",
+            "32,000 characters, including the reading-view symbol footer",
+            "Every accepted worker-facing standard",
+            "20 ledger entries, 8 links, 3 facts per link"
+          ],
+          [
+            "compact",
+            "12,000 characters, including the reading-view symbol footer",
+            "Five-rule condensation",
+            "8 entries, 4 links, 1 fact per link"
+          ],
+          [
+            "minimal",
+            "3,000 characters, including the reading-view symbol footer",
+            "Two-rule condensation",
+            "3 entries, 2 links, no facts per link"
+          ]
+        ],
+        "title": "Context budgets"
+      },
+      "children": []
+    },
+    "b-ws-boot-refs": {
+      "id": "b-ws-boot-refs",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The target card is the bounded V2 record view. When a source excerpt has usable proposed names, the proposed-name reading view replaces the raw inline excerpt. With no usable substitutions, the worker receives the canonical excerpt. Long reading views start near the target definition and provide continuation lines."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-boot-librarian-fields": {
+      "id": "b-ws-boot-librarian-fields",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "renamed_from",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and the drift report are librarian-context fields, carried by the "
+        },
+        {
+          "insert": "pr_imported",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "run_closed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " contexts, not worker-card fields: the worker sees a rename only as the target it was handed, and drift only through the facts the librarian re-cited. See "
+        },
+        {
+          "insert": "Drift Gate",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing/50-drift-gate",
+              "label": "Drift Gate"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-reading-h": {
+      "id": "b-ws-reading-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Proposed-Name File Context"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-reading-purpose": {
+      "id": "b-ws-reading-purpose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Workers and both librarians use proposed-name code to inspect the surrounding control flow, notice missing operations or asymmetric cleanup, and test whether an interpretation fits the file. Guessed names remain hypotheses. Agents verify claims against canonical code and compiler or archival evidence, and use original symbols in edits, tool arguments, subjects, and citations. A name is never evidence for its own meaning."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-reading-librarian": {
+      "id": "b-ws-reading-librarian",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Both the event-driven and backfill librarians receive deduplicated file excerpts beside their canonical subject evidence. The context derives file paths from mechanical translation-unit identities and source locators. It includes at most four files, with up to 8,000 characters and 240 original lines per file. Large files start near the target definition. Canonical source spans remain in the subject records; the reading views are separately marked read-only. Missing files or knowledge produce an explicit fallback, and further files can be read on demand."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-reading-contract": {
+      "id": "b-ws-reading-contract",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The renderer substitutes unambiguous function declarations, calls, and references using current direct inferred_name values. It preserves original line boundaries and reports canonical-to-proposed mappings with confidence and stable subject identities. Fields, parameters, data-section labels, comments, strings, preprocessor directives, and qualified C++ names remain unchanged. Ambiguous identities, local bindings, spelling collisions, and regions with syntax errors are skipped. This is a syntax-based reading view, not compiler name resolution."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-reading-tool": {
+      "id": "b-ws-reading-tool",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "knowledge_render_file accepts a checkout-relative source/header path, an optional start_line, and an optional max_lines. Each call reads current file contents, using the worker sandbox when present or the checkout selected for the librarian pass, including an explicit checkout override. The default is 240 lines within 32,000 rendered characters; max_lines can be raised to 2,000. The result carries the original source SHA-256 and next_line. Files over 2 MB and paths outside the checkout are rejected. If one line and its mapping cannot fit, read that region from canonical source. Refresh after edits because earlier views and hashes describe earlier contents."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-tools-h": {
+      "id": "b-ws-tools-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Tools"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-tools-p": {
+      "id": "b-ws-tools-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Workers share seven read-only knowledge tools with librarians. Librarians also have entity_lookup, unit_context, code_graph_search, and graph_related_functions. Source reading views do not write files or knowledge facts."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-tools": {
+      "id": "b-ws-tools",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Tool",
+          "Reads",
+          "Status"
+        ],
+        "rows": [
+          [
+            "knowledge_render_file",
+            "Current source/header with proposed function names, original line numbers, source hash, symbol mappings, and continuation",
+            "Worker sandbox or active librarian checkout; read-only KB"
+          ],
+          [
+            "knowledge_record",
+            "The assembled V2 record for another target or entity",
+            "Live, V2 store"
+          ],
+          [
+            "pr_search",
+            "Archived pull request summaries and discussion",
+            "Live, V2 store"
+          ],
+          [
+            "discord_search",
+            "Archived Discord messages by text, channel, author, or time range",
+            "Live, V2 store"
+          ],
+          [
+            "wiki_search",
+            "The latest mirrored wiki revision",
+            "Live, V2 store"
+          ],
+          [
+            "attempt_search",
+            "Structured prior worker attempts, narrowed by hypothesis text",
+            "Live, V2 store"
+          ],
+          [
+            "resolve_locator",
+            "The exact source material behind a Discord, wiki, PR, attempt, or code locator",
+            "Live, V2 store"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-ws-gate-h": {
+      "id": "b-ws-gate-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Ship Gate"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-gate-p": {
+      "id": "b-ws-gate-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Standards are enforced, not consulted, at the gate. The deterministic layer is the review_lint diff scan: every finding cites the standard it violates, the scan fails closed when the scanner cannot run, and the QA verdict is combined into the handoff verdict. The worker-side check and the regression-check gate both go through the same scanner. Code: "
+        },
+        {
+          "insert": "scan-diff.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/validation/qa/scan-diff.ts",
+              "label": "scan-diff.ts"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "qa-gate.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/validation/jobs/qa-gate.ts",
+              "label": "qa-gate.ts"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-seq": {
+      "id": "b-ws-seq",
+      "type": "sequence",
+      "props": {
+        "src": "assets/sequences/worker-knowledge-loop.sequence.json",
+        "title": "Worker boot, ship gate, and the feedback path"
+      },
+      "children": []
+    },
+    "b-ws-fb-h": {
+      "id": "b-ws-fb-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Feedback"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-fb-p": {
+      "id": "b-ws-fb-p",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The worker leaves no knowledge behind by itself. What it did becomes knowledge in three steps after the run closes."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-fb-po": {
+      "id": "b-ws-fb-po",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "The runner closes the worker state; with --worker-summary on, a worker_summary job is enqueued for it (default off; a catch-up pass enqueues any closed state that lacks one)"
+          },
+          {
+            "text": "The summarizer turns the transcript and checkpoint digest into a worker_run, its submissions, and a run_narrative, then enqueues a run_closed index task"
+          },
+          {
+            "text": "The librarian consumes the task and decides, per touched target and entity, whether any fact changes; the apply layer writes"
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-ws-rel-h": {
+      "id": "b-ws-rel-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Related"
+        }
+      ],
+      "children": []
+    },
+    "b-ws-rel-w": {
+      "id": "b-ws-rel-w",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Worker",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "30-agents/10-worker",
+              "label": "Worker"
+            }
+          }
+        },
+        {
+          "insert": ": the agent page: context inputs, tools, when it runs."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-rel-s": {
+      "id": "b-ws-rel-s",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Standards",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/70-standards",
+              "label": "Standards"
+            }
+          }
+        },
+        {
+          "insert": ": what the gate enforces."
+        }
+      ],
+      "children": []
+    },
+    "b-ws-rel-r": {
+      "id": "b-ws-rel-r",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Run Closed",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing/20-run/10-run-closed",
+              "label": "Run Closed"
+            }
+          }
+        },
+        {
+          "insert": ": the pathway the feedback takes."
+        }
+      ],
+      "children": []
+    }
+  }
+}

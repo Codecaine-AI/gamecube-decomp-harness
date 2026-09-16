@@ -1,0 +1,79 @@
+{
+  "tu": "main/melee/vi/vi0601",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L62-L110",
+            "why": "Complete scale transformation and explicit setup ordering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's reversed registration-versus-animation-attachment ordering.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi0601:fn_8031E800"
+        },
+        "type": "data_flow",
+        "value": "Receives a Corneria GObj through its registered process, follows its object slot to the root JObj and first child, reads the child's current X scale, multiplies it by 0.65, and writes the result to X, Y and Z. For each selected present model descriptor at index 1\u20133, setup registers this process before attaching the descriptor's animation to the child and requesting and evaluating frame zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L62-L110",
+            "why": "Current-scale read, unconditional subsequent operations, and attached child animation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact transformation while removing an unsupported cross-invocation assumption and documenting the exceptional branch.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi0601:fn_8031E800"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation reads the first child's current X scale and sets all three scale axes to 0.65 times that value. Repeated invocations compound by 0.65 only if no animation or other writer changes the scale between invocations. Setup attaches animation to the same child, so process registration alone does not establish an uninterrupted geometric decay. A null root produces a null child pointer but does not cause a local early return before the scale access."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L81-L118",
+            "why": "Primary construction, conditional indices, process registrations and audio calls."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unconditional count of three additional animations with the actual null-terminated selection rule.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi0601:un_8031E9B8"
+        },
+        "type": "purpose",
+        "value": "Initializes the animated models and audio for video sequence 0601. It creates a renderable GObj from primary model descriptor 0, then scans the null-terminated model array and applies each present descriptor at index 1\u20133 to the first child of the GObj returned by the Corneria setup helper. It installs continuing animation/scaling processes and performs the concluding sequence-audio configuration calls."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0601.c#L89-L112",
+            "why": "Primary and child setup have different explicit statement order."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline explanation's uniform ordering and unconditional descriptor count.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi0601:un_8031E9B8"
+        },
+        "type": "state_behavior",
+        "value": "For the primary model, setup attaches animation, requests and evaluates frame zero, then registers vi_8031E6EC at priority 0x17. For each present descriptor at index 1\u20133, it calls the Corneria setup helper, obtains the first child, registers fn_8031E800 at priority 2, then attaches that descriptor's animation and requests and evaluates frame zero. The child-process registration therefore precedes its initial animation evaluation, unlike the primary-model registration."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

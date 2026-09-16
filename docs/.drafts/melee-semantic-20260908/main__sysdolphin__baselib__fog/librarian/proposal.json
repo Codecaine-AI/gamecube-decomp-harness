@@ -1,0 +1,219 @@
+{
+  "tu": "main/sysdolphin/baselib/fog",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Allocates an HSD_FogAdj and passes it to HSD_FogAdjInit. A descriptor supplies width and center plus only the first 48 bytes of its Mtx44 through PSMTXCopy. A null descriptor selects viewport-based width/center and a complete identity matrix. Returns the allocated object.",
+        "rationale": "Avoid implying a full descriptor Mtx44 copy.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L133-L139",
+            "why": "Avoid implying a full descriptor Mtx44 copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L141-L160",
+            "why": "Initializer distinguishes descriptor and default branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L71-L87",
+            "why": "Six paired-single loads/stores cover offsets 0 through 47 only; no fourth-row copy."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogAdjLoadDesc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Successful allocation is asserted before initialization. With a descriptor, initialization writes width, center and the first three matrix rows, leaving the fourth row untouched by this routine. With no descriptor, viewport defaults and a complete identity matrix are written. No claim is made about allocation-time contents of untouched fields.",
+        "rationale": "The inherited fully initialized descriptor-matrix claim exceeds the copy extent.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L133-L139",
+            "why": "The inherited fully initialized descriptor-matrix claim exceeds the copy extent."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L141-L160",
+            "why": "Only default branch explicitly writes row 3."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L71-L87",
+            "why": "Six paired-single loads/stores cover offsets 0 through 47 only; no fourth-row copy."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests fog animation at frame by forwarding mask 0x7FF to HSD_FogReqAnimByFlags. The callee tests only 0x200 and makes one request on fog->aobj; the bits do not select individual fog properties.",
+        "rationale": "Distinguish animation-category selection from per-property channels.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L173-L176",
+            "why": "Distinguish animation-category selection from per-property channels."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L178-L184",
+            "why": "Only one mask bit is tested."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+            "why": "The request sets curr_frame and flags, then requests every FObj channel."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fog:HSD_FogReqAnim"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides the unfiltered fog-category animation request. Fog animation is selected through category bit 0x200, and the request is forwarded to its attached animation controller.",
+        "rationale": "Distinguish animation-category selection from per-property channels.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L173-L176",
+            "why": "Distinguish animation-category selection from per-property channels."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L178-L184",
+            "why": "Only one mask bit is tested."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L91-L105",
+            "why": "The request sets curr_frame and flags, then requests every FObj channel."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fog:HSD_Fog_8037DE7C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Canonical signature void HSD_Fog_8037DE7C(HSD_Fog* fog, HSD_AObjDesc* desc). Fog is nullable; desc is passed to the loader, which returns NULL for a null descriptor. HSD_FogAddAnim is an inferred alias, not the source-defined function name.",
+        "rationale": "Keep the canonical signature separate from a comment-supported naming hypothesis.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L163-L171",
+            "why": "Keep the canonical signature separate from a comment-supported naming hypothesis."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/aobj.c#L179-L218",
+            "why": "A null descriptor yields NULL; non-null loads a controller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fog:FogRelease"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For a present fog_adj, calls ref_DEC. That helper returns true immediately for HSD_OBJ_NOREF, otherwise decrements and returns whether the old count was zero. On true, calls adjustment release and destroy; then passes aobj to HSD_AObjRemove and fog to the parent release method.",
+        "rationale": "Document the exact reference helper convention rather than assuming an ordinary count reaching zero.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L225-L238",
+            "why": "Document the exact reference helper convention rather than assuming an ordinary count reaching zero."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/object.h#L74-L81",
+            "why": "ref_DEC returns true for HSD_OBJ_NOREF, or post-decrements and tests whether the old count was zero."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/fog:FogRelease"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Adjustment handling precedes AObj removal and parent release. An absent adjustment is skipped. The virtual adjustment release/destroy branch follows ref_DEC true, including the HSD_OBJ_NOREF sentinel case; pointer fields are not cleared here.",
+        "rationale": "Document the exact reference helper convention rather than assuming an ordinary count reaching zero.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L225-L238",
+            "why": "Document the exact reference helper convention rather than assuming an ordinary count reaching zero."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/object.h#L74-L81",
+            "why": "ref_DEC returns true for HSD_OBJ_NOREF, or post-decrements and tests whether the old count was zero."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/fog:FogUpdateFunc#r4"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "attribute_type",
+        "rationale": "The enum dispatch selects fog property channels.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L193-L223",
+            "why": "The enum dispatch selects fog property channels."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/fog:FogUpdateFunc#r5"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "HSD_ObjData* input whose fv member supplies the handled property value. Read for types 1,2,5,6,7,8; type 20 reads it only if fog_adj exists. Null fog and unhandled types do not dereference val.",
+        "rationale": "The switch and guards establish conditional input use.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fog.c#L193-L223",
+            "why": "The switch and guards establish conditional input use."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

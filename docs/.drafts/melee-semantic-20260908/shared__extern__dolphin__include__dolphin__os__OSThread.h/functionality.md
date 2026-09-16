@@ -1,0 +1,11 @@
+### OSThread.h
+This header declares Dolphin OS thread data types, constants, and public entry points; it contains no function implementations.
+
+- `OSPriority` is `s32`. Thread and mutex queue types contain head/tail pointers, while their link types contain next/prev pointers. `OSThread` declares an embedded context, state and attributes, suspension and priority fields, queue/link members, mutex-related members, and stack pointers. The hexadecimal field-offset comments are source annotations, not independently verified compiled layout. [Canonical declarations](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os/OSThread.h#L6-L55)
+- Named thread states are READY=1, RUNNING=2, WAITING=4, and MORIBUND=8. This header alone does not establish whether combined values or other states occur. Priority constants designate 0 as highest and 31 as lowest, with idle equal to 31. The detach attribute is `0x0001u`, and the stack magic constant is `0xDEADBABE`. [Canonical constants](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os/OSThread.h#L57-L71)
+- Prototypes cover thread-queue initialization, sleep/wakeup, suspension/resumption, cancellation, current-thread lookup, scheduler enable/disable, active-thread checking, and creation. `OSCreateThread` accepts a thread pointer, entry callback, callback argument, stack pointer and size, priority, and attributes. `IsSuspended(suspend)` expands to `(suspend > 0)`. Return-value meanings, exceptional paths, scheduling effects, and object lifetimes cannot be determined from these declarations alone. [Canonical interface](code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/os/OSThread.h#L73-L85)
+
+### Semantic review
+All 88 canonical and rendered lines were reviewed. The rendered view has no substitutions or parse errors; it flags `OSGetCurrentThread` as an unchanged shadowed binding. No rendered hypothesis supplies independent behavioral evidence. Subject and link enumeration both returned empty, so there are no baseline facts or links to retain or correct and no writable subjects requiring proposals. No supported semantic change was identified.
+
+Status: synthesized; independent review and live promotion pending.

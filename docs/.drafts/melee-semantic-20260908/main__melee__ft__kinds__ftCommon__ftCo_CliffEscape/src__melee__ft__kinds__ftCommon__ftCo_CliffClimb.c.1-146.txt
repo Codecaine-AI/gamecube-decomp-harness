@@ -1,0 +1,137 @@
+1: #include "ftCo_CliffClimb.h"
+2: 
+3: #include <Runtime/platform.h>
+4: 
+5: #include <melee/ft/forward.h>
+6: 
+7: #include "ftCo_CliffAttack.h"
+8: #include "ftCo_Fall.h"
+9: #include "ftCo_StopCeil.h"
+10: #include "types.h"
+11: #include <dolphin/mtx.h>
+12: #include <melee/ft/fighter.h>
+13: #include <melee/ft/ft_081B.h>
+14: #include <melee/ft/ft_084E.h>
+15: #include <melee/ft/ft_0DF1.h>
+16: #include <melee/ft/ftanim.h>
+17: #include <melee/ft/ftcliffcommon.h>
+18: #include <melee/ft/ftcommon.h>
+19: #include <melee/ft/types.h>
+20: #include <melee/mp/mplib.h>
+21: 
+22: /* 09AAFC */ static bool ftCo_8009AAFC(Fighter_GObj* gobj, bool arg1,
+23:                                        float stick_x, float stick_angle);
+24: /* 09AB9C */ static void ftCo_8009AB9C(Fighter_GObj* gobj);
+25: 
+26: static inline bool inlineA0(Fighter* fp)
+27: {
+28:     if (ABS(fp->input.lstick[0].x) >= p_ftCommonData->x494 ||
+29:         ABS(fp->input.lstick[0].y) >= p_ftCommonData->x494)
+30:     {
+31:         return true;
+32:     }
+33:     return false;
+34: }
+35: 
+36: bool ftCo_8009AA0C(Fighter_GObj* gobj)
+37: {
+38:     Fighter* fp = gobj->user_data;
+39:     if (inlineA0(fp)) {
+40:         return ftCo_8009AAFC(gobj, true, fp->input.lstick[0].x,
+41:                              ftCo_GetLStickAngle(fp));
+42:     }
+43:     if (ftCo_800DF79C(fp)) {
+44:         return ftCo_8009AAFC(gobj, false, fp->input.cstick[0].x,
+45:                              ftCo_GetCStickAngle(fp));
+46:     }
+47:     fp->mv.co.cliff.x8 = true;
+48:     return false;
+49: }
+50: 
+51: bool ftCo_8009AAFC(Fighter_GObj* gobj, bool arg1, float stick_x, float angle)
+52: {
+53:     Fighter* fp = gobj->user_data;
+54:     if (angle > p_ftCommonData->x20_radians ||
+55:         (angle > -p_ftCommonData->x20_radians &&
+56:          stick_x * fp->facing_dir >= 0))
+57:     {
+58:         if (arg1 && fp->mv.co.cliff.x8) {
+59:             ftCo_8009AB9C(gobj);
+60:             return true;
+61:         }
+62:         return false;
+63:     }
+64:     if (fp->mv.co.cliff.x8) {
+65:         fp->x2064_ledgeCooldown = p_ftCommonData->ledge_cooldown;
+66:         ftCo_Fall_Enter(gobj);
+67:         return true;
+68:     }
+69:     return false;
+70: }
+71: 
+72: /// @todo Shared code with #ftCo_8009AEA4.
+73: void ftCo_8009AB9C(Fighter_GObj* gobj)
+74: {
+75:     Fighter* fp = gobj->user_data;
+76:     FtMotionId msid = fp->dmg.x1830_percent < p_ftCommonData->x488
+77:                           ? ftCo_MS_CliffClimbQuick
+78:                           : ftCo_MS_CliffClimbSlow;
+79:     Fighter_ChangeMotionState(gobj, msid, Ft_MF_None, 0, 1, 0, NULL);
+80:     ftAnim_8006EBA4(gobj);
+81:     ftCommon_8007E2F4(fp, 32);
+82:     fp->x221D_b7 = true;
+83:     fp->x221D_b5 = true;
+84:     ftCo_CliffCatch_Phys(gobj);
+85: }
+86: 
+87: void ftCo_CliffClimb_Anim(Fighter_GObj* gobj)
+88: {
+89:     if (!ftAnim_IsFramesRemaining(gobj)) {
+90:         ftCommon_8007D92C(gobj);
+91:     }
+92: }
+93: 
+94: void ftCo_CliffClimb_IASA(Fighter_GObj* gobj) {}
+95: 
+96: void ftCo_CliffClimb_Phys(Fighter_GObj* gobj)
+97: {
+98:     Fighter* fp = gobj->user_data;
+99:     if (fp->ground_or_air == GA_Air) {
+100:         if (mpLib_80054ED8(fp->mv.co.cliff.ledge_id)) {
+101:             Vec3 vec;
+102:             u8 _[8] = { 0 };
+103:             if (fp->facing_dir > 0) {
+104:                 mpLib_80053ECC_Floor(fp->mv.co.cliff.ledge_id, &vec);
+105:             } else {
+106:                 mpLib_80053DA4_Floor(fp->mv.co.cliff.ledge_id, &vec);
+107:             }
+108:             fp->cur_pos.x = fp->x68C_transNPos.z * fp->facing_dir + vec.x;
+109:             fp->cur_pos.y = vec.y + fp->x68C_transNPos.y;
+110:             if (fp->ground_or_air == GA_Air && fp->x68C_transNPos.z >= 0 &&
+111:                 fp->x68C_transNPos.y >= 0)
+112:             {
+113:                 fp->coll_data.floor.index = fp->mv.co.cliff.ledge_id;
+114:                 ftCommon_8007D7FC(fp);
+115:             }
+116:         } else {
+117:             ftCo_Fall_Enter(gobj);
+118:         }
+119:     } else {
+120:         ft_80084FA8(gobj);
+121:     }
+122: }
+123: 
+124: void ftCo_CliffClimb_Coll(Fighter_GObj* gobj)
+125: {
+126:     u8 _[8] = { 0 };
+127:     Fighter* fp = gobj->user_data;
+128:     if (fp->ground_or_air == GA_Air) {
+129:         if (ft_800821DC(gobj)) {
+130:             ftCo_8009AE14(gobj);
+131:         } else if (ftCo_8009EF68(gobj)) {
+132:             return;
+133:         }
+134:     } else {
+135:         ft_80084104(gobj);
+136:     }
+137: }

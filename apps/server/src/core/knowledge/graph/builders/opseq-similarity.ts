@@ -13,6 +13,7 @@ const DEFAULT_MAX_ANALOGS_PER_FUNCTION = 12;
 const SEARCH_ANALOG_LIMIT = 5;
 
 export interface BuildOpseqSimilarityGraphRecordsOptions {
+  reportPath?: string;
   indexesRoot?: string;
   maxAnalogsPerFunction?: number;
 }
@@ -63,7 +64,7 @@ export function buildOpseqSimilarityGraphRecords(
   const sourcePaths = [...profilePaths, ...neighborPaths];
   if (sourcePaths.length === 0 || neighborPaths.length === 0) return null;
 
-  const functions = currentFunctionIndex(repoRootWithFunctionReport(repoRoot));
+  const functions = currentFunctionIndex(options.reportPath ? repoRoot : repoRootWithFunctionReport(repoRoot), options.reportPath);
   if (functions.byEntityId.size === 0) return null;
 
   const profileAliases = profileFunctionAliases(profilePaths, functions);
@@ -185,9 +186,9 @@ function repoRootWithFunctionReport(repoRoot: string): string {
   return requested;
 }
 
-function currentFunctionIndex(repoRoot: string): FunctionIndex {
+function currentFunctionIndex(repoRoot: string, explicitReportPath?: string): FunctionIndex {
   const index = emptyFunctionIndex();
-  const reportPath = resolve(repoRoot, "build/GALE01/report.json");
+  const reportPath = resolve(repoRoot, explicitReportPath ?? "build/GALE01/report.json");
   if (existsSync(reportPath)) {
     const report = readJson(reportPath);
     for (const unitValue of arrayValue(report.units)) {

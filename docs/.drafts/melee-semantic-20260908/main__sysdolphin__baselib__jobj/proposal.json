@@ -1,0 +1,400 @@
+{
+  "tu": "main/sysdolphin/baselib/jobj",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:HSD_JObjAddNext"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Selects the old parent's complete child chain, or the root chain starting at jobj when parentless. In the parented case it clears the parent's child pointer and clears JOBJ_ROOT_MASK on jobj itself. It reparents next to the old parent, appends the selected chain after next's existing children, rewrites each moved node's parent to next, and propagates child-derived opaque/translucent/texture-edge summary bits upward. These are render-pass summaries, not transform-dirty dependencies.",
+        "rationale": "Corrects flag-domain confusion while preserving wrapping topology and the exact flag-write target.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L816-L907",
+            "why": "Summary helper and wrapping writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L90-L94",
+            "why": "Render-summary domain."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:HSD_JObjCheckDepend"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For a non-null JObj, evaluates dependencies only when HSD_JObjMtxIsDirty(jobj) is false. In user-defined-matrix mode, sets raw JOBJ_MTX_DIRTY only when parent independence is absent, a parent exists, and the parent's dirty predicate is true. Otherwise it tests the parent's raw dirty bit, exact JOINT1/JOINT2/EFFECTOR role, or any attached RObj, and ORs the raw dirty bit when any applies. It neither builds matrices nor recursively propagates this write.",
+        "rationale": "Separates raw flags from predicate and preserves asymmetric parent checks.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L30-L55",
+            "why": "All dependency branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L225-L234",
+            "why": "Predicate excludes user matrices."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:HSD_JObjCheckDepend"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL is a no-op. An ordinary JObj with raw JOBJ_MTX_DIRTY set skips dependency evaluation. A user-defined-matrix JObj always has a false dirty predicate, even with that raw bit set, and therefore still enters its narrower parent-dependent branch. Ordinary nodes use the parent's raw dirty bit; user-defined nodes use the parent's predicate, so a raw-dirty user-defined parent does not satisfy that latter test. No branch clears dirtiness or guarantees that public matrix setup will rebuild a user-defined matrix.",
+        "rationale": "Corrects already-dirty no-op overgeneralization and documents the exceptional mode.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L30-L55",
+            "why": "Dependency control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L225-L256",
+            "why": "Predicate and setup guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:HSD_JObjClearFlags"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Clears a supplied mask from one nullable JObj. Before clearing, it conditionally calls hierarchical matrix invalidation when the current and mask JOBJ_CLASSICAL_SCALE bits differ and HSD_JObjMtxIsDirty is false. This pre-clear XOR is not an actual-change test: clearing an already-set classical-scale bit does not itself trigger invalidation, so cache coherence is not guaranteed by this function.",
+        "rationale": "Removes unsupported coherence guarantee without changing the observed XOR logic.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1019-L1030",
+            "why": "Pre-clear XOR and final mask."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:HSD_JObjClearFlags"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL is unchanged. For a live node, pre-clear XOR requests dirty propagation only when the current and mask classical-scale bits differ and the dirty predicate is false, then flags are ANDed with the complement of the mask. With the bit clear and mask set, or bit set and mask absent, invalidation can occur without a classical-scale change. With both bits set, clearing changes the mode but XOR suppresses invalidation. User matrices remain predicate-false regardless of their raw dirty bit. The final clear can also remove a dirty bit just set by propagation if the caller included it in the mask.",
+        "rationale": "Completes the truth table and preserves operation ordering and user-mode ambiguity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1019-L1030",
+            "why": "Exact mutation order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L225-L234",
+            "why": "Predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:HSD_JObjGetCurrent"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns the current-JObj slot without mutation or acquiring a reference. Ordinary replacement uses HSD_JObjSetCurrent's retain-incoming, unref-outgoing, store sequence, including NULL clearing. JObj class amnesia is exceptional: it directly clears current_jobj without unreferencing it, so the slot does not persist exclusively until the next setter call.",
+        "rationale": "Adds the cross-lifecycle exception omitted by the existing state explanation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1053-L1063",
+            "why": "Ordinary access and replacement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1529-L1539",
+            "why": "Amnesia bypass."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:HSD_JObjSetMtxDirtySub"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires a non-null JObj and unconditionally sets its raw 0x40/JOBJ_MTX_DIRTY bit. If the current node is not an instance, visits its children and recurses only when parent independence is absent and HSD_JObjMtxIsDirty(child) is false. An instance child may itself be marked, but descent stops below it. Already raw-dirty user-defined-matrix children still have a false predicate and can be revisited; ordinary predicate-dirty children and parent-independent children stop propagation.",
+        "rationale": "Corrects raw-bit/predicate conflation and states the exact instance boundary.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1445-L1459",
+            "why": "Propagation guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L225-L234",
+            "why": "Dirty predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:HSD_JObjWalkTree"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_JObjWalkTree(HSD_JObj* jobj, HSD_JObjWalkTreeCallback cb, f32** cb_args). Root and callback are nullable. The callback type is void (*)(HSD_JObj*, f32**, s32); it receives the unchanged argument bundle and structural tag 0 for the supplied root, 1 for a parent's first child, or 2 for a later sibling.",
+        "rationale": "Uses header callback typedef rather than inferring signedness from helper's local u32.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L154-L156",
+            "why": "Callback typedef."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L89-L127",
+            "why": "Tags and forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:HSD_JObjWalkTree0"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void HSD_JObjWalkTree0(HSD_JObj* jobj, HSD_JObjWalkTreeCallback cb, f32** cb_args). A non-null node must have a parent; node and callback may otherwise be NULL. Callback signature is void (*)(HSD_JObj*, f32**, s32). The helper computes a local u32 tag of 1 for first child or 2 for later sibling and passes it to the callback's signed third parameter.",
+        "rationale": "Corrects callback signedness while preserving local type and descendant role.",
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L154-L156",
+            "why": "Callback type."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L89-L109",
+            "why": "Local tag and precondition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:JObjResetRST"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Either NULL argument is a no-op. Otherwise copies descriptor rotation x/y/z, scale and position into runtime rotate x/y/z, scale and translate. Quaternion rotate.w is left unchanged. Unless JOBJ_MTX_INDEP_SRT is set, requests dirty propagation through HSD_JObjSetMtxDirty; this does not itself rebuild matrices, and the header dirty predicate excludes user-defined matrices. SRT-independent nodes receive the copied values without this dirty request.",
+        "rationale": "Corrects complete-SRT overstatement and preserves independent-SRT behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L57-L70",
+            "why": "Exact copied fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L115-L117",
+            "why": "Quaternion storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L225-L264",
+            "why": "Deferred dirty request."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:JObjSortAnim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Moves the first FObj whose obj_type equals TYPE_JOBJ (numeric 12) to the head of an AObj's channel list, leaving other relative order intact. In JObjUpdateFunc, channel 12 is HSD_A_J_BRANCH, which changes subtree visibility, not a generic joint-transform channel. HSD_JObjAddAnim invokes this priority operation immediately after loading the AObj; it is not a full sort.",
+        "rationale": "Resolves numeric channel through canonical definitions and callback delivery rather than trusting TYPE_JOBJ spelling.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L279-L307",
+            "why": "Promotion and caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.h#L29-L30",
+            "why": "Constant 12."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.c#L387-L387",
+            "why": "Type forwarded as channel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L31-L32",
+            "why": "Branch mapping."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:JObjSortAnim"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Prepares a newly attached model-joint AObj by prioritizing its first branch-visibility channel (12). That channel sets or clears JOBJ_HIDDEN across the traversable subtree when interpreted; it is distinct from rotation, translation and scale channels.",
+        "rationale": "Corrects transform-channel interpretation while retaining animation-preparation role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.h#L29-L30",
+            "why": "TYPE_JOBJ value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L21-L32",
+            "why": "Channel domain."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L420-L433",
+            "why": "Visibility effect."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:JObjUpdateFunc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void JObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val), used by AObj interpretation and RObj updates. obj is treated as a nullable mutable HSD_JObj*. type selects a channel; handled channels read or mutate val through fv (f32), iv (s32), or p (Vec3). HSD_ObjData has no pointer member. val is not null-checked before a handled channel accesses it; unknown channels perform no switch action.",
+        "rationale": "Corrects invented pointer-capable union arm and includes the constraint callback path.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.h#L64-L68",
+            "why": "Union members."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L351-L541",
+            "why": "Signature and channel access."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1431-L1437",
+            "why": "RObj use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:resolveIKJoint1"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires Joint1 IK hint and, when a Joint2 child exists, its IK hint. Effector search asserts when no effector node exists; an existing effector without subtype-1 JObj reference yields NULL and suppresses the solution. With a usable effector, absence of subtype-3 reference permits RObj update and conditional matrix rebuild. Nondegenerate target distance constructs a bend basis from the subtype-3 reference (optionally twisted) or current orientation, clamps negative geometric height to zero, and reverses bend when Joint2 hint flags & 0x4 (bit index 2) is set. At squared distance <= 1e-8, only var_f1 and var_f29_2 are assigned by the fallback; var_f27, var_f28, sp74 and sp80 are later used without demonstrated initialization. A valid straight or finite fallback is not established.",
+        "rationale": "Preserves exceptional assertion, numeric mask, and source-level degeneracy rather than inventing safe fallback behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1089-L1104",
+            "why": "Effector check and source warning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1144-L1252",
+            "why": "Hints, branches and later uses."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:resolveIKJoint2"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Builds the second IK joint's cached world matrix: places its origin at the parent hinted bone endpoint, aims X toward the effector's stored translation, optionally corrects the signed angle using subtype-5/6 limits, and forms the other axes using cross products with the parent's Z axis. Output axes are scaled by jobj->scl when present, otherwise unit scale, not directly by jobj->scale. Epsilon normalization does not guarantee a valid orthogonal basis for degenerate inputs.",
+        "rationale": "Corrects local-versus-accumulated scale and avoids unconditional geometric guarantees.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1283-L1383",
+            "why": "Exact scale and matrix data flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/jobj:resolveIKJoint2"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Effector lookup asserts if no effector node exists. If an effector exists but lacks a subtype-1 JObj reference, the checked helper returns NULL; that case or a missing parent returns before solving. Otherwise the parent's IK hint is required. If subtype-5 or subtype-6 limit RObjs exist, the current joint's IK hint is also required and mask 0x4 selects bend sign. Dot products >=1 or <=-1 map to 0 or pi before sign selection. Lower-limit violation is tested first and preempts the upper-limit test; direction is reconstructed around the parent's Z axis only after a violated bound is selected. Otherwise direct effector-facing direction remains.",
+        "rationale": "Separates assertion from null early return and preserves asymmetric bound precedence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1089-L1098",
+            "why": "Checked helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1283-L1359",
+            "why": "Guards, sign and limit ordering."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/jobj.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Matrix setup builds and clears raw JOBJ_MTX_DIRTY, skips automatic IK/RObj postprocessing for user-defined matrices, and may rebuild once after ordinary RObj updates re-dirty the node. Dirty propagation marks the current node first, then descends only when that node is not an instance and each child is parent-dependent and predicate-clean. Instance children can be marked but stop further descent. The dirty predicate excludes user-defined matrices even if their raw dirty bit is set; public setup therefore does not rebuild those matrices solely because that bit is set.",
+        "rationale": "Corrects instance-boundary placement and raw-versus-predicate cache state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.c#L1385-L1459",
+            "why": "Cache operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/jobj.h#L225-L256",
+            "why": "Predicate and public guard."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

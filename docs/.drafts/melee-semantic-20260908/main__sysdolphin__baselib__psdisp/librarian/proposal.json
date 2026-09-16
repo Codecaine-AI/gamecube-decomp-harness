@@ -1,0 +1,936 @@
+{
+  "tu": "main/sysdolphin/baselib/psdisp",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:calcTornadoLastPos"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires valid pp and output pointers. Non-NULL generator path reconstructs all coordinates from particle grav/fric/vel and generator tornado velocity, grav, absolute radius/angle and origin. NULL generator branch dereferences gp->pos and is defective, not a safe fallback. No finite/range checks occur; no simulation state is advanced.",
+        "rationale": "Makes input, ownership, cache and unsafe-path boundaries explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L117-L152",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L631-L649",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1091-L1109",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:getColorMatAmb"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Material/ambient intensity and alpha tracks produce two GXColor outputs. setupTevReg uses material output for TEVREG2, optionally alpha-modulated by primary. setupChanReg consumes ambient output for primary/active-light modulation; its channel material color comes from primary color or white. The material helper result there is overwritten by environment output in the non-PrimEnv branch, not installed as channel material.",
+        "rationale": "Corrects data consumer, size gating or overbroad cache claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L197-L225",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:getColorMatAmb"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Samples independent grayscale material/ambient tracks and alpha without changing counters. Nonzero count uses integer 16.16 scale from remain/count; zero count copies stored intensity and alpha. RGB components all receive one intensity. Required pointers and sane counters are caller preconditions; no clamp or overflow/alias guard is provided.",
+        "rationale": "Makes input, ownership, cache and unsafe-path boundaries explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L197-L225",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:getColorPrimEnv"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Samples primary/environment tracks independently without advancing counters. Nonzero count uses integer scale=65536*remain/count then (target<<16 + (current-target)*scale)>>16 for each byte; zero count copies stored color. Output pointers and pp must be valid. No remain<=count, arithmetic-overflow, output-clamp or alias validation; interpolation identities assume ordinary valid track values.",
+        "rationale": "Makes input, ownership, cache and unsafe-path boundaries explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L154-L191",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:particleSort"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires list index 0..15, valid output handles and an acyclic list. Matching u8 token immediately publishes current global head and cached non-edge boundary without checking list/kind changes. A mismatch stores token first; empty input clears outputs/boundary. Nonempty input stably concatenates runs by ((kind>>25)&7)+(TexEdge?0:8), rewiring next and global head without allocation. Complete list has edge partition followed by non-edge partition and NULL termination. This is flag grouping, not depth sorting. Token reuse/wrap or mutations within an epoch can leave ordering/boundary stale.",
+        "rationale": "Makes input, ownership, cache and unsafe-path boundaries explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L397-L515",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:psDispParticles"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Draws selected particle link/pass groups with lazy GX setup, state/resource selection and point, trail, billboard, AppSRT or custom-form geometry. Size gating is size<FLT_EPSILON; no general visibility/frustum test is provided.",
+        "rationale": "Corrects data consumer, size gating or overbroad cache claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L2209",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L644-L668",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L16-L33",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1215-L1279",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1400-L1440",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:psDispParticles"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "sw=0 advances the u8 epoch (255 wraps to 1), ignores link mask and returns. Other values scan only low 16 link bits: sw=1 walks TexEdge prefix; every other nonzero sw starts non-edge boundary. Skips size<FLT_EPSILON, including negative/tiny size; NaN passes this predicate. Lazily configures camera/GX state at first accepted particle and invalidates HSD state at end only if setup ran; no previous GX-state restoration. Sort mutates particle links; AppSRT paths update matrices, cached scales, frameNum and ONCE->STILL status. Requires valid camera/resources; inverse success and resource index bounds are unchecked. Source reads uninitialized prev_kind via &= during setup. Palette comparison pointer sp79C is initialized NULL but never updated, so non-NULL palettes reload. A missing image can leave sp764 uninitialized before a filtering-change LOD/load path. Form-table NULL check is MUST_MATCH-only. No reentrancy or concurrent mutation protection.",
+        "rationale": "Makes input, ownership, cache and unsafe-path boundaries explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L2209",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L644-L668",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L16-L33",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1215-L1279",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1400-L1440",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:setVtxDesc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Always clears GX descriptors first. Modes 0..5 enable respectively POS+INDEX8 TEX0, POS, POS+CLR0+INDEX8 TEX0, POS+CLR0, POS+DIRECT TEX0, POS+CLR0+DIRECT TEX0; POS/CLR0 are direct. Other integers leave descriptors cleared. Does not define component formats or reset HSD descriptor-cache pointers itself.",
+        "rationale": "Makes input, ownership, cache and unsafe-path boundaries explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L85-L115",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/psdisp.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Particle flags, transforms, colors, alpha counters, bank/group/pose/palette and custom forms feed GX state and primitive emission. Selected previous-state keys suppress some setters; palette key is never updated and indexed images are reloaded. Sorting rewires particle.next; AppSRT paths write cached transforms and status. Rendering samples color tracks without advancing them.",
+        "rationale": "Corrects data consumer, size gating or overbroad cache claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L21-L83",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L397-L515",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L1990",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1993-L2208",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/psdisp.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Render state caching exists for point/line width, blend, channel/TEV colors, matrix, alpha, edge, mirror, image and filtering, but it is not a complete state-deduplication guarantee. Palette sp79C is never assigned the loaded palette; indexed paths clear the image key each visit. Image identity alone does not detect changed dimensions/format. Source reads prev_kind before initialization; malformed/missing textures can reach LOD operations on an uninitialized GXTexObj. Static fog pointer has no source-visible setter in this TU. Rendering mutates particle list order and AppSRT derived state; it does not advance color/alpha transition counters.",
+        "rationale": "Corrects data consumer, size gating or overbroad cache claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L21-L83",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L397-L515",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L1990",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1993-L2208",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:setVtxDesc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void setVtxDesc(s32 fmt). s32 fmt: layout selector 0..5; others clear only.",
+        "rationale": "Exact pinned declaration and direct uses; parameter labels are positional, not ABI proof.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L85-L115",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:setVtxDesc#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "s32 fmt: layout selector 0..5; others clear only.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L85-L115",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:calcTornadoLastPos"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void calcTornadoLastPos(HSD_Particle* pp, f32* x, f32* y, f32* z). HSD_Particle* pp: required particle with valid generator for safe execution. f32* x: required reconstructed X output. f32* y: required reconstructed Y output. f32* z: required reconstructed Z output.",
+        "rationale": "Exact pinned declaration and direct uses; parameter labels are positional, not ABI proof.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L117-L152",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L631-L649",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1091-L1109",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:calcTornadoLastPos#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Particle* pp: required particle with valid generator for safe execution.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L117-L152",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L631-L649",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1091-L1109",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:calcTornadoLastPos#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32* x: required reconstructed X output.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L117-L152",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L631-L649",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1091-L1109",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:calcTornadoLastPos#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32* y: required reconstructed Y output.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L117-L152",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L631-L649",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1091-L1109",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:calcTornadoLastPos#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "f32* z: required reconstructed Z output.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L117-L152",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L631-L649",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1091-L1109",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:getColorPrimEnv"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void getColorPrimEnv(HSD_Particle* pp, GXColor* primCol, GXColor* envCol). HSD_Particle* pp: required color-track source. GXColor* primCol: required primary RGBA output. GXColor* envCol: required environment RGBA output.",
+        "rationale": "Exact pinned declaration and direct uses; parameter labels are positional, not ABI proof.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L154-L191",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:getColorPrimEnv#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Particle* pp: required color-track source.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L154-L191",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:getColorPrimEnv#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "GXColor* primCol: required primary RGBA output.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L154-L191",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:getColorPrimEnv#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "GXColor* envCol: required environment RGBA output.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L154-L191",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:getColorMatAmb"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "static void getColorMatAmb(HSD_Particle* pp, GXColor* matCol, GXColor* ambCol). HSD_Particle* pp: required material/ambient track source. GXColor* matCol: required grayscale RGB plus alpha output. GXColor* ambCol: required grayscale RGB plus alpha output.",
+        "rationale": "Exact pinned declaration and direct uses; parameter labels are positional, not ABI proof.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L197-L225",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:getColorMatAmb#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Particle* pp: required material/ambient track source.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L197-L225",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:getColorMatAmb#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "GXColor* matCol: required grayscale RGB plus alpha output.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L197-L225",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:getColorMatAmb#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "GXColor* ambCol: required grayscale RGB plus alpha output.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L197-L225",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L230-L244",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L302-L395",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:particleSort"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Particle* particleSort(s32 arg0, u8 arg1, HSD_Particle** arg2, HSD_Particle** arg3). s32 arg0: trusted index 0..15 into parallel list/token arrays. u8 arg1: generation token, equality bypasses relinking. HSD_Particle** arg2: required output for borrowed complete head. HSD_Particle** arg3: required output for borrowed non-edge suffix head.",
+        "rationale": "Exact pinned declaration and direct uses; parameter labels are positional, not ABI proof.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L397-L515",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:particleSort#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "s32 arg0: trusted index 0..15 into parallel list/token arrays.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L397-L515",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:particleSort#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u8 arg1: generation token, equality bypasses relinking.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L397-L515",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:particleSort#r5"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Particle** arg2: required output for borrowed complete head.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L397-L515",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:particleSort#r6"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD_Particle** arg3: required output for borrowed non-edge suffix head.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L397-L515",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:psDispParticles"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "void psDispParticles(u32 target_link, u32 sw). u32 target_link: low 16 bits select lists, ignored when sw=0. u32 sw: 0 advances epoch, 1 renders edge prefix, any other nonzero renders non-edge suffix.",
+        "rationale": "Exact pinned declaration and direct uses; parameter labels are positional, not ABI proof.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L2209",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L644-L668",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L16-L33",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1215-L1279",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1400-L1440",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:psDispParticles#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 target_link: low 16 bits select lists, ignored when sw=0.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L2209",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L644-L668",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L16-L33",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1215-L1279",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1400-L1440",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/psdisp:psDispParticles#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "u32 sw: 0 advances epoch, 1 renders edge prefix, any other nonzero renders non-edge suffix.",
+        "rationale": "Pinned parameter declaration and direct role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L2209",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L644-L668",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L16-L33",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1215-L1279",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1400-L1440",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/psdisp.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Owned types: psdisp_ParticleSortBucket {HSD_Particle* head,tail}, psdisp_Tlut {GXTlutFmt fmt,u32 tlut_name,u16 n_entries}, psdisp_Mtx {Mtx mtx}. Header declares psDispParticles, particleSort and setVtxDesc only. Inline helpers and globals are inventoried without creating absent identities or inferring compiled placement.",
+        "rationale": "Owned source/header definitions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L21-L34",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.h#L4-L10",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/psdisp:psDispParticles"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes a render-link bitmask and pass code, then obtains sorted HSD_Particle chains for each selected link. For each drawable particle it reads kind flags, size, alpha-transition fields, texture and palette indices, bank, group, pose and form references, AppSRT state, position, velocity, colors, and trail parameters. Those values select and update cached GX state, resolve texture and form resources, construct camera- or AppSRT-transformed geometry, and produce GX primitive headers and FIFO vertex, color, alpha, and texture-coordinate writes. A drawing pass that initialized GX state finishes by invalidating the broader HSD state cache. AppSRT cache generation is only one byte: skipped epochs can collide after wrap. Custom forms contain a trusted u32 primitive count, four-byte primitive headers and eight-byte float S/T pairs with no length validation.",
+        "rationale": "Adds explicit resource-format and mutable-cache boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1828-L2209",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L644-L668",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psstructs.h#L16-L33",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1215-L1279",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L1400-L1440",
+            "why": "Pinned declarations, expressions and call sites establish this bounded claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/psdisp.c#L863-L995",
+            "why": "Custom form primitive headers and float coordinate records are traversed without length validation."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

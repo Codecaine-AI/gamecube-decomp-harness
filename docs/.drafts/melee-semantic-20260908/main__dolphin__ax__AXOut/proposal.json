@@ -1,0 +1,131 @@
+{
+  "tu": "main/dolphin/ax/AXOut",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L25-L79",
+            "why": "Frame call order, mailbox waits, buffer toggle, DMA and profile copy."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXCL.c#L19-L107",
+            "why": "Prepared-list handoff changes write list; __AXNextFrame writes commands containing buffer addresses."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implied synchronous sample-conversion model and preserves the cross-file lifetime and phase distinction between submitted commands, newly constructed commands, and DMA buffer selection.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXOut:__AXOutNewFrame"
+        },
+        "type": "data_flow",
+        "value": "Passes lessDspCycles unchanged to __AXSyncPBs, obtains a prepared command-list address, and sends 0xBABE0180 followed by that address to DSP, waiting after each send. __AXGetCommandListAddress switches AXCL's write cursor to the alternate command list. After deferred callbacks, auxiliary processing, and optional user dispatch, __AXNextFrame embeds __AXOutSBuffer and the currently indexed output-buffer address in that next command list and flushes it; it does not synchronously convert or write PCM samples. AXOut then toggles __AXOutFrame and programs AI DMA from the newly selected buffer for 0x280 bytes. It records timing and voice count and conditionally copies exactly 56 bytes of __AXLocalProfile to the current external profile."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L25-L79",
+            "why": "Submission, callbacks, construction call and DMA selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L152-L175",
+            "why": "Startup buffer phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXCL.c#L19-L107",
+            "why": "Command-list lifecycle and buffer-address encoding."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported assertion that __AXNextFrame directly produces samples with the observed command-construction pipeline and explicit initial buffer phase.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/ax/AXOut.c"
+        },
+        "type": "data_flow",
+        "value": "Each frame submits a previously prepared AX command list to DSP as a command token followed by its address, then services deferred callbacks, auxiliary processing and the nullable user callback. __AXNextFrame constructs and flushes the next command list using the intermediate buffer and current output-buffer address; actual sample production is deferred rather than performed synchronously by this CPU call. AXOut alternates its two output buffers and programs AI DMA from the toggled selection. Startup clears and flushes both sample regions, primes the pending command list for buffer 1, and starts AI DMA on cleared buffer 0. The buffers and DSP task/image storage persist across these asynchronous operations."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L81-L110",
+            "why": "Complete producer-consumer state and timing flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/dsp/dsp.c#L173-L202",
+            "why": "DSPAssertTask has a NULL-return branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact numeric branches, repeated-event behavior, cast order, and the absence of handling for a failed task assertion.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXOut:__AXOutAiCallback"
+        },
+        "type": "data_flow",
+        "value": "Reads shared volatile __AXOutDspReady. A value of 0 causes OSGetTime() to be saved in __AXOsTime. A value of 1 causes readiness to be cleared to 0 and __AXOutNewFrame(0) to run immediately. Otherwise the callback writes 2 and calls DSPAssertTask(&task), ignoring its return value; a repeated callback in state 2 therefore asserts again without refreshing the timestamp. The paired DSP resume callback consumes state 2 by writing 0 and calling __AXOutNewFrame((u32)(OSGetTime() - __AXOsTime) / 4), casting the elapsed value before division. Its non-2 path writes 1 without starting a frame."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L38-L44",
+            "why": "Unbounded mailbox waits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L81-L140",
+            "why": "Numeric rendezvous and init wait."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L152-L192",
+            "why": "Ordered startup and shutdown."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects overgeneralized timestamp capture and adds useful exceptional-branch and lifecycle details without assuming valid callback ordering beyond the actual guards.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/ax/AXOut.c"
+        },
+        "type": "state_behavior",
+        "value": "AI/DSP synchronization uses readiness values 0, 1 and 2. AI records its timestamp only in state 0; state 1 is consumed by writing 0 and starting a zero-adjustment frame. All other AI paths write 2 and assert the DSP task, so repeated state-2 events do not refresh time, and the assertion result is ignored. DSP resume consumes state 2 by writing 0 and starting a frame with (u32)(OSGetTime() - __AXOsTime) / 4; otherwise it writes 1. Startup resets the output index before DSP initialization, waits for the init flag, primes the alternate buffer's command list, publishes readiness 1, clears the user callback and starts DMA. Shutdown disables interrupts, clears the user callback, stops AI DMA, halts DSP, waits for DSP DMA idle, resets DSP and restores interrupts. Mailbox, initialization and shutdown waits have no local timeout; the done flag is not used as a shutdown barrier."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L7-L18",
+            "why": "Persistent declarations and qualifiers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ax/AXOut.c#L117-L140",
+            "why": "Exact descriptor assignments and polling."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the declared backing allocation from the numeric transfer-length field while retaining supported descriptor, submission and synchronization knowledge.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ax/AXOut:__AXOutInitDSP"
+        },
+        "type": "data_flow",
+        "value": "Populates the persistent global DSPTaskInfo task with axDspSlave and axDspSlaveLength for IRAM, IRAM address 0, ax_dram_image for DRAM, dram_length 0x2000 and DRAM address 0. The backing object is separately declared u16 ax_dram_image[8192]; its allocation size must not be equated with the descriptor length. Sets init/resume vectors 0x10/0x30, AX init/resume/done callbacks, a NULL request callback and priority 0. Clears init and done flags, conditionally calls DSPInit when DSPCheckInit is zero, submits &task through DSPAddTask, and polls the volatile init flag until nonzero. The task descriptor and backing image outlive submission."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

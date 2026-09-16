@@ -1,0 +1,10 @@
+## Shared character-item declarations
+`itCharItems.h` defines item-specific variable and attribute structures, not executable update, collision, spawn or destruction routines. It includes fighter weapons/projectiles, tether-like items, and additional item families. Most fields retain offset-based names; descriptive fields and source comments are not independently verified runtime semantics.
+
+`ItemLink` declares previous/next links, vectors, flags, collision data and game/joint-object references. Hookshot, grapple, chain, climbers string and yoyo variable structures reference this shared type. These declarations establish shared representation, not allocation ownership or cross-file lifetime rules ([ItemLink and hookshot](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itCharItems.h#L313-L361), [grapple](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itCharItems.h#L667-L676), [chain/string](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itCharItems.h#L768-L815), [yoyo](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itCharItems.h#L905-L913)).
+
+Animation resources are represented by `AnimBundle` and joint/animation pointers. Peach turnip attributes contain a length and an unknown-size odds/damage array; chef and tools attributes contain trailing arrays declared with one element. Their actual runtime counts are not established here ([animation bundle](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itCharItems.h#L439-L467), [turnip](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itCharItems.h#L556-L572), [chef](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itCharItems.h#L844-L858), [tools](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itCharItems.h#L887-L903)).
+
+All canonical and rendered pages were reviewed. The rendered view made zero substitutions and offers no independent semantic corroboration. The frozen baseline contains no subjects, facts or links; no knowledge change is warranted.
+
+Status: synthesized; independent review and live promotion pending.

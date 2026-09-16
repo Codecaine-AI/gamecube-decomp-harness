@@ -1,9 +1,10 @@
+import { useEffect, useState } from "react";
+import { fetchJson } from "@/lib/api";
+import type { HarnessStateReadModel } from "@/pages/workspace/_lib/types";
 import { ChevronRight, Plus, RefreshCw } from "@/icons";
-import { num, type Dashboard, type FormState, type GameSummary, type UiConfig } from "@/lib/format";
+import { type Dashboard, type FormState, type GameSummary, type UiConfig } from "@/lib/format";
 import { type AppRoute } from "@/routing";
 import { Button, PageHeader, PanelSection } from "@/components/primitives";
-import { deriveCycleView } from "@/pages/workspace/_lib/model";
-import type { CycleView } from "@/pages/workspace/_lib/types";
 
 export interface GameDashboardProps {
   busy: boolean;
@@ -18,36 +19,15 @@ export interface GameDashboardProps {
 
 interface GameCardSummary {
   game: GameSummary;
-  view?: CycleView;
-}
-
-function gateSummary(view: CycleView | undefined): string {
-  if (!view) return "cycle state unavailable";
-  const slices = view.prRecords.filter((record) => !["merged", "closed"].includes(record.status)).length;
-  const local = view.prRecords.filter((record) => ["ready", "blocked", "dirty"].includes(record.localStatus) && !["merged", "closed"].includes(record.status)).length;
-  if (view.mode === "pr") return `PR Mode · ${num(slices)} PR slice(s) unresolved, ${num(local)} workspace(s) unresolved`;
-  if (view.mode === "run") return `Run Mode · ${num(view.activeClaims)} active claim(s)`;
-  if (view.activeCycleId) {
-    const phase = view.canonicalPhase.replace(/_/g, " ");
-    const subphase = view.canonicalSubphase.replace(/_/g, " ");
-    return phase ? `Cycle · ${phase}${subphase ? ` / ${subphase}` : ""}` : "Cycle active";
-  }
-  return "No active cycle";
 }
 
 export function DashboardPage(props: GameDashboardProps) {
   const available = props.config?.availableGames ?? [];
-  const selectedId = props.form.gameId || props.config?.defaultGameId || available[0]?.id || "";
-  // The dashboard payload is single-game today; only the selected game gets
-  // a live active-cycle summary. Other registered games render as openable cards.
-  const cards: GameCardSummary[] = available.map((game) => ({
-    game,
-    view: game.id === selectedId ? deriveCycleView(props.dashboard, props.config, props.form) : undefined,
-  }));
+  const cards: GameCardSummary[] = available.map((game) => ({ game }));
   // Fall back to the payload game if no games are registered.
   const fallback = props.dashboard?.game;
   if (cards.length === 0 && fallback) {
-    cards.push({ game: fallback, view: deriveCycleView(props.dashboard, props.config, props.form) });
+    cards.push({ game: fallback });
   }
 
   return (
@@ -62,7 +42,7 @@ export function DashboardPage(props: GameDashboardProps) {
       <div className="mx-auto grid w-full max-w-4xl gap-4 p-4 min-h-0 flex-1 overflow-auto">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="m-0 text-sm text-soft">
-            Open a game to reach its workspace: overview, standards, cycles, and settings. Today the orchestrator runs one game; the dashboard is ready for more.
+            Open a game to reach its workspace: overview, harness, standards, and settings.
           </p>
           <Button icon={<RefreshCw size={14} />} disabled={props.busy} onClick={() => props.onAction("refresh")} type="button">Refresh</Button>
         </div>
@@ -82,7 +62,18 @@ export function DashboardPage(props: GameDashboardProps) {
 }
 
 function GameCard({ onOpen, summary }: { onOpen: () => void; summary: GameCardSummary }) {
-  const { game, view } = summary;
+  const { game } = summary;
+  const [harness, setHarness] = useState<HarnessStateReadModel | null>(null);
+  const [status, setStatus] = useState("Loading state…");
+  useEffect(() => {
+    let current = true;
+    const refresh = () => fetchJson<{ harness: HarnessStateReadModel }>(`/api/harness?gameId=${encodeURIComponent(game.id)}`)
+      .then(data => { if (current) { setHarness(data.harness); setStatus(data.harness.execution.status); } })
+      .catch(error => { if (current) { setHarness(null); setStatus(error.message); } });
+    void refresh();
+    const timer = setInterval(() => { void refresh(); }, 10000);
+    return () => { current = false; clearInterval(timer); };
+  }, [game.id]);
   return (
     <PanelSection>
       <div className="flex items-start justify-between gap-3">
@@ -90,24 +81,20 @@ function GameCard({ onOpen, summary }: { onOpen: () => void; summary: GameCardSu
           <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.16em] text-dim">{game.kind || "game"}</div>
           <h3 className="m-0 mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-bold text-fg">{game.displayName}</h3>
         </div>
-        {view ? (
-          <span className={`shrink-0 text-[11px] uppercase tracking-[0.08em] ${view.mode === "pr" ? "text-warn" : view.mode === "run" ? "text-up" : "text-dim"}`}>
-            {view.modeLabel}
-          </span>
-        ) : null}
+        <span className="shrink-0 text-[11px] uppercase text-dim">{status}</span>
       </div>
       <dl className="m-0 mt-3 grid gap-1.5">
         <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
-          <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Cycle</dt>
-          <dd className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-soft">{view ? view.activeCycleLabel : "not loaded"}</dd>
+          <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Harness</dt>
+          <dd className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-soft">{harness?.identity.harness_id ?? status}</dd>
         </div>
         <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
-          <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Branch</dt>
-          <dd className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-soft" title={view?.branchLabel}>{view?.branchLabel ?? game.baseRef}</dd>
+          <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Head</dt>
+          <dd className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-soft" title={harness?.source.head ?? undefined}>{harness?.source.head?.slice(0, 8) ?? "-"}</dd>
         </div>
         <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
           <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Gate</dt>
-          <dd className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-soft">{gateSummary(view)}</dd>
+          <dd className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-soft">{harness ? Object.entries(harness.readiness).filter(([, value]) => value !== "ready").map(([key, value]) => `${key}: ${value}`).join(", ") || "Ready" : status}</dd>
         </div>
         <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
           <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-dim">Process</dt>

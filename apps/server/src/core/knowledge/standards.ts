@@ -392,7 +392,9 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
         evidenceRefs: record.evidence_refs ?? [],
       })),
       examples: examples.map(formatStandardExamplePayload),
-      effectiveXml: standardsPromptXmlFromRecords(records, examples),
+      effectiveXml: game && game.gameId !== "melee"
+        ? globalStandardsPromptXml({ gameId: game.gameId, knowledgeRoot: knowledgeRootForGame(game) })
+        : standardsPromptXmlFromRecords(records, examples),
       context: standardsContextFromRecords(records, examples),
       inventory: standardsInventory(game),
       warnings,

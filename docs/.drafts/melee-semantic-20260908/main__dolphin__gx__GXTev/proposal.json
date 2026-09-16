@@ -1,0 +1,60 @@
+{
+  "tu": "main/dolphin/gx/GXTev",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTev.c#L198-L220",
+            "why": "Exact two-write sequence and zero assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXGeometry.c#L28-L61",
+            "why": "Combined state check and flush-primitive assignment to bpSent."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact setter behavior while removing an overly specific interpretation of bpSent. GXBegin examines combined context state before sending a flush primitive, and __GXSendFlushPrim assigns bpSent = 1 after primitive output, demonstrating that the flag is not exclusively a BP-mask-command indicator.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXTev:GXSetTevKColor"
+        },
+        "type": "state_behavior",
+        "value": "After its GX-begin check, each call immediately emits exactly two raster/BP register words, first red/alpha and then blue/green, and assigns gx->bpSent = 0. There is no unchanged-value guard or deferred dirty-state path. The assignment participates in GX command/flush bookkeeping; it does not by itself identify the last command as a special BP-mask command."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTev.c#L7-L139",
+            "why": "Preset invalid-mode branch, common operation tail and representative immediate setters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTev.c#L309-L417",
+            "why": "Unsupported stub, explicit Z-format fallback, routing dirty bit and deferred stage count."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXGeometry.c#L8-L26",
+            "why": "Consumers of dirty categories 1 and 4."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the blanket claim that invalid enum cases assert instead of programming usable state, and explicitly distinguishes immediate, deferred and unsupported paths without assuming assertion termination.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/gx/GXTev.c"
+        },
+        "type": "state_behavior",
+        "value": "Most functional setters contain CHECK_GXBEGIN and applicable range assertions, update cached fields or construct local BP words, emit immediately, and assign gx->bpSent = 0. GXSetNumTevStages instead updates cached genMode and sets dirty category 4 for deferred emission; GXSetTevOrder emits routing immediately and also sets category 1. GXSetTevClampMode contains only an unsupported-hardware assertion and performs no GX state write. Invalid-enum defaults are not uniformly no-write paths: if execution continues past the assertion, GXSetZTexture uses type 2 and emits both words, while GXSetTevOp leaves input selection unchanged for an invalid mode but still calls the common color and alpha operation setters. Assertions must not be treated as unconditional release-build rejection."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

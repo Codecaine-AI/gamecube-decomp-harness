@@ -1,0 +1,17 @@
+## Entei item controller
+
+The unit defines a two-entry item state table. State indices **0 and 1** are distinct from their table motion selectors **0 and -1**. Spawn initialization clears command variables 0–2, runs shared Pokémon setup, and enters airborne state 1. Its animation and physics callbacks delegate appearance scaling and movement to shared Pokémon helpers; the physics wrapper ignores the helper's completion result.
+
+State-1 collision delegates to a shared terrain wrapper that returns false. Qualifying floor contact invokes `it_802CF470`: it requests a large camera quake, plays sound 0x9, resets velocity, and initializes state 0. The shared terrain routine subsequently restores the configured model scale, so processing continues after the Entei event returns.
+
+State-0 entry enables animation updates, installs effect-hitlag callbacks and `it_802CF6C8` as the accessory callback, and initializes the recurring sound timer. The accessory consumes command variable 0, sets command variable 2, then spawns effect 0x468 using the root JObj and the address of a local `f32` initialized to 1.0f, followed by sound 0x2741. The source alone does not establish the scalar's effect-specific interpretation or compiled storage section.
+
+The active animation callback processes command-variable-1 cleanup before checking animation lifetime. Cleanup clears variables 1 and 2 and destroys object-owned effects. A false result from the shared lifetime predicate produces a true callback result before timer processing. Otherwise, variable 2 gates a pre-decrementing timer: only an exact zero result plays one of sounds 0x2742–0x2744 and reloads the configured interval. There is no local nonpositive-timer repair. Accessory retriggering neither reloads the timer nor checks for an existing effect; cross-callback scheduling should not be inferred from source order between separate functions.
+
+Active physics runs the configured falling update only for GA_Air. Active collision chooses the airborne helper for GA_Air and the other helper for every remaining value, supplying the same no-op event and always returning false. The reference-invalidation wrapper delegates matching-reference cleanup to the shared item helper and ignores its Boolean result.
+
+The existing rendered names generally fit these responsibilities. FireSpin remains an established gameplay/presentation association, not evidence that these functions implement repeated damage or upward force. Existing descriptive names are retained without asserting recovered historical spelling. Both owned canonical and rendered files were reviewed completely; rendering reported no parse errors. The header spells the reference callback's second argument Item_GObj*, whereas its definition spells HSD_GObj*; this pass records that difference without inferring an ABI incompatibility.
+
+Evidence: [controller](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.c#L15-L163), [header](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itentei.h#L10-L23), [appearance helpers](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1079-L1129), [terrain continuation](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L583-L613), [reference cleanup](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L493-L525).
+
+Status: synthesized; independent review and live promotion pending.

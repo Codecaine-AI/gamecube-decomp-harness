@@ -1,0 +1,203 @@
+--- a/src/Camera/cameragc.cpp
++++ b/src/Camera/cameragc.cpp
+@@ -854,95 +854,6 @@
+ 
+ void CPolarSubCamera::calcExternalData_() { }
+ 
+-// TODO: this should be weak/inline
+-void CPolarSubCamera::ctrlGameCamera_()
+-{
+-	if (!(unk64 & CAMERA_FLAG_DEAD_DEMO))
+-		execDeadDemoProc_();
+-	if (!(unk64 & CAMERA_FLAG_UNK80)) {
+-		if (unk284 > 0)
+-			unk284 -= 1;
+-	}
+-	if (unk278 != 0)
+-		unk278 -= 1;
+-	if (unk27A != 0)
+-		unk27A -= 1;
+-	if (unk282 != 0)
+-		unk282 -= 1;
+-
+-	JGeometry::TVec3<f32> marPos = *gpMarioPos;
+-	f32 yOffset;
+-	if (isNormalDeadDemo()) {
+-		yOffset = 35.0f;
+-	} else {
+-		yOffset = mCurrentTarget.unk28 * mCurrentParams->mXRotRatioAtOffsetY
+-		          + mCurrentParams->mAtOffsetY;
+-		if (SMS_GetMarioStatus() == MARIO_STATUS_KICK_ROOF_ROLL_UP)
+-			yOffset += 260.0f;
+-		if (mMode == CAMERA_MODE_DEFINITE_D2)
+-			yOffset += unk290;
+-	}
+-	marPos.y += yOffset;
+-	gpCameraMario->unk0.set(marPos);
+-	gpCameraMario->calcAndSetMarioData();
+-
+-	mPreviousTarget = mCurrentTarget;
+-
+-	if (gpMarDirector->mState == 4 && !(unk64 & CAMERA_FLAG_DEAD_DEMO)) {
+-		if (isTalkCameraSpecifyMode(mMode)) {
+-			if (!gpMarDirector->isTalkModeNow())
+-				changeCamMode_(mInitialMode);
+-		} else if (!isSimpleDemoCamera()) {
+-			int code;
+-			if (controlByCameraCode_(&code))
+-				execCameraModeChangeProc_(code);
+-		}
+-	}
+-
+-	TCameraKindParam param;
+-	param.copySaveParam(*mSaveKindParam[mMode]);
+-
+-	if (isNowInbetween())
+-		mCurrentParams->inbetweenData(param, (f32)mInbetween->getUnk4());
+-	else
+-		*mCurrentParams = param;
+-
+-	if (unk284 > mCurrentParams->mAutoChaseCompleteFrame)
+-		unk284 = mCurrentParams->mAutoChaseCompleteFrame;
+-
+-	if (!isNormalDeadDemo()
+-	    && !(unk64 & (CAMERA_FLAG_JET_COASTER_SCENE | CAMERA_FLAG_GATE_DEMO)))
+-		mFovy = mCurrentParams->mFovy;
+-	mNear = mCurrentParams->mNearClip;
+-	mFar  = 300000.0f;
+-
+-	if (isNormalDeadDemo()) {
+-		ctrlNormalDeadDemo_();
+-	} else {
+-		switch (mMode) {
+-		case CAMERA_MODE_MULTI_PLAYER:
+-			ctrlMultiPlayerCamera_();
+-			break;
+-		case CAMERA_MODE_JET_COASTER:
+-			ctrlJetCoasterCamera_();
+-			break;
+-		default:
+-			if (isFixOrDefiniteCameraSpecifyMode(mMode))
+-				calcPosAndAt_();
+-			else if (isLButtonCameraSpecifyMode(mMode))
+-				ctrlLButtonCamera_();
+-			else if (isTalkCameraSpecifyMode(mMode))
+-				ctrlTalkCamera_();
+-			else
+-				ctrlNormalOrTowerCamera_();
+-			break;
+-		}
+-	}
+-
+-	unk124.set(mPosition);
+-	unk148.set(mTarget);
+-}
+-
+ void CPolarSubCamera::perform(u32 cue, JDrama::TGraphics* graphics)
+ {
+ 	if (cue & CUE_MOVE) {
+--- a/include/Camera/Camera.hpp
++++ b/include/Camera/Camera.hpp
+@@ -9,6 +9,7 @@
+ #include <Camera/CameraInbetween.hpp>
+ #include <Camera/CameraMode.hpp>
+ #include <Camera/cameralib.hpp>
++#include <System/MarDirector.hpp>
+ 
+ class TBaseNPC;
+ class TCameraMapTool;
+@@ -201,7 +202,93 @@
+ 	void calcPosAndAt_();
+ 	void calcFinalPosAndAt_();
+ 	void calcExternalData_();
+-	void ctrlGameCamera_();
++	void ctrlGameCamera_()
++	{
++		if (!(unk64 & CAMERA_FLAG_DEAD_DEMO))
++			execDeadDemoProc_();
++		if (!(unk64 & CAMERA_FLAG_UNK80)) {
++			if (unk284 > 0)
++				unk284 -= 1;
++		}
++		if (unk278 != 0)
++			unk278 -= 1;
++		if (unk27A != 0)
++			unk27A -= 1;
++		if (unk282 != 0)
++			unk282 -= 1;
++
++		JGeometry::TVec3<f32> marPos = *gpMarioPos;
++		f32 yOffset;
++		if (isNormalDeadDemo()) {
++			yOffset = 35.0f;
++		} else {
++			yOffset = mCurrentTarget.unk28 * mCurrentParams->mXRotRatioAtOffsetY
++			          + mCurrentParams->mAtOffsetY;
++			if (SMS_GetMarioStatus() == MARIO_STATUS_KICK_ROOF_ROLL_UP)
++				yOffset += 260.0f;
++			if (mMode == CAMERA_MODE_DEFINITE_D2)
++				yOffset += unk290;
++		}
++		marPos.y += yOffset;
++		gpCameraMario->unk0.set(marPos);
++		gpCameraMario->calcAndSetMarioData();
++
++		mPreviousTarget = mCurrentTarget;
++
++		if (gpMarDirector->mState == 4 && !(unk64 & CAMERA_FLAG_DEAD_DEMO)) {
++			if (isTalkCameraSpecifyMode(mMode)) {
++				if (!gpMarDirector->isTalkModeNow())
++					changeCamMode_(mInitialMode);
++			} else if (!isSimpleDemoCamera()) {
++				int code;
++				if (controlByCameraCode_(&code))
++					execCameraModeChangeProc_(code);
++			}
++		}
++
++		TCameraKindParam param;
++		param.copySaveParam(*mSaveKindParam[mMode]);
++
++		if (isNowInbetween())
++			mCurrentParams->inbetweenData(param, (f32)mInbetween->getUnk4());
++		else
++			*mCurrentParams = param;
++
++		if (unk284 > mCurrentParams->mAutoChaseCompleteFrame)
++			unk284 = mCurrentParams->mAutoChaseCompleteFrame;
++
++		if (!isNormalDeadDemo()
++		    && !(unk64 & (CAMERA_FLAG_JET_COASTER_SCENE | CAMERA_FLAG_GATE_DEMO)))
++			mFovy = mCurrentParams->mFovy;
++		mNear = mCurrentParams->mNearClip;
++		mFar  = 300000.0f;
++
++		if (isNormalDeadDemo()) {
++			ctrlNormalDeadDemo_();
++		} else {
++			switch (mMode) {
++			case CAMERA_MODE_MULTI_PLAYER:
++				ctrlMultiPlayerCamera_();
++				break;
++			case CAMERA_MODE_JET_COASTER:
++				ctrlJetCoasterCamera_();
++				break;
++			default:
++				if (isFixOrDefiniteCameraSpecifyMode(mMode))
++					calcPosAndAt_();
++				else if (isLButtonCameraSpecifyMode(mMode))
++					ctrlLButtonCamera_();
++				else if (isTalkCameraSpecifyMode(mMode))
++					ctrlTalkCamera_();
++				else
++					ctrlNormalOrTowerCamera_();
++				break;
++			}
++		}
++
++		unk124.set(mPosition);
++		unk148.set(mTarget);
++	}
+ 
+ 	void drawJetCoasterBalloonMessage_();
+ 

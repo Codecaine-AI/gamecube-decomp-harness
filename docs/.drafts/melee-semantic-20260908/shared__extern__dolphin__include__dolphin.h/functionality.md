@@ -1,0 +1,3 @@
+`extern/dolphin/include/dolphin.h` is a guarded umbrella header. `_DOLPHIN_H_` prevents repeated processing; it includes Dolphin types and the OS, DSP, DVD, GX, HIO, matrix, VI, card, performance, AR, PPC architecture, debug, pad, DTK, AI and demo headers, followed by the local `macros.h` (code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin.h#L1-L24). It contains no runtime functions, state transitions, or lifetime handling of its own. The complete rendered view matches canonical directives, with zero substitutions and no parse errors. There are no frozen subjects, facts or links to assess, and no supported correction is needed.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

@@ -1,0 +1,355 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-30-global-flow-map-45-epoch-boundary",
+  "title": "Epoch Boundary",
+  "root": "b-epoch-boundary-root-1",
+  "blocks": {
+    "b-epoch-boundary-root-1": {
+      "id": "b-epoch-boundary-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "sweep-158be2445cac4c6f",
+        "sweep-66bf69501caf4f03",
+        "sweep-81f1578a048d48af",
+        "sweep-0ae253a6c0a34545",
+        "sweep-f054fb11347240fa",
+        "sweep-2223def8f83d47d7",
+        "sweep-e28515022aec432f",
+        "sweep-c4700656d9574931",
+        "sweep-fa78c39babe34567",
+        "sweep-1c33541632184552",
+        "sweep-79ead047911d45a8",
+        "sweep-faa6202dce284fb2",
+        "sweep-abb371ce97a843fc",
+        "sweep-7a80c08306da454d",
+        "sweep-6746eca7f7af4ab9",
+        "sweep-84ab779f2b6e4e68"
+      ]
+    },
+    "sweep-158be2445cac4c6f": {
+      "id": "sweep-158be2445cac4c6f",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The epoch boundary serializes integration, report rebuilding, upstream reconciliation, publication checks, and admission of the next epoch. Mechanical build failures can invoke a bounded Codex build-fixer. Regression and QA findings enter knowledge as deferred evidence instead of creating boundary repair epochs."
+        }
+      ],
+      "children": []
+    },
+    "sweep-66bf69501caf4f03": {
+      "id": "sweep-66bf69501caf4f03",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Trigger and Retry"
+        }
+      ],
+      "children": []
+    },
+    "sweep-81f1578a048d48af": {
+      "id": "sweep-81f1578a048d48af",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The scheduler enters the boundary after the epoch has no remaining runnable work or active claims. The default boundary retry policy allows five failed attempts, starting with a 120-second delay and exponentially increasing to a 1,800-second cap. Retry timing and exhaustion are persisted; exhaustion parks the run for operator recovery."
+        }
+      ],
+      "children": []
+    },
+    "sweep-0ae253a6c0a34545": {
+      "id": "sweep-0ae253a6c0a34545",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A retained integration attempt can reuse its committed snapshot. That path skips the report and snapshot steps, checks evidence for the same epoch and attempt, and reruns missing boundary sync, breakage, CI/pre-commit, and draft-PR steps. It records skipped_steps and rerun_steps. This recovery path is distinct from the normal path and requires its own gate audit."
+        }
+      ],
+      "children": []
+    },
+    "sweep-f054fb11347240fa": {
+      "id": "sweep-f054fb11347240fa",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Ordered Pass"
+        }
+      ],
+      "children": []
+    },
+    "sweep-2223def8f83d47d7": {
+      "id": "sweep-2223def8f83d47d7",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Rebuild Epoch Evidence",
+            "steps": [
+              {
+                "text": "Drain accepted integration work. Run configured complete-unit checks and pre-commit autofix before the snapshot."
+              },
+              {
+                "text": "Commit the boundary snapshot, excluding worker-locked paths. Prepare the isolated epoch worktree and configure the build."
+              },
+              {
+                "text": "Build the report. When enabled, one mechanical build-fixer attempt can run after a report-build failure, followed by one report retry."
+              },
+              {
+                "text": "Read the report and run the confirmation pass for cross-file effects. Run the QA scan and copy report artifacts to the harness checkout."
+              }
+            ]
+          },
+          {
+            "text": "Record Findings and Reconcile",
+            "steps": [
+              {
+                "text": "Advance the rolling report baseline. Plan regressions with the configured threshold, default 12 regressed functions, and write deferred findings. Boundary repair requeued remains zero."
+              },
+              {
+                "text": "Record epoch_finish save-point evidence. Merge upstream using the configured policy, score by default, and refresh the report."
+              },
+              {
+                "text": "Boundary sync can run its own bounded build-fixer after a post-merge build failure. Record displaced targets as V2 events for later admission."
+              },
+              {
+                "text": "Run V2 subject reconciliation, citation re-anchoring, PR, Discord, and attempt intake for merged upstream evidence. Record pr_sync evidence and advance the anchor and head."
+              }
+            ]
+          },
+          {
+            "text": "Gate Publication and Close",
+            "steps": [
+              {
+                "text": "Run the master breakage gate. Confirmed function or data-section breakage can pause the run; exact moved matches are handled by the gate."
+              },
+              {
+                "text": "Run configured CI parity and pre-commit gates. In the normal path, failed or errored gates skip draft-PR publication."
+              },
+              {
+                "text": "Publish the harness draft PR when enabled and the normal publication gates permit it. Record its result."
+              },
+              {
+                "text": "A regression pause records typed epoch evidence and returns without next-epoch admission. Otherwise run enabled knowledge maintenance, close with durable evidence, and admit the next epoch from the board."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "sweep-e28515022aec432f": {
+      "id": "sweep-e28515022aec432f",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Bounded Build Repair"
+        }
+      ],
+      "children": []
+    },
+    "sweep-c4700656d9574931": {
+      "id": "sweep-c4700656d9574931",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The build-fixer runs codex exec with gpt-5.6-sol, low reasoning, fast mode, and workspace-write. Its timeout is five minutes. A timeout or nonzero agent exit discards fixer changes and fails the boundary. Only a successful fixer exit leads to one report-build retry; that report result determines whether the candidate repair can proceed."
+        }
+      ],
+      "children": []
+    },
+    "sweep-fa78c39babe34567": {
+      "id": "sweep-fa78c39babe34567",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The epoch-worktree repair requires a clean starting tree. Successful report retry propagates only a checked tracked diff: untracked additions are rejected, existing harness-worktree edits on affected files block propagation, and git apply --check must pass. The host commits the repair and resynchronizes the epoch worktree. Failed report retry discards fixer changes and records the boundary failure."
+        }
+      ],
+      "children": []
+    },
+    "sweep-1c33541632184552": {
+      "id": "sweep-1c33541632184552",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The post-merge boundary-sync fixer edits the canonical harness worktree under its clean-tree guard, retries the report after a successful agent exit, and commits only after that report succeeds. A failed attempt discards its changes. Build repair is a narrow failure lane, separate from normal matching workers and deferred regression work."
+        }
+      ],
+      "children": []
+    },
+    "sweep-79ead047911d45a8": {
+      "id": "sweep-79ead047911d45a8",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Knowledge Maintenance"
+        }
+      ],
+      "children": []
+    },
+    "sweep-faa6202dce284fb2": {
+      "id": "sweep-faa6202dce284fb2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Full boundary maintenance uses the configured maintenance mode and registered runners. It surveys PR indexing, runs enabled tool runners and indexes, applies configured enrichment, and rebuilds the code graph. The source list is registry-driven; a fixed ten-source inventory is not its contract. This maintenance is separate from V2 librarian task intake."
+        }
+      ],
+      "children": []
+    },
+    "sweep-abb371ce97a843fc": {
+      "id": "sweep-abb371ce97a843fc",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Historical Failure Follow-Up"
+        }
+      ],
+      "children": []
+    },
+    "sweep-7a80c08306da454d": {
+      "id": "sweep-7a80c08306da454d",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The rows below preserve reported incidents. Only statuses backed by the inspected current source have been updated. Other rows require a focused runtime or code audit and do not assert a defect remains live."
+        }
+      ],
+      "children": []
+    },
+    "sweep-6746eca7f7af4ab9": {
+      "id": "sweep-6746eca7f7af4ab9",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Failure",
+          "Historical Mechanism",
+          "Audit Status"
+        ],
+        "rows": [
+          [
+            "Reconcile shortcut skips gates, PR, and pr_sync",
+            "An existing integration commit skips truth rebuild and publication, runs full knowledge maintenance, then proceeds to admission.",
+            "Superseded as a blanket claim. Current reconciliation checks same-attempt gate and publication evidence and reruns missing later steps; report rebuild remains skipped."
+          ],
+          [
+            "Board admission uses a missing or stale report",
+            "Admission treats the board as current and admits everything. One run admitted 1,081 targets: 700 were already 100% and 258 were absent from the report.",
+            "Historical report; current status requires a focused recheck."
+          ],
+          [
+            "Boundary repair epochs",
+            "Regression planning creates and immediately admits a fixed-size repair epoch below the 12-row pause threshold.",
+            "Verified removed from the boundary path. Findings are deferred and requeued is zero."
+          ],
+          [
+            "Failed-boundary retry has no backoff or limit",
+            "Snapshot, configure, and build retry in a tight loop after failure.",
+            "Verified superseded. Retry policy persists exponential backoff and an attempt ceiling."
+          ],
+          [
+            "Graceful stop holds the dispatch lease",
+            "Recover or resume waits for the held lease to become stale after 15 minutes.",
+            "Historical report; current status requires a focused recheck."
+          ],
+          [
+            "Stale build-ci objects survive worktree recreation",
+            "Untracked per-mode objects survive in the recreated epoch worktree and can defeat Ninja mtime checks.",
+            "Historical report; current status requires a focused recheck."
+          ],
+          [
+            "Event correlation_id differs from the run ID",
+            "The typed close must correlate `run.epoch_integrated` to the run container.",
+            "Verified in current source: close uses run ID correlation and the registry accepts ordinal, boundary_status, and save_point_id. The old uncommitted label is not a current status."
+          ],
+          [
+            "run.epoch_integrated payload facts are unregistered",
+            "The event registry must accept `ordinal`, `boundary_status`, and `save_point_id`.",
+            "Verified in current source: close uses run ID correlation and the registry accepts ordinal, boundary_status, and save_point_id. The old uncommitted label is not a current status."
+          ],
+          [
+            "QA address_named_static_data false positives",
+            "The QA rule flags intentional byte-exact data restorations.",
+            "Historical report; current status requires a focused recheck."
+          ],
+          [
+            "Attempt-retry sandbox leak",
+            "Re-provision overwrites `payload.sandbox_id` and orphans the first sandbox until its 90-minute auto-destroy.",
+            "Historical report; current status requires a focused recheck."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "sweep-84ab779f2b6e4e68": {
+      "id": "sweep-84ab779f2b6e4e68",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Boundary ordering and retries are implemented in "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/running/scheduler/epoch-boundary.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/running/scheduler/epoch-boundary.ts"
+            }
+          }
+        },
+        {
+          "insert": ". Report repair and deferred findings are in "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/running/epochs/settlement.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/running/epochs/settlement.ts"
+            }
+          }
+        },
+        {
+          "insert": ". The bounded Codex runner is in "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/running/epochs/build-fixer.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/running/epochs/build-fixer.ts"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    }
+  }
+}

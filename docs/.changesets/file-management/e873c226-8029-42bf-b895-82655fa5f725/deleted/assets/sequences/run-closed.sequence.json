@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "id": "run-closed",
+  "title": "Run close: optional summary and curation",
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Run loop",
+      "kind": "actor"
+    },
+    {
+      "id": "p2",
+      "name": "Summarizer job",
+      "kind": "participant"
+    },
+    {
+      "id": "p3",
+      "name": "Attempt records",
+      "kind": "participant"
+    },
+    {
+      "id": "p4",
+      "name": "Index tasks",
+      "kind": "participant"
+    },
+    {
+      "id": "p5",
+      "name": "Consumer",
+      "kind": "participant"
+    },
+    {
+      "id": "p6",
+      "name": "Librarian model",
+      "kind": "participant"
+    },
+    {
+      "id": "p7",
+      "name": "Apply layer",
+      "kind": "participant"
+    },
+    {
+      "id": "p8",
+      "name": "Shared knowledge",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p1",
+      "line": "sync",
+      "text": "Close worker; retain checkpoints and integration outcome"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "--worker-summary enabled",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m2",
+              "from": "p1",
+              "to": "p2",
+              "line": "async",
+              "text": "Enqueue deduplicated worker_summary"
+            },
+            {
+              "kind": "message",
+              "id": "m3",
+              "from": "p2",
+              "to": "p2",
+              "line": "sync",
+              "text": "Run model on transcript and checkpoint digest"
+            },
+            {
+              "kind": "message",
+              "id": "m4",
+              "from": "p2",
+              "to": "p3",
+              "line": "sync",
+              "text": "Persist validated narrative and deterministic scores"
+            },
+            {
+              "kind": "message",
+              "id": "m5",
+              "from": "p2",
+              "to": "p4",
+              "line": "sync",
+              "text": "Enqueue run_closed in the same transaction"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "fragment",
+      "id": "f2",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "--librarian-consumer enabled or manual drain",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m6",
+              "from": "p5",
+              "to": "p4",
+              "line": "sync",
+              "text": "Claim run_closed task"
+            },
+            {
+              "kind": "message",
+              "id": "m7",
+              "from": "p5",
+              "to": "p3",
+              "line": "sync",
+              "text": "Load attempt, narrative, and integration records"
+            },
+            {
+              "kind": "message",
+              "id": "m8",
+              "from": "p5",
+              "to": "p6",
+              "line": "sync",
+              "text": "Pass current subjects, evidence, and drift"
+            },
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p6",
+              "to": "p7",
+              "line": "sync",
+              "text": "Return proposals with resolved citations"
+            },
+            {
+              "kind": "message",
+              "id": "m10",
+              "from": "p7",
+              "to": "p8",
+              "line": "sync",
+              "text": "Validate and write accepted semantic items"
+            },
+            {
+              "kind": "message",
+              "id": "m11",
+              "from": "p5",
+              "to": "p8",
+              "line": "sync",
+              "text": "Stamp touched targets and changed entities"
+            },
+            {
+              "kind": "message",
+              "id": "m12",
+              "from": "p5",
+              "to": "p4",
+              "line": "sync",
+              "text": "Complete, or release once for remaining drift"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "note",
+      "id": "n1",
+      "anchor": "p4",
+      "side": "over",
+      "text": "Independent, default off"
+    },
+    {
+      "kind": "message",
+      "id": "m13",
+      "from": "p1",
+      "to": "p8",
+      "line": "sync",
+      "text": "Later workers read target cards and records"
+    }
+  ],
+  "style": {}
+}

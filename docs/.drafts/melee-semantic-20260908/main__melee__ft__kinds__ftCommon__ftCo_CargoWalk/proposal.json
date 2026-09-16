@@ -1,0 +1,144 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CargoWalk",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoWalk:ftCo_8009B6C8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Initializes or reenters a carrier CargoWalk tier through shared walking using Donkey attribute motion base + 1, six animation parameters, Ft_MF_None, anim_start and multiplier 1. Afterwards it requests ShoulderedWait + a recomputed walk type on the referenced victim. Initial entry supplies zero; tier changes supply an integer-quantized phase-derived carrier frame, not exact continuous phase preservation or synchronized victim animation time.",
+        "rationale": "Confirms and refines the librarian correction to unqualified phase-preservation and victim-change wording.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L16-L35",
+            "why": "Initial frame, attribute flow and victim request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L130-L170",
+            "why": "Changed-tier guard and two s32 conversions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Victim frame-zero update and conditional no-op."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoWalk:ftCo_8009B6C8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The internal entry has no local guard: shared initialization stores multiplier 1, classifies speed and enters attribute base + 1 + walk type at anim_start, then the entry requests ShoulderedWait + a newly computed walk type on the victim. The victim updater skips work only when current and requested motion both equal ShoulderedWait; otherwise it changes motion at frame zero, optionally using FreezeState. Initial invocation is guarded by the shared walking-input predicate; in-state invocation is guarded by changed selected motion and uses a quantized phase-derived frame without finite or zero-length validation.",
+        "rationale": "Distinguishes carrier entry, victim request, initial gating and tier reentry.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L16-L49",
+            "why": "Separate initial and callback entry paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L71-L97",
+            "why": "Multiplier storage, classification and carrier state change."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L130-L170",
+            "why": "Changed-motion guard and phase conversion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Optional victim update and FreezeState branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Entry reads the carrier Fighter and Donkey attributes and forwards motion base x4_motion_state + 1, frame parameters x8/xC/x10, rate parameters x14/x18/x1C, anim_start and multiplier 1 to shared walk initialization. It passes victim_gobj and ShoulderedWait + walk type to a victim motion updater, not into the victim_gobj pointer field. Anim and Phys forward gobj unchanged to shared walking helpers; IASA supplies the static entry function to a synchronous non-retaining tier helper; Coll forwards gobj to CargoWait collision handling.",
+        "rationale": "Replaces ambiguous pointer-write wording with exact object-reference and motion-ID flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L14-L59",
+            "why": "Complete TU argument and callback flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L71-L97",
+            "why": "Shared parameter meanings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L130-L170",
+            "why": "Synchronous invocation without callback storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Motion ID consumed for the referenced fighter."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Initial entry through ftCo_8009B67C requires the shared forward-stick walking threshold and starts at frame zero. IASA short-circuits through cargo throw, jump-input preparation, platform pass and CargoWait, then conditionally reenters a changed speed tier without repeating the initial input predicate. Entry requests a corresponding ShoulderedWait-offset victim motion; the updater can skip unchanged ShoulderedWait. Anim and Phys use shared walking logic, while Coll uses CargoWait's conditional CargoFall callback path.",
+        "rationale": "Corrects universal input-gating and unconditional victim-update implications.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L16-L59",
+            "why": "Complete local control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L130-L170",
+            "why": "Distinct tier-reentry guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L41",
+            "why": "Victim no-op branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoKneebend.c#L19-L31",
+            "why": "Jump input enters preparation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L66-L69",
+            "why": "Shared collision callback path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1035-L1041",
+            "why": "Conditional synchronous collision callback."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

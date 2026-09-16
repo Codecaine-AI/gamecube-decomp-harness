@@ -1,0 +1,119 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_HammerTurn",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_HammerTurn:ftCo_800C576C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When HammerWait IASA reaches this check, ftCo_800C97A8 accepts input.lstick[0].x * facing_dir <= p_ftCommonData->x34. Equality qualifies; an unordered comparison does not. Success invokes the private HammerTurn entry helper and returns true, suppressing the subsequent ftCo_800C55CC check in HammerWait IASA. Failure returns false and permits that subsequent check. The wrapper does not independently test grounding or item possession.",
+        "rationale": "Repairs canonical field spelling and records the verified threshold and ordered caller behavior without relying on a rendered external alias.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L28-L35",
+            "why": "Exact predicate and canonical input expression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerTurn.c#L19-L37",
+            "why": "Conditional entry and Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L86-L92",
+            "why": "Ordered first-success caller sequence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_HammerTurn:ftCo_HammerTurn_Anim"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Services the HammerTurn action's timed facing reversal. With a normal positive integral counter whose unit decrements reach zero, positive duration, and rotation enabled, its interpolation ends at the source's pi-based yaw before facing_dir is negated and HammerWait is entered. x2222_b6 suppresses yaw writes without suppressing decrement or completion. Initial zero skips the whole turn-specific path; fractional overshoot, large counters, and nonfinite values prevent an unconditional half-turn or completion guarantee.",
+        "rationale": "Replaces unconditional 180-degree presentation with the actual guards and floating-counter boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerTurn.c#L39-L60",
+            "why": "Nonzero guard, decrement, optional yaw, and terminal facing reversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L48-L60",
+            "why": "Completion helper enters HammerWait."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3533-L3543",
+            "why": "Actual HammerTurn callback-table association."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_HammerTurn:ftCo_HammerTurn_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally forwards gobj to ft_80084F3C. The immediate helper starts with ground_friction, scales it by friction_when_above_walk_speed only when ABS(gr_vel) > walk_max_vel, then calls ftCommon_ApplyFrictionGround followed by ftCommon_ApplyGroundMovement. Neither wrapper nor immediate helper explicitly changes motion state. Universal transitive state preservation and deceleration for arbitrary attribute values are not established.",
+        "rationale": "Replaces the absolute state-preservation assertion with verified local and immediate-callee behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerTurn.c#L67-L70",
+            "why": "Complete wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Strict scaling boundary and ordered calls, with no explicit transition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_HammerTurn.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Successful shared facing-relative input acceptance invokes private HammerTurn entry and returns true. Anim always invokes shared Hammer processing, but turn-specific work requires nonzero mv.co.walk.fast_anim_frame: it resolves TransN, decrements the float counter, optionally writes yaw when x2222_b6 is clear, and reverses facing and enters HammerWait only if the decremented value is <= 0. Initial zero does not complete. IASA independently polls the shared Hammer jump handler without a counter gate and routes accepted input into HammerKneeBend. Phys and Coll delegate to common ground movement and HammerWait collision processing.",
+        "rationale": "Repairs the missing outer animation guard while preserving verified entry, completion, interruption, and delegation behavior without asserting compiled timer-overlay equivalence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerTurn.c#L19-L75",
+            "why": "Complete owned entry and callback control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L48-L60",
+            "why": "HammerWait completion destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerJump.c#L15-L23",
+            "why": "Accepted jump-input forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerKneeBend.c#L11-L24",
+            "why": "Actual HammerKneeBend entry."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,2405 @@
+{
+  "tu": "main/sysdolphin/baselib/displayfunc",
+  "facts": [
+    {
+      "id": "fact:c109eefa-e9e2-4a6f-aca9-12cc2ed98dfe",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_ZListInitAllocData writes the descriptor's initial pool configuration and registers it with the global HSD allocator registry. HSD_ZListAlloc passes the descriptor to HSD_ObjAlloc when deferred display needs a record, and HSD_ZListFree passes it to HSD_ObjFree after rendering or cleanup; these operations update its free-list and usage bookkeeping.",
+      "rationale": "The current-head display source still declares zlist_alloc_data and passes it to initialization, allocation, and release, while HSD_ObjAllocInit clears, configures, and registers the supplied descriptor. The drift therefore changed the cited source span but not the data flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows zlist_alloc_data passed to HSD_ObjAllocInit, HSD_ObjAlloc, and HSD_ObjFree."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows HSD_ObjAllocInit clearing, configuring, and inserting the supplied descriptor into the allocator registry."
+        }
+      ]
+    },
+    {
+      "id": "fact:7292282d-2719-4c4b-9f30-d76e30a7ec30",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.bss",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "zlist_alloc_data",
+      "rationale": "The current-head source retains the global declaration under zlist_alloc_data and consistently uses that name for the Z-list pool's initialization, allocation, and release operations.\n\nNaming cleanup: single source identifier\nPrior naming claim: The original data represented by this section was plausibly named `zlist_alloc_data`, following the recovered source declaration and the HSD allocator-descriptor naming convention.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the recovered zlist_alloc_data declaration and its complete local set of allocator uses."
+        }
+      ]
+    },
+    {
+      "id": "fact:dc756f25-4f27-4ce9-b695-87657c60a637",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Layout: one zero-initialized `HSD_ObjAllocData` descriptor, declared as `HSD_ObjAllocData zlist_alloc_data`, for a pool whose entries have `sizeof(HSD_ZList)` and four-byte alignment.",
+      "rationale": "At current head, the declaration still establishes one HSD_ObjAllocData object, and HSD_ZListInitAllocData configures it with the HSD_ZList record size and four-byte alignment.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the exact HSD_ObjAllocData declaration and initialization with sizeof(HSD_ZList) and alignment 4."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows the initializer treating the supplied storage as a complete mutable HSD_ObjAllocData descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:602b7c82-0ca1-4997-9fd9-0a5413e5ca64",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the persistent HSD object-pool descriptor for temporary HSD_ZList records used by deferred texture-edge and translucent JObj rendering.",
+      "rationale": "The current source initializes the persistent descriptor for HSD_ZList-sized entries, and the deferred-rendering path obtains records through HSD_ZListAlloc for texture-edge and translucent work.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the persistent descriptor, its HSD_ZList-specific initialization, and paired allocation and free helpers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L293-L532",
+          "why": "Shows HSD_ZList records being allocated and populated when texture-edge or translucent rendering is deferred."
+        }
+      ]
+    },
+    {
+      "id": "fact:005be7c5-a186-4d5e-9845-16fc83072246",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The descriptor begins as zero-initialized storage. HSD_ZListInitAllocData transitions it to an empty registered pool with unlimited default limits, a four-byte alignment mask, and an HSD_ZList-sized stride. Later allocations and releases move records between free and used states while maintaining allocator bookkeeping.",
+      "rationale": "The current global declaration retains the initial zero state and the Z-list-specific initialization call. HSD_ObjAllocInit still clears the descriptor, sets unlimited limits, derives the alignment mask and stride, and registers it, so the standing state description remains valid.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.bss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the uninitialized descriptor and its HSD_ZList-specific initialization, allocation, and release uses."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows the transition to cleared, limit-configured, aligned, sized, and registered allocator state."
+        }
+      ]
+    },
+    {
+      "id": "fact:d8c67c41-49e0-4e43-b6f3-5c3918909aa0",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "When depth erasure is enabled, HSD_EraseRect passes the section's all-0xFF image to GXInitTexObj, loads it on texture map 0, and enables Z-texture replacement so the emitted rectangle writes the requested depth region. Diagnostic strings from the section flow to billboard panic and skeleton assertion handling.",
+      "rationale": "The current source places the initialized depth image in HSD_EraseRect and directly routes it through GX texture setup, while the nearby matrix and skeleton code consumes the unit's diagnostic literals.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L611",
+          "why": "Shows depth_image flowing through GXInitTexObj, GXLoadTexObj, Z-texture replacement, and rectangle emission."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L218-L273",
+          "why": "Shows the billboard panic and skeleton assertions that consume the translation unit's diagnostic literals."
+        }
+      ]
+    },
+    {
+      "id": "fact:c4e25c82-37a3-4cae-9a27-ad8a3911e77b",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.data",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports selective Z-buffer clearing of a rectangular render-target region.",
+      "rationale": "The current code uses the section's initialized Z8 image only in the depth-enabled HSD_EraseRect path; the billboard axis vectors are separate small-data objects and are therefore no longer attributed to this section.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L611",
+          "why": "Shows the initialized depth texture driving Z replacement for a screen-space erasure rectangle."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e898ff8-e39b-4676-95af-6d5e8ef80b4e",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A heterogeneous initialized-data section containing compiler-emitted panic/assert strings, alignment padding, and a 32-byte-aligned 128-byte array representing a 4-by-4 GX_TF_Z8 texture filled with 0xFF; the three Vec3 billboard constants belong to the separate 40-byte small-data section.",
+      "rationale": "Current-head code still contains the billboard and skeleton diagnostic literals, the aligned 128-byte all-0xFF image interpreted as a 4-by-4 Z8 texture, and the separately declared GXColor and Vec3 constants. The changed opening span therefore does not alter the section-layout interpretation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L218-L273",
+          "why": "Shows the billboard panic and skeleton assertions whose literals contribute initialized data."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L611",
+          "why": "Shows the 32-byte-aligned 128-byte all-0xFF image and its interpretation as a 4-by-4 GX_TF_Z8 texture."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the GXColor and three Vec3 declarations separately associated with initialized small data."
+        }
+      ]
+    },
+    {
+      "id": "fact:b4babe83-6742-4325-b483-5e43ba423c18",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Holds initialized display resources that do not fit the small-data block: the aligned all-0xFF depth texture used to replace Z values while erasing a render-target rectangle, plus diagnostic literals used by billboard and skeleton validation.",
+      "rationale": "The current source directly defines and consumes the depth image in HSD_EraseRect and uses diagnostic text in panic/assert paths; the billboard axis vectors are separately accounted for by .sdata.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L611",
+          "why": "Defines the all-0xFF depth image and binds it as a Z8 texture for depth replacement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L218-L273",
+          "why": "Shows billboard and skeleton validation paths consuming diagnostic literals."
+        }
+      ]
+    },
+    {
+      "id": "fact:9b5c8df6-ed7b-4948-94f9-05e2811c0b57",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sbss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_JObjSetSPtclCallback stores a caller-provided function pointer, and HSD_JObjDisp later invokes it for encoded special-particle entries after extracting their bank and offset. For deferred geometry, HSD_JObjDispDObj appends newly allocated HSD_ZList records to the ownership chain and the applicable texture-edge and translucent chains while incrementing their counts; sorting consumes the class heads and counts, display traverses the resulting chains, and clear or forget-memory resets the heads and counts.",
+      "rationale": "The particle setter and display path directly establish the callback's producer-consumer relationship. The deferred-display branch directly updates the list state, while the sorting, display, clear, and forget-memory routines show every later consumer and reset of that state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T05:02:32.245Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L293-L532",
+          "why": "Shows deferred records being appended and counted, the heads and counts entering sorting and display, and the special-particle callback being stored and invoked."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L611",
+          "why": "Shows the forget-memory path resetting all ownership and transparency-class heads and counts without traversing old records."
+        }
+      ]
+    },
+    {
+      "id": "fact:94339c38-b053-4a66-a6b3-dbcdb88f9fda",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sbss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Backs two HSD rendering behaviors: ordered texture-edge and translucent geometry passes, including optional depth sorting of deferred JObj draws, and callback-based rendering dispatch for special-particle JObjs.",
+      "rationale": "The list state separates queued geometry into texture-edge and translucent chains, optionally sorts them, and replays texture-edge before translucent work. The callback state separately enables encoded particle entries attached to a JObj to be decoded and forwarded to the installed particle renderer.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T05:02:32.245Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L293-L532",
+          "why": "Shows the two transparency-class queues, optional depth sorting, fixed replay order, and callback dispatch of encoded special-particle entries."
+        }
+      ]
+    },
+    {
+      "id": "fact:d172f871-7ac1-4aba-b546-0df164b74491",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sbss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 32-byte zero-initialized small-data block comprising one four-byte callback pointer with signature `void (*)(s32, s32, s32, HSD_JObj*)`, two four-byte integer controls, three four-byte HSD_ZList head pointers, and two four-byte integer counts.",
+      "rationale": "The current declarations retain the callback, two controls, three null list heads, and two zero counts with the stated concrete types; the initialized tail pointers remain distinct from these zero-initialized objects.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the callback signature, integer controls, list heads, counts, and separately initialized tail pointers."
+        }
+      ]
+    },
+    {
+      "id": "fact:4d6558cb-e599-4307-b8f5-6b20fd4711a3",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sbss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Holds the display subsystem's zero-initialized small global state: the special-particle display callback, controls for deferred transparency collection and sorting, and list heads and record counts used to manage queued texture-edge and translucent JObj rendering.",
+      "rationale": "The current declarations still supply the zero-initialized callback, controls, heads, and counts, while the deferred-display path uses the controls and list state to collect and classify texture-edge and translucent records.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the zero-initialized callback, Z-list controls, list heads, and class counts."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L293-L532",
+          "why": "Shows the collection control, class heads, and counts governing deferred texture-edge and translucent rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:e3b0d0b4-5bc4-44d5-a1f2-d08b398e70eb",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sbss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The state begins with no particle callback, disabled Z-list collection and sorting, null list heads, and zero class counts. Enabling collection changes texture-edge and translucent rendering from immediate dispatch to queued records, while the independent sorting control governs depth sorting before replay. Particle-list processing requires a non-null callback.",
+      "rationale": "The current declarations preserve the initial null and zero state, and the display path retains the collection guard that selects immediate rendering or queued records. Nothing in the changed source span contradicts the independent sorting and callback guards.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the callback, collection and sorting controls, list heads, and counts initialized to null or zero."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L293-L532",
+          "why": "Shows collection-disabled immediate dispatch and collection-enabled accumulation into texture-edge and translucent chains."
+        }
+      ]
+    },
+    {
+      "id": "fact:5d8fa196-4596-430e-9688-19ce00318149",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_SetEraseColor writes caller-supplied RGBA bytes into `erase_color`; HSD_EraseRect later snapshots that color and emits it at all four vertices of its clearing quad. Independently, `zOne`, `yOne`, and `zOne2` supply fixed reference axes to vertical, horizontal, and full billboard construction.",
+      "rationale": "The current setter and erasure routine establish the color's producer-consumer path, while the billboard helpers directly read each initialized vector during basis reconstruction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L597",
+          "why": "Shows erase_color being written component-by-component and copied into the erasure quad's vertices."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L88-L200",
+          "why": "Shows zOne, yOne, and zOne2 entering the three billboard basis constructors."
+        }
+      ]
+    },
+    {
+      "id": "fact:9cdb8f19-bf27-4d75-b41c-d5ab741c8062",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sdata",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports configurable color and alpha replacement when clearing a render-target region, and camera-relative billboard orientation using fixed reference axes.",
+      "rationale": "HSD_EraseRect applies the stored color under independently enabled color and alpha updates, while the three vectors supply fixed axes for camera-relative billboard matrices.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L597",
+          "why": "Shows selective color and alpha updates using the stored erase color."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L88-L200",
+          "why": "Shows fixed axis vectors participating in vertical, horizontal, and full billboard construction."
+        }
+      ]
+    },
+    {
+      "id": "fact:14f6777f-ee81-4d7d-9748-ff9ee28554c6",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 40-byte initialized small-data block comprising one 4-byte GXColor (`erase_color`) and three 12-byte Vec3 values (`zOne = {0,0,1}`, `yOne = {0,1,0}`, and `zOne2 = {0,0,1}`).",
+      "rationale": "The current-head opening span retains erase_color with its four-byte GXColor initializer and all three Vec3 declarations with the same exact component values, confirming the standing layout after drift.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows erase_color as GXColor and zOne, yOne, and zOne2 as initialized Vec3 objects with their exact values."
+        }
+      ]
+    },
+    {
+      "id": "fact:54960033-9492-4db2-8da9-19e4e443701f",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the display unit's initialized small-data constants and persistent configuration: the RGBA color used by framebuffer-region erasure and three canonical unit-axis vectors used when constructing camera-relative billboard matrices.",
+      "rationale": "The current declarations retain the initialized color and vectors; the billboard helpers still consume the three axes, while HSD_SetEraseColor and HSD_EraseRect configure and consume the persistent color.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the initialized GXColor and three unit-axis Vec3 declarations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L88-L200",
+          "why": "Shows the three vector constants supplying reference axes to billboard matrix construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L597",
+          "why": "Shows erase_color being configured and copied into the framebuffer-erasure quad."
+        }
+      ]
+    },
+    {
+      "id": "fact:f859029e-bfa4-4d0d-9d21-3554749baac0",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sdata",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The erase color begins as transparent black and persists until HSD_SetEraseColor replaces all four components; each subsequent HSD_EraseRect snapshots the current value for its quad. The three unit vectors are initialized constants that are read but not mutated by billboard construction.",
+      "rationale": "The current source still initializes erase_color to four zero components, overwrites every component in the setter, and snapshots it in HSD_EraseRect. The billboard helpers continue to read the initialized vectors without writing them.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows transparent-black erase-color initialization and the fixed initializers of all three vectors."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L88-L200",
+          "why": "Shows the three initialized vectors being read as billboard reference axes without mutation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L597",
+          "why": "Shows complete erase-color replacement followed by a snapshot used for all four quad vertices."
+        }
+      ]
+    },
+    {
+      "id": "fact:bd7853b3-a304-4713-a142-53323abc5a8e",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Its floating-point literals are read during billboard position-matrix construction: source matrix columns and object position enter magnitude, square-root, cross-product, normalization, sign, and scaling calculations whose results are written into destination matrix axes.",
+      "rationale": "The current billboard helpers retain the complete floating-point calculation chain from source columns and position to normalized, rescaled destination axes.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L201",
+          "why": "Shows the full, vertical, and horizontal billboard helpers performing magnitude, square-root, cross-product, division, and scaling calculations."
+        }
+      ]
+    },
+    {
+      "id": "fact:5b21e80b-faf6-4b74-b7fc-2630af97b2ff",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sdata2",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports HSD billboard orientation by supplying numerical constants used to turn transformed scene-object axes into full, vertical, horizontal, or rotation-only camera-relative display matrices.",
+      "rationale": "The current helper calculations reconstruct and scale billboard axes, while the dispatcher selects all four billboard variants according to JObj flags.",
+      "confidence": 0.86,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L100-L250",
+          "why": "Shows billboard helpers using floating-point arithmetic and the dispatcher selecting the four camera-relative matrix modes."
+        }
+      ]
+    },
+    {
+      "id": "fact:0af129e8-a292-4919-b35c-f96a2ab779af",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 24-byte small read-only data pool containing scalar floating-point literals used by displayfunc's matrix mathematics, rather than mutable display state or an address table.",
+      "rationale": "The current-head source retains FLT_EPSILON and the repeated scalar magnitude, square-root, division, sign, and scale operations that generate the compact floating-point literal pool; the changed opening span does not indicate mutable state or an address table.",
+      "confidence": 0.9,
+      "updated_at": "2026-09-04T23:44:18.870Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/displayfunc.c#L1-L120",
+          "why": "Shows the floating-point epsilon definition and the beginning of billboard magnitude and normalization calculations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L100-L220",
+          "why": "Shows repeated scalar floating-point magnitude, square-root, division, sign, and scaling operations across the billboard helpers."
+        }
+      ]
+    },
+    {
+      "id": "fact:57f9cb6a-948b-4d33-a40e-2098aaf5ac9f",
+      "target_id": "target:data:main/sysdolphin/baselib/displayfunc:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the read-only numerical constants needed by displayfunc's billboard matrix calculations, especially magnitude and normalization operations used to reconstruct camera-relative object axes while preserving scale.",
+      "rationale": "The current billboard routines repeatedly compute magnitudes and reciprocal scale factors before writing reconstructed camera-relative axes.",
+      "confidence": 0.88,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L201",
+          "why": "Shows the billboard constructors using scalar constants and magnitude calculations to normalize and rescale reconstructed axes."
+        }
+      ]
+    },
+    {
+      "id": "fact:bea2cd52-ec2e-416e-a9ac-2e487b245bba",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The left, right, top, bottom, and z inputs become the positions of a GX quad under the identity position matrix. The global erase_color is copied into every vertex. The color and alpha flags control GX color-buffer component updates; the depth flag enables depth writes and, through a constant 4\u00d74 Z8 texture plus GX_ZT_REPLACE, supplies the replacement depth value. After drawing, Z-texturing is disabled and all cached HSD render state is invalidated.",
+      "rationale": "Every geometric input is visibly forwarded into one of the four GXPosition3f32 calls, and erase_color supplies all four vertex colors. The enable flags flow into GXSetColorUpdate, GXSetAlphaUpdate, and GXSetZMode, while the depth-enabled branch constructs and loads the constant Z8 texture used by GXSetZTexture. The final calls explicitly undo Z-texturing and invalidate HSD's state cache.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:41.907Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+          "why": "Shows the complete flow from rectangle bounds, erase color, and enable flags into GX state and quad vertices, followed by state cleanup and invalidation."
+        }
+      ]
+    },
+    {
+      "id": "fact:4548bba9-ad45-4e8b-ade0-f4294f4353ca",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes render-target clearing for an arbitrary rectangular portion of a camera view, with color, alpha, and depth clearing independently selectable.",
+      "rationale": "The primitive draws a rectangle using copy-style GX state and independent framebuffer/depth write controls. Its camera-level caller derives that rectangle from perspective, frustum, or orthographic projection bounds, grounding the operation in camera-scoped render-target clearing.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:12:41.907Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+          "why": "Shows selective color, alpha, and depth replacement across a supplied rectangle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L34-L73",
+          "why": "Shows the rectangle being constructed from the active camera projection before this clearing primitive is invoked."
+        }
+      ]
+    },
+    {
+      "id": "fact:377564f0-4e6f-4342-b65e-f2f1387da1fb",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature void HSD_EraseRect(f32 top, f32 bottom, f32 left, f32 right, f32 z, int enable_color, int enable_alpha, int enable_depth); the final three integers are independently interpreted as Boolean-like output-enable flags.",
+      "rationale": "The resolved definition supplies the exact return and parameter types. The last three parameters are tested for an all-disabled no-op and separately select GX color, alpha, and depth writes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:41.907Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+          "why": "Contains the complete declaration and demonstrates the Boolean-like use of all three integer enable parameters."
+        }
+      ]
+    },
+    {
+      "id": "fact:d5247ce8-387b-409e-adcd-4683561d566b",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Clears any selected combination of color, alpha, and depth within a caller-supplied rectangular region by configuring GX write masks and drawing a four-vertex quad.",
+      "rationale": "The function independently enables GX color, alpha, and depth updates from its three flags, emits a quad from the supplied bounds, and returns without drawing when all outputs are disabled. Its sole known caller constructs the rectangle from a camera's projection, confirming that this primitive performs the actual selective clearing operation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:41.907Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+          "why": "Directly shows the output-enable guard, GX write-mask setup, and four rectangle vertices."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L34-L73",
+          "why": "Shows HSD_CObjEraseScreen passing camera-projection bounds and independent color, alpha, and depth erase flags to this function."
+        }
+      ]
+    },
+    {
+      "id": "fact:23beaa7b-3ba1-4bce-91c1-134465d4b5c4",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If color, alpha, and depth clearing are all disabled, the function returns without changing GX state. Otherwise it chooses a depth-enabled path that installs a Z8 replacement texture or a depth-disabled path with no texture coordinates, then forces unconditional comparison/copy-style rendering, applies the requested write masks, draws one quad, disables Z-texturing, and invalidates the entire HSD state cache.",
+      "rationale": "The opening compound guard establishes the no-op state. The enable_depth branch controls texture generation and GX Z-texture replacement, while the common path sets culling, alpha comparison, depth mode, blend logic, channel state, vertex format, and output masks. The function's terminal cleanup reflects that this direct GX manipulation leaves HSD's cached state unusable.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:12:41.907Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_EraseRect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L513-L597",
+          "why": "Directly shows the all-disabled guard, the two depth-state branches, common draw-state setup, one quad draw, and final HSD_STATE_ALL invalidation."
+        }
+      ]
+    },
+    {
+      "id": "fact:5a1b26dc-f17a-479a-8e77-caabcf8ecfce",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_JObjDispAll supplies an eligible JObj together with the current view matrix, transparency-pass mask, and render mode. For a DObj-bearing JObj, HSD_JObjDisp forwards all four values to HSD_JObjDispDObj. For a particle-bearing JObj, it walks `jobj->u.ptcl`; each marked descriptor is decoded into a masked bank value and a shifted-and-masked offset, then passed to the registered callback as `(0, bank, offset, jobj)`. Every descriptor reached in that branch is subsequently rewritten as `sp->data & JOBJ_PTCL_ACTIVE`.",
+      "rationale": "The caller shows where the display arguments originate and how pass eligibility is selected. The target body then exposes both output paths: unchanged forwarding into DObj rendering or decoding packed particle-list data into callback arguments followed by an in-place descriptor update.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:17:11.071Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L567-L600",
+          "why": "Shows HSD_JObjDispAll selecting nodes with the requested pass flags and supplying HSD_JObjDisp with the JObj, matrix, mask, and render mode."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L479-L498",
+          "why": "Shows unchanged forwarding to HSD_JObjDispDObj and the particle branch's bank/offset extraction, callback arguments, and mutation of each list entry."
+        }
+      ]
+    },
+    {
+      "id": "fact:faa328c4-873c-47f6-935e-2bdabdb2deeb",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Forms the per-joint dispatch stage of hierarchical model drawing: it either renders a joint's display objects for the active transparency pass or turns queued particle descriptors attached to a particle-type joint into special-particle callback requests, connecting visible model traversal with joint-associated visual effects.",
+      "rationale": "HSD_JObjDispAll invokes the target for hierarchy nodes selected by the active display pass, and a documented gameplay caller supplies masks for opaque, texture-edge, or translucent rendering. The target's particle-union branch processes a linked list through a callback; community discussion independently identifies JOBJ_PTCL as a JObj-linked list run by such a callback in the context of joint particle animation.",
+      "confidence": 0.92,
+      "updated_at": "2026-09-02T00:17:11.071Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L567-L600",
+          "why": "Shows the target being used as the single-node display operation within transparency-filtered JObj hierarchy traversal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L463-L503",
+          "why": "Shows that the single-node operation dispatches either display-object geometry or particle-list callback requests."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1428075924959662180",
+          "why": "Gives a concrete gameplay-model caller that converts the active draw pass to a transparency mask before entering HSD_JObjDispAll."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1485655068823781446",
+          "why": "Identifies JOBJ_PTCL as a linked list stored on a JObj and processed through an associated callback in discussion of joint particle animation."
+        }
+      ]
+    },
+    {
+      "id": "fact:58cb15c2-0410-4621-b7b8-4ef60986ea0c",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void single-node display dispatcher with signature `void (HSD_JObj* jobj, MtxPtr view_mtx, HSD_TrspMask transparency_mask, u32 rendermode)`. The JObj is nullable; the matrix, transparency mask, and render mode are consumed only by the DObj branch. Its particle branch uses a separately registered callback of type `void (s32, s32, s32, HSD_JObj*)`.",
+      "rationale": "The matched declaration establishes the function's exact return and parameter types, and its null guard proves that the JObj may be absent. The DObj call forwards all rendering parameters, whereas the particle branch does not reference them. The adjacent setter provides the exact callback signature.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:17:11.071Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L463-L503",
+          "why": "Provides the exact HSD_JObjDisp signature, its parameter usage in each union branch, and the special-particle callback's declared type."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1428075655731613807",
+          "why": "Identifies the HSD_TrspMask domain used by the surrounding JObj display path as opaque, texture-edge, and translucent pass masks."
+        }
+      ]
+    },
+    {
+      "id": "fact:401d0a51-166a-479c-a8ac-fd5d95507e8d",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Dispatches display work for one JObj according to the active arm of its payload union: DObj-bearing joints enter the geometry-rendering path, while particle-bearing joints process their linked particle descriptors through the installed special-particle callback.",
+      "rationale": "The complete matched body distinguishes DObj and particle union types. It forwards DObj nodes to HSD_JObjDispDObj and, for particle nodes with a registered callback, traverses the JObj's particle list and invokes that callback for marked descriptors.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:17:11.071Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L463-L503",
+          "why": "Shows the mutually exclusive DObj and particle dispatch branches, the particle-list traversal, and the adjacent callback registration function."
+        }
+      ]
+    },
+    {
+      "id": "fact:d2e0d447-ed07-4173-8569-733489f6d84d",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A NULL JObj is a no-op. DObj-bearing nodes take precedence over the particle branch. A particle-bearing node is processed only while a special-particle callback is installed; in that case, descriptors whose high bit is set trigger the callback, while unmarked descriptors do not, and every traversed descriptor is masked with `JOBJ_PTCL_ACTIVE` afterward. If no callback is installed, the particle list is neither dispatched nor rewritten.",
+      "rationale": "These transitions follow directly from the nested guards and branch ordering. The high-bit test controls callback invocation, while the unconditional assignment inside the list loop performs the post-processing update for both marked and unmarked entries; placing the entire loop under the callback-null check means no list state changes without a callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:17:11.071Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L479-L498",
+          "why": "Directly shows the null guard, DObj-first branch order, callback guard, per-entry high-bit test, and unconditional masking performed after that test."
+        }
+      ]
+    },
+    {
+      "id": "fact:c6f92417-b4e4-4aae-ab37-6dd893231a6d",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function intersects the JObj's transparency flags with `trsp_mask << JOBJ_TRSP_SHIFT`. For an eligible JObj, it obtains a viewing matrix from the current camera when the supplied matrix is NULL and passes that matrix to the JObj class's `make_pmtx` method. Opaque output goes directly to the class display method. During Z-list collection, texture-edge or translucent output instead becomes one HSD_ZList record containing copies of the position and viewing matrices, the JObj pointer, and rendermode; that record is linked into the ownership list and each applicable transparency-class chain, whose later display pass invokes the same class method with the stored values.",
+      "rationale": "The target body explicitly traces the flags and input parameters through camera fallback and virtual position-matrix construction into either direct display calls or copied Z-list fields. The adjacent consumer traverses each class chain and feeds those stored fields back to the JObj display method.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:49.807Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+          "why": "Shows transparency-mask filtering, camera viewing-matrix fallback, position-matrix construction, direct dispatch, and every field written into a deferred record."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L368-L460",
+          "why": "Shows the queued position depth being used for sorting and the stored JObj, matrices, and rendermode being consumed during deferred display."
+        }
+      ]
+    },
+    {
+      "id": "fact:abbe12f2-0683-4950-81ee-c3d7f12caaee",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the scene renderer's transparency-pass ordering: eligible JObj geometry is separated into opaque, texture-edge, and translucent passes, with opaque geometry drawn immediately and the latter classes optionally deferred and ordered by camera-space depth before display.",
+      "rationale": "The target explicitly classifies rendering into HSD_TRSP_OPA, HSD_TRSP_TEXEDGE, and HSD_TRSP_XLU, while the deferred-display code sorts the latter class chains using `pmtx[2][3]` and displays texture-edge entries before translucent entries. Together these operations realize transparency-pass selection and depth ordering.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:16:49.807Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+          "why": "Shows the three transparency classes and the immediate-versus-deferred division between opaque and the other selected classes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L368-L460",
+          "why": "Shows camera-space depth sorting and the fixed texture-edge-before-translucent deferred display order."
+        }
+      ]
+    },
+    {
+      "id": "fact:2f8e6997-e513-44c6-b0c8-29e44db77eee",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Void JObj rendering routine with signature `void (HSD_JObj* jobj, MtxPtr vmtx, HSD_TrspMask trsp_mask, u32 rendermode)`. `vmtx` is an optional viewing matrix, `trsp_mask` selects the opaque, texture-edge, and translucent classes eligible for this invocation, and `rendermode` is forwarded unchanged to the JObj display method or retained in a deferred-display record.",
+      "rationale": "The matched declaration establishes the exact mechanical types. A NULL matrix is replaced with the current camera's viewing matrix, the transparency mask is shifted and intersected with JObj flags, and rendermode is passed to every immediate display call or stored for deferred replay.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:49.807Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+          "why": "Provides the exact signature and demonstrates the semantic roles of the optional view matrix, transparency mask, and render-mode word."
+        }
+      ]
+    },
+    {
+      "id": "fact:7e9a7058-742e-4ca4-8676-fea850933e56",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Renders the display objects of one visible JObj for the requested transparency classes. It prepares the JObj and its camera-relative position matrix, dispatches opaque geometry immediately, and either dispatches texture-edge and translucent geometry immediately or records those classes for later depth-ordered display.",
+      "rationale": "The function rejects hidden or pass-ineligible JObjs, prepares the selected JObj's matrix, and invokes its display method separately for opaque, texture-edge, and translucent classes. The zsort_listing branch replaces immediate texture-edge/translucent dispatch with an HSD_ZList record, while the adjacent Z-list routines sort and replay those records.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:49.807Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+          "why": "Shows visibility and transparency filtering, matrix preparation, immediate opaque rendering, and the immediate-versus-deferred handling of texture-edge and translucent classes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L368-L460",
+          "why": "Shows deferred records being sorted by position-matrix depth and replayed through the JObj display method in texture-edge and translucent passes."
+        }
+      ]
+    },
+    {
+      "id": "fact:27df7123-5d92-43d6-b22f-3d0cb1ae6800",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A hidden JObj or one with no transparency bits selected by the requested mask is a no-op. Otherwise its matrix is prepared once and opaque geometry is always rendered immediately. When `zsort_listing` is clear, selected texture-edge and translucent classes are also rendered immediately; when it is set, either class causes allocation of one deferred record, which is appended to the ownership list and independently entered into the texture-edge and/or translucent chain with the corresponding count incremented. A JObj selected for both deferred classes therefore shares one record between both class chains.",
+      "rationale": "The nested guards establish the hidden and pass-eligibility no-op states. The opaque call precedes the zsort_listing decision, and the listing branch allocates only once before independently testing the two class bits and updating both chains when both are present.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:49.807Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispDObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L309-L367",
+          "why": "Directly shows all guards, the unconditional-immediate opaque path, the zsort_listing state split, and independent insertion of one record into either or both deferred-class chains."
+        }
+      ]
+    },
+    {
+      "id": "fact:0457f7ad-b2f9-4d76-a2fc-30fbc1ce8626",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input JObj is installed as the current JObj and supplies both its flags and its jobj->u.dobj list. The transparency mask is shifted into the DObj transparency-flag positions and intersected with each non-hidden DObj's flags. For every match, that DObj becomes current and receives vmtx, pmtx, and rendermode unchanged through its virtual display method; pmtx also feeds specular-light initialization when the JObj is specular and the pass is not a shadow pass. NULL is written to the current-DObj and current-JObj contexts after traversal.",
+      "rationale": "Each data edge is explicit in the matched function: the JObj feeds current context, flags, and list traversal; the shifted mask feeds DObj filtering; the matrices and render mode feed the selected callback; and the terminal setter calls clear both current-object slots.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:25.937Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+          "why": "Directly shows the origins, transformations, filtering uses, callback arguments, and terminal NULL writes."
+        }
+      ]
+    },
+    {
+      "id": "fact:757b8a96-af63-4f32-9933-3b17fd67f292",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "JObj display-pass routine with signature void HSD_JObjDispSub(HSD_JObj* jobj, MtxPtr vmtx, MtxPtr pmtx, HSD_TrspMask trsp_mask, u32 rendermode). The matrices are the view and position matrices forwarded to DObj display callbacks, trsp_mask selects DObj transparency classes after conversion into the DOBJ_TRSP_* flag domain, and rendermode is a rendering-mode bitmask that includes RENDER_SHADOW.",
+      "rationale": "The matched definition supplies the exact return and parameter types. Its operations establish the effective domains: trsp_mask is shifted into DObj flag positions, RENDER_SHADOW is tested as a rendermode bit, pmtx is supplied to specular setup, and both matrices plus rendermode are forwarded unchanged to each selected DObj display method.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:25.937Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+          "why": "Contains the exact signature and shows every parameter's use in transparency selection, lighting setup, and DObj display dispatch."
+        }
+      ]
+    },
+    {
+      "id": "fact:3f838788-840a-4681-8099-7054ba087f58",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Renders the display objects attached to one JObj for a requested transparency pass: it establishes the JObj as current, prepares non-shadow specular lighting when required, resets the polygon matrix-mark cache, skips hidden or transparency-ineligible DObjs, and dispatches each selected DObj's display method before clearing the current DObj and JObj contexts.",
+      "rationale": "The matched body performs this complete selection and dispatch sequence. The called DObj display implementation confirms that each dispatched DObj proceeds through material setup, polygon-object rendering, and material teardown, so this function is the JObj-level pass coordinator rather than the final geometry renderer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:25.937Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+          "why": "Shows current-JObj setup, the shadow/specular guard, matrix-mark reset, DObj visibility and transparency filtering, polymorphic display dispatch, and final context clearing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L303-L318",
+          "why": "Shows that a dispatched DObj display method establishes its material, renders every attached PObj, tears down the material, and clears the current material."
+        }
+      ]
+    },
+    {
+      "id": "fact:cbe9bf57-b6ea-4041-9da3-0f8653cae696",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine creates a temporary rendering context without preserving prior current-object values: it sets the current JObj on entry, replaces the current DObj before each eligible dispatch, and clears both contexts on exit. Hidden DObjs are always skipped; other DObjs render only when their flags intersect the shifted transparency mask. Specular initialization occurs only when RENDER_SHADOW is clear and JOBJ_SPECULAR is set, while the polygon matrix-mark cache is reset unconditionally before traversal.",
+      "rationale": "The setter ordering and final NULL calls define the context transitions, while the loop's two guards define eligibility. The nested shadow and specular tests and unconditional cache-reset call establish the rendering-state branches that precede traversal.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:25.937Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjDispSub",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L278-L307",
+          "why": "Shows all current-object transitions, DObj guards, the conditional specular initialization, and the unconditional matrix-cache reset."
+        }
+      ]
+    },
+    {
+      "id": "fact:594c9ab2-d3a9-401e-ae01-5601ccd6a1b7",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `jobj->flags` to select the transform path. Without a billboard flag, it writes `pmtx = vmtx \u00d7 jobj->mtx`. With a billboard flag, it writes that product to a temporary matrix and passes the temporary matrix, JObj, and output matrix to the selected billboard builder; the builders preserve camera-space translation and scale while reconstructing orientation.",
+      "rationale": "The current dispatcher still forms the same ordered matrix product and routes it directly or through a mode-specific builder, whose bodies show the reconstructed output flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows matrix concatenation, billboard-mode dispatch, rotation-state input, and output through pmtx."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L201",
+          "why": "Shows the three axis-reconstruction helpers extracting scale and translation and writing destination matrices."
+        }
+      ]
+    },
+    {
+      "id": "fact:1bd01c21-2453-424a-aa33-c65b738299c5",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes billboard rendering for scene joints: selected JObjs retain camera-space placement and apparent scale while their orientation is rebuilt as a full, vertically constrained, horizontally constrained, or Z-rotated billboard for display.",
+      "rationale": "The current switch identifies all four billboard modes, and the helpers retain translation and source-axis magnitudes while replacing orientation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L201",
+          "why": "Shows full, vertical, and horizontal modes preserving placement and scale while rebuilding axes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows the rotation-only helper and dispatch among all four billboard modes."
+        }
+      ]
+    },
+    {
+      "id": "fact:c706afba-3bae-4215-8282-c9e89a2f64df",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_JObjMakePositionMtx(HSD_JObj* jobj, Mtx vmtx, Mtx pmtx)`. `jobj` supplies flags, its local/world joint matrix, and rotational state; `vmtx` is a 3-by-4 affine viewing transform read as input; and `pmtx` is a writable 3-by-4 affine output matrix.",
+      "rationale": "The matched declaration establishes the concrete signature. The body reads fields through `jobj`, passes `vmtx` and `jobj->mtx` as concatenation inputs, and writes either the concatenation or a billboard builder's result through `pmtx`. The resolved matrix implementation establishes that `Mtx` denotes a twelve-float, three-row-by-four-column affine matrix.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:17:01.023Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L218-L243",
+          "why": "Provides the exact function signature and demonstrates the read-input and write-output roles of all three parameters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/mtx/mtx.c#L90-L250",
+          "why": "Shows the affine matrix concatenation API indexing each `Mtx` as three rows of four floating-point elements."
+        }
+      ]
+    },
+    {
+      "id": "fact:f9562748-9227-4124-be62-b0bdd73056e2",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds the camera-space position matrix used to display an HSD_JObj. Ordinary joints receive the direct product of the viewing matrix and joint transform, while billboard joints receive a reconstructed transform following the selected billboard mode while retaining camera-space position and scale.",
+      "rationale": "The current function directly concatenates ordinary transforms and dispatches billboard transforms to helpers that preserve translation and measured axis magnitudes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows ordinary concatenation, billboard dispatch, and scale-and-translation-preserving rotation-only construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L201",
+          "why": "Shows the other billboard builders preserving translation and source-axis scale."
+        }
+      ]
+    },
+    {
+      "id": "fact:1a98b6f1-7a65-480b-a3e8-3941efbff1fe",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The masked `JOBJ_BILLBOARD_FIELD` selects five behaviors: zero performs ordinary matrix concatenation; `JOBJ_BILLBOARD`, `JOBJ_VBILLBOARD`, `JOBJ_HBILLBOARD`, and `JOBJ_RBILLBOARD` select full, vertical-axis, horizontal-axis, and Z-rotational billboard reconstruction. Other nonzero values panic. In the first three modes, `JOBJ_PBILLBOARD` selects position-dependent rather than fixed-axis construction.",
+      "rationale": "The current switch retains the complete mode selection and panic default, while each of the first three helpers still independently branches on JOBJ_PBILLBOARD.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjMakePositionMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows ordinary behavior, all four recognized billboard states, and the panic default."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L201",
+          "why": "Shows JOBJ_PBILLBOARD changing axis construction in the vertical, horizontal, and full helpers."
+        }
+      ]
+    },
+    {
+      "id": "fact:b5e35a8c-398c-4596-816a-3401f20f249a",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input function pointer is copied unchanged into sptcl_callback. During HSD_JObjDisp, a particle JObj's HSD_SList entries are inspected; an entry whose high trigger bit is set is decoded into a particle bank and effect offset, then forwarded to the callback as (0, bank, offset, jobj). The installed efLib_Cb_SPtcl routes bank 0x1E to the stage-effect handler and all other banks to the general particle spawner, passing mode 0 for the static-particle path.",
+      "rationale": "The setter establishes the callback-slot write. The display routine shows the linked-list origin, trigger test, identifier decoding, and exact indirect-call arguments. The registered effect-library callback shows how those outputs select the stage or ordinary particle path and distinguishes this path with its zero mode argument.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:17:08.726Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L500-L503",
+          "why": "Shows the registration input flowing directly into sptcl_callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows particle-list entries being tested, decoded into bank and offset fields, and passed with the current JObj to the registered callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L986-L1004",
+          "why": "Shows the concrete static-particle callback routing bank 0x1E to stage effects and other banks to the general particle spawner with mode 0."
+        }
+      ]
+    },
+    {
+      "id": "fact:e033356f-dc23-42cd-bd0c-d80ebbf116db",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Connects triggerable particle entries attached to a model joint with static visual-effect spawning at that JObj: each activated entry selects a particle bank and graphics-effect ID, while the game callback creates either an ordinary particle effect or the special stage-effect variant.",
+      "rationale": "HSD_JObjDisp associates the decoded request with the particle-bearing JObj and clears its trigger after dispatch. The installed efLib callback consumes that JObj and the decoded identifiers to spawn the requested static particle or stage effect, grounding the registration function in JObj-attached visual-effect creation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:17:08.726Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows activated particle entries on a JObj producing callback requests containing bank, effect offset, and that JObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L986-L1004",
+          "why": "Shows the game's static-particle callback converting those requests into ordinary particle effects or stage effects associated with the supplied JObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:963f8d40-6437-4479-ae96-0119b435dc5a",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Callback-registration function with signature void HSD_JObjSetSPtclCallback(void (*func)(s32 link_no, s32 bank, s32 gfx_id, HSD_JObj* jobj)); the stored callback returns no value and accepts three signed integer arguments followed by the particle-bearing JObj.",
+      "rationale": "The matched setter definition explicitly gives the complete function-pointer parameter and void return type. HSD_JObjDisp invokes the slot with four corresponding arguments, while efLib_Cb_SPtcl is a concrete implementation with the same signature.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:17:08.726Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L500-L503",
+          "why": "Contains the complete matched setter signature and direct callback assignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows the stored callback being invoked with link number, bank, effect offset, and HSD_JObj arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L986-L1004",
+          "why": "Defines the concrete registered callback as efLib_Cb_SPtcl(s32 linkNo, s32 bank, s32 gfx_id, HSD_JObj* jobj)."
+        }
+      ]
+    },
+    {
+      "id": "fact:e0c8514c-a39c-4de7-a0f4-5977dbd4ad86",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Registers the process-global static-particle callback used while displaying particle-bearing JObjs, allowing generic HSD display code to hand particle requests to the game's effect library without directly depending on it.",
+      "rationale": "The setter stores the supplied pointer, the display path consumes that slot, and current efLib initialization still installs efLib_Cb_SPtcl through this API.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ef/eflib.c#L157-L190",
+          "why": "Shows efLib initialization registering efLib_Cb_SPtcl through HSD_JObjSetSPtclCallback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows the stored callback being consumed while displaying particle-bearing JObjs."
+        }
+      ]
+    },
+    {
+      "id": "fact:941b25bd-5d16-4367-a453-628a685c3aee",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each call unconditionally replaces the single global static-particle handler, including allowing NULL to disable particle-list processing. HSD_JObjDisp enters that processing path only when the JObj is particle-backed and the callback is non-NULL. With a handler installed, only entries carrying the high trigger bit dispatch a request, and every visited entry has that trigger bit cleared afterward so it does not fire again until reactivated.",
+      "rationale": "The setter has no guard and directly overwrites the callback slot. The display branch is jointly guarded by particle union type and callback availability, tests the high bit before dispatch, and masks each entry after inspection. This proves replacement and disabled states as well as the per-entry trigger-and-clear transition.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:17:08.726Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_JObjSetSPtclCallback",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L500-L503",
+          "why": "Shows unconditional replacement of the callback slot with the supplied pointer, including a possible NULL value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows the non-NULL callback guard, trigger-bit test, conditional dispatch, and post-visit masking of each particle-list entry."
+        }
+      ]
+    },
+    {
+      "id": "fact:bb7e02e8-de54-4069-ad63-6ad7133503a6",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The four caller-supplied byte components are written unchanged into the global erase_color fields. HSD_EraseRect later copies that stored color and submits it for each vertex of its quad; its enable_color and enable_alpha flags determine whether the RGB and alpha components reach the render target.",
+      "rationale": "The setter consists solely of four field stores. The adjacent consumer reads the same erase_color object, emits its components through GXColor4u8 at every quad vertex, and configures GX color and alpha updates separately.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:52.250Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L597",
+          "why": "Shows the complete producer-consumer flow from the setter's RGBA arguments through erase_color to HSD_EraseRect's vertex colors and GX output masks."
+        }
+      ]
+    },
+    {
+      "id": "fact:b9662753-0b91-4a24-8913-113f8c398018",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Selects the color and alpha clear value used for subsequent camera-scoped render-target clearing; depth clearing is configured independently and does not use these RGBA components.",
+      "rationale": "HSD_EraseRect uses erase_color for its quad while independently enabling color, alpha, and depth writes. HSD_CObjEraseScreen derives the rectangle from the active camera projection and invokes HSD_EraseRect, grounding the stored value in camera-region render-target clearing rather than ordinary scene-object coloring.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:16:52.250Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L597",
+          "why": "Shows the erase color feeding the clearing quad while color, alpha, and depth output controls remain independently selectable."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L34-L73",
+          "why": "Shows HSD_CObjEraseScreen deriving a clearing region from perspective, frustum, or orthographic camera bounds and forwarding it to HSD_EraseRect."
+        }
+      ]
+    },
+    {
+      "id": "fact:933785ca-54d9-427f-8d53-39343ee9555d",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature void HSD_SetEraseColor(u8 r, u8 g, u8 b, u8 a); each argument is one unsigned 8-bit component of the persistent RGBA erase color.",
+      "rationale": "The resolved definition provides the exact return and parameter types and assigns the parameters directly to the corresponding r, g, b, and a fields.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:52.250Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L511",
+          "why": "Contains the complete function signature and direct component-wise assignments to erase_color."
+        }
+      ]
+    },
+    {
+      "id": "fact:e57ad507-7a7e-46ef-83f1-8501430312bb",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Configures the RGBA value that HSD_EraseRect applies when clearing color and alpha within a render-target region.",
+      "rationale": "The function stores all four arguments into the shared erase_color value, and the adjacent HSD_EraseRect implementation copies that value into every vertex of its clearing quad while independently controlling color and alpha writes.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:52.250Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L597",
+          "why": "Shows HSD_SetEraseColor writing erase_color and HSD_EraseRect subsequently using that stored RGBA value for all four vertices of its selective clearing quad."
+        }
+      ]
+    },
+    {
+      "id": "fact:2597ca44-fa01-4aae-8e71-178f994aca0b",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each call unconditionally replaces all four components of the stored erase color. It performs no draw and changes no GX state itself; the stored value remains the configuration consumed by later HSD_EraseRect calls until another call overwrites it.",
+      "rationale": "The body has no guards or graphics calls and performs only assignments to persistent erase_color fields. The following clearing routine reads erase_color rather than receiving a color parameter, demonstrating that setting and drawing are separate operations and that the value is retained between them.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:16:52.250Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_SetEraseColor",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L505-L597",
+          "why": "Shows the setter's unconditional stores, absence of GX operations in the setter, and the later read of erase_color by HSD_EraseRect."
+        }
+      ]
+    },
+    {
+      "id": "fact:c53283ba-26ed-4fff-a03b-1ab1f4956d34",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller's vtxfmt value is sent to two GXSetVtxAttrFmt calls, producing an XYZ/F32 position definition and an RGBA/RGBA8 color definition in the same vertex format. The caller's rendermode is ORed with 0x28000000 and forwarded to HSD_SetupRenderMode. The function has no returned data; its outputs are GX/HSD state side effects that make position and color direct inputs and select GX_PNMTX0.",
+      "rationale": "Every input-to-output path is explicit in the straight-line body: vtxfmt is duplicated into the two attribute-format configurations, rendermode is transformed by a constant mask, and the remaining calls publish vertex-descriptor, TEV, render-mode, and matrix state for later drawing.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:28.884Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+          "why": "Shows both parameter flows and all resulting graphics-state side effects in the complete function."
+        }
+      ]
+    },
+    {
+      "id": "fact:5968548d-52c9-42ca-8d43-2b1c27d942f6",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Maps to GX direct vertex submission for simple colored geometry: subsequent vertices are expected to carry an inline three-component floating-point position and an inline eight-bit RGBA color, transformed through position matrix zero under the supplied render mode.",
+      "rationale": "The position and color formats define the component layouts, while GX_DIRECT descriptors establish that both attributes are embedded directly in the vertex stream rather than fetched through indexed arrays. GXSetCurrentMtx selects the matrix used for those positions.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:16:28.884Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+          "why": "Shows direct descriptors paired with XYZ/F32 position and RGBA8 color formats and selection of GX_PNMTX0."
+        }
+      ]
+    },
+    {
+      "id": "fact:ab96e5fa-ff95-407f-b945-7a700bef4707",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void render-state initializer with signature void HSD_StateInitDirect(int vtxfmt, u32 rendermode). vtxfmt is used as a GX vertex-format-table index, while rendermode is an HSD render-mode bitmask that is augmented with 0x28000000 before being passed to HSD_SetupRenderMode.",
+      "rationale": "The declaration establishes the exact C signature. Both GXSetVtxAttrFmt calls consume vtxfmt as their format selector, and the bitwise OR before HSD_SetupRenderMode proves that rendermode is treated as a flag mask rather than a scalar measurement or object identifier.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:28.884Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+          "why": "Provides the exact signature and shows how each parameter is consumed: vtxfmt selects the configured GX format and rendermode participates in a bitwise render-mode composition."
+        }
+      ]
+    },
+    {
+      "id": "fact:7cfb2f4b-d737-45fd-b7e3-7afafcfe9978",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Establishes a clean HSD/GX state for drawing caller-supplied colored geometry directly from the command stream: it invalidates the previous vertex-descriptor setup, defines direct XYZ floating-point positions and RGBA8 colors in the selected vertex format, resets HSD's TEV-stage allocator, applies the requested render mode with required internal flags, enables the two direct attributes, and selects position matrix zero.",
+      "rationale": "The matched body is an ordered rendering-state setup wrapper. Clearing descriptor state prevents stale PObj vertex configuration from carrying into the pass; the two format and descriptor pairs define exactly the position and color data expected from subsequently submitted vertices; and the TEV, render-mode, and current-matrix calls establish the remaining state needed by that direct rendering path.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:28.884Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+          "why": "The complete matched function shows descriptor invalidation followed by direct XYZ/RGBA vertex-format setup, TEV and render-mode initialization, direct descriptor enabling, and selection of GX_PNMTX0."
+        }
+      ]
+    },
+    {
+      "id": "fact:690a49aa-fe7c-4a25-b599-1e2cd49f9a40",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Unconditionally performs a fixed state transition with no guards or branches: invalidate existing vertex descriptors and HSD descriptor caches; configure the selected format's position and color encodings; reset the software TEV-stage cursor; apply the augmented render-mode mask; enable only position and color as direct vertex inputs; and set the current position matrix to GX_PNMTX0. Repeated calls rebuild the same baseline using the latest vtxfmt and rendermode arguments.",
+      "rationale": "The complete function is a straight-line sequence of state-setting calls. Its initial clear establishes a clean descriptor boundary, and the subsequent calls deterministically replace the relevant vertex, TEV, render-mode, and matrix selections without consulting prior state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:16:28.884Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_StateInitDirect",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L76-L86",
+          "why": "The resolved body directly establishes the branch-free ordering and the graphics-state values selected at each step."
+        }
+      ]
+    },
+    {
+      "id": "fact:67dd9c80-28f3-4e1d-be3f-689769aaf7b8",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_ZListInitAllocData",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine has no runtime inputs and returns no value. It forwards the address of zlist_alloc_data, sizeof(HSD_ZList), and 4 to HSD_ObjAllocInit; that call removes prior registry occurrences, clears and configures the descriptor, and prepends it to the allocator registry. Adjacent helpers subsequently use the same descriptor for allocation and release.",
+      "rationale": "The target's current body supplies all initializer arguments, and the current callee shows how they become persistent descriptor state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_ZListInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L56-L74",
+          "why": "Shows the descriptor, record size, and alignment flowing into initialization and the same descriptor used by allocation and free."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows prior-link removal, clearing, configuration, and registry insertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:3c66034c-1ce6-4b5d-a724-60495343a0a0",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_ZListInitAllocData",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void HSD_ZListInitAllocData(void)`. It configures global zlist_alloc_data as an HSD_ObjAllocData descriptor whose object stride is derived from sizeof(HSD_ZList) and whose requested byte alignment is 4.",
+      "rationale": "The current definition provides the exact signature and arguments, while HSD_ObjAllocInit interprets those arguments as descriptor size and alignment configuration.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_ZListInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L56-L59",
+          "why": "Provides the exact signature and HSD_ZList-specific initializer arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows byte alignment normalization and aligned object-stride calculation."
+        }
+      ]
+    },
+    {
+      "id": "fact:82ab0146-7900-42ed-a4d7-2bf4eb77499e",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_ZListInitAllocData",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes and registers the HSD object-pool descriptor used for temporary HSD_ZList rendering records, configuring sizeof(HSD_ZList) entries with four-byte alignment during the engine-wide HSD object-allocation startup sequence.",
+      "rationale": "The target configures the Z-list descriptor, HSD_ObjInit still invokes it with other object-family initializers, and adjacent helpers consume the descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_ZListInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L250-L330",
+          "why": "Shows HSD_ObjInit invoking HSD_ZListInitAllocData during common object-allocator startup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L56-L74",
+          "why": "Shows type-specific descriptor initialization and its later allocation and release consumers."
+        }
+      ]
+    },
+    {
+      "id": "fact:0793fb92-aa46-4ed0-ad5c-9eb49de112bd",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:HSD_ZListInitAllocData",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Calling the routine transitions zlist_alloc_data to an empty registered pool. Reinitialization removes prior registry occurrences, clears allocator counts, flags, peaks, and list state, restores default limit sentinels, applies four-byte alignment, and inserts one fresh descriptor node.",
+      "rationale": "The target always passes its stable global descriptor, and the current generic initializer retains unlink-before-clear initialization and registry reinsertion.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:HSD_ZListInitAllocData",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L56-L59",
+          "why": "Shows each invocation supplying the global descriptor and requesting four-byte alignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L127-L161",
+          "why": "Shows unlinking, clearing, default-state assignments, alignment setup, and registry reinsertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:cf9b39ae-a10f-4789-928b-91bbfd621bb5",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The lo and hi arguments do not influence execution. The function writes only the global Z-list bookkeeping: zlist_top, zlist_bottom, zlist_texedge_top, zlist_texedge_bottom, zlist_texedge_nb, zlist_xlu_top, zlist_xlu_bottom, and zlist_xlu_nb. Subsequent deferred-display insertion, sorting, display, and cleanup observe these globals as empty and begin appending from the restored root addresses.",
+      "rationale": "The target's only operations are assignments to the eight bookkeeping globals. The deferred insertion path uses the tail pointers to append records and increments the class counts, while the display and cleanup paths consume the corresponding roots and restore the same empty representation, demonstrating how the target's writes affect later rendering operations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:36.882Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L599-L611",
+          "why": "Shows that the inputs are unused and identifies every global written by the routine."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L293-L412",
+          "why": "Shows deferred records being appended through the ownership and transparency-class tail pointers and the corresponding counts being incremented."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows sorting, display, and ordinary cleanup consuming the roots and counts that the target resets."
+        }
+      ]
+    },
+    {
+      "id": "fact:69fb22ea-536d-4b57-8aca-d2b84dbb85a7",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Memory-forget callback-shaped routine with signature void _HSD_DispForgetMemory(void* lo, void* hi). Both memory-range pointer parameters are unused, and the routine returns no value.",
+      "rationale": "The matched definition directly establishes the return type and two void-pointer parameters, while the body references neither parameter and operates exclusively on global deferred-display state. The callback-shaped interpretation is supported by the recovered ForgetMemory name and range-shaped signature, while the unused-input behavior is explicit in the source.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T00:16:36.882Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L599-L611",
+          "why": "Directly shows the complete void(void*, void*) signature, the unused lo and hi parameters, and the absence of a return value."
+        }
+      ]
+    },
+    {
+      "id": "fact:a20a588a-3a2f-4f33-9d60-c523cc1d029c",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Forgets all pending deferred-display Z-list state without touching the list nodes themselves: it severs the ownership, texture-edge, and translucent chains and restores their append pointers and counts to the empty state. Unlike normal Z-list cleanup, it performs no traversal or deallocation, so it remains safe when the memory formerly containing queued records must no longer be dereferenced.",
+      "rationale": "The target directly resets every Z-list root, tail insertion pointer, and class count and contains no traversal or free operation. The normal _HSD_ZListClear path establishes the meaningful contrast: it follows the ownership chain, frees copied view matrices and records, and only then performs the same structural reset. Together these routines show that the target is the non-dereferencing invalidation path for deferred-display bookkeeping.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T00:16:36.882Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L599-L611",
+          "why": "Shows the target nulling all three list roots, restoring each tail insertion pointer, and zeroing both class counts without reading or freeing any queued record."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows that ordinary Z-list cleanup traverses the ownership chain and frees each record and optional copied view matrix before applying the same empty-state reset."
+        }
+      ]
+    },
+    {
+      "id": "fact:ebda9537-053c-44b2-8f12-8309a5660701",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Transitions the deferred-display subsystem immediately to its canonical empty state: all ownership and transparency-class heads become NULL, each tail points back to its corresponding head variable, and both texture-edge and translucent counts become zero. Any previously queued records become unreachable through this subsystem, but neither those records nor their copied view matrices are individually returned to their allocators by this routine.",
+      "rationale": "The assignments establish the exact empty-list representation used by normal cleanup. Comparing the target with _HSD_ZListClear shows that record and matrix deallocation requires explicit traversal and free calls that are absent from the forget-memory path; therefore the old queue becomes unreachable rather than being individually released here.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:36.882Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_DispForgetMemory",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L599-L611",
+          "why": "Shows the immediate transition of every Z-list head, tail, and count to its empty value without node traversal."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows the identical final empty representation after normal cleanup and demonstrates that freeing matrices and records requires operations absent from the target."
+        }
+      ]
+    },
+    {
+      "id": "fact:0c4af216-0c90-4abb-8214-305d9bf89c90",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListClear",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads each record from `zlist_top`, saves `list->next` before releasing the current record, sends a non-NULL `list->vmtx` to the dedicated matrix pool through HSD_MtxFree, and sends the record itself through HSD_ZListFree. After traversal, it writes NULL heads, head-address tail pointers, and zero counts to the ownership, texture-edge, and translucent list globals.",
+      "rationale": "The target's assignment order directly establishes how the ownership chain is consumed without consulting freed storage. HSD_MtxFree forwards matrix storage to its matrix-specific allocator, and HSD_ObjFree shows the pool release overwriting the released object's leading storage with an intrusive free-list link, explaining why the successor is preserved first.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:32.075Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListClear",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L455-L477",
+          "why": "Shows the successor save, optional matrix release, record release, traversal, and final writes to every Z-list head, tail, and count."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L484-L489",
+          "why": "Shows HSD_MtxFree returning every non-NULL matrix pointer to the dedicated HSD matrix allocator."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows pooled-object release overwriting the released object's leading storage during free-list insertion, supporting the need to save the Z-list successor before freeing the current record."
+        }
+      ]
+    },
+    {
+      "id": "fact:60035965-6ca7-4104-bac2-6e325365143c",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListClear",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void _HSD_ZListClear(void)`. It accepts no explicit inputs and returns no result; instead, it consumes the translation unit's global HSD_ZList ownership chain and resets the associated global texture-edge and translucent list state.",
+      "rationale": "The matched definition gives the exact parameterless void signature. All inputs are obtained from global list variables, and all observable outputs are deallocation calls and writes back to those globals.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:32.075Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListClear",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L455-L477",
+          "why": "Provides the exact signature and shows that the routine operates entirely on global Z-list state."
+        }
+      ]
+    },
+    {
+      "id": "fact:277e2113-601e-4b5a-993a-645908e8d1f9",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListClear",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Tears down the deferred JObj display queue: it releases every Z-list record and any optional viewing-matrix copy owned by that record, then restores the ownership list and the texture-edge and translucent sort lists to their empty states. It is used after deferred rendering completes and when activating a new camera so queued work and camera-dependent matrices do not carry into the next display context.",
+      "rationale": "The function traverses the ownership chain, frees each non-NULL stored viewing matrix, frees each HSD_ZList record, and resets every list head, tail insertion pointer, and count. Its callers establish both lifecycle boundaries: _HSD_ZListDisp invokes it after replaying both deferred transparency passes, while HSD_CObjSetCurrent invokes it before installing and configuring a different current camera.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:32.075Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListClear",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows texture-edge and translucent records being replayed before _HSD_ZListClear, followed by the complete record, matrix, and list-state cleanup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L485-L519",
+          "why": "Shows camera activation clearing the Z-list before replacing the current camera and preparing its render-pass-specific state."
+        }
+      ]
+    },
+    {
+      "id": "fact:2e1f8c3c-5f23-4745-bf4d-20600bc179b8",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListClear",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "An empty ownership chain requires no deallocation, but the routine still canonicalizes all deferred-display state as empty. For a non-empty chain, each iteration transitions one Z-list record\u2014and its optional private viewing matrix\u2014from allocated to pooled-free state. On completion, `zlist_top`, `zlist_texedge_top`, and `zlist_xlu_top` are NULL; each bottom pointer addresses its corresponding head; and both sorted-list counts are zero, making repeated calls structurally safe when no new records have been queued.",
+      "rationale": "The NULL-terminated loop establishes the empty and populated paths, while the unconditional assignments after the loop establish the same final state in both cases. The matrix and object allocator routines confirm that visited allocations undergo pool-return transitions rather than merely becoming unreachable.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:32.075Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListClear",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L455-L477",
+          "why": "Shows the NULL guard implicit in the loop, one cleanup transition per ownership record, and unconditional restoration of all empty-list invariants."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L484-L489",
+          "why": "Shows that each optional viewing matrix is returned to its allocator when present."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows the used-to-free pool transition performed for released pooled objects."
+        }
+      ]
+    },
+    {
+      "id": "fact:e3142b1e-cb0c-40de-9009-f27cabcf4e61",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine obtains the current HSD_CObj and its viewing matrix, then supplies each deferred record's JObj, stored position matrix, render mode, and optional stored viewing matrix to that JObj's virtual display method. A record's stored viewing matrix takes precedence; otherwise the current camera's viewing matrix is used. Texture-edge records receive HSD_TRSP_TEXEDGE and translucent records receive HSD_TRSP_XLU. After all records are consumed, _HSD_ZListClear frees optional stored viewing matrices and list records and resets all list heads, tails, and counts.",
+      "rationale": "The two loops expose the complete per-record input flow into virtual display dispatch and the explicit fallback from list->vmtx to the current camera matrix. The called cleanup implementation shows how the consumed records and their matrix allocations are released and how the global list state is returned to empty.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:26.975Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L427-L453",
+          "why": "Shows acquisition of the current camera matrix and the per-entry flow of JObj, viewing matrix, position matrix, transparency class, and render mode into display dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows the display routine followed by cleanup that frees stored matrices and records and restores every deferred-list pointer and count."
+        }
+      ]
+    },
+    {
+      "id": "fact:1d3d5e37-e873-4b41-ac1f-3678781ea618",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void _HSD_ZListDisp(void): a parameterless deferred-display routine whose inputs and outputs are held in the current-camera and Z-list subsystem state.",
+      "rationale": "The matched definition directly establishes a void return and no parameters. Its body obtains the current camera and reads the global Z-list heads rather than accepting explicit inputs, then mutates subsystem state through final list cleanup.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:26.975Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L427-L453",
+          "why": "Directly establishes the void(void) signature and shows that camera and list inputs come from shared subsystem state."
+        }
+      ]
+    },
+    {
+      "id": "fact:911286ad-3dbc-4a75-8014-973816324899",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Replays the deferred Z-list draw work for the current camera pass: it displays every texture-edge entry first, then every translucent entry, and finally releases and resets the accumulated deferred-list state.",
+      "rationale": "The matched body traverses the texture-edge and translucent list heads in a fixed order, dispatches each stored JObj through its display method with the corresponding transparency mask, and invokes _HSD_ZListClear after both traversals. The camera-pass finalizer calls this routine immediately after Z-list sorting, establishing its role as the deferred draw phase rather than collection or sorting.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:26.975Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L427-L453",
+          "why": "Shows both deferred-list display traversals, their texture-edge-before-translucent order, and the final cleanup call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L521-L525",
+          "why": "Shows the current-camera finalizer invoking Z-list sorting and then this display routine."
+        }
+      ]
+    },
+    {
+      "id": "fact:b7c620a2-0890-43f3-9550-8a9a9f939e79",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On every call, the function traverses the current texture-edge chain to completion before traversing the translucent chain; an empty chain is skipped naturally. It has no local sorting guard and does not reorder entries, so it preserves whatever chain order _HSD_ZListSort established. Completion is terminal for the accumulated batch because _HSD_ZListClear always runs and restores the ownership, texture-edge, and translucent lists and their counts to the empty state.",
+      "rationale": "The matched loops and their ordering define the display states and empty-list behavior. Sorting is performed separately before this function by HSD_CObjEndCurrent, while the unconditional final cleanup makes each invocation consume the entire deferred batch.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:26.975Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListDisp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L427-L453",
+          "why": "Shows the two sentinel-controlled traversals in fixed order and the unconditional call to clear after both."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows sorting as a separate operation and cleanup resetting all deferred-list heads, tail pointers, and counts."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L521-L525",
+          "why": "Shows that the camera-pass finalizer establishes the sort-then-display transition order."
+        }
+      ]
+    },
+    {
+      "id": "fact:3abe68ba-feaf-4534-9656-45b3d92a1b10",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListSort",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "When sorting is enabled, the texture-edge head and count enter zlist_sort with link offset 0x3C, while the translucent head and count enter it with link offset 0x40. The helper follows the selected class-specific links, compares records using pmtx[2][3], and returns a reordered chain whose head replaces the corresponding global head. The counts and record payloads are not changed by this wrapper.",
+      "rationale": "The two calls expose the complete wrapper-level input and output flow, including the distinct link offsets. The surrounding helper implementation shows that the ordering key is the stored position matrix's Z component and that its return value is the new list head.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:30.202Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListSort",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L393-L493",
+          "why": "Shows the merge comparison on pmtx[2][3], the returned list head, both class-specific calls with their heads, counts, and offsets, and assignment of each result back to its global head."
+        }
+      ]
+    },
+    {
+      "id": "fact:9f1b1f87-cbcf-46ef-8cd9-de6556e1f825",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListSort",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void _HSD_ZListSort(void): a parameterless, void-returning routine that operates entirely on the display subsystem's global deferred-list state.",
+      "rationale": "The matched definition explicitly has a void(void) signature, accepts no arguments, returns no value, and reads and replaces global texture-edge and translucent list heads.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:30.202Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListSort",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L416-L425",
+          "why": "Directly establishes the function signature and its exclusive use of global sorting state, list heads, and counts."
+        }
+      ]
+    },
+    {
+      "id": "fact:d1d76793-8573-4bae-84b5-aab2eee1675d",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListSort",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Conditionally orders the deferred texture-edge and translucent JObj display chains by their stored position-matrix Z values so the current camera pass can render each transparency class in depth order.",
+      "rationale": "The function separately passes the texture-edge and translucent list heads and counts to zlist_sort. That helper compares each record's pmtx[2][3] value while merging records, and HSD_CObjEndCurrent invokes this routine immediately before displaying the resulting chains.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:30.202Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListSort",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L393-L493",
+          "why": "Shows zlist_sort ordering records by pmtx[2][3], _HSD_ZListSort applying it independently to the texture-edge and translucent chains, and the display routine subsequently traversing those chains."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L521-L525",
+          "why": "Shows camera-pass finalization calling _HSD_ZListSort immediately before _HSD_ZListDisp."
+        }
+      ]
+    },
+    {
+      "id": "fact:3a61eca5-b5df-4503-bc0b-208ea424fce1",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_ZListSort",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If zsort_sorting is false, the routine is a no-op and preserves both deferred chains. If it is true, it sorts the texture-edge chain first and the translucent chain second, independently replacing their heads. It does not display or clear the records; HSD_CObjEndCurrent performs display next, and that display path ultimately clears all deferred-list heads, tails, and counts.",
+      "rationale": "The target's sole guard defines its enabled and disabled behavior and fixes the two sorting calls' order. The caller establishes that display follows sorting, while the display implementation shows that cleanup occurs after both sorted chains have been traversed rather than inside this routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:30.202Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_ZListSort",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L416-L425",
+          "why": "Shows the zsort_sorting guard and the fixed texture-edge-then-translucent sorting sequence."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L393-L493",
+          "why": "Shows that display traverses both sorted chains and then invokes cleanup, which resets all deferred-list state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L521-L525",
+          "why": "Shows that camera-pass finalization always requests sorting before invoking deferred display."
+        }
+      ]
+    },
+    {
+      "id": "fact:de9c0e7d-8c94-4e2a-8d3f-ade06ddf75ee",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `m->flags`, finds a skeleton JObj `x`, and uses `m->mtx`, `x->mtx`, and possibly `x->envelopemtx` to produce the output. If `x == m`, the result is `inverse(x->envelopemtx)`. If `x` is a skeleton root, the result is `inverse(x->mtx) * m->mtx`. Otherwise it first forms `x->mtx * x->envelopemtx` and returns `inverse(x->mtx * x->envelopemtx) * m->mtx`. The envelope PObj setup receives this result as its optional model-node correction while preparing joint-envelope matrices.",
+      "rationale": "The target's three branches directly identify every input matrix and output formula. The implementation of `HSD_MtxInverseConcat` establishes that its operation is `inverse(first operand) * second operand`, and the caller shows where the resulting matrix enters envelope setup.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:56.977Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+          "why": "Shows the skeleton lookup and exact matrix operands selected in each output branch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mtx.c#L60-L157",
+          "why": "Establishes that `HSD_MtxInverseConcat(inv, src, dest)` calculates `dest = inverse(inv) * src`, subject to its singular-matrix fallback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+          "why": "Shows the envelope setup caller storing the returned pointer as its optional model-node correction."
+        }
+      ]
+    },
+    {
+      "id": "fact:23f1da13-e353-4795-9934-cdb8374ae514",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports skeletal skinning by deriving the coordinate-space correction between an envelope-rendered model node and its associated skeleton node. This correction complements the per-joint rigid or weighted transforms assembled for the envelope matrix palette.",
+      "rationale": "The helper operates exclusively on skeleton flags, JObj transforms, and envelope matrices. Its caller is the envelope PObj matrix-palette routine, which processes single-joint and weighted multi-joint influences and loads their results into GX matrix slots, grounding the helper in skeletal skinning.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T00:16:56.977Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+          "why": "Shows the helper deriving a relative transform from skeleton and envelope state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+          "why": "Shows the helper being called from the routine that constructs rigid and weighted joint-envelope matrices for the GX palette."
+        }
+      ]
+    },
+    {
+      "id": "fact:aefe0f19-14c6-420e-b234-8d87614331a4",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `MtxPtr (HSD_JObj* m, MtxPtr mtx)`. The first parameter is the model JObj whose skeleton-relative transform is requested; the second points to caller-provided writable storage for one 3\u00d74 affine matrix. The function returns that same storage on success or `NULL` when `m` is marked `JOBJ_SKELETON_ROOT`.",
+      "rationale": "The recovered definition supplies the exact parameter and return types. Every non-root branch writes through `mtx` and returns it, while the initial root guard returns null without writing an output matrix.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:56.977Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+          "why": "Provides the complete signature, all writes to caller-supplied matrix storage, and the nullable return behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:77adb871-d870-4b31-af21-bde07ffe4c21",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds the model-node-relative correction matrix used by envelope rendering. It relates the current JObj to the skeleton transform selected for it, incorporating that skeleton node's envelope matrix when applicable; a skeleton-root JObj requires no correction and is represented by a null result.",
+      "rationale": "The function finds the current JObj's skeleton node and constructs an inverse-relative transform from the skeleton-side matrix to the current JObj matrix, with distinct handling for skeleton roots and envelope-bearing nodes. The envelope PObj setup calls this helper before constructing its per-envelope joint matrix palette, identifying the result as a model-node correction for envelope rendering.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T00:16:56.977Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+          "why": "Shows skeleton lookup, root handling, envelope-matrix composition, and construction of the returned relative matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/pobj.c#L1125-L1199",
+          "why": "Shows envelope matrix-palette setup obtaining this helper's result before processing rigid and weighted joint envelopes."
+        }
+      ]
+    },
+    {
+      "id": "fact:b21bbc62-0c88-44fe-9fa2-98db023e9551",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A `JOBJ_SKELETON_ROOT` input exits immediately with `NULL`. Otherwise the function requires `HSD_JObjFindSkeleton(m)` to produce a non-null JObj and selects one of three matrix paths: invert the selected node's envelope matrix when the selected node is `m`, compute a root-relative transform when the selected node is a skeleton root, or include the selected non-root node's envelope matrix before computing the relative transform. Every non-root path returns the supplied output buffer.",
+      "rationale": "The flag guard, assertion, identity comparison, second skeleton-root test, and common return directly define the routine's control states and their outputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:56.977Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:_HSD_mkEnvelopeModelNodeMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L256-L276",
+          "why": "Shows the root early exit, required skeleton lookup, three matrix-construction cases, and common successful return."
+        }
+      ]
+    },
+    {
+      "id": "fact:547ec9c8-13fd-4f7f-a212-2216b2aee307",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads source X-, Y-, and Z-column magnitudes and translation, uses the source Y direction with either eye-space position or fixed view-space +Z to derive perpendicular axes, normalizes and rescales the basis, and writes the reconstructed X/Y/Z columns plus unchanged translation to dst.",
+      "rationale": "The current helper still performs each extraction, cross product, magnitude division, destination-axis store, and translation copy.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L162-L201",
+          "why": "Shows the complete source-to-destination matrix flow for full billboarding."
+        }
+      ]
+    },
+    {
+      "id": "fact:404b5ad6-48b6-42f5-9b5a-a52722e5ac6c",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements full 3D billboarding for scene objects: it makes a JObj face the camera, with JOBJ_PBILLBOARD choosing perspective alignment toward the camera position and ordinary mode choosing alignment parallel to the camera view plane.",
+      "rationale": "The dispatcher selects this helper for full billboarding, and its two branches choose position-derived versus fixed view-space facing directions.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L130-L269",
+          "why": "Shows full-billboard dispatch and the helper's perspective and fixed-axis camera-facing constructions."
+        }
+      ]
+    },
+    {
+      "id": "fact:348e55c4-f715-49cc-87c8-42bc0a33e00f",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "File-local matrix-construction helper with signature `static void mkBillBoardMtx(HSD_JObj* jobj, MtxPtr src, MtxPtr dst)`; jobj supplies billboard flags, src is the view-concatenated JObj transform, and dst receives the resulting 3-by-4 position matrix.",
+      "rationale": "The current definition supplies the exact signature, and its caller passes the concatenated camera/JObj matrix and output position matrix.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L130-L269",
+          "why": "Shows the exact helper signature and its source and destination roles at the call site."
+        }
+      ]
+    },
+    {
+      "id": "fact:bbada68d-b973-484f-89fd-d06f68ef19d7",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds the position matrix for a fully billboarded JObj by replacing the source orientation with an orthogonal camera-facing basis while preserving translation and per-axis scale magnitudes.",
+      "rationale": "The helper measures source-axis magnitudes, reconstructs perpendicular orientation axes, rescales them, and copies the original translation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L162-L201",
+          "why": "Shows orientation reconstruction together with preservation of source scale and translation."
+        }
+      ]
+    },
+    {
+      "id": "fact:9ca55af4-574b-47ad-9ef8-601b36736692",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "JOBJ_PBILLBOARD selects point-oriented billboarding: eye-space object position becomes the Z-axis source and is sign-reversed to point toward the camera. Without that flag, the helper uses fixed view-space +Z for parallel view-plane alignment. Both paths rebuild X and Y and preserve source scale and translation.",
+      "rationale": "The current flag branch retains the position-derived negative Z scaling and fixed-zOne2 alternative before converging on shared basis writes.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L162-L201",
+          "why": "Shows both JOBJ_PBILLBOARD branches and their shared reconstruction and output path."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L88-L200",
+          "why": "Shows zOne2 initialized to fixed positive Z and consumed by the non-point branch."
+        }
+      ]
+    },
+    {
+      "id": "fact:ec027da6-ad96-438b-9872-bda85f7586d2",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Source translation and X basis flow unchanged to dst. Source Y- and Z-column magnitudes become target scales. A flag-selected reference is crossed with retained X to form Z, Z is crossed with X to form Y, and the reconstructed axes are normalized and rescaled before writing destination columns 1 and 2.",
+      "rationale": "The current helper explicitly extracts those columns, computes the cross products and magnitude divisions, and writes all destination columns.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+          "why": "Shows complete source-column, flag, cross-product, scaling, and destination flow."
+        }
+      ]
+    },
+    {
+      "id": "fact:8a21d392-6852-4b6c-9aa5-43906bd30d13",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements horizontal-billboard orientation for an HSD scene object: the object keeps its transformed X axis while its remaining display axes are rebuilt in camera space, producing constrained rather than fully camera-aligned billboarding.",
+      "rationale": "The helper preserves X and reconstructs Y and Z, and HSD_JObjMakePositionMtx selects it specifically for JOBJ_HBILLBOARD.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+          "why": "Shows preservation of the X basis and reconstruction of Y and Z."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows selection of this helper for JOBJ_HBILLBOARD."
+        }
+      ]
+    },
+    {
+      "id": "fact:e518a572-882a-4068-9207-efcaf7f895b7",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "File-local helper with signature `static void mkHBillBoardMtx(HSD_JObj* jobj, MtxPtr src, MtxPtr dst)`: src is a 3-by-4 view-space JObj transform, dst receives the reconstructed position matrix, and jobj supplies JOBJ_PBILLBOARD state.",
+      "rationale": "The current definition provides the signature and parameter roles, while the caller supplies a view-concatenated source matrix and pmtx destination.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+          "why": "Shows the exact signature and read/write roles of all parameters."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows the caller producing src from viewing and JObj matrices and supplying pmtx as dst."
+        }
+      ]
+    },
+    {
+      "id": "fact:9fd90f09-99f9-4817-b0cf-66822b4e7732",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds a horizontally constrained billboard position matrix by retaining source X and translation, reconstructing orthogonal Y and Z from that X axis and a camera-relative reference, and restoring source Y- and Z-axis scale magnitudes.",
+      "rationale": "The current helper copies X and translation, measures Y and Z, reconstructs their directions, and rescales them before output.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+          "why": "Shows retained X and translation, reconstructed Y/Z axes, and scale restoration."
+        }
+      ]
+    },
+    {
+      "id": "fact:ac86a05e-157f-4dee-a6b7-8ac01770d1ae",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The helper is stateless but has two orientation branches. JOBJ_PBILLBOARD derives a reference from view-space position and its XZ radius; otherwise it uses fixed positive Y. Both branches converge on the same basis reconstruction and scale restoration, with no explicit zero-radius or zero-axis-magnitude guard.",
+      "rationale": "The current flag branch retains its unguarded XZ-radius division, while the alternative uses yOne and the shared tail performs unguarded normalization.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkHBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L125-L160",
+          "why": "Shows the position-dependent and fixed-up branches, their common reconstruction, and unguarded divisions."
+        }
+      ]
+    },
+    {
+      "id": "fact:1092b424-3b51-47e7-bbfa-0ea9c97633ea",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the view/JObj concatenation, extracts view-space translation, transformed Y, and source X/Z magnitudes, derives X from either position crossed with Y or Y crossed with fixed camera Z, derives Z from X crossed with Y, and writes scaled X, unchanged Y, scaled Z, and unchanged translation to dst.",
+      "rationale": "The current helper retains each extraction, branch-specific cross product, scale normalization, and destination-column write; the dispatcher establishes the source matrix's origin.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+          "why": "Shows every source extraction, cross-product path, normalization, and destination write."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows src being formed by concatenating the viewing and JObj matrices."
+        }
+      ]
+    },
+    {
+      "id": "fact:c088058a-f42e-4994-977d-672deca00ca3",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes vertical-axis billboarding for scene geometry: the object remains upright according to transformed Y while its other axes face the camera, preserving vertical orientation, translation, and X/Z scale.",
+      "rationale": "Selection by JOBJ_VBILLBOARD identifies the mode, and the helper preserves Y while reconstructing and rescaling X and Z.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+          "why": "Shows the vertical axis retained and the perpendicular camera-facing axes rebuilt."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Identifies this helper as the JOBJ_VBILLBOARD variant."
+        }
+      ]
+    },
+    {
+      "id": "fact:db2d3cb2-f999-4fc2-b5fb-d6b7b7ac67e3",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Private matrix-construction helper with signature `static void mkVBillBoardMtx(HSD_JObj* jobj, MtxPtr src, MtxPtr dst)`: jobj supplies billboard flags, src is a 3-by-4 view-space object matrix, and dst receives the reconstructed 3-by-4 result.",
+      "rationale": "The current definition provides the exact signature and access roles, while the caller passes a concatenated view/JObj matrix and pmtx destination.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+          "why": "Provides the exact helper signature and its JObj, source, and destination roles."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows the caller forming src and supplying pmtx as dst."
+        }
+      ]
+    },
+    {
+      "id": "fact:647a9cc6-dac1-4666-b686-d56650125f68",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds the view-space position matrix for a vertically constrained billboard JObj by preserving transformed vertical orientation and translation while rebuilding horizontal and depth axes to face the camera.",
+      "rationale": "The current helper copies source Y and translation, constructs perpendicular X/Z axes, restores their source magnitudes, and is selected only for JOBJ_VBILLBOARD.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+          "why": "Shows preservation of Y and translation and reconstruction of scaled X and Z."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows JOBJ_VBILLBOARD dispatch to this helper."
+        }
+      ]
+    },
+    {
+      "id": "fact:c256c103-b7bb-4954-b3ed-4a2efb8262d8",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "HSD_JObjMakePositionMtx enters this helper only for JOBJ_VBILLBOARD. Within that mode, JOBJ_PBILLBOARD selects a position-dependent facing basis; otherwise construction uses the fixed camera-space Z axis. Neither path mutates the JObj or persistent renderer state.",
+      "rationale": "The caller's switch supplies the mode guard, and the helper's only branch changes its cross-product source while writing solely to local vectors and dst.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:32:30.982Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:mkVBillBoardMtx",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L92-L123",
+          "why": "Shows the JOBJ_PBILLBOARD branch and that all output is confined to dst."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L168-L245",
+          "why": "Shows the JOBJ_VBILLBOARD switch case invoking this helper."
+        }
+      ]
+    },
+    {
+      "id": "fact:29d360e9-f874-4c02-9262-dfddaba3df09",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:zlist_sort",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a chain head, an explicit node count, and a byte offset identifying the active next-link field. It advances through that field to split the chain after `nb / 2` nodes, recursively sorts both counted halves, and rewires the same selected links while merging nodes by ascending `pmtx[2][3]`. It returns the merged head without allocating, freeing, or copying HSD_ZList records.",
+      "rationale": "Every node operation in the body is either traversal or assignment through `ZLIST_NEXT`; the only record value read for comparison is the position matrix's Z translation. The absence of allocator calls or record copies and the returned replacement head establish an in-place link-reordering transformation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:48.021Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:zlist_sort",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L369-L414",
+          "why": "Shows the counted split, recursive calls, depth comparison, selected-link rewiring, and returned merged head."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L17-L59",
+          "why": "Shows that the offset accessor selects a pointer field within each HSD_ZList and identifies the class-specific links being mutated."
+        }
+      ]
+    },
+    {
+      "id": "fact:62bafcf3-276d-45af-9190-8cbf572e0c82",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:zlist_sort",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Static linked-list sorting helper with signature `HSD_ZList* zlist_sort(HSD_ZList* list, s32 nb, s32 offset)`. `list` is the chain head, `nb` is the number of nodes to sort, and `offset` selects an embedded `HSD_ZList*` link field; the return value is the reordered head.",
+      "rationale": "The definition supplies the exact signature. All traversal and rewiring use `ZLIST_NEXT(node, offset)`, whose macro definition treats the offset-selected location as an HSD_ZList pointer, while the caller passes the offsets of the texture-edge and translucent sort links and stores the returned heads.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:48.021Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:zlist_sort",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L17-L59",
+          "why": "Defines HSD_ZList's two embedded class-specific sort links and the offset-based `ZLIST_NEXT` accessor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L369-L428",
+          "why": "Provides the exact signature, demonstrates offset-selected traversal and mutation, and shows callers passing 0x3C and 0x40 for the two sort chains."
+        }
+      ]
+    },
+    {
+      "id": "fact:425c1b3a-2072-4d3d-a40e-8da143801b0c",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:zlist_sort",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stably sorts one deferred-display HSD_ZList chain in ascending camera-space depth order so the texture-edge or translucent display pass can traverse that class through its reordered links.",
+      "rationale": "The function recursively divides and merges the supplied chain using `pmtx[2][3]` as its ordering key and the caller applies it to both deferred transparency-class chains. Selecting the foreground half when keys are equal preserves the original order of equal-depth records.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:48.021Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:zlist_sort",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L369-L428",
+          "why": "Shows the complete stable merge-sort implementation and `_HSD_ZListSort` applying it to the texture-edge and translucent chains."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L413-L532",
+          "why": "Shows the sorted texture-edge and translucent chains subsequently determining deferred display traversal order."
+        }
+      ]
+    },
+    {
+      "id": "fact:5530b56e-ff7f-4082-a3ae-e552c979c690",
+      "target_id": "target:function:main/sysdolphin/baselib/displayfunc:zlist_sort",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For zero or one requested node, it terminates the selected link of a non-null node and returns immediately. For larger counts, it forms two counted subproblems, recursively sorts them, then merges until one half is exhausted and attaches the remaining suffix. Equal depth keys are taken from the earlier half first, making the result stable; the caller invokes this behavior only when global Z-list sorting is enabled.",
+      "rationale": "The base-case guard and explicit NULL assignment define termination. The recursive split and merge branches define the multi-node transition, the `<=` comparison establishes equal-key stability, and `_HSD_ZListSort` supplies the external sorting-enabled guard.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T00:16:48.021Z",
+      "subject": "main/sysdolphin/baselib/displayfunc:zlist_sort",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L369-L428",
+          "why": "Shows the base case, recursive state transitions, stable merge condition, suffix attachment, and the caller's `zsort_sorting` guard."
+        }
+      ]
+    },
+    {
+      "id": "fact:f091c4e3-b6d2-4d5b-8b56-0188388a6a2a",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/displayfunc.c",
+      "type": "data_flow",
+      "value": "For JObj display, the unit combines the current camera viewing matrix with each JObj transform to produce a position matrix, filters DObjs by requested transparency flags, and sends opaque geometry directly to the object's display method. When Z-list collection is active, texture-edge and translucent work instead becomes an HSD_ZList record containing copied position/view matrices, the JObj, and render mode; records are linked into class-specific lists, optionally sorted by pmtx[2][3], replayed through the same JObj display method, and then returned to their object pools.",
+      "rationale": "Current-head matrix and display routines still transform and filter JObjs, deferred records still capture the required state and sort key, and replay and cleanup still consume and free those records.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T02:10:55.659Z",
+      "subject": "src/sysdolphin/baselib/displayfunc.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L220-L339",
+          "why": "Shows camera and object matrices being combined, transparency filtering, and direct rendering when collection is disabled."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L340-L419",
+          "why": "Shows deferred records receiving copied matrices, JObj and render mode, entering class-specific lists, and sorting by position-matrix Z."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L420-L539",
+          "why": "Shows deferred records being replayed through JObj display methods and then traversed and freed."
+        }
+      ]
+    },
+    {
+      "id": "fact:6304cfe4-7ab3-46e8-bfc6-8d80c61d19c7",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/displayfunc.c",
+      "type": "game_mapping",
+      "value": "Realizes HSD billboard orientation for scene objects: JObj billboard flags select full, vertical-axis-constrained, horizontal-axis-constrained, or rotation-only matrix construction after the object's transform is moved into view space, allowing rendered geometry to adopt a camera-relative orientation while retaining the position and scale required by its selected mode.",
+      "rationale": "The current billboard helpers preserve translation and selected axis magnitudes, while HSD_JObjMakePositionMtx still dispatches view-space transforms among all four modes according to JObj flags.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:10:55.659Z",
+      "subject": "src/sysdolphin/baselib/displayfunc.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L66-L245",
+          "why": "Shows the vertical, horizontal, full, and rotation-only billboard matrix helpers preserving position and selected source-axis scale."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L220-L339",
+          "why": "Shows view-space JObj transforms dispatched among the four billboard modes before rendering."
+        }
+      ]
+    },
+    {
+      "id": "fact:f864adb1-3ce7-4eb0-b883-d895f116cf34",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/displayfunc.c",
+      "type": "purpose",
+      "value": "Implements HSD scene-object display support: it builds position matrices including billboard and skeletal-envelope cases, dispatches JObj/DObj rendering by transparency class, optionally defers texture-edge and translucent draws into depth-sorted lists, manages those temporary list entries, and provides GX setup for direct rendering and framebuffer-region erasure.",
+      "rationale": "Current-head code retains direct GX initialization, billboard and envelope matrices, transparency dispatch, deferred-list sorting and replay, temporary-record cleanup, and selective color, alpha, or depth erasure.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:10:55.659Z",
+      "subject": "src/sysdolphin/baselib/displayfunc.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L66-L245",
+          "why": "Shows direct-render setup and billboard-aware matrix construction."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L220-L419",
+          "why": "Shows skeletal-envelope handling, transparency dispatch, deferred-record construction, and depth sorting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L420-L610",
+          "why": "Shows deferred display and cleanup followed by GX setup and quad emission for framebuffer-region erasure."
+        }
+      ]
+    },
+    {
+      "id": "fact:5e774e4a-8b45-4899-861e-9ef9fa78d866",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/displayfunc.c",
+      "type": "state_behavior",
+      "value": "The deferred-display subsystem maintains one ownership list plus separate texture-edge and translucent sort chains and counts. With Z-list collection disabled, those transparency classes render immediately; with collection enabled, records accumulate in the chains. Sorting is conditional on zsort_sorting, display always processes the texture-edge chain before the translucent chain, and completion clears every record and restores all list heads, tail pointers, and counts to their empty state. The forget-memory path performs the same structural reset without traversing potentially invalid allocations.",
+      "rationale": "The current collection guard, list construction, sorting guard, fixed replay order, cleanup traversal, and non-traversing forget-memory reset preserve the standing state-machine description.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T02:10:55.659Z",
+      "subject": "src/sysdolphin/baselib/displayfunc.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L220-L419",
+          "why": "Shows immediate-versus-deferred behavior and accumulation into ownership, texture-edge, and translucent chains."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L420-L539",
+          "why": "Shows conditional sorting, texture-edge-before-translucent replay, record freeing, and restoration of empty list state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/displayfunc.c#L540-L610",
+          "why": "Shows the forget-memory path resetting all Z-list heads, tails, and counts without traversing old records."
+        }
+      ]
+    }
+  ]
+}

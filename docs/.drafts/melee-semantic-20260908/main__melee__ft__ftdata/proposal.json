@@ -1,0 +1,210 @@
+{
+  "tu": "main/melee/ft/ftdata",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdata:ftData_800855C8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Dispatches preload requests without a local wait or completion transition. Valid concrete costume selectors are preserved, invalid concrete selectors become zero, and 0xFF expands to all configured costumes. Null base, costume and animation filenames are skipped independently. The effect request is guarded by the exact expression ftData_UnkBytePerCharacter[kind] != (char)-1. The table is declared u8 and contains -1 initializers, so interpreting this as a 0xFF skip depends on plain-char signedness; the source alone should not be paraphrased as an unconditional signed -1 sentinel test.",
+        "rationale": "Preserves supported dispatch behavior while making the signedness-sensitive sentinel comparison explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1514-L1517",
+            "why": "Unsigned byte table with -1 initializers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1531-L1564",
+            "why": "Exact selector, filename and effect guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdata:ftData_80085B98"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every call allocates two work objects, clears x5A4 and x5A8, and installs the per-kind demo-motion count. In demo allocator setup these objects have size 0xB000 and alignment 0x20, not alignment 0xB000. The final status is checked against unsigned x58C; there is no separate validation of the first status or first <= last. With a nonzero shared base, the inclusive first-through-last loop rebases entries whose x8 is nonzero and asserts when their unsigned size exceeds 0xB000. It then clears the shared base marker, even if the loop processed no entries. Clearing that marker does not free the backing archive, whose bytes remain referenced by rebased descriptors. Allocations are not locally checked and prior work buffers are not freed here.",
+        "rationale": "Corrects size/alignment confusion and preserves exceptional range and cross-file lifetime behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1696-L1727",
+            "why": "Allocations, validation, inclusive loop and marker clear."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L130-L150",
+            "why": "Allocator size/alignment and archive-base seeding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L1197-L1226",
+            "why": "Unsigned count and separate buffer/cache fields."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdata:ftData_80085E50"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The effective motion descriptor supplies public-symbol name x0, byte size x8 and source token/address x14. On a changed nonzero token, ordinary acquisition requests sources below 0x80000000 into x5A0 or memcpy-copies memory sources into x5A0, then parses that buffer. Exceptionally, matching non-demo Nana partner reuse copies the partner's x59C into this Fighter's x59C and relocates that primary buffer, not x5A0. Both branches resolve the export into x598 and record x14 in x5A8. Thus x598 can reference primary-buffer storage after partner reuse and is not guaranteed independent of later primary-buffer replacement. A changed zero token clears x598; an unchanged token returns the existing x598 without touching either buffer.",
+        "rationale": "Adds the consequential partner-branch asymmetry omitted from the existing data-flow explanation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1793-L1832",
+            "why": "Partner x59C versus ordinary x5A0 paths and common output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1740-L1777",
+            "why": "Primary loader also replaces x59C contents."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdata:ftData_80085E50"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Mutating motion-resource accessor with source-definition signature FigaTree* (Fighter* fp, int motion_id); the header spells the selector enum_t. The selector indexes motion descriptors after comparison with u32 x58C, so ordinary 32-bit unsigned conversion rejects negative int selectors for valid small counts. Failure of that comparison returns NULL without cache mutation. Otherwise the result is existing x598 on a source-token hit or the newly resolved export on a miss; a changed zero source sets it to NULL. A zero-source hit does not itself establish a NULL result. Returned trees refer to reusable Fighter work-buffer storage rather than a newly allocated independent object.",
+        "rationale": "Removes an unconditional empty-source NULL guarantee and distinguishes source signature, unsigned bounds behavior and borrowed buffer lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1782-L1835",
+            "why": "Signature, comparison, hit/miss ordering and return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L1197-L1226",
+            "why": "Unsigned count and result/buffer fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.h#L25-L28",
+            "why": "Header selector spelling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L1685-L1708",
+            "why": "Initializers clear source keys without writing x598."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdata:ft_800852B0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The outer FTKIND_MAX loop clears every gFtDataList entry and two per-kind data-pointer slots addressed through casts relative to CostumeListsForeachCharacter. Each kind's costume count bounds only the inner loop, which clears that costume record's joint and pad_x8. pad_x8 is declared u32 with a tentative pointer comment; it is not the x4 material-animation pointer. The routine does not explicitly clear x4 or x14_archive. After the outer loop, six helper calls clear pad_x0 and the known one-bit/two-bit fields through the cast-based shared-record view. These expressions show reset intent but do not independently prove compiled adjacency or an enclosing aggregate.",
+        "rationale": "Corrects loop-bound attribution and unsupported pointer identification while preserving layout uncertainty.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L169-L209",
+            "why": "Exact reset expressions and loop nesting."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L839-L851",
+            "why": "Costume fields and count declaration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdata:ft_800852B0"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Prepares fighter and alternate-costume resources for subsequent loading by invalidating every configured costume's joint sentinel and clearing its unknown pad_x8 word during shared startup. This is cache invalidation, not model destruction or comprehensive clearing of the costume record: the material-animation pointer x4 and archive pointer x14_archive are not explicitly reset here.",
+        "rationale": "Retains the costume-preparation mapping while replacing the unsupported companion-pointer explanation with exact fields and scope.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L187-L202",
+            "why": "Per-costume invalidation fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L839-L846",
+            "why": "Unknown word versus material-animation/archive pointers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L148-L150",
+            "why": "Reset precedes common resource loading."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftdata:ft_8008521C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides root-translation-driven self velocity for character-specific presentation adapters used by demo fighter creation. The demo constructor selects Mario/Luigi, Kirby and Giga Bowser presentation entry routines through on_create_fighter after installing demo-specific motion-state and descriptor tables. Their source uses common enum spellings such as Wait, WalkSlow and RebirthWait, and Giga Bowser uses numeric 0xE; those labels alone do not establish ordinary gameplay walking or revival-platform behavior in this table context. The movement helper itself only converts model translation displacement into self velocity.",
+        "rationale": "Corrects revival-platform overinterpretation using the actual demo constructor and preserves numeric-state/table ambiguity.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdata.c#L157-L167",
+            "why": "Actual movement operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L42-L71",
+            "why": "Presentation callback table and installed demo state tables."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftdemo.c#L123-L125",
+            "why": "Constructor dispatches presentation entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7178.c#L24-L44",
+            "why": "Mario/Luigi enum-labeled entry and movement adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7220.c#L24-L62",
+            "why": "Kirby presentation entries and adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7434.c#L27-L44",
+            "why": "Giga Bowser numeric selector and adapter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftCo_800C7070.c#L7-L13",
+            "why": "Fallback's enum spelling does not identify the active table's gameplay meaning."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

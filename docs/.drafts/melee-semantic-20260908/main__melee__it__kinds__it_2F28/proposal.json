@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/it/kinds/it_2F28",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/it_2F28.c#L31-L45",
+            "why": "Complete teardown sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1651-L1689",
+            "why": "Conditional player-event bookkeeping."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unsupported bookkeeping-unregistration semantics with the observed call and field-write sequence.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/it_2F28:it_802F28C8"
+        },
+        "type": "purpose",
+        "value": "Performs terminal teardown of a retained item: passes its grab_victim as a fighter to conditional player-bookkeeping helpers, forwarding the release float; resets destroy_type to numeric 0 when the integer guard is nonzero; clears atk_victim and grab_victim; then invokes final cleanup and destruction unconditionally."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/it_2F28.c#L31-L88",
+            "why": "Distinct teardown and fallible constructor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialn.c#L896-L970",
+            "why": "Unconditional teardown after constructor return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L239-L269",
+            "why": "Enabled-hitbox maximum starts at zero."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates old-item and replacement-projectile lifetimes and preserves the exceptional creation-failure path and ambiguous zero result.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/it_2F28.c"
+        },
+        "type": "data_flow",
+        "value": "The constructor copies launch attributes into a new It_Kind_Unk2, initializes deceleration and lifetime, enters state 0, and returns the maximum enabled-hitbox damage floored at zero, or zero on spawn failure. Kirby's item-spit callers forward that result to teardown of the original retained item and then clear their retained-item pointers, including when replacement creation fails. Teardown reads the old item's grab_victim for fighter bookkeeping; this is not a represented fighter stored in the new star."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialn.c#L882-L1001",
+            "why": "Separate item and fighter routes and item-drink teardown."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's swallowed-opponent identification using canonical callers.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/it_2F28.c"
+        },
+        "type": "game_mapping",
+        "value": "Implements the temporary star replacing an inhaled item in Kirby's item-spit route, plus retained-item teardown used by item spit and drink. The swallowed-fighter spit callbacks follow a separate fighter-release path rather than invoking this constructor."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/it_2F28.c#L26-L130",
+            "why": "Complete local lifecycle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialn.c#L896-L1001",
+            "why": "Gameplay integration and separate fighter path."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves verified module behavior while removing the conflation with releasing a represented swallowed fighter.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/it_2F28.c"
+        },
+        "type": "purpose",
+        "value": "Implements the one-state It_Kind_Unk2 replacement star for Kirby's inhaled-item spit path: fallible construction, finite-lifetime countdown, configured XY deceleration with an x-only low-speed fallback, environment-collision completion, and stale-reference cleanup. Also supplies terminal teardown of the original retained item for Kirby's item-spit and item-drink handling."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

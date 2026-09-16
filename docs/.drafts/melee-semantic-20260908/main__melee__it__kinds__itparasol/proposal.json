@@ -1,0 +1,97 @@
+{
+  "tu": "main/melee/it/kinds/itparasol",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itparasol.c#L62-L71",
+            "why": "State-0 wrapper, fixed false result, and state-1 selector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L44-L70",
+            "why": "Floor maintenance, failed-floor callback, and supported-floor exceptional dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L2039-L2046",
+            "why": "Entered-air callback invocation followed by flag assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itparasol.c#L178-L181",
+            "why": "Parasol EnteredAir selects state 3."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing unconditional claim that valid floor contact keeps state 0, preserving the exceptional cross-file entered-air branch and its post-callback flag write.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itparasol:itParasol_UnkMotion0_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Delegates state-0 floor processing to it_8026D62C and always returns false. The helper updates item position and, when supported, the floor index. Failed floor contact performs leave-ground setup and invokes it_8028B17C, entering state 1. With valid floor contact, the item normally remains in state 0, but if it_80277544 returns nonzero and xDCD_flag.b3 is clear, the helper calls Item_8026ADC0; this dispatches the Parasol's EnteredAir callback, selecting state 3, and then sets xDC8_word.flags.x1F."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itparasol.c#L208-L236",
+            "why": "Shared helper and fixed state-7 invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1181-L1214",
+            "why": "Resets the current frame and initializes animation and script under ITEM_ANIM_UPDATE."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L2071-L2081",
+            "why": "Establishes the sound arguments independently of rendered naming."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the misleading animation-preserving description with the canonical update behavior, while retaining the supported fixed-state and caller-speed roles.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itparasol:it_8028B718"
+        },
+        "type": "purpose",
+        "value": "Enters Parasol item state 7 at a caller-supplied animation speed. This state-7 specialization delegates to animSpeed, which requests sound ID 247 with pan 127 and volume 64, writes the supplied animation speed, and changes state with ITEM_ANIM_UPDATE. The state changer refreshes the selected animation and script rather than preserving their current playback position."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itparasol.c#L208-L216",
+            "why": "Audio call precedes speed assignment and state change."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itparasol.c#L243-L246",
+            "why": "Wrapper supplies fixed state 9."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L2071-L2081",
+            "why": "Canonical signature identifies sound ID, pan, and volume and shows handle storage."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing classification of the three audio arguments as masks, preserving the original pointer flow and operation ordering.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itparasol:it_8028B7E8"
+        },
+        "type": "data_flow",
+        "value": "Forwards the incoming Item_GObj and speed unchanged to animSpeed with state number 9. Since 9 is greater than 4, the helper first calls Item_8026AE84 on the recovered Item with sound ID 0xF7, pan 0x7F, and volume 0x40; the audio helper stores the returned sound handle in Item.xD6C. It then writes speed to Item.x5D0_animFrameSpeed and passes the original Item_GObj, state 9, and ITEM_ANIM_UPDATE to Item_80268E5C."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

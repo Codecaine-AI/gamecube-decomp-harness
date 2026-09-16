@@ -142,6 +142,10 @@ class ObjdiffTest(unittest.TestCase):
 
         command = run.call_args.args[0]
         self.assertNotIn("functionRelocDiffs=data_value", command)
+        self.assertEqual(
+            command[command.index("-1") + 1],
+            "./build/GALE01/obj/melee/lb/lbtime.o",
+        )
 
     def test_relaxed_diff_is_explicit(self) -> None:
         completed = subprocess.CompletedProcess([], 0, stdout="{}", stderr="")

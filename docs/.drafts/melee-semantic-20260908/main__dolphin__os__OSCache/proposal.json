@@ -1,0 +1,111 @@
+{
+  "tu": "main/dolphin/os/OSCache",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L371-L377",
+            "why": "The wrapper completes after OSRestoreInterrupts."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing non-returning characterization without changing the supported signature or initialization role.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSCache:LCEnable"
+        },
+        "type": "inferred_type",
+        "value": "Parameterless, void-returning initialization wrapper with signature void LCEnable(void). It returns normally after invoking __LCEnable and restoring the saved external-interrupt enable state; void denotes absence of a return value, not a nonreturning function."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L527-L543",
+            "why": "Shows the four-bit queue extraction, increment, signed comparison and backward branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "The signed cmpw and wrapping addi are important exceptional-input behavior omitted by a purely unsigned threshold explanation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSCache:LCQueueWait"
+        },
+        "type": "state_behavior",
+        "value": "Busy-waits without timeout or yielding. It forms bound = (len + 1) modulo 2^32, extracts a queue length q in 0..15 from HID2, and repeats while signed32(q) >= signed32(bound). For queue-domain len values 0..15 this waits until q <= len. Inputs 0x0000000F..0x7FFFFFFE return after the first observation; inputs 0x7FFFFFFF..0xFFFFFFFF cannot satisfy the exit comparison because the incremented signed bound is nonpositive."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L504-L524",
+            "why": "Exact unsigned arithmetic, assertions, branches, pointer updates and return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L441-L452",
+            "why": "The callee returns immediately after DMA command register writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the useful chunking explanation while correcting the unrestricted ceiling formula and distinguishing command submission from hardware completion.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSCache:LCStoreData"
+        },
+        "type": "data_flow",
+        "value": "Computes numBlocks = ((nBytes + 31) modulo 2^32) / 32 and numTransactions = (numBlocks + 127) / 128. For nonoverflowing byte lengths these are ceiling divisions. Each full 128-block chunk passes encoded count zero to LCStoreBlocks, subtracts 128 blocks and advances both endpoints by 4096 bytes; the final partial chunk passes its explicit count. It returns the precomputed number of submitted commands, not completion status, and performs no queue-capacity wait. nBytes == 0 and nBytes in 0xFFFFFFE1..0xFFFFFFFF produce zero blocks and no commands, although the source alignment assertions precede the loop."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L306-L393",
+            "why": "Constants, complete initialization, wrapper and teardown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSInterrupt.c#L59-L102",
+            "why": "Interrupt restoration changes EE rather than restoring an entire saved MSR."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects cycle and branch claims and records the asymmetric lifetime of hardware configuration across enable, wrapper return and disable.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSCache:__LCEnable"
+        },
+        "type": "state_behavior",
+        "value": "Executes an unguarded ordered initialization: set MSR bit 0x1000; visit 1024 ordinary cache lines using dcbt and dcbst; OR HID2 with 0x100F0000; execute twelve nop instructions; program DBAT3 and isync; initialize 512 locked-cache lines with dcbz_l; execute another twelve nop instructions; return. Its two loop backedges are count-controlled conditional branches, with no error or partial-success exit. The nop counts do not establish elapsed cycle counts. LCEnable masks external interrupts around this sequence and restores only their prior enable state. The modified MSR bit and DBAT3 mapping are not restored here; LCDisable invalidates locked lines and clears the enable bit without reversing that mapping or draining DMA."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L87-L248",
+            "why": "Shared range arithmetic, zero guards and post-tested cache loops."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSCache.c#L428-L524",
+            "why": "DMA packing and pre-tested byte-transfer helper loops."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the shared arithmetic qualification needed by retained range descriptions, preserves excess full-block effects, and distinguishes assembly CTR behavior from the C DMA wrappers.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/os/OSCache.c"
+        },
+        "type": "data_flow",
+        "value": "Ordinary cache-range routines return immediately for nBytes == 0. Otherwise they compute a 32-bit block count by adding 32 when addr has any low-five-bit offset, adding 31, then shifting right five. Without overflow this selects ceil(nBytes/32) blocks for aligned starts and one additional block for unaligned starts; it is conservative, potentially excessive coverage rather than minimal interval normalization. Addresses retain their initial offset and advance by 32 while cache instructions operate on the containing blocks. Arithmetic wraps: a resulting zero CTR still enters the post-tested loop and would require 2^32 iterations to exhaust if execution continued without a fault. DCZeroRange therefore is not byte-exact memset, and ordinary-domain range descriptions must not be extrapolated to extreme lengths. Locked-cache byte-transfer helpers instead use a pre-tested C loop after wrapping byte-to-block conversion, encode endpoints and counts into DMA_U/DMA_L, and return submission counts; an overflowed zero block count submits nothing."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

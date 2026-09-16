@@ -1,0 +1,497 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftcamera:ftCamera_800762F4"
+    },
+    "facts": [
+      {
+        "id": "fact:27e7b78b-53c5-47db-88c5-27bfb4b69ed7",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_800762F4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter game object, reads its `user_data` as a Fighter, obtains `fp->x890_cameraBox`, and passes the original object together with `&camera_box->bone_pos` to `ftLib_800866DC`. The callee writes directly into `bone_pos`; this wrapper changes no other camera-subject field itself.",
+        "rationale": "Every input and destination is explicit in the current five-line body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:5f897102-1c4b-46fa-9b60-cb7d9269aff4",
+            "fact_id": "fact:27e7b78b-53c5-47db-88c5-27bfb4b69ed7",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L89-L93",
+            "digest": "sha256:fc7bc2b760f2258d",
+            "why": "Shows the Fighter lookup, camera-box access, unchanged object forwarding, and `bone_pos` output address.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:49e27895-3f45-4a5c-90d6-2eff9afc68f1",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_800762F4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the position-only fighter-camera update used during vertically offscreen sequences: both Warp Star ride phases call it unconditionally, while Kirby's up-throw callbacks select it instead of the ordinary full camera-subject update. This allows camera tracking to follow the fighter's camera-bone anchor without recomputing ordinary framing extents.",
+        "rationale": "The target proves that only `bone_pos` is refreshed. Current Warp Star and throw callbacks show the restricted contexts in which this helper replaces the full camera-box update.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:adde54c9-9932-4dc0-a2e5-33c41eb3e601",
+            "fact_id": "fact:49e27895-3f45-4a5c-90d6-2eff9afc68f1",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L89-L93",
+            "digest": "sha256:fc7bc2b760f2258d",
+            "why": "Shows that the specialized helper updates only the camera subject's bone position.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:10f95576-04c9-40c8-a15b-8e72dea3dc5a",
+            "fact_id": "fact:49e27895-3f45-4a5c-90d6-2eff9afc68f1",
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_WarpStar.c#L120-L235",
+            "digest": "sha256:3756a14f2ccbd6da",
+            "why": "Shows both WarpStarJump and WarpStarFall camera callbacks using this helper.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:c27e9eb7-f88a-44b7-b195-0477278e7d1c",
+            "fact_id": "fact:49e27895-3f45-4a5c-90d6-2eff9afc68f1",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Throw.c#L438-L446",
+            "digest": "sha256:2e07a151110294a4",
+            "why": "Shows the Kirby thrower-side up-throw callback selecting this helper instead of the full updater.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:fb63453a-856a-4293-8b64-4dac5ce7b044",
+            "fact_id": "fact:49e27895-3f45-4a5c-90d6-2eff9afc68f1",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Thrown.c#L121-L131",
+            "digest": "sha256:bb1e5d19ec47d213",
+            "why": "Shows the victim-side callback selecting this helper for Kirby's up throw.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:40072cd3-f436-4378-86c8-417f00157f6f",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_800762F4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCamera_UpdateCameraBonePosition",
+        "rationale": "The target updates only `CmSubject.bone_pos` through the same helper documented as obtaining the fighter camera-bone position in the full updater, and the name follows the local `ftCamera_Update...` convention.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `ftCamera_UpdateCameraBonePosition`.",
+        "confidence": 0.8,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:e373497e-6889-405a-bc90-23c67d24926e",
+            "fact_id": "fact:40072cd3-f436-4378-86c8-417f00157f6f",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L51-L93",
+            "digest": "sha256:7bd655e7396d2d7a",
+            "why": "Shows the full updater's camera-bone-position comment and the target's narrower update of only `bone_pos`.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:7bd8de03-52ff-4ce0-91ad-396baafdfd41",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_800762F4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void fighter-camera callback helper with signature `void(HSD_GObj* gobj)`; the object must carry a Fighter in `user_data`, and that Fighter must own a valid CmSubject camera box.",
+        "rationale": "The current definition supplies the exact signature, directly interprets `gobj->user_data` as a Fighter, and dereferences its camera-box pointer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:f4b67b11-956f-4bf0-ad21-2f79ccd8aa8d",
+            "fact_id": "fact:7bd8de03-52ff-4ce0-91ad-396baafdfd41",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L89-L93",
+            "digest": "sha256:fc7bc2b760f2258d",
+            "why": "Defines the signature and demonstrates the required Fighter and CmSubject payloads.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:85014ac7-d2c0-41e6-9cf5-625231f31bc2",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_800762F4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Refreshes only the camera-bone-derived `bone_pos` of a fighter's CmSubject, without rebuilding the subject's position, extents, facing, state, or ledge flag.",
+        "rationale": "The complete current body resolves the Fighter and passes only the address of `camera_box->bone_pos` to the fighter-library position helper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:fa74fe0e-8a08-4b16-829c-ab877642cd35",
+            "fact_id": "fact:85014ac7-d2c0-41e6-9cf5-625231f31bc2",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L89-L93",
+            "digest": "sha256:fc7bc2b760f2258d",
+            "why": "Shows the function's sole delegated write targeting `CmSubject.bone_pos`.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:235bb628-4806-4c76-9a7c-5f03559bd7bf",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_800762F4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On every invocation it unconditionally refreshes `CmSubject.bone_pos`. It has no local guard, alternate branch, timer operation, action-state transition, or mutation of camera-subject dimensions, state, or flags.",
+        "rationale": "The complete current function contains one unconditional delegated write and no control flow or other mutation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:74abc0dc-6065-4e84-9775-920750ec7121",
+            "fact_id": "fact:235bb628-4806-4c76-9a7c-5f03559bd7bf",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L89-L93",
+            "digest": "sha256:fc7bc2b760f2258d",
+            "why": "Shows the sole unconditional call and absence of branches or other state operations.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftcamera:ftCamera_80076320"
+    },
+    "facts": [
+      {
+        "id": "fact:cc3fde83-d0fe-457e-ba94-7e2fc61bd551",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_80076320",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter game object, reads its Fighter payload and attached CmSubject, and first forwards the object to `ftCamera_UpdateCameraBox`. It then reads the stage camera-offset vector, top gameplay-camera bound, and top blast-zone offset; computes `(camera_box->pos.x * (camera_top - camera_offset_y)) / (blast_top - camera_offset_y)`; writes the result to `camera_box->pos.x`; and writes `blast_top` to `camera_box->pos.y`.",
+        "rationale": "The current semantic CmSubject names expose the complete source-to-destination flow and preserve the standing projection formula.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:3b82aacf-a1f4-41c9-8426-38e21274a7fa",
+            "fact_id": "fact:cc3fde83-d0fe-457e-ba94-7e2fc61bd551",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L95-L114",
+            "digest": "sha256:dd39923ffd996fd2",
+            "why": "Shows every stage input, arithmetic transformation, delegated update, and final `camera_box->pos` write.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:39eb551c-c2ba-451d-809d-3f63c4227ac6",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_80076320",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements specialized camera framing for upward-KO states beyond the upper blast line, including DeadUpStar and DeadUpFall: the offscreen fighter's camera subject is anchored at the upper blast-zone height while its horizontal contribution is compressed into the gameplay camera's upper-bound frame.",
+        "rationale": "The current callers identify the relevant death states, while the current target remaps the fighter subject between the top gameplay-camera and blast-zone boundaries.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:9fd819e5-4241-4a64-9f99-cc39a2fd8c19",
+            "fact_id": "fact:39eb551c-c2ba-451d-809d-3f63c4227ac6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L95-L114",
+            "digest": "sha256:dd39923ffd996fd2",
+            "why": "Shows the camera subject being projected using the upper camera and blast-zone boundaries and pinned to the blast-zone height.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:3d4beb3b-9b9c-4b3e-a37b-05559c0d3b6b",
+            "fact_id": "fact:39eb551c-c2ba-451d-809d-3f63c4227ac6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0D4D.c#L50-L53",
+            "digest": "sha256:ad95fe0580d68cfd",
+            "why": "Identifies the routine as the complete DeadUpFall camera callback operation.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:caad412b-7320-4e54-a7b0-4aad9049bdd5",
+            "fact_id": "fact:39eb551c-c2ba-451d-809d-3f63c4227ac6",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0D31.c#L697-L700",
+            "digest": "sha256:6178467ca20ed87e",
+            "why": "Identifies the routine as the complete DeadUpStar camera callback operation.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:85d63cea-54b9-4230-a256-a1b80eb4b547",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_80076320",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCamera_UpdateDeadUpCameraBox",
+        "rationale": "The routine builds on `ftCamera_UpdateCameraBox`; both known callers are `DeadUp` camera callbacks, and the retained assertion names the specialized stage boundary `stGetPlyDeadUp()`.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible convention-aligned original name is `ftCamera_UpdateDeadUpCameraBox`.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "id": "evidence:6cb4ec2e-3be4-4a99-b4a8-26ce677986a5",
+            "fact_id": "fact:85d63cea-54b9-4230-a256-a1b80eb4b547",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L95-L114",
+            "digest": "sha256:dd39923ffd996fd2",
+            "why": "Shows the extension of the ordinary updater and the retained `stGetPlyDeadUp()` assertion text.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:c8ed42e3-adc8-4a4b-b571-2c76c9ee3aa5",
+            "fact_id": "fact:85d63cea-54b9-4230-a256-a1b80eb4b547",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0D4D.c#L50-L53",
+            "digest": "sha256:ad95fe0580d68cfd",
+            "why": "Identifies one caller as the DeadUpFall camera callback.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:d3a7a4d3-027c-4934-ae66-065b94492d49",
+            "fact_id": "fact:85d63cea-54b9-4230-a256-a1b80eb4b547",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0D31.c#L697-L700",
+            "digest": "sha256:6178467ca20ed87e",
+            "why": "Identifies the other caller as the DeadUpStar camera callback.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:6409d008-8024-4682-9c60-941d19292fcf",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_80076320",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void fighter-camera update routine with signature `void(HSD_GObj* gobj)`; the supplied object must contain a Fighter with an attached mutable CmSubject camera box.",
+        "rationale": "The current definition supplies the exact signature and treats the object's payload as a Fighter whose camera subject is refreshed and mutated.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:ca01e584-5eb0-460d-a1f9-2c2ed7699971",
+            "fact_id": "fact:6409d008-8024-4682-9c60-941d19292fcf",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L95-L114",
+            "digest": "sha256:dd39923ffd996fd2",
+            "why": "Defines the exact signature and shows the required Fighter and CmSubject accesses.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:8f582542-015f-4907-ba0b-46875b0c72c5",
+            "fact_id": "fact:6409d008-8024-4682-9c60-941d19292fcf",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0D4D.c#L50-L53",
+            "digest": "sha256:ad95fe0580d68cfd",
+            "why": "Shows a Fighter camera callback passing its game object directly to the routine.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:6318101d-e860-466e-9c07-e5282e9f4673",
+            "fact_id": "fact:6409d008-8024-4682-9c60-941d19292fcf",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0D31.c#L697-L700",
+            "digest": "sha256:6178467ca20ed87e",
+            "why": "Shows a second Fighter camera callback using the same interface.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:d4f92335-d435-43a3-995a-2dcfb3cfc56a",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_80076320",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Refreshes a fighter's ordinary camera subject, then adapts its position for upper-death handling by projecting the horizontal coordinate from the top blast-zone height into the upper gameplay-camera bound and pinning the vertical coordinate to the top blast-zone offset.",
+        "rationale": "The current function first invokes the ordinary updater, computes distances from the stage camera offset to the top camera and blast-zone boundaries, applies their ratio to `camera_box->pos.x`, and writes the top blast-zone offset to `pos.y`. Its callers remain the DeadUpFall and DeadUpStar camera callbacks.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:fd0a4aa7-bb1b-45fc-a417-8b835823d504",
+            "fact_id": "fact:d4f92335-d435-43a3-995a-2dcfb3cfc56a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L95-L114",
+            "digest": "sha256:dd39923ffd996fd2",
+            "why": "Shows the ordinary refresh, upper-boundary projection, and final semantic `pos` writes.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:584e86d0-7c28-452e-9bf4-03b79f1e190a",
+            "fact_id": "fact:d4f92335-d435-43a3-995a-2dcfb3cfc56a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0D4D.c#L50-L53",
+            "digest": "sha256:ad95fe0580d68cfd",
+            "why": "Shows the DeadUpFall camera callback delegating to this function.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          },
+          {
+            "id": "evidence:e0e3b336-6762-468b-8c87-b4143480e234",
+            "fact_id": "fact:d4f92335-d435-43a3-995a-2dcfb3cfc56a",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0D31.c#L697-L700",
+            "digest": "sha256:6178467ca20ed87e",
+            "why": "Shows the DeadUpStar camera callback delegating to this function.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:63de7d44-7a40-4df7-8fb7-588b69726fe5",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_80076320",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Every invocation unconditionally refreshes and remaps the fighter's camera subject; it has no timer, phase transition, or action-state mutation. Before division, it asserts that the top blast-zone offset differs from the stage camera offset's y component, guarding the projection denominator against zero.",
+        "rationale": "The only guard in the current function is the explicit assertion on the exact difference subsequently used as the denominator.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:413281a9-54a6-49c4-8c78-2216d4ee4dc6",
+            "fact_id": "fact:63de7d44-7a40-4df7-8fb7-588b69726fe5",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L95-L114",
+            "digest": "sha256:dd39923ffd996fd2",
+            "why": "Shows the unconditional update sequence, denominator assertion, and absence of timer or action-state operations.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftcamera:ftCamera_UpdateCameraBox"
+    },
+    "facts": [
+      {
+        "id": "fact:77266c65-6496-4e2d-a741-d443ba1e4b78",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_UpdateCameraBox",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads `Fighter.ft_data->x3C` and scales all six camera metadata floats by `Fighter.x34_scale.y`. It consumes the first scaled triplet to write facing-dependent `CmSubject.target_ext.h`, applying `Stage_GetCamFixedZoom()` to one component, and to construct `CmSubject.pos` from `Fighter.cur_pos` with a scaled vertical offset. It clears `CmSubject.on_ledge` and passes the original game object plus `&CmSubject.bone_pos` to `ftLib_800866DC`; the current body does not copy the scaled second triplet into the subject.",
+        "rationale": "The current semantic fields sharpen the previous offset-based account, and the source shows that although all six values are computed, this updater consumes only the first group before updating `pos`, `on_ledge`, and `bone_pos`.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:836ca70e-6a8e-4246-9aaf-19cd8808b802",
+            "fact_id": "fact:77266c65-6496-4e2d-a741-d443ba1e4b78",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L51-L87",
+            "digest": "sha256:5318c1cc41da9922",
+            "why": "Shows the scaling call, facing-dependent horizontal target extents, subject position construction, `on_ledge` clear, and `bone_pos` output.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:eff2bebe-b5f9-4ba9-97da-530f6df3c2e5",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_UpdateCameraBox",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Updates one fighter's contribution to automatic match-camera framing, allowing the camera system to account for current fighter position, camera-bone position, orientation, character-specific horizontal framing data, model scale, stage fixed zoom, and whether ledge-specific camera handling remains active.",
+        "rationale": "The current function updates the fighter-owned CmSubject from those current fighter and stage inputs and explicitly returns the subject from ledge-specific handling to its ordinary update state.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:53ce3890-2bc6-4d4d-9d5e-6b4ccd3abd1c",
+            "fact_id": "fact:eff2bebe-b5f9-4ba9-97da-530f6df3c2e5",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L51-L87",
+            "digest": "sha256:5318c1cc41da9922",
+            "why": "Shows the fighter-owned camera subject being refreshed from current fighter and stage data and its `on_ledge` flag being cleared.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:ff82863f-72d3-4154-8717-15b11d0f12c1",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_UpdateCameraBox",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void fighter-camera update routine with signature `void(HSD_GObj* gobj)`; the game object's payload must be a Fighter owning a valid mutable CmSubject camera box.",
+        "rationale": "The current definition provides the exact return and argument types, resolves the Fighter through `GET_FIGHTER`, and dereferences its attached camera subject.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:01202e0d-34a8-486a-8054-58362afc61d1",
+            "fact_id": "fact:ff82863f-72d3-4154-8717-15b11d0f12c1",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L51-L87",
+            "digest": "sha256:5318c1cc41da9922",
+            "why": "Defines the exact signature and demonstrates the required Fighter and CmSubject payloads.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:3a53ec01-77bb-4304-a0e5-8a9a9ad2cf90",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_UpdateCameraBox",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Refreshes a fighter's CmSubject from current fighter position, facing direction, model scale, character camera metadata, stage fixed zoom, and current camera-bone position, while clearing the subject's ledge-specific camera state.",
+        "rationale": "The current body scales fighter camera metadata, updates horizontal target extents and subject position, clears the semantically named `on_ledge` field, and delegates population of `bone_pos`.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:9459d311-6e83-4583-a49c-554f88c5eb14",
+            "fact_id": "fact:3a53ec01-77bb-4304-a0e5-8a9a9ad2cf90",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L51-L87",
+            "digest": "sha256:5318c1cc41da9922",
+            "why": "Shows all fighter and stage inputs, CmSubject mutations, `on_ledge` clear, and final bone-position update.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      },
+      {
+        "id": "fact:f808b8fc-4e02-4934-a623-a7b69ed96be1",
+        "target_id": "target:function:main/melee/ft/ftcamera:ftCamera_UpdateCameraBox",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On every invocation, `facing_dir == +1` selects the right-facing horizontal target-extents arrangement and stores +1 as the subject facing; every other value selects the mirrored, negated arrangement and stores -1. The routine then unconditionally clears `CmSubject.on_ledge`; it performs no fighter action-state transition or timer update.",
+        "rationale": "The current body has one meaningful facing branch followed by an unconditional clear of the now-semantic ledge flag, with no fighter action-state or timer fields involved.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:51:45.281Z",
+        "evidence": [
+          {
+            "id": "evidence:51eade6f-b1d2-42f0-96c6-8cae519e13d3",
+            "fact_id": "fact:f808b8fc-4e02-4934-a623-a7b69ed96be1",
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcamera.c#L51-L87",
+            "digest": "sha256:5318c1cc41da9922",
+            "why": "Shows both facing branches, their signed outputs, the unconditional `on_ledge` clear, and no timer or action-state mutation.",
+            "captured_at": "2026-09-04T18:51:45.281Z"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftcamera:ftCamera_800762F4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftcamera:ftCamera_80076320#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftcamera:ftCamera_UpdateCameraBox#r3"
+    },
+    "facts": []
+  }
+]

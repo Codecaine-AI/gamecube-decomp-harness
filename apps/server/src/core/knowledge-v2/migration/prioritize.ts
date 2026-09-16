@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import type { Database } from "bun:sqlite";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { gameKnowledgeRoot } from "../../knowledge/paths.js";
-import { KNOWLEDGE_INDEX_DB_FILENAME, openKnowledgeIndexDb, type KnowledgeIndexDb } from "../index/db.js";
+import { gameKnowledgeRoot, knowledgeIndexPath } from "../../knowledge/paths.js";
+import { openKnowledgeIndexDb, type KnowledgeIndexDb } from "../index/db.js";
 import type { KnowledgeStoreHandle } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 
@@ -431,7 +431,7 @@ export async function kg2Prioritize(globals: GlobalArgs, args: Map<string, strin
   let indexDb: KnowledgeIndexDb | undefined;
   try {
     store = explicitRoot === undefined ? openKnowledgeStore({ gameId }) : openKnowledgeStore({ knowledgeRoot });
-    if (existsSync(resolve(knowledgeRoot, KNOWLEDGE_INDEX_DB_FILENAME))) {
+    if (existsSync(knowledgeIndexPath(knowledgeRoot))) {
       indexDb = openKnowledgeIndexDb({ knowledgeRoot });
     }
     const result = prioritizeTargets(store, indexDb, {

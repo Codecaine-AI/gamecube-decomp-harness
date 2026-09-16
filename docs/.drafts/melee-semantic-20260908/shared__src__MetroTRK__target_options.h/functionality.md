@@ -1,0 +1,3 @@
+`src/MetroTRK/target_options.h` is a guarded declaration-only interface that includes `<Runtime/platform.h>` and declares `void SetUseSerialIO(u8)` and `u8 GetUseSerialIO(void)` (code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/target_options.h#L1-L9). The canonical names clearly describe the serial-I/O option interface; the rendered view leaves both unchanged and reports no substitutions or parse errors. The header supplies no implementation, so it does not establish accepted option values, normalization, default state, storage lifetime, or transport effects. No baseline subjects, facts, or links exist for this owned file; no supported correction is needed.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

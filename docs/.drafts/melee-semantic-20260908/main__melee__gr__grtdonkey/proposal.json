@@ -1,0 +1,261 @@
+{
+  "tu": "main/melee/gr/grtdonkey",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtdonkey:.data"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source declares grTDk_StageCallbacks as a four-element StageCallbacks array containing three populated records followed by an all-zero fourth record, and grTDk_StageData as a StageData descriptor referencing that array. These declarations do not by themselves establish compiled section composition or layout. The reviewed target-stage initializer requests fixed IDs 0, 1 and 2 rather than traversing the zero row as a terminator.",
+        "rationale": "Corrects compiled-section and operational-terminator claims while preserving concrete source types and initializer shapes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L33-L72",
+            "why": "Array and descriptor declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L51-L62",
+            "why": "Fixed-ID initialization without sentinel traversal."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtdonkey:.data"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The populated callback records correspond to ground-object IDs 0, 1 and 2. Records 0 and 1 store zero flags; record 2 stores bits 30 and 31; record 3 is all zero. The reviewed setup stores callback3, invokes on_init synchronously and schedules gobj_proc, but consumes neither callback1 nor the flags. Object 0 initializes animation index 0 and has an empty process callback; objects 1 and 2 delegate JObj initialization and shared processing, with object 2 calling lb_800115F4 first. All three callback1 bodies return false if invoked. The stage descriptor also registers a false callback4, NULL-returning on_touch_line and always-true shadow-render hook.",
+        "rationale": "Separates declarative records from actual installed behavior and removes unsupported sentinel termination.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L33-L166",
+            "why": "Records and complete registered bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L62",
+            "why": "Actual installation subset and fixed IDs."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gr/grtdonkey.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A character-specific Target Test ground-controller translation unit defining one StageData descriptor, a four-element StageCallbacks array with three populated ground-object records and a zero fourth record, stage lifecycle and integration hooks, an ID-indexed ground-object setup routine, and per-object initialization/process callbacks. Shared initialization requests IDs 0, 1 and 2 explicitly; no sentinel traversal is demonstrated.",
+        "rationale": "Preserves the controller's structure while correcting the sentinel-terminated characterization.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L12-L166",
+            "why": "Declarations, descriptor and callback definitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L51-L62",
+            "why": "Fixed-ID setup order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gr/grtdonkey.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Course initialization enters the common target-stage path, which requests ground-object IDs 0, 1 and 2 in order and continues without checking their returned pointers. Available objects receive synchronous on_init calls and scheduled gobj_proc callbacks; initialization-time animation/JObj setup is distinct from recurring processing. At stage start the unit unconditionally requests shared generator creation with an absent spawn descriptor and ignores the nullable result. Generator creation can fail; on success the callee stores NULL and prepared data in shared state and schedules processing. The remaining local callbacks are empty, constant false, NULL-returning or constant true, and the unit defines no private mutable gameplay state.",
+        "rationale": "Corrects recurring-initialization confusion and guaranteed/default-config generator wording.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L74-L166",
+            "why": "Local lifecycle, failure branch and callback bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L62",
+            "why": "Synchronous initialization, scheduled processing and ignored returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Generator success/failure and stored NULL."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtdonkey:grTdonkey_UnkStage0_OnStart"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives no explicit input, passes NULL as an absent grZakoGenerator_SpawnDesc pointer to grZakoGenerator_801CAE04 and ignores its nullable HSD_GObj result. On successful GObj creation, the callee schedules fn_801CADBC and stores that NULL descriptor and prepared generator data in shared state, extending the data lifetime beyond this callback. On GObj creation failure it reports the error, frees the prepared data and returns NULL before those shared assignments. No default descriptor is substituted.",
+        "rationale": "Corrects NULL/default equivalence and records the cross-file result and data lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L83-L86",
+            "why": "NULL argument and ignored result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Scheduling, shared storage and failure cleanup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtdonkey:grTdonkey_UnkStage0_OnStart"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Serves as Donkey Kong Target Test's stage-start lifecycle hook, requesting creation of the shared Zako generator with no spawn descriptor and ignoring the result. The request does not guarantee creation or substitute a default descriptor. Descriptor-dependent spawning is guarded in the generator, while separate numeric-kind handling exists; this call alone does not establish that all generator behavior is disabled or identify a general item-spawn service.",
+        "rationale": "Replaces unsupported default-configuration and broad-service interpretation with verified startup behavior and its limits.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L58-L86",
+            "why": "Stage-start registration and request."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L180-L233",
+            "why": "Distinct descriptor-dependent and numeric-kind branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Nullable creation and unchanged descriptor storage."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gr/grtdonkey.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Initialization forwards grTDonkey_802202CC to Ground_InitTargetStage. Each requested ID selects a callback row and reaches Ground_GetStageGObj; a non-NULL object enters shared setup, while failure reports the ID and returns NULL. Shared setup stores callback3, invokes on_init and schedules gobj_proc, but does not consume callback1 or flags. Initialization callbacks read Ground.map_id directly or through Ground_JObjInline1 and request animation index 0; process callbacks forward objects to shared processing. The start hook passes an absent descriptor to the generator and ignores its nullable result; successful creation stores NULL and prepared data in shared generator state, whereas GObj failure frees the prepared data.",
+        "rationale": "Preserves useful ID and object flow while correcting the installed subset and NULL/default/lifetime claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L76-L154",
+            "why": "Local handoffs and lookup failure."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L24-L62",
+            "why": "JObj delegation and actual callback consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "Generator storage and failure lifetime."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtdonkey:grTDonkey_802203E0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Its function pointer occupies callback1 in grTDk_StageCallbacks[0]. If invoked, it ignores its Ground_GObj pointer, performs no reads, writes or calls, and returns false. Passing this record to Ground_SetupStageCallbacks does not install or invoke callback1; runtime delivery through a separate consumer is not established by the reviewed path.",
+        "rationale": "Corrects a claimed installed predicate-dispatch path without losing table membership or exact local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L33-L40",
+            "why": "Row zero callback1 membership."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L114-L117",
+            "why": "Unused input and false-only result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Setup does not consume callback1."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtdonkey:grTDonkey_80220440"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Its function pointer occupies callback1 in grTDk_StageCallbacks[2]. If invoked, it ignores its Ground_GObj pointer, performs no reads, writes or calls, and returns false. The reviewed shared setup does not consume callback1, so the table association does not establish runtime delivery of object 2 to this predicate.",
+        "rationale": "Separates structural registration from unsupported runtime dispatch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L48-L54",
+            "why": "Row two callback1 membership."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L128-L131",
+            "why": "Unused input and false-only result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Setup does not consume callback1."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtdonkey:grTDonkey_802204D0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Its function pointer occupies callback1 in grTDk_StageCallbacks[1]. If invoked, it ignores its Ground_GObj pointer, reads and modifies no object or global state, makes no calls, and returns false. Ground_SetupStageCallbacks does not install or invoke callback1, so an installed predicate-dispatch path is not established by the reviewed initialization code.",
+        "rationale": "Corrects the explicit installed callback1 claim while retaining precise table and body facts.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L41-L47",
+            "why": "Row one callback1 membership."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtdonkey.c#L146-L149",
+            "why": "Unused input and false-only result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Actual setup excludes callback1."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

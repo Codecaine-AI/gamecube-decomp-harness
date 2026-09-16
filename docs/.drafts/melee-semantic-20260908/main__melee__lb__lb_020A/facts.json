@@ -1,0 +1,479 @@
+{
+  "main/melee/lb/lb_020A:.data": [],
+  "main/melee/lb/lb_020A:.sdata": [],
+  "main/melee/lb/lb_020A:.sdata2": [],
+  "main/melee/lb/lb_020A:fn_80020AEC": [
+    {
+      "id": "fact:c2ea4e1e-d1a9-4d55-babd-cb86a0959443",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_80020AEC",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the JObj's materialized matrix and its parent chain. It computes the subject joint's parent-relative transform, normalizes each basis column, and multiplies each normalized column by the corresponding magnitude from the subject joint's matrix. It then walks from the parent to the root, constructs each ancestor's transform relative to its own parent, normalizes the ancestor basis columns, and left-concatenates each transform into `out`. `fn_8002113C` transposes the result and uses it to transform an external rotation axis into joint-local space.",
+      "rationale": "The relocated source exposes every matrix read, column-magnitude calculation, normalization, parent-chain step, and output concatenation, while the direct caller establishes how the resulting matrix is consumed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L33-L123",
+          "why": "Shows the complete flow from JObj and ancestor matrices through normalized column reconstruction to the caller-owned output matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L193-L224",
+          "why": "Shows the output matrix being transposed and used to transform the rotation-axis input."
+        }
+      ]
+    },
+    {
+      "id": "fact:9c3fa422-15ea-405c-bcf4-bfc44dff5e5b",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_80020AEC",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports articulated inverse kinematics by providing the scale-isolated hierarchy orientation needed to apply a solved rotation around an externally derived bend axis in a joint's local frame.",
+      "rationale": "The direct caller obtains this matrix, converts the solver's axis into local space, and composes an axis-angle rotation into the JObj; the two-segment solver invokes that caller for both articulated joints.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L33-L123",
+          "why": "Shows construction of the scale-isolated hierarchy orientation matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L193-L224",
+          "why": "Shows that matrix feeding the local-axis joint-rotation primitive."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L364-L429",
+          "why": "Shows the primitive being called for both joints of the two-segment inverse-kinematics chain."
+        }
+      ]
+    },
+    {
+      "id": "fact:02d92c93-bc97-49bb-bc76-7adede722e91",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_80020AEC",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lb_020A_GetJObjOrientationMtx",
+      "rationale": "The standing guess used the obsolete `lbBgFlash_` ownership prefix. At the current location the function constructs a hierarchy-composed JObj orientation matrix, so this replacement preserves the supported semantic portion of the guess while aligning its prefix with the new translation unit. The exact original wording remains uncertain.",
+      "confidence": 0.58,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L33-L123",
+          "why": "Shows that the relocated function derives and writes a hierarchy-composed JObj orientation matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L193-L224",
+          "why": "Shows the matrix being consumed as an orientation basis for converting an external axis before joint rotation."
+        }
+      ]
+    },
+    {
+      "id": "fact:a0000963-2dc1-4c52-a041-8c01850766b6",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_80020AEC",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void fn_80020AEC(HSD_JObj* jobj, Mtx out)`. `jobj` is the source skeletal joint and requires a usable parent transform; `out` is a caller-owned 3x4 matrix written in place with the reconstructed orientation transform.",
+      "rationale": "The relocated definition provides the exact signature, obtains matrices from the joint and its parent, writes all three columns of `out`, and repeatedly concatenates ancestor transforms into that destination.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L33-L123",
+          "why": "Provides the exact signature and shows the parent-matrix input and in-place output construction."
+        }
+      ]
+    },
+    {
+      "id": "fact:f0f0bc60-99f5-455d-a0ec-d2c319f2ff6e",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_80020AEC",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds a JObj hierarchy-orientation matrix suitable for converting an externally expressed rotation axis into the joint's local rotation frame. It removes scale inherited from ancestor transforms while retaining the subject joint's own per-axis matrix magnitudes.",
+      "rationale": "The relocated function constructs the joint's parent-relative transform, normalizes and rescales its columns from the subject matrix, then walks toward the root while concatenating normalized ancestor-relative transforms. The named orientation-constraint analog uses the same normalized-ancestor strategy.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L33-L123",
+          "why": "Shows parent-relative matrix construction, per-column rescaling, normalized ancestor traversal, and accumulation into the output matrix."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L352-L446",
+          "why": "Shows an analogous orientation-constraint resolver normalizing ancestor-relative transforms to avoid inherited-scale distortion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L193-L224",
+          "why": "Shows the direct caller transposing this matrix and using it to convert an external axis before rotating a JObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:16829a42-862c-413d-badf-a92bdaeeec86",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_80020AEC",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For each subject-joint column, the magnitude is inverted only when it exceeds `1e-10`; the normalized direction is then rescaled by the corresponding subject-matrix column magnitude. During ancestor traversal, a non-root ancestor is represented relative to its parent, while the root matrix is copied directly. Every ancestor column whose magnitude exceeds `0.00001` is normalized before concatenation, preventing ordinary ancestor scale from propagating into the reconstructed orientation.",
+      "rationale": "The relocated function retains both epsilon-guarded column loops and the root-versus-non-root branch. The orientation-constraint analog corroborates the normalized-ancestor composition strategy.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L33-L123",
+          "why": "Shows both epsilon guards, the root versus non-root branch, and ancestor traversal and concatenation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L352-L446",
+          "why": "Shows the same normalized-ancestor composition strategy in a named orientation-constraint resolver."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_020A:fn_8002113C": [
+    {
+      "id": "fact:c5a161f2-8f05-42d5-bb95-e16cce145858",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_8002113C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Calls `HSD_JObjSetupMatrix` and `fn_80020AEC` to obtain the joint hierarchy's orientation, transposes that orientation, and transforms the supplied axis into `localAxis`. It constructs an incremental matrix from `localAxis` and `-angle`, reads the current JObj rotation, converts it to a matrix, concatenates the increment, converts the result back to Euler-vector or quaternion form, and writes it through `HSD_JObjSetRotation`.",
+      "rationale": "The relocated function directly preserves this complete ordered transformation pipeline.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L193-L224",
+          "why": "Shows the complete flow from input axis and angle through local-frame conversion and orientation composition to the final setter."
+        }
+      ]
+    },
+    {
+      "id": "fact:4e9047f7-a107-4a77-b581-03bde6aae702",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_8002113C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Serves as the joint-rotation application primitive for a two-segment inverse-kinematics solver: the solver derives two corrected joint angles from projected chain positions and segment lengths, then invokes this function once for each joint around the chain's normalized bend axis.",
+      "rationale": "The relocated solver computes both angular corrections and directly calls this function for `jobj0` and `jobj1`, grounding the primitive in articulated inverse kinematics.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L193-L224",
+          "why": "Shows the local-axis incremental rotation primitive itself."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L244-L363",
+          "why": "Shows the two-JObj chain record, normalized bend-plane axis, projected positions, and beginning of the angle calculation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L364-L429",
+          "why": "Shows the final angle solution and calls applying the corrections to both chain JObjs."
+        }
+      ]
+    },
+    {
+      "id": "fact:b1ab6451-40ef-4ca2-a90c-6488941f0457",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_8002113C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void fn_8002113C(HSD_JObj* jobj, Vec3* axis, f32 angle)`. `jobj` is mutated in place, `axis` is a three-component input rotation axis, and `angle` is an angular displacement in radians.",
+      "rationale": "The relocated definition establishes the exact signature. The axis is consumed by matrix-vector and axis-rotation operations, the result is committed through `HSD_JObjSetRotation`, and `PSMTXRotAxisRad` establishes the angle's unit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L193-L224",
+          "why": "Provides the exact signature and shows how all three arguments are consumed."
+        }
+      ]
+    },
+    {
+      "id": "fact:89ab023b-6645-48d3-ba36-e6886f6e51ff",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_8002113C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Applies an incremental rotation to an HSD JObj about an axis expressed outside the joint's local rotation frame. It converts that axis into the joint's local frame, composes the resulting axis-angle matrix with the joint's current orientation, and stores the new orientation using the JObj's configured Euler or quaternion representation.",
+      "rationale": "The relocated function obtains and transposes a hierarchy-orientation matrix, transforms the supplied axis, constructs a rotation of `-angle`, and composes it with the current orientation in both supported representation branches.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L193-L224",
+          "why": "Shows axis conversion, axis-angle matrix construction, orientation composition, representation conversion, and the final JObj rotation write."
+        }
+      ]
+    },
+    {
+      "id": "fact:67f49555-d298-4d19-b7b6-030cc74a9df0",
+      "target_id": "target:function:main/melee/lb/lb_020A:fn_8002113C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Branches on `JOBJ_USE_QUATERNION`. A non-quaternion JObj treats its stored rotation as a three-component Euler vector, converts it with `HSD_MkRotationMtx`, and converts the composed matrix back with `HSD_QuatLib_8037EB28`. A quaternion JObj uses `HSD_MtxQuat` and `MatToQuat`. Both paths call `HSD_JObjSetRotation` with the converted result.",
+      "rationale": "The relocated body's flag guard and paired conversion functions directly identify the two representation states and their common final mutation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L193-L224",
+          "why": "Shows the representation flag guard and every representation-specific conversion and setter operation."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_020A:lbBgFlash_80020E38": [
+    {
+      "id": "fact:2311fbcc-3fbf-47ff-a5a3-49f0fd4b5fad",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80020E38",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the supplied direction and returns when its squared magnitude is zero. It materializes the JObj matrix, reads and normalizes the matrix's Z basis-column magnitude, combines that orientation with the direction through `atan2f`, and clamps the resulting correction. It then adds the correction to the existing Euler Z rotation or concatenates a Z-rotation matrix into the stored quaternion, and finally rebuilds the JObj matrix.",
+      "rationale": "Every stage remains explicit in the relocated function, from direction and matrix inputs through angle calculation to the representation-specific rotation write.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L127-L191",
+          "why": "Shows the complete flow from direction and JObj matrix inputs through the bounded angle to rotation and matrix outputs."
+        }
+      ]
+    },
+    {
+      "id": "fact:b9a102ff-9fbd-4956-b9d3-e9e76107612a",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80020E38",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements a bounded single-axis joint-aim constraint: it steers a skeletal joint about local Z toward a requested direction without allowing the correction to exceed configured angular limits.",
+      "rationale": "The relocated function derives a direction-dependent correction from the JObj's current basis, constrains it, and writes the resulting joint orientation exclusively around local Z.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L127-L191",
+          "why": "Shows direction-driven, angle-limited rotation of one skeletal joint around a single local axis."
+        }
+      ]
+    },
+    {
+      "id": "fact:a9de1492-3228-4e9b-97eb-c4f0e62b41cb",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80020E38",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lb_020A_AdjustJointZRotationTowardDirection",
+      "rationale": "The standing guess used the obsolete `lbBgFlash_` ownership prefix. The relocated body still unambiguously adjusts a JObj's Z rotation toward a direction, so this replacement preserves the supported semantic portion while aligning its prefix with the new translation unit. The exact original wording remains uncertain.",
+      "confidence": 0.56,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L127-L191",
+          "why": "Shows that the relocated function computes a direction-dependent correction and applies it exclusively as an incremental Z-axis rotation to a JObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:e6397279-4dc9-4bf1-a837-e729d8a235c7",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80020E38",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void lbBgFlash_80020E38(HSD_JObj* jobj, Vec3* dir, f32 max_angle, f32 min_angle, f32 unused)`. The two limit parameters are angular bounds in radians, and the fifth parameter is not consumed by the body.",
+      "rationale": "The relocated declaration supplies the exact parameter and return types. The first two floating-point arguments bound an angle passed to `MTXRotRad` and added to the JObj's rotation, while the final argument is unused.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L127-L191",
+          "why": "Provides the complete signature and establishes the bounds' use, radian rotation API, absent return value, and unused fifth argument."
+        }
+      ]
+    },
+    {
+      "id": "fact:9a864130-ba17-401f-b08c-63d46409474d",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80020E38",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Adjusts a JObj's local Z rotation toward a supplied direction while limiting the angular correction to asymmetric positive and negative bounds. It updates either the JObj's Euler Z angle or its quaternion, depending on the transform representation.",
+      "rationale": "The relocated function derives an angle with `atan2f` from the direction and JObj Z basis, clamps it between the supplied limits, and applies it about Z through separate Euler and quaternion branches.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L127-L191",
+          "why": "Shows direction validation, angle derivation, asymmetric clamping, and Euler or quaternion Z-rotation updates."
+        }
+      ]
+    },
+    {
+      "id": "fact:235169cd-de30-48c4-9dd0-db6743646423",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80020E38",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "No transform is changed when the supplied direction is zero or when the JObj's Z basis column has zero magnitude. Otherwise, the correction is capped at `max_angle` on the positive side and `-min_angle` on the negative side. Euler-backed JObjs receive an additive Z-angle update; quaternion-backed JObjs receive a matrix-concatenated Z rotation and are marked dirty before the final matrix rebuild.",
+      "rationale": "The relocated body explicitly contains both no-op guards, both clamps, the representation branch, quaternion dirty marking, and matrix reconstruction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L127-L191",
+          "why": "Shows both guards, asymmetric bounds, Euler and quaternion update paths, dirty marking, and final matrix setup."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_020A:lbBgFlash_80021410": [
+    {
+      "id": "fact:f20da83b-f1e4-4579-9728-ada9eb5e384a",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80021410",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies two proximal leg JObjs, current chain positions, a distal-chain position, a nominal endpoint, a floor-adjusted endpoint, and scaled segment lengths through an IKState. The solver derives a normalized plane normal from `jobj1`'s world-matrix Z column and projects `pos0`, `pos1`, and `pos4` onto that plane. It measures current joint angles and chain distances, constrains the requested reach, computes two target angles, subtracts the current angles, and sends the corrections with the shared axis to `fn_8002113C` for `jobj0` and `jobj1`.",
+      "rationale": "The current fighter caller establishes the origins of the IKState fields and floor-adjusted target, while the relocated solver shows their transformation into two joint-rotation outputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_0899.c#L70-L189",
+          "why": "Shows character configuration, model scale, joint positions, and floor adjustment producing the IKState passed to the solver."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L244-L363",
+          "why": "Shows matrix-axis extraction, planar projection, current-angle calculation, and initial distance measurements."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L364-L429",
+          "why": "Shows final length processing, target-angle calculation, current-angle subtraction, and the two rotation calls."
+        }
+      ]
+    },
+    {
+      "id": "fact:de51be2f-2d67-4f72-aa6b-f14ac88f9ed4",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80021410",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the two-segment leg solve used by Melee's terrain-conforming fighter pose: after fighter code moves an enabled foot target toward the collision floor, this routine bends the corresponding proximal and intermediate joints so the leg reaches that target while retaining a small bend near full extension.",
+      "rationale": "The fighter caller constructs a chain from character-specific leg joints and scaled lengths, adjusts its endpoint against floor geometry, and invokes this solver independently for each enabled leg. The relocated solver performs the corresponding two-joint angular solution.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_0899.c#L70-L189",
+          "why": "Shows the function being invoked for each enabled fighter leg after its endpoint has been adjusted toward the floor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L364-L429",
+          "why": "Shows the two-segment angle solve, near-full-extension adjustment, and rotation of both leg-chain joints."
+        }
+      ]
+    },
+    {
+      "id": "fact:29a46757-b7ea-4c01-a037-a8ccbb94a7d8",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80021410",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void lbBgFlash_80021410(IKState* data)`. It mutates the supplied IKState in place, including projected chain positions and measured segment lengths, and updates the two referenced JObjs; it returns no status.",
+      "rationale": "The relocated definition now exposes `IKState*` directly rather than the former void-pointer interpretation. The fighter caller constructs an IKState, while the body mutates its position and length fields and applies rotations through its JObj fields.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L244-L363",
+          "why": "Provides the exact `IKState*` signature and shows in-place projection and length-field mutation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L364-L429",
+          "why": "Shows the second measured length being stored and both referenced JObjs being updated."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_0899.c#L70-L189",
+          "why": "Shows fighter code populating an IKState and passing it directly to this function for each enabled leg."
+        }
+      ]
+    },
+    {
+      "id": "fact:1256af8a-79f9-42bc-b262-6d199be66af4",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80021410",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Solves and applies a planar two-segment inverse-kinematics adjustment. It projects the chain and requested endpoint into the bend plane defined by the second joint's Z axis, compares the chain's current angles with a length-constrained triangle reaching that endpoint, and rotates the two articulated JObjs by the resulting angular corrections.",
+      "rationale": "The relocated implementation still extracts and normalizes the second JObj's Z basis, projects the relevant positions, measures the current chain geometry, derives replacement angles with the law of cosines, and applies corrections to both JObjs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L244-L363",
+          "why": "Shows bend-plane axis extraction, planar projection, current-angle measurement, and the first chain-length calculations in the relocated function."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L364-L429",
+          "why": "Shows remaining segment measurement, reach limiting, law-of-cosines solving, and application of corrections to both JObjs."
+        }
+      ]
+    },
+    {
+      "id": "fact:e53e4319-6ff7-419a-8d2b-011f7bd22e10",
+      "target_id": "target:function:main/melee/lb/lb_020A:lbBgFlash_80021410",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine owns no persistent mode or timer and completes one chain solution per call. Positive squared magnitudes are square-rooted through reciprocal-square-root refinement. If the projected root-to-target distance exceeds ten elevenths of the measured segment-length sum, a nonlinear limit reduces the effective reach before angle solving. Both law-of-cosines results are clamped to [-1, 1]. When the second solved angle is within 10 degrees of a fully straight configuration, it is blended toward a 170-degree floor before both joint corrections are applied.",
+      "rationale": "The relocated body preserves the magnitude guards, ten-elevenths threshold, reach-compression formula, cosine clamps, near-straight-angle branch, and unconditional final updates.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T03:28:09.694Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L244-L363",
+          "why": "Shows positive-magnitude handling and the current chain-angle and distance calculations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_020A.c#L364-L429",
+          "why": "Shows the ten-elevenths reach threshold, nonlinear reach adjustment, cosine clamps, near-straight-angle branch, and final joint updates."
+        }
+      ]
+    }
+  ],
+  "src/melee/lb/lb_020A.c": [],
+  "main/melee/lb/lb_020A:fn_80020AEC#r3": [],
+  "main/melee/lb/lb_020A:fn_80020AEC#r4": [],
+  "main/melee/lb/lb_020A:fn_8002113C#r3": [],
+  "main/melee/lb/lb_020A:fn_8002113C#r4": [],
+  "main/melee/lb/lb_020A:fn_8002113C#r5": [],
+  "main/melee/lb/lb_020A:lbBgFlash_80020E38#r3": [],
+  "main/melee/lb/lb_020A:lbBgFlash_80020E38#r4": [],
+  "main/melee/lb/lb_020A:lbBgFlash_80020E38#r5": [],
+  "main/melee/lb/lb_020A:lbBgFlash_80020E38#r6": [],
+  "main/melee/lb/lb_020A:lbBgFlash_80020E38#r7": [],
+  "main/melee/lb/lb_020A:lbBgFlash_80021410#r3": []
+}

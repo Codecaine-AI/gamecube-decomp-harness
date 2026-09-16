@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/it/kinds/itsword",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsword.c#L75-L209",
+            "why": "Exact state-dependent model formulas and strict interpolation comparisons."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsword.c#L348-L354",
+            "why": "Ordered shared update sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsword.c#L483-L487",
+            "why": "State-4 callback invokes that sequence and returns false."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing state-4 description's inclusion of x40 in the model output and its equality-based stopping implication while preserving the ordered update flow.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsword:itSword_UnkMotion4_Anim"
+        },
+        "type": "data_flow",
+        "value": "Forwards the state-4 Item_GObj through inlineA4 to it_80285084, it_80285140, it_802851FC, and it_80284E30, in that order. The first three helpers independently advance integer counters and floating-point scale values, clamping and clearing their steps only after strict target crossing. In state 4, the model writer computes scale_y = 0.3f * (x28 * (x4C * x10)), writes bone 6's Y scale, and sets bone 3 to (1, scale_y, 1). The third channel's x40 is advanced but contributes to model scaling only in state 2. The callback returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsword.c#L123-L150",
+            "why": "Both components use strict greater-than or less-than comparisons before clearing steps."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsword.c#L75-L96",
+            "why": "x10 feeds the model's longitudinal scale."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the consequential strict-overshoot rule explicit instead of saying a component stops as soon as its target is reached.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsword:it_80285084"
+        },
+        "type": "purpose",
+        "value": "Advances the Beam Sword's first blade-scale interpolator: adds the signed step to its integer progress counter and the signed delta to its floating-point scale factor, independently clamps either component after it strictly crosses its target, and clears only that component's step. Exact equality with a target does not stop a nonzero step. The resulting x10 multiplier is subsequently consumed by the model-scale writer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsword.c#L123-L150",
+            "why": "Complete update body establishes independent strict-crossing clamps and absence of state transitions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing signed-step mode description while correcting its claim that merely reaching the target enters the stopped mode.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsword:it_80285084"
+        },
+        "type": "state_behavior",
+        "value": "Each component advances according to its signed step: positive steps are clamped only when the updated value exceeds its target, negative steps only when it falls below the target, and zero steps perform no directional clamp. A strict crossing snaps that component to its target and clears its step independently of the other component. Landing exactly on the target leaves a nonzero step active for a later update. The helper does not change the item's motion state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itCommonItems.h#L38-L62",
+            "why": "Explicit integer and float field declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsword.c#L182-L209",
+            "why": "Exact signature and field reads/writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "The standing description incorrectly calls both triplets floating-point fields; canonical declarations identify the first as int.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itsword:it_802851FC"
+        },
+        "type": "inferred_type",
+        "value": "Sword item update helper with signature void (Item_GObj*). It advances an integer current/target/step triplet (x34/x38/x3C) and a floating-point current/target/delta triplet (x40/x44/x48) in Item.xDD4_itemVar.sword. It mutates current values and steps in place, reads the targets, and returns no completion status."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

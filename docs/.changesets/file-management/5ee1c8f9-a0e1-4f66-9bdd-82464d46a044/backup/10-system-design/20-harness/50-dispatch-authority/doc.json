@@ -1,0 +1,351 @@
+{
+  "schemaVersion": 1,
+  "id": "te-and-events-05-harness-state-and-authority-20-dispatch-authority-and-handoffs-doc-json-80756d60",
+  "title": "Dispatch Authority and Handoffs",
+  "root": "b-doc-root-9",
+  "blocks": {
+    "b-doc-root-9": {
+      "id": "b-doc-root-9",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-doc-the-dispatch-lease-is-th-1",
+        "b-doc-lease-shape-and-fencing-4",
+        "b-doc-a-dispatchlease-carries-5",
+        "b-struct-dispatch-lease",
+        "b-doc-lifecycle-6",
+        "b-struct-dispatch-lease-status",
+        "b-dispatch-operations-heading",
+        "b-dispatch-operations-surface",
+        "b-dispatch-sequence-heading",
+        "b-dispatch-handoff-sequence",
+        "b-doc-a-handoff-request-names-8"
+      ]
+    },
+    "b-doc-the-dispatch-lease-is-th-1": {
+      "id": "b-doc-the-dispatch-lease-is-th-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The dispatch lease is the sole authority to dispatch worker agents and mutate a workflow's allowed checkout surfaces. "
+        },
+        {
+          "insert": "Harness State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-harness/20-harness-state"
+            }
+          }
+        },
+        {
+          "insert": " owns the one-active-workflow-slot invariant; this page defines the fenced lease and its handoff operations."
+        }
+      ],
+      "children": []
+    },
+    "b-doc-lease-shape-and-fencing-4": {
+      "id": "b-doc-lease-shape-and-fencing-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Lease Shape and Fencing"
+        }
+      ],
+      "children": []
+    },
+    "b-doc-a-dispatchlease-carries-5": {
+      "id": "b-doc-a-dispatchlease-carries-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Every guarded dispatch or source-mutation command presents the current lease_id. Acquisition mints a fresh fence, so a stale actor from an earlier activation is refused even when it still knows the workflow identity."
+        }
+      ],
+      "children": []
+    },
+    "b-struct-dispatch-lease": {
+      "id": "b-struct-dispatch-lease",
+      "type": "state-shape",
+      "props": {
+        "description": "Fenced authority held by at most one run, PR, or sync workflow.",
+        "example": "{\n  \"kind\": \"run\",\n  \"workflow_id\": \"run-7\",\n  \"lease_id\": \"lease-run-7\",\n  \"status\": \"active\",\n  \"acquired_at\": \"2026-09-11T18:00:00Z\",\n  \"heartbeat_at\": \"2026-09-11T18:01:00Z\",\n  \"blockers\": [],\n  \"requested_handoff\": {\n    \"target_kind\": \"sync\",\n    \"target_workflow_id\": \"sync-13\",\n    \"reason\": \"Refresh upstream after current claims settle.\",\n    \"requested_at\": \"2026-09-11T18:01:00Z\",\n    \"requested_by\": \"operator\",\n    \"request_command_id\": \"command-sync-13\",\n    \"request_root_span_id\": \"span-22222222-2222-4222-8222-222222222222\",\n    \"request_event_id\": \"event-sync-request-13\"\n  }\n}",
+        "fields": [
+          {
+            "name": "kind",
+            "type": "\"run\" | \"pr\" | \"sync\""
+          },
+          {
+            "name": "workflow_id",
+            "type": "WorkflowId",
+            "description": "Owning domain workflow."
+          },
+          {
+            "name": "lease_id",
+            "type": "LeaseId",
+            "description": "Fencing token minted at acquisition; every worker-dispatch and source-mutation command must present the current lease id, so stale actors from a previous activation are refused."
+          },
+          {
+            "name": "status",
+            "type": "\"acquiring\" | \"active\" | \"blocked\" | \"releasing\""
+          },
+          {
+            "name": "acquired_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "heartbeat_at",
+            "type": "timestamp",
+            "description": "Liveness evidence used during recovery."
+          },
+          {
+            "name": "requested_handoff",
+            "type": "DispatchHandoffRequest",
+            "required": false,
+            "description": "Queued transition that begins after the current owner settles.",
+            "fields": [
+              {
+                "name": "target_kind",
+                "type": "\"run\" | \"pr\" | \"sync\""
+              },
+              {
+                "name": "target_workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "reason",
+                "type": "string"
+              },
+              {
+                "name": "requested_at",
+                "type": "timestamp"
+              },
+              {
+                "name": "requested_by",
+                "type": "EventActor",
+                "required": true
+              },
+              {
+                "name": "request_command_id",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "request_root_span_id",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "request_event_id",
+                "type": "string",
+                "required": true
+              }
+            ]
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]",
+            "description": "Reasons the owner cannot settle or release authority.",
+            "fields": [
+              {
+                "name": "code",
+                "type": "string"
+              },
+              {
+                "name": "message",
+                "type": "string"
+              },
+              {
+                "name": "source_kind",
+                "type": "string"
+              },
+              {
+                "name": "source_id",
+                "type": "string"
+              },
+              {
+                "name": "recoverable",
+                "type": "boolean"
+              }
+            ]
+          }
+        ],
+        "name": "DispatchLease",
+        "source": {
+          "path": "apps/server/src/core/harness-state/types.ts",
+          "symbol": "DispatchLease"
+        }
+      },
+      "children": []
+    },
+    "b-doc-lifecycle-6": {
+      "id": "b-doc-lifecycle-6",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Lease Status"
+        }
+      ],
+      "children": []
+    },
+    "b-struct-dispatch-lease-status": {
+      "id": "b-struct-dispatch-lease-status",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Status",
+          "Meaning",
+          "Stable invariant"
+        ],
+        "rows": [
+          [
+            "acquiring",
+            "The workflow is establishing authority and validating its start gates.",
+            "No domain worker has started."
+          ],
+          [
+            "active",
+            "The workflow owns dispatch and its allowed mutable resources.",
+            "Every guarded action carries the current lease id."
+          ],
+          [
+            "blocked",
+            "The workflow cannot settle or safely continue without recovery or operator action.",
+            "The lease remains owned; another workflow cannot start."
+          ],
+          [
+            "releasing",
+            "Final state and handoff evidence are being committed.",
+            "The next workflow cannot acquire authority until release is durable."
+          ]
+        ],
+        "title": "Dispatch lease status values"
+      },
+      "children": []
+    },
+    "b-dispatch-operations-heading": {
+      "id": "b-dispatch-operations-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Lease Operations"
+        }
+      ],
+      "children": []
+    },
+    "b-dispatch-operations-surface": {
+      "id": "b-dispatch-operations-surface",
+      "type": "interaction-surface",
+      "props": {
+        "operations": [
+          {
+            "name": "requestDispatch",
+            "description": "Acquire free authority or queue the workflow with causal request identity.",
+            "params": [
+              {
+                "name": "store",
+                "type": "StateStore"
+              },
+              {
+                "name": "input",
+                "type": "RequestDispatchInput",
+                "description": "TransitionContext plus kind, workflowId, reason, and optional handoffOnQueue."
+              }
+            ],
+            "returns": "RequestDispatchDecision"
+          },
+          {
+            "name": "releaseDispatch",
+            "description": "Verify the current lease, record release, and activate an eligible successor.",
+            "params": [
+              {
+                "name": "store",
+                "type": "StateStore"
+              },
+              {
+                "name": "input",
+                "type": "ReleaseDispatchInput",
+                "description": "TransitionContext plus leaseId and optional handoffSnapshotId."
+              }
+            ],
+            "returns": "DispatchState"
+          },
+          {
+            "name": "recoverDispatch",
+            "description": "Recover authority after reconciliation and cancellation evidence.",
+            "params": [
+              {
+                "name": "store",
+                "type": "StateStore"
+              },
+              {
+                "name": "input",
+                "type": "RecoverDispatchInput",
+                "description": "TransitionContext plus leaseId, recoveryReason, and cancelledSubjectIds."
+              }
+            ],
+            "returns": "DispatchRecoveryResult"
+          }
+        ],
+        "title": "Dispatch authority operations"
+      },
+      "children": []
+    },
+    "b-dispatch-sequence-heading": {
+      "id": "b-dispatch-sequence-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Acquire, Stop, Release, Succeed"
+        }
+      ],
+      "children": []
+    },
+    "b-dispatch-handoff-sequence": {
+      "id": "b-dispatch-handoff-sequence",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/dispatch-handoff.sequence.json",
+        "title": "Dispatch lease handoff"
+      },
+      "children": []
+    },
+    "b-doc-a-handoff-request-names-8": {
+      "id": "b-doc-a-handoff-request-names-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Background-safe evidence ingestion stays outside this lease because it dispatches no agents and mutates no checkout surface. "
+        },
+        {
+          "insert": "Dispatch, Harness, and Replay",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/60-tracing/30-dispatch-and-replay"
+            }
+          }
+        },
+        {
+          "insert": " owns the accepted handoff evidence and recovery trace."
+        }
+      ],
+      "children": []
+    }
+  }
+}

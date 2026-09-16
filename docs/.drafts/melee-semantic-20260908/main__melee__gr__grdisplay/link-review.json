@@ -1,0 +1,303 @@
+{
+  "reviewer": "/root/review_gate/lb_small_review",
+  "tu": "main/melee/gr/grdisplay",
+  "revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "status": "independent_link_review_complete",
+  "baseline_sha256": "f42ef06367161f92da0a4e4070aa525f927c861ef23d103d578f997894b8ffe0",
+  "ledger_sha256": "6e128aa0becc9feb396dfdd1b9e5f31c5afc19c8263e082691e5dc5d87f434b8",
+  "expected_links": 9,
+  "reviewed_links": 9,
+  "counts": {
+    "retain": 9
+  },
+  "links": [
+    {
+      "id": "link:6b09472c-8a57-4a6b-b36e-34ad6bacfdc9",
+      "record": {
+        "id": "link:6b09472c-8a57-4a6b-b36e-34ad6bacfdc9",
+        "from_target_id": "target:function:main/melee/gr/grdisplay:grDisplay_801C5B90",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:rendering/fighter-projected-shadows",
+        "role": "implements",
+        "why": "The function computes stage- and position-dependent shadow eligibility for every fighter and updates the suppression state consumed by the projected-shadow renderer.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gr/grdisplay.c#L25-L74",
+        "digest": "sha256:36d4ed12058072ef"
+      },
+      "updated_at": null,
+      "version": null,
+      "version_note": "Frozen link row provides neither updated_at nor version.",
+      "disposition": "retain",
+      "reason": "Pinned local operations and reviewed within-unit relationships support the stated relation. Returns on null root. Visible instance nodes prepare matrices, compute inverse-concatenated child/instance transform, prefix the current camera view and recurse. The child is dereferenced after only a conditional dirty check, so visible instances require a child. Ordinary nodes draw when flags<<18 overlaps their flags, first setting each fighter shadow bit4 to the inverse of camera override OR stage callback result, then updating shadows and drawing. Independent flags<<28 overlap recurses across children. Only the instance path explicitly checks HIDDEN; shadow pointers and stage callback are unguarded.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L21-L70",
+          "why": "Returns on null root. Visible instance nodes prepare matrices, compute inverse-concatenated child/instance transform, prefix the current camera view and recurse. The child is dereferenced after only a conditional dirty check, so visible instances require a child. Ordinary nodes draw when flags<<18 overlaps their flags, first setting each fighter shadow bit4 to the inverse of camera override OR stage callback result, then updating shadows and drawing. Independent flags<<28 overlap recurses across children. Only the instance path explicitly checks HIDDEN; shadow pointers and stage callback are unguarded."
+        }
+      ]
+    },
+    {
+      "id": "link:8676f641-7b21-4ed4-b38b-adce9eb20401",
+      "record": {
+        "id": "link:8676f641-7b21-4ed4-b38b-adce9eb20401",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/gr/grdisplay.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:rendering/fighter-projected-shadows",
+        "role": "implements",
+        "why": "The translation unit coordinates the ground renderer's stage callback with per-fighter LbShadow state and invokes the shared shadow update before stage geometry display.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gr/grdisplay.c#L1-L157",
+        "digest": "sha256:486a57613007e818"
+      },
+      "updated_at": null,
+      "version": null,
+      "version_note": "Frozen link row provides neither updated_at nor version.",
+      "disposition": "retain",
+      "reason": "Pinned local operations and reviewed within-unit relationships support the stated relation. Coordinates Ground rendering with camera selection, fighter shadow filtering and conditional stage-fog restoration. A separate camera callback activates a CObj, installs priority mask 8 and camera group 0, dispatches mask 7 and ends that camera. Exact foreign pass dispatch and deferred-draw semantics require family evidence.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L21-L70",
+          "why": "Returns on null root. Visible instance nodes prepare matrices, compute inverse-concatenated child/instance transform, prefix the current camera view and recurse. The child is dereferenced after only a conditional dirty check, so visible instances require a child. Ordinary nodes draw when flags<<18 overlaps their flags, first setting each fighter shadow bit4 to the inverse of camera override OR stage callback result, then updating shadows and drawing. Independent flags<<28 overlap recurses across children. Only the instance path explicitly checks HIDDEN; shadow pointers and stage callback are unguarded."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L72-L142",
+          "why": "Requires Ground selector equal to Camera_8003108C. Associated-camera payload mismatch requires flag b3, camera GObj/CObj and current-CObj equality; absent association can be rejected by Ground_801C2C8C. Requires Camera_80030A78 false and Camera_80030AC4 true. Flag b2 clear disables fog, then all graphics state is invalidated. Flag b5 selects recursive shadow-aware draw with converted code; otherwise every fighter shadow bit4 is cleared and individually updated before standard JObj callback. After drawing, restores the stage fog only if b2 clear, the camera predicate still false, stage fog enabled and fog GObj/payload nonnull. It does not preserve arbitrary previous fog or restore fighter shadow flags."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L144-L153",
+          "why": "Obtains the attached CObj and calls HSD_CObjSetCurrent. On success overwrites gxlink_prios with 8, calls Camera_800310A0(0), dispatches HSD_GObj_80390ED0(gobj,7) and ends the current CObj. On false does none of these subsequent operations. Incoming code is unused; priority mask and camera group are not restored locally."
+        }
+      ]
+    },
+    {
+      "id": "link:441e0847-ae24-4879-8966-c6b90bee8ae8",
+      "record": {
+        "id": "link:441e0847-ae24-4879-8966-c6b90bee8ae8",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/gr/grdisplay.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stage-object-rendering",
+        "role": "implements",
+        "why": "The translation unit contains the common routines that traverse stage JObjs, gate Ground GObjs by camera state, and execute their render callbacks.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gr/grdisplay.c#L1-L157",
+        "digest": "sha256:486a57613007e818"
+      },
+      "updated_at": null,
+      "version": null,
+      "version_note": "Frozen link row provides neither updated_at nor version.",
+      "disposition": "retain",
+      "reason": "Pinned local operations and reviewed within-unit relationships support the stated relation. Coordinates Ground rendering with camera selection, fighter shadow filtering and conditional stage-fog restoration. A separate camera callback activates a CObj, installs priority mask 8 and camera group 0, dispatches mask 7 and ends that camera. Exact foreign pass dispatch and deferred-draw semantics require family evidence.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L21-L70",
+          "why": "Returns on null root. Visible instance nodes prepare matrices, compute inverse-concatenated child/instance transform, prefix the current camera view and recurse. The child is dereferenced after only a conditional dirty check, so visible instances require a child. Ordinary nodes draw when flags<<18 overlaps their flags, first setting each fighter shadow bit4 to the inverse of camera override OR stage callback result, then updating shadows and drawing. Independent flags<<28 overlap recurses across children. Only the instance path explicitly checks HIDDEN; shadow pointers and stage callback are unguarded."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L72-L142",
+          "why": "Requires Ground selector equal to Camera_8003108C. Associated-camera payload mismatch requires flag b3, camera GObj/CObj and current-CObj equality; absent association can be rejected by Ground_801C2C8C. Requires Camera_80030A78 false and Camera_80030AC4 true. Flag b2 clear disables fog, then all graphics state is invalidated. Flag b5 selects recursive shadow-aware draw with converted code; otherwise every fighter shadow bit4 is cleared and individually updated before standard JObj callback. After drawing, restores the stage fog only if b2 clear, the camera predicate still false, stage fog enabled and fog GObj/payload nonnull. It does not preserve arbitrary previous fog or restore fighter shadow flags."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L144-L153",
+          "why": "Obtains the attached CObj and calls HSD_CObjSetCurrent. On success overwrites gxlink_prios with 8, calls Camera_800310A0(0), dispatches HSD_GObj_80390ED0(gobj,7) and ends the current CObj. On false does none of these subsequent operations. Incoming code is unused; priority mask and camera group are not restored locally."
+        }
+      ]
+    },
+    {
+      "id": "link:62a0f599-3808-4b1d-89f9-a5f7490ce60c",
+      "record": {
+        "id": "link:62a0f599-3808-4b1d-89f9-a5f7490ce60c",
+        "from_target_id": "target:function:main/melee/gr/grdisplay:grDisplay_801C5DB0",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stage-object-rendering",
+        "role": "implements",
+        "why": "The function applies camera and render-phase eligibility checks and then dispatches the supplied Ground GObj's JObj display path.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gr/grdisplay.c#L76-L146",
+        "digest": "sha256:bc6b2388a38e0a43"
+      },
+      "updated_at": null,
+      "version": null,
+      "version_note": "Frozen link row provides neither updated_at nor version.",
+      "disposition": "retain",
+      "reason": "Pinned local operations and reviewed within-unit relationships support the stated relation. Requires Ground selector equal to Camera_8003108C. Associated-camera payload mismatch requires flag b3, camera GObj/CObj and current-CObj equality; absent association can be rejected by Ground_801C2C8C. Requires Camera_80030A78 false and Camera_80030AC4 true. Flag b2 clear disables fog, then all graphics state is invalidated. Flag b5 selects recursive shadow-aware draw with converted code; otherwise every fighter shadow bit4 is cleared and individually updated before standard JObj callback. After drawing, restores the stage fog only if b2 clear, the camera predicate still false, stage fog enabled and fog GObj/payload nonnull. It does not preserve arbitrary previous fog or restore fighter shadow flags.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L72-L142",
+          "why": "Requires Ground selector equal to Camera_8003108C. Associated-camera payload mismatch requires flag b3, camera GObj/CObj and current-CObj equality; absent association can be rejected by Ground_801C2C8C. Requires Camera_80030A78 false and Camera_80030AC4 true. Flag b2 clear disables fog, then all graphics state is invalidated. Flag b5 selects recursive shadow-aware draw with converted code; otherwise every fighter shadow bit4 is cleared and individually updated before standard JObj callback. After drawing, restores the stage fog only if b2 clear, the camera predicate still false, stage fog enabled and fog GObj/payload nonnull. It does not preserve arbitrary previous fog or restore fighter shadow flags."
+        }
+      ]
+    },
+    {
+      "id": "link:61d22eee-a6f5-4f4a-b66c-b0ce8bd11258",
+      "record": {
+        "id": "link:61d22eee-a6f5-4f4a-b66c-b0ce8bd11258",
+        "from_target_id": "target:function:main/melee/gr/grdisplay:grDisplay_801C5DB0",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stage-fog-rendering",
+        "role": "implements",
+        "why": "The callback temporarily installs a null fog before drawing and conditionally retrieves and reapplies the Ground subsystem's stored fog object afterward.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gr/grdisplay.c#L76-L146",
+        "digest": "sha256:bc6b2388a38e0a43"
+      },
+      "updated_at": null,
+      "version": null,
+      "version_note": "Frozen link row provides neither updated_at nor version.",
+      "disposition": "retain",
+      "reason": "Pinned local operations and reviewed within-unit relationships support the stated relation. Requires Ground selector equal to Camera_8003108C. Associated-camera payload mismatch requires flag b3, camera GObj/CObj and current-CObj equality; absent association can be rejected by Ground_801C2C8C. Requires Camera_80030A78 false and Camera_80030AC4 true. Flag b2 clear disables fog, then all graphics state is invalidated. Flag b5 selects recursive shadow-aware draw with converted code; otherwise every fighter shadow bit4 is cleared and individually updated before standard JObj callback. After drawing, restores the stage fog only if b2 clear, the camera predicate still false, stage fog enabled and fog GObj/payload nonnull. It does not preserve arbitrary previous fog or restore fighter shadow flags.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L72-L142",
+          "why": "Requires Ground selector equal to Camera_8003108C. Associated-camera payload mismatch requires flag b3, camera GObj/CObj and current-CObj equality; absent association can be rejected by Ground_801C2C8C. Requires Camera_80030A78 false and Camera_80030AC4 true. Flag b2 clear disables fog, then all graphics state is invalidated. Flag b5 selects recursive shadow-aware draw with converted code; otherwise every fighter shadow bit4 is cleared and individually updated before standard JObj callback. After drawing, restores the stage fog only if b2 clear, the camera predicate still false, stage fog enabled and fog GObj/payload nonnull. It does not preserve arbitrary previous fog or restore fighter shadow flags."
+        }
+      ]
+    },
+    {
+      "id": "link:e90babba-5f17-49b5-87b2-85eb93aa5e5e",
+      "record": {
+        "id": "link:e90babba-5f17-49b5-87b2-85eb93aa5e5e",
+        "from_target_id": "target:function:main/melee/gr/grdisplay:grDisplay_801C5DB0",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:shadow-rendering",
+        "role": "implements",
+        "why": "Before the standard Ground-object draw, the callback traverses every fighter, clears a per-fighter shadow-control bit, and invokes the fighter shadow update routine.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gr/grdisplay.c#L121-L157",
+        "digest": "sha256:19a757333a057e54"
+      },
+      "updated_at": null,
+      "version": null,
+      "version_note": "Frozen link row provides neither updated_at nor version.",
+      "disposition": "retain",
+      "reason": "Pinned local operations and reviewed within-unit relationships support the stated relation. Requires Ground selector equal to Camera_8003108C. Associated-camera payload mismatch requires flag b3, camera GObj/CObj and current-CObj equality; absent association can be rejected by Ground_801C2C8C. Requires Camera_80030A78 false and Camera_80030AC4 true. Flag b2 clear disables fog, then all graphics state is invalidated. Flag b5 selects recursive shadow-aware draw with converted code; otherwise every fighter shadow bit4 is cleared and individually updated before standard JObj callback. After drawing, restores the stage fog only if b2 clear, the camera predicate still false, stage fog enabled and fog GObj/payload nonnull. It does not preserve arbitrary previous fog or restore fighter shadow flags.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L72-L142",
+          "why": "Requires Ground selector equal to Camera_8003108C. Associated-camera payload mismatch requires flag b3, camera GObj/CObj and current-CObj equality; absent association can be rejected by Ground_801C2C8C. Requires Camera_80030A78 false and Camera_80030AC4 true. Flag b2 clear disables fog, then all graphics state is invalidated. Flag b5 selects recursive shadow-aware draw with converted code; otherwise every fighter shadow bit4 is cleared and individually updated before standard JObj callback. After drawing, restores the stage fog only if b2 clear, the camera predicate still false, stage fog enabled and fog GObj/payload nonnull. It does not preserve arbitrary previous fog or restore fighter shadow flags."
+        }
+      ]
+    },
+    {
+      "id": "link:5a732edd-6fd4-4689-97af-2c0ae7b4eb49",
+      "record": {
+        "id": "link:5a732edd-6fd4-4689-97af-2c0ae7b4eb49",
+        "from_target_id": "target:function:main/melee/gr/grdisplay:grDisplay_801C5F60",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:rendering/game-object-render-priority-ordering",
+        "role": "uses",
+        "why": "The callback sets gxlink_prios to bit 3 and invokes the masked GObj dispatcher, thereby selecting one indexed GX-link rendering group for three callback passes.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gr/grdisplay.c#L121-L157",
+        "digest": "sha256:19a757333a057e54"
+      },
+      "updated_at": null,
+      "version": null,
+      "version_note": "Frozen link row provides neither updated_at nor version.",
+      "disposition": "retain",
+      "reason": "Independent foreign dispatcher review resolves owner gap: gxlink_prios 8 selects index3; mask7 invokes passes0,1,2 along that list.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L144-L153",
+          "why": "Obtains the attached CObj and calls HSD_CObjSetCurrent. On success overwrites gxlink_prios with 8, calls Camera_800310A0(0), dispatches HSD_GObj_80390ED0(gobj,7) and ends the current CObj. On false does none of these subsequent operations. Incoming code is unused; priority mask and camera group are not restored locally."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L157-L183",
+          "why": "Independent foreign dispatcher review resolves owner gap: gxlink_prios 8 selects index3; mask7 invokes passes0,1,2 along that list."
+        }
+      ],
+      "owner_disposition": "unresolved"
+    },
+    {
+      "id": "link:2192ac54-2b52-4eaf-a100-b780a93c8835",
+      "record": {
+        "id": "link:2192ac54-2b52-4eaf-a100-b780a93c8835",
+        "from_target_id": "target:function:main/melee/gr/grdisplay:grDisplay_801C5F60",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stage-object-rendering",
+        "role": "implements",
+        "why": "Within the Ground display unit, the function establishes the camera context, dispatches the selected stage-scene rendering group, and finalizes the resulting deferred draw work.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gr/grdisplay.c#L121-L157",
+        "digest": "sha256:19a757333a057e54"
+      },
+      "updated_at": null,
+      "version": null,
+      "version_note": "Frozen link row provides neither updated_at nor version.",
+      "disposition": "retain",
+      "reason": "Independent EndCurrent implementation calls ZListSort then ZListDisp, resolving deferred draw finalization gap.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L144-L153",
+          "why": "Obtains the attached CObj and calls HSD_CObjSetCurrent. On success overwrites gxlink_prios with 8, calls Camera_800310A0(0), dispatches HSD_GObj_80390ED0(gobj,7) and ends the current CObj. On false does none of these subsequent operations. Incoming code is unused; priority mask and camera group are not restored locally."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L521-L525",
+          "why": "Independent EndCurrent implementation calls ZListSort then ZListDisp, resolving deferred draw finalization gap."
+        }
+      ],
+      "owner_disposition": "unresolved"
+    },
+    {
+      "id": "link:17dc2c99-a166-45ce-a965-c8a535b369cc",
+      "record": {
+        "id": "link:17dc2c99-a166-45ce-a965-c8a535b369cc",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/gr/grdisplay.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:stage-fog-rendering",
+        "role": "implements",
+        "why": "The common Ground display callback conditionally removes fog before drawing a stage object and retrieves and reinstalls the Ground subsystem's fog object afterward when stage fog is enabled.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/gr/grdisplay.c#L76-L146",
+        "digest": "sha256:bc6b2388a38e0a43"
+      },
+      "updated_at": null,
+      "version": null,
+      "version_note": "Frozen link row provides neither updated_at nor version.",
+      "disposition": "retain",
+      "reason": "Pinned local operations and reviewed within-unit relationships support the stated relation. Coordinates Ground rendering with camera selection, fighter shadow filtering and conditional stage-fog restoration. A separate camera callback activates a CObj, installs priority mask 8 and camera group 0, dispatches mask 7 and ends that camera. Exact foreign pass dispatch and deferred-draw semantics require family evidence.",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L21-L70",
+          "why": "Returns on null root. Visible instance nodes prepare matrices, compute inverse-concatenated child/instance transform, prefix the current camera view and recurse. The child is dereferenced after only a conditional dirty check, so visible instances require a child. Ordinary nodes draw when flags<<18 overlaps their flags, first setting each fighter shadow bit4 to the inverse of camera override OR stage callback result, then updating shadows and drawing. Independent flags<<28 overlap recurses across children. Only the instance path explicitly checks HIDDEN; shadow pointers and stage callback are unguarded."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L72-L142",
+          "why": "Requires Ground selector equal to Camera_8003108C. Associated-camera payload mismatch requires flag b3, camera GObj/CObj and current-CObj equality; absent association can be rejected by Ground_801C2C8C. Requires Camera_80030A78 false and Camera_80030AC4 true. Flag b2 clear disables fog, then all graphics state is invalidated. Flag b5 selects recursive shadow-aware draw with converted code; otherwise every fighter shadow bit4 is cleared and individually updated before standard JObj callback. After drawing, restores the stage fog only if b2 clear, the camera predicate still false, stage fog enabled and fog GObj/payload nonnull. It does not preserve arbitrary previous fog or restore fighter shadow flags."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grdisplay.c#L144-L153",
+          "why": "Obtains the attached CObj and calls HSD_CObjSetCurrent. On success overwrites gxlink_prios with 8, calls Camera_800310A0(0), dispatches HSD_GObj_80390ED0(gobj,7) and ends the current CObj. On false does none of these subsequent operations. Incoming code is unused; priority mask and camera group are not restored locally."
+        }
+      ]
+    }
+  ],
+  "review": "All exact outgoing records reviewed. Two owner-unresolved edges independently resolved with foreign dispatcher and camera-finalization implementation. Existing fact review unchanged.",
+  "kb_applied": false
+}

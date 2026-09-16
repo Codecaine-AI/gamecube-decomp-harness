@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "id": "epoch-sync-handoff",
+  "title": "Epoch Completion to Next Admission",
+  "style": {},
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Harness",
+      "kind": "participant"
+    },
+    {
+      "id": "p2",
+      "name": "Run",
+      "kind": "participant"
+    },
+    {
+      "id": "p3",
+      "name": "Sync",
+      "kind": "participant",
+      "label": "Epoch Sync pipeline"
+    },
+    {
+      "id": "p4",
+      "name": "Evidence",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "Run epoch from accepted head"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p2",
+      "to": "p2",
+      "line": "sync",
+      "text": "Settle claims and integration"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "p2",
+      "to": "p4",
+      "line": "sync",
+      "text": "Record epoch evidence and save point"
+    },
+    {
+      "kind": "message",
+      "id": "m4",
+      "from": "p4",
+      "to": "p2",
+      "line": "return",
+      "text": "Evidence accepted"
+    },
+    {
+      "kind": "message",
+      "id": "m5",
+      "from": "p2",
+      "to": "p3",
+      "line": "sync",
+      "text": "Run Sync under existing fenced Run lease"
+    },
+    {
+      "kind": "message",
+      "id": "m6",
+      "from": "p3",
+      "to": "p3",
+      "line": "sync",
+      "text": "Refresh sources and reconcile upstream"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "Validation and required intake succeed",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m7",
+              "from": "p3",
+              "to": "p4",
+              "line": "sync",
+              "text": "Persist Sync boundary and post-sync evidence"
+            },
+            {
+              "kind": "message",
+              "id": "m8",
+              "from": "p4",
+              "to": "p3",
+              "line": "return",
+              "text": "Evidence accepted"
+            },
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p3",
+              "to": "p2",
+              "line": "return",
+              "text": "Return accepted head and Sync boundary identity"
+            },
+            {
+              "kind": "fragment",
+              "id": "f2",
+              "op": "alt",
+              "operands": [
+                {
+                  "guard": "Run requested and all gates ready",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "m10",
+                      "from": "p2",
+                      "to": "p2",
+                      "line": "sync",
+                      "text": "Refresh report and board; admit next epoch"
+                    }
+                  ]
+                },
+                {
+                  "guard": "Paused",
+                  "items": [
+                    {
+                      "kind": "note",
+                      "id": "n1",
+                      "anchor": "p2",
+                      "side": "over",
+                      "text": "Paused: no new claims"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "guard": "Conflict, validation, intake, or evidence failure",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m11",
+              "from": "p3",
+              "to": "p1",
+              "line": "sync",
+              "text": "Persist blocker and recovery position"
+            },
+            {
+              "kind": "note",
+              "id": "n2",
+              "anchor": "p1",
+              "side": "over",
+              "text": "Readiness blocks Run"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

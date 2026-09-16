@@ -106,8 +106,9 @@ GOLDEN_CASES = [
 
 
 @pytest.mark.parametrize("fixture,rule_id,file,line_range", GOLDEN_CASES)
-def test_golden_fixture_hard_fails(melee_checkout, fixture, rule_id, file, line_range):
-    exit_code, payload = run_scan_diff(melee_checkout, fixture)
+def test_golden_fixture_hard_fails(melee_checkout, historical_ownership_checkout, fixture, rule_id, file, line_range):
+    repo = historical_ownership_checkout if rule_id == "extern_own_tu_data" else melee_checkout
+    exit_code, payload = run_scan_diff(repo, fixture)
     assert exit_code == 1, f"expected gate failure, got {exit_code}: {payload['counts']}"
     assert payload["status"] == "failed"
     matches = [
@@ -236,12 +237,12 @@ def test_same_tu_function_extern_in_c_hard_fails_ref_scan(tmp_path: Path):
     assert "Externs in .c files are not allowed" in matches[0]["message"]
 
 
-def test_ftcoll_forward_decl_externs_now_hard_fail(melee_checkout):
+def test_ftcoll_forward_decl_externs_now_hard_fail(historical_ownership_checkout):
     """#2655 ftcoll.c: extern forward decls of data the TU itself owns were
     the previously accepted style; under the strict policy every extern in a
     .c file is an error, with the TU-ownership repair message."""
 
-    exit_code, payload = run_scan_diff(melee_checkout, "sdata2_decl_ftcoll.patch")
+    exit_code, payload = run_scan_diff(historical_ownership_checkout, "sdata2_decl_ftcoll.patch")
     assert exit_code == 1
     externs = [
         f for f in payload["findings"]
@@ -255,12 +256,12 @@ def test_ftcoll_forward_decl_externs_now_hard_fail(melee_checkout):
         assert "dataless TU" in finding["message"]
 
 
-def test_gm1832_extern_own_tu_data_detail(melee_checkout):
+def test_gm1832_extern_own_tu_data_detail(historical_ownership_checkout):
     """Both gm_1832 extern cheats (the invented lbl_804DA60C anchor and the
     dangling lbl_804DA5C8 self-TU extern) are metadata-proven ownership
     errors with the full split-repair vectors."""
 
-    exit_code, payload = run_scan_diff(melee_checkout, "extern_f32_gm1832.patch")
+    exit_code, payload = run_scan_diff(historical_ownership_checkout, "extern_f32_gm1832.patch")
     assert exit_code == 1
     externs = {
         f["detail"]["symbol"]: f
@@ -925,3 +926,83 @@ def test_extern_in_c_forward_decl_of_same_tu_data(tmp_path: Path):
     assert finding["detail"]["symbol_existed_in_base"] is True
     assert "Externs in .c files are not allowed" in finding["message"]
     assert "reorder/restructure" in finding["message"]
+
+
+# ---------------------------------------------------------------------------
+# post_file_text / pre_file_text resolution (--post-tree / --pre-tree).
+# ---------------------------------------------------------------------------
+
+
+def _capture_hunk_texts(monkeypatch, scan_diff_module):
+    seen: list[dict] = []
+    original = scan_diff_module._qa_rules.run_rules_on_hunk
+
+    def spy(rules, hunk, skip_path_filter=False, surface=None):
+        seen.append({"file": hunk.get("file"), "post": hunk.get("post_file_text"), "pre": hunk.get("pre_file_text")})
+        return original(rules, hunk, skip_path_filter=skip_path_filter, surface=surface)
+
+    monkeypatch.setattr(scan_diff_module._qa_rules, "run_rules_on_hunk", spy)
+    return seen
+
+
+def test_post_tree_populates_post_file_text_in_diff_mode(tmp_path: Path, monkeypatch):
+    import scan_diff
+
+    diff_text = (
+        "diff --git a/src/Enemy/probe.cpp b/src/Enemy/probe.cpp\n"
+        "--- a/src/Enemy/probe.cpp\n"
+        "+++ b/src/Enemy/probe.cpp\n"
+        "@@ -1,2 +1,3 @@\n"
+        " void f() {\n"
+        "+    int added = 1;\n"
+        " }\n"
+    )
+    file_diffs = scan_diff.parse_unified_diff(diff_text)
+    repo = tmp_path / "repo"
+    (repo / "src" / "Enemy").mkdir(parents=True)
+    (repo / "src" / "Enemy" / "probe.cpp").write_text("REPO VERSION\n")
+    post_tree = tmp_path / "attempt-3.qa_current"
+    (post_tree / "src" / "Enemy").mkdir(parents=True)
+    (post_tree / "src" / "Enemy" / "probe.cpp").write_text("void f() {\n    int added = 1;\n}\n")
+    pre_tree = tmp_path / "attempt-3.qa_base"
+    (pre_tree / "src" / "Enemy").mkdir(parents=True)
+    (pre_tree / "src" / "Enemy" / "probe.cpp").write_text("void f() {\n}\n")
+
+    seen = _capture_hunk_texts(monkeypatch, scan_diff)
+    scan_diff.collect_findings(file_diffs, repo, "diff", None, post_tree=post_tree, pre_tree=pre_tree)
+    assert seen and seen[0]["post"] == "void f() {\n    int added = 1;\n}\n"
+    assert seen[0]["pre"] == "void f() {\n}\n"
+
+    # Without --post-tree the repo file is used when present.
+    seen.clear()
+    scan_diff.collect_findings(file_diffs, repo, "diff", None)
+    assert seen and seen[0]["post"] == "REPO VERSION\n"
+    assert seen[0]["pre"] is None
+
+    # No repo file and no --post-tree: post_file_text stays None.
+    seen.clear()
+    scan_diff.collect_findings(file_diffs, tmp_path / "empty", "diff", None)
+    assert seen and seen[0]["post"] is None
+
+
+def test_post_tree_cli_flag_is_accepted_and_validated(tmp_path: Path):
+    diff_path = tmp_path / "probe.diff"
+    diff_path.write_text(
+        "diff --git a/src/Enemy/probe.cpp b/src/Enemy/probe.cpp\n"
+        "--- a/src/Enemy/probe.cpp\n"
+        "+++ b/src/Enemy/probe.cpp\n"
+        "@@ -0,0 +1,1 @@\n"
+        "+    volatile u32 tactic;\n"
+    )
+    post_tree = tmp_path / "attempt-1.qa_current"
+    (post_tree / "src" / "Enemy").mkdir(parents=True)
+    (post_tree / "src" / "Enemy" / "probe.cpp").write_text("void f() {\n    volatile u32 tactic;\n}\n")
+    env = {k: v for k, v in os.environ.items() if k != "REVIEW_LINT_BANNED_DIR"}
+    base_cmd = ["python3", str(SCAN_DIFF), "--repo", str(tmp_path), "--diff-file", str(diff_path), "--json"]
+    result = subprocess.run([*base_cmd, "--post-tree", str(post_tree)], capture_output=True, text=True, env=env)
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert "volatile_local_tactic" in [f["rule_id"] for f in payload["findings"]]
+    missing = subprocess.run([*base_cmd, "--post-tree", str(tmp_path / "nope")], capture_output=True, text=True, env=env)
+    assert missing.returncode == 3
+    assert "--post-tree directory not found" in missing.stderr

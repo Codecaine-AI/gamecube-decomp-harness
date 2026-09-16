@@ -1,3 +1,5 @@
+import { isGameBuildCommand, remoteBuildsEnabled, runBuildCommand } from "@server/core/validation/build/execution.js";
+
 export interface CommandResult {
   exitCode: number;
   stdout: string;
@@ -10,6 +12,7 @@ export interface RunCommandOptions {
 }
 
 export async function runCommand(repoRoot: string, command: string[], options: RunCommandOptions = {}): Promise<CommandResult> {
+  if (remoteBuildsEnabled() && isGameBuildCommand(command)) return runBuildCommand(repoRoot, command, options);
   let timedOut = false;
   const timeoutArmed = Boolean(options.timeoutMs && options.timeoutMs > 0);
   // Detach only when a timeout can fire: the kill must reach the whole process
@@ -59,6 +62,13 @@ export async function runCommandStreaming(
   command: string[],
   onOutput: (chunk: string, stream: "stdout" | "stderr") => void,
 ): Promise<CommandResult> {
+  if (remoteBuildsEnabled() && isGameBuildCommand(command)) {
+    onOutput("Starting game build in Daytona\n", "stderr");
+    const result = await runBuildCommand(repoRoot, command);
+    if (result.stdout) onOutput(result.stdout, "stdout");
+    if (result.stderr) onOutput(result.stderr, "stderr");
+    return result;
+  }
   const proc = Bun.spawn(command, {
     cwd: repoRoot,
     stdout: "pipe",

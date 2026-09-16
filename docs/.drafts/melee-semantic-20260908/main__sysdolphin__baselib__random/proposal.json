@@ -1,0 +1,199 @@
+{
+  "tu": "main/sysdolphin/baselib/random",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/random:HSD_Rand"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Advances the selected u32 state by state * 214013 + 2531011 modulo 2^32 and returns its upper 16 bits as a nonnegative s32.",
+        "rationale": "Fresh canonical source and header review of the complete owned TU.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L6-L10",
+            "why": "Unsigned state update followed by upper-half extraction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/random:HSD_Randf"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Advances the same selected state once and returns its upper 16 bits divided by 65536 as f32, yielding values from 0 through 65535/65536.",
+        "rationale": "Fresh canonical source and header review of the complete owned TU.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L12-L16",
+            "why": "One recurrence update and exact power-of-two normalization."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/random:HSD_Randi"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Calls HSD_Rand once and returns max_val * sample / 65536 using signed integer arithmetic; it performs no range validation or overflow protection.",
+        "rationale": "Fresh canonical source and header review of the complete owned TU.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L18-L21",
+            "why": "Signed scaling expression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L6-L10",
+            "why": "Called sampler advances once and returns 0..65535."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/random:_HSD_RandForgetMemory"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Redirects seed_ptr to the module seed when its address is within the supplied inclusive-low, exclusive-high interval. It does not dereference the old pointer or reset either seed value.",
+        "rationale": "Fresh canonical source and header review of the complete owned TU.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L23-L29",
+            "why": "Pointer interval test and replacement only."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L3-L4",
+            "why": "Fallback storage and initial pointer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/random.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides a shared deterministic linear-congruential generator with raw 16-bit, normalized floating-point, and signed integer scaling interfaces. Generation advances the u32 word selected by exported seed_ptr; memory-forget handling can restore the pointer to module storage without reseeding.",
+        "rationale": "Fresh canonical source and header review of the complete owned TU.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L1-L29",
+            "why": "Complete shared state and four interfaces."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.h#L6-L10",
+            "why": "Public declarations and exported selector."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/random:HSD_Randi#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Signed max_val argument scales the next raw sample; no validation is performed.",
+        "rationale": "Fresh canonical source and header review of the complete owned TU.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L18-L21",
+            "why": "Signed scaling expression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L6-L10",
+            "why": "Called sampler advances once and returns 0..65535."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/random:_HSD_RandForgetMemory#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Inclusive low address bound for seed_ptr comparison.",
+        "rationale": "Fresh canonical source and header review of the complete owned TU.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L23-L29",
+            "why": "Pointer interval test and replacement only."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L3-L4",
+            "why": "Fallback storage and initial pointer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/random:_HSD_RandForgetMemory#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Exclusive high address bound for seed_ptr comparison.",
+        "rationale": "Fresh canonical source and header review of the complete owned TU.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L23-L29",
+            "why": "Pointer interval test and replacement only."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L3-L4",
+            "why": "Fallback storage and initial pointer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/random:HSD_Randi"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls HSD_Rand exactly once, even for max_val zero. For nonnegative max_val and a representable signed product, scales the returned 0..65535 sample with integer division by 65536. max_val up to 32768 guarantees that product fits s32 for every sample; larger values can overflow signed multiplication. No validation, clamp, retry or rejection sampling occurs.",
+        "rationale": "State advancement and signed product constraints follow from the complete current function body.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L18-L21",
+            "why": "Signed scaling expression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L6-L10",
+            "why": "Called sampler advances once and returns 0..65535."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

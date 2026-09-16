@@ -1,0 +1,134 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown:ftCo_80098E3C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Enters ShieldBreakDownU or ShieldBreakDownD through the shared collision callback path used by ShieldBreakFly and ShieldBreakFall. Normalizes GA_Air through ftCommon_8007D7FC, selects the motion with ftCo_80097570, installs it and requests shared down-impact processing through ftCo_800978D4.",
+        "rationale": "Canonical entry behavior and both actual consumers avoid unsupported anatomical or guaranteed-effect claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L17-L33",
+            "why": "Complete entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFly.c#L52-L55",
+            "why": "Fly caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L34-L37",
+            "why": "Fall caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown:ftCo_80098E3C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "On normal execution, normalizes grounding only when ground_or_air == GA_Air. Selects DownU iff the mapped HipN matrix component chosen by x2226_b0 is strictly positive, otherwise DownD; signed zero and unordered comparisons select D. Calls Fighter_ChangeMotionState with Ft_MF_KeepColAnimHitStatus | Ft_MF_SkipModel | Ft_MF_SkipMatAnim | Ft_MF_SkipColAnim, animation arguments 0,1,0 and final NULL, then calls ftCo_800978D4 unconditionally. There is no local timer, input test or x2226_b1 inversion.",
+        "rationale": "Exact branch boundaries, flags and ordering replace stronger reset-policy interpretations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L17-L33",
+            "why": "Branches and call sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L37-L49",
+            "why": "Strict matrix predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.h#L44-L48",
+            "why": "Animation parameter types and order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown:ftCo_80098E3C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Borrows gobj, obtains Fighter from user_data and uses ground state and a mapped HipN matrix predicate to choose normalization and the motion ID. The selected ID, literal flags, f32 animation arguments 0,1,0 and final NULL flow to Fighter_ChangeMotionState. The subsequent impact helper consumes floor normal for an atan2f angle, passing TopN and the angle address to efAsync_Spawn with kind 4 and effect 0x406. Kind 4 copies the float into a queued record and retains the joint pointer; continuous attachment is not established. Shared impact processing consumes velocity plus knockback velocity and weight, optionally uses surface sound/effect overrides, requests a large quake and calls ftCommon_8007EBAC(fp,9,0). No object or callback is stored locally by this entry.",
+        "rationale": "Preserves verified data flow while correcting attachment, optional-branch and final-argument overinterpretation.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L17-L33",
+            "why": "Local data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L37-L118",
+            "why": "Predicate and impact inputs/branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L16-L38",
+            "why": "Spawn-kind identity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1405-L1464",
+            "why": "Float copy and optional queueing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Implements entry and four shared callbacks for ShieldBreakDownU/D. Entry chooses the variant through ftCo_80097570's strict mapped-HipN matrix predicate. Anim advances valid DownU/D dispatch to matching StandU/D when ftAnim_IsFramesRemaining returns false; IASA is inert; Phys and Coll forward to common handlers. Both ShieldBreakFly and ShieldBreakFall collision paths use the entry.",
+        "rationale": "Complete TU purpose uses canonical variants and active integration, without assuming asset anatomy.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L17-L52",
+            "why": "All owned functions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2411-L2432",
+            "why": "Shared active callback table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L13-L23",
+            "why": "Actual successor mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFly.c#L52-L55",
+            "why": "Fly consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakFall.c#L34-L37",
+            "why": "Fall consumer."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

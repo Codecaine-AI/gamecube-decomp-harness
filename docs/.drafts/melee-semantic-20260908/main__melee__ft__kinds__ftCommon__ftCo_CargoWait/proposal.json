@@ -1,0 +1,119 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CargoWait",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoWait:ftCo_8009B56C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "ftCo_ThrowF_Anim calls this entry only after its preliminary updates, when no animation frames remain and x2222_b0 is set. A completed unflagged throw takes the ordinary exit; an unfinished animation does neither of those completion branches. Once called, this routine has no local guard: it changes the carrier to x2CC->x4_motion_state with no flags and animation arguments 0,1,0, then invokes ftCo_8009C640 on victim_gobj with 266. That callback initializes the damage-derived integer grab duration and clears shouldered work x0/x4 before calling the motion updater, even if the updater subsequently skips redundant ShoulderedWait setup.",
+        "rationale": "Supersedes fact:ef8e0313-db79-42c1-afc8-b7d6e94146c3 to repair the overly broad alternative exit and explicitly preserve initialization ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Throw.c#L296-L308",
+            "why": "Nested completion and flag branches distinguish unfinished from completed unflagged throw."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L29-L48",
+            "why": "Exact entry ordering and selected callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L53",
+            "why": "Initialization precedes updater's optional setup block."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoWait:ftCo_8009B4D0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "CargoWalk calls this gate after throw, jump, and pass checks. It enters ftCo_8009B518 and returns true exactly when stick_x*facing_dir < 0 or ABS(stick_x) < walk_stick_threshold. Equality to the magnitude threshold alone does not accept; signed zero needs a positive threshold. Under ordinary IEEE comparisons NaN stick input rejects both branches, while NaN facing or threshold disables only its corresponding comparison. No local validation or ground-mode check is performed.",
+        "rationale": "Preserves the librarian's verified boundary analysis without promoting a rendered alias to canonical identity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L20-L27",
+            "why": "Entry and Boolean result paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L17-L27",
+            "why": "Exact strict predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L198-L198",
+            "why": "Comparison-based ABS macro."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L42-L49",
+            "why": "Consumer priority and fallback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Both entry wrappers obtain the carrier Fighter before Fighter_ChangeMotionState, request x2CC->x4_motion_state with no flags and animation arguments 0,1,0, then read that same Fighter's victim_gobj and synchronously call the selected callback with 266. ftCo_8009B518 selects updater ftCo_8009C5A4; ftCo_8009B56C selects ftCo_8009C640, which initializes grab/work before updating motion. The inline helper does not retain its callback and performs no null checks or ownership transfer. Live carrier, attributes, and victim, and their preservation across motion change, are prerequisites. Collision likewise supplies a synchronous callback to shared processing; Shouldered's separately stored accessory callback has an external lifetime contract.",
+        "rationale": "Preserves verified sequencing and ownership prerequisites while avoiding unproved layout and reentrancy claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L29-L69",
+            "why": "Entry sequencing and callback forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Shouldered.c#L28-L53",
+            "why": "Updater/initializer distinction and stored accessory callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1035-L1041",
+            "why": "Synchronous collision callback invocation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CargoWait:ftCo_CargoWait_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally delegates to ft_80084F3C and makes no local input or action-state decision. The helper scales ground friction only when ABS(gr_vel) > walk_max_vel, applies friction, then invokes common ground movement. Equality uses unscaled friction. Under ordinary IEEE comparisons NaN speed or maximum does not select the multiplier. This wrapper does not sanitize negative or exceptional attributes; deceleration is the normal valid-data interpretation rather than a guarantee for arbitrary floats.",
+        "rationale": "Independently verified strict boundary and exceptional-data qualifications from the librarian synthesis.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWait.c#L61-L64",
+            "why": "Complete wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Strict overspeed test and ordered updates."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

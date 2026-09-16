@@ -1,0 +1,227 @@
+{
+  "tu": "main/melee/gr/grtpichu",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpichu.c#L36-L75",
+            "why": "Complete source initializers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L51-L62",
+            "why": "Explicit three-ID initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves useful structural typing while removing an unsupported compiled-section implication and distinguishing a null final row from demonstrated sentinel consumption.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpichu:.data"
+        },
+        "type": "inferred_type",
+        "value": "The source defines non-const grTPc_StageCallbacks[4], with three populated StageCallbacks rows followed by a row of null callbacks and zero flags, and one non-const StageData descriptor referencing that array. This establishes source-level configuration objects, not compiled section extent or placement. The reviewed target initializer explicitly creates IDs 0, 1 and 2 rather than traversing the final row as a sentinel."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpichu.c#L61-L77",
+            "why": "Descriptor registration and concrete signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L1-L7",
+            "why": "Includes stdbool.h."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/stdbool.h#L4-L14",
+            "why": "bool is int, with true and false macros."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L157-L167",
+            "why": "Demo callback accepts int."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L712-L715",
+            "why": "s32 forwarding without normalization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Resolves typedef compatibility using its available canonical definition without mistaking integer representation for a known Boolean-only argument meaning.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpichu:grTPichu_80222B98"
+        },
+        "type": "inferred_type",
+        "value": "A static demo-initialization callback spelled void(bool), with bool defined as int by the project's stdbool.h included through Runtime/platform.h. It is source-type-compatible with StageData.on_demo_init's void (*)(int) interface. Ground_DemoInit forwards an s32 argument unchanged; this callback ignores it. The higher-level meaning and valid semantic domain of that integer are not established by the empty implementation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpichu.c#L77-L77",
+            "why": "Complete empty body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/stdbool.h#L4-L14",
+            "why": "Integer representation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's two-value framing while retaining its supported no-op account.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpichu:grTPichu_80222B98"
+        },
+        "type": "state_behavior",
+        "value": "Invariant no-op for every supplied integer-represented bool argument: the empty body performs no state access, mutation, calls, guards, timers or transitions. Its behavior is not restricted to only the values 0 and 1."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpichu.c#L96-L110",
+            "why": "Unchecked index, constructor call and null branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L803-L937",
+            "why": "Creation, destructor attachment, joints, processes, registration and failures."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/inlines.h#L33-L49",
+            "why": "Additional TU setup and absence of callback1 consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L989-L1008",
+            "why": "Common process behavior."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an incomplete retrieval description with the actual delegated creation, ownership, scheduling and failure semantics, preserving supported callback-setup details.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpichu:grTPichu_80222C3C"
+        },
+        "type": "purpose",
+        "value": "Creates and callback-configures one TPichu Ground component for a stage-local ID. It indexes the local callback table without a bounds check and delegates construction to Ground_GetStageGObj, which creates a stage GObj, allocates Ground data attached with a mem_free destructor, loads or constructs its joint hierarchy, installs common processes at priorities 1 and 4, and registers the object. On a returned non-null object, Ground_SetupStageCallbacks installs display/callback3 handling, immediately invokes on_init and adds the selected TU gobj_proc at priority 4; it does not consume callback1. A returned NULL is reported and propagated without setup. Allocation failures can return NULL, while the joint helper's failure can enter a nonreturning loop."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpichu.c#L44-L75",
+            "why": "Row-1 process and initial descriptor joint fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpichu.c#L155-L158",
+            "why": "Forwarding with ignored result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1674-L1732",
+            "why": "Map read, marker width, two distinct loops and result."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the useful detailed collision data flow while correcting the claim that both sources process only newly encountered indices.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpichu:grTPichu_80222E48"
+        },
+        "type": "data_flow",
+        "value": "Receives Ground object ID 1 through its gobj_proc slot, forwards the pointer unchanged to Ground_801C2FE0 and discards the Boolean result. The callee reads Ground.map_id and, when that map's flag is zero, increments a static s16 pass marker. It calls mpLib_80055E9C for every matching StageData joint entry and writes CollJoint.xC, then scans the available map archive's joint entries and processes only indices whose xC differs from the current marker. Only the archive loop checks for duplicates; the descriptor loop does not. TPichu initially supplies NULL descriptor joints and joint_count zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpichu.c#L155-L158",
+            "why": "Straight-line wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1674-L1732",
+            "why": "Finite-width marker, outer guard and loop asymmetry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects both the unbounded-monotonic claim and universal deduplication claim without discarding the supported outer guard or delegated state behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpichu:grTPichu_80222E48"
+        },
+        "type": "state_behavior",
+        "value": "The TU callback unconditionally delegates with no local timer or state machine. Ground_801C2FE0 returns false without processing when Ground_804D6950[map_id] is nonzero. Otherwise it increments a finite-width s16 pass marker, updates matching descriptor collision joints, and conditionally updates archive joints whose markers differ. This suppresses repeats in the archive loop, not duplicate descriptor entries, and is not an indefinitely monotonic-counter guarantee. The wrapper ignores whether the callee processed any joint."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpichu.c#L61-L89",
+            "why": "Stage identity and lifecycle bodies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L181-L233",
+            "why": "NULL descriptor skips descriptor-driven spawning."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported target-generator interpretation while preserving the course identity, inert load role and neighboring lifecycle responsibilities.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpichu:grTpichu_UnkStage0_OnLoad"
+        },
+        "type": "game_mapping",
+        "value": "Occupies the load-hook phase of Pichu's Target Test stage lifecycle but performs no course-specific operation. Neighboring callbacks initialize the shared target-stage framework and request creation of the shared Zako generator service with a NULL descriptor; that service request is not evidence that this hook or the start hook creates the Target Test targets."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtpichu.c#L86-L89",
+            "why": "Unconditional NULL request and ignored result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L123-L145",
+            "why": "Allocation assertion, entry setup and global state writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L181-L233",
+            "why": "Descriptor-gated spawning."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L303-L329",
+            "why": "Process installation, failure cleanup and global publication."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves supported allocation, process and global-lifetime knowledge while correcting null/default equivalence and adding directly relevant exceptional behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtpichu:grTpichu_UnkStage0_OnStart"
+        },
+        "type": "purpose",
+        "value": "Pichu's Target Test stage-start hook requests creation of the shared Zako generator service with a literally NULL spawn descriptor and ignores the returned GObj. The callee allocates/asserts generator data, initializes entries and global enable/cursor state, creates a GObj and, on success, installs a priority-0 process and publishes the descriptor/data pointers globally. GObj creation failure reports, frees the new data and returns NULL after the earlier global initialization. NULL is not replaced with a default descriptor; subsequent processing skips descriptor-driven enemy spawning. Successful state persists through the globals and scheduled process, with no allocation destructor attached by this creation path."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

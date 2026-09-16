@@ -2,8 +2,9 @@
 """Generate an isolated helper that forces .sdata2 float/double ordering.
 
 The reference object already records the desired .sdata2 order. This API reads
-float and double OBJECT symbols from build/GALE01/obj/<unit>.o and renders a
-conventional unused helper with `(void) <constant>;` statements in that order.
+float and double OBJECT symbols from the unit's configured target object and
+renders a conventional unused helper with `(void) <constant>;` statements in
+that order.
 
 The command is read-only by default. It writes source only with `--apply`, and
 it compares the compiled TU back to the reference object only with
@@ -414,23 +415,57 @@ def install_helper(text: str, helper: str) -> tuple[str, bool]:
     return out, True
 
 
+def _project_layout(repo_root: Path) -> Any:
+    return import_tool_module("project_layout", repo_root).get_project_layout(repo_root)
+
+
+def _unit_aliases(value: str, repo_root: Path, layout: Any) -> list[str]:
+    alias = value.replace("\\", "/").strip()
+    aliases = [alias]
+    obj_prefix = layout.obj_root.relative_to(repo_root).as_posix() + "/"
+    if alias.startswith("obj/"):
+        aliases.append(obj_prefix + alias[len("obj/") :])
+    if not alias.startswith("src/") and not alias.startswith("build/"):
+        aliases.append(f"src/{alias}")
+    if alias.endswith(".o"):
+        aliases.append(alias[:-2])
+    return list(dict.fromkeys(aliases))
+
+
+def _operational_unit(layout: Any, alias: str) -> str:
+    object_path = layout.object_path_for_unit(alias)
+    object_root = Path("build") / layout.version / "src"
+    return object_path.relative_to(object_root).with_suffix("").as_posix()
+
+
 def normalize_unit(value: str, repo_root: Path) -> str:
+    layout = _project_layout(repo_root)
+    for alias in _unit_aliases(value, repo_root, layout):
+        try:
+            return _operational_unit(layout, alias)
+        except (KeyError, ValueError):
+            pass
+
     unit = value.replace("\\", "/").strip()
-    for prefix in ("build/GALE01/obj/", "obj/"):
+    for prefix in (
+        layout.obj_root.relative_to(repo_root).as_posix() + "/",
+        "obj/",
+    ):
         if unit.startswith(prefix):
             unit = unit[len(prefix) :]
     if unit.endswith(".o"):
         unit = unit[:-2]
     if unit.startswith("src/"):
         unit = unit[4:]
-    if unit.endswith(".c"):
-        unit = unit[:-2]
-    if unit.startswith("main/") and not (repo_root / "build" / "GALE01" / "obj" / f"{unit}.o").is_file():
+    if Path(unit).suffix in {".c", ".cc", ".cpp", ".cxx"}:
+        unit = str(Path(unit).with_suffix(""))
+    if unit.startswith("main/") and not (layout.obj_root / f"{unit}.o").is_file():
         unit = unit[5:]
     return unit.strip("/")
 
 
 def resolve_source_arg(arg: str, repo_root: Path) -> Path:
+    layout = _project_layout(repo_root)
     path = Path(arg).expanduser()
     candidates: list[Path] = []
     if path.is_absolute():
@@ -439,12 +474,25 @@ def resolve_source_arg(arg: str, repo_root: Path) -> Path:
         candidates.extend([Path.cwd() / path, repo_root / path])
         if not str(path).replace("\\", "/").startswith("src/"):
             candidates.append(repo_root / "src" / path)
-    if path.suffix != ".c":
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.resolve()
+    for alias in _unit_aliases(arg, repo_root, layout):
+        try:
+            candidate = repo_root / layout.source_path_for_unit(alias)
+        except KeyError:
+            continue
+        if candidate.is_file():
+            return candidate.resolve()
+    if path.suffix not in {".c", ".cc", ".cpp", ".cxx"}:
         candidates.extend(
             [
                 repo_root / "src" / f"{arg}.c",
+                repo_root / "src" / f"{arg}.cpp",
                 repo_root / f"{arg}.c",
+                repo_root / f"{arg}.cpp",
                 Path.cwd() / f"{arg}.c",
+                Path.cwd() / f"{arg}.cpp",
             ]
         )
     for candidate in candidates:
@@ -454,13 +502,26 @@ def resolve_source_arg(arg: str, repo_root: Path) -> Path:
 
 
 def source_for_unit(unit: str, repo_root: Path) -> Path:
-    source = repo_root / "src" / f"{unit}.c"
+    layout = _project_layout(repo_root)
+    try:
+        source = repo_root / layout.source_path_for_unit(unit)
+    except KeyError:
+        source = repo_root / "src" / f"{unit}.c"
     if source.is_file():
         return source.resolve()
+    cpp_source = source.with_suffix(".cpp")
+    if cpp_source.is_file():
+        return cpp_source.resolve()
     raise FileNotFoundError(f"could not find source file for unit {unit}: {source}")
 
 
 def unit_for_source(source: Path, repo_root: Path) -> str:
+    layout = _project_layout(repo_root)
+    try:
+        source_alias = source.resolve().relative_to(repo_root).as_posix()
+        return _operational_unit(layout, source_alias)
+    except (KeyError, ValueError):
+        pass
     src_root = (repo_root / "src").resolve()
     try:
         return source.resolve().relative_to(src_root).with_suffix("").as_posix()
@@ -557,8 +618,12 @@ def validate_applied_helper(
 
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     repo_root = resolve_repo_root(args.repo_root)
+    layout = _project_layout(repo_root)
     source, unit = resolve_target(args, repo_root)
-    target_object = repo_root / "build" / "GALE01" / "obj" / f"{unit}.o"
+    try:
+        target_object = repo_root / layout.target_object_path_for_unit(unit)
+    except KeyError:
+        target_object = layout.obj_root / f"{unit}.o"
     payload: dict[str, Any] = {
         "tool": "review_lint",
         "operation": "review_lint:sdata2_order_helper",
@@ -648,7 +713,7 @@ def main() -> int:
     parser.add_argument("--repo-root", help="Target project checkout root.")
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--source", help="Source file path or src-relative unit path.")
-    target.add_argument("--unit", help="Unit path without src/ prefix or .c suffix.")
+    target.add_argument("--unit", help="Objdiff unit name or configured source/object path.")
     parser.add_argument(
         "--name",
         default="sdata2_order",

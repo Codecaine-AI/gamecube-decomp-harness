@@ -1,0 +1,153 @@
+{
+  "tu": "main/melee/if/ifcoget",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L18-L30",
+            "why": "Unsigned narrow fields and zero initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L47-L75",
+            "why": "Visibility, countdown and target guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L105-L135",
+            "why": "Clamping, narrowing and lifecycle writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects guarantees about stored bounds while preserving the supported lifecycle and count-up behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifcoget:.data"
+        },
+        "type": "state_behavior",
+        "value": "The display record starts zero-initialized. Initialization sets x0_b0 and clears the presentation-enable bit x0_b1; x0_b0 has no reader in this unit. Configuration enables presentation, resets the unsigned-byte current count to zero, and stores the target and cadence after input clamping and narrowing. The cadence fields are unsigned 3-bit values and can therefore become zero despite the input minimum of one. The unsigned-byte target can exceed 100 after conversion of a negative input. The process counts upward only while current is below target; disabling clears both status bits and causes a subsequent process invocation to hide the hierarchy."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L18-L29",
+            "why": "Destination widths and signed coordinate fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L105-L120",
+            "why": "Complete configuration transaction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmregclear.c#L1086-L1094",
+            "why": "Result-screen caller supplies position, coins and interval five."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the narrowing stores and signed-negation boundary explicit rather than implying full-width argument preservation.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifcoget:un_802FF128"
+        },
+        "type": "data_flow",
+        "value": "Receives integer X/Y coordinates, a requested terminal count and a requested increment interval from result-screen callers. It raises intervals below one to one, then assigns the result to both unsigned 3-bit cadence fields. It enables presentation, resets the current count, caps target inputs above 100, and stores the target as an unsigned byte without a lower clamp. X is stored directly and Y is negated into signed integer state. The process consumes these fields for count progression, translation, sound and animation-frame selection. The Y negation has no defined portable C result for the most-negative int."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L18-L29",
+            "why": "Stored field types."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L105-L120",
+            "why": "Four-int signature and normal return at end of body."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes void return from noreturn and requested cadence from narrowed stored cadence.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifcoget:un_802FF128"
+        },
+        "type": "inferred_type",
+        "value": "Ordinary returning void display-configuration function with signature void (int x, int y, int target_value, int requested_increment_interval). The first two arguments configure display coordinates; the third supplies a count that is upper-clamped and converted to an unsigned byte; the fourth supplies a cadence that is lower-clamped and converted to unsigned 3-bit fields. The requested interval is not necessarily the effective number of updates between increments."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L18-L29",
+            "why": "Unsigned three-bit cadence and byte target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L54-L74",
+            "why": "Countdown transition and guarded updates."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L105-L120",
+            "why": "Input clamps precede narrowing assignments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's nonzero-cadence and maximum-target guarantees using actual destination widths.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifcoget:un_802FF128"
+        },
+        "type": "state_behavior",
+        "value": "Enables a count-up beginning at zero. The interval input is raised to one when below one, but conversion into the two unsigned 3-bit fields can produce any stored cadence from zero through seven; for example, eight becomes zero. Stored cadence zero and one both advance on every eligible process invocation. The target input is capped only above 100 and then converted to an unsigned byte, so negative inputs can produce targets above 100. Subsequent updates increment only below the stored target, stop incrementing at equality, and continue applying position and the current animation frame while current is at most target."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L47-L75",
+            "why": "Complete callback branch structure."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exceptional enabled/current-greater-than-target branch and zero-cadence behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifcoget:fn_802FED14"
+        },
+        "type": "state_behavior",
+        "value": "When disabled, hides the entire JObj hierarchy and returns. When enabled and current is at most target, reveals the hierarchy; while current is below target, decrements a nonzero countdown and increments once when the countdown is zero, reloading it from the stored cadence. Stored cadence zero or one permits an increment on every eligible invocation. At equality it stops incrementing but still reapplies translation and evaluates the current-value animation frame. If enabled with current greater than target, it leaves visibility, countdown, count, translation and animation unchanged."
+      },
+      {
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.c#L128-L135",
+            "why": "Initializes flags, loads the scene archive and invokes scene construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifcoget.h#L10-L14",
+            "why": "Separate initializer declarations coexist in the header."
+          }
+        ],
+        "op": "write",
+        "rationale": "Names the owned archive/scene initialization transaction more specifically and distinguishes it from the foreign initializer whose ifCoGet_Init hypothesis collides in the rendered shared header. This is a descriptive inference, not a recovered original symbol.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifcoget:un_802FF1B4"
+        },
+        "type": "inferred_name",
+        "value": "ifCoGet_InitScene"
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

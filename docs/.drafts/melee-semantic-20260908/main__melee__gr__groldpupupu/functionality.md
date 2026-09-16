@@ -1,0 +1,72 @@
+# Disjoint Librarian Research
+
+### shard-main__melee__gr__groldpupupu-000
+Reviewed canonical and rendered groldpupupu.c lines 1–480 only. This range registers nine stage-object callback groups and the /GrOp.dat stage resource. Initialization obtains stage parameters, changes two stage flags, sets up objects in order 0, 3, 7, 5, 4, 6, 1, 8, invokes two ground helpers, and clears a shared pointer. The object setup helper installs rendering, initialization, and process callbacks, reporting acquisition failure. Object 1 consumes a pending flag when the shared pointer is zero and selects an animation-helper argument from three tables. Other covered callbacks initialize animation or visibility/flags, delegate to helpers, return false, or do nothing. Object 8 implements a randomized countdown-driven spawner: it selects one of ten descriptors, attempts one or three object-2 setups, positions their joints using camera-helper outputs and randomized height, supplies staggered animation-helper arguments, unhides a descriptor-selected joint subtree, and resets its countdown. The range also includes a symmetric random-range helper.
+
+### shard-main__melee__gr__groldpupupu-001
+Reviewed canonical and rendered groldpupupu.c lines 481–782 only. This range implements an order-independent, strict-interior XY rectangle test and a callback producing signed horizontal velocity in one of two parameterized rectangles, otherwise zero velocity. A gated controller cycles a three-entry state index, coordinates animation calls and counters, selects a binary direction, and copies selected state to map object 1. In state 2, counter values 46–319 enable the horizontal-velocity selector and request a looping quake; an audio call occurs at 45 and a side-dependent auxiliary call occurs every ten counts within the active interval. Another callback selects an animation from map object 7's state. Remaining callbacks are empty, constant false/null, or compare input Y against a helper-produced joint position.
+
+### shard-main__melee__gr__groldpupupu-002
+The assigned header exposes the groldpupupu module interface: void and Boolean entry points, an integer-parameter function returning `HSD_GObj*`, numerous functions accepting `Ground_GObj*`, vector-based Boolean interfaces, a function returning `DynamicsDesc*`, and the external `StageData grOp_StageData`. It contains declarations only; runtime behavior and gameplay roles are not established by this shard.
+
+### shard-main__melee__gr__groldpupupu-003
+The assigned subjects cover stage registration and lookup data, cached runtime parameters and a null-tested update gate, a region-dependent fighter wind callback, and an empty boolean lifecycle hook. Source confirms randomized temporary-object spawning, synchronized direction-indexed animations, and timed publication of a wind direction. Compiled section placement and the specific Whispy presentation mapping remain unverified. This is a bounded subject review, not a complete TU assessment.
+
+### shard-main__melee__gr__groldpupupu-004
+The assigned functions initialize stage globals and eight callback-driven Ground components, provide an empty load hook and constant-false predicate, start the shared generator with a null descriptor, and initialize component 0 through archive-backed animation setup. The component helper conditionally binds callbacks and reports acquisition failure. This review covers only the six assigned subjects, not the entire translation unit.
+
+### shard-main__melee__gr__groldpupupu-005
+Reviewed the six assigned callbacks and their local registration and synchronization paths. Component 0 has a constant-false predicate and two empty handlers. Component 1 initializes three fields to zero, raises an animation-request latch, and requests animation 0; its predicate is constant false. Its process consumes a request only when the global gate is zero and xD0 equals 1, selecting one of three animation tables using xCC and xD4. The component-7 process publishes state to component 1. Specific Whispy, visual-layer, and idle/turn/blow identifications remain unverified rather than being inferred from proposed names or numeric states.
+
+### shard-main__melee__gr__groldpupupu-006
+Reviewed the six assigned callback subjects and their registration path. Object 1's callback3 and object 4's process and callback3 are empty; object 4's predicate always returns false. Object 4's initializer passes its map ID and selector 0 to the animation routine and sets x10_flags.b5. Object 5's initializer invokes Ground_JObjInline1 and sets x11_flags.b012 to 1. Setup dispatches initializers, installs callback3 into x1C_callback, and registers processes at priority 4. Specific visual identities and the claimed Whispy association remain unestablished by this bounded review.
+
+### shard-main__melee__gr__groldpupupu-007
+Reviewed the six assigned callbacks and their relevant setup, spawning, update, and teardown paths. Object 5 has a constant-false predicate, an unconditional shared-list updater, and an empty fourth callback. Object 2 initializes hidden with status field 2, has a constant-false predicate, and conditionally enters Ground teardown after an animation-object flag query. Its spawner creates one or three instances, positions them, invokes animation setup, and reveals a descriptor-selected hierarchy. Visible character identities and the interpretation of animation argument 7 remain unverified.
+
+### shard-main__melee__gr__groldpupupu-008
+The assigned functions include two empty fourth-slot callbacks, a constant-false Boolean callback, a randomized countdown initializer, a recurring object spawner, and object 3's initialization callback. The spawner tests the saved pre-decrement countdown, selects a descriptor and one or three creation attempts, configures successful objects' transforms, animation arguments and visibility, then rearms the countdown even if creation fails. Object 3 initialization forwards animation/material arguments and writes two Ground flags. Specific cameo and wind-effect identities are not established by the inspected canonical code. This review covers only the assigned subjects.
+
+### shard-main__melee__gr__groldpupupu-009
+Reviewed the six assigned subjects. Entry 3 has a constant-false predicate, an empty registered process, and an empty installed callback3. Entry 7 initializes a timed directional-velocity controller and has another constant-false predicate. The geometric helper performs an order-independent, strict XY rectangle-membership test used to gate signed horizontal velocity. Named stage/character mappings remain unverified; this is not complete TU coverage.
+
+### shard-main__melee__gr__groldpupupu-010-repair2
+Reviewed the six assigned subjects and their 32 baseline facts. Map object 7's process implements a guarded three-state animation controller with randomized waiting, a position-based direction query, synchronization to map object 1, and timed audio, camera, and effect calls. Map object 6's process conditionally selects an animation from object 7's state and direction. The remaining assigned functions are three empty void callbacks and one constant-false predicate. Gameplay identities and the direction-query helper's fighter-selection semantics remain unverified in this bounded review.
+
+### shard-main__melee__gr__groldpupupu-011
+The assigned callbacks supply no collision-line dynamics descriptor and decide shadow eligibility by a strict comparison against a joint's transformed origin height. The assigned translation-unit facts describe parameter-driven object setup, temporary-object spawning, rectangular horizontal-velocity regions, and a three-phase controller synchronized with another Ground object. The controller requests a camera quake and publishes direction only during counter values 46–319. Dream Land/Whispy identities and claims of transitive absence of joint mutation remain unverified.
+
+### shard-main__melee__gr__groldpupupu-012
+The six assigned parameter subjects have no baseline facts. Current source shows an unused bool parameter in grOldPupupu_802107DC; an integer argument in grOldPupupu_802108B4 used both to index the callback table and request a stage object; and Ground_GObj* parameters in the four callbacks grOldPupupu_8021099C through grOldPupupu_802109D4. The first callback obtains ground data and passes the object and its map_id to grAnime_801C8138 with a final argument of zero. The other three ignore their arguments: one returns false and two have empty bodies. This review is limited to the assigned subjects.
+
+### shard-main__melee__gr__groldpupupu-013
+The six assigned parameter subjects have no baseline facts. Their canonical functions declare a single Ground_GObj* parameter. grOldPupupu_802109D8 uses it to obtain Ground state, initialize four fields, and call grAnime_801C8138. grOldPupupu_80210A24 uses it to consume a pending state flag and select a table-derived argument for grAnime_801C8138 when the global gate permits. grOldPupupu_80210B04 uses it to obtain Ground state, call grAnime_801C8138, and set x10_flags.b5. The parameters of grOldPupupu_80210A1C and grOldPupupu_80210B48 are unused in constant-false functions; grOldPupupu_80210B00 is empty. This review is limited to the assigned subjects.
+
+### shard-main__melee__gr__groldpupupu-014
+The six assigned parameter subjects have no baseline facts. Their canonical functions declare a single Ground_GObj* parameter. grOldPupupu_80210B50, grOldPupupu_80210B54, and grOldPupupu_80210BE0 have empty bodies. grOldPupupu_80210BB8 ignores its parameter and returns false. grOldPupupu_80210BC0 ignores its parameter and calls lb_800115F4 without arguments. grOldPupupu_80210B58 uses its object parameter to obtain Ground data, passes it to Ground_JObjInline1, and sets gp->x11_flags.b012 to 1. These observations are restricted to the assigned subjects, not the entire translation unit.
+
+### shard-main__melee__gr__groldpupupu-015
+The six assigned parameter subjects correspond to Ground_GObj* arguments in the current source. grOldPupupu_80210BE4 uses its object to hide the joint hierarchy and set ground flags; grOldPupupu_80210C34 passes its object to grAnime_801C83D0 and conditionally to Ground_801C4A08. grOldPupupu_80210C7C initializes an object-owned field from two parameter bounds using HSD_Randi when they differ. The arguments of grOldPupupu_80210C2C and grOldPupupu_80210D08 are unused in constant-false callbacks, and grOldPupupu_80210C78 has an empty body. All six subjects have empty baseline fact arrays, so there are no baseline dispositions.
+
+### shard-main__melee__gr__groldpupupu-016
+The six assigned parameter subjects have no baseline facts to disposition. Their current functions all declare a first parameter of type Ground_GObj*. grOldPupupu_80210D10 uses its object's Ground data to decrement a timer and, after expiry, create and position one or three objects, configure animation and visibility, and reset the timer from parameterized bounds. grOldPupupu_80211110 accesses the object's Ground data and joint object, invokes animation/material setup, clears x10_flags.b2, and sets x11_flags.b012 to 2. grOldPupupu_8021118C ignores its parameter and returns false; grOldPupupu_8021110C, grOldPupupu_80211194, and grOldPupupu_80211198 are empty callbacks.
+
+### shard-main__melee__gr__groldpupupu-017
+The assigned subjects have no baseline facts. Current source shows that grOldPupupu_8021119C receives a ground object, registers a callback, initializes its ground state, and starts animation setup. grOldPupupu_80211284 ignores its ground-object argument and returns false. grOldPupupu_8021128C tests a vector's x/y coordinates strictly inside a rectangle, normalizing each pair of bounds; its caller uses the result to select a signed horizontal output velocity. Register-labeled identities are not treated as established source-parameter mappings.
+
+### shard-main__melee__gr__groldpupupu-018
+The six assigned parameter subjects contain no baseline facts. Their current functions cover an exclusive-interior rectangle test, an object-backed animation/state update, two empty callbacks, a constant-false callback, and an animation update conditional on another map object's state. Register-labelled parameter identities are not independently established by these C bodies; no parameter facts are proposed.
+
+### shard-main__melee__gr__groldpupupu-019
+The five assigned parameter subjects have no baseline facts. In the current canonical bodies, grOldPupupu_80211C9C ignores its Ground_GObj* argument and does nothing; grOldPupupu_80211CA0 ignores its enum_t argument and returns a null DynamicsDesc* via false. grOldPupupu_80211CA8 ignores its integer argument, passes its joint argument to lb_8000B1CC to populate a local vector, and returns whether the input vector's y component exceeds that local vector's y component. This review covers only the assigned subjects, not the entire translation unit.
+
+### shard-main__melee__gr__groldpupupu-020
+The reviewed callbacks configure stage Ground objects, spawn randomized camera-relative animated objects, and synchronize a separate animation controller with a bounded horizontal-velocity effect on fighters. The randomized object spawner is distinct from the controller that enables the velocity effect. External stage and character identities, and compiled .sdata ownership, remain unverified.
+
+### shard-main__melee__gr__groldpupupu-021
+The reviewed links concern indexed Ground-object initialization, randomized camera-relative animated-object spawning, phase-controlled horizontal fighter velocity within strict rectangular bounds, synchronized companion animations, and a joint-relative shadow eligibility test. Canonical code supports these mechanisms, but does not independently establish the supplied character, cameo, or public stage identities.
+
+### shard-main__melee__gr__groldpupupu-022
+The reviewed callbacks set up indexed stage components and coordinate a timed, directional controller with secondary-object animations. Its registered fighter callback produces signed horizontal velocity within configured rectangles during the controller's active interval. Several registered hooks are empty or return null. These mechanics are supported by canonical code; the specific Dream Land and Whispy Woods identities remain unverified by the evidence available in this shard.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

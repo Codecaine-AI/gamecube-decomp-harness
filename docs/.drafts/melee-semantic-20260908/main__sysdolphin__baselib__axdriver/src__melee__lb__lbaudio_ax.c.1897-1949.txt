@@ -1,0 +1,53 @@
+1897: static char str_audio_us[0xC] = "/audio/us/";
+1898: static char str_audio[0xC] = "/audio/";
+1899: 
+1900: static inline enum_t setup_audio_lang(void)
+1901: {
+1902:     enum_t lang;
+1903:     if (lbLang_IsSavedLanguageUS()) {
+1904:         strcpy(cur_ssm_file, str_audio_us);
+1905:         ssm_stem_pos = 10;
+1906:         return LANG_US;
+1907:     } else {
+1908:         strcpy(cur_ssm_file, str_audio);
+1909:         ssm_stem_pos = 7;
+1910:         return LANG_JP;
+1911:     }
+1912: }
+1913: 
+1914: void lbAudioAx_80027AB0(int id)
+1915: {
+1916:     enum_t lang = setup_audio_lang();
+1917: 
+1918:     HSD_AudioSFXKeyOffAll();
+1919: 
+1920:     if (lbl_804D3878 != lang) {
+1921:         lbl_804D3878 = lang;
+1922:         AXDriver_8038DCFC();
+1923:         strcpy(&cur_ssm_file[ssm_stem_pos], "smash2.sem");
+1924:         AXDriver_8038DA70(cur_ssm_file, lb_800195D0);
+1925: 
+1926:         if (id != 0x83D61) {
+1927:             lbAudioAx_800237A8(id, VOL_MAX, PAN_MID);
+1928:         }
+1929: 
+1930:         {
+1931:             int i;
+1932:             for (i = 0; i < 55; i++) {
+1933:                 if (i != 0) {
+1934:                     lbl_80433A64[i] = -1;
+1935:                     lbl_804337C4[i] = -1;
+1936:                     lbl_804338A4[i] = -1;
+1937:                     lbl_80433984[i] = -1;
+1938:                 }
+1939:             }
+1940:         }
+1941: 
+1942:         HSD_SynthSFXUnloadBank(1);
+1943:         HSD_SynthSFXUnloadBank(2);
+1944: 
+1945:         if (lbl_80433984[0x33] < 1) {
+1946:             strcpy(&cur_ssm_file[ssm_stem_pos], ssm_files[0x33]);
+1947:             lbl_80433A64[0x33] = HSD_SynthSFXLoad(cur_ssm_file, 1, 0, 0);
+1948:             HSD_SynthSFXWaitForLoadCompletion(lb_800195D0);
+1949:             lbl_80433984[0x33] = 2;

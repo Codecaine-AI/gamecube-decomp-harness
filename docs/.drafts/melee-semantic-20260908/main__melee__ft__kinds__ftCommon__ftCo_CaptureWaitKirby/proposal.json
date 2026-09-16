@@ -1,0 +1,119 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKirby",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKirby:ftCo_800BD620"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains the captured Fighter from gobj and its linked Fighter through victim_gobj. Clears x2226_b2 before calling ftCo_800DB368(linked_fp,fp); that helper saves XRotN translation, calls lb_8000C1C0 with captured XRotN and linked TransN2 joints, and sets x2226_b2 true. Then requests CaptureWaitKirby with SkipModel|SkipMatAnim and arguments 0,1,0,NULL, updates model scale, installs ftCo_800DB464 as accessory1_cb, sets invisible true, selects collision mode 2, and invokes the listed common/animation setup helpers. No timer or saved capture scale is directly initialized here.",
+        "rationale": "Corrects the baseline ordering and distinguishes the direct clear from the helper's subsequent flag write.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKirby.c#L11-L28",
+            "why": "Complete entry sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CapturePulled.c#L334-L355",
+            "why": "Pair-helper field and joint effects."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKirby:ftCo_800BD6EC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "First tests y >= tap_jump_threshold and vertical age < tap_jump_window; success writes age 254, forwards +1 to ftKb_SpecialN_800F598C through victim_gobj, and returns. Otherwise tests y <= x464, age < x468, and ftKb_SpecialN_800F597C; success writes age 254, forwards -1, and calls ftKb_SpecialN_800F5954. Threshold equality qualifies; age equality does not. Threshold signs and a configuration-independent anti-repeat guarantee are not established. Under ordinary ordered comparisons NaN y fails both guards.",
+        "rationale": "Replaces unsupported threshold-sign and anti-repeat claims with exact branch ordering and boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKirby.c#L30-L63",
+            "why": "Complete vertical helper and shared timer write."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKirby:ftCo_CaptureWaitKirby_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Runs vertical then horizontal forwarding only when the linked motion_id is ftKb_MS_EatWait or ftKb_MS_EatFall. Regardless of that gate, subtracts specialn_duration_divisor from grab_timer, calls ftCommon_GrabMash with specialn_inhale_resistance, and stores its bool result in capturekirby.x18. Common mash processing can subtract resistance once for qualifying button presses and once for changed tracked stick directions. It then tests the resulting timer <=0; success snapshots victim_gobj, assigns negative linked facing, applies saved JObj scale, enters captured-side CaptureCut, and calls ftCo_800DA698(snapshot,false). CaptureCut clears pair links; false suppresses reciprocal CaptureCut. No clamp or finite-value check exists, and subtraction is not a guarantee of decreasing timer for all attributes or floating values.",
+        "rationale": "Preserves verified ordering and lifetime-sensitive pointer snapshot while removing unconditional-decrease wording.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKirby.c#L90-L109",
+            "why": "IASA sequence and release snapshot."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialn.c#L127-L140",
+            "why": "State predicate and facing accessor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirbyspecialn.c#L185-L197",
+            "why": "Timing attribute accessors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L682-L719",
+            "why": "Mash mutations and bool result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureCut.c#L101-L195",
+            "why": "Both links are cleared."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CatchCut.c#L8-L22",
+            "why": "Optional reciprocal release branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKirby.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Entry requests CaptureWaitKirby, updates model scale, installs the common capture-position accessory callback, sets invisibility, and configures collision/common/animation services. IASA conditionally forwards accepted vertical and horizontal signs while writing stick ages 254, but always performs baseline attribute subtraction followed by common mash processing. Final timer <=0 assigns negative linked facing, applies saved scale, and coordinates CaptureCut/CatchCut with a saved linked-object pointer. Timer decrease and complete presentation restoration are not universal source-local guarantees. Anim, Phys, and Coll are registered empty callbacks, without excluding global engine or accessory work.",
+        "rationale": "Replaces conflated mash/countdown and broad presentation claims with source-local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureWaitKirby.c#L11-L113",
+            "why": "Complete runtime implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3313-L3323",
+            "why": "Active callback registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L682-L719",
+            "why": "Conditional mash deductions."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

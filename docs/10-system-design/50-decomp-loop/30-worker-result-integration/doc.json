@@ -1,0 +1,525 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-10-daytona-sandbox-execution-40-evidence-and-integration",
+  "title": "Worker Result Integration",
+  "root": "b-day-evid-root",
+  "blocks": {
+    "b-day-evid-root": {
+      "id": "b-day-evid-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "evidence",
+          "checkpoint",
+          "serial-integration",
+          "pending-integration",
+          "knowledge-queue",
+          "cycle-worktree"
+        ]
+      },
+      "children": [
+        "intro",
+        "serial-integration",
+        "process",
+        "integration-steps",
+        "heads",
+        "heads-prose",
+        "conflicts",
+        "conflicts-prose",
+        "distinction",
+        "contract",
+        "contract-prose",
+        "b-10-run-director-loop-validation-status-score-53",
+        "b-35-write-safety-the-integration-queue-it-14",
+        "compat",
+        "knowledge",
+        "knowledge-prose",
+        "quality",
+        "boundary",
+        "librarian"
+      ]
+    },
+    "intro": {
+      "id": "intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker Result Integration applies a selected checkpoint to the current epoch's harness worktree. Workers can finish against different source commits, so the host applies results one at a time under the Run dispatch lease. Each successful application becomes a commit that later worker claims can use."
+        }
+      ],
+      "children": []
+    },
+    "serial-integration": {
+      "id": "serial-integration",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/serial-integration.sequence.json",
+        "title": "Serial Worker Result Integration"
+      },
+      "children": []
+    },
+    "process": {
+      "id": "process",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "From Checkpoint to Commit"
+        }
+      ],
+      "children": []
+    },
+    "integration-steps": {
+      "id": "integration-steps",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Integrate a worker result",
+            "steps": [
+              {
+                "text": "Select a validated result",
+                "steps": [
+                  {
+                    "text": "The runner selects an exact passing result or its best selectable checkpoint. Failed and neutral submissions remain evidence."
+                  }
+                ]
+              },
+              {
+                "text": "Enqueue once",
+                "steps": [
+                  {
+                    "text": "Key the integration job by checkpoint identity and retain its patch, approved write set, and originating claim."
+                  }
+                ]
+              },
+              {
+                "text": "Check against the current worktree",
+                "steps": [
+                  {
+                    "text": "Revalidate dispatch authority and check the patch against current harness ancestry."
+                  },
+                  {
+                    "text": "Persist failed checks with conflicting paths, reasons, and command artifacts."
+                  }
+                ]
+              },
+              {
+                "text": "Apply and commit",
+                "steps": [
+                  {
+                    "text": "Apply accepted paths serially and commit the worker result. Advance the base used by later claims."
+                  }
+                ]
+              },
+              {
+                "text": "Confirm at the epoch boundary",
+                "steps": [
+                  {
+                    "text": "Retain tentative scoped results until global report validation records confirmation or regression evidence."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "heads": {
+      "id": "heads",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Existing Workers and New Claims"
+        }
+      ],
+      "children": []
+    },
+    "heads-prose": {
+      "id": "heads-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Suppose two workers start from commit A. The first result integrates as commit B. New claims start from B, while the second worker continues on A. Its patch must pass application checks against B before becoming the next integration commit. No image rebuild or forced checkout update is needed inside the running worker."
+        }
+      ],
+      "children": []
+    },
+    "conflicts": {
+      "id": "conflicts",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "When a Patch Does Not Apply"
+        }
+      ],
+      "children": []
+    },
+    "conflicts-prose": {
+      "id": "conflicts-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The host records a blocking integration outcome with the patch, conflict paths, failure reasons, and check output. This integration lane does not launch a resolver agent or automatically requeue the target, and a blocking outcome stops every epoch boundary attempt at the integration drain. The operator settles it with the job-runner command "
+        },
+        {
+          "insert": "resolve-integration --run-id <run> --outcome-id <id> --choice reject --reason <text>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", which runs only when no live scheduler holds the run lease. Rejection marks the outcome "
+        },
+        {
+          "insert": "rejected",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with disposition "
+        },
+        {
+          "insert": "operator_rejected",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", deselects the checkpoint so later selection cannot resurrect it, records a "
+        },
+        {
+          "insert": "worker_integration_rejected",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " run event, and leaves the worker ledger and target untouched; the target stays open in the report and the next epoch's board admission re-admits it."
+        }
+      ],
+      "children": []
+    },
+    "distinction": {
+      "id": "distinction",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Upstream displacement is handled separately at the epoch boundary. Sync can choose upstream content over locally integrated work, retain the previous match evidence, and record the target for reconsideration at the next epoch's admission."
+        }
+      ],
+      "children": []
+    },
+    "contract": {
+      "id": "contract",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Selection and Application Records"
+        }
+      ],
+      "children": []
+    },
+    "contract-prose": {
+      "id": "contract-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The checkpoint says which candidate passed worker validation. The integration outcome says what happened when that candidate met the current harness worktree. A 100% worker score does not establish that the patch was applied."
+        }
+      ],
+      "children": []
+    },
+    "b-10-run-director-loop-validation-status-score-53": {
+      "id": "b-10-run-director-loop-validation-status-score-53",
+      "type": "state-shape",
+      "props": {
+        "example": "{\"checkpoint_id\":\"checkpoint-88\",\"worker_state_id\":\"worker-state-501\",\"validation_state\":\"tentative\",\"selectable\":true,\"exact_match\":false,\"score_after\":99.73,\"validated_at\":\"2026-08-18T15:42:00Z\",\"integration_outcome_id\":\"integration-outcome-88\"}",
+        "fields": [
+          {
+            "name": "checkpoint_id",
+            "type": "CheckpointId",
+            "description": "Validated attempt identity."
+          },
+          {
+            "name": "worker_state_id",
+            "type": "WorkerStateId",
+            "description": "Worker ledger that owns the checkpoint."
+          },
+          {
+            "name": "validation_state",
+            "type": "\"tentative\" | \"confirmed\" | \"regressed\"",
+            "description": "Boundary classification."
+          },
+          {
+            "name": "selectable",
+            "type": "boolean",
+            "description": "True only for a hard-gate-passing improvement."
+          },
+          {
+            "name": "exact_match",
+            "type": "boolean",
+            "description": "Whether target comparison is exact."
+          },
+          {
+            "name": "score_after",
+            "type": "number",
+            "description": "Validated target score."
+          },
+          {
+            "name": "validated_at",
+            "type": "Timestamp",
+            "description": "Tie-break timestamp; earlier wins after exactness and score."
+          },
+          {
+            "name": "integration_outcome_id",
+            "type": "IntegrationOutcomeId",
+            "required": false,
+            "description": "Serial-application evidence when selected."
+          }
+        ],
+        "name": "CheckpointSettlementView"
+      },
+      "children": []
+    },
+    "b-35-write-safety-the-integration-queue-it-14": {
+      "id": "b-35-write-safety-the-integration-queue-it-14",
+      "type": "state-shape",
+      "props": {
+        "example": "{\"id\":\"integration-outcome-88\",\"run_id\":\"run-2026-08-11-01\",\"epoch_id\":\"epoch-19\",\"epoch_target_id\":\"epoch-target-501\",\"target_claim_id\":\"claim-501\",\"worker_state_id\":\"worker-state-501\",\"worker_checkpoint_id\":\"checkpoint-88\",\"status\":\"applied\",\"patch_path\":\"artifacts/checkpoint-88.patch\",\"write_set_json\":[\"src/melee/example.c\"],\"conflict_paths_json\":[],\"failure_reasons_json\":[],\"metadata_json\":{},\"created_at\":\"2026-08-18T15:45:00Z\",\"updated_at\":\"2026-08-18T15:45:00Z\"}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "run_id",
+            "type": "string"
+          },
+          {
+            "name": "epoch_id",
+            "type": "string"
+          },
+          {
+            "name": "epoch_target_id",
+            "type": "string"
+          },
+          {
+            "name": "target_claim_id",
+            "type": "string"
+          },
+          {
+            "name": "worker_state_id",
+            "type": "string"
+          },
+          {
+            "name": "worker_checkpoint_id",
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "type": "\"applied\" | \"conflict\" | \"skipped\" | \"failed\" | \"resolved\" | \"needs_rework\" | \"blocked\" | \"rejected\" | \"resolver_failed\""
+          },
+          {
+            "name": "disposition",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "target_key",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "patch_path",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "diff_path",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "item_path",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "summary_path",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "check_stdout_path",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "check_stderr_path",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "apply_stdout_path",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "apply_stderr_path",
+            "type": "string",
+            "required": false
+          },
+          {
+            "name": "write_set_json",
+            "type": "string[]"
+          },
+          {
+            "name": "conflict_paths_json",
+            "type": "string[]"
+          },
+          {
+            "name": "failure_reasons_json",
+            "type": "string[]"
+          },
+          {
+            "name": "metadata_json",
+            "type": "object"
+          },
+          {
+            "name": "created_at",
+            "type": "ISO timestamp"
+          },
+          {
+            "name": "updated_at",
+            "type": "ISO timestamp"
+          },
+          {
+            "name": "resolved_at",
+            "type": "ISO timestamp",
+            "required": false
+          }
+        ],
+        "name": "integration_outcomes row",
+        "source": {
+          "path": "apps/server/src/core/orchestrator-state/storage/schema.ts",
+          "symbol": "integrationOutcomes"
+        }
+      },
+      "children": []
+    },
+    "compat": {
+      "id": "compat",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The outcome status enum retains historical resolver values for stored compatibility. Those values do not imply a live resolver producer. Blocking outcomes remain visible until explicitly settled."
+        }
+      ],
+      "children": []
+    },
+    "knowledge": {
+      "id": "knowledge",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Code and Knowledge Leave the Worker Separately"
+        }
+      ],
+      "children": []
+    },
+    "knowledge-prose": {
+      "id": "knowledge-prose",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Required artifacts and transcript evidence are downloaded before worker closure and sandbox deletion. Integration consumes the selected code patch. When enabled, the summary processor turns closed-worker evidence into a structured account and the librarian consumer accepts reusable knowledge. Failures and non-improvements can still teach later workers."
+        }
+      ],
+      "children": []
+    },
+    "quality": {
+      "id": "quality",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Quality Gate",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/10-quality-gate"
+            }
+          }
+        },
+        {
+          "insert": " owns repeated submission checks and checkpoint selection."
+        }
+      ],
+      "children": []
+    },
+    "boundary": {
+      "id": "boundary",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Epoch Boundary",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/40-epoch-boundary"
+            }
+          }
+        },
+        {
+          "insert": " owns whole-epoch confirmation and upstream reconciliation."
+        }
+      ],
+      "children": []
+    },
+    "librarian": {
+      "id": "librarian",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Librarian Processing",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing"
+            }
+          }
+        },
+        {
+          "insert": " owns the knowledge handoff."
+        }
+      ],
+      "children": []
+    }
+  }
+}

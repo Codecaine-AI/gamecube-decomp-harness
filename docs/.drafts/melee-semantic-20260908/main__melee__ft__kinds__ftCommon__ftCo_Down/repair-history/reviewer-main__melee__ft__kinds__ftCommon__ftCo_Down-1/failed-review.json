@@ -1,0 +1,801 @@
+{
+  "verdict": "repair_required",
+  "proposal_sha256": "8b46b3a11840a7e8e5b7466477da09edccc55370359893bf98b75f1af3ca3401",
+  "manifest_sha256": "1b5ad02d910c5ffb667eeca97079b786287ad02a7bb85945fd92865488e6eb9d",
+  "rejected": [
+    {
+      "fact_id": "fact:2230b1bf-4795-4b49-8223-425832b033d1",
+      "updated_at": "2026-09-02T05:53:15.526Z",
+      "defect": "The disposition ledger retains the claim that ftCo_80098324 enters its motion 'with no blend'. Passing anim_blend = 0 does not establish that behavior. Fighter_ChangeMotionState interprets zero as selection of the animation metadata's default blend byte; -1 selects an explicit zero blend. Consequently the retained state_behavior requires a corrective write absent from the current proposal.",
+      "required_repair": "Supersede this state_behavior with an argument-level description distinguishing a zero blend argument from disabled blending. Explain the downstream metadata-dependent branch in functionality.md. Do not assert that these particular animations have zero default blending without their metadata.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L54-L61",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1246-L1253",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1288-L1295",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L388-L428"
+      ]
+    }
+  ],
+  "review_notes": [
+    "Reviewer identity: /root/review_gate/kernel/reviewer-main__melee__ft__kinds__ftCommon__ftCo_Down-1. Independently read the complete current proposal.json, functionality.md, both disposition ledgers, coverage.json, and unresolved.json; the current proposal, rather than the prior packet's similar proposal, is the reviewed input.",
+    "All four currently proposed writes are supported. C-stick priority, signed atan2f angle gates, inclusive magnitude boundaries, strict angle boundaries, the exact DownWaitU-only directional discriminator, and the additional DownBound caller were independently verified. The repair verdict concerns an additional retained claim, not rejection of those four writes.",
+    "The owned header and implementation were read completely in canonical and rendered forms. Rendered substitutions were treated as hypotheses. DownFoward is the canonical spelling. The preceding static declaration gives ftCo_80098324 internal linkage despite its definition omitting static.",
+    "The active motion table connects the four directional U/D submotions to this TU's callbacks. Fighter_ChangeMotionState copies the selected table callbacks into the fighter at lines 1370-1374. This supports the callback-family interpretation without relying solely on numeric motion comments or rendered names.",
+    "The entry helper passes frame 0, speed 1, blend argument 0, Ft_MF_None, and NULL alternate source, then processes animation and initializes ground knockback. The callee's metadata-default blend branch is material: the call is not proof of disabled blending.",
+    "Animation completion is conditional delegation, not unconditional Wait or a one-shot latch. The foreign completion implementation includes character dispatch, DownSpot, another early-return branch, and possible DeadUpFall after Wait. IASA's empty body establishes only an inert callback phase, not immunity to collision or external state changes.",
+    "The physics helper has both animation-derived acceleration and friction branches. Collision synchronizes positions, calls mpColl_8004B2DC, and enters Fall on false. Neither wrapper supplies an additional local guard.",
+    "The A/B counter producers reset on the corresponding pressed-button bits and increment only below 255. The attack predicate uses strict counter thresholds and short-circuits its alternate C-stick crossing predicate. It does not locally reset the counters. No fixed elapsed-frame buffer duration is proved.",
+    "The artifact's uncertainty about the neighboring cast named jobj is conservative but locally resolvable: DownBound.c line 169 assigns gobj->user_data to jobj before the Fighter casts at lines 193-196. The ordinary entry branch also resets both counters at lines 141-142. This does not require an owned-subject write or justify a whole-engine universal-entry assertion.",
+    "All eight parameter subjects have no baseline facts. Source signatures establish pointer and motion-ID types, not their compiled register placement. The TU borrows objects and retains no local stack pointer; engine-wide object continuity across called routines remains deferred.",
+    "The retained relations are scoped to directional recovery callbacks and buffered attack dispatch, not ownership of the entire knockdown or attack lifecycle. Duplicate TU concept relations were individually reviewed; no merge or new relation is proposed."
+  ],
+  "coverage": {
+    "files": [
+      {
+        "path": "src/melee/ft/kinds/ftCommon/ftCo_Down.c",
+        "total_lines": 102,
+        "canonical_complete": true,
+        "rendered_complete": true,
+        "renderer_issues": [
+          "No parse errors. Ten function-name substitutions are hypotheses, not independent evidence."
+        ]
+      },
+      {
+        "path": "src/melee/ft/kinds/ftCommon/ftCo_Down.h",
+        "total_lines": 14,
+        "canonical_complete": true,
+        "rendered_complete": true,
+        "renderer_issues": [
+          "No parse errors. One speculative function-name substitution."
+        ]
+      }
+    ],
+    "subjects": [
+      {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:.sdata2"
+      },
+      {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_80098324"
+      },
+      {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_80098400"
+      },
+      {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Anim"
+      },
+      {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_CheckInput"
+      },
+      {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Coll"
+      },
+      {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_IASA"
+      },
+      {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Phys"
+      },
+      {
+        "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_Down.c"
+      },
+      {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_80098324#r3"
+      },
+      {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_80098324#r4"
+      },
+      {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_80098400#r3"
+      },
+      {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Anim#r3"
+      },
+      {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_CheckInput#r3"
+      },
+      {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Coll#r3"
+      },
+      {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_IASA#r3"
+      },
+      {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Phys#r3"
+      }
+    ],
+    "fact_count": 44,
+    "link_count": 12
+  },
+  "fact_dispositions": [
+    {
+      "fact_id": "fact:16e8eb77-b558-441a-9de8-cb91602736be",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "unresolved",
+      "reason": "Source literal uses are visible, but their attribution to this compiled section and its read-only storage are not independently established.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L42-L60"
+      ]
+    },
+    {
+      "fact_id": "fact:b61d8eee-76d8-4217-bb08-89c6f5b27272",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "unresolved",
+      "reason": "No compiled evidence establishes the asserted 16-byte extent, literal types, repetitions, or alignment.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L1-L102"
+      ]
+    },
+    {
+      "fact_id": "fact:c1de308c-1931-4540-a7e7-776829fd0a0d",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "unresolved",
+      "reason": "Compiler literal-pool purpose remains plausible but requires section and relocation evidence.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L42-L60"
+      ]
+    },
+    {
+      "fact_id": "fact:9f243dd5-28f3-4e74-b563-fba63ebc1a92",
+      "updated_at": "2026-09-02T05:53:15.526Z",
+      "disposition": "retain",
+      "reason": "Ordered argument flow is correct. In this data-flow claim, zero blend denotes the forwarded argument only: the callee can substitute default metadata blending. Orientation-specific denotes the selected ID, not universal preservation of actual prone orientation.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L42-L61",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1288-L1295"
+      ]
+    },
+    {
+      "fact_id": "fact:0f544adf-d7e1-46e1-8e62-b710ffa6c7d5",
+      "updated_at": "2026-09-02T05:53:15.526Z",
+      "disposition": "supersede",
+      "reason": "The proposed replacement correctly distinguishes preserving the supplied ID from preserving every caller's prone orientation; DownBoundU selects D.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L42-L61",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241"
+      ]
+    },
+    {
+      "fact_id": "fact:32b6036b-9509-4fee-85c8-d9c6fc80efb2",
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "disposition": "retain",
+      "reason": "Plausible descriptive entry-helper name, retained as a hypothesis rather than a recovered symbol.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L54-L61"
+      ]
+    },
+    {
+      "fact_id": "fact:aead882a-eff9-462c-ac99-8cac368b05ab",
+      "updated_at": "2026-09-02T05:53:15.526Z",
+      "disposition": "retain",
+      "reason": "Exact signature and input motion-ID usage are present.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L49-L61"
+      ]
+    },
+    {
+      "fact_id": "fact:65e55ec3-c7bb-4287-822a-472065d33e58",
+      "updated_at": "2026-09-02T05:53:15.526Z",
+      "disposition": "retain",
+      "reason": "Shared motion entry, animation processing, and common initialization are verified; the last helper specifically performs conditional ground-knockback initialization.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L54-L61",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L191-L206"
+      ]
+    },
+    {
+      "fact_id": "fact:2230b1bf-4795-4b49-8223-425832b033d1",
+      "updated_at": "2026-09-02T05:53:15.526Z",
+      "disposition": "supersede",
+      "reason": "The unconditional entry sequence is correct, but 'with no blend' is unsupported and requires a new corrective write. Zero anim_blend selects the metadata default when animation setup runs; it is not the explicit no-blend sentinel.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L54-L61",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1288-L1295",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L388-L428"
+      ]
+    },
+    {
+      "fact_id": "fact:e18300e1-a3a5-4d7c-9502-a6196d74619d",
+      "updated_at": "2026-09-04T22:43:08.038Z",
+      "disposition": "retain",
+      "reason": "Counter reads, short-circuit alternate predicate, selected ID, entry call, and boolean output agree with source.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L82-L101"
+      ]
+    },
+    {
+      "fact_id": "fact:86b5b1c7-3a86-41ce-aaf7-79b0f0e1fecf",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "retain",
+      "reason": "Buffered attack dispatch and distinct U/D submotions are supported by counter producers, caller, and table. Exact back/stomach visual appearance is specifically deferred rather than proved from names.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2070-L2081",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2191-L2289"
+      ]
+    },
+    {
+      "fact_id": "fact:053d72a5-d77f-4ae4-a2df-e7fddb427847",
+      "updated_at": "2026-09-04T22:43:08.038Z",
+      "disposition": "retain",
+      "reason": "Actual DownBound caller and separate DownWait attack predicate support the descriptive hypothesis; original name remains unknown.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L25-L49"
+      ]
+    },
+    {
+      "fact_id": "fact:81e89351-89b7-424a-a3b0-e0c828ccfb63",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "retain",
+      "reason": "True follows attack entry and causes the caller's early return; false permits later choices.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L90-L101",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241"
+      ]
+    },
+    {
+      "fact_id": "fact:5e8cdc36-0e6c-4755-9697-1f65d781bb49",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "retain",
+      "reason": "Correct in the active DownBound caller's context. Animation exhaustion is enforced by that caller, not by the predicate itself; exact visual orientation is deferred.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L82-L101"
+      ]
+    },
+    {
+      "fact_id": "fact:80f43f11-9468-49a3-b663-6a821cc5c971",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "retain",
+      "reason": "Strict counter thresholds, exact DownBoundU equality test, and attack-before-directional caller priority are verified.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L82-L101",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241"
+      ]
+    },
+    {
+      "fact_id": "fact:67d72e5b-94fd-48ca-a764-a9426ff0ad3c",
+      "updated_at": "2026-09-04T22:43:08.038Z",
+      "disposition": "retain",
+      "reason": "Same pointer is queried and conditionally forwarded. Unchanged describes pointer identity, not downstream object immutability.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L63-L68"
+      ]
+    },
+    {
+      "fact_id": "fact:c068f75f-532c-4eee-b70a-c85e8512dc29",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "retain",
+      "reason": "The active table assigns this completion callback to all four directional submotions; exact animation appearance remains deferred.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2202-L2311",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L63-L68"
+      ]
+    },
+    {
+      "fact_id": "fact:c6ecff24-9130-45ba-8377-e33949dce5b4",
+      "updated_at": "2026-09-02T02:47:29.335Z",
+      "disposition": "retain",
+      "reason": "Exact void(Fighter_GObj*) signature and animation callback role are verified.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L63-L68"
+      ]
+    },
+    {
+      "fact_id": "fact:62f371c0-5483-412c-b19f-b2af7ed0ada9",
+      "updated_at": "2026-09-04T22:43:08.038Z",
+      "disposition": "retain",
+      "reason": "The callback performs no local transition while frames remain and delegates completion otherwise; exceptional completion paths are allowed by the claim.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L63-L68",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109"
+      ]
+    },
+    {
+      "fact_id": "fact:1049280b-b459-4b16-862f-615d5d6703cc",
+      "updated_at": "2026-09-04T22:43:08.038Z",
+      "disposition": "retain",
+      "reason": "Normally-Wait wording accommodates the verified exceptional paths. First exhausted update is not an exclusive one-shot condition: every exhausted invocation delegates.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L63-L68",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109"
+      ]
+    },
+    {
+      "fact_id": "fact:402f908b-b9e2-4df5-903f-c1d14fb5f735",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "retain",
+      "reason": "Input-to-ID flow is verified. Current DownWait orientation means the exact DownWaitU discriminator, not a general orientation reader; angles are signed.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L18-L52",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF1.c#L119-L128"
+      ]
+    },
+    {
+      "fact_id": "fact:36323716-f276-40b1-bf3a-b1a2083d1d99",
+      "updated_at": "2026-09-02T02:47:54.830Z",
+      "disposition": "retain",
+      "reason": "Facing-relative directional floor-recovery choice is supported by callers and active callback table, without treating the gate as a symmetric horizontal-angle test.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L29-L52",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2202-L2311"
+      ]
+    },
+    {
+      "fact_id": "fact:d93d1c38-247e-42e2-a203-008a87bdcc0e",
+      "updated_at": "2026-09-02T02:47:54.830Z",
+      "disposition": "retain",
+      "reason": "Exact signature and transition-accepted boolean contract match source.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L29-L52"
+      ]
+    },
+    {
+      "fact_id": "fact:38de1323-a03c-4b76-9bf0-140688811635",
+      "updated_at": "2026-09-02T02:47:54.830Z",
+      "disposition": "supersede",
+      "reason": "Universal orientation preservation is contradicted by the DownBoundU caller. The proposed purpose replacement accurately states the exact discriminator and signed upper-angle gate.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L18-L52",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L606-L614"
+      ]
+    },
+    {
+      "fact_id": "fact:b18bc11b-c9df-49cb-a3c6-6b2330dd9adb",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "supersede",
+      "reason": "The proposed replacement removes the misleading near-horizontal rationale and describes the actual else branch, including conditional source-level unordered comparison behavior.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L18-L52",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF1.c#L119-L128",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L606-L614"
+      ]
+    },
+    {
+      "fact_id": "fact:65788c4f-4b5d-4a68-b61b-174906ac8ea5",
+      "updated_at": "2026-09-02T02:47:26.844Z",
+      "disposition": "retain",
+      "reason": "Pointer forwarding, collision-position synchronization, and returned-result-to-Fall flow are verified.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L77-L80",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L406-L424",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1043-L1050"
+      ]
+    },
+    {
+      "fact_id": "fact:d3ec06dd-bdf7-4bcd-866a-c8f75b10ecb9",
+      "updated_at": "2026-09-02T02:47:26.844Z",
+      "disposition": "retain",
+      "reason": "Valid for this directional recovery collision phase, not all prone states or all update phases. A false delegated collision result enters Fall.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1043-L1050",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2202-L2311"
+      ]
+    },
+    {
+      "fact_id": "fact:184bd9a0-918d-492b-b997-9f51acdde9b7",
+      "updated_at": "2026-09-02T02:47:26.844Z",
+      "disposition": "retain",
+      "reason": "Exact source signature is verified.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L77-L80"
+      ]
+    },
+    {
+      "fact_id": "fact:cd5f4eab-48f7-441a-85d3-22cc1f2915e3",
+      "updated_at": "2026-09-02T02:47:26.844Z",
+      "disposition": "retain",
+      "reason": "The delegated helper supplies the stated conditional Fall transition.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L77-L80",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1043-L1050"
+      ]
+    },
+    {
+      "fact_id": "fact:3543c95a-a370-42c3-b728-4327b3010e23",
+      "updated_at": "2026-09-02T02:47:26.844Z",
+      "disposition": "retain",
+      "reason": "No independent local guard or timer exists; the delegated helper enters Fall on false and supplies no other explicit motion transition.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L77-L80",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1043-L1050"
+      ]
+    },
+    {
+      "fact_id": "fact:e32ec50c-2520-4d82-8412-3f56104edba3",
+      "updated_at": "2026-09-02T02:47:28.010Z",
+      "disposition": "retain",
+      "reason": "The empty body does not dereference the object or produce local effects.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L70-L70"
+      ]
+    },
+    {
+      "fact_id": "fact:db5a5156-15d6-4e8b-95ed-42c2ec549b18",
+      "updated_at": "2026-09-04T19:01:28.786Z",
+      "disposition": "retain",
+      "reason": "The claim is explicitly scoped to the IASA portion: this callback offers no cancel. It does not establish whole-action invulnerability or prevent other exits.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L63-L80",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2202-L2311"
+      ]
+    },
+    {
+      "fact_id": "fact:2ba364ec-8929-40be-8fff-5056fd0ba7e8",
+      "updated_at": "2026-09-02T02:47:28.010Z",
+      "disposition": "retain",
+      "reason": "Exact signature and unused parameter are verified.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L70-L70"
+      ]
+    },
+    {
+      "fact_id": "fact:1f0c74d3-ca9f-4046-a240-c8fbf8e77d02",
+      "updated_at": "2026-09-02T02:47:28.010Z",
+      "disposition": "retain",
+      "reason": "The empty callback contributes no input-triggered transition through its own phase.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L70-L70"
+      ]
+    },
+    {
+      "fact_id": "fact:af24fe47-2676-481b-9628-a6944b4a2390",
+      "updated_at": "2026-09-02T02:47:28.010Z",
+      "disposition": "retain",
+      "reason": "No-op invariant holds. The adjacent Anim callback's completion condition is not a statement that animation is the only possible action exit.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L63-L80"
+      ]
+    },
+    {
+      "fact_id": "fact:d7eb657e-6d49-41b2-ae05-85473e2cc8c2",
+      "updated_at": "2026-09-02T02:47:22.585Z",
+      "disposition": "retain",
+      "reason": "Same pointer is forwarded exactly once with no local output.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L72-L75"
+      ]
+    },
+    {
+      "fact_id": "fact:b8cd78c8-2aab-4e7d-a14e-3cd44460b378",
+      "updated_at": "2026-09-02T02:47:22.585Z",
+      "disposition": "retain",
+      "reason": "The active table establishes the physics role within directional knockdown recovery, rather than a generic callback for every downed motion.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2202-L2311"
+      ]
+    },
+    {
+      "fact_id": "fact:e190c988-4c23-4200-8a30-c3dfab7a391e",
+      "updated_at": "2026-09-02T02:47:22.585Z",
+      "disposition": "retain",
+      "reason": "Exact source signature is verified.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L72-L75"
+      ]
+    },
+    {
+      "fact_id": "fact:ae7bd44b-8825-4c53-be3c-25ad9603e272",
+      "updated_at": "2026-09-02T02:47:22.585Z",
+      "disposition": "retain",
+      "reason": "Single shared-physics delegation is verified; the foreign helper includes both animation-derived acceleration and friction paths.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L72-L75",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L55-L89"
+      ]
+    },
+    {
+      "fact_id": "fact:97937263-1555-469f-a10e-cb650c6dfe40",
+      "updated_at": "2026-09-02T02:47:22.585Z",
+      "disposition": "retain",
+      "reason": "Exactly one unconditional helper call, with no local branch or state transition.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L72-L75"
+      ]
+    },
+    {
+      "fact_id": "fact:3a7bf245-6906-441b-bb6d-7c5c723ed410",
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "disposition": "retain",
+      "reason": "Inputs, counters, facing, and current-motion classification drive selection. Prone orientation is represented by the explicit state tests, not a general geometric orientation query.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L18-L101"
+      ]
+    },
+    {
+      "fact_id": "fact:7d0d432f-4d71-415f-b373-da3bbb4aef7d",
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "disposition": "retain",
+      "reason": "Floor-recovery participation is supported by table and callers. The rationale's waiting-state generalization is not adopted for buffered attack dispatch: its actual caller is DownBound_Anim.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2191-L2311"
+      ]
+    },
+    {
+      "fact_id": "fact:772fd2dc-bf5b-4e5d-9493-437b773b9d28",
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "disposition": "retain",
+      "reason": "The purpose value accurately describes directional recovery and orientation-specific attack dispatch in the active caller. DownForward in the rationale is not a canonical identifier; canonical spelling is DownFoward.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L29-L101"
+      ]
+    },
+    {
+      "fact_id": "fact:bb198bdc-1343-45b1-b2ab-e7cb65dfacd2",
+      "updated_at": "2026-09-06T03:20:33.719Z",
+      "disposition": "supersede",
+      "reason": "The proposed replacement corrects generalized orientation matching, noncanonical spelling, and incomplete exit description.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L42-L101",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1043-L1050"
+      ]
+    }
+  ],
+  "link_dispositions": [
+    {
+      "link_id": "link:09882867-7967-4b47-99c4-fe796bb8cd07",
+      "baseline_record": {
+        "id": "link:09882867-7967-4b47-99c4-fe796bb8cd07",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Down.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:knockdown",
+        "role": "implements",
+        "why": "The matched ftCo_Down unit implements the common fighter's downed action state, which is part of the knockdown sequence.",
+        "kind": "pr",
+        "locator": "pr://pr-910--main-melee-ft-chara-ftcommon-ftco-down",
+        "digest": null
+      },
+      "disposition": "retain",
+      "reason": "Canonical caller and implementation independently support participation in knockdown recovery, not ownership of the entire sequence.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L29-L101"
+      ]
+    },
+    {
+      "link_id": "link:1471086e-257c-4f65-8720-20b5dda40ea0",
+      "baseline_record": {
+        "id": "link:1471086e-257c-4f65-8720-20b5dda40ea0",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Phys",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:knockdown",
+        "role": "implements",
+        "why": "The function is the physics callback for the common Down state and therefore supplies physics processing during knockdown.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L74-L77",
+        "digest": "sha256:218d439d33b4081f"
+      },
+      "disposition": "retain",
+      "reason": "The active directional motion table and wrapper establish this physics role.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2202-L2311",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L72-L75"
+      ]
+    },
+    {
+      "link_id": "link:13f4d786-b0de-4337-9c18-44acd3bce5db",
+      "baseline_record": {
+        "id": "link:13f4d786-b0de-4337-9c18-44acd3bce5db",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Down.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:knockdown",
+        "role": "implements",
+        "why": "The unit implements the face-up and face-down downed-state recovery family, including directional recovery motions, down attacks, and grounded collision handling.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L1-L100",
+        "digest": "sha256:1b059ed0430bb7da"
+      },
+      "disposition": "retain",
+      "reason": "Family participation is supported. Down attacks means dispatch here, not ownership of their complete lifecycle; exact visual appearance remains deferred.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L29-L101",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2191-L2311"
+      ]
+    },
+    {
+      "link_id": "link:8b7c281e-2c0f-4da0-91f5-ef10abd9a19a",
+      "baseline_record": {
+        "id": "link:8b7c281e-2c0f-4da0-91f5-ef10abd9a19a",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Coll",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:knockdown",
+        "role": "implements",
+        "why": "This is the common Down state's collision callback and preserves the downed action while stage support succeeds, transitioning to Fall when support is lost.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L79-L82",
+        "digest": "sha256:46e678a31b39cd7b"
+      },
+      "disposition": "retain",
+      "reason": "The wrapper delegates the stated conditional Fall transition during its collision phase.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L77-L80",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1043-L1050"
+      ]
+    },
+    {
+      "link_id": "link:bcd778b6-8d09-4e88-9ffc-272dcaf59b70",
+      "baseline_record": {
+        "id": "link:bcd778b6-8d09-4e88-9ffc-272dcaf59b70",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Down.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:floor-recovery",
+        "role": "implements",
+        "why": "The unit selects and runs orientation-specific forward/backward recovery rolls and can transition into a getup attack from the fighter's downed state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L1-L103",
+        "digest": "sha256:555609dbc0d214dc"
+      },
+      "disposition": "retain",
+      "reason": "Directional variants and attack dispatch support the relation; orientation-specific variants do not imply universal orientation preservation.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L29-L101",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2191-L2311"
+      ]
+    },
+    {
+      "link_id": "link:3de64425-9705-4599-b5a7-81d7936acfa3",
+      "baseline_record": {
+        "id": "link:3de64425-9705-4599-b5a7-81d7936acfa3",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_IASA",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:floor-recovery",
+        "role": "implements",
+        "why": "The callback is the intentionally inert interrupt phase of the directional Down motions selected while recovering from the floor.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L1-L103",
+        "digest": "sha256:555609dbc0d214dc"
+      },
+      "disposition": "retain",
+      "reason": "Empty implementation occupies the directional motions' active IASA slots.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L70-L70",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2202-L2311"
+      ]
+    },
+    {
+      "link_id": "link:c0f7f893-7703-4215-9ffa-8dbd137ddcb4",
+      "baseline_record": {
+        "id": "link:c0f7f893-7703-4215-9ffa-8dbd137ddcb4",
+        "from_target_id": null,
+        "from_entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Down.c",
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:floor-recovery",
+        "role": "implements",
+        "why": "The unit converts horizontal input from face-up or face-down DownWait into the corresponding forward or backward recovery motion and supplies that motion's update callbacks.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L1-L100",
+        "digest": "sha256:1b059ed0430bb7da"
+      },
+      "disposition": "retain",
+      "reason": "Correct for the DownWait caller. The additional DownBound caller has a different U/D consequence; this relation is not exclusive to DownWait.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L29-L80",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L314-L319"
+      ]
+    },
+    {
+      "link_id": "link:5b57d405-4c83-4384-bd61-c92d4dc3348e",
+      "baseline_record": {
+        "id": "link:5b57d405-4c83-4384-bd61-c92d4dc3348e",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Anim",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:floor-recovery",
+        "role": "implements",
+        "why": "The callback handles animation completion for the DownFoward and DownBack motions selected as directional recovery options from DownWait.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L1-L100",
+        "digest": "sha256:1b059ed0430bb7da"
+      },
+      "disposition": "retain",
+      "reason": "Active table and callback body establish this completion role.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L63-L68",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2202-L2311"
+      ]
+    },
+    {
+      "link_id": "link:90349a5c-dc2a-4ab5-a465-86590bcf458f",
+      "baseline_record": {
+        "id": "link:90349a5c-dc2a-4ab5-a465-86590bcf458f",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_Anim",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "pattern:pattern:animation-completion-state-transition",
+        "role": "exhibits",
+        "why": "The callback preserves its current action while animation frames remain and invokes a transition helper only after animation exhaustion.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L65-L70",
+        "digest": "sha256:fc8e9986bd4ab704"
+      },
+      "disposition": "retain",
+      "reason": "Exact guarded completion-delegation pattern is present; preservation is scoped to this callback.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L63-L68"
+      ]
+    },
+    {
+      "link_id": "link:5ab1d9b7-1cfb-4441-99df-833a9c71f148",
+      "baseline_record": {
+        "id": "link:5ab1d9b7-1cfb-4441-99df-833a9c71f148",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_Down_CheckInput",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:floor-recovery",
+        "role": "implements",
+        "why": "The function recognizes directional input from a DownWait state and enters the corresponding forward or backward floor-recovery motion.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L31-L54",
+        "digest": "sha256:189374db4fb06d50"
+      },
+      "disposition": "retain",
+      "reason": "Verified for the active DownWait caller, without an exclusive-caller or symmetric-angle interpretation.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L29-L52",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L314-L319"
+      ]
+    },
+    {
+      "link_id": "link:64e079df-66d6-48e4-b13b-2baa78c1230d",
+      "baseline_record": {
+        "id": "link:64e079df-66d6-48e4-b13b-2baa78c1230d",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_80098324",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:floor-recovery",
+        "role": "implements",
+        "why": "The routine enters the orientation-specific forward or backward recovery-roll motion selected from a knocked-down DownWait state.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_Down.c#L31-L63",
+        "digest": "sha256:0aabb79cdbcfe6fa"
+      },
+      "disposition": "retain",
+      "reason": "Valid description of the DownWait route. The helper forwards its supplied ID and also indirectly serves DownBound; the relation makes no no-blend claim.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L42-L61",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241"
+      ]
+    },
+    {
+      "link_id": "link:3a266c3f-49f8-4ce0-9235-ae1d05bda84d",
+      "baseline_record": {
+        "id": "link:3a266c3f-49f8-4ce0-9235-ae1d05bda84d",
+        "from_target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Down:ftCo_80098400",
+        "from_entity_id": null,
+        "to_target_id": null,
+        "to_entity_id": "game_concept:game_concept:floor-recovery",
+        "role": "implements",
+        "why": "The predicate consumes an attack command at the end of DownBound and enters the orientation-specific DownAttack action before the caller considers rolling or settling into DownWait.",
+        "kind": "code",
+        "locator": "code://1e28b4203b/src/melee/ft/chara/ftCommon/ftCo_DownBound.c#L180-L250",
+        "digest": "sha256:5b6333aadfe032ea"
+      },
+      "disposition": "retain",
+      "reason": "Ordered caller checks and attack entry are verified. Consumes means accepted transition, not local reset of input counters.",
+      "evidence": [
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownBound.c#L235-L241",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Down.c#L90-L101",
+        "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DownAttack.c#L45-L49"
+      ]
+    }
+  ],
+  "unresolved": [
+    "All three .sdata2 facts remain unresolved without compiled section bytes, extent, and relocation evidence. Source literal expressions do not prove section ownership or layout.",
+    "Actual default blend bytes for these animations are unknown. The callee's zero-argument-to-metadata behavior is proved, so lack of metadata cannot justify retaining an unconditional no-blend claim.",
+    "Original names of ftCo_80098324 and ftCo_80098400 remain unknown; inferred names are descriptive hypotheses.",
+    "Compiled register placement, historical address accuracy, local padding, and object/section layout are not established by source signatures or address comments.",
+    "Exact target atan2f exceptional behavior and compiler floating transformations remain unverified. NaN and signed-zero comparison discussion is explicitly conditional source-level reasoning.",
+    "Engine-wide Fighter lifetime continuity across state changes, the callee's existing transition callback, and animation processing is not proved. The owned entry helper relies on continued validity of its borrowed Fighter pointer.",
+    "Exact animation appearance, including visual back/stomach interpretation, numeric tuning values, and elapsed-frame buffer duration remain deferred. Active tables prove distinct submotions and callback associations, not asset appearance.",
+    "The source-level DownBoundU-to-directional-D path is verified, but whether it matches intended gameplay or constitutes a binary-level bug remains unresolved."
+  ]
+}

@@ -1,0 +1,302 @@
+{
+  "tu": "main/sysdolphin/baselib/synth",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L1349-L1380",
+            "why": "Complete header callback and missing-node latch clear."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the interpretation of the missing-node branch without changing supported header-processing behavior.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthPStreamHeaderCallback"
+        },
+        "type": "purpose",
+        "value": "Processes a completed stream-header transfer by resolving the current stream node, configuring its AX voices from the packed header, synchronizing the three-slot ring indices, and scheduling the selected per-buffer header read. If the node no longer resolves, it only clears the shared stream-operation-in-flight latch; it does not clear the current handle or independently stop playback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L1349-L1380",
+            "why": "Header state transitions and second-voice allocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L571-L574",
+            "why": "Ordinary SFX secondary-slot bookkeeping for comparison."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact transitions and records the useful paired-voice bookkeeping distinction.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthPStreamHeaderCallback"
+        },
+        "type": "state_behavior",
+        "value": "For a valid current node, adopts the header's voice count, acquires and asserts a second AX voice when the count is two, installs each declared voice's address and ADPCM descriptors, advances the observed ring selector by two modulo three, copies it to the requested, completed, and loop-transition indices, and requests a 0x20-byte header at file offset 0x80. The second-voice branch does not initialize the secondary synth-node sentinel/back-reference used by ordinary SFX playback. A missing node causes only HSD_Synth_804D7778 to become zero; this byte records an outstanding stream operation, not whether playback is active."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L1185-L1227",
+            "why": "Completion stores and refill guards."
+          }
+        ],
+        "op": "write",
+        "rationale": "The downstream refill guards establish index and latch roles more precisely than the existing two-counter explanation.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthResetStreamCounters"
+        },
+        "type": "purpose",
+        "value": "Marks a recurring stream payload transfer complete by copying the requested ring-slot index HSD_Synth_804D7768 into the completed index HSD_Synth_804D776C and clearing the operation-in-flight latch HSD_Synth_804D7778. All callback arguments are ignored."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L406-L429",
+            "why": "Traversal, asynchronous calls, final store and separate barrier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.static.h#L56-L58",
+            "why": "Declared array bounds do not prove adjacency."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains supported compaction intent while removing an unsupported compiled-adjacency conclusion.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthSFXBankDeflag"
+        },
+        "type": "purpose",
+        "value": "Schedules compaction of the surviving group payloads in a selected SFX bank. It first stops nodes selected by the bank's first-voice playback-address range, walks the remaining groups from the fixed bank head, and readdresses groups whose current payload base differs from the accumulated packed destination. It does not wait for those moves. The final source statement stores the accumulated end through HSD_Synth_804C2AE0[bank_id + 32], beyond that array's declared 32 entries; interpreting this as a valid bank free-cursor update requires separate layout evidence."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L741-L752",
+            "why": "Pause request and flag-8 branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L976-L1002",
+            "why": "Deferred completion and scheduling guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects immediate-volume wording and preserves the loading-state exception.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthSFXPause"
+        },
+        "type": "purpose",
+        "value": "Requests pausing of the sound instance resolved from the supplied handle by setting pause flag 0x2 and requesting deferred volume processing. Ordinary nodes are subsequently silenced and have their pitch frozen by the centralized volume processor; nodes carrying loading flag 0x8 immediately acquire flag 0x4 as well, while volume-list insertion is suppressed. An unresolved handle is a no-op."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L741-L752",
+            "why": "Ordered flag operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L993-L1002",
+            "why": "Scheduler-only implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing exact flag sequence while distinguishing request time from processing time.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthSFXPause"
+        },
+        "type": "state_behavior",
+        "value": "On successful handle lookup, ORs 0x2 into node->flags, calls HSD_SynthSFXUpdateVolume, and then ORs 0x6 into the flags if mask 0x8 is set. The updater only coalesces eligible nodes into the pending-volume list; it does not recalculate or publish volume during this call. A missing node causes no mutation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L651-L716",
+            "why": "Group replacement and deferred key-off."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/axdriver.c#L204-L221",
+            "why": "Integer-domain result consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the guarantee that only the newest member remains active and preserves the return-representation mismatch.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthSFXPlayWithGroup"
+        },
+        "type": "purpose",
+        "value": "Starts a parameterized sound effect and stores its result in the selected group slot. For a nonzero group with an eligible prior handle, it optionally notifies the driver and requests key-off of the previous member before starting the replacement; group zero skips this replacement step. Ordinary key-off is deferred, so the old sound can remain audible during its release ramp. The wrapper's bool declaration and temporary coexist with integer-handle usage by its caller and remain an ABI uncertainty."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L754-L765",
+            "why": "Resume guard and actions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L822-L837",
+            "why": "Pitch suppression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L993-L1002",
+            "why": "Deferred volume suppression."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects immediate effective-volume restoration and includes the downstream suppression branch.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthSFXResume"
+        },
+        "type": "purpose",
+        "value": "Requests resumption of an existing node carrying pause flag 0x2 by clearing masks 0x2 and 0x4, invoking pitch refresh, and requesting deferred volume processing. Pitch propagation and volume-list insertion remain suppressed while mask 0x8 is set. Missing handles and nodes without pause flag 0x2 are unchanged."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L448-L510",
+            "why": "Stop/drop guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L665-L716",
+            "why": "Grouped-play exception and immediate key-off."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L1129-L1132",
+            "why": "Single-slot replacement."
+          }
+        ],
+        "op": "write",
+        "rationale": "The prior explanation generalized stop/drop guards to all dispatch sites and omitted the distinct grouped-play comparison.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthSFXSetDriverInactivatedCallback"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally replaces the single inactivation callback slot; NULL disables dispatch, and no prior handler is returned or chained. StopNode, dropcallback, and immediate key-off dispatch only when mask 0x1 is clear, x27 equals 1, and the slot is non-NULL, before voice cleanup or handle invalidation. Group replacement is exceptional: its prior-node guard is flags != 1 rather than !(flags & 1), followed by the x27 and non-NULL checks before key-off."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L1118-L1127",
+            "why": "Target assignment precedes equality guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L882-L958",
+            "why": "Channel progression and separately bounded envelope delta."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claim that equal-current requests are ignored and separates channel interpolation from hardware envelope settling.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_SynthSFXUpdateAllVolume"
+        },
+        "type": "state_behavior",
+        "value": "Always replaces the selected channel's target with vol/255. If that target differs from the current gain, it replaces the remaining fade count and marks the channel and its active nodes for processing. If target equals current gain, it does not replace the count or activate new work, but the target assignment still occurs and any previous count and active bit remain. Each marked-channel pass advances the weighted interpolation and decrements a nonzero count; at zero it installs the exact target and clears the channel bit. A zero-frame differing request therefore updates channel gain on the next pass, while node envelope settling can require additional passes."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L882-L990",
+            "why": "Interpolation, signed composite target, delta clamp, tracked-volume updates, settling condition and envelope publication."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.static.h#L19-L31",
+            "why": "The tracked-volume field node->x24 is u16."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/ax.h#L56-L59",
+            "why": "AXPBVE.currentVolume is u16 and currentDelta is s16, so assigning the signed target to currentVolume narrows it."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported nominal target bound while preserving u16 tracked-volume storage and AX envelope narrowing; lack of a target clamp does not imply unconditional exact publication of the signed target.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_Synth_8038A000"
+        },
+        "type": "data_flow",
+        "value": "Consumes marked channel current/target/count records and the intrusive pending-node list. After advancing channel and per-node user-volume state, it forms an s32 envelope target by multiplying the layered gains by 32767, or selects zero for flags 0x1/0x2. The target is not explicitly clamped to 0\u201332767. It computes (target - node->x24)/160, clamps only that delta to [-20,20], and submits the delta to every voice. The tracked field node->x24 is u16: its += delta*160 update narrows back to that storage type. When delta is zero and either no interpolation remains active or the target is zero, the settling branch explicitly stores (u16) target in node->x24 and assigns the target to the AX envelope's u16 currentVolume, also narrowing it, with currentDelta set to zero. It then publishes that envelope to each voice and, when interpolation is inactive, removes pending work and performs applicable key-off or pause completion. These stores do not guarantee exact preservation of an arbitrary signed target."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L1382-L1459",
+            "why": "Replacement, unchecked acquisition and publication."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L1324-L1380",
+            "why": "Successful and missing-node latch clearing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects active-flag terminology and preserves exceptional replacement and allocation branches.",
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/synth:HSD_Synth_8038B5AC"
+        },
+        "type": "state_behavior",
+        "value": "Spins until the volatile stream-operation latch is zero, sets it, then disables interrupts for stream replacement and creation. An existing node carrying loading flag 0x8 is stopped immediately; an ordinary node not already keyed off receives flag 0x1, deferred volume scheduling, and priority 1 rather than immediate destruction. The routine acquires a priority-0x1D voice and dereferences it without a local failure check, creates a one-voice flag-0x8 node, publishes a new singleton handle, and requests the stream header. Header processing can add a second voice. Missing-node callbacks clear the operation latch, and successful first-payload activation clears it too, so zero does not mean playback is inactive."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L693-L765",
+            "why": "Key-off, range stop, pause and resume."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/synth.c#L1382-L1459",
+            "why": "Conditional stream replacement and new handle publication."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the TU-level assertion that streamed-sound replacement universally bypasses deferred teardown.",
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/synth.c"
+        },
+        "type": "state_behavior",
+        "value": "Logical playback state is represented by generation-qualified handles and node flags. Ordinary key-off sets mask 0x1, schedules deferred silencing, and lowers AX priority; nodes carrying loading mask 0x8 instead release voices immediately. Pause sets mask 0x2 and schedules volume work, with loading nodes also receiving mask 0x4; resume clears masks 0x2/0x4 and refreshes pitch while requesting deferred volume processing. Explicit range stopping tears down selected nodes immediately. Stream replacement uses the same loading-versus-running distinction: flag-0x8 nodes stop immediately, but ordinary running nodes enter deferred shutdown while a new current stream handle is published."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -47,6 +47,7 @@ const workerKnowledgeV2ToolIds = [
   "attempt_search",
   "resolve_locator",
 ] as const;
+const workerWriteSetToolId = "request_write_set_widening" as const;
 
 function samplePrompt(agentId: KernelAgentId): PiPromptBundle {
   switch (agentId) {
@@ -221,6 +222,7 @@ describe("meleeKernelAgentCatalog", () => {
     }
 
     expect(meleeKernelAgent("worker").tools).toEqual([...defaultWorkerToolProfile]);
+    expect(defaultWorkerToolProfile).toContain(workerWriteSetToolId);
     expect(defaultWorkerToolProfile).not.toContain("ledger_search");
     expect(defaultWorkerToolProfile).not.toContain("code_graph_file_card");
     expect(defaultWorkerToolProfile).not.toContain("code_graph_search");
@@ -413,8 +415,10 @@ describe("meleeKernelAgentCatalog", () => {
     expect(worker?.renderedTools).toContain("<available_tools>");
     expect(worker?.renderedTools).toContain('tool name="asm_window_search"');
     expect(worker?.renderedTools).toContain('tool name="mwcc_alloc_analyze"');
+    expect(worker?.renderedTools).toContain(`tool name="${workerWriteSetToolId}"`);
     expect(worker?.renderedTools).toContain("fixed_objects");
     expect(worker?.tools).toContain("mwcc_alloc_analyze");
+    expect(worker?.tools).toContain(workerWriteSetToolId);
     expect(rendered).toContain("capture=trace");
     expect(rendered).toContain("trace_detail=full");
     expect(rendered).toContain("Legacy allocator coloring modes are GPR-only");
@@ -424,6 +428,8 @@ describe("meleeKernelAgentCatalog", () => {
     expect(worker?.renderedTools).toContain("trace_detail defaults to stages");
     expect(rendered).toContain("A modeled solver witness does not prove a source match");
     expect(rendered).toContain("Require baseline replay agreement");
+    expect(rendered).toContain("`request_write_set_widening`");
+    expect(rendered).toContain("`widening_request` object");
     expect(samplePrompt("worker").systemPrompt).toContain("capture=trace");
     expect(samplePrompt("worker").systemPrompt).toContain("A modeled solver witness does not prove a source match");
     expect(worker?.tools).toEqual(expect.arrayContaining([...workerKnowledgeV2ToolIds]));
@@ -583,6 +589,24 @@ describe("meleeKernelAgentCatalog", () => {
     expect(renderedContext).toContain("pathway: `run_closed`");
     expect(renderedContext).toContain("head_revision: `1e28b4203b`");
     expect(renderedContext).not.toContain("{{");
+  });
+
+  test("renders backfill JSON correction context in the dashboard preview", () => {
+    const payload = loadKernelAgentsPayload({
+      game: null, repoRoot: sampleRepoRoot, stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    }, {
+      loadBackfillPassContext: () => ({
+        fillOut: [], supporting: [], headRevision: "fixture-revision",
+        outputCorrection: { previous_output: '{"facts": []}}', parse_error: "Unexpected closing brace" },
+      }),
+    });
+    const agent = payload.agents.find((entry) => entry.name === "backfill-librarian");
+    const rendered = agent?.context?.renderedContext ?? "";
+    expect(rendered).toContain("output_correction");
+    expect(rendered).toContain("Unexpected closing brace");
+    expect(rendered).toContain("do not restart research");
+    expect(rendered).not.toMatch(unresolvedPlaceholderPattern);
   });
 
   test("renders the backfill librarian stub when pass context is unavailable", () => {

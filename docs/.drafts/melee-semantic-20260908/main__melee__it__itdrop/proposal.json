@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/it/itdrop",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdrop.c#L19-L91",
+            "why": "Shows status helper, initial values, mode-bit selection, unconditional construction-result assignment, and optional result writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim that x8 always identifies the last successful creation. Assignment occurs before the null check, while exceptional selection exits before assignment.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itdrop:it_8026F3D4"
+        },
+        "type": "inferred_type",
+        "value": "Shared item-content helper with signature `bool (Item_GObj* source, struct it_8026F3D4_arg1_t* result, s32 count, s32 mode)`. `count` limits spawn attempts. Mode bit 0 clear selects a new kind each iteration; set reuses the selected kind. A non-null result receives terminal status in x0, the last selected kind in x4, and the most recent construction-attempt result in x8, or NULL if no construction was attempted. A failed later construction overwrites an earlier successful object result with NULL; a selection-triggered break leaves that object result unchanged, so x4 and x8 need not describe the same item. The Boolean return equals x0 and denotes exceptional high-kind termination, not ordinary creation success."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdrop.c#L19-L91",
+            "why": "Defines the exceptional status and all batch transitions, including the eight-element array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itspawn.c#L97-L104",
+            "why": "Availability helper checks M-Ball capacity and enablement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the incorrect Maxim Tomato identification with the exact canonical M-Ball test and makes the exceptional Boolean and unchecked local batch bound explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itdrop:it_8026F3D4"
+        },
+        "type": "state_behavior",
+        "value": "Begins with selected kind -1, spawned-object result NULL, and false terminal status. It stops after the requested attempts or before construction when selection is -1, at or above It_Kind_L_Gun_Ray, or It_Kind_M_Ball with it_8026C704() true. The high-kind case sets terminal status true; the no-selection and unavailable-M-Ball cases do not. Failed construction consumes an iteration and is not recorded in the successful-kind batch. Successful construction initializes launch velocity, clears terminal status, updates bookkeeping, and continues. Mode bit 0 controls whether the selected kind is reused. The local successful-kind array has eight entries and no local bounds check."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdrop.c#L106-L162",
+            "why": "Shows forwarding, source-dependent current position, flattened previous position, failure gates, and success-only velocity handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L661-L674",
+            "why": "Defines the source-derived ECB-center position."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the position parameter's role by following it through the constructor rather than treating it as an unconditional creation point.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itdrop:it_8026F6BC"
+        },
+        "type": "inferred_type",
+        "value": "Nullable one-shot content-spawn helper with signature `Item_GObj* (Item_GObj* source, Vec3* position, Vec3* velocity, bool preserve_velocity)`. After capacity and chance gates, it forwards the optional source and position to it_8026F5C8. Position initializes the previous-position/facing anchor with depth forced to zero; a non-null source supplies the actual current spawn position through its ECB center and is stored as the descriptor's secondary parent. With no source, current position uses the flattened anchor. On successful construction only, false preserve_velocity overwrites the in/out velocity with randomized horizontal speed, the spawned kind's attribute x18 vertical speed, and zero depth; true applies the supplied vector unchanged. Failure returns NULL without modifying the velocity vector."
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itdrop.c#L106-L162",
+            "why": "Source-aware constructor and specialized helper establish placement and launch behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itbox.c#L124-L147",
+            "why": "Specialized success terminates Crate contents; failure reaches ordinary release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkusudama.c#L253-L315",
+            "why": "Party Ball uses the same terminal alternative before its ordinary outcomes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the established container-content role while correcting the claim that construction necessarily uses the caller-supplied position as its current spawn point.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itdrop:it_8026F6BC"
+        },
+        "type": "purpose",
+        "value": "Attempts the rare enemy-content alternative before a container's ordinary release. It enforces a shared population cap and configurable random chance, selects a kind from the dedicated table it_804A0E60, and delegates source-aware construction. The supplied position is a previous-position/facing anchor; for a non-null container source, actual placement comes from that source's ECB-centered world position. A successful object receives either a generated launch velocity or the caller's preserved vector; NULL allows the content dispatcher to continue to ordinary contents."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

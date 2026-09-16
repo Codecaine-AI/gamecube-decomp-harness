@@ -1,0 +1,119 @@
+{
+  "tu": "main/melee/ft/kinds/ftMario/ftmariospeciallw",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospeciallw.c#L30-L112",
+            "why": "Complete startup helpers and aerial entry show command clearing, charge branch, fields, effect and callback publication."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the misleading baseline command-variable wording and distinguishes precise writes from a generic motion-start description.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMario/ftmariospeciallw:ftMr_SpecialAirLw_Enter"
+        },
+        "type": "state_behavior",
+        "value": "Clears command variable 2 before requesting ftMr_MS_SpecialAirLw at frame 0 and rate 1, then calls ftAnim_8006EBA4. Initial self_vel.y is speciallw.vel_y minus zero for nonzero tornadoCharge, otherwise minus tap_y_vel_max. It clamps horizontal self velocity using air_momentum_x; startup clears commands 0 and 1, zeros groundVelX and isUnkColl, initializes unk from the signed expression unk0+1, installs updateRot in damage/death2 slots, spawns effect 0x47C, sets x2219_b0 and installs effect hitlag callbacks. Command 3 is not explicitly initialized by these local helpers."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospeciallw.c#L204-L235",
+            "why": "Complete aerial physics guards, arithmetic and call ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1758-L1775",
+            "why": "pressed_buttons is derived from current/previous held masks and optionally accumulated."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L462-L493",
+            "why": "Defines unconditional falling and ascent addition/upper clamp."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the incorrect held-B condition, avoids unproved script-phase labeling, and records actual shared-helper and boundary behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMario/ftmariospeciallw:ftMr_SpecialAirLw_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Calls ftCommon_Ascend only when tornadoCharge equals zero, command variable 2 is nonzero and pressed_buttons contains HSD_PAD_B; this mask represents press edges with optional accumulation, not a held-button test. Ascend adds tap_y_vel_max and upper-clamps self_vel.y at tap_grav; FallBasic then always applies common gravity and terminal velocity. Command 0 nonzero subtracts friction_end from the persistent groundVelX accumulator, adds it to air_momentum_x and replaces a strictly negative result with zero before ftCommon_8007D3A8(fp,0,air_momentum_x_mul,result). With command 0 zero the baseline is forwarded without this clamp. NaN is not rejected, and subtraction is only decay when attribute values make it so. The successful aerial tap does not clear command 2."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospeciallw.c#L114-L149",
+            "why": "Shows two independent guards, cleanup and exact calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/types.h#L46-L57",
+            "why": "landing_lag is s32, so exceptional floating-point input values are not valid attribute-domain cases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L28-L59",
+            "why": "Setup diversion and normal lag storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L145-L154",
+            "why": "Later landing is conditional and can dispatch to the shared handler instead."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact charge and exit logic while accounting for actual attribute type and the callee's optional branch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMario/ftmariospeciallw:ftMr_SpecialAirLw_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Consumes nonzero command variable 1 by clearing it and setting tornadoCharge to 1, independently of completion. When no animation frames remain it clears take_dmg_cb and death2_cb. The s32 SpecialLw landing_lag equal to zero selects ftCo_Fall_Enter; every nonzero integer, including negative values, is converted to float and forwarded to ftCo_80096900(gobj,1,0,true,1,lag). That common helper normally enters FallSpecial and stores the lag, but x2224_b2 diverts to ftCo_80090780 before setup. Consequently this callback requests recovery handling rather than guaranteeing FallSpecial entry or a later special landing."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospeciallw.c#L22-L65",
+            "why": "Branchless reset and startup registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospeciallw.c#L114-L172",
+            "why": "Animation cleanup and aerial continuation restore only the effect pair."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospeciallw.c#L279-L295",
+            "why": "Grounded continuation likewise restores only hitlag callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1370-L1389",
+            "why": "Shared motion-change code clears interruption and hitlag slots."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's incomplete callback lifetime by following cross-file motion-change consumers.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMario/ftmariospeciallw:updateRot"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally calls ftPartSetRotX on Fighter part 0 with angle zero. Startup installs this static function in take_dmg_cb and death2_cb; animation completion explicitly clears those two fields. They are not guaranteed to persist until completion: the common motion-change callback-reset block also clears them, and this TU's ground/air continuation helpers restore only pre_hitlag_cb and post_hitlag_cb, not updateRot."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

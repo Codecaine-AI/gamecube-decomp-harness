@@ -1,0 +1,92 @@
+{
+  "tu": "main/MetroTRK/nubevent",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L5-L24",
+            "why": "Declares the object and fields and passes its base to mutex APIs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "All three mutex operations return success without using their pointer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported assertion that the leading four bytes are actually used as mutex storage while preserving the explicit source representation.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/nubevent:.bss"
+        },
+        "type": "inferred_type",
+        "value": "The source-level queue backing object is declared as EventQueue gTRKEventQueue, with fields u8 pad[4], int fCount, int fFirst, NubEvent fEventList[2], and NubEventID fEventID. These represent leading padding, occupancy, circular head, two event slots, and next generated ID. Mutex APIs receive the object's base address, but their pinned implementations neither read nor write it; the leading bytes are not demonstrated to contain active mutex state. This source description does not establish compiled section extent or placement."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubinit.c#L18-L29",
+            "why": "Establishes guarded startup invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L15-L77",
+            "why": "Shows reset writes, mutex-call ordering and subsequent consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "Disproves effective locking and synchronization-word writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves startup and queue data flow while correcting a concrete claim of synchronization-word initialization.",
+        "subject": {
+          "target_stable_key": "main/MetroTRK/nubevent:TRKInitializeEventQueue"
+        },
+        "type": "data_flow",
+        "value": "TRKInitializeNub calls this routine while its accumulated startup result is kNoError. The routine passes &gTRKEventQueue to TRKInitializeMutex and TRKAcquireMutex, writes fCount = 0, fFirst = 0 and fEventID = 0x100, calls TRKReleaseMutex and returns kNoError. The pinned mutex routines are no-op success stubs: no synchronization word is initialized and no effective lock is acquired. Get and post subsequently consume and update the reset queue fields. Existing event slots and associated buffers are not cleared or released by initialization."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.c#L15-L89",
+            "why": "Establishes all queue transitions, exact guards and lifecycle operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/nubevent.h#L9-L24",
+            "why": "Defines unsigned event ID and event fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/mutex_TRK.c#L5-L18",
+            "why": "Mutex calls have no synchronization effect."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MetroTRK/msgbuf.c#L64-L78",
+            "why": "Buffer release ignores invalid indices and marks valid buffers unused."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects an actual mutex-protection claim and records useful reset, ordering and lifetime boundaries without altering the supported FIFO model.",
+        "subject": {
+          "entity_locator": "src/MetroTRK/nubevent.c"
+        },
+        "type": "state_behavior",
+        "value": "Initialization resets occupancy and head to zero and the next generated ID to 0x100 without clearing event slots or releasing pending buffers. Get and post bracket shared-state access with mutex API calls, but the pinned mutex implementations are no-op success stubs and provide no mutual exclusion. For initialized, uncorrupted state, capacity is two: posting rejects exactly fCount == 2 without copying or changing queue state; retrieval succeeds only for fCount > 0 and wraps the incremented head from 2 to 0. Successful posting assigns the current unsigned ID to the queued copy, then increments and corrects the next ID to 256 if it falls below 256. Empty retrieval leaves caller storage unchanged. Queue copies carry buffer identifiers rather than duplicating buffers; destruction forwards the identifier for release without clearing the event record."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

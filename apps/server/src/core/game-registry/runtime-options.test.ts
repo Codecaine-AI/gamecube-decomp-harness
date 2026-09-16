@@ -7,11 +7,11 @@ describe("game CLI options", () => {
       "save-point",
       "--cycle-uuid",
       "canonical-cycle",
-      "--no-cycle-draft-pr",
+      "--no-harness-draft-pr",
     ]);
 
     expect(parsed.args.get("--cycle-uuid")).toBe("canonical-cycle");
-    expect(parsed.args.get("--no-cycle-draft-pr")).toBe(true);
+    expect(parsed.args.get("--no-harness-draft-pr")).toBe(true);
   });
 
   test("selects games with --game", () => {

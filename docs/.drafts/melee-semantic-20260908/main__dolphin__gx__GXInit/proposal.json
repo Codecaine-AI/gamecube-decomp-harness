@@ -1,0 +1,82 @@
+{
+  "tu": "main/dolphin/gx/GXInit",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L13-L20",
+            "why": "Uninitialized global declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L97",
+            "why": "Unconditional assignments before subsystem setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L200-L204",
+            "why": "Subsequent direct CP-register access."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unsupported once-only transition while preserving the observed initialization order and persistent register-access role.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXInit:.sbss"
+        },
+        "type": "state_behavior",
+        "value": "The source-level register-pointer globals have zero-initialized static storage. Every invocation of GXInit unconditionally assigns __piReg, __cpReg, __peReg, and __memReg their uncached hardware mappings before FIFO, pixel-engine, and write-gather setup. There is no once-only guard or subsequent clearing assignment in this translation unit; later initialization writes through __cpReg. This describes the globals' behavior without establishing their compiled section layout."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L74-L218",
+            "why": "Complete unguarded initialization sequence and returned descriptor."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported bootstrap explanation while removing an unsupported one-time execution guarantee.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXInit:GXInit"
+        },
+        "type": "purpose",
+        "value": "Initializes the GX graphics interface by establishing the CPU/GP command FIFO from caller-provided memory, mapping hardware interfaces, seeding software register shadows and baseline GPU commands, constructing default texture/TLUT regions, and applying the high-level defaults through __GXInitGX. Returns the library-owned initialized FifoObj. This is a subsystem bootstrap routine, but the implementation has no guard restricting it to one invocation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L57-L63",
+            "why": "Complete bounded lookup and NULL branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L295-L296",
+            "why": "Default callback registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTexture.c#L627-L645",
+            "why": "Assertion followed by unconditional commands and region dereferences."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes assertion-based validation from guaranteed runtime rejection of invalid callback results.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXInit:__GXDefaultTlutRegionCallback"
+        },
+        "type": "state_behavior",
+        "value": "Performs a read-only bounded lookup: unsigned indices below 20 return a pointer into gx->TlutRegions, while indices 20 and above return NULL. It does not mutate state, issue hardware writes, or select a fallback. __GXInitGX installs it as the default policy. GXLoadTlut validates its result with an assertion, not an ordinary error-return branch; if assertions are absent, an invalid selection proceeds toward hardware commands and a null-region dereference."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

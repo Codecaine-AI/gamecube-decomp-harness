@@ -1,0 +1,137 @@
+--- a/src/Enemy/emario.cpp
++++ b/src/Enemy/emario.cpp
+@@ -145,60 +145,8 @@
+ 	onLiveFlag(LIVE_FLAG_UNK10);
+ }
+ 
+-BOOL TEMario::receiveMessage(THitActor* sender, u32 message)
+-{
+-	TSpineEnemy::receiveMessage(sender, message);
+-
+-	if (message == HIT_MESSAGE_SPRAYED_BY_WATER) {
+-		mEnemyMario->hitWater(sender);
+-		return TRUE;
+-	} else if (message == HIT_MESSAGE_TRAMPLE) {
+-		return mEnemyMario->thinkTrample();
+-	} else if (sender->getActorType() == 0x40000246) {
+-		mEnemyMario->reachGoal();
+-	}
+-	return FALSE;
+-}
+-
+-void TEMario::kill()
+-{
+-	if (SMS_isMultiPlayerMap())
+-		gpCamera->removeMultiPlayer(&mPosition);
+-}
+-
+-bool TEMario::isGoal()
+-{
+-	return mEnemyMario->checkEMFlag(TEnemyMario::EM_FLAG_GOAL_REACHED);
+-}
+-
+-bool TEMario::isReachedToGate() const { return mEnemyMario->isReachedToGate(); }
+-
+-bool TEMario::isDownWaitingToTalk() const
+-{
+-	return mEnemyMario->isDownWaitingToTalk();
+-}
+-
+-void TEMario::startRunAway() { mEnemyMario->startRunAway(); }
+-
+-void TEMario::startMonteReplay(u32 param1)
+-{
+-	mEnemyMario->startMonteReplay(param1);
+-}
+-
+-void TEMario::startGateDrawing() { mEnemyMario->startGateDrawing(); }
+-
+-void TEMario::forceDisappear() { mEnemyMario->startDisappear(9); }
+-
+-void TEMario::perform(u32 cue, JDrama::TGraphics* graphics)
+-{
+-	if (checkLiveFlag(LIVE_FLAG_UNK40)) {
+-		return;
+-	}
+-
+-	if (!(cue & CUE_MOVE)) {
+-		return;
+-	}
+-
++void TEMario::checkCollision()
++{
+ 	if (mEnemyMario->canControl() == 0) {
+ 		return;
+ 	}
+@@ -226,6 +174,61 @@
+ 		}
+ 	}
+ 
++}
++
++BOOL TEMario::receiveMessage(THitActor* sender, u32 message)
++{
++	TSpineEnemy::receiveMessage(sender, message);
++
++	if (message == HIT_MESSAGE_SPRAYED_BY_WATER) {
++		mEnemyMario->hitWater(sender);
++		return TRUE;
++	} else if (message == HIT_MESSAGE_TRAMPLE) {
++		return mEnemyMario->thinkTrample();
++	} else if (sender->getActorType() == 0x40000246) {
++		mEnemyMario->reachGoal();
++	}
++	return FALSE;
++}
++
++void TEMario::kill()
++{
++	if (SMS_isMultiPlayerMap())
++		gpCamera->removeMultiPlayer(&mPosition);
++}
++
++bool TEMario::isGoal()
++{
++	return mEnemyMario->checkEMFlag(TEnemyMario::EM_FLAG_GOAL_REACHED);
++}
++
++bool TEMario::isReachedToGate() const { return mEnemyMario->isReachedToGate(); }
++
++bool TEMario::isDownWaitingToTalk() const
++{
++	return mEnemyMario->isDownWaitingToTalk();
++}
++
++void TEMario::startRunAway() { mEnemyMario->startRunAway(); }
++
++void TEMario::startMonteReplay(u32 param1)
++{
++	mEnemyMario->startMonteReplay(param1);
++}
++
++void TEMario::startGateDrawing() { mEnemyMario->startGateDrawing(); }
++
++void TEMario::forceDisappear() { mEnemyMario->startDisappear(9); }
++
++void TEMario::perform(u32 cue, JDrama::TGraphics* graphics)
++{
++	if (checkLiveFlag(LIVE_FLAG_UNK40)) {
++		return;
++	}
++
++	if (cue & CUE_MOVE)
++		checkCollision();
++
+ 	mEnemyMario->perform(cue, graphics);
+ 
+ 	if (cue & CUE_MOVE) {
+--- a/include/Enemy/Emario.hpp
++++ b/include/Enemy/Emario.hpp
+@@ -19,6 +19,7 @@
+ 
+ 	virtual void perform(u32 cue, JDrama::TGraphics* graphics);
+ 
++	void checkCollision();
+ 	bool isGoal();
+ 	bool isReachedToGate() const;
+ 	bool isDownWaitingToTalk() const;

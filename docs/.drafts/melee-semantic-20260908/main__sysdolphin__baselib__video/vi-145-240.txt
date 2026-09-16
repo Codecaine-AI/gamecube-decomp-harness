@@ -1,0 +1,96 @@
+145:     s32 regIndex;
+146: 
+147:     if (changeMode != 1 || getCurrentFieldEvenOdd() != 0) {
+148:         while (shdwChanged != 0) {
+149:             regIndex = cntlzd(shdwChanged);
+150:             __VIRegs[regIndex] = shdwRegs[regIndex];
+151:             shdwChanged &= ~((u64)1 << (63 - regIndex));
+152:         }
+153:         changeMode = 0;
+154:         CurrTiming = HorVer.timing;
+155:         CurrTvMode = HorVer.tv;
+156:         return 1;
+157:     }
+158:     return 0;
+159: }
+160: 
+161: static void __VIRetraceHandler(__OSInterrupt unused, OSContext *context)
+162: {
+163:     OSContext exceptionContext;
+164:     u16 reg;
+165:     u32 inter;
+166: #if DEBUG
+167:     static u32 dbgCount;
+168: #endif
+169: 
+170:     inter = 0;
+171:     reg = __VIRegs[0x18];
+172:     if (reg & 0x8000) {
+173:         __VIRegs[0x18] = reg & ~0x8000;
+174:         inter |= 1;
+175:     }
+176:     reg = __VIRegs[0x1A];
+177:     if (reg & 0x8000) {
+178:         __VIRegs[0x1A] = reg & ~0x8000;
+179:         inter |= 2;
+180:     }
+181:     reg = __VIRegs[0x1C];
+182:     if (reg & 0x8000) {
+183:         __VIRegs[0x1C] = reg & ~0x8000;
+184:         inter |= 4;
+185:     }
+186:     reg = __VIRegs[0x1E];
+187:     if (reg & 0x8000) {
+188:         __VIRegs[0x1E] = reg & ~0x8000;
+189:         inter |= 8;
+190:     }
+191:     reg = __VIRegs[0x1E];
+192:     if ((inter & 4) || (inter & 8)) {
+193:         OSSetCurrentContext(context);
+194:         return;
+195:     }
+196:     if (inter == 0) {
+197:         ASSERTLINE(0x2BA, FALSE);
+198:     }
+199:     retraceCount += 1;
+200:     OSClearContext(&exceptionContext);
+201:     OSSetCurrentContext(&exceptionContext);
+202:     if (PreCB) {
+203:         PreCB(retraceCount);
+204:     }
+205:     if (flushFlag != 0) {
+206: #if DEBUG
+207:         dbgCount = 0;
+208: #endif
+209:         if (VISetRegs() != 0) {
+210:             flushFlag = 0;
+211:             SIRefreshSamplingRate();
+212:         }
+213:     }
+214: #if DEBUG
+215:     else if (changed != 0) {
+216:         dbgCount++;
+217:         if (dbgCount > 60) {
+218:             OSReport("Warning: VIFlush() was not called for 60 frames although VI settings were changed\n");
+219:             dbgCount = 0;
+220:         }
+221:     }
+222: #endif
+223:     if (PostCB) {
+224:         OSClearContext(&exceptionContext);
+225:         PostCB(retraceCount);
+226:     }
+227:     OSWakeupThread(&retraceQueue);
+228:     OSClearContext(&exceptionContext);
+229:     OSSetCurrentContext(context);
+230: }
+231: 
+232: VIRetraceCallback VISetPreRetraceCallback(VIRetraceCallback cb)
+233: {
+234:     BOOL enabled;
+235:     VIRetraceCallback oldcb;
+236: 
+237:     oldcb = PreCB;
+238:     enabled = OSDisableInterrupts();
+239:     PreCB = cb;
+240:     OSRestoreInterrupts(enabled);

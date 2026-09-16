@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { renameSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { insertGraphRecords, openKnowledgeGraph } from "./db.js";
@@ -17,8 +17,10 @@ afterEach(() => {
 describe("opseq similarity graph records", () => {
   test("builds ANALOGOUS_TO edges and analog profile facts from neighbor indexes", () => {
     const { repoRoot, indexesRoot } = opseqFixture();
+    mkdirSync(join(repoRoot, "build/GMSJ01"), {recursive:true});
+    renameSync(join(repoRoot, "build/GALE01/report.json"), join(repoRoot, "build/GMSJ01/report.json"));
 
-    const records = buildOpseqSimilarityGraphRecords(repoRoot, { indexesRoot });
+    const records = buildOpseqSimilarityGraphRecords(repoRoot, { indexesRoot, reportPath: "build/GMSJ01/report.json" });
 
     expect(records).not.toBeNull();
     expect(records?.entities).toHaveLength(0);

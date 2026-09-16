@@ -1,0 +1,514 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftCo_800C739C:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:481f6437-9df9-4b1f-b636-2f61d1bcaa4d",
+        "target_id": "target:data:main/melee/ft/ftCo_800C739C:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The constants are read by ftCo_800C739C only on its Kirby branch: 0.0F supplies both the initial animation frame and blend arguments to Fighter_ChangeMotionState, while 1.0F supplies the playback-speed argument. The section is immutable and receives no runtime writes.",
+        "rationale": "The matched source identifies the consuming call and each argument position. The values occur as read-only floating literals rather than mutable program variables, so their flow is exclusively from the literal pool into the motion-state transition call.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T12:45:18.064Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C739C.c#L24-L42",
+            "why": "Shows the constants flowing into Fighter_ChangeMotionState on the Kirby-only WalkFast path and shows no operation capable of writing them."
+          }
+        ]
+      },
+      {
+        "id": "fact:acf01344-71b6-4669-b5bb-e8ada871d51f",
+        "target_id": "target:data:main/melee/ft/ftCo_800C739C:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "In this unit, the literal values configure Kirby's fast-walking animation to begin immediately at frame zero, play at normal speed, and enter without interpolation from a prior motion.",
+        "rationale": "The guarded destination is explicitly ftCo_MS_WalkFast, and the literal arguments passed to Fighter_ChangeMotionState are frame 0.0, speed 1.0, and blend 0.0. The walking reference independently identifies fast walking as the highest of the three walking-speed tiers.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T12:45:18.064Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C739C.c#L24-L42",
+            "why": "Shows Kirby's WalkFast destination and the exact frame, speed, and blend values supplied by the literal pool."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://walk~__intro__@r2037734",
+            "why": "Documents that fighters have three walking-speed tiers, grounding WalkFast as the fast walking tier."
+          }
+        ]
+      },
+      {
+        "id": "fact:ae7798f2-34b7-4e80-b779-f7b5bbfac02c",
+        "target_id": "target:data:main/melee/ft/ftCo_800C739C:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An eight-byte read-only small-data literal pool containing two 32-bit floating-point constants: 0.0F and 1.0F.",
+        "rationale": "The matched section is eight bytes, enough for two single-precision values, while the unit's only floating-point literals are 0.0F and 1.0F in ftCo_800C739C. The repeated 0.0F uses can share one pooled entry, yielding exactly the two four-byte constants represented by this section.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T12:45:18.064Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C739C.c#L24-L42",
+            "why": "Shows that the unit's substantive routine uses the floating literals 0.0F and 1.0F, with 0.0F reused for two transition arguments."
+          }
+        ]
+      },
+      {
+        "id": "fact:7fdca33e-20ff-48a2-962d-8de1be2130a8",
+        "target_id": "target:data:main/melee/ft/ftCo_800C739C:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the pooled floating-point literals used to initialize the Kirby WalkFast motion transition at animation frame zero, normal playback speed, and zero blend.",
+        "rationale": "ftCo_800C739C passes 0.0F as both the starting animation frame and blend value and passes 1.0F as playback speed. Those are the unit's only floating literals and account for the target's two-entry small-data pool.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T12:45:18.064Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C739C.c#L24-L42",
+            "why": "Shows the pooled values being used as the start-frame, playback-speed, and blend arguments of the WalkFast motion-state transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftCo_800C739C:ftCo_800C739C"
+    },
+    "facts": [
+      {
+        "id": "fact:9ba530fe-7047-4c02-a394-92aed8b4386c",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C739C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a `Fighter_GObj*` and reads its associated `Fighter.kind`. For Kirby, it passes the object to `Fighter_ChangeMotionState` with destination WalkFast, no transition flags, animation frame 0, playback speed 1, blend 0, and no alternate animation source, then writes true to `x2219_b2` and `x2219_b1`. For non-Kirby fighters, it forwards the object through the local inline chain to ftCo_800C7070, which supplies RebirthWait with the same entry parameters and performs the same two writes.",
+        "rationale": "The current target body preserves the Fighter-kind read, Kirby transition arguments, flag outputs, and local fallback chain. The fallback's relocated current body confirms the RebirthWait destination and identical flag writes, so the claim remains sound with all code evidence refreshed at head.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Shows the supplied object, Fighter-kind branch, complete Kirby transition arguments and outputs, and the inline chain forwarding non-Kirby fighters to ftCo_800C7070."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7070.c#L1-L15",
+            "why": "Shows the fallback consuming the same object, entering RebirthWait with the corresponding fixed parameters, and setting both x2219 flags."
+          }
+        ]
+      },
+      {
+        "id": "fact:589f5862-84bd-4b0c-a4bb-b7fbad0654c8",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C739C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "For Kirby, selects the fast walking motion from Melee's three-tier walking animation family; for every other fighter it selects RebirthWait instead. The evidence establishes use of Kirby's WalkFast motion here, but does not establish that this wrapper itself performs ordinary stick-controlled walking.",
+        "rationale": "The current target still selects `ftCo_MS_WalkFast` only for Kirby, while the relocated fallback explicitly selects RebirthWait. The walking initializer and wiki establish the three walking tiers, but the non-Kirby destination continues to constrain the claim against treating this wrapper as ordinary input-driven walking.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Shows the Kirby-only selection of WalkFast and delegation of every other fighter kind to the fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7070.c#L1-L15",
+            "why": "Shows that the non-Kirby fallback destination is RebirthWait."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftwalkcommon.c#L71-L97",
+            "why": "Shows the walking subsystem selecting among contiguous slow, middle, and fast walking motion tiers."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://walk~__intro__@r2037734",
+            "why": "Documents that Smash characters have three walking speeds and corresponding animations based on control-stick tilt."
+          }
+        ]
+      },
+      {
+        "id": "fact:f4fa2b15-1651-49b8-a7ff-e1e6040ddc43",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C739C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_KirbyWalkFast",
+        "rationale": "The current target retains its Kirby-only WalkFast specialization, and the relocated neighboring unit still contains structurally parallel Kirby-specific Wait, WalkSlow, and WalkMiddle wrappers. That family supports the same character-plus-destination name inference, while the exact historical spelling remains uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `ftCo_KirbyWalkFast`, denoting the Kirby-specialized WalkFast entry wrapper.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Shows that the target specifically recognizes Kirby and selects WalkFast."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7220.c#L1-L65",
+            "why": "Shows the parallel Kirby-specific entry wrappers for Wait, WalkSlow, and WalkMiddle."
+          }
+        ]
+      },
+      {
+        "id": "fact:4c552934-b6ff-46d1-831d-6ab02582a1e5",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C739C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Kind-dispatching fighter motion-state entry routine with exact signature `void(Fighter_GObj* gobj)`; it returns no value and communicates entirely by changing the motion state and mutating the Fighter associated with the supplied game object.",
+        "rationale": "The current definition provides the exact signature, derives a Fighter from the argument, dispatches on its kind, and produces direct outputs through a motion-state transition and Fighter flag writes. The relocated fallback has the same signature and mutates the same supplied fighter without returning a status.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Provides the exact `void(Fighter_GObj*)` definition and shows the kind dispatch, motion-state call, and Fighter mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7070.c#L1-L15",
+            "why": "Shows that the delegated fallback has the same signature and communicates through a motion-state transition and Fighter flag mutations."
+          }
+        ]
+      },
+      {
+        "id": "fact:634d0fdd-77bd-4c5e-bf2d-9b167344099c",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C739C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs a character-conditioned fighter motion-state entry: Kirby is placed directly into WalkFast, while every other fighter is routed through the shared RebirthWait entry helper; either path leaves the two common x2219 state-entry flags enabled.",
+        "rationale": "The current unit preserves the Kirby guard, direct WalkFast entry, two flag writes, and inline fallback chain. The fallback's current body confirms that the other path enters RebirthWait and establishes the same two flag postconditions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Shows the Kirby WalkFast path, its flag writes, and the non-Kirby inline chain ending at ftCo_800C7070."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7070.c#L1-L15",
+            "why": "Shows the shared fallback entering RebirthWait and setting x2219_b2 and x2219_b1 true."
+          }
+        ]
+      },
+      {
+        "id": "fact:64e150e7-11b4-4a06-ae62-1c7a7633e6e2",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C739C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The transition is immediate and guarded solely by `Fighter.kind == FTKIND_KIRBY`. Kirby enters WalkFast from animation frame 0 at normal playback speed with no blend or preservation flags; every other fighter immediately enters RebirthWait through ftCo_800C7070. Both paths finish with `x2219_b2` and `x2219_b1` true, and the routine has no timer, animation-frame guard, or intermediate state.",
+        "rationale": "The current target still consists of one Fighter-kind branch, a fixed WalkFast transition, or an immediate fallback call. The fallback's current body confirms its fixed RebirthWait transition and identical flag postconditions, with neither function containing a timer or intermediate-state guard.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Shows the sole kind guard, fixed WalkFast entry parameters, early return on the fallback path, and Kirby-side flag postconditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7070.c#L1-L15",
+            "why": "Shows the immediate RebirthWait transition and identical final flag values on the non-Kirby path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/ftCo_800C739C:ftCo_800C7414"
+    },
+    "facts": [
+      {
+        "id": "fact:956857b9-855d-426a-8cc6-1b8091125713",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C7414",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj and forwards it unchanged to ft_8008521C. That helper obtains the associated Fighter and root HSD_JObj, reads the joint's current translation into a Vec3, reads Fighter.cur_pos, and overwrites Fighter.self_vel.x, self_vel.y, and self_vel.z with the corresponding translation-minus-cur_pos differences.",
+        "rationale": "The current target remains an unchanged one-call forwarding wrapper. The helper's relocated body in ftdata.c explicitly shows the object-derived Fighter and root JObj, translation and current-position inputs, component-wise subtraction, and all three self-velocity outputs.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Shows ftCo_800C7414 forwarding its supplied Fighter_GObj unchanged to ft_8008521C with no other local operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdata.c#L157-L167",
+            "why": "Shows ft_8008521C reading root-joint translation and Fighter.cur_pos and writing their component-wise differences to all three Fighter.self_vel components."
+          }
+        ]
+      },
+      {
+        "id": "fact:04eb9576-350d-441b-a606-30397fcf226e",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C7414",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes animation-root-driven movement for Kirby's WalkFast-based revival-platform respawn presentation, allowing the substituted walking animation's model-root displacement to determine fighter velocity instead of using RebirthWait's ordinary destination-steering physics.",
+        "rationale": "The current unit still pairs this velocity wrapper with a Kirby-only WalkFast entry whose generic alternative reaches RebirthWait. The relocated helper converts animated root displacement to self velocity, whereas the current RebirthWait physics steers toward a stored platform destination over the remaining wait time; the wiki independently identifies leaving the revival platform as part of respawning.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Shows the paired Kirby-specific WalkFast substitution, non-Kirby fallback, and companion delegation to the root-displacement helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdata.c#L157-L167",
+            "why": "Shows animated root-joint displacement being converted into fighter self velocity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7070.c#L1-L15",
+            "why": "Identifies the generic alternative motion state as RebirthWait."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_0D4D.c#L275-L360",
+            "why": "Shows ordinary RebirthWait counting down before release and steering fighter velocity toward a player- and stage-derived destination."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://invincibility~overview@r2025282",
+            "why": "Documents leaving the revival platform as part of the player-visible respawn sequence."
+          }
+        ]
+      },
+      {
+        "id": "fact:c86f6cb3-e9ef-4e65-a36a-fe369e9e89b3",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C7414",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_RebirthWait_KirbyWalkFast_Phys",
+        "rationale": "The current unit retains the target's pairing with a Kirby-specific WalkFast entry whose fallback is RebirthWait, while the relocated callee proves that the wrapper performs a self-velocity update appropriate to a physics callback. The nearby Kirby Wait, WalkSlow, and WalkMiddle family retains an equivalent adapter, although the exact historical word order and suffix remain uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style semantic name is `ftCo_RebirthWait_KirbyWalkFast_Phys`.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Shows the target paired with the Kirby-specific WalkFast entry and its exact one-call adapter shape."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7070.c#L1-L15",
+            "why": "Identifies the common fallback state family as RebirthWait."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdata.c#L157-L167",
+            "why": "Establishes that the delegated operation writes fighter self velocity, supporting a physics-callback interpretation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7220.c#L1-L65",
+            "why": "Shows the parallel Kirby-specific Wait, WalkSlow, and WalkMiddle entry family followed by an equivalent velocity adapter."
+          }
+        ]
+      },
+      {
+        "id": "fact:87d70bb1-5a8f-4335-aecb-bfc20ab19a16",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C7414",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A common-fighter velocity or physics callback adapter with exact signature `void(Fighter_GObj* gobj)`; it returns no status and communicates through mutations to the Fighter owned by the supplied game object.",
+        "rationale": "The current target directly provides the void return and Fighter_GObj pointer parameter and forwards that object unchanged. Its relocated callee obtains the associated Fighter and root HSD_JObj and overwrites Fighter.self_vel, preserving the mutating physics-adapter role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Provides the complete `void ftCo_800C7414(Fighter_GObj*)` definition and unchanged argument forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdata.c#L157-L167",
+            "why": "Shows the destination resolving the object to its Fighter and root JObj and communicating through self-velocity mutations."
+          }
+        ]
+      },
+      {
+        "id": "fact:13582c0d-344d-497f-83da-a38f3f6c0f28",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C7414",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Acts as the velocity-update adapter for Kirby's WalkFast-based revival-wait specialization, delegating to the shared helper that converts the fighter model root's displacement from the fighter's current position into self velocity.",
+        "rationale": "The current target remains an unconditional wrapper around ft_8008521C and is still paired with a state-entry routine that chooses WalkFast for Kirby while routing other fighters to RebirthWait. The helper's relocated current body confirms the model-root translation minus current-position calculation and all three self-velocity outputs.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Places the target after the Kirby-specific WalkFast versus fallback entry routine and shows its sole delegation to ft_8008521C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdata.c#L157-L167",
+            "why": "Shows the delegated helper deriving all three self-velocity components from root-joint translation minus current fighter position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7070.c#L1-L15",
+            "why": "Establishes that the paired entry routine's shared fallback enters RebirthWait."
+          }
+        ]
+      },
+      {
+        "id": "fact:a589b53c-0e7d-4c92-a7bb-2fb9c2be8a36",
+        "target_id": "target:function:main/melee/ft/ftCo_800C739C:ftCo_800C7414",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has no local guard, timer, or motion-state transition. Every invocation immediately recomputes all three Fighter.self_vel components through ft_8008521C; the paired routine, rather than this callback, selects WalkFast for Kirby or routes other fighters to RebirthWait.",
+        "rationale": "The current target still consists solely of an unconditional helper call, and the relocated helper performs three direct velocity assignments without a guard, timer, or state transition. The preceding routine owns the Fighter-kind branch, while the fallback's current body confirms that its non-Kirby destination is RebirthWait.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:35:15.405Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C739C.c#L1-L44",
+            "why": "Shows that fighter-kind and motion-state selection occur in the paired entry routine while ftCo_800C7414 itself is branch-free."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdata.c#L157-L167",
+            "why": "Shows unconditional replacement of all three self-velocity components with no timer, guard, or motion-state transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ftCo_800C7070.c#L1-L15",
+            "why": "Confirms that the paired non-Kirby path enters RebirthWait outside this callback."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/ftCo_800C739C.c"
+    },
+    "facts": [
+      {
+        "id": "fact:021ce46a-a235-406a-998a-3d59877fd054",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftCo_800C739C.c",
+        "type": "data_flow",
+        "value": "The state-entry routine reads Fighter.kind; Kirby flows to WalkFast and receives two flag writes, while other fighters flow to the RebirthWait helper. The companion forwards the object to ft_8008521C for self-velocity updating.",
+        "rationale": "The current unit preserves the kind read, destination calls, mutations, and velocity forwarding.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:20.720Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C739C.c#L1-L42",
+            "why": "Shows the complete kind branch, transition, flags, fallback, and companion call."
+          }
+        ]
+      },
+      {
+        "id": "fact:20e5d2e4-3676-40ac-b951-2c8cf88f70bc",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftCo_800C739C.c",
+        "type": "game_mapping",
+        "value": "Uses Kirby's WalkFast motion, the fast member of Melee's walking animation family, while retaining RebirthWait for other fighter kinds.",
+        "rationale": "The current source directly selects WalkFast only for Kirby and delegates every other kind to the RebirthWait entry.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-06T03:12:20.720Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C739C.c#L1-L42",
+            "why": "Shows the Kirby-only WalkFast selection and fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/melee/ft/ftCo_800C7070.c#L1-L14",
+            "why": "Identifies the fallback motion as RebirthWait."
+          }
+        ]
+      },
+      {
+        "id": "fact:766a2954-190c-4e4e-9765-8a01207373bc",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftCo_800C739C.c",
+        "type": "inferred_type",
+        "value": "A common-fighter adapter translation unit with two public void(Fighter_GObj*) routines and a translation-unit-local inline chain leading to the RebirthWait helper.",
+        "rationale": "The complete head source defines both public routines and the three local inline wrappers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:20.720Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C739C.c#L1-L42",
+            "why": "Shows both public functions and the complete inline chain."
+          }
+        ]
+      },
+      {
+        "id": "fact:df40c1f4-8dce-4fc1-aeaa-81a4949fd685",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftCo_800C739C.c",
+        "type": "purpose",
+        "value": "Houses two common-fighter adapters: one enters Kirby into WalkFast while routing other fighters to RebirthWait, and the other updates self velocity through the shared helper.",
+        "rationale": "The current unit directly retains both responsibilities.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:12:20.720Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C739C.c#L1-L42",
+            "why": "Shows the Kirby WalkFast entry, fallback, flags, and velocity wrapper."
+          }
+        ]
+      },
+      {
+        "id": "fact:f889e9b2-e068-4c66-b082-b61892580ad8",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/ftCo_800C739C.c",
+        "type": "state_behavior",
+        "value": "The motion adapter has one immediate kind guard and no timer: Kirby enters WalkFast at frame 0 and normal speed with no blend and receives both flags; every other fighter immediately enters RebirthWait.",
+        "rationale": "The current function consists of the fighter-kind guard, one fixed transition, or the fallback call.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:20.720Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftCo_800C739C.c#L1-L42",
+            "why": "Shows the sole guard, transition parameters, fallback, and flag writes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftCo_800C739C:ftCo_800C739C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/ftCo_800C739C:ftCo_800C7414#r3"
+    },
+    "facts": []
+  }
+]

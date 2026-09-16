@@ -1,0 +1,77 @@
+{
+  "tu": "main/dolphin/axfx/reverb_hi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_hi.c#L280-L355",
+            "why": "Weights, channel setup, 159-iteration count and suspicious pre-delay pointer store."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_hi.c#L392-L572",
+            "why": "Two all-pass stages precede damping, then the third all-pass and wet/dry integer output; final sample is emitted separately."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the ordering of damping relative to the third all-pass stage and makes the actual output scale explicit without concealing the exceptional pre-delay implementation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/reverb_hi:HandleReverb"
+        },
+        "type": "purpose",
+        "value": "Processes one 160-sample channel in place through three parallel comb delays, two serial all-pass stages, a persistent damping recurrence, and a third all-pass stage. It has an optional pre-delay branch and mixes the final wet signal with the original input using weights 0.6*level and 0.6*(1-level), respectively, before truncating to integer samples. The pre-delay pointer-update sequence is suspicious in the canonical source and is not established as a correctly functioning circular buffer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_hi.c#L343-L458",
+            "why": "Main-loop signal flow, recurrence, integer conversion and pre-delay store."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_hi.c#L569-L595",
+            "why": "Persistent comb/all-pass and low-pass state writeback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the inaccurate all-pass/damping ordering and unconditional claim that pre-delay position is correctly written back into AXFX_REVHI_WORK.",
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/reverb_hi:HandleReverb"
+        },
+        "type": "data_flow",
+        "value": "Converts signed integer input to floating point and optionally reads/replaces a pre-delay sample. Three comb feedback paths consume this signal and their delayed outputs are summed. The sum passes through AP[0] and AP[1], then forms history = 0.3*AP[1]_output + damping*previous_history; AP[2] consumes this history. The final result is 0.6*level*wet + 0.6*(1-level)*original_input and is stored using fctiwz. Comb/all-pass offsets and last outputs, plus the damping history, are saved to the selected work-state bank. The pre-delay branch instead stores its advanced pointer at preDelayPtr(r30), where r30 holds the delay-line base, so correct work-state pointer persistence must not be assumed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_hi.c#L300-L355",
+            "why": "Pre-delay endpoint calculation, selected work base and actual store base."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/axfx/reverb_hi.c#L459-L595",
+            "why": "Repeated pre-delay sequence and final channel-state persistence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves supported channel continuity while explicitly distinguishing the anomalous pre-delay state update from normal delay-line wrapping.",
+        "subject": {
+          "target_stable_key": "main/dolphin/axfx/reverb_hi:HandleReverb"
+        },
+        "type": "state_behavior",
+        "value": "Selects an independent channel bank and advances comb/all-pass byte offsets by four per sample, resetting them to zero on equality with their recorded lengths. Final offsets, delay last outputs and lpLastout[channel] are saved for the next block. For nonzero preDelayTime, the source compares the advanced pre-delay pointer with base + 4*(preDelayTime-1), then stores it through preDelayPtr(r30), with r30 holding the line base rather than the selected work-bank base r28. Both main and final-sample paths contain this sequence; ordinary circular pre-delay persistence is therefore uncertain."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

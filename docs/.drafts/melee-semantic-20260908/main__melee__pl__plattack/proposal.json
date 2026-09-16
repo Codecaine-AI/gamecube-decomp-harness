@@ -1,0 +1,153 @@
+{
+  "tu": "main/melee/pl/plattack",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plattack:plAttack_8003759C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Resets selected per-player action-statistics bookkeeping in place: clears attacks, hits, and x358_hits through clearAttackStats, x504, twelve auxiliary scalars, eight x598 entries, and four terminal flags. The declared x5B8[4] member is not assigned; this is not a complete record clear.",
+        "rationale": "Independently confirms the librarian's correction by comparing the full reset write set with the source record declaration.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plattack.c#L13-L63",
+            "why": "Complete helper and reset assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L77-L96",
+            "why": "Declares x5B8 outside the reset write set."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plattack:plAttack_8003759C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For a valid selected destination, unconditionally zeros its enumerated counters and flags using fixed-bound loops and assignments, independent of prior field values. x5B8[4] is not assigned, and padding or unused bitfield storage is not guaranteed zero. Slot validation is delegated to Player_GetActionStats; there is no local null guard, clamp, or alternate reset mode.",
+        "rationale": "Replaces the unsupported whole-record zero invariant with the actual write-set invariant and accessor precondition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plattack.c#L13-L63",
+            "why": "Unconditional bounded writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L90-L96",
+            "why": "Unassigned array and individually declared flags."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L1728-L1736",
+            "why": "Accessor checks the slot and selects embedded storage."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/pl/plattack.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides player attack-bookkeeping support by initializing and advancing a shared u16 occurrence sequence and resetting selected per-player action-statistics counters and flags. Initialized issuance cycles through 1..65535. The reset does not assign the declared x5B8[4] member and does not promise complete bytewise or memberwise zeroing.",
+        "rationale": "Preserves the TU's supported purpose while repairing the complete-reset and unqualified nonzero descriptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plattack.c#L6-L73",
+            "why": "Complete sequence and reset implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L77-L96",
+            "why": "Member outside the reset write set."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/pl/plattack.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The reset zeros only the enumerated counters, arrays, and flags, not x5B8[4] or guaranteed padding bytes. Initialization sets unk_804D6480 to 1. Allocation returns the pre-state and advances the stored u16, replacing wrapped zero with 1: pre-state 65535 returns 65535 and leaves 1; pre-state zero returns zero and leaves 1. Reset and wrap can reuse identifiers.",
+        "rationale": "States the independently verified write-set and sequence boundary invariants.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plattack.c#L6-L73",
+            "why": "All owned transitions and return ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/types.h#L90-L96",
+            "why": "Unassigned x5B8 member."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plattack:plAttack_80037B08"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies sequence values attached to fighter and item attack metadata. ft_80089824 stores a value immediately before player attack-statistics processing. it_8027B288 requests a value only for a zero or changed discriminator, preserving the existing value for an unchanged nonzero discriminator. This demonstrates occurrence-sensitive allocation, not a universal guarantee against repeated-frame counting.",
+        "rationale": "Replaces the baseline's broader prevention claim with the directly verified allocation predicates and processing order.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0892.c#L191-L199",
+            "why": "Assignment immediately before statistics processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1617-L1638",
+            "why": "Conditional allocation and preservation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/pltrick.c#L55-L107",
+            "why": "Counter path uses a discriminator comparison rather than the allocated ID."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/pl/plattack:plAttack_80037B08"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "plAttack_IncrementAttackInstance",
+        "rationale": "Descriptive hypothesis following canonical plStale_IncrementAttackInstance: both source functions save a u16 state, advance it, repair wrapped zero, and return the saved value. This establishes source-algorithm similarity only; historical spelling and compiled instruction identity remain unverified.",
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plattack.c#L65-L73",
+            "why": "Owned allocator source algorithm."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/plstale.c#L29-L37",
+            "why": "Independent canonical naming and source-algorithm analogue."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

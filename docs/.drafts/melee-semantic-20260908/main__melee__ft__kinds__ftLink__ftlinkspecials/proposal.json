@@ -1,0 +1,121 @@
+{
+  "tu": "main/melee/ft/kinds/ftLink/ftlinkspecials",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecials.c#L128-L165",
+            "why": "Shows the signature, vector construction, separate left-facing heading transformation, and negative-angle adjustment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claimed equivalence between the two outputs and the signed-distance magnitude claim while preserving the exact signature and transformations.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspecials:calcAnglePos"
+        },
+        "type": "inferred_type",
+        "value": "Signature: float calcAnglePos(HSD_GObj* fighter_gobj, Vec3* out_displacement, float distance). For computed local elevation a, writes (facing_dir * distance * cos(a), facing_dir * distance * sin(a), 0). With facing_dir equal to \u00b11, the vector magnitude is |distance|. Separately returns a facing-adjusted heading in radians, adding one full turn when negative. For nonzero left-facing aim, that heading is not generally the output vector's polar angle."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecials.c#L128-L198",
+            "why": "Shows both distinct transformations and the accessory callback forwarding their results."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported matching-heading assertion with the actual relationship between the computed outputs and their consumer.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspecials:calcAnglePos"
+        },
+        "type": "purpose",
+        "value": "Calculates a planar boomerang launch displacement and a separately facing-adjusted launch heading from current analog-stick aim, a caller-supplied distance, facing direction, and character-specific aim limits. The outputs are both forwarded to the item launch routine, but need not describe the same polar direction for nonzero left-facing aim."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecials.c#L300-L327",
+            "why": "Defines exact short-circuit priority and the cleanup guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "Shows neutral, down, and up special dispatch tables in the three misleadingly named callees."
+          }
+        ],
+        "op": "write",
+        "rationale": "Canonical callee bodies independently validate the rendered special-dispatch interpretation and correct the baseline rapid-jab classification. Preserves exact priority and post-transition pointer-read ordering.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspecials:ftLk_SpecialS2_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Checks grounded transitions in this order: ftCo_SpecialS_CheckInput, ftCo_Attack100_CheckInput, ftCo_800D6824, ftCo_800D68C0, ftCo_80091A4C, ftCo_Jump_CheckInput, and ftCo_Dash_CheckInput. Despite their containing file and canonical names, the second through fourth checks dispatch up, neutral, and down specials, not rapid-jab transitions. The first successful check short-circuits the sequence. After a successful transition, the callback reads the tracked boomerang pointer and requests removal only if it is non-null; failed checks or a null pointer cause no item cleanup."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecials.c#L112-L121",
+            "why": "Shows null no-op branch and cleanup ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlink.c#L296-L304",
+            "why": "Establishes that the final helper only tests the tracked pointer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkboomerang.c#L55-L67",
+            "why": "Shows conditional notification of fighter bookkeeping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkboomerang.c#L265-L269",
+            "why": "Shows item removal entry invoking notification and generic destruction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claimed existence-state refresh and preserves the distinction between guarded item-side notification and explicit fighter-side clearing.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspecials:ftLk_SpecialS_RemoveBoomerang1"
+        },
+        "type": "state_behavior",
+        "value": "If no boomerang object is tracked, leaves state unchanged. Otherwise requests removal of the tracked item through it_802A07B4, clears used_boomerang and boomerang_gobj, then calls the read-only ftLk_Init_BoomerangExists query and discards its false result. The final call does not refresh or mutate fighter state. Item-side notification back to fighter bookkeeping is separately guarded by owner identity and xDE8 != 1."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecials.c#L201-L346",
+            "why": "Shows startup selection, independent S2 command/completion checks, and cleanup after successful interrupt dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspecials.c#L378-L441",
+            "why": "Shows S1 state-preserving transfers and S2 cleanup before collision exits."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates animation-command cleanup from completion and records the S1-versus-S2 collision distinction. Also distinguishes cleanup after successful interrupt dispatch from cleanup before collision-driven Fall or landing.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftLink/ftlinkspecials.c"
+        },
+        "type": "state_behavior",
+        "value": "Startup selects normal or Empty ground/air states from used_boomerang. S1 collision preserves the corresponding startup variant across ground/air changes; only normal S1 explicitly reinstalls accessory4. S2 animation requests tracked-item removal when command variable one is set and consumes that command even if the pointer is null. Independently, animation exhaustion invokes grounded completion or Fall; exhaustion alone does not directly request removal. S2 interrupt callbacks run transition checks first, then conditionally remove the tracked item after successful dispatch. S2 ground/air boundary exits conditionally remove the tracked item before entering Fall or basic landing."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

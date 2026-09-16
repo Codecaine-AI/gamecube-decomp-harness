@@ -1,0 +1,780 @@
+{
+  "tu": "main/melee/gr/gricemt",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:.rodata"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "grIceMt_801F7080 copies grIm_803B8220[0] into the position passed to grLib_801C96F8 with identifiers 0x7530 and 0x1E. stageGObj0_OnInit uses entries 1\u20134 to position joints 18\u201321. stageGObj5_OnInit copies grIm_803B825C's five selectors and passes them to grIceMt_801F8CDC to create five joint-attached blocks. The generator helper copies its position into application-SRT translation and scales the generator by the current ground scale.",
+        "rationale": "Corrects the false claim that the remaining vectors and tuple have no demonstrated consumers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L584-L585",
+            "why": "Origin consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L624-L648",
+            "why": "Four offset consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1149-L1151",
+            "why": "Five-selector consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grlib.c#L38-L64",
+            "why": "Generator translation and scale."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:.rodata"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "The source constants support several Icicle Mountain roles: the origin positions a stage particle generator, four symmetric elevated offsets position map-object-0 reference joints, and the five-value tuple selects block-parent joints for terrain object 5. The elevated offsets are not demonstrated particle-generator placements.",
+        "rationale": "Separates the actual consumers rather than assigning all vectors to particles.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L584-L648",
+            "why": "Generator and map-joint uses."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1149-L1151",
+            "why": "Block-parent selection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:.rodata"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides source-level immutable placement and joint-selection constants: five Vec3 values used for a generator origin and four map-0 joint translations, plus a five-u16 selector object used to construct terrain object 5's blocks. These declarations and uses do not independently establish compiled adjacency or section size.",
+        "rationale": "Adds missing useful roles while avoiding unsupported compiled layout claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L59-L62",
+            "why": "Vector constants."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L204-L213",
+            "why": "Selector declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L624-L648",
+            "why": "Placement use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1149-L1151",
+            "why": "Selector use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:.sbss"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Stage initialization establishes the Yakumono pointer. In numeric stage 76 it caches three additional positioned terrain GObjs; the alternate branch explicitly clears those three slots. The StageData on_load hook later destroys each non-null cached object but does not clear the local cached pointer afterward. Thus these are temporary initialization-to-load references, not a demonstrated guarantee of validity until final stage teardown.",
+        "rationale": "Preserves the cross-file lifetime and distinguishes load-time destruction from final teardown.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L503-L555",
+            "why": "Publication, alternate clearing and destruction calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L157-L171",
+            "why": "Lifecycle order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2790-L2827",
+            "why": "Ground-object destruction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:fn_801F8C64"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The material-item damage dispatcher supplies the item and four hit-context arguments, but this callback reads only the item. It passes the item to grMaterial_801C8E28, hides the hierarchy referenced by itemVar.mato.x4, obtains the item's position, requests effect 0x445 and sound 310, and requests QuakeKind_Small at that position. The material helper forwards the item to it_802756D0; the callback does not destroy the item GObj or clear its owning terrain slot.",
+        "rationale": "Uses canonical camera terminology and preserves the distinction between damage response and later object teardown.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1275-L1286",
+            "why": "Complete response."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grmaterial.c#L254-L257",
+            "why": "Material forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/ityaku.c#L187-L203",
+            "why": "Damage dispatcher."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:fn_801F9038"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads controller 9's current under/upper IDs and the first six terrain cooldown slots. It repeatedly draws an index until its marker is zero and its terrain ID differs from both active IDs, then decrements positive cooldowns, reloads the chosen marker from yakumono_param->x0 and returns icemt_field[index].gobj_id. The recycler installs that result as either the new upper or the new under section, depending on the crossed boundary.",
+        "rationale": "Corrects the upper-only consumer claim and preserves selection-before-aging order.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1398-L1420",
+            "why": "Selection and mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1719-L1784",
+            "why": "Both replacement directions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:fn_801F9448"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Contact-activated animated terrain in Icicle Mountain map object 2, registered for collision joint 38. Its timed collision cycle is distinct from the material-item damage callback used for breakable blocks; the exact visual platform identity is not established here.",
+        "rationale": "The callback starts a guarded animation cycle and delegates common contact handling; material blocks instead register fn_801F8C64.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L974-L992",
+            "why": "Registration and update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1521-L1544",
+            "why": "Guarded contact animation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1275-L1336",
+            "why": "Distinct material-item response."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801F686C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Always caches Yakumono parameters, sets stage_info.unk8C.b4, clears b5, initializes objects 0 and 8, and calls Ground_801C3260 to disable collision for map IDs 1\u20136. Numeric stage 76 searches for three additional distinct field IDs, computes cumulative Y positions, creates the three objects selected through field_ixs[2..4], caches them, and initializes controller 10. Other variants initialize controller 9 and clear the three caches. Both paths invoke the same two final Ground setup routines. The source's use of selected IDs as icemt_field indices is preserved and is not independently validated against asset data.",
+        "rationale": "Corrects collision disabling versus object creation while retaining the exceptional initialization branch and index ambiguity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L410-L536",
+            "why": "Complete initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1781-L1787",
+            "why": "Collision-disable semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801F7080"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grIceMt_OnLoad",
+        "rationale": "The descriptor places this routine in StageData.on_load; the following no-op occupies on_start.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L378-L392",
+            "why": "Descriptor ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L157-L171",
+            "why": "Named fields."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801F7080"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "StageData.on_load callback with signature void (void). It operates through cached terrain references, the map-object registry, current stage ID, Yakumono tuning and generator APIs, with no explicit inputs or return value.",
+        "rationale": "Preserves the concrete signature while correcting the lifecycle role.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L543-L586",
+            "why": "Signature and side effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L157-L171",
+            "why": "Lifecycle field order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L378-L392",
+            "why": "Registration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801F7080"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Performs Icicle Mountain's load-phase finalization: destroys three optional temporary terrain objects, refreshes collision for existing map objects 1\u20136, configures the Zako-generator path according to the current numeric stage ID, and requests a particle generator at the stored origin. The destroyed-object caches are not cleared locally.",
+        "rationale": "Replaces a vague stage-start explanation with the demonstrated load-hook role and lifetime behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L543-L586",
+            "why": "Complete finalization sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2790-L2827",
+            "why": "Destruction semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L157-L171",
+            "why": "Load lifecycle role."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801F7080"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Finalizes Icicle Mountain's variant-dependent stage setup. Numeric stage 76 supplies the Yakumono spawn descriptor to the Zako generator, optionally supplies a common Ground entry under the xB8 random guard, and invokes its initial-spawn path. Other stage IDs pass NULL to the generator initializer and skip those additional calls. This local branch does not establish a complete enemy roster or all consequences of NULL initialization.",
+        "rationale": "Retains the supported variant mapping without overclaiming external generator or asset behavior.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L538-L586",
+            "why": "Exact numeric branch and random guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801F96E0"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives the controller's terrain-ID pair and an additive Y delta, usually the negated scroll amount. For each ID other than -1, it resolves and asserts the map GObj and root JObj, then adds the delta to that root's Y translation. Both controllers syntactically pass its float result to grIceMt_801F9ACC, but this helper has no explicit return and the recycler never reads that float parameter; recycling instead queries the upper root's translation.",
+        "rationale": "Corrects the invented returned-position flow while preserving the source-level missing-return ambiguity.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1585-L1607",
+            "why": "Movement with no return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1657-L1815",
+            "why": "Unused float input and independent position query."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L706-L719",
+            "why": "Nested caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801F96E0"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Current source signature: float (struct grIceMt_GObj9_GObj10_UnderUpperIdPair* ids, float y_delta). The pair contains signed map IDs with -1 as the absent-section sentinel, and y_delta is added to each present root's Y translation. The complete body has no return statement. Although callers pass the apparent float result to the recycler, that parameter is unused there; no meaningful return expression or authored return contract is established.",
+        "rationale": "Retains the unresolved signature issue without claiming that the recycler consumes a current-Y result.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1585-L1815",
+            "why": "Complete movement and recycler implementations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801F9ACC"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the mutable under/upper IDs, computes their spacing, and queries the upper root's Y translation; its float y parameter is unused. A boundary crossing destroys the departing object, shifts the retained ID, obtains a replacement from ev(arg3), and creates and positions that replacement unless its ID is -1. It updates active-section and anchor-refresh flags, publishes up to four retained-section JObjs into shared position slots, and refreshes map-0 reference joints. It returns whether recycling occurred, but both local controller callers ignore that bool.",
+        "rationale": "Corrects both the cleanup interpretation and the claimed return-value consumption.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1657-L1815",
+            "why": "Complete data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1590-L1593",
+            "why": "Publication setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L706-L893",
+            "why": "Controller call sites."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801F9ACC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns false without change if either input ID is -1. Otherwise endpoint proximity requests anchor refresh, and the midpoint test selects the active section. For upper-root Y > 0 it destroys the old under object, shifts under = upper and selects a new upper; for Y < -spacing it destroys the old upper, shifts upper = under and selects a new under. A -1 replacement is retained as an absent endpoint without creation. Either crossing publishes retained-section anchors, refreshes map-0 reference joints and returns true. Ordinary frames return false. These joint operations refresh references rather than destroy joints.",
+        "rationale": "Preserves both directional transitions, sentinel termination and reference publication.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1657-L1815",
+            "why": "All guards, transitions and return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1590-L1593",
+            "why": "Reference assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801FA0BC"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Void initial terrain-pair setup helper taking struct grIceMt_GObj9_GObj10_UnderUpperIdPair*. Although the pair representation uses -1 for absence and later setup blocks test that sentinel, this routine first calls grIceMt_801F993C unconditionally. Its effective input contract therefore requires both IDs to occur in icemt_field; the later guards do not establish safe initialization of a partially absent pair.",
+        "rationale": "Accounts for the asserting dependency before the apparent sentinel guards.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1823-L1852",
+            "why": "Unconditional spacing call first."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1633-L1655",
+            "why": "Required ID domain."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801FA0BC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Computes pair spacing before testing either ID for -1, so invalid or absent IDs encounter the spacing helper's assertions first. With valid IDs, it initializes and positions under at the scaled -20 baseline plus spacing and upper at the baseline, invoking Ground collision setup for each. It marks upper active, raises then consumes its anchor-refresh flag, publishes each non-null cached anchor into slots 0\u20133, and finally refreshes map-0 slots 4\u20137.",
+        "rationale": "Corrects the sentinel-safe interpretation and describes actual publication effects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1823-L1878",
+            "why": "Complete initial setup ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1633-L1655",
+            "why": "Spacing assertions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801FA6D8"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grIceMt_TriggerScrollBurst",
+        "rationale": "Names the actual stage-side effect and avoids suggesting that this routine commands Whitebea to jump.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1973-L1987",
+            "why": "Reloads controller burst state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itwhitebea.c#L711-L719",
+            "why": "Actor notification is the caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1914-L1921",
+            "why": "Burst output consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:grIceMt_801FA728"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies the shared ground-library motion query with (0, -base_cur, 0) from controller 10 for numeric stage 0x4C and controller 9 otherwise, returning a zero vector when the chosen object or Ground payload is absent. It reports stored base scrolling state, not necessarily the displacement actually applied that frame: burst output substitutes another value without replacing cur, and controller 10 can add a player-height boost.",
+        "rationale": "Distinguishes the queried state value from the burst/boost-adjusted movement path.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1989-L2025",
+            "why": "Getter branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L714-L754",
+            "why": "Base cur correspondence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L830-L845",
+            "why": "Additional boost."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1914-L1921",
+            "why": "Independent burst output."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:onJointCollision"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "mpLib_JointCollisionCallback with signature void (void* user_data, int joint_id, CollData* coll, int coll_x50, mpLib_GroundEnum ground_kind, float delta_y). Direct controller-10 registrations supply its Ground pointer, while terrain callbacks forward their own Ground user_data. This implementation does not use that pointer or the other metadata arguments; it reads coll->x0_gobj and separately looks up controller 10.",
+        "rationale": "Removes the incorrect restriction that all invocations receive controller-10 user data.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L723-L738",
+            "why": "Direct registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1495-L1570",
+            "why": "Terrain forwarding paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L2028-L2044",
+            "why": "Actual parameter use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:stageGObj10_GObjProc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns immediately while x14_b0 is set, bypassing the final contact-flag clear. Before exhaustion, it advances shared speed state and can latch a height/status-gated boost whose accumulator rises by xA0 up to x9C, counts down x16, and otherwise decays to zero. Terminal motion instead reads the remaining upper section, sets cur to zero below xA8, or conditionally brakes toward a minimum xA0. After movement/recycling, under == -1 latches exhaustion. The one-shot event condition tests var_r30 and the script cursor against xA6: the speed helper's true result is not a transition pulse, and the terminal branch does not locally assign var_r30, leaving that path ambiguous. Later event status 1 requests Ground flag 16, status 2 does nothing. Completed updates clear x14_b4.",
+        "rationale": "Preserves numerical states, exceptional control flow and the unassigned-value ambiguity instead of silently repairing them.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L796-L893",
+            "why": "Complete controller control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1880-L1921",
+            "why": "Speed-helper return semantics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:stageGObj10_UnkGroundCallback"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Completes controller 10's deferred initialization by clearing its process gate x14_b0 and installing onJointCollision on each listed collision joint whose callback1 slot is empty. Existing callbacks and their user data are preserved.",
+        "rationale": "Identifies the cleared flag from its producer and process guard rather than calling it collision state.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L723-L814",
+            "why": "Gate setup, deferred release and consumer."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:stageGObj6_GObjProc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards ground object 6 unchanged to grIceMt_801F98A8 and then Ground_801C2FE0. The first helper consumes x0_b1 and publishes each non-null cached JObj x4 through x10 into shared stage_info.x280 slots 0\u20133; it does not unregister those joints. The second helper uses map_id to refresh matching stage/archive collision joints when the map-ID enable guard permits.",
+        "rationale": "Corrects the reversed registration effect while retaining the established call sequence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1214-L1219",
+            "why": "Wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1610-L1631",
+            "why": "Cached-pointer publication."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1590-L1731",
+            "why": "Setter and collision refresh."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:stageGObj6_GObjProc"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Runs terrain object 6's recurring anchor-publication and collision-maintenance phases: first publishes its cached position joints when a refresh is pending, then asks the common Ground subsystem to refresh collision joints associated with its map ID.",
+        "rationale": "Publication, not cleanup or unregistration, is the demonstrated first-phase purpose.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1214-L1219",
+            "why": "Ordered phases."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1610-L1631",
+            "why": "Pending publication."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1590-L1593",
+            "why": "Reference assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:stageGObj6_GObjProc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The wrapper always invokes anchor refresh before collision maintenance. The anchor helper does nothing when x0_b1 is clear; when set, it clears the flag and overwrites slots 0\u20133 for each non-null cached joint, leaving slots corresponding to null entries unchanged. Collision maintenance subsequently performs work only when Ground_804D6950[map_id] is zero. The wrapper has no timer or transition of its own.",
+        "rationale": "Corrects removal semantics and preserves partial-refresh behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1610-L1631",
+            "why": "One-shot flag and null guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1590-L1731",
+            "why": "Setter and map-ID guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:stageGObj8_GObjProc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads icemt_bg.x0, multiplies it by 0.3 and subtracts that amount from joint 8's current Y translation. With L = 3500 * Ground_801C0498(), it subtracts one L if the result exceeds L/2, otherwise adds one L if below -L/2, then writes the resulting Y. This is a single correction, not general modulo normalization for arbitrary inputs.",
+        "rationale": "Preserves exact arithmetic without an unsupported in-range guarantee.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1254-L1271",
+            "why": "Complete single-wrap implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:stageGObj8_GObjProc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation changes joint 8's translation but leaves the stored scroll input unchanged. Strict comparisons apply at most one positive- or negative-span correction; equality at either half-span boundary is unchanged. Normal cyclic behavior assumes suitable scale and bounded movement. The function neither loops nor guarantees an in-span result after an arbitrarily large displacement.",
+        "rationale": "Makes boundary and exceptional-input behavior explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1254-L1271",
+            "why": "Strict comparisons and one correction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:stageGObj9_GObjProc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "When x14 is zero, passes persistent speed state and fn_801F8E58 to grIceMt_801FA364 to obtain y, moves the linked terrain roots by -y, invokes recycling with fn_801F9038, and publishes y to background object 8. The nested movement call is declared float but has no explicit return; recycling ignores that float parameter and reads upper-root Y itself. Both helpers' bool/status results are ignored by this process.",
+        "rationale": "Corrects the nonexistent returned-position dependency.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L706-L719",
+            "why": "Complete process."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1585-L1815",
+            "why": "Missing return and recycler's actual input source."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/gricemt:stageGObj9_OnInit"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Seeds the randomized terrain pair used by Icicle Mountain's controller-9 scrolling configuration. It selects zero-marked entries and reloads each selected marker from yakumono_param->x0; the two initial selections are guaranteed distinct only when that configured marker is nonzero. No independent distinct-ID comparison is present in this initializer.",
+        "rationale": "Preserves the mechanism and its dependence on unprovided tuning bytes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L667-L699",
+            "why": "Marker-based initial selection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gr/gricemt.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Loads Yakumono tuning, creates and accesses numbered Ground objects, and stores controller state in Ice Mountain union arms. Shared scrolling normally emits interpolated configured values. A nonzero burst_count substitutes yakumono_param->x3C * Ground_801C0498() and decrements the counter on each invocation of the shared updater, without replacing cur. Ground_801C0498 returns stage_info.param->y or 1, not a random value. Controller 10 may add a separate player-height boost to the emitted amount.",
+        "rationale": "Corrects random-burst terminology and distinguishes base state, burst output and additive boost.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L812-L845",
+            "why": "Shared output and additive boost."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1880-L1921",
+            "why": "Interpolation and burst formula."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L292-L299",
+            "why": "Deterministic scale accessor."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/gr/gricemt.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Controllers 9 and 10 share delay/interpolation state and an independent burst-output override. For fixed tuning and ground scale, burst output is deterministic; its counter decreases only when the shared updater runs. Controller 10's contact-gated height boost is separate, and its terminal-motion branch bypasses that updater. Therefore a pending burst need not be consumed on every controller frame, and the public base-motion query can differ from actual terrain displacement.",
+        "rationale": "Preserves the exceptional terminal path and removes the unsupported randomness claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L796-L893",
+            "why": "Controller branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1880-L1921",
+            "why": "Counter consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gricemt.c#L1989-L2025",
+            "why": "Base-motion query."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

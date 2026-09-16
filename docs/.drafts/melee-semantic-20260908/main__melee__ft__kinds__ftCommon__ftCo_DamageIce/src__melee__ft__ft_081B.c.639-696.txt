@@ -1,0 +1,58 @@
+639: }
+640: 
+641: static inline bool ft_80083090_inline(Fighter_GObj* gobj,
+642:                                       bool (*arg1)(Fighter_GObj*, int),
+643:                                       HSD_GObjEvent cb)
+644: {
+645:     CollData* coll;
+646:     Fighter* fp = GET_FIGHTER(gobj);
+647:     bool temp;
+648:     int dir;
+649: 
+650:     if (fp->facing_dir < 0.0F) {
+651:         dir = -1;
+652:     } else {
+653:         dir = 1;
+654:     }
+655:     coll = &fp->coll_data;
+656:     fp->coll_data.last_pos = fp->coll_data.cur_pos;
+657:     fp->coll_data.cur_pos = fp->cur_pos;
+658:     if (fp->x2064_ledgeCooldown || fp->x2224_b2) {
+659:         temp = mpColl_80047AC8(coll, arg1, gobj);
+660:     } else {
+661:         mpCollSetFacingDir(coll, dir);
+662:         temp = mpColl_80047E14(coll, arg1, gobj);
+663:     }
+664:     fp->cur_pos = coll->cur_pos;
+665:     if (ft_80081A00(gobj)) {
+666:         return false;
+667:     }
+668:     if (temp) {
+669:         return true;
+670:     }
+671:     return false;
+672: }
+673: 
+674: void ft_80083090(Fighter_GObj* gobj, bool (*arg1)(Fighter_GObj*, int),
+675:                  HSD_GObjEvent cb)
+676: {
+677:     PAD_STACK(16);
+678:     if (ft_80083090_inline(gobj, arg1, cb)) {
+679:         cb(gobj);
+680:         return;
+681:     }
+682:     RETURN_IF(ftCliffCommon_80081298(gobj));
+683: }
+684: 
+685: void ft_800831CC(Fighter_GObj* gobj, bool (*arg1)(Fighter_GObj*, int),
+686:                  HSD_GObjEvent cb)
+687: {
+688:     PAD_STACK(16);
+689:     if (ft_80083090_inline(gobj, arg1, cb)) {
+690:         cb(gobj);
+691:         return;
+692:     }
+693: 
+694:     RETURN_IF(ftWallJump_8008169C(gobj));
+695:     RETURN_IF(ftCliffCommon_80081298(gobj));
+696: }

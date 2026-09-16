@@ -1,0 +1,10 @@
+## DownSpot semantic review
+The five canonical names accurately describe the entry and Anim/IASA/Phys/Coll callback roles; the header agrees with all definitions. Entry tests DownSpotU metadata x14, selecting U when nonzero and D otherwise, then changes motion with Ft_MF_None and arguments 0.0F, 1.0F, 0.0F, NULL. It calls ftAnim_8006EBA4 and ftCommon_8007E2F4(fp, 0x1FF), then clears downspot.x4. The metadata test is not a test of the fighter's current orientation.
+
+Anim does nothing while frames remain. Otherwise ftCo_80097E8C initializes DownWait: it performs airborne setup if necessary, chooses U for DownBoundU/DownSpotU and D otherwise, initializes downwait.x0 from common x424, and changes motion with preservation flags. DownWait's timer decrement is suppressed by x2224_b2; therefore 'timed floor recovery' alone misleadingly describes the defeated-fighter lifetime. The timer <=0 exit test remains unconditional, so suppressed decrement does not prove that DownWait can never exit. IASA is empty. Phys delegates speed-sensitive friction and ground movement. Coll delegates collision-position synchronization and calls Fall when ft_80082708 returns GA_Ground, preserving that exact comparison without inferring physical groundedness from the enum label.
+
+The HP-zero path has additional eligibility guards, deferred defeat processing, capture cleanup, separate airborne dispatch, and Master/Crazy Hand exceptions. It sets x2224_b2; neutral entry checks that flag and redirects to DownSpot. Persistence belongs to this cross-file defeated condition, not an unconditional claim that the DownSpot motion itself never exits.
+
+Rendered source has four external function substitutions and no parse errors; the header has none. DownWait-entry and friction/movement hypotheses agree with independently inspected canonical callees. The local call sites alone do not prove the broader GetMotionData or Advance names. No compiled artifact was available to validate literal-pool size, layout, or deduplication.
+
+Status: synthesized; independent review and live promotion pending.

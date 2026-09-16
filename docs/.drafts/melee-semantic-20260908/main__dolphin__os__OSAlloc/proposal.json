@@ -1,0 +1,45 @@
+{
+  "tu": "main/dolphin/os/OSAlloc",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlloc.c#L495-L546",
+            "why": "ASSERTREPORT returns -1 on failure; the function validates the handle and returns free-cell payload capacity on success."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds the explicit failure sentinel missing from the existing return-domain explanation while preserving the supported signature and success calculation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSAlloc:OSCheckHeap"
+        },
+        "type": "inferred_type",
+        "value": "Signature: `long OSCheckHeap(int heap)`. The integer handle selects an active HeapArray descriptor in [0, NumHeaps). On successful validation, the return value is the sum of free-cell byte sizes minus HEADERSIZE for each free cell. If any ASSERTREPORT condition fails, the function reports the failed condition and returns -1 instead of a capacity."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSAlloc.c#L344-L353",
+            "why": "Three assertion calls precede separate global read and write operations; no synchronization is present."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the unsupported atomic-exchange claim and distinguishes assertion preconditions from guaranteed runtime rejection.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSAlloc:OSSetCurrentHeap"
+        },
+        "type": "state_behavior",
+        "value": "The function asserts allocator initialization, an in-range handle, and a nonnegative descriptor size, then separately reads __OSCurrHeap into prev, writes the requested heap handle, and returns prev. These are asserted preconditions, not an unconditional invalid-input rejection contract. The routine contains no synchronization establishing an atomic read-modify-write exchange."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

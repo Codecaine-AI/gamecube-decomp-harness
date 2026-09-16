@@ -1,0 +1,213 @@
+651: bool HSD_SynthSFXPlayWithGroup(int sfx_id, u8 vol, u8 vol2, u8 pan,
+652:                                int priority, int itd_flag, int group,
+653:                                f32 pitch1, f32 pitch2, f32 mix_main,
+654:                                f32 mix_auxA, f32 mix_auxB)
+655: {
+656:     bool result;
+657:     int nodeID;
+658:     struct HSD_SynthSFXNode* node;
+659: 
+660:     PAD_STACK(0x8);
+661: 
+662:     HSD_ASSERTREPORT(0x30B, group >= 0 && group < HSD_SYNTHSFXGROUP_MAX,
+663:                      "sfx group ID %d out of range.", group);
+664: 
+665:     if (group != 0) {
+666:         nodeID = HSD_Synth_804C28E0_1844[group];
+667:         if (nodeID > 0) {
+668:             node = getNode(nodeID);
+669:             if (node != NULL && node->flags != 1) {
+670:                 if (node->x27 == 1 && driverInactivatedCallback != NULL) {
+671:                     driverInactivatedCallback(node->x0);
+672:                 }
+673:                 HSD_SynthSFXKeyOff(HSD_Synth_804C28E0_1844[group]);
+674:             }
+675:         }
+676:     }
+677: 
+678:     result = HSD_Synth_80389334(sfx_id, vol, vol2, pan, priority, itd_flag,
+679:                                 pitch1, pitch2, mix_main, mix_auxA, mix_auxB);
+680:     HSD_Synth_804C28E0_1844[group] = result;
+681:     return result;
+682: }
+683: 
+684: static inline void freeVoices(struct HSD_SynthSFXNode* node)
+685: {
+686:     int j;
+687:     for (j = 0; j < node->voice_count; j++) {
+688:         AXFreeVoice(node->voice[j]);
+689:         hsd_SynthSFXNodes[node->voice[j]->index].x0 = 0;
+690:     }
+691: }
+692: 
+693: void HSD_SynthSFXKeyOff(int id)
+694: {
+695:     struct HSD_SynthSFXNode* node;
+696:     int i;
+697: 
+698:     PAD_STACK(0x10);
+699: 
+700:     if ((node = getNode(id))) {
+701:         if (node->flags & 8) {
+702:             if (!(node->flags & 1) && node->x27 == 1 &&
+703:                 driverInactivatedCallback != NULL)
+704:             {
+705:                 driverInactivatedCallback(node->x0);
+706:             }
+707:             freeVoices(node);
+708:         } else if (!(node->flags & 1)) {
+709:             node->flags |= 1;
+710:             HSD_SynthSFXUpdateVolume(node);
+711:             for (i = 0; i < node->voice_count; i++) {
+712:                 AXSetVoicePriority(node->voice[i], 1U);
+713:             }
+714:         }
+715:     }
+716: }
+717: 
+718: static inline void stopRange(size_t lo, size_t hi)
+719: {
+720:     size_t addr;
+721:     int i;
+722:     for (i = 0; i < 0x40; i++) {
+723:         struct HSD_SynthSFXNode* node = &hsd_SynthSFXNodes[i];
+724:         if (hsd_SynthSFXNodes[i].x0 > 0) {
+725:             addr = *(size_t*) &hsd_SynthSFXNodes[i]
+726:                         .voice[0]
+727:                         ->pb.addr.currentAddressHi;
+728:             if (addr >= lo && addr < hi) {
+729:                 HSD_SynthSFXStopNode(&hsd_SynthSFXNodes[i]);
+730:             }
+731:         }
+732:     }
+733: }
+734: 
+735: void HSD_SynthSFXStopRange(int bank_id)
+736: {
+737:     stopRange(hsd_SynthSFXBankHead[bank_id + 0] * 2,
+738:               hsd_SynthSFXBankHead[bank_id + 1] * 2);
+739: }
+740: 
+741: void HSD_SynthSFXPause(int sfx_id)
+742: {
+743:     struct HSD_SynthSFXNode* node;
+744: 
+745:     if ((node = getNode(sfx_id))) {
+746:         node->flags |= 2;
+747:         HSD_SynthSFXUpdateVolume(node);
+748:         if (node->flags & 8) {
+749:             node->flags |= 6;
+750:         }
+751:     }
+752: }
+753: 
+754: void HSD_SynthSFXResume(int sfx_id)
+755: {
+756:     struct HSD_SynthSFXNode* node;
+757: 
+758:     if ((node = getNode(sfx_id))) {
+759:         if (node->flags & 2) {
+760:             node->flags &= ~6;
+761:             HSD_SynthSFXUpdatePitch(node);
+762:             HSD_SynthSFXUpdateVolume(node);
+763:         }
+764:     }
+765: }
+766: 
+767: int HSD_SynthSFXCheck(int sfx_id)
+768: {
+769:     struct HSD_SynthSFXNode* node = getNode(sfx_id);
+770:     int i;
+771: 
+772:     if (node != NULL) {
+773:         if (node->flags & 1) {
+774:             return -1;
+775:         }
+776:         for (i = 0; i < node->voice_count; i++) {
+777:             if (node->voice[i]->pb.state == 0) {
+778:                 return -1;
+779:             }
+780:         }
+781:         return sfx_id;
+782:     }
+783:     return -1;
+784: }
+785: 
+786: void HSD_SynthSFXSetVolumeFade(int sfx_id, u8 vol, int flag)
+787: {
+788:     struct HSD_SynthSFXNode* node;
+789: 
+790:     if ((node = getNode(sfx_id))) {
+791:         HSD_ASSERT(0x376, flag >= 0 && flag < USERVOL_NUM);
+792:         node->user_vol[flag].volume = 1 / 255.0 * vol;
+793:         node->user_vol[flag].x4 = 1;
+794:         HSD_SynthSFXUpdateVolume(node);
+795:     }
+796: }
+797: 
+798: void HSD_SynthSFXSetUserVol(int sfx_id, u8 vol)
+799: {
+800:     struct HSD_SynthSFXNode* node;
+801: 
+802:     if ((node = getNode(sfx_id))) {
+803:         node->user_vol[1].x8 = vol;
+804:         HSD_SynthSFXUpdateMix(node, 1);
+805:     }
+806: }
+807: 
+808: void HSD_SynthSFXSetMix(int sfx_id, float mix_main, float mix_auxA,
+809:                         float mix_auxB)
+810: {
+811:     int* unused;
+812:     struct HSD_SynthSFXNode* node;
+813: 
+814:     if ((node = getNode(sfx_id))) {
+815:         node->x44 = mix_main;
+816:         node->x48 = mix_auxA;
+817:         node->x4C = mix_auxB;
+818:         HSD_SynthSFXUpdateMix(node, 1);
+819:     }
+820: }
+821: 
+822: void HSD_SynthSFXUpdatePitch(struct HSD_SynthSFXNode* node)
+823: {
+824:     float ratio;
+825: 
+826:     if (node->flags & 4) {
+827:         ratio = 0.0F;
+828:     } else {
+829:         ratio = node->x14 * node->x18[0] * node->x18[1];
+830:     }
+831:     if (!(node->flags & 8)) {
+832:         int i;
+833:         for (i = 0; i < node->voice_count; i++) {
+834:             AXSetVoiceSrcRatio(node->voice[i], ratio);
+835:         }
+836:     }
+837: }
+838: 
+839: void HSD_SynthSFXSetPitchRatio(int sfx_id, int flag, float ratio)
+840: {
+841:     struct HSD_SynthSFXNode* node = getNode(sfx_id);
+842: 
+843:     if (node != NULL && !(node->flags & 1)) {
+844:         HSD_ASSERT(0x3A7, flag == 0 || flag == 1);
+845: 
+846:         node->x18[flag] = ratio;
+847: 
+848:         HSD_SynthSFXUpdatePitch(node);
+849:     }
+850: }
+851: 
+852: void HSD_SynthSFXSetPriority(int id, int prio)
+853: {
+854:     struct HSD_SynthSFXNode* node = getNode(id);
+855:     int i;
+856: 
+857:     if (node != NULL && !(node->flags & 1)) {
+858:         for (i = 0; i < node->voice_count; i++) {
+859:             AXSetVoicePriority(node->voice[i], prio);
+860:         }
+861:     }
+862: }
+863: 

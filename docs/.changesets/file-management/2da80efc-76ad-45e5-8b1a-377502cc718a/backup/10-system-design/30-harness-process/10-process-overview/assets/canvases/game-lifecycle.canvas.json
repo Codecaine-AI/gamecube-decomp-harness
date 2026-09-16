@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "35-process-overview-game-lifecycle",
+  "title": "Game lifecycle",
+  "description": "A game moves through registration, cycle open, sync, run, and PR; durable artifacts carry each handoff and knowledge jobs feed the loop in parallel.",
+  "mode": "diagram",
+  "size": { "width": 2400, "height": 1600 },
+  "objects": [
+    {
+      "id": "frame", "type": "section", "text": "Game lifecycle", "color": "white", "parentId": null,
+      "geometry": { "x": 40, "y": 40, "width": 2320, "height": 1520 }, "locked": "background"
+    },
+    {
+      "id": "sec-phases", "type": "section", "text": "phase walk", "color": "blue", "parentId": "frame",
+      "geometry": { "x": 100, "y": 140, "width": 2200, "height": 420 }
+    },
+    {
+      "id": "sec-artifacts", "type": "section", "text": "durable handoffs", "color": "gray", "parentId": "frame",
+      "geometry": { "x": 100, "y": 650, "width": 2200, "height": 360 }
+    },
+    {
+      "id": "sec-knowledge", "type": "section", "text": "parallel lane — knowledge jobs", "color": "violet", "parentId": "frame",
+      "geometry": { "x": 500, "y": 1120, "width": 1400, "height": 300 }
+    },
+    {
+      "id": "registration", "type": "process", "text": "registration", "color": "blue", "parentId": "sec-phases",
+      "geometry": { "x": 150, "y": 290, "width": 280, "height": 120 }
+    },
+    {
+      "id": "cycle-open", "type": "process", "text": "cycle open", "color": "blue", "parentId": "sec-phases",
+      "geometry": { "x": 510, "y": 290, "width": 280, "height": 120 }
+    },
+    {
+      "id": "sync", "type": "process", "text": "sync", "color": "blue", "parentId": "sec-phases",
+      "geometry": { "x": 870, "y": 290, "width": 280, "height": 120 }
+    },
+    {
+      "id": "run", "type": "process", "text": "run", "color": "blue", "parentId": "sec-phases",
+      "geometry": { "x": 1230, "y": 290, "width": 280, "height": 120 }
+    },
+    {
+      "id": "pr", "type": "process", "text": "PR", "color": "blue", "parentId": "sec-phases",
+      "geometry": { "x": 1590, "y": 290, "width": 280, "height": 120 }
+    },
+    {
+      "id": "baseline", "type": "rectangle", "text": "baseline", "color": "white", "parentId": "sec-artifacts",
+      "geometry": { "x": 650, "y": 770, "width": 280, "height": 110 }
+    },
+    {
+      "id": "epochs", "type": "rectangle", "text": "epochs + integration commits", "color": "white", "parentId": "sec-artifacts",
+      "geometry": { "x": 990, "y": 770, "width": 320, "height": 110 }
+    },
+    {
+      "id": "ship-set", "type": "rectangle", "text": "ship set", "color": "white", "parentId": "sec-artifacts",
+      "geometry": { "x": 1370, "y": 770, "width": 280, "height": 110 }
+    },
+    {
+      "id": "campaign", "type": "rectangle", "text": "campaign / series", "color": "white", "parentId": "sec-artifacts",
+      "geometry": { "x": 1710, "y": 770, "width": 300, "height": 110 }
+    },
+    {
+      "id": "knowledge", "type": "rectangle", "text": "knowledge jobs", "color": "white", "parentId": "sec-knowledge",
+      "geometry": { "x": 750, "y": 1220, "width": 300, "height": 110 }
+    },
+    {
+      "id": "published-knowledge", "type": "rectangle", "text": "published knowledge", "color": "white", "parentId": "sec-knowledge",
+      "geometry": { "x": 1350, "y": 1220, "width": 300, "height": 110 }
+    }
+  ],
+  "connections": [
+    { "id": "c-registration-cycle", "from": { "objectId": "registration", "anchor": "right" }, "to": { "objectId": "cycle-open", "anchor": "left" }, "style": "solid", "arrow": "forward", "color": "blue" },
+    { "id": "c-cycle-sync", "from": { "objectId": "cycle-open", "anchor": "right" }, "to": { "objectId": "sync", "anchor": "left" }, "style": "solid", "arrow": "forward", "color": "blue" },
+    { "id": "c-sync-run", "from": { "objectId": "sync", "anchor": "right" }, "to": { "objectId": "run", "anchor": "left" }, "style": "solid", "arrow": "forward", "color": "blue" },
+    { "id": "c-run-pr", "from": { "objectId": "run", "anchor": "right" }, "to": { "objectId": "pr", "anchor": "left" }, "style": "solid", "arrow": "forward", "color": "blue" },
+    {
+      "id": "c-pr-sync", "from": { "objectId": "pr", "anchor": "top" }, "to": { "objectId": "sync", "anchor": "top" },
+      "label": "next intake", "style": "solid", "arrow": "forward", "color": "blue",
+      "waypoints": [[1730, 200], [1010, 200]], "labelPosition": { "along": 0.5, "offset": 12 }
+    },
+    { "id": "c-sync-baseline", "from": { "objectId": "sync", "anchor": "bottom" }, "to": { "objectId": "baseline", "anchor": "top" }, "style": "dashed", "arrow": "forward", "color": "gray" },
+    { "id": "c-baseline-run", "from": { "objectId": "baseline", "anchor": "right" }, "to": { "objectId": "run", "anchor": "bottom" }, "style": "dashed", "arrow": "forward", "color": "gray" },
+    { "id": "c-run-epochs", "from": { "objectId": "run", "anchor": "bottom" }, "to": { "objectId": "epochs", "anchor": "top" }, "style": "dashed", "arrow": "forward", "color": "gray" },
+    { "id": "c-epochs-ship", "from": { "objectId": "epochs", "anchor": "right" }, "to": { "objectId": "ship-set", "anchor": "left" }, "style": "dashed", "arrow": "forward", "color": "gray" },
+    { "id": "c-ship-pr", "from": { "objectId": "ship-set", "anchor": "top" }, "to": { "objectId": "pr", "anchor": "bottom" }, "style": "dashed", "arrow": "forward", "color": "gray" },
+    { "id": "c-pr-campaign", "from": { "objectId": "pr", "anchor": "bottom" }, "to": { "objectId": "campaign", "anchor": "top" }, "style": "dashed", "arrow": "forward", "color": "gray" },
+    { "id": "c-run-knowledge", "from": { "objectId": "run", "anchor": "bottom" }, "to": { "objectId": "knowledge", "anchor": "top" }, "style": "dashed", "arrow": "forward", "color": "gray", "waypoints": [[1370, 1060], [900, 1060]] },
+    { "id": "c-knowledge-published", "from": { "objectId": "knowledge", "anchor": "right" }, "to": { "objectId": "published-knowledge", "anchor": "left" }, "style": "dashed", "arrow": "forward", "color": "gray" },
+    { "id": "c-published-sync", "from": { "objectId": "published-knowledge", "anchor": "top" }, "to": { "objectId": "sync", "anchor": "bottom" }, "style": "dashed", "arrow": "forward", "color": "gray", "waypoints": [[1500, 1080], [1010, 1080]] }
+  ]
+}

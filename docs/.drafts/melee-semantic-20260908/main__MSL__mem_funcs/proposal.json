@@ -1,0 +1,38 @@
+{
+  "tu": "main/MSL/mem_funcs",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/mem_funcs.c#L15-L125",
+            "why": "Aligned bodies are compiler-conditional; alignment peeling subtracts its count without validating the supplied length."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/mem_funcs.c#L127-L240",
+            "why": "Unaligned bodies show compiler guards, complementary shifts, aligned neighboring-word reads and unconditional paired-word bulk loops."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/mem.c#L6-L28",
+            "why": "Caller establishes minimum length, address-order direction and relative-alignment selection before forwarding all three arguments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful compiler-branch, input-contract and source-access qualifications absent from the existing stage summaries, without changing their supported account of normal caller-driven copying.",
+        "subject": {
+          "entity_locator": "src/MSL/mem_funcs.c"
+        },
+        "type": "state_behavior",
+        "value": "All four workers return without copying when __MWERKS__ is undefined. Their operative target implementations rely on specialized caller preconditions rather than validating arbitrary inputs: memmove supplies at least 32 bytes and selects direction and relative alignment. In particular, both unaligned workers execute a do-while bulk loop with initial count n >> 3 after alignment peeling, without a zero-count guard. Differing modulo-four alignment keeps src_offset nonzero, avoiding the zero-offset case that would compute a 32-bit right shift. Their adjacent aligned source-word loads may encompass bytes outside the logical source interval; the requested destination interval is the output, not a bound on every source load."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

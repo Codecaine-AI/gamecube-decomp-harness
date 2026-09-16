@@ -1,0 +1,19 @@
+## Tingle actor and stage integration
+
+`ittincle.c` implements Great Bay's Tingle item actor; `ittincle.h` declares its public entry points and callback table. The source defines thirteen motion-state rows, not thirteen distinct animations: states 6/7 share callbacks, and states 11/12 share animation ID 6 with different callbacks. No compiled section allocation or byte extent is established by this review.
+
+The normal startup path caches the original ECB and a bone-derived vertical anchor offset, enters hidden state 0 with a randomized delay, reveals Tingle in descending state 1, and enters hovering state 2 on the altitude guard or floor contact. Hover physics combines a vertical acceleration cycle with intermittent finite horizontal drift. Its counters must be interpreted literally: after x2C reaches zero, x3C decrements on successive updates before the cycle reloads; this is not two complete bobs per reload.
+
+Great Bay's separate platform controller accumulates contact magnitude and passes it into Tingle's x54 field. Contact can initiate state 3's timed dip-and-return response, followed by state 4's delayed depression. These precede balloon disruption rather than implementing the ordinary post-pop fall. State-4 entry overwrites the saved state and trajectory fields, so the original hover snapshot does not necessarily survive. Platform release calls a three-branch recovery helper that either constructs state-5 upward motion, restores a saved trajectory into state 5, or selects state 2 when the saved state is 2. This differs from state 12's launch after grounded recovery.
+
+Damage received enters state 6 with x20 = 3; damage dealt enters state 7 with x20 = 0 unless already in state 7. Their shared animation callback handles positive countdowns, zero-to-minus-one marking, and a possible state-6-to-7 transition, then independently checks animation completion. Collision can enter landing state 9, and the grounded branch still checks support after immediate landing. State 8 applies common falling physics. States 9–11 comprise landing, randomized animation repetitions, and an animation-gated pre-ascent phase. State 12 launches upward and normally returns to hover when vertical velocity becomes nonpositive. Stage contact and damage can interrupt these normal paths.
+
+Terrain helpers have observable effects even when their results are ignored or zero: corrected position is copied into the item. Grounded support processing also has a supported-floor exceptional branch that conditionally dispatches `entered_air`; it is not inherently item destruction. ECB updates copy the saved template and halve only top, left, and right extents for states 6–11.
+
+The stage retains the actor pointer and follows the exported position plus cached vertical offset. That adjusted anchor also controls below-minus-50 destruction and replacement. Creation returns NULL on failure, but the reviewed stage path does not check that result before its subsequent query. The two-object event wrapper remains conservatively characterized as forwarding to the shared helper; its rendered callee name is not independent proof of more specific semantics.
+
+## Semantic review
+
+Supported existing names and explanations are explicitly retained in the checkpoint ledger. Corrections distinguish initial descent from post-pop falling, contact depression from balloon-loss descent, state-5 release recovery from state-12 reinflation recovery, exact hover sequencing, and collision side effects. The two `EnterBalloonPop` hypotheses collide in both reading views; distinct lead-in and direct-entry names are proposed. `SetFallSpeed` is replaced by a contact-bounce-specific name. The header's `it_802ECA70` substitution is suppressed as `shadowed_binding`; this is a renderer issue, not evidence against the supported Spawn interpretation.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

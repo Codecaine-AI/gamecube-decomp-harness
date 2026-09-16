@@ -1,0 +1,3 @@
+`AmcTypes.h` is an include-guarded header that includes `<dolphin/os.h>` and declares `EXICallback` as a pointer to a void-returning function accepting `s32 chan` and `OSContext* context`. Its comment identifies this as an EXI callback type. The header defines no callback implementation, registration, invocation, or context ownership/lifetime rules. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/amc/AmcTypes.h#L1-L9. Canonical and rendered views agree; the renderer reports zero substitutions and zero parse errors. No baseline subjects, facts, or links exist to revise, and no semantic correction is warranted.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

@@ -1,0 +1,77 @@
+{
+  "tu": "main/melee/it/itgroundcoll",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L224-L243",
+            "why": "Shows ordered collision synchronization and aggregation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itmaplib.c#L323-L389",
+            "why": "Shows right-wall replacement of the left-wall result and subsequent ceiling classification."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing assertion that all detected side-wall categories survive the OR aggregation. The caller ORs the wall helper's final result, and that helper overwrites rather than accumulates its directional result.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itgroundcoll:it_8026DAA8"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation prepares and resolves airborne collision, adopts the corrected position, and combines accepted floor contact with the supplemental wall and ceiling results. The wall query selects 8 for left-wall contact, but replaces that result with 4 when right-wall contact is also present; therefore the returned mask does not preserve both wall bits in a simultaneous-wall case. Item.xC30 is updated in floor, left-wall, right-wall, then ceiling order when those contacts occur. The wrapper itself does not select a motion state, change ground/air state, or perform destruction; callers interpret the returned contact mask."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L273-L343",
+            "why": "Establishes settling, entered-air finalization, retirement, and their return paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L459-L526",
+            "why": "Shows delegation, short-circuit event gating, and the hitbox-reset distinction."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported landing sequence while correcting the claim that failure merely continues the current item state. Both destruction and entered-air dispatch can precede event suppression.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itgroundcoll:it_8026E248"
+        },
+        "type": "state_behavior",
+        "value": "After the shared collision scan, a result selected by 0xF invokes common terrain response. Floor bit 1 additionally runs the delegating first-landing retirement check, the settling predicate, and the floor-contact finalizer in short-circuit order. The supplied event runs only if every stage permits continuation. Failure may mean the item was retired, motion did not satisfy settling policy, or the finalizer already dispatched entered_air; it does not imply that the prior item-specific state or object lifetime remains unchanged. Unlike E15C, this variant does not reset hitboxes between settling and finalization."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L301-L318",
+            "why": "Finalization can dispatch entered_air before returning false."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L528-L552",
+            "why": "Shows direct landing-count increment, guarded event, and original result return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unchanged-state implication without losing the direct-increment/no-retirement distinction or the independent returned contact result.",
+        "subject": {
+          "target_stable_key": "main/melee/it/itgroundcoll:it_8026E32C"
+        },
+        "type": "state_behavior",
+        "value": "After the shared collision scan, a result selected by 0xF invokes common terrain response. Floor bit 1 directly increments xD50_landNum and runs settling followed by floor-contact finalization; it does not invoke the first-landing retirement predicate. The supplied event runs only when both stages succeed. A false settling result suppresses further landing processing, while a false finalizer result may follow an entered_air dispatch, so suppressed event delivery does not guarantee unchanged item-specific state. The original accumulated collision result is returned regardless of whether the supplied event runs."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

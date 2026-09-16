@@ -1,0 +1,270 @@
+{
+  "tu": "main/melee/gr/grbigblueroute",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:.rodata"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The positive-Y constant is copied into local up vectors in numeric states1,2,3. Each copy seeds a frame built from normalized spline tangent, crossed side vector, roll about the tangent, and recomputed up vector. The scaled up vector offsets the airborne position. States1 and3 use the airborne frame's orientation for output rotation; state2 computes it but retains road rotation while blending position toward the airborne path. The offset follows the rolled frame-up axis, not necessarily world vertical.",
+        "rationale": "Corrects the blanket claim that every computed frame supplies output rotation and that its offset is world-vertical.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L851-L981",
+            "why": "Frame construction, scaled offset and explicit rotation assignments."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020B95C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Always calls the shared generator constructor with NULL descriptors, ignoring its nullable result. Optional terminal-entry setup is attempted only in Classic, Adventure or All-Star and only when x0 is zero or HSD_Randi(x0) returns zero. Zero x0 guarantees reaching the setter call, not successful manager creation or an enabled entry: the constructor can return NULL and the Ground marker selector can return -1. The callback performs no local recovery or validation of those results.",
+        "rationale": "Distinguishes unconditional calls from guaranteed successful state creation and preserves exceptional paths.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L194-L211",
+            "why": "Call ordering and guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L342",
+            "why": "Nullable creation and terminal setter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L3270-L3303",
+            "why": "Missing marker returns -1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16AE.c#L306-L316",
+            "why": "Campaign-mode predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020C530"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature s32(Ground_GObj*). Requires a Ground payload with at least30 RouteEntry records; returns an ordinary index0\u201329 or -1 when none is inactive. It reads but does not mutate route-entry state. With a nonempty free set it calls HSD_Randi, which advances shared RNG state, so it is not globally side-effect-free.",
+        "rationale": "Retains signature, storage precondition and result domain while correcting RNG side effects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L531-L562",
+            "why": "Selector signature and behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L6-L21",
+            "why": "RNG seed mutation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020C530"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Selects a random inactive ordinary Big Blue route entry among indices0\u201329 by counting inactive records, drawing an ordinal with HSD_Randi(free_count), and mapping that ordinal back to its array index. Returns -1 when none is inactive. This samples the free-entry set rather than repeatedly testing arbitrary slots; exact uniform probability for every possible count is not guaranteed by the finite16-bit scaled RNG.",
+        "rationale": "Preserves selection algorithm without claiming exact uniformity unsupported by HSD_Randi implementation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L531-L562",
+            "why": "Two-pass ordinal selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L6-L21",
+            "why": "Scaled16-bit result."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020C85C"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "grBigBlueRoute_UpdateSpawnScheduler",
+        "rationale": "Names the count/countdown wrapper distinctly from the existing canonical inline grBigBlueRoute_SpawnRoute helper, resolving a rendered collision and clarifying responsibility.",
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L572-L574",
+            "why": "Existing helper binding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L702-L715",
+            "why": "Scheduler body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020C85C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Schedules progressive Big Blue route activation subject to the total-count limit and post-decrement countdown. Delegated setup first activates special warning entry30 without a model or material proxy; later activations select an inactive ordinary entry0\u201329 and initialize movement state. Only ordinary entries with an available model hierarchy reveal/reset a JObj and attempt to create an interactive material proxy. Movement runs separately after this scheduler.",
+        "rationale": "Corrects unconditional model/proxy description and distinguishes warning entry from ordinary cars.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L572-L714",
+            "why": "Branches, hierarchy guards and scheduler."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L455-L459",
+            "why": "Movement follows scheduling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020C85C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns before decrement when x108 is not less than1+x40. Otherwise post-decrements x10A and returns if its old value is nonnegative. On expiry, x108==0 selects warning entry30, sets b1 and loads x4C delay; later attempts select a free ordinary index, clear b1 and choose the next delay from integer-converted x44/x48: lower inclusive, upper exclusive when unequal, or the common value when equal, stored as s16. Setup marks active, clears b6, selects numeric state1, sets road progress1 and air progress0, initializes lateral fraction0.5 and randomized lateral target, and chooses a randomized roll target. Special entry skips visual/proxy setup; ordinary setup has hierarchy guards and nullable proxy output. The helper increments x108 after the attempt. Exhaustion is not safely guarded: it writes b1 at the returned index before testing index!=-1.",
+        "rationale": "Preserves exact timer/state behavior, distinguishes current fraction from randomized target and records pre-sentinel access.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L572-L714",
+            "why": "Complete setup and scheduler."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020CD20"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads P1 world position, root/child JObjs, three splines and31 route records. For each active entry it increments both progress values with upper clamping, computes road or offset-air positions and state-dependent rotation, then performs feedback tests. Transition states blend positions only: state2 retains road rotation and state3 retains airborne-frame rotation. Only entries with b1 clear write JObj transforms; special warning entry still supplies a computed position for strict X/Z proximity boxes. These boxes drive stage/entry flags, warning UI, audio and repeated loop-quake requests.",
+        "rationale": "Corrects orientation-blending implication and special-entry transform behavior while preserving data flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L764-L1049",
+            "why": "Inputs, transitions, transform suppression and feedback."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020CD20"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates31 active-or-inactive route records for Big Blue's30 ordinary model objects plus a special warning-only record. It advances active entries through the numeric road/air cycle, computes positions and orientations, writes transforms only for ordinary entries, and issues fighter-proximity warning, quake and sound feedback. Missing P1 fighter, root JObj or initial child skips the entire update, including warning-entry progression.",
+        "rationale": "Makes useful31-record/30-model distinction and preserves early exits omitted by blanket JObj description.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L764-L795",
+            "why": "Early exits and active-entry advancement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L990-L1049",
+            "why": "Special suppression and31-record traversal."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020DAB4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL destination-array pointer returns before construction. Otherwise creates component4, asserts required Ground/root state and processes destinations until count is reached or a NULL element occurs. Candidate bound starts30 and decreases after each reparenting, selecting without replacement from the remaining source children under the intended valid-count invariant. A zero bound bypasses HSD_Randi but does not establish that a child remains; count is not clamped to30 and larger requests are not safely handled. Normally returning non-NULL-array paths destroy the temporary Ground after extraction; assertion failures are not cleanup paths. Vi0801's observed call requests23 models at scale0.5.",
+        "rationale": "Preserves shrinking-pool lifetime while removing safe-exhaustion and unconditional-cleanup overclaims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L1061-L1110",
+            "why": "Bounds, assertions, reparenting and teardown."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0801.c#L167-L167",
+            "why": "Observed bounded use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020DF80"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives fighter position and reference JObj, ignores the integer argument, resolves the joint's world-space origin through lb_8000B1CC(joint,NULL,&b), and returns fighter_pos.y>b.y-3. It does not directly modify the input vector or stage state. For a parented joint the delegated origin query invokes HSD_JObjSetupMatrix, so a blanket claim of no joint/cache side effects is not warranted; a NULL joint is not safely supported with the supplied NULL local point.",
+        "rationale": "Qualifies side effects and null precondition using the actual cross-file origin helper.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L1187-L1198",
+            "why": "Predicate flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L105-L127",
+            "why": "Null and parented-joint branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grbigblueroute:grBigBlueRoute_8020DF80"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Has no local timer or retained decision state. Returns true exactly for the strict comparison fighter_pos.y>reference_origin.y-3 and false otherwise, including equality and unordered comparisons. For ordinary finite values, being three or more units below the reference rejects the shadow. The world-origin helper may set up the joint matrix, so this is a query without direct persistent writes, not a guarantee of no delegated cache updates.",
+        "rationale": "Retains exact boundary while qualifying floating-point and delegated-state behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grbigblueroute.c#L1187-L1198",
+            "why": "Strict comparison and returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L114-L127",
+            "why": "Matrix setup in query."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,187 @@
+{
+  "tu": "main/sysdolphin/baselib/gobjuserdata",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjuserdata:GObj_InitUserData"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires the old kind to equal HSD_GOBJ_USER_DATA_NONE, then stores kind, data and remove_func. It does not reject a new NONE kind, a NULL payload or a NULL callback. A supplied NONE kind leaves removal disabled despite the stored payload/callback; a non-NONE kind with NULL callback is accepted here but fails the later removal assertion.",
+        "confidence": 0.98,
+        "rationale": "Separate the old-slot assertion from absent validation of the supplied metadata.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.c#L6-L13",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.h#L8-L12",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjuserdata:GObj_RemoveUserData"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Invokes the registered removal callback with the stored payload, then marks the slot empty if the callback returns normally. Actual payload destruction or deallocation is delegated to the callback; this helper performs no direct free.",
+        "confidence": 0.98,
+        "rationale": "Do not imply that an arbitrary callback necessarily releases memory.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.c#L15-L25",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.h#L8-L12",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjuserdata:GObj_RemoveUserData"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When kind is NONE, returns without touching payload or callback. Otherwise asserts a non-NULL callback and invokes it while the old kind and payload remain stored. After normal callback return, sets kind to NONE and payload to NULL, leaving the callback field unchanged. No in-progress marker or reentrancy guard is set before the call; cleanup writes are not reached if the callback does not return.",
+        "confidence": 0.98,
+        "rationale": "Make callback ordering and normal-return dependence explicit.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.c#L15-L25",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.h#L8-L12",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/gobjuserdata.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Removal eligibility is controlled solely by whether user_data_kind equals NONE. Init requires an old NONE kind but accepts caller-supplied NONE, NULL data and NULL callback. Remove skips NONE objects unchanged; for other kinds it requires the callback, invokes it before clearing kind/data, and leaves the callback field as stored after normal return. This is callback-driven cleanup without an in-progress state.",
+        "confidence": 0.98,
+        "rationale": "The old empty/registered summary omitted accepted sentinel metadata and callback-return conditions.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.c#L6-L25",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.h#L8-L12",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjuserdata:GObj_InitUserData#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "HSD_GObj* gobj is the destination whose existing kind must equal NONE.",
+        "confidence": 0.98,
+        "rationale": "Role follows the canonical formal parameter use. No physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.c#L6-L13",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.h#L8-L12",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjuserdata:GObj_InitUserData#r4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "u8 kind is copied into user_data_kind without rejecting the NONE sentinel.",
+        "confidence": 0.98,
+        "rationale": "Role follows the canonical formal parameter use. No physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.c#L6-L13",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.h#L8-L12",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjuserdata:GObj_InitUserData#r6"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "void* data is stored as the payload and later passed unchanged as the callback argument.",
+        "confidence": 0.98,
+        "rationale": "Role follows the canonical formal parameter use. No physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.c#L6-L13",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.h#L8-L12",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/sysdolphin/baselib/gobjuserdata:GObj_RemoveUserData#r3"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "HSD_GObj* gobj supplies kind, callback and payload and receives the post-callback kind/data clearing.",
+        "confidence": 0.98,
+        "rationale": "Role follows the canonical formal parameter use. No physical ABI register interpretation is proposed.",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.c#L15-L25",
+            "why": "Canonical statements support the claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjuserdata.h#L8-L12",
+            "why": "Canonical statements support the claim."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

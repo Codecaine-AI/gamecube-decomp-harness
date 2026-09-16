@@ -1,0 +1,553 @@
+{
+  "schemaVersion": 1,
+  "id": "20-implementation-20-server-jobs-00-overview",
+  "title": "Server Jobs",
+  "root": "b-server-jobs-root-1",
+  "blocks": {
+    "b-server-jobs-root-1": {
+      "id": "b-server-jobs-root-1",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "server-jobs",
+          "job-runner",
+          "dispatcher",
+          "phase-owned-jobs"
+        ]
+      },
+      "children": [
+        "b-server-jobs-role-2",
+        "b-server-jobs-sources-3",
+        "b-server-jobs-governed-by-4",
+        "b-server-jobs-gov-workflows-5",
+        "b-server-jobs-gov-background-jobs-6",
+        "b-server-jobs-decisions-7",
+        "b-server-jobs-decision-dispatcher-8",
+        "b-server-jobs-decision-dispatcher-why-9",
+        "b-server-jobs-decision-dispatcher-applies-10",
+        "startup-order",
+        "startup-context",
+        "startup-outline",
+        "startup-source",
+        "compile-coordination",
+        "compile-policy",
+        "compile-recovery",
+        "compile-source",
+        "report-execution",
+        "report-policy",
+        "report-reuse",
+        "report-serialization",
+        "report-source",
+        "prepare-epoch-job",
+        "remote-build-coverage",
+        "remote-build-evidence",
+        "remote-build-source"
+      ]
+    },
+    "b-server-jobs-role-2": {
+      "id": "b-server-jobs-role-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Server startup recovers interrupted Sync publication before opening HTTP routes. The job dispatcher parses game and runtime options and invokes the owning domain implementation. Shared build entry points execute game compilation and validation in Daytona."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-sources-3": {
+      "id": "b-server-jobs-sources-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sources: "
+        },
+        {
+          "insert": "apps/server/src/application/jobs",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/application/jobs",
+              "label": "apps/server/src/application/jobs"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-governed-by-4": {
+      "id": "b-server-jobs-governed-by-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Governed by"
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-gov-workflows-5": {
+      "id": "b-server-jobs-gov-workflows-5",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Sync",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/40-sync"
+            }
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "Decomp Loop",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop"
+            }
+          }
+        },
+        {
+          "insert": " define the workflow behavior the job commands invoke."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-gov-background-jobs-6": {
+      "id": "b-server-jobs-gov-background-jobs-6",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing"
+            }
+          }
+        },
+        {
+          "insert": " owns the queue and pathway contract the kg2 jobs serve."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decisions-7": {
+      "id": "b-server-jobs-decisions-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Decisions"
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decision-dispatcher-8": {
+      "id": "b-server-jobs-decision-dispatcher-8",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Decision",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": "
+        },
+        {
+          "insert": "application/jobs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " owns only the command dispatcher. Every job's implementation lives with its owning domain slice. This places running-phase jobs under the running phase, PR jobs under the PR phase, knowledge jobs under "
+        },
+        {
+          "insert": "core/knowledge-v2/*/cli.ts (the kg2 jobs) or core/knowledge/jobs (the deprecated kg jobs)",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", validation jobs under "
+        },
+        {
+          "insert": "core/validation/jobs",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decision-dispatcher-why-9": {
+      "id": "b-server-jobs-decision-dispatcher-why-9",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Why",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": the rejected alternative was a standalone command app carrying job business logic in the application layer. Jobs are debuggable entrypoints over phase-owned workflow code, so workflow behavior stays with the phase that owns it and the dispatcher stays a thin routing table."
+        }
+      ],
+      "children": []
+    },
+    "b-server-jobs-decision-dispatcher-applies-10": {
+      "id": "b-server-jobs-decision-dispatcher-applies-10",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Applies to",
+          "attributes": {
+            "bold": true
+          }
+        },
+        {
+          "insert": ": "
+        },
+        {
+          "insert": "apps/server/src/application/jobs",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/application/jobs",
+              "label": "apps/server/src/application/jobs"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases",
+              "label": "apps/server/src/core/harness-runtime/phases"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge/jobs",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge/jobs",
+              "label": "apps/server/src/core/knowledge/jobs"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge-v2",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2",
+              "label": "apps/server/src/core/knowledge-v2"
+            }
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "apps/server/src/core/validation/jobs",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/validation/jobs",
+              "label": "apps/server/src/core/validation/jobs"
+            }
+          }
+        },
+        {
+          "insert": ". For every future job, register the command in the dispatcher, implement it in the owning slice."
+        }
+      ],
+      "children": []
+    },
+    "startup-order": {
+      "id": "startup-order",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Server Startup"
+        }
+      ],
+      "children": []
+    },
+    "startup-context": {
+      "id": "startup-context",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The default build mode requires no local Ninja, compiler, Wibo, or objdiff installation. Server and job startup initialize the host compile jobserver only when ORCH_BUILD_EXECUTION=local is explicitly selected."
+        }
+      ],
+      "children": []
+    },
+    "startup-outline": {
+      "id": "startup-outline",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Start the server",
+            "steps": [
+              {
+                "text": "Configure host compile coordination only for explicit local build mode."
+              },
+              {
+                "text": "Reconcile interrupted Sync publication before accepting operator requests."
+              },
+              {
+                "text": "Open the HTTP server with kernel reads, application APIs, and dashboard assets."
+              }
+            ]
+          }
+        ]
+      },
+      "text": [],
+      "children": []
+    },
+    "startup-source": {
+      "id": "startup-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/server.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/server.ts"
+            }
+          }
+        },
+        {
+          "insert": " owns this ordering."
+        }
+      ],
+      "children": []
+    },
+    "compile-coordination": {
+      "id": "compile-coordination",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Host Compile Coordination"
+        }
+      ],
+      "children": []
+    },
+    "compile-policy": {
+      "id": "compile-policy",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "ORCH_BUILD_EXECUTION defaults to daytona. Build failures or missing credentials never trigger a local fallback. The explicit local development override retains the shared FIFO compile budget on macOS and Linux. This machine is configured for two local jobs across games."
+        }
+      ],
+      "children": []
+    },
+    "compile-recovery": {
+      "id": "compile-recovery",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Startup reuses a live daemon with the same slot count. A different requested count fails instead of restarting a daemon that may serve active builds. Dead process or missing FIFO state can be replaced. Wrapper execution returns its token when the child exits."
+        }
+      ],
+      "children": []
+    },
+    "compile-source": {
+      "id": "compile-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/infrastructure/shell/global-compile-jobserver.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/infrastructure/shell/global-compile-jobserver.ts"
+            }
+          }
+        },
+        {
+          "insert": " owns daemon startup, token coordination, and wrapper environment."
+        }
+      ],
+      "children": []
+    },
+    "report-execution": {
+      "id": "report-execution",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Report Generation"
+        }
+      ],
+      "children": []
+    },
+    "report-policy": {
+      "id": "report-policy",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The host sends the exact checkout revision, tracked edits, and untracked source to a disposable sandbox from the selected game's snapshot. The sandbox verifies the source tree, configures Linux tools, builds the report and optional changes, and returns reports, build metadata, and logs. Compiler binaries, object caches, and original game assets remain in Daytona."
+        }
+      ],
+      "children": []
+    },
+    "report-reuse": {
+      "id": "report-reuse",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Remote tasks regenerate report evidence and reject outputs if host source changes before publication. Failed builds preserve the accepted report and retain diagnostics. ORCH_REPORT_REUSE=1 applies only to explicit local mode; baseline reset and change generation remain explicit options."
+        }
+      ],
+      "children": []
+    },
+    "report-serialization": {
+      "id": "report-serialization",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Calls to "
+        },
+        {
+          "insert": "forceReportRun",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " are serialized by resolved repository root within the host process. A failed call does not prevent the next queued call from running. This map is process-local and does not lock independent host processes that write the same checkout."
+        }
+      ],
+      "children": []
+    },
+    "report-source": {
+      "id": "report-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/core/validation/report/run.ts",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/validation/report/run.ts"
+            }
+          }
+        },
+        {
+          "insert": " implements report reuse and per-root execution ordering."
+        }
+      ],
+      "children": []
+    },
+    "prepare-epoch-job": {
+      "id": "prepare-epoch-job",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The prepare-epoch job uses the scheduler's report freshness and target admission code with an explicit preparation mode. It requires a paused harness, ready sandbox evidence, the accepted checkout, and no active lease or workers. It records epoch_prepared without changing execution intent. Game validation settings supply reportPath, objdiffPath, and targetExcludePrefixes, so SMS queue reads cannot fall back to Melee inputs."
+        }
+      ],
+      "children": []
+    },
+    "remote-build-coverage": {
+      "id": "remote-build-coverage",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The shared executor covers epoch and Sync reports, PR baseline and regression builds, CI parity, pre-commit gates and autofix, object and unit-score checks, QA, and report comparison. Worker tool calls keep using their existing claim sandbox. Sync transfers report baselines without copying the host compiler cache."
+        }
+      ],
+      "children": []
+    },
+    "remote-build-evidence": {
+      "id": "remote-build-evidence",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Each invocation records its source digest, snapshot, sandbox ID, status, output, and cleanup result under the game's state/builds/build-<id> directory. Cleanup deletes the sandbox after evidence transfer. A 90-minute provider TTL bounds orphan lifetime after a host crash. Source edits return only through explicit pre-commit autofix."
+        }
+      ],
+      "children": []
+    },
+    "remote-build-source": {
+      "id": "remote-build-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "apps/server/src/core/validation/build owns task dispatch, exact source transfer, result publication, and cleanup. Registered games need a prepared Linux snapshot with original assets and build tools. Source capture rejects submodules and untracked symlinks until their transfer contract is supported."
+        }
+      ],
+      "children": []
+    }
+  }
+}

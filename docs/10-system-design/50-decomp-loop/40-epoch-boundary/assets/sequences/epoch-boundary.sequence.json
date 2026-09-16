@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "id": "epoch-boundary",
+  "title": "epoch boundary",
+  "style": {},
+  "participants": [
+    {
+      "id": "host",
+      "name": "Harness",
+      "kind": "participant"
+    },
+    {
+      "id": "tree",
+      "name": "Harness worktree",
+      "kind": "participant"
+    },
+    {
+      "id": "up",
+      "name": "Upstream",
+      "kind": "participant"
+    },
+    {
+      "id": "kb",
+      "name": "Knowledge pipeline",
+      "kind": "participant"
+    },
+    {
+      "id": "state",
+      "name": "Harness + Run State",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "a",
+      "from": "host",
+      "to": "host",
+      "text": "Stop admission; settle claims and integration",
+      "line": "sync"
+    },
+    {
+      "kind": "message",
+      "id": "b",
+      "from": "host",
+      "to": "tree",
+      "text": "Build full report and validate epoch results",
+      "line": "sync"
+    },
+    {
+      "kind": "message",
+      "id": "c",
+      "from": "host",
+      "to": "state",
+      "text": "Record epoch evidence and save point",
+      "line": "sync"
+    },
+    {
+      "kind": "message",
+      "id": "d",
+      "from": "host",
+      "to": "up",
+      "text": "Fetch configured upstream",
+      "line": "sync"
+    },
+    {
+      "kind": "message",
+      "id": "e",
+      "from": "up",
+      "to": "host",
+      "text": "Return observed revision",
+      "line": "return"
+    },
+    {
+      "kind": "message",
+      "id": "f",
+      "from": "host",
+      "to": "tree",
+      "text": "Reconcile with configured merge policy",
+      "line": "sync"
+    },
+    {
+      "kind": "fragment",
+      "id": "displaced",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "Upstream displaces local work",
+          "items": [
+            {
+              "kind": "message",
+              "id": "g",
+              "from": "host",
+              "to": "kb",
+              "text": "Record prior score, upstream revision, and override verdict",
+              "line": "sync"
+            },
+            {
+              "kind": "message",
+              "id": "h",
+              "from": "host",
+              "to": "host",
+              "text": "Defer displaced target to next-epoch admission",
+              "line": "sync"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "message",
+      "id": "i",
+      "from": "host",
+      "to": "tree",
+      "text": "Recompute report for reconciled head",
+      "line": "sync"
+    },
+    {
+      "kind": "message",
+      "id": "j",
+      "from": "host",
+      "to": "kb",
+      "text": "Reconcile subjects and attempts; refresh configured sources",
+      "line": "sync"
+    },
+    {
+      "kind": "message",
+      "id": "k",
+      "from": "kb",
+      "to": "host",
+      "text": "Return source readiness and capture manifests",
+      "line": "return"
+    },
+    {
+      "kind": "message",
+      "id": "l",
+      "from": "host",
+      "to": "kb",
+      "text": "Rebuild knowledge graph; queue librarian processing",
+      "line": "sync"
+    },
+    {
+      "kind": "note",
+      "id": "async",
+      "anchor": "kb",
+      "side": "over",
+      "text": "Librarian tasks run asynchronously. Publication does not wait for every task."
+    },
+    {
+      "kind": "message",
+      "id": "m",
+      "from": "host",
+      "to": "state",
+      "text": "Write pr_sync save point; publish head and upstream anchor",
+      "line": "sync"
+    },
+    {
+      "kind": "message",
+      "id": "n",
+      "from": "host",
+      "to": "host",
+      "text": "Apply remaining boundary and publication gates",
+      "line": "sync"
+    },
+    {
+      "kind": "fragment",
+      "id": "resume",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "Ready and not paused",
+          "items": [
+            {
+              "kind": "message",
+              "id": "o",
+              "from": "host",
+              "to": "host",
+              "text": "Refresh eligible targets; admit next epoch",
+              "line": "sync"
+            }
+          ]
+        },
+        {
+          "guard": "Paused or blocked",
+          "items": [
+            {
+              "kind": "message",
+              "id": "p",
+              "from": "host",
+              "to": "state",
+              "text": "Retain evidence and reason; wait for resume or recovery",
+              "line": "sync"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

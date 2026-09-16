@@ -1,0 +1,3 @@
+Documentation-only companion for `melee/gr/types.h`. The `Ground::GroundVars::taru` comment explains the name as Japanese for "barrel," attributing it to assertions in `grKongo_801D828C` and `grOldKongo_802105C8`, and supplies the `oldkongo` alias (code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.dox#L1-L7). This is evidence of the documentation's attribution, not independent verification of those external assertions or runtime behavior. Canonical and rendered text agree; there are no proposed substitutions, baseline subjects, facts, or links to correct. No semantic changes are warranted.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

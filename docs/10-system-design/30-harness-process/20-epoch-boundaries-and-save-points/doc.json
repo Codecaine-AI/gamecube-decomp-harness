@@ -1,0 +1,472 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-30-games-30-cycles",
+  "title": "Epoch Boundaries and Save Points",
+  "root": "b-20-cycles-root-56",
+  "blocks": {
+    "b-20-cycles-root-56": {
+      "id": "b-20-cycles-root-56",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "eb-opening",
+        "eb-order-h",
+        "eb-steps",
+        "epoch-sync-handoff",
+        "eb-history-h",
+        "eb-difference",
+        "eb-measure",
+        "eb-timeline-h",
+        "harness-timeline-shape",
+        "eb-nochange",
+        "eb-save-h",
+        "eb-save",
+        "eb-save-shape",
+        "eb-storage",
+        "eb-failure-h",
+        "eb-failure",
+        "b-save-points-capture-sequence",
+        "eb-retry",
+        "eb-recovery"
+      ]
+    },
+    "eb-opening": {
+      "id": "eb-opening",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "An epoch boundary separates worker progress from the next source refresh. The harness settles the epoch, captures evidence at its accepted commit, runs Sync, and records the baseline for the next epoch."
+        }
+      ],
+      "children": []
+    },
+    "eb-order-h": {
+      "id": "eb-order-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The Boundary Order"
+        }
+      ],
+      "children": []
+    },
+    "eb-steps": {
+      "id": "eb-steps",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Record an epoch save point",
+            "steps": [
+              {
+                "text": "Settle claims and accepted integration."
+              },
+              {
+                "text": "Rebuild report truth and capture epoch evidence before upstream reconciliation."
+              },
+              {
+                "text": "Run automatic Sync under the retained Run lease."
+              },
+              {
+                "text": "Record the Sync result and post-sync evidence, including no-source-change completion."
+              },
+              {
+                "text": "Refresh eligibility and admit more work only when required gates pass, blockers are clear, and desired execution is run."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "epoch-sync-handoff": {
+      "id": "epoch-sync-handoff",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/epoch-sync.sequence.json",
+        "title": "Epoch Completion to Next Admission"
+      },
+      "children": []
+    },
+    "eb-history-h": {
+      "id": "eb-history-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Timeline and Save Point"
+        }
+      ],
+      "children": []
+    },
+    "eb-difference": {
+      "id": "eb-difference",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Record",
+          "What It Answers"
+        ],
+        "rows": [
+          [
+            "Harness State",
+            "What is the accepted state now?"
+          ],
+          [
+            "Timeline entry",
+            "What boundary or control event happened, in what order, and with what result?"
+          ],
+          [
+            "Save point",
+            "Which commit, build inputs, reports, and metrics support this measurement?"
+          ]
+        ]
+      },
+      "children": []
+    },
+    "eb-measure": {
+      "id": "eb-measure",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Measure worker gains before the following Sync and upstream gains after it. Compare scores only when target scope, build configuration, and metric definition agree. Refreshing the live baseline does not rewrite historical measurements."
+        }
+      ],
+      "children": []
+    },
+    "eb-timeline-h": {
+      "id": "eb-timeline-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Timeline Entry"
+        }
+      ],
+      "children": []
+    },
+    "harness-timeline-shape": {
+      "id": "harness-timeline-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"identity\": {\n    \"game_id\": \"example-game\",\n    \"harness_id\": \"harness-1\",\n    \"event_id\": \"boundary-13\",\n    \"order\": 129,\n    \"occurred_at\": \"2026-09-11T18:00:00Z\",\n    \"command_id\": \"sync-command-13\"\n  },\n  \"source\": {\n    \"prior_head\": \"commit-B\",\n    \"resulting_head\": \"commit-B\",\n    \"prior_upstream\": \"upstream-U\",\n    \"accepted_upstream\": \"upstream-U\",\n    \"configuration\": \"config-3\"\n  },\n  \"evidence\": {\n    \"save_point_id\": \"save-epoch-12\",\n    \"report\": \"report-B\",\n    \"freshness\": \"valid\",\n    \"source_manifest\": \"capture-14\"\n  },\n  \"recovery\": null,\n  \"eventId\": \"boundary-13\",\n  \"kind\": \"sync_completed\",\n  \"outcome\": \"no_source_change\",\n  \"runId\": \"run-7\",\n  \"epochId\": \"epoch-12\",\n  \"syncId\": \"sync-13\"\n}",
+        "fields": [
+          {
+            "name": "identity",
+            "type": "object",
+            "description": "Game/harness ID, stable event ID, durable order, timestamp, and causal command.",
+            "required": true
+          },
+          {
+            "name": "eventId",
+            "type": "string",
+            "description": "Stable boundary identity or result.",
+            "required": true
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "description": "Boundary kind, including initial Sync, epoch, Sync, sandbox validation, control, and evidence events.",
+            "required": true
+          },
+          {
+            "name": "outcome",
+            "type": "string",
+            "description": "Recorded result, including no-source-change completion.",
+            "required": true
+          },
+          {
+            "name": "runId",
+            "type": "string",
+            "description": "Optional durable operation reference.",
+            "required": false
+          },
+          {
+            "name": "epochId",
+            "type": "string",
+            "description": "Optional durable operation reference.",
+            "required": false
+          },
+          {
+            "name": "syncId",
+            "type": "string",
+            "description": "Optional durable operation reference.",
+            "required": false
+          },
+          {
+            "name": "source",
+            "type": "object",
+            "description": "Prior/resulting heads, prior/accepted upstream revisions, and configuration identity.",
+            "required": false
+          },
+          {
+            "name": "evidence",
+            "type": "object",
+            "description": "Save-point ID, report/artifact references, metric scope, freshness, and source manifests.",
+            "required": false
+          },
+          {
+            "name": "recovery",
+            "type": "object | null",
+            "description": "Failure stage and durable resume position. A retry keeps boundary identity.",
+            "required": false
+          }
+        ],
+        "name": "HarnessTimelineEntry"
+      },
+      "children": []
+    },
+    "eb-nochange": {
+      "id": "eb-nochange",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The example records completed Sync with equal prior and resulting heads. Completion does not require an invented commit. Verified source evidence may be reused when build inputs remain unchanged, while knowledge refresh has its own outcome."
+        }
+      ],
+      "children": []
+    },
+    "eb-save-h": {
+      "id": "eb-save-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Save-Point Evidence"
+        }
+      ],
+      "children": []
+    },
+    "eb-save": {
+      "id": "eb-save",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A save point captures reports, board state, and measurements at an existing commit. It neither creates a commit merely to mark time nor backs up the entire knowledge store."
+        }
+      ],
+      "children": []
+    },
+    "eb-save-shape": {
+      "id": "eb-save-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"id\": \"save-epoch-12\",\n  \"campaignId\": \"timeline-game-1\",\n  \"runId\": \"run-7\",\n  \"triggerKind\": \"epoch\",\n  \"label\": \"Epoch 12\",\n  \"commitSha\": \"commit-B\",\n  \"branch\": \"harness\",\n  \"baseRef\": \"origin/master\",\n  \"baseSha\": \"upstream-U\",\n  \"worktreeDirty\": false,\n  \"committed\": false,\n  \"matchedCodePercent\": 85.2,\n  \"reportPath\": \"save_points/epoch-12/report.json\",\n  \"reportChangesPath\": null,\n  \"boardSnapshotPath\": \"save_points/epoch-12/board.json\",\n  \"artifactDir\": \"save_points/epoch-12\",\n  \"payload\": {},\n  \"createdAt\": \"2026-09-14T12:00:00Z\"\n}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "campaignId",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "triggerKind",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "createdAt",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "runId",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "label",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "commitSha",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "branch",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "baseRef",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "baseSha",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "reportPath",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "reportChangesPath",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "boardSnapshotPath",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "artifactDir",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "worktreeDirty",
+            "type": "boolean",
+            "required": true
+          },
+          {
+            "name": "committed",
+            "type": "boolean",
+            "required": true
+          },
+          {
+            "name": "matchedCodePercent",
+            "type": "number | null",
+            "required": true
+          },
+          {
+            "name": "payload",
+            "type": "Record<string, unknown>",
+            "required": true,
+            "description": "Additional measurements and evidence warnings."
+          }
+        ],
+        "name": "SavePointRecord",
+        "source": {
+          "path": "apps/server/src/core/harness-runtime/phases/pr/state/save-points.ts",
+          "symbol": "SavePointRecord"
+        }
+      },
+      "children": []
+    },
+    "eb-storage": {
+      "id": "eb-storage",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The storage field "
+        },
+        {
+          "insert": "campaignId",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " identifies the retained timeline; it does not add a lifecycle phase. "
+        },
+        {
+          "insert": "commitSha",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " identifies the measured source and "
+        },
+        {
+          "insert": "baseSha",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " the upstream anchor. The paths locate captured reports and board evidence."
+        }
+      ],
+      "children": []
+    },
+    "eb-failure-h": {
+      "id": "eb-failure-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "When Evidence Capture Fails"
+        }
+      ],
+      "children": []
+    },
+    "eb-failure": {
+      "id": "eb-failure",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A capture failure marks evidence stale and blocks the next admission. Capture after accepted publication does not undo that publication. Recovery must reconcile the actual checkout with durable state and finish the missing evidence."
+        }
+      ],
+      "children": []
+    },
+    "b-save-points-capture-sequence": {
+      "id": "b-save-points-capture-sequence",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/save-point-capture.sequence.json",
+        "title": "Sync publication and save-point capture"
+      },
+      "children": []
+    },
+    "eb-retry": {
+      "id": "eb-retry",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Git and database writes do not share one transaction. Stable command and boundary identities let recovery distinguish an accepted source change from an unfinished evidence step without counting progress twice."
+        }
+      ],
+      "children": []
+    },
+    "eb-recovery": {
+      "id": "eb-recovery",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Pause, Resume, and Recovery",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness-process/30-pause-resume-and-recovery"
+            }
+          }
+        },
+        {
+          "insert": " explains what must be reconciled before work continues."
+        }
+      ],
+      "children": []
+    }
+  }
+}

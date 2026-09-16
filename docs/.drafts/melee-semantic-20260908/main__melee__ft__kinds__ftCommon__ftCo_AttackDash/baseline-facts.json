@@ -1,0 +1,1076 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:005f2995-1712-49c6-99c6-31d3964f1e84",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The dash-attack entry path reads 0.0f and 1.0f from this literal pool and supplies them to Fighter_ChangeMotionState as anim_start = 0.0f, anim_speed = 1.0f, and anim_blend = 0.0f; the zero value is reused for both the start-frame and blend arguments.",
+        "rationale": "The relocated source still enters ftCo_MS_AttackDash with the literal sequence 0, 1, 0. Fighter_ChangeMotionState's signature identifies those positions as animation start, speed, and blend, so the standing data-flow claim remains valid at the renamed path.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L70",
+            "why": "Shows common AttackDash entry passing 0, 1, and 0 to Fighter_ChangeMotionState."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Defines those three parameters as f32 anim_start, anim_speed, and anim_blend."
+          }
+        ]
+      },
+      {
+        "id": "fact:727256bf-5c84-427a-a97b-219e1e385c40",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Configures the ordinary grounded dash attack to start its animation immediately from the beginning at standard speed, without blending in from the preceding dash or run animation.",
+        "rationale": "At the renamed source location, the common entry helper still changes to ftCo_MS_AttackDash using start 0, speed 1, and blend 0. The motion-state signature establishes the player-visible animation configuration represented by those values.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L70",
+            "why": "Connects the zero-one-zero configuration directly to common dash-attack entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Establishes that the values control animation start frame, playback speed, and blend."
+          }
+        ]
+      },
+      {
+        "id": "fact:ca1edd07-e186-4006-8597-4ba4881492b8",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An eight-byte read-only small-data constant pool laid out as two IEEE-754 f32 words: 0.0f followed by 1.0f (bit patterns 0x00000000 and 0x3F800000). It is compiler-owned literal storage rather than a semantic aggregate or independently named game datum.",
+        "rationale": "The relocated matched source continues to require only zero and one as floating-point motion-entry literals, and the target remains an eight-byte .sdata2 section. Fighter_ChangeMotionState proves the f32 domain, supporting the existing interpretation as two compiler-owned floating-point literals.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L70",
+            "why": "Shows the source-level zero and one literals used by the unit without a named constant object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Shows that the corresponding motion-state arguments are typed f32."
+          }
+        ]
+      },
+      {
+        "id": "fact:fc737403-5500-4969-8dc5-e951cd3b98df",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the anonymous floating-point literals used when the common dash-attack entry routine changes the fighter into ftCo_MS_AttackDash: animation frame zero and zero blend, together with normal playback speed.",
+        "rationale": "The relocated doEnter body still uses the section's zero and one literals in the AttackDash motion-state call. The resolved callee signature maps them to animation start, speed, and blend, confirming the pool's purpose at head.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L70",
+            "why": "Shows doEnter using 0, 1, and 0 while entering ftCo_MS_AttackDash."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Identifies the three values as animation start, speed, and blend parameters."
+          }
+        ]
+      },
+      {
+        "id": "fact:ec5217eb-62f1-4211-8ee4-c4e07ae1af27",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:.sdata2",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On generic dash-attack entry, these constants configure ftCo_MS_AttackDash to begin at animation frame 0, play at normal 1.0\u00d7 speed, and enter with a 0-frame blend from the preceding motion state.",
+        "rationale": "The current source retains the same zero-one-zero transition arguments, and Fighter_ChangeMotionState identifies their state-transition roles. The previous behavior therefore survives the path relocation unchanged.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L70",
+            "why": "Shows the values being used specifically to enter ftCo_MS_AttackDash."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Defines the affected transition properties as animation start, speed, and blend."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:decideFighter"
+    },
+    "facts": [
+      {
+        "id": "fact:b9003817-f31c-4b81-a2b6-88075c619538",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:decideFighter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter game object from the accepted common dash-attack input path, derives its Fighter record solely to read the FighterKind discriminator, and forwards the original object unchanged to either ftKb_SpecialN_800F1F68 or doEnter. It performs no direct fighter-state writes and produces no return value.",
+        "rationale": "The current unit shows that the dispatcher is reached after accepted dash-attack input, reads only GET_FIGHTER(gobj)->kind, and passes the same object to exactly one entry helper without directly mutating fighter state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:42:34.241Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L1-L103",
+            "why": "Shows the accepted input path into decideFighter, its FighterKind read, unchanged object forwarding, and the absence of direct state writes in the dispatcher."
+          }
+        ]
+      },
+      {
+        "id": "fact:4086adcb-34ed-4e80-928c-79642583148f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:decideFighter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps an accepted common dash-attack command to Kirby's bespoke Burning implementation while retaining the standard grounded dash-attack implementation for the rest of the roster.",
+        "rationale": "The relocated dispatcher still singles out Kirby, whose current dedicated module enters ftKb_MS_AttackDash. The gameplay article identifies Burning as Kirby's dash attack, preserving the established mapping.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L70",
+            "why": "Shows Kirby alone being diverted from common AttackDash entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c#L1-L98",
+            "why": "Shows the dedicated Kirby entry routine selecting and maintaining Kirby-specific AttackDash states."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://kirby-ssbm~trivia@r2045348",
+            "why": "Explicitly identifies Burning as Kirby's dash attack."
+          }
+        ]
+      },
+      {
+        "id": "fact:78055170-4494-4b0f-82ca-59099ee5ccb9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:decideFighter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A private void fighter action-entry dispatcher with signature void(Fighter_GObj* gobj); it invokes exactly one dash-attack entry routine and returns no predicate or state value.",
+        "rationale": "The matched definition is static, returns void, and accepts a Fighter_GObj pointer. Each switch arm forwards that object to one entry routine and immediately returns without a value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:36.505Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L59",
+            "why": "The complete definition gives the linkage, signature, mutually exclusive calls, and value-less returns."
+          }
+        ]
+      },
+      {
+        "id": "fact:edfe1b8f-464e-48c4-9b40-f5f225a2920c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:decideFighter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Selects the fighter-specific dash-attack entry path: Kirby enters his dedicated AttackDash implementation, while every other fighter enters the common dash-attack state.",
+        "rationale": "At head, the function still has one explicit FTKIND_KIRBY branch and a default branch, delegating respectively to the Kirby-specific entry routine and common doEnter helper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L70",
+            "why": "Shows the complete fighter-kind dispatch and the two dash-attack entry destinations."
+          }
+        ]
+      },
+      {
+        "id": "fact:42bea91d-51e6-41b0-8249-58e1b64ed5fe",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:decideFighter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When Fighter.kind is FTKIND_KIRBY, immediately delegates the transition to Kirby's ftKb_MS_AttackDash entry routine; for every other fighter kind, immediately delegates to the common ftCo_MS_AttackDash entry routine. The branches are mutually exclusive, and the dispatcher itself contains no timer, fallback, or additional state mutation.",
+        "rationale": "The current switch retains one Kirby case and one default, each immediately returning after delegation. The current callee bodies confirm the distinct motion states and show that initialization occurs in the callees rather than in the dispatcher.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L70",
+            "why": "Shows the mutually exclusive branches, immediate returns, and common ftCo_MS_AttackDash entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftKirby/ftkirbyattackdash.c#L1-L98",
+            "why": "Shows the Kirby callee entering ftKb_MS_AttackDash and performing its initialization."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:doEnter"
+    },
+    "facts": [
+      {
+        "id": "fact:63c92258-4f4f-469b-bd8a-2af3d3987aaa",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:doEnter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj, resolves its Fighter, writes false to allow_interrupt, forwards the object to Fighter_ChangeMotionState with the fixed AttackDash state and to ftAnim_8006EBA4, then writes zero to fp->mv.co.attackdash.x0.",
+        "rationale": "Every input, call argument, and write is explicit in the matched body. The x0 field's further meaning is not established here, so the claim records its concrete data flow without speculating about its unit or role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:21.579Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L61-L69",
+            "why": "Directly shows fighter extraction, both field writes, and both calls with their arguments."
+          }
+        ]
+      },
+      {
+        "id": "fact:42b5c1fb-a09b-4734-834a-13613f2b739c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:doEnter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Begins the standard dash attack used by the common non-Kirby dispatch path.",
+        "rationale": "The dispatcher routes Kirby elsewhere and all other fighter kinds to this function, whose state transition explicitly selects ftCo_MS_AttackDash. SmashWiki identifies dash attack as an attack available while dashing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:21.579Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L50-L69",
+            "why": "Shows the non-Kirby default dispatch and transition to the AttackDash motion state."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~__intro__@r2044125",
+            "why": "Grounds the AttackDash state in the player-visible dash-attack action available while dashing."
+          }
+        ]
+      },
+      {
+        "id": "fact:f1b4f68e-cbac-4907-a5ea-5302aecb94cc",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:doEnter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Static action-state entry routine with signature void(Fighter_GObj* gobj); the supplied fighter object owns every field modified and is forwarded to both the motion-state and animation initialization routines.",
+        "rationale": "The matched declaration and definition provide the exact linkage, return type, and parameter type. GET_FIGHTER derives the modified Fighter from that parameter, and both callees receive the original object.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:21.579Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L50-L69",
+            "why": "Provides the exact function signature and demonstrates the ownership and forwarding role of gobj."
+          }
+        ]
+      },
+      {
+        "id": "fact:a8167f7f-7712-4531-80e3-981bbc0c6d8a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:doEnter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the generic fighter path for entering the grounded dash-attack action after fighter-specific dispatch has selected the common implementation.",
+        "rationale": "The immediately preceding dispatcher calls this routine for every fighter kind except Kirby. The routine then performs the actual transition to ftCo_MS_AttackDash and initializes its local action state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:21.579Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L50-L69",
+            "why": "Shows the fighter-kind dispatcher selecting doEnter as the default path and the complete generic entry body."
+          }
+        ]
+      },
+      {
+        "id": "fact:a5778660-d0e9-456a-ae11-e2f2bd320c9d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:doEnter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Immediately disables IASA interruption, changes to ftCo_MS_AttackDash at frame 0 with animation speed 1 and no motion-state preservation flags, performs the shared post-transition animation initialization, and clears the dash-attack motion-variable slot x0.",
+        "rationale": "The allow_interrupt assignment establishes the initial interruption guard. The complete Fighter_ChangeMotionState argument list establishes the destination state, flags, starting frame, and speed, after which the animation helper and x0 reset complete initialization.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:21.579Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L61-L69",
+            "why": "Shows the interruption guard, full state-transition argument list, animation initialization call, and action-variable reset."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Anim"
+    },
+    "facts": [
+      {
+        "id": "fact:3906023d-a988-48c6-bb16-5476cef651ef",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the fighter object only to query whether its current animation has frames remaining; when no frames remain, it forwards the same unchanged object to ft_8008A2BC, which inspects fighter kind and common fighter state to select the appropriate neutral transition.",
+        "rationale": "The callback still passes gobj unchanged through the frame-remaining query and into ft_8008A2BC. At the current head, that helper distinguishes the hand bosses and otherwise forwards the object to the shared neutral-state dispatcher.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:42:34.241Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L76",
+            "why": "Shows the callback forwarding the unchanged fighter object through its animation-completion guard into ft_8008A2BC."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+            "why": "Shows ft_8008A2BC consuming the object for fighter-kind dispatch and the ordinary path using common fighter state to select a neutral transition."
+          }
+        ]
+      },
+      {
+        "id": "fact:0c24033d-7be2-4056-b8b8-d0292bee4d01",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the natural animation-expiry boundary of the common dash attack: after its committed animation finishes without another interrupt taking over, the fighter returns through the shared neutral-state path.",
+        "rationale": "The current callback still waits for the dash-attack animation to exhaust before calling the shared action-ending helper, whose ordinary path proceeds through the common neutral-state dispatcher toward Wait.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T22:42:34.241Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L76",
+            "why": "Shows animation expiry as the condition under which the common dash-attack animation callback invokes its completion transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+            "why": "Shows the completion helper's ordinary branch entering the shared neutral-state routine, which handles exceptional neutral states before selecting Wait."
+          }
+        ]
+      },
+      {
+        "id": "fact:5f584e0f-a30a-4cdf-9724-ab7df670d6d6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter animation-state callback with signature void (Fighter_GObj* gobj).",
+        "rationale": "The matched definition takes exactly one Fighter_GObj pointer, returns no value, and performs per-state animation completion processing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:17.592Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L71-L76",
+            "why": "Provides the exact function signature and complete callback body."
+          }
+        ]
+      },
+      {
+        "id": "fact:ae579944-04aa-4781-914a-2600fbd0d23f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles completion of the common dash-attack animation, preserving the action while animation frames remain and invoking the common action-ending transition after the animation expires.",
+        "rationale": "The callback's sole guard remains the remaining-animation-frames test, and its only action after expiry is to invoke ft_8008A2BC, which remains the shared action-ending dispatcher at the current head.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T22:42:34.241Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L76",
+            "why": "Shows the complete animation callback, including its no-op path while frames remain and its sole call after animation expiry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+            "why": "Shows that ft_8008A2BC is a shared helper for ending completed actions and dispatching them toward an appropriate neutral state."
+          }
+        ]
+      },
+      {
+        "id": "fact:59df4afa-2225-4ead-9970-fce7b2bba7c4",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "While dash-attack animation frames remain, the callback leaves the current motion state unchanged. On the first update with no frames remaining, it exits through the common action-ending dispatcher; ordinary fighters proceed to Wait unless a common exceptional neutral-state condition applies, while Master Hand and Crazy Hand use dedicated handlers.",
+        "rationale": "The current callback remains inert while frames remain and invokes the completion dispatcher after expiry. That dispatcher still has dedicated Master Hand and Crazy Hand branches, while its ordinary branch checks exceptional neutral conditions before changing to Wait.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T22:42:34.241Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L76",
+            "why": "Shows that the callback preserves the action while animation frames remain and dispatches only after animation expiry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+            "why": "Shows dedicated Master Hand and Crazy Hand completion handlers and the ordinary neutral-state path's exceptional guards before its Wait transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_CheckInput"
+    },
+    "facts": [
+      {
+        "id": "fact:8674489c-ddf7-4dc4-b38b-6f9dd3ddaa7c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_CheckInput",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Derives Fighter state from the supplied game object and reads the A-button edge/input bit, held-item pointer, held L/R-button mask, and the held item's classification from it_8026B30C. Those values select one output call: ftCo_800957F4 with ftCo_MS_LightThrowDash, ftCo_Attack_800CCF58 with variant 4, or the local fighter-kind dispatcher; the boolean result tells the IASA caller whether this input consumed the transition slot.",
+        "rationale": "Each input and output is explicit in the matched function. The two item branches and the fallback fighter branch all return true after dispatch, whereas no output call occurs before false, establishing the return value's consumed-transition role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:20.604Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L47",
+            "why": "Directly traces fighter controller/item data and item classification into the three possible action-dispatch calls and final boolean result."
+          }
+        ]
+      },
+      {
+        "id": "fact:8ed0bea6-8b87-42f7-8e8b-28142813a7ca",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_CheckInput",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Maps attack input during a dash or run to Melee's dash attack, while honoring held-item behavior that can convert the same request into a dash item throw or a battering-item dash swipe.",
+        "rationale": "The ordinary code path dispatches the fighter's AttackDash implementation, while the held-item paths explicitly enter LightThrowDash or the item-swing subsystem. SmashWiki identifies attack while dashing as dash attack and documents battering items replacing dash attack with an item swipe.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:10:20.604Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L47",
+            "why": "Explicitly selects a dash throw, item-swing attack, or fighter dash attack after A-button input."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://boost-grab~performing-a-boost-grab@r2045941",
+            "why": "States that pressing attack while dashing performs a dash attack."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://item~types-of-items@r2047023",
+            "why": "Documents that battering items turn dash attacks into item swipes and that throwing items substitute throwing behavior for attacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:34cbbd3e-b69f-4214-91bc-b7ae61eb30de",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_CheckInput",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Input-transition predicate with signature bool (HSD_GObj*): it returns true exactly when A-button input was accepted and an action-entry path was invoked, and false when no attack request was handled.",
+        "rationale": "The matched declaration supplies the parameter and return types. Every branch that calls an action-entry or fighter-dispatch routine immediately returns true, while an unset A-button bit reaches the sole false return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:20.604Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L47",
+            "why": "Provides the exact bool/HSD_GObj signature and associates true with accepted action dispatch and false with absent attack input."
+          }
+        ]
+      },
+      {
+        "id": "fact:f1186976-84f8-44d7-bdf9-ef62ba4c8cf1",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_CheckInput",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Recognizes an attack-button request while the caller is processing dash or run interrupts and consumes it by starting the appropriate dash-context action: a dash item throw, an item-swing attack, or the fighter's dash attack implementation.",
+        "rationale": "The matched body does nothing unless the A-button input bit is set. Once set, it selects a held-item throw or swing when applicable, otherwise invokes the fighter dispatcher, and returns true after every selected action. Its known callers are Dash, Run, and RunDirect IASA routines, confirming that this predicate handles the attack option from moving ground states.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:20.604Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L47",
+            "why": "The complete function directly shows its A-button guard, held-item alternatives, fighter dispatch, and consumed-input return values."
+          }
+        ]
+      },
+      {
+        "id": "fact:e7debb42-dd00-491d-9645-05ad1b86f30e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_CheckInput",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Acts as a short-circuit interrupt guard. With no A-button request it leaves the current state unchanged and returns false. With A pressed, a held item is considered first: held L/R input or item classification 0 enters LightThrowDash; otherwise classification 2 enters item-swing variant 4. Any remaining case invokes the fighter-specific dash-attack dispatcher. Exactly one successful path is selected before returning true.",
+        "rationale": "This priority and exclusivity follow the matched nested conditionals, switch, immediate returns, and fallback call exactly. No transition routine is called on the false path, while each accepted path dispatches one action and prevents later alternatives from running.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:20.604Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L26-L47",
+            "why": "Shows the complete guard order, item classification branches, fallback fighter dispatch, immediate success returns, and unchanged-state false path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Coll"
+    },
+    "facts": [
+      {
+        "id": "fact:04a68008-f2d5-43ca-b0c1-36f09a61d58e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the active fighter's Fighter_GObj pointer from the action-state callback dispatcher and passes that same pointer unchanged to ft_80084104; it performs no local field access, transformation, or result handling.",
+        "rationale": "The complete four-line definition contains only ft_80084104(gobj), with no local variables, object-field operations, return value, or other statements.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:11:10.679Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L99-L102",
+            "why": "This complete body shows the input pointer being forwarded unchanged to the shared routine and no other local data operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:6bbdbb06-639b-4581-90c9-39201f9b8322",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides environmental collision processing while a fighter is performing the common grounded dash-attack action.",
+        "rationale": "The function's containing unit and symbol identify the active action as AttackDash, while its Coll callback delegates that action's collision processing to a shared fighter routine.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T00:11:10.679Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L99-L102",
+            "why": "The resolved ftCo_AttackDash_Coll definition associates the shared collision call with the common dash-attack action."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-847--main-melee-ft-chara-ftcommon-ftco-attackdash",
+            "why": "This record independently identifies the containing source file as the ftCo_AttackDash implementation."
+          }
+        ]
+      },
+      {
+        "id": "fact:f1ad4c80-918d-49fb-af93-1124e441e1c0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state collision callback with signature void(Fighter_GObj* gobj).",
+        "rationale": "The resolved definition explicitly returns void, accepts one Fighter_GObj pointer, and is named as the Coll callback for the dash-attack action.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:11:10.679Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L99-L102",
+            "why": "The definition directly establishes the void return type, single Fighter_GObj* parameter, and collision-callback role."
+          }
+        ]
+      },
+      {
+        "id": "fact:f3d1dc82-4ab6-4f42-9f74-e18f2be66797",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the dash-attack action state's collision callback, forwarding the fighter object to the shared grounded-action collision routine rather than implementing dash-attack-specific collision logic locally.",
+        "rationale": "The complete function body consists solely of an unconditional call to ft_80084104 with its Fighter_GObj argument, and the containing matched translation unit is the common dash-attack implementation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:11:10.679Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L99-L102",
+            "why": "This complete definition shows ftCo_AttackDash_Coll forwarding its fighter object directly to ft_80084104 with no local collision logic."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-847--main-melee-ft-chara-ftcommon-ftco-attackdash",
+            "why": "This resolved pull-request record identifies the containing translation unit as the matched ftCo_AttackDash implementation."
+          }
+        ]
+      },
+      {
+        "id": "fact:75ffbaf9-eb3c-4e02-8801-d131f717a1a3",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Introduces no dash-attack-specific guard, timer, branch, or transition; all collision-dependent state handling invoked by this callback is delegated unconditionally to ft_80084104.",
+        "rationale": "Because the complete body is a single unconditional delegation, the wrapper cannot independently select a transition or apply an action-specific collision condition.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T00:11:10.679Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L99-L102",
+            "why": "The complete function contains one unconditional call and no local control flow, timer handling, or state mutation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_IASA"
+    },
+    "facts": [
+      {
+        "id": "fact:4fac4f58-21bb-4efa-85e4-01f29621232b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current Fighter_GObj, derives its Fighter to read allow_interrupt, and passes the same object unchanged first to ftCo_800D8AE0 and conditionally to ftCo_Wait_IASA. A true result from ftCo_800D8AE0 suppresses both the allow_interrupt read and the Wait-state fallback through short-circuit evaluation.",
+        "rationale": "The operands of the && expression are evaluated left to right. Consequently, the first helper's boolean result controls whether the Fighter flag is consulted, and both conditions control whether gobj reaches ftCo_Wait_IASA.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:15.950Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L84-L90",
+            "why": "The resolved code directly shows the object flow, Fighter-field read, and short-circuit conditions governing the fallback call."
+          }
+        ]
+      },
+      {
+        "id": "fact:c84a2544-b0aa-4926-bd32-cdc9218206a7",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes dash-attack interruptibility: once the move's script has enabled general interruption, the fighter can leave its remaining animation through ordinary grounded input transitions, while a separate prioritized transition check remains available before that general gate.",
+        "rationale": "The code explicitly gates ordinary Wait-state input handling on allow_interrupt. SmashWiki defines IASA/interruptibility as the point at which a player may cancel the remainder of an attack animation into a new action and notes that Melee enables it through animation scripts, grounding the flag's gameplay meaning.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T00:10:15.950Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L84-L90",
+            "why": "The resolved callback ties the dash attack's allow_interrupt flag to ordinary grounded transition processing."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://interruptibility~overview@r1927829",
+            "why": "The resolved article defines IASA as the first point where an attack animation can be interrupted by a new action and explains that Melee's interruptibility is enabled by animation scripts."
+          }
+        ]
+      },
+      {
+        "id": "fact:9d311d9a-95d6-4888-a76b-e5ec0707fcce",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter action-state IASA callback with signature void(Fighter_GObj*); it obtains the associated Fighter internally and returns no transition status.",
+        "rationale": "The matched declaration supplies one Fighter_GObj pointer and returns void, while GET_FIGHTER derives the Fighter used for the interruptibility test.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:10:15.950Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L84-L90",
+            "why": "The resolved declaration and body establish the callback signature, internal Fighter lookup, and lack of a return value."
+          }
+        ]
+      },
+      {
+        "id": "fact:36f4ea7d-d84e-46ae-b6ea-5aa988028fca",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles interrupt-as-soon-as-allowed processing during a dash attack: it first offers the fighter to ftCo_800D8AE0, then delegates to the ordinary grounded Wait-state input processor only if that helper declines and the dash attack has become generally interruptible.",
+        "rationale": "The complete function is a short-circuit transition gate. The negated result of ftCo_800D8AE0 gives that helper priority, while fp->allow_interrupt must also be true before ftCo_Wait_IASA is called.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:10:15.950Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L84-L90",
+            "why": "The resolved target body directly shows the prioritized helper, allow_interrupt guard, and fallback to ftCo_Wait_IASA."
+          }
+        ]
+      },
+      {
+        "id": "fact:984a9a3c-bc13-4434-9a8f-e4eda29ba980",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "While the dash-attack state is updating, ftCo_800D8AE0 has transition priority regardless of allow_interrupt. General grounded-action transitions remain blocked until allow_interrupt is set, and even afterward are attempted only when the prioritized helper returns false; otherwise the dash attack continues under this callback.",
+        "rationale": "The helper is evaluated before the interruptibility flag and is negated in the conjunction. The fallback input processor is therefore reachable only under the exact guard described.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:10:15.950Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L84-L90",
+            "why": "The resolved target contains the complete ordering and guards for dash-attack IASA transition processing."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Phys"
+    },
+    "facts": [
+      {
+        "id": "fact:28e30eef-419d-4664-8606-21cf46b5b703",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the Fighter from gobj, multiplies the global common-action value p_ftCommonData->x50 by fp->co_attrs.ground_friction, and passes that product together with fp->facing_dir and the original gobj to ft_80085030; the callback performs no other reads, writes, branches, or direct state transitions.",
+        "rationale": "The relocated complete callback preserves the same data path, with the fighter attribute now named ground_friction at head. Its only operation combines that attribute with x50 and forwards the result, facing direction, and original object to the movement helper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L92-L98",
+            "why": "Shows every current input expression and the callback's sole consumer call."
+          }
+        ]
+      },
+      {
+        "id": "fact:48e6ff82-ef57-43b2-a0a3-78b3c4acfcd9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Applies the fighter-specific ground-traction component of dash-attack movement: the per-fighter ground-friction value scales the movement update, so fighters' differing traction affects their grounded motion during the action.",
+        "rationale": "The current physics callback explicitly scales its movement argument by co_attrs.ground_friction. The gameplay reference defines traction as grounded resistance to sideways movement, supporting the established mechanical interpretation while reflecting the field's current name.",
+        "confidence": 0.91,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L92-L98",
+            "why": "Shows ground_friction scaling the common dash-attack movement argument."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://traction~__intro__@r2045441",
+            "why": "Defines traction as grounded resistance to sideways motion and explains that lower traction produces farther sliding."
+          }
+        ]
+      },
+      {
+        "id": "fact:a8b9e665-82e0-4c0e-9949-d610b0100c4c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Dash-attack physics callback with signature void(HSD_GObj* gobj); the object is a fighter GObj from which a Fighter* is obtained.",
+        "rationale": "The relocated definition still supplies the exact void(HSD_GObj*) signature, and GET_FIGHTER immediately establishes the object's fighter domain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L92-L98",
+            "why": "Provides the exact current signature and conversion from HSD_GObj to Fighter."
+          }
+        ]
+      },
+      {
+        "id": "fact:e43e1421-6811-44e2-b088-1e686918d496",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Runs the grounded movement update for the dash-attack state using a dash-attack-specific common multiplier scaled by the fighter's ground-friction attribute and oriented by the fighter's facing direction.",
+        "rationale": "The current Phys callback delegates its entire update to ft_80085030 using x50 multiplied by ground_friction and the fighter's facing direction. This confirms the standing role after both the file relocation and field rename.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L92-L98",
+            "why": "Shows the complete grounded physics callback and its friction-scaled, facing-oriented arguments."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0"
+    },
+    "facts": [
+      {
+        "id": "fact:78357c57-eb06-41e4-ac94-002be0e56af0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter game object, resolves its Fighter state, reads p_ftCommonData->x68, and writes that value to fp->mv.co.attackdash.x0. Its callers run it after the dash-attack input routine has already performed the action transition; it returns no value and has no other visible gameplay-state effect.",
+        "rationale": "The complete function directly proves the common-data-to-move-variable transfer. The resolved Dash and RunDirect callers establish that the transfer follows successful dash-attack entry rather than selecting the action itself.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:12:58.676Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L78-L82",
+            "why": "Shows the exact source and destination of the routine's sole assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Establishes that the Dash caller invokes the setter only after ftCo_AttackDash_CheckInput succeeds."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Establishes the same post-transition ordering in the RunDirect caller."
+          }
+        ]
+      },
+      {
+        "id": "fact:4f303a7c-3b3f-4c2e-9e06-5b77ea8b9808",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies additional move-state setup for dash attacks initiated from active movement states, including Melee's initial dash and run.",
+        "rationale": "The Dash and RunDirect interrupt callbacks invoke this setter after accepting dash-attack input. SmashWiki confirms that dash attacks are available from both initial dash and run, grounding those code paths in the player-visible mechanic while leaving the exact gameplay effect of x68 unspecified.",
+        "confidence": 0.89,
+        "updated_at": "2026-09-02T00:12:58.676Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Shows this setup routine on the dash-attack transition from the Dash action."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Shows this setup routine on the dash-attack transition from the running subsystem."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~initial-dash-2@r2044125",
+            "why": "Documents dash attack as an action available after the first three frames of initial dash."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Documents dash attack as an action available during run."
+          }
+        ]
+      },
+      {
+        "id": "fact:b1d32d2e-9e69-4bd6-97e9-cab9ee530bba",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void post-entry fighter-state mutator with signature void(HSD_GObj* gobj); it treats the object's user data as Fighter and writes one AttackDash move-variable field.",
+        "rationale": "The matched declaration provides the exact void(HSD_GObj*) signature, and the complete body consists of one Fighter move-state assignment with no return value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:12:58.676Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L78-L82",
+            "why": "Provides the exact function signature and its sole typed Fighter move-variable write."
+          }
+        ]
+      },
+      {
+        "id": "fact:8f38653b-21ad-41ae-bb38-acff4e78e428",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs movement-origin post-entry setup for a dash attack by replacing the newly entered action's cleared attackdash.x0 value with the common fighter configuration value x68.",
+        "rationale": "The relocated unit still shows doEnter clearing attackdash.x0 and SetMv0 assigning x68. The current Dash and RunDirect interrupt paths call SetMv0 immediately after successful dash-attack entry, confirming its post-entry setup role.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L82",
+            "why": "Shows common entry clearing attackdash.x0 and SetMv0 replacing it with x68."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Shows Dash invoking SetMv0 immediately after successful dash-attack input."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Shows RunDirect invoking SetMv0 immediately after successful dash-attack input."
+          }
+        ]
+      },
+      {
+        "id": "fact:48c03d5e-e21a-4236-93ef-5f4fd33c5743",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Generic dash-attack entry initially sets attackdash.x0 to zero. When Dash or RunDirect enters the attack through its interrupt callback, this routine immediately overwrites that zero with common value x68 before the caller returns, thereby distinguishing those movement-origin entries in AttackDash move state.",
+        "rationale": "The current AttackDash source preserves the zero-then-x68 sequence, and both current movement callbacks place SetMv0 directly after successful input handling. The evidence continues to support an origin-dependent state distinction without establishing a more specific meaning for x0.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-04T18:57:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L49-L82",
+            "why": "Shows generic entry clearing attackdash.x0 and SetMv0 writing x68 to the same field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Shows the origin-dependent overwrite after an AttackDash transition from Dash."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Shows the origin-dependent overwrite after an AttackDash transition from RunDirect."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c"
+    },
+    "facts": [
+      {
+        "id": "fact:950c9e39-7130-47e5-96b8-de72f040d9a9",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c",
+        "type": "data_flow",
+        "value": "Reads A-button, held-item and shoulder-button state, item classification, fighter kind, animation state, allow_interrupt, common movement constants, friction, and facing; outputs an item action, Kirby-specific entry, or generic AttackDash state and updates it through shared helpers.",
+        "rationale": "The complete head file retains every listed input, destination, and lifecycle consumer.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L1-L102",
+            "why": "Shows controller and item inputs flowing into item or dash-attack selection and subsequent lifecycle processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:cac865e2-c3b2-4b04-a01b-a85ee5b2c0a4",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c",
+        "type": "game_mapping",
+        "value": "Realizes the grounded dash attack while replacing it with a dash item throw or item-specific attack when the fighter carries a qualifying item.",
+        "rationale": "The head input routine still substitutes LightThrowDash or an item-specific attack before generic dash-attack entry.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L1-L102",
+            "why": "Shows held-item substitutions and fallback into Kirby-specific or common AttackDash entry."
+          }
+        ]
+      },
+      {
+        "id": "fact:920b541d-2383-4b9a-9add-969393626f1d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c",
+        "type": "purpose",
+        "value": "Implements common dash-attack input, held-item substitutions, Kirby-specific dispatch, generic AttackDash entry, and the action's animation, interrupt, physics, and collision callbacks.",
+        "rationale": "The complete head unit retains input and item routing, fighter dispatch, common state entry, and all lifecycle callbacks.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L1-L102",
+            "why": "Shows dash-attack input, held-item branches, fighter dispatch, state entry, and lifecycle callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:0bebd418-0c9c-4647-91d8-7838c9cb17da",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c",
+        "type": "state_behavior",
+        "value": "Held-item behavior has priority after A input; otherwise Kirby is dispatched specially and other fighters enter AttackDash with interrupts disabled and move state cleared. Animation completion exits normally, IASA checks an AttackDash transition before Wait interrupts, and physics applies facing-relative grounded movement.",
+        "rationale": "The complete head control flow preserves item priority, Kirby dispatch, common entry writes, completion, IASA ordering, and grounded physics.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:13:54.089Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackDash.c#L1-L102",
+            "why": "Shows item priority, Kirby dispatch, state initialization, completion, IASA ordering, and facing-relative physics."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:decideFighter#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:doEnter#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Anim#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_CheckInput#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Coll#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_IASA#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_Phys#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackDash:ftCo_AttackDash_SetMv0#r3"
+    },
+    "facts": []
+  }
+]

@@ -1,0 +1,38 @@
+{
+  "tu": "main/dolphin/card/CARDWrite",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDWrite:WriteCallback"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A negative incoming result enters terminal handling without checking cancellation. For a nonnegative result, negative fileInfo->length produces CARD_RESULT_CANCELED before accounting for the completed sector; otherwise sectorSize is deducted. A positive remainder advances offset and follows the FAT, rejecting a next block below 5 or at least card->cBlock with CARD_RESULT_BROKEN, then starts the next erase. A nonpositive remainder updates the directory timestamp, captures apiCallback, clears that field, and passes the captured callback to __CARDUpdateDir. Accepted erase or directory startup leaves completion pending. Ordinary terminal handling captures and clears apiCallback, releases control, asserts the callback exists, and invokes it. Exceptional directory-start failure reaches that same terminal label after apiCallback has already been cleared: it reloads NULL rather than the previously captured callback. __CARDUpdateDir can fail immediately without restoring apiCallback, so this branch must not be described as guaranteed normal callback notification. Accepted directory persistence instead stores the handed-off callback in eraseCallback and completes through the directory layer.",
+        "rationale": "Preserves the supported result, cancellation, length and FAT transitions while adding the previously omitted callback-ownership exception visible across CARDWrite and CARDDir.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDWrite.c#L19-L55",
+            "why": "Shows cancellation precedence, countdown, FAT checks, callback clearing before directory startup, and terminal reload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDDir.c#L73-L94",
+            "why": "Shows immediate no-card failure and callback storage in eraseCallback rather than restoration of apiCallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDDir.c#L14-L70",
+            "why": "Shows directory completion's control release and transferred callback notification."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

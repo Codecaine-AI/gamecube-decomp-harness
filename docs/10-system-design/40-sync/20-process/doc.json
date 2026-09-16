@@ -1,0 +1,459 @@
+{
+  "schemaVersion": 1,
+  "id": "20-process",
+  "title": "Sync Process",
+  "root": "b-sync-reconciliation-publication-root",
+  "blocks": {
+    "b-sync-reconciliation-publication-root": {
+      "id": "b-sync-reconciliation-publication-root",
+      "type": "paragraph",
+      "props": {
+        "concepts": [
+          "sync",
+          "baseline",
+          "reconciliation",
+          "staging",
+          "publication",
+          "knowledge-handoff"
+        ],
+        "covers": "The single preparation-to-publication process for source intake, external knowledge intake, reconciliation, recovery, and handoff."
+      },
+      "children": [
+        "sync-process-opening",
+        "sync-manual-heading",
+        "sync-manual-intro",
+        "sync-manual-sequence",
+        "sync-manual-gates",
+        "sweep-ae3426e208b743c9",
+        "sync-epoch-heading",
+        "sync-epoch-intro",
+        "d6535d56-7b64-470f-b7d2-7765a71bc084",
+        "sync-epoch-sequence",
+        "sync-epoch-evidence",
+        "sync-epoch-failure",
+        "sync-intake-heading",
+        "sync-intake-intro",
+        "sync-intake-scope",
+        "sync-intake-link",
+        "sync-recovery-heading",
+        "sync-recovery-intro",
+        "sync-recovery-table",
+        "sync-recovery-close",
+        "sweep-3e96d4daf2174eec",
+        "sync-epoch-source"
+      ]
+    },
+    "sync-process-opening": {
+      "id": "sync-process-opening",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Manual Sync protects the accepted checkout through isolated staging and an explicit publication decision. Epoch Sync runs automatically after Run settles its workers and records epoch evidence. Both refresh information for future target selection, but use different lease and recovery paths."
+        }
+      ],
+      "children": []
+    },
+    "sync-manual-heading": {
+      "id": "sync-manual-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Manual Staging and Publication"
+        }
+      ],
+      "children": []
+    },
+    "sync-manual-intro": {
+      "id": "sync-manual-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Observation records the upstream revision and requested inputs without acquiring dispatch authority. Starting Sync either acquires its lease or queues the request. Only the leased workflow performs protected staging and publication work."
+        }
+      ],
+      "children": []
+    },
+    "sync-manual-sequence": {
+      "id": "sync-manual-sequence",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/manual-sync-publication.sequence.json",
+        "title": "Manual Sync: From Request to Publication"
+      },
+      "children": []
+    },
+    "sync-manual-gates": {
+      "id": "sync-manual-gates",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The operator confirms a validated result. Publication rechecks the observed upstream and prior canonical head before changing source. If either has moved, the workflow must resolve the mismatch and revalidate."
+        }
+      ],
+      "children": []
+    },
+    "sweep-ae3426e208b743c9": {
+      "id": "sweep-ae3426e208b743c9",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Publish a Sync boundary",
+            "steps": [
+              {
+                "text": "Observe and Acquire",
+                "steps": [
+                  {
+                    "text": "Fetch the configured remote and record prior and observed upstream revisions, merged PR IDs, and requested corpus IDs. Equal upstream revisions make the request knowledge-only."
+                  },
+                  {
+                    "text": "Record the request and refresh the Discord mirror on a best-effort basis. Failed refreshes preserve the archive already on disk."
+                  },
+                  {
+                    "text": "Acquire the Sync dispatch lease. If another workflow holds it, queue until that holder settles and releases authority."
+                  }
+                ]
+              },
+              {
+                "text": "Stage and Reconcile",
+                "steps": [
+                  {
+                    "text": "A source-changing sync creates an isolated worktree at the harness head. A knowledge-only sync skips source reconciliation."
+                  },
+                  {
+                    "text": "Merge upstream into the staged harness branch using the per-function score policy by default. The theirs policy is the explicit escape hatch."
+                  },
+                  {
+                    "text": "Reconcile surviving open PR series with the same policy. A planned series with no branch or PR is skipped."
+                  },
+                  {
+                    "text": "Persist workspace_created, harness_merged, pr_series_reconciled, and validated as durable stages. Unresolved conflicts block on conflict_needs_operator."
+                  }
+                ]
+              },
+              {
+                "text": "Validate and Confirm",
+                "steps": [
+                  {
+                    "text": "Validate clean staging, recursive submodule state, and the report comparison. Record validation evidence before entering validated."
+                  },
+                  {
+                    "text": "If upstream changes, extend the staged merge to the observed tip and revalidate."
+                  },
+                  {
+                    "text": "Require explicit sync.publish confirmation and recheck upstream plus the unchanged prior canonical head. Persist recursive publication intent before entering publishing."
+                  }
+                ]
+              },
+              {
+                "text": "Publish the Boundary",
+                "steps": [
+                  {
+                    "text": "Repoint the canonical harness worktree for a source-changing sync and verify the full recursive target state."
+                  },
+                  {
+                    "text": "Run V2 knowledge intake against that canonical checkout and its report. Reconcile subjects, mechanically re-anchor code citations, then import PRs, Discord, and worker attempts."
+                  },
+                  {
+                    "text": "Record head lineage, source invalidations, PR-push intents, and the knowledge_intake result in the durable boundary transaction. A knowledge-only pass keeps its prior source head."
+                  },
+                  {
+                    "text": "Finish pending PR pushes with force-with-lease. Finalize published state, remove the publication intent, and release dispatch authority."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "sync-epoch-heading": {
+      "id": "sync-epoch-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Automatic Epoch Sync"
+        }
+      ],
+      "children": []
+    },
+    "sync-epoch-intro": {
+      "id": "sync-epoch-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "After epoch settlement, the Run scheduler retains its dispatch lease and invokes boundary Sync on the harness worktree. It applies the configured merge policy, recomputes the report, and refreshes knowledge. This path does not create a manual Sync request or wait for operator confirmation."
+        }
+      ],
+      "children": []
+    },
+    "d6535d56-7b64-470f-b7d2-7765a71bc084": {
+      "id": "d6535d56-7b64-470f-b7d2-7765a71bc084",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Before a source-changing epoch merge, the boundary persists the pre-merge report and source revision in a recovery journal. After rebuilding, it compares every function by unit and symbol, including C++ functions and collateral regressions. Each lost score produces an idempotent knowledge event with the achieved score, post-merge score, upstream revision, and a reference to the saved source. A missing target identity or failed note write blocks completion. Retries reuse the pre-merge journal even when Git has already merged upstream. The refreshed board determines eligibility for the next epoch; recording a regression does not expand the run's target scope."
+        }
+      ],
+      "children": []
+    },
+    "sync-epoch-sequence": {
+      "id": "sync-epoch-sequence",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/epoch-sync.sequence.json",
+        "title": "Epoch Sync: Refresh Before the Next Epoch"
+      },
+      "children": []
+    },
+    "sync-epoch-evidence": {
+      "id": "sync-epoch-evidence",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The scheduler writes a "
+        },
+        {
+          "insert": "pr_sync",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " save point and publishes "
+        },
+        {
+          "insert": "sync_completed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with the accepted head and evidence. It updates the Run head in the same state transaction. This also happens when source is unchanged. Librarian processing is asynchronous and does not gate that transaction."
+        }
+      ],
+      "children": []
+    },
+    "sync-epoch-failure": {
+      "id": "sync-epoch-failure",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A failed merge, report, or required source check blocks boundary completion. The scheduler records the failed phase and retry state. Further boundary checks must pass before the next epoch can admit workers, and desired pause still takes precedence over resuming."
+        }
+      ],
+      "children": []
+    },
+    "sync-intake-heading": {
+      "id": "sync-intake-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "From Captures to Usable Knowledge"
+        }
+      ],
+      "children": []
+    },
+    "sync-intake-intro": {
+      "id": "sync-intake-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The report identifies the subjects that knowledge should describe. Intake reconciles those subjects before importing evidence and queuing librarian tasks. Source configuration determines acquisition and refresh policy for PRs, Discord, and the local wiki mirror."
+        }
+      ],
+      "children": []
+    },
+    "sync-intake-scope": {
+      "id": "sync-intake-scope",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The epoch path first reconciles report and attempt data, then runs the configured source pipeline. Required-source readiness must succeed before publication. Initial backfill provides broad historical coverage; a normal Sync refreshes inputs according to their configured policies."
+        }
+      ],
+      "children": []
+    },
+    "sync-intake-link": {
+      "id": "sync-intake-link",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Librarian Processing",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing"
+            }
+          }
+        },
+        {
+          "insert": " explains how queued evidence becomes validated facts and links. Publication does not wait for every librarian task to finish."
+        }
+      ],
+      "children": []
+    },
+    "sync-recovery-heading": {
+      "id": "sync-recovery-heading",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Manual Publication Recovery"
+        }
+      ],
+      "children": []
+    },
+    "sync-recovery-intro": {
+      "id": "sync-recovery-intro",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The publication intent records the prior and target recursive checkout state before canonical source changes. It exists because intake can fail after the checkout has moved but before the durable publication record is committed."
+        }
+      ],
+      "children": []
+    },
+    "sync-recovery-table": {
+      "id": "sync-recovery-table",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Stage",
+          "Recorded evidence",
+          "Recovery"
+        ],
+        "rows": [
+          [
+            "Before publishing",
+            "Staging progress, validation evidence, and blockers.",
+            "Resume or discard staging. Cancellation leaves canonical source unchanged."
+          ],
+          [
+            "Publishing without a committed boundary",
+            "Recursive publication intent.",
+            "Recover the prior recursive checkout state and block for explicit recovery."
+          ],
+          [
+            "Publishing with a committed boundary",
+            "Publication record and pending push intents.",
+            "Resume pending PR pushes and finalization. Do not cancel or roll back the accepted boundary."
+          ]
+        ],
+        "title": "Recovery by Publication Stage"
+      },
+      "children": []
+    },
+    "sync-recovery-close": {
+      "id": "sync-recovery-close",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A missing publication record does not prove that the checkout is untouched. Recovery must inspect the recorded intent and boundary state. Conflicts remain visible through "
+        },
+        {
+          "insert": "sync.resolve_conflict",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and failed pushes resume with their recorded intent."
+        }
+      ],
+      "children": []
+    },
+    "sweep-3e96d4daf2174eec": {
+      "id": "sweep-3e96d4daf2174eec",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The ordering is implemented by "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/sync/publication.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/sync/publication.ts"
+            }
+          }
+        },
+        {
+          "insert": ". Policy staging and recovery are in "
+        },
+        {
+          "insert": "apps/server/src/core/harness-runtime/phases/sync/engine.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/sync/engine.ts"
+            }
+          }
+        },
+        {
+          "insert": ". Intake lanes are in "
+        },
+        {
+          "insert": "apps/server/src/core/knowledge-v2/ingest/harness-intake.ts",
+          "attributes": {
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/knowledge-v2/ingest/harness-intake.ts"
+            }
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "sync-epoch-source": {
+      "id": "sync-epoch-source",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Epoch boundary orchestration",
+          "attributes": {
+            "code": true,
+            "reference": {
+              "kind": "source",
+              "path": "apps/server/src/core/harness-runtime/phases/running/scheduler/epoch-boundary.ts"
+            }
+          }
+        },
+        {
+          "insert": " runs automatic Sync and its source-readiness gates."
+        }
+      ],
+      "children": []
+    }
+  }
+}

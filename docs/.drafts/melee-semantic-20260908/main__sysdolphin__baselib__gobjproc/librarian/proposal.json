@@ -1,0 +1,99 @@
+{
+  "tu": "main/sysdolphin/baselib/gobjproc",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "If the indexed p_link/s_link anchor is non-null, scans the owner and preceding GObjs and stops at the first process encountered with the same s_link. It updates the indexed anchor if that predecessor was the old anchor. An empty group installs the new anchor immediately. Without such a predecessor, scans lower p_link anchors; without any predecessor, installs the global s_link head. It prepends the owner child chain and adjusts the pending scheduler cursor only when b0 is set and both saved neighbors and s_link match.",
+        "rationale": "State the exact search/initialization sequence and retain deferred-removal limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L12-L95",
+            "why": "Shows the precise branch and update sequence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests removal of every process in an HSD_GObj owner chain, saving each child pointer before invoking the single-record remover. Ordinary records are detached and freed; the currently executing record can remain linked with removal pending. Generic GObj destruction calls this cleanup before freeing the owner.",
+        "rationale": "State the exact search/initialization sequence and retain deferred-removal limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L177-L185",
+            "why": "Shows the precise branch and update sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L101-L138",
+            "why": "Shows the precise branch and update sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L196",
+            "why": "Shows the precise branch and update sequence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObj_SetupProc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Asserts successful allocation and pri <= gproc_pri_max, sets s_link=pri, clears flags_1 and flags_2, sets flags_3=3, stores owner and callback, links the record, and returns it. The source does not initialize flags_4. The callback is stored but not invoked during setup.",
+        "rationale": "State the exact search/initialization sequence and retain deferred-removal limits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L143-L165",
+            "why": "Shows the precise branch and update sequence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.h#L8-L19",
+            "why": "flags_4 is a separate declared bitfield not assigned by setup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Detaches the global schedule links while preserving owner-chain membership and allocation. Advances HSD_GObj_804D7830 only when b0 is set and that cursor equals the removed record; the runner sets b0 while draining deferred operations after callback return. Repairs the bucket anchor and neighboring links without clearing the removed record own prev/next fields.",
+        "rationale": "b0 guards deferred-operation draining, not ordinary callback execution; describe the literal guard.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L97-L126",
+            "why": "Shows guarded cursor repair and scheduler-only unlink."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L114-L132",
+            "why": "Shows b0 set during deferred-operation drain."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

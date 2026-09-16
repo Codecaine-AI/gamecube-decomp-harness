@@ -1,0 +1,163 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Lift",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Lift.c#L48-L66",
+            "why": "Shows the wrapper and distinct item-present and item-absent exits."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1035-L1041",
+            "why": "Invokes the supplied event only when the ground check fails."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Preserves airborne conversion, parasol handling and the literal 0x26 destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L755-L798",
+            "why": "Confirms that the supplied vector is consumed as item velocity."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing explanation's conflation of the item-present DamageFall path with the no-item Fall dispatcher.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Lift:ftCo_LiftWait_Coll"
+        },
+        "type": "purpose",
+        "value": "Runs grounded collision processing for LiftWait, supplying ftCo_80096E68 as the ground-loss callback. On ground loss, that callback drops a present held item with zero supplied velocity and scalar, then dispatches through ftCo_80090780's DamageFall handling, including its parasol-specific alternative. If no item remains, it calls ftCo_Fall_Enter directly."
+      },
+      {
+        "confidence": 0.94,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Lift.c#L189-L211",
+            "why": "The two release routines differ specifically by the itIsHeavy == 1 guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Exposes the defining heavy-only guard and distinguishes this reusable cleanup helper from the adjacent damage callback, which drops any non-null held item. This is a semantic name, not a recovered original symbol.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Lift:ftCo_8009750C"
+        },
+        "type": "inferred_name",
+        "value": "ftCo_Lift_ReleaseHeavyItem"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Lift.c#L109-L112",
+            "why": "Shows the unchanged forwarding call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L91-L118",
+            "why": "Shows argument extraction, animation-derived velocity, friction fallback and shared movement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful verified knowledge missing from the forwarding-only explanation: walking can derive ground velocity from animation displacement, unlike the wait/turn friction-only helper.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Lift:ftCo_LiftWalk_Phys"
+        },
+        "type": "data_flow",
+        "value": "Forwards the Fighter_GObj unchanged to ft_80085088, which reads ground_friction and facing_dir and passes them to ft_800850E0. When Fighter.x594_b0 is set, that helper assigns gr_vel from x6A4_transNOffset.z multiplied by facing direction; otherwise it applies ground friction. Both paths then call ftCommon_ApplyGroundMovement. The LiftWalk wrapper itself has no local field accesses or transition logic."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Lift.c#L24-L211",
+            "why": "Complete state suite shows explicit transitions and the limited item-presence checks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c#L57-L140",
+            "why": "The shared throw selector returns false without an item rather than supplying a general ownership-loss exit."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported mechanic mapping while removing the unsupported implication that losing item ownership alone automatically leaves Lift.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_Lift.c"
+        },
+        "type": "game_mapping",
+        "value": "Implements the common grounded heavy-item carrying choices: waiting, alternating walking steps, turning, access to heavy-item throwing, damage-triggered item release and heavy-only cleanup. Ground loss ends the grounded Lift flow through item-dependent airborne dispatch. The Lift callbacks do not independently poll item ownership loss as a general automatic state-exit condition."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Lift.c#L24-L211",
+            "why": "Shows the complete action suite, registrations and distinct release guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1994-L2009",
+            "why": "The item callee invokes dropped-item handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CaptureYoshi.c#L13-L33",
+            "why": "Demonstrates external cleanup before capture association and motion entry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces misleading damage-time item synchronization wording with the actual release behavior and distinguishes the two cleanup policies.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_Lift.c"
+        },
+        "type": "purpose",
+        "value": "Implements the common fighter heavy-item carrying action suite: entry into LiftWait, alternating LiftWalk steps, timed LiftTurn, shared ground-loss exits and heavy-item throw checks. It installs a damage callback that drops a non-null held item and provides a separate heavy-only release helper used by external cleanup paths."
+      },
+      {
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Lift.c#L48-L66",
+            "why": "Shows the callback's item-dependent exits and LiftWait registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Lift.c#L114-L117",
+            "why": "LiftWalk supplies the same callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Lift.c#L184-L187",
+            "why": "LiftTurn supplies the same callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1035-L1041",
+            "why": "Canonical helper invokes the callback on failed ground retention."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds a useful missing name for the callback shared by all three Lift collision handlers. The event-based name covers both item-present and no-item branches without conflating their destinations.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Lift:ftCo_80096E68"
+        },
+        "type": "inferred_name",
+        "value": "ftCo_Lift_OnGroundLoss"
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

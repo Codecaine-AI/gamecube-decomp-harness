@@ -1,0 +1,16 @@
+## Particle generator lifecycle and emission
+The owned C file and header were completely reviewed in canonical and rendered forms, with all 50 subjects, 119 facts and 23 links enumerated. Existing descriptive function names remain useful hypotheses, not recovered original symbols. The header renderer reports shadowed_binding for pointer-returning prototypes; this does not contradict their canonical declarations.
+
+The module initializes a fixed-size generator pool, publishes cleared records in a cursor-dependent active list, tracks live/peak counts and assigns shared wrapping u16 IDs. Resource construction copies timing, motion, texture and shape state, optionally attaches AppSRT and invokes extension hooks. Signed selectors have upper-only guards; the command-count/list naming TODO remains unresolved. Publication precedes resource initialization and optional callbacks.
+
+Joint synchronization updates selected position and owned AppSRT translation/scale. The stronger bake routine also rotates velocity using normalized matrix columns and line geometry using the raw basis. The queued constructor retains a joint and appends a raw generator pointer to a separate one-shot bake/detach queue. Every manager invocation drains that queue before applying active-list link and kind masks. It then updates emission credit and finite lifetimes. Thus a masked generator can still have been baked and detached.
+
+Emission dispatches shape codes 0–8 through radial/conical, line, tornado, rectangular and spherical paths, with an optional extension callback for other shape nibbles. Joint rotation uses the actual kind mask 0x30000, despite the differing nearby comment. Camera-facing mode asserts psCamera. Negative angle and radius inputs select special stepping and sampling behavior; not every shape consumes stepped angles. Count is decremented per dispatch attempt, including failed allocations or missing custom callbacks. No universal nonnegative residual or termination guarantee is inferred for exceptional numeric inputs.
+
+Retirement optionally requests child teardown, then defers for nonzero child count or the qualifying owned AppSRT usedCount != 1 condition, including zero. Deferral writes random=0 and genLife=1 and returns the still-linked generator. Otherwise it unlinks, releases AppSRT/JObj ownership, frees storage and returns the predecessor. Joint and subtree wrappers inherit this deferral; subtree descent stops at numeric JObj flag 0x1000 after processing the current joint.
+
+The effect library installs the opaque user-function vector and uses the three-argument cleanup entry as an actual JObj tree-walk callback. Particle creation inherits generator IDs, AppSRT and ownership, increments numChild and invokes hookCreate. The known callback-vector declaration and HSD_PSUserFunc declarations differ, so no homogeneous universal ABI is asserted.
+
+Disposition totals: 83 retained facts, 19 supported corrections, 17 unresolved facts; 20 retained links and 3 unresolved links. Compiled section placement, literal-pool extent, switch lowering and exception metadata remain unverified; source declarations or rendered names are not compiled evidence.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

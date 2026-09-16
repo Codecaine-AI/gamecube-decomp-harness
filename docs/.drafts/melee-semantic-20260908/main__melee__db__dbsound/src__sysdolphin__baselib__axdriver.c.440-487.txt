@@ -1,0 +1,48 @@
+440: static void fn_8038CC1C(void)
+441: {
+442:     HSD_SM* v;
+443:     HSD_SM* next;
+444:     PAD_STACK(4);
+445: 
+446:     if (AXDriver_804D77E0 != 0) {
+447:         AXDriver_804D77E0 = 0;
+448:         if (AXDriver_804D6038 != -1) {
+449:             float x =
+450:                 powf(2.0F, CLAMP(-0x2A30, AXDriver_804D77E4, 0x960) / 1200.0F);
+451:             HSD_SynthSFXSetPitchRatio(AXDriver_804D6038, 1, x);
+452:         }
+453:     }
+454:     v = AXDriver_804D7794;
+455:     AXDriver_804D778C++;
+456:     while (v != NULL) {
+457:         next = v->next;
+458:         if (v->x30 == -1) {
+459:             v->x30 = AXDriver_804D778C;
+460:         } else if (v->flags & 0x20000000) {
+461:             v->x30++;
+462:         }
+463:         switch (v->flags & SMSTATE_MASK) {
+464:         case SMSTATE_ACTIVE:
+465:             if (v->x30 == AXDriver_804D778C) {
+466:                 AXDriver_8038C6C0(v);
+467:             }
+468:             break;
+469:         case 0:
+470:             AXDriverUnlink(v, &AXDriver_804D7794);
+471:             unk_inline(v, &AXDriver_804D7790);
+472:             AXDriver_804D77D0--;
+473:             break;
+474:         case SMSTATE_SLEEP:
+475:             if (v->flags & 0x40) {
+476:                 float x = powf(2.0F, v->fadetime / 1200.0F);
+477:                 HSD_SynthSFXSetPitchRatio(v->vID, 1, x);
+478:                 v->flags &= 0xFFFFFFBF;
+479:             }
+480:             break;
+481:         default:
+482:             HSD_ASSERT(0x25F, 0);
+483:             break;
+484:         }
+485:         v = next;
+486:     }
+487: }

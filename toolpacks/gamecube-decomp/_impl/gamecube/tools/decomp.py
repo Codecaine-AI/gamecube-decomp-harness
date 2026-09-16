@@ -11,7 +11,7 @@ Vendored from the melee tree's tools/decomp.py and rewired for this tool suite:
     matching the other tool-local helper scripts;
   - m2c is the vendored fork at <tool impl>/m2c, injected onto
     PYTHONPATH for the m2c subprocess (no install step, no venv dependency);
-  - m2ctx still runs from the melee tree (it is pure stdlib and self-locating).
+  - context generation uses the script provided by the selected checkout.
 
 Usage (run in place, like the other tools/ scripts):
 
@@ -39,17 +39,17 @@ from elftools.elf.sections import SymbolTableSection
 
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/ (matches checkdiff.py etc.).
+from project_layout import get_project_layout
 from project_root import resolve_root
 
 ROOT = resolve_root()
+LAYOUT = get_project_layout(ROOT)
 # The vendored m2c fork lives at the implementation root, next to this tools/ dir.
 M2C_ROOT = Path(__file__).resolve().parents[1] / "m2c"
-DTK_ROOT = ROOT / "build/GALE01"
-OBJ_ROOT = DTK_ROOT / "obj"
-ASM_ROOT = DTK_ROOT / "asm"
-SRC_ROOT = ROOT / "src"
+OBJ_ROOT = LAYOUT.obj_root
+ASM_ROOT = LAYOUT.asm_root
 CTX_FILE = ROOT / "build/ctx.c"
-M2CTX_SCRIPT = ROOT / "tools/m2ctx/m2ctx.py"
+M2CTX_SCRIPT = LAYOUT.context_script
 PLACEHOLDER = r"^/// #{name}$(?:\r?\n)?"
 
 
@@ -79,6 +79,25 @@ def resolve_path(p: Path) -> str:
     return str(p.resolve())
 
 
+def decompctx_args(source_path: Path) -> list[str]:
+    """Read the selected source's decompctx include flags from build.ninja."""
+    text = (ROOT / "build.ninja").read_text(encoding="utf-8").replace("$\n", " ")
+    source = source_path.as_posix()
+    for block in re.split(r"^build ", text, flags=re.MULTILINE):
+        lines = block.splitlines()
+        if not lines:
+            continue
+        first_line = lines[0]
+        if ": decompctx " not in first_line or source not in first_line:
+            continue
+        match = re.search(r"^\s+includes = (.*)$", block, re.MULTILINE)
+        if match is not None:
+            import shlex
+
+            return shlex.split(match.group(1))
+    raise RuntimeError(f"no decompctx build edge for {source}")
+
+
 def run_cmd(
     cmd: list[str],
     stdin: str | None = None,
@@ -106,19 +125,29 @@ def run_cmd(
         return result.stdout.decode()
 
 
-def gen_ctx() -> None:
+def gen_ctx(source_path: Path | None = None) -> None:
     # m2ctx's pcpp resolves its -i include dirs (src, src/melee, ...)
     # relative to cwd; the upstream decomp.py relied on being run from the
     # melee root. We run from the tool implementation, so pin cwd to <melee>.
-    _ = run_cmd(
-        [
+    if M2CTX_SCRIPT.name == "m2ctx.py":
+        command = [
             "python",
             resolve_path(M2CTX_SCRIPT),
             "--quiet",
             "--preprocessor",
-        ],
-        cwd=str(ROOT),
-    )
+        ]
+    else:
+        if source_path is None:
+            raise RuntimeError("decompctx context generation requires a source path")
+        command = [
+            "python",
+            resolve_path(M2CTX_SCRIPT),
+            source_path.as_posix(),
+            "-o",
+            CTX_FILE.relative_to(ROOT).as_posix(),
+            *decompctx_args(source_path),
+        ]
+    _ = run_cmd(command, cwd=str(ROOT))
 
 
 def main() -> None:
@@ -182,18 +211,20 @@ def main() -> None:
     m2c_input = cast(bool, args.m2c_input)
     is_function = True
 
+    unit = LAYOUT.unit_for_function(m2c_input)
     if (obj_file := find_obj(OBJ_ROOT, m2c_input)) is not None:
         asm_file = ASM_ROOT / cast(Path, obj_file).with_suffix(".s")
         m2c_args = ["--function", m2c_input]
     else:
         if args.write:
             print(
-                f"--write currently unimplemented with translation unit input",
+                "--write currently unimplemented with translation unit input",
                 file=stderr,
             )
             sys.exit(1)
         is_function = False
-        asm_file = ASM_ROOT / Path(m2c_input).with_suffix(".s")
+        operational_input = LAYOUT.operational_name_for_unit(m2c_input)
+        asm_file = ASM_ROOT / Path(operational_input).with_suffix(".s")
 
     if asm_file.exists() is True:
         m2c_cmd: list[str] = [
@@ -213,7 +244,20 @@ def main() -> None:
         ]
 
         if cast(bool, args.ctx):
-            gen_ctx()
+            if unit is not None:
+                context_source = LAYOUT.source_path_for_unit(unit)
+            elif M2CTX_SCRIPT.name == "m2ctx.py":
+                context_source = None
+            else:
+                try:
+                    context_source = LAYOUT.source_path_for_unit(m2c_input)
+                except KeyError:
+                    print(
+                        f"source metadata for translation unit {m2c_input!r} was not found",
+                        file=stderr,
+                    )
+                    sys.exit(1)
+            gen_ctx(context_source)
 
         # Run the tool-local m2c fork: prepend it to PYTHONPATH so
         # `-m m2c.main` (and its bundled m2c_pycparser) resolve to
@@ -272,7 +316,13 @@ def main() -> None:
 
         if is_function and cast(bool, args.write):
             function = cast(str, args.m2c_input)
-            src_file = SRC_ROOT / obj_file.with_suffix(".c")
+            if unit is None:
+                print(
+                    f"source metadata for function {function!r} was not found",
+                    file=stderr,
+                )
+                sys.exit(1)
+            src_file = ROOT / LAYOUT.source_path_for_unit(unit)
 
             if not src_file.exists():
                 src_file.parent.mkdir(parents=True, exist_ok=True)

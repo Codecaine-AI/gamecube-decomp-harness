@@ -1,0 +1,638 @@
+[
+  {
+    "baseline_record": {
+      "digest": "sha256:60919660fac5806b",
+      "from_entity_id": null,
+      "from_target_id": "target:data:main/sysdolphin/baselib/controller:.bss",
+      "id": "link:01fd30e8-a264-4191-8a9d-418526bcc813",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L60-L160",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:console-reset-handling",
+      "to_target_id": null,
+      "why": "HSD_PadLibData, which resides in this section, stores both the observed RESET-switch press history and the sticky request latched when the switch is released."
+    },
+    "disposition": "unresolved",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L14-L17",
+        "why": "Declares uninitialized controller state without explicit compiled-section placement."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L117-L125",
+        "why": "Records switch assertion and latches the request on subsequent release."
+      }
+    ],
+    "link_id": "link:01fd30e8-a264-4191-8a9d-418526bcc813",
+    "reason": "Reset-switch history and release-triggered latching are directly supported, but the link originates from the compiled .bss section. Source declarations alone do not establish that section attribution."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:d9c2611d1afcaa8d",
+      "from_entity_id": null,
+      "from_target_id": "target:data:main/sysdolphin/baselib/controller:.rodata",
+      "id": "link:756b0f68-fd95-4ff3-96e7-55bbdecefed2",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L100-L125",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The table translates four controller-port indices into PAD channel masks used to recover selected ports after controller read errors, making it part of the controller input processing and recovery path."
+    },
+    "disposition": "unresolved",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L18-L19",
+        "why": "Defines the four named PAD channel masks."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L107-L116",
+        "why": "Accumulates selected masks from read errors and passes the result to PADReset."
+      }
+    ],
+    "link_id": "link:756b0f68-fd95-4ff3-96e7-55bbdecefed2",
+    "reason": "The channel-mask table and its recovery use are verified, but its attribution to compiled .rodata is not established by the inspected source."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:98b8e8ca0f36527d",
+      "from_entity_id": null,
+      "from_target_id": "target:data:main/sysdolphin/baselib/controller:.sdata2",
+      "id": "link:81fcf1e4-37f1-45e6-931d-70c5f8844e8a",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L242-L279",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The section supplies immutable mathematical constants used to condition stick vectors and convert both controller sticks into synthetic digital direction inputs."
+    },
+    "disposition": "unresolved",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L176-L197",
+        "why": "Shows magnitude arithmetic and the small-radius guard."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L240-L293",
+        "why": "Shows angular constants and conversion of both sticks, without section-placement evidence."
+      }
+    ],
+    "link_id": "link:81fcf1e4-37f1-45e6-931d-70c5f8844e8a",
+    "reason": "Mathematical literals participate in radial conditioning and directional conversion, but source-level expressions do not prove which constants are emitted into compiled .sdata2."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:f9b55b907b1ec5b6",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewGameStatus",
+      "id": "link:143a3593-b075-48cb-9c61-278a256d5888",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L511-L549",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function publishes processed controller state for four ports and derives press, release, and held-repeat signals for game use."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L427-L547",
+        "why": "Includes the shared field helpers and both complete snapshot-publication functions."
+      }
+    ],
+    "link_id": "link:143a3593-b075-48cb-9c61-278a256d5888",
+    "reason": "Both publication functions iterate over four master statuses, copy or clear input fields according to errors, and independently derive button transitions and timed repeats."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:bfc73434f485e552",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewCopyStatus",
+      "id": "link:629d687b-5e36-428b-ac3d-439dc7cb7df6",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L472-L509",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function converts the current master controller state into a four-port published snapshot with error filtering, button edges, and held-button repeats."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L427-L547",
+        "why": "Includes the shared field helpers and both complete snapshot-publication functions."
+      }
+    ],
+    "link_id": "link:629d687b-5e36-428b-ac3d-439dc7cb7df6",
+    "reason": "Both publication functions iterate over four master statuses, copy or clear input fields according to errors, and independently derive button transitions and timed repeats."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:1bc7e0bb32f97270",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadFlushQueue",
+      "id": "link:163a082d-4446-4428-83d5-2bdfc6375cd8",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L131-L161",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function manages the buffered history of four-port raw PAD samples that feeds HSD's controller-input pipeline, including policies for preserving button activity, discarding stale input, or retaining only the newest sample."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L42-L53",
+        "why": "Queue advancement and four-port button-OR merging implement the helper operations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L127-L159",
+        "why": "The complete flush function implements the three stated policies."
+      }
+    ],
+    "link_id": "link:163a082d-4446-4428-83d5-2bdfc6375cd8",
+    "reason": "Queue flushing explicitly supports merging button history, discarding all queued samples, or preserving only the newest sample under interrupt protection."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:7aa60ce9579c59ab",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+      "id": "link:2baf505e-31bc-490a-bf5e-ed81f97aa500",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L581-L597",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-rumble",
+      "to_target_id": null,
+      "why": "The function forwards a caller-supplied rumble-list pool to HSD_PadRumbleInit as part of controller subsystem startup."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L579-L595",
+        "why": "The complete initialization body directly establishes all three linked subsystem relationships."
+      }
+    ],
+    "link_id": "link:2baf505e-31bc-490a-bf5e-ed81f97aa500",
+    "reason": "Initialization directly installs queue parameters, forwards the caller's rumble-pool arguments, initializes all three four-port status arrays, and invokes PADInit. The startup link is supported by this delegation, without claiming that this function itself performs calibration."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:7aa60ce9579c59ab",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+      "id": "link:4d31ea35-740a-4523-8886-24c5fcd8bf24",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L581-L597",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:gamecube-controller-startup-and-calibration",
+      "to_target_id": null,
+      "why": "After establishing HSD's software-side controller state, the function calls PADInit to start the lower-level four-channel GameCube controller driver."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L579-L595",
+        "why": "The complete initialization body directly establishes all three linked subsystem relationships."
+      }
+    ],
+    "link_id": "link:4d31ea35-740a-4523-8886-24c5fcd8bf24",
+    "reason": "Initialization directly installs queue parameters, forwards the caller's rumble-pool arguments, initializes all three four-port status arrays, and invokes PADInit. The startup link is supported by this delegation, without claiming that this function itself performs calibration."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:7aa60ce9579c59ab",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadInit",
+      "id": "link:6e59114c-9368-4020-af5f-e400c0cb198d",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L581-L597",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function installs the raw-sample queue and initializes the four-port master, copy, and game status arrays required by HSD's controller-processing pipeline."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L579-L595",
+        "why": "The complete initialization body directly establishes all three linked subsystem relationships."
+      }
+    ],
+    "link_id": "link:6e59114c-9368-4020-af5f-e400c0cb198d",
+    "reason": "Initialization directly installs queue parameters, forwards the caller's rumble-pool arguments, initializes all three four-port status arrays, and invokes PADInit. The startup link is supported by this delegation, without claiming that this function itself performs calibration."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:a3fd84f5b558c6ab",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadCrossDir",
+      "id": "link:5770e445-3076-4e69-a90d-2ef53d02bfdb",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L370-L450",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function filters the directional portion of each processed controller button mask before the controller pipeline derives game-facing button transitions and repeats."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L309-L349",
+        "why": "Complete directional filtering body."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L369-L421",
+        "why": "Master processing calls the filter before deriving transitions and repeats."
+      }
+    ],
+    "link_id": "link:5770e445-3076-4e69-a90d-2ef53d02bfdb",
+    "reason": "The function filters named directional button bits using configured axis priority or remembered axis state; its caller applies it before computing edges and repeats."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:037540b750ce8d40",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck3",
+      "id": "link:6bcdbf2d-a80b-413c-9c1e-fd8dc4435a99",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L150-L241",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:analog-stick-radial-clamping",
+      "to_target_id": null,
+      "why": "The function performs magnitude-based dead-zone suppression, maximum-radius clamping, and optional radial shifting on both controller stick vectors."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L176-L220",
+        "why": "Complete radial helper and its two stick call sites."
+      }
+    ],
+    "link_id": "link:6bcdbf2d-a80b-413c-9c1e-fd8dc4435a99",
+    "reason": "The helper suppresses vectors below minimum magnitude, clamps their maximum radius, and optionally subtracts a radial minimum. Its caller applies it separately to both stick vectors."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:98b8e8ca0f36527d",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadADConvertCheck1",
+      "id": "link:8ed41c11-a9b7-4622-9e08-22c323eab380",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L242-L279",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:analog-stick-digital-direction-conversion",
+      "to_target_id": null,
+      "why": "The function thresholds a stick vector, classifies its angle into cardinal sectors, and emits caller-selected digital direction bits."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L240-L293",
+        "why": "Complete conversion helper and both stick call sites."
+      }
+    ],
+    "link_id": "link:8ed41c11-a9b7-4622-9e08-22c323eab380",
+    "reason": "The helper gates on vector magnitude and compares the vector angle against configurable sector boundaries, ORing caller-supplied direction bits. The caller supplies distinct bit sets for the two sticks."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:0e2f7ff58ba83175",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetResetSwitch",
+      "id": "link:98ea6ccd-64a3-40c6-830e-c8b76552e66f",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/melee/lb/lb_0195.c#L1-L80",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:console-reset-handling",
+      "to_target_id": null,
+      "why": "The accessor supplies the latched console RESET request to code that blanks video and invokes OSResetSystem."
+    },
+    "disposition": "unresolved",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L35-L40",
+        "why": "Confirms only that the accessor exposes the reset latch."
+      }
+    ],
+    "link_id": "link:98ea6ccd-64a3-40c6-830e-c8b76552e66f",
+    "reason": "The accessor's reset-latch role is supported locally, but the asserted video-blanking and OSResetSystem consumer could not be checked: rendering src/melee/lb/lb_0195.c was denied as not an owned file."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:7aa60ce9579c59ab",
+      "from_entity_id": null,
+      "from_target_id": "target:data:main/sysdolphin/baselib/controller:.data",
+      "id": "link:acd86485-a7a8-49e9-b4e4-b4ec225e925b",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L581-L597",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The initialized records provide the per-port neutral status and processing parameters that HSD_PadInit installs for the controller sampling, transformation, edge-detection, repeat, and publication pipeline."
+    },
+    "disposition": "unresolved",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L9-L19",
+        "why": "Declares initialized defaults and status globals, not compiled section membership."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L579-L595",
+        "why": "Installs default library parameters and all three sets of per-port statuses."
+      }
+    ],
+    "link_id": "link:acd86485-a7a8-49e9-b4e4-b4ec225e925b",
+    "reason": "Initialized defaults and their input-processing role are confirmed, but source alone does not establish the compiled .data target's identity or contents."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:0f14877e480dba01",
+      "from_entity_id": null,
+      "from_target_id": "target:data:main/sysdolphin/baselib/controller:.bss",
+      "id": "link:b8d4f606-424d-4c2b-94ab-667dffc421ae",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L353-L427",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The section stores the queue bookkeeping and the master, copy, and game status arrays through which four-port PAD samples become transformed and published controller input."
+    },
+    "disposition": "unresolved",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L14-L17",
+        "why": "Declares library bookkeeping and master, copy, and game arrays without proving compiled placement."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+        "why": "Shows queue bookkeeping and master-array use in input processing."
+      }
+    ],
+    "link_id": "link:b8d4f606-424d-4c2b-94ab-667dffc421ae",
+    "reason": "Queue bookkeeping and status-array behavior are supported, but mapping these declarations to the exact compiled .bss target requires section evidence."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:d49264bced246258",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadClampCheck1",
+      "id": "link:ac72dbfb-ba4a-43f6-ad30-d4c7d5dbee6e",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L163-L241",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function conditions four raw analog controller channels using configured lower and upper bounds before those values continue through the master-status processing pipeline."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L161-L221",
+        "why": "Defines the conditioning operation and all four analog-channel calls."
+      }
+    ],
+    "link_id": "link:ac72dbfb-ba4a-43f6-ad30-d4c7d5dbee6e",
+    "reason": "The scalar helper zeros values below the minimum, caps them at the maximum, and optionally subtracts the minimum. Its caller applies it to analog L, R, A, and B."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:6f5715220dce3f37",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewRawStatus",
+      "id": "link:b51e1cbc-88c9-4f3f-9f2c-5393f14a2a0a",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L59-L129",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function supplies the raw acquisition and buffering stage of controller-input processing by polling four PAD channels, managing their queued samples, and initiating recovery for unavailable ports."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L21-L125",
+        "why": "Reads qcount under interrupt protection, polls PAD samples, handles queue overflow, and requests port resets."
+      }
+    ],
+    "link_id": "link:b51e1cbc-88c9-4f3f-9f2c-5393f14a2a0a",
+    "reason": "Raw acquisition and queue occupancy are directly implemented parts of controller-input processing."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:93d58d80bf3699f2",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadGetRawQueueCount",
+      "id": "link:b5fe3db9-fd49-4b6e-a4fd-669fbeabac6a",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L1-L120",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function exposes the occupancy of the raw four-port PAD sample queue used by HSD's controller-input pipeline."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L21-L125",
+        "why": "Reads qcount under interrupt protection, polls PAD samples, handles queue overflow, and requests port resets."
+      }
+    ],
+    "link_id": "link:b5fe3db9-fd49-4b6e-a4fd-669fbeabac6a",
+    "reason": "Raw acquisition and queue occupancy are directly implemented parts of controller-input processing."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:0f14877e480dba01",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewMasterStatus",
+      "id": "link:b0858333-a494-4675-ae26-a60994b6ce81",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L353-L427",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function transforms buffered four-port PAD samples into calibrated master input with digital transitions and held-input repeats."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+        "why": "Consumes one queued four-port sample, applies conditioning helpers, and computes trigger, release, and repeat state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L470-L555",
+        "why": "Publishes copy and game statuses and coordinates raw, master, copy, and game renewal."
+      }
+    ],
+    "link_id": "link:b0858333-a494-4675-ae26-a60994b6ce81",
+    "reason": "The master and coordinating functions, and their translation unit, implement sample transformation, edge detection, held-input repeats, and publication. 'Calibrated' is understood here as software conditioning rather than hardware recalibration."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:a3fd84f5b558c6ab",
+      "from_entity_id": "translation_unit:src/sysdolphin/baselib/controller.c",
+      "from_target_id": null,
+      "id": "link:cf0d9871-7781-4380-b506-6e819689fc40",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L370-L450",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The translation unit consumes four-port PAD samples and publishes transformed, normalized, edge-detected, and repeating controller status for game use."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+        "why": "Consumes one queued four-port sample, applies conditioning helpers, and computes trigger, release, and repeat state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L470-L555",
+        "why": "Publishes copy and game statuses and coordinates raw, master, copy, and game renewal."
+      }
+    ],
+    "link_id": "link:cf0d9871-7781-4380-b506-6e819689fc40",
+    "reason": "The master and coordinating functions, and their translation unit, implement sample transformation, edge detection, held-input repeats, and publication. 'Calibrated' is understood here as software conditioning rather than hardware recalibration."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:0578084cea6f341b",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadRenewStatus",
+      "id": "link:ccf1fe39-0542-4c78-bdbe-686d4b7af887",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L450-L597",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-input-processing",
+      "to_target_id": null,
+      "why": "The function coordinates raw four-port polling, master input transformation, and publication of copy and game controller statuses as one controller-input processing pass."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L351-L425",
+        "why": "Consumes one queued four-port sample, applies conditioning helpers, and computes trigger, release, and repeat state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L470-L555",
+        "why": "Publishes copy and game statuses and coordinates raw, master, copy, and game renewal."
+      }
+    ],
+    "link_id": "link:ccf1fe39-0542-4c78-bdbe-686d4b7af887",
+    "reason": "The master and coordinating functions, and their translation unit, implement sample transformation, edge detection, held-input repeats, and publication. 'Calibrated' is understood here as software conditioning rather than hardware recalibration."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:60919660fac5806b",
+      "from_entity_id": "translation_unit:src/sysdolphin/baselib/controller.c",
+      "from_target_id": null,
+      "id": "link:be681e53-dfa0-40f0-8d41-fcbb7521bd01",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L60-L160",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:console-reset-handling",
+      "to_target_id": null,
+      "why": "The translation unit polls the console RESET switch, latches a completed activation, exposes it to callers, and provides the reset operation that clears the latch."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L35-L40",
+        "why": "Accessor returns the reset latch as a boolean."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L117-L124",
+        "why": "Polls the OS reset switch and latches a completed activation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+        "why": "Subsystem reset clears reset_switch."
+      }
+    ],
+    "link_id": "link:be681e53-dfa0-40f0-8d41-fcbb7521bd01",
+    "reason": "The translation unit directly implements reset-switch polling, latching after release, access, and latch clearing."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:cbdd034c171a0e34",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadReset",
+      "id": "link:aff40081-f083-4615-9555-61b0315e66ff",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L559-L579",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:gamecube-controller-startup-and-calibration",
+      "to_target_id": null,
+      "why": "HSD_PadReset requests recalibration for the all-four-channel PAD mask as part of resetting the controller subsystem."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+        "why": "Calls HSD_PadRumbleRemoveAll, HSD_PadRumbleOffN in a four-port loop, and PADRecalibrate."
+      }
+    ],
+    "link_id": "link:aff40081-f083-4615-9555-61b0315e66ff",
+    "reason": "The subsystem reset explicitly requests PAD recalibration and removes rumble schedules while requesting rumble off for each of four ports. These calls support both functional mappings without assuming motor-driver internals."
+  },
+  {
+    "baseline_record": {
+      "digest": "sha256:cbdd034c171a0e34",
+      "from_entity_id": null,
+      "from_target_id": "target:function:main/sysdolphin/baselib/controller:HSD_PadReset",
+      "id": "link:ee99e185-a42e-4200-8151-d8c2964106ba",
+      "kind": "code",
+      "locator": "code://1e28b4203b/src/sysdolphin/baselib/controller.c#L559-L579",
+      "role": "implements",
+      "to_entity_id": "game_concept:game_concept:controller-rumble",
+      "to_target_id": null,
+      "why": "The reset sequence removes all scheduled rumble and explicitly turns the motor off on each of the four controller channels."
+    },
+    "disposition": "retain",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/controller.c#L557-L577",
+        "why": "Calls HSD_PadRumbleRemoveAll, HSD_PadRumbleOffN in a four-port loop, and PADRecalibrate."
+      }
+    ],
+    "link_id": "link:ee99e185-a42e-4200-8151-d8c2964106ba",
+    "reason": "The subsystem reset explicitly requests PAD recalibration and removes rumble schedules while requesting rumble off for each of four ports. These calls support both functional mappings without assuming motor-driver internals."
+  }
+]

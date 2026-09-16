@@ -1,0 +1,111 @@
+{
+  "tu": "main/melee/ft/kinds/ftMario/ftmariospecials",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospecials.c#L223-L247",
+            "why": "Complete command partition, latch branch, velocity assignment, effect arguments, and trailing physics calls."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unsupported upward-velocity wording with exact assignments, unsigned boundaries, and operation ordering.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMario/ftmariospecials:ftMr_SpecialAirS_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Samples cmd_vars[0] as u32. Zero selects ftCommon_FallBasic; every nonzero unsigned value selects ftCommon_Fall with specials.grav and specials.terminal_vel. Exactly 1 advances the command to 2, sets a previously clear x2238_isCapeBoost latch and assigns specials.vel.y, or assigns zero y velocity if already latched, then calls lb_800119DC at HipN plus 3*facing_dir in x with arguments 120, 3, 0.1, M_PI_3. Move gravity is applied in that same update after the assignment. Air friction with specials.vel.x and reflect run in all branches. No positivity or finiteness validation of the configured velocity is present."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospecials.c#L249-L288",
+            "why": "Guard, transition, command rewrite and restoration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospecials.c#L25-L34",
+            "why": "Damage/death callback installation requires a non-null Cape."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L71-L79",
+            "why": "Continuation uses current animation frame."
+          }
+        ],
+        "op": "write",
+        "rationale": "Qualifies the optional lifecycle callback branch and distinguishes collision-query side effects from transition dispatch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMario/ftmariospecials:ftMr_SpecialS_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Calls ft_800827A0 and dispatches GroundToAir only when it returns false. The continuation selects ftMr_MS_SpecialAirS using transition_flags and the current animation frame, consumes cmd_vars[0] only when equal to 1 by writing 2, restores fp->reflecting when the move-local reflecting latch is set, always installs pre/post-hitlag and Cape accessory callbacks, and installs damage/secondary-death callbacks only when a tracked Cape exists. A true query result performs no explicit transition in this callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospecials.c#L113-L136",
+            "why": "Complete shared and grounded entry implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves exact initialization without misidentifying the final NULL motion-change argument as a callback.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMario/ftmariospecials:ftMr_SpecialS_Enter"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally zeros self_vel.y, then calls the shared initializer for ftMr_MS_SpecialS. The initializer invokes Fighter_ChangeMotionState(gobj, msid, 0, 0, 1, 0, NULL), calls ftAnim_8006EBA4, clears cmd_vars[2], cmd_vars[1], cmd_vars[0] and the move-local reflecting latch, and installs ftMr_SpecialS_CreateCape in accessory4_cb. It does not explicitly clear the persistent Cape-boost latch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospecials.c#L66-L99",
+            "why": "Outer removal, reset ordering, and ExitHitlag null guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmariocape.c#L41-L51",
+            "why": "Nested owner reset precedes item removal."
+          }
+        ],
+        "op": "write",
+        "rationale": "Cross-file consumer inspection corrects the baseline's post-removal still-live-article assumption.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMario/ftmariospecials:ftMr_SpecialS_RemoveCape"
+        },
+        "type": "data_flow",
+        "value": "Resolves the fighter and reads u.mr.x223C_capeGObj. With NULL it does nothing; otherwise it passes the item to it_802B2674 and then calls ftMr_SpecialS_Reset on the fighter. The item helper resets a non-null owner before calling Item_8026A8EC. Under consistent ownership, that nested Reset performs ExitHitlag while the article is still tracked and clears the fighter pointer and damage/death callbacks; the outer Reset then sees a NULL tracked pointer and does not repeat the article operation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMario/ftmariospecials.c#L113-L146",
+            "why": "Exact unchecked division and shared initializer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds exceptional-float and persistent-latch boundaries while retaining the proved entry behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMario/ftmariospecials:ftMr_SpecialAirS_Enter"
+        },
+        "type": "state_behavior",
+        "value": "Divides self_vel.x by specials.vel_x_decay without validating zero, sign, infinity, or NaN, then initializes ftMr_MS_SpecialAirS through changeAction. The initializer calls Fighter_ChangeMotionState with flags 0, start 0, rate 1, blend 0 and final NULL, calls ftAnim_8006EBA4, clears cmd_vars[0..2] and the move-local reflecting latch, and arms CreateCape. The persistent boost latch is not explicitly reset. The division does not guarantee reduced speed or a finite result."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

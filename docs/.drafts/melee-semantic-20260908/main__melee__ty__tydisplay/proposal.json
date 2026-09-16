@@ -1,0 +1,214 @@
+{
+  "tu": "main/melee/ty/tydisplay",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ty/tydisplay:.rodata"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "The source declares parallel category-indexed tables of model-joint names, material-animation names and archive filenames. TyDspEntry.x04 selects these resources; entries 41 and 42 identify the stand and question-mark resources. The standalone name accessors normalize signed -1 to name slot 0. The constructors and cache loader also normalize the name-table selector, but retain the original category for archive-array access, including accesses before normalization. This is name fallback, not general invalid-category recovery. The cache API views the first table through a TyDspNameTables cast; actual compiled adjacency is not established here.",
+        "rationale": "Corrects the overly broad normalization claim while preserving supported resource flow and separating source casts from compiled layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L2157-L2235",
+            "why": "Accessors and constructor distinguish normalized names from raw archive indices."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L2396-L2431",
+            "why": "Composite cast, raw cache indexing and common slots."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ty/tydisplay.c"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The translation unit declares three separate static const TyDspArchNames objects: model-joint names at _tyDisplay_803B8988, material-animation names at _tyDisplay_803B8A34, and archive filenames at _tyDisplay_803B8AE0. The source documents an adjacency assumption, and tyDisplay_8031C454 and tyDisplay_8031C5E4 cast the first object's address to TyDspNameTables const* to access a composite view. These declarations and casts establish source ownership and intended interpretation, not proof of compiled adjacency or section layout.",
+        "rationale": "Preserves useful table ownership and composite-view knowledge without treating comments or a prior PR claim as compiled evidence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L2062-L2155",
+            "why": "Separate declarations and adjacency comment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L2457-L2458",
+            "why": "Explicit composite cast."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ty/tydisplay:_tyDisplay_80318CB4"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements the Collection scene's default randomized radial layout and alternate circular-style layout, selected by entry modes 0 and 1. Zero uses 11-unit radial steps, positive X/Z jitter and randomized later-ring start angles; nonzero uses 9-unit steps, omits that jitter and resets ring starts to angle zero. Both variants can undergo randomized inward contraction, so the nonzero variant does not guarantee perfectly regular concentric rings in the final positions.",
+        "rationale": "The contraction branch is outside the zero/nonzero variant guards.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L798-L891",
+            "why": "Variant geometry and shared contraction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L1914-L1919",
+            "why": "Modes 0 and 1 dispatch here."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ty/tydisplay:_tyDisplay_80318CB4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clears the grid, seeds X/Z bounds to \u00b13.5 and places the first point at the origin. Subsequent rings begin with capacity six, grow by six and advance radius by 9 or 11 according to the variant. When HSD_Randi(3) is nonzero, the point is tested against relevant earlier points and its magnitude decreases by 0.1 while no collision is found. Each iteration recomputes tries from (s32)(mag / 0.1), with an optional random subtraction; tries is not a decrementing retry budget. A collision uses (s32)distance <= 8, and an out-of-range distance reports and asserts before conversion. The loop stops on collision or tries == 0. Generated positions are then Z-sorted, trophy records are populated and partially ordered, and successful constructions receive positions through a compacted JObj index.",
+        "rationale": "Retains the pipeline while correcting retry and distance semantics and preserving the exceptional conversion guard.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L723-L742",
+            "why": "Compacted successful-construction index."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L789-L920",
+            "why": "Initialization, contraction, bounds and terminal pipeline."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ty/tydisplay:_tyDisplay_80319EF0"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Centers framing from grid bounds, with a local grid-mode-3 branch forcing interest X to zero. It starts FOV at 1 and increases by 0.1 until the horizontal fit test at distance 500 passes; only values below 3 are replaced with 3.2. It stores count-based zoom limits and mode-dependent horizontal/angular limits. Table scale starts from integer division count/30, then moves in 0.1 steps until 38*scale crosses the chosen extent in the required direction; a descending adjustment may finish below that extent. Out-of-range scale reports and asserts. The floating scale is applied to X/Z only when its s32 conversion is nonzero. Entry-selected grid mode is cleared by the arrangement builders before this routine is called.",
+        "rationale": "Corrects the minimum-FOV and scale descriptions and records the cross-function numeric-mode lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L1125-L1251",
+            "why": "Exact fitting thresholds, limits and scaling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L789-L793",
+            "why": "Radial builder clears whole grid."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L933-L940",
+            "why": "Rectangular builder clears whole grid."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L1033-L1038",
+            "why": "Triangular builder clears whole grid."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L1906-L1929",
+            "why": "Debug clear or arrangement dispatch precedes framing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ty/tydisplay:_tyDisplay_8031B328"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A missing background archive reports and panics. A present scene-light export creates and registers a light GObj; a missing export skips that construction. The debug recolor guard is separate from the export guard, however, and uses local lobj even when the export was absent, leaving an uninitialized-pointer use in that source branch. Fog construction is independently conditional on resolving ScMenDisplay_fog. The helper performs one-time setup and installs no recurring process or teardown of its own.",
+        "rationale": "Preserves optional-resource behavior without implying that missing lighting is safely tolerated in debug mode.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L1718-L1759",
+            "why": "Complete setup with separate assignment and recolor guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ty/tydisplay:_tyDisplay_8031B850"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Clears retained room/archive/background/light/fog references and removes camera processes before clearing the camera slot. Animation JObj references are cleared only when anim->gobj is non-NULL. The selected debug archive is released only inside the non-NULL debug-model branch, which also destroys and clears that model. DevText removal has its own guard. Repeated calls leave already-cleared handled fields inert, but the guards are not all independent and inconsistent nested state may remain untouched. This routine does not explicitly free the principal heap allocations or every per-scene archive.",
+        "rationale": "Corrects independent-guard wording and distinguishes reference clearing from complete resource destruction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L1931-L1993",
+            "why": "Complete cleanup and nested guards."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ty/tydisplay:tyDisplay_8031C2CC"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Parameterless synchronous forwarding routine with signature void (void). It calls Toy_803124BC and returns normally without a value.",
+        "rationale": "A void return type is not non-returning control flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L2319-L2322",
+            "why": "Ordinary void wrapper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ty/tydisplay:tyDisplay_8031C354"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Reference ID -1 returns zero immediately. Otherwise classification 99 is replaced once with the reference's field-6 metadata, and IDs are scanned in ascending order, excluding the reference and candidates failing regional availability, active 0x4000 state, category or classification tests. Each passing ID is written before count >= max is tested. Positive max bounds the number written; max <= 0 can still write one qualifying ID. The routine mutates the caller's output buffer but not persistent trophy state.",
+        "rationale": "Records the post-write capacity guard and distinguishes output mutation from persistent-state mutation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/tydisplay.c#L2334-L2381",
+            "why": "Full scan and post-write test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/toy.c#L592-L595",
+            "why": "Active-state predicate is bit 0x4000."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ty/toy.c#L693-L704",
+            "why": "Regional exclusion predicate."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

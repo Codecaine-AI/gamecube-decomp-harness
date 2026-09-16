@@ -1,0 +1,1189 @@
+{
+  "main/melee/gr/grdatfiles:.bss": [
+    {
+      "id": "fact:e1986efa-de62-4885-b004-50dc8115c951",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Ground initialization zeroes the complete four-record registry. Stage DAT loading then selects the first record with a null archive field and writes an initialized `HSD_Archive*`, its resolved `map_head`, and a mode/state value. The map-ID lookup scans occupied records and returns the first whose `map_head` contains a valid requested entry, which stage code then consumes for model and animation resources.",
+      "rationale": "The current grDatFiles source shows the registry declaration, reset, first-free selection, population, and map-entry lookup, while the current animation source demonstrates downstream use of a selected record.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the four-record registry being cleared, allocated first-fit, searched by map ID, and populated from an initialized archive."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/granime.c#L940-L1060",
+          "why": "Shows stage animation code consuming model and animation resources through a registry record selected by map ID."
+        }
+      ]
+    },
+    {
+      "id": "fact:20216d6e-5009-4111-a4d7-2aa64ee089c4",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.bss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Backs stage initialization and runtime stage-resource resolution by retaining the archives that supply map objects, models, and joint, material, and shape animation data for loaded stage content.",
+      "rationale": "The registry is reset during ground initialization and later queried by stage animation code for the archive containing a requested map entry.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L140-L240",
+          "why": "Places the registry reset at the beginning of global ground-state initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/granime.c#L940-L1060",
+          "why": "Shows retained records supplying runtime stage model and animation resources."
+        }
+      ]
+    },
+    {
+      "id": "fact:bac3e68f-9f98-4a45-834f-1202f4255467",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.bss",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grDatFiles_ArchiveTable",
+      "rationale": "The current header retains the unit's `grDatFiles_` archive-access naming vocabulary, while the current source shows that the BSS object is exclusively a fixed table of retained archive records.\n\nNaming cleanup: Documented behavior supports this direct descriptive name; exact historical spelling is unverified.\nPrior naming claim: A plausible original-style name is `grDatFiles_ArchiveTable`, describing the fixed table of retained ground archive records; the exact original identifier is not preserved.",
+      "confidence": 0.67,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grdatfiles.h#L1-L16",
+          "why": "Shows the established `grDatFiles_` prefix and archive-oriented public interface."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L112-L167",
+          "why": "Shows the fixed four-record table and its exclusive use for archive reset, selection, lookup, and registration."
+        }
+      ]
+    },
+    {
+      "id": "fact:546ce998-c703-40c3-842c-292c72307210",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 0x30-byte BSS object declared as `static UnkArchiveStruct grDatFiles_8049EE10[4]`. Each 0xC-byte record contains an archive pointer at offset 0, an `UnkStageDat*` resolved from `map_head` at offset 4, and a 32-bit mode/state field at offset 8.",
+      "rationale": "The declaration at the current head remains a four-element `UnkArchiveStruct` array, and its reset, lookup, and registration operations continue to expose the archive, map-head, and state members of each record.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L112-L167",
+          "why": "Shows the four-element declaration, whole-array reset, reads of the archive and map-head fields, and writes to all three visible record fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:c155bfbd-6674-4f08-b410-561662a70935",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the ground-data-files subsystem's persistent four-slot registry of loaded stage DAT archives, retaining each archive and its `map_head` for direct access, free-slot selection, and map-ID-based resource lookup.",
+      "rationale": "All operations on the BSS object in the current source\u2014reset, first-free selection, direct access, indexed lookup, and archive registration\u2014establish its registry role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the declaration and the complete set of registry operations."
+        }
+      ]
+    },
+    {
+      "id": "fact:78ca9ce6-d592-4447-83aa-1d53d4b0db9d",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Initialization clears all four records. A slot is free exactly when its archive field is null; selection is deterministic first-fit and exhaustion asserts. Loading makes a slot occupied with either a real archive pointer or fallback sentinel `-1`, together with its `map_head` and mode/state. No individual removal transition is present, so the observed transition back to free is the whole-registry reset.",
+      "rationale": "The head source still shows whole-table reset, null-based first-fit selection, assertion on exhaustion, normal and sentinel occupation, and no operation that clears an individual record.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L36-L97",
+          "why": "Shows normal archive occupation and fallback occupation using the `-1` archive sentinel and fallback `map_head`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L112-L167",
+          "why": "Shows whole-registry reset, null-based first-fit selection, exhaustion assertion, lookup behavior, and normal record population."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:.data": [
+    {
+      "id": "fact:31206214-db6e-47ba-8992-6681b38b62f7",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Archive-loading routines read labels from this initialized data and pass them to HSD_ArchiveGetPublicAddress; the returned archive-owned pointer is then stored in a grDatFiles archive record and forwarded to stage-data initialization.",
+      "rationale": "The recovered function demonstrates the complete consumer-side flow for \"map_head\": lookup label to HSD_ArchiveGetPublicAddress, returned pointer to the record's data field, and that field to grDatFiles_801C6228.",
+      "confidence": 0.89,
+      "updated_at": "2026-09-02T07:13:25.928Z",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/1230903885481246741",
+          "why": "Directly shows \"map_head\" flowing into HSD_ArchiveGetPublicAddress and the resulting pointer flowing into both the archive record and grDatFiles_801C6228."
+        }
+      ]
+    },
+    {
+      "id": "fact:48949875-c632-4b82-b306-5d15fcbfce20",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An initialized byte/string region containing NUL-terminated C labels used for DAT public-symbol lookup, rather than a homogeneous array of runtime archive records.",
+      "rationale": "The directly observed initialized value is a C string passed as the name argument of HSD_ArchiveGetPublicAddress. By contrast, the archive records are mutated, scanned for null archive pointers, and therefore belong to persistent runtime storage rather than this initialized-label role.",
+      "confidence": 0.8,
+      "updated_at": "2026-09-02T07:13:25.928Z",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/1230903885481246741",
+          "why": "Shows the NUL-terminated C label \"map_head\" being used as an HSD archive public-symbol key."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1230904674798928023",
+          "why": "Shows that the mutable archive-record pool is a separate four-entry object scanned through grDatFiles_8049EE10, distinguishing it from static lookup-label data."
+        }
+      ]
+    },
+    {
+      "id": "fact:f9e95e75-2d4f-4ea7-8250-ab035f2b536f",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides initialized static labels used by grDatFiles when interpreting stage DAT archives, including public-symbol lookup names such as \"map_head\".",
+      "rationale": "The recovered source passes the literal \"map_head\" to HSD_ArchiveGetPublicAddress while initializing a stage archive. Because this target is the translation unit's initialized .data section, the strongest supported role for its contents is storage for such archive-facing static labels; the evidence does not support treating it as runtime archive-object storage.",
+      "confidence": 0.82,
+      "updated_at": "2026-09-02T07:13:25.928Z",
+      "evidence": [
+        {
+          "kind": "discord",
+          "locator": "discord://message/1230903885481246741",
+          "why": "Shows an initialized static lookup label, \"map_head\", consumed by a grDatFiles archive routine."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-338--main-melee-gr-grdatfiles",
+          "why": "Records the pull request that reconstructed and matched grdatfiles.c, establishing the recovered C unit as the source owning this data section."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:.sdata": [
+    {
+      "id": "fact:248ab0dc-427d-42a0-9596-a9836c19b332",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Assertion macros consume this diagnostic text only on failure paths: `\"0\"` follows exhaustion of the four-slot archive registry, and `\"arc\"` follows failure to obtain a record while registering an already-loaded DAT image.",
+      "rationale": "The current source places the two assertion expressions directly after the corresponding failed slot-selection operations.",
+      "confidence": 0.87,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows `HSD_ASSERT(229, 0)` after registry exhaustion and `HSD_ASSERT(290, arc)` after record acquisition."
+        }
+      ]
+    },
+    {
+      "id": "fact:57ddb115-8d1b-4207-9521-4d04cf7ec118",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An 8-byte initialized small-data block containing two NUL-terminated assertion-expression strings, `\"0\"` and `\"arc\"`, followed by alignment padding.",
+      "rationale": "The two current assertion operands account for the compact stringified expressions associated with this section; with terminators they occupy six bytes, leaving alignment padding in the eight-byte target.",
+      "confidence": 0.84,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the exact short assertion operands `0` and `arc` used by this unit."
+        }
+      ]
+    },
+    {
+      "id": "fact:4c633899-0c80-4889-a62f-1a1da6c27be9",
+      "target_id": "target:data:main/melee/gr/grdatfiles:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Stores the compact assertion-expression text used by this unit's archive-registry failure checks: `\"0\"` for exhausted slots and `\"arc\"` for failure to obtain a record during in-memory DAT registration.",
+      "rationale": "The current implementation contains exactly these two archive-record allocation assertions and ties each operand to its corresponding failure condition.",
+      "confidence": 0.86,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows both archive-registry assertions and the failure paths that use their expressions."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:grDatFiles_801C5FC0": [
+    {
+      "id": "fact:f2838925-56ea-4d20-97c1-b61fec980c57",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C5FC0",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The preload cache supplies an archive descriptor, its resident raw stage-data buffer, and the buffer size. The function initializes the descriptor over that buffer, resolves `map_ptcl` and `map_texg` inside the relocated archive, and, when both are non-null, forwards them to `psInitDataBankLocate` with no third bank.",
+      "rationale": "The current caller establishes the inputs' origin, and the current function body traces them through DAT initialization and two public-symbol lookups into particle-bank initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L346-L407",
+          "why": "Shows the cached descriptor, raw buffer, and size supplied during type-4 preload finalization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L22-L33",
+          "why": "Shows DAT initialization, both public lookups, their guard, and the particle-bank call."
+        }
+      ]
+    },
+    {
+      "id": "fact:2da34d04-1d92-454f-9d46-5e2ac696447f",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C5FC0",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements lazy initialization of stage particle resources: first retrieval of a preloaded type-4 stage resource relocates its DAT archive and connects its map-particle definitions with texture-group data for runtime particle use.",
+      "rationale": "The preload caller dispatches this function only during one-time type-4 finalization, and the function connects the named map particle and texture exports to the particle data-bank initializer.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L346-L407",
+          "why": "Shows deferred one-time dispatch for a preloaded type-4 resource."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L22-L33",
+          "why": "Shows `map_ptcl` and `map_texg` being connected to particle-bank initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:021eeddc-ba0b-4517-9a68-c4e6f3f57655",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C5FC0",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grDatFiles_InitializeDAT",
+      "rationale": "The target delegates first to `lbArchive_InitializeDAT` and then performs grDatFiles-specific particle setup, making the analogous wrapper name plausible though unproven.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `grDatFiles_InitializeDAT`: it follows the unit prefix and neighboring `lbArchive_InitializeDAT` convention while distinguishing this stage-specific wrapper, which adds map particle-bank setup.",
+      "confidence": 0.78,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L22-L33",
+          "why": "Shows the target wrapping generic DAT initialization with stage-specific resource setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarchive.c#L17-L36",
+          "why": "Provides the established neighboring name `lbArchive_InitializeDAT`."
+        }
+      ]
+    },
+    {
+      "id": "fact:f2cdcde2-4945-408a-a1bc-929ddf72525d",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C5FC0",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void grDatFiles_801C5FC0(HSD_Archive* archive, void* data, size_t length)`. `archive` is the descriptor initialized over the mutable persistent DAT image in `data`, and `length` is its byte size. Missing particle exports suppress particle-bank initialization without producing a status result.",
+      "rationale": "The current definition and header preserve the exact parameter and return types, while the function body shows each argument flowing into DAT initialization and a void-returning guarded particle setup.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L22-L33",
+          "why": "Shows the exact definition, consumption of all three arguments, nullable export lookups, and void behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grdatfiles.h#L1-L16",
+          "why": "Confirms the public prototype and its `size_t length` parameter at the current head."
+        }
+      ]
+    },
+    {
+      "id": "fact:21f57670-9902-4f78-9d14-9eff021cdd91",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C5FC0",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Finalizes a loaded stage DAT image and, when the archive exports both required map-particle and texture-group resources, uses them to initialize the runtime particle data bank.",
+      "rationale": "The current body performs generic DAT initialization followed by the two required public-resource lookups and a guarded particle-bank initialization call.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L22-L33",
+          "why": "Shows the function's complete initialization and particle-resource setup behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:ff29b1c3-8d84-4a3b-a237-b66555505c71",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C5FC0",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Every call initializes the DAT and performs both public-resource lookups. Particle-bank initialization occurs only when both `map_ptcl` and `map_texg` resolve; otherwise the function returns after archive initialization. In the preload path, dispatch occurs only at `load_state == 1`, after which the caller advances the state to 2.",
+      "rationale": "The target's conjunction guard defines its local optional branch, while the preload caller defines the surrounding one-time state transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L22-L33",
+          "why": "Shows unconditional DAT initialization and the two-non-null particle guard."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L346-L407",
+          "why": "Shows dispatch at load state 1 and the caller's transition to load state 2."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6038": [
+    {
+      "id": "fact:0f44cd32-3527-4977-9381-a60785fafd83",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6038",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "A free wrapper comes from `grDatFiles_801C62B4`. For a non-NULL filename, the selected archive loader writes the archive descriptor and resolves `map_head` into that wrapper; when shared-state updates are enabled, nine additional public roots flow from the archive into `stage_info`. The archive descriptor is retained in the wrapper, particle and texture roots flow into one of two particle-bank initializers, and `map_head` flows into `grDatFiles_801C6228`. With no filename, fallback stage data and parameters replace those archive-derived values.",
+      "rationale": "Every input, write, and downstream consumer is visible in the matched body. The established callee records confirm that the two archive paths load DAT data and resolve named public entries, while the local source shows exactly where each result is stored and consumed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T07:15:46.138Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L35-L97",
+          "why": "Directly traces the wrapper, filename, archive descriptor, named public roots, particle resources, `map_head`, and fallback objects through the function."
+        }
+      ]
+    },
+    {
+      "id": "fact:54ec7c90-9948-45d1-b4e1-32d9187ea408",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6038",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements stage-resource initialization: it turns a stage DAT file into the runtime archive, map hierarchy, collision data, ground parameters, item data, stage-object data, particle resources, lighting, and quake-model resources required by the Ground subsystem, while supporting preloaded assets and a no-file default stage.",
+      "rationale": "The archive public names and their `stage_info` destinations ground the behavior in stage setup. The cache-aware branch supports preloaded stage assets, and the fallback branch supplies default stage structures when no DAT exists.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T07:15:46.138Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L35-L97",
+          "why": "Shows stage-specific DAT exports being resolved and installed, preload provenance controlling particle setup, and default stage resources used when no archive filename is provided."
+        }
+      ]
+    },
+    {
+      "id": "fact:67d1c55b-fec8-46ea-af32-bb2aa8828f9a",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6038",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Semantically, the function is `void (const char* filename, s32 suppress_shared_stage_info, s32 use_preload_path)`. The first argument is nullable and is passed as a DAT filename; the second acts as a boolean guard that suppresses writes to shared `stage_info` when nonzero; the third acts as a boolean selecting cache-aware archive acquisition when nonzero.",
+      "rationale": "Although the current declaration retains `void*` and integer placeholders, the first argument is forwarded to archive functions whose established input is a filename. Direct branch tests establish the two integer parameters as boolean controls: one guards all shared-stage-info writes and the other chooses the cache-aware loader.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-02T07:15:46.138Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L35-L97",
+          "why": "Shows the nullable first argument flowing to filename-based archive loaders and the two integer arguments used solely as zero/nonzero path controls."
+        }
+      ]
+    },
+    {
+      "id": "fact:90b2b78e-8a69-4aa9-b213-0da649169efe",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6038",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Loads or selects a stage DAT archive for a free stage-archive wrapper, binds its `map_head` and optionally its shared stage resources, initializes the stage particle bank when particle and texture data are present, and post-processes the loaded map data. When given no filename, it installs the unit's default stage data and parameters instead.",
+      "rationale": "The complete matched body obtains a free wrapper, chooses between cache-aware and direct archive loaders, resolves `map_head` and the shared stage exports, stores the selected archive, initializes particles, and invokes the map-data post-loader. Its null-input branch installs the fallback objects and sentinel archive value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T07:15:46.138Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L35-L97",
+          "why": "Shows the complete real-archive and no-file fallback paths, including resource binding, particle initialization, retained wrapper state, and map post-processing."
+        }
+      ]
+    },
+    {
+      "id": "fact:b819d020-4c4e-460a-bf6d-f93ce98b0fe7",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6038",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The function has three controlling transitions. A NULL filename selects fallback state, assigns default `map_head`, conditionally clears shared stage resources and installs default ground parameters, and marks the wrapper with archive sentinel `-1`. A real filename selects direct loading or cache-aware acquisition according to the third argument; shared stage exports are refreshed only when the second argument is zero. Particle setup occurs only when both particle and texture roots are non-NULL, using `psInitDataBankLoad` only for an actual preload-cache hit and `psInitDataBank` otherwise.",
+      "rationale": "The matched branches explicitly establish the fallback versus archive states, the shared-state guard, the loader-selection guard, the dual non-NULL particle guard, and the cache-hit-dependent particle initializer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T07:15:46.138Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L35-L97",
+          "why": "Shows every path guard, state write, fallback assignment, particle-resource guard, and preload-dependent particle initialization choice."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6228": [
+    {
+      "id": "fact:1bd4cf98-7983-4d27-ac96-cdcbc473741d",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6228",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a stage DAT's resolved `map_head`, reads its entry-pointer array and count, and writes `entry->unk4 | 0x04000000` back to every non-null entry. It returns no value and does not replace the root, array, or entry pointers.",
+      "rationale": "The current complete body shows the count-controlled reads and the sole output, a read-modify-write of each present entry's flags field.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the argument guards, traversal, entry reads, and fixed-mask writes."
+        }
+      ]
+    },
+    {
+      "id": "fact:8309a8ff-ff4f-4c7d-89a7-fb97a93962f3",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6228",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements a post-load stage-initialization step for the entries described by a stage DAT's `map_head`, marking all available entries with a common runtime flag before the archive record is used.",
+      "rationale": "The current unit calls the helper immediately after resolving and storing `map_head`, and the helper applies the same flag to every available internal entry.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows both the flagging helper and its invocation after in-memory stage-DAT registration."
+        }
+      ]
+    },
+    {
+      "id": "fact:a85cec42-b67e-41dc-a76a-b779a2fd4652",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6228",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A file-local, null-tolerant mutator with signature `static void (UnkStageDat* stage_data)`. The argument has an optional `UnkStageDatInternal**` array at `unk28` and a signed entry count at `unk2C`; each non-null entry has a flags word at `unk4`.",
+      "rationale": "The current file-local declaration establishes internal linkage and the current body preserves the exact parameter type, optional entry-pointer array, signed count traversal, and flags-field mutation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L12-L14",
+          "why": "Shows the file-local declaration and `UnkStageDat*` parameter type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L110",
+          "why": "Shows the null-tolerant definition, entry-pointer array, signed count, and per-entry flags access."
+        }
+      ]
+    },
+    {
+      "id": "fact:8d47c660-c8d8-462a-9f27-2bee847082a5",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6228",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Post-processes a loaded stage's `map_head` by setting flag `0x04000000` on every non-null internal entry, while doing nothing when the root, entry array, or count is absent.",
+      "rationale": "The current implementation contains all three outer guards, a bounded traversal, a null-entry guard, and the fixed-mask OR mutation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the complete guarded post-processing operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:9f2c4356-496b-4537-be4e-b1f8cd221cb2",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6228",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Performs a monotonic, idempotent transition on each present entry: bit `0x04000000` becomes set while all other bits are preserved. A null root, null array, zero count, or null individual entry suppresses mutation for the corresponding scope.",
+      "rationale": "Bitwise OR with the fixed mask is monotonic and repeat-safe, and the current nested guards precisely define every no-mutation case.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the fixed-mask OR and all root-, array-, count-, and entry-level guards."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6288": [
+    {
+      "id": "fact:5c8dc3ef-2212-4cb1-8810-caa511120076",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6288",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Takes no runtime input and passes the address of `grDatFiles_8049EE10` with its complete `sizeof` to `memzero`. The resulting zero bytes replace all state in the four retained archive records, and later slot selection consumes the cleared `unk0` fields as free markers.",
+      "rationale": "The reset body identifies the destination and complete extent, `memzero` writes zero over that region, and the adjacent selector tests null archive fields.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the whole-array reset and subsequent interpretation of null archive fields as free slots."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_00B0.c#L397-L403",
+          "why": "Shows `memzero` writing zero byte by byte across its supplied region."
+        }
+      ]
+    },
+    {
+      "id": "fact:9c1b1484-8e2c-49d5-91b0-3f97f022d2fe",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6288",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Performs the archive-registry reset phase of stage initialization, ensuring stage loading begins without retained archive records from an earlier ground state.",
+      "rationale": "The function clears the entire stage-archive registry and is called first by the current global ground-state initializer.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L140-L240",
+          "why": "Shows the reset call at the beginning of global ground-state initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows that the cleared object is the stage archive registry."
+        }
+      ]
+    },
+    {
+      "id": "fact:fba69a4d-de27-4cc5-b07c-e29f74e2eff7",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6288",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grDatFiles_Init",
+      "rationale": "The body is solely a registry reset, while its placement as the first ground-initialization operation modestly favors the conventional `Init` spelling; no surviving symbol proves either name.\n\nNaming cleanup: Text states a preferred candidate; alternatives are retained.\nPrior naming claim: Likely `grDatFiles_Init` or `grDatFiles_Reset`, with `grDatFiles_Init` slightly favored because the only observed call begins the ground subsystem's global stage-state initialization.",
+      "confidence": 0.73,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows that the function exclusively clears the retained archive registry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L140-L240",
+          "why": "Places the call at the beginning of global ground initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:5c56837f-1cc3-4253-9bc6-2e757142b5cb",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6288",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void grDatFiles_801C6288(void)`. It is a zero-argument subsystem initializer/reset routine whose destination is the complete `UnkArchiveStruct[4]` registry.",
+      "rationale": "The current definition supplies the exact signature and clears the entire adjacent four-element array through `sizeof`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the exact signature, four-element declaration, and whole-array clear."
+        }
+      ]
+    },
+    {
+      "id": "fact:aaaf5d3a-1bf9-4df1-b2e7-1e81057af362",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6288",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Resets the ground-data-files subsystem's retained archive registry so all four archive-record slots begin unused before stage resources are loaded.",
+      "rationale": "The function clears exactly the four-record registry, whose selector defines a null archive field as unused, and the ground initializer invokes it before resetting other stage state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the complete registry clear and the null-field free-slot predicate."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/ground.c#L140-L240",
+          "why": "Shows the reset preceding the rest of global stage-state initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:2ab0a005-8930-4d64-bb17-f4973607880f",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6288",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Transitions all four archive records to the empty state by zeroing every field. The operation is unconditional and idempotent; invoking it while records are occupied discards their retained pointers and state values without per-archive cleanup.",
+      "rationale": "The current body remains an unconditional whole-array zero fill with no cleanup call, while adjacent loading code shows the pointer and state fields that occupied records contain.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L36-L97",
+          "why": "Shows the archive, map-head, and state values installed by normal and fallback loading."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L112-L128",
+          "why": "Shows the unconditional whole-registry zero fill and the subsequent interpretation of null archive fields as empty slots."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:grDatFiles_801C62B4": [
+    {
+      "id": "fact:27f2db53-1728-43d3-b5f0-a22972a6067d",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C62B4",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads `grDatFiles_8049EE10[i].unk0` for indices 0 through 3 and returns the address of the first entry whose archive field is null. It does not modify the table; registration code uses the result to install an archive, its `map_head`, and a state value.",
+      "rationale": "The current selector only reads and returns a table entry, while the immediately following registration routine performs the record writes.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the read-only first-free scan and the caller-owned population of the returned record."
+        }
+      ]
+    },
+    {
+      "id": "fact:87a6bcd9-d7ad-4aac-bed7-b398a178a522",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C62B4",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grDatFiles_GetFreeArchive",
+      "rationale": "The function returns the first record with a null archive field without itself allocating or initializing anything, and the neighboring public accessor establishes the `GetArchive` naming vocabulary.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `grDatFiles_GetFreeArchive`, naming its first-free archive-record lookup while following the unit's existing `grDatFiles_GetArchive` convention.",
+      "confidence": 0.74,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows first-free lookup behavior and the neighboring `grDatFiles_GetArchive` accessor."
+        }
+      ]
+    },
+    {
+      "id": "fact:8d89d9d9-23da-4aa6-8ed4-c076028db17a",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C62B4",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `static UnkArchiveStruct* grDatFiles_801C62B4(void)`. It takes no arguments and returns a mutable borrowed pointer to an element of the subsystem-owned archive-record table.",
+      "rationale": "The declaration at the current head gives the function internal linkage and its return type, while the definition takes no arguments and returns an address directly within the static archive table.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L12-L14",
+          "why": "Shows the file-local declaration, zero-argument form, and `UnkArchiveStruct*` return type."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L119-L128",
+          "why": "Shows the zero-argument definition returning a mutable address within the four-record table."
+        }
+      ]
+    },
+    {
+      "id": "fact:f31ac075-a6ef-4a34-a9cb-c3ee0ac3346d",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C62B4",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Selects the first unused archive record from the subsystem's four-slot table so a caller can populate it; exhaustion is treated as an assertion failure rather than a recoverable allocation result.",
+      "rationale": "The complete current body scans exactly four records, returns the first null archive field, and asserts if none is available.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the full first-free scan, immediate return, and exhaustion assertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:82ee5271-5037-4fd7-bf83-a6a65848eeb0",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C62B4",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A record is free exactly when its `unk0` archive field is null. Selection is deterministic first-fit in ascending index order across four slots; when every slot is occupied, `HSD_ASSERT(229, 0)` is reached and the function has no normal return.",
+      "rationale": "The current loop bound, null test, immediate return, and terminal assertion directly define availability, ordering, capacity, and exhaustion behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows all selection and exhaustion paths in the current implementation."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6330": [
+    {
+      "id": "fact:fc87b848-ee04-4411-888e-170b5c3d7e06",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6330",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives a map ID, scans the four archive records in order, and for each occupied record reads its `UnkStageDat*`, entry count, and indexed entry marker. It returns the first qualifying record or null; callers consume the returned record's `map_head` resources for the same map ID.",
+      "rationale": "The current body establishes every selection read and return path, while stage animation code shows downstream indexed resource consumption.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the ordered scan, field reads, indexed validity test, and nullable result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/granime.c#L940-L1060",
+          "why": "Shows callers consuming model and animation data from the selected record's indexed map entry."
+        }
+      ]
+    },
+    {
+      "id": "fact:4b6d7bf4-817c-41d5-9f6c-e234f5ce2e51",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6330",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports runtime stage construction and animation by resolving which loaded stage archive supplies a requested map object's model and joint, material, or shape animation resources.",
+      "rationale": "At the current head, generic stage animation code obtains joint and all three animation-resource classes through this lookup, while F-Zero car setup uses it to obtain dynamic stage geometry and animation resources.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/granime.c#L940-L1059",
+          "why": "Shows the lookup supplying a requested map entry's joint, joint animation, material animation, and shape animation resources."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grfzerocar.c#L1-L120",
+          "why": "Shows the lookup supplying model and animation data used while constructing F-Zero stage car geometry."
+        }
+      ]
+    },
+    {
+      "id": "fact:36914c5c-6161-4889-8a33-d2397dcccf44",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6330",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grDatFiles_GetArchiveForMapId",
+      "rationale": "The current header preserves the neighboring `grDatFiles_GetArchive` vocabulary, and current animation callers pass values explicitly named `map_id` and use the same value to index resources in the returned archive.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original name: `grDatFiles_GetArchiveForMapId`.",
+      "confidence": 0.82,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/gr/grdatfiles.h#L1-L16",
+          "why": "Shows the neighboring `grDatFiles_GetArchive` accessor and this function's signed-index prototype."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/granime.c#L940-L1059",
+          "why": "Shows callers passing `map_id`-domain values and indexing the selected archive's map resources with that same value."
+        }
+      ]
+    },
+    {
+      "id": "fact:f132394a-bf68-4485-99fb-78c118f3df03",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6330",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `UnkArchiveStruct* grDatFiles_801C6330(s32 map_id)`. The argument is a nonnegative index into an `UnkStageDat` entry array, and the nullable result is a borrowed pointer to an element of the fixed four-record archive table.",
+      "rationale": "The current body rejects negative values, bounds-checks the signed index, uses it for entry access, and returns an address inside static registry storage.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the exact signature, index-domain checks, nullable failure, and borrowed table-element result."
+        }
+      ]
+    },
+    {
+      "id": "fact:e8b47a43-4dbe-4f64-b423-a65c8b2f21cf",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6330",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Finds the retained stage archive whose `map_head` contains a valid resource entry at a requested map ID, allowing stage model and animation code to obtain the archive that owns that entry.",
+      "rationale": "The function returns only a record whose map table covers and marks the requested entry present, and current animation callers then read that entry's resources.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows every qualification condition in the four-record search."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/granime.c#L940-L1060",
+          "why": "Shows a selected record supplying the requested entry's model and animation tables."
+        }
+      ]
+    },
+    {
+      "id": "fact:c9774250-1f2d-42af-8d28-ba5b18fc3e34",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6330",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A negative map ID immediately fails. For a nonnegative ID, a record qualifies only when its archive field and `UnkStageDat*` are non-null, its entry count exceeds the ID, and the indexed entry's leading marker is nonzero. The first qualifying record is returned; otherwise the result is null. No archive state is changed.",
+      "rationale": "These conditions reproduce the current nested guard structure and return paths, all of which are read-only.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows all rejection guards, first-match behavior, null fallback, and absence of writes."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6478": [
+    {
+      "id": "fact:c5d43e34-9feb-4f0c-96cd-303f30b8aef6",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6478",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-supplied `data` and `length` flow into `lbArchive_InitializeDAT` with a newly allocated `HSD_Archive` descriptor. A free ground archive record receives that descriptor, the resolved `map_head`, and active value 1; `map_head` is then forwarded to `grDatFiles_801C6228`, and the populated record is returned.",
+      "rationale": "The current body is a straight-line pipeline from input image through archive initialization, record population, map-head post-processing, and return.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Traces every input, intermediate archive value, record write, setup-call argument, and returned result."
+        }
+      ]
+    },
+    {
+      "id": "fact:988bd393-4993-40c4-b344-40bd6c688493",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6478",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the in-memory DAT loading and activation step for a stage-map asset, converting serialized map data into a tracked runtime archive and exposing its `map_head` root to the ground system.",
+      "rationale": "The function combines generic DAT initialization, named `map_head` resolution, active-record registration, and map-head post-processing.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows in-memory archive initialization, `map_head` extraction, activation, and ground-map setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+          "why": "Establishes that `map_head` resolution returns an address within the archive's relocated data."
+        }
+      ]
+    },
+    {
+      "id": "fact:024dc948-4082-452f-b62a-15f2be3b7c3b",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6478",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "grDatFiles_LoadArchiveFromMemory",
+      "rationale": "Its parameters are a data pointer and byte length, and its body immediately initializes and registers an archive from those inputs; no surviving symbol establishes the exact spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `grDatFiles_LoadArchiveFromMemory`, reflecting that the routine consumes an existing memory image and returns a registered ground archive record.",
+      "confidence": 0.62,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows that the function loads and registers an archive from an already-resident memory buffer."
+        }
+      ]
+    },
+    {
+      "id": "fact:86c797cf-34cd-4576-9b13-a72a408e215a",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6478",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `UnkArchiveStruct* grDatFiles_801C6478(void* data, s32 length)`. `data` is a mutable in-memory DAT image, `length` is its byte size, and the result is a ground archive record containing an `HSD_Archive*`, resolved `map_head`, and active-state value.",
+      "rationale": "The current declaration establishes the parameter and return types, and the body establishes the image roles and all three result-record fields.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows the exact signature and returned record's archive, map-head, and state assignments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarchive.c#L17-L36",
+          "why": "Confirms that the forwarded pointer and length are the mutable DAT image and its size."
+        }
+      ]
+    },
+    {
+      "id": "fact:88384968-ffeb-4edb-aae5-4e72a811817d",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6478",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Registers an already-loaded ground-map DAT image as a live archive: it allocates and initializes an HSD archive descriptor, acquires a ground archive record, resolves `map_head`, marks the record active, performs map-head setup, and returns the record.",
+      "rationale": "Every stated step appears explicitly in the current complete function body.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows descriptor allocation, DAT initialization, record acquisition, public lookup, activation, setup, and return."
+        }
+      ]
+    },
+    {
+      "id": "fact:e406558c-50c1-438e-9c13-9afddc32231f",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_801C6478",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On success, the routine changes a free archive record into an active record by storing the descriptor and `map_head` and setting state 1. Failure to acquire a record asserts; malformed DAT input follows the fatal report-and-assert path in `lbArchive_InitializeDAT`. A missing `map_head` is not rejected locally before being forwarded.",
+      "rationale": "The current target shows the allocation assertion, state writes, and unconditional forwarding, while the resolved initializer and public lookup establish malformed-input and missing-symbol behavior.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:55:22.274Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L99-L168",
+          "why": "Shows record acquisition, assertion, activation writes, and forwarding of `map_head` without a local null check."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbarchive.c#L17-L36",
+          "why": "Shows the report-and-assert path when DAT parsing fails."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+          "why": "Shows public-symbol lookup returning null when the requested export is absent."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:grDatFiles_GetArchive": [
+    {
+      "id": "fact:2e3523ee-79f5-48e4-9350-270bc84b1659",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_GetArchive",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the global pointer grDatFiles_8049EE10 and returns that pointer unchanged. It takes no runtime input and performs no allocation, dereference, validation, reference-count operation, or state mutation.",
+      "rationale": "The complete matched body consists solely of returning the global. Therefore the only data movement is from the grDatFiles-owned pointer slot to the function's return value, with no intermediate transformation or side effect.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T04:50:37.224Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L130-L133",
+          "why": "Shows that the function directly returns the global pointer and contains no other expressions or statements."
+        }
+      ]
+    },
+    {
+      "id": "fact:ce0ea6d2-da7a-474e-ac4c-54abaff7d2a4",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_GetArchive",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: UnkArchiveStruct* grDatFiles_GetArchive(void). It returns the value of a retained archive-structure pointer and accepts no arguments.",
+      "rationale": "The matched definition explicitly supplies the zero-argument signature and pointer return type, while its return expression establishes that the result is the stored pointer value rather than an embedded structure or newly constructed object.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T04:50:37.224Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L130-L133",
+          "why": "Provides the exact function signature and identifies the returned value as grDatFiles_8049EE10."
+        }
+      ]
+    },
+    {
+      "id": "fact:f481c686-6f79-415c-921f-cea7a3a75d54",
+      "target_id": "target:function:main/melee/gr/grdatfiles:grDatFiles_GetArchive",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides callers with the archive object currently retained by the ground-data-files subsystem, without performing archive lookup, initialization, or mutation itself.",
+      "rationale": "The complete function body directly returns the grDatFiles-owned global archive pointer. Because it has no other statements or calls, its role is specifically to expose the subsystem's retained archive object rather than create, select, or modify one.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T04:50:37.224Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L130-L133",
+          "why": "Shows the complete accessor body returning grDatFiles_8049EE10 directly and performing no other operation."
+        }
+      ]
+    }
+  ],
+  "src/melee/gr/grdatfiles.c": [
+    {
+      "id": "fact:ebe78ddd-5cf3-4c4d-aef5-53dc19977ddb",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grdatfiles.c",
+      "type": "data_flow",
+      "value": "Stage DAT bytes and lengths flow into `lbArchive_InitializeDAT` or the `lbArchive` loading helpers. Named archive exports are then written into `stage_info` and retained archive-wrapper records; `map_ptcl` and `map_texg` flow into particle-bank initialization, while `map_head` flows through a post-load flagging pass and is later consumed by archive lookup routines.",
+      "rationale": "The source at the current head preserves the complete flow from DAT input through archive initialization and public-symbol resolution into stage globals, particle setup, map-head post-processing, and retained archive records.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L22-L110",
+          "why": "Shows DAT initialization, named export resolution into `stage_info`, particle-bank setup, fallback assignment, and `map_head` post-processing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L119-L167",
+          "why": "Shows archive records being selected, searched by map entry, and populated with initialized archives and resolved `map_head` roots."
+        }
+      ]
+    },
+    {
+      "id": "fact:71912baf-18a8-499c-9d09-68a4a6f8c606",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grdatfiles.c",
+      "type": "game_mapping",
+      "value": "Realizes the resource-management portion of stage initialization by preparing a stage's collision data, ground parameters, item data, model data, lighting data, camera-quake models, and particle resources before the ground system uses them.",
+      "rationale": "The current implementation still resolves the stage-specific archive exports for collision, parameters, items, models, lighting, quake models, and particles, and installs them into ground-stage state during loading.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L36-L82",
+          "why": "Shows stage archive loading and resolution of collision, ground-parameter, item, model, lighting, quake-model, and particle exports into `stage_info`."
+        }
+      ]
+    },
+    {
+      "id": "fact:6738ff67-b1c3-4e99-b999-2e70bcaeb17f",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grdatfiles.c",
+      "type": "inferred_type",
+      "value": "A ground-resource management translation unit centered on a fixed array of four `UnkArchiveStruct` records. Each record is 0xC bytes within the 0x30-byte array and retains an archive pointer, its `UnkStageDat* map_head`, and a mode/ownership field; the unit also owns fallback `GroundParam` and `UnkStageDat` objects used when no external stage DAT is supplied.",
+      "rationale": "At the current head, the unit still declares the four-record array, accesses its archive, map-head, and state members, and defines the static fallback stage structures used by the null-data loading path.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L83-L128",
+          "why": "Shows fallback selection, the four-element `UnkArchiveStruct` registry, its complete reset, and first-free-record selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L152-L182",
+          "why": "Shows all three archive-record fields being populated and the unit-owned fallback `GroundParam` and `UnkStageDat` definitions."
+        }
+      ]
+    },
+    {
+      "id": "fact:fadbb23c-c806-413f-9aaa-55763dfb7a33",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grdatfiles.c",
+      "type": "purpose",
+      "value": "Implements the ground subsystem's stage-DAT archive management: it initializes loaded DATs, resolves their named public objects into `stage_info`, initializes associated particle data, post-processes `map_head`, retains as many as four archive wrappers, and provides archive lookup and access operations.",
+      "rationale": "The current source continues to implement each part of this subsystem role: archive initialization, stage-export resolution, particle setup, map-head mutation, fixed-capacity retention, and archive lookup.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L22-L110",
+          "why": "Shows DAT initialization, public-object resolution, particle initialization, fallback handling, and `map_head` post-processing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L112-L167",
+          "why": "Shows the four-entry archive registry, reset and access operations, map-ID lookup, and registration of a newly initialized archive."
+        }
+      ]
+    },
+    {
+      "id": "fact:ddae3197-2c08-4bad-9b69-13d7a97f130d",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/gr/grdatfiles.c",
+      "type": "state_behavior",
+      "value": "The module maintains a four-slot archive registry. Initialization clears every slot; loading acquires the first record whose archive pointer is null and marks it occupied by assigning an archive pointer; exhausting all four slots asserts. Loaded `map_head` entries receive a monotonic `0x04000000` flag, while a missing external DAT selects static fallback stage data instead of an allocated archive.",
+      "rationale": "The current implementation retains the same reset, first-fit selection, capacity assertion, occupation, fixed-bit post-processing, and missing-DAT fallback transitions.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T22:59:24.064Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L36-L128",
+          "why": "Shows normal and fallback loading, monotonic map-entry flagging, registry clearing, first-free selection, and assertion on exhaustion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gr/grdatfiles.c#L152-L167",
+          "why": "Shows a newly initialized archive occupying a selected record with archive, `map_head`, and state fields before post-processing."
+        }
+      ]
+    }
+  ],
+  "main/melee/gr/grdatfiles:grDatFiles_801C5FC0#r3": [],
+  "main/melee/gr/grdatfiles:grDatFiles_801C5FC0#r4": [],
+  "main/melee/gr/grdatfiles:grDatFiles_801C5FC0#r5": [],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6038#r3": [],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6038#r4": [],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6038#r5": [],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6228#r3": [],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6330#r3": [],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6478#r3": [],
+  "main/melee/gr/grdatfiles:grDatFiles_801C6478#r4": []
+}

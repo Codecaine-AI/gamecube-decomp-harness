@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "id": "40-new-features-30-global-flow-map-30-sync",
+  "title": "Sync",
+  "root": "b-gf-sync-root-1",
+  "blocks": {
+    "b-gf-sync-root-1": {
+      "id": "b-gf-sync-root-1",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "sweep-bf2c1e66f8ec4942",
+        "sweep-5c63bc668490443b"
+      ]
+    },
+    "sweep-bf2c1e66f8ec4942": {
+      "id": "sweep-bf2c1e66f8ec4942",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "This flow map follows the current "
+        },
+        {
+          "insert": "Sync Process",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-workflows/10-sync/20-process"
+            }
+          }
+        },
+        {
+          "insert": " contract. That system-design page owns publication and recovery behavior."
+        }
+      ],
+      "children": []
+    },
+    "sweep-5c63bc668490443b": {
+      "id": "sweep-5c63bc668490443b",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Observe and Acquire",
+            "steps": [
+              {
+                "text": "Fetch the configured remote and record prior and observed upstream revisions, merged PR IDs, and requested corpus IDs. Equal upstream revisions make the request knowledge-only."
+              },
+              {
+                "text": "Record the request and refresh the Discord mirror on a best-effort basis. Failed refreshes preserve the archive already on disk."
+              },
+              {
+                "text": "Acquire the game dispatch lease. A running workflow settles its claims before handing over. Revalidate the lease during protected work."
+              }
+            ]
+          },
+          {
+            "text": "Stage and Reconcile",
+            "steps": [
+              {
+                "text": "A source-changing sync creates an isolated worktree at the harness head. A knowledge-only sync skips source reconciliation."
+              },
+              {
+                "text": "Merge upstream into the staged harness branch using the per-function score policy by default. The theirs policy is the explicit escape hatch."
+              },
+              {
+                "text": "Reconcile surviving open PR series with the same policy. A planned series with no branch or PR is skipped."
+              },
+              {
+                "text": "Persist workspace_created, harness_merged, pr_series_reconciled, and validated as durable stages. Unresolved conflicts block on conflict_needs_operator."
+              }
+            ]
+          },
+          {
+            "text": "Validate and Confirm",
+            "steps": [
+              {
+                "text": "Validate clean staging, recursive submodule state, and the report comparison. Record validation evidence before entering validated."
+              },
+              {
+                "text": "If upstream changes, extend the staged merge to the observed tip and revalidate."
+              },
+              {
+                "text": "Require explicit sync.publish confirmation and recheck upstream plus the unchanged prior canonical head. Persist recursive publication intent before entering publishing."
+              }
+            ]
+          },
+          {
+            "text": "Publish the Boundary",
+            "steps": [
+              {
+                "text": "Repoint the canonical harness worktree for a source-changing sync and verify the full recursive target state."
+              },
+              {
+                "text": "Run V2 knowledge intake against that canonical checkout and its report. Reconcile subjects, mechanically re-anchor code citations, then import PRs, Discord, and worker attempts."
+              },
+              {
+                "text": "Record head lineage, source invalidations, PR-push intents, and the knowledge_intake result in the durable boundary transaction. A knowledge-only pass keeps its prior source head."
+              },
+              {
+                "text": "Finish pending PR pushes with force-with-lease. Finalize published state, remove the publication intent, and release dispatch authority."
+              }
+            ]
+          },
+          {
+            "text": "Cancel or Recover",
+            "steps": [
+              {
+                "text": "Before publication starts, cancellation discards staging and records unchanged canonical and recursive submodule heads. It cancels queued dispatch intent or releases the held lease."
+              },
+              {
+                "text": "Publishing cannot be cancelled. A committed boundary resumes pending pushes and finalization."
+              },
+              {
+                "text": "Recovery preserves or discards pre-publication staging. Conflicts use sync.resolve_conflict. A raw interrupted publication restores the recorded prior recursive state and blocks for recovery."
+              },
+              {
+                "text": "V2 intake uses durable dedupe and result evidence on retries. It does not use the retired sync-stage knowledge-job queue."
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    }
+  }
+}

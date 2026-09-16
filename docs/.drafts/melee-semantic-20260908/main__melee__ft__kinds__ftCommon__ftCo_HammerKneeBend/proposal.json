@@ -1,0 +1,92 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_HammerKneeBend",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_HammerKneeBend:ftCo_HammerKneeBend_Phys"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Runs shared ground-friction and ground-movement processing during HammerKneeBend. The helper scales ground_friction by friction_when_above_walk_speed only when absolute gr_vel is strictly greater than walk_max_vel; this source alone does not establish that scaling increases friction.",
+        "rationale": "Repairs the unsupported multiplier-magnitude implication while retaining the verified physics purpose.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerKneeBend.c#L41-L44",
+            "why": "Direct forwarding to the shared helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Strict comparison, conditional multiplication, and named friction/movement consumers."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_HammerKneeBend.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Entry writes arg1 to hammerkneebend.x4, zero to hammerkneebend.x0, and jump_startup_time through cargokneebend.x8 before entering HammerKneeBend and running Hammer setup. Anim runs shared Hammer processing, tests hammerkneebend.x8 <= 0 for HammerJump entry, then decrements that field even after the transition call. IASA delegates short-hop release checking; Phys delegates ground physics; Coll delegates HammerWait collision, which conditionally and synchronously invokes a HammerFall entry callback. These are canonical source-view operations; compiled equivalence and preservation of the motion-variable views remain unresolved.",
+        "rationale": "Replaces unqualified shared-layout initialization and grounded persistence; independently verifies the librarian's sequencing findings and extends collision verification to the actual destination.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerKneeBend.c#L11-L49",
+            "why": "Complete entry and callback operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerJump.c#L25-L36",
+            "why": "Actual HammerJump entry and jump initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L99-L102",
+            "why": "Collision callback argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1035-L1041",
+            "why": "Conditional synchronous callback invocation without retention."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerFall.c#L26-L38",
+            "why": "Callback enters HammerFall and performs conditional ground handling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_HammerKneeBend:ftCo_800C5B88#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Declared enum_t arg1; semantically an ftCo_JumpInput on the inspected ftCo_800C5A50 call path. The caller filters out zero, but ftCo_800C5B88 does not validate the input domain.",
+        "rationale": "Preserves the useful librarian parameter proposal while distinguishing caller evidence from the canonical declaration and unchecked callee behavior.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerKneeBend.c#L11-L24",
+            "why": "Declared argument and unguarded store."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerJump.c#L15-L23",
+            "why": "Typed input and nonzero caller guard."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

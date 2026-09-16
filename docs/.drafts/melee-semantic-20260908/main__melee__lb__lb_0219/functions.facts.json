@@ -1,0 +1,951 @@
+{
+  "main/melee/lb/lb_0219:fn_800219E4": [
+    {
+      "id": "fact:628ccd4f-04d1-4d48-aac3-e97949d2036d",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_800219E4",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the manager GObj's user-data pointer from GObj_RemoveUserData and forwards it unchanged, together with allocator descriptor lbl_804336A0, to HSD_ObjFree. HSD_ObjFree prepends the released record to the free list, increments the free count, and decrements the used count.",
+      "rationale": "The current callback is a direct forwarding wrapper, while the current GObj and allocator implementations establish its input origin and resulting mutations.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L27-L30",
+          "why": "Shows the argument forwarded unchanged to HSD_ObjFree with lbl_804336A0."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/gobjuserdata.c#L1-L25",
+          "why": "Shows GObj_RemoveUserData supplying the stored user_data pointer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows the free-list and accounting mutations."
+        }
+      ]
+    },
+    {
+      "id": "fact:03b52dac-c2e3-4a4d-8b4b-3d386055f10b",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_800219E4",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbBgFlash_OnUserDataRemove",
+      "rationale": "The function is registered as GObj_InitUserData's remove callback and returns the supplied record to the manager's allocator; the exact original spelling remains inferential.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original name: lbBgFlash_OnUserDataRemove.",
+      "confidence": 0.88,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L27-L69",
+          "why": "Shows the function registered as the manager GObj's user-data removal callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/gobjuserdata.c#L1-L25",
+          "why": "Names the callback parameter remove_func and shows it invoked with gobj->user_data."
+        }
+      ]
+    },
+    {
+      "id": "fact:1c2e63ed-e7ff-4d2c-99b1-038f731efd83",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_800219E4",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void (void* user_data), compatible with GObj_InitUserData's void (*remove_func)(void* user_data) callback. At this call site, user_data points to a 0x84-byte record allocated from lbl_804336A0.",
+      "rationale": "The current callback definition, allocator setup, and GObj API jointly establish the exact callback shape and record size.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L27-L69",
+          "why": "Shows the callback signature, 0x84-byte allocator setup, allocation, and registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/gobjuserdata.c#L1-L25",
+          "why": "Defines the removal callback as void (*)(void* user_data)."
+        }
+      ]
+    },
+    {
+      "id": "fact:0a03db36-48a2-4e4f-8eb6-6bfdd583348c",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_800219E4",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the animated-flash manager GObj's user-data removal callback, recycling its user-data record into the subsystem's fixed-size HSD object pool.",
+      "rationale": "The current initializer allocates user data from lbl_804336A0 and registers this function as its removal callback; the callback returns the record to that same allocator.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L27-L69",
+          "why": "Shows the callback body, allocator initialization and allocation, and callback registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows HSD_ObjFree returning the record to the allocator's reusable free list."
+        }
+      ]
+    },
+    {
+      "id": "fact:0ee75891-bc4d-490c-a4af-4833f025ed1a",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_800219E4",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On GObj user-data removal, unconditionally transitions one manager record from used to reusable pool state. The callback contains no null or ownership guard; after it returns, GObj_RemoveUserData clears the GObj's user-data kind and pointer.",
+      "rationale": "The current callback is a straight-line HSD_ObjFree delegation, and the current allocator and GObj implementations show the resulting pool and GObj transitions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L27-L30",
+          "why": "Shows the callback has no guard and always delegates to HSD_ObjFree."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+          "why": "Shows the used-to-free pool transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/gobjuserdata.c#L13-L25",
+          "why": "Shows GObj_RemoveUserData clearing the kind and pointer after the callback."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0219:fn_80021B04": [
+    {
+      "id": "fact:2e833745-12cf-4fdd-a5cf-e00659a86a07",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021B04",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the prior ColorOverlay color-enable bit, lets fn_80021C80 advance or restart the overlay command stream, then reads x2C_hex as RGBA. RGB channels are multiplied by the global scale lbl_804D63D8; alpha is multiplied by the user-data byte at offset 0 and divided by 255. The composed GXColor is written into global background-flash state through lbBgFlash_InitState, or a transparent black replacement is installed through fn_800208B0 when color output has just become disabled.",
+      "rationale": "The relocated body directly preserves the prior-state capture, overlay update, channel scaling, normalized alpha multiplication, and mutually exclusive publish and clear outputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+          "why": "Shows the complete input, conversion, and output path at the current location."
+        }
+      ]
+    },
+    {
+      "id": "fact:8980d410-3757-44f0-b8b8-e1ef544f0368",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021B04",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Drives the visible, animated color and opacity of asset-scripted full-screen background flashes.",
+      "rationale": "The relocated callback converts an animated ColorOverlay into GXColor state, and the current background-flash renderer draws that state as a 640-by-480 screen overlay.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+          "why": "Shows the animated overlay color being transferred to the background-flash renderer state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L119-L238",
+          "why": "Shows the destination state being rendered as screen-covering RGBA geometry."
+        }
+      ]
+    },
+    {
+      "id": "fact:0257298a-d808-4272-8fa9-1219f4a8535c",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021B04",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbBgFlash_ColorAnimProc",
+      "rationale": "The relocated function remains a recurring GObj process that advances a ColorOverlay and publishes its color to the background-flash renderer; no source preserves the exact original spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: lbBgFlash_ColorAnimProc.",
+      "confidence": 0.74,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L46-L105",
+          "why": "Shows registration of fn_80021B04 as a GObj process and the color-animation work it performs."
+        }
+      ]
+    },
+    {
+      "id": "fact:d67063a3-add6-4ae1-9c81-29f4f54c23b9",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021B04",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "HSD_GObj process callback with signature void (HSD_GObj*); its user_data is an 0x84-byte allocation beginning with an 8-bit alpha multiplier followed at offset 0x4 by a ColorOverlay.",
+      "rationale": "The current initializer allocates 0x84 bytes and registers this callback, while the callback's typed user-data access establishes the byte and ColorOverlay layout.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L46-L105",
+          "why": "Shows the allocation size, callback registration, callback signature, and BgFlashUserData layout."
+        }
+      ]
+    },
+    {
+      "id": "fact:0694f909-10ab-45f9-92b6-6190793b4109",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021B04",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Runs the asset-backed background-color animation once per GObj update and synchronizes its enabled color into the global full-screen flash renderer, clearing that renderer when the animation's color-enable flag falls.",
+      "rationale": "At the current location, the callback advances the embedded ColorOverlay, publishes enabled RGBA output, and clears the direct flash state only after an enabled-to-disabled transition.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+          "why": "Shows the complete relocated process callback and its animation-update, publish, and falling-edge clear paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:8a338ee3-dd98-41c4-ac50-40cc1a6418d2",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021B04",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Maintains edge-sensitive synchronization between ColorOverlay.x7C_color_enable and the global flash renderer: while enabled it refreshes mode 5 with the current animated color every update; on the first enabled-to-disabled update it replaces that color with transparent black; if it remains disabled, it makes no renderer-state write.",
+      "rationale": "The current callback saves the old enable state, always publishes while enabled, and invokes the clear path only when the saved state was enabled.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+          "why": "Shows the enabled, falling-edge, and persistently disabled branches."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0219:fn_80021C18": [
+    {
+      "id": "fact:6b4f00d7-7354-4492-a241-ab2ea9e9f451",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C18",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the animated-flash manager GObj, its ColorOverlay command state, and an owner-specific opcode from lb_80014258, then discards all three inputs and produces no output or side effect.",
+      "rationale": "The current interpreter establishes the incoming values, and the current empty function body proves none are consumed or transformed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L148-L189",
+          "why": "Shows the three values passed through the owner-callback boundary."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L110-L110",
+          "why": "Shows the callback discarding its inputs and performing no writes or calls."
+        }
+      ]
+    },
+    {
+      "id": "fact:2be66982-ee20-470a-aa66-f9d21bba1278",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C18",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "No-op animation-command callback with signature void (HSD_GObj* gobj, CommandInfo* cmd, int opcode). The parameters identify the owning GObj, mutable command-interpreter state, and owner-specific opcode, but this implementation reads none of them.",
+      "rationale": "The relocated definition supplies the exact signature and empty body, while the current interpreter call site establishes the three parameter roles.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L110-L110",
+          "why": "Provides the exact callback signature and proves the implementation performs no operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L148-L189",
+          "why": "Shows the owner GObj, mutable CommandInfo view, and decoded opcode passed to the callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:78a8741f-4004-457e-ae9d-2a77503831cd",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C18",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Serves as the animated-flash ColorOverlay interpreter's intentionally empty owner-specific command callback. It satisfies the interpreter callback interface while providing no subsystem-specific opcode behavior beyond the common and ColorOverlay command sets.",
+      "rationale": "The current target has an empty body and is supplied to lb_80014258, which handles common and ColorOverlay opcodes before delegating higher opcodes to this callback.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L110-L138",
+          "why": "Shows the empty callback and its use by the flash manager's ColorOverlay update loop."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L148-L189",
+          "why": "Shows common and ColorOverlay command handling followed by delegation of owner-specific opcodes."
+        }
+      ]
+    },
+    {
+      "id": "fact:f2e92c12-a19f-4e76-ae3d-4b7311255d12",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C18",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Leaves the ColorOverlay command pointer, timer, interpolation state, lifetime, and owning GObj unchanged. Because the surrounding interpreter relies on handlers to consume or progress due commands, this callback contributes no state transition for owner-specific opcodes.",
+      "rationale": "The empty current body cannot mutate interpreter state, while lb_80014258 delegates owner-specific opcodes directly to it within the due-command loop.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L110-L110",
+          "why": "Proves the callback makes no state changes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L148-L189",
+          "why": "Shows owner-specific callback dispatch inside the interpreter's due-command loop."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0219:fn_80021C1C": [
+    {
+      "id": "fact:0c04ed31-eead-4e9e-9e4a-5092bcfdc917",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C1C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the global manager GObj pointer, reads that object's user_data pointer, advances four bytes to the embedded ColorOverlay, and passes that overlay to the common ColorOverlay reset routine.",
+      "rationale": "The current pointer flow identifies the state source and destination, while the reset helper establishes the resulting writes.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L112-L117",
+          "why": "Shows the complete global-GObj-to-user-data-to-ColorOverlay flow."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L228-L238",
+          "why": "Shows the fields written by the reset helper."
+        }
+      ]
+    },
+    {
+      "id": "fact:08445381-41c9-435e-9b43-321504c1fa13",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C1C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Clears the currently configured asset-driven background-flash animation so that no animated color overlay remains active.",
+      "rationale": "The target resets the ColorOverlay that the manager process otherwise converts into full-screen flash color.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L117",
+          "why": "Shows the same embedded overlay being rendered by the process and reset by this function."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L228-L238",
+          "why": "Shows removal of the animation stream and visible channel-enable state."
+        }
+      ]
+    },
+    {
+      "id": "fact:b8dcdac4-3ca6-46b2-a754-6f2bde563610",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C1C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbBgFlash_Reset",
+      "rationale": "The function performs only a comprehensive reset of the flash manager's global ColorOverlay; exact original spelling remains inferential.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original name: lbBgFlash_Reset.",
+      "confidence": 0.78,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L112-L117",
+          "why": "Shows the function delegating its sole operation to the ColorOverlay reset helper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L228-L238",
+          "why": "Shows that the delegated operation is a comprehensive reset."
+        }
+      ]
+    },
+    {
+      "id": "fact:4423896e-0df8-466a-8d94-22505f8f7b73",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C1C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void (void). It operates implicitly on the globally stored animated-flash HSD_GObj and its user data.",
+      "rationale": "The current definition takes no parameters, returns no value, and obtains all state through lbl_804D63E0.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L112-L117",
+          "why": "Provides the exact signature and global-state access."
+        }
+      ]
+    },
+    {
+      "id": "fact:69a1bac0-b997-47bb-9250-78af3b0cac4b",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C1C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Resets the persistent animated-flash manager's embedded ColorOverlay, stopping any selected animation and disabling its active color and light-overlay state.",
+      "rationale": "The relocated function addresses the global manager's ColorOverlay and calls the shared reset helper, which clears its stream, lifetime, selected animation, and enable flags.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L112-L117",
+          "why": "Shows the global manager's embedded ColorOverlay being passed to lb_80014498."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L228-L238",
+          "why": "Shows the reset helper clearing the stream, lifetime, animation reference, and both enable flags."
+        }
+      ]
+    },
+    {
+      "id": "fact:bb155eeb-d500-4874-9cbb-795cc802529c",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C1C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Transitions the global animated-flash overlay to its inactive baseline state: no command stream, zero lifetime, no selected color animation, and both ordinary-color and auxiliary-light enable flags cleared.",
+      "rationale": "The relocated function delegates to lb_80014498, whose current implementation explicitly performs each baseline assignment.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L112-L117",
+          "why": "Identifies the global overlay being reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L228-L238",
+          "why": "Shows the inactive-state assignments."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0219:fn_80021C80": [
+    {
+      "id": "fact:3c60a76b-e2fa-4a9b-bb7d-13932830be0c",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C80",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads gobj->user_data, takes the ColorOverlay at offset 0x4, and passes the GObj, overlay, and fn_80021C18 owner callback to lb_80014258. The shared helper mutates command timing and interpolated color state; each true completion result causes the same overlay to be cleared through lb_80014498.",
+      "rationale": "The relocated wrapper establishes the inputs and reset loop, while the current shared helper establishes the state mutations and completion result.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L128-L138",
+          "why": "Shows the GObj-to-user-data-to-overlay flow and both shared helper calls."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L148-L238",
+          "why": "Shows the interpreter's mutations and the reset helper's cleared fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:ad8f7cc9-bf3e-4598-b6d0-1a3bff1318f9",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C80",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the animated ColorOverlay portion of asset-scripted background flashes by advancing the timed command stream that supplies the flash renderer's RGBA state.",
+      "rationale": "The current wrapper advances the manager's ColorOverlay, and its caller immediately converts the resulting animated color into background-flash renderer state.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L138",
+          "why": "Shows the overlay update followed by conversion of the updated RGBA value into flash state."
+        }
+      ]
+    },
+    {
+      "id": "fact:c2e3cff2-c0c6-4244-85c3-7166f0b7fda6",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C80",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbBgFlash_UpdateColorOverlay",
+      "rationale": "The relocated routine remains the flash manager's update wrapper around the shared ColorOverlay interpreter and reset operation; exact original spelling is not preserved.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely lbBgFlash_UpdateColorOverlay.",
+      "confidence": 0.76,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L138",
+          "why": "Shows the function called by the recurring flash process and operating solely on its embedded ColorOverlay."
+        }
+      ]
+    },
+    {
+      "id": "fact:886dccbb-c17f-440f-be33-be778fd58fec",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C80",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Per-update callback with signature void (HSD_GObj* gobj). The supplied GObj must have user data whose first four bytes precede an embedded ColorOverlay at offset 0x4.",
+      "rationale": "The current definition provides the signature and explicitly models the user-data prefix followed by ColorOverlay x4.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L128-L138",
+          "why": "Shows the exact signature and user-data layout required by the function."
+        }
+      ]
+    },
+    {
+      "id": "fact:bbe2f8a3-a80f-4f52-abb0-010d14e5b99c",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C80",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Advances the background-flash GObj's active color-overlay command sequence and its per-frame color and lighting interpolation, resetting the overlay whenever the shared interpreter reports that the sequence or its duration has completed.",
+      "rationale": "The current wrapper repeatedly invokes the shared ColorOverlay interpreter and resets the embedded overlay on each completion result.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L128-L138",
+          "why": "Shows the relocated wrapper's interpreter-and-reset loop."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L148-L227",
+          "why": "Shows timed command dispatch, color and light interpolation, lifetime completion, and return behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:0afe60de-6719-4abe-91f2-78a361169d3f",
+      "target_id": "target:function:main/melee/lb/lb_0219:fn_80021C80",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If no command stream is active, the update returns without resetting anything. Otherwise, its timer counts down, due commands execute, and enabled ordinary-color and lighting blends advance. Completion occurs when a command handler reports it or a nonzero lifetime reaches zero; the target then resets the overlay and invokes the interpreter again until it returns false.",
+      "rationale": "The current interpreter defines inactive, waiting, command, interpolation, and lifetime-completion behavior, while the wrapper converts each completion into a reset loop.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L148-L238",
+          "why": "Shows command timing, dispatch, interpolation, lifetime completion, and reset state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L128-L138",
+          "why": "Shows repeated reset on completion until the interpreter returns false."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0219:lbBgFlash_80021A10": [
+    {
+      "id": "fact:57f21f8b-745c-4544-9b0e-02783194b064",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A10",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Copies its f32 argument into lbl_804D63D8; fn_80021B04 reads that global during each enabled ColorOverlay update and multiplies the overlay's red, green, and blue values by it before submitting the derived GXColor to lbBgFlash_InitState.",
+      "rationale": "The current setter and current process callback directly establish the complete argument-to-global-to-render-state flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L41-L44",
+          "why": "Shows the argument-to-global assignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+          "why": "Shows the global's downstream RGB scaling and flash-state output."
+        }
+      ]
+    },
+    {
+      "id": "fact:25c13773-178c-4ac0-86e7-edada60e0468",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A10",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Controls the color intensity of asset-driven full-screen background flashes.",
+      "rationale": "The stored scalar directly modulates RGB sent to the background-flash state, whose current renderer emits that color over the full screen.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L41-L105",
+          "why": "Shows the setter's value controlling the RGB output sent to flash state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbbgflash.c#L119-L238",
+          "why": "Shows the destination color rendered as full-screen geometry."
+        }
+      ]
+    },
+    {
+      "id": "fact:fc2c5245-79f0-43b2-8dc8-b01d7f78545a",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A10",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbBgFlash_SetColorScale",
+      "rationale": "A setter-style name reflects the demonstrated assignment and downstream use as a multiplier for all three animated RGB channels, not alpha.",
+      "confidence": 0.84,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L41-L44",
+          "why": "Shows a side-effect-only f32 setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+          "why": "Shows the stored scalar applied to red, green, and blue only."
+        }
+      ]
+    },
+    {
+      "id": "fact:80b0cebf-89d6-4907-b15a-dc6a02db63e3",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A10",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void (f32 scale), where scale is a dimensionless multiplier for the animated flash's RGB channel values.",
+      "rationale": "The current definition proves the signature, and its consumer establishes the parameter's multiplicative RGB semantics.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L41-L44",
+          "why": "Provides the void return and single f32 parameter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+          "why": "Shows the value used multiplicatively on animated RGB channels."
+        }
+      ]
+    },
+    {
+      "id": "fact:45186a4b-6ea8-4d69-8df9-8553bfa7295b",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A10",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Sets the animated background-flash RGB intensity multiplier used when converting the active color animation into the flash color.",
+      "rationale": "The current setter stores its f32 argument in lbl_804D63D8, and the manager process multiplies animated red, green, and blue by that value while calculating alpha separately.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L41-L44",
+          "why": "Shows the direct scalar assignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L81-L105",
+          "why": "Shows the stored value scaling RGB but not alpha."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0219:lbBgFlash_80021A18": [
+    {
+      "id": "fact:1d3e736f-0695-4ddd-a3ed-0a8344cb3f58",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A18",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Initializes an object allocator for 0x84-byte blocks with four-byte alignment, allocates one block as GObj user data, publishes the GObj through lbl_804D63E0, initializes the global RGB intensity to 1.0, and stores the low byte of its argument in the user block. It loads lbBgFlashColAnimData from LbBf.dat into lbl_804D63DC, passes render priority 6 into the flash-renderer setup, resets the embedded ColorOverlay, and registers fn_80021B04 as the manager's recurring process.",
+      "rationale": "Every allocation, global write, loaded symbol, setup call, and registered consumer is explicit in the current initializer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L46-L69",
+          "why": "Shows the complete current initializer data flow."
+        }
+      ]
+    },
+    {
+      "id": "fact:919c6386-0e12-4eb3-9232-e459c993c87c",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A18",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Makes the asset-driven background-flash service available during playable matches by loading its color-animation resource and installing the persistent manager that feeds the full-screen flash renderer.",
+      "rationale": "Common match startup invokes this initializer, whose current body loads the named flash-animation resource and installs the recurring manager process.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://995e215437/src/melee/gm/gm_16AE.c#L1986-L2042",
+          "why": "Shows the manager being initialized during common playable-match startup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L46-L69",
+          "why": "Shows loading of LbBf.dat color-animation data and installation of the manager."
+        }
+      ]
+    },
+    {
+      "id": "fact:c57f1501-cfc7-4a79-8d02-9faaaa79c7cf",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A18",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbBgFlash_Init",
+      "rationale": "The body and match-start call site establish an initializer role, but no surviving symbol establishes the exact original spelling.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is lbBgFlash_Init, reflecting that this routine performs the asset-driven flash manager's one-time resource, renderer, state, and update-process initialization.",
+      "confidence": 0.82,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L46-L69",
+          "why": "Shows the routine's comprehensive initialization behavior."
+        },
+        {
+          "kind": "code",
+          "locator": "code://995e215437/src/melee/gm/gm_16AE.c#L1986-L2042",
+          "why": "Places the routine in the common match-start initialization sequence."
+        }
+      ]
+    },
+    {
+      "id": "fact:9f335649-bf8f-47de-87f5-93cd66bfb473",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A18",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Initialization routine with signature void (int). The argument is stored as an unsigned eight-bit alpha multiplier, and normal match initialization supplies 0xFF for full opacity.",
+      "rationale": "The current definition truncates its integer argument into the first user-data byte, the process uses that byte for normalized alpha scaling, and match startup passes 0xFF.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L46-L105",
+          "why": "Shows the signature, byte-sized storage, and later normalized alpha use."
+        },
+        {
+          "kind": "code",
+          "locator": "code://995e215437/src/melee/gm/gm_16AE.c#L1986-L2042",
+          "why": "Shows the normal startup call supplying 0xFF."
+        }
+      ]
+    },
+    {
+      "id": "fact:eca9ca8f-cb30-452a-ad5e-1e109bc7ed8e",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A18",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes the persistent asset-driven background-flash manager used during a match: it creates the manager GObj and user state, loads the flash color-animation table, creates the rendering support objects, initializes the overlay player, and schedules its per-frame updater.",
+      "rationale": "The function's current location retains every one-time manager setup step, and common match startup still invokes it.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L46-L69",
+          "why": "Shows allocation, GObj creation, resource loading, renderer setup, overlay reset, and process registration."
+        },
+        {
+          "kind": "code",
+          "locator": "code://995e215437/src/melee/gm/gm_16AE.c#L1986-L2042",
+          "why": "Shows the routine being invoked during common playable-match initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:f2d7867d-e013-46dd-afa3-f61653c52ec6",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021A18",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Initialization succeeds only if both the manager GObj and its user-data block are allocated. If user-data allocation fails after GObj creation, the routine removes the GObj and returns without installing the manager. On success it establishes neutral RGB intensity, resets the ColorOverlay, and schedules a priority-1 process.",
+      "rationale": "The current nested allocation guards, cleanup branch, success-only global publication, reset call, and process registration establish these states.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L46-L69",
+          "why": "Shows both allocation guards, failure cleanup, successful baseline setup, and process scheduling."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0219:lbBgFlash_80021C48": [
+    {
+      "id": "fact:4b699d35-9b91-4e8a-976d-99ae6c5fb483",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021C48",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the globally stored manager GObj, follows its user-data pointer to the ColorOverlay at offset 0x4, and passes that overlay together with the global flash-profile table and both caller arguments to lb_800144C8. On acceptance, the selected table entry supplies the command stream and priority, while the second argument supplies the lifetime; playback timing, loop, and channel-enable state are reinitialized.",
+      "rationale": "The current wrapper establishes all forwarded inputs, and the current initializer shows every accepted state write and the write-free rejection branch.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L119-L126",
+          "why": "Shows the complete wrapper flow into the shared profile initializer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L228-L241",
+          "why": "Shows accepted profile data, lifetime, timer, loop, and enable-state writes."
+        }
+      ]
+    },
+    {
+      "id": "fact:4fcec69e-9d71-4d33-8a13-c00389bfb847",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021C48",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the common activation entry point for asset-scripted full-screen background-flash variants, including the profile used by the zero-HP Stamina Mode defeat presentation and profiles selected directly by command streams.",
+      "rationale": "The relocated target starts a selected profile on the flash manager; current callers supply profile 14 during ordinary-fighter zero-HP handling and forward two script operands from command 0x09.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L119-L126",
+          "why": "Shows profile activation on the persistent flash manager."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_0C8C.c#L27-L118",
+          "why": "Shows the zero-HP fighter presentation requesting profile 14."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbcommand.c#L84-L89",
+          "why": "Shows command 0x09 forwarding its two operands to this activation entry point."
+        }
+      ]
+    },
+    {
+      "id": "fact:64fc69a4-34c6-42d2-bff8-8b67ae5728b9",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021C48",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbBgFlash_StartColorAnim",
+      "rationale": "The current wrapper's sole role is to request the start of a selected table-backed ColorOverlay profile on the flash manager; exact original spelling remains unknown.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: lbBgFlash_StartColorAnim.",
+      "confidence": 0.76,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L119-L126",
+          "why": "Shows the function forwarding a profile request to the ColorOverlay initializer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L228-L241",
+          "why": "Shows that the delegated operation starts the selected command stream when accepted."
+        }
+      ]
+    },
+    {
+      "id": "fact:b3f59667-a127-4791-9996-b7c97be59b12",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021C48",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void (u32 profile_index, u32 completion_countdown). profile_index selects an entry from the loaded color-animation table; a nonzero completion_countdown is decremented once per update, while zero imposes no countdown-based expiration.",
+      "rationale": "The current definition proves the argument types and order, while the shared initializer and interpreter establish their profile-selection and lifetime semantics.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L119-L126",
+          "why": "Shows the exact void(u32, u32) wrapper signature and forwarding order."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L148-L241",
+          "why": "Shows profile indexing, lifetime storage, and nonzero lifetime countdown."
+        }
+      ]
+    },
+    {
+      "id": "fact:8911928a-cbe8-4a02-8e0b-384c42fb64dd",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021C48",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Attempts to start a selected asset-backed color-animation profile on the persistent background-flash manager, supplying an optional playback-lifetime countdown while respecting the priority of the currently selected profile.",
+      "rationale": "The relocated wrapper forwards its selected profile and lifetime to the shared initializer, whose current body installs the request only when its priority meets or exceeds the active profile's priority.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_0219.c#L119-L126",
+          "why": "Shows the persistent manager, profile table, and two request arguments supplied to the initializer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L228-L241",
+          "why": "Shows priority arbitration and accepted profile installation."
+        }
+      ]
+    },
+    {
+      "id": "fact:5a5c873b-2fd7-41d2-972f-2dbd2ebc7914",
+      "target_id": "target:function:main/melee/lb/lb_0219:lbBgFlash_80021C48",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A request replaces the current profile only when the requested table priority is greater than or equal to the active profile's priority. Acceptance starts the requested stream with timer and loop state reset, both animated channel groups disabled, and the supplied lifetime installed. A lower-priority request leaves the overlay unchanged; a nonzero lifetime later counts down to completion.",
+      "rationale": "All initializer mutations remain confined to the accepted priority branch, and the interpreter still decrements only nonzero lifetime values.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T03:30:09.572Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lb_013B.c#L148-L241",
+          "why": "Shows the priority guard, accepted baseline state, unchanged rejection path, and lifetime countdown."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lb_0219:fn_800219E4#r3": [],
+  "main/melee/lb/lb_0219:fn_80021B04#r3": [],
+  "main/melee/lb/lb_0219:fn_80021C18#r3": [],
+  "main/melee/lb/lb_0219:fn_80021C18#r4": [],
+  "main/melee/lb/lb_0219:fn_80021C18#r5": [],
+  "main/melee/lb/lb_0219:fn_80021C80#r3": [],
+  "main/melee/lb/lb_0219:lbBgFlash_80021A10#r3": [],
+  "main/melee/lb/lb_0219:lbBgFlash_80021A18#r3": [],
+  "main/melee/lb/lb_0219:lbBgFlash_80021C48#r3": [],
+  "main/melee/lb/lb_0219:lbBgFlash_80021C48#r4": []
+}

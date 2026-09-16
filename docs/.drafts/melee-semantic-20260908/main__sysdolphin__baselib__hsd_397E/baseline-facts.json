@@ -1,0 +1,168 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_397E:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:158dffec-ca92-48fa-8c81-140ed73955c7",
+        "target_id": "target:data:main/sysdolphin/baselib/hsd_397E:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Initialized string data beginning at 0x8040BF10 and owned by the `baselib_mfspr` translation unit, principally the aligned unsupported-special-register report format.",
+        "rationale": "The PR's compiler-layout analysis identifies this aligned format string as data that must begin a separate translation unit and associates that object with `baselib_mfspr`.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "pr",
+            "locator": "pr://3294/comment/0",
+            "why": "Identifies the aligned `baselib_mfspr` format string at 0x8040BF10 as the beginning of `hsd_397E.c`."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hsd_397E:baselib_mfspr"
+    },
+    "facts": [
+      {
+        "id": "fact:301a552c-b54b-426b-bd09-e9bba9518597",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_397E:baselib_mfspr",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an SPR number from debug-console metadata or BAT-view code, selects the corresponding fixed move-from-special-register instruction, and returns the raw word for hexadecimal formatting or bit-field decoding; an unsupported number flows into `OSReport` and produces zero.",
+        "rationale": "The current SPR and BAT consumers supply numeric identifiers and consume the returned words, while the moved implementation establishes both the supported and failure flows.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/debugconsole_main.c#L2112-L2372",
+            "why": "Shows BAT and SPR diagnostic consumers supplying identifiers and using returned values for decoding and formatted output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_397E.c#L9-L228",
+            "why": "Shows supported selectors assigning one hardware-register read to the result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_397E.c#L120-L228",
+            "why": "Shows the unsupported selector being reported before zero is returned."
+          }
+        ]
+      },
+      {
+        "id": "fact:6cd7c1cc-edbc-4259-b8cb-ccdfae28b9a7",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_397E:baselib_mfspr",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports the developer-facing special-purpose-register inspection console, including its general SPR list and decoded IBAT/DBAT views; it does not implement a player-facing gameplay mechanic.",
+        "rationale": "The current callers construct labeled SPR and BAT diagnostic pages and use this function's values as hardware-inspection output.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://fcafa1a223/src/sysdolphin/baselib/debugconsole_main.c#L2112-L2372",
+            "why": "Shows labeled DBAT, IBAT, and SPR diagnostic renderers obtaining and displaying values from `baselib_mfspr`."
+          }
+        ]
+      },
+      {
+        "id": "fact:05701c00-b518-41cf-9201-72a9a2f07850",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_397E:baselib_mfspr",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function with signature `s32 baselib_mfspr(s32 spr)`: the argument belongs to the numeric PowerPC SPR-number domain and the return value is a raw 32-bit register bit pattern.",
+        "rationale": "The moved definition at head gives the exact signed 32-bit signature, compares the argument with architectural SPR numbers, and returns values loaded directly from those registers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_397E.c#L9-L228",
+            "why": "Provides the exact signature and shows numeric SPR identifiers producing direct 32-bit register results."
+          }
+        ]
+      },
+      {
+        "id": "fact:2f6d68d0-da66-477c-9ed2-27b687062d58",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_397E:baselib_mfspr",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Reads the current raw value of a supported Gekko/PowerPC special-purpose register selected by its numeric SPR identifier so diagnostic callers can display or decode it; unsupported identifiers are reported and yield zero.",
+        "rationale": "At head, the function's complete switch remains in its new translation unit and maps numeric selectors to processor-register reads, with an explicit report-and-zero default path.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_397E.c#L9-L228",
+            "why": "Shows the numeric selector dispatch to dedicated special-register reads."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_397E.c#L120-L228",
+            "why": "Shows the remaining supported registers and the unsupported-selector report-and-zero path."
+          }
+        ]
+      },
+      {
+        "id": "fact:a0f25c55-86e5-4144-b98f-d9eedc5fc5e9",
+        "target_id": "target:function:main/sysdolphin/baselib/hsd_397E:baselib_mfspr",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Is stateless and synchronous: each invocation dispatches solely on the supplied SPR number, performs one register read for a recognized case, and returns immediately; the failure behavior logs and returns zero for an unrecognized number.",
+        "rationale": "The moved body has no persistent state mutation or timer. Each recognized switch arm performs a read and joins the common return, while the default path reports the selector and exits with zero.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_397E.c#L9-L228",
+            "why": "Shows independent argument-selected register-read cases with no persistent state writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hsd_397E.c#L120-L228",
+            "why": "Shows the common result return and the guarded report-and-zero failure path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/hsd_397E.c"
+    },
+    "facts": [
+      {
+        "id": "fact:eb58ecca-3396-4502-a49f-a8117389ec7f",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hsd_397E.c",
+        "type": "inferred_type",
+        "value": "A distinct translation unit beginning at 0x80397E0C that owns `baselib_mfspr` and its initialized data, including the aligned unsupported-register report format beginning at 0x8040BF10.",
+        "rationale": "The PR explains that the 8-byte-aligned format string could not occur in the middle of the preceding object and therefore marks a translation-unit boundary; it identifies the resulting object as `hsd_397E.c` containing `baselib_mfspr`.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T04:21:19.116Z",
+        "evidence": [
+          {
+            "kind": "pr",
+            "locator": "pr://3294/comment/0",
+            "why": "Identifies the aligned `baselib_mfspr` format string at 0x8040BF10 as the start of the separate `hsd_397E.c` translation unit."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hsd_397E:baselib_mfspr#r3"
+    },
+    "facts": []
+  }
+]

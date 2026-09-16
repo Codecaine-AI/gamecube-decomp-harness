@@ -1,0 +1,172 @@
+{
+  "tu": "main/melee/gr/grzebesroute",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L100-L113",
+            "why": "Unchecked constructor result and exact randomization branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L342",
+            "why": "Constructor failure, successful publication and shared-state entry writes."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional-success wording and preserves the cross-file construction/publication failure branch instead of assuming a freshly created manager always exists.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzebesroute:grZebesRoute_8020B1F4"
+        },
+        "type": "state_behavior",
+        "value": "Always attempts grZakoGenerator_801CAE04(NULL), ignoring its return. A zero zako_spawn_chance bypasses RNG and takes the optional reserved-entry setup branch; a nonzero bound is passed to HSD_Randi and setup is called only when the result is zero. There is no local validation of negative bounds. Manager creation is not guaranteed: on GObj creation failure the constructor frees its allocated data and returns NULL without publishing the new manager pointer. This caller nevertheless continues, and optional setup dereferences shared generator state without a local success check."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L165-L222",
+            "why": "Timer initialization, independent follow/timer branches and collision guards."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported timed player-follow phase/camera-mode interpretation and preserves numeric collision-state ambiguity.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzebesroute:grZebesRoute_8020B3C0"
+        },
+        "type": "state_behavior",
+        "value": "Initializes component 1's countdown from camera_timer and registers the joint-1 collision handler. The recurring callback follows P1 independently of that countdown: positive values decrement, while values already zero or negative cause repeated Camera_RequestQuake(QuakeKind_Loop, NULL) calls without further decrement. The collision handler sets stage_info.flags bit 0x10 only when coll->x34_flags.b1234 equals 1, the colliding GObj matches P1 and ground_kind equals 1. These numeric guards do not by themselves establish collision-direction or route-completion semantics, and there is no local bit-clear path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L180-L205",
+            "why": "Entire recurring update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2064-L2068",
+            "why": "Submitted coordinates become camera offsets."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the stale camera callee/mode description while preserving exact position and timer flow, including the absent-fighter branch.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzebesroute:grZebesRoute_8020B42C"
+        },
+        "type": "data_flow",
+        "value": "Copies the route's player_pos into a local vector, obtains Ground_GetP1Fighter(), and, only when a fighter exists, calls ftLib_80086644 to obtain its position, clamps Y to at least -50, forces X to zero and submits X/Y to Ground_801C38BC. The initial local vector is not submitted as a fallback when no fighter exists. Independently reads u.zebes2.xC4, decrementing positive values or calling Camera_RequestQuake(QuakeKind_Loop, NULL) for nonpositive values. Calls lb_800115F4 on every invocation."
+      },
+      {
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L165-L205",
+            "why": "Parameterized countdown, independent vertical following and looping-quake request."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains the existing stage context but replaces the unsupported camera-mode transition with the effect explicitly requested by canonical code.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzebesroute:grZebesRoute_8020B42C"
+        },
+        "type": "game_mapping",
+        "value": "Provides Zebes Route's vertically player-following stage-camera offset and delayed looping-quake requests during the ascent associated with Brinstar Escape Shaft. The local parameterized countdown gates quake requests; it neither ends player following nor establishes the Adventure objective's overall time limit."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L46-L52",
+            "why": "Component 1 process-slot registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L180-L205",
+            "why": "Complete update responsibilities."
+          }
+        ],
+        "op": "write",
+        "rationale": "The canonical call requests a quake, not camera mode 1; the existing recurring-component role remains correct.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzebesroute:grZebesRoute_8020B42C"
+        },
+        "type": "purpose",
+        "value": "Runs Ground component 1's recurring update: conditionally follows P1 with a vertically clamped stage-camera offset, decrements a positive countdown or requests a looping quake when it is nonpositive, and invokes lb_800115F4 after either branch."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L180-L205",
+            "why": "Independent fighter guard and mutually exclusive timer branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the post-expiration effect and makes the branch boundary explicit without claiming how the camera subsystem deduplicates or realizes repeated requests.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grzebesroute:grZebesRoute_8020B42C"
+        },
+        "type": "state_behavior",
+        "value": "Without P1's fighter, leaves the camera offset unchanged through this callback. With a fighter, forces X to zero and follows Y with a lower clamp of -50. Independently decrements the countdown once when positive; a transition from one to zero does not request a quake on that invocation. When the value is already zero or negative, leaves it unchanged and calls Camera_RequestQuake(QuakeKind_Loop, NULL) on that and every subsequent invocation unless another writer changes the timer. Player following continues independently of expiration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L79-L113",
+            "why": "Parameter caching and generator branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L165-L222",
+            "why": "Timer, camera and collision consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L236-L300",
+            "why": "Spatial preset and scale consumers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the TU-level camera-mode claim while retaining the parameter producers, consumers and broader controller responsibilities.",
+        "subject": {
+          "entity_locator": "src/melee/gr/grzebesroute.c"
+        },
+        "type": "data_flow",
+        "value": "Initialization caches the two-field Yakumono parameter block before configuring Ground objects 0 through 2 and establishes stage flags. zako_spawn_chance controls the zero-result guard around optional shared-generator entry setup; camera_timer seeds component 1's countdown. Component 1 conditionally sends P1's vertically clamped position to the stage-camera offset setter and independently decrements the countdown or requests QuakeKind_Loop when it is nonpositive. Its registered collision handler can OR bit 0x10 into stage_info.flags. Load-time lighting consumes the unit's fixed spatial vectors and a Ground-provided scale."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzebesroute.c#L165-L222",
+            "why": "Initialization and complete stateful callbacks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes stale camera-mode and collision-direction interpretations while preserving numeric guards, independent branches and flag lifetime uncertainty.",
+        "subject": {
+          "entity_locator": "src/melee/gr/grzebesroute.c"
+        },
+        "type": "state_behavior",
+        "value": "Component 1 starts with a parameterized countdown. Positive values decrement; values already zero or negative repeatedly request Camera_RequestQuake(QuakeKind_Loop, NULL) without further decrement. Independently, a present P1 fighter supplies a camera-offset target with X=0 and Y clamped to at least -50; without a fighter no offset is submitted. The joint collision callback ORs stage flag 0x10 only for b1234 category value 1, P1 GObj identity and ground_kind value 1. The callback does not clear the bit, and its local code does not establish that the bit means completion."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -68,9 +68,10 @@ def looks_like_project_repo(path: Path) -> bool:
     """Return true when ``path`` has enough GameCube decomp checkout shape."""
 
     return (path / "src").is_dir() and (
-        (path / "build" / "GALE01").exists()
+        (path / "objdiff.json").is_file()
+        or (path / "build.ninja").is_file()
         or (path / "compile_commands.json").exists()
-        or (path / "config" / "GALE01").exists()
+        or any((path / "build").glob("*/report.json"))
     )
 
 
@@ -85,8 +86,16 @@ def resolve_repo_root(value: str | Path | None = None) -> Path:
     cwd = Path.cwd().resolve()
     if looks_like_project_repo(cwd):
         return cwd
-    project_id = os.environ.get("ORCH_GAME_ID", "melee")
-    return (package_root() / "projects" / project_id / "checkout").resolve()
+    from search_index import project_dir_for_tool, load_game_config
+    game_dir = project_dir_for_tool(Path(__file__).resolve())
+    configured = load_game_config(game_dir).get("repoRoot")
+    if configured:
+        return (game_dir / configured).resolve()
+    canonical = game_dir / "workspace" / "checkout"
+    legacy = game_dir / "checkout"
+    if canonical.exists() and legacy.exists():
+        raise RuntimeError("Both canonical and legacy game checkouts exist")
+    return (legacy if legacy.exists() else canonical).resolve()
 
 
 def clip(text: str | bytes | None, max_chars: int = MAX_STREAM_CHARS) -> str:
@@ -332,6 +341,23 @@ def import_tool_module(module_name: str, repo_root: Path) -> Any:
         if path not in sys.path:
             sys.path.insert(0, path)
     return importlib.import_module(module_name)
+
+
+def project_layout(repo_root: Path) -> Any:
+    """Load the selected checkout layout while preserving report overrides."""
+
+    module = import_tool_module("project_layout", repo_root)
+    return module.get_project_layout(repo_root, os.environ.get("ORCH_GAME_REPORT_PATH"))
+
+
+def repo_path_label(repo_root: Path, path: str | Path) -> str:
+    """Keep checkout-owned paths relative without breaking external overrides."""
+
+    value = Path(path)
+    try:
+        return str(value.relative_to(repo_root))
+    except ValueError:
+        return str(value)
 
 
 @contextlib.contextmanager

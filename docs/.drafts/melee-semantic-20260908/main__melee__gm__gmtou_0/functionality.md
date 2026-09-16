@@ -1,0 +1,14 @@
+## Tournament setup
+This unit loads GmTou1p/GmTou2p, MnExtAll, TmBox and Tournament SIS resources, constructs setting and entrant presentation, dispatches controller input by cur_option, and releases four archives on scene exit while preserving selected shared state. The header exposes the shared TmBox archive pointer only.
+
+States 0–5 edit match type, combatants, encoded entrants, human/CPU composition, stage-selection policy and CPU level. States 6–8 choose entrant initialization, external rules-menu handoff or restart. State 9 is an animation transition with no input handler. States 10/12/16 select entrant character/name/handicap columns; 11 edits characters, 13/14 choose name source, 15 browses saved names, and 17/18 provide final acceptance/cancellation. State 19 is inactive. The dispatcher assumes nonnegative valid state, processes global exit before pause, and advances xA modulo 11 before state exclusions.
+
+Presentation includes six setting rows, a three-choice indicator, 64 portrait/handicap pairs displayed through a twelve-row window, a 25-cell character grid plus persistent preview, a four-column nine-row saved-name view, and final-choice models. Frame-reset ordering matters: fn_80191154 loops applied frames 10–39 or 50–78 after initial sequences, refreshes entrant text at frame 49 and selects state 10. Its rendered TimeMenu name is misleading. fn_801918F0 is a Tournament visual despite its Training Mode source comment.
+
+Entrant editing uses x2 for handicap, separately from CPU level x1. A on character/name columns creates cancellation backups before opening editors; it does not commit staged values. Character navigation wraps rows/columns and skips disallowed candidates, while costume X/Y changes stop at endpoints. Start in character editing restores backups before final confirmation. Name-source selection provisionally assigns a name, and only the subsequent list handler performs occupancy/uniqueness acceptance; full name storage blocks new-name launch without leaving the source state. Name Entry returns through gm_80190FE4 with an accepted index or 0x78 cancellation sentinel.
+
+Subtype branches remain explicit: normal bracket setup derives active/human counts separately and performs 1000 order swaps, preserving index zero when the cached controller count is below two, not during early rounds. Other subtypes use different count constraints and copy selected entrant fields to compact player-selection records before state-2 handoff.
+
+No compiled section size, adjacency or literal-pool placement is established. Rendered hypotheses were compared with canonical behavior; supported existing names and explanations are retained rather than rewritten. External CreateText name collisions remain renderer issues, and exact late-state asset identities and downstream special-entrant semantics remain uncertain.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

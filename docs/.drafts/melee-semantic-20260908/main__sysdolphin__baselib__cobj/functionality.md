@@ -1,0 +1,45 @@
+# HSD Camera Objects
+
+Draft semantic review at `c302741689bd67c361cd7faadb221df3193992c3`. Independent root review accepted all 35 proposed changes and applied them to the staged KB. Full final rendering is complete. Root promoted these 35 changes to the live KB; 24 prior claims remain unresolved. The TU lead separately read all canonical and rendered lines of cobj.c and cobj.h. Four librarians own disjoint function and parameter clusters.
+
+## Purpose and Entry Points
+
+`HSD_CObj` stores a renderer camera. It combines an eye WObj, interest WObj, roll or explicit up vector, viewport and scissor rectangles, clipping planes, projection parameters, a view matrix, animation state and an optional inverse-view cache. The canonical field named `proj_mtx` holds that inverse cache, not the 4-by-4 projection matrix sent to GX. The latter is built in render-setup stack storage. See [layout](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.h#L37-L74), [projection construction](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L199-L240) and [inverse cache](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L785-L795).
+
+`HSD_CObjLoadDesc` selects a registered descriptor class or the default allocator, allocates the object and dispatches its virtual load method. `HSD_CObjInit` instead calls the base loader directly on an existing object after null checks. Class initialization calls the parent initializer, marks matrices dirty and allocates the two WObjs. Release removes AObj animation, decrements WObj references and calls their release/destroy methods when indicated, frees the inverse cache and delegates to the parent. Class amnesia resets the default-class pointer on a match, resets current only for the base camera class and then delegates. See [loading and lifetime](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1243-L1406).
+
+## Render Activation
+
+`HSD_CObjSetCurrent` rejects null input, reads the render pass, clears the deferred Z list and stores the supplied camera as current before setup. A failed top/bottom pass setup therefore leaves the current pointer changed. Successful setup refreshes the view matrix. `HSD_CObjEndCurrent` calls Z-list sort and display; it does not itself reset current. See [activation](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L485-L525).
+
+The offscreen path copies camera rectangle coordinates into GX state. The normal path scales coordinates from VI dimensions to framebuffer/EFB dimensions and uses viewport jitter for field rendering. The top-half path clips viewport height at EFB height and derives its GX scissor from viewport bounds. The bottom-half path uses an origin of EFB height minus eight and camera scissor bounds. Both half paths adjust vertical projection extents to the visible fraction. See [pass implementations](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L228-L465).
+
+Perspective, frustum and orthographic projections use their corresponding MTX builders. Some reads use the perspective union member spelling for frustum/orthographic top and bottom. The header proves the first two float slots overlap. This is a layout fact, not evidence that these projections use an FOV. See [projection union](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.h#L50-L70).
+
+## Orientation and Cache State
+
+Eye and interest setters delegate position updates to their WObjs. Eye direction is normalized interest minus eye, with a negative-Z fallback and failure status. Up direction comes from explicit state when flag 1 is set, otherwise from a negative-roll rotation around eye direction. Left direction is normalized up cross eye. The fallback vectors are eye negative Z, up positive Y and left positive X. See [position and eye vector](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L527-L610) and [orientation](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L617-L755).
+
+View dirty bit 30 or either WObj flag 2 triggers look-at reconstruction unless camera flag 2 suppresses it. Reconstruction clears those view dirty indicators and sets inverse dirty bit 31. `HSD_CObjSetMtxDirty` sets both high bits. The ordinary inverse accessor refreshes the view first; its Direct counterpart only checks bit 31, allocates cache storage when needed, inverts the stored view and clears bit 31 without checking the inversion result. Its clean path assumes cache storage already exists. See [view refresh](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L467-L483) and [cache accessors](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L758-L835).
+
+## Animation and Parameter Updates
+
+A camera AObj and the eye/interest WObj animations are attached, requested and interpreted together. The camera callback reads float payloads. Channels 1, 2 and 3 write eye x, y and z. Channels 5, 6 and 7 each write interest x in the pinned source. Channels 9 through 12 set roll, FOV, near and far. These are documented literally; this review does not repair code. `HSD_CObjRemoveAnimByFlags` ignores its flags argument in the available implementation. See [animation](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L75-L197).
+
+Projection, clipping, viewport and scissor setters store camera fields; they do not install GX state directly. Scalar FOV/aspect operations require perspective mode. Perspective side getters derive near-plane extents, while side setters only change frustum or ortho fields. Bulk projection setters select a mode and fill its parameters. `HSD_CObjGetPerspective` writes FOV and aspect through canonically misleading parameters named top and bottom. Proposed parameter aliases are subject to independent review. See [accessors](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L856-L1240).
+
+## Boundaries and Uncertainty
+
+This TU proves how it calls GX, VI, MTX, WObj, AObj, class and display-list APIs. It does not independently establish game camera policies, shadow callers, list internals or shared-header ownership. The report includes a `vec_normalize_check` target instantiated from foreign util.h; its shared definition remains a family dependency. Named source functions absent from report targets are inventoried separately and receive no fabricated writable identities.
+
+The top-half matrix is canonically declared `Mtx`, with a source comment documenting a fourth-row spill into adjacent stack storage. Explicit-up `HSD_CObjSetRoll` ignores failure from `roll2upvec`, which can leave its local vector unwritten. Invalid projection modes and degenerate geometry are not uniformly guarded. These are source observations, not matching or runtime-test results. See [top-half declaration](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L292-L299) and [roll update](code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L837-L854).
+
+## Review Artifacts
+
+`context.json` preserves the frozen file and subject inventory. Cluster directories contain per-function findings, all prior-fact dispositions and proposed changes. The [campaign snapshots](../../../../games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__sysdolphin__baselib__cobj/pages/) contain immutable canonical and rendered reading views; [read receipts](../../../../games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__sysdolphin__baselib__cobj/reads.jsonl) record each range. The copy under the campaign unit uses the adjacent `pages/` and `reads.jsonl` artifacts. cobj.c renders returned status ok, two parser errors and zero substitutions; cobj.h returned status ok, zero parser errors and zero substitutions. Parser uncertainty is recorded even though the displayed source remained complete.
+
+## Staged Acceptance
+
+Accepted proposal SHA-256 `74aa0a541e5467dbb493788df86599f979440c83fd742550d52bcd0c5c32c42c`. Root records acceptance in [review.json](/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/docs/.drafts/melee-semantic-20260908/main__sysdolphin__baselib__cobj/review.json) and [staged completion](/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__sysdolphin__baselib__cobj/staged-completion.json). [Final rendering](/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/units/main__sysdolphin__baselib__cobj/final-render.json) retains two C parser gaps and zero substitutions. Canonical source is unchanged.
+
+Live promotion: [immutable live receipt](</Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/melee/state/knowledge_v2/semantic-sweep-20260908/promotions/74aa0a541e5467dbb493788df86599f979440c83fd742550d52bcd0c5c32c42c/2026-09-08T14-32-30.526Z-2d19f161-e2cc-41a3-b2e6-8d188b937f77.receipt.json>).

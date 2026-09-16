@@ -24,6 +24,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -39,10 +40,11 @@ from ninja_compile import (
 
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
-from project_root import resolve_root
+from project_layout import get_project_layout
+from project_root import reference_object_root, resolve_root
 
 ROOT = resolve_root()
-SRC_ROOT = ROOT / "src"
+LAYOUT = get_project_layout(ROOT)
 # Sibling implementation scripts live next to this one, not in the melee tree.
 TOOLS = Path(__file__).resolve().parent
 
@@ -71,7 +73,7 @@ def _emit_compile_output(stdout: str, stderr: str) -> None:
 
 def build_unit(obj_path: str) -> Optional[CompiledObject]:
     """Compile a TU, diagnosing includes only for MWCC missing-symbol errors."""
-    c_file = SRC_ROOT / f"{obj_path}.c"
+    c_file = ROOT / get_project_layout(ROOT).source_path_for_unit(obj_path)
 
     compile_stdout = io.StringIO()
     compile_stderr = io.StringIO()
@@ -93,7 +95,7 @@ def build_unit(obj_path: str) -> Optional[CompiledObject]:
         capture_output=True,
     )
     if result.returncode != 0:
-        print(f"fix_includes.py failed:", file=sys.stderr)
+        print("fix_includes.py failed:", file=sys.stderr)
         print(result.stderr.decode(), file=sys.stderr)
         return None
 
@@ -115,7 +117,17 @@ def run_diff(
     pipeline. Callers that specifically need the instruction-focused view can
     pass strict=False to ignore data-relocation symbol diffs.
     """
-    ref_obj = f"./build/GALE01/obj/{obj_path}.o"
+    layout = get_project_layout(ROOT)
+    configured_root = os.environ.get("ORCH_GAME_REFERENCE_OBJECT_ROOT")
+    if configured_root:
+        operational = layout.operational_name_for_unit(obj_path)
+        ref_obj = str(reference_object_root(ROOT) / f"{operational}.o")
+    else:
+        target = layout.target_object_path_for_unit(obj_path)
+        if layout.version == "GALE01" and not target.is_absolute():
+            ref_obj = f"./{target.as_posix()}"
+        else:
+            ref_obj = str(target if target.is_absolute() else ROOT / target)
     command = [
         objdiff_cli(), "diff",
         "--format", "json",

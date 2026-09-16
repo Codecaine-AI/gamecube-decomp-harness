@@ -1,0 +1,80 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_StopWall",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_StopWall:ftCo_8009EE30"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Enters common StopWall using a selected ECB-side offset. It optionally requests a Kirby-only effect through ftKb_SpecialN_800F1F1C, changes motion state with Ft_MF_None and arguments 0, 1, 0, NULL, corrects cur_pos.x using the saved offset and post-transition facing/translation fields, then performs collision processing and resets velocity-related fields. The Kirby helper does not adjust the contact vector; its spawn path copies that vector into effect storage.",
+        "rationale": "Replaces the unsupported generic wall-contact-adjustment interpretation with independently verified canonical callee behavior and exact ordered entry operations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L32-L57",
+            "why": "Complete entry sequence and exact position expression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L4154-L4160",
+            "why": "Kirby-only effect request, not vector adjustment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L16-L22",
+            "why": "Spawn kind 2 selects the offset variant."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1405-L1464",
+            "why": "Active spawn branch copies the Vec3 instead of retaining its stack address."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L911-L939",
+            "why": "Canonical velocity-related reset implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_StopWall.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The public predicate invokes StopWall entry only for exact facing/wall-hug pairings (-1, RightWallHug) or (+1, LeftWallHug) and ABS(gr_vel) strictly above walk_max_vel. It does not locally check signed travel direction or ground_or_air. Entry performs collision processing before velocity reset, and that collision helper can already change state, so true reports initiated entry rather than guaranteed final StopWall residency. IASA and Phys are empty. Anim calls ft_8008A2BC whenever its animation query is false; the dispatcher has boss-specific and ordinary alternative outcomes. Coll always delegates to ft_800843FC, which can enter Fall.",
+        "rationale": "Replaces the universal ordinary-grounded-completion claim and preserves exact guard scope, callback behavior, and immediate collision-exit ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L16-L73",
+            "why": "Guard, entry order, and all callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1101-L1137",
+            "why": "Collision exits and external predicate consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109",
+            "why": "Boss dispatch and alternate ordinary outcomes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2873-L2883",
+            "why": "Active StopWall callback bindings."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

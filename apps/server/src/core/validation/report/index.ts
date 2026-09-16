@@ -1,6 +1,7 @@
 export {
   compactReportMeasures,
   forceReportRun,
+  reportRunOptionsForGame,
   readReportSummary,
   type ReportRunOptions,
   type ReportRunResult,

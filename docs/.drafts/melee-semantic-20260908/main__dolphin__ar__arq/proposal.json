@@ -1,0 +1,60 @@
+{
+  "tu": "main/dolphin/ar/arq",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/arq.c#L32-L74",
+            "why": "Uses the current chunk size and gives high-priority work precedence at completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/arq.c#L91-L102",
+            "why": "Initializes the default quantum."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/arq.c#L222-L235",
+            "why": "Exposes mutable chunk configuration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the fixed-0x1000 claim while preserving supported transfer purpose, priority scheduling and deferred notification.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ar/arq:__ARQServiceQueueLo"
+        },
+        "type": "game_mapping",
+        "value": "Implements chunked low-priority movement between main memory and ARAM, allowing high-priority requests to run at intervening DMA-completion boundaries. Non-final transfers use the current configured chunk size, initialized to 0x1000 bytes but changeable through ARQSetChunkSize. The low-priority client's completion callback is armed only for the final chunk."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/arq.c#L32-L74",
+            "why": "Exact branch conditions, full-quantum mutations and completion scheduling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/ar/arq.c#L154-L235",
+            "why": "Exceptional pending-state clearing and configurable quantum."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the fixed threshold and records important progress-update and cancellation exceptions without asserting hardware behavior for degenerate sizes.",
+        "subject": {
+          "target_stable_key": "main/dolphin/ar/arq:__ARQServiceQueueLo"
+        },
+        "type": "state_behavior",
+        "value": "Does nothing when both the low-priority pending pointer and queue head are null; otherwise it promotes one queued request if needed and launches one DMA. Remaining length greater than the current chunk size selects a non-final chunk without installing a completion callback. Remaining length at most that size selects the final transfer and arms the callback. After either branch, length is reduced and both addresses advanced by the full chunk size, even when the final DMA is shorter. Normal interrupt handling preserves intermediate pending state, tries high-priority work first, and clears final low-priority state after callback return. Remove and flush operations can separately clear pending low state when no final callback is armed. The quantum defaults to 0x1000 but is configurable; zero is not rejected by the setter."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

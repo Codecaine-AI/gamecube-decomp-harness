@@ -1,0 +1,150 @@
+29: void AXDriverUnlink(HSD_SM* v, HSD_SM** head)
+30: {
+31:     HSD_SM* p;
+32:     HSD_SM* n;
+33: 
+34:     if (v != NULL) {
+35:         p = v->prev;
+36:         n = v->next;
+37:         v->next = NULL;
+38:         v->prev = NULL;
+39:         if (p != NULL) {
+40:             p->next = n;
+41:         }
+42:         if (n != NULL) {
+43:             n->prev = p;
+44:         }
+45:         if (*head == v) {
+46:             *head = n;
+47:         }
+48:         HSD_ASSERT(113, *head != v);
+49:     }
+50: }
+51: 
+52: static inline void unk_inline(HSD_SM* v, HSD_SM** head)
+53: {
+54:     if (v == NULL) {
+55:         return;
+56:     }
+57: 
+58:     HSD_ASSERT(0x7A, *head != v);
+59: 
+60:     v->prev = NULL;
+61:     if (*head != NULL) {
+62:         (*head)->prev = v;
+63:     }
+64:     v->next = *head;
+65:     *head = v;
+66: }
+67: 
+68: static inline bool tmp(HSD_SM* v)
+69: {
+70:     int idx;
+71:     u32 state;
+72: 
+73:     state = v->flags & SMSTATE_MASK;
+74:     HSD_ASSERTMSG(0x92, state == SMSTATE_ACTIVE || state == SMSTATE_SLEEP,
+75:                   "(v->flags&SMSTATE_MASK) == SMSTATE_ACTIVE || "
+76:                   "(v->flags&SMSTATE_MASK) == SMSTATE_SLEEP");
+77: 
+78:     idx = v->vID;
+79:     if (v->vID != -1) {
+80:         AXDriver_804C5920[idx & 0x3F] = 0;
+81:         v->vID = -1;
+82:         HSD_SynthSFXKeyOff(idx);
+83:         AXDriver_804D77C8--;
+84:     }
+85: 
+86:     v->flags &= ~0x20000000;
+87:     v->flags &= ~SMSTATE_MASK;
+88:     return true;
+89: }
+90: 
+91: bool AXDriverKeyOff(int vid)
+92: {
+93:     bool result;
+94:     int idx;
+95:     HSD_SM* v;
+96:     bool enabled;
+97:     PAD_STACK(8);
+98: 
+99:     idx = vid & 0x7F;
+100:     if (vid < 0 || idx >= 0x60) {
+101:         return false;
+102:     }
+103: 
+104:     enabled = OSDisableInterrupts();
+105:     v = &AXDriver_804C45A0[idx];
+106: 
+107:     if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+108:         OSRestoreInterrupts(enabled);
+109:         return false;
+110:     }
+111: 
+112:     if (v == NULL) {
+113:         result = false;
+114:     } else {
+115:         result = tmp(v);
+116:     }
+117: 
+118:     OSRestoreInterrupts(enabled);
+119:     return result;
+120: }
+121: 
+122: void HSD_AudioSFXKeyOffAll(void)
+123: {
+124:     bool enabled = OSDisableInterrupts();
+125:     HSD_SM* v = AXDriver_804D7794;
+126:     PAD_STACK(8);
+127: 
+128:     while (v != NULL) {
+129:         if (v->flags & SMSTATE_MASK) {
+130:             if (v != NULL) {
+131:                 tmp(v);
+132:             }
+133:         }
+134:         v = v->next;
+135:     }
+136:     OSRestoreInterrupts(enabled);
+137: }
+138: 
+139: void HSD_AudioSFXKeyOffTrack(int track)
+140: {
+141:     bool enabled = OSDisableInterrupts();
+142:     HSD_SM* v = AXDriver_804D7794;
+143: 
+144:     while (v != NULL) {
+145:         if ((v->flags & SMSTATE_MASK) && v->track == track) {
+146:             if (v != NULL) {
+147:                 tmp(v);
+148:             }
+149:         }
+150:         v = v->next;
+151:     }
+152:     OSRestoreInterrupts(enabled);
+153: }
+154: 
+155: #ifdef MUST_MATCH
+156: /// MSL sqrtf expansion (src/MSL/math_ppc.h) writing its result through a
+157: /// caller-provided slot, as in sqrtf_store in lbcollision.c and mplib.c.
+158: /// Evidence: retail AXDriver_8038BF6C keeps its eight sqrt results in
+159: /// adjacent 4-byte stack temps at frame offsets 0x10..0x2C (an 8-byte
+160: /// aligned base), one slot per call in source order, each accessed as a
+161: /// stfs/lfs pair. The volatile-qualified accesses through the slot pointer
+162: /// pin those pairs without changing behavior.
+163: static inline float sqrtf_store(float x, volatile float* y)
+164: {
+165:     if (x > 0.0F) {
+166:         double guess = __frsqrte((double) x);
+167:         guess = 0.5 * guess * (3.0 - guess * guess * x);
+168:         guess = 0.5 * guess * (3.0 - guess * guess * x);
+169:         guess = 0.5 * guess * (3.0 - guess * guess * x);
+170:         *y = (float) (x * guess);
+171:         return *(volatile float*) y;
+172:     }
+173:     return x;
+174: }
+175: #else
+176: #define sqrtf_store(x, y) sqrtf(x)
+177: #endif
+178: 

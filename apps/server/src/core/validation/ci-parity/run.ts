@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { runCommand } from "@server/infrastructure/shell/index.js";
 import { actionableFailureOutput } from "../failure-output.js";
 import { localizeConfigureArgs, parseCiBuildMatrix } from "./workflow.js";
+import { executeBuildTask, remoteBuildsEnabled } from "../build/execution.js";
 
 export interface CiParityStep {
   name: string;
@@ -98,6 +99,7 @@ export async function runCiParityGate(input: {
   modes?: string[];
   runCommand?: CiParityCommandRunner;
 }): Promise<CiParityResult> {
+  if (!input.runCommand && remoteBuildsEnabled()) return executeBuildTask(input.worktreeDir, { kind: "ci", input: { ...input } });
   const modes = input.modes ?? ["link", "test"];
   const result: CiParityResult = { status: "clean", modes, steps: [], reasons: [], warnings: [] };
   const commandRunner = input.runCommand ?? defaultCommandRunner;
@@ -263,6 +265,7 @@ export async function runPreCommitGate(input: {
   cacheDir: string;
   runCommand?: CiParityCommandRunner;
 }): Promise<CiParityResult> {
+  if (!input.runCommand && remoteBuildsEnabled()) return executeBuildTask(input.worktreeDir, { kind: "precommit", input: { ...input } });
   const result: CiParityResult = { status: "clean", modes: ["pre-commit"], steps: [], reasons: [] };
   const commandRunner = input.runCommand ?? defaultCommandRunner;
 
@@ -355,6 +358,7 @@ export async function runPreCommitAutofix(input: {
   cacheDir: string;
   runCommand?: CiParityCommandRunner;
 }): Promise<PreCommitAutofixResult> {
+  if (!input.runCommand && remoteBuildsEnabled()) return executeBuildTask(input.worktreeDir, { kind: "autofix", input: { ...input } });
   const steps: CiParityStep[] = [];
   const commandRunner = input.runCommand ?? defaultCommandRunner;
   const probe = await runStep({ cwd: input.worktreeDir, name: "pre-commit version", command: ["pre-commit", "--version"], steps, runCommand: commandRunner });

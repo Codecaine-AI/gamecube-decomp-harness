@@ -1,0 +1,94 @@
+68:     return num;
+69: }
+70: 
+71: void* HSD_ObjAlloc(HSD_ObjAllocData* data)
+72: {
+73:     HSD_ObjAllocLink* cur;
+74:     u32 size;
+75: 
+76:     if (data->num_limit_flag && data->used >= data->num_limit) {
+77:         return NULL;
+78:     }
+79:     if (data->heap_limit_flag) {
+80:         if (data->heap_limit_num == (unsigned) -1) {
+81:             if (obj_heap.top != 0) {
+82:                 size = obj_heap.remain;
+83:             } else {
+84:                 size = OSCheckHeap(HSD_GetHeap());
+85:             }
+86:             if (size <= data->heap_limit_size) {
+87:                 data->heap_limit_num = data->used + data->free;
+88:             }
+89:         } else {
+90:             if (obj_heap.top != 0) {
+91:                 size = obj_heap.remain;
+92:             } else {
+93:                 size = OSCheckHeap(HSD_GetHeap());
+94:             }
+95:             if (size > data->heap_limit_size) {
+96:                 data->heap_limit_num = -1;
+97:             }
+98:         }
+99:         if (data->used >= data->heap_limit_num) {
+100:             return NULL;
+101:         }
+102:     }
+103:     if (data->free == 0) {
+104:         HSD_ObjAllocAddFree(data, 1);
+105:         if (data->free == 0) {
+106:             return NULL;
+107:         }
+108:     }
+109:     cur = data->freehead;
+110:     data->freehead = cur->next;
+111:     data->used += 1;
+112:     data->free -= 1;
+113:     if (data->used > data->peak) {
+114:         data->peak = data->used;
+115:     }
+116:     return cur;
+117: }
+118: 
+119: void HSD_ObjFree(HSD_ObjAllocData* data, void* obj)
+120: {
+121:     HSD_ObjAllocLink* link = obj;
+122:     link->next = data->freehead;
+123:     data->freehead = link;
+124:     data->free += 1;
+125:     data->used -= 1;
+126: }
+127: 
+128: static inline void removeAll(HSD_ObjAllocData* data)
+129: {
+130:     HSD_ObjAllocData** cur = &alloc_datas;
+131:     while (*cur != NULL) {
+132:         if (*cur == data) {
+133:             *cur = (*cur)->next;
+134:         } else {
+135:             cur = &(*cur)->next;
+136:         }
+137:     }
+138: }
+139: 
+140: void HSD_ObjAllocInit(HSD_ObjAllocData* data, size_t size, u32 align)
+141: {
+142:     HSD_ASSERT(0x185, data);
+143:     if (data != NULL) {
+144:         removeAll(data);
+145:     } else {
+146:         alloc_datas = NULL;
+147:     }
+148:     memset(data, 0, sizeof(HSD_ObjAllocData));
+149:     data->num_limit = -1;
+150:     data->heap_limit_size = 0;
+151:     data->heap_limit_num = -1;
+152:     data->align = align - 1;
+153:     data->size = (size + data->align) & ~data->align;
+154:     data->next = alloc_datas;
+155:     alloc_datas = data;
+156: }
+157: 
+158: void _HSD_ObjAllocForgetMemory(void* low, void* high)
+159: {
+160:     alloc_datas = NULL;
+161: }

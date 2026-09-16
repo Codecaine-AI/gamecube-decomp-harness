@@ -1,0 +1,150 @@
+{
+  "tu": "main/melee/ft/ftwaitanim",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftwaitanim:ftCo_8008A6D8"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Installs or restarts a supplied animation ID on a valid Fighter_GObj. ID -1 skips installation. Otherwise it invokes resource loading/resolution, records the ID, configures dynamics before assigning selected animation flags, installs the command-script pointer and clears loop_count. With x590 non-null it assigns flags and initializes playback at frame 0, rate 1, using the first blend byte as duration. It then clears the script timer and invokes ftAnim_8006EBA4 even when x590 is null. There is no direct motion-state transition call, but downstream script/callback state effects are not excluded.",
+        "rationale": "Replaces the baseline's absolute state-preservation statement with exact local behavior and conditional installation scopes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L19-L37",
+            "why": "Complete ordering, sentinel and resource guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L379-L386",
+            "why": "Final processing includes action-script and other downstream calls."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftwaitanim:ftCo_8008A698#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source argument fp is Fighter*. It must identify a live Fighter; the predicate reads item_gobj and, when present, the item's hold-kind attribute without modifying these objects. Physical register assignment is not independently verified.",
+        "rationale": "Records the parameter's verified source-level role without asserting compiled ABI evidence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L11-L17",
+            "why": "Exact signature and guarded item access."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L126-L131",
+            "why": "Read-only hold-kind accessor."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftwaitanim:ftCo_8008A6D8#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source argument gobj is Fighter_GObj*, providing the mutable Fighter and animation object. Fighter resolution precedes the anim_id sentinel guard; -1 is not a null-object safety guarantee. Physical register assignment is unverified.",
+        "rationale": "Documents argument role and sentinel ordering without overclaiming ABI or ownership.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L19-L37",
+            "why": "Signature, resolution order and object use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftwaitanim:ftCo_8008A6D8#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source argument anim_id is s32. -1 skips installation; other values directly index fp->x24 and fp->x28 without local bounds validation. This is an animation index, not a command to enter the motion state suggested by an enum token's spelling. Physical register assignment is unverified.",
+        "rationale": "Captures canonical type, boundary and semantic domain.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L19-L37",
+            "why": "Sentinel, indexing and current animation assignment."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftwaitanim:ftCo_8008A7A8#r3"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source argument gobj is Fighter_GObj*. It supplies the live Fighter for completion, held-item, kind and current-animation checks and subsequent installation. The owned body does not take ownership or register it for deferred work. Physical register assignment is unverified.",
+        "rationale": "Documents synchronous local use without asserting global callback safety.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L62-L105",
+            "why": "Complete updater object use."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "main/melee/ft/ftwaitanim:ftCo_8008A7A8#r4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Source argument arg1 is an optional borrowed WaitStruct*. Null invokes current-animation installation. A used non-null table is read synchronously without mutation or retention: u.i.x == -1 terminates, u.i.y contributes cumulative weight, and the selected value is returned as (enum_t)u.p.x. Storage validity, appropriate union representation and valid selected indices are preconditions; compiled layout and physical register assignment are unverified.",
+        "rationale": "Preserves the exact union accesses rather than promoting the librarian's logical integer-pair shorthand to a representation guarantee.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.h#L6-L21",
+            "why": "Union and parameter declaration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L47-L79",
+            "why": "Actual traversal, cast and null branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftwaitanim.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Cycling is completion-gated. Null table or an item held by a fighter other than Fox/Mewtwo invokes current-ID installation; otherwise weighted draws are retried while equal to the current ID, except current IDs 2 and 31 allow repetition. No retry cap exists, so a table selecting only a disallowed current ID can loop forever. Thresholds are 1..100; weights are not normalized or validated, insufficient coverage can assert, and signed accumulation overflow has no defined recovery. Installation skips only -1, directly indexes metadata, calls dynamics before assigning selected flags, and resets/processes the script even with x590 null. Numeric repeat exceptions have no established visual mapping.",
+        "rationale": "Adds verified boundary, liveness and ordering details while keeping unsupported gameplay interpretation explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwaitanim.c#L19-L105",
+            "why": "All guards, selection, retries and installation ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/random.c#L6-L21",
+            "why": "Actual threshold range."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "tu": "main/melee/ft/kinds/ftPopo/ftpopospecialn",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPopo/ftpopospecialn.c#L114-L137",
+            "why": "Exact live-field comparison, writes and call arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123",
+            "why": "Collision query updates positions before returning."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's implication that cleanup tests whether a saved item pointer remained unchanged across destruction.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPopo/ftpopospecialn:ftPp_SpecialAirN_Coll"
+        },
+        "type": "data_flow",
+        "value": "Resolves Fighter and ftIceClimberAttributes from gobj and invokes ft_80081D0C, which updates collision positions. On a result other than GA_Ground, a non-null x222C is passed to it_802C17DC. After that call the function reacquires fighter user data and compares the live x222C fields through fp1 and fp2; it does not preserve the pre-call item pointer. Equality clears x222C, death2_cb and take_dmg_cb. The branch then resets x224C and x2250 and passes gobj, false and attribute x8 to ftCo_LandingFallSpecial_Enter."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftPopo/ftpopospecialn.c#L114-L137",
+            "why": "Guarded cleanup and landing entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L105-L123",
+            "why": "Actual query result construction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L103-L113",
+            "why": "HammerLanding exception and normal lag consumer."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the literal guard, query side effects and cross-file exceptional transition.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftPopo/ftpopospecialn:ftPp_SpecialAirN_Coll"
+        },
+        "type": "state_behavior",
+        "value": "After ft_80081D0C performs collision processing, a GA_Ground return causes no additional local work. A non-GA_Ground return triggers tracked-item destruction and conditional fighter-side cleanup, resets x224C/x2250 and calls ftCo_LandingFallSpecial_Enter with allow_interrupt=false and landing_lag=attribute x8. The common entry helper selects HammerLanding when ftCo_800C5240 succeeds; otherwise it enters LandingFallSpecial using the supplied interruption policy and lag. The query's enum result must not be equated directly with the fighter's ground_or_air field."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

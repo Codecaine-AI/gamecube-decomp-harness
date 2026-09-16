@@ -1,0 +1,60 @@
+{
+  "tu": "main/dolphin/gx/GXPerf",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPerf.c#L7-L471",
+            "why": "Old selector resets, new programming, final flag update and selector-dependent readback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPerf.c#L624-L632",
+            "why": "Vertex-cache selection updates the low nibble separately."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/__gx.h#L141-L147",
+            "why": "Macro establishes numerical bit positions and preservation of other bits."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the low-nibble claim: SET_REG_FIELD uses size 4 and shift 4 for GP selection, whereas vertex-cache attribute selection uses shift 0.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXPerf:GXSetGPMetric"
+        },
+        "type": "data_flow",
+        "value": "The previous selections come from gx->perf0 and gx->perf1 and determine which hardware selector is reset. The arguments then replace those shadow fields and are translated into XF register 6 values, BP/rasterizer command words, bits 4\u20137 of gx->perfSel, or command-processor register 3 values. The perfSel update preserves its low nibble, which GXSetVCacheMetric updates separately. GXReadGPMetric later dispatches on the stored selections to interpret the physical counters, and GXSetGPMetric clears gx->bpSent after programming."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPerf.c#L7-L351",
+            "why": "Selection transitions, assertion branches and bpSent update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPerf.c#L353-L689",
+            "why": "Counter-specific guards, reset operations and shared XF/raster hardware configuration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the blanket read/clear prohibition with the actual per-routine guards and preserves the shared-hardware/cache lifetime distinction.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/gx/GXPerf.c"
+        },
+        "type": "state_behavior",
+        "value": "GP selection disables sources associated with the old cached selectors before storing and programming replacements. NONE performs no new selector write; invalid old or new selectors reach assertions. GP reads/clears, memory reads/clears, and pixel reads assert against display-list construction. This restriction is not a universal local guard: pixel clear uses CHECK_GXBEGIN and emits rasterizer commands, while vertex-cache and XF/raster reads have no local display-list assertion. GP clear writes 4 to __cpReg[2] without changing selections. GP selection and XF/raster initialization set bpSent to 0, whereas pixel clear sets it to 1. XF/raster initialization reuses GP selector hardware without updating gx->perf0 or gx->perf1."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

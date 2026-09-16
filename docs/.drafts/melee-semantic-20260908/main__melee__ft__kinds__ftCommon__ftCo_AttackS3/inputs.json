@@ -1,0 +1,841 @@
+{
+  "head_revision": "c302741689bd67c361cd7faadb221df3193992c3",
+  "files": [
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3",
+      "sha256": "52c2bd587d26bfb3a2f90cbd1bcbd4b2479be44a339671fa8599eda500fb892c",
+      "lines": 111,
+      "bytes": 3147
+    },
+    {
+      "path": "src/melee/ft/kinds/ftCommon/ftCo_AttackS3.h",
+      "owner": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3",
+      "sha256": "dfee35b2fc3f3a59de5bc09ce865494b3759001b55c52991d0821a1f778f917d",
+      "lines": 15,
+      "bytes": 411
+    }
+  ],
+  "subjects": [
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:.sdata2"
+      },
+      "facts": [
+        {
+          "id": "fact:37c182f6-7e40-4f57-9084-27bc7a2f46ed",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:.sdata2",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "decideAngle uses the pool's 0.0f value for the initial animation frame and blend parameter and its 1.0f value for normal animation speed, forwarding those values to Fighter_ChangeMotionState when entering the selected high, shallow-high, straight, shallow-low, or low AttackS3 motion.",
+          "rationale": "After selecting one of the five AttackS3 motion IDs, the current decideAngle implementation calls Fighter_ChangeMotionState with frame 0, rate 1, and blend 0. Those arguments identify the consumers of the section's two floating-point literals.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L1-L111",
+              "why": "The current source selects among five AttackS3 motion IDs and initializes the selected state through Fighter_ChangeMotionState with frame 0, rate 1, and blend 0."
+            }
+          ]
+        },
+        {
+          "id": "fact:45274eac-6145-41dc-a171-362aede46770",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:.sdata2",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "An 8-byte read-only small-data literal pool containing two single-precision floating-point values: 0.0f and 1.0f.",
+          "rationale": "The target is an eight-byte .sdata2 section, enough for two single-precision values, and the current translation unit's motion-state entry requires exactly the distinct floating-point values zero and one for its frame, rate, and blend arguments.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L1-L111",
+              "why": "The current side-tilt entry path passes zero, one, and zero in the floating-point initialization positions of Fighter_ChangeMotionState, establishing the two distinct literal values used by the unit."
+            }
+          ]
+        },
+        {
+          "id": "fact:24109eaa-a9a3-4ae5-9257-c2c5c031ae87",
+          "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:.sdata2",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Provides the read-only floating-point literals used when the common side-tilt angle-selection helper initializes the chosen AttackS3 motion state; it is a compiler-emitted literal pool rather than a standalone gameplay table.",
+          "rationale": "At the renamed checkout path, the complete translation unit contains no named constant object or gameplay table, while decideAngle supplies frame 0, animation rate 1, and blend 0 to Fighter_ChangeMotionState. Together with the target's eight-byte section identity, this accounts for .sdata2 as the unit's floating-point literal pool.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L1-L111",
+              "why": "The complete current translation unit has no named constant object and shows decideAngle initializing the selected AttackS3 state with zero-valued frame and blend arguments and unit animation rate."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:decideAngle"
+      },
+      "facts": [
+        {
+          "id": "fact:570f8070-baa9-4256-8b2e-b1728d7445ce",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:decideAngle",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives a Fighter_GObj, obtains its Fighter, and passes the object first to ftpickupitem_80094790. On the side-tilt path it reads the fighter's left-stick angle, four angular thresholds from p_ftCommonData, and the x8 availability pointer from the motion-data records tested by each non-neutral branch. It converts those reads into an FtMotionId, clears Fighter.allow_interrupt, passes the selected ID to Fighter_ChangeMotionState, and then passes the fighter object to ftAnim_8006EBA4.",
+          "rationale": "The current body explicitly exposes each object and fighter read, the four common-data thresholds, the branch-specific motion-data probes, the selected motion ID, the interrupt-field write, and both transition calls.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L57-L86",
+              "why": "The current definition directly shows the fighter, stick-angle, threshold, and motion-data reads and the resulting interrupt write and state-entry calls."
+            }
+          ]
+        },
+        {
+          "id": "fact:f6238bc2-71ed-4cf3-988b-50ce6a69dfb0",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:decideAngle",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements forward-tilt angling: diagonal left-stick input is classified into upward, slight-upward, neutral, slight-downward, or downward side-tilt variants, with neutral side tilt serving as the fallback for unsupported or non-qualifying variants.",
+          "rationale": "The helper maps stick-angle ranges to five named AttackS3 motion states and applies availability guards before selecting each non-neutral result. SmashWiki identifies diagonal control-stick alteration of a forward tilt as angling and notes that Melee attacks can have five angles.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L57-L86",
+              "why": "The current helper maps left-stick angle thresholds to high, shallow-high, neutral, shallow-low, and low side-tilt motion states."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://angling~__intro__@r2029702",
+              "why": "The article defines angling as changing a forward tilt's direction with diagonal control-stick input and states that some Melee attacks have up to five angles."
+            }
+          ]
+        },
+        {
+          "id": "fact:76727857-508a-4683-b9b3-cbe94b2b5120",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:decideAngle",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A side-effecting action-entry helper with signature void (Fighter_GObj*). It may leave the fighter's motion state unchanged when the item-pickup helper succeeds; otherwise it enters and initializes a side-tilt motion state.",
+          "rationale": "The current definition establishes the void/Fighter_GObj* signature. Its pickup-success path reaches the end without calling Fighter_ChangeMotionState, while the other path enters a selected AttackS3 state and initializes its animation.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L57-L86",
+              "why": "The current definition provides the exact signature and shows both the pickup-consumed path and the side-tilt state-entry path."
+            }
+          ]
+        },
+        {
+          "id": "fact:0fc88511-d999-4130-9e6a-6711ed0e6bc6",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:decideAngle",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Gives the item-pickup path first opportunity to consume an accepted forward-tilt command; if it does not, selects an available side-tilt angle variant from the fighter's left-stick angle and enters that motion state.",
+          "rationale": "The current function first invokes the item-pickup helper and performs no side-tilt transition when that helper succeeds. Otherwise it classifies the stick angle, applies motion-data availability guards, disables interruption, changes motion state, and initializes animation processing.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L57-L86",
+              "why": "The complete current function shows the pickup guard, angle classification, motion-state selection and transition, and animation initialization."
+            }
+          ]
+        },
+        {
+          "id": "fact:87c80b4a-37d3-4145-83c1-ca8c17593998",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:decideAngle",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "If ftpickupitem_80094790 succeeds, the helper returns without entering a side-tilt state. Otherwise it tests angle bins in priority order: above x9C_radians with a non-null AttackS3S motion-data x8 selects AttackS3Hi; otherwise above xA0_radians with a non-null AttackS3LwS x8 selects AttackS3HiS; otherwise below xA8_radians with a non-null AttackLw3 x8 selects AttackS3Lw; otherwise below xA4_radians with a non-null AttackHi3 x8 selects AttackS3LwS; all remaining cases select AttackS3S. The chosen path clears allow_interrupt, enters the motion at frame 0 with rate 1 and no motion flags, and initializes animation state.",
+          "rationale": "This follows the current ordered if/else-if ladder exactly, including the specific motion-data record probed by each branch. The order gives stronger qualifying angles priority, while a failed angle or null x8 probe continues toward later branches and ultimately the neutral fallback.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L57-L86",
+              "why": "The current body exposes the pickup guard, ordered threshold ladder, exact motion-data availability probes, neutral fallback, interrupt-field update, and motion-state entry parameters."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Anim"
+      },
+      "facts": [
+        {
+          "id": "fact:42f333f5-8369-4aaa-8770-3210ae413657",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Anim",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Consumes the fighter object only to query whether its current animation has frames remaining; when the query becomes false, it forwards the same object unchanged to the common action-ending helper and returns no value.",
+          "rationale": "The callback passes gobj unchanged to the frame-remaining predicate and, after animation expiration, directly to ft_8008A2BC. The helper at the current head consumes that object to dispatch either a hand-boss-specific action end or the common neutral-state transition.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:42:09.917Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L88-L93",
+              "why": "The complete callback passes the unchanged fighter object to the animation query and then to ft_8008A2BC when no frames remain."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+              "why": "The current ft_8008A2BC body consumes the forwarded object to choose a hand-boss-specific completion path or the common neutral-state helper."
+            }
+          ]
+        },
+        {
+          "id": "fact:6317d544-f986-4714-a18c-53dcc810ff71",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Anim",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the natural completion boundary of a forward tilt: after any selected side-tilt angle variant finishes its animation, the fighter returns through the common neutral-state path.",
+          "rationale": "The current AttackS3 unit selects among five angle variants and gives them this shared animation callback. Once their animation expires, the callback invokes a helper whose ordinary-fighter branch enters the common neutral-state path and transitions to Wait.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-04T22:42:09.917Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L1-L111",
+              "why": "The unit selects five AttackS3 angle states and shows their shared animation callback invoking the completion helper after animation expiration."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+              "why": "The current completion helper routes ordinary fighters through ft_8008A348, whose normal path changes motion state to Wait."
+            }
+          ]
+        },
+        {
+          "id": "fact:c7ae1d22-9f61-4d88-9c23-544f52b58125",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Anim",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Fighter animation-state callback with signature void (Fighter_GObj* gobj).",
+          "rationale": "The matched definition takes one Fighter_GObj pointer, returns no value, and performs per-state animation completion processing.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:07:51.494Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L88-L93",
+              "why": "Provides the exact parameter and return types and demonstrates animation-state callback behavior."
+            }
+          ]
+        },
+        {
+          "id": "fact:bad86af0-ae09-439a-b22b-65c7c5d62977",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Anim",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Handles forward-tilt animation completion by preserving the current action while animation frames remain and invoking the common action-ending transition once the animation expires.",
+          "rationale": "The callback's sole guard calls ft_8008A2BC only when no animation frames remain. At the current head, that helper dispatches hand bosses specially and sends ordinary fighters through the common neutral-state transition.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T22:42:09.917Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L88-L93",
+              "why": "The complete callback does nothing while frames remain and invokes ft_8008A2BC precisely after animation expiration."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+              "why": "The current ft_8008A2BC implementation dispatches hand bosses specially and otherwise invokes the common neutral-state helper."
+            }
+          ]
+        },
+        {
+          "id": "fact:77374269-1d94-47e4-b00f-626eb3b231f4",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Anim",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "While forward-tilt animation frames remain, the callback performs no transition. On the first update with no frames remaining, it exits through the common action-ending path, which normally places an ordinary fighter in Wait while retaining that helper's special-fighter and exceptional neutral-state branches.",
+          "rationale": "The frame-remaining predicate is the callback's sole guard and ft_8008A2BC is its sole outgoing transition. At the current head, that helper dispatches Master Hand and Crazy Hand separately, while its ordinary path handles exceptional neutral conditions before entering Wait.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T22:42:09.917Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L88-L93",
+              "why": "The callback remains in its current state while frames remain and invokes its only transition helper once the animation has expired."
+            },
+            {
+              "kind": "code",
+              "locator": "code://d80cdea319/src/melee/ft/ft_08A1.c#L1-L100",
+              "why": "The current helper shows separate Master Hand and Crazy Hand dispatches and an ordinary path with exceptional neutral branches followed by Wait entry."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_CheckInput"
+      },
+      "facts": [
+        {
+          "id": "fact:86577a3a-a72d-42c8-b7ff-fa8bee5d7bdd",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_CheckInput",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Reads the fighter's newly pressed buttons, left-stick vector, facing direction, held buttons, and held-item object, together with common horizontal-displacement and angular thresholds. It normalizes horizontal input by facing direction, classifies a held item through it_8026B30C, passes the fighter object to the selected action-entry routine, and returns true when the command is consumed or false when the outer input guards fail.",
+          "rationale": "Every listed input is directly read in the matched body. Multiplication by facing_dir converts stick X into fighter-relative forward displacement, ABS of ftCo_GetLStickAngle tests proximity to horizontal, and the item classifier controls which transition callee receives the fighter object.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-01T23:08:18.470Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L26-L55",
+              "why": "The source directly exposes all fighter-input, common-data, and item reads, their guard expressions, the transition calls, and the returned boolean."
+            }
+          ]
+        },
+        {
+          "id": "fact:b624c4a9-b154-4434-be9b-c666f9c954e4",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_CheckInput",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Realizes the grounded forward/side-tilt command and its held-item multiplexing: an A press with the stick directed sufficiently forward and near horizontal becomes either the fighter's angled forward tilt or an item-specific forward use/throw action.",
+          "rationale": "The code's fighter-relative forward and horizontal-angle tests identify the side-tilt command, while its item branches show that the same command is redirected when the fighter holds an item. SmashWiki independently documents distinct forward/side-tilt uses for held weapons such as the Star Rod and Beam Sword.",
+          "confidence": 0.95,
+          "updated_at": "2026-09-01T23:08:18.470Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L26-L55",
+              "why": "The matched routine requires A plus fighter-relative forward horizontal stick input and then chooses between decideAngle and held-item actions."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://debug-menu-ssbm-debug-sound-test-menu~fgm-group-grpsfx-main@r2043300",
+              "why": "The mirrored sound-test documentation distinguishes Star Rod forward-tilt use and Beam Sword side-tilt use from their smash and neutral attacks, corroborating tilt-specific held-item behavior."
+            }
+          ]
+        },
+        {
+          "id": "fact:fea98a18-2406-4158-9aa1-d11e387b1298",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_CheckInput",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A transition predicate with signature bool (Fighter_GObj*): it may change the fighter's action state and reports whether it consumed the input.",
+          "rationale": "The matched definition accepts one Fighter_GObj pointer and returns bool. Its true paths invoke action-entry routines, while false is returned only when no qualifying command is accepted; its use in an interrupt-priority guard chain confirms the return value means that a transition consumed further processing.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-01T23:08:18.470Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L26-L55",
+              "why": "The definition proves the bool/Fighter_GObj* signature and shows state-changing calls immediately before true returns."
+            },
+            {
+              "kind": "discord",
+              "locator": "discord://message/1107058670912684132",
+              "why": "The archived caller example uses the function as an early-return guard in an IASA transition-priority sequence."
+            }
+          ]
+        },
+        {
+          "id": "fact:c0e7a4f3-0f66-41bf-bf87-164dc450d72f",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_CheckInput",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Recognizes a valid forward side-tilt command and consumes it by starting an appropriate held-item action or by entering the side-tilt action with an angle selected from the stick input.",
+          "rationale": "The function first requires a new A-button input, sufficient stick displacement toward the fighter's facing direction, and a stick angle inside the horizontal threshold. Once those guards pass, it dispatches item-specific actions when applicable and otherwise calls decideAngle; every successful dispatch returns true.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-01T23:08:18.470Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L26-L55",
+              "why": "The complete matched function directly shows the input guards, item-action branches, call to decideAngle, and success/failure return values."
+            },
+            {
+              "kind": "discord",
+              "locator": "discord://message/1107058670912684132",
+              "why": "The archived IASA example places ftCo_AttackS3_CheckInput among the ordered attack-transition predicates and returns immediately when it succeeds."
+            }
+          ]
+        },
+        {
+          "id": "fact:31c3cd6d-2c30-4f44-95ab-577b45ba674f",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_CheckInput",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "The routine accepts input only when A was newly pressed, the stick reaches the common forward threshold relative to facing, and the absolute stick angle is below the common horizontal-angle limit. With an item, held L/R or item class 0 starts LightThrowF; item class 2 invokes ftCo_Attack_800CCF58 with mode 1; item class 3 invokes ftCo_Attack_800CDD14. All other accepted cases fall through to decideAngle. Each selected path returns true; rejection of an outer guard returns false.",
+          "rationale": "This is the exact guard and dispatch structure in the matched source. In particular, unhandled item classifications do not reject the command: control leaves the item branch and reaches decideAngle.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-01T23:08:18.470Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L26-L55",
+              "why": "The complete function shows the nested guards, item-class switch, LightThrowF transition, fallback to decideAngle, and all return paths."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Coll"
+      },
+      "facts": [
+        {
+          "id": "fact:c2583a44-05f9-403f-8dc0-1c368926d18d",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Coll",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives the active fighter's Fighter_GObj pointer from the action-state callback dispatcher and passes that same pointer unchanged to ft_80084104; it performs no local field reads, writes, transformations, or result handling.",
+          "rationale": "The complete four-line definition contains only ft_80084104(gobj), with no local variables, alternate arguments, return value, or additional operations.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-02T00:06:44.397Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L107-L110",
+              "why": "The complete body shows the incoming pointer being forwarded unchanged and no other local data operations."
+            }
+          ]
+        },
+        {
+          "id": "fact:8fec64ff-cd6e-49bc-ba33-2da07d4f1830",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Coll",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Supplies collision processing while a fighter is performing the common grounded forward-tilt action.",
+          "rationale": "The containing matched unit is ftCo_AttackS3, its input routine recognizes the forward attack command and enters the side-tilt behavior, and this function is that action's Coll callback.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-02T00:06:44.397Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L26-L55",
+              "why": "The unit's input routine recognizes a forward horizontal attack input and dispatches the side-tilt angle-selection path when an item action does not supersede it."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L107-L110",
+              "why": "The resolved ftCo_AttackS3_Coll definition shows the action's collision callback invoking the shared fighter routine."
+            },
+            {
+              "kind": "pr",
+              "locator": "pr://pr-848--main-melee-ft-chara-ftcommon-ftco-attacks3",
+              "why": "The merged pull request identifies the containing implementation as ftCo_AttackS3."
+            }
+          ]
+        },
+        {
+          "id": "fact:299dc263-4b16-4170-b354-b6431c2283a4",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Coll",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Action-state collision callback with signature void(Fighter_GObj* gobj).",
+          "rationale": "The resolved definition explicitly returns void and accepts one Fighter_GObj pointer; its Coll suffix and placement alongside the action's Anim, IASA, and Phys callbacks establish its action-state collision-callback role.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:06:44.397Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L107-L110",
+              "why": "The definition directly establishes the void return type, single Fighter_GObj* parameter, and collision-callback symbol."
+            },
+            {
+              "kind": "pr",
+              "locator": "pr://pr-848--main-melee-ft-chara-ftcommon-ftco-attacks3",
+              "why": "The pull request identifies this function's containing unit as the reconstructed ftCo_AttackS3 action implementation."
+            }
+          ]
+        },
+        {
+          "id": "fact:5ec5ec40-b36f-4572-9eb7-b9a01dfdb847",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Coll",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Serves as the common forward-tilt action state's collision callback, delegating the fighter's collision handling to the shared fighter routine ft_80084104 rather than implementing side-tilt-specific collision logic locally.",
+          "rationale": "The complete function body is an unconditional call to ft_80084104 with the supplied fighter object, while the merged reconstruction identifies the containing translation unit as ftCo_AttackS3. The identically shaped down-tilt collision callback delegates to the same routine, further supporting that this is a thin action-specific wrapper around shared fighter collision handling.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-02T00:06:44.397Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L107-L110",
+              "why": "The complete definition shows ftCo_AttackS3_Coll forwarding its Fighter_GObj argument directly and unconditionally to ft_80084104."
+            },
+            {
+              "kind": "pr",
+              "locator": "pr://pr-848--main-melee-ft-chara-ftcommon-ftco-attacks3",
+              "why": "The merged pull request identifies the containing common-fighter translation unit as the matched ftCo_AttackS3 implementation."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackLw3.c#L169-L172",
+              "why": "The common down-tilt collision callback has the same one-call wrapper shape and invokes the same shared fighter routine."
+            }
+          ]
+        },
+        {
+          "id": "fact:73d8ca5c-d31a-4cbb-9072-d3df9d0d3fe8",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Coll",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "Introduces no side-tilt-specific guard, timer, branch, or transition; every collision-dependent state decision performed during this callback is delegated to ft_80084104.",
+          "rationale": "Because the complete callback is an unconditional one-call wrapper, it cannot independently test side-tilt state, choose a transition, or apply action-specific collision conditions.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-02T00:06:44.397Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L107-L110",
+              "why": "The complete source body contains one unconditional delegation and no local control flow or state mutation."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_IASA"
+      },
+      "facts": [
+        {
+          "id": "fact:535d3bd6-22e6-4d01-a4fd-49c8c2655c37",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_IASA",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Receives the side-tilt state's Fighter_GObj, obtains its Fighter, and reads allow_interrupt. When interruption is enabled, it forwards the unchanged Fighter_GObj to ftCo_Wait_IASA, where current controller input is consumed by the common grounded transition predicates; otherwise it produces no further effect.",
+          "rationale": "The target's only locally consumed datum is Fighter.allow_interrupt, and its only outgoing value is the unchanged object pointer supplied to ftCo_Wait_IASA. The callee's body confirms that this object feeds the ordered input checks.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:07:32.088Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L95-L100",
+              "why": "Shows the Fighter lookup, allow_interrupt read, and unchanged gobj forwarding."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+              "why": "Shows the sequence of grounded input checks that consumes the forwarded fighter object."
+            }
+          ]
+        },
+        {
+          "id": "fact:27ed8b00-b8b3-4bf2-9830-c9bb736d8736",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_IASA",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Implements the actionable ending window of a forward tilt: after the move's script enables interruption, the player can cancel its remaining animation into an accepted grounded attack, grab, jump, dash, turn, walk, or another action recognized by the common standing dispatcher.",
+          "rationale": "The source identifies the callback with the AttackS3 action and gates standing transitions on allow_interrupt. The mechanics reference defines IASA/first actionable frame as the point at which an attack's remaining animation can be interrupted by a new action, directly matching this guard-and-delegate behavior.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-02T00:07:32.088Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L95-L100",
+              "why": "Identifies the callback as AttackS3 IASA processing and shows its interruption gate."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+              "why": "Identifies the grounded actions available through the delegated input dispatcher."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://interruptibility~overview@r1927829",
+              "why": "Defines IASA and the first actionable frame as the point when a new action can cancel the remaining attack animation, including in Melee."
+            }
+          ]
+        },
+        {
+          "id": "fact:2df2873c-de1d-4914-b4e3-590cd8031a94",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_IASA",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "A fighter action-state IASA callback with signature void (Fighter_GObj*); it returns no transition result and delegates transition selection rather than directly changing motion state.",
+          "rationale": "The matched definition directly establishes the void return type and single Fighter_GObj pointer parameter. Its body only reads allow_interrupt and conditionally forwards the same object to another IASA routine.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:07:32.088Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L95-L100",
+              "why": "Provides the complete callback signature and body."
+            }
+          ]
+        },
+        {
+          "id": "fact:1fc3fd77-3eaa-4b14-b726-c0af970b1596",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_IASA",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Handles input-as-soon-as-allowed processing during a common side tilt: it suppresses input-driven transitions until the move becomes interruptible, then delegates to the standing-state input dispatcher so an accepted ordinary grounded action can cancel the remaining animation.",
+          "rationale": "The complete function does exactly one guarded operation, calling ftCo_Wait_IASA only when Fighter.allow_interrupt is nonzero. The resolved callee is an ordered dispatcher for grounded attacks, grabs, jumping, dashing, turning, walking, and other common transitions.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:07:32.088Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L95-L100",
+              "why": "Shows the side-tilt IASA callback gating its sole delegation on allow_interrupt."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+              "why": "Shows that the delegated routine dispatches ordinary grounded input transitions in priority order."
+            }
+          ]
+        },
+        {
+          "id": "fact:aea11d10-827c-4b86-ad8b-eb74478e6834",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_IASA",
+          "entity_id": null,
+          "type": "state_behavior",
+          "value": "While allow_interrupt is zero, the callback leaves the side-tilt state unchanged. Once allow_interrupt becomes nonzero, each invocation runs the common standing input checks; the first predicate that accepts the current input performs its transition and prevents later, lower-priority checks from running. If none accepts, the side tilt continues.",
+          "rationale": "The target's guard proves that no common transition checks occur before interruption is enabled. The delegated routine is an ordered chain of immediate-return predicates, establishing first-success priority after the gate opens.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-02T00:07:32.088Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L95-L100",
+              "why": "Shows that the callback does nothing until allow_interrupt is enabled."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+              "why": "Shows the priority-ordered, early-returning transition checks used after the gate opens."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Phys"
+      },
+      "facts": [
+        {
+          "id": "fact:924feb23-6331-4a6b-8b64-d7b5fb0675a3",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Phys",
+          "entity_id": null,
+          "type": "data_flow",
+          "value": "Passes the fighter game object unchanged to ft_80084F3C. That helper obtains the Fighter, reads co_attrs.ground_friction, co_attrs.walk_max_vel, and gr_vel, scales friction by p_ftCommonData->friction_when_above_walk_speed when absolute ground velocity exceeds maximum walk speed, applies the resulting ground friction, and consumes the updated motion through ftCommon_ApplyGroundMovement.",
+          "rationale": "The wrapper exposes the unchanged object flow into ft_80084F3C. The current helper body shows the renamed common-attribute fields, the high-speed friction adjustment, and the subsequent friction and grounded-movement calls.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L102-L105",
+              "why": "The callback forwards its sole Fighter_GObj argument unchanged to the movement helper."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+              "why": "The current helper reads co_attrs.ground_friction, co_attrs.walk_max_vel, and gr_vel, applies the above-walk-speed multiplier when required, then applies friction and grounded movement."
+            }
+          ]
+        },
+        {
+          "id": "fact:fbe6d0d9-ceec-4d78-8be5-84d448d39ff8",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Phys",
+          "entity_id": null,
+          "type": "game_mapping",
+          "value": "Maintains the fighter's grounded sliding and deceleration during a forward tilt according to character-specific traction, using scaled deceleration while ground speed remains above maximum walking speed.",
+          "rationale": "The side-tilt physics callback invokes a helper that applies the fighter's ground-friction attribute and an additional multiplier above maximum walking speed before advancing movement. SmashWiki identifies traction as the grounded property governing how long sideways movement takes to stop.",
+          "confidence": 0.96,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L102-L105",
+              "why": "The current symbol and enclosing unit identify the wrapper as the forward side-tilt action state's physics callback."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+              "why": "The current helper applies character ground friction, scales it above maximum walking speed, and then advances grounded movement."
+            },
+            {
+              "kind": "wiki",
+              "locator": "wiki://traction~__intro__@r2045441",
+              "why": "The article defines traction as the measure of how long a grounded character takes to stop moving after a sideways force."
+            }
+          ]
+        },
+        {
+          "id": "fact:a2992461-1b82-4fd8-a431-5433d5125688",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Phys",
+          "entity_id": null,
+          "type": "inferred_type",
+          "value": "Action-state physics callback with signature void(Fighter_GObj*), operating on the Fighter and common movement attributes owned by the supplied fighter game object.",
+          "rationale": "The callback definition directly establishes the void return and Fighter_GObj pointer parameter. Its current delegated helper converts that object to a Fighter and updates movement using the fighter's co_attrs.",
+          "confidence": 0.99,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L102-L105",
+              "why": "The current function definition directly shows the void(Fighter_GObj*) signature."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+              "why": "The current delegated helper obtains the Fighter and its co_attrs from the supplied game object before updating grounded motion."
+            }
+          ]
+        },
+        {
+          "id": "fact:3593db3c-accf-4d84-a562-da95bb444099",
+          "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Phys",
+          "entity_id": null,
+          "type": "purpose",
+          "value": "Performs the side-tilt action state's per-frame grounded physics by applying character-specific ground friction and then advancing grounded movement.",
+          "rationale": "The complete callback delegates to ft_80084F3C. At the current head, that helper obtains the Fighter and its common attributes, derives friction from ground_friction, applies it to grounded motion, and then advances ground movement.",
+          "confidence": 0.98,
+          "updated_at": "2026-09-04T18:57:59.907Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L102-L105",
+              "why": "The complete side-tilt physics callback forwards its fighter object to ft_80084F3C."
+            },
+            {
+              "kind": "code",
+              "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+              "why": "The current delegated helper reads common fighter movement attributes, applies ground friction, and advances grounded movement."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c"
+      },
+      "facts": [
+        {
+          "id": "fact:5271a460-1b67-46e7-9b10-41b698afda62",
+          "target_id": null,
+          "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c",
+          "type": "data_flow",
+          "value": "Reads attack input, facing-relative stick magnitude and angle, held-item capabilities, common angle thresholds, and motion availability; outputs an item action or one of five AttackS3 motion states, then forwards the fighter through grounded lifecycle helpers.",
+          "rationale": "The complete head input and angle routines preserve these values and destinations.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-06T03:13:54.089Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L1-L110",
+              "why": "Shows controller and item inputs, motion availability, five-way motion selection, and callbacks."
+            }
+          ]
+        },
+        {
+          "id": "fact:341ecde1-0d61-4b76-b649-66dcf6517d21",
+          "target_id": null,
+          "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c",
+          "type": "game_mapping",
+          "value": "Realizes forward tilt, including vertical angling and contextual replacement by held-item throws or attacks.",
+          "rationale": "The complete head unit recognizes facing-relative forward A input and maps stick angle to five AttackS3 variants after item handling.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-06T03:13:54.089Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L1-L110",
+              "why": "Shows forward-tilt recognition, held-item outcomes, and five angle-dependent motion states."
+            }
+          ]
+        },
+        {
+          "id": "fact:ba9ed9ee-3afe-4529-b365-220e3c2ad780",
+          "target_id": null,
+          "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c",
+          "type": "purpose",
+          "value": "Implements common forward-tilt recognition, held-item alternatives, five-way vertical angle selection, state entry, and animation, interrupt, physics, and collision callbacks.",
+          "rationale": "The complete head source retains every stage of the side-tilt subsystem.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-06T03:13:54.089Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L1-L110",
+              "why": "Shows forward input recognition, item branches, angle selection, entry, and callbacks."
+            }
+          ]
+        },
+        {
+          "id": "fact:8ef9af95-1a3b-47a4-8340-31c55dded053",
+          "target_id": null,
+          "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c",
+          "type": "state_behavior",
+          "value": "Accepted forward attack input may divert into an item action; otherwise stick angle and available motions select high, shallow-high, straight, shallow-low, or low side tilt. Entry disables interruption, animation completion exits normally, and Wait interrupts begin after allow_interrupt is set.",
+          "rationale": "The complete head item branches, angle ladder, entry write, and callbacks preserve these choices.",
+          "confidence": 0.97,
+          "updated_at": "2026-09-06T03:13:54.089Z",
+          "evidence": [
+            {
+              "kind": "code",
+              "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_AttackS3.c#L1-L110",
+              "why": "Shows item diversion, all five side-tilt states, interrupt suppression, completion, and IASA."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:decideAngle#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Anim#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_CheckInput#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Coll#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_IASA#r3"
+      },
+      "facts": []
+    },
+    {
+      "subject": {
+        "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_AttackS3:ftCo_AttackS3_Phys#r3"
+      },
+      "facts": []
+    }
+  ],
+  "started_at_utc": "2026-09-08T15:58:33.999753+00:00"
+}

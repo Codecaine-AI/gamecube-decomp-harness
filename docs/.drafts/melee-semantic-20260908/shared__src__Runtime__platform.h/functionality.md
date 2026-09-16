@@ -1,0 +1,14 @@
+## Runtime platform compatibility header
+
+`src/Runtime/platform.h` supplies shared types, compiler-dependent annotations, assertions, and numeric/helper macros rather than executable routines or lifetime-managed objects.
+
+- Includes standard boolean/size definitions and Dolphin types, then undefines Dolphin's `BOOL`, `FALSE`, and `TRUE`. Defines `enum_t` as `int`, `ssize_t` explicitly as `signed int`, and no-argument `Event`/`Predicate` callback types returning `void`/`bool`. The `ssize_t` declaration does not itself establish equivalence with the width of `size_t` on every host. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L1-L36)
+- Selects compiler-specific assembly, alignment, unused/noreturn/restrict, section, and fixed-address syntax. Many annotations become empty outside their supported configurations. Alignment instead errors for an unrecognized compiler unless already defined; its Microsoft branch is empty. `AT_ADDRESS` prioritizes `PERMUTER` over the Metrowerks branch. `MWERKS_GEKKO` enables numeric `qr0`–`qr7` aliases. These are source-level annotation definitions, not proof of compiled placement or layout. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L38-L125)
+- Defines integer/floating maxima and expression macros `SQ`, `MIN`, and `MAX`; arguments can be evaluated more than once. `STATIC_ASSERT` disappears under `M2CTX`, uses an array-bound struct construct for Metrowerks, and otherwise uses `_Static_assert` (mapped to `static_assert` in C++ if needed). Size/offset assertions are enabled only by `MUST_MATCH` or `LINT` and still depend on the selected `STATIC_ASSERT` branch. `RETURN_IF` performs a bare return when its condition is true. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L127-L169)
+- Supplies Metrowerks-only data-section/weak annotations outside `M2CTX`, pi/tau constants, and math/array helpers. `M_PI_3` references `M_PI` without defining it locally. `SIGNF` yields `1.0f` only for inputs comparing greater than zero, otherwise `-1.0f`, including zero and unordered comparisons. `FLT_EPSILON` is explicitly `1.00000001335e-10F`; it must not be interpreted as the conventional single-precision machine epsilon. `ABS` can evaluate its argument twice; `ARRAY_SIZE` uses a `sizeof` ratio and does not enforce an array argument. [Source](code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L171-L205)
+
+## Semantic review outcome
+
+All 205 canonical and rendered lines were reviewed. The rendered view reports one parse error and zero substitutions; no proposed function names appear. There are no baseline subjects, facts, or links, and no writable subjects. No supported knowledge correction or rename is proposed. No compiled artifacts were provided, and no compiled section/layout claims are made.
+
+Status: synthesized; independent review and live promotion pending.

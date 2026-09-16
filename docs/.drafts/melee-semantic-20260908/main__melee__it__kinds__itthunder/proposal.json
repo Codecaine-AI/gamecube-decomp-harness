@@ -1,0 +1,212 @@
+{
+  "tu": "main/melee/it/kinds/itthunder",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1106-L1120",
+            "why": "Side-effectful appearance guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L159-L185",
+            "why": "Conditional state-one setup."
+          }
+        ],
+        "op": "write",
+        "rationale": "The shared guard performs updates even when it returns false; only the local transition setup is conditional.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itthunder:itThunder_UnkMotion0_Phys"
+        },
+        "type": "purpose",
+        "value": "Updates the shared Pok\u00e9mon appearance controller during Zapdos motion state 0 and, when its countdown condition succeeds, enters motion state 1 while arming the delayed electrical-effect accessory callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1106-L1120",
+            "why": "Waiting-path operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L159-L185",
+            "why": "Transition operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1229-L1236",
+            "why": "State changes clear accessory callbacks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the side-effectful waiting path from the guarded state transition and avoids guaranteeing later effect emission.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itthunder:itThunder_UnkMotion0_Phys"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation calls it_8027A09C, which performs the shared appearance update and either decrements its countdown and returns false or restores configured scale and returns true. A false result skips Thunder's local transition setup without making the whole callback inert. A true result resets velocity, copies attribute xC into thunder.x60, sets x64, selects motion state 1, installs effect pause/resume and accessory callbacks, and sets xDD1.b1. The accessory can emit effect 0x460 only while it remains installed and its gated countdown reaches expiration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L25-L108",
+            "why": "Literal uses and effect gate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L159-L170",
+            "why": "State-one accessory installation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the timer's state association and local-initialization timing without asserting compiled pool placement.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itthunder:.sdata2"
+        },
+        "type": "state_behavior",
+        "value": "At source level, 0.0f initializes spawn facing and resets thunder.x68 on entry or restart of motion state 2. The accessory callback initializes a local f32 to 1.0f before testing its gate and passes that value's address to effect 0x460 creation only on expiration. This accessory is installed during the transition from motion state 0 to state 1, not as a motion-0 accessory."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L43-L189",
+            "why": "State callbacks, transitions and timer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1229-L1236",
+            "why": "Cross-state callback lifetime."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the state ordering and records the useful cross-file accessory lifetime and state-two restart behavior.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itthunder.c"
+        },
+        "type": "state_behavior",
+        "value": "Motion state 0 runs shared appearance processing and enters state 1 when the shared countdown guard succeeds, installing a delayed one-shot effect accessory. State 1 applies animation-derived movement and enters state 2 when joint animation is inactive. That state change clears the accessory, so an unfinished effect countdown can be abandoned. State 2 resets its vertical accumulator and acceleration flag on entry or animation restart; a nonzero item-command variable 0 seeds the accumulator from attribute x4 and immediately adds x8, with subsequent enabled updates adding x8 again. Its animation callback requests destruction only when position.y strictly exceeds the top blast-zone offset. States 0 and 1 delegate terrain processing with a shared no-op event; state-2 collision is inert."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L59-L99",
+            "why": "Transition guard and entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1229-L1236",
+            "why": "Accessory lifetime."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L199-L216",
+            "why": "Zapdos registration."
+          }
+        ],
+        "op": "write",
+        "rationale": "The transition is animation-driven rather than guarded by effect completion, and state entry clears the installed accessory callback.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itthunder:it_802CCC68"
+        },
+        "type": "game_mapping",
+        "value": "Enters the upward-departure state of Zapdos's Pok\u00e9 Ball summon when motion state 1's joint animation is no longer active. This handoff does not itself prove that the electrical effect or damaging attack has completed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L36-L36",
+            "why": "Empty body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L70-L74",
+            "why": "State-one use."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L187-L190",
+            "why": "State-zero use."
+          }
+        ],
+        "op": "write",
+        "rationale": "Both collision callbacks supply this same empty function, not just motion state 1.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itthunder:it_802CCB10"
+        },
+        "type": "purpose",
+        "value": "Provides the empty item-specific terrain-contact event used by both Thunder motion state 0 and motion state 1. Their shared collision helpers perform generic terrain processing; this callback adds no Thunder-specific action."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L36-L36",
+            "why": "No-op behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L70-L74",
+            "why": "State-one caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L187-L190",
+            "why": "State-zero caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes the incorrect sole-use restriction while preserving the distinction between an empty event and active generic collision processing.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itthunder:it_802CCB10"
+        },
+        "type": "state_behavior",
+        "value": "Always returns without reading or modifying state. Both motion-0 and motion-1 terrain paths supply this callback, so invoking their item-specific contact event causes no additional Thunder transition even though their shared helpers still update collision state."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L199-L216",
+            "why": "Zapdos identity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L36-L74",
+            "why": "Empty body and state-one caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itthunder.c#L187-L190",
+            "why": "State-zero caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "The registry identifies Zapdos, both local terrain callbacks use this event, and its body is empty.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itthunder:it_802CCB10"
+        },
+        "type": "game_mapping",
+        "value": "Participates in terrain handling for Zapdos's Pok\u00e9 Ball summon in motion states 0 and 1 as an empty item-specific contact response. It does not itself create the electrical presentation or apply attack damage."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

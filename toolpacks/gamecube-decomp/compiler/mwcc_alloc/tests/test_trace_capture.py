@@ -38,6 +38,7 @@ class TraceCaptureTests(unittest.TestCase):
         stack.enter_context(patch.object(self.capture.sys, 'platform', 'linux'))
         stack.enter_context(patch.object(self.capture, 'provisioning_probe', return_value=None))
         stack.enter_context(patch.object(self.capture, 'modern_debugger_script', return_value=Path('vendor/gdb.py')))
+        stack.enter_context(patch.object(self.capture, 'object_path_for_unit', return_value='build/GALE01/src/x.o'))
         command = stack.enter_context(patch.object(self.capture, 'run_command', return_value=subprocess.CompletedProcess([], 0, 'wibo mwcceppc.exe -o out.o src/x.c', '')))
         stack.enter_context(patch.object(self.capture, 'sha256_file', return_value=sha or self.sha))
         stack.enter_context(patch.object(self.capture, 'read_elf_functions', return_value=['other'] * 6 + ['selected']))

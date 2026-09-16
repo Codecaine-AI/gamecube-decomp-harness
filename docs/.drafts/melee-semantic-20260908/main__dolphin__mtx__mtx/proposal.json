@@ -1,0 +1,123 @@
+{
+  "tu": "main/dolphin/mtx/mtx",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L485-L610",
+            "why": "Wrapper sequencing and distinct PS/C invalid-axis branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/include/dolphin/mtx.h#L68-L113",
+            "why": "DEBUG-dependent MTXRotTrig aliases."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported PS path while correcting the previously unconditional dispatch and invalid-axis description.",
+        "subject": {
+          "target_stable_key": "main/dolphin/mtx/mtx:MTXRotRad"
+        },
+        "type": "state_behavior",
+        "value": "Contains a non-null destination assertion, computes sinf(rad) and cosf(rad), then calls MTXRotTrig. Without DEBUG, the header maps that call to PSMTXRotTrig: it ORs the selector with 0x20, accepts X/Y/Z in either ASCII case, and leaves the destination untouched for an unsupported selector. With DEBUG, the call maps to C_MTXRotTrig, whose unsupported-axis branch invokes an assertion instead. The wrapper itself does not validate the axis before evaluating the trigonometric functions."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L496-L555",
+            "why": "All valid branches store supplied values directly, with no normalization or consistency guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects an unconditional orthonormality claim without changing the established constructor role.",
+        "subject": {
+          "target_stable_key": "main/dolphin/mtx/mtx:PSMTXRotTrig"
+        },
+        "type": "purpose",
+        "value": "Constructs a zero-translation 3-by-4 Cartesian-axis rotation matrix from caller-supplied sine and cosine values. For a valid axis it writes the standard X, Y or Z coefficient layout directly. The linear component is orthonormal only to the extent that the supplied values satisfy the sine/cosine unit-circle relation; the routine does not check or normalize them."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L313-L378",
+            "why": "Computed comparison operand, ps_cmpo0/bne, reciprocal refinement, stores and return values."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves store-free singular failure while distinguishing the numeric branch condition from a validated mathematical-success result.",
+        "subject": {
+          "target_stable_key": "main/dolphin/mtx/mtx:PSMTXInverse"
+        },
+        "type": "state_behavior",
+        "value": "Has no persistent state. For ordinary finite inputs, an exactly zero computed determinant takes the immediate return-zero path before any destination store; otherwise the reciprocal-refinement and output path writes all twelve elements and returns one. There is no near-singularity tolerance, finiteness test or output validation. The branch tests comparison equality, so an unordered floating-point comparison can also enter the output path if execution continues after the comparison; return one therefore indicates completion of that path, not a guarantee of a finite or numerically reliable inverse."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2440-L2464",
+            "why": "Conditional inverse-JObj and SRT product, including the Vec3 cast and persistent fighter destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftparts.c#L224-L297",
+            "why": "Envelope composition and position-matrix GPU loads."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the community-derived quaternion interpretation with independently read canonical call sites and preserves the supported rendering/deformation mapping.",
+        "subject": {
+          "target_stable_key": "main/dolphin/mtx/mtx:PSMTXConcat"
+        },
+        "type": "game_mapping",
+        "value": "Supplies affine composition for fighter/model rendering and deformation. Fighter_UnkApplyTransformation_8006C0F0 conditionally builds an SRT matrix with HSD_MtxSRT and multiplies it by an inverse JObj matrix into fp->x44_mtx. The rotation argument there is passed as Vec3 despite its local Quaternion storage type, so that call is not evidence of quaternion-based SRT construction. Fighter envelope setup also concatenates joint and envelope matrices, composes the view transform, and loads the resulting position matrices for rendering."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L612-L664",
+            "why": "Local normalization destination, unconditional calls and MWERKS-guarded matrix stores."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful missing configuration and exceptional-input behavior without changing the supported axis-angle purpose.",
+        "subject": {
+          "target_stable_key": "main/dolphin/mtx/mtx:PSMTXRotAxisRad"
+        },
+        "type": "state_behavior",
+        "value": "Computes sine/cosine and normalizes the supplied axis into a local Vec before constructing the matrix. All destination stores are inside the __MWERKS__ conditional assembly block; without that definition, the shown body performs the trigonometric and normalization calls but does not write m. It has no local null-pointer or zero-axis check and no success/failure return; degenerate-axis handling is delegated to PSVECNormalize rather than implemented here."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/mtx/mtx.c#L801-L897",
+            "why": "Unguarded PS reciprocal path contrasted with C assertions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the PS/C validation difference explicit so the existing nonzero-quaternion description is not mistaken for runtime enforcement.",
+        "subject": {
+          "target_stable_key": "main/dolphin/mtx/mtx:PSMTXQuat"
+        },
+        "type": "state_behavior",
+        "value": "The paired-single conversion has no null-pointer, zero-quaternion or finite-magnitude guard and returns no status. It unconditionally forms a reciprocal estimate from the squared quaternion magnitude and proceeds to matrix stores. The adjacent C_MTXQuat contains pointer and nonzero-quaternion assertions, but those checks are not present in PSMTXQuat; a nonzero, numerically usable magnitude is a precondition rather than a checked PS success condition."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

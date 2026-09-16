@@ -1,0 +1,50 @@
+{
+  "tu": "main/melee/ft/kinds/ftKoopa/ftkoopaspecialhi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKoopa/ftkoopaspecialhi.c#L80-L109",
+            "why": "Complete callback establishes update ordering, nested guards and distinct exit effects."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the outer else-if and branch-specific cleanup omitted by the baseline's otherwise wording.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftKoopa/ftkoopaspecialhi:ftKp_SpecialAirHi_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation increments mv.co.walk.middle_anim_frame and invokes ftKp_SpecialN_80135780. If cmd_vars[2] equals 2, only GA_Air takes the command-driven exit; a non-airborne fighter skips both that exit and the animation-completion test. The command-driven airborne exit calls ftCommon_8007D60C, destroys effects, clears x2219_b0 and both effect-hitlag callbacks, then chooses ordinary Fall for x7C == 0 or ftCo_80096900 for nonzero x7C. Only when cmd_vars[2] differs from 2 does animation exhaustion trigger the other exit, which calls ftCommon_8007D60C and makes the same fall selection without explicitly destroying effects or clearing those callbacks."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKoopa/ftkoopaspecialhi.c#L27-L109",
+            "why": "Entry states and distinct termination control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKoopa/ftkoopaspecialhi.c#L153-L233",
+            "why": "Continuation flags, callback restoration, collision branches and contradictory offset guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes grounded and aerial completion and records the exceptional landing source without repairing it.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftKoopa/ftkoopaspecialhi.c"
+        },
+        "type": "state_behavior",
+        "value": "Ground and air entries select numeric motion states 0x167 and 0x168 respectively. Ground animation exhaustion invokes ft_8008A2BC; aerial termination conditionally selects ordinary Fall or ftCo_80096900 according to x7C, with cmd_vars[2] == 2 suppressing natural completion unless its nested airborne exit runs. Collision transfers use flags 0x0C4C5292 and normally preserve the current animation frame. The landing helper also contains a written frame-minus-x78 branch guarded by x70 < middle_anim_frame && middle_anim_frame < x70, a contradictory comparison for stable ordinary values; its intended threshold window is unresolved. State transfers restore move callbacks and contact-dependent presentation rather than rerunning the full effect-spawning entry sequence."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

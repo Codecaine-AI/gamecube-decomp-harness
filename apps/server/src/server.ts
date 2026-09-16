@@ -1,3 +1,4 @@
+import { remoteBuildsEnabled } from "@server/core/validation/build/execution.js";
 export { closeKernelRuntimeForTests, fetchServer, serveServer } from "@server/infrastructure/http/server";
 import { resolve } from "node:path";
 import { resolveGame } from "@server/core/game-registry";
@@ -13,7 +14,7 @@ async function main(): Promise<void> {
       // The server can still run with explicit path overrides when no default game resolves.
     }
   }
-  await configureGlobalCompileJobserver({ localEnvPath });
+  if (!remoteBuildsEnabled()) await configureGlobalCompileJobserver({ localEnvPath });
   await reconcileSyncStartup();
   serveServer();
 }

@@ -98,7 +98,6 @@ describe("game event registry", () => {
     ["game", "game.dispatch_requested", "game"],
     ["run", "run.drafted", "run"],
     ["sync", "sync.requested", "sync_workflow"],
-    ["cycle", "cycle.opened", "cycle"],
     ["pr", "pr.campaign_opened", "pr_campaign"],
     ["knowledge", "knowledge.job_enqueued", "knowledge_job"],
   ] as const)("rejects missing required payload facts for the %s domain", (_domain, eventType, subjectKind) => {
@@ -260,7 +259,7 @@ describe("game event registry", () => {
       from_status: "blocked",
       to_status: "cancelled",
       discarded_staging_workspace_id: null,
-      untouched_cycle_head: "head-1",
+      untouched_harness_head: "head-1",
       untouched_submodule_heads: [{ path: "vendor", gitlink_head: "a", checked_out_head: "a" }],
     } satisfies JsonObject;
     try {
@@ -348,7 +347,7 @@ describe("game event registry", () => {
     }
   });
 
-  test("registers exact approval and cycle-blocker payloads with their semantic classifications", () => {
+  test("registers approvals and retains historical cycle classifications while rejecting new cycle events", () => {
     const store = openTestStore();
     try {
       const approvalPayload = {
@@ -380,19 +379,17 @@ describe("game event registry", () => {
         ...envelope("pr.series_approved", "pr_series", approvalPayload),
         actor: "external_observer",
       });
-      appendGameEvent(store.db, envelope("cycle.blocked", "cycle", blockedPayload));
-      appendGameEvent(store.db, {
+      expect(() => appendGameEvent(store.db, envelope("cycle.blocked", "cycle", blockedPayload))).toThrow("Cycle lifecycle events are historical");
+      expect(() => appendGameEvent(store.db, {
         ...envelope("cycle.blockers_updated", "cycle", blockersUpdatedPayload),
         actor: "runner",
-      });
+      })).toThrow("Cycle lifecycle events are historical");
 
       expect(gameEventContract("pr.series_approved").classification).toBe("status_transition");
       expect(gameEventContract("cycle.blocked").classification).toBe("status_transition");
       expect(gameEventContract("cycle.blockers_updated").classification).toBe("progress");
       expect(listGameEvents(store.db).map((event) => event.payload)).toEqual([
         approvalPayload,
-        blockedPayload,
-        blockersUpdatedPayload,
       ]);
 
       expect(() => appendGameEvent(store.db, {
@@ -402,11 +399,11 @@ describe("game event registry", () => {
       expect(() => appendGameEvent(
         store.db,
         envelope("cycle.blockers_updated", "cycle", blockedPayload),
-      )).toThrow("is missing required payload facts: added_blocker_codes");
+      )).toThrow("Cycle lifecycle events are historical");
       expect(() => appendGameEvent(
         store.db,
         envelope("cycle.blocked", "cycle", { ...blockedPayload, prior_status: "closing" }),
-      )).toThrow("cycle.blocked prior_status must equal from_status");
+      )).toThrow("Cycle lifecycle events are historical");
       expect(() => appendGameEvent(store.db, envelope(
         "sync.requested",
         "sync",

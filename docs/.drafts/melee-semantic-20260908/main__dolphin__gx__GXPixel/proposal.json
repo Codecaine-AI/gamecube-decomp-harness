@@ -1,0 +1,106 @@
+{
+  "tu": "main/dolphin/gx/GXPixel",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPixel.c#L261-L272",
+            "why": "Shows both argument destinations and write/flush order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXInit.c#L348-L350",
+            "why": "Shows the exact first and second initialization arguments."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the reversed argument provenance in the existing respectively clause and removes the unsupported breakpoint-processor expansion while preserving exact data flow and ordering.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXPixel:GXSetFieldMode"
+        },
+        "type": "data_flow",
+        "value": "half_aspect_ratio is inserted into bit 22 of gx->lpSize, whose updated word is emitted first. After a texture-state flush call, field_mode is ORed with 0x68000000 and emitted as the field-mode raster/BP command, followed by another texture-state flush call. GX initialization supplies rmode->field_rendering as field_mode and the test viHeight == 2 * xfbHeight as half_aspect_ratio."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPixel.c#L261-L272",
+            "why": "Directly emits lpSize and the 0x68 raster-register command."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the erroneous breakpoint-processor description without changing the supported field-output interpretation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXPixel:GXSetFieldMode"
+        },
+        "type": "purpose",
+        "value": "Configures GX field-rendering output by emitting the field-mode raster/BP register command and setting the associated half-aspect-ratio flag in the GX line/point-size shadow register."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPixel.c#L203-L229",
+            "why": "Shows assertions, complete-word comparison, mask 4, separate cmode1 branch and unconditional bpSent assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Disambiguates the numeric dirty mask and preserves the exact condition for dependent-state dirtying and the independent component-format path.",
+        "subject": {
+          "target_stable_key": "main/dolphin/gx/GXPixel:GXSetPixelFmt"
+        },
+        "type": "state_behavior",
+        "value": "The source checks the GX primitive context and asserts pix_fmt is in 0\u20137. It updates the pixel/depth fields of peCtrl and emits peCtrl only if the complete word changed. On every such change, including a depth-format-only change, it sets genMode bit 9 according to pix_fmt == GX_PF_RGB565_Z16 and ORs dirtyState with mask 0x4 (bit index 2), even if the AA bit is unchanged. Formats mapping to primary code 4 independently refresh and emit cmode1's component selector. Every path sets bpSent to zero, including a path that emits no register."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPixel.c#L8-L272",
+            "why": "Complete module shows the state APIs and the separate table-generation utility."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes erroneous breakpoint-processor terminology and explicitly preserves the table initializer's CPU-only role.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/gx/GXPixel.c"
+        },
+        "type": "purpose",
+        "value": "Implements GX pixel-engine and raster-output configuration for fog, fog-range correction, blending, color and alpha writes, depth testing, framebuffer formats, dithering, destination alpha and field output. State setters encode API arguments into raster/BP register commands; GXInitFogAdjTable instead computes the CPU-side correction table consumed by GXSetFogRangeAdj."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXPixel.c#L97-L272",
+            "why": "Shows CPU-only generation, ordinary setter paths, pixel-format exceptions and field-mode ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXBump.c#L374-L378",
+            "why": "Defines the flush helper's BP-mask emission and bpSent assignment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the overly narrow AA-transition condition and makes the field-mode helper effect and CPU-only exception explicit without assigning an unsupported global meaning to bpSent.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/gx/GXPixel.c"
+        },
+        "type": "state_behavior",
+        "value": "The entry points contain GX primitive-context checks. Most setters emit raster/BP commands immediately and assign bpSent = 0. GXSetPixelFmt emits peCtrl only when its encoded word changes; every such change recomputes genMode's AA bit and sets dirty mask 0x4, without requiring an AA-bit transition. Its component-selector write is independent, and bpSent is cleared even if no command is emitted. GXSetFieldMode writes lpSize, calls __GXFlushTextureState, emits the field-mode command and calls the helper again; that helper emits bpMask and clears bpSent. GXInitFogAdjTable only writes its caller-provided table. These command emissions do not establish GPU completion."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,28 @@
+153: static inline int db_get_pad_button(int i)
+154: {
+155:     return HSD_PadMasterStatus[i & 0xFF].button;
+156: }
+157: 
+158: static inline int db_get_pad_repeat(int i)
+159: {
+160:     return HSD_PadMasterStatus[i & 0xFF].repeat;
+161: }
+162: 
+163: void db_RunEveryFrame(void)
+164: {
+165:     int stack[4];
+166:     int i;
+167:     int num_players;
+168:     if (DbLevel < DbLKind_DebugRom) {
+169:         return;
+170:     }
+171:     if (ftLib_IsMasterHandPresent() || ftLib_IsCrazyHandPresent()) {
+172:         num_players = 2;
+173:     } else {
+174:         num_players = 4;
+175:     }
+176:     for (i = 0; i < num_players; i++) {
+177:         int button = db_get_pad_button(i);
+178:         int repeat = db_get_pad_repeat(i);
+179:         if (button & HSD_PAD_DPADUP) {
+180:             if (button & HSD_PAD_DPADLEFT) {

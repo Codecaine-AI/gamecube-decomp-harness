@@ -1,6 +1,6 @@
 import type {
   DashboardAction,
-  HarnessStateSyncReadModel,
+  DispatchStateSyncReadModel,
 } from "@/pages/workspace/_lib/types";
 
 export const SYNC_CONTROL_ACTION_IDS: Partial<Record<DashboardAction, string>> = {
@@ -37,7 +37,7 @@ function head(value: string): string {
 
 export function syncConfirmationMessage(
   action: DashboardAction,
-  sync: HarnessStateSyncReadModel | null,
+  sync: DispatchStateSyncReadModel | null,
 ): string | null {
   if (action === "syncPublish") {
     const preview = sync?.publish_preview;
@@ -49,7 +49,7 @@ export function syncConfirmationMessage(
     ].join("\n");
   }
   if (action === "syncCancel") {
-    return "Cancel this sync?\n\nStaging is discarded. The cycle remains untouched.";
+    return "Cancel this sync?\n\nStaging is discarded. The accepted harness head remains unchanged.";
   }
   if (action === "syncRevalidate") {
     return "Cancel this stale sync?\n\nStaging is discarded. Start a new sync to ingest and reconcile the observed upstream together.";

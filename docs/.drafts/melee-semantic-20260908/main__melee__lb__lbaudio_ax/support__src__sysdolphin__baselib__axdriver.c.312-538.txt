@@ -1,0 +1,227 @@
+312: void AXDriver_8038C6C0(HSD_SM* v)
+313: {
+314:     u32 cmd_type;
+315:     u32 cmd_word;
+316:     int cmd_size;
+317:     int cmd_val;
+318:     PAD_STACK(8);
+319: 
+320:     while (v->x30 == (s32) AXDriver_804D778C) {
+321:         cmd_word = *v->cmd_stream;
+322:         cmd_type = cmd_word >> 0x18U;
+323: 
+324:         cmd_size = AXDriver_8038C678(cmd_type, cmd_word);
+325:         if (cmd_size != 0) {
+326:             AXDriver_8038BF6C(v);
+327:         }
+328:         v->x30 += cmd_size;
+329:         switch (cmd_type) {
+330:         case 2:
+331:             v->x2A = *v->cmd_stream;
+332:             if (v->x2A == 0) {
+333:                 v->flags |= 0x100000;
+334:             }
+335:             break;
+336:         case 3:
+337:             if ((v->flags & 0x100000) || v->x2A != 0) {
+338:                 v->cmd_stream -= *v->cmd_stream & 0xFFFFFF;
+339:                 v->x2A--;
+340:             }
+341:             break;
+342:         case 1:
+343:             v->flags |= 1;
+344:             v->fid = *v->cmd_stream;
+345:             break;
+346:         case 4:
+347:             v->flags |= 2;
+348:             v->pri = *v->cmd_stream;
+349:             break;
+350:         case 5:
+351:             v->flags |= 2;
+352:             cmd_val = v->pri + (s8) (u8) *v->cmd_stream;
+353:             v->pri = CLAMP(5, cmd_val, 0x1C);
+354:             break;
+355:         case 6:
+356:             v->flags |= 4;
+357:             v->x1A = *v->cmd_stream;
+358:             break;
+359:         case 7:
+360:             v->flags |= 4;
+361:             cmd_val = v->x1A + (s8) (u8) *v->cmd_stream;
+362:             v->x1A = CLAMP(0, cmd_val, 0xFF);
+363:             break;
+364:         case 8:
+365:             v->flags |= 8;
+366:             v->x1C = *v->cmd_stream;
+367:             break;
+368:         case 9:
+369:             v->flags |= 8;
+370:             cmd_val = v->x1C + (s8) (u8) *v->cmd_stream;
+371:             v->x1C = CLAMP(0, cmd_val, 0xFF);
+372:             break;
+373:         case 10:
+374:             v->flags |= 0x10;
+375:             v->x1E = *v->cmd_stream;
+376:             break;
+377:         case 11:
+378:             v->flags |= 0x10;
+379:             cmd_val = v->x1E + (s8) (u8) *v->cmd_stream;
+380:             v->x1E = CLAMP(0, cmd_val, 0xFF);
+381:             break;
+382:         case 12:
+383:             v->flags |= 0x20;
+384:             v->x20 = (s16) (u16) *v->cmd_stream;
+385:             break;
+386:         case 13:
+387:             v->flags |= 0x20;
+388:             cmd_val = v->x20 + (s16) (u16) *v->cmd_stream;
+389:             v->x20 = CLAMP(-0x2A30, cmd_val, 0x960);
+390:             break;
+391:         case 16:
+392:             if (!(AXDriver_804D603C & 1)) {
+393:                 v->flags |= 0x80;
+394:                 v->x24[0] = *v->cmd_stream;
+395:             }
+396:             break;
+397:         case 20:
+398:             if (!(AXDriver_804D603C & 1)) {
+399:                 v->x26 = *v->cmd_stream;
+400:             }
+401:             break;
+402:         case 21:
+403:             if (!((AXDriver_804D603C >> 1U) & 1)) {
+404:                 v->x27 = *v->cmd_stream;
+405:             }
+406:             break;
+407:         case 17:
+408:             if (!(AXDriver_804D603C & 1)) {
+409:                 v->flags |= 0x80;
+410:                 cmd_val = v->x24[0] + (s8) (u8) *v->cmd_stream;
+411:                 v->x24[0] = CLAMP(0, cmd_val, 0xFF);
+412:             }
+413:             break;
+414:         case 18:
+415:             if (!((AXDriver_804D603C >> 1U) & 1)) {
+416:                 v->flags |= 0x80;
+417:                 v->x24[1] = *v->cmd_stream;
+418:             }
+419:             break;
+420:         case 19:
+421:             if (!(AXDriver_804D603C >> 1 & 1)) {
+422:                 v->flags |= 0x80;
+423:                 cmd_val = v->x24[1] + (s8) (u8) *v->cmd_stream;
+424:                 v->x24[1] = CLAMP(0, cmd_val, 0xFF);
+425:             }
+426:             break;
+427:         case 15:
+428:             v->flags |= 0x200;
+429:             AXDriver_8038BF6C(v);
+430:             return;
+431:         case 14:
+432:             v->flags |= 0x100;
+433:             AXDriver_8038BF6C(v);
+434:             return;
+435:         }
+436:         v->cmd_stream++;
+437:     }
+438: }
+439: 
+440: static void fn_8038CC1C(void)
+441: {
+442:     HSD_SM* v;
+443:     HSD_SM* next;
+444:     PAD_STACK(4);
+445: 
+446:     if (AXDriver_804D77E0 != 0) {
+447:         AXDriver_804D77E0 = 0;
+448:         if (AXDriver_804D6038 != -1) {
+449:             float x =
+450:                 powf(2.0F, CLAMP(-0x2A30, AXDriver_804D77E4, 0x960) / 1200.0F);
+451:             HSD_SynthSFXSetPitchRatio(AXDriver_804D6038, 1, x);
+452:         }
+453:     }
+454:     v = AXDriver_804D7794;
+455:     AXDriver_804D778C++;
+456:     while (v != NULL) {
+457:         next = v->next;
+458:         if (v->x30 == -1) {
+459:             v->x30 = AXDriver_804D778C;
+460:         } else if (v->flags & 0x20000000) {
+461:             v->x30++;
+462:         }
+463:         switch (v->flags & SMSTATE_MASK) {
+464:         case SMSTATE_ACTIVE:
+465:             if (v->x30 == AXDriver_804D778C) {
+466:                 AXDriver_8038C6C0(v);
+467:             }
+468:             break;
+469:         case 0:
+470:             AXDriverUnlink(v, &AXDriver_804D7794);
+471:             unk_inline(v, &AXDriver_804D7790);
+472:             AXDriver_804D77D0--;
+473:             break;
+474:         case SMSTATE_SLEEP:
+475:             if (v->flags & 0x40) {
+476:                 float x = powf(2.0F, v->fadetime / 1200.0F);
+477:                 HSD_SynthSFXSetPitchRatio(v->vID, 1, x);
+478:                 v->flags &= 0xFFFFFFBF;
+479:             }
+480:             break;
+481:         default:
+482:             HSD_ASSERT(0x25F, 0);
+483:             break;
+484:         }
+485:         v = next;
+486:     }
+487: }
+488: 
+489: static void fn_8038CEA4(s32 vID)
+490: {
+491:     HSD_SM* v;
+492:     int idx = vID & 0x3F;
+493: 
+494:     HSD_ASSERT(0x26D, vID > 0);
+495: 
+496:     v = AXDriver_804C5920[idx];
+497:     if (v == NULL || v->vID != vID) {
+498:         return;
+499:     }
+500: 
+501:     AXDriver_804C5920[idx] = NULL;
+502:     v->flags &= ~0x20000000;
+503:     v->flags &= ~SMSTATE_MASK;
+504:     AXDriver_804D77C8--;
+505: }
+506: 
+507: static void fn_8038CF48(s32 vID)
+508: {
+509:     HSD_SM* v;
+510:     int idx;
+511:     idx = vID & 0x3F;
+512: 
+513:     HSD_ASSERT(0x288, vID > 0);
+514: 
+515:     v = AXDriver_804C5920[idx];
+516:     HSD_ASSERT(0x28A, v && v->vID == vID);
+517: 
+518:     v->flags |= 0x20000000;
+519: }
+520: 
+521: static inline HSD_SM* AXDriver_8038CFF4_inline(void)
+522: {
+523:     if (AXDriver_804D7790 == NULL) {
+524:         return NULL;
+525:     } else {
+526:         HSD_SM* v;
+527:         bool enabled = OSDisableInterrupts();
+528:         v = AXDriver_804D7790;
+529:         AXDriverUnlink(v, &AXDriver_804D7790);
+530:         OSRestoreInterrupts(enabled);
+531:         v->vID = -1;
+532:         v->x30 = -1;
+533:         v->flags = 0;
+534:         v->flags &= ~SMSTATE_MASK;
+535:         return v;
+536:     }
+537: }
+538: 

@@ -1,0 +1,2428 @@
+[
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007AFC",
+    "facts": [
+      {
+        "id": "fact:3d924ff5-172f-4857-84c5-3a90221e2f35",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007AFC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads each capsule's `x43_b1`, intrinsic `scale`, and endpoints. It conditionally applies the corresponding owner scale, passes capsule `b` before capsule `a` to `lbColl_80006094`, routes the returned closest points to each capsule's `hurt_coll_pos`, and returns the delegated Boolean unchanged.",
+        "rationale": "The current body directly shows every field read, scale branch, argument ordering, output address, and returned result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:24:15.068Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1550-L1568",
+            "why": "Shows the complete field-to-radius-to-callee-to-output flow."
+          }
+        ]
+      },
+      {
+        "id": "fact:b283bf28-71cd-45e0-a89a-fb17ad53f90b",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007AFC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the shared hitbox-versus-hitbox capsule test used by Melee's collision pipeline. Fighter-versus-fighter and fighter-versus-item passes use it for eligible attack clashes, the item collision pass uses it for item and projectile hitbox clashes or inert contacts, and the thrown-fighter pass uses it for pairwise thrown-hitbox collision response.",
+        "rationale": "Current fighter, item, and thrown-fighter paths all invoke the same two-HitCapsule predicate before their respective clash, inert-contact, or thrown-hitbox responses.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:14.725Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_07C1.c#L97-L203",
+            "why": "Shows pairwise thrown-hitbox collision testing and reciprocal response at the new resolvable location."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1771-L2128",
+            "why": "Shows fighter attack-capsule clash processing using the predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itcoll.c#L534-L664",
+            "why": "Shows item hitbox clashes and inert contacts using the predicate."
+          }
+        ]
+      },
+      {
+        "id": "fact:8a9c7502-ccc1-4a22-9dae-165a136321b3",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007AFC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_HitCapsuleIntersect",
+        "rationale": "The `lbColl_` prefix follows the translation unit's convention, and the function is specifically a Boolean adapter from two `HitCapsule` records to the lower-level capsule-versus-capsule intersection primitive. The exact original verb and capitalization are not preserved, so this remains a naming hypothesis.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_HitCapsuleIntersect`.",
+        "confidence": 0.7,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1550-L1568",
+            "why": "Shows a Boolean `lbColl_` routine whose complete operation is testing two `HitCapsule` records through a lower-level capsule-overlap helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itcoll.c#L534-L664",
+            "why": "Shows the predicate being used to decide whether two item hit capsules intersect during item-versus-item collision processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:f36a2bbe-8d5c-4651-b6dc-de679aa910e3",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007AFC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "`bool (HitCapsule* a, HitCapsule* b, float owner_scale_a, float owner_scale_b)`. Both capsules are mutable because `hurt_coll_pos` is used for closest-point output; each scalar scale may be bypassed by that capsule's `x43_b1` flag.",
+        "rationale": "The current header establishes the exact ABI, and the body shows mutable output fields and independent scaling-mode selection.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:24:15.068Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L60",
+            "why": "Declares two HitCapsule pointers, two floats, and a Boolean return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1550-L1568",
+            "why": "Shows output-field addresses and independent scale bypass branches."
+          }
+        ]
+      },
+      {
+        "id": "fact:a4fe5736-c87e-4564-b5f3-5156832fd49c",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007AFC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Tests two `HitCapsule` records for overlap by deriving their effective radii, delegating to the 3D capsule-axis predicate, and writing closest collision positions into both records.",
+        "rationale": "The current wrapper contains both effective-radius branches and forwards endpoints, output fields, and radii to the lower-level predicate.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:24:15.068Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1550-L1568",
+            "why": "Shows the complete two-HitCapsule adapter and delegated overlap result."
+          }
+        ]
+      },
+      {
+        "id": "fact:bf1ac7c3-f26b-482f-8717-28f56f9e8fcc",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007AFC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The wrapper is stateless. Each capsule independently uses intrinsic scale when `x43_b1` is set or intrinsic times owner scale otherwise, then the function immediately returns the lower-level capsule-overlap result.",
+        "rationale": "The refreshed wrapper consists only of two independent scaling branches and one delegated return.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T05:24:15.068Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1550-L1568",
+            "why": "Shows both scaling modes and the immediate delegated return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007B78",
+    "facts": [
+      {
+        "id": "fact:ef5bec2c-3afc-44c4-950b-54a5fa57224c",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007B78",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The caller supplies a coin item's `xDF0` matrix, the address of one `Fighter.x1614` region, the item's scale, and `Fighter.x34_scale.y`. The wrapper passes `region.x14` and `region.x8` as one segment and matrix-backed vectors beginning at `a[1][1]` and `a[0][2]` as the other. It passes `region.x20` and the matrix-backed vector beginning at `a[1][4]` as closest-point outputs, scales `region.x0` by fighter scale, scales `a[0][0]` by item scale, and returns the lower-level predicate unchanged. On successful pickup, the caller subsequently uses the matrix's third row as the pickup-effect position.",
+        "rationale": "The current wrapper preserves the same matrix and fighter-region field adaptation, and the current sole caller still supplies coin-item geometry, fighter scale, and item scale before using the matrix's third row for the pickup effect.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows the wrapper's segment endpoints, closest-point outputs, scale calculations, delegated Boolean return, and matrix-backed workspace."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_07C6.c#L51-L125",
+            "why": "Shows the coin item and fighter argument sources and the matrix's third row used as the pickup-effect position after success."
+          }
+        ]
+      },
+      {
+        "id": "fact:0020ed21-272f-4e22-8841-6897b9767024",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007B78",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the collision-predicate portion of Smash Coin collection in Coin Battle by testing an eligible coin's collision geometry against each of a fighter's two pickup regions.",
+        "rationale": "The resolved caller runs only during Coin Battle, filters for the dedicated coin item kind, and invokes this predicate for both fighter regions before awarding the item's coin value and destroying it. SmashWiki independently documents Smash Coins as the collectible scoring objects used by Melee's Coin Battle.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:45:23.558Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_07C6.c#L51-L125",
+            "why": "Shows the Coin Battle guard, eligible coin-item scan, two fighter-region collision checks, value award, feedback, and item removal."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://smash-coins-and-bills~in-super-smash-bros-melee@r1740519",
+            "why": "Identifies Smash Coins as Melee Coin Battle collectibles and documents their copper, silver, and gold point values."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://coin-battle~overview@r2048505",
+            "why": "Documents that players collect spawned coins during Coin Battle and that Melee uses copper, silver, and gold Smash Coins."
+          }
+        ]
+      },
+      {
+        "id": "fact:926e801d-989a-4af6-beae-091e160abbab",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007B78",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_CheckFighterPickupCollision",
+        "rationale": "The current body remains an `lbColl` collision adapter over fighter-owned region geometry, while its resolved caller uses the result to accept collectible coin pickup. The generic matrix representation leaves the exact original wording uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `lbColl_CheckFighterPickupCollision`.",
+        "confidence": 0.62,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows the function adapting `Fighter_x1614_t` and matrix-backed geometry into a collision predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_07C6.c#L51-L125",
+            "why": "Shows the predicate deciding whether a fighter collects an eligible coin item."
+          }
+        ]
+      },
+      {
+        "id": "fact:b78b980c-7876-4f32-b1ce-6ac8348eb429",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007B78",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A boolean collision predicate with exact signature `bool (Mtx geometry, struct Fighter_x1614_t* region, float geometry_scale, float fighter_scale)`. The matrix parameter is also writable workspace: selected matrix elements provide the second segment and one closest-point output, while the fighter-region record provides the first segment, its size, and the other closest-point output.",
+        "rationale": "The current header preserves the Boolean matrix, fighter-region pointer, and two-float signature, while the implementation demonstrates that both the matrix and fighter record supply geometry and writable closest-point storage.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares the current `bool(Mtx, Fighter_x1614_t*, float, float)` interface."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows the matrix-backed and fighter-record-backed endpoints, writable outputs, and scaled size arguments."
+          }
+        ]
+      },
+      {
+        "id": "fact:65075e32-d715-4a14-b836-494e14a561bd",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007B78",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Adapts a fighter collision-region record and a matrix-shaped item geometry block into the endpoint, closest-point, and scale arguments required by the unit's two-segment overlap routine. Its sole resolved caller uses the returned predicate to decide whether a fighter has touched a collectible Smash Coin.",
+        "rationale": "At head the function remains a direct adapter into `lbColl_800067F8`, and the caller still tests each of the fighter's two regions before awarding the coin and removing its item entity.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows the complete wrapper and the endpoint, closest-point, and scaled-size arguments it forwards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_07C6.c#L51-L125",
+            "why": "Shows the wrapper called for two fighter regions, with success causing coin award, feedback, and item removal."
+          }
+        ]
+      },
+      {
+        "id": "fact:932c03c1-8deb-4a3e-ad6c-39601d01f9c8",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007B78",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The wrapper has no independent mode or timer state: each call immediately returns the delegated overlap result. The delegated routine first rejects segment pairs separated on the X or Y axes by more than their combined sizes, solves closest points for degenerate, parallel, and general segment configurations, writes those points, and returns false when their squared planar distance exceeds the squared combined-size threshold; otherwise it returns true.",
+        "rationale": "The current wrapper remains a direct delegated return, and the current overlap implementation retains finite-segment closest-point solving, output writes, and the final combined-size overlap decision.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows that the wrapper only adapts arguments and immediately returns the lower-level predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L676-L1117",
+            "why": "Shows closest-point handling for finite segment configurations, output writes, and the delegated overlap result."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007BCC",
+    "facts": [
+      {
+        "id": "fact:cd85f958-f6f9-4f9f-85e6-1dba94dc0bc1",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007BCC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The defensive HitResult's bone and local offset are transformed into its cached world-space position. When an optional transform is supplied, the routine fixes that position to the caller's Z plane and concatenates the transform with the defensive bone matrix. The attacking capsule's endpoints and effective radius, the defensive center and size, and the selected matrix then flow into the shared overlap solver; its contact point and overlap amount are written to `hit->hurt_coll_pos` and `hit->coll_distance`, and its collision result is returned.",
+        "rationale": "The current body preserves the cached position update, optional depth and matrix handling, attack-radius selection, shared solver call, output fields, and returned result.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:14.725Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1577-L1625",
+            "why": "Shows the complete current input transformation, solver arguments, output destinations, and returned Boolean."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1771-L2128",
+            "why": "Shows defensive-region collision results consumed by fighter collision processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:d1949a2a-9a57-4163-8992-ffacc70af961",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007BCC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the spatial contact predicate by which attack hitboxes are intercepted by a fighter's shield, reflector, or absorber before ordinary hurtbox damage processing. This contact distinction is what allows a hitbox touching a shield to be shielded rather than proceeding to ordinary hurtbox handling, and allows eligible item attacks to proceed into reflection or absorption handling.",
+        "rationale": "Current fighter collision code tests shield regions before normal hurt capsules and tests item attacks against reflector and absorber HitResults before later paths, preserving the defensive-contact mapping while avoiding an unsupported broader claim about shield-poke mechanics.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T17:59:14.725Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1771-L2128",
+            "why": "Shows shield-region collision taking precedence over ordinary hurt-capsule handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2016-L2136",
+            "why": "Shows item attacks tested against reflector and other defensive-region paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1577-L1625",
+            "why": "Shows the shared HitCapsule-versus-HitResult spatial predicate underlying those paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:99ed657c-4d6b-43a1-b0fa-dfdd91194272",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007BCC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_TestHitCapsuleHitResult",
+        "rationale": "The current declaration and body continue to identify a generic HitCapsule-versus-HitResult Boolean predicate. Because callers use several defensive HitResult categories, a generic HitResult reconstruction remains preferable to a shield-only name.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `lbColl_TestHitCapsuleHitResult`.",
+        "confidence": 0.62,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares a Boolean `lbColl_` routine whose principal operands are `HitCapsule*` and `HitResult*`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows those records being adapted into a delegated spatial overlap query."
+          }
+        ]
+      },
+      {
+        "id": "fact:cb07d890-8f49-4218-b981-51f77e1a90dc",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007BCC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `bool (HitCapsule* hit, HitResult* defensive_region, void* optional_transform, s32 bypass_geometry, float hit_scale, float broadphase_scale, float plane_z)`. The transform pointer is nullable. A nonzero `bypass_geometry` forces success after writing the defensive center and `0.0f` overlap; `hit_scale` scales the attack radius unless the capsule's fixed-scale flag is set; `broadphase_scale` is multiplied by 20 for the delegated solver; and `plane_z` supplies the defensive region's Z coordinate when a transform is present.",
+        "rationale": "The current header preserves the parameter surface, and the current definition concretely demonstrates transform nullability, forced-contact behavior, attack-radius scaling, broadphase multiplication, and optional plane-depth replacement.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares the Boolean interface with HitCapsule, HitResult, unresolved transform, integer, and three float parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows the concrete nullable `void*`, bypass branch, radius scaling, plane-Z use, and `20.0F` broadphase multiplier."
+          }
+        ]
+      },
+      {
+        "id": "fact:723ff662-6f0e-472b-ac58-ac7fa1bfcf8c",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007BCC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Tests an attacking HitCapsule against a joint-attached, spherical defensive collision region represented by HitResult, as used for shields, reflectors, and absorbers. It refreshes the defensive region's position when needed and records the resulting contact position and overlap distance in the attacking capsule.",
+        "rationale": "The current body transforms the HitResult offset, models the defensive side as a zero-length capsule with `HitResult.size`, and writes contact outputs into the attacking capsule. Current callers continue to use the predicate for defensive-region interception.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T17:59:14.725Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1577-L1625",
+            "why": "Shows HitResult position refresh, sphere representation, overlap call, outputs, and Boolean return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1771-L2128",
+            "why": "Shows shield and other defensive-region uses in fighter collision processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:e9c0e258-3f41-48ca-a886-e8bfaad92c01",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007BCC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The defensive region's `skip_update_pos` flag is a per-pass cache guard: when clear, the routine computes the joint-relative world position, optionally projects it onto the supplied Z plane, and sets the flag; later calls reuse that position. A nonzero bypass flag immediately reports contact at the defensive center with `coll_distance` set to `0.0f`. Otherwise, the routine performs the transformed capsule-versus-sphere overlap test and returns that result.",
+        "rationale": "The current body directly shows the cache transition, the forced-success branch and its exact zero overlap output, and the ordinary geometry path. This corrects the less precise prior description of the forced value as merely nominal.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:14.725Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1577-L1625",
+            "why": "Shows the `skip_update_pos` transition, optional plane projection, forced center contact with `0.0f` distance, and normal overlap return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007DD8",
+    "facts": [
+      {
+        "id": "fact:5ef17602-f7db-487f-bb36-fdff2332d003",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007DD8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the HitResult's world-space center, attached bone, and local size together with the attack capsule's world-space endpoints, radius, and scale-independence flag. It optionally composes an object-level transform with the bone matrix, converts the HitResult's local size into a world-space radius, combines that radius with either `capsule->scale` or `capsule->scale * scale`, and outputs a normalized center-to-attack-axis direction plus its angle relative to the attack axis. Fighter collision processing forwards those outputs to the item shield-hit handler, which can store them as item response data.",
+        "rationale": "The current wrapper still selects the bone transform and effective attack radius before forwarding the records and writable outputs to `lbColl_800077A0`; that helper computes the transformed defensive radius, direction, and angle used by shield-interaction processing.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows transform composition, capsule-radius selection, collision-record inputs, and direction and angle output pointers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1447-L1648",
+            "why": "Shows the delegated helper transforming the HitResult radius and producing normalized direction and angle outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2016-L2136",
+            "why": "Places the output-producing wrapper in fighter-versus-item defensive collision processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:fba25fc5-3674-46cc-ad78-2c247f3528ab",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007DD8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the contact-orientation calculation used when an item or projectile attack strikes a fighter's shield, supplying geometric direction and angle data for the resulting shield-hit response.",
+        "rationale": "The current fighter collision path invokes this geometry family during item attack handling against a fighter's shield, while the wrapper and delegated helper specifically produce contact direction and incidence angle.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2016-L2136",
+            "why": "Places the calculation in the fighter-versus-item shield interaction path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1447-L1648",
+            "why": "Shows the shield-contact geometry helper calculating a normalized direction and angle."
+          }
+        ]
+      },
+      {
+        "id": "fact:02e890bd-c2a6-4203-9a89-6db79c7d069b",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007DD8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_CalcShieldHitDirection",
+        "rationale": "The current wrapper's retained outputs remain a direction vector and angle, and its resolved context remains shield-hit response. No preserved symbol establishes the exact suffix.\n\nNaming cleanup: source explicitly states this candidate; alternatives flag comes from explanatory prose\nPrior naming claim: Likely `lbColl_CalcShieldHitDirection`, or a closely related name describing calculation of shield-contact direction and angle.",
+        "confidence": 0.62,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows the wrapper forwarding direction and angle outputs while discarding the additional surface-point result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2016-L2136",
+            "why": "Places the routine's use in fighter shield interaction processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:b1b75116-353e-450e-ab74-33e988b486c4",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007DD8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Side-effect-only collision-geometry helper with exact signature `void (HitCapsule* capsule, HitResult* hit, Mtx hit_transform, Vec3* out_direction, float* out_angle, float scale)`. `hit_transform` is nullable; both records are read-only in this routine, while the vector and scalar pointers are writable outputs.",
+        "rationale": "The declaration at head preserves the six-parameter void signature, and the definition shows a nullable matrix, read-only access to both records, and writable vector and scalar outputs.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares the exact void interface with HitCapsule, HitResult, matrix, vector output, float output, and scale."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows matrix nullability, read-only collision-record access, output-pointer forwarding, and no returned value."
+          }
+        ]
+      },
+      {
+        "id": "fact:73b9bada-3316-48e0-81ac-cd7391cde820",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007DD8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Derives the shield-contact direction and incidence angle for an attack capsule after a shield overlap has been detected, accounting for the shield joint's transformed radius and the attack capsule's effective radius.",
+        "rationale": "The current wrapper composes the optional shield transform, selects the attack radius, and delegates to a helper that transforms the HitResult size and writes direction and angle outputs.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows the wrapper selecting transformed shield geometry and effective attack radius."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1447-L1648",
+            "why": "Shows the delegated transformed-radius contact calculation and its direction and angle outputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:15b3a76c-b489-45d6-a8b3-d8f6c7a8d2e1",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007DD8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When an external transform is present, the function concatenates it with the HitResult bone matrix; otherwise it uses the bone matrix directly. A capsule marked scale-independent uses its stored radius unchanged, while other capsules multiply that radius by the supplied object scale. For a nondegenerate capsule axis, the delegated calculation emits a normalized direction and incidence angle; for coincident capsule endpoints, it emits a zero vector and an angle of \u03c0.",
+        "rationale": "The current wrapper explicitly selects transformed versus direct bone matrices and fixed versus owner-scaled radii, while the delegated helper retains the normal-axis calculation and coincident-endpoint fallback.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows the optional-transform and scale-independence branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1447-L1648",
+            "why": "Shows normalized direction and angle calculation for an extended axis and the zero-vector, \u03c0-angle fallback for coincident endpoints."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007ECC",
+    "facts": [
+      {
+        "id": "fact:61f4260a-f145-4f4c-9f44-01d65d32425a",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007ECC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes an attacking capsule's segment endpoints, radius, and scale flag together with a hurt capsule's bone, local endpoint offsets, state, cached endpoints, radius, and update flag. If the hurt positions are not cached, both offsets are transformed into world-space endpoints, optionally flattened to the supplied Z plane, and marked updated. An optional caller matrix is concatenated with the hurt bone matrix; otherwise the bone matrix is used directly. The two capsule segments, effective radii, selected matrix, and scale margin then flow into `lbColl_80006E58`, which writes `hit->hurt_coll_pos` and `hit->coll_distance`; its Boolean result is returned unchanged.",
+        "rationale": "The current body preserves every record input, cache mutation, transform choice, radius calculation, output address, and delegated Boolean. Current grab and item-pickup callers continue to consume the result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:14.725Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1650-L1774",
+            "why": "Shows all capsule inputs, endpoint-cache mutations, transform handling, radius calculation, output fields, and returned result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1566-L1768",
+            "why": "Shows successful results flowing into fighter grab-victim processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3544-L3625",
+            "why": "Shows successful results flowing into nearest eligible item selection."
+          }
+        ]
+      },
+      {
+        "id": "fact:848dc87d-d334-4820-abf3-0c1bf10cb604",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007ECC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the enabled-hurtbox contact test used by Melee's grab processing. Fighter grabs use it after restricting the attack capsule to the Catch element and the victim capsule to a grabbable body region; the fallback item path uses the same geometry to identify an item touched by the active Catch region for pickup selection.",
+        "rationale": "The fighter caller applies the predicate only to enabled Catch-element hit capsules and hurt capsules marked `is_grabbable`, then records a potential grab victim. The item caller uses the same Catch predicate to select the nearest eligible item target. SmashWiki identifies Catch as the internal standing-grab terminology and documents that only particular body regions are grabbable, directly aligning the caller guards with the gameplay mechanic.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:45:56.323Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1566-L1633",
+            "why": "Shows Catch-element collision against only grabbable fighter hurt capsules, followed by grab-victim bookkeeping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3544-L3625",
+            "why": "Shows Catch-element collision against item hurt capsules and nearest-item target selection."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://grab~__intro__@r2047744",
+            "why": "Defines grabs as attacks that hold an opponent and identifies `Catch` as the internal name for a standing grab."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://grab~limits-on-grabbing@r2047744",
+            "why": "Documents that only selected body hurtboxes are grabbable in Melee, matching the fighter caller's `is_grabbable` filter."
+          }
+        ]
+      },
+      {
+        "id": "fact:6f1dd805-738a-40d3-a859-4430172076b6",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007ECC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_CheckEnabledHitHurtCollision",
+        "rationale": "The current function remains a Boolean HitCapsule-versus-HurtCapsule predicate distinguished by its exact `HurtCapsule_Enabled` guard. The header's structural change did not alter that role or the unit's naming family.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `lbColl_CheckEnabledHitHurtCollision`.",
+        "confidence": 0.58,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows collision testing only when the supplied HurtCapsule is exactly enabled."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Confirms the Boolean HitCapsule/HurtCapsule interface and the `lbColl_*` naming family."
+          }
+        ]
+      },
+      {
+        "id": "fact:1d3554b2-428f-414b-a050-e0007f59c0f1",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007ECC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `bool (HitCapsule* hit, HurtCapsule* hurt, Mtx optional_transform, float hit_scale_y, float hurt_scale_y, float hurt_pos_z)`. The matrix may be null; `hit_scale_y` scales the attack radius unless the hit capsule's fixed-scale flag is set, `hurt_scale_y` scales the delegated hurt-side broadphase margin, and `hurt_pos_z` replaces both cached hurt endpoints' Z coordinate when an optional transform is supplied.",
+        "rationale": "The current declaration preserves the signature, and the current definition confirms matrix nullability, conditional attack-radius scaling, hurt-side margin scaling, and depth-plane replacement.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares the Boolean HitCapsule, HurtCapsule, matrix, and three-float interface."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1570-L1774",
+            "why": "Shows matrix nullability, attack-radius scaling, hurt margin scaling, and optional endpoint-Z replacement."
+          }
+        ]
+      },
+      {
+        "id": "fact:abc0b271-0c06-4883-8ab4-1aa72c308fd4",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007ECC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Tests an attacking HitCapsule against an enabled, bone-attached HurtCapsule. It refreshes the hurt capsule's cached world-space endpoints when necessary, applies optional transform and depth adjustments, delegates the capsule-overlap calculation, and records the resulting contact position and overlap distance in the attacking capsule.",
+        "rationale": "The current body retains the enabled-state guard, endpoint refresh, optional transform handling, shared overlap call, and attacking-capsule outputs. Current callers still use it for Catch-region contact against fighters and items.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:14.725Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1650-L1774",
+            "why": "Shows the complete enabled hurt-capsule collision wrapper and its outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1566-L1768",
+            "why": "Shows the predicate testing Catch capsules against grabbable fighter hurt capsules."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3544-L3625",
+            "why": "Shows the predicate testing Catch capsules against item hurt capsules."
+          }
+        ]
+      },
+      {
+        "id": "fact:14ceb828-95ff-497b-b7b9-03cccc5daf52",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80007ECC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A hurt capsule participates only while its state is exactly `HurtCapsule_Enabled`; disabled, invincible, intangible, or other states return false without collision outputs. For an eligible capsule, `skip_update_pos` acts as a cache guard: while clear, both bone-relative endpoints are refreshed and the flag is set, while subsequent tests reuse those positions. After cache handling, the function always performs the geometric overlap test and returns its result; unlike the nearby general hit-versus-hurt variant, it has no forced-contact bypass.",
+        "rationale": "The current outer state guard, endpoint-cache transition, and delegated return preserve the standing behavior. The adjacent `lbColl_8000805C` still demonstrates the broader non-intangible guard and forced-contact branch absent here.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:14.725Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1650-L1774",
+            "why": "Shows the exact enabled-state requirement, one-time endpoint update, normal overlap return, and the neighboring variant's forced-contact distinction."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_8000805C",
+    "facts": [
+      {
+        "id": "fact:64b1f11b-2e73-4737-a262-7484f0d12044",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000805C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a hit capsule, a hurt capsule, optional transform information, and scale controls. On the hurt capsule's first update for the current cycle, it transforms both bone-relative endpoint offsets into world positions, optionally replaces both endpoint Z coordinates with the supplied plane, and marks the positions updated. The normal path selects or composes the hurt-bone transform, derives the effective hit radius, and passes both capsule segments and radii to the geometric solver, which writes `hit->hurt_coll_pos` and `hit->coll_distance`. The forced path instead writes the hurt segment midpoint and a fixed distance of `5.0` before returning success.",
+        "rationale": "The current matched body preserves the complete endpoint-cache, transform-selection, scale, forced-output, and delegated-solver flow, so the claim remains valid after drift.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1690-L1736",
+            "why": "Directly shows endpoint transformation and caching, optional Z replacement, forced contact outputs, transform composition, radius selection, and the final solver output pointers."
+          }
+        ]
+      },
+      {
+        "id": "fact:95660a6f-51ee-48e3-b08f-ede4a8e008e1",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000805C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes attack contact against hurtboxes while preserving Melee's distinction between intangibility and other defensive hurtbox states: intangible regions are treated as absent and cannot register the attack, whereas non-intangible regions can proceed through contact detection.",
+        "rationale": "The current implementation still rejects exactly `HurtCapsule_Intangible` before any contact outputs or geometric testing and admits every other state, preserving the established mechanic mapping.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1690-L1736",
+            "why": "Shows the specific intangible-state exclusion around the complete hit-versus-hurt contact path."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://intangibility~__intro__@r1997771",
+            "why": "Defines intangibility as a hurtbox state in which attacks cannot hit and distinguishes it from invincibility."
+          }
+        ]
+      },
+      {
+        "id": "fact:2bb342f0-05da-4322-ad92-9872ee94c9d7",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000805C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_CheckHitHurtCollision",
+        "rationale": "The current body remains a Boolean HitCapsule-versus-HurtCapsule predicate that records hurt-contact outputs, so the cautious semantic naming hypothesis still fits.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `lbColl_CheckHitHurtCollision`.",
+        "confidence": 0.58,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1690-L1736",
+            "why": "Shows the function deciding hit-versus-hurt contact and writing the attacking capsule's contact position and distance."
+          }
+        ]
+      },
+      {
+        "id": "fact:00c43cd6-bdb9-4764-abce-813be3cbed54",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000805C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `bool (HitCapsule* hit, HurtCapsule* hurt, Mtx optional_transform, s32 force_contact, float hit_scale, float broadphase_scale, float hurt_pos_z)`. The matrix may be null; the integer is tested as a Boolean forced-contact flag; the three floats respectively affect the hit radius, the geometric test's broadphase margin, and the hurt endpoints' Z coordinate when the optional transform is present.",
+        "rationale": "The current definition explicitly supplies all seven parameter types and preserves each stated nullability, control, arithmetic, and coordinate role.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1690-L1736",
+            "why": "Provides the complete signature and demonstrates the exact use of the matrix, forced-contact integer, and three floating-point controls."
+          }
+        ]
+      },
+      {
+        "id": "fact:9bdf2d30-bcd8-43d6-a828-68ca07760f38",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000805C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Tests a hit capsule against a bone-attached hurt capsule while excluding intangible hurtboxes, with an optional forced-contact path used in place of the geometric overlap calculation.",
+        "rationale": "The current function still combines the intangible guard, guarded hurt-endpoint update, forced-success branch, and normal capsule solver into the same hit-versus-hurt predicate.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1690-L1736",
+            "why": "Shows the complete state guard, endpoint update, forced-contact branch, and normal geometric overlap call."
+          }
+        ]
+      },
+      {
+        "id": "fact:a142e01a-ee9f-4b8f-b75a-e460742f18f2",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000805C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "An intangible hurt-capsule state terminates immediately with false. For any other hurt-capsule state, endpoint positions are refreshed only while `skip_update_pos` is clear and that flag is then set. A nonzero forced-contact flag bypasses geometry and returns true with synthetic contact outputs; otherwise the function performs the capsule-overlap test and returns its result.",
+        "rationale": "All guards and transitions remain explicit in the current body, including the broader non-intangible eligibility test, one-cycle endpoint cache, forced success, and delegated normal result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1690-L1736",
+            "why": "Directly shows the intangible rejection, cache transition, forced-contact path, and normal solver return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008248",
+    "facts": [
+      {
+        "id": "fact:2a7bc0f5-e3e8-434e-8552-22c5f470764d",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008248",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes an attacking capsule's segment endpoints, radius, scale-control flag, and contact-output fields together with a hurt capsule's bone, local endpoint offsets, cached endpoints, radius, and update flag. If the hurt positions are not cached, both offsets are transformed into world-space endpoints, optionally flattened to the supplied Z plane, and marked updated. An optional caller matrix is concatenated with the hurt bone matrix; otherwise the bone matrix is used directly. The capsule geometry, effective radii, selected matrix, and broadphase scale flow into `lbColl_80006E58`, which writes `hit->hurt_coll_pos` and `hit->coll_distance`; its Boolean result is returned unchanged.",
+        "rationale": "The current matched body preserves every stated cache mutation, matrix choice, scale calculation, solver input, output pointer, and return flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1738-L1773",
+            "why": "Directly shows all capsule-field reads, endpoint-cache writes, matrix selection, effective-radius calculation, solver outputs, and returned overlap result."
+          }
+        ]
+      },
+      {
+        "id": "fact:0c928e5e-75e7-4efa-b134-e46727bacd55",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008248",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides a hurtbox-geometry overlap predicate for interactions that must detect physical intersection without applying normal hurtbox-state eligibility. Melee uses it for non-damaging inert contact and for special overlap checks such as determining whether Samus intersects her own Bomb explosion.",
+        "rationale": "The current function never reads `hurt->state`, while the current fighter collision path distinguishes inert contact from ordinary state-aware damage processing. The standing Samus caller evidence remains current and continues to supply Bomb and owner hurt capsules.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1738-L1773",
+            "why": "Shows a pure geometric HitCapsule-versus-HurtCapsule test with no hurt-state eligibility check."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L2005-L2128",
+            "why": "Shows the fighter-item collision pass separating inert-contact handling from ordinary damaging collision paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftSamus/ftsamusspeciallw0.c#L56-L71",
+            "why": "Shows the Samus Bomb helper testing the Bomb capsule against owner hurt capsules with this predicate."
+          }
+        ]
+      },
+      {
+        "id": "fact:b760dfd9-2c81-460c-a298-c04235a6effe",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008248",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_CheckHitHurtCollisionIgnoreState",
+        "rationale": "The current body remains a Boolean hit-versus-hurt predicate whose defining distinction is the complete absence of a HurtCapsule state check.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `lbColl_CheckHitHurtCollisionIgnoreState`.",
+        "confidence": 0.57,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1738-L1773",
+            "why": "Shows the full geometric predicate proceeding without reading or filtering the HurtCapsule state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.h#L36-L76",
+            "why": "Places the Boolean operation over HitCapsule and HurtCapsule records among neighboring collision predicates."
+          }
+        ]
+      },
+      {
+        "id": "fact:c218fc7d-06be-4985-af9a-0ed1f8537557",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008248",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `bool (HitCapsule* hit, HurtCapsule* hurt, Mtx optional_transform, float hit_scale, float broadphase_scale, float hurt_pos_z)`. The matrix may be null. `hit_scale` multiplies the attacking radius unless the HitCapsule's fixed-scale flag is set; `broadphase_scale` multiplies the delegated solver's broadphase margin; and `hurt_pos_z` replaces both cached hurt endpoints' Z coordinate when an optional transform is supplied.",
+        "rationale": "The current declaration and body retain the exact signature and demonstrate each parameter's established role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1738-L1773",
+            "why": "Shows the matrix's optional use and the exact arithmetic or coordinate role of every floating-point argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.h#L36-L76",
+            "why": "Provides the public Boolean signature with HitCapsule, HurtCapsule, matrix, and three float parameters."
+          }
+        ]
+      },
+      {
+        "id": "fact:1aceec9b-53b1-403a-974c-932b9cbeed1c",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008248",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The function ignores the HurtCapsule's enabled, disabled, invincible, and intangible state values and always proceeds to geometric testing. `skip_update_pos` is its only capsule-state guard: while clear, both bone-relative endpoints are refreshed and the flag is set; subsequent tests reuse the cached positions. It has no forced-contact branch, so after cache handling it always returns the shared capsule solver's actual overlap result.",
+        "rationale": "The current complete body reads no HurtCapsule lifecycle state, contains only the endpoint-cache guard, and always reaches the delegated solver after cache handling.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1738-L1773",
+            "why": "Shows the cache transition, absence of hurt-state and forced-success branches, and unconditional solver result."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_800083C4",
+    "facts": [
+      {
+        "id": "fact:a6289b24-e61e-42fa-ba8b-b8ca29c7205b",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800083C4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The capsule's attached bone and local endpoint offsets `a_offset` and `b_offset` flow through the shared JObj point-transform helper into world-space outputs `a_pos` and `b_pos`. After both outputs are written, `skip_update_pos` is set so later calls can reuse them.",
+        "rationale": "The current body still performs the two endpoint-specific point transforms and then records completion in the cache flag.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1775-L1784",
+            "why": "Shows the exact HurtCapsule source fields, destination fields, transform calls, and final cache-flag write."
+          }
+        ]
+      },
+      {
+        "id": "fact:fcfbb650-fec9-481b-94da-f640410fcb17",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800083C4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Keeps a hurtbox capsule aligned with its animated bone by converting the capsule's two bone-local endpoints into current world-space endpoints used by combat collision testing.",
+        "rationale": "The current helper transforms both `HurtCapsule` endpoints, and the adjacent current hit-versus-hurt predicates consume the resulting positions as collision geometry.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows the endpoint-update helper together with adjacent hit-versus-hurt code that consumes the resulting world positions."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://hitbox~__intro__@r2029151",
+            "why": "Defines hurtboxes as character collision regions that receive hits when overlapped by attack hitboxes."
+          }
+        ]
+      },
+      {
+        "id": "fact:4a69738c-da71-48b4-bd2e-1855e7cc5f12",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800083C4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_UpdateHurtCapsulePositions",
+        "rationale": "The routine accepts one `HurtCapsule`, updates both of its endpoint-position fields, and marks that positional update complete. The proposed `lbColl_` prefix follows the translation unit, while the plural `Positions` reflects that both capsule endpoints are refreshed. No preserved symbol establishes the original spelling, so this remains a semantic guess.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `lbColl_UpdateHurtCapsulePositions`.",
+        "confidence": 0.82,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1775-L1784",
+            "why": "Directly shows a HurtCapsule position-update operation covering both endpoint positions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.h#L36-L76",
+            "why": "Establishes the exact routine signature and the surrounding translation unit's `lbColl_` naming convention."
+          }
+        ]
+      },
+      {
+        "id": "fact:ba0bd781-f4c6-4241-b688-ed0374a529b9",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800083C4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void (HurtCapsule* hurt)`. `hurt` is a required mutable capsule record whose attached `HSD_JObj`, two local-space `Vec3` offsets, two world-space `Vec3` positions, and position-update flag are read or written; the routine returns no value.",
+        "rationale": "The header and matched definition establish the `void(HurtCapsule*)` signature. The body dereferences the pointer without a null guard, reads its bone, offsets, and update flag, and writes both position vectors and the flag.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:43:30.119Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.h#L36-L76",
+            "why": "Declares the routine as returning void and accepting one `HurtCapsule*`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1775-L1784",
+            "why": "Establishes the parameter's required mutability, accessed fields, and lack of null handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lb_00B0.c#L105-L140",
+            "why": "Shows that the called transform helper accepts an HSD JObj, local point, and output point, confirming the roles of the capsule fields supplied to it."
+          }
+        ]
+      },
+      {
+        "id": "fact:f00c9b23-29de-4dae-8ac4-4c8076a1a332",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800083C4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Refreshes a hurt capsule's two world-space endpoints from its bone-relative endpoint offsets, avoiding duplicate transform work when those positions have already been updated.",
+        "rationale": "The current function retains the early cache return, both bone-relative transforms, and the final updated marker.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1775-L1784",
+            "why": "Shows the guard, both endpoint transformations, both destination positions, and the updated-state flag."
+          }
+        ]
+      },
+      {
+        "id": "fact:7280ecb8-1b38-403c-8bd6-4eaf6a756a42",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800083C4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Implements a two-state positional cache guard. When `skip_update_pos` is false, both endpoints are transformed and the flag becomes true; when it is already true, the routine returns without modifying the capsule. Another subsystem must clear the flag when the cached positions need refreshing.",
+        "rationale": "The current body has exactly the no-op cached state and the transform-then-set refresh state, and it contains no path that clears the flag.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1775-L1784",
+            "why": "Directly shows the return-on-set path and the two-transform then set-true path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008428",
+    "facts": [
+      {
+        "id": "fact:db4b08f5-9675-4f8a-9646-380736b3f8d3",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008428",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a pointer to a fighter- or item-owned `HitCapsule`, ignores the capsule's prior contents except for locating its `state` field, writes `HitCapsule_Disabled` there, and returns no value. The owning subsystem subsequently observes the disabled state through its existing capsule record; broader owner-level flags and bookkeeping are updated separately by callers.",
+        "rationale": "The target performs exactly one state-field write. Fighter callers select capsules from `Fighter.x914`, and item callers select embedded capsules from `Item.x5D4_hitboxes`; those wrappers separately clear fighter- or item-level bookkeeping where required, demonstrating the boundary of this leaf routine's data flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T15:06:48.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1773-L1808",
+            "why": "Shows that the function's only direct output is the disabled-state assignment on its input capsule."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3111-L3131",
+            "why": "Shows fighter-owned capsules flowing into the routine and the all-hitbox wrapper separately clearing the fighter-level active-hitbox flag."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_2725.c#L68-L93",
+            "why": "Shows item-owned capsules flowing into the routine and item wrappers separately updating item-level collision bookkeeping."
+          }
+        ]
+      },
+      {
+        "id": "fact:d57b3283-01ae-47db-ace1-37e0da2a201e",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008428",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements shared hitbox deactivation for fighters and items. It underlies operations that remove a specific hitbox or all active hitboxes, ending an attack collision's active interval without destroying its owning fighter or item record.",
+        "rationale": "The target places one attack capsule in the explicit disabled state, and its wrappers apply that primitive at singular or complete-array scope for both fighters and items. SmashWiki independently identifies \u201cRemove hitbox\u201d and \u201cRemove all hitboxes\u201d as the script-level operations that delete a specific hitbox or all active hitboxes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T15:06:48.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1773-L1808",
+            "why": "Establishes the underlying mechanical transition to `HitCapsule_Disabled`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3111-L3131",
+            "why": "Shows singular and all-hitbox fighter operations built from the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_2725.c#L68-L93",
+            "why": "Shows the same disabling primitive reused for singular and all-hitbox item operations."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://hitbox~hitbox-related-flags@r2029151",
+            "why": "Documents separate \u201cRemove hitbox\u201d and \u201cRemove all hitboxes\u201d operations for retiring a specific hitbox or all active hitboxes."
+          }
+        ]
+      },
+      {
+        "id": "fact:f1e56de2-7ef1-4816-b143-85e94df128e7",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008428",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DisableHitCapsule",
+        "rationale": "The routine's sole operation is to set a `HitCapsule` to `HitCapsule_Disabled`, and the immediately following inverse routine sets the same field to `HitCapsule_Enabled`. The verb-object form is also consistent with the unit's recovered `lbColl_CopyHitCapsule` naming style, although no preserved symbol establishes the exact original spelling.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `lbColl_DisableHitCapsule`.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1773-L1808",
+            "why": "Shows the unnamed routine's exact disabled-state assignment, its adjacent enabled-state inverse, and the surrounding HitCapsule utility family."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3111-L3131",
+            "why": "Shows callers consistently using the routine as the per-capsule primitive beneath singular and all-hitbox disabling operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:ee945c90-6db4-4c3c-a82e-4c44167433c0",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008428",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Synchronous in-place hit-capsule state utility with signature `void(HitCapsule* hit)`; the argument must point to writable capsule storage, and the function communicates its result solely by overwriting `hit->state`.",
+        "rationale": "The matched definition supplies the exact void return and `HitCapsule*` parameter types. It dereferences the pointer without a null guard, writes only the state field, and returns no separate result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T15:06:48.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1773-L1808",
+            "why": "Provides the complete signature and shows the sole in-place mutation through the supplied pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:7d24421a-7a99-45fa-bddf-6214e19d8c3f",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008428",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Disables a supplied hit capsule so its fighter- or item-owned hitbox no longer participates as an active attack collision.",
+        "rationale": "The complete matched body unconditionally assigns `HitCapsule_Disabled` to the supplied capsule. Fighter callers apply it to one indexed hitbox or every fighter hitbox, while item callers apply it to one indexed item hitbox or all four item hitboxes, establishing that this is the shared leaf operation for retiring active attack collisions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T15:06:48.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1773-L1808",
+            "why": "Shows the complete function assigning `HitCapsule_Disabled` to the supplied `HitCapsule`, adjacent to the complementary enabling operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3111-L3131",
+            "why": "Shows fighter collision helpers using the function to disable either one indexed fighter hitbox or the fighter's complete hitbox array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_2725.c#L68-L93",
+            "why": "Shows item collision helpers using the function to disable either one indexed item hitbox or all four item hitboxes."
+          }
+        ]
+      },
+      {
+        "id": "fact:cbfc745c-f7e9-488b-b277-b7f9bc4d0fd5",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008428",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally transitions the supplied hit capsule to `HitCapsule_Disabled`, regardless of its previous state. It has no guard, timer, victim-history reset, position reset, or owner-level state update; callers perform accompanying bookkeeping separately.",
+        "rationale": "The current leaf body remains a single branch-free state assignment, while the current item wrappers perform owner bookkeeping outside it. This replaces the vanished Sheik-path citation without changing the supported claim.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1786-L1807",
+            "why": "Shows the disabling routine as only an unconditional `HitCapsule_Disabled` assignment, distinct from neighboring enable and victim-history operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_2725.c#L68-L126",
+            "why": "Shows item-side collision bookkeeping and update operations occurring outside calls to the disabling primitive."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008434",
+    "facts": [
+      {
+        "id": "fact:2d17b5a7-ba80-462c-95cb-644bdc51e654",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008434",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a pointer to a fighter- or item-owned `HitCapsule`, writes `HitCapsule_Enabled` to its `state` field, and returns no value. Subsequent owner-specific update code consumes that enabled state to initialize or resume the hitbox.",
+        "rationale": "The current leaf function still has one direct output, and current item code reads that state immediately to initialize position history and advance the capsule lifecycle.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1786-L1807",
+            "why": "Shows the target's sole direct output as an enabled-state write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_2725.c#L68-L126",
+            "why": "Shows an item capsule passed to the target and the resulting enabled state consumed by item-specific position and lifecycle updates."
+          }
+        ]
+      },
+      {
+        "id": "fact:8d11812c-1679-4cd0-a366-a7a3c230719a",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008434",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements hitbox activation at the shared collision-library level. Fighter moves and items call it when their attack collision should become active or be reactivated, including Ness's timed yo-yo rehit.",
+        "rationale": "The current target writes the explicit enabled state; current item code uses it to activate an indexed hitbox, and current Ness code calls it when the yo-yo rehit timer expires. The unsupported vanished Sheik-specific example has been removed.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1786-L1807",
+            "why": "Identifies the mechanical operation as transitioning a HitCapsule to `HitCapsule_Enabled`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L44-L57",
+            "why": "Shows the timed yo-yo rehit path enabling the capsule when its countdown reaches zero."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_2725.c#L68-L126",
+            "why": "Shows an item collision helper using the same target to activate an indexed item hitbox."
+          }
+        ]
+      },
+      {
+        "id": "fact:765b0a68-e327-46b5-940b-28abe767a56b",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008434",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_EnableHitCapsule",
+        "rationale": "The current routine's sole operation is setting a HitCapsule to its enabled state, and it remains adjacent to the exact inverse setter, supporting the verb-object hypothesis without the vanished caller citation.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `lbColl_EnableHitCapsule`.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1786-L1807",
+            "why": "Shows the enabled-state assignment immediately beside the complementary disabled-state setter and victim-history utility."
+          }
+        ]
+      },
+      {
+        "id": "fact:491d8bf8-103a-4658-bb80-0f96899fde32",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008434",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Hit-capsule state utility with signature `void(HitCapsule* hit)`; the argument is a mutable, non-null capsule whose `state` field is overwritten.",
+        "rationale": "The matched definition provides the exact void return and `HitCapsule*` parameter types. It dereferences the argument without a null check and writes only its state field.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:44:18.349Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1791-L1794",
+            "why": "Provides the complete function signature and its unchecked mutation of the supplied capsule."
+          }
+        ]
+      },
+      {
+        "id": "fact:fcaf77c6-6ba2-4abd-911e-e1f40d689fa6",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008434",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enables a hit capsule so its owning fighter or item can begin or resume processing that hitbox as active.",
+        "rationale": "The current body unconditionally writes the enabled state, and current fighter and item callers use the transition to resume or initialize attack-capsule processing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1786-L1807",
+            "why": "Shows the complete enabling primitive."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L44-L57",
+            "why": "Shows fighter gameplay code using it to resume a timed hitbox."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_2725.c#L68-L126",
+            "why": "Shows item code using it to begin processing an indexed item hitbox."
+          }
+        ]
+      },
+      {
+        "id": "fact:170d2a3e-0ede-474e-beb8-7c2002a7ec64",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008434",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally transitions the supplied hit capsule into `HitCapsule_Enabled`, regardless of its previous state. It performs no guard, victim-history reset, position initialization, or follow-up transition; callers handle those operations separately.",
+        "rationale": "The entire routine is a straight-line state assignment. The neighboring disable routine demonstrates the complementary state transition, while Ness's caller separately clears victim history before enabling and the item caller separately initializes positions and advances the state afterward.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:44:18.349Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1743-L1823",
+            "why": "Shows the unconditional enabled-state assignment, its complementary disabled-state setter, and the distinct victim-history clearing routine."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L44-L57",
+            "why": "Shows victim-history clearing performed as a separate call before the capsule is enabled."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/it_2725.c#L95-L126",
+            "why": "Shows position initialization and transition to `HitCapsule_Unk2` performed by the item-side caller after this function returns."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008440",
+    "facts": [
+      {
+        "id": "fact:bd0c4f50-64f1-41c0-9f8e-33cb57eec4c9",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008440",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives one HitCapsule, writes null to the `victim` member of every entry in `victims_1` and `victims_2`, and writes zero to `x44` and `x45`. Later victim-registration operations consume the emptied tables and zeroed cursors when deciding whether a contact is new and where a new victim should be recorded.",
+        "rationale": "The current source retains both clearing loops and cursor writes together with the subsequent registration logic that searches empty entries before using the cursors.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows the complete reset and the beginning of downstream registration logic that consumes the reset history."
+          }
+        ]
+      },
+      {
+        "id": "fact:ae2f724d-2c02-47aa-9cf6-9a70c434cd0c",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008440",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the victim-history reset that lets a refreshed or reactivated hitbox strike targets it had already recorded, supporting timed rehit behavior and repeated damaging contacts.",
+        "rationale": "The current reset removes every recorded victim, the adjacent registration logic rejects existing identities, and current Ness gameplay code performs the reset exactly when its timed rehit expires.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows the complete victim-history reset and duplicate-sensitive registration machinery."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftNess/ftnessattackhi4.c#L44-L57",
+            "why": "Shows the reset being used when Ness's yo-yo rehit countdown reaches zero."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://hitbox~special-properties@r2029151",
+            "why": "Documents rehit rate as allowing a hitbox to strike again after a specified interval."
+          }
+        ]
+      },
+      {
+        "id": "fact:fc959dc1-8eaf-455c-9834-258fafd6d35f",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008440",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_ClearHitCapsuleVictims",
+        "rationale": "The current function still exclusively clears both victim tables and their cursors in one HitCapsule, preserving the semantic basis for this cautious name.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `lbColl_ClearHitCapsuleVictims`.",
+        "confidence": 0.77,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows the target clearing all HitCapsule victim-history identities and both replacement cursors."
+          }
+        ]
+      },
+      {
+        "id": "fact:e734db65-a1ce-4a6a-870e-5943891a9654",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008440",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Synchronous in-place reset utility with signature `void lbColl_80008440(HitCapsule* hit)`; `hit` must point to writable HitCapsule storage, and all results are communicated by mutating its two victim tables and their cursors.",
+        "rationale": "The matched definition supplies the exact return and parameter types, performs only writes through the supplied pointer, and returns no separate value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:44:48.279Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1796-L1807",
+            "why": "Provides the exact `void(HitCapsule*)` signature and shows every output written into the pointed-to capsule."
+          }
+        ]
+      },
+      {
+        "id": "fact:08062e28-9672-4972-a296-d58ff0d46409",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008440",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Clears a hit capsule's complete victim history so subsequent collision processing treats future contacts as new: it empties both victim tables and resets both circular-replacement cursors.",
+        "rationale": "The current target clears both tables and cursors, and the immediately following registration routines continue to use null entries first and the corresponding cursor only when a table is full.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows the complete reset and the primary-table registration behavior that gives the cleared state its meaning."
+          }
+        ]
+      },
+      {
+        "id": "fact:d86495da-c72f-4c78-ba48-9b693db57e2f",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008440",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has no guards or partial-reset mode: every call transitions both victim histories to empty and both replacement cursors to their initial zero position, regardless of the capsule's enabled state or prior contents.",
+        "rationale": "Both fixed-size clearing loops and both cursor assignments execute unconditionally. The function neither reads nor branches on the capsule lifecycle state, and no previous victim entry or cursor value survives.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:44:48.279Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1796-L1807",
+            "why": "Shows the unconditional full-table loops and cursor resets, with no state guard or early return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008688",
+    "facts": [
+      {
+        "id": "fact:31e00a1c-9c9d-43c4-9fb7-cd89085d2af7",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008688",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a HitCapsule, a collision-category integer, and an opaque victim identity. It searches `capsule->victims_1`; an existing entry may have `x4` refreshed from `capsule->x40_b4` and produces false. A new identity is placed in the first empty entry or, when full, at the slot selected by `capsule->x44`; its `x4` is set to `x40_b4` for types 2, 4, 5, 7, and 8 and otherwise cleared, and successful insertion produces true.",
+        "rationale": "Every input-to-output path is explicit in the matched body: pointer equality drives duplicate detection, the type switch drives the auxiliary value, and the table and replacement cursor are the only mutated state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:41:18.919Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1824-L1877",
+            "why": "The source directly shows the table scans, duplicate update, insertion-slot selection, type-dependent metadata assignment, cursor mutation, and Boolean results."
+          }
+        ]
+      },
+      {
+        "id": "fact:46ad3726-e329-4034-aa80-fc10acb34242",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008688",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the primary-table registration gate for Melee's hitbox victim history: collision processing can tell a newly encountered victim from one the logical hitbox already recorded, while category-dependent per-victim metadata supports the timing state associated with repeated-hit handling.",
+        "rationale": "The code's victim-pointer history and false-on-duplicate behavior directly realize hitbox victim tracking. SmashWiki independently identifies rehit rate as a Melee hitbox property that permits another strike after a specified number of frames; the function's category-dependent copying of capsule timing metadata into a victim entry is consistent with participation in that repeated-hit machinery, though the function itself does not advance the timer.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T13:41:18.919Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1824-L1877",
+            "why": "The function records victim identities, distinguishes duplicates from new victims, and stores category-dependent per-victim metadata from the hit capsule."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://hitbox~special-properties@r2029151",
+            "why": "The Hitbox article identifies rehit rate as a property introduced in Melee that allows a hitbox to strike again after a specified number of frames."
+          }
+        ]
+      },
+      {
+        "id": "fact:64722722-4758-4c73-aac7-e93cf1ca6670",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008688",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Boolean mutating registration routine with signature `bool (HitCapsule* capsule, int type, void* victim)`: `victim` is used as an opaque identity pointer, while `type` selects whether the victim entry's auxiliary value is initialized or refreshed from `capsule->x40_b4`.",
+        "rationale": "The current declaration preserves the Boolean, integer, and opaque-pointer signature, while the implementation compares and stores the victim without dereferencing it and uses the integer solely to select metadata handling.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares `lbColl_80008688` as `bool(HitCapsule*, int, void*)`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1824-L1983",
+            "why": "Shows opaque victim identity comparison and storage and type-dependent auxiliary metadata mutation."
+          }
+        ]
+      },
+      {
+        "id": "fact:6a3785d3-e788-4c50-b612-50fb3b378d68",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008688",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Registers a victim in a hit capsule's primary victim-history table and reports whether that victim was newly registered, preventing an already-recorded victim from being accepted as new while retaining category-dependent per-victim timing metadata.",
+        "rationale": "The function first searches victims_1 for pointer identity and returns false when the victim is already present. Otherwise it inserts the victim, initializes its companion metadata, and returns true. This is precisely the registration and duplicate-detection operation required by the existing hitbox-victim-history concept.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T13:41:18.919Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1824-L1877",
+            "why": "The matched body searches the primary victim table, rejects duplicate victim pointers, inserts new pointers, updates their metadata, and returns whether insertion occurred."
+          }
+        ]
+      },
+      {
+        "id": "fact:64e6e960-455b-4224-ba45-0708afcca67e",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008688",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The primary victim table has three registration states: duplicate, free capacity, and full. A duplicate returns false without replacing an entry, though selected collision types refresh its auxiliary value. With free capacity, the first null slot is filled. When all 12 slots are occupied, the entry indexed by `x44` is replaced and `x44` advances with wraparound at 12. Every new registration returns true.",
+        "rationale": "The two scans distinguish duplicate and free-slot states. Falling through with an index equal to the array size selects the cursor-based replacement path, whose explicit increment and wrap implement bounded round-robin replacement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:41:18.919Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1824-L1877",
+            "why": "The matched function explicitly implements duplicate detection, first-empty insertion, full-table replacement, and cursor wrap at 0xC."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1878-L1931",
+            "why": "The immediately following high-similarity sibling applies the same bounded victim-registration state machine to the capsule's secondary victim table and its separate cursor."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008820",
+    "facts": [
+      {
+        "id": "fact:e942262b-f031-46c4-826e-f6bbd169a64b",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008820",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads `capsule->victims_2`, `capsule->x45`, and `capsule->x40_b4` together with an interaction type and victim identity. An existing entry may have its `x4` metadata refreshed before false is returned. A new identity is written into the first empty slot, or into the slot selected by `x45` when the table is full; its metadata is initialized from `x40_b4` for interaction types 2, 5, 7, and 8 and to zero otherwise. Full-table insertion advances `x45` modulo the table size before true is returned.",
+        "rationale": "The current complete implementation preserves both searches, both metadata switches, the replacement selection, cursor wraparound, and the false-for-existing/true-for-new contract.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1969",
+            "why": "Directly shows all secondary-table inputs, mutations, metadata cases, cursor handling, and returns."
+          }
+        ]
+      },
+      {
+        "id": "fact:1fda2c16-26ce-4885-be6b-258f0a13244f",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008820",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the secondary half of hitbox victim history: it remembers identities already encountered by a HitCapsule so collision processing can distinguish first registration from repeat contact while retaining per-victim metadata for selected interaction categories.",
+        "rationale": "The current code rejects existing identities, inserts new ones into `victims_2`, and conditionally maintains auxiliary values, directly supporting the generic victim-history role without relying on the drifted item-caller span.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1969",
+            "why": "Shows duplicate detection, insertion, circular replacement, and selected per-victim metadata maintenance in the secondary history table."
+          }
+        ]
+      },
+      {
+        "id": "fact:18becded-f796-4bbb-9975-8ea0b7a1e019",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008820",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_RegisterHitCapsuleVictim2",
+        "rationale": "The current target registers identities in `victims_2` and reports whether registration is new, preserving the semantic basis for the numeric suffix that distinguishes the paired tables.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `lbColl_RegisterHitCapsuleVictim2`.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1969",
+            "why": "Shows the complete registration operation on the HitCapsule's `victims_2` table."
+          }
+        ]
+      },
+      {
+        "id": "fact:f8b47e0c-306b-48fe-a3e0-bf6dc27a18cd",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008820",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Boolean registration predicate with signature bool(HitCapsule* capsule, int interaction_type, void* victim): victim is an opaque identity token, interaction_type selects whether per-victim auxiliary state is refreshed, and the result is true only for a newly inserted identity.",
+        "rationale": "The matched signature supplies the mechanical types. Pointer equality is the only operation performed on victim, making it an opaque identity token. The integer is switched over only to control the auxiliary x4 value, while all duplicate paths return false and all insertion paths return true.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T13:41:09.093Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1930",
+            "why": "The function signature and body demonstrate the parameter roles, the interaction-category switch, and the boolean result convention."
+          }
+        ]
+      },
+      {
+        "id": "fact:a84739bb-e1ec-4f9e-9562-978748794b57",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008820",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Checks and updates a HitCapsule's secondary victim-history table, reporting whether the supplied victim is newly registered rather than already present.",
+        "rationale": "The function first searches victims_2 for the victim and returns false when it finds one. Otherwise it inserts the victim into an empty entry or a cursor-selected replacement entry and returns true, directly establishing its duplicate-checking and registration role.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:41:09.093Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1930",
+            "why": "The complete function shows duplicate lookup, insertion into the secondary victim table, circular replacement, and the false-for-existing/true-for-new return contract."
+          }
+        ]
+      },
+      {
+        "id": "fact:a595661d-a668-4fa9-b0eb-8fc905bb3415",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008820",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The secondary history has three observable cases: an existing victim remains registered and produces false; a new victim uses the first empty entry and produces true without moving the replacement cursor; and a new victim presented to a full table overwrites the cursor-selected entry, advances the cursor with wraparound, and produces true. For interaction types 2, 5, 7, and 8, both duplicate and new entries carry the capsule's current x40_b4 value; other newly inserted entries begin with zero metadata.",
+        "rationale": "The first loop is the existing-victim guard, the second loop determines whether capacity remains, and the i-equals-array-size branch controls both circular replacement and cursor advancement. The two matching switches establish the type-dependent metadata behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:41:09.093Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1930",
+            "why": "The source explicitly implements the duplicate, empty-slot, and full-table states and their transitions."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_800089B8",
+    "facts": [
+      {
+        "id": "fact:a9fc7b62-c964-44c3-a4c7-45950565859a",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800089B8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a HitCapsule and an opaque victim identity, scans the capsule's entire `victims_1` array, and replaces every matching entry's `victim` token with null. It does not alter the entry's auxiliary `x4` value, the primary replacement cursor `x44`, the secondary victim table, or caller-owned state directly.",
+        "rationale": "The current complete body still contains one full primary-table scan and only the conditional victim-token clear; adjacent registration code identifies the independent metadata and cursor fields that remain untouched.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1839-L1983",
+            "why": "Shows the primary registration state followed by the target's full scan and sole mutation of matching victim entries."
+          }
+        ]
+      },
+      {
+        "id": "fact:7b1539e2-f4af-447b-8e18-f5718ca337fe",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800089B8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Releases an identity from primary hitbox victim history, allowing a later encounter to be registered as a new contact instead of remaining suppressed as an already recorded victim. Fighter thrown-hitbox processing uses this release when paired capsules no longer overlap.",
+        "rationale": "The current collision-library code removes the identity from the same table whose registration gate rejects duplicates, and the relocated current fighter caller invokes the remover reciprocally on the non-overlap branch.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1839-L1983",
+            "why": "Shows primary-table duplicate registration behavior and the complementary identity-removal routine."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_07C1.c#L137-L203",
+            "why": "Shows the current fighter thrown-hitbox pass removing reciprocal identities only when the capsule-overlap test fails."
+          }
+        ]
+      },
+      {
+        "id": "fact:9af68f36-7b11-47f4-8c6f-1c3d69d242d2",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800089B8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_RemoveHitCapsuleVictim1",
+        "rationale": "The current body still removes the supplied identity from `victims_1`, complementing the primary-table registration routine and preserving the cautious table-number distinction.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_RemoveHitCapsuleVictim1`.",
+        "confidence": 0.75,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1839-L1983",
+            "why": "Shows the primary-table registration machinery and the target's corresponding removal from `victims_1`."
+          }
+        ]
+      },
+      {
+        "id": "fact:7b57324e-3e14-49ea-8416-f1bd3f09206f",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800089B8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Side-effect-only victim-history removal routine with current declared signature `void (HitCapsule* hit, UNK_T victim)`. The second argument acts as an opaque identity token: it is compared for equality with stored victim values and never otherwise inspected.",
+        "rationale": "The current header and definition identify the unresolved second type as `UNK_T`, while the body proves its opaque identity role through equality comparison only. This replaces the previous, overly specific `void*` hypothesis.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.h#L36-L76",
+            "why": "Declares the current exact signature with `HitCapsule*` and `UNK_T`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1969",
+            "why": "Shows the second argument used only as an equality-comparison token against stored victim identities."
+          }
+        ]
+      },
+      {
+        "id": "fact:c4821037-a196-4107-a292-cb7f23b941b3",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800089B8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Removes a supplied victim identity from a HitCapsule's primary victim-history table, allowing that capsule to stop treating the victim as currently recorded.",
+        "rationale": "The current target clears every primary-table entry matching the supplied token, and the relocated fighter caller uses it when paired thrown-hitbox capsules separate.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1969",
+            "why": "Shows matching identities being removed from the complete `victims_1` array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_07C1.c#L137-L203",
+            "why": "Shows the current caller passing the opposing fighter identity on the capsule-separation path."
+          }
+        ]
+      },
+      {
+        "id": "fact:5ff7d39a-d2e8-4351-b02c-59d41bc138ec",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800089B8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "For each primary victim-history slot, a nonmatching identity is preserved and a matching identity transitions to the empty state by setting its token to null. The scan continues after a match, so every duplicate occurrence would be cleared. Auxiliary metadata and the replacement cursor remain unchanged, allowing later registration to reuse newly empty slots through the normal first-empty-slot path.",
+        "rationale": "The current removal loop has no early exit and touches only matching victim tokens; the adjacent current registration routine searches null slots before consulting the replacement cursor.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1839-L1983",
+            "why": "Shows first-empty-slot registration behavior and the target's complete scan that clears matching victim tokens without changing metadata or the cursor."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008A5C",
+    "facts": [
+      {
+        "id": "fact:e1141302-c4f9-4e56-8b32-17cb9b0a43d4",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008A5C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a HitCapsule from the item collision update path. It reads the capsule's enabled/disabled state and every occupied entry in `victims_1` and `victims_2`; for each occupied entry with nonzero `x4`, it writes `x4 - 1` and clears `victim` if the new value is zero. The item caller applies this operation to every hit capsule in the item's hitbox array.",
+        "rationale": "The target body directly establishes all table reads and mutations. Its sole resolved caller obtains the Item record and invokes the function once for each member of the item's hitbox array, grounding how HitCapsules reach the routine.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:44:14.005Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1942-L1969",
+            "why": "The function explicitly reads the capsule state and both victim tables, decrements nonzero entry values, and clears expired victim pointers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itcoll.c#L817-L1017",
+            "why": "The resolved caller `it_8027146C` loops over the item's complete hitbox array and passes each HitCapsule to the target."
+          }
+        ]
+      },
+      {
+        "id": "fact:0fee8ebb-c180-4d89-b8a2-8deba213deff",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008A5C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the countdown-expiration portion of Melee's hitbox victim-history and rehit handling: timed victim records are aged and their identities removed at expiration so the hitbox may subsequently register them again.",
+        "rationale": "The current registration code initializes selected victim metadata from the capsule, and the current target decrements those values and removes the identity at zero, preserving the established rehit interpretation.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1969",
+            "why": "Shows selected victim records receiving timing metadata and both victim tables aging and expiring those records."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://hitbox~special-properties@r2029151",
+            "why": "Defines rehit rate as permitting a hitbox to strike again after a specified number of frames."
+          }
+        ]
+      },
+      {
+        "id": "fact:b8ec88b5-59c4-400e-b5c4-ae293200b395",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008A5C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DecHitVictimTimers",
+        "rationale": "The current function still iterates both HitVictim tables, decrements nonzero auxiliary values, and removes the corresponding identity on expiration.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `lbColl_DecHitVictimTimers`.",
+        "confidence": 0.7,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1969",
+            "why": "Shows both victim tables' nonzero auxiliary values being decremented and associated victims cleared at zero."
+          }
+        ]
+      },
+      {
+        "id": "fact:bb6a75de-3f19-49ad-80d7-4ff71567292d",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008A5C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Mutating update routine with signature `void (HitCapsule* hit)`. It operates in place on the capsule's state and its two fixed-size HitVictim tables and produces no direct return value.",
+        "rationale": "The current declaration remains a one-argument void routine, and the complete body only reads and mutates the supplied capsule and its two victim-history tables.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares `lbColl_80008A5C` as returning void and taking one `HitCapsule*`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1942-L1983",
+            "why": "Shows in-place mutation of both HitVictim tables and no returned result."
+          }
+        ]
+      },
+      {
+        "id": "fact:e2d9379b-d659-40a7-b397-132215770b54",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008A5C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Advances the timed entries in both victim-history tables of a non-disabled HitCapsule, removing a recorded victim when its nonzero per-victim countdown expires so that the victim can subsequently be registered again.",
+        "rationale": "The current complete body retains the disabled-state guard, independent traversal of both histories, countdown decrement, and timed-to-empty transition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1879-L1969",
+            "why": "Shows the lifecycle guard, both victim-table loops, decrement operation, and identity removal on expiration."
+          }
+        ]
+      },
+      {
+        "id": "fact:e20d23ff-0c38-4a41-9eb8-5e6ecf994925",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008A5C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A disabled HitCapsule is left unchanged. For an enabled capsule, each table entry has three relevant cases: an empty entry is skipped; an occupied entry with `x4 == 0` remains recorded indefinitely by this routine; and an occupied entry with positive `x4` is decremented, remaining occupied while positive and transitioning to empty when the decrement reaches zero. The same transition rules are independently applied to `victims_1` and `victims_2`.",
+        "rationale": "The outer guard excludes disabled capsules. Within each loop, nested victim and value checks distinguish empty, untimed, and timed entries, while the post-decrement zero check implements the timed-to-empty transition. The two loops have the same structure over the separate tables.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:44:14.005Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1942-L1969",
+            "why": "The complete function directly shows the disabled-state guard and every per-entry transition for both victim tables."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008D30",
+    "facts": [
+      {
+        "id": "fact:4ccc57e1-e198-445a-a841-6531bbdabf03",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008D30",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads `state`, `damage`, `kb_angle`, `unkC`, `unk10`, `unk14`, `element`, `sfx_severity`, and `sfx_kind` from the supplied descriptor and copies them into the corresponding HitCapsule attack fields (`unkC`, `unk10`, and `unk14` map to `x24`, `x28`, and `x2C`). It additionally seeds `HitCapsule.unk_count` with the descriptor's damage. Downstream callers use the resulting damage, angle, element, modifier values, and `unk_count` to initialize fighter or item damage and knockback responses.",
+        "rationale": "The matched function gives the exact source-to-destination mapping. The capture-break caller then passes the generated capsule and its `unk_count` to the knockback calculation, records its angle and element, and applies its damage; the Klap caller likewise consumes the generated damage and capsule in item knockback processing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:42:19.591Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1971-L1983",
+            "why": "Directly establishes every descriptor read, HitCapsule write, and the duplicated damage-to-`unk_count` assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Throw.c#L593-L615",
+            "why": "Shows the converted capsule's `unk_count`, angle, element, and damage feeding fighter knockback and damage-state initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/kinds/itklap.c#L319-L336",
+            "why": "Shows the converted capsule's damage and remaining attack parameters consumed by item damage and knockback routines."
+          }
+        ]
+      },
+      {
+        "id": "fact:e67f7828-e415-4cdf-90c2-b5736dffc29e",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008D30",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides shared attack-response parameterization for scripted or externally controlled hits, including Barrel Cannon launches, Klap Trap launches, Like Like releases, and capture-break damage. It turns source-specific attack descriptors into the common HitCapsule representation used to determine damage, launch angle, element, and knockback.",
+        "rationale": "Independent callers use the same conversion for fighter and item launch responses and for common capture-break damage, showing that it bridges source-specific descriptors into the shared hit-response system. The downstream fighter code feeds the converted data into knockback calculation, while the documented mechanic establishes that attack damage and per-hitbox knockback parameters jointly determine launch strength.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T13:42:19.591Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Barrel.c#L106-L129",
+            "why": "Shows the conversion used to apply a Barrel Cannon's descriptor-driven launch knockback to a fighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Throw.c#L593-L615",
+            "why": "Shows the same conversion used for a common capture-break hit whose parameters feed fighter damage and knockback processing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/kinds/itklap.c#L319-L336",
+            "why": "Shows the conversion reused for an item's scripted launch damage and knockback."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://knockback~basic-physics@r2047861",
+            "why": "Explains that attack damage and hitbox-specific knockback values are inputs to launch strength, grounding the copied combat parameters in the knockback mechanic."
+          }
+        ]
+      },
+      {
+        "id": "fact:480a1dba-7379-4d07-85d6-db2d0fd5b771",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008D30",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_SetHitCapsuleParams",
+        "rationale": "The current body exclusively assigns a selected attack-parameter subset from a compact descriptor into a HitCapsule, supporting a setter-style reconstruction distinct from the recovered full-copy operation.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `lbColl_SetHitCapsuleParams`.",
+        "confidence": 0.58,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1942-L1983",
+            "why": "Shows the function exclusively assigning attack-state, damage, knockback, element, and sound parameters from the descriptor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Shows the unit's `lbColl_*` naming family and the distinct recovered `lbColl_CopyHitCapsule` full-copy routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:baaa7c89-b288-4919-a1be-7b9b227b8a42",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008D30",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void descriptor-conversion routine with exact declared signature `void (HitCapsule* dst, lbColl_80008D30_arg1* params)`. The second argument is a compact attack-parameter record containing capsule state, damage, knockback angle, three unresolved integer modifiers, element, sound-effect severity, and sound-effect kind; only the corresponding attack-property subset of `dst` is written.",
+        "rationale": "The current header preserves the two-pointer void signature, and the complete implementation enumerates the compact descriptor fields consumed and the limited destination subset written.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares `lbColl_80008D30` as a void function taking `HitCapsule*` and `lbColl_80008D30_arg1*`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1942-L1983",
+            "why": "Shows every descriptor member consumed and the exact attack-property subset written to the HitCapsule."
+          }
+        ]
+      },
+      {
+        "id": "fact:51968d63-e976-4a4e-be56-b4ba6cf4d8b0",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008D30",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Copies a compact attack-parameter descriptor into the attack-property portion of a runtime HitCapsule so fighter, item, and stage-hazard code can reuse the collision subsystem's damage and knockback calculations without constructing a complete geometric hit capsule.",
+        "rationale": "The function copies only state, damage, angle, three currently unresolved knockback-related values, element, and sound attributes, while also initializing `unk_count` from damage. Its callers allocate temporary full or prefix-compatible hit-capsule storage and immediately consume the populated properties in fighter or item damage and knockback routines. This demonstrates a descriptor-conversion helper rather than a complete HitCapsule copy or geometric initializer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:42:19.591Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1971-L1983",
+            "why": "Directly shows the descriptor-to-HitCapsule field assignments and the initialization of `unk_count` from descriptor damage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Barrel.c#L106-L129",
+            "why": "Shows a caller converting supplied Barrel Cannon attack parameters into temporary hit-capsule storage before applying fighter knockback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/kinds/itklap.c#L319-L336",
+            "why": "Shows an item caller using the converted temporary hit data to apply damage and calculate knockback for a launched Klap."
+          }
+        ]
+      },
+      {
+        "id": "fact:1cf7b7b5-d5b9-4a42-9c2b-abaec7548708",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008D30",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs an unconditional, branch-free replacement of the destination capsule's attack state and combat parameters. It does not test the incoming state, perform a collision, or transition a victim itself, and it leaves capsule geometry and victim-history storage untouched; callers own subsequent damage, knockback, and action-state transitions.",
+        "rationale": "The current complete function still consists solely of fixed descriptor-to-capsule assignments and contains no geometry, victim-history, collision, or control-flow operation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1971-L1983",
+            "why": "Shows the complete branch-free assignment sequence and the exact limited subset of HitCapsule fields written."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_CopyHitCapsule",
+    "facts": [
+      {
+        "id": "fact:dd7345d6-44eb-4a36-ba7b-9064f7e380a1",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_CopyHitCapsule",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads every entry of `src->victims_1` and `src->victims_2` plus `src->x44` and `src->x45`, then overwrites the corresponding destination fields. All other destination HitCapsule fields\u2014including enabled state, hitbox identifier, damage, geometry, contact results, and owner\u2014remain unchanged.",
+        "rationale": "The current body still writes only the two victim arrays and two trailing bytes, while the current HitCapsule layout confirms that all other combat and geometry fields are separate.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1809-L1822",
+            "why": "Enumerates every current source read and destination write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/types.h#L1-L300",
+            "why": "Shows the full current HitCapsule layout and the fields outside this selective copy."
+          }
+        ]
+      },
+      {
+        "id": "fact:9e4f5908-aad1-4627-a2e5-5444a00388a5",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_CopyHitCapsule",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements continuity of hitbox victim history: when fighter or item collision code replaces a hit capsule with another active capsule carrying the same hitbox identifier, previously contacted victims remain recognized instead of being treated as newly encountered solely because a different capsule slot is now in use.",
+        "rationale": "Current fighter and item callers still select another enabled capsule with the same identifier before copying, and the current collision-library code still maintains and queries the transferred victim histories.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L264-L344",
+            "why": "Shows fighter collision code copying history between enabled capsules sharing the same identifier."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itcoll.c#L176-L266",
+            "why": "Shows item collision code performing the same same-identifier history transfer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows the copied data participating in bounded victim-history bookkeeping."
+          }
+        ]
+      },
+      {
+        "id": "fact:fc005cb9-044a-47c5-b833-9fba9b42e252",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_CopyHitCapsule",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Side-effect-only copy helper with signature `void lbColl_CopyHitCapsule(HitCapsule* src, HitCapsule* dst)`. It copies two parallel arrays of 12 `HitVictim` records and the associated `u8` fields at offsets 0x44 and 0x45.",
+        "rationale": "The current definition and layout preserve the exact signature, twelve-element array dimensions, HitVictim element type, and byte-sized x44/x45 fields.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1809-L1822",
+            "why": "Shows the exact current signature, two array copies, and trailing byte assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/types.h#L1-L300",
+            "why": "Defines the current HitVictim arrays as twelve entries and x44/x45 as byte fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:83919b44-3f42-468f-87f5-58aea4cfa39c",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_CopyHitCapsule",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Transfers the complete per-victim collision history from one hit capsule to another so a replacement or duplicate active capsule can continue the source capsule's already-contacted-victim bookkeeping.",
+        "rationale": "The current target still copies both victim tables and their cursor/count bytes without cloning the rest of the HitCapsule, and current fighter and item callers still use it for same-identifier capsule continuity.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1809-L1822",
+            "why": "Shows the complete selective victim-history transfer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L264-L344",
+            "why": "Shows the fighter caller copying from another enabled same-identifier capsule or clearing history."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itcoll.c#L176-L266",
+            "why": "Shows the corresponding item caller and same-identifier selection."
+          }
+        ]
+      },
+      {
+        "id": "fact:4a445374-8d7f-4179-9662-e7406da80991",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_CopyHitCapsule",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally makes the destination's two victim-history tables and their replacement cursors identical to the source. This preserves both which victims are currently remembered and where each full twelve-entry table will next overwrite an old entry; it does not alter whether the destination capsule is enabled.",
+        "rationale": "The current target unconditionally copies the tables and x44/x45, the current layout separates enabled state from those fields, and current neighboring registration routines demonstrate bounded replacement behavior.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1809-L1822",
+            "why": "Shows the unconditional table and cursor/count copies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/types.h#L1-L300",
+            "why": "Shows that capsule enabled state is separate from the victim arrays and x44/x45."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows neighboring victim registration using the copied bookkeeping for duplicate rejection and bounded replacement."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007AFC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007AFC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007AFC#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007AFC#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007B78#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007B78#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007B78#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007B78#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r8",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007BCC#r9",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007DD8#r8",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80007ECC#r8",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r8",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_8000805C#r9",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008248#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008248#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008248#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008248#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008248#r7",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008248#r8",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_800083C4#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008428#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008434#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008440#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008688#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008688#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008688#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008820#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008820#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008820#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_800089B8#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_800089B8#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008A5C#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008D30#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_80008D30#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_CopyHitCapsule#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/lb/lbcollision:lbColl_CopyHitCapsule#r4",
+    "facts": []
+  }
+]

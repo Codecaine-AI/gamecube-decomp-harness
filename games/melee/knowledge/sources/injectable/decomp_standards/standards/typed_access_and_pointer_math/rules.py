@@ -24,6 +24,10 @@ from _qa_rules import (
 
 M2C_FIELD_RE = re.compile(r"\bM2C_FIELD\s*\(")
 TYPE_ERASING_CAST_RE = re.compile(r"\(\s*(?:void|u8|char)\s*\*+\s*\)")
+# Hand-written vtable arrays (`void* __vt__7TKiller[] = { (void*)fn, ... }`)
+# are owned by `manual_vtable`; their `(void*)` initializers are not
+# reported again here.
+VTABLE_ARRAY_START_RE = re.compile(r"\b__vt__\w*\s*\[[^\]]*\]\s*=\s*\{")
 BYTE_POINTER_OFFSET_RE = re.compile(
     r"\(\s*(?P<cast>u8|char)\s*\*+\s*\)\s*"
     r"(?P<base>[A-Za-z_]\w*)"
@@ -157,12 +161,44 @@ def check_m2c_field_use(hunk: dict[str, Any]) -> list[dict[str, Any]]:
     return findings
 
 
+def _vtable_array_lines(post_lines: list[tuple[int, str, bool]]) -> set[int]:
+    """Line numbers inside `__vt__*[] = { ... }` initializers (brace-tracked)."""
+
+    inside = False
+    depth = 0
+    lines: set[int] = set()
+    for lineno, text, _ in post_lines:
+        clean = blank_line(text)
+        if not inside:
+            match = VTABLE_ARRAY_START_RE.search(clean)
+            if match is None:
+                continue
+            inside = True
+            depth = 0
+            clean = clean[match.end() - 1 :]
+        lines.add(lineno)
+        depth += clean.count("{") - clean.count("}")
+        if depth <= 0:
+            inside = False
+    return lines
+
+
 def check_type_erasing_cast(hunk: dict[str, Any]) -> list[dict[str, Any]]:
-    """Flag new void*/u8*/char* casts in added lines (advisory, LLM review)."""
+    """Flag new void*/u8*/char* casts in added lines (advisory, LLM review).
+
+    Lines inside hand-written `__vt__` vtable arrays are skipped; the
+    `manual_vtable` rule owns those.
+    """
 
     standard = "global_standard:typed-fields-over-pointer-math"
     findings: list[dict[str, Any]] = []
+    post_lines = hunk.get("post_lines") or [
+        (lineno, text, True) for lineno, text in hunk["added"]
+    ]
+    vtable_lines = _vtable_array_lines(post_lines)
     for lineno, text in hunk["added"]:
+        if lineno in vtable_lines:
+            continue
         clean = blank_line(text)
         matches = sorted({match.group(0) for match in TYPE_ERASING_CAST_RE.finditer(clean)})
         for cast in matches:

@@ -1,0 +1,3 @@
+`src/melee/sc/forward.h` is an include-guarded forward-declaration header. It declares four incomplete struct types and same-named typedef aliases: `DynamicModelDesc`, `LightList`, `SceneDesc`, and `StaticModelDesc`. It provides no definitions, fields, executable behavior, or lifetime rules. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/sc/forward.h#L1-L9. The rendered view matches canonical source (zero substitutions and parse errors); no naming correction is supported or needed. The frozen baseline has no subjects, facts, or links.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

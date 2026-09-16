@@ -1,3 +1,4 @@
+import { remoteBuildsEnabled } from "@server/core/validation/build/execution.js";
 import { basename, dirname } from "node:path";
 
 import { closeDefaultMeleeKernelRuntime, resetDefaultMeleeKernelRuntimeForTests } from "@server/infrastructure/kernel/bridge/runtime";
@@ -11,8 +12,8 @@ import { kg2Prioritize } from "@server/core/knowledge-v2/migration/prioritize.js
 import { kg2Renarrate } from "@server/core/knowledge-v2/renarrate/cli.js";
 import { kg2Librarian } from "@server/core/knowledge-v2/librarian/cli.js";
 import { kg2DriftReanchor, kg2DriftScan } from "@server/core/knowledge-v2/drift/cli.js";
-import { checkpointRun } from "@server/core/cycle-runtime/phases/pr/jobs/checkpoint-run.js";
-import { savePoint } from "@server/core/cycle-runtime/phases/pr/jobs/save-point.js";
+import { checkpointRun } from "@server/core/harness-runtime/phases/pr/jobs/checkpoint-run.js";
+import { savePoint } from "@server/core/harness-runtime/phases/pr/jobs/save-point.js";
 import {
   kgFileCard,
   kgImportAgentState,
@@ -23,14 +24,18 @@ import {
   kgSources,
   kgStatus,
 } from "@server/core/knowledge/jobs/kg.js";
-import { recoverClaims } from "@server/core/cycle-runtime/phases/running/jobs/recover-claims.js";
-import { tick } from "@server/core/cycle-runtime/phases/running/scheduler/tick.js";
-import { runLoop } from "@server/core/cycle-runtime/phases/running/scheduler/run-loop.js";
-import { initRun } from "@server/core/cycle-runtime/phases/running/service/init-run.js";
-import { status } from "@server/core/cycle-runtime/phases/running/service/status.js";
-import { workerTask } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { recoverClaims } from "@server/core/harness-runtime/phases/running/jobs/recover-claims.js";
+import { resolveIntegration } from "@server/core/harness-runtime/phases/running/jobs/resolve-integration.js";
+import { requeueTargets } from "@server/core/harness-runtime/phases/running/jobs/requeue-targets.js";
+import { tick } from "@server/core/harness-runtime/phases/running/scheduler/tick.js";
+import { runLoop } from "@server/core/harness-runtime/phases/running/scheduler/run-loop.js";
+import { initRun } from "@server/core/harness-runtime/phases/running/service/init-run.js";
+import { prepareEpoch } from "@server/core/harness-runtime/phases/running/service/prepare-epoch.js";
+import { status } from "@server/core/harness-runtime/phases/running/service/status.js";
+import { workerTask } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
 import { regressionCheck } from "@server/core/validation/jobs/regression-check.js";
 import { reportRun } from "@server/core/validation/jobs/report-run.js";
+import { validateSandbox } from "./validate-sandbox.js";
 import { boundarySync } from "@server/application/jobs/boundary-sync.js";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 
@@ -47,20 +52,24 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       filenames: [basename(globals.game.localEnvPath)],
     });
   }
-  await configureGlobalCompileJobserver();
+  if (!remoteBuildsEnabled()) await configureGlobalCompileJobserver();
 
   const previousMigrationMode = process.env[STATE_MIGRATION_MODE_ENV];
   if (jobOwnsStorageMigrations(command)) delete process.env[STATE_MIGRATION_MODE_ENV];
   else process.env[STATE_MIGRATION_MODE_ENV] = "verify";
 
   try {
-    if (command === "boundary-sync") await boundarySync(globals, args);
+    if (command === "validate-sandbox") await validateSandbox(globals, args);
+    else if (command === "boundary-sync") await boundarySync(globals, args);
     else if (command === "init-run") await initRun(globals, args);
+    else if (command === "prepare-epoch") await prepareEpoch(globals, args);
     else if (command === "tick") await tick(globals, args);
     else if (command === "worker-task") await workerTask(globals, args);
     else if (command === "run-loop") await runLoop(globals, args);
     else if (command === "checkpoint-run") await checkpointRun(globals, args);
     else if (command === "recover-claims") await recoverClaims(globals, args);
+    else if (command === "resolve-integration") await resolveIntegration(globals, args);
+    else if (command === "requeue-targets") await requeueTargets(globals, args, argv);
     else if (command === "report-run") await reportRun(globals, args);
     else if (command === "save-point") await savePoint(globals, args);
     else if (command === "regression-check") await regressionCheck(globals, args);
@@ -97,7 +106,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 }
 
 if (import.meta.main) {
-  main().catch((error) => {
+  await main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   });

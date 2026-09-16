@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_HammerFall",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.93,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerFall.c#L45-L72",
+            "why": "The checker invokes the item-handling, Fall-dispatch and Hammer-cleanup sequence rather than entering HammerFall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "The checker is also used from DamageFall, before the separate HammerFall entry check."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the guarded Hammer-release path from the separate HammerFall entry predicate and resolves their rendered name collision. The Hammer prefix accommodates use from both HammerFall and DamageFall without interpreting the unresolved numeric guards.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_HammerFall:ftCo_800C5DDC"
+        },
+        "type": "inferred_name",
+        "value": "ftCo_Hammer_CheckReleaseInput"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerFall.c#L16-L24",
+            "why": "Shows the exact canonical input field, ordered condition, call and results."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L139-L146",
+            "why": "Defines held-Hammer eligibility."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects obsolete input.x668/current-button terminology to the canonical newly pressed button field while preserving short-circuit order, object flow and transition semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_HammerFall:ftCo_800C5CD4"
+        },
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj*, resolves its Fighter, and forwards the object to ftCo_800C5240, which accepts a non-null held item of kind It_Kind_Hammer. Only after that predicate succeeds does it test input.pressed_buttons against HSD_PAD_AB. On success it forwards the same object to ftCo_800C5D34 and returns true; otherwise it returns false without invoking the entry routine."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerFall.c#L16-L82",
+            "why": "Shows the distinction between guarded wrapper and unconditional initializer, plus all callbacks and release guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L161-L207",
+            "why": "Shows non-input entry and Hammer continuity helpers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L31-L71",
+            "why": "Shows exceptional Fall dispatch and another non-input HammerFall route."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the false universal A/B entry requirement and preserves the ordered release sequence and exceptional Fall routing.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_HammerFall.c"
+        },
+        "type": "state_behavior",
+        "value": "The input wrapper enters HammerFall when the fighter holds a Hammer and newly presses A or B, but the initializer itself unconditionally enters ftCo_MS_HammerFall and is also reached through non-input routes. Entry uses Hammer-aware frame and preservation settings, conditionally converts grounded processing to airborne processing, and runs shared Hammer setup. Animation and physics delegate to shared handlers. The release checker requires nonzero x2338.y, newly pressed A, held L/R, and x683 >= p_ftCommonData->x1C; success performs item handling with a zero vector and mode 1, calls ftCo_Fall_Enter, then performs Hammer cleanup and player/bonus notification. Ordinary Fall is the normal destination, subject to the Fall dispatcher's exceptional routes. Collision delegates a conditional handoff to HammerLanding."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

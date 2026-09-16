@@ -1,0 +1,89 @@
+{
+  "tu": "main/dolphin/os/OSRtc",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSRtc.c#L346-L355",
+            "why": "Complete getter flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSRtc.c#L180-L216",
+            "why": "Defines commit and offset argument roles."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing explanation's attribution of the no-writeback behavior to the second argument.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSRtc:OSGetProgressiveMode"
+        },
+        "type": "data_flow",
+        "value": "Acquires the base SRAM cache with LockSram(0), reads byte 0x13, extracts bit 7 as a value of 0 or 1, calls UnlockSram(0, 0), and returns the extracted value. The first unlock argument disables committing; the second selects the base-region offset."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSRtc.c#L180-L216",
+            "why": "Checksum guard precedes dirty-offset accumulation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the supplied region offset controlling integrity maintenance from the accumulated dirty offset controlling writeback.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSRtc:UnlockSram"
+        },
+        "type": "data_flow",
+        "value": "On a committing access, the supplied offset is first tested for zero. Only that case normalizes the invalid low-two-bit value at cache byte 0x13 and regenerates OSSram.checkSum and checkSumInv over the 16-bit words from counterBias through the end of OSSram, accumulating each word and its complement respectively. The supplied offset is then folded into Scb.offset by retaining the smaller value. WriteSram receives the cache suffix beginning at this accumulated boundary and ending at 0x40; its result becomes Scb.sync, and success resets Scb.offset to 0x40. A supplied extended offset does not regenerate base checksums even when an earlier failed commit has left Scb.offset at zero."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSRtc.c#L180-L226",
+            "why": "Exact state transitions and extended wrapper argument."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the effective-dirty-offset guard and makes noncommit release distinct from rollback.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSRtc:UnlockSram"
+        },
+        "type": "state_behavior",
+        "value": "Requires Scb.locked by assertion. With commit zero, it skips integrity maintenance and hardware writing, without reverting cache edits. With commit nonzero, supplied offset zero triggers base-record normalization and checksum regeneration; any supplied offset is then accumulated into the minimum dirty boundary before writing the suffix. An extended commit does not trigger checksum regeneration merely because the retained dirty boundary is zero. A successful write resets the boundary to 0x40; failure leaves it available for a subsequent attempt. Both commit choices clear Scb.locked, restore the saved interrupt state and return Scb.sync."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSRtc.c#L113-L216",
+            "why": "Initialization, retry, locking and dirty-range transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSRtc.c#L280-L315",
+            "why": "Independent ROM callback storage and completion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an unconditional initial-success claim with the actual stored-result and assertion behavior while preserving the supported cache and callback lifecycle.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSRtc:.bss"
+        },
+        "type": "state_behavior",
+        "value": "Scb initialization clears locked and enabled, stores the initial SRAM read result in sync, asserts that result, and sets offset to 0x40 if execution continues. Thus an assertion-disabled failed read can leave sync zero while offset still indicates no pending dirty suffix. Successful cache acquisition saves the prior interrupt state and sets locked; nested acquisition is rejected. Noncommitting release clears the lock and restores interrupts without rollback or writeback. Committing release accumulates the lowest dirty offset and attempts a suffix write, resetting the offset only on success. EXI contention can arrange a deferred callback that retries the retained range and updates sync after cache release. The independent ROM completion handler clears a non-null stored callback before invoking it."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

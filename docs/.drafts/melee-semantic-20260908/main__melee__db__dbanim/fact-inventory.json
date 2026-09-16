@@ -1,0 +1,1129 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbanim:.bss"
+    },
+    "facts": [
+      {
+        "id": "fact:ca153fcb-9b1f-4d93-a120-1036f4dc13bd",
+        "target_id": "target:data:main/melee/db/dbanim:.bss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "`fn_SetupAnimationInfo` passes the section's buffer to `DevText_Create` and stores the returned `DevText*` in the section. That pointer then flows to the renderer-registration and styling calls, to `fn_UpdateAnimationInfo` for erasing and formatted output, and to `fn_CheckAnimationInfo` for showing or hiding the panel's background and text.",
+        "rationale": "The setup, update, and input-check routines expose the complete flow: the array is the allocator's backing-storage input, the pointer field receives its result, and every subsequent panel operation consumes that retained pointer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:27:33.810Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L23-L42",
+            "why": "Shows the buffer passed to `DevText_Create`, the returned pointer stored persistently, and that pointer consumed by registration and styling operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the retained pointer consumed by the per-frame panel rebuilding and formatted-output operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows the retained pointer passed to the DevText background and text visibility functions when the animation-information control is toggled."
+          }
+        ]
+      },
+      {
+        "id": "fact:ab3cfd1c-37bf-4a53-b9a0-d35f81169082",
+        "target_id": "target:data:main/melee/db/dbanim:.bss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Backs the character animation-information display activated in Melee's DEVELOP mode with Y plus D-pad Down.",
+        "rationale": "The wiki identifies that chord as the control for displaying each character's animation information. The matched code uses the section-backed panel for exactly that display and shows or hides it when the same chord toggles the associated state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:27:33.810Z",
+        "evidence": [
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents that Y plus D-pad Down displays each character's animation information in DEVELOP mode."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the section-backed panel populated with fighter animation information."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows Y plus D-pad Down toggling the panel whose pointer is stored in this section."
+          }
+        ]
+      },
+      {
+        "id": "fact:f628ad02-28e3-4d82-9f02-5f69431d591a",
+        "target_id": "target:data:main/melee/db/dbanim:.bss",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "db_AnimationInfo",
+        "rationale": "The matched source consistently represents the entire section as one static object named `db_AnimationInfo`, and both fields are exclusively associated with the animation-information display. Although this is a plausible recovered developer name rather than rename authority, its wording and `db_` prefix fit the unit's debug naming convention.\n\nNaming cleanup: Explicit module-local name.\nPrior naming claim: `db_AnimationInfo` is the likely original module-local name.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbanim.c#L1-L80",
+            "why": "Declares the section-backed static object as `db_AnimationInfo` and uses both of its fields to create the animation-information panel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Uses `db_AnimationInfo.text` throughout the routine specifically responsible for updating animation information."
+          }
+        ]
+      },
+      {
+        "id": "fact:5aa23bb3-9fe4-4e18-9ad2-d51e5d0c9d16",
+        "target_id": "target:data:main/melee/db/dbanim:.bss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 0x5A8-byte module-local structure laid out as a four-byte `DevText* text` followed by `char buf[0x5A4]`; this single structure accounts for the complete section.",
+        "rationale": "The matched declaration directly gives the two fields. On the target's 32-bit platform, the pointer and 0x5A4-byte array total 0x5A8 bytes, exactly the section's reported 1448-byte extent.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:27:33.810Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbanim.c#L1-L80",
+            "why": "Directly declares the section-backed object as a `DevText*` followed by a 0x5A4-byte character array."
+          }
+        ]
+      },
+      {
+        "id": "fact:9177c0c7-4b74-4405-8e04-0b3755f82294",
+        "target_id": "target:data:main/melee/db/dbanim:.bss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the persistent object pointer and character buffer backing the developer-text panel that displays per-fighter animation state, submotion, current animation frame, and selected fighter flags.",
+        "rationale": "The section is declared as a module-local structure containing a `DevText*` and a 0x5A4-byte buffer. Setup creates the animation-information panel from that buffer and stores its pointer, while the updater uses the stored pointer to erase and rebuild the panel with fighter animation data.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:27:33.810Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbanim.c#L1-L80",
+            "why": "Declares the persistent `DevText*` and backing buffer and shows setup passing that buffer to `DevText_Create` and retaining the returned panel pointer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the stored pointer being used to erase and repopulate the animation-information panel with each fighter's motion, animation, frame, and flag information."
+          }
+        ]
+      },
+      {
+        "id": "fact:5db46015-b9f6-4513-ab43-ddf56b8384c4",
+        "target_id": "target:data:main/melee/db/dbanim:.bss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "During debug setup, the pointer field is replaced with the result of `DevText_Create`; registration and styling occur only when that result is non-NULL. After successful creation, the same persistent panel is repeatedly erased and repopulated while animation-information display is enabled, and its background and text visibility are switched without reallocating its backing storage.",
+        "rationale": "Setup contains the sole pointer assignment and guards initialization of the returned object. The update routine reuses that pointer rather than creating another panel, while the input checker changes presentation through the same pointer, establishing the storage's persistent lifecycle.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:27:33.810Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L23-L42",
+            "why": "Shows the pointer assignment from `DevText_Create` and the non-NULL guard around panel registration and styling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows repeated reuse of the stored panel for erase and redraw operations while the separate visibility flag is enabled."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows visibility changes applied through the retained pointer without replacing or reallocating the panel."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbanim:.sbss"
+    },
+    "facts": [
+      {
+        "id": "fact:c1a627c6-1894-4249-bb7d-52267a3ac600",
+        "target_id": "target:data:main/melee/db/dbanim:.sbss",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "`fn_SetupAnimationInfo` initializes the three fields. `fn_CheckAnimationInfo` changes them from newly pressed controller directions combined with R or Y, while `fn_ToggleMiscFighterVisuals` advances the miscellaneous selector. Their values flow into every fighter's `x21FC_flag`, item-side enemy-stomp, item-pickup, and coin-pickup range toggles, developer-text visibility calls, and the guard for rebuilding the animation-information panel.",
+        "rationale": "The setup routine supplies the initial values; the controller checker and miscellaneous-visual routine are the demonstrated producers of subsequent values. The same source identifies all downstream consumers in fighter, item-debug, and developer-text systems.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:55.813Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbanim.c#L1-L80",
+            "why": "Shows initialization and the flow of the miscellaneous selector into fighter flags and three item-range diagnostic controls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the animation-information flag being read as the guard for rebuilding the panel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows controller input mutating the collision and panel fields and those values flowing into fighter collision flags and developer-text visibility."
+          }
+        ]
+      },
+      {
+        "id": "fact:4c19d269-feb5-4776-a4e5-7089a242cbc6",
+        "target_id": "target:data:main/melee/db/dbanim:.sbss",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Backs persistent modes used by Melee's DEVELOP-mode controls for showing each fighter's animation information, cycling global collision-bubble presentation, and cycling character-related diagnostic visuals.",
+        "rationale": "The source associates the fields with Y plus D-pad Down, R plus D-pad Up, and R plus D-pad Left and implements the corresponding panel and visualization changes. SmashWiki independently documents those same DEVELOP-mode shortcuts and effects.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:55.813Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Directly associates the persistent fields with the controller chords for animation information, global collision displays, and miscellaneous character visuals."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents Y plus D-pad Down as the character animation-information display, R plus D-pad Up as the global collision-bubble cycle, and R plus D-pad Left as the character-visual cycle in DEVELOP mode."
+          }
+        ]
+      },
+      {
+        "id": "fact:e2b862ee-338f-48d3-9701-a59e35b27258",
+        "target_id": "target:data:main/melee/db/dbanim:.sbss",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An 8-byte zero-initialized small-data section whose demonstrated payload is one 32-bit bitfield structure containing a 3-bit collision-display mode, a 6-bit miscellaneous-fighter-visual selector, and a 1-bit animation-information visibility flag; the remaining section space is alignment or otherwise has no demonstrated field use.",
+        "rationale": "The target metadata gives the section size as 8 bytes, while the matched source declares one small-data structure backed by a `u32` allocation unit. Its three declared fields occupy 10 bits and every observed reference is to one of those fields; no second meaningful object is demonstrated.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:21:55.813Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbanim.c#L1-L80",
+            "why": "Directly declares the single `u32`-based bitfield structure and the widths and roles of all three observed fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:4eea74ad-9c6e-4922-a489-b704980fefae",
+        "target_id": "target:data:main/melee/db/dbanim:.sbss",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the persistent small-data state for dbanim.c's developer fighter diagnostics: the global collision-bubble display mode, the currently selected miscellaneous fighter visualization, and whether the animation-information panel is enabled.",
+        "rationale": "The section's meaningful object is the unit-local `db_804D6B48` bitfield structure. Setup initializes all three fields, and the unit's input, visualization, and panel-update routines subsequently use those fields as persistent state shared across frames.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:55.813Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbanim.c#L1-L80",
+            "why": "Declares the small-data bitfield object, initializes its three fields, and shows the miscellaneous-visual field being mutated and propagated to fighters and item diagnostics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the animation-information field guarding the per-frame developer-text update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows the collision-display and animation-panel fields being changed by controller shortcuts and consumed to apply their corresponding debug displays."
+          }
+        ]
+      },
+      {
+        "id": "fact:52c0d72d-ece4-47d7-ae1f-a3097b5489cd",
+        "target_id": "target:data:main/melee/db/dbanim:.sbss",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Setup selects collision mode 1, miscellaneous-visual state 0, and a hidden animation panel. R plus newly pressed D-pad Up cycles the global collision mode through 1 \u2192 2 \u2192 3 \u2192 1. R plus newly pressed D-pad Left advances miscellaneous visuals through 0 \u2192 1 \u2192 2 \u2192 4 \u2192 8 \u2192 16 \u2192 32 \u2192 0. Y plus newly pressed D-pad Down XOR-toggles the panel flag between hidden and visible, and panel content is refreshed only in the visible state.",
+        "rationale": "The initial assignments and all transition expressions are explicit in the matched source. The collision field increments with a greater-than-three wrap, the miscellaneous field shifts within a six-bit mask, and the panel field uses XOR with one and directly controls both visibility and update behavior.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:55.813Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbanim.c#L1-L80",
+            "why": "Shows all initial states and the complete shift-and-mask transition sequence for miscellaneous fighter visuals."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows that panel rebuilding occurs only while the animation-information flag is enabled."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows the collision-mode wraparound and the XOR-based panel visibility transition with their exact controller guards."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbanim:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:b3cfb57f-8562-48c5-a5d5-4b2fe314a8e1",
+        "target_id": "target:data:main/melee/db/dbanim:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "fn_UpdateAnimationInfo reads these strings as DevText_Printf arguments. The format strings combine fighter player IDs with motion-state or submotion names, provide numeric fallbacks for unrecognized IDs, format cur_anim_frame to two decimal places, and translate bits of x221C_u16_y into L, R, and T columns; the resulting text is written to db_AnimationInfo.text.",
+        "rationale": "The matched function shows each literal at its point of consumption and identifies both the fighter fields supplying formatted values and the DevText overlay receiving the output.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:20:42.256Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the flow from fighter fields and name tables through the section's formatting strings into DevText_Printf calls on db_AnimationInfo.text."
+          }
+        ]
+      },
+      {
+        "id": "fact:c23d96f3-0e05-41c0-aed5-4a29a465c0ab",
+        "target_id": "target:data:main/melee/db/dbanim:.sdata",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports the per-character animation-information display available through Melee's DEVELOP debug mode.",
+        "rationale": "The code uses these strings to render live fighter animation rows, while the DEVELOP-mode documentation identifies a controller-accessible display of each character's animation information.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T05:20:42.256Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the strings being used to render live motion, animation, frame, and status information for every active fighter."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents the DEVELOP-mode control that displays each character's animation information."
+          }
+        ]
+      },
+      {
+        "id": "fact:ed0e0b75-7186-4167-aac4-03462902c4e2",
+        "target_id": "target:data:main/melee/db/dbanim:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A small-data pool of NUL-terminated C strings used by DevText formatting, including \"\\n\", \"%d %s\", \"%d %d\", \"%s\", \"%d\", \"%03.2f\", \"L\", \"R\", \"T\", and a single-space placeholder.",
+        "rationale": "Every listed value appears as a string argument in the matched updater. Their use as DevText_Printf format strings or literal status characters establishes a C-string pool rather than mutable debug state or a numeric table.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T05:20:42.256Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Directly exhibits the complete set of formatting and marker strings consumed by the unit's animation-information renderer."
+          }
+        ]
+      },
+      {
+        "id": "fact:b3d71282-492f-45ca-9511-29cbc120c236",
+        "target_id": "target:data:main/melee/db/dbanim:.sdata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the newline, formatting, and one-character status strings used to construct each fighter row in the developer animation-information panel.",
+        "rationale": "The unit's animation-information updater contains the section's relevant string literals and passes them to DevText_Printf while assembling rows containing fighter identifiers, motion and animation names or numeric fallbacks, current animation frame, and L/R/T status markers.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T05:20:42.256Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the animation-information updater consuming newline, integer, string, frame-number, blank, and L/R/T literals to render fighter rows."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbanim:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:d90a70e9-6745-4b53-bbc8-f8242c0773d5",
+        "target_id": "target:data:main/melee/db/dbanim:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "fn_SetupAnimationInfo reads the section-backed literals corresponding to 9.0F and 12.0F and passes them as the X and Y arguments to DevText_SetScale for db_AnimationInfo.text, making them immutable initialization inputs to the animation-information panel's presentation.",
+        "rationale": "The matched setup path creates db_AnimationInfo.text and, after checking that creation succeeded, supplies the two float literals directly to DevText_SetScale. This establishes their producer-to-consumer flow without implying that they affect the diagnostic values later printed in the panel.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:27:32.634Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L24-L42",
+            "why": "Directly shows panel creation followed by the successful-creation path that passes 9.0F and 12.0F to DevText_SetScale."
+          }
+        ]
+      },
+      {
+        "id": "fact:c9d59b52-55b0-4e28-80e1-307fe5580bff",
+        "target_id": "target:data:main/melee/db/dbanim:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supplies presentation constants for DEVELOP mode's Y plus D-pad Down character animation-information display; the constants control that diagnostic panel's text scale rather than fighter animation state or gameplay.",
+        "rationale": "The code applies 9.0F and 12.0F only while styling db_AnimationInfo.text, and the same unit toggles that panel with Y plus D-pad Down. SmashWiki independently identifies that chord as displaying each character's animation information, grounding the constants as presentation data for this DEVELOP-mode facility.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T05:27:32.634Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L24-L42",
+            "why": "Shows the constants configuring the scale of the unit's animation-information DevText panel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows Y plus D-pad Down toggling visibility of db_AnimationInfo.text and its background."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents Y plus D-pad Down as the DEVELOP-mode control that displays each character's animation information."
+          }
+        ]
+      },
+      {
+        "id": "fact:67c2bb2d-c32b-4e85-bab8-d967dd5f9e2f",
+        "target_id": "target:data:main/melee/db/dbanim:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A read-only small-data literal pool. Its source-visible contents include the single-precision constants 9.0F and 12.0F used as the DevText panel's X and Y scales; the evidence does not establish that every byte of the section is a distinct authored value rather than compiler alignment or padding.",
+        "rationale": "The target's .sdata2 identity indicates immutable small data, while the matched source exposes 9.0F and 12.0F as the relevant small floating-point literals consumed by this unit. Limiting the layout claim to those visible values avoids assigning meaning to unobserved section bytes.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T05:27:32.634Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L24-L42",
+            "why": "Shows the two source-level single-precision constants used by the unit and distinguishes their presentation role from its mutable panel and mode state."
+          }
+        ]
+      },
+      {
+        "id": "fact:40c4a07f-f38c-4280-b7d2-231a0942d4b9",
+        "target_id": "target:data:main/melee/db/dbanim:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the translation unit's immutable small-data literals used to configure the animation-information developer-text panel, including the horizontal and vertical text scales 9.0F and 12.0F.",
+        "rationale": "The matched setup routine passes the source-visible floating-point literals 9.0F and 12.0F directly to DevText_SetScale while configuring the unit's persistent animation-information panel. The pull request identifies dbanim.c as part of the matched db debug subsystem.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:27:32.634Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L24-L42",
+            "why": "Shows the immutable 9.0F and 12.0F literals being used to set the animation-information panel's text scale."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1592--main-melee-db-dbanim",
+            "why": "Identifies dbanim.c as a matched and linked translation unit in the db debug subsystem."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbanim:fn_8022697C"
+    },
+    "facts": [
+      {
+        "id": "fact:fb87e1c9-c180-4e78-a688-359a6d2075f8",
+        "target_id": "target:function:main/melee/db/dbanim:fn_8022697C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The input is an item owner GObj supplied by item collision-visualization setup. After class validation, the function obtains its `Fighter` payload and returns `Fighter.x21FC_flag.u8`; otherwise it returns zero. The consumer tests that byte, masks it with `3`, and writes the resulting per-fighter collision mode into bits 0\u20131 of the owned item's `xDAA_byte`.",
+        "rationale": "The accessor body establishes the owner-to-fighter-flag path. The item helper shows both where the owner originates in this call path and how the returned byte is consumed, including the nonzero guard and two-bit mask.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:56.482Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L79-L87",
+            "why": "Shows the validated owner being converted to a `Fighter` and its packed flag byte being returned."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbitem.c#L210-L225",
+            "why": "Shows the item helper supplying the owner, masking the returned byte to two bits, and writing it into the item's diagnostic flags."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbitem.c#L227-L241",
+            "why": "Shows active items being selected by exact owner-pointer equality before the owner-aware item helper invokes this accessor."
+          }
+        ]
+      },
+      {
+        "id": "fact:695aa1ec-df2e-4fac-8705-295b4fd8ddd4",
+        "target_id": "target:function:main/melee/db/dbanim:fn_8022697C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports DEVELOP mode's per-player collision-bubble display by exposing the selected fighter's packed debug flags to item code, allowing projectiles and other owned items to inherit that player's Normal, Collision Bubbles Only, or Collision Overlay mode.",
+        "rationale": "The DEVELOP-mode input handler stores the per-player three-state collision setting in the low bits of `Fighter.x21FC_flag` and refreshes that fighter's owned items. This accessor returns the same byte to the item helper, which copies its low two bits. SmashWiki independently identifies R plus D-pad-right as the per-player control for those three collision-display modes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:21:56.482Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows the per-player collision mode cycling through values 1\u20133 in the fighter flag byte and triggering an owned-item refresh."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbitem.c#L210-L225",
+            "why": "Shows the accessor connecting the fighter's packed flag byte to the owned item's collision-display bits."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents DEVELOP mode's R plus D-pad-right per-player collision-bubble control and its Normal, Collision Bubbles Only, and Collision Overlay settings."
+          }
+        ]
+      },
+      {
+        "id": "fact:be4e056b-d874-4208-8cb4-689836c4e13f",
+        "target_id": "target:function:main/melee/db/dbanim:fn_8022697C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "fn_GetFighterVisualFlags",
+        "rationale": "The routine is a read-only getter for the complete packed fighter debug-visualization byte, not solely its collision bits: neighboring code stores the collision mode in bits 0\u20131 and miscellaneous fighter-visual modes above them. The `fn_` prefix follows the recovered naming style of the surrounding translation-unit functions, but the exact original wording is unavailable.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `fn_GetFighterVisualFlags`.",
+        "confidence": 0.74,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/db/dbanim.c#L1-L99",
+            "why": "Shows the translation unit's `fn_` naming convention, the packed byte's collision and miscellaneous-visual contents, and this routine returning that complete byte."
+          }
+        ]
+      },
+      {
+        "id": "fact:1762ee62-2586-4a4f-ad25-bc51ec589f74",
+        "target_id": "target:function:main/melee/db/dbanim:fn_8022697C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `u8 (Fighter_GObj* owner)`. Despite the static fighter-object type, `owner` may effectively be null or a non-fighter GObj: the function dynamically checks its class and returns the packed visualization byte for a fighter or the sentinel value `0` otherwise.",
+        "rationale": "The function definition supplies the exact static signature, guarded fighter payload access, byte return, and zero fallback. At the current checkout head, `ftLib_80086960` still accepts a general GObj pointer and returns true only for a non-null object classified as a fighter, so the effective input-domain claim remains sound.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:17:44.110Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L79-L87",
+            "why": "Provides the exact signature, guarded fighter dereference, packed-byte return, and zero fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftlib.c#L424-L439",
+            "why": "Defines the guard as true only when its GObj argument is non-null and has `HSD_GOBJ_CLASS_FIGHTER` classification."
+          }
+        ]
+      },
+      {
+        "id": "fact:75632f6b-cc57-4be4-9d4f-1ae9c4c65d36",
+        "target_id": "target:function:main/melee/db/dbanim:fn_8022697C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Safely retrieves a fighter object's packed developer-visualization flags so item-debug code can inherit the owning fighter's collision-bubble display mode. Null objects and objects not classified as fighters produce zero rather than being dereferenced.",
+        "rationale": "The function guards the `GET_FIGHTER` access with the fighter-class predicate and returns `Fighter.x21FC_flag.u8` only for a recognized fighter. Its item-side caller masks the returned byte to its low two bits and installs those bits as the collision-display mode of an item owned by that fighter, establishing why this guarded accessor exists.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:56.482Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L79-L87",
+            "why": "Shows the guarded fighter-object check and retrieval of the packed `x21FC_flag.u8` value, with zero as the fallback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbitem.c#L210-L225",
+            "why": "Shows the accessor's consumer copying the returned value's low two bits into a fighter-owned item's collision-display flags."
+          }
+        ]
+      },
+      {
+        "id": "fact:38c5563b-931e-4a3d-8c93-9963c5f9d237",
+        "target_id": "target:function:main/melee/db/dbanim:fn_8022697C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The function is a stateless snapshot accessor: it does not modify the fighter or any module state. A valid fighter owner yields its current packed visualization byte, while a null or non-fighter owner deterministically yields zero. In the collision-display call path, zero leaves the item's cleared collision bits disabled; nonzero values contribute only their low two bits.",
+        "rationale": "The body contains only a class guard and return operations. The item consumer first clears its low two bits, then ORs masked fighter state only when the accessor result is nonzero, demonstrating the observable consequences of the two return states.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:56.482Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L79-L87",
+            "why": "Shows the read-only two-branch behavior and absence of any state mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbitem.c#L210-L225",
+            "why": "Shows how zero versus nonzero return values affect the destination item's cleared collision-display bits."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbanim:fn_CheckAnimationInfo"
+    },
+    "facts": [
+      {
+        "id": "fact:6e79c3bf-f30a-43af-8210-473fd68725d1",
+        "target_id": "target:function:main/melee/db/dbanim:fn_CheckAnimationInfo",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads held-button and newly pressed-edge masks for `player`. R plus D-pad up advances the shared collision mode and writes it to every fighter's `x21FC_flag`; R plus D-pad right reads and advances the selected fighter's low two flag bits and refreshes that fighter; R plus D-pad left delegates to the shared miscellaneous-visual cycler. Y plus D-pad down flips the shared animation-panel flag and sends it to the `DevText` visibility APIs. Y-modified left or right input resolves the selected player's fighter object and passes it to the appropriate Super or Poison Mushroom apply/end routine.",
+        "rationale": "Each input source, persistent-state mutation, fighter lookup, and downstream consumer appears explicitly in the matched body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:49.460Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows the full flow from player-indexed button masks through shared mode fields and fighter lookup to flag writes, text APIs, the visual cycler, and mushroom-effect routines."
+          }
+        ]
+      },
+      {
+        "id": "fact:9280068c-0123-4920-8915-4f20328b5383",
+        "target_id": "target:function:main/melee/db/dbanim:fn_CheckAnimationInfo",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the DEVELOP-mode shortcuts R plus D-pad up for all-character collision bubbles, R plus D-pad right for the selected player's collision bubbles, R plus D-pad left for character-related diagnostic visuals, Y plus D-pad down for character animation information, Y plus D-pad left for growth, A plus Y plus D-pad left for shrinkage, and Y plus D-pad right for restoring normal size.",
+        "rationale": "SmashWiki documents these controller combinations and their visible effects, while the matched code recognizes the same modifiers and directions and performs the corresponding collision, diagnostics, animation-overlay, and mushroom-size operations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:49.460Z",
+        "evidence": [
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents the relevant DEVELOP-mode controller chords and identifies their collision, character-visual, animation-information, growth, shrinkage, and normal-size effects."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows the exact chord handling and the code operations that realize the documented effects."
+          }
+        ]
+      },
+      {
+        "id": "fact:3fd02453-b019-49c8-a9b8-f9b5596d0fd2",
+        "target_id": "target:function:main/melee/db/dbanim:fn_CheckAnimationInfo",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `void fn_CheckAnimationInfo(int player)`. `player` is a controller/player-slot index passed to the debug button accessors and player entity/slot queries; the function returns no value and communicates entirely through shared debug state, fighter state, text visibility, and fighter-effect side effects.",
+        "rationale": "The declaration supplies the exact `void (int)` signature. Every use of the parameter selects controller or player state, and all outputs are assignments or calls with side effects.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:49.460Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Directly shows the signature, all uses of `player`, the absence of a return value, and the function's side-effect outputs."
+          }
+        ]
+      },
+      {
+        "id": "fact:2e75905f-6252-498f-9a8e-85b1922b911c",
+        "target_id": "target:function:main/melee/db/dbanim:fn_CheckAnimationInfo",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles one player's edge-triggered DEVELOP-mode shortcuts for fighter collision displays, miscellaneous fighter diagnostics, animation-panel visibility, and temporary fighter size effects.",
+        "rationale": "The complete matched body is organized around held modifier buttons and newly pressed D-pad directions, with each qualifying branch changing one of those developer-facing diagnostics or fighter effects.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:49.460Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "The complete function shows every controller guard and the collision, visual, panel, and size-effect operations they trigger."
+          }
+        ]
+      },
+      {
+        "id": "fact:9a3c03b9-ad22-4389-8200-f795426d0ffc",
+        "target_id": "target:function:main/melee/db/dbanim:fn_CheckAnimationInfo",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "R plus a newly pressed D-pad up cycles the shared all-fighter collision mode through 1, 2, and 3, wrapping 3 to 1, then assigns the resulting byte to every fighter. R plus newly pressed D-pad right, when the selected slot type is not 3, independently cycles that fighter's low two flag bits through 1\u20133 and calls its refresh helper. R plus newly pressed D-pad left advances the shared miscellaneous-fighter-visual mode. Y plus newly pressed D-pad down XOR-toggles the animation panel, synchronously hiding or showing both text and background. With Y held and a valid player slot, newly pressed left applies Super Mushroom growth unless A is also held, in which case it applies Poison Mushroom shrinkage; newly pressed right ends the corresponding effect. Directional actions use pressed-edge input, so holding a direction does not retrigger them each frame.",
+        "rationale": "The increment, bounds checks, wrap assignments, slot-type guards, XOR transition, visibility branches, A-modified effect selection, and distinction between held modifiers and pressed directions directly define these states and transitions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:49.460Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Contains all state guards and transitions, including collision-mode wrapping, overlay toggling, slot validation, and mushroom apply/end selection."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbanim:fn_SetupAnimationInfo"
+    },
+    "facts": [
+      {
+        "id": "fact:67efde2e-53e8-4d3b-82b5-a763b39dd405",
+        "target_id": "target:function:main/melee/db/dbanim:fn_SetupAnimationInfo",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the shared DevText rendering GObj from `DevText_GetGObj`, writes initial values to the global fighter-debug controls, passes `db_AnimationInfo.buf` and configuration values 7, 20, 20, 60, and 12 to `DevText_Create`, and stores the returned pointer in `db_AnimationInfo.text`. When that pointer is non-NULL, it is supplied with the shared GObj to `DevText_Show` and then passed to the cursor, color, and scale setters.",
+        "rationale": "Each input, persistent write, and downstream consumer appears explicitly in the matched source, including the exact creation arguments and the conditional use of the returned panel pointer.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:24.692Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L23-L42",
+            "why": "Shows the GObj source, global-state writes, backing-buffer input, exact creation arguments, persistent pointer assignment, and all consumers of a successful result."
+          }
+        ]
+      },
+      {
+        "id": "fact:88f28e04-921a-40a8-b129-bce45e09f2cc",
+        "target_id": "target:function:main/melee/db/dbanim:fn_SetupAnimationInfo",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the initialization stage for DEVELOP mode's Y plus D-pad Down character animation-information display, alongside the state used by related fighter collision-bubble and character-visual debugging controls.",
+        "rationale": "The source initializes a panel and flag explicitly dedicated to animation information as well as neighboring fighter-visual controls. SmashWiki documents the corresponding DEVELOP-mode chord as displaying each character's animation information and separately identifies the collision-bubble and character-visual controls.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T01:40:24.692Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L23-L42",
+            "why": "Shows initialization of the animation-information panel and its associated fighter-debug state."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents that Y plus D-pad Down displays each character's animation information and describes the related fighter visualization controls."
+          }
+        ]
+      },
+      {
+        "id": "fact:ba15f7d5-f0e6-43e2-9a82-777cde32aac8",
+        "target_id": "target:function:main/melee/db/dbanim:fn_SetupAnimationInfo",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless initialization routine with signature `void (void)`.",
+        "rationale": "The matched definition explicitly accepts no arguments and returns no value; all outputs are written into persistent debug and animation-information state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:24.692Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L23-L42",
+            "why": "Directly defines the routine as `void fn_SetupAnimationInfo(void)`."
+          }
+        ]
+      },
+      {
+        "id": "fact:d9f9c01a-7687-4836-bd63-efc32c159729",
+        "target_id": "target:function:main/melee/db/dbanim:fn_SetupAnimationInfo",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes the fighter animation-information debug facility by establishing its default visual-control state, allocating its persistent DevText panel from module-owned storage, registering a successful panel with the shared developer-text renderer, and applying its presentation settings.",
+        "rationale": "The complete matched body resets the three relevant debug-state fields, creates a DevText object backed by `db_AnimationInfo.buf`, stores the result, and conditionally shows and styles it. Its role is initialization; it does not populate the panel with per-fighter animation values.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:24.692Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L23-L42",
+            "why": "Directly shows the default-state writes, DevText creation and persistent assignment, successful-result guard, renderer registration, and styling operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:4b140895-c346-472c-ab0e-e7ef7bc11803",
+        "target_id": "target:function:main/melee/db/dbanim:fn_SetupAnimationInfo",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally sets `ShowFighterCollisionBubbles` to 1 and resets both `ShowAnimationInfo` and `MiscFighterVisualsStatus` to 0 before attempting panel creation. If creation fails, no registration or styling occurs; if it succeeds, the panel is registered with its cursor hidden, transparent-black background, opaque-white text, and scale 9 by 12.",
+        "rationale": "The three state assignments and panel-pointer write precede the sole conditional. Every presentation operation is guarded by the returned pointer, and the literal colors and scale establish the successful initialization state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:24.692Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L23-L42",
+            "why": "Directly shows the unconditional default assignments, NULL guard, and all successful-creation presentation settings."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbanim:fn_ToggleMiscFighterVisuals"
+    },
+    "facts": [
+      {
+        "id": "fact:69c84f36-74cf-4a18-91d4-36e24b1eab92",
+        "target_id": "target:function:main/melee/db/dbanim:fn_ToggleMiscFighterVisuals",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads `db_804D6B48.MiscFighterVisualsStatus`, advances it, and writes the result back. It then traverses `HSD_GObj_Entities->fighters`; for each fighter it preserves the low two bits of `x21FC_flag.u8` and replaces the upper six bits with the selected diagnostic mask. Finally, status bits `0x02`, `0x08`, and `0x20` select the enable or disable routines for enemy-stomp range, item-pickup range, and coin-pickup range respectively.",
+        "rationale": "Every source, transformation, destination, and downstream call is explicit in the matched body: the shared six-bit field is the input and persistent output, the fighter list receives a shifted copy that leaves collision bits intact, and three individual mask tests drive paired item-debug setters.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:48:28.162Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L44-L77",
+            "why": "Shows the complete flow from shared mode state through fighter flag writes to the three item-range diagnostic interfaces."
+          }
+        ]
+      },
+      {
+        "id": "fact:0f85b104-d993-4771-b57d-e7de7231530e",
+        "target_id": "target:function:main/melee/db/dbanim:fn_ToggleMiscFighterVisuals",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the state advancement behind DEVELOP mode's R plus D-pad-left character-visual cycle: normal display, costume-physics polylines, vertical-motion visualization, CPU-logic visualization, item-grab geometry, interpolated pelvis sphere, and coin-detection geometry. Its item-side synchronization specifically supplies the enemy-stomp/CPU-range, item-pickup, and coin-detection phases.",
+        "rationale": "The matched code advances a seven-state normal-plus-six-bit diagnostic cycle and propagates it to fighters, with explicit item diagnostic handling at states `0x02`, `0x08`, and `0x20`. SmashWiki independently documents R plus D-pad-left as a seven-entry character-visual cycle in the same order and identifies its item-grab and coin-detection geometry.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T01:48:28.162Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L44-L77",
+            "why": "Shows the seven-state one-hot cycle, propagation to fighter diagnostic bits, and item-side range controls at the corresponding phases."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents the R plus D-pad-left DEVELOP-mode character-visual cycle and describes its six diagnostic phases after normal display."
+          }
+        ]
+      },
+      {
+        "id": "fact:ff0f66a1-e670-4b14-a4b1-c6d322f851f3",
+        "target_id": "target:function:main/melee/db/dbanim:fn_ToggleMiscFighterVisuals",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Parameterless, no-return global state-transition routine with signature `void (void)`; it obtains the affected fighter population and all persistent inputs through global debug and entity state.",
+        "rationale": "The definition directly supplies a `void fn_ToggleMiscFighterVisuals(void)` signature. It accepts no object or mode argument, instead reading the module status and global fighter list and communicating entirely through state writes and side-effecting diagnostic calls.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:48:28.162Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L44-L77",
+            "why": "Provides the exact signature and shows that all inputs and outputs are global state or side effects."
+          }
+        ]
+      },
+      {
+        "id": "fact:f7c8f154-1f61-478e-9697-ba0b136b3397",
+        "target_id": "target:function:main/melee/db/dbanim:fn_ToggleMiscFighterVisuals",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Advances the shared DEVELOP-mode character-diagnostic selection and synchronizes that selection across every active fighter and the item subsystem's enemy-stomp, item-pickup, and coin-pickup range displays.",
+        "rationale": "The function first advances the module's miscellaneous-visual state, propagates its six diagnostic bits to every fighter while retaining each fighter's collision-display bits, and then explicitly enables or disables the three item-side range diagnostics according to the selected state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:48:28.162Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L44-L77",
+            "why": "The complete matched function shows the mode transition, fighter-list propagation, and synchronization of all three item-side diagnostic displays."
+          }
+        ]
+      },
+      {
+        "id": "fact:888f3378-760d-4050-b2ad-446761a59ab8",
+        "target_id": "target:function:main/melee/db/dbanim:fn_ToggleMiscFighterVisuals",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Each invocation advances the six-bit visual selection through 0 \u2192 1 \u2192 2 \u2192 4 \u2192 8 \u2192 16 \u2192 32 \u2192 0: zero becomes one, while every nonzero value is shifted left and masked by `0x3F`. Exactly one fighter diagnostic bit is therefore selected in nonzero states. Enemy-stomp range is enabled only in state `0x02`, item-pickup range only in state `0x08`, and coin-pickup range only in state `0x20`; each is actively disabled in every other state. The selected mask is applied to all currently active fighters without changing their low two collision-display bits.",
+        "rationale": "The zero guard, left shift, and six-bit mask define the complete finite-state cycle. The three complementary enable/disable branches establish mutually exclusive item-side phases, and the fighter assignment establishes synchronous propagation while preserving the independent collision mode.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:48:28.162Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L44-L77",
+            "why": "Contains the full mode transition, bit-preserving fighter update, and all item-side state guards."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/db/dbanim:fn_UpdateAnimationInfo"
+    },
+    "facts": [
+      {
+        "id": "fact:ff771330-f00a-447e-905b-051688f16411",
+        "target_id": "target:function:main/melee/db/dbanim:fn_UpdateAnimationInfo",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "When ShowAnimationInfo is enabled, the routine obtains db_AnimationInfo.text, erases it, resets its cursor, and traverses HSD_GObj_Entities->fighters. For each Fighter user_data object it reads player_id, motion_id, anim_id, cur_anim_frame, and x221C_u16_y; valid motion and animation IDs are translated through db_motionstate_names and db_submotion_names, while out-of-range IDs are printed numerically, and the resulting columns are written to the DevText overlay.",
+        "rationale": "The matched body explicitly shows the global inputs, fighter-list traversal, bounded name-table lookups, numeric fallbacks, and developer-text output operations.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:25.245Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "The code directly exhibits the full flow from the visibility flag and fighter fields through the name tables and into formatted DevText output."
+          }
+        ]
+      },
+      {
+        "id": "fact:7d66236f-09ee-4e33-9b24-f40c9729f4e2",
+        "target_id": "target:function:main/melee/db/dbanim:fn_UpdateAnimationInfo",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the live per-character animation-information display exposed by Melee's DEVELOP debug mode.",
+        "rationale": "The DEVELOP-mode documentation identifies a control that displays each character's animation information. This routine rebuilds exactly such a per-fighter display, and the current debug dispatcher still runs it after checking animation controls each frame, so the mapping remains valid with refreshed head evidence.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T18:17:44.110Z",
+        "evidence": [
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents the DEVELOP-mode Y plus D-pad-down control that displays each character's animation information."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the routine generating a live row of motion, animation, frame, and flag information for every active fighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbinit.c#L163-L256",
+            "why": "Shows the current debug dispatcher calling the animation-information updater after processing the per-player animation controls."
+          }
+        ]
+      },
+      {
+        "id": "fact:234ea6db-9346-4a18-9635-bf711445e917",
+        "target_id": "target:function:main/melee/db/dbanim:fn_UpdateAnimationInfo",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterless, side-effect-only per-frame update routine with signature void (void); it reads global debug and fighter state and writes through the developer text object.",
+        "rationale": "The definition still declares a parameterless void routine whose observable work occurs through global reads and DevText mutation. The current debug dispatcher invokes it once after processing the per-player animation controls, preserving its per-frame update role and replacing the drifted caller citation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T18:17:44.110Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Declares `void fn_UpdateAnimationInfo(void)` and shows it reading global fighter and debug state while writing through the developer text object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbinit.c#L163-L256",
+            "why": "Shows the current debug frame dispatcher invoking `fn_UpdateAnimationInfo` once after all per-player animation-control checks."
+          }
+        ]
+      },
+      {
+        "id": "fact:3d5f9c0d-48a7-4710-bdba-02fa7504bf68",
+        "target_id": "target:function:main/melee/db/dbanim:fn_UpdateAnimationInfo",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Refreshes the developer animation-information overlay with one formatted row for every active fighter.",
+        "rationale": "The routine erases and resets the overlay, traverses the global fighter GObj list, and prints each fighter's identifiers and current animation data into successive rows.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:25.245Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "The complete matched body clears db_AnimationInfo.text and repopulates it by iterating HSD_GObj_Entities->fighters."
+          }
+        ]
+      },
+      {
+        "id": "fact:a7b4376a-3973-4513-b806-6cdff4f956ac",
+        "target_id": "target:function:main/melee/db/dbanim:fn_UpdateAnimationInfo",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine does nothing while ShowAnimationInfo is false. While enabled, every invocation rebuilds the complete overlay: the first fighter starts at the current top row and later fighters receive preceding newlines; motion IDs below 0x155 and animation IDs below 0x127 use symbolic names, animation ID -1 leaves its column blank, and bits 0, 1, and 2 of x221C_u16_y are displayed as L, R, and T respectively.",
+        "rationale": "These guards, formatting branches, thresholds, and bit tests are all explicit in the matched control flow.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:25.245Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "The body contains the ShowAnimationInfo guard, newline state, ID bounds and fallbacks, anim_id sentinel check, and L/R/T bitfield formatting."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/db/dbanim.c"
+    },
+    "facts": [
+      {
+        "id": "fact:ca684504-e44a-40b5-a4ee-7ec5be05cffd",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbanim.c",
+        "type": "data_flow",
+        "value": "Controller masks mutate persistent visualization modes that flow into fighter visual-flag bytes, item-range diagnostics, DevText visibility, and fighter mushroom-effect routines; the panel updater reads active fighter motion and animation state and formats it through DevText.",
+        "rationale": "The current setup, update, and input paths preserve each producer, intermediate state, and consumer.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L1-L80",
+            "why": "Shows persistent modes flowing into fighter flags and item-range toggles."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows fighter motion, animation, and collision state flowing into the panel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows controller state driving mode changes, visibility, and mushroom effects."
+          }
+        ]
+      },
+      {
+        "id": "fact:d2eef4da-d74b-4a8e-b3d1-aaa6819f65af",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbanim.c",
+        "type": "game_mapping",
+        "value": "Realizes Melee's DEVELOP-mode controls for displaying fighter animation information, cycling global and per-player collision bubbles, cycling miscellaneous character diagnostics, and applying or ending the grow and shrink effects.",
+        "rationale": "The documented DEVELOP-mode chords and effects correspond directly to the branches in this unit: Y plus D-pad down controls animation information; R plus D-pad up or right controls collision displays; R plus D-pad left changes character diagnostics; and Y-modified left or right directions apply or end the mushroom size effects.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:40:49.460Z",
+        "evidence": [
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents the DEVELOP-mode animation-information, collision-bubble, character-visual, grow, shrink, and normal-size controller controls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Implements the corresponding controller chords and their visualization, overlay, and fighter-size effects."
+          }
+        ]
+      },
+      {
+        "id": "fact:c5c2285b-203b-4eaf-accb-18a348986c32",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbanim.c",
+        "type": "inferred_type",
+        "value": "A developer-debug unit owning a `DevText*` plus 0x5A4-byte panel buffer and a compact bitfield containing a 3-bit fighter-collision mode, a 6-bit miscellaneous-visual mode, and a 1-bit panel-visibility flag.",
+        "rationale": "The current unit-local declarations directly establish these layouts and domains.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L1-L80",
+            "why": "Declares the panel storage and the three visualization-state bitfields."
+          }
+        ]
+      },
+      {
+        "id": "fact:140b5056-08bb-477f-a9b3-3a5c0a5cc0b5",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbanim.c",
+        "type": "purpose",
+        "value": "Implements developer-debug animation and fighter-visual controls, including an animation-information panel, global and per-fighter collision displays, miscellaneous fighter diagnostics, and fighter-size shortcuts.",
+        "rationale": "Current setup owns the panel and visualization state, while the update and input routines retain all listed controls.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L1-L80",
+            "why": "Shows panel ownership, persistent visualization state, initialization, and miscellaneous visual propagation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows the animation-information panel being rebuilt from active fighters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows collision, miscellaneous-visual, panel, and mushroom-size controller controls."
+          }
+        ]
+      },
+      {
+        "id": "fact:33e18f54-4eff-47ff-bc81-4254316d49cd",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/db/dbanim.c",
+        "type": "state_behavior",
+        "value": "Setup initializes collision mode to 1, miscellaneous visuals to 0, and the animation panel hidden. Input cycles collision mode through 1-3, advances miscellaneous visuals through one-hot values 0, 1, 2, 4, 8, 16, 32, then 0, and XOR-toggles panel visibility; panel content updates only while enabled.",
+        "rationale": "The current declarations and routines preserve all initialization, transition, wraparound, and visibility guards.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:12:01.317Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L1-L80",
+            "why": "Shows initial state and the miscellaneous-visual shift-and-mask transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L89-L148",
+            "why": "Shows panel rebuilding guarded by ShowAnimationInfo."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/db/dbanim.c#L150-L221",
+            "why": "Shows the collision-mode cycle and panel-visibility toggle."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/db/dbanim:fn_8022697C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/db/dbanim:fn_CheckAnimationInfo#r3"
+    },
+    "facts": []
+  }
+]

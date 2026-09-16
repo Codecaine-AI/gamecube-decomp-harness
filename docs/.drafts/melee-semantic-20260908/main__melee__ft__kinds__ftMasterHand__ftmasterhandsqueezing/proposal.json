@@ -1,0 +1,97 @@
+{
+  "tu": "main/melee/ft/kinds/ftMasterHand/ftmasterhandsqueezing",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsqueezing.c#L20-L31",
+            "why": "Exact branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsqueeze.c#L18-L32",
+            "why": "Squeeze destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandbackdisappear.c#L171-L180",
+            "why": "Fail destination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces set/not-set wording with the exact equality and exhaustive alternative verified in canonical source.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMasterHand/ftmasterhandsqueezing:ftMh_Squeezing_Anim"
+        },
+        "type": "purpose",
+        "value": "Handles Squeezing animation completion: when no frames remain, x20 exactly equal to 1 selects the Squeeze entry; every other x20 value selects the Fail entry. It performs neither transition while frames remain."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsqueezing.c#L61-L82",
+            "why": "Ordered reads, writes and calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandthrownmasterhand.c#L29-L42",
+            "why": "Victim and reciprocal-pointer dereferences."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait12.c#L115-L138",
+            "why": "Return setup and deferred callback storage."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves cross-file capture-pointer requirements and replaces the unsupported numeric-state inference.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMasterHand/ftmasterhandsqueezing:ftMh_Throw_Anim"
+        },
+        "type": "data_flow",
+        "value": "Consumes nonzero cmd_vars[0] by clearing it before calling ftMh_CaptureWaitMasterHand_80155D6C on victim_gobj. That helper dereferences the victim and its reciprocal victim_gobj before the caller's later null check. After the handoff, the caller rechecks victim_gobj, conditionally calls ftCommon_8007E2F4, ftCo_800DE2A8 and ftCo_800DE7C0, negates the victim's dmg.facing_dir_1, and clears x20. Independently, animation exhaustion calls ftMh_MS_389_80151018, which sets up return positioning and a deferred callback through named waiting states; the symbol's 389 component does not establish the actual numeric destination."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandsqueezing.c#L61-L82",
+            "why": "Independent guards and cleanup order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandthrownmasterhand.c#L29-L42",
+            "why": "Pre-null-check dereferences."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait12.c#L19-L32",
+            "why": "Actual Wait1_2 motion-state entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftMasterHand/ftmasterhandwait12.c#L104-L138",
+            "why": "Return setup and eventual callback invocation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects null-path safety, bounds one-shot semantics to command consumption, and describes the actual completion routing.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftMasterHand/ftmasterhandsqueezing:ftMh_Throw_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Each nonzero command-slot-zero observation consumes the command before release calls; further release processing requires rearming. A valid captured victim and reciprocal capture pointer are required by the first handoff helper, so the later victim null check does not make an initially null victim safe. If the first helper returns, the post-handoff null check controls only common release setup, and x20 cleanup follows that check. Independently, no animation frames remaining invokes ftMh_MS_389_80151018. Its canonical return path assigns Wait2_1 to the stored selector and then takes the Wait1_2 entry branch, stores a return destination and deferred callback, and clears x20; this must not be summarized solely as motion state 389."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

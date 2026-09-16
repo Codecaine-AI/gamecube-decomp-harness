@@ -1,0 +1,1 @@
+../../../../../../../../toolpacks/gamecube-decomp/source_editing/review_lint/rules/sms.py

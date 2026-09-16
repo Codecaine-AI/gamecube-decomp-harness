@@ -1,0 +1,131 @@
+{
+  "tu": "main/melee/mn/mnitemsw",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnitemsw:.sbss"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Holds Item Switch's module-wide display-GObj pointer and ordinary-input gate. Construction publishes the display pointer; startup sets the gate, and entry completion clears it. The input callback obtains editable state through the display pointer. The gate suppresses A, Start, and directional handling, but Back is processed before the gate check.",
+        "rationale": "Corrects the blanket input-blocking claim while preserving the supported runtime-state purpose without adding compiled adjacency claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L239-L257",
+            "why": "Back precedes gate"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L680-L682",
+            "why": "Entry completion clears gate"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L831-L919",
+            "why": "Display publication and startup gate"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnitemsw:fn_80233E10"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Back has highest priority and bypasses the input gate: it commits cached item/frequency settings, clears entering_menu, updates power time, sets cooldown to 5, invokes mn_8023164C, removes the supplied input GObj, and returns. Otherwise a nonzero gate suppresses controls. A on an ordinary index below 31 toggles the shared confirmed value and immediately commits the existing cached MnItemSwData; copying the new ordinary value into that cache occurs separately in the visual updater. Start is considered only when A is absent, commits cached settings, and selects the GM_MENU-to-GM_VS or alternate return path. A on a special index suppresses Start but can fall through to directional handling. Directional handling emits movement sound only when shared hover or confirmation changes.",
+        "rationale": "Preserves branch priority, the special-index A exception, and the distinction between shared confirmation, cached state, and persistence.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L222-L306",
+            "why": "Complete input dispatch and cached commits"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L721-L731",
+            "why": "Separate ordinary cache synchronization"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnitemsw:mnItemSw_80233B68"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles directional navigation across Item Switch's two visual columns of 31 ordinary entries and two special positions for the same frequency control. It cycles within each column, crosses between corresponding ordinary entries with a clamp for the unmatched last row, refreshes shared confirmation from cached state after movement, and cycles frequency through six values while either special position is selected.",
+        "rationale": "Corrects two-row geometry while preserving the established navigation and frequency-control responsibilities.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L120-L220",
+            "why": "Navigation behavior"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L345-L364",
+            "why": "Two-column cursor geometry"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnitemsw:mnItemSw_80233B68"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Masks are processed with priority 1, 2, 4, then 8. Mask 1 decrements through each column cycle, with 0\u219231, 16\u219232, 31\u219215, and 32\u219230; mask 2 reverses those cycles, with 15\u219231, 30\u219232, 31\u21920, and 32\u219216. Ordinary indices 0\u201315 occupy the first visual column and 16\u201330 the second. Mask 4 maps second-column ordinary indices to the first by subtracting 16; mask 8 maps first-column indices to the second by adding 16, clamping 15\u219230. At either special index 31 or 32, mask 4 increments confirmation through 0\u20135 with wraparound and mask 8 decrements it with wraparound, without moving hover. Movement loads confirmation from the destination item's cached byte or from x21 for either special position.",
+        "rationale": "Retains exact numeric transitions and priority while correcting the swapped spatial interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L120-L220",
+            "why": "Exact mask transitions and value loads"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L345-L364",
+            "why": "Indices vary vertically within columns"
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnitemsw:mnItemSw_8023453C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Realizes immediate selection feedback for Melee's Item Switch interface: hover, cursor placement, and enabled-state animation for individual item entries, plus feedback at two special selection positions that both address the same overall item-frequency control.",
+        "rationale": "Corrects the implication of two independent special settings.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L412-L451",
+            "why": "Both special positions select the same control"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L453-L562",
+            "why": "Selection presentation"
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnitemsw.c#L721-L731",
+            "why": "Both positions synchronize the same frequency byte"
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

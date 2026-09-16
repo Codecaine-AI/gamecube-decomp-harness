@@ -1,0 +1,45 @@
+{
+  "tu": "main/dolphin/os/OSReset",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSReset.c#L132-L202",
+            "why": "Complete cancellation helper and coordinator control flow."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the finalization ordering and preserves the source's exceptional fallthrough and numeric-state limitations.",
+        "subject": {
+          "target_stable_key": "main/dolphin/os/OSReset:OSResetSystem"
+        },
+        "type": "state_behavior",
+        "value": "Disables scheduling and stops audio, then retries preliminary callbacks and SRAM synchronization until successful. Mode 1 may commit SRAM menu flag 0x40. With interrupts disabled it runs final callbacks once, disables locked cache, and then asserts final success. Mode 1 enters terminal hardware reset with resetCode * 8; mode 0 cancels active threads in numeric states 1 and 4, enables scheduling and calls __OSReboot. Subsequent cleanup cancels those eligible threads and clears five fixed low-memory ranges. Mode 2 alone initializes padcal by suppressing recalibration and later passes the saved value back. Other modes reaching cleanup, or a returning mode-0 reboot call, reach that final use without a locally initialized padcal. Cleanup does not locally restore interrupts or scheduling."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/os/OSReset.c#L132-L202",
+            "why": "Selective cancellation, finalization sequence and mode-dependent initialization."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an unconditional restoration description with the actual mode-dependent saved-state lifetime and precise finalization order.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/os/OSReset.c"
+        },
+        "type": "state_behavior",
+        "value": "Coordinated reset disables scheduling and audio, retries phase-0 callbacks plus SRAM synchronization, optionally commits the mode-1 menu request, then disables interrupts, runs phase 1 once, disables locked cache and asserts success. Mode 1 enters terminal Reset; mode 0 selectively cancels active threads in states 1 and 4, enables scheduling and calls __OSReboot. Fallthrough performs selective thread cancellation and fixed low-memory clearing. Only mode 2 has saved a PAD recalibration policy to restore; other fallthrough modes leave padcal uninitialized in this source. The cleanup path contains no local interrupt or scheduler restoration."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

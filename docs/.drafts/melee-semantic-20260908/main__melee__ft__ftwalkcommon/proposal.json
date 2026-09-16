@@ -1,0 +1,190 @@
+{
+  "tu": "main/melee/ft/ftwalkcommon",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L99-L128",
+            "why": "Shows basis selection, facing guard, denominator switch and setter call."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces an unqualified actual-motion freeze/synchronization description with the exact selected-basis behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftwalkcommon:ftWalkCommon_800DFDDC"
+        },
+        "type": "purpose",
+        "value": "Computes and requests a tier-specific walking animation rate from a selected movement basis: cached walk.x0 when ground-friction multiplier is below one, otherwise gr_vel. A non-forward selected basis requests zero; a forward basis is divided by the active tier's stored rate denominator."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L99-L128",
+            "why": "Selects alternate speed basis."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L207-L209",
+            "why": "Physics writes scaled target into cached basis."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L505-L513",
+            "why": "Setter has a deferred-rate branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Walk.c#L77-L80",
+            "why": "Ordinary Walk animation delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L37-L40",
+            "why": "CargoWalk animation delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyheavywalk.c#L34-L37",
+            "why": "HeavyWalk animation delegation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves proven walking association without claiming exact synchronization to actual movement.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftwalkcommon:ftWalkCommon_800DFDDC"
+        },
+        "type": "game_mapping",
+        "value": "Supplies common rate control for ordinary Walk, CargoWalk and Donkey HeavyWalk animations. Its animation-speed basis can be a cached scaled target rather than actual ground velocity, and the animation setter can defer applying the requested rate."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L99-L128",
+            "why": "Complete rate calculation and missing default."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L490-L513",
+            "why": "Immediate and deferred application paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds source-visible invariants and the external setter's optional branch.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftwalkcommon:ftWalkCommon_800DFDDC"
+        },
+        "type": "state_behavior",
+        "value": "Uses walk.x0 only for a ground-friction multiplier strictly below one, otherwise gr_vel. If basis*facing_dir <= 0 it requests rate zero; otherwise it requests ABS(basis) divided by the matching Slow/Middle/Fast denominator. The switch lacks a default and can leave anim_rate uninitialized for an invalid offset; denominators and exceptional floats are unchecked. ftAnim_SetAnimRate caches the request instead of immediately applying it when x2223_b0 is set. No motion transition is performed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L130-L170",
+            "why": "Equality guard, phase arithmetic and callback invocation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes requested callback entry from direct state mutation and exact phase preservation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftwalkcommon:ftWalkCommon_800DFEC8"
+        },
+        "type": "purpose",
+        "value": "Detects a change in the desired base-plus-walk-tier motion and synchronously delegates action-specific entry through a callback, supplying an integer-quantized destination frame calculated from the current animation cycle phase."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L163-L168",
+            "why": "Destination quantization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Walk.c#L103-L104",
+            "why": "Ordinary entry callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CargoWalk.c#L42-L49",
+            "why": "Cargo entry callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftDonkey/ftdonkeyheavywalk.c#L39-L46",
+            "why": "HeavyWalk entry callback."
+          }
+        ],
+        "op": "write",
+        "rationale": "Active callers establish gameplay use while integer truncation limits the guarantee.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftwalkcommon:ftWalkCommon_800DFEC8"
+        },
+        "type": "game_mapping",
+        "value": "Supports transitions among walking animation tiers without always restarting at frame zero: for valid animation spans it maps the current cycle phase into a destination-tier span, truncates to an integer frame, then calls the ordinary Walk, CargoWalk or HeavyWalk entry adapter. This is approximate phase continuity, not a guarantee of visually seamless or exact phase preservation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L130-L170",
+            "why": "Complete update implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L573-L581",
+            "why": "End frame comes from normal or blend skeleton."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes quantization, callback lifetime, equality boundary and invalid-input preconditions explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftwalkcommon:ftWalkCommon_800DFEC8"
+        },
+        "type": "state_behavior",
+        "value": "If desired base+tier equals motion_id, returns without calling the callback. Otherwise selects destination span D, obtains end frame E, computes q=(s32)(cur_anim_frame/E), then destination=(s32)(D*((cur_anim_frame-E*q)/E)), and calls arg_cb once with the same object and destination converted to float. The callback is not retained and is not null-checked. Nonfinite/zero E and unrepresentable integer conversions are unguarded. The switch default reports an error and invokes HSD_ASSERT(71,0), but valid classifier outputs select one of its three cases."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftwalkcommon.c#L71-L214",
+            "why": "Entry, animation, tier update and physics flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftanim.c#L505-L513",
+            "why": "Optional deferred animation-rate handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L133-L152",
+            "why": "Prepared floor-tangent vectors, not position integration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the TU's unconditional phase-preservation and actual-motion playback claims.",
+        "subject": {
+          "entity_locator": "src/melee/ft/ftwalkcommon.c"
+        },
+        "type": "state_behavior",
+        "value": "Entry classifies absolute gr_vel and chooses a caller-supplied base plus Slow/Middle/Fast offset. Tier updates delegate only when the desired motion differs, with integer-quantized phase mapping. Animation processing requests zero for a non-forward selected basis or a tier-scaled rate otherwise; the basis is cached walk.x0 below unit ground-friction multiplier and gr_vel otherwise, and the setter may defer application. Physics refreshes walk.x0 from scaled target velocity, prepares friction-aware acceleration and floor-aligned movement vectors. Valid objects, initialized walk metadata and usable animation spans are required; the TU does not validate them."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,3 @@
+`src/melee/gr/dir.dox` is a directory-level Doxygen comment containing a TODO to create an `entities` directory for individual stages. This expresses intended organization, not evidence that such a directory exists. The file defines no executable behavior or symbols. Canonical and rendered lines 1–4 agree; the renderer reports no substitutions or parse errors. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/dir.dox#L1-L4. No baseline subjects, facts, or links exist to revise or retain; no factual correction or useful entity-scoped addition is warranted.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

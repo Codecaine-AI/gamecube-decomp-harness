@@ -1,0 +1,143 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Pass",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Pass:ftCo_80099F1C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains Fighter* from gobj->user_data and short-circuits over input.lstick[0].y <= -p_ftCommonData->x464, x671_timer_lstick_tilt_y < p_ftCommonData->x468, and mpColl_IsOnPlatform(&fp->coll_data). Returns the resulting eligibility boolean without direct fighter or collision writes. The platform helper tests LINE_FLAG_PLATFORM for coll_data.floor.index rather than independently checking grounded status.",
+        "rationale": "Repair stale field spelling and distinguish indexed collision metadata from an independent grounded-status guard.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L26-L36",
+            "why": "Exact canonical field, comparisons, and returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L4502-L4505",
+            "why": "Actual indexed platform-flag test."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Pass:ftCo_80099F9C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "First calls ftCo_800C5240; if true, returns ftCo_800C60C8 directly with no ordinary fallback even when that result is false. Otherwise only a clear mv.co.pass.x0 and successful ftCo_80099F1C cause writes x0=true and x4=p_ftCommonData->x470 and a true return. Already-latched or ineligible ordinary paths return false without these writes. This function neither decrements x4 nor directly enters ordinary Pass.",
+        "rationale": "Replace broad countdown and rejected-path guarantees with proved local priority and mutations.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L38-L51",
+            "why": "Complete branch ordering, writes, and return behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Pass:ftCo_8009A080"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads Fighter through gobj->user_data and tests input.held_buttons[0] & HSD_PAD_LR. Only a nonzero mask evaluates ftCo_80099F1C. On success it forwards the same object to ftCo_8009A228 and returns true; otherwise it returns false. Entry performs common airborne setup and drift clamping, assigns configured x46C to self_vel.y, changes to ftCo_MS_Pass, updates floor_skip, and writes 0xFE to the vertical-stick tilt timer.",
+        "rationale": "Correct held_inputs to canonical held_buttons[0] and avoid an unproved negative-velocity assertion.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L53-L62",
+            "why": "Input field and wrapper flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L89-L99",
+            "why": "Accepted entry sequence."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Pass:ftCo_8009A184"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally performs ftCommon_8007D5D4, ftCommon_ClampAirDrift, self_vel.y=p_ftCommonData->x46C, Fighter_ChangeMotionState(gobj,msid,mf,anim_start,1,0,NULL), mpUpdateFloorSkip, and x671_timer_lstick_tilt_y=0xFE, in that order. It validates neither eligibility nor destination, flags, frame, or floor index. The floor index copied is the one present after the motion-state call. Velocity sign/finiteness and universal retrigger suppression are not established here. Actual Reflector callers supply aerial continuation states and retained frames.",
+        "rationale": "Preserve exact execution without converting configuration assumptions into invariants.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L76-L87",
+            "why": "Ordered unconditional operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftFox/ftfoxspeciallw.c#L194-L200",
+            "why": "Actual continuation caller."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Pass:ftCo_8009A228"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Without an internal eligibility or grounded-status guard, performs common airborne setup and drift clamping, assigns self_vel.y from x46C, changes to ftCo_MS_Pass with Ft_MF_None and arguments 0,1,0,NULL, updates floor_skip from the then-current floor index, and sets the vertical-stick tilt timer to 0xFE. The timer assignment alone does not prove universal retrigger suppression. The bound Pass animation callback calls ftCo_Fall_Enter when its animation query reports no frames remaining, including that helper's specialized routing.",
+        "rationale": "Remove unsupported grounded-origin and suppression guarantees while preserving verified state binding.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L89-L106",
+            "why": "Entry and completion behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2819-L2828",
+            "why": "Actual callback association."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L47-L71",
+            "why": "Routed Fall entry rather than universal ordinary Fall."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Pass:ftCo_Pass_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Runs RETURN_IF over ftCo_SpecialAir_CheckInput(gobj), ftCo_80095328(gobj,NULL), ftCo_800D7100(gobj), ftCo_800C3B10(gobj), ftCo_80099A58(gobj), ftCo_AttackAir_CheckItemThrowInput(gobj), ftCo_800D705C(gobj), and ftCo_800CB870(gobj), in that order. RETURN_IF evaluates each reached condition once and returns when nonzero, suppressing later checks. The callback has no direct fighter-field writes. Exact accepted actions, false-return side effects, and NULL semantics belong to the callees rather than rendered aliases.",
+        "rationale": "Resolve macro behavior independently and preserve canonical priority without unsupported action taxonomy.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Pass.c#L108-L118",
+            "why": "Complete eight-call order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L164-L169",
+            "why": "Actual single-evaluation immediate-return macro expansion."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

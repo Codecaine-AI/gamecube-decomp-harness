@@ -1,0 +1,841 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-40-worker-lifecycle",
+  "title": "Quality Gate",
+  "root": "b-40-worker-lifecycle-root-66",
+  "blocks": {
+    "b-40-worker-lifecycle-root-66": {
+      "id": "b-40-worker-lifecycle-root-66",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "b-40-worker-lifecycle-worker-target-packet-lif-2",
+        "b-40-worker-lifecycle-a-worker-is-a-bounded-de-3",
+        "b-worker-sandbox-contract",
+        "b-40-worker-lifecycle-lifecycle-4",
+        "b-40-worker-lifecycle-text-20",
+        "b-40-worker-lifecycle-the-worker-can-loop-from-21",
+        "b-40-worker-lifecycle-runner-validation-26",
+        "b-40-worker-lifecycle-runner-validation-is-the-27",
+        "b-40-worker-lifecycle-validation-status-score-30",
+        "b-40-worker-lifecycle-the-pre-worker-object-bu-28",
+        "b-40-worker-lifecycle-hard-gate-result-build-31",
+        "b-40-worker-lifecycle-continuation-policy-50",
+        "b-40-worker-lifecycle-attempt-budget-intro-70",
+        "b-40-worker-lifecycle-attempt-budget-grants-71",
+        "b-40-worker-lifecycle-a-worker-continues-only-51",
+        "b-40-worker-lifecycle-attempt-budget-sequence-72",
+        "b-40-worker-lifecycle-when-the-runner-rejects-64",
+        "b-40-worker-lifecycle-attempt-budget-vocab-73",
+        "b-40-worker-lifecycle-worker-state-outcomes-40",
+        "b-40-worker-lifecycle-worker-state-lifecycle-s-41",
+        "b-40-worker-lifecycle-improvement-neutrality-49"
+      ]
+    },
+    "b-40-worker-lifecycle-worker-target-packet-lif-2": {
+      "id": "b-40-worker-lifecycle-worker-target-packet-lif-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A worker is one bounded decompilation attempt represented by a durable worker job and one epoch target claim. The host owns atomic claim, provisioning, executor submission, lease heartbeat, settlement, and recovery; the runner owns attempt feedback, validation, checkpoint selection, and lifecycle close."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-a-worker-is-a-bounded-de-3": {
+      "id": "b-40-worker-lifecycle-a-worker-is-a-bounded-de-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Admission uses the epoch-target id as the job dedupe key and the board rank as job priority. The claimed TaskSpec carries compact target context and the current ClaimToken, so the child can work within a precise authority boundary without claiming queue work."
+        }
+      ],
+      "children": []
+    },
+    "b-worker-sandbox-contract": {
+      "id": "b-worker-sandbox-contract",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Sandbox Execution",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/40-sandbox-execution",
+              "label": "Sandbox Execution"
+            }
+          }
+        },
+        {
+          "insert": " defines the claim workspace and default sleep/wake behavior. Required attempt evidence reaches the host before worker-state close."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-lifecycle-4": {
+      "id": "b-40-worker-lifecycle-lifecycle-4",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Lifecycle"
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-text-20": {
+      "id": "b-40-worker-lifecycle-text-20",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Worker lifecycle",
+            "steps": [
+              {
+                "text": "Claim",
+                "steps": [
+                  {
+                    "text": "Admit one worker slot job for the epoch target, using the epoch-target id as the dedupe key and board rank as priority"
+                  },
+                  {
+                    "text": "Atomically claim the worker job and epoch target"
+                  },
+                  {
+                    "text": "Creates the active target claim, running worker state, lease, and current `ClaimToken`",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Provision",
+                "steps": [
+                  {
+                    "text": "Provision and seed one sandbox at the claim-time base revision, captured from the newest committed integration tree"
+                  },
+                  {
+                    "text": "Write `TaskSpec` with target identity, compact context, resources, approved write set, and claim authority"
+                  },
+                  {
+                    "text": "Submit `job-runner worker-task --task-file …` through `WorkerExecutor`"
+                  }
+                ]
+              },
+              {
+                "text": "Attempt",
+                "steps": [
+                  {
+                    "text": "Collect target evidence and choose capabilities for one grounded hypothesis"
+                  },
+                  {
+                    "text": "Edit only paths authorized by the current claim"
+                  },
+                  {
+                    "text": "Return a checkpoint note or reach a turn boundary for runner validation"
+                  },
+                  {
+                    "text": "An out-of-set need is handed to Write Safety; widening is not decided here",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Validate",
+                "steps": [
+                  {
+                    "text": "Diff the touched set against the pre-worker source snapshot"
+                  },
+                  {
+                    "text": "Run target and scope-following compile checks, objdiff, QA lint, post-return checks, and baseline comparison"
+                  },
+                  {
+                    "text": "Record the checkpoint and deterministically select the best eligible checkpoint"
+                  },
+                  {
+                    "text": "An exact score that fails a hard gate is repair evidence, not a selectable exact result",
+                    "kind": "note"
+                  }
+                ]
+              },
+              {
+                "text": "Continue or close",
+                "steps": [
+                  {
+                    "text": "Close immediately when an exact checkpoint passes every hard gate"
+                  },
+                  {
+                    "text": "Return repair or continuation feedback to the same worker session while its attempt budget remains"
+                  },
+                  {
+                    "text": "A banked improvement does not close the worker; the checkpoint is durable and each strictly new best extends the budget",
+                    "kind": "note"
+                  },
+                  {
+                    "text": "On budget exhaustion or claim deadline, preserve the best prior selectable checkpoint or the baseline"
+                  },
+                  {
+                    "text": "On provider, infrastructure, tool, build, parse, or session failure, close as error while preserving prior selectable evidence"
+                  }
+                ]
+              },
+              {
+                "text": "Settle or recover",
+                "steps": [
+                  {
+                    "text": "Close the worker state and target claim, finish the target, enqueue worker knowledge processing, and enqueue one integration job (dedupe key: the checkpoint id) for any selected checkpoint"
+                  },
+                  {
+                    "text": "The host observes worker-state close and deletes the sandbox, independently of knowledge processing\n          -> Settle the worker job and wake the Run Loop"
+                  },
+                  {
+                    "text": "If a claim is interrupted, host recovery closes it as error and re-admits only when no selectable checkpoint can settle the target"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-the-worker-can-loop-from-21": {
+      "id": "b-40-worker-lifecycle-the-worker-can-loop-from-21",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker Capabilities",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/20-capabilities"
+            }
+          }
+        },
+        {
+          "insert": " defines the tactics chosen during an attempt. "
+        },
+        {
+          "insert": "Write Safety",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt/20-write-safety"
+            }
+          }
+        },
+        {
+          "insert": " owns ClaimToken verification, write-set widening, reset, sandbox workspace isolation, and serial integration."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-runner-validation-26": {
+      "id": "b-40-worker-lifecycle-runner-validation-26",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Checkpoint Evidence"
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-runner-validation-is-the-27": {
+      "id": "b-40-worker-lifecycle-runner-validation-is-the-27",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Runner validation is the source of truth for progress. It captures every attempt, including failed and neutral checks, while selectable and selected flags make the best durable integration candidate explicit."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-validation-status-score-30": {
+      "id": "b-40-worker-lifecycle-validation-status-score-30",
+      "type": "state-shape",
+      "props": {
+        "example": "{\"id\":\"checkpoint-88\",\"workerStateId\":\"worker-state-501\",\"runId\":\"run-2026-08-11-01\",\"epochId\":\"epoch-19\",\"epochTargetId\":\"epoch-target-501\",\"targetClaimId\":\"claim-501\",\"attemptIndex\":3,\"validationTime\":\"2026-08-18T15:42:00Z\",\"oldScore\":97.1,\"newScore\":99.73,\"delta\":2.63,\"exactMatch\":false,\"hardGatesPassed\":true,\"improvedOverBaseline\":true,\"selectable\":true,\"selected\":true,\"buildStatus\":\"passed\",\"qaStatus\":\"passed\",\"objdiffStatus\":\"passed\",\"validationStatus\":\"passed\",\"patchPath\":\"artifacts/checkpoint-88.patch\",\"diffPath\":\"artifacts/checkpoint-88.diff\",\"writeSet\":[\"src/melee/example.c\"],\"validationState\":\"tentative\",\"metadata\":{}}",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "workerStateId",
+            "type": "string"
+          },
+          {
+            "name": "runId",
+            "type": "string"
+          },
+          {
+            "name": "epochId",
+            "type": "string"
+          },
+          {
+            "name": "epochTargetId",
+            "type": "string"
+          },
+          {
+            "name": "targetClaimId",
+            "type": "string"
+          },
+          {
+            "name": "attemptIndex",
+            "type": "number"
+          },
+          {
+            "name": "validationTime",
+            "type": "ISO timestamp"
+          },
+          {
+            "name": "oldScore",
+            "type": "number | null"
+          },
+          {
+            "name": "newScore",
+            "type": "number | null"
+          },
+          {
+            "name": "delta",
+            "type": "number | null"
+          },
+          {
+            "name": "exactMatch",
+            "type": "boolean"
+          },
+          {
+            "name": "hardGatesPassed",
+            "type": "boolean"
+          },
+          {
+            "name": "improvedOverBaseline",
+            "type": "boolean"
+          },
+          {
+            "name": "selectable",
+            "type": "boolean"
+          },
+          {
+            "name": "selected",
+            "type": "boolean"
+          },
+          {
+            "name": "buildStatus",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "qaStatus",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "objdiffStatus",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "validationStatus",
+            "type": "string"
+          },
+          {
+            "name": "artifactPath",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "patchPath",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "diffPath",
+            "type": "string | null",
+            "required": false
+          },
+          {
+            "name": "writeSet",
+            "type": "string[]"
+          },
+          {
+            "name": "validationState",
+            "type": "\"tentative\" | \"confirmed\" | \"regressed\""
+          },
+          {
+            "name": "failureReasons",
+            "type": "string[]",
+            "required": false
+          },
+          {
+            "name": "metadata",
+            "type": "object",
+            "required": false
+          }
+        ],
+        "name": "WorkerCheckpointRecord",
+        "source": {
+          "path": "apps/server/src/core/harness-runtime/run-state/worker-state.ts",
+          "symbol": "WorkerCheckpointRecord"
+        }
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-the-pre-worker-object-bu-28": {
+      "id": "b-40-worker-lifecycle-the-pre-worker-object-bu-28",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Touched-Set Validation"
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-hard-gate-result-build-31": {
+      "id": "b-40-worker-lifecycle-hard-gate-result-build-31",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Category",
+          "Validation scope",
+          "Comparison"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "target-source",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Target translation unit.",
+            "Compile plus target and unit objdiff."
+          ],
+          [
+            [
+              {
+                "insert": "config-metadata",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Address-range-affected units.",
+            "Section measures."
+          ],
+          [
+            [
+              {
+                "insert": "owning-header",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Canonical owner and direct includers.",
+            "Strict object, function, and section checks."
+          ],
+          [
+            [
+              {
+                "insert": "foreign-source",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Edited owner unit after the target TU passes.",
+            "Strict object, function, and section checks."
+          ],
+          [
+            [
+              {
+                "insert": "other / out-of-set",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "No bankable validation scope.",
+            "Repair reason and telemetry; never bank."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-continuation-policy-50": {
+      "id": "b-40-worker-lifecycle-continuation-policy-50",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Selection and Continuation"
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-attempt-budget-intro-70": {
+      "id": "b-40-worker-lifecycle-attempt-budget-intro-70",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Continuation runs one unified attempt budget ("
+        },
+        {
+          "insert": "attempt_budget_v3",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "WORKER_ATTEMPT_BUDGET_POLICY",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " in "
+        },
+        {
+          "insert": "worker-cycle.ts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "). A worker gets 5 base submissions, and a submission that sets a strictly new best qualifying score grants +2 budget. A qualifying score is a finite score from a selectable checkpoint that passed hard gates and improved over baseline. Any exact match also qualifies, including one that failed hard gates. Repeated gate-failed exacts grant only once, and a score below the running best grants nothing. After each attempt "
+        },
+        {
+          "insert": "workerContinuationDecision",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " replays the checkpoint history and applies the checks below in order."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-attempt-budget-grants-71": {
+      "id": "b-40-worker-lifecycle-attempt-budget-grants-71",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A banked improvement keeps the worker open. The checkpoint is durable in SQLite the moment it is recorded, so the worker keeps pushing toward exact, and each new best extends the budget by two attempts. A gate-failed 100% spends its remaining budget trying to become gate-clean; if it never does, the worker closes normally and the best selectable checkpoint is selected, or the baseline if no checkpoint is selectable. Budget extends attempts only, never time: the claim TTL is stamped at claim time as "
+        },
+        {
+          "insert": "agent_timeout_seconds",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " plus a 600-second grace, each attempt's Pi session gets "
+        },
+        {
+          "insert": "agent_timeout_seconds",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and the job process is killed at the TTL."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-a-worker-continues-only-51": {
+      "id": "b-40-worker-lifecycle-a-worker-continues-only-51",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Check (in order)",
+          "Decision",
+          "Reason"
+        ],
+        "rows": [
+          [
+            "A selectable exact checkpoint passed every hard gate",
+            "Stop; the accepted exact checkpoint is selected.",
+            [
+              {
+                "insert": "accepted_exact",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "Dry run",
+            "Stop after the single probe attempt.",
+            [
+              {
+                "insert": "dry_run",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "Claim deadline reached",
+            "Stop regardless of pending repair reasons; keep the best selectable checkpoint.",
+            [
+              {
+                "insert": "claim_deadline",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "Attempts used reached the attempt budget",
+            "Stop; the only exhaustion reason.",
+            [
+              {
+                "insert": "attempt_budget_exhausted",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ],
+          [
+            "Budget remains",
+            "Continue the same worker with a continuation request.",
+            [
+              {
+                "insert": "attempt_budget_available",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ]
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-attempt-budget-sequence-72": {
+      "id": "b-40-worker-lifecycle-attempt-budget-sequence-72",
+      "type": "sequence",
+      "props": {
+        "src": "assets/sequences/attempt-budget.sequence.json",
+        "title": "Attempt budget continuation"
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-when-the-runner-rejects-64": {
+      "id": "b-40-worker-lifecycle-when-the-runner-rejects-64",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Continuation feedback returns to the same worker session and names the validation failure, QA finding, non-exact score, categorized out-of-set paths, and continuation reason. The worker refines the same evidence context instead of self-classifying its durable outcome."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-attempt-budget-vocab-73": {
+      "id": "b-40-worker-lifecycle-attempt-budget-vocab-73",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker summaries report the policy configuration as "
+        },
+        {
+          "insert": "base_attempts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "bonus_attempts_per_improvement",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", replacing the retired "
+        },
+        {
+          "insert": "max_cold_attempts",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "follow_up_attempts_*",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " keys. The stop reasons "
+        },
+        {
+          "insert": "improvement_banked",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "cold_attempt_budget_exhausted",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "improvement_followup_budget_exhausted",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "gate_failed_exact_followup_budget_exhausted",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "accepted_or_no_repair_reasons",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " are no longer produced and appear only in historical worker records; the dashboard read-model and worker reports carry the new fields additively."
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-worker-state-outcomes-40": {
+      "id": "b-40-worker-lifecycle-worker-state-outcomes-40",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Worker Outcomes"
+        }
+      ],
+      "children": []
+    },
+    "b-40-worker-lifecycle-worker-state-lifecycle-s-41": {
+      "id": "b-40-worker-lifecycle-worker-state-lifecycle-s-41",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Lifecycle status",
+          "Meaning",
+          "Preserved result"
+        ],
+        "rows": [
+          [
+            [
+              {
+                "insert": "exact",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Runner validation selected an exact checkpoint that passed every hard gate.",
+            "The accepted exact checkpoint."
+          ],
+          [
+            [
+              {
+                "insert": "timeout",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "The runner-controlled attempt budget ended.",
+            "The best prior selectable checkpoint, or baseline when none improved."
+          ],
+          [
+            [
+              {
+                "insert": "error",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "Provider, infrastructure, tool, build, parse, or session failure blocked trustworthy evaluation.",
+            "Any prior selectable checkpoint and all failure evidence."
+          ],
+          [
+            [
+              {
+                "insert": "cancelled",
+                "attributes": {
+                  "code": true
+                }
+              }
+            ],
+            "An operator or process-control path stopped the attempt.",
+            "Recorded checkpoints and lifecycle evidence under the control path."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "b-40-worker-lifecycle-improvement-neutrality-49": {
+      "id": "b-40-worker-lifecycle-improvement-neutrality-49",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The host settles the durable worker job from the closed worker-state row and wakes the Run Loop. Recovery uses the same records to close interrupted ownership, preserve evidence, and decide whether the target can finish or must be admitted again."
+        }
+      ],
+      "children": []
+    }
+  }
+}

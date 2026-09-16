@@ -1,0 +1,55 @@
+{
+  "tu": "main/melee/if/ifall",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifall.c#L25-L33",
+            "why": "Declares the six-element backing array."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifall.c#L69-L72",
+            "why": "The entire accessor is an unchecked indexed address expression."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing assertion that arbitrary out-of-domain indices always produce a returned address while preserving the supported non-mutating, unchecked-accessor behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifall:ifAll_GetPlayerHUDPosition"
+        },
+        "type": "state_behavior",
+        "value": "Does not initialize, validate or mutate HUD state. For indices 0 through 5 it returns a mutable alias to the corresponding stored player anchor, even before scene setup has populated that anchor. The expression performs no bounds check: index 6 forms a one-past pointer rather than a usable anchor, and indices beyond the array's permitted pointer-arithmetic range have undefined behavior in C rather than a guaranteed returned address."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifall.c#L243-L271",
+            "why": "Shows both cleanup groups, intervening guarded GObj destruction and duplicate un_802FE390 invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+            "why": "Establishes destruction semantics and the exceptional deferred-destruction branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the previous explanation's implication that all component cleanup precedes camera and light destruction, and preserves the repeated cleanup call visible in canonical source.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifall:ifAll_802F3A64"
+        },
+        "type": "purpose",
+        "value": "Tears down the common in-match interface in an interleaved sequence: it first invokes an initial group of component cleanup routines, including stock, magnifier, timer and status cleanup; then requests destruction of the retained HUD camera and light GObjs when non-null; then invokes the remaining nametag, hazard and auxiliary-interface cleanup routines. The call to un_802FE390 appears in both the initial and final groups."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

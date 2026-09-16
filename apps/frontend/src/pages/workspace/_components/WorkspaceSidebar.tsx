@@ -7,7 +7,7 @@ import type { WorkspaceNav } from "@/pages/workspace/_lib/types";
 const SECTION_ICONS: Record<WorkspaceSection, ReactNode> = {
   overview: <Home size={18} />,
   standards: <ClipboardCheck size={18} />,
-  cycles: <ListTree size={18} />,
+  harness: <ListTree size={18} />,
   agents: <Bot size={18} />,
   trace: <Activity size={18} />,
   knowledge: <Database size={18} />,
@@ -21,7 +21,7 @@ function workspaceSection(id: WorkspaceSection) {
   return section;
 }
 
-const CYCLE_WORKSPACE_SECTIONS = (["overview", "cycles"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
+const HARNESS_WORKSPACE_SECTIONS = (["overview", "harness"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const STANDARD_WORKSPACE_SECTIONS = (["standards", "knowledge"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const AGENT_WORKSPACE_SECTIONS = (["agents", "trace"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const SETTINGS_WORKSPACE_SECTIONS = (["settings"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
@@ -49,7 +49,7 @@ export function WorkspaceSidebar({
             </button>
           </div>
           <nav className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-auto max-[780px]:w-auto max-[780px]:flex-none max-[780px]:flex-row max-[780px]:overflow-visible" aria-label="Game workspace">
-            {CYCLE_WORKSPACE_SECTIONS.map((item) => (
+            {HARNESS_WORKSPACE_SECTIONS.map((item) => (
               <button
                 aria-current={route.section === item.id ? "page" : undefined}
                 className={`inline-flex h-8 w-8 shrink-0 items-center justify-center border ${
@@ -145,7 +145,7 @@ export function WorkspaceSidebar({
         <div className="min-h-0 flex-1 overflow-auto">
           <div className="grid gap-2.5 p-2.5">
             <nav className="grid gap-1.5" aria-label="Game workspace">
-              {CYCLE_WORKSPACE_SECTIONS.map((item) => (
+              {HARNESS_WORKSPACE_SECTIONS.map((item) => (
                 <NavItem
                   active={route.section === item.id}
                   description={item.description}

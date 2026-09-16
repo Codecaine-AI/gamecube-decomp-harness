@@ -1,0 +1,284 @@
+--- a/src/GC2D/PauseMenu2.cpp
++++ b/src/GC2D/PauseMenu2.cpp
+@@ -158,132 +158,6 @@
+ 	mGamePad = gpMarDirector->unk18[0];
+ }
+ 
+-void TPauseMenu2::appearWindow()
+-{
+-	if (mFadeAnim <= 45.0f) {
+-		for (s32 i = 0; i < 5; i++) {
+-			// Animate each letter with a delay.
+-			f32 letterAnim = mFadeAnim - 5.0f * i;
+-			drawAppearPane(mPauseLetters[i], letterAnim, mOrigLetterBounds[i],
+-			               (180.0f + mOrigLetterAngles[i] - 9.0f * letterAnim));
+-		}
+-
+-		// Fade in background.
+-		s32 bgrAlpha = mBackgroundFadeInSpeed * mFadeAnim * 1.5f;
+-		bgrAlpha = bgrAlpha > mBackgroundAlpha ? mBackgroundAlpha : bgrAlpha;
+-		mBackground->mAlpha = bgrAlpha;
+-	}
+-
+-	// Fade in stage/shine panel.
+-	s32 stageAlpha = mFadeAnim * mBackgroundFadeInSpeed * 1.5f;
+-	if (stageAlpha > mBackgroundAlpha) {
+-		stageAlpha = 0xFF;
+-	}
+-	mStagePane->mAlpha = stageAlpha;
+-
+-	// Animate in menu items.
+-	if (mFadeAnim >= 30.0f) {
+-		for (s32 i = 0; i < mNumItems; ++i) {
+-			if (!mMenuItems[i]->mVisible) {
+-				mMenuItems[i]->mVisible = true;
+-				mMenuItems[i]->mAlpha   = 0;
+-			}
+-
+-			JUTRect rect = mOrigItemBounds[i];
+-
+-			if (mFadeAnim <= 40.0f) {
+-				s32 hx = 3.0f * (mFadeAnim - 35.0f);
+-				s32 hy = 1.5f * (mFadeAnim - 35.0f);
+-				rect.reform(-hx, -hy, hx, hy);
+-
+-				mMenuItems[i]->setBounds(rect);
+-
+-				// TODO: This looks a bit fake...
+-				f32 alphaF = 26.0f * (mFadeAnim - 30.0f);
+-				s32 alpha  = alphaF;
+-				if ((s32)alphaF > 0xFF) {
+-					alpha = 0xFF;
+-				}
+-				mMenuItems[i]->mAlpha = alpha;
+-
+-				// The first item gets some extra "bounce".
+-				if (i == 0) {
+-					s16 angle = mFirstItemAngle * 0.1f * (mFadeAnim - 30.0f);
+-					mMenuItems[i]->mRotation = angle;
+-				}
+-			} else if (mFadeAnim <= 45.0f) {
+-				s32 hx = 3.0f * (mFadeAnim - 45.0f);
+-				s32 hy = 1.5f * (mFadeAnim - 45.0f);
+-				rect.reform(hx, hy, -hx, -hy);
+-
+-				mMenuItems[i]->setBounds(rect);
+-			} else if (mFadeAnim <= 46.0f) {
+-				// Fade in animation complete; set state to open.
+-				if (mState != MENU_OPEN) {
+-					mState = MENU_OPEN;
+-				}
+-			}
+-		}
+-	}
+-
+-	mFadeAnim += 0.5f;
+-}
+-
+-void TPauseMenu2::disappearWindow()
+-{
+-	// Delete emitter and reset selected item back to its original size.
+-	if (mFadeAnim == 0.0f && mEmitter != 0) {
+-		gpEmitterManager4D2->forceDeleteEmitter(mEmitter);
+-		mMenuItems[mSelectedItem]->setBounds(mOrigItemBounds[mSelectedItem]);
+-	}
+-
+-	if (mFadeAnim <= 10.0f) {
+-
+-		// Fade out menu, background, and shine/stage panel.
+-		s32 alpha
+-		    = (mMenuPane->getAlpha() - 12) < 0 ? 0 : mMenuPane->getAlpha() - 12;
+-
+-		mMenuPane->setAlpha(alpha);
+-
+-		if (alpha < mBackground->getAlpha()) {
+-			mBackground->setAlpha(alpha);
+-		}
+-
+-		if (alpha < mStagePane->getAlpha()) {
+-			mStagePane->setAlpha(alpha);
+-		}
+-
+-		// Shrink letters...
+-		for (s32 i = 0; i < 5; i++) {
+-			JUTRect rect = mPauseLetters[i]->getBounds();
+-
+-			rect.add(0.25f * -rect.y1 + 0.01f * rect.getWidth(),
+-			         0.25f * -rect.x1 + 0.01f * rect.getHeight());
+-
+-			rect.resize(0.98f * rect.getWidth(), 0.98f * rect.getHeight());
+-
+-			mPauseLetters[i]->setBounds(rect);
+-		}
+-
+-		// ... and now shrink the menu items in the same manner.
+-		for (s32 i = 0; i < mNumItems; i++) {
+-			JUTRect rect = mMenuItems[i]->getBounds();
+-			rect.add(0.25f * -rect.y1 + 0.01f * rect.getWidth(),
+-			         0.25f * -rect.x1 + 0.01f * rect.getHeight());
+-			rect.resize(0.98f * rect.getWidth(), 0.98f * rect.getHeight());
+-			mMenuItems[i]->setBounds(rect);
+-		}
+-
+-		// Rotate menu clockwise.
+-		mMenuPane->mRotation = -mFadeAnim * 2.0f;
+-	} else {
+-		// Fade out animation complete; set state to MENU_CLOSED.
+-		mState = MENU_CLOSED;
+-	}
+-
+-	mFadeAnim += 0.5f;
+-}
+-
+ void TPauseMenu2::perform(u32 cue, JDrama::TGraphics* graphics)
+ {
+ 	if (gpMarDirector->mState == TMarDirector::STATE_UNK5) {
+--- a/include/GC2D/PauseMenu2.hpp
++++ b/include/GC2D/PauseMenu2.hpp
+@@ -2,8 +2,12 @@
+ #define GC2D_PAUSE_MENU_2_HPP
+ 
+ #include <JSystem/J2D/J2DScreen.hpp>
++#include <JSystem/J2D/J2DPicture.hpp>
+ #include <JSystem/JDrama/JDRViewObj.hpp>
+ #include <JSystem/JParticle/JPAEmitter.hpp>
++#include <JSystem/JParticle/JPAEmitterManager.hpp>
++
++extern JPAEmitterManager* gpEmitterManager4D2;
+ 
+ class J2DPicture;
+ class J2DSetScreen;
+@@ -18,8 +22,131 @@
+ 	TPauseMenu2(const char* = "<TPauseMenu>");
+ 	void load(JSUMemoryInputStream&);
+ 	void loadAfter();
+-	void appearWindow();
+-	void disappearWindow();
++	void appearWindow()
++	{
++		if (mFadeAnim <= 45.0f) {
++			for (s32 i = 0; i < 5; i++) {
++				// Animate each letter with a delay.
++				f32 letterAnim = mFadeAnim - 5.0f * i;
++				drawAppearPane(mPauseLetters[i], letterAnim, mOrigLetterBounds[i],
++				               (180.0f + mOrigLetterAngles[i] - 9.0f * letterAnim));
++			}
++
++			// Fade in background.
++			s32 bgrAlpha = mBackgroundFadeInSpeed * mFadeAnim * 1.5f;
++			bgrAlpha = bgrAlpha > mBackgroundAlpha ? mBackgroundAlpha : bgrAlpha;
++			mBackground->mAlpha = bgrAlpha;
++		}
++
++		// Fade in stage/shine panel.
++		s32 stageAlpha = mFadeAnim * mBackgroundFadeInSpeed * 1.5f;
++		if (stageAlpha > mBackgroundAlpha) {
++			stageAlpha = 0xFF;
++		}
++		mStagePane->mAlpha = stageAlpha;
++
++		// Animate in menu items.
++		if (mFadeAnim >= 30.0f) {
++			for (s32 i = 0; i < mNumItems; ++i) {
++				if (!mMenuItems[i]->mVisible) {
++					mMenuItems[i]->mVisible = true;
++					mMenuItems[i]->mAlpha   = 0;
++				}
++
++				JUTRect rect = mOrigItemBounds[i];
++
++				if (mFadeAnim <= 40.0f) {
++					s32 hx = 3.0f * (mFadeAnim - 35.0f);
++					s32 hy = 1.5f * (mFadeAnim - 35.0f);
++					rect.reform(-hx, -hy, hx, hy);
++
++					mMenuItems[i]->setBounds(rect);
++
++					// TODO: This looks a bit fake...
++					f32 alphaF = 26.0f * (mFadeAnim - 30.0f);
++					s32 alpha  = alphaF;
++					if ((s32)alphaF > 0xFF) {
++						alpha = 0xFF;
++					}
++					mMenuItems[i]->mAlpha = alpha;
++
++					// The first item gets some extra "bounce".
++					if (i == 0) {
++						s16 angle = mFirstItemAngle * 0.1f * (mFadeAnim - 30.0f);
++						mMenuItems[i]->mRotation = angle;
++					}
++				} else if (mFadeAnim <= 45.0f) {
++					s32 hx = 3.0f * (mFadeAnim - 45.0f);
++					s32 hy = 1.5f * (mFadeAnim - 45.0f);
++					rect.reform(hx, hy, -hx, -hy);
++
++					mMenuItems[i]->setBounds(rect);
++				} else if (mFadeAnim <= 46.0f) {
++					// Fade in animation complete; set state to open.
++					if (mState != MENU_OPEN) {
++						mState = MENU_OPEN;
++					}
++				}
++			}
++		}
++
++		mFadeAnim += 0.5f;
++	}
++
++	void disappearWindow()
++	{
++		// Delete emitter and reset selected item back to its original size.
++		if (mFadeAnim == 0.0f && mEmitter != 0) {
++			gpEmitterManager4D2->forceDeleteEmitter(mEmitter);
++			mMenuItems[mSelectedItem]->setBounds(mOrigItemBounds[mSelectedItem]);
++		}
++
++		if (mFadeAnim <= 10.0f) {
++
++			// Fade out menu, background, and shine/stage panel.
++			s32 alpha
++			    = (mMenuPane->getAlpha() - 12) < 0 ? 0 : mMenuPane->getAlpha() - 12;
++
++			mMenuPane->setAlpha(alpha);
++
++			if (alpha < mBackground->getAlpha()) {
++				mBackground->setAlpha(alpha);
++			}
++
++			if (alpha < mStagePane->getAlpha()) {
++				mStagePane->setAlpha(alpha);
++			}
++
++			// Shrink letters...
++			for (s32 i = 0; i < 5; i++) {
++				JUTRect rect = mPauseLetters[i]->getBounds();
++
++				rect.add(0.25f * -rect.y1 + 0.01f * rect.getWidth(),
++				         0.25f * -rect.x1 + 0.01f * rect.getHeight());
++
++				rect.resize(0.98f * rect.getWidth(), 0.98f * rect.getHeight());
++
++				mPauseLetters[i]->setBounds(rect);
++			}
++
++			// ... and now shrink the menu items in the same manner.
++			for (s32 i = 0; i < mNumItems; i++) {
++				JUTRect rect = mMenuItems[i]->getBounds();
++				rect.add(0.25f * -rect.y1 + 0.01f * rect.getWidth(),
++				         0.25f * -rect.x1 + 0.01f * rect.getHeight());
++				rect.resize(0.98f * rect.getWidth(), 0.98f * rect.getHeight());
++				mMenuItems[i]->setBounds(rect);
++			}
++
++			// Rotate menu clockwise.
++			mMenuPane->mRotation = -mFadeAnim * 2.0f;
++		} else {
++			// Fade out animation complete; set state to MENU_CLOSED.
++			mState = MENU_CLOSED;
++		}
++
++		mFadeAnim += 0.5f;
++	}
+ 	void perform(u32 cue, JDrama::TGraphics* graphics);
+ 	u8 getNextState();
+ 	void setDrawStart();

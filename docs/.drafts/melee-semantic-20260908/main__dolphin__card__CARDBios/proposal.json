@@ -1,0 +1,253 @@
+{
+  "tu": "main/dolphin/card/CARDBios",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L318-L383",
+            "why": "Saved-request executor and deferred initial caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L92-L102",
+            "why": "Separate status-error caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "UnlockedCallback calls Retry after deferred acquisition without a status error; the original explanation incorrectly excluded initial execution.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:Retry"
+        },
+        "type": "purpose",
+        "value": "Executes the channel's saved low-level memory-card request after EXI ownership has been acquired, both for an initial command deferred by bus contention and for a status-error reissue. It selects the card, applies command-specific timeout setup, sends the saved command and any read latency bytes, and either releases a command-only transaction or starts payload DMA through __CARDTxHandler. READY reports successful admission or command transmission, not final flash-operation completion."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L318-L383",
+            "why": "Execution branches and deferred caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L81-L102",
+            "why": "Status-error entry acquires EXI and consumes budget."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves cleanup and ownership details while correcting the universal error-and-counter entry precondition.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:Retry"
+        },
+        "type": "state_behavior",
+        "value": "Callers acquire EXI before entering Retry. __CARDExiHandler enters after an I/O-error status and a positive pre-decremented retry budget; UnlockedCallback also enters after acquiring a previously contended channel, without decrementing that budget. Retry selects device 0 at frequency index 4 and applies timeout setup before sending the saved request. Selection failure unlocks; later command, latency or DMA-admission failure deselects and unlocks, returning NOCARD. A mode of 0xFFFFFFFF sends no DMA and releases EXI before returning READY. Successful DMA admission returns READY while leaving selection and ownership for __CARDTxHandler."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L365-L411",
+            "why": "Complete continuation and error routing."
+          }
+        ],
+        "op": "write",
+        "rationale": "A failed lock attempt is a deferred wait, not a terminal reacquisition error.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:UnlockedCallback"
+        },
+        "type": "purpose",
+        "value": "Continues a pending memory-card request after EXI availability notification. A nonnegative notification causes another EXILock attempt: continued contention leaves the continuation registered and does not complete the request; acquisition clears the registration and executes the saved request through Retry. A negative notification or Retry failure consumes txCallback for opcode 0x52 or exiCallback for 0xF2, 0xF4 and 0xF1, if present. Other opcodes have no failure-dispatch case."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L580-L618",
+            "why": "Assertions, command and admission branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "The original claim of address rejection conflated assertions with recoverable API validation.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:__CARDEraseSector"
+        },
+        "type": "game_mapping",
+        "value": "Implements low-level asynchronous physical sector-erase admission for a GameCube memory card, rather than filesystem file deletion. Channel validity, sector alignment and an address below card capacity are asserted preconditions. The routine encodes opcode 0xF1 and the sector address, then sends the command immediately or accepts deferred EXI startup; its return is not the final erase result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L580-L618",
+            "why": "Budget initialization and launcher transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L92-L102",
+            "why": "Budget pre-decrement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the retry-count interpretation while preserving deferred admission and immediate cleanup behavior.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:__CARDEraseSector"
+        },
+        "type": "state_behavior",
+        "value": "Initializes retry to 3, which permits at most two additional status-error reissues because __CARDExiHandler pre-decrements before testing >0. __CARDStart BUSY is converted to READY for accepted deferred execution. Other nonnegative startup results cause immediate command transmission; failure clears exiCallback and returns NOCARD. Every immediate-transmission path deselects and unlocks EXI, without incorporating those cleanup return values into the result. Other negative startup results propagate unchanged. READY indicates admission or command transmission, with final erase completion reported later."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L511-L548",
+            "why": "Write request fields and callback placement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L64-L132",
+            "why": "Retry budget and separate completion handlers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L318-L411",
+            "why": "Deferred execution and error routing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the retry count and explicitly preserves the distinction between transfer-stage and final programming callbacks.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:__CARDWritePage"
+        },
+        "type": "data_flow",
+        "value": "chan selects __CARDBlock[chan]. The saved address becomes a five-byte 0xF2 command, buffer supplies 128 payload bytes, mode is set to 1, and retry is set to 3. This budget allows at most two additional status-error reissues, not three retries. The caller's callback is passed as __CARDStart's exiCallback. On immediate admission, EXIImmEx sends the command and EXIDma sends the payload with __CARDTxHandler; deferred admission uses the saved fields through Retry. The DMA handler releases EXI, while the caller's final programming callback is handled in the later EXI/status or error path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L511-L548",
+            "why": "Complete write launcher."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L92-L132",
+            "why": "Retry consumption and DMA cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects three-retry wording without discarding the launcher's distinct deferred, immediate and failure paths.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:__CARDWritePage"
+        },
+        "type": "state_behavior",
+        "value": "Asserts a valid card channel and a page-aligned, in-capacity saved address, then initializes retry=3, allowing at most two additional status-error reissues under the handler's pre-decrement rule. A BUSY startup result means deferred execution and is returned as READY. Immediate nonnegative startup sends the command and launches a 128-byte DMA; either launch failure clears exiCallback, deselects, unlocks and returns NOCARD. Other negative startup results propagate without entering that cleanup branch. READY is admission, not completed programming. Successful DMA leaves EXI selected and locked for __CARDTxHandler, with final status completion using exiCallback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L639-L647",
+            "why": "Sequential non-owning pointer assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDOpen.c#L25-L42",
+            "why": "Sentinel and empty-entry rules."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDOpen.c#L88-L103",
+            "why": "Public fast-open exception."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects atomic-lockstep implications and the claim that every non-null argument necessarily selects title-scoped mode.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:__CARDSetDiskID"
+        },
+        "type": "state_behavior",
+        "value": "Sequentially assigns both channel diskID fields the supplied non-null pointer, or &__CARDDiskNone for null. The routine neither copies the object nor provides an interrupt-disabled atomic update of both slots. __CARDAccess recognizes unrestricted identity matching by pointer equality with &__CARDDiskNone, so explicitly supplying that non-null sentinel has the same identity-policy effect as null. Other pointers supply game/company identifiers for comparison; empty directory entries still fail, and public fast-open remains a separate exception. CARDInit normally installs the cached physical-zero disk identity."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L413-L462",
+            "why": "Arbitration and selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L301-L316",
+            "why": "Selective timeout arming."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the implication that all operations begun here run under an armed timeout.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:__CARDStart"
+        },
+        "type": "game_mapping",
+        "value": "Implements shared EXI arbitration and card-device selection for low-level GameCube memory-card reads, writes and erases. It distinguishes absent attachment or failed selection from deferred bus ownership and immediate readiness, installs supplied completion callbacks, and applies command-specific timeout setup after selection. Reads are not thereby given a timeout: opcode 0x52 has no arming case."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L413-L462",
+            "why": "Complete startup responsibilities."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L301-L316",
+            "why": "Cancellation and command-specific arming."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unconditional timeout-start wording with the actual command-specific setup contract.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:__CARDStart"
+        },
+        "type": "purpose",
+        "value": "Prepares asynchronous memory-card command execution by checking attachment, storing non-null completion callback arguments, arranging deferred continuation if EXI is busy, and acquiring/selecting device 0 when immediately available. Successful selection invokes timeout setup, which cancels the previous alarm and arms only supported timed command opcodes. The function does not itself send the card command or payload."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L413-L462",
+            "why": "Critical section and all startup branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBios.c#L301-L316",
+            "why": "Exact timeout switch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects unconditional arming while preserving callback-slot and selection-failure exceptions important to operation lifetime.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBios:__CARDStart"
+        },
+        "type": "state_behavior",
+        "value": "Runs its attachment, callback and EXI-admission decisions with interrupts disabled, restoring the caller's prior state before return. Detached channels return NOCARD without installing callbacks. Attached channels replace only non-null callback arguments and set unlockCallback for deferred continuation. Failed EXILock returns BUSY with that continuation retained; immediate acquisition clears it. Failed EXISelect unlocks and returns NOCARD without clearing the newly stored transfer/status callbacks. Successful selection leaves EXI selected and locked and calls SetupTimeoutAlarm: the previous alarm is canceled, 0xF2 arms 100 ms, 0xF4/0xF1 arm a sector-size-scaled interval, and 0xF3 or unlisted opcodes such as 0x52 arm nothing. It then returns READY for command execution."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

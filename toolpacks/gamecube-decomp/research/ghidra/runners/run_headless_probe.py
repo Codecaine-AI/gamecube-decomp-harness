@@ -16,16 +16,37 @@ from typing import Any
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(TOOL_ROOT.parents[1] / "_shared"))
+sys.path.append(str(TOOL_ROOT.parents[1] / "_impl" / "gamecube" / "tools"))
 from search_index import package_root_for_tool, tool_storage_root  # type: ignore
+from project_layout import get_project_layout  # type: ignore
 
 PACKAGE_ROOT = package_root_for_tool(TOOL_ROOT)
 TOOL_STORAGE_ROOT = tool_storage_root(TOOL_ROOT)
 DEFAULT_REPO_ROOT = PACKAGE_ROOT.parent / "melee"
 
 
+def resolve_input_elf(
+    repo_root: Path, version: str, explicit: Path | None
+) -> tuple[Path, Path]:
+    if explicit is not None:
+        return (repo_root / explicit).resolve(), explicit
+
+    default = Path("build") / version / "main.elf"
+    default_path = repo_root / default
+    if default_path.is_file():
+        return default_path, default
+
+    candidates = sorted((repo_root / "build" / version).glob("*.elf"))
+    if candidates:
+        selected = candidates[0]
+        return selected, selected.relative_to(repo_root)
+    return default_path, default
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run analyzeHeadless against build/GALE01/main.elf and cache Ghidra output.")
+    parser = argparse.ArgumentParser(description="Run analyzeHeadless against the selected project's ELF and cache Ghidra output.")
     parser.add_argument("--repo-root", type=Path, default=DEFAULT_REPO_ROOT)
+    parser.add_argument("--input-elf", type=Path, help="Executable path, relative to the selected checkout unless absolute.")
     parser.add_argument("--analyze-headless", default=os.environ.get("GHIDRA_ANALYZE_HEADLESS", ""))
     parser.add_argument("--project-name", default="melee-ghidra-smoke")
     return parser.parse_args()
@@ -69,9 +90,12 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
+    layout = get_project_layout(repo_root)
+    input_elf, input_elf_arg = resolve_input_elf(
+        repo_root, layout.version, args.input_elf
+    )
     analyze = find_analyze_headless(args.analyze_headless)
     java = java_home()
-    input_elf = repo_root / "build" / "GALE01" / "main.elf"
     project_dir = TOOL_STORAGE_ROOT / "cache" / "ghidra_project"
     log_path = TOOL_STORAGE_ROOT / "cache" / "ghidra_headless_probe.log"
     index_path = TOOL_STORAGE_ROOT / "indexes" / "ghidra_headless_probe.jsonl"
@@ -102,11 +126,11 @@ def main() -> int:
         if success:
             rows.append(
                 {
-                    "id": "ghidra_headless_probe:main.elf",
+                    "id": f"ghidra_headless_probe:{input_elf.name}",
                     "kind": "ghidra_headless_probe_live",
-                    "title": "Ghidra headless import smoke: main.elf",
-                    "summary": "analyzeHeadless imported build/GALE01/main.elf successfully for a bounded local smoke.",
-                    "text": f"ghidra analyzeHeadless main.elf {input_elf} {args.project_name}",
+                    "title": f"Ghidra headless import smoke: {input_elf.name}",
+                    "summary": f"analyzeHeadless imported {input_elf_arg.as_posix()} successfully for a bounded local smoke.",
+                    "text": f"ghidra analyzeHeadless {input_elf.name} {input_elf} {args.project_name}",
                     "evidence_ref": str(log_path),
                     "payload": {
                         "analyze_headless": analyze,
@@ -130,6 +154,15 @@ def main() -> int:
         skipped = True
         skip_reason = "missing_dependency:" + ",".join(missing)
     write_jsonl(index_path, rows)
+    command = [
+        "python3",
+        "toolpacks/gamecube-decomp/research/ghidra/runners/run_headless_probe.py",
+        "--repo-root",
+        str(repo_root),
+    ]
+    if args.input_elf is not None:
+        command.extend(("--input-elf", str(args.input_elf)))
+    command.extend(("--analyze-headless", analyze))
     manifest = {
         "tool": "ghidra",
         "runner": "run_headless_probe.py",
@@ -137,20 +170,17 @@ def main() -> int:
         "skipped": skipped,
         "skip_reason": skip_reason,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "command": [
-            "python3",
-            "toolpacks/gamecube-decomp/research/ghidra/runners/run_headless_probe.py",
-            "--repo-root",
-            str(repo_root),
-            "--analyze-headless",
-            analyze,
-        ],
+        "command": command,
         "repo_root": str(repo_root),
         "exit_code": proc.returncode if proc else None,
         "record_count": len(rows),
         "generated_artifacts": [str(log_path)] if log_path.exists() else [],
         "generated_indexes": [str(index_path)] if index_path.exists() else [],
-        "dependencies": [analyze or "analyzeHeadless", java or "openjdk@21", "build/GALE01/main.elf"],
+        "dependencies": [
+            analyze or "analyzeHeadless",
+            java or "openjdk@21",
+            input_elf_arg.as_posix(),
+        ],
         "analyze_headless": analyze,
         "java_home": java,
         "stderr_excerpt": (proc.stderr if proc else "")[-2000:] if proc else "",

@@ -1,0 +1,94 @@
+{
+  "tu": "main/melee/it/kinds/itkyasarin",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkyasarin.c#L21-L88",
+            "why": "Complete source declaration and eleven initializers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the directly supported declaration and entry count while removing the unsupported 176-byte layout assertion.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkyasarin:.data"
+        },
+        "type": "inferred_type",
+        "value": "The source declares it_803F90D0 as an ItemStateTable array with eleven explicit entries. Each initializer supplies an animation identifier followed by animation, physics, and collision callback slots. This establishes the authored table shape, not its compiled byte size or section layout."
+      },
+      {
+        "confidence": 0.9,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkyasarin.c#L179-L207",
+            "why": "Expiry enters state 2 with opposite-facing velocity and no model or facing change."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkyasarin.c#L315-L334",
+            "why": "Actual turnaround separately changes model rotation and facing."
+          }
+        ],
+        "op": "write",
+        "rationale": "The timer ends a pause before opposite-facing traversal, not the model/facing turnaround performed by the separate state-5 setup. The proposed name distinguishes these behaviors without claiming recovered original spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkyasarin:itKyasarin_UnkMotion1_Anim"
+        },
+        "type": "inferred_name",
+        "value": "itKyasarin_WaitBeforeReverse_Anim"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkyasarin.c#L315-L334",
+            "why": "Exact turnaround ordering, saved-facing derivation, and velocity writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkyasarin.c#L382-L393",
+            "why": "State-selection wrapper and animation-only renewal."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's reversed setup order and clarifies the saved-facing behavior relevant to recovery re-entry.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkyasarin:itKyasarin_UnkMotion5_Anim"
+        },
+        "type": "state_behavior",
+        "value": "The enclosing turnaround setup first selects motion state 5, then sets model Y rotation from saved spawn-facing value x30, assigns facing_dir = -x30, sets xDCC_flag.b3, and establishes animation-speed-scaled horizontal velocity with zero Y/Z velocity. This derives departure direction from the saved facing rather than toggling current facing on every invocation. While state 5 is active, this animation callback reselects state 5 when it_80272C6C returns false; it does not repeat the rotation or velocity setup and always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkyasarin.c#L395-L449",
+            "why": "All recovery cases, absent default, and shared tail."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L149-L158",
+            "why": "Case-8 helper sets xD0C to 2; the common tail resets it to 0."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves ordinary recovery knowledge and adds the exceptional case-8 and unmatched-state behavior omitted by the baseline.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkyasarin:itKyasarin_UnkMotion8_Anim"
+        },
+        "type": "state_behavior",
+        "value": "While it_80272C6C reports active animation, state 8 performs no recovery. When it returns false, saved x3C values 0\u20137 invoke the corresponding setup: movement velocities are rebuilt, pause states reload their configured timers, state 5 repeats saved-facing turnaround setup, and states 6/7 reselect their activity or firing states. Saved value 8 saves the current msid again, re-enters state 8, stops movement, and calls it_802756D0. There is no default arm, so other saved values perform no state reconstruction. Every animation-complete path then calls it_802756E0, including case 8 and unmatched values; this clears xD0C and invokes the shared reset helper. The callback always returns false."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

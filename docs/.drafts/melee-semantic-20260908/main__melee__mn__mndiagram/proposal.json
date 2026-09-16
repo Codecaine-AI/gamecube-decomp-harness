@@ -1,0 +1,531 @@
+{
+  "tu": "main/melee/mn/mndiagram",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_GetAveragePlayerCount"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature: s32 mnDiagram_GetAveragePlayerCount(u8 is_name_mode, u8 player_index). Nonzero mode selects a persistent name record and zero selects a fighter record. The result is the floating-point average participant count scaled by 100 and converted to s32, or zero when match_count is zero.",
+        "rationale": "Corrects the baseline's int mode parameter while preserving the supported record-domain and hundredths representation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L258-L283",
+            "why": "Definition, mode branches and scaling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.h#L12-L15",
+            "why": "Public declaration agrees."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_GetHitPercentage"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature: s32 mnDiagram_GetHitPercentage(u8 is_name_mode, u8 player_index). The byte mode selects name records when nonzero and fighter records when zero. The result represents hundredths of a percentage point: the floating hit/attack ratio is multiplied by 100 twice and converted to s32; a zero attack total returns zero.",
+        "rationale": "Corrects the stale int signature and nonexistent mode-test cast without changing supported percentage semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L196-L220",
+            "why": "Exact current signature and arithmetic."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_DrawNameHeaders"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Uses two viewport origins, the saved-name count and Diagram JObj translations to construct column and row HSD_Text headers. Although the local base pointer is initialized from sorted_fighters, the visible-name helpers add 0x1C and read the source model's sorted-name permutation, skipping entries with no name text while advancing. The resolved IDs are passed to GetNameText, which returns stored persistent nametag text rather than localized fighter names. The new text objects are retained in col_header_text and row_header_text.",
+        "rationale": "Distinguishes pointer origin from the data actually dereferenced and removes the unsupported localization claim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L867-L958",
+            "why": "Name helpers add the name-array offset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2517-L2585",
+            "why": "Header allocation, lookup and geometry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnname.c#L88-L94",
+            "why": "Returns persistent namedata."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_ExitAnimProc"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Runs the primary diagram screen's exit animation after OnFrame detects departure from the diagram menu. It updates scroll arrows, advances the JObj reached through the exit overlay using mnDiagram_PopupExitAnimFrames, and requests destruction of the owning screen GObj when the returned frame reaches or exceeds the configured end frame.",
+        "rationale": "The registration site establishes main-screen ownership despite the frame table's popup-oriented name.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2191-L2249",
+            "why": "Exit body and installation on the main screen."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_ExitAnimProc"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements animated dismissal of the primary VS Records comparison-grid screen when leaving its menu. It is distinct from cell-popup cancellation, which destroys the popup and restores ordinary input without installing this exit callback.",
+        "rationale": "Corrects the baseline's popup-dismissal mapping by comparing the two distinct lifecycle paths.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2231-L2249",
+            "why": "Main-screen animated exit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L851-L865",
+            "why": "Separate popup cancellation path."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_InputProc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "An HSD GObj process callback with signature void(HSD_GObj* input_gobj). Its argument is the independent input object created by mnDiagram_Init after main-screen construction, not the globally published screen GObj. The callback obtains Diagram state through mnDiagram_804D6C10, replaces processes on the input object for modal interaction, and requests removal of that input object before adjacent-page initialization.",
+        "rationale": "Constructor and callback together establish the otherwise easy-to-conflate object identities.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L1273-L1364",
+            "why": "Global state lookup, process replacement and page transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2960-L2967",
+            "why": "Independent input GObj creation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_GetNameTotalKOs"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides a saved nametag's aggregate credited KO statistic for Records displays. It sums that name's vs_kos entries for every currently defined target nametag slot, without excluding the selected slot itself. This is a KO total, not a count of match victories.",
+        "rationale": "Removes the incorrect equivalence between KOs and wins and preserves the actual inclusion test.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L288-L298",
+            "why": "KO row sum and occupancy filter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram2.c#L497-L503",
+            "why": "Victories are a separate statistic field."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_CreatePopupTexts"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains mnDiagram_PopupData from the popup GObj, stores newly allocated texts in its five text slots, and transforms configured points through JObj anchors into text positions with negated Y. The primary label comes from persistent nametag text or fighter-kind rendering. text[1] reads the selected-to-compared KO matrix entry whenever fighter mode is active or the IDs differ. text[3] reads sd_count for equal IDs and the reverse-direction KO entry otherwise. Thus a diagonal fighter popup receives both forward KO and SD fields, whereas a diagonal nametag popup omits the forward KO field. Counts are formatted into a local buffer before text submission.",
+        "rationale": "Preserves the independent forward-KO branch that the baseline's blanket 'instead' wording obscured.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L1758-L1912",
+            "why": "All label, positioning and statistic branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_GetLeastPlayedFighter"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Derives the least-played fighter selection for one saved name, returning SELKIND_COUNT for absent play history or detected ambiguity. The implementation seeds its minimum with fighter zero without checking that fighter's unlock status, then compares only unlocked candidates 1 through 24; its intended unique-unlocked-minimum interpretation therefore depends on the seed being eligible.",
+        "rationale": "Retains the useful Records purpose while qualifying a guarantee not established by the function.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L663-L716",
+            "why": "Untested seed and subsequent eligibility checks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_GetLeastPlayedFighter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns SELKIND_COUNT immediately when all 25 per-fighter play times are zero. Otherwise min_fighter starts at zero without an unlock check; unlocked fighters 1..24 replace it only on a strictly smaller play time. A separate pass rejects two or more unlocked zero-time fighters, and another rejects any unlocked fighter other than the selected minimum with an equal time. If neither ambiguity test fires, the seeded or replaced fighter index is returned. No persistent data is written.",
+        "rationale": "Documents the exact exceptional seed, strict comparison and two ambiguity passes rather than normalizing them into an ideal minimum search.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L644-L716",
+            "why": "Preflight and full minimum-selection algorithm."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_GetRankedFighterForName"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Preflights the name's actual per-fighter play-time array and returns SELKIND_COUNT if it is entirely zero, independently of the supplied statistic callback. It evaluates the callback for all fighters and stably orders their cached values descending. Unlock status gates outer rank candidates only. While consuming a nonzero rank, the inner scan re-evaluates callback values, compares later entries without unlock filtering, and increments the outer index on equality; it does not stop at the first unequal entry. At rank zero the candidate must have a nonzero callback value and differ from the immediately following sorted entry, also without filtering that neighbor for unlock status. Ambiguity or exhaustion returns SELKIND_COUNT.",
+        "rationale": "Preserves locked-entry participation, repeated callback evaluation and index mutation in the tie logic.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L554-L642",
+            "why": "Preflight, stable ordering and exact tie control flow."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_InputProc"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Dispatch priority is Confirm, Back, L/R page transition, X/Y mode toggle, then direction bits 1, 2, 4 and 8. Confirm installs modal input and resolves the selected pair for a popup. Back and L/R save both packed viewport positions and mode; L selects the ranking page and R the detail page. X/Y returns with error feedback whenever GetNameCount is zero; otherwise it toggles zero versus one, clamps both selection bytes to the new count and refreshes. Direction bits 1/2 change the low selection byte within 0..9, while 4/8 change the high byte within 0..6. Cursor rendering maps these to ten displayed rows/Y and seven columns/X, despite transposed local names. At a visible edge, scrolling advances an origin rather than a whole page and redraws. Fighter origins traverse the sorted roster with unlock checks; name-origin next/previous helpers test raw name slots, whereas forward visible-entry checks and popup resolution use the sorted-name permutation.",
+        "rationale": "Corrects dimensions and preserves the raw-slot/permutation distinction, action precedence and no-name exceptional branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L996-L1066",
+            "why": "Raw-name navigation versus sorted visible lookup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L1273-L1601",
+            "why": "Priority, transitions, mode handling and movement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2743-L2777",
+            "why": "Actual displayed coordinate mapping."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_PopupInputProc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads the combined menu-input mask and obtains Diagram state from the globally held main-screen GObj. On Back it requests removal of the active modal process, installs mnDiagram_InputProc at priority zero on the supplied independent input GObj, copies HSD_GObj_804D783C into the new process flags, requests destruction of Diagram.popup_gobj, and clears that popup pointer.",
+        "rationale": "Corrects the identity of the object receiving the restored input process.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L851-L865",
+            "why": "Modal-to-normal input flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2960-L2967",
+            "why": "Input object is created separately from the screen."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_PopupInputProc"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "HSD GObj process callback with signature void(HSD_GObj* input_gobj). The argument is the separate input object on which normal and modal callbacks replace one another. Main Diagram state and popup ownership are obtained through mnDiagram_804D6C10 rather than from the argument's user data.",
+        "rationale": "Preserves the exact signature while distinguishing input, main-screen and popup objects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L851-L865",
+            "why": "Global Diagram lookup and process installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L1305-L1332",
+            "why": "Inverse process replacement on Confirm."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2960-L2967",
+            "why": "Separate input allocation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_UpdateScrollArrowVisibility"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives the active saved-name count or unlocked-fighter count from mode-switch handling, obtains the supplied main-screen GObj's user data, and changes recursive JOBJ_HIDDEN flags on four JObj pointers. In the raw HSD_JObj** view of user data, slots 7 and 8 are controlled by the seven-entry threshold, and slots 6 and 5 by the ten-entry threshold. It does not read viewport origins or modify persistent Records data.",
+        "rationale": "Retains the supported count flow while replacing uncertain directional labels with exact accesses.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L1366-L1406",
+            "why": "Both count sources and calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2211-L2229",
+            "why": "Exact output slots."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_UpdateScrollArrowVisibility"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Provides coarse scrolling-availability feedback for the fighter-or-nametag Records comparison grid, whose numeric body has seven displayed entry columns and ten entry rows, plus summary cells. It applies seven- and ten-entry count thresholds to two arrow pairs; individual direction availability is handled separately by mnDiagram_UpdateScrollArrows.",
+        "rationale": "Corrects the transposed viewport dimensions without deriving authored arrow orientation from stale comments.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2211-L2229",
+            "why": "Coarse pair thresholds."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2399-L2508",
+            "why": "Displayed grid dimensions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_UpdateScrollArrowVisibility"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Shows or hides two pairs of Records-grid scrolling controls according to whether the active entry count exceeds seven or ten. This is a count-only setup helper, distinct from the viewport-sensitive per-frame arrow updater.",
+        "rationale": "Removes incorrect row/column attribution while preserving the helper's useful distinction from boundary-sensitive updates.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2211-L2229",
+            "why": "Complete count-only implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_UpdateScrollArrowVisibility"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Applies two independent inclusive threshold tests. At count <= 7 it recursively hides raw user-data JObj-pointer slots 7 and 8, otherwise it shows both. At count <= 10 it hides slots 6 and 5, otherwise it shows both. Each pair is treated identically, with no viewport-origin or individual-direction test. The source comments' visual axis labels are not needed to establish these exact operations.",
+        "rationale": "Preserves exact thresholds, slot indexing and coarse behavior without unsupported orientation claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2211-L2229",
+            "why": "All threshold branches and raw pointer accesses."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_UpdateScrollArrows"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads Diagram.is_name_mode to choose the packed name or fighter viewport origin, updates arrow animations, and writes recursive hidden flags on Diagram.jobjs[3..6]. The low byte supplies the ten-entry forward lookup and the origin-zero test for JObjs 3 and 4; the high byte supplies the seven-entry forward lookup and origin-zero test for JObjs 6 and 5. Forward name scans use the sorted-name overlay and GetNameText, while fighter scans use the sorted roster and unlock predicate. In cursor/grid rendering the low component is the displayed row/Y origin and the high component is column/X, contrary to this function's directional comments.",
+        "rationale": "Corrects the packed-coordinate interpretation while preserving actual eligibility and output flows.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2062-L2189",
+            "why": "Packed-byte consumers and JObj outputs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2743-L2777",
+            "why": "Displayed axis mapping."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_UpdateScrollArrows"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Synchronous presentation helper with signature void(HSD_GObj* gobj). The argument owns Diagram user data containing mode, packed viewport origins and arrow JObjs. The owned source invokes it directly from mnDiagram_OnFrame and mnDiagram_ExitAnimProc; it does not register this helper itself as a GObj process.",
+        "rationale": "Distinguishes a callback-compatible signature from demonstrated process registration.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2062-L2077",
+            "why": "Signature and required user data."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2191-L2320",
+            "why": "Direct callers and actual process replacement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_UpdateScrollArrows"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Updates the Records diagram's four arrow animations and recomputes their visibility from the active mode's packed viewport origin. Forward availability uses ten- or seven-entry eligibility scans; reverse availability uses only whether the corresponding origin byte is nonzero.",
+        "rationale": "Corrects 'starts' to recurring updates and avoids implying that all four directions perform eligibility scans.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2062-L2189",
+            "why": "Animation updates and asymmetric visibility tests."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_UpdateScrollArrows"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Updates JObjs 3, 4, 5 and 6 independently. JObj 3 is shown when the mode-specific visible-entry lookup at rank ten from the low-byte origin does not return its domain sentinel. JObj 4 is shown when the low-byte origin is nonzero. JObj 5 is shown when the high-byte origin is nonzero. JObj 6 is shown when seven further eligible entries can be reached from the high-byte origin. Otherwise each corresponding hierarchy is hidden. Sentinels are 0x78 for names and 0x19 for fighters. Reverse checks do not search for a preceding eligible entry, and these exact slot tests do not establish the authored visual orientation of the arrows.",
+        "rationale": "Preserves all four guards and sentinel behavior while eliminating transposed direction/row claims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2062-L2189",
+            "why": "Complete four-arrow implementation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/mn/mndiagram.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The main grid maintains separate packed fighter and nametag viewport origins and displays ten entry rows by seven columns, plus KO/fall summaries. Low selection/origin bytes correspond to displayed rows/Y and high bytes to columns/X. Mode changes clamp the highlighted selection and rebuild generated resources; numeric refresh uses an exact-one name-mode test while headers use nonzero. Construction clears both viewport origins and stores the supplied animation byte unchanged: zero builds the grid immediately, and OnFrame completes deferred entry only for one. Main-screen, input, cursor and popup GObjs have distinct lifetimes. While menu remains 0x1E, a nonzero page discriminator x10 causes immediate grid clearing and main-screen removal; a changed menu instead installs the main-screen exit-animation callback after clearing the grid.",
+        "rationale": "Corrects transposed dimensions and vague terminal-state wording while preserving numeric-state ambiguity and ownership.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2044-L2054",
+            "why": "Exact-one versus nonzero mode distinction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2231-L2508",
+            "why": "Lifecycle guards and grid dimensions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2743-L2968",
+            "why": "Cursor mapping, exact animation states and separate input construction."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_PopupAnimProc"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads popup JObj/text arrays and configured layout points, advances model components, and writes transformed positions with negated Y. Mandatory text slots 0 and 3 are used unconditionally; slots 1, 2 and 4 are guarded. A local variable remains aliased to text[0], so every default_alignment assignment targets that primary text: it is first set to zero and later unconditionally to one. text[3] is positioned from JObj 3, then its position is unconditionally overwritten from JObj 13 after the cursor-animation update, even for off-diagonal layouts. Exact equality with cursor_anim.end_frame requests removal of the active process rather than destruction of the popup.",
+        "rationale": "Adds useful alias and overwrite details absent from the otherwise supported broad animation description. These source behaviors are preserved rather than interpreted as intended layout.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L1642-L1745",
+            "why": "Alias, repeated text[3] writes and completion guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobjproc.c#L167-L175",
+            "why": "Active-process removal can be deferred."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/mn/mndiagram:mnDiagram_CreateScreen"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Publishes the new main-screen GObj, allocates Diagram state, snapshots current menu/selection, stores the supplied animation byte unchanged, and clears both packed fighter and name viewport origins rather than restoring the saved viewport rule fields. Popup and header pointers start NULL. If names exist, the saved mode byte is copied without normalization; otherwise both the rule and screen mode become zero. HSD_Free is registered for user-data cleanup. Only argument zero performs immediate cursor/grid setup; OnFrame later completes deferred entry only for anim_state one. Other animation-state values do not receive that completion path. Main-screen removal in this unit does not clear mnDiagram_804D6C10.",
+        "rationale": "Adds missing exact-state, viewport-reset and handle-lifetime details to the supported constructor explanation without inventing behavior for other numeric states.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2794-L2910",
+            "why": "Publication, state initialization and zero-only immediate setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mndiagram.c#L2191-L2320",
+            "why": "Removal and exact-one deferred entry."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

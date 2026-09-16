@@ -1,0 +1,15 @@
+## VS Records rankings
+
+This unit constructs and controls the rankings subsection of VS Records. `mnDiagram3_Init` sets the shared Records sub-state to 2, resets the hovered selection, constructs the main render GObj, creates a separate animated selection popup, builds ten statistic labels, populates rankings, and registers a separate input-process GObj. The constructor attaches a heap-allocated `Diagram3`, caches ten JObjs, and installs `mnDiagram3_Think`.
+
+The selected statistic is `cursor_row + scroll_offset`, with one subtraction at the mode-dependent category limit: 21 in fighter mode or 24 in saved-name mode. Population attempts five ranking positions. Ordinary saved-name entries use name text and skip sentinel `0x78`; fighter entries use fighter icons. The three play-frequency categories use aggregate fighter results and skip unavailable aggregate entries identified by `0x19`. Five attempted positions therefore do not guarantee five populated rows.
+
+Ordinary values use time, converted-distance, percentage, or integer formatting. Upper clamps are `0x5B8D7F` for time, `0x98967F` for percentage, and `0x5F5E0FF` for distance and ordinary integer values. Aggregate counts follow their separate formatting branch. Unit entry `0xFFFF` suppresses the glyph; distance overflow substitutes glyph `0x7F` based on the original statistic value. Population does not itself dispose of previous output: the refresh helper calls `mnDiagram2_ClearDetailView` first.
+
+Input priority is Back, shoulder triggers, X/Y, then upward/downward movement. Back and shoulder transitions persist fighter/name mode and explicitly clean detail resources, popup, and row labels. Shoulder transitions additionally destroy the input-process GObj; L wins when both shoulder bits are present. X/Y is rejected when there are no saved names. Returning to fighter mode resets scrolling when `scroll_offset + 10 >= 21`, including the otherwise valid final window at offset 11. Cursor movement stays within rows 0–9; boundary scrolling changes the offset by one category.
+
+The active lifecycle condition is menu mode `0x1E` and sub-state 2. While active, both arrow animations update, and visibility reflects whether another category can be revealed above or below the ten-row window. A different subsection within mode `0x1E` requests direct destruction. Leaving mode `0x1E` replaces the process with the exit-animation callback and hides JObj slot 2. The exit callback updates slot 1 and requests destruction at the descriptor's end frame. Generic GObj destruction can be scheduler-deferred. The user-data destructor only frees the state allocation; it is not a substitute for the explicit presentation cleanup paths.
+
+Existing owned function names fit these responsibilities and remain unchanged. Rendered external substitutions were treated as hypotheses, not proof. Both text-creation functions encounter the renderer's shared `HSD_SisLib_CreateText` name collision. Source declarations and consumers establish configuration roles, but not compiled section extents, alignment, or literal pooling.
+
+Status: synthesized; independent review and live promotion pending.

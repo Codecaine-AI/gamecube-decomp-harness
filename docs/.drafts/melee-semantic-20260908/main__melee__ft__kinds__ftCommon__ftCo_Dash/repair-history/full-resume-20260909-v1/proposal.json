@@ -1,0 +1,410 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Dash",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Dash:.sdata2"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "An eight-byte .sdata2 literal pool holding big-endian f32 0.0F then 1.0F, bytes 000000003f800000 in both existing objects. Split-object flags are SHF_ALLOC; source-object flags are SHF_ALLOC|SHF_WRITE. Reviewed callbacks load the literals without writing this pool.",
+        "rationale": "Separate literal load behavior from differing ELF section permissions.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L72",
+            "why": "Input guards and entry writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1771-L1779",
+            "why": "Entry correction writes secondary acceleration, scaled only when friction multiplier is below one."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2292-L2297",
+            "why": "Movement integration adds both pending accelerations to ground velocity and clears them."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L173-L188",
+            "why": "Opposite-facing input enters Turn with zero frames-to-turn."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L354-L364",
+            "why": "Dash row installs all four callbacks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Dash:.sdata2"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Supplies zero and one floating-point literals for Dash input sign tests and motion initialization. The callbacks only load the pool; source-object section flags include WRITE while split-object flags do not.",
+        "rationale": "Qualify read-only wording against both existing objects.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L72",
+            "why": "Input guards and entry writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1771-L1779",
+            "why": "Entry correction writes secondary acceleration, scaled only when friction multiplier is below one."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2292-L2297",
+            "why": "Movement integration adds both pending accelerations to ground velocity and clears them."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L173-L188",
+            "why": "Opposite-facing input enters Turn with zero frames-to-turn."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L354-L364",
+            "why": "Dash row installs all four callbacks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards the Dash object to ft_800844EC. Its query synchronizes CollData position, calls mpColl_8004B108, copies resolved position back and converts the result to GroundOrAir. The dispatcher tests that enum as a boolean: nonzero invokes the StopWall test using facing, wall flags, gr_vel and walk_max_vel; zero invokes ftCo_Fall_Enter. Physical ground/air interpretation is deferred because the enum conversion conflicts with inherited descriptions.",
+        "rationale": "Preserve exact query-result dispatch; inherited ground/air narrative is not established by this dependency contract.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L164-L167",
+            "why": "Dash collision delegates unchanged object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Map query bool is converted to GA_Air on true and GA_Ground on false."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+            "why": "GroundOrAir enumerators are Ground=0 and Air=1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1129-L1137",
+            "why": "Nonzero query result selects StopWall check; zero enters Fall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L16-L57",
+            "why": "Facing/wall flag test and strict speed threshold enter StopWall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L3998-L4003",
+            "why": "Map query delegates to inline2; physical meaning remains owner followup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L354-L364",
+            "why": "Dash row installs all four callbacks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Serves as the Dash collision callback by delegating to ft_800844EC. That routine runs the synchronized map query, then checks StopWall on a nonzero result or invokes Fall on zero. The physical meaning of these outcomes requires shared collision-owner reconciliation.",
+        "rationale": "Replace unsupported physical branch labels with canonical predicates.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L164-L167",
+            "why": "Dash collision delegates unchanged object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Map query bool is converted to GA_Air on true and GA_Ground on false."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+            "why": "GroundOrAir enumerators are Ground=0 and Air=1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1129-L1137",
+            "why": "Nonzero query result selects StopWall check; zero enters Fall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L16-L57",
+            "why": "Facing/wall flag test and strict speed threshold enter StopWall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L3998-L4003",
+            "why": "Map query delegates to inline2; physical meaning remains owner followup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L354-L364",
+            "why": "Dash row installs all four callbacks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A nonzero ft_80082708 result leads to a StopWall check: facing must match the contacted wall flag and ABS(gr_vel) must exceed walk_max_vel. A zero result invokes ftCo_Fall_Enter. At this revision ft_80082708 returns GA_Air=1 for a true underlying map result and GA_Ground=0 for false; these labels conflict with the inherited gameplay interpretation and remain a family followup.",
+        "rationale": "Exact enum and boolean branches contradict inherited ground/air labels; do not infer a source fix.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L164-L167",
+            "why": "Dash collision delegates unchanged object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Map query bool is converted to GA_Air on true and GA_Ground on false."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+            "why": "GroundOrAir enumerators are Ground=0 and Air=1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1129-L1137",
+            "why": "Nonzero query result selects StopWall check; zero enters Fall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L16-L57",
+            "why": "Facing/wall flag test and strict speed threshold enter StopWall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L3998-L4003",
+            "why": "Map query delegates to inline2; physical meaning remains owner followup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L354-L364",
+            "why": "Dash row installs all four callbacks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Dash:ftCo_Dash_Enter"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Enters and initializes Dash: clears command variable 0, starts the Dash motion, resets the horizontal-stick tilt timer, computes a facing-relative velocity correction, queues it through the common secondary-ground-acceleration helper, stores the integer mode flag, and conditionally plays the Dash sound. The helper may scale the correction by ground friction; this entry does not directly replace gr_vel.",
+        "rationale": "Entry queues acceleration rather than immediately installing velocity.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L72",
+            "why": "Input guards and entry writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1771-L1779",
+            "why": "Entry correction writes secondary acceleration, scaled only when friction multiplier is below one."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2292-L2297",
+            "why": "Movement integration adds both pending accelerations to ground velocity and clears them."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L173-L188",
+            "why": "Opposite-facing input enters Turn with zero frames-to-turn."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L354-L364",
+            "why": "Dash row installs all four callbacks."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_Dash.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A sufficiently recent and strong horizontal-stick tilt dispatches Dash when aligned with facing and smash Turn otherwise. Entry initializes motion variables and queues a facing-relative velocity correction in secondary ground acceleration, optionally scaled by ground friction. Callbacks provide frame-window interrupts, animation-expiry dispatch, ground movement and delegated map collision.",
+        "rationale": "Correct immediate facing-scaled velocity assignment to a queued, optionally scaled correction.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L27-L72",
+            "why": "Input guards and entry writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1771-L1779",
+            "why": "Entry correction writes secondary acceleration, scaled only when friction multiplier is below one."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2292-L2297",
+            "why": "Movement integration adds both pending accelerations to ground velocity and clears them."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L173-L188",
+            "why": "Opposite-facing input enters Turn with zero frames-to-turn."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L74-L79",
+            "why": "Animation expiry dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L54-L108",
+            "why": "Boss branches, exceptional checks and ordinary Wait transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Three phase branches, returns and selective damping footer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Catch.c#L38-L57",
+            "why": "Guarded CatchDash path and item-throw diversion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Guard.c#L70-L127",
+            "why": "Guard input checks and stored phase values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Escape.c#L69-L76",
+            "why": "Early additional transition selects EscapeF."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L62-L83",
+            "why": "Relaxed tap-jump or XY enters KneeBend, with exceptional diversion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L33",
+            "why": "Facing-relative stick threshold enters Run."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AppealS.c#L43-L69",
+            "why": "Shared fallback special appeal dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c#L46-L54",
+            "why": "Pressed A and item/shoulder eligibility."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemThrow.c#L319-L335",
+            "why": "Supplied throw motion entry and accessory callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L145-L162",
+            "why": "Conditional marker clearing versus steering; common movement in both branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L132-L140",
+            "why": "Stick-signed acceleration and target do not use facing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L61-L97",
+            "why": "Acceleration opposite existing ground velocity bypasses same-direction target correction; result writes primary acceleration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L133-L152",
+            "why": "Ground normal projects acceleration and velocity into movement vectors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2292-L2297",
+            "why": "Pending acceleration integrates into ground velocity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L164-L167",
+            "why": "Dash collision delegates unchanged object."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L393-L404",
+            "why": "Map query bool is converted to GA_Air on true and GA_Ground on false."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/forward.h#L442-L445",
+            "why": "GroundOrAir enumerators are Ground=0 and Air=1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1129-L1137",
+            "why": "Nonzero query result selects StopWall check; zero enters Fall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L16-L57",
+            "why": "Facing/wall flag test and strict speed threshold enter StopWall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mpcoll.c#L3998-L4003",
+            "why": "Map query delegates to inline2; physical meaning remains owner followup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L354-L364",
+            "why": "Dash row installs all four callbacks."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

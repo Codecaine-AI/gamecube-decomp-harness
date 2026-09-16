@@ -1,0 +1,140 @@
+[
+  {
+    "id": "forward-only-types",
+    "finding": "94 struct and4 union typedefs introduce incomplete named tags only. They do not own layout, allocate storage, imply lifetime policy or rename canonical types. All98 tags have pinned definition openings located in foreign-owned files.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/forward.h#L6-L103",
+        "why": "Complete incomplete-type block."
+      }
+    ]
+  },
+  {
+    "id": "callback-contracts",
+    "finding": "Eight typedefs specify callback signatures, not nullability, ordering, reentrancy or ownership policy. Render callback code is a pass index in the inspected GObj dispatcher. ObjUpdate payload is a union, not always float. DevCom integer arguments are request and cast opaque args in the inspected caller; buffer can be NULL and cancelflag is explicit.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/forward.h#L105-L112",
+        "why": "Exact callback types."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L149-L183",
+        "why": "Render callback pass dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/fobj.h#L64-L68",
+        "why": "Float/int/vector payload union."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/devcom.c#L68-L85",
+        "why": "Concrete callback argument source."
+      }
+    ]
+  },
+  {
+    "id": "pobj-mode-tags",
+    "finding": "POBJ_SKIN=0,SHAPEANIM=0x1000,ENVELOPE=0x2000 are alternatives under mask0x3000; they are not independent feature bits. POBJ_ANIM=8 and cull flags0x4000/0x8000 are separate. The inspected loader rejects the remaining0x3000 mode.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/forward.h#L118-L126",
+        "why": "Mode tags and mask."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L285-L302",
+        "why": "Union arm selection and invalid-type panic."
+      }
+    ]
+  },
+  {
+    "id": "shape-and-setup",
+    "finding": "Shape defaults are2000 vertices and2000 normals. HSD_A_S_W0=2 is an animation-channel base used to index additive weights. SHAPESET_AVERAGE=1 and ADDITIVE expression1<<1 select shape behavior. PObjSetupFlag deliberately reuses1/2 for NORMAL/REFLECTION and JOINT0/JOINT1; NORMAL_PROJECTION=6 covers reflection|highlight, not a separate flag.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/forward.h#L114-L139",
+        "why": "Exact defaults, shape flags and aliased enum values."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L133-L140",
+        "why": "Additive animation payload indexing."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1036-L1047",
+        "why": "Normal and projection tests."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/pobj.c#L1051-L1078",
+        "why": "Joint marking and setup masks combined."
+      }
+    ]
+  },
+  {
+    "id": "transparency-mask",
+    "finding": "HSD_TrspMask defines OPA=1,XLU=2,TEXEDGE=4,ALL=7; ALL is the union of the three categories. This header establishes mask values only, not complete draw ordering.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/forward.h#L141-L146",
+        "why": "Complete transparency enum."
+      }
+    ]
+  },
+  {
+    "id": "light-channels",
+    "finding": "Fourteen animation IDs9..22 cover RGB,visibility,attenuation and alpha. The inspected visibility consumer sets HIDDEN for value>=0.5 and clears it below0.5. Raw-param mode changes A0/A1/A2 versus cutoff/distance/brightness union interpretation; K0/K1/K2 updates require RAW_PARAM. Names alone do not make these unconditional setters.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/forward.h#L148-L161",
+        "why": "Animation channel constants."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/lobj.c#L128-L195",
+        "why": "Mode-dependent animation updates."
+      }
+    ]
+  },
+  {
+    "id": "light-tags",
+    "finding": "Low two light bits encode AMBIENT=0,INFINITE=1,POINT=2,SPOT=3 under TYPE_MASK3. LOBJ_FLAGS_B1 is the type second bit, not an independently inferred feature. Higher bits2..8 represent diffuse/specular/alpha/hidden/raw/dirty roles. Descriptor attenuation0/1 constants are distinct from runtime flag6 RAW_PARAM.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/forward.h#L163-L179",
+        "why": "Light encoding and attenuation constants."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/lobj.c#L72-L75",
+        "why": "Masked light type."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/lobj.c#L955-L990",
+        "why": "Descriptor attenuation and runtime raw mode."
+      }
+    ]
+  },
+  {
+    "id": "macro-syntax",
+    "finding": "pobj_type(o) expands the argument without parentheses around o; SHAPESET_ADDITIVE expands to an unparenthesized shift. Current inspected direct uses are clear, but these are preprocessor expressions rather than typed inline APIs. No macro rewrite is proposed.",
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/forward.h#L123-L129",
+        "why": "Exact macro token sequences."
+      }
+    ]
+  }
+]

@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/mn/mnstagesel",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesel.c#L41-L98",
+            "why": "Selects and returns table index i."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesel.c#L852-L855",
+            "why": "Wrapper translates the index through xB."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmtoulib.c#L2104-L2114",
+            "why": "Diagnostic names the stage-ID wrapper call."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes the stateful table-index selector from the stage-ID wrapper. The diagnostic naming mnSelStageRandom accompanies the wrapper call, not this helper; the new name is descriptive rather than a recovered historical symbol.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnstagesel:mnStageSel_802599EC"
+        },
+        "type": "inferred_name",
+        "value": "mnStageSel_SelectRandomStageIndex"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesel.c#L48-L97",
+            "why": "Shows reset, wait, bounded sampling, unchecked fallback and suppression writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L2228-L2285",
+            "why": "Establishes unlock and optional stage-mask filtering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the established mechanic while correcting the absolute eligibility claim and distinguishing bounded random sampling from the unbounded eligibility wait.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnstagesel:mnStageSel_802599EC"
+        },
+        "type": "game_mapping",
+        "value": "Implements the table-index selection behind Melee's random-stage choice. Normal candidates must pass the stage-unlock and applicable Random Stage Switch predicate and have zero suppression state; selected entries and their paired slots receive anti-repetition state. This is not an unconditional eligibility guarantee: after MAX_ITER unsuccessful random draws, index 0 is selected without rechecking eligibility. Before sampling, the wait for an eligible zero-state entry is unbounded if no stage passes the predicate."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesel.c#L452-L470",
+            "why": "Payload, archive and distinct selector assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesel.c#L529-L676",
+            "why": "Availability, runtime bindings, cursor animation and position."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesel.c#L781-L803",
+            "why": "The signed selector routes controller input."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the mistaken flow from unk_stage to highlighted stage while retaining the supported resource and display flows.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnstagesel:mnStageSel_Scene_OnEnter"
+        },
+        "type": "data_flow",
+        "value": "The incoming SSSData pointer becomes the active scene payload. For negative force_stage_id, saved language selects MnSlMap.usd or MnSlMap.dat and MnSelectStageDataTable supplies camera, light, fog, model and animation descriptors. Stage availability and animation selectors control icon presentation, and constructed icon JObjs are retained in the stage table for later hit testing and highlighting. SSSData.unk_stage - 1 initializes the signed controller selector mnStageSel_804D50A0, whose value plus one also selects the cursor's initial animation. The highlighted table index mnStageSel_804D6CAE is independently initialized to 30, and the cursor translation starts at {0, -13, 0}."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesel.c#L435-L756",
+            "why": "Complete entry body establishes its guard, resets, icon-state branches and absence of suppression/counter resets."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mn/mnstagesel.c#L781-L803",
+            "why": "Confirms the controller selector's meaning."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates controller and stage-selection state, preserves forced-entry bypass, and records the distinct availability branches and persistent counters.",
+        "subject": {
+          "target_stable_key": "main/melee/mn/mnstagesel:mnStageSel_Scene_OnEnter"
+        },
+        "type": "state_behavior",
+        "value": "Entry always retains the active SSSData pointer. Interactive initialization occurs only when force_stage_id < 0; forced-stage entry bypasses interface construction and these state resets. Interactive entry clears confirmation and transient input state, initializes the highlighted table index to 30, sets the controller selector to unk_stage - 1, and installs a 20-frame delay. It classifies the 29 stage candidates as availability state 2 or 1. Paired icons retain locked-state presentation, while unavailable entries in the separately constructed groups are changed from 1 to 0 and hidden. The random-option icon occupies table slot 29. Entry does not explicitly reset the table's random-suppression fields or the shared periodic-animation counter."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

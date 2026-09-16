@@ -1,0 +1,474 @@
+{
+  "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Anim": [
+    {
+      "id": "fact:2435f1a1-2c6d-4c9b-9527-09e65e0765bf",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Anim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the fighter game object, obtains its Fighter, and reads Fighter.x2224_b2 as the branch condition. When the flag is set it forwards the object to ftCo_DownSpot_Enter; otherwise it forwards the object and the character-data field ft_data->x24 to ftCo_8008A7A8.",
+      "rationale": "Every input and outgoing value is explicit in the matched body. The semantic meaning of the still-unnamed flag and x24 field is not asserted beyond their demonstrated control-flow and argument roles.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:45:06.620Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L34-L42",
+          "why": "Shows the Fighter lookup, both field reads, the branch, and the exact arguments passed to each callee."
+        }
+      ]
+    },
+    {
+      "id": "fact:957a97d5-c5d5-4dea-b795-be8ffd3539e9",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Anim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the animation-side behavior of the fighter's standing Wait action, normally dispatching character-specific idle-animation processing while retaining a flag-controlled path into DownSpot.",
+      "rationale": "The function is the Anim callback in the common Wait unit, and its ordinary branch invokes the shared ftwaitanim routine with a per-character data value. The alternate branch explicitly enters the separately named DownSpot state.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:45:06.620Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L34-L42",
+          "why": "Identifies the function as Wait's animation callback and shows its character-data-driven wait-animation path and DownSpot alternative."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-1416--main-melee-ft-chara-ftcommon-ftco-wait",
+          "why": "Records that the call site in this unit was updated as part of the reconstruction of the dedicated ftwaitanim subsystem."
+        }
+      ]
+    },
+    {
+      "id": "fact:4cf91628-90ad-4c09-b4b8-e0de82778162",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Anim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void fighter animation callback taking one HSD_GObj* fighter object; it returns no value and performs its effect by invoking one of two state-processing routines.",
+      "rationale": "The matched definition explicitly returns void, accepts one HSD_GObj* argument, obtains its Fighter through GET_FIGHTER, and completes by calling exactly one branch-selected helper.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:45:06.620Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L34-L42",
+          "why": "Provides the callback's complete signature and body."
+        }
+      ]
+    },
+    {
+      "id": "fact:9866ac0b-0248-4192-9887-640110fc3130",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Anim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Handles animation-time processing for the common Wait action by choosing between entry into DownSpot and delegation to the shared wait-animation routine.",
+      "rationale": "The complete matched body has one decision: after obtaining the Fighter, it either invokes ftCo_DownSpot_Enter or calls the helper in ftwaitanim. This establishes it as the Wait state's animation callback and branch dispatcher rather than a general input, physics, or collision routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:45:06.620Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L34-L42",
+          "why": "Shows the complete callback body and its exclusive calls to DownSpot entry or shared wait-animation processing."
+        }
+      ]
+    },
+    {
+      "id": "fact:57f8cfd8-20e8-488d-9c49-74ba46e20009",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Anim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On each Wait animation callback, a set Fighter.x2224_b2 causes entry into DownSpot. If the flag is clear, no DownSpot transition is requested and the callback instead runs shared wait-animation processing using the fighter's character-specific x24 value.",
+      "rationale": "The source is a direct if/else with DownSpot entry in the true arm and the wait-animation helper in the false arm, proving the mutually exclusive state behavior without requiring an unsupported semantic name for the controlling flag.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:45:06.620Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L34-L42",
+          "why": "Shows the exact guard and the mutually exclusive DownSpot and wait-animation paths."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Coll": [
+    {
+      "id": "fact:28d0cb4b-39e6-4e37-b5f2-3eb97d1a8642",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Coll",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the Wait-state fighter `HSD_GObj*` from the action-state callback system and forwards that same pointer unchanged to `ft_80084280`; it computes and returns no value locally.",
+      "rationale": "The complete body contains one call with `gobj` as its sole argument and has a void return type. The environment-collision stack trace establishes that the forwarded object is being processed in the fighter collision-update path.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:45:25.434Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L75-L78",
+          "why": "The source shows the incoming `gobj` passed unchanged to `ft_80084280`, with no other local operations or return value."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/993666702908866560",
+          "why": "The stack trace shows this call chain executing as part of the fighter environment-collision update."
+        }
+      ]
+    },
+    {
+      "id": "fact:7ccbf31f-e10d-4ba7-8a29-937da6c3144d",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Coll",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes stage/environment collision handling for a fighter in the grounded Wait action, using the same underlying handler employed by Landing.",
+      "rationale": "The source proves the Wait collision callback delegates to `ft_80084280`, and the game stack trace explicitly characterizes that routine as `EnvironmentCollision_Wait/Landing`. This grounds the code in the mechanic of maintaining and reacting to fighter-stage contact while waiting.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-01T23:45:25.434Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L75-L78",
+          "why": "The Wait collision callback directly invokes the shared helper."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/993666702908866560",
+          "why": "The captured stack trace labels the helper `EnvironmentCollision_Wait/Landing` and the caller `Collision_Wait`."
+        }
+      ]
+    },
+    {
+      "id": "fact:aaef9684-5201-4fa9-805b-e7c75c5a9911",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Coll",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Collision action-state callback with signature `void(HSD_GObj* gobj)`; its argument is the fighter's game object.",
+      "rationale": "The matched declaration directly establishes the return and parameter types. The stack trace places this routine beneath the fighter environment-collision update, supporting interpretation of the `HSD_GObj*` as the fighter object being updated.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:45:25.434Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L75-L78",
+          "why": "The declaration is exactly `void ftCo_Wait_Coll(HSD_GObj* gobj)`."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/993666702908866560",
+          "why": "The stack trace places the routine in the fighter `PlayerThink_EnvCollision` processing path and labels it `Collision_Wait`."
+        }
+      ]
+    },
+    {
+      "id": "fact:8c2c7866-86ab-4e68-ba40-2736afe6ecbc",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Coll",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Runs the fighter's environment-collision update during the common Wait action by delegating to the shared Wait/Landing collision handler.",
+      "rationale": "The function body consists solely of forwarding its fighter object to `ft_80084280`. A captured game stack trace independently labels `ftCo_Wait_Coll`'s address as `Collision_Wait` and the callee as `EnvironmentCollision_Wait/Landing`, identifying the delegated operation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:45:25.434Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L75-L78",
+          "why": "The complete matched body shows that `ftCo_Wait_Coll` delegates directly and exclusively to `ft_80084280`."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/993666702908866560",
+          "why": "The recorded game stack trace labels address `0x8008A678` as `Collision_Wait` and `ft_80084280` as `EnvironmentCollision_Wait/Landing`."
+        }
+      ]
+    },
+    {
+      "id": "fact:ded970e8-99d6-456c-9623-ba0fb4d71a4c",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Coll",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "During the Wait state's collision phase, unconditionally invokes the shared Wait/Landing environment-collision routine; all collision tests and any resulting action-state response are owned by that callee rather than by this wrapper.",
+      "rationale": "There are no guards, timers, branches, or local state writes in the matched wrapper\u2014only an unconditional call. The stack trace identifies that callee as the Wait/Landing environment-collision routine, so this callback's state behavior is unconditional delegation.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-01T23:45:25.434Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L75-L78",
+          "why": "The complete function has no conditional logic or local state mutation and always calls `ft_80084280`."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/993666702908866560",
+          "why": "The stack trace identifies the wrapper as Wait collision processing and its callee as shared Wait/Landing environment collision."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_IASA": [
+    {
+      "id": "fact:7e3e1b23-538e-40a4-b2b1-ce6a55e4fac6",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_IASA",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the current Fighter_GObj and forwards that same object unchanged to each candidate transition predicate. Each predicate's boolean result is consumed immediately: true ends processing because a transition was accepted, while false passes control to the next predicate. The callback has no local data mutation or independent return value.",
+      "rationale": "The matched body declares no locals, performs no direct field accesses, and supplies gobj as the only argument to every check. Its sole local decision is whether each returned boolean exits the callback or permits the next check.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:43:56.892Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+          "why": "The function visibly forwards gobj to every callee and uses every result as an immediate-return guard."
+        }
+      ]
+    },
+    {
+      "id": "fact:277ee28e-d698-4d4f-b5db-3af4b28ae779",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_IASA",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes player actionability from the standing Wait state: accepted controller input can interrupt waiting into attacks, grabs, appeals, jumping, dashing, crouching through the still-address-named squat predicate, turning, walking, or other common actions handled by unresolved predicates.",
+      "rationale": "The callback's Wait state name grounds the active state, while the named input predicates directly identify most available player actions. Their ordered early exits show that they are competing command-driven transitions rather than sequential effects.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-01T23:43:56.892Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+          "why": "The Wait IASA body maps the state to a broad ordered set of named attack, grab, appeal, jump, movement, and additional transition checks."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5bb5e0d-6451-4ec7-affb-7e34ac83ff93",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_IASA",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A fighter action-state IASA callback with signature void (Fighter_GObj*); it delegates input recognition and state changes to boolean transition predicates rather than returning a transition result itself.",
+      "rationale": "The definition directly establishes the void/Fighter_GObj* signature. Every delegated predicate is consumed by RETURN_IF, showing that its boolean result controls early termination within this callback.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:43:56.892Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+          "why": "The source provides the concrete callback signature and shows all predicate results used solely for short-circuit control flow."
+        }
+      ]
+    },
+    {
+      "id": "fact:ab536546-3837-4bd2-9330-d57ef624c9db",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_IASA",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Selects an interrupt out of the fighter's Wait state by trying common-fighter input-transition predicates in priority order and stopping as soon as one accepts a transition.",
+      "rationale": "The complete matched body is an ordered chain of RETURN_IF-wrapped input checks. A successful predicate immediately exits the callback, preventing lower-priority alternatives from being evaluated during that invocation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:43:56.892Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+          "why": "The complete function directly shows its priority-ordered transition predicates and immediate termination after the first successful check."
+        }
+      ]
+    },
+    {
+      "id": "fact:ea43bf72-1368-42f8-b056-b280e19387ab",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_IASA",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Tests transitions in this exact priority order: side special; rapid jab; ftCo_800D6824; ftCo_800D68C0; grab; side, up, and down smash; side, up, and down tilt; neutral attack; ftCo_80099794; ftCo_80091A4C; side appeal; ftCo_800DE9D8; jump; dash; ftCo_800D5FB0; turn; then walk. The first predicate returning true terminates the callback and suppresses every later check; if all return false, Wait continues for this IASA invocation.",
+      "rationale": "This reproduces the matched function's explicit predicate order and short-circuit behavior. Semantic labels are assigned only where the recovered callee name identifies the action; address-named helpers remain unidentified.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:43:56.892Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L44-L67",
+          "why": "The resolved body directly enumerates all transition predicates in order and wraps every one in an immediate-return guard."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Phys": [
+    {
+      "id": "fact:fb9b2595-6824-4edc-959a-713dc2c64770",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Phys",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives the Wait-state fighter game object and passes it unchanged to both helpers. The movement helper reads the fighter's co_attrs.ground_friction, gr_vel, and co_attrs.walk_max_vel, scales friction by p_ftCommonData->friction_when_above_walk_speed when absolute ground velocity exceeds maximum walk speed, applies that friction to ground velocity, and then applies ground movement before ftColl_8007AEE0 runs.",
+      "rationale": "The wrapper forwards the same object in a fixed sequence. The helper at head now exposes semantic field names for the common movement attributes and high-speed friction multiplier, requiring the standing data-flow claim to be updated from its former placeholder field names.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:04:50.192Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+          "why": "The current helper body shows the Fighter and co_attrs reads, the above-walk-speed guard and multiplier, ground-friction application, and subsequent ground-movement call."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L69-L73",
+          "why": "The wrapper passes the same game object first to ft_80084F3C and then to ftColl_8007AEE0."
+        }
+      ]
+    },
+    {
+      "id": "fact:bb70fb46-582f-43bc-84f1-f58a3b4dfee4",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Phys",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements passive grounded deceleration and movement maintenance during the fighter's ordinary idle/Wait state.",
+      "rationale": "The enclosing symbol identifies the Wait-state physics callback, and the current movement helper applies fighter-specific grounded friction and movement without processing active movement input. This confirms the existing mechanic mapping while replacing its drifted evidence.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T19:04:50.192Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L69-L73",
+          "why": "The callback name and enclosing unit identify this as the Wait state's physics processing."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+          "why": "The delegated helper applies grounded friction and movement using the fighter's common movement attributes."
+        }
+      ]
+    },
+    {
+      "id": "fact:56b1a8a3-1e22-498f-ad49-58b11de126fb",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Phys",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Action-state physics callback with signature void(HSD_GObj*), operating on the Fighter stored in the supplied game object.",
+      "rationale": "The callback definition directly establishes its void(HSD_GObj*) interface, and the current movement helper uses GET_FIGHTER on the forwarded object before reading and updating Fighter state. This confirms the existing type claim with evidence at head.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T19:04:50.192Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L69-L73",
+          "why": "The definition establishes the callback's void return and single HSD_GObj pointer parameter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+          "why": "The forwarded object's Fighter is obtained through GET_FIGHTER and then used by the grounded movement helper."
+        }
+      ]
+    },
+    {
+      "id": "fact:338e75c7-3eb1-4229-b38a-6e0d15e9be5c",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Phys",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the Wait state's per-frame grounded physics by applying ground friction and movement first, then running the state's common ftColl follow-up.",
+      "rationale": "At the current head, the callback invokes ft_80084F3C before ftColl_8007AEE0, while ft_80084F3C derives grounded friction from the fighter's common attributes, applies it, and then applies ground movement. This preserves the standing purpose while replacing its drifted helper citation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T19:04:50.192Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/ft_084E.c#L39-L54",
+          "why": "The current helper body reads grounded movement attributes, conditionally scales friction, applies ground friction, and applies ground movement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L69-L73",
+          "why": "The current Wait physics callback calls the movement helper before ftColl_8007AEE0."
+        }
+      ]
+    }
+  ],
+  "src/melee/ft/kinds/ftCommon/ftCo_Wait.c": [
+    {
+      "id": "fact:3a4db0b4-2396-4ab3-b2ab-74fe3ce124ca",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Wait.c",
+      "type": "data_flow",
+      "value": "Animation reads the fighter's DownSpot flag and wait-animation data; IASA forwards the fighter through an ordered action-input chain, while physics and collision delegate to common grounded helpers.",
+      "rationale": "The current callbacks directly read the flag and animation table, evaluate ordered transitions, and call the grounded physics and collision helpers.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:31:26.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L1-L78",
+          "why": "Shows the Wait animation reads, ordered input predicates, and grounded helper calls."
+        }
+      ]
+    },
+    {
+      "id": "fact:12815c94-9b12-4a1a-b836-233680b6212d",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Wait.c",
+      "type": "game_mapping",
+      "value": "Realizes the fighter's ordinary grounded idle state, called Wait by the action-state code.",
+      "rationale": "The Wait callbacks maintain a grounded neutral action and expose the broad transition set expected from ordinary idle.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-06T03:31:26.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L1-L78",
+          "why": "Shows the grounded Wait callback family and its neutral-action exits."
+        }
+      ]
+    },
+    {
+      "id": "fact:934da5e6-fe32-4ce6-bb45-fe77b1f49f55",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Wait.c",
+      "type": "inferred_type",
+      "value": "A common fighter-action translation unit containing void animation, IASA, physics, and collision callbacks that each receive a fighter game-object pointer.",
+      "rationale": "The current unit still defines exactly the four standard Wait callbacks with one game-object parameter.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:31:26.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L1-L78",
+          "why": "Provides the signatures and bodies of the Wait Anim, IASA, Phys, and Coll callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:c6337039-429c-415d-9af8-b9631686fd3a",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Wait.c",
+      "type": "purpose",
+      "value": "Implements the common fighter Wait state's animation, input-interrupt, grounded physics, and collision callbacks.",
+      "rationale": "The current translation unit retains the complete four-callback Wait interface.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-06T03:31:26.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L1-L78",
+          "why": "Shows all four Wait lifecycle callbacks and their roles."
+        }
+      ]
+    },
+    {
+      "id": "fact:45e57292-d7b1-4091-88e2-e08efaadef4d",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Wait.c",
+      "type": "state_behavior",
+      "value": "While waiting, x2224_b2 enters DownSpot; otherwise the wait animation advances. IASA short-circuits through special, attack, grab, defensive, appeal, jump, dash, squat, turn, and walk transitions while grounded processing continues.",
+      "rationale": "The current animation branch and ordered RETURN_IF chain retain the listed transition behavior, followed by grounded physics and collision.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-06T03:31:26.053Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Wait.c#L1-L78",
+          "why": "Shows the DownSpot branch, wait animation path, ordered transition chain, physics, and collision."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Anim#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Coll#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_IASA#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_Wait:ftCo_Wait_Phys#r3": []
+}

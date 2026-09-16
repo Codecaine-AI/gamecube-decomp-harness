@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "id": "sync-ingest",
+  "title": "Sync Source Intake and Optional Curation",
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Sync",
+      "kind": "participant"
+    },
+    {
+      "id": "p2",
+      "name": "Mechanical Intake",
+      "kind": "participant"
+    },
+    {
+      "id": "p3",
+      "name": "Source Pipeline",
+      "kind": "participant"
+    },
+    {
+      "id": "p4",
+      "name": "Records and Indexes",
+      "kind": "participant"
+    },
+    {
+      "id": "p5",
+      "name": "Librarian Consumer",
+      "kind": "participant"
+    }
+  ],
+  "items": [
+    {
+      "kind": "message",
+      "id": "m1",
+      "from": "p1",
+      "to": "p2",
+      "line": "sync",
+      "text": "Reconcile the candidate checkout and report"
+    },
+    {
+      "kind": "message",
+      "id": "m2",
+      "from": "p2",
+      "to": "p4",
+      "line": "sync",
+      "text": "Preserve target identity, re-anchor unchanged code, and import attempts"
+    },
+    {
+      "kind": "message",
+      "id": "m3",
+      "from": "p2",
+      "to": "p1",
+      "line": "return",
+      "text": "Mechanical intake complete"
+    },
+    {
+      "kind": "message",
+      "id": "m4",
+      "from": "p1",
+      "to": "p3",
+      "line": "sync",
+      "text": "Resolve game sources, operation ID, and refresh policy"
+    },
+    {
+      "kind": "fragment",
+      "id": "f1",
+      "op": "loop",
+      "operands": [
+        {
+          "guard": "Each enabled source",
+          "items": [
+            {
+              "kind": "fragment",
+              "id": "f2",
+              "op": "alt",
+              "operands": [
+                {
+                  "guard": "Bootstrap, each_sync, or explicit refresh",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "m5",
+                      "from": "p3",
+                      "to": "p4",
+                      "line": "sync",
+                      "text": "Capture immutable input, import records, and build search index"
+                    },
+                    {
+                      "kind": "message",
+                      "id": "m6",
+                      "from": "p3",
+                      "to": "p4",
+                      "line": "sync",
+                      "text": "Persist source stages and queue curation tasks"
+                    }
+                  ]
+                },
+                {
+                  "guard": "Explicit source unchanged",
+                  "items": [
+                    {
+                      "kind": "message",
+                      "id": "m7",
+                      "from": "p3",
+                      "to": "p4",
+                      "line": "sync",
+                      "text": "Reuse accepted capture and stage state"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "message",
+      "id": "m8",
+      "from": "p3",
+      "to": "p1",
+      "line": "return",
+      "text": "Source manifests and required-stage readiness"
+    },
+    {
+      "kind": "fragment",
+      "id": "f3",
+      "op": "alt",
+      "operands": [
+        {
+          "guard": "All required stages complete",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m9",
+              "from": "p1",
+              "to": "p1",
+              "line": "sync",
+              "text": "Accept Sync boundary and required evidence"
+            }
+          ]
+        },
+        {
+          "guard": "Required stage incomplete",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m10",
+              "from": "p1",
+              "to": "p1",
+              "line": "sync",
+              "text": "Persist blocker and recovery position"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "fragment",
+      "id": "f4",
+      "op": "opt",
+      "operands": [
+        {
+          "guard": "Consumer enabled or manually drained",
+          "items": [
+            {
+              "kind": "message",
+              "id": "m11",
+              "from": "p5",
+              "to": "p4",
+              "line": "sync",
+              "text": "Claim queued task and read evidence"
+            },
+            {
+              "kind": "message",
+              "id": "m12",
+              "from": "p4",
+              "to": "p5",
+              "line": "return",
+              "text": "Current records and source citations"
+            },
+            {
+              "kind": "message",
+              "id": "m13",
+              "from": "p5",
+              "to": "p5",
+              "line": "sync",
+              "text": "Research, propose, and validate semantic changes"
+            },
+            {
+              "kind": "message",
+              "id": "m14",
+              "from": "p5",
+              "to": "p4",
+              "line": "sync",
+              "text": "Apply accepted changes and persist task outcome"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "note",
+      "id": "n1",
+      "anchor": "p3",
+      "side": "over",
+      "text": "Local wiki capture"
+    }
+  ],
+  "style": {}
+}

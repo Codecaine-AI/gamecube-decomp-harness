@@ -1,0 +1,33 @@
+# ItemScopeStart translation unit
+
+## Evidence and review scope
+Revision: c302741689bd67c361cd7faadb221df3193992c3. Full research coverage of both owned files, 33 subjects, 82 baseline facts and 21 links is inherited from the hash-bound handoff. The distinct lead independently read the canonical implementation and every proposed fact's cited definitions, plus all source ranges supporting non-retain reconciliations. Rendered names are hypotheses, not independent evidence. No compiled artifact was supplied.
+
+## Entry, family selection and surface continuity
+ft_800D76B8 and ft_800D7770 enter grounded and aerial startup. Each queries the held item without a local null guard, selects normal startup when it_8026B594 returns false and Empty startup otherwise, advances animation, zeros source-overlay timer/latch members, invokes ftCommon_8007E79C and installs fn_800D7938 as take_dmg_cb. Aerial entry additionally clamps drift. fn_800D769C adds eight to the requested motion when current motion_id is at least ItemScopeStartEmpty; there is no upper family bound or item query. Surface conversions preserve the supplied current frame/playback multiplier with flags 0x0C4C5280 and reinstall the damage callback without explicitly resetting startup variables. Ground collision dispatches the ground-to-air conversion; aerial collision dispatches air-to-ground. See code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L21-L119 and code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L227-L235.
+
+## Charge and callback ordering
+Both Anim callbacks are empty. IASA wrappers invoke fn_800D79B4 with grounded or aerial Rapid/Fire continuations. Canonical parameter spellings cb_ground and cb_air are misleading: the first selects Rapid and the second Fire within either surface situation.
+
+The helper returns without a held item. While flag is zero, held A increments the float timer by one. A released sets flag to one; this routine never clears it. The timer is cast to s32 and it_80291DAC is cached. At timer >= x5B8 with no animation frames remaining, Fire is called without requiring release. This call is nonterminal. The helper then rereads flag and animation, returning if flag is zero or frames remain. Otherwise it recasts the current timer and selects Rapid when it_80291CF4 returns zero, or Fire with the original cached result otherwise. There is no second item validation. See code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L139-L215.
+
+Rapid and Fire continuations change motion, write mv.co.common.x0, replace take_dmg_cb and install accessory4_cb. Therefore later reads occur after potentially significant callback effects. Neither exactly one dispatch nor inevitable double dispatch is proved; actual second-dispatch reachability and overlay reuse require animation data and compiled evidence. See code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeRapid.c#L14-L48 and code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeFire.c#L12-L47.
+
+## Classification and damage interruption
+it_80291CF4 classifies duration: zero at duration <= attrs->x4, duration / 8 below attrs->x8 * 8, otherwise nine. it_80291DAC additionally returns -1 for ammunition <= zero and attempts cost adjustment. Its insufficient-ammunition path can reach the end without returning; it_80291D38 likewise lacks a return for unsupported levels. Thus nominal level bounds are conditional, not a total return-domain guarantee. The renderer's shared proposed name must not merge these distinct classifiers. See code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itsscope.c#L62-L146.
+
+fn_800D7938 checks item presence, casts the top-level overlay timer, queries it_80291DAC and forwards every result except exactly -1 to it_80291F14. That consumer subtracts level cost and clamps negative remaining ammunition to zero. The handler then invokes ftCommon_8007E7E4(gobj, 1), which optionally invokes the fighter-kind OnItemPickup table. It performs no explicit motion transition or general selector validation. The corresponding entry dispatcher invokes OnItemDrop; these table names alone prove neither ownership transfer nor concrete presentation effects. See code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L121-L137 and code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L1015-L1029.
+
+The callback is fighter-resident, with startup registration and downstream replacement rather than allocation or local ownership acquisition. Inherited research identifies transition-time clearing in fighter.c; global damage ordering and every exceptional callback lifetime remain unresolved.
+
+## Physics and downstream firing
+Ground and aerial Phys delegate to shared item-shooting physics. Ground friction is conditionally multiplied only when absolute ground velocity exceeds walk maximum; equality is unscaled and the multiplier value is not established. Aerial behavior inherits the researched shared fast-fall/gravity and aerial movement chain. See code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeStart.c#L217-L225 and code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53.
+
+Projectile creation occurs downstream, not in startup. Fire's level-dependent calls and effects establish dispatch distinctions, not relative projectile strength or a complete rapid-tapping gameplay contract. See code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScopeFire.c#L125-L160.
+
+## Representation and exceptional inputs
+The top-level overlay contains an intermediate pointer and float x2344; entry/helper overlays use an integer latch. Source member names and offset/code-generation comments do not establish ABI offsets, aliasing validity, equivalence to mv.co.common, or .sdata2 contents and placement. No compiled layout claim is adopted.
+
+Timer casts have no finite-value check or saturation. NaN, infinity and out-of-range conversions require target evidence; the cast precedes the threshold comparison. Large finite float increments can lose precision, and no lower threshold bound is enforced. Missing C returns do not prove pointer-derived target values, the exact Infinite Super Scope glitch recipe, or its ammunition magnitude. These limitations are consistent with the four proposed facts and all inherited unresolved dispositions.
+
+Status: synthesized; independent review and live promotion pending.

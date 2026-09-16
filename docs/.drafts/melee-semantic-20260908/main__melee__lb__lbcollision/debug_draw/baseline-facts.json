@@ -1,0 +1,2531 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:HSD_JObjSetupMatrix"
+    },
+    "facts": [
+      {
+        "id": "fact:d8e60c83-073e-434a-826a-f5527ff79315",
+        "target_id": "target:function:main/melee/lb/lbcollision:HSD_JObjSetupMatrix",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes one nullable `HSD_JObj*` and reads its matrix-dirty state. Null or clean inputs produce no output. A dirty object is passed to `HSD_JObjSetupMatrixSub`, which invokes the object's class-specific matrix builder, updates the cached matrix and flags in place, and may additionally consume parent transforms, IK-hint data, or attached RObjs while resolving the object.",
+        "rationale": "The wrapper establishes the input filter and sole delegation edge. The complete matched callee demonstrates the subsequent flow from JObj methods, parent matrices, scale, IK hints, and RObjs into the supplied JObj's cached matrix and dirty flag.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:08:34.707Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1015629761084661810",
+            "why": "Shows that only a non-null dirty JObj flows from the wrapper into `HSD_JObjSetupMatrixSub`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1385-L1443",
+            "why": "Traces the delegated input through matrix construction and optional parent, IK-hint, and RObj processing into in-place matrix and flag updates."
+          }
+        ]
+      },
+      {
+        "id": "fact:1fa7cc12-74eb-4e00-8626-9089b2dbb822",
+        "target_id": "target:function:main/melee/lb/lbcollision:HSD_JObjSetupMatrix",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Regular inline function with signature `void HSD_JObjSetupMatrix(HSD_JObj* jobj)`. The pointer is nullable and identifies a mutable joint object. Under MWCC the non-static inline can survive as a weak, deduplicated out-of-line definition, which is why its retained body is owned by the `lbcollision` object; non-MWCC builds declare it static inline.",
+        "rationale": "The current definition supplies the exact return and parameter types, explicit null handling, and conditional static qualifier. Independent investigation explains that regular MWCC inlines have weak cross-translation-unit linkage and identifies this function's retained definition as the one emitted into the Melee LB collision object.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T13:08:34.707Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1541276793825402941",
+            "why": "Provides the complete inline signature, nullable-pointer guard, and conditional static qualifier used outside MWCC."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1390810802793087069",
+            "why": "Explains that regular inline definitions receive weak linkage and are deduplicated across translation units, with `HSD_JObjSetupMatrix` retained in the Melee LB object."
+          }
+        ]
+      },
+      {
+        "id": "fact:b9eda5ef-f06e-4be0-b958-5ca6bc99e5b6",
+        "target_id": "target:function:main/melee/lb/lbcollision:HSD_JObjSetupMatrix",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the guarded JObj transform-setup operation: it avoids unnecessary work for null objects or valid cached matrices and delegates dirty matrices to `HSD_JObjSetupMatrixSub` for reconstruction and joint-specific post-processing.",
+        "rationale": "The recovered wrapper explicitly tests pointer validity and matrix dirtiness before calling the subroutine. The matched subroutine builds the matrix, clears the dirty flag, and performs the applicable IK, effector, or RObj-constraint processing.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:08:34.707Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1541276793825402941",
+            "why": "Shows the current inline definition returning when the JObj is null or not dirty and otherwise invoking `HSD_JObjSetupMatrixSub`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1385-L1443",
+            "why": "Shows that the delegated subroutine constructs the matrix, clears its dirty state, and runs joint-kind-specific IK, effector, or RObj behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:6899e17c-f883-437e-a560-a18dc87b6baa",
+        "target_id": "target:function:main/melee/lb/lbcollision:HSD_JObjSetupMatrix",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "A null JObj or a JObj whose cached matrix is already valid is a no-op. A dirty JObj enters setup: its class-specific matrix builder runs and clears `JOBJ_MTX_DIRTY`; user-defined matrices bypass automatic post-processing, while Joint1, Joint2, Effector, and ordinary nodes take distinct resolution paths. Ordinary RObj processing can dirty the matrix again and trigger one additional build, after which automatic setup leaves the matrix clean.",
+        "rationale": "The wrapper supplies the null and clean-matrix guards. The matched subroutine establishes the dirty-to-clean transition, user-defined-matrix bypass, joint-kind dispatch, optional RObj-driven second build, and final clearing of the dirty flag.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:08:34.707Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/1541276793825402941",
+            "why": "Shows the two entry guards and that only a non-null dirty JObj enters setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1385-L1443",
+            "why": "Shows matrix construction, dirty-flag clearing, the user-defined and joint-kind branches, and the possible RObj-triggered second build."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_80008DA4"
+    },
+    "facts": [
+      {
+        "id": "fact:7aa13970-c18b-43d6-b181-c7ec35f801db",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008DA4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the first input color into TEV register 0 and uses its alpha byte to choose blend mode, depth-buffer writing, and lighting enablement. It copies the second input color into channel 0's ambient color, sets channel material color to opaque white, disables fog, textures, and framebuffer-alpha updates, and leaves the resulting GX state for subsequent geometry submission.",
+        "rationale": "The current matched body explicitly retains every input read and GX state setter, while the current capsule renderer calls this helper before submitting meshes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1987-L2039",
+            "why": "Shows how both colors and primary alpha are translated into TEV, blend, depth, fog, texture, channel, and framebuffer state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2175",
+            "why": "Shows the capsule renderer invoking the state helper before its matrix and display-list work."
+          }
+        ]
+      },
+      {
+        "id": "fact:af1695fe-6905-415a-9807-98834685733c",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008DA4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the material-state portion of collision-volume visualization: it prepares opaque or translucent colored rendering for hit, hurt, and related capsule-shaped collision geometry.",
+        "rationale": "The target configures color and transparency without emitting geometry, and the current capsule renderer immediately consumes that state to draw collision-volume meshes.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1987-L2039",
+            "why": "Shows the collision drawing palette and alpha-dependent GX material state being configured."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2175",
+            "why": "Shows the configured state feeding a renderer that constructs and submits capsule end-cap and body geometry."
+          }
+        ]
+      },
+      {
+        "id": "fact:c9dde97e-c97a-494e-9de9-726528099823",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008DA4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_SetupDrawState",
+        "rationale": "The current function remains entirely GX state configuration and is invoked as a setup step before collision-capsule mesh submission, preserving the cautious naming hypothesis.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_SetupDrawState`.",
+        "confidence": 0.7,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1987-L2039",
+            "why": "Shows the function consisting entirely of GX render-state setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2175",
+            "why": "Shows it called immediately before collision-capsule geometry construction and submission."
+          }
+        ]
+      },
+      {
+        "id": "fact:0faa65bc-18bb-4896-bcab-eb8386f8a027",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008DA4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "`void(GXColor* primary_color, GXColor* ambient_color)`: a GX state-setting helper. `primary_color` supplies the TEV constant color and the alpha value that selects opaque versus translucent rendering; `ambient_color` supplies the ambient color for GX channel 0.",
+        "rationale": "The current signature remains two GXColor pointers with no return, and the body still uses the arguments in the distinct TEV/alpha and ambient-channel roles.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1987-L2039",
+            "why": "Provides the exact signature and demonstrates the two colors' separate GX roles."
+          }
+        ]
+      },
+      {
+        "id": "fact:5c8f28ac-43e0-42d6-9e3c-a986716616b0",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008DA4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Configures the common GX pixel, depth, TEV, and lighting-channel state used before rendering the collision unit's colored capsule geometry, selecting an opaque or alpha-blended setup from the primary color's alpha.",
+        "rationale": "The current helper installs the full textureless color pipeline and alpha-dependent depth, blend, and lighting state; the current capsule renderer invokes it before drawing.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1987-L2039",
+            "why": "Shows the complete alpha-dependent GX state setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2175",
+            "why": "Shows the helper used before the capsule renderer's geometry submission."
+          }
+        ]
+      },
+      {
+        "id": "fact:c217d44e-6cc8-418f-877f-950afe596cd6",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008DA4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When `primary_color->a` is below 255, the routine enables source-alpha/inverse-source-alpha blending, keeps depth testing enabled but disables depth writes, and disables GX lighting for channel 0. When alpha is 255, it disables blending, enables depth writes, and enables channel-0 lighting with clamped diffuse calculation. Both modes disable fog and texturing, reject zero-alpha fragments, use one TEV stage, update framebuffer color but not framebuffer alpha, and use `GX_LEQUAL` depth comparison.",
+        "rationale": "The current function retains the three alpha-dependent choices and all unconditional GX settings that define the two render modes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1987-L2039",
+            "why": "Directly shows both alpha-dependent state variants and all GX state shared by them."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_80008FC8"
+    },
+    "facts": [
+      {
+        "id": "fact:12de959e-e391-442a-9378-d21b4899c1bf",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008FC8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes two world-space endpoints, two colors, and a radius. It subtracts the endpoints to obtain the capsule axis and length, constructs perpendicular and cross-product vectors for an orientation basis, derives transforms for an end cap at each endpoint and a body at their midpoint, composes those transforms with the current camera viewing matrix, derives inverse-transpose normal matrices, and sends static position and normal arrays plus display lists to GX. Higher-level callers supply HitCapsule endpoints and effective scale.",
+        "rationale": "The current renderer preserves the endpoint-to-orientation-to-transform-to-GX pipeline, and the current HitCapsule drawing wrapper supplies its endpoints, selected colors, and effective radius.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2304",
+            "why": "Shows axis calculation, basis construction, component transforms, camera composition, normal matrices, GX arrays, and display-list submission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2460",
+            "why": "Shows an active HitCapsule's endpoints, state-selected colors, and effective scale flowing into this renderer."
+          }
+        ]
+      },
+      {
+        "id": "fact:2ec6377c-aca0-4be5-8b48-19363b4d13b5",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008FC8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the shared world-space mesh primitive for Melee's diagnostic collision-bubble visualization. Higher-level collision helpers use it to display attack HitCapsules and other endpoint-and-radius collision records with state-selected colors; it visualizes collision state rather than performing overlap detection.",
+        "rationale": "The current function only constructs and submits capsule graphics, while the current higher-level HitCapsule helper selects colors by hit element and delegates active collision geometry to it.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2304",
+            "why": "Shows colored capsule geometry being constructed and submitted through GX without any overlap test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2460",
+            "why": "Shows a higher-level helper selecting HitCapsule colors and forwarding active collision endpoints and radius to the renderer."
+          }
+        ]
+      },
+      {
+        "id": "fact:9bd85b4e-cede-417a-a0aa-35d0abe10ee4",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008FC8",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawCapsule",
+        "rationale": "The current function's complete operation remains drawing a capsule from two world-space endpoints and a radius, supporting the semantic base name while leaving its exact original spelling uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `lbColl_DrawCapsule`; the exact original symbol has not been recovered.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2175",
+            "why": "Shows the function constructing and drawing two spherical ends and an optional cylindrical body from capsule geometry."
+          }
+        ]
+      },
+      {
+        "id": "fact:c075061a-94a8-4e6b-8667-9d59d4198ea9",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008FC8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Exact signature: `void lbColl_80008FC8(Vec3 endpoint_a, Vec3 endpoint_b, GXColor* primary_color, GXColor* secondary_color, float radius)`. The vectors are world-space capsule endpoints, the scalar is the uniform radial scale, the colors configure GX material and blending state, and all outputs are rendering side effects.",
+        "rationale": "The current declaration and body retain the exact mechanical signature and demonstrate each argument's established rendering role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.h#L36-L76",
+            "why": "Declares the exact void return, two by-value Vec3 parameters, two GXColor pointers, and float parameter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2175",
+            "why": "Shows the vectors determining capsule endpoints and axis, the float determining scale, and the colors feeding GX state setup."
+          }
+        ]
+      },
+      {
+        "id": "fact:e698966a-f05e-4840-9016-abe158fc8061",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008FC8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Renders a world-space collision capsule as two spherical end caps joined by a cylindrical body. It configures the supplied colors, constructs transforms that orient and scale the component meshes between the two endpoints, submits them through GX, and handles a zero-length capsule without attempting to render a connecting body.",
+        "rationale": "The current implementation retains color setup, endpoint separation, degenerate fallback, component transforms, unconditional sphere submissions, and a body display list guarded by nonzero length.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2175",
+            "why": "Shows setup, axis and length calculation, fallback orientation, component transformations, and end-cap display-list submission."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2149-L2175",
+            "why": "Shows the second end cap, conditional cylindrical-body submission, and final graphics-state cleanup."
+          }
+        ]
+      },
+      {
+        "id": "fact:85d86b57-1bcf-4a9e-b52f-11b2ec1a528d",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80008FC8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine invalidates and initializes HSD rendering state before drawing and repeats that cleanup afterward. For a nondegenerate endpoint separation it builds an oriented capsule and emits two end-cap display lists plus one connecting-body display list. If the separation length is effectively zero, it uses a fixed fallback orientation, still emits the end geometry, and suppresses the connecting body.",
+        "rationale": "The current control flow preserves the small-length fallback, unconditional end-cap rendering, nonzero-length body guard, and state initialization and cleanup bracketing the operation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:58:08.390Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2050-L2175",
+            "why": "Shows initial state setup, degenerate and nondegenerate orientation branches, and end-cap rendering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2149-L2175",
+            "why": "Shows the conditional connecting-body draw and repeated HSD state invalidation and TEV initialization afterward."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_800096B4"
+    },
+    "facts": [
+      {
+        "id": "fact:ff67b4f5-e1e2-4a58-943c-1e9ea91a0395",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800096B4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a model matrix, two matrix-local endpoints, two colors, and a radius. It subtracts the endpoints to obtain the capsule axis and length, normalizes that axis with perpendicular and cross-product vectors to form an orientation basis, derives transforms for an end cap at each endpoint and a body at their midpoint, composes those transforms with the caller matrix and current camera viewing matrix, derives inverse-transpose normal matrices, and sends static position/normal arrays and display lists to GX. If the endpoint distance is effectively zero, it suppresses the body display list.",
+        "rationale": "The current matched body still performs the full endpoint-to-transform-to-GX flow described by the standing claim, including the zero-length guard around the cylinder display list.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2177-L2304",
+            "why": "Shows the current capsule renderer's endpoint subtraction, basis construction, component transforms, caller and view-matrix composition, normal matrices, and GX display-list submissions."
+          }
+        ]
+      },
+      {
+        "id": "fact:5922d6a8-e3c7-47f9-938f-c35407547b63",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800096B4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements matrix-aware visualization of capsule-shaped collision bubbles, including bone-relative hurtboxes and other collision-result volumes. The rendered bubble's endpoints and radius come from the underlying collision record, while colors are selected by the higher-level visualization routine.",
+        "rationale": "The current matrix-aware renderer still constructs capsule meshes, and the current HurtCapsule drawing wrappers supply state-selected colors, transformed endpoints, size, and a model matrix through the shared HitResult drawing adapter.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2167-L2304",
+            "why": "Shows the matrix-relative capsule renderer composing the caller matrix into the rendered geometry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2462-L2597",
+            "why": "Shows HurtCapsule visualization wrappers selecting colors and forwarding collision endpoints, radius, and model transforms to the matrix-aware renderer."
+          }
+        ]
+      },
+      {
+        "id": "fact:e9ddfbf7-6714-426e-9cb4-b607fc9d7e6e",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800096B4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawCapsuleMtx",
+        "rationale": "The current implementation remains a capsule drawing primitive distinguished from its world-space sibling by its leading matrix argument, and current collision-record wrappers use that matrix-aware behavior for bone-relative volumes.\n\nNaming cleanup: source explicitly prefers this candidate over the listed alternatives\nPrior naming claim: A plausible role-based name is `lbColl_DrawCapsuleMtx`, or more explicitly `lbColl_DrawCapsuleWithMatrix`; the original symbol has not been recovered.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2167-L2304",
+            "why": "Shows the caller-supplied matrix being composed into each capsule component transform."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2462-L2597",
+            "why": "Shows higher-level collision-record rendering paths delegating matrix-relative capsule drawing to this primitive."
+          }
+        ]
+      },
+      {
+        "id": "fact:3da67a8c-ba4c-4404-90a1-e07e4f3b4cb2",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800096B4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Exact signature: `void lbColl_800096B4(MtxPtr mtx, Vec3 endpoint_a, Vec3 endpoint_b, GXColor* primary_color, GXColor* secondary_color, float radius)`. The matrix places matrix-local endpoints into the caller's model space; the vectors are capsule endpoints, the scalar is the uniform radial scale, and all outputs are GX/HSD rendering side effects.",
+        "rationale": "The declaration at head preserves the exact matrix, vector, color, and scalar types, while the body demonstrates their roles in transformed capsule rendering with no returned value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares the current void signature with `MtxPtr`, two by-value vectors, two color pointers, and a float."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2167-L2304",
+            "why": "Shows the matrix, endpoints, colors, and radius controlling transformed capsule construction and GX rendering."
+          }
+        ]
+      },
+      {
+        "id": "fact:629eca6a-1bb5-4abc-b943-ad9665e8323f",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_800096B4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Renders a matrix-relative collision capsule as two spherical end caps joined by a cylindrical body. It configures the requested colors, orients and scales the component meshes between the supplied endpoints, submits them through GX, and handles a zero-length capsule by drawing only the coincident end geometry.",
+        "rationale": "The current body retains the two sphere submissions, the length-scaled central cylinder, caller-matrix composition, and the degenerate-length branch that omits the cylinder.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2177-L2304",
+            "why": "Shows the complete current matrix-relative capsule construction and rendering path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_80009DD4"
+    },
+    "facts": [
+      {
+        "id": "fact:5b6f586a-115d-405b-962e-7459776caf7b",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009DD4",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Its sole resolved caller derives the two corners from a CPU fighter's world position, facing direction, and CPU-control fields, and selects colors according to CPU behavior and diagnostic flags. The helper combines those corner coordinates, copies the supplied RGBA bytes to each vertex, loads the current camera viewing matrix into GX position matrix 0, and emits one four-vertex quad; it writes no gameplay data and returns no result.",
+        "rationale": "The caller shows the concrete origins of the corner and color inputs, including facing-dependent coordinate selection and a flashing color sequence. The target shows those inputs flowing only into camera-relative GX state and vertex submission, with no mutation of the pointed-to records.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:40:35.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_0A01.c#L8609-L8728",
+            "why": "Shows the CPU-only caller selecting diagnostic colors from CPU behavior state and beginning construction of fighter-relative geometry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_0A01.c#L8715-L8778",
+            "why": "Shows fighter position, facing direction, CPU fields, and diagnostic flags producing the exact corners and colors passed to the helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2306-L2350",
+            "why": "Shows the complete downstream flow from the three arguments into the view matrix, four direct vertices, and repeated vertex colors."
+          }
+        ]
+      },
+      {
+        "id": "fact:5add2571-2a05-43f2-a872-418600e4566e",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009DD4",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements a primitive used by CPU AI debug visualization. The CPU-only drawing callback uses it for a fighter-relative rectangular extent whose color can flash under an AI flag, and for an additional translucent red region when CPU behavior state 2 is active. The helper visualizes CPU-control geometry without changing AI or combat state.",
+        "rationale": "The sole resolved caller first verifies that the fighter is CPU-controlled, derives colors from CPU behavior state, and builds rectangles from fighter position, facing direction, and `Fighter.x1A88` CPU fields. All target-side effects are graphics-state and vertex submissions, so the function is a visualization component rather than part of CPU decision execution.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T13:40:35.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_0A01.c#L8609-L8728",
+            "why": "Shows that the drawing path is restricted to CPU-controlled fighters and maps CPU behavior states to diagnostic colors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_0A01.c#L8715-L8778",
+            "why": "Shows the general fighter-relative rectangle, its flag-driven flashing colors, and the additional state-2 red rectangle being drawn through this helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2306-L2350",
+            "why": "Shows that the helper only emits graphics and does not modify CPU or gameplay data."
+          }
+        ]
+      },
+      {
+        "id": "fact:6d1eef09-cf9f-405b-9916-3e0da1fbc189",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009DD4",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawRect",
+        "rationale": "The function's entire operation is a generic `lbColl`-scoped colored rectangle draw: it combines two opposite x/y corners into four quad vertices and does not inspect collision records or perform collision tests. `DrawRect` is therefore a concise role-based suffix, although no preserved symbol establishes the original wording.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_DrawRect`.",
+        "confidence": 0.67,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2306-L2350",
+            "why": "Demonstrates that the function is solely a direct-GX axis-aligned rectangle renderer."
+          }
+        ]
+      },
+      {
+        "id": "fact:83278895-1d84-4723-943b-ae1a1aa32cb9",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009DD4",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Void direct-GX rendering helper with mechanical signature `void (Vec3* corner0, Vec3* corner1, GXColor* color)`. The vectors semantically provide opposite x/y corners; only `corner0->z` supplies depth, while `corner1->z` is ignored. All three records are read-only in practice.",
+        "rationale": "The matched declaration establishes the pointer types and void result. The emitted vertices are `(corner0.x, corner0.y, corner0.z)`, `(corner1.x, corner0.y, corner0.z)`, `(corner1.x, corner1.y, corner0.z)`, and `(corner0.x, corner1.y, corner0.z)`, with the same four color bytes attached to each.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:40:35.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2306-L2350",
+            "why": "Provides the exact signature and shows the semantic use of every consumed vector component and color byte."
+          }
+        ]
+      },
+      {
+        "id": "fact:a480955f-24ae-43e4-ae3a-8e869c94cc18",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009DD4",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Draws a solid, caller-colored axis-aligned rectangle from two opposite x/y corners at the first corner's z coordinate. It prepares direct GX position and color attributes, renders the four vertices through the active camera view matrix, and refreshes cached HSD rendering state around the draw.",
+        "rationale": "The matched body constructs exactly four vertices by combining the two input x coordinates and two input y coordinates while consistently using `v0->z`, submits them as `GX_QUADS`, and assigns the supplied RGBA color to every vertex. The only resolved caller uses the helper to draw rectangular CPU-fighter diagnostic regions.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:40:35.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2306-L2350",
+            "why": "Shows the complete GX setup and four-vertex rectangle construction from two vectors and one color."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_0A01.c#L8715-L8778",
+            "why": "Shows the caller constructing opposite rectangle corners around a CPU fighter and invoking this helper with diagnostic colors."
+          }
+        ]
+      },
+      {
+        "id": "fact:a4b93481-adb1-4fdd-b703-6bee38558395",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009DD4",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The function has no guard or gameplay-state transition: every call invalidates HSD's cached state, initializes TEV state, applies the unit's shared color-rendering setup, enables direct XYZ and RGBA vertex attributes, selects matrix 0 and no culling, loads the active camera view matrix, and submits one `GX_QUADS` primitive with four vertices. After submission it again invalidates cached state and initializes TEV state.",
+        "rationale": "The matched body is a single unconditional rendering path. Its ordered HSD and GX calls directly establish the state changes before and after the quad submission, and there are no branches, timers, or writes to caller-owned gameplay structures.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:40:35.936Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2306-L2350",
+            "why": "Directly shows the unconditional HSD state operations, vertex format and descriptor setup, culling and matrix configuration, quad submission, and final state refresh."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_80009F54"
+    },
+    "facts": [
+      {
+        "id": "fact:8ac9889f-532d-4123-b245-97fd9c55aa51",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009F54",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the HitCapsule's state, suppression bits, element, intrinsic scale, and endpoint vectors `x58` and `x4C`. The element selects an ordinary, catch, or inert primary color; that color's alpha determines whether the capsule belongs to draw pass 0 or 2. If the requested pass matches, the intrinsic scale is used directly when `x43_b1` is set or multiplied by the caller's owner scale otherwise, then both endpoints, the selected primary color, a shared secondary color, and the effective scale flow into `lbColl_80008FC8`. The function returns 1 when that call occurs and 0 otherwise.",
+        "rationale": "The current implementation still contains every stated field read, color and pass choice, scale branch, renderer argument, and Boolean outcome; current fighter and item callers continue to supply owner scale.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2388",
+            "why": "Shows all current HitCapsule reads, pass and scale derivation, renderer arguments, and returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows fighter HitCapsules entering the helper with fighter Y scale and the shared draw-pass argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows item HitCapsules entering the helper with item scale and the same pass selector."
+          }
+        ]
+      },
+      {
+        "id": "fact:1aeefe60-a0e7-43bc-ba33-004876a16786",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009F54",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements pass-aware visualization of attack collision bubbles for both fighters and items, including distinct presentation for ordinary damaging hitboxes, catch or grab hitboxes, and inert hitboxes. It visualizes existing combat state without performing overlap tests or changing hitbox gameplay state.",
+        "rationale": "Current fighter and item display paths still send their attack HitCapsules to this read-only, element-colored rendering helper, whose body contains no overlap test or gameplay mutation.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2388",
+            "why": "Shows element-sensitive, pass-filtered visualization with no collision-resolution or HitCapsule mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows the fighter drawing path iterating attack HitCapsules through this helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows the item drawing path using this helper for ordinary item attack capsules."
+          }
+        ]
+      },
+      {
+        "id": "fact:bf5c6ea3-b062-43df-be83-af9ae205dd43",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009F54",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawHitCapsule",
+        "rationale": "The current function remains a pass-filtered operation whose distinguishing action is drawing one eligible HitCapsule through the shared capsule renderer. The exact original verb remains unattested.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_DrawHitCapsule`.",
+        "confidence": 0.73,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2460",
+            "why": "Shows the routine selecting display properties and rendering one eligible HitCapsule."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Confirms the HitCapsule operand and the unit's `lbColl_*` naming convention."
+          }
+        ]
+      },
+      {
+        "id": "fact:775161f6-73b1-4bec-b41d-c806fe68391b",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009F54",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A Boolean diagnostic-rendering helper with semantic signature `bool (HitCapsule* hit, u32 draw_pass, float owner_scale)`. `draw_pass` selects the opaque or translucent rendering pass, `owner_scale` conditionally scales the capsule radius, and the result is true only when capsule geometry was submitted.",
+        "rationale": "The current declaration preserves the mechanical signature, and the body derives pass eligibility from color alpha, conditionally applies owner scale, and returns true only after rendering.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares the current `bool(HitCapsule*, u32, float)` interface."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2460",
+            "why": "Shows pass filtering, conditional owner-scale multiplication, and true returned only after geometry submission."
+          }
+        ]
+      },
+      {
+        "id": "fact:e6f823db-2f8c-4cb6-adb5-f0e0b769f0f2",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009F54",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Conditionally renders one active attack HitCapsule as pass-appropriate diagnostic capsule geometry and reports whether it emitted graphics. It selects the display color from the hit element, chooses the capsule's effective display scale, and delegates the endpoint-based geometry drawing to the shared capsule renderer.",
+        "rationale": "The current target still performs the eligibility, element-color, pass, scale, and rendering operations, and its current callers still interpret a true return as auxiliary graphics having been emitted.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2388",
+            "why": "Shows the complete current conditional rendering operation and Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows the fighter renderer consuming a true result as a reason to invalidate graphics state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows the item renderer accumulating the helper's successful draw result."
+          }
+        ]
+      },
+      {
+        "id": "fact:5e887333-eb93-4c58-a6c9-e044a43fce7a",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_80009F54",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Rendering is skipped when the HitCapsule is disabled or `x43_b2` is set. Otherwise `HitElement_Catch` and `HitElement_Inert` select dedicated colors while every other element uses the ordinary hit color. A fully opaque selected color is eligible only in draw pass 0, and a non-opaque color only in pass 2. On the eligible pass, `x43_b1` selects the intrinsic capsule scale; when clear, the scale is multiplied by the caller-provided owner scale. The routine has no persistent mutation: it returns true only after submitting the capsule to the renderer.",
+        "rationale": "The matched conditionals and switch establish each guard and mode transition. No HitCapsule field is written, and all false paths converge on zero, while the sole true path follows the rendering call.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:41:28.206Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2388",
+            "why": "Directly establishes the disabled and suppression guards, element cases, alpha-derived pass selection, scale-mode branch, absence of capsule mutation, and Boolean outcomes."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1428092388399644882",
+            "why": "Corroborates that the integer checked by this family of collision helpers is the shared rendering-pass selector."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000A044"
+    },
+    "facts": [
+      {
+        "id": "fact:95240a86-758b-4df5-8ef3-0c7d6f618961",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A044",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives `fighter->x1064_thrownHitbox`, the fighter draw callback's current pass selector, and `fighter->x34_scale.y`. It reads the HitCapsule's state, suppression and scale-mode bits, intrinsic scale, and world-space endpoints `x58` and `x4C`; combines the endpoints and effective radius with the fixed colors `lbColl_804D36E8` and `lbColl_804D36EC`; and forwards them to `lbColl_80008FC8`. A true result is accumulated by the caller into its decision to invalidate cached GX state.",
+        "rationale": "The current body retains the stated field and color flow, and the current fighter caller continues to supply the thrown hitbox, pass selector, and fighter Y scale and consume successful auxiliary draws.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2403-L2426",
+            "why": "Shows the current thrown-HitCapsule renderer's reads, fixed colors, effective scale, renderer call, and result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+            "why": "Shows the current fighter drawing path supplying the thrown HitCapsule and accumulating a successful draw into graphics-state invalidation."
+          }
+        ]
+      },
+      {
+        "id": "fact:97eb60d8-60bc-4c77-ab19-5c890d00345c",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A044",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements pass-aware diagnostic visualization of a fighter's throw-specific hitbox data. This is the collision record associated with a throw's target-specific hitbox effect, rather than an ordinary attack HitCapsule iterated from the fighter's standard attack-hitbox array; the routine only visualizes the existing record and does not apply throw damage or perform collision detection.",
+        "rationale": "The fighter renderer passes the separately stored `x1064_thrownHitbox` to this helper, while ordinary attack HitCapsules are rendered through a different loop and helper. The target only reads geometry and submits a colored capsule. SmashWiki independently explains that Melee throws use throw commands carrying hitbox data that affects the thrown target instead of standard release hitboxes.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-02T15:37:21.189Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L200-L262",
+            "why": "Places the helper in the fighter diagnostic-drawing path and identifies its record as the separately stored `x1064_thrownHitbox`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2403-L2426",
+            "why": "Shows read-only, pass-filtered rendering of the throw-specific HitCapsule with no damage application, victim processing, or overlap test."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://throw~properties@r2027118",
+            "why": "Documents that throw releases use a throw command containing hitbox data that affects only the target, rather than a standard hitbox."
+          }
+        ]
+      },
+      {
+        "id": "fact:1917208f-af2a-4de5-9159-6522066a3478",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A044",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawThrownHitbox",
+        "rationale": "The only known caller supplies the Fighter field explicitly named `x1064_thrownHitbox`, and the function's distinguishing operation is drawing that record through the capsule renderer. The nearby analogous helper plausibly reconstructs as `lbColl_DrawHitCapsule`, supporting the unit's `lbColl_Draw...` naming form, but the exact original wording is not preserved.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_DrawThrownHitbox`.",
+        "confidence": 0.73,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L200-L262",
+            "why": "Identifies the function's input at its sole call site as `fighter->x1064_thrownHitbox`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2403-L2426",
+            "why": "Shows that the function's complete operation is a guarded draw of one HitCapsule."
+          }
+        ]
+      },
+      {
+        "id": "fact:625e5383-cdda-405f-8617-c57e0c69df22",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A044",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A Boolean diagnostic-rendering helper with semantic signature `bool (HitCapsule* thrown_hitbox, u32 draw_pass, float fighter_scale_y)`. The second parameter is the common opaque/translucent draw-pass selector, the third conditionally scales the capsule radius, and the return value is true exactly when capsule geometry is submitted.",
+        "rationale": "The matched definition establishes the mechanical signature and maps the fixed primary color's alpha to pass 0 or 2. It multiplies `HitCapsule.scale` by the third parameter unless `x43_b1` requests intrinsic scale. The fighter caller supplies its common draw-pass argument and Y scale, while community analysis identifies that shared integer as the rendering flag converted elsewhere into an HSD transparency mask.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T15:37:21.189Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2403-L2426",
+            "why": "Provides the exact signature and proves the pass-domain check, conditional scale multiplication, and Boolean emitted-geometry result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L200-L262",
+            "why": "Shows the second and third arguments originating as the fighter draw callback's pass selector and `fighter->x34_scale.y`."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1428092388399644882",
+            "why": "Explains that the integer shared by the collision drawing helpers is the general rendering flag converted by `HSD_GObj_80390EB8` into the transparency mask used for JObj display."
+          }
+        ]
+      },
+      {
+        "id": "fact:cc89c8c7-46a3-46d9-b022-9a618858de43",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A044",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Conditionally renders a fighter's throw-specific HitCapsule as diagnostic capsule geometry for the current draw pass and reports whether graphics were emitted. It filters out inactive or suppressed capsules, selects an effective display radius, and delegates the two-endpoint mesh construction to the shared world-space capsule renderer.",
+        "rationale": "The current target retains all local guards and rendering behavior, while the current fighter caller identifies the input as its separately stored thrown hitbox and consumes the Boolean emitted-geometry result.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2403-L2426",
+            "why": "Shows the current inactive and suppression guards, pass filter, effective radius, endpoint submission, and result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+            "why": "Shows the fighter auxiliary-rendering path supplying `x1064_thrownHitbox` and using the successful result."
+          }
+        ]
+      },
+      {
+        "id": "fact:7affd654-fd00-4f68-ae89-177081121719",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A044",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Rendering is skipped when the HitCapsule is disabled or `x43_b2` is set. Otherwise the fixed primary color selects pass 0 when fully opaque and pass 2 when translucent; a mismatching requested pass returns false without drawing. On the matching pass, `x43_b1` selects the intrinsic capsule scale, while a clear bit applies the fighter's Y scale. The routine performs no persistent HitCapsule mutation and returns true only after submitting one capsule. Its caller additionally requires fighter auxiliary-geometry bit 1 to be enabled and `x2227_b2` to be clear.",
+        "rationale": "The target's matched branches directly establish its local guards, pass classification, scale mode, absence of writes, and mutually exclusive returns. The sole caller supplies the additional fighter-level enable and suppression guards.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T15:37:21.189Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2403-L2426",
+            "why": "Directly establishes the disabled and suppression guards, alpha-derived pass test, scale-mode branch, read-only behavior, and Boolean outcomes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L200-L262",
+            "why": "Shows the fighter-level bit-1 enable guard and `x2227_b2` suppression guard surrounding the call."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1428092388399644882",
+            "why": "Corroborates that the shared integer checked by this collision-rendering family is the general rendering-pass flag."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000A10C"
+    },
+    "facts": [
+      {
+        "id": "fact:49c194ed-0d45-4d5b-9b00-ea66e0bd6f58",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A10C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the special item's collision record, the current diagnostic draw pass, and the item's model scale. It reads the record's two world-space endpoints and base radius, multiplies the radius by item scale, combines them with two unit-owned colors, and forwards the result to `lbColl_80008FC8`. Its Boolean result flows back into the item drawing routine's accumulated indication that diagnostic geometry was emitted.",
+        "rationale": "The body directly exposes every input to the capsule renderer and the scaled-radius calculation. The caller passes `it_266F.x1C`, `arg1`, and `ip->scl`, then converts a true result into its own accumulated `ret = 1`, proving both input provenance and output consumption.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:42:02.622Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2428-L2443",
+            "why": "Shows both global colors, the endpoint values, scaled radius, rendering call, and Boolean output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows where the record, pass, and scale originate and how the returned true value contributes to the caller's 'geometry drawn' result."
+          }
+        ]
+      },
+      {
+        "id": "fact:12a0cfee-ce76-4075-b84c-94df6e1ca923",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A10C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the special-item branch of Melee's diagnostic item collision visualization, rendering that item's gameplay collision region as a colored capsule in the appropriate collision-overlay pass rather than performing collision detection.",
+        "rationale": "The function only reads collision geometry and submits it to a GX-oriented capsule renderer; it does not mutate item or collision state. Its caller is the shared item collision-drawing routine, while SmashWiki identifies collision-bubble and collision-overlay modes as DEVELOP-mode visual diagnostics.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T13:42:02.622Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2428-L2443",
+            "why": "Shows a read-only geometry submission path with pass filtering and no collision-resolution behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Places the helper in the special-item branch of the routine that draws item collision and auxiliary geometry."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents Melee's collision-bubble-only and collision-overlay diagnostic display modes."
+          }
+        ]
+      },
+      {
+        "id": "fact:718198d4-0aad-4d5b-a6f7-6f2fffe60e70",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A10C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawItemCollisionCapsule",
+        "rationale": "The routine belongs to the shared collision library, and its only known caller uses it to draw a special item's collision record. Its body forwards two endpoint vectors and a scaled radius to the shared capsule renderer, making `DrawItemCollisionCapsule` a concise description of its distinguishing role. The exact original wording is not attested, so confidence remains moderate.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_DrawItemCollisionCapsule`.",
+        "confidence": 0.62,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2428-L2443",
+            "why": "Shows that the function's operation is a guarded draw of endpoint-and-radius capsule geometry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Identifies the supplied record as special item collision data and places the function in the item diagnostic-drawing path."
+          }
+        ]
+      },
+      {
+        "id": "fact:86b11797-60fe-4948-a482-f662461d7176",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A10C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Boolean item-collision visualization helper with mechanical signature `bool(struct lbColl_8000A10C_arg0_t* collision, u32 draw_pass, f32 item_scale)`. The collision record contains a radius-like `f32` at offset `0x0` and endpoint `Vec3` values at offsets `0x8` and `0x14`; the second parameter belongs to the renderer's pass domain, and the third is a multiplicative scale.",
+        "rationale": "The current declaration preserves the record-pointer, unsigned-selector, and float signature, while the implementation reads the record's scalar and two endpoints, filters on the selector, and multiplies the scalar by item scale before rendering.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares the current `bool(struct lbColl_8000A10C_arg0_t*, u32, f32)` signature."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2460",
+            "why": "Shows the collision record's scalar and endpoint accesses, draw-pass filter, multiplicative scale, and Boolean rendering result."
+          }
+        ]
+      },
+      {
+        "id": "fact:f4c487b8-27e0-4d3d-a066-4cd8f0ac50ba",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A10C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Conditionally draws the capsule-shaped diagnostic collision region belonging to the special `It_Kind_Unk4` item representation. It emits the capsule only during the rendering pass selected by its fixed primary color and reports whether it drew anything.",
+        "rationale": "The item drawing caller invokes this routine only for `It_Kind_Unk4`, passing the special item-variable collision record and item scale. The matched body chooses a pass from the primary color's alpha, calls the shared capsule renderer with the record's two endpoints and scaled radius only when that pass matches, and returns true exactly on that path.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:42:02.622Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2428-L2443",
+            "why": "Shows pass selection, endpoint and radius extraction, capsule-renderer invocation, and the exact true/false return behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows that the routine is used by the item collision-visualization path specifically for the enabled special collision record of `It_Kind_Unk4`."
+          }
+        ]
+      },
+      {
+        "id": "fact:d93c9f61-28ed-4f61-ae6f-a6c70ae43454",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A10C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Selects draw pass `0` when `lbColl_804D36F8.a` is fully opaque (`0xFF`) and pass `2` otherwise. If the supplied pass differs, it performs no rendering and returns false; if it matches, it emits exactly one capsule and returns true. The caller additionally requires the special item's display flag and at least one of two special collision-state flags before invoking it.",
+        "rationale": "The matched body contains a complete two-way alpha-to-pass selection followed by a single equality guard. The item caller wraps the invocation in explicit item-kind and flag tests, establishing the external state guards that make this renderer active.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:42:02.622Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2428-L2443",
+            "why": "Directly shows the alpha test, pass values, equality guard, one rendering call, and mutually exclusive return values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows the `It_Kind_Unk4`, `xDAA_flag.b0`, and special collision-state flag guards surrounding the call."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000A1A8"
+    },
+    "facts": [
+      {
+        "id": "fact:37b8031e-5e84-4060-a591-99fa80a69aff",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A1A8",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives one element of `fighter->x1614`, the common fighter draw-pass selector, and `fighter->x34_scale.y`. It reads the record's endpoints `x8` and `x14` and radius `x0`, multiplies the radius by the fighter's Y scale, combines those values with the static colors `lbColl_804D36F0` and `lbColl_804D36F4`, and forwards them to `lbColl_80008FC8`. Its boolean output is accumulated by `ftDrawCommon_800805C8` into the decision to invalidate cached GX state.",
+        "rationale": "The function has moved within the source, but its current body and caller still establish the same record, scale, color, renderer, and output flow.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2445-L2460",
+            "why": "Shows the current record-field reads, pass check, radius scaling, fixed colors, renderer call, and Boolean output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+            "why": "Shows the fighter-owned record and scale inputs and the successful result contributing to graphics-state invalidation."
+          }
+        ]
+      },
+      {
+        "id": "fact:66404487-8977-472c-9ec9-463d19325947",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A1A8",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes pass-aware visualization of a fighter collision bubble. Its yellow, half-transparent capsule presentation corresponds to Melee's debug convention for a damageable or hurtbox-colored region, although the still-unnamed `Fighter_x1614_t` record is distinct from the unit's typed `HurtCapsule` records.",
+        "rationale": "The current function still draws a fighter-owned capsule with the same fixed palette and remains typed as the distinct `Fighter_x1614_t`, so the cautious visual mapping remains warranted.",
+        "confidence": 0.87,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2445-L2460",
+            "why": "Shows the current `Fighter_x1614_t` capsule being rendered with the fixed color pair and scaled radius."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+            "why": "Places the routine in the fighter's optional auxiliary collision-geometry rendering path."
+          }
+        ]
+      },
+      {
+        "id": "fact:7805993c-76c5-4602-bf8b-b39648b30dea",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A1A8",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A pass-filtered collision-geometry renderer with signature `bool (struct Fighter_x1614_t* capsule, int draw_pass, f32 scale_y)`. The record contains a scalar radius at `x0` and `Vec3` endpoints at `x8` and `x14`; the return value is true exactly when the capsule is submitted for rendering.",
+        "rationale": "The current declaration retains the Boolean fighter-region pointer, integer selector, and float signature, while the body uses `x8` and `x14` as endpoints, multiplies `x0` by `scale_y`, and returns true only on the accepted pass.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:23:05.784Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L80",
+            "why": "Declares the current Boolean interface with `Fighter_x1614_t*`, integer selector, and vertical scale."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2352-L2460",
+            "why": "Shows the record endpoints, scaled radius, draw-pass filter, rendering call, and exact true/false result behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:41243f4d-4621-409d-9571-9f2a7795d73f",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A1A8",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Conditionally renders one fighter-owned `Fighter_x1614_t` collision capsule for the current draw pass, using fixed yellow outer and darker-yellow inner colors and the fighter's vertical model scale, and reports whether it drew.",
+        "rationale": "The current body continues to classify the fixed color into a pass and render the record's endpoints with its radius multiplied by the supplied fighter scale.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2445-L2460",
+            "why": "Shows the complete current pass-filtered rendering operation and Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L262",
+            "why": "Shows the fighter callback supplying `x1614` records, the common pass, and fighter Y scale."
+          }
+        ]
+      },
+      {
+        "id": "fact:c3f36718-a70b-4e32-bed5-492114e51ac2",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A1A8",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The routine classifies its geometry into draw pass 0 when the primary color is fully opaque and pass 2 otherwise. It draws and returns true only when that derived pass equals `draw_pass`; otherwise it leaves graphics untouched and returns false. With the current static primary color alpha of `0x80`, this capsule is selected for pass 2.",
+        "rationale": "The current body retains the alpha-derived pass state, equality guard, mutually exclusive returns, and the same static color input.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2445-L2460",
+            "why": "Shows the current alpha-to-pass mapping, pass guard, renderer call, and true/false outcomes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000A244"
+    },
+    "facts": [
+      {
+        "id": "fact:302f96a0-943a-4ed0-bd9f-124977c9f3b8",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A244",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the HurtCapsule's state, bone, local endpoint offsets, cached endpoint positions, update flag, and scale. The state indexes a two-color table and determines whether the current draw pass accepts the capsule. On the first accepted use after invalidation, the local offsets are transformed through the bone into cached endpoints; an optional display matrix additionally causes both endpoint Z values to be replaced by `display_z`. The selected bone or concatenated matrix, copied endpoints, state colors, and scale flow into the capsule renderer, while the caller receives a Boolean indicating whether geometry was emitted.",
+        "rationale": "The current function body continues to perform all stated field reads, cache mutations, optional depth and transform handling, renderer argument preparation, and Boolean reporting.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2462-L2506",
+            "why": "Shows the complete current HurtCapsule data flow, including state colors, cached endpoints, optional matrix and depth handling, and draw result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows fighter-owned HurtCapsules, display matrix, and fighter depth entering the helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows item-owned HurtCapsules entering the same helper without an override matrix."
+          }
+        ]
+      },
+      {
+        "id": "fact:efd0afc0-a222-4828-9bb4-890b92d49416",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A244",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements diagnostic hurtbox visualization shared by fighters and items: it renders a damage-receiving collision bubble in state-dependent colors during the appropriate graphics pass, without performing hit detection or changing combat state.",
+        "rationale": "Current fighter and item display paths still use this helper for typed HurtCapsules, and the helper remains limited to cache maintenance and graphics submission rather than collision resolution.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2462-L2506",
+            "why": "Shows state-dependent HurtCapsule rendering without overlap testing or combat-state changes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows ordinary fighter HurtCapsules being visualized through this helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows ordinary item HurtCapsules being visualized through this helper."
+          }
+        ]
+      },
+      {
+        "id": "fact:fd9ac767-4782-4c5d-ab55-8c95a68226c8",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A244",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawHurtCapsule",
+        "rationale": "The current header still places the function in the `lbColl_*` family and types its first parameter as HurtCapsule, while the current implementation prepares and draws one such capsule through `lbColl_DrawHitResult`. This preserves the role-based name inference, although the exact original suffix remains unattested.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_DrawHurtCapsule`.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L121",
+            "why": "Declares the function in the `lbColl_*` family with a HurtCapsule first parameter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2462-L2506",
+            "why": "Shows the function preparing state-selected colors and cached endpoints and drawing one HurtCapsule through `lbColl_DrawHitResult`."
+          }
+        ]
+      },
+      {
+        "id": "fact:6192f0b9-50c5-4603-b088-3589f8e1d065",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A244",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A Boolean hurt-capsule visualization helper with semantic signature `bool (HurtCapsule* hurt, u32 draw_pass, MtxPtr display_mtx, float display_z)`. `display_mtx` is optional; when non-null, `display_z` fixes both cached endpoints to the requested depth and the supplied matrix is concatenated with the hurt capsule's bone matrix. The return value is true only when the capsule belongs to the requested pass and is rendered.",
+        "rationale": "The current declaration preserves the Boolean HurtCapsule, pass, matrix, and floating-point interface; an `Mtx` function parameter has pointer semantics. The implementation confirms matrix nullability, depth replacement, matrix concatenation, pass filtering, and a true result only after rendering.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:21:32.094Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L121",
+            "why": "Declares `lbColl_8000A244` as a Boolean function taking HurtCapsule, unsigned selector, matrix, and float parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2462-L2506",
+            "why": "Shows matrix nullability, depth-plane replacement, matrix concatenation, pass filtering, and the draw-success return."
+          }
+        ]
+      },
+      {
+        "id": "fact:01daaad3-e289-4ed9-b316-ea8550111bf2",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A244",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Conditionally draws one ordinary HurtCapsule for the active rendering pass. It refreshes the capsule's cached bone-relative endpoints when necessary, applies an optional display transform and depth override, selects state-dependent colors and scale, emits the capsule mesh, and reports whether it drew anything.",
+        "rationale": "The current body retains the complete pass filter, endpoint cache refresh, optional display transform and depth behavior, state color selection, and emitted-geometry result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2462-L2506",
+            "why": "Shows the complete current ordinary HurtCapsule visualization helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows fighter drawing consuming a successful result as emitted auxiliary geometry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows item drawing accumulating the helper's successful result."
+          }
+        ]
+      },
+      {
+        "id": "fact:7e5949f6-6ff5-4e96-9bef-cf29f995f883",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A244",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The hurt capsule's state-table primary color divides rendering between pass 0 and pass 2: alpha `0xFF` selects pass 0, while any other alpha selects pass 2. A pass mismatch exits without changing the capsule. On a match, endpoint positions are recomputed only while `skip_update_pos` is clear, after which that flag is set so subsequent drawing reuses the cache. A non-null display matrix additionally flattens the refreshed endpoints to the supplied Z plane and selects a concatenated display transform; otherwise the bone matrix is used directly.",
+        "rationale": "The function's branch order explicitly establishes the state-color pass classification, early false return, one-time endpoint update transition, optional depth override, transform selection, and final true return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:40:50.448Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2462-L2506",
+            "why": "Shows all state guards and transitions, including alpha-based pass selection, `skip_update_pos`, optional depth flattening, transform selection, and success or failure returns."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000A460"
+    },
+    "facts": [
+      {
+        "id": "fact:1bfc8415-83aa-423b-89c2-4fe446459250",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A460",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives one element of `fighter->x1670` and the fighter callback's common draw-pass selector. It reads the record's JObj, local position `v1`, and radius `v2`, derives the marker's eligible pass from the fixed primary color's alpha, updates the JObj matrix, and forwards that matrix, two copies of `v1`, two fixed colors, and `v2` to `lbColl_800096B4`. Its Boolean result flows into `ftDrawCommon_800805C8`'s aggregate decision to invalidate cached GX state.",
+        "rationale": "The target's current location still exposes the same record-to-renderer flow, and the current fighter callback still iterates `x1670` records and accumulates successful draws.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2508-L2527",
+            "why": "Shows the current JObj, position, radius, fixed-color, renderer-argument, and Boolean-result flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L118-L175",
+            "why": "Shows the fighter callback supplying each `x1670` record and the shared pass and accumulating a successful draw."
+          }
+        ]
+      },
+      {
+        "id": "fact:e6dd28fe-601f-47d1-9972-f1e03a063696",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A460",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements pass-aware visualization of a fighter-owned, joint-attached auxiliary geometry marker. The marker is rendered as a sphere alongside the fighter's dynamic-bone diagnostic geometry; the available evidence does not establish that the underlying `Fighter_x1670_t` record participates in hit detection.",
+        "rationale": "The current function remains rendering-only and uses coincident endpoints to draw a JObj-attached sphere, while the current caller keeps the marker loop beside dynamic-bone auxiliary rendering.",
+        "confidence": 0.89,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2508-L2527",
+            "why": "Shows a rendering-only JObj-attached spherical marker operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L118-L175",
+            "why": "Places the marker loop beside fighter dynamic-bone diagnostic drawing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2177-L2304",
+            "why": "Shows that coincident capsule endpoints suppress the connecting body and leave spherical end geometry."
+          }
+        ]
+      },
+      {
+        "id": "fact:19c3d5d1-cd47-4061-a177-cc641e88281c",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A460",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawFighterJointMarker",
+        "rationale": "The current target still draws a fighter-owned marker at a JObj-relative position using coincident endpoints, supporting the role-based name while the unresolved `Fighter_x1670_t` meaning keeps confidence limited.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible role-based name is `lbColl_DrawFighterJointMarker`; the original symbol has not been recovered.",
+        "confidence": 0.63,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2508-L2527",
+            "why": "Shows that the function draws a spherical marker relative to a JObj."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L118-L175",
+            "why": "Shows that the marker records are fighter-owned auxiliary geometry."
+          }
+        ]
+      },
+      {
+        "id": "fact:65b59e5b-29a1-4965-8277-79041ea1dd3f",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A460",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Boolean auxiliary-geometry renderer with exact mechanical signature `bool (Fighter_x1670_t* marker, u32 draw_pass)`. The record contains an `HSD_JObj*` transform owner, a JObj-local `Vec3` marker position in `v1`, and a floating-point radius in `v2`; the return value is true exactly when the marker is submitted for drawing.",
+        "rationale": "The current declaration retains the Boolean two-parameter signature. The current body reads the record's JObj, local vector, and radius, treats the unsigned argument as a rendering-pass selector, and returns true only after submitting the marker geometry.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:21:32.094Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L121",
+            "why": "Declares `lbColl_8000A460` as `bool (Fighter_x1670_t*, u32)`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2508-L2527",
+            "why": "Shows the record's JObj, local position, and radius roles and the pass-dependent Boolean result."
+          }
+        ]
+      },
+      {
+        "id": "fact:acd237aa-5973-4e09-92e8-7ff082e23d54",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A460",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Conditionally renders one fighter-owned, JObj-attached spherical diagnostic marker for the current draw pass. It updates the marker bone's matrix, draws a zero-length capsule at the record's local position using its configured radius and fixed colors, and reports whether geometry was emitted.",
+        "rationale": "The current body still performs the pass test, JObj setup, coincident-endpoint capsule call, and Boolean result, and the capsule primitive still treats coincident endpoints as sphere-only geometry.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2508-L2527",
+            "why": "Shows the current fixed colors, pass filter, matrix setup, identical endpoints, configured radius, and result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2177-L2304",
+            "why": "Shows the shared renderer's degenerate-capsule handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L118-L175",
+            "why": "Shows the fighter callback iterating the marker records as auxiliary geometry."
+          }
+        ]
+      },
+      {
+        "id": "fact:24edb389-0b38-4455-9e56-4ccc4f911111",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A460",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Classifies the marker into draw pass 0 when the fixed primary color is fully opaque and pass 2 otherwise. A pass mismatch returns false without updating the JObj or drawing; a match sets up the JObj matrix, emits one degenerate capsule, and returns true. With the current primary color `{0}`, whose alpha is zero, the marker is selected for pass 2.",
+        "rationale": "The current branch ordering still guards all matrix and rendering work behind the alpha-derived pass equality test and returns true only after submission.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2508-L2527",
+            "why": "Shows the current alpha-derived pass, early false path, JObj setup, degenerate capsule draw, and true return."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000A584"
+    },
+    "facts": [
+      {
+        "id": "fact:ec7319f9-cfaf-4bfb-91a6-0298252733e8",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A584",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the hurt capsule's state, bone, local endpoint offsets, cached world endpoints, update flag, and scale. It combines the caller's state override with the capsule's intangible state to select two colors, derives the eligible draw pass from the primary color's alpha, and returns immediately if that pass does not match. On an eligible pass it may transform both offsets through the bone into cached endpoint positions, optionally replace their z coordinates, and set `skip_update_pos`; it then transforms the endpoints into the selected matrix space and forwards the matrix, endpoints, colors, and radius to the shared capsule renderer. Its Boolean result is consumed by fighter and item draw aggregation to determine whether collision graphics were emitted.",
+        "rationale": "The current target retains every stated state, geometry, cache, transform, palette, and output operation, and its current callers continue to aggregate the returned draw-success value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2529-L2580",
+            "why": "Shows the complete current override-aware HurtCapsule data flow and Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows fighter state overrides, pass, display transform, and depth entering this helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows item state overrides entering the helper and successful drawing being accumulated."
+          }
+        ]
+      },
+      {
+        "id": "fact:2ab6fcfe-bb10-4e54-83ab-d4f0c54e5ab7",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A584",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements pass-aware hurtbox visualization for fighters and items, including the special visual treatment of intangible hurtboxes. It exposes the bone-attached, normally invisible damage-reception capsule as colored diagnostic geometry without performing hit detection or changing combat eligibility.",
+        "rationale": "The current target still preserves intangible state during palette selection and only updates cached geometry and draws it; current fighter and item display paths continue to use the helper for HurtCapsules.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2529-L2580",
+            "why": "Shows the intangible palette override and rendering-only behavior apart from positional cache maintenance."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Places the helper in fighter hurtbox visualization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Places the helper in item hurtbox visualization."
+          }
+        ]
+      },
+      {
+        "id": "fact:5b73c03a-1df6-495c-b0d2-dd0e0b4908a7",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A584",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawHurtCapsuleWithStateOverride",
+        "rationale": "The current target remains the ordinary HurtCapsule draw operation with an additional caller-provided palette state that is superseded only by actual intangibility, distinguishing it from the adjacent ordinary variant.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_DrawHurtCapsuleWithStateOverride`.",
+        "confidence": 0.72,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2529-L2580",
+            "why": "Shows the caller-provided color-state selector and the authoritative intangible override."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2462-L2506",
+            "why": "Shows the adjacent ordinary HurtCapsule renderer selecting colors directly from the stored state."
+          }
+        ]
+      },
+      {
+        "id": "fact:f054fe44-97ec-4f7f-81ef-f22768c7292e",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A584",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Boolean hurtbox-visualization helper with semantic signature `bool (HurtCapsule* hurt, u32 state_override, u32 draw_pass, MtxPtr display_mtx, f32 display_z)`. `state_override` selects the non-intangible color palette, `draw_pass` selects the opaque or translucent rendering pass, `display_mtx` optionally supplies an additional transform, and `display_z` fixes the refreshed endpoints to a depth plane when that transform is present. The return value is true exactly when the capsule is submitted for drawing.",
+        "rationale": "The current declaration preserves the Boolean five-parameter interface and explicitly gives the fourth parameter pointer semantics. The implementation establishes the first selector as a palette-state override, the second as the draw pass, the matrix as optional, the float as its depth plane, and true as the successful-submission result.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:21:32.094Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L121",
+            "why": "Declares the Boolean signature with HurtCapsule, two unsigned selectors, `MtxPtr`, and a float."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2529-L2580",
+            "why": "Shows the palette override, draw-pass selection, optional transform, depth replacement, and true-only-on-render semantics."
+          }
+        ]
+      },
+      {
+        "id": "fact:8b8e373c-1e3b-4830-9357-1215110eecf1",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A584",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Conditionally renders one bone-attached hurt capsule as diagnostic collision geometry using a caller-selected hurtbox color state, while always preserving the capsule's intangible coloring. It refreshes the capsule endpoints when needed, applies an optional display transform and fixed depth plane, draws the capsule at its configured radius, and reports whether geometry was emitted for the current rendering pass.",
+        "rationale": "The current target still performs the override and intangible state selection, pass filtering, endpoint cache refresh, optional transform and depth handling, and capsule submission described by the claim.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2529-L2580",
+            "why": "Shows the complete current override-aware HurtCapsule rendering operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows fighter drawing invoking the helper and consuming successful auxiliary draws."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/it/itdraw.c#L76-L143",
+            "why": "Shows item drawing invoking the helper when an alternate hurtbox state is supplied."
+          }
+        ]
+      },
+      {
+        "id": "fact:06e78dad-3f32-4cfd-bbb8-6f92d5da0a7d",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A584",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The effective visualization state begins as the caller's override but is forced to `HurtCapsule_Intangible` whenever the capsule is intangible. The selected primary color assigns the capsule to pass 0 when its alpha is `0xFF`, otherwise to pass 2; a different requested pass returns false without updating or drawing. On the matching pass, endpoint positions are recomputed only while `skip_update_pos` is clear, after which the flag is set so subsequent capsules passes reuse the cached positions. An optional display matrix enables depth-plane replacement and matrix concatenation; otherwise the bone matrix is used directly.",
+        "rationale": "These branches and mutations are explicit in the matched body. The state override preserves intangible status, the alpha test establishes the two rendering-pass states, the pass guard precedes all endpoint mutation, and `skip_update_pos` controls the one-time refresh. SmashWiki independently confirms that Melee's debug display represents intangible hurtboxes differently from ordinary hurtboxes.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:40:47.725Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2529-L2580",
+            "why": "Directly shows the intangible override, alpha-derived pass selection, early return, cached-position guard, update-flag transition, and optional-transform branch."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://intangibility~overview@r1997771",
+            "why": "Confirms that Melee's debug display specially colors affected hurtboxes during intangibility."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000A78C"
+    },
+    "facts": [
+      {
+        "id": "fact:e7a273d9-ba09-4550-bdc8-f364a0fe3ca7",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A78C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the fighter's `shield_hit`, current draw-pass selector, optional fighter display matrix, and current fighter z position. On the selected pass, it lazily transforms `hit->offset` through `hit->bone` into the cached `hit->pos`, optionally replaces the refreshed z coordinate with `display_z`, and sets `skip_update_pos`. It optionally concatenates the display matrix with the shield hit's bone matrix, duplicates the cached center as both capsule endpoints, and forwards that matrix, the endpoints, `hit->size`, and the shield-specific primary and secondary colors to `lbColl_DrawHitResult`. Its Boolean result flows into the fighter renderer's aggregate GX-state invalidation decision.",
+        "rationale": "The current wrapper and shared helper retain the full shield HitResult flow, while the current fighter caller still supplies `shield_hit`, the display inputs, and consumes the successful result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the shared HitResult flow and shield-specific wrapper at the current head."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows the fighter's `shield_hit`, pass, display matrix, and z position entering the helper and its result contributing to invalidation."
+          }
+        ]
+      },
+      {
+        "id": "fact:a6df6664-13be-4a92-b531-bbf96de32845",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A78C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides pass-aware visualization of the fighter's shield collision volume. It exposes the normally collision-driven protective region as colored diagnostic sphere geometry but does not itself test attacks against the shield, consume shield health, or apply shieldstun and pushback.",
+        "rationale": "The current caller still identifies the input as `shield_hit`, while the wrapper and shared helper remain limited to coordinate caching and graphics submission.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows that the routine only transforms and draws the shield HitResult."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Identifies the rendered record as the fighter's shield collision region."
+          }
+        ]
+      },
+      {
+        "id": "fact:8c2d63a1-d1bb-4d6b-bbe9-cda68eb1fd50",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A78C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawShieldHit",
+        "rationale": "The current sole caller identifies this wrapper's record as `fighter->shield_hit`, and the current source still places it among color-specialized wrappers around `lbColl_DrawHit`.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `lbColl_DrawShieldHit`.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Identifies this wrapper's semantic input as `fighter->shield_hit`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the shield wrapper beside the reflector and absorber color-specialized wrappers."
+          }
+        ]
+      },
+      {
+        "id": "fact:e85e4f4b-b454-48fd-be3b-f6a3174fe654",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A78C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A Boolean shield-visualization helper with semantic signature `bool (HitResult* shield_hit, u32 draw_pass, MtxPtr display_mtx, f32 display_z)`. The HitResult describes a bone-attached shield sphere, `draw_pass` selects opaque versus translucent emission, the optional matrix adapts the sphere to the current fighter display transform, and `display_z` fixes a newly refreshed center to the fighter's display plane when that matrix is supplied. The return value is true exactly when geometry is submitted.",
+        "rationale": "The current header retains the Boolean HitResult, selector, matrix, and float declaration. The current wrapper and shared renderer establish pass filtering, optional display transformation, depth replacement, cached-position behavior, and true-only-on-submission semantics, so the claim remains sound with refreshed evidence.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:21:32.094Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L121",
+            "why": "Declares `lbColl_8000A78C` as a Boolean function taking HitResult, unsigned selector, matrix, and float parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the shared HitResult renderer's pass selection, cached bone-relative position refresh, optional matrix composition and z replacement, geometry submission, Boolean outcomes, and the shield wrapper."
+          }
+        ]
+      },
+      {
+        "id": "fact:71f883d1-fc36-4cf2-9fc2-c56bc21bdaa8",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A78C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Draws a fighter's active shield `HitResult` as a colored spherical collision bubble during the appropriate rendering pass, returning whether it emitted geometry so the fighter draw path can invalidate cached GX state.",
+        "rationale": "The current shield wrapper still supplies shield-specific colors to the shared sphere-rendering helper, and the current fighter path accumulates a true result into graphics-state invalidation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the shield-specific wrapper and shared spherical HitResult renderer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows the active shield record entering the helper and the result contributing to GX-state invalidation."
+          }
+        ]
+      },
+      {
+        "id": "fact:3cee9bb8-cff4-4c75-9f7b-ee75e0e05727",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A78C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The fighter renderer reaches the routine only when its shield-region flag is set. Within the shared renderer, a fully opaque primary color assigns the geometry to draw pass 0 and any other alpha assigns it to pass 2; a different requested pass returns false without updating or drawing. On the matching pass, `skip_update_pos == false` triggers one bone-relative center refresh and changes the flag to true, while later calls reuse the cached center. A non-null display matrix additionally applies the supplied z plane during that refresh and selects a concatenated display/bone matrix; a null matrix uses the bone matrix directly. Successful drawing returns true.",
+        "rationale": "The current caller retains the shield-region guard, and the current shared helper retains the pass guard, one-time cache transition, optional transform behavior, and successful return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows the fighter-side shield-region guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the current pass state, cache transition, optional matrix and depth handling, and true/false outcomes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000A95C"
+    },
+    "facts": [
+      {
+        "id": "fact:3e303f72-420c-4975-91c7-f92399001739",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A95C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter's `reflect_hit`, current draw-pass selector, fighter display matrix, and fighter z position. The reflector color's alpha selects pass 0 when fully opaque or pass 2 otherwise. On the selected pass, it lazily transforms `hit->offset` through `hit->bone` into `hit->pos`, optionally replaces the cached z coordinate with `pos_z`, and sets `skip_update_pos`. It optionally concatenates the display matrix with the bone matrix, duplicates the single cached position as both capsule endpoints, and forwards that matrix, the two endpoints, `hit->size`, and the reflector color pair to `lbColl_DrawHitResult`. Its boolean result flows back to the fighter renderer's aggregate GX-state invalidation decision.",
+        "rationale": "The current reflector wrapper and shared helper preserve the complete stated flow, and the current fighter caller still supplies `reflect_hit` and consumes the successful result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the current reflector wrapper and complete shared HitResult flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows the fighter's `reflect_hit`, pass, display transform, and z input and the result's use."
+          }
+        ]
+      },
+      {
+        "id": "fact:e5030590-c349-451a-8439-4d6f1d05f872",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A95C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides pass-aware visualization of the active collision region that detects projectiles for fighter reflection; it presents the reflector volume but does not itself redirect projectiles or apply reflection multipliers.",
+        "rationale": "The current fighter caller still gates this helper on reflection and supplies `reflect_hit`, while the current target remains a graphics-only wrapper.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Identifies the rendered record as the active fighter reflector HitResult."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows that the routine only transforms and draws that collision region."
+          }
+        ]
+      },
+      {
+        "id": "fact:6cef858f-b10d-4718-a7ef-cd568b03710e",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A95C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawReflectHit",
+        "rationale": "The current caller identifies the record as `reflect_hit` under a `reflecting` guard, and the current source retains the wrapper family around `lbColl_DrawHit`.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `lbColl_DrawReflectHit`.",
+        "confidence": 0.86,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Identifies this wrapper's semantic input and active-state guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the color-specialized reflector wrapper around `lbColl_DrawHit`."
+          }
+        ]
+      },
+      {
+        "id": "fact:cd8ba012-9dc4-4ee7-afed-5095f2148848",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A95C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: `bool (HitResult* reflect_hit, u32 draw_pass, MtxPtr display_mtx, f32 pos_z)`. The first parameter is a joint-attached reflector collision sphere, `draw_pass` selects whether its configured color belongs in the current pass, `display_mtx` is an optional transform composed with the owning bone matrix, and `pos_z` supplies the display-plane depth when that transform is present. The return value reports whether geometry was drawn.",
+        "rationale": "The current header preserves the concrete Boolean four-parameter shape, while the current wrapper and shared renderer show how the pass, optional matrix, depth coordinate, and HitResult are consumed and how the Boolean result reports geometry submission.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-05T05:21:32.094Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L121",
+            "why": "Declares `lbColl_8000A95C` with a Boolean return and HitResult, unsigned selector, matrix, and float parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows how the shared renderer uses the pass, optional matrix, z coordinate, and HitResult, plus the reflector wrapper's dedicated color pair."
+          }
+        ]
+      },
+      {
+        "id": "fact:86901a1f-5a04-41b6-baf9-6fcdae7d7139",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A95C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Draws a fighter reflector's spherical `HitResult` collision region for the selected rendering pass, using the reflector-specific primary and secondary colors, and returns whether it emitted that geometry.",
+        "rationale": "The current wrapper still supplies its reflector-specific color pair to the shared HitResult renderer, and the current fighter path invokes it only for active reflection.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the current reflector-specific wrapper and returned rendering result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows the helper being called with `reflect_hit` only while reflection is active."
+          }
+        ]
+      },
+      {
+        "id": "fact:ee8030f1-d864-45bb-8770-b4df2335df30",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000A95C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "If the reflector color does not belong to the current draw pass, the function returns false without updating or drawing the `HitResult`. On the selected pass, `skip_update_pos == false` triggers one bone-relative position refresh and changes the flag to true; later calls reuse that cached position. A non-null display matrix additionally flattens the cached position to the supplied z plane and selects a concatenated display/bone matrix, while a null matrix leaves the cached z value intact and draws with the bone matrix directly. Successful drawing returns true.",
+        "rationale": "The current shared helper retains the pass-mismatch exit, one-time cache transition, optional depth and transform behavior, and true return after drawing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows all current reflector-wrapper state behavior through the shared HitResult helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L81-L170",
+            "why": "Shows the enclosing fighter renderer reaches the wrapper only while reflection is active."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000AB2C"
+    },
+    "facts": [
+      {
+        "id": "fact:cb4de947-68d0-46f5-9731-39ae5107c0f8",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000AB2C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the fighter's `absorb_hit` HitResult, the current draw pass, an optional fighter display matrix, and the fighter's z position. If the HitResult position cache is stale, it transforms the stored bone-relative offset into `hit->pos`, optionally replaces its z coordinate, and marks the position cached. It optionally concatenates the display matrix with the hit's bone matrix, duplicates the resulting center into both capsule endpoints, and draws geometry using `hit->size` and the absorption-specific color pair. Its Boolean result reports whether the selected pass emitted geometry and is accumulated by the caller into a later GX-state invalidation decision.",
+        "rationale": "Every read, mutation, transform, and output appears in the shared HitResult renderer selected by this wrapper. The fighter caller supplies the absorption record and consumes the return value as an aggregate rendering-state-change signal.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:39:30.955Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2524-L2650",
+            "why": "Shows position-cache refresh, bone transformation, optional z replacement and matrix concatenation, endpoint duplication, size use, geometry submission, and Boolean return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2642-L2650",
+            "why": "Shows this specific wrapper forwarding the inputs and selecting its dedicated primary and secondary colors."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L120-L160",
+            "why": "Shows the fighter absorption record and display inputs flowing into the routine and its result flowing into `do_invalidate`."
+          }
+        ]
+      },
+      {
+        "id": "fact:498b3352-1578-47c5-a37c-65a142618fa0",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000AB2C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Visualizes the fighter collision volume that detects absorption interactions, such as PSI Magnet receiving an absorbable projectile. It is part of Melee's collision-bubble display rather than the gameplay collision test itself.",
+        "rationale": "The caller explicitly supplies the fighter's `absorb_hit` region, and the function only turns that region into rendered sphere geometry. SmashWiki identifies absorption as capturing eligible projectiles or hitboxes and separately documents DEVELOP mode's collision-bubble visualization, grounding both the represented mechanic and the diagnostic presentation.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T13:39:30.955Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L120-L160",
+            "why": "Identifies the visualized HitResult as the fighter's absorption region and places the call among fighter collision-geometry renderers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2524-L2650",
+            "why": "Shows that the routine renders the HitResult as collision geometry without performing an overlap test or applying an absorption effect."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://absorption~__intro__@r2022788",
+            "why": "Defines absorption as capturing eligible projectiles or hitboxes and identifies PSI Magnet as an absorbing move."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://debug-menu-ssbm-develop-mode~__intro__@r2014739",
+            "why": "Documents Melee's DEVELOP-mode controls for displaying character collision bubbles in bubble-only or overlay modes."
+          }
+        ]
+      },
+      {
+        "id": "fact:be4c0e2d-090d-488e-92cf-43dd4b4ec584",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000AB2C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_DrawAbsorbHit",
+        "rationale": "The sole caller passes the field explicitly named `absorb_hit`, while the wrapper delegates to the local `lbColl_DrawHit` helper. Combining the established `lbColl_` prefix, the helper's `DrawHit` wording, and the represented collision category makes `lbColl_DrawAbsorbHit` the most plausible local-convention name, though no symbol source confirms it.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `lbColl_DrawAbsorbHit`.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L120-L160",
+            "why": "Identifies the wrapper's input as the fighter's `absorb_hit`, alongside analogous reflector and shield HitResult drawing calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2524-L2650",
+            "why": "Establishes the local shared-helper name `lbColl_DrawHit` and shows the three category-specific HitResult wrappers."
+          }
+        ]
+      },
+      {
+        "id": "fact:d37ffb9d-065e-4072-9478-d881f1c7930a",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000AB2C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A Boolean collision-visualization helper with semantic signature `bool (HitResult* absorb_hit, u32 draw_pass, MtxPtr display_mtx, f32 display_z)`. The HitResult describes the bone-relative absorption sphere, `draw_pass` selects opaque versus translucent emission, the optional matrix adapts it to the current display transform, and `display_z` flattens its cached position into the fighter's display plane when that matrix is supplied.",
+        "rationale": "The current declaration and wrapper retain the four-argument Boolean shape. The shared renderer establishes the pass, cache, matrix, and depth behavior, while this wrapper forwards the same arguments with its dedicated absorption color pair.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-05T05:21:32.094Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L121",
+            "why": "Declares `lbColl_8000AB2C` with a Boolean return and HitResult, unsigned selector, matrix, and float parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows pass selection, bone-relative cache refresh, optional matrix concatenation, display-depth replacement, spherical HitResult submission, and the absorber wrapper's dedicated colors."
+          }
+        ]
+      },
+      {
+        "id": "fact:7bc0f98e-8f32-45e3-b1df-6d9a5ce07706",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000AB2C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Draws a fighter's active absorption collision region as a colored spherical collision bubble during the appropriate rendering pass, returning whether it emitted geometry so the fighter draw path can invalidate cached GX state.",
+        "rationale": "The fighter draw callback invokes this routine only for the fighter's enabled `absorb_hit` record and treats a true result as a reason to invalidate rendering state. The routine delegates to the shared HitResult drawing helper, which renders coincident endpoints with the HitResult's size, producing a sphere rather than an elongated capsule.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T13:39:30.955Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L120-L160",
+            "why": "Shows that the routine receives `fighter->absorb_hit` only when the associated fighter flag is enabled and that a true return contributes to GX-state invalidation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2524-L2650",
+            "why": "Shows the shared HitResult renderer updating one position, copying it to both geometry endpoints, applying the HitResult size, and submitting the result to the collision-geometry drawing helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2642-L2650",
+            "why": "Shows this wrapper selecting its dedicated primary and secondary colors and delegating all rendering to the shared HitResult drawing helper."
+          }
+        ]
+      },
+      {
+        "id": "fact:6e16f87d-0c65-48f1-9b49-24c2bb9b1afb",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000AB2C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The caller invokes the routine only while the fighter's absorption-region flag is set. Within the renderer, the primary color's alpha class selects pass 0 when fully opaque and pass 2 otherwise; a different requested pass immediately returns false. On the selected pass, a clear `skip_update_pos` flag causes one bone-relative position refresh followed by setting that flag, while an already-cached position is reused. Successful drawing returns true; all guarded no-draw paths return false.",
+        "rationale": "The fighter-side flag guard is explicit in the caller. The shared HitResult helper contains the alpha-to-pass branch, position-cache guard and mutation, successful true return, and false return when the pass does not match.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T13:39:30.955Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftdrawcommon.c#L120-L160",
+            "why": "Shows the fighter flag that gates visualization of `absorb_hit`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2524-L2650",
+            "why": "Shows opaque-versus-translucent pass selection, the cached-position transition, and the true/false return paths."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1428092388399644882",
+            "why": "Independently identifies the shared integer used by this family of collision routines as a general rendering-pass flag."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/lb/lbcollision:lbColl_8000ACFC"
+    },
+    "facts": [
+      {
+        "id": "fact:d52b664e-a3f5-4ac3-a39c-6e60091d38e6",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000ACFC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a candidate fighter, item, or other collision participant as an opaque identity together with an attacking HitCapsule. It reads every entry of `hitbox->victims_1`, compares each stored `HitVictim.victim` pointer with the candidate, and returns true on a match or false after exhausting the table. Callers consume false as permission to continue hitbox eligibility and geometry checks; the function does not alter the capsule or victim.",
+        "rationale": "The current body remains a read-only scan of `victims_1`, and current fighter and item-grab collision paths still use absence from the table as an eligibility guard.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the complete current pointer-membership scan and Boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1612-L1768",
+            "why": "Shows fighter candidates being rejected when already present in an attack capsule's history."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3544-L3625",
+            "why": "Shows item candidates being checked before catch-capsule overlap tests."
+          }
+        ]
+      },
+      {
+        "id": "fact:242a6ba2-5350-4cef-ae17-5d5e18b729f6",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000ACFC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the lookup side of Melee's hitbox victim-history mechanic. Collision passes use it to recognize a fighter or item already associated with an active logical hitbox and suppress another contact until the surrounding victim-history or hitbox state permits that target to be treated as new again.",
+        "rationale": "The current function still queries the primary victim table, current collision callers still require absence before proceeding, and neighboring current routines still maintain the bounded history.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the primary HitVictim history membership query."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows the neighboring clear, copy, and registration operations that maintain bounded per-hitbox victim history."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1612-L1768",
+            "why": "Shows absence from victim history being required before further fighter collision processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:1949ef08-db78-4f5a-9532-8f6ccd85b7f3",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000ACFC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "lbColl_HasHitCapsuleVictim",
+        "rationale": "The current body remains a pure Boolean membership predicate over a HitCapsule's primary victim array, distinct from neighboring routines that mutate or copy that history.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbColl_HasHitCapsuleVictim`.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the non-mutating HitCapsule victim-membership predicate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows the distinct neighboring clear, copy, and registration operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:e22ed042-8a66-40c6-a927-2ad3f9710bef",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000ACFC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Read-only Boolean membership predicate with semantic signature `bool (void* victim, HitCapsule* hitbox)`. `victim` is an opaque identity pointer that is compared, but never dereferenced, against the `HitVictim.victim` entries in `hitbox->victims_1`.",
+        "rationale": "The current header still declares a Boolean function taking an opaque pointer and HitCapsule pointer. The current body only compares the supplied identity against primary victim-history entries and returns membership without dereferencing the identity or mutating the capsule.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-05T05:21:32.094Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/lb/lbcollision.h#L1-L121",
+            "why": "Declares `lbColl_8000ACFC` as `bool (void*, HitCapsule*)`."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the opaque victim identity used only for equality comparisons against `hitbox->victims_1`, with no dereference or mutation."
+          }
+        ]
+      },
+      {
+        "id": "fact:a246aa18-39a5-467d-b74c-d54d0ea1a8ee",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000ACFC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Tests whether a supplied victim identity is already present in a hit capsule's primary victim-history table, allowing collision callers to reject repeat processing for victims that the hitbox has already recorded.",
+        "rationale": "The current target still returns primary-table membership, and current collision callers still place a false result among the conditions required before overlap processing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the complete current primary victim-history membership test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L1612-L1768",
+            "why": "Shows the predicate used as a false-required attack-collision eligibility guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3544-L3625",
+            "why": "Shows the same predicate suppressing further item-grab collision testing for recorded candidates."
+          }
+        ]
+      },
+      {
+        "id": "fact:63475e44-5a0e-4b95-9d47-e9bf5426607e",
+        "target_id": "target:function:main/melee/lb/lbcollision:lbColl_8000ACFC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The function has two outcomes and no mutations: if any primary-history slot contains the supplied identity, it returns true; otherwise it returns false after scanning the fixed table. Consequently, a candidate remains suppressed at guarded collision call sites while its identity is present. Registration, clearing, copying, and full-table replacement are handled by neighboring routines, so this predicate only observes the current history state.",
+        "rationale": "The current body remains read-only, while current neighboring routines perform all victim-history mutation and current call sites demonstrate the suppression effect.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:59:12.849Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L2584-L2665",
+            "why": "Shows the found and not-found outcomes and absence of writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/lb/lbcollision.c#L1725-L1859",
+            "why": "Shows that registration, clearing, copying, and bounded replacement are handled elsewhere."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcoll.c#L3544-L3625",
+            "why": "Shows a true membership result suppressing further collision testing for an item candidate."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80008DA4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80008DA4#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80008FC8#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80008FC8#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80008FC8#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80008FC8#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80008FC8#r7"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_800096B4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_800096B4#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_800096B4#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_800096B4#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_800096B4#r7"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_800096B4#r8"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80009DD4#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80009DD4#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80009DD4#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80009F54#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80009F54#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_80009F54#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A044#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A044#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A044#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A10C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A10C#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A10C#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A1A8#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A1A8#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A1A8#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A244#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A244#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A244#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A244#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A460#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A460#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A584#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A584#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A584#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A584#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A584#r7"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A78C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A78C#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A78C#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A78C#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A95C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A95C#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A95C#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000A95C#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000AB2C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000AB2C#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000AB2C#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000AB2C#r6"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000ACFC#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/lb/lbcollision:lbColl_8000ACFC#r4"
+    },
+    "facts": []
+  }
+]

@@ -1,0 +1,155 @@
+{
+  "tu": "main/melee/db/dbscreenshot",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbscreenshot.c#L11-L89",
+            "why": "Declarations, latch operations, initialization, coalesced requests, increment ordering, fixed buffer, and ignored output status."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the speed-word characterization and unqualified monotonicity while preserving the supported state lifecycle and documenting attempt-versus-success behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbscreenshot:.sbss"
+        },
+        "type": "state_behavior",
+        "value": "The speed latch is the b0 field: setup clears it, and the toggle inverts it before selecting the speed-setting or reset call. Screenshot initialization clears the pending flag and resets the signed sequence number. Controller requests coalesce by assigning pending = 1. On a normal deferred service attempt, the old sequence is saved, the global is incremented before formatting and output, and pending is cleared after the unchecked write call returns. A write failure does not preserve the request for retry. Numbering increases between resets only within the limits of signed arithmetic and the fixed filename buffer; it is not an unlimited monotonic counter."
+      },
+      {
+        "confidence": 1,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbscreenshot.c#L64-L89",
+            "why": "Exact signature and paths reaching the end of the routine."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes a void return type from non-returning control flow.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbscreenshot:db_TakeScreenshotIfPending"
+        },
+        "type": "inferred_type",
+        "value": "Exact signature: void db_TakeScreenshotIfPending(void). This parameterless screenshot-service routine returns no value and uses screenshot globals and HSD video state as its effective inputs. It returns normally on idle and normal capture paths; it is not a non-returning function."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbscreenshot.c#L72-L89",
+            "why": "Pending guard, assertion, increment, output, and clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/video.c#L322-L379",
+            "why": "Flush bypass, waiting states, and selector precedence."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/debug.h#L11-L32",
+            "why": "Assertion declaration and macro expansion."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves verified selection precedence and unchecked-write behavior while adding the flush exception and precise failure-path ordering.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbscreenshot:db_TakeScreenshotIfPending"
+        },
+        "type": "state_behavior",
+        "value": "With pending == 0, the function returns without work. Otherwise it calls HSD_VIWaitXFBFlush, which bypasses waiting with fewer than two XFBs and otherwise waits while WAITDONE, DRAWDONE, or NEXT slots exist. Selection searches WAITDONE, DRAWDONE, NEXT, then DISPLAY. A -1 result reports cant find xfb and calls the non-returning assertion path before sequence advancement or request clearing. On the normal path, it increments the sequence before formatting the old value into the filename, attempts one write, ignores its return value, and clears pending after the call returns."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L256",
+            "why": "Conditional refresh count, pressed-mask producer, and four-slot dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbscreenshot.c#L21-L38",
+            "why": "Mask guard and delegated shared-latch mutation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the assumption that every checked slot was freshly updated.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbscreenshot:fn_Check5xSpeed"
+        },
+        "type": "data_flow",
+        "value": "The debug-level-gated db_RunEveryFrame dispatcher passes slot indices 0 through 3. It normally refreshes four debug input slots, but refreshes only slots 0 and 1 when Master Hand or Crazy Hand is present while still invoking the checker for all four. The checker reads the selected slot's stored current and pressed masks, tests held A and pressed D-pad right, and delegates a match to fn_Toggle5xSpeed. That routine flips the shared b0 latch and selects gm_SetGameSpeed(5.0f) or gm_ResetGameSpeed."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbscreenshot.c#L21-L38",
+            "why": "One conditional toggle per invocation and no input-state mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbinit.c#L163-L256",
+            "why": "Pressed-mask refresh limits and multiple per-frame invocations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes edge-trigger guarantees conditional on the actual producer and preserves cross-file state lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/db/dbscreenshot:fn_Check5xSpeed"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation toggles the shared speed latch once if the selected slot's stored current mask contains A and its stored pressed mask contains D-pad right. It does not consume or clear either mask. For a freshly refreshed slot, a held right button produces no new pressed edge after the initial transition. That guarantee does not apply to an unrefreshed slot: the boss-hand dispatcher branch refreshes two slots but checks four, so retained pressed bits in slots 2 and 3 can be observed again. Multiple qualifying slots can also cause multiple toggles in one frame."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbscreenshot.c#L21-L98",
+            "why": "Both input paths and complete local output ordering."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects increment ordering and avoids treating the selector's name as proof of completion.",
+        "subject": {
+          "entity_locator": "src/melee/db/dbscreenshot.c"
+        },
+        "type": "data_flow",
+        "value": "Held A plus the debug input slot's D-pad-right pressed bit invokes a shared latch toggle and selects the 5.0f speed setter or reset. Held Y plus a master-pad D-pad-up trigger sets a coalescing screenshot request. Deferred capture calls the XFB flush and selector, obtains the selected buffer unless selection returns -1, saves the old sequence and increments the global, formats the old value into USB:shot/screenshot%02d.frb, then attempts output of fbWidth * xfbHeight * 2 bytes. The adapter strips USB: and forwards to hsd_80393A5C. After the call returns, capture clears pending without checking output status."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/db/dbscreenshot.c#L11-L89",
+            "why": "State declarations, setup, exported toggle, request handling, resets, and attempt ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_16AE.c#L258-L266",
+            "why": "Setter and reset timing formulas."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces overly broad chord-only and monotonicity claims with verified lifecycle and configured-reset semantics.",
+        "subject": {
+          "entity_locator": "src/melee/db/dbscreenshot.c"
+        },
+        "type": "state_behavior",
+        "value": "The module tracks a speed-latch bit, an unsigned pending flag, and a signed screenshot sequence. Speed setup clears only the latch, not game timing. Each call to the exported toggle flips the latch and applies 5.0f or resets timing from the configured match game_speed; reset does not restore a saved pre-toggle value or necessarily select 1.0. Screenshot requests coalesce and persist until initialization clears them or a normal service attempt returns from output and clears pending. Initialization also restarts numbering and may reuse filenames. Capture advances the sequence before output regardless of write success; unlimited monotonicity is not guaranteed by the signed counter or fixed filename buffer."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

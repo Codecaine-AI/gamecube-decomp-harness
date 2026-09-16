@@ -1,0 +1,1522 @@
+[
+  {
+    "id": "fact:fd3de31d-ec37-4f71-9fb3-04b38d7e3574",
+    "target_id": "target:data:main/melee/gm/gmcameramode:.sbss",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Its address is supplied as both the enter-data and exit-data pointer for the `GS_CAMERA_VS` entry in `gm_Mode_Camera_States`, so the game-mode state machinery shares the same storage across entry and exit processing of that scene.",
+    "rationale": "The two consecutive payload fields in the state descriptor both contain `&gm_804D68C8`, directly establishing how this storage enters and leaves the scene-state data flow.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:40:07.496Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L46",
+        "why": "The first Camera Mode state descriptor places `&gm_804D68C8` in both payload positions following `GS_CAMERA_VS`."
+      }
+    ]
+  },
+  {
+    "id": "fact:228b4c1c-c2e5-49a3-8633-fb9838e0542f",
+    "target_id": "target:data:main/melee/gm/gmcameramode:.sbss",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Backs the transition payload for Melee's Camera Mode VS-camera scene.",
+    "rationale": "The object is owned by the Camera Mode unit and is attached specifically to the state-table entry named `GS_CAMERA_VS`, grounding it in the Camera Mode mechanic rather than general camera control.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-04T21:40:07.496Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L46",
+        "why": "The Camera Mode state table assigns this storage specifically to `GS_CAMERA_VS`."
+      }
+    ]
+  },
+  {
+    "id": "fact:91a29489-3341-4417-aa22-ff6e70ecdb8b",
+    "target_id": "target:data:main/melee/gm/gmcameramode:.sbss",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A single translation-unit-local `s64` object, occupying eight bytes of small BSS.",
+    "rationale": "The declaration explicitly gives the object static storage and type `s64`; the target metadata identifies the corresponding eight-byte `.sbss` allocation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:40:07.496Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L46",
+        "why": "Line 31 declares `gm_804D68C8` as a translation-unit-local `static s64`."
+      }
+    ]
+  },
+  {
+    "id": "fact:60cb010b-4f97-42cc-a1eb-4814d2542be5",
+    "target_id": "target:data:main/melee/gm/gmcameramode:.sbss",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the private eight-byte payload storage used by Camera Mode's VS-camera scene entry.",
+    "rationale": "The unit defines one static eight-byte object and places its address in both payload slots of the Camera Mode state-table entry for the VS-camera scene, showing that the section exists to supply that scene's shared transition storage.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:40:07.496Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L46",
+        "why": "The source defines `gm_804D68C8` and uses its address in both payload fields of the `GS_CAMERA_VS` state-table entry."
+      }
+    ]
+  },
+  {
+    "id": "fact:2e9cae40-b5f2-4f99-85b2-b2105f79f52d",
+    "target_id": "target:data:main/melee/gm/gmcameramode:.sbss",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Belongs to Camera Mode state ID 0, whose scene is `GS_CAMERA_VS`; that state retains one shared payload object across its enter and exit sides.",
+    "rationale": "The state-table initializer associates state ID 0 and `GS_CAMERA_VS` with the same object in both transition-data slots.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:40:07.496Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L46",
+        "why": "The table entry containing state ID 0 and `GS_CAMERA_VS` references `gm_804D68C8` for both scene payloads."
+      }
+    ]
+  },
+  {
+    "id": "fact:985eabc4-4a29-4756-b3a1-352c1db1ecd5",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B23F0",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Computes and 32-byte-aligns the byte size of a 640\u00d7480 GX texture, obtains fixed snapshot buffer sizes of 0x3E840 and 0x840 bytes, and registers those sizes as preload-cache entries 2006, 2007, and 2008. Camera Mode later retrieves entries 2007 and 2008 and installs them as the snapshot subsystem's main storage and two-slot state area.",
+    "rationale": "The relocated target directly supplies the aligned GX texture size and the two lbSnap-reported sizes to lbDvd_80017740. The current preload-cache implementation stores each supplied entry number and size, while the current Camera Mode entry flow retrieves entries 2007 and 2008 and passes them to lbSnap_8001E218, whose body retains them as snapshot storage pointers.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B23F0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L82-L127",
+        "why": "Shows the target registering entries 2006\u20132008 and the following Camera Mode callback retrieving entries 2007 and 2008 for snapshot initialization."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lbdvd.c#L102-L202",
+        "why": "Shows lbDvd_80017740 recording the supplied entry number and allocation size in a preload-cache entry."
+      },
+      {
+        "kind": "code",
+        "locator": "code://995e215437/src/melee/lb/lbsnap.c#L327-L421",
+        "why": "Shows the snapshot size routines returning 0x3E840 and 0x840 and lbSnap_8001E218 retaining the supplied pointers as its main buffer and slot array."
+      }
+    ]
+  },
+  {
+    "id": "fact:d87be4b5-ba1f-4af5-870d-54234817d757",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B23F0",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Supports Melee's Camera Mode snapshot feature by reserving the texture and snapshot-state storage needed before the mode begins.",
+    "rationale": "The current preload scheduler invokes the target only for GM_CAMERA_MODE, and Camera Mode subsequently supplies two of its allocations to the snapshot subsystem. The wiki identifies Camera Mode as the Melee feature used to capture snapshots, grounding these internal resources in the player-visible mechanic.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B23F0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lbdvd.c#L102-L202",
+        "why": "Shows gm_801B23F0 dispatched specifically from the GM_CAMERA_MODE preload case."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L82-L127",
+        "why": "Shows Camera Mode registering its buffers and then using two preloaded entries to initialize lbSnap."
+      },
+      {
+        "kind": "wiki",
+        "locator": "wiki://snapshot~in-super-smash-bros-melee@r1947291",
+        "why": "States that Melee snapshots are captured through Camera Mode and can be saved to a memory card."
+      }
+    ]
+  },
+  {
+    "id": "fact:103c020c-e657-4193-b5b2-513c9fcf75bc",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B23F0",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "gm_PreloadCameraModeResources",
+    "rationale": "The function remains address-named, but its current body exclusively registers three Camera Mode preload allocations and its sole caller dispatches it from the GM_CAMERA_MODE preload branch. A mode-qualified resource-preload name therefore describes its demonstrated role, although no surviving symbol establishes the exact original spelling.",
+    "confidence": 0.74,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B23F0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L82-L88",
+        "why": "Shows the function's complete behavior: registering three buffer allocations through the preload-cache API."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lbdvd.c#L102-L202",
+        "why": "Shows the preload scheduler invoking this function only for GM_CAMERA_MODE."
+      }
+    ]
+  },
+  {
+    "id": "fact:f8e1b588-53d5-4554-9674-5509d20ca6ab",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B23F0",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A mode-specific preload-registration callback with signature void(void).",
+    "rationale": "The relocated definition explicitly returns void and takes no parameters. Its caller invokes it without arguments from the GM_CAMERA_MODE branch while constructing the incoming scene's preload set.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B23F0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L82-L88",
+        "why": "Shows the concrete void(void) definition and its preload-registration calls."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lbdvd.c#L102-L202",
+        "why": "Shows the function called without arguments during GM_CAMERA_MODE preload construction."
+      }
+    ]
+  },
+  {
+    "id": "fact:895ed84b-54ea-4378-a9cc-9650a71d56d5",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B23F0",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Registers Camera Mode's three mode-specific preload-cache allocations: a 640\u00d7480 texture-sized buffer and two snapshot-system buffers, so they are available when the Camera Mode scene flow starts.",
+    "rationale": "The current function computes and aligns the required GX texture storage and registers entries 2006\u20132008, with the latter two sized by snapshot-subsystem routines. The preload scheduler selects it only for GM_CAMERA_MODE, and the mode's subsequent scene setup consumes entries 2007 and 2008 to initialize snapshot storage.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B23F0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L82-L127",
+        "why": "Shows all three registrations and the subsequent Camera Mode callback's consumption of the two snapshot allocations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lbdvd.c#L102-L202",
+        "why": "Shows the cache-registration semantics and the target's GM_CAMERA_MODE-specific dispatch."
+      },
+      {
+        "kind": "code",
+        "locator": "code://995e215437/src/melee/lb/lbsnap.c#L327-L421",
+        "why": "Shows the two fixed allocation sizes and how the corresponding storage pointers initialize snapshot state."
+      }
+    ]
+  },
+  {
+    "id": "fact:96adc2f2-8879-442e-9b7f-5978fc929f82",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B23F0",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Runs during incoming-scene preload construction only when the new scene cache is marked GM_CAMERA_MODE; it reserves the mode's resources before Camera Mode setup resets the preload state, records the active mode, and initializes the snapshot subsystem from the completed preload entries.",
+    "rationale": "The current DVD scheduler guards the call with the GM_CAMERA_MODE switch case. The following Camera Mode callback resets versus preload state, sets mode_kind to GM_CAMERA_MODE, completes preload processing, and consumes entries 2007 and 2008 through lbSnap_8001E218.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B23F0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/lb/lbdvd.c#L102-L202",
+        "why": "Shows gm_801B23F0 called only from the GM_CAMERA_MODE case during preload-cache construction."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L82-L127",
+        "why": "Shows the resource registrations followed by Camera Mode setup, mode assignment, preload completion, and snapshot initialization."
+      }
+    ]
+  },
+  {
+    "id": "fact:c94a686b-ddab-4e9b-8505-d601911ce8c3",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B24B4",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Obtains the preload cache's GameCache, writes GM_CAMERA_MODE to mode_kind, allocates card work storage, retrieves preloaded archives 0x7D7 and 0x7D8, and passes both archive pointers to lbSnap_8001E218.",
+    "rationale": "The relocated body directly shows each source, mutation, and resource consumer.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B24B4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L90-L102",
+        "why": "Shows the complete cache and archive data flow."
+      }
+    ]
+  },
+  {
+    "id": "fact:e10b8c33-a925-4c9a-a5f0-743412686675",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B24B4",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements resource initialization for Camera Mode's camera-and-snapshot interface.",
+    "rationale": "The function explicitly selects GM_CAMERA_MODE and initializes lbSnap using the mode's preloaded archives.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B24B4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L90-L102",
+        "why": "Shows GM_CAMERA_MODE cache configuration and snapshot subsystem initialization."
+      }
+    ]
+  },
+  {
+    "id": "fact:637dc625-cfa1-417f-9665-3c7a5389d8e7",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B24B4",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A game-mode state enter callback with signature void(GameModeState*); its parameter is unused because initialization operates on global preload and snapshot resources.",
+    "rationale": "The state-table slot establishes the callback role, while the body never reads its GameModeState pointer and instead accesses global resource systems.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B24B4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L90-L102",
+        "why": "Shows the void(GameModeState*) signature, unused parameter, and global resource operations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L40",
+        "why": "Places the function in the state-enter callback slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:886c8035-6684-4923-a413-16591644d55f",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B24B4",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Prepares Camera Mode's initial GS_CAMERA_VS state by configuring the preload cache for GM_CAMERA_MODE, allocating card work storage, and initializing lbSnap from preloaded archives 0x7D7 and 0x7D8.",
+    "rationale": "The state table registers the function as state 0's enter callback, and the body performs the Camera Mode cache and snapshot-resource initialization.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B24B4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L90-L102",
+        "why": "Shows the cache, card-work, and snapshot initialization."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L40",
+        "why": "Registers the function as the enter callback for Camera Mode state 0, GS_CAMERA_VS."
+      }
+    ]
+  },
+  {
+    "id": "fact:e60d65a0-c498-4b36-8cb7-873bd1a9097e",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B24B4",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Runs unconditionally on entry to Camera Mode state 0, GS_CAMERA_VS, and performs no transition itself. Its paired exit callback schedules GM_MENU when the state's integer exit value is 1 or 2.",
+    "rationale": "The state table pairs gm_801B24B4 with gm_801B2510, while their bodies show branch-free entry setup and guarded menu-transition behavior.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B24B4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L40",
+        "why": "Identifies the paired callbacks for Camera Mode state 0."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L90-L111",
+        "why": "Shows unconditional entry initialization and the paired exit callback's status guard."
+      }
+    ]
+  },
+  {
+    "id": "fact:cd8146f3-3baf-493a-910d-b3289822ee4d",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2510",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Passes the departing GameModeState to gm_GetGameModeStateExitData, reads the returned payload's first integer, and forwards statuses 1 or 2 into scene control as a request for GM_MENU; other statuses produce no output.",
+    "rationale": "The complete body has one payload input and one guarded transition output, with no other mutations.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2510"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L104-L111",
+        "why": "Shows the full input, discrimination, and output path."
+      }
+    ]
+  },
+  {
+    "id": "fact:4ab2fd16-04e6-4ace-92b1-0c822d9bb4b5",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2510",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements exit-to-menu handling for Camera Mode's initial camera-and-snapshot state.",
+    "rationale": "The function exits the dedicated GS_CAMERA_VS state in the Camera Mode sequence and conditionally returns control to GM_MENU.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2510"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L40",
+        "why": "Places the callback in Camera Mode's GS_CAMERA_VS state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L104-L111",
+        "why": "Shows its conditional return to the menu."
+      }
+    ]
+  },
+  {
+    "id": "fact:cf36efd2-49e3-49f8-924e-1c55e89d5043",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2510",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A game-mode state exit callback with signature void(GameModeState*); it obtains an exit payload through gm_GetGameModeStateExitData and interprets its first value as an integer status.",
+    "rationale": "The current signature, accessor use, integer dereference, and state-table slot establish the callback type and payload interpretation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2510"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L104-L111",
+        "why": "Shows the void(GameModeState*) signature and integer exit-payload access."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L40",
+        "why": "Places the function in the GS_CAMERA_VS exit-callback slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:213cc15b-85e1-4652-ae79-ec84f96cb71a",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2510",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Handles exit from Camera Mode's initial GS_CAMERA_VS state by reading its integer exit status and scheduling GM_MENU when the status is 1 or 2.",
+    "rationale": "The state table assigns the function to state 0's exit slot, and its complete body contains precisely this guarded transition.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2510"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L104-L111",
+        "why": "Shows the exit-data read and menu transition for statuses 1 and 2."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L40",
+        "why": "Registers the function as the exit callback for state 0, GS_CAMERA_VS."
+      }
+    ]
+  },
+  {
+    "id": "fact:cc7e7c7c-30c1-4343-b6d4-c53377f7fc9e",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2510",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "On exit from Camera Mode state 0, statuses 1 and 2 both schedule GM_MENU after the current scene. Every other status leaves the next game mode unchanged.",
+    "rationale": "The state table identifies the callback's state, and its only branch combines the two status guards around the same transition call.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2510"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L27-L40",
+        "why": "Identifies the callback as the exit handler for Camera Mode state 0."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L104-L111",
+        "why": "Shows the exact status guards and the absence of an alternate transition."
+      }
+    ]
+  },
+  {
+    "id": "fact:6dea68d0-b9ae-42d3-9aab-e7586f74b13f",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B254C",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads gmMainLib_804D3EE0->modes.vs_camera and the KO-count array from gmVsMelee_GetKOCounts, writes both into the entering state's CSSData, then configures the preload cache's mode_kind as GM_CAMERA_MODE.",
+    "rationale": "The relocated body explicitly shows both inputs, the CSSData destination, and the preload-cache side effect.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B254C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L113-L133",
+        "why": "Shows all sources, destinations, and cache updates."
+      }
+    ]
+  },
+  {
+    "id": "fact:71d901ed-be96-4c79-83a9-82c2b7444ffd",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B254C",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements the character-selection setup step of Camera Mode.",
+    "rationale": "The function is registered for Camera Mode's GS_CSS state, copies that mode's persistent setup into CSSData, and marks the preload cache as GM_CAMERA_MODE.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B254C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L52",
+        "why": "Places the function in Camera Mode's character-select state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L113-L133",
+        "why": "Shows Camera Mode configuration being used to prepare CSSData."
+      }
+    ]
+  },
+  {
+    "id": "fact:f29afdb6-33fa-4077-9954-0f24f22f2f63",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B254C",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "gm_PrepCameraModeCSSScene",
+    "rationale": "The function prepares the GS_CSS entering payload, and the corresponding GS_VS enter callback in the same state table is named gm_PrepCameraModeVSScene.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely gm_PrepCameraModeCSSScene.",
+    "confidence": 0.82,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B254C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L78",
+        "why": "Places the target in Camera Mode's GS_CSS enter slot and shows gm_PrepCameraModeVSScene in the analogous GS_VS slot."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L113-L133",
+        "why": "Confirms that the body prepares the character-select entering payload."
+      }
+    ]
+  },
+  {
+    "id": "fact:4d8f0b39-bbd6-41f0-a2b0-30fd037625f9",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B254C",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A game-mode state enter callback with signature void(GameModeState*); it obtains and populates a CSSData payload through gm_GetGameModeStateEnterData.",
+    "rationale": "The current signature, enter-data accessor, and GS_CSS state-table slot establish the corrected callback type.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B254C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L113-L133",
+        "why": "Shows the void(GameModeState*) signature and CSSData entering payload."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L52",
+        "why": "Places the function in the GS_CSS enter-callback slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:04bc86b4-e02d-4c96-82a7-4ca7daeb131f",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B254C",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Prepares Camera Mode's character-select state by populating CSSData from the persistent Versus configuration, attaching KO-count storage, and configuring the preload cache for GM_CAMERA_MODE.",
+    "rationale": "The function is Camera Mode state 1's enter callback and writes all of these values into the entering payload and preload cache.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B254C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L113-L133",
+        "why": "Shows CSSData initialization and Camera Mode preload-cache setup."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L52",
+        "why": "Registers the function as the enter callback for state 1, GS_CSS."
+      }
+    ]
+  },
+  {
+    "id": "fact:0981777d-cd94-49f1-b334-aa418a3a4a32",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B254C",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Runs when Camera Mode enters state 1, GS_CSS, and initializes its character-select payload. Its paired exit callback returns to GM_MENU on cancellation or otherwise preserves the edited configuration.",
+    "rationale": "The state table pairs gm_801B254C with gm_801B25D4, and the two current bodies show payload initialization followed by cancellation-or-persistence handling.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B254C"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L52",
+        "why": "Identifies the paired enter and exit callbacks for Camera Mode state 1."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L113-L159",
+        "why": "Shows the character-select initialization and paired departure behavior."
+      }
+    ]
+  },
+  {
+    "id": "fact:c663c621-4c4b-49c2-88f3-0ef5ba33cbd7",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B25D4",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads CSSData from the departing state. On normal completion it copies css->vs into gmMainLib_804D3EE0->modes.vs_camera, maps all six selected character kinds into a combined 64-bit mask, and submits that mask through the audio update sequence; cancellation instead only schedules GM_MENU.",
+    "rationale": "The relocated body directly shows the exit payload, persistent destination, roster-mask loop, audio consumers, and mutually exclusive cancellation path.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B25D4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L135-L159",
+        "why": "Shows the complete data flow for cancellation and normal character-select departure."
+      }
+    ]
+  },
+  {
+    "id": "fact:6ef481f6-31ac-4b43-ac3b-ec953db1a0ac",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B25D4",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements Camera Mode's character-selection exit step, either leaving the mode on cancellation or carrying the selected roster and rules onward.",
+    "rationale": "The dedicated Camera Mode state table assigns this function to GS_CSS, while the body handles cancellation and persistence of the selected Versus configuration.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B25D4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L52",
+        "why": "Places the callback in Camera Mode's character-select state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L135-L159",
+        "why": "Shows cancellation or preservation of the character-select result."
+      }
+    ]
+  },
+  {
+    "id": "fact:8c972e65-c98e-481c-b5cb-42806c4177f9",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B25D4",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A game-mode state exit callback with signature void(GameModeState*); it obtains a CSSData payload through gm_GetGameModeStateExitData.",
+    "rationale": "The current declaration, payload accessor, and state-table slot establish the corrected GameModeState callback type and CSSData payload.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B25D4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L135-L159",
+        "why": "Shows the void(GameModeState*) signature and CSSData returned by the exit-data accessor."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L52",
+        "why": "Places the function in the GS_CSS exit-callback slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:68bef4dd-be19-4b01-b56f-4ef8d608c254",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B25D4",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Handles exit from Camera Mode's character-select state: cancellation schedules a return to GM_MENU, while normal completion preserves the selected Versus configuration and updates audio state from the selected roster.",
+    "rationale": "The current function is the exit callback for state 1, GS_CSS, and its body contains the cancellation branch, persistent-state copy, six-player mask construction, and audio update sequence.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B25D4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L135-L159",
+        "why": "Shows both exit paths and the normal path's persistent configuration and audio updates."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L52",
+        "why": "Registers the function as the exit callback for Camera Mode state 1, GS_CSS."
+      }
+    ]
+  },
+  {
+    "id": "fact:36067ad5-a986-4cbf-b1b9-e822c56a7ca5",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B25D4",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Runs when Camera Mode leaves state 1, GS_CSS. If pending_scene_change equals 2 it schedules GM_MENU and returns; otherwise it commits the edited CSS configuration and audio state so the Camera Mode sequence can continue.",
+    "rationale": "The state descriptor identifies the callback's state, and the body uses an early return to separate the menu transition from the persistence and audio updates.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B25D4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L52",
+        "why": "Identifies state 1 as GS_CSS and assigns this exit callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L135-L159",
+        "why": "Shows the pending_scene_change guard, menu transition, early return, and continuing path."
+      }
+    ]
+  },
+  {
+    "id": "fact:da2e561c-4f7e-4bf9-a997-7993b50a4406",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B26AC",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads persistent Camera Mode VsModeData from gmMainLib_804D3EE0->modes.vs_camera, copies it into the entering state's SSSData, and passes the populated payload to gm_80167FC4.",
+    "rationale": "The relocated body directly identifies the persistent source, SSSData destination, structure copy, and downstream consumer.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B26AC"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L161-L169",
+        "why": "Shows the complete persistent-state-to-stage-select data flow."
+      }
+    ]
+  },
+  {
+    "id": "fact:c7b93d35-8714-4e92-a5fe-fe136e174b62",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B26AC",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements the stage-selection entry step of Camera Mode, carrying selected characters and match rules into the stage-select screen.",
+    "rationale": "The callback enters Camera Mode's GS_SSS state and copies that mode's persistent Versus setup into the stage-select payload.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B26AC"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L51-L65",
+        "why": "Places the callback in Camera Mode's stage-select state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L161-L169",
+        "why": "Shows the persistent Camera Mode setup being copied into SSSData."
+      }
+    ]
+  },
+  {
+    "id": "fact:be252ba1-0483-4878-a841-4fdfe3d0f02c",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B26AC",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "gm_CameraMode_EnterSss",
+    "rationale": "The target is demonstrably Camera Mode's GS_SSS enter callback, and the generic Versus helper uses EnterSss terminology for the same SSSData-copy and initialization operation.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is gm_CameraMode_EnterSss.",
+    "confidence": 0.73,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B26AC"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L51-L65",
+        "why": "Identifies the target as Camera Mode's GS_SSS enter callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmvsmelee.c#L148-L156",
+        "why": "Shows gmVsMelee_EnterSss performing the analogous SSSData copy and initialization."
+      }
+    ]
+  },
+  {
+    "id": "fact:b3ece170-b6fd-403d-a14b-9a83e8db15bf",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B26AC",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A game-mode state enter callback with signature void(GameModeState*); it obtains and populates an SSSData payload through gm_GetGameModeStateEnterData.",
+    "rationale": "The current declaration, enter-data accessor, and GS_SSS state-table slot establish the corrected callback type.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B26AC"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L161-L169",
+        "why": "Shows the void(GameModeState*) signature and SSSData entering payload."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L51-L65",
+        "why": "Places the function in the GS_SSS enter-callback slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:822b60e9-2a47-411c-a75b-4bed879024f7",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B26AC",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Prepares Camera Mode's stage-select state by copying the persistent Versus configuration into the entering state's SSSData and invoking the common stage-select initializer.",
+    "rationale": "The function is Camera Mode state 2's enter callback and performs exactly the persistent-state copy and gm_80167FC4 initialization.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B26AC"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L161-L169",
+        "why": "Shows SSSData population and the common stage-select initialization call."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L51-L65",
+        "why": "Registers the function as the enter callback for state 2, GS_SSS."
+      }
+    ]
+  },
+  {
+    "id": "fact:0b11abfe-257c-4ae8-8fb6-cead1855e496",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B26AC",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Runs when Camera Mode enters state 2, GS_SSS. Its paired exit callback preserves a confirmed selection and allows progression toward GS_VS, or requests state 1, GS_CSS, when stage select is cancelled.",
+    "rationale": "The state table pairs gm_801B26AC with gm_801B2704 and identifies the adjacent states; the exit body branches on start_game to commit or return.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B26AC"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L78",
+        "why": "Shows Camera Mode state 2 and the surrounding GS_CSS and GS_VS states."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L161-L187",
+        "why": "Shows stage-select entry initialization and the paired confirmed or cancelled exit behavior."
+      }
+    ]
+  },
+  {
+    "id": "fact:172f9d71-167a-4e0f-83eb-b17df130488a",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2704",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes the departing state's SSSData. A confirmed start copies sss->vs into gmMainLib_804D3EE0->modes.vs_camera and feeds the selected stage kind into the audio setup sequence; cancellation instead outputs next state ID 1.",
+    "rationale": "The current body explicitly shows the payload source, persistent destination, stage-kind audio mapping, and alternate state output.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2704"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L171-L187",
+        "why": "Shows the complete stage-select exit data flow."
+      }
+    ]
+  },
+  {
+    "id": "fact:133d6779-ace6-414e-923c-ba93b55c4058",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2704",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements Camera Mode's stage-selection transition, carrying a confirmed stage and match setup toward battle or returning a cancelled selection to character select.",
+    "rationale": "The callback belongs to Camera Mode's GS_SSS state and its two branches either preserve the chosen configuration or select the GS_CSS state.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2704"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L78",
+        "why": "Identifies the relevant Camera Mode character-select, stage-select, and battle states."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L171-L187",
+        "why": "Shows the confirmed-stage and cancellation outcomes."
+      }
+    ]
+  },
+  {
+    "id": "fact:f25c37c1-930a-47af-8370-2deafac3d841",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2704",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "gm_ExitCameraModeSSSScene",
+    "rationale": "The relocated state table and body still establish that this routine exits Camera Mode's GS_SSS state, while gm_PrepCameraModeVSScene demonstrates the unit's mode-and-scene naming vocabulary.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is gm_ExitCameraModeSSSScene.",
+    "confidence": 0.72,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2704"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L51-L78",
+        "why": "Places the routine in the GS_SSS exit slot and shows the nearby semantic name gm_PrepCameraModeVSScene."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L171-L187",
+        "why": "Confirms exit-specific handling of stage-select results and cancellation."
+      }
+    ]
+  },
+  {
+    "id": "fact:30fb13ca-f7d6-4ebc-8204-a08b69b35aa2",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2704",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A game-mode state exit callback with signature void(GameModeState*); it obtains a mutable SSSData payload through gm_GetGameModeStateExitData.",
+    "rationale": "The current definition and state-table registration establish the corrected callback interface and stage-select payload type.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2704"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L171-L187",
+        "why": "Shows the void(GameModeState*) signature and SSSData returned by the exit-data accessor."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L51-L65",
+        "why": "Places the function in the GS_SSS exit-callback slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:bff70496-4f99-4d59-9d91-8bf012c99f6c",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2704",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Handles exit from Camera Mode's stage-select state: a confirmed start persists the edited Versus configuration and performs stage-keyed audio setup, while cancellation redirects the flow to state 1.",
+    "rationale": "The function is the exit callback for state 2, GS_SSS, and branches on start_game between committing the selection and calling gm_SetNextGameModeStateId(1).",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2704"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L171-L187",
+        "why": "Shows the confirmed-start and cancellation paths."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L51-L65",
+        "why": "Registers the function as the exit callback for Camera Mode state 2, GS_SSS."
+      }
+    ]
+  },
+  {
+    "id": "fact:102aa379-3dd8-49ef-b156-e9f028630725",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2704",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Runs when Camera Mode leaves state 2, GS_SSS. If start_game is nonzero, it commits the selection and leaves normal progression toward state 3 intact; if start_game is zero, it explicitly requests state 1, GS_CSS.",
+    "rationale": "The state table orders GS_CSS, GS_SSS, and GS_VS as states 1, 2, and 3, while the callback explicitly redirects only the cancellation path to state 1.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2704"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L78",
+        "why": "Shows the Camera Mode ordering of GS_CSS, GS_SSS, and GS_VS states."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L171-L187",
+        "why": "Shows the start_game guard and cancellation request for state 1."
+      }
+    ]
+  },
+  {
+    "id": "fact:6aad8ec1-ec94-43c3-a34e-9224c96a0d45",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2AF8",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads gmVsMelee_VsExitInfo.match_end, persistent Camera Mode VsModeData, and the shared KO-count array. It processes the match result into the persistent mode state, publishes a derived result, updates KO counts, and outputs next state ID 1.",
+    "rationale": "The relocated body exposes the complete ordered flow from match-end and persistent inputs through result and KO-count consumers to the state transition.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2AF8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L235-L244",
+        "why": "Shows all inputs, processing calls, updates, and the final state output."
+      }
+    ]
+  },
+  {
+    "id": "fact:815287fd-4d4f-49cf-a92d-089bac8b780c",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2AF8",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements Camera Mode's post-battle bookkeeping and return to character select.",
+    "rationale": "The callback exits Camera Mode's GS_VS state, consumes the completed match, updates mode records, and selects its GS_CSS state.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2AF8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L78",
+        "why": "Places the callback in Camera Mode's battle state and identifies state 1 as character select."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L235-L244",
+        "why": "Shows the completed-match processing and return-state request."
+      }
+    ]
+  },
+  {
+    "id": "fact:74ad658d-abcb-458e-844c-f6576ad31f58",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2AF8",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "gm_ExitCameraModeVSScene",
+    "rationale": "The state table pairs this routine with gm_PrepCameraModeVSScene as the exit callback for Camera Mode's GS_VS state, and its body performs post-match exit work.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is gm_ExitCameraModeVSScene.",
+    "confidence": 0.7,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2AF8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L63-L78",
+        "why": "Pairs the target with gm_PrepCameraModeVSScene in the GS_VS descriptor."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L235-L244",
+        "why": "Shows exit-specific match-result processing and next-state selection."
+      }
+    ]
+  },
+  {
+    "id": "fact:20e9a472-2a66-44f7-af21-6c61f1965549",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2AF8",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A game-mode state exit callback with signature void(GameModeState*); its parameter is unused because it reads the shared gmVsMelee_VsExitInfo payload directly.",
+    "rationale": "The current definition takes but does not read GameModeState*, while the GS_VS descriptor identifies the shared exit payload and assigns the function to the exit slot.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2AF8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L235-L244",
+        "why": "Shows the void(GameModeState*) signature, unused parameter, and direct use of gmVsMelee_VsExitInfo."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L63-L78",
+        "why": "Places the function in the GS_VS exit slot and associates that state with gmVsMelee_VsExitInfo."
+      }
+    ]
+  },
+  {
+    "id": "fact:0c588172-5a80-42bb-821c-5c424aa22b99",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2AF8",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Handles Camera Mode's VS-state exit by processing the completed match, updating persistent Versus state and KO counts, publishing the derived result, and directing the mode back to state 1.",
+    "rationale": "The state table assigns the function to the GS_VS exit slot, and its current body performs the result-processing sequence before requesting state 1.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2AF8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L235-L244",
+        "why": "Shows post-match processing, persistent-state and KO-count updates, and the state-1 transition."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L63-L78",
+        "why": "Registers the function as the exit callback for Camera Mode state 3, GS_VS."
+      }
+    ]
+  },
+  {
+    "id": "fact:0ccb5ba9-1df3-4a57-b0d3-4c1033ba8b63",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_801B2AF8",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Runs when Camera Mode exits state 3, GS_VS. After its match-result bookkeeping, it unconditionally requests state 1, returning the sequence to GS_CSS.",
+    "rationale": "The table identifies states 3 and 1 as GS_VS and GS_CSS, and the function has no guard around gm_SetNextGameModeStateId(1).",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_801B2AF8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L39-L78",
+        "why": "Identifies Camera Mode states 1 and 3 as GS_CSS and GS_VS."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L235-L244",
+        "why": "Shows the unconditional request for state 1 after match processing."
+      }
+    ]
+  },
+  {
+    "id": "fact:16c313ee-fe26-42f8-a579-e230498a1f47",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_Mode_Camera_OnInit",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Passes the address of gmMainLib_804D3EE0->modes.vs_camera to gm_InitVsMode for in-place initialization. That persistent VsModeData is subsequently copied into Camera Mode's character-select, stage-select, and battle scene data, while changed selections and match results are written back to it.",
+    "rationale": "The renamed OnInit body directly initializes the named vs_camera field through gm_InitVsMode. The current surrounding callbacks explicitly type the same field as VsModeData, copy it into CSS, SSS, and StartMeleeData payloads, and update it from scene exits and battle results.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_Mode_Camera_OnInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L115-L177",
+        "why": "Shows the persistent vs_camera data copied into and updated from Camera Mode's character-select and stage-select scene payloads."
+      },
+      {
+        "kind": "code",
+        "locator": "code://514397e54e/src/melee/gm/gmcameramode.c#L178-L249",
+        "why": "Shows battle setup and result processing using the same vs_camera object and the OnInit routine passing its address to gm_InitVsMode."
+      }
+    ]
+  },
+  {
+    "id": "fact:2cf6bba8-f74b-4ff4-b09f-a6aa951c4484",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_Mode_Camera_OnInit",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Provides the mode-level initialization for Melee's Camera Mode, the Special Melee option built around an endless match in which players can take snapshots.",
+    "rationale": "The function initializes the persistent configuration used by Camera Mode's dedicated scene and battle setup, including setup of snapshot storage and specialized camera callbacks. The wiki identifies Camera Mode as a Special Melee mode for taking still pictures during an endless match.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_Mode_Camera_OnInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://514397e54e/src/melee/gm/gmcameramode.c#L178-L249",
+        "why": "Shows the persistent Camera Mode data feeding specialized battle setup and shows the mode's OnInit routine initializing that data."
+      },
+      {
+        "kind": "wiki",
+        "locator": "wiki://camera~in-super-smash-bros-melee@r2048237",
+        "why": "Describes Camera Mode as an endless match with unlimited lives in which still pictures can be taken using the Smash Cam."
+      },
+      {
+        "kind": "wiki",
+        "locator": "wiki://versus-mode~list-of-playable-modes@r1977292",
+        "why": "Identifies Camera Mode as a Special Melee option that permits snapshots when a controller is connected to port 4."
+      }
+    ]
+  },
+  {
+    "id": "fact:866087f8-7e9a-4f61-a0e3-665246521d71",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_Mode_Camera_OnInit",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A parameterless game-mode initialization callback with signature void(void).",
+    "rationale": "The current definition explicitly takes no parameters and returns void. Its established OnInit symbol and initialization of persistent mode data distinguish it from the adjacent GameModeState scene callbacks.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_Mode_Camera_OnInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://514397e54e/src/melee/gm/gmcameramode.c#L178-L249",
+        "why": "Shows the parameterless void OnInit definition after adjacent Camera Mode callbacks that receive GameModeState pointers."
+      }
+    ]
+  },
+  {
+    "id": "fact:4191bac2-fe83-4868-9d77-fd9d52f7722b",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_Mode_Camera_OnInit",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Performs Camera Mode's mode-entry initialization by applying the shared Versus-mode initializer to the persistent configuration subsequently used by Camera Mode's character-select, stage-select, and battle callbacks.",
+    "rationale": "The current OnInit routine passes the persistent modes.vs_camera object to gm_InitVsMode. The surrounding Camera Mode callbacks use that same VsModeData object to populate selection and battle payloads and preserve their updates, establishing it as the persistent configuration initialized on mode entry.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T19:34:08.971Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_Mode_Camera_OnInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L115-L177",
+        "why": "Shows Camera Mode's character-select and stage-select callbacks reading and updating the persistent modes.vs_camera object."
+      },
+      {
+        "kind": "code",
+        "locator": "code://514397e54e/src/melee/gm/gmcameramode.c#L178-L249",
+        "why": "Shows Camera Mode battle setup consuming the same object and gm_Mode_Camera_OnInit initializing it through gm_InitVsMode."
+      }
+    ]
+  },
+  {
+    "id": "fact:f4554e69-316c-4b2c-bd4f-96f8fb943cc3",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads persistent Camera Mode VsModeData from gmMainLib_804D3EE0->modes.vs_camera and writes the entering state's StartMeleeData. It copies and specializes the rules, copies every player record, passes the payload through common match setup, and supplies preloaded archives 2007 and 2008 to lbSnap.",
+    "rationale": "The relocated body explicitly identifies the persistent source, entering-state destination, rule and player transformations, downstream setup calls, and snapshot archive consumers.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://514397e54e/src/melee/gm/gmcameramode.c#L189-L233",
+        "why": "Shows the full source-to-destination flow and all downstream setup consumers."
+      }
+    ]
+  },
+  {
+    "id": "fact:e9eb1335-0c5c-4976-a489-31fd69fa70c1",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements the battle-entry setup for Camera Mode, including its specialized pause-camera controls and snapshot subsystem.",
+    "rationale": "The function belongs to the GM_CAMERA_MODE state sequence, installs gm_CameraModeVSGetPauser and gmCamera callbacks, and initializes lbSnap resources.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://514397e54e/src/melee/gm/gmcameramode.c#L189-L233",
+        "why": "Shows Camera Mode-specific pause and camera callbacks together with snapshot initialization."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L21-L78",
+        "why": "Places the callback in the dedicated Camera Mode state sequence."
+      }
+    ]
+  },
+  {
+    "id": "fact:ca514f86-16f5-4e68-94aa-4237919c63b4",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A game-mode state enter callback with signature void(GameModeState*); it obtains a mutable StartMeleeData payload through gm_GetGameModeStateEnterData.",
+    "rationale": "The current declaration and state-table position establish the callback interface, while the body retrieves and writes the entering state's StartMeleeData.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://514397e54e/src/melee/gm/gmcameramode.c#L189-L233",
+        "why": "Shows the void(GameModeState*) signature and retrieval of the entering state's StartMeleeData."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L63-L78",
+        "why": "Places the function in the enter-callback slot of the GS_VS state descriptor."
+      }
+    ]
+  },
+  {
+    "id": "fact:5c8bf17d-a63f-451d-b750-3b088445356c",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Prepares Camera Mode's VS battle by copying its persistent Versus configuration into the entering state's StartMeleeData, applying Camera Mode-specific rules and callbacks, initializing all players, and binding snapshot resources.",
+    "rationale": "The relocated function retrieves the entering GameModeState payload, specializes its rules and player records, performs common match setup, and initializes lbSnap from the preloaded archives.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://514397e54e/src/melee/gm/gmcameramode.c#L189-L233",
+        "why": "Shows the complete relocated battle-preparation routine and its Camera Mode-specific match and snapshot setup."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L21-L78",
+        "why": "Registers the function as the enter callback for Camera Mode state 3, GS_VS."
+      }
+    ]
+  },
+  {
+    "id": "fact:f7fb8600-5939-4de9-8e98-4c71c77c1922",
+    "target_id": "target:function:main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Runs on entry to Camera Mode state 3, GS_VS. It enables pausing while replacing pause, pauser-selection, and camera handling with Camera Mode callbacks; the paired exit callback later processes the match and requests state 1.",
+    "rationale": "The state table pairs this function with gm_801B2AF8 for state 3, and the two bodies show the specialized battle callbacks followed by the unconditional post-match return to state 1.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T02:57:43.361Z",
+    "subject": {
+      "target_stable_key": "main/melee/gm/gmcameramode:gm_PrepCameraModeVSScene"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L63-L78",
+        "why": "Identifies the function and gm_801B2AF8 as the enter and exit callbacks for Camera Mode state 3."
+      },
+      {
+        "kind": "code",
+        "locator": "code://514397e54e/src/melee/gm/gmcameramode.c#L189-L244",
+        "why": "Shows installation of Camera Mode battle callbacks and the paired exit callback's request for state 1."
+      }
+    ]
+  },
+  {
+    "id": "fact:185ec055-923b-4c00-ad54-9b2e9f0bc889",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "data_flow",
+    "value": "Persistent Camera Mode settings live in gmMainLib_804D3EE0->modes.vs_camera. Entry callbacks copy them into CSS, SSS, and StartMeleeData payloads; exit callbacks copy edited CSS/SSS selections back, while the VS exit callback folds match results into gmVsMelee_VsExitInfo and updates KO counts.",
+    "rationale": "The current VS preparation copies persistent rules and players into StartMeleeData, and its exit callback consumes shared match results for standings and KO bookkeeping before selecting the next state.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-07T01:40:02.321Z",
+    "subject": {
+      "entity_locator": "src/melee/gm/gmcameramode.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L182-L249",
+        "why": "Shows persistent vs_camera rules and players flowing into StartMeleeData and shared match results flowing into result and KO-count updates."
+      }
+    ]
+  },
+  {
+    "id": "fact:7e770447-dc10-44a0-9880-b12724b2a614",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "game_mapping",
+    "value": "Implements Melee's Camera Mode, the Special Melee variant in which the fourth controller operates the camera and can take pictures.",
+    "rationale": "The current VS preparation installs Camera Mode-specific pauser, per-frame camera-interface, and snapshot-resource behavior, preserving the mode's distinct camera and photograph mechanics.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-07T01:40:02.321Z",
+    "subject": {
+      "entity_locator": "src/melee/gm/gmcameramode.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L182-L249",
+        "why": "Shows Camera Mode-specific pauser and camera callbacks and initialization of the snapshot resources used during gameplay."
+      }
+    ]
+  },
+  {
+    "id": "fact:90d11393-82cf-4e7b-99dd-889c43970aa9",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "inferred_type",
+    "value": "A scene-sequencing translation unit centered on a sentinel-terminated GameModeState table; it also owns an aligned 64-bit small-BSS object used as both the enter and exit payload for the GS_CAMERA_VS state.",
+    "rationale": "The declarations show a static s64 immediately before the mode table, and state 0 supplies that same object's address for both payload pointers. The remaining entries use the typed shared CSS, SSS, and VS data objects.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:22.195Z",
+    "subject": {
+      "entity_locator": "src/melee/gm/gmcameramode.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L28-L74",
+        "why": "The source defines static s64 gm_804D68C8 and places its address in both payload slots of the GS_CAMERA_VS GameModeState entry."
+      }
+    ]
+  },
+  {
+    "id": "fact:7069656a-b08e-471e-905f-48f2d07f4c24",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "purpose",
+    "value": "Owns the game-mode controller for Camera Mode, coordinating resource preloading, character and stage selection, Camera Mode-specific VS setup, post-match bookkeeping, and return transitions.",
+    "rationale": "The current match preparation installs Camera Mode-specific callbacks and resources, while match exit performs result bookkeeping and returns to character-select state 1.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-07T01:40:02.321Z",
+    "subject": {
+      "entity_locator": "src/melee/gm/gmcameramode.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L182-L249",
+        "why": "Shows Camera Mode-specific match preparation, callback installation, snapshot-resource initialization, post-match bookkeeping, and return routing."
+      }
+    ]
+  },
+  {
+    "id": "fact:71deeeab-fe98-42cd-9802-413adb2f3a51",
+    "target_id": null,
+    "entity_id": "translation_unit:src/melee/gm/gmcameramode.c",
+    "type": "state_behavior",
+    "value": "Camera Mode is represented by states 0 through 3 for its Camera VS prelude, character select, stage select, and VS match scenes. Prelude exit values 1 or 2 and CSS pending-scene value 2 leave for the menu; canceling stage selection or completing a match explicitly returns to state 1.",
+    "rationale": "The current exit paths retain the explicit return to state 1 after stage-selection cancellation or match completion; the standing four-state route and menu guards remain otherwise unchanged.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-07T01:40:02.321Z",
+    "subject": {
+      "entity_locator": "src/melee/gm/gmcameramode.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gmcameramode.c#L182-L249",
+        "why": "Shows Stage Selection cancellation and post-match completion explicitly returning to Camera Mode state 1."
+      }
+    ]
+  }
+]

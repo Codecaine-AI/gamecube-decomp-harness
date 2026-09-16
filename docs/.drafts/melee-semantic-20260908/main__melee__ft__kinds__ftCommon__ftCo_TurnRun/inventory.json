@@ -1,0 +1,996 @@
+[
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:.sdata2",
+    "facts": [
+      {
+        "id": "fact:1f763096-8419-4633-bd0b-4ba734e993b4",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The zero literal flows into the zero-frame TurnRun entry path, the motion-state blend argument, and the animation-rate call that pauses playback. The one literal supplies the initial motion playback rate and later restores normal animation playback. The 0.01F literal is compared against middle_anim_frame multiplied by ground velocity; satisfying that comparison causes animation to resume, clears the animation command, and negates facing direction.",
+        "rationale": "The entry helpers and TurnRun entry routine directly consume zero and one as transition arguments. The animation callback consumes zero and one as animation rates and uses 0.01F as the guard controlling the outputs that complete the turnaround gate.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:54:22.383Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L20-L80",
+            "why": "Directly traces the floating-point literals into TurnRun entry, motion-state initialization, animation-rate control, and the velocity-dependent facing reversal."
+          }
+        ]
+      },
+      {
+        "id": "fact:7bf6c1d8-1fa4-42db-b41b-a3b828235180",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:.sdata2",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Supports the synchronization of a running turnaround's visual animation with its physical reversal: playback can wait while the fighter decelerates, then resume as the fighter reaches the turnaround point and changes facing direction.",
+        "rationale": "The constants control animation pause and release inside the TurnRun callback, and the release branch simultaneously flips facing. This directly realizes the visible coordination between deceleration, turnaround animation, and direction reversal.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T05:54:22.383Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L44-L77",
+            "why": "Shows animation being paused and then resumed at a ground-velocity-dependent threshold while facing direction is reversed."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Documents that pushing the control stick opposite the current direction during a run initiates a turnaround animation."
+          }
+        ]
+      },
+      {
+        "id": "fact:aac5028e-5547-4d9c-8d14-a4baef456e9f",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 16-byte read-only small-data constant-pool section whose source-visible semantic contents are single-precision floating-point literals 0.0F, 1.0F, and 0.01F; any remaining bytes are section alignment or compiler pooling rather than an independently evidenced gameplay value.",
+        "rationale": "The target metadata establishes a 16-byte .sdata2 span, while the matched owning source exposes exactly three distinct floating-point values used by the unit. Their use as float arguments and in a float comparison supports a single-precision constant-pool interpretation, but the source does not support assigning semantic meaning to the remaining storage.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T05:54:22.383Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L20-L80",
+            "why": "Shows the distinct 0.0F, 1.0F, and 0.01F single-precision literals associated with the owning TurnRun unit."
+          }
+        ]
+      },
+      {
+        "id": "fact:c24dd65a-37e2-4f2d-bc98-20a9986d8e9e",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the read-only floating-point literals used to initialize TurnRun motion playback and to coordinate its animation pause and velocity-dependent release at the facing-reversal point.",
+        "rationale": "The owning unit uses 0.0F and 1.0F for TurnRun transition and animation-rate arguments and uses 0.01F as the grounded-velocity comparison threshold that releases the paused animation and reverses facing. These repeated floating-point literals are the semantic payload represented by the unit's .sdata2 target.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T05:54:22.383Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L20-L80",
+            "why": "Shows every source-level floating-point literal used by TurnRun entry and animation processing, including 0.0F, 1.0F, and the 0.01F reversal threshold."
+          }
+        ]
+      },
+      {
+        "id": "fact:6c1dfcbd-e8c4-47a5-adad-0f3be2fa96a2",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:.sdata2",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Within TurnRun's animation gate, 0.0F stops animation when the command first activates. On the later phase, a product of the stored animation-frame factor and ground velocity at or below 0.01F releases the gate; 1.0F restores normal playback, the command is consumed, and the fighter's facing direction is reversed.",
+        "rationale": "The animation callback forms an explicit two-phase state machine around these constants: zero is the paused rate, 0.01F is the release guard, and one is the resumed rate applied alongside the logical facing reversal.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:54:22.383Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L44-L77",
+            "why": "Shows the two animation-gate phases and the exact roles of 0.0F, 0.01F, and 1.0F in pausing, releasing, and resuming TurnRun animation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+    "facts": [
+      {
+        "id": "fact:523f381f-4f4b-4728-8295-424cfb1b9972",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj, resolves its Fighter, multiplies left-stick X by facing_dir to obtain facing-relative horizontal input, and compares that value with p_ftCommonData->x38_someLStickXThreshold. On acceptance it forwards the unchanged game object and fp->cur_anim_frame to ftCo_TurnRun_Enter and returns true; otherwise it performs no state-entry call and returns false. RunBrake_IASA consumes the boolean through short-circuit control flow.",
+        "rationale": "The target body explicitly shows every input read, comparison operand, forwarded argument, and return value. The caller wraps the result in RETURN_IF, establishing that true stops lower-priority RunBrake interrupt processing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:55:15.054Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L19-L29",
+            "why": "Shows the Fighter lookup, facing-relative input calculation, common threshold read, entry arguments, and boolean output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c#L80-L87",
+            "why": "Shows RunBrake_IASA consuming the helper's boolean as a short-circuiting interrupt result."
+          }
+        ]
+      },
+      {
+        "id": "fact:a2b908a3-5696-464d-b836-cb627d4e5006",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Recognizes the player's command to turn around while braking from a run and initiates the moving turnaround without restarting its animation from frame zero.",
+        "rationale": "The code recognizes control-stick input opposite the fighter's facing direction and is called by RunBrake_IASA, entering TurnRun at the current animation frame. SmashWiki independently identifies pushing the control stick opposite the current direction as the turnaround option available during running and notes RunBrake as part of run-state option processing.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:55:15.054Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L19-L29",
+            "why": "Maps opposite-facing stick input to TurnRun entry while preserving the active animation frame."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c#L80-L87",
+            "why": "Places this transition check in the RunBrake action's interrupt processing."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Documents that pushing the control stick opposite the current direction during a run initiates a turnaround and discusses RunBrake in the run-state option set."
+          }
+        ]
+      },
+      {
+        "id": "fact:d70e9f1e-2b13-4470-a0f1-662dee629428",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_TurnRun_CheckInputFromRunBrake",
+        "rationale": "The function has the common boolean CheckInput shape, belongs to the TurnRun unit, and its only resolved caller is RunBrake_IASA. The FromRunBrake qualifier distinguishes it from the immediately adjacent equivalent check used by Run, because this variant preserves the caller's current animation frame rather than starting TurnRun at frame zero.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely ftCo_TurnRun_CheckInputFromRunBrake.",
+        "confidence": 0.76,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L1-L46",
+            "why": "Shows two adjacent TurnRun input predicates and distinguishes this variant by its cur_anim_frame entry argument from the sibling's 0.0F argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c#L80-L87",
+            "why": "Identifies RunBrake_IASA as the caller and confirms that it uses the function as a boolean transition check."
+          }
+        ]
+      },
+      {
+        "id": "fact:37103057-d362-4bff-acc9-ab62f204edd2",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A common-fighter action-transition predicate/dispatcher with signature bool (Fighter_GObj* gobj). A true result means TurnRun was entered; false means the current action state was left unchanged.",
+        "rationale": "The matched definition establishes the exact parameter and return types. The only true path follows ftCo_TurnRun_Enter, while a failed threshold comparison falls through directly to false.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:55:15.054Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L19-L29",
+            "why": "Provides the exact signature and directly associates true with state entry and false with rejection."
+          }
+        ]
+      },
+      {
+        "id": "fact:a6ce057e-dd81-4563-9cd6-aed3977f663a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Checks for reverse-facing horizontal stick input during RunBrake and, when the threshold is crossed, enters TurnRun at the fighter's current animation frame while reporting that the transition succeeded.",
+        "rationale": "The target compares facing-relative horizontal input against the shared turnaround threshold, calls ftCo_TurnRun_Enter with cur_anim_frame on success, and returns a transition-consumed boolean. Its sole resolved caller invokes it from the RunBrake IASA callback behind that state's command-variable gate.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:55:15.054Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L19-L29",
+            "why": "Shows the reverse-input comparison, TurnRun entry at cur_anim_frame, and true/false transition result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c#L80-L87",
+            "why": "Shows that RunBrake_IASA calls this helper as its command-variable-gated running-turnaround transition."
+          }
+        ]
+      },
+      {
+        "id": "fact:c23405bb-ff66-4298-8293-92e2de84639c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The transition is accepted when left-stick X projected onto the fighter's current facing direction is less than or equal to the shared reverse-input threshold. Acceptance immediately enters ftCo_MS_TurnRun through ftCo_TurnRun_Enter, preserving the current animation frame, and returns true. Rejection leaves the current state unchanged and returns false. In RunBrake, the check is additionally enabled only while cmd_vars[0] is nonzero, and success prevents the lower-priority squat transition from being evaluated.",
+        "rationale": "The target establishes the facing-relative guard, preserved animation frame, and two outcomes. Its RunBrake caller establishes the external command-variable guard and short-circuit placement between the higher-priority jump and lower-priority squat checks.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:55:15.054Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L19-L29",
+            "why": "Directly establishes the input guard, accepted TurnRun-entry path, preserved frame, and rejected fallthrough."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunBrake.c#L80-L87",
+            "why": "Establishes the RunBrake command-variable gate and the jump-before-TurnRun-before-squat interrupt priority."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+    "facts": [
+      {
+        "id": "fact:f2794bcd-04f5-475e-a2e4-8ed7fb37949c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj, resolves its Fighter, and reads input.lstick.x, facing_dir, and p_ftCommonData->x38_someLStickXThreshold. It multiplies horizontal stick input by facing direction to obtain facing-relative input. If that value passes the threshold, it forwards the unchanged game object and a 0.0 animation start to ftCo_TurnRun_Enter. Its boolean output is consumed by ftCo_Run_IASA to short-circuit lower-priority Run transitions.",
+        "rationale": "The target body explicitly shows every read, the facing-relative multiplication, and both arguments forwarded to the entry routine. The caller combines the result with the Run countdown guard and uses RETURN_IF, proving that true suppresses subsequent RunBrake processing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:54:47.308Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L31-L42",
+            "why": "Shows Fighter resolution, all threshold-comparison inputs, the entry-call arguments, and the produced boolean."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Shows the Run countdown guard and consumption of the predicate result through RETURN_IF before RunBrake is considered."
+          }
+        ]
+      },
+      {
+        "id": "fact:b3c10f8d-e8d2-45ed-87c2-a0131f500fa6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Recognizes the standard running turnaround command: pushing the horizontal control stick opposite the fighter's current facing direction during Run, causing the fighter to begin the TurnRun turnaround animation.",
+        "rationale": "The code tests horizontal stick input after normalizing it by facing direction and enters TurnRun when the reverse-direction threshold is reached. SmashWiki independently describes pushing the control stick opposite the current direction during the later Run phase as initiating the turnaround animation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:54:47.308Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L31-L42",
+            "why": "Shows the facing-relative reverse-stick test and resulting TurnRun entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Places the transition predicate in the common Run state's input-processing callback."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Documents that pushing the control stick in the opposite direction during Run starts a turnaround animation."
+          }
+        ]
+      },
+      {
+        "id": "fact:cb968276-8b31-4113-8ae0-a5b8541c6c99",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_TurnRun_CheckInput",
+        "rationale": "At the current path, the target remains a boolean TurnRun input predicate that dispatches the state-entry routine on success. The adjacent named ftCo_Turn_CheckInput follows the same common-fighter convention, while the current TurnRun unit still contains a distinct sibling predicate that preserves the current animation frame, so this name remains plausible but not certain for the frame-zero variant.",
+        "confidence": 0.74,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Turn.c#L38-L47",
+            "why": "Shows the neighboring ftCo_Turn_CheckInput naming convention for a boolean condition-and-entry dispatcher."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows the target's threshold check and frame-zero entry alongside the distinct sibling predicate that enters TurnRun at the current animation frame."
+          }
+        ]
+      },
+      {
+        "id": "fact:67d2ece8-3022-4968-b6d9-c265ee82deb9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A common-fighter input-transition predicate/dispatcher with exact signature bool (Fighter_GObj* gobj). It returns true only after initiating TurnRun and false when the threshold is not met.",
+        "rationale": "The matched definition provides the exact parameter and return types. The accepted branch invokes the state-entry routine before returning true, while the rejected branch performs no transition and returns false.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:54:47.308Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L31-L42",
+            "why": "Provides the exact signature and directly establishes the transition-result semantics of both return values."
+          }
+        ]
+      },
+      {
+        "id": "fact:6ce0bab5-bc96-4071-8053-7d3a323b05e0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Checks whether a running fighter is holding the control stick far enough opposite their current facing direction to begin TurnRun. On acceptance it enters TurnRun from animation frame 0 and reports that the transition consumed the current input opportunity.",
+        "rationale": "The function compares facing-relative horizontal stick input against the shared threshold, calls ftCo_TurnRun_Enter with a zero starting frame only when the condition passes, and returns true exactly on that transition path. Its sole caller places it in the Run IASA transition chain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:54:47.308Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L31-L42",
+            "why": "Shows the complete reverse-stick threshold check, conditional TurnRun entry at frame 0, and boolean success result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Shows that Run's IASA callback invokes this predicate as a short-circuiting transition after the Run countdown becomes nonpositive."
+          }
+        ]
+      },
+      {
+        "id": "fact:151272ec-1deb-477b-9dfe-51bb9a4d8cfa",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Within Run IASA, this transition is eligible only after mv.co.run.x0 becomes nonpositive. It then has two outcomes: if facing-relative horizontal stick input is greater than the shared threshold, the current state is unchanged and the function returns false; if the input is at or below the threshold, ftCo_TurnRun_Enter immediately starts ftCo_MS_TurnRun from frame 0 and the function returns true, preventing the caller from proceeding to RunBrake.",
+        "rationale": "The relocated target still implements the same threshold branches and frame-zero TurnRun entry, and the current Run IASA source still gates it on the countdown and short-circuits before RunBrake. The current entry routine confirms that its supplied frame is forwarded to ftCo_MS_TurnRun.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows the accepted and rejected input branches and confirms that ftCo_TurnRun_Enter forwards the supplied frame to ftCo_MS_TurnRun."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Shows the mv.co.run.x0 guard and that a successful result returns from Run IASA before RunBrake is checked."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+    "facts": [
+      {
+        "id": "fact:4af1ec42-fb0a-4f57-9e3e-8e4246952419",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads command variable 1, the TurnRun phase flag x14, the walk motion-variable alias middle_anim_frame, grounded velocity, facing direction, and animation-frame availability. When command variable 1 first becomes active, it sets animation rate to 0 and advances x14 from 0 to 1. Once middle_anim_frame multiplied by grounded velocity is at most 0.01, it restores animation rate to 1, clears command variable 1, and negates facing direction. Afterward, animation exhaustion is passed through fn_800CA644; if that helper returns false, the callback calls ft_8008A2BC.",
+        "rationale": "Each stated read, mutation, comparison, and call appears directly in the matched function body. The claim leaves the two unresolved helper functions unnamed semantically and records only their demonstrated control-flow roles.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T02:43:05.875Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L57-L77",
+            "why": "The source directly exposes the data flow among cmd_vars[1], mv.co.turnrun.x14, mv.co.walk.middle_anim_frame, gr_vel, facing_dir, animation rate, and the two completion helpers."
+          }
+        ]
+      },
+      {
+        "id": "fact:7f0f8192-f930-449a-9160-ba9873fd8c7b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the animation-timing portion of a moving turnaround: animation is held until the fighter's grounded movement reaches the designated reversal point, at which time facing is flipped and animation playback resumes.",
+        "rationale": "The callback belongs to TurnRun, gates animation against grounded velocity, and reverses facing at the gate's release point. This corresponds to the documented grounded turnaround behavior in which a fighter rapidly changes direction during dash or run movement.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T02:43:05.875Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L57-L77",
+            "why": "The source ties TurnRun animation playback and the fighter's facing reversal to a grounded-velocity comparison."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~initial-dash@r2044125",
+            "why": "The wiki identifies turnaround animation as the mechanism that lets a fighter reverse direction quickly during grounded dash movement."
+          }
+        ]
+      },
+      {
+        "id": "fact:cc1ceaf7-e5ec-4b64-bbf1-a65208a8ef02",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter action-state animation callback with signature void (Fighter_GObj*).",
+        "rationale": "The matched definition takes one Fighter_GObj pointer, obtains its Fighter object, performs per-frame TurnRun state work, and returns no value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T02:43:05.875Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L57-L77",
+            "why": "The source explicitly defines ftCo_TurnRun_Anim as void ftCo_TurnRun_Anim(Fighter_GObj* gobj)."
+          }
+        ]
+      },
+      {
+        "id": "fact:e47cb7d6-3b23-4834-845e-3c7f129d40c8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Runs the TurnRun state's per-frame animation gate, reverses the fighter's facing direction when grounded motion reaches the turnaround threshold, and dispatches state completion after the animation ends when the continuation helper does not handle it.",
+        "rationale": "The matched body freezes and later resumes animation under a command-variable-controlled two-phase gate, negates facing direction at the resume point, and invokes ft_8008A2BC only when no animation frames remain and fn_800CA644 returns false.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T02:43:05.875Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L57-L77",
+            "why": "The complete matched callback directly shows animation-rate control, facing reversal, and the guarded completion dispatch."
+          }
+        ]
+      },
+      {
+        "id": "fact:abd77095-f47c-45e8-83fc-36575b8ddc86",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "While command variable 1 is clear, the callback performs no turnaround-gate mutation. Once it is set, phase x14 == 0 freezes animation and sets x14 to 1. In phase x14 != 0, the callback waits until middle_anim_frame multiplied by grounded velocity is at most 0.01, then resumes animation, consumes the command variable, and flips facing direction. Independently, when animation frames are exhausted, fn_800CA644 receives the first opportunity to continue or redirect behavior; only a false result causes ft_8008A2BC to run.",
+        "rationale": "The nested command-variable and phase-flag branches form a two-phase state machine, while the final conjunction makes animation completion conditional on the result of fn_800CA644.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T02:43:05.875Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L57-L77",
+            "why": "The matched control flow directly shows the inactive case, phase transition, velocity-dependent release and facing flip, and guarded completion path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+    "facts": [
+      {
+        "id": "fact:4b699f92-fcbb-438b-922a-a9c18e2d2af8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj and passes it to ft_800827A0, which synchronizes the fighter's current position with CollData, performs the map-collision query, writes the resulting collision position back to the fighter, and returns whether the grounded collision remains valid. A false result sends the object to ftCo_Fall_Enter. A true result permits the callback to read coll_data.env_flags; Collide_LeftEdge or Collide_RightEdge sends the object to ftCommon_8007E2FC, which zeros the fighter's ground accelerations, movement velocities, animation velocity, and knockback-related velocities.",
+        "rationale": "The current callback still routes the grounded-collision result and edge flags into the Fall and movement-reset paths. The current definitions of ft_800827A0 and ftCommon_8007E2FC establish the collision-position synchronization and the concrete movement fields cleared by those downstream calls.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L122-L139",
+            "why": "Shows the grounded-collision result and environment flags flowing into the Fall and edge-response calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L364-L464",
+            "why": "Shows ft_800827A0 synchronizing collision positions, running the map query, writing the resulting position back, and returning its boolean result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L913-L945",
+            "why": "Shows the acceleration, movement, animation, and knockback-related Fighter fields cleared by ftCommon_8007E2FC."
+          }
+        ]
+      },
+      {
+        "id": "fact:ca1353be-9784-4076-95b6-381dbba71f4d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the stage-boundary behavior of a running turnaround: the fighter continues TurnRun while grounded and clear of edge collisions, falls when platform support disappears, and has motion arrested when the turnaround reaches a reported left or right platform edge.",
+        "rationale": "The current TurnRun collision callback preserves the action on the ordinary grounded path, enters Fall after support loss, and invokes the movement-clearing helper for either edge flag. The current helper body confirms that the edge outcome arrests movement rather than selecting another action state.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L122-L139",
+            "why": "Shows TurnRun's support-loss, ordinary grounded, and left-or-right-edge collision outcomes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L913-L945",
+            "why": "Shows that the edge-response helper clears the fighter's principal acceleration and velocity fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:29c7ea5a-b167-4d59-bc4b-16fe1ca2df70",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Common fighter action-state collision callback with signature void(Fighter_GObj* gobj). It returns no value and mutates or transitions the Fighter owned by the supplied game object through collision and common-state helpers.",
+        "rationale": "The matched definition supplies the exact void(Fighter_GObj*) signature, obtains Fighter collision data with GET_FIGHTER, invokes a collision predicate, and conditionally calls state and movement-reset routines.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T02:50:30.586Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L122-L139",
+            "why": "Provides the exact signature and shows collision-driven mutation and state-transition calls characteristic of an action-state collision callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:a6b5b685-f15c-46ca-a716-c4e58848a9ce",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Maintains environmental collision behavior for the active TurnRun state: it enters the common Fall state when the fighter loses valid ground support and otherwise clears the fighter's movement when collision reports contact with either platform edge.",
+        "rationale": "The relocated callback retains the same ordered support and edge tests. Its first branch enters Fall and returns, while the grounded edge branch calls a helper whose current body clears the fighter's acceleration and velocity state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L122-L139",
+            "why": "Shows the complete TurnRun collision callback, including support loss, Fall entry, edge flags, and the reset-helper call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L913-L945",
+            "why": "Shows that the edge-response helper clears ground acceleration, movement velocity, animation velocity, and knockback-related velocity fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:e31e5666-a38f-43cd-851e-433f397e1656",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The callback has three collision outcomes. If ft_800827A0 reports no valid grounded collision, it immediately enters Fall and returns. If ground remains and neither Collide_LeftEdge nor Collide_RightEdge is set, TurnRun is left unchanged. If ground remains and either edge flag is set, it preserves the action state but clears the fighter's acceleration and velocity state through ftCommon_8007E2FC.",
+        "rationale": "The current callback retains the three-way branch structure. The early return makes support loss highest priority; the unflagged grounded path performs no action; and the edge path calls only the movement-reset helper, whose current definition contains field resets rather than a motion-state transition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L122-L139",
+            "why": "Shows the support-loss early return, unchanged grounded path, and edge-flag helper path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ftcommon.c#L913-L945",
+            "why": "Confirms that ftCommon_8007E2FC resets movement fields without changing the action state."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+    "facts": [
+      {
+        "id": "fact:cb74fb55-0cfa-41cb-a5d2-d2245f552c3b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj and starting animation frame, resolves the associated Fighter, writes zero to cmd_vars[1], copies facing_dir into mv.co.turnrun.accel_mul, and forwards gobj and anim_start to Fighter_ChangeMotionState. It then clears mv.co.turnrun.x14 and, when fp->x197C is non-null, passes the Fighter and constants 0x119, 0x7F, and 0x40 to ft_PlaySFX. TurnRun animation later reads cmd_vars[1] and x14, while TurnRun physics reads accel_mul.",
+        "rationale": "The current entry body directly establishes each input, field write, transition argument, pointer guard, and sound argument. The adjacent current animation and physics callbacks show the later consumers of cmd_vars[1], x14, and accel_mul.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows the entry routine's complete initialization and calls together with the animation and physics reads of the initialized fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:a203b23f-c26f-4878-b42d-05e89813290e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Begins the fighter's grounded moving-turnaround action, preserving the caller-selected animation position while preparing the state that decelerates or accelerates through the reversal and changes the fighter's facing direction at the turnaround point.",
+        "rationale": "The current routine enters ftCo_MS_TurnRun at the supplied frame and saves the entry-facing direction. The adjacent animation callback reverses facing at the velocity gate, while the physics callback applies direction-sensitive friction or acceleration throughout the grounded turn.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows TurnRun entry at a caller-selected frame, preservation of the original facing direction, the later facing reversal, and grounded turnaround physics."
+          }
+        ]
+      },
+      {
+        "id": "fact:fdd2fd44-ecf9-448d-99bb-08f02b87e345",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A common-fighter action-state entry routine with signature void (Fighter_GObj* gobj, float anim_start); anim_start is an animation-frame value forwarded to the motion-state transition.",
+        "rationale": "The current definition supplies the exact return and parameter types and passes anim_start as the starting-frame argument of Fighter_ChangeMotionState. Its two current local callers provide either the fighter's current animation frame or 0.0.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows the exact signature, both caller argument forms, and forwarding of anim_start to the TurnRun motion-state transition."
+          }
+        ]
+      },
+      {
+        "id": "fact:04860de7-cc71-4159-b582-b8b05deb3e2a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enters and initializes the common fighter TurnRun action: it clears the animation-command and phase state, records the fighter's pre-turn facing direction for TurnRun physics, changes to the TurnRun motion at the caller-selected animation frame, and conditionally plays the action's sound effect.",
+        "rationale": "The relocated entry body still performs every stated initialization and selects ftCo_MS_TurnRun. The adjacent animation and physics callbacks still consume the initialized fields to coordinate the turnaround point and direction-sensitive movement.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows the complete entry routine and the later animation and physics uses of the initialized TurnRun fields."
+          }
+        ]
+      },
+      {
+        "id": "fact:c448e944-152a-401a-8a75-8c591cd4a9c8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Transitions immediately to ftCo_MS_TurnRun at anim_start with playback rate 1.0, zero blend, and Ft_MF_SkipAnimVel. Its initial state has cmd_vars[1] and mv.co.turnrun.x14 clear and retains the entry-time facing direction in mv.co.turnrun.accel_mul. Later, an animation command uses the cleared phase flag to freeze animation until grounded velocity reaches the turnaround point, after which animation resumes and facing direction is negated; physics uses the saved entry-facing direction to choose between turnaround acceleration and friction.",
+        "rationale": "The current transition call and assignments establish the destination and initial state. The adjacent animation callback shows the freeze, velocity guard, resume, and facing reversal, while the current physics callback uses the saved facing multiplier to select acceleration or friction.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows the transition arguments and initialization together with the later animation phases, facing reversal, and direction-sensitive physics."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+    "facts": [
+      {
+        "id": "fact:d36566d1-48ff-4855-9e45-d851878850ce",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the active fighter object and forwards it unchanged to fn_800CAF78. That routine reads Hammer-state handling, vertical stick input, the vertical-stick tilt timer, shared input thresholds, and X/Y button input; accepted ordinary input is converted to JumpInput_LStick or JumpInput_XY and passed with the fighter object to ftCo_KneeBend_Enter. Its boolean transition result is consumed locally by RETURN_IF.",
+        "rationale": "The current TurnRun wrapper performs no local field accesses and only forwards gobj into fn_800CAF78. The current callee source exposes the ordered Hammer path, controller and timer inputs, jump-input enum values, KneeBend output, and boolean result consumed by RETURN_IF.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows that TurnRun IASA forwards gobj unchanged to fn_800CAF78 and consumes the returned boolean through RETURN_IF."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L54-L84",
+            "why": "Shows the Hammer path, stick magnitude and timer guards, X/Y input, jump-input enum selection, and KneeBend calls."
+          }
+        ]
+      },
+      {
+        "id": "fact:60e41c93-700b-4475-b530-a73184903bac",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements initiation of a jump from the running-turnaround state, routing accepted jump input into KneeBend\u2014the grounded pre-jump action before the fighter leaves the ground.",
+        "rationale": "The current TurnRun IASA callback delegates to the shared selector, and the current selector enters KneeBend when upward-stick or X/Y jump input is accepted. This directly maps the callback to starting the grounded pre-jump state from TurnRun.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows that the TurnRun IASA callback invokes the shared grounded jump selector."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L54-L84",
+            "why": "Shows accepted stick or button jump input entering KneeBend."
+          }
+        ]
+      },
+      {
+        "id": "fact:71d519bd-61a0-46db-a56c-74cacdc1c738",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter IASA callback with signature void (Fighter_GObj*).",
+        "rationale": "The matched definition explicitly returns void and accepts one Fighter_GObj pointer; its TurnRun_IASA placement identifies it as the action state's interrupt/input callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T02:50:19.840Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L79-L82",
+            "why": "The source provides the exact return and parameter types and identifies the function as TurnRun's IASA callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:7a18f895-a884-4b53-adfd-493156fb4322",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the TurnRun state's IASA callback by delegating jump-interrupt handling to the shared grounded jump-input routine, allowing the moving turnaround to transition into the appropriate pre-jump state without duplicating jump-selection logic.",
+        "rationale": "The current callback consists solely of a guarded call to fn_800CAF78. The current callee handles its special jump path first and then recognizes timed upward-stick or X/Y input, entering KneeBend for accepted ordinary jumps.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows that the entire TurnRun IASA callback delegates to fn_800CAF78 under RETURN_IF."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L54-L84",
+            "why": "Shows the delegated selector's ordered special, stick-jump, and button-jump paths and its KneeBend transitions."
+          }
+        ]
+      },
+      {
+        "id": "fact:b2ddc700-7b44-4e07-a1a2-b6bc2b41d9d0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On each TurnRun IASA update, first permits the shared Hammer-specific jump path. Otherwise, an upward-stick input that meets the configured magnitude and tilt-timer guards enters KneeBend with JumpInput_LStick, while an X/Y press enters KneeBend with JumpInput_XY. A successful transition returns true from the selector and causes this callback to return immediately; if no jump path succeeds, the callback ends without any local state change.",
+        "rationale": "The current selector preserves the ordered special, timed-stick, and button paths and returns false when none succeeds. The current TurnRun wrapper consumes that boolean through RETURN_IF and contains no subsequent local behavior.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L54-L84",
+            "why": "Shows the ordered special, upward-stick, and X/Y paths, their KneeBend entries, and the false result when no path is accepted."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows immediate return on selector success and no additional TurnRun IASA behavior."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+    "facts": [
+      {
+        "id": "fact:988a1a9c-c527-4706-aa27-8e959652f1ca",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the Fighter, its common movement attributes, current ground velocity, TurnRun's entry-facing acceleration multiplier, and acceleration and target velocity computed by getAccelAndTarget. It scales the fighter's ground friction by the shared common-data friction multiplier, either passes that value to ftCommon_ApplyFrictionGround or uses it to correct and clamp acceleration, writes the result to xE4_ground_accel_1, and then calls ftCommon_ApplyGroundMovement to consume the updated ground-physics state.",
+        "rationale": "The current physics body explicitly shows the Fighter and attribute reads, getAccelAndTarget outputs, saved multiplier, friction calculation, correction and clamp logic, acceleration write, and final ground-movement consumer. The current entry routine confirms that accel_mul receives the fighter's facing direction at TurnRun entry.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows TurnRun entry initializing accel_mul from facing_dir and the physics callback's inputs and intermediate calculations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L84-L139",
+            "why": "Shows the full friction, correction, clamp, acceleration-write, and ground-movement output paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:09890dc6-8f16-425f-9d9e-e8dd6a6565a8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the traction and acceleration phase of a running turnaround: it slows motion when directional acceleration is absent or inappropriate, permits acceleration opposite the fighter's entry-facing direction, and prevents the corrected velocity from crossing the computed target speed.",
+        "rationale": "The current entry routine saves the original facing direction, and the current physics callback accepts acceleration only when its sign opposes that saved direction. Its remaining branches apply friction, while the nested corrections clamp movement against the computed target velocity.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows the saved entry-facing direction and its use in the turnaround acceleration sign test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L84-L139",
+            "why": "Shows friction for unusable acceleration and correction and clamping against target velocity."
+          }
+        ]
+      },
+      {
+        "id": "fact:512e9443-4d42-4eb0-8728-7b82a10d65f9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void fighter action-state physics callback with signature void (Fighter_GObj* gobj).",
+        "rationale": "The current definition returns void, accepts one Fighter_GObj pointer, resolves its Fighter, and performs the per-frame grounded movement update for the TurnRun action state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L84-L139",
+            "why": "Shows the exact function signature and complete physics callback body."
+          }
+        ]
+      },
+      {
+        "id": "fact:c4a146a6-9620-4bc8-89e8-716d639ea870",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Per-frame grounded physics callback for TurnRun. It decelerates the fighter when there is no usable target or when acceleration is not directed opposite the entry-time facing direction; otherwise it applies reverse-direction acceleration with traction-based correction and clamps it against the target velocity before applying ground movement.",
+        "rationale": "The current body computes acceleration and target velocity, selects friction for a zero target or non-reversing acceleration, and writes acceleration only when the saved TurnRun facing multiplier and computed acceleration have opposite signs. Its nested corrections prevent crossing the target before common ground movement consumes the result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows initialization of the entry-facing multiplier and the beginning of the physics callback's target, sign, and friction branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L84-L139",
+            "why": "Shows the complete correction, clamp, acceleration-write, fallback-friction, and final ground-movement behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:add1df30-1a13-439c-b934-098077c08b13",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On each TurnRun physics update, a zero target velocity invokes ground friction. With a nonzero target, acceleration is accepted only when mv.co.turnrun.accel_mul * accel is negative, meaning it points opposite the facing direction saved at state entry. Positive and negative acceleration paths independently subtract or add traction when the projected velocity would exceed the target, then clamp to target_vel - gr_vel if that correction would cross the target. All other cases apply friction, and every path finishes with ground movement.",
+        "rationale": "The current entry routine assigns facing_dir to accel_mul, establishing the meaning of the sign guard. The current physics body preserves the zero-target branch, signed acceleration corrections, target-crossing clamps, fallback friction, and unconditional final ground-movement call.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:07:11.058Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L18-L117",
+            "why": "Shows accel_mul initialized from facing_dir and the zero-target and direction-sign branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L84-L139",
+            "why": "Shows both signed correction and clamp paths, fallback friction, and the final ground-movement call."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+    "facts": [
+      {
+        "id": "fact:ad956866-a79c-4036-b646-da2dc2a9baaf",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+        "type": "data_flow",
+        "value": "Reverse-facing stick input enters TurnRun; entry stores the original facing direction, animation consumes command and velocity state to reverse facing, physics derives acceleration and target velocity from input and traction, and collision consumes support and edge flags to enter Fall or clear movement.",
+        "rationale": "The current code carries reverse input and stored facing through animation and movement calculations into collision-dependent outcomes.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:31:26.053Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L1-L139",
+            "why": "Traces input, stored facing, command variables, ground velocity, acceleration, and collision status through TurnRun."
+          }
+        ]
+      },
+      {
+        "id": "fact:78f5b827-9ed6-4ab7-89f5-a51b61fb2797",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+        "type": "game_mapping",
+        "value": "Realizes a fighter's running turnaround, including deceleration, facing reversal, continued grounded movement, falling after support loss, and stopping at a detected platform edge.",
+        "rationale": "The current TurnRun state combines opposite-direction input, reversal, friction and acceleration, and support or edge collision outcomes.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-06T03:31:26.053Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L1-L139",
+            "why": "Shows reverse-input TurnRun entry and its movement, reversal, and collision lifecycle."
+          }
+        ]
+      },
+      {
+        "id": "fact:b66618b2-8e3c-49a3-adb2-990ebfe23a03",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+        "type": "purpose",
+        "value": "Implements the common fighter TurnRun state: reverse-input entry, animation-controlled facing reversal, grounded movement, interrupt processing, and collision transitions to Fall or an edge-triggered movement reset.",
+        "rationale": "The current unit retains the full TurnRun entry and callback family with these responsibilities.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:31:26.053Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L1-L139",
+            "why": "Shows TurnRun recognition, setup, animation reversal, IASA, movement physics, and collision transitions."
+          }
+        ]
+      },
+      {
+        "id": "fact:0e591062-07fd-49e6-be0d-d686d9c7b862",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c",
+        "type": "state_behavior",
+        "value": "Reverse-facing input enters ftCo_MS_TurnRun. A script command freezes animation until ground velocity reaches the turnaround point, then resumes animation and reverses facing. Physics accelerates only in the permitted direction and otherwise applies friction; loss of support enters Fall, while a detected edge clears movement.",
+        "rationale": "The current entry, animation, physics, and collision callbacks retain each guard and transition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:31:26.053Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L1-L139",
+            "why": "Shows reverse-input entry, animation pause and facing reversal, direction-sensitive physics, and collision exits."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9CEC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:fn_800C9D40#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Anim#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Coll#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Enter#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_IASA#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_TurnRun:ftCo_TurnRun_Phys#r3",
+    "facts": []
+  }
+]

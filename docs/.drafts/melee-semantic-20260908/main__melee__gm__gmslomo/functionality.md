@@ -1,0 +1,29 @@
+## Slo-Mo Melee controller
+
+`gmslomo.c` declares the mode-state table and thin lifecycle wrappers. Its header declares all 13 functions with matching signatures. The canonical and rendered views were read completely; rendered names were treated as hypotheses, not independent evidence.
+
+### State registration
+
+The source table contains eight populated `GameModeState` records followed by `{ -1 }`: 0 = CSS, 1 = SSS, 2 = ordinary VS, 3 = Sudden Death, 4 = Results, 0x80 = Approach, 0x81 = Approach VS, and 0xC0 = Prize Interface. Primary records have second initializer value 3; auxiliary records have value 2. These values are preserved without assigning an unverified meaning. Approach has no exit callback; Results and Prize have null exit-data pointers. Both primary battles share `gmVsMelee_StartData` but use distinct exit records. Auxiliary callbacks are shared external implementations, so the primary half-speed guarantee is not extended to state 0x81. [Table](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmslomo.c#L10-L108).
+
+### Configuration and speed lifetime
+
+The wrappers consistently use `gmMainLib_804D3EE0->modes.unk_1210` as persistent `VsModeData`. OnInit delegates default rules/player initialization and sets loser, ordered-stage index, and winner to -1. OnLoad separately clears the entire shared KO-count array. That array is exposed to CSS and updated from human-player standings; neither lifecycle callback applies half speed. [Local lifecycle](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmslomo.c#L168-L176), [defaults](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3557-L3564), [KO storage and updates](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L29-L50), [reset and CSS exposure](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L107-L127).
+
+`fn_801BA5B4` unconditionally writes only `data->rules.game_speed = 0.5F`; its second argument is unused. Both primary battle-entry wrappers supply it as the whole-match callback and supply no player callback. Shared builders copy rules before invoking it and copy players afterward. Ordinary entry first refreshes persistent settings and prepares stock/VS flags; Sudden Death instead finishes setup using the prior ordinary battle's `MatchEnd`. This is a match-construction rule override, not a local timer or per-frame slowdown loop. [Local callback and registrations](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmslomo.c#L130-L151), [shared construction](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L171-L262).
+
+### Selection and post-match branches
+
+CSS entry forwards match type 0xA, copies persistent configuration, exposes KO storage, and initializes the preload cache. CSS exit returns to GM_MENU on `CSSPendingSceneChange_2`; otherwise it commits configuration and schedules fighter audio. SSS entry copies configuration into its payload. SSS exit commits configuration and schedules stage audio when `start_game` is nonzero; otherwise it explicitly selects local state 0. Normal progression is not an explicit next-state write in these successful selection branches. [Selection helpers](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L119-L169).
+
+Ordinary VS exit delegates accounting and passes destination IDs 4 and 3. Human-result accounting is guarded. The transition selects Results when `gm_MatchHasMultipleWinners` is false and Sudden Death when true. Importantly, no-contest forces false; otherwise the predicate tests team or player winner count greater than one. Thus Results routing is not limited to a successfully resolved one-winner match. [Exit helper](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L207-L233), [predicate](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3241-L3262).
+
+Sudden Death exit reconciles its result with the persistent ordinary result without explicitly choosing a next state. Reconciliation is conditional, can modify both operands, and is not a wholesale replacement. Results entry clears `ResultsMatchInfo` and copies the persistent `MatchEnd` into it. [Handoff](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L264-L275), [reconciliation](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1601.c#L3159-L3239), [clear operation](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmresultplayer.c#L407-L427).
+
+Results exit supplies persistent configuration and fallback state 0. The shared helper guards configuration updates against canceled matches, updates KO counts, and gates progression checks on human participation and a nonterminal following record. Three ordered challenger checks take precedence over the prize diversion. Exceptional paths select Approach or Prize and return after archive setup; the ordinary path also performs archive setup before selecting fallback 0. Numeric checks such as `foo != 328` remain uninterpreted here. [Results exit](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmelee.c#L277-L344), [exceptional state values](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmvsmode.h#L6-L15).
+
+### Evidence limits
+
+Source establishes the named array and the 0.5F assignment, but no compiled artifacts establish their attribution to the frozen `.data` and `.sdata2` targets. Those nine facts and two links remain unresolved rather than being promoted into section/layout claims. Existing inferred function names remain role-based hypotheses with their original spellings and confidence preserved. The completed ledger retains 76 facts and 20 links, supersedes one incomplete post-battle mapping, and preserves all baseline IDs individually.
+
+Status: synthesized; independent review and live promotion pending.

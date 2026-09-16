@@ -4,10 +4,16 @@
 Vertical slice owning the codegen-steering ship-gate rules:
 ``volatile_local_tactic``, ``register_keyword``, ``inline_asm``,
 ``novel_pragma``, and ``codegen_pragma``. All are hard errors; the
-SDK-like directories (``src/dolphin``, ``src/MSL``, ``src/MetroTRK``,
-``src/Runtime``) are excluded for the tactics that upstream vendor code
-legitimately uses (``volatile_local_tactic``, ``register_keyword``,
-``inline_asm``).
+SDK-like and vendor directories (``SDK_PATH_EXCLUDES``: ``src/dolphin``,
+``src/MSL``, ``src/MetroTRK``, ``src/Runtime``, ``src/JSystem``, ...) are
+excluded for the tactics that upstream vendor code legitimately uses
+(``volatile_local_tactic``, ``register_keyword``, ``inline_asm``).
+
+``volatile_local_tactic`` covers both local ``volatile`` declarations and
+``volatile`` cast forms (``(volatile T*)``, ``(volatile T&)``,
+``*(volatile T*)&x``) applied to ordinary storage. ``codegen_pragma`` treats
+``force_active`` as a codegen pragma; ``inline_depth`` is outside the
+established set and lands in ``novel_pragma``.
 
 Function externs are owned by the ``extern_in_c`` rule in the
 ``literals_data_and_externs`` slice (every extern in a .c file is an error).
@@ -46,7 +52,13 @@ ESTABLISHED_PRAGMAS = {
     "pool_data",
     "clang diagnostic",
 }
-CODEGEN_PRAGMAS = {"dont_inline", "auto_inline", "global_optimizer", "pool_data"}
+CODEGEN_PRAGMAS = {
+    "dont_inline",
+    "auto_inline",
+    "global_optimizer",
+    "pool_data",
+    "force_active",
+}
 VOLATILE_LOCAL_DECL_RE = re.compile(
     r"^\s+"
     r"(?!(?:extern|typedef)\b)"
@@ -54,6 +66,14 @@ VOLATILE_LOCAL_DECL_RE = re.compile(
     r"volatile\s+"
     r"(?:(?:const|signed|unsigned|long|short|struct\s+[A-Za-z_]\w*)\s+)*"
     r"[A-Za-z_]\w*(?:\s*\*+\s*|\s+)+(?P<name>[A-Za-z_]\w*)\b"
+)
+# Cast forms: `(volatile T*)`, `(volatile T&)`, `*(volatile T*)&x`,
+# `(volatile struct Foo*)`, `(volatile JGeometry::TVec3<f32>&)`.
+VOLATILE_CAST_RE = re.compile(
+    r"\(\s*volatile\s+"
+    r"(?:(?:const|signed|unsigned|long|short|struct|class|union|enum)\s+)*"
+    r"[A-Za-z_]\w*(?:\s*::\s*[A-Za-z_]\w*)*(?:\s*<[^<>()]*>)?"
+    r"(?:\s+const)?\s*(?P<ref>\*+|&+)\s*\)"
 )
 
 
@@ -169,20 +189,38 @@ def check_volatile_local_tactic(hunk: dict[str, Any]) -> list[dict[str, Any]]:
     for lineno, text in hunk["added"]:
         clean = blank_line(text)
         match = VOLATILE_LOCAL_DECL_RE.search(clean)
-        if not match:
+        if match:
+            findings.append(
+                {
+                    "line": lineno,
+                    "excerpt": text.strip(),
+                    "message": (
+                        f"Added local volatile declaration `{match.group('name')}`. "
+                        "Volatile locals in normal source are codegen tactics; prefer "
+                        "ordinary locals or cleaner expressions unless real hardware/"
+                        "SDK semantics require volatile. "
+                        f"{STANDARD_TITLES[standard]}."
+                    ),
+                    "detail": {"name": match.group("name"), "form": "declaration"},
+                }
+            )
             continue
+        cast = VOLATILE_CAST_RE.search(clean)
+        if not cast:
+            continue
+        cast_text = " ".join(cast.group(0).split())
         findings.append(
             {
                 "line": lineno,
                 "excerpt": text.strip(),
                 "message": (
-                    f"Added local volatile declaration `{match.group('name')}`. "
-                    "Volatile locals in normal source are codegen tactics; prefer "
-                    "ordinary locals or cleaner expressions unless real hardware/"
-                    "SDK semantics require volatile. "
+                    f"Added volatile cast `{cast_text}` on ordinary storage. "
+                    "Volatile casts in normal source are codegen tactics that "
+                    "force loads/stores; prefer the plain expression unless real "
+                    "hardware/SDK semantics require volatile. "
                     f"{STANDARD_TITLES[standard]}."
                 ),
-                "detail": {"name": match.group("name")},
+                "detail": {"cast": cast_text, "form": "cast"},
             }
         )
     return findings
@@ -194,7 +232,7 @@ RULES: list[dict[str, Any]] = [
         "severity": "error",
         "standard_id": "global_standard:matching-tactics-need-evidence",
         "check": check_volatile_local_tactic,
-        "message": "New local volatile declaration used as a codegen tactic.",
+        "message": "New local volatile declaration or volatile cast used as a codegen tactic.",
         "applies_to": DEFAULT_APPLIES_TO,
         "excludes": SDK_PATH_EXCLUDES,
     },

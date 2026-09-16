@@ -1,0 +1,3 @@
+The owned header `src/melee/ft/kinds/ftCommon/ftCo_BuryWait.h` contains only the `GALE01_0C12D8` include guard and blank lines. It declares no functions, types, or data and contains no runtime behavior. Canonical and rendered views agree; there are no name substitutions or renderer parse errors. The filename alone does not establish BuryWait state behavior or cross-file lifetimes. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_BuryWait.h#L1-L5. All owned pages and both empty baseline enumerations were reviewed; no semantic correction is supported.
+
+Status: researched; no-change lead bypass; independent review and live promotion pending.

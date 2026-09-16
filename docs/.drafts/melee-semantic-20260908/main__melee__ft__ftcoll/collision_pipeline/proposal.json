@@ -1,0 +1,152 @@
+{
+  "tu": "main/melee/ft/ftcoll",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80079C70"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftColl_CalcFighterKnockback",
+        "rationale": "Replaces the duplicate CalcKnockback alias with a descriptive name identifying the victim/attacker Fighter inputs and derived player ratios. Original spelling remains unknown.",
+        "confidence": 0.85,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L2422-L2488",
+            "why": "Complete function establishes the local control flow and data dependencies."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80079EA8"
+        },
+        "type": "inferred_name",
+        "op": "write",
+        "value": "ftColl_CalcUnmodifiedKnockback",
+        "rationale": "Replaces the duplicate CalcKnockback alias with a name distinguishing unit attack, defense and global multipliers. Weight and hit properties still affect the result; original spelling remains unknown.",
+        "confidence": 0.84,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L2490-L2528",
+            "why": "Complete function establishes the local control flow and data dependencies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L2363-L2385",
+            "why": "Damage-count helper and shared formula define branch inputs and arithmetic order."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80078C70"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Uses the supplied Fighter as defender and other list entries as attack sources. Writes ftColl_804D6560 eligibility bytes for defender hit capsules, delegates clash/shield/hurt responses, writes attacker unk_gobj and x221C_b5 on inert paths, and stores returned hit-audio handles in defender x215C or x2160. Geometry calls receive each participant scale and defender transform/Z.",
+        "rationale": "The previous generic collision-identifier output obscures actual audio-handle destinations and attacker-side inert bookkeeping.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1635-L1994",
+            "why": "Complete function establishes the local control flow and data dependencies."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_80078C70"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Runs only when gm_8016B1C4 returns zero. After ownership/player/team and capsule eligibility filters, eligible list-ordered grounded pairs can resolve a hitbox clash before shield testing. A successful non-inert shield branch suppresses hurt testing; an inert shield contact records attacker flags then still enters the hurt path. Hurt scanning is excluded by x1988==2 or x198C==2 and stops at the first geometrically overlapping capsule regardless of the hurt-response helper result.",
+        "rationale": "Corrects the omitted clash stage and records executable first-overlap break; commented phantom-hit continuation is not executed.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1635-L1994",
+            "why": "Complete function establishes the local control flow and data dependencies."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007925C"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads item and fighter ownership/team/ground-air/facing/permission fields. ftColl_804D6560 stores eligible fighter-hitbox flags, not cached geometric overlaps. Subsequent geometry tests drive reflector/absorber responses, item toucher/xDCE_flag.b6, shield/hurt handlers and hit-audio outputs. The source list contributes four item attack hitboxes per item; no item hurt-capsule traversal occurs.",
+        "rationale": "The original cached-overlaps wording is contradicted by flag writes before geometry tests.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1999-L2356",
+            "why": "Complete function establishes the local control flow and data dependencies."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007925C"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Scans four hitboxes of each eligible item against one fighter. Builds fighter attack eligibility flags, then applies per-item-hitbox guards and ordered reflection, absorption, clash/inert attack contact, shield and hurt handling. Successful earlier branches continue to the next item hitbox. It does not scan item hurt capsules.",
+        "rationale": "Clarifies this item-attack pipeline and avoids implying general fighter-attack versus item-hurtbox processing.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1999-L2356",
+            "why": "Complete function establishes the local control flow and data dependencies."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007925C"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Handles item attack hitboxes meeting fighter reflector, absorber, attack hitboxes, shield and hurt capsules. Supports reflection, absorption, hitbox clashes and inert-touch bookkeeping before ordinary item-to-fighter hurt response.",
+        "rationale": "Replaces overly broad attacks-damaging-items claim; the owned routine contains no item hurtbox scan.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L1999-L2356",
+            "why": "Complete function establishes the local control flow and data dependencies."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcoll:ftColl_8007A06C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Zero entries return immediately. For valid categories 1,2,3 and at least one candidate exceeding the initial -1 knockback sentinel, strict greater-than replacement keeps the earliest tied maximum. arg4 enables mapped effects for category 1 and 2 candidates, not category 3. Each new provisional maximum updates fp.x221C_b0; after the scan, only the selected entry supplies DmgResult and source bookkeeping.",
+        "rationale": "Narrows effects-per-candidate wording and records provisional maximum mutation; invalid tags and missing qualifying candidates are not checked.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcoll.c#L2534-L2968",
+            "why": "Complete function establishes the local control flow and data dependencies."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

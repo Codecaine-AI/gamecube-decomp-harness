@@ -1,0 +1,141 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd.c#L34-L91",
+            "why": "Finalizer body, initialization ordering, callback registration, and completion call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D27.c#L163-L192",
+            "why": "Movement snapshot and restoration operations."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the overly broad pre-transformation snapshot/restored-scale wording with exact ordering and operands.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd:ftCo_800D23F4"
+        },
+        "type": "purpose",
+        "value": "Shared SmallEnd finalizer: restores the movement snapshot made during fresh-entry initialization, clears x2220_b6, applies x34_scale.x through ftCo_800D2770, optionally clears live movement and consumes mushroom.x8, then calls ft_8008A324 for exactly GA_Ground or the stored mushroom.x0 continuation otherwise. It is used by both animation-completion paths, take_dmg_cb, and mushroom.x4. It does not locally force the scale-animation endpoint, clear the retained callback slots, or free the auxiliary animation joint."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd.c#L51-L60",
+            "why": "Shared initialization operands and assignments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd.c#L102-L111",
+            "why": "Previous-motion capture and airborne fresh entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D27.c#L70-L89",
+            "why": "Previous ID selects a continuation callback; no prior-ID storage occurs."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline assertion that shared initialization records the prior motion.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd:ftCo_800D2600"
+        },
+        "type": "data_flow",
+        "value": "Captures motion_id before fn_800D290C and the fresh KinokoSmallEndAir state change, then supplies that previous ID to fn_800D2890 to select a continuation rather than storing the ID itself. Shared initialization saves and clears movement, copies arg1 to mushroom.x8, initializes auxiliary scale animation index 0 from x34_scale.y and x34_scale.x, calls fn_800D2AD8, and stores ftCo_800D23F4 in mushroom.x4. The outer entry installs the same finalizer as take_dmg_cb."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd.c#L20-L141",
+            "why": "Full local state machine and cleanup flag flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoGiantStart.c#L21-L49",
+            "why": "External x4 consumer and flag-1 entry path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1500-L1512",
+            "why": "Timer-zero dispatcher caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0D27.c#L136-L151",
+            "why": "Scale update precedes terminal-flag result."
+          }
+        ],
+        "op": "write",
+        "rationale": "Extends the baseline TU state model with the verified non-expiration path, optional flag behavior, and initialization ordering.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd.c"
+        },
+        "type": "state_behavior",
+        "value": "The normal end dispatcher uses cleanup flag 0 and is called when the mushroom status timer reaches zero. Fighter_SuperMushroomApply also directly enters SmallEnd/SmallEndAir with cleanup flag 1 when the small-status bit is set. Fresh entries capture the old motion ID, run preparation and a frame-zero state change, then initialize movement/continuation/scale state. Terrain changes reuse current frame and rate without rerunning that initialization. Both animation callbacks apply the auxiliary scale update before testing completion and converge with installed damage and mushroom-finalizer callbacks on ftCo_800D23F4. Cleanup tests x8 for nonzero, optionally clears live movement and consumes x8, clears the small status, and chooses an outgoing continuation using exactly GA_Ground versus all other values."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd.c#L20-L71",
+            "why": "Zero caller, int signature, storage, and conditional consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoGiantStart.c#L36-L43",
+            "why": "Verified flag-1 caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents the parameter's source type and observed meaning without claiming compiled register or field layout.",
+        "subject": {
+          "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd:ftCo_800D2490#r4"
+        },
+        "type": "inferred_type",
+        "value": "Source parameter int arg1: stored in mushroom.x8 as an optional cleanup-time movement-clearing request. Zero skips the optional clearing; a nonzero stored value triggers clearing and is then reset to zero. Verified callers supply 0 for normal ending and 1 for opposing-mushroom cancellation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd.c#L34-L60",
+            "why": "Shared storage and cleanup-time test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd.c#L102-L111",
+            "why": "Exact int signature and forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_KinokoGiantStart.c#L36-L43",
+            "why": "Verified nonzero caller."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents the airborne entry's second parameter without promoting its boolean-like use to a bool declaration or proving ABI layout.",
+        "subject": {
+          "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_KinokoSmallEnd:ftCo_800D2600#r4"
+        },
+        "type": "inferred_type",
+        "value": "Source parameter int arg1: forwarded to shared initialization and stored in mushroom.x8 as an optional cleanup-time movement-clearing request. Zero skips the optional clearing; a nonzero stored value triggers clearing and is then reset to zero. Verified callers supply 0 for normal ending and 1 for opposing-mushroom cancellation."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

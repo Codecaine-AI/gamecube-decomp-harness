@@ -1,0 +1,99 @@
+{
+  "tu": "main/sysdolphin/baselib/cobj",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/cobj.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Camera eye, interest and up state feed look-at view construction. Projection parameters and rectangle bounds feed GX projection, viewport and scissor setup. Activation clears the deferred Z list, records current and selects a render-pass setup; EndCurrent calls Z-list sort then display. The optional proj_mtx allocation caches the inverse of view_mtx.",
+        "rationale": "Full TU synthesis narrows the prior aggregate fact to canonical behavior and explicit cache conditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L199-L525",
+            "why": "Shows local camera state flow and cache/activation branch conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L785-L835",
+            "why": "Shows local camera state flow and cache/activation branch conditions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/cobj.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Activation rejects null, records current before render setup, and refreshes view only after successful setup. View regeneration requires camera mask 2 clear and view/WObj dirty state. Rebuilding clears view dirty indicators and sets inverse dirty bit 31. The Direct inverse accessor does not refresh view; it allocates/inverts only under bit 31 and clears that bit without checking inversion success.",
+        "rationale": "Full TU synthesis narrows the prior aggregate fact to canonical behavior and explicit cache conditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L467-L519",
+            "why": "Shows local camera state flow and cache/activation branch conditions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L758-L835",
+            "why": "Shows local camera state flow and cache/activation branch conditions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:CObjRelease"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Releases camera-owned resources: removes animation, relinquishes eye and interest WObj references, frees the optional inverse-view cache stored in proj_mtx, and delegates base-object cleanup to parent release.",
+        "rationale": "TU synthesis resolves misleading projection-matrix wording through the inverse cache writer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1358-L1383",
+            "why": "Release frees proj_mtx; its writer stores the inverse of view_mtx."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L785-L795",
+            "why": "Release frees proj_mtx; its writer stores the inverse of view_mtx."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/cobj:CObjRelease"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Cleanup calls animation removal, then handles eye and interest WObjs, then frees optional proj_mtx inverse-view cache storage, then calls parent release. Each non-null WObj is released and destroyed only when ref_DEC indicates release; parent release is unconditional after local cleanup.",
+        "rationale": "TU synthesis resolves misleading projection-matrix wording through the inverse cache writer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L1358-L1383",
+            "why": "Release frees proj_mtx; its writer stores the inverse of view_mtx."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.c#L785-L795",
+            "why": "Release frees proj_mtx; its writer stores the inverse of view_mtx."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

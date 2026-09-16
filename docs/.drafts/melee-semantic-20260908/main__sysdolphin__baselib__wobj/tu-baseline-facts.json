@@ -1,0 +1,2467 @@
+[
+  {
+    "id": "fact:5a675533-ef28-4cea-a21c-43884ae8ff86",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.data",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The statically stored `WObjInfoInit` pointer supplies the deferred entry point for initializing `hsdWObj`. The callback passes `hsdWObj`, its `hsdObj` parent, the `sysdolphin_base_library` and `had_wobj` identifiers, and the `HSD_WObjInfo` and `HSD_WObj` sizes to `hsdInitClassInfo`, then writes `WObjRelease`, `WObjAmnesia`, and `WObjLoad` into the descriptor. WObj allocation and virtual descriptor loading subsequently consume this initialized class record.",
+    "rationale": "The global initializer establishes the callback entering the record. `WObjInfoInit` shows the metadata and callbacks flowing into it, while allocation and descriptor loading read `hsdWObj` as the base allocation class and virtual-method source.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T04:59:51.028Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows `WObjInfoInit` as the initial contents of `hsdWObj` and shows WObj loading eventually dispatching through the object's class load method."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows descriptor loading using class dispatch and base WObj allocation selecting the class descriptor embedded in `hsdWObj` when no override is configured."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows the parent descriptor, class identifiers, object sizes, and WObj callbacks written into `hsdWObj` during initialization."
+      }
+    ]
+  },
+  {
+    "id": "fact:b99ceb08-5aae-497e-b2cb-f82dd24b3205",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.data",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "An initialized writable data section containing the global `HSD_WObjInfo hsdWObj` runtime class descriptor. Its static image is seeded with a `static void WObjInfoInit(void)` callback, while inherited class metadata and the WObj-specific load method slot are populated at runtime.",
+    "rationale": "The declaration directly establishes the record type and its initializer. The initializer subsequently writes inherited lifecycle slots and the HSD_WObjInfo-specific load slot, proving that the descriptor is writable runtime class metadata rather than an HSD_WObj instance.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T04:59:51.028Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the `HSD_WObjInfo` storage type and the `WObjInfoInit` bootstrap initializer stored in `hsdWObj`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows runtime writes through the inherited class-info and WObj-info layouts, including the WObj-specific load callback."
+      }
+    ]
+  },
+  {
+    "id": "fact:2e89934e-2ad0-4bc9-af95-1a943a8f977d",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.data",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the initialized writable `hsdWObj` class-information record that bootstraps runtime class metadata and method dispatch for HSD world objects.",
+    "rationale": "The source defines `hsdWObj` as an `HSD_WObjInfo` record seeded with `WObjInfoInit`. That initializer configures the record as an HSD_Obj-derived class descriptor and installs the WObj release, class-amnesia, and descriptor-loading methods, demonstrating that this data exists to bootstrap and retain WObj class metadata.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T04:59:51.028Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Defines the global `HSD_WObjInfo hsdWObj` record with `WObjInfoInit` as its static initializer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows `WObjInfoInit` configuring `hsdWObj` as the WObj class descriptor and installing its release, amnesia, and load callbacks."
+      },
+      {
+        "kind": "pr",
+        "locator": "pr://pr-308--main-sysdolphin-baselib-wobj",
+        "why": "Identifies the merged source contribution containing this data as the complete HSD_WObj implementation."
+      }
+    ]
+  },
+  {
+    "id": "fact:f0daadf3-794a-4a00-af38-564915e8a373",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.data",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The `hsdWObj` record has a two-stage lifetime: its static image begins with `WObjInfoInit` as the bootstrap entry, and running that callback transitions it into an initialized HSD_Obj-derived WObj class descriptor by establishing inheritance and size metadata before installing the WObj release, amnesia, and load operations. The resulting descriptor remains the base class used when no default WObj subclass override is active.",
+    "rationale": "The static declaration and initializer body directly show the descriptor before and after runtime initialization. The allocator's conditional class selection demonstrates the initialized record's continuing role as the fallback WObj class.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T04:59:51.028Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the descriptor's compile-time bootstrap state with `WObjInfoInit` as its explicit initializer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows the ordered runtime transition from generic class initialization to installation of WObj-specific methods."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows allocation falling back to the base class descriptor within `hsdWObj` when `default_class` is null."
+      }
+    ]
+  },
+  {
+    "id": "fact:818f827a-d39e-430f-ae8f-67c48203bc79",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sbss",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "`default_class` receives the class metadata supplied to HSD_WObjSetDefaultClass. HSD_WObjAlloc reads the slot and passes its non-NULL value to `hsdNew`, or passes the built-in class embedded in `hsdWObj` when the slot is NULL. WObjAmnesia compares a forgotten class against the cached class and writes NULL when they match.",
+    "rationale": "The setter, allocator, and amnesia callback expose the slot's complete demonstrated producer-consumer-invalidation flow: configuration writes it, allocation consumes it without modification, and class-lifecycle cleanup clears a stale association.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:59:10.129Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows the incoming class pointer flowing into `default_class` and the cached pointer or built-in WObj class flowing into `hsdNew`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows the class-amnesia input being compared with the cached class and a matching association being replaced with NULL."
+      }
+    ]
+  },
+  {
+    "id": "fact:c4def7db-514e-48e3-8c67-ef9418e24eb9",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sbss",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "default_class",
+    "rationale": "At head, `.sbss` remains a section-level target while the corresponding file-local zero-initialized object is explicitly named `default_class`, confirming the existing constituent-name inference.\n\nNaming cleanup: Selected default_class as the best-supported candidate over default_class; the exact historical spelling remains uncertain.\nPrior naming claim: The aggregate section has no authored variable name; its recovered constituent is most plausibly the file-local `default_class` object.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/wobj.c#L1-L25",
+        "why": "Declares the recovered file-local identifier `default_class` as a separate nullable pointer beside the initialized `hsdWObj` class descriptor."
+      }
+    ]
+  },
+  {
+    "id": "fact:7c7fbadf-6ac4-47c4-a461-dc6dbd1669eb",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sbss",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Zero-initialized small-data storage whose recovered source object is one nullable `HSD_ClassInfo* default_class` pointer.",
+    "rationale": "The declaration at head gives the exact pointer type, static linkage, identifier, and NULL initializer, while the setter and allocator continue to use the object as optional class metadata.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T23:45:18.692Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/wobj.c#L1-L25",
+        "why": "Shows `default_class` declared as a static `HSD_ClassInfo*` initialized to NULL."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows HSD class metadata being assigned to the pointer and selected as the allocation class when non-NULL."
+      }
+    ]
+  },
+  {
+    "id": "fact:327b48d1-7661-4017-a079-cf282c219859",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sbss",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the WObj module's nullable default-class override, allowing ordinary world-object allocation to use a configured HSD_WObj subclass instead of the built-in WObj class.",
+    "rationale": "At head, the pointer remains NULL-initialized, the setter writes it, allocation selects it in preference to the built-in class when present, and amnesia clears a stale association; the standing purpose is unchanged.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T23:45:18.692Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/wobj.c#L1-L25",
+        "why": "Declares the WObj module's file-local, NULL-initialized default-class pointer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows the setter writing the override and allocation selecting it or falling back to the built-in WObj class."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows class-amnesia processing clearing the override when its referenced class is forgotten."
+      }
+    ]
+  },
+  {
+    "id": "fact:5f600eb2-94a3-4679-a2fc-2962d9b0cbb7",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sbss",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The slot begins as NULL, causing allocation to use the built-in HSD_WObj class. HSD_WObjSetDefaultClass can install a non-NULL descendant class or clear the slot with NULL; while installed, subsequent allocations use that class. If class-amnesia processing reaches the installed class, the slot transitions back to NULL before the notification is delegated to the parent class.",
+    "rationale": "The head declaration preserves the initial NULL state; the setter still validates non-NULL descendants and assigns either a class or NULL, allocation still performs the NULL-dependent fallback, and amnesia still clears a matching class before parent delegation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T23:45:18.692Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sbss"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/wobj.c#L1-L25",
+        "why": "Shows the default-class slot's explicit initial NULL state."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows descendant validation, nullable assignment, and allocation's fallback to the built-in class when no override is installed."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows a matching installed class being cleared before the amnesia notification is delegated to the parent class."
+      }
+    ]
+  },
+  {
+    "id": "fact:1d686a6e-58ac-4e69-a480-a6c8b4dddc6a",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sdata",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The compiler derives these strings from HSD_ASSERT condition tokens. Normal execution does not consume them; when an assertion condition is false, the macro passes the source-file string, authored line number, and the corresponding condition string from this pool to `__assert`.",
+    "rationale": "The current WObj assertion sites continue to provide the condition tokens, and the relocated, shortened debug header still defines HSD_ASSERT as a failure-only call carrying `__FILE__`, a line number, and `#cond`. The missing old header range was therefore only a span-length drift, not a semantic change.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+        "why": "Defines HSD_ASSERT so a false condition passes the source file, line, and stringized condition to `__assert`, while a true condition performs no diagnostic call."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the animation-path assertion conditions `wobj->aobj`, `jp`, and `jp->u.spline`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows later WObj assertions using the condition text `wobj`."
+      }
+    ]
+  },
+  {
+    "id": "fact:6a166294-218d-45a8-9699-2e41e1430fad",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sdata",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A 40-byte initialized small-data string pool containing four distinct NUL-terminated assertion-condition strings: `wobj->aobj`, `jp`, `jp->u.spline`, and `wobj`. The repeated `wobj` assertion text is pooled once.",
+    "rationale": "The current WObj source retains exactly these four distinct assertion-condition tokens, with `wobj` reused at later sites, and the current HSD_ASSERT definition still stringizes each condition. Their terminated and aligned storage continues to account for the section's 40-byte layout.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+        "why": "Shows that HSD_ASSERT materializes its condition as a string through `#cond`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Provides the distinct conditions `wobj->aobj`, `jp`, and `jp->u.spline`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows multiple later assertion sites sharing the same condition text `wobj`."
+      }
+    ]
+  },
+  {
+    "id": "fact:624324dc-3519-4749-86bd-94ddabc45a59",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sdata",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the short diagnostic strings generated for HSD_WObj assertion failures, allowing the assertion handler to report which WObj, animation-object, or spline precondition failed.",
+    "rationale": "The current header still stringizes failed HSD_ASSERT conditions for `__assert`, and the WObj implementation still asserts the WObj, AObj, JObj, and spline preconditions represented by this pool. The existing diagnostic purpose remains sound after replacing the unresolvable old header span.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/debug.h#L1-L38",
+        "why": "Shows failed HSD_ASSERT conditions being stringized and sent to the assertion handler."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows assertion sites for the animation object, referenced JObj, and spline preconditions."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows WObj allocation and loading assertions that contribute the repeated `wobj` diagnostic text."
+      }
+    ]
+  },
+  {
+    "id": "fact:813bb067-79e1-49d4-b9ce-5805bf52ff32",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sdata2",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "WObjUpdateFunc reads the pool's zero and one bounds when handling animation channel type 4. It clamps the evaluated AObj value into [0, 1], passes that normalized value to splArcLengthPoint to obtain a position on the JObj's spline, stores the resulting Vec3 in the WObj, and marks the position as spline-relative. The constants themselves remain read-only.",
+    "rationale": "The callback's type-4 branch directly exposes the complete flow from the two bounds through value clamping, spline evaluation, WObj position assignment, and flag update.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T05:00:43.498Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Directly shows 0.0 and 1.0 constraining val->fv before splArcLengthPoint, HSD_WObjSetPosition, and the spline-relative flag assignment."
+      }
+    ]
+  },
+  {
+    "id": "fact:c68390b0-9940-4842-8121-e47ddb3f0304",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sdata2",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Supports scene-animation playback for spline-driven world positions by keeping an authored animation channel within the valid normalized start-to-end range of its referenced path.",
+    "rationale": "The constants are consumed specifically by the WObj animation interpreter's spline channel: the bounded value selects a point along the path and becomes the object's animated position. This grounds the pool in spline-based world-object animation rather than generic numeric processing.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T05:00:43.498Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows an interpreted animation channel being clamped to [0, 1] and converted into a WObj position on a referenced JObj spline."
+      }
+    ]
+  },
+  {
+    "id": "fact:16cb401b-1ee4-4b33-bc76-d554ba1293f0",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sdata2",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A read-only small-data pool of compiler-emitted floating-point representations of the normalized bounds 0.0 and 1.0, including the precisions required by WObjUpdateFunc's comparisons and assignments; it is not an authored mutable object or indexed table.",
+    "rationale": "WObjUpdateFunc compares and assigns an f32 animation value using unsuffixed 0.0 and 1.0 literals, producing scalar floating constants rather than a source-level aggregate. Community discussion independently associates emitted f32/f64 literals with .sdata2 and cautions against modeling them as extern globals.",
+    "confidence": 0.93,
+    "updated_at": "2026-09-02T05:00:43.498Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the only relevant source-level floating literals as independent 0.0 and 1.0 operands in the spline-animation update path."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1515098039117676746",
+        "why": "Associates f32/f64 constants in .sdata2 with compiler emission and distinguishes them from authored extern data."
+      }
+    ]
+  },
+  {
+    "id": "fact:5cb35df2-73bb-444d-8f13-ea14127ca21c",
+    "target_id": "target:data:main/sysdolphin/baselib/wobj:.sdata2",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the WObj translation unit's compiler-emitted read-only floating-point constants for bounding the normalized parameter used to evaluate an animated position along a spline.",
+    "rationale": "The matched WObj animation callback uses inline 0.0 and 1.0 literals to constrain an evaluated animation value before passing it to splArcLengthPoint. Because this target is the unit's .sdata2 section and the source contains no authored constant table, the section is best understood as compiler-owned literal storage supporting that calculation.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T05:00:43.498Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:.sdata2"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows WObjUpdateFunc using inline 0.0 and 1.0 floating-point literals to bound an animation value before spline evaluation."
+      },
+      {
+        "kind": "pr",
+        "locator": "pr://pr-308--main-sysdolphin-baselib-wobj",
+        "why": "Identifies the matched source contribution as the complete HSD_WObj implementation in the owning translation unit."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1515098039117676746",
+        "why": "Explicitly identifies f32/f64 values exposed as .sdata2 data as compiler-emitted literals rather than source-level extern scalar objects."
+      }
+    ]
+  },
+  {
+    "id": "fact:56d7fee1-c5ce-42c6-b9c6-fe2c00463d83",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjAddAnim",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "For valid inputs, `anim->aobjdesc` flows through `HSD_AObjLoadDesc` and the resulting runtime controller is stored in `wobj->aobj` after the prior controller is destroyed. The unchanged `anim->robjanim` list head is passed with `wobj->robj` to `HSD_RObjAddAnimAll`, which advances the two lists together and attaches each current descriptor to the corresponding runtime RObj.",
+    "rationale": "The target directly exposes both top-level flows from HSD_WObjAnim. The resolved AObj routines establish descriptor materialization and destruction semantics, while the RObj helper establishes ordered pairwise consumption of the two forwarded list heads.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:50.918Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjAddAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L35-L44",
+        "why": "Shows the AObj descriptor becoming the replacement `wobj->aobj` and the RObj animation list being forwarded with `wobj->robj`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+        "why": "Shows HSD_AObjLoadDesc materializing a runtime controller and HSD_AObjRemove releasing the previous controller and its attachments."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L186-L199",
+        "why": "Shows the runtime RObj and animation-descriptor cursors advancing together and each current pair flowing into HSD_RObjAddAnim."
+      }
+    ]
+  },
+  {
+    "id": "fact:7bd548b8-7744-4597-a77a-511bf08095e2",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjAddAnim",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements the controller-attachment stage for animated world points in HSD scene-animation playback. The installed property channels can subsequently move the WObj along a referenced spline or update its X, Y, and Z coordinates, while the accompanying descriptors animate its relation objects.",
+    "rationale": "The target installs both the WObj's AObj controller and its RObj animation descriptors. The neighboring interpreter demonstrates the concrete behavior enabled by that attachment: channel type 4 chooses a clamped point on an attached spline, types 5 through 7 update position components, and RObj animation is evaluated alongside the WObj controller.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T00:13:50.918Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjAddAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L35-L44",
+        "why": "Shows coordinated installation of the WObj property controller and relation-object animation descriptors."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the installed channels later driving spline-relative or per-axis WObj positions and advancing associated RObj animation."
+      }
+    ]
+  },
+  {
+    "id": "fact:5b083bc3-6ffe-4306-b894-6346afeb4dd0",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjAddAnim",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function with signature `void HSD_WObjAddAnim(HSD_WObj* wobj, HSD_WObjAnim* anim)`. It is a null-tolerant mutator whose second parameter is a composite animation descriptor containing an `HSD_AObjDesc*` for the WObj's property controller and an `HSD_RObjAnimJoint*` list for its relation objects.",
+    "rationale": "The matched definition supplies the exact return and parameter types and guards both pointers. Its accesses to `anim->aobjdesc` and `anim->robjanim`, together with the receiving loader and RObj list helper, establish the two subordinate descriptor types and their roles.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:50.918Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjAddAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L35-L44",
+        "why": "Provides the exact signature, the joint null guard, and both HSD_WObjAnim members consumed by the function."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+        "why": "Shows that HSD_AObjLoadDesc consumes an HSD_AObjDesc pointer and returns a nullable runtime HSD_AObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L186-L199",
+        "why": "Shows that the forwarded RObj animation value is the nullable head of an HSD_RObjAnimJoint list."
+      }
+    ]
+  },
+  {
+    "id": "fact:3197b5ef-8f27-42e1-829f-9f90a53be5e6",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjAddAnim",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Attaches a composite world-object animation description to an HSD_WObj, replacing its previous property-animation controller and distributing the supplied relation-object animation descriptors across the WObj's existing RObj list.",
+    "rationale": "For valid inputs, the function removes the WObj's existing AObj, constructs and stores a replacement from the supplied AObj descriptor, and forwards the animation description's RObj animation list to the list-wide attachment helper. The resolved helper applies those descriptors pairwise to the WObj's relation objects.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:50.918Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjAddAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L35-L44",
+        "why": "Directly shows replacement of the WObj's AObj and forwarding of the supplied RObj animation descriptors."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L186-L199",
+        "why": "Shows HSD_RObjAddAnimAll attaching corresponding animation descriptors pairwise across the runtime RObj list."
+      }
+    ]
+  },
+  {
+    "id": "fact:2cbbfdbf-2a4e-4968-8e29-2b000f21cd70",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjAddAnim",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null WObj or null HSD_WObjAnim is a no-op. With valid inputs, any existing WObj AObj is destroyed before the newly loaded controller is assigned; a null subordinate AObj descriptor therefore leaves `wobj->aobj` null after replacement. RObj attachment then processes corresponding runtime and descriptor nodes until either list ends, leaving an unmatched tail untouched. Attachment does not select a playback frame or evaluate any channel; those transitions are performed separately by `HSD_WObjReqAnim` and `HSD_WObjInterpretAnim`.",
+    "rationale": "The target's joint guard and destruction-before-assignment ordering define its primary transitions. The AObj loader returns null for a null descriptor, and the RObj helper's guard and conjunctive loop condition establish no-op and shorter-list termination behavior. Neighboring WObj routines explicitly separate frame request and channel interpretation from attachment.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:50.918Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjAddAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L35-L44",
+        "why": "Shows both no-op conditions, conditional removal of the previous AObj, replacement ordering, and RObj attachment."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+        "why": "Shows that a null AObj descriptor loads as null and that removal tears down the prior controller before freeing it."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L186-L199",
+        "why": "Shows no-op behavior when either RObj list is absent and termination as soon as either chain ends."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows that requesting a start frame and interpreting attached WObj and RObj animation are separate operations."
+      }
+    ]
+  },
+  {
+    "id": "fact:0512e486-d275-402a-80bd-2fde5f3e11d9",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjAlloc",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads the module's `default_class` pointer; selects it when non-NULL or selects `&hsdWObj.parent.parent` otherwise; passes the selected class metadata to `hsdNew`; asserts that the returned pointer is non-NULL; and returns that pointer to the caller.",
+    "rationale": "Every stage of the function's data flow is explicit in its matched body, from the global class selection through construction and validation to the returned object.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-01T23:12:51.748Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjAlloc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L233-L239",
+        "why": "Shows both global inputs, their conditional selection, the `hsdNew` call, the assertion, and the returned pointer."
+      }
+    ]
+  },
+  {
+    "id": "fact:fc117726-34d4-406a-ae37-674b6ea2214d",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjAlloc",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function with signature `HSD_WObj* HSD_WObjAlloc(void)`. It takes no caller-supplied arguments and returns a newly constructed class-managed HSD_WObj pointer.",
+    "rationale": "The matched declaration supplies the exact signature, and the body casts the result of class construction to `HSD_WObj*` before returning it.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-01T23:12:51.748Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjAlloc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L233-L239",
+        "why": "Provides the exact no-argument signature, return type, construction cast, and returned value."
+      }
+    ]
+  },
+  {
+    "id": "fact:6a14b85d-cbaf-4815-94bd-4d26c3295ebb",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjAlloc",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Creates a new HSD_WObj through the HSD class system, using the configured default WObj subclass when one exists and otherwise using the base WObj class.",
+    "rationale": "The complete matched body passes exactly one of two class descriptors to `hsdNew`: `default_class` when non-NULL or the base class embedded in `hsdWObj` otherwise.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-01T23:12:51.748Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjAlloc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L233-L239",
+        "why": "Directly shows class selection, object construction through `hsdNew`, and return of the resulting HSD_WObj."
+      }
+    ]
+  },
+  {
+    "id": "fact:fdad6d65-c68c-470b-aca7-26a5c61c4194",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjAlloc",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Has two class-selection paths controlled by whether `default_class` is set. Both paths construct one object and converge on a non-NULL assertion before returning; the function does not modify the module's default-class state itself.",
+    "rationale": "The conditional expression distinguishes only the selected class metadata. The remainder of the matched function is common to both paths, and there are no writes to `default_class` or `hsdWObj`.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-01T23:12:51.748Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjAlloc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L233-L239",
+        "why": "Shows the two class-selection alternatives, their common construction/assertion path, and the absence of persistent-state writes."
+      }
+    ]
+  },
+  {
+    "id": "fact:897ad493-0f11-47c4-b865-c11a633a8866",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjGetPosition",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Normally, the stored `wobj->pos` flows directly to the caller's `Vec3`. For spline animation, `WObjUpdateFunc` samples a point from the spline owned by the AObj-associated JObj and stores it as a flagged relative position; this getter then feeds that point through the JObj's prepared matrix, stores the transformed result back in `wobj->pos`, and returns it. Camera code consumes retrieved WObj positions as eye and interest coordinates when deriving viewing directions and matrices.",
+    "rationale": "The animation callback establishes the spline-to-WObj input path, while the getter establishes the optional JObj-matrix transformation and output copy. Camera accessors and matrix code demonstrate downstream use of these positions for the camera eye, interest vector, and look-at matrix.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.876Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjGetPosition"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L63-L96",
+        "why": "Shows a spline arc-length value becoming a sampled point stored in the WObj with flag bit 0 set."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L215-L231",
+        "why": "Shows the stored position optionally flowing through the associated JObj matrix and then into the caller's output vector."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L563-L594",
+        "why": "Shows camera eye-position retrieval delegating to this function and the resulting eye and interest positions being used to derive a normalized viewing direction."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L761-L815",
+        "why": "Shows retrieved eye and interest positions being consumed to construct the camera viewing matrix."
+      }
+    ]
+  },
+  {
+    "id": "fact:3040577a-80c7-4388-bfca-e1e280337d5a",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjGetPosition",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: `void HSD_WObjGetPosition(HSD_WObj* wobj, Vec3* vec)`. The first parameter is mutable because retrieval can transform and overwrite `wobj->pos` and clear a state flag; the second parameter is an output pointer receiving the three-component position.",
+    "rationale": "The matched definition supplies the exact return and parameter types. Its resolution path writes the transformed vector back into the WObj and clears flag bit 0 before assigning the stored `Vec3` to the caller's destination.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.876Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjGetPosition"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L215-L231",
+        "why": "Provides the exact signature and shows both the possible mutation of the WObj and the final write through the output pointer."
+      }
+    ]
+  },
+  {
+    "id": "fact:592c534f-c601-4a81-b863-6da0b23bf7bf",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjGetPosition",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Retrieves an HSD world object's effective position into a caller-provided vector, first materializing a pending JObj-relative spline position into world coordinates when an associated JObj is available.",
+    "rationale": "The function copies `wobj->pos` to the output after checking flag bit 0. When that bit is set and the WObj's AObj references a JObj, it prepares the JObj matrix and transforms the stored position in place before returning it. The animation callback establishes that this flagged representation originates from a point sampled along the associated JObj's spline.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.876Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjGetPosition"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L215-L231",
+        "why": "Shows the complete getter, including guarded JObj-matrix transformation and copying of the resulting stored position to the output vector."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L63-L96",
+        "why": "Shows spline animation sampling a position, storing it in the WObj, and setting flag bit 0 that the getter later resolves."
+      }
+    ]
+  },
+  {
+    "id": "fact:954bdc5c-220b-49f9-906d-20473b4d3848",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjGetPosition",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "If either the WObj or output pointer is null, the function returns without mutation or output. Otherwise, flag bit 0 selects a one-time position-resolution path: an available AObj-associated JObj transforms the stored position in place, after which bit 0 is cleared regardless of whether such a JObj was available. Later reads therefore return the stored position directly until spline animation marks it relative again.",
+    "rationale": "The opening guard defines the null no-op state. The flagged branch conditionally performs matrix setup and transformation but unconditionally clears bit 0 before copying the position. The animation callback shows the inverse transition, setting bit 0 after installing a newly sampled spline point.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.876Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjGetPosition"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L215-L231",
+        "why": "Shows the null guard, flag-bit test, conditional transformation, unconditional clearing of bit 0, and final output copy."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L63-L96",
+        "why": "Shows spline animation re-entering the relative-position state by setting flag bit 0 after storing a sampled point."
+      }
+    ]
+  },
+  {
+    "id": "fact:288717bf-6ba6-461e-b7a1-f9cb291f2966",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInit",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "`desc->pos` flows through HSD_WObjSetPosition into the destination WObj. The previous `wobj->robj` chain, when present, is consumed by HSD_RObjRemoveAll; `desc->robjdesc` is then converted into a newly allocated runtime chain stored in `wobj->robj`, and the same descriptor chain is paired with those runtime nodes to resolve deferred joint and expression references in place.",
+    "rationale": "The current initializer preserves the position, teardown, load, and resolution sequence. Current RObj code still recursively materializes descriptor nodes and traverses runtime and descriptor chains together while resolving their reference-bearing fields.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the descriptor position and RObj description flowing into the destination and the previous runtime chain flowing into teardown."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L560-L620",
+        "why": "Shows paired runtime/descriptor traversal for reference resolution and the beginning of recursive descriptor loading."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L607-L651",
+        "why": "Shows each loaded RObj receiving type-specific descriptor data and the loader returning NULL for the end of the descriptor chain."
+      }
+    ]
+  },
+  {
+    "id": "fact:7912a87d-8ef9-411a-8f92-4dc77e76cd04",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInit",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "In its observed camera-loader use, this routine initializes the eye-position and interest-point world objects that define where Melee's virtual camera is located and the point toward which it is oriented.",
+    "rationale": "CObjLoad invokes HSD_WObjInit on both `cobj->eyepos` and `cobj->interest` using the corresponding camera descriptors before configuring the camera's orientation and projection. The target supplies each endpoint's position and relation state, grounding it in virtual-camera orientation while retaining its generic WObj implementation role.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T00:13:47.269Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L1274-L1312",
+        "why": "Shows HSD_WObjInit initializing the camera's eye-position and interest WObjs as part of loading the camera's pose and projection."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L107-L119",
+        "why": "Shows the position and relation state installed into each camera endpoint WObj."
+      }
+    ]
+  },
+  {
+    "id": "fact:e5eba10f-256c-4c03-b18e-8fa1cdd76396",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInit",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "`void HSD_WObjInit(HSD_WObj* wobj, HSD_WObjDesc* desc)`: a null-tolerant, in-place initializer and replacement mutator. Both parameters are required for mutation; the destination object is retained while its position and owned HSD_RObj list are updated.",
+    "rationale": "The matched definition supplies the exact signature and returns immediately if either pointer is null. With valid pointers it mutates the supplied HSD_WObj rather than allocating or returning one, while the RObj teardown code confirms that the previous attached list is destructively released.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:47.269Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L107-L119",
+        "why": "Provides the exact return and parameter types, both null guards, and all in-place writes to the supplied HSD_WObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L641-L670",
+        "why": "Confirms that HSD_RObjRemoveAll destructively frees every node in the previous relation-object list."
+      }
+    ]
+  },
+  {
+    "id": "fact:daa40780-559d-4d8e-9e5b-3f18e1d077e0",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInit",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Initializes or reinitializes an existing HSD_WObj from an HSD_WObjDesc by installing the descriptor's position, replacing the object's relation-object chain, and resolving the new chain's serialized references into live scene-object references.",
+    "rationale": "At head, HSD_WObjInit still applies the descriptor position, removes any prior RObj list, loads a replacement list, and immediately resolves its references. The refreshed RObj spans confirm that loading constructs runtime records and resolution replaces serialized references with live objects.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the complete ordered initialization and replacement sequence."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L560-L620",
+        "why": "Shows deferred JObj and expression references being resolved against corresponding descriptors."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L607-L651",
+        "why": "Shows descriptor data being materialized into newly allocated runtime RObj nodes."
+      }
+    ]
+  },
+  {
+    "id": "fact:0d9c92db-4973-44d3-94d6-c510cc0d9f7a",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInit",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "If either the destination WObj or descriptor is null, initialization is a no-op. Otherwise the position is updated first; any existing RObj chain is fully destroyed before replacement; a null `desc->robjdesc` leaves `wobj->robj` null, while a non-null descriptor produces a new chain whose resolvable references are fixed immediately before the function returns.",
+    "rationale": "The current target retains both pointer guards and the same mutation order. The current RObj routines still destroy complete lists, return NULL at a NULL descriptor tail, and stop reference resolution safely when either corresponding list ends.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the two-pointer no-op guard and position-before-teardown-before-replacement ordering."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L560-L620",
+        "why": "Shows reference resolution continuing only while both runtime and descriptor nodes are present."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L607-L651",
+        "why": "Shows non-NULL descriptors being loaded and a NULL descriptor returning a NULL runtime list."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L641-L670",
+        "why": "Shows complete head-to-tail destruction of an existing RObj chain."
+      }
+    ]
+  },
+  {
+    "id": "fact:aad0be28-f0c0-423f-b94b-5a865f213425",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The WObj's `aobj` pointer, the WObj itself as callback context, and WObjUpdateFunc flow into HSD_AObjInterpretAnim. Evaluated channel type 4 is clamped to the range 0 through 1 and used to sample the spline referenced through `aobj->hsd_obj`; channel types 5, 6, and 7 update the X, Y, and Z position components. After position-channel interpretation, the WObj's `robj` list flows to HSD_RObjAnimAll, where each relation object's controller can update that relation's participation flag.",
+    "rationale": "The WObj implementation still supplies the direct controller, callback context, channel mapping, spline sampling, and subsequent RObj handoff. The refreshed generic interpreter continues to deliver FObj values through the callback, and current RObj code maps its animated channel to the participation flag.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the WObj AObj inputs, callback channel mapping, spline sampling, axis setters, and later RObj-list handoff."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+        "why": "Shows HSD_AObjInterpretAnim advancing an active controller and forwarding its FObj channels through the supplied object and update callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L77-L117",
+        "why": "Shows each RObj controller being interpreted and TYPE_ROBJ values setting or clearing its participation bit."
+      }
+    ]
+  },
+  {
+    "id": "fact:97fe31e5-aaf4-48e8-9c22-76e86c824caa",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes the world-point portion of HSD scene-animation playback: authored tracks can move a point directly along individual axes or along a referenced spline while also advancing animation on its attached relation records. Camera animation uses this operation for both the camera eye position and its interest point.",
+    "rationale": "The WObj callback maps authored animation channels to spline and Cartesian position updates, and the target coordinates those updates with attached relation animation. HSD_CObjAnim independently demonstrates that these animated world points serve as the camera's eye and interest endpoints during scene playback.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T00:13:37.505Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L47-L94",
+        "why": "Shows a WObj animation step applying authored spline or axis channels to a world-point position and then advancing attached relation animation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L173-L182",
+        "why": "Shows camera playback invoking HSD_WObjInterpretAnim on both the eye-position and interest-point WObjs."
+      }
+    ]
+  },
+  {
+    "id": "fact:5f49bc81-b22b-4793-9789-e7b7eb0f3d00",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function signature: `void HSD_WObjInterpretAnim(HSD_WObj* wobj)`. Its sole argument is a nullable mutable world-object pointer; passing NULL is explicitly accepted as a no-op.",
+    "rationale": "The matched definition directly establishes the return and parameter types, and its outer null guard establishes nullable-pointer behavior.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:37.505Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L47-L94",
+        "why": "Provides the exact function signature and shows that no animation work occurs when the HSD_WObj pointer is NULL."
+      }
+    ]
+  },
+  {
+    "id": "fact:cba0fea0-5b99-410d-9039-596404c46bbe",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Evaluates one animation step for an HSD world object by interpreting its position-animation AObj through WObjUpdateFunc and then advancing animation for every attached relation object.",
+    "rationale": "The matched function first delegates the WObj's AObj to the generic animation interpreter with the WObj-specific callback, then passes its RObj list to the list-wide relation animator. The callback shows that interpreted WObj channels control spline-relative or per-axis position, while the RObj routine advances each attached relation controller.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:37.505Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L47-L94",
+        "why": "Shows HSD_WObjInterpretAnim evaluating the WObj's AObj through WObjUpdateFunc before animating its RObj list, and shows the callback applying spline or axis position channels."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L77-L117",
+        "why": "Shows HSD_RObjAnimAll traversing the complete RObj chain and interpreting each node's AObj through the RObj-specific callback."
+      }
+    ]
+  },
+  {
+    "id": "fact:250f9d1e-97e4-4feb-a4cf-cbdd2364dee5",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A NULL WObj is an immediate no-op. For a non-NULL WObj, its own AObj is always processed before its attached RObj list. A missing or stopped WObj AObj is a local no-op inside HSD_AObjInterpretAnim and does not prevent RObj animation from running. Active spline channels clamp their parameter to 0 through 1 and mark the resulting position as spline-relative; each RObj controller is then processed independently, so an inactive controller on one relation does not stop traversal of later relations.",
+    "rationale": "The current WObj routine retains its outer guard and fixed direct-AObj-before-RObj ordering. The current AObj interpreter still returns locally for missing or stopped controllers, while WObjUpdateFunc preserves spline clamping and the RObj loop preserves independent traversal.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjInterpretAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the WObj guard, direct-AObj-before-RObj order, spline parameter clamp, and spline-relative flag update."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+        "why": "Shows a NULL AObj or one marked AOBJ_NO_ANIM returning only from the generic interpreter."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L77-L117",
+        "why": "Shows complete next-pointer traversal and independent animation dispatch for each RObj node."
+      }
+    ]
+  },
+  {
+    "id": "fact:ba9ea6fd-3aa2-492e-9107-fbd87857a46f",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjLoadDesc",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "A non-null HSD_WObjDesc supplies class_name to hsdSearchClassInfo. A missing name or failed lookup selects HSD_WObjAlloc, while a successful lookup supplies HSD_ClassInfo to hsdNew. The descriptor and resulting object then flow through the object's virtual load method before the populated HSD_WObj is returned. Under the base loader, desc->pos becomes the object's position, desc->robjdesc is loaded as its RObj attachment, and references in that attachment are resolved.",
+    "rationale": "The construction function explicitly traces class metadata through lookup and allocation into virtual loading and return. The resolved base load callback identifies the descriptor fields and nested resource consumed when the selected class uses the standard WObj loader.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T00:13:48.807Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L131-L148",
+        "why": "Shows class_name controlling class lookup and allocation, followed by descriptor flow through virtual load dispatch and return."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L88-L106",
+        "why": "Shows the base load callback consuming desc->pos and desc->robjdesc, replacing the object's RObj, and resolving its references."
+      }
+    ]
+  },
+  {
+    "id": "fact:2a4519e4-7110-4eec-bef1-a1aa52dc3774",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjLoadDesc",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "HSD_WObj* HSD_WObjLoadDesc(HSD_WObjDesc* desc): accepts a nullable pointer to a world-object descriptor and returns the resulting runtime HSD_WObj pointer, or NULL when the descriptor pointer is NULL.",
+    "rationale": "The matched definition directly establishes the HSD_WObjDesc pointer parameter and HSD_WObj pointer return type, while its outer null guard establishes nullable input and the corresponding NULL result.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:48.807Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L131-L148",
+        "why": "The signature supplies the exact descriptor and result types, and the null-descriptor branch returns NULL."
+      }
+    ]
+  },
+  {
+    "id": "fact:d885b25b-afd8-45a6-a2c8-80faba226e95",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjLoadDesc",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Constructs a runtime HSD_WObj from an HSD_WObjDesc, instantiating a registered world-object subclass when the descriptor names one or falling back to the standard HSD_WObj allocator, then delegates descriptor population to the selected object's virtual load method.",
+    "rationale": "The function uses the descriptor's optional class name to choose registered-class construction or standard WObj allocation, invokes the resulting object's load method, and returns the populated object. The base load implementation shows that descriptor population installs the WObj's position and reference-object attachments.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T00:13:48.807Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L131-L148",
+        "why": "Shows descriptor validation, registered-class lookup, subclass or fallback allocation, virtual descriptor loading, and return of the constructed HSD_WObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L88-L106",
+        "why": "Shows the base WObj load method copying the descriptor position, replacing the RObj attachment, and resolving its references."
+      }
+    ]
+  },
+  {
+    "id": "fact:0384000a-6672-49c2-a72e-1b1473a28f34",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjLoadDesc",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null descriptor returns NULL without allocating. For a non-null descriptor, a null or unregistered class_name selects HSD_WObjAlloc; a registered class selects hsdNew and requires successful construction. Both allocation paths converge on virtual descriptor loading and return of the resulting world object. When the base loader is selected, any existing RObj chain is removed before the descriptor's replacement chain is loaded and its references are resolved.",
+    "rationale": "The target's guards and allocation branches establish the construction states and their convergence on virtual loading. The base callback establishes the replacement lifecycle for the object's reference attachments.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:48.807Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjLoadDesc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L131-L148",
+        "why": "Directly shows the null-input return, fallback and registered-subclass branches, subclass-construction assertion, virtual loading, and final return."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L88-L106",
+        "why": "Shows the base loader removing an existing RObj chain before loading and resolving the descriptor's replacement attachment."
+      }
+    ]
+  },
+  {
+    "id": "fact:bf09841f-6f68-460f-9937-2c982cab8e97",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "For a non-NULL WObj, the current wobj->aobj value is passed to HSD_AObjRemove and the field is then set to NULL. The wobj->robj list head is subsequently passed to HSD_RObjRemoveAnimAll, which traverses next links and passes each present robj->aobj to HSD_AObjRemove before clearing that field. Each removed AObj consumes its attached FObj chain and retained scene-object reference before its own storage is freed.",
+    "rationale": "The target establishes the reads, calls, field clearing, and ordering at the WObj level. The resolved RObj routine exposes the complete list traversal and per-node flow, while the AObj routine shows how each forwarded animation controller and its subordinate attachments are consumed.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:39.411Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L18-L25",
+        "why": "Shows values flowing from the WObj's AObj and RObj fields into their respective removal routines and the direct AObj field being cleared."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L118-L145",
+        "why": "Shows the RObj list head being traversed and each attached AObj being removed and replaced with NULL."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+        "why": "Shows each supplied AObj's FObj chain and retained scene-object reference being released before the controller is freed."
+      }
+    ]
+  },
+  {
+    "id": "fact:00e38315-790e-4930-baa8-dbf6eaaf45b8",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements teardown of HSD scene-animation playback for a world-position object and its associated relation objects. Camera animation cleanup uses it for both the camera's eye-position and interest WObjs, thereby removing the animation driving those camera endpoints.",
+    "rationale": "The WObj routine still removes its direct and relation-object animation state, and the current camera cleanup path still invokes it on both eye-position and interest WObjs. The prior scene- and camera-animation mapping therefore remains valid.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows generic WObj and relation-object animation-controller teardown."
+      },
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/cobj.c#L1-L120",
+        "why": "Shows camera cleanup invoking HSD_WObjRemoveAnim on both the eye-position and interest WObjs."
+      }
+    ]
+  },
+  {
+    "id": "fact:3ef901bf-928a-46c8-8c37-57c86fbe2c3b",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "void HSD_WObjRemoveAnim(HSD_WObj* wobj): a lifecycle routine taking a nullable pointer to the HSD world object whose animation attachments are to be removed and returning no value.",
+    "rationale": "The matched definition supplies the exact return and parameter types. Its explicit non-NULL guard establishes that NULL is an accepted no-op input, while all non-NULL operations act on animation attachments owned through the supplied WObj.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:39.411Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L18-L25",
+        "why": "Provides the exact signature, nullable-input guard, and attachment fields operated on through the HSD_WObj pointer."
+      }
+    ]
+  },
+  {
+    "id": "fact:d851e589-a29f-4661-891c-7f2419338d18",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Detaches and destroys all animation state owned through an HSD_WObj: it removes the world object's own HSD_AObj, clears that attachment, and removes the animation controllers attached to every HSD_RObj in its relation-object list, while preserving the WObj and RObj structures themselves.",
+    "rationale": "The target removes wobj->aobj, clears the field, and delegates list-wide relation-animation removal to HSD_RObjRemoveAnimAll. The resolved AObj and RObj implementations show that these operations destroy the attached animation controllers and their subordinate animation data without freeing the WObj, RObj nodes, or RObj links.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:39.411Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L18-L25",
+        "why": "Shows the WObj's own AObj being removed and cleared, followed by animation removal across its attached RObj list."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+        "why": "Shows that HSD_AObjRemove destroys the attached FObj chain, releases the retained scene-object reference, and frees the animation controller."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L118-L145",
+        "why": "Shows list-wide destruction and clearing of RObj animation controllers while preserving the RObj nodes and next links."
+      }
+    ]
+  },
+  {
+    "id": "fact:405b52f7-c7ed-4436-b7c2-d6bb1b836b8e",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A NULL WObj is a no-op. For a valid WObj, teardown is ordered as removal of its direct AObj, transition of wobj->aobj to NULL, and then removal of every RObj animation attachment. Direct and relation-object attachments that are already NULL remain absent, making repeated calls safe with respect to animation state; the WObj's RObj list remains attached and structurally unchanged.",
+    "rationale": "The target's guard and straight-line body establish NULL behavior and top-level ordering. HSD_AObjRemove accepts NULL, and the RObj remover acts only on present AObjs while traversing without modifying nodes or links, which supports the absent-state and repeat-call claims.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:39.411Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjRemoveAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L18-L25",
+        "why": "Shows the NULL no-op case and the exact ordering of direct-controller removal, field clearing, and relation-animation removal."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+        "why": "Shows that a NULL AObj is itself a no-op, allowing an already-cleared direct attachment to remain safely absent."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L118-L145",
+        "why": "Shows conditional removal of present RObj AObjs, complete list traversal, and preservation of the RObj nodes and links."
+      }
+    ]
+  },
+  {
+    "id": "fact:b40a0290-fe49-49c7-9900-388de435e112",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjReqAnim",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The caller supplies a WObj and starting frame. For a non-null WObj, the function reads `wobj->aobj` and `wobj->robj`, sends the frame to the direct AObj, and sends the same frame through the complete RObj list. Each reached AObj records the frame, updates its playback flags, and propagates the frame to all attached FObj channels; no value is returned.",
+    "rationale": "The target exposes the two WObj field reads and common-frame dispatch. The RObj list routine establishes next-pointer traversal and per-record AObj forwarding, while HSD_AObjReqAnim shows the eventual frame, flag, and FObj updates.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:38.648Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L27-L33",
+        "why": "Shows the WObj's AObj and RObj fields being consumed and the same input frame being routed to both animation branches."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L142-L172",
+        "why": "Shows the RObj branch traversing every list element and forwarding the common frame to each non-null attached AObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+        "why": "Shows each reached AObj storing the frame, transforming playback flags, and forwarding the frame to all attached FObj channels."
+      }
+    ]
+  },
+  {
+    "id": "fact:3f9e1fc9-9d63-4381-ac40-7fb4e5b83bb3",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjReqAnim",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes synchronized start-frame selection for an animated scene-position object, restarting its own position channels and all attached relation or constraint channels at one common frame before subsequent scene-animation evaluation.",
+    "rationale": "The current WObj request still distributes one frame across the direct AObj and all RObj controllers. The current AObj request and interpreter still mark that frame for a zero-advance first-play evaluation, preserving the existing scene-animation mapping.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows one supplied frame being dispatched to the WObj's direct and relation-object animation branches."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+        "why": "Shows the requested frame being stored and marked for first-play evaluation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+        "why": "Shows first-play interpretation consuming the marker and evaluating without normal frame-rate advancement."
+      }
+    ]
+  },
+  {
+    "id": "fact:66dea527-2163-4931-9bd6-428c8445e1d2",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjReqAnim",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function signature: void HSD_WObjReqAnim(HSD_WObj* wobj, f32 frame). `wobj` is nullable, and `frame` is an animation-frame position forwarded unchanged to the WObj's AObj and all attached RObj animation controllers.",
+    "rationale": "The matched definition establishes the exact signature, null handling, and unchanged forwarding. HSD_AObjReqAnim stores the floating-point argument in `curr_frame`, confirming that its unit is an animation-frame position.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:38.648Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L27-L33",
+        "why": "Provides the concrete return and parameter types, nullable WObj guard, and unchanged forwarding of `frame` to both request paths."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+        "why": "Shows the downstream AObj request interpreting the floating-point argument as its current animation frame."
+      }
+    ]
+  },
+  {
+    "id": "fact:6e8a1995-ba93-42ec-8f3f-113b453b9261",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjReqAnim",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Requests that a world object's own position animation and every attached relation-object animation begin or resume from a supplied animation frame.",
+    "rationale": "The matched function forwards the same frame to the WObj's AObj and complete RObj animation list. The resolved callees show that these paths restart the WObj controller and each attached relation controller at that frame.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:38.648Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L27-L33",
+        "why": "Shows the function issuing the same animation-frame request to the WObj's AObj and attached RObj list."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L142-L172",
+        "why": "Shows HSD_RObjReqAnimAll traversing the complete RObj chain and requesting each attached AObj at the supplied frame."
+      }
+    ]
+  },
+  {
+    "id": "fact:20a9d640-d170-4b6e-84db-a5af29e03119",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjReqAnim",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null WObj is a no-op. For a valid WObj, both request paths are issued even when their referenced AObj or RObj list is null, because the callees handle those cases. Every non-null AObj reached directly or through an RObj is moved to the requested current frame, has `AOBJ_NO_ANIM` cleared, and has `AOBJ_FIRST_PLAY` set. On its next interpretation, `AOBJ_FIRST_PLAY` is consumed and the selected frame is evaluated without frame-rate advancement.",
+    "rationale": "The current target retains its outer null guard and unconditional two-way dispatch. Current AObj and RObj request routines preserve null-safe handling and the exact frame and flag transition, while the refreshed interpreter still consumes first-play state with zero advancement.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjReqAnim"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the NULL WObj no-op and unconditional dispatch to both direct and relation-object request paths."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L118-L172",
+        "why": "Shows null-safe complete RObj traversal and forwarding to every present attached AObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+        "why": "Shows each reached AObj recording the frame, clearing AOBJ_NO_ANIM, and setting AOBJ_FIRST_PLAY."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L107-L210",
+        "why": "Shows AOBJ_FIRST_PLAY being consumed with zero frame advancement on the next interpretation."
+      }
+    ]
+  },
+  {
+    "id": "fact:97c4bdd0-7f61-43b1-9aef-59d562bc4599",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPosition",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "A caller-provided `Vec3` flows by value into `wobj->pos`; the function then sets position flag 0x2 and clears flag 0x1. Consumers such as the camera subsystem observe flag 0x2 as matrix-dirty state, retrieve the updated WObj position, rebuild the camera's look-at matrix from its eye and interest positions, and clear the consumed dirty flags.",
+    "rationale": "The current setter still copies the vector and performs the two flag transitions. Current camera code still forwards eye positions to the setter, treats WObj bit 0x2 as dirty state, reads eye and interest positions to rebuild its look-at matrix, and clears the consumed bits.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPosition"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows the input Vec3 copied into WObj-owned position storage, flag 0x2 set, and flag 0x1 cleared."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L569-L573",
+        "why": "Shows a camera eye-position input being forwarded to HSD_WObjSetPosition."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L721-L791",
+        "why": "Shows camera matrix-dirty detection testing flag 0x2 on the eye or interest WObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L465-L559",
+        "why": "Shows camera viewing-matrix setup reading eye and interest positions, constructing the look-at matrix, and clearing their dirty flags."
+      }
+    ]
+  },
+  {
+    "id": "fact:b8ba8404-e165-4f36-a508-19c64c05585c",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPosition",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Null-tolerant void setter with signature `void HSD_WObjSetPosition(HSD_WObj* wobj, Vec3* pos)`. The second parameter is a read-only input in behavior: the function copies the pointed-to three-component vector by value into `wobj->pos` and retains no pointer to it.",
+    "rationale": "The matched definition provides the exact return and parameter types. Its whole-structure assignment reads `*pos` into WObj-owned storage, proving that the vector is an input value rather than an output buffer or retained association.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:43.222Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPosition"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L150-L159",
+        "why": "Provides the exact signature and shows the pointed-to Vec3 being copied into the WObj."
+      }
+    ]
+  },
+  {
+    "id": "fact:303be0ce-21eb-470e-a612-6b8a466c73cf",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPosition",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Replaces an HSD_WObj's stored three-dimensional position with a caller-supplied vector and marks that position as changed and directly specified. This common position setter is used when initializing WObjs and when updating the WObjs that represent camera eye and interest points.",
+    "rationale": "The matched function copies the complete Vec3 into the WObj, sets flag 0x2, and clears flag 0x1. Nearby initialization code delegates descriptor-position loading to this function, while the camera setter delegates eye-position updates to it, establishing its role as the shared direct-position update operation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:43.222Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPosition"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L150-L159",
+        "why": "Shows the complete setter, including its null guard, Vec3 copy, and position-flag updates."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L98-L178",
+        "why": "Shows WObj loading and initialization using this setter for descriptor positions and places it alongside the component position setters."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/cobj.c#L569-L573",
+        "why": "Shows the camera eye-position API forwarding its supplied position to HSD_WObjSetPosition."
+      }
+    ]
+  },
+  {
+    "id": "fact:dd671c3d-7c98-460c-a8e4-19e4a3a2a434",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPosition",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "If either `wobj` or `pos` is null, the function returns without changing state. Otherwise it atomically replaces all three stored position components, sets flag 0x2 to signal a changed position, and clears flag 0x1 so the new vector is no longer represented in the alternate flag-1 position mode.",
+    "rationale": "The complete control flow consists of the compound null guard followed by one Vec3 assignment and two explicit bit transitions. Neighboring component setters show that flag 0x1 denotes an alternate position representation that must be converted and cleared before directly replacing an axis, supporting the interpretation of this full-vector setter's clear operation.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T00:13:43.222Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPosition"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L150-L159",
+        "why": "Directly shows the null no-op path, complete position replacement, flag-0x2 set, and flag-0x1 clear."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L98-L178",
+        "why": "Shows the neighboring X-component setter detecting flag 0x1, converting the stored position through an associated JObj matrix when available, and clearing the flag before direct coordinate storage."
+      }
+    ]
+  },
+  {
+    "id": "fact:a7b23dfb-a42e-4887-94d8-c3e33c4ccf52",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The replacement value can arrive from animation value type 5 through WObjUpdateFunc or from another direct caller. For a non-null WObj, the function reads the relative-position flag and, when possible, follows wobj->aobj->hsd_obj to a JObj, prepares that JObj's matrix, and transforms wobj->pos in place. It then stores val in pos.x, clears the relative flag, and marks the position as updated with flag bit 1.",
+    "rationale": "The animation callback explicitly routes type 5 values to this setter. The setter's field reads, matrix setup and multiplication, flag writes, and final X assignment show the complete input-to-state path.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:14:03.316Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows WObjUpdateFunc dispatching animation value type 5 to HSD_WObjSetPositionX."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows the associated JObj and matrix data flowing into an in-place position transform, followed by the X-coordinate and flag updates."
+      }
+    ]
+  },
+  {
+    "id": "fact:c4830848-8f44-4f5d-b2d1-c6de0c6ae8b4",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes the X-coordinate update channel for animated scene world objects, including conversion of a spline-derived local point into the associated scene-node transform space before a component override.",
+    "rationale": "WObjUpdateFunc maps animation channel type 5 to this routine, while type 4 produces a spline point and marks it relative to an associated JObj. The setter resolves that relative state before applying the X component, placing it within the scene-animation playback path rather than treating it as an isolated vector assignment.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T00:14:03.316Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows the scene-animation callback mapping type 4 to spline positioning and type 5 to this X-coordinate setter."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows the setter converting spline-relative position state through an associated scene JObj matrix before applying the X override."
+      }
+    ]
+  },
+  {
+    "id": "fact:393585df-651f-4402-bb33-98b2712683f7",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "void HSD_WObjSetPositionX(HSD_WObj* wobj, f32 val): a null-tolerant in-place mutator. The first parameter is the world object whose Vec3 position and flags are modified; val is the replacement X coordinate.",
+    "rationale": "The matched definition supplies the exact return and parameter types. Its body treats a null WObj as a no-op, writes val directly to wobj->pos.x, and returns no value.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:14:03.316Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Provides the exact signature, null guard, in-place Vec3 mutation, and void return behavior."
+      }
+    ]
+  },
+  {
+    "id": "fact:450014f6-bb7b-4fb8-ac4e-bf221480d1ed",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Sets a world object's X position while first materializing a spline-relative position into the associated JObj's transformed coordinate space when necessary.",
+    "rationale": "The function checks the relative-position flag before assigning pos.x. If that state is active and an associated JObj exists, it prepares the JObj matrix and transforms the complete stored position in place, ensuring that changing only X does not leave Y and Z in the prior spline-local representation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:14:03.316Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Shows HSD_WObjSetPositionX conditionally transforming the stored position through its associated JObj matrix before assigning the new X component."
+      }
+    ]
+  },
+  {
+    "id": "fact:ef127bb8-934c-4151-8a0b-9327ef349a6e",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null WObj is a no-op. If relative-position flag bit 0 is clear, the function directly replaces pos.x and sets flag bit 1. If bit 0 is set, it first transforms the stored position when both the AObj and its attached JObj are available; regardless of whether that attachment exists, it then clears bit 0, replaces pos.x, and sets bit 1. Thus every successful call leaves the position in non-relative, updated state.",
+    "rationale": "The matched control flow distinguishes the null, already-absolute, transformable-relative, and relative-without-attachment cases. Both relative branches converge on clearing bit 0, and every non-null path writes X and sets bit 1.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:14:03.316Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionX"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L238",
+        "why": "Directly shows the null guard, relative-position guard, optional matrix conversion, unconditional relative-flag clear within that state, X assignment, and updated-position flag set."
+      }
+    ]
+  },
+  {
+    "id": "fact:391b2d74-d953-429b-ba2e-8611b6bbc619",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionY",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The new Y value can arrive directly from a caller or from WObj animation channel type 6. If the WObj currently stores a spline-relative position, its AObj's attached HSD_JObj supplies the matrix used to transform the entire stored vector in place. The function then replaces only the transformed vector's Y component with the supplied value and records the resulting direct-position state in the WObj.",
+    "rationale": "The animation update callback dispatches type 6 and its floating-point animation value to this function. The setter reads the WObj's relative-state flag and AObj/JObj association, uses the JObj matrix as the input to an in-place vector transformation, writes the incoming scalar to `pos.y`, and updates the position flags.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.612Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionY"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows WObj animation channel type 6 forwarding its floating-point value to `HSD_WObjSetPositionY`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L179-L195",
+        "why": "Shows the AObj-to-JObj matrix path, in-place transformation of the stored vector, Y-component replacement, and final flag writes."
+      }
+    ]
+  },
+  {
+    "id": "fact:73304d00-124c-414d-abda-7612c8e7a8bf",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionY",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function with signature `void HSD_WObjSetPositionY(HSD_WObj* wobj, f32 val)`; `wobj` is a nullable mutable world object and `val` is the new floating-point Y coordinate.",
+    "rationale": "The matched definition supplies the concrete signature. Its null guard establishes that the object pointer may be null, while assignment to `wobj->pos.y` establishes the scalar parameter's coordinate role and the object's mutability.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.612Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionY"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L179-L195",
+        "why": "Provides the complete signature and shows `val` being stored specifically in the nullable WObj's Y-position component."
+      }
+    ]
+  },
+  {
+    "id": "fact:1e7ee491-d50f-4285-8af3-e7e1fc5df230",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionY",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Sets the Y component of an HSD_WObj's position. Before replacing that component, it materializes a spline-relative position into transformed coordinates when possible, then leaves the object in direct-position mode and marks its position state as updated.",
+    "rationale": "The function writes the supplied value to `wobj->pos.y`. When relative-position flag bit 0 is set, it first sets up the associated JObj matrix and transforms the stored position in place if the required animation object and attached JObj exist; it then clears bit 0 and sets bit 1.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.612Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionY"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L179-L195",
+        "why": "Shows the complete Y-position setter, including relative-coordinate conversion, the Y-component assignment, and both flag updates."
+      }
+    ]
+  },
+  {
+    "id": "fact:e9bf9525-5fa9-4ea0-9ab6-a00ec182bdd5",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionY",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null WObj is a no-op. For a non-null WObj already in direct-position mode, the function simply replaces `pos.y` and sets flag bit 1. If relative-position flag bit 0 is set, it first transforms the stored vector through the attached JObj matrix only when both the AObj and its attached object exist; regardless of whether that conversion can run, it clears bit 0, writes the new Y value, and sets bit 1.",
+    "rationale": "The outer guard establishes null behavior. The nested checks make matrix conversion conditional on the relative flag and a complete AObj/JObj association, while the placement of the bit-clear outside those association checks proves that relative mode always ends before the Y assignment. The final OR sets bit 1 on every non-null path.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.612Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionY"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L179-L195",
+        "why": "Shows the null guard, conditional relative-coordinate conversion, unconditional clearing of relative flag bit 0 on that path, Y assignment, and setting of flag bit 1."
+      }
+    ]
+  },
+  {
+    "id": "fact:127c3c51-617b-42f4-8fb8-e15caa0dd733",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionZ",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The requested `f32` value becomes `wobj->pos.z`. When flag bit 0 indicates spline-relative position state, the routine obtains a JObj from `wobj->aobj->hsd_obj`, prepares its matrix, and transforms `wobj->pos` in place before overwriting Z; this preserves the transformed X and Y components. WObj animation channel type 7 supplies its interpreted floating-point value to this setter.",
+    "rationale": "The setter traces the associated AObj's HSD object through a JObj matrix into the stored position and then stores its scalar argument in Z. The animation update callback independently shows channel type 7 forwarding `val->fv` to this function.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T00:13:33.343Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionZ"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L197-L213",
+        "why": "Shows the JObj and matrix inputs, the in-place vector transformation, and the final Z-component write."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows `WObjUpdateFunc` dispatching animation value type 7 to `HSD_WObjSetPositionZ(wobj, val->fv)`."
+      }
+    ]
+  },
+  {
+    "id": "fact:b79bfafc-eefe-41dd-a09e-5742554a44bc",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionZ",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "void (HSD_WObj* wobj, f32 val); `val` is a Z coordinate written into the supplied object's `Vec3` position, and the object is mutated in place.",
+    "rationale": "The recovered definition has a void return, accepts an HSD_WObj pointer and single-precision value, and directly writes that value to `wobj->pos.z` without producing another result.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:33.343Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionZ"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L197-L213",
+        "why": "Provides the exact function signature and shows `val` being stored in the WObj's Z position component."
+      }
+    ]
+  },
+  {
+    "id": "fact:527a2ae4-457b-446d-bd2d-656599a82fc9",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionZ",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Sets a world object's Z position while preserving coherent X and Y coordinates: if the stored position is currently relative to an associated JObj, it first converts the complete position through that JObj's matrix before replacing the Z component.",
+    "rationale": "The matched function detects the spline-relative flag, prepares and applies the associated JObj matrix to the stored vector when available, clears the relative flag, and then assigns the requested Z value. This establishes that the routine is more than a field setter: it normalizes relative position state before making a direct axis update.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T00:13:33.343Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionZ"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L197-L213",
+        "why": "Shows the complete setter, including optional JObj-matrix conversion, assignment to `pos.z`, and the associated flag changes."
+      }
+    ]
+  },
+  {
+    "id": "fact:0fd55695-9887-4534-9827-2e2886fc2d6a",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:HSD_WObjSetPositionZ",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null WObj is ignored. For a non-null object, flag bit 0 selects the relative-position normalization path. If both the AObj and its associated HSD object exist, the position is transformed through the associated JObj matrix; bit 0 is then cleared regardless of whether that association existed. The routine writes Z and sets flag bit 1 on every completed non-null update.",
+    "rationale": "Each guard and transition is explicit in the matched body: the outer null guard, bit-0 test, nested association checks, unconditional clearing of bit 0 within the relative branch, Z assignment, and final setting of bit 1.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:33.343Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:HSD_WObjSetPositionZ"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L197-L213",
+        "why": "Shows all null guards, the relative-state branch, matrix-conversion condition, and exact flag and position mutations."
+      }
+    ]
+  },
+  {
+    "id": "fact:a53edb64-38c6-46a7-b500-1040eb0f23fe",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjAmnesia",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The incoming `HSD_ClassInfo*` is compared by identity with the class information cached in the file-local `default_class`. A match writes NULL to that cache, after which the original input pointer is passed unchanged to the parent HSD object class's amnesia callback.",
+    "rationale": "The callback's only local mutation is clearing `default_class` under the class-identity guard, and its final operation forwards the same `info` argument to the parent callback.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:34.163Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjAmnesia"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L249-L255",
+        "why": "Shows the input's identity comparison, the resulting NULL assignment, and forwarding of the unchanged input to the parent callback."
+      }
+    ]
+  },
+  {
+    "id": "fact:3a431d0a-27b8-4ed0-a6b9-44ac74c3cb45",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjAmnesia",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "HSD class-amnesia callback with signature `void (HSD_ClassInfo* info)`; installed as `HSD_CLASS_INFO(&hsdWObj)->amnesia`, with `info` identifying the class information being forgotten.",
+    "rationale": "The complete definition accepts one HSD_ClassInfo pointer and returns void, while WObjInfoInit assigns the function directly to the HSD_WObj class information's amnesia method slot.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:34.163Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjAmnesia"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Provides the callback's complete signature and shows its assignment to the HSD_WObj class information's amnesia slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:1fbf558e-7b8d-45dc-9f5c-f8ab4c3ced61",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjAmnesia",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Handles HSD class-amnesia notifications for the world-object subsystem by invalidating the cached default WObj class when that class is forgotten, then propagating the notification to the parent HSD object class.",
+    "rationale": "WObjInfoInit installs WObjAmnesia in the HSD_WObj class information's amnesia method slot. The callback conditionally clears the module's default-class cache and unconditionally invokes the parent class's amnesia callback, establishing class-lifecycle cleanup rather than ordinary WObj instance release.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:34.163Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjAmnesia"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows WObjAmnesia invalidating the cached default class, delegating to the parent amnesia method, and being registered as the HSD_WObj class's amnesia callback."
+      }
+    ]
+  },
+  {
+    "id": "fact:0636ece8-79c3-4c4e-a56b-f43084cbdd98",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjAmnesia",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "When the forgotten class matches the configured WObj default class, `default_class` transitions to NULL. If it does not match, local WObj module state is unchanged. Parent-class amnesia processing runs afterward on every invocation regardless of the guard's result.",
+    "rationale": "The callback contains one guarded pointer invalidation, no early return or alternate local state mutation, and an unconditional parent-method call after the guard.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:34.163Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjAmnesia"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L249-L255",
+        "why": "Directly establishes the guarded transition of `default_class` to NULL and unconditional parent-class delegation."
+      }
+    ]
+  },
+  {
+    "id": "fact:8775e3c1-eaf0-4dd1-8790-f134cad812c5",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjInfoInit",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads the global `hsdObj` descriptor as the parent class and writes the global `hsdWObj` descriptor: it supplies the library identifier `sysdolphin_base_library`, class identifier `had_wobj`, and the sizes of `HSD_WObjInfo` and `HSD_WObj` to `hsdInitClassInfo`, then stores `WObjRelease`, `WObjAmnesia`, and `WObjLoad` in the initialized descriptor's dispatch slots.",
+    "rationale": "Every operation in the function either passes WObj identity, layout, and parent metadata into the common initializer or writes a WObj implementation callback into hsdWObj.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.292Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L257-L265",
+        "why": "Shows all metadata inputs to hsdInitClassInfo and all three subsequent callback writes targeting hsdWObj."
+      }
+    ]
+  },
+  {
+    "id": "fact:b2141337-e962-4e05-94d3-63735a18c220",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjInfoInit",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A file-local, no-argument, no-return class-information initializer with signature `static void WObjInfoInit(void)`; it configures an `HSD_WObjInfo` class descriptor for `HSD_WObj` instances, inheriting from the `hsdObj` descriptor.",
+    "rationale": "The definition establishes the static void(void) signature. Its hsdInitClassInfo arguments identify hsdWObj as the destination descriptor, hsdObj as the parent, HSD_WObjInfo as the class-metadata layout, and HSD_WObj as the instance layout.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:32.292Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L257-L265",
+        "why": "Provides the complete function definition and identifies the destination descriptor, parent descriptor, metadata type, and object type supplied to class initialization."
+      }
+    ]
+  },
+  {
+    "id": "fact:54d94228-57be-41f3-9763-c1cdf9a89a15",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjInfoInit",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Bootstraps the HSD_WObj runtime class as a subclass of HSD_Obj and installs the world-object release, class-amnesia, and descriptor-loading methods used through HSD class dispatch.",
+    "rationale": "WObjInfoInit still supplies the WObj and Obj descriptors and WObj sizes to the common class initializer before installing its three specialized methods. The refreshed common initializer still constructs inherited metadata and registers the class beneath its parent.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows hsdWObj initialized from hsdObj and the WObj release, amnesia, and load callbacks installed afterward."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L60",
+        "why": "Shows hsdInitClassInfo assigning class identity and sizes, inheriting the parent dispatch region, and inserting the descriptor into the parent's child hierarchy."
+      }
+    ]
+  },
+  {
+    "id": "fact:00218e00-cb0e-4fd1-8f99-51cf2e2cf056",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjInfoInit",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "When invoked, the routine transitions `hsdWObj` into initialized WObj class metadata. The common initializer marks the descriptor initialized, resets its hierarchy links and instance counters, lazily initializes `hsdObj` if necessary, verifies compatible object and descriptor sizes, copies the parent's inheritable dispatch region, and registers `hsdWObj` as the parent's newest child; WObjInfoInit then overrides the inherited release and amnesia slots and installs the WObj load method.",
+    "rationale": "The current common initializer retains every initialization, guard, inheritance, and child-list transition named by the fact. WObjInfoInit still invokes it before replacing inherited dispatch entries with WObj-specific callbacks.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjInfoInit"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/class.c#L29-L60",
+        "why": "Shows the initialized flag, identity and size metadata, reset hierarchy and counters, lazy parent initialization, size assertions, dispatch inheritance, and newest-child insertion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows common initialization preceding the WObj-specific release, amnesia, and load callback assignments."
+      }
+    ]
+  },
+  {
+    "id": "fact:8a057e3a-437d-41ee-857c-5c49c3cfc928",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjLoad",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The descriptor's `pos` member is passed to HSD_WObjSetPosition. Its `robjdesc` list is converted into a newly allocated runtime HSD_RObj chain and stored in `wobj->robj`; the same descriptor-list head is then paired with that runtime chain so serialized joint identifiers and expression references can be resolved into live HSD_JObj references.",
+    "rationale": "The current callback preserves both descriptor inputs and their destinations. Current RObj code still recursively loads descriptor records and traverses the loaded and source lists together to resolve direct and expression-nested references.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjLoad"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows `desc->pos` flowing to the position setter and `desc->robjdesc` flowing to both the RObj loader and resolver."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L560-L620",
+        "why": "Shows runtime and descriptor lists traversed together while deferred JObj and expression references are resolved."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L607-L651",
+        "why": "Shows type-specific descriptor data being materialized into runtime RObj nodes and NULL terminating the loaded list."
+      }
+    ]
+  },
+  {
+    "id": "fact:962579a6-3d83-45e2-92bc-8820b453f866",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjLoad",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A file-local HSD_WObj class-load callback with signature `static int WObjLoad(HSD_WObj* wobj, HSD_WObjDesc* desc)`. It mutates the supplied runtime object in place and returns 0 after loading.",
+    "rationale": "The matched definition provides the exact storage class, return type, and parameter types and has a single unconditional zero return. Its registration in HSD_WObjInfo and invocation through HSD_WOBJ_METHOD establish that this signature belongs to the WObj load-method callback.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:43.722Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjLoad"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L96-L105",
+        "why": "Provides the exact static function signature, in-place mutations, and unconditional return value."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L153",
+        "why": "Shows the function's callback shape being consumed through the WObj virtual load method."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows WObjLoad assigned to the HSD_WObjInfo load-method field."
+      }
+    ]
+  },
+  {
+    "id": "fact:e5bb3c05-6963-47ee-9008-24730966c6e2",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjLoad",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Initializes an existing HSD_WObj from an HSD_WObjDesc as the class's descriptor-load callback: it applies the descriptor position, replaces the object's relation-object chain, and resolves that newly loaded chain's descriptor references.",
+    "rationale": "The target performs the position assignment, relation-object teardown, descriptor loading, and reference-resolution sequence. WObjInfoInit installs it in the HSD_WObj class's load-method slot, while HSD_WObjLoadDesc invokes that virtual method after allocating the requested WObj class.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:43.722Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjLoad"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L96-L105",
+        "why": "Shows the complete initialization sequence: apply desc->pos, remove the old RObj list, load desc->robjdesc, resolve its references, and return success."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L119-L153",
+        "why": "Shows HSD_WObjLoadDesc allocating a WObj and invoking its class load method with the supplied descriptor."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows WObjInfoInit registering WObjLoad in the HSD_WObj class's load-method slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:c22653c9-6176-469e-acc6-8df173543fb9",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjLoad",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Loading always reapplies the descriptor position. If the WObj already owns an RObj chain, that entire chain and its subordinate resources are destroyed before replacement. The descriptor's RObj list is then loaded even when its head is NULL, in which case `wobj->robj` becomes NULL; reference resolution subsequently processes paired runtime and descriptor nodes until either list ends. The callback returns 0 after this sequence.",
+    "rationale": "The current WObj callback retains the unconditional position update, conditional teardown, replacement, resolution, and zero return. Current RObj routines preserve complete destruction, NULL-to-NULL loading, and dual-list termination during reference resolution.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:39:00.412Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjLoad"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows position application, conditional old-list removal, replacement and resolution ordering, and the final zero return."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L641-L670",
+        "why": "Shows complete destruction of every node and its subordinate resources in an existing RObj chain."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L607-L651",
+        "why": "Shows a NULL descriptor producing NULL and non-NULL descriptor records being materialized."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L560-L620",
+        "why": "Shows reference resolution continuing only while both runtime and descriptor list pointers remain non-NULL."
+      }
+    ]
+  },
+  {
+    "id": "fact:77e8c499-412a-4f81-b7e9-a220fcd5f85e",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjRelease",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes an HSD_Class pointer, views it as HSD_WObj, and reads the WObj's robj and aobj fields. The RObj-list head flows to HSD_RObjRemoveAll, the animation-object pointer flows to HSD_AObjRemove, and the unchanged original base pointer then flows to the parent class's release callback.",
+    "rationale": "Each WObj attachment field is forwarded directly to its corresponding destructive lifecycle routine, while the original callback argument is retained for superclass cleanup. The resolved callees confirm that these inputs are consumed as nullable owned resources rather than merely inspected.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:33.614Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjRelease"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L241-L247",
+        "why": "Directly shows the flow from the WObj's robj and aobj fields to their removal routines and from the original HSD_Class pointer to parent release."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L641-L670",
+        "why": "Shows HSD_RObjRemoveAll consuming a nullable list head by traversing and destroying every RObj node."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+        "why": "Shows HSD_AObjRemove consuming a non-null AObj by releasing its attachments and freeing its storage, while accepting NULL as a no-op."
+      }
+    ]
+  },
+  {
+    "id": "fact:8f52356d-8786-47e1-89ea-399607418455",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjRelease",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Static HSD class release callback with signature void(HSD_Class*); its argument must designate an HSD_WObj instance viewed through its HSD_Class base.",
+    "rationale": "The declaration directly establishes the void(HSD_Class*) signature, the body immediately casts the base pointer to HSD_WObj*, and WObjInfoInit assigns the function to the WObj class's release method slot.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:33.614Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjRelease"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Declares the callback signature, casts its argument to HSD_WObj*, and registers it in the HSD_WObj release slot."
+      }
+    ]
+  },
+  {
+    "id": "fact:a9158d91-0c38-49e4-8df9-2163ee056af2",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjRelease",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Performs the HSD_WObj-specific release phase: it destroys the world object's complete relation-object list and animation object, then delegates release of the remaining base-class state to the parent HSD object class.",
+    "rationale": "WObjInfoInit installs this function in the HSD_WObj class's release slot. Its body invokes the destructive removal APIs for the WObj's RObj list and AObj before calling the parent class's release callback, establishing it as the WObj specialization of the class lifecycle.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:33.614Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjRelease"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L239-L265",
+        "why": "Shows WObjRelease removing both WObj attachments, invoking parent release last, and being registered as the HSD_WObj class release callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L641-L670",
+        "why": "Shows that HSD_RObjRemoveAll destructively traverses the entire RObj list and releases each node's type-specific data, AObj, and storage."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+        "why": "Shows that HSD_AObjRemove releases an AObj's subordinate attachments and then frees the AObj itself."
+      }
+    ]
+  },
+  {
+    "id": "fact:0e5d91a3-3c85-481d-b58a-da9346168613",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjRelease",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Release is strictly ordered: the complete RObj list is removed first, the WObj's AObj is removed second, and parent-class release runs last. WObjRelease itself has no null guard for its object argument, but both attachment-removal routines tolerate null attachment pointers.",
+    "rationale": "The WObj body fixes the cleanup order and dereferences the cast object immediately. HSD_RObjRemoveAll's loop naturally does nothing for a null head, and HSD_AObjRemove explicitly returns for NULL, so absent attachments are handled by the callees before superclass cleanup.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:13:33.614Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjRelease"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L241-L247",
+        "why": "Shows the exact RObj, AObj, and parent-release ordering and the absence of a callback-level object null check."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L641-L670",
+        "why": "Shows that a NULL RObj-list head is a no-op and that non-null lists are destroyed from head to tail."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+        "why": "Shows that HSD_AObjRemove treats NULL as a no-op and otherwise completes subordinate cleanup before freeing the AObj."
+      }
+    ]
+  },
+  {
+    "id": "fact:990806f7-9720-449e-aece-0c4a62720bfe",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjUpdateFunc",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "For channel 4, the incoming animation scalar is clamped to `[0, 1]`, passed with `wobj->aobj->hsd_obj`'s spline to `splArcLengthPoint`, and the resulting `Vec3` is stored as the WObj position before the spline-relative flag is set. For channels 5 through 7, the scalar flows directly to the corresponding X, Y, or Z setter; those setters first convert an existing spline-relative position through the associated JObj matrix when necessary, then write the selected component and mark the position updated.",
+    "rationale": "The callback directly exposes the channel-to-value flow. The position-setter implementations explain the downstream flag and coordinate-space effects of the callback's calls, while splArcLengthPoint shows that the clamped scalar is interpreted as normalized cumulative distance before curve evaluation.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T00:14:17.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L46-L86",
+        "why": "Shows scalar clamping, spline lookup and sampling, vector assignment, relative-flag setting, and dispatch of the three direct component values."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L158-L218",
+        "why": "Shows the X, Y, and Z setters converting a spline-relative stored position through the associated JObj matrix before replacing one component, clearing the relative flag, and setting the updated-position flag."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/spline.c#L178-L238",
+        "why": "Shows splArcLengthPoint converting its scalar from normalized cumulative arc distance to a spline parameter and evaluating the resulting point."
+      }
+    ]
+  },
+  {
+    "id": "fact:1dbd09da-2c2a-4e42-a5ee-f9baad64a30e",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjUpdateFunc",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes animation-driven world-object path motion and positional animation: one animation channel expresses normalized distance traveled along an authored spline, producing approximately distance-uniform movement along the curve, while three other channels animate Cartesian position components directly.",
+    "rationale": "The callback routes channel 4 through splArcLengthPoint after clamping it to normalized endpoints and routes channels 5 through 7 to Cartesian setters. The spline implementation confirms that the channel-4 value is converted from cumulative arc distance rather than used directly as polynomial time.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T00:14:17.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L46-L86",
+        "why": "Shows an animation channel driving spline-point sampling and three channels driving direct Cartesian position components."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/spline.c#L178-L238",
+        "why": "Shows normalized cumulative distance being inverted into a spline parameter before the path point is evaluated."
+      }
+    ]
+  },
+  {
+    "id": "fact:eea73c17-02ae-4cd5-90ad-2936093fa714",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjUpdateFunc",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Static HSD animation-update callback with signature `void WObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val)`. The opaque object argument is interpreted as `HSD_WObj*`, `type` selects a WObj animation channel, and the handled channels consume and, for channel 4, may modify `val->fv` as a floating-point value.",
+    "rationale": "The matched definition provides the exact callback signature and casts obj to HSD_WObj. Its switch reads val->fv for every supported channel, and the spline channel clamps that field in place before using it.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:14:17.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L46-L86",
+        "why": "Provides the exact signature, object interpretation, channel selector, and floating-point HSD_ObjData usage."
+      }
+    ]
+  },
+  {
+    "id": "fact:2bade44a-987a-4ad7-8d72-7664590e7dec",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjUpdateFunc",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Applies interpreted HSD_WObj animation channels to the object's position: channel 4 samples a point along the spline associated with the WObj's animation object, while channels 5, 6, and 7 update the X, Y, and Z position components respectively.",
+    "rationale": "HSD_WObjInterpretAnim installs WObjUpdateFunc as the callback passed to HSD_AObjInterpretAnim. The callback's switch maps channel 4 to spline sampling and maps channels 5 through 7 to the three component setters, establishing its role as the WObj position-animation update routine.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T00:14:17.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L13-L118",
+        "why": "Shows HSD_WObjInterpretAnim registering WObjUpdateFunc with the AObj interpreter and shows the callback dispatching animation channels 4 through 7 to spline or component position updates."
+      }
+    ]
+  },
+  {
+    "id": "fact:230e9620-c7ce-42d0-bf80-2430c7931070",
+    "target_id": "target:function:main/sysdolphin/baselib/wobj:WObjUpdateFunc",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "A null WObj causes no update, and unrecognized channel types are ignored. Channel 4 clamps out-of-range progress to the spline endpoints, requires a non-null AObj, associated JObj, and spline, replaces the full position, and leaves flag bit 0 set to identify the stored point as spline-relative. Channels 5 through 7 perform direct component updates; if the prior position was spline-relative, their setters convert it to the associated JObj-transformed position and clear bit 0 before changing the component.",
+    "rationale": "The callback contains the null guard, channel switch, endpoint clamps, dependency assertions, and explicit flag set. The component setters show the transition from spline-relative state to transformed direct-position state.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T00:14:17.965Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/wobj:WObjUpdateFunc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L46-L86",
+        "why": "Shows the null guard, ignored switch default, channel-4 clamping and assertions, full-position update, and spline-relative flag assignment."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L138-L178",
+        "why": "Shows the full-vector setter clearing bit 0 and the X setter transforming and clearing an existing relative position before applying a direct component value."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L158-L218",
+        "why": "Shows the equivalent spline-relative-to-direct transition in all three component setters."
+      }
+    ]
+  },
+  {
+    "id": "fact:a8f51dcf-8e31-4c1f-b71f-0b87ea8c505d",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/wobj.c",
+    "type": "data_flow",
+    "value": "WObj descriptors supply an initial position, reference-object description, and optionally a class name. Animation descriptions are converted into AObj and RObj attachments; interpreted animation values either select a clamped point along a JObj spline or update one position component. Position queries return the resulting Vec3, transforming spline-relative coordinates through the associated JObj matrix when required.",
+    "rationale": "The current source preserves descriptor loading, animation attachment, clamped spline and per-axis updates, class-name lookup, conversion of spline-relative state through the associated JObj matrix, and final Vec3 output.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:47:45.996Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/wobj.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L1-L120",
+        "why": "Shows descriptor positions and RObj descriptions being loaded, animations becoming AObj and RObj attachments, and interpreted channels selecting spline or per-axis positions."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L120-L239",
+        "why": "Shows optional descriptor class lookup, direct position updates, spline-relative coordinates transformed through a JObj matrix, and resulting Vec3 queries."
+      }
+    ]
+  },
+  {
+    "id": "fact:71a27a1e-4e44-4d42-a7d0-416867978e56",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/wobj.c",
+    "type": "game_mapping",
+    "value": "Provides the world-position branch of HSD scene-animation playback: it attaches and requests animation controllers for world objects, evaluates authored channels that move a point along a referenced spline or directly update its X, Y, and Z coordinates, and advances associated relation-object animation.",
+    "rationale": "The current animation-management and interpretation routines continue to coordinate AObj and RObj playback and map authored spline-path or per-axis channels into WObj positions.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:47:45.996Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/wobj.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L1-L120",
+        "why": "Shows animation attachment and frame requests, coordinated RObj animation, and interpretation of spline-path and X, Y, and Z channels into world-object positions."
+      }
+    ]
+  },
+  {
+    "id": "fact:ee335511-60bd-47ce-817c-6dbc9ce336f3",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/wobj.c",
+    "type": "inferred_type",
+    "value": "A C implementation unit for the class-managed HSD_WObj type. Its module state consists of an HSD_WObjInfo class descriptor and an optional HSD_ClassInfo* default-class override; its objects carry a Vec3 position, animation-object and reference-object associations, and position-state flags.",
+    "rationale": "The current declarations retain the HSD_WObjInfo descriptor and nullable default-class pointer, while the methods operate on WObj animation, relation-object, position, and flag state and register the class lifecycle.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:47:45.996Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/wobj.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L1-L120",
+        "why": "Declares the class descriptor and default-class pointer and shows operations on WObj AObj, RObj, position, and flags."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L120-L239",
+        "why": "Shows class-aware construction and position and state-flag operations on HSD_WObj instances."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L240-L265",
+        "why": "Registers HSD_WObj class metadata and installs its lifecycle methods."
+      }
+    ]
+  },
+  {
+    "id": "fact:6abef17d-89bf-49dd-a92c-fdf595b7a5ee",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/wobj.c",
+    "type": "purpose",
+    "value": "Implements the HSD world-object subsystem: it creates and loads HSD_WObj instances, manages their animation and reference-object attachments, maintains their three-dimensional positions, and installs the class lifecycle methods used to load and release them.",
+    "rationale": "The current unit still contains animation management, descriptor-driven initialization, class-aware allocation, position accessors and mutation, resource release, and lifecycle-method registration.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-06T16:47:45.996Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/wobj.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L1-L120",
+        "why": "Shows WObj animation attachment, removal, requests, interpretation, and descriptor-driven position and RObj initialization."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L120-L239",
+        "why": "Shows class-aware loading and allocation plus vector and per-axis position operations."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L240-L265",
+        "why": "Shows AObj and RObj release and installation of WObj load, release, and amnesia methods."
+      }
+    ]
+  },
+  {
+    "id": "fact:09f25139-34f5-4152-832f-f12d5dd09afa",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/wobj.c",
+    "type": "state_behavior",
+    "value": "The module permits an optional descendant class to become the default allocation class and clears that override when class amnesia reaches it. Within each WObj, animation type 4 marks the position as spline-relative with flag bit 0; direct position or axis updates clear that relative state as needed and set flag bit 1. Animation removal clears the AObj association, while release removes both AObj and RObj resources before delegating to the parent class.",
+    "rationale": "Current code retains the default-class descendant guard and amnesia reset, spline-relative and direct-position flag transitions, animation removal, and release of both attachment types before parent delegation.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:47:45.996Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/wobj.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L1-L120",
+        "why": "Shows animation removal clearing AObj state, type 4 selecting a clamped spline point and setting relative-position bit 0, and direct axis channels invoking position setters."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L120-L239",
+        "why": "Shows descendant validation and default-class assignment plus direct vector and axis updates clearing relative state and setting bit 1."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/wobj.c#L240-L265",
+        "why": "Shows class amnesia clearing the default override and release removing RObj and AObj resources before parent delegation."
+      }
+    ]
+  }
+]

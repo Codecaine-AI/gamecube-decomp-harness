@@ -1,0 +1,588 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/archive:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:e1e2d05a-5b20-4e01-89da-465e17ae676a",
+        "target_id": "target:data:main/sysdolphin/baselib/archive:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_ArchiveParse reads the string as OSReport's format argument after copying the serialized header. The first `%x` receives `archive->header.file_size` from that copied header, and the second receives the `file_size` argument supplied by the caller; the string itself is not modified.",
+        "rationale": "The head mismatch branch retains the same argument ordering: the literal is followed by the copied header's declared size and then the caller-supplied image size. It only reads the diagnostic as a format argument, so the standing data-flow claim remains valid.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L28-L36",
+            "why": "Shows the header copy followed by OSReport receiving the diagnostic string, `archive->header.file_size`, and the caller's `file_size` in that order."
+          }
+        ]
+      },
+      {
+        "id": "fact:a1fe811c-bea2-4ddc-b066-0d571936c9c2",
+        "target_id": "target:data:main/sysdolphin/baselib/archive:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A single NUL-terminated C diagnostic format string: `HSD_ArchiveParse: byte-order mismatch! Please check data format %x %x\\n`.",
+        "rationale": "The head source presents adjacent C string tokens as one OSReport format argument. This directly supports identifying the data as one terminated format string, while the prior assertion about the complete section extent and alignment padding is not needed for the supported type claim.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L28-L36",
+            "why": "Shows the complete diagnostic format literal, including its two hexadecimal conversions and final newline, passed as one C string to OSReport."
+          }
+        ]
+      },
+      {
+        "id": "fact:de4b55c2-9e3b-497e-8961-e1e49e8041f0",
+        "target_id": "target:data:main/sysdolphin/baselib/archive:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the diagnostic format string that HSD_ArchiveParse reports when an archive image's declared file size differs from the supplied loaded-image size. The message identifies the condition as a byte-order or data-format mismatch and formats both sizes in hexadecimal.",
+        "rationale": "The matched source passes this literal directly to OSReport inside the file-size mismatch branch, followed by the header's declared size and the caller-supplied size as the two `%x` arguments. The pull-request history independently identifies this translation unit as owning a separately split `.data` remainder.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T04:59:57.358Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L28-L36",
+            "why": "Shows the diagnostic literal used as OSReport's format string and the two archive-size values supplied for its hexadecimal conversions."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-218--main-sysdolphin-baselib-archive",
+            "why": "Shows that archive.c's remaining `.data` was explicitly separated as data-section ownership work."
+          }
+        ]
+      },
+      {
+        "id": "fact:f8357296-5fb5-4d7d-9be9-cfe3e288fddd",
+        "target_id": "target:data:main/sysdolphin/baselib/archive:.data",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "The diagnostic is consumed only when the archive header's declared file size does not equal the supplied image size. After reporting it, HSD_ArchiveParse returns `-1`; when the sizes match, this data is bypassed and parsing continues into section mapping and relocation.",
+        "rationale": "At head, the OSReport call remains guarded by the file-size inequality and immediately precedes the failure return. The successful path falls through to map the archive's sections and invoke Locate without consuming the diagnostic.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L68",
+            "why": "Shows the mismatch-only diagnostic and `-1` return, followed by the successful section-mapping and relocation path used when the sizes match."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/archive:HSD_ArchiveGetExtern"
+    },
+    "facts": [
+      {
+        "id": "fact:6ccd5d1d-53a4-464a-ad59-ddf4405415b7",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetExtern",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes an HSD_Archive already populated by HSD_ArchiveParse and a signed external-entry index. After validating the index against header.nb_extern, it reads extern_info[index].symbol as a byte offset into archive->symbols and returns the resulting in-image string pointer without modifying the archive.",
+        "rationale": "The head source still shows HSD_ArchiveParse mapping the external-entry array and symbol table into the descriptor, after which HSD_ArchiveGetExtern validates its index and combines those mapped fields to produce a string pointer. No write occurs in the getter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows Parse populating `extern_info` and `symbols`, then shows the getter's bounds check and read-only conversion of an external record's symbol offset into a string pointer."
+          }
+        ]
+      },
+      {
+        "id": "fact:5b289fd3-81a3-458d-913f-003b196b37ad",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetExtern",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the external-name enumeration step of DAT archive external-symbol resolution: it exposes each imported symbol's name so archive-loading code can associate that import with a runtime address, while HSD_ArchiveLocateExtern performs the corresponding reference-site patching.",
+        "rationale": "The getter still maps an external-table index to the corresponding symbol-table name, and the neighboring binding routine searches those same names before patching the matching external's reference chain. Together they preserve the getter's role as the name-discovery side of external-symbol resolution.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows external-name retrieval by table index and the paired named-external lookup that writes a supplied runtime binding into reference sites."
+          }
+        ]
+      },
+      {
+        "id": "fact:2abf3a78-7567-4443-b024-a60552201562",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetExtern",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: char* HSD_ArchiveGetExtern(HSD_Archive* archive, int external_index). The result is a non-owning pointer into archive->symbols, selected through an HSD_ArchiveExternInfo record; NULL denotes an invalid index.",
+        "rationale": "The definition at head retains the same return and parameter types. Its valid result is computed directly within the archive's symbol table through the selected external record, while either invalid side of the index range returns NULL.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L87-L94",
+            "why": "Establishes the concrete signature, both invalid-index conditions, the NULL failure result, and the non-owning pointer returned from the archive symbol table."
+          }
+        ]
+      },
+      {
+        "id": "fact:14970e02-9b59-453e-b7fd-130d376c0fef",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetExtern",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Returns the name of an HSD DAT archive external symbol selected by external-table index, or NULL when the index is outside the archive's external-entry range.",
+        "rationale": "The matched function validates the supplied index against zero and header.nb_extern, then uses the selected external record's symbol offset to return its name from the archive string table.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:17:10.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L87-L94",
+            "why": "Directly shows the index validation and construction of the returned external-symbol name."
+          }
+        ]
+      },
+      {
+        "id": "fact:52abcaf4-0d8c-470b-b31a-27a6f4a3040f",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetExtern",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a read-only two-sided bounds check: a negative index or an index greater than or equal to header.nb_extern immediately returns NULL; every valid index immediately returns the corresponding string-table address.",
+        "rationale": "The matched body consists of the compound invalid-index guard followed by the valid-index return, with no loop, mutation, or other state transition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:17:10.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L87-L94",
+            "why": "Directly establishes both invalid-index conditions, their NULL outcome, and the valid-index outcome."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/archive:HSD_ArchiveGetPublicAddress"
+    },
+    "facts": [
+      {
+        "id": "fact:abe6c3a4-d6f3-4cce-a585-dfacc5751555",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetPublicAddress",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes a relocated HSD_Archive and a symbol-name string; for each of header.nb_public entries, it uses public_info[i].symbol as an offset into the archive string table, compares that string with the requested name, and on equality converts public_info[i].offset into a live pointer by adding it to archive->data. Callers then interpret that pointer according to the requested asset name.",
+        "rationale": "Every stage of the lookup is explicit in the matched body. A documented call-site example shows the resulting void pointer being stored as a JObj pointer when the requested export is TtlMoji_Top_joint, confirming that concrete interpretation occurs outside this generic routine.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:29.103Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+            "why": "The code directly shows the public-count bound, symbol-table offset calculation, strcmp comparison, data-base offset calculation, and NULL fallback."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197457504209219594",
+            "why": "The message shows a caller requesting TtlMoji_Top_joint and storing the returned archive address as a pointer to a JObj contained in that archive."
+          }
+        ]
+      },
+      {
+        "id": "fact:63e3717a-2bae-4185-8e9a-aaaecc51f0f8",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetPublicAddress",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements DAT archive public-symbol resolution, the asset-loading step that obtains named scene or resource roots such as joints, animation joints, camera descriptors, lights, and fog descriptors from a relocated archive.",
+        "rationale": "The source establishes generic named export resolution, and the documented title-screen usage enumerates several concrete scene-resource names whose destination pointers are populated through this operation.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-01T23:03:29.103Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+            "why": "The function maps an exported archive name to its relocated data address."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1197457504209219594",
+            "why": "The resolved discussion shows this lookup used for named JObj, animation, material animation, shape animation, camera, light, fog, background, and scene-object resources."
+          }
+        ]
+      },
+      {
+        "id": "fact:7da336bd-f5e2-4b0d-914b-bcaa4fdde310",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetPublicAddress",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive, const char* symbol_name). The result is intentionally untyped because different exported names can designate different archive payload types; NULL represents lookup failure.",
+        "rationale": "The matched declaration establishes the archive pointer, immutable name string, and void-pointer return. The body can return any address in archive data, while the resolved discussion explicitly rejects a fixed HSD_Joint* result in favor of void* because callers interpret the payload according to the requested symbol.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-01T23:03:29.103Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+            "why": "The source gives the concrete HSD_Archive*, const char*, and void* signature and shows NULL as the miss result."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/978151422468161556",
+            "why": "The discussion explicitly concludes that the return is void* rather than HSD_Joint* because the returned address may be cast to the payload type required by the caller."
+          }
+        ]
+      },
+      {
+        "id": "fact:10c7c11f-7bb2-4d66-ba13-ccaca2f922a9",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetPublicAddress",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Looks up a named public entry in an HSD archive and returns the entry's starting address within the archive's relocated data section, or NULL when the name is not exported.",
+        "rationale": "The function compares the requested name against every public-entry name and constructs the result from the archive data base plus the matching entry's offset. Community explanation independently identifies the result as a starting point for using a relocated data file.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:29.103Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+            "why": "The matched body performs the public-table search, returns data plus the matched offset, and returns NULL after an unsuccessful search."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1142512275035541627",
+            "why": "The message describes this function as finding particular starting points for using data files after relocation."
+          }
+        ]
+      },
+      {
+        "id": "fact:bb19abf5-2c82-4b57-a989-8213b6c3ce9c",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveGetPublicAddress",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a read-only, first-match linear search over the archive's public entries: an exact strcmp result of zero immediately returns the corresponding address, while exhausting the table returns NULL. It does not mutate the archive.",
+        "rationale": "The matched source contains a bounded loop, an exact-equality guard with immediate return, and a terminal NULL return, and all archive accesses in the body are reads.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:03:29.103Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L70-L85",
+            "why": "The body directly establishes the search order, equality guard, early-success transition, miss behavior, and absence of writes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/archive:HSD_ArchiveLocateExtern"
+    },
+    "facts": [
+      {
+        "id": "fact:a7d1be79-65c5-40b0-9fc4-750a3e477f0d",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveLocateExtern",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the archive's external-entry array and symbol-string table to find an exact name match. The matching entry supplies the first byte offset into archive->data; each referenced 32-bit slot contains the byte offset of the next slot, so the function saves that value before overwriting the current slot with the caller's address and then advances to the saved offset.",
+        "rationale": "The head implementation still compares the requested name against each external record's string-table entry, initializes traversal from the matching record's offset, reads the next offset before writing the current slot, and advances using that saved value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L96-L122",
+            "why": "Shows the external-table and symbol-table lookup followed by read-before-overwrite traversal of byte-offset reference slots in archive data."
+          }
+        ]
+      },
+      {
+        "id": "fact:874b3af0-7051-4d6a-a5f9-95ba6b65ebd2",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveLocateExtern",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements DAT archive external-symbol resolution: during archive initialization, imported references encoded in asset data are bound to objects or data addresses supplied by the surrounding runtime.",
+        "rationale": "At head, the function continues to find a named external archive entry and convert its encoded reference-chain sites into live references to one supplied runtime address. This remains the archive loader's external import-binding operation.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L96-L122",
+            "why": "Shows a named external entry's encoded offset chain being traversed and each associated reference site being replaced with the supplied runtime address."
+          }
+        ]
+      },
+      {
+        "id": "fact:0f0b70e6-ff37-40c5-8919-ce9d4edc8610",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveLocateExtern",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Signature: void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbol_name, void* address). The symbol name is read-only, the supplied address is an untyped runtime binding written as a 32-bit pointer value, and failure or absence is reported only by returning without mutation.",
+        "rationale": "The head definition retains a void return, archive pointer, const symbol string, and untyped address. The symbol is only compared, the address is converted and stored through a u32 slot, and an absent matching record causes an early return without a status value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L96-L122",
+            "why": "Provides the concrete signature, read-only treatment of the symbol name, 32-bit destination store for the supplied address, and void early-return behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:3b91bef1-6466-45de-9464-453c687900e9",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveLocateExtern",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Binds one named external symbol in a loaded HSD archive to a caller-supplied runtime address by replacing every unresolved reference slot associated with that symbol.",
+        "rationale": "The current body still searches for the external record whose symbol-table name exactly matches the request and then follows that record's reference chain, writing the supplied address at each valid site.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L96-L122",
+            "why": "Directly shows exact external-name lookup followed by replacement of the matching entry's unresolved reference-chain slots."
+          }
+        ]
+      },
+      {
+        "id": "fact:1ae28056-a2eb-49d1-877c-58964b3c79a7",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveLocateExtern",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs a first-match linear search over header.nb_extern entries. If no exact symbol match exists, it returns immediately. Otherwise it patches the chain while the current offset is neither the 0xFFFFFFFF terminator nor outside archive->header.data_size; each successful iteration saves the next offset, writes the binding, and advances. An absent, terminated, or out-of-range chain produces no status result.",
+        "rationale": "The head control flow retains the bounded linear search, first-match break, sentinel-based miss return, sentinel and data-size loop guards, and read-write-advance transition for every visited reference slot.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L96-L122",
+            "why": "Shows the search bound, exact-match transition, absent-symbol return, chain terminator, data-section boundary guard, and each patching iteration."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/archive:HSD_ArchiveParse"
+    },
+    "facts": [
+      {
+        "id": "fact:7f4403e3-faec-4126-a3c8-5d20c231b3a9",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveParse",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives an output HSD_Archive descriptor, a loaded archive byte buffer, and the buffer's file size. After rejecting a null descriptor, it clears the descriptor, sets its initialization flag, and copies the serialized header from src. It compares the header's file_size with the supplied size, then advances an offset from the end of the header through the data body, relocation table, public table, and extern table according to the header's sizes and entry counts. Nonempty sections become typed pointers into src; any remaining bytes become the symbol-string table. Finally it stores src as top_ptr, passes the populated descriptor to Locate, and returns a status code.",
+        "rationale": "The head body preserves the complete flow from all three arguments through descriptor initialization, header validation, sequential section mapping, retention of the source image, internal relocation, and status return.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L68",
+            "why": "Directly shows the three inputs feeding header copying, size validation, ordered section-pointer construction, top-pointer retention, Locate, and the final return value."
+          }
+        ]
+      },
+      {
+        "id": "fact:fcc7699d-f6ca-49af-afb3-daf7e1f53a1c",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveParse",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Archive-image parser with signature `s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)`. `archive` is the output descriptor, `src` is a mutable byte-addressed loaded image that remains backing storage for the descriptor, and the return domain is `0` for success or `-1` for a null output descriptor or declared-size mismatch.",
+        "rationale": "The definition at head retains the stated concrete signature. Its assignments make descriptor fields point into src and retain src as top_ptr, while the null and size guards return -1 and the completed initialization path returns 0.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L68",
+            "why": "Provides the exact signature, demonstrates that the descriptor retains pointers into src, and shows both failure returns and the success return."
+          }
+        ]
+      },
+      {
+        "id": "fact:ad1f6cef-e096-4d1a-bd0b-666e139168b7",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveParse",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Initializes an HSD_Archive descriptor as a runtime view of a loaded serialized archive: it validates the image's declared size, identifies the image's data and metadata sections, retains the image base, and invokes Locate to finalize the archive for address-based access.",
+        "rationale": "The head implementation still clears and initializes the descriptor, copies and validates the serialized header, maps each declared archive section into the source image, retains the image base, and invokes internal relocation before reporting success.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L68",
+            "why": "Shows descriptor initialization, header-size validation, ordered section mapping, source-base retention, final Locate invocation, and success or failure reporting."
+          }
+        ]
+      },
+      {
+        "id": "fact:b74adcbf-d9aa-4b20-b608-8e746fef814a",
+        "target_id": "target:function:main/sysdolphin/baselib/archive:HSD_ArchiveParse",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has three observable outcomes. If archive is NULL, it immediately returns -1 without initializing an output descriptor. Otherwise it clears and begins populating the descriptor; if the serialized header's file_size differs from the supplied file_size, it emits a byte-order/data-format diagnostic and returns -1 with parsing incomplete. On a valid size, it conditionally binds only the sections declared present, stores the source-image base, invokes Locate, and returns 0.",
+        "rationale": "The head control flow retains the null-output guard, the post-header size-mismatch guard and report, conditional setup of each optional section, and the single successful relocation-and-return path. The standing three-outcome description therefore remains valid.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T17:47:48.387Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L68",
+            "why": "Shows both failure guards and their effects, every conditional section-binding branch, and the successful Locate-and-return path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/archive.c"
+    },
+    "facts": [
+      {
+        "id": "fact:2025aca1-2e32-464f-a22c-a8c27fdfe338",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/archive.c",
+        "type": "data_flow",
+        "value": "A caller supplies a loaded byte image and its size to HSD_ArchiveParse, which copies the header into an HSD_Archive, points descriptor fields into successive regions of that same image, records the image base, and invokes internal relocation. Consumers then either translate a public name into archive->data plus its recorded offset, retrieve an external name by index, or supply an external name and runtime address so every reference slot in that external's chain is overwritten with the address.",
+        "rationale": "The current source still maps the serialized image into non-owning archive-section views and then consumes those views for public lookup, external-name access, and external-reference patching. The claim remains valid and is re-cited at the checkout head.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:31:37.129Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows the loaded byte image becoming mapped archive sections and those sections feeding public-address lookup, external-name retrieval, and reference-chain patching."
+          }
+        ]
+      },
+      {
+        "id": "fact:72db5d76-9e53-458b-9959-b05fdc17655f",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/archive.c",
+        "type": "inferred_type",
+        "value": "Operates on an HSD DAT archive image laid out as an HSD_ArchiveHeader followed in order by the data section, an array of HSD_ArchiveRelocationInfo entries, an array of HSD_ArchivePublicInfo entries, an array of HSD_ArchiveExternInfo entries, and a trailing symbol-string table. Public and external records hold string-table offsets; public records hold data offsets, while each external record holds the head byte offset of an in-data reference chain.",
+        "rationale": "At head, HSD_ArchiveParse still advances through the serialized image in the stated section order, and the lookup and binding routines retain the same interpretation of public and external records. The structural claim therefore remains sound.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T02:31:37.129Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Establishes the archive section order and the interpretation of public data offsets, symbol-table offsets, and external reference-chain offsets."
+          }
+        ]
+      },
+      {
+        "id": "fact:640b3360-3020-4daf-b0ac-17946c0cbb5b",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/archive.c",
+        "type": "purpose",
+        "value": "Provides runtime loading and symbol-resolution support for serialized HSD DAT archives: it maps a contiguous archive image into an HSD_Archive descriptor, applies internal relocation, resolves named public entries to payload addresses, exposes external-symbol names, and binds imported symbols by patching their reference chains with runtime addresses.",
+        "rationale": "The head source preserves archive parsing and section mapping, internal relocation, public export lookup, external-name retrieval, and imported-symbol reference patching. Only the code digest changed, not the unit's demonstrated purpose.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:31:37.129Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows the unit's parsing, internal relocation, public-symbol lookup, external-name access, and external-reference binding operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:bfa00480-a396-49a2-bf8e-01820f57f8b3",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/archive.c",
+        "type": "state_behavior",
+        "value": "Archive parsing first rejects a null destination or a header file-size mismatch, otherwise maps the serialized sections and relocates internal references before succeeding. Public lookup returns the first exact name match or NULL; external-name lookup returns NULL for a negative or out-of-range index; external binding does nothing when the requested import is absent and otherwise follows the import's bounded reference chain until its terminator or the data-section boundary.",
+        "rationale": "The current implementation retains the same parse guards, lookup outcomes, index bounds, absent-import behavior, and bounded external-reference traversal. The standing behavior is therefore refreshed without semantic change.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T02:31:37.129Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/archive.c#L18-L120",
+            "why": "Shows parse failure and success paths, exact public lookup, external-index validation, missing-import handling, and bounded reference-chain traversal."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveGetExtern#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveGetExtern#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveGetPublicAddress#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveGetPublicAddress#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveLocateExtern#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveLocateExtern#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveLocateExtern#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveParse#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveParse#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/archive:HSD_ArchiveParse#r5"
+    },
+    "facts": []
+  }
+]

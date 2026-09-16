@@ -1,0 +1,106 @@
+{
+  "tu": "main/melee/lb/lbtrigf",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbtrigf:asinf"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Computes -(x*x-1.0f), passes that radicand to lb_sqrtf, multiplies the returned reciprocal-square-root approximation by x, and returns atanf of the product. The local implementation has no persistent writes; specific rotation-extraction callers are outside this TU review.",
+        "rationale": "Limit the claim to the inspected implementation and distinguish duplicated refinement, conditional compilation, and zero-axis semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L63-L84",
+            "why": "The cited complete definition establishes this behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbtrigf:atan2f"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Computes an angular argument using atanf(y/x), sign-bit tests, and pi-based quadrant corrections. If x is either signed zero, it returns pi/2 with the sign of y, including when y is also zero. This implementation therefore has its own zero-axis behavior and should not be assumed to follow every standard atan2 signed-zero special case.",
+        "rationale": "Limit the claim to the inspected implementation and distinguish duplicated refinement, conditional compilation, and zero-axis semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L22-L43",
+            "why": "The cited complete definition establishes this behavior."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/lb/lbtrigf.c"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides single-precision atan2f, acosf, and asinf plus a reciprocal-square-root helper used by asinf. acosf implements its own reciprocal-square-root refinement inline. The table-assisted atanf definition is present only under __MWERKS__; lbtrigf.h contains only an include guard.",
+        "rationale": "Limit the claim to the inspected implementation and distinguish duplicated refinement, conditional compilation, and zero-axis semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L1-L243",
+            "why": "The cited complete definition establishes this behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.h#L1-L4",
+            "why": "The header contains only an include guard."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbtrigf:atanf"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Under __MWERKS__, saves the input sign bit and clears it before reduction. Small inputs and reciprocal-reduced large inputs retain lookup_index=-1; subsequent relative offsets 27 and 20 select table entries 26 and 19, both zero. The source forms atanf_lookup-1 before these indexed reads, so this is compiler-specific source rather than a portable-C bounds guarantee. Large inputs reconstruct relative to pi/2; the other path ORs the saved sign into the result.",
+        "rationale": "Record exact branch behavior and source constraints instead of assuming full standard-library exceptional-value guarantees.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L147-L243",
+            "why": "Shows sign handling, branch conditions, and reconstruction."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L98-L145",
+            "why": "Table entries 19 and 26 are zero."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/lb/lbtrigf:atan2f"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "For either signed-zero x, returns positive pi/2 for nonnegative-sign y and negative pi/2 for negative-sign y, including both-zero pairs. For finite nonzero x, uses atanf(y/x) with minus pi when both sign bits are negative and plus pi when x is negative but y is not. No explicit NaN or infinity-pair handling is present.",
+        "rationale": "Record exact branch behavior and source constraints instead of assuming full standard-library exceptional-value guarantees.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbtrigf.c#L22-L43",
+            "why": "Shows sign handling, branch conditions, and reconstruction."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "tu": "main/melee/if/textlib",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib.c#L24-L84",
+            "why": "Active-list lookup, pool pop, assertion-report branch, complete initialization and return."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves successful initialization and duplicate-ID behavior while distinguishing assertion failure from a guaranteed recoverable return.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textlib:DevText_Create"
+        },
+        "type": "state_behavior",
+        "value": "Returns NULL without allocating when an active panel already has the requested ID. Otherwise it removes the free-pool head. An empty pool invokes HSD_ASSERTREPORT with an allocation-failure message; only if execution continues past that assertion path does the function reach its final NULL return. A successful panel starts at cursor (0, 0), scales (10.0, 16.0), the default background and four text colors, line width 10, current color 0, cursor visibility enabled, other flags and the blink-state field cleared, null list links, and a zero-filled caller buffer. Creation does not register the panel in the active draw list."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib.c#L142-L145",
+            "why": "Complete void leaf function performs one mutation and falls through."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the misleading term non-returning, which can imply noreturn control flow rather than a void result.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textlib:DevText_HideCursor"
+        },
+        "type": "inferred_type",
+        "value": "A void-returning panel-state mutator with signature `void DevText_HideCursor(DevText* text)`. It accepts one mutable DevText pointer, clears bit 4 of that object's flags, and returns normally without a value."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib.c#L99-L136",
+            "why": "Clamp helper tests the upper bound before negativity; setter writes only cursor_x."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the actual branch priority and avoids extending the positive-grid guarantee to unvalidated dimensions.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textlib:DevText_SetCursorX"
+        },
+        "type": "state_behavior",
+        "value": "Tests `x >= text->w` first and stores `text->w - 1` when true; otherwise it stores 0 if x is negative, or x unchanged. Only cursor_x is modified. For positive widths this clamps to the valid column range. Nonpositive widths are not rejected, and the upper-bound-first ordering can produce a negative cursor rather than a valid grid coordinate."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib.c#L346-L349",
+            "why": "Getter directly returns the global."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L555-L585",
+            "why": "Publication precedes buffer allocation and panel creation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/textlib_1.c#L611-L673",
+            "why": "Child initialization precedes linking; teardown publishes closing records, invokes callbacks, frees records and restores the parent."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds exceptional publication timing and callback-visible teardown lifetimes omitted by the existing active-menu summary.",
+        "subject": {
+          "target_stable_key": "main/melee/if/textlib:un_80302DF0"
+        },
+        "type": "state_behavior",
+        "value": "Observational getter: returns un_804D6E44 verbatim without validation or mutation. Common menu initialization publishes its record before backing-buffer allocation and DevText creation succeed, so a non-NULL result does not guarantee a fully initialized panel. Child creation invokes that initializer before linking the child. During teardown, each closing record is temporarily published as current while its close callbacks run; after destruction of the requested subtree, the global is restored to the surviving parent or NULL. Returned pointers are borrowed and can be invalidated by hierarchy teardown."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

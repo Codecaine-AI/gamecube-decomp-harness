@@ -1,0 +1,141 @@
+{
+  "tu": "main/melee/it/kinds/itpikachuthunder",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L19-L38",
+            "why": "Complete source declaration and all three initializers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.h#L29-L29",
+            "why": "Extern declaration confirms the source-level array type without specifying compiled layout."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported table shape while removing an unsupported compiled .data and 48-byte layout assertion.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachuthunder:.data"
+        },
+        "type": "inferred_type",
+        "value": "Source-level non-const array `it_803F70C8` containing three `ItemStateTable` records. Their animation identifiers are -1, 0, and 0; all physics callbacks are null, and only the second record supplies a collision callback. The records dispatch item motion states 0, 1, and 2. Compiled section placement and byte size are not established by this source declaration."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L144-L165",
+            "why": "Countdown control flow and complete state-1 transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1413-L1421",
+            "why": "The helper writes lifetime and derived half-life fields."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L642-L646",
+            "why": "Model helper delegates to it_80272A18."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L263-L266",
+            "why": "The delegated helper clears JOBJ_HIDDEN."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the former hitbox-configuration interpretation of the timer helper and identifies the final helper as model unhiding, preserving exact countdown timing.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachuthunder:itPikachuthunder_UnkMotion0_Anim"
+        },
+        "type": "state_behavior",
+        "value": "In motion state 0, a positive x8 is decremented and the callback returns false without activating the segment in that invocation. If x8 is already nonpositive, it calls it_802B211C: that helper selects state 1 with ITEM_ANIM_UPDATE, initializes the life timer from attrs->x0 and the derived half-life timer through it_80275158, copies saved x1C into current velocity, sets b3, and unhides the model through it_8026BB20. The callback always returns false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L144-L165",
+            "why": "Caller guard and state-entry operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L1413-L1421",
+            "why": "Actual timer initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L642-L646",
+            "why": "Model helper delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_2725.c#L263-L266",
+            "why": "Model visibility operation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported attack-setup explanation with the canonical timer and visibility operations.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachuthunder:it_802B211C"
+        },
+        "type": "purpose",
+        "value": "Activates a delayed Pikachu Thunder segment by entering motion state 1, initializing its lifetime and derived half-life timers from article attribute x0, restoring its saved velocity, setting item flag b3, and unhiding its model. The motion-0 callback invokes this helper when its activation delay is already nonpositive."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L232-L280",
+            "why": "Quantizer, distinct ratios, positive-span guard, timer-first expiry, and model assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/ithitbox.c#L109-L119",
+            "why": "Conditional multiplication of the selected hit capsule's scale."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects conflation of the model's full-span normalization with the hitbox's incremental span ratio, and preserves the update guards and ordering.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itpikachuthunder:itPikachuthunder_UnkMotion2_Anim"
+        },
+        "type": "data_flow",
+        "value": "Resolves the Item and root JObj, decrements xD44_lifeTimer, and returns true immediately if the updated timer is nonpositive. Otherwise it computes candidate span x10 = xC + saved x1C.y. Only when x10 is positive does it compute model scale x18 = pika_scale(x10, attrs->x4), substitute 0.01 if that computed scale is nonpositive, pass pika_scale(x10, xC) to it_80275594 for hitbox 0, and then store xC = x10. The hitbox helper multiplies an enabled hit capsule's existing scale; it does not receive x18. The callback finally applies stored x18 as the root model's Y scale and returns false. If the candidate span is nonpositive, the stored span and scale remain unchanged. pika_scale(a,b) computes ((s32)(10000.0f*a/b + 1))/10000.0f."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L144-L230",
+            "why": "Separate delay activation, trailer stopping guards and successor propagation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itpikachuthunder.c#L247-L280",
+            "why": "Guarded terminal scaling and expiry."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects next-segment activation wording: propagation arms the collision stopping condition, while delay expiry independently controls descent activation.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itpikachuthunder.c"
+        },
+        "type": "state_behavior",
+        "value": "Motion 0 waits on each segment's independent activation delay before entering motion 1. Motion 1 applies the saved velocity, counts down lifetime, and stops the leader on terrain or a trailer when its armed flag is nonzero and it reaches the predecessor-provided height. Entry into motion 2 initializes terminal lifetime, marks the current segment, and supplies its position and stop-readiness flag to the successor; it does not activate that successor's descent. Motion 2 updates scale while its timer remains positive and reports expiry when the timer reaches zero or below."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,544 @@
+{
+  "schemaVersion": 1,
+  "id": "te-and-events-05-harness-state-and-authority-20-dispatch-authority-and-handoffs-doc-json-80756d60",
+  "title": "Dispatch Coordination",
+  "root": "b-doc-root-9",
+  "blocks": {
+    "b-doc-root-9": {
+      "id": "b-doc-root-9",
+      "type": "paragraph",
+      "props": {},
+      "children": [
+        "dc-opening",
+        "dc-paths-h",
+        "dc-paths",
+        "dc-state-h",
+        "sweep-96131d10e2c44ab6-shape",
+        "dc-state-explain",
+        "dc-lease-h",
+        "b-struct-dispatch-lease",
+        "dc-fence",
+        "b-struct-dispatch-lease-status",
+        "dc-queue-h",
+        "sweep-ea8000bfd78142ea-shape",
+        "dc-handoff-h",
+        "dc-handoff",
+        "b-dispatch-handoff-sequence",
+        "dc-background",
+        "dc-pause",
+        "b-handoff-lineage",
+        "b-handoff-lineage-text",
+        "b-handoff-event-link"
+      ]
+    },
+    "dc-opening": {
+      "id": "dc-opening",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Dispatch State grants one workflow at a time the authority to dispatch workers or mutate a game's protected checkout. A fenced lease identifies the current owner. A queued request records intent but cannot act until authority is available."
+        }
+      ],
+      "children": []
+    },
+    "dc-paths-h": {
+      "id": "dc-paths-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Two Coordination Paths"
+        }
+      ],
+      "children": []
+    },
+    "dc-paths": {
+      "id": "dc-paths",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Path",
+          "Authority"
+        ],
+        "rows": [
+          [
+            "Automatic epoch Sync",
+            "Run retains its current lease after claims and integration settle. No second manual Sync lease is created."
+          ],
+          [
+            "Initial or manual Sync",
+            "Sync acquires its own lease. If Run owns authority, handoff waits for safe settlement and release."
+          ],
+          [
+            "Paused or blocked work",
+            "A pause request or stale heartbeat alone cannot replace the owner. Release or reconciled recovery establishes authority."
+          ]
+        ]
+      },
+      "children": []
+    },
+    "dc-state-h": {
+      "id": "dc-state-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Dispatch State"
+        }
+      ],
+      "children": []
+    },
+    "sweep-96131d10e2c44ab6-shape": {
+      "id": "sweep-96131d10e2c44ab6-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"game_id\": \"melee\",\n  \"revision\": 8,\n  \"active_workflow\": {\n    \"kind\": \"run\",\n    \"workflow_id\": \"run-7\",\n    \"lease_id\": \"lease-run-7\",\n    \"status\": \"active\",\n    \"acquired_at\": \"2026-09-11T18:00:00Z\",\n    \"heartbeat_at\": \"2026-09-11T18:01:00Z\",\n    \"blockers\": [],\n    \"requested_handoff\": {\n      \"target_kind\": \"sync\",\n      \"target_workflow_id\": \"sync-13\",\n      \"reason\": \"Refresh upstream after current claims settle.\",\n      \"requested_at\": \"2026-09-11T18:01:00Z\",\n      \"requested_by\": \"operator\",\n      \"request_command_id\": \"command-sync-13\",\n      \"request_root_span_id\": \"span-22222222-2222-4222-8222-222222222222\",\n      \"request_event_id\": \"event-sync-request-13\"\n    }\n  },\n  \"blockers\": [],\n  \"queued_dispatch_requests\": [\n    {\n      \"kind\": \"sync\",\n      \"workflow_id\": \"sync-13\",\n      \"reason\": \"Refresh upstream after current claims settle.\",\n      \"requested_at\": \"2026-09-11T18:01:00Z\",\n      \"requested_by\": \"operator\",\n      \"request_command_id\": \"command-sync-13\",\n      \"request_root_span_id\": \"span-22222222-2222-4222-8222-222222222222\",\n      \"request_event_id\": \"event-sync-request-13\"\n    }\n  ],\n  \"trace_id\": \"trace-run-7\",\n  \"caused_by_event_id\": \"event-sync-request-13\",\n  \"created_at\": \"2026-09-11T18:00:00Z\",\n  \"updated_at\": \"2026-09-11T18:01:00Z\"\n}",
+        "fields": [
+          {
+            "name": "game_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "revision",
+            "type": "number",
+            "required": true
+          },
+          {
+            "name": "active_workflow",
+            "type": "DispatchLease | null",
+            "required": true
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]",
+            "required": true
+          },
+          {
+            "name": "queued_dispatch_requests",
+            "type": "QueuedDispatchRequest[]",
+            "required": true
+          },
+          {
+            "name": "trace_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "caused_by_event_id",
+            "type": "string | null",
+            "required": true
+          },
+          {
+            "name": "created_at",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "updated_at",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "name": "DispatchState",
+        "source": {
+          "path": "apps/server/src/core/harness-state/types.ts",
+          "symbol": "DispatchState"
+        }
+      },
+      "children": []
+    },
+    "dc-state-explain": {
+      "id": "dc-state-explain",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The example shows Run still owning the lease while a Sync request waits. These fields describe coordination; accepted source and readiness remain in Harness State."
+        }
+      ],
+      "children": []
+    },
+    "dc-lease-h": {
+      "id": "dc-lease-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "The Fenced Lease"
+        }
+      ],
+      "children": []
+    },
+    "b-struct-dispatch-lease": {
+      "id": "b-struct-dispatch-lease",
+      "type": "state-shape",
+      "props": {
+        "description": "Fenced authority held by at most one run, PR, or sync workflow.",
+        "example": "{\n  \"kind\": \"run\",\n  \"workflow_id\": \"run-7\",\n  \"lease_id\": \"lease-run-7\",\n  \"status\": \"active\",\n  \"acquired_at\": \"2026-09-11T18:00:00Z\",\n  \"heartbeat_at\": \"2026-09-11T18:01:00Z\",\n  \"blockers\": [],\n  \"requested_handoff\": {\n    \"target_kind\": \"sync\",\n    \"target_workflow_id\": \"sync-13\",\n    \"reason\": \"Refresh upstream after current claims settle.\",\n    \"requested_at\": \"2026-09-11T18:01:00Z\",\n    \"requested_by\": \"operator\",\n    \"request_command_id\": \"command-sync-13\",\n    \"request_root_span_id\": \"span-22222222-2222-4222-8222-222222222222\",\n    \"request_event_id\": \"event-sync-request-13\"\n  }\n}",
+        "fields": [
+          {
+            "name": "kind",
+            "type": "\"run\" | \"pr\" | \"sync\""
+          },
+          {
+            "name": "workflow_id",
+            "type": "WorkflowId",
+            "description": "Owning domain workflow."
+          },
+          {
+            "name": "lease_id",
+            "type": "LeaseId",
+            "description": "Fencing token minted at acquisition; every worker-dispatch and source-mutation command must present the current lease id, so stale actors from a previous activation are refused."
+          },
+          {
+            "name": "status",
+            "type": "\"acquiring\" | \"active\" | \"blocked\" | \"releasing\""
+          },
+          {
+            "name": "acquired_at",
+            "type": "timestamp"
+          },
+          {
+            "name": "heartbeat_at",
+            "type": "timestamp",
+            "description": "Liveness evidence used during recovery."
+          },
+          {
+            "name": "requested_handoff",
+            "type": "DispatchHandoffRequest",
+            "required": false,
+            "description": "Queued transition that begins after the current owner settles.",
+            "fields": [
+              {
+                "name": "target_kind",
+                "type": "\"run\" | \"pr\" | \"sync\""
+              },
+              {
+                "name": "target_workflow_id",
+                "type": "WorkflowId"
+              },
+              {
+                "name": "reason",
+                "type": "string"
+              },
+              {
+                "name": "requested_at",
+                "type": "timestamp"
+              },
+              {
+                "name": "requested_by",
+                "type": "EventActor",
+                "required": true
+              },
+              {
+                "name": "request_command_id",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "request_root_span_id",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "request_event_id",
+                "type": "string",
+                "required": true
+              }
+            ]
+          },
+          {
+            "name": "blockers",
+            "type": "Blocker[]",
+            "description": "Reasons the owner cannot settle or release authority.",
+            "fields": [
+              {
+                "name": "code",
+                "type": "string"
+              },
+              {
+                "name": "message",
+                "type": "string"
+              },
+              {
+                "name": "source_kind",
+                "type": "string"
+              },
+              {
+                "name": "source_id",
+                "type": "string"
+              },
+              {
+                "name": "recoverable",
+                "type": "boolean"
+              }
+            ]
+          }
+        ],
+        "name": "DispatchLease",
+        "source": {
+          "path": "apps/server/src/core/harness-state/types.ts",
+          "symbol": "DispatchLease"
+        }
+      },
+      "children": []
+    },
+    "dc-fence": {
+      "id": "dc-fence",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Guarded commands present the current "
+        },
+        {
+          "insert": "lease_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". A new acquisition creates a new fence, so a stale actor cannot resume mutation using only an old workflow ID."
+        }
+      ],
+      "children": []
+    },
+    "b-struct-dispatch-lease-status": {
+      "id": "b-struct-dispatch-lease-status",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Status",
+          "Meaning",
+          "Stable invariant"
+        ],
+        "rows": [
+          [
+            "acquiring",
+            "The workflow is establishing authority and validating its start gates.",
+            "No domain worker has started."
+          ],
+          [
+            "active",
+            "The workflow owns dispatch and its allowed mutable resources.",
+            "Every guarded action carries the current lease id."
+          ],
+          [
+            "blocked",
+            "The workflow cannot settle or safely continue without recovery or operator action.",
+            "The lease remains owned; another workflow cannot start."
+          ],
+          [
+            "releasing",
+            "Final state and handoff evidence are being committed.",
+            "The next workflow cannot acquire authority until release is durable."
+          ]
+        ],
+        "title": "Dispatch lease status values"
+      },
+      "children": []
+    },
+    "dc-queue-h": {
+      "id": "dc-queue-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Queued Requests"
+        }
+      ],
+      "children": []
+    },
+    "sweep-ea8000bfd78142ea-shape": {
+      "id": "sweep-ea8000bfd78142ea-shape",
+      "type": "state-shape",
+      "props": {
+        "example": "{\n  \"kind\": \"sync\",\n  \"workflow_id\": \"sync-13\",\n  \"reason\": \"Refresh upstream after current claims settle.\",\n  \"requested_at\": \"2026-09-11T18:01:00Z\",\n  \"requested_by\": \"operator\",\n  \"request_command_id\": \"command-sync-13\",\n  \"request_root_span_id\": \"span-22222222-2222-4222-8222-222222222222\",\n  \"request_event_id\": \"event-sync-request-13\"\n}",
+        "fields": [
+          {
+            "name": "kind",
+            "type": "\"run\" | \"pr\" | \"sync\"",
+            "required": true
+          },
+          {
+            "name": "workflow_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "requested_at",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "requested_by",
+            "type": "EventActor",
+            "required": true
+          },
+          {
+            "name": "request_command_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "request_root_span_id",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "request_event_id",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "name": "QueuedDispatchRequest",
+        "source": {
+          "path": "apps/server/src/core/harness-state/types.ts",
+          "symbol": "QueuedDispatchRequest"
+        }
+      },
+      "children": []
+    },
+    "dc-handoff-h": {
+      "id": "dc-handoff-h",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "A Manual Handoff"
+        }
+      ],
+      "children": []
+    },
+    "dc-handoff": {
+      "id": "dc-handoff",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The current owner stops admission, settles work, and records release before an eligible successor can acquire authority. Automatic epoch Sync uses the retained Run lease and does not take this handoff path."
+        }
+      ],
+      "children": []
+    },
+    "b-dispatch-handoff-sequence": {
+      "id": "b-dispatch-handoff-sequence",
+      "type": "sequence",
+      "props": {
+        "src": "./assets/sequences/dispatch-handoff.sequence.json",
+        "title": "Dispatch lease handoff"
+      },
+      "children": []
+    },
+    "dc-background": {
+      "id": "dc-background",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Background-safe evidence ingestion can run outside this lease when it dispatches no workers and mutates no protected checkout. Its own queue claims still prevent duplicate consumption."
+        }
+      ],
+      "children": []
+    },
+    "dc-pause": {
+      "id": "dc-pause",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Pause, Resume, and Recovery",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness-process/30-pause-resume-and-recovery"
+            }
+          }
+        },
+        {
+          "insert": " connects lease settlement to operator intent."
+        }
+      ],
+      "children": []
+    },
+    "b-handoff-lineage": {
+      "id": "b-handoff-lineage",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Handoff Evidence"
+        }
+      ],
+      "children": []
+    },
+    "b-handoff-lineage-text": {
+      "id": "b-handoff-lineage-text",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Release and successor acquisition share an immutable "
+        },
+        {
+          "insert": "handoff_snapshot_id",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "handoff_snapshot_content_hash",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". Join those identities to follow the transfer. The outgoing and successor workflows retain their own correlations and traces; causation connects the accepted release to acquisition. A retry must reuse accepted command identity rather than manufacture another handoff."
+        }
+      ],
+      "children": []
+    },
+    "b-handoff-event-link": {
+      "id": "b-handoff-event-link",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Game Events",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/60-tracing/10-game-events"
+            }
+          }
+        },
+        {
+          "insert": " explains the common envelope and causation."
+        }
+      ],
+      "children": []
+    }
+  }
+}

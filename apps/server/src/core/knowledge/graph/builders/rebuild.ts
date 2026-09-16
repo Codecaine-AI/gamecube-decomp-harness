@@ -34,10 +34,23 @@ export interface RebuildKnowledgeGraphOptions {
   sources?: string[];
   agentStateEnrichmentPath?: string;
   knowledgeCuratorEnrichmentPath?: string;
+  knowledgeRoot?: string;
   reportPath?: string;
+  ghidraIndexesRoot?: string;
+  opseqIndexesRoot?: string;
 }
 
 export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Record<string, unknown> {
+  const previous = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+  if (options.knowledgeRoot) process.env.ORCH_GAME_KNOWLEDGE_ROOT = options.knowledgeRoot;
+  try { return rebuildSelectedKnowledgeGraph(options); }
+  finally {
+    if (previous === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+    else process.env.ORCH_GAME_KNOWLEDGE_ROOT = previous;
+  }
+}
+
+function rebuildSelectedKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Record<string, unknown> {
   const selected = new Set(options.sources && options.sources.length > 0 ? options.sources : defaultGraphSources());
   const store = openKnowledgeGraph(options.dbPath);
   const indexedSources: string[] = [];
@@ -52,7 +65,7 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
     for (const tool of readToolRegistry()) upsertToolDescriptor(store, tool);
 
     if (selected.has("code_graph")) {
-      insertGraphRecords(store, buildCodeGraphRecords(options.repoRoot));
+      insertGraphRecords(store, buildCodeGraphRecords(options.repoRoot, { reportPath: options.reportPath }));
       indexedSources.push("code_graph");
     }
     if (selected.has("past_prs")) {
@@ -99,7 +112,7 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       }
     }
     if (selected.has("opseq_similarity")) {
-      const records = buildOpseqSimilarityGraphRecords(options.repoRoot);
+      const records = buildOpseqSimilarityGraphRecords(options.repoRoot, { reportPath: options.reportPath, indexesRoot: options.opseqIndexesRoot });
       if (records) {
         insertGraphRecords(store, records);
         indexedSources.push("opseq_similarity");
@@ -117,7 +130,7 @@ export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Re
       }
     }
     if (selected.has("ghidra_xrefs")) {
-      const records = buildGhidraXrefGraphRecords(options.repoRoot);
+      const records = buildGhidraXrefGraphRecords(options.repoRoot, { reportPath: options.reportPath, indexesRoot: options.ghidraIndexesRoot });
       if (records) {
         insertGraphRecords(store, records);
         indexedSources.push("ghidra_xrefs");

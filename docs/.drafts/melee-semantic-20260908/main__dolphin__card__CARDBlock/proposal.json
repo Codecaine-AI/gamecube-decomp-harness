@@ -1,0 +1,67 @@
+{
+  "tu": "main/dolphin/card/CARDBlock",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBlock.c#L129-L153",
+            "why": "Validation occurs within the mutating loop; the updater call follows the loop without an empty-chain guard."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing guards and completion behavior while documenting useful empty-chain and partial-mutation exceptions.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBlock:__CARDFreeBlock"
+        },
+        "type": "state_behavior",
+        "value": "Asserts a valid channel and returns CARD_RESULT_NOCARD for a detached card. Traverses until 0xFFFF, validating each block before reading its next link, clearing its entry and incrementing fat[3]. An invalid block returns CARD_RESULT_BROKEN without rolling back entries or free-count increments already changed. An initial 0xFFFF skips traversal but still starts FAT persistence. Successful traversal returns the immediate result of __CARDUpdateFatBlock."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBlock.c#L155-L168",
+            "why": "Preparation and callback assignment precede a direct erase-start return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBlock.c#L14-L78",
+            "why": "Defines currentFat re-fetch, write initiation, success-only rotation and guarded terminal cleanup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the unqualified statement that failures complete immediately and preserves the distinct asynchronous lifetime and ownership branches.",
+        "subject": {
+          "target_stable_key": "main/dolphin/card/CARDBlock:__CARDUpdateFatBlock"
+        },
+        "type": "state_behavior",
+        "value": "After asserting the channel, increments fat[2], recomputes checksums, stores the cache range and saves eraseCallback before returning __CARDEraseSector's immediate result. There is no local cleanup or rollback on an initial erase-start failure. If erase completion is delivered successfully, EraseCallback re-fetches currentFat and starts its write. Negative erase completion or immediate write-start failure takes terminal cleanup; WriteCallback handles write completion, switching and synchronizing the alternate RAM FAT only for a nonnegative result. Terminal callback paths release the control block only when apiCallback is absent and clear a non-null eraseCallback before invoking it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/card/CARDBlock.c#L14-L168",
+            "why": "Shows all mutation orderings, direct error returns and callback success/error paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes the unit summary accurately distinguish RAM mutation, persistence initiation and asynchronous completion instead of implying transactional error recovery.",
+        "subject": {
+          "entity_locator": "extern/dolphin/src/dolphin/card/CARDBlock.c"
+        },
+        "type": "state_behavior",
+        "value": "Allocation and freeing reject detached cards, but corruption detection is interleaved with RAM mutation and does not roll back earlier changes. Allocation reserves the free count before scanning; freeing validates and clears one link at a time. Persistence updates integrity metadata and saves a callback before returning the immediate erase-start result, without local cleanup on that initial failure. Callback-delivered erase errors, immediate write-start errors and write completions use guarded control-block release and clear-before-call completion. Only a nonnegative write completion switches currentFat to the alternate 0x2000-byte RAM image and synchronizes it; negative completion does not reverse prior mutations."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

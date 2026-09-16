@@ -1,0 +1,43 @@
+{
+  "tu": "main/melee/it/kinds/itgamewatchturtle",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itgamewatchturtle:itGamewatchturtle_UnkMotion1_Anim"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves the supplied Turtle Item_GObj and reads Item.owner. If the owner is NULL, returns true without invoking either fighter helper. Otherwise passes the owner to ftGw_AttackAirN_ItemCheckTurtleRemove. A false result returns false without cleanup; a true result conditionally forwards the still-present owner to ftGw_AttackAirN_ItemTurtleSetFlag and returns true. That cleanup exits hitlag for tracked aerial articles and clears the fighter's Turtle reference, death2_cb and take_dmg_cb. The generic item animation dispatcher consumes the callback's true result as a request for common item destruction.",
+        "rationale": "Corrects the existing data-flow explanation's otherwise-false wording by explicitly preserving the ownerless true branch and separating owner bookkeeping from destruction by the callback consumer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchturtle.c#L88-L102",
+            "why": "Shows ownerless completion, predicate forwarding, conditional notification and both return values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L157-L165",
+            "why": "Shows hitlag exit before clearing Turtle tracking and damage/death callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L282-L295",
+            "why": "Shows that cleanup's hitlag-exit helper handles all tracked aerial articles."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/item.c#L1280-L1290",
+            "why": "Shows true animation-callback results entering common destruction."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

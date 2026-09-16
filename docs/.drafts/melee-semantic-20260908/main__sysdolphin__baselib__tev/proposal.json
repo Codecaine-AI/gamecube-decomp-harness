@@ -1,0 +1,180 @@
+{
+  "tu": "main/sysdolphin/baselib/tev",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:HSD_SetupTevStageAll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Each descriptor's stage flows through HSD_TevStage2Num into a running maximum, while the complete descriptor is passed to HSD_SetupTevStage. After traversal, the maximum is stored in current_tev and forwarded to GXSetNumTevStages, followed by a reset to zero if the call returns. NULL input forwards zero, which violates GXSetNumTevStages' nonzero-count assertion; it does not validly configure a zero-stage pipeline.",
+        "rationale": "Preserves the supported descriptor and count flows while correcting the empty-list hardware interpretation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L246-L261",
+            "why": "Maximum reduction, forwarding and reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTev.c#L409-L417",
+            "why": "GX rejects zero and encodes count minus one."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:HSD_StateSetNumTevStages"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally calls GXSetNumTevStages with current_tev converted to the callee's u8 parameter, then clears current_tev if the call returns. GX asserts that the converted count is nonzero and at most sixteen before encoding count minus one. An empty accumulator therefore is not a valid zero-stage commit. Normal render-mode finalization adds a pass-through stage when the accumulator is empty before calling this routine.",
+        "rationale": "Distinguishes an unconditional wrapper call from guaranteed successful hardware configuration and preserves the downstream exceptional branch.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L209-L213",
+            "why": "Call followed by reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXTev.c#L409-L417",
+            "why": "Narrow parameter and count validation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/state.c#L244-L266",
+            "why": "Fallback stage before final commit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:HSD_StateSetNumTexGens"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Commits the pending GX texture-coordinate-generator requirement for rendering. A pending count of zero selects zero generators, but a textureless TEV descriptor does not itself establish that count. HSD_ShadowStartRender calls this routine without locally registering texgens or explicitly clearing their accumulator; its committed count depends on the preceding texgen accumulation/reset lifetime.",
+        "rationale": "Corrects the unsupported inference that the shadow caller necessarily commits zero solely because its TEV stage uses null texture inputs.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L180-L197",
+            "why": "Independent texgen accumulator and TEV-only initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/shadow.c#L197-L230",
+            "why": "Textureless descriptor and commit sequence without local texgen reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/extern/dolphin/src/dolphin/gx/GXAttr.c#L566-L572",
+            "why": "GX consumes the forwarded generator count."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:HSD_StateSetNumTexGens"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally forwards num_tex_gens to GXSetNumTexGens and then resets it to zero if the call returns. Registrations between resets retain the maximum required count; _HSD_StateInvalidateTexCoordGen also clears the accumulator without a GX call. Setup entry alone does not guarantee a fresh interval: HSD_StateInitTev only clears current_tev, and HSD_TObjSetup(NULL) returns without clearing num_tex_gens.",
+        "rationale": "Preserves commit/reset behavior while making the cross-file accumulator lifetime explicit instead of assuming each render setup resets it.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L180-L197",
+            "why": "Maximum update, commit/reset and separate TEV initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L544-L547",
+            "why": "Explicit software invalidation reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tobj.c#L1148-L1157",
+            "why": "NULL setup does not clear pending requirements."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:_HSD_StateInvalidateColorChannel"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supports cache coherency for GX fixed-function lighting/color-channel setup by restoring HSD's channel-control comparison template, marking both ambient and material color groups invalid, and setting the channel-count comparison value to -1. It issues no GX commands itself. Subsequent color writes remain subject to source/enable gates, and lighting-control writes remain subject to comparisons with the restored template.",
+        "rationale": "Replaces an overly broad forced-resubmission claim with the actual software invalidation mechanism and its gates.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L514-L529",
+            "why": "Template, flags and count sentinel."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L74-L162",
+            "why": "Gated colors, compared controls and count handoff."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:_HSD_StateInvalidateColorChannel"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Resets HSD's software GX color-channel cache for subsequent setup: copies invalid_prev_ch into prev_ch, marks both ambient and material color groups invalid, and sets prev_num_chans to -1. This prepares later applicable color updates and channel-count calls without directly changing GX state; it does not independently force every possible lighting-control request to be reissued.",
+        "rationale": "Avoids treating the numeric control template as universal impossible values while retaining the intended cache-reset purpose.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L514-L529",
+            "why": "Exact cache reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L131-L162",
+            "why": "Control comparison and count guard remain operative."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/tev:_HSD_StateInvalidateColorChannel"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally copies the four-entry invalid_prev_ch template over prev_ch, writes one to both entries of prev_amb_invalid and prev_mat_invalid, and writes -1 to prev_num_chans, without a GX call. Applicable register-sourced color setup clears an invalid flag and forces a combined-channel color write. Controls are still compared against the restored numeric template. HSD_StateSetNumChans never writes back its requested count, so subsequent setup does not restore prev_num_chans from -1 to a valid submitted count.",
+        "rationale": "Corrects both universal-invalid-control and complete-cache-repopulation assumptions while preserving exact numeric transitions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L514-L529",
+            "why": "Unconditional reset values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/tev.c#L87-L162",
+            "why": "Flag consumption, control comparison and absent count writeback."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

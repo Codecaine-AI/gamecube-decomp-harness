@@ -1,0 +1,114 @@
+{
+  "tu": "main/melee/ft/kinds/ftLink/ftlinkspeciallw",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspeciallw:ftLk_SpecialAirLw_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Extracts Fighter* fp from gobj and calls ft_80081D0C with gobj alone. On true, passes gobj, fp, ftLk_MS_SpecialLw and coll_mf to ftCommon_AirToGroundStateChange, then assigns spawnBomb to accessory4_cb. The inline calls ftCommon_8007D7FC(fp) and forwards cur_anim_frame, speed 1 and blend 0 to Fighter_ChangeMotionState.",
+        "rationale": "Corrects the baseline predicate argument error and records independently verified current-frame flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspeciallw.c#L131-L138",
+            "why": "Exact predicate, transition arguments and callback write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L81-L89",
+            "why": "Conversion and current-frame forwarding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspeciallw:ftLk_SpecialLw_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally delegates to ft_80084F3C with no local motion-state transition. That helper starts with ground_friction, multiplies it by friction_when_above_walk_speed only when ABS(gr_vel) > walk_max_vel, then applies ground friction and ground movement. Equality does not scale friction. Source does not establish that the multiplier exceeds one or that every possible attribute value produces deceleration.",
+        "rationale": "Replaces unsupported stronger-friction wording with the strict comparison and data-dependent scaling.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspeciallw.c#L104-L107",
+            "why": "Unconditional local delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Strict overspeed test, attribute multiplier and movement operations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftLink/ftlinkspeciallw:spawnBomb"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Consumes throw_flags_b0 through ftCheckThrowB0 before attempting creation. Resolves FtPart_LThumbNb and calls lb_8000B1CC(joint,NULL,&pos); forwards gobj, &pos, fp->ft_data->x8->x10, da->x48 and facing_dir to it_8029DD58. Despite the local Fighter_Part declaration, the constructor consumes da->x48 as SpawnItem.kind, copies the supplied vector into prev_pos and obtains pos separately. Stores the result, including NULL, in item_gobj; calls ftParts_80074A4C(gobj,2,1) after either constructor outcome; invokes ftpickupitem_80094818(gobj,1) only for non-NULL. No local held-slot recheck, automatic failed-attempt retry or callback self-unregistration is present.",
+        "rationale": "Records canonical event consumption, constructor argument roles, copied stack-vector lifetime and allocation-failure boundary without exact-position inference.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspeciallw.c#L63-L84",
+            "why": "Complete callback and conditional pickup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L245-L253",
+            "why": "Throw bit is cleared on successful test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itlinkbomb.c#L194-L221",
+            "why": "Constructor kind and distinct prev_pos/pos handling."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftLink/ftlinkspeciallw.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Entry has three cases: empty item_gobj permits ground/air pull initialization; a held item with unsigned kind offset 0 or 1 from It_Kind_Link_Bomb invokes ftCo_800957F4 with literal motion ID 108 or 112 and suppresses pull initialization; every other held item also suppresses pull initialization without that call. A consumed throw-bit event later attempts creation, with pickup only for non-NULL. Collision transitions select the paired pull state at cur_anim_frame and reinstall spawnBomb. Animation completion invokes the common grounded neutral path or Fall. Link and CLink motion tables share these action callbacks.",
+        "rationale": "Repairs the omitted non-bomb held-item case and records verified callback sharing and transition boundaries.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlinkspeciallw.c#L29-L138",
+            "why": "All local entry, creation, animation and collision branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/inlines.h#L71-L89",
+            "why": "Current-frame paired-state transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftLink/ftlink.c#L214-L235",
+            "why": "Link active consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCLink/ftclink.c#L222-L243",
+            "why": "CLink active consumers."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

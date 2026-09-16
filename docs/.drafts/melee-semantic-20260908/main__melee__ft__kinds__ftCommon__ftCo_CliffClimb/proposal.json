@@ -1,0 +1,168 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CliffClimb",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffClimb:ftCo_8009AA0C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Qualifies left-stick input when either absolute axis is >= common x494 and immediately returns ftCo_8009AAFC's result with arg1=true. A false result does not permit C-stick fallback. Only unqualified left input permits the identical inclusive C-stick test and helper dispatch with arg1=false. Neither qualifying writes cliff.x8=true and returns false. True denotes a dispatched climb or Fall transition; false does not prevent subsequent CliffWait timeout handling.",
+        "rationale": "Corrects whole-dispatcher state persistence and records inclusive source priority.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L26-L70",
+            "why": "Complete selection and dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0DF1.c#L152-L160",
+            "why": "C-stick threshold."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L43-L71",
+            "why": "Later timeout check."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffClimb:ftCo_8009AAFC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "With T=x20_radians and P=stick_x*facing_dir, the sector is angle>T || (angle>-T && P>=0). Inside it, arg1 && cliff.x8 dispatches ftCo_8009AB9C and true; otherwise false without release fallback. Outside it, x8 permits a common ledge-cooldown write followed by Fall and true; otherwise false. No local clear of x8 occurs. For positive finite T, -T is outside and +T requires P>=0. Signed zero P passes; unordered angle/T comparisons fail both sector arms under ordinary floating semantics. No finite-value checks exist.",
+        "rationale": "Replaces approximate angular prose with exact guards and boundary behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L51-L70",
+            "why": "Exact predicate and all return paths."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffClimb:ftCo_8009AB9C"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Selects CliffClimbQuick for damage<x488 and Slow otherwise, including equality. Calls Fighter_ChangeMotionState(gobj,msid,Ft_MF_None,0,1,0,NULL), ftAnim_8006EBA4, ftCommon_8007E2F4(fp,32), sets x221D_b7 and x221D_b5 true, then calls ftCo_CliffCatch_Phys. Both active climb table entries bind the four owned callbacks. Anim completion calls ftCommon_8007D92C, choosing Fall for GA_Air and ft_8008A2BC otherwise; physics or collision can cause earlier exits.",
+        "rationale": "Repairs unconditional grounded completion without assigning unsupported meanings to bits or arguments.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L73-L137",
+            "why": "Entry and alternate paths."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2928-L2949",
+            "why": "Active bindings."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L596-L604",
+            "why": "Completion destinations."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffClimb:ftCo_CliffClimb_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads ground_or_air through gobj->user_data. For GA_Air, ft_800821DC(gobj) true invokes ftCo_8009AE14(gobj), which forwards user_data to ftCommon_8007D7FC. Only a false primary result permits ftCo_8009EF68(gobj), which tests Collide_CeilingHug and can enter StopCeil. The false boolean is not forwarded as an argument. Initial non-air states call ft_80084104(gobj). Returns void and performs no direct Fighter field writes.",
+        "rationale": "Repairs literal boolean-forwarding ambiguity while keeping unverified query side effects separate.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L124-L137",
+            "why": "Exact dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffAttack.c#L16-L19",
+            "why": "Grounding wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L16-L44",
+            "why": "Ceiling guard and transition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffClimb:ftCo_CliffClimb_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Initial non-air states call ft_80084FA8. GA_Air uses mpLib_80054ED8: -1 or disabled/hidden lines return false and cause Fall without a local cooldown write; other out-of-range IDs report and loop. On true, facing>0 selects the previous-floor-chain v0 endpoint helper, otherwise the next-floor-chain v1 helper. Writes x=transNPos.z*facing+endpoint.x and y=endpoint.y+transNPos.y, not z. If still airborne and translation z and y are both >=0, copies the original ledge ID to floor.index and calls grounding, which can assert on failed floor validation. Zero offsets qualify; NaNs fail guards after arithmetic. Translation provenance and chain well-formedness remain external.",
+        "rationale": "Corrects validation, facing, and airborne-duration overclaims.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L96-L122",
+            "why": "Complete body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L4091-L4137",
+            "why": "Endpoint traversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L4522-L4538",
+            "why": "Validation exceptions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L546-L594",
+            "why": "Grounding and assertion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Neither stick qualifying arms cliff.x8. Qualified left input has priority and can select climb or cooldown-bearing release; qualified C-stick input can select release but not climb. Climb selects Quick for damage<x488 and Slow otherwise. Anim completion chooses Fall for GA_Air and ft_8008A2BC otherwise; IASA is empty. Physics positions relative to a facing-selected floor-chain endpoint and requests grounding when both translation offsets are nonnegative. False line validation enters Fall, but malformed IDs other than -1 can loop. Collision gives its primary-query success wrapper priority over ceiling-hug handling.",
+        "rationale": "Repairs TU-wide unconditional grounded completion and blanket geometry fallback.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L26-L137",
+            "why": "Complete owned behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L596-L604",
+            "why": "Completion destination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L4522-L4538",
+            "why": "Malformed-ID exception."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

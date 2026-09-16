@@ -1,0 +1,1314 @@
+[
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:.sdata2",
+    "facts": [
+      {
+        "id": "fact:903713b4-dbfd-413b-8e5e-663397cd1ff4",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Run:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The 0.0F literal flows into default Run entry parameters and Fighter_ChangeMotionState, supplies the non-forward animation-rate value, and serves as the boundary for Run velocity and countdown tests. The 1.0F literal supplies the default animation-speed multiplier, the ground-friction comparison threshold, the amount subtracted from the Run countdown each animation update, and the upper bound and complement term used when tapering acceleration as ground velocity approaches target velocity.",
+        "rationale": "The current source preserves all previously identified consumption sites for the two literals. These head-revision spans replace the unresolvable pre-relocation evidence.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows zero and one flowing into default Run entry and motion-state setup."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows one as the friction threshold and countdown decrement and zero as an animation-rate and interrupt boundary."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L141",
+            "why": "Shows zero and one used as ratio bounds and one in the remaining-distance acceleration term."
+          }
+        ]
+      },
+      {
+        "id": "fact:d1c93f88-a8f9-4707-b518-364dc010556e",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Run:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An eight-byte read-only constant pool containing two single-precision IEEE-754 values: 0.0F and 1.0F. These are compiler-pooled literals rather than a gameplay structure or indexed table.",
+        "rationale": "Across the relocated unit, the two values are consumed independently as scalar float arguments, comparisons, assignments, and arithmetic operands, with no indexed or aggregate access. This supports retaining the two-float literal-pool interpretation while replacing the removed-path evidence.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows explicit single-precision 0.0F and 1.0F literals used as scalar function arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows the same literals consumed individually in float comparisons, assignment, and subtraction rather than through a table."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L141",
+            "why": "Shows scalar zero and one operands in the Run physics ratio calculation."
+          }
+        ]
+      },
+      {
+        "id": "fact:2206d454-09df-42a8-8180-e65f8e81dffd",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_Run:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the unit-local floating-point zero and one constants used throughout the common Run action-state implementation for default state-entry arguments, animation-rate guards, countdown updates, interrupt gating, and acceleration tapering.",
+        "rationale": "The relocated source at head still uses 0.0F and 1.0F throughout Run entry, animation, interrupt, and physics processing. The current-path spans replace the removed chara-path citation without changing the claim.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows 0.0F and 1.0F supplying Run-entry defaults and motion-state parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows the literals used for animation-rate guards, the Run countdown update, and interrupt gating."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L141",
+            "why": "Shows zero and one bounding the velocity ratio and one forming the acceleration-taper complement."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+    "facts": [
+      {
+        "id": "fact:b3453f78-d054-4629-9c4f-79387cfa1510",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj, resolves its Fighter, and reads input.lstick.x, facing_dir, and p_ftCommonData->x58_someLStickXThreshold. It multiplies horizontal stick input by facing direction to obtain forward-relative input. When that value reaches the threshold, it forwards the unchanged game object and 0.0F to ftCo_Run_Enter and returns true; otherwise it makes no entry call and returns false. Dash IASA consumes the boolean through short-circuit control flow.",
+        "rationale": "The target body exposes every input read, the facing-relative calculation, both arguments passed to the Run entry routine, and the resulting boolean. The caller uses RETURN_IF around the result, proving that success terminates the remaining Dash interrupt processing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:10:03.636Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L33",
+            "why": "Shows all controller and fighter inputs, the shared threshold, forwarded Run-entry arguments, and boolean output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Shows Dash IASA consuming the helper's result with RETURN_IF, so a successful Run transition short-circuits the callback."
+          }
+        ]
+      },
+      {
+        "id": "fact:c732104e-a56d-4968-9e15-728125acc314",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the ordinary transition from the initial Dash action into its later Run phase when the player continues holding the control stick strongly forward relative to the fighter's facing direction.",
+        "rationale": "The code places the helper in Dash IASA and maps sufficiently strong facing-relative forward input to Run entry. SmashWiki independently identifies Run as the later part of a dash, grounding the state transition in the player-visible running mechanic.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T06:10:03.636Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L33",
+            "why": "Shows sufficiently strong forward-relative stick input initiating the Run state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Places this Run-entry predicate in the initial Dash state's interrupt processing."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Identifies Run as the later portion of a dash and describes the player-visible action options available during it."
+          }
+        ]
+      },
+      {
+        "id": "fact:83ba08fd-b079-4fce-be21-0b82582a5bea",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_Run_CheckInput",
+        "rationale": "The function has the common ftCo action CheckInput form: it tests an action-specific controller condition, calls that action's entry routine on acceptance, and returns whether the transition occurred. It is the Run unit's frame-zero transition predicate used by Dash IASA; the generic name is plausible, although adjacent Run predicates with different initialization behavior make the original suffix uncertain.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely ftCo_Run_CheckInput.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L33",
+            "why": "Shows a boolean Run input predicate that dispatches ftCo_Run_Enter on success."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Identifies Dash IASA as the caller and confirms that the function is consumed as a short-circuiting action-transition check."
+          }
+        ]
+      },
+      {
+        "id": "fact:ebaad249-278f-4d85-bec1-c80754c0263f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A common-fighter input-transition predicate/dispatcher with exact signature bool (Fighter_GObj* gobj). It returns true only after initiating Run and false when the forward-stick threshold is not met.",
+        "rationale": "The matched definition establishes the parameter and return types. Its accepted branch invokes ftCo_Run_Enter before returning true, while its rejected branch performs no state-entry call and returns false.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:10:03.636Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L33",
+            "why": "Provides the exact signature and directly establishes the transition-result meaning of both return values."
+          }
+        ]
+      },
+      {
+        "id": "fact:97c75c65-a184-48de-8134-b6fe2d229fd1",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Checks whether a fighter in Dash is holding the horizontal control stick far enough in their facing direction to enter the common Run state. On acceptance it starts Run with a zero initial Run delay value and reports that the transition succeeded.",
+        "rationale": "The function projects left-stick X onto facing direction, compares it with the shared Run threshold, and calls ftCo_Run_Enter with 0.0F only on success. Its resolved caller places this predicate in Dash IASA after the command-variable gate, establishing that it is the Dash-to-Run transition check.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:10:03.636Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L33",
+            "why": "Shows the complete facing-relative forward-stick check, conditional Run entry with 0.0F, and boolean transition result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Shows ftCo_Dash_IASA invoking this helper as its command-variable-gated transition into Run."
+          }
+        ]
+      },
+      {
+        "id": "fact:7a55c289-a664-4d5c-b0ce-aaae70e09d64",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Within Dash IASA, this transition is reached only after higher-priority fallback checks and only while cmd_vars[0] is nonzero. If facing-relative horizontal stick input is below the shared threshold, the Dash state is left unchanged and the helper returns false. If the threshold is met or exceeded, ftCo_Run_Enter immediately begins Run with an initial delay value of 0.0F, and true causes Dash IASA to return without further processing.",
+        "rationale": "The caller establishes the command-variable guard, ordering, and short-circuit behavior. The target establishes the threshold's accepted and rejected branches and the zero-valued Run-entry argument.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T06:10:03.636Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Dash.c#L81-L143",
+            "why": "Places the transition after the Dash fallback checks, gates it behind nonzero cmd_vars[0], and returns from Dash IASA when it succeeds."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L33",
+            "why": "Shows the exact threshold guard, unchanged rejection path, and accepted Run-entry path."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+    "facts": [
+      {
+        "id": "fact:b0940768-ff26-479d-be39-2ca8d57741c4",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj, resolves its Fighter, multiplies left-stick X by facing_dir to obtain facing-relative horizontal input, and compares the result with p_ftCommonData->x58_someLStickXThreshold. On acceptance it forwards the unchanged game object and p_ftCommonData->x430 to ftCo_Run_Enter and returns true. Run entry stores x430 in mv.co.run.x0 and snapshots current ground velocity in mv.co.run.x4; subsequent Run processing decrements positive x0 and uses it to gate late turnaround and RunBrake checks.",
+        "rationale": "The relocated definition still establishes the input, threshold, forwarded x430 value, and boolean result. The current entry and callback spans establish the resulting x0 and x4 writes and x0's later consumers, replacing the removed-path evidence.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the target's input reads, threshold comparison, x430 forwarding, boolean result, and the downstream Run initialization of x0 and x4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows positive x0 being decremented and gating the late turnaround and RunBrake checks."
+          }
+        ]
+      },
+      {
+        "id": "fact:243fddee-93bc-49f1-bc98-21c2b18ac87d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements continuation from a completed running turnaround back into ordinary running when the player keeps the control stick strongly forward relative to the fighter's newly reversed facing direction.",
+        "rationale": "TurnRun reverses the fighter's facing direction before its animation finishes, and this helper then converts sufficiently strong input along that new facing direction into Run entry. SmashWiki independently identifies the turnaround animation as the result of reversing the stick during a run and Run as the later sustained-running phase.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T06:09:17.464Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L57-L77",
+            "why": "Shows the facing reversal during TurnRun and the target's placement at TurnRun animation completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L35-L46",
+            "why": "Shows strong forward-facing stick input dispatching the ordinary Run entry routine."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Documents Run as the later part of a dash and describes opposite-direction stick input as initiating the running turnaround animation."
+          }
+        ]
+      },
+      {
+        "id": "fact:f4188b04-2547-4fdb-a5dd-042d9a3f0bdc",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_Run_CheckInputFromTurnRun",
+        "rationale": "The function remains an address-style symbol. Its resolved caller is the TurnRun animation-completion path, and its definition is a boolean Run-entry input predicate using the x430 entry configuration, so the existing contextual name remains plausible after relocation.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely ftCo_Run_CheckInputFromTurnRun.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L57-L77",
+            "why": "Shows TurnRun invoking the target at animation completion and using its boolean result to suppress fallback completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the adjacent Run-entry predicates and distinguishes this variant through its x430 argument."
+          }
+        ]
+      },
+      {
+        "id": "fact:4dcbb973-ff9b-4ffc-9ca4-9ea062e91877",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A common-fighter input-transition predicate/dispatcher with exact signature bool (Fighter_GObj* gobj). It returns true only after initiating Run and false when the forward-stick threshold is not met.",
+        "rationale": "The matched definition supplies the exact parameter and return types. Its accepted branch invokes ftCo_Run_Enter before returning true, whereas its rejected branch performs no state-entry call and returns false.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:09:17.464Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L35-L46",
+            "why": "Provides the exact signature and directly establishes the state-transition meaning of both boolean results."
+          }
+        ]
+      },
+      {
+        "id": "fact:5e32cadb-dab5-4195-9960-ac19f2e53fca",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Checks whether a fighter finishing TurnRun is holding the horizontal stick far enough in their new facing direction to resume ordinary Run. On acceptance it enters Run with the common x430 countdown value and reports that the completion transition was handled.",
+        "rationale": "TurnRun's animation callback invokes the target only after its animation has ended, following the phase that reverses facing direction. The target then tests facing-relative stick input, calls the standard Run entry routine with p_ftCommonData->x430, and returns true exactly when it performs that transition.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:09:17.464Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L35-L46",
+            "why": "Shows the facing-relative forward-stick guard, Run entry with x430, and boolean success or failure result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L57-L77",
+            "why": "Shows TurnRun reversing facing direction and invoking this helper when its animation has no frames remaining, before using the fallback completion routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:90f3872a-6979-4482-a7bb-c151cf208bbc",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "At TurnRun animation completion, the helper accepts when left-stick X projected onto the fighter's current facing direction is at least the shared x58 threshold. Acceptance immediately enters ftCo_MS_Run from frame 0 at normal animation speed, initializes mv.co.run.x0 to x430 and mv.co.run.x4 to current ground velocity, and returns true so TurnRun skips its fallback completion routine. Rejection leaves the state unchanged, returns false, and allows that fallback. After acceptance, x0 counts down once per Run animation update and temporarily prevents another running turnaround or RunBrake transition.",
+        "rationale": "The current TurnRun caller establishes the completion and fallback behavior. The relocated Run source establishes both threshold outcomes, the delegated initialization, and the subsequent x0 countdown and guards, fully replacing the removed-path evidence.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_TurnRun.c#L57-L77",
+            "why": "Shows the facing reversal and target invocation after TurnRun animation exhaustion, with fallback only after a false result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the accepted and rejected threshold paths and the resulting Run entry at frame zero and normal speed with x0 and x4 initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows x0 counting down and temporarily preventing the late turnaround and RunBrake checks."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+    "facts": [
+      {
+        "id": "fact:360dc350-53f5-435f-a525-c648c05d0231",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj, resolves its Fighter, multiplies left-stick X by facing_dir to obtain facing-relative horizontal input, and compares the result with p_ftCommonData->x58_someLStickXThreshold. On acceptance it forwards the unchanged game object, a zero Run lockout, fp->cur_anim_frame, and fp->frame_speed_mul to ftCo_Run_Enter_Full. That entry routine changes the motion state to Run, stores zero in mv.co.run.x0, and snapshots current ground velocity in mv.co.run.x4. RunDirect_IASA consumes the boolean result through short-circuit control flow.",
+        "rationale": "The target exposes all controller and fighter-state reads and every argument forwarded to Run entry. The resolved entry routine shows where those values go, while the caller proves that a true result terminates further RunDirect interrupt processing.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:10:38.547Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L46-L74",
+            "why": "Shows the target's input reads and forwarded arguments together with the resulting Run motion-state change and move-variable initialization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Shows RunDirect_IASA consuming the target's boolean through RETURN_IF and therefore skipping its final lower-priority check after success."
+          }
+        ]
+      },
+      {
+        "id": "fact:a0055500-00c3-4226-a4c8-5e67c24df02b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements continuation from the RunDirect phase into ordinary running when the player maintains sufficiently strong forward control-stick input, preserving the current run animation frame and speed across the state change.",
+        "rationale": "The code maps forward-facing stick input above the common threshold to entry into ftCo_MS_Run and preserves current animation timing. SmashWiki identifies Run as the later sustained-running portion of dash, grounding this internal transition in the player-visible running mechanic.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T06:10:38.547Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L46-L74",
+            "why": "Shows sufficiently strong forward-facing stick input causing entry into the ordinary Run motion state with the current animation frame and rate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Places the transition in the RunDirect action's input-processing callback."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Identifies Run as the later portion of dash and documents the actions available during sustained running."
+          }
+        ]
+      },
+      {
+        "id": "fact:43e33dd7-be40-458c-bc8d-fc992da34c77",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_Run_CheckInputFromRunDirect",
+        "rationale": "The function remains placeholder-named. Its current definition is the animation-preserving Run-entry predicate, and RunDirect_IASA is its demonstrated calling context, so the existing qualified name remains supported after relocation.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely ftCo_Run_CheckInputFromRunDirect.",
+        "confidence": 0.78,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the adjacent boolean Run-entry predicates and this variant's use of the current animation frame and playback rate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Shows RunDirect_IASA consuming the target as a short-circuiting input-transition predicate."
+          }
+        ]
+      },
+      {
+        "id": "fact:6ad069d0-8153-4ae0-b9eb-ceb3ddd2e6e6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A common-fighter input-transition predicate/dispatcher with exact signature bool (Fighter_GObj* gobj). It returns true only after initiating Run and false when the forward-stick threshold is not met.",
+        "rationale": "The matched definition supplies the exact parameter and return types. Its accepted branch invokes ftCo_Run_Enter_Full before returning true, whereas rejection performs no state-entry call and returns false.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:10:38.547Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L48-L59",
+            "why": "Provides the exact signature and directly establishes the state-transition meaning of both boolean results."
+          }
+        ]
+      },
+      {
+        "id": "fact:0090c4b2-48c0-4e74-9344-c91d0a433bce",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Checks whether a fighter in RunDirect is holding the horizontal stick far enough along their facing direction to transition into ordinary Run. On acceptance it enters Run without restarting the current animation timing and reports that the transition succeeded.",
+        "rationale": "The target compares facing-relative horizontal stick input with the shared Run threshold, then calls the fully parameterized Run entry routine using the fighter's current animation frame and playback multiplier before returning true. Its sole resolved caller places this predicate late in RunDirect's IASA transition chain.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T06:10:38.547Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L48-L59",
+            "why": "Shows the forward-facing stick guard, animation-preserving Run entry call, and success or failure result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Shows RunDirect_IASA invoking the target as a short-circuiting transition after its earlier action checks."
+          }
+        ]
+      },
+      {
+        "id": "fact:4ca500bd-0c3b-4d92-a8b2-7e35cb4d9b0e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "In RunDirect_IASA, this transition is considered only after the preceding special, attack, guard, appeal, and jump-related checks fail, and only while the caller's fp->mv.ca.specials.grav field is nonpositive. If facing-relative horizontal stick input is below the shared x58 threshold, the helper leaves the current state unchanged and returns false. Otherwise it immediately enters ftCo_MS_Run using the current animation frame and playback rate, initializes the Run lockout to zero and its velocity snapshot to current ground velocity, and returns true so the caller skips its final transition check.",
+        "rationale": "The caller establishes the external field guard, fixed priority, and short-circuit behavior. The target establishes the threshold outcomes, and the resolved Run initializer establishes the accepted path's motion-state and move-variable effects.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T06:10:38.547Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L22-L47",
+            "why": "Shows the target's position after earlier RunDirect transitions, its nonpositive-field guard, and the lower-priority check suppressed by success."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L46-L74",
+            "why": "Shows the accepted and rejected threshold paths and the resulting Run entry with current animation timing, zero x0, and a ground-velocity snapshot."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+    "facts": [
+      {
+        "id": "fact:67fab006-7311-4ff2-a237-ba152b1bf003",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the Fighter from the supplied Fighter_GObj and queries its ground-friction multiplier. When that multiplier is below 1.0, it uses mv.co.run.x4 as the velocity basis; otherwise it uses current ground velocity gr_vel. It tests that velocity against facing_dir, producing an animation rate of zero for non-forward movement or ABS(velocity) divided by co_attrs.run_animation_scaling for forward movement, then passes the result to ftAnim_SetAnimRate. Finally, it reads mv.co.run.x0 and subtracts 1.0 when the value is positive.",
+        "rationale": "Every input selection, arithmetic transformation, consumer, and move-variable write appears directly in the matched body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T03:28:37.306Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L99",
+            "why": "Directly traces the friction query, velocity and fighter-attribute reads, animation-rate calculation, call to ftAnim_SetAnimRate, and x0 countdown write."
+          }
+        ]
+      },
+      {
+        "id": "fact:88652c49-168c-4651-b9a8-02a39e32334f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the animation-timing portion of ordinary fighter running by making the running animation track forward movement speed and by advancing a Run-state countdown used elsewhere to delay later running options.",
+        "rationale": "The Run-named callback scales animation playback from facing-relative ground movement and decrements the Run move-variable countdown. SmashWiki independently identifies Run as the later portion of a dash with its own turnaround and RunBrake-related options, grounding this callback in the player-visible running mechanic.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T03:28:37.306Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L99",
+            "why": "Shows the Run callback coupling animation playback to forward velocity and ticking the Run-specific x0 value."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Describes Run as the later portion of a dash and documents its distinct turnaround and RunBrake-related player options."
+          }
+        ]
+      },
+      {
+        "id": "fact:255fb80f-0d4a-4d71-8c17-c288099f439e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state animation callback with signature void ftCo_Run_Anim(Fighter_GObj* gobj); it mutates the fighter's animation rate and Run move variables in place and returns no value.",
+        "rationale": "The matched definition explicitly has a void return type and one Fighter_GObj pointer parameter. Its externally visible effects are the ftAnim_SetAnimRate call and the write to fp->mv.co.run.x0.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T03:28:37.306Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L99",
+            "why": "Provides the complete function signature and shows its animation-rate and move-variable side effects."
+          }
+        ]
+      },
+      {
+        "id": "fact:96daee55-22b5-4e34-8ba6-0913edb58627",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Updates the Run action state's animation playback rate from the fighter's forward running velocity and advances the state's startup countdown by one frame.",
+        "rationale": "The matched body selects a run velocity, converts positive facing-relative movement into an animation rate using the fighter's run-animation scaling attribute, applies that rate, and decrements the positive Run move-variable x0. The RunDirect animation callback also delegates entirely to this function, confirming that it is the reusable animation processor for Run-family states.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T03:28:37.306Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L99",
+            "why": "Shows the velocity selection, facing-relative guard, animation-rate calculation and application, and x0 decrement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L17-L20",
+            "why": "Shows the RunDirect animation callback reusing ftCo_Run_Anim without adding any other processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:2313014d-1992-4453-8ebf-779f5442e593",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On each Run animation update, forward-facing movement drives animation playback proportionally to speed, while stationary or opposite-facing movement freezes playback at rate zero. The callback also treats mv.co.run.x0 as a frame countdown: a positive value is reduced by exactly 1.0 per invocation, while a nonpositive value is left unchanged. It performs no action-state transition itself.",
+        "rationale": "The facing-relative velocity branch determines whether the rate is zero or speed-scaled, and the sole state-variable mutation is the guarded x0 decrement. No motion-state change or transition call occurs in the complete body.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T03:28:37.306Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L99",
+            "why": "Shows the forward-motion guard, proportional playback rate, positive-only countdown decrement, and absence of transition logic."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+    "facts": [
+      {
+        "id": "fact:8c1862a5-39f1-42ca-b8ed-eb015295708a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the running fighter's Fighter_GObj and forwards it unchanged to ft_800844EC. The delegated path copies the fighter position into CollData, runs map collision, copies the resolved position back to the fighter, and converts the result to grounded or airborne status. Grounded results feed collision flags, facing direction, ground velocity, and walk_max_vel into the StopWall check; airborne results pass the Fighter_GObj to ftCo_Fall_Enter.",
+        "rationale": "The target performs no local transformation. The ground-query helper explicitly synchronizes Fighter and CollData positions around map collision, while ft_800844EC consumes its ground-or-air result to choose the wall-stop or Fall path. The StopWall helper exposes the fighter and collision values consumed by the grounded branch.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T03:29:09.550Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L149-L152",
+            "why": "Shows the unchanged Fighter_GObj flowing from ftCo_Run_Coll into ft_800844EC."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L389-L424",
+            "why": "Shows Fighter-to-CollData position synchronization, map-collision processing, resolved-position write-back, and production of GA_Ground or GA_Air."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1129-L1138",
+            "why": "Shows the ground-or-air result selecting the wall-stop check or Fall entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L15-L56",
+            "why": "Shows the grounded branch reading wall-collision flags, facing direction, ground velocity, and walk_max_vel."
+          }
+        ]
+      },
+      {
+        "id": "fact:40d73868-dde4-4b38-ae61-6c9050ad445b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the environmental-collision portion of ordinary running: the fighter follows stage ground while running, begins falling after running off an edge, and can be stopped by sufficiently fast movement directly into a wall. The same behavior is intentionally reused by the RunDirect running variant.",
+        "rationale": "The target is explicitly the Run state's collision callback, and its delegated routine resolves ground contact, enters Fall after loss of ground, and checks StopWall while grounded. RunDirect delegates its own collision callback back to this target, demonstrating that this is shared running collision behavior. SmashWiki identifies Run as the later running portion of dash.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T03:29:09.550Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L149-L152",
+            "why": "Identifies the behavior as the Run action state's collision callback and shows its common collision delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L389-L424",
+            "why": "Shows stage collision resolving the fighter's position and determining whether grounded movement has become airborne."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1129-L1138",
+            "why": "Shows retained ground contact enabling wall-stop processing and loss of ground producing Fall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_RunDirect.c#L48-L57",
+            "why": "Shows the RunDirect action variant reusing ordinary Run collision processing."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Identifies Run as the later running portion of dash and documents its player-visible running context."
+          }
+        ]
+      },
+      {
+        "id": "fact:9fca0e5b-3cb0-43ec-93da-ca8b4b2c4f4f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state collision callback with signature void (Fighter_GObj* gobj), compatible with the fighter motion-state event-callback shape.",
+        "rationale": "The matched definition explicitly accepts one Fighter_GObj pointer, returns no value, and is the Run action's Coll callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T03:29:09.550Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L149-L152",
+            "why": "Provides the complete function declaration and body, proving its callback signature and collision delegation."
+          }
+        ]
+      },
+      {
+        "id": "fact:f242f282-28c9-498a-8adb-158f1c69a3c6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the Run action state's collision callback, delegating stage-contact processing to the common grounded-movement collision routine so a running fighter follows resolved ground contact, enters Fall after leaving the ground, or enters StopWall after sufficiently fast head-on wall contact.",
+        "rationale": "The complete target forwards its fighter object directly to ft_800844EC. That routine resolves whether the fighter remains grounded, checks the StopWall transition on the grounded path, and enters Fall otherwise; the StopWall helper establishes that facing-side wall contact at ground speed above walk_max_vel changes the fighter to ftCo_MS_StopWall.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T03:29:09.550Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L149-L152",
+            "why": "Shows that the Run collision callback consists entirely of forwarding the Fighter_GObj to ft_800844EC."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1129-L1138",
+            "why": "Shows the delegated collision routine branching between grounded wall-stop processing and entry into the common Fall state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L15-L56",
+            "why": "Shows the facing-side wall and speed guards and the resulting transition to ftCo_MS_StopWall."
+          }
+        ]
+      },
+      {
+        "id": "fact:08902869-1215-41d1-8809-908c7605f5d5",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On every Run collision update, resolved ground contact keeps the fighter on the grounded path and permits a transition to ftCo_MS_StopWall when the fighter faces a contacted wall and ABS(gr_vel) exceeds walk_max_vel. Loss of ground immediately enters the common Fall state. The callback has no independent guard or state mutation outside this delegated collision path.",
+        "rationale": "The target contains one unconditional call. Its callee branches directly on the ground-collision result: the grounded branch invokes the wall-stop predicate, whose guards and state transition are explicit, while the airborne branch invokes ftCo_Fall_Enter.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T03:29:09.550Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L149-L152",
+            "why": "Shows that the callback unconditionally executes one delegated collision path and has no local branches or mutations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L1129-L1138",
+            "why": "Shows grounded collision attempting StopWall handling and non-grounded collision entering Fall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_StopWall.c#L15-L56",
+            "why": "Defines the facing-wall and speed guards and shows successful transition to ftCo_MS_StopWall."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+    "facts": [
+      {
+        "id": "fact:43a0dc84-f039-4096-b1ec-0f0149403a38",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Forwards the input Fighter_GObj and float unchanged to ftCo_Run_Enter_Full while supplying animation start 0.0 and animation speed 1.0. The callee uses the object to enter ftCo_MS_Run, stores the float in mv.co.run.x0, and snapshots the fighter's current ground velocity into mv.co.run.x4.",
+        "rationale": "The wrapper exposes all four arguments passed to the full initializer, and the immediately following callee body shows where the forwarded fighter and float are consumed and which Run state fields are produced.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T03:28:38.003Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L78",
+            "why": "Shows callers supplying either 0.0 or common-data x430, the wrapper adding fixed animation defaults, and the callee storing arg0 and current ground velocity."
+          }
+        ]
+      },
+      {
+        "id": "fact:fb4e8bcc-cdd4-45f0-907b-689bc8e935c4",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Initiates the common running phase reached when a fighter continues holding the control stick forward strongly enough, establishing the Run state from which run-specific movement and action options are processed.",
+        "rationale": "The local input predicates call this routine after facing-relative horizontal stick input crosses the shared threshold, and the delegated initializer selects ftCo_MS_Run. SmashWiki independently identifies Run as the later part of a dash and documents the actions available during it.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T03:28:38.003Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L78",
+            "why": "Shows forward-stick threshold checks calling ftCo_Run_Enter and the delegated transition to ftCo_MS_Run."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Identifies Run as the later portion of a dash and documents the player-visible options available during running."
+          }
+        ]
+      },
+      {
+        "id": "fact:f79a931a-7243-41bf-b52b-f48f7e4b3d7f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Run action-state entry routine with signature void (Fighter_GObj*, float). The Fighter_GObj* identifies the fighter entering Run, while the float supplies the initial countdown-like Run move value that delays the state's late turnaround and RunBrake checks.",
+        "rationale": "The current declaration establishes the signature, the full initializer stores the float in mv.co.run.x0, and the Run callbacks decrement positive x0 and require it to expire before the late turnaround and RunBrake checks.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the exact wrapper signature and forwarding of its float into the Run x0 field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows x0's per-update decrement and its zero-based interrupt guards."
+          }
+        ]
+      },
+      {
+        "id": "fact:2ae027ee-b5b0-4efc-8d40-ac2d188ca420",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the standard entry path for the common fighter Run action state by delegating to the configurable Run initializer with animation starting at frame 0 and normal playback speed.",
+        "rationale": "The relocated wrapper still unconditionally calls ftCo_Run_Enter_Full with fixed animation arguments 0.0F and 1.0F, and the immediately following initializer changes to ftCo_MS_Run and initializes Run state data.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the wrapper's fixed animation arguments and the delegated initializer's Run state change and move-variable initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:5128d9fe-85c9-4b09-bb70-c243898bf518",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Every invocation unconditionally enters ftCo_MS_Run at animation frame 0 with playback speed 1.0 and no motion-state flags. Entry initializes mv.co.run.x0 from the supplied float and mv.co.run.x4 from current ground velocity; positive x0 is subsequently reduced by one per animation update and temporarily prevents the late turnaround and RunBrake checks.",
+        "rationale": "The relocated wrapper and full initializer have no alternate path and retain the same transition arguments and field writes. The current Run callbacks preserve the x0 countdown and interrupt guards.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the unconditional default Run entry, its exact animation configuration, and initialization of x0 and x4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows positive x0 being reduced by one and gating the late turnaround and RunBrake checks."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+    "facts": [
+      {
+        "id": "fact:ed1a6f94-89c6-44f0-b2fe-90fdf4811a3f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter GObj plus three float configuration values. It forwards the GObj, animation start, and animation speed to Fighter_ChangeMotionState for ftCo_MS_Run; stores the first float in Fighter.mv.co.run.x0; and copies Fighter.gr_vel into Fighter.mv.co.run.x4. Run animation processing later decrements x0 and may use x4 to derive animation rate, while Run IASA reads x0 to gate turnaround and RunBrake.",
+        "rationale": "The relocated initializer directly traces each input into the motion-state call or a Run move variable. The current animation and IASA callbacks retain the downstream uses of x0 and x4, replacing the removed-path citation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the initializer's complete input flow into Fighter_ChangeMotionState, mv.co.run.x0, and mv.co.run.x4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows x4 supplying animation velocity under reduced friction and x0 being decremented and read by Run IASA."
+          }
+        ]
+      },
+      {
+        "id": "fact:988de68c-a9b6-4843-a50f-9528913e10c6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements configurable entry into ordinary fighter running, including both a fresh Run animation start and a transition that preserves the fighter's current animation frame and playback rate.",
+        "rationale": "The target explicitly enters ftCo_MS_Run. Its simple wrapper supplies frame 0 and speed 1 for a fresh start, whereas fn_800CA698 supplies cur_anim_frame and frame_speed_mul, demonstrating an animation-continuous entry path. SmashWiki independently identifies Run as the later portion of dash and documents its distinct action options.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T03:29:03.996Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L46-L74",
+            "why": "Shows entry into ftCo_MS_Run and the two caller configurations: default animation parameters versus the fighter's current frame and rate."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Identifies Run as the later part of dash and describes the player-visible options available during that running phase."
+          }
+        ]
+      },
+      {
+        "id": "fact:c2e9bf87-70d0-442a-84ae-7938ab3d1540",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A parameterized fighter action-state entry helper with signature void(Fighter_GObj* gobj, float run_lockout, float anim_start, float anim_speed). The final three parameters are respectively a frame-count-like Run interrupt gate, an animation starting frame, and an animation playback-rate multiplier.",
+        "rationale": "The current definition establishes the exact signature and where each float is consumed. The first float becomes x0, whose per-update decrement and zero-based interrupt guards establish its countdown-like domain.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Provides the exact signature and shows the animation arguments forwarded to the motion-state change and the first float stored in x0."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows x0 decremented once per animation update and compared with zero before late interrupts."
+          }
+        ]
+      },
+      {
+        "id": "fact:ea10c0cd-ac82-4855-bfa4-cb871cffac62",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Performs the fully parameterized entry into the common Run action state: it selects the initial animation frame and playback speed, initializes the Run transition-lockout value, and snapshots current ground velocity for the state's subsequent animation processing.",
+        "rationale": "The relocated body still enters ftCo_MS_Run with caller-selected animation timing, stores the lockout in x0, and snapshots gr_vel in x4. The current callbacks preserve the later countdown, interrupt, and animation-rate uses of those fields.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the configurable Run transition and both Run move-variable initializations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows how the initialized x0 and x4 values are consumed by Run animation and interrupt processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:53a7c8c0-17c4-4fad-bf26-689ac7578ea6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally enters ftCo_MS_Run with Ft_MF_None, the caller-selected animation frame and playback speed, zero blend duration, and no animation-source override. It then initializes x0 as the Run state's countdown-like gate and x4 as the entry ground-velocity snapshot. A positive x0 is decremented each animation update and postpones only the late turnaround and RunBrake checks until it reaches zero.",
+        "rationale": "The current initializer has no guard or alternate branch and retains the exact motion-state arguments and field writes. Run animation and IASA retain the countdown lifecycle and show that higher-priority checks occur before the x0-gated turnaround and RunBrake checks.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L22-L74",
+            "why": "Shows the unconditional Run transition, exact motion-state configuration, and initialization of x0 and x4."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows x0's per-update countdown and its placement around the late turnaround and RunBrake checks."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+    "facts": [
+      {
+        "id": "fact:9b22b231-9c1a-4fec-8125-79f5b1f8f71c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the active Fighter_GObj, derives its Fighter to read mv.co.run.x0, and forwards the unchanged game object through a prioritized chain of action predicates. Guard setup additionally consumes p_ftCommonData->x410. Successful predicates and setup routines mutate the fighter's action state through their callees; the callback itself returns no value.",
+        "rationale": "The source explicitly derives fp from gobj, passes gobj to every checker, reads x0 for the late transition gate, and passes the shared x410 value to the guard setup routine. Since the function is void, its meaningful outputs are the action-state changes performed by successful callees.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T03:21:21.095Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Shows Fighter extraction, all forwarded game-object arguments, the x410 common-data read, the x0 guards, and the state-changing setup calls."
+          }
+        ]
+      },
+      {
+        "id": "fact:5028e8ef-75a5-4d3e-ba49-5d0553fe0126",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the actionable options and their priority during the Run state, including special moves, rapid-attack-related actions, dash attack, shielding, jumping, turnaround, and RunBrake processing associated with crouching.",
+        "rationale": "The callback directly invokes named side-special, Attack100, dash-attack, guard, jump-related, TurnRun-unit, and RunBrake paths. SmashWiki independently documents special moves, dash attack, shield, jump, turnaround, and crouching through RunBrake as available actions during a run.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T03:21:21.095Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Connects the Run IASA callback to the named special, attack, dash-attack, guard, jump, TurnRun, and RunBrake subsystems."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://dash~run@r2044125",
+            "why": "Documents dash attack, shielding, jumping, special moves, turnaround, and crouching through RunBrake as player options during running."
+          }
+        ]
+      },
+      {
+        "id": "fact:81b38802-d6f1-470e-b315-42c5a2055f99",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state IASA callback with exact signature void ftCo_Run_IASA(Fighter_GObj* gobj). It delegates recognition and state changes to transition predicates and setup routines, using their results only to stop lower-priority processing.",
+        "rationale": "The matched definition provides the void return and Fighter_GObj pointer parameter. Its body derives the Fighter, invokes action checks, and consumes predicate results through immediate callback returns, which identifies it as an interrupt/action-selection callback rather than a predicate that returns a transition result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T03:21:21.095Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Provides the exact signature, Fighter extraction, delegated transition calls, and void short-circuit control flow."
+          }
+        ]
+      },
+      {
+        "id": "fact:3f628503-7182-4274-9598-0f6a411de6f9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Arbitrates input-driven transitions out of the common Run state in fixed priority order, ending processing as soon as one action checker accepts a transition.",
+        "rationale": "The complete matched callback consists of an ordered series of transition predicates wrapped in RETURN_IF or followed by explicit returns. Successful dash-attack and guard checks perform setup before returning, while all other successful predicates similarly prevent lower-priority options from being evaluated.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T03:21:21.095Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Shows the complete ordered transition chain, setup calls, timer guards, and first-success early returns."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1666--fn--main-melee-ft-chara-ftcommon-ftco-run-ftco-run-iasa--fbc760291e18",
+            "why": "Records acceptance of this complete 300-byte function as a 100% match in PR #1666."
+          }
+        ]
+      },
+      {
+        "id": "fact:a34de249-9a8f-4acf-a33f-f78b174952b3",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Checks transitions in strict short-circuit order: side special; Attack100 input and three additional common attack/catch handlers; dash attack followed by dash-attack move-variable setup; guard activation followed by guard setup using p_ftCommonData->x410; appeal; jump-related handling; then, only when mv.co.run.x0 is nonpositive, a TurnRun-unit transition. If x0 is still positive, processing stops before RunBrake; otherwise RunBrake is checked last. The first successful path ends the callback.",
+        "rationale": "This sequence follows the matched source literally. RETURN_IF and explicit returns establish first-success semantics, while the paired x0 conditions prove that the final turnaround and RunBrake paths are unavailable until the Run countdown reaches a nonpositive value. Opaque callees are described by their owning subsystem rather than assigned unsupported action names.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T03:21:21.095Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L101-L128",
+            "why": "Shows every transition predicate in order, dash-attack and guard setup, the x0 gate, and all early returns."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+    "facts": [
+      {
+        "id": "fact:741c2ffd-9fcd-462f-8ef5-0b16eb497a24",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads the Fighter, its common movement attributes, current ground velocity, controller-derived movement state, and shared common-data constants. getAccelAndTarget produces acceleration and target velocity; the callback may attenuate acceleration using gr_vel / target_vel, writes target_vel multiplied by the common x440 factor to mv.co.run.x4, passes acceleration, target velocity, and ground_friction multiplied by run_dash_turn_friction_multiplier to ftCommon_8007C98C, and then passes the game object to ftCommon_ApplyGroundMovement. Run animation later consumes mv.co.run.x4 when the ground-friction multiplier is below one.",
+        "rationale": "The relocated physics body preserves the calculation and output flow while exposing the current semantic name run_dash_turn_friction_multiplier for the friction factor formerly described by its placeholder field name. The animation callback still consumes x4 under reduced-friction conditions.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L141",
+            "why": "Shows getAccelAndTarget producing acceleration and target velocity and the conditional velocity-ratio attenuation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L142-L152",
+            "why": "Shows the x4 write, current run_dash_turn_friction_multiplier use, common velocity update, and ground-movement call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L76-L129",
+            "why": "Shows Run animation selecting mv.co.run.x4 when the ground-friction multiplier is below one."
+          }
+        ]
+      },
+      {
+        "id": "fact:3288552e-1ec8-4862-8bc7-230229789321",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements sustained running physics: stick-derived acceleration steers the fighter toward a target running velocity, acceleration eases as that speed is approached, character traction participates in velocity adjustment, and the resulting grounded displacement is applied each frame.",
+        "rationale": "The current Run physics callback still computes target-speed acceleration, tapers it as the current velocity approaches the target, incorporates character ground friction, and applies grounded movement. The removed-path code evidence is replaced without changing the mechanic mapping.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L141",
+            "why": "Shows input-derived target velocity and acceleration tapering as current ground velocity approaches that target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L142-L152",
+            "why": "Shows character ground friction participating in the velocity update and final grounded displacement being applied."
+          }
+        ]
+      },
+      {
+        "id": "fact:6f45711d-2b7d-4b71-a68a-218acc0c91cd",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void fighter action-state physics callback with signature void (Fighter_GObj* gobj).",
+        "rationale": "The relocated definition still returns void, accepts one Fighter_GObj pointer, resolves its Fighter, and performs the Run grounded-physics update.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L141",
+            "why": "Shows the exact function signature and the opening physics calculations on the Fighter."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L142-L152",
+            "why": "Shows completion of the callback through the common velocity and grounded-movement updates."
+          }
+        ]
+      },
+      {
+        "id": "fact:04c37e36-cb30-4815-93a6-82d8f49ac6b2",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Per-frame grounded physics callback for the Run state. It computes input-derived acceleration and target velocity, tapers acceleration while the fighter is already moving toward but has not reached that target, records a scaled target for Run animation handling, applies character-specific friction through the common ground-velocity update, and then advances ground movement.",
+        "rationale": "The current body retains the complete Run physics calculation: target generation, bounded-ratio acceleration taper, cached target write, friction-aware velocity update, and final ground movement. The claim therefore remains sound at the relocated source.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L141",
+            "why": "Shows acceleration and target generation plus the same-direction approach-speed taper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L142-L152",
+            "why": "Shows the cached target write, friction-aware ground-velocity update, and final movement application."
+          }
+        ]
+      },
+      {
+        "id": "fact:0514eb2a-9ae1-45ff-b951-7b147702faaf",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On every Run physics update, a nonzero target velocity enables an approach-speed check. If current ground velocity is in the same direction and strictly between zero and the target, acceleration is multiplied by the remaining fractional distance to the target and a shared acceleration factor; otherwise acceleration is left unchanged. The callback always refreshes the Run cached target, performs the common friction-aware velocity update, and applies ground movement, without directly changing action state or processing a timer.",
+        "rationale": "The relocated body retains the same branch structure: only a nonzero target and a ground-velocity ratio in the open interval zero to one attenuate acceleration, after which all paths reconverge at the cached-target write and common movement calls.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:05:51.036Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L130-L141",
+            "why": "Shows the nonzero-target guard, open-interval ratio test, and conditional acceleration attenuation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L142-L152",
+            "why": "Shows all paths proceeding through the cached-target write, friction-aware velocity update, and ground movement without a state transition or timer."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+    "facts": [
+      {
+        "id": "fact:b515a901-3a77-4d31-a56c-f1abc453a22c",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+        "type": "data_flow",
+        "value": "Facing-relative stick input enters Run; entry stores a countdown and velocity snapshot, animation uses velocity to set playback rate, and physics derives and applies a stick-driven target ground velocity.",
+        "rationale": "The current predicates, entry, animation, and physics callbacks retain these reads, writes, and consumers.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L1-L152",
+            "why": "Traces stick input and velocity through Run entry, animation rate, IASA, and physics."
+          }
+        ]
+      },
+      {
+        "id": "fact:8b686b7c-4e1d-4747-a210-02cb6bc578c1",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+        "type": "game_mapping",
+        "value": "Realizes ordinary fighter running and transitions from running into attacks, defense, jumping, turning, and braking.",
+        "rationale": "The current Run callbacks and prioritized interrupt dispatcher retain those action options.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L1-L152",
+            "why": "Shows the Run state and its prioritized outgoing actions."
+          }
+        ]
+      },
+      {
+        "id": "fact:54ce151e-ba6c-4faa-907c-35804e7c62be",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+        "type": "purpose",
+        "value": "Implements Run entry, speed-scaled animation, prioritized interrupts, acceleration, ground movement, and collision handling.",
+        "rationale": "The current file retains the complete common Run action lifecycle.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L1-L152",
+            "why": "Shows Run predicates, entry, animation, IASA, physics, and collision."
+          }
+        ]
+      },
+      {
+        "id": "fact:f3f9c23c-9b0d-4a05-b569-9680a914dd20",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_Run.c",
+        "type": "state_behavior",
+        "value": "Run initializes x0 and x4; animation decrements positive x0, which temporarily gates late turnaround and RunBrake checks. Higher-priority actions remain available, while physics approaches the stick-derived target velocity.",
+        "rationale": "The current entry, animation, IASA, and physics bodies preserve these guards and updates.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_Run.c#L1-L152",
+            "why": "Shows move-variable initialization, countdown, interrupt ordering, and target-velocity movement."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA5F0#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA644#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:fn_800CA698#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Anim#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Coll#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full#r4",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full#r5",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Enter_Full#r6",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_IASA#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_Run:ftCo_Run_Phys#r3",
+    "facts": []
+  }
+]

@@ -1,0 +1,65 @@
+{
+  "tu": "main/melee/vi/vi0801",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0801.c#L40-L63",
+            "why": "Exact callback inputs, clearing and masks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0801.c#L132-L160",
+            "why": "Camera and retained color producers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L158-L183",
+            "why": "Separate pass-mask and link-mask scans."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/cobj.h#L150-L151",
+            "why": "Clear flag meanings."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's conflation of the dispatcher pass mask with a GX-link index.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi0801:vi0801_8031ED70"
+        },
+        "type": "data_flow",
+        "value": "Scene entry attaches the loaded camera to this callback's GObj and retains the loaded fog color in un_804D6FBC. After successful camera activation, the callback supplies that RGBA value as the erase color and enables color/depth clearing while disabling alpha clearing. It assigns gxlink_prios masks 9, 8, 8 and 0x8A1 for four calls to HSD_GObj_80390ED0. Each call's argument 7 selects render passes 0, 1 and 2, while gxlink_prios selects GX-link lists by set-bit index; these are not four draws on GX link 7."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0801.c#L40-L63",
+            "why": "Guard, group arguments, masks and finalization."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L158-L183",
+            "why": "Bit-index interpretation of both masks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exceptional branch and ordered behavior while correcting individual-priority terminology to bitmask semantics.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi0801:vi0801_8031ED70"
+        },
+        "type": "state_behavior",
+        "value": "All erase, dispatch and finalization operations are guarded by a nonzero HSD_CObjSetCurrent result. On success the callback clears color and depth, selects camera groups with arguments 2, 1 and 0 while dispatching GX-link masks 9, 8 and 8, then dispatches mask 0x8A1 without another group change and calls HSD_CObjEndCurrent. Every dispatch uses render-pass mask 7. Mask 9 selects link lists 0 and 3; mask 8 selects list 3; mask 0x8A1 selects lists 0, 5, 7 and 11. If activation fails none of these guarded operations occurs."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

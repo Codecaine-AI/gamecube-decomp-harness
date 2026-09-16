@@ -1,0 +1,109 @@
+{
+  "tu": "main/melee/vi/vi",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L10-L25",
+            "why": "Exact table declaration, initializers, and pointer-returning accessor."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the exact source-level type while removing an unsupported assertion that the section contains both the table and all literals.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi:.data"
+        },
+        "type": "inferred_type",
+        "value": "The source declares an initialized char* vi_animation_table[26] with 26 fighter-specific ViWait archive filename string literals. The accessor returns an indexed filename pointer. This source evidence does not establish which compiled sections contain the table or its string literals."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L35-L47",
+            "why": "Ordered selectors, masks, dispatches, and final camera call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L158-L183",
+            "why": "Outer mask selects callback passes; gxlink_prios selects link lists."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.h#L15-L26",
+            "why": "Activation guard and subsequent caller-selected dispatch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the confusion between render-pass mask 7 and GX link index 7 using the canonical dispatcher.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi:vi_8031CA04"
+        },
+        "type": "data_flow",
+        "value": "The caller supplies a camera-associated HSD_GObj. Camera selector values 2, 1, and 0 flow to Camera_800310A0; gxlink_prios receives masks 9, 8, and 8 before successive HSD_GObj_80390ED0 calls. Each call receives render-pass mask 7, enabling callback pass indices 0, 1, and 2 over the link lists selected by gxlink_prios: links 0 and 3 for mask 9, and link 3 for mask 8. Finally the same GObj and flag 1 flow to Camera_800313E0. In vi_RunCamera, successful camera activation precedes this helper, and a caller-selected link-mask dispatch follows it."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L35-L47",
+            "why": "Complete three-phase helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/gobj.c#L158-L183",
+            "why": "Defines the meaning of argument 7."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the established rendering purpose while correcting the mistaken GX-link-7 description.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi:vi_8031CA04"
+        },
+        "type": "purpose",
+        "value": "Runs the shared three-phase rendering core for visual-scene camera callbacks. It selects camera values 2, 1, and 0 in sequence, assigns GX-link selection masks 9, 8, and 8, and dispatches render callback passes 0, 1, and 2 for each phase using pass mask 7. It then calls Camera_800313E0 with the camera GObj and flag 1."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi.c#L49-L59",
+            "why": "Guarded sequence without a latch or input mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A36.c#L13-L16",
+            "why": "Trigger accessor only returns the field."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A45.c#L170-L173",
+            "why": "Final call writes command 1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/vi/vi0501.c#L237-L240",
+            "why": "Normal frame-callback reuse."
+          }
+        ],
+        "op": "write",
+        "rationale": "Removes an unconditional once-per-press guarantee that neither the helper nor its read-only input accessor implements.",
+        "subject": {
+          "target_stable_key": "main/melee/vi/vi:vi_8031CAAC"
+        },
+        "type": "state_behavior",
+        "value": "Each invocation reads the selected controller's processed trigger mask. If Start is absent, no cleanup or scene-command write occurs. If Start is present, the helper performs its ordered audio and all-port rumble cleanup and writes scene command 1. It has no local timer, persistent latch, or trigger consumption: repeated invocations against the same Start-bearing trigger state repeat the sequence. Normal per-frame use is supplied by visual-scene callbacks."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

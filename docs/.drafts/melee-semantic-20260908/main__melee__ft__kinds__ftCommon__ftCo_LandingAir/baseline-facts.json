@@ -1,0 +1,808 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:c82b4a7a-1836-4da8-8c15-af7d94deda06",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The constants are read without mutation by the two aerial-landing entry routines. Conversion support is used when the truncated reduced lag is assigned back to the floating lag value; the zero and one values initialize Fighter_ChangeMotionState at frame 0 with normal playback speed and zero blend; and 0.1f is added to the animation value before division by lag, with the resulting rate consumed by ftAnim_SetAnimRate.",
+        "rationale": "The matched code directly shows the reduced integer lag flowing back into a float, the constant motion-state arguments flowing into Fighter_ChangeMotionState, and the 0.1-adjusted quotient flowing into ftAnim_SetAnimRate. No path writes back to the constant storage.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T04:59:27.793Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The unit explicitly shows every source-level constant use and its consumers in lag conversion, motion-state entry, and animation-rate configuration."
+          }
+        ]
+      },
+      {
+        "id": "fact:1b13d362-e095-42db-894f-9372c9443cbb",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Anonymous read-only small-data constant pool containing scalar floating-point literals and compiler conversion support, not a homogeneous array or structured gameplay record. Its source-visible values include the 0.0 and 1.0 motion-state arguments and the 0.1f adjustment used by ftCo_LandingAir_EnterWithMsidLag; the integral-to-floating conversion in ftCo_LandingAir_EnterWithLag may also require a compiler-generated bias constant.",
+        "rationale": "The source uses zero and one where Fighter_ChangeMotionState receives floating-point state parameters, explicitly adds 0.1f during rate calculation, and assigns an integral reduced lag back to a float. This mixture is characteristic of an anonymous compiler literal pool and does not support interpreting the section as one typed gameplay array.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-02T04:59:27.793Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The source shows the integral-to-floating lag assignment, floating motion-state arguments, and explicit 0.1f literal whose compiled constants belong to the unit's read-only pool."
+          }
+        ]
+      },
+      {
+        "id": "fact:8abe3eb8-e3dc-45bf-92bb-4d696b527117",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the translation unit's read-only scalar constants for aerial-landing state initialization and animation-rate calculation. It is compiler-emitted constant storage rather than an authored gameplay table.",
+        "rationale": "The matched unit contains no declared data object or lookup table, while its executable expressions require floating-point constants for the initial motion-state parameters, the 0.1-frame animation-length adjustment, and conversion of an integral reduced lag back to floating point. Those uses establish the anonymous .sdata2 target as the unit's constant pool rather than independently meaningful mutable state.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T04:59:27.793Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The complete matched unit shows the floating-point expressions and state-entry arguments that require read-only constants, and it contains no authored data declaration or table."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Anim"
+    },
+    "facts": [
+      {
+        "id": "fact:ae2638ca-6cdd-40a0-9fb4-52514aab6b5c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Forwards the supplied Fighter_GObj unchanged to ftCo_Landing_Anim and performs no direct reads, writes, or transformations of its own. The delegated handler queries whether animation frames remain and, once none remain, passes the same object to ft_8008A2BC.",
+        "rationale": "The wrapper has no locals or operations besides its single call. Reading the callee establishes how the forwarded object is consumed and where it flows on animation completion.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:17:35.044Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L68-L71",
+            "why": "The wrapper directly forwards gobj to ftCo_Landing_Anim without modification."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+            "why": "The callee uses the forwarded object for the remaining-frames test and forwards it to the completion helper when that test fails."
+          }
+        ]
+      },
+      {
+        "id": "fact:9b3b2671-45e2-4a1c-93d2-fadb27264b0d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Advances and completes the unique landing animation used when a fighter lands during an aerial attack's active landing-lag window. The enclosing state-entry code scales that animation to the selected attack-specific lag, including the reduced duration produced by L-canceling.",
+        "rationale": "The enclosing unit selects LandingAir motions and sets their animation rate from the chosen lag before this callback monitors animation completion. The mechanics reference independently identifies these as unique, attack-specific aerial landing animations and explains that Melee L-canceling plays the same animation at increased speed.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T00:17:35.044Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The resolved unit selects attack-specific LandingAir motions, derives their animation rate from landing lag, and installs this callback as the LandingAir animation handler."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://lag~aerial-landing@r2044182",
+            "why": "The mechanics reference explains that landing during an aerial attack's flagged window produces a unique attack-specific landing animation and that Melee L-canceling plays that same animation at double speed."
+          }
+        ]
+      },
+      {
+        "id": "fact:49e81511-1674-4619-b515-81a21f4e8b82",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state animation callback with signature void ftCo_LandingAir_Anim(Fighter_GObj* gobj).",
+        "rationale": "The matched definition explicitly accepts one Fighter_GObj pointer and returns no value, and its delegated callee has the same callback-shaped interface.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:17:35.044Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L68-L71",
+            "why": "The resolved declaration directly establishes the function's void return type and single Fighter_GObj* parameter."
+          }
+        ]
+      },
+      {
+        "id": "fact:67dbc8e0-296a-42a6-a4e0-020fc7e202d1",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the animation callback for aerial-attack landing states by reusing the common landing animation-completion handler.",
+        "rationale": "The complete function consists solely of passing its fighter object to ftCo_Landing_Anim. The resolved callee checks whether animation frames remain and invokes the landing-completion transition helper when they do not, establishing this callback's role in maintaining and completing the LandingAir animation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:17:35.044Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L68-L71",
+            "why": "The matched body shows ftCo_LandingAir_Anim delegating directly and exclusively to ftCo_Landing_Anim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+            "why": "The resolved callee shows that the shared animation handler tests for remaining animation frames and invokes ft_8008A2BC when the animation finishes."
+          }
+        ]
+      },
+      {
+        "id": "fact:2d2bd3a1-3c6e-4d8e-a7fa-07dee1544c63",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "On each LandingAir animation update, it leaves the state unchanged while animation frames remain. When the landing animation has no frames remaining, it invokes the common landing-completion transition through ft_8008A2BC.",
+        "rationale": "Although this function is a thin wrapper, its sole callee contains the complete guard and transition: ftAnim_IsFramesRemaining prevents the completion call until the animation ends.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:17:35.044Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L68-L71",
+            "why": "The body establishes that LandingAir uses the ordinary landing animation-state behavior without adding another guard or transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L93-L160",
+            "why": "The delegated handler explicitly calls ft_8008A2BC only when ftAnim_IsFramesRemaining reports that the animation has finished."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Coll"
+    },
+    "facts": [
+      {
+        "id": "fact:529910df-eb46-4ddf-b906-a07cd6e7f923",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current fighter game object from the action-state callback dispatcher and passes that same pointer unchanged to ftCo_Landing_Coll; it performs no local field reads, writes, or result processing.",
+        "rationale": "The wrapper has no locals or expressions other than the direct call with its sole parameter, establishing an unchanged one-step flow into the ordinary landing collision handler.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:16:59.832Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L80-L83",
+            "why": "The complete body passes gobj directly to ftCo_Landing_Coll and contains no other operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:a01699e9-bd26-4917-9209-47b2b9ab2184",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter action-state collision callback with signature void(Fighter_GObj*).",
+        "rationale": "The matched definition takes one Fighter_GObj pointer, returns void, and occupies the Coll member of the LandingAir state callback family.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:16:59.832Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L80-L83",
+            "why": "The resolved definition explicitly provides the void return type and single Fighter_GObj* parameter."
+          }
+        ]
+      },
+      {
+        "id": "fact:f420364a-642b-474b-b373-269f7d7cb67f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the collision callback for the common aerial-attack landing states, reusing the ordinary landing state's collision handling rather than defining aerial-landing-specific collision logic.",
+        "rationale": "The complete function consists solely of forwarding its fighter object to ftCo_Landing_Coll, so its role is to place ordinary landing collision behavior in the LandingAir callback set.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:16:59.832Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L80-L83",
+            "why": "The function body directly shows the LandingAir collision callback delegating all work to ftCo_Landing_Coll."
+          }
+        ]
+      },
+      {
+        "id": "fact:c308d03d-c5aa-4b2e-b4c5-286f4f604648",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Adds no LandingAir-specific collision guards or transitions; while an aerial-landing state is active, collision processing follows the same behavior as the ordinary landing state.",
+        "rationale": "Because the callback unconditionally invokes ftCo_Landing_Coll and contains no branch or additional operation, any collision-driven state behavior is wholly delegated to the ordinary landing handler.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:16:59.832Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L80-L83",
+            "why": "The unconditional one-call wrapper demonstrates that LandingAir does not customize collision-state behavior at this callback boundary."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithLag"
+    },
+    "facts": [
+      {
+        "id": "fact:a85ee1be-0c1a-4bce-bf1d-304684f771ab",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithLag",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Reads fp->cmd_vars[0] to determine whether aerial landing lag is active, then maps fp->motion_id to one of five LandingAir motion IDs and the corresponding landingairn/f/b/hi/lw_lag character attribute. For a recognized aerial whose fp->x67F is below p_ftCommonData->xE4, it divides the lag by p_ftCommonData->xE8, truncates the result to an integer, and substitutes one when truncation would produce zero. The resulting motion ID and lag are passed to ftCo_LandingAir_EnterWithMsidLag; an absent mapping instead routes the game object to ftCo_Landing_Enter_Basic.",
+        "rationale": "The function's reads, switch assignments, numeric transformation, and both output calls are explicit in the matched body.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:13:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L57",
+            "why": "The code directly exposes every input field, mapping, lag calculation, and downstream consumer."
+          }
+        ]
+      },
+      {
+        "id": "fact:650175d0-cb1e-438c-849b-a7f528f088f6",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithLag",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the landing decision shared by three Melee mechanics: ordinary attack-specific aerial landing lag, auto-canceling when the aerial's landing-lag command is inactive, and the timed lag reduction used by L-canceling.",
+        "rationale": "The source's per-aerial landing attributes directly implement distinct landing durations. Its cmd_vars[0] gate and basic-landing fallback match the documented animation-command basis of auto-canceling, while its timing-threshold division and integer truncation match the documented timed reduction of Melee L-canceling.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-01T23:13:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L57",
+            "why": "The function directly shows per-aerial lag selection, command-gated normal-landing fallback, and timing-gated lag reduction."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://lag~aerial-landing@r2044182",
+            "why": "The mechanics reference states that aerial attacks have individual landing lag, inactive landing-lag flags cause normal landing, and L-canceling in Melee effectively halves landing lag by speeding the landing animation."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://auto-canceling~technical-explanation@r2044181",
+            "why": "The technical explanation states that an animation command enables aerial landing lag and that landing while it is disabled produces the normal landing animation."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://l-canceling~in-super-smash-bros-melee@r1657426",
+            "why": "The Melee-specific section documents the pre-landing input window and the resulting half-duration, rounded-down aerial landing animation."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/1543657073210818620",
+            "why": "The code trace identifies this exact function as checking for standard aerial attacks and using basic landing without imposed aerial lag when none is found."
+          }
+        ]
+      },
+      {
+        "id": "fact:a50c745b-eb0d-432f-bcc6-12d1d2f8e48f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithLag",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Synchronous fighter action-state entry routine with signature void ftCo_LandingAir_EnterWithLag(Fighter_GObj* gobj). It returns no value and obtains the mutable Fighter from the supplied fighter game object.",
+        "rationale": "The matched declaration establishes the exact return and parameter types, and GET_FIGHTER establishes how the parameter is consumed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:13:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L57",
+            "why": "The source provides the exact signature and shows the Fighter_GObj being converted to its Fighter payload."
+          }
+        ]
+      },
+      {
+        "id": "fact:05961274-bb17-493c-bf7f-dd9f3cd58454",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithLag",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Chooses the appropriate landing transition when a fighter touches down from an aerial action: it enters the matching aerial-attack landing state with the move's configured lag, including any qualifying lag reduction, or enters the basic landing state when attack-specific landing lag does not apply.",
+        "rationale": "The function selects a landing state and lag from the current aerial motion, conditionally transforms that lag, and makes an exclusive final call to either the aerial-landing entry helper or the basic-landing entry helper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:13:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L57",
+            "why": "The complete matched function directly shows selection of attack-specific landing state and lag, conditional reduction, and the two final transition paths."
+          }
+        ]
+      },
+      {
+        "id": "fact:67e12dad-4ef6-48a8-ab91-31a63c4e22c7",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithLag",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Starts with no aerial-landing motion selected. It can select LandingAirN, LandingAirF, LandingAirB, LandingAirHi, or LandingAirLw only while cmd_vars[0] is nonzero and the current motion is the corresponding aerial attack. A selected state may receive reduced integral lag under the x67F common-threshold guard. Selection commits to the aerial-landing state; failure to select any state commits to basic landing.",
+        "rationale": "Initialization to ftCo_MS_None, the command-variable guard, the five switch cases, the reduction guard, and the final msid test form a complete two-outcome transition decision.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:13:59.630Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L57",
+            "why": "The matched body explicitly shows the initial sentinel state, every state-selection guard, optional lag reduction, and both transition outcomes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag"
+    },
+    "facts": [
+      {
+        "id": "fact:d188a3a9-c5ec-4127-b66c-1486f3b7809c",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a fighter object, a motion ID, and a lag duration from its caller. It resolves the object's Fighter payload for ftCommon_8007D7FC, forwards the object and motion ID to Fighter_ChangeMotionState, obtains an animation value from ftAnim_8006F484, computes (that value + 0.1) / lag, and sends the result to ftAnim_SetAnimRate.",
+        "rationale": "Every input, intermediate calculation, and downstream consumer appears explicitly in the matched function. The surrounding unit also shows the ordinary entry wrapper supplying its selected LandingAir motion ID and either full or reduced lag to this helper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:16:58.189Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The resolved unit shows the caller producing the motion/lag pair and the target consuming that pair in common setup, state change, and animation-rate calls."
+          }
+        ]
+      },
+      {
+        "id": "fact:e5deb73f-323f-44e2-ac85-7d048b341dea",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Realizes the final state-entry and animation-scaling stage of Melee's aerial landing-lag system. It makes a dedicated aerial landing animation last for the supplied lag duration; when its common caller supplies the already-reduced integral duration, the same rate calculation applies the faster landing animation produced by an L-cancel.",
+        "rationale": "The code enters the selected LandingAir motion and makes its rate inversely proportional to the supplied lag. The surrounding wrapper can reduce that lag before calling this function. SmashWiki independently describes aerial landing lag as a dedicated landing animation and Melee L-canceling as playing that same animation at double speed for approximately half the duration.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T00:16:58.189Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The unit shows optional lag reduction feeding this helper, which enters the selected landing motion and derives its playback rate from that duration."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://lag~aerial-landing@r2044182",
+            "why": "The mechanics reference explains that landing during an aerial's active landing-lag flag produces a unique move-specific landing animation and that Melee L-canceling plays the same animation at double speed."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://l-canceling~in-super-smash-bros-melee@r1657426",
+            "why": "The Melee-specific section states that L-canceling makes the aerial attack's landing animation play at double speed, halving its lag with rounding down."
+          }
+        ]
+      },
+      {
+        "id": "fact:31aa6733-9889-4e8d-a4d4-7e8ae52c36b7",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Synchronous fighter action-state entry routine with signature void ftCo_LandingAir_EnterWithMsidLag(Fighter_GObj* gobj, FtMotionId msid, float lag). The second parameter is a fighter motion-state identifier, and the third is a floating-point landing-lag duration used as the animation-rate divisor.",
+        "rationale": "The matched declaration provides the exact return and parameter types, while the body passes msid to Fighter_ChangeMotionState and uses lag as the divisor in the animation-rate calculation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:16:58.189Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L59-L66",
+            "why": "The source gives the exact signature and directly shows how both typed value parameters are consumed."
+          }
+        ]
+      },
+      {
+        "id": "fact:8a7b5243-28ea-4e60-80d2-59b1d1c981d0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enters a caller-selected aerial-attack landing motion and adjusts that motion's playback rate so its animation completes over the supplied landing-lag duration.",
+        "rationale": "The function changes the fighter to the supplied motion ID and immediately derives an animation rate by dividing the motion's animation-length value plus 0.1 by the supplied lag. This establishes that it is the shared state-entry helper that turns a selected landing motion and duration into a configured landing state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:16:58.189Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L59-L66",
+            "why": "The complete matched body changes to the supplied motion state and sets its animation rate from the supplied lag."
+          }
+        ]
+      },
+      {
+        "id": "fact:d41e228c-4987-40d6-b18e-be8fe628d54e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Unconditionally performs common fighter setup, enters the supplied motion state at frame 0 with Ft_MF_None and a starting animation rate of 1, then replaces that rate with (ftAnim_8006F484(gobj) + 0.1) / lag. It contains no guard, alternate transition, or landing-lag selection logic; those decisions are made by its callers.",
+        "rationale": "The target is straight-line code with one state-change call followed by one animation-rate update. The surrounding EnterWithLag wrapper performs the motion selection, fallback decision, and optional lag reduction before invoking this helper.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:16:58.189Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The source distinguishes the caller's guarded selection and reduction logic from the target's unconditional state-entry and rate-setting sequence."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_IASA"
+    },
+    "facts": [
+      {
+        "id": "fact:d253e36b-f8d9-4b1c-91b3-9c18150ae555",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a `Fighter_GObj*` through the action-state callback interface but does not dereference or forward it, read fighter input or state, call another routine, mutate data, or produce an output.",
+        "rationale": "The complete matched body contains no statements. Consequently the incoming fighter object terminates at this callback without any data access, transformation, or side effect.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:16:51.153Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L73-L73",
+            "why": "The one-line definition shows that the sole parameter is ignored and that the function performs no operations."
+          }
+        ]
+      },
+      {
+        "id": "fact:ce7ecc68-d139-4fb9-8983-8f47027f8dce",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Represents the input-interrupt phase of Melee's common aerial landing-lag states, with no interrupt behavior implemented during that phase; landing-lag recovery is therefore not shortened by an action transition originating from this callback.",
+        "rationale": "The enclosing unit enters attack-specific LandingAir motions with configured lag durations, and the target is their explicitly empty IASA callback. The mechanics reference defines IASA as the phase in which a new action can cancel the remainder of an animation, so the absence of any checks or transitions means this callback provides no such cancellation during aerial landing lag.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T00:16:51.153Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "Shows attack-specific LandingAir state entry with lag values and the shared LandingAir IASA callback's empty body."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://interruptibility~overview@r1927829",
+            "why": "Defines IASA and the first actionable frame as the point where a new action may cancel the remainder of the current animation."
+          }
+        ]
+      },
+      {
+        "id": "fact:54a3cb7a-74e4-4ffd-8334-13c20fe89269",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state IASA callback with signature `void (Fighter_GObj* gobj)`; it accepts the fighter object but leaves it unused.",
+        "rationale": "The matched declaration directly establishes the void return and `Fighter_GObj*` parameter, and the empty body establishes that the argument is not consumed.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:16:51.153Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L73-L73",
+            "why": "Contains the complete function signature and empty body."
+          }
+        ]
+      },
+      {
+        "id": "fact:a86d262e-21ff-4fab-93b5-fec7ecbba523",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Fills the IASA callback role for the common aerial-attack landing states with a no-op, so this callback supplies no input-driven interruption or transition while a fighter is serving aerial landing lag.",
+        "rationale": "The complete function body is empty, while its name and placement between the LandingAir animation and physics callbacks identify it as the IASA phase of the common aerial-landing callback group. Therefore it exists to occupy that callback role without accepting any interrupting action.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:16:51.153Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "Shows the common aerial-landing state-entry subsystem and the complete callback group, including the empty LandingAir IASA callback between animation and physics processing."
+          }
+        ]
+      },
+      {
+        "id": "fact:703b05e0-2aa8-49f3-bfe4-8679a0c23b6a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Performs no guards, input checks, or state transitions whenever a LandingAir state invokes its IASA phase. The aerial-landing state instead progresses through the neighboring animation callback, which delegates completion handling to the ordinary landing subsystem, while physics and collision are likewise handled by their dedicated callbacks.",
+        "rationale": "The IASA body is empty, proving that it cannot initiate a transition. The surrounding callback group delegates animation, physics, and collision work to the common Landing handlers, locating aerial-landing progression and exit behavior outside this function.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T00:16:51.153Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "Shows the empty IASA callback and the neighboring LandingAir animation, physics, and collision callbacks that delegate to ordinary landing processing."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Phys"
+    },
+    "facts": [
+      {
+        "id": "fact:9810629b-70b7-4cb7-b8b5-6c48b13db577",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj pointer unchanged and passes it to ftCo_Landing_Phys, which passes the same object to ft_80084F3C. That helper obtains the Fighter and its common attributes, selects the character's ground-friction value, scales that friction by p_ftCommonData->friction_when_above_walk_speed when the magnitude of ground velocity exceeds maximum walking speed, applies the friction to the fighter, and then applies ground movement. The target itself performs no local reads, writes, guards, or return-value processing.",
+        "rationale": "The target and intermediate landing routine remain one-call forwarding wrappers. At the current head, the final helper still consumes ground velocity, maximum walking speed, ground friction, and the now-named above-walk-speed friction multiplier before applying friction and ground movement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:03:24.380Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L75-L78",
+            "why": "The complete target body passes its Fighter_GObj parameter unchanged to ftCo_Landing_Phys."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L85-L160",
+            "why": "The ordinary landing physics callback passes the same Fighter_GObj directly to ft_80084F3C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L60",
+            "why": "The current ft_80084F3C body reads ground velocity, maximum walking speed, ground friction, and friction_when_above_walk_speed, then applies ground friction and ground movement."
+          }
+        ]
+      },
+      {
+        "id": "fact:5ddf00c5-eaa5-46da-ab2f-15ec6594e5d5",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the grounded movement and deceleration portion of Melee's aerial landing-lag states: during the attack-specific landing animation, the fighter uses the same ground-friction and ground-movement processing as an ordinary landing.",
+        "rationale": "The relocated LandingAir unit still assigns this function to attack-specific aerial landing states, and the current delegated helper still applies grounded friction and movement. The mechanics reference identifies these as the unique landing animations used when an aerial's landing-lag flag is active.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T19:03:24.380Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The current unit enters attack-specific LandingAir states and defines this routine as their common physics callback."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://lag~aerial-landing@r2044182",
+            "why": "The mechanics reference explains that landing while an aerial attack's landing flag is active produces an attack-specific landing animation with its own lag."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L60",
+            "why": "The current delegated physics helper applies the fighter's ground friction and then ground movement."
+          }
+        ]
+      },
+      {
+        "id": "fact:320e52f7-fbf9-4132-9268-6a1d3f8eaac9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state physics callback with signature void(Fighter_GObj* gobj): it receives the fighter's game object and returns no value.",
+        "rationale": "The matched definition explicitly has a void return type and one Fighter_GObj* parameter. Its placement between the LandingAir IASA and collision callbacks, together with its Phys suffix and delegation to the ordinary landing physics callback, establishes the callback category.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:17:45.947Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The resolved unit shows the function's exact signature and its position in the LandingAir animation, IASA, physics, and collision callback family."
+          }
+        ]
+      },
+      {
+        "id": "fact:0a4c1602-725b-4523-98c6-7fecde9a7c7d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Supplies the per-frame physics callback for common aerial-attack landing states by forwarding the fighter object to the ordinary landing physics routine, thereby reusing the standard grounded friction and movement step rather than defining aerial-landing-specific physics.",
+        "rationale": "The target remains an unconditional forwarding wrapper around ftCo_Landing_Phys. At the current head, that routine still delegates to ft_80084F3C, whose implementation applies character ground friction and ground movement.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:03:24.380Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L75-L78",
+            "why": "The complete target body forwards the fighter game object directly to ftCo_Landing_Phys and performs no other operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L85-L160",
+            "why": "The ordinary landing source defines ftCo_Landing_Phys as a wrapper around ft_80084F3C."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/ft_084E.c#L1-L60",
+            "why": "The current ft_80084F3C implementation applies ground friction, including an above-walk-speed multiplier, and then applies ground movement."
+          }
+        ]
+      },
+      {
+        "id": "fact:bc68dd22-a745-4992-bbdb-c7868e3addd2",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Phys",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "While an aerial-attack landing state is active, this callback unconditionally performs the ordinary landing state's grounded physics step each frame. It contains no state guard, timer, input handling, or transition of its own; animation completion and ground collision behavior are handled by the separate LandingAir animation and collision callbacks.",
+        "rationale": "The target has no branch or state-changing call and delegates only to the ordinary landing physics callback. The surrounding LandingAir callback family separately delegates animation and collision processing, while its IASA callback is empty.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:17:45.947Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "The complete unit shows the target's unconditional physics delegation and assigns animation, IASA, and collision behavior to separate callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L85-L160",
+            "why": "The ordinary landing implementation separates animation completion, input handling, physics, and collision into distinct callbacks, confirming that the delegated routine is only the physics step."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c"
+    },
+    "facts": [
+      {
+        "id": "fact:22659590-1694-496b-9ff7-7b9b4ef16f3d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c",
+        "type": "data_flow",
+        "value": "Reads the fighter's command variable, current motion ID, per-aerial common attributes, and x67F timing value together with shared thresholds and scaling constants. It converts those inputs into a landing motion ID and lag duration, passes them to Fighter_ChangeMotionState, and converts the selected lag into an animation rate. Subsequent animation, physics, and collision callbacks delegate to the ordinary landing subsystem.",
+        "rationale": "Every listed input, transformation, and consumer remains explicit in the current source.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T03:49:15.352Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "Shows command, motion, lag, and timing inputs becoming a landing state and animation rate."
+          }
+        ]
+      },
+      {
+        "id": "fact:0e6c4800-ba6c-4d45-9b8f-31b38bbc14b2",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c",
+        "type": "game_mapping",
+        "value": "Realizes Melee's aerial landing-lag system, including attack-specific landing durations, auto-canceling through the normal-landing fallback when the landing-lag command is inactive, and the timed lag reduction used by L-canceling.",
+        "rationale": "The current code gates attack-specific landing lag on an animation command, falls back to ordinary landing otherwise, and applies a timing-conditioned divisor to the selected lag.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T03:49:15.352Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "Implements command-gated aerial landing lag, timed lag reduction, and basic-landing fallback."
+          }
+        ]
+      },
+      {
+        "id": "fact:ee1682bf-5456-46f7-90ec-924074f455f5",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c",
+        "type": "purpose",
+        "value": "Implements the common fighter subsystem for entering and maintaining aerial-attack landing states. It selects an attack-specific landing motion and lag when applicable, configures that state's animation rate, and otherwise falls back to an ordinary landing.",
+        "rationale": "The relocated unit still maps each standard aerial attack to its landing state and lag, configures animation rate, and supplies the aerial-landing callbacks.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T03:49:15.352Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "Shows attack-specific landing dispatch, lag-dependent state entry, fallback, and callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:28de86a3-21d4-441d-8945-59c274db728f",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c",
+        "type": "state_behavior",
+        "value": "When aerial landing lag is enabled and the current motion is neutral, forward, back, up, or down aerial, the unit enters the corresponding LandingAir state with that move's configured lag. A qualifying x67F timing condition divides and truncates the lag and clamps a sub-one result to one frame. Otherwise it enters basic landing. The resulting aerial-landing state has no IASA behavior of its own and reuses ordinary landing animation, physics, and collision behavior.",
+        "rationale": "The current switch, reduction calculation, fallback, empty IASA callback, and delegated callbacks directly preserve these rules.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T03:49:15.352Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_LandingAir.c#L14-L83",
+            "why": "Shows all aerial guards, lag transformation, ordinary-landing fallback, and callback delegation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Anim#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Coll#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithLag#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_EnterWithMsidLag#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_IASA#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_LandingAir:ftCo_LandingAir_Phys#r3"
+    },
+    "facts": []
+  }
+]

@@ -1,0 +1,99 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_Jump",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L101-L165",
+            "why": "Complete initializer, timer/audio guards and ordinary caller."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_ItemScrew.c#L21-L29",
+            "why": "ItemScrew caller supplies false and x800."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerJump.c#L25-L36",
+            "why": "HammerJump caller supplies false and unity."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces overbroad repeat-suppression and boundedness language with literal behavior and verified external consumers.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Jump:ftCo_800CB110"
+        },
+        "type": "purpose",
+        "value": "Shared launch initializer used after ordinary Jump, ItemScrew, and HammerJump motion entry. It initializes self velocity from existing horizontal momentum, stick input, character attributes, jump.x0 and a caller-supplied multiplier; clears jump.x4, stores the multiplier, writes the vertical-stick timer to 0xFE, and optionally requests audio. It does not choose a motion state. The timer write is not an unconditional repeat-input guarantee, and a symmetric speed-cap interpretation requires suitable finite inputs and a nonnegative cap."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L101-L151",
+            "why": "All reads, arithmetic, comparisons, assignments and optional audio paths are present in the complete body."
+          }
+        ],
+        "op": "write",
+        "rationale": "Records exact arithmetic order and intermediate overwrite instead of assuming all floats yield a conventional clamp or asserting an unverified compiled overlay.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Jump:ftCo_800CB110"
+        },
+        "type": "data_flow",
+        "value": "Clears jump.x4 and stores jump_mul. Scales old self_vel.x by ground_to_air_jump_momentum_multiplier * jump_mul, executes self_vel.y *= common x438, and sets self_vel.z to 0. It subsequently overwrites Y with jump_mul times hop_v_initial_velocity if jump.x0 is nonzero, otherwise jump_v_initial_velocity; the x438-scaled old Y does not contribute to final Y. Horizontal candidate is scaled old X plus jump_mul * (stickX * jump_h_initial_velocity). If ABS(candidate) > jump_h_max_velocity * jump_mul, it replaces the candidate with negative cap when candidate < 0, positive cap otherwise. Equality is unchanged. No scale/NaN/infinity validation occurs. It writes timer 0xFE; arg1 gates configured x10 audio and additionally non-null x197C gates SFX 0x11A. The compiled correspondence of jump.x0 to KneeBend's release latch is unresolved."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L101-L151",
+            "why": "Local reset, selection, cap, timer and audio behavior."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L192-L201",
+            "why": "Consumer of the x4 reset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves verified local state behavior while qualifying float assumptions and avoiding a compiled short-hop-overlay claim.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Jump:ftCo_800CB110"
+        },
+        "type": "state_behavior",
+        "value": "Per invocation, resets jump.x4, records the multiplier, installs launch velocity using jump.x0 as the hop-attribute selector, and sets the stick-Y tilt timer to 0xFE. It neither changes motion state nor modifies jump.x0. Audio executes only when arg1 is true; the additional 0x11A request also requires x197C != NULL. Horizontal clamping is a strict ABS(candidate) > cap test and is only a conventional symmetric clamp for a valid nonnegative cap; exceptional or negative inputs are not rejected. Resetting x4 causes the next Jump_Phys_Inner invocation with the flag still clear to set it and skip ft_80084DB0."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L174-L201",
+            "why": "Exact ordered chain, repeated x4 reads and physics gate."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Jump.c#L101-L108",
+            "why": "Initializer resets the phase flag."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces mixed inferred external names with exact canonical call ordering and identifies the precise phase-gate consumers without claiming a scheduler-wide frame delay.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_Jump:ftCo_Jump_IASA"
+        },
+        "type": "state_behavior",
+        "value": "Tests in order ftCo_SpecialAir_CheckInput, ftCo_80095328(gobj,NULL), ftCo_800D7100, ftCo_800C3B10, ftCo_80099A58, ftCo_AttackAir_CheckItemThrowInput, ftCo_800D705C, jump.x4 && ftCo_800CEE70, jump.x4 && ftPe_8011BA54, and ftCo_800CB870. Each true result returns immediately. It then returns if jump.x4 is clear; otherwise it tests ftPe_8011BAD8. The flag is read at each guard, not snapshotted. The ftCo_800CB870 call is not x4-gated by this caller. Numeric external-handler gameplay aliases remain unproved here. The initializer clears x4, and the first inner physics invocation encountering it clear sets it and returns."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,1928 @@
+{
+  "main/melee/lb/lbmemory:.bss": [
+    {
+      "id": "fact:3d3b76e6-7631-4897-95d0-34f14afd66ea",
+      "target_id": "target:data:main/melee/lb/lbmemory:.bss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`lbMemory_8001564C` stores ARAM bounds, links 131 allocation descriptors and six heap descriptors into free lists, clears counters and copy state, and installs a root heap. Allocating moves descriptors into address-ordered heap lists; freeing and destruction return them. Compaction retains callback and packed-address state and routes relocation through DevCom or the embedded alarm-driven RAM-copy manager.",
+      "rationale": "Initialization, allocation, free, and compaction paths at head still provide the complete flow through the singleton.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows descriptor movement, counter updates, and copy-manager progress."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows retained compaction state and dispatch through main-RAM and ARAM transfer paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L341-L371",
+          "why": "Shows current ARAM-bound discovery, descriptor-pool initialization, root-heap installation, and idle copy state."
+        }
+      ]
+    },
+    {
+      "id": "fact:61751a85-c546-49a8-a175-f285440baf0f",
+      "target_id": "target:data:main/melee/lb/lbmemory:.bss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Stores runtime state for Melee's custom main-RAM and ARAM heap-management backend, including fragmentation recovery by relocating live allocations. It is engine resource-memory infrastructure rather than a player-facing mechanic.",
+      "rationale": "The singleton is initialized from Dolphin ARAM APIs and supports allocation and address-domain-dependent compaction across ARAM and main RAM.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows compaction choosing DevCom for ARAM-domain addresses and alarm-driven copying for main RAM."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L341-L371",
+          "why": "Shows initialization from the Dolphin AR API and construction of the allocator state."
+        }
+      ]
+    },
+    {
+      "id": "fact:4d66020f-1f80-4c50-a854-f8e3ed70fd3f",
+      "target_id": "target:data:main/melee/lb/lbmemory:.bss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "One zero-initialized global `struct Allocator` of size `0x6F0`. It contains two arena bounds, 131 `MemEntry` descriptors, allocation free-list and counters, six `Handle` heap descriptors, a heap free-list, the installed root handle, an `LBMgr` asynchronous-copy record, compaction context fields, and four trailing bytes.",
+      "rationale": "The declarations and size assertion at head directly establish the singleton's complete layout, dimensions, and total size.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Defines the complete `Allocator` layout, the singleton object, both pool dimensions, and its `0x6F0` size assertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:56d0f8d0-cf80-4dfb-ae4b-011b50e86e3e",
+      "target_id": "target:data:main/melee/lb/lbmemory:.bss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides lbMemory's singleton mutable allocator state: ARAM bounds, fixed allocation- and heap-descriptor pools, free-list heads, allocation counters, the installed root heap, asynchronous RAM-copy state, and heap-compaction callback state.",
+      "rationale": "The current declaration assigns all of these fields to the singleton, and the neighboring creation and destruction code mutates its free lists and allocation accounting.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Defines the singleton's arena bounds, descriptor pools, counters, root handle, asynchronous-copy record, and compaction fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows allocation, freeing, accounting, and alarm-driven copying operating on the singleton."
+        }
+      ]
+    },
+    {
+      "id": "fact:476f0fcb-53dc-4d29-877c-9655c891a069",
+      "target_id": "target:data:main/melee/lb/lbmemory:.bss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Initialization establishes both descriptor free lists, zero allocation statistics, an installed root ARAM heap, and an idle copy manager with `size == 0`. Descriptors subsequently alternate between free and active lists. During compaction, nonzero copy size denotes the single active main-RAM transfer; its offset advances by at most `0x19000` bytes per three-millisecond alarm until completion clears the size and continues compaction.",
+      "rationale": "The current initialization and callback code preserve the previously recorded allocator and asynchronous-copy state transitions.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows descriptor transitions and the copy manager's active guard, chunking, progress, rearming, and completion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L341-L371",
+          "why": "Shows initialization of free lists, counters, root heap, and idle copy-manager state."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:.data": [
+    {
+      "id": "fact:f1837932-2f48-4b32-b71f-9dc2dc371fd0",
+      "target_id": "target:data:main/melee/lb/lbmemory:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Pointers into the section flow to assertion and report interfaces on failure paths. An unsuccessful free passes its format string and missing address to `OSReport`; successful allocator operations neither modify nor use the section as bookkeeping state.",
+      "rationale": "The current failure paths consume diagnostic strings, whereas allocator lists, counters, and transfer progress are stored in the BSS singleton.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows assertion reporting and the failed-free OSReport call alongside normal singleton mutations."
+        }
+      ]
+    },
+    {
+      "id": "fact:1e3d60fb-097b-421f-b41d-bede0344b31e",
+      "target_id": "target:data:main/melee/lb/lbmemory:.data",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides developer-facing invalid-free and invariant-failure diagnostics for Melee's custom main-RAM/ARAM allocator, with no direct player-facing gameplay effect.",
+      "rationale": "All demonstrated consumers are diagnostic paths inside custom allocation, deallocation, and asynchronous-copy code.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Places the diagnostic text in allocator assertion and invalid-free paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:8a32c170-9128-4385-abb8-478e53b61fdf",
+      "target_id": "target:data:main/melee/lb/lbmemory:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An initialized-data aggregate of NUL-terminated strings used as assertion metadata and as the printf-style invalid-free report format; it contains diagnostic text rather than mutable allocator records.",
+      "rationale": "The current source shows string-bearing assertion and report sites, while the exact-match record establishes that the initialized bytes belong to this section.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows the report literal and assertion expressions that generate diagnostic string data."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2500--fn--main-melee-lb-lbmemory-data--578c3c013ef2",
+          "why": "Confirms ownership of the matched `.data` bytes."
+        }
+      ]
+    },
+    {
+      "id": "fact:501fdb74-13c9-4824-a35d-e4cb3d79bd10",
+      "target_id": "target:data:main/melee/lb/lbmemory:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Owns initialized diagnostic text for allocator assertions and the formatted error emitted when `lbMemFreeToHeap` cannot find the requested address.",
+      "rationale": "The current source retains the assertion metadata and named invalid-free report while mutable allocator state remains in the separate singleton.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows allocator assertions and the `[LbMem] Error: lbMemFreeToHeap` format passed to OSReport."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2500--fn--main-melee-lb-lbmemory-data--578c3c013ef2",
+          "why": "Identifies the matched target as lbmemory's initialized `.data` section."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:.sdata": [
+    {
+      "id": "fact:e7ab4f98-0f7a-48fd-8e3f-13a5bd203296",
+      "target_id": "target:data:main/melee/lb/lbmemory:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The strings flow only into assertion reporting when allocator invariants fail. Successful creation, allocation, freeing, compaction, and copying instead move live values through the allocator singleton.",
+      "rationale": "At head, diagnostic operands occur on guarded assertion paths while normal state flows through `lbMemory_804318B0` and its embedded manager.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows assertion metadata on failure paths and normal allocator mutations in the singleton."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows compaction state and callbacks flowing through Allocator fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:e92fa636-6b0c-4dcd-87d5-aab6757d7ee6",
+      "target_id": "target:data:main/melee/lb/lbmemory:.sdata",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides developer-facing invariant diagnostics for Melee's custom main-RAM and ARAM heap-management subsystem, with no direct player-facing gameplay effect.",
+      "rationale": "The section's supported uses are assertions in the custom allocator identified by both source behavior and community discussion.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Places the relevant assertions in allocation, deallocation, and copy-manager code."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1390605238318268499",
+          "why": "Identifies lbmemory/lbheap as one of Melee's custom allocation systems."
+        }
+      ]
+    },
+    {
+      "id": "fact:f2c2af39-9598-4822-9803-165f5e069e50",
+      "target_id": "target:data:main/melee/lb/lbmemory:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 24-byte small-data aggregate of NUL-terminated character strings used for short `HSD_ASSERT` expression metadata, not pointers, descriptors, counters, bounds, or transfer progress.",
+      "rationale": "The current source continues to use short assertion-expression operands throughout the allocator while defining all mutable allocator bookkeeping in the separate BSS singleton; the section target remains 24 bytes at head.",
+      "confidence": 0.88,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows short `HSD_ASSERT` operands and separately defines the mutable `Allocator` singleton and its fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows additional short assertion-expression operands in allocation, freeing, and copy-manager paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:50d5934d-da30-4913-be0e-54448a6c7ac0",
+      "target_id": "target:data:main/melee/lb/lbmemory:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Owns lbmemory's small initialized assertion metadata, supplying short diagnostic strings for allocator invariants rather than mutable bookkeeping or transfer state.",
+      "rationale": "Current allocator assertions supply short expression strings, the singleton separately owns all live state, and the exact-match record identifies these bytes as `.sdata`.",
+      "confidence": 0.91,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows short assertion operands and separately maintained allocator state."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-2500--fn--main-melee-lb-lbmemory-sdata--f4f88a5e1cd8",
+          "why": "Identifies and confirms the matched lbmemory `.sdata` target."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:fn_80015184": [
+    {
+      "id": "fact:3a1a6e55-7433-4ecd-8d21-f15cbab1a886",
+      "target_id": "target:function:main/melee/lb/lbmemory:fn_80015184",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`start_ram_copy` stores source, destination, size, zero offset, next allocation, and `lbMemory_80015320` in `LBMgr`. The callback copies `min(size-offset, 0x19000)` bytes, advances the offset, and on completion passes the saved next allocation to the continuation.",
+      "rationale": "Current setup and callback code preserve the complete transfer-state flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows manager fields feeding memcpy and completion callback arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows initialization of every manager field from compaction relocation inputs."
+        }
+      ]
+    },
+    {
+      "id": "fact:dad79b04-d443-4c33-8e58-968a8ba1f4a4",
+      "target_id": "target:function:main/melee/lb/lbmemory:fn_80015184",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the time-sliced main-RAM movement portion of Melee's custom heap compaction, limiting each slice to `0x19000` bytes every three milliseconds; ARAM moves use DevCom instead.",
+      "rationale": "The compactor still selects this alarm path for main-RAM addresses and DevCom for the lower ARAM address domain.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows the chunk limit and three-millisecond alarm interval."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows address-domain-dependent dispatch between DevCom and the RAM-copy manager."
+        }
+      ]
+    },
+    {
+      "id": "fact:cff46604-faf9-4c51-a753-4d67e0e06a7e",
+      "target_id": "target:function:main/melee/lb/lbmemory:fn_80015184",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemory_RamCopyCallback",
+      "rationale": "The routine's handler signature, self-registration, and use by `start_ram_copy` support the role, though the exact original spelling remains unrecovered.\n\nNaming cleanup: Recognized leading_name form; no lexical audit flags.\nPrior naming claim: `lbMemory_RamCopyCallback` is a plausible original name for this OS alarm callback that advances lbMemory's asynchronous main-RAM copy.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows the routine acting as a self-rescheduling OS alarm callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows `start_ram_copy` selecting the routine for main-RAM relocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:73da1926-1fc8-4cc5-bf61-1cf2895eac03",
+      "target_id": "target:function:main/melee/lb/lbmemory:fn_80015184",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An OS alarm handler with signature `void (OSAlarm* alarm, OSContext* context)`. Both parameters are unused; transfer state comes from the singleton `LBMgr`, whose stored continuation has the effective four-argument DevCom callback signature.",
+      "rationale": "The definition provides the handler signature and accesses only global manager state, while setup stores `lbMemory_80015320` as the continuation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Provides the alarm-handler signature and global manager accesses."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows the stored continuation and OS alarm registration."
+        }
+      ]
+    },
+    {
+      "id": "fact:46f04c12-5553-418b-a620-005d078d33bd",
+      "target_id": "target:function:main/melee/lb/lbmemory:fn_80015184",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Services the alarm-driven main-RAM copy used by heap compaction, copying the next bounded chunk, notifying the retained continuation on completion, or scheduling another alarm.",
+      "rationale": "The current handler still performs bounded memcpy, progress update, completion callback, and self-rearming.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Contains the complete alarm handler and its copy, completion, and rescheduling branches."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows compaction initializing the manager and registering this handler for main-RAM relocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:c8b845ae-80ba-4863-9e22-f8bec0930276",
+      "target_id": "target:function:main/melee/lb/lbmemory:fn_80015184",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Requires an active transfer (`LBMgr.size != 0`) and advances it by at most `0x19000` bytes per invocation. Completion clears `size` before invoking the continuation; otherwise the function rearms itself for three milliseconds later.",
+      "rationale": "The current handler directly retains the active guard, chunk limit, idle transition, callback, and delayed continuation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows all active-transfer, progress, completion, and rearming transitions."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemFreeToHeap": [
+    {
+      "id": "fact:f21d86bf-47be-4d07-978d-5fb6ac4af911",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemFreeToHeap",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The heap handle supplies the head of an address-ordered allocation-record list, and the allocation pointer is compared unchanged against each record's base address. On a match, the predecessor link is rewritten to bypass the record, that record becomes the new head of the global `free_mem` list, and the global live-allocation count decreases by one. On failure, the pointer flows into the diagnostic report before assertion.",
+      "rationale": "Every input, list mutation, and output side effect is explicit in the matched body. The lbHeap caller additionally establishes that the two arguments originate from a selected custom heap record and the address being deallocated.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:07:09.422Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L171-L188",
+          "why": "Traces both inputs through list traversal, predecessor-link replacement, free-list insertion, count mutation, and diagnostic reporting."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L211-L226",
+          "why": "Shows the custom heap handle and deallocation address supplied by the higher-level heap manager."
+        }
+      ]
+    },
+    {
+      "id": "fact:cc4b0a44-be09-4474-8137-7bb25da4f820",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemFreeToHeap",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements deallocation for Melee's custom main-RAM and ARAM arena heaps. It is the low-level reclamation operation selected by lbHeap for non-HSD heaps and is engine resource-lifecycle infrastructure.",
+      "rationale": "The current lbHeap dispatcher still sends custom-heap frees to this function, which recycles the matching allocation descriptor.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows concrete reclamation of a custom allocation descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Shows lbHeap selecting this routine for non-HSD deallocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:2d9b9d75-5152-4744-8e12-1b3d8cf9fb97",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemFreeToHeap",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Effective signature: `void (Handle* heap, void* allocation)`. The first parameter must be an active lbMemory heap handle whose `xC_prev` field heads an allocation-record list; the second parameter is the exact base address returned for an allocation, not an interior pointer. The function returns no value.",
+      "rationale": "The matched definition supplies the return and parameter types. It reads the first argument's allocation-list head and accepts the second argument only when it exactly equals an allocation record's `x4_lo`; the lbHeap caller supplies a custom heap handle and a generic allocation address.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:07:09.422Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L171-L188",
+          "why": "Provides the exact signature and proves that the pointer must equal a record's starting-address field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L211-L226",
+          "why": "Shows a custom heap record's `Handle*` and the caller's generic allocation pointer flowing into the two parameters."
+        }
+      ]
+    },
+    {
+      "id": "fact:c522a9c9-adba-4825-931b-e12cdef076a8",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemFreeToHeap",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Frees one allocation from a custom lbMemory heap by locating the active allocation record whose starting address equals the supplied pointer, unlinking that record from the heap, and returning its descriptor to the allocator's free-descriptor pool. A pointer not owned by the heap is treated as a fatal allocator error.",
+      "rationale": "The matched body traverses the heap's allocation list, compares each record's base address with the second argument, unlinks the matching record, pushes it onto `free_mem`, and decrements the allocation count. Exhausting the list produces a named diagnostic followed by an assertion.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:07:09.422Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L171-L188",
+          "why": "Directly shows lookup by allocation base address, unlinking, descriptor recycling, accounting, and the fatal not-found path."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L211-L226",
+          "why": "Shows lbHeap invoking this function as the deallocator for a selected custom-memory heap."
+        }
+      ]
+    },
+    {
+      "id": "fact:53ecc381-b33c-4dcc-a276-a92e64aefbb2",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemFreeToHeap",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has two terminal outcomes. A matching allocation transitions from the heap's active list to the reusable descriptor pool, decrements the live-allocation count, and returns immediately. If no record has the requested base address, allocator state is left unchanged and execution reports the bad pointer and fails an assertion.",
+      "rationale": "The successful branch performs all state mutations only after an exact address match and then returns. The loop-exhaustion branch performs no list or counter mutation before the report and unconditional assertion.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:07:09.422Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L171-L188",
+          "why": "Shows the successful active-to-free transition and the mutation-free report/assert outcome when lookup fails."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_80014E24": [
+    {
+      "id": "fact:e7ad1490-fec1-4dee-b7df-5d4faee2c7fe",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014E24",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The bounds flow into `Handle.x4_lo` and `Handle.x8_hi`; one descriptor moves from `free_heap` to the caller with cleared linkage and allocation-list head. Startup passes the discovered ARAM bounds and stores the returned handle as the allocator's initial root.",
+      "rationale": "At head the wrapper still forwards both bounds to `new_handle`, which claims and initializes a pooled descriptor; startup still passes its ARAM bounds and retains the result as `x69C`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows both bounds entering `new_handle`, one descriptor leaving `free_heap`, and the initialized descriptor being returned."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L336-L371",
+          "why": "Shows startup passing the discovered ARAM bounds to this function and storing its result as the root handle."
+        }
+      ]
+    },
+    {
+      "id": "fact:1f0bef40-6655-435e-8cc4-fe4d5a0985dd",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014E24",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the heap-creation primitive for Melee's custom main-RAM and ARAM heap-management infrastructure; startup uses it to establish the initial root ARAM heap.",
+      "rationale": "Current initialization creates the allocator's root handle from ARAM bounds through this routine.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L341-L371",
+          "why": "Shows creation of the initial root heap from the discovered ARAM interval."
+        }
+      ]
+    },
+    {
+      "id": "fact:61e12639-5812-434a-b233-45e7303a0f07",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014E24",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemCreateHeap",
+      "rationale": "The function creates and returns an empty bounded heap handle, while the surviving neighboring `lbMemFreeToHeap` symbol supports the `lbMem` prefix and heap terminology; the exact original spelling remains uncertain.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `lbMemCreateHeap`.",
+      "confidence": 0.72,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows the routine creating and returning an empty bounded heap descriptor from the reusable handle pool."
+        }
+      ]
+    },
+    {
+      "id": "fact:cec0cbfe-1bf9-4d64-855f-fb5091a86e07",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014E24",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `Handle* (void* arenaLo, void* arenaHi)`. The parameters delimit a half-open arena, and the result is an empty pooled heap descriptor rather than an allocated block.",
+      "rationale": "The current definition supplies the exact signature, and `new_handle` stores the two bounds and initializes an empty allocation-list head in the returned descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Provides the signature and shows the bounds and empty allocation-list state written into the returned `Handle`."
+        }
+      ]
+    },
+    {
+      "id": "fact:51c4de5f-f8c9-4e85-a4b0-cd9ebcefd3db",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014E24",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Creates an empty bounded lbMemory heap by claiming a pooled heap descriptor, recording lower and upper arena bounds, clearing its allocation-list head, and returning it.",
+      "rationale": "The wrapper at head still delegates directly to `new_handle`, whose body performs the complete pooled-descriptor initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows the wrapper and the helper that claims, bounds, clears, and returns the heap descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:f97ef0f6-0bbd-4ca8-a4e6-61ab21fc0955",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014E24",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Creation requires a nonempty heap-descriptor pool. If both bounds are below `0x80000000`, they must lie within the initialized ARAM arena. Success moves one descriptor from `free_heap` to an active empty-heap state without changing allocation counts.",
+      "rationale": "The current helper preserves the pool assertion, conditional ARAM-range assertion, free-to-active descriptor transition, and empty-list initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows the descriptor-pool and ARAM-range guards followed by removal from `free_heap` and initialization as an empty active heap."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_80014EEC": [
+    {
+      "id": "fact:4e55b5f2-d9a7-4f5e-8b84-b49289689afa",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014EEC",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The input heap's `xC_prev` list head feeds a traversal through each allocation record's `x0_next`. Every visited record is prepended to the global `free_mem` list and subtracts one from `x630_num_allocs`; after traversal, the original heap handle is prepended to `free_heap`. At the higher layer, the caller then replaces its stored handle with `(Handle*) -1` and marks the heap record destroyed.",
+      "rationale": "The target explicitly traces the active-list nodes into the free-descriptor list and the heap descriptor into the free-handle list. The caller shows how completion propagates into the logical heap record's handle and status fields.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:34:52.463Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L85-L97",
+          "why": "Shows the complete descriptor-list traversal, both free-list insertions, and per-allocation counter decrement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L36-L71",
+          "why": "Shows the caller supplying the custom heap handle and invalidating its external reference after destruction."
+        }
+      ]
+    },
+    {
+      "id": "fact:b52ebb92-9f2f-4ed1-b115-a05a8279f0ba",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014EEC",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements whole-heap teardown for Melee's custom main-RAM and ARAM allocator, reclaiming all allocation metadata and the heap descriptor when a logical resource heap is destroyed.",
+      "rationale": "The target still recycles every allocation descriptor and the heap handle, while lbHeap continues to select it as the custom-memory backend parallel to `OSDestroyHeap`.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows complete reclamation of a custom heap's allocation records and heap descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L32-L271",
+          "why": "Shows lbHeap invoking this routine instead of `OSDestroyHeap` for its custom-memory heap type."
+        }
+      ]
+    },
+    {
+      "id": "fact:2d0bdcbd-d344-4323-af93-067e41a8ed40",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014EEC",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemDestroyHeap",
+      "rationale": "The caller places the function in the custom-backend branch of `lbHeap_DestroyOffsetViewIfCreated`, directly parallel to `OSDestroyHeap`. The recovered neighboring name `lbMemFreeToHeap` establishes the likely `lbMem` subsystem prefix. No surviving symbol establishes the exact spelling, so this remains a semantic inference.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `lbMemDestroyHeap`.",
+      "confidence": 0.76,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L36-L71",
+          "why": "Places the target alongside `OSDestroyHeap` as the operation that destroys a custom heap backend."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L85-L97",
+          "why": "Shows that the operation tears down all allocations and recycles the heap descriptor rather than freeing only one allocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:4e027e57-3f7d-40ec-bd8c-374c8b74b32d",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014EEC",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void (Handle* heap)`. The non-null argument is an active lbMemory heap whose `xC_prev` field heads its allocation list; the routine returns the descriptor to the free-handle pool.",
+      "rationale": "The current definition directly establishes the signature, non-null guard, allocation-list role, and final recycling of the supplied descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Provides the exact signature and shows traversal through `xC_prev` followed by insertion of the argument into `free_heap`."
+        }
+      ]
+    },
+    {
+      "id": "fact:4841fdb5-c7f9-466f-a305-f82f13b81ab7",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014EEC",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Destroys one custom lbMemory heap handle. It releases every allocation descriptor owned by the heap back to the allocator's global free-descriptor pool, updates live-allocation accounting, and returns the heap descriptor itself to the reusable heap-handle pool.",
+      "rationale": "The function traverses the allocation list headed by `handle->xC_prev`, pushes each entry onto `free_mem`, decrements the live-allocation count for each entry, and finally pushes the supplied handle onto `free_heap`. Its sole caller uses it as the non-OS backend of a heap-destruction helper.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:34:52.463Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L85-L97",
+          "why": "Directly shows complete allocation-list reclamation, count adjustment, and recycling of the heap handle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L36-L71",
+          "why": "Shows the higher-level heap manager invoking this routine when destroying a created custom-memory heap."
+        }
+      ]
+    },
+    {
+      "id": "fact:dd9dbbf9-c9a8-46e1-b088-46e240c46794",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014EEC",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A non-null active heap transitions to reusable state in two stages: all of its active allocation descriptors are recycled one by one, then the heap descriptor is recycled. Each reclaimed allocation decrements the global live-allocation count. The routine does not itself clear the caller's handle or heap status; the higher-level destroy helper performs those transitions after the routine returns. A null input fails the entry assertion before any reclamation.",
+      "rationale": "The assertion precedes every mutation, the loop performs one descriptor and counter transition per allocation, and the final push changes the heap descriptor's pool membership. The caller separately performs external-handle invalidation and the created-to-destroyed status transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:34:52.463Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L85-L97",
+          "why": "Shows the entry guard and ordered active-allocation-to-free-pool and active-heap-to-free-pool transitions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L36-L71",
+          "why": "Shows that external handle invalidation and the created-to-destroyed status transition belong to the caller."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_80014F7C": [
+    {
+      "id": "fact:dd0b42a6-1ccd-4209-8e38-71f4586214c9",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014F7C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The heap's lower bound initializes a running end. Each allocation contributes the gap from that end to its start and then advances the end past its size; the upper bound supplies the trailing gap. lbHeap prints the result as available capacity and subtracts it from total size to derive used capacity.",
+      "rationale": "Current target and caller source preserve the arithmetic and both report consumers.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L99-L115",
+          "why": "Traces bounds and allocation fields into the returned free-byte total."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Shows reporting of free capacity and derivation of used capacity."
+        }
+      ]
+    },
+    {
+      "id": "fact:de2dac5d-13f2-428d-b171-95b372fa2cd3",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014F7C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides free-capacity accounting for Melee's custom main-RAM and ARAM heap backend and feeds the developer heap report.",
+      "rationale": "lbHeap still selects the query for custom heaps and reports it beside total main-RAM and ARAM capacity.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Shows the custom-heap query and its developer-report output."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L272-L332",
+          "why": "Shows the report's main-RAM and ARAM total-capacity context."
+        }
+      ]
+    },
+    {
+      "id": "fact:41c52926-fe7c-4f0e-becf-41ad8cbff4f9",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014F7C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemory_GetFreeSize",
+      "rationale": "The function returns aggregate free bytes and lbHeap reports that value as the free component of heap capacity; exact original spelling is unrecovered.\n\nNaming cleanup: Recognized leading_name form; no lexical audit flags.\nPrior naming claim: `lbMemory_GetFreeSize` is a plausible original name.",
+      "confidence": 0.84,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L99-L115",
+          "why": "Shows aggregate free-size computation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Shows the result reported as available bytes and kilobytes."
+        }
+      ]
+    },
+    {
+      "id": "fact:0fb6333c-a0ce-47ed-baab-0a17d5d9e800",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014F7C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "`u32 (Handle* heap)`: the parameter is a bounded lbMemory heap with an address-ordered allocation list, and the result is its total free capacity in bytes.",
+      "rationale": "The definition supplies the exact signature and field interpretation; the caller consumes the result as a byte count.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L99-L115",
+          "why": "Provides the signature and unsigned accumulated result."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Shows the return value used as free bytes."
+        }
+      ]
+    },
+    {
+      "id": "fact:22f7a7b4-db79-4dea-877b-05f310ec0c0b",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014F7C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Calculates total unallocated bytes in an lbMemory heap by summing the gaps before, between, and after its address-ordered live allocations.",
+      "rationale": "The current traversal still accumulates every gap from the lower through upper heap bound.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L99-L115",
+          "why": "Shows the complete free-gap summation."
+        }
+      ]
+    },
+    {
+      "id": "fact:f5bccf33-a6da-43ff-9d41-0b34042c0d54",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014F7C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "This is an observational query and performs no allocator-state transition. An empty allocation list returns the full distance between the heap bounds; otherwise, traversal continues until the null list terminator and includes every leading, interior, and trailing free interval. Adjacent allocations contribute zero for their shared boundary.",
+      "rationale": "The function contains only local assignments and reads from the supplied heap and allocation records. Initializing from the lower bound, selecting the upper bound at the null terminator, and accumulating address differences establish the empty-list and general traversal behavior without modifying any list or counter.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-02T13:34:27.724Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L99-L115",
+          "why": "Shows the null-terminated traversal, boundary fallback, gap arithmetic, and absence of writes to allocator metadata."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_80014FC8": [
+    {
+      "id": "fact:e456e805-07fa-4ad8-b630-204470a3b79d",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014FC8",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "lbHeap supplies a selected custom heap handle and byte count. The count is aligned to 32 bytes; heap bounds and live descriptors produce candidate gaps; the best candidate supplies the new address. A descriptor moves from `free_mem` into the heap list, receives the address and aligned size, and is returned, with type 3 exposing its `x4_lo` address.",
+      "rationale": "The current allocator and caller retain this end-to-end request, descriptor, and return flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Traces alignment, gap selection, and descriptor initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Traces the caller's heap and size inputs and type-3 address conversion."
+        }
+      ]
+    },
+    {
+      "id": "fact:04fd2929-7006-4b67-877c-aa0206cb2b6d",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014FC8",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements block allocation for Melee's custom main-RAM and ARAM heap infrastructure; lbHeap dispatches non-HSD heaps to it and exposes the stored address for the ARAM-style backend.",
+      "rationale": "The current dispatcher still contrasts HSD allocation with this custom backend and handles its descriptor-form result.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Shows unified heap allocation dispatch and type-3 address conversion."
+        }
+      ]
+    },
+    {
+      "id": "fact:b9299686-6bd5-4a3c-9cff-3131fe9907a9",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014FC8",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemAllocFromHeap",
+      "rationale": "The routine allocates from a supplied heap and is the inverse of the surviving adjacent `lbMemFreeToHeap` operation; exact wording remains uncertain.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `lbMemAllocFromHeap`.",
+      "confidence": 0.7,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows both allocation from a heap and the neighboring named free operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:9e6eeb16-cdff-4a55-b822-35e50697ed5f",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014FC8",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Current signature: `Handle* (Handle* heap, size_t size)`. `heap` is a bounded arena descriptor; `size` is a byte count rounded up to 32 bytes. The result is an allocation descriptor whose `x4_lo` is the block address and whose `x8_hi` stores the aligned size.",
+      "rationale": "The current head changed the request parameter to `size_t`; the body and caller establish the remaining field and return semantics.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Provides the current signature, alignment operation, and returned descriptor fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Shows caller parameter roles and conversion of the ARAM backend result to its address."
+        }
+      ]
+    },
+    {
+      "id": "fact:98dd2f48-f444-406c-a612-81a521af90ef",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014FC8",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Allocates a block from an active lbMemory heap by rounding the request to 32-byte alignment, selecting the fitting gap with least leftover space, claiming a descriptor, inserting it into the address-ordered list, and returning it.",
+      "rationale": "The current matched body preserves alignment, best-fit selection, insertion, accounting, and return behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows the complete allocation algorithm and descriptor transition."
+        }
+      ]
+    },
+    {
+      "id": "fact:fc5d4f02-e18f-41d5-be23-390f3b69eda1",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80014FC8",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Allocation requires a free descriptor and a fitting gap. Success moves one descriptor to the heap's active list, increments the live count, and may raise the peak count. Because candidates replace on `leftover <= least_leftover`, the later of equally good gaps wins.",
+      "rationale": "The current body retains both assertions, counter transitions, and tie-breaking comparison.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows allocation guards, tie handling, descriptor transition, and current and peak counters."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_8001529C": [
+    {
+      "id": "fact:2becdd8c-e894-41f1-acc3-4c1f4924ed5d",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001529C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The heap low bound initializes the expected packed address. Each allocation contributes its current address and size; contiguous blocks advance the expected address, while the first displaced block enters the relocation continuation. That continuation updates addresses and uses DevCom for ARAM or alarm-sliced copying for main RAM, retaining the client callback until completion.",
+      "rationale": "The current starter and continuation preserve the complete packed-address and relocation flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows packed-address tracking, address updates, transfer dispatch, and callback completion."
+        }
+      ]
+    },
+    {
+      "id": "fact:f6bff28e-9715-460a-88a6-69597fabaa26",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001529C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the compaction trigger for Melee's main-RAM and ARAM heap infrastructure. The disc preload cache uses it after releasing stale buffers so later resource allocations can use consolidated space.",
+      "rationale": "Current preload cleanup still calls the lbHeap wrapper, while lbMemory packs live blocks using the transfer backend appropriate to their address domain.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L178-L297",
+          "why": "Shows compaction integrated between stale preload-buffer release and new resource allocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows packing through ARAM or main-RAM relocation paths."
+        }
+      ]
+    },
+    {
+      "id": "fact:5ee2f46d-c4a3-413c-acd3-922c7c21a798",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001529C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemory_Compact",
+      "rationale": "The function detects fragmentation and initiates relocation that packs live blocks toward the lower bound; exact spelling remains unrecovered.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original-style name: `lbMemory_Compact`.",
+      "confidence": 0.78,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows packed-address scanning and continuation-driven relocation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Places the routine behind lbHeap's custom-heap compaction interface."
+        }
+      ]
+    },
+    {
+      "id": "fact:ca0d5e5c-1c9d-48d9-bb68-0a52f25c92e8",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001529C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Effective signature: `u32 (Handle* heap, void (*callback)(u32), u32 callback_arg)`. The callback and argument are retained for asynchronous completion; return 1 means relocation started and 0 means no movement was needed.",
+      "rationale": "The current definition supplies the types and result domain, while the continuation invokes the retained one-argument callback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Provides the signature and stored callback/context."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows 0-or-1 returns and eventual one-argument callback invocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:fc23cb5f-eb34-41a7-aae5-a463d869ce5e",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001529C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Begins compaction when an lbMemory heap contains a gap, retaining the completion callback and context, scanning from the heap low bound, and starting asynchronous relocation at the first displaced allocation. It returns 1 when relocation starts and 0 when already contiguous.",
+      "rationale": "The current function directly preserves callback storage, packed-address scanning, relocation dispatch, and boolean-like result.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows callback-state initialization and the beginning of the gap scan."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows the gap test, relocation start, return values, and continuation chain."
+        }
+      ]
+    },
+    {
+      "id": "fact:ffb8f92d-7799-41a3-9bc0-f15ccd298e37",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001529C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A fully contiguous list returns 0 without invoking the callback. The first gap starts relocation and returns 1. Asynchronous continuation skips blocks already at the updated packed address, moves displaced blocks, and invokes the stored callback on reaching the list end. The preload cache treats 0 as immediate progress and 1 as deferred work.",
+      "rationale": "The target, continuation, and preload caller jointly preserve both immediate outcomes and the asynchronous state progression.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows the immediate outcomes and subsequent skip, move, and completion transitions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbdvd.c#L178-L297",
+          "why": "Shows preload allocation proceeding immediately only when compaction returns zero."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_80015320": [
+    {
+      "id": "fact:17b6547f-31be-48ae-af33-083980185997",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80015320",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The global compaction cursor supplies each block's destination, while the handle supplies its old address, size, and next-list pointer. For a displaced block, the routine writes the destination into the handle, advances the cursor by the unrounded block size, rounds the transfer size up to 32 bytes, and sends the old and new addresses to DevCom for sub-0x80000000 storage or to `start_ram_copy` for main RAM. The next handle returns as callback state; at list end, the globally retained callback argument flows into the client's completion callback.",
+      "rationale": "The current compaction starter initializes the persistent cursor and retained callback state. The continuation then traces handle address, size, and next pointer through address replacement, cursor advancement, aligned transfer dispatch, continuation state, and final callback delivery.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T01:46:12.071Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L214-L235",
+          "why": "Shows the starter retaining the client callback and argument, initializing the packed-address cursor, and passing the first displaced handle into the continuation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L254-L290",
+          "why": "Shows old address, destination cursor, block size, and next handle flowing through handle mutation and the DevCom or RAM-copy dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L290-L299",
+          "why": "Shows synchronous advancement to the next handle and terminal delivery of the retained argument to the client's callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:f7ef612b-0ea0-4ba9-b506-c9b484f0f5e3",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80015320",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the relocation continuation for Melee's custom main-RAM and ARAM heap compaction, packing live resource allocations toward the heap's low bound to recover contiguous space from fragmentation. This is engine resource-memory infrastructure rather than a player-facing mechanic.",
+      "rationale": "The current caller initializes the cursor from the arena's low bound and invokes this continuation at the first gap. The continuation moves each displaced allocation toward that cursor, selecting DevCom for the lower ARAM-style address domain and the alarm-sliced path for main RAM.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T01:46:12.071Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Shows gap detection from the heap low bound and the address-domain-dependent relocation chain used to compact live allocations."
+        }
+      ]
+    },
+    {
+      "id": "fact:ba70b742-f01d-4d4e-a14d-676e29024e0f",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80015320",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemory_CompactCallback",
+      "rationale": "The current source installs this routine as the completion callback for both DevCom relocation and the alarm-sliced RAM-copy manager, and each invocation advances or terminates heap compaction. The `lbMemory_` prefix follows the unit convention, but no surviving symbol establishes the exact original wording.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `lbMemory_CompactCallback`.",
+      "confidence": 0.76,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Shows the function serving as both relocation backends' continuation and advancing the compaction traversal from one allocation to the next."
+        }
+      ]
+    },
+    {
+      "id": "fact:5bba4327-7008-4ba9-b90a-945c546e40a1",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80015320",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Effective callback signature: `void (int unused0, Handle* next, int unused2, int cancel_flag)`. It is compatible with the four-argument completion convention used by HSD DevCom and the local RAM-copy manager. `next` is passed through the ABI as an integer-sized callback argument and cast to the next allocation handle; the first and third arguments are unused, and `cancel_flag` must be zero.",
+      "rationale": "The current definition has four parameters, casts the second parameter to `Handle*`, ignores the first and third, and asserts that completion was not cancelled. DevCom receives the same function with the next handle as callback state, while the local RAM-copy manager invokes it with four arguments.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T01:46:12.071Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Shows the four-argument definition, second-argument handle cast, cancellation guard, DevCom callback registration, and local RAM-copy callback convention."
+        }
+      ]
+    },
+    {
+      "id": "fact:ad476baf-d69e-486d-8f2f-3549d4af9d9e",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80015320",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Continues asynchronous compaction of an lbMemory heap. For each remaining allocation, it relocates the block to the next packed address through DevCom or an alarm-sliced main-RAM copy, skips blocks that are already contiguous, and invokes the compaction client's stored callback after reaching the end of the allocation list.",
+      "rationale": "The current compaction starter supplies the first displaced allocation and initializes the packed-address cursor and client callback. The continuation updates displaced handles, dispatches one asynchronous transfer through the address-appropriate backend, advances synchronously past contiguous handles, and calls the client callback at the terminal NULL state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T01:46:12.071Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L201-L321",
+          "why": "Shows compaction initialization, the continuation body, both asynchronous transfer paths, contiguous-block traversal, and terminal callback delivery at the current head."
+        }
+      ]
+    },
+    {
+      "id": "fact:8e9f1de8-32bc-4630-a7dd-43c1e0ed58a4",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_80015320",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each invocation requires a non-cancelled completion. A NULL handle is the terminal state and invokes the stored client callback. A handle already located at the compaction cursor is skipped synchronously after advancing the cursor. A displaced handle transitions immediately to its compacted address, starts exactly one asynchronous transfer, and returns; completion re-enters the routine with the next handle. Sub-0x80000000 moves use DevCom, while main-RAM moves use the singleton alarm-driven copy manager.",
+      "rationale": "The current entry assertion establishes the cancellation guard. The NULL, contiguous, lower-address, and main-RAM branches define the continuation's states, and both asynchronous paths retain the next allocation as the callback state used for re-entry.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T01:46:12.071Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L236-L254",
+          "why": "Shows the singleton RAM-copy manager retaining the next handle and this function as its completion callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L254-L290",
+          "why": "Shows the non-cancellation guard and the displaced-block branches that start exactly one DevCom or main-RAM transfer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L290-L299",
+          "why": "Shows synchronous traversal of an already contiguous handle and the terminal client-callback state."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_800154BC": [
+    {
+      "id": "fact:47ac710a-b7ef-4280-b02e-322209b88f6a",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154BC",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`lbMemory_8001564C` derives the saved lower bound from `ARAlloc(0x20)` and the upper bound from `min(ARGetSize(), 0x01000000)`. This accessor copies them unchanged to its outputs; lbHeap stores them as ARAM partition bounds, and `main` subtracts them for the free-ARAM startup report.",
+      "rationale": "The old oversized gmmain span is gone, but the same startup consumer now resolves at lines 121-200; current initialization and lbHeap code preserve the other ends of the flow.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L359",
+          "why": "Shows AR API values entering saved bounds and the accessor copying them."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L272-L332",
+          "why": "Shows the outputs stored as lbHeap ARAM bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L118-L197",
+          "why": "Shows the current startup location where the returned bounds are subtracted for the ARAM report."
+        }
+      ]
+    },
+    {
+      "id": "fact:9e583cff-54c5-4f32-957f-13088b4774cf",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154BC",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports Melee's engine-level main-RAM and ARAM heap management by exposing the ARAM range used to bootstrap logical heap partitions and report available auxiliary memory.",
+      "rationale": "lbHeap consumes the range alongside its main-RAM arena, while startup uses it only for a memory diagnostic.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L272-L332",
+          "why": "Shows the ARAM bounds entering combined main-RAM/ARAM heap bootstrap."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L118-L197",
+          "why": "Shows the current startup diagnostic use."
+        }
+      ]
+    },
+    {
+      "id": "fact:ee081a90-1247-4724-869f-278514e5eced",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154BC",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemory_GetArena",
+      "rationale": "The routine is a read-only lbMemory accessor for the subsystem's saved arena pair. Its body closely parallels the named `HSD_GetNextArena` accessor, while the local module convention supplies the `lbMemory_` prefix. No surviving symbol or discussion confirms the exact suffix, so this remains a moderate-confidence reconstruction.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original name: `lbMemory_GetArena`.",
+      "confidence": 0.76,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L305",
+          "why": "Shows that the function's sole operation is returning lbMemory's two saved arena bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/initialize.c#L199-L203",
+          "why": "Shows the analogous named `HSD_GetNextArena` routine using the same two-output arena-accessor shape."
+        }
+      ]
+    },
+    {
+      "id": "fact:d3570632-8daf-4e13-8153-033f91ff5e42",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154BC",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void two-output accessor with signature `void (uintptr_t* arenaLo, uintptr_t* arenaHi)`. Both parameters are writable outputs receiving integer-valued ARAM addresses.",
+      "rationale": "The current definition provides the exact signature; current startup supplies `uintptr_t` locals and performs arithmetic on the outputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L305",
+          "why": "Provides the exact signature and output assignments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L118-L197",
+          "why": "Shows the relocated startup caller supplying uintptr_t locals and subtracting the returned bounds."
+        }
+      ]
+    },
+    {
+      "id": "fact:9b3569ac-c9de-4013-80ae-e4a51a81c196",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154BC",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Returns the lower and upper bounds of lbMemory's configured ARAM arena so startup and heap-management callers can discover the custom allocator's available address range.",
+      "rationale": "The accessor still copies the saved bounds, initialization derives them from AR APIs, and lbHeap stores both outputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L359",
+          "why": "Shows the accessor and initialization of the saved ARAM bounds."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L272-L332",
+          "why": "Shows lbHeap storing both returned bounds."
+        }
+      ]
+    },
+    {
+      "id": "fact:318f249d-10b1-4b14-bf94-1a7e32ac4317",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154BC",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The accessor is observational and does not modify allocator state. Its outputs reflect the bounds established by `lbMemory_8001564C`; startup calls that initializer before lbHeap and before the later diagnostic query.",
+      "rationale": "The accessor contains only reads and output writes, and the relocated startup sequence confirms initialization order.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L305",
+          "why": "Shows the read-only accessor body."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L118-L197",
+          "why": "Shows lbMemory initialization before lbHeap setup and the subsequent ARAM-bound query."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_800154D4": [
+    {
+      "id": "fact:0478e9a0-3e8f-422c-b094-763b2a19783b",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154D4",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Heap rebuilding computes the available ARAM interval after accounting for retained heaps and supplies it as `arenaLo` and `arenaHi`. Those bounds enter a pooled descriptor, whose pointer is stored in `x69C`, returned, and installed in lbHeap's ARAM slot.",
+      "rationale": "The head implementation still forwards the supplied bounds into `new_handle`, stores the resulting descriptor in `x69C`, and returns it; the higher-level rebuild continues to derive and install the ARAM interval.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows how `new_handle` transfers arena bounds into a pooled heap descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L340",
+          "why": "Shows the resulting descriptor being stored in `x69C` and returned."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L32-L271",
+          "why": "Shows heap rebuilding adjusting available bounds around retained heaps and installing the custom ARAM backend."
+        }
+      ]
+    },
+    {
+      "id": "fact:1c0d0fbe-f3db-4fe2-bb0d-dd32c481f743",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154D4",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes ARAM-root creation within Melee's main-RAM and ARAM heap management. During heap rebuilding it re-establishes the custom ARAM allocator over the interval left after persistent resource heaps are retained.",
+      "rationale": "The current rebuild preserves non-transient ranges, destroys the old backend, and creates the replacement ARAM root through this function.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L32-L271",
+          "why": "Shows transient-heap destruction, retained-range adjustment, and ARAM-root recreation."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/945061197718384670",
+          "why": "Describes Melee's custom heaps and notes that heaps can be tagged to persist across scene changes."
+        }
+      ]
+    },
+    {
+      "id": "fact:39ac833b-cec1-45b0-b3b2-022746e1f4c4",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154D4",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemCreateARAMHeap",
+      "rationale": "The function creates and globally installs the handle that lbHeap uses as its ARAM backend; the surviving `lbMemFreeToHeap` supports the prefix, but exact wording remains uncertain.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `lbMemCreateARAMHeap`.",
+      "confidence": 0.75,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L311",
+          "why": "Shows creation and installation of one special heap handle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Identifies the special handle as the ARAM heap backend."
+        }
+      ]
+    },
+    {
+      "id": "fact:08f8a732-00e1-4f74-bcbd-eb0d272f3ed3",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154D4",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `Handle* (void* arenaLo, void* arenaHi)`. The arguments delimit an arena, and the result is the pooled root heap descriptor installed in allocator-global state.",
+      "rationale": "The target's current definition gives the exact signature and global result assignment, while `new_handle` establishes how the bounds initialize the descriptor.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows the helper interpreting the two arguments as heap bounds and returning a pooled descriptor."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L340",
+          "why": "Provides the target's exact parameter and return types and shows the result installed in `x69C`."
+        }
+      ]
+    },
+    {
+      "id": "fact:d95077d5-ecce-43ac-b0ba-b2be219e3f63",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154D4",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Creates and installs the distinguished base lbMemory heap for the current ARAM arena, initializing a pooled handle with the supplied bounds, storing it in the allocator singleton, and returning it to lbHeap.",
+      "rationale": "The target still stores `new_handle`'s result in `x69C`, and the heap rebuild installs that same result as its ARAM backend.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:12:46.633Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L311",
+          "why": "Shows creation, global installation, and return of the distinguished handle."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L152-L271",
+          "why": "Shows lbHeap storing the returned handle in its ARAM heap record."
+        }
+      ]
+    },
+    {
+      "id": "fact:6cd6010f-c52c-477a-8f6e-5f7eec2307a6",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800154D4",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Calling the function moves one descriptor from the free-handle pool into the installed ARAM-root state. Creation requires an available descriptor and validates sub-`0x80000000` bounds against the initialized ARAM arena. The new root begins empty; normal rebuilding destroys and clears the previous root before installing its replacement.",
+      "rationale": "The creation helper at head retains the pool and range guards and initializes an empty active handle; the paired root teardown clears `x69C`, and the heap rebuild still performs destruction before replacement creation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows creation guards, removal from the free-handle pool, arena-bound assignment, and empty-list initialization."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L301-L340",
+          "why": "Shows installation of the new root and the paired teardown routine that recycles and clears the previous root."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L32-L271",
+          "why": "Shows the heap-rebuild sequence destroying transient or previous heap state before creating replacement custom heaps."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_800155A4": [
+    {
+      "id": "fact:237c8b48-718b-4c0e-bc5f-9511dedabf34",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800155A4",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The singleton `x69C` handle supplies the head of the heap's active allocation list. Each active record is detached by traversal and pushed onto the global `free_mem` list while `x630_num_allocs` is decremented. After the list is exhausted, the original heap handle flows into `free_heap` and `x69C` is replaced with `NULL`. The caller subsequently stores a newly created handle in the ARAM heap record and back into `x69C`.",
+      "rationale": "The current target still transfers every allocation record and the singleton heap handle into their respective reusable pools before clearing `x69C`. Its caller still follows teardown by passing recalculated ARAM bounds to `lbMemory_800154D4`; that routine installs the new handle in `x69C`, while the caller stores the same result in the ARAM heap record.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:10:17.241Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L313-L330",
+          "why": "Shows the singleton handle and its active allocation records flowing into the free lists, with allocation accounting decremented and `x69C` cleared."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L289-L321",
+          "why": "Shows the paired creator storing a newly created bounded handle in `x69C` and the beginning of the teardown routine that consumes it."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L87-L174",
+          "why": "Shows the caller recreating the ARAM heap from retained-range-adjusted bounds and storing the returned replacement handle in the ARAM heap record."
+        }
+      ]
+    },
+    {
+      "id": "fact:fa557fc0-fa1f-4302-b057-9b4a43b88940",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800155A4",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the teardown step for Melee's custom ARAM heap during scene-transition heap-layout reconstruction. It discards the old base allocator and its allocation records so lbHeap can recreate the ARAM arena around resource heaps selected to persist across the transition. This is engine resource-memory infrastructure rather than a player-facing mechanic.",
+      "rationale": "The target still destroys the singleton allocator heap wholesale. Its current caller first removes transient logical heaps, adjusts available bounds around retained heaps, invokes this teardown, and then creates a replacement ARAM heap over the resulting range, confirming the standing engine-memory mapping.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:10:17.241Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L313-L330",
+          "why": "Shows wholesale teardown of the singleton custom heap and reclamation of its allocator metadata."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L87-L174",
+          "why": "Places the teardown after transient-heap removal and retained-range calculation and immediately before replacement of the ARAM heap."
+        }
+      ]
+    },
+    {
+      "id": "fact:2599a2b3-06f5-4409-a47f-160b56dd88c9",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800155A4",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemDestroyARAMHeap",
+      "rationale": "The current body proves that the routine destroys the entire singleton heap rather than one allocation, and its only caller identifies that singleton as the base ARAM heap being reconstructed. The recovered neighboring symbol `lbMemFreeToHeap` supports the local `lbMem` prefix, but no surviving symbol establishes the exact original spelling.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible descriptive original name is `lbMemDestroyARAMHeap`.",
+      "confidence": 0.66,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L313-L330",
+          "why": "Shows complete destruction of the registered singleton heap, including all active records and the heap descriptor itself."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L87-L174",
+          "why": "Identifies the destroyed singleton as the allocator backing the ARAM heap record and shows its immediate replacement."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows the recovered neighboring `lbMemFreeToHeap` symbol, supporting the proposed local naming prefix and distinguishing single-allocation freeing from whole-heap destruction."
+        }
+      ]
+    },
+    {
+      "id": "fact:1ee02b79-1869-4a7b-ac13-a826334896b5",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800155A4",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: `void (void)`. This is a synchronous global-state teardown operation with no explicit parameters or return value. Its implicit input is the non-NULL `Handle*` stored in `Allocator.x69C`; its outputs are mutations to the allocator's free-descriptor list, free-heap list, live-allocation count, and singleton-handle field.",
+      "rationale": "The matched definition gives the exact `void(void)` signature and reads all input state from `x69C`. Every observable result is a mutation of the singleton allocator, and the initial assertion requires an installed heap handle.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-02T13:35:02.930Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L313-L330",
+          "why": "Provides the exact signature, the non-NULL singleton-handle guard, and all global allocator fields mutated by the operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:77036b41-f809-4939-af46-5425566a8cf7",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800155A4",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Destroys the singleton heap currently registered in `Allocator.x69C`. It returns every live allocation descriptor owned by that heap to the global free-descriptor list, returns the heap handle to the free-handle pool, updates allocation accounting, and clears the singleton reference.",
+      "rationale": "The current body obtains the heap from `x69C`, traverses its allocation list, recycles each record through `free_mem`, decrements the live count, recycles the heap descriptor through `free_heap`, and nulls `x69C`. The caller still uses this as whole-heap teardown immediately before installing a replacement ARAM heap.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:10:17.241Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L313-L330",
+          "why": "Directly shows descriptor reclamation, heap-handle recycling, allocation-count updates, and clearing of the singleton reference."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L87-L174",
+          "why": "Shows the routine used to tear down the current singleton immediately before the ARAM heap is recreated over recalculated bounds."
+        }
+      ]
+    },
+    {
+      "id": "fact:aafa59d1-df6a-479a-a1e7-df5fdf3467b4",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_800155A4",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine requires the singleton heap to be installed; a NULL `x69C` fails an assertion. On success, every allocation associated with the heap transitions from active to reusable and lowers the global live-allocation count by one, the heap handle transitions from active to reusable, and the singleton transitions from installed to absent. In the scene-layout rebuild path, this absent state lasts only until the immediately following ARAM-heap creation.",
+      "rationale": "The current assertion and ordered list mutations preserve the standing teardown transition. The caller still invokes the routine immediately before creating and installing the replacement ARAM heap, confirming that the absent-singleton state is temporary in the rebuild path.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:10:17.241Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L313-L330",
+          "why": "Shows the non-NULL guard and active-to-free transitions for allocation records and the heap handle, followed by the installed-to-absent singleton transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L87-L174",
+          "why": "Shows replacement ARAM-heap creation immediately following teardown in the heap-layout reconstruction path."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:lbMemory_8001564C": [
+    {
+      "id": "fact:3c4082c3-e1fe-42ee-847d-22bd4baf063a",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001564C",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "A temporary 32-byte `ARAlloc` followed immediately by `ARFree` exposes the current ARAM stack base without retaining the reservation; the address returned by `ARAlloc` becomes `a_arenaLo`. The smaller of detected ARAM size and `0x01000000` becomes `a_arenaHi`. Those bounds flow into `lbMemory_80014E24`, whose returned root heap handle is stored in `x69C`. Independently, the embedded `MemEntry[131]` and `Handle[6]` arrays are linked into free lists, allocation counters are zeroed, and the asynchronous copy manager's size field is cleared.",
+      "rationale": "The current initializer still retains the temporary allocation address as its low bound, derives the high bound from `ARGetSize`, constructs both descriptor lists, clears the counters and copy state, and passes the bounds to the root-handle constructor. The Dolphin AR implementation confirms that allocation returns the previous stack pointer and that the immediate free reverses the reservation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:10:17.241Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L336-L371",
+          "why": "Traces the AR API results into arena bounds and the root handle while showing construction of both descriptor pools, counter resets, and copy-manager reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/ar.c#L65-L101",
+          "why": "Shows that `ARAlloc` returns the old ARAM stack pointer and advances it by 32 bytes, while the immediate `ARFree` reverses that reservation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/extern/dolphin/src/dolphin/ar/ar.c#L152-L155",
+          "why": "Shows that `ARGetSize` returns the detected ARAM capacity used when selecting the allocator's high bound."
+        }
+      ]
+    },
+    {
+      "id": "fact:2fc30ce8-c126-4553-bac0-873350cff769",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001564C",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Implements the startup step for Melee's main-RAM and ARAM heap-management infrastructure, specifically establishing the root ARAM arena and allocator bookkeeping consumed by lbHeap and later resource systems. It is engine memory infrastructure rather than a player-facing gameplay mechanic.",
+      "rationale": "The current function derives an arena from the GameCube AR driver and initializes the custom allocator's root heap and bookkeeping. The relocated startup source still invokes it immediately before lbHeap and other resource services, confirming its role in shared engine memory infrastructure.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:10:17.241Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L336-L371",
+          "why": "Shows creation of the custom allocator's ARAM-backed root heap and initialization of its persistent bookkeeping."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L130-L220",
+          "why": "Shows the initializer called during executable startup immediately before lbHeap and subsequent resource-service initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:5b73a2c4-a389-45e7-98b7-99f0cc8f1336",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001564C",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "lbMemInit",
+      "rationale": "The current body initializes the persistent lbMemory allocator state, and the relocated `main` source still places the function among parameterless one-time startup initializers immediately before lbHeap initialization. The recovered `lbMemFreeToHeap` sibling supports the `lbMem` prefix, but the exact spelling remains unconfirmed.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: A plausible original name is `lbMemInit`.",
+      "confidence": 0.76,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L336-L371",
+          "why": "Shows that the function initializes the allocator's persistent arena, descriptor pools, counters, root handle, and copy-manager state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L130-L220",
+          "why": "Places the function among parameterless one-time subsystem initialization calls and immediately before the lbHeap initializer."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows the recovered neighboring `lbMemFreeToHeap` symbol that supports the proposed local `lbMem` prefix."
+        }
+      ]
+    },
+    {
+      "id": "fact:369e9954-2b10-4dbd-832a-addeb77d396b",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001564C",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Exact signature: `void lbMemory_8001564C(void)`. It is a parameterless initializer whose observable outputs are writes to the singleton `lbMemory_804318B0` allocator state.",
+      "rationale": "The current matched definition directly supplies the void/no-parameter signature. Its arena bounds, free-list heads, counters, root handle, and copy-manager result are all published through the allocator singleton, with no returned value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:10:17.241Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L336-L371",
+          "why": "Provides the exact declaration and shows that the initializer's results are mutations of `lbMemory_804318B0`."
+        }
+      ]
+    },
+    {
+      "id": "fact:e89e0204-7223-4ed7-a12e-80bbd826de5e",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001564C",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes the lbMemory allocator during executable startup. It discovers the usable ARAM range, constructs the fixed pools of allocation descriptors and heap handles, resets allocation and asynchronous-copy state, and creates the root heap handle spanning that ARAM arena.",
+      "rationale": "The current body obtains the ARAM bounds, links all 131 allocation records and six heap handles into free pools, resets current and peak allocation counts, creates the root handle, and clears active copy size. The relocated `main` span confirms that this remains a one-time startup initializer called immediately before lbHeap initialization.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:10:17.241Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L336-L371",
+          "why": "Shows ARAM-bound discovery, descriptor-pool construction, counter resets, root-handle creation, and copy-state reset."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/gm/gmmain.c#L130-L220",
+          "why": "Shows `main` calling the function once in the ordered startup sequence immediately before `lbHeap_80015F3C`."
+        }
+      ]
+    },
+    {
+      "id": "fact:110a8c89-b135-42cc-98b5-c8284f259bf0",
+      "target_id": "target:function:main/melee/lb/lbmemory:lbMemory_8001564C",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Establishes the allocator's initial empty state: all 131 allocation descriptors are available, current and historical-maximum allocation counts are zero, and all six heap descriptors are initially available. Creating the root ARAM heap then moves the first heap descriptor from the free-handle list into active use with an empty allocation list. The asynchronous RAM-copy manager is left inactive by setting its transfer size to zero.",
+      "rationale": "The initializer at head reconstructs both free lists and resets both counters before creating the root. The constructor consumes and initializes one heap descriptor, after which the initializer clears the copy manager's active-size field.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T23:39:56.256Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Shows the root-heap constructor consuming one free descriptor and initializing it with bounds and an empty allocation list."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L336-L371",
+          "why": "Shows construction of the 131-entry and six-handle free lists, zeroed allocation counters, root creation, and inactive copy state."
+        }
+      ]
+    }
+  ],
+  "src/melee/lb/lbmemory.c": [
+    {
+      "id": "fact:cd91bf84-8315-4dee-b35a-f3e1e4a521c9",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbmemory.c",
+      "type": "data_flow",
+      "value": "Arena bounds enter heap handles at creation. Allocation requests are rounded up to 32 bytes, placed into the best-fitting gap, and recorded by moving one descriptor from the global free-descriptor list into the heap's address-ordered allocation list. Freeing performs the reverse transfer and decrements the live-allocation count. During compaction, each live block's old and new addresses flow to DevCom for sub-0x80000000 storage or to an alarm-sliced memcpy path for main RAM; completion eventually invokes the caller-supplied callback.",
+      "rationale": "The refreshed opening shows arena bounds entering claimed heap descriptors and confirms the shared pool and transfer state used by the unaffected allocation and compaction routines.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Defines allocator state and shows arena bounds entering newly claimed heap handles."
+        }
+      ]
+    },
+    {
+      "id": "fact:8bf85dcb-63b3-4475-8815-c6cce9f7a535",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbmemory.c",
+      "type": "game_mapping",
+      "value": "Realizes the custom-allocation backend of Melee's engine-level main-RAM and ARAM heap management, including fragmentation recovery by compacting live allocations. This is resource-memory infrastructure rather than a player-facing gameplay mechanic.",
+      "rationale": "The current code still uses DevCom for the lower address domain and alarm-sliced copying for main RAM, while lbHeap continues to dispatch its non-HSD operations to lbMemory.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T01:28:05.550Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows ARAM/main-RAM address-domain-dependent compaction and custom arena handling."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbheap.c#L201-L241",
+          "why": "Shows the logical heap manager dispatching non-HSD allocation-related operations to lbMemory."
+        }
+      ]
+    },
+    {
+      "id": "fact:403e5d57-7b8f-430b-8258-bafdc1bfec45",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbmemory.c",
+      "type": "inferred_type",
+      "value": "A singleton arena-allocation subsystem built around struct Allocator: arena bounds, 131 pooled MemEntry allocation descriptors, six pooled Handle heap descriptors, free-list heads, current and peak allocation counts, one compaction handle, and an LBMgr asynchronous-copy state record. Allocation addresses and sizes are represented through Handle fields, with allocated blocks linked in address order under each heap handle.",
+      "rationale": "The current declarations directly preserve the singleton layout, fixed pool capacities, counters, compaction state, and asynchronous-copy record.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Defines MemEntry, LBMgr, Allocator, the 131-entry and six-handle pools, counters, and singleton allocation."
+        }
+      ]
+    },
+    {
+      "id": "fact:dd477a81-9acd-47a9-9147-c2f2d015e71f",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbmemory.c",
+      "type": "purpose",
+      "value": "Implements Melee's custom arena allocator and compactor. It creates bounded heap handles, tracks allocations with pooled descriptors, finds aligned free regions, releases allocations, reports free space, and compacts fragmented main-RAM or ARAM arenas by moving live blocks asynchronously.",
+      "rationale": "The current opening retains the singleton allocator pools, bounded handle creation, and heap teardown mechanics, consistent with the unaffected allocation, reporting, and asynchronous compaction code.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:55:40.132Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L1-L99",
+          "why": "Defines the allocator and its bounded heap-handle creation and destruction lifecycle."
+        }
+      ]
+    },
+    {
+      "id": "fact:11b250be-f44c-4afe-887c-b25e923afe42",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/lb/lbmemory.c",
+      "type": "state_behavior",
+      "value": "Allocation descriptors transition between a global free list and per-heap active lists, while heap descriptors transition between a free-handle pool and active arena handles. Allocation increments the current count and may raise its historical maximum; freeing or destroying a heap decrements the current count. Compaction permits only one alarm-driven RAM copy at a time, advances it in chunks of at most 0x19000 bytes every three milliseconds, and invokes the registered continuation after the transfer completes.",
+      "rationale": "The head code preserves the free/active list transitions, live and peak counters, single-copy guard, 0x19000-byte chunk limit, three-millisecond alarm schedule, and completion callback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T01:28:05.550Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L101-L221",
+          "why": "Shows descriptor-list and allocation-counter transitions plus chunked alarm-copy progress and completion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/lb/lbmemory.c#L221-L340",
+          "why": "Shows the single-active-copy guard, continuation callback, compaction traversal, and heap teardown."
+        }
+      ]
+    }
+  ],
+  "main/melee/lb/lbmemory:fn_80015184#r3": [],
+  "main/melee/lb/lbmemory:fn_80015184#r4": [],
+  "main/melee/lb/lbmemory:lbMemFreeToHeap#r3": [],
+  "main/melee/lb/lbmemory:lbMemFreeToHeap#r4": [],
+  "main/melee/lb/lbmemory:lbMemory_80014E24#r3": [],
+  "main/melee/lb/lbmemory:lbMemory_80014E24#r4": [],
+  "main/melee/lb/lbmemory:lbMemory_80014EEC#r3": [],
+  "main/melee/lb/lbmemory:lbMemory_80014F7C#r3": [],
+  "main/melee/lb/lbmemory:lbMemory_80014FC8#r3": [],
+  "main/melee/lb/lbmemory:lbMemory_80014FC8#r4": [],
+  "main/melee/lb/lbmemory:lbMemory_8001529C#r3": [],
+  "main/melee/lb/lbmemory:lbMemory_8001529C#r4": [],
+  "main/melee/lb/lbmemory:lbMemory_8001529C#r5": [],
+  "main/melee/lb/lbmemory:lbMemory_80015320#r3": [],
+  "main/melee/lb/lbmemory:lbMemory_80015320#r4": [],
+  "main/melee/lb/lbmemory:lbMemory_80015320#r5": [],
+  "main/melee/lb/lbmemory:lbMemory_80015320#r6": [],
+  "main/melee/lb/lbmemory:lbMemory_800154BC#r3": [],
+  "main/melee/lb/lbmemory:lbMemory_800154BC#r4": [],
+  "main/melee/lb/lbmemory:lbMemory_800154D4#r3": [],
+  "main/melee/lb/lbmemory:lbMemory_800154D4#r4": []
+}

@@ -1,0 +1,977 @@
+[
+  {
+    "id": "fact:db4d8f3a-15e4-4104-bdde-75837d4d125d",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjproc:.data",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "HSD_GObj_SetupProc references `gobjproc.c` and `gproc` when its HSD_ObjAlloc result is null, and references `gobjproc.c` and `pri <= HSD_GObjLibInitData.gproc_pri_max` when the requested priority exceeds the configured maximum. On valid setup paths, the strings are not consumed.",
+    "rationale": "The matched source places the two assertions before process-field initialization and registration. The resolved expanded form identifies which stored strings feed each assertion, so the section's only demonstrated flow is into failure diagnostics for the two setup guards.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T07:04:57.279Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Shows both guards preceding initialization and shows normal execution continuing to initialize and register the process record."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046118646629539901",
+        "why": "Shows the expanded `__assert` calls and maps each diagnostic string to the null-allocation or maximum-priority failure condition."
+      }
+    ]
+  },
+  {
+    "id": "fact:39adc64f-8636-412e-91f2-28458df39243",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjproc:.data",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A data-section string pool containing three NUL-terminated C diagnostic strings: `gobjproc.c`, `gproc`, and `pri <= HSD_GObjLibInitData.gproc_pri_max`.",
+    "rationale": "The resolved matched decompilation presents these three constant strings as the arguments to the two assertion calls in HSD_GObj_SetupProc. Their roles as a source filename and asserted-expression texts establish that this section is literal character data rather than a table of process records or pointers.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-02T07:04:57.279Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:.data"
+    },
+    "evidence": [
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046118646629539901",
+        "why": "Explicitly shows all three C string literals in the matched assertion-call expansion."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Confirms the current matched source has the allocation and priority assertions whose diagnostic arguments produce these literals."
+      }
+    ]
+  },
+  {
+    "id": "fact:41666b69-b4bc-46c7-b438-27fd8f4116e3",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjproc:.data",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides the diagnostic text used when HSD_GObj_SetupProc rejects a failed HSD_GObjProc allocation or an out-of-range process priority.",
+    "rationale": "The matched setup routine has exactly two assertion guards: one immediately after allocating the process record and one checking the supplied priority against the configured maximum. The resolved historical matched decompilation expands those guards and shows that their file, allocation-expression, and priority-expression strings are the literals carried by this data section.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T07:04:57.279Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Shows HSD_GObj_SetupProc invoking an allocation assertion after HSD_ObjAlloc and a second assertion for `pri <= HSD_GObjLibInitData.gproc_pri_max`."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046118646629539901",
+        "why": "Shows the 100%-matched historical expansion of those guards with the diagnostic literals `gobjproc.c`, `gproc`, and `pri <= HSD_GObjLibInitData.gproc_pri_max`."
+      }
+    ]
+  },
+  {
+    "id": "fact:04a6b84b-6c82-4b9e-a8a4-b3ae775e33da",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjproc:.sdata",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The text originates from the expression token gproc in the allocation assertion. If HSD_ObjAlloc returns NULL, the assertion machinery passes a pointer to this literal as the failed-expression argument to __assert; successful allocation does not otherwise consume or modify the bytes.",
+    "rationale": "The current source allocates into gproc and immediately applies an HSD_ASSERT-based helper to that pointer. The resolved reconstruction expands the same guard and shows that a null allocation passes \"gproc\" to __assert as its failed-expression text, confirming the existing data-flow claim at the current head.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L143-L160",
+        "why": "Shows HSD_GObj_SetupProc allocating gproc and immediately invoking assertProc, whose asserted expression is gproc."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046118646629539901",
+        "why": "Shows the expanded null-allocation guard passing the literal \"gproc\" to __assert as the failed-expression argument."
+      }
+    ]
+  },
+  {
+    "id": "fact:4d4d7515-0e4e-4d56-995e-a148bada1bc4",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjproc:.sdata",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A small-data string pool containing the NUL-terminated ASCII literal \"gproc\" with section-alignment padding, rather than a source-level scalar or pointer object.",
+    "rationale": "The current assertion helper retains gproc as the asserted expression, while the resolved expanded reconstruction exposes the corresponding C string literal. That six-byte NUL-terminated text accounts for the small section target with alignment rather than representing a separately authored scalar or pointer.",
+    "confidence": 0.96,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L143-L160",
+        "why": "Shows the current HSD_ASSERT expression whose token text produces the assertion string."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046118646629539901",
+        "why": "Shows the exact C string literal \"gproc\" in the expanded assertion call."
+      }
+    ]
+  },
+  {
+    "id": "fact:e1864ad8-4b66-483b-9230-4cde72aaa8ea",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjproc:.sdata",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Holds the compact string literal \"gproc\" used as the failed-expression text for the assertion that verifies allocation of an HSD_GObjProc succeeded; it is compiler-emitted literal storage rather than a semantic mutable global.",
+    "rationale": "At the current head, HSD_GObj_SetupProc allocates an HSD_GObjProc into gproc and immediately asserts that expression. The resolved expanded form identifies \"gproc\" as the assertion text, so the section continues to represent compiler-emitted literal storage for the allocation check.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:.sdata"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L143-L160",
+        "why": "Shows assertProc using HSD_ASSERT on gproc immediately after HSD_ObjAlloc."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046118646629539901",
+        "why": "Shows the equivalent expanded assertion as __assert(\"gobjproc.c\", 0x1F, \"gproc\")."
+      }
+    ]
+  },
+  {
+    "id": "fact:5219e4bf-d258-4e6b-9aa5-489492badd11",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads `gproc->gobj`, `gproc->s_link`, and the owner's `p_link`. It uses `(p_link, s_link)` to consult and possibly replace an anchor in `HSD_GObj_804D7844`, searches the owner's and preceding GObjs' process chains or lower process-link anchors for a predecessor, and inserts `gproc` into the `HSD_GObj_804D7840[s_link]` doubly linked list. It then sets `gproc->child` to the former `gobj->proc`, makes `gproc` the owner's process-chain head, and conditionally advances the active scheduler cursor when insertion occurs at its current boundary.",
+    "rationale": "Every source, search path, pointer mutation, and output structure in this flow is explicit in the matched body. The setup caller establishes where the consumed owner and `s_link` values originate.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:04:10.156Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L12-L95",
+        "why": "Shows all input reads, anchor-table indexing, predecessor searches, global-list mutations, owner-chain attachment, and conditional cursor update."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Shows `s_link` receiving the setup priority and `gobj` receiving the owning object before registration."
+      }
+    ]
+  },
+  {
+    "id": "fact:3b2e78a3-41f2-4640-9546-f777a26c2597",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "GObj_LinkProc",
+    "rationale": "A historical community reconstruction explicitly used `GObj_LinkProc` for this exact routine and described the same GObj/process-table association visible in the matched source. The spelling is not backed by a surviving retail symbol, so it remains an inference rather than a rename instruction.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: Likely original name: `GObj_LinkProc`.",
+    "confidence": 0.72,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8"
+    },
+    "evidence": [
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046122991077044294",
+        "why": "Explicitly reports the historical name `GObj_LinkProc` and associates it with the routine that links the process to its GObj and process table."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046123373060702248",
+        "why": "Again identifies the reconstructed implementation of this operation as `GObj_LinkProc`."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L12-L95",
+        "why": "Confirms that the function's concrete operation is linking an HSD_GObjProc into global and owner-local lists."
+      }
+    ]
+  },
+  {
+    "id": "fact:6f8cf846-3e2c-4eab-814f-0dacfb70d7f2",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: `void (HSD_GObjProc* gproc)`. The argument must be an initialized process record whose `gobj` points to its owning HSD_GObj and whose byte-sized `s_link` selects the global scheduler list; the routine returns no value and mutates the record, its owner, and scheduler globals in place.",
+    "rationale": "The matched definition supplies the exact parameter and return types. Its first reads establish the required input fields, and the setup caller demonstrates that the owner, callback, priority, and initial flags are populated before invocation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:04:10.156Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L12-L95",
+        "why": "Provides the exact signature and shows the routine consuming `gproc->gobj` and `gproc->s_link` while mutating scheduler and ownership links."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Shows the caller fully initializing the HSD_GObjProc before passing its pointer to this function."
+      }
+    ]
+  },
+  {
+    "id": "fact:34b596b0-3860-4482-937b-c82dff04a638",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Registers an initialized HSD_GObjProc with both the global GObj process scheduler and its owning HSD_GObj, choosing a scheduler position from the process priority and the owner's process-link placement.",
+    "rationale": "The function reads the process's owner and `s_link`, derives `p_link` from that owner, locates an insertion predecessor, repairs the global doubly linked list, and prepends the process to the owner's local chain. The setup caller establishes that the input is an already initialized callback record, while the resolved community analysis identifies this operation as associating that record with the GObj and process table.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:04:10.156Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L12-L95",
+        "why": "Directly shows predecessor selection, global scheduler insertion, anchor-table maintenance, and attachment to the owning GObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Shows HSD_GObj_SetupProc initializing the process owner, callback, priority, and flags before calling this registration routine."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046122991077044294",
+        "why": "Describes the routine as setting the process on its GObj and associating it with the process table."
+      }
+    ]
+  },
+  {
+    "id": "fact:d4e3f372-5c9d-4900-a678-c3aff103045f",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "If the target `(p_link, s_link)` group already exists, registration searches backward from the owner for the last same-`s_link` process that should precede the new record and updates the group anchor when that predecessor was its old boundary. If the group is empty, the new record becomes its anchor; if no predecessor exists in that or any lower `p_link`, it becomes the head of the global `s_link` list. Otherwise it is inserted after the located predecessor. During active process traversal, an insertion exactly between the saved predecessor and next-process cursor advances that cursor to the new process so traversal state remains consistent.",
+    "rationale": "The matched branches distinguish occupied and empty anchor slots, perform the owner-chain and lower-`p_link` searches, select head versus insert-after placement, and contain an explicit active-traversal guard for the cursor update.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T07:04:10.156Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FAA8"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L12-L95",
+        "why": "Directly shows all insertion cases, anchor transitions, predecessor selection, and the guarded active-cursor adjustment."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046122991077044294",
+        "why": "Its resolved context corroborates that the process table is linked and organized using process priority."
+      }
+    ]
+  },
+  {
+    "id": "fact:a8dc7e50-e5f1-4b8f-abac-a06bf5f10e38",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads gproc->gobj->p_link, gproc->s_link, gproc->prev, gproc->next, the active traversal state, the per-s_link scheduler head, and the boundary table entry indexed by p_link + s_link * (p_link_max + 1). It may advance the active traversal cursor to gproc->next; if gproc owns the indexed boundary entry, it replaces that entry with the previous process only when that process has the same p_link, otherwise with NULL. It then connects prev to next or replaces the per-s_link head, and connects next back to prev.",
+    "rationale": "These are the complete reads and writes in the matched body. The boundary-table condition preserves the last scheduled process for the removed node's p_link within one s_link list, while the remaining assignments perform ordinary doubly linked-list removal and maintain an active traversal cursor.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:05:36.000Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L126",
+        "why": "Directly shows every scheduler index, cursor, boundary-table, head, and neighboring-node read and write performed by the function."
+      }
+    ]
+  },
+  {
+    "id": "fact:8259ee28-aa6e-400d-82d0-36c829138566",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Implements the removal side of HSD game-object callback scheduling. Once detached, the callback record is no longer reachable through the selected priority schedule, but it can remain registered to its GObj for relocation or proceed through later ownership removal and destruction.",
+    "rationale": "The current body removes one callback record from global scheduler structures without changing its GObj ownership link. Current callers demonstrate both temporary scheduler detachment during GObj relocation and the first stage of permanent callback destruction.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L175",
+        "why": "Shows scheduler detachment, the separate owner-chain unlink helper, and the destructive wrapper that subsequently frees a process."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L196",
+        "why": "Shows this scheduler detachment preserving callback records across relocation of their owning GObj."
+      }
+    ]
+  },
+  {
+    "id": "fact:e52ddcfb-a210-4b78-a059-f1e84c0e01b7",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "GObjProc_Unlink",
+    "rationale": "The current body unlinks one HSD_GObjProc only from scheduler structures, while adjacent helpers separately remove ownership linkage and free the record. GObjProc_Unlink remains a plausible concise distinction for that narrow operation, although no recovered symbol establishes the exact spelling.\n\nNaming cleanup: source explicitly states this candidate\nPrior naming claim: Likely original name: GObjProc_Unlink.",
+    "confidence": 0.68,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L175",
+        "why": "Shows this function's scheduler-only unlink scope and distinguishes it from the adjacent owner-detachment and destruction operations."
+      }
+    ]
+  },
+  {
+    "id": "fact:f0b125a3-2401-4d02-a4e7-ebc05eced111",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: void HSD_GObjProc_8038FC18(HSD_GObjProc* gproc). The argument is expected to be a non-NULL, currently scheduled intrusive-list node whose gobj owner supplies the p_link dimension and whose s_link supplies the scheduler-list dimension.",
+    "rationale": "The matched definition supplies the exact return and parameter types. Its unconditional dereferences require a valid process and owner, while accesses to prev, next, gobj->p_link, and s_link establish the expected linked-node state and the two scheduling domains used to locate its global list and boundary entry.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:05:36.000Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L126",
+        "why": "Provides the exact signature and shows the parameter's owner, scheduling indices, and intrusive prev/next fields being consumed."
+      }
+    ]
+  },
+  {
+    "id": "fact:3d0a5eef-18be-4400-9c9a-054720db1f38",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Detaches an HSD_GObjProc from the global process-callback schedule without removing it from its owning GObj's process chain or freeing its storage. It repairs the selected schedule's neighboring links, head, and p_link/s_link boundary entry so callers can either reinsert the process after relocating its owner or continue with complete process destruction.",
+    "rationale": "The current function updates only scheduler cursor, boundary, head, and neighboring process links. The current relocation routine calls it for each process, retains those records, and reinserts them after moving the GObj, while the following gobjproc helpers separately handle owner-chain removal and reclamation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L175",
+        "why": "Shows the scheduler-only unlink operation and the distinct later helpers for owner-chain detachment and allocator reclamation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L196",
+        "why": "Shows GObj relocation detaching process records with this function and reinserting the retained records afterward."
+      }
+    ]
+  },
+  {
+    "id": "fact:66b9c96d-8605-4ca3-9bfb-950a3521dfa4",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "The function transitions one process from globally scheduled to detached while leaving its owner-chain membership and storage unchanged. Head and interior nodes are handled separately through the prev check; tail handling is implicit through the next check. If scheduler traversal is active and its pending cursor points at the removed process, that cursor advances before links are changed. The removed node's own prev and next fields are not cleared, allowing relocation code to retain and later reinsert the record.",
+    "rationale": "The active-cursor guard precedes all unlink writes, preventing traversal from retaining the removed node as its next process. Independent prev and next tests cover head, tail, singleton, and interior positions. The body never modifies gproc's own links, owner chain, or allocation state, and the relocation caller subsequently reuses and reinserts the same records.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T07:05:36.000Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FC18"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L126",
+        "why": "Shows the active-cursor adjustment, boundary cases for doubly linked-list removal, and the absence of writes clearing or freeing the removed node."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L129-L196",
+        "why": "Shows detached process records being retained in a temporary chain and reinserted after their owning GObj is relocated."
+      }
+    ]
+  },
+  {
+    "id": "fact:e63a10cf-8395-4438-8fa7-1557dad9bcc0",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads `gproc->gobj` before altering any links, passes `gproc` to HSD_GObjProc_8038FC18 to update global scheduling anchors and neighboring `next`/`prev` pointers, then uses the saved owner to find the record in `gobj->proc`. If the record is the owner-chain head, `gobj->proc` receives `gproc->child`; otherwise the predecessor's `child` receives `gproc->child`. The detached record is left allocated for its caller.",
+    "rationale": "The current source shows the owner being saved before scheduler unlinking, then shows the head and interior cases for removing the same process from the owner's child chain. The adjacent destructive wrapper calls HSD_ObjFree only after this function returns, confirming that the detached allocation flows back to its caller.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L175",
+        "why": "Shows all scheduler-link updates, the saved owner, owner-chain splice, and the separate downstream allocator call."
+      }
+    ]
+  },
+  {
+    "id": "fact:4ace6651-224a-4993-b3ea-bbf5b34b228e",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_GObjProc_Unlink",
+    "rationale": "The current function removes the process from both the global scheduler and its owner's process chain, while HSD_GObjProc_8038FE24 performs the later allocator release. HSD_GObjProc_Unlink therefore remains a plausible operation name that distinguishes structural detachment from destruction, though the exact identifier is not recovered.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `HSD_GObjProc_Unlink`, because the function removes a process from both of its linked-list memberships while deliberately leaving deallocation to its caller.",
+    "confidence": 0.79,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L175",
+        "why": "Shows both linked-list removals and the separate wrapper responsible for freeing the record."
+      }
+    ]
+  },
+  {
+    "id": "fact:268d021f-ba63-4479-aaf5-23e546624da5",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: `void HSD_GObjProc_8038FCE4(HSD_GObjProc* gproc)`. The sole argument is the process record to detach; it must already belong to the owner referenced by `gproc->gobj` and to the global schedule expected by HSD_GObjProc_8038FC18. The function returns no value and does not release the record's allocation.",
+    "rationale": "The current declaration provides the exact signature. Unconditional owner dereferences, scheduler unlinking, and pointer-identity traversal of gobj->proc establish the required memberships, while the adjacent wrapper's later HSD_ObjFree confirms that this function does not release the allocation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L128-L175",
+        "why": "Provides the exact declaration, argument uses, membership assumptions, and the separate allocator-release call."
+      }
+    ]
+  },
+  {
+    "id": "fact:4a6b5aa1-f544-493f-865a-a1d2b80a3357",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Detaches one HSD_GObjProc from all scheduling and ownership links without freeing it: it removes the record from the global process schedule and then unlinks it from its owning GObj's process chain.",
+    "rationale": "The current target invokes the scheduler unlink helper and then removes the same process from the head or interior of gobj->proc. The adjacent removal wrapper performs HSD_ObjFree only after this function, preserving the distinction between detachment and destruction.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L175",
+        "why": "Shows the complete global and owner-chain unlink sequence and the separate caller that frees the detached process."
+      }
+    ]
+  },
+  {
+    "id": "fact:ac7a186b-d509-4c5d-966e-5155311e4da5",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Transitions a registered process to a detached-but-still-allocated state. Global removal advances the current traversal pointer when it names this process, repairs the per-`p_link`/`s_link` anchor when necessary, and splices the process out of the doubly linked schedule. Owner removal then changes either the owner's head pointer or one predecessor's `child` pointer. The function has no null or membership guard, so callers must supply a record present in both structures.",
+    "rationale": "The current scheduler helper performs the cursor, anchor, and doubly linked-list transitions, after which the target handles the two owner-chain positions. Its unconditional dereferences and predecessor search provide no failure path for a null or foreign record, and allocation reclamation remains a separate subsequent operation.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FCE4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L175",
+        "why": "Shows every scheduler and owner-chain transition, the absence of validation guards, and the separate destruction wrapper."
+      }
+    ]
+  },
+  {
+    "id": "fact:e6d011f9-21ba-4dc1-be4d-fa37f40ff85c",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes an HSD_GObjProc pointer. On immediate removal, its owner and scheduling fields drive repairs to the scheduler bucket boundary, head, previous, and next links and to the owner's child-process chain; the detached record then flows to HSD_ObjFree with gobjproc_alloc_data. On deferred self-removal, the pointer is already held in the scheduler's current-process global, so the function writes only the pending-removal bit and the process runner later passes that same current process back into the function.",
+    "rationale": "The current gobjproc source shows the immediate path invoking both unlink stages before passing gproc to HSD_ObjFree, while the active-process branch stores only a pending flag. The current scheduler retains proc across callback invocation and later calls this function with that same pointer while draining pending operations.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L175",
+        "why": "Shows all scheduler and owner-chain field consumption, the pending-bit branch, and the allocator destination of immediate removal."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobj.c#L80-L145",
+        "why": "Shows the scheduler retaining the active proc and supplying it to the deferred removal call after its callback returns."
+      }
+    ]
+  },
+  {
+    "id": "fact:bff4da46-8b54-4bc4-b475-bada2f74a0bd",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_GObjProc_Remove",
+    "rationale": "The current routine is the destructive single-record counterpart to HSD_GObj_SetupProc: it either defers active self-removal or detaches and frees one HSD_GObjProc. The following function repeatedly applies it to an owner's entire process chain, supporting Remove as the likely operation name while leaving the exact historical spelling uncertain.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original name: HSD_GObjProc_Remove.",
+    "confidence": 0.68,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L128-L185",
+        "why": "Shows setup terminology, destructive removal of one process, and the adjacent routine repeatedly applying that operation to all processes."
+      }
+    ]
+  },
+  {
+    "id": "fact:9148b304-9a25-4efe-84cb-5ad602391c25",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Function signature: void (HSD_GObjProc* gproc). The argument is a live process record linked into both its owning HSD_GObj's process chain and the global scheduler and allocated from gobjproc_alloc_data; the function contains no null or ownership guard.",
+    "rationale": "The current definition provides the void return and HSD_GObjProc pointer parameter. Its immediate path passes that record through unguarded structural unlinking and then to HSD_ObjFree with gobjproc_alloc_data, establishing the required live linked-record state.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L128-L175",
+        "why": "Provides the signature and shows the argument being unlinked and returned to the process allocator without local validation."
+      }
+    ]
+  },
+  {
+    "id": "fact:b46ad782-75a6-4ed6-bdae-ce27fc34e660",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Destroys one HSD_GObjProc: it removes the process from the global callback scheduler and its owning GObj's process chain, then returns the process record to the GObj-process allocator. If the process is its own currently executing callback, destruction is postponed until that callback returns.",
+    "rationale": "The current target either marks active self-removal pending or calls the complete detachment helper and HSD_ObjFree. The current process runner services the pending flag only after on_invoke returns, confirming both the destructive role and the deferred active-callback case.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L97-L175",
+        "why": "Shows the deferred-versus-immediate branches, both unlinking stages, and allocator reclamation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobj.c#L80-L145",
+        "why": "Shows pending active-process removal being performed after callback execution returns."
+      }
+    ]
+  },
+  {
+    "id": "fact:d4cd07c6-384f-46c9-81ad-92879f780194",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "If deferred operations are not currently being drained and gproc is the process whose callback is executing, the function leaves all links and allocator state intact and sets the pending-removal bit. In every other case\u2014including the scheduler's post-callback drain pass\u2014it immediately unlinks and recycles the process. This prevents mutation and reuse of the active process node while its callback remains on the call stack.",
+    "rationale": "The target's guard exactly distinguishes active self-removal from its immediate path. The runner sets the drain flag before honoring the pending bit after on_invoke returns, causing the second call to bypass the guard and perform destruction safely.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:04:56.373Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FE24"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L167-L175",
+        "why": "Directly shows the active-process and drain-state guard, pending-removal transition, and immediate unlink-and-free alternative."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobj.c#L80-L145",
+        "why": "Shows the callback execution interval and the post-callback deferred-operation pass that sets drain mode before calling removal."
+      }
+    ]
+  },
+  {
+    "id": "fact:ccc54bbe-d980-42c2-b677-4349567a3654",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The input GObj supplies the head through gobj->proc. For each current process, the function saves cur->child before invoking the destructive remover. Immediate removal detaches the process from its priority-selected global scheduling list and the owner's child chain, then returns its storage to gobjproc_alloc_data; the saved child becomes the next iteration's input.",
+    "rationale": "The current loop saves each child pointer before passing the current process to the single-process remover. That remover unlinks and frees the record, and HSD_ObjFree overwrites released storage with an allocator free-list link, confirming why traversal must continue from the previously saved child.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L128-L185",
+        "why": "Shows owner-chain traversal, saving cur->child, complete process detachment, and allocator reclamation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/objalloc.c#L119-L126",
+        "why": "Shows freed object storage being repurposed for the allocator's intrusive free-list link."
+      }
+    ]
+  },
+  {
+    "id": "fact:6eab296f-87d1-47a4-bba8-d4de3231789d",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Realizes the callback-scheduling cleanup phase of the generic HSD game-object lifecycle: destroying a runtime GObj cancels all of its remaining scheduled process callbacks before the object is unlinked and its storage is recycled.",
+    "rationale": "The function contains no fighter-, item-, stage-, or menu-specific behavior; it operates entirely on generic HSD_GObj process ownership. Its caller is the generic GObj destructor, which invokes it before removing the GObj from its process-link list and returning the object to the allocator.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T07:07:17.937Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L185",
+        "why": "Shows generic removal of every scheduled process belonging to an HSD_GObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L127",
+        "why": "Shows this cleanup occurring during generic HSD_GObj destruction before list unlinking and allocator return."
+      }
+    ]
+  },
+  {
+    "id": "fact:02542f74-e7e7-4a11-8bb8-625268a1109e",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_GObjProcRemoveAll",
+    "rationale": "The target applies the single-process removal operation to every node in one GObj's process chain. Nearby HSD subsystems use the suffix RemoveAll for the same saved-successor, repeated-removal shape, including HSD_RvalueRemoveAll and HSD_PadRumbleRemoveAll. Prefixing that established operation name with the target's HSD_GObjProc subsystem yields HSD_GObjProcRemoveAll.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: Likely original name: HSD_GObjProcRemoveAll.",
+    "confidence": 0.87,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L185",
+        "why": "Shows the target repeatedly applying the individual GObjProc removal operation until the owner's chain is exhausted."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/robj.c#L832-L840",
+        "why": "Shows the named HSD_RvalueRemoveAll analog using the same saved-successor traversal and repeated single-node removal shape."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/rumble.c#L58-L65",
+        "why": "Shows another HSD subsystem naming a repeated application of its single removal operation RemoveAll."
+      }
+    ]
+  },
+  {
+    "id": "fact:26dfbb46-fd93-40e0-ab4a-d23b4419a900",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: void HSD_GObjProc_8038FED4(HSD_GObj* gobj). The argument is an owning GObj whose child-linked process chain is consumed; it must be non-NULL because the function immediately dereferences gobj->proc.",
+    "rationale": "The matched definition supplies the exact return and parameter types. Its first operation dereferences the argument, and the loop treats gobj->proc as a nullable head while consuming every reachable HSD_GObjProc.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:07:17.937Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L177-L185",
+        "why": "Provides the exact signature, immediate dereference of the HSD_GObj argument, and NULL-terminated process-chain traversal."
+      }
+    ]
+  },
+  {
+    "id": "fact:50d5682f-c218-4ec5-9168-b2decec0b6eb",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Removes every process callback owned by an HSD_GObj, detaching each process from the scheduler and owner chains and reclaiming its process record. It is the process-cleanup stage of complete GObj destruction.",
+    "rationale": "The current function traverses gobj->proc and passes every record to the individual destructive remover. The current generic GObj destruction routine calls this function before unlinking and freeing the GObj itself, confirming its process-cleanup role.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:31:01.383Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L128-L185",
+        "why": "Shows the target traversing every owned process and applying the individual detach-and-free operation."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjplink.c#L103-L196",
+        "why": "Shows this bulk process cleanup occurring during generic HSD_GObj destruction before the GObj is unlinked and recycled."
+      }
+    ]
+  },
+  {
+    "id": "fact:22b65287-3434-4cbe-91f2-7492a41075b9",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "An empty gobj->proc chain is a no-op. Otherwise, the routine visits the chain present at entry and requests removal of every node. Ordinary nodes are unlinked and reclaimed immediately. If a visited node is the process currently executing while immediate mutation is disallowed, its removal is marked pending instead; the scheduler completes that removal after its callback returns.",
+    "rationale": "The loop condition establishes the empty and terminating states, while the saved child pointer lets traversal continue independently of each removal result. The individual remover's active-process guard sets the pending flag, and the callback scheduler later recognizes that flag and invokes the remover under the immediate-operation state.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T07:07:17.937Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObjProc_8038FED4"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L185",
+        "why": "Shows the NULL-terminated owner-chain traversal, immediate-removal path, and pending flag used for the currently executing process."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobj.c#L88-L141",
+        "why": "Shows pending process removal being serviced after the active callback returns."
+      }
+    ]
+  },
+  {
+    "id": "fact:bbc82569-a6ff-4ff9-b9d6-3ce6832ed6a4",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObj_SetupProc",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Requests one record from `gobjproc_alloc_data` through HSD_ObjAlloc, validates allocation and the supplied priority, then writes `pri` to `s_link`, clears `flags_1` and `flags_2`, sets `flags_3` to 3, stores `gobj` and `func` in `gobj` and `on_invoke`, and passes the completed record to HSD_GObjProc_8038FAA8 for linking. The same registered record is returned to the caller.",
+    "rationale": "Every input, mutation, downstream consumer, and output in this flow is explicit in the matched source. The resolved discussion corroborates that the final callee consumes the record by associating it with the GObj and process table.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:50:40.228Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObj_SetupProc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Shows the allocator input, validation, all initialized fields, the linking call, and the returned record."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046122762000928829",
+        "why": "Its resolved thread describes HSD_GObjProc_8038FAA8 as attaching the process callback to its parent GObj and associating it with the process table."
+      }
+    ]
+  },
+  {
+    "id": "fact:e91631d4-4b6a-410c-827d-ae1d0d93c0cf",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObj_SetupProc",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: `HSD_GObjProc* HSD_GObj_SetupProc(HSD_GObj* gobj, void (*func)(HSD_GObj*), u8 pri)`. `gobj` is the callback's owning object, `func` is a `void(HSD_GObj*)` invocation callback, `pri` is an unsigned 8-bit process priority bounded by `HSD_GObjLibInitData.gproc_pri_max`, and the return is the newly allocated and registered HSD_GObjProc.",
+    "rationale": "The matched declaration supplies the exact ABI types, while assignments in the body establish the roles of all three parameters and the returned object. The resolved decompilation discussion independently records that the priority is a u8 and supports the callback's `void(GObj*)` shape.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T04:50:40.228Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObj_SetupProc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Provides the exact signature, priority bound, argument-to-field assignments, and HSD_GObjProc return value."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046116543773298780",
+        "why": "Its resolved context records the decompilation finding that the priority parameter is a u8."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046123923445645352",
+        "why": "Its resolved context records the analysis that the stored callback has the `void(GObj*)` shape."
+      }
+    ]
+  },
+  {
+    "id": "fact:777336e6-7db0-4ccf-8d43-0ef82cc1dde0",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObj_SetupProc",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Creates and registers a process callback for an HSD_GObj by allocating an HSD_GObjProc, initializing its scheduling and invocation state, and inserting it into the GObj process infrastructure.",
+    "rationale": "The matched body performs the complete allocation and initialization, then calls HSD_GObjProc_8038FAA8 before returning the record. The resolved discussion identifies that callee as the operation that associates the process with its parent GObj and the priority-ordered process table.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-02T04:50:40.228Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObj_SetupProc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Directly shows allocation, field initialization, registration through HSD_GObjProc_8038FAA8, and return of the resulting process record."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046123092713414788",
+        "why": "Explains that HSD_GObjProc_8038FAA8 associates the callback with its parent GObj and inserts it into the linked process table in priority order."
+      }
+    ]
+  },
+  {
+    "id": "fact:116d62b4-c6f7-4622-b46e-674625db949b",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjproc:HSD_GObj_SetupProc",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Setup asserts if no process record can be allocated or if `pri` exceeds the configured maximum. An admitted process begins with `flags_1` and `flags_2` cleared and `flags_3` equal to 3; after its owner and callback are installed, it transitions into registered process-list state through HSD_GObjProc_8038FAA8, where its stored priority determines ordering rather than being passed to the callback.",
+    "rationale": "The two admission guards and initial flag values are explicit in the matched body. The callback receives only an HSD_GObj pointer, while the priority is stored in the process record; resolved community analysis identifies the following registration routine and the process table's priority ordering.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-02T04:50:40.228Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjproc:HSD_GObj_SetupProc"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L148-L165",
+        "why": "Shows the allocation and maximum-priority assertions, initial flag state, callback signature, stored priority, and transition through the linking routine."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046115042191478835",
+        "why": "Its resolved context distinguishes the stored priority as execution-order state and shows that the callback itself is associated separately with the process record."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/1046123092713414788",
+        "why": "Its resolved thread states that the process table is a linked list ordered by priority."
+      }
+    ]
+  },
+  {
+    "id": "fact:e5274bad-2251-48b4-a3a3-2389c09eb5b3",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjproc.c",
+    "type": "data_flow",
+    "value": "HSD_GObj_SetupProc receives an owning HSD_GObj, callback, and scheduling priority, allocates an HSD_GObjProc from gobjproc_alloc_data, stores those inputs in the record, and passes it to the insertion routine. Insertion links the record into both the priority-selected global process list and gobj->proc ownership chain. Removal reverses both linkages and returns the record to the same allocator pool.",
+    "rationale": "The current insertion, setup, detachment, and removal routines continue to expose the complete allocator-to-scheduler and owner-chain flow.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T01:58:45.510Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjproc.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L1-L120",
+        "why": "Shows insertion into the priority-selected global list and attachment to the owning GObj."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L121-L185",
+        "why": "Shows owner-chain detachment, setup from owner/callback/priority inputs, and allocator reclamation."
+      }
+    ]
+  },
+  {
+    "id": "fact:d8e52a72-e4e6-4406-b523-099cb09ed9c5",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjproc.c",
+    "type": "purpose",
+    "value": "Implements the HSD GObj process-node lifecycle: it allocates callback records, attaches them to owning GObjs, inserts them into the global priority-partitioned execution lists, unlinks individual records from both scheduling and ownership chains, and removes all processes during GObj teardown.",
+    "rationale": "The current source still contains the paired insertion and unlinking operations, process setup and reclamation, and bulk owner teardown.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T01:58:45.510Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjproc.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L1-L120",
+        "why": "Shows priority-partitioned process insertion and scheduler-list maintenance."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L121-L185",
+        "why": "Shows ownership unlinking, allocation, individual removal, and bulk process teardown."
+      }
+    ]
+  },
+  {
+    "id": "fact:2115fdfe-b1d5-4216-96b0-79bbc5062c92",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjproc.c",
+    "type": "state_behavior",
+    "value": "Process records are scheduled through per-priority global lists while each GObj independently owns a child-linked chain of its processes. Mutations update scheduler cursor and anchor globals when necessary. Removing the process currently executing inside a callback is deferred by setting a pending-removal flag; the scheduler performs the actual unlink and reclamation after the callback returns.",
+    "rationale": "The process-list code still maintains global and owner-local linkage and converts active-process removal into a pending flag; the scheduler still services that flag after callback invocation.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-04T01:58:45.510Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjproc.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L1-L120",
+        "why": "Shows priority lists, owner chains, anchors, and active traversal cursor maintenance."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjproc.c#L121-L185",
+        "why": "Shows active-process removal setting a pending-removal flag instead of immediately freeing the record."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobj.c#L88-L141",
+        "why": "Shows the scheduler invoking callbacks and servicing deferred process removal afterward."
+      }
+    ]
+  }
+]

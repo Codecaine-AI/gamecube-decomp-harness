@@ -1,0 +1,148 @@
+{
+  "tu": "main/melee/it/kinds/itkamex",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L631-L648",
+            "why": "Registers this event callback for Kamex Hydro Pump."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkamex.c#L284-L287",
+            "why": "Unchanged argument forwarding."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L491-L525",
+            "why": "Exact reference mutations and return value."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the first object's identity from the Blastoise actor to its separately registered Hydro Pump child while preserving the supported cleanup behavior.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkamex:itKamex_Logic31_EvtUnk"
+        },
+        "type": "data_flow",
+        "value": "Receives the Hydro Pump projectile's Item_GObj and an object reference to invalidate, forwards both unchanged to it_8026B894, and discards its owner-match Boolean result. The helper clears matching owner, reflector, absorber, fighter, unknown-fighter and toucher pointers; clearing the fighter reference also resets xCB0_source_ply to 6."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L127-L144",
+            "why": "Distinct actor event callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L631-L648",
+            "why": "Hydro Pump event registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkamex.c#L284-L287",
+            "why": "Only reference-cleanup delegation occurs."
+          }
+        ],
+        "op": "write",
+        "rationale": "The actor uses it_802CA538, whereas this callback is explicitly registered in the Hydro Pump child entry.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkamex:itKamex_Logic31_EvtUnk"
+        },
+        "type": "game_mapping",
+        "value": "Provides object-reference lifecycle cleanup for an individual projectile in Blastoise's Melee Hydro Pump attack, rather than for the summoned Blastoise body. It performs no projectile emission, damage calculation, or motion update itself."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkamex.c#L256-L272",
+            "why": "Lifetime source, ordered calls and literal initial scale."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkamex.c#L299-L320",
+            "why": "Pre-decrement lifetime and unclamped growth."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the initialization and consumption flow while removing the implication that growth terminates at exactly 1.0.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkamex:it_2725_Logic31_Spawned"
+        },
+        "type": "data_flow",
+        "value": "Reads the projectile's Item and root HSD_JObj, copies special attribute x0 into xD44_lifeTimer, calls common setup and the local state-entry helper, then writes root scale (0.2, 0.2, 0.2). The state-0 animation callback pre-decrements the lifetime and tests for a nonpositive result. Its physics callback adds the literal 0.06 to every scale component while pre-update scale.x is below 1.0; no clamp is applied, so the scale can exceed 1.0."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkamex.c#L256-L325",
+            "why": "Complete spawn order, state-entry helper and three state callbacks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the ordering: state entry precedes the final initial-scale write. Also preserves the exact growth guard rather than implying saturation.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkamex:it_2725_Logic31_Spawned"
+        },
+        "type": "state_behavior",
+        "value": "At spawn, initializes the Hydro Pump lifetime, calls common setup, and enters state 0 through it_802CADF0 before setting the root model to uniform scale 0.2. The entry helper requests effect 0x46A at scale argument 1.2f and installs effect hitlag callbacks. During state 0, animation returns true after the decremented lifetime becomes nonpositive, physics adds 0.06 to each scale component while pre-update X is below 1.0, and collision returns the common terrain helper's result."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkamex.c#L95-L162",
+            "why": "Actor attribute copies and command-driven recoil."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkamex.c#L219-L320",
+            "why": "Spawn fields, attribute lifetime and literal scale parameters."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the overview's attribution of scale growth to projectile attributes and preserves the distinction between the two spawn-position fields.",
+        "subject": {
+          "entity_locator": "src/melee/it/kinds/itkamex.c"
+        },
+        "type": "data_flow",
+        "value": "Actor attributes initialize the animation-cycle counter and recoil parameters. A command flag triggers a Hydro Pump spawn attempt with cannon-offset prev_pos, independently computed ECB-center pos, alternating depth side, facing-relative velocity, inherited owner and actor parent. Projectile attribute x0 initializes lifetime; initial root scale 0.2, effect scale argument 1.2f, growth increment 0.06 and X-scale threshold 1.0 are source literals, not projectile-attribute values."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itkamex.c#L219-L254",
+            "why": "All descriptor fields, toggle timing and audio branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_26B1.c#L660-L674",
+            "why": "ECB-center helper writes its output independently."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the conflation of cannon-offset prev_pos and independently computed pos, retaining ownership, failed-attempt alternation and the exact directional audio branch.",
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itkamex:it_802CAB10"
+        },
+        "type": "data_flow",
+        "value": "Builds one SpawnItem descriptor from Kamex's position, facing, owner, pokemon.x64 and special attributes. Writes the facing-relative X offset, Y offset and alternating signed Z offset into spawn.prev_pos. Separately calls it_8026BB88 to write spawn.pos from the actor's ECB center; this does not consume or transform prev_pos. Supplies facing, zero initial damage, x14 * facing_dir horizontal velocity, zero Y/Z velocity, It_Kind_Kamex_HydroPump, ip->owner as first parent and the actor as second parent, with b0 set and x40 zero. Toggles pokemon.x64 before submitting the descriptor. Successful creation selects sound 0x271D when facing_dir is exactly 1.0f, otherwise 0x271C; failure produces no sound."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

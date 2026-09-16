@@ -1,0 +1,21 @@
+## Crazy Hand RockCrushDown
+
+This unit defines the downward Rock Crush entry routine and its Anim, IASA, Phys and Coll callbacks; the header declares all five functions. `fn_80158144` selects the canonical symbol `ftMh_MS_RockCrushDown`, passes transition arguments `(0, 0, 1.0f, 0.0f, NULL)`, calls `ftAnim_8006EBA4`, and initializes `fp->mv.ch.unk0.x0` to 107. The proposed name `ftCh_RockCrushDown` is supported as an entry-role hypothesis, not a recovered original symbol. [Entry and callbacks](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandrockcrush1.c#L18-L59).
+
+### Physics and countdown
+
+Physics obtains the Fighter and extended Crazy Hand attributes, then calls `ft_80085134`. That helper assigns horizontal velocity from animation translation Z times facing direction and vertical velocity from animation translation Y. The callback predecrements the countdown and tests the exact condition `--fp->mv.ch.unk0.x0 > da->x48 || fp->mv.ch.unk0.x0 < 0`. When true, horizontal velocity is zeroed; otherwise `ftBossLib_8015C010(gobj, da->x44)` replaces horizontal velocity with selected-target horizontal displacement, limited by the supplied argument. For ordinary ordered attribute values, the active window is the updated counter from zero through x48 inclusive. This is a per-physics-update counter, not independently established wall-clock timing. The branch preserves animation-derived Y velocity. [Physics](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandrockcrush1.c#L45-L57), [animation velocity](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L120-L125).
+
+`ftBossLib_8015C190` runs after either branch. It checks the current X position against floor 0's right bound and then left bound; crossing a bound clamps X and clears horizontal velocity. It does not clamp Y or predict a future position. Target selection is delegated through `ftBossLib_8015C208` and `ftBossLib_8015C244`; this review does not infer selection eligibility or missing-target safety from rendered names. [Target movement and bounds](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L100-L156).
+
+### Completion and remaining callbacks
+
+Anim does nothing further while frames remain and calls `ftCh_GrabUnk1_8015BC88` when the query returns zero. The shared helper clears move-local x20, forms a position from attributes x18/x1C and zero Z, writes numeric state value `0x184`, and tests it against `0x156`. As written, that comparison selects the else call to `ftCh_GrabUnk1_8015B8FC`; the other branch remains explicit source structure. After setup, it installs `ftCh_Init_80156198` in move-local x4 and stores the position in xC. These continuation fields outlive the local completion call; their full later consumption is outside this unit. No symbolic Wait-state identity is established merely by the rendered helper name. [Completion guard](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandrockcrush1.c#L30-L35), [shared setup](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandtagcancel.c#L109-L133).
+
+IASA forwards the object to `ftBossLib_8015BD20` only for `Gm_PKind_Human`; all non-human kinds skip that call. The shared hook currently returns immediately, so this is not implemented interrupt selection. Coll is empty and does not consume its parameter. [IASA](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandrockcrush1.c#L37-L43), [hook](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftbosslib.c#L31-L34), [collision](code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCrazyHand/ftcrazyhandrockcrush1.c#L59-L59).
+
+### Evidence limits
+
+Both owned files were read completely in canonical and rendered form. Rendering reported no parse errors; substituted helper names were treated as hypotheses and movement/completion semantics checked against canonical callees. Source establishes literal expressions, not their emitted section placement. The three `.sdata2` facts remain unresolved without compiled evidence. Thirty other facts and all twelve links are explicitly retained in the checkpoint ledger.
+
+Status: synthesized; independent review and live promotion pending.

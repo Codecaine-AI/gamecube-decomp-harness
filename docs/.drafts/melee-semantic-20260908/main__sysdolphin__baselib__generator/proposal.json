@@ -1,0 +1,419 @@
+{
+  "tu": "main/sysdolphin/baselib/generator",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D3AC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Type bit 0x80 first requests removal of the generator's particles. Retirement then defers if numChild is nonzero, or if type bit 0x100 is set, jobj is non-NULL, type intersects 0x1800, and a non-NULL AppSRT owned by this generator has usedCount != 1. The latter condition includes zero, not only counts greater than one. Both deferral paths set random=0.0F and genLife=1 and return the still-linked generator. Otherwise the routine repairs head or predecessor linkage, removes AppSRT ownership, unreferences and clears the JObj, frees the generator, decrements the active count and returns prev.",
+        "rationale": "Corrects the baseline's narrower shared-by-more-than-one interpretation while preserving all guards and return semantics.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Complete ordered retirement branches and exact usedCount comparison."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D580"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "For a non-NULL JObj, scans generators reachable from hsd_804D78FC and compares each gen->jobj by pointer identity. It saves the successor before passing a matching generator to hsd_8039D4DC. That wrapper invokes dependency-gated retirement: a match may remain linked with random=0 and genLife=1, or be unlinked, detached from AppSRT and JObj ownership, freed and removed from the active count. Traversal continues using the saved successor.",
+        "rationale": "The downstream cleanup path is conditional, not guaranteed unlinking and freeing.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L172",
+            "why": "Common retirement helper, identity wrapper and single-joint scan."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D580"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests retirement of every active HSD particle generator directly attached to one specified JObj. It does not descend into child joints and does not guarantee immediate reclamation: the common retirement helper may retain generators while its dependency guards hold.",
+        "rationale": "Preserves the useful single-joint cleanup purpose without promising that every selected generator is immediately destroyed.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L172",
+            "why": "Selection scope and reachable deferral paths."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D580"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "NULL is a no-op. Otherwise the routine traverses the entire active list, requesting retirement for each exact JObj attachment match and leaving nonmatching generators alone. Each successor is captured before the call, permitting traversal after either immediate reclamation or deferred retention. Matching generators are not necessarily removed during this invocation. No child-joint recursion occurs.",
+        "rationale": "Corrects the unconditional-removal claim while retaining null handling and mutation-safe traversal.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L172",
+            "why": "Deferral guards, wrapper and saved-successor loop."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "At each visited JObj, scans the global active-generator list, saves each successor and sends generators whose jobj pointer matches that node to hsd_8039D4DC. The common helper either retains the generator in deferred retirement or unlinks and releases it. After processing the current joint, numeric flag 0x1000 stops descent; otherwise the function recursively processes each child through its sibling chain. The supplied root's own siblings are not independently traversed.",
+        "rationale": "Corrects unconditional freeing and makes the precise hierarchy scope explicit.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L198",
+            "why": "Retirement outcomes and recursive traversal ordering."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies hierarchy-scoped retirement requests for model-joint particle emitters. This is the teardown side of attached visual-effect lifecycle management, but generators and their retained joint references can remain alive while the common retirement helper's dependency guards hold.",
+        "rationale": "The operation supports model-effect teardown without guaranteeing immediate disappearance of all attachment ownership.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L198",
+            "why": "Hierarchy-selected retirement and deferred ownership release."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L761-L788",
+            "why": "Concrete model-attached generator creation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests retirement of active HSD particle generators attached to a supplied JObj and its eligible descendants. It processes each joint before deciding whether to descend and delegates immediate-versus-deferred reclamation to the common generator retirement path.",
+        "rationale": "Replaces an unconditional hierarchy-wide removal promise with the actual dependency-gated operation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L198",
+            "why": "Common helper and recursive wrapper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039D5DC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A NULL root causes no action. Each non-NULL joint first receives a full active-list scan and retirement requests for its attachment matches. Requests may reclaim generators immediately or retain them in deferred retirement. Only afterward does jobj->flags & 0x1000 stop descent; otherwise every direct child is processed recursively through the child sibling chain. Thus the boundary joint itself is processed even when its descendants are excluded.",
+        "rationale": "Preserves cleanup-before-descent ordering and the numeric boundary while correcting guaranteed-removal language.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Immediate and deferred retirement states."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L174-L198",
+            "why": "Null guard and ordered hierarchy traversal."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039DAD4"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature: f32 hsd_8039DAD4(HSD_Generator* gen). The required mutable generator supplies shape, orientation, resource and emission-credit state. The result is gen->count after dispatch processing, not a count of successfully allocated particles. Input below one, including negative values, is returned unchanged. Ordinary finite nonnegative credit leaves a fractional remainder after whole-unit dispatches; no universal range or termination guarantee is established for exceptional numeric inputs or arbitrary custom callbacks.",
+        "rationale": "Corrects the success-based residual interpretation and preserves the early-return numeric domain.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L358-L387",
+            "why": "Signature and sub-unit early return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L945-L962",
+            "why": "Optional custom dispatch, decrement and residual return."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039DAD4"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Consumes one generator's whole units of accumulated emission credit through shape-specific dispatch. It builds orientation from eligible joint, camera-facing and velocity settings, samples and transforms emitter geometry, and calls particle construction for built-in shapes or an optional custom callback for other shape nibbles. Each iteration consumes one count unit regardless of allocation success or whether a custom callback exists, then returns the remaining count.",
+        "rationale": "Distinguishes emission attempts from guaranteed particle creation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L358-L962",
+            "why": "Orientation, geometry dispatch, particle calls and unconditional credit consumption."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/particle.c#L385-L391",
+            "why": "Particle allocation can fail."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039DAD4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Count below one returns immediately. Otherwise each loop dispatches by type & 0xF and subtracts one count unit without checking particle-allocation success. Shapes 0,3,4,6,7 use radial/conical paths; 1 samples a line; 2 passes tornado parameters; 5 samples a rectangular volume or selected faces; 8 samples a spherical region. Other nibbles call hsd_804D78E8 only when nonzero but still consume credit. Negative angle initializes stepped angular state, consumed by the applicable radial/conical and tornado branches rather than every shape; negative radius selects fixed-radius behavior in applicable branches. Joint orientation requires type bits 0x100 and 0x400, a JObj and !(kind & 0x30000). Kind bit 0x10000 builds camera-facing axes and asserts psCamera. Velocity alignment excludes line shape and requires magnitude above its threshold.",
+        "rationale": "Preserves exceptional branches, the actual orientation mask and dispatch-versus-success distinction.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L385-L570",
+            "why": "Count, orientation and stepped-angle guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L572-L962",
+            "why": "All shapes, special sampling branches and unconditional count decrement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039EE24"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "First consumes raw generator pointers from hsd_804D78F4, calls hsd_8039D71C to bake attachment-derived state, removes each queue node and unreferences/clears the generator's JObj. This phase precedes all link and kind skip checks. The active-list phase uses mask bit linkNo+16 and kind bit 0x800 as exclusions, synchronizes eligible generators, adds -random when random is negative or random*HSD_Randf otherwise, and dispatches whole emission credit. A nonzero genLife decrement reaching zero feeds dependency-gated retirement; the helper's returned retained generator or predecessor determines traversal recovery.",
+        "rationale": "Corrects queue cleanup semantics and preserves the retirement helper's two outcomes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Complete ordered data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "State-dependent retirement return."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039EE24"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Runs one generator-management pass: drains the one-shot transform-bake/JObj-detach queue, then advances eligible active emitters' attachment synchronization, emission credit and finite lifetimes. Whole credit triggers shape dispatch, while lifetime expiry requests immediate or deferred retirement through the common helper. Queue processing does not itself destroy the generator.",
+        "rationale": "Replaces misleading deferred-cleanup/finalization wording with the actual separate queue lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Queue phase and active-generator phase."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Dependency-gated retirement."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039EE24"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Every invocation drains pending bake/detach entries before walking the active list. Consequently a generator excluded by its link mask or kind bit 0x800 can already have had transform state baked and its JObj released; exclusion skips only the later active-list work. Eligible generators synchronize attachment state, accumulate and dispatch emission credit, then decrement genLife only when nonzero. Zero therefore has no countdown. A decrement reaching zero requests retirement, which can instead retain the generator with random=0 and genLife=1. Traversal resumes from the returned node's successor, or the active head when the return is NULL.",
+        "rationale": "Corrects both blanket unchanged-on-skip language and unconditional lifetime-zero removal.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1020",
+            "why": "Queue-before-mask order, countdown and traversal recovery."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Deferred retirement state."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F05C"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Signature: HSD_Generator* hsd_8039F05C(s32 linkNo, s32 bank, s32 idx). Intended selectors address eight link groups, 65 particle banks and a definition within the selected bank. The implementation rejects bank>=65, linkNo>=8, idx>=psCmdListArray[bank], a NULL selected definition and failed generator allocation, but does not check negative signed selectors. The command-count/list naming TODO remains unresolved. A successful result is a mutable, already active-list-published generator; optional AppSRT allocation failure alone does not force a NULL return.",
+        "rationale": "The baseline overstates validation of the signed selector domain.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1040-L1062",
+            "why": "Signature, TODO and upper-only guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L310-L350",
+            "why": "Base allocation publishes the record."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1210-L1224",
+            "why": "Optional AppSRT handling and returned generator."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F6CC"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supports the effect library's SPtcl-selected constructor path by creating an emitter with a temporarily retained model joint and scheduling one-shot transform baking followed by joint release. The emitter's continuing lifetime belongs to the ordinary active-generator list; membership in the additional queue does not establish permanent model anchoring or persistent static-list state.",
+        "rationale": "Canonical queue consumption qualifies the effect-library comments about static particles.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/eflib.c#L988-L1014",
+            "why": "Constructor selection and SPtcl/DPtcl caller terminology."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1226-L1244",
+            "why": "Temporary attachment and queue publication."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L980",
+            "why": "Queue drains and attachment is released before active-list processing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F6CC"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Creates a resource-selected particle generator, retains a nullable JObj, adds kind-dependent attachment mode bits and queues the generator for one-shot transform baking and JObj detachment during the next generator-management pass. Base construction already publishes the generator in the active list; hsd_804D78F4 is a separate pending-work queue.",
+        "rationale": "Corrects the baseline's persistent-list interpretation using the queue consumer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1226-L1244",
+            "why": "Complete queued constructor."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L978",
+            "why": "One-shot queue consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L310-L350",
+            "why": "Separate active-list publication."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/sysdolphin/baselib/generator:hsd_8039F6CC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Base-constructor failure returns NULL before attachment or queue mutation. On success the wrapper stores jobj, increments its reference when non-NULL, ORs 0x500 when kind bit 0x20000 is set or 0x700 otherwise, then stores the result of HSD_SListAllocAndAppend in hsd_804D78F4. The next manager invocation drains that queue before active-list skip masks, bakes the attachment transform and unreferences/clears the JObj without destroying the generator. Queue entries carry raw generator pointers, so generator lifetime must extend through their processing; this wrapper provides no explicit cancellation or separate queue-allocation failure branch.",
+        "rationale": "Preserves construction guards while correcting the queue state and cross-call lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L1226-L1244",
+            "why": "Failure guard, attachment reference and raw-pointer queue publication."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L993",
+            "why": "Queue processing precedes exclusions and releases attachment ownership."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/sysdolphin/baselib/generator.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Successful pool allocation clears and publishes an active generator, updates live/peak counts and assigns a shared wrapping u16 identifier of at least 0x100. Resource construction subsequently fills its definition state and optional hooks. Each manager pass first drains a separate one-shot transform-bake/JObj-detach queue, then applies link-mask and kind-0x800 exclusions to active-list processing. Eligible generators synchronize transforms, accumulate emission credit, dispatch whole units and decrement nonzero genLife. Expiry requests retirement rather than guaranteeing reclamation: child count or qualifying owned AppSRT usedCount != 1 can retain the generator with random=0 and genLife=1. Final reclamation repairs list linkage, releases attachment ownership, returns storage to the pool and decreases the live count.",
+        "rationale": "Corrects the TU overview's unconditional expiry removal while preserving publication and queue-before-mask lifetimes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L87-L128",
+            "why": "Reclamation and deferral transitions."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L310-L350",
+            "why": "Allocation, publication and shared ID."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/sysdolphin/baselib/generator.c#L965-L1244",
+            "why": "Ordered manager phases, resource construction and queue publication."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

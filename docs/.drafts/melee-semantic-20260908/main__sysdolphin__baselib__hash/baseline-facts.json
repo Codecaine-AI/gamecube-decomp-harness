@@ -1,0 +1,389 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hash:.data"
+    },
+    "facts": [
+      {
+        "id": "fact:eb42d340-168c-4a06-97b7-2e1d4741dea1",
+        "target_id": "target:data:main/sysdolphin/baselib/hash:.data",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "HSD_HashSearch computes a bucket index through the hash class's getidx callback and tests it against table_size. If that assertion fails, this literal supplies the failed-expression string to __assert; __assert interpolates it into an OSReport diagnostic, then forwards the source file and line to HSD_Panic. Normal successful lookup execution does not otherwise consume or modify this data.",
+        "rationale": "The hash source shows the index computation immediately followed by the bounds assertion and then normal bucket lookup. The debug source shows the failed-expression argument flowing into OSReport before panic. Together they establish both the failure-only consumption path and the absence of this data from ordinary hash traversal.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:06:26.018Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Shows the computed index entering the bounds assertion before HashSearchEntry is called, and shows that the subsequent normal lookup path does not otherwise use assertion data."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L43",
+            "why": "Shows the failed-expression string flowing to OSReport and the assertion source location flowing onward to HSD_Panic."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/929489915715145848",
+            "why": "Confirms that the 24-byte data consumed by this assertion path is the .data allocation owned by hash.o at the target address."
+          }
+        ]
+      },
+      {
+        "id": "fact:5d4361e1-80b9-41df-b92a-ca10d0a515ac",
+        "target_id": "target:data:main/sysdolphin/baselib/hash:.data",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A 24-byte .data payload containing the NUL-terminated ASCII string `idx < hash->table_size`, followed by section-alignment padding; it is compiler-emitted storage for an anonymous assertion-expression literal rather than a structured table or mutable hash state.",
+        "rationale": "The map identifies this target as hash.o's entire 0x18-byte .data section. The sole assertion expression visible in the matched unit is 22 characters long, requiring 23 bytes with its terminator and fitting the mapped section exactly after alignment. Its use as text is corroborated by __assert consuming a C string for the failed expression.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:06:26.018Z",
+        "evidence": [
+          {
+            "kind": "discord",
+            "locator": "discord://message/929489915715145848",
+            "why": "Identifies the target as a 0x18-byte .data section owned by hash.o at address 0x80407720."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Supplies the exact assertion expression whose stringified representation accounts for the section payload."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L43",
+            "why": "Establishes that assertion-expression data is consumed as a C string by the HSD assertion handler."
+          }
+        ]
+      },
+      {
+        "id": "fact:1ea8a977-416d-4824-9fb0-a22027750d43",
+        "target_id": "target:data:main/sysdolphin/baselib/hash:.data",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the assertion-expression text `idx < hash->table_size` used by HSD_HashSearch's bucket-index bounds check, allowing the HSD assertion handler to identify the failed condition before entering the panic path.",
+        "rationale": "The matched HSD_HashSearch body contains one HSD_ASSERT whose condition is exactly `idx < hash->table_size`. The hash object's map entry assigns a 0x18-byte .data section at 0x80407720; the 22-character condition plus its NUL terminator and alignment occupies exactly that section. The matched __assert body establishes why the expression text exists: its failed-expression argument is printed in the assertion diagnostic before panic.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:06:26.018Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Shows HSD_HashSearch asserting the exact condition `idx < hash->table_size` before using the computed bucket index."
+          },
+          {
+            "kind": "discord",
+            "locator": "discord://message/929489915715145848",
+            "why": "Provides the good-map placement and exact 0x18-byte size of hash.o's .data section beginning at 0x80407720."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/debug.c#L39-L43",
+            "why": "Shows __assert printing its failed-expression string as `assertion \"%s\" failed` and then invoking HSD_Panic."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hash:.sdata"
+    },
+    "facts": [
+      {
+        "id": "fact:e5ba60f8-00ac-4293-ae25-9bc57f72c5e7",
+        "target_id": "target:data:main/sysdolphin/baselib/hash:.sdata",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The string is referenced by HSD_HashSearch's `HSD_ASSERT(113, idx < hash->table_size)` diagnostic path. Normal in-range lookups continue to HashSearchEntry without otherwise using or modifying this data; an assertion failure uses it to identify the originating source file.",
+        "rationale": "The matched function computes the index, immediately applies the line-113 bounds assertion, and only then performs the bucket lookup. As immutable assertion metadata, the section contributes diagnostic context and receives no runtime writes.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T05:03:57.107Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Shows the index computation, bounds assertion, and subsequent lookup order, establishing when the source-file diagnostic metadata can be consumed."
+          }
+        ]
+      },
+      {
+        "id": "fact:6e21adb3-f415-4ae4-96c6-cb88e5d2344b",
+        "target_id": "target:data:main/sysdolphin/baselib/hash:.sdata",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An eight-byte NUL-terminated character string with the contents `\"hash.c\"`; it is compiler-placed assertion metadata rather than a source-level hash-table object or callback table.",
+        "rationale": "The section has the exact storage required for the seven-character basename `hash.c` plus its terminator. The matched source's sole assertion is inside that file and supplies a source line number, making the file-name literal the supported interpretation of this small-data payload rather than hash lookup state.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-02T05:03:57.107Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Provides the source path and the HSD_ASSERT invocation whose diagnostic metadata includes the source-file name."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1359--main-sysdolphin-baselib-hash",
+            "why": "Associates the matched HSD_HashSearch implementation and its assertion-bearing source with src/sysdolphin/baselib/hash.c."
+          }
+        ]
+      },
+      {
+        "id": "fact:d3d11e99-ee8b-442f-994b-4812c0711e08",
+        "target_id": "target:data:main/sysdolphin/baselib/hash:.sdata",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Stores the source-file name string used by HSD_HashSearch's bounds assertion so assertion diagnostics can identify hash.c when the computed bucket index is outside the hash table.",
+        "rationale": "The target is the translation unit's eight-byte small-data section, while the matched HSD_HashSearch body contains the unit's assertion at source line 113. The file basename `hash.c`, including its terminating NUL byte, exactly accounts for those eight bytes; the separate assertion-expression text belongs to the unit's larger data section. The unit-scoped pull request independently associates the completed implementation with src/sysdolphin/baselib/hash.c.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-02T05:03:57.107Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Shows that HSD_HashSearch invokes HSD_ASSERT at line 113 to validate the bucket index, establishing the assertion site that requires source-file diagnostic metadata."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1367--main-sysdolphin-baselib-hash",
+            "why": "Identifies src/sysdolphin/baselib/hash.c as the translation unit completed by the merged \u201cFully match hash\u201d work."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hash:HSD_HashSearch"
+    },
+    "facts": [
+      {
+        "id": "fact:09ba39eb-6831-4400-96dd-bf0ced06f88b",
+        "target_id": "target:function:main/sysdolphin/baselib/hash:HSD_HashSearch",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The hash object's class-info `getidx` callback produces a table index, which is asserted to be below `table_size`. That index, the hash object, and the caller's key are passed to HashSearchEntry. The resulting entry pointer is converted to the optional success flag, while its `value` field becomes the function result.",
+        "rationale": "Each stage is explicit in the matched source: virtual index calculation, bounds assertion, helper call with the key, boolean success output, and extraction of the matched entry's value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:13:05.261Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "The complete body directly exposes the flow from the hash callback and key through HashSearchEntry to the success output and returned stored value."
+          }
+        ]
+      },
+      {
+        "id": "fact:35e326d3-8b9a-409b-b8fb-247b85eab56a",
+        "target_id": "target:function:main/sysdolphin/baselib/hash:HSD_HashSearch",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function with signature `HSD_HashClassInfo* HSD_HashSearch(HSD_Hash* hash, void* key, int* success)`. The third parameter is nullable and, when non-NULL, receives a normalized 0-or-1 result.",
+        "rationale": "The matched declaration supplies the exact return and parameter types. The guarded assignment `*success = !!entry` proves that success is an optional integer out-parameter carrying a normalized boolean.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:13:05.261Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "The source provides the exact signature and demonstrates the nullable out-parameter's representation and use."
+          }
+        ]
+      },
+      {
+        "id": "fact:dd036d36-8376-44d8-9713-21d167e727dd",
+        "target_id": "target:function:main/sysdolphin/baselib/hash:HSD_HashSearch",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Looks up a key in an HSD_Hash, returning the matched entry's stored value as an HSD_HashClassInfo pointer or NULL when no entry matches; it can also report lookup success through an optional output parameter.",
+        "rationale": "The complete matched body obtains an entry from HashSearchEntry, writes the booleanized entry pointer to success when supplied, returns entry->value for a match, and otherwise returns NULL.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-01T23:13:05.261Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "The body directly shows the lookup delegation, optional success reporting, matched-value return, and NULL miss result."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/hash:HashSearchEntry"
+    },
+    "facts": [
+      {
+        "id": "fact:6c735c53-5883-429f-b7d7-b307a2029744",
+        "target_id": "target:function:main/sysdolphin/baselib/hash:HashSearchEntry",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "The function reads the head at `hash->table[idx]` and passes the hash object, each candidate entry's stored key, and the requested key to `hash->parent.class_info->keycheck`. A nonzero comparison advances to the candidate's `next` link. A zero comparison returns that candidate and, if `ptr` was supplied, first writes the address of the link slot containing the candidate through the output.",
+        "rationale": "Both traversal forms in the matched body implement the same input and result flow. The direct-entry form only returns the match, whereas the pointer-to-pointer form preserves the slot used to reach it and emits that additional result.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:29:57.785Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L5-L33",
+            "why": "Shows the bucket head and requested key entering traversal, each stored key entering keycheck, next-link progression after mismatches, and both outputs produced on a match."
+          }
+        ]
+      },
+      {
+        "id": "fact:35ae213c-cc09-400a-882c-baeffc07091b",
+        "target_id": "target:function:main/sysdolphin/baselib/hash:HashSearchEntry",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Function with signature `HSD_HashEntry* HashSearchEntry(HSD_Hash* hash, int idx, void* key, HSD_HashEntry** ptr)`. `idx` selects a bucket, `key` is an opaque comparison key, and `ptr` is nullable; on a match in the non-NULL path, the function stores the address of the matching link slot through `ptr`, represented by the source's cast to `HSD_HashEntry*`.",
+        "rationale": "The matched definition provides the exact signature. Field use establishes idx as a table subscript and key as the callback input, while the guarded assignment from the local HSD_HashEntry** traversal variable establishes the unusual link-slot output convention.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:29:57.785Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L5-L33",
+            "why": "Provides the exact declaration and demonstrates the roles and nullable behavior of all four parameters, including the cast used for the link-slot output."
+          }
+        ]
+      },
+      {
+        "id": "fact:d8729b05-5561-4c10-bbc9-b3e96505b636",
+        "target_id": "target:function:main/sysdolphin/baselib/hash:HashSearchEntry",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Searches one selected HSD_Hash bucket for an entry whose stored key matches the requested key. It returns the matching HSD_HashEntry or NULL and, when requested, also exposes the address of the bucket-head or next-link slot that points to the match.",
+        "rationale": "The matched body starts at hash->table[idx], follows each entry's next link, and treats a zero result from the class's keycheck callback as a match. Its pointer-to-pointer branch traverses link slots rather than entry values and writes the matching slot's address through the optional output before returning the entry.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:29:57.785Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L5-L33",
+            "why": "Directly shows bucket-chain traversal, callback-based key matching, matched-entry return, miss return, and optional reporting of the link slot that contains the match."
+          }
+        ]
+      },
+      {
+        "id": "fact:1efa7fd8-641a-430f-9c05-b991af84d4a9",
+        "target_id": "target:function:main/sysdolphin/baselib/hash:HashSearchEntry",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "An empty selected bucket returns NULL immediately. Otherwise, a NULL `ptr` selects direct entry traversal, while a non-NULL `ptr` selects pointer-to-pointer link traversal. In either path, the first candidate for which keycheck returns zero terminates the search successfully; exhausting the chain returns NULL. The hash chain itself is not modified.",
+        "rationale": "The initial bucket-head guard defines the empty state, the ptr test selects the two traversal modes, and each loop's match return and NULL terminator define first-match and exhausted-chain behavior. All hash fields are read-only in this function; its only write is to the optional output.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:29:57.785Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L5-L33",
+            "why": "Shows the empty-bucket guard, output-dependent traversal modes, zero-comparison success condition, chain-exhaustion miss, and absence of hash-chain mutation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/hash.c"
+    },
+    "facts": [
+      {
+        "id": "fact:546a32f2-c019-4340-a9d0-a63bc92f9a1d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hash.c",
+        "type": "data_flow",
+        "value": "An HSD_Hash class callback produces the bucket index, and the caller's opaque key is compared against each entry key in that bucket through the class's keycheck callback. A matching HSD_HashEntry flows back to HSD_HashSearch, which writes an optional normalized success result and returns the entry's value; a miss produces success 0 and NULL.",
+        "rationale": "The two matched function bodies expose the complete unit-level lookup flow from virtual index selection, through linked-bucket comparison, to the optional success output and returned stored value.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:29:57.785Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L5-L33",
+            "why": "Shows how the requested key and each stored key reach keycheck and how a matching entry or NULL leaves the bucket traversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Shows the index and key entering HashSearchEntry and the resulting entry becoming both the optional success flag and returned stored value."
+          }
+        ]
+      },
+      {
+        "id": "fact:d785aadd-a94a-4016-9e56-2b168400332d",
+        "target_id": null,
+        "entity_id": "translation_unit:src/sysdolphin/baselib/hash.c",
+        "type": "purpose",
+        "value": "Implements HSD's hash-table lookup path: the public routine derives and validates a bucket index, while the internal helper traverses that bucket's linked collision chain using the hash class's key-comparison callback and returns either the matched stored value or a miss result.",
+        "rationale": "The public HSD_HashSearch body obtains an index through getidx, checks it against table_size, delegates to HashSearchEntry, and converts the returned entry into a stored-value or NULL result. HashSearchEntry supplies the complementary bucket-chain traversal and keycheck comparison. The merged unit-scoped pull request independently identifies hash.c as the completed hash implementation.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T00:29:57.785Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L5-L33",
+            "why": "Shows the internal lookup helper traversing one hash bucket's linked entries and comparing keys through the hash class's keycheck callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/sysdolphin/baselib/hash.c#L35-L50",
+            "why": "Shows the public lookup routine deriving and validating the bucket index, invoking HashSearchEntry, reporting success, and returning the matched stored value."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1367--main-sysdolphin-baselib-hash",
+            "why": "Identifies the merged unit-scoped work as \u201cFully match hash\u201d and records hash.c as the translation unit changed to complete that implementation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hash:HSD_HashSearch#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hash:HSD_HashSearch#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hash:HSD_HashSearch#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hash:HashSearchEntry#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hash:HashSearchEntry#r4"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hash:HashSearchEntry#r5"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/sysdolphin/baselib/hash:HashSearchEntry#r6"
+    },
+    "facts": []
+  }
+]

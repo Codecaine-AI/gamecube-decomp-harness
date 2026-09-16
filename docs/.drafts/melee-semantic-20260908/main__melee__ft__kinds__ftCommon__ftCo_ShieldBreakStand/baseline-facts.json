@@ -1,0 +1,688 @@
+[
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:.sdata2"
+    },
+    "facts": [
+      {
+        "id": "fact:6534fc57-fd0f-428a-bdbf-c9e0b9ee95eb",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "ftCo_80098F3C consumes the pool's 0.0f and 1.0f literals while calling Fighter_ChangeMotionState: 0.0f supplies both the initial motion frame and blend value, and 1.0f supplies the playback rate. The call applies them to whichever of ShieldBreakStandU or ShieldBreakStandD was selected from the fighter's preceding motion ID.",
+        "rationale": "The complete entry routine first derives the U/D ShieldBreakStand motion from Fighter.motion_id and then passes the literal sequence 0, 1, 0 to Fighter_ChangeMotionState. Because the section contains only two f32-sized words, the repeated zero is supplied by the same 0.0f literal while the other word supplies 1.0f.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:26:53.313Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L12-L22",
+            "why": "Shows selection of ShieldBreakStandU or ShieldBreakStandD followed by the motion-state call that consumes 0, 1, and 0."
+          }
+        ]
+      },
+      {
+        "id": "fact:44bd333a-8431-4edb-b593-8462d7c8160b",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Eight-byte read-only small-data literal pool containing two single-precision floating-point values: 0.0f and 1.0f.",
+        "rationale": "The section target is eight bytes long, exactly enough for two four-byte f32 values, while the matched unit requires only the two distinct floating-point constants 0 and 1 in its ShieldBreakStand motion-state call.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T05:26:53.313Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L12-L22",
+            "why": "Shows the two distinct constants consumed by the translation unit in the floating-point argument positions of Fighter_ChangeMotionState."
+          }
+        ]
+      },
+      {
+        "id": "fact:22f54c3e-ff2c-41b1-8f97-c147279c1ffd",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the read-only floating-point literals used when the ShieldBreakStand entry routine starts the selected standing motion at frame 0 with playback rate 1 and zero blend.",
+        "rationale": "The matched ShieldBreakStand entry routine passes 0, 1, and 0 in the floating-point motion-control positions of Fighter_ChangeMotionState. The target is the unit's eight-byte .sdata2 section, which is the appropriate two-word literal pool for the two distinct values consumed by that call.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-02T05:26:53.313Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L12-L22",
+            "why": "Shows the unit's sole motion-state entry call using the distinct literals 0 and 1 for its motion-control arguments, with 0 reused."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_80098F3C"
+    },
+    "facts": [
+      {
+        "id": "fact:9b0e84b4-9943-4f96-984e-731ca6c99d61",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_80098F3C",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the Fighter_GObj forwarded by the completed ShieldBreakDown animation callback and obtains its Fighter from user_data. It maps motion_id == ftCo_MS_ShieldBreakDownU to ftCo_MS_ShieldBreakStandU and every other input motion ID to ftCo_MS_ShieldBreakStandD, then forwards the original object and selected motion ID to Fighter_ChangeMotionState with Ft_MF_KeepColAnimHitStatus | Ft_MF_SkipModel | Ft_MF_SkipMatAnim | Ft_MF_SkipColAnim, animation frame 0, playback speed 1, blend 0, and no alternate animation source.",
+        "rationale": "The caller shows the unchanged game object entering the routine. The target body exposes the sole Fighter field read, the exact ternary mapping, and every outgoing motion-state argument; Fighter_ChangeMotionState confirms that its destination object and requested motion ID are immediately applied to the fighter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:34.843Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L35-L40",
+            "why": "Shows the completed down-state animation callback forwarding its Fighter_GObj unchanged to the target."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L13-L23",
+            "why": "Shows the motion-ID read, U/D mapping, transition flags, animation parameters, and outgoing call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Shows Fighter_ChangeMotionState consuming the destination object, motion ID, and flags and immediately assigning the requested motion ID to the destination Fighter."
+          }
+        ]
+      },
+      {
+        "id": "fact:eb66298e-c03d-4963-8caf-66ad189574c0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_80098F3C",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Begins the standing-up phase of shield-break incapacitation after the victim's knocked-down animation finishes; this phase precedes the in-place post-shield-break stun.",
+        "rationale": "The ShieldBreakDown callback at the current head invokes this routine when the down animation expires, and the ShieldBreakStand unit shows that the resulting orientation-specific standing state later hands the fighter to Furafura. The wiki independently describes shield-break incapacitation as knockdown followed by standing up and then several seconds of stun, so the existing mapping remains valid after replacing its drifted code citation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:44:02.349Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L54",
+            "why": "Shows the current ShieldBreakDown animation callback invoking ftCo_80098F3C after animation exhaustion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L43",
+            "why": "Shows ftCo_80098F3C selecting the orientation-specific ShieldBreakStand motion and the stand animation callback subsequently invoking the Furafura initializer."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://shield~shield-breaking@r2048764",
+            "why": "Documents that a shield-broken fighter is knocked down upon landing and becomes stunned for several seconds after standing up."
+          }
+        ]
+      },
+      {
+        "id": "fact:f232827d-713b-4960-a6b8-8eb91fd2320b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_80098F3C",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_ShieldBreakStand_Enter",
+        "rationale": "The current relocated source still shows this address-named routine entering ShieldBreakStandU or ShieldBreakStandD, followed by callbacks consistently named ftCo_ShieldBreakStand_Anim, _IASA, _Phys, and _Coll. The local naming convention therefore continues to support ftCo_ShieldBreakStand_Enter as the plausible descriptive name.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-04T19:04:33.097Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L43",
+            "why": "Shows the address-named ShieldBreakStand entry routine together with the consistently named action-state callbacks in the unit's current location."
+          }
+        ]
+      },
+      {
+        "id": "fact:9c993cc2-14fb-4ef6-8f3b-87396e7acfdd",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_80098F3C",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state entry routine with signature void (Fighter_GObj* gobj); the argument owns the Fighter whose current motion ID is inspected and whose motion state is changed.",
+        "rationale": "The matched definition explicitly returns void and accepts one Fighter_GObj pointer. It obtains the associated Fighter from gobj->user_data, reads that fighter's motion_id, and passes the same game object to Fighter_ChangeMotionState.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:34.843Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L13-L23",
+            "why": "Provides the exact signature and shows all operations being performed on the Fighter belonging to the supplied game object."
+          }
+        ]
+      },
+      {
+        "id": "fact:bc6aea28-3574-46f8-834c-7e0617f1fa96",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_80098F3C",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enters the common ShieldBreakStand action state after shield-break knockdown, selecting the standing animation variant corresponding to the fighter's current ShieldBreakDown orientation.",
+        "rationale": "The caller invokes this routine only when the ShieldBreakDown animation expires. The routine then reads the current down-state motion ID, selects ShieldBreakStandU or ShieldBreakStandD, and performs the motion-state change, establishing it as the entry operation for the standing phase.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:34.843Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L13-L23",
+            "why": "Shows the routine selecting a ShieldBreakStand motion from the current ShieldBreakDown variant and entering it through Fighter_ChangeMotionState."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L35-L40",
+            "why": "Shows that completion of the ShieldBreakDown animation invokes this routine."
+          }
+        ]
+      },
+      {
+        "id": "fact:82c72e0f-51fd-4494-ae44-88b09b169b8b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_80098F3C",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When ShieldBreakDown animation frames are exhausted, the routine unconditionally changes ShieldBreakDownU to ShieldBreakStandU and otherwise selects ShieldBreakStandD. The standing motion begins at frame 0 with playback speed 1 and zero blend while preserving collision-animation hit status and skipping model, material-animation, and collision-animation resets during the transition.",
+        "rationale": "The caller's only guard is animation exhaustion. Once invoked, the target has no further guard: its ternary selects the stand variant and its Fighter_ChangeMotionState arguments define the transition's starting frame, rate, blend, and preservation policy.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:21:34.843Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L35-L40",
+            "why": "Shows that the transition routine is invoked when the ShieldBreakDown animation has no frames remaining."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L13-L23",
+            "why": "Shows the exact destination-state selection and motion-transition parameters."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/fighter.c#L933-L1052",
+            "why": "Shows that Fighter_ChangeMotionState applies the motion ID and interprets the supplied flags as transition reset or preservation controls."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Anim"
+    },
+    "facts": [
+      {
+        "id": "fact:9820258e-599e-43dd-a045-217df6c66f73",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Consumes the fighter object as the input to ftAnim_IsFramesRemaining; when that query becomes false, it forwards the same unchanged object to ftCo_80099010. That callee obtains the Fighter, changes its motion state to Furafura, restores shield health, derives a nonnegative damage-adjusted stun duration from common fighter data, initializes the mashable timer, and starts associated effects.",
+        "rationale": "The current ShieldBreakStand callback directly establishes the guarded flow of the unchanged Fighter_GObj into ftCo_80099010. The current Furafura source shows that the callee obtains the associated Fighter, enters Furafura, restores shield health, clamps its damage-derived duration component to zero, initializes the grab timer, and starts two associated effects.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:04:33.097Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L43",
+            "why": "Shows ftAnim_IsFramesRemaining consuming gobj and the same gobj being conditionally forwarded unchanged to ftCo_80099010."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_Furafura.c#L1-L52",
+            "why": "Shows ftCo_80099010 consuming the forwarded object to enter Furafura, restore shield health, calculate and initialize the stun timer, and start associated effects."
+          }
+        ]
+      },
+      {
+        "id": "fact:f76e2966-962c-41d9-b350-97e630c6b627",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Implements the boundary between the standing-up animation after a shield-break knockdown and the defender's in-place dazed period.",
+        "rationale": "At the current head, ShieldBreakDown animation exhaustion enters ShieldBreakStand, and this callback transfers the fighter to Furafura when the standing animation expires. The Furafura initializer establishes the timed, damage-dependent and mashable stun behavior, while the wiki identifies the corresponding shield-break result as an in-place stun. The existing mapping therefore still holds with the drifted predecessor-state citation refreshed at head.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:44:02.349Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakDown.c#L1-L54",
+            "why": "Shows animation exhaustion in ShieldBreakDown invoking the routine that enters the ShieldBreakStand stage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L43",
+            "why": "Shows this callback invoking the Furafura initializer only after the ShieldBreakStand animation has no frames remaining."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_Furafura.c#L1-L52",
+            "why": "Shows the destination state restoring shield health and initializing a nonnegative damage-adjusted timer that can subsequently be reduced by mashing."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://shield-break-combo~technical-details@r2016389",
+            "why": "Documents that breaking a defender's shield leaves that fighter stunned in place for a damage-dependent period."
+          }
+        ]
+      },
+      {
+        "id": "fact:db27099d-13df-4549-ac0c-25b0e2efa64a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter animation-state callback with signature void (Fighter_GObj* gobj).",
+        "rationale": "The matched definition returns void, accepts one Fighter_GObj pointer, queries the object's animation progress, and performs an action-state transition at animation completion.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:47:14.425Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L25-L30",
+            "why": "Provides the exact function signature and demonstrates animation-state callback behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:8d0a9c9f-23bc-491d-aa46-704697d57f60",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Handles completion of the ShieldBreakStand animation, preserving the stand state while frames remain and entering the Furafura stunned state when the animation ends.",
+        "rationale": "The current callback does nothing while animation frames remain and otherwise forwards the fighter object to ftCo_80099010. The current definition of that callee changes the fighter to ftCo_MS_Furafura and initializes the state's shield health, stun timer, and effects.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:04:33.097Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L43",
+            "why": "Shows the callback's complete animation-completion guard and its sole outgoing transition to ftCo_80099010."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_Furafura.c#L1-L52",
+            "why": "Shows that ftCo_80099010 enters Furafura and initializes its timed stun behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:e5e8839c-7bc0-44ab-93e0-e0e3117809ac",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "While ShieldBreakStand animation frames remain, the callback leaves the fighter in the current stand variant. On the first update after animation exhaustion, it enters Furafura, restores shield health, and initializes the damage-dependent mashable stun timer that governs eventual release to the common action-ending path.",
+        "rationale": "The animation-frame query is the callback's sole transition guard. The current Furafura source shows the transition routine entering Furafura and initializing its timer, followed by a Furafura animation callback that restores shield health, reduces the timer each update, applies mash reduction, and exits through the common action-ending routine when the timer expires.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:04:33.097Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L43",
+            "why": "Shows that no transition occurs while ShieldBreakStand animation frames remain and that animation exhaustion invokes the Furafura initializer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_Furafura.c#L1-L52",
+            "why": "Shows Furafura entry, shield restoration, timer initialization, per-update timer reduction, mash processing, and exit when the timer reaches zero."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Coll"
+    },
+    "facts": [
+      {
+        "id": "fact:ce430f39-a9f8-45b5-bc8f-87b0ba43e28a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current fighter game object and passes the same pointer directly to `ft_80083F88`; it performs no local transformation and produces no return value.",
+        "rationale": "The matched body contains only the call `ft_80083F88(gobj)`, so the incoming object pointer is the sole explicit input and is forwarded unchanged.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:19.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L39-L42",
+            "why": "The complete body shows the unmodified `gobj` argument flowing directly into the shared helper with no other statements."
+          }
+        ]
+      },
+      {
+        "id": "fact:f8bd2a23-ba37-4852-8205-58d2ba292192",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the collision update used during the fighter's post-shield-break standing phase, part of the forced stun sequence caused by shield depletion.",
+        "rationale": "The callback's recovered name associates it specifically with ShieldBreakStand, while the mechanics reference explains that breaking a depleted shield forces the defender into an in-place stun.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T01:46:19.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L39-L42",
+            "why": "The source names this function as the collision callback for the ShieldBreakStand state."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://shield-break-combo~technical-details@r2016389",
+            "why": "This section establishes that shield depletion causes a shield break and leaves the defending fighter stunned in place."
+          }
+        ]
+      },
+      {
+        "id": "fact:d8134673-ce12-4957-ad81-f5c35ec8b7c8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A void fighter action-state collision callback with signature `void (Fighter_GObj* gobj)`.",
+        "rationale": "The resolved function declaration directly establishes a void return type and one `Fighter_GObj*` parameter; its `_Coll` role identifies it as an action-state collision callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:19.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L39-L42",
+            "why": "The declaration explicitly gives the function's return type and sole parameter type."
+          }
+        ]
+      },
+      {
+        "id": "fact:3fb7280f-543c-4682-afac-e6f768adfdb1",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the collision callback for the ShieldBreakStand fighter state by delegating the fighter object to the shared collision routine `ft_80083F88`.",
+        "rationale": "The resolved matched body is a one-call wrapper whose state-specific callback name identifies its role and whose only operation is invoking `ft_80083F88` on the supplied fighter object.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:19.616Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L39-L42",
+            "why": "The complete function body shows `ftCo_ShieldBreakStand_Coll` forwarding its fighter object to `ft_80083F88`."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_IASA"
+    },
+    "facts": [
+      {
+        "id": "fact:afa00f5f-997c-4c49-86b6-fa634e5ea90b",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the affected fighter's `Fighter_GObj*` through the action-state callback interface but does not read it, call another routine, write state, or produce output.",
+        "rationale": "Although the definition declares a fighter-object parameter, its complete body contains no statements. The argument therefore enters no further data flow and the callback has no outputs beyond returning.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:03.354Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L32-L32",
+            "why": "Shows the fighter-object input and proves that the complete body neither consumes it nor performs any operation."
+          }
+        ]
+      },
+      {
+        "id": "fact:d2f5a305-9d54-4e1c-9e44-781435c561d8",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Makes the standing phase of shield-break stun non-interruptible through its IASA hook: while this callback runs, it accepts no fighter input and initiates no alternate action.",
+        "rationale": "The callback's ShieldBreakStand/IASA identity places it at the state's interrupt-processing hook, and its empty body proves that the hook offers no transition. This matches the documented mechanic in which a fighter whose shield breaks is forcibly stunned rather than immediately free to act.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T01:46:03.354Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L32-L32",
+            "why": "Shows that the ShieldBreakStand IASA callback performs no interrupt or transition processing."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://shield-break-combo~technical-details@r2016389",
+            "why": "Documents that breaking a fighter's shield forces that fighter into stun for a period of time."
+          }
+        ]
+      },
+      {
+        "id": "fact:70d3d145-cd7c-4a01-a046-9fc8c00f5c53",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "A fighter action-state callback with signature `void (Fighter_GObj*)`; it receives the fighter's game object and returns no value.",
+        "rationale": "The matched function definition directly establishes the `void` return type and single `Fighter_GObj*` parameter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:03.354Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L32-L32",
+            "why": "Directly supplies the function's complete return and parameter types."
+          }
+        ]
+      },
+      {
+        "id": "fact:34a0559e-3386-47dd-8444-3a2efeb6abca",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the ShieldBreakStand action state's intentionally inert IASA callback, giving the state a valid per-frame interrupt hook while performing no input-driven action or transition.",
+        "rationale": "The complete matched definition is the state's IASA-named callback and has an empty body. Therefore its role is to occupy that action-state callback slot without implementing any interrupt processing.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:46:03.354Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L32-L32",
+            "why": "Shows the complete `ftCo_ShieldBreakStand_IASA` definition as an empty function."
+          }
+        ]
+      },
+      {
+        "id": "fact:840a7115-b4fb-4552-86ce-8ca86462e289",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has invariant no-op behavior on every invocation: it contains no guards, timers, state mutations, or transitions and immediately returns, so the ShieldBreakStand state's IASA phase cannot itself interrupt the forced state.",
+        "rationale": "The entire matched implementation is empty. This directly rules out any transition, timer update, or conditional behavior inside the callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:03.354Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L32-L32",
+            "why": "Shows that the callback has no statements and consequently performs no state transition or mutation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Phys"
+    },
+    "facts": [
+      {
+        "id": "fact:8a346e6c-fca0-4c4b-89b7-e74476a6a491",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current fighter GObj from action-state dispatch, passes that same pointer unchanged to `ft_80084F3C`, and produces no direct return value.",
+        "rationale": "There are no locals, transformations, branches, or returned data in the matched body; its sole operation is forwarding `gobj` to the callee.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:46:24.603Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L34-L37",
+            "why": "The body directly passes its only parameter to `ft_80084F3C` and then returns implicitly."
+          }
+        ]
+      },
+      {
+        "id": "fact:f7bb2361-eaae-463e-aa97-3f2d85735d4d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Applies the per-frame fighter physics used while the character is standing up between the shield-break knockdown and the subsequent stunned-in-place phase.",
+        "rationale": "The callback's recovered name places it in ShieldBreakStand, its body performs that state's physics delegation, and the mechanic description establishes standing up as the phase between landing knocked down and shield-break stun.",
+        "confidence": 0.91,
+        "updated_at": "2026-09-02T01:46:24.603Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L34-L37",
+            "why": "The symbol identifies the function as the physics callback for ShieldBreakStand and shows its physics delegation."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://shield~shield-breaking@r2048764",
+            "why": "The shield-breaking section describes the fighter being knocked down, standing up, and then remaining stunned."
+          }
+        ]
+      },
+      {
+        "id": "fact:6cd98222-08d7-420d-ad4f-43cda10cec04",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state physics callback with signature `void (Fighter_GObj* gobj)`.",
+        "rationale": "The matched function declaration directly establishes a void return type and one `Fighter_GObj*` parameter.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:46:24.603Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L34-L37",
+            "why": "The function declaration explicitly gives the callback's return and parameter types."
+          }
+        ]
+      },
+      {
+        "id": "fact:54540cb3-b621-4c9a-9941-fa453758fb80",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the ShieldBreakStand action's physics callback by forwarding the fighter object to the shared fighter-physics routine `ft_80084F3C`.",
+        "rationale": "The complete matched body consists solely of a call to `ft_80084F3C` with the callback's fighter object, so this function is an action-specific adapter rather than an independent physics implementation.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:46:24.603Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L34-L37",
+            "why": "The source shows the callback's entire implementation forwarding `gobj` to `ft_80084F3C`."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c"
+    },
+    "facts": [
+      {
+        "id": "fact:3157a96c-f391-42a5-848f-61b0b78ae8ef",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c",
+        "type": "data_flow",
+        "value": "The preceding down-state motion selects ShieldBreakStandU or ShieldBreakStandD; animation completion forwards the fighter to Furafura, while physics and collision use grounded common handlers.",
+        "rationale": "The current entry and callbacks directly retain these inputs and consumers.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L42",
+            "why": "Shows motion-ID mapping, stand entry, Furafura handoff, physics, and collision."
+          }
+        ]
+      },
+      {
+        "id": "fact:b209d75c-6593-434f-b21a-56f22a78ed07",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c",
+        "type": "game_mapping",
+        "value": "Realizes the standing-up segment between shield-break knockdown and the longer dazed state.",
+        "rationale": "The current unit bridges ShieldBreakDown orientation states to the Furafura initializer.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L42",
+            "why": "Shows ShieldBreakStand positioned between ShieldBreakDown and Furafura."
+          }
+        ]
+      },
+      {
+        "id": "fact:e73a1060-29ee-4adf-b54a-d2eeb8461788",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c",
+        "type": "purpose",
+        "value": "Implements standing up from ShieldBreakDown and hands the fighter to Furafura when the stand animation finishes.",
+        "rationale": "The current unit preserves orientation-specific stand entry and the completion transition.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L42",
+            "why": "Shows stand-state selection and animation-completion call to Furafura."
+          }
+        ]
+      },
+      {
+        "id": "fact:f73fdec4-2fd9-487c-a50f-e875263230e7",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c",
+        "type": "state_behavior",
+        "value": "The fighter enters the stand variant matching the preceding knockdown orientation; IASA is inert, grounded processing continues, and animation exhaustion transitions to Furafura.",
+        "rationale": "The current callbacks retain these forced-state semantics.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:31:38.337Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand.c#L1-L42",
+            "why": "Shows orientation preservation, empty IASA, grounded callbacks, and Furafura transition."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_80098F3C#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Anim#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Coll#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_IASA#r3"
+    },
+    "facts": []
+  },
+  {
+    "subject": {
+      "entity_locator": "main/melee/ft/kinds/ftCommon/ftCo_ShieldBreakStand:ftCo_ShieldBreakStand_Phys#r3"
+    },
+    "facts": []
+  }
+]

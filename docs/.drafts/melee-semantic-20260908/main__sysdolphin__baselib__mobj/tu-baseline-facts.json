@@ -1,0 +1,3006 @@
+{
+  "tu": "main/sysdolphin/baselib/mobj",
+  "facts": [
+    {
+      "id": "fact:f48a05cd-eaef-4e3e-90d5-2a7fbf777ee6",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.data",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "At class initialization, hsdMObj is passed with the parent hsdClass descriptor to hsdInitClassInfo and then receives the MObj lifecycle, setup, loading, texture-expression, and TEV callback pointers. For toon rendering, HSD_MObjSetToonTextureImage writes an incoming HSD_ImageDesc pointer into tobj_toon_desc, passes that descriptor to HSD_TObjLoadDesc on first use, stores the resulting texture object in tobj_toon, and updates that object's image pointer; TEV compilation and material setup later prepend this shared texture when RENDER_TOON is enabled.",
+      "rationale": "The current class initializer still installs all MObj callbacks. The current toon setter and rendering paths preserve the full flow from the caller's image descriptor through the mutable template into the shared TObj and then into toon-enabled compilation and setup.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows toon-enabled compilation and setup prepending tobj_toon, and shows the incoming image descriptor entering tobj_toon_desc and the lazily created shared TObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L575-L591",
+          "why": "Shows hsdMObj entering class initialization and receiving its release, amnesia, setup, unset, load, texture-expression, and TEV-setup callbacks."
+        }
+      ]
+    },
+    {
+      "id": "fact:ff49cf89-9003-45c7-8e54-bf7a5cb60e11",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.data",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A mixed initialized writable-data section containing an HSD_MObjInfo class descriptor initially populated with the void(void) callback MObjInfoInit, an HSD_TObjDesc toon-texture template configured for GX_TEXMAP7, GX_TG_COLOR0, clamped wrapping, TEX_COORD_TOON coordinates, unit blending, and linear filtering, plus retained mutable character arrays.",
+      "rationale": "The current declarations and initializers retain the same concrete C types and values. The toon descriptor is writable because its image descriptor is replaced before first construction, while the class record is completed by runtime callback assignments.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mobj.c#L1-L80",
+          "why": "Declares hsdMObj as HSD_MObjInfo and initializes it with MObjInfoInit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows the retained character array and complete mutable HSD_TObjDesc initializer, including the toon coordinate, texture-map, wrapping, blend, and filter settings."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows the second retained character array and the runtime writes that complete the initially sparse hsdMObj descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:011b9517-1bce-402c-a022-2a8cdb1aa8c5",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.data",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the MObj subsystem's initialized writable objects, principally the bootstrap HSD material-class descriptor and the reusable descriptor template from which the shared toon texture object is created; it also retains compiler-forced diagnostic text associated with material checks.",
+      "rationale": "At the current revision, the source still defines hsdMObj with MObjInfoInit as its bootstrap initializer, defines and mutates the toon texture descriptor, and contains the force-retained diagnostic arrays. The section's purpose therefore remains unchanged.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mobj.c#L1-L80",
+          "why": "Shows hsdMObj declared as initialized HSD_MObjInfo storage with MObjInfoInit as its bootstrap entry."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows a force-retained diagnostic array, the initialized toon descriptor, and its use to create the shared toon texture."
+        }
+      ]
+    },
+    {
+      "id": "fact:616dfa90-728f-44ae-adea-6cdc5da9cc52",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.data",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The hsdMObj portion begins as a bootstrap class record whose meaningful initial entry is MObjInfoInit, then becomes a fully configured runtime class descriptor when that callback initializes inheritance and installs dispatch methods. The toon descriptor remains a reusable template: whenever tobj_toon is null, the next image-setting call updates the template and creates a shared texture object; subsequent calls update the existing object's image, and MObj amnesia clears tobj_toon so the template-based creation path can run again.",
+      "rationale": "The current source preserves the bootstrap-to-configured class transition and the shared toon object's null-to-created lifecycle. MObjAmnesia still resets the shared toon pointer when the base MObj class is forgotten.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.data",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mobj.c#L1-L80",
+          "why": "Shows the initially sparse hsdMObj record containing MObjInfoInit."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows toon texture construction guarded by tobj_toon being NULL and subsequent image replacement on the shared TObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows MObjAmnesia clearing tobj_toon and MObjInfoInit completing the runtime class descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:efc0931e-6639-4dcd-9614-870c8ad82259",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sbss",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "`default_class` is read by HSD_MObjAlloc and cleared when that class is forgotten. `current_mobj` receives `dobj->mobj` before material setup and polygon display and receives NULL after teardown. Shadow TObjs are inserted into or removed from the `tobj_shadows` linked list, which is temporarily appended to a material's texture chain for shadow-enabled TEV compilation and setup. `tobj_toon` is lazily loaded from the toon descriptor, updated with the supplied image, and prepended to the texture chain for toon-enabled materials.",
+      "rationale": "The current MObj source retains the allocation, shadow-list, toon-construction, rendering-consumer, and amnesia flows. The unchanged DObj evidence continues to establish the scoped writes into current_mobj.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L300-L349",
+          "why": "Shows dobj->mobj entering current_mobj before material and polygon rendering and NULL being written after teardown."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows the shadow registry and shared toon object flowing into shadow- and toon-enabled TEV compilation and material setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows default-class allocation and invalidation, shadow-list insertion and deletion, and class-dependent clearing of shared texture pointers."
+        }
+      ]
+    },
+    {
+      "id": "fact:bf87debf-8152-40bf-8214-a90dbb0ca11e",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sbss",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "The `tobj_shadows` and `tobj_toon` slots provide the shared texture inputs used to realize shadow rendering and toon shading across materials whose render-mode flags request those effects.",
+      "rationale": "At head, RENDER_SHADOW still appends the active shadow list and RENDER_TOON still prepends the shared toon texture before TEV compilation and material setup, preserving the mapping to the two rendering effects.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Directly shows RENDER_SHADOW and RENDER_TOON selecting the shared texture globals and feeding the resulting chains into compilation and setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows construction and maintenance of the shared toon object and active shadow-texture registry."
+        }
+      ]
+    },
+    {
+      "id": "fact:2c8683e6-d669-4779-9520-be1a901d4e3c",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sbss",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 16-byte zero-initialized layout of four 32-bit pointers in declaration order: `HSD_ClassInfo* default_class`, `HSD_MObj* current_mobj`, `HSD_TObj* tobj_shadows`, and `HSD_TObj* tobj_toon`.",
+      "rationale": "The current declaration block still contains exactly these four uninitialized pointers in this order. Four 32-bit pointers account for the complete 16-byte section.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mobj.c#L1-L80",
+          "why": "Directly declares the four pointers, their types, and their declaration order without explicit initializers."
+        }
+      ]
+    },
+    {
+      "id": "fact:345a2709-4f56-4759-b886-a5be0494c120",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sbss",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Holds the material-object subsystem's zero-initialized process-global pointer state: the optional default MObj class, the material currently being rendered, the active shadow-texture list, and the shared toon texture object.",
+      "rationale": "The current source retains the same four uninitialized pointer globals, and their current consumers continue to use them for allocation-class selection, render context, shadow texture registration, and shared toon texture rendering.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mobj.c#L1-L80",
+          "why": "Declares default_class, current_mobj, tobj_shadows, and tobj_toon as uninitialized pointer globals and shows the current-material setter."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows the shadow and toon globals being incorporated into material TEV compilation and setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows default_class controlling allocation and the shadow, toon, and amnesia routines maintaining the shared pointer state."
+        }
+      ]
+    },
+    {
+      "id": "fact:57ff4689-d9f9-4bf9-8fb0-4dfdfeac29a3",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sbss",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "All four slots begin in a null state. The current-material slot is overwritten on display entry and explicitly cleared on exit without restoring a prior value. The toon slot transitions from NULL to one lazily allocated reusable TObj whose image may subsequently change. The shadow slot is the head of a duplicate-free intrusive list that supports individual removal or full detachment. MObj class amnesia clears the default-class slot when its selected class is forgotten and clears both shared texture slots when the base MObj class is forgotten.",
+      "rationale": "The current declarations remain zero-initialized static pointers. The current setter, DObj display path, toon setter, shadow-list operations, and amnesia callback preserve every described guard and transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sbss",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mobj.c#L1-L80",
+          "why": "Shows the uninitialized static pointers and unconditional replacement of current_mobj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L300-L349",
+          "why": "Shows current_mobj transitioning from the displayed DObj's material to NULL around one display operation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows lazy toon construction and later replacement of the reusable toon object's image."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows duplicate-free shadow insertion, individual and complete shadow removal, and class-dependent pointer invalidation."
+        }
+      ]
+    },
+    {
+      "id": "fact:55167428-8b8b-4f0c-8620-46ea8ca62394",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sdata",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "During MObj class bootstrap, `hsd_mobj` flows into hsdInitClassInfo to label the HSD_MObj class metadata. During the first attempt to construct the shared toon HSD_TObj, `cannot allocate tobj for toon.` flows into HSD_ASSERTREPORT and is reported only if HSD_TObjLoadDesc returns NULL.",
+      "rationale": "The current call sites preserve the distinct flow and guard for each string: one labels the runtime class, and the other reports failed lazy toon-object construction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows HSD_TObjLoadDesc producing tobj_toon and the diagnostic entering HSD_ASSERTREPORT under the resulting pointer check."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L575-L591",
+          "why": "Shows the `hsd_mobj` string pointer entering hsdInitClassInfo during class bootstrap."
+        }
+      ]
+    },
+    {
+      "id": "fact:bc40e0cc-d1ae-4484-9a67-9be6c4c0d61a",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sdata",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 40-byte initialized small-data string pool containing two NUL-terminated byte strings: `hsd_mobj` (9 bytes including its terminator) and `cannot allocate tobj for toon.` (31 bytes including its terminator).",
+      "rationale": "The current source still exposes exactly the two strings whose encoded NUL-terminated lengths sum to the section's 40-byte extent.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Contains the 31-byte NUL-terminated toon-allocation diagnostic at its use site."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L575-L591",
+          "why": "Contains the 9-byte NUL-terminated `hsd_mobj` class identifier at its use site."
+        }
+      ]
+    },
+    {
+      "id": "fact:f0384cc2-de43-4db0-8afa-4700f0bd01b6",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sdata",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the MObj unit's small initialized string data: the `hsd_mobj` runtime-class identifier and the `cannot allocate tobj for toon.` diagnostic used when construction of the shared toon texture object fails.",
+      "rationale": "Both strings and their semantic consumers remain present at head: class bootstrap consumes `hsd_mobj`, while the lazy toon allocation assertion consumes the diagnostic.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sdata",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows the toon allocation diagnostic passed to HSD_ASSERTREPORT when lazy shared-TObj construction fails."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L575-L591",
+          "why": "Shows `hsd_mobj` passed to hsdInitClassInfo as the runtime class identifier."
+        }
+      ]
+    },
+    {
+      "id": "fact:0cbb4f36-b8fe-4d0d-b73f-2468cd50d3cd",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "MObjUpdateFunc loads 255.0 to scale normalized animation values before narrowing them into ambient, diffuse, specular, alpha-reference, and destination-alpha byte fields. It loads 1.0F to convert the material-alpha animation value to `1.0F - val->fv`; HSD_MaterialAlloc also loads 1.0F to initialize a zeroed material to full alpha.",
+      "rationale": "The current update switch preserves every 255.0 conversion and the 1.0F alpha subtraction, and the relocated material allocator supplies the previously unresolvable full-alpha initialization use.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Shows 255.0 and 1.0F flowing through arithmetic into HSD_Material and optional HSD_PEDesc fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows 1.0F flowing into the alpha field of a newly allocated and zeroed HSD_Material."
+        }
+      ]
+    },
+    {
+      "id": "fact:9135d7a3-6899-46e0-bd47-181ebd88cea0",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sdata2",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports material-property animation and material-opacity control: normalized animation tracks become renderable 8-bit material or pixel-engine values, while 1.0F supplies the fully opaque/default-alpha endpoint and the reference used by animated material alpha.",
+      "rationale": "The head source continues to use these constants specifically for animated material and pixel-engine properties and for initial and animated material alpha, preserving the visible rendering-mechanic mapping.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Shows evaluated tracks becoming ambient, diffuse, specular, opacity, alpha-reference, and destination-alpha values."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows a newly allocated material receiving 1.0F as its default alpha."
+        }
+      ]
+    },
+    {
+      "id": "fact:99e304a7-dcb5-41b2-b9cb-c798b80e9356",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A 16-byte read-only floating-constant pool laid out as an f64 value 255.0, an f32 value 1.0F, and 4 bytes of section-tail alignment padding.",
+      "rationale": "The matched source requires a double-precision 255.0 literal because it is written without an F suffix and a single-precision 1.0F literal. Their 8-byte and 4-byte representations account for 12 bytes of the 16-byte section, with the remaining four bytes attributable to section alignment rather than another source-level value.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-02T04:56:21.742Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Shows the unsuffixed 255.0 constant and the explicitly single-precision 1.0F constant used by MObjUpdateFunc."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-562--main-sysdolphin-baselib-mobj",
+          "why": "Records completion of the matched HSD mobj implementation containing the source-level uses that generate this unit-owned constant pool."
+        }
+      ]
+    },
+    {
+      "id": "fact:6fe30e1a-f055-46c3-8d64-5097d3aa7f6d",
+      "target_id": "target:data:main/sysdolphin/baselib/mobj:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the material-object unit's read-only floating-point constants for converting normalized animation values to 8-bit rendering channels and for representing full material alpha.",
+      "rationale": "The current animation update function still uses 255.0 for channel conversion and 1.0F for material-alpha complementation, while the current material allocator still initializes alpha to 1.0F.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:.sdata2",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Shows repeated 255.0 scaling of animated channels and 1.0F used to complement animated material alpha."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows HSD_MaterialAlloc assigning 1.0F as the alpha of a newly allocated material."
+        }
+      ]
+    },
+    {
+      "id": "fact:a58a8ac7-811a-4901-adf8-e4e3ca4b5443",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For valid inputs, matanim->aobjdesc flows through HSD_AObjLoadDesc and the resulting runtime controller is stored in mobj->aobj after the previous controller is destroyed. The unchanged matanim->texanim list head is passed with mobj->tobj to HSD_TObjAddAnimAll; each texture object searches that descriptor list by texture-map ID and, on a match, replaces its AObj, image table, and loaded palette table from the matching descriptor.",
+      "rationale": "The target directly exposes both top-level flows from HSD_MatAnim into the MObj and its TObj chain. The resolved AObj routines establish construction and destruction semantics, while the TObj helper shows that the forwarded descriptor list is searched independently for each texture object and identifies the resources transferred on a match.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:53.075Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L55-L68",
+          "why": "Shows the old MObj AObj being removed, the new one being assigned from matanim->aobjdesc, and matanim->texanim being forwarded with the MObj's TObj head."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Shows HSD_AObjLoadDesc constructing a runtime animation controller and HSD_AObjRemove releasing the old controller and its attachments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/tobj.c#L40-L103",
+          "why": "Shows per-TObj descriptor lookup by ID and replacement of the matched node's AObj, image table, palette resources, and palette index."
+        }
+      ]
+    },
+    {
+      "id": "fact:08f870a7-af5e-48ca-9ea3-049c9df479a7",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides the attachment stage for authored material animation: the installed tracks can subsequently animate material ambient, diffuse, specular, alpha, and pixel-engine values together with texture images, palettes, blending, transforms, LOD bias, and TEV colors.",
+      "rationale": "The target installs both the MObj-level AObj and the matching animation resources for its texture layers. The MObj animation interpreter applies material tracks to color, alpha, and pixel-engine fields, while the TObj interpreter applies attached texture tracks to image, palette, blending, transform, LOD, and TEV state. Together these establish the concrete rendering behavior realized by the attachment routine.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:31:53.075Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L55-L68",
+          "why": "Shows coordinated installation of the material-level and texture-level animation descriptions."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L139",
+          "why": "Shows material animation channels driving ambient, diffuse, specular, alpha, and pixel-engine fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L139-L174",
+          "why": "Shows HSD_MObjAnim interpreting the attached material AObj and then animating all attached texture objects."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/tobj.c#L135-L227",
+          "why": "Shows attached texture-animation channels driving images, palettes, blending, texture transforms, LOD bias, and TEV color values."
+        }
+      ]
+    },
+    {
+      "id": "fact:224b52a2-afd9-49bd-9bb0-2c0de89d42d2",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void HSD_MObjAddAnim(HSD_MObj* mobj, HSD_MatAnim* matanim): a null-tolerant mutator whose second argument is a composite material-animation descriptor containing a material-level HSD_AObjDesc reference and the head of an HSD_TexAnim descriptor list.",
+      "rationale": "The matched definition provides the exact return and parameter types. Its guards establish that either null argument causes no mutation, while its accesses to matanim->aobjdesc and matanim->texanim, together with the receiving loader and list-wide texture helper, establish the two descriptor components and their roles.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:53.075Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L55-L68",
+          "why": "Provides the exact signature, null guards, and the aobjdesc and texanim members consumed from HSD_MatAnim."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Shows that HSD_AObjLoadDesc consumes an HSD_AObjDesc pointer and returns a newly materialized runtime HSD_AObj or NULL."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/tobj.c#L40-L103",
+          "why": "Shows that the forwarded HSD_TexAnim pointer is treated as the head of a next-linked descriptor list searched for each TObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:b11ede73-782a-4215-8a7d-48f36e654008",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Attaches a composite material-animation description to an HSD_MObj, replacing its previous material-level animation controller and distributing the supplied texture-animation descriptors across the material's texture-object chain.",
+      "rationale": "The function removes the MObj's existing AObj, loads a replacement from the material-animation descriptor, and forwards the descriptor's texture-animation list to the list-wide TObj attachment routine. The latter matches descriptors to texture objects by texture-map ID, establishing that this is the attachment and replacement stage for both material-level and texture-level animation resources.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:53.075Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L55-L68",
+          "why": "Directly shows replacement of the MObj's AObj and forwarding of the material animation's texture-animation list to every attached TObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/tobj.c#L40-L103",
+          "why": "Shows that HSD_TObjAddAnimAll traverses the texture-object chain and that each node installs the HSD_TexAnim selected by matching its texture-map ID."
+        }
+      ]
+    },
+    {
+      "id": "fact:e7fb7398-78d4-49d3-8782-b6a5a0fab326",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null MObj or null HSD_MatAnim is a no-op. With valid inputs, any existing material-level AObj is destroyed before the newly loaded controller is assigned; a null aobjdesc therefore leaves mobj->aobj null after replacement. Texture attachment then visits every TObj once: nodes without a matching texture-animation ID remain unchanged, while matching nodes replace their prior animation and palette resources and reset their selected palette index to -1. Attachment alone does not request a playback frame; playback is started separately by HSD_MObjReqAnim or HSD_MObjReqAnimByFlags.",
+      "rationale": "The target's guards and ordered calls establish its no-op and replacement transitions. HSD_AObjLoadDesc explicitly returns NULL for a null descriptor. The TObj helper supplies the matched-versus-unmatched node behavior, and the neighboring request routines demonstrate that requesting a start frame is a separate operation not performed during attachment.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:53.075Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L55-L68",
+          "why": "Shows both no-op guards, destruction-before-assignment ordering, and texture attachment after the material-level controller is replaced."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L179-L240",
+          "why": "Shows that a null AObj descriptor loads as NULL and that removal tears down the previous AObj before freeing it."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/tobj.c#L40-L103",
+          "why": "Shows unchanged behavior for TObjs without a matching descriptor and the animation, image, palette, and palette-index replacement performed for matching nodes."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L139",
+          "why": "Shows that requesting a start frame is handled separately by HSD_MObjReqAnimByFlags and HSD_MObjReqAnim."
+        }
+      ]
+    },
+    {
+      "id": "fact:9f6da448-a6be-4850-9169-88ebad31a267",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "HSD_ShadowSetActive supplies shadow->texture after ensuring that its image storage exists. The function searches the global tobj_shadows head, and for a new texture stores the former head in tobj->next before publishing tobj as the new head. HSD_MObjCompileTev and HSD_MObjSetup later consume this registry by temporarily attaching it to materials whose render mode includes RENDER_SHADOW, then assigning or setting up the resulting texture resources.",
+      "rationale": "The current activation caller, target body, and downstream rendering paths preserve the complete flow from an activated shadow's generated texture through registry insertion to shadow-enabled material consumption.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L269-L330",
+          "why": "Shows activation allocating image storage when needed and passing shadow->texture to HSD_MObjAddShadowTexture."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows traversal of tobj_shadows and the writes that prepend the new TObj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows the registered chain entering shadow-enabled TEV compilation and material setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:108bf65e-5280-4aa6-9a08-a94164d98bf5",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes part of Melee's shadow-rendering pipeline by making an activated shadow's rendered texture available to materials configured to receive shadows.",
+      "rationale": "The current shadow activation path registers the shadow's texture, and the current MObj render paths consume registered textures specifically under RENDER_SHADOW.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L269-L330",
+          "why": "Shows an activated shadow registering its texture with the MObj subsystem."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows materials with RENDER_SHADOW consuming the registered shadow texture chain during compilation and setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:9d50702f-c64f-436e-9e29-260f989d21d8",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_MObjAddShadowTexture(HSD_TObj* tobj). The parameter is a required, non-null texture-object pointer whose embedded next field is used to link it into the global shadow-texture chain.",
+      "rationale": "The matched declaration provides the exact return and parameter types, the assertion establishes the non-null precondition, and the assignments to tobj->next and tobj_shadows establish that the HSD_TObj participates directly in the chain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:26.127Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L505-L516",
+          "why": "Provides the exact function signature, asserts the texture pointer, and uses its next field for list insertion."
+        }
+      ]
+    },
+    {
+      "id": "fact:4c40f5f1-456a-48b9-8654-63aa0cbf6203",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Registers a non-null HSD_TObj in the global shadow-texture chain so materials using RENDER_SHADOW can incorporate that texture during TEV compilation and rendering setup. Re-registering the same texture is a no-op.",
+      "rationale": "The current target still rejects duplicate pointer identities and prepends new textures, while the current compile and setup routines still consume that registry for RENDER_SHADOW materials.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows the null assertion, duplicate scan, early return, and head insertion into tobj_shadows."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows shadow-enabled TEV compilation and material setup temporarily appending the registered shadow texture chain."
+        }
+      ]
+    },
+    {
+      "id": "fact:475dcd37-9854-4e3e-99a9-b43ac1848c85",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The routine asserts if passed a null texture. For a valid texture, it has two registry outcomes: if pointer identity is already found anywhere in tobj_shadows, it returns without mutation; otherwise it transitions the texture to registered state by prepending it to the chain. HSD_ShadowSetActive invokes this transition only when a shadow changes from inactive to active and invokes deletion for the reverse transition.",
+      "rationale": "The assertion, identity scan, early return, and head insertion directly establish the local guards and outcomes. The caller's unchanged-state guard and active flag update place registration within the larger shadow activation state transition.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:26.127Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAddShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L505-L516",
+          "why": "Shows the null assertion, duplicate guard, no-op return, and new-registration insertion."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L269-L300",
+          "why": "Shows registration occurring on the inactive-to-active transition and deletion occurring on the active-to-inactive transition, with unchanged states returning early."
+        }
+      ]
+    },
+    {
+      "id": "fact:b0c1651f-bd87-4861-bd96-d71616fa954e",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAlloc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the module's `default_class` pointer, selecting it when non-NULL or selecting `&hsdMObj.parent` otherwise. The selected class metadata is passed to `hsdNew`; its result is checked by `HSD_ASSERT` and returned to the caller. `HSD_MObjLoadDesc` consumes this allocator as its fallback when a material descriptor has no class name or its class lookup fails.",
+      "rationale": "The allocator body explicitly traces the selected class descriptor through `hsdNew`, validation, and return. The matched descriptor loader independently shows where the returned base/default-class instance is requested and subsequently populated.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:07.393Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L488-L494",
+          "why": "Shows the flow from either class descriptor into `hsdNew` and from its result through the assertion to the return value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "Shows `HSD_MObjLoadDesc` calling `HSD_MObjAlloc` when descriptor subclass metadata is absent or cannot be resolved, then loading and compiling the returned object."
+        }
+      ]
+    },
+    {
+      "id": "fact:b2e5ecc2-7079-40f0-9cfa-0d773e916e7b",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAlloc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `HSD_MObj* HSD_MObjAlloc(void)`: it accepts no caller-supplied arguments and returns a class-constructed HSD_MObj pointer.",
+      "rationale": "The matched definition provides the exact return type and void parameter list, while the body stores and returns the result of `hsdNew` as an `HSD_MObj*`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:07.393Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L488-L494",
+          "why": "Provides the exact function signature and shows the constructed object represented and returned as an HSD_MObj pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:fa7ecdac-ba5d-461d-bfce-72174a7db6e6",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAlloc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Creates a new HSD material object through the HSD class system, using the configured default MObj subclass when one is installed and otherwise using the standard MObj class, then asserts that construction succeeded.",
+      "rationale": "The complete matched body selects either `default_class` or `&hsdMObj.parent`, passes that class descriptor to `hsdNew`, validates the resulting HSD_MObj pointer with `HSD_ASSERT`, and returns it. This directly establishes the function as the class-aware material-object allocation entry point.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:07.393Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L488-L494",
+          "why": "Shows class selection, construction through `hsdNew`, assertion of the resulting pointer, and return of the new HSD_MObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:627c6146-a7ec-46bc-a1b4-954040982d4f",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAlloc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Has two class-selection paths controlled by whether `default_class` is installed. Both paths construct one object and converge on the same non-NULL assertion and return path; the function reads but does not modify the module's default-class state.",
+      "rationale": "The conditional expression changes only which class descriptor is supplied to `hsdNew`. The assertion and return are shared by both alternatives, and the matched body contains no write to `default_class` or `hsdMObj`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:07.393Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L488-L494",
+          "why": "Directly shows the two class-selection alternatives, their common construction and validation path, and the absence of persistent class-state writes."
+        }
+      ]
+    },
+    {
+      "id": "fact:012f4f25-8702-4f95-8348-2b8ef9930936",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The HSD_MObj supplies its `aobj` pointer, itself as callback context, and MObjUpdateFunc to HSD_AObjInterpretAnim. Evaluated FObj channels then flow through MObjUpdateFunc into the object's HSD_Material and optional HSD_PEDesc fields. After that controller step, the object's `tobj` pointer flows to HSD_TObjAnimAll to advance the attached texture animations.",
+      "rationale": "The current MObj body still supplies the controller, owner, update callback, and TObj chain in this order. The current AObj interpreter still forwards evaluated FObj channels through the supplied callback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Shows HSD_MObjAnim's delegated inputs and MObjUpdateFunc routing evaluated values into material and pixel-engine fields."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Shows HSD_AObjInterpretAnim advancing playback and forwarding the owner and update callback into FObj interpretation."
+        }
+      ]
+    },
+    {
+      "id": "fact:7f893a74-1554-43f8-93cc-3d15c2e87ca2",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes one playback step of HSD material animation, synchronously updating animated surface properties\u2014such as color, opacity, and pixel-engine alpha parameters\u2014and the animations of textures attached to the same material object.",
+      "rationale": "The target evaluates the material controller with the material-specific update callback and then animates all attached texture objects. The callback's handled channels ground the first half of that playback step in concrete rendered-material properties.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:21.598Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L143-L150",
+          "why": "Shows one routine coordinating the HSD_MObj property controller and attached texture-object animations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Identifies the animated material properties as ambient, diffuse, and specular color channels, opacity, alpha-test references, and destination alpha."
+        }
+      ]
+    },
+    {
+      "id": "fact:cc602a42-5f14-4597-8e8d-39c572e630fa",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: `void HSD_MObjAnim(HSD_MObj* mobj)`. Its sole argument is a nullable mutable material-object pointer; passing NULL is explicitly accepted as a no-op.",
+      "rationale": "The matched definition directly establishes the return and parameter types, while its initial guard establishes nullable-pointer behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:21.598Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L143-L150",
+          "why": "Provides the exact function signature and the immediate return for a null HSD_MObj pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:53c9a40e-211e-4ad5-886f-74338d784471",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Evaluates one animation step for an HSD material object by interpreting its material-property AObj through MObjUpdateFunc and then advancing animation for its attached texture-object chain.",
+      "rationale": "The matched body performs these two operations in order after guarding against a null HSD_MObj. MObjUpdateFunc shows that the first operation applies evaluated channels to material and pixel-engine properties, establishing that this routine coordinates both material-property and texture animation for the object.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:21.598Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L143-L150",
+          "why": "Shows HSD_MObjAnim passing the material object's AObj, the object itself, and MObjUpdateFunc to the generic animation interpreter before calling HSD_TObjAnimAll on the attached TObj chain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Shows MObjUpdateFunc applying interpreted channels to material colors, opacity, alpha-test references, and destination alpha."
+        }
+      ]
+    },
+    {
+      "id": "fact:05a4b0da-df56-4f63-97f1-b15f3e545fb6",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A NULL material object is an immediate no-op. For a non-NULL object, material AObj interpretation always precedes texture-object animation. A missing or stopped material AObj is handled as a no-op by HSD_AObjInterpretAnim and does not prevent the subsequent HSD_TObjAnimAll call from running.",
+      "rationale": "The current target retains its null guard and fixed call order. The current AObj interpreter still returns immediately for a null controller or AOBJ_NO_ANIM, which only ends that callee and leaves the target's subsequent texture animation call reachable.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L150",
+          "why": "Shows the HSD_MObj null guard and unconditional ordering of controller interpretation before texture animation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L117-L170",
+          "why": "Shows HSD_AObjInterpretAnim returning without work for a null AObj or one marked AOBJ_NO_ANIM."
+        }
+      ]
+    },
+    {
+      "id": "fact:f6c4c697-2f7d-4164-a6f0-994721cc70e1",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjClearFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-supplied u32 mask is complemented and ANDed into mobj->rendermode, preserving every bit outside the mask and forcing every selected bit to zero. The function returns no value and neither reads nor writes through mobj when the pointer is null.",
+      "rationale": "The sole mutation, mobj->rendermode &= ~flags, completely specifies the flow from the mask input to the persistent rendering-mode field. The preceding pointer guard establishes the no-op path.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:07.668Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L33-L38",
+          "why": "Directly shows the mask complement, destination field mutation, void result, and null no-op behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:2d9760c8-73f2-4bf8-9c44-8071e8655fb8",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjClearFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_MObjClearFlags(HSD_MObj* mobj, u32 flags). The second parameter is a 32-bit removal mask applied to the HSD_MObj rendermode bitfield; a null material-object pointer is accepted as a no-op.",
+      "rationale": "The matched definition establishes the exact return and parameter types. Complementing flags before ANDing it into rendermode demonstrates that the u32 argument is a bitmask selecting bits to clear rather than a replacement rendering-mode value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:07.668Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L33-L38",
+          "why": "Establishes the complete signature, null handling, destination bitfield, and removal-mask operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:966d95bf-522a-48f2-87f0-48280b273a25",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjClearFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Disables caller-selected rendering-mode options on a material object through a null-safe bitmask mutator, without replacing or disturbing the object's other rendering-mode state.",
+      "rationale": "The function complements the caller's mask and ANDs it into the material object's rendermode field. This selectively removes requested options while preserving every unselected bit, and the null guard makes the operation safe when no material object is present.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:07.668Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L33-L38",
+          "why": "Directly shows the null guard and selective removal of caller-specified bits from mobj->rendermode."
+        }
+      ]
+    },
+    {
+      "id": "fact:6424a9b6-83ad-4c94-bc89-cd14d307e2df",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjClearFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "For a non-null material object, each rendermode bit selected by flags transitions from either set or clear to clear, while every unselected bit remains unchanged. Repeating the same clear operation is idempotent, and passing a null material object leaves state unchanged.",
+      "rationale": "ANDing the current field with the complemented mask permits only selected one-to-zero transitions and cannot alter unselected bits. Applying the same mask again produces the same field value, while the null guard prevents any transition when mobj is absent.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:07.668Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjClearFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L33-L38",
+          "why": "Shows the guarded bit-clearing operation from which the selected-bit transitions, preservation of other state, idempotence, and null no-op follow."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5c22d04-1f89-45b3-bff7-3a4bef74a1a9",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The material's existing `tevdesc` and `texp` fields flow into their respective free routines and are reset to NULL. Its `tobj` chain becomes the base compilation input; `RENDER_SHADOW` may append the shared `tobj_shadows` chain, while `RENDER_TOON` may prepend `tobj_toon` when that object has an image descriptor. The resulting effective chain flows through HSD_TObjAssignResources and the material class's `make_texp` method. That method's root expression and `mobj->texp` list then flow into HSD_TExpCompile, which writes the new `mobj->tevdesc` and pruned `mobj->texp` outputs.",
+      "rationale": "Every input, transformation, and persistent output is explicit in the matched body. Reading the compiler confirms the pointer-to-pointer output semantics: it constructs the descriptor list through the first output and replaces the expression-list head through the second.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:13.051Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L337-L375",
+          "why": "Shows the old compilation products being freed, render-mode-controlled texture-chain construction, resource assignment, virtual expression generation, and output pointers passed to the compiler."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/texp.c#L1181-L1225",
+          "why": "Shows HSD_TExpCompile populating the descriptor-list output and replacing the expression-list head after compilation and cleanup."
+        }
+      ]
+    },
+    {
+      "id": "fact:4ae06cbb-b082-46ee-b338-c7e050b747d2",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes material compilation for the GameCube TEV color combiner, converting a material's ordinary textures and enabled shadow or toon texture contributions into the resource-assigned, ordered TEV-stage program used to render that material.",
+      "rationale": "The material routine builds an effective texture input set and invokes HSD_TExpCompile. The resolved compiler source assigns hardware TEV-stage identifiers and converts scheduled expression nodes into HSD_TExpTevDesc records, grounding this routine's output as a GameCube TEV combiner program rather than a generic texture cache.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:32:13.051Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L337-L375",
+          "why": "Shows the material, shadow, and toon texture inputs being transformed into texture expressions and passed to TEV compilation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/texp.c#L1181-L1225",
+          "why": "Shows scheduled texture-expression nodes becoming resource-assigned descriptors with explicit hardware TEV-stage identifiers."
+        }
+      ]
+    },
+    {
+      "id": "fact:064d8243-0356-40ba-b2b8-0876f49507fd",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function with signature `void HSD_MObjCompileTev(HSD_MObj* mobj)`. The HSD_MObj pointer is nullable; a non-null object is mutated in place through its `tevdesc` and `texp` fields, while its owned `tobj` head is not replaced.",
+      "rationale": "The matched definition supplies the exact signature. Its outer null guard makes null a valid no-op input, and all persistent outputs are written to fields of the supplied HSD_MObj. The function uses a local TObj head for toon insertion and only temporarily modifies the tail link used for shadow insertion, so it never assigns a new value to `mobj->tobj`.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:13.051Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L337-L375",
+          "why": "Provides the exact signature, null guard, in-place output-field writes, and local handling of the effective texture-list head."
+        }
+      ]
+    },
+    {
+      "id": "fact:604e1b3f-00d0-428e-8c23-c95d797fbe75",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Rebuilds a material object's compiled TEV configuration from its texture objects: it discards the previous compiled descriptors and expression list, incorporates enabled shared shadow and toon textures, assigns texture resources, asks the material class to construct a texture-expression graph, and compiles that graph into a new TEV descriptor list.",
+      "rationale": "The matched body first frees and clears both cached compilation products. It then derives an effective TObj chain from the material's own textures plus render-mode-selected shared textures, assigns resources, invokes the virtual make_texp method, and passes its result to HSD_TExpCompile. The compiler implementation confirms that this final call emits the ordered hardware TEV-stage descriptor list.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:13.051Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L337-L375",
+          "why": "Directly shows cleanup of prior products, construction of the effective texture chain, virtual texture-expression generation, and TEV compilation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/texp.c#L1181-L1225",
+          "why": "Shows HSD_TExpCompile lowering the supplied expression graph into allocated, numbered HSD_TExpTevDesc stages and updating the expression-list output."
+        }
+      ]
+    },
+    {
+      "id": "fact:cdf33392-af41-4818-b743-1312ef643679",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null material is a no-op. For a non-null material, recompilation always invalidates and clears both prior compilation products before attempting reconstruction. Shadow inclusion requires both `RENDER_SHADOW` and a non-null shared shadow chain; that chain is temporarily appended and the saved tail link is restored to NULL after compilation. Toon inclusion requires `RENDER_TOON`, a non-null shared toon TObj, and a non-null toon image descriptor; when enabled, the toon TObj is placed at the head of the effective compilation chain.",
+      "rationale": "The outer guard defines the no-op state. The two cleanup blocks are unconditional for existing products, while the nested render-mode and resource guards define exactly when each auxiliary texture participates. Retaining the pointer to the appended shadow link and clearing it after compilation demonstrates a temporary augmentation rather than permanent ownership transfer.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:13.051Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjCompileTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L337-L375",
+          "why": "Directly shows the null guard, invalidation sequence, shadow and toon inclusion guards, texture-list placement, and restoration of the appended shadow link."
+        }
+      ]
+    },
+    {
+      "id": "fact:faa2a9cc-5577-45ed-9d95-ddcadfb5c292",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For a non-null input, reads the global tobj_shadows head and each TObj's next field until it finds the identical object. It then writes the incoming list link to tobj->next and writes NULL to tobj->next. For a NULL input, repeatedly saves the current head's successor, clears the current head's next field, and advances to that successor until tobj_shadows is NULL.",
+      "rationale": "The HSD_TObj** cursor always addresses the link that points to the current candidate, allowing the same assignment to remove either the head or an interior node. The alternate loop explicitly dismantles the chain one head at a time while preserving the successor before clearing each link.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:43.175Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L525-L544",
+          "why": "The body explicitly shows all global-head reads, next-link reads, predecessor-link rewrites, node-link clears, and clear-all head advances."
+        }
+      ]
+    },
+    {
+      "id": "fact:0cf9c7a3-9f1b-4f08-8831-623e2a7a8eed",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Supports projected-shadow rendering by removing a shadow object's generated texture from the material subsystem's active shadow-texture registry when that shadow is disabled or destroyed.",
+      "rationale": "The current shadow activation routine still calls the target when disabling a shadow, and the current destruction routine unregisters an active shadow before freeing its texture and backing image.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L269-L330",
+          "why": "Shows HSD_ShadowSetActive unregistering the shadow texture on the active-to-inactive transition."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L1-L130",
+          "why": "Shows HSD_ShadowRemove unregistering an active shadow texture before freeing its image storage and texture object."
+        }
+      ]
+    },
+    {
+      "id": "fact:9a55886a-73e2-4b51-a608-262296111844",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void (HSD_TObj* tobj); the parameter is nullable, with NULL serving as a clear-all request. The function operates in place on tobj_shadows, a null-terminated singly linked HSD_TObj chain connected through HSD_TObj::next.",
+      "rationale": "The matched definition supplies the exact return and parameter types. Its non-null path traverses from &tobj_shadows through addresses of next fields, while its null path iterates until the global head becomes NULL, establishing both the nullable command semantics and linked-list representation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:43.175Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L525-L544",
+          "why": "The definition gives the exact signature and shows pointer-to-pointer and next-field traversal of the null-terminated global TObj list."
+        }
+      ]
+    },
+    {
+      "id": "fact:fe418e1c-f6da-4cb2-8a8d-13dc28a9d5ae",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Unregisters a specified shadow TObj from the global active-shadow texture list, or unregisters every shadow texture when passed NULL. It only detaches list nodes and does not free or unreference their texture objects.",
+      "rationale": "For a non-null argument, the body searches tobj_shadows for that exact TObj, bypasses it, and clears its next link. For NULL, it walks the complete list and clears every node's link. No allocation, free, deletion, or reference-count operation occurs, so the function performs registry detachment rather than texture destruction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:43.175Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L525-L544",
+          "why": "The complete matched body shows the single-texture and clear-all unlink paths and contains no object-release operation."
+        }
+      ]
+    },
+    {
+      "id": "fact:b1ed9980-e1fc-441c-8a0d-7251321aab54",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "With a non-null TObj, the operation is a first-match unlink: an absent object leaves the list unchanged, while a match is detached, made standalone by clearing its next link, and followed by an immediate return. With NULL, every registered node is detached and the global list becomes empty. Shadow activation invokes the complementary add operation, while deactivation and removal invoke this delete operation.",
+      "rationale": "The current target preserves both unlink modes and their exact mutation behavior. The current shadow lifecycle retains addition on activation and deletion on deactivation or destruction.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjDeleteShadowTexture",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows no mutation on a non-null miss, immediate return after the first match, and complete list detachment for NULL."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/shadow.c#L269-L330",
+          "why": "Shows add on activation and delete on deactivation."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/shadow.c#L1-L130",
+          "why": "Shows active-shadow destruction invoking deletion before freeing the shadow texture."
+        }
+      ]
+    },
+    {
+      "id": "fact:c803b760-1f13-4e41-81e1-cdedcbccceb2",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjGetTObj",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives an HSD_MObj pointer and, when it is non-null, reads mobj->tobj and returns that pointer unchanged; a null input produces NULL without reading object storage.",
+      "rationale": "Every operation is visible in the complete body: the input controls a null guard, and the only non-null-path data access flows directly from the tobj field to the return value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:37.533Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjGetTObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L472-L478",
+          "why": "Directly shows the input guard and the unchanged flow of mobj->tobj into the function result."
+        }
+      ]
+    },
+    {
+      "id": "fact:27c5857b-ed39-42cc-803f-9ccb46e4ef70",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjGetTObj",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature HSD_TObj* HSD_MObjGetTObj(HSD_MObj* mobj); the parameter is a nullable material-object pointer, and the result is a nullable pointer to its attached HSD_TObj chain head.",
+      "rationale": "The matched definition supplies the exact parameter and return types. Its explicit null-input path and direct tobj-field return establish the nullable input and result semantics.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:37.533Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjGetTObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L472-L478",
+          "why": "Provides the exact signature and shows that either NULL or the material's HSD_TObj pointer is returned."
+        }
+      ]
+    },
+    {
+      "id": "fact:0852226b-f3ca-410e-ae37-62b135423107",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjGetTObj",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides null-safe access to the texture-object chain attached to an HSD material object, allowing callers to obtain the chain head without directly dereferencing a possibly null HSD_MObj.",
+      "rationale": "The complete matched body first guards the material pointer and otherwise returns its tobj field directly, demonstrating that this is a null-safe accessor for the material's attached texture objects.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:37.533Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjGetTObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L472-L478",
+          "why": "Shows the complete accessor, including the null-material guard and direct return of mobj->tobj."
+        }
+      ]
+    },
+    {
+      "id": "fact:428d1cb7-1787-4958-af04-ad63df5baa37",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjGetTObj",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The accessor is read-only and has two paths: a null HSD_MObj returns NULL immediately, while a valid object returns its current tobj pointer. It performs no allocation, traversal, validation, or state mutation.",
+      "rationale": "The complete function consists solely of a null check and a field read; it contains no assignments, calls, or iteration that could mutate or traverse the material or texture-object chain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:37.533Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjGetTObj",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L472-L478",
+          "why": "Shows both control-flow paths and confirms that the function only reads the material object's tobj field."
+        }
+      ]
+    },
+    {
+      "id": "fact:4a33e8c2-cde8-40d9-98d7-77ba210692ed",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "A non-null HSD_MObjDesc supplies class_name to hsdSearchClassInfo. A missing name or failed lookup causes base allocation through HSD_MObjAlloc; a successful lookup is passed to hsdNew to instantiate the registered subclass. The descriptor and new object then flow into the object's virtual load method, the populated object flows into HSD_MObjCompileTev, and the finalized HSD_MObj is returned. A null descriptor bypasses all allocation and loading and produces NULL.",
+      "rationale": "Each stage and branch is explicit in the matched implementation: descriptor class metadata controls allocation, the descriptor populates the selected runtime object through virtual dispatch, and TEV compilation consumes that populated object before it reaches the caller.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:09.076Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "The body directly traces the descriptor through class lookup, allocation, virtual loading, TEV compilation, and return, including the null-input path."
+        }
+      ]
+    },
+    {
+      "id": "fact:934f8290-4c23-4a72-9072-b6ef8edd3d27",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "HSD_MObj* HSD_MObjLoadDesc(HSD_MObjDesc* mobjdesc): accepts a pointer to a material-object descriptor and returns the resulting runtime HSD_MObj pointer, or NULL when the descriptor pointer is NULL.",
+      "rationale": "The matched definition directly establishes the parameter and return types, while its outer null guard establishes the nullable-input and nullable-return behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:11:09.076Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "The function signature declares an HSD_MObjDesc pointer parameter and HSD_MObj pointer return, and the null-descriptor branch returns NULL."
+        }
+      ]
+    },
+    {
+      "id": "fact:8f768c65-4f96-40a5-9421-2bdd008f32d3",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Constructs a runtime material object from an HSD_MObjDesc, using the descriptor's registered subclass when available or the base HSD_MObj class otherwise, then loads the descriptor through the object's virtual load method and compiles its TEV configuration before returning it.",
+      "rationale": "The matched body selects allocation behavior from class_name and the class registry, invokes the resulting object's load method with the descriptor, and calls HSD_MObjCompileTev before returning. These operations establish that this is the descriptor-to-runtime construction and finalization entry point for material objects.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:09.076Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjLoadDesc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L167-L189",
+          "why": "The complete matched function shows subclass lookup or base allocation, virtual descriptor loading, TEV compilation, and return of the constructed HSD_MObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:988b687a-4fc5-4a3c-bddd-4c3828c9747c",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemove",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives an HSD_MObj pointer, commonly from an owning DObj's mobj field during DObj release; for a non-null object it dispatches through the object's class table to release MObj-owned animation, material, texture, TEV, and pixel-engine resources, then dispatches destruction of the class instance. It returns no value.",
+      "rationale": "DObjRelease passes dobj->mobj directly to HSD_MObjRemove. The removal function dispatches release and destroy through the object's class methods, and the registered MObjRelease implementation identifies the resources consumed by the release phase.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:32:08.998Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L249-L349",
+          "why": "DObjRelease calls HSD_MObjRemove with its dobj->mobj field before releasing the DObj's other owned resources."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "HSD_MObjRemove sends a non-null input through the class release and destroy methods and has no return value."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L548-L591",
+          "why": "The registered MObj release method removes the AObj and TObj chain, frees the material, TEV description and expression list, and pixel-engine description, then delegates to the parent release method."
+        }
+      ]
+    },
+    {
+      "id": "fact:1fc8452a-0897-4115-84aa-9501c9c9301c",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemove",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void function taking one nullable HSD_MObj* argument: void HSD_MObjRemove(HSD_MObj* mobj).",
+      "rationale": "The matched definition directly establishes the return type and parameter type, while its explicit null check establishes that null is an accepted input.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:08.998Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "The function definition gives the exact void(HSD_MObj*) signature and explicitly handles a null argument."
+        }
+      ]
+    },
+    {
+      "id": "fact:4e764cc7-bb88-42e8-9410-04f6cd50f360",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemove",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the null-safe lifetime endpoint for a single material object, invoking its class-specific resource-release method before destroying the class instance.",
+      "rationale": "The function accepts an MObj pointer, ignores a null pointer, and otherwise performs virtual release followed by virtual destruction. The registered MObj release implementation removes or frees the object's animation, material, texture, TEV-expression, and pixel-engine resources before delegating release to the parent class, showing why the public removal routine must dispatch release before destruction.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:32:08.998Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "The complete matched function shows the null guard and the ordered virtual release and destroy calls."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L548-L591",
+          "why": "The MObj class initialization binds its release method to MObjRelease, whose body removes or frees all MObj-owned resources and then calls the parent release method."
+        }
+      ]
+    },
+    {
+      "id": "fact:52c5ad9d-34d0-4a87-a0df-03042f379f71",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemove",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "If the input pointer is null, the function performs no operation. Otherwise it always performs two ordered virtual lifecycle transitions: release owned resources first, then destroy the object instance.",
+      "rationale": "The matched control flow consists solely of a non-null guard enclosing release followed by destroy, with no alternate non-null path. The MObj class registration confirms that the first transition reaches MObjRelease for ordinary MObj instances.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:32:08.998Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjRemove",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L486",
+          "why": "The complete function shows both the null no-op behavior and the invariant release-before-destroy ordering for non-null objects."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L548-L591",
+          "why": "MObjInfoInit installs MObjRelease as the MObj class release callback, grounding the first lifecycle transition in the class implementation."
+        }
+      ]
+    },
+    {
+      "id": "fact:f77e76ba-7fce-4caf-b93d-fd8b898ce864",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "For a non-NULL MObj, the flags mask controls two independent flows: MOBJ_ANIM sends mobj->aobj into HSD_AObjRemove and then writes NULL back to mobj->aobj, while TOBJ_ANIM sends mobj->tobj into HSD_TObjRemoveAnimAll. The function returns no value and does not alter the MObj's texture-list pointer.",
+      "rationale": "The target directly exposes each field read, the callee receiving each attachment, and the sole direct field write. The AObj callee confirms that the value flowing through the material-level path is consumed by a destructor, explaining why the owner field is subsequently cleared.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:19.416Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Shows the exact flow of mobj->aobj and mobj->tobj into their removal routines and that only mobj->aobj is overwritten."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows that HSD_AObjRemove consumes and frees a non-NULL AObj after releasing its attachments."
+        }
+      ]
+    },
+    {
+      "id": "fact:25124efc-994c-4194-a1e4-9190613a10a7",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes selective material-animation shutdown by allowing animation of material properties and animation attached to the material's textures to be detached independently or together.",
+      "rationale": "The code divides teardown into the MObj's own AObj channel and the animation channels of its attached TObj chain. Those are the same material-level and texture-level components coordinated by the surrounding MObj animation subsystem, grounding the routine as selective teardown for material animation.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:31:19.416Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Shows independently masked removal of the material object's own animation controller and all attached texture-object animation."
+        }
+      ]
+    },
+    {
+      "id": "fact:f1aedf4d-b2b6-4648-9a5a-6d5a57c033f6",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void HSD_MObjRemoveAnimByFlags(HSD_MObj* mobj, u32 flags): accepts a nullable material-object pointer and an unsigned animation-channel mask in the MOBJ_ANIM/TOBJ_ANIM flag domain.",
+      "rationale": "The matched definition supplies the exact return and parameter types. Its initial NULL guard establishes that mobj is nullable, and its named bit tests establish that flags is a selection mask for the material-level and texture-level animation channels.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:19.416Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Provides the exact signature, NULL handling, and the MOBJ_ANIM and TOBJ_ANIM mask tests."
+        }
+      ]
+    },
+    {
+      "id": "fact:b7c7b05b-70d1-4438-bf13-7b0c903d9610",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Selectively detaches animation state from one HSD material object. According to the supplied channel mask, it can destroy and clear the MObj's own animation controller and independently remove animation from every attached texture object.",
+      "rationale": "The matched body tests the MOBJ_ANIM and TOBJ_ANIM bits independently. The first path passes mobj->aobj to HSD_AObjRemove and clears the owning field, while the second passes the attached TObj chain to HSD_TObjRemoveAnimAll. The resolved AObj implementation confirms that the first operation is complete controller teardown rather than a pause or frame reset.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:19.416Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Shows the two independently selected material and texture animation-removal paths and the clearing of mobj->aobj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows that HSD_AObjRemove tears down the controller's FObj data and retained scene-object reference before freeing the AObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:3dd2b0bf-d2d0-4beb-a2b5-cc6e9b2cb135",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A NULL MObj is a no-op. For a live MObj, MOBJ_ANIM transitions its material-level animation attachment to the absent state by destroying the current AObj and setting the field to NULL; TOBJ_ANIM independently requests removal across the attached texture objects. Either channel, both channels, or neither channel may be selected by the mask.",
+      "rationale": "The early return defines the missing-owner state. Two separate if statements, rather than an exclusive branch, establish independent channel selection, and the explicit NULL assignment establishes the postcondition of the material-level path. HSD_AObjRemove itself is NULL-safe, so selecting MOBJ_ANIM is valid even when the attachment is already absent.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:19.416Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjRemoveAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L40-L53",
+          "why": "Shows the owner NULL guard, independent flag guards, and the transition of mobj->aobj to NULL."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L220-L240",
+          "why": "Shows that the material-controller removal operation is itself a no-op for NULL and fully tears down a live AObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:41c7d7c9-3fcc-448f-bc64-4fc228b63626",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller supplies an MObj and starting frame. The function adds the constant ALL_ANIM mask and delegates to HSD_MObjReqAnimByFlags, which reads mobj->aobj and mobj->tobj, sends the frame to the material AObj, and distributes the same frame and mask across the attached TObj linked list. No value is returned.",
+      "rationale": "The wrapper's sole operation is argument augmentation and delegation. The delegate exposes the MObj field reads and downstream calls, while HSD_TObjReqAnimAllByFlags shows the unchanged frame and mask being forwarded once to each texture object in next-pointer order.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:24.798Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L81-L84",
+          "why": "Shows the input MObj and frame being augmented with ALL_ANIM and passed to the delegated routine."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "Shows the delegate reading the MObj's AObj and TObj fields and routing the common frame and mask to both animation branches."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/tobj.c#L114-L123",
+          "why": "Shows the texture request path forwarding the same frame and mask to every TObj in the linked list."
+        }
+      ]
+    },
+    {
+      "id": "fact:cfff942b-e46f-4302-a116-dda3cbb79dfb",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes the all-channel start-frame selection step of material-animation playback, synchronizing a material's animated properties and all attached texture animations before subsequent frame evaluation.",
+      "rationale": "The target supplies ALL_ANIM and one common starting frame to the selective material-animation primitive. That primitive routes the frame to both the material controller and texture chain, and the AObj request prepares reached controllers for first-play evaluation at the selected frame.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:31:24.798Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L81-L84",
+          "why": "Shows all animation channels being selected through ALL_ANIM at one supplied starting frame."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "Shows the common frame being applied to the material and attached texture animation branches."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Shows the selected frame and first-play state being installed in a reached animation controller."
+        }
+      ]
+    },
+    {
+      "id": "fact:a654d9e3-09bf-43a4-a245-fef7bec27b25",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: void HSD_MObjReqAnim(HSD_MObj* mobj, f32 startframe). mobj is nullable through the delegated routine, and startframe is an animation-frame position forwarded unchanged to the selected material and texture animation controllers.",
+      "rationale": "The matched definition establishes the exact return and parameter types and forwards both arguments unchanged. The delegate provides null handling and passes startframe to HSD_AObjReqAnim and the texture request path; the AObj callee stores the value as curr_frame, establishing its unit.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:24.798Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L81-L84",
+          "why": "Provides the exact function signature and unchanged forwarding of mobj and startframe."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "Shows that mobj is nullable and that startframe is forwarded to the material and texture animation request paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Shows the downstream AObj request interpreting the floating-point argument as its current animation frame."
+        }
+      ]
+    },
+    {
+      "id": "fact:23d96b59-303e-4cc1-94e8-348ab89be762",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Requests that all animation channels associated with a material object and its attached texture objects begin or resume from a supplied frame.",
+      "rationale": "The target is the unfiltered convenience wrapper around HSD_MObjReqAnimByFlags, supplying ALL_ANIM as the selection mask. The delegate routes the requested frame to the material's AObj and attached texture-object chain according to that mask.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:24.798Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L81-L84",
+          "why": "Shows the target delegating the request with the ALL_ANIM selection mask."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "Shows the delegated routine distributing the requested frame to the material AObj and attached texture-object animations."
+        }
+      ]
+    },
+    {
+      "id": "fact:567953df-8073-4a88-a98b-a82a49b282db",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null MObj is a no-op through the delegated routine. For a valid MObj, the ALL_ANIM request selects the material and texture animation paths. Each reached AObj is positioned at startframe, moved out of AOBJ_NO_ANIM, and marked AOBJ_FIRST_PLAY; texture-specific state changes are delegated across the complete attached TObj list.",
+      "rationale": "The wrapper always supplies ALL_ANIM. HSD_MObjReqAnimByFlags contains the null guard and branches into the material AObj and texture-list requests, while HSD_AObjReqAnim establishes the resulting frame and playback-flag transition. The TObj list wrapper establishes complete list traversal.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:31:24.798Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnim",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L81-L84",
+          "why": "Shows that this entry point always requests the ALL_ANIM selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "Shows null behavior and delegation into the material AObj and texture animation paths."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/aobj.c#L91-L105",
+          "why": "Shows a reached AObj recording the requested frame, clearing AOBJ_NO_ANIM, and setting AOBJ_FIRST_PLAY."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/tobj.c#L114-L123",
+          "why": "Shows texture animation requests being issued once for every object in the attached TObj chain."
+        }
+      ]
+    },
+    {
+      "id": "fact:ac92e6b8-090d-4053-8676-4b287324f0d0",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives an MObj, starting frame, and selection mask from display-object animation traversal; reads mobj->aobj and mobj->tobj, sends startframe to the material AObj when selected, and forwards startframe plus the complete mask to every applicable texture object.",
+      "rationale": "The body directly reads the two child-object fields and routes the arguments to the AObj and TObj animation APIs. The code graph identifies HSD_DObjReqAnimAll and HSD_DObjReqAnimAllByFlags as callers, placing this routing step beneath display-object animation traversal.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-01T23:03:18.927Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "The matched body shows the exact field reads and argument flow into HSD_AObjReqAnim and HSD_TObjReqAnimAllByFlags."
+        }
+      ]
+    },
+    {
+      "id": "fact:268d1799-6874-4d58-9224-c1772cd2b136",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes selective material animation: a renderer can synchronize a material's animated properties and selected texture animations to the same starting frame while choosing channels through a flag mask.",
+      "rationale": "The shared startframe passed to both the material AObj and texture-object traversal synchronizes their animation positions, while the MOBJ_ANIM test and forwarded mask provide channel selection.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-01T23:03:18.927Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "The function applies one starting frame across material and texture animation requests and uses flags to select the requested animation components."
+        }
+      ]
+    },
+    {
+      "id": "fact:42c104fd-2f71-4498-a462-789104a24153",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "void (HSD_MObj* mobj, f32 startframe, u32 flags); startframe is an animation-frame position and flags is a bitmask whose MOBJ_ANIM bit selects the material object's own animation channel while also being forwarded to texture animation selection.",
+      "rationale": "The matched declaration proves the C signature. The MOBJ_ANIM bit test and the unchanged forwarding of flags to HSD_TObjReqAnimAllByFlags establish the bitmask domain, while both request calls consume startframe as their animation starting frame.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:18.927Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "The declaration provides the exact parameter and return types, and the body demonstrates how startframe and flags are interpreted."
+        }
+      ]
+    },
+    {
+      "id": "fact:315ed31e-aade-426c-8e21-d345fa486178",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Requests that selected animation channels of a material object and its attached textures begin from a supplied frame.",
+      "rationale": "The matched body passes startframe to the material's AObj when the MOBJ_ANIM selection bit is present and always delegates the same frame and selection flags to the attached texture-object chain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:18.927Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "The function conditionally calls HSD_AObjReqAnim for the material and calls HSD_TObjReqAnimAllByFlags for its textures using the supplied start frame and flags."
+        }
+      ]
+    },
+    {
+      "id": "fact:a0fec361-f5eb-4be1-ac54-5763da5ccf45",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null material is a no-op. For a valid material, the MOBJ_ANIM flag gates the request to the material's own AObj; texture-object animation requests are issued regardless of that bit and receive the full flag mask.",
+      "rationale": "These are the function's explicit guards and branch behavior: it returns immediately on NULL, conditionally requests AObj animation under MOBJ_ANIM, and performs the TObj request after the conditional.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:03:18.927Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjReqAnimByFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L70-L79",
+          "why": "The source contains the null guard, the MOBJ_ANIM conditional, and the unconditional texture-chain request."
+        }
+      ]
+    },
+    {
+      "id": "fact:068cf1fe-2c74-4232-8c4d-bdfa6c0eecc6",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives an alpha value from its caller and writes it unchanged through `mobj->mat` into `mobj->mat->alpha`; it performs no clamping, conversion, calls, or return-value production.",
+      "rationale": "The function's sole statement is a direct field assignment, so the supplied floating-point value flows unchanged into the attached material and no other transformation or output occurs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:22.165Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L467-L470",
+          "why": "The complete body contains only `mobj->mat->alpha = alpha`."
+        }
+      ]
+    },
+    {
+      "id": "fact:ad5ce4ff-b074-4cd2-891e-d4aefd046a94",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Provides material-opacity control by changing the material alpha value used to represent opacity or transparency.",
+      "rationale": "The field explicitly named `alpha` belongs to the MObj's material, and the function directly replaces that value; this grounds the routine in material opacity/transparency control without asserting how later rendering stages consume it.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-01T23:31:22.165Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L467-L470",
+          "why": "The matched function writes the caller-provided value to the attached material's `alpha` field."
+        }
+      ]
+    },
+    {
+      "id": "fact:44bdd008-8d64-4c63-97c4-a7dd3ea5cc41",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void setter with signature `void (HSD_MObj* mobj, f32 alpha)`; the value being set is a single-precision floating-point material alpha scalar.",
+      "rationale": "The matched declaration supplies the exact return and parameter types, while the assignment shows that the floating-point parameter has the same role as the material's alpha field.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:22.165Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L467-L470",
+          "why": "The source declares a void function taking `HSD_MObj*` and `f32`, then stores the latter in the material alpha field."
+        }
+      ]
+    },
+    {
+      "id": "fact:308a8b47-80de-469a-a16a-d4f1da43082d",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Updates the alpha component of the material attached to an HSD material object.",
+      "rationale": "The complete matched function consists of assigning its alpha argument to the alpha field of the material reached through the supplied HSD_MObj, directly establishing its setter role.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:22.165Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetAlpha",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L467-L470",
+          "why": "The matched body writes `alpha` to `mobj->mat->alpha`."
+        }
+      ]
+    },
+    {
+      "id": "fact:f3d9b696-2c9d-4771-a4e3-4ba0aaf7d146",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "During HSD_DObjDisp, the input originates from dobj->mobj and is copied into current_mobj before the material's setup method and the DObj's PObj display loop run. After the material's unset method, NULL is written through the same setter to remove that current-material context.",
+      "rationale": "The setter's body proves the parameter-to-global flow. Its caller supplies the displayed DObj's material immediately before rendering work and supplies NULL immediately afterward, establishing the lifetime and ordering of the stored value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:22.452Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L21-L24",
+          "why": "Shows mobj flowing without transformation into current_mobj."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L300-L349",
+          "why": "Shows dobj->mobj supplied before material setup and PObj rendering, followed by NULL after material teardown."
+        }
+      ]
+    },
+    {
+      "id": "fact:ae5d8a02-7f50-436f-bc5b-a7cbb53a015c",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Global-context setter with signature void HSD_MObjSetCurrent(HSD_MObj* mobj); the pointer may be a valid material object or NULL.",
+      "rationale": "The matched definition establishes the void return type and HSD_MObj pointer parameter. HSD_DObjDisp calls it with both dobj->mobj and NULL, demonstrating the parameter's effective nullable domain.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:22.452Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L21-L24",
+          "why": "Contains the complete matched function signature and direct pointer assignment."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L300-L349",
+          "why": "Shows calls with an HSD_MObj pointer and with NULL."
+        }
+      ]
+    },
+    {
+      "id": "fact:cda2c448-b378-47d7-aeb8-f64625e3bf06",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Selects the process-global current material object, establishing the material context for a display object's material setup, polygon rendering, and material teardown.",
+      "rationale": "The function directly stores its HSD_MObj argument in current_mobj. HSD_DObjDisp brackets its material setup, PObj display loop, and material unset operations by setting the DObj's MObj as current and then clearing it, showing that this setter establishes a render-pass material context rather than merely retaining an arbitrary pointer.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:32:22.452Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L21-L24",
+          "why": "Shows the supplied HSD_MObj pointer being written directly to the current_mobj global."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L300-L349",
+          "why": "Shows HSD_DObjDisp setting its DObj's material as current before material setup and polygon display, then clearing the current material after teardown."
+        }
+      ]
+    },
+    {
+      "id": "fact:af12d341-75c7-495b-8e2a-d6c18b92cfaa",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Each call unconditionally replaces the single current_mobj slot. Passing NULL enters the no-current-material state; HSD_DObjDisp uses this to delimit a display pass, setting the DObj's material on entry and clearing the slot on exit rather than restoring a previously saved value.",
+      "rationale": "There is no guard, comparison, or preservation of the old global in the setter. The display routine's final explicit HSD_MObjSetCurrent(NULL) call proves the clear state and shows that its scope ends by clearing rather than restoring prior state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:22.452Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetCurrent",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L21-L24",
+          "why": "Shows an unconditional overwrite of the current_mobj slot."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/dobj.c#L300-L349",
+          "why": "Shows the render-pass transition from the DObj's material to an explicit NULL state, with no previous value saved or restored."
+        }
+      ]
+    },
+    {
+      "id": "fact:b5d70135-297e-4fa6-9abe-d730a75ddbdf",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Receives RGB bytes from its caller, follows the MObj's `mat` reference, and copies the values respectively into `mat->diffuse.r`, `mat->diffuse.g`, and `mat->diffuse.b`; it produces no return value.",
+      "rationale": "Each input channel has a direct one-to-one destination in the nested material diffuse-color structure, with no conversion, clamping, branching, or returned output.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:06.955Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L460-L465",
+          "why": "The matched body shows the complete flow from the r, g, and b parameters through `mobj->mat` to the corresponding diffuse-color fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:b274bebc-4d20-4d44-9032-1dffec120230",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void setter with signature `void (HSD_MObj* mobj, u8 r, u8 g, u8 b)`; each color channel is an unsigned 8-bit value.",
+      "rationale": "The matched definition explicitly returns void, accepts an HSD_MObj pointer followed by three u8 parameters, and stores those parameters into the material's RGB channel members.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:06.955Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L460-L465",
+          "why": "The function definition provides the complete parameter and return types, while its body confirms that the three u8 arguments are RGB channel values."
+        }
+      ]
+    },
+    {
+      "id": "fact:bb1bf34e-e3e3-4f1f-9558-84739bf97380",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Sets the red, green, and blue components of a material object's diffuse color without modifying its diffuse alpha component.",
+      "rationale": "The function directly assigns the three supplied channel values to mobj->mat->diffuse.r, .g, and .b. Because it performs no assignment to the alpha member, its operation is specifically an RGB diffuse-color update rather than replacement of the entire color.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:31:06.955Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetDiffuseColor",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L460-L465",
+          "why": "The complete matched function writes r, g, and b into the attached material's diffuse-color fields and does not access diffuse alpha."
+        }
+      ]
+    },
+    {
+      "id": "fact:892b7174-a723-43c4-bf51-27fb2e4f9d64",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-provided u32 mask is merged unchanged into mobj->rendermode while all existing bits are preserved. Material-expression and TEV compilation later consume individual rendermode bits: RENDER_SPECULAR adds the specular-lighting expression path, RENDER_SHADOW appends shared shadow textures, and RENDER_TOON prepends the shared toon texture when available.",
+      "rationale": "The current setter still ORs the caller's mask into rendermode. The current expression builder and compiler still consume the named bits to select specular, shadow, and toon paths.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mobj.c#L1-L80",
+          "why": "Shows the complete caller-provided mask being OR-ed into mobj->rendermode."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L191-L390",
+          "why": "Shows RENDER_SPECULAR selecting the specular expression path and the compile routine consuming RENDER_SHADOW and RENDER_TOON."
+        }
+      ]
+    },
+    {
+      "id": "fact:f8efd3fc-7c32-4d9a-bc57-859c363a331c",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Configures material rendering features used by scene geometry, including specular contribution and the inclusion of shadow or toon textures during TEV construction.",
+      "rationale": "The current setter enables material rendermode bits, and the current TEV-expression and compilation paths interpret those bits as concrete specular, shadow, and toon rendering features.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mobj.c#L1-L80",
+          "why": "Shows the target enabling options in the material object's rendermode field."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L191-L390",
+          "why": "Shows named rendermode bits controlling specular expression construction and shadow or toon texture inclusion."
+        }
+      ]
+    },
+    {
+      "id": "fact:b5421c3c-016f-467f-9ec5-a58438ed43d5",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void HSD_MObjSetFlags(HSD_MObj* mobj, u32 flags). The HSD_MObj pointer is nullable, and flags is a bit mask in the domain of HSD_MObj.rendermode.",
+      "rationale": "The matched definition supplies the exact return and parameter types. Its explicit null check establishes pointer nullability, while bitwise OR into rendermode establishes that the u32 parameter is a mask rather than a scalar setting.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:34:10.256Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L26-L31",
+          "why": "Provides the exact signature, null-tolerant behavior, and bit-mask write into HSD_MObj.rendermode."
+        }
+      ]
+    },
+    {
+      "id": "fact:38777a96-6502-48fd-b3f2-2cd2de13745f",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Null-safely enables one or more rendering-mode bits on an HSD material object without clearing any rendering options already enabled.",
+      "rationale": "The matched function ignores a null MObj and otherwise ORs the complete caller-supplied mask into mobj->rendermode. OR assignment enables selected options while preserving all previously set bits.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:34:10.256Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L26-L31",
+          "why": "Directly shows the null guard and additive OR of the supplied flags into the material object's rendermode field."
+        }
+      ]
+    },
+    {
+      "id": "fact:e93714f8-2579-41a5-a1bc-8b0d2fde7a08",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null material object causes no state transition. For a non-null object, every selected clear bit becomes set, selected bits already set remain set, and unselected rendermode bits remain unchanged. The function never disables a rendering mode.",
+      "rationale": "The null guard proves the no-op case. Bitwise OR assignment proves that the transition is monotonic with respect to the supplied mask and cannot clear either selected or unrelated state.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:34:10.256Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetFlags",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L26-L31",
+          "why": "Directly establishes the null no-op and the monotonic OR transition on mobj->rendermode."
+        }
+      ]
+    },
+    {
+      "id": "fact:c222e0f6-56db-4941-97b6-889bdee923a6",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The caller-supplied `HSD_ImageDesc*` is copied into `tobj_toon_desc.imagedesc` before first-time construction, passed indirectly to `HSD_TObjLoadDesc` through that descriptor, and finally written to `tobj_toon->imagedesc` on every call.",
+      "rationale": "The null branch stores the input in the descriptor and loads the shared TObj from that descriptor. The unconditional final assignment ensures that both a newly created object and an existing cached object receive the current input image.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:53.855Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L450-L458",
+          "why": "The body explicitly shows each step by which `imagedesc` flows into the descriptor, through the loader, and into the shared TObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:90e9bcce-40fe-4709-acd4-b7b7b832092b",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Configures the image resource used for toon-shaded material rendering.",
+      "rationale": "The matched symbol, shared object and descriptor are consistently identified as `toon`, and the input is installed as that texture object's image descriptor. This grounds the routine in the rendering technique of using a texture image to produce toon-style material shading.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-01T23:32:53.855Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L450-L458",
+          "why": "The source identifies the object as the toon TObj and directly replaces its image descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:61d45581-63be-4f42-acf3-4cdb2368aa50",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A `void` function taking one `HSD_ImageDesc*`; the parameter identifies the image to install in the shared toon texture object.",
+      "rationale": "The matched signature explicitly returns void and accepts `HSD_ImageDesc* imagedesc`, while both assignments use that parameter as a TObj or TObj-descriptor `imagedesc` field.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:53.855Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L450-L458",
+          "why": "The source provides the exact signature and shows the pointer being consumed as an image descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:95920cb8-3c6b-4c6e-ae10-781333eb5e9b",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Sets the image descriptor used by the material subsystem's shared toon texture object, creating that texture object from its descriptor on first use.",
+      "rationale": "The function writes the supplied image descriptor into the toon texture descriptor when no toon TObj exists, loads a TObj from that descriptor, and then assigns the supplied image descriptor to the resulting shared toon TObj. This directly establishes both its configuration role and its one-time allocation behavior.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:53.855Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L450-L458",
+          "why": "The complete matched body shows the input becoming the image descriptor of `tobj_toon`, with `HSD_TObjLoadDesc` creating that object when it is null."
+        }
+      ]
+    },
+    {
+      "id": "fact:5f2d2560-6e32-478b-a15d-94caa0bbf533",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "This is a lazy-initialization setter: while `tobj_toon` is null it initializes the descriptor, allocates the toon TObj, and asserts that allocation succeeded; after initialization, calls retain the same TObj and only replace its image descriptor.",
+      "rationale": "Construction is guarded solely by `tobj_toon == NULL`, and the allocation result is saved back to that module-level object. The final field write lies outside the guard, so subsequent calls update the existing object's image without invoking the loader again.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:53.855Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetToonTextureImage",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L450-L458",
+          "why": "The null guard, loader call, allocation assertion, and unconditional image update fully expose the function's state transition and steady-state behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:2e5c4c7c-8454-47c6-bb5b-7c8c88d21004",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads render flags, ambient/diffuse/specular colors, alpha, shininess, the base HSD_TObj list, class methods, and custom pixel-engine state from the HSD_MObj. It conditionally incorporates the global shadow and toon texture objects, sends the resulting texture chain through texture and coordinate-generator setup, passes that same chain and the MObj render mode to the class-specific `setup_tev` method, and passes the render mode with `mobj->pe` to pixel-engine setup.",
+      "rationale": "The source traces each MObj field into its corresponding state-setting call. It also shows the locally assembled texture-list head being shared by HSD_TObj setup, texture-coordinate generation, and the virtual TEV setup method before render mode and custom PE state are consumed together.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:33:00.380Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L390-L425",
+          "why": "Shows MObj material, texture, render-mode, method-table, and PE fields flowing into the rendering-state setup calls."
+        }
+      ]
+    },
+    {
+      "id": "fact:eea7d54f-5b20-4e69-a2b3-b5756bbf15b7",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes model material shading and texturing, including ambient, diffuse, specular, alpha, and shininess properties, optional toon-texture and shadow-texture effects, texture-coordinate mapping, TEV color-combiner behavior, and final pixel-engine rendering behavior.",
+      "rationale": "The material fields and render-mode guards map directly to visible shading properties and optional toon and shadow effects. The function then delegates the effective texture chain to texture-coordinate and TEV setup and applies the custom PE configuration, grounding the routine in the complete material-rendering pipeline rather than a single isolated state change.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:33:00.380Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L390-L425",
+          "why": "Shows material colors and shininess, conditional toon and shadow textures, texture-coordinate setup, TEV setup, and custom pixel-engine configuration being composed for one MObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:62bd3736-9112-443f-814f-4fe0ffbcee59",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A `void (HSD_MObj* mobj, u32 rendermode)` material-setup routine. Although the ABI includes a render-mode argument, the body immediately replaces it with `mobj->rendermode`, so the caller-supplied value has no effect on this implementation.",
+      "rationale": "The function definition directly establishes the parameter and return types, while the first assignment to `rendermode` occurs before any read of its incoming value. Every subsequent render-mode test and callee receives the value loaded from the MObj.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:33:00.380Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L390-L425",
+          "why": "Shows the function signature and the immediate overwrite of `rendermode` with `mobj->rendermode` before all render-mode-dependent behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:8b154558-d0a5-4b0e-bdcb-b10550144455",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Configures the complete draw-time rendering state for an HSD material object: material colors and optional shininess, the effective texture-object chain, texture coordinates, material-specific TEV stages, and pixel-engine render mode.",
+      "rationale": "The function initializes TEV state, installs the MObj material colors, conditionally installs shininess, prepares the selected texture chain and its coordinate generators, invokes the material class's TEV setup method, and finally configures render mode with the MObj's custom pixel-engine state. This ordered collection of operations establishes it as the material's top-level render-state setup routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:33:00.380Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L390-L425",
+          "why": "Shows the complete sequence from TEV initialization and material-color setup through texture, texture-coordinate, TEV, and custom pixel-engine configuration."
+        }
+      ]
+    },
+    {
+      "id": "fact:19fedc43-c861-405a-b2f1-05b6316a7604",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Always resets TEV state and installs the material colors. `RENDER_SPECULAR` additionally installs shininess. `RENDER_SHADOW` temporarily appends the global shadow texture chain when present; `RENDER_TOON` prepends the global toon texture only when both it and its image descriptor exist. Texture, coordinate, TEV, and pixel-engine setup then operate on this augmented chain, after which any appended shadow link is detached to restore the material's original texture-list termination.",
+      "rationale": "The render-mode guards directly select specular, shadow, and toon behavior. The pointer-to-pointer tail walk records the exact link modified for shadow insertion, and the final null assignment removes that temporary append after all consumers have run.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:33:00.380Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjSetup",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L390-L425",
+          "why": "Shows the specular guard, shadow-tail insertion, toon-image guard and prepend, downstream setup sequence, and final shadow-link restoration."
+        }
+      ]
+    },
+    {
+      "id": "fact:45a8721e-5490-4e5f-b275-54d602d3b796",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjUnset",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Discards its HSD_MObj and render-mode inputs and supplies NULL as the sole input to HSD_TObjSetup, replacing the material-specific texture-list input used by HSD_MObjSetup with an empty list.",
+      "rationale": "The current implementation still reads neither formal parameter and passes only NULL to the same texture setup routine that receives the constructed chain in HSD_MObjSetup.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjUnset",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows the ordinary setup path passing its effective texture chain and the unset path passing NULL without consuming either formal parameter."
+        }
+      ]
+    },
+    {
+      "id": "fact:d0952c36-92ed-4b50-8405-89c1524a8eb9",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjUnset",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A void material setup/unset callback currently represented as void (HSD_MObj* mobj, u32 rendermode); this implementation accepts both interface parameters but does not consume either one.",
+      "rationale": "The matched definition establishes the recovered two-parameter void signature and demonstrates that both parameters are unused. Community discussion independently identifies this signature as HSD_MObjSetupFunc, supporting its role as a callback-compatible interface rather than an ordinary routine that needs both values, although discussion also records uncertainty about whether some callback sites may eventually require an additional argument.",
+      "confidence": 0.86,
+      "updated_at": "2026-09-01T23:33:13.612Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjUnset",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L427-L430",
+          "why": "Defines HSD_MObjUnset as void with HSD_MObj* and u32 parameters and shows that neither parameter is referenced."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1516332034245787649",
+          "why": "Records the project's HSD_MObjSetupFunc typedef as a void callback taking HSD_MObj* and u32 parameters."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/1516358428161867886",
+          "why": "Explains that unused arguments in these routines arise from callback invocation conventions while noting an unresolved possibility of a third callback argument at some creation sites."
+        }
+      ]
+    },
+    {
+      "id": "fact:b415ae87-e09f-4cdd-9f6d-a20392f17c95",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MObjUnset",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Tears down the material object's texture binding after material rendering by directing the texture-object subsystem to set up an empty texture list.",
+      "rationale": "The current setup routine still supplies a material's effective texture chain to HSD_TObjSetup, while HSD_MObjUnset performs the complementary HSD_TObjSetup(NULL) call.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MObjUnset",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows HSD_MObjSetup binding an effective TObj chain and HSD_MObjUnset directing HSD_TObjSetup to install an empty list."
+        }
+      ]
+    },
+    {
+      "id": "fact:bda1db41-5329-45eb-8b52-3c5aefd056af",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MaterialAlloc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The function requests sizeof(HSD_Material) bytes from hsdAllocMemPiece, asserts the returned pointer is non-null, clears all bytes of the allocated record, writes 1.0F to its alpha field, and returns that initialized pointer to the caller.",
+      "rationale": "The matched body exposes the complete flow from the allocation-size input through validation and initialization to the returned material. The whole-object memset supplies all zero defaults, while the subsequent alpha assignment deliberately overrides one field.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:29.350Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MaterialAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L496-L503",
+          "why": "Shows each data-flow step: sized allocation, assertion, complete clearing, alpha assignment, and return."
+        }
+      ]
+    },
+    {
+      "id": "fact:2197f998-8c07-4aba-ae9f-d8d6c1d8b23c",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MaterialAlloc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Function signature: HSD_Material* HSD_MaterialAlloc(void). It accepts no arguments and returns a mutable, initialized HSD_Material pointer; allocation failure is handled internally by an assertion rather than returned as a normal null result.",
+      "rationale": "The matched definition provides the exact signature. Its allocation result is asserted before any initialization or return, establishing that successful callers receive an HSD_Material pointer rather than handling a nullable result.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:29.350Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MaterialAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L496-L503",
+          "why": "Provides the exact return and parameter types and shows the immediate non-null assertion on the allocated pointer."
+        }
+      ]
+    },
+    {
+      "id": "fact:cac5f7f9-bb25-43cc-9d6a-ec29ccc36dab",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MaterialAlloc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Allocates a standalone HSD_Material record and initializes it as a blank material whose alpha factor starts at the fully enabled value of 1.0.",
+      "rationale": "The matched function allocates exactly sizeof(HSD_Material), requires the allocation to succeed, clears the complete record, and then establishes alpha = 1.0F as its sole nonzero default before returning it.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:29.350Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MaterialAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L496-L503",
+          "why": "Directly shows allocation of an HSD_Material, whole-record zero-initialization, assignment of the 1.0F alpha default, and return."
+        }
+      ]
+    },
+    {
+      "id": "fact:a1228592-95e5-46da-93d5-44814aad24a6",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:HSD_MaterialAlloc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "On successful return, every byte of the new HSD_Material is zero except for alpha, which is 1.0F. If storage cannot be obtained, the function enters its assertion-failure path before attempting to clear or return the material.",
+      "rationale": "The assertion precedes all writes through the allocated pointer, establishing the failure guard. On success, memset first creates the all-zero state and the following assignment establishes alpha as the only explicit nonzero initial value.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:29.350Z",
+      "subject": "main/sysdolphin/baselib/mobj:HSD_MaterialAlloc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L496-L503",
+          "why": "Shows the allocation guard and the exact successful initialization order and resulting defaults."
+        }
+      ]
+    },
+    {
+      "id": "fact:7d65b742-2349-40be-a38e-92df253e4344",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjAmnesia",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The incoming `HSD_ClassInfo*` is compared by identity with the class info cached in `default_class` and with the built-in `hsdMObj` class info. A default-class match writes NULL to `default_class`; an HSD_MObj-class match writes NULL to both `tobj_toon` and `tobj_shadows`. The original input pointer is then passed unchanged to the parent class's amnesia callback.",
+      "rationale": "The current callback retains both identity comparisons, the three pointer invalidations, and unchanged forwarding to the parent callback. The current declarations and allocation/list operations preserve the roles of the affected globals.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/sysdolphin/baselib/mobj.c#L1-L80",
+          "why": "Declares default_class, tobj_shadows, and tobj_toon as module-level class and texture-object pointers."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows default_class controlling allocation, tobj_shadows serving as the registry head, both class comparisons, all NULL writes, and parent forwarding."
+        }
+      ]
+    },
+    {
+      "id": "fact:afc8252a-0514-4725-ae31-9fd072b20ccb",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjAmnesia",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "HSD class-amnesia callback with signature `void (HSD_ClassInfo* info)`; `info` identifies the class information being forgotten.",
+      "rationale": "The matched definition takes one HSD_ClassInfo pointer and returns no value, and MObjInfoInit assigns the function directly to the HSD_MObj class information's `amnesia` method slot.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:39.570Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L528-L591",
+          "why": "Provides the complete callback signature and shows MObjAmnesia assigned to `HSD_CLASS_INFO(&hsdMObj)->amnesia`."
+        }
+      ]
+    },
+    {
+      "id": "fact:48f83f0a-0436-42a1-a83e-3d3ba060327b",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjAmnesia",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Handles HSD class-amnesia notifications for the material-object subsystem by invalidating MObj-global references associated with the forgotten class, then propagating the notification to the parent HSD class.",
+      "rationale": "MObjInfoInit installs MObjAmnesia in the HSD_MObj class information's amnesia slot. The callback clears the cached default class when that class is forgotten, clears the module's toon and shadow texture references when the built-in MObj class is forgotten, and always delegates the same notification to the parent class. The analogous JObj callback uses the same class-local cleanup and parent-delegation structure, supporting interpretation as class-lifecycle invalidation rather than ordinary MObj instance release.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:32:39.570Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L528-L591",
+          "why": "Shows MObjAmnesia clearing class-dependent module globals, forwarding to the parent amnesia method, and being registered as the HSD_MObj class's amnesia callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/jobj.c#L1529-L1539",
+          "why": "Shows the analogous JObj class callback selectively invalidating subsystem globals and then invoking its parent class's amnesia callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:51421bac-0374-4098-87df-1f7759df8c61",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjAmnesia",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Cleanup is selective and compositional: forgetting the configured default class invalidates the allocation-class override, while forgetting the built-in HSD_MObj class invalidates both retained toon and shadow texture references. The two guards are independent, and parent-class amnesia processing runs on every invocation regardless of whether either guard matches.",
+      "rationale": "The current callback still consists of two independent guarded invalidations followed by unconditional parent delegation. The surrounding source continues to distinguish these pointer resets from ordinary texture-list unlinking and MObj instance release.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjAmnesia",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L480-L591",
+          "why": "Shows ordinary shadow-list detachment and MObj resource release alongside the amnesia callback's independent pointer-invalidating guards and unconditional parent call."
+        }
+      ]
+    },
+    {
+      "id": "fact:1d5b9793-5a3c-4e6e-8974-acf1548fbcba",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjInfoInit",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads the global hsdClass descriptor as the parent definition and writes the global hsdMObj descriptor: first supplying its library and class identifiers plus metadata and instance sizes to hsdInitClassInfo, then storing MObj implementation function pointers into the initialized base-class and MObj-specific method slots.",
+      "rationale": "Every mutation in the routine targets hsdMObj. The initial call combines that destination with hsdClass and the class metadata, while the subsequent assignments populate its release, amnesia, setup, unset, load, make_texp, and setup_tev dispatch entries.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:11.907Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L578-L591",
+          "why": "The source directly shows hsdClass flowing into initialization of hsdMObj and all resulting callback writes going to hsdMObj."
+        }
+      ]
+    },
+    {
+      "id": "fact:7053618f-1786-41b0-bc35-8ea81b3fb346",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjInfoInit",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "A static no-argument, no-return HSD class-information initializer with signature void (void); it initializes an HSD_MObjInfo class descriptor for HSD_MObj instances, inheriting from the base hsdClass descriptor.",
+      "rationale": "The matched definition directly establishes the static void(void) signature. Its hsdInitClassInfo arguments identify the destination and parent descriptors and provide sizeof(HSD_MObjInfo) and sizeof(HSD_MObj), establishing the metadata and instance types it configures.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:11.907Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L578-L591",
+          "why": "The definition is static void MObjInfoInit(void), and its initialization call supplies hsdMObj, parent hsdClass, HSD_MObjInfo size, and HSD_MObj instance size."
+        }
+      ]
+    },
+    {
+      "id": "fact:e1b5fa2d-3f5b-45ac-a248-92d7424187b9",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjInfoInit",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Bootstraps the HSD MObj runtime class as a subclass of the base HSD class and installs the lifecycle, material setup/unset, descriptor loading, texture-expression construction, and TEV setup methods used through HSD class dispatch.",
+      "rationale": "The function initializes hsdMObj from hsdClass with the HSD_MObjInfo and HSD_MObj sizes, then fills its release, amnesia, setup, unset, load, make_texp, and setup_tev method slots. The archived class-table discussion independently identifies MObjInfoInit as the initializer associated with hsdMObj.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:11.907Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L578-L591",
+          "why": "The complete function initializes the hsdMObj class descriptor from hsdClass and assigns all seven lifecycle and material-operation callbacks."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/741006883623796796",
+          "why": "The recovered HSD static-class table associates hsdMObj with MObjInfoInit and identifies calls to hsdInitClassInfo as the way these class records are found."
+        }
+      ]
+    },
+    {
+      "id": "fact:453ad61f-505d-433f-801b-75196343fda4",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjInfoInit",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "At runtime, the routine turns the bootstrap hsdMObj class record into fully configured MObj class metadata: it establishes inheritance, identity, and size information before installing the lifecycle and material-operation dispatch callbacks.",
+      "rationale": "The source orders hsdInitClassInfo before all callback-table assignments. The archived class-record discussion states that only an InfoInit pointer matters in the initial static record because the remainder of the class structure is initialized at runtime, grounding this as a bootstrap-to-configured metadata transition.",
+      "confidence": 0.95,
+      "updated_at": "2026-09-01T23:11:11.907Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjInfoInit",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L578-L591",
+          "why": "The function first initializes generic class metadata and only afterward fills the descriptor's lifecycle and MObj operation slots."
+        },
+        {
+          "kind": "discord",
+          "locator": "discord://message/741006883623796796",
+          "why": "The resolved discussion associates hsdMObj with MObjInfoInit and explains that the rest of these static class structures is initialized at runtime."
+        }
+      ]
+    },
+    {
+      "id": "fact:0f472a34-62cd-4135-ade0-b5caef548d56",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjLoad",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads rendermode, texdesc, mat, and optional pedesc from the descriptor. It stores the render mode into mobj and ORs in RENDER_TOON; converts texdesc into mobj->tobj via HSD_TObjLoadDesc; allocates mobj->mat and copies one HSD_Material into it; when pedesc is non-NULL, allocates mobj->pe and copies one HSD_PEDesc; then writes NULL to mobj->aobj.",
+      "rationale": "Every input-to-output path is explicit in the matched body. The texture descriptor is passed through a loader, while material and optional PE records are copied into newly allocated runtime storage; scalar render state and the animation pointer are written directly.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:32.006Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjLoad",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L152-L165",
+          "why": "The source explicitly shows the descriptor fields read, the allocation and loading calls made, the two fixed-size copies, and each destination field written."
+        }
+      ]
+    },
+    {
+      "id": "fact:268d2c7a-3204-4b06-a840-2599126bd869",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjLoad",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Internal loader with signature int MObjLoad(HSD_MObj* mobj, HSD_MObjDesc* desc); it mutates the supplied runtime object in place and returns 0 unconditionally.",
+      "rationale": "The matched declaration establishes two non-const pointer parameters and an int result, while the body writes through mobj, reads through desc, and ends with an unconditional return of zero.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:32.006Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjLoad",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L152-L165",
+          "why": "The resolved source contains the complete static function declaration, all writes through mobj, all descriptor reads, and the unconditional return 0."
+        }
+      ]
+    },
+    {
+      "id": "fact:ffce1be5-db85-431d-8768-2fea534a3773",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjLoad",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes an existing HSD_MObj from an HSD_MObjDesc by loading its texture-object chain, allocating and copying its material state, enabling toon rendering, optionally cloning its pixel-engine state, and clearing its animation-object attachment.",
+      "rationale": "The matched function directly transfers descriptor data into an existing material object and constructs the owned runtime components needed by that object. Its placement in the portion matched through HSD_MObjLoadDesc corroborates that it is the internal descriptor-loading step rather than a general material mutator.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:32:32.006Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjLoad",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L152-L165",
+          "why": "The function loads desc->texdesc, allocates and copies the material, adds RENDER_TOON, conditionally allocates and copies the PE descriptor, and sets aobj to NULL."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-250--main-sysdolphin-baselib-mobj",
+          "why": "The merged change identifies this source region as the MObj implementation through HSD_MObjLoadDesc, supporting the function's role in material-object descriptor loading."
+        }
+      ]
+    },
+    {
+      "id": "fact:7edaabe3-db3a-430f-969d-af2f4c0c2ffa",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjLoad",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Produces a freshly loaded material-object state with toon rendering forced on and no attached animation object. Pixel-engine state is created only when the descriptor supplies a non-NULL PEDesc; the function does not assign mobj->pe on the NULL branch.",
+      "rationale": "The unconditional render-mode OR and aobj reset define the post-load state. The explicit pedesc guard shows conditional PE initialization, and the absence of an else assignment means no stronger claim about mobj->pe is warranted when pedesc is NULL.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:32:32.006Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjLoad",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L152-L165",
+          "why": "The body unconditionally adds RENDER_TOON and clears aobj, while allocating and copying pe only inside the desc->pedesc != NULL branch."
+        }
+      ]
+    },
+    {
+      "id": "fact:5e4bb52b-2ffe-48b7-afd6-f54264b097f8",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The routine clears the caller-provided expression list, scans the TObj chain for a toon-coordinate texture, seeds diffuse and alpha from either rasterized vertex color or mobj->mat diffuse/alpha constants, and threads mutable diffuse, alpha, specular, and extension expression roots through eligible TObj make_texp callbacks. It returns a single TEV root, adding a final packing stage when the final color and alpha roots are distinct or are not already TEV nodes. HSD_MObjCompileTev stores the allocated list in mobj->texp and compiles the returned root into mobj->tevdesc.",
+      "rationale": "The current builder preserves list initialization, texture traversal, source selection, callback-mediated root updates, and final color/alpha normalization. The current compile path still provides the ownership anchor and consumes both outputs.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L191-L390",
+          "why": "Shows expression-list initialization, source selection, ordered callback passes, mutable roots, final packing, and compilation of the returned root into the MObj's TEV state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L311-L390",
+          "why": "Shows the final color/alpha packing condition and HSD_MObjCompileTev storing the expression list and compiled descriptor."
+        }
+      ]
+    },
+    {
+      "id": "fact:bfea6d1d-ad64-4493-bc63-284230602d58",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes HSD material rendering through the GameCube TEV color combiner: it defines how a model material's base color and transparency are combined with vertex lighting, toon lookup, specular lighting, and role-tagged textures before drawing.",
+      "rationale": "The current graph still consists of TEV stages driven by raster, material, and texture inputs, and the neighboring compile routine still converts its result into the material's TEV descriptor.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L191-L390",
+          "why": "Shows TEV color and alpha operations combining material constants, raster channels, toon lookup, specular contribution, and role-tagged textures before compilation."
+        }
+      ]
+    },
+    {
+      "id": "fact:1a89211e-d9e1-4089-b2a0-95e68747397c",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "HSD_TExp* (HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list); mobj supplies render modes and material values, tobj_top is the head of the texture-object chain to incorporate, and list is a required output/ownership anchor for the allocated expression nodes.",
+      "rationale": "The current declaration preserves the exact signature. The function reads material state from mobj, traverses tobj_top, asserts and initializes list, and allocates all nodes through that list; the compile path passes &mobj->texp and consumes the returned root.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L191-L390",
+          "why": "Provides the complete typed declaration, establishes each parameter's role and list's non-null requirement, and shows the caller passing &mobj->texp."
+        }
+      ]
+    },
+    {
+      "id": "fact:da9a1c39-08fe-40d4-bafa-fe8cf1e16a44",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Builds the HSD texture-expression graph that represents a material object's TEV color and alpha pipeline, combining material constants or vertex colors with diffuse, ambient, toon, specular, and extension texture contributions so the graph can subsequently be compiled into a TEV descriptor.",
+      "rationale": "The current function still constructs and combines TEV and constant expression nodes by material mode and texture role. The current neighboring compiler still obtains this graph, retains its node list in mobj->texp, and compiles the root into mobj->tevdesc.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L191-L390",
+          "why": "Shows construction of diffuse, alpha, toon, specular, and extension expression paths and the neighboring compilation of the returned graph."
+        }
+      ]
+    },
+    {
+      "id": "fact:ede7b6a0-f1b0-4a16-ba6f-8f360575d5c5",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Requires a non-null expression-list output pointer and resets it before construction. RENDER_VERTEX chooses raster color and alpha instead of material constants; RENDER_DIFFUSE optionally modulates diffuse color by a toon texture or raster lighting; RENDER_SPECULAR builds and adds a separate specular path. Texture callbacks run only for non-null GX texture-map IDs and are grouped in diffuse/ambient, specular, then extension order, with a done mask preventing later roles from treating earlier roles as unprocessed. The routine returns an existing final TEV node only when color and alpha already share one TEV expression; otherwise it creates a final node that carries both.",
+      "rationale": "These guards, branches, pass ordering, and final-node condition are all explicit in the matched control flow. They describe construction-state behavior rather than persistent gameplay state: render-mode and texture-role flags determine which graph-building transitions occur.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:06:35.483Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjMakeTExp",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L191-L335",
+          "why": "The matched source contains the list assertion and reset, all render-mode branches, texture-ID guards, role-grouped callback loops, and updates to the done mask."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L311-L359",
+          "why": "The function's final condition tests whether color and alpha share a TEV node and allocates a packing stage when they do not."
+        }
+      ]
+    },
+    {
+      "id": "fact:c5264b74-0248-4c60-a841-3397f3ad7694",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjRelease",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes an HSD_Class pointer, views it as HSD_MObj, and reads the MObj's aobj, mat, tobj, tevdesc, texp, and pe fields. These values flow respectively to HSD_AObjRemove, the material allocator, HSD_TObjRemoveAll, HSD_TExpFreeTevDesc, forced all-type HSD_TExpFreeList cleanup, and the pixel-engine descriptor allocator; the original base pointer then flows to the parent release callback.",
+      "rationale": "The current release body still forwards every owned field to its corresponding cleanup routine and forwards the original base pointer to the parent. The current HSD_TExpFreeList implementation confirms that the HSD_TE_ALL, nonzero-all call reclaims every supported node.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Shows each MObj resource field entering its removal or deallocation routine and the original HSD_Class pointer entering parent release."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/texp.c#L104-L175",
+          "why": "Shows nonzero all mode with HSD_TE_ALL freeing every supported expression node in the supplied list."
+        }
+      ]
+    },
+    {
+      "id": "fact:624bb0ae-b0c0-4a50-873d-dfa683645f66",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjRelease",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Static HSD class release callback with signature void(HSD_Class*); its argument is an HSD_MObj instance viewed through the HSD_Class base.",
+      "rationale": "The declaration directly supplies the callback signature, and the immediate HSD_MOBJ conversion establishes that the base-class pointer must designate an MObj. The final dispatch through the parent class's release slot confirms its role in the class lifecycle.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:36.507Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L546-L564",
+          "why": "Declares MObjRelease as static void MObjRelease(HSD_Class*), converts the argument to HSD_MObj*, and finishes through the parent release callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:0bb0084f-dc03-464a-a735-6c83a9daec3b",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjRelease",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Performs the release phase of an HSD material object: it removes the material animation object and all attached texture objects, frees the material, compiled TEV description, texture-expression list, and pixel-engine descriptor owned by the MObj, then delegates final base-class cleanup to the parent release callback.",
+      "rationale": "The complete matched body is a destructor-like cleanup sequence over the MObj's owned subordinate objects and allocations. Its final parent-class dispatch establishes that this routine handles MObj-specific resources before superclass release.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:32:36.507Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L546-L564",
+          "why": "Shows removal or deallocation of each MObj-owned resource followed by invocation of the parent class's release method."
+        }
+      ]
+    },
+    {
+      "id": "fact:71828fc5-96f7-4ded-90b4-eb92abc57400",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjRelease",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Release is ordered so MObj-owned animation, material, and texture resources are removed first; the TEV description, texture-expression list, and pixel-engine descriptor are then freed only when their pointers are non-null; and parent-class release always runs last. Texture expressions are released in forced all-type mode rather than retained according to reference counts.",
+      "rationale": "The current release body preserves the cleanup order, optional-pointer guards, forced expression-list arguments, and final parent dispatch. The current expression-list implementation still distinguishes forced all-mode cleanup from reference-sensitive cleanup.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T21:35:28.757Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjRelease",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L546-L591",
+          "why": "Shows the exact cleanup order, null guards, forced HSD_TExpFreeList arguments, and final parent release."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/texp.c#L104-L175",
+          "why": "Shows that nonzero all mode frees matching expression nodes directly, unlike the reference-sensitive alternate branch."
+        }
+      ]
+    },
+    {
+      "id": "fact:70b628bc-d7c9-4c10-b95c-91a4e2b1ec26",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Reads mobj->tevdesc and mobj->texp and passes them to HSD_TExpSetupTev, which transfers expression registers and descriptor stages into TEV render state. It then passes tobj and arg2 unchanged to HSD_TObjSetupVolatileTev. The function returns no data; its outputs are the rendering-state side effects produced by those two setup calls.",
+      "rationale": "The target body directly shows both input paths and contains no local transformation or return value. The resolved callee body demonstrates that the material fields consumed by the first call are applied to TEV registers and stages, supporting the render-state characterization of the output.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:33:17.043Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L383-L388",
+          "why": "Shows the direct flow of the material fields into HSD_TExpSetupTev and of the remaining arguments into HSD_TObjSetupVolatileTev."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Shows that HSD_TExpSetupTev consumes the expression and descriptor list by uploading registers and configuring TEV stages."
+        }
+      ]
+    },
+    {
+      "id": "fact:ccb4e3be-e0b9-420f-bf81-3899b3d6495c",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes material-level configuration of the GameCube TEV color-combiner pipeline, combining a material's compiled texture-expression stages with additional volatile stages associated with its texture objects before drawing.",
+      "rationale": "The target coordinates HSD_TExpSetupTev and HSD_TObjSetupVolatileTev. The resolved expression setup routine uploads expression registers, assigns TEV stages, and installs texture map and coordinate selections, directly grounding the target in GameCube TEV color-combiner configuration.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:33:17.043Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L383-L388",
+          "why": "Shows the material routine coordinating compiled and volatile TEV setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Shows expression-register upload and per-stage TEV configuration, including texture map and coordinate selection."
+        }
+      ]
+    },
+    {
+      "id": "fact:1310bf80-b05b-4ba5-9fe6-7edcad722ee2",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Signature: void MObjSetupTev(HSD_MObj* mobj, HSD_TObj* tobj, u32 arg2). The material pointer supplies the compiled HSD_TExpTevDesc list and HSD_TExp; the texture-object pointer and opaque u32 setup value are forwarded to HSD_TObjSetupVolatileTev.",
+      "rationale": "The function definition directly establishes the return and parameter types. Its field accesses and calls establish the roles of mobj and tobj, while arg2 is not interpreted locally and therefore can only safely be characterized as an opaque u32 forwarded unchanged.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:33:17.043Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L383-L388",
+          "why": "The definition provides the exact signature and shows how each parameter is consumed or forwarded."
+        }
+      ]
+    },
+    {
+      "id": "fact:0c7dd769-8d27-4556-b95c-11f785a52e94",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Configures a material object's TEV rendering state by applying its compiled texture expression and then setting up the volatile TEV stages required by the supplied texture-object chain.",
+      "rationale": "The complete body first passes the material's TEV descriptor list and texture expression to HSD_TExpSetupTev, then invokes HSD_TObjSetupVolatileTev for the supplied texture objects. The resolved HSD_TExpSetupTev body confirms that the first step uploads expression registers and configures the compiled descriptor stages, establishing this routine as the material-level coordinator for both compiled and volatile TEV setup.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:33:17.043Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L383-L388",
+          "why": "The complete function shows the ordered material-level setup calls: compiled texture-expression TEV state first, followed by volatile texture-object TEV setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "The called HSD_TExpSetupTev routine uploads expression registers and configures every descriptor in the supplied TEV-stage list."
+        }
+      ]
+    },
+    {
+      "id": "fact:520ea4e2-0c9e-486c-afcc-30e3e8eae390",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "Requires mobj->tevdesc to be non-null and asserts otherwise. On the valid path it always performs setup in a fixed order: first apply the compiled material expression and all of its descriptor stages, then configure volatile texture-object TEV stages.",
+      "rationale": "The assertion is the only guard in the target, and the two setup calls are unconditional and ordered. HSD_TExpSetupTev traverses the complete descriptor list before returning, so volatile texture setup cannot begin until the compiled material stages have all been processed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-01T23:33:17.043Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjSetupTev",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L383-L388",
+          "why": "Shows the non-null TEV-descriptor assertion and the unconditional ordering of the two setup operations."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/texp.c#L1168-L1179",
+          "why": "Shows that the first setup operation processes its entire linked descriptor list synchronously before returning."
+        }
+      ]
+    },
+    {
+      "id": "fact:e2ebc15a-c7f1-46eb-9f13-182459517450",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes a normalized floating-point animation value and routes it by attribute type. Ambient, diffuse, specular, alpha-reference, and destination-alpha tracks multiply the value by 255 and narrow it to an 8-bit channel; the material alpha track instead stores `1.0F - val->fv`. The resulting values are written into the HSD_Material or optional HSD_PEDesc attached to the HSD_MObj for later rendering setup.",
+      "rationale": "The color and pixel-engine cases visibly perform the normalized-float-to-byte conversion before writing their destinations, while the alpha case explicitly complements the input. The destination field ownership separates ordinary material state from optional pixel-engine state.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:16.133Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Shows the flow from `val->fv` through byte scaling or alpha inversion into HSD_Material and HSD_PEDesc fields."
+        }
+      ]
+    },
+    {
+      "id": "fact:efcae77c-57d6-4d4c-b851-3f87571273b4",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Realizes material-property animation for rendered models, allowing animation tracks to vary ambient, diffuse, and specular color, material opacity, and pixel-engine alpha-test or destination-alpha parameters over time.",
+      "rationale": "The handled HSD_A_M_* tracks correspond directly to visible material and pixel-engine rendering properties. Applying evaluated track values to those properties is the code-level mechanism for animated material appearance.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-01T23:11:16.133Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Enumerates and updates the color, opacity, alpha-reference, and destination-alpha properties that comprise this material animation behavior."
+        }
+      ]
+    },
+    {
+      "id": "fact:7fd14216-0269-4aee-9277-4b78d190ddd1",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Animation-update callback with signature `void (void* obj, enum_t type, HSD_ObjData* val)`; `obj` is interpreted as `HSD_MObj*`, `type` belongs to the `HSD_A_M_*` material-animation attribute domain, and every handled attribute consumes the floating-point `val->fv` member.",
+      "rationale": "The declaration establishes the callback ABI, the initial assignment establishes the concrete object type, and the switch cases establish both the discriminator domain and the HSD_ObjData member consumed by this callback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:16.133Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Provides the function signature, HSD_MObj interpretation of the opaque object pointer, HSD_A_M_* cases, and all uses of `val->fv`."
+        }
+      ]
+    },
+    {
+      "id": "fact:c334cdd9-4b1a-42ff-bddc-8ddbb69956c9",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Acts as the per-track animation update callback for an HSD material object, dispatching material-animation attributes to the corresponding material color, opacity, or pixel-engine property.",
+      "rationale": "The matched function receives an object, attribute discriminator, and evaluated animation value, casts the object to HSD_MObj, and switches over HSD_A_M_* attributes to update ambient, diffuse, specular, alpha, and pixel-engine fields. This is the characteristic role of an animation-system property callback rather than a general material setter.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:16.133Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Shows the complete callback signature, HSD_MObj cast, HSD_A_M_* attribute dispatch, and writes to the selected material or pixel-engine property."
+        }
+      ]
+    },
+    {
+      "id": "fact:c48d088a-1b43-443f-9d1b-ac610fbd3632",
+      "target_id": "target:function:main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "A null material object makes the callback a no-op. Ambient, diffuse, specular, and material-alpha attributes directly replace their selected fields. Pixel-engine reference and destination-alpha attributes update only when the HSD_MObj has an attached pixel-engine descriptor; if it does not, those tracks are ignored. Unhandled attribute values also leave the object unchanged.",
+      "rationale": "The early null return, direct switch-arm assignments, per-case `mobj->pe` guards, and absence of a default action establish the callback's guards and mutation behavior.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-01T23:11:16.133Z",
+      "subject": "main/sysdolphin/baselib/mobj:MObjUpdateFunc",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L86-L141",
+          "why": "Directly shows the null-object guard, unconditional material-field updates, conditional pixel-engine updates, and no-op behavior for unhandled discriminators."
+        }
+      ]
+    },
+    {
+      "id": "fact:148d5eaf-cf2d-4b9b-b19e-bbc77487a743",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/mobj.c",
+      "type": "data_flow",
+      "value": "Material descriptors flow through MObjLoad and HSD_MObjLoadDesc into allocated HSD_MObj, HSD_Material, HSD_TObj, and optional HSD_PEDesc instances. Animation evaluation writes ambient, diffuse, specular, alpha, and pixel-engine channels into those instances. TEV compilation and rendering then consume the material, render-mode flags, ordinary textures, and temporarily attached shared shadow or toon textures to produce TEV descriptors and configure render state; release paths free the owned animation, material, texture, TEV-expression, TEV-descriptor, and pixel-engine resources.",
+      "rationale": "The current loading and animation code populates owned material state, the compilation and setup code consumes that state plus shared textures, and the release path frees each owned resource.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T01:57:15.870Z",
+      "subject": "src/sysdolphin/baselib/mobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L71-L470",
+          "why": "Shows animation values entering material fields, descriptor loading, temporary shadow and toon attachment, TEV compilation, and rendering setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L500-L584",
+          "why": "Shows release of AObj, material, TObj, TEV descriptor, expression list, and optional pixel-engine data."
+        }
+      ]
+    },
+    {
+      "id": "fact:4c79e45d-f968-445b-b79d-0b345487c551",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/mobj.c",
+      "type": "purpose",
+      "value": "Implements the HSD material-object subsystem, including material animation control, descriptor loading, texture and TEV-expression construction, rendering-state setup, allocation, and release.",
+      "rationale": "The current unit requests and evaluates material and texture animations, loads descriptors into runtime material objects, compiles texture expressions into TEV descriptors, configures rendering, and releases all owned resources.",
+      "confidence": 0.94,
+      "updated_at": "2026-09-04T01:57:15.870Z",
+      "subject": "src/sysdolphin/baselib/mobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L71-L470",
+          "why": "Shows animation control, descriptor loading, TEV compilation, and rendering setup."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L500-L584",
+          "why": "Shows shadow-texture registry operations, resource release, amnesia handling, and class initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:5cd302d7-d588-42f7-b743-9b794aecfbc6",
+      "target_id": null,
+      "entity_id": "translation_unit:src/sysdolphin/baselib/mobj.c",
+      "type": "state_behavior",
+      "value": "The subsystem bootstraps its HSD_MObj runtime class by registering its parent, identifiers, sizes, and virtual methods. Individual MObjs transition from descriptor-loaded state to compiled TEV state; recompilation first frees any previous TEV descriptor and expression list, temporarily augments the texture chain with active shadow or toon inputs, compiles the replacement state, and detaches appended shadow textures afterward. Shared toon state is allocated lazily, the shadow registry rejects duplicate insertion and supports individual or complete removal, and class amnesia clears affected default and shared-texture pointers.",
+      "rationale": "The current compilation routine preserves teardown-before-rebuild and temporary texture-chain augmentation, while the current toon, shadow, amnesia, and class-initialization routines retain the persistent-state guards and transitions.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T01:57:15.870Z",
+      "subject": "src/sysdolphin/baselib/mobj.c",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L340-L470",
+          "why": "Shows recompilation freeing old TEV state, temporarily attaching shadow and toon textures, compiling replacements, and restoring the texture chain."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/sysdolphin/baselib/mobj.c#L500-L584",
+          "why": "Shows duplicate-guarded shadow insertion, individual or complete removal, class amnesia, and HSD_MObj class bootstrap."
+        }
+      ]
+    }
+  ]
+}

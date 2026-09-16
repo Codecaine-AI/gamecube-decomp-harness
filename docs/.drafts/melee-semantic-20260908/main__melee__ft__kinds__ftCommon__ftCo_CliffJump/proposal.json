@@ -1,0 +1,131 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CliffJump",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffJump:ftCo_8009B1B8"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Obtains Fighter from gobj->user_data and directly compares the float dmg.x1830_percent with p_ftCommonData->x488. The result selects CliffJumpQuick1 or CliffJumpSlow1. Calls Fighter_ChangeMotionState(gobj, msid, Ft_MF_None, 0, 1, 0, NULL), ftAnim_8006EBA4(gobj), and ftCommon_8007E2F4(fp, 32), then sets x221D_b7 and calls ftCo_CliffCatch_Phys(gobj). No integral-damage-to-float conversion is expressed or required by the declared damage type.",
+        "rationale": "Repairs the baseline conversion claim while preserving the exact ordered reads, calls and writes.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffJump.c#L31-L42",
+            "why": "Complete entry body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L1337-L1337",
+            "why": "Damage is declared float."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffJump:ftCo_8009B1B8"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Selects CliffJumpQuick1 only when damage < p_ftCommonData->x488 is true; equality, greater values and unordered comparison select CliffJumpSlow1. Shared initialization sets x221D_b7 and immediately invokes CliffCatch physics. A valid ledge produces ledge-relative positioning, while an invalid ledge calls ftCo_Fall_Enter before this helper returns. If phase one remains active until animation exhaustion, its Anim callback invokes normal phase-two entry; that helper maps exactly Quick1 to Quick2 and every other incoming motion to Slow2.",
+        "rationale": "Adds exceptional comparison behavior and the delegated early exit omitted by the baseline.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffJump.c#L31-L69",
+            "why": "Threshold, initialization, animation guard and phase mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcliffcommon.c#L110-L126",
+            "why": "Invalid-ledge branch calls Fall entry."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffJump:ftCo_8009B390"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Selects Quick2 only for incoming Quick1, otherwise Slow2. Calls Fighter_ChangeMotionState with Ft_MF_None, 0, 1, 0, NULL and ftAnim_8006EBA4, clears mv.co.cliffjump.x0, then assigns self_vel.y = co_attrs.ledge_jump_vertical_velocity * force_mul. There is no local X assignment, clamp, sign restriction or finite check. Zero, negative and exceptional floating-point multipliers are not rejected. The next phase-two physics invocation sets the latch without calling ft_80084DB0; later invocations delegate. Animation completion calls ftCo_Fall_Enter rather than guaranteeing a particular final motion.",
+        "rationale": "Replaces unconditional upward and final-Fall assumptions with exact local behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffJump.c#L78-L108",
+            "why": "Unchecked arithmetic, state fallback, latch reset and consumers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L31-L71",
+            "why": "Fall entry has optional branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffJump:ftCo_CliffJump1_IASA"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies the empty IASA slot shared by quick and slow opening ledge-jump states. It reads no input and initiates no interruption. This does not make the entire opening phase uninterruptible: ledge physics can route an invalid ledge to Fall entry, and collision processing can invoke independent responses before the normal animation-driven launch.",
+        "rationale": "Active table proves the shared role while delegated branches invalidate guaranteed continuation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffJump.c#L44-L61",
+            "why": "Empty IASA is distinct from active physics and collision."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2994-L3037",
+            "why": "Both opening states bind this callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcliffcommon.c#L110-L126",
+            "why": "Invalid ledge causes an early exit call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L124-L137",
+            "why": "Delegated collision has independent response branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffJump:ftCo_CliffJump2_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Performs no local transition while ftAnim_IsFramesRemaining is true; otherwise forwards gobj to ftCo_Fall_Enter. That callee first handles Master Hand and Crazy Hand specially, then routes x2224_b2 to ftCo_80090780 or a successful ftCo_800C5240 check to ftCo_800C5D34. Only if those alternatives do not apply does it initialize ordinary ftCo_MS_Fall with Ft_MF_KeepFastFall, frame 0, rate 1 and zero blend, clamp air drift, initialize fall scratch and conditionally convert ground to air. The wrapper does not guarantee the final motion.",
+        "rationale": "Independently verifies and expands the librarian's inline-gate qualification without assigning unsupported meanings to address-named alternate helpers.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffJump.c#L91-L96",
+            "why": "Complete local guard and forwarding body."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L31-L71",
+            "why": "Inline gate and all ordinary-entry conditions are explicit."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

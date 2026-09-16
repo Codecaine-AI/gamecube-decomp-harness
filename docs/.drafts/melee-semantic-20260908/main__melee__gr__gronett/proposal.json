@@ -1,0 +1,119 @@
+{
+  "tu": "main/melee/gr/gronett",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L452-L493",
+            "why": "Complete initializer and file-local reset."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L3185-L3193",
+            "why": "Shared vehicle phase uses stage_info.x740."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L566-L583",
+            "why": "A state zero performs the shared phase reset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the conflation of a file-local integer reset with the separately stored shared hazard phase while preserving the supported initialization purpose.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/gronett:grOnett_801E41C8"
+        },
+        "type": "purpose",
+        "value": "Initializes Onett's roadway-vehicle Ground object: starts its stage animation, retains four primary and four companion model joints, hides the primary models at X=726, creates and configures a joint-backed item proxy for each primary model, initializes vehicle selections and both directional state codes, resets file-local grOt_804D69C4, and queues the callback that clears its startup gate. It does not reset the shared vehicle phase stored in stage_info.x740; A state 0 performs that reset later."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L474-L493",
+            "why": "Initial model, index, state and gate values."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L547-L583",
+            "why": "A indexes before reselection and resets the shared phase afterward."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L700-L709",
+            "why": "B also fetches its model before state-zero selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L700-L733",
+            "why": "Deferred callback execution and queue lifetime."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the overwritten random selection and preselection indexing ambiguity, and distinguishes local initialization from the shared phase lifetime.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/gronett:grOnett_801E41C8"
+        },
+        "type": "state_behavior",
+        "value": "Initialization hides all four primary vehicle models at X=726. It consumes HSD_Randi(4) for curr_car but then overwrites curr_car and next_car with 4, sets states A and B to 0, resets file-local grOt_804D69C4, queues grOnett_801E41B0, and sets the startup gate. The deferred callback clears the gate after stage start. The update subsequently indexes the model arrays using the saved current index before A state 0 selects a new index; B likewise fetches its selected model before its state-zero selection helper. Preserve this initial-index-4 ordering rather than assuming reselection precedes every access. The shared phase is reset by A state 0, not by this initializer."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L505-L636",
+            "why": "Selection, waits, fighter counting, continued rank loop and phase-write asymmetry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L638-L757",
+            "why": "Movement, warning/horn phases, fallthrough, A early returns and B schedule."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the fighter-count domain and documents loop overwrite behavior, asymmetric phase writes, fallthrough, and early returns that qualify the existing independence description.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/gronett:grOnett_801E43E0"
+        },
+        "type": "state_behavior",
+        "value": "The startup gate suppresses both directional schedules. A runs before B: state 0 selects a vehicle different from its previous selection and B's selection, places it at X=726 and Z=30, and resets the shared phase to 0. Its first wait chooses a nonpositive speed and enters state 2. While the second timer is nonzero, state 2 counts every fighter object, decrements the timer, then examines fighters at Y<=1. A sole fighter or rank 0 immediately reveals the car in state 5; other ranks select x50 or x4C delay and state 3. This loop does not break, so later qualifying fighters can overwrite earlier state/timer choices. Immediate rank-based reveal does not publish phase 1; state-2 timer expiry and state-3 expiry do. States 5/6 move left, trigger directional SFX and warning display at X<=580, and may play the horn and publish phase 2 at the camera-relative threshold when a low fighter exists. Sub-state 1 falls through to the sub-state-2 position test. State 4 spins and moves the car. A's left-exit branches hide the model, reset item motion and state A, and return from the entire function, skipping B that invocation. Otherwise B selects a distinct vehicle at X=-642 and Z=56 facing the opposite direction, waits through two intervals, reveals it in state 5, moves right, triggers SFX at X>=-513, and hides/resets at X>=726. B has separate state and timers, but is not guaranteed to advance on every invocation."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L313-L445",
+            "why": "Building transitions and contact requests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L638-L757",
+            "why": "Directional update ordering and early returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/gronett.c#L812-L948",
+            "why": "Responsive-record resets, persistent cooldown and ambient retry lifecycle."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the claimed per-frame cooldown clearing and unqualified vehicle independence, while preserving the supported state systems and explicit asset uncertainty.",
+        "subject": {
+          "entity_locator": "src/melee/gr/gronett.c"
+        },
+        "type": "state_behavior",
+        "value": "The module coordinates a contact-driven building lifecycle, two directional vehicle schedules, two collision-responsive records, and a timed ambient generator. The building commits next_state after its current-state update; collapse removes joints 3 and 4 at fixed animation frames, followed by randomized downtime and flashing restoration. Vehicle A executes before B, and A's exit returns skip B for that invocation; the schedules have separate state and timers but share update ordering and vehicle-selection exclusions. Each responsive record accumulates collision input, applies bounded damped motion, and clears its accumulator, current count and contact flag after saving the previous count. Its feedback cooldown is not cleared each frame: feedback sets it to 10 and the same update decrements it, with subsequent updates continuing the countdown. The ambient generator alternates absent and active phases using prior-negative timer expiry; missing-joint or creation failure retains the absent phase until a new retry interval expires. Visible tree-versus-awning identity of the responsive records remains unverified."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

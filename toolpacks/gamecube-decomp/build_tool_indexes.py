@@ -14,6 +14,8 @@ SCRIPT_PATH = Path(__file__).resolve()
 TOOLS_ROOT = SCRIPT_PATH.parent
 sys.path.append(str(TOOLS_ROOT / "_shared"))
 from search_index import package_root_for_tool, project_knowledge_root, tool_storage_root  # type: ignore
+sys.path.append(str(TOOLS_ROOT / "_impl" / "gamecube" / "tools"))
+from project_layout import get_project_layout  # type: ignore
 
 PACKAGE_ROOT = package_root_for_tool(TOOLS_ROOT)
 PROJECT_KNOWLEDGE_ROOT = project_knowledge_root(TOOLS_ROOT)
@@ -61,7 +63,7 @@ def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> int:
 def report_functions(repo_root: Path) -> list[dict[str, Any]]:
     """Load function rows from the target checkout report or local fallback."""
 
-    report_path = repo_root / "build" / "GALE01" / "report.json"
+    report_path = get_project_layout(repo_root).report_path
     report = read_json(report_path, {})
     functions: list[dict[str, Any]] = []
     for unit in report.get("units") or []:
@@ -141,6 +143,7 @@ def format_address(value: Any) -> str:
 def build_ghidra_index(repo_root: Path) -> int:
     """Build the source-symbol lookup index consumed by the Ghidra suite."""
 
+    report_path = get_project_layout(repo_root).report_path
     rows = []
     for fn in report_functions(repo_root):
         text = " ".join(str(fn.get(field) or "") for field in ("symbol", "address", "source_path", "unit", "size", "fuzzy_match_percent"))
@@ -154,7 +157,7 @@ def build_ghidra_index(repo_root: Path) -> int:
                 "source_path": fn["source_path"],
                 "unit": fn["unit"],
                 "text": text,
-                "evidence_ref": str(fn.get("evidence_ref") or repo_root / "build" / "GALE01" / "report.json"),
+                "evidence_ref": str(fn.get("evidence_ref") or report_path),
                 "payload": fn,
             }
         )
@@ -164,6 +167,7 @@ def build_ghidra_index(repo_root: Path) -> int:
 def build_opseq_index(repo_root: Path) -> int:
     """Build the report-derived function-shape index for opseq."""
 
+    report_path = get_project_layout(repo_root).report_path
     rows = []
     for fn in report_functions(repo_root):
         size = safe_int(fn.get("size"))
@@ -182,7 +186,7 @@ def build_opseq_index(repo_root: Path) -> int:
                 "unit": fn["unit"],
                 "address": fn["address"],
                 "text": f"{fn['symbol']} {fn['source_path']} {fn['unit']} size {size} bucket {size_bucket} {status}",
-                "evidence_ref": str(fn.get("evidence_ref") or repo_root / "build" / "GALE01" / "report.json"),
+                "evidence_ref": str(fn.get("evidence_ref") or report_path),
                 "payload": {**fn, "size_bucket": size_bucket, "status": status},
             }
         )

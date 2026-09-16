@@ -1,0 +1,160 @@
+1: #include "ftCo_Landing.h"
+2: 
+3: #include <Runtime/platform.h>
+4: 
+5: #include <melee/ft/forward.h>
+6: 
+7: #include <placeholder.h>
+8: #include <stdbool.h>
+9: 
+10: #include "forward.h"
+11: #include "ftCo_AppealS.h"
+12: #include "ftCo_Attack1.h"
+13: #include "ftCo_Attack100.h"
+14: #include "ftCo_AttackHi3.h"
+15: #include "ftCo_AttackHi4.h"
+16: #include "ftCo_AttackLw3.h"
+17: #include "ftCo_AttackLw4.h"
+18: #include "ftCo_AttackS3.h"
+19: #include "ftCo_AttackS4.h"
+20: #include "ftCo_Dash.h"
+21: #include "ftCo_Guard.h"
+22: #include "ftCo_HammerLanding.h"
+23: #include "ftCo_HammerWait.h"
+24: #include "ftCo_Jump.h"
+25: #include "ftCo_SpecialS.h"
+26: #include "ftCo_SquatWait.h"
+27: #include "ftCo_Turn.h"
+28: #include "ftCo_Walk.h"
+29: #include <melee/ft/fighter.h>
+30: #include <melee/ft/ft_081B.h>
+31: #include <melee/ft/ft_084E.h>
+32: #include <melee/ft/ft_0892.h>
+33: #include <melee/ft/ftcommon.h>
+34: #include <melee/ft/inlines.h>
+35: #include <melee/ft/kinds/ftPeach/ftpeachspecialhi.h>
+36: #include <melee/ft/types.h>
+37: 
+38: void ftCo_Landing_Enter(Fighter_GObj* gobj, FtMotionId msid,
+39:                         bool allow_interrupt, MotionFlags flags,
+40:                         float anim_start, float anim_speed)
+41: {
+42:     Fighter* fp = GET_FIGHTER(gobj);
+43: 
+44:     ftCommon_8007D7FC(fp);
+45:     Fighter_ChangeMotionState(gobj, msid, flags, anim_start, anim_speed, 0.0F,
+46:                               NULL);
+47:     fp->mv.co.landing.allow_interrupt = allow_interrupt;
+48:     switch (fp->kind) {
+49:     case FTKIND_MARIO:
+50:     case FTKIND_DRMARIO:
+51:         fp->u.mr.x2234_tornadoCharge = false;
+52:         fp->u.mr.x2238_isCapeBoost = false;
+53:         break;
+54:     case FTKIND_PEACH:
+55:         fp->u.pe.specialairn_used = false;
+56:         if (allow_interrupt == true) {
+57:             ftPe_8011D598(gobj);
+58:         }
+59:     default:
+60:         break;
+61:     case FTKIND_MARS:
+62:     case FTKIND_EMBLEM:
+63:         fp->u.ms.x222C = 0;
+64:         break;
+65:     case FTKIND_GAMEWATCH:
+66:         fp->u.gw.x2234 = 0;
+67:         break;
+68:     case FTKIND_POPO:
+69:     case FTKIND_NANA:
+70:         fp->u.pp.x224C = 0;
+71:         break;
+72:     case FTKIND_KIRBY:
+73:         fp->u.kb.xCC = false;
+74:         fp->u.kb.xC4 = false;
+75:         fp->u.kb.x64 = false;
+76:         break;
+77:     case FTKIND_MEWTWO:
+78:         fp->u.mt.x223C_isConfusionBoost = false;
+79:         break;
+80:     }
+81: }
+82: 
+83: void ftCo_Landing_Enter_Basic(Fighter_GObj* gobj)
+84: {
+85:     if (ftCo_800C5240(gobj)) {
+86:         ftCo_HammerLanding_Enter(gobj);
+87:     } else {
+88:         ftCo_Landing_Enter(gobj, ftCo_MS_Landing, true, Ft_MF_None, 0.0F,
+89:                            1.0F);
+90:     }
+91: }
+92: 
+93: void ftCo_LandingFallSpecial_Enter_Basic(Fighter_GObj* gobj)
+94: {
+95:     if (ftCo_800C5240(gobj)) {
+96:         ftCo_HammerLanding_Enter(gobj);
+97:     } else {
+98:         ftCo_Landing_Enter(gobj, ftCo_MS_LandingFallSpecial, false, Ft_MF_None,
+99:                            0.0F, 1.0F);
+100:     }
+101: }
+102: 
+103: void ftCo_LandingFallSpecial_Enter(Fighter_GObj* gobj, bool allow_interrupt,
+104:                                    float landing_lag)
+105: {
+106:     Fighter* fp = GET_FIGHTER(gobj);
+107:     if (ftCo_800C5240(gobj)) {
+108:         ftCo_HammerLanding_Enter(gobj);
+109:     } else {
+110:         ftCo_Landing_Enter(gobj, ftCo_MS_LandingFallSpecial, allow_interrupt,
+111:                            Ft_MF_None, 0.0F, (0.1F + fp->x2EC) / landing_lag);
+112:     }
+113: }
+114: 
+115: void ftCo_Landing_Anim(Fighter_GObj* gobj)
+116: {
+117:     if (!ftAnim_IsFramesRemaining(gobj)) {
+118:         ft_8008A2BC(gobj);
+119:     }
+120: }
+121: 
+122: void ftCo_Landing_IASA(Fighter_GObj* gobj)
+123: {
+124:     float* landing_lag;
+125:     Fighter* fp = GET_FIGHTER(gobj);
+126:     PAD_STACK(8);
+127:     landing_lag = &fp->co_attrs.normal_landing_lag;
+128:     RETURN_IF(fp->cur_anim_frame < *landing_lag);
+129:     RETURN_IF(!fp->mv.co.landing.allow_interrupt);
+130:     RETURN_IF(ftCo_SpecialS_CheckInput(gobj));
+131:     RETURN_IF(ftCo_Attack100_CheckInput(gobj));
+132:     RETURN_IF(ftCo_800D6824(gobj));
+133:     RETURN_IF(ftCo_800D68C0(gobj));
+134:     RETURN_IF(ftCo_Catch_CheckInput(gobj));
+135:     RETURN_IF(ftCo_AttackS4_CheckInput(gobj));
+136:     RETURN_IF(ftCo_AttackHi4_CheckInput(gobj));
+137:     RETURN_IF(ftCo_AttackLw4_CheckInput(gobj));
+138:     RETURN_IF(ftCo_AttackS3_CheckInput(gobj));
+139:     RETURN_IF(ftCo_AttackHi3_CheckInput(gobj));
+140:     RETURN_IF(ftCo_AttackLw3_CheckInput(gobj));
+141:     RETURN_IF(ftCo_Attack1_CheckInput(gobj));
+142:     RETURN_IF(ftCo_80091A4C(gobj));
+143:     RETURN_IF(ftCo_800DE9D8(gobj));
+144:     RETURN_IF(ftCo_Jump_CheckInput(gobj));
+145:     RETURN_IF(ftCo_Dash_CheckInput(gobj));
+146:     RETURN_IF((fp->cur_anim_frame < (fp->frame_speed_mul + *landing_lag)) &&
+147:               ftCo_SquatWait_CheckInput(gobj));
+148:     RETURN_IF(ftCo_Turn_CheckInput(gobj));
+149:     RETURN_IF(ftCo_Walk_CheckInput(gobj));
+150: }
+151: 
+152: void ftCo_Landing_Phys(Fighter_GObj* gobj)
+153: {
+154:     ft_80084F3C(gobj);
+155: }
+156: 
+157: void ftCo_Landing_Coll(Fighter_GObj* gobj)
+158: {
+159:     ft_80084280(gobj);
+160: }

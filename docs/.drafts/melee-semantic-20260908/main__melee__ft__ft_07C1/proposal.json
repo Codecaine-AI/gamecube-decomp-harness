@@ -1,0 +1,158 @@
+{
+  "tu": "main/melee/ft/ft_07C1",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_07C1.c#L52-L74",
+            "why": "Signature, payload access and in-place state-dependent sampling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00B0.c#L105-L140",
+            "why": "Explicit null-joint fallback and non-null transform paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects an unnecessarily strict non-null attached-JObj requirement while preserving the supported signature and mutation contract.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_07C1:ft_8007C224"
+        },
+        "type": "inferred_type",
+        "value": "Side-effect-only capsule-maintenance routine with signature `void ft_8007C224(Fighter_GObj* gobj)`. The object must provide a valid Fighter payload. The routine mutates the embedded thrown capsule's state and position history and returns no status. Sampling passes the capsule's joint and local offset to `lb_8000B1CC`: a non-null joint must be valid, while a null joint is supported and copies the local offset directly into the output position."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_07C1.c#L77-L131",
+            "why": "Exact execution order, guards, arithmetic boundaries and destinations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1824-L1877",
+            "why": "Category-3 primary victim-table registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L2652-L2665",
+            "why": "Primary victim-table membership query."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported reciprocal flow while correcting sign-boundary shorthand and recording the actual order of registration and movement.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_07C1:ft_8007C2E0"
+        },
+        "type": "data_flow",
+        "value": "Queries whether `fp1` is in `hit0->victims_1` and returns if found. Otherwise it registers `fp0` in `hit1` with category 3, conditionally accumulates the response into `fp1`, registers `fp1` in `hit0` with category 3, then conditionally accumulates the mirrored response into `fp0`. The respective movement guards are `fp1->ground_or_air == GA_Air` and `fp0->ground_or_air == 1`. Each block divides source weight by recipient weight, replaces ratios greater than one with one, and multiplies by `p_ftCommonData->hit_weight_mul`. For X and Y independently, a product of the two movement components >= 0 uses source-minus-recipient movement, including cases with a zero component; the other branch uses source movement alone. The scaled result is added to the recipient's `x98_atk_shield_kb` component. Z is not updated and there is no local zero-weight guard."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_07C1.c#L82-L129",
+            "why": "Interleaved registration and response blocks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1824-L1877",
+            "why": "Duplicate handling, zero auxiliary value and full-table replacement."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline ordering claim and preserves the actual victim-history lifetime and numeric guard forms.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_07C1:ft_8007C2E0"
+        },
+        "type": "state_behavior",
+        "value": "If `hit0` already records `fp1`, the function returns without registration or movement changes. Otherwise it registers `fp0` in `hit1`, performs the independently guarded `fp1` movement response, registers `fp1` in `hit0`, and performs the independently guarded `fp0` movement response. Registration occurs regardless of whether the corresponding movement guard succeeds; the two registrations do not both precede movement. The guards are written as `GA_Air` for `fp1` and literal 1 for `fp0`. Category-3 insertion initializes a new entry's auxiliary value to zero and may replace an entry when the primary table is full. Duplicate suppression therefore depends on the queried record remaining present; it is not an unconditional guarantee for the entire duration of physical overlap."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_07C1.c#L133-L203",
+            "why": "Source and candidate reads, argument order and branch calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1932-L1940",
+            "why": "Removal clears matching victims_1 pointers only."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the branch consumer from vague refresh/geometry maintenance to the canonical victim-pointer removal operation.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_07C1:ft_8007C4BC"
+        },
+        "type": "data_flow",
+        "value": "Reads the source Fighter's participation and suppression flags, collision-status result, victim pointer, conditional damage-source relationship, model scale and thrown capsule. The excluded object is `victim_gobj` when non-null, otherwise `dmg.x1868_source` when `x221C_b6` is set, otherwise null. Traversal of `HSD_GObj_Entities->fighters` admits capsule tests only after encountering the source. Candidate flags, status, relationship and capsule state provide further filters. The test receives the candidate and source capsules with their respective Y model scales. Intersection forwards `(candidate Fighter, candidate capsule, source Fighter, source capsule)` to `ft_8007C2E0`. Nonintersection calls `lbColl_800089B8` on each capsule with the opposite Fighter pointer, clearing matching primary victim entries rather than updating endpoint geometry."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_07C1.c#L133-L203",
+            "why": "Ordered pair pass and intersection/nonintersection dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1932-L1940",
+            "why": "Actual history-cleanup effect."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_07C1.c#L82-L87",
+            "why": "Subsequent response depends on record presence."
+          }
+        ],
+        "op": "write",
+        "rationale": "Fixes the materially incorrect geometry-refresh explanation while retaining the supported pair-processing purpose.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_07C1:ft_8007C4BC"
+        },
+        "type": "purpose",
+        "value": "Runs the ordered pairwise pass for fighter-owned thrown-hitbox capsules. For an eligible source Fighter, it tests later eligible roster candidates after applying participation, status, suppression and conditional relationship exclusions. Intersecting capsules enter the shared reciprocal contact-response routine. A tested nonintersection removes each Fighter from the opposite capsule's primary victim history, allowing a later accepted contact to be processed again if the queried record is absent. This separation branch is history cleanup, not capsule-position maintenance."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_07C1.c#L133-L203",
+            "why": "Complete local guard structure, seen transition and final branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2621-L2640",
+            "why": "Additional scheduled source guards."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lbcollision.c#L1932-L1940",
+            "why": "Nonintersection removes primary victim pointers."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects positional-maintenance semantics and explicitly preserves asymmetric guards, traversal scope and skipped-pair lifetimes.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/ft_07C1:ft_8007C4BC"
+        },
+        "type": "state_behavior",
+        "value": "Returns immediately if the source lacks `x2227_b2`, if `ftColl_8007B868(gobj)` returns 2, or if the source has `x221F_b4`. Its excluded object is the non-null `victim_gobj`, otherwise the damage source only when `x221C_b6` is set. Encountering the source in the roster sets `seen` and skips self; no capsule test occurs before that encounter. Candidates are excluded by object identity, `x2219_b1`, missing `x2227_b2`, status 2, `x221F_b4`, a conditional reverse damage-source relationship, or Disabled capsule state. The source capsule's Disabled state is not separately checked here, and the scheduled caller supplies additional source guards. Eligible later pairs are tested once in this traversal: intersection invokes the response helper; nonintersection removes reciprocal primary victim records. Early-returned or skipped pairs do not reach that removal, so becoming ineligible does not itself clear contact history in this routine."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

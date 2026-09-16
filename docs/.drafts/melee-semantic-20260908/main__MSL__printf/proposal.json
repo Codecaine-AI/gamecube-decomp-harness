@@ -1,0 +1,84 @@
+{
+  "tu": "main/MSL/printf",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/printf.c#L1027-L1039",
+            "why": "Exact fit test, copy and update."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves normal saturation behavior while removing an unconditional safety claim.",
+        "subject": {
+          "target_stable_key": "main/MSL/printf:__StringWrite"
+        },
+        "type": "state_behavior",
+        "value": "Selects the full request when CharsWritten + char_num <= MaxCharCount, otherwise MaxCharCount - CharsWritten; copies that amount and advances CharsWritten by it. With a valid controller and nonoverflowing addition, this saturates at capacity and subsequent requests copy zero bytes. The implementation does not guard addition overflow or an initially out-of-range count."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/printf.c#L235-L263",
+            "why": "Accepted modifiers."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/printf.c#L760-L1019",
+            "why": "Dispatch, typed stores and output transitions."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects modifier overgeneralization while preserving output ordering and exceptional branches.",
+        "subject": {
+          "target_stable_key": "main/MSL/printf:__pformatter"
+        },
+        "type": "state_behavior",
+        "value": "Processes literals and conversions until completion, returning -1 immediately on any sink failure. %n consumes a pointer and stores the logical count only for normal, short, long and long-long options; accepted hh has no store case. The c branch emits one byte from an int even for accepted lc. Right justification emits leading spaces or zeroes, moving an initial plus/minus before zero fill; left justification emits trailing spaces. Invalid specifications and failed conversions write the remaining format beginning at the current '%' literally and return immediately."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/printf.c#L488-L540",
+            "why": "Complete rounding implementation."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents the actual boundary branches without claiming universal ties-to-even correctness.",
+        "subject": {
+          "target_stable_key": "main/MSL/printf:round_decimal"
+        },
+        "type": "state_behavior",
+        "value": "A negative requested length immediately produces positive zero with exponent 0 and one digit '0'; a length covering the significand leaves it unchanged. Otherwise the first discarded digit and remaining suffix determine carry. Exact halves use p[-1] parity, implementing retained-digit ties-to-even when new_length is positive; at zero retained length p[-1] is before sig.text, not a retained digit. Carry propagates through retained digits while trailing zeroes are trimmed. Escaping carry increments the exponent and sets the significand to '1'; no remaining nonzero digit produces canonical positive zero."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/MSL/printf.c#L1027-L1078",
+            "why": "Controller copy behavior and wrapper initialization/termination."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects initialization wording and preserves exact termination arithmetic and exceptional cases.",
+        "subject": {
+          "target_stable_key": "main/MSL/printf:vsnprintf"
+        },
+        "type": "data_flow",
+        "value": "Assigns osc.CharStr = s, osc.MaxCharCount = n and osc.CharsWritten = 0, then passes the local controller, __StringWrite, format and arg to __pformatter. The callback tracks copied bytes separately from the formatter's logical count and can copy up to n bytes, not n-1. Afterwards the wrapper unconditionally executes s[(end < n) ? end : n - 1] = '\\0' and returns end unchanged. There is no zero-capacity or negative-result guard; the index expression mixes int and size_t and must not be interpreted as universally safe bounded termination."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

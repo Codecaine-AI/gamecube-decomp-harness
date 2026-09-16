@@ -1,0 +1,200 @@
+{
+  "tu": "main/melee/ft/ftcliffcommon",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcliffcommon:ftCliffCommon_80081298"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "State-changing eligibility routine with source signature bool(Fighter_GObj*). True means the accepted branch called ftCliffCommon_80081370 and returned, not that the final state remains CliffCatch: immediate attachment physics can enter Fall. False branches do not call this entry routine, but the occupied branch reports the interaction and writes x213C.",
+        "rationale": "Clarifies return status without implying purity or a final-state guarantee.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcliffcommon.c#L22-L126",
+            "why": "Accepted return follows entry, which invokes fall-capable physics."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcliffcommon:ftCliffCommon_80081370"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Chooses temporary direction +1 for left-grab contact and -1 otherwise, then negates current facing if unequal rather than normalizing it. Both contact flags prioritize left; direct entry with neither still chooses -1. Performs common setup and motion-state 252 entry, sets x221D_b7, stores the collision ledge ID selected by facing >0, and invokes CliffCatch physics immediately. A false line-activity query enters Fall, but feedback and another endpoint query still follow. The activity query returns false for -1 or disabled/hidden lines; other negative or out-of-range IDs report and loop.",
+        "rationale": "Preserves ordered behavior while qualifying facing and map boundary assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcliffcommon.c#L51-L126",
+            "why": "Exact setup, selection, immediate physics, and subsequent feedback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L4522-L4538",
+            "why": "False-return and malformed-ID paths differ."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcliffcommon:ftCo_CliffCatch_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Calls ft_800821DC first; true invokes ft_80082B1C and returns without the local cooldown assignment. The first helper updates collision position history and copies collision position back to Fighter position before it can return false. Its response selects ft_8008A2BC when self_vel.y > ftCo_800D0EC8(fp), otherwise ftCo_Landing_Enter_Basic. Only after the first test is false does ftCo_8009EF68 test ceiling hug and perform StopCeil setup; its true return triggers the copy of common ledge_cooldown into x2064_ledgeCooldown. Both false results do not imply an unchanged Fighter.",
+        "rationale": "Direct helper verification disproves the no-mutation fallthrough claim and identifies the precise cooldown trigger.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcliffcommon.c#L128-L141",
+            "why": "Ordered guards and cooldown assignment."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L255-L272",
+            "why": "Writes precede false returns."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L504-L512",
+            "why": "Response branches on vertical velocity."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L16-L45",
+            "why": "Second helper tests ceiling hug and performs StopCeil setup."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcliffcommon:ftCo_CliffCatch_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "A true mpLib_80054ED8 result selects mpLib_80053ECC_Floor for facing >0 and mpLib_80053DA4_Floor otherwise, including unordered facing. These queries traverse floor-linked prev_id0/next_id0 chains to terminal vertices. Writes cur_pos.x = x68C_transNPos.z*facing_dir + vec.x and cur_pos.y = vec.y + x68C_transNPos.y; Z is unchanged locally. False enters Fall. The query returns false for -1, disabled, or hidden lines; other negative/out-of-range IDs report and loop. No finite check or facing normalization is performed, and valid initial activity does not prove valid acyclic endpoint topology.",
+        "rationale": "States exact arithmetic and map contract rather than a total invalid-ID fallback or simple segment endpoint lookup.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcliffcommon.c#L110-L126",
+            "why": "Exact branches and coordinate writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L4091-L4137",
+            "why": "Endpoint chain traversal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L4522-L4538",
+            "why": "Activity and ID boundaries."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcliffcommon:ftCo_Cliff_Cam"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Shared cliff-family camera callback used by CliffCatch, CliffWait, and cliff climb/attack/escape variants. Always calls ftCamera_UpdateCameraBox; only for GA_Air forwards collision data and held ledge ID to optional map-joint callback notification through mpLib_8005811C, then asserts cameraBox->on_ledge. It is not catch-exclusive and does not guarantee collision-data mutation.",
+        "rationale": "Active table proves sharing; verified map helper performs optional notification rather than an unconditional update.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcliffcommon.c#L143-L151",
+            "why": "Camera call, airborne branch, and flag assertion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2906-L2993",
+            "why": "Shared active camera registrations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5631-L5643",
+            "why": "Optional joint callback dispatch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/ftcliffcommon:ftCo_Cliff_Cam"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Generic camera-box processing runs every call. For GA_Air, invokes mpLib_8005811C and then sets on_ledge=true even if the helper skips notification. That helper skips ledge -1, joint -1, or NULL cb_0; otherwise synchronously calls cb_0(gp,joint_id,coll,coll->x50,3,0.0F). Callback effects are external. Non-air invocations skip these guarded operations; this body has no else-clear of on_ledge.",
+        "rationale": "Repairs the baseline's guaranteed collision-update implication and records optional branches and callback invocation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcliffcommon.c#L143-L151",
+            "why": "Flag assertion follows map call without success test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5631-L5643",
+            "why": "Exact notification guards and callback arguments."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/ftcliffcommon.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Eligibility rejects stick Y <= -x480, absent ledge-grab flags, suppression, or an occupied connected candidate. Accepted entry changes to CliffCatch and immediately attempts attachment, so true is not a final-state guarantee. Animation exhaustion invokes CliffWait initialization. Physics enters Fall on a false line-activity query (-1 or disabled/hidden line), while other malformed IDs report and loop. Collision prioritizes ft_800821DC/ft_80082B1C; the first helper writes even on false paths. Otherwise common ledge cooldown is copied only after successful ceiling-hug/StopCeil setup. IASA is empty. Shared cliff camera processing optionally notifies a map-joint callback and asserts on_ledge for GA_Air.",
+        "rationale": "Replaces generic collision-loss wording and records verified exceptional and optional behavior.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcliffcommon.c#L22-L151",
+            "why": "Complete local control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L20-L33",
+            "why": "Continuation enters CliffWait."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L255-L272",
+            "why": "False-return helper writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_StopCeil.c#L16-L45",
+            "why": "Specific cooldown-triggering condition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L4522-L4538",
+            "why": "Map ID boundaries."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/mp/mplib.c#L5631-L5643",
+            "why": "Optional map notification."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

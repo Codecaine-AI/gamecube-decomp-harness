@@ -86,8 +86,12 @@ from ninja_compile import (  # noqa: E402
     compile_source_text,
     find_unit_for_function,
     source_dir_for,
+    source_suffix_for,
 )
 from objdiff_path import objdiff_cli  # noqa: E402
+from project_layout import get_project_layout  # noqa: E402
+
+LAYOUT = get_project_layout(ROOT)
 
 
 @dataclass(frozen=True, order=True)
@@ -141,7 +145,7 @@ class ObjdiffScorer:
     def __init__(self, unit: str, fn: str) -> None:
         self.unit = unit
         self.fn = fn
-        self.target = str(ROOT / f"build/GALE01/obj/{unit}.o")
+        self.target = str(ROOT / LAYOUT.target_object_path_for_unit(unit))
         self.proc = None
         self.proc = subprocess.Popen(
             [str(objdiff_cli()), "score", self.target, fn],
@@ -260,7 +264,7 @@ class FixedBatchCompiler:
             src_dir = source_dir_for(unit)
             for _ in range(self.slots):
                 fd, name = tempfile.mkstemp(
-                    suffix=".c", prefix=".permute-slot-", dir=str(src_dir)
+                    suffix=source_suffix_for(unit), prefix=".permute-slot-", dir=str(src_dir)
                 )
                 os.close(fd)
                 source = Path(name)
@@ -421,7 +425,7 @@ def run_objdiff_json(unit: str, fn: str, cand_o: Path, *, timeout: int) -> subpr
     return subprocess.run(
         [objdiff_cli(), "diff", "--format", "json", "--output", "-",
          "-c", "functionRelocDiffs=data_value",
-         "-1", str(ROOT / f"build/GALE01/obj/{unit}.o"),
+         "-1", str(ROOT / LAYOUT.target_object_path_for_unit(unit)),
          "-2", str(cand_o), fn],
         capture_output=True, text=True, timeout=timeout,
     )
@@ -464,12 +468,21 @@ def objdiff_percent(unit: str, fn: str, cand_o: Path) -> Optional[float]:
 
 
 def unified_diff(unit: str, base: bytes, cand: bytes) -> str:
-    rel = f"src/{unit}.c"
+    rel = LAYOUT.source_path_for_unit(unit).as_posix()
     a = base.decode("utf-8", "replace").splitlines(keepends=True)
     b = cand.decode("utf-8", "replace").splitlines(keepends=True)
     return "".join(
         difflib.unified_diff(a, b, fromfile=f"a/{rel}", tofile=f"b/{rel}")
     )
+
+
+def source_display_path(unit: str) -> str:
+    """Source label without the leading src/, matching legacy output."""
+    source = LAYOUT.source_path_for_unit(unit)
+    try:
+        return source.relative_to("src").as_posix()
+    except ValueError:
+        return source.as_posix()
 
 
 def _sha256(data: bytes) -> str:
@@ -996,7 +1009,11 @@ def _retype(sh: Shared, cand: bytes) -> Optional[dict]:
     ~50ms; only called on a new best, and serialized (one libclang index)."""
     if sh.clang_flags is None:
         return None
-    fd, p = tempfile.mkstemp(suffix=".c", prefix=".retype-", dir=str(source_dir_for(sh.unit)))
+    fd, p = tempfile.mkstemp(
+        suffix=source_suffix_for(sh.unit),
+        prefix=".retype-",
+        dir=str(source_dir_for(sh.unit)),
+    )
     pp = Path(p)
     try:
         with os.fdopen(fd, "wb") as f:
@@ -1291,7 +1308,7 @@ def replay_candidate(args: argparse.Namespace) -> int:
         print(f"error: replay is for {fn}, not {args.func_name}", file=sys.stderr)
         return 1
 
-    c_file = ROOT / f"src/{unit}.c"
+    c_file = ROOT / LAYOUT.source_path_for_unit(unit)
     if not c_file.exists():
         print(f"error: source not found: {c_file}", file=sys.stderr)
         return 1
@@ -1324,7 +1341,7 @@ def replay_candidate(args: argparse.Namespace) -> int:
         return 1
 
     pstr = f" ({pct:.2f}%)" if pct is not None else ""
-    print(f"replayed {len(trace)} steps for {fn} in {unit}.c")
+    print(f"replayed {len(trace)} steps for {fn} in {source_display_path(unit)}")
     print(f"score {key.describe()}{pstr}")
     print(unified_diff(unit, base_source, final_source), end="")
 
@@ -1386,12 +1403,12 @@ def main() -> int:
         print(f"error: function '{fn}' not in report.json", file=sys.stderr)
         return 1
 
-    c_file = ROOT / f"src/{unit}.c"
+    c_file = ROOT / LAYOUT.source_path_for_unit(unit)
     if not c_file.exists():
         print(f"error: source not found: {c_file}", file=sys.stderr)
         return 1
 
-    mutate_fns = args.permute_fn_names or [fn]
+    mutate_fns = args.permute_fn_names or [LAYOUT.source_name_for_function(fn)]
     base_source = c_file.read_bytes()
 
     # Validate mutate targets exist in this TU, and build per-function mutators.
@@ -1416,7 +1433,10 @@ def main() -> int:
     base_co.tmpdir.cleanup()
 
     pstr = f" ({base_pct:.2f}%)" if base_pct is not None else ""
-    print(f"permuting {fn} in {unit}.c; mutating {', '.join(mutate_fns)}")
+    print(
+        f"permuting {fn} in {source_display_path(unit)}; "
+        f"mutating {', '.join(mutate_fns)}"
+    )
     print(f"baseline score {base_key.describe()}{pstr}; {args.jobs} workers; "
           f"apply={args.apply}")
     if base_score == 0:

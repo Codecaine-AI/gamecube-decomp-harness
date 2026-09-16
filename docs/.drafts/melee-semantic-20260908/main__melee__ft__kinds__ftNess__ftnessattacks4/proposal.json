@@ -1,0 +1,82 @@
+{
+  "tu": "main/melee/ft/kinds/ftNess/ftnessattacks4",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattacks4:ftNs_AttackS4_OnReflect"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides audio feedback for Ness's forward-smash reflector by unconditionally calling ft_PlaySFX with the fighter and constants 0xE0, 0x7F, and 0x40. The callback contains no visual-effect operation or local reflection decision.",
+        "rationale": "Independently confirms the librarian's audio-only correction to the audiovisual baseline.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattacks4.c#L21-L25",
+            "why": "Complete callback consists of one fixed sound call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattacks4.c#L107-L117",
+            "why": "Actual reflector registration establishes its move-specific role."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattacks4:ftNs_AttackS4_ItemNessBatRemove"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Requests removal of the bat tracked by a valid fighter: when u.ns.bat_gobj is non-NULL, passes it to it_802AD6B8 and clears the fighter slot after the call. The callee clears the item's fighter and owner references before invoking Item_8026A8EC. This null guard does not establish stale-handle or reentrant-cleanup safety.",
+        "rationale": "Replaces the baseline's broad safe-teardown guarantee with independently verified operation order and explicit preconditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattacks4.c#L78-L86",
+            "why": "Null guard, removal call, and post-call fighter-slot clear."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnessbat.c#L115-L123",
+            "why": "Reciprocal references are cleared before generic removal is invoked."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftNess/ftnessattacks4:ftNs_AttackS4_ItemNessBatSetNULL"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Clears a valid fighter's non-NULL u.ns.bat_gobj slot without dereferencing or destroying the referenced item. Item-side ownership cleanup uses this helper when its recorded fighter equals its owner; this is pointer bookkeeping, not proof that item destruction has already completed.",
+        "rationale": "Removes the unsupported after-lifetime ordering from the baseline while preserving verified reciprocal cleanup purpose.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftNess/ftnessattacks4.c#L90-L98",
+            "why": "Only conditional fighter-slot clearing occurs."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnessbat.c#L24-L35",
+            "why": "Reciprocal caller checks recorded fighter against item owner."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itnessbat.c#L151-L167",
+            "why": "Ownership clearing precedes the returned removal condition."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

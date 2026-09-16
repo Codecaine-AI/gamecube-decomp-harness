@@ -1,0 +1,387 @@
+{
+  "schemaVersion": 1,
+  "id": "10-system-design-50-workflows-20-run",
+  "title": "Decomp Loop",
+  "root": "b-20-run-root-13",
+  "blocks": {
+    "b-20-run-root-13": {
+      "id": "b-20-run-root-13",
+      "type": "paragraph",
+      "props": {},
+      "text": [],
+      "children": [
+        "continuing-harness-0",
+        "continuing-harness-1",
+        "continuing-harness-2",
+        "continuing-harness-3",
+        "continuing-harness-4",
+        "continuing-harness-5",
+        "b-20-run-overview-1",
+        "b-20-run-run-process-canvas-14",
+        "b-20-run-epoch-heading-2",
+        "b-20-run-wake-snapshot-3",
+        "b-20-run-integrate-boundary-5",
+        "b-20-run-details-heading-7",
+        "b-20-run-details-state-8",
+        "nav-6d62c204e00c",
+        "nav-d6b6da839c76",
+        "nav-eafcaf011c81",
+        "nav-e8f3ca7a6a4b",
+        "nav-4df30c634b7c"
+      ]
+    },
+    "continuing-harness-0": {
+      "id": "continuing-harness-0",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The decomp loop is the harness's "
+        },
+        {
+          "insert": "Run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " workflow. It selects targets, executes worker attempts, integrates accepted results, and repeats through epochs. Every settled epoch passes through Sync before the next epoch is admitted; the durable run identity continues across automatic Sync."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-1": {
+      "id": "continuing-harness-1",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Accepted Epoch Handoff"
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-2": {
+      "id": "continuing-harness-2",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Finish active claims, settle integration, and record epoch evidence. Complete Sync under exclusive source ownership. Refresh report truth and target eligibility for the accepted head, then admit the next epoch unless paused or blocked."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-3": {
+      "id": "continuing-harness-3",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "A pause stops new admission and settles active work safely. Sync can update the same harness while paused, and resuming uses that accepted state. Process restarts do not create a new harness or discard epoch history."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-4": {
+      "id": "continuing-harness-4",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Workers still edit isolated game-specific Daytona workspaces. Their claim base is the accepted harness head. The host validates and integrates their results into the maintained harness worktree."
+        }
+      ],
+      "children": []
+    },
+    "continuing-harness-5": {
+      "id": "continuing-harness-5",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Run Ownership"
+        }
+      ],
+      "children": []
+    },
+    "b-20-run-overview-1": {
+      "id": "b-20-run-overview-1",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "The run workflow is the autonomous execution stage for one game harness. It occupies the "
+        },
+        {
+          "insert": "Harness State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/30-harness-process/10-harness-state"
+            }
+          }
+        },
+        {
+          "insert": " workflow slot and dispatch lease while durable "
+        },
+        {
+          "insert": "Run State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/10-run-state"
+            }
+          }
+        },
+        {
+          "insert": " binds scheduling, worker evidence, and integration to one run identity. The workflow turns ranked targets into isolated attempts, serial integration, and boundary-confirmed progress."
+        }
+      ],
+      "children": []
+    },
+    "b-20-run-run-process-canvas-14": {
+      "id": "b-20-run-run-process-canvas-14",
+      "type": "canvas",
+      "props": {
+        "src": "./assets/canvases/run-process.canvas.json",
+        "title": "Run process"
+      },
+      "children": []
+    },
+    "b-20-run-epoch-heading-2": {
+      "id": "b-20-run-epoch-heading-2",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "How an Epoch Turns"
+        }
+      ],
+      "children": []
+    },
+    "b-20-run-wake-snapshot-3": {
+      "id": "b-20-run-wake-snapshot-3",
+      "type": "process-outline",
+      "props": {
+        "steps": [
+          {
+            "text": "Run workflow",
+            "steps": [
+              {
+                "text": "Wake the Run Loop from the highest-priority relevant durable signal or maintenance cadence"
+              },
+              {
+                "text": "Read run state, active claims, epoch records, checkpoints, and the current ranked board"
+              },
+              {
+                "text": "Rank the full board and admit every eligible target once"
+              },
+              {
+                "text": "Enqueue one deduplicated `worker` job for each admitted epoch target"
+              },
+              {
+                "text": "Claim the job and epoch target atomically, then provision an isolated worktree and ClaimToken"
+              },
+              {
+                "text": "Execute and validate bounded worker attempts; settle every outcome from durable worker evidence"
+              },
+              {
+                "text": "Queue knowledge processing for every closed worker outcome, whether it succeeded or failed"
+              },
+              {
+                "text": "Apply and commit each accepted checkpoint to the harness worktree through the single-flight integration lane"
+              },
+              {
+                "text": "At the epoch boundary, rebuild report truth, confirm or revert tentative work, and record a save point"
+              },
+              {
+                "text": "Run Sync, capture post-sync evidence, and refresh the board before admitting the next epoch; preserve pause and blockers"
+              }
+            ]
+          }
+        ]
+      },
+      "children": []
+    },
+    "b-20-run-integrate-boundary-5": {
+      "id": "b-20-run-integrate-boundary-5",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Worker completion hands the closed run to "
+        },
+        {
+          "insert": "Librarian Pathways",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/20-knowledge-base/30-knowledge-updates/10-librarian-processing"
+            }
+          }
+        },
+        {
+          "insert": "; the run records only that handoff and continues from the refreshed board. "
+        },
+        {
+          "insert": "Process Lifecycle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/50-process-lifecycle"
+            }
+          }
+        },
+        {
+          "insert": " binds direct process execution, observation, and exit settlement to the run's dispatch authority."
+        }
+      ],
+      "children": []
+    },
+    "b-20-run-details-heading-7": {
+      "id": "b-20-run-details-heading-7",
+      "type": "heading",
+      "props": {
+        "level": 2
+      },
+      "text": [
+        {
+          "insert": "Where the Details Live"
+        }
+      ],
+      "children": []
+    },
+    "b-20-run-details-state-8": {
+      "id": "b-20-run-details-state-8",
+      "type": "structured-table",
+      "props": {
+        "columns": [
+          "Area",
+          "Owned contract",
+          "Destination"
+        ],
+        "rows": [
+          [
+            "Run state",
+            "Identity, control, record families, and crash reconciliation",
+            "Run State"
+          ],
+          [
+            "Run loop",
+            "Durable wakes, epoch orchestration, delegation, and settlement",
+            "Run Loop"
+          ],
+          [
+            "Board",
+            "Candidate evidence and ranking signals",
+            "Board Prioritization"
+          ],
+          [
+            "Workers",
+            "Bounded claims, isolated execution, validation, and write safety",
+            "Run Workers"
+          ],
+          [
+            "Process lifecycle",
+            "Direct execution, stream logs, graceful settlement, and manual crash recovery",
+            "Process Lifecycle"
+          ]
+        ],
+        "title": "Run workflow map"
+      },
+      "children": []
+    },
+    "nav-6d62c204e00c": {
+      "id": "nav-6d62c204e00c",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run State",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/10-run-state"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "nav-d6b6da839c76": {
+      "id": "nav-d6b6da839c76",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run Loop",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-run-loop"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "nav-eafcaf011c81": {
+      "id": "nav-eafcaf011c81",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Board Prioritization",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/30-board-prioritization"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "nav-e8f3ca7a6a4b": {
+      "id": "nav-e8f3ca7a6a4b",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Run Workers",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/20-worker-attempt"
+            }
+          }
+        }
+      ],
+      "children": []
+    },
+    "nav-4df30c634b7c": {
+      "id": "nav-4df30c634b7c",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "Process Lifecycle",
+          "attributes": {
+            "reference": {
+              "kind": "doc",
+              "path": "10-system-design/50-decomp-loop/50-process-lifecycle"
+            }
+          }
+        }
+      ],
+      "children": []
+    }
+  }
+}

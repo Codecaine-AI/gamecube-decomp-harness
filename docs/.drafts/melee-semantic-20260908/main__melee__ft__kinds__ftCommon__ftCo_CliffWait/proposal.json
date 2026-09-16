@@ -1,0 +1,148 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_CliffWait",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffWait:ftCo_8009A804"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Derives fp from gobj->user_data, changes motion to ftCo_MS_CliffWait with Ft_MF_SkipNametagVis and animation operands 0/1/0/NULL, calls ftCommon_8007E2F4(fp, 511), sets x221D_b7, clears cliff.x8, and initializes cliff.x4 to x48C if damage < x488 or x490 otherwise. It then calls ftColl_8007B760(gobj, x49C) and finally calls ftCommon_8007E2F4(fp, 511) a second time.",
+        "rationale": "Preserves every direct operation and corrects the baseline's ambiguous final-call ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L20-L33",
+            "why": "Complete ordered entry body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffWait:ftCo_CliffWait_Anim"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Maintains CliffWait's floating-point hang countdown by subtracting one whenever mv.co.cliff.x4 > 0. It performs no motion transition and does not clamp the result.",
+        "rationale": "Replaces the incorrect guarantee that the counter cannot become negative.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L35-L41",
+            "why": "Complete guarded decrement without saturation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/types.h#L239-L242",
+            "why": "Countdown is declared float."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffWait:ftCo_CliffWait_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Subtracts one only for x4 > 0; otherwise leaves x4 unchanged. A positive fraction below one becomes negative. Under ordinary IEEE floating semantics NaN is unchanged and does not expire, positive infinity remains infinite, and sufficiently large finite values may fail to advance after rounding. Zero and negative values are unchanged by Anim. A separately reached final IASA predicate tests x4 <= 0 and initiates timeout.",
+        "rationale": "Documents actual floating-point boundaries rather than a clamped integer-counter model.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L35-L72",
+            "why": "Independent decrement, ordered IASA chain, and nonpositive timeout guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/types.h#L239-L242",
+            "why": "Floating-point field declaration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffWait:ftCo_8009A9AC"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "File-local bool(Fighter_GObj* gobj) predicate, with internal linkage established by its preceding static declaration. True means x4 <= 0 and the cooldown assignment, x2227_b1 write, and ftCo_80090780 call were performed. False means the comparison failed, including unordered NaN, with no local state writes.",
+        "rationale": "Retains the exact source signature and return contract without equating false with a finite active timer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L18-L18",
+            "why": "Static declaration establishes internal linkage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L62-L72",
+            "why": "Exact signature, comparison, side effects, and return values."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffWait:ftCo_8009A9AC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When reached last in CliffWait IASA, x4 <= 0 causes assignment of configured ledge cooldown, x2227_b1 = true, a call to ftCo_80090780, and true return. Positive or unordered x4 returns false. Earlier successful options skip this check even when the timer is nonpositive. The callee conditionally calls ftCommon_8007D5D4 for GA_Ground, selects ftCo_800CF4DC when parasol status is not -1, and otherwise selects motion 0x26, bound to DamageFall callbacks, rather than ordinary ftCo_Fall_Enter. The deeper optional-path and flag meanings remain unresolved.",
+        "rationale": "Corrects zero-only expiry language and ordinary-Fall conflation while explicitly bounding callee knowledge.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L43-L72",
+            "why": "Priority and exact timeout operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Ground guard, optional parasol branch, and explicit motion selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L552-L562",
+            "why": "Active DamageFall callback binding."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_CliffWait:ftCo_CliffWait_IASA"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Forwards unchanged gobj in order to ftCo_8009AE38, ftCo_8009AFD4, ftCo_8009B170, ftCo_8009AA0C, and ftCo_8009A9AC, stopping at the first true result. The dispatcher has no direct fighter-field access. False-returning handlers can still mutate state: ftCo_8009AA0C sets cliff.x8 true when neither stick path is selected, then returns false so timeout may still run.",
+        "rationale": "Separates transition acceptance from side-effect freedom and records the actual cross-file latch consumer.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L43-L50",
+            "why": "Exact unchanged-pointer dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/Runtime/platform.h#L164-L169",
+            "why": "RETURN_IF semantics."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffClimb.c#L36-L49",
+            "why": "False-returning handler writes x8."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

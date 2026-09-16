@@ -1,0 +1,79 @@
+{
+  "tu": "main/melee/if/ifhazard",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.96,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifhazard.c#L20-L42",
+            "why": "Activation writes countdown and activity; the separate show-side control clears suppression only."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes animation restart and countdown replacement from the separate HUD show operation, which only clears suppression. Resolves the rendered Show collision without claiming historical spelling.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifhazard:un_802FD604"
+        },
+        "type": "inferred_name",
+        "value": "ifHazard_Activate"
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifhazard.c#L29-L42",
+            "why": "This routine clears activity; the neighboring hide-side routine sets a different suppression variable."
+          }
+        ],
+        "op": "write",
+        "rationale": "Precisely identifies the activity clear and distinguishes it from reversible HUD suppression, resolving the rendered Hide collision.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifhazard:un_802FD65C"
+        },
+        "type": "inferred_name",
+        "value": "ifHazard_Deactivate"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifhazard.c#L34-L75",
+            "why": "Shows both suppression controls, the process and draw callbacks, and the constructor reset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the supported independent-latch behavior while correcting the omitted constructor reset path.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifhazard:un_802FD668"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally sets the render-suppression latch to 1; repeated calls are idempotent. This blocks drawing independently of the active flag without changing countdown or animation state. Suppression remains set until un_802FD674 clears it or the common constructor un_802FD708 resets it to zero. The process callback does not reset suppression."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/if/ifhazard.c#L65-L87",
+            "why": "Complete constructor establishes assignments, calls, lack of countdown reset or local release, and switch fallthrough for unmatched selectors."
+          }
+        ],
+        "op": "write",
+        "rationale": "Adds useful lifetime and exceptional-selector details missing from the existing descriptor-flow explanation without implying that downstream animation resources are copied or freed.",
+        "subject": {
+          "target_stable_key": "main/melee/if/ifhazard:un_802FD708"
+        },
+        "type": "data_flow",
+        "value": "Loads desc->joint into a JObj, attaches it to a newly created UI GObj, invokes gm_8016895C with the descriptor and selector 0, and registers this unit's GX and process callbacks. It clears active and suppression, then overwrites the retained GObj pointer. It does not reset the countdown or release any previously retained object. Variant 0 adds 18 units to the root's existing X translation; other integer values receive no local translation adjustment. The descriptor pointer is not retained in this unit."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

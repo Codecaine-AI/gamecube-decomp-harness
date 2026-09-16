@@ -1,0 +1,87 @@
+--- a/include/MarioUtil/ToolData.hpp
++++ b/include/MarioUtil/ToolData.hpp
+@@ -56,31 +56,8 @@
+ 	};
+ 
+ private:
+-	inline u32 hashString(const char* key) const
+-	{
+-		u32 stringHash = 0;
+-		char current_char;
+-
+-		while ((current_char = *key) != 0) {
+-			key++;
+-			stringHash = (current_char + (stringHash << 8)) % 0x1FFFFD9;
+-		}
+-		return stringHash;
+-	}
+-
+-	inline s32 searchItemInfo(const char* pKey) const
+-	{
+-		s32 nFields = mData->mNumFields;
+-		u32 hash    = hashString(pKey);
+-
+-		for (int i = 0; i < nFields; ++i) {
+-			if (hash == mData->mItems[i].mHash) {
+-				return i;
+-			}
+-		}
+-
+-		return -1;
+-	}
++	static u32 Hash(const char* key);
++	s32 SearchItemInfo(const char* pKey) const;
+ 
+ 	inline const char* getEntryAddress(const JMapData* pData,
+ 	                                   const s32 dataOffset,
+--- a/src/MarioUtil/ToolData.cpp
++++ b/src/MarioUtil/ToolData.cpp
+@@ -13,9 +13,21 @@
+ 	return TRUE;
+ }
+ 
++u32 ToolData::Hash(const char* key)
++{
++	u32 stringHash = 0;
++	char current_char;
++
++	while ((current_char = *key) != 0) {
++		key++;
++		stringHash = (current_char + (stringHash << 8)) % 0x1FFFFD9;
++	}
++	return stringHash;
++}
++
+ BOOL ToolData::GetValue(int entryIndex, const char* key, long& pValueOut) const
+ {
+-	s32 itemIndex = searchItemInfo(key);
++	s32 itemIndex = SearchItemInfo(key);
+ 	if (itemIndex < 0) {
+ 		return FALSE;
+ 	}
+@@ -25,10 +37,24 @@
+ BOOL ToolData::GetValue(int entryIndex, const char* key,
+                         const char*& pValueOut) const
+ {
+-	s32 itemIndex = searchItemInfo(key);
++	s32 itemIndex = SearchItemInfo(key);
+ 	if (itemIndex < 0) {
+ 		return FALSE;
+ 	}
+ 	return getValue(entryIndex, itemIndex, &pValueOut);
+ }
++
++s32 ToolData::SearchItemInfo(const char* pKey) const
++{
++	s32 nFields = mData->mNumFields;
++	u32 hash    = Hash(pKey);
++
++	for (int i = 0; i < nFields; ++i) {
++		if (hash == mData->mItems[i].mHash) {
++			return i;
++		}
++	}
++
++	return -1;
++}
+ } // namespace Koga

@@ -1,0 +1,50 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_SpecialAir",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialAir:ftCo_SpecialAir_CheckInput"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Dispatches B pressed-button input to the fighter-kind-specific aerial up, down, side, or neutral special callback, with guarded pre-dispatch facing adjustments. Returns true after an available callback returns and x2227_b5 is set; returns false for absent B or an unavailable selected callback. It does not itself test ground/air state or clear the input bit.",
+        "rationale": "Replace ambiguous consumption wording with the independently verified local contract.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialAir.c#L11-L56",
+            "why": "Complete input gate, callback selection, mutations and returns."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_SpecialAir:ftCo_SpecialAir_CheckInput"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Requires HSD_PAD_B in input.pressed_buttons. Priority is Y >= common x21C for Hi, Y <= -x21C for Lw, ABS(X) >= x218 for S, then N. A NULL selected callback rejects immediately without fallback. With an available S callback, X*facing_dir < -x220 invokes ftCommon_UpdateFacing, which assigns +1 for nonnegative X and -1 otherwise. With an available N callback, x676_x < x224 and either (facing_dir == -1 && x2228_b7 == 1) or (facing_dir == +1 && x2228_b7 == 0) causes direct facing negation. Each selected callback receives gobj, then the cached Fighter pointer's x2227_b5 is set true and true is returned. False paths do not clear x2227_b5.",
+        "rationale": "Replace the stale input alias and implicit direction-protocol inference with exact guards, inclusive selection boundaries, strict facing boundaries, and post-callback ordering.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_SpecialAir.c#L11-L56",
+            "why": "All branch conditions, NULL rejection paths, callbacks and local mutations are explicit."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L621-L630",
+            "why": "The helper assigns facing from the comparison of X with zero."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

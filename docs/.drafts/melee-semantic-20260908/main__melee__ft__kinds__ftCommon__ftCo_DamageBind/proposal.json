@@ -1,0 +1,288 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind:ftCo_800C44CC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Returns false unless dmg.x1860_element is HitElement_Disable, x2228_b2 is clear, and x2070.x2071_b0_3 is outside {5,9,11,12}. Otherwise calls ftCo_800C4550 with the unchanged object and returns true. Success means dispatch occurred, not necessarily DamageBind entry: GA_Air delegates to ftCo_80090780, which has a parasol alternative.",
+        "rationale": "Preserves exact guards while avoiding inferred status identities and an unconditional aerial destination.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L17-L61",
+            "why": "Gate and entry control flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Optional aerial route."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind:ftCo_800C4550"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Performs shared pre-entry processing, delegates GA_Air to ftCo_80090780, and otherwise enters ftCo_MS_DamageBind and initializes its shared grab-mash timer. It does not repeat the caller's Disable-element eligibility checks.",
+        "rationale": "Canonical branch-aware purpose replaces guaranteed DamageFall wording.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L47-L61",
+            "why": "Complete entry body."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind:ftCo_800C4550"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Calls ftCommon_8007DB58, ftCo_8009750C, and ftCo_800DD168 before reading ground_or_air. GA_Air delegates to ftCo_80090780; otherwise changes to ftCo_MS_DamageBind with Ft_MF_None, frame 0, speed 1, blend 0 and NULL, then calls ftCommon_InitGrab(fp,0,T). With C=p_ftCommonData, T=fp->dmg.x1830_percent*C->released_inputs+(C->x65C*(C->x660-Player_GetHandicap(fp->player_id))+C->x658+C->x664*(C->pressed_inputs-(Player_80033BB8(fp->player_id)+1))). InitGrab stores T in grab_timer, zeros x1A51/x1A50, clears x2224_b6, and skips optional x1A52/x1A53 initialization. The second player's integer rank/count semantics are unproved.",
+        "rationale": "Exact canonical formula and initializer effects replace offset-range and count assumptions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L35-L61",
+            "why": "Inputs, formula, and call order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L670-L680",
+            "why": "Actual timer and bookkeeping writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L936-L939",
+            "why": "Opaque signed forwarding accessor."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind:ftCo_800C4550"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Entry repeats no eligibility guard, performs all shared calls before the GA_Air split, and initializes the timer only after the non-air motion change. No timer clamp, finite check, or immediate expiration test is present. Cached Fighter* validity across shared calls, optional take_dmg_cb/death1_cb, and motion change is an external invariant. The aerial delegate has a parasol alternative.",
+        "rationale": "Documents optional paths, lifetime assumptions, and lack of numerical validation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L35-L71",
+            "why": "Entry ordering and timer handling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L657-L668",
+            "why": "Optional callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Aerial alternative."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind:ftCo_DamageBind_Anim"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Subtracts common.x670, calls ftCommon_GrabMash(fp,common.x674), ignores its boolean return, then calls ft_8008A2BC exactly when the resulting grab_timer compares <=0.0F. Signed zeros and negative values meet the comparison; NaN does not under ordinary floating semantics. There is no finite check or clamp, and tuning signs, exceptional values, and floating rounding preclude a general eventual-expiry guarantee. Positive timer suppresses only this callback's expiration call; collision may independently exit. The completion helper has character/state alternatives rather than an unconditional Wait destination.",
+        "rationale": "Corrects global remain-in-state wording and covers numerical boundaries and alternate exits.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L63-L83",
+            "why": "Exact update and comparison."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L54-L109",
+            "why": "Completion alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1081-L1099",
+            "why": "Independent collision exit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind:ftCo_DamageBind_Coll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides DamageBind's collision callback by forwarding the unchanged object to ft_80084280. That helper selects collision processing using horizontal nudge and facing, returns for handled collision or a subsequent special check, and otherwise calls ftCo_Fall_Enter. The wrapper has no local timer logic.",
+        "rationale": "Uses canonical behavior rather than the unverified Wait/Landing alias.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L80-L83",
+            "why": "Delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1081-L1099",
+            "why": "Conditional Fall dispatch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3434-L3444",
+            "why": "Active collision registration."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind:ftCo_DamageBind_IASA"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Fills the active DamageBind IASA slot with an empty callback that ignores its argument. Anim processes timer expiration and mash input, while physics and collision remain delegated through their own callbacks.",
+        "rationale": "Avoids assigning all maintenance and escapes to Anim.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L63-L83",
+            "why": "Callback responsibility split."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L3434-L3444",
+            "why": "Active IASA slot."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind:ftCo_DamageBind_IASA"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies no ordinary action processing through DamageBind's IASA slot. Anim separately invokes shared grab-mash input processing. This separation does not establish a conventional grab or that physical movement is disabled.",
+        "rationale": "Replaces unsupported immobilization analogy with directly verified input division.",
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L63-L83",
+            "why": "Empty IASA alongside mash and physics callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L682-L719",
+            "why": "Actual shared input processing."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageBind:ftCo_DamageBind_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally forwards to ft_80084F3C without local guards, timer changes, or explicit transitions. That helper applies ground friction, scaling only when absolute ground velocity is strictly above walk_max_vel, then applies ground movement. Anim owns timer-expiration dispatch, not every exit; Coll can independently enter Fall.",
+        "rationale": "Preserves wrapper semantics and threshold boundary while correcting exclusive exit ownership.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L63-L83",
+            "why": "Local responsibility split."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Strict friction threshold."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1081-L1099",
+            "why": "Independent exit."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Gate reads hit element, x2228_b2, and x2070.x2071_b0_3. Entry performs three shared calls and reads ground_or_air: GA_Air delegates to ftCo_80090780; otherwise motion change precedes timer initialization from damage percent, Player_GetHandicap, Player_80033BB8 plus one, and common-data released_inputs, x65C, x660, x658, x664, and pressed_inputs. InitGrab stores grab_timer and resets baseline mash fields. Anim subtracts x670, passes x674 to GrabMash, then dispatches ft_8008A2BC for a nonpositive comparison. Player_80033BB8 rank/count semantics are unproved.",
+        "rationale": "Replaces inferred count data and guaranteed aerial destination with canonical flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L17-L71",
+            "why": "Complete local data path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L670-L719",
+            "why": "Storage and mash consumer."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/pl/player.c#L936-L939",
+            "why": "Opaque accessor."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Only the boolean gate enforces HitElement_Disable, clear x2228_b2, and status outside {5,9,11,12}; direct entry repeats none of these checks. Entry runs shared processing before the GA_Air split. The non-air branch enters DamageBind and initializes an unclamped timer. Anim subtracts and processes mash input before comparing <=0; arbitrary tuning and floating values do not guarantee eventual expiry. IASA is empty, Phys delegates ground friction/movement, and Coll delegates collision with a possible independent Fall exit. Aerial and expiration delegates both have alternative destinations.",
+        "rationale": "Branch-aware lifecycle avoids universal entry guards, guaranteed countdown, and a single exit path.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageBind.c#L17-L83",
+            "why": "Owned lifecycle."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "Aerial alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L54-L109",
+            "why": "Expiration alternatives."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L1081-L1099",
+            "why": "Collision exit."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

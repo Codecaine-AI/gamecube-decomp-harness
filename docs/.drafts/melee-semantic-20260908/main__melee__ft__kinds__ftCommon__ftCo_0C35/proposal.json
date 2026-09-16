@@ -1,0 +1,124 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_0C35",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_0C35:ftCo_800C3598"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Restarts dmg.x18F4 from common x648, assigns that count to dmg.x1954 only when strictly greater, sets x2220_b4 and invokes Fighter_UnkRecursiveFunc_8006D044. After that callback-capable helper, selects x64C for exact GA_Air or x650 otherwise and submits angle-derived air or floor-tangent response components. ftCo_Damage_CalcVel can merge with or preserve existing world knockback, not always replace it. Air clears ground knockback; non-air stores the new ground scalar. Finally calls ftCommon_800804FC. Normal facing reversal requires an uninterrupted positive countdown; suppression, cancellation, zero duration, and callback mutation can prevent completion.",
+        "rationale": "Replace unconditional installation/completion wording with verified helper semantics and countdown preconditions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_0C35.c#L15-L87",
+            "why": "Initialization, exact branches, and countdown transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L216-L235",
+            "why": "Conditional replacement, product-test addition and strict magnitude comparison."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1016-L1019",
+            "why": "External cancellation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2748-L2764",
+            "why": "Callback-visible helper effects."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_0C35:ftCo_800C36DC"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Runs the shared duration/active-bit/hitlag initializer, stores x654*(-specialn_facing_dir) as ground knockback and submits (floor.normal.y*scalar,-floor.normal.x*scalar) through the conditional world-knockback helper. It has no ground/air test or direct motion-state selection. Its shield caller selects it for x19B0==10U after a Yoshi-specific or default shield reaction; only the inspected default reaction is established to enter GuardSetOff and skip ordinary gr_vel calculation. Completion through the shared timer can be suppressed or cancelled. The numeric shield selector's attack identity remains unresolved.",
+        "rationale": "Separate target behavior from default-only caller behavior, conditional velocity merging, and unsupported attack mapping.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_0C35.c#L15-L87",
+            "why": "Shared initialization, tangent components, and completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Guard.c#L630-L700",
+            "why": "Selector, Yoshi split, and default recoil suppression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Damage.c#L216-L235",
+            "why": "Submission does not imply unconditional replacement."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1016-L1019",
+            "why": "Timer cancellation without completion."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_0C35.c"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Both response entries copy common x648 into integer dmg.x18F4, update floating dmg.x1954 only when the count compares strictly greater, set x2220_b4 and invoke the callback-capable hitlag helper. The ordinary entry forms angle/magnitude components; the shield-called entry uses x654*(-specialn_facing_dir). Floor-relative submissions construct the tangent vector (normal.y*scalar,-normal.x*scalar), not a projection onto the normal. The updater converts the pre-decrement countdown to temporary yaw and commits facing/TopN orientation on the decrement to zero.",
+        "rationale": "Repair the baseline's ground-normal-projected description and avoid implying an unconditional timer increase.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_0C35.c#L15-L87",
+            "why": "Exact inputs, comparison, tangent construction and yaw/facing output."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2748-L2764",
+            "why": "Initializer includes optional callback execution."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_0C35.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "The updater is inactive solely when dmg.x18F4 equals zero. Otherwise it computes pi*(x648-counter)/x648 before decrementing and writes temporary TransN yaw through two APIs. The decrement to zero clears x2220_b4, negates facing, aligns TopN, clears temporary yaw and invokes the current non-null x21F8 without clearing it. For unchanged positive N, nominal samples are 0 through pi*(N-1)/N, subject to floating rounding; N=1 completes at temporary yaw zero. Initializing N=0 leaves the active bit set without completion. Negative counts, changed or zero denominators, and integer overflow are unguarded. Maintenance can suppress updates and state-reset code can cancel the timer. The updater itself has no post-callback Fighter access, but its maintenance caller continues accessing Fighter state; callback destruction safety is not proved.",
+        "rationale": "Replace half-turn-per-update wording with exact sampling, edge cases, cancellation, and whole-caller lifetime qualification.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_0C35.c#L15-L87",
+            "why": "All local transitions and interpolation formula."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1016-L1019",
+            "why": "Cancellation bypasses completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1388-L1442",
+            "why": "Callback reset, gated maintenance, and continued Fighter accesses."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

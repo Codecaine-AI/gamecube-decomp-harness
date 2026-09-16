@@ -1,0 +1,12 @@
+## Documentation scope
+`src/melee/it/types.dox` documents item-related structures rather than implementing runtime behavior.
+
+- **Item and dynamic bones:** Records annotated sizes/offsets, a bone count, and unresolved notes about the flags value 256 and an unknown pointer's heap provenance. These are documentation claims, not compiled-layout or allocation-lifetime proof. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/types.dox#L1-L39.
+- **SpawnItem:** Describes primary and secondary owner references, including the PK Fire pillar/spark example, item kind, handling category, position/history/velocity, facing, damage, initialization flags, and ground/air state. The `hold_kind` capsule note and stationary/air numeric interpretation remain tentative. Owner references do not establish ownership transfer or pointer lifetime. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/types.dox#L41-L78.
+- **Flipper instance state:** Documents the flight/settling state, hitbox countdown, spin angle/velocity, and the distinct stage-fixed joint-tracking case. Names are expressly AI-derived and tentative, with aliases preserving offset-only names. The documentation alone does not verify countdown boundaries, exceptional branches, the exclusive-writer claim, or stage-anchor lifetime. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/types.dox#L80-L124.
+- **Flipper attributes:** Describes normal versus strong throw durations, lifetime granted at settling, collision coefficients, hitbox refresh interval, and spin tuning. The two contact-spin terms are explicitly not isolated; their tentative interpretations and the documented numeric constants are not independently verified here. Evidence: code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/types.dox#L126-L186.
+
+## Semantic assessment
+All 187 canonical and rendered lines were reviewed. The renderer reports no parse errors and no substitutions; it leaves these documentation field names and comments unchanged. Consequently, agreement between the views supplies no independent behavioral corroboration. Existing uncertainty annotations are appropriate and are preserved. There are no frozen subjects, facts, or links to adjudicate, and no supported correction or useful writable fact is established by this documentation-only scope. No changes are proposed.
+
+Status: synthesized; independent review and live promotion pending.

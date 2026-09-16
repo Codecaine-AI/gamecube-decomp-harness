@@ -1,0 +1,153 @@
+{
+  "tu": "main/melee/it/kinds/itmarumine",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmarumine:itMarumine_UnkMotion1_Coll"
+        },
+        "type": "inferred_name",
+        "op": "clear",
+        "value": "",
+        "rationale": "Remove the unsupported rendered Run alias. The conservative numeric-state name is already the canonical target symbol, so clearing the stale alias restores it without a redundant inferred-name write.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmarumine.c#L123-L174",
+            "why": "Canonical callback is itMarumine_UnkMotion1_Coll and conditionally enters state 2; running is not established."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L361-L378",
+            "why": "Registry explicitly identifies Marumine as Electrode."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmarumine:itMarumine_UnkMotion1_Coll"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives Electrode's Item_GObj, resolves its Item and itPokemonAttributes, and passes the object to it_8026DA08, which refreshes collision data and copies collision position and, when applicable, floor index into the item. If that helper returns false, the callback compares x5CC_currentAnimFrame with attr->timer and forwards the object to it_802D0C44 when the frame is at least the threshold. It always returns false.",
+        "rationale": "Corrects the erroneous Marill identity while preserving the supported object flow, helper side effects, nested guards and result.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmarumine.c#L133-L155",
+            "why": "Object and attribute reads, nested guards and destination entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L194-L213",
+            "why": "Collision helper refreshes position and conditional floor index."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L361-L378",
+            "why": "Electrode identity."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmarumine:itMarumine_UnkMotion1_Coll"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Serves as Electrode motion state 1's stage-collision callback, entering animation-frozen falling state 2 when the collision helper reports absent floor support and the current animation frame has reached the configured Pok\u00e9mon-attribute threshold.",
+        "rationale": "Corrects the actor from Marill to Electrode without changing the supported role or inclusive threshold.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmarumine.c#L133-L174",
+            "why": "Guarded state-2 entry, frozen animation and falling callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L361-L378",
+            "why": "Registry identity."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmarumine:itMarumine_UnkMotion1_Coll"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation runs Electrode's stage-collision helper. A true result skips the transition. A false result also skips it while x5CC_currentAnimFrame is below attr->timer. A false result at or above that threshold invokes it_802D0C44, which sets animation speed to zero, selects motion state 2 and installs effect hitlag callbacks. The collision callback returns false on every path; stage-collision processing may still update item position even when no motion-state transition occurs.",
+        "rationale": "Corrects the Pok\u00e9mon identity and distinguishes an unchanged motion-state ID from absence of collision side effects.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmarumine.c#L133-L155",
+            "why": "Exact conditions and entry operations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/itgroundcoll.c#L194-L213",
+            "why": "Collision side effects precede the result."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmarumine:itMarumine_UnkMotion1_Coll"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Implements Electrode's transition from its state-1 pre-explosion phase into an animation-frozen falling phase after loss of stage support and satisfaction of the animation-frame threshold. It does not implement Marill's running Pok\u00e9 Ball attack.",
+        "rationale": "Replaces the rejected cross-Pok\u00e9mon mapping with the identity and phase relationship established by the registry and canonical state machine.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L361-L378",
+            "why": "Explicit Marumine/Electrode registration."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L577-L586",
+            "why": "Maril has a separate registry entry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmarumine.c#L123-L174",
+            "why": "Electrode's state-1 progression and falling-state branch."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/it/kinds/itmarumine:itMarumine_UnkMotion0_Phys"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each invocation calls it_8027A09C, which applies the shared falling update using Pok\u00e9mon appearance parameters. If the appearance timer x24 is positive, the helper decrements it and returns false; the local callback then makes no motion-state transition. If x24 is already nonpositive, the helper restores configured model scale and returns true, after which the local callback selects motion state 1 with ITEM_UNK_0x1 and installs effect hitlag callbacks. A false helper result therefore does not mean the actor was left unchanged.",
+        "rationale": "Corrects the existing false-path purity claim using the independently read shared helper implementation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itmarumine.c#L380-L389",
+            "why": "Local guarded state-1 transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/it_279C.c#L1106-L1120",
+            "why": "Unconditional falling update, timer decrement and scale-restoration branch."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

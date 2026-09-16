@@ -39,6 +39,11 @@ from _qa_rules import (
     symbol_may_be_sdata2,
 )
 
+# C-idiom rules: these encode .c-file declaration conventions (source-local
+# prototypes, extern anchors, shadowed C declarations) and misfire on C++
+# class-body member declarations, so they stay scoped to C translation units.
+C_SOURCE_APPLIES_TO = ["src/**/*.c"]
+
 EXTERN_IN_C_REQUIREMENT = (
     "Externs in .c files are not allowed; declare the symbol in the owning "
     "header or define the data in the TU that owns it."
@@ -417,7 +422,7 @@ RULES: list[dict[str, Any]] = [
         "standard_id": "global_standard:literals-and-data-ownership",
         "check": check_extern_in_c,
         "message": "Added extern declaration in a .c file.",
-        "applies_to": DEFAULT_APPLIES_TO,
+        "applies_to": C_SOURCE_APPLIES_TO,
         "excludes": SDK_PATH_EXCLUDES,
     },
     {
@@ -426,7 +431,7 @@ RULES: list[dict[str, Any]] = [
         "standard_id": "global_standard:literals-and-data-ownership",
         "check": check_extern_own_tu_data,
         "message": "Extern declaration shadows data owned by this TU.",
-        "applies_to": DEFAULT_APPLIES_TO,
+        "applies_to": C_SOURCE_APPLIES_TO,
         "excludes": SDK_PATH_EXCLUDES,
     },
     {

@@ -1,0 +1,452 @@
+{
+  "main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:.sdata2": [
+    {
+      "id": "fact:3fdd9ad0-e2ff-4d3e-8af5-2e2f6e5e2895",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:.sdata2",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "The shared CaptureMewtwo initializer reads `0.0f` as both the initial animation frame and animation blend and reads `1.0f` as the animation playback speed supplied to `Fighter_ChangeMotionState`. Both the grounded and airborne entry points reach this same use through `doEnter`; the constants receive no runtime writes.",
+      "rationale": "At the current path, both entry wrappers invoke the same initializer, whose motion-state call supplies `0, 1, 0`. The callee declaration maps those positions to animation start, speed, and blend. This preserves the existing data-flow claim while replacing its unresolvable pre-move source citation.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows both grounded and airborne wrappers reaching the shared initializer and its sole use of the zero and one literals as `Fighter_ChangeMotionState` arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/fighter.h#L38-L58",
+          "why": "Identifies the three literal-bearing arguments as animation start, animation speed, and animation blend."
+        }
+      ]
+    },
+    {
+      "id": "fact:19a3e00e-9a9b-4e0d-bdfd-6f88b141cbe1",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:.sdata2",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "An eight-byte read-only small-data literal pool containing two `f32` values: `0.0f` and `1.0f`.",
+      "rationale": "The section's eight-byte extent accommodates two single-precision words. The matched unit requires exactly two distinct floating-point literals\u2014zero and one\u2014for its motion-state transition, while the callee prototype confirms that all three literal-bearing positions are `f32`; zero is reused for both animation start and blend.",
+      "confidence": 0.96,
+      "updated_at": "2026-09-02T14:55:08.755Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L14-L35",
+          "why": "Shows that the unit's motion-state call uses only the two distinct floating-point values zero and one."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/fighter.h#L38-L58",
+          "why": "Establishes that the literal-bearing motion-state parameters are single-precision floating-point values."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-924--main-melee-ft-chara-ftcommon-ftco-capturemewtwo",
+          "why": "Confirms that the source form containing these literals was accepted as the matched CaptureMewtwo implementation."
+        }
+      ]
+    },
+    {
+      "id": "fact:2793107f-ec67-4673-892f-683a564720c9",
+      "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:.sdata2",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Provides the read-only floating-point literals used when the captured fighter enters either grounded or airborne CaptureMewtwo: animation starts at frame 0, plays at normal speed, and uses no animation blend.",
+      "rationale": "The matched shared capture initializer passes the literal sequence `0, 1, 0` to `Fighter_ChangeMotionState` for both public entry paths. The callee declaration identifies those positions as the single-precision animation-start, animation-speed, and animation-blend parameters. Thus this unit-owned `.sdata2` section supplies transition constants rather than mutable capture state or a gameplay-parameter table.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-02T14:55:08.755Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L14-L35",
+          "why": "Shows the shared grounded and airborne capture initializer passing `0, 1, 0` to `Fighter_ChangeMotionState`."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/fighter.h#L38-L58",
+          "why": "Defines those three arguments as `f32 anim_start`, `f32 anim_speed`, and `f32 anim_blend`."
+        },
+        {
+          "kind": "pr",
+          "locator": "pr://pr-924--main-melee-ft-chara-ftcommon-ftco-capturemewtwo",
+          "why": "Records the accepted matching work that introduced the literal-bearing CaptureMewtwo implementation."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BCF18": [
+    {
+      "id": "fact:64314e60-9eb2-46c5-84ce-e44d03abc01c",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BCF18",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes the captured fighter object and Mewtwo's fighter object. Through `doEnter`, it runs three common cleanup routines on the captured fighter, stores Mewtwo's object in `x1A5C` and `victim_gobj`, clears `x221B_b5` and `x221B_b7`, copies Mewtwo's facing direction, and passes both Fighters to common capture-pair setup. It then uses the linked object as an animation source while initializing grounded CaptureMewtwo and ThrownMewtwo processing.",
+      "rationale": "The current source traces both arguments through cleanup, relationship and orientation writes, capture-pair setup, and the grounded state pair. The called ThrownMewtwo initializer confirms that the retained linked object supplies facing direction and animation linkage. The prior statement about a conditional heavy-item release is omitted because that meaning is not directly established by the resolved spans.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows the two inputs flowing through cleanup calls, association writes, flag clearing, orientation copying, pair setup, grounded motion selection, and ThrownMewtwo dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ThrownMewtwo.c#L16-L28",
+          "why": "Shows the retained `victim_gobj` supplying facing direction and the final motion-state animation source."
+        }
+      ]
+    },
+    {
+      "id": "fact:0b4c927f-b63f-4094-8a1b-9bb918bfd9a8",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BCF18",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Begins the grounded opponent-side portion of Mewtwo's Confusion command grab, binding the opponent to Mewtwo and preparing the linked animation state used while the opponent is twirled.",
+      "rationale": "Grounded Confusion registers this routine as its grab callback, while the current CaptureMewtwo source establishes the linked grounded victim-state pair. The mechanics reference identifies Confusion as Mewtwo's command grab that twirls the caught opponent.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftMewtwo/ftmewtwospecials.c#L51-L97",
+          "why": "Shows grounded Confusion registering `ftCo_800BCF18` as its grab-interaction callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows this callback establishing the fighter relationship and selecting grounded CaptureMewtwo and ThrownMewtwo states."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://confusion~overview@r2025784",
+          "why": "Describes Confusion as an unblockable command grab that catches, twirls, damages, and releases an opponent."
+        }
+      ]
+    },
+    {
+      "id": "fact:382b69a1-a0d8-439d-bc24-8fb12392293a",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BCF18",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "ftCo_CaptureMewtwo_Enter",
+      "rationale": "The function is the grounded entry wrapper for the CaptureMewtwo state pair, while its immediately following structural twin supplies the airborne pair. The surrounding fighter-state code uses `_Enter` for one-shot motion-state initializers, but no surviving symbol directly confirms the original name.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_CaptureMewtwo_Enter`.",
+      "confidence": 0.82,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L38-L47",
+          "why": "Shows the unnamed function as the grounded wrapper paired with an otherwise identical airborne entry wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftMewtwo/ftmewtwospecials.c#L53-L99",
+          "why": "Shows the local `_Enter` naming convention on the grounded Confusion motion-state initializer and identifies this callback as the grounded capture path."
+        }
+      ]
+    },
+    {
+      "id": "fact:eeb8b86b-954a-48e9-822c-b43c7b3370bc",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BCF18",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Grounded victim-side capture initializer with signature `void(Fighter_GObj* gobj, Fighter_GObj* captor_gobj)`: `gobj` is the captured fighter whose fields and motion state are mutated, while the second fighter object is retained as Mewtwo, supplies orientation, and serves as the linked animation source.",
+      "rationale": "The current definition establishes the void return and two fighter-object parameters. Shared setup mutates the first fighter while storing and reading the second; the analogous CaptureYoshi initializer explicitly calls the corresponding second argument the attacker. Confusion's grounded registration establishes the Mewtwo-specific callback context.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Provides the exact signature and shows the first object being mutated while the second is retained and read for orientation and animation linkage."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureYoshi.c#L13-L33",
+          "why": "Shows an analogous victim-side capture initializer explicitly naming its second fighter-object argument as the attacker."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftMewtwo/ftmewtwospecials.c#L51-L97",
+          "why": "Establishes that the routine is registered by Mewtwo's grounded Confusion grab path."
+        }
+      ]
+    },
+    {
+      "id": "fact:f471f96b-5f10-445f-bea8-2d30afce9a53",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BCF18",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes the grounded victim-side capture sequence for Mewtwo's Confusion. It retires prior state on the captured fighter, records and aligns that fighter with Mewtwo, establishes the capture pair, performs grounded CaptureMewtwo initialization, and dispatches into the grounded ThrownMewtwo victim state.",
+      "rationale": "The current source shows the grounded wrapper selecting the CaptureMewtwo and ThrownMewtwo motion IDs after shared cleanup, relationship, orientation, and pair setup. Mewtwo's grounded Confusion code registers this exact routine as the callback used by its grab interaction.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows shared cleanup and capture-pair initialization followed by the grounded CaptureMewtwo and ThrownMewtwo state selections."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftMewtwo/ftmewtwospecials.c#L51-L97",
+          "why": "Shows grounded Confusion registering `ftCo_800BCF18` as its grab callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ThrownMewtwo.c#L16-L28",
+          "why": "Shows the final ThrownMewtwo entry consuming the selected motion ID and linked fighter."
+        }
+      ]
+    },
+    {
+      "id": "fact:bcea9790-333e-43dd-80da-1b4dff330e97",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BCF18",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The function is branchless and always selects the grounded state pair. After cleanup and capture-pair establishment, it enters `ftCo_MS_CaptureMewtwo` at frame 0, normal speed, zero blend, and `Ft_MF_None`, performs common fighter and animation initialization, and then invokes the shared ThrownMewtwo entry with `ftCo_MS_ThrownMewtwo`. That final entry may use `Ft_MF_FreezeState` when fighter flag `x2222_b6` is set and installs animation-driven attachment processing.",
+      "rationale": "The current wrapper unconditionally supplies the grounded motion IDs, and shared setup fixes the first transition parameters and initialization order. The resolved ThrownMewtwo routine supplies the subsequent freeze-state guard and accessory callback installation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows the unconditional grounded state selection, exact first transition arguments, initialization order, and dispatch to ThrownMewtwo."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ThrownMewtwo.c#L16-L28",
+          "why": "Shows the `x2222_b6` freeze-state condition and installation of the attachment-maintenance callback."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BD000": [
+    {
+      "id": "fact:1ed874dc-0fb3-450f-83b2-b0eb6eaf4fdc",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BD000",
+      "entity_id": null,
+      "type": "data_flow",
+      "value": "Consumes the captured fighter object and its linked captor. Through `doEnter`, it runs three common cleanup routines on the captured fighter; writes the captor to `x1A5C` and `victim_gobj`; clears `x221B_b5` and `x221B_b7`; copies the captor's facing direction; and passes both fighter structures to common capture-pair setup. It then enters `ftCo_MS_CaptureMewtwoAir` using the linked fighter as the animation source, performs common initialization, and dispatches the same fighter to the ThrownMewtwo initializer with `ftCo_MS_ThrownMewtwoAir`.",
+      "rationale": "The complete current shared body exposes every input, relationship write, flag clear, orientation read, setup call, and state output, while this wrapper supplies the two airborne motion IDs. The called ThrownMewtwo initializer confirms how the final motion ID and linked object are consumed.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows the complete data path through cleanup, association writes, pair setup, airborne motion selection, and ThrownMewtwo dispatch."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ThrownMewtwo.c#L16-L28",
+          "why": "Shows the called initializer using the selected motion ID and linked fighter for the subsequent transition and attachment setup."
+        }
+      ]
+    },
+    {
+      "id": "fact:2a252d53-5950-489a-8d45-5d168a26956f",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BD000",
+      "entity_id": null,
+      "type": "game_mapping",
+      "value": "Begins the airborne opponent-side capture and twirl sequence for Mewtwo's Confusion command grab. This is the path used when aerial Confusion catches a fighter, linking the opponent to Mewtwo and selecting the airborne Mewtwo-specific captured/thrown motions.",
+      "rationale": "Aerial Confusion registers this routine as its grab callback, and the current CaptureMewtwo source shows it selecting the airborne captured and thrown state pair. The mechanics reference identifies Confusion as a command grab that twirls the caught opponent and documents its aerial use in Melee.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftMewtwo/ftmewtwospecials.c#L51-L97",
+          "why": "Shows aerial Confusion registering `ftCo_800BD000` as its grab-interaction callback."
+        },
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows this callback linking the fighters and selecting CaptureMewtwoAir and ThrownMewtwoAir."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://confusion~overview@r2025784",
+          "why": "Describes Confusion's command-grab, opponent-twirling, and aerial behavior in Melee."
+        }
+      ]
+    },
+    {
+      "id": "fact:919a2ce0-1549-49f3-be6a-2efb62bf6b08",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BD000",
+      "entity_id": null,
+      "type": "inferred_name",
+      "value": "ftCo_CaptureMewtwoAir_Enter",
+      "rationale": "At the current path, the routine is the unconditional airborne counterpart to the adjacent grounded CaptureMewtwo wrapper and selects `ftCo_MS_CaptureMewtwoAir`. Comparable common-fighter motion-state initializers use the `_Enter` suffix, although no recovered symbol directly confirms this exact name.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_CaptureMewtwoAir_Enter`.",
+      "confidence": 0.82,
+      "updated_at": "2026-09-06T02:34:38.472Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows the routine as the airborne counterpart to the adjacent grounded entry wrapper."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Barrel.c#L28-L52",
+          "why": "Shows a comparable common-fighter state initializer using the recovered `_Enter` naming convention."
+        }
+      ]
+    },
+    {
+      "id": "fact:12b7962a-dcb3-4a19-831e-13f75b2910af",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BD000",
+      "entity_id": null,
+      "type": "inferred_type",
+      "value": "Airborne victim-side capture entry routine with signature `void (Fighter_GObj* gobj, Fighter_GObj* captor_gobj)`: `gobj` is the captured fighter whose state and fields are mutated, while the second fighter object is retained as the linked captor, supplies orientation, and serves as the motion's animation source.",
+      "rationale": "The current definition proves the void return and two fighter-object parameters. Shared setup mutates the first fighter while retaining and reading the second, and aerial Confusion registers this routine as its capture callback.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Provides the exact signature and shows the distinct mutation-target and linked-captor roles of the two arguments."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftMewtwo/ftmewtwospecials.c#L51-L97",
+          "why": "Shows the routine being supplied as Mewtwo's aerial Confusion capture callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:7a8f0dbf-5e56-494a-b907-60afc5c9004b",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BD000",
+      "entity_id": null,
+      "type": "purpose",
+      "value": "Initializes the captured fighter for the airborne variant of Mewtwo's Confusion capture sequence. It performs the shared capture-pair setup while selecting `ftCo_MS_CaptureMewtwoAir` and `ftCo_MS_ThrownMewtwoAir` rather than their grounded counterparts.",
+      "rationale": "The current routine is the aerial wrapper around `doEnter`, and its semantic distinction from the adjacent grounded wrapper is the airborne motion-ID pair. Mewtwo's aerial Confusion setup registers this exact routine as its grab callback.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows the routine invoking shared setup with the two airborne Mewtwo-specific motion IDs."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftMewtwo/ftmewtwospecials.c#L51-L97",
+          "why": "Shows aerial Confusion registering `ftCo_800BD000` as its grab callback."
+        }
+      ]
+    },
+    {
+      "id": "fact:df7f8d56-bb9a-4256-b5eb-c6c2f05e7ed3",
+      "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BD000",
+      "entity_id": null,
+      "type": "state_behavior",
+      "value": "The target is branchless and always selects the airborne path. Shared setup first enters `ftCo_MS_CaptureMewtwoAir` at frame 0, normal playback speed, zero blend, and no motion-preservation flags, then invokes the ThrownMewtwo initializer with `ftCo_MS_ThrownMewtwoAir`. That initializer uses `Ft_MF_FreezeState` only when fighter flag `x2222_b6` is set, synchronizes facing with the linked fighter, resets `mv.co.capturekoopa.x0`, and installs animation-driven thrown-position maintenance through `accessory1_cb`.",
+      "rationale": "The current wrapper and shared helper contain no guards and supply the exact airborne CaptureMewtwo transition arguments. The called ThrownMewtwo initializer directly exposes the later state transition, its sole freeze-state guard, facing synchronization, state reset, and callback installation.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-04T18:57:53.976Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L50",
+          "why": "Shows unconditional airborne selection, exact first transition parameters, and dispatch to the airborne ThrownMewtwo state."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ThrownMewtwo.c#L16-L28",
+          "why": "Shows the conditional freeze-state flag, facing synchronization, state-field reset, motion transition, and accessory callback installation."
+        }
+      ]
+    }
+  ],
+  "src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c": [
+    {
+      "id": "fact:cc28e9cb-59e8-4d3b-b316-6ff59ee9c303",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c",
+      "type": "data_flow",
+      "value": "Both entries consume the captured fighter and associated Mewtwo object. Shared setup stores the link, copies facing, clears capture flags, initializes the pair, and passes selected grounded or airborne CaptureMewtwo and ThrownMewtwo motion IDs into subsequent state initialization.",
+      "rationale": "The current capture unit preserves the two-object relationship flow and motion selection, while the thrown-state initializer consumes the linked fighter and selected thrown motion.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:13:07.214Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L47",
+          "why": "Shows relationship storage, facing, flag clearing, pair setup, and grounded or airborne motion selection."
+        },
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ThrownMewtwo.c#L1-L29",
+          "why": "Shows the selected thrown motion and linked fighter being consumed during ThrownMewtwo initialization."
+        }
+      ]
+    },
+    {
+      "id": "fact:d33e9d2f-6cc3-46e3-b5f6-d0592c213f48",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c",
+      "type": "game_mapping",
+      "value": "Implements opponent-side grounded and aerial capture setup for Mewtwo's Confusion command grab.",
+      "rationale": "Confusion registers these two routines as grab callbacks, and the mechanics reference identifies the move as Mewtwo's opponent-twirling command grab.",
+      "confidence": 0.97,
+      "updated_at": "2026-09-04T03:47:26.442Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftMewtwo/ftmewtwospecials.c#L51-L97",
+          "why": "Shows grounded and aerial Confusion registering this unit's two entry routines as grab callbacks."
+        },
+        {
+          "kind": "wiki",
+          "locator": "wiki://confusion~overview@r2025784",
+          "why": "Identifies Confusion as Mewtwo's command grab that catches, twirls, damages, and releases an opponent."
+        }
+      ]
+    },
+    {
+      "id": "fact:dd536cfc-635c-4d39-bafa-36d257b79f78",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c",
+      "type": "purpose",
+      "value": "Provides grounded and airborne victim setup for Mewtwo's capture sequence, clearing prior state, associating both fighters, initializing paired capture processing, and selecting corresponding CaptureMewtwo and ThrownMewtwo motions.",
+      "rationale": "The current shared initializer and two wrappers retain the unit's cleanup, association, paired initialization, and situation-specific motion selection responsibilities.",
+      "confidence": 0.98,
+      "updated_at": "2026-09-06T03:13:07.214Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L47",
+          "why": "Shows shared relationship setup and the grounded and airborne CaptureMewtwo/ThrownMewtwo state pairs."
+        }
+      ]
+    },
+    {
+      "id": "fact:448473f9-da66-425e-9728-efe7e8929ed6",
+      "target_id": null,
+      "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c",
+      "type": "state_behavior",
+      "value": "Two unconditional wrappers share identical setup: the grounded path selects CaptureMewtwo then ThrownMewtwo, while the airborne path selects CaptureMewtwoAir then ThrownMewtwoAir. Cleanup and pair association precede both transitions.",
+      "rationale": "The refreshed wrappers still differ only in their grounded and airborne motion pairs, and both invoke the same ordered setup routine.",
+      "confidence": 0.99,
+      "updated_at": "2026-09-06T03:13:07.214Z",
+      "evidence": [
+        {
+          "kind": "code",
+          "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo.c#L1-L47",
+          "why": "Shows shared cleanup and pair setup followed by the exact grounded and airborne capture/thrown motion pairs."
+        }
+      ]
+    }
+  ],
+  "main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BCF18#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BCF18#r4": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BD000#r3": [],
+  "main/melee/ft/kinds/ftCommon/ftCo_CaptureMewtwo:ftCo_800BD000#r4": []
+}

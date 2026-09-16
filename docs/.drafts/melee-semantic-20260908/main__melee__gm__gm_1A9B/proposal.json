@@ -1,0 +1,55 @@
+{
+  "tu": "main/melee/gm/gm_1A9B",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A9B.c#L143-L166",
+            "why": "Timer/input consumers, effect calls and code selection."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmregtyfall.c#L107-L112",
+            "why": "Writes the argument to the current exit-data byte."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the observed data flow while correcting the interpretation of the cross-file output.",
+        "subject": {
+          "target_stable_key": "main/melee/gm/gm_1A9B:gm_Scene_Congrats_OnFrame"
+        },
+        "type": "data_flow",
+        "value": "Reads and decrements the persistent input-delay and exit timers in priority order. With both zero, newly triggered A or Start from gm_GetButtonsTriggered(gm_801BF010()) calls lbBgFlash_8002063C(60), writes 60 to the exit timer, then calls lbAudioAx_80023694 and sfxForward. Exit-timer expiration passes 6 for GM_DEBUG_GOVER or 1 otherwise to gm_801A6630, which writes that value into current scene exit data and calls gm_801A4B60; the values are exit codes, not locally proven scene indices."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gm_1A9B.c#L91-L166",
+            "why": "Initialization and full frame-state progression."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gm/gmregtyfall.c#L107-L112",
+            "why": "Exit-code storage rather than direct scene indexing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces unsupported scene-number and broad audio-stop interpretations with exact state transitions and calls.",
+        "subject": {
+          "entity_locator": "src/melee/gm/gm_1A9B.c"
+        },
+        "type": "state_behavior",
+        "value": "Entry sets the input-delay timer to 30 and the exit timer to zero. Each frame exclusively drains input delay, drains an active exit countdown, or accepts a newly triggered A/Start press. Accepted input calls lbBgFlash_8002063C(60), starts a 60-frame exit countdown, and calls lbAudioAx_80023694 followed by sfxForward. Countdown expiry passes exit-data code 6 for debug game-over or 1 otherwise to gm_801A6630. This helper stores the code and calls gm_801A4B60; no literal destination-scene mapping or audio/movie completion test is established by these callbacks."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

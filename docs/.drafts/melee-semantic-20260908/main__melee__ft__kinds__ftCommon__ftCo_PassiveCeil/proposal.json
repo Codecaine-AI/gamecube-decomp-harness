@@ -1,0 +1,195 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_PassiveCeil",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L31-L60",
+            "why": "Entry field flow and call order."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftKirby/ftkirby.c#L4154-L4160",
+            "why": "Kirby-only extra effect; no vector write."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/types.h#L21-L21",
+            "why": "Spawn kind 2 mapping."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ef/efasync.c#L1405-L1464",
+            "why": "Copies vector and conditionally queues/processes request."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects inferred vector transformation and documents copied stack data and the actual gfx_id argument.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveCeil:ftCo_800C23FC"
+        },
+        "type": "data_flow",
+        "value": "Resolves the Fighter, calls ftCommon_8007E2FC, clears throw_flags, and initializes ef_offset=(0,coll_data.ecb.top.y,0). ftKb_SpecialN_800F1F1C leaves that vector unchanged and submits an extra 0x49E effect only for Kirby. After requesting PassiveCeil, computes baseY=cur_pos.y+ef_offset.y, submits gfx_id 0x41D with spawn kind 2 at (cur_pos.x,baseY,cur_pos.z), and sets cur_pos.y=baseY+x68C_transNPos.y. efAsync_Spawn copies the vector into queue storage; it does not retain the local vector pointer. Subsequent calls forward the fighter and character/fixed feedback arguments exactly as shown in source."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L20-L60",
+            "why": "Guards are outside initializer; explicit transition arguments."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2378-L2388",
+            "why": "Active callback registration."
+          }
+        ],
+        "op": "write",
+        "rationale": "Separates caller preconditions, initializer behavior and table-proved callback association.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveCeil:ftCo_800C23FC"
+        },
+        "type": "state_behavior",
+        "value": "Unconditionally requests ftCo_MS_PassiveCeil with Ft_MF_None,0,1,0,NULL and performs ordered entry initialization; the routine has no local eligibility guard, timer or failure return. Its detector caller enforces ceiling contact and ftCo_800986B0. The active motion-state table associates PassiveCeil with its Anim, IASA, Phys and Coll callbacks. Clearing throw_flags does not itself establish throw ownership semantics."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L62-L73",
+            "why": "Exact input/output and independent completion flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L255-L263",
+            "why": "Read-and-clear event helper."
+          }
+        ],
+        "op": "write",
+        "rationale": "Includes consuming flag side effect and current canonical array access.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveCeil:ftCo_PassiveCeil_Anim"
+        },
+        "type": "data_flow",
+        "value": "Passes the Fighter to ftCheckThrowB3, which clears throw_flags_b3 when set. On success writes self_vel.x=input.lstick[0].x*co_attrs.passiveceil_vel_x. Independently queries ftAnim_IsFramesRemaining with the original game object and passes it to ftCo_Fall_Enter when the query is false."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L62-L85",
+            "why": "Unclamped multiplication and independent completion."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/inlines.h#L255-L263",
+            "why": "Flag consumption."
+          }
+        ],
+        "op": "write",
+        "rationale": "Makes optional branch, event lifetime and numerical limitations explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveCeil:ftCo_PassiveCeil_Anim"
+        },
+        "type": "state_behavior",
+        "value": "Consumes a pending throw_flags_b3 event to replace horizontal velocity with stick X times passiveceil_vel_x; without that event this callback leaves horizontal velocity unchanged. The assignment has no local clamp, dead zone, finite check or facing multiplier and is not continuous steering unless the flag is set again. The following independent animation-end branch may enter Fall on the same invocation, after the assignment. Other callbacks can also cause exits."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L82-L85",
+            "why": "Exact dispatcher and callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FallSpecial.c#L134-L143",
+            "why": "Invalid-line and strict platform threshold."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L504-L512",
+            "why": "Landing response threshold."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L641-L696",
+            "why": "Query alternatives, veto and response priority."
+          }
+        ],
+        "op": "write",
+        "rationale": "Completes delegated boundary and optional-path description without inferring threshold sign or guaranteeing transitions.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_PassiveCeil:ftCo_PassiveCeil_Coll"
+        },
+        "type": "state_behavior",
+        "value": "Delegates to ft_800831CC with ftCo_80096CC8 and ft_80082B1C. The floor predicate rejects line -1, accepts non-platform lines, and accepts platforms only for stick Y > x25C (equality does not pass). The dispatcher selects collision queries using ledge cooldown/x2224_b2, synchronizes positions and lets ft_80081A00 veto floor response. Accepted response invokes ft_80082B1C immediately: self_vel.y > ftCo_800D0EC8(fp) selects ft_8008A2BC, otherwise basic landing. If the dispatcher's accepted-response path fails, wall-jump is attempted before ledge-grab. Callback pointers are not stored by this wrapper."
+      },
+      {
+        "confidence": 0.98,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L20-L85",
+            "why": "Complete recovery path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftmotionstates.c#L2378-L2388",
+            "why": "Active state callback linkage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_FlyReflect.c#L240-L250",
+            "why": "Collision consumer establishes handled recovery."
+          }
+        ],
+        "op": "write",
+        "rationale": "Grounds gameplay mapping in active entry and table while removing unsupported bounded-movement implication.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c"
+        },
+        "type": "game_mapping",
+        "value": "Implements common-fighter ceiling-tech recovery: a ceiling-contact and eligibility detector initiates PassiveCeil, initializes position and effect/sound requests, and the active callback family supplies event-gated stick-scaled horizontal velocity, animation-completion Fall, no IASA-local work, and shared airborne physics/collision. The TU proves no local bound on the velocity product, precise event frame, invulnerability duration or exclusive Fall exit."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c#L1-L85",
+            "why": "Complete definitions and dependencies."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.h#L1-L13",
+            "why": "Complete public declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L685-L696",
+            "why": "Alternative terrain-driven exits."
+          }
+        ],
+        "op": "write",
+        "rationale": "Documents the entire owned TU without an exclusive-exit or section-layout assumption.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftCommon/ftCo_PassiveCeil.c"
+        },
+        "type": "purpose",
+        "value": "Provides the common PassiveCeil ceiling-recovery detector, unconditional initializer and registered animation, IASA, physics and collision callbacks, with matching public declarations in ftCo_PassiveCeil.h. Animation completion enters Fall; delegated terrain responses can instead cause other exits. The source contains no explicit persistent local state or definitions proving .sdata2 layout."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -1,0 +1,765 @@
+[
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:.sdata2",
+    "facts": [
+      {
+        "id": "fact:b8816887-fa1d-4a96-8645-7e7fa87102fe",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:.sdata2",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "ftCo_800CF4DC reads the 0.0F constant for the ItemParasolDamageFall transition's starting frame and final floating-point transition argument, and reads 1.0F for its animation playback rate. These values flow into Fighter_ChangeMotionState when the fighter enters ftCo_MS_ItemParasolDamageFall; no other routine in the unit consumes floating-point literals.",
+        "rationale": "The matched entry routine supplies 0.0F, 1.0F, and 0.0F to Fighter_ChangeMotionState in those positions. The remaining callbacks are empty or only forward their Fighter_GObj to shared handlers, so the entry transition accounts for the constant pool's observable uses within the unit.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T05:20:47.590Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Directly shows every use of 0.0F and 1.0F in the entry routine and the absence of floating-point literal use in the four state callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:8adbbf76-4866-4407-a110-596daa87e249",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:.sdata2",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "An 8-byte .sdata2 constant pool containing two 32-bit IEEE-754 floating-point values, 0.0F and 1.0F; it is compiler-owned literal storage rather than an authored named object.",
+        "rationale": "The matched translation unit requires exactly two distinct single-precision literals, 0.0F and 1.0F. Two f32 values account for the complete eight-byte section and explain why the source uses inline literals instead of exposing a semantic data declaration.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T05:20:47.590Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows that 0.0F and 1.0F are the unit's only distinct floating-point literals and that they appear inline in the matched source."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1892--main-melee-ft-chara-ftcommon-ftco-itemparasoldamagefall",
+            "why": "Establishes the dedicated translation-unit ownership associated with this section target."
+          }
+        ]
+      },
+      {
+        "id": "fact:6a0bd355-f480-45b2-9a9b-e6d759d07004",
+        "target_id": "target:data:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:.sdata2",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the translation unit's compiler-emitted read-only floating-point constants for initializing the ItemParasolDamageFall motion-state transition.",
+        "rationale": "The matched source uses the literals 0.0F and 1.0F directly when entering ftCo_MS_ItemParasolDamageFall, while the target is the unit's .sdata2 section rather than a declared gameplay object. The unit-splitting pull request supports ownership of this constant storage by the dedicated ItemParasolDamageFall translation unit.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T05:20:47.590Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows 0.0F and 1.0F used directly as motion-state transition arguments and contains no authored declaration for a named data object."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1892--main-melee-ft-chara-ftcommon-ftco-itemparasoldamagefall",
+            "why": "Records that this source was established as the dedicated ftCo_ItemParasolDamageFall translation unit when the Parasol units were split and linked."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_800CF4DC",
+    "facts": [
+      {
+        "id": "fact:07d9d8ee-a512-42d0-b3ef-26be4c7fc169",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_800CF4DC",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives a Fighter_GObj selected by the common DamageFall dispatcher after a nonnegative Parasol-status check, derives its Fighter, passes the object and ftCo_MS_ItemParasolDamageFall transition parameters to Fighter_ChangeMotionState, and then passes the Fighter to ftCommon_ClampAirDrift, which may reduce excessive horizontal self-velocity.",
+        "rationale": "The relocated DamageFall caller supplies the object on its Parasol-status branch. The state-entry routine converts that object to a Fighter and forwards the two views to the motion-state and air-drift subsystems.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:59.233Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L87-L122",
+            "why": "Shows the current DamageFall dispatch path calling this routine when ftGetParasolStatus returns a value other than -1."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows the Fighter lookup, ItemParasolDamageFall motion-state arguments, and forwarding of the Fighter to ftCommon_ClampAirDrift."
+          }
+        ]
+      },
+      {
+        "id": "fact:6f35f84c-23ef-4500-8b27-d468c5b15499",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_800CF4DC",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Begins the damaged airborne phase of the Parasol item's parachuting behavior instead of ordinary DamageFall. The fighter retains any existing fast-fall condition while entering the dedicated Parasol damage-fall motion, after which horizontal aerial speed is bounded.",
+        "rationale": "The current DamageFall dispatcher distinguishes an active Parasol status from ordinary DamageFall, and this routine enters the dedicated motion with fast-fall preservation before clamping air drift. The mechanics reference identifies the Melee Parasol as a personal parachute that opens while its holder falls.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-04T19:02:59.233Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L87-L122",
+            "why": "Shows that an active Parasol status selects this specialized entry while the alternate branch enters ordinary DamageFall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows entry into ItemParasolDamageFall with Ft_MF_KeepFastFall followed by air-drift clamping."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://parasol~in-super-smash-bros-melee@r2048064",
+            "why": "Describes the Melee Parasol item as a personal parachute that opens while its holder falls and aids horizontal recovery."
+          }
+        ]
+      },
+      {
+        "id": "fact:048e8d82-5d4b-426a-ae1b-9f17b2c7a486",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_800CF4DC",
+        "entity_id": null,
+        "type": "inferred_name",
+        "value": "ftCo_ItemParasolDamageFall_Enter",
+        "rationale": "The routine initializes ftCo_MS_ItemParasolDamageFall, and the four remaining functions in the same action-state unit are named ftCo_ItemParasolDamageFall_Anim, _IASA, _Phys, and _Coll. The standard role-completing name is therefore likely the state name followed by `_Enter`, although no source record directly preserves the original symbol.\n\nNaming cleanup: Recognized likely_prefix form; no lexical audit flags.\nPrior naming claim: Likely `ftCo_ItemParasolDamageFall_Enter`.",
+        "confidence": 0.93,
+        "updated_at": "2026-09-06T02:34:38.472Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows that the address-named routine enters ItemParasolDamageFall and is followed by that state's explicitly named Anim, IASA, Phys, and Coll callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:53bf366e-8f25-4b26-b04c-ca15b2e27359",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_800CF4DC",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter motion-state entry routine with signature `void (Fighter_GObj* gobj)`; the object supplies the Fighter whose motion state and horizontal self-velocity are updated.",
+        "rationale": "The matched definition provides the exact return and parameter types, derives a Fighter pointer with GET_FIGHTER, changes the object's motion state, and passes the Fighter to an in-place movement clamp.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T05:19:51.362Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L14-L20",
+            "why": "Provides the complete signature and shows the argument being used as a fighter object for state entry and movement initialization."
+          }
+        ]
+      },
+      {
+        "id": "fact:571fd4fe-6243-45e4-8c80-5a469bf73cab",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_800CF4DC",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Enters the Parasol-specific damage-fall state for a fighter whose Parasol status is active, preserving the fighter's fast-fall condition and constraining horizontal self-velocity to the fighter's normal air-drift limit.",
+        "rationale": "At the current path, DamageFall invokes this routine only on its active-Parasol branch. The routine selects ftCo_MS_ItemParasolDamageFall with Ft_MF_KeepFastFall and then calls ftCommon_ClampAirDrift.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:59.233Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L87-L122",
+            "why": "Shows the Parasol-status guard that routes DamageFall into this specialized entry routine."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows the specialized motion-state transition, fast-fall-preservation flag, and subsequent air-drift clamp."
+          }
+        ]
+      },
+      {
+        "id": "fact:b7b03cad-7b29-4aca-adfd-40def1291c26",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_800CF4DC",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "When DamageFall detects a nonnegative Parasol status, this routine unconditionally changes the fighter to ftCo_MS_ItemParasolDamageFall at frame 0 with animation speed 1.0 and blend value 0.0, preserving fast-fall state through Ft_MF_KeepFastFall, and then clamps horizontal air drift. Subsequent state behavior is supplied by the unit's ItemParasolDamageFall callbacks.",
+        "rationale": "The current caller provides the Parasol-status entry guard. The target contains an unconditional transition with the stated literal parameters and flag, followed by the clamp, while the same unit defines the state's Anim, IASA, Phys, and Coll callbacks.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-04T19:02:59.233Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L87-L122",
+            "why": "Shows that a Parasol status other than -1 selects this state-entry path from DamageFall."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows all motion-state entry parameters, the post-entry drift clamp, and the four callbacks associated with the state."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Anim",
+    "facts": [
+      {
+        "id": "fact:046de80f-ec24-4db3-99a8-c298f140cb59",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Anim",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current Fighter_GObj from the action-state dispatcher, reads none of its fields, performs no calls or writes, and produces no output beyond returning to the dispatcher.",
+        "rationale": "The complete function body is empty, so the incoming object cannot enter any further data flow and no state, animation, or return value is emitted.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:37.348Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L22-L22",
+            "why": "Shows the entire one-line function definition with an unused Fighter_GObj parameter and empty body."
+          }
+        ]
+      },
+      {
+        "id": "fact:6fd060dd-4132-4bb6-a7e5-e7fb502967b3",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Anim",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "During the damaged phase of Parasol-item descent, there is no animation-timed gameplay transition; recovery from damage, airborne movement, and contact resolution are governed by the state's other callbacks instead.",
+        "rationale": "The empty animation callback rules out animation-frame-driven behavior, while the same module forwards IASA to DamageFall logic and supplies airborne physics and collision callbacks. The associated Parasol states and wiki identify this as part of the Parasol descent mechanic available to item users.",
+        "confidence": 0.9,
+        "updated_at": "2026-09-02T01:42:37.348Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows that the animation phase is empty while damage-fall input, airborne physics, and collision behavior are handled separately."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://helpless~moves-that-invoke-helplessness@r2044464",
+            "why": "Identifies the surrounding Melee mechanic as retractable Parasol descent available to any character through the Parasol item."
+          }
+        ]
+      },
+      {
+        "id": "fact:f40d9ed0-7c53-4871-9aeb-8574e2280b95",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Anim",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter animation callback with signature `void (Fighter_GObj* gobj)`. It returns no value and intentionally does not use its Fighter object parameter.",
+        "rationale": "The matched definition directly supplies the void return type and Fighter_GObj pointer parameter. Its `_Anim` position in a unit containing matching IASA, Phys, and Coll routines identifies the action-state callback role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:37.348Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Provides the exact signature and surrounding action-state callback set."
+          }
+        ]
+      },
+      {
+        "id": "fact:17078dcc-e337-41d9-9da8-edf63aba5a1f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Anim",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the animation-phase callback for ItemParasolDamageFall as an intentional no-op. The state requires no animation-specific update or animation-completion transition, leaving its active behavior to the IASA, physics, and collision callbacks.",
+        "rationale": "The complete matched definition is empty and sits directly beside nonempty ItemParasolDamageFall IASA, Phys, and Coll callbacks. Exact empty-body opseq analogs corroborate that the four-byte implementation is an immediate-return no-op rather than omitted logic.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:37.348Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows the empty Anim callback in the complete action-state module and the nonempty callbacks that handle the remaining update phases."
+          },
+          {
+            "kind": "pr",
+            "locator": "pr://pr-1892--fn--main-melee-ft-chara-ftcommon-ftco-itemparasoldamagefall-ftco-itemparasoldamagefall-anim--81d1b136eec0",
+            "why": "Records that the four-byte empty implementation was the matched reconstruction merged for this exact target."
+          }
+        ]
+      },
+      {
+        "id": "fact:a6547985-8127-48c7-9fbd-c979327a1514",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Anim",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Has invariant immediate-return behavior on every animation update: it contains no guards, timers, animation-frame checks, transitions, callback chaining, or state mutation. Consequently, ItemParasolDamageFall cannot end or change state through this animation callback.",
+        "rationale": "The matched body is completely empty. The surrounding module explicitly delegates interrupt, physics, and collision behavior elsewhere, demonstrating that no hidden state transition is performed by the animation phase.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:37.348Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows the empty callback and the separate callbacks responsible for the state's other update phases."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Coll",
+    "facts": [
+      {
+        "id": "fact:d9b75428-1b32-4e8b-9467-520ffb9aacb0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Coll",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the current Fighter_GObj and forwards it unchanged to ft_8008370C with ftCo_80090984. The shared routine copies the fighter's current position into collision state, runs a facing- and cooldown-dependent stage-collision query, copies the resulting collision position back to the fighter, and invokes ftCo_80090984 on a successful result; that callback tries ftCo_80098928, then ftCo_8009872C, and otherwise calls ftCo_80097D40.",
+        "rationale": "The wrapper still performs no local transformation. The shared collision helper establishes the position transfers, query selection, and callback invocation, while the callback's definition at the current head confirms that the previously recorded ordered three-step handling remains unchanged.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:43:39.329Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows the target forwarding its Fighter_GObj unchanged to ft_8008370C together with ftCo_80090984."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L804-L894",
+            "why": "Shows the fighter and collision-position transfers, facing- and ledge-cooldown-dependent query selection, callback invocation, and fallback wall-jump and ledge checks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L40-L100",
+            "why": "Shows the current ftCo_80090984 body trying ftCo_80098928 and ftCo_8009872C in order before calling ftCo_80097D40."
+          }
+        ]
+      },
+      {
+        "id": "fact:074221dd-e999-41e5-b8a5-04dc5f889a80",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Coll",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Handles stage contact during the damaged-fall form of Melee's Parasol item descent, preserving normal fighter collision options such as landing response, wall jump, and ledge interaction rather than treating the item state as collisionless.",
+        "rationale": "The state-specific symbol ties the callback to ItemParasolDamageFall, while the shared helper demonstrably routes collision into a damage-landing callback or wall and ledge checks. The mechanics reference confirms that the Melee Parasol item grants this parasol-style aerial behavior to any character.",
+        "confidence": 0.94,
+        "updated_at": "2026-09-02T01:42:18.923Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L34-L37",
+            "why": "The action-specific collision callback delegates stage contact to the shared fighter collision system with a damage-landing callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L804-L894",
+            "why": "The shared collision path includes callback-driven landing handling and fallback wall-jump and ledge-grab checks."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://helpless~moves-that-invoke-helplessness@r2044464",
+            "why": "The mechanics table confirms that the Parasol item gives any character Peach-Parasol-like airborne behavior in Melee."
+          }
+        ]
+      },
+      {
+        "id": "fact:9a662ffa-64a2-40d9-bf55-5a95ee5aac0a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Coll",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Fighter action-state collision callback with exact signature void ftCo_ItemParasolDamageFall_Coll(Fighter_GObj* gobj). It returns no value and forwards the fighter game object to a shared collision routine together with an HSD_GObjEvent-compatible transition callback.",
+        "rationale": "The matched definition establishes the exact return and parameter types. Its sole call shows that the second argument is explicitly cast to HSD_GObjEvent, while ft_8008370C's definition confirms that callback type and invokes it with the game object.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:18.923Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L34-L37",
+            "why": "The source gives the target's exact signature and shows both arguments passed to the shared collision routine."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L804-L894",
+            "why": "The shared routine is defined as taking Fighter_GObj* and HSD_GObjEvent and invokes that callback with the fighter object."
+          }
+        ]
+      },
+      {
+        "id": "fact:90ef9122-d7b5-482e-8c64-57b987557335",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Coll",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Runs stage-collision processing for ItemParasolDamageFall and supplies ftCo_80090984 as the transition callback, connecting a parasol-equipped fighter's damaged aerial fall to the standard damage-landing response.",
+        "rationale": "The target unconditionally delegates to the shared fighter collision routine with ftCo_80090984. The shared routine invokes that callback when its collision query succeeds, and the callback's current definition confirms that it still performs the recorded prioritized damage-landing handling.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:43:39.329Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows the complete ItemParasolDamageFall collision callback delegating to ft_8008370C with ftCo_80090984."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L804-L894",
+            "why": "Shows ft_8008370C invoking its supplied transition callback when the stage-collision query succeeds."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L40-L100",
+            "why": "Shows the current prioritized transition sequence implemented by ftCo_80090984."
+          }
+        ]
+      },
+      {
+        "id": "fact:ff417ad0-9182-4078-a191-39dd737309c0",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Coll",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Contains no local branch or timer: every invocation delegates to ft_8008370C. If the shared stage-collision query succeeds, ftCo_80090984 processes the landing through two prioritized conditional handlers and a final fallback; if it does not succeed and no earlier collision side effect consumes the update, the shared routine tries wall-jump and then ledge-grab transitions.",
+        "rationale": "The target remains an unconditional one-call wrapper. The shared helper establishes the callback and fallback branches, while the callback's current body confirms the same two ordered early-return handlers followed by the final fallback.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-04T22:43:39.329Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Shows that the target has no local condition or timer and always invokes ft_8008370C with the same callback."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/ft_081B.c#L804-L894",
+            "why": "Shows callback invocation on a positive collision result and ordered wall-jump and ledge-grab checks on the fallback path."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_DamageIce.c#L40-L100",
+            "why": "Shows ftCo_80090984 using two ordered early-return handlers before its final transition fallback."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_IASA",
+    "facts": [
+      {
+        "id": "fact:bb38c639-f79c-41da-b77e-13ce3fee307f",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_IASA",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the ItemParasolDamageFall state's Fighter_GObj and forwards it unchanged to ftCo_DamageFall_IASA. That callee reads the associated Fighter's input and common-data thresholds and may transfer control to aerial actions or Fall; this wrapper produces no independent data or state mutation.",
+        "rationale": "The wrapper's complete body proves unchanged argument forwarding, while the resolved callee body shows the fighter input and threshold reads and the possible downstream state transitions.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-02T01:42:15.960Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L24-L27",
+            "why": "Shows the unchanged GObj forwarding and absence of any local reads, writes, or return value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L110-L143",
+            "why": "Shows that the delegated handler reads Fighter input and common thresholds and invokes action checks or ftCo_Fall_Enter."
+          }
+        ]
+      },
+      {
+        "id": "fact:9cdf7abb-a4de-4518-8f67-4d57e55274e9",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_IASA",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Keeps ordinary damage-fall action handling available while the fighter occupies the Parasol item's dedicated damage-fall state; opening, closing, and parachute physics are handled elsewhere in the Parasol state family rather than by this callback.",
+        "rationale": "The callback delegates exclusively to DamageFall IASA, while the surrounding unit supplies separate state entry, physics, and collision callbacks. The neighboring ParasolFall source and SmashWiki description establish that closing and parachute descent are distinct parts of the Parasol item mechanic.",
+        "confidence": 0.91,
+        "updated_at": "2026-09-02T01:42:15.960Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L40",
+            "why": "Places this function within the dedicated ItemParasolDamageFall callback suite and shows that physics and collision are separate callbacks."
+          },
+          {
+            "kind": "code",
+            "locator": "code://d80cdea319/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolFall.c#L1-L59",
+            "why": "Shows that normal ParasolFall has its own stick-down closing check and dedicated Parasol physics."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://parasol~in-super-smash-bros-melee@r2048064",
+            "why": "Describes the Melee Parasol's parachute descent and the player's down/up inputs for closing and reopening it."
+          }
+        ]
+      },
+      {
+        "id": "fact:6e58bb73-8008-496e-bbe8-b9b1b3e32348",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_IASA",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state IASA callback with signature void (Fighter_GObj* gobj).",
+        "rationale": "The matched source provides the complete function declaration and shows that the sole parameter is passed to another fighter IASA callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:15.960Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L24-L27",
+            "why": "Explicitly declares the function as returning void and accepting Fighter_GObj*."
+          }
+        ]
+      },
+      {
+        "id": "fact:8700b829-5175-4336-a821-7c34b2dff76d",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_IASA",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Provides the per-frame interrupt-and-action-state logic for ItemParasolDamageFall by delegating it unchanged to the ordinary DamageFall IASA handler, so the item-specific state retains normal damage-fall action checks without duplicating them.",
+        "rationale": "The matched function consists solely of a call to ftCo_DamageFall_IASA with the same fighter GObj, demonstrating that its role is an adapter callback for the item-specific action state.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:15.960Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L24-L27",
+            "why": "Directly shows that the complete IASA callback delegates to ftCo_DamageFall_IASA and performs no other operation."
+          }
+        ]
+      },
+      {
+        "id": "fact:b2f93a37-ec27-49a4-a92b-70f7a17a1783",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_IASA",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Adds no Parasol-specific interrupt guard or transition. Each IASA update executes DamageFall's existing guarded aerial-action checks; when those checks are enabled, a sufficiently strong, freshly tilted horizontal stick can enter Fall, and two final transition checks run regardless of the initial guard.",
+        "rationale": "The wrapper has no local branch, so all state behavior comes from ftCo_DamageFall_IASA. The resolved callee shows the initial guard, its sequence of early-return action checks, the horizontal-stick threshold and timer test leading to ftCo_Fall_Enter, and the two trailing checks outside the guard.",
+        "confidence": 0.96,
+        "updated_at": "2026-09-02T01:42:15.960Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L24-L27",
+            "why": "Shows that the item-specific callback introduces no local branch or transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L110-L143",
+            "why": "Provides the complete inherited IASA guard structure, action checks, stick-threshold transition, and final unconditional checks."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Phys",
+    "facts": [
+      {
+        "id": "fact:180a9a87-1399-4228-b940-4380088fc1d2",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Phys",
+        "entity_id": null,
+        "type": "data_flow",
+        "value": "Receives the fighter's GObj from the action-state callback dispatcher and forwards that same pointer unchanged to ft_80084DB0; it performs no local reads, writes, transformations, or return-value handling.",
+        "rationale": "The full body has no local variables or expressions other than ft_80084DB0(gobj), so the callback itself only routes the fighter object into shared physics and all mutations occur through that callee.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:20.937Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L29-L32",
+            "why": "The source shows the callback's sole input passed directly and unchanged to its only callee."
+          }
+        ]
+      },
+      {
+        "id": "fact:13d65c46-8d5b-412c-b520-9ddfe6d5cd4e",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Phys",
+        "entity_id": null,
+        "type": "game_mapping",
+        "value": "Provides the per-frame falling-movement step while a fighter is in the Parasol item's damage-fall action, using the same shared airborne physics entry point as the ordinary Fall action.",
+        "rationale": "The target's recovered name places it in ItemParasolDamageFall, and its sole callee is also used by the explicitly named common Fall physics callback. SmashWiki establishes that the Melee Parasol modifies a holder's airborne fall into a parachute-like glide, grounding this action in that item mechanic without attributing the item's parameter changes directly to this thin wrapper.",
+        "confidence": 0.95,
+        "updated_at": "2026-09-02T01:42:20.937Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L29-L32",
+            "why": "The resolved symbol identifies this as the physics callback for the ItemParasolDamageFall action and shows its shared-physics delegation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L203-L206",
+            "why": "The ordinary Fall physics callback calls the same routine, tying the target's delegated work to falling movement."
+          },
+          {
+            "kind": "wiki",
+            "locator": "wiki://parasol~in-super-smash-bros-melee@r2048064",
+            "why": "The resolved wiki section describes the Parasol item's automatic opening during a fall and its parachute-like horizontal recovery behavior."
+          }
+        ]
+      },
+      {
+        "id": "fact:c4ca6411-ce58-4304-9e5a-f9570887e3af",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Phys",
+        "entity_id": null,
+        "type": "inferred_type",
+        "value": "Action-state physics callback with signature void (Fighter_GObj* gobj).",
+        "rationale": "The resolved declaration directly establishes a void return type and one Fighter_GObj pointer parameter, while the _Phys suffix and placement in an action module identify its callback role.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:20.937Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L29-L32",
+            "why": "The function declaration explicitly gives the void return type and Fighter_GObj* parameter."
+          }
+        ]
+      },
+      {
+        "id": "fact:ec63f3c8-23ff-4c8e-bdbd-7d426ed88d78",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Phys",
+        "entity_id": null,
+        "type": "purpose",
+        "value": "Serves as the ItemParasolDamageFall action's per-frame physics callback and delegates its entire movement update to the shared airborne fighter-physics routine ft_80084DB0.",
+        "rationale": "The complete function body contains only an unconditional call to ft_80084DB0 with the fighter object. The common Fall action's physics callback has the identical delegation, showing that this is an action-specific entry point to shared airborne physics.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:20.937Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L29-L32",
+            "why": "The complete target definition shows the ItemParasolDamageFall physics callback calling ft_80084DB0 once and doing nothing else."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_Fall.c#L203-L206",
+            "why": "The ordinary common Fall physics callback delegates to the same ft_80084DB0 routine, identifying it as shared airborne fighter physics."
+          }
+        ]
+      },
+      {
+        "id": "fact:3ae3dfda-a9a9-4282-8017-acec3cf7ac3a",
+        "target_id": "target:function:main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Phys",
+        "entity_id": null,
+        "type": "state_behavior",
+        "value": "Contains no callback-local state guard, timer, branch, or action transition; whenever dispatched for ItemParasolDamageFall, it unconditionally invokes the shared airborne physics update once.",
+        "rationale": "The complete body is a single unconditional call, ruling out any state selection, timing, or transition behavior local to this callback.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-02T01:42:20.937Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L29-L32",
+            "why": "The full function contains one call and no conditional control flow or direct state-changing operation."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c",
+    "facts": [
+      {
+        "id": "fact:70ad964e-cd86-4a4a-8b07-6dce1f0d4a39",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c",
+        "type": "data_flow",
+        "value": "Entry obtains the Fighter, enters ItemParasolDamageFall with fast-fall preservation, and clamps air drift; subsequent callbacks either ignore or forward the fighter object to shared DamageFall, aerial-physics, and collision routines.",
+        "rationale": "The current source explicitly preserves each state-entry write and callback forwarding edge.",
+        "confidence": 0.98,
+        "updated_at": "2026-09-06T03:31:19.471Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L37",
+            "why": "Shows state entry, drift clamping, inert animation, and callback forwarding."
+          }
+        ]
+      },
+      {
+        "id": "fact:829061d2-a286-4a21-819e-c561d6ae6889",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c",
+        "type": "game_mapping",
+        "value": "Realizes the damaged airborne phase of the Parasol item's parachuting descent.",
+        "rationale": "The dedicated ItemParasolDamageFall motion preserves Parasol-specific state identity while reusing damage-fall and airborne movement behavior.",
+        "confidence": 0.92,
+        "updated_at": "2026-09-06T03:31:19.471Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L37",
+            "why": "Shows the dedicated Parasol damage-fall state."
+          },
+          {
+            "kind": "code",
+            "locator": "code://3b81f7d928/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolFall.c#L1-L56",
+            "why": "Shows the neighboring ordinary Parasol descent state and shared airborne context."
+          }
+        ]
+      },
+      {
+        "id": "fact:5da880d9-79d2-4a90-8508-49f1985cdc8f",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c",
+        "type": "inferred_type",
+        "value": "Fighter action-state unit consisting of one entry routine and Anim, IASA, Phys, and Coll callbacks, all with signature `void(Fighter_GObj*)`.",
+        "rationale": "Every current definition uses the Fighter_GObj callback-compatible interface.",
+        "confidence": 0.99,
+        "updated_at": "2026-09-06T03:31:19.471Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L37",
+            "why": "Provides the complete function set and signatures."
+          }
+        ]
+      },
+      {
+        "id": "fact:9c83bccf-2dc1-4d84-bc47-fea76a874257",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c",
+        "type": "purpose",
+        "value": "Implements the damaged airborne Parasol state, preserving fast-fall, clamping drift, and reusing damage-fall interrupt, aerial physics, and collision behavior.",
+        "rationale": "The current unit retains ItemParasolDamageFall entry, air-drift clamping, and the delegated DamageFall, airborne-physics, and collision callbacks.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:31:19.471Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L37",
+            "why": "Shows the damaged Parasol state entry and all four callbacks."
+          }
+        ]
+      },
+      {
+        "id": "fact:ea68438e-5769-4c37-92c8-f6762499fa55",
+        "target_id": null,
+        "entity_id": "translation_unit:src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c",
+        "type": "state_behavior",
+        "value": "Entry selects ItemParasolDamageFall at frame 0 while preserving fast-fall. Animation has no transition; IASA reuses DamageFall, physics is shared airborne movement, and collision uses the damage-state contact callback.",
+        "rationale": "The current motion-state arguments and callback bodies retain this exact action-state behavior.",
+        "confidence": 0.97,
+        "updated_at": "2026-09-06T03:31:19.471Z",
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689/src/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall.c#L1-L37",
+            "why": "Shows entry flags and every update callback."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_800CF4DC#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Anim#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Coll#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_IASA#r3",
+    "facts": []
+  },
+  {
+    "subject": "main/melee/ft/kinds/ftCommon/ftCo_ItemParasolDamageFall:ftCo_ItemParasolDamageFall_Phys#r3",
+    "facts": []
+  }
+]

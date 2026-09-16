@@ -1,0 +1,94 @@
+{
+  "tu": "main/melee/gr/grtemblem",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtemblem:.data"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The source defines `grTFe_StageCallbacks` as a non-const `StageCallbacks[4]` array with three explicitly initialized rows and an implicitly zero-initialized fourth row, and `grTFe_StageData` as a non-const `StageData` descriptor referencing that array. Compiled section membership, adjacency and physical ordering are not established by these declarations.",
+        "rationale": "Preserves useful source types while removing unsupported compiled-layout conclusions.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtemblem.c#L38-L74",
+            "why": "Complete typed declarations and initializers."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtemblem:grTRoy_80224614"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally calls `lb_800115F4` before `Ground_801C2FE0(gobj)`. The dynamics helper sums pre-decay scale only for entries with `x0 == 1`, subtracts each entry's decay amount with a zero floor, decrements only positive countdowns, increments angles, and moves entries whose countdown equals zero to the free list. Negative countdowns are not decremented or retired by that test. For total scale > 0.1, aggregate state becomes 2 if previously positive, otherwise 1; at or below the threshold it becomes -1 if previously positive, otherwise 0. Collision work requires a zero per-map guard, increments a shared generation counter, refreshes all matching descriptor entries, then refreshes archive entries only when their stamps differ. The descriptor loop does not itself suppress duplicates. The wrapper ignores the collision helper's Boolean result.",
+        "rationale": "Makes exceptional countdown behavior and numeric transitions explicit and corrects the scope of collision deduplication.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtemblem.c#L136-L140",
+            "why": "Wrapper order and ignored result."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/lb/lb_00F9.c#L939-L992",
+            "why": "Exact list and aggregate-state implementation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1676-L1732",
+            "why": "Guard and different duplicate handling in the two loops."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtemblem:grTRoy_802246A4"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Unconditionally calls `Ground_801C2FE0(gobj)` and discards its Boolean result, with no local timer or branch. The helper returns false without refresh when `Ground_804D6950[map_id]` is nonzero. Otherwise it increments the shared generation counter, refreshes every matching stage-descriptor joint entry and stamps it, then processes available archive entries only when their joint stamps differ from that generation. Archive processing suppresses already-stamped joints; the descriptor loop itself has no duplicate check, so a universal once-per-joint guarantee requires additional data invariants.",
+        "rationale": "Corrects an overbroad once-per-generation guarantee without changing the supported guard and delegation explanation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtemblem.c#L154-L157",
+            "why": "Unconditional wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L1676-L1732",
+            "why": "Distinct descriptor and archive refresh conditions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/gr/grtemblem:grTemblem_UnkStage0_OnStart"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "A static, parameterless stage-start lifecycle callback with signature `void (void)`, registered in `grTFe_StageData`. It returns no value and returns normally after calling `grZakoGenerator_801CAE04(NULL)`; it is not a noreturn callback.",
+        "rationale": "Disambiguates void return type from non-returning control flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grtemblem.c#L62-L88",
+            "why": "Registration and complete ordinary void definition."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

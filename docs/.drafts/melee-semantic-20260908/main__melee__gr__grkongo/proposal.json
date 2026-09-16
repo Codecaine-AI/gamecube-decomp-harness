@@ -1,0 +1,224 @@
+{
+  "tu": "main/melee/gr/grkongo",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L1397-L1435",
+            "why": "Admission guards, retained fighter, countdown and state writes."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L454-L499",
+            "why": "NULL fallthrough, countdown, launch dispatch and nearby-Klap reset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim that disappearance of the retained pointer safely cancels state 1 and preserves the actual post-launch reset guard.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkongo:fn_801D8134"
+        },
+        "type": "state_behavior",
+        "value": "Only occupancy state 0 accepts a fighter. Failed occupancy or strict-radius checks return 0 without changing the cannon; successful admission stores the fighter and randomized s16 countdown, enters state 1, starts entry feedback, and returns 1. In the paired process, state 1 normally waits while the old countdown is nonnegative and falls through to state 2 when it expires. If keep is NULL, however, the process writes state 0 but still falls through into state 2 and dereferences keep; this is not a safe cancellation branch, and an external invariant would be needed to prove it unreachable. State 2 dispatches launch by p_link 8 or 9 and enters state 3. State 3 resets when the nearby-Klap query returns NULL, not upon a generic empty-occupant test."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L320-L435",
+            "why": "Rotation and animation-rate state machines, assertions and timer tests."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L437-L499",
+            "why": "Occupancy acquisition, fallthrough, launch and clearance states."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces misleading braking-state and generic barrel-empty language with the exact numeric transitions, exceptional branch and reset predicate.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkongo:grKongo_801D577C"
+        },
+        "type": "state_behavior",
+        "value": "Maintains three independent four-state controllers. Rotation state 0 brakes toward the target and counts down before choosing an acceleration direction; state 1 accelerates with a symmetric cap and later selects a target angle; states 2 and 3 compare wrapped remaining angle with stopping distance and angular speed, with state 2 becoming 3 outside the threshold and state 3 returning to 0 inside it. Zero angular velocity in states 2/3 asserts. Animation-rate states 0\u20133 wait, ramp upward, hold, and ramp down, preserving their distinct old-value timer tests. Occupancy state 0 acquires the first nearby Klap; state 1 waits on its old countdown or falls through to launch state 2. Its NULL-keep branch writes state 0 but also falls through to a subsequent dereference. State 2 launches p_link 8 through the fighter path or p_link 9 through the item path, then enters state 3 and updates feedback. State 3 returns to 0 only when no nearby Klap is found."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L672-L704",
+            "why": "Initializer calls, placement and paired process."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L775-L792",
+            "why": "Category-mask handling and recursive AOBJ_LOOP clearing."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1081-L1099",
+            "why": "Distinct status-flag predicates."
+          }
+        ],
+        "op": "write",
+        "rationale": "Canonical granime.c disproves the existing material-animation-7 interpretation and distinguishes the two status predicates independently of their colliding rendered names.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkongo:grKongo_801D637C"
+        },
+        "type": "state_behavior",
+        "value": "Initializes animation set 0, then calls grAnime_801C78FC(gobj, 0, 7) to clear AOBJ_LOOP recursively on the animation categories selected by mask 7; 7 is not a material-animation index. It chooses and applies a map-ID-dependent initial X coordinate and maintains no local timer or lifecycle discriminator. The paired process short-circuits two predicates querying distinct AObj flags, 0x40000000 and 0x04000000, with selectors 0 and 1, and destroys the Ground object when either predicate succeeds."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L773-L821",
+            "why": "Configured speed scaling, transform application and literal five-unit crossing."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the existing claim that the vertical drop threshold is configured while retaining the supported movement and audio purpose.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkongo:grKongo_801D6668"
+        },
+        "type": "purpose",
+        "value": "Advances a Kongo Ground object along a stage-authored spline, applies the path-derived position and orientation to its model, and starts a position-modulated stage sound when movement crosses from less than five units below the retained maximum Y to more than five units below it. The drop threshold is fixed at 5.0f; the path-speed scaling instead comes from yakumono_param->unk14."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L826-L843",
+            "why": "Joint resolution, live-angle initialization and outgoing calls."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L1009-L1015",
+            "why": "Unconditional simulation and overwritten second argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L1119-L1124",
+            "why": "Actual sway reset branch."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the existing joint-state flow while correcting the unsupported claim that both dependent calls consume an initialization mode.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkongo:grKongo_801D69B0"
+        },
+        "type": "data_flow",
+        "value": "For each of fifteen grKg_803E188C entries, resolves its configured joint index from the supplied GObj, retains the JObj pointer, copies the rest angle into the live angle, and writes that X rotation. It stores joints 0xB and 0x21 in grKg_804D6984, calls grKongo_801D7134(gobj, 1) and grKongo_801D77E0(gobj, 1), and sets collision joint 4's B10 property. The literal 1 is not an initialization selector for grKongo_801D7134: that callee unconditionally advances deformation and overwrites the argument as a loop counter. It is a reset selector for grKongo_801D77E0, which clears both sway channels before publishing rotations."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L826-L843",
+            "why": "Initialization ordering."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L1009-L1015",
+            "why": "Geometry call advances simulation regardless of incoming argument."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L1111-L1167",
+            "why": "Separate reset mode and rotation publication."
+          }
+        ],
+        "op": "write",
+        "rationale": "Distinguishes initial rest-angle assignment from the subsequent ordinary simulation pass and the separate real sway-reset mode.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkongo:grKongo_801D69B0"
+        },
+        "type": "state_behavior",
+        "value": "Performs an unconditional initialization sequence apart from its fixed fifteen-entry loop. It resets live segment angles to their rest values and writes their model rotations, resolves both support pointers, then runs an ordinary geometry/deformation update even though that call receives 1. Consequently the live angles may be changed again during the same initialization sequence. The following sway call does interpret 1 as reset and clears both angle/velocity channels before applying their rotations. Finally collision joint 4 receives the B10 property. The initializer has no local failure branch, timer or teardown."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L1179-L1279",
+            "why": "Exact countdown guards, weighted selection, timer reset and dispatch branches."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the positive-countdown edge and preserves negative-state behavior, regeneration ordering, repetition suppression and failure cleanup.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkongo:grKongo_801D7BBC"
+        },
+        "type": "state_behavior",
+        "value": "First decrements a positive signed countdown, then proceeds only if the resulting value is zero. Thus an incoming timer of 1 attempts selection in the same invocation; -1 and every other negative value return unchanged. An attempt samples the weighted roll and replaces the countdown before a possible no-event return or repeated-family rejection. Box weight is included only when both its eligibility and match-rule guards allow it. A repeated family is rejected when a fresh random sample exceeds unk1C; otherwise the family is latched before dispatch. Klap and Box outcomes create map object 11 and remove it if item construction fails. The remaining family creates a selected map object from IDs 1/2 or 7/8/9."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/types.h#L263-L310",
+            "why": "Canonical retained-slot and s16 occupancy declarations."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L437-L487",
+            "why": "Item retention and fighter/item launch discrimination."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L1445-L1457",
+            "why": "Exact signature, state guard, assertion and link-byte check."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the exclusive Fighter_GObj pointer and capture-state-byte claims without changing the recovered function signature.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkongo:grKongo_801D828C"
+        },
+        "type": "inferred_type",
+        "value": "Kongo Ground-event helper with exact signature void(HSD_GObj* gobj). Its argument owns the barrel controller's Ground payload. The canonical kongo3 occupancy discriminator xC6 is s16, while the overlapping taru.keep slot is declared void* and can retain a fighter or an item. This helper requires state 1 and a non-NULL retained object, then clears the slot only when the retained object's link byte is 8, the fighter discriminator used by the normal launch path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L1445-L1457",
+            "why": "Complete cancellation operation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grkongo.c#L481-L487",
+            "why": "Link 8 also selects ordinary fighter launch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/ground.c#L2909-L2918",
+            "why": "Shared Ground dispatcher forwards the active Kongo object without establishing a validity test."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the unsupported invalid-fighter validation interpretation with the actual fighter-only cleanup operation and explicit caller boundary.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grkongo:grKongo_801D828C"
+        },
+        "type": "purpose",
+        "value": "Cancels a retained fighter's occupancy of Kongo's Barrel Cannon when invoked during occupancy state 1: it asserts that keep is non-NULL, checks for fighter link 8, resets occupancy to 0, clears keep and stops the cannon's material overlay. Other occupancy states and retained non-fighter objects are left unchanged. The helper does not itself test whether the fighter is invalid; the reason for invoking this cancellation belongs to its callers."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

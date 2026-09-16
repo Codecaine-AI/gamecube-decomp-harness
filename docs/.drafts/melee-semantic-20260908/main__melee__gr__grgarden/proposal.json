@@ -1,0 +1,89 @@
+{
+  "tu": "main/melee/gr/grgarden",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgarden.c#L98-L101",
+            "why": "Complete void wrapper falls through after its call."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grzakogenerator.c#L313-L329",
+            "why": "The called constructor returns on both shown success and failure paths."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the misleading non-returning characterization while preserving the existing signature and lifecycle role.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgarden:grGarden_80202C4C"
+        },
+        "type": "inferred_type",
+        "value": "A parameterless stage-start lifecycle callback with signature `void (void)`. It returns no value and returns control normally after calling `grZakoGenerator_801CAE04(NULL)`; it is not a non-returning function."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgarden.c#L243-L273",
+            "why": "Complete gated countdown and animation-state update."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/granime.c#L1081-L1099",
+            "why": "Both helpers obtain an animation object and test different flag masks."
+          }
+        ],
+        "op": "write",
+        "rationale": "Canonical callee implementations contradict the existing availability explanation and the rendered collision obscures the distinction.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgarden:grGarden_80203098"
+        },
+        "type": "purpose",
+        "value": "Updates Cranky Kong's four-state ambient animation controller when either animation-flag query succeeds: `grAnime_801C83D0(gobj, 0, 7)` tests mask `0x40000000`, and `grAnime_801C84A4(gobj, 0, 7)` tests mask `0x04000000`. An eligible update decrements a nonzero hold counter; at zero it advances the animation state, wraps values above 3 to 0, reloads randomized holds for states 0 and 2 using parameters x8 and xC with zero-bound fallbacks, and selects the new animation. These are distinct flag tests, not availability tests for two separate animation components."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgarden.c#L300-L353",
+            "why": "Shows integer span assignment, guarded RNG, item calls, sound counts and reset followed by increment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves the useful existing flow while correcting omitted integer conversion, zero-bound behavior and post-reset increment.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgarden:grGarden_80203250"
+        },
+        "type": "data_flow",
+        "value": "Consumes the stored item GObj, controller state and counter in `GroundVars.garden2`. Idle activation calls `Item_80268E5C(item, 2, 2)` and starts stage animation 0. For placement it computes the absolute floating-point difference x1C-x18, converts that magnitude to int, uses `HSD_Randi(span)` only when that integer span is nonzero, and adds the resulting integer offset to x18 before writing JObj 0's X translation. Thus it does not sample a continuous interval or sort the endpoints. Active counter values select sounds 410001 at 38/148 and 410002 at 110/210. When the animation predicate succeeds, the callback requests item state 0 with argument 2, removes JObj animations, stores x10 plus a guarded random offset from x14, and restores controller state 0. The final case-1 increment then increases that newly stored delay by one."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/gr/grgarden.c#L309-L352",
+            "why": "Exact zero test, nonzero decrement, sound ordering, reset and unconditional increment."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects positive-only countdown wording and makes the reset timing and exceptional state behavior explicit.",
+        "subject": {
+          "target_stable_key": "main/melee/gr/grgarden:grGarden_80203250"
+        },
+        "type": "state_behavior",
+        "value": "Handles controller states 0 and 1. In state 0, any nonzero xcc is decremented, including a negative value; activation occurs only when xcc is already zero at entry, not on the update that decrements it to zero. Activation requests item state 2, starts animation 0, chooses the integer-offset X position, clears xcc and enters state 1. In state 1, sound checks use the current counter before completion handling. A successful animation predicate requests item state 0, removes animations, reloads xcc as x10 plus a random offset from nonzero x14 (otherwise zero), and restores controller state 0. The unconditional increment at the end of case 1 executes even after this reset, leaving the next idle counter at x10 plus random offset plus one. Other controller-state values perform no switch action."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

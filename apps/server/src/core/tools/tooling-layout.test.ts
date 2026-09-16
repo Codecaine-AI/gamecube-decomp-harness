@@ -75,6 +75,8 @@ function shouldSkipDirectory(path: string): boolean {
   const parts = rel.split("/");
   if (parts.includes(".git") || parts.includes("node_modules") || parts.includes("dist") || parts.includes("__pycache__")) return true;
   if (parts[0] === "objectives") return true;
+  // Docs recovery journals and drafts preserve old source verbatim; scan only active docs.
+  if (parts[0] === "docs" && parts.some(part => [".changesets", ".drafts", ".index"].includes(part))) return true;
   if (parts[0] === "games" && (parts.includes("checkout") || parts.includes("worktrees") || parts.includes("state"))) return true;
   if (parts[0] === "games" && (parts.includes("graph") || parts.includes("knowledge") || parts.includes("shared"))) return true;
   return false;

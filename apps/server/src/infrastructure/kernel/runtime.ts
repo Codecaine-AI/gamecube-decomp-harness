@@ -18,10 +18,8 @@ import {
 import type { GameRuntimeContext } from "@server/core/game-registry";
 import { openState } from "@server/core/orchestrator-state";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
-import {
-  getCycleByUuid,
-  mergeCycleKernelTrace,
-} from "@server/core/cycle/store.js";
+import { getHarnessState } from "@server/core/harness-state/state.js";
+import { persistHarnessKernelTrace } from "@server/core/harness-state/kernel-trace-state.js";
 import type { GameEventTraceLinkage } from "@server/core/harness-state/kernel-links.js";
 
 type JsonObject = Record<string, unknown>;
@@ -65,7 +63,7 @@ export interface DashboardKernelRuntimeService {
 }
 
 export interface DashboardKernelRuntimeServiceDeps {
-  activeCycleUuid?: (stateDir: string, gameId: string) => string | null;
+  activeHarnessId?: (stateDir: string, gameId: string) => string | null;
   env: Record<string, string | undefined>;
   json: JsonResponder;
   latestRunId: (stateDir: string) => string;
@@ -73,26 +71,16 @@ export interface DashboardKernelRuntimeServiceDeps {
   port: number;
   stateDir?: string;
   createKernelRuntime?: typeof createMeleeKernelRuntime;
-  persistCycleKernelTraceLinkage?: (
+  persistHarnessKernelTraceLinkage?: (
     stateDir: string,
     gameId: string,
-    cycleUuid: string,
-    trace: CycleKernelTraceLinkageAttachment,
+    harnessId: string,
+    trace: HarnessKernelTraceLinkageAttachment,
   ) => Promise<void> | void;
-  recordCycleKernelTrace?: (
-    stateDir: string,
-    gameId: string,
-    cycleUuid: string,
-    trace: {
-      activeContainerId: string;
-      appSessionId: string;
-      rootContainerId: string;
-      traceUrl: string;
-    },
-  ) => Promise<void> | void;
+
 }
 
-export interface CycleKernelTraceLinkageAttachment {
+export interface HarnessKernelTraceLinkageAttachment {
   activeContainerId: string;
   appSessionId: string;
   rootContainerId: string;
@@ -208,20 +196,17 @@ export function resolveWorkflowTraceLinkage(
   }
 }
 
-export function persistCycleKernelTraceLinkage(
+export function persistHarnessKernelTraceLinkage(
   stateDir: string,
   gameId: string,
-  cycleUuid: string,
-  trace: CycleKernelTraceLinkageAttachment,
+  harnessId: string,
+  trace: HarnessKernelTraceLinkageAttachment,
 ): void {
   const store = openState(stateDir);
   try {
-    const cycle = getCycleByUuid(store.db, cycleUuid);
-    if (!cycle) {
-      throw new Error(`Game cycle ${cycleUuid} was not found`);
-    }
-    if (cycle.game_id !== gameId) {
-      throw new Error(`Game cycle ${cycleUuid} does not belong to ${gameId}`);
+    const harness = getHarnessState(store.db, gameId);
+    if (!harness || harness.identity.harness_id !== harnessId) {
+      throw new Error(`Harness ${harnessId} does not belong to ${gameId}`);
     }
     const linkage = gameScopedWorkflowTraceLinkage(store.db, gameId, {
       kind: "session",
@@ -230,7 +215,7 @@ export function persistCycleKernelTraceLinkage(
       correlationId: trace.correlationId,
       causedByEventId: trace.causedByEventId,
     });
-    mergeCycleKernelTrace(store.db, cycle.id, {
+    persistHarnessKernelTrace(store.db, gameId, harnessId, {
       app_session_id: requiredText(trace.appSessionId, "appSessionId"),
       root_container_id: requiredText(trace.rootContainerId, "rootContainerId"),
       active_container_id: requiredText(trace.activeContainerId, "activeContainerId"),
@@ -265,7 +250,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
   const kernelObserverUrl = deps.env.AGENT_KERNEL_OBSERVER_URL ?? null;
   const createKernelRuntime = deps.createKernelRuntime ?? createMeleeKernelRuntime;
   const persistKernelTraceLinkage =
-    deps.persistCycleKernelTraceLinkage ?? persistCycleKernelTraceLinkage;
+    deps.persistHarnessKernelTraceLinkage ?? persistHarnessKernelTraceLinkage;
   let kernelRuntimePromise: Promise<MeleeKernelRuntime | null> | null = null;
 
   function runtime(): Promise<MeleeKernelRuntime | null> {
@@ -396,10 +381,10 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
     const explicit = stringValue(input.sessionId).trim();
     if (explicit) return explicit;
     try {
-      const activeCycle = deps.activeCycleUuid?.(paths.stateDir, gameId(paths));
-      if (activeCycle) return activeCycle;
+      const activeHarness = deps.activeHarnessId?.(paths.stateDir, gameId(paths));
+      if (activeHarness) return activeHarness;
     } catch {
-      // Fall back to run identity when canonical cycle state is unavailable.
+      // Fall back to run identity when harness state is unavailable.
     }
     const runId = stringValue(input.runId).trim();
     if (runId) return runId;
@@ -407,7 +392,7 @@ export function createDashboardKernelRuntimeService(deps: DashboardKernelRuntime
       const latest = deps.latestRunId(paths.stateDir);
       if (latest) return latest;
     } catch {
-      // Some cycle-boundary operations can run before the orchestrator state DB exists.
+      // Some bootstrap operations can run before the orchestrator state DB exists.
     }
     return paths.game?.gameId ? `game:${paths.game.gameId}` : "dashboard-session";
   }

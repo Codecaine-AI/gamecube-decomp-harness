@@ -6,11 +6,8 @@ type RunActionId = "run.resume" | "run.hard_stop" | "run.cancel" | "run.recover"
 
 export interface RunsApiRouteDeps {
   cancelRun: (body: JsonObject) => unknown;
-  completeRun: (body: JsonObject) => Promise<unknown>;
-  freshRun: (body: JsonObject) => Promise<unknown>;
   forceReleaseLease: (body: JsonObject) => Promise<unknown> | unknown;
   hardStopRun: (body: JsonObject) => Promise<unknown>;
-  initRun: (body: JsonObject) => Promise<unknown>;
   json: JsonResponder;
   recoverRun: (body: JsonObject) => Promise<unknown>;
   resumeRun: (body: JsonObject) => unknown;
@@ -45,7 +42,7 @@ async function runCommand(
     return deps.json(commandResponse(action, await execute(body)));
   } catch (error) {
     // A command can lose a status or lease race after the initial projection.
-    // Re-game so those failures use the same blocker decision as the UI.
+    // Recompute so those failures use the same blocker decision as the UI.
     const latest = deps.runActionProjection(body, actionId);
     if (!latest.enabled) {
       return deps.json(
@@ -59,9 +56,6 @@ async function runCommand(
 
 export async function handleRunsApiRoute(req: Request, url: URL, deps: RunsApiRouteDeps): Promise<Response | null> {
   if (req.method !== "POST") return null;
-  if (url.pathname === "/api/run/complete") return deps.json(await deps.completeRun(await requestBody(req)));
-  if (url.pathname === "/api/run/init") return deps.json(await deps.initRun(await requestBody(req)));
-  if (url.pathname === "/api/run/fresh") return deps.json(await deps.freshRun(await requestBody(req)));
   if (url.pathname === "/api/run/force-release-lease") {
     const body = await requestBody(req);
     if (typeof body.gameId !== "string" || !body.gameId.trim()) {

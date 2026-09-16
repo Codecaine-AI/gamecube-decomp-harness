@@ -1,0 +1,254 @@
+{
+  "tu": "main/melee/ft/kinds/ftGameWatch/ftgamewatchattackair",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchattackair:ftGw_AttackAirN_DecideAction"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Action-dispatch callback with signature void(HSD_GObj* gobj). The object supplies the Fighter whose directional input is interpreted by the common aerial selector; that selector uses C-stick input when ftCo_800DF478 succeeds and left-stick input otherwise. The callback returns no value.",
+        "rationale": "Preserves the correct signature while correcting the C-stick-only interpretation of the argument.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L317-L338",
+            "why": "Signature and selector invocation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackAir.c#L90-L116",
+            "why": "C-stick and left-stick branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchattackair:ftGw_AttackAirN_DecideAction"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Selects and enters Mr. Game & Watch's directional aerial attack using the common input selector, which uses C-stick input when ftCo_800DF478 succeeds and left-stick input otherwise. Neutral, back, and up aerials use character-specific entry routines; forward and down aerials use common entry. An unmatched motion ID produces no entry call.",
+        "rationale": "Corrects the input-source restriction without changing the supported dispatch explanation.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L317-L338",
+            "why": "Five dispatch cases and no default action."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackAir.c#L90-L116",
+            "why": "Actual input selection."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchattackair:ftGw_AttackAirN_ItemCheckParachuteRemove"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides the owner-motion removal predicate for the Parachute article: returns false for every motion ID in the inclusive interval from ftGw_MS_AttackAirN through ftGw_MS_LandingAirN and true outside that interval. It does not remove the article or guarantee its continued existence.",
+        "rationale": "Replaces endpoint-only wording with the exact range operation and separates removal permission from article lifetime.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L93-L103",
+            "why": "Complete side-effect-free inclusive predicate."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchattackair:ftGw_AttackAirN_ItemCheckParachuteRemove"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Supplies the owner-state lifetime check for the Parachute article scheduled by Mr. Game & Watch's neutral aerial. It suppresses owner-state-driven removal within the inclusive AttackAirN-to-LandingAirN motion-ID interval, but the item animation can still request removal at animation frame exactly 30 or when its owner is absent.",
+        "rationale": "Corrects the claim that this predicate keeps the article alive throughout the move by including independent item-side expiry.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L93-L103",
+            "why": "Range test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L343-L349",
+            "why": "Neutral aerial schedules Parachute."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchparachute.c#L94-L120",
+            "why": "Frame-equality and absent-owner expiry branches."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchattackair:ftGw_LandingAirB_Enter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "First exits hitlag independently for every retained Parachute, Turtle, and Sparky article. With nonzero cmd_vars[0], initializes ftGw_MS_LandingAirB using landingairb_lag, schedules ftGw_AttackAirN_ItemTurtleOnLand, and returns. Otherwise enters basic landing and invokes character-wide article cleanup. The scheduled Turtle callback requests item state 1 only if its article exists and motion_id equals ftGw_MS_LandingAirN, not LandingAirB.",
+        "rationale": "Distinguishes initial hitlag exit from deferred item-state handling and preserves the mismatched landing guard.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L458-L484",
+            "why": "Entry sequence and branch."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L602-L608",
+            "why": "Back-air lag source."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L134-L152",
+            "why": "Deferred LandingAirN guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchturtle.c#L68-L86",
+            "why": "Distinct hitlag-exit and item-state routines."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchattackair:ftGw_LandingAirHi_Enter"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves Fighter from gobj and independently forwards non-null Parachute, Turtle, and Sparky handles to it_802C6DD8, it_802C70E0, and it_802C73AC, the article hitlag-exit wrappers. It then reads cmd_vars[0]: nonzero calls ftGw_LandingAirHi_Init and stores ftGw_AttackAirN_ItemSparkyOnLand in accessory4_cb; zero calls ftCo_Landing_Enter_Basic followed by ftGw_Init_OnDamage. The initial article calls do not themselves select item landing states.",
+        "rationale": "Corrects the classification of the three item calls while retaining the exact input and callback flow.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L520-L546",
+            "why": "Complete data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchparachute.c#L70-L73",
+            "why": "Parachute wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchturtle.c#L68-L71",
+            "why": "Turtle wrapper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchbreath.c#L61-L64",
+            "why": "Sparky/Breath wrapper."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchattackair:ftGw_LandingAirHi_Enter"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Handles landing entry from Mr. Game & Watch's up aerial by exiting hitlag for all retained aerial articles, then choosing dedicated LandingAirHi with a deferred Sparky OnLand callback when cmd_vars[0] is nonzero, or basic landing followed by character-wide article cleanup otherwise. Sparky's deferred callback only requests its item transition when an article exists and the fighter is in LandingAirN.",
+        "rationale": "Replaces misleading immediate landing-notification language with the actual hitlag operation and conditional deferred transition.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L520-L546",
+            "why": "Entry and scheduling."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L219-L236",
+            "why": "Nullable Sparky callback and LandingAirN guard."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatch.c#L555-L566",
+            "why": "Character-wide cleanup scope."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftGameWatch/ftgamewatchattackair:ftGw_LandingAirN_Enter"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Resolves Fighter from gobj, reads the retained Parachute, Turtle, and Sparky handles, and forwards each non-null handle to its article-specific hitlag-exit wrapper. It then reads cmd_vars[0]: nonzero calls ftGw_LandingAirN_Init and stores ftGw_AttackAirN_ItemParachuteOnLand in accessory4_cb; zero calls ftCo_Landing_Enter_Basic and then ftGw_Init_OnDamage. The actual Parachute item-state transition is deferred to OnLand, while basic landing can select HammerLanding or ordinary Landing.",
+        "rationale": "Corrects item-call semantics and preserves the separately scheduled transition and fallback exception.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L386-L412",
+            "why": "Complete entry flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L49-L64",
+            "why": "Deferred Parachute transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchparachute.c#L70-L92",
+            "why": "Distinct hitlag-exit and state-transition routines."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Landing.c#L83-L91",
+            "why": "HammerLanding exception."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Directional dispatch specializes neutral, back, and up aerial entry and delegates forward/down entry. Article removal predicates suppress owner-state-driven removal within inclusive motion-ID intervals; item-side owner loss and Parachute animation-frame equality to 30 provide additional expiry paths. Landing entry exits article hitlag, then selects dedicated landing with a deferred OnLand callback or basic landing with character-wide cleanup. All three OnLand item-transition guards compare against LandingAirN, including Turtle and Sparky. LandingAirHi uses landingairb_lag. Landing animation/collision callbacks clean up whenever their post-delegate motion ID differs from the dedicated landing state.",
+        "rationale": "Corrects the unit-level guarantee of persistence and matching landing transitions while retaining dispatch and lifecycle structure.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftGameWatch/ftgamewatchattackair.c#L25-L697",
+            "why": "Complete fighter-side lifecycle, dispatch, landing guards and lag source."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchparachute.c#L94-L120",
+            "why": "Independent frame and owner expiry."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchturtle.c#L88-L102",
+            "why": "Ownerless and owner-state removal."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/it/kinds/itgamewatchbreath.c#L83-L103",
+            "why": "Ownerless and owner-state removal."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

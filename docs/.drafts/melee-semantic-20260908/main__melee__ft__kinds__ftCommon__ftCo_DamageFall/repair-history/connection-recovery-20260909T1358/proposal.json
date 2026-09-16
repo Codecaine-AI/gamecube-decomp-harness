@@ -1,0 +1,249 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:.sdata2"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Eight-byte literal pool containing f32 0.0 at offset 0 and 1.0 at offset 4. The observed source object marks .sdata2 WRITE|ALLOC; the split object marks it ALLOC without SHF_WRITE. Final runtime protection is not established.",
+        "rationale": "Existing objects agree on bytes and size but not SHF_WRITE; the read-only claim conflates section convention with permissions.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L133",
+            "why": "Existing objects agree on bytes and size but not SHF_WRITE; the read-only claim conflates section convention with permissions."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090574"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives a Fighter_GObj from a surface-reaction entry routine and forwards it unchanged to ft_80081DD4. Downstream, that helper reads the Fighter, CollData, SDI permission, ledge cooldown and collision flags, fighter-data ledge-snap height, model scale, and a common ledge-snap multiplier. It advances CollData.last_pos from CollData.cur_pos, seeds CollData.cur_pos from Fighter.cur_pos, chooses one of three map-collision queries, on the ordinary path multiplies the scale-derived ledge-snap height by common x1CC only for ECBSource_JObj and restores its unmultiplied value only for that source kind, writes the resolved CollData.cur_pos back to Fighter.cur_pos, and computes a boolean result that this wrapper discards.",
+        "rationale": "The callee gates both writes by ECBSource_JObj and does not establish that x1CC always enlarges the value.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L26-L29",
+            "why": "The callee gates both writes by ECBSource_JObj and does not establish that x1CC always enlarges the value."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_081B.c#L125-L167",
+            "why": "The callee gates both writes by ECBSource_JObj and does not establish that x1CC always enlarges the value."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Reads two independently queued values from Fighter.dmg. An x1908 value other than -1 is passed to ft_PlaySFX with volume 127 and pan 64, then replaced with -1. A non-NULL x190C is passed to ft_800889F4, which chooses sfx_ids[HSD_Randi(num)] from the FtSFXArr and starts it with the same maximum-volume, centered-pan controls, after which x190C is replaced with NULL.",
+        "rationale": "The exact local presence test is != -1, not a sign test.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "The exact local presence test is != -1, not a sign test."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_0881.c#L213-L218",
+            "why": "The exact local presence test is != -1, not a sign test."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Dispatches queued damage audio in immediate or hitlag-deferred processing. The hit-processing caller invokes it immediately when bool1 is zero; with bool1 nonzero, positive computed hitlag and bool2 set mark audio for dispatch when hitlag ends. A computed zero hitlag in the bool1 branch does not itself invoke this routine.",
+        "rationale": "Immediate playback follows the bool1==0 branch, not every interaction with zero hitlag; deferral also requires positive hitlag and bool2.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "Immediate playback follows the bool1==0 branch, not every interaction with zero hitlag; deferral also requires positive hitlag and bool2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2965-L2991",
+            "why": "Immediate playback follows the bool1==0 branch, not every interaction with zero hitlag; deferral also requires positive hitlag and bool2."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1406-L1425",
+            "why": "Immediate playback follows the bool1==0 branch, not every interaction with zero hitlag; deferral also requires positive hitlag and bool2."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090718"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Each pending slot is processed independently: x1908 != -1 plays the direct ID and resets it to -1; non-NULL x190C plays a randomly selected array entry and resets it to NULL. Hit processing calls immediately when bool1==0. With bool1 nonzero, positive hitlag and bool2 set raise x221A_b3; frame processing dispatches when hitlag expires and clears that flag.",
+        "rationale": "The caller has explicit positive-hitlag and bool2 gates on deferral, omitted by the previous unconditional otherwise claim.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L83-L93",
+            "why": "The caller has explicit positive-hitlag and bool2 gates on deferral, omitted by the previous unconditional otherwise claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L2965-L2991",
+            "why": "The caller has explicit positive-hitlag and bool2 gates on deferral, omitted by the previous unconditional otherwise claim."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/fighter.c#L1406-L1425",
+            "why": "The caller has explicit positive-hitlag and bool2 gates on deferral, omitted by the previous unconditional otherwise claim."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_80090780"
+        },
+        "type": "game_mapping",
+        "op": "write",
+        "value": "Begins Melee's airborne tumbling state, internally called DamageFall, including non-attack entries such as ledge-hang timer expiration. The Lift collision callback route can also drop a held item and invoke this entry; its enum-to-Boolean trigger is not interpreted here as loss of ground. If the fighter has an active Parasol, it preserves the item's specialized damaged-descent behavior instead of forcing the ordinary tumble motion.",
+        "rationale": "The verified CliffWait caller checks expiration of its hang timer, not a push.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L95-L109",
+            "why": "The verified CliffWait caller checks expiration of its hang timer, not a push."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_CliffWait.c#L60-L72",
+            "why": "The verified CliffWait caller checks expiration of its hang timer, not a push."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Lift.c#L45-L61",
+            "why": "The verified CliffWait caller checks expiration of its hang timer, not a push."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "Receives the fighter's HSD_GObj, derives its Fighter to read horizontal left-stick input and the horizontal-tilt timer, and forwards the game object through prioritized action predicates. The tumble-cancel test additionally reads p_ftCommonData->x210 and x214; handlers can change motion, including ftCo_Fall_Enter, or consume input by writing a timer (ftCo_800D705C sets x209C from x414), while the callback itself returns no value.",
+        "rationale": "Do not equate all successful predicate returns with motion-state mutation.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "Do not equate all successful predicate returns with motion-state mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L139-L146",
+            "why": "Do not equate all successful predicate returns with motion-state mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerFall.c#L16-L67",
+            "why": "Do not equate all successful predicate returns with motion-state mutation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L297-L325",
+            "why": "Do not equate all successful predicate returns with motion-state mutation."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "Fighter IASA callback with exact signature void ftCo_DamageFall_IASA(HSD_GObj* gobj). It consumes boolean action-handler results through early returns and returns no result itself. A true handler may only update a timer, as ftCo_800D705C does, rather than change motion.",
+        "rationale": "A verified true-return path sets x209C without a motion transition.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "A verified true-return path sets x209C without a motion transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L139-L146",
+            "why": "A verified true-return path sets x209C without a motion transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerFall.c#L16-L67",
+            "why": "A verified true-return path sets x209C without a motion transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L297-L325",
+            "why": "A verified true-return path sets x209C without a motion transition."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_DamageFall:ftCo_DamageFall_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "If ftCo_800C5240 reports no held Hammer, checks in short-circuit order: aerial special input; ftCo_80095328(gobj, 0); ftCo_800D7100; ftCo_800C3B10; airborne attack/item-throw input; ftCo_800D705C; and ftCo_800CB870. If none returns true, absolute horizontal stick >= common x210 and tilt age < common x214 enter Fall and return. Only if no earlier return occurred does it test ftCo_800C5DDC (Hammer release/drop), followed on false by ftCo_800C5CD4 (HammerFall entry). A true predicate need not change motion: ftCo_800D705C sets x209C from common x414.",
+        "rationale": "The guard is a Hammer-held predicate; final checks depend on no prior early return, and handled input need not imply a motion transition.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_DamageFall.c#L113-L133",
+            "why": "The guard is a Hammer-held predicate; final checks depend on no prior early return, and handled input need not imply a motion transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerWait.c#L139-L146",
+            "why": "The guard is a Hammer-held predicate; final checks depend on no prior early return, and handled input need not imply a motion transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_HammerFall.c#L16-L67",
+            "why": "The guard is a Hammer-held predicate; final checks depend on no prior early return, and handled input need not imply a motion transition."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L297-L325",
+            "why": "The guard is a Hammer-held predicate; final checks depend on no prior early return, and handled input need not imply a motion transition."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

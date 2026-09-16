@@ -1,0 +1,148 @@
+{
+  "tu": "main/melee/ft/kinds/ftYoshi/ftyoshispeciallw",
+  "proposal": {
+    "entities": [],
+    "facts": [
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispeciallw.c#L132-L144",
+            "why": "Exact inputs and ordered branches."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Fallback explicitly sets GA_Air."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects the baseline's reversed interpretation of the fallback conversion.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftYoshi/ftyoshispeciallw:ftYs_SpecialAirLw_Coll"
+        },
+        "type": "data_flow",
+        "value": "Reads facing direction for ft_CheckGroundAndLedge and cmd_vars[0] plus self_vel.y for the impact guard. A successful first test invokes landing entry when cmd_vars[0] is nonzero and self_vel.y <= 0; otherwise it passes the Fighter to ftCommon_8007D5D4, which resets airborne handling. On a failed first test, cmd_vars[0] gates ftCliffCommon_80081298 and its successful result triggers ftCliffCommon_80081370."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispeciallw.c#L127-L144",
+            "why": "Shared wrapper and complete collision logic."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Airborne rather than grounded setup."
+          }
+        ],
+        "op": "write",
+        "rationale": "Preserves all branches while correcting the purported ordinary grounding fallback.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftYoshi/ftyoshispeciallw:ftYs_SpecialAirLw_Coll"
+        },
+        "type": "purpose",
+        "value": "Handles shared Yoshi down-special collision: selects impact landing on a successful ground/ledge test with cmd_vars[0] set and nonpositive vertical velocity, otherwise reestablishes airborne handling for that contact branch; when the first test fails, permits the command-gated cliff-entry path."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispeciallw.c#L132-L185",
+            "why": "Branch priority and landing installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L594",
+            "why": "Air reset and grounded conversion effects."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects fallback direction and preserves the ordered cross-file velocity writes.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftYoshi/ftyoshispeciallw:ftYs_SpecialAirLw_Coll"
+        },
+        "type": "state_behavior",
+        "value": "The first collision test has priority. Its guarded impact branch writes zero ground velocity, performs common grounded conversion, enters SpecialLwLanding, and schedules the star callback. Common conversion may overwrite ground velocity from self_vel.x. The alternate successful-contact branch sets GA_Air and reinitializes airborne bookkeeping through ftCommon_8007D5D4. Only a failed first test can reach the cmd_vars[0]-gated cliff transition; otherwise there is no explicit transition in this callback."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispeciallw.c#L27-L185",
+            "why": "Complete local data flow."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Contact fallback is airborne reset."
+          }
+        ],
+        "op": "write",
+        "rationale": "Replaces the incorrect ground-conversion fallback and avoids assuming x114's sign or successful item allocation.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftYoshi/ftyoshispeciallw.c"
+        },
+        "type": "data_flow",
+        "value": "Entry resets command slots, throw state, self velocity and translation-offset y after motion-state and animation initialization. Aerial animation latches cmd_vars[1]; aerial physics derives animation velocity and assigns attribute x114 when y < x114 or that slot is set. Collision chooses impact landing, airborne reset, or gated cliff handling. Landing installs a deferred callback that reads TransN and star offsets, attempts two opposite-directed star spawns, then clears its accessory slot."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispeciallw.c#L55-L185",
+            "why": "Entry order, phase changes, exact collision guard and callback installation."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_08A1.c#L53-L109",
+            "why": "Common ending is not unconditional Wait."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftcommon.c#L515-L525",
+            "why": "Ground-origin entry uses GA_Air."
+          }
+        ],
+        "op": "write",
+        "rationale": "Corrects reset ordering and preserves exceptional and numeric-state distinctions.",
+        "subject": {
+          "entity_locator": "src/melee/ft/kinds/ftYoshi/ftyoshispeciallw.c"
+        },
+        "type": "state_behavior",
+        "value": "Ground-origin entry first establishes airborne handling; both entries select their respective SpecialLw motion and initialize animation before resetting move-local fields. Ground-origin animation completion transfers to SpecialAirLw at frame 20 with explicit continuity/update flags. Aerial completion sets cmd_vars[1] to force x114 in subsequent physics. Guarded collision enters landing and schedules stars. Landing animation completion delegates to common ending with exceptional guards before ordinary Wait. Landing collision explicitly enters Fall when ft_80082708 returns GA_Ground."
+      },
+      {
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftYoshi/ftyoshispeciallw.c#L163-L166",
+            "why": "Landing physics delegates to the helper."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ft_084E.c#L42-L53",
+            "why": "Exact friction scaling condition and movement calls."
+          }
+        ],
+        "op": "write",
+        "rationale": "Retains traction mapping while removing an unsupported multiplier-magnitude claim.",
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftYoshi/ftyoshispeciallw:ftYs_SpecialLwLanding_Phys"
+        },
+        "type": "game_mapping",
+        "value": "Implements grounded friction and movement during Yoshi Bomb's landing recovery. The delegated helper uses character ground friction and multiplies it by friction_when_above_walk_speed when absolute ground velocity exceeds walk_max_vel; the source shown does not establish whether that multiplier strengthens friction."
+      }
+    ],
+    "follow_ups": [],
+    "links": [],
+    "merges": []
+  }
+}

@@ -16,13 +16,13 @@ import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowle
 import { librarianV2Prompt } from "@server/core/agent-catalog/agents/knowledge/librarian-v2/index.js";
 import { backfillLibrarianPrompt } from "@server/core/agent-catalog/agents/knowledge/backfill-librarian/index.js";
 import { globalStandardsContext } from "@server/core/knowledge";
-import { gameKnowledgeRoot } from "@server/core/knowledge/paths.js";
+import { gameKnowledgeRoot, knowledgeStorePath } from "@server/core/knowledge/paths.js";
 import { buildPassContext, type BackfillPassContext } from "@server/core/knowledge-v2/backfill/context.js";
 import { librarianStandardsView } from "@server/core/knowledge-v2/backfill/runner.js";
 import { prioritizeTargets } from "@server/core/knowledge-v2/migration/prioritize.js";
 import { openKnowledgeStore, type KnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
 import { loadV2TargetCard, type V2TargetCard } from "@server/core/knowledge-v2/card.js";
-import { buildWorkerKnowledgeContext } from "@server/core/cycle-runtime/phases/running/workers/worker-cycle.js";
+import { buildWorkerKnowledgeContext } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
 import { gameRoot } from "@server/core/knowledge/paths.js";
 import { resolveKnowledgeCheckout } from "@server/core/knowledge-v2/checkout.js";
 import type { DriftReport } from "@server/core/knowledge-v2/drift/flagger.js";
@@ -50,7 +50,7 @@ export interface KernelAgentsPayload {
   warnings: string[];
 }
 
-type BackfillPreviewContext = Pick<BackfillPassContext, "fillOut" | "supporting">;
+type BackfillPreviewContext = Pick<BackfillPassContext, "fillOut" | "supporting"> & { headRevision?: string; outputCorrection?: { previous_output: string; parse_error: string } };
 
 export interface KernelPreviewDeps {
   target?: KernelPreviewTarget;
@@ -197,7 +197,7 @@ function loadRealBackfillPassContext(paths: KernelAgentCatalogContext): Backfill
   try {
     if (!paths.game) return null;
     const gameId = paths.game.gameId;
-    const sqlitePath = resolve(gameKnowledgeRoot(gameId), "knowledge.sqlite");
+    const sqlitePath = knowledgeStorePath(gameKnowledgeRoot(gameId));
     if (!existsSync(sqlitePath)) return null;
 
     // Opening runs migrations; for an up-to-date existing store that pass is a no-op.
@@ -209,7 +209,7 @@ function loadRealBackfillPassContext(paths: KernelAgentCatalogContext): Backfill
     if (!row) return null;
     const checkout = resolveKnowledgeCheckout({ gameId, stateDir: paths.stateDir });
     const context = buildPassContext(store, row, { checkoutRoot: checkout.checkoutRoot, checkoutRev: checkout.headRevision });
-    return { fillOut: context.fillOut, supporting: context.supporting };
+    return { fillOut: context.fillOut, supporting: context.supporting, headRevision: checkout.headRevision };
   } catch {
     return null;
   } finally {
@@ -311,7 +311,14 @@ function samplePrompt(
                 identity_status: "current",
               },
               context_budget: "full",
-              ledger: { runs: [], entries: [] },
+              ledger: {
+                runs: [], entries: [],
+                recovery: {
+                  cause: "upstream_change",
+                  summary: "Previously achieved 100%. Upstream merge displaced the solution. Read the saved commit and adapt it to the current source before revalidating.",
+                  refs: [{ refKind: "commit", refId: "sample-pre-merge-commit" }],
+                },
+              },
               status: { match_pct: 91.25, linked: true, size: null },
               facts: {
                 naming_note: "Use the target symbol as the canonical source name.",
@@ -464,7 +471,7 @@ function samplePrompt(
           {
             kind: "transcript_span",
             session_id: "019f1424-f574-716d-8065-c53713ee2cf0",
-            path: `${paths.repoRoot}/games/melee/worktrees/cycles/53d5b342/epochs/0071/workers/${workerStateId}/source/.pi-sessions/8f5861fc/worker/2026-07-12T00-01-35-565Z_019f1424-f574-716d-8065-c53713ee2cf0.jsonl`,
+            path: `${paths.repoRoot}/.pi-sessions/8f5861fc/worker/2026-07-12T00-01-35-565Z_019f1424-f574-716d-8065-c53713ee2cf0.jsonl`,
             exists: true,
             content: `${transcriptLines.map((line) => JSON.stringify(line)).join("\n")}\n`,
           },
@@ -548,7 +555,7 @@ function samplePrompt(
       }
       return backfillLibrarianPrompt({
         ...(context ? {} : sampleSourceReading),
-        task: { mode: "fill_out_pass", reason: "dashboard preview" },
+        task: { mode: "fill_out_pass", reason: "dashboard preview", game_id: game?.gameId ?? "melee", head_revision: context?.headRevision ?? "preview-revision-unavailable", ...(context?.outputCorrection ? { output_correction: context.outputCorrection } : {}) },
         fillOutSubjects: context?.fillOut ?? [
           {
             order: 1,
@@ -579,7 +586,7 @@ function samplePrompt(
           },
         ],
         supportingSubjects: context?.supporting ?? [],
-        decompStandards: librarianStandardsView(globalStandardsContext()),
+        decompStandards: librarianStandardsView(globalStandardsContext({ gameId: game?.gameId })),
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
         game,

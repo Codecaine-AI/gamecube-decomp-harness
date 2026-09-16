@@ -1,0 +1,495 @@
+{
+  "finding": {
+    "id": "F11",
+    "title": "Cast an Ordinary Flag to Volatile to Force Reloads",
+    "file": "src/System/MarDirectorEvent.cpp",
+    "start_line": 248,
+    "end_line": 253,
+    "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L248-L253",
+    "category": "partial function",
+    "certainty": "High confidence compiler workaround",
+    "snippet": "\t\tif (!((*(volatile u16*)&unk4C) & 0x100)) {\n\t\t\t(*(volatile u16*)&unk4C) |= 0x100;\n\t\t\tsetNextStage(0x1, nullptr);\n\t\t\tTFlagManager::smInstance->setBool(true, 0x10389);\n\t\t\tTFlagManager::smInstance->setBool(true, 0x30004);\n\t\t\tgpApplication.mMovie = param_1;",
+    "checkpoints": [
+      {
+        "commit": "21a5d157dc41ff4516e105647195c37cbd66e279",
+        "files": [
+          "src/System/MarDirectorEvent.cpp"
+        ],
+        "target": {
+          "unit": "mario/System/MarDirectorEvent",
+          "symbol": "fireStreamingMovie__12TMarDirectorFUc",
+          "before": 74.16393,
+          "after": 99.81967,
+          "improved": true,
+          "exact": false
+        },
+        "reasons": [
+          "target fireStreamingMovie__12TMarDirectorFUc improved from 74.16393 to 99.81967 but did not reach exact as claimed; runner records improved progress"
+        ],
+        "qaLint": "clean",
+        "validationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/runner_validation/attempt-4.runner_validation.summary.json",
+        "patchPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/runner_validation/attempt-4.write_set.diff",
+        "workerDirectory": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54",
+        "diffPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/runner_validation/attempt-4.unit_diff.json",
+        "baselinePath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/runner_validation/pre_worker_unit_snapshot.json",
+        "integrationPath": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_integrations/job-888f71d3-e82f-47f5-a950-47277f9a0114/summary.json"
+      }
+    ],
+    "why": "Seven flag-check/update pairs cast &unk4C to volatile u16*. The worker states this prevents common-subexpression elimination and reproduces repeated loads and scheduling. The field is an ordinary director flag, and no hardware or asynchronous-access contract was identified. This is a code-generation constraint substituted for an explanation of the original accessors or inline boundaries.",
+    "score_attribution": "The function improves 74.16393% to 99.81967%. The checkpoint also fixes selector 12 to take the default 0xF path; that jump-table-supported semantic correction is legitimate. Do not assign the entire gain to volatile or revert the selector fix with it.",
+    "lint_candidate": "Flag newly introduced volatile casts on ordinary game-object members unless an access contract justifies them.",
+    "related": [],
+    "occurrences": {
+      "count": 7,
+      "unit": "flag-check/update pair",
+      "file_count": 1,
+      "detail": "Seven pairs in fireStreamingMovie, containing 14 volatile cast expressions. Compound assignment can perform both a read and a write; this is a source-expression count, not a machine-access count.",
+      "locations": [
+        {
+          "file": "src/System/MarDirectorEvent.cpp",
+          "line": 248,
+          "description": "flag-check/update pair",
+          "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L248",
+          "update_line": 249,
+          "cast_expression_count": 2
+        },
+        {
+          "file": "src/System/MarDirectorEvent.cpp",
+          "line": 258,
+          "description": "flag-check/update pair",
+          "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L258",
+          "update_line": 259,
+          "cast_expression_count": 2
+        },
+        {
+          "file": "src/System/MarDirectorEvent.cpp",
+          "line": 266,
+          "description": "flag-check/update pair",
+          "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L266",
+          "update_line": 267,
+          "cast_expression_count": 2
+        },
+        {
+          "file": "src/System/MarDirectorEvent.cpp",
+          "line": 274,
+          "description": "flag-check/update pair",
+          "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L274",
+          "update_line": 275,
+          "cast_expression_count": 2
+        },
+        {
+          "file": "src/System/MarDirectorEvent.cpp",
+          "line": 282,
+          "description": "flag-check/update pair",
+          "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L282",
+          "update_line": 283,
+          "cast_expression_count": 2
+        },
+        {
+          "file": "src/System/MarDirectorEvent.cpp",
+          "line": 290,
+          "description": "flag-check/update pair",
+          "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L290",
+          "update_line": 291,
+          "cast_expression_count": 2
+        },
+        {
+          "file": "src/System/MarDirectorEvent.cpp",
+          "line": 299,
+          "description": "flag-check/update pair",
+          "source_url": "https://github.com/doldecomp/sms/blob/f37da262e537d5cc4e8a2e15ae311370a0d67039/src/System/MarDirectorEvent.cpp#L299",
+          "update_line": 300,
+          "cast_expression_count": 2
+        }
+      ],
+      "cast_expression_count": 14
+    }
+  },
+  "worker_notes": [
+    {
+      "commit": "21a5d157dc41ff4516e105647195c37cbd66e279",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/worker_01a0a60b-3047-7940-ba8e-1612ea7bdfcc.txt",
+      "note": {
+        "summary": "No source change retained. Classified the residual as a broad instruction-shape mismatch involving switch block layout, stack-frame size, and operation scheduling. Tested moving every setNextStage call before the 0x100 flag update; this regressed the score from 74.16393% to 58.32787% and was reverted. Tested the existing checkUnk4CFlag/onUnk4CFlag helpers and explicit unk4C assignment syntax; both reproduced the baseline residual exactly and were ablated. The source-permuter probe could not locate the mangled function in the source, and instrumented MWCC diagnostics were unavailable.",
+        "residual": {
+          "class": "instruction shape",
+          "rows": [
+            "target frame is 0x40 with r31 at 0x3c and r30 at 0x38",
+            "switch dispatch table relocation/register operands differ at target offsets 0x24-0x30",
+            "case bodies differ around repeated flag checks and updates, including target offsets 0x48-0x54 and 0x98-0xb4",
+            "multiple branch destinations and inserted/deleted instructions remain throughout the switch"
+          ],
+          "mechanism": "The authored switch bodies use a source shape that changes argument setup, flag-field reload/CSE behavior, callee-saved register allocation, and frame size. Simple operation reordering and existing inline flag accessors do not produce it.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "operation ordering",
+            "variants": [
+              "setNextStage before setting unk4C bit 0x100",
+              "baseline flag update before setNextStage"
+            ],
+            "effect": "Moving the call first regressed to 58.32787%; baseline ordering remains best at 74.16393%."
+          },
+          {
+            "family": "flag access expression",
+            "variants": [
+              "direct !(unk4C & 0x100) and unk4C |= 0x100",
+              "checkUnk4CFlag/onUnk4CFlag helpers",
+              "unk4C = unk4C | 0x100"
+            ],
+            "effect": "Helper and explicit-assignment variants generated the same 74.16393% residual; neither changed code generation."
+          }
+        ],
+        "untried_leads": [
+          "Obtain complete target/current disassembly to identify the exact emitted order in every case rather than relying on the truncated 24-row diff.",
+          "Investigate whether an original semantic helper or different inline boundary around the repeated admitted-movie body accounts for the 0x40 frame and r30/r31 allocation.",
+          "Run a bounded permuter using a source-level function locator supported by the tool, since the mangled-name invocation was rejected.",
+          "Compare another matched TMarDirector switch that calls setNextStage and stores gpApplication.mMovie."
+        ],
+        "best_checkpoint": {
+          "score": 74.16393,
+          "description": "Original injected source; all experimental edits reverted and git diff is empty."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/System/MarDirectorEvent.cpp#L196-L260"
+        ]
+      }
+    },
+    {
+      "commit": "21a5d157dc41ff4516e105647195c37cbd66e279",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/worker_01a0a60e-b92e-7d5c-a2f1-2efaca9e0180.txt",
+      "note": {
+        "summary": "No source change retained. Extracted complete target/current instruction streams from objdiff JSON. The target is 488 bytes versus the current 464 bytes. Every target case deliberately reloads unk4C after its guard and schedules the setNextStage constants before the OR/store; current code reuses the guard load and emits the constants afterward. A local nextStage/actor declaration probe produced no codegen change and was ablated. The remaining 0x28-byte frame difference has no evidenced local owner and must not be forced with padding.",
+        "residual": {
+          "class": "instruction shape",
+          "rows": [
+            "target prologue uses frame 0x40; current uses 0x18",
+            "target saves r31/r30 at 0x3c/0x38; current saves them at 0x14/0x10",
+            "each target case emits a second lhz of unk4C before its update",
+            "each target case emits li r4, stage and li r5, 0 before ori/sth",
+            "current reuses the guard value in r4 and emits ori/sth before call argument setup",
+            "target size is 0x1e8; current size is 0x1d0"
+          ],
+          "mechanism": "The authored flag-update abstraction or expression boundary prevents CSE of the unk4C load while allowing setNextStage argument setup to schedule before the update. The separate unexplained frame allocation is likely tied to an authored local or inline boundary, not the switch itself.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "call argument locals",
+            "variants": [
+              "case-0 local u16 nextStage and JDrama::TActor* actor initialized before the flag update"
+            ],
+            "effect": "No change from 74.16393%; compiler folded the locals and retained the baseline instruction order."
+          },
+          {
+            "family": "operation ordering",
+            "variants": [
+              "baseline update before setNextStage",
+              "prior call-before-update probe"
+            ],
+            "effect": "Call-before-update previously regressed to 58.32787%; baseline remains best."
+          },
+          {
+            "family": "flag access expression",
+            "variants": [
+              "direct field operations",
+              "existing checkUnk4CFlag/onUnk4CFlag helpers",
+              "explicit assignment"
+            ],
+            "effect": "Prior helper and assignment probes reproduced the baseline residual."
+          }
+        ],
+        "untried_leads": [
+          "Use the complete target sequence to identify an evidenced helper or macro whose inline body reloads unk4C and changes scheduling; avoid comma-expression fakematches.",
+          "Inspect historical/source analogs for an authored flag setter that takes the stage-call arguments or otherwise introduces the observed dependency boundary.",
+          "Investigate the target 0x40 frame with stack tracing if instrumented MWCC becomes available; do not add synthetic padding."
+        ],
+        "best_checkpoint": {
+          "score": 74.16393,
+          "description": "Original injected source, with all experimental edits ablated."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/System/MarDirectorEvent.cpp#L196-L260"
+        ]
+      }
+    },
+    {
+      "commit": "21a5d157dc41ff4516e105647195c37cbd66e279",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/worker_01a0a611-25ef-74a1-9358-512f6d581375.txt",
+      "note": {
+        "summary": "No source change retained. Tested embedding the unk4C update in each setNextStage argument expression to create the target's reload and argument-setup ordering, but MWCC optimized it to the unchanged 74.16393% baseline, so the experiment was ablated. A bounded 400-candidate permuter probe also found no improvement. Instrumented stack and inline diagnostics are unavailable in this checkout.",
+        "residual": {
+          "class": "instruction shape",
+          "rows": [
+            "target frame is 0x40; current frame is 0x18",
+            "target reloads unk4C after each guard",
+            "target prepares r4/r5 call arguments before ori/sth",
+            "current reuses the guard load and updates unk4C before preparing arguments",
+            "target size is 0x1e8; current size is 0x1d0"
+          ],
+          "mechanism": "A missing authored expression/helper/inline boundary appears to separate the guard load from the flag update and changes call-argument scheduling. The unexplained 0x28 frame allocation may belong to the same missing abstraction, but no legitimate local owner has been identified.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "call argument side effects",
+            "variants": [
+              "setNextStage((unk4C |= 0x100, stage), nullptr) in all switch arms"
+            ],
+            "effect": "No codegen or score change; ablated as unsupported noise."
+          },
+          {
+            "family": "bounded source permutation",
+            "variants": [
+              "400-candidate probe restricted to fireStreamingMovie"
+            ],
+            "effect": "No candidate improved the baseline scalar score."
+          },
+          {
+            "family": "diagnostic escalation",
+            "variants": [
+              "stack diagnosis",
+              "inline-boundary diagnosis"
+            ],
+            "effect": "Both unavailable because the instrumented MWCC compiler is not provisioned."
+          }
+        ],
+        "untried_leads": [
+          "Recover a genuine authored helper or macro from another SMS source revision that explains both the repeated reload and call-argument scheduling.",
+          "Run full stack/local-object tracing when instrumented MWCC becomes available to identify the legitimate owner of the 0x28 frame difference.",
+          "Inspect source-history revisions beyond the indexed PR summaries for the original fireStreamingMovie implementation."
+        ],
+        "best_checkpoint": {
+          "score": 74.16393,
+          "description": "Original injected source with all experimental edits ablated; git diff for the target file is empty."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/System/MarDirectorEvent.cpp#L196-L260"
+        ]
+      }
+    },
+    {
+      "commit": "21a5d157dc41ff4516e105647195c37cbd66e279",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/worker_01a0a615-3663-739c-9163-fccd291f032d.txt",
+      "note": {
+        "summary": "No source change retained. Tested two evidence-driven source shapes: explicit read-modify-write assignments and the existing TMarDirector flag accessors. Both compiled to the unchanged 74.16393% baseline and reproduced the same instruction-shape residual, so both were ablated. The target assembly confirms a repeated unk4C reload, call-argument setup before the flag store, and an unexplained 0x40 frame, but no plausible in-scope source construct has yet reproduced them.",
+        "residual": {
+          "class": "instruction shape",
+          "rows": [
+            "target stwu r1,-0x40(r1); current frame is 0x18",
+            "target reloads unk4C at each admitted switch arm",
+            "target emits li r4 and li r5 before ori/sth",
+            "current reuses the guard load and performs ori/sth before call-argument setup",
+            "target function size is 0x1e8; current size is 0x1d0"
+          ],
+          "mechanism": "The target appears to preserve a separate source operation or inline boundary between the guard read and flag update. That boundary also changes scheduling of setNextStage arguments. The additional 0x28 stack allocation remains unexplained and has no legitimate identified local owner.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "flag update expression",
+            "variants": [
+              "unk4C |= 0x100",
+              "unk4C = unk4C | 0x100"
+            ],
+            "effect": "Identical code generation and unchanged 74.16393% score."
+          },
+          {
+            "family": "existing flag accessor abstraction",
+            "variants": [
+              "checkUnk4CFlag(0x100) with onUnk4CFlag(0x100)"
+            ],
+            "effect": "Both accessors fully inlined to the existing baseline shape; no instruction or score change."
+          }
+        ],
+        "untried_leads": [
+          "Determine whether the original header declared unk4C or its accessors differently, but validate against matched same-unit users before requesting an owning-header change.",
+          "Recover source-history evidence for an authored helper or macro that creates a true optimization boundary.",
+          "Use full MWCC stack/local-object tracing if the instrumented compiler becomes available; the unexplained 0x28 frame difference should not be forced with padding."
+        ],
+        "best_checkpoint": {
+          "score": 74.16393,
+          "description": "Original injected source with all no-op experiments ablated; target-file diff is empty."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/System/MarDirectorEvent.cpp#L196-L260"
+        ]
+      }
+    },
+    {
+      "commit": "21a5d157dc41ff4516e105647195c37cbd66e279",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/worker_01a0a619-1fcc-7943-98a0-73a4ac96b266.txt",
+      "note": {
+        "summary": "Improved fireStreamingMovie from 74.16393% to 99.81967%. Volatile accesses to unk4C reproduce the target's repeated loads and exact call/store scheduling. Corrected selector 12 to share the default 0xF path rather than selector 10's 0x3B path; the target jump table proves this mapping. The complete instruction body now matches modulo stack-frame offsets, with no remaining inserted, deleted, replaced, or register-flow instructions. No fabricated stack padding was added.",
+        "residual": {
+          "class": "stack slot or frame size",
+          "rows": [
+            "target stwu r1,-0x40(r1); current stwu r1,-0x18(r1)",
+            "target saves r31/r30 at 0x3c/0x38; current saves them at 0x14/0x10",
+            "target restores LR from 0x44 and adds 0x40; current restores LR from 0x1c and adds 0x18",
+            "jump-table symbol labels differ only by compiler-generated local symbol identity"
+          ],
+          "mechanism": "All meaningful body instructions and jump-table control flow match. The sole instruction residual is a uniform 0x28 stack-frame displacement with no identified legitimate local owner. SMS stack-independent matching rules prohibit manufacturing padding.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "volatile flag access",
+            "variants": [
+              "volatile u16 reference local",
+              "direct volatile u16 lvalue cast at each access"
+            ],
+            "effect": "The reference introduced an extra pointer value and reached 85.38525%. Direct volatile accesses removed that pointer and reproduced the target body, reaching 98.95901% before switch correction."
+          },
+          {
+            "family": "selector 12 dispatch",
+            "variants": [
+              "group selector 12 with selector 10",
+              "omit selector 12",
+              "place selector 12 adjacent to default"
+            ],
+            "effect": "The target table maps index 12 to the default block. Omitting it lowered the switch bound to 11; an adjacent case 12/default label preserves the target bound of 12 and exact table routing, reaching 99.81967%."
+          }
+        ],
+        "untried_leads": [
+          "Recover an evidenced original local or inline/assert construct that legitimately owns the unexplained 0x28 frame allocation.",
+          "Do not add dummy arrays, PAD_STACK, volatile padding, or fabricated storage; the remaining residual is uniformly stack-only."
+        ],
+        "best_checkpoint": {
+          "score": 99.81967,
+          "description": "Target body and control flow match instruction-for-instruction modulo a uniform 0x28 stack-frame difference."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/System/MarDirectorEvent.cpp#L196-L260"
+        ],
+        "validation": {
+          "target": "checkdiff_run full_diff: 99.81967%",
+          "neighbors": "fireEndDemoCamera and fireStartDemoCamera remain exact; setNextStage remains at its pre-existing nonmatching state",
+          "regressions_caused": []
+        }
+      }
+    },
+    {
+      "commit": "21a5d157dc41ff4516e105647195c37cbd66e279",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/worker_01a0a61c-aeaa-7d33-8b97-a29aedce3720.txt",
+      "note": {
+        "summary": "Retained the validated 99.81967% checkpoint. Tested the existing TMarDirector flag accessors as a plausible authored replacement for the volatile casts, but MWCC coalesced the flag loads and regressed the target to 72.64754%; the experiment was fully reverted. The remaining meaningful residual is still only the unexplained 0x28 stack-frame difference. Per SMS stack-independent matching rules, no dummy storage or padding was added.",
+        "residual": {
+          "class": "stack slot or frame size",
+          "rows": [
+            "target stwu r1,-0x40(r1); current stwu r1,-0x18(r1)",
+            "target saves r31/r30 at 0x3c/0x38; current saves them at 0x14/0x10",
+            "target restores LR from 0x44; current restores LR from 0x1c",
+            "target restores r31/r30 from 0x3c/0x38; current restores them from 0x14/0x10",
+            "target addi r1,r1,0x40; current addi r1,r1,0x18",
+            "jump-table references differ only in compiler-generated local symbol identity"
+          ],
+          "mechanism": "The target reserves 0x28 more stack space than the current compile, while the complete executable body and control flow otherwise match. No legitimate local, inline boundary, or stack-slot owner has been identified. The stack diagnostic was unavailable because the instrumented compiler is not provisioned.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "flag access source shape",
+            "variants": [
+              "direct volatile u16 lvalue accesses",
+              "existing checkUnk4CFlag/onUnk4CFlag inline accessors"
+            ],
+            "effect": "Direct volatile accesses retain 99.81967%. The accessors caused load coalescing and restored the broad 72.64754% instruction-shape mismatch, so that experiment was reverted."
+          },
+          {
+            "family": "stack diagnostics",
+            "variants": [
+              "mwcc_debug_diagnose_stack with detailed lines and MWCC slot output"
+            ],
+            "effect": "No evidence was produced because the instrumented debug compiler is not provisioned; current objdiff still shows a uniform 0x28 frame delta."
+          }
+        ],
+        "untried_leads": [
+          "Recover a source- or map-evidenced inline/assert construct or genuine local whose lifetime explains the 0x28 allocation.",
+          "If no genuine owner is found, retain the current nonmatching frame rather than adding PAD_STACK, dummy arrays, volatile padding, or fabricated storage."
+        ],
+        "best_checkpoint": {
+          "score": 99.81967,
+          "description": "Full function body and jump-table routing match modulo the uniform 0x28 stack-frame displacement and local jump-table label identity."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/System/MarDirectorEvent.cpp#L196-L260"
+        ],
+        "validation": {
+          "target": "checkdiff_run full_diff restored to 99.81967%",
+          "neighbors": "fireStartDemoCamera and fireEndDemoCamera PASS; setNextStage remains at its pre-existing 78.47000%",
+          "review": "Previous runner QA/review lint was clean; the attempted accessor edit was reverted without retained changes",
+          "regressions_caused": []
+        }
+      }
+    },
+    {
+      "commit": "21a5d157dc41ff4516e105647195c37cbd66e279",
+      "path": "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/games/sms/runtime/state/runs/abd4685d-7d18-49e6-8861-6b4055a8ef6e/worker_state/eee7e801-95ab-4f3c-935c-70b5b6198b54/worker_01a0a61e-d8e5-70c5-9b84-15cddc150a11.txt",
+      "note": {
+        "summary": "Retained the validated 99.81967% checkpoint without further edits. The full diff confirms that all executable body instructions match; the remaining differences are a uniform 0x28 stack-frame delta and compiler-generated jump-table symbol identity. Exact matching would require unexplained stack padding or fabricated storage, which is prohibited by the SMS matching standards. Inline diagnostics were unavailable because the debug compiler is not provisioned.",
+        "residual": {
+          "class": "stack slot or frame size",
+          "rows": [
+            "target stwu r1,-0x40(r1); current stwu r1,-0x18(r1)",
+            "target saves r31/r30 at 0x3c/0x38; current saves them at 0x14/0x10",
+            "target restores LR from 0x44; current restores LR from 0x1c",
+            "target restores r31/r30 from 0x3c/0x38; current restores them from 0x14/0x10",
+            "target addi r1,r1,0x40; current addi r1,r1,0x18",
+            "jump-table relocation uses target local @2830 versus current compiler-generated local @1146"
+          ],
+          "mechanism": "The target reserves 0x28 more stack space, but no target instruction accesses that additional region. No genuine local, assert stub, helper boundary, or other authored stack-slot owner is evidenced. The jump-table name is compiler-generated local-symbol identity accompanying otherwise identical dispatch instructions.",
+          "resolved": false
+        },
+        "tried_shapes": [
+          {
+            "family": "flag access source shape",
+            "variants": [
+              "direct volatile u16 lvalue accesses",
+              "existing checkUnk4CFlag/onUnk4CFlag inline accessors"
+            ],
+            "effect": "Direct volatile accesses retain 99.81967%. Existing accessors coalesced loads and regressed the broad instruction shape, so that variant remains reverted."
+          },
+          {
+            "family": "stack and inline diagnostics",
+            "variants": [
+              "detailed stack diagnosis in the prior attempt",
+              "inline-boundary diagnosis in this continuation"
+            ],
+            "effect": "Neither diagnostic could produce compiler evidence because mwcceppc_debug.exe is not provisioned."
+          },
+          {
+            "family": "history and source-evidence search",
+            "variants": [
+              "exact-symbol attempt history",
+              "archived PR search",
+              "narrow git history and blame",
+              "mario.MAP and target assembly inspection"
+            ],
+            "effect": "No genuine 0x28 stack owner was found. mario.MAP confirms the target function and @2830 jump table but provides no local-variable evidence."
+          }
+        ],
+        "untried_leads": [
+          "If new debug/compiler provenance becomes available, inspect retained local-object and stack-allocation traces for an authentic 0x28 owner.",
+          "If external source or debug information identifies a genuine local or inline assert construct, reconstruct that authored shape and recheck the complete function.",
+          "Do not add PAD_STACK, dummy arrays, volatile padding, or fabricated storage solely to force exact frame parity."
+        ],
+        "best_checkpoint": {
+          "score": 99.81967,
+          "description": "Complete executable body and control flow match; only uniform stack-frame displacements and compiler-generated jump-table local-symbol identity remain."
+        },
+        "evidence_locators": [
+          "code://9310a22d/src/System/MarDirectorEvent.cpp#L196-L260"
+        ],
+        "validation": {
+          "target": "checkdiff_run full_diff: FAIL at 99.81967%, with only the listed frame and jump-table-local rows",
+          "neighbors": "fireStartDemoCamera and fireEndDemoCamera PASS; setNextStage remains at its pre-existing 78.47000%",
+          "review": "No new source edits were retained; prior runner QA/review lint passed. The standalone lint invocation returned file_not_found and was not treated as evidence.",
+          "regressions_caused": []
+        }
+      }
+    }
+  ],
+  "other_worker_responses": []
+}

@@ -1,9 +1,10 @@
+import { getHarnessState, getHarnessTimeline, type HarnessState, type HarnessTimelineEntry } from "@server/core/harness-state/state.js";
 import { Database } from "bun:sqlite";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
-import { latestCheckpointSummary } from "@server/core/cycle-runtime/phases/pr/checkpoint";
-import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/core/cycle-runtime/phases/running/epochs";
-import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge";
+import { latestCheckpointSummary } from "@server/core/harness-runtime/phases/pr/checkpoint";
+import { runningEpochCheckpointProgress, runningEpochHistory } from "@server/core/harness-runtime/phases/running/epochs/projection";
+import { knowledgeCuratorEnrichmentPath } from "@server/core/knowledge/paths";
 import { queryBackgroundKnowledgeSummary } from "@server/core/knowledge/background/index.js";
 import {
   activeSchedulerEpoch,
@@ -12,42 +13,28 @@ import {
   openState,
   schedulerEpochProgress,
   statusSnapshot,
-} from "@server/core/cycle-runtime/run-state";
-import { runDispatchLeaseStaleness } from "@server/core/cycle-runtime/phases/running/run-control.js";
+} from "@server/core/harness-runtime/run-state";
+import { runDispatchLeaseStaleness } from "@server/core/harness-runtime/phases/running/run-control.js";
 import { dashboardArtifactPayloads, latestDashboardArtifactPayload } from "@server/core/orchestrator-state";
 import {
-  getActiveCycle,
-  type CloseCycleInput,
-  type CycleBlocker,
-  type CycleRecord,
-  type CycleTimelineEntry,
-} from "@server/core/cycle";
-import { activeCycleProjection } from "@server/core/cycle/store";
-import { listCycleTimeline, unresolvedSavePointFailures } from "@server/core/cycle/timeline";
-import {
   eventsForSubject,
-  getHarnessState,
-  latestSequence,
+  getDispatchState,
   type Blocker,
   type DispatchLease,
   type QueuedDispatchRequest,
 } from "@server/core/harness-state";
 import { recentGameEvents, type GameEventDto } from "@server/core/harness-state/event-query";
 import type { RunRecord, RunSchedulerCondition, RunStatus } from "@server/core/shared/types";
-import { listSavePoints, type SavePointRecord } from "@server/core/cycle-runtime/phases/pr/state";
 import { gameToSummary as defaultGameToSummary, type GameRuntimeContext, type ResolvedGame } from "@server/core/game-registry";
-import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/cycle-runtime/phases/pr/artifacts";
-import {
-  getSyncState,
-  type SyncState,
-  type SyncStatus,
-} from "@server/core/cycle-runtime/phases/sync";
+import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/harness-runtime/phases/pr/artifacts";
+import { getSyncState } from "@server/core/harness-runtime/phases/sync/state";
+import type { SyncState, SyncStatus } from "@server/core/harness-runtime/phases/sync/types";
 import {
   gameSyncAction,
   type SyncActionId,
-} from "@server/core/cycle-runtime/phases/sync/runtime.js";
-import { parseBaseRef } from "@server/core/cycle-runtime/phases/preparing/subphases/git-intake.js";
-import { quietGit } from "@server/core/cycle-runtime/phases/pr/pr-sync.js";
+} from "@server/core/harness-runtime/phases/sync/runtime.js";
+import { parseBaseRef } from "@server/core/harness-runtime/phases/sync/upstream.js";
+import { quietGit } from "@server/core/harness-runtime/phases/pr/pr-sync.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { scoreTiersProjection, type DashboardScoreTiers } from "./score-tiers.js";
 import { boundaryDashboardForRun, type BoundaryDashboard } from "./boundary-view.js";
@@ -73,6 +60,7 @@ type WorkerStateOutcome =
   | "dry_run"
   | "recovered_requeued"
   | "recovered_finished"
+  | "provider_outage"
   | "provider_error"
   | "worker_session_failed"
   | "agent_tool_error"
@@ -99,21 +87,14 @@ export interface ActionProjection {
     | "run.hard_stop"
     | "run.cancel"
     | "run.recover"
-    | "cycle.close"
-    | "cycle.save_point"
     | "knowledge.process"
     | SyncActionId;
-  subject_kind: "run" | "cycle" | "sync" | "game";
+  subject_kind: "run" | "sync" | "game";
   subject_id: string;
   enabled: boolean;
   blocked_by: Blocker[];
   expected_transition: string;
   confirmation_required: boolean;
-}
-
-export interface CycleActionState {
-  availableActions: ActionProjection[];
-  closeInput: Pick<CloseCycleInput, "aheadOfBase" | "namedSavePointId" | "worktreeDirtyBeyondHead">;
 }
 
 export interface DashboardRunRecoveryPoint {
@@ -124,6 +105,22 @@ export interface DashboardRunRecoveryPoint {
   cancelled_claim_ids: string[];
   cancelled_operation_ids: string[];
   resulting_status: string | null;
+}
+
+export interface DashboardProviderCircuit {
+  state: "open" | "closed";
+  status: "waiting_for_provider" | "available";
+  opened_at: string | null;
+  next_probe_at: string | null;
+  probe_interval_seconds: number | null;
+  outage_count: number | null;
+  provider: string | null;
+  model: string | null;
+  last_probe: {
+    at: string;
+    success: boolean | null;
+    error: string | null;
+  } | null;
 }
 
 export interface DashboardRunSummary {
@@ -144,6 +141,7 @@ export interface DashboardRunSummary {
     confirmed_changes: number;
     regressed_changes: number;
   };
+  provider_circuit: DashboardProviderCircuit | null;
   recovery_points: DashboardRunRecoveryPoint[];
 }
 
@@ -237,13 +235,13 @@ export interface DashboardSyncPublication {
 }
 
 /**
- * Standing repo-sync posture for the active cycle.  Unlike
+ * Standing repo-sync posture for the harness.  Unlike
  * DashboardSyncSummary.staleness this exists even when no sync workflow is
  * active, and it only consults local git refs — fresh remote observation stays
  * behind the sync actions (refreshSyncUpstreamObservation).
  */
 export interface DashboardRepoSyncState {
-  cycle_head: string | null;
+  head: string | null;
   upstream_ref: string;
   upstream_anchor: string | null;
   local_upstream_sha: string | null;
@@ -257,45 +255,15 @@ export interface GameSyncActionState {
   sync: DashboardSyncSummary | null;
 }
 
-const ALL_CYCLE_EVIDENCE_LIMIT = Number.MAX_SAFE_INTEGER;
-
-export interface DashboardHarnessState {
-  revision: number;
-  active_workflow: DispatchLease | null;
-  queued_dispatch_requests: QueuedDispatchRequest[];
-  run: DashboardRunSummary | null;
-  /** Legacy compatibility key. PR campaign projection has been retired. */
-  pr: null;
-  sync: DashboardSyncSummary | null;
-  cycle: {
-    cycle_uuid: string;
-    head_revision: string | null;
-    status: CycleRecord["status"];
-    latest_save_point: Pick<
-      SavePointRecord,
-      "id" | "triggerKind" | "label" | "commitSha" | "matchedCodePercent" | "createdAt"
-    > | null;
-    save_point_stale: boolean;
-    blockers: Blocker[];
-    timeline: CycleTimelineEntry[];
-  } | null;
-  cycle_blockers: Blocker[];
-  save_point_stale: boolean;
-  latest_event_sequence: number;
-  recent_events: GameEventDto[];
-  available_actions: ActionProjection[];
-}
-
 /** The server-owned, operator-facing game projection. */
 export interface HarnessStateView {
+  state: HarnessState | null;
+  timeline: HarnessTimelineEntry[];
   game_id: string;
   harness_revision: number;
-  cycle: (NonNullable<DashboardHarnessState["cycle"]> & { latest_timeline_entry: CycleTimelineEntry | null }) | null;
   active_workflow: (DispatchLease & { headline: string }) | null;
   queued_dispatch_requests: QueuedDispatchRequest[];
   run: DashboardRunSummary | null;
-  /** Legacy compatibility key. PR campaign projection has been retired. */
-  pr_work: [];
   knowledge: {
     queued: number;
     processing: number;
@@ -317,19 +285,16 @@ export interface HarnessStateView {
   active_operations: Array<{ operation_id: string; status: string; [key: string]: unknown }>;
   recent_events: GameEventDto[];
   available_actions: ActionProjection[];
-  compatibility_actions: ActionProjection[];
 }
 
 export interface HarnessStateViewOptions extends Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> {
-  /** Legacy dashboard evidence used by the cycle close/readiness gates. */
-  campaign?: JsonObject;
   /** Game checkout used for the local-only repo_sync git observation. */
   gameContext?: Pick<GameRuntimeContext, "game" | "repoRoot">;
 }
 
 export interface DashboardReadModelDependencies {
   buildPrRecordsView: (stateDir: string, runId: string) => JsonObject;
-  campaignStatus: (repoRoot: string, stateDir: string, baseRefFallback: string) => JsonObject;
+  campaignStatus: (repoRoot: string, stateDir: string, baseRefFallback: string, gameId: string) => JsonObject;
   hasActiveProcess?: (stateDir: string) => { active: boolean };
   processStatus: (stateDir: string, game: ResolvedGame | null) => JsonObject;
   gameToSummary?: (game: ResolvedGame) => unknown;
@@ -417,27 +382,6 @@ function numberValue(value: unknown, fallback = 0): number {
   return fallback;
 }
 
-function actionBlocker(
-  blocker: CycleBlocker,
-  fallback: { sourceKind: string; sourceId: string },
-): Blocker {
-  return {
-    code: blocker.code,
-    message: blocker.message,
-    source_kind: blocker.source_kind ?? blocker.source ?? fallback.sourceKind,
-    source_id: blocker.source_id ?? fallback.sourceId,
-    recoverable: blocker.recoverable ?? true,
-  };
-}
-
-function savePointByEntry(
-  savePoints: SavePointRecord[],
-  entry: CycleTimelineEntry | undefined,
-): SavePointRecord | null {
-  if (!entry) return null;
-  return savePoints.find((savePoint) => savePoint.id === entry.entry_id) ?? null;
-}
-
 function dedupeBlockers(blockers: Blocker[]): Blocker[] {
   const seen = new Set<string>();
   return blockers.filter((blocker) => {
@@ -448,215 +392,9 @@ function dedupeBlockers(blockers: Blocker[]): Blocker[] {
   });
 }
 
-function cycleEvidenceState(
-  store: ReturnType<typeof openState>,
-  gameId: string,
-  campaign: JsonObject,
-  cycle: CycleRecord | null,
-  timeline: CycleTimelineEntry[],
-  savePoints: SavePointRecord[],
-): {
-  blockers: Blocker[];
-  freshNamedSavePoint: SavePointRecord | null;
-  latestSavePoint: SavePointRecord | null;
-  stale: boolean;
-  worktreeDirty: boolean;
-} {
-  const latestEntry = timeline.find((entry) => entry.entry_kind === "save_point");
-  const latestSavePoint = savePointByEntry(savePoints, latestEntry);
-  const worktreeDirty = asObject(campaign.head).dirty === true;
-  const spooled = unresolvedSavePointFailures(store, {
-    gameId,
-    cycleUuid: cycle?.cycle_uuid,
-  });
-  const blockers = dedupeBlockers([
-    ...(cycle?.blockers_json ?? []).map((blocker) =>
-      actionBlocker(blocker, { sourceKind: "cycle", sourceId: cycle?.cycle_uuid ?? gameId }),
-    ),
-    ...spooled.map((failure): Blocker => ({
-      code: "save_point_failed",
-      message: failure.message,
-      source_kind: failure.source_kind,
-      source_id: failure.source_id,
-      recoverable: true,
-    })),
-  ]);
-  const headRevision = cycle?.head_revision?.trim() ?? "";
-  const latestAnchorDrifted = Boolean(
-    latestEntry && (
-      !latestSavePoint?.commitSha?.trim() ||
-      latestSavePoint.commitSha !== headRevision ||
-      latestSavePoint.worktreeDirty
-    ),
-  );
-  const freshNamedSavePoint = cycle && headRevision && !latestAnchorDrifted
-    ? timeline
-        .filter((entry) => entry.entry_kind === "save_point")
-        .map((entry) => savePointByEntry(savePoints, entry))
-        .find(
-          (savePoint) =>
-            Boolean(savePoint?.label?.trim()) &&
-            savePoint?.commitSha === headRevision &&
-            !savePoint.worktreeDirty,
-        ) ?? null
-    : null;
-  return {
-    blockers,
-    freshNamedSavePoint,
-    latestSavePoint,
-    stale: Boolean(cycle?.save_point_stale) || spooled.length > 0 || latestAnchorDrifted || worktreeDirty,
-    worktreeDirty,
-  };
-}
-
-function cycleActionStateInternal(
-  store: ReturnType<typeof openState>,
-  gameId: string,
-  campaign: JsonObject,
-  cycle: CycleRecord | null,
-  timeline: CycleTimelineEntry[],
-  savePoints: SavePointRecord[],
-): CycleActionState {
-  const harnessState = getHarnessState(store, gameId);
-  const subjectId = cycle?.cycle_uuid ?? gameId;
-  const inactiveBlockers: Blocker[] = cycle
-    ? cycle.status === "active" || cycle.status === "blocked"
-      ? []
-      : cycle.blockers_json.length > 0
-        ? cycle.blockers_json.map((blocker) =>
-            actionBlocker(blocker, { sourceKind: "cycle", sourceId: cycle.cycle_uuid }),
-          )
-        : [
-            {
-              code: "cycle_not_active",
-              message: `The game cycle is ${cycle.status}.`,
-              source_kind: "cycle",
-              source_id: cycle.cycle_uuid,
-              recoverable: false,
-            },
-          ]
-    : [
-        {
-          code: "cycle_not_active",
-          message: "No active game cycle exists.",
-          source_kind: "game",
-          source_id: gameId,
-          recoverable: true,
-        },
-      ];
-
-  const evidence = cycleEvidenceState(store, gameId, campaign, cycle, timeline, savePoints);
-  const head = asObject(campaign.head);
-  const aheadOfBaseKnown = typeof campaign.aheadOfBase === "number" && Number.isFinite(campaign.aheadOfBase);
-  const worktreeStateKnown = typeof head.dirty === "boolean";
-  const aheadOfBase = aheadOfBaseKnown ? Math.max(0, numberValue(campaign.aheadOfBase)) : 0;
-  const worktreeDirtyBeyondHead = evidence.worktreeDirty;
-  const closeBlockers: Blocker[] = [...inactiveBlockers, ...evidence.blockers];
-  if (cycle && harnessState?.active_workflow) {
-    closeBlockers.push({
-      code: "dispatch_lease_held",
-      message: "A workflow still holds the dispatch lease.",
-      source_kind: "game",
-      source_id: gameId,
-      recoverable: true,
-    });
-  }
-  if (cycle && (evidence.stale || !evidence.freshNamedSavePoint)) {
-    closeBlockers.push({
-      code: "unshipped_work",
-      message: worktreeDirtyBeyondHead
-        ? "The worktree contains changes beyond the cycle head."
-        : evidence.stale
-          ? "Save-point evidence is stale or not anchored at the current cycle head."
-          : "A named save point at the current cycle head is required.",
-      source_kind: "cycle",
-      source_id: cycle.cycle_uuid,
-      recoverable: true,
-    });
-  }
-  if (cycle && (!aheadOfBaseKnown || !worktreeStateKnown)) {
-    closeBlockers.push({
-      code: "close_evidence_unavailable",
-      message: "Current worktree or upstream-distance evidence is unavailable.",
-      source_kind: "cycle",
-      source_id: cycle.cycle_uuid,
-      recoverable: true,
-    });
-  }
-
-  return {
-    availableActions: [
-      {
-        action_id: "cycle.save_point",
-        subject_kind: "cycle",
-        subject_id: subjectId,
-        enabled: inactiveBlockers.length === 0,
-        blocked_by: inactiveBlockers,
-        expected_transition: "evidence anchor recorded at the current commit",
-        confirmation_required: false,
-      },
-      {
-        action_id: "cycle.close",
-        subject_kind: "cycle",
-        subject_id: subjectId,
-        enabled: closeBlockers.length === 0,
-        blocked_by: closeBlockers,
-        expected_transition: "active → closed",
-        confirmation_required: true,
-      },
-    ],
-    closeInput: {
-      aheadOfBase,
-      namedSavePointId: evidence.freshNamedSavePoint?.id ?? null,
-      worktreeDirtyBeyondHead,
-    },
-  };
-}
-
-export function cycleActionState(
-  store: ReturnType<typeof openState>,
-  gameId: string,
-  campaign: JsonObject,
-): CycleActionState {
-  const cycle = getActiveCycle(store.db, gameId);
-  const timeline = cycle
-    ? listCycleTimeline(store.db, cycle.cycle_uuid, ALL_CYCLE_EVIDENCE_LIMIT)
-    : [];
-  const savePoints = listSavePoints(store, ALL_CYCLE_EVIDENCE_LIMIT);
-  return cycleActionStateInternal(store, gameId, campaign, cycle, timeline, savePoints);
-}
-
-function latestRunForGame(
-  store: ReturnType<typeof openState>,
-  gameId: string,
-  cycle: CycleRecord | null,
-  explicitRunId?: string,
-): RunRecord | null {
-  if (explicitRunId) return getRun(store, explicitRunId);
-  if (cycle?.active_run_id) {
-    const active = getRun(store, cycle.active_run_id);
-    if (active) return active;
-  }
-  const row = (cycle
-    ? store.db
-        .query(
-          `SELECT id
-           FROM runs
-           WHERE game_id = ? AND cycle_uuid = ?
-           ORDER BY created_at DESC
-           LIMIT 1`,
-        )
-        .get(gameId, cycle.cycle_uuid)
-    : store.db
-        .query(
-          `SELECT id
-           FROM runs
-           WHERE game_id = ?
-           ORDER BY created_at DESC
-           LIMIT 1`,
-        )
-        .get(gameId)) as { id: string } | null;
-  return row?.id ? getRun(store, row.id) : null;
+function latestRunForGame(store: ReturnType<typeof openState>, gameId: string, explicitRunId?: string): RunRecord | null {
+  const runId = explicitRunId ?? getHarnessState(store.db, gameId)?.history.run_id;
+  return runId ? getRun(store, runId) : null;
 }
 
 function runStatusProjection(store: ReturnType<typeof openState>, run: RunRecord): JsonObject {
@@ -740,6 +478,108 @@ function runRecoveryPoints(
     }));
 }
 
+function providerCircuitString(payload: JsonObject, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = payload[key];
+    if (typeof value === "string" && value.trim() !== "") return value;
+  }
+  return null;
+}
+
+function providerCircuitNumber(payload: JsonObject, ...keys: string[]): number | null {
+  for (const key of keys) {
+    const value = nullableFiniteNumber(payload[key]);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function providerCircuitBoolean(payload: JsonObject, ...keys: string[]): boolean | null {
+  for (const key of keys) {
+    if (typeof payload[key] === "boolean") return payload[key] as boolean;
+  }
+  return null;
+}
+
+function providerCircuitProjection(
+  store: ReturnType<typeof openState>,
+  runId: string,
+): DashboardProviderCircuit | null {
+  const events = store.db
+    .query(
+      `SELECT event_type, created_at, payload_json
+       FROM events
+       WHERE run_id = ?
+         AND event_type IN ('provider_circuit_opened', 'provider_probe', 'provider_circuit_closed')
+       ORDER BY created_at ASC, rowid ASC`,
+    )
+    .all(runId) as Array<{ event_type: string; created_at: string; payload_json: string }>;
+  const latest = events.at(-1);
+  if (!latest) return null;
+
+  const latestPayload = readInlineJson(latest.payload_json);
+  const latestProbe = [...events].reverse().find((event) => event.event_type === "provider_probe") ?? null;
+  const latestProbePayload = latestProbe ? readInlineJson(latestProbe.payload_json) : {};
+  const latestOpened = [...events].reverse().find((event) => event.event_type === "provider_circuit_opened") ?? null;
+  const openedAt = providerCircuitString(latestPayload, "opened_at", "openedAt")
+    ?? (latestOpened
+      ? providerCircuitString(readInlineJson(latestOpened.payload_json), "opened_at", "openedAt") ?? latestOpened.created_at
+      : null);
+  const state = latest.event_type === "provider_circuit_closed" ? "closed" : "open";
+  const latestFact = <T>(read: (payload: JsonObject) => T | null): T | null => {
+    for (const event of [...events].reverse()) {
+      const value = read(readInlineJson(event.payload_json));
+      if (value !== null) return value;
+    }
+    return null;
+  };
+
+  return {
+    state,
+    status: state === "open" ? "waiting_for_provider" : "available",
+    opened_at: openedAt,
+    next_probe_at: state === "open"
+      ? latestFact((payload) => providerCircuitString(payload, "next_probe_at", "nextProbeAt"))
+      : null,
+    probe_interval_seconds: latestFact((payload) => providerCircuitNumber(
+      payload,
+      "probe_interval_seconds",
+      "probeIntervalSeconds",
+    )),
+    outage_count: latestFact((payload) => providerCircuitNumber(payload, "outage_count", "outageCount")),
+    provider: latestFact((payload) => providerCircuitString(payload, "provider")),
+    model: latestFact((payload) => providerCircuitString(payload, "model")),
+    last_probe: latestProbe
+      ? {
+          at: providerCircuitString(latestProbePayload, "probed_at", "probedAt") ?? latestProbe.created_at,
+          success: providerCircuitBoolean(latestProbePayload, "success", "succeeded"),
+          error: providerCircuitString(latestProbePayload, "error", "error_message", "errorMessage"),
+        }
+      : null,
+  };
+}
+
+function providerCircuitDashboardProjection(circuit: DashboardProviderCircuit | null): JsonObject | null {
+  if (!circuit) return null;
+  return {
+    state: circuit.state,
+    status: circuit.status,
+    openedAt: circuit.opened_at,
+    nextProbeAt: circuit.next_probe_at,
+    probeIntervalSeconds: circuit.probe_interval_seconds,
+    outageCount: circuit.outage_count,
+    provider: circuit.provider,
+    model: circuit.model,
+    lastProbe: circuit.last_probe
+      ? {
+          at: circuit.last_probe.at,
+          success: circuit.last_probe.success,
+          error: circuit.last_probe.error,
+        }
+      : null,
+  };
+}
+
 function runSummaryProjection(
   store: ReturnType<typeof openState>,
   gameId: string,
@@ -763,6 +603,7 @@ function runSummaryProjection(
     claimed: numberValue(schedulerEpoch.claimed),
     running: numberValue(status.activeClaims),
     progress: runProgress(store, run),
+    provider_circuit: providerCircuitProjection(store, run.id),
     recovery_points: runRecoveryPoints(store, gameId, run.id),
   };
 }
@@ -807,9 +648,9 @@ export function gameRunActionState(
   gameId: string,
   options: GameRunActionStateOptions = {},
 ): GameRunActionState {
-  const harnessState = getHarnessState(store, gameId);
-  const cycle = getActiveCycle(store.db, gameId);
-  const run = latestRunForGame(store, gameId, cycle, options.runId);
+  const dispatchState = getDispatchState(store, gameId);
+  const canonicalState = getHarnessState(store.db, gameId);
+  const run = latestRunForGame(store, gameId, options.runId);
   if (!run || run.gameId !== gameId) {
     const subjectId = options.runId ?? `run:new:${gameId}`;
     const missing = stateBlocker("run_not_found", "No run exists for this game.", "game", gameId);
@@ -834,7 +675,7 @@ export function gameRunActionState(
     };
   }
 
-  const lease = harnessState?.active_workflow ?? null;
+  const lease = dispatchState?.active_workflow ?? null;
   const ownLease = lease?.kind === "run" && lease.workflow_id === run.id ? lease : null;
   const leaseStaleness = runDispatchLeaseStaleness({
     hasActiveProcess: options.hasActiveProcess,
@@ -851,7 +692,7 @@ export function gameRunActionState(
       )
     : null;
   const syncRequest =
-    lease?.kind === "sync" || harnessState?.queued_dispatch_requests.some((request) => request.kind === "sync")
+    lease?.kind === "sync" || dispatchState?.queued_dispatch_requests.some((request) => request.kind === "sync")
       ? stateBlocker(
           "unresolved_sync_request",
           "An unresolved sync request must settle before the run can acquire dispatch authority.",
@@ -859,20 +700,12 @@ export function gameRunActionState(
           gameId,
         )
       : null;
-  const inactiveCycle =
-    cycle?.status === "active"
-      ? null
-      : stateBlocker(
-          "cycle_not_active",
-          cycle ? `The game cycle is ${cycle.status}.` : "No active game cycle exists.",
-          cycle ? "cycle" : "game",
-          cycle?.cycle_uuid ?? gameId,
-        );
+  const missingHarness = canonicalState ? null : stateBlocker("harness_not_initialized", "The game harness has not been initialized.", "game", gameId);
   const staleBaseline =
-    run.inputs?.base_revision && cycle?.head_revision && run.inputs.base_revision !== cycle.head_revision
+    run.inputs?.base_revision && canonicalState?.source.head && run.inputs.base_revision !== canonicalState?.source.head
       ? stateBlocker(
           "stale_baseline",
-          "The ready run baseline no longer matches the active cycle head.",
+          "The ready run baseline no longer matches the accepted harness head.",
           "run",
           run.id,
         )
@@ -885,7 +718,13 @@ export function gameRunActionState(
     (!run.inputs?.configuration_snapshot || typeof run.inputs.configuration_snapshot !== "object") &&
       "inputs.configuration_snapshot",
   ].filter((value): value is string => typeof value === "string");
+  const harnessBlockers: Blocker[] = canonicalState ? [
+    ...canonicalState.execution.blockers,
+    ...Object.entries(canonicalState.readiness).filter(([, status]) => status !== "ready").map(([gate, status]) => stateBlocker("harness_readiness_failed", `${gate} readiness is ${status}.`, "game", gameId)),
+    ...(!canonicalState.source.head ? [stateBlocker("harness_head_missing", "Initial Sync has not accepted a source head.", "game", gameId)] : []),
+  ] : [];
   const runReadinessBlockers: Blocker[] = [
+    ...harnessBlockers,
     ...run.blockers.map((blocker) => ({ ...blocker })),
     ...(readinessMissing.length > 0
       ? [
@@ -905,12 +744,13 @@ export function gameRunActionState(
       ? []
       : [stateBlocker("run_not_ready", `Run ${run.id} is ${run.status}; start requires ready.`, "run", run.id)]),
     ...runReadinessBlockers,
-    ...(inactiveCycle ? [inactiveCycle] : []),
+    ...(missingHarness ? [missingHarness] : []),
     ...(leaseHeld ? [leaseHeld] : []),
     ...(staleBaseline ? [staleBaseline] : []),
     ...(syncRequest ? [syncRequest] : []),
   ];
   const resumeBlockers: Blocker[] = [
+    ...harnessBlockers,
     ...(run.status === "paused"
       ? []
       : [stateBlocker("run_not_paused", `Run ${run.id} is ${run.status}; resume requires paused.`, "run", run.id)]),
@@ -982,6 +822,33 @@ export function gameRunActionState(
         ]
       : run.status === "failed" || leaseStaleness === "stale"
       ? []
+      : !lease
+      ? (() => {
+          let processIsLive: boolean;
+          try {
+            if (!options.hasActiveProcess) throw new Error("process liveness unavailable");
+            processIsLive = options.hasActiveProcess(store.stateDir).active;
+          } catch {
+            return [
+              stateBlocker(
+                "process_liveness_unknown",
+                "The managed process liveness could not be determined.",
+                "run",
+                run.id,
+              ),
+            ];
+          }
+          return processIsLive
+            ? [
+                stateBlocker(
+                  "dispatch_process_alive",
+                  "Run has no dispatch lease but its scheduler process is still live",
+                  "run",
+                  run.id,
+                ),
+              ]
+            : [];
+        })()
       : leaseStaleness === "process_liveness_unknown"
       ? [
           stateBlocker(
@@ -1020,22 +887,13 @@ function latestSyncForGame(
   store: ReturnType<typeof openState>,
   gameId: string,
 ): SyncState | null {
-  const row = store.db
-    .query(
-      `SELECT sync_id
-       FROM sync_state
-       WHERE game_id = ?
-       ORDER BY latest_event_sequence DESC, created_at DESC, sync_id DESC
-       LIMIT 1`,
-    )
-    .get(gameId) as { sync_id: string } | null;
-  return row ? getSyncState(store, row.sync_id) : null;
+  const syncId = getHarnessState(store.db, gameId)?.history.sync_id;
+  return syncId ? getSyncState(store, syncId) : null;
 }
 
 function syncSummaryProjection(
   store: ReturnType<typeof openState>,
   sync: SyncState,
-  cycle: CycleRecord | null,
   availableActions: ActionProjection[],
 ): DashboardSyncSummary {
   const knowledgeJobCounts = store.db
@@ -1167,7 +1025,7 @@ function syncSummaryProjection(
   const stale = staleBlocker !== null || Boolean(
     validatedUpstream && observedUpstream && validatedUpstream !== observedUpstream,
   );
-  const priorHead = sync.staging?.cycle_head_sha ?? cycle?.head_revision ?? sync.intake.upstream_from;
+  const priorHead = sync.staging?.harness_head_sha ?? getHarnessState(store.db, sync.game_id)?.source.head ?? sync.intake.upstream_from;
   const newHead = sync.intake.knowledge_only
     ? priorHead
     : sync.staging?.staging_head_sha ?? sync.intake.upstream_to;
@@ -1250,7 +1108,6 @@ function syncSummaryProjection(
 export function gameSyncActionState(
   store: ReturnType<typeof openState>,
   gameId: string,
-  cycle: CycleRecord | null = getActiveCycle(store.db, gameId),
   options: Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> = {},
 ): GameSyncActionState {
   const availableActions = SYNC_ACTION_IDS.map((actionId) =>
@@ -1263,7 +1120,7 @@ export function gameSyncActionState(
   const sync = latestSyncForGame(store, gameId);
   return {
     availableActions,
-    sync: sync ? syncSummaryProjection(store, sync, cycle, availableActions) : null,
+    sync: sync ? syncSummaryProjection(store, sync, availableActions) : null,
   };
 }
 
@@ -1293,7 +1150,7 @@ function repoSyncGitObservation(
   let behindCount: number | null = null;
   try {
     // The checkout's HEAD is the tree operators actually run on;
-    // cycles.head_revision can lag it by weeks between save points.
+    // The accepted head can lag uncommitted checkout observations.
     const headParse = quietGit(repoRoot, ["rev-parse", "--verify", "HEAD^{commit}"]);
     head = headParse.exitCode === 0 ? headParse.stdout.trim() || fallbackHead : fallbackHead;
     const revParse = quietGit(repoRoot, ["rev-parse", "--verify", `${upstreamRef}^{commit}`]);
@@ -1317,99 +1174,35 @@ function repoSyncGitObservation(
 export function repoSyncProjection(
   store: ReturnType<typeof openState>,
   gameId: string,
-  cycle: CycleRecord | null,
   gameContext: Pick<GameRuntimeContext, "game" | "repoRoot"> | undefined,
 ): DashboardRepoSyncState {
   const { branch, remote } = parseBaseRef(gameContext?.game?.baseRef ?? "origin/master");
   const upstreamRef = `${remote}/${branch}`;
-  const cycleHead = cycle?.head_revision ?? null;
-  let anchor: { upstream_revision: string; updated_at: string } | null = null;
-  try {
-    anchor = store.db
-      .query("SELECT upstream_revision, updated_at FROM game_upstream_anchors WHERE game_id = ?")
-      .get(gameId) as { upstream_revision: string; updated_at: string } | null;
-  } catch {
-    anchor = null;
-  }
-  const observation = gameContext?.repoRoot
-    ? repoSyncGitObservation(gameContext.repoRoot, upstreamRef, cycleHead)
-    : { head: cycleHead, local_upstream_sha: null, behind_count: null };
+  const canonicalState = getHarnessState(store.db, gameId);
+  const head = canonicalState?.source.head ?? null;
+  const lastSync = getHarnessTimeline(store.db, gameId, { order: "desc", limit: 100 })
+    .find(entry => entry.kind === "sync_completed" || entry.kind === "initial_sync_accepted");
+  const repoRoot = canonicalState?.source.worktree ?? gameContext?.repoRoot;
+  const observation = repoRoot
+    ? repoSyncGitObservation(repoRoot, upstreamRef, head)
+    : { head, local_upstream_sha: null, behind_count: null };
   return {
-    cycle_head: observation.head,
+    head: observation.head,
     upstream_ref: upstreamRef,
-    upstream_anchor: anchor?.upstream_revision ?? null,
+    upstream_anchor: canonicalState?.source.upstream_revision ?? null,
     local_upstream_sha: observation.local_upstream_sha,
     behind_count: observation.behind_count,
-    last_synced_at: anchor?.updated_at ?? null,
+    last_synced_at: lastSync?.identity.occurred_at ?? null,
     needs_sync:
       (observation.behind_count ?? 0) > 0 ||
       (observation.head === null && observation.local_upstream_sha !== null),
   };
 }
 
-export function buildHarnessStateReadModel(
-  store: ReturnType<typeof openState>,
-  gameId: string,
-  campaign: JsonObject,
-  options: Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> = {},
-): DashboardHarnessState {
-  const canonical = getHarnessState(store, gameId);
-  const cycle = getActiveCycle(store.db, gameId);
-  const allTimeline = cycle
-    ? listCycleTimeline(store.db, cycle.cycle_uuid, ALL_CYCLE_EVIDENCE_LIMIT)
-    : [];
-  const timeline = allTimeline.slice(0, 20);
-  const savePoints = listSavePoints(store, ALL_CYCLE_EVIDENCE_LIMIT);
-  const latestSavePointEntry = allTimeline.find((entry) => entry.entry_kind === "save_point");
-  const latestSavePoint = savePointByEntry(savePoints, latestSavePointEntry);
-  const actions = cycleActionStateInternal(store, gameId, campaign, cycle, allTimeline, savePoints);
-  const runState = gameRunActionState(store, gameId, options);
-  const syncState = gameSyncActionState(store, gameId, cycle, options);
-  const evidence = cycleEvidenceState(store, gameId, campaign, cycle, allTimeline, savePoints);
-
-  return {
-    revision: canonical?.revision ?? 0,
-    active_workflow: canonical?.active_workflow ?? null,
-    queued_dispatch_requests: canonical?.queued_dispatch_requests ?? [],
-    run: runState.run,
-    pr: null,
-    sync: syncState.sync,
-    cycle: cycle
-      ? {
-          cycle_uuid: cycle.cycle_uuid,
-          head_revision: cycle.head_revision,
-          status: cycle.status,
-          latest_save_point: latestSavePoint
-            ? {
-                id: latestSavePoint.id,
-                triggerKind: latestSavePoint.triggerKind,
-                label: latestSavePoint.label,
-                commitSha: latestSavePoint.commitSha,
-                matchedCodePercent: latestSavePoint.matchedCodePercent,
-                createdAt: latestSavePoint.createdAt,
-              }
-            : null,
-          save_point_stale: evidence.stale,
-          blockers: evidence.blockers,
-          timeline,
-        }
-      : null,
-    cycle_blockers: evidence.blockers,
-    save_point_stale: evidence.stale,
-    latest_event_sequence: latestSequence(store.db, gameId),
-    recent_events: recentGameEvents(store.db, gameId, 20),
-    available_actions: [
-      ...runState.availableActions,
-      ...syncState.availableActions,
-      ...actions.availableActions,
-    ],
-  };
-}
-
 const CANONICAL_ACTION_IDS = [
   "run.start", "run.resume", "run.hard_stop", "run.cancel", "run.recover",
   "sync.start", "sync.resolve_conflict", "sync.publish", "sync.cancel", "sync.recover",
-  "cycle.save_point", "cycle.close", "knowledge.process",
+  "knowledge.process",
 ] as const;
 
 function workflowHeadline(lease: DispatchLease): string {
@@ -1487,51 +1280,33 @@ function knowledgeActionProjection(
   };
 }
 
-/**
- * Build the canonical operator authority view.  The older
- * buildHarnessStateReadModel remains available for legacy dashboard payloads;
- * callers of this function receive the Slice 6 DTO and never need to derive
- * action availability themselves.
- */
 export function getHarnessStateView(
   store: ReturnType<typeof openState>,
   gameId: string,
   options: HarnessStateViewOptions = {},
 ): HarnessStateView {
-  const campaign = options.campaign ?? {};
-  const cycle = getActiveCycle(store.db, gameId);
-  const allTimeline = cycle
-    ? listCycleTimeline(store.db, cycle.cycle_uuid, ALL_CYCLE_EVIDENCE_LIMIT)
-    : [];
-  const savePoints = listSavePoints(store, ALL_CYCLE_EVIDENCE_LIMIT);
-  const evidence = cycleEvidenceState(store, gameId, campaign, cycle, allTimeline, savePoints);
   const runState = gameRunActionState(store, gameId, options);
-  const syncState = gameSyncActionState(store, gameId, cycle, options);
-  const cycleState = cycleActionStateInternal(store, gameId, campaign, cycle, allTimeline, savePoints);
+  const syncState = gameSyncActionState(store, gameId, options);
   const knowledge = gameKnowledgeSummary(store, gameId);
   const knowledgeAction = knowledgeActionProjection(gameId, knowledge);
-  const canonical = getHarnessState(store, gameId);
+  const canonical = getDispatchState(store, gameId);
   const canonicalActions = [
     ...runState.availableActions,
     ...syncState.availableActions,
-    ...cycleState.availableActions,
     knowledgeAction,
   ];
   const actionsById = new Map(canonicalActions.map((action) => [action.action_id, action]));
   const availableActions = CANONICAL_ACTION_IDS.map((actionId) => actionsById.get(actionId)).filter(
     (action): action is ActionProjection => Boolean(action),
   );
-  // The fixed inventory above is an invariant.  Keep a defensive projection
-  // for malformed legacy state rather than silently omitting an authority.
+  // Keep action inventory stable even when a projection is unavailable.
   for (const actionId of CANONICAL_ACTION_IDS) {
     if (availableActions.some((action) => action.action_id === actionId)) continue;
     const missingKind = actionId.startsWith("run.")
       ? "run"
       : actionId.startsWith("sync.")
         ? "sync"
-        : actionId.startsWith("cycle.")
-          ? "cycle"
-          : "game";
+        : "game";
     const missingCode = missingKind === "game" ? "action_projection_unavailable" : `${missingKind}_not_found`;
     const missingMessage = missingKind === "game"
       ? `Action ${actionId} could not be projected.`
@@ -1543,45 +1318,24 @@ export function getHarnessStateView(
       enabled: false,
       blocked_by: [stateBlocker(missingCode, missingMessage, missingKind, gameId)],
       expected_transition: "state transition unavailable",
-      confirmation_required: ["run.hard_stop", "run.cancel", "run.recover", "sync.publish", "sync.cancel", "sync.recover", "cycle.close"].includes(actionId),
+      confirmation_required: ["run.hard_stop", "run.cancel", "run.recover", "sync.publish", "sync.cancel", "sync.recover"].includes(actionId),
     });
   }
-  const latestSavePoint = savePointByEntry(savePoints, allTimeline.find((entry) => entry.entry_kind === "save_point"));
+  const canonicalState = getHarnessState(store.db, gameId);
   return {
+    state: canonicalState,
+    timeline: canonicalState ? getHarnessTimeline(store.db, gameId, { order: "desc", limit: 100 }) : [],
     game_id: gameId,
-    harness_revision: canonical?.revision ?? 0,
-    cycle: cycle
-      ? {
-          cycle_uuid: cycle.cycle_uuid,
-          head_revision: cycle.head_revision,
-          status: cycle.status,
-          latest_save_point: latestSavePoint
-            ? {
-                id: latestSavePoint.id,
-                triggerKind: latestSavePoint.triggerKind,
-                label: latestSavePoint.label,
-                commitSha: latestSavePoint.commitSha,
-                matchedCodePercent: latestSavePoint.matchedCodePercent,
-                createdAt: latestSavePoint.createdAt,
-              }
-            : null,
-          save_point_stale: evidence.stale,
-          blockers: evidence.blockers,
-          timeline: allTimeline.slice(0, 20),
-          latest_timeline_entry: allTimeline[0] ?? null,
-        }
-      : null,
+    harness_revision: canonicalState?.identity.revision ?? 0,
     active_workflow: canonicalActiveWorkflow(canonical?.active_workflow ?? null),
     queued_dispatch_requests: canonical?.queued_dispatch_requests ?? [],
     run: runState.run,
-    pr_work: [],
     knowledge,
     sync: syncState.sync,
-    repo_sync: repoSyncProjection(store, gameId, cycle, options.gameContext),
+    repo_sync: repoSyncProjection(store, gameId, options.gameContext),
     active_operations: [],
     recent_events: recentGameEvents(store.db, gameId, 20),
     available_actions: availableActions,
-    compatibility_actions: [],
   };
 }
 
@@ -1697,98 +1451,11 @@ function summaryHasValue(summary: JsonObject): boolean {
   return Object.values(summary).some((value) => value !== null && value !== undefined && Number.isFinite(Number(value)));
 }
 
-function enrichCycleBaseline(cycle: JsonObject | null): JsonObject | null {
-  if (!cycle) return cycle;
-  const phases = asObject(cycle.phases);
-  const preparing = asObject(phases.preparing);
-  const baseline = asObject(preparing.baseline);
-  if (Object.keys(baseline).length === 0 || summaryHasValue(asObject(baseline.summary))) return cycle;
-  const reportRun = asObject(baseline.reportRun);
-  const resetReport = asObject(baseline.resetReport);
-  const summary =
-    (summaryHasValue(asObject(reportRun.summary)) ? asObject(reportRun.summary) : null) ??
-    (summaryHasValue(asObject(resetReport.summary)) ? asObject(resetReport.summary) : null);
-  if (!summary) return cycle;
-  return {
-    ...cycle,
-    phases: {
-      ...phases,
-      preparing: {
-        ...preparing,
-        baseline: {
-          ...baseline,
-          summary,
-        },
-      },
-    },
-  };
-}
-
-function activeCycleRunId(cycle: JsonObject | null): string {
-  if (!cycle) return "";
-  return stringValue(cycle.activeRunId, stringValue(cycle.active_run_id));
-}
-
-function activeCycleRepoRoot(cycle: JsonObject | null): string {
-  if (!cycle) return "";
-  const sync = asObject(asObject(asObject(cycle.phases).preparing).sync);
-  const recorded = stringValue(
-    sync.cycleCurrentWorktreePath,
-    stringValue(sync.cycleWorktreePath),
-  );
-  // Recorded prepare-era worktree paths can outlive the worktree itself
-  // (repo moves, retired cycles); a missing directory must not become the
-  // dashboard's git cwd or every poll crashes the server on spawn ENOENT.
-  return recorded && existsSync(recorded) ? recorded : "";
-}
-
 export function dashboardAuthorityRepoRoot(
   paths: Pick<DashboardGameContext, "repoRoot" | "usePathOverrides">,
-  cycle: JsonObject | null,
-  status: JsonObject,
+  canonicalState: HarnessState | null,
 ): string {
-  if (paths.usePathOverrides) return paths.repoRoot;
-  const run = asObject(status.run);
-  const recordedRunRoot = stringValue(asObject(run.game).repoRoot);
-  return (
-    activeCycleRepoRoot(cycle) ||
-    (recordedRunRoot && existsSync(recordedRunRoot) ? recordedRunRoot : paths.repoRoot)
-  );
-}
-
-function activeCycleBaseline(cycle: JsonObject | null, runId: string): JsonObject | null {
-  if (!cycle || !runId || activeCycleRunId(cycle) !== runId) return null;
-  const baseline = asObject(asObject(asObject(cycle.phases).preparing).baseline);
-  return Object.keys(baseline).length > 0 ? baseline : null;
-}
-
-function measuresFromCycleSummary(summary: JsonObject): JsonObject {
-  return {
-    fuzzy_match_percent: numberValue(summary.fuzzyMatchPercent, NaN),
-    matched_code_percent: numberValue(summary.matchedCodePercent, NaN),
-    complete_code_percent: numberValue(summary.completeCodePercent, NaN),
-    matched_functions_percent: numberValue(summary.matchedFunctionsPercent, NaN),
-    complete_units: numberValue(summary.completeUnits, NaN),
-    total_units: numberValue(summary.totalUnits, NaN),
-    unmatched_targets: unmatchedTargetsValue(summary),
-  };
-}
-
-function cycleBaselineBoard(cycle: JsonObject | null, runId: string): JsonObject | null {
-  const baseline = activeCycleBaseline(cycle, runId);
-  if (!baseline) return null;
-  const summary = asObject(baseline.summary);
-  const measures = measuresFromCycleSummary(summary);
-  if (!summaryHasValue(measures)) return null;
-  const reportRun = asObject(baseline.reportRun);
-  const timestamps = asObject(reportRun.timestamps);
-  return {
-    generatedAt: stringValue(timestamps.report, stringValue(baseline.completedAt)),
-    measures,
-    candidates: [],
-    reportPath: stringValue(reportRun.reportPath),
-    source: "cycle_baseline",
-  };
+  return paths.usePathOverrides ? paths.repoRoot : canonicalState?.source.worktree ?? paths.repoRoot;
 }
 
 function measureDelta(initial: JsonObject, current: JsonObject, key: string): number {
@@ -2667,6 +2334,7 @@ function workerStateStopReasonEndstate(workerState: JsonObject): WorkerStateOutc
   if (stopReason === "gate_failed_exact_followup_budget_exhausted") return "gate_failed_exact_followup_budget_exhausted";
   if (stopReason === "accepted_or_no_repair_reasons") return "accepted_or_no_repair_reasons";
   if (stopReason === "dry_run") return "dry_run";
+  if (stopReason === "provider_outage") return "provider_outage";
   if (stopReason === "provider_error") return "provider_error";
   if (stopReason === "worker_session_failed") return "worker_session_failed";
   return null;
@@ -2700,6 +2368,7 @@ function workerStateOutcome(workerState: JsonObject): WorkerStateOutcome {
   const errorKind = stringValue(asObject(workerState.error).kind);
   if (lifecycle === "running") return "running";
   if (workerStateRecovered(workerState)) return asObject(workerState.recovery).requeued === true ? "recovered_requeued" : "recovered_finished";
+  if (errorKind === "provider_outage") return "provider_outage";
   if (errorKind === "provider_error") return "provider_error";
   if (workerStateSessionFailed(workerState)) return "worker_session_failed";
   if (workerStateAgentToolError(workerState)) return "agent_tool_error";
@@ -2732,6 +2401,7 @@ function workerStateOutcomeCounts(workerStates: JsonObject[]): JsonObject {
     dry_run: 0,
     recovered_requeued: 0,
     recovered_finished: 0,
+    provider_outage: 0,
     provider_error: 0,
     worker_session_failed: 0,
     agent_tool_error: 0,
@@ -2914,6 +2584,7 @@ function runSummary(
     validationFailedWorkerStates,
     sessionFailedWorkerStates: numberValue(outcomeCounts.worker_session_failed),
     toolErrorWorkerStates: numberValue(outcomeCounts.agent_tool_error) + numberValue(outcomeCounts.unknown_error),
+    providerOutageWorkerStates: numberValue(outcomeCounts.provider_outage),
     providerErrorWorkerStates: numberValue(outcomeCounts.provider_error),
     cancelledWorkerStates: numberValue(outcomeCounts.cancelled),
     positiveAttempts,
@@ -3009,33 +2680,6 @@ function piSessionsForRun(stateDir: string, runId: string): JsonObject[] {
       thinkingLevel: row.thinking_level,
       status: row.status,
       outputPath: row.output_path,
-      createdAt: row.created_at,
-    }));
-  } finally {
-    store.db.close();
-  }
-}
-
-function directorCyclesForRun(stateDir: string, runId: string): JsonObject[] {
-  const store = openState(stateDir);
-  try {
-    return (
-      store.db
-        .query(
-          `
-            SELECT id, trigger_event, active_workers, summary_path, decision_path, created_at
-            FROM director_cycles
-            WHERE run_id = ?
-            ORDER BY created_at DESC
-          `,
-        )
-        .all(runId) as JsonObject[]
-    ).map((row) => ({
-      id: row.id,
-      triggerEvent: row.trigger_event,
-      activeWorkers: numberValue(row.active_workers),
-      summaryPath: row.summary_path,
-      decisionPath: row.decision_path,
       createdAt: row.created_at,
     }));
   } finally {
@@ -3198,7 +2842,6 @@ function runTimeline(params: {
   workerStates: JsonObject[];
   events: JsonObject[];
   sessions: JsonObject[];
-  directorCycles: JsonObject[];
   targetClaims: JsonObject[];
 }): JsonObject[] {
   const timeline: JsonObject[] = [];
@@ -3236,15 +2879,6 @@ function runTimeline(params: {
       title: `${stringValue(session.role)} session`,
       detail: `${stringValue(session.status)} / ${stringValue(session.model)}`,
       id: session.id,
-    });
-  }
-  for (const cycle of params.directorCycles) {
-    pushTimeline(timeline, {
-      kind: "legacy_scheduler_cycle",
-      at: cycle.createdAt,
-      title: "legacy scheduler cycle",
-      detail: `${stringValue(cycle.triggerEvent)} / ${numberValue(cycle.activeWorkers)} active workers`,
-      id: cycle.id,
     });
   }
   for (const claim of params.targetClaims) {
@@ -3367,9 +3001,10 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
   let runId = explicitRunId;
   let boundary: BoundaryDashboard = { current: null, recent: [] };
   try {
-    status = statusSnapshot(store);
-    const run = asObject(status.run);
-    if (!runId) runId = stringValue(run.id);
+    if (!runId && game) runId = getHarnessState(store.db, game.gameId)?.history.run_id ?? "";
+    const run = runId ? getRun(store, runId) : null;
+    if (run && game && run.gameId !== game.gameId) return { error: "Run does not belong to this game." };
+    status = run ? runStatusProjection(store, run) : { run: null };
     if (runId) boundary = boundaryDashboardForRun(store.db, runId);
   } finally {
     store.db.close();
@@ -3379,12 +3014,11 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
   const workerStates = workerStatesForRun(stateDir, runId, 0);
   const events = eventsForRun(stateDir, runId, 0);
   const sessions = piSessionsForRun(stateDir, runId);
-  const directorCycles = directorCyclesForRun(stateDir, runId);
   const targetClaims = targetClaimsForRun(stateDir, runId);
   const epochTargets = epochTargetsForRun(stateDir, runId);
   const improvements = improvementRowsFromWorkerStates(workerStates);
   const improvedFiles = fileImprovementRows(improvements);
-  const timeline = runTimeline({ workerStates, events, sessions, directorCycles, targetClaims });
+  const timeline = runTimeline({ workerStates, events, sessions, targetClaims });
   const exactMatches = improvements.reduce((sum, improvement) => sum + numberValue(improvement.exactMatches), 0);
 
   return {
@@ -3404,7 +3038,6 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
       totalPositiveDelta: improvements.reduce((sum, improvement) => sum + numberValue(improvement.totalDelta), 0),
       events: events.length,
       piSessions: sessions.length,
-      directorCycles: directorCycles.length,
       targetClaims: targetClaims.length,
       epochTargets: epochTargets.length,
       targets: new Set(epochTargets.map((row) => stringValue(row.targetId)).filter(Boolean)).size,
@@ -3420,7 +3053,6 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
     workerStates,
     events,
     sessions,
-    directorCycles,
     targetClaims,
     epochTargets,
     improvements,
@@ -3614,53 +3246,39 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   let runId = "";
   let runCreatedAt = "";
   let runDesiredWorkers = 0;
-  let cycle: JsonObject | null = null;
-  let cycleRecord: CycleRecord | null = null;
+  let providerCircuit: DashboardProviderCircuit | null = null;
+  let canonicalState: HarnessState | null = null;
   let boundary: BoundaryDashboard = { current: null, recent: [] };
   try {
-    status = statusSnapshot(store);
+    canonicalState = paths.game ? getHarnessState(store.db, paths.game.gameId) : null;
+    const selectedRun = canonicalState?.history.run_id ? getRun(store, canonicalState.history.run_id) : null;
+    status = selectedRun ? runStatusProjection(store, selectedRun) : { run: null };
     const run = asObject(status.run);
     runId = stringValue(run.id);
     runCreatedAt = stringValue(run.createdAt);
     runDesiredWorkers = numberValue(run.desiredWorkers, 0);
-    if (runId) boundary = boundaryDashboardForRun(store.db, runId);
-    if (paths.game) {
-      cycleRecord = getActiveCycle(store.db, paths.game.gameId);
-      cycle = activeCycleProjection(store.db, paths.game.gameId) as unknown as JsonObject | null;
+    if (runId) {
+      boundary = boundaryDashboardForRun(store.db, runId);
+      providerCircuit = providerCircuitProjection(store, runId);
     }
-    cycle = enrichCycleBaseline(cycle);
-    repoRoot = dashboardAuthorityRepoRoot(paths, cycle, status);
+    repoRoot = dashboardAuthorityRepoRoot(paths, canonicalState);
   } finally {
     store.db.close();
   }
 
   const initialSnapshot = runId ? latestInitialSnapshot(stateDir, runId) : {};
   let initialMeasures = compactMeasures(measuresFromSnapshot(initialSnapshot));
-  const campaign = dashboardDeps().campaignStatus(repoRoot, stateDir, paths.game?.baseRef ?? "origin/master");
+  const campaign = dashboardDeps().campaignStatus(repoRoot, stateDir, paths.game?.baseRef ?? "origin/master", paths.game?.gameId ?? "");
   const observedUpstream = stringValue(campaign.baseSha);
   if (observedUpstream) {
     await dashboardDeps().refreshSyncUpstreamObservation?.(paths, observedUpstream);
   }
-  const cycleBaseline = cycleBaselineBoard(cycle, runId);
-  let currentBoard = loadCurrentBoard(stateDir, runId, campaign);
-  if (!summaryHasValue(asObject(currentBoard.measures)) && cycleBaseline) {
-    currentBoard = {
-      ...currentBoard,
-      ...cycleBaseline,
-      error: currentBoard.error,
-      source: "cycle_baseline",
-    } as typeof currentBoard;
-  }
+  const currentBoard = loadCurrentBoard(stateDir, runId, campaign);
   // With no run baseline, "start" is the campaign anchor: the last save point.
   // A future run measures forward from here, and until then the metric table
   // shows drift since the anchor instead of n/a.
   let initialSource: string | null = runId ? "run" : null;
   let initialGeneratedAt: unknown = initialSnapshot.generatedAt ?? null;
-  if (cycleBaseline) {
-    initialMeasures = asObject(cycleBaseline.measures);
-    initialSource = "cycle_baseline";
-    initialGeneratedAt = cycleBaseline.generatedAt ?? null;
-  }
   if (!Object.values(initialMeasures).some((value) => Number.isFinite(Number(value)))) {
     const savePoint = asObject(campaign.savePoint);
     const savePointMeasures = asObject(asObject(savePoint.payload).measures);
@@ -3682,8 +3300,8 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   const trustedReport = trustedReportFromDatabase(stateDir, runId, runCreatedAt);
   const checkpoint = runId ? checkpointForRun(stateDir, runId) : null;
   const handoff = runId ? handoffForRun(stateDir, runId, checkpoint) : { checkpoint: null, qa: null, splitPlan: null };
-  const epochs = runningEpochHistory(stateDir);
-  const gameId = paths.game?.gameId ?? stringValue(cycle?.gameId);
+  const epochs = runId ? runningEpochHistory(stateDir).filter(epoch => epoch.runId === runId) : [];
+  const gameId = paths.game?.gameId ?? "";
   let harnessState: HarnessStateView | null = null;
   let scoreTiers: DashboardScoreTiers = {
     baseline: { score: null, measures: {}, anchorRevision: null, savePointId: null },
@@ -3697,11 +3315,10 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   if (gameId) {
     const harnessStateStore = openState(stateDir);
     try {
-      scoreTiers = await scoreTiersProjection(harnessStateStore, gameId, cycleRecord, repoRoot);
+      scoreTiers = await scoreTiersProjection(harnessStateStore, gameId, {
+        sourceState: { head: stringValue(asObject(campaign.head).sha) || null, dirty: typeof asObject(campaign.head).dirty === "boolean" ? asObject(campaign.head).dirty as boolean : null },
+      });
       harnessState = getHarnessStateView(harnessStateStore, gameId, {
-        campaign,
-        // The authority root (cycle worktree when present) is the tree whose
-        // head answers "are we behind upstream"; the raw checkout can lag it.
         gameContext: { game: paths.game, repoRoot: repoRoot || paths.repoRoot },
         hasActiveProcess: dashboardDeps().hasActiveProcess,
       });
@@ -3709,16 +3326,8 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
       harnessStateStore.db.close();
     }
   }
-  if (cycle && harnessState?.cycle) {
-    cycle = {
-      ...cycle,
-      blockers: harnessState.cycle.blockers,
-      savePointStale: harnessState.cycle.save_point_stale,
-    };
-  }
   return {
     game: paths.game ? gameSummary(paths.game) : null,
-    cycle,
     harnessState,
     gameWarnings: paths.game?.warnings ?? [],
     repoRoot,
@@ -3738,7 +3347,10 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
     trustedReport,
     checkpoint,
     handoff,
-    runSummary: runSummary(status, allWorkerStates, initialMeasures, currentBoard.measures, improvements, trustedReport as unknown as JsonObject),
+    runSummary: {
+      ...runSummary(status, allWorkerStates, initialMeasures, currentBoard.measures, improvements, trustedReport as unknown as JsonObject),
+      providerCircuit: providerCircuitDashboardProjection(providerCircuit),
+    },
     improvements,
     improvedFiles,
     activeFiles: runId ? activeFilesForRun(stateDir, runId) : [],

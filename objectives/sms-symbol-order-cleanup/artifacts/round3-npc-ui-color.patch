@@ -1,0 +1,85 @@
+--- a/src/NPC/NpcColor.cpp
++++ b/src/NPC/NpcColor.cpp
+@@ -2,6 +2,31 @@
+ 
+ #include <MarioUtil/PacketUtil.hpp>
+ #include <M3DUtil/MActor.hpp>
++
++void InitChangeOneColor_Base(J3DModel* model, u16 matIdx, GXTevRegID reg,
++                             const GXColorS10* tevColor,
++                             const GXColor* konstColor)
++{
++	if (konstColor != nullptr)
++		SMS_InitPacket_OneTevColorAndOneTevKColor(model, matIdx, reg, tevColor,
++		                                        konstColor);
++	else
++		SMS_InitPacket_OneTevColor(model, matIdx, reg, tevColor);
++}
++
++void InitChangeTwoColor_Base(J3DModel* model, u16 matIdx,
++                             const GXColorS10* tevColor1,
++                             const GXColorS10* tevColor2,
++                             const GXColor* konstColor)
++{
++	if (konstColor != nullptr)
++		SMS_InitPacket_TwoTevColorAndOneTevKColor(
++		    model, matIdx, GX_TEVREG1, tevColor1, GX_TEVREG2, tevColor2,
++		    konstColor);
++	else
++		SMS_InitPacket_TwoTevColor(model, matIdx, GX_TEVREG1, tevColor1,
++		                           GX_TEVREG2, tevColor2);
++}
+ 
+ void SMS_InitChangeNpcColor(const MActor* param1,
+                             const TColorChangeInfo* param2, s16 param3,
+@@ -24,42 +49,24 @@
+ 	case 1:
+ 		if (param2->unk8 != nullptr) {
+ 			const GXColorS10* tevColor = &param2->unk8[param3];
+-			if (param4 != nullptr) {
+-				SMS_InitPacket_OneTevColorAndOneTevKColor(
+-				    model, matIdx, GX_TEVREG0, tevColor, param4);
+-			} else {
+-				SMS_InitPacket_OneTevColor(model, matIdx, GX_TEVREG0, tevColor);
+-			}
++			InitChangeOneColor_Base(model, matIdx, GX_TEVREG0, tevColor,
++			                        param4);
+ 		}
+ 		break;
+ 	case 2:
+ 		if (param2->unk8 != nullptr && param2->unkC != nullptr) {
+ 			const GXColorS10* tevColor  = &param2->unkC[param3];
+ 			const GXColorS10* tevColor2 = &param2->unk8[param3];
+-			if (param4 != nullptr) {
+-				SMS_InitPacket_TwoTevColorAndOneTevKColor(
+-				    model, matIdx, GX_TEVREG1, tevColor2, GX_TEVREG2, tevColor,
+-				    param4);
+-			} else {
+-				SMS_InitPacket_TwoTevColor(model, matIdx, GX_TEVREG1, tevColor2,
+-				                           GX_TEVREG2, tevColor);
+-			}
++			InitChangeTwoColor_Base(model, matIdx, tevColor2, tevColor,
++			                        param4);
+ 		} else if (param2->unk8 != nullptr && param2->unkC == nullptr) {
+ 			const GXColorS10* tevColor = &param2->unk8[param3];
+-			if (param4 != nullptr) {
+-				SMS_InitPacket_OneTevColorAndOneTevKColor(
+-				    model, matIdx, GX_TEVREG1, tevColor, param4);
+-			} else {
+-				SMS_InitPacket_OneTevColor(model, matIdx, GX_TEVREG1, tevColor);
+-			}
++			InitChangeOneColor_Base(model, matIdx, GX_TEVREG1, tevColor,
++			                        param4);
+ 		} else if (param2->unk8 == nullptr && param2->unkC != nullptr) {
+ 			const GXColorS10* tevColor = &param2->unkC[param3];
+-			if (param4 != nullptr) {
+-				SMS_InitPacket_OneTevColorAndOneTevKColor(
+-				    model, matIdx, GX_TEVREG2, tevColor, param4);
+-			} else {
+-				SMS_InitPacket_OneTevColor(model, matIdx, GX_TEVREG2, tevColor);
+-			}
++			InitChangeOneColor_Base(model, matIdx, GX_TEVREG2, tevColor,
++			                        param4);
+ 		}
+ 		break;
+ 	}

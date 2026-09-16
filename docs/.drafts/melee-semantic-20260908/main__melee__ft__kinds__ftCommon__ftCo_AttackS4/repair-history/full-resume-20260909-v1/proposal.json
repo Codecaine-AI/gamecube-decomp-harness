@@ -1,0 +1,121 @@
+{
+  "tu": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4",
+  "proposal": {
+    "facts": [
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.data"
+        },
+        "type": "data_flow",
+        "op": "write",
+        "value": "decideFighter reads Fighter.kind and dispatches through a 17-entry switch table covering kinds 8 through 24, using the default path outside that range. Ness, Peach and GameWatch receive only the fighter object after facing has been assigned; they do not receive the supplied stick angle. Pikachu/Pichu use common doEnter with stick_angle and then install effect hitlag callbacks; remaining kinds use common doEnter with stick_angle.",
+        "rationale": "The old final sentence attributed angle consumption to every selected branch, but only common doEnter receives the angle.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L145-L198",
+            "why": "The old final sentence attributed angle consumption to every selected branch, but only common doEnter receives the angle."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.sdata2"
+        },
+        "type": "inferred_type",
+        "op": "write",
+        "value": "The split section is 16 bytes: f32 zero, one and minus one at offsets 0, 4 and 8 plus four zero bytes. The existing source object contains the three literal words in 12 bytes. Source flags are WRITE|ALLOC and split flags ALLOC; final runtime protection is not established. This is compiler literal storage, not a gameplay aggregate.",
+        "rationale": "Existing objects distinguish source/split size and flags; the read-only assertion is not true of the source ELF.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L64-L115",
+            "why": "Existing objects distinguish source/split size and flags; the read-only assertion is not true of the source ELF."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L170-L198",
+            "why": "Existing objects distinguish source/split size and flags; the read-only assertion is not true of the source ELF."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:.sdata2"
+        },
+        "type": "purpose",
+        "op": "write",
+        "value": "Provides the TU literals used for input-sign comparisons, normalized facing direction and initial motion frame, speed and blend. Local code reads the pool; source/split section permissions are recorded separately.",
+        "rationale": "Read usage does not establish read-only object storage.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L64-L115",
+            "why": "Read usage does not establish read-only object storage."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L170-L198",
+            "why": "Read usage does not establish read-only object storage."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:ftCo_AttackS4_IASA"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "When allow_interrupt is set, initial priority is side special, up special via ftCo_Attack100_CheckInput, neutral special via ftCo_800D6824, down special via ftCo_800D68C0, then grab. If no earlier return occurs, ftCo_800CECE8 checks the command-gated A-button forward-smash follow-up independently of allow_interrupt. If interruption is allowed and no earlier check succeeds, the remaining order is forward/up/down smash; forward/up/down tilt; neutral attack; ftCo_80091A4C; ftCo_800DE9D8; jump; dash; ftCo_800D5FB0; turn; walk. Each true result ends processing.",
+        "rationale": "The Attack100-named helpers call the SpecialHi/SpecialN/SpecialLw tables, not rapid-jab logic. The independently gated follow-up is reached only without an earlier return.",
+        "confidence": 0.97,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L207-L234",
+            "why": "The Attack100-named helpers call the SpecialHi/SpecialN/SpecialLw tables, not rapid-jab logic. The independently gated follow-up is reached only without an earlier return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_Attack100.c#L44-L101",
+            "why": "The Attack100-named helpers call the SpecialHi/SpecialN/SpecialLw tables, not rapid-jab logic. The independently gated follow-up is reached only without an earlier return."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/ftattacks4combo.c#L8-L47",
+            "why": "The Attack100-named helpers call the SpecialHi/SpecialN/SpecialLw tables, not rapid-jab logic. The independently gated follow-up is reached only without an earlier return."
+          }
+        ]
+      },
+      {
+        "subject": {
+          "target_stable_key": "main/melee/ft/kinds/ftCommon/ftCo_AttackS4:doEnter"
+        },
+        "type": "state_behavior",
+        "op": "write",
+        "value": "Tests angle bins in priority order: above xB8_radians with a nonzero AttackS4S motion-data x8 selects AttackS4Hi; otherwise above xBC_radians with a nonzero AttackS4LwS x8 selects AttackS4HiS; otherwise below xC4_radians with a nonzero AttackLw4 x8 selects AttackS4Lw; otherwise below xC0_radians with a nonzero AttackHi4 x8 selects AttackS4LwS; all remaining cases select AttackS4S. It then disables interruption, clears command variable 0 and all throw flags, enters the chosen motion at frame 0 with rate 1 and no motion flags, and initializes animation state.",
+        "rationale": "Canonical motion-record field x8 is size_t; preserve exact branch predicates and motion-record IDs while correcting pointer terminology.",
+        "confidence": 0.99,
+        "evidence": [
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/types.h#L1828-L1835",
+            "why": "x8 declared size_t."
+          },
+          {
+            "kind": "code",
+            "locator": "code://c302741689bd67c361cd7faadb221df3193992c3/src/melee/ft/kinds/ftCommon/ftCo_AttackS4.c#L101-L140",
+            "why": "Exact ordered angle and record-availability tests."
+          }
+        ]
+      }
+    ],
+    "links": [],
+    "entities": [],
+    "merges": [],
+    "follow_ups": []
+  }
+}

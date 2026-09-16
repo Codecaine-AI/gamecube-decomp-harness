@@ -1,0 +1,442 @@
+[
+  {
+    "id": "fact:2c5511e0-7f1b-40bd-8faf-d49ae78ccc50",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjinit:.data",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "The descriptor is copied wholesale by `HSD_GObj_803912E0` into caller-owned storage. During common scene-runtime setup, that copy becomes `gm_80479D48.initdata`; the caller raises `gproc_pri_max` to 0x18, appends SObj callback configuration, installs an additional pointer, and passes the resulting descriptor to `HSD_GObj_80391304`. That initializer adds built-in GObj callbacks, publishes the descriptor globally, and uses its maxima and callback groups to construct the GObj runtime tables.",
+    "rationale": "The current initialization unit still shows the complete aggregate copy and the full initializer's consumption of the customized descriptor. The current scene-runtime caller confirms the destination, intervening modifications, and handoff, so the standing data-flow claim remains valid with refreshed head evidence.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:21.085Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L12-L15",
+        "why": "Shows the complete static descriptor being copied into storage supplied by the caller."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Shows the copied descriptor becoming `gm_80479D48.initdata`, receiving scene-runtime customizations, and being passed to the full GObj initializer."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L20-L93",
+        "why": "Shows the customized descriptor being augmented, published, and consumed to size runtime tables and flatten callback groups."
+      }
+    ]
+  },
+  {
+    "id": "fact:b35006f9-3cbc-46d4-a4d8-02feae0ed9c4",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjinit:.data",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "A static `HSD_GObjLibInitDataType` aggregate. Its `p_link_max`, `gx_link_max`, and `gproc_pri_max` members are explicitly initialized to `0x3F`, `0x3F`, and `2`; all remaining members, including the callback-group list and additional pointer later supplied by startup code, are initially zero or NULL.",
+    "rationale": "The declaration at head still establishes the aggregate type and the three explicit initializer values; static partial initialization supplies zero values for omitted members. The current caller demonstrates that callback configuration and the additional pointer are populated only in its copied descriptor.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T23:44:13.927Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/gobjinit.c#L1-L94",
+        "why": "Shows the static HSD_GObjLibInitDataType declaration, its explicit 0x3F, 0x3F, and 2 initializer values, and the members later consumed by initialization."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Shows startup code adding SObj callback configuration and setting the additional unk_2 pointer in the caller-owned copy."
+      }
+    ]
+  },
+  {
+    "id": "fact:39bb9ada-28fd-46dc-af30-ac7c2747608f",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjinit:.data",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Stores the HSD GObj library's default initialization descriptor, providing a clean baseline with p-link and GX-link maxima of 0x3F, a GObjProc-priority maximum of 2, and zero-initialized optional members before callers add subsystem-specific configuration.",
+    "rationale": "The current source still defines the descriptor with these defaults and exposes it through a whole-aggregate copy. The scene-runtime caller customizes only that copy before full initialization, confirming that the static data remains the reusable baseline.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T23:44:13.927Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/gobjinit.c#L1-L94",
+        "why": "Shows the static default descriptor, its explicit capacity values, and the routine that copies the complete value into caller-owned storage."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Shows common startup obtaining and customizing a copy of the defaults before invoking the full GObj initializer."
+      }
+    ]
+  },
+  {
+    "id": "fact:23e86155-2c36-4f94-86e9-3038a5f321a2",
+    "target_id": "target:data:main/sysdolphin/baselib/gobjinit:.data",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Acts as a persistent read-only template rather than mutable runtime state. Each call to the default-copy routine unconditionally replaces every member of the caller's descriptor with this baseline, discarding prior contents; subsequent GObj and SObj customization affects the caller-owned copy, not the static template.",
+    "rationale": "At head, the static descriptor is only read as the source of a complete assignment and is never mutated in the unit. The scene-runtime caller applies all later modifications to gm_80479D48.initdata, so the template behavior remains unchanged.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-04T23:44:13.927Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:.data"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/gobjinit.c#L1-L94",
+        "why": "Shows the static object used as the source of an unconditional whole-structure assignment and no mutation of that template."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Shows all subsystem-specific field changes being applied to caller-owned gm_80479D48.initdata after the default copy."
+      }
+    ]
+  },
+  {
+    "id": "fact:838ad17c-a364-4ab4-a070-a8129281572d",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Reads the translation unit's static HSD_GObjLibInitDataType descriptor and overwrites the descriptor supplied by the caller with it. In the scene-runtime path, that output becomes gm_80479D48.initdata; the caller changes gproc_pri_max to 0x18, adds SObj callback registration, writes an additional pointer field, and forwards the resulting descriptor to HSD_GObj_80391304.",
+    "rationale": "The current function body establishes the direct static-to-output copy. Its current scene-runtime caller confirms the output destination, each subsequent customization, and the final consumer, so the standing flow remains valid at head.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:21.085Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L12-L15",
+        "why": "Shows the direct flow from the static default descriptor to caller-owned output storage."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Shows the concrete destination, the caller's descriptor edits, and the descriptor's handoff to `HSD_GObj_80391304`."
+      }
+    ]
+  },
+  {
+    "id": "fact:b6176b04-134d-47d1-a701-e9b3467047d3",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0",
+    "entity_id": null,
+    "type": "game_mapping",
+    "value": "Supports the common game-scene lifecycle by supplying the baseline GObj configuration used when Melee reconstructs shared object-system state before a selected scene's `on_enter` callback.",
+    "rationale": "The current scene driver selects and preloads a state, resolves its scene handler, runs `gm_801A4BD4`, and then dispatches the selected scene's `on_enter` callback. The common initializer obtains defaults through this target and uses the customized descriptor to initialize the GObj runtime, placing this function in shared scene-entry setup. The wording is updated from the older `OnLoad` label to the current `on_enter` callback name.",
+    "confidence": 0.95,
+    "updated_at": "2026-09-04T21:30:21.085Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A3F.c#L128-L188",
+        "why": "Shows common runtime initialization occurring after scene selection and before dispatch of the selected scene handler's `on_enter` callback."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Shows this target supplying the initial descriptor used to configure and initialize the GObj library during that common runtime phase."
+      }
+    ]
+  },
+  {
+    "id": "fact:d455e95f-b84a-462c-9b53-e68ded7b74f5",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_GObjGetDefaultInitData",
+    "rationale": "The body at head copies the GObj library's static default initialization descriptor into writable caller storage, and the current caller immediately customizes that output before full initialization. This continues to support an accessor-like GetDefaultInitData name, although no preserved symbol establishes its exact wording.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original-style name is `HSD_GObjGetDefaultInitData`.",
+    "confidence": 0.7,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://d80cdea319/src/sysdolphin/baselib/gobjinit.c#L1-L94",
+        "why": "Shows the function copying the translation unit's static GObj-library initialization descriptor into its output parameter."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Shows a caller using the function to obtain defaults before customizing the descriptor and passing it to the full initializer."
+      }
+    ]
+  },
+  {
+    "id": "fact:e0d51c1f-c1cc-4ae1-9cd2-0c6818f5c39f",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Default-descriptor output routine with exact signature `void(HSD_GObjLibInitDataType* out_init_data)`. The parameter must address writable storage for one complete HSD_GObjLibInitDataType value.",
+    "rationale": "The declaration establishes the void return and pointer type, while the whole-structure assignment through the pointer proves that the parameter is an output destination for the complete descriptor rather than an individual capacity or an input-only value.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T11:59:21.648Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L12-L15",
+        "why": "Provides the exact signature and shows a complete HSD_GObjLibInitDataType assignment through the sole parameter."
+      }
+    ]
+  },
+  {
+    "id": "fact:86aeeedc-e80a-4d1a-b9ca-af979c870733",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Provides an editable default initialization descriptor for the HSD GObj library by copying the library's static defaults into caller-owned storage before subsystem-specific customization and full initialization.",
+    "rationale": "The current function remains a whole-structure assignment from the static default descriptor. Its current caller modifies the copied fields, appends SObj configuration, and then passes the descriptor to the full GObj initializer, confirming the standing purpose.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:21.085Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L12-L15",
+        "why": "Shows the complete function copying the static `HSD_GObjLibInitDataType` descriptor into caller-provided storage."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Shows the caller modifying and extending the copied descriptor before invoking the full GObj initializer."
+      }
+    ]
+  },
+  {
+    "id": "fact:cb9c809e-bec2-4889-9f4b-ec1b92265be5",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Performs an unconditional, branch-free reset of the supplied initialization descriptor to the library defaults. It has no null check, initialization guard, timer, or retained-state mutation beyond the caller-owned destination, so a valid writable pointer is a caller precondition and any prior descriptor contents are discarded.",
+    "rationale": "The complete current body is one unchecked dereferenced whole-structure assignment with no branches or guards. The current scene-runtime caller supplies valid storage and applies its customizations only after this replacement, confirming the standing behavior.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:21.085Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_803912E0"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L12-L15",
+        "why": "Shows the complete branch-free implementation, unchecked pointer dereference, and replacement of the entire destination value."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Shows valid caller-owned storage being defaulted before all caller-specific descriptor modifications."
+      }
+    ]
+  },
+  {
+    "id": "fact:37d522d0-d8bc-45cb-8e77-077f41861470",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304",
+    "entity_id": null,
+    "type": "data_flow",
+    "value": "Consumes p_link_max, gx_link_max, gproc_pri_max, and the linked funcs groups from init_data. It publishes the augmented descriptor as HSD_GObjLibInitData; allocates two p-link arrays, two GX-link arrays, one process-priority array, and a priority-by-p-link process array; initializes each entry to NULL; configures the global HSD_GObj and HSD_GObjProc allocators; and flattens every GObjFunc entry from every funcs group into HSD_GObj_804D7810 in list order.",
+    "rationale": "The complete body exposes the origin, sizing formula, initialization, and destination of every descriptor-driven output. The callback count is first summed across the linked groups, then used for one contiguous allocation whose entries are populated by nested traversal in the same group order.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:56:52.358Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L20-L93",
+        "why": "Shows all descriptor reads, exact table dimensions, allocator setup, callback counting, allocation, and ordered flattening."
+      }
+    ]
+  },
+  {
+    "id": "fact:a937314e-d823-4a90-b5de-8e7225ecd9ed",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304",
+    "entity_id": null,
+    "type": "inferred_name",
+    "value": "HSD_GObjLibInit",
+    "rationale": "The function performs complete initialization of the library state published as HSD_GObjLibInitData, and the surrounding code consistently uses the HSD_GObj prefix. The exact original symbol is not preserved, so `LibInit` remains a convention-based inference rather than a confirmed rename.\n\nNaming cleanup: Recognized name_statement form; no lexical audit flags.\nPrior naming claim: A plausible original name is `HSD_GObjLibInit`.",
+    "confidence": 0.76,
+    "updated_at": "2026-09-06T02:34:38.472Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L20-L93",
+        "why": "Shows that the routine publishes HSD_GObjLibInitData and initializes all major GObj library storage and bookkeeping."
+      },
+      {
+        "kind": "discord",
+        "locator": "discord://message/961703225197732012",
+        "why": "Records the independently recovered HSD global name HSD_GObjLibInitData from an assertion, supporting the `GObjLibInit` wording."
+      }
+    ]
+  },
+  {
+    "id": "fact:235f6081-2382-4808-8459-7e6e86db00f1",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304",
+    "entity_id": null,
+    "type": "inferred_type",
+    "value": "Signature: `void (HSD_GObjLibInitDataType* init_data)`. The parameter is a mutable in/out initialization descriptor: its callback-group list is extended before the descriptor is copied into global library state, while its three maxima are nonnegative inclusive upper bounds used to size runtime tables.",
+    "rationale": "The definition provides the exact void signature. The initial call to HSD_GObj_80391260 mutates the descriptor's funcs list, after which the complete structure is copied globally. Allocations consistently use p_link_max + 1 and gproc_pri_max + 1, while graphics-link storage uses gx_link_max + 2, demonstrating upper-bound semantics.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:56:52.358Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L20-L93",
+        "why": "Provides the exact signature and shows descriptor mutation, global copying, and all maximum-derived allocation dimensions."
+      }
+    ]
+  },
+  {
+    "id": "fact:47c69600-f269-48fd-a99b-4d85351f16d2",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304",
+    "entity_id": null,
+    "type": "purpose",
+    "value": "Initializes or reinitializes the HSD GObj runtime from a mutable library descriptor: it registers built-in GObj callback kinds, allocates and clears object-link, graphics-link, and process-scheduling tables, initializes fixed-size pools for HSD_GObj and HSD_GObjProc records, constructs the indexed callback table, and resets global traversal and bookkeeping state.",
+    "rationale": "The complete current body still performs every listed initialization operation. The current scene-runtime caller prepares the descriptor, invokes this function, and only afterward creates a manager GObj and process, confirming that the routine prepares the object system for subsequent runtime object creation.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-04T21:30:21.085Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L20-L93",
+        "why": "Directly shows callback registration, table allocations and clearing, both object-pool initializations, callback-table construction, and final global resets."
+      },
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/melee/gm/gm_1A45.c#L212-L239",
+        "why": "Places the function after descriptor preparation and before scene-runtime creation of a manager GObj and its process."
+      }
+    ]
+  },
+  {
+    "id": "fact:833076c8-516d-4d7b-8348-95cadfede792",
+    "target_id": "target:function:main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304",
+    "entity_id": null,
+    "type": "state_behavior",
+    "value": "Performs an unconditional transition to a fresh GObj-library state. Every newly allocated scheduling or link slot is cleared, both object-pool descriptors are reinitialized, and active traversal/current-object globals and flags are reset. The only internal branch concerns callback storage: when the combined callback count is nonzero it allocates and fills the table; when zero it explicitly publishes NULL.",
+    "rationale": "The function has no already-initialized guard and always executes table construction, pool initialization, and final global resets. Its sole branch tests only the accumulated number of callbacks, with explicit allocated-table and NULL outcomes.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-02T07:56:52.358Z",
+    "subject": {
+      "target_stable_key": "main/sysdolphin/baselib/gobjinit:HSD_GObj_80391304"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L20-L93",
+        "why": "Shows the absence of a top-level guard, all clearing loops and reset assignments, and the two callback-table states selected by `nfuncs != 0`."
+      }
+    ]
+  },
+  {
+    "id": "fact:7b3962f5-caf0-414b-9a9f-966ca5c837da",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjinit.c",
+    "type": "data_flow",
+    "value": "The default routine copies a static descriptor whose explicit capacity values are 0x3F, 0x3F, and 2 into caller-owned HSD_GObjLibInitDataType storage. The full initializer adds the GObj subsystem's built-in callback group, publishes the resulting descriptor as HSD_GObjLibInitData, derives runtime-table dimensions from p_link_max, gx_link_max, and gproc_pri_max, and concatenates the descriptor's linked GObjFuncs groups into the global callback array. The scene-runtime caller customizes this flow by raising gproc_pri_max to 0x18, appending the SObj callback group, and installing an additional pointer before invoking the full initializer.",
+    "rationale": "The corrected current span preserves the default descriptor copy, built-in augmentation call, global publication, dimension-driven allocations, and callback-group flattening. The previous citation failed only because it extended one line past the current file.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjinit.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L1-L93",
+        "why": "Shows the static capacities, descriptor copy, augmentation and publication, capacity-derived allocations, and linked callback-group flattening."
+      }
+    ]
+  },
+  {
+    "id": "fact:8fbd2ef1-a130-4730-8b78-2d4bbb7ec6a3",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjinit.c",
+    "type": "inferred_type",
+    "value": "A GObj library-initialization translation unit containing one static HSD_GObjLibInitDataType default descriptor and two void initialization functions that receive mutable HSD_GObjLibInitDataType pointers.",
+    "rationale": "The corrected current span defines exactly one static `HSD_GObjLibInitDataType` descriptor and two void functions taking mutable pointers to that type.",
+    "confidence": 0.99,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjinit.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L1-L93",
+        "why": "Defines the default descriptor and both mutable-descriptor initialization functions in the current file."
+      }
+    ]
+  },
+  {
+    "id": "fact:dd599f05-2477-4e22-8a75-49ab1f5ba097",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjinit.c",
+    "type": "purpose",
+    "value": "Owns the HSD GObj library's startup configuration and initialization routines: it provides a default capacity descriptor and builds the runtime tables, object pools, callback dispatch table, and cleared bookkeeping state needed by the GObj and GObjProc subsystems.",
+    "rationale": "The file remains at head but is 93 lines long, making the previous line-94 citation unresolvable. The corrected span shows the default descriptor, capacity-based table allocation and clearing, object allocator initialization, callback-table construction, and bookkeeping resets.",
+    "confidence": 0.98,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjinit.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L1-L93",
+        "why": "Shows the complete default descriptor and GObj-library initialization implementation at its current 93-line location."
+      }
+    ]
+  },
+  {
+    "id": "fact:f6e67af3-3b77-4d11-8b16-c028829bf62e",
+    "target_id": null,
+    "entity_id": "translation_unit:src/sysdolphin/baselib/gobjinit.c",
+    "type": "state_behavior",
+    "value": "Initialization is reconstructive and has no already-initialized guard. The default-copy routine unconditionally replaces the supplied descriptor, after which callers may customize it; the full initializer then allocates fresh tables, clears every table entry, initializes fresh object-allocation metadata, rebuilds the callback array, and resets retained GObj bookkeeping pointers, counters, and flags.",
+    "rationale": "The corrected 93-line span shows both routines operating unconditionally, with fresh allocations and clearing loops followed by allocator setup, callback reconstruction, and explicit global resets.",
+    "confidence": 0.97,
+    "updated_at": "2026-09-06T16:48:24.354Z",
+    "subject": {
+      "entity_locator": "src/sysdolphin/baselib/gobjinit.c"
+    },
+    "evidence": [
+      {
+        "kind": "code",
+        "locator": "code://c302741689/src/sysdolphin/baselib/gobjinit.c#L1-L93",
+        "why": "Shows unconditional descriptor replacement and full reconstructive initialization with no already-initialized guard."
+      }
+    ]
+  }
+]
